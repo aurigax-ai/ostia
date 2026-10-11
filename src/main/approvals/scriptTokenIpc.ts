@@ -33,7 +33,6 @@ export interface ScriptTokenIpcDeps {
   appWindows: () => Iterable<BrowserWindow>
   usage?: ScriptTokenUsageLog
   panes?: UsageLookups['panes']
-  program?: UsageLookups['program']
 }
 
 function refusal(err: unknown): ScriptTokenSaveResult {
@@ -147,7 +146,7 @@ export async function usageFromSettings(
 ): Promise<ScriptTokenUsage | null> {
   if (typeof id !== 'string' || !id) return null
   try {
-    const { token, usage } = await scriptTokenUsage(deps, id)
+    const { token, usage } = await scriptTokenUsage(deps, id, true)
     return token.id === id ? usage : null
   } catch {
     return null

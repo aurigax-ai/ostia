@@ -1079,11 +1079,8 @@ function CallLog({ usage, now }: { usage: ScriptTokenUsage | null; now: number }
 }
 
 function connectionText(d: Dict, usage: ScriptTokenUsage | null): string | null {
-  const first = usage?.connections.find((c) => c.pid)
-  if (!first?.pid) return null
-  return first.program
-    ? fmt(d.scriptTokens.connectionFrom, { program: first.program, pid: first.pid })
-    : fmt(d.scriptTokens.connectionPid, { pid: first.pid })
+  const pids = (usage?.connections ?? []).flatMap((c) => c.pid ?? [])
+  return pids.length > 0 ? fmt(d.scriptTokens.connectionPid, { pid: pids.join(', ') }) : null
 }
 
 function TokenDetail({

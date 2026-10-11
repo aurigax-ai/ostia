@@ -558,16 +558,16 @@ export interface ScriptTokenDeps {
   changed?: () => void
   usage?: ScriptTokenUsageLog
   panes?: UsageLookups['panes']
-  program?: UsageLookups['program']
 }
 
 export async function scriptTokenUsage(
   deps: ScriptTokenDeps,
   ref: string,
+  withNames: boolean,
 ): Promise<{ token: ScriptToken; usage: ScriptTokenUsage }> {
   const token = findScriptToken(deps.path(), ref)
   const usage = deps.usage
-    ? await usageView(deps.usage, token.id, deps)
+    ? await usageView(deps.usage, token.id, withNames ? deps : null)
     : {
         calls: [],
         connections: [],
@@ -662,7 +662,7 @@ export function registerScriptTokenMethods(deps: ScriptTokenDeps): void {
     handler: (raw) => {
       const ref = typeof raw === 'object' && raw !== null ? (raw as { id?: unknown }).id : undefined
       if (typeof ref !== 'string' || !ref) throw fail('bad-request: id')
-      return scriptTokenUsage(deps, ref)
+      return scriptTokenUsage(deps, ref, false)
     },
   })
 

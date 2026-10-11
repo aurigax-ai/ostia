@@ -517,7 +517,7 @@ describe('ScriptTokensSection', () => {
         },
         { at: at(-300_000), method: '', target: {}, outcome: 'regenerated' },
       ],
-      connections: [{ pid: 48211, program: 'zsh' }],
+      connections: [{ pid: 48211 }],
       last24h: { calls: 142, refused: 2 },
       names: { workspaces: { w1: 'ostia', w3: 'topomapx' }, panes: { p1: 'claude' } },
     }
@@ -530,7 +530,8 @@ describe('ScriptTokensSection', () => {
     expect(api().usage).toHaveBeenCalledWith('t1')
     expect(screen.getByText('2 refused')).toBeInTheDocument()
     expect(screen.getByText('1 open')).toBeInTheDocument()
-    expect(screen.getByText('From zsh (pid 48211)')).toBeInTheDocument()
+    expect(screen.getByText('Self-reported pid 48211')).toBeInTheDocument()
+    expect(screen.getByText('About the last 24 hours')).toBeInTheDocument()
     expect(
       screen.getByText('Keeps the last 100 calls. Input is never recorded.'),
     ).toBeInTheDocument()

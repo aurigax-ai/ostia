@@ -1,12 +1,10 @@
-import { execFile } from 'node:child_process'
-import { basename } from 'node:path'
 import type {
   ScriptTokenCall,
   ScriptTokenCallOutcome,
   ScriptTokenCallTarget,
   ScriptTokenUsage,
 } from '../../shared/permissions/scriptTokens'
-import { loadJson, saveJson } from '../platform/jsonStore'
+import { loadJson, saveJson, saveJsonAsync } from '../platform/jsonStore'
 import type { ReachListing } from './reach'
 
 export const USAGE_KEEP = 100
@@ -126,12 +124,14 @@ export interface ScriptTokenUsageLog {
   connected: (tokenId: string, source: ConnectionSource) => () => void
   clear: (tokenId: string) => void
   usage: (tokenId: string) => Omit<ScriptTokenUsage, 'names'>
-  flush: () => void
+  flush: () => Promise<void>
+  close: () => void
 }
 
 export interface UsageLogOptions {
   now?: () => number
   flushMs?: number
+  known?: () => ReadonlySet<string>
 }
 
 export function createScriptTokenUsage(
@@ -141,32 +141,55 @@ export function createScriptTokenUsage(
   const now = options.now ?? Date.now
   const flushMs = options.flushMs ?? FLUSH_MS
   const connections = new Map<string, Map<object, ConnectionSource>>()
+  const gone = new Set<string>()
   let rings: Map<string, Ring> | null = null
   let timer: ReturnType<typeof setTimeout> | null = null
+  let writing: Promise<void> = Promise.resolve()
 
   const loaded = (): Map<string, Ring> => {
     rings ??= loadRings(path())
     return rings
   }
 
-  const flush = (): void => {
-    if (timer) clearTimeout(timer)
-    timer = null
-    if (!rings) return
+  const snapshot = (all: Map<string, Ring>): Record<string, StoredUsage> => {
     const out: Record<string, StoredUsage> = {}
-    for (const [id, ring] of rings) {
+    const known = options.known?.()
+    for (const [id, ring] of all) {
+      if (gone.has(id) || (known && !known.has(id))) continue
       out[id] = { calls: ordered(ring), hours: ring.hours.filter(Boolean) }
     }
-    saveJson(path(), out, { secure: true })
+    return out
+  }
+
+  const cancel = (): void => {
+    if (timer) clearTimeout(timer)
+    timer = null
+  }
+
+  const flush = (): Promise<void> => {
+    cancel()
+    if (!rings) return writing
+    const out = snapshot(rings)
+    const target = path()
+    writing = writing
+      .then(() => saveJsonAsync(target, out, { secure: true }))
+      .catch((err) => console.error('[script-token-usage] write failed:', err))
+    return writing
+  }
+
+  const close = (): void => {
+    cancel()
+    if (rings) saveJson(path(), snapshot(rings), { secure: true })
   }
 
   const later = (): void => {
     if (timer) return
-    timer = setTimeout(flush, flushMs)
+    timer = setTimeout(() => void flush(), flushMs)
     timer.unref?.()
   }
 
   const add = (tokenId: string, call: ScriptTokenCall, at: number): void => {
+    if (gone.has(tokenId)) return
     const all = loaded()
     let ring = all.get(tokenId)
     if (!ring) {
@@ -217,6 +240,7 @@ export function createScriptTokenUsage(
       }
     },
     clear: (tokenId) => {
+      gone.add(tokenId)
       connections.delete(tokenId)
       if (loaded().delete(tokenId)) later()
     },
@@ -238,48 +262,34 @@ export function createScriptTokenUsage(
       }
     },
     flush,
+    close,
   }
-}
-
-export function programOf(pid: number): Promise<string | undefined> {
-  return new Promise((resolve) => {
-    execFile('ps', ['-o', 'comm=', '-p', String(pid)], { timeout: 2_000 }, (err, out) => {
-      const name = err ? '' : basename(String(out).trim())
-      resolve(name || undefined)
-    })
-  })
 }
 
 export interface UsageLookups {
   listing: () => Promise<ReachListing>
   panes?: () => Promise<{ paneId: string; title: string }[]>
-  program?: (pid: number) => Promise<string | undefined>
 }
 
 export async function usageView(
   log: ScriptTokenUsageLog,
   tokenId: string,
-  lookups: UsageLookups,
+  lookups: UsageLookups | null,
 ): Promise<ScriptTokenUsage> {
   const usage = log.usage(tokenId)
+  const names: ScriptTokenUsage['names'] = { workspaces: {}, panes: {} }
+  if (!lookups) return { ...usage, names }
   const workspaceIds = new Set(usage.calls.flatMap((c) => c.target.workspaceId ?? []))
   const paneIds = new Set(usage.calls.flatMap((c) => c.target.paneId ?? []))
-  const [listing, panes, connections] = await Promise.all([
+  const [listing, panes] = await Promise.all([
     workspaceIds.size > 0
       ? lookups.listing().catch((): ReachListing => ({ workspaces: [], groups: [] }))
       : { workspaces: [], groups: [] },
     paneIds.size > 0 && lookups.panes ? lookups.panes().catch(() => []) : [],
-    Promise.all(
-      usage.connections.map(async (c) => {
-        const program = c.pid && lookups.program ? await lookups.program(c.pid) : undefined
-        return program ? { ...c, program } : c
-      }),
-    ),
   ])
-  const names: ScriptTokenUsage['names'] = { workspaces: {}, panes: {} }
   for (const w of listing.workspaces) {
     if (workspaceIds.has(w.workspaceId)) names.workspaces[w.workspaceId] = w.name
   }
   for (const p of panes) if (paneIds.has(p.paneId)) names.panes[p.paneId] = p.title
-  return { ...usage, connections, names }
+  return { ...usage, names }
 }

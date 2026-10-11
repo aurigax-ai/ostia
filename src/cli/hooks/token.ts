@@ -159,13 +159,11 @@ function resultText(call: ScriptTokenCall): string {
 }
 
 export function shownUsage(t: ListedToken, usage: ScriptTokenUsage): string[] {
-  const sources = usage.connections
-    .map((c) => (c.pid ? `${c.program ?? '?'} (pid ${c.pid})` : '?'))
-    .join(', ')
+  const pids = usage.connections.flatMap((c) => c.pid ?? [])
   const lines = [
     ...shownToken(t),
-    `connected  ${usage.connections.length}${sources ? ` from ${sources}` : ''}`,
-    `last 24h   ${usage.last24h.calls} calls, ${usage.last24h.refused} refused`,
+    `connected  ${usage.connections.length}${pids.length > 0 ? ` (self-reported pid ${pids.join(', ')})` : ''}`,
+    `last ~24h  ${usage.last24h.calls} calls, ${usage.last24h.refused} refused`,
     '',
   ]
   if (usage.calls.length === 0) return [...lines, 'no calls recorded']

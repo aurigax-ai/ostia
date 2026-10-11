@@ -190,12 +190,12 @@ describe('shownUsage', () => {
         { at: '2026-10-11T06:01:00.000Z', method: '', target: {}, outcome: 'regenerated' },
         { at: '2026-10-11T06:00:00.000Z', method: 'notify', target: {}, outcome: 'ok' },
       ],
-      connections: [{ pid: 48211, program: 'zsh' }],
+      connections: [{ pid: 48211 }],
       last24h: { calls: 142, refused: 2 },
       names: { workspaces: { w1: 'homelab' }, panes: {} },
     })
-    expect(lines).toContain('connected  1 from zsh (pid 48211)')
-    expect(lines).toContain('last 24h   142 calls, 2 refused')
+    expect(lines).toContain('connected  1 (self-reported pid 48211)')
+    expect(lines).toContain('last ~24h  142 calls, 2 refused')
     expect(lines.slice(-4)).toEqual([
       'TIME  ACTION  TARGET  RESULT',
       '2026-10-11T06:02:11.000Z  pane.read  homelab / p1  out-of-scope (needs-elevation: all-workspaces)',

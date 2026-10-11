@@ -53,6 +53,7 @@ const dirs: string[] = []
 let storeFile = ''
 let retiredFile = ''
 let listing: ReachListing = { workspaces: [], groups: [] }
+let paneTitles: { paneId: string; title: string }[] = []
 
 function tempDir(): string {
   const dir = mkdtempSync(join(tmpdir(), 'script-tokens-'))
@@ -69,6 +70,7 @@ registerScriptTokenMethods({
   listing: async () => listing,
   changed,
   usage: usageLog,
+  panes: async () => paneTitles,
 })
 registerDocsMethods({ extensions: () => [] })
 setScriptTokenCheck((token) =>
@@ -1546,11 +1548,32 @@ describe('script token usage on the control socket', () => {
       target: { workspaceId: 'wsA', paneId: pane.externalId },
       outcome: 'ok',
     })
-    usageLog.flush()
+    await usageLog.flush()
     const written = readFileSync(`${storeFile}.usage.json`, 'utf8')
     expect(written).toContain(pane.externalId)
     expect(written).not.toContain('hunter2')
     expect(written).not.toContain(token)
+  })
+
+  it('gives panes ids only, never the names of workspaces or panes', async () => {
+    const pane = registerPane({ windowId: 'w1', workspaceId: 'wsB', paneId: 'usage-secret' })
+    listing = { workspaces: [{ workspaceId: 'wsB', name: 'prod-db', workDir: '/b' }], groups: [] }
+    paneTitles = [{ paneId: pane.externalId, title: 'ssh prod' }]
+    const { id, token } = createScriptToken(storeFile, 'peek', ['read-board'])
+    const script = await client(token)
+    await script.sendRequest('test.scriptsOpen', { pane: pane.externalId })
+    const agent = registerPane({ windowId: 'w1', workspaceId: 'wsA', paneId: 'usage-agent' })
+    const conn = await client(agent.token)
+    const shown = await conn.sendRequest<{ usage: { calls: unknown[]; names: unknown } }>(
+      'token.usage',
+      { id },
+    )
+    expect(shown.usage.calls).toMatchObject([
+      { target: { workspaceId: 'wsB', paneId: pane.externalId } },
+    ])
+    expect(shown.usage.names).toEqual({ workspaces: {}, panes: {} })
+    expect(JSON.stringify(shown)).not.toMatch(/prod-db|ssh prod/)
+    paneTitles = []
   })
 
   it('does not record pane tokens', async () => {

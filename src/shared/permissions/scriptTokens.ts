@@ -81,7 +81,6 @@ export interface ScriptTokenCall {
 
 export interface ScriptTokenConnection {
   pid?: number
-  program?: string
 }
 
 export interface ScriptTokenUsage {

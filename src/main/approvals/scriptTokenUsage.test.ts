@@ -43,7 +43,7 @@ describe('script token usage log', () => {
     expect(usage.usage('t1').calls).toHaveLength(4)
   })
 
-  it('writes the file later, owner only, and reads it back after a restart', () => {
+  it('writes the file later, owner only and unindented, and reads it back after a restart', async () => {
     const usage = log()
     usage.record('t1', {
       method: 'pane.read',
@@ -51,18 +51,21 @@ describe('script token usage log', () => {
       outcome: 'ok',
     })
     expect(existsSync(file)).toBe(false)
-    usage.flush()
+    const pending = usage.flush()
+    expect(existsSync(file)).toBe(false)
+    await pending
     expect(statSync(file).mode & 0o777).toBe(0o600)
+    expect(readFileSync(file, 'utf8')).not.toContain('\n')
     expect(log().usage('t1')).toMatchObject({
       calls: [{ method: 'pane.read', target: { workspaceId: 'w1', paneId: 'p1' }, outcome: 'ok' }],
       last24h: { calls: 1, refused: 0 },
     })
   })
 
-  it('stores only the fields it is given', () => {
+  it('stores only the fields it is given', async () => {
     const usage = log()
     usage.record('t1', { method: 'pane.input', target: { paneId: 'p1' }, outcome: 'ok' })
-    usage.flush()
+    await usage.flush()
     expect(Object.keys(JSON.parse(readFileSync(file, 'utf8')).t1.calls[0]).sort()).toEqual([
       'at',
       'method',
@@ -71,13 +74,13 @@ describe('script token usage log', () => {
     ])
   })
 
-  it('clears a token and its connections', () => {
+  it('clears a token and its connections', async () => {
     const usage = log()
     usage.connected('t1', { pid: 1 })
     usage.record('t1', { method: 'notify', target: {}, outcome: 'ok' })
     usage.record('t2', { method: 'notify', target: {}, outcome: 'ok' })
     usage.clear('t1')
-    usage.flush()
+    await usage.flush()
     expect(usage.usage('t1')).toEqual({
       calls: [],
       connections: [],
@@ -110,5 +113,32 @@ describe('script token usage log', () => {
     a()
     a()
     expect(usage.usage('t1').connections).toEqual([{ pid: 42 }])
+  })
+
+  it('drops a call that finishes after its token was revoked', async () => {
+    const usage = log()
+    usage.record('t1', { method: 'pane.read', target: {}, outcome: 'ok' })
+    usage.clear('t1')
+    usage.record('t1', { method: 'pane.read', target: {}, outcome: 'ok' })
+    usage.regenerated('t1')
+    expect(usage.usage('t1').calls).toEqual([])
+    await usage.flush()
+    expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({})
+  })
+
+  it('leaves out tokens that no longer exist when it writes', async () => {
+    const usage = createScriptTokenUsage(() => file, { known: () => new Set(['t2']) })
+    usage.record('t1', { method: 'notify', target: {}, outcome: 'ok' })
+    usage.record('t2', { method: 'notify', target: {}, outcome: 'ok' })
+    await usage.flush()
+    expect(Object.keys(JSON.parse(readFileSync(file, 'utf8')))).toEqual(['t2'])
+  })
+
+  it('writes at once on close', () => {
+    const usage = log()
+    usage.record('t1', { method: 'notify', target: {}, outcome: 'ok' })
+    usage.close()
+    expect(statSync(file).mode & 0o777).toBe(0o600)
+    expect(Object.keys(JSON.parse(readFileSync(file, 'utf8')))).toEqual(['t1'])
   })
 })

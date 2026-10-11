@@ -111,9 +111,10 @@ import { registerPermissionAsk } from './approvals/permissionAsk'
 import { questions, registerQuestions } from './approvals/questions'
 import { type ReachListing, createReach } from './approvals/reach'
 import { registerScriptTokenIpc } from './approvals/scriptTokenIpc'
-import { createScriptTokenUsage, programOf } from './approvals/scriptTokenUsage'
+import { createScriptTokenUsage } from './approvals/scriptTokenUsage'
 import {
   checkScriptToken,
+  listScriptTokens,
   recordCreatedWorkspace,
   registerScriptTokenMethods,
   retireLegacyScriptTokens,
@@ -2864,7 +2865,9 @@ function managerLaunchArgv(argv: string[], resume: AgentResume | null): string[]
 const managerResumePath = (): string => storePath('manager-resume', 'global')
 const scriptTokensPath = (): string => storePath('script-tokens-v2', 'global')
 const retiredScriptTokensPath = (): string => storePath('retired-script-tokens', 'global')
-const scriptTokenUsage = createScriptTokenUsage(() => storePath('script-token-usage', 'global'))
+const scriptTokenUsage = createScriptTokenUsage(() => storePath('script-token-usage', 'global'), {
+  known: () => new Set(listScriptTokens(scriptTokensPath()).map((t) => t.id)),
+})
 
 function spawnManagerPty(req: {
   paneId: string
@@ -4154,7 +4157,6 @@ app.whenReady().then(() => {
     appWindows: () => windows.values(),
     usage: scriptTokenUsage,
     panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
-    program: programOf,
   }
   registerScriptTokenMethods(scriptTokenDeps)
   registerScriptTokenIpc(scriptTokenDeps)
@@ -4423,7 +4425,7 @@ app.on('before-quit', (event) => {
 
 app.on('will-quit', () => {
   quitTrace.stage('will-quit')
-  scriptTokenUsage.flush()
+  scriptTokenUsage.close()
 })
 app.on('quit', () => quitTrace.stage('quit'))
 

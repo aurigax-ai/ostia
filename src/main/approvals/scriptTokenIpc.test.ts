@@ -70,7 +70,6 @@ registerScriptTokenIpc({
   appWindows: () => [appWindow as never],
   usage,
   panes: async () => [{ paneId: 'p_ext1', title: 'claude' }],
-  program: async (pid) => (pid === 48211 ? 'zsh' : undefined),
 })
 
 function callAs<T>(event: unknown, channel: string, ...args: unknown[]): Promise<T> {
@@ -108,8 +107,8 @@ beforeEach(() => {
   setUserPresenceCheck(presence)
 })
 
-afterEach(() => {
-  usage.flush()
+afterEach(async () => {
+  await usage.flush()
   rmSync(dir, { recursive: true, force: true })
 })
 
@@ -340,7 +339,7 @@ describe('script token IPC', () => {
       { method: 'pane.read', outcome: 'out-of-scope', target: { workspaceId: 'w9' } },
       { method: 'pane.read', outcome: 'ok' },
     ])
-    expect(shown.connections).toEqual([{ pid: 48211, program: 'zsh' }])
+    expect(shown.connections).toEqual([{ pid: 48211 }])
     expect(shown.last24h).toEqual({ calls: 2, refused: 1 })
     expect(shown.names).toEqual({ workspaces: { w1: 'ostia' }, panes: { p_ext1: 'claude' } })
     release()
