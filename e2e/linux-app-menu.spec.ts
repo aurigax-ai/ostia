@@ -11,12 +11,20 @@ test(
     try {
       const win = await app.firstWindow()
       await win.waitForLoadState('domcontentloaded')
-      const roles = await app.evaluate(({ Menu }) =>
+      const entries = await app.evaluate(({ Menu }) =>
         (Menu.getApplicationMenu()?.items ?? []).flatMap((item) =>
-          (item.submenu?.items ?? []).map((sub) => sub.role),
+          (item.submenu?.items ?? []).map((sub) => ({
+            role: sub.role,
+            label: sub.label,
+            accelerator: sub.accelerator ?? null,
+          })),
         ),
       )
-      expect(roles).toEqual(['togglefullscreen', 'toggledevtools'])
+      expect(entries.flatMap((entry) => (entry.role ? [entry.role] : []))).toEqual([
+        'togglefullscreen',
+        'toggledevtools',
+      ])
+      expect(entries.find((entry) => entry.label === 'Reload Window')?.accelerator).toBeNull()
 
       await win.evaluate(() => {
         ;(window as unknown as { alive: boolean }).alive = true
