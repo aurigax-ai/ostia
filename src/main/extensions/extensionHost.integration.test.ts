@@ -44,6 +44,17 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
     (broadcasts.filter((b) => b.channel === 'extensions:sidebar').at(-1)?.payload ??
       []) as ExtensionSidebarItem[]
   const status = (): string | undefined => host.list().find((e) => e.id === 'echo')?.status
+  const exits = (): number =>
+    broadcasts
+      .filter((b) => b.channel === 'extensions:changed')
+      .map((b) => (b.payload as ExtensionInfo[]).find((e) => e.id === 'echo')?.status)
+      .filter((s, i, all) => i > 0 && all[i - 1] === 'running' && s !== 'running').length
+  const crash = async (): Promise<unknown> => {
+    const before = exits()
+    const res = await host.invoke('echo', 'crash', null, caller)
+    await until(() => (exits() > before ? true : undefined))
+    return res
+  }
 
   beforeAll(() => {
     dir = mkdtempSync(join(tmpdir(), 'ostia-ext-int-'))
@@ -202,7 +213,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
   it('restarts a crashed process and keeps serving commands', async () => {
     const before = await host.invoke('echo', 'echo', null, caller)
     const pidBefore = before.ok ? (before.data as { pid: number }).pid : 0
-    const crashed = await host.invoke('echo', 'crash', null, caller)
+    const crashed = await crash()
     expect(crashed).toMatchObject({ ok: false, error: 'extension-unavailable' })
     expect(sidebar()).toEqual([])
     const after = await host.invoke('echo', 'echo', null, caller)
@@ -213,10 +224,10 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
 
   it(`gives up after ${MAX_RESTARTS} restarts and reports the extension as crashed`, async () => {
     for (let i = 0; i < MAX_RESTARTS; i++) {
-      await host.invoke('echo', 'crash', null, caller)
+      await crash()
       if (status() === 'crashed') break
     }
-    await until(() => (status() === 'crashed' ? true : undefined))
+    expect(status()).toBe('crashed')
     expect(await host.invoke('echo', 'echo', null, caller)).toMatchObject({
       ok: false,
       error: 'extension-unavailable',
