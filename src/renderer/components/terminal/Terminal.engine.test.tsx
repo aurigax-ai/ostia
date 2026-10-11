@@ -224,6 +224,36 @@ describe('TerminalView engines', () => {
     expect(container.querySelector('.ghostty-host')).toBeNull()
   })
 
+  it('lets Option-drag fall back to native selection under mouse tracking in xterm.js', async () => {
+    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    expect(terminalFor('p1')?.options.macOptionClickForcesSelection).toBe(true)
+  })
+
+  it('keeps Option-drag away from the program in a Ghostty terminal on macOS only', async () => {
+    const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
+    await waitFor(() => expect(container.querySelector('.ghostty-host canvas')).not.toBeNull())
+    const canvas = container.querySelector('.ghostty-host canvas') as HTMLCanvasElement
+    const reported: string[] = []
+    const report = (e: Event) => reported.push(e.type)
+    const host = canvas.parentElement as HTMLElement
+    for (const type of ['mousedown', 'mousemove', 'mouseup']) host.addEventListener(type, report)
+    const drag = (altKey: boolean) => {
+      reported.length = 0
+      canvas.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, altKey }))
+      canvas.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, altKey, buttons: 1 }))
+      canvas.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, altKey }))
+      return [...reported]
+    }
+    os.mac = true
+    onTestFinished(() => {
+      os.mac = false
+    })
+    expect(drag(true)).toEqual([])
+    expect(drag(false)).toEqual(['mousedown', 'mousemove', 'mouseup'])
+    os.mac = false
+    expect(drag(true)).toEqual(['mousedown', 'mousemove', 'mouseup'])
+  })
+
   it('smart copy/paste keys paste with Ctrl+V', async () => {
     useSettingsStore.setState({
       terminal: { ...useSettingsStore.getState().terminal, clipboardKeys: 'smart' },
