@@ -56,7 +56,12 @@ const readLine = (n: number) =>
 const readByte = (n: number) =>
   `sh -c 'stty raw -echo; echo byte${n}_$((3+4)); b=$(dd bs=1 count=1 2>/dev/null | od -An -tx1 | tr -d " "); stty sane; echo hex${n}_$b'`
 
-type Flavors = 'image' | 'file-and-image' | 'file-and-text' | 'image-and-text'
+type Flavors =
+  | 'image'
+  | 'file-and-image'
+  | 'file-and-text'
+  | 'image-and-text'
+  | 'image-and-spaced-text'
 
 const copyFileOnMac = (path: string, flavors: Flavors) => {
   const png = 'read p as «class PNGf»'
@@ -65,6 +70,7 @@ const copyFileOnMac = (path: string, flavors: Flavors) => {
     'file-and-image': `set the clipboard to {«class furl»:p, «class PNGf»:(${png})}`,
     'file-and-text': 'set the clipboard to {«class furl»:p, string:"see this"}',
     'image-and-text': `set the clipboard to {«class PNGf»:(${png}), string:"my-shot.png"}`,
+    'image-and-spaced-text': `set the clipboard to {«class PNGf»:(${png}), string:"my shot.png"}`,
   }[flavors]
   execFileSync('osascript', [
     '-e',
@@ -146,7 +152,7 @@ test('Cmd+V pastes a copied file as a quoted path and hands an image to the prog
       await expect(rows).toContainText(`got${n}<'${shot}' >`, { timeout: 10_000 })
     }
 
-    for (const flavors of ['image', 'image-and-text'] as const) {
+    for (const flavors of ['image', 'image-and-text', 'image-and-spaced-text'] as const) {
       n += 1
       copyFileOnMac(shot, flavors)
       expect(await contents()).toEqual({ files: [], image: true })

@@ -63,6 +63,7 @@ describe('keyPastePlan', () => {
 
   it('hands Ctrl+V to the program for an image whose text is only a file name or a URL', () => {
     expect(keyPastePlan('Screenshot-2026-10-11.png', false, image)).toBe('program')
+    expect(keyPastePlan('CleanShot 2026-10-11 at 12.12.55@2x.png', false, image)).toBe('program')
     expect(keyPastePlan('https://example.com/a.png', false, image)).toBe('program')
   })
 
@@ -83,7 +84,7 @@ describe('keyPastePlan', () => {
 })
 
 describe('isStubText', () => {
-  it('takes an empty string, one image or PDF file name and one web or file URL for a stub', () => {
+  it('takes an empty string, an image or PDF file name and one web or file URL for a stub', () => {
     for (const text of [
       '',
       '  \n',
@@ -97,6 +98,9 @@ describe('isStubText', () => {
       'https://x.com/a.png',
       'http://a.b/c?d=1',
       'file:///tmp/a.png',
+      'my shot.png',
+      'Screenshot 2026-10-11 at 12.12.55.png',
+      'CleanShot 2026-10-11 at 12.12.55@2x.png',
     ]) {
       expect(isStubText(text)).toBe(true)
     }
@@ -109,12 +113,16 @@ describe('isStubText', () => {
       'a.png\nb.png',
       'see https://a.b now',
       '.png',
-      'dir/a.png',
-      'my shot.png',
       'python main.py',
       'git add README.md',
       'example.com',
       'echo hi > out.txt',
+      'echo hi > out.png',
+      'cat a.png | pbcopy',
+      'ls; open a.png',
+      'open $(pwd)/a.png',
+      'echo `pwd`.png',
+      'make && open a.png',
       'notes.txt',
       'ftp://host/x',
     ]) {

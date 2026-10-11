@@ -31,10 +31,13 @@ export const CLIPBOARD_READ_MS = 300
 
 const FILE_NAME_TEXT = /^[^\s/\\]+\.(png|jpe?g|gif|tiff?|heic|webp|pdf)$/i
 const URL_TEXT = /^(https?|file):\/\/\S+$/i
+const IMAGE_NAME_LINE = /^[^\r\n]*[^\s.]\.(png|jpe?g|gif|tiff?|heic|webp|pdf)$/i
+const SHELL_OPERATOR = /[>|;&`]|\$\(/
 
 export function isStubText(text: string): boolean {
   const trimmed = text.trim()
-  return trimmed === '' || FILE_NAME_TEXT.test(trimmed) || URL_TEXT.test(trimmed)
+  if (trimmed === '' || FILE_NAME_TEXT.test(trimmed) || URL_TEXT.test(trimmed)) return true
+  return IMAGE_NAME_LINE.test(trimmed) && !SHELL_OPERATOR.test(trimmed)
 }
 
 export function keyPastePlan(
