@@ -159,7 +159,7 @@ describe('KeyboardSection on macOS', () => {
     expect(row(/Start of line/)).toHaveAttribute('data-source', 'default')
   })
 
-  it('previews the three keys Natural Text Editing changes and keeps the table until Apply', async () => {
+  it('previews the two keys Natural Text Editing changes and keeps the table until Apply', async () => {
     useSettingsStore.setState({ terminalKeys: { 'Cmd+Delete': { type: 'text', value: 'x' } } })
     render(<KeyboardSection />)
     await userEvent.click(
@@ -171,7 +171,7 @@ describe('KeyboardSection on macOS', () => {
     if (!preview) throw new Error('no preview')
     expect(
       within(preview).getByText(
-        'Switching to Natural Text Editing (iTerm2) changes these keys (3)',
+        'Switching to Natural Text Editing (iTerm2) changes these keys (2)',
       ),
     ).toBeInTheDocument()
     const items = within(preview).getAllByRole('listitem')

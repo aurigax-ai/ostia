@@ -82,6 +82,7 @@ const NATURAL_SENDS: [string, KeyLike, string][] = [
   ['⌘←', key('ArrowLeft', cmd), '\x01'],
   ['⌘→', key('ArrowRight', cmd), '\x05'],
   ['⌦', key('Delete'), '\x04'],
+  shiftEnter,
 ]
 
 describe('Ostia default preset', () => {
@@ -193,7 +194,7 @@ describe('Ostia default preset', () => {
 })
 
 describe('Natural Text Editing preset', () => {
-  it('sends exactly the eight keys of iTerm2’s preset', () => {
+  it('sends the eight keys of iTerm2’s preset plus Ostia’s Shift+Enter newline fix', () => {
     useSettingsStore.setState({ terminalKeymap: NATURAL_TEXT_EDITING })
     for (const [name, event, sent] of NATURAL_SENDS) {
       expect(terminalKeyData(event, true), name).toBe(sent)
