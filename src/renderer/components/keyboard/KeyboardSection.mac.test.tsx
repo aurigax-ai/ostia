@@ -49,7 +49,17 @@ describe('KeyboardSection on macOS', () => {
 
   it('lists the default terminal keys and switches to Natural Text Editing', async () => {
     render(<KeyboardSection />)
-    const defaults = ['⌘Backspace', '⌘←', '⌘→', '⌥←', '⌥→', '⌥Backspace', '⌥Delete', '⌘Delete']
+    const defaults = [
+      '⌘Backspace',
+      '⌘←',
+      '⌘→',
+      '⌥←',
+      '⌥→',
+      '⌥Backspace',
+      '⌥Delete',
+      '⌘Delete',
+      '⇧Enter',
+    ]
     expect(editButtons()).toEqual(defaults.map((keys) => `Edit ${keys}`).sort())
     expect(applied('App shortcuts')).toBe('Ostia')
     expect(applied('Text editing')).toBe('Ostia standard')
@@ -149,7 +159,7 @@ describe('KeyboardSection on macOS', () => {
     expect(row(/Start of line/)).toHaveAttribute('data-source', 'default')
   })
 
-  it('previews the two keys Natural Text Editing changes and keeps the table until Apply', async () => {
+  it('previews the three keys Natural Text Editing changes and keeps the table until Apply', async () => {
     useSettingsStore.setState({ terminalKeys: { 'Cmd+Delete': { type: 'text', value: 'x' } } })
     render(<KeyboardSection />)
     await userEvent.click(
@@ -161,7 +171,7 @@ describe('KeyboardSection on macOS', () => {
     if (!preview) throw new Error('no preview')
     expect(
       within(preview).getByText(
-        'Switching to Natural Text Editing (iTerm2) changes these keys (2)',
+        'Switching to Natural Text Editing (iTerm2) changes these keys (3)',
       ),
     ).toBeInTheDocument()
     const items = within(preview).getAllByRole('listitem')

@@ -53,9 +53,9 @@ describe('preset changes against Ostia', () => {
     expect(none.every((c) => c.after === null)).toBe(true)
   })
 
-  it('lists the two keys Natural Text Editing changes on macOS', () => {
+  it('lists the three keys Natural Text Editing changes on macOS', () => {
     const changes = textPresetChanges(NATURAL_TEXT_EDITING, true)
-    expect(changes.map((c) => c.keys).sort()).toEqual(['Delete', '⌘Delete'])
+    expect(changes.map((c) => c.keys).sort()).toEqual(['Delete', '⇧Enter', '⌘Delete'])
   })
 })
 
@@ -92,7 +92,7 @@ describe('preview plans', () => {
       { 'Cmd+Delete': { type: 'text', value: 'x' } },
       true,
     )
-    expect(plan.changes).toHaveLength(2)
+    expect(plan.changes).toHaveLength(3)
     expect(plan.keptCustom.map((c) => c.keys)).toEqual(['⌘Delete'])
   })
 })
