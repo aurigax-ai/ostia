@@ -20,6 +20,7 @@ vi.mock('./approvals', () => ({ approvals: () => null }))
 
 const { registerScriptTokenIpc } = await import('./scriptTokenIpc')
 const { setUserPresenceCheck, verifyScriptToken } = await import('./scriptTokens')
+const { createScriptTokenUsage } = await import('./scriptTokenUsage')
 
 const LISTING: ReachListing = {
   workspaces: [
@@ -59,12 +60,17 @@ const appWindow = { id: 'app' }
 const otherWindow = { id: 'telemetry' }
 const fromApp = sender(appWindow)
 
+const usage = createScriptTokenUsage(() => join(dir, 'script-token-usage.json'))
+
 registerScriptTokenIpc({
   path: () => path,
   retiredPath: () => join(dir, 'retired.json'),
   listing: async () => LISTING,
   changed,
   appWindows: () => [appWindow as never],
+  usage,
+  panes: async () => [{ paneId: 'p_ext1', title: 'claude' }],
+  program: async (pid) => (pid === 48211 ? 'zsh' : undefined),
 })
 
 function callAs<T>(event: unknown, channel: string, ...args: unknown[]): Promise<T> {
@@ -103,16 +109,18 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  usage.flush()
   rmSync(dir, { recursive: true, force: true })
 })
 
 describe('script token IPC', () => {
-  it('handles exactly list, create, update and revoke', () => {
+  it('handles exactly list, create, update, revoke and usage', () => {
     expect([...handlers.keys()].sort()).toEqual([
       'scriptTokens:create',
       'scriptTokens:list',
       'scriptTokens:revoke',
       'scriptTokens:update',
+      'scriptTokens:usage',
     ])
   })
 
@@ -129,6 +137,7 @@ describe('script token IPC', () => {
       ['scriptTokens:create', { name: 'x', caps: ['read-board'], scope: LIMITED, expires: '7d' }],
       ['scriptTokens:update', { id: token.id, ifUpdatedAt: token.updatedAt, caps: ['notify'] }],
       ['scriptTokens:revoke', token.id],
+      ['scriptTokens:usage', token.id],
     ] as const) {
       await expect(callAs(event, channel, arg)).rejects.toThrow(/^forbidden/)
     }
@@ -148,6 +157,7 @@ describe('script token IPC', () => {
       'scriptTokens:list',
       'scriptTokens:revoke',
       'scriptTokens:update',
+      'scriptTokens:usage',
     ])
     expect(preload.match(/scriptTokens:/g)).toHaveLength(channels.length + 1)
   })
@@ -304,5 +314,47 @@ describe('script token IPC', () => {
     expect(changed).toHaveBeenCalledTimes(1)
     await expect(call('scriptTokens:revoke', token.id)).resolves.toBe(false)
     await expect(call('scriptTokens:revoke', { id: token.id })).resolves.toBe(false)
+  })
+
+  it('shows the calls with workspace and pane names, the connections and the last 24 hours', async () => {
+    const { token } = await created()
+    const release = usage.connected(token.id, { pid: 48211 })
+    usage.record(token.id, {
+      method: 'pane.read',
+      target: { workspaceId: 'w1', paneId: 'p_ext1' },
+      outcome: 'ok',
+    })
+    usage.record(token.id, {
+      method: 'pane.read',
+      target: { workspaceId: 'w9' },
+      outcome: 'out-of-scope',
+      code: 'needs-elevation: all-workspaces',
+    })
+    const shown = await call<{
+      calls: unknown[]
+      connections: unknown[]
+      last24h: unknown
+      names: unknown
+    }>('scriptTokens:usage', token.id)
+    expect(shown.calls).toMatchObject([
+      { method: 'pane.read', outcome: 'out-of-scope', target: { workspaceId: 'w9' } },
+      { method: 'pane.read', outcome: 'ok' },
+    ])
+    expect(shown.connections).toEqual([{ pid: 48211, program: 'zsh' }])
+    expect(shown.last24h).toEqual({ calls: 2, refused: 1 })
+    expect(shown.names).toEqual({ workspaces: { w1: 'ostia' }, panes: { p_ext1: 'claude' } })
+    release()
+    await expect(call('scriptTokens:usage', 'ceo')).resolves.toBeNull()
+    await expect(call('scriptTokens:usage', 'script_missing')).resolves.toBeNull()
+  })
+
+  it('clears the calls on revoke and notes a regeneration', async () => {
+    const { token } = await created()
+    usage.record(token.id, { method: 'notify', target: {}, outcome: 'ok' })
+    const res = await update({ id: token.id, ifUpdatedAt: token.updatedAt, caps: ['notify'] })
+    expect(res.ok).toBe(true)
+    expect(usage.usage(token.id).calls.map((c) => c.outcome)).toEqual(['regenerated', 'ok'])
+    await call('scriptTokens:revoke', token.id)
+    expect(usage.usage(token.id).calls).toEqual([])
   })
 })

@@ -48,11 +48,13 @@ import {
   SCRIPT_TOKEN_PRESETS,
   SCRIPT_TOKEN_RUN_CAPS,
   SCRIPT_TOKEN_UI_CAPS,
+  type ScriptTokenCall,
   type ScriptTokenInfo,
   type ScriptTokenSaveResult,
   type ScriptTokenScope,
   type ScriptTokenUiCap,
   type ScriptTokenUpdateInput,
+  type ScriptTokenUsage,
   type ScriptTokensState,
 } from '@shared/permissions/scriptTokens'
 import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
@@ -70,6 +72,7 @@ const RELATIVE_STEPS: RelativeStep[] = [
   ['minute', 60],
 ]
 const EXAMPLE = 'ostia pane list --json'
+const USAGE_REFRESH_MS = 10_000
 
 type ExpiryChoice = '7d' | '30d' | '90d' | '1y' | 'custom' | 'never' | 'keep'
 type Preset = keyof typeof SCRIPT_TOKEN_PRESETS | 'custom'
@@ -991,9 +994,102 @@ function Stat({ label, children }: { label: string; children: ReactNode }): JSX.
   )
 }
 
+function callTime(iso: string, now: number): string {
+  return localDate(iso) === localDate(new Date(now).toISOString())
+    ? localTime(iso)
+    : `${localDate(iso)} ${localTime(iso)}`
+}
+
+function callTarget(d: Dict, call: ScriptTokenCall, names: ScriptTokenUsage['names']): string {
+  const { workspaceId, paneId } = call.target
+  if (!workspaceId && !paneId) return '—'
+  const workspace = workspaceId ? (names.workspaces[workspaceId] ?? d.scriptTokens.deleted) : null
+  if (!paneId) return workspace ?? '—'
+  const pane = names.panes[paneId] ?? d.scriptTokens.deleted
+  return workspace ? `${workspace} / ${pane}` : pane
+}
+
+const RESULT_STYLE: Record<ScriptTokenCall['outcome'], string> = {
+  ok: 'border-ok/40 text-ok',
+  'out-of-scope': 'border-attn-fg/40 text-attn-fg',
+  'missing-permission': 'border-warn-fg/40 text-warn-fg',
+  error: 'border-line text-fg-muted',
+  regenerated: 'border-line text-fg-muted',
+}
+
+function resultText(d: Dict, outcome: ScriptTokenCall['outcome']): string {
+  const t = d.scriptTokens
+  if (outcome === 'ok') return t.resultOk
+  if (outcome === 'out-of-scope') return t.resultOutOfScope
+  if (outcome === 'missing-permission') return t.resultMissing
+  if (outcome === 'regenerated') return t.regenerated
+  return t.resultError
+}
+
+function CallLog({ usage, now }: { usage: ScriptTokenUsage | null; now: number }): JSX.Element {
+  const d = useDict()
+  const t = d.scriptTokens
+  const calls = usage?.calls ?? []
+  return (
+    <div className="min-w-0 rounded-md border border-line px-3 py-2.5">
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <h3 className="font-medium text-fg text-ui-sm">{t.recentCalls}</h3>
+        <span className="text-fg-dim text-ui-xs">{t.recentCallsNote}</span>
+      </div>
+      {calls.length === 0 ? (
+        <p className="py-2 text-fg-muted text-ui-sm">{t.noCalls}</p>
+      ) : (
+        <table className="w-full table-fixed text-ui-sm">
+          <thead className="text-left text-fg-dim text-ui-xs">
+            <tr>
+              <th className="w-[22%] pb-1 font-normal">{t.colTime}</th>
+              <th className="w-[30%] pb-1 font-normal">{t.colAction}</th>
+              <th className="pb-1 font-normal">{t.colTarget}</th>
+              <th className="w-[22%] pb-1 text-right font-normal">{t.colResult}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {calls.map((call, i) => (
+              <tr key={`${call.at}:${i}`} className="border-line border-t">
+                <td className="py-1.5 font-mono text-fg-dim">{callTime(call.at, now)}</td>
+                <td className="truncate py-1.5 font-mono text-fg">
+                  {call.outcome === 'regenerated' ? t.regenerated : call.method}
+                </td>
+                <td className="truncate py-1.5 text-fg-muted">
+                  {usage ? callTarget(d, call, usage.names) : '—'}
+                </td>
+                <td className="py-1.5 text-right">
+                  {call.outcome === 'regenerated' ? null : (
+                    <Badge
+                      variant="outline"
+                      title={call.code}
+                      className={cn('h-4 rounded-sm px-1 text-ui-xs', RESULT_STYLE[call.outcome])}
+                    >
+                      {resultText(d, call.outcome)}
+                    </Badge>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}
+
+function connectionText(d: Dict, usage: ScriptTokenUsage | null): string | null {
+  const first = usage?.connections.find((c) => c.pid)
+  if (!first?.pid) return null
+  return first.program
+    ? fmt(d.scriptTokens.connectionFrom, { program: first.program, pid: first.pid })
+    : fmt(d.scriptTokens.connectionPid, { pid: first.pid })
+}
+
 function TokenDetail({
   token,
   state,
+  usage,
   now,
   locale,
   onBack,
@@ -1002,6 +1098,7 @@ function TokenDetail({
 }: {
   token: ScriptTokenInfo
   state: ScriptTokensState
+  usage: ScriptTokenUsage | null
   now: number
   locale: string
   onBack: () => void
@@ -1015,6 +1112,7 @@ function TokenDetail({
     date: localDate(token.createdAt),
   })
   const expiry = expiryState(token, now)
+  const source = connectionText(d, usage)
   return (
     <div>
       <button
@@ -1043,7 +1141,7 @@ function TokenDetail({
           {t.revoke}
         </Button>
       </div>
-      <div className="mb-3 grid grid-cols-2 gap-2">
+      <div className="mb-3 grid grid-cols-4 gap-2">
         <Stat label={t.detailExpires}>
           <div>{token.expiresAt ? localDate(token.expiresAt) : t.neverExpires}</div>
           {token.expiresAt && expiry !== 'expired' ? (
@@ -1059,54 +1157,67 @@ function TokenDetail({
             <div className="text-fg-muted text-ui-xs">{localTime(token.lastUsedAt)}</div>
           ) : null}
         </Stat>
+        <Stat label={t.detailConnections}>
+          <div>{fmt(t.connectionCount, { n: usage?.connections.length ?? 0 })}</div>
+          {source ? <div className="truncate text-fg-muted text-ui-xs">{source}</div> : null}
+        </Stat>
+        <Stat label={t.detailCalls24h}>
+          <div>{fmt(t.callCount, { n: usage?.last24h.calls ?? 0 })}</div>
+          <div className="text-fg-muted text-ui-xs">
+            {fmt(t.refusedCount, { n: usage?.last24h.refused ?? 0 })}
+          </div>
+        </Stat>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-md border border-line px-3 py-2.5">
-          <h3 className="mb-2 font-medium text-fg text-ui-sm">{t.access}</h3>
-          {token.scope.kind === 'all' ? (
-            <p className="text-fg text-ui-sm">{t.accessAll}</p>
-          ) : (
-            <ul className="flex flex-col gap-1 text-fg text-ui-sm">
-              {token.scope.groups.map((id) => {
-                const group = state.groups.find((g) => g.id === id)
-                return (
-                  <li key={`g:${id}`} className="flex items-center gap-1.5">
-                    <GroupDot color={group?.color} />
-                    {group ? fmt(t.groupChip, { name: group.name }) : t.deleted}
-                    {group ? <span className="text-fg-dim">· {groupSize(id, state)}</span> : null}
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-start gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="rounded-md border border-line px-3 py-2.5">
+            <h3 className="mb-2 font-medium text-fg text-ui-sm">{t.access}</h3>
+            {token.scope.kind === 'all' ? (
+              <p className="text-fg text-ui-sm">{t.accessAll}</p>
+            ) : (
+              <ul className="flex flex-col gap-1 text-fg text-ui-sm">
+                {token.scope.groups.map((id) => {
+                  const group = state.groups.find((g) => g.id === id)
+                  return (
+                    <li key={`g:${id}`} className="flex items-center gap-1.5">
+                      <GroupDot color={group?.color} />
+                      {group ? fmt(t.groupChip, { name: group.name }) : t.deleted}
+                      {group ? <span className="text-fg-dim">· {groupSize(id, state)}</span> : null}
+                    </li>
+                  )
+                })}
+                {token.scope.workspaces.map((id) => {
+                  const ws = state.workspaces.find((w) => w.id === id)
+                  return (
+                    <li key={`w:${id}`}>
+                      {ws ? fmt(t.workspaceChip, { name: ws.name }) : t.deleted}
+                    </li>
+                  )
+                })}
+                {token.scope.ownWorkspaces ? (
+                  <li className="flex items-center gap-1.5 text-fg-muted">
+                    <PlusIcon className="size-3" />
+                    {t.accessOwnShort}
                   </li>
-                )
-              })}
-              {token.scope.workspaces.map((id) => {
-                const ws = state.workspaces.find((w) => w.id === id)
-                return (
-                  <li key={`w:${id}`}>
-                    {ws ? fmt(t.workspaceChip, { name: ws.name }) : t.deleted}
-                  </li>
-                )
-              })}
-              {token.scope.ownWorkspaces ? (
-                <li className="flex items-center gap-1.5 text-fg-muted">
-                  <PlusIcon className="size-3" />
-                  {t.accessOwnShort}
-                </li>
-              ) : null}
-            </ul>
-          )}
-        </div>
-        <div className="rounded-md border border-line px-3 py-2.5">
-          <h3 className="mb-2 font-medium text-fg text-ui-sm">{t.permissions}</h3>
-          <ul className="flex flex-col gap-1 text-fg text-ui-sm">
-            {caps.map((cap) => (
-              <li key={cap} className="flex items-center justify-between gap-2">
-                {t.caps[cap].label}
-                {SCRIPT_TOKEN_RUN_CAPS.includes(cap) ? (
-                  <span className="text-warn-fg text-ui-xs">{t.canRunCommands}</span>
                 ) : null}
-              </li>
-            ))}
-          </ul>
+              </ul>
+            )}
+          </div>
+          <div className="rounded-md border border-line px-3 py-2.5">
+            <h3 className="mb-2 font-medium text-fg text-ui-sm">{t.permissions}</h3>
+            <ul className="flex flex-col gap-1 text-fg text-ui-sm">
+              {caps.map((cap) => (
+                <li key={cap} className="flex items-center justify-between gap-2">
+                  {t.caps[cap].label}
+                  {SCRIPT_TOKEN_RUN_CAPS.includes(cap) ? (
+                    <span className="text-warn-fg text-ui-xs">{t.canRunCommands}</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
+        <CallLog usage={usage} now={now} />
       </div>
     </div>
   )
@@ -1126,6 +1237,7 @@ export function ScriptTokensSection(): JSX.Element {
   const [shown, setShown] = useState<Shown | null>(null)
   const [revoking, setRevoking] = useState<ScriptTokenInfo | null>(null)
   const [detailId, setDetailId] = useState<string | null>(null)
+  const [usage, setUsage] = useState<ScriptTokenUsage | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const [dismissed, setDismissed] = useState(() => {
     const at = readPref(DISMISSED_KEY)
@@ -1142,6 +1254,25 @@ export function ScriptTokensSection(): JSX.Element {
     reload()
     return window.ostia.scriptTokens.onChanged(reload)
   }, [reload])
+
+  useEffect(() => {
+    setUsage(null)
+    if (!detailId) return
+    let live = true
+    const load = (): void => {
+      void window.ostia.scriptTokens.usage(detailId).then((next) => {
+        if (live) setUsage(next)
+      })
+    }
+    load()
+    const timer = window.setInterval(load, USAGE_REFRESH_MS)
+    const off = window.ostia.scriptTokens.onChanged(load)
+    return () => {
+      live = false
+      window.clearInterval(timer)
+      off()
+    }
+  }, [detailId])
 
   const tokens = useMemo(
     () => [...state.tokens].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
@@ -1184,6 +1315,7 @@ export function ScriptTokensSection(): JSX.Element {
         <TokenDetail
           token={detail}
           state={state}
+          usage={usage}
           now={now}
           locale={locale}
           onBack={() => setDetailId(null)}

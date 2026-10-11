@@ -111,6 +111,7 @@ import { registerPermissionAsk } from './approvals/permissionAsk'
 import { questions, registerQuestions } from './approvals/questions'
 import { type ReachListing, createReach } from './approvals/reach'
 import { registerScriptTokenIpc } from './approvals/scriptTokenIpc'
+import { createScriptTokenUsage, programOf } from './approvals/scriptTokenUsage'
 import {
   checkScriptToken,
   recordCreatedWorkspace,
@@ -2863,6 +2864,7 @@ function managerLaunchArgv(argv: string[], resume: AgentResume | null): string[]
 const managerResumePath = (): string => storePath('manager-resume', 'global')
 const scriptTokensPath = (): string => storePath('script-tokens-v2', 'global')
 const retiredScriptTokensPath = (): string => storePath('retired-script-tokens', 'global')
+const scriptTokenUsage = createScriptTokenUsage(() => storePath('script-token-usage', 'global'))
 
 function spawnManagerPty(req: {
   paneId: string
@@ -4150,6 +4152,9 @@ app.whenReady().then(() => {
     listing: workspaceListing,
     changed: () => broadcast('scriptTokens:changed', null),
     appWindows: () => windows.values(),
+    usage: scriptTokenUsage,
+    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
+    program: programOf,
   }
   registerScriptTokenMethods(scriptTokenDeps)
   registerScriptTokenIpc(scriptTokenDeps)
@@ -4176,6 +4181,7 @@ app.whenReady().then(() => {
     primaryWindow: primaryWindowId,
     byAgent: reach.byAgent,
     reach,
+    usage: scriptTokenUsage,
   })
   writeControlInfo(controlInfoPath(), controlSocketPath(), process.pid)
   if (keepShellsOn()) ensureKeptPlumbing()
@@ -4415,7 +4421,10 @@ app.on('before-quit', (event) => {
   quitTrace.stage('teardown-done')
 })
 
-app.on('will-quit', () => quitTrace.stage('will-quit'))
+app.on('will-quit', () => {
+  quitTrace.stage('will-quit')
+  scriptTokenUsage.flush()
+})
 app.on('quit', () => quitTrace.stage('quit'))
 
 app.on('window-all-closed', () => {

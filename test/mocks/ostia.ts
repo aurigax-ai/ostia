@@ -314,6 +314,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       create: vi.fn().mockResolvedValue({ ok: false, error: 'not mocked' }),
       update: vi.fn().mockResolvedValue({ ok: false, error: 'not mocked' }),
       revoke: vi.fn().mockResolvedValue(true),
+      usage: vi.fn().mockResolvedValue(null),
       onChanged: vi.fn(noopUnsub),
     },
     approvals: {

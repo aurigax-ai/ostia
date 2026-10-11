@@ -47,6 +47,7 @@ const {
   updateScriptToken,
   verifyScriptToken,
 } = await import('./scriptTokens')
+const { createScriptTokenUsage } = await import('./scriptTokenUsage')
 
 const dirs: string[] = []
 let storeFile = ''
@@ -60,12 +61,14 @@ function tempDir(): string {
 }
 
 const changed = vi.fn()
+const usageLog = createScriptTokenUsage(() => `${storeFile}.usage.json`, { flushMs: 60_000 })
 
 registerScriptTokenMethods({
   path: () => storeFile,
   retiredPath: () => retiredFile,
   listing: async () => listing,
   changed,
+  usage: usageLog,
 })
 registerDocsMethods({ extensions: () => [] })
 setScriptTokenCheck((token) =>
@@ -1463,5 +1466,134 @@ describe('without a user presence check', () => {
     } finally {
       server.stopControlServer()
     }
+  })
+})
+
+describe('script token usage on the control socket', () => {
+  const describeCommand = {
+    id: 'workspace.describe',
+    title: 'Describe',
+    category: null,
+    hidden: false,
+    argsSchema: null,
+    resultSchema: null,
+    capabilities: ['drive-self'],
+    target: 'active',
+  }
+
+  beforeEach(() => {
+    stopControlServer()
+    registerControlServer(
+      {
+        execCommand: async () => ({ ok: true }) as CommandResult,
+        listCommandsFor: () => [describeCommand] as never,
+        getTerminalState: () => undefined,
+        isSandboxed: () => false,
+        windowOfWorkspace: () => 'w1',
+        primaryWindow: () => 'w1',
+        usage: usageLog,
+      },
+      socketPath,
+    )
+  })
+
+  const calls = (id: string) =>
+    usageLog.usage(id).calls.map(({ method, outcome, code }) => ({ method, outcome, code }))
+
+  it('records allowed, outside-access and missing-permission calls', async () => {
+    const { id, token } = createScriptToken(storeFile, 'board', ['read-board'])
+    const conn = await client(token)
+    await conn.sendRequest('test.scriptsOpen')
+    await expect(
+      conn.sendRequest('command.exec', {
+        id: 'workspace.describe',
+        target: { workspaceId: 'wsC', paneId: null },
+      }),
+    ).rejects.toThrow('needs-elevation: all-workspaces')
+    await expect(conn.sendRequest('test.scriptsWrite')).rejects.toThrow(
+      'needs-elevation: type-other-pane',
+    )
+    await expect(conn.sendRequest('test.panesOnly')).rejects.toThrow('not-available-to-script')
+    expect(calls(id)).toEqual([
+      { method: 'test.panesOnly', outcome: 'error', code: 'not-available-to-script' },
+      {
+        method: 'test.scriptsWrite',
+        outcome: 'missing-permission',
+        code: 'needs-elevation: type-other-pane',
+      },
+      {
+        method: 'workspace.describe',
+        outcome: 'out-of-scope',
+        code: 'needs-elevation: all-workspaces',
+      },
+      { method: 'test.scriptsOpen', outcome: 'ok', code: undefined },
+    ])
+    expect(usageLog.usage(id).calls[2].target).toEqual({ workspaceId: 'wsC' })
+    expect(usageLog.usage(id).last24h).toEqual({ calls: 4, refused: 2 })
+  })
+
+  it('records the target pane but never what the call carried', async () => {
+    const pane = registerPane({ windowId: 'w1', workspaceId: 'wsA', paneId: 'usage-target' })
+    const { id, token } = createScriptToken(storeFile, 'typist', ['read-board'])
+    const conn = await client(token)
+    await conn.sendRequest('test.scriptsOpen', {
+      pane: pane.externalId,
+      text: 'hunter2-secret',
+      cmd: 'curl -H "Authorization: hunter2"',
+    })
+    expect(usageLog.usage(id).calls[0]).toMatchObject({
+      method: 'test.scriptsOpen',
+      target: { workspaceId: 'wsA', paneId: pane.externalId },
+      outcome: 'ok',
+    })
+    usageLog.flush()
+    const written = readFileSync(`${storeFile}.usage.json`, 'utf8')
+    expect(written).toContain(pane.externalId)
+    expect(written).not.toContain('hunter2')
+    expect(written).not.toContain(token)
+  })
+
+  it('does not record pane tokens', async () => {
+    const pane = registerPane({ windowId: 'w1', workspaceId: 'wsA', paneId: 'usage-pane' })
+    const conn = await client(pane.token)
+    await conn.sendRequest('test.panesOnly')
+    expect(usageLog.usage(pane.externalId).calls).toEqual([])
+  })
+
+  it('counts open connections with the pid the caller gives, until it hangs up', async () => {
+    const { id, token } = createScriptToken(storeFile, 'cron', ['read-board'])
+    const socket = createConnection(socketPath)
+    const conn = createMessageConnection(
+      new StreamMessageReader(socket),
+      new StreamMessageWriter(socket),
+    )
+    conn.listen()
+    await conn.sendRequest('hello', { token, pid: 48211 })
+    expect(usageLog.usage(id).connections).toEqual([{ pid: 48211 }])
+    socket.destroy()
+    await vi.waitFor(() => expect(usageLog.usage(id).connections).toEqual([]))
+  })
+
+  it('serves token.usage by name or id and clears the calls on revoke', async () => {
+    const { id, token } = createScriptToken(storeFile, 'cron', ['read-board'])
+    const script = await client(token)
+    await script.sendRequest('test.scriptsOpen')
+    const owner = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'usage-owner' })
+    const admin = await client(owner.token)
+    answer = 'once'
+    const shown = await admin.sendRequest<{ token: { id: string }; usage: { calls: unknown[] } }>(
+      'token.usage',
+      { id: 'cron' },
+    )
+    expect(shown.token.id).toBe(id)
+    expect(shown.usage.calls).toHaveLength(1)
+    await admin.sendRequest('token.revoke', { id })
+    expect(usageLog.usage(id)).toEqual({
+      calls: [],
+      connections: [],
+      last24h: { calls: 0, refused: 0 },
+    })
+    await expect(script.sendRequest('test.scriptsOpen')).rejects.toThrow('unknown identity')
+    expect(usageLog.usage(id).calls).toEqual([])
   })
 })

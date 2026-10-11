@@ -11,6 +11,7 @@ import {
   type ScriptTokenInfo,
   type ScriptTokenScope,
   type ScriptTokenSource,
+  type ScriptTokenUsage,
   tokenExpiry,
 } from '../../shared/permissions/scriptTokens'
 import { registerControlMethod } from '../control/controlServer'
@@ -18,6 +19,7 @@ import { removeScript } from '../control/idRegistry'
 import { loadJson, saveJson } from '../platform/jsonStore'
 import { ensureCaps } from './controlElevation'
 import type { ReachListing } from './reach'
+import { type ScriptTokenUsageLog, type UsageLookups, usageView } from './scriptTokenUsage'
 import type { PresenceResult } from './userPresence'
 
 const NAME_MAX = 60
@@ -554,6 +556,25 @@ export interface ScriptTokenDeps {
   retiredPath: () => string
   listing: () => Promise<ReachListing>
   changed?: () => void
+  usage?: ScriptTokenUsageLog
+  panes?: UsageLookups['panes']
+  program?: UsageLookups['program']
+}
+
+export async function scriptTokenUsage(
+  deps: ScriptTokenDeps,
+  ref: string,
+): Promise<{ token: ScriptToken; usage: ScriptTokenUsage }> {
+  const token = findScriptToken(deps.path(), ref)
+  const usage = deps.usage
+    ? await usageView(deps.usage, token.id, deps)
+    : {
+        calls: [],
+        connections: [],
+        last24h: { calls: 0, refused: 0 },
+        names: { workspaces: {}, panes: {} },
+      }
+  return { token, usage }
 }
 
 export function registerScriptTokenMethods(deps: ScriptTokenDeps): void {
@@ -619,21 +640,30 @@ export function registerScriptTokenMethods(deps: ScriptTokenDeps): void {
         `regenerate the script token "${name}" with ${caps.join(', ') || 'no capability'} on ${describeScope(scope)}; it ${describeExpiry(expiresAt)}. The old value stops working at once`,
       )
       await confirmUserPresence({ action: 'regenerate', name })
-      return changed(
-        updateScriptToken(deps.path(), current.id, {
-          name,
-          caps,
-          scope,
-          expiresAt,
-          ifUpdatedAt: current.updatedAt,
-        }),
-      )
+      const updated = updateScriptToken(deps.path(), current.id, {
+        name,
+        caps,
+        scope,
+        expiresAt,
+        ifUpdatedAt: current.updatedAt,
+      })
+      deps.usage?.regenerated(current.id)
+      return changed(updated)
     },
   })
 
   registerControlMethod('token.list', {
     cap: 'settings-read',
     handler: () => listScriptTokens(deps.path()),
+  })
+
+  registerControlMethod('token.usage', {
+    cap: 'settings-read',
+    handler: (raw) => {
+      const ref = typeof raw === 'object' && raw !== null ? (raw as { id?: unknown }).id : undefined
+      if (typeof ref !== 'string' || !ref) throw fail('bad-request: id')
+      return scriptTokenUsage(deps, ref)
+    },
   })
 
   registerControlMethod('token.retired', {
@@ -649,6 +679,7 @@ export function registerScriptTokenMethods(deps: ScriptTokenDeps): void {
       const { id } = findScriptToken(deps.path(), ref)
       revokeScriptToken(deps.path(), id)
       removeScript(id)
+      deps.usage?.clear(id)
       return changed({ ok: true, id })
     },
   })

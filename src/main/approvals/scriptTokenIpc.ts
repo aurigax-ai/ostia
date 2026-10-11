@@ -1,11 +1,13 @@
 import { BrowserWindow, type IpcMainInvokeEvent, ipcMain } from 'electron'
 import {
   type ScriptTokenSaveResult,
+  type ScriptTokenUsage,
   type ScriptTokensState,
   tokenExpiry,
 } from '../../shared/permissions/scriptTokens'
 import { removeScript } from '../control/idRegistry'
 import type { ReachListing } from './reach'
+import type { ScriptTokenUsageLog, UsageLookups } from './scriptTokenUsage'
 import {
   type PresenceRequest,
   checkUserPresence,
@@ -19,6 +21,7 @@ import {
   resolveScope,
   retiredScriptTokens,
   revokeScriptToken,
+  scriptTokenUsage,
   updateScriptToken,
 } from './scriptTokens'
 
@@ -28,6 +31,9 @@ export interface ScriptTokenIpcDeps {
   listing: () => Promise<ReachListing>
   changed: () => void
   appWindows: () => Iterable<BrowserWindow>
+  usage?: ScriptTokenUsageLog
+  panes?: UsageLookups['panes']
+  program?: UsageLookups['program']
 }
 
 function refusal(err: unknown): ScriptTokenSaveResult {
@@ -119,6 +125,7 @@ export async function updateFromSettings(
       expiresAt,
       ifUpdatedAt,
     })
+    deps.usage?.regenerated(current.id)
     deps.changed()
     return { ok: true, token, value }
   } catch (err) {
@@ -129,8 +136,22 @@ export async function updateFromSettings(
 export function revokeFromSettings(deps: ScriptTokenIpcDeps, id: unknown): boolean {
   if (typeof id !== 'string' || !id || !revokeScriptToken(deps.path(), id)) return false
   removeScript(id)
+  deps.usage?.clear(id)
   deps.changed()
   return true
+}
+
+export async function usageFromSettings(
+  deps: ScriptTokenIpcDeps,
+  id: unknown,
+): Promise<ScriptTokenUsage | null> {
+  if (typeof id !== 'string' || !id) return null
+  try {
+    const { token, usage } = await scriptTokenUsage(deps, id)
+    return token.id === id ? usage : null
+  } catch {
+    return null
+  }
 }
 
 export function fromAppWindow(deps: ScriptTokenIpcDeps, e: IpcMainInvokeEvent): boolean {
@@ -163,5 +184,9 @@ export function registerScriptTokenIpc(deps: ScriptTokenIpcDeps): void {
   ipcMain.handle(
     'scriptTokens:revoke',
     guarded((id: unknown) => revokeFromSettings(deps, id)),
+  )
+  ipcMain.handle(
+    'scriptTokens:usage',
+    guarded((id: unknown) => usageFromSettings(deps, id)),
   )
 }

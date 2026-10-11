@@ -59,6 +59,38 @@ export interface ScriptTokensState {
   groups: ScriptTokenGroup[]
 }
 
+export type ScriptTokenCallOutcome =
+  | 'ok'
+  | 'out-of-scope'
+  | 'missing-permission'
+  | 'error'
+  | 'regenerated'
+
+export interface ScriptTokenCallTarget {
+  workspaceId?: string
+  paneId?: string
+}
+
+export interface ScriptTokenCall {
+  at: string
+  method: string
+  target: ScriptTokenCallTarget
+  outcome: ScriptTokenCallOutcome
+  code?: string
+}
+
+export interface ScriptTokenConnection {
+  pid?: number
+  program?: string
+}
+
+export interface ScriptTokenUsage {
+  calls: ScriptTokenCall[]
+  connections: ScriptTokenConnection[]
+  last24h: { calls: number; refused: number }
+  names: { workspaces: Record<string, string>; panes: Record<string, string> }
+}
+
 export interface ScriptTokenCreateInput {
   name: string
   caps: Capability[]
