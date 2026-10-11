@@ -8,8 +8,10 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import { PTY_ACK_CHARS } from '@shared/terminal/ptyFlow'
 import {
   type RenderResult,
   act,
@@ -20,6 +22,7 @@ import {
   waitFor,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { FitAddon } from '@xterm/addon-fit'
 import type { ILink, ILinkHandler, ILinkProvider, Terminal as Xterm } from '@xterm/xterm'
 import type { ReactElement } from 'react'
 import { afterAll, afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
@@ -148,11 +151,13 @@ describe('TerminalView engines', () => {
     Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, value: 800 })
     Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, value: 600 })
     globalThis.ResizeObserver = InitialObservation as unknown as typeof ResizeObserver
+    vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
   })
 
   afterAll(() => {
     HTMLCanvasElement.prototype.getContext = realGetContext
     globalThis.ResizeObserver = realResizeObserver
+    vi.mocked(FitAddon.prototype.proposeDimensions).mockRestore()
   })
 
   afterEach(() => {
@@ -232,6 +237,98 @@ describe('TerminalView engines', () => {
   it('rescales glyphs that overlap their cell in xterm.js', async () => {
     await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
     expect(terminalFor('p1')?.options.rescaleOverlappingGlyphs).toBe(true)
+  })
+
+  it('sends ESC CR for Shift+Enter in xterm.js', async () => {
+    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter', keyCode: 13, shiftKey: true })
+    await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', '\x1b\r'))
+    expect(window.ostia.pty.write).not.toHaveBeenCalledWith('p1', '\r')
+  })
+
+  it('repaints a held prompt once and acks it once after a resize in xterm.js', async () => {
+    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+    const deliver = vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
+    const prompt = '\x1b]133;A\x07$ '
+    act(() => deliver(prompt))
+    await waitFor(() => expect(useBlocksStore.getState().drafts.p1).toBeDefined())
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)))
+    vi.mocked(FitAddon.prototype.proposeDimensions).mockReturnValue({ cols: 100, rows: 30 })
+    onTestFinished(() => {
+      vi.mocked(FitAddon.prototype.proposeDimensions).mockReturnValue(undefined)
+    })
+    act(() =>
+      useSettingsStore.setState((s) => ({
+        appearance: {
+          ...s.appearance,
+          terminal: { ...s.appearance.terminal, size: s.appearance.terminal.size + 1 },
+        },
+      })),
+    )
+    await waitFor(() => expect(window.ostia.pty.resize).toHaveBeenCalledWith('p1', 100, 30))
+    const xterm = terminalFor('p1') as unknown as Xterm
+    const writes = vi.spyOn(xterm, 'write')
+    const redraw = `\r\x1b[K$ ${'r'.repeat(PTY_ACK_CHARS)}`
+    act(() => deliver(redraw))
+    await waitFor(() => expect(xterm.cols).toBe(100))
+    await act(() => new Promise((resolve) => setTimeout(resolve, 100)))
+    expect(writes.mock.calls.filter(([data]) => data === redraw)).toHaveLength(1)
+    expect(vi.mocked(window.ostia.pty.ack).mock.calls).toEqual([
+      ['p1', prompt.length + redraw.length],
+    ])
+  })
+
+  it('draws and acks output once when a resize lands between write slices in xterm.js', async () => {
+    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)))
+    const deliver = vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
+    const chunks = ['first', 'second', 'third'].map(
+      (word) => `${word}-out\r\n${' '.repeat(PTY_ACK_CHARS)}\r\n`,
+    )
+    vi.mocked(FitAddon.prototype.proposeDimensions).mockReturnValue({ cols: 100, rows: 30 })
+    onTestFinished(() => {
+      vi.mocked(FitAddon.prototype.proposeDimensions).mockReturnValue(undefined)
+    })
+    let now = performance.now()
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => {
+      now += 20
+      return now
+    })
+    act(() => {
+      for (const chunk of chunks) deliver(chunk)
+    })
+    await new Promise<void>((resolve) =>
+      setTimeout(() => {
+        clock.mockRestore()
+        act(() =>
+          useSettingsStore.setState((s) => ({
+            appearance: {
+              ...s.appearance,
+              terminal: { ...s.appearance.terminal, size: s.appearance.terminal.size + 1 },
+            },
+          })),
+        )
+        resolve()
+      }),
+    )
+    const xterm = terminalFor('p1') as unknown as Xterm
+    await waitFor(() => expect(xterm.cols).toBe(100))
+    await act(() => new Promise((resolve) => setTimeout(resolve, 100)))
+    const lines = Array.from({ length: xterm.buffer.active.length }, (_, y) =>
+      xterm.buffer.active.getLine(y)?.translateToString(true),
+    )
+    expect(lines.filter((line) => line?.endsWith('-out'))).toEqual([
+      'first-out',
+      'second-out',
+      'third-out',
+    ])
+    expect(vi.mocked(window.ostia.pty.ack).mock.calls).toEqual(
+      chunks.map((chunk) => ['p1', chunk.length]),
+    )
   })
 
   it('keeps Option-drag away from the program in a Ghostty terminal on macOS only', async () => {

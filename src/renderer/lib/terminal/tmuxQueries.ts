@@ -1,4 +1,5 @@
-import type { IDisposable, IFunctionIdentifier, IParser } from '@xterm/xterm'
+import type { IDisposable, IFunctionIdentifier } from '@xterm/xterm'
+import type { TerminalParser } from './ostiaTerminal'
 
 const WINDOW_REPORTS = new Set([11, 13, 14, 15, 16, 18, 19, 20, 21, 22, 23])
 const COLOR_QUERIES = [4, 10, 11, 12, 17, 19]
@@ -18,7 +19,7 @@ const CSI_QUERIES: {
   { id: { final: 't' }, when: (params) => WINDOW_REPORTS.has(Number(params[0] ?? 0)) },
 ]
 
-export function silenceQueryReplies(term: { parser: IParser }): IDisposable {
+export function silenceQueryReplies(term: { parser: TerminalParser }): IDisposable {
   const handlers: IDisposable[] = [
     ...CSI_QUERIES.map(({ id, when }) =>
       term.parser.registerCsiHandler(id, (params) => (when ? when([...params]) : true)),
