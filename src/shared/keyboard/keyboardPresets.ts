@@ -56,6 +56,7 @@ export const NATURAL_TEXT_EDITING_KEYS: PresetKeys = {
   'Cmd+Left': hex('0x01'),
   'Cmd+Right': hex('0x05'),
   Delete: hex('0x04'),
+  'Shift+Enter': hex('0x1b 0x0d'),
 }
 
 export const TERMINAL_KEYMAPS: readonly TerminalKeymap[] = [
