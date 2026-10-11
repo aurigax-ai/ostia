@@ -67,7 +67,7 @@ describe('parseTerminalSettings', () => {
       clipboardKeys: 'shift',
       theme: 'match',
       shell: '',
-      osc52Write: false,
+      osc52Write: true,
       keepShells: false,
       primarySelection: true,
       macOptionIsMeta: false,
