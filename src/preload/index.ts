@@ -103,6 +103,7 @@ import type { SpecCommand } from '../shared/terminal/completionSpec'
 import type {
   AppInfo,
   AppSnapshot,
+  ClipboardContents,
   CommandInvokeRequest,
   CredentialFillResult,
   ExternalEditorResult,
@@ -557,7 +558,7 @@ const bridge: OstiaBridge = {
   },
   clipboard: {
     edit: (edit) => ipcRenderer.invoke('clipboard:edit', edit) as Promise<void>,
-    hasImage: () => ipcRenderer.invoke('clipboard:has-image') as Promise<boolean>,
+    contents: () => ipcRenderer.invoke('clipboard:contents') as Promise<ClipboardContents>,
     setChords: (chords) => ipcRenderer.send('clipboard:set-chords', chords),
   },
   guestChords: {

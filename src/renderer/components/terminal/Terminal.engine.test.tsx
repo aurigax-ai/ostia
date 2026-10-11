@@ -12,6 +12,7 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { PTY_ACK_CHARS } from '@shared/terminal/ptyFlow'
+import type { ClipboardContents } from '@shared/types'
 import {
   type RenderResult,
   act,
@@ -473,13 +474,184 @@ describe('TerminalView engines', () => {
     useSettingsStore.setState({
       terminal: { ...useSettingsStore.getState().terminal, clipboardKeys: 'smart' },
     })
-    vi.mocked(window.ostia.clipboard.hasImage).mockResolvedValueOnce(true)
+    vi.mocked(window.ostia.clipboard.contents).mockResolvedValueOnce({ files: [], image: true })
     const user = userEvent.setup()
     const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
     const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
     act(() => textarea.focus())
     await user.keyboard('{Control>}v{/Control}')
     await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', '\x16'))
+  })
+
+  for (const [name, text, contents, written] of [
+    [
+      'the quoted path of a copied file even when text is on the clipboard too',
+      'shot.png',
+      { files: ['/tmp/my shot.png'], image: true },
+      "'/tmp/my shot.png' ",
+    ],
+    [
+      'the text of a spreadsheet copy that carries an image preview',
+      'Name\tQty',
+      { files: [], image: true },
+      'Name\tQty',
+    ],
+    [
+      'Ctrl+V for an image whose text is a file name',
+      'shot.png',
+      { files: [], image: true },
+      '\x16',
+    ],
+  ] as const) {
+    it(`smart Ctrl+V pastes ${name}`, async () => {
+      useSettingsStore.setState({
+        terminal: { ...useSettingsStore.getState().terminal, clipboardKeys: 'smart' },
+      })
+      const readText = vi.fn().mockResolvedValue(text)
+      const realClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+      Object.defineProperty(navigator, 'clipboard', { value: { readText }, configurable: true })
+      onTestFinished(() => {
+        if (realClipboard) Object.defineProperty(navigator, 'clipboard', realClipboard)
+        else Reflect.deleteProperty(navigator, 'clipboard')
+      })
+      vi.mocked(window.ostia.clipboard.contents).mockResolvedValueOnce({
+        files: [...contents.files],
+        image: contents.image,
+      })
+      const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+      const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+      fireEvent.keyDown(textarea, { key: 'v', code: 'KeyV', ctrlKey: true })
+      await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', written))
+    })
+  }
+
+  it('smart Ctrl+V pastes the quoted path of a copied file even when its image is on the clipboard too', async () => {
+    useSettingsStore.setState({
+      terminal: { ...useSettingsStore.getState().terminal, clipboardKeys: 'smart' },
+    })
+    vi.mocked(window.ostia.clipboard.contents).mockResolvedValueOnce({
+      files: ['/tmp/my shot.png'],
+      image: true,
+    })
+    const user = userEvent.setup()
+    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    act(() => textarea.focus())
+    await user.keyboard('{Control>}v{/Control}')
+    await waitFor(() =>
+      expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', "'/tmp/my shot.png' "),
+    )
+    expect(window.ostia.pty.write).not.toHaveBeenCalledWith('p1', '\x16')
+  })
+
+  const written = (...wanted: string[]): string[] =>
+    vi
+      .mocked(window.ostia.pty.write)
+      .mock.calls.map(([, data]) => data)
+      .filter((data) => wanted.includes(data))
+
+  const pasteEvent = (target: HTMLElement, text: string, types: string[]): void => {
+    const paste = new Event('paste', { bubbles: true, cancelable: true }) as ClipboardEvent
+    Object.defineProperty(paste, 'clipboardData', {
+      value: { getData: (type: string) => (type === 'text/plain' ? text : ''), types },
+    })
+    act(() => {
+      target.dispatchEvent(paste)
+    })
+  }
+
+  const pressEnter = (target: HTMLElement): void => {
+    fireEvent.keyDown(target, { key: 'Enter', code: 'Enter', keyCode: 13 })
+  }
+
+  const clipboardText = (text: string): void => {
+    const readText = vi.fn().mockResolvedValue(text)
+    const realClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+    Object.defineProperty(navigator, 'clipboard', { value: { readText }, configurable: true })
+    onTestFinished(() => {
+      if (realClipboard) Object.defineProperty(navigator, 'clipboard', realClipboard)
+      else Reflect.deleteProperty(navigator, 'clipboard')
+    })
+  }
+
+  const heldContents = (): ((contents: ClipboardContents) => void) => {
+    let release: (contents: ClipboardContents) => void = () => {}
+    vi.mocked(window.ostia.clipboard.contents).mockReturnValueOnce(
+      new Promise((resolve) => {
+        release = resolve
+      }),
+    )
+    return (contents) => act(() => release(contents))
+  }
+
+  it('a plain-text Cmd+V on macOS goes in at once, before the Enter pressed right after it', async () => {
+    os.mac = true
+    onTestFinished(() => {
+      os.mac = false
+    })
+    clipboardText('echo hi')
+    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    pasteEvent(textarea, 'echo hi', ['text/plain'])
+    pressEnter(textarea)
+    expect(written('echo hi', '\r')).toEqual(['echo hi', '\r'])
+    expect(window.ostia.clipboard.contents).not.toHaveBeenCalled()
+  })
+
+  for (const [name, contents, pasted] of [
+    ['the text', { files: [], image: false }, 'echo hi'],
+    [
+      'the quoted path of a copied file',
+      { files: ['/tmp/a b.png'], image: true },
+      "'/tmp/a b.png' ",
+    ],
+  ] as const) {
+    it(`a Cmd+V on macOS that may carry a file sends ${name} before the Enter pressed while the clipboard is read`, async () => {
+      os.mac = true
+      onTestFinished(() => {
+        os.mac = false
+      })
+      clipboardText('echo hi')
+      const release = heldContents()
+      const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+      const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+      pasteEvent(textarea, 'echo hi', ['Files', 'text/plain'])
+      pressEnter(textarea)
+      await waitFor(() => expect(window.ostia.clipboard.contents).toHaveBeenCalled())
+      expect(written(pasted, '\r')).toEqual([])
+      release({ files: [...contents.files], image: contents.image })
+      await waitFor(() => expect(written(pasted, '\r')).toEqual([pasted, '\r']))
+    })
+  }
+
+  it('a Cmd+V on macOS pastes the text of the paste when the clipboard read hangs', async () => {
+    os.mac = true
+    onTestFinished(() => {
+      os.mac = false
+    })
+    clipboardText('echo hi')
+    vi.mocked(window.ostia.clipboard.contents).mockReturnValueOnce(new Promise(() => {}))
+    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    pasteEvent(textarea, 'echo hi', ['Files', 'text/plain'])
+    pressEnter(textarea)
+    await waitFor(() => expect(written('echo hi', '\r')).toEqual(['echo hi', '\r']))
+  })
+
+  it('smart Ctrl+V sends the clipboard before the Enter pressed while the clipboard is read', async () => {
+    useSettingsStore.setState({
+      terminal: { ...useSettingsStore.getState().terminal, clipboardKeys: 'smart' },
+    })
+    clipboardText('echo hi')
+    const release = heldContents()
+    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    fireEvent.keyDown(textarea, { key: 'v', code: 'KeyV', ctrlKey: true })
+    pressEnter(textarea)
+    await waitFor(() => expect(window.ostia.clipboard.contents).toHaveBeenCalled())
+    expect(written('echo hi', '\r')).toEqual([])
+    release({ files: [], image: false })
+    await waitFor(() => expect(written('echo hi', '\r')).toEqual(['echo hi', '\r']))
   })
 
   for (const [system, chord] of [

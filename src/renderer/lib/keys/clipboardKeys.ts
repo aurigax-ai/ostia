@@ -1,4 +1,5 @@
 import type { ClipboardKeys } from '@/settings/terminalPaneSettings'
+import type { ClipboardContents } from '@shared/types'
 
 interface KeyLike {
   key: string
@@ -24,19 +25,54 @@ export function smartClipboardAction(
 
 export const PROGRAM_PASTE_KEY = '\x16'
 
+export const NO_CLIPBOARD_CONTENTS: ClipboardContents = { files: [], image: false }
+
+export const CLIPBOARD_READ_MS = 300
+
+const FILE_NAME_TEXT = /^[^\s/\\]+\.(png|jpe?g|gif|tiff?|heic|webp|pdf)$/i
+const URL_TEXT = /^(https?|file):\/\/\S+$/i
+const IMAGE_NAME_LINE = /^[^\r\n]*[^\s.]\.(png|jpe?g|gif|tiff?|heic|webp|pdf)$/i
+const SHELL_OPERATOR = /[>|;&`]|\$\(/
+
+export function isStubText(text: string): boolean {
+  const trimmed = text.trim()
+  if (trimmed === '' || FILE_NAME_TEXT.test(trimmed) || URL_TEXT.test(trimmed)) return true
+  return IMAGE_NAME_LINE.test(trimmed) && !SHELL_OPERATOR.test(trimmed)
+}
+
 export function keyPastePlan(
   text: string,
   editorShown: boolean,
-  hasImage: boolean,
-): 'text' | 'program' | 'none' {
-  if (text) return 'text'
-  return !editorShown && hasImage ? 'program' : 'none'
+  contents: ClipboardContents,
+): 'text' | 'files' | 'program' | 'none' {
+  if (editorShown) return text ? 'text' : 'none'
+  if (contents.files.length > 0) return 'files'
+  if (contents.image && isStubText(text)) return 'program'
+  return text ? 'text' : 'none'
 }
 
 export function pasteEventReadsClipboard(
+  types: readonly string[],
   text: string,
   editorShown: boolean,
   mac: boolean,
 ): boolean {
-  return mac && !text && !editorShown
+  if (!mac || editorShown) return false
+  return !text || types.includes('Files') || types.includes('text/uri-list')
+}
+
+export function settleWithin<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      () => {
+        clearTimeout(timer)
+        resolve(fallback)
+      },
+    )
+  })
 }

@@ -3580,7 +3580,14 @@ app.whenReady().then(() => {
   clipboardEdits = registerClipboardEdits({
     ipc: ipcMain,
     isAppWindow: (sender) => windows.get(String(sender.id))?.webContents === sender,
-    availableFormats: async () => (await clipboard.read()).flatMap((item) => item.types),
+    snapshot: async () => {
+      const items = await clipboard.read()
+      const listed = items.find((item) => item.types.includes('text/uri-list'))
+      return {
+        formats: items.flatMap((item) => item.types),
+        uriList: listed ? await (await listed.getType('text/uri-list')).text() : '',
+      }
+    },
     mac: process.platform === 'darwin',
   })
   guestChords = registerGuestChords({
