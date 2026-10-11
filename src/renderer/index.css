@@ -2498,12 +2498,12 @@ button.prompt-chip:focus-visible {
   background-color: transparent;
 }
 
-.xterm-host .xterm .xterm-scrollable-element > .scrollbar > .slider {
+.xterm-host .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider {
   background: var(--scrollbar-thumb);
 }
 
-.xterm-host .xterm .xterm-scrollable-element > .scrollbar > .slider:hover,
-.xterm-host .xterm .xterm-scrollable-element > .scrollbar > .slider.active {
+.xterm-host .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider:hover,
+.xterm-host .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider.xterm-active {
   background: var(--scrollbar-thumb-hover);
 }
 

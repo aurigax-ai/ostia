@@ -48,6 +48,14 @@ if (!Element.prototype.getAnimations) {
 HTMLCanvasElement.prototype.getContext = (() =>
   null) as typeof HTMLCanvasElement.prototype.getContext
 
+if (!('OffscreenCanvas' in globalThis)) {
+  globalThis.OffscreenCanvas = class {
+    getContext(kind: string) {
+      return kind === '2d' ? { font: '', measureText: () => ({ width: 0 }) } : null
+    }
+  } as unknown as typeof OffscreenCanvas
+}
+
 beforeEach(() => {
   startConsoleGuard()
   installLocalStorage()
