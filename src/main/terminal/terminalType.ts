@@ -15,6 +15,10 @@ export function ptyIdentityEnv(version: string): Record<string, string> {
   return { TERM_PROGRAM: 'ostia', TERM_PROGRAM_VERSION: version }
 }
 
+export function ptyHyperlinkEnv(parent: EnvSource): Record<string, string> {
+  return parent.FORCE_HYPERLINK === undefined ? { FORCE_HYPERLINK: '1' } : {}
+}
+
 const LOCALE_ENV_NAMES = ['LANG', 'LC_ALL', 'LC_CTYPE']
 
 const DEFAULT_REGIONS: Record<string, string> = {
@@ -125,6 +129,7 @@ export function paneShellEnv(parts: PaneShellEnvParts): Record<string, string> {
     ...artifactsEnv(parts.artifactsDir),
     ...agentHooksEnv(parts.agentHooks),
     ...ptyLocaleEnv(parts.parent, parts.locale, parts.hasLocale),
+    ...ptyHyperlinkEnv(parts.parent),
     ...PTY_COLOR_ENV,
     ...ptyIdentityEnv(parts.version),
   } as Record<string, string>
