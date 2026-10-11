@@ -74,7 +74,11 @@ import type {
 } from '../shared/languageServers'
 import type { ApprovalState } from '../shared/permissions/approvals'
 import type { AgentGroupPlacement } from '../shared/permissions/reach'
-import type { ScriptTokenSaveResult, ScriptTokensState } from '../shared/permissions/scriptTokens'
+import type {
+  ScriptTokenSaveResult,
+  ScriptTokenUsage,
+  ScriptTokensState,
+} from '../shared/permissions/scriptTokens'
 import type {
   RemoteFolder,
   RemoteFolderAsk,
@@ -733,6 +737,7 @@ const bridge: OstiaBridge = {
     update: (input) =>
       ipcRenderer.invoke('scriptTokens:update', input) as Promise<ScriptTokenSaveResult>,
     revoke: (id) => ipcRenderer.invoke('scriptTokens:revoke', id) as Promise<boolean>,
+    usage: (id) => ipcRenderer.invoke('scriptTokens:usage', id) as Promise<ScriptTokenUsage | null>,
     onChanged: (cb) => {
       const handler = (): void => cb()
       ipcRenderer.on('scriptTokens:changed', handler)

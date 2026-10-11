@@ -71,6 +71,7 @@ import type {
   ScriptTokenCreateInput,
   ScriptTokenSaveResult,
   ScriptTokenUpdateInput,
+  ScriptTokenUsage,
   ScriptTokensState,
 } from './permissions/scriptTokens'
 import type { PrivacyApi } from './privacy/redaction'
@@ -896,6 +897,7 @@ export interface ScriptTokensApi {
   create: (input: ScriptTokenCreateInput) => Promise<ScriptTokenSaveResult>
   update: (input: ScriptTokenUpdateInput) => Promise<ScriptTokenSaveResult>
   revoke: (id: string) => Promise<boolean>
+  usage: (id: string) => Promise<ScriptTokenUsage | null>
   onChanged: (cb: () => void) => () => void
 }
 

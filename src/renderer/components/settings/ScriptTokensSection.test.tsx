@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import type {
   ScriptTokenInfo,
   ScriptTokenSaveResult,
+  ScriptTokenUsage,
   ScriptTokensState,
 } from '@shared/permissions/scriptTokens'
 import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
@@ -108,6 +109,7 @@ describe('ScriptTokensSection', () => {
     vi.mocked(api().create).mockReset()
     vi.mocked(api().update).mockReset()
     vi.mocked(api().revoke).mockClear()
+    vi.mocked(api().usage).mockResolvedValue(null)
   })
 
   afterEach(() => {
@@ -488,5 +490,74 @@ describe('ScriptTokensSection', () => {
     await user.click(within(confirm).getByRole('button', { name: 'Revoke' }))
     await waitFor(() => expect(api().revoke).toHaveBeenCalledWith('t1'))
     expect(await screen.findByRole('button', { name: 'Generate new token' })).toBeInTheDocument()
+  })
+
+  it('shows the connections, the last 24 hours and the recent calls in the details', async () => {
+    const usage: ScriptTokenUsage = {
+      calls: [
+        {
+          at: at(-60_000),
+          method: 'pane.read',
+          target: { workspaceId: 'w1', paneId: 'p1' },
+          outcome: 'ok',
+        },
+        { at: at(-120_000), method: 'pane.list', target: {}, outcome: 'ok' },
+        {
+          at: at(-180_000),
+          method: 'pane.read',
+          target: { workspaceId: 'gone', paneId: 'p9' },
+          outcome: 'out-of-scope',
+          code: 'needs-elevation: all-workspaces',
+        },
+        {
+          at: at(-240_000),
+          method: 'pane.close',
+          target: { workspaceId: 'w3' },
+          outcome: 'missing-permission',
+        },
+        { at: at(-300_000), method: '', target: {}, outcome: 'regenerated' },
+      ],
+      connections: [{ pid: 48211 }],
+      last24h: { calls: 142, refused: 2 },
+      names: { workspaces: { w1: 'ostia', w3: 'topomapx' }, panes: { p1: 'claude' } },
+    }
+    vi.mocked(api().usage).mockResolvedValue(usage)
+    const user = userEvent.setup()
+    render(<ScriptTokensSection />)
+    await user.click(await screen.findByRole('button', { name: 'ostia-ceo' }))
+
+    expect(await screen.findByText('142 calls')).toBeInTheDocument()
+    expect(api().usage).toHaveBeenCalledWith('t1')
+    expect(screen.getByText('2 refused')).toBeInTheDocument()
+    expect(screen.getByText('1 open')).toBeInTheDocument()
+    expect(screen.getByText('Self-reported pid 48211')).toBeInTheDocument()
+    expect(screen.getByText('About the last 24 hours')).toBeInTheDocument()
+    expect(
+      screen.getByText('Keeps the last 100 calls. Input is never recorded.'),
+    ).toBeInTheDocument()
+    const rows = within(screen.getByRole('table')).getAllByRole('row').slice(1)
+    expect(
+      rows.map((r) =>
+        within(r)
+          .getAllByRole('cell')
+          .slice(1)
+          .map((c) => c.textContent),
+      ),
+    ).toEqual([
+      ['pane.read', 'ostia / claude', 'Allowed'],
+      ['pane.list', '—', 'Allowed'],
+      ['pane.read', 'Deleted / Deleted', 'Outside access'],
+      ['pane.close', 'topomapx', 'Missing permission'],
+      ['Regenerated', '—', ''],
+    ])
+  })
+
+  it('says when a token has no calls yet', async () => {
+    const user = userEvent.setup()
+    render(<ScriptTokensSection />)
+    await user.click(await screen.findByRole('button', { name: 'patrol' }))
+    expect(await screen.findByText('No calls yet.')).toBeInTheDocument()
+    expect(screen.getByText('0 open')).toBeInTheDocument()
+    expect(screen.getByText('0 calls')).toBeInTheDocument()
   })
 })
