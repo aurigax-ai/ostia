@@ -229,6 +229,11 @@ describe('TerminalView engines', () => {
     expect(terminalFor('p1')?.options.macOptionClickForcesSelection).toBe(true)
   })
 
+  it('rescales glyphs that overlap their cell in xterm.js', async () => {
+    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    expect(terminalFor('p1')?.options.rescaleOverlappingGlyphs).toBe(true)
+  })
+
   it('keeps Option-drag away from the program in a Ghostty terminal on macOS only', async () => {
     const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
     await waitFor(() => expect(container.querySelector('.ghostty-host canvas')).not.toBeNull())

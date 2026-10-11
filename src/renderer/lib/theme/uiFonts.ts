@@ -1,3 +1,4 @@
+import { isMac } from '@/platform'
 import type { SurfaceFont } from '@/stores/app/settingsStore'
 
 export const UI_FONT_FALLBACK =
@@ -5,11 +6,18 @@ export const UI_FONT_FALLBACK =
 
 const LATIN_MONO_FALLBACK = '"DejaVu Sans Mono", SFMono-Regular, Menlo, Consolas'
 
-const CJK_MONO_FALLBACK = '"Sarasa Mono TC", "Noto Sans Mono CJK TC", monospace'
+const cjkMonoFallback = (mac: boolean): string =>
+  `"Sarasa Mono TC", "Noto Sans Mono CJK TC", ${mac ? '"PingFang TC", ' : ''}monospace`
 
-export const CODE_FONT_FALLBACK = `"Geist Mono Variable", "Hack Nerd Font Mono", ${LATIN_MONO_FALLBACK}, ${CJK_MONO_FALLBACK}`
+export const codeFontFallback = (mac: boolean): string =>
+  `"Geist Mono Variable", "Hack Nerd Font Mono", ${LATIN_MONO_FALLBACK}, ${cjkMonoFallback(mac)}`
 
-export const TERMINAL_FONT_FALLBACK = `"Hack Nerd Font Mono", ${LATIN_MONO_FALLBACK}, ${CJK_MONO_FALLBACK}`
+export const terminalFontFallback = (mac: boolean): string =>
+  `"Hack Nerd Font Mono", ${LATIN_MONO_FALLBACK}, ${cjkMonoFallback(mac)}`
+
+export const CODE_FONT_FALLBACK = codeFontFallback(isMac)
+
+export const TERMINAL_FONT_FALLBACK = terminalFontFallback(isMac)
 
 const UNSAFE_IN_FAMILY = /["\\;{}<>]/g
 
