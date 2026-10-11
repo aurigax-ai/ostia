@@ -574,6 +574,7 @@ describe('KeyboardSection', () => {
       'Edit Ctrl+Backspace',
       'Edit Ctrl+←',
       'Edit Ctrl+→',
+      'Edit Shift+Enter',
     ])
     const choices = within(presets('Text editing'))
       .getAllByRole('button')
@@ -1044,9 +1045,9 @@ describe('KeyboardSection layered view', () => {
       ).toBeInTheDocument()
       await pickPreset('Text editing', 'No translation')
       expect(
-        within(preview()).getByText('Switching to No translation changes these keys (5)'),
+        within(preview()).getByText('Switching to No translation changes these keys (6)'),
       ).toBeInTheDocument()
-      expect(within(preview()).getAllByText('Not translated')).toHaveLength(5)
+      expect(within(preview()).getAllByText('Not translated')).toHaveLength(6)
       await pickPreset('Text editing', 'Ostia standard')
       expect(document.querySelector('[data-slot="preset-preview"]')).toBeNull()
       expect(useSettingsStore.getState().terminalKeymap).toBeNull()
@@ -1121,10 +1122,10 @@ describe('KeyboardSection layered view', () => {
         terminalKeys: { 'Ctrl+Alt+K': { type: 'text', value: 'k' } },
       })
       render(<KeyboardSection />)
-      await userEvent.click(within(viewSwitch()).getByRole('button', { name: 'My changes (7)' }))
+      await userEvent.click(within(viewSwitch()).getByRole('button', { name: 'My changes (8)' }))
       await userEvent.click(screen.getByRole('button', { name: 'Revert everything to Ostia' }))
       expect(
-        screen.getByText('This removes your 7 changes and switches both presets back to Ostia.'),
+        screen.getByText('This removes your 8 changes and switches both presets back to Ostia.'),
       ).toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
       expect(useSettingsStore.getState().keybindings).toEqual({ find: 'Ctrl+Alt+F' })
@@ -1232,7 +1233,7 @@ describe('KeyboardSection layered view', () => {
         expect(document.querySelector('[data-slot="binding-detail"]')).toBeNull()
         expect(document.activeElement).toHaveAttribute('aria-label', toggles[1])
 
-        const last = toggleFor('Ctrl+→')
+        const last = screen.getByRole('button', { name: toggles.at(-1) ?? '' })
         act(() => last.focus())
         await userEvent.keyboard('{ArrowDown}')
         expect(document.activeElement).toBe(last)

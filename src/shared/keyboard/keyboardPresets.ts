@@ -35,6 +35,7 @@ export const OSTIA_TERMINAL_KEYS: PresetKeys = {
   'Alt+Backspace': hex('0x1b 0x7f'),
   'Alt+Delete': esc('d'),
   'Cmd+Delete': hex('0x0b'),
+  'Shift+Enter': hex('0x1b 0x0d'),
 }
 
 export const OSTIA_LINUX_TERMINAL_KEYS: PresetKeys = {
@@ -43,6 +44,7 @@ export const OSTIA_LINUX_TERMINAL_KEYS: PresetKeys = {
   'Alt+Left': esc('b'),
   'Alt+Right': esc('f'),
   'Ctrl+Backspace': hex('0x17'),
+  'Shift+Enter': hex('0x1b 0x0d'),
 }
 
 export const NATURAL_TEXT_EDITING_KEYS: PresetKeys = {

@@ -53,8 +53,9 @@ describe('preset tables', () => {
       'Alt+Left',
       'Alt+Right',
       'Ctrl+Backspace',
+      'Shift+Enter',
     ])
     expect(terminalKeymapKeys('none', 'linux')).toEqual({})
-    expect(Object.keys(terminalKeymapKeys('ostia', 'mac'))).toHaveLength(8)
+    expect(Object.keys(terminalKeymapKeys('ostia', 'mac'))).toHaveLength(9)
   })
 })

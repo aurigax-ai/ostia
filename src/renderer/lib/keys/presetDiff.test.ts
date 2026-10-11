@@ -9,9 +9,10 @@ import { appKeyChanges, terminalKeyChanges } from './presetDiff'
 describe('terminalKeyChanges', () => {
   it('lists keys that differ between two presets on macOS', () => {
     const changes = terminalKeyChanges(OSTIA_TERMINAL_KEYS, NATURAL_TEXT_EDITING_KEYS, true)
-    expect(changes.map((c) => c.keys).sort()).toEqual(['Delete', '⌘Delete'])
+    expect(changes.map((c) => c.keys).sort()).toEqual(['Delete', '⇧Enter', '⌘Delete'])
     expect(changes.find((c) => c.keys === '⌘Delete')).toMatchObject({ after: null })
     expect(changes.find((c) => c.keys === 'Delete')).toMatchObject({ before: null })
+    expect(changes.find((c) => c.keys === '⇧Enter')).toMatchObject({ after: null })
   })
 
   it('reports every key removed when switching to an empty preset', () => {
