@@ -239,6 +239,12 @@ describe('TerminalView engines', () => {
     expect(terminalFor('p1')?.options.rescaleOverlappingGlyphs).toBe(true)
   })
 
+  it('keeps the kitty keyboard protocol off in xterm.js', async () => {
+    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    const xterm = terminalFor('p1') as unknown as Xterm
+    expect(xterm.options.vtExtensions?.kittyKeyboard).toBe(false)
+  })
+
   it('sends ESC CR for Shift+Enter in xterm.js', async () => {
     const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
     await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
