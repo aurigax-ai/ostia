@@ -496,7 +496,7 @@ describe('builtins route to store actions', () => {
   it('settings.set refuses OSC 52 clipboard writes and the global hotkey', async () => {
     const osc = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'terminal.osc52Write',
-      value: true,
+      value: false,
     })
     const hotkey = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'workspaces',
@@ -504,7 +504,7 @@ describe('builtins route to store actions', () => {
     })
     expect(osc.ok).toBe(false)
     expect(hotkey.ok).toBe(false)
-    expect(useSettingsStore.getState().terminal.osc52Write).toBe(false)
+    expect(useSettingsStore.getState().terminal.osc52Write).toBe(true)
     expect(useSettingsStore.getState().workspaces.globalHotkey).toBe('')
   })
 

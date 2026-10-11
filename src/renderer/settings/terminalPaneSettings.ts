@@ -51,7 +51,7 @@ export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
   clipboardKeys: 'shift',
   theme: MATCH_OSTIA_THEME,
   shell: '',
-  osc52Write: false,
+  osc52Write: true,
   keepShells: false,
   primarySelection: true,
   macOptionIsMeta: false,

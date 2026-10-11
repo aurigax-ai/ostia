@@ -59,10 +59,13 @@ function tempDir(): string {
   return dir
 }
 
+const changed = vi.fn()
+
 registerScriptTokenMethods({
   path: () => storeFile,
   retiredPath: () => retiredFile,
   listing: async () => listing,
+  changed,
 })
 registerDocsMethods({ extensions: () => [] })
 setScriptTokenCheck((token) =>
@@ -1107,6 +1110,47 @@ describe('token.update', () => {
   it.each<[string, Record<string, unknown>]>([
     ['permissions', { caps: ['type-other-pane'] }],
     ['scope', { scope: { kind: 'limited', groups: ['Work'] } }],
+  ])(
+    'asks to confirm again when regenerating a token that never expires changes %s',
+    async (_what, change) => {
+      const created = createScriptToken(storeFile, 'forever', ['read-board'], {
+        scope: limited([], ['wsA']),
+        expiresAt: null,
+      })
+      const check = vi.fn(async () => PRESENT)
+      setUserPresenceCheck(check)
+      request.mockClear()
+      await expect(
+        admin.sendRequest('token.update', { id: created.id, ...change }),
+      ).rejects.toThrow('confirmNeverExpires')
+      expect(request).not.toHaveBeenCalled()
+      expect(check).not.toHaveBeenCalled()
+      expect(verifyScriptToken(storeFile, created.token)?.id).toBe(created.id)
+
+      const updated = await admin.sendRequest<{ token?: string; expiresAt: string | null }>(
+        'token.update',
+        { id: created.id, ...change, confirmNeverExpires: true },
+      )
+      expect(updated.expiresAt).toBeNull()
+      expect(updated.token).toMatch(/^ostia_/)
+      expect(verifyScriptToken(storeFile, created.token)).toBeUndefined()
+    },
+  )
+
+  it('renames a token that never expires without the confirmation', async () => {
+    const created = createScriptToken(storeFile, 'forever', ['read-board'], {
+      scope: limited([], ['wsA']),
+      expiresAt: null,
+    })
+    await expect(
+      admin.sendRequest('token.update', { id: created.id, name: 'forever-2' }),
+    ).resolves.toMatchObject({ name: 'forever-2' })
+    expect(verifyScriptToken(storeFile, created.token)?.name).toBe('forever-2')
+  })
+
+  it.each<[string, Record<string, unknown>]>([
+    ['permissions', { caps: ['type-other-pane'] }],
+    ['scope', { scope: { kind: 'limited', groups: ['Work'] } }],
     ['expiry', { expires: '30d' }],
   ])('changing %s regenerates the value and cuts the old one off', async (_what, change) => {
     const created = createScriptToken(storeFile, 'ceo', ['read-board'], {
@@ -1342,6 +1386,20 @@ describe('token.create scope and expiry', () => {
     )
     expect(created.scope).toEqual(limited([WORK], ['wsC', 'wsD']))
     expect(Date.parse(created.expiresAt) - Date.now()).toBeGreaterThan(6.9 * 86_400_000)
+  })
+
+  it('tells Settings when the CLI generates, edits or revokes a token', async () => {
+    changed.mockClear()
+    const created = await admin.sendRequest<{ id: string }>('token.create', {
+      name: 'board',
+      caps: ['read-board'],
+      scope: ALL,
+    })
+    expect(changed).toHaveBeenCalledTimes(1)
+    await admin.sendRequest('token.update', { id: created.id, name: 'board-2' })
+    expect(changed).toHaveBeenCalledTimes(2)
+    await admin.sendRequest('token.revoke', { id: created.id })
+    expect(changed).toHaveBeenCalledTimes(3)
   })
 
   it.each<[Record<string, unknown>, string]>([

@@ -56,9 +56,16 @@ describe('registerOsc52', () => {
     expect(replay.write).not.toHaveBeenCalled()
   })
 
-  it('OSC 52 leaves the clipboard alone by default', () => {
+  it('OSC 52 writes the clipboard by default', () => {
     const fresh = setup(parseTerminalSettings(undefined).osc52Write)
-    fresh.send(`c;${b64('ostia-osc52-off')}`)
+    fresh.send(`c;${b64('ostia-osc52-on')}`)
+    expect(fresh.write).toHaveBeenCalledWith('ostia-osc52-on')
+  })
+
+  it('never writes an empty payload even when the setting is on', () => {
+    const fresh = setup(parseTerminalSettings(undefined).osc52Write)
+    expect(fresh.send('c;')).toBe(true)
+    fresh.send(';')
     expect(fresh.write).not.toHaveBeenCalled()
   })
 })

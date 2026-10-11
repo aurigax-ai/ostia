@@ -263,7 +263,8 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia token update <id|name> [--name <name>] [--cap …] [--scope …] [--expires …]  change a
                                  token. Changing its capabilities, scope or expiry prints a new
                                  value and cuts the old one off at once, after the same two
-                                 asks; --name alone keeps it and skips the second
+                                 asks; --name alone keeps it and skips the second. Regenerating
+                                 a token that stays never-expiring needs --yes-never-expires
   ostia token revoke <id|name>   delete a token; scripts using it are cut off at once
   sudo ostia install-polkit      Linux: install the polkit action so confirming a token asks
                                  for your password (or fingerprint) instead of an Ostia dialog
