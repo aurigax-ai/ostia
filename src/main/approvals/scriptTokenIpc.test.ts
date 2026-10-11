@@ -252,6 +252,32 @@ describe('script token IPC', () => {
     }
   })
 
+  it('asks to confirm again when regenerating a token that never expires', async () => {
+    const { token, value } = await created({ expires: 'never', confirmNeverExpires: true })
+    presence.mockClear()
+    for (const change of [{ caps: ['read-board'] }, { scope: { kind: 'all' } }]) {
+      const res = await update({ id: token.id, ifUpdatedAt: token.updatedAt, ...change })
+      expect(res).toMatchObject({ ok: false, error: expect.stringMatching(/confirmNeverExpires/) })
+    }
+    expect(presence).not.toHaveBeenCalled()
+    expect(verifyScriptToken(path, value)?.id).toBe(token.id)
+
+    const res = await update({
+      id: token.id,
+      ifUpdatedAt: token.updatedAt,
+      caps: ['read-board'],
+      confirmNeverExpires: true,
+    })
+    expect(res).toMatchObject({ ok: true, token: { expiresAt: null } })
+    expect(verifyScriptToken(path, value)).toBeUndefined()
+  })
+
+  it('does not ask again once the regenerated token gets an expiry', async () => {
+    const { token } = await created({ expires: 'never', confirmNeverExpires: true })
+    const res = await update({ id: token.id, ifUpdatedAt: token.updatedAt, expires: '90d' })
+    expect(res).toMatchObject({ ok: true, token: { expiresAt: expect.any(String) } })
+  })
+
   it('keeps the old value when presence fails on a regenerate', async () => {
     const { token, value } = await created()
     presence.mockResolvedValueOnce({ ok: false, code: 'cancelled', detail: 'dismissed' })

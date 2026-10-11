@@ -604,11 +604,14 @@ function TokenDialog({
     { value: 'never', label: t.neverExpires },
   ]
 
+  const neverAfter = (choice: ExpiryChoice): boolean =>
+    choice === NEVER_EXPIRES || (choice === 'keep' && token?.expiresAt === null)
+
   const send = async (choice: ExpiryChoice): Promise<void> => {
     setBusy(true)
     setError(null)
     const expires = choice === 'custom' ? customDate : choice
-    const never = expires === NEVER_EXPIRES ? { confirmNeverExpires: true } : {}
+    const never = neverAfter(choice) ? { confirmNeverExpires: true } : {}
     let res: ScriptTokenSaveResult
     if (!token) {
       res = await window.ostia.scriptTokens.create({
@@ -623,7 +626,8 @@ function TokenDialog({
       if (nameChanged) input.name = trimmed
       if (capsChanged) input.caps = caps
       if (scopeChanged) input.scope = sendScope
-      if (choice !== 'keep') Object.assign(input, { expires, ...never })
+      if (choice !== 'keep') input.expires = expires
+      if (regenerates) Object.assign(input, never)
       res = await window.ostia.scriptTokens.update(input)
     }
     setBusy(false)
@@ -633,7 +637,7 @@ function TokenDialog({
 
   const submit = (): void => {
     if (!valid || !changed || busy) return
-    if (regenerates && expiry === 'never') {
+    if (regenerates && neverAfter(expiry)) {
       setAskNever(true)
       return
     }
@@ -878,7 +882,7 @@ function TokenDialog({
                 className="bg-warn-fg text-bg hover:bg-warn-fg/90"
                 onClick={() => {
                   setAskNever(false)
-                  void send(NEVER_EXPIRES)
+                  void send(expiry)
                 }}
               >
                 {t.neverConfirmKeep}

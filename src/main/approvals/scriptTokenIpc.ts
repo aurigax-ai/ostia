@@ -9,6 +9,7 @@ import type { ReachListing } from './reach'
 import {
   type PresenceRequest,
   checkUserPresence,
+  confirmStillNever,
   createScriptToken,
   findScriptToken,
   listScriptTokens,
@@ -108,6 +109,7 @@ export async function updateFromSettings(
     const scope = changes.scope ? resolveScope(changes.scope, await deps.listing()) : current.scope
     const expiresAt =
       changes.expires === undefined ? current.expiresAt : tokenExpiry(changes.expires, new Date())
+    confirmStillNever(changes, expiresAt, name)
     const refused = await refusedPresence({ action: 'regenerate', name })
     if (refused) return refused
     const { token: value, ...token } = updateScriptToken(deps.path(), current.id, {

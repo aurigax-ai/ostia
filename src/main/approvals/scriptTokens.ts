@@ -238,6 +238,7 @@ export interface TokenChanges {
   caps?: Capability[]
   scope?: ScopeRequest
   expires?: string
+  confirmNeverExpires?: true
 }
 
 export function parseTokenChanges(raw: unknown): TokenChanges {
@@ -253,7 +254,20 @@ export function parseTokenChanges(raw: unknown): TokenChanges {
   if (Object.keys(changes).length === 1) {
     throw fail('bad-request: nothing to change (name, caps, scope or expires)')
   }
+  if (p.confirmNeverExpires === true) changes.confirmNeverExpires = true
   return changes
+}
+
+export function confirmStillNever(
+  changes: TokenChanges,
+  expiresAt: string | null,
+  name: string,
+): void {
+  if (expiresAt === null && changes.confirmNeverExpires !== true) {
+    throw fail(
+      `bad-request: the script token "${name}" never expires, so regenerating it needs confirmNeverExpires: true (ostia token update --yes-never-expires)`,
+    )
+  }
 }
 
 export function regenerates(changes: TokenChanges): boolean {
@@ -596,6 +610,7 @@ export function registerScriptTokenMethods(deps: ScriptTokenDeps): void {
         : current.scope
       const expiresAt =
         changes.expires === undefined ? current.expiresAt : tokenExpiry(changes.expires, new Date())
+      confirmStillNever(changes, expiresAt, name)
       await ensureCaps(
         ctx.authed,
         ctx.identity,

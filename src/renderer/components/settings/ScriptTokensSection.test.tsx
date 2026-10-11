@@ -327,6 +327,56 @@ describe('ScriptTokensSection', () => {
     expect(screen.getByRole('dialog', { name: 'Generate new token' })).toBeInTheDocument()
   })
 
+  it.each([
+    ['keeping "never expires"', 'Keep "never expires"', { confirmNeverExpires: true }],
+    ['switching to 90 days', 'Use 90 days', { expires: '90d' }],
+  ])(
+    'asks again before regenerating a token that never expires, %s',
+    async (_what, button, sent) => {
+      const user = userEvent.setup()
+      vi.mocked(api().update).mockResolvedValue({ ok: true, token: RAYCAST, value: VALUE })
+      render(<ScriptTokensSection />)
+      await user.click(await screen.findByRole('button', { name: 'Edit raycast' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Edit "raycast"' })
+      await user.click(within(dialog).getByRole('checkbox', { name: /Close panes/ }))
+      await user.click(within(dialog).getByRole('button', { name: 'Save and regenerate' }))
+
+      const confirm = await screen.findByRole('alertdialog', {
+        name: 'Generate a token that never expires?',
+      })
+      expect(api().update).not.toHaveBeenCalled()
+      await user.click(within(confirm).getByRole('button', { name: button }))
+      await waitFor(() =>
+        expect(api().update).toHaveBeenCalledWith({
+          id: 't3',
+          ifUpdatedAt: RAYCAST.updatedAt,
+          caps: ['read-board', 'notify', 'kill-pane'],
+          ...sent,
+        }),
+      )
+    },
+  )
+
+  it('renames a token that never expires without asking again', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api().update).mockResolvedValue({ ok: true, token: { ...RAYCAST, name: 'ray' } })
+    render(<ScriptTokensSection />)
+    await user.click(await screen.findByRole('button', { name: 'Edit raycast' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit "raycast"' })
+    const name = within(dialog).getByLabelText('Name')
+    await user.clear(name)
+    await user.type(name, 'ray')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(api().update).toHaveBeenCalledWith({
+        id: 't3',
+        ifUpdatedAt: RAYCAST.updatedAt,
+        name: 'ray',
+      }),
+    )
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+  })
+
   it('warns that saving changes the token when permissions change, and shows the new value', async () => {
     const user = userEvent.setup()
     vi.mocked(api().update).mockResolvedValue({ ok: true, token: CEO, value: VALUE })
