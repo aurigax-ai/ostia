@@ -45,10 +45,12 @@ import {
   matchTerminalChord,
 } from '@/lib/keys/chords'
 import {
+  CLIPBOARD_READ_MS,
   NO_CLIPBOARD_CONTENTS,
   PROGRAM_PASTE_KEY,
   keyPastePlan,
   pasteEventReadsClipboard,
+  settleWithin,
   smartClipboardAction,
 } from '@/lib/keys/clipboardKeys'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '@/lib/keys/dropPaths'
@@ -341,26 +343,52 @@ function TerminalSurface({
       if (plan.confirm) setPendingPaste(plan.text)
       else if (plan.text) pasteConfirmed(plan.text)
     }
-    const pasteFromClipboard = async (eventText = ''): Promise<void> => {
-      const text = (await navigator.clipboard.readText().catch(() => '')) || eventText
+    let heldInput: string[] | null = null
+    let pasting: Promise<void> = Promise.resolve()
+    const pastePlanned = async (eventText: string | null): Promise<void> => {
+      const text =
+        eventText ?? (await settleWithin(navigator.clipboard.readText(), CLIPBOARD_READ_MS, ''))
       if (disposed) return
       const editorShown = Boolean(inputEditorFor(paneId))
       const contents = editorShown
         ? NO_CLIPBOARD_CONTENTS
-        : await window.ostia.clipboard.contents().catch(() => NO_CLIPBOARD_CONTENTS)
+        : await settleWithin(
+            window.ostia.clipboard.contents(),
+            CLIPBOARD_READ_MS,
+            NO_CLIPBOARD_CONTENTS,
+          )
       if (disposed) return
       const plan = keyPastePlan(text, editorShown, contents)
-      if (plan === 'text') requestPaste(text)
-      else if (plan === 'files') pasteConfirmed(pathsAsInput(contents.files))
-      else if (plan === 'program') term.input(PROGRAM_PASTE_KEY, true)
+      const held = heldInput
+      heldInput = null
+      try {
+        if (plan === 'text') requestPaste(text)
+        else if (plan === 'files') pasteConfirmed(pathsAsInput(contents.files))
+        else if (plan === 'program') term.input(PROGRAM_PASTE_KEY, true)
+      } finally {
+        heldInput = held
+      }
     }
-    pasteClipboardRef.current = () => void pasteFromClipboard()
+    const pasteFromClipboard = (eventText: string | null = null): void => {
+      heldInput ??= []
+      const run = pasting.then(() => pastePlanned(eventText)).catch(() => {})
+      pasting = run
+      void run.then(() => {
+        if (pasting !== run) return
+        const held = heldInput ?? []
+        heldInput = null
+        if (disposed) return
+        for (const data of held) window.ostia.pty.write(paneId, data)
+      })
+    }
+    pasteClipboardRef.current = () => pasteFromClipboard()
     const interceptPaste = (e: ClipboardEvent): void => {
       const text = e.clipboardData?.getData('text/plain') ?? ''
-      if (pasteEventReadsClipboard(Boolean(inputEditorFor(paneId)), isMac)) {
+      const types = [...(e.clipboardData?.types ?? [])]
+      if (pasteEventReadsClipboard(types, text, Boolean(inputEditorFor(paneId)), isMac)) {
         e.preventDefault()
         e.stopImmediatePropagation()
-        void pasteFromClipboard(text)
+        pasteFromClipboard(text)
         return
       }
       if (!inputEditorFor(paneId)) {
@@ -401,7 +429,7 @@ function TerminalSurface({
           void navigator.clipboard.writeText(term.getSelection())
           term.clearSelection()
         } else {
-          void pasteFromClipboard()
+          pasteFromClipboard()
         }
         return false
       }
@@ -450,7 +478,7 @@ function TerminalSurface({
         const selection = term.getSelection()
         if (selection) void navigator.clipboard.writeText(selection)
       } else {
-        void pasteFromClipboard()
+        pasteFromClipboard()
       }
       return false
     })
@@ -835,7 +863,8 @@ function TerminalSurface({
     }
 
     const input = term.onData((d) => {
-      window.ostia.pty.write(paneId, d)
+      if (heldInput) heldInput.push(d)
+      else window.ostia.pty.write(paneId, d)
       if (!FOCUS_REPORTS.has(d)) markPaneActivity(paneId)
       if (!FOCUS_REPORTS.has(d) && useBlocksStore.getState().selected[paneId]) {
         useBlocksStore.getState().select(paneId, null)

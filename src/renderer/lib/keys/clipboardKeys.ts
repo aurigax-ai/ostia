@@ -27,8 +27,10 @@ export const PROGRAM_PASTE_KEY = '\x16'
 
 export const NO_CLIPBOARD_CONTENTS: ClipboardContents = { files: [], image: false }
 
-const FILE_NAME_TEXT = /^[^\n\r/\\]*[^\s./\\]\.[A-Za-z][A-Za-z0-9]{0,7}$/
-const URL_TEXT = /^[A-Za-z][A-Za-z0-9+.-]*:\/\/\S+$/
+export const CLIPBOARD_READ_MS = 300
+
+const FILE_NAME_TEXT = /^[^\s/\\]+\.(png|jpe?g|gif|tiff?|heic|webp|pdf)$/i
+const URL_TEXT = /^(https?|file):\/\/\S+$/i
 
 export function isStubText(text: string): boolean {
   const trimmed = text.trim()
@@ -46,6 +48,28 @@ export function keyPastePlan(
   return text ? 'text' : 'none'
 }
 
-export function pasteEventReadsClipboard(editorShown: boolean, mac: boolean): boolean {
-  return mac && !editorShown
+export function pasteEventReadsClipboard(
+  types: readonly string[],
+  text: string,
+  editorShown: boolean,
+  mac: boolean,
+): boolean {
+  if (!mac || editorShown) return false
+  return !text || types.includes('Files') || types.includes('text/uri-list')
+}
+
+export function settleWithin<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      () => {
+        clearTimeout(timer)
+        resolve(fallback)
+      },
+    )
+  })
 }

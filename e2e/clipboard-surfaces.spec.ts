@@ -64,7 +64,7 @@ const copyFileOnMac = (path: string, flavors: Flavors) => {
     image: `set the clipboard to (${png})`,
     'file-and-image': `set the clipboard to {«class furl»:p, «class PNGf»:(${png})}`,
     'file-and-text': 'set the clipboard to {«class furl»:p, string:"see this"}',
-    'image-and-text': `set the clipboard to {«class PNGf»:(${png}), string:"my shot.png"}`,
+    'image-and-text': `set the clipboard to {«class PNGf»:(${png}), string:"my-shot.png"}`,
   }[flavors]
   execFileSync('osascript', [
     '-e',

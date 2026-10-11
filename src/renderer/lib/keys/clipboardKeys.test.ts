@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   isStubText,
   keyPastePlan,
   pasteEventReadsClipboard,
+  settleWithin,
   smartClipboardAction,
 } from './clipboardKeys'
 
@@ -61,7 +62,7 @@ describe('keyPastePlan', () => {
   })
 
   it('hands Ctrl+V to the program for an image whose text is only a file name or a URL', () => {
-    expect(keyPastePlan('Screenshot 2026-10-11 at 10.00.00.png', false, image)).toBe('program')
+    expect(keyPastePlan('Screenshot-2026-10-11.png', false, image)).toBe('program')
     expect(keyPastePlan('https://example.com/a.png', false, image)).toBe('program')
   })
 
@@ -70,6 +71,7 @@ describe('keyPastePlan', () => {
     expect(keyPastePlan('hello', false, image)).toBe('text')
     expect(keyPastePlan('3.14', false, image)).toBe('text')
     expect(keyPastePlan('two words here', false, image)).toBe('text')
+    expect(keyPastePlan('python main.py', false, image)).toBe('text')
   })
 
   it('pastes only text while the input editor shows, and nothing for an empty clipboard', () => {
@@ -81,8 +83,21 @@ describe('keyPastePlan', () => {
 })
 
 describe('isStubText', () => {
-  it('takes an empty string, one file name and one URL for a stub', () => {
-    for (const text of ['', '  \n', 'a.png', 'my shot.PNG', 'ftp://host/x', 'https://a.b/c?d=1']) {
+  it('takes an empty string, one image or PDF file name and one web or file URL for a stub', () => {
+    for (const text of [
+      '',
+      '  \n',
+      'a.png',
+      'my-shot.png',
+      'SHOT.PNG',
+      'photo.jpeg',
+      'scan.TIF',
+      'IMG_0001.heic',
+      'doc.pdf',
+      'https://x.com/a.png',
+      'http://a.b/c?d=1',
+      'file:///tmp/a.png',
+    ]) {
       expect(isStubText(text)).toBe(true)
     }
   })
@@ -95,6 +110,13 @@ describe('isStubText', () => {
       'see https://a.b now',
       '.png',
       'dir/a.png',
+      'my shot.png',
+      'python main.py',
+      'git add README.md',
+      'example.com',
+      'echo hi > out.txt',
+      'notes.txt',
+      'ftp://host/x',
     ]) {
       expect(isStubText(text)).toBe(false)
     }
@@ -102,12 +124,34 @@ describe('isStubText', () => {
 })
 
 describe('pasteEventReadsClipboard', () => {
-  it('reads the clipboard itself on macOS so a file or an image reaches the program whatever text comes with it', () => {
-    expect(pasteEventReadsClipboard(false, true)).toBe(true)
+  it('reads the clipboard itself on macOS when the paste may carry a file or an image', () => {
+    expect(pasteEventReadsClipboard(['Files', 'text/plain'], 'shot.png', false, true)).toBe(true)
+    expect(pasteEventReadsClipboard(['text/uri-list', 'text/plain'], 'a.png', false, true)).toBe(
+      true,
+    )
+    expect(pasteEventReadsClipboard([], '', false, true)).toBe(true)
   })
 
-  it('leaves a paste into the input editor, and any paste off macOS, to the usual path', () => {
-    expect(pasteEventReadsClipboard(true, true)).toBe(false)
-    expect(pasteEventReadsClipboard(false, false)).toBe(false)
+  it('leaves plain text, a paste into the input editor, and any paste off macOS to the usual path', () => {
+    expect(pasteEventReadsClipboard(['text/plain'], 'echo hi', false, true)).toBe(false)
+    expect(pasteEventReadsClipboard(['Files', 'text/plain'], 'ls', true, true)).toBe(false)
+    expect(pasteEventReadsClipboard(['Files'], '', false, false)).toBe(false)
+  })
+})
+
+describe('settleWithin', () => {
+  it('gives the value when it comes in time and the fallback when it fails or is late', async () => {
+    await expect(settleWithin(Promise.resolve('read'), 300, 'fallback')).resolves.toBe('read')
+    await expect(settleWithin(Promise.reject(new Error('x')), 300, 'fallback')).resolves.toBe(
+      'fallback',
+    )
+    vi.useFakeTimers()
+    try {
+      const late = settleWithin(new Promise<string>(() => {}), 300, 'fallback')
+      await vi.advanceTimersByTimeAsync(300)
+      await expect(late).resolves.toBe('fallback')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
