@@ -3093,6 +3093,12 @@ function runMenuCommandInFocusedWindow(command: string): void {
   if (win && !win.isDestroyed()) win.webContents.send('app-menu:run', command)
 }
 
+function reloadFocusedWindow(): void {
+  const focused = BrowserWindow.getFocusedWindow()
+  const win = focused && [...windows.values()].includes(focused) ? focused : mainWindow()
+  if (win && !win.isDestroyed()) diagnostics?.reloadWindow(win.webContents)
+}
+
 function mainWindow(): BrowserWindow | undefined {
   return broker?.mainWindow() ?? [...windows.values()][0]
 }
@@ -3503,6 +3509,7 @@ app.whenReady().then(() => {
     productName: PRODUCT_DISPLAY_NAME,
     openSettings: openSettingsInFocusedWindow,
     runCommand: runMenuCommandInFocusedWindow,
+    reloadWindow: reloadFocusedWindow,
   })
   ipcMain.on('app-menu:set', (e, spec: unknown) => {
     const win = BrowserWindow.fromWebContents(e.sender)

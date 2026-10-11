@@ -7,6 +7,13 @@ import {
 import { registerCore } from './core'
 
 export function registerWindowCommands(detached: boolean): void {
+  registerCore({
+    id: 'window.reload',
+    category: 'window',
+    target: 'none',
+    capabilities: ['destructive'],
+    run: () => window.ostia.diagnostics.reloadWindow(),
+  })
   registerCore<undefined, { opened: boolean }>({
     id: 'window.new',
     category: 'window',

@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs'
 import { basename } from 'node:path'
-import { type BrowserWindow, app, ipcMain } from 'electron'
+import { type BrowserWindow, type WebContents, app, ipcMain } from 'electron'
 import type { ErrorInput } from '../../shared/privacy/telemetry'
 import type { AppLog } from './appLog'
 import { ReportLimiter, normalizePaneIds, normalizeRendererReport } from './rendererReports'
@@ -22,6 +22,7 @@ export interface DiagnosticsDeps {
 
 export interface Diagnostics {
   watchWindow: (win: BrowserWindow) => void
+  reloadWindow: (contents: WebContents) => void
 }
 
 function errorFields(err: unknown): { message: string; stack?: string } {
@@ -117,11 +118,13 @@ export function registerDiagnostics(deps: DiagnosticsDeps): Diagnostics {
     if (paneIds) deps.finishRecovery(windowIdOf(e.sender), paneIds)
   })
 
-  ipcMain.on('diagnostics:reload-window', (e) => {
-    if (e.sender.isDestroyed()) return
-    deps.startRecovery(windowIdOf(e.sender), 'reload')
-    e.sender.reload()
-  })
+  function reloadWindow(contents: WebContents): void {
+    if (contents.isDestroyed()) return
+    deps.startRecovery(windowIdOf(contents), 'reload')
+    contents.reload()
+  }
+
+  ipcMain.on('diagnostics:reload-window', (e) => reloadWindow(e.sender))
 
   ipcMain.on('diagnostics:toggle-devtools', (e) => {
     if (e.sender.isDestroyed()) return
@@ -190,5 +193,5 @@ export function registerDiagnostics(deps: DiagnosticsDeps): Diagnostics {
     })
   }
 
-  return { watchWindow }
+  return { watchWindow, reloadWindow }
 }
