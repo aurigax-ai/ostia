@@ -27,21 +27,25 @@ export const PROGRAM_PASTE_KEY = '\x16'
 
 export const NO_CLIPBOARD_CONTENTS: ClipboardContents = { files: [], image: false }
 
+const FILE_NAME_TEXT = /^[^\n\r/\\]*[^\s./\\]\.[A-Za-z][A-Za-z0-9]{0,7}$/
+const URL_TEXT = /^[A-Za-z][A-Za-z0-9+.-]*:\/\/\S+$/
+
+export function isStubText(text: string): boolean {
+  const trimmed = text.trim()
+  return trimmed === '' || FILE_NAME_TEXT.test(trimmed) || URL_TEXT.test(trimmed)
+}
+
 export function keyPastePlan(
   text: string,
   editorShown: boolean,
   contents: ClipboardContents,
 ): 'text' | 'files' | 'program' | 'none' {
-  if (text) return 'text'
-  if (editorShown) return 'none'
+  if (editorShown) return text ? 'text' : 'none'
   if (contents.files.length > 0) return 'files'
-  return contents.image ? 'program' : 'none'
+  if (contents.image && isStubText(text)) return 'program'
+  return text ? 'text' : 'none'
 }
 
-export function pasteEventReadsClipboard(
-  text: string,
-  editorShown: boolean,
-  mac: boolean,
-): boolean {
-  return mac && !text && !editorShown
+export function pasteEventReadsClipboard(editorShown: boolean, mac: boolean): boolean {
+  return mac && !editorShown
 }

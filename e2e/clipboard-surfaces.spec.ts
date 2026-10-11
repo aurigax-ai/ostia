@@ -50,14 +50,21 @@ const writeClipboardImage = (app: ElectronApplication) =>
     await clipboard.write([new ClipboardItem({ 'image/png': png })])
   }, RED_DOT_PNG)
 
-const READ_LINE = 'sh -c \'echo ready_$((3+4)); IFS= read -r line; echo "got<$line>"\''
+const readLine = (n: number) =>
+  `sh -c 'echo line${n}_$((3+4)); IFS= read -r line; echo "got${n}<$line>"'`
 
-const copyFileOnMac = (path: string, flavors: 'file' | 'image' | 'file-and-image') => {
+const readByte = (n: number) =>
+  `sh -c 'stty raw -echo; echo byte${n}_$((3+4)); b=$(dd bs=1 count=1 2>/dev/null | od -An -tx1 | tr -d " "); stty sane; echo hex${n}_$b'`
+
+type Flavors = 'image' | 'file-and-image' | 'file-and-text' | 'image-and-text'
+
+const copyFileOnMac = (path: string, flavors: Flavors) => {
   const png = 'read p as «class PNGf»'
   const clipboard = {
-    file: 'set the clipboard to p',
     image: `set the clipboard to (${png})`,
     'file-and-image': `set the clipboard to {«class furl»:p, «class PNGf»:(${png})}`,
+    'file-and-text': 'set the clipboard to {«class furl»:p, string:"see this"}',
+    'image-and-text': `set the clipboard to {«class PNGf»:(${png}), string:"my shot.png"}`,
   }[flavors]
   execFileSync('osascript', [
     '-e',
@@ -115,7 +122,7 @@ test(
   },
 )
 
-test('Cmd+V pastes the quoted path of a copied image file and still hands a bare image to the program', async () => {
+test('Cmd+V pastes a copied file as a quoted path and hands an image to the program', async () => {
   test.skip(!isMac, 'the native pasteboard types only exist on macOS')
   const { app, win, home } = await launch()
   try {
@@ -123,30 +130,32 @@ test('Cmd+V pastes the quoted path of a copied image file and still hands a bare
     const shot = join(home, 'my shot.png')
     writeFileSync(shot, Buffer.from(RED_DOT_PNG.split(',')[1], 'base64'))
     await win.locator('.xterm').first().click()
+    const contents = () => win.evaluate(() => window.ostia.clipboard.contents())
+    let n = 0
 
-    copyFileOnMac(shot, 'file-and-image')
-    expect(await win.evaluate(() => window.ostia.clipboard.contents())).toEqual({
-      files: [shot],
-      image: true,
-    })
-    await win.keyboard.type(READ_LINE)
-    await win.keyboard.press('Enter')
-    await expect(rows).toContainText('ready_7')
-    await win.keyboard.press(chords.paste)
-    await expect(rows).toContainText(`'${shot}' `, { timeout: 10_000 })
-    await win.keyboard.press('Enter')
-    await expect(rows).toContainText(`got<'${shot}' >`, { timeout: 10_000 })
+    for (const flavors of ['file-and-image', 'file-and-text'] as const) {
+      n += 1
+      copyFileOnMac(shot, flavors)
+      expect((await contents()).files).toEqual([shot])
+      await win.keyboard.type(readLine(n))
+      await win.keyboard.press('Enter')
+      await expect(rows).toContainText(`line${n}_7`)
+      await win.keyboard.press(chords.paste)
+      await expect(rows).toContainText(`'${shot}' `, { timeout: 10_000 })
+      await win.keyboard.press('Enter')
+      await expect(rows).toContainText(`got${n}<'${shot}' >`, { timeout: 10_000 })
+    }
 
-    copyFileOnMac(shot, 'image')
-    expect(await win.evaluate(() => window.ostia.clipboard.contents())).toEqual({
-      files: [],
-      image: true,
-    })
-    await win.keyboard.type(READ_ONE_BYTE)
-    await win.keyboard.press('Enter')
-    await expect(rows).toContainText('reading_7')
-    await win.keyboard.press(chords.paste)
-    await expect(rows).toContainText('byte_16', { timeout: 10_000 })
+    for (const flavors of ['image', 'image-and-text'] as const) {
+      n += 1
+      copyFileOnMac(shot, flavors)
+      expect(await contents()).toEqual({ files: [], image: true })
+      await win.keyboard.type(readByte(n))
+      await win.keyboard.press('Enter')
+      await expect(rows).toContainText(`byte${n}_7`)
+      await win.keyboard.press(chords.paste)
+      await expect(rows).toContainText(`hex${n}_16`, { timeout: 10_000 })
+    }
   } finally {
     await app.close()
   }

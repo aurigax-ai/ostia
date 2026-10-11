@@ -333,6 +333,48 @@ describe('TerminalView engines', () => {
     await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', '\x16'))
   })
 
+  for (const [name, text, contents, written] of [
+    [
+      'the quoted path of a copied file even when text is on the clipboard too',
+      'shot.png',
+      { files: ['/tmp/my shot.png'], image: true },
+      "'/tmp/my shot.png' ",
+    ],
+    [
+      'the text of a spreadsheet copy that carries an image preview',
+      'Name\tQty',
+      { files: [], image: true },
+      'Name\tQty',
+    ],
+    [
+      'Ctrl+V for an image whose text is a file name',
+      'shot.png',
+      { files: [], image: true },
+      '\x16',
+    ],
+  ] as const) {
+    it(`smart Ctrl+V pastes ${name}`, async () => {
+      useSettingsStore.setState({
+        terminal: { ...useSettingsStore.getState().terminal, clipboardKeys: 'smart' },
+      })
+      const readText = vi.fn().mockResolvedValue(text)
+      const realClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+      Object.defineProperty(navigator, 'clipboard', { value: { readText }, configurable: true })
+      onTestFinished(() => {
+        if (realClipboard) Object.defineProperty(navigator, 'clipboard', realClipboard)
+        else Reflect.deleteProperty(navigator, 'clipboard')
+      })
+      vi.mocked(window.ostia.clipboard.contents).mockResolvedValueOnce({
+        files: [...contents.files],
+        image: contents.image,
+      })
+      const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+      const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+      fireEvent.keyDown(textarea, { key: 'v', code: 'KeyV', ctrlKey: true })
+      await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', written))
+    })
+  }
+
   it('smart Ctrl+V pastes the quoted path of a copied file even when its image is on the clipboard too', async () => {
     useSettingsStore.setState({
       terminal: { ...useSettingsStore.getState().terminal, clipboardKeys: 'smart' },

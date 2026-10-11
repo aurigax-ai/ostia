@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { keyPastePlan, pasteEventReadsClipboard, smartClipboardAction } from './clipboardKeys'
+import {
+  isStubText,
+  keyPastePlan,
+  pasteEventReadsClipboard,
+  smartClipboardAction,
+} from './clipboardKeys'
 
 const key = (
   k: string,
@@ -38,37 +43,71 @@ describe('keyPastePlan', () => {
   const image = { files: [], image: true }
   const file = { files: ['/tmp/a.png'], image: false }
   const fileAndImage = { files: ['/tmp/a.png'], image: true }
+  const table = 'Name\tQty\napples\t3\npears\t5'
 
-  it('pastes clipboard text whenever there is some', () => {
-    expect(keyPastePlan('ls', false, image)).toBe('text')
-    expect(keyPastePlan('ls', true, none)).toBe('text')
-    expect(keyPastePlan('ls', false, fileAndImage)).toBe('text')
+  it('pastes clipboard text when nothing else is on the clipboard', () => {
+    expect(keyPastePlan('ls', false, none)).toBe('text')
   })
 
   it('hands Ctrl+V to the program when the clipboard holds only an image', () => {
     expect(keyPastePlan('', false, image)).toBe('program')
   })
 
-  it('pastes the path of a copied file, even when the clipboard also holds its image', () => {
+  it('pastes the path of a copied file, with or without text and an image beside it', () => {
     expect(keyPastePlan('', false, file)).toBe('files')
     expect(keyPastePlan('', false, fileAndImage)).toBe('files')
+    expect(keyPastePlan('shot.png', false, file)).toBe('files')
+    expect(keyPastePlan('some words', false, fileAndImage)).toBe('files')
   })
 
-  it('does nothing for a file or an image while the input editor shows, or for an empty clipboard', () => {
-    expect(keyPastePlan('', true, image)).toBe('none')
+  it('hands Ctrl+V to the program for an image whose text is only a file name or a URL', () => {
+    expect(keyPastePlan('Screenshot 2026-10-11 at 10.00.00.png', false, image)).toBe('program')
+    expect(keyPastePlan('https://example.com/a.png', false, image)).toBe('program')
+  })
+
+  it('pastes the text of a spreadsheet or slide copy that carries an image preview', () => {
+    expect(keyPastePlan(table, false, image)).toBe('text')
+    expect(keyPastePlan('hello', false, image)).toBe('text')
+    expect(keyPastePlan('3.14', false, image)).toBe('text')
+    expect(keyPastePlan('two words here', false, image)).toBe('text')
+  })
+
+  it('pastes only text while the input editor shows, and nothing for an empty clipboard', () => {
+    expect(keyPastePlan('ls', true, fileAndImage)).toBe('text')
     expect(keyPastePlan('', true, fileAndImage)).toBe('none')
+    expect(keyPastePlan('', true, image)).toBe('none')
     expect(keyPastePlan('', false, none)).toBe('none')
   })
 })
 
-describe('pasteEventReadsClipboard', () => {
-  it('reads the clipboard itself on macOS when the native paste carries no text, so an image reaches the program', () => {
-    expect(pasteEventReadsClipboard('', false, true)).toBe(true)
+describe('isStubText', () => {
+  it('takes an empty string, one file name and one URL for a stub', () => {
+    for (const text of ['', '  \n', 'a.png', 'my shot.PNG', 'ftp://host/x', 'https://a.b/c?d=1']) {
+      expect(isStubText(text)).toBe(true)
+    }
   })
 
-  it('leaves a paste with text, one into the input editor, and any paste off macOS to the usual path', () => {
-    expect(pasteEventReadsClipboard('ls', false, true)).toBe(false)
-    expect(pasteEventReadsClipboard('', true, true)).toBe(false)
-    expect(pasteEventReadsClipboard('', false, false)).toBe(false)
+  it('does not take real content for a stub', () => {
+    for (const text of [
+      'hello',
+      '3.14',
+      'a.png\nb.png',
+      'see https://a.b now',
+      '.png',
+      'dir/a.png',
+    ]) {
+      expect(isStubText(text)).toBe(false)
+    }
+  })
+})
+
+describe('pasteEventReadsClipboard', () => {
+  it('reads the clipboard itself on macOS so a file or an image reaches the program whatever text comes with it', () => {
+    expect(pasteEventReadsClipboard(false, true)).toBe(true)
+  })
+
+  it('leaves a paste into the input editor, and any paste off macOS, to the usual path', () => {
+    expect(pasteEventReadsClipboard(true, true)).toBe(false)
+    expect(pasteEventReadsClipboard(false, false)).toBe(false)
   })
 })

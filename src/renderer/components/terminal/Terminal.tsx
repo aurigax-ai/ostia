@@ -341,14 +341,13 @@ function TerminalSurface({
       if (plan.confirm) setPendingPaste(plan.text)
       else if (plan.text) pasteConfirmed(plan.text)
     }
-    const pasteFromClipboard = async (): Promise<void> => {
-      const text = await navigator.clipboard.readText().catch(() => '')
+    const pasteFromClipboard = async (eventText = ''): Promise<void> => {
+      const text = (await navigator.clipboard.readText().catch(() => '')) || eventText
       if (disposed) return
       const editorShown = Boolean(inputEditorFor(paneId))
-      const contents =
-        !text && !editorShown
-          ? await window.ostia.clipboard.contents().catch(() => NO_CLIPBOARD_CONTENTS)
-          : NO_CLIPBOARD_CONTENTS
+      const contents = editorShown
+        ? NO_CLIPBOARD_CONTENTS
+        : await window.ostia.clipboard.contents().catch(() => NO_CLIPBOARD_CONTENTS)
       if (disposed) return
       const plan = keyPastePlan(text, editorShown, contents)
       if (plan === 'text') requestPaste(text)
@@ -358,10 +357,10 @@ function TerminalSurface({
     pasteClipboardRef.current = () => void pasteFromClipboard()
     const interceptPaste = (e: ClipboardEvent): void => {
       const text = e.clipboardData?.getData('text/plain') ?? ''
-      if (pasteEventReadsClipboard(text, Boolean(inputEditorFor(paneId)), isMac)) {
+      if (pasteEventReadsClipboard(Boolean(inputEditorFor(paneId)), isMac)) {
         e.preventDefault()
         e.stopImmediatePropagation()
-        void pasteFromClipboard()
+        void pasteFromClipboard(text)
         return
       }
       if (!inputEditorFor(paneId)) {
