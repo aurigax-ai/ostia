@@ -59,6 +59,7 @@ export interface TerminalOptions {
   minimumContrastRatio?: number
   macOptionIsMeta?: boolean
   macOptionClickForcesSelection?: boolean
+  rescaleOverlappingGlyphs?: boolean
 }
 
 export interface TerminalSearch {

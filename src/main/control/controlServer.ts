@@ -12,6 +12,10 @@ import {
 } from 'vscode-jsonrpc/node'
 import { type Capability, DEFAULT_CAPABILITIES } from '../../shared/capabilities'
 import { TARGET_PANE_PARAM } from '../../shared/extensions'
+import type {
+  ScriptTokenCallOutcome,
+  ScriptTokenCallTarget,
+} from '../../shared/permissions/scriptTokens'
 import { PRODUCT_NAME } from '../../shared/product'
 import type {
   CommandDescriptor,
@@ -21,6 +25,7 @@ import type {
 } from '../../shared/types'
 import { ensureCaps, needsElevation } from '../approvals/controlElevation'
 import type { Reach, ScriptReach } from '../approvals/reach'
+import type { ScriptTokenUsageLog } from '../approvals/scriptTokenUsage'
 import { privateTmpDir, socketPath } from '../platform/privateTmp'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import { SCRIPT_COMMANDS, externalPaneMessage, internalPaneArgs } from './commandArgs'
@@ -66,6 +71,64 @@ function describeParams(method: string, params: unknown): string {
   } catch {
     return ''
   }
+}
+
+const METHOD_NAME = /^[\w.-]{1,80}$/
+const WORKSPACE_REF = /^[\w.:@-]{1,100}$/
+const ERROR_CODE = /^([a-z][a-z0-9-]{0,40})(?::|$)/
+const CAP_NAME = /^[a-z][a-z-]{0,40}$/
+
+function fields(raw: unknown): Record<string, unknown> {
+  return typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+    ? (raw as Record<string, unknown>)
+    : {}
+}
+
+function calledMethod(name: string, params: unknown): string {
+  if (name !== 'command.exec') return name
+  const id = fields(params).id
+  return typeof id === 'string' && METHOD_NAME.test(id) ? id : name
+}
+
+function calledTarget(params: unknown): ScriptTokenCallTarget {
+  const p = fields(params)
+  const paneRef = [p.pane, p.paneId, fields(p.args).paneId].find((v) => typeof v === 'string')
+  const pane = typeof paneRef === 'string' ? resolveExternal(paneRef) : undefined
+  if (pane?.kind === 'pane') return { workspaceId: pane.workspaceId, paneId: pane.externalId }
+  const workspace = [fields(p.target).workspaceId, p.workspace, p.workspaceId].find(
+    (v): v is string => typeof v === 'string' && WORKSPACE_REF.test(v),
+  )
+  return workspace ? { workspaceId: workspace } : {}
+}
+
+type CallOutcome = { outcome: ScriptTokenCallOutcome; code?: string }
+
+function codeOf(message: string): string {
+  return ERROR_CODE.exec(message)?.[1] ?? 'error'
+}
+
+function resultOutcome(result: unknown): CallOutcome {
+  const r = fields(result)
+  if (r.ok !== false) return { outcome: 'ok' }
+  const code = fields(r.error).code
+  return { outcome: 'error', code: typeof code === 'string' ? codeOf(code) : 'error' }
+}
+
+function errorOutcome(err: unknown): CallOutcome | null {
+  const message = err instanceof Error ? err.message : String(err)
+  if (message === 'unknown identity') return null
+  const code = codeOf(message)
+  if (code !== 'needs-elevation') return { outcome: 'error', code }
+  const cap = message.slice(code.length + 1).trim()
+  if (!CAP_NAME.test(cap)) return { outcome: 'missing-permission', code }
+  return {
+    outcome: cap === 'all-workspaces' ? 'out-of-scope' : 'missing-permission',
+    code: `${code}: ${cap}`,
+  }
+}
+
+function callerPid(raw: unknown): number | undefined {
+  return Number.isSafeInteger(raw) && (raw as number) > 0 ? (raw as number) : undefined
 }
 
 function callerAllowed(identity: PaneIdentity, callers: ControlCallers, scripts = false): boolean {
@@ -147,6 +210,7 @@ export interface ControlServerDeps {
   primaryWindow?: () => string | undefined
   byAgent?: <T>(run: () => Promise<T>) => Promise<T>
   reach?: Pick<Reach, 'scriptReach' | 'recordCreated'>
+  usage?: Pick<ScriptTokenUsageLog, 'record' | 'connected'>
 }
 
 let server: Server | null = null
@@ -166,6 +230,26 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
       new StreamMessageWriter(socket),
     )
     let authed: AuthedConn | null = null
+    let disconnect: (() => void) | null = null
+
+    const onCall = <P, R>(name: string, handler: (params: P) => R | Promise<R>): void => {
+      conn.onRequest(name, async (params: P): Promise<R> => {
+        const tokenId = authed?.scriptSession ? authed.externalId : undefined
+        const usage = deps.usage
+        if (!tokenId || !usage) return handler(params)
+        const method = calledMethod(name, params)
+        const target = calledTarget(params)
+        try {
+          const result = await handler(params)
+          usage.record(tokenId, { method, target, ...resultOutcome(result) })
+          return result
+        } catch (err) {
+          const outcome = errorOutcome(err)
+          if (outcome) usage.record(tokenId, { method, target, ...outcome })
+          throw err
+        }
+      })
+    }
 
     const requireIdentity = (callers: ControlCallers, scripts = false): PaneIdentity => {
       if (!authed) throw unauthenticatedError('call hello first')
@@ -182,27 +266,32 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
       return me
     }
 
-    conn.onRequest('hello', (params: { token?: string } | undefined) => {
+    conn.onRequest('hello', (params: { token?: string; pid?: unknown } | undefined) => {
+      disconnect?.()
+      disconnect = null
       authed = authenticate(params ?? {})
       if (!authed) throw unauthenticatedError('invalid or missing token')
+      if (authed.scriptSession && deps.usage) {
+        disconnect = deps.usage.connected(authed.externalId, { pid: callerPid(params?.pid) })
+      }
       return { externalId: authed.externalId }
     })
 
-    conn.onRequest('whoami', (): Record<string, string | undefined> => {
+    onCall('whoami', (): Record<string, string | undefined> => {
       const me = requireIdentity('all', true)
       if (me.kind === 'extension') return { externalId: me.externalId, extensionId: me.extId }
       if (me.kind === 'script') return { externalId: me.externalId, kind: 'script' }
       return { externalId: me.externalId, paneId: me.paneId, workspaceId: me.workspaceId }
     })
 
-    conn.onRequest('command.list', (): CommandDescriptor[] => {
+    onCall('command.list', (): CommandDescriptor[] => {
       const me = requireIdentity('panes', true)
       if (me.kind !== 'script') return deps.listCommandsFor(me.windowId)
       const windowId = deps.primaryWindow?.()
       return windowId ? deps.listCommandsFor(windowId).filter((d) => SCRIPT_COMMANDS.has(d.id)) : []
     })
 
-    conn.onRequest(
+    onCall(
       'command.exec',
       async (params: {
         id: string
@@ -310,7 +399,7 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
       },
     )
 
-    conn.onRequest(
+    onCall(
       'pane.info',
       async (params?: { paneId?: string }): Promise<TerminalStateSnapshot | null> => {
         const me = requireIdentity('panes', true)
@@ -329,14 +418,14 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
       },
     )
 
-    conn.onRequest('cwd.get', (): { cwd: string | null } => {
+    onCall('cwd.get', (): { cwd: string | null } => {
       const me = requireIdentity('panes')
       if (authed && !connHasCap(authed, 'read-board')) throw needsElevation('read-board')
       return { cwd: deps.getTerminalState(me.paneId)?.cwd ?? null }
     })
 
     for (const [name, m] of methods) {
-      conn.onRequest(name, async (params: unknown) => {
+      onCall(name, async (params: unknown) => {
         const caller = requireIdentity(m.targetable ? 'all' : (m.callers ?? 'panes'), m.scripts)
         if (!authed) throw unauthenticatedError('call hello first')
         if (m.cap) await ensureCaps(authed, caller, [m.cap], name, describeParams(name, params))
@@ -348,6 +437,7 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
       })
     }
 
+    socket.on('close', () => disconnect?.())
     socket.on('error', () => conn.dispose())
     conn.onClose(() => socket.destroy())
     conn.listen()

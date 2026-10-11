@@ -235,6 +235,7 @@ function TerminalSurface({
       minimumContrastRatio: terminalSettings.minimumContrast,
       macOptionIsMeta: terminalSettings.macOptionIsMeta,
       macOptionClickForcesSelection: true,
+      rescaleOverlappingGlyphs: true,
     }
     let term: OstiaTerminal
     let fit: TerminalFit
@@ -290,7 +291,11 @@ function TerminalSurface({
       silenceReplies = created.silenceQueryReplies
       pauseRef.current = created.setPaused
     } else {
-      const xterm = new Xterm({ ...options, allowProposedApi: true })
+      const xterm = new Xterm({
+        ...options,
+        allowProposedApi: true,
+        vtExtensions: { kittyKeyboard: false },
+      })
       const xtermFit = new FitAddon()
       xterm.loadAddon(xtermFit)
       xterm.loadAddon(new Unicode11Addon())

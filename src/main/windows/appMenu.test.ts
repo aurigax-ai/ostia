@@ -153,6 +153,59 @@ describe('macOS application menu', () => {
     })
   })
 
+  describe('Reload Window', () => {
+    const reloadWindow = vi.fn()
+    const viewSpec = (accelerator?: string) => ({
+      file: { label: 'File', items: [] },
+      view: {
+        label: 'View',
+        items: [{ command: 'window.reload', label: 'Reload Window', accelerator }],
+      },
+      go: { label: 'Go', items: [] },
+      help: { label: 'Help', items: [] },
+    })
+
+    beforeEach(() => {
+      reloadWindow.mockClear()
+      openSettings.mockClear()
+    })
+
+    it('sits in the View menu without a shortcut, and runs in main without asking the renderer', () => {
+      const runCommand = vi.fn()
+      const view = macAppMenuTemplate(
+        { productName: 'Ostia', openSettings, runCommand, reloadWindow },
+        viewSpec(),
+      ).find((menu) => menu.label === 'View')
+      const item = (view?.submenu as MenuItemConstructorOptions[]).find(
+        (i) => i.id === 'command:window.reload',
+      )
+      expect(item?.label).toBe('Reload Window')
+      expect(item?.accelerator).toBeUndefined()
+      ;(item?.click as () => void)()
+      expect(reloadWindow).toHaveBeenCalledTimes(1)
+      expect(runCommand).not.toHaveBeenCalled()
+    })
+
+    it('adds no Reload or Force Reload role and no Cmd+R to the menu', () => {
+      const items = flatten(
+        macAppMenuTemplate({ productName: 'Ostia', openSettings, reloadWindow }, viewSpec()),
+      )
+      expect(items.map((i) => i.role)).not.toContain('reload')
+      expect(items.map((i) => i.role)).not.toContain('forceReload')
+      expect(items.map((i) => i.accelerator).filter(Boolean)).not.toContain('Cmd+R')
+    })
+
+    it('is in the Linux View menu too, with no shortcut', () => {
+      const item = flatten(
+        linuxAppMenuTemplate({ productName: 'Ostia', openSettings, reloadWindow }),
+      ).find((i) => i.id === 'command:window.reload')
+      expect(item?.label).toBe('Reload Window')
+      expect(item?.accelerator).toBeUndefined()
+      ;(item?.click as () => void)()
+      expect(reloadWindow).toHaveBeenCalledTimes(1)
+    })
+  })
+
   it('installs the menu and the About panel name on macOS only', () => {
     installAppMenu('darwin', { productName: 'Ostia', openSettings })
     expect(installed).toHaveLength(1)

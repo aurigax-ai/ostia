@@ -3,16 +3,19 @@ import { type AppMenuEntry, type AppMenuSpec, parseAppMenuSpec } from '../../sha
 
 export const MAC_CLOSE_WINDOW_ACCELERATOR = 'Cmd+Shift+W'
 export const MAC_SETTINGS_ACCELERATOR = 'Cmd+,'
+export const RELOAD_WINDOW_COMMAND = 'window.reload'
 
 export interface AppMenuDeps {
   productName: string
   openSettings: () => void
   runCommand?: (command: string) => void
+  reloadWindow?: () => void
 }
 
 function commandItems(
   entries: AppMenuEntry[],
   run: ((command: string) => void) | undefined,
+  reload: (() => void) | undefined,
 ): MenuItemConstructorOptions[] {
   return entries.map((entry) =>
     'separator' in entry
@@ -23,7 +26,7 @@ function commandItems(
           ...(entry.accelerator
             ? { accelerator: entry.accelerator, registerAccelerator: false }
             : {}),
-          click: () => run?.(entry.command),
+          click: () => (entry.command === RELOAD_WINDOW_COMMAND ? reload : run)?.(entry.command),
         },
   )
 }
@@ -38,7 +41,7 @@ export function macAppMenuTemplate(
 ): MenuItemConstructorOptions[] {
   const name = deps.productName
   const items = (section: keyof AppMenuSpec): MenuItemConstructorOptions[] =>
-    spec ? commandItems(spec[section].items, deps.runCommand) : []
+    spec ? commandItems(spec[section].items, deps.runCommand, deps.reloadWindow) : []
   return [
     {
       label: name,
@@ -95,11 +98,20 @@ export function macAppMenuTemplate(
   ]
 }
 
-export function linuxAppMenuTemplate(): MenuItemConstructorOptions[] {
+export function linuxAppMenuTemplate(deps?: AppMenuDeps): MenuItemConstructorOptions[] {
   return [
     {
       label: 'View',
-      submenu: [{ role: 'togglefullscreen' }, { role: 'toggleDevTools' }],
+      submenu: [
+        {
+          id: `command:${RELOAD_WINDOW_COMMAND}`,
+          label: 'Reload Window',
+          click: () => deps?.reloadWindow?.(),
+        },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+        { role: 'toggleDevTools' },
+      ],
     },
   ]
 }
@@ -110,7 +122,7 @@ export interface AppMenu {
 
 export function installAppMenu(platform: NodeJS.Platform, deps: AppMenuDeps): AppMenu {
   if (platform !== 'darwin') {
-    Menu.setApplicationMenu(Menu.buildFromTemplate(linuxAppMenuTemplate()))
+    Menu.setApplicationMenu(Menu.buildFromTemplate(linuxAppMenuTemplate(deps)))
     return { setSpec: () => false }
   }
   app.setAboutPanelOptions({ applicationName: deps.productName })

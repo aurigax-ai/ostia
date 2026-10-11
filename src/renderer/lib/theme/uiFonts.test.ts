@@ -5,8 +5,10 @@ import {
   TERMINAL_FONT_FALLBACK,
   UI_FONT_FALLBACK,
   applyUiFonts,
+  codeFontFallback,
   fontStack,
   preloadFonts,
+  terminalFontFallback,
   uiFontVariables,
 } from './uiFonts'
 
@@ -74,6 +76,21 @@ describe('fontStack', () => {
   it('tries Latin monos before CJK fonts, so a missing family keeps Latin cell metrics', () => {
     for (const stack of [TERMINAL_FONT_FALLBACK, CODE_FONT_FALLBACK]) {
       expect(stack.indexOf('"DejaVu Sans Mono"')).toBeLessThan(stack.indexOf('CJK'))
+    }
+  })
+})
+
+describe('CJK monospace fallback', () => {
+  it('adds the built-in PingFang TC on macOS, after the bundled CJK monos and before generic monospace', () => {
+    for (const stack of [terminalFontFallback(true), codeFontFallback(true)]) {
+      expect(stack.endsWith('"Noto Sans Mono CJK TC", "PingFang TC", monospace')).toBe(true)
+    }
+  })
+
+  it('leaves PingFang TC out on Linux', () => {
+    for (const stack of [terminalFontFallback(false), codeFontFallback(false)]) {
+      expect(stack).not.toContain('PingFang')
+      expect(stack.endsWith('"Noto Sans Mono CJK TC", monospace')).toBe(true)
     }
   })
 })

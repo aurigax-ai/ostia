@@ -3,7 +3,9 @@ import {
   NEVER_EXPIRES,
   SCRIPT_CAPABILITIES,
   SCRIPT_TOKEN_PRESETS,
+  type ScriptTokenCall,
   type ScriptTokenScope,
+  type ScriptTokenUsage,
   isScriptTokenPreset,
 } from '../../shared/permissions/scriptTokens'
 import { parseArgs } from '../common/args'
@@ -22,14 +24,15 @@ interface TokenSettings {
 type TokenCall =
   | { method: 'token.create'; params: { name: string; caps: string[] } & TokenSettings }
   | { method: 'token.update'; params: { id: string; name?: string } & TokenSettings }
-  | { method: 'token.list'; params: Record<string, never>; json: boolean; show?: string }
+  | { method: 'token.list'; params: Record<string, never>; json: boolean }
+  | { method: 'token.usage'; params: { id: string }; json: boolean }
   | { method: 'token.revoke'; params: { id: string } }
 
 const TOKEN_USAGE = [
   'usage: ostia token create <name> (--cap <capability>… | --preset readonly|coordinator)',
   '         [--scope all | --scope group:<name|id> | --scope workspace:<name|id>]… [--own-workspaces]',
   '         [--expires 7d|30d|90d|1y|YYYY-MM-DD|never [--yes-never-expires]]',
-  '       ostia token update <id|name> [--name <name>] [--cap …] [--preset …] [--scope …]… [--own-workspaces] [--expires …]',
+  '       ostia token update <id|name> [--name <name>] [--cap …] [--preset …] [--scope …]… [--own-workspaces] [--expires …] [--yes-never-expires]',
   '       ostia token show <id|name> [--json]',
   '       ostia token list [--json]',
   '       ostia token revoke <id|name>',
@@ -81,7 +84,7 @@ function settingsOf(rest: string[], create: boolean) {
     )
   }
   if (values.expires !== undefined) settings.expires = values.expires
-  if (values.expires === NEVER_EXPIRES) settings.confirmNeverExpires = true
+  if (booleans.never) settings.confirmNeverExpires = true
   if (create && values.name !== undefined) throw new Error(TOKEN_USAGE)
   return { positional, settings, name: values.name }
 }
@@ -97,7 +100,8 @@ export function parseTokenArgs(argv: string[]): TokenCall {
   if (sub === 'update') {
     const { positional, settings, name } = settingsOf(rest, false)
     if (positional.length !== 1 || !positional[0]) throw new Error(TOKEN_USAGE)
-    if (name === undefined && Object.keys(settings).length === 0) throw new Error(TOKEN_USAGE)
+    const changes = Object.keys(settings).filter((key) => key !== 'confirmNeverExpires')
+    if (name === undefined && changes.length === 0) throw new Error(TOKEN_USAGE)
     return {
       method: 'token.update',
       params: { id: positional[0], ...(name !== undefined ? { name } : {}), ...settings },
@@ -110,7 +114,7 @@ export function parseTokenArgs(argv: string[]): TokenCall {
       return { method: 'token.list', params: {}, json: booleans.json }
     }
     if (positional.length !== 1 || !positional[0]) throw new Error(TOKEN_USAGE)
-    return { method: 'token.list', params: {}, json: booleans.json, show: positional[0] }
+    return { method: 'token.usage', params: { id: positional[0] }, json: booleans.json }
   }
   if (sub === 'revoke') {
     if (rest.length !== 1 || !rest[0]) throw new Error(TOKEN_USAGE)
@@ -142,6 +146,38 @@ function settingsText(t: ListedToken): string {
   return `scope ${scopeText(t.scope)}, ${t.expiresAt === null ? 'never expires' : `expires ${t.expiresAt}`}`
 }
 
+function targetText(call: ScriptTokenCall, names: ScriptTokenUsage['names']): string {
+  const { workspaceId, paneId } = call.target
+  const workspace = workspaceId ? (names.workspaces[workspaceId] ?? workspaceId) : ''
+  const pane = paneId ? (names.panes[paneId] ?? paneId) : ''
+  return [workspace, pane].filter(Boolean).join(' / ') || '-'
+}
+
+function resultText(call: ScriptTokenCall): string {
+  if (call.outcome === 'ok') return 'ok'
+  return call.code ? `${call.outcome} (${call.code})` : call.outcome
+}
+
+export function shownUsage(t: ListedToken, usage: ScriptTokenUsage): string[] {
+  const pids = usage.connections.flatMap((c) => c.pid ?? [])
+  const lines = [
+    ...shownToken(t),
+    `connected  ${usage.connections.length}${pids.length > 0 ? ` (self-reported pid ${pids.join(', ')})` : ''}`,
+    `last ~24h  ${usage.last24h.calls} calls, ${usage.last24h.refused} refused`,
+    '',
+  ]
+  if (usage.calls.length === 0) return [...lines, 'no calls recorded']
+  lines.push(['TIME', 'ACTION', 'TARGET', 'RESULT'].join('  '))
+  for (const call of usage.calls) {
+    lines.push(
+      call.outcome === 'regenerated'
+        ? `${call.at}  regenerated`
+        : [call.at, call.method, targetText(call, usage.names), resultText(call)].join('  '),
+    )
+  }
+  return lines
+}
+
 function shownToken(t: ListedToken): string[] {
   return [
     `id         ${t.id}`,
@@ -159,16 +195,6 @@ async function retiredNotice(conn: MessageConnection): Promise<void> {
   if (retired.length === 0) return
   console.error(
     `ostia token: ${retired.length} old token(s) stopped working after the upgrade: ${retired.map((t) => t.name).join(', ')}. Create new ones with ostia token create.`,
-  )
-}
-
-function pick(tokens: ListedToken[], ref: string): ListedToken {
-  const byId = tokens.find((t) => t.id === ref)
-  if (byId) return byId
-  const named = tokens.filter((t) => t.name === ref)
-  if (named.length === 1) return named[0]
-  throw new Error(
-    named.length > 1 ? `ambiguous-token: ${ref} (pass its id)` : `unknown-token: ${ref}`,
   )
 }
 
@@ -190,19 +216,20 @@ export async function runTokenVerb(conn: MessageConnection, argv: string[]): Pro
     console.error(`ostia token: ${err instanceof Error ? err.message : String(err)}`)
     return 1
   }
+  if (call.method === 'token.usage') {
+    const shown = await conn.sendRequest<{ token: ListedToken; usage: ScriptTokenUsage }>(
+      call.method,
+      call.params,
+    )
+    console.log(
+      call.json
+        ? JSON.stringify({ ...shown.token, usage: shown.usage }, null, 2)
+        : shownUsage(shown.token, shown.usage).join('\n'),
+    )
+    return 0
+  }
   if (call.method === 'token.list') {
     const tokens = await conn.sendRequest<ListedToken[]>(call.method, call.params)
-    if (call.show !== undefined) {
-      let token: ListedToken
-      try {
-        token = pick(tokens, call.show)
-      } catch (err) {
-        console.error(`ostia token: ${(err as Error).message}`)
-        return 1
-      }
-      console.log(call.json ? JSON.stringify(token, null, 2) : shownToken(token).join('\n'))
-      return 0
-    }
     if (call.json) {
       console.log(JSON.stringify(tokens, null, 2))
       return 0

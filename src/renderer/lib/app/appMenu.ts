@@ -48,6 +48,8 @@ const LAYOUT: Layout = {
     'view.zoomReset',
     SEPARATOR,
     'browser.find',
+    SEPARATOR,
+    'window.reload',
   ],
   go: [
     'workspace.next',

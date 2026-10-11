@@ -8,4 +8,5 @@ minimumReleaseAgeExclude:
   - '@anthropic-ai/sandbox-runtime@0.0.79'
   - '@aurigax-ai/ghostty-web@0.3.2'
 patchedDependencies:
+  '@xterm/xterm@6.1.0-beta.304': patches/@xterm__xterm@6.1.0-beta.304.patch
   swr@2.5.1: patches/swr@2.5.1.patch

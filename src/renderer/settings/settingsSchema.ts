@@ -479,7 +479,7 @@ export const SETTINGS_JSON_SCHEMA = {
           description:
             'Let programs in a terminal set the clipboard with OSC 52 (tmux, vim and agents ' +
             'over ssh copy this way). Programs can never read the clipboard. Only you can ' +
-            'change this, in Settings; agents cannot. Default: false.',
+            'change this, in Settings; agents cannot. Default: true.',
         },
         shell: {
           type: 'string',
