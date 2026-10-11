@@ -380,6 +380,7 @@ import {
   PTY_TERM_NAME,
   paneShellEnv,
   ptyIdentityEnv,
+  ptyLocaleEnv,
   withPaneToken,
 } from './terminal/terminalType'
 import { type SavedAttention, isKeptAttentionState } from './tmux/attentionFile'
@@ -2351,6 +2352,7 @@ function registerPtyIpc(): void {
     const stateFile = join(privateTmpDir(`${PRODUCT_NAME}-shell-state`), randomUUID())
     let env = paneShellEnv({
       version: app.getVersion(),
+      locale: app.getLocale(),
       parent: process.env,
       integration: integration.env,
       pane: appEnv({
@@ -2880,6 +2882,7 @@ function spawnManagerPty(req: {
     ...process.env,
     ...(req.path === undefined ? {} : { PATH: req.path }),
     ...paneEnv(req.paneId, windowId, cwd),
+    ...ptyLocaleEnv(process.env, app.getLocale()),
     ...PTY_COLOR_ENV,
     ...ptyIdentityEnv(app.getVersion()),
   } as Record<string, string>

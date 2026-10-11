@@ -2,7 +2,7 @@ import { delimiter } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { GPU_RESTORE_ENV } from '../platform/discreteGpu'
 import { newWindowCommand } from '../tmux/tmuxCommand'
-import { paneShellEnv, withPaneToken } from './terminalType'
+import { paneShellEnv, ptyLocaleEnv, withPaneToken } from './terminalType'
 
 const parts = {
   version: '1.2.3',
@@ -10,6 +10,7 @@ const parts = {
   integration: { ZDOTDIR: '/tmp/z' },
   pane: { OSTIA_PANE_ID: 'p1', OSTIA_TOKEN: 't' },
   agentHooks: undefined as unknown,
+  hasLocale: () => true,
 }
 
 describe('paneShellEnv', () => {
@@ -44,6 +45,7 @@ describe('paneShellEnv', () => {
       OSTIA_TOKEN: 't',
       OSTIA_NO_CLAUDE_HOOKS: '1',
       OSTIA_NO_CODEX_HOOKS: '',
+      LANG: 'en_US.UTF-8',
       COLORTERM: 'truecolor',
       TERM_PROGRAM: 'ostia',
       TERM_PROGRAM_VERSION: '1.2.3',
@@ -86,6 +88,95 @@ describe('paneShellEnv', () => {
     const command = newWindowCommand({ session: 's', file: '/bin/sh', args: [], cwd: '/', env })
     expect(command).toContain('-e "TERM_PROGRAM=ostia"')
     expect(command).toContain('-e "TERM_PROGRAM_VERSION=1.2.3"')
+  })
+})
+
+describe('paneShellEnv locale', () => {
+  it('gives a pane started without a locale a UTF-8 LANG from the system locale', () => {
+    expect(paneShellEnv({ ...parts, locale: 'zh-TW' }).LANG).toBe('zh_TW.UTF-8')
+  })
+
+  it('keeps the LANG the parent environment already has', () => {
+    const parent = { ...parts.parent, LANG: 'C' }
+    expect(paneShellEnv({ ...parts, parent, locale: 'zh-TW' }).LANG).toBe('C')
+  })
+
+  it('does not add LANG when LC_ALL is set', () => {
+    const parent = { ...parts.parent, LC_ALL: 'en_GB.UTF-8' }
+    const env = paneShellEnv({ ...parts, parent, locale: 'zh-TW' })
+    expect(env.LANG).toBeUndefined()
+    expect(env.LC_ALL).toBe('en_GB.UTF-8')
+  })
+})
+
+describe('ptyLocaleEnv', () => {
+  const all = () => true
+  const none = () => false
+
+  it('leaves the environment alone when LANG, LC_ALL or LC_CTYPE is set', () => {
+    expect(ptyLocaleEnv({ LANG: 'C' }, 'zh-TW', all)).toEqual({})
+    expect(ptyLocaleEnv({ LC_ALL: 'C' }, 'zh-TW', all)).toEqual({})
+    expect(ptyLocaleEnv({ LC_CTYPE: 'UTF-8' }, 'zh-TW', all)).toEqual({})
+  })
+
+  it('treats empty locale variables as unset', () => {
+    expect(ptyLocaleEnv({ LANG: '', LC_ALL: '' }, 'ja-JP', all)).toEqual({ LANG: 'ja_JP.UTF-8' })
+  })
+
+  it('turns a BCP 47 tag into a UTF-8 POSIX locale', () => {
+    expect(ptyLocaleEnv({}, 'en-US', all)).toEqual({ LANG: 'en_US.UTF-8' })
+    expect(ptyLocaleEnv({}, 'zh-TW', all)).toEqual({ LANG: 'zh_TW.UTF-8' })
+    expect(ptyLocaleEnv({}, 'pt-br', all)).toEqual({ LANG: 'pt_BR.UTF-8' })
+  })
+
+  it('accepts POSIX style and already suffixed values', () => {
+    expect(ptyLocaleEnv({}, 'zh_TW', all)).toEqual({ LANG: 'zh_TW.UTF-8' })
+    expect(ptyLocaleEnv({}, 'de_DE.UTF-8', all)).toEqual({ LANG: 'de_DE.UTF-8' })
+    expect(ptyLocaleEnv({}, 'fr_FR@euro', all)).toEqual({ LANG: 'fr_FR.UTF-8' })
+  })
+
+  it('takes the region from a tag that carries a script', () => {
+    expect(ptyLocaleEnv({}, 'zh-Hant-TW', all)).toEqual({ LANG: 'zh_TW.UTF-8' })
+    expect(ptyLocaleEnv({}, 'zh-Hans-CN', all)).toEqual({ LANG: 'zh_CN.UTF-8' })
+  })
+
+  it('maps a script without a region to its usual region', () => {
+    expect(ptyLocaleEnv({}, 'zh-Hant', all)).toEqual({ LANG: 'zh_TW.UTF-8' })
+    expect(ptyLocaleEnv({}, 'zh-Hans', all)).toEqual({ LANG: 'zh_CN.UTF-8' })
+  })
+
+  it('fills in the usual region for a bare language', () => {
+    expect(ptyLocaleEnv({}, 'ja', all)).toEqual({ LANG: 'ja_JP.UTF-8' })
+    expect(ptyLocaleEnv({}, 'en', all)).toEqual({ LANG: 'en_US.UTF-8' })
+    expect(ptyLocaleEnv({}, 'de', all)).toEqual({ LANG: 'de_DE.UTF-8' })
+  })
+
+  it('falls back to the language default when the region has no locale on this system', () => {
+    const macLike = (name: string) => name !== 'es_419.UTF-8' && name !== 'es_CL.UTF-8'
+    expect(ptyLocaleEnv({}, 'es-CL', macLike)).toEqual({ LANG: 'es_ES.UTF-8' })
+    expect(ptyLocaleEnv({}, 'es-419', macLike)).toEqual({ LANG: 'es_ES.UTF-8' })
+  })
+
+  it('checks Linux style names against what the system has installed', () => {
+    const installed = new Set(['en_US.UTF-8', 'zh_TW.UTF-8'])
+    expect(ptyLocaleEnv({}, 'zh-TW', (name) => installed.has(name))).toEqual({
+      LANG: 'zh_TW.UTF-8',
+    })
+    expect(ptyLocaleEnv({}, 'fr-FR', (name) => installed.has(name))).toEqual({
+      LANG: 'en_US.UTF-8',
+    })
+  })
+
+  it('falls back to en_US.UTF-8 when the locale cannot be worked out', () => {
+    expect(ptyLocaleEnv({}, undefined, all)).toEqual({ LANG: 'en_US.UTF-8' })
+    expect(ptyLocaleEnv({}, '', all)).toEqual({ LANG: 'en_US.UTF-8' })
+    expect(ptyLocaleEnv({}, 'C', all)).toEqual({ LANG: 'en_US.UTF-8' })
+    expect(ptyLocaleEnv({}, 'x-y-z', all)).toEqual({ LANG: 'en_US.UTF-8' })
+  })
+
+  it('uses C.UTF-8 when only that exists, and en_US.UTF-8 when nothing can be confirmed', () => {
+    expect(ptyLocaleEnv({}, 'zh-TW', (name) => name === 'C.UTF-8')).toEqual({ LANG: 'C.UTF-8' })
+    expect(ptyLocaleEnv({}, 'zh-TW', none)).toEqual({ LANG: 'en_US.UTF-8' })
   })
 })
 
