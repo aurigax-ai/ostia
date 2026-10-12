@@ -872,6 +872,8 @@ export const en = {
     copyImage: 'Copy image',
     imageCopied: 'Copied the image to the clipboard.',
     imageCopyFailed: 'Could not copy the image ({reason}).',
+    passkeyUnsupported:
+      'This browser does not support passkeys. On the page, choose "Try another way".',
     storageShow: 'Show storage',
     storageHide: 'Hide storage',
   },
@@ -1014,7 +1016,7 @@ export const en = {
     },
     automatic: 'Check for updates automatically',
     automaticDesc:
-      'Asks GitHub once after launch and then once a day whether a newer release exists. Updating is always your own click, through the way you installed it.',
+      'Asks GitHub once after launch and then once an hour whether a newer release exists. Updating is always your own click, through the way you installed it.',
     channel: 'Update channel',
     channelStable: 'Stable',
     channelMain: 'Main',
@@ -4428,6 +4430,7 @@ export const zhHant: Dict = {
     copyImage: '複製圖片',
     imageCopied: '已將圖片複製到剪貼簿。',
     imageCopyFailed: '無法複製圖片（{reason}）。',
+    passkeyUnsupported: '這個瀏覽器不支援密碼金鑰，請在頁面上選「嘗試其他方式」。',
     storageShow: '顯示儲存空間',
     storageHide: '隱藏儲存空間',
   },
@@ -4565,7 +4568,7 @@ export const zhHant: Dict = {
     },
     automatic: '自動檢查更新',
     automaticDesc:
-      '啟動後向 GitHub 查詢一次，之後每天查詢一次是否有新版本。更新一律由你自己點選，並依照你安裝的方式進行。',
+      '啟動後向 GitHub 查詢一次，之後每小時查詢一次是否有新版本。更新一律由你自己點選，並依照你安裝的方式進行。',
     channel: '更新管道',
     channelStable: '穩定版',
     channelMain: 'Main',

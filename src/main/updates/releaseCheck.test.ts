@@ -100,18 +100,19 @@ function harness(opts: { current?: string; dismissed?: string | null; enabled?: 
     logs: [] as Array<[string, string, string | undefined]>,
   }
   const fetchLatest = vi.fn(async (_channel: UpdateChannel) => state.latest)
+  const enabled = vi.fn(() => state.enabled)
   const checker = createReleaseChecker({
     currentVersion: opts.current ?? '0.2.0',
     fetchLatest,
     now: () => state.now,
-    enabled: () => state.enabled,
+    enabled,
     channel: () => state.channel,
     loadDismissed: () => opts.dismissed ?? null,
     saveDismissed: (version) => state.saved.push(version),
     onChange: (pending) => state.changes.push(pending),
     log: (trigger, outcome, latest) => state.logs.push([trigger, outcome, latest]),
   })
-  return { state, fetchLatest, checker }
+  return { state, fetchLatest, enabled, checker }
 }
 
 describe('releaseEndpoint', () => {
@@ -231,15 +232,21 @@ describe('createReleaseChecker', () => {
     expect(checker.pending()).toBeNull()
   })
 
-  it('checks on the first tick, then not again until 24 hours have passed', async () => {
-    const { state, fetchLatest, checker } = harness()
+  it('checks again one hour after a successful check', () => {
+    expect(RELEASE_CHECK_INTERVAL_MS).toBe(60 * 60 * 1000)
+  })
+
+  it('checks on the first tick, then not again until an hour has passed', async () => {
+    const { state, fetchLatest, enabled, checker } = harness()
 
     await checker.tick()
     expect(fetchLatest).toHaveBeenCalledTimes(1)
 
-    state.now += RELEASE_CHECK_INTERVAL_MS - 1
+    enabled.mockClear()
+    state.now += 60 * 60 * 1000 - 1
     await checker.tick()
     expect(fetchLatest).toHaveBeenCalledTimes(1)
+    expect(enabled).not.toHaveBeenCalled()
 
     state.now += 1
     await checker.tick()
@@ -247,7 +254,7 @@ describe('createReleaseChecker', () => {
     expect(state.logs.map(([trigger]) => trigger)).toEqual(['auto', 'auto'])
   })
 
-  it('retries a failed check after an hour instead of a day', async () => {
+  it('retries a failed check after RELEASE_CHECK_RETRY_MS', async () => {
     const { state, fetchLatest, checker } = harness()
     state.latest = { kind: 'error', error: 'offline' }
 
@@ -272,7 +279,7 @@ describe('createReleaseChecker', () => {
     expect(fetchLatest).toHaveBeenCalledTimes(1)
   })
 
-  it('counts a manual check toward the daily schedule, even with the setting off', async () => {
+  it('counts a manual check toward the hourly schedule, even with the setting off', async () => {
     const { state, fetchLatest, checker } = harness({ enabled: false })
 
     await checker.check('manual')
@@ -590,6 +597,22 @@ describe('registerReleaseCheck', () => {
     await vi.advanceTimersByTimeAsync(10_000)
     await vi.waitFor(() => expect(sent).toEqual([['app:release-available', state('0.3.0')]]))
     expect(github.requests).toHaveLength(1)
+  })
+
+  it('checks by itself again about an hour after a successful automatic check', async () => {
+    vi.useRealTimers()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'Date'] })
+    github.reply = { status: 200, body: body('0.2.0') }
+    register()
+    await vi.advanceTimersByTimeAsync(10_000)
+    await vi.waitFor(() => expect(info).toHaveBeenCalledTimes(1))
+
+    await vi.advanceTimersByTimeAsync(RELEASE_CHECK_INTERVAL_MS - 2 * 60_000)
+    expect(github.requests).toHaveLength(1)
+
+    await vi.advanceTimersByTimeAsync(3 * 60_000)
+    await vi.waitFor(() => expect(info).toHaveBeenCalledTimes(2))
+    expect(github.requests).toHaveLength(2)
   })
 
   it('saves a dismissal so the next run stays quiet about that version', async () => {
