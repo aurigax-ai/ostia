@@ -337,6 +337,9 @@ ostia workspace.new '{"name":"<project> · workers","dir":"<repo>","focus":false
 ostia agent run claude - --name <name> --cwd <worktree> --workspace <workspaceId> < task.md
 ```
 
+- A new workspace is empty, as it is for the human: no tab, nothing in `ostia pane.list`. The first
+  `ostia agent run … --workspace <workspaceId>` or `ostia process run … --workspace <workspaceId>`
+  opens its first tab.
 - Create the workers workspace once and reuse it: look for it by name in `ostia workspace list`
   before making another. `group` is the group's name; it joins that group, or makes it.
 - Whether you reach a sibling workspace without a question is the human's choice, set in

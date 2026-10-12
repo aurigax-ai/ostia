@@ -364,6 +364,9 @@ const CLI_HELP = `ostia — control-socket CLI
                                   another workspace needs all-workspaces
   ostia workspace.new [jsonArgs] [--no-focus]  open a workspace without switching to it
                                   (same as {"focus":false}); prints its workspaceId
+                                  The workspace is empty, like one the human opens: pane.list
+                                  shows nothing for it until ostia process run or ostia agent
+                                  run opens a tab there with --workspace <id>
   ostia workspace.hibernateAgents --workspace <id|name>  hibernate that workspace's idle
                                   agents (a busy one is skipped; pane wake brings it back);
                                   needs kill-pane. workspace.resumeAgents wakes them

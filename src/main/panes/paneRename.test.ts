@@ -18,7 +18,7 @@ vi.mock('../approvals/approvals', () => ({ approvals: () => ({ request }) }))
 const { grant } = await import('../approvals/capabilityStore')
 const { setCapFilter, setScriptTokenCheck } = await import('../control/controlAuth')
 const { registerControlServer, stopControlServer } = await import('../control/controlServer')
-const { markManager, registerPane } = await import('../control/idRegistry')
+const { markManager, registerPane, windowOfWorkspace } = await import('../control/idRegistry')
 const { cleanName, registerPaneRenameMethods, renameCaps } = await import('./paneRename')
 
 const calls: { target: CommandTarget; id: string; args: unknown }[] = []
@@ -30,6 +30,8 @@ registerPaneRenameMethods({
     return reply
   },
   reach: { inScope: async (ctx, workspaceId) => ctx.identity.workspaceId === workspaceId },
+  windowOfWorkspace: (workspaceId) =>
+    windowOfWorkspace(workspaceId) ?? (workspaceId === 'ws-no-pane' ? 'w1' : undefined),
 })
 
 const sibling = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'rename-sibling' })
@@ -284,6 +286,21 @@ describe('rename from a script token', () => {
       },
     ])
     expect(request).not.toHaveBeenCalled()
+  })
+
+  it('renames a workspace that no pane has opened yet', async () => {
+    const conn = await client({ token: GRANTED })
+
+    await expect(
+      conn.sendRequest('workspace.rename', { workspace: 'ws-no-pane', name: 'Workers' }),
+    ).resolves.toEqual({ ok: true, workspaceId: 'ws-no-pane', name: 'Workers' })
+    expect(calls).toEqual([
+      {
+        target: { windowId: 'w1', workspaceId: 'ws-no-pane', paneId: null },
+        id: 'workspace.rename',
+        args: { name: 'Workers' },
+      },
+    ])
   })
 
   it('must name the workspace, and needs both capabilities to rename it', async () => {
