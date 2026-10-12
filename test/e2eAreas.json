@@ -157,6 +157,7 @@
       ],
       "specs": [
         "e2e/browser-agent.spec.ts",
+        "e2e/browser-iframe-scripts.spec.ts",
         "e2e/browser-keys.spec.ts",
         "e2e/browser-login.spec.ts",
         "e2e/browser-pick.spec.ts",
