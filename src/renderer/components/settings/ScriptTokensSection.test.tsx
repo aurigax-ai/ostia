@@ -9,7 +9,9 @@ import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ScriptTokensSection } from './ScriptTokensSection'
+import { registerBuiltinCommands } from '../../commands/builtins'
+import { commands } from '../../commands/registry'
+import { EXAMPLE, ScriptTokensSection } from './ScriptTokensSection'
 
 if (!Element.prototype.getAnimations) {
   Element.prototype.getAnimations = () => []
@@ -139,7 +141,15 @@ describe('ScriptTokensSection', () => {
     expect(raycast).toHaveTextContent('Never used')
 
     expect(screen.getByText(`Use outside ${PRODUCT_DISPLAY_NAME}`)).toBeInTheDocument()
-    expect(screen.getByText('ostia pane list --json')).toBeInTheDocument()
+    expect(screen.getByText(EXAMPLE)).toBeInTheDocument()
+  })
+
+  it('shows an example that is a command the CLI accepts', () => {
+    registerBuiltinCommands()
+    const [bin, verb, ...args] = EXAMPLE.split(' ')
+    expect(bin).toBe('ostia')
+    expect(commands.describe().map((c) => c.id)).toContain(verb)
+    expect(args).toEqual([])
   })
 
   it('shows the retired tokens once and remembers the dismissal', async () => {
