@@ -13,6 +13,7 @@ import {
 import { fakeAgentBin } from './fakeAgent'
 import {
   PROMPT,
+  addTab,
   newTerminal,
   occurrences,
   openWorkspace,
@@ -20,6 +21,9 @@ import {
   quitApp,
   restartApp,
   runInTerminal,
+  shownTerminal,
+  terminalTab,
+  typeLine,
   waitForExit,
 } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
@@ -558,6 +562,41 @@ test('KSH-C41 a kept shell waits while Ostia is closed and is the same shell whe
     await expect(screen(second.win)).toContainText(PROMPT, { timeout: 15_000 })
     await runInTerminal(second.win, 'clear; echo "again=$$"')
     await expect(screen(second.win)).toContainText(`again=${pid}`, { timeout: 15_000 })
+  } finally {
+    await quitApp(second.app)
+  }
+})
+
+test('KSH-C88 a kept program in a tab that is not shown is attached again by Restart before the tab is opened', async () => {
+  test.setTimeout(60_000)
+  const first = await launch(dataHome)
+  await openWorkspace(first.win)
+  await runInTerminal(first.win, 'echo "file=$OSTIA_TOKEN_FILE shell=$$"; cat')
+  await expect(screen(first.win)).toContainText(/file=\S+ shell=\d+/, { timeout: 15_000 })
+  const [, file, pid] =
+    /file=(\S+) shell=(\d+)/.exec((await screen(first.win).textContent()) ?? '') ?? []
+  const before = readFileSync(file, 'utf8')
+  await addTab(first.win)
+  await expect(first.win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
+  await savedLayout(2)
+  await restartApp(first.app, first.win)
+  expect(() => process.kill(Number(pid), 0)).not.toThrow()
+
+  const second = await launch(dataHome)
+  try {
+    await expect(second.win.locator('.pane-slot[data-hidden] .xterm')).toHaveCount(1, {
+      timeout: 15_000,
+    })
+    await expect.poll(() => readFileSync(file, 'utf8'), { timeout: 15_000 }).not.toBe(before)
+    await terminalTab(second.win).click()
+    await expect(shownTerminal(second.win)).toContainText(`shell=${pid}`, { timeout: 15_000 })
+    await shownTerminal(second.win).click()
+    await typeLine(second.win, 'kept-input')
+    await expect
+      .poll(async () =>
+        occurrences((await shownTerminal(second.win).textContent()) ?? '', 'kept-input'),
+      )
+      .toBeGreaterThanOrEqual(2)
   } finally {
     await quitApp(second.app)
   }
