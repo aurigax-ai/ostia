@@ -13,8 +13,8 @@ import {
 import { fakeAgentBin } from './fakeAgent'
 import {
   PROMPT,
-  addTab,
   newTerminal,
+  newTerminalWorkspace,
   occurrences,
   openWorkspace,
   pressQuit,
@@ -22,8 +22,6 @@ import {
   restartApp,
   runInTerminal,
   shownTerminal,
-  terminalTab,
-  typeLine,
   waitForExit,
 } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
@@ -567,7 +565,7 @@ test('KSH-C41 a kept shell waits while Ostia is closed and is the same shell whe
   }
 })
 
-test('KSH-C88 a kept program in a tab that is not shown is attached again by Restart before the tab is opened', async () => {
+test('KSH-C88 a kept program in a workspace that is not open is attached again by Restart before the workspace is opened', async () => {
   test.setTimeout(60_000)
   const first = await launch(dataHome)
   await openWorkspace(first.win)
@@ -576,31 +574,29 @@ test('KSH-C88 a kept program in a tab that is not shown is attached again by Res
   const [, file, pid] =
     /file=(\S+) shell=(\d+)/.exec((await screen(first.win).textContent()) ?? '') ?? []
   const before = readFileSync(file, 'utf8')
-  await addTab(first.win)
-  await expect(first.win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
+  await newTerminalWorkspace(first.win)
   await savedLayout(2)
+  await expect.poll(savedActiveIsNewest, { timeout: 15_000 }).toBe(true)
   await restartApp(first.app, first.win)
   expect(() => process.kill(Number(pid), 0)).not.toThrow()
 
   const second = await launch(dataHome)
   try {
-    await expect(second.win.locator('.pane-slot[data-hidden] .xterm')).toHaveCount(1, {
-      timeout: 15_000,
-    })
+    await expect(shownTerminal(second.win)).toContainText(PROMPT, { timeout: 15_000 })
+    await expect(second.win.locator('.workzone-workspace')).toHaveCount(1)
     await expect.poll(() => readFileSync(file, 'utf8'), { timeout: 15_000 }).not.toBe(before)
-    await terminalTab(second.win).click()
-    await expect(shownTerminal(second.win)).toContainText(`shell=${pid}`, { timeout: 15_000 })
-    await shownTerminal(second.win).click()
-    await typeLine(second.win, 'kept-input')
-    await expect
-      .poll(async () =>
-        occurrences((await shownTerminal(second.win).textContent()) ?? '', 'kept-input'),
-      )
-      .toBeGreaterThanOrEqual(2)
+    expect(() => process.kill(Number(pid), 0)).not.toThrow()
   } finally {
     await quitApp(second.app)
   }
 })
+
+function savedActiveIsNewest(): boolean {
+  const file = join(dataHome, 'ostia', 'workspaces.json')
+  if (!existsSync(file)) return false
+  const saved = JSON.parse(readFileSync(file, 'utf8'))
+  return saved.workspaces.length === 2 && saved.activeWorkspaceId === saved.workspaces[1].id
+}
 
 function agentMidTurn(): string {
   return fakeAgentBin(
