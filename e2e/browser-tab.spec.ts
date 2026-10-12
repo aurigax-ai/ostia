@@ -82,7 +82,7 @@ test('a browser tab sends the Electron agent only to Google sign-in hosts and th
   const agents = new Map<string, string>()
   const page = (req: IncomingMessage, res: ServerResponse): void => {
     const url = new URL(req.url ?? '/', `http://${req.headers.host}`)
-    agents.set(`${url.hostname}${url.pathname}`, req.headers['user-agent'] ?? '')
+    agents.set(`${url.hostname}${url.pathname}${url.search}`, req.headers['user-agent'] ?? '')
     if (url.pathname === '/to-signin') {
       res.writeHead(302, { location: 'https://accounts.google.com/signin' })
       res.end()
@@ -96,7 +96,7 @@ test('a browser tab sends the Electron agent only to Google sign-in hosts and th
     const name = url.pathname.slice(1)
     res.setHeader('content-type', 'text/html')
     res.end(
-      `<title>${name}</title><img src="https://accounts.youtube.com/pixel">` +
+      `<title>${name}</title><img src="https://accounts.youtube.com/pixel?from=${name}">` +
         `<script>document.title = '${name} ' + (/Electron/.test(navigator.userAgent) ? 'js-electron' : 'js-chrome')</script>`,
     )
   }
@@ -131,6 +131,9 @@ test('a browser tab sends the Electron agent only to Google sign-in hosts and th
 
     await visit(`http://127.0.0.1:${port}/before`, 'before js-chrome')
     await visit(`http://127.0.0.1:${port}/to-signin`, 'signin js-electron')
+    await expect
+      .poll(() => agents.get('accounts.youtube.com/pixel?from=signin'), { timeout: 15_000 })
+      .toMatch(/Electron\/\d+/)
     await visit(`http://127.0.0.1:${port}/after`, 'after js-chrome')
 
     const chrome = expect.stringMatching(/^(?!.*(Electron|ostia)).*Chrome\/\d+/i)
@@ -139,7 +142,7 @@ test('a browser tab sends the Electron agent only to Google sign-in hosts and th
       '127.0.0.1/before': chrome,
       '127.0.0.1/to-signin': chrome,
       'accounts.google.com/signin': electronAgent,
-      'accounts.youtube.com/pixel': electronAgent,
+      'accounts.youtube.com/pixel?from=signin': electronAgent,
       '127.0.0.1/after': chrome,
     })
   } finally {
