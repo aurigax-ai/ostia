@@ -78,7 +78,6 @@ const CODEX_FLAGS: Record<string, Arity> = {
   '-m': 'one',
   '--model': 'one',
   '--no-alt-screen': 'none',
-  '--no-daemon': 'none',
   '--oss': 'none',
   '-p': 'one',
   '--profile': 'one',
@@ -88,6 +87,7 @@ const CODEX_FLAGS: Record<string, Arity> = {
   '--sandbox': 'one',
   '--search': 'none',
   '--strict-config': 'none',
+  '--yolo': 'none',
 }
 
 const ALIASES: Record<ResumableAgent, Record<string, string>> = {
@@ -100,7 +100,16 @@ const AGENT_FLAGS: Record<ResumableAgent, Record<string, Arity>> = {
   codex: CODEX_FLAGS,
 }
 
-const SECRET_NAME = /KEY|TOKEN|SECRET|PASSW|PASSPHRASE|CREDENTIAL|AUTH|COOKIE|SESSION|PRIVATE|CERT/i
+const SECRET_NAME =
+  /KEY|TOKEN|SECRET|PASS|PWD|CREDENTIAL|AUTH|COOKIE|SESSION|PRIVATE|CERT|(^|[_.])(PIN|PW)($|[_.])/i
+
+const CODE_LOADING_ENV =
+  /^(LD_|DYLD_)|^(NODE_OPTIONS|NODE_PATH|BASH_ENV|ENV|PATH|PROMPT_COMMAND|ZDOTDIR|SHELLOPTS|BASHOPTS|PYTHONPATH|PYTHONSTARTUP|PERL5OPT|PERL5LIB|RUBYOPT|GIT_SSH_COMMAND|GIT_EXEC_PATH)$/
+
+const CONFIG_FLAGS: Record<ResumableAgent, ReadonlySet<string>> = {
+  claude: new Set(['--settings', '--agents', '--mcp-config']),
+  codex: new Set(['-c', '--config']),
+}
 
 const SECRET_TEXT = [
   /sk-[A-Za-z0-9_-]{16,}/,
@@ -133,6 +142,13 @@ export function looksSecret(text: string): boolean {
 
 function isSafeValue(value: string, max: number): boolean {
   return value.length <= max && !hasControlCharacter(value) && !looksSecret(value)
+}
+
+function isSafeConfig(agent: ResumableAgent, value: string): boolean {
+  if (agent === 'claude') return !value.trimStart().startsWith('{')
+  const eq = value.indexOf('=')
+  const key = (eq < 0 ? value : value.slice(0, eq)).trim()
+  return !/(^|\.)env(\.|$)/i.test(key) && !SECRET_NAME.test(key)
 }
 
 function splitFlag(agent: ResumableAgent, arg: string): [string, string | undefined] {
@@ -172,17 +188,19 @@ export function resumeFlags(agent: ResumableAgent, argv: readonly string[]): str
       else continue
     } else if (arity === 'optional') {
       if (inline !== undefined) values.push(inline)
-      else if (i < argv.length && !argv[i].startsWith('-')) values.push(argv[i++])
+      else if (i < argv.length && !argv[i].startsWith('-')) continue
     } else if (arity === 'many') {
-      if (inline !== undefined) values.push(inline)
-      while (i < argv.length && !argv[i].startsWith('-')) values.push(argv[i++])
-      if (values.length === 0) continue
+      if (inline === undefined) continue
+      values.push(inline)
     } else {
       continue
     }
     if (values.some((value) => !isSafeValue(value, MAX_ARG_LENGTH))) continue
+    if (CONFIG_FLAGS[agent].has(name) && !values.every((value) => isSafeConfig(agent, value))) {
+      continue
+    }
     const group =
-      arity === 'optional' && values.length === 1 ? [`${name}=${values[0]}`] : [name, ...values]
+      arity === 'one' ? [name, ...values] : [values.length ? `${name}=${values[0]}` : name]
     const size = group.reduce((sum, part) => sum + part.length, 0)
     if (out.length + group.length > MAX_ARGS || total + size > MAX_ARGS_LENGTH) break
     out.push(...group)
@@ -206,7 +224,8 @@ export function safeEnv(raw: unknown): Record<string, string> {
   const out: Record<string, string> = {}
   for (const [name, value] of Object.entries(raw as Record<string, unknown>)) {
     if (Object.keys(out).length >= MAX_ENV) break
-    if (!ENV_NAME.test(name) || SECRET_NAME.test(name) || name.startsWith(envName(''))) continue
+    if (!ENV_NAME.test(name) || SECRET_NAME.test(name) || CODE_LOADING_ENV.test(name)) continue
+    if (name.startsWith(envName(''))) continue
     if (typeof value !== 'string' || !isSafeValue(value, MAX_ENV_VALUE)) continue
     out[name] = value
   }
@@ -214,7 +233,7 @@ export function safeEnv(raw: unknown): Record<string, string> {
 }
 
 const OPERATORS = new Set([';', '&', '|', '<', '>', '(', ')', '\n'])
-const UNQUOTED_SAFE = /^[A-Za-z0-9_./:,@%+=~#-]$/
+const UNQUOTED_SAFE = /^[A-Za-z0-9_./:,@%+=#-]$/
 
 interface Word {
   text: string
@@ -287,5 +306,7 @@ export function commandLineEnv(agent: ResumableAgent, line: string): Record<stri
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/
 
 export function shellQuote(value: string): string {
-  return /^[A-Za-z0-9_./:,@%+=-]+$/.test(value) ? value : `'${value.replaceAll("'", `'\\''`)}'`
+  return /^[A-Za-z0-9_./:,@%+-][A-Za-z0-9_./:,@%+=-]*$/.test(value)
+    ? value
+    : `'${value.replaceAll("'", `'\\''`)}'`
 }

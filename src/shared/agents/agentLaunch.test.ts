@@ -6,6 +6,7 @@ import {
   looksSecret,
   resumeFlags,
   safeEnv,
+  shellQuote,
 } from './agentLaunch'
 
 describe('resumeFlags for claude', () => {
@@ -80,11 +81,60 @@ describe('resumeFlags for claude', () => {
     expect(resumeFlags('claude', ['--verbose', '--', '--model', 'opus'])).toEqual(['--verbose'])
   })
 
-  it('takes every value of a list flag and the optional value of --debug like commander', () => {
+  it('keeps list and optional-value flags only when their value is attached, so a prompt is never stored', () => {
     expect(
-      resumeFlags('claude', ['--add-dir', '/a', '/b', '--debug', 'api,hooks', '-d', '--bare']),
-    ).toEqual(['--add-dir', '/a', '/b', '--debug=api,hooks', '--debug', '--bare'])
-    expect(resumeFlags('claude', ['-dhooks'])).toEqual(['--debug=hooks'])
+      resumeFlags('claude', [
+        '--add-dir=/a',
+        '--allowedTools=Bash(git *)',
+        '--debug=api,hooks',
+        '-dhooks',
+        '-d',
+        '--bare',
+      ]),
+    ).toEqual([
+      '--add-dir=/a',
+      '--allowedTools=Bash(git *)',
+      '--debug=api,hooks',
+      '--debug=hooks',
+      '--debug',
+      '--bare',
+    ])
+    for (const argv of [
+      ['--add-dir', '/a', 'fix the login bug'],
+      ['--mcp-config', 'servers.json', 'fix the login bug'],
+      ['--allowedTools', 'Edit', 'fix the login bug'],
+      ['--debug', 'fix the login bug'],
+      ['-d', 'fix the login bug'],
+    ]) {
+      expect(resumeFlags('claude', [...argv, '--model', 'opus'])).toEqual(['--model', 'opus'])
+    }
+    expect(resumeFlags('claude', ['--debug'])).toEqual(['--debug'])
+  })
+
+  it('reads back the flags it replays the same way', () => {
+    const once = resumeFlags('claude', [
+      '--add-dir=/a b',
+      '--debug=api',
+      '--model',
+      'opus',
+      '-n',
+      'x',
+    ])
+    expect(resumeFlags('claude', once)).toEqual(once)
+  })
+
+  it('drops inline JSON settings, agents and MCP servers, which can carry hooks or keys', () => {
+    expect(
+      resumeFlags('claude', [
+        '--settings',
+        '{"hooks":{"SessionStart":[]}}',
+        '--agents',
+        ' {"a":{}}',
+        '--mcp-config={"mcpServers":{}}',
+        '--settings',
+        '/home/u/settings.json',
+      ]),
+    ).toEqual(['--settings', '/home/u/settings.json'])
   })
 
   it('drops a flag that carries a secret, a control character or a value that is too long', () => {
@@ -164,9 +214,27 @@ describe('resumeFlags for codex', () => {
     expect(resumeFlags('codex', ['fork', '--last', '--oss'])).toEqual(['--oss'])
   })
 
-  it('drops a config override that holds a key', () => {
-    expect(resumeFlags('codex', ['-c', 'model_providers.x.api_key="abc"', '--oss'])).toEqual([
-      '--oss',
+  it('drops a config override that holds a key, a password or an environment', () => {
+    for (const config of [
+      'model_providers.x.api_key="abc"',
+      'mcp_servers.gh.env.GH="x"',
+      'env.FOO="bar"',
+      'shell_environment_policy.set.DB_PW="x"',
+      'x.password="x"',
+      'x.pin="1234"',
+    ]) {
+      expect(resumeFlags('codex', ['-c', config, '--oss']), config).toEqual(['--oss'])
+      expect(resumeFlags('codex', [`--config=${config}`, '--oss']), config).toEqual(['--oss'])
+    }
+    expect(resumeFlags('codex', ['-c', 'environment_name="x"'])).toEqual([
+      '-c',
+      'environment_name="x"',
+    ])
+  })
+
+  it('replays only flags codex resume accepts, never one the hook args already pass', () => {
+    expect(resumeFlags('codex', ['--yolo', '--no-daemon', '--full-auto', '--last'])).toEqual([
+      '--yolo',
     ])
   })
 })
@@ -224,6 +292,10 @@ describe('commandLineEnv', () => {
     expect(commandLineEnv('claude', '')).toBeNull()
   })
 
+  it('skips a value that starts with an unquoted tilde, which the shell expands', () => {
+    expect(commandLineEnv('claude', `A=~/x B='~/y' claude`)).toEqual({ B: '~/y' })
+  })
+
   it('skips values that expand at run time', () => {
     expect(
       commandLineEnv('claude', 'A=$HOME B="$(id)" C=`id` D=*.ts E=ok claude --model opus'),
@@ -246,6 +318,16 @@ describe('safeEnv', () => {
       safeEnv({
         GL_ISSUE: '685',
         MY_PASSWORD: 'x',
+        DB_PASS: 'x',
+        MYSQL_PWD: 'x',
+        SIM_PIN: '1',
+        DB_PW: 'x',
+        NODE_OPTIONS: '--require /tmp/x.js',
+        DYLD_INSERT_LIBRARIES: '/tmp/x.dylib',
+        LD_PRELOAD: '/tmp/x.so',
+        BASH_ENV: '/tmp/x',
+        PATH: '/tmp',
+        SPINNER: 'dots',
         AWS_SECRET_ACCESS_KEY: 'x',
         OSTIA_SOCKET: '/tmp/s',
         'BAD-NAME': '1',
@@ -253,7 +335,7 @@ describe('safeEnv', () => {
         CTRL: 'a\nb',
         NUM: 5,
       }),
-    ).toEqual({ GL_ISSUE: '685' })
+    ).toEqual({ GL_ISSUE: '685', SPINNER: 'dots' })
     expect(safeEnv(['A'])).toEqual({})
     expect(safeEnv(null)).toEqual({})
   })
@@ -280,5 +362,15 @@ describe('looksSecret', () => {
     ]) {
       expect(looksSecret(text)).toBe(false)
     }
+  })
+})
+
+describe('shellQuote', () => {
+  it('quotes a value zsh would expand: a leading = or ~, and anything outside plain words', () => {
+    expect(shellQuote('=opus')).toBe("'=opus'")
+    expect(shellQuote('~/notes')).toBe("'~/notes'")
+    expect(shellQuote('a=b')).toBe('a=b')
+    expect(shellQuote('--model=opus')).toBe('--model=opus')
+    expect(shellQuote("it's")).toBe("'it'\\''s'")
   })
 })
