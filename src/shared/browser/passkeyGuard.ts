@@ -73,4 +73,14 @@ export const PASSKEY_GUARD_JS = `(() => {
       },
     });
   }
+  if (PKC && typeof PKC.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
+    Object.defineProperty(PKC, 'isUserVerifyingPlatformAuthenticatorAvailable', {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value: function () {
+        return Promise.resolve(false);
+      },
+    });
+  }
 })();`

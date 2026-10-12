@@ -4,7 +4,7 @@ import { PASSKEY_GUARD_JS, PASSKEY_NOTICE_PREFIX } from './passkeyGuard'
 
 type Call = { name: string; options: unknown }
 
-function pageWith(capabilities?: Record<string, boolean>) {
+function pageWith(capabilities?: Record<string, boolean>, uvpaa?: boolean) {
   const calls: Call[] = []
   const info = vi.fn()
   const proto = {
@@ -18,9 +18,12 @@ function pageWith(capabilities?: Record<string, boolean>) {
     },
   }
   const credentials = Object.create(proto)
-  const PublicKeyCredential = capabilities
-    ? { getClientCapabilities: () => Promise.resolve({ ...capabilities }) }
-    : {}
+  const PublicKeyCredential = {
+    ...(capabilities ? { getClientCapabilities: () => Promise.resolve({ ...capabilities }) } : {}),
+    ...(uvpaa === undefined
+      ? {}
+      : { isUserVerifyingPlatformAuthenticatorAvailable: () => Promise.resolve(uvpaa) }),
+  }
   const sandbox: Record<string, unknown> = {
     navigator: { credentials },
     PublicKeyCredential,
@@ -147,6 +150,16 @@ describe('PublicKeyCredential.getClientCapabilities', () => {
   it('does nothing when the page has no getClientCapabilities', () => {
     const { sandbox } = pageWith()
     expect(sandbox.PublicKeyCredential).toEqual({})
+  })
+})
+
+describe('PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable', () => {
+  it('resolves false even when the engine would say true', async () => {
+    const { sandbox } = pageWith(undefined, true)
+    const pkc = sandbox.PublicKeyCredential as {
+      isUserVerifyingPlatformAuthenticatorAvailable: () => Promise<boolean>
+    }
+    await expect(pkc.isUserVerifyingPlatformAuthenticatorAvailable()).resolves.toBe(false)
   })
 })
 
