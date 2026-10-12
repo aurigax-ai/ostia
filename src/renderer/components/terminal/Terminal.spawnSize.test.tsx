@@ -5,6 +5,7 @@ import {
   resetOffscreenStartForTests,
   startOffscreen,
 } from '@/lib/terminal/offscreenStart'
+import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -216,6 +217,8 @@ describe('TerminalView spawn size', () => {
         expect.objectContaining({ cols: 0, rows: 0 }),
       ),
     )
+    await waitFor(() => expect(terminalFor('p1')?.cols).toBe(72))
+    expect(terminalFor('p1')?.rows).toBe(48)
   })
 
   it('starts a parked terminal an extension opened at the last remembered grid', async () => {
