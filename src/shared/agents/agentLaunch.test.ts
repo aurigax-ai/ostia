@@ -34,6 +34,25 @@ describe('resumeFlags for claude', () => {
     ])
   })
 
+  it('keeps the shape a coordinator starts a line with', () => {
+    expect(
+      resumeFlags('claude', [
+        '--agent',
+        'twai-yushan',
+        '-n',
+        'Slack 推播上線',
+        '--dangerously-skip-permissions',
+      ]),
+    ).toEqual([
+      '--agent',
+      'twai-yushan',
+      '--name',
+      'Slack 推播上線',
+      '--dangerously-skip-permissions',
+    ])
+    expect(resumeFlags('claude', ['--name=修 probe'])).toEqual(['--name', '修 probe'])
+  })
+
   it('drops the prompt, print mode, an old session and flags that conflict with resume', () => {
     expect(
       resumeFlags('claude', [
@@ -177,12 +196,30 @@ describe('commandLineEnv', () => {
     expect(commandLineEnv('claude', 'claude')).toEqual({})
   })
 
+  it('reads a single-quoted value with a hash, as process run passes it', () => {
+    expect(
+      commandLineEnv(
+        'claude',
+        `GL_ISSUE='665#2' claude --agent twai-yushan -n "Slack 推播上線" --dangerously-skip-permissions`,
+      ),
+    ).toEqual({ GL_ISSUE: '665#2' })
+  })
+
   it('returns null when the line does not start the agent itself', () => {
     expect(commandLineEnv('claude', 'cd x && GL_ISSUE=1 claude')).toBeNull()
     expect(commandLineEnv('claude', 'GL_ISSUE=1 cc')).toBeNull()
     expect(commandLineEnv('claude', 'GL_ISSUE=1 codex')).toBeNull()
     expect(commandLineEnv('claude', "'claude'")).toBeNull()
     expect(commandLineEnv('claude', 'A=1; claude')).toBeNull()
+    expect(
+      commandLineEnv(
+        'claude',
+        `(ostia workspace group 'Home' >/dev/null 2>&1 || true) && claude --agent homelab -n "修 probe"`,
+      ),
+    ).toBeNull()
+    expect(
+      commandLineEnv('claude', `cd '/w' && (true) && claude --agent personal -n "整理帳單"`),
+    ).toBeNull()
     expect(commandLineEnv('claude', 'A="open claude')).toBeNull()
     expect(commandLineEnv('claude', '')).toBeNull()
   })

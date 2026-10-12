@@ -44,6 +44,7 @@ const CLAUDE_FLAGS: Record<string, Arity> = {
   '--ide': 'none',
   '--mcp-config': 'many',
   '--model': 'one',
+  '--name': 'one',
   '--no-chrome': 'none',
   '--permission-mode': 'one',
   '--plugin-dir': 'one',
@@ -90,7 +91,7 @@ const CODEX_FLAGS: Record<string, Arity> = {
 }
 
 const ALIASES: Record<ResumableAgent, Record<string, string>> = {
-  claude: { '-d': '--debug' },
+  claude: { '-d': '--debug', '-n': '--name' },
   codex: {},
 }
 

@@ -2000,6 +2000,29 @@ describe('agent resume', () => {
     )
   })
 
+  it('keeps the flags but no variables when the line starts with something else', async () => {
+    const pane = seedPane()
+    useBlocksStore
+      .getState()
+      .commandStart(
+        pane.id,
+        { line: 1 },
+        `GL_ISSUE=1 true && (ostia workspace group 'Home' || true) && claude --agent homelab -n "修 probe"`,
+      )
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'claude',
+      id: 'abc',
+      args: ['--agent', 'homelab', '-n', '修 probe'],
+    })
+    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
+    await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    expect(insert).toHaveBeenCalledWith(
+      pane.id,
+      "claude --resume abc --agent homelab --name '修 probe'",
+      true,
+    )
+  })
+
   it('keeps the old command when nothing about the launch is known', async () => {
     const pane = seedPane()
     useBlocksStore.getState().commandStart(pane.id, { line: 1 }, 'my-agent-script')
