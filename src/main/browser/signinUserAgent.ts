@@ -92,14 +92,11 @@ export function wantsElectronAgent(
   url: string,
   hosts: readonly string[] = ELECTRON_AGENT_HOSTS,
 ): boolean {
-  let parsed: URL
   try {
-    parsed = new URL(url)
+    return hosts.includes(new URL(url).hostname)
   } catch {
     return false
   }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
-  return hosts.includes(parsed.hostname.replace(/\.$/, ''))
 }
 
 export function agentFor(url: string, agents: BrowserAgents): string {
@@ -109,6 +106,7 @@ export function agentFor(url: string, agents: BrowserAgents): string {
 type RequestHeaders = Record<string, string>
 
 export interface AgentSession {
+  getUserAgent(): string
   setUserAgent(userAgent: string): void
   webRequest: {
     onBeforeSendHeaders(
@@ -120,12 +118,18 @@ export interface AgentSession {
   }
 }
 
-const routedSessions = new WeakSet<AgentSession>()
+const sessionAgents = new WeakMap<AgentSession, BrowserAgents>()
 
-export function useBrowserAgents(session: AgentSession, agents: BrowserAgents): void {
+export function useBrowserAgents(
+  session: AgentSession,
+  appName: string,
+  host: AgentHost,
+): BrowserAgents {
+  const known = sessionAgents.get(session)
+  if (known) return known
+  const agents = browserAgents(session.getUserAgent(), appName, host)
+  sessionAgents.set(session, agents)
   session.setUserAgent(agents.rewritten)
-  if (routedSessions.has(session)) return
-  routedSessions.add(session)
   session.webRequest.onBeforeSendHeaders((details, callback) => {
     const requestHeaders: RequestHeaders = {}
     for (const [name, value] of Object.entries(details.requestHeaders)) {
@@ -134,6 +138,7 @@ export function useBrowserAgents(session: AgentSession, agents: BrowserAgents): 
     requestHeaders['User-Agent'] = agentFor(details.url, agents)
     callback({ requestHeaders })
   })
+  return agents
 }
 
 interface NavigationDetails {
@@ -158,17 +163,21 @@ const followedGuests = new WeakSet<AgentGuest>()
 export function followAgentByHost(guest: AgentGuest, agents: BrowserAgents): void {
   if (followedGuests.has(guest) || !guest.debugger.isAttached()) return
   followedGuests.add(guest)
+  const override = (userAgent: string): void => {
+    void guest.debugger
+      .sendCommand('Emulation.setUserAgentOverride', {
+        userAgent,
+        userAgentMetadata: agents.metadata,
+      })
+      .catch(() => {})
+  }
   let current = agents.rewritten
+  override(current)
   const follow = (url: string): void => {
     const next = agentFor(url, agents)
     if (next === current) return
     current = next
-    void guest.debugger
-      .sendCommand('Emulation.setUserAgentOverride', {
-        userAgent: next,
-        userAgentMetadata: agents.metadata,
-      })
-      .catch(() => {})
+    override(next)
   }
   guest.on('did-start-navigation', (details) => {
     if (details.isMainFrame && !details.isSameDocument) follow(details.url)

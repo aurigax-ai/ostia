@@ -157,12 +157,7 @@ import { credentials, registerCredentials } from './browser/credentials'
 import { type GuestChords, registerGuestChords } from './browser/guestChords'
 import { clearGuestNetwork, forgetGuestNetwork, watchGuestNetwork } from './browser/guestNetwork'
 import { registerLoginFill } from './browser/loginFill'
-import {
-  type BrowserAgents,
-  browserAgents,
-  followAgentByHost,
-  useBrowserAgents,
-} from './browser/signinUserAgent'
+import { type BrowserAgents, followAgentByHost, useBrowserAgents } from './browser/signinUserAgent'
 import { registerAssistIpc } from './chat/assistIpc'
 import { createChatSessionStore } from './chat/chatSessions'
 import { registerChatSessionIpc } from './chat/chatSessionsIpc'
@@ -1572,8 +1567,8 @@ function extensionOfPartition(partition: string | undefined): string | null {
   return partition.slice(EXTENSION_PARTITION_PREFIX.length)
 }
 
-function currentBrowserAgents(): BrowserAgents {
-  return browserAgents(app.userAgentFallback, app.getName(), {
+function browserAgentsOf(target: Electron.Session): BrowserAgents {
+  return useBrowserAgents(target, app.getName(), {
     chromeVersion: process.versions.chrome,
     platform: process.platform,
     systemVersion: process.getSystemVersion(),
@@ -1747,8 +1742,7 @@ function wireWindow(win: BrowserWindow): void {
       return
     }
     attachContextMenu(guest, true)
-    const agents = currentBrowserAgents()
-    useBrowserAgents(guest.session, agents)
+    const agents = browserAgentsOf(guest.session)
     guest.setUserAgent(agents.rewritten)
     instrumentBrowserGuest(guest)
     followAgentByHost(guest, agents)
@@ -4147,7 +4141,7 @@ app.whenReady().then(() => {
     agentRunning: (paneId) => agentRunning.has(paneId) && ptys.has(paneId),
   })
   const sharedBrowser = session.fromPartition(SHARED_BROWSER_PARTITION)
-  useBrowserAgents(sharedBrowser, currentBrowserAgents())
+  browserAgentsOf(sharedBrowser)
   const isSharedPane = (paneId: string): boolean => browserProfiles.isShared(paneId)
   registerBrowseMethods({
     allowNavigation: (workspaceId, url) => browserFence.check(workspaceId, url),

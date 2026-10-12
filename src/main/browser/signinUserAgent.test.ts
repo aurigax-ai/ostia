@@ -28,8 +28,12 @@ type Listener = Parameters<AgentSession['webRequest']['onBeforeSendHeaders']>[0]
 
 function fakeSession(): { session: AgentSession; send: (url: string) => Record<string, string> } {
   let listener: Listener | null = null
+  let agent = ELECTRON
   const session: AgentSession = {
-    setUserAgent: vi.fn(),
+    getUserAgent: () => agent,
+    setUserAgent: vi.fn((next: string) => {
+      agent = next
+    }),
     webRequest: {
       onBeforeSendHeaders: vi.fn((next: Listener) => {
         listener = next
@@ -93,12 +97,11 @@ function overrides(sendCommand: ReturnType<typeof vi.fn>): string[] {
 }
 
 describe('wantsElectronAgent', () => {
-  it('matches the Google sign-in hosts over http and https', () => {
+  it('matches the Google sign-in hosts on any port and in any case', () => {
     expect(ELECTRON_AGENT_HOSTS).toEqual(['accounts.google.com', 'accounts.youtube.com'])
     expect(wantsElectronAgent('https://accounts.google.com/v3/signin/identifier?flow=1')).toBe(true)
     expect(wantsElectronAgent('https://accounts.youtube.com/accounts/CheckConnection')).toBe(true)
     expect(wantsElectronAgent('http://ACCOUNTS.Google.com/')).toBe(true)
-    expect(wantsElectronAgent('https://accounts.google.com./')).toBe(true)
     expect(wantsElectronAgent('https://accounts.google.com:8443/')).toBe(true)
   })
 
@@ -110,6 +113,9 @@ describe('wantsElectronAgent', () => {
       'https://google.com/',
       'https://www.youtube.com/',
       'https://foo.accounts.google.com/',
+      'https://accounts.google.com./',
+      'https://accounts.google.com.tw/',
+      'https://accounts.google.co.jp/',
       'https://accounts.google.com.evil.example/',
       'https://evil.example/accounts.google.com',
       'https://evil.example/?next=https://accounts.google.com/',
@@ -120,10 +126,10 @@ describe('wantsElectronAgent', () => {
     }
   })
 
-  it('ignores schemes other than http and https and strings that are not URLs', () => {
+  it('goes by host alone, so sockets to a sign-in host match and URLs without one do not', () => {
+    expect(wantsElectronAgent('wss://accounts.google.com/socket')).toBe(true)
     for (const url of [
-      'wss://accounts.google.com/',
-      'ftp://accounts.google.com/',
+      'blob:https://accounts.google.com/0b1c',
       'file:///accounts.google.com',
       'about:blank',
       'data:text/html,accounts.google.com',
@@ -177,7 +183,7 @@ describe('browserAgents', () => {
 describe('useBrowserAgents', () => {
   it('sets the rewritten agent on the session and the Electron agent only on sign-in requests', () => {
     const { session, send } = fakeSession()
-    useBrowserAgents(session, agents)
+    expect(useBrowserAgents(session, 'ostia', HOST)).toEqual(agents)
     expect(session.setUserAgent).toHaveBeenCalledWith(REWRITTEN)
     expect(send('https://docs.google.com/')['User-Agent']).toBe(REWRITTEN)
     expect(send('https://accounts.google.com/ServiceLogin')['User-Agent']).toBe(ELECTRON)
@@ -189,7 +195,7 @@ describe('useBrowserAgents', () => {
 
   it('sets the rewritten agent on the first request after leaving the sign-in hosts', () => {
     const { session, send } = fakeSession()
-    useBrowserAgents(session, agents)
+    useBrowserAgents(session, 'ostia', HOST)
     expect(send('https://accounts.google.com/')['User-Agent']).toBe(ELECTRON)
     expect(send('https://web.whatsapp.com/')['User-Agent']).toBe(REWRITTEN)
     expect(send('https://docs.google.com/document/d/x')['User-Agent']).toBe(REWRITTEN)
@@ -197,7 +203,7 @@ describe('useBrowserAgents', () => {
 
   it('replaces the agent header whatever its case and keeps the other headers', () => {
     const { session } = fakeSession()
-    useBrowserAgents(session, agents)
+    useBrowserAgents(session, 'ostia', HOST)
     const listener = vi.mocked(session.webRequest.onBeforeSendHeaders).mock.calls[0][0]
     let sent: Record<string, string> = {}
     listener(
@@ -212,12 +218,13 @@ describe('useBrowserAgents', () => {
     expect(sent).toEqual({ Cookie: 'a=1', 'User-Agent': REWRITTEN })
   })
 
-  it('registers one header listener per session however many guests share it', () => {
-    const { session } = fakeSession()
-    useBrowserAgents(session, agents)
-    useBrowserAgents(session, agents)
+  it('reads the Electron agent once per session, before rewriting it, however many guests share it', () => {
+    const { session, send } = fakeSession()
+    useBrowserAgents(session, 'ostia', HOST)
+    expect(useBrowserAgents(session, 'ostia', HOST)).toEqual(agents)
     expect(session.webRequest.onBeforeSendHeaders).toHaveBeenCalledTimes(1)
-    expect(session.setUserAgent).toHaveBeenCalledTimes(2)
+    expect(session.setUserAgent).toHaveBeenCalledTimes(1)
+    expect(send('https://accounts.google.com/')['User-Agent']).toBe(ELECTRON)
   })
 })
 
@@ -225,14 +232,15 @@ describe('followAgentByHost', () => {
   it('overrides the page agent when a main-frame navigation enters or leaves the sign-in hosts', () => {
     const { guest, sendCommand, emit } = fakeGuest()
     followAgentByHost(guest, agents)
+    expect(overrides(sendCommand)).toEqual([REWRITTEN])
     emit('did-start-navigation', 'https://example.com/')
-    expect(sendCommand).not.toHaveBeenCalled()
     emit('did-start-navigation', 'https://docs.google.com/')
+    expect(overrides(sendCommand)).toEqual([REWRITTEN])
     emit('did-redirect-navigation', 'https://accounts.google.com/ServiceLogin')
-    expect(overrides(sendCommand)).toEqual([ELECTRON])
+    expect(overrides(sendCommand)).toEqual([REWRITTEN, ELECTRON])
     emit('did-start-navigation', 'https://accounts.google.com/v3/signin')
     emit('did-start-navigation', 'https://web.whatsapp.com/')
-    expect(overrides(sendCommand)).toEqual([ELECTRON, REWRITTEN])
+    expect(overrides(sendCommand)).toEqual([REWRITTEN, ELECTRON, REWRITTEN])
     expect(sendCommand).toHaveBeenCalledWith('Emulation.setUserAgentOverride', {
       userAgent: ELECTRON,
       userAgentMetadata: agents.metadata,
@@ -245,7 +253,7 @@ describe('followAgentByHost', () => {
     emit('did-start-navigation', 'https://accounts.youtube.com/', { isMainFrame: false })
     emit('did-redirect-navigation', 'https://accounts.google.com/', { isMainFrame: false })
     emit('did-start-navigation', 'https://accounts.google.com/#x', { isSameDocument: true })
-    expect(sendCommand).not.toHaveBeenCalled()
+    expect(overrides(sendCommand)).toEqual([REWRITTEN])
   })
 
   it('does not wait for the override, which only answers once the navigation proceeds', () => {
@@ -254,7 +262,7 @@ describe('followAgentByHost', () => {
     emit('did-start-navigation', 'https://accounts.google.com/')
     emit('did-start-navigation', 'https://docs.google.com/')
     emit('did-start-navigation', 'https://accounts.google.com/')
-    expect(overrides(sendCommand)).toEqual([ELECTRON, REWRITTEN, ELECTRON])
+    expect(overrides(sendCommand)).toEqual([REWRITTEN, ELECTRON, REWRITTEN, ELECTRON])
   })
 
   it('swallows a failed override', async () => {
@@ -263,7 +271,7 @@ describe('followAgentByHost', () => {
     followAgentByHost(guest, agents)
     emit('did-start-navigation', 'https://accounts.google.com/')
     await Promise.resolve()
-    expect(sendCommand).toHaveBeenCalledTimes(1)
+    expect(overrides(sendCommand)).toEqual([REWRITTEN, ELECTRON])
   })
 
   it('follows each guest once and skips a guest without a debugger', () => {
@@ -271,7 +279,7 @@ describe('followAgentByHost', () => {
     followAgentByHost(guest, agents)
     followAgentByHost(guest, agents)
     emit('did-start-navigation', 'https://accounts.google.com/')
-    expect(sendCommand).toHaveBeenCalledTimes(1)
+    expect(overrides(sendCommand)).toEqual([REWRITTEN, ELECTRON])
 
     const detached = fakeGuest()
     detached.guest.debugger.isAttached = () => false
