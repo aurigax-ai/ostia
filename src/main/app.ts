@@ -146,6 +146,7 @@ import {
   OSTIA_ERROR_PREFIX,
   PAGE_ERROR_CATCHER_JS,
   clearGuestBrowseState,
+  injectPageScripts,
   ownedGuest,
   pushConsoleEntry,
   registerBrowseMethods,
@@ -1600,19 +1601,7 @@ function instrumentBrowserGuest(gc: Electron.WebContents): void {
   if (!gc.debugger.isAttached()) {
     try {
       gc.debugger.attach('1.3')
-      gc.debugger
-        .sendCommand('Page.enable')
-        .then(() =>
-          Promise.all([
-            gc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
-              source: PAGE_ERROR_CATCHER_JS,
-            }),
-            gc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
-              source: PASSKEY_GUARD_JS,
-            }),
-          ]),
-        )
-        .catch(() => {})
+      injectPageScripts(gc, [PAGE_ERROR_CATCHER_JS, PASSKEY_GUARD_JS])
     } catch {}
   }
   watchGuestNetwork(gc)

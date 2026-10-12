@@ -100,6 +100,60 @@ export const PAGE_ERROR_CATCHER_JS = `(() => {
   };
 })();`
 
+export interface PageScriptDebugger {
+  on(event: 'message', listener: (event: unknown, method: string, params: unknown) => void): unknown
+  sendCommand(method: string, params?: object, sessionId?: string): Promise<unknown>
+}
+
+const IFRAME_AUTO_ATTACH = {
+  autoAttach: true,
+  waitForDebuggerOnStart: true,
+  flatten: true,
+  filter: [{ type: 'iframe' }],
+}
+
+const followedDebuggers = new WeakSet<PageScriptDebugger>()
+
+export function injectPageScripts(
+  guest: { debugger: PageScriptDebugger },
+  sources: readonly string[],
+): void {
+  const dbg = guest.debugger
+  const send = (method: string, params: object, sessionId?: string): void => {
+    try {
+      const sent =
+        sessionId === undefined
+          ? dbg.sendCommand(method, params)
+          : dbg.sendCommand(method, params, sessionId)
+      sent.catch(() => {})
+    } catch {}
+  }
+  const prepare = (sessionId?: string): void => {
+    send('Page.enable', {}, sessionId)
+    for (const source of sources) {
+      send('Page.addScriptToEvaluateOnNewDocument', { source, runImmediately: true }, sessionId)
+    }
+    send('Target.setAutoAttach', IFRAME_AUTO_ATTACH, sessionId)
+  }
+  if (!followedDebuggers.has(dbg)) {
+    followedDebuggers.add(dbg)
+    dbg.on('message', (_event, method, params) => {
+      if (method !== 'Target.attachedToTarget') return
+      const { sessionId, targetInfo } = (params ?? {}) as {
+        sessionId?: unknown
+        targetInfo?: { type?: unknown }
+      }
+      if (typeof sessionId !== 'string' || sessionId === '') return
+      const isFrame = targetInfo?.type === 'iframe'
+      setImmediate(() => {
+        if (isFrame) prepare(sessionId)
+        send('Runtime.runIfWaitingForDebugger', {}, sessionId)
+      })
+    })
+  }
+  prepare()
+}
+
 interface Route {
   pattern: string
   abort: boolean
