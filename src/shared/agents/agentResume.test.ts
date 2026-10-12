@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { parseAgentResume, resumeCommand, resumeFromHookPayload } from './agentResume'
+import { commandLineEnv } from './agentLaunch'
+import { parseAgentResume, resumeCommand, resumeFromHookPayload, sameResume } from './agentResume'
 
 describe('parseAgentResume', () => {
   it('accepts a known agent with a plain id', () => {
@@ -32,10 +33,65 @@ describe('parseAgentResume', () => {
   })
 })
 
+describe('parseAgentResume with the launch flags and environment', () => {
+  it('keeps the flags it can replay and the safe variables', () => {
+    expect(
+      parseAgentResume({
+        agent: 'claude',
+        id: 'abc',
+        args: ['--agent', 'ostia', '--resume', 'old', 'prompt'],
+        env: { GL_ISSUE: '685', GH_TOKEN: 'x' },
+      }),
+    ).toEqual({ agent: 'claude', id: 'abc', args: ['--agent', 'ostia'], env: { GL_ISSUE: '685' } })
+  })
+
+  it('drops args that are not a list of strings and leaves empty ones out', () => {
+    for (const args of ['--agent x', [1, 2], ['--resume', 'x'], []]) {
+      expect(parseAgentResume({ agent: 'codex', id: 'abc', args, env: {} })).toEqual({
+        agent: 'codex',
+        id: 'abc',
+      })
+    }
+  })
+})
+
+describe('sameResume', () => {
+  it('compares the flags and the environment too', () => {
+    const base = { agent: 'claude' as const, id: 'abc', args: ['--model', 'opus'] }
+    expect(sameResume(base, { ...base, args: ['--model', 'opus'] })).toBe(true)
+    expect(sameResume(base, { ...base, args: ['--model', 'sonnet'] })).toBe(false)
+    expect(sameResume(base, { ...base, env: { A: '1' } })).toBe(false)
+    expect(sameResume(undefined, base)).toBe(false)
+  })
+})
+
 describe('resumeCommand', () => {
   it('builds each agent’s own resume command', () => {
     expect(resumeCommand({ agent: 'claude', id: 'abc' })).toBe('claude --resume abc')
     expect(resumeCommand({ agent: 'codex', id: 'abc' })).toBe('codex resume abc')
+  })
+
+  it('replays the flags after the session and the variables in front, quoted for the shell', () => {
+    expect(
+      resumeCommand({
+        agent: 'claude',
+        id: 'abc',
+        args: ['--agent', 'ostia', '--append-system-prompt', "it's done"],
+        env: { GL_ISSUE: '685', NOTE: 'two words' },
+      }),
+    ).toBe(
+      "GL_ISSUE=685 NOTE='two words' claude --resume abc --agent ostia --append-system-prompt 'it'\\''s done'",
+    )
+    expect(
+      resumeCommand({ agent: 'codex', id: 'abc', args: ['-c', 'model_reasoning_effort="high"'] }),
+    ).toBe(`codex resume abc -c 'model_reasoning_effort="high"'`)
+  })
+
+  it('reads its own variables back from the command it typed', () => {
+    const env = { GL_ISSUE: '685', NOTE: "it's two words" }
+    for (const agent of ['claude', 'codex'] as const) {
+      expect(commandLineEnv(agent, resumeCommand({ agent, id: 'abc', env, args: [] }))).toEqual(env)
+    }
   })
 })
 

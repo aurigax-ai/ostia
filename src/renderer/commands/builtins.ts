@@ -1,5 +1,6 @@
 import { hibernateWorkspaces, resumeWorkspaces, wakePane } from '@/lib/agents/hibernationScheduler'
 import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '@/lib/agents/paneAgent'
+import { withCommandLineEnv } from '@/lib/agents/resumeEnv'
 import { claimResume, paneResumeHolder, resumeHolder } from '@/lib/agents/resumeFolder'
 import { resetZoom } from '@/lib/app/wheelZoom'
 import { postAgentNotification } from '@/lib/attention/agentNotification'
@@ -88,7 +89,7 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { saveSnapshotNow } from '@/stores/workspaces/persistence'
 import type { WorkspaceKind, WorkspaceState } from '@/stores/workspaces/workspacesStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { type AgentResume, resumeCommand } from '@shared/agents/agentResume'
+import { type AgentResume, parseAgentResume, resumeCommand } from '@shared/agents/agentResume'
 import { wantsDesktopBanner } from '@shared/app/notificationSettings'
 import { stepZoom } from '@shared/app/zoom'
 import { PAD_COMMAND } from '@shared/artifacts/artifacts'
@@ -588,8 +589,10 @@ export function registerBuiltinCommands(): void {
     category: 'pane',
     hidden: true,
     capabilities: ['drive-self'],
-    run: (resume, ctx) => {
+    run: (raw, ctx) => {
       if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
+      const resume = withCommandLineEnv(parseAgentResume(raw), ctx.activePaneId)
+      if (!resume) throw new Error('invalid resume')
       useLayoutStore.getState().setResume(ctx.activeWorkspaceId, ctx.activePaneId, resume)
       useBlocksStore.getState().markAgent(ctx.activePaneId, resume.agent)
     },
