@@ -3,6 +3,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileS
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { KEPT_SHELLS_DIR } from '../src/shared/terminal/keepShells'
+import { chords } from './chords'
 import {
   DOM_RENDERER_SETTINGS,
   HIBERNATE_FAST,
@@ -22,6 +23,7 @@ import {
   restartApp,
   runInTerminal,
   shownTerminal,
+  typeLine,
   waitForExit,
 } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
@@ -586,6 +588,15 @@ test('KSH-C88 a kept program in a workspace that is not open is attached again b
     await expect(second.win.locator('.workzone-workspace')).toHaveCount(1)
     await expect.poll(() => readFileSync(file, 'utf8'), { timeout: 15_000 }).not.toBe(before)
     expect(() => process.kill(Number(pid), 0)).not.toThrow()
+    await second.win.keyboard.press(chords.firstWorkspace)
+    await expect(shownTerminal(second.win)).toContainText(`shell=${pid}`, { timeout: 15_000 })
+    await shownTerminal(second.win).click()
+    await typeLine(second.win, 'kept-input')
+    await expect
+      .poll(async () =>
+        occurrences((await shownTerminal(second.win).textContent()) ?? '', 'kept-input'),
+      )
+      .toBeGreaterThanOrEqual(2)
   } finally {
     await quitApp(second.app)
   }
