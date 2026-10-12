@@ -28,6 +28,7 @@ import {
   DatabaseIcon,
 } from '@phosphor-icons/react'
 import { type BrowserProfile, browserPartition } from '@shared/browser/browserProfile'
+import { PASSKEY_NOTICE_PREFIX } from '@shared/browser/passkeyGuard'
 import type { PickBox, PickCapture, PickTheme } from '@shared/browser/pick'
 import type { RegionCapture, RegionView } from '@shared/browser/regionCapture'
 import type { WebviewTag } from 'electron'
@@ -322,6 +323,17 @@ export function BrowserView({
       }),
     [paneId],
   )
+
+  useEffect(() => {
+    const el = webviewRef.current
+    if (!el || !partition) return
+    const onConsole = (e: Event): void => {
+      const { message } = e as unknown as { message?: string }
+      if (message?.startsWith(PASSKEY_NOTICE_PREFIX)) setStatus(d.browser.passkeyUnsupported)
+    }
+    el.addEventListener('console-message', onConsole)
+    return () => el.removeEventListener('console-message', onConsole)
+  }, [partition, d.browser.passkeyUnsupported])
 
   useEffect(() => {
     if (!status) return
