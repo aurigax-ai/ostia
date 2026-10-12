@@ -1016,7 +1016,7 @@ export const en = {
     },
     automatic: 'Check for updates automatically',
     automaticDesc:
-      'Asks GitHub once after launch and then once a day whether a newer release exists. Updating is always your own click, through the way you installed it.',
+      'Asks GitHub once after launch and then once an hour whether a newer release exists. Updating is always your own click, through the way you installed it.',
     channel: 'Update channel',
     channelStable: 'Stable',
     channelMain: 'Main',

@@ -32,7 +32,7 @@ import type { InstallReplacer } from './installReplace'
 import type { UpdateRunner } from './updateRun'
 
 export const RELEASE_CHECK_STARTUP_DELAY_MS = 5_000
-export const RELEASE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000
+export const RELEASE_CHECK_INTERVAL_MS = 60 * 60 * 1000
 export const RELEASE_CHECK_RETRY_MS = 60 * 60 * 1000
 export const RELEASE_REQUEST_TIMEOUT_MS = 10_000
 export const RELEASE_RESPONSE_MAX_BYTES = 1024 * 1024

@@ -231,13 +231,17 @@ describe('createReleaseChecker', () => {
     expect(checker.pending()).toBeNull()
   })
 
-  it('checks on the first tick, then not again until 24 hours have passed', async () => {
+  it('checks again one hour after a successful check', () => {
+    expect(RELEASE_CHECK_INTERVAL_MS).toBe(60 * 60 * 1000)
+  })
+
+  it('checks on the first tick, then not again until an hour has passed', async () => {
     const { state, fetchLatest, checker } = harness()
 
     await checker.tick()
     expect(fetchLatest).toHaveBeenCalledTimes(1)
 
-    state.now += RELEASE_CHECK_INTERVAL_MS - 1
+    state.now += 60 * 60 * 1000 - 1
     await checker.tick()
     expect(fetchLatest).toHaveBeenCalledTimes(1)
 
@@ -247,7 +251,7 @@ describe('createReleaseChecker', () => {
     expect(state.logs.map(([trigger]) => trigger)).toEqual(['auto', 'auto'])
   })
 
-  it('retries a failed check after an hour instead of a day', async () => {
+  it('retries a failed check after RELEASE_CHECK_RETRY_MS', async () => {
     const { state, fetchLatest, checker } = harness()
     state.latest = { kind: 'error', error: 'offline' }
 
@@ -272,7 +276,7 @@ describe('createReleaseChecker', () => {
     expect(fetchLatest).toHaveBeenCalledTimes(1)
   })
 
-  it('counts a manual check toward the daily schedule, even with the setting off', async () => {
+  it('counts a manual check toward the hourly schedule, even with the setting off', async () => {
     const { state, fetchLatest, checker } = harness({ enabled: false })
 
     await checker.check('manual')
