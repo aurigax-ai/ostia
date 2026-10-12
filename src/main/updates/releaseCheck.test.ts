@@ -100,18 +100,19 @@ function harness(opts: { current?: string; dismissed?: string | null; enabled?: 
     logs: [] as Array<[string, string, string | undefined]>,
   }
   const fetchLatest = vi.fn(async (_channel: UpdateChannel) => state.latest)
+  const enabled = vi.fn(() => state.enabled)
   const checker = createReleaseChecker({
     currentVersion: opts.current ?? '0.2.0',
     fetchLatest,
     now: () => state.now,
-    enabled: () => state.enabled,
+    enabled,
     channel: () => state.channel,
     loadDismissed: () => opts.dismissed ?? null,
     saveDismissed: (version) => state.saved.push(version),
     onChange: (pending) => state.changes.push(pending),
     log: (trigger, outcome, latest) => state.logs.push([trigger, outcome, latest]),
   })
-  return { state, fetchLatest, checker }
+  return { state, fetchLatest, enabled, checker }
 }
 
 describe('releaseEndpoint', () => {
@@ -236,14 +237,16 @@ describe('createReleaseChecker', () => {
   })
 
   it('checks on the first tick, then not again until an hour has passed', async () => {
-    const { state, fetchLatest, checker } = harness()
+    const { state, fetchLatest, enabled, checker } = harness()
 
     await checker.tick()
     expect(fetchLatest).toHaveBeenCalledTimes(1)
 
+    enabled.mockClear()
     state.now += 60 * 60 * 1000 - 1
     await checker.tick()
     expect(fetchLatest).toHaveBeenCalledTimes(1)
+    expect(enabled).not.toHaveBeenCalled()
 
     state.now += 1
     await checker.tick()

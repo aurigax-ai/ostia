@@ -217,7 +217,7 @@ export function createReleaseChecker(deps: {
   }
 
   const tick = async (): Promise<void> => {
-    if (deps.enabled() && deps.now() >= nextAutoAt) await check('auto')
+    if (deps.now() >= nextAutoAt && deps.enabled()) await check('auto')
   }
 
   return {
