@@ -57,6 +57,22 @@ describe('inputHistory', () => {
     expect(inputHistory(byPane, 'a', scratch)).toEqual(['ls'])
     expect(inputHistory(byPane, 's', scratch)).toEqual(['curl secret.example', 'ls'])
   })
+
+  it('after a restart, the second entry up in a resumed tab is another tab’s agent launch', () => {
+    const coordinator =
+      "cd /w && claude --resume d27bd196 --agent research -n 'Ostia coordinator' --effort medium"
+    const byPane = {
+      coordinator: [
+        block('coordinator', 'claude --resume d27bd196', 1),
+        block('coordinator', coordinator, 2),
+      ],
+      bugs: [block('bugs', 'claude --resume 25f360be', 3)],
+    }
+    expect(inputHistory(byPane, 'bugs').slice(0, 2)).toEqual([
+      'claude --resume 25f360be',
+      coordinator,
+    ])
+  })
 })
 
 describe('caretOnFirstLine', () => {

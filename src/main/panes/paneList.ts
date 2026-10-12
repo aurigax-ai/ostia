@@ -1,3 +1,4 @@
+import { isResumableAgent } from '../../shared/agents/agentResume'
 import type { Capability } from '../../shared/capabilities'
 import type { CommandResult, CommandTarget, TerminalStateSnapshot } from '../../shared/types'
 import type { Reach } from '../approvals/reach'
@@ -56,6 +57,7 @@ export interface PaneEntry extends PaneAgentFields {
   splitTabName?: string
   hibernated?: true
   waking?: true
+  agentSessionConflict?: string[]
 }
 
 export interface PaneListDeps {
@@ -89,6 +91,23 @@ function agentFields(p: RendererPaneEntry): PaneAgentFields {
   return fields
 }
 
+function liveSessionKey(p: PaneEntry): string | null {
+  return isResumableAgent(p.agent) && p.agentSessionId ? `${p.agent}:${p.agentSessionId}` : null
+}
+
+export function markSessionConflicts(panes: PaneEntry[]): PaneEntry[] {
+  const holders = new Map<string, string[]>()
+  for (const p of panes) {
+    const key = liveSessionKey(p)
+    if (key) holders.set(key, [...(holders.get(key) ?? []), p.paneId])
+  }
+  return panes.map((p) => {
+    const key = liveSessionKey(p)
+    const others = key ? (holders.get(key) ?? []).filter((id) => id !== p.paneId) : []
+    return others.length > 0 ? { ...p, agentSessionConflict: others } : p
+  })
+}
+
 export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
   const panes = await listFromEveryWindow<RendererPaneEntry>(deps, 'pane.list', {
     allWorkspaces: true,
@@ -117,7 +136,7 @@ export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
       ...(typeof p.splitTabName === 'string' ? { splitTabName: p.splitTabName } : {}),
     })
   }
-  return mapped
+  return markSessionConflicts(mapped)
 }
 
 export async function listWorkspaces(

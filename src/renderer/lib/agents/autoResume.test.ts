@@ -1,7 +1,7 @@
 import { createPane, findPane, tabsOf } from '@/layout/tree'
 import type { LayoutNode } from '@/layout/types'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { SnapshotPaneNode } from '@shared/types'
@@ -202,6 +202,33 @@ describe('startAutoResume', () => {
     useBlocksStore.setState({ running: {} })
     resumeOnActivation(pane.id)
     expect(runWhenIdle).toHaveBeenCalledTimes(1)
+  })
+
+  it('skips a restored tab whose session runs in another tab, and resumes it on activation once that agent exits', () => {
+    const holder = { ...createPane('terminal'), title: 'coordinator', resume }
+    const stale = { ...createPane('terminal'), resume, resumePending: true as const }
+    seed(tabsOf(stale.id, holder, stale), stale.id, false)
+    useBlocksStore.setState({
+      running: { [holder.id]: 'b1' },
+      byPane: {
+        [holder.id]: [
+          { id: 'b1', paneId: holder.id, command: 'claude --resume abc-1', startedAt: 0 },
+        ] as unknown as CommandBlock[],
+      },
+    })
+    stop = startAutoResume()
+
+    resumeOnActivation(stale.id)
+    expect(runWhenIdle).toHaveBeenCalledTimes(1)
+    const [, , , allowed, giveUp] = vi.mocked(runWhenIdle).mock.calls[0]
+    expect(allowed?.()).toBe(false)
+    giveUp?.()
+    expect(pending(stale.id)?.resumePending).toBe(true)
+
+    useBlocksStore.setState({ running: {} })
+    resumeOnActivation(stale.id)
+    expect(runWhenIdle).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(runWhenIdle).mock.calls[1][3]?.()).toBe(true)
   })
 
   it('never resumes on activation a pane without the mark', () => {

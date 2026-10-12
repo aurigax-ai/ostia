@@ -38,7 +38,7 @@ import {
 } from '@phosphor-icons/react'
 import { type DragEvent, useEffect, useRef } from 'react'
 import { PaneHeaderActions, PaneTabMenu } from './PaneTabMenu'
-import { ResumeFolderNotice } from './ResumeFolderNotice'
+import { ResumeConflictNotice, ResumeFolderNotice } from './ResumeFolderNotice'
 import { SplitTabBody, SplitTabPill } from './SplitTab'
 import { TabBody } from './TabBody'
 import { TabFace, usePaneMark } from './TabFace'
@@ -354,6 +354,8 @@ export function Pane({
             resume={shown.resume}
             folder={shown.resumeFolderMissing}
           />
+        ) : shown.resume ? (
+          <ResumeConflictNotice pane={shown} />
         ) : null}
       </div>
 

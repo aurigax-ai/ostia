@@ -559,6 +559,32 @@ describe('the pane.wake command an agent reaches through main', () => {
     })
   })
 
+  it('neither wakes nor resumes a pane whose session runs in another pane until that agent exits', async () => {
+    seed(10)
+    await hibernateWorkspaces(['s2'])
+    useLayoutStore.getState().setResume('s1', 'shown', { agent: 'claude', id: 'tok-idle-claude' })
+    run('shown', 'claude --resume tok-idle-claude')
+    const typed = vi.spyOn(blockActions, 'runWhenIdle').mockImplementation(() => () => {})
+
+    expect(await commands.execWith(target('idle-claude'), 'pane.wake')).toEqual({
+      ok: true,
+      result: { woke: false },
+    })
+    expect(await commands.execWith(target('idle-claude'), 'agent.resume')).toMatchObject({
+      ok: false,
+      error: { message: expect.stringContaining('already running in "shown"') },
+    })
+    expect(typed).not.toHaveBeenCalled()
+    expect(hibernated('idle-claude')).toBe(true)
+
+    useBlocksStore.getState().commandEnd('shown', { line: 2 }, 0)
+    expect(await commands.execWith(target('idle-claude'), 'pane.wake')).toEqual({
+      ok: true,
+      result: { woke: true },
+    })
+    expect(typed).toHaveBeenCalledTimes(1)
+  })
+
   it('wakes nothing and types nothing for a pane that is not hibernated', async () => {
     seed(10)
     const typed = vi.spyOn(blockActions, 'runWhenIdle').mockImplementation(() => () => {})

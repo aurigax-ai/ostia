@@ -4,7 +4,7 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { wakePane } from './hibernationScheduler'
-import { resumeWhenIdle } from './resumeFolder'
+import { resumeHolder, resumeWhenIdle } from './resumeFolder'
 
 interface PendingPane {
   workspaceId: string
@@ -79,7 +79,14 @@ export function startAutoResume(): () => void {
         continue
       }
       if (scheduled.has(pane.id)) continue
-      scheduled.set(pane.id, resumeWhenIdle(pane.id, resume))
+      let refused = false
+      const cancel = resumeWhenIdle(pane.id, resume, () => {
+        if (!resumeHolder(pane.id, resume)) return
+        refused = true
+        scheduled.delete(pane.id)
+        activated.delete(pane.id)
+      })
+      if (!refused) scheduled.set(pane.id, cancel)
     }
   }
 

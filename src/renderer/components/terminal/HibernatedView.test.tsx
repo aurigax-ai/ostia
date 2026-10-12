@@ -42,6 +42,7 @@ import { commands } from '@/commands/registry'
 import { findPane } from '@/layout/tree'
 import type { PaneNode } from '@/layout/types'
 import * as blockActions from '@/lib/terminal/blockActions'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -61,10 +62,12 @@ const { SurfacePool } = await import('@/components/panes/SurfacePool')
 
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
 let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
+let blocksInit: ReturnType<typeof useBlocksStore.getState>
 
 beforeAll(() => {
   layoutInit = useLayoutStore.getState()
   workspacesInit = useWorkspacesStore.getState()
+  blocksInit = useBlocksStore.getState()
 })
 
 afterEach(() => {
@@ -73,6 +76,7 @@ afterEach(() => {
   vi.restoreAllMocks()
   useLayoutStore.setState(layoutInit, true)
   useWorkspacesStore.setState(workspacesInit, true)
+  useBlocksStore.setState(blocksInit, true)
 })
 
 const sleeping: PaneNode = {
@@ -211,6 +215,47 @@ describe('hibernated terminal pane', () => {
     const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
     await userEvent.click(within(notice).getByRole('button', { name: 'Close tab' }))
     expect(exec).toHaveBeenCalledWith('pane.close', { paneId: 'h1' })
+  })
+
+  it('says the session runs in another tab, offers Close tab, and its Resume types nothing', async () => {
+    const live: PaneNode = {
+      type: 'pane',
+      id: 'live',
+      kind: 'terminal',
+      title: 'Ostia coordinator',
+      resume: { agent: 'claude', id: 'tok-1' },
+    }
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
+      activeWorkspaceId: 's1',
+    })
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: { type: 'tabs', id: 't', activeId: 'h1', children: [live, sleeping] },
+          activePaneId: 'h1',
+          zoomedPaneId: null,
+        },
+      },
+    })
+    const blocks = useBlocksStore.getState()
+    blocks.promptStart('live', { line: 0 }, null)
+    blocks.commandStart('live', { line: 1 }, 'claude --resume tok-1')
+    const typed = vi.spyOn(blockActions, 'runWhenIdle')
+    render(<Pane tabs={[live, sleeping]} shownId="h1" activePaneId="h1" workspaceId="s1" />)
+    render(<SurfacePool />)
+    const host = surfaceHost('h1')
+    document.body.appendChild(host)
+
+    const notice = screen.getByRole('region', { name: 'Agent session open twice' })
+    expect(within(notice).getByText(/“Ostia coordinator”/)).toBeInTheDocument()
+    await userEvent.click(within(host).getByRole('button', { name: 'Resume claude' }))
+    expect(typed).not.toHaveBeenCalled()
+    expect(findPane(useLayoutStore.getState().byWorkspace.s1.root, 'h1')?.hibernated).toBe(true)
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    await userEvent.click(within(notice).getByRole('button', { name: 'Close tab' }))
+    expect(exec).toHaveBeenCalledWith('pane.close', { paneId: 'h1' })
+    host.remove()
   })
 
   it('a hibernated pane keeps its last screen frozen and read-only, and wakes with one copy of it', async () => {

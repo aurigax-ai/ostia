@@ -11,7 +11,7 @@ import {
 } from '@shared/agents/agentWork'
 import { type HibernationCandidate, planHibernation } from './hibernation'
 import { runningAgentOf } from './paneAgent'
-import { resumeWhenIdle } from './resumeFolder'
+import { resumeHolder, resumeWhenIdle } from './resumeFolder'
 
 export const HIBERNATION_CHECK_MS = 5000
 export const WAKE_WAVE_SIZE = 3
@@ -58,6 +58,7 @@ export function wakePane(paneId: string, onSettled: () => void = () => {}): bool
   const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
   const pane = layout ? findPane(layout.root, paneId) : null
   if (!workspaceId || !pane?.hibernated) return false
+  if (pane.resume && resumeHolder(paneId, pane.resume)) return false
   useLayoutStore.getState().setHibernated(workspaceId, paneId, false)
   countUsage('terminal', 'wake')
   if (!pane.resume) {

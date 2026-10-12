@@ -53,6 +53,7 @@ JSON, one object per pane:
 | `agent?` | `claude`, `codex`, … while an agent runs in the pane; absent at a shell prompt |
 | `agentState?`, `agentMessage?` | what that agent reported: `working`, `waiting`, `done`, `error`; absent when nothing is pending |
 | `agentSessionId?` | the agent session a Resume or wake continues |
+| `agentSessionConflict?` | the other panes' ids where an agent runs the same `agentSessionId` right now; two copies write to one transcript, so close one. Ostia refuses to resume or wake a session that is already running in another pane |
 | `hibernated?` | `true` when Ostia stopped the idle agent to save memory (wake it with `ostia pane wake`) |
 | `waking?` | `true` from `ostia pane wake` until the woken agent has started; `pane send` refuses it until then (`ostia pane wake --wait` waits for it) |
 | `splitTabId?`, `splitTabName?` | the split tab it belongs to |

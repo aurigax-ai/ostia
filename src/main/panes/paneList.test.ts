@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { CommandResult, TerminalStateSnapshot } from '../../shared/types'
+import type { CommandResult, CommandTarget, TerminalStateSnapshot } from '../../shared/types'
 import { registerPane } from '../control/idRegistry'
-import { type PaneListDeps, listPanes, listWorkspaceGroups, listWorkspaces } from './paneList'
+import {
+  type PaneListDeps,
+  listPanes,
+  listWorkspaceGroups,
+  listWorkspaces,
+  markSessionConflicts,
+} from './paneList'
 
 const ONE_WINDOW = (): string[] => ['1']
 
@@ -231,6 +237,60 @@ describe('paneList.listPanes', () => {
     const plain = panes.find((p) => p.paneId === shell.externalId)
     expect(plain).not.toHaveProperty('agent')
     expect(plain).not.toHaveProperty('agentSessionId')
+  })
+
+  it('marks panes whose live agents run the same session, across windows', async () => {
+    const first = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-dup-1' })
+    const second = registerPane({ windowId: 'w2', workspaceId: 's2', paneId: 'p-dup-2' })
+    const stale = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-dup-stale' })
+    const codex = registerPane({ windowId: 'w2', workspaceId: 's2', paneId: 'p-dup-codex' })
+    const pane = (paneId: string, extra: Record<string, unknown>) => ({
+      paneId,
+      workspaceId: 's1',
+      kind: 'terminal',
+      title: paneId,
+      ...extra,
+    })
+    const execCommand = vi.fn(async (target: CommandTarget) =>
+      target.windowId === '1'
+        ? ok([
+            pane('p-dup-1', { agent: 'claude', agentSessionId: 'sess-dup' }),
+            pane('p-dup-stale', { agentSessionId: 'sess-dup' }),
+          ])
+        : ok([
+            pane('p-dup-2', { agent: 'claude', agentSessionId: 'sess-dup' }),
+            pane('p-dup-codex', { agent: 'codex', agentSessionId: 'sess-dup' }),
+          ]),
+    )
+
+    const panes = await listPanes({
+      execCommand,
+      getTerminalState: vi.fn(),
+      ptyPid: vi.fn(),
+      windowIds: () => ['1', '2'],
+      waking: () => false,
+    })
+    const byId = (id: string) => panes.find((p) => p.paneId === id)
+
+    expect(byId(first.externalId)?.agentSessionConflict).toEqual([second.externalId])
+    expect(byId(second.externalId)?.agentSessionConflict).toEqual([first.externalId])
+    expect(byId(stale.externalId)).not.toHaveProperty('agentSessionConflict')
+    expect(byId(codex.externalId)).not.toHaveProperty('agentSessionConflict')
+  })
+
+  it('does not mark a lone agent pane or two panes with different sessions', () => {
+    const entry = (paneId: string, agentSessionId: string) => ({
+      paneId,
+      workspaceId: 's1',
+      kind: 'terminal',
+      title: paneId,
+      running: true,
+      blockCount: 1,
+      agent: 'claude',
+      agentSessionId,
+    })
+    const marked = markSessionConflicts([entry('a', 'one'), entry('b', 'two')])
+    expect(marked.every((p) => p.agentSessionConflict === undefined)).toBe(true)
   })
 
   it('drops a pane with no registered external id', async () => {
