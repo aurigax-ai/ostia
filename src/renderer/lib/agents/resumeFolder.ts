@@ -36,6 +36,12 @@ function claimedBy(pane: PaneNode, resume: AgentResume, now: number): boolean {
   return sameSession(claim.resume, resume)
 }
 
+export function resumeClaimEndsAt(paneId: string): number | null {
+  const claim = claims.get(paneId)
+  if (!claim || useBlocksStore.getState().running[paneId] !== undefined) return null
+  return claim.at + RESUME_CLAIM_MS
+}
+
 export function resumeHolder(
   paneId: string,
   resume: AgentResume,
@@ -45,6 +51,7 @@ export function resumeHolder(
     for (const pane of layout ? allPanes(layout.root) : []) {
       if (pane.id === paneId) continue
       const live =
+        pane.hibernated !== true &&
         pane.resume !== undefined &&
         sameSession(pane.resume, resume) &&
         runningAgentOf(pane.id) === resume.agent
@@ -62,6 +69,13 @@ export function resumeConflict(pane: PaneNode, now = Date.now()): PaneNode | nul
     pane.resumePending === true ||
     runningAgentOf(pane.id) === resume.agent
   return exposed ? resumeHolder(pane.id, resume, now) : null
+}
+
+export function paneResumeHolder(paneId: string): PaneNode | null {
+  const workspaceId = workspaceOfPane(paneId)
+  const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
+  const resume = layout ? findPane(layout.root, paneId)?.resume : undefined
+  return resume ? resumeHolder(paneId, resume) : null
 }
 
 export function resumeFolderMissing(paneId: string): string | undefined {

@@ -108,6 +108,16 @@ export function markSessionConflicts(panes: PaneEntry[]): PaneEntry[] {
   })
 }
 
+export function liveSessionHolder(panes: PaneEntry[], paneId: string): PaneEntry | null {
+  const id = panes.find((p) => p.paneId === paneId)?.agentSessionId
+  if (!id) return null
+  return (
+    panes.find(
+      (p) => p.paneId !== paneId && p.agentSessionId === id && isResumableAgent(p.agent),
+    ) ?? null
+  )
+}
+
 export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
   const panes = await listFromEveryWindow<RendererPaneEntry>(deps, 'pane.list', {
     allWorkspaces: true,

@@ -169,7 +169,7 @@ describe('resume session conflicts', () => {
 
     resumeWhenIdle(first.id, session)
     expect(resumeHolder(second.id, session, now)?.id).toBe(first.id)
-    expect(resumeHolder(second.id, session, now + RESUME_CLAIM_MS)).toBeNull()
+    expect(resumeHolder(second.id, session, now + RESUME_CLAIM_MS + 1000)).toBeNull()
 
     resumeWhenIdle(first.id, session)
     start(first.id, 'ls')

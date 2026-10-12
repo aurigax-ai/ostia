@@ -231,6 +231,31 @@ describe('startAutoResume', () => {
     expect(vi.mocked(runWhenIdle).mock.calls[1][3]?.()).toBe(true)
   })
 
+  it('with auto-resume on, a tab held back by another tab resumes once that tab reports a new session', () => {
+    const holder = { ...createPane('terminal'), title: 'coordinator', resume }
+    const stale = { ...createPane('terminal'), resume, resumePending: true as const }
+    seed(tabsOf(holder.id, holder, stale), holder.id, true)
+    useBlocksStore.setState({
+      running: { [holder.id]: 'b1' },
+      byPane: {
+        [holder.id]: [
+          { id: 'b1', paneId: holder.id, command: 'claude', startedAt: 0 },
+        ] as unknown as CommandBlock[],
+      },
+    })
+    stop = startAutoResume()
+
+    expect(runWhenIdle).toHaveBeenCalledTimes(1)
+    const [, , , heldBack, giveUp] = vi.mocked(runWhenIdle).mock.calls[0]
+    expect(heldBack?.()).toBe(false)
+    giveUp?.()
+
+    useLayoutStore.getState().setResume('w1', holder.id, { agent: 'claude', id: 'new-session' })
+    expect(runWhenIdle).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(runWhenIdle).mock.calls[1][0]).toBe(stale.id)
+    expect(vi.mocked(runWhenIdle).mock.calls[1][3]?.()).toBe(true)
+  })
+
   it('never resumes on activation a pane without the mark', () => {
     const pane = { ...createPane('terminal'), resume }
     seed(pane, pane.id, false)

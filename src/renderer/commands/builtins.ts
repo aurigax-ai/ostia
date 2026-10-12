@@ -1,6 +1,6 @@
 import { hibernateWorkspaces, resumeWorkspaces, wakePane } from '@/lib/agents/hibernationScheduler'
 import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '@/lib/agents/paneAgent'
-import { claimResume, resumeHolder } from '@/lib/agents/resumeFolder'
+import { claimResume, paneResumeHolder, resumeHolder } from '@/lib/agents/resumeFolder'
 import { resetZoom } from '@/lib/app/wheelZoom'
 import { postAgentNotification } from '@/lib/attention/agentNotification'
 import { announceBusMessage } from '@/lib/attention/busNotice'
@@ -631,13 +631,15 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  registerCore<undefined, { woke: boolean }>({
+  registerCore<undefined, { woke: boolean; conflict?: string }>({
     id: 'pane.wake',
     category: 'pane',
     hidden: true,
     capabilities: ['type-other-pane'],
     run: (_args, ctx) => {
       if (!ctx.activePaneId) throw new Error('no target pane')
+      const holder = paneResumeHolder(ctx.activePaneId)
+      if (holder) return { woke: false, conflict: holder.title }
       return { woke: wakePane(ctx.activePaneId) }
     },
   })

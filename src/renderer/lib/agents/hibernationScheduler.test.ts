@@ -19,6 +19,7 @@ import {
   resumeWorkspaces,
   startHibernation,
 } from './hibernationScheduler'
+import { clearResumeClaims, resumeConflict } from './resumeFolder'
 
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
 let blocksInit: ReturnType<typeof useBlocksStore.getState>
@@ -59,6 +60,7 @@ afterEach(() => {
   useHibernateSkippedStore.setState({ skipped: null })
   for (const id of IDS) forgetPaneActivity(id)
   vi.mocked(window.ostia.pty.hibernate).mockClear()
+  clearResumeClaims()
   vi.restoreAllMocks()
 })
 
@@ -568,7 +570,7 @@ describe('the pane.wake command an agent reaches through main', () => {
 
     expect(await commands.execWith(target('idle-claude'), 'pane.wake')).toEqual({
       ok: true,
-      result: { woke: false },
+      result: { woke: false, conflict: 'shown' },
     })
     expect(await commands.execWith(target('idle-claude'), 'agent.resume')).toMatchObject({
       ok: false,
@@ -583,6 +585,43 @@ describe('the pane.wake command an agent reaches through main', () => {
       result: { woke: true },
     })
     expect(typed).toHaveBeenCalledTimes(1)
+  })
+
+  it('wakes two hibernated panes of one session together: one resumes, the other waits with the warning', async () => {
+    seed(10)
+    useLayoutStore
+      .getState()
+      .setResume('s2', 'fresh-claude', { agent: 'claude', id: 'tok-idle-claude' })
+    await hibernateWorkspaces(['s2'])
+    useBlocksStore.setState({ running: {} })
+    const attempts: Array<{ allowed: () => boolean; giveUp: () => void; typed: () => void }> = []
+    vi.spyOn(blockActions, 'runWhenIdle').mockImplementation(
+      (_paneId, _command, _timeoutMs, allowed, onGiveUp, onTyped) => {
+        attempts.push({
+          allowed: allowed ?? (() => true),
+          giveUp: onGiveUp ?? (() => {}),
+          typed: onTyped ?? (() => {}),
+        })
+        return () => {}
+      },
+    )
+    const report = vi.mocked(window.ostia.pty.reportWaking)
+    report.mockClear()
+
+    expect(resumeWorkspaces(['s2'])).toEqual(['idle-claude', 'fresh-claude'])
+    const outcomes = attempts.map((a) => {
+      const allowed = a.allowed()
+      ;(allowed ? a.typed : a.giveUp)()
+      return allowed
+    })
+
+    expect(outcomes).toEqual([true, false])
+    const fresh = () =>
+      findPane(useLayoutStore.getState().byWorkspace.s2?.root ?? terminal('x'), 'fresh-claude')
+    expect(fresh()?.resumePending).toBe(true)
+    expect(report).toHaveBeenCalledWith('fresh-claude', false)
+    const holder = fresh() ? resumeConflict(fresh() as PaneNode) : null
+    expect(holder?.id).toBe('idle-claude')
   })
 
   it('wakes nothing and types nothing for a pane that is not hibernated', async () => {

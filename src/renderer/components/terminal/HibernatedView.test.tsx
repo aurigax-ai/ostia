@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -41,6 +41,7 @@ vi.mock('@xterm/addon-unicode11', () => ({ Unicode11Addon: class {} }))
 import { commands } from '@/commands/registry'
 import { findPane } from '@/layout/tree'
 import type { PaneNode } from '@/layout/types'
+import { RESUME_CLAIM_MS, claimResume, clearResumeClaims } from '@/lib/agents/resumeFolder'
 import * as blockActions from '@/lib/terminal/blockActions'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -77,6 +78,8 @@ afterEach(() => {
   useLayoutStore.setState(layoutInit, true)
   useWorkspacesStore.setState(workspacesInit, true)
   useBlocksStore.setState(blocksInit, true)
+  clearResumeClaims()
+  vi.useRealTimers()
 })
 
 const sleeping: PaneNode = {
@@ -256,6 +259,63 @@ describe('hibernated terminal pane', () => {
     await userEvent.click(within(notice).getByRole('button', { name: 'Close tab' }))
     expect(exec).toHaveBeenCalledWith('pane.close', { paneId: 'h1' })
     host.remove()
+  })
+
+  it('says both tabs run the session when the agent runs here too', () => {
+    const resume = { agent: 'claude' as const, id: 'tok-2' }
+    const here: PaneNode = { type: 'pane', id: 'here', kind: 'terminal', title: 'here', resume }
+    const there: PaneNode = { type: 'pane', id: 'there', kind: 'terminal', title: 'there', resume }
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: { type: 'tabs', id: 't', activeId: 'here', children: [here, there] },
+          activePaneId: 'here',
+          zoomedPaneId: null,
+        },
+      },
+    })
+    const blocks = useBlocksStore.getState()
+    for (const id of ['here', 'there']) {
+      blocks.promptStart(id, { line: 0 }, null)
+      blocks.commandStart(id, { line: 1 }, 'claude --resume tok-2')
+    }
+    render(<Pane tabs={[here, there]} shownId="here" activePaneId="here" workspaceId="s1" />)
+    const notice = screen.getByRole('region', { name: 'Agent session open twice' })
+    expect(within(notice).getByText(/running here and in the tab “there”/)).toBeInTheDocument()
+    expect(within(notice).queryByText(/not resumed here/)).toBeNull()
+  })
+
+  it('drops the warning when another tab’s typed resume never started', () => {
+    vi.useFakeTimers()
+    const resume = { agent: 'claude' as const, id: 'tok-3' }
+    const waiting: PaneNode = {
+      type: 'pane',
+      id: 'waiting',
+      kind: 'terminal',
+      title: 'waiting',
+      resume,
+      resumePending: true,
+    }
+    const typed: PaneNode = { type: 'pane', id: 'typed', kind: 'terminal', title: 'typed', resume }
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: { type: 'tabs', id: 't', activeId: 'waiting', children: [waiting, typed] },
+          activePaneId: 'waiting',
+          zoomedPaneId: null,
+        },
+      },
+    })
+    claimResume('typed', resume)
+    render(
+      <Pane tabs={[waiting, typed]} shownId="waiting" activePaneId="waiting" workspaceId="s1" />,
+    )
+    expect(screen.getByRole('region', { name: 'Agent session open twice' })).toBeInTheDocument()
+    act(() => {
+      vi.advanceTimersByTime(RESUME_CLAIM_MS + 5)
+    })
+    expect(screen.queryByRole('region', { name: 'Agent session open twice' })).toBeNull()
+    vi.useRealTimers()
   })
 
   it('a hibernated pane keeps its last screen frozen and read-only, and wakes with one copy of it', async () => {
