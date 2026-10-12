@@ -2666,6 +2666,11 @@ function registerPtyIpc(): void {
     return ptys.get(paneId) === entry && hibernatePty(paneId) ? 'hibernated' : 'no-terminal'
   })
 
+  ipcMain.handle('pty:kept-waiting', async (): Promise<string[]> => {
+    await keptShells.ready
+    return keptShells.waitingPaneIds()
+  })
+
   ipcMain.handle('pty:stashed', (e, paneId: string): string | null =>
     stashedScreen(String(paneId), String(e.sender.id), windowOfPane(String(paneId))),
   )
