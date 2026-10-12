@@ -21,7 +21,7 @@ function fakeResumableClaude(dataHome: string, turn?: 'working' | 'done'): strin
     [
       '#!/bin/sh',
       'case "$*" in',
-      '  *--resume*) echo "fake-agent-resumed $*" ;;',
+      '  *--resume*) echo "fake-agent-resumed $* GL=${GL_ISSUE-none} TOK=${API_TOKEN-none} END" ;;',
       `  *) ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude ${RESUME_ID} >/dev/null 2>&1`,
       ...report,
       '     echo fake-agent-ready ;;',
@@ -66,10 +66,14 @@ function agentRunningSaved(dataHome: string): boolean {
   return savedPanes(dataHome).some((p) => p.agentRunning === true)
 }
 
-async function startResumableAgent(dataHome: string, win: Page): Promise<string> {
+async function startResumableAgent(
+  dataHome: string,
+  win: Page,
+  command = 'claude',
+): Promise<string> {
   await openWorkspace(win)
   await win.locator('.xterm').first().click()
-  await win.keyboard.type('claude')
+  await win.keyboard.type(command)
   await win.keyboard.press('Enter')
   await expect(win.locator('.xterm-rows').first()).toContainText('fake-agent-ready', {
     timeout: 15_000,
@@ -82,13 +86,15 @@ async function quitAndWait(app: ElectronApplication, win: Page): Promise<void> {
   await Promise.all([waitForExit(app), win.evaluate(() => window.ostia.window.quit())])
 }
 
-async function expectAutoResumed(dataHome: string): Promise<void> {
+async function expectAutoResumed(
+  dataHome: string,
+  resumed = new RegExp(`fake-agent-resumed .*--resume ${RESUME_ID}`),
+): Promise<void> {
   const { app, win } = await launchAgentApp(dataHome)
   try {
-    await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(
-      new RegExp(`fake-agent-resumed .*--resume ${RESUME_ID}`),
-      { timeout: 20_000 },
-    )
+    await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(resumed, {
+      timeout: 20_000,
+    })
   } finally {
     const closed = app.close().catch(() => {})
     const quit = win.getByRole('dialog').getByRole('button', { name: 'Quit' })
@@ -110,6 +116,24 @@ test(
     await expectAutoResumed(dataHome)
   },
 )
+
+test('a resumed agent gets the flags and the variables it was started with, without its prompt or secrets', async () => {
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, AUTO_RESUME_SETTINGS)
+  const { app, win } = await launchAgentApp(dataHome)
+  await startResumableAgent(
+    dataHome,
+    win,
+    'GL_ISSUE=tracker#1 API_TOKEN=abc claude --agent X --model Y "hello"',
+  )
+  await quitAndWait(app, win)
+  await expectAutoResumed(
+    dataHome,
+    new RegExp(
+      `fake-agent-resumed --plugin-dir [^ ]+ --resume ${RESUME_ID} --agent X --model Y GL=tracker#1 TOK=none END`,
+    ),
+  )
+})
 
 test('an agent running when the window closes with close-to-tray off resumes after the restart', async () => {
   const dataHome = freshDataHome()

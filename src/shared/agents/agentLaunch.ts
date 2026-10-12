@@ -213,7 +213,7 @@ export function safeEnv(raw: unknown): Record<string, string> {
 }
 
 const OPERATORS = new Set([';', '&', '|', '<', '>', '(', ')', '\n'])
-const UNQUOTED_SAFE = /^[A-Za-z0-9_./:,@%+=~-]$/
+const UNQUOTED_SAFE = /^[A-Za-z0-9_./:,@%+=~#-]$/
 
 interface Word {
   text: string

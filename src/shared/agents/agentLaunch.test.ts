@@ -171,6 +171,9 @@ describe('commandLineEnv', () => {
       MODE: 'fast mode',
     })
     expect(commandLineEnv('codex', "  NOTE='it'\\''s' codex")).toEqual({ NOTE: "it's" })
+    expect(commandLineEnv('claude', 'GL_ISSUE=tracker#1 claude "hello"')).toEqual({
+      GL_ISSUE: 'tracker#1',
+    })
     expect(commandLineEnv('claude', 'claude')).toEqual({})
   })
 
