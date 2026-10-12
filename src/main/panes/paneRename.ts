@@ -5,13 +5,14 @@ import { ensureCaps } from '../approvals/controlElevation'
 import type { Reach } from '../approvals/reach'
 import { targetOf } from '../attention/attention'
 import { registerControlMethod } from '../control/controlServer'
-import { type PaneIdentity, resolveExternal, windowOfWorkspace } from '../control/idRegistry'
+import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 
 export const NAME_MAX = 200
 
 export interface PaneRenameDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   reach: Pick<Reach, 'inScope'>
+  windowOfWorkspace: (workspaceId: string) => string | undefined
 }
 
 function fail(message: string): ResponseError<void> {
@@ -101,7 +102,7 @@ export function registerPaneRenameMethods(deps: PaneRenameDeps): void {
         throw fail('bad-request: workspace')
       }
       const workspaceId = (p.workspace as string | undefined) ?? me.workspaceId
-      const windowId = workspaceId ? windowOfWorkspace(workspaceId) : undefined
+      const windowId = workspaceId ? deps.windowOfWorkspace(workspaceId) : undefined
       if (!workspaceId || !windowId) throw fail(`unknown-workspace: ${workspaceId}`)
       const self = workspaceId === me.workspaceId
       const detail = name

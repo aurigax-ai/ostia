@@ -3722,7 +3722,7 @@ app.whenReady().then(() => {
   registerNotifyIpc(notifyDeps)
   registerAttentionMethods({ execCommand, reported: (paneId) => keptAttention.reported(paneId) })
   registerAgentWorkMethods(agentWork)
-  registerPaneRenameMethods({ execCommand, reach })
+  registerPaneRenameMethods({ execCommand, reach, windowOfWorkspace: workspaceWindowId })
   registerPaneResumeMethods({
     execCommand,
     onResume: (identity, resume) => {
