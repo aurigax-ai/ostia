@@ -42,6 +42,7 @@ import { parseChatToolSettings } from '../shared/assist/chatTools'
 import { parseGitSettings } from '../shared/boards/git'
 import { parsePortsSettings } from '../shared/boards/ports'
 import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browser/browserProfile'
+import { PASSKEY_GUARD_JS } from '../shared/browser/passkeyGuard'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import { languageForPath } from '../shared/editorLanguages'
 import type {
@@ -1593,9 +1594,14 @@ function instrumentBrowserGuest(gc: Electron.WebContents): void {
       gc.debugger
         .sendCommand('Page.enable')
         .then(() =>
-          gc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
-            source: PAGE_ERROR_CATCHER_JS,
-          }),
+          Promise.all([
+            gc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
+              source: PAGE_ERROR_CATCHER_JS,
+            }),
+            gc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
+              source: PASSKEY_GUARD_JS,
+            }),
+          ]),
         )
         .catch(() => {})
     } catch {}

@@ -872,6 +872,8 @@ export const en = {
     copyImage: 'Copy image',
     imageCopied: 'Copied the image to the clipboard.',
     imageCopyFailed: 'Could not copy the image ({reason}).',
+    passkeyUnsupported:
+      'This browser does not support passkeys. On the page, choose "Try another way".',
     storageShow: 'Show storage',
     storageHide: 'Hide storage',
   },
@@ -4428,6 +4430,7 @@ export const zhHant: Dict = {
     copyImage: '複製圖片',
     imageCopied: '已將圖片複製到剪貼簿。',
     imageCopyFailed: '無法複製圖片（{reason}）。',
+    passkeyUnsupported: '這個瀏覽器不支援密碼金鑰，請在頁面上選「嘗試其他方式」。',
     storageShow: '顯示儲存空間',
     storageHide: '隱藏儲存空間',
   },
