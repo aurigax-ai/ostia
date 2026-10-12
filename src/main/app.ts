@@ -3768,9 +3768,15 @@ app.whenReady().then(() => {
     const res = await execCommand(targetOf(to), 'pane.hibernated')
     return res.ok && (res.result as { hibernated?: unknown } | undefined)?.hibernated === true
   }
-  const wakeHibernatedPane = async (to: PaneIdentity): Promise<boolean> => {
+  const wakeHibernatedPane = async (
+    to: PaneIdentity,
+  ): Promise<{ woke: boolean; conflict?: string }> => {
     const res = await execCommand(targetOf(to), 'pane.wake')
-    return res.ok && (res.result as { woke?: unknown } | undefined)?.woke === true
+    const result = res.ok ? (res.result as { woke?: unknown; conflict?: unknown }) : undefined
+    return {
+      woke: result?.woke === true,
+      ...(typeof result?.conflict === 'string' ? { conflict: result.conflict } : {}),
+    }
   }
   const paneReachDeps: PaneReachDeps = {
     processPane: async (ref, ctx) => {
@@ -3791,6 +3797,7 @@ app.whenReady().then(() => {
     inputSent: (to) => void execCommand(targetOf(to), 'attention.typed'),
     hibernated: paneHibernated,
     wake: wakeHibernatedPane,
+    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
     waking: paneWaking,
     close: (to) => execCommand(targetOf(to), 'pane.close'),
     resume: (to) => execCommand(targetOf(to), 'agent.resume'),

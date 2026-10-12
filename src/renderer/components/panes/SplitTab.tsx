@@ -25,6 +25,7 @@ import {
   useRef,
 } from 'react'
 import { PaneTabMenu } from './PaneTabMenu'
+import { ResumeConflictNotice } from './ResumeFolderNotice'
 import { TabBody } from './TabBody'
 import { TabFace, usePaneMark, usePaneTitle } from './TabFace'
 import { TabHint } from './TabHint'
@@ -284,6 +285,8 @@ function SplitCell({ pane, ctx }: { pane: PaneNode; ctx: CellContext }): JSX.Ele
         <ApprovalCard request={approval} paneTitle={pane.title} />
       ) : question ? (
         <QuestionNotice question={question} />
+      ) : ctx.shown && pane.resume ? (
+        <ResumeConflictNotice pane={pane} />
       ) : null}
       {dragging ? (
         <div

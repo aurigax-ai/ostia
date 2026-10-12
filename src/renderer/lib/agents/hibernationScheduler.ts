@@ -11,7 +11,7 @@ import {
 } from '@shared/agents/agentWork'
 import { type HibernationCandidate, planHibernation } from './hibernation'
 import { runningAgentOf } from './paneAgent'
-import { resumeWhenIdle } from './resumeFolder'
+import { paneResumeHolder, resumeHolder, resumeWhenIdle } from './resumeFolder'
 
 export const HIBERNATION_CHECK_MS = 5000
 export const WAKE_WAVE_SIZE = 3
@@ -58,17 +58,22 @@ export function wakePane(paneId: string, onSettled: () => void = () => {}): bool
   const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
   const pane = layout ? findPane(layout.root, paneId) : null
   if (!workspaceId || !pane?.hibernated) return false
+  if (paneResumeHolder(paneId)) return false
   useLayoutStore.getState().setHibernated(workspaceId, paneId, false)
   countUsage('terminal', 'wake')
   if (!pane.resume) {
     onSettled()
     return true
   }
+  const resume = pane.resume
   window.ostia.pty.reportWaking(paneId, true)
   resumeWhenIdle(
     paneId,
-    pane.resume,
+    resume,
     () => {
+      if (resumeHolder(paneId, resume)) {
+        useLayoutStore.getState().setResumePending(workspaceId, paneId, true)
+      }
       window.ostia.pty.reportWaking(paneId, false)
       onSettled()
     },

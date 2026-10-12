@@ -26,9 +26,11 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia pane.list                 every pane, every workspace — {paneId(external),workspaceId,
                                   kind,title,cwd,running,blockCount,lastExitCode,agent,
                                   agentSessionId,agentState,agentMessage,splitTabId,
-                                  splitTabName,hibernated,waking}; a restored pane keeps its paneId
-                                  across restarts. splitTabId is set for a pane inside a split
-                                  tab (one tab showing several panes side by side)
+                                  splitTabName,hibernated,waking,agentSessionConflict}; a restored
+                                  pane keeps its paneId across restarts. splitTabId is set for a
+                                  pane inside a split tab (one tab showing several panes side by
+                                  side). agentSessionConflict lists the other panes running the
+                                  same agent session
   ostia workspace.list              every workspace — {workspaceId,name,kind,workDir,state,groupId}
   ostia notify <title> [body]    desktop notification + marks this pane unread in Ostia
   ostia ask "<question>" [--context <text|->] [--choice <label>]… [--multi] [--timeout <seconds>] [--json]

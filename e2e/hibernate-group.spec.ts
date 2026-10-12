@@ -10,7 +10,7 @@ const RESUME_LINE = 'claude --resume e2e-group'
 
 const AGENT = [
   '#!/bin/sh',
-  'ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude e2e-group',
+  'ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude "e2e-group-$OSTIA_PANE_ID"',
   `echo "${MARK} up $*"`,
   'exec sleep 600',
   '',

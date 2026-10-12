@@ -3,6 +3,7 @@ import { commands } from '@/commands/registry'
 import { allPanes, createPane, nameSplitTabOf, resetIds, splitPane, tabsOf } from '@/layout/tree'
 import type { LayoutNode, PaneNode, TabsNode } from '@/layout/types'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
@@ -13,11 +14,13 @@ import { PaneTree } from './PaneTree'
 let attentionInit: ReturnType<typeof useAttentionStore.getState>
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
 let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
+let blocksInit: ReturnType<typeof useBlocksStore.getState>
 
 beforeAll(() => {
   attentionInit = useAttentionStore.getState()
   layoutInit = useLayoutStore.getState()
   workspacesInit = useWorkspacesStore.getState()
+  blocksInit = useBlocksStore.getState()
 })
 
 afterEach(() => {
@@ -25,6 +28,7 @@ afterEach(() => {
   useAttentionStore.setState(attentionInit, true)
   useLayoutStore.setState(layoutInit, true)
   useWorkspacesStore.setState(workspacesInit, true)
+  useBlocksStore.setState(blocksInit, true)
   resetIds()
   vi.restoreAllMocks()
 })
@@ -49,6 +53,33 @@ function renderStack(root: TabsNode, activePaneId = root.activeId) {
     />,
   )
 }
+
+describe('split tab session warning', () => {
+  it('warns in the split cell whose session runs in another tab', () => {
+    const resume = { agent: 'claude' as const, id: 'sess-split' }
+    const a = { ...terminal('alpha'), resume }
+    const b = { ...terminal('beta'), resume, resumePending: true as const }
+    const c = terminal('gamma')
+    const root = splitPane(tabsOf(b.id, a, b), b.id, 'horizontal', c).root as TabsNode
+    useLayoutStore.setState({
+      byWorkspace: { w: { root, activePaneId: b.id, zoomedPaneId: null } },
+    })
+    useBlocksStore.setState({
+      running: { [a.id]: 'run-a' },
+      byPane: {
+        [a.id]: [
+          { id: 'run-a', paneId: a.id, command: 'claude --resume sess-split', startedAt: 0 },
+        ] as unknown as CommandBlock[],
+      },
+    })
+    const { container } = renderStack(root, b.id)
+    const cell = container.querySelector(`[data-cell-id="${b.id}"]`) as HTMLElement
+    const notice = within(cell).getByRole('region', { name: 'Agent session open twice' })
+    expect(within(notice).getByText(/“alpha”/)).toBeInTheDocument()
+    const other = container.querySelector(`[data-cell-id="${c.id}"]`) as HTMLElement
+    expect(within(other).queryByRole('region', { name: 'Agent session open twice' })).toBeNull()
+  })
+})
 
 describe('SplitTabPill', () => {
   it('draws one tab for the split tab that names its layout and panes', () => {

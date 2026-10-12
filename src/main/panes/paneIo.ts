@@ -6,6 +6,7 @@ import type { Reach } from '../approvals/reach'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, getByPaneId, resolveExternal } from '../control/idRegistry'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
+import { type PaneEntry, liveSessionHolder } from './paneList'
 import type { PaneWaking } from './paneWaking'
 
 export const READ_LINES_DEFAULT = 200
@@ -193,7 +194,8 @@ export interface PaneIoDeps extends PaneReachDeps {
   attention: (pane: PaneIdentity) => Promise<PaneAttentionPeek>
   inputSent: (pane: PaneIdentity) => void
   hibernated: (pane: PaneIdentity) => Promise<boolean>
-  wake: (pane: PaneIdentity) => Promise<boolean>
+  wake: (pane: PaneIdentity) => Promise<{ woke: boolean; conflict?: string }>
+  panes: () => Promise<PaneEntry[]>
   waking: PaneWaking
   close: (pane: PaneIdentity) => Promise<CommandResult>
   resume: (pane: PaneIdentity) => Promise<CommandResult>
@@ -219,6 +221,25 @@ function starting(to: PaneIdentity): ResponseError<void> {
 
 function notHibernated(to: PaneIdentity): ResponseError<void> {
   return fail(`not-hibernated: ${to.externalId} is not hibernated`)
+}
+
+function sessionConflict(to: PaneIdentity, other: string): ResponseError<void> {
+  return fail(
+    `session-conflict: the agent session of ${to.externalId} is already running in ${other}; close one of them`,
+  )
+}
+
+function checkSessions(targets: PaneIdentity[], panes: PaneEntry[]): void {
+  const taken = new Map<string, string>()
+  for (const to of targets) {
+    const holder = liveSessionHolder(panes, to.externalId)
+    if (holder) throw sessionConflict(to, `${holder.paneId} ("${holder.title}")`)
+    const id = panes.find((p) => p.paneId === to.externalId)?.agentSessionId
+    if (!id) continue
+    const earlier = taken.get(id)
+    if (earlier) throw sessionConflict(to, earlier)
+    taken.set(id, to.externalId)
+  }
 }
 
 export function paneRefs(raw: unknown): string[] {
@@ -373,9 +394,12 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
         if (!(await deps.hibernated(to))) throw notHibernated(to)
         asleepPanes.push(to)
       }
+      if (asleepPanes.length > 0) checkSessions(asleepPanes, await deps.panes())
       const woke: string[] = []
       for (const to of asleepPanes) {
-        if (!(await deps.wake(to))) throw notHibernated(to)
+        const outcome = await deps.wake(to)
+        if (outcome.conflict) throw sessionConflict(to, `"${outcome.conflict}"`)
+        if (!outcome.woke) throw notHibernated(to)
         deps.waking.start(to.paneId)
         woke.push(to.externalId)
       }
@@ -408,6 +432,7 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
         detail: `resume the agent of ${to.externalId}: type its recorded resume command`,
       })
       if (deps.waking.has(to.paneId)) throw starting(to)
+      checkSessions([to], await deps.panes())
       const res = await deps.resume(to)
       if (!res.ok) throw fail(res.error.message)
       const resumed = (res.result as { resumed?: unknown } | undefined)?.resumed === true

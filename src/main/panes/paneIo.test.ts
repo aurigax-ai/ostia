@@ -12,6 +12,7 @@ import { MANAGER_CAPABILITIES } from '../../shared/capabilities'
 import type { ApprovalOutcome } from '../../shared/permissions/approvals'
 import type { CommandResult } from '../../shared/types'
 import type { ApprovalAsk } from '../approvals/approvals'
+import type { PaneEntry } from './paneList'
 
 let answer: ApprovalOutcome = 'deny'
 const asked: ApprovalAsk[] = []
@@ -44,6 +45,8 @@ const pasteMode = new Set<string>()
 const attentionOf = new Map<string, { state?: string; message?: string }>()
 const typedInto: string[] = []
 const asleepPanes = new Set<string>()
+const wakeConflicts = new Map<string, string>()
+let listed: PaneEntry[] = []
 const woken: string[] = []
 const closed: string[] = []
 const resumed: string[] = []
@@ -90,8 +93,11 @@ registerPaneIoMethods({
   hibernated: async (pane) => asleepPanes.has(pane.paneId),
   wake: async (pane) => {
     woken.push(pane.paneId)
-    return asleepPanes.delete(pane.paneId)
+    const conflict = wakeConflicts.get(pane.paneId)
+    if (conflict) return { woke: false, conflict }
+    return { woke: asleepPanes.delete(pane.paneId) }
   },
+  panes: async () => listed,
   waking,
   close: async (pane) => {
     if (lockedPanes.has(pane.paneId)) {
@@ -178,6 +184,8 @@ beforeEach(() => {
   attentionOf.clear()
   typedInto.length = 0
   asleepPanes.clear()
+  wakeConflicts.clear()
+  listed = []
   woken.length = 0
   closed.length = 0
   resumed.length = 0
@@ -460,7 +468,59 @@ describe('pane.input', () => {
   })
 })
 
+const listedPane = (to: Identity, extra: Partial<PaneEntry>): PaneEntry => ({
+  paneId: to.externalId,
+  workspaceId: to.workspaceId,
+  kind: 'terminal',
+  title: to.paneId,
+  running: false,
+  blockCount: 0,
+  ...extra,
+})
+
 describe('pane.wake', () => {
+  it('refuses a pane whose agent session runs in another window, before waking any named pane', async () => {
+    asleepPanes.add('child-pane')
+    asleepPanes.add('sibling-pane')
+    answer = 'once'
+    listed = [
+      listedPane(child, { agentSessionId: 'sess-a', hibernated: true }),
+      listedPane(sibling, { agentSessionId: 'sess-b', hibernated: true }),
+      listedPane(foreign, { agentSessionId: 'sess-b', agent: 'claude', title: 'coordinator' }),
+    ]
+    const conn = await client(agent)
+    await expect(
+      conn.sendRequest('pane.wake', { panes: ['echo', sibling.externalId] }),
+    ).rejects.toThrow(
+      `session-conflict: the agent session of ${sibling.externalId} is already running in ${foreign.externalId} ("coordinator")`,
+    )
+    expect(woken).toEqual([])
+  })
+
+  it('refuses to wake two named panes that would resume the same session', async () => {
+    asleepPanes.add('child-pane')
+    asleepPanes.add('sibling-pane')
+    answer = 'once'
+    listed = [
+      listedPane(child, { agentSessionId: 'sess-a', hibernated: true }),
+      listedPane(sibling, { agentSessionId: 'sess-a', hibernated: true }),
+    ]
+    const conn = await client(agent)
+    await expect(
+      conn.sendRequest('pane.wake', { panes: ['echo', sibling.externalId] }),
+    ).rejects.toThrow(`session-conflict: the agent session of ${sibling.externalId}`)
+    expect(woken).toEqual([])
+  })
+
+  it('says session-conflict, not not-hibernated, when the window refuses the wake', async () => {
+    asleepPanes.add('child-pane')
+    wakeConflicts.set('child-pane', 'coordinator')
+    const conn = await client(agent)
+    await expect(conn.sendRequest('pane.wake', { panes: ['echo'] })).rejects.toThrow(
+      `session-conflict: the agent session of ${child.externalId} is already running in "coordinator"`,
+    )
+  })
+
   it('wakes a hibernated tab the caller opened, by process name, without asking or typing itself', async () => {
     asleepPanes.add('child-pane')
     const conn = await client(agent)
@@ -720,6 +780,18 @@ describe('pane.close', () => {
 })
 
 describe('agent.resume', () => {
+  it('refuses to resume a session that an agent runs in another pane, in any window', async () => {
+    listed = [
+      listedPane(sibling, { agentSessionId: 'sess-a' }),
+      listedPane(foreign, { agentSessionId: 'sess-a', agent: 'claude', title: 'coordinator' }),
+    ]
+    const conn = await client({ token: SCRIPT_TOKEN })
+    await expect(conn.sendRequest('agent.resume', { pane: sibling.externalId })).rejects.toThrow(
+      `session-conflict: the agent session of ${sibling.externalId} is already running in ${foreign.externalId}`,
+    )
+    expect(resumed).toEqual([])
+  })
+
   it('lets a script token resume an agent pane in any workspace, and says when there was none', async () => {
     const conn = await client({ token: SCRIPT_TOKEN })
     await expect(conn.sendRequest('agent.resume', { pane: sibling.externalId })).resolves.toEqual({

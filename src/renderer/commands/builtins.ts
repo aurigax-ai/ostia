@@ -1,5 +1,6 @@
 import { hibernateWorkspaces, resumeWorkspaces, wakePane } from '@/lib/agents/hibernationScheduler'
 import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '@/lib/agents/paneAgent'
+import { claimResume, paneResumeHolder, resumeHolder } from '@/lib/agents/resumeFolder'
 import { resetZoom } from '@/lib/app/wheelZoom'
 import { postAgentNotification } from '@/lib/attention/agentNotification'
 import { announceBusMessage } from '@/lib/attention/busNotice'
@@ -603,9 +604,17 @@ export function registerBuiltinCommands(): void {
       const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
       const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
       if (pane?.kind !== 'terminal' || !pane.resume) return { resumed: false }
+      const holder = resumeHolder(pane.id, pane.resume)
+      if (holder) {
+        throw new Error(
+          `${pane.resume.agent} session ${pane.resume.id} is already running in "${holder.title}"`,
+        )
+      }
       if (pane.hibernated) return { resumed: wakePane(pane.id) }
       if (pane.resumeFolderMissing) return { resumed: false }
-      return { resumed: insertCommand(pane.id, resumeCommand(pane.resume), true) }
+      const resumed = insertCommand(pane.id, resumeCommand(pane.resume), true)
+      if (resumed) claimResume(pane.id, pane.resume)
+      return { resumed }
     },
   })
 
@@ -622,13 +631,15 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  registerCore<undefined, { woke: boolean }>({
+  registerCore<undefined, { woke: boolean; conflict?: string }>({
     id: 'pane.wake',
     category: 'pane',
     hidden: true,
     capabilities: ['type-other-pane'],
     run: (_args, ctx) => {
       if (!ctx.activePaneId) throw new Error('no target pane')
+      const holder = paneResumeHolder(ctx.activePaneId)
+      if (holder) return { woke: false, conflict: holder.title }
       return { woke: wakePane(ctx.activePaneId) }
     },
   })
