@@ -41,7 +41,7 @@ import { isPreviewPartition } from '../shared/artifacts/htmlPreview'
 import { parseChatToolSettings } from '../shared/assist/chatTools'
 import { parseGitSettings } from '../shared/boards/git'
 import { parsePortsSettings } from '../shared/boards/ports'
-import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browser/browserProfile'
+import { browserPartition } from '../shared/browser/browserProfile'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import { languageForPath } from '../shared/editorLanguages'
 import type {
@@ -153,7 +153,6 @@ import { cancelPick, registerPickIpc, registerPickMethods } from './browser/brow
 import { registerRegionIpc } from './browser/browseRegion'
 import { BrowserProfiles } from './browser/browserProfiles'
 import { registerBrowserStorageIpc } from './browser/browserStorage'
-import { browserUserAgent } from './browser/browserUserAgent'
 import { credentials, registerCredentials } from './browser/credentials'
 import { type GuestChords, registerGuestChords } from './browser/guestChords'
 import { clearGuestNetwork, forgetGuestNetwork, watchGuestNetwork } from './browser/guestNetwork'
@@ -1733,9 +1732,6 @@ function wireWindow(win: BrowserWindow): void {
       return
     }
     attachContextMenu(guest, true)
-    const agent = browserUserAgent(guest.session.getUserAgent(), app.getName())
-    guest.session.setUserAgent(agent)
-    guest.setUserAgent(agent)
     instrumentBrowserGuest(guest)
     fenceBrowserGuest(guest)
     const wcId = guest.id
@@ -4124,8 +4120,6 @@ app.whenReady().then(() => {
     answerAsk: askHub.answer,
     agentRunning: (paneId) => agentRunning.has(paneId) && ptys.has(paneId),
   })
-  const sharedBrowser = session.fromPartition(SHARED_BROWSER_PARTITION)
-  sharedBrowser.setUserAgent(browserUserAgent(sharedBrowser.getUserAgent(), app.getName()))
   const isSharedPane = (paneId: string): boolean => browserProfiles.isShared(paneId)
   registerBrowseMethods({
     allowNavigation: (workspaceId, url) => browserFence.check(workspaceId, url),

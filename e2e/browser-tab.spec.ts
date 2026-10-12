@@ -4,7 +4,7 @@ import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
-test('a browser tab shows why a page failed, then loads a page as plain Chrome and takes its title', async () => {
+test('a browser tab shows why a page failed, then loads a page with the default Electron user agent and takes its title', async () => {
   const agents: string[] = []
   const server = createServer((req, res) => {
     agents.push(req.headers['user-agent'] ?? '')
@@ -36,7 +36,7 @@ test('a browser tab shows why a page failed, then loads a page as plain Chrome a
     await expect(error).toHaveCount(0, { timeout: 15_000 })
     await expect(win.getByRole('tab', { name: /Ostia test page/ })).toBeVisible({ timeout: 15_000 })
     expect(agents[0]).toMatch(/Chrome\/\d+/)
-    expect(agents[0]).not.toMatch(/Electron|ostia/i)
+    expect(agents[0]).toMatch(/Electron\/\d+/)
   } finally {
     await app.close()
     server.close()
