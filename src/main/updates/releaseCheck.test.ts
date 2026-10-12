@@ -596,6 +596,22 @@ describe('registerReleaseCheck', () => {
     expect(github.requests).toHaveLength(1)
   })
 
+  it('checks by itself again about an hour after a successful automatic check', async () => {
+    vi.useRealTimers()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'Date'] })
+    github.reply = { status: 200, body: body('0.2.0') }
+    register()
+    await vi.advanceTimersByTimeAsync(10_000)
+    await vi.waitFor(() => expect(info).toHaveBeenCalledTimes(1))
+
+    await vi.advanceTimersByTimeAsync(RELEASE_CHECK_INTERVAL_MS - 2 * 60_000)
+    expect(github.requests).toHaveLength(1)
+
+    await vi.advanceTimersByTimeAsync(3 * 60_000)
+    await vi.waitFor(() => expect(info).toHaveBeenCalledTimes(2))
+    expect(github.requests).toHaveLength(2)
+  })
+
   it('saves a dismissal so the next run stays quiet about that version', async () => {
     github.reply = { status: 200, body: body('0.3.0') }
     register()
