@@ -53,7 +53,7 @@ describe('startKeptReattach', () => {
     vi.mocked(window.ostia.pty.keptWaiting).mockReset().mockResolvedValue([])
   })
 
-  it('attaches a kept shell waiting in a tab that is not shown, in any workspace', async () => {
+  it('attaches a kept shell waiting in a tab that is not shown, once its terminal is on the page', async () => {
     seed()
     waiting(['kept-behind', 'kept-other-workspace'])
     const behind = vi.fn()
@@ -63,6 +63,7 @@ describe('startKeptReattach', () => {
     startKeptReattach()
     await settle()
     expect(behind).toHaveBeenCalledTimes(1)
+    expect(behind).toHaveBeenCalledWith({ keepSize: true })
     expect(shown).not.toHaveBeenCalled()
     const other = vi.fn()
     registerOffscreenStarter('kept-other-workspace', other)

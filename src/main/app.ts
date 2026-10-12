@@ -2646,6 +2646,8 @@ function registerPtyIpc(): void {
       ...(sandbox?.stamp ? { sandboxStamp: sandbox.stamp } : {}),
       kept: true,
       reattached: true,
+      cols: pane.cols,
+      rows: pane.rows,
     }
   }
 

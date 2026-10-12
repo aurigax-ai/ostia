@@ -10,7 +10,7 @@ export function startKeptReattach(): void {
       for (const layout of Object.values(useLayoutStore.getState().byWorkspace)) {
         for (const pane of layout ? allPanes(layout.root) : []) {
           if (pane.kind === 'terminal' && !pane.hibernated && waiting.has(pane.id)) {
-            startOffscreen(pane.id)
+            startOffscreen(pane.id, { keepSize: true })
           }
         }
       }

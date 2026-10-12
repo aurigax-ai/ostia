@@ -763,8 +763,14 @@ function TerminalSurface({
           hostToken: useSandboxStore.getState().takeHostToken(paneId),
           ...spawnPromptOption(useSettingsStore.getState()),
         })
-        .then(({ buffer, sandboxed, sandboxStamp, host, shell, kept, reattached, cwdMissing }) => {
+        .then((result) => {
+          const { buffer, sandboxed, sandboxStamp, host, shell, kept, reattached, cwdMissing } =
+            result
           if (disposed) return
+          if (lastSizeRef.current.cols === 0 && result.cols && result.rows) {
+            term.resize(result.cols, result.rows)
+            lastSizeRef.current = { cols: result.cols, rows: result.rows }
+          }
           useLayoutStore
             .getState()
             .settleSpawnDir(workspaceIdRef.current, paneId, cwdMissing === true)
@@ -888,8 +894,12 @@ function TerminalSurface({
     syncSizeRef.current = () => {
       if (attached) syncSize()
     }
-    const unregisterOffscreen = registerOffscreenStarter(paneId, () => {
+    const unregisterOffscreen = registerOffscreenStarter(paneId, ({ keepSize }) => {
       if (attached || disposed || (host.offsetWidth > 0 && host.offsetHeight > 0)) return
+      if (keepSize) {
+        attachAtCurrentSize(0, 0)
+        return
+      }
       const grid = offscreenGrid()
       term.resize(grid.cols, grid.rows)
       attachAtCurrentSize(grid.cols, grid.rows)
