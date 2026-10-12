@@ -144,8 +144,11 @@ export function injectPageScripts(
         targetInfo?: { type?: unknown }
       }
       if (typeof sessionId !== 'string' || sessionId === '') return
-      if (targetInfo?.type === 'iframe') prepare(sessionId)
-      send('Runtime.runIfWaitingForDebugger', {}, sessionId)
+      const isFrame = targetInfo?.type === 'iframe'
+      setImmediate(() => {
+        if (isFrame) prepare(sessionId)
+        send('Runtime.runIfWaitingForDebugger', {}, sessionId)
+      })
     })
   }
   prepare()

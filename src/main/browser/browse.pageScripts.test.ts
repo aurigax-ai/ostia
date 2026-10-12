@@ -20,9 +20,13 @@ const AUTO_ATTACH = {
   filter: [{ type: 'iframe' }],
 }
 
+const settle = () => new Promise((ok) => setImmediate(ok))
+
 function fakeGuest(reply: Reply = async () => ({})) {
   const events = new EventEmitter()
   const calls: Call[] = []
+  const sentDuringEvent: Call[] = []
+  let delivering = false
   const dbg = {
     on: (event: 'message', listener: (event: unknown, method: string, params: unknown) => void) =>
       events.on(event, listener),
@@ -30,18 +34,26 @@ function fakeGuest(reply: Reply = async () => ({})) {
       const call: Call = { method, params }
       if (sessionId !== undefined) call.sessionId = sessionId
       calls.push(call)
+      if (delivering) sentDuringEvent.push(call)
       return reply(call)
     },
   }
-  const attach = (sessionId: string, type: string, parent?: string) =>
-    events.emit(
-      'message',
-      {},
-      'Target.attachedToTarget',
-      { sessionId, targetInfo: { type }, waitingForDebugger: true },
-      parent,
-    )
-  return { guest: { debugger: dbg }, events, calls, attach }
+  const attach = async (sessionId: string, type: string, parent?: string) => {
+    delivering = true
+    try {
+      events.emit(
+        'message',
+        {},
+        'Target.attachedToTarget',
+        { sessionId, targetInfo: { type }, waitingForDebugger: true },
+        parent,
+      )
+    } finally {
+      delivering = false
+    }
+    await settle()
+  }
+  return { guest: { debugger: dbg }, events, calls, sentDuringEvent, attach }
 }
 
 function prepared(sessionId?: string, sources = ['A', 'B']): Call[] {
@@ -64,8 +76,6 @@ const resume = (sessionId: string): Call => ({
   sessionId,
 })
 
-const settle = () => new Promise((ok) => setTimeout(ok, 0))
-
 describe('injectPageScripts', () => {
   it('registers every script on the main frame and asks to pause new cross-site iframes', () => {
     const { guest, calls } = fakeGuest()
@@ -81,20 +91,20 @@ describe('injectPageScripts', () => {
     expect(calls.map((c) => c.method)).toContain('Page.addScriptToEvaluateOnNewDocument')
   })
 
-  it('gives a new cross-site iframe the same scripts on its own session, then resumes it', () => {
+  it('gives a new cross-site iframe the same scripts on its own session, then resumes it', async () => {
     const { guest, calls, attach } = fakeGuest()
     injectPageScripts(guest, ['A', 'B'])
     calls.length = 0
-    attach('frame-1', 'iframe')
+    await attach('frame-1', 'iframe')
     expect(calls).toEqual([...prepared('frame-1'), resume('frame-1')])
   })
 
-  it('auto-attaches nested iframes through the child session', () => {
+  it('auto-attaches nested iframes through the child session', async () => {
     const { guest, calls, attach } = fakeGuest()
     injectPageScripts(guest, ['A'])
-    attach('outer', 'iframe')
+    await attach('outer', 'iframe')
     calls.length = 0
-    attach('inner', 'iframe', 'outer')
+    await attach('inner', 'iframe', 'outer')
     expect(calls).toEqual([...prepared('inner', ['A']), resume('inner')])
   })
 
@@ -104,12 +114,12 @@ describe('injectPageScripts', () => {
       return {}
     })
     injectPageScripts(guest, ['A'])
-    attach('frame-1', 'iframe')
+    await attach('frame-1', 'iframe')
     await settle()
     expect(calls.at(-1)).toEqual(resume('frame-1'))
   })
 
-  it('still resumes the iframe when sending a script throws', () => {
+  it('still resumes the iframe when sending a script throws', async () => {
     const { guest, calls, attach } = fakeGuest(({ method, sessionId }) => {
       if (sessionId && method === 'Page.addScriptToEvaluateOnNewDocument') {
         throw new Error('not attached')
@@ -117,7 +127,7 @@ describe('injectPageScripts', () => {
       return Promise.resolve({})
     })
     injectPageScripts(guest, ['A'])
-    attach('frame-1', 'iframe')
+    await attach('frame-1', 'iframe')
     expect(calls.at(-1)).toEqual(resume('frame-1'))
   })
 
@@ -127,7 +137,7 @@ describe('injectPageScripts', () => {
       return {}
     })
     injectPageScripts(guest, ['A'])
-    expect(() => attach('gone', 'iframe')).not.toThrow()
+    await expect(attach('gone', 'iframe')).resolves.toBeUndefined()
     await settle()
     expect(calls.filter((c) => c.sessionId === 'gone').map((c) => c.method)).toEqual([
       'Page.enable',
@@ -137,31 +147,41 @@ describe('injectPageScripts', () => {
     ])
   })
 
-  it('only resumes a target that is not an iframe', () => {
+  it('only resumes a target that is not an iframe', async () => {
     const { guest, calls, attach } = fakeGuest()
     injectPageScripts(guest, ['A'])
     calls.length = 0
-    attach('worker-1', 'worker')
+    await attach('worker-1', 'worker')
     expect(calls).toEqual([resume('worker-1')])
   })
 
-  it('ignores other events and attaches without a session id', () => {
+  it('ignores other events and attaches without a session id', async () => {
     const { guest, calls, events } = fakeGuest()
     injectPageScripts(guest, ['A'])
     calls.length = 0
     events.emit('message', {}, 'Page.frameNavigated', { frame: {} })
     events.emit('message', {}, 'Target.attachedToTarget', { targetInfo: { type: 'iframe' } })
     events.emit('message', {}, 'Target.attachedToTarget', undefined)
+    await settle()
     expect(calls).toEqual([])
   })
 
-  it('handles each iframe once after the debugger is attached again', () => {
+  it('handles each iframe once after the debugger is attached again', async () => {
     const { guest, calls, attach } = fakeGuest()
     injectPageScripts(guest, ['A'])
     injectPageScripts(guest, ['A'])
     expect(calls).toEqual([...prepared(undefined, ['A']), ...prepared(undefined, ['A'])])
     calls.length = 0
-    attach('frame-1', 'iframe')
+    await attach('frame-1', 'iframe')
+    expect(calls).toEqual([...prepared('frame-1', ['A']), resume('frame-1')])
+  })
+
+  it('waits for the attach event to return before talking to the iframe', async () => {
+    const { guest, calls, sentDuringEvent, attach } = fakeGuest()
+    injectPageScripts(guest, ['A'])
+    calls.length = 0
+    await attach('frame-1', 'iframe')
+    expect(sentDuringEvent).toEqual([])
     expect(calls).toEqual([...prepared('frame-1', ['A']), resume('frame-1')])
   })
 })
