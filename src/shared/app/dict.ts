@@ -637,7 +637,7 @@ export const en = {
       'The folder {agent} worked in no longer exists: {path}. Nothing was run. Restore the folder and cd into it to resume, or close the tab.',
     resumeConflictLabel: 'Agent session open twice',
     resumeConflict:
-      'This {agent} session is also running in the tab “{tab}”. Both copies write to the same transcript, so {product} will not resume it here. Close one of the two tabs.',
+      'This {agent} session is also running in the tab “{tab}”. Both copies write to the same transcript, so it is not resumed here. Close one of the two tabs.',
   },
   palette: {
     title: 'Command palette',
@@ -4194,7 +4194,7 @@ export const zhHant: Dict = {
       '{agent} 工作的資料夾已不存在：{path}。未執行任何指令。還原資料夾並 cd 進去即可繼續，或關閉分頁。',
     resumeConflictLabel: '代理程式 session 重複開啟',
     resumeConflict:
-      '這個 {agent} session 也在「{tab}」分頁執行，兩份會寫進同一份對話記錄，{product} 不會在這裡接回。請關閉其中一個分頁。',
+      '這個 {agent} session 也在「{tab}」分頁執行，兩份會寫進同一份對話記錄，所以不會在這裡接回。請關閉其中一個分頁。',
   },
   palette: {
     title: '指令面板',
