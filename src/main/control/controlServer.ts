@@ -331,7 +331,7 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
         if (script && params.id === 'pane.close' && !target.workspaceId) {
           throw new ResponseError(
             ErrorCodes.InvalidParams,
-            'bad-request: pane.close from a script token needs {"paneId": <id from ostia pane list>}',
+            'bad-request: pane.close from a script token needs {"paneId": <id from ostia pane.list>}',
           )
         }
         if (!script && target.workspaceId !== me.workspaceId && deps.isSandboxed(me.workspaceId)) {
