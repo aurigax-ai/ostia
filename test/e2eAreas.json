@@ -118,7 +118,7 @@
         "src/main/browser/browseWorld.ts",
         "src/main/browser/browserProfiles.",
         "src/main/browser/browserStorage.",
-        "src/main/browser/browserUserAgent.",
+        "src/main/browser/defaultUserAgent.",
         "src/main/browser/guestNetwork.ts",
         "src/main/browser/loginFill.ts",
         "src/main/browser/credentials.ts",
