@@ -89,11 +89,12 @@ export function resumeWhenIdle(
   resume: AgentResume,
   onGiveUp?: () => void,
   onTyped?: () => void,
+  timeoutMs?: number | null,
 ): () => void {
   return runWhenIdle(
     paneId,
     resumeCommand(resume),
-    undefined,
+    timeoutMs,
     () => !resumeFolderMissing(paneId) && !resumeHolder(paneId, resume),
     onGiveUp,
     () => {
