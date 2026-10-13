@@ -805,7 +805,8 @@
         "e2e/terminal-selection.spec.ts",
         "e2e/terminal-tab-title.spec.ts",
         "e2e/terminal-web-links.spec.ts",
-        "e2e/terminal-webgl.spec.ts"
+        "e2e/terminal-webgl.spec.ts",
+        "e2e/terminal-wheel.spec.ts"
       ]
     },
     {
