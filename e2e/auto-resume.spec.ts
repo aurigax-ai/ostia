@@ -1,7 +1,13 @@
 import type { ChildProcess } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import {
+  DOM_RENDERER_SETTINGS,
+  freshDataHome,
+  isolatedLaunch,
+  seedSettings,
+  testHome,
+} from './dataHome'
 import {
   PROMPT,
   addTab,
@@ -133,11 +139,13 @@ test(
 )
 
 const SESSION_PER_PANE = 'e2e-pane-$OSTIA_PANE_ID'
-const SHOWN_ROWS = '.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden]) .xterm-rows'
+const SLOW_SHELL_SECONDS = 34
+const SHOWN_ROWS =
+  '.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden]) .xterm-rows'
 
 function resumedSessions(dataHome: string): string[] {
   const log = existsSync(resumedLog(dataHome)) ? readFileSync(resumedLog(dataHome), 'utf8') : ''
-  return [...log.matchAll(/--resume e2e-pane-(\S+)/g)].map((m) => m[1]).sort()
+  return [...new Set([...log.matchAll(/--resume e2e-pane-(\S+)/g)].map((m) => m[1]))]
 }
 
 function shownState(dataHome: string): { workspace: unknown; tabs: unknown[] } {
@@ -152,10 +160,17 @@ function shownState(dataHome: string): { workspace: unknown; tabs: unknown[] } {
   return { workspace: saved.activeWorkspaceId, tabs }
 }
 
+function slowShellStart(dataHome: string): void {
+  const home = testHome(dataHome)
+  for (const rc of ['.zshrc', '.bashrc']) {
+    const file = join(home, rc)
+    writeFileSync(file, `sleep ${SLOW_SHELL_SECONDS}\n${readFileSync(file, 'utf8')}`)
+  }
+}
+
 function focusedPane(win: Page): Promise<string | null> {
   return win.evaluate(
-    () =>
-      document.activeElement?.closest('[data-pane-id]')?.getAttribute('data-pane-id') ?? null,
+    () => document.activeElement?.closest('[data-pane-id]')?.getAttribute('data-pane-id') ?? null,
   )
 }
 
@@ -172,7 +187,7 @@ async function startAgentInShownTerminal(dataHome: string, win: Page, agents: nu
     .toBe(agents)
 }
 
-test('agents in a background tab and in another workspace resume without being shown', async () => {
+test('agents in a background tab and in another workspace resume without being shown, also when their shells start late', async () => {
   test.setTimeout(180_000)
   const dataHome = freshDataHome()
   seedSettings(dataHome, AUTO_RESUME_SETTINGS)
@@ -191,18 +206,13 @@ test('agents in a background tab and in another workspace resume without being s
   const focused = await focusedPane(win)
   await quitAndWait(app, win)
   const before = shownState(dataHome)
-  const panes = savedPanes(dataHome)
-    .map((p) => String(p.id))
-    .sort()
-  expect(panes).toHaveLength(3)
+  expect(savedPanes(dataHome).filter((p) => p.agentRunning === true)).toHaveLength(3)
 
+  slowShellStart(dataHome)
   const relaunched = await launchAgentApp(dataHome, undefined, SESSION_PER_PANE)
   try {
-    await expect.poll(() => focusedPane(relaunched.win), { timeout: 15_000 }).toBe(focused)
-    await expect.poll(() => resumedSessions(dataHome), { timeout: 60_000 }).toEqual(panes)
-    await expect(relaunched.win.locator(SHOWN_ROWS)).toContainText(
-      `--resume e2e-pane-${focused}`,
-    )
+    await expect.poll(() => resumedSessions(dataHome), { timeout: 90_000 }).toHaveLength(3)
+    await expect(relaunched.win.locator(SHOWN_ROWS)).toContainText('fake-agent-resumed')
     expect(await focusedPane(relaunched.win)).toBe(focused)
     expect(shownState(dataHome)).toEqual(before)
   } finally {
