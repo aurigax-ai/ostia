@@ -515,6 +515,28 @@ describe('InputEditor', () => {
     expect(editor()).toHaveFocus()
   })
 
+  it('completes a path outside the home folder from the pane’s own listing', async () => {
+    setMode('editor')
+    idlePrompt()
+    vi.mocked(window.ostia.pty.listDir).mockImplementation(async (_pane, path) =>
+      path === '/'
+        ? [
+            { name: 'usr', dir: true },
+            { name: 'var', dir: true },
+            { name: 'vmlinuz', dir: false },
+          ]
+        : [],
+    )
+    renderEditor()
+    const user = userEvent.setup()
+    await user.type(editor() as HTMLElement, 'cat /va')
+    await user.keyboard('{Tab}')
+    await waitFor(() => expect(editor()).toHaveValue('cat /var/'))
+    expect(window.ostia.pty.listDir).toHaveBeenLastCalledWith(PANE, '/')
+    expect(window.ostia.fs.list).not.toHaveBeenCalled()
+    vi.mocked(window.ostia.pty.listDir).mockReset()
+  })
+
   it('completes subcommands and options from the command’s spec with descriptions', async () => {
     setMode('editor')
     idlePrompt()
