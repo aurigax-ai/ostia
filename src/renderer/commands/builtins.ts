@@ -94,6 +94,7 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHistorySearchStore } from '@/stores/terminal/historySearchStore'
 import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import { saveSnapshotNow } from '@/stores/workspaces/persistence'
 import { useTabSleepNoticeStore } from '@/stores/workspaces/tabSleepNoticeStore'
 import type { WorkspaceKind, WorkspaceState } from '@/stores/workspaces/workspacesStore'
@@ -865,11 +866,14 @@ export function registerBuiltinCommands(): void {
   registerCore<{ title?: string } | undefined>({
     id: 'pane.rename',
     category: 'pane',
-    hidden: true,
     capabilities: ['drive-self'],
     run: (args, ctx) => {
       if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
-      useLayoutStore.getState().rename(ctx.activeWorkspaceId, ctx.activePaneId, args?.title ?? '')
+      if (typeof args?.title !== 'string') {
+        usePaneRenameStore.getState().begin(ctx.activePaneId)
+        return
+      }
+      useLayoutStore.getState().rename(ctx.activeWorkspaceId, ctx.activePaneId, args.title)
     },
   })
 

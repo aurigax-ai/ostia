@@ -5,6 +5,7 @@ import type { LayoutNode, PaneNode, TabsNode } from '@/layout/types'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -263,5 +264,25 @@ describe('split tab in the workspace tree', () => {
     expect(useLayoutStore.getState().byWorkspace.w.root).toMatchObject({ type: 'tabs' })
     render(<PaneTree workspaceId="w" />)
     expect(document.querySelector('.pane-split-tab')).toBeInTheDocument()
+  })
+})
+
+describe('split tab segment rename', () => {
+  afterEach(() => act(() => usePaneRenameStore.getState().end()))
+
+  it('arrow keys move the caret in the rename field and the pill cannot be dragged meanwhile', () => {
+    vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    const { c, root } = stackWithSplit()
+    const { container } = renderStack(root, c.id)
+    const pill = container.querySelector('.pane-split-tab') as HTMLElement
+    expect(pill).toHaveAttribute('draggable', 'true')
+    const segment = container.querySelector(`[data-segment-id="${c.id}"]`) as HTMLElement
+    fireEvent.doubleClick(segment.querySelector('.split-tab-segment-main') as HTMLElement)
+    const input = screen.getByRole('textbox', { name: 'Rename Tab…' })
+    expect(input).toHaveFocus()
+    expect(pill).toHaveAttribute('draggable', 'false')
+    fireEvent.keyDown(input, { key: 'ArrowLeft' })
+    fireEvent.keyDown(input, { key: 'ArrowRight' })
+    expect(screen.getByRole('textbox', { name: 'Rename Tab…' })).toHaveFocus()
   })
 })

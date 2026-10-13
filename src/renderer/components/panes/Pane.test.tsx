@@ -9,6 +9,8 @@ import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
+import { startPaneRenameSync, usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
+import { releaseSurfaces, surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { WorkspaceSandbox } from '@shared/sandbox/sandbox'
 import {
@@ -418,5 +420,156 @@ describe('Pane', () => {
         stop()
       }
     })
+  })
+})
+
+describe('Pane tab rename', () => {
+  const one: PaneNode = { type: 'pane', id: 'r1', kind: 'terminal', title: 'zsh' }
+  const two: PaneNode = { type: 'pane', id: 'r2', kind: 'terminal', title: 'claude' }
+  const root: TabsNode = { type: 'tabs', id: 'rt', children: [one, two], activeId: 'r1' }
+
+  let stopSync: () => void = () => {}
+
+  function setup(): void {
+    if (!commands.has('pane.rename')) registerBuiltinCommands()
+    stopSync = startPaneRenameSync()
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 'w', name: 'w', kind: 'terminal', workDir: '/w', state: 'idle' }],
+      activeWorkspaceId: 'w',
+    })
+    useLayoutStore.setState({
+      byWorkspace: { w: { root, activePaneId: 'r1', zoomedPaneId: null } },
+    })
+    render(<PaneTree workspaceId="w" />)
+  }
+
+  function titleOf(id: string): PaneNode | undefined {
+    const tabs = useLayoutStore.getState().byWorkspace.w?.root as TabsNode
+    return tabs.children.find((c): c is PaneNode => c.type === 'pane' && c.id === id)
+  }
+
+  afterEach(() => {
+    cleanup()
+    stopSync()
+    usePaneRenameStore.getState().end()
+    releaseSurfaces(new Set())
+  })
+
+  function nextFrame(): Promise<void> {
+    return act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
+  }
+
+  it('the second click of a double-click does not hand focus back to the terminal', async () => {
+    setup()
+    const surface = document.createElement('textarea')
+    surface.className = 'xterm-helper-textarea'
+    const host = surfaceHost('r1')
+    host.appendChild(surface)
+    if (!host.isConnected) document.body.appendChild(host)
+    const user = userEvent.setup()
+    await user.dblClick(screen.getByRole('tab', { name: /zsh/ }))
+    await nextFrame()
+    expect(screen.getByRole('textbox', { name: 'Rename Tab…' })).toHaveFocus()
+    expect(titleOf('r1')?.titlePinned).toBeUndefined()
+  })
+
+  it('Enter or blur with the name unchanged leaves an automatic title unpinned', async () => {
+    setup()
+    const user = userEvent.setup()
+    await user.dblClick(screen.getByRole('tab', { name: /zsh/ }))
+    await user.keyboard('{Enter}')
+    expect(screen.queryByRole('textbox')).toBeNull()
+    await user.dblClick(screen.getByRole('tab', { name: /zsh/ }))
+    act(() => screen.getByRole('textbox').blur())
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(titleOf('r1')?.titlePinned).toBeUndefined()
+  })
+
+  it('closing the tab being renamed ends the edit', async () => {
+    setup()
+    await userEvent.setup().dblClick(screen.getByRole('tab', { name: /zsh/ }))
+    act(() => {
+      useLayoutStore.setState({
+        byWorkspace: {
+          w: {
+            root: { ...root, children: [two], activeId: 'r2' },
+            activePaneId: 'r2',
+            zoomedPaneId: null,
+          },
+        },
+      })
+    })
+    expect(usePaneRenameStore.getState().paneId).toBeNull()
+  })
+
+  it('switching workspace ends the edit', async () => {
+    setup()
+    await userEvent.setup().dblClick(screen.getByRole('tab', { name: /zsh/ }))
+    act(() => useWorkspacesStore.setState({ activeWorkspaceId: 'other' }))
+    expect(usePaneRenameStore.getState().paneId).toBeNull()
+  })
+
+  it('double-clicking a tab title edits it inline; Enter pins the new name', async () => {
+    setup()
+    const user = userEvent.setup()
+    await user.dblClick(screen.getByRole('tab', { name: /zsh/ }))
+    const input = screen.getByRole('textbox', { name: 'Rename Tab…' })
+    await user.clear(input)
+    await user.type(input, 'build{Enter}')
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(titleOf('r1')).toMatchObject({ title: 'build', titlePinned: true })
+  })
+
+  it('Escape cancels and leaves the title alone', async () => {
+    setup()
+    const user = userEvent.setup()
+    await user.dblClick(screen.getByRole('tab', { name: /zsh/ }))
+    await user.type(screen.getByRole('textbox'), 'x{Escape}')
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(titleOf('r1')).toMatchObject({ title: 'zsh' })
+    expect(titleOf('r1')?.titlePinned).toBeUndefined()
+  })
+
+  it('an empty name releases the pinned title', async () => {
+    setup()
+    act(() => useLayoutStore.getState().rename('w', 'r1', 'pinned'))
+    const user = userEvent.setup()
+    await user.dblClick(screen.getByRole('tab', { name: /pinned/ }))
+    await user.clear(screen.getByRole('textbox'))
+    await user.keyboard('{Enter}')
+    expect(titleOf('r1')?.titlePinned).toBeUndefined()
+  })
+
+  it('the Rename Tab item in the tab menu starts the inline edit', async () => {
+    setup()
+    const user = userEvent.setup()
+    fireEvent.contextMenu(screen.getByRole('tab', { name: /claude/ }))
+    await user.click(await screen.findByRole('menuitem', { name: /Rename Tab/ }))
+    expect(await screen.findByRole('textbox', { name: 'Rename Tab…' })).toHaveValue('claude')
+  })
+
+  it('pane.rename without a title starts the inline edit on the active tab', async () => {
+    setup()
+    await act(async () => {
+      await commands.exec('pane.rename')
+    })
+    expect(screen.getByRole('textbox', { name: 'Rename Tab…' })).toHaveValue('zsh')
+  })
+
+  it('pane.rename with a title still renames directly, as the CLI does', async () => {
+    setup()
+    await act(async () => {
+      await commands.exec('pane.rename', { title: 'cli' })
+    })
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(titleOf('r1')).toMatchObject({ title: 'cli', titlePinned: true })
+  })
+
+  it('still opens a new tab on a double-click in the empty strip', async () => {
+    setup()
+    const exec = vi.spyOn(commands, 'exec')
+    await userEvent.setup().dblClick(screen.getByRole('tablist'))
+    expect(exec).toHaveBeenCalledWith('tab.new', { paneId: 'r1' })
+    expect(screen.queryByRole('textbox')).toBeNull()
   })
 })

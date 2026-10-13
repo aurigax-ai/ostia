@@ -16,6 +16,7 @@ import { isMac } from '@/platform'
 import { actionsFor } from '@/settings/actions'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import {
   AppWindowIcon,
   ArrowsInIcon,
@@ -23,6 +24,7 @@ import {
   LockSimpleIcon,
   LockSimpleOpenIcon,
   MoonIcon,
+  PencilSimpleIcon,
   SunIcon,
   XSquareIcon,
 } from '@phosphor-icons/react'
@@ -62,12 +64,14 @@ export function PaneTabMenu({
       : 0,
   )
   const agentTab = pane.kind === 'terminal' && pane.resume !== undefined
+  const renamable = workspaceId !== null
   if (
     !file &&
     tabActions.length === 0 &&
     !movable &&
     !lockable &&
     !zoom &&
+    !renamable &&
     otherTabs === 0 &&
     !agentTab
   ) {
@@ -91,8 +95,16 @@ export function PaneTabMenu({
             {action.title}
           </MenuItem>
         ))}
-        {(movable || lockable || zoom) && (file || tabActions.length > 0) ? (
+        {(movable || lockable || zoom || renamable) && (file || tabActions.length > 0) ? (
           <ContextMenuSeparator />
+        ) : null}
+        {renamable ? (
+          <MenuItem
+            icon={PencilSimpleIcon}
+            onClick={() => usePaneRenameStore.getState().begin(pane.id)}
+          >
+            {d.pane.renameTab}
+          </MenuItem>
         ) : null}
         {zoom ? (
           <MenuItem

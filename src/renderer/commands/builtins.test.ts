@@ -2245,7 +2245,7 @@ describe('workspace row commands', () => {
     const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
     for (const id of ['pane.rename', 'workspace.rename']) {
       expect(byId[id].capabilities).toEqual(['drive-self'])
-      expect(byId[id].hidden).toBe(true)
+      expect(byId[id].hidden).toBe(id === 'workspace.rename')
     }
   })
 
