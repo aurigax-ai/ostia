@@ -14,7 +14,7 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useMergeConfirmStore } from '@/stores/workspaces/mergeConfirmStore'
-import { useRailEditStore } from '@/stores/workspaces/railEditStore'
+import { startRailEditSync, useRailEditStore } from '@/stores/workspaces/railEditStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { zhHant } from '@shared/app/dict'
@@ -29,7 +29,7 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SandboxFolderDialog } from '../sandbox/SandboxFolderDialog'
 import { DeckRail } from './DeckRail'
 import { HibernateSkippedDialog } from './HibernateSkippedDialog'
@@ -907,7 +907,14 @@ describe('DeckRail', () => {
     })
 
     describe('palette commands without an argument', () => {
-      afterEach(() => useRailEditStore.getState().clear())
+      let stopSync: () => void = () => {}
+      beforeEach(() => {
+        stopSync = startRailEditSync()
+      })
+      afterEach(() => {
+        stopSync()
+        useRailEditStore.setState({ editing: null, recollapse: false })
+      })
 
       function runCommand(id: string, activeWorkspaceId: string, args?: unknown) {
         if (!commands.has('workspace.renameGroup')) registerBuiltinCommands()
@@ -964,6 +971,89 @@ describe('DeckRail', () => {
         render(<DeckRail />)
         await runCommand('workspace.renameGroup', 's2', { name: 'svc' })
         expect(useWorkspacesStore.getState().groups[0].name).toBe('svc')
+        expect(screen.queryByRole('textbox')).toBeNull()
+      })
+
+      it('workspace.rename expands a collapsed group and focuses the member’s editor', async () => {
+        seedGroups()
+        useWorkspacesStore.getState().setGroupCollapsed('g90', true)
+        render(<DeckRail />)
+        expect(screen.queryByRole('button', { name: /api/ })).toBeNull()
+        await runCommand('workspace.rename', 's2')
+        expect(useWorkspacesStore.getState().groups[0].collapsed).toBeFalsy()
+        const input = screen.getByRole('textbox', { name: 'Workspace name' })
+        expect(input).toHaveValue('api')
+        expect(input).toHaveFocus()
+        await userEvent.setup().type(input, '-v2{Enter}')
+        expect(useWorkspacesStore.getState().workspaces[1].customName).toBe('api-v2')
+      })
+
+      it('drops the edit when its row is hidden, so expanding the group later opens nothing', async () => {
+        seedGroups()
+        render(<DeckRail />)
+        await runCommand('workspace.rename', 's2')
+        expect(screen.getByRole('textbox', { name: 'Workspace name' })).toBeInTheDocument()
+        act(() => useWorkspacesStore.getState().setGroupCollapsed('g90', true))
+        expect(useRailEditStore.getState().editing).toBeNull()
+        act(() => useWorkspacesStore.getState().setGroupCollapsed('g90', false))
+        expect(screen.queryByRole('textbox')).toBeNull()
+        expect(useWorkspacesStore.getState().workspaces[1].customName).toBeUndefined()
+      })
+
+      it('drops the edit when the active workspace changes or the workspace is closed', async () => {
+        seedGroups()
+        useWorkspacesStore.setState({ activeWorkspaceId: 's2' })
+        render(<DeckRail />)
+        await runCommand('workspace.describe', 's2')
+        expect(screen.getByRole('textbox')).toBeInTheDocument()
+        act(() => useWorkspacesStore.getState().setActive('s1'))
+        expect(screen.queryByRole('textbox')).toBeNull()
+        await runCommand('workspace.rename', 's1')
+        expect(screen.getByRole('textbox')).toBeInTheDocument()
+        act(() => useWorkspacesStore.getState().closeWorkspace('s1'))
+        expect(useRailEditStore.getState().editing).toBeNull()
+      })
+
+      it('expands an icon-only rail for the edit and collapses it again afterwards', async () => {
+        seedGroups()
+        useUIStore.setState({ railCollapsed: true })
+        render(<DeckRail />)
+        await runCommand('workspace.rename', 's1')
+        expect(useUIStore.getState().railCollapsed).toBe(false)
+        const input = screen.getByRole('textbox', { name: 'Workspace name' })
+        expect(input).toHaveFocus()
+        await userEvent.setup().type(input, '2{Enter}')
+        expect(useWorkspacesStore.getState().workspaces[0].customName).toBe('solo2')
+        expect(useUIStore.getState().railCollapsed).toBe(true)
+      })
+
+      it('refuses to open an editor in a window without the sidebar', async () => {
+        seedGroups()
+        useWindowsStore.setState({ detached: true })
+        for (const id of ['workspace.rename', 'workspace.describe', 'workspace.renameGroup']) {
+          const res = await runCommand(id, 's2')
+          expect(res).toMatchObject({
+            ok: false,
+            error: { message: 'this window has no workspace sidebar' },
+          })
+        }
+        expect(useRailEditStore.getState().editing).toBeNull()
+        await runCommand('workspace.rename', 's2', { name: 'cli' })
+        expect(useWorkspacesStore.getState().workspaces[1].customName).toBe('cli')
+      })
+
+      it('a remote caller without an argument clears, as before, and opens no editor', async () => {
+        seedGroups()
+        useWorkspacesStore.getState().rename('s1', 'named')
+        useWorkspacesStore.getState().describe('s1', 'notes')
+        render(<DeckRail />)
+        const remote = { activeWorkspaceId: 's1', activePaneId: null, origin: 'remote' as const }
+        await act(() => commands.execWith(remote, 'workspace.rename', undefined))
+        await act(() => commands.execWith(remote, 'workspace.describe', {}))
+        const res = await act(() => commands.execWith(remote, 'workspace.renameGroup', undefined))
+        expect(res).toMatchObject({ ok: false })
+        expect(useWorkspacesStore.getState().workspaces[0].customName).toBeUndefined()
+        expect(useWorkspacesStore.getState().workspaces[0].description).toBeFalsy()
         expect(screen.queryByRole('textbox')).toBeNull()
       })
 

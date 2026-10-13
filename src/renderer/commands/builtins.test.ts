@@ -16,6 +16,7 @@ import { useCloseConfirmStore } from '@/stores/workspaces/closeConfirmStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { saveSnapshotNow } from '@/stores/workspaces/persistence'
 import * as surfaceSlots from '@/stores/workspaces/surfaceSlotsStore'
+import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { SCRIPT_CAPABILITIES } from '@shared/permissions/scriptTokens'
 import { Terminal } from '@xterm/xterm'
@@ -2105,6 +2106,15 @@ describe('workspace row commands', () => {
     for (const id of ['workspace.describe', 'workspace.renameGroup']) {
       expect(byId[id].capabilities).toEqual(['drive-self'])
       expect(byId[id].hidden).toBeFalsy()
+    }
+    const editors = ['workspace.rename', 'workspace.describe', 'workspace.renameGroup']
+    const listed = () => commands.list().filter((c) => editors.includes(c.id) && c.listed?.())
+    expect(listed()).toHaveLength(3)
+    useWindowsStore.setState({ detached: true })
+    try {
+      expect(listed()).toHaveLength(0)
+    } finally {
+      useWindowsStore.setState({ detached: false })
     }
   })
 

@@ -86,7 +86,8 @@ import { useHistorySearchStore } from '@/stores/terminal/historySearchStore'
 import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { saveSnapshotNow } from '@/stores/workspaces/persistence'
-import { useRailEditStore } from '@/stores/workspaces/railEditStore'
+import { type RailEdit, revealRailEdit } from '@/stores/workspaces/railEditStore'
+import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import type { WorkspaceKind, WorkspaceState } from '@/stores/workspaces/workspacesStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { type AgentResume, resumeCommand } from '@shared/agents/agentResume'
@@ -256,6 +257,15 @@ function openFirstTerminal(ctx: CommandContext, workspaceId: string): void {
 
 const WORKSPACE_DIR = /^(\/|~(\/|$))/
 const PANE_LOCKED = 'pane-locked: the human locked this pane; only they can unlock it'
+
+function railShown(): boolean {
+  return !useWindowsStore.getState().detached
+}
+
+function editInRail(edit: RailEdit): void {
+  if (!railShown()) throw new Error('this window has no workspace sidebar')
+  revealRailEdit(edit)
+}
 
 export function registerBuiltinCommands(): void {
   registerBrowserCommands()
@@ -782,38 +792,37 @@ export function registerBuiltinCommands(): void {
   registerCore<{ text?: string } | undefined>({
     id: 'workspace.describe',
     category: 'workspace',
+    listed: railShown,
     capabilities: ['drive-self'],
     run: (args, ctx) => {
       if (!ctx.activeWorkspaceId) throw new Error('no target workspace')
-      if (typeof args?.text !== 'string') {
-        useRailEditStore
-          .getState()
-          .begin({ kind: 'workspace', id: ctx.activeWorkspaceId, field: 'description' })
+      if (typeof args?.text !== 'string' && ctx.origin !== 'remote') {
+        editInRail({ kind: 'workspace', id: ctx.activeWorkspaceId, field: 'description' })
         return
       }
-      useWorkspacesStore.getState().describe(ctx.activeWorkspaceId, args.text)
+      useWorkspacesStore.getState().describe(ctx.activeWorkspaceId, args?.text ?? '')
     },
   })
 
   registerCore<{ name?: string } | undefined>({
     id: 'workspace.rename',
     category: 'workspace',
+    listed: railShown,
     capabilities: ['drive-self'],
     run: (args, ctx) => {
       if (!ctx.activeWorkspaceId) throw new Error('no target workspace')
-      if (typeof args?.name !== 'string') {
-        useRailEditStore
-          .getState()
-          .begin({ kind: 'workspace', id: ctx.activeWorkspaceId, field: 'name' })
+      if (typeof args?.name !== 'string' && ctx.origin !== 'remote') {
+        editInRail({ kind: 'workspace', id: ctx.activeWorkspaceId, field: 'name' })
         return
       }
-      useWorkspacesStore.getState().rename(ctx.activeWorkspaceId, args.name)
+      useWorkspacesStore.getState().rename(ctx.activeWorkspaceId, args?.name ?? '')
     },
   })
 
   registerCore<{ name?: string } | undefined>({
     id: 'workspace.renameGroup',
     category: 'workspace',
+    listed: railShown,
     capabilities: ['drive-self'],
     run: (args, ctx) => {
       const store = useWorkspacesStore.getState()
@@ -821,7 +830,8 @@ export function registerBuiltinCommands(): void {
       const group = store.groups.find((g) => g.id === groupId)
       if (!group) throw new Error('workspace is not in a group')
       if (typeof args?.name !== 'string') {
-        useRailEditStore.getState().begin({ kind: 'group', id: group.id })
+        if (ctx.origin === 'remote') throw new Error('missing name')
+        editInRail({ kind: 'group', id: group.id })
         return
       }
       store.renameGroup(group.id, args.name)

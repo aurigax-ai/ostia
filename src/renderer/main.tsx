@@ -49,6 +49,7 @@ import { wireOpenWaits } from '@/stores/files/openWaitsStore'
 import { wireRemoteFolders } from '@/stores/files/remoteFoldersStore'
 import { startPaneRecencySync } from '@/stores/workspaces/paneRecencyStore'
 import { startSnapshotAutosave } from '@/stores/workspaces/persistence'
+import { startRailEditSync } from '@/stores/workspaces/railEditStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { StrictMode } from 'react'
@@ -138,6 +139,7 @@ async function boot(): Promise<void> {
   startFileDropTracking()
   startAttentionSync()
   startPaneRecencySync()
+  startRailEditSync()
   startHibernation()
   startAutoResume()
   startActivationResume()
