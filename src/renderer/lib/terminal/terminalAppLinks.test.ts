@@ -57,6 +57,34 @@ describe('createAppLinkProvider on a real xterm buffer', () => {
   })
 })
 
+describe('any scheme in the terminal', () => {
+  it('links plain and angle-bracket links of any scheme and skips blocked ones', async () => {
+    const term = new Terminal({ cols: 120, rows: 4, allowProposedApi: true })
+    await write(term, 'slack://channel?id=1 [z](<zed://file/My Dir/a>) devtools://x foo::bar')
+    const found = await provide(
+      createAppLinkProvider(term as unknown as OstiaTerminal, handler()),
+      1,
+    )
+    expect(found.map((l) => l.text)).toEqual(['slack://channel?id=1', 'zed://file/My Dir/a'])
+    term.dispose()
+  })
+
+  it('opens an OSC 8 link of any scheme in its app and hints its full target', async () => {
+    const slack = 'slack://channel?team=T1&id=C2'
+    const term = new Terminal({ cols: 80, rows: 4, allowProposedApi: true })
+    const hint = { show: vi.fn(), hide: vi.fn() }
+    term.options.linkHandler = xtermLinkHandler(hintedLinkHandler(vi.fn(), hint))
+    await write(term, `\x1b]8;;${slack}\x07channel\x1b]8;;\x07`)
+    const [link] = await oscLinks(term, 1)
+    link.hover?.(new MouseEvent('mouseover'), link.text)
+    expect(hint.show).toHaveBeenCalledWith(link.range, slack)
+    const click = { ctrlKey: false, metaKey: false, shiftKey: false, detail: 1 }
+    const ctx = { mac: true, hasSelection: false, mouseReporting: false }
+    expect(terminalLinkTarget(link.text, click, ctx)).toBe('app')
+    term.dispose()
+  })
+})
+
 describe('xtermLinkHandler', () => {
   it('lets OSC 8 hyperlinks to obsidian reach the handler, as Claude Code prints them', async () => {
     const term = new Terminal({ cols: 80, rows: 4, allowProposedApi: true })

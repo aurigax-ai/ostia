@@ -31,11 +31,48 @@ describe('externalHref', () => {
       'JavaScript:alert(1)',
       'file:///etc/passwd',
       'data:text/html,<b>x</b>',
-      'ssh://host',
-      'x-custom://do',
       'not a url',
     ]) {
       expect(externalHref(url, { apps: true })).toBeNull()
+    }
+  })
+
+  it('opens any other scheme with a double slash only when apps are allowed', () => {
+    for (const url of ['slack://channel?id=1', 'zed://file/tmp/a', 'x-custom://do', 'ssh://host']) {
+      expect(externalHref(url, { apps: true })).toBe(url)
+      expect(externalHref(url, { apps: false })).toBeNull()
+    }
+    expect(externalHref('Zed://file/My Dir/a', { apps: true })).toBe('zed://file/My%20Dir/a')
+  })
+
+  it('refuses dangerous and internal schemes in any form', () => {
+    for (const url of [
+      'javascript://x%0Aalert(1)',
+      'JAVASCRIPT://x',
+      'vbscript://x',
+      'data://x',
+      'blob://x',
+      'about://blank',
+      'chrome://settings',
+      'chrome-extension://abc/x',
+      'devtools://devtools/bundled/x.html',
+      'view-source://https://a.b',
+      'file://host/etc/passwd',
+      'ostia://settings-schema',
+      'ostia-preview://slot/index.html',
+      'remote://folder/a.ts',
+      'untitled://a',
+      'app://index.html',
+    ]) {
+      expect(externalHref(url, { apps: true })).toBeNull()
+      expect(linkKind(url)).toBeNull()
+    }
+  })
+
+  it('refuses a scheme that is too short or has no double slash', () => {
+    for (const url of ['a://b', 'x-custom:do', 'foo::bar', 'C://Windows']) {
+      expect(externalHref(url, { apps: true })).toBeNull()
+      expect(linkKind(url)).toBeNull()
     }
   })
 
@@ -54,12 +91,13 @@ describe('linkKind', () => {
     expect(linkKind(VAULT)).toBe('external')
     expect(linkKind('vscode://file/a')).toBe('external')
     expect(linkKind('mailto:a@example.com')).toBe('external')
+    expect(linkKind('slack://channel?id=1')).toBe('external')
   })
 
   it('refuses everything else', () => {
     expect(linkKind('javascript:alert(1)')).toBeNull()
     expect(linkKind('file:///etc/passwd')).toBeNull()
-    expect(linkKind('x-custom://do')).toBeNull()
+    expect(linkKind('x-custom:do')).toBeNull()
     expect(linkKind('')).toBeNull()
   })
 })
@@ -102,7 +140,34 @@ describe('findAppLinks', () => {
     expect(mixed.url).toBe('vscode://file/a')
   }, 60_000)
 
-  it('ignores other schemes and words that only end in a scheme name', () => {
-    expect(findAppLinks('https://a.b javascript://x myobsidian://x obsidian://')).toEqual([])
+  it('ignores web, file, blocked and empty links, and schemes inside a word', () => {
+    expect(
+      findAppLinks(
+        'https://a.b/zed://x file:///tmp/a javascript://x ostia-preview://s obsidian:// _zed://x',
+      ),
+    ).toEqual([])
   })
+
+  it('finds plain and bracketed links of any scheme', () => {
+    const text = 'go slack://channel?id=1, then <zed://file/My Dir/a.ts> or (x-app+v1.2://do).'
+    expect(findAppLinks(text).map((l) => l.url)).toEqual([
+      'slack://channel?id=1',
+      'zed://file/My Dir/a.ts',
+      'x-app+v1.2://do',
+    ])
+  })
+
+  it('does not link short schemes, code without a double slash or text after Chinese punctuation', () => {
+    expect(findAppLinks('a://b std::vector foo::bar://x C://Win')).toEqual([])
+    expect(findAppLinks('開 zed://file/a，然後（slack://x）').map((l) => l.url)).toEqual([
+      'zed://file/a',
+      'slack://x',
+    ])
+  })
+
+  it('scans a long run of scheme characters in linear time', () => {
+    const started = performance.now()
+    expect(findAppLinks(`${'a+'.repeat(50_000)}:/ ${'ab'.repeat(50_000)}`)).toEqual([])
+    expect(performance.now() - started).toBeLessThan(1_000)
+  }, 60_000)
 })
