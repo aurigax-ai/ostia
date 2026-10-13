@@ -1,3 +1,5 @@
+import type { PaneNode } from '@/layout/types'
+import * as resumeFolder from '@/lib/agents/resumeFolder'
 import { activeFontZoom, zoomFont } from '@/lib/app/wheelZoom'
 import { registerBrowserHandle } from '@/lib/browser/browserHandles'
 import { type KeyLike, runAppChord } from '@/lib/keys/chords'
@@ -16,13 +18,14 @@ import { useCloseConfirmStore } from '@/stores/workspaces/closeConfirmStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { saveSnapshotNow } from '@/stores/workspaces/persistence'
 import * as surfaceSlots from '@/stores/workspaces/surfaceSlotsStore'
+import { useTabSleepNoticeStore } from '@/stores/workspaces/tabSleepNoticeStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { SCRIPT_CAPABILITIES } from '@shared/permissions/scriptTokens'
 import { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { SCRIPT_COMMANDS } from '../../main/control/commandArgs'
 import { type Capability, DEFAULT_CAPABILITIES } from '../../shared/capabilities'
-import { createPane, splitOf, tabsOf } from '../layout/tree'
+import { createPane, paneIds, splitOf, tabsOf } from '../layout/tree'
 import { registerBuiltinCommands } from './builtins'
 import { type CommandContext, commands } from './registry'
 
@@ -1961,6 +1964,92 @@ describe('builtins with zero workspaces', () => {
   })
 })
 
+describe('tab menu commands in the palette', () => {
+  it('lists Close Other Tabs, Hibernate Tab and Wake Tab, and runs them on the pane it is given', async () => {
+    const listed = new Map(commands.list().map((c) => [c.id, c]))
+    for (const [id, title] of [
+      ['tab.closeOthers', 'Close Other Tabs'],
+      ['pane.hibernate', 'Hibernate Tab'],
+      ['pane.wake', 'Wake Tab'],
+    ]) {
+      expect(listed.get(id)?.hidden).toBeFalsy()
+      expect(listed.get(id)?.title).toBe(title)
+    }
+    const a = { ...createPane('terminal'), resume: { agent: 'claude' as const, id: 'tok' } }
+    const b = createPane('terminal')
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
+      activeWorkspaceId: 's1',
+    })
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: { type: 'tabs', id: 't', activeId: a.id, children: [a, b] },
+          activePaneId: a.id,
+          zoomedPaneId: null,
+        },
+      },
+    })
+    const r = await commands.execWith(ctx('s1', a.id), 'tab.closeOthers', { paneId: a.id })
+    expect(r).toMatchObject({ ok: true })
+    expect(paneIds(useLayoutStore.getState().byWorkspace.s1.root)).toEqual([a.id])
+    const slept = await commands.execWith(ctx('s1', a.id), 'pane.hibernate', { paneId: a.id })
+    expect(slept).toMatchObject({ ok: true, result: { hibernated: false, outcome: 'not-agent' } })
+  })
+})
+
+describe('tab sleep notices', () => {
+  const notice = () => useTabSleepNoticeStore.getState().notice
+  afterEach(() => useTabSleepNoticeStore.setState({ notice: null }))
+
+  function seed(pane: PaneNode): void {
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
+      activeWorkspaceId: 's1',
+    })
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+  }
+
+  it('says why hibernating a tab with no agent did nothing', async () => {
+    const pane = createPane('terminal')
+    seed(pane)
+    await commands.execWith(ctx('s1', pane.id), 'pane.hibernate')
+    expect(notice()).toEqual({ kind: 'notAgent' })
+  })
+
+  it('says a tab is already asleep when asked to hibernate it again', async () => {
+    const pane = {
+      ...createPane('terminal'),
+      resume: { agent: 'claude' as const, id: 't' },
+      hibernated: true as const,
+    }
+    seed(pane)
+    await commands.execWith(ctx('s1', pane.id), 'pane.hibernate')
+    expect(notice()).toEqual({ kind: 'asleep' })
+  })
+
+  it('says a tab is already awake when asked to wake it', async () => {
+    const pane = createPane('terminal')
+    seed(pane)
+    await commands.execWith(ctx('s1', pane.id), 'pane.wake')
+    expect(notice()).toEqual({ kind: 'awake' })
+  })
+
+  it('names the tab holding the session when a wake conflicts', async () => {
+    const pane = {
+      ...createPane('terminal'),
+      resume: { agent: 'claude' as const, id: 't' },
+      hibernated: true as const,
+    }
+    seed(pane)
+    vi.spyOn(resumeFolder, 'paneResumeHolder').mockReturnValue({ title: 'other' } as never)
+    await commands.execWith(ctx('s1', pane.id), 'pane.wake')
+    expect(notice()).toEqual({ kind: 'conflict', tab: 'other' })
+  })
+})
+
 describe('agent resume', () => {
   function seedPane(resume?: { agent: 'claude' | 'codex'; id: string }) {
     const pane = { ...createPane('terminal'), ...(resume ? { resume } : {}) }
@@ -2156,7 +2245,7 @@ describe('workspace row commands', () => {
     const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
     for (const id of ['pane.rename', 'workspace.rename']) {
       expect(byId[id].capabilities).toEqual(['drive-self'])
-      expect(byId[id].hidden).toBe(true)
+      expect(byId[id].hidden).toBe(id === 'workspace.rename')
     }
   })
 

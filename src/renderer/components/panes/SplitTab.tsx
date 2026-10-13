@@ -14,6 +14,7 @@ import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
+import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import { focusSurface } from '@/stores/workspaces/surfaceSlotsStore'
 import { LockSimpleIcon, XIcon } from '@phosphor-icons/react'
 import { Allotment } from 'allotment'
@@ -24,15 +25,18 @@ import {
   useLayoutEffect,
   useRef,
 } from 'react'
+import { PaneRenameField } from './PaneRenameField'
 import { PaneTabMenu } from './PaneTabMenu'
 import { ResumeConflictNotice } from './ResumeFolderNotice'
 import { TabBody } from './TabBody'
 import { TabFace, usePaneMark, usePaneTitle } from './TabFace'
 import { TabHint } from './TabHint'
 
-function focusPane(paneId: string): void {
+export function focusPane(paneId: string): void {
   void commands.exec('pane.focus', { paneId })
-  requestAnimationFrame(() => focusSurface(paneId))
+  requestAnimationFrame(() => {
+    if (usePaneRenameStore.getState().paneId !== paneId) focusSurface(paneId)
+  })
 }
 
 function GlyphNode({ node, focusedId }: { node: LayoutNode; focusedId: string | null }) {
@@ -83,12 +87,13 @@ function SplitTabSegment({
   const d = useDict()
   const title = usePaneTitle(pane)
   const mark = usePaneMark(pane)
+  const renaming = usePaneRenameStore((s) => s.paneId === pane.id)
   const segment = (
     <div
       className={cn('split-tab-segment', focused && 'focused', pane.locked && 'locked')}
       data-attention={mark ?? undefined}
       data-segment-id={pane.id}
-      draggable
+      draggable={!renaming}
       onDragStart={(e) => {
         e.stopPropagation()
         e.dataTransfer.setData(PANE_DND, pane.id)
@@ -109,16 +114,21 @@ function SplitTabSegment({
         void commands.exec('pane.close', { paneId: pane.id })
       }}
     >
-      <TabHint pane={pane}>
-        <button
-          type="button"
-          className="split-tab-segment-main"
-          aria-current={focused ? 'true' : undefined}
-          onClick={() => focusPane(pane.id)}
-        >
-          <TabFace pane={pane} segment />
-        </button>
-      </TabHint>
+      {renaming ? (
+        <PaneRenameField pane={pane} workspaceId={workspaceId} />
+      ) : (
+        <TabHint pane={pane}>
+          <button
+            type="button"
+            className="split-tab-segment-main"
+            aria-current={focused ? 'true' : undefined}
+            onClick={() => focusPane(pane.id)}
+            onDoubleClick={() => usePaneRenameStore.getState().begin(pane.id)}
+          >
+            <TabFace pane={pane} segment />
+          </button>
+        </TabHint>
+      )}
       {pane.locked ? (
         <IconButton
           icon={LockSimpleIcon}
@@ -156,6 +166,7 @@ function useSplitTabLabel(tab: SplitNode): string {
 
 function moveSegmentFocus(e: KeyboardEvent<HTMLElement>): void {
   if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+  if (e.target instanceof HTMLInputElement) return
   const buttons = [...e.currentTarget.querySelectorAll<HTMLElement>('.split-tab-segment-main')]
   const at = buttons.indexOf(document.activeElement as HTMLElement)
   const next = at === -1 ? buttons[0] : buttons[at + (e.key === 'ArrowRight' ? 1 : -1)]
@@ -181,6 +192,7 @@ export function SplitTabPill({
 }): JSX.Element {
   const label = useSplitTabLabel(tab)
   const panes = allPanes(tab)
+  const renaming = usePaneRenameStore((s) => panes.some((p) => p.id === s.paneId))
   return (
     <div
       style={{ '--split-segments': panes.length } as CSSProperties}
@@ -194,7 +206,7 @@ export function SplitTabPill({
       aria-selected={selected}
       aria-label={label}
       data-tab-id={tab.id}
-      draggable
+      draggable={!renaming}
       onDragStart={(e) => {
         e.dataTransfer.setData(PANE_DND, tab.id)
         e.dataTransfer.effectAllowed = 'move'

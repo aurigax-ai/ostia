@@ -9,6 +9,7 @@ import { CloseConfirmDialog } from '@/components/rail/CloseConfirmDialog'
 import { DeckRail } from '@/components/rail/DeckRail'
 import { HibernateSkippedDialog } from '@/components/rail/HibernateSkippedDialog'
 import { MergeConfirmDialog } from '@/components/rail/MergeConfirmDialog'
+import { TabSleepNoticeDialog } from '@/components/rail/TabSleepNoticeDialog'
 import { SandboxFolderDialog } from '@/components/sandbox/SandboxFolderDialog'
 import { SandboxRequirementsDialog } from '@/components/sandbox/SandboxRequirementsDialog'
 import { ActionConfirmDialog } from '@/components/settings/ActionConfirmDialog'
@@ -134,6 +135,7 @@ export function App(): JSX.Element {
           <CloseConfirmDialog />
           <MergeConfirmDialog />
           <HibernateSkippedDialog />
+          <TabSleepNoticeDialog />
           <CmuxImportDialog />
           <ActionConfirmDialog />
           <UpdateConfirmDialog />

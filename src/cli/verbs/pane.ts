@@ -21,6 +21,7 @@ export type PaneCall =
   | { method: 'pane.rename'; params: { pane: string; title: string } }
   | { method: 'pane.wait'; params: PaneWaitParams; json: boolean }
   | { method: 'pane.wake'; params: PaneWakeParams; json: boolean }
+  | { method: 'pane.hibernate'; params: { panes: string[] }; json: boolean }
   | { method: 'pane.close'; params: { panes: string[] }; json: boolean }
   | { method: 'pane.moveTo'; params: { panes: string[]; workspace: string }; json: boolean }
 
@@ -35,6 +36,11 @@ interface PaneWakeResult {
   started?: true
   timedOut?: true
   closed?: string
+}
+
+interface PaneHibernateResult {
+  hibernated: string[]
+  skipped: Record<string, string>
 }
 
 interface PaneWaitParams {
@@ -58,6 +64,7 @@ const USAGE = [
   '       ostia pane rename <pane> <title…> | --clear',
   '       ostia pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]',
   '       ostia pane wake <pane>… [--wait [--timeout <s>]] [--json]',
+  '       ostia pane hibernate <pane>… [--json]',
   '       ostia pane close <pane>… [--json]',
   '       ostia pane move <pane>… --workspace <id|name> [--json]',
   '<pane> is a paneId or a process id or name (ostia process ls); list panes with',
@@ -107,6 +114,25 @@ function parseClose(argv: string[]): PaneCall {
   const { positional, booleans } = parseArgs(argv, { booleans: { json: '--json' } })
   if (positional.length === 0) throw new Error(USAGE)
   return { method: 'pane.close', params: { panes: positional }, json: booleans.json }
+}
+
+function parseHibernate(argv: string[]): PaneCall {
+  const { positional, booleans } = parseArgs(argv, { booleans: { json: '--json' } })
+  if (positional.length === 0) throw new Error(USAGE)
+  return { method: 'pane.hibernate', params: { panes: positional }, json: booleans.json }
+}
+
+export function hibernateOutcome(
+  result: PaneHibernateResult,
+  json: boolean,
+): { line: string; code: number } {
+  const skipped = Object.entries(result.skipped)
+  if (json) return { line: JSON.stringify(result), code: skipped.length > 0 ? 2 : 0 }
+  const lines = [
+    ...result.hibernated,
+    ...skipped.map(([paneId, reason]) => `ostia pane hibernate: ${paneId} skipped (${reason})`),
+  ]
+  return { line: lines.join('\n'), code: skipped.length > 0 ? 2 : 0 }
 }
 
 function parseMove(argv: string[]): PaneCall {
@@ -186,6 +212,7 @@ export function parsePaneArgs(argv: string[]): PaneCall {
   if (!sub || !pane) throw new Error(USAGE)
   if (sub === 'wait') return parseWait([pane, ...rest])
   if (sub === 'wake') return parseWake([pane, ...rest])
+  if (sub === 'hibernate') return parseHibernate([pane, ...rest])
   if (sub === 'close') return parseClose([pane, ...rest])
   if (sub === 'move') return parseMove([pane, ...rest])
   if (sub === 'send') {
@@ -349,6 +376,11 @@ export async function runPaneVerb(
   } else if (call.method === 'pane.wake') {
     const { line, code } = wakeOutcome(result as PaneWakeResult, call.json)
     if (code === PANE_WAIT_EXIT.reached || call.json) console.log(line)
+    else console.error(line)
+    return code
+  } else if (call.method === 'pane.hibernate') {
+    const { line, code } = hibernateOutcome(result as PaneHibernateResult, call.json)
+    if (code === 0 || call.json) console.log(line)
     else console.error(line)
     return code
   } else if (call.method === 'pane.close') {

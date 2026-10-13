@@ -26,6 +26,7 @@ import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
+import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import { focusSurface } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
@@ -37,9 +38,10 @@ import {
   XIcon,
 } from '@phosphor-icons/react'
 import { type DragEvent, useEffect, useRef } from 'react'
+import { PaneRenameField } from './PaneRenameField'
 import { PaneHeaderActions, PaneTabMenu } from './PaneTabMenu'
 import { ResumeConflictNotice, ResumeFolderNotice } from './ResumeFolderNotice'
-import { SplitTabBody, SplitTabPill } from './SplitTab'
+import { SplitTabBody, SplitTabPill, focusPane } from './SplitTab'
 import { TabBody } from './TabBody'
 import { TabFace, usePaneMark } from './TabFace'
 import { TabHint } from './TabHint'
@@ -387,6 +389,7 @@ function PaneTab({
   const d = useDict()
   const mark = usePaneMark(pane)
   const workspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
+  const renaming = usePaneRenameStore((s) => s.paneId === pane.id)
 
   const tab = (
     <div
@@ -398,7 +401,7 @@ function PaneTab({
       )}
       data-attention={mark ?? undefined}
       data-tab-id={pane.id}
-      draggable
+      draggable={!renaming}
       onDragStart={(e) => {
         e.dataTransfer.setData(PANE_DND, pane.id)
         e.dataTransfer.effectAllowed = 'move'
@@ -414,20 +417,22 @@ function PaneTab({
         void commands.exec('pane.close', { paneId: pane.id })
       }}
     >
-      <TabHint pane={pane}>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={selected}
-          className="pane-tab-main"
-          onClick={() => {
-            void commands.exec('pane.focus', { paneId: pane.id })
-            requestAnimationFrame(() => focusSurface(pane.id))
-          }}
-        >
-          <TabFace pane={pane} />
-        </button>
-      </TabHint>
+      {renaming ? (
+        <PaneRenameField pane={pane} workspaceId={workspaceId} />
+      ) : (
+        <TabHint pane={pane}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            className="pane-tab-main"
+            onClick={() => focusPane(pane.id)}
+            onDoubleClick={() => usePaneRenameStore.getState().begin(pane.id)}
+          >
+            <TabFace pane={pane} />
+          </button>
+        </TabHint>
+      )}
       {pane.locked ? (
         <IconButton
           icon={LockSimpleIcon}
