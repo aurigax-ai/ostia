@@ -107,7 +107,7 @@ describe('externalHref', () => {
   })
 
   it('refuses credentials in links of schemes outside the list', () => {
-    for (const url of ['postgres://u:p@h/db', 'redis://:pw@h', 'ssh://token@host']) {
+    for (const url of ['postgres://u:p@h/db', 'redis://:pw@h', 'ssh://me:pw@host']) {
       expect(externalHref(url, { apps: true })).toBeNull()
       expect(linkKind(url)).toBeNull()
     }
@@ -116,6 +116,14 @@ describe('externalHref', () => {
     )
     expect(externalHref('vscode://u:p@file/a', { apps: true })).toBe('vscode://u:p@file/a')
     expect(findAppLinks('db postgres://u:p@h/db or <redis://:pw@h>')).toEqual([])
+  })
+
+  it('opens links that carry only a user name', () => {
+    for (const url of ['ssh://me@host', 'vnc://me@host:5900']) {
+      expect(linkKind(url)).toBe('external')
+      expect(externalHref(url, { apps: true })).toBe(url)
+    }
+    expect(findAppLinks('run ssh://me@host now').map((l) => l.url)).toEqual(['ssh://me@host'])
   })
 
   it('refuses a scheme that is too short or has no double slash', () => {

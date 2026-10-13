@@ -57,7 +57,7 @@ function isAppLink(url: URL): boolean {
     return false
   }
   if (APP_SCHEMES.has(scheme)) return true
-  return url.href.startsWith(`${scheme}//`) && !url.username && !url.password
+  return url.href.startsWith(`${scheme}//`) && !url.password
 }
 
 export function linkKind(url: string): LinkKind | null {
