@@ -1,45 +1,18 @@
-import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { resumeOnActivation } from './autoResume'
 
-const HUMAN_INPUT = ['pointerdown', 'mousedown', 'click', 'keydown', 'keyup'] as const
-
-interface ActivePane {
-  workspaceId: string
-  paneId: string
-}
-
-function activePane(): ActivePane | null {
-  const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
-  const paneId = workspaceId
-    ? useLayoutStore.getState().byWorkspace[workspaceId]?.activePaneId
-    : undefined
-  return workspaceId && paneId ? { workspaceId, paneId } : null
+function paneBodyAt(target: EventTarget | null): string | null {
+  if (!(target instanceof Element)) return null
+  if (target.closest('.pane-header')) return null
+  return target.closest<HTMLElement>('.pane[data-pane-id]')?.dataset.paneId ?? null
 }
 
 export function startActivationResume(): () => void {
-  let humanInput = false
-  let last = activePane()
-
-  const onInput = (e: Event): void => {
-    if (!e.isTrusted || humanInput) return
-    humanInput = true
-    setTimeout(() => {
-      humanInput = false
-    }, 0)
+  const onPointerDown = (e: Event): void => {
+    if (!e.isTrusted) return
+    const paneId = paneBodyAt(e.target)
+    if (paneId) resumeOnActivation(paneId)
   }
 
-  const check = (): void => {
-    const next = activePane()
-    const moved = next?.workspaceId !== last?.workspaceId || next?.paneId !== last?.paneId
-    last = next
-    if (moved && next && humanInput) resumeOnActivation(next.paneId)
-  }
-
-  for (const type of HUMAN_INPUT) window.addEventListener(type, onInput, true)
-  const unsubscribe = [useLayoutStore.subscribe(check), useWorkspacesStore.subscribe(check)]
-  return () => {
-    for (const type of HUMAN_INPUT) window.removeEventListener(type, onInput, true)
-    for (const off of unsubscribe) off()
-  }
+  window.addEventListener('pointerdown', onPointerDown, true)
+  return () => window.removeEventListener('pointerdown', onPointerDown, true)
 }

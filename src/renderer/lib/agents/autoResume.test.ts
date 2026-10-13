@@ -308,13 +308,14 @@ describe('startAutoResume', () => {
     ])
   })
 
-  it('with auto-resume off, a restored agent waits until the human activates its tab', () => {
-    const listeners = new Map<string, EventListener>()
+  it('with auto-resume off, a restored agent waits until the human clicks inside its tab', () => {
+    document.body.innerHTML = '<div class="pane" data-pane-id="pane-2"><div id="body"></div></div>'
+    const inputListeners = new Map<string, EventListener>()
     const add = window.addEventListener.bind(window)
     const spy = vi
       .spyOn(window, 'addEventListener')
       .mockImplementation((type, listener, options) => {
-        if (typeof listener === 'function') listeners.set(type, listener)
+        if (typeof listener === 'function') inputListeners.set(type, listener)
         add(type, listener, options)
       })
     restart(false)
@@ -324,13 +325,61 @@ describe('startAutoResume', () => {
     stop = () => {
       stopActivation()
       stopAuto()
+      document.body.innerHTML = ''
     }
     expect(runWhenIdle).not.toHaveBeenCalled()
 
-    listeners.get('pointerdown')?.({ type: 'pointerdown', isTrusted: true } as Event)
     useLayoutStore.getState().focusPane('s1', 'pane-2')
+    expect(runWhenIdle).not.toHaveBeenCalled()
+
+    const target = document.getElementById('body')
+    inputListeners.get('pointerdown')?.({
+      type: 'pointerdown',
+      isTrusted: true,
+      target,
+    } as unknown as Event)
 
     expect(scheduled()).toEqual([['pane-2', 'claude --resume back-2222']])
+  })
+
+  it('switching to a workspace with a human click outside the pane never wakes its hibernated agent', () => {
+    document.body.innerHTML = '<div id="sidebar"></div>'
+    const inputListeners = new Map<string, EventListener>()
+    const add = window.addEventListener.bind(window)
+    const spy = vi
+      .spyOn(window, 'addEventListener')
+      .mockImplementation((type, listener, options) => {
+        if (typeof listener === 'function') inputListeners.set(type, listener)
+        add(type, listener, options)
+      })
+    restart(false)
+    const sleeping = { ...createPane('terminal'), id: 'pane-3', resume, hibernated: true as const }
+    useLayoutStore.setState((s) => ({
+      byWorkspace: {
+        ...s.byWorkspace,
+        s2: { root: sleeping, activePaneId: sleeping.id, zoomedPaneId: null },
+      },
+    }))
+    const stopAuto = startAutoResume()
+    const stopActivation = startActivationResume()
+    spy.mockRestore()
+    stop = () => {
+      stopActivation()
+      stopAuto()
+      document.body.innerHTML = ''
+    }
+
+    const target = document.getElementById('sidebar')
+    inputListeners.get('pointerdown')?.({
+      type: 'pointerdown',
+      isTrusted: true,
+      target,
+    } as unknown as Event)
+    useWorkspacesStore.getState().setActive('s2')
+
+    const layout = useLayoutStore.getState().byWorkspace.s2
+    expect(findPane(layout.root, 'pane-3')?.hibernated).toBe(true)
+    expect(runWhenIdle).not.toHaveBeenCalled()
   })
 
   it('an agent that exited before the quit does not resume after the restart', () => {

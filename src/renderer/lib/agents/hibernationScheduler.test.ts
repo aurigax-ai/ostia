@@ -194,6 +194,11 @@ describe('hibernateIdleAgents', () => {
         addListener(type, listener, options)
       })
     stops.push(() => listening.mockRestore())
+    document.body.innerHTML =
+      '<div class="pane" data-pane-id="idle-claude"><div id="body"></div></div>'
+    stops.push(() => {
+      document.body.innerHTML = ''
+    })
     useSettingsStore.setState((s) => ({
       agents: { ...s.agents, hibernation: { enabled: true, idleSeconds: 5, maxLiveTerminals: 0 } },
     }))
@@ -222,8 +227,14 @@ describe('hibernateIdleAgents', () => {
     expect(hibernated('idle-claude')).toBe(true)
 
     const typed = holdResumes()
-    inputListeners.get('pointerdown')?.({ type: 'pointerdown', isTrusted: true } as Event)
     await commands.exec('pane.focus', { paneId: 'idle-claude' })
+    expect(hibernated('idle-claude')).toBe(true)
+    const target = document.getElementById('body')
+    inputListeners.get('pointerdown')?.({
+      type: 'pointerdown',
+      isTrusted: true,
+      target,
+    } as unknown as Event)
 
     expect(hibernated('idle-claude')).toBe(false)
     expect(typed.mock.calls.map(([id, command]) => [id, command])).toEqual([
