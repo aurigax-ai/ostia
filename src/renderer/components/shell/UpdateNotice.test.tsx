@@ -186,9 +186,9 @@ describe('UpdateNotice', () => {
     ['symlink', 'The app folder is a symbolic link'],
   ] as const)(
     'a dmg install that cannot be replaced (%s) opens the release page and says why',
-    (reason, text) => {
+    async (reason, text) => {
       render(<UpdateCheck />)
-      act(() =>
+      await act(async () =>
         useUpdateStore.getState().receiveRelease({
           ...state(RELEASE, 'dmg'),
           replace: { ok: false, reason },
@@ -201,9 +201,9 @@ describe('UpdateNotice', () => {
     },
   )
 
-  it('names each macOS verification failure and offers the download again', () => {
+  it('names each macOS verification failure and offers the download again', async () => {
     render(<UpdateCheck />)
-    act(() =>
+    await act(async () =>
       useUpdateStore.getState().receiveRelease({ ...state(RELEASE, 'dmg'), replace: { ok: true } }),
     )
     const reasons = {

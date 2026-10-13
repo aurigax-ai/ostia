@@ -30,6 +30,7 @@ import {
   signaturePolicy,
   stagedBundlePath,
   swapStagedBundle,
+  verifyStagedSync,
 } from './macReplace'
 
 const VERSION = '0.6.0-rc.2'
@@ -327,6 +328,7 @@ describe('replaceMacInstall', () => {
 
       expect(bundleVersion(bundle)).toBe('0.5.12')
       expect(readdirSync(join(root, 'Applications'))).toEqual(['Ostia.app'])
+      expect(readdirSync(join(root, 'work'))).toEqual([])
       const attached = tools.calls.some((c) => c[0] === 'hdiutil' && c[1] === 'attach')
       const detached = tools.calls.some((c) => c[0] === 'hdiutil' && c[1] === 'detach')
       expect(detached).toBe(attached && failure.reason !== 'mount-failed')
@@ -422,10 +424,21 @@ describe('signaturePolicy', () => {
 })
 
 describe('swapStagedBundle', () => {
+  const trusted = { verify: () => true }
+
   it('moves the installed bundle aside and the staged one into place, with spaces in the path', () => {
     const bundle = installed()
     appBundle(stagedBundlePath(bundle), VERSION)
-    expect(swapStagedBundle(bundle)).toBe(true)
+    const checked: string[] = []
+    expect(
+      swapStagedBundle(bundle, {
+        verify: (staged) => {
+          checked.push(staged)
+          return true
+        },
+      }),
+    ).toBe('swapped')
+    expect(checked).toEqual([stagedBundlePath(bundle)])
     expect(bundleVersion(bundle)).toBe(VERSION)
     expect(bundleVersion(oldBundlePath(bundle))).toBe('0.5.12')
     expect(existsSync(stagedBundlePath(bundle))).toBe(false)
@@ -433,10 +446,34 @@ describe('swapStagedBundle', () => {
 
   it('does nothing without a staged bundle or with an old one still there', () => {
     const bundle = installed()
-    expect(swapStagedBundle(bundle)).toBe(false)
+    expect(swapStagedBundle(bundle, trusted)).toBe('nothing-staged')
     appBundle(stagedBundlePath(bundle), VERSION)
     mkdirSync(oldBundlePath(bundle))
-    expect(swapStagedBundle(bundle)).toBe(false)
+    expect(swapStagedBundle(bundle, trusted)).toBe('failed')
+    expect(bundleVersion(bundle)).toBe('0.5.12')
+  })
+
+  it('checks the signature again right before the swap and drops a staged bundle that fails it', () => {
+    const bundle = installed()
+    appBundle(stagedBundlePath(bundle), VERSION)
+    expect(swapStagedBundle(bundle, { verify: () => false })).toBe('rejected')
+    expect(bundleVersion(bundle)).toBe('0.5.12')
+    expect(readdirSync(join(root, 'Applications'))).toEqual(['Ostia.app'])
+  })
+
+  it('drops a staged symlink or file without following it or verifying it', () => {
+    const bundle = installed()
+    const elsewhere = appBundle(join(root, 'elsewhere', 'Ostia.app'), VERSION)
+    const verify = (): boolean => {
+      throw new Error('verified a staged entry that is not a folder')
+    }
+    symlinkSync(elsewhere, stagedBundlePath(bundle))
+    expect(swapStagedBundle(bundle, { verify })).toBe('rejected')
+    expect(existsSync(stagedBundlePath(bundle))).toBe(false)
+    expect(bundleVersion(elsewhere)).toBe(VERSION)
+    writeFileSync(stagedBundlePath(bundle), 'not an app')
+    expect(swapStagedBundle(bundle, { verify })).toBe('rejected')
+    expect(readdirSync(join(root, 'Applications'))).toEqual(['Ostia.app'])
     expect(bundleVersion(bundle)).toBe('0.5.12')
   })
 
@@ -450,9 +487,18 @@ describe('swapStagedBundle', () => {
       cpSync(from, to, { recursive: true })
       rmSync(from, { recursive: true })
     }
-    expect(swapStagedBundle(bundle, rename)).toBe(false)
+    expect(swapStagedBundle(bundle, { ...trusted, rename })).toBe('failed')
     expect(bundleVersion(bundle)).toBe('0.5.12')
     expect(existsSync(oldBundlePath(bundle))).toBe(false)
+  })
+})
+
+describe('verifyStagedSync', () => {
+  it('fails closed for a folder that is not a signed app', () => {
+    const unsigned = appBundle(join(root, 'Unsigned.app'), VERSION)
+    expect(verifyStagedSync(unsigned, 'release')).toBe(false)
+    expect(verifyStagedSync(unsigned, 'adhoc')).toBe(false)
+    expect(verifyStagedSync(join(root, 'missing.app'), 'adhoc')).toBe(false)
   })
 })
 

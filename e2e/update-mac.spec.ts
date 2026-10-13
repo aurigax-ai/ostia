@@ -16,7 +16,14 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, openWorkspace, quitApp, runInTerminal, stubExternalOpener } from './helpers'
+import {
+  PROMPT,
+  openWorkspace,
+  quitApp,
+  runInTerminal,
+  stubExternalOpener,
+  waitForExit,
+} from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 test.skip(process.platform !== 'darwin', 'app bundles, hdiutil and codesign are macOS only')
@@ -209,11 +216,15 @@ async function downloadAndStage(win: Page): Promise<void> {
   })
 }
 
-async function restartFromNotice(app: ElectronApplication, win: Page): Promise<void> {
+async function restartFromNotice(
+  app: ElectronApplication,
+  win: Page,
+  dataHome: string,
+): Promise<void> {
   await app.evaluate(({ app: electronApp }) => {
     electronApp.relaunch = () => undefined
   })
-  const closed = app.waitForEvent('close')
+  const closed = waitForExit(app)
   await win.locator('.update-notice').getByRole('button', { name: 'Restart Ostia' }).click()
   const quit = win.getByRole('dialog').getByRole('button', { name: 'Quit' })
   const asked = await Promise.race([
@@ -225,6 +236,9 @@ async function restartFromNotice(app: ElectronApplication, win: Page): Promise<v
   ])
   if (asked) await quit.click().catch(() => {})
   await closed
+  expect(app.process().exitCode).toBe(0)
+  expect(mainLog(dataHome)).toMatch(/quit-stage stage=teardown-done after=update-swap/)
+  expect(mainLog(dataHome)).toMatch(/update-swap version=\S+ result=swapped/)
 }
 
 function fakeAgentBin(dataHome: string, script: string[]): string {
@@ -272,13 +286,12 @@ test('a dmg install with Receive beta updates on downloads, verifies and stages 
     expect(versionIn(l.bundle)).toBe(INSTALLED)
     expect(versionIn(stagedOf(l.bundle))).toBe(BETA)
 
-    await restartFromNotice(app, win)
+    await restartFromNotice(app, win, dataHome)
     closed = true
     expect(versionIn(l.bundle)).toBe(BETA)
     expect(versionIn(`${l.bundle}.old`)).toBe(INSTALLED)
     expect(existsSync(stagedOf(l.bundle))).toBe(false)
     execFileSync('codesign', ['--verify', '--deep', '--strict', l.bundle])
-    expect(mainLog(dataHome)).toMatch(/update-swap .*swapped=true/)
     expect(mainLog(dataHome).indexOf('teardown-ptys')).toBeLessThan(
       mainLog(dataHome).indexOf('update-swap'),
     )
@@ -465,7 +478,7 @@ test('after an update restart, an agent resumes with --resume and the same sessi
       })
       .toBe(1)
     await downloadAndStage(first.win)
-    await restartFromNotice(first.app, first.win)
+    await restartFromNotice(first.app, first.win, dataHome)
     closed = true
   } finally {
     if (!closed) await quitApp(first.app)
@@ -519,7 +532,7 @@ test('after an update restart with keep-shells on, the agent keeps running with 
       .poll(() => savedPanes(dataHome).some((p) => p.agentRunning === true), { timeout: 15_000 })
       .toBe(true)
     await downloadAndStage(first.win)
-    await restartFromNotice(first.app, first.win)
+    await restartFromNotice(first.app, first.win, dataHome)
     closed = true
   } finally {
     if (!closed) await quitApp(first.app)

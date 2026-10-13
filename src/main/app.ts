@@ -36,7 +36,7 @@ import { fmt } from '../shared/app/dict'
 import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
 import { isMacInstall, replacesInApp } from '../shared/app/installMethod'
 import { clampZoom, zoomFactor } from '../shared/app/zoom'
-import { appEnv } from '../shared/appEnv'
+import { appEnv, readEnv } from '../shared/appEnv'
 import { ARTIFACT_LIST_MAX } from '../shared/artifacts/artifacts'
 import { isPreviewPartition } from '../shared/artifacts/htmlPreview'
 import { parseChatToolSettings } from '../shared/assist/chatTools'
@@ -423,6 +423,7 @@ import {
   runCommand,
   signaturePolicy,
   swapStagedBundle,
+  verifyStagedSync,
 } from './updates/macReplace'
 import {
   announceReplace,
@@ -736,6 +737,7 @@ const keptShells = new KeptShells({
 let tmuxTerminal: string | null = null
 let restartRequested = false
 let stagedUpdate: { pending: PendingSweep; sweepFile: string } | null = null
+const updatePolicy = signaturePolicy(app.isPackaged, process.env)
 let updateRunner: UpdateRunner | null = null
 const UPDATE_HOST_GRANT_ID = 'core:update'
 
@@ -3698,7 +3700,7 @@ app.whenReady().then(() => {
             base: downloadBase,
             fetch,
             run: runCommand,
-            policy: signaturePolicy(app.isPackaged, process.env),
+            policy: updatePolicy,
           })
         : tarballReplace({ base: downloadBase, fetch, tar: runTar }),
       onState: announceReplace,
@@ -4331,10 +4333,14 @@ function persistScrollback(): Promise<void> {
 let scrollbackSavedForQuit = false
 let savingScrollbackForQuit = false
 
-const SCROLLBACK_AUTOSAVE_MS = 5000
+const SCROLLBACK_AUTOSAVE_MS =
+  process.env.NODE_ENV === 'test' && Number(readEnv('TEST_SCROLLBACK_AUTOSAVE_MS')) > 0
+    ? Number(readEnv('TEST_SCROLLBACK_AUTOSAVE_MS'))
+    : 5000
 let lastScrollbackSignature = ''
 
 function autosaveScrollback(): void {
+  if (savingScrollbackForQuit) return
   let signature = ''
   for (const [paneId, entry] of ptys) signature += `${paneId}:${entry.mirror.revision};`
   signature += `pending:${Object.keys(pendingRestoredScrollback()).length}`
@@ -4482,9 +4488,11 @@ app.on('before-quit', (event) => {
     quitTrace.stage('update-swap')
     const { pending, sweepFile } = stagedUpdate
     stagedUpdate = null
-    const swapped = swapStagedBundle(pending.appDir)
-    appLog?.info('update-swap', { version: pending.version, swapped })
-    if (swapped) saveJson(sweepFile, pending)
+    const result = swapStagedBundle(pending.appDir, {
+      verify: (staged) => verifyStagedSync(staged, updatePolicy),
+    })
+    appLog?.info('update-swap', { version: pending.version, result })
+    if (result === 'swapped') saveJson(sweepFile, pending)
   }
   quitTrace.stage('teardown-done')
 })
