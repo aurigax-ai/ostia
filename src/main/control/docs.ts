@@ -201,7 +201,8 @@ const CLI_HELP = `ostia — control-socket CLI
                                  runs a subagent, a background task, a scheduled task or a
                                  child process is skipped with its reason. Prints the
                                  hibernated paneIds; exit 2 when a pane was skipped, also
-                                 one with no agent. A pane already asleep answers hibernated.
+                                 one with no agent. A pane already asleep fails the whole
+                                 call with hibernated: and none of the panes is stopped.
                                  Asks for kill-pane unless you opened the pane
   ostia pane close <pane>… [--json]  close those panes at once, even while a command runs in
                                  them; the human is asked only about unsaved file changes.

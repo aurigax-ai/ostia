@@ -94,6 +94,7 @@ import { useHistorySearchStore } from '@/stores/terminal/historySearchStore'
 import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { saveSnapshotNow } from '@/stores/workspaces/persistence'
+import { useTabSleepNoticeStore } from '@/stores/workspaces/tabSleepNoticeStore'
 import type { WorkspaceKind, WorkspaceState } from '@/stores/workspaces/workspacesStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { type AgentResume, resumeCommand } from '@shared/agents/agentResume'
@@ -649,8 +650,14 @@ export function registerBuiltinCommands(): void {
       const paneId = args?.paneId ?? ctx.activePaneId
       if (!paneId) throw new Error('no target pane')
       const holder = paneResumeHolder(paneId)
-      if (holder) return { woke: false, conflict: holder.title }
-      return { woke: wakePane(paneId) }
+      if (holder) {
+        if (!ctx.target)
+          useTabSleepNoticeStore.getState().show({ kind: 'conflict', tab: holder.title })
+        return { woke: false, conflict: holder.title }
+      }
+      const woke = wakePane(paneId)
+      if (!woke && !ctx.target) useTabSleepNoticeStore.getState().show({ kind: 'awake' })
+      return { woke }
     },
   })
 
@@ -666,6 +673,11 @@ export function registerBuiltinCommands(): void {
       const outcome: PaneHibernateOutcome = await hibernateAgentPane(workspaceId, paneId)
       if (isAgentBusyReason(outcome)) {
         useHibernateSkippedStore.getState().show({ hibernated: [], skipped: { [outcome]: 1 } })
+      }
+      if (outcome === 'not-agent' && !ctx.target) {
+        const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+        const asleep = layout ? findPane(layout.root, paneId)?.hibernated === true : false
+        useTabSleepNoticeStore.getState().show({ kind: asleep ? 'asleep' : 'notAgent' })
       }
       return { hibernated: outcome === 'hibernated', outcome }
     },

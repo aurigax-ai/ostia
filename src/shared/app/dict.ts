@@ -2211,6 +2211,15 @@ export const en = {
     unknown: 'Could not tell whether it is still working: {n}',
     ok: 'OK',
   },
+  tabSleepNotice: {
+    title: 'Nothing to do',
+    notAgent: 'This tab is not an agent tab, so it cannot be hibernated.',
+    asleep: 'This tab is already hibernated.',
+    awake: 'This tab is already awake.',
+    conflict:
+      'The agent session of this tab is already running in “{tab}”. Close one of the two tabs.',
+    ok: 'OK',
+  },
   tabMove: {
     menu: 'Move to workspace',
     into: 'Move tab to {name}',
@@ -5720,6 +5729,14 @@ export const zhHant: Dict = {
     'scheduled-task': '正在等待排程工作：{n}',
     'child-process': '正在執行指令或背景程序：{n}',
     unknown: '無法判斷是否仍在工作：{n}',
+    ok: '確定',
+  },
+  tabSleepNotice: {
+    title: '沒有可執行的動作',
+    notAgent: '此分頁不是代理程式分頁，無法休眠。',
+    asleep: '此分頁已在休眠中。',
+    awake: '此分頁本來就是清醒的。',
+    conflict: '此分頁的代理程式 session 已在「{tab}」執行中。請關閉其中一個分頁。',
     ok: '確定',
   },
   tabMove: {
