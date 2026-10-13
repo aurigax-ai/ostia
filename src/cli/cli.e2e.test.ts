@@ -126,6 +126,46 @@ const fakeDeps: ControlServerDeps = {
         capabilities: ['drive-self'],
         target: 'none',
       },
+      {
+        id: 'workspace.groupRename',
+        title: 'Rename Workspace Group',
+        category: 'Workspace',
+        hidden: true,
+        argsSchema: null,
+        resultSchema: null,
+        capabilities: ['drive-self'],
+        target: 'none',
+      },
+      {
+        id: 'workspace.groupDelete',
+        title: 'Delete Workspace Group by Name',
+        category: 'Workspace',
+        hidden: true,
+        argsSchema: null,
+        resultSchema: null,
+        capabilities: ['drive-self'],
+        target: 'none',
+      },
+      {
+        id: 'workspace.pin',
+        title: 'Pin Workspace',
+        category: 'Workspace',
+        hidden: true,
+        argsSchema: null,
+        resultSchema: null,
+        capabilities: ['drive-self'],
+        target: 'active',
+      },
+      {
+        id: 'workspace.unpin',
+        title: 'Unpin Workspace',
+        category: 'Workspace',
+        hidden: true,
+        argsSchema: null,
+        resultSchema: null,
+        capabilities: ['drive-self'],
+        target: 'active',
+      },
     ] as CommandDescriptor[],
   getTerminalState: () => undefined,
   isSandboxed: () => false,
@@ -803,6 +843,48 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       expect(bad.code).toBe(1)
       expect(bad.stderr).toContain('usage: ostia workspace group-color')
       expect(execCalls).toEqual([])
+    })
+
+    it('renames and deletes a group, and refuses missing arguments', async () => {
+      const renamed = await runOstia(['workspace', 'group-rename', 'Work', 'Billing'], env())
+      expect(renamed.code).toBe(0)
+      expect(execCalls.at(-1)).toMatchObject({
+        id: 'workspace.groupRename',
+        args: { group: 'Work', name: 'Billing' },
+      })
+      const deleted = await runOstia(['workspace', 'group-delete', 'Work'], env())
+      expect(deleted.code).toBe(0)
+      expect(execCalls.at(-1)).toMatchObject({
+        id: 'workspace.groupDelete',
+        args: { group: 'Work' },
+      })
+      execCalls.length = 0
+      const bad = await runOstia(['workspace', 'group-rename', 'Work'], env())
+      expect(bad.code).toBe(1)
+      expect(bad.stderr).toContain('usage: ostia workspace group-rename')
+      const none = await runOstia(['workspace', 'group-delete'], env())
+      expect(none.code).toBe(1)
+      expect(none.stderr).toContain('usage: ostia workspace group-delete')
+      expect(execCalls).toEqual([])
+    })
+
+    it('pins and unpins this workspace, or another with --workspace', async () => {
+      const pinned = await runOstia(['workspace', 'pin'], env())
+      expect(pinned.code).toBe(0)
+      expect(execCalls.at(-1)).toMatchObject({
+        target: { workspaceId: 's1', paneId: 'pE2E' },
+        id: 'workspace.pin',
+      })
+      grant(identity.externalId, 'all-workspaces')
+      const unpinned = await runOstia(['workspace', 'unpin', '--workspace', 's9'], env())
+      expect(unpinned.code).toBe(0)
+      expect(execCalls.at(-1)).toMatchObject({
+        target: { workspaceId: 's9', paneId: null },
+        id: 'workspace.unpin',
+      })
+      const bad = await runOstia(['workspace', 'pin', 'extra'], env())
+      expect(bad.code).toBe(1)
+      expect(bad.stderr).toContain('usage: workspace pin')
     })
 
     it('lists workspaces with their groups as JSON and as text', async () => {
