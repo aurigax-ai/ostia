@@ -27,7 +27,7 @@ import {
 } from '../../shared/extensions/marketplace'
 import { loadJson, saveJson } from '../platform/jsonStore'
 import { isInsideDir } from '../platform/pathGuard'
-import { missingRequirements } from '../platform/systemRequirements'
+import { missingRequirements, programPath } from '../platform/systemRequirements'
 import { loadLocaleCatalogs, manifestIn } from './extensionLocales'
 import { EXTENSION_ID_PATTERN, readManifest } from './extensionManifest'
 
@@ -211,7 +211,7 @@ export class GitError extends Error {
 export const runGit: GitRunner = (args) =>
   new Promise((done, fail) => {
     execFile(
-      'git',
+      programPath('git') ?? 'git',
       args,
       {
         shell: false,
