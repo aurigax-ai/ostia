@@ -539,9 +539,7 @@ test('KSH-C38 waking a hibernated agent with the setting on starts a fresh windo
     const sleeping = win.getByRole('tab').first()
     await expect(sleeping.getByLabel('Hibernated')).toBeVisible({ timeout: 30_000 })
     await sleeping.click()
-    await win
-      .locator('.pane-slot:not([data-hidden]) .hibernated-view')
-      .click({ position: { x: 20, y: 20 } })
+    await shownTerminal(win).click()
     const rows = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
     await expect(rows).toContainText(/fake agent up: .*--resume e2e-kept-tok/, { timeout: 15_000 })
   } finally {
