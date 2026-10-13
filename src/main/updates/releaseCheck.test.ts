@@ -731,6 +731,24 @@ describe('registerReleaseCheck', () => {
     }
   })
 
+  it('a tarball install on Beta is offered the newest release candidate that has a tarball, never a main build', async () => {
+    const tarball = (version: string) => ({
+      assets: [{ name: `ostia-${version}-linux-x64.tar.gz` }],
+    })
+    register({ behavior: { checkForUpdates: false, updateChannel: 'beta' } }, '0.3.0', 'tarball')
+    github.reply = {
+      status: 200,
+      body: `[${body('0.3.2-rc.1', { prerelease: true, assets: [{ name: 'ostia-0.3.2-rc.1-arm64.dmg' }] })},${body('0.3.2-main.4', { prerelease: true, ...tarball('0.3.2-main.4') })},${body('0.3.1-rc.2', { prerelease: true, ...tarball('0.3.1-rc.2') })},${body('0.3.0', tarball('0.3.0'))}]`,
+    }
+    expect(await invoke('app:release-check')).toEqual({
+      status: 'available',
+      release: release('0.3.1-rc.2'),
+    })
+    expect(github.requests.map((r) => r.url)).toEqual([
+      '/repos/aurigax-ai/ostia/releases?per_page=30',
+    ])
+  })
+
   it('with Beta turned off, a release candidate newer than the latest release is not offered as a downgrade', async () => {
     const settings = { behavior: { checkForUpdates: false, updateChannel: 'beta' } }
     const checks = register(settings, '0.3.1-rc.2', 'dmg')

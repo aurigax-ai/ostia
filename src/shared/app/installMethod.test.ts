@@ -26,10 +26,10 @@ describe('updateCommandLine', () => {
 })
 
 describe('updateChannelFor', () => {
-  it('offers main only to tarball and local installs, and beta only to brew and dmg installs', () => {
+  it('offers beta to tarball, local, brew and dmg installs, and main only to tarball and local', () => {
     const matrix: Record<InstallMethod, Record<string, string>> = {
-      tarball: { stable: 'stable', beta: 'stable', main: 'main' },
-      local: { stable: 'stable', beta: 'stable', main: 'main' },
+      tarball: { stable: 'stable', beta: 'beta', main: 'main' },
+      local: { stable: 'stable', beta: 'beta', main: 'main' },
       dmg: { stable: 'stable', beta: 'beta', main: 'stable' },
       brew: { stable: 'stable', beta: 'beta', main: 'stable' },
       apt: { stable: 'stable', beta: 'stable', main: 'stable' },
@@ -43,7 +43,7 @@ describe('updateChannelFor', () => {
       }
     }
     expect(offeredChannels('dmg')).toEqual(['stable', 'beta'])
-    expect(offeredChannels('tarball')).toEqual(['stable', 'main'])
+    expect(offeredChannels('tarball')).toEqual(['stable', 'beta', 'main'])
     expect(offeredChannels('apt')).toEqual(['stable'])
   })
 })

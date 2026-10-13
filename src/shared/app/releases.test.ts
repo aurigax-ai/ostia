@@ -9,6 +9,7 @@ import {
   parseVersion,
   pickBetaRelease,
   pickMainChannelRelease,
+  tarballAssetName,
 } from './releases'
 
 const version = (text: string): Version => {
@@ -274,6 +275,30 @@ describe('pickBetaRelease', () => {
   it('matches the dmg of the same version only', () => {
     const other = { ...release('v0.6.0-rc.1'), assets: [{ name: 'ostia-0.5.0-arm64.dmg' }] }
     expect(pickBetaRelease([other])).toEqual({ ok: false, reason: 'not-stable' })
+  })
+})
+
+describe('pickBetaRelease for the Linux tarball', () => {
+  it('needs the tarball of the same version instead of the dmg', () => {
+    const tarball = (tag: string) => ({
+      ...release(tag),
+      assets: [{ name: `ostia-${tag.slice(1)}-linux-x64.tar.gz` }],
+    })
+    const dmgOnly = (tag: string) => ({
+      ...release(tag),
+      assets: [{ name: `ostia-${tag.slice(1)}-arm64.dmg` }],
+    })
+    const list = [
+      dmgOnly('v0.6.0-rc.2'),
+      tarball('v0.6.0-rc.1'),
+      tarball('v0.5.12'),
+      tarball('v0.7.0-main.3'),
+    ]
+    expect(pickBetaRelease(list, tarballAssetName)).toEqual({
+      ok: true,
+      release: { version: '0.6.0-rc.1', url: page('v0.6.0-rc.1') },
+    })
+    expect(pickBetaRelease(list)).toMatchObject({ release: { version: '0.6.0-rc.2' } })
   })
 })
 

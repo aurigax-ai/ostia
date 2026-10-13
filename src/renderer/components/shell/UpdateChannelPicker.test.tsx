@@ -60,6 +60,25 @@ describe('UpdateChannelPicker', () => {
     },
   )
 
+  it.each(['tarball', 'local'] as const)(
+    'lets the human pick Beta on a %s install',
+    async (method) => {
+      const user = userEvent.setup()
+      installedWith(method)
+      render(<UpdateChannelPicker />)
+      await user.click(screen.getByRole('combobox', { name: 'Update channel' }))
+      expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual([
+        'Stable',
+        'Beta',
+        'Main',
+      ])
+      await user.click(screen.getByRole('option', { name: 'Beta' }))
+      expect(useSettingsStore.getState().behavior.updateChannel).toBe('beta')
+      expect(screen.getByRole('combobox', { name: 'Update channel' })).toHaveTextContent('Beta')
+      expect(screen.queryByRole('switch', { name: 'Receive beta updates' })).toBeNull()
+    },
+  )
+
   it('keeps an apt install on Stable and says why', () => {
     installedWith('apt')
     useSettingsStore.setState({
@@ -72,7 +91,7 @@ describe('UpdateChannelPicker', () => {
     expect(picker).toBeDisabled()
     expect(
       screen.getByText(
-        'Main builds come only as the Linux tarball. Installs from apt stay on Stable.',
+        'Beta and Main builds come only as the Linux tarball. Installs from apt stay on Stable.',
       ),
     ).toBeInTheDocument()
   })
