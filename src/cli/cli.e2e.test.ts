@@ -601,7 +601,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     })
   })
 
-  it('resume-token keeps the folder from the hook payload so a woken agent starts there', async () => {
+  it('resume-token keeps the folder from the hook payload and the flags the agent was started with', async () => {
     registerPaneResumeMethods({ execCommand: fakeDeps.execCommand, onResume: () => {} })
     const res = await runOstia(
       ['resume-token', 'claude', '-'],
@@ -618,6 +618,22 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         args: { agent: 'claude', id: 'e2e-tok-here', cwd: '/work/tree' },
       },
     ])
+
+    const started = ['--agent', 'ostia', '--session-id', 'old', 'fix it'].join('\u001f')
+    const withArgs = await runOstia(
+      ['resume-token', 'claude', 'e2e-tok-args'],
+      withEnv({
+        OSTIA_SOCKET: socketPath,
+        OSTIA_TOKEN: identity.token,
+        OSTIA_CLAUDE_ARGS: started,
+      }),
+    )
+    expect(withArgs.stderr).toBe('')
+    expect(execCalls.at(-1)).toEqual({
+      target: { windowId: 'w1', workspaceId: 's1', paneId: 'pE2E' },
+      id: 'resume.set',
+      args: { agent: 'claude', id: 'e2e-tok-args', args: ['--agent', 'ostia'] },
+    })
   })
 
   describe('ostia browse storage', () => {
