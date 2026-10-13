@@ -70,6 +70,20 @@ describe('xtermLinkHandler', () => {
     expect(links.activate).toHaveBeenCalledWith(click, VAULT, link.range)
     term.dispose()
   })
+
+  it('links a one-cell OSC 8 hyperlink that starts right where another ends at the line end', async () => {
+    const term = new Terminal({ cols: 80, rows: 4, allowProposedApi: true })
+    term.options.linkHandler = xtermLinkHandler(handler())
+    const first = 'https://a.example/'
+    const second = 'obsidian://open?vault=b'
+    await write(term, `\x1b]8;id=a;${first}\x07abc\x1b]8;id=b;${second}\x07d\x1b]8;;\x07`)
+    const found = await oscLinks(term, 1)
+    expect(found.map((l) => [l.text, l.range.start.x, l.range.end.x])).toEqual([
+      [first, 1, 3],
+      [second, 4, 4],
+    ])
+    term.dispose()
+  })
 })
 
 describe('the four link forms Claude Code prints', () => {
