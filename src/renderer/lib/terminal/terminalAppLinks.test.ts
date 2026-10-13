@@ -2,7 +2,7 @@ import { type ILink, type ILinkProvider, Terminal } from '@xterm/xterm'
 import { describe, expect, it, vi } from 'vitest'
 import { terminalLinkTarget } from './linkModifier'
 import type { OstiaTerminal } from './ostiaTerminal'
-import { createAppLinkProvider, xtermLinkHandler } from './terminalAppLinks'
+import { createAppLinkProvider, hintedLinkHandler, xtermLinkHandler } from './terminalAppLinks'
 
 const VAULT =
   'obsidian://advanced-uri?vault=Interdisciplinary Nexus&filepath=05 Projects/中文.md&newpane=true'
@@ -13,6 +13,13 @@ function write(term: Terminal, data: string): Promise<void> {
 
 function provide(provider: ILinkProvider, row: number): Promise<ILink[]> {
   return new Promise((resolve) => provider.provideLinks(row, (links) => resolve(links ?? [])))
+}
+
+function oscLinks(term: Terminal, row: number): Promise<ILink[]> {
+  const core = (
+    term as unknown as { _core: { _linkProviderService: { linkProviders: ILinkProvider[] } } }
+  )._core
+  return provide(core._linkProviderService.linkProviders[0], row)
 }
 
 function handler() {
@@ -51,13 +58,6 @@ describe('createAppLinkProvider on a real xterm buffer', () => {
 })
 
 describe('xtermLinkHandler', () => {
-  function oscLinks(term: Terminal, row: number): Promise<ILink[]> {
-    const core = (
-      term as unknown as { _core: { _linkProviderService: { linkProviders: ILinkProvider[] } } }
-    )._core
-    return provide(core._linkProviderService.linkProviders[0], row)
-  }
-
   it('lets OSC 8 hyperlinks to obsidian reach the handler, as Claude Code prints them', async () => {
     const term = new Terminal({ cols: 80, rows: 4, allowProposedApi: true })
     const links = handler()
@@ -83,6 +83,51 @@ describe('xtermLinkHandler', () => {
       [second, 4, 4],
     ])
     term.dispose()
+  })
+})
+
+describe('hintedLinkHandler', () => {
+  it('hands the hint the full target of an OSC 8 link, not the text it shows', async () => {
+    const append = 'obsidian://new?vault=Notes&file=log&content=rm%20-rf&append=true'
+    const web = 'https://example.com/a?b=c'
+    const term = new Terminal({ cols: 80, rows: 4, allowProposedApi: true })
+    const hint = { show: vi.fn(), hide: vi.fn() }
+    term.options.linkHandler = xtermLinkHandler(hintedLinkHandler(vi.fn(), hint))
+    await write(
+      term,
+      `\x1b]8;;${append}\x07Open note\x1b]8;;\x07 \x1b]8;;${web}\x07docs\x1b]8;;\x07`,
+    )
+    const links = await oscLinks(term, 1)
+    const event = new MouseEvent('mouseover')
+    for (const link of links) link.hover?.(event, link.text)
+    expect(hint.show.mock.calls).toEqual([
+      [links[0].range, append],
+      [links[1].range, web],
+    ])
+    links[0].leave?.(event, links[0].text)
+    expect(hint.hide).toHaveBeenCalledOnce()
+    term.dispose()
+  })
+
+  it('hands the hint the full target of a detected app link', async () => {
+    const term = new Terminal({ cols: 40, rows: 6, allowProposedApi: true })
+    await write(term, `see [中文](<${VAULT}>) ok`)
+    const hint = { show: vi.fn(), hide: vi.fn() }
+    const provider = createAppLinkProvider(
+      term as unknown as OstiaTerminal,
+      hintedLinkHandler(vi.fn(), hint),
+    )
+    const [link] = await provide(provider, 2)
+    link.hover?.(new MouseEvent('mouseover'), link.text)
+    expect(hint.show).toHaveBeenCalledWith(link.range, VAULT)
+    term.dispose()
+  })
+
+  it('shows no hint for a link it would not open', () => {
+    const hint = { show: vi.fn(), hide: vi.fn() }
+    const range = { start: { x: 1, y: 1 }, end: { x: 4, y: 1 } }
+    hintedLinkHandler(vi.fn(), hint).hover(new MouseEvent('mouseover'), 'javascript:x', range)
+    expect(hint.show).not.toHaveBeenCalled()
   })
 })
 

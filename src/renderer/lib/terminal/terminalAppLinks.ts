@@ -1,10 +1,28 @@
-import { findAppLinks } from '@shared/links/externalLinks'
+import { findAppLinks, linkKind } from '@shared/links/externalLinks'
 import type { IBufferRange, ILink, ILinkHandler, ILinkProvider } from '@xterm/xterm'
 import type { OstiaTerminal as Terminal, WebLinkHandler } from './ostiaTerminal'
 import { readLogicalLine } from './terminalFileLinks'
 
 export function xtermLinkHandler(links: WebLinkHandler): ILinkHandler {
   return { ...links, allowNonHttpProtocols: true }
+}
+
+export interface LinkHint {
+  show(range: IBufferRange, uri: string): void
+  hide(): void
+}
+
+export function hintedLinkHandler(
+  activate: WebLinkHandler['activate'],
+  hint: LinkHint,
+): WebLinkHandler {
+  return {
+    activate,
+    hover: (_event, uri, range) => {
+      if (linkKind(uri)) hint.show(range, uri)
+    },
+    leave: () => hint.hide(),
+  }
 }
 
 export function createAppLinkProvider(term: Terminal, deps: WebLinkHandler): ILinkProvider {
