@@ -30,3 +30,19 @@ test('the terminal text stops before the scrollbar and inside the pane', async (
     await app.close()
   }
 })
+
+test('the terminal viewport stays transparent so no black frame shows around the text', async () => {
+  const dataHome = freshDataHome()
+  const app = await electron.launch(isolatedLaunch(dataHome))
+  try {
+    const win = await app.firstWindow()
+    await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
+    await openWorkspace(win)
+    const viewport = win.locator('.xterm-viewport').first()
+    await expect(viewport).toBeAttached()
+    const background = await viewport.evaluate((el) => getComputedStyle(el).backgroundColor)
+    expect(background).toBe('rgba(0, 0, 0, 0)')
+  } finally {
+    await app.close()
+  }
+})

@@ -2494,7 +2494,7 @@ button.prompt-chip:focus-visible {
   cursor: inherit;
 }
 
-.xterm-host .xterm .xterm-viewport {
+.xterm-host .xterm .xterm-viewport.xterm-viewport {
   background-color: transparent;
 }
 
