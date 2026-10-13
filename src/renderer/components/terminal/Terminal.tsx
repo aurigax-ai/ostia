@@ -94,7 +94,7 @@ import {
 import { commitProgramTitle, commitShellTitle } from '@/lib/terminal/paneTitle'
 import { installPrimarySelection } from '@/lib/terminal/primarySelection'
 import { createPtyAcker } from '@/lib/terminal/ptyAck'
-import { createAppLinkProvider } from '@/lib/terminal/terminalAppLinks'
+import { createAppLinkProvider, xtermLinkHandler } from '@/lib/terminal/terminalAppLinks'
 import { createFileLinkProvider } from '@/lib/terminal/terminalFileLinks'
 import { inputEditorFor, registerTerminal } from '@/lib/terminal/terminalHandles'
 import {
@@ -308,7 +308,7 @@ function TerminalSurface({
       xterm.loadAddon(xtermFit)
       xterm.loadAddon(new Unicode11Addon())
       xterm.unicode.activeVersion = '11'
-      xterm.options.linkHandler = { ...webLinks, allowNonHttpProtocols: true }
+      xterm.options.linkHandler = xtermLinkHandler(webLinks)
       xterm.loadAddon(
         new WebLinksAddon(openWebLink, {
           hover: (_e, _text, range) => showLinkHint('web', range),

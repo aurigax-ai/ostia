@@ -4,6 +4,7 @@ import {
   attachLinkClaim,
   attachLinkModifier,
   linkSpan,
+  terminalLinkTarget,
   webLinkTarget,
 } from './linkModifier'
 
@@ -127,5 +128,43 @@ describe('attachLinkClaim', () => {
     claimed.screen.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 2 }))
     expect(claimed.reported).toHaveBeenCalledTimes(1)
     claimed.detach()
+  })
+})
+
+describe('terminalLinkTarget', () => {
+  const ctx = { mac: true, hasSelection: false, mouseReporting: false }
+  const click = { ctrlKey: false, metaKey: false, shiftKey: false, detail: 1 }
+  const vault = 'obsidian://advanced-uri?vault=Interdisciplinary Nexus&filepath=中文.md'
+
+  it('opens obsidian, vscode and mail links in their app on a click, with or without the modifier', () => {
+    for (const uri of [vault, 'vscode://file/a.ts', 'vscode-insiders://file/a', 'mailto:a@b.c']) {
+      expect(terminalLinkTarget(uri, click, ctx)).toBe('app')
+      expect(terminalLinkTarget(uri, { ...click, metaKey: true }, ctx)).toBe('app')
+    }
+  })
+
+  it('keeps web links in the browser targets', () => {
+    expect(terminalLinkTarget('https://a.b', click, ctx)).toBe('same-tab')
+    expect(terminalLinkTarget('https://a.b', { ...click, metaKey: true }, ctx)).toBe('new-tab')
+    expect(
+      terminalLinkTarget('https://a.b', { ...click, metaKey: true, shiftKey: true }, ctx),
+    ).toBe('system')
+  })
+
+  it('ignores scripts, files, data and unknown schemes', () => {
+    for (const uri of [
+      'javascript:alert(1)',
+      'file:///etc/passwd',
+      'data:text/html,x',
+      'x-app://do',
+    ]) {
+      expect(terminalLinkTarget(uri, click, ctx)).toBeNull()
+      expect(terminalLinkTarget(uri, { ...click, metaKey: true, shiftKey: true }, ctx)).toBeNull()
+    }
+  })
+
+  it('leaves app links alone while selecting or when the program reads the mouse', () => {
+    expect(terminalLinkTarget(vault, click, { ...ctx, hasSelection: true })).toBeNull()
+    expect(terminalLinkTarget(vault, click, { ...ctx, mouseReporting: true })).toBeNull()
   })
 })
