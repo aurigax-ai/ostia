@@ -8,6 +8,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs'
 import { type Server, createServer } from 'node:http'
@@ -488,7 +489,7 @@ test('after an update restart with keep-shells on, the agent keeps running with 
   test.setTimeout(180_000)
   const l = layout()
   const github = await startFakeGitHub(l.files, l.digest)
-  const dataHome = freshDataHome()
+  const dataHome = mkdtempSync('/tmp/ostia-ks-')
   seedSettings(dataHome, {
     ...DOM_RENDERER_SETTINGS,
     behavior: { gpuAcceleration: false, updateChannel: 'beta' },
@@ -540,5 +541,6 @@ test('after an update restart with keep-shells on, the agent keeps running with 
       process.kill(pid, 'SIGKILL')
     } catch {}
     await github.close()
+    rmSync(dataHome, { recursive: true, force: true })
   }
 })
