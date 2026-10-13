@@ -40,5 +40,12 @@
     "issue": 679,
     "until": "2026-11-11",
     "platforms": ["linux"]
+  },
+  {
+    "file": "src/renderer/components/terminal/Terminal.engine.test.tsx",
+    "name": "TerminalView engines > a Cmd+V on macOS that may carry a file sends the text before the Enter pressed while the clipboard is read",
+    "issue": 701,
+    "until": "2026-11-12",
+    "platforms": ["linux"]
   }
 ]
