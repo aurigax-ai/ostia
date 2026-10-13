@@ -75,7 +75,7 @@ const CLI_HELP = `ostia — control-socket CLI
                                  delete a sidebar group; its workspaces stay, ungrouped
   ostia workspace pin [--workspace <id>] | unpin [--workspace <id>]
                                  pin this pane's workspace (or --workspace) to the top of the
-                                 sidebar, or unpin it. Not open to script tokens
+                                 sidebar, or unpin it
   ostia workspace close [--workspace <id>]
                                  close that workspace and its tabs (kill-pane, plus
                                  all-workspaces outside your reach). Only when nothing runs
@@ -254,7 +254,9 @@ const CLI_HELP = `ostia — control-socket CLI
                                  (a desktop notification only) and bus.send; and these commands:
                                  workspace.new, workspace.newScratch, pane.close,
                                  workspace.close (kill-pane), workspace.group,
-                                 workspace.ungroup, workspace.groupColor, workspace.describe,
+                                 workspace.ungroup, workspace.groupColor, workspace.groupRename,
+                                 workspace.groupDelete, workspace.pin, workspace.unpin,
+                                 workspace.describe,
                                  workspace.hibernateAgents, workspace.hibernateGroupAgents
                                  (kill-pane), workspace.resumeAgents and
                                  workspace.resumeGroupAgents (type-other-pane). They never ask

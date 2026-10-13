@@ -2511,6 +2511,22 @@ describe('commands open to script tokens', () => {
       relaxed: ['drive-self'],
       reason: 'changes only the colour of an existing group',
     },
+    'workspace.groupRename': {
+      relaxed: ['drive-self'],
+      reason: 'changes only the name of an existing group',
+    },
+    'workspace.groupDelete': {
+      relaxed: ['drive-self'],
+      reason: 'only ungroups its workspaces; none is closed',
+    },
+    'workspace.pin': {
+      relaxed: ['drive-self'],
+      reason: 'moves one workspace within the sidebar',
+    },
+    'workspace.unpin': {
+      relaxed: ['drive-self'],
+      reason: 'the reverse of workspace.pin',
+    },
     'workspace.describe': {
       relaxed: ['drive-self'],
       reason: 'a sidebar summary, the same risk as renaming the workspace',
