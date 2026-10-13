@@ -252,7 +252,7 @@ function ChoiceRow({
                 aria-pressed={checked}
                 data-previewing={looking || undefined}
                 onClick={() => onPick({ layer, value: o.value, label: o.label })}
-                className={`h-6 rounded-md border px-2 text-ui-sm outline-none focus-visible:ring-1 focus-visible:ring-brand ${
+                className={`h-6 rounded-md border px-2 text-ui-sm ${
                   checked
                     ? 'border-line-strong bg-surface-3 text-fg'
                     : looking

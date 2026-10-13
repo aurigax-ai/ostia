@@ -265,7 +265,7 @@ function ExtensionListRow({
             aria-label={ext.name}
             aria-current={selected || undefined}
             onClick={onSelect}
-            className="flex min-w-0 flex-1 items-center gap-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
           >
             <Icon aria-hidden className="size-4 shrink-0 text-fg-muted" />
             <span className="min-w-0 truncate text-fg text-ui-sm">{ext.name}</span>

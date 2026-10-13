@@ -415,7 +415,7 @@ export function KeybindingRow({
             >
               <button
                 type="button"
-                className="rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-brand"
+                className="rounded-sm"
                 aria-label={fmt(d.keyboard.changeFor, { keys, command: title })}
                 onClick={() => startRecording(i)}
               >
@@ -796,7 +796,7 @@ function TerminalKeyLine({
       <span className="group/chip inline-flex items-center gap-0.5">
         <button
           type="button"
-          className="rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-brand"
+          className="rounded-sm"
           aria-label={fmt(d.keyboard.editFor, { keys })}
           onClick={() => setEditing(true)}
         >
@@ -945,7 +945,7 @@ function ViewSwitch({
           type="button"
           aria-pressed={view === o.value}
           onClick={() => onChange(o.value)}
-          className={`h-7 rounded-md border px-2 text-ui-sm outline-none focus-visible:ring-1 focus-visible:ring-brand ${
+          className={`h-7 rounded-md border px-2 text-ui-sm ${
             view === o.value
               ? 'border-line-strong bg-surface-3 text-fg'
               : 'border-line text-fg-muted hover:bg-surface-2'

@@ -1129,7 +1129,7 @@ export function InputEditor({
               autoCapitalize="off"
               autoCorrect="off"
               autoComplete="off"
-              className="input-editor-area min-h-0 resize-none rounded-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
+              className="input-editor-area min-h-0 resize-none rounded-none border-0 bg-transparent p-0 shadow-none outline-none dark:bg-transparent"
               style={{ ...cellStyle, maxHeight: cellHeight ? maxLines * cellHeight : undefined }}
               onChange={(e) => {
                 setText(e.target.value)

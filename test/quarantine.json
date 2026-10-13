@@ -61,5 +61,12 @@
     "issue": 705,
     "until": "2026-11-12",
     "platforms": ["linux"]
+  },
+  {
+    "file": "e2e/clipboard-surfaces.spec.ts",
+    "name": "the copy and paste chords work inside a browser pane",
+    "issue": 526,
+    "until": "2026-11-12",
+    "platforms": ["linux"]
   }
 ]

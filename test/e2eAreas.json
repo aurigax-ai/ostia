@@ -952,6 +952,11 @@
       ]
     },
     {
+      "name": "focus ring",
+      "paths": ["src/renderer/lib/app/focusModality.", "src/renderer/components/ui/button.tsx"],
+      "specs": ["e2e/focus-ring.spec.ts"]
+    },
+    {
       "name": "app shell",
       "paths": [
         "src/main/windows/tray.ts",

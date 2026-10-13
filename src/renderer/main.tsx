@@ -20,6 +20,7 @@ import { startAgentDetection } from '@/lib/agents/paneAgent'
 import { startAppMenu } from '@/lib/app/appMenu'
 import { loadDesktops } from '@/lib/app/desktop'
 import { errorDetails, reportError, startErrorReporting } from '@/lib/app/errorReporting'
+import { startFocusModality } from '@/lib/app/focusModality'
 import { startShortcutReporting } from '@/lib/assist/assistShortcuts'
 import { startAssistUi } from '@/lib/assist/assistUi'
 import { revealPane, startAttentionSync } from '@/lib/attention/workspaceActivity'
@@ -75,6 +76,7 @@ import { setSettingsFile } from './monaco/language'
 import { isMac } from './platform'
 
 startErrorReporting()
+startFocusModality()
 registerBuiltinCommands()
 registerExternalEditorCommand()
 registerSelectionSendCommand()
