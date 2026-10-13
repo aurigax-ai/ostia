@@ -49,6 +49,7 @@ import { wireArtifacts } from '@/stores/files/artifactsStore'
 import { wireOpenWaits } from '@/stores/files/openWaitsStore'
 import { wireRemoteFolders } from '@/stores/files/remoteFoldersStore'
 import { startPaneRecencySync } from '@/stores/workspaces/paneRecencyStore'
+import { startPaneRenameSync } from '@/stores/workspaces/paneRenameStore'
 import { startSnapshotAutosave } from '@/stores/workspaces/persistence'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -139,6 +140,7 @@ async function boot(): Promise<void> {
   startFileDropTracking()
   startAttentionSync()
   startPaneRecencySync()
+  startPaneRenameSync()
   startHibernation()
   startKeptReattach()
   startAutoResume()
