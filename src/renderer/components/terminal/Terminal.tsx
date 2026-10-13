@@ -134,6 +134,7 @@ import { isPromptRepaint, nextSizeAction, settleFit } from './terminalSizing'
 
 const FOCUS_REPORTS = new Set(['\x1b[I', '\x1b[O'])
 const LINK_HINT_DELAY_MS = 400
+const UNDRAWN_START_MS = 1000
 
 interface TerminalViewProps {
   workspaceId: string
@@ -901,8 +902,8 @@ function TerminalSurface({
     syncSizeRef.current = () => {
       if (attached) syncSize()
     }
-    const unregisterOffscreen = registerOffscreenStarter(paneId, ({ keepSize }) => {
-      if (attached || disposed || (host.offsetWidth > 0 && host.offsetHeight > 0)) return
+    let undrawnStart: ReturnType<typeof setTimeout> | null = null
+    const startOffscreenNow = (keepSize: boolean | undefined): void => {
       if (keepSize) {
         attachAtCurrentSize(0, 0)
         return
@@ -910,6 +911,20 @@ function TerminalSurface({
       const grid = offscreenGrid()
       term.resize(grid.cols, grid.rows)
       attachAtCurrentSize(grid.cols, grid.rows)
+    }
+    const unregisterOffscreen = registerOffscreenStarter(paneId, ({ keepSize }) => {
+      if (attached || disposed) return
+      if (host.offsetWidth === 0 || host.offsetHeight === 0) {
+        startOffscreenNow(keepSize)
+        return
+      }
+      if (undrawnStart) clearTimeout(undrawnStart)
+      undrawnStart = setTimeout(() => {
+        undrawnStart = null
+        if (attached || disposed) return
+        applyFit()
+        if (!attached) startOffscreenNow(keepSize)
+      }, UNDRAWN_START_MS)
     })
 
     let resizeTimer: ReturnType<typeof setTimeout> | null = null
@@ -931,6 +946,7 @@ function TerminalSurface({
     return () => {
       disposed = true
       unregisterOffscreen()
+      if (undrawnStart) clearTimeout(undrawnStart)
       querySilencer?.dispose()
       syncSizeRef.current = () => {}
       if (resizeTimer) clearTimeout(resizeTimer)

@@ -1,3 +1,4 @@
+import { findPane } from '@/layout/tree'
 import { revealPane } from '@/lib/attention/workspaceActivity'
 import { openKeepingFocus } from '@/lib/panes/callerFocus'
 import { runWhenIdle } from '@/lib/terminal/blockActions'
@@ -125,8 +126,30 @@ export function openExtensionTerminal(req: ProcessTerminalRequest): string | nul
     workspaces.setActive(workspaceId)
   }
   startOffscreen(paneId)
-  runWhenIdle(paneId, req.command)
+  runWhenShellStarts(paneId, req.command)
   return paneId
+}
+
+function paneExists(paneId: string): boolean {
+  return Object.values(useLayoutStore.getState().byWorkspace).some(
+    (layout) => layout && findPane(layout.root, paneId),
+  )
+}
+
+function runWhenShellStarts(paneId: string, command: string): void {
+  let unwatch: (() => void) | null = null
+  let settled = false
+  const settle = (): void => {
+    settled = true
+    unwatch?.()
+  }
+  const stop = runWhenIdle(paneId, command, null, undefined, settle, settle)
+  if (settled) return
+  unwatch = useLayoutStore.subscribe(() => {
+    if (paneExists(paneId)) return
+    settle()
+    stop()
+  })
 }
 
 export function wireExtensionBridge(): void {
