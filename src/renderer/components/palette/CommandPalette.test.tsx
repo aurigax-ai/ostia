@@ -1,23 +1,24 @@
 import '@testing-library/jest-dom/vitest'
+import { registerBuiltinCommands } from '@/commands/builtins'
+import { commands } from '@/commands/registry'
+import { registerWindowCommands } from '@/commands/windowCommands'
 import { languagesFrom } from '@/lib/extensions/languagePacks'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { zhHant } from '@shared/app/dict'
 import type { SearchOutcome } from '@shared/files/search'
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { registerBuiltinCommands } from '../commands/builtins'
-import { commands } from '../commands/registry'
-import { registerWindowCommands } from '../commands/windowCommands'
 import { CommandPalette } from './CommandPalette'
 
 const searchWorkspaceSymbols = vi.hoisted(() => vi.fn())
-vi.mock('../lsp/client', () => ({ searchWorkspaceSymbols }))
+vi.mock('@/lsp/client', () => ({ searchWorkspaceSymbols }))
 
 describe('CommandPalette', () => {
   let uiInit: ReturnType<typeof useUIStore.getState>
@@ -133,17 +134,208 @@ describe('CommandPalette', () => {
     expect(screen.getByRole('option', { name: /Open Settings/ })).toBeInTheDocument()
   })
 
-  it('puts the command id and its shortcut in separate right-hand cells', async () => {
-    useUIStore.setState({ paletteOpen: true })
-    render(<CommandPalette />)
+  describe('row layout', () => {
+    const initialPlugins = usePluginsStore.getState()
+    const initialSettings = useSettingsStore.getState()
+    const initialWindows = useWindowsStore.getState()
 
-    const option = await screen.findByRole('option', { name: /Open Settings/ })
+    afterEach(() => {
+      cleanup()
+      useWindowsStore.setState(initialWindows, true)
+      usePluginsStore.setState(initialPlugins, true)
+      useSettingsStore.setState(initialSettings, true)
+    })
 
-    const id = within(option).getByText('app.openSettings')
-    const shortcut = option.querySelector('kbd')
-    expect(id).toHaveAttribute('data-slot', 'palette-meta')
-    expect(shortcut).not.toBeNull()
-    expect(id).not.toContainElement(shortcut as HTMLElement)
+    const slots = (option: HTMLElement): (string | undefined)[] => {
+      const row = option.querySelector('[data-slot="palette-row"]') as HTMLElement
+      return [...row.querySelectorAll<HTMLElement>('[data-slot]')].map((el) => el.dataset.slot)
+    }
+
+    const part = (option: HTMLElement, slot: string): HTMLElement =>
+      option.querySelector(`[data-slot="palette-${slot}"]`) as HTMLElement
+
+    const seedPlaces = () => {
+      useWorkspacesStore.setState({
+        workspaces: [
+          {
+            id: 'w1',
+            name: 'api',
+            customName: 'payments',
+            kind: 'terminal',
+            workDir: '/src/api',
+            state: 'idle',
+          },
+        ],
+        activeWorkspaceId: 'w1',
+      })
+      useLayoutStore.setState({
+        byWorkspace: {
+          w1: {
+            root: { type: 'pane', id: 'pane-7', title: 'Fix refunds', kind: 'terminal' },
+            activePaneId: 'pane-7',
+            zoomedPaneId: null,
+          },
+        },
+      })
+    }
+
+    const WITH_KEYS = ['palette-title', 'palette-name', 'palette-keys', 'palette-meta']
+    const WITHOUT_KEYS = ['palette-title', 'palette-name', 'palette-meta']
+
+    it('puts a command’s keycap directly after its title, then the id', async () => {
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      const option = await screen.findByRole('option', { name: /Open Settings/ })
+
+      expect(slots(option)).toEqual(WITH_KEYS)
+      expect(part(option, 'name')).toHaveTextContent('Open Settings')
+      expect(part(option, 'name').nextElementSibling).toBe(part(option, 'keys'))
+      expect(part(option, 'keys').tagName).toBe('KBD')
+      expect(part(option, 'title').nextElementSibling).toBe(part(option, 'meta'))
+      expect(part(option, 'meta')).toHaveTextContent('app.openSettings')
+    })
+
+    it('shows the keycap dimmer than the title and never cuts it', async () => {
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      const option = await screen.findByRole('option', { name: /Open Settings/ })
+
+      expect(part(option, 'keys')).toHaveClass('text-muted-foreground', 'shrink-0')
+      expect(part(option, 'name')).not.toHaveClass('text-muted-foreground', 'text-fg-muted')
+    })
+
+    it('puts the id directly after the title of a command without a keybinding', async () => {
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      const options = await screen.findAllByRole('option')
+
+      const unbound = options.find((o) => !o.querySelector('kbd')) as HTMLElement
+      expect(unbound).toBeDefined()
+
+      expect(slots(unbound)).toEqual(WITHOUT_KEYS)
+      expect(part(unbound, 'meta').textContent).not.toBe('')
+    })
+
+    it('puts a workspace’s path after its name', async () => {
+      seedPlaces()
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '@' })
+      render(<CommandPalette />)
+      const option = await screen.findByRole('option', { name: /payments/ })
+
+      expect(slots(option)).toEqual(WITHOUT_KEYS)
+      expect(part(option, 'name')).toHaveTextContent('payments')
+      expect(part(option, 'meta')).toHaveTextContent('/src/api')
+    })
+
+    it('puts a tab’s workspace after its title', async () => {
+      seedPlaces()
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '#' })
+      render(<CommandPalette />)
+      const option = await screen.findByRole('option', { name: /Fix refunds/ })
+
+      expect(slots(option)).toEqual(WITHOUT_KEYS)
+      expect(part(option, 'name')).toHaveTextContent('Fix refunds')
+      expect(part(option, 'meta')).toHaveTextContent('payments')
+    })
+
+    it('puts a file’s folder after its name', async () => {
+      seedPlaces()
+      vi.mocked(window.ostia.search.run).mockResolvedValue({
+        ok: true,
+        results: {
+          root: '/src/api',
+          names: [{ path: 'src/lib/greet.ts', dir: false, positions: [0] }],
+          files: [],
+          pdfs: [],
+          matches: 0,
+          truncated: false,
+        },
+      })
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '/gre' })
+      render(<CommandPalette />)
+      const option = await screen.findByRole('option', { name: /greet/ })
+
+      expect(slots(option)).toEqual(WITHOUT_KEYS)
+      expect(part(option, 'name')).toHaveTextContent('greet.ts')
+      expect(part(option, 'meta')).toHaveTextContent('src/lib')
+    })
+
+    it('lays a workspace from another window out the same way', async () => {
+      useWindowsStore.setState({
+        windowId: 'win-a',
+        list: [
+          {
+            windowId: 'win-b',
+            detached: true,
+            workspaces: [
+              {
+                id: 'w9',
+                name: 'billing',
+                workDir: '/src/billing',
+                state: 'idle',
+                unreadAt: 0,
+                panes: [],
+              },
+            ],
+          },
+        ],
+      })
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '@' })
+      render(<CommandPalette />)
+      const option = await screen.findByRole('option', { name: /billing/ })
+
+      expect(slots(option)).toEqual(WITHOUT_KEYS)
+      expect(part(option, 'name')).toHaveTextContent('billing')
+      expect(part(option, 'meta')).toHaveTextContent('/src/billing')
+    })
+
+    it('shows an argument choice as its label alone', async () => {
+      commands.register<{ argument?: string }, void>({
+        id: 'test.layout-card',
+        title: 'Test: Layout Card',
+        argument: 'Card id',
+        choices: async () => [{ value: 'shop-12', label: 'Fix checkout' }],
+        run: vi.fn(),
+      })
+      try {
+        useUIStore.setState({ paletteOpen: true })
+        render(<CommandPalette />)
+        await userEvent.type(await screen.findByRole('combobox'), 'Test: Layout Card{Enter}')
+        const option = await screen.findByRole('option', { name: /Fix checkout/ })
+
+        expect(slots(option)).toEqual(['palette-title', 'palette-name'])
+        expect(part(option, 'name')).toHaveTextContent('Fix checkout')
+      } finally {
+        act(() => commands.unregister('test.layout-card'))
+      }
+    })
+
+    it('keeps the title whole and lets the secondary text give way first', async () => {
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      const option = await screen.findByRole('option', { name: /Open Settings/ })
+
+      expect(part(option, 'title')).toHaveClass('shrink-0', 'max-w-full', 'min-w-0')
+      expect(part(option, 'name')).toHaveClass('truncate', 'min-w-0')
+      expect(part(option, 'meta')).toHaveClass('truncate', 'min-w-0', 'text-fg-muted')
+      expect(part(option, 'meta')).not.toHaveClass('shrink-0')
+    })
+
+    it('lays rows out the same way in Traditional Chinese', async () => {
+      usePluginsStore.setState({
+        languages: languagesFrom([
+          { extId: 'langpack-zh-hant', id: 'zh-Hant', label: '繁體中文', catalog: zhHant },
+        ]),
+      })
+      useSettingsStore.setState({ locale: 'zh-Hant' })
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      const option = await screen.findByRole('option', { name: /向右分割窗格/ })
+
+      expect(slots(option)).toEqual(WITH_KEYS)
+      expect(part(option, 'name')).toHaveTextContent('向右分割窗格')
+      expect(part(option, 'meta')).toHaveTextContent('pane.splitRight')
+    })
   })
 
   describe('prefixes', () => {
@@ -483,6 +675,24 @@ describe('CommandPalette', () => {
         expect(searchWorkspaceSymbols).toHaveBeenLastCalledWith(new Set(['pane-3']), 'gre'),
       )
       expect(screen.queryByRole('option', { name: /Open Settings/ })).toBeNull()
+    })
+
+    it('puts a symbol’s container, then its place, after its name', async () => {
+      seed()
+      searchWorkspaceSymbols.mockResolvedValue({ servers: 1, hits: [hit] })
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '%gre' })
+      render(<CommandPalette />)
+      const option = await screen.findByRole('option', { name: /greet/ })
+      const row = option.querySelector('[data-slot="palette-row"]') as HTMLElement
+
+      expect([...row.children].map((el) => (el as HTMLElement).dataset.slot)).toEqual([
+        'palette-title',
+        'palette-detail',
+        'palette-meta',
+      ])
+      expect(row.children[0]).toHaveTextContent('greet')
+      expect(row.children[1]).toHaveTextContent('lib')
+      expect(row.children[2]).toHaveTextContent('lib/greet.ts:12')
     })
 
     it('opens the file at the symbol and closes', async () => {
