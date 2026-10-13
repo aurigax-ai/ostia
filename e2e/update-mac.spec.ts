@@ -226,6 +226,10 @@ async function restartFromNotice(
   await app.evaluate(({ app: electronApp }) => {
     electronApp.relaunch = () => undefined
   })
+  await app
+    .context()
+    .tracing.stop({ path: test.info().outputPath('before-update-restart-trace.zip') })
+    .catch(() => {})
   const closed = waitForExit(app)
   await win.locator('.update-notice').getByRole('button', { name: 'Restart Ostia' }).click()
   const quit = win.getByRole('dialog').getByRole('button', { name: 'Quit' })
