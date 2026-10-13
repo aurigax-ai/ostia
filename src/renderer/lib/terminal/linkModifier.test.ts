@@ -143,6 +143,12 @@ describe('terminalLinkTarget', () => {
     }
   })
 
+  it('opens any other scheme with a double slash in its app', () => {
+    for (const uri of ['slack://channel?id=1', 'zed://file/tmp/a', 'x-app://do']) {
+      expect(terminalLinkTarget(uri, click, ctx)).toBe('app')
+    }
+  })
+
   it('keeps web links in the browser targets', () => {
     expect(terminalLinkTarget('https://a.b', click, ctx)).toBe('same-tab')
     expect(terminalLinkTarget('https://a.b', { ...click, metaKey: true }, ctx)).toBe('new-tab')
@@ -156,7 +162,9 @@ describe('terminalLinkTarget', () => {
       'javascript:alert(1)',
       'file:///etc/passwd',
       'data:text/html,x',
-      'x-app://do',
+      'x-app:do',
+      'ostia-preview://s/index.html',
+      'devtools://devtools/a',
     ]) {
       expect(terminalLinkTarget(uri, click, ctx)).toBeNull()
       expect(terminalLinkTarget(uri, { ...click, metaKey: true, shiftKey: true }, ctx)).toBeNull()

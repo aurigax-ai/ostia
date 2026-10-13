@@ -61,13 +61,40 @@ describe('openLink', () => {
     expect(openExternal.mock.calls.map(([url]) => url)).toEqual([encoded, encoded])
   })
 
-  it('refuses scripts, files, data, unknown schemes and non-strings', async () => {
+  it('opens any other scheme with a double slash', async () => {
+    openExternal.mockClear()
+    expect(await open(fromApp, 'slack://channel?id=1')).toBe(true)
+    expect(await open(fromApp, 'zed://file/tmp/a')).toBe(true)
+    expect(await open(fromApp, 'msteams://teams.microsoft.com/l/chat')).toBe(true)
+    expect(openExternal.mock.calls.map(([url]) => url)).toEqual([
+      'slack://channel?id=1',
+      'zed://file/tmp/a',
+      'msteams://teams.microsoft.com/l/chat',
+    ])
+  })
+
+  it('refuses scripts, files, data, internal schemes and non-strings', async () => {
     openExternal.mockClear()
     for (const raw of [
       'javascript:alert(1)',
+      'javascript://x%0Aalert(1)',
+      'vbscript://x',
       'file:///etc/passwd',
       'data:text/html,x',
-      'x-app://do',
+      'blob://x',
+      'about://blank',
+      'chrome://settings',
+      'devtools://devtools/a',
+      'view-source://a',
+      'ostia://settings-schema',
+      'ostia-preview://slot/index.html',
+      'remote://folder/a',
+      'x-app:do',
+      'a://b',
+      'smb://host/share',
+      'search-ms://query=a',
+      'ms-msdt://id',
+      'postgres://u:p@h/db',
       1,
     ]) {
       expect(await open(fromApp, raw)).toBe(false)

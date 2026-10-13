@@ -90,3 +90,33 @@ test('obsidian links from OSC 8 and angle-bracket markdown open in their app, en
     await app.close()
   }
 })
+
+test('links of any other scheme open in their app on a plain click and show their target', async () => {
+  test.setTimeout(60_000)
+  const app = await electron.launch(isolatedLaunch(freshDataHome()))
+  try {
+    await stubExternalOpener(app)
+    const win = await app.firstWindow()
+    await openWorkspace(win)
+    await win.locator('.xterm').first().click()
+    await win.keyboard.type(`clear; printf 'slack://channel?id=1\\nzed://file/tmp/a\\n'`)
+    await win.keyboard.press('Enter')
+
+    const hint = win.locator('[data-slot="tooltip-content"]')
+    const slack = await linkPoint(win, /^slack:\/\/channel\?id=1\s*$/, 'channel')
+    await hoverPoint(win, slack)
+    await expect(hint).toContainText('slack://channel?id=1', { timeout: 5_000 })
+    await clickWith(win, slack, [])
+    const zed = await linkPoint(win, /^zed:\/\/file\/tmp\/a\s*$/, 'file')
+    await hoverPoint(win, zed)
+    await expect(hint).toContainText('zed://file/tmp/a', { timeout: 5_000 })
+    await clickWith(win, zed, [])
+
+    await expect
+      .poll(() => openedExternally(app), { timeout: 10_000 })
+      .toEqual(['slack://channel?id=1', 'zed://file/tmp/a'])
+    await expect(addresses(win)).toHaveCount(0)
+  } finally {
+    await app.close()
+  }
+})
