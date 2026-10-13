@@ -90,12 +90,6 @@ export async function pathCandidates(
   return list(completionDir(splitPathWord(word).dir, cwd))
 }
 
-export function historySuggestion(draft: string, history: readonly string[]): string {
-  if (!draft.trim()) return ''
-  const match = history.find((entry) => entry.length > draft.length && entry.startsWith(draft))
-  return match ? match.slice(draft.length) : ''
-}
-
 export function suggestionWord(suggestion: string): string {
   return /^\s*\S+/.exec(suggestion)?.[0] ?? suggestion
 }
@@ -131,9 +125,83 @@ function specCandidates(items: readonly SpecItem[]): CompletionItem[] {
   return items.map((item) => ({ name: item.name, dir: false, description: item.description }))
 }
 
+export interface HistorySource {
+  arguments: (before: string) => string[]
+  label: string
+}
+
 export interface ArgumentSources {
   spec: (command: string) => Promise<SpecCommand | null>
   list: (path: string) => Promise<FsEntry[]>
+  history?: HistorySource
+}
+
+interface ArgumentAnswer {
+  items: CompletionItem[]
+  paths: 'any' | 'folders' | null
+}
+
+async function specOrFolderCandidates(
+  text: string,
+  caret: number,
+  cwd: string,
+  sources: ArgumentSources,
+): Promise<ArgumentAnswer> {
+  const { start, word } = completionToken(text, caret)
+  const words = commandWords(text.slice(0, start))
+  const spec = words ? await sources.spec(words.command) : null
+  if (words && spec) {
+    const answer = specAnswer(spec, words.args, word)
+    if (answer.kind === 'items') {
+      const all = specAnswer(spec, words.args, optionStem(splitPathWord(word).base))
+      return { items: specCandidates(all.kind === 'items' ? all.items : answer.items), paths: null }
+    }
+    if (answer.kind === 'paths') {
+      const entries = await pathCandidates(text, caret, cwd, sources.list)
+      return answer.foldersOnly
+        ? { items: entries.filter((e) => e.dir), paths: 'folders' }
+        : { items: entries, paths: 'any' }
+    }
+  }
+  return { items: await pathCandidates(text, caret, cwd, sources.list), paths: null }
+}
+
+async function existingPath(
+  argument: string,
+  cwd: string,
+  list: ArgumentSources['list'],
+): Promise<FsEntry | null> {
+  const path = resolveLinkPath(argument, cwd).replace(/(.)\/+$/, '$1')
+  const cut = path.lastIndexOf('/')
+  if (cut < 0) return null
+  const name = path.slice(cut + 1)
+  const entries = await list(path.slice(0, cut) || '/').catch(() => [])
+  return entries.find((entry) => entry.name === name) ?? null
+}
+
+async function historyCandidates(
+  text: string,
+  caret: number,
+  cwd: string,
+  sources: ArgumentSources,
+  answer: ArgumentAnswer,
+): Promise<CompletionItem[]> {
+  const history = sources.history
+  if (!history) return []
+  const { start, word } = completionToken(text, caret)
+  const { dir } = splitPathWord(word)
+  const offered = new Set(answer.items.map((item) => item.name))
+  const items: CompletionItem[] = []
+  for (const argument of history.arguments(text.slice(0, start))) {
+    if (!argument.startsWith(dir)) continue
+    const name = argument.slice(dir.length).replace(/\/+$/, '')
+    if (!name || offered.has(name)) continue
+    const found = answer.paths ? await existingPath(argument, cwd, sources.list) : null
+    if (answer.paths && (!found || (answer.paths === 'folders' && !found.dir))) continue
+    offered.add(name)
+    items.push({ name, dir: found?.dir === true, description: history.label })
+  }
+  return items
 }
 
 export async function argumentCandidates(
@@ -142,21 +210,8 @@ export async function argumentCandidates(
   cwd: string,
   sources: ArgumentSources,
 ): Promise<CompletionItem[]> {
-  const { start, word } = completionToken(text, caret)
-  const words = commandWords(text.slice(0, start))
-  const spec = words ? await sources.spec(words.command) : null
-  if (words && spec) {
-    const answer = specAnswer(spec, words.args, word)
-    if (answer.kind === 'items') {
-      const all = specAnswer(spec, words.args, optionStem(splitPathWord(word).base))
-      return specCandidates(all.kind === 'items' ? all.items : answer.items)
-    }
-    if (answer.kind === 'paths' && answer.foldersOnly) {
-      const entries = await pathCandidates(text, caret, cwd, sources.list)
-      return entries.filter((e) => e.dir)
-    }
-  }
-  return pathCandidates(text, caret, cwd, sources.list)
+  const answer = await specOrFolderCandidates(text, caret, cwd, sources)
+  return [...answer.items, ...(await historyCandidates(text, caret, cwd, sources, answer))]
 }
 
 export function isCommandWord(text: string, caret: number): boolean {

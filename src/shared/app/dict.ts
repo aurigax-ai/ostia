@@ -710,6 +710,7 @@ export const en = {
     title: 'Command history',
     placeholder: 'Search commands from every pane…',
     empty: 'No matching commands',
+    shellHistory: 'Shell history',
     saveAsWorkflow: 'Save as workflow',
   },
   workflows: {
@@ -744,6 +745,7 @@ export const en = {
     placeholder: 'Run commands',
     noCompletions: 'No matching paths',
     noCommands: 'No matching commands',
+    fromHistory: 'From history',
     completions: 'Completions',
     vimMode: 'Vim mode',
     vimNormal: 'NORMAL',
@@ -4290,6 +4292,7 @@ export const zhHant: Dict = {
     title: '指令歷史',
     placeholder: '搜尋所有窗格的指令…',
     empty: '沒有符合的指令',
+    shellHistory: 'Shell 歷史',
     saveAsWorkflow: '另存為工作流程',
   },
   workflows: {
@@ -4324,6 +4327,7 @@ export const zhHant: Dict = {
     placeholder: '執行指令',
     noCompletions: '沒有符合的路徑',
     noCommands: '沒有符合的指令',
+    fromHistory: '來自歷史',
     completions: '補全選項',
     vimMode: 'Vim 模式',
     vimNormal: '一般',

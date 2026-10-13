@@ -53,6 +53,27 @@ describe('HistorySearch', () => {
     return allPanes(root)[0].id
   }
 
+  it('lists the active pane’s shell history after the session’s, once each', async () => {
+    const pane = firstPaneId()
+    runCommand(pane, 'git status', 0)
+    vi.mocked(window.ostia.pty.history).mockResolvedValue([
+      { command: 'make deploy', time: null },
+      { command: 'git status', time: null },
+      { command: 'make test', time: null },
+    ])
+    useHistorySearchStore.getState().setOpen(true)
+    render(<HistorySearch />)
+    expect(await screen.findByText('make test')).toBeVisible()
+    expect(window.ostia.pty.history).toHaveBeenCalledWith(pane)
+    const rows = screen.getAllByRole('option').map((o) => o.textContent)
+    expect(rows).toHaveLength(3)
+    expect(rows[0]).toContain('git status')
+    expect(rows[1]).toBe('make testShell history')
+    expect(rows[2]).toBe('make deployShell history')
+    vi.mocked(window.ostia.pty.history).mockReset()
+    vi.mocked(window.ostia.pty.history).mockResolvedValue([])
+  })
+
   it('lists commands from the workspace newest first without duplicates', async () => {
     const pane = firstPaneId()
     runCommand(pane, 'git status', 0)
