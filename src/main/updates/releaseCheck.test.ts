@@ -159,8 +159,9 @@ describe('readCheckForUpdates', () => {
 })
 
 describe('readUpdateChannel', () => {
-  it('is stable unless the human picked main', () => {
+  it('is stable unless the human picked main or beta', () => {
     expect(readUpdateChannel({ behavior: { updateChannel: 'main' } })).toBe('main')
+    expect(readUpdateChannel({ behavior: { updateChannel: 'beta' } })).toBe('beta')
     expect(readUpdateChannel({ behavior: { updateChannel: 'nightly' } })).toBe('stable')
     expect(readUpdateChannel({ behavior: null })).toBe('stable')
     expect(readUpdateChannel(null)).toBe('stable')
@@ -470,7 +471,7 @@ describe('registerReleaseCheck', () => {
   })
 
   const start = vi.fn(async () => 'opened' as const)
-  const replaceStart = vi.fn(async (_version: string) => 'started' as const)
+  const replaceStart = vi.fn(async (_release: ReleaseInfo) => 'started' as const)
   const register = (
     settings: unknown = {},
     version = '0.2.0',
@@ -516,7 +517,7 @@ describe('registerReleaseCheck', () => {
     expect(start).toHaveBeenCalledTimes(1)
     expect(await invoke('app:update-run-state')).toEqual({ status: 'idle' })
     expect(await invoke('app:install-replace')).toBe('started')
-    expect(replaceStart).toHaveBeenCalledWith('0.3.0')
+    expect(replaceStart).toHaveBeenCalledWith(release('0.3.0'))
     expect(await invoke('app:install-replace-state')).toEqual({ status: 'idle' })
 
     expect(await invoke('app:release-open')).toBe(true)
@@ -575,7 +576,7 @@ describe('registerReleaseCheck', () => {
     })
   })
 
-  it('keeps an install from a package manager or disk image on stable', async () => {
+  it('keeps an install from a package manager or disk image off the main channel', async () => {
     for (const method of ['apt', 'brew', 'dmg'] as const) {
       handlers.clear()
       github.requests.length = 0
@@ -706,6 +707,43 @@ describe('registerReleaseCheck', () => {
       release: release('0.3.0'),
     })
     expect(github.requests.at(-1)?.url).toBe('/repos/aurigax-ai/ostia/releases/latest')
+  })
+
+  it('a dmg or brew install with Beta on is offered the newest release candidate that has a dmg', async () => {
+    const dmg = (version: string) => ({
+      assets: [{ name: `ostia-${version}-arm64.dmg`, digest: `sha256:${'ab'.repeat(32)}` }],
+    })
+    for (const method of ['dmg', 'brew'] as const) {
+      handlers.clear()
+      github.requests.length = 0
+      register({ behavior: { checkForUpdates: false, updateChannel: 'beta' } }, '0.3.0', method)
+      github.reply = {
+        status: 200,
+        body: `[${body('0.3.2-rc.1', { prerelease: true })},${body('0.3.1-main.4', { prerelease: true, ...dmg('0.3.1-main.4') })},${body('0.3.1-rc.2', { prerelease: true, ...dmg('0.3.1-rc.2') })},${body('0.3.0', dmg('0.3.0'))}]`,
+      }
+      expect(await invoke('app:release-check')).toEqual({
+        status: 'available',
+        release: { ...release('0.3.1-rc.2'), dmgSha256: 'ab'.repeat(32) },
+      })
+      expect(github.requests.map((r) => r.url)).toEqual([
+        '/repos/aurigax-ai/ostia/releases?per_page=30',
+      ])
+    }
+  })
+
+  it('with Beta turned off, a release candidate newer than the latest release is not offered as a downgrade', async () => {
+    const settings = { behavior: { checkForUpdates: false, updateChannel: 'beta' } }
+    const checks = register(settings, '0.3.1-rc.2', 'dmg')
+    settings.behavior.updateChannel = 'stable'
+    checks.settingsChanged()
+    github.reply = { status: 200, body: body('0.3.0') }
+    expect(await invoke('app:release-check')).toEqual({ status: 'latest', version: '0.3.1-rc.2' })
+    expect(github.requests.at(-1)?.url).toBe('/repos/aurigax-ai/ostia/releases/latest')
+    github.reply = { status: 200, body: body('0.3.1') }
+    expect(await invoke('app:release-check')).toEqual({
+      status: 'available',
+      release: release('0.3.1'),
+    })
   })
 
   it('an apt install keeps the channel picker on Stable and says why', async () => {

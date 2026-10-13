@@ -22,6 +22,7 @@ import {
   parseLatestRelease,
   parseUpdateChannel,
   parseVersion,
+  pickBetaRelease,
   pickMainChannelRelease,
 } from '../../shared/app/releases'
 import { readEnv } from '../../shared/appEnv'
@@ -38,7 +39,7 @@ export const RELEASE_CHECK_TICK_MS = 60 * 1000
 export const RELEASE_REQUEST_TIMEOUT_MS = 10_000
 export const RELEASE_RESPONSE_MAX_BYTES = 1024 * 1024
 export const RELEASE_API_URL_ENV = 'RELEASE_API_URL'
-const MAIN_CHANNEL_PAGE_SIZE = 30
+const RELEASE_LIST_PAGE_SIZE = 30
 
 export type LatestRelease =
   | { kind: 'release'; release: ReleaseInfo }
@@ -117,9 +118,10 @@ function releaseQuery(channel: UpdateChannel): {
   path: string
   parse: (raw: unknown) => ParsedRelease
 } {
-  return channel === 'main'
-    ? { path: `releases?per_page=${MAIN_CHANNEL_PAGE_SIZE}`, parse: pickMainChannelRelease }
-    : { path: 'releases/latest', parse: parseLatestRelease }
+  const list = `releases?per_page=${RELEASE_LIST_PAGE_SIZE}`
+  if (channel === 'main') return { path: list, parse: pickMainChannelRelease }
+  if (channel === 'beta') return { path: list, parse: pickBetaRelease }
+  return { path: 'releases/latest', parse: parseLatestRelease }
 }
 
 export async function fetchLatestRelease(opts: {
@@ -322,7 +324,7 @@ export function registerReleaseCheck(deps: {
   ipcMain.handle('app:release-state', () => stateOf(checker.pending()))
   ipcMain.handle('app:install-replace', () => {
     const release = checker.available()
-    return release ? deps.replacer.start(release.version) : 'no-action'
+    return release ? deps.replacer.start(release) : 'no-action'
   })
   ipcMain.handle('app:install-replace-state', () => deps.replacer.state())
   ipcMain.handle('app:update-run', () => deps.updateRunner.start())

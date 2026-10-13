@@ -309,13 +309,14 @@ export const SETTINGS_JSON_SCHEMA = {
         },
         updateChannel: {
           type: 'string',
-          enum: ['stable', 'main'],
+          enum: ['stable', 'beta', 'main'],
           description:
-            'Which builds the update check offers. "stable" offers releases only. "main" also ' +
-            'offers the daily build of the main branch and release candidates, and a newer ' +
-            'release when there is one. Offered only for an install from the tarball or a ' +
-            'local build; package managers stay on stable. Only you can change this, in ' +
-            'Settings → About. Default: stable.',
+            'Which builds the update check offers. "stable" offers releases only. "beta" ' +
+            '(macOS, the dmg or Homebrew install) also offers release candidates and installs ' +
+            'them in the app; Settings shows it as "Receive beta updates". "main" (the Linux ' +
+            'tarball or a local build) also offers the daily build of the main branch and ' +
+            'release candidates. A newer release is offered on every channel. apt stays on ' +
+            'stable. Only you can change this, in Settings → About. Default: stable.',
         },
         discreteGpu: {
           type: 'boolean',

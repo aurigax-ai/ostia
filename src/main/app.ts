@@ -34,6 +34,7 @@ import {
 } from '../shared/agents/managerSettings'
 import { fmt } from '../shared/app/dict'
 import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
+import { isMacInstall, replacesInApp } from '../shared/app/installMethod'
 import { clampZoom, zoomFactor } from '../shared/app/zoom'
 import { appEnv } from '../shared/appEnv'
 import { ARTIFACT_LIST_MAX } from '../shared/artifacts/artifacts'
@@ -413,11 +414,21 @@ import {
   releaseDownloadBase,
   runTar,
   sweepOldInstall,
+  tarballReplace,
 } from './updates/installReplace'
+import {
+  canReplaceBundle,
+  discardStaged,
+  macReplace,
+  runCommand,
+  signaturePolicy,
+  swapStagedBundle,
+} from './updates/macReplace'
 import {
   announceReplace,
   announceReplaceProgress,
   announceUpdateRun,
+  readUpdateChannel,
   registerReleaseCheck,
   releaseUserAgent,
 } from './updates/releaseCheck'
@@ -724,6 +735,7 @@ const keptShells = new KeptShells({
 })
 let tmuxTerminal: string | null = null
 let restartRequested = false
+let stagedUpdate: { pending: PendingSweep; sweepFile: string } | null = null
 let updateRunner: UpdateRunner | null = null
 const UPDATE_HOST_GRANT_ID = 'core:update'
 
@@ -3659,6 +3671,14 @@ app.whenReady().then(() => {
     },
     () => appLog?.warn('install-sweep-failed'),
   )
+  const macInstall = isMacInstall(installMethod())
+  const updateDir = (): string | null =>
+    replacesInApp(installMethod(), readUpdateChannel(readSettingsFile())) ? installAppDir() : null
+  const downloadBase = releaseDownloadBase(app.isPackaged, process.env)
+  const installedDir = installAppDir()
+  if (macInstall && installedDir) {
+    void discardStaged(installedDir).catch(() => appLog?.warn('update-staged-discard-failed'))
+  }
   releaseChecks = registerReleaseCheck({
     openExternal: openExternalSafe,
     readSettings: readSettingsFile,
@@ -3667,17 +3687,26 @@ app.whenReady().then(() => {
     method: installMethod,
     updateRunner,
     replaceAvailability: async () => {
-      const dir = installAppDir()
-      return dir ? canReplaceInstall(dir) : null
+      const dir = updateDir()
+      if (!dir) return null
+      return macInstall ? canReplaceBundle(dir) : canReplaceInstall(dir)
     },
     replacer: createInstallReplacer({
-      appDir: installAppDir,
-      base: releaseDownloadBase(app.isPackaged, process.env),
-      fetch,
-      tar: runTar,
+      appDir: updateDir,
+      replace: macInstall
+        ? macReplace({
+            base: downloadBase,
+            fetch,
+            run: runCommand,
+            policy: signaturePolicy(app.isPackaged, process.env),
+          })
+        : tarballReplace({ base: downloadBase, fetch, tar: runTar }),
       onState: announceReplace,
       onProgress: announceReplaceProgress,
-      onReplaced: (pending) => saveJson(sweepFile, pending),
+      onReplaced: (pending) => {
+        if (macInstall) stagedUpdate = { pending, sweepFile }
+        else saveJson(sweepFile, pending)
+      },
     }),
   })
   registerAgentTranscriptIpc()
@@ -4449,6 +4478,14 @@ app.on('before-quit', (event) => {
   void stopGateway()
   appTray?.remove()
   globalHotkey?.clear()
+  if (stagedUpdate) {
+    quitTrace.stage('update-swap')
+    const { pending, sweepFile } = stagedUpdate
+    stagedUpdate = null
+    const swapped = swapStagedBundle(pending.appDir)
+    appLog?.info('update-swap', { version: pending.version, swapped })
+    if (swapped) saveJson(sweepFile, pending)
+  }
   quitTrace.stage('teardown-done')
 })
 

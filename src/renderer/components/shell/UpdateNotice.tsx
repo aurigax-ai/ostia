@@ -120,8 +120,10 @@ export function UpdateNotice(): JSX.Element | null {
         icon={ArrowSquareOutIcon}
         label={fmt(d.update.releaseAvailable, { version: release.version })}
         hint={
-          replace && !replace.ok && replace.reason === 'leftover' && replace.path
-            ? fmt(d.update.replaceLeftover, { path: replace.path })
+          replace && !replace.ok
+            ? replace.reason === 'leftover' && replace.path
+              ? fmt(d.update.replaceLeftover, { path: replace.path })
+              : d.update.replaceBlocked[replace.reason]
             : d.update.releaseHint
         }
         onAct={() => void window.ostia.update.openRelease()}

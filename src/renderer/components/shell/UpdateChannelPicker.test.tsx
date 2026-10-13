@@ -60,25 +60,77 @@ describe('UpdateChannelPicker', () => {
     },
   )
 
-  it.each(['apt', 'brew', 'dmg'] as const)(
-    'keeps a %s install on Stable and says why',
-    (method) => {
+  it('keeps an apt install on Stable and says why', () => {
+    installedWith('apt')
+    useSettingsStore.setState({
+      behavior: { ...useSettingsStore.getState().behavior, updateChannel: 'main' },
+    })
+    render(<UpdateChannelPicker />)
+
+    const picker = screen.getByRole('combobox', { name: 'Update channel' })
+    expect(picker).toHaveTextContent('Stable')
+    expect(picker).toBeDisabled()
+    expect(
+      screen.getByText(
+        'Main builds come only as the Linux tarball. Installs from apt stay on Stable.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it.each(['dmg', 'brew'] as const)(
+    'offers Receive beta updates on a %s install instead of the channel list',
+    async (method) => {
+      const user = userEvent.setup()
+      vi.mocked(window.ostia.fs.write).mockClear()
       installedWith(method)
-      useSettingsStore.setState({
-        behavior: { ...useSettingsStore.getState().behavior, updateChannel: 'main' },
-      })
+      useUpdateStore.setState({ releaseCheck: { status: 'latest', version: '0.5.12' } })
       render(<UpdateChannelPicker />)
 
-      const picker = screen.getByRole('combobox', { name: 'Update channel' })
-      expect(picker).toHaveTextContent('Stable')
-      expect(picker).toBeDisabled()
-      expect(
-        screen.getByText(
-          'Main builds come only as the Linux tarball. Installs from apt, Homebrew or the disk image stay on Stable.',
+      expect(screen.queryByRole('combobox', { name: 'Update channel' })).toBeNull()
+      const beta = screen.getByRole('switch', { name: 'Receive beta updates' })
+      expect(beta).not.toBeChecked()
+      expect(screen.queryByText(/brew upgrade --cask ostia/)).toBeNull()
+
+      await user.click(beta)
+      expect(useSettingsStore.getState().behavior.updateChannel).toBe('beta')
+      await waitFor(() =>
+        expect(window.ostia.fs.write).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.stringContaining('"updateChannel": "beta"'),
         ),
-      ).toBeInTheDocument()
+      )
+      expect(useUpdateStore.getState().releaseCheck).toEqual({ status: 'idle' })
+      expect(screen.getByRole('switch', { name: 'Receive beta updates' })).toBeChecked()
+      expect(screen.queryAllByText(/brew upgrade --cask ostia/)).toHaveLength(
+        method === 'brew' ? 1 : 0,
+      )
+
+      await user.click(screen.getByRole('switch', { name: 'Receive beta updates' }))
+      expect(useSettingsStore.getState().behavior.updateChannel).toBe('stable')
     },
   )
+
+  it('warns a brew install on Beta that brew upgrade --cask ostia returns to the release', () => {
+    installedWith('brew')
+    useSettingsStore.setState({
+      behavior: { ...useSettingsStore.getState().behavior, updateChannel: 'beta' },
+    })
+    render(<UpdateChannelPicker />)
+    expect(
+      screen.getByText(
+        'Running brew upgrade --cask ostia yourself installs the Homebrew release again, which can be older than this beta.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('shows Beta off on a dmg install whose settings still say main', () => {
+    installedWith('dmg')
+    useSettingsStore.setState({
+      behavior: { ...useSettingsStore.getState().behavior, updateChannel: 'main' },
+    })
+    render(<UpdateChannelPicker />)
+    expect(screen.getByRole('switch', { name: 'Receive beta updates' })).not.toBeChecked()
+  })
 
   it('a tarball install on the Main channel is offered the newest main build, and Stable again only releases', async () => {
     const user = userEvent.setup()

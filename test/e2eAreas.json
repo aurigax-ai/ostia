@@ -468,6 +468,7 @@
         "src/main/updates/appUpdate.ts",
         "src/main/updates/installMethod.ts",
         "src/main/updates/installReplace.ts",
+        "src/main/updates/macReplace.ts",
         "src/main/updates/updateRun.ts",
         "src/shared/app/installMethod.ts",
         "src/shared/app/releases.ts",
@@ -477,7 +478,7 @@
         "src/renderer/components/shell/UpdateNotice.",
         "src/renderer/stores/app/updateStore.ts"
       ],
-      "specs": ["e2e/update-check.spec.ts"]
+      "specs": ["e2e/update-check.spec.ts", "e2e/update-mac.spec.ts"]
     },
     {
       "name": "files",

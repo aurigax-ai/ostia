@@ -1009,6 +1009,11 @@ export const en = {
       'system-path': 'The app is in a system folder, so update it the way you installed it.',
       symlink: 'The app folder is a symbolic link, so update it the way you installed it.',
       leftover: 'A folder from an earlier update is in the way.',
+      translocated:
+        'macOS is running {product} from a temporary copy. Move {product} to Applications and open it from there to update from here.',
+      'read-only':
+        '{product} is running from its disk image. Drag it to Applications and open it from there to update from here.',
+      unsupported: 'Updating from here needs an Apple silicon Mac. Download the release yourself.',
     },
     replaceFailed: {
       blocked: 'The app folder can’t be replaced any more. Nothing was changed.',
@@ -1023,6 +1028,10 @@ export const en = {
       'not-executable': 'The archive holds no runnable app. Nothing was changed.',
       'wrong-version': 'The archive holds a different version. Nothing was changed.',
       'swap-failed': 'Couldn’t move the new version into place. Nothing was changed.',
+      'mount-failed': 'Couldn’t open the downloaded disk image. Nothing was changed.',
+      'bad-signature': 'The downloaded app’s signature is broken. Nothing was changed.',
+      'wrong-team': 'The downloaded app isn’t signed as {product}. Nothing was changed.',
+      'not-notarized': 'macOS didn’t accept the downloaded app as notarized. Nothing was changed.',
     },
     automatic: 'Check for updates automatically',
     automaticDesc:
@@ -1033,7 +1042,12 @@ export const en = {
     channelDesc:
       'Stable offers releases only. Main also offers the daily build of the main branch and release candidates, and a newer release when there is one.',
     channelStableOnly:
-      'Main builds come only as the Linux tarball. Installs from apt, Homebrew or the disk image stay on Stable.',
+      'Main builds come only as the Linux tarball. Installs from apt stay on Stable.',
+    beta: 'Receive beta updates',
+    betaDesc:
+      'Also offers release candidates and installs them from here. A beta can be less stable. Turn this off and you stay on your beta until a release catches up; nothing is downgraded.',
+    betaBrewNote:
+      'Running {command} yourself installs the Homebrew release again, which can be older than this beta.',
   },
   passwords: {
     title: 'Passwords',
@@ -4581,6 +4595,11 @@ export const zhHant: Dict = {
       'system-path': '應用程式位於系統資料夾，請依照你安裝的方式更新。',
       symlink: '應用程式資料夾是符號連結，請依照你安裝的方式更新。',
       leftover: '先前更新留下的資料夾擋住了。',
+      translocated:
+        'macOS 正從暫時的副本執行 {product}。請把 {product} 移到「應用程式」資料夾，再從那裡開啟，就能從這裡更新。',
+      'read-only':
+        '{product} 正從磁碟映像執行。請把它拖到「應用程式」資料夾，再從那裡開啟，就能從這裡更新。',
+      unsupported: '從這裡更新需要 Apple silicon 的 Mac。請自行下載發行版本。',
     },
     replaceFailed: {
       blocked: '應用程式資料夾已無法取代。沒有任何變更。',
@@ -4595,6 +4614,10 @@ export const zhHant: Dict = {
       'not-executable': '封存檔中沒有可執行的應用程式。沒有任何變更。',
       'wrong-version': '封存檔中是不同的版本。沒有任何變更。',
       'swap-failed': '無法將新版本移到定位。沒有任何變更。',
+      'mount-failed': '無法開啟下載的磁碟映像。沒有任何變更。',
+      'bad-signature': '下載的應用程式簽章已損毀。沒有任何變更。',
+      'wrong-team': '下載的應用程式不是以 {product} 的身分簽署。沒有任何變更。',
+      'not-notarized': 'macOS 不認可下載的應用程式已經過公證。沒有任何變更。',
     },
     automatic: '自動檢查更新',
     automaticDesc:
@@ -4604,8 +4627,12 @@ export const zhHant: Dict = {
     channelMain: 'Main',
     channelDesc:
       '穩定版只提供正式發行版本。Main 另外提供 main 分支的每日建置與候選版本，有更新的正式版本時也會提供。',
-    channelStableOnly:
-      'Main 建置只以 Linux tarball 提供。透過 apt、Homebrew 或磁碟映像安裝的版本維持在穩定版。',
+    channelStableOnly: 'Main 建置只以 Linux tarball 提供。透過 apt 安裝的版本維持在穩定版。',
+    beta: '接收 Beta 版更新',
+    betaDesc:
+      '另外提供候選版本，並從這裡安裝。Beta 版可能比較不穩定。關閉後會停在目前的 Beta 版，等正式版追上再更新，不會降版。',
+    betaBrewNote:
+      '自己執行 {command} 會重新安裝 Homebrew 的正式版，可能比這個 Beta 版舊。',
   },
   passwords: {
     title: '密碼',
