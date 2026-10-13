@@ -2957,7 +2957,7 @@ let fileWatches: FileWatches | null = null
 function registerFsIpc(): void {
   const allowedRoots = fileRoots()
   const settingsFile = join(app.getPath('userData'), 'settings.json')
-  registerOpenPathIpc(allowedRoots)
+  registerOpenPathIpc(allowedRoots, () => windows.values())
   registerTerminalPathLinkIpc(
     new TerminalPathLinks({
       grants: openFileGrants,

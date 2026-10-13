@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
 const openExternal = vi.fn(async (_url: string) => {})
-vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() }, shell: { openExternal } }))
+const owners = vi.hoisted(() => new Map<unknown, unknown>())
+vi.mock('electron', () => ({
+  ipcMain: { handle: vi.fn() },
+  shell: { openExternal },
+  BrowserWindow: { fromWebContents: (wc: unknown) => owners.get(wc) ?? null },
+}))
 
 const { isProgram, openLink } = await import('./openPath')
 
@@ -22,16 +27,21 @@ describe('isProgram', () => {
 
 describe('openLink', () => {
   const mainFrame = {}
-  const fromApp = { sender: { mainFrame }, senderFrame: mainFrame } as unknown as Parameters<
+  const appSender = { mainFrame }
+  const appWindow = {}
+  owners.set(appSender, appWindow)
+  const fromApp = { sender: appSender, senderFrame: mainFrame } as unknown as Parameters<
     typeof openLink
-  >[0]
+  >[1]
+  const windows = () => [appWindow] as unknown as Iterable<Electron.BrowserWindow>
+  const open = (e: typeof fromApp, raw: unknown) => openLink(windows, e, raw)
 
   it('opens obsidian and vscode links with spaces and Chinese encoded', async () => {
     openExternal.mockClear()
     const vault =
       'obsidian://advanced-uri?vault=Interdisciplinary Nexus&filepath=05 Projects/中文.md'
-    expect(await openLink(fromApp, vault)).toBe(true)
-    expect(await openLink(fromApp, 'vscode://file/My Dir/a.ts:3')).toBe(true)
+    expect(await open(fromApp, vault)).toBe(true)
+    expect(await open(fromApp, 'vscode://file/My Dir/a.ts:3')).toBe(true)
     expect(openExternal.mock.calls.map(([url]) => url)).toEqual([
       'obsidian://advanced-uri?vault=Interdisciplinary%20Nexus&filepath=05%20Projects/%E4%B8%AD%E6%96%87.md',
       'vscode://file/My%20Dir/a.ts:3',
@@ -46,7 +56,7 @@ describe('openLink', () => {
       'obsidian://advanced-uri?vault=Interdisciplinary Nexus&filepath=05 Projects/中.md',
       encoded,
     ]) {
-      expect(await openLink(fromApp, raw)).toBe(true)
+      expect(await open(fromApp, raw)).toBe(true)
     }
     expect(openExternal.mock.calls.map(([url]) => url)).toEqual([encoded, encoded])
   })
@@ -60,20 +70,34 @@ describe('openLink', () => {
       'x-app://do',
       1,
     ]) {
-      expect(await openLink(fromApp, raw)).toBe(false)
+      expect(await open(fromApp, raw)).toBe(false)
     }
     expect(openExternal).not.toHaveBeenCalled()
   })
 
   it('refuses a request from a subframe', async () => {
     openExternal.mockClear()
-    const fromFrame = { sender: { mainFrame }, senderFrame: {} } as unknown as typeof fromApp
-    expect(await openLink(fromFrame, 'obsidian://open?vault=a')).toBe(false)
+    const fromFrame = { sender: appSender, senderFrame: {} } as unknown as typeof fromApp
+    expect(await open(fromFrame, 'obsidian://open?vault=a')).toBe(false)
+    expect(openExternal).not.toHaveBeenCalled()
+  })
+
+  it('refuses a request from a window that is not an app window', async () => {
+    openExternal.mockClear()
+    const otherSender = { mainFrame }
+    owners.set(otherSender, {})
+    const fromOther = { sender: otherSender, senderFrame: mainFrame } as unknown as typeof fromApp
+    const fromNoWindow = {
+      sender: { mainFrame },
+      senderFrame: mainFrame,
+    } as unknown as typeof fromApp
+    expect(await open(fromOther, 'obsidian://open?vault=a')).toBe(false)
+    expect(await open(fromNoWindow, 'obsidian://open?vault=a')).toBe(false)
     expect(openExternal).not.toHaveBeenCalled()
   })
 
   it('reports a failure when no app handles the link', async () => {
     openExternal.mockRejectedValueOnce(new Error('no handler'))
-    expect(await openLink(fromApp, 'vscode://file/a')).toBe(false)
+    expect(await open(fromApp, 'vscode://file/a')).toBe(false)
   })
 })

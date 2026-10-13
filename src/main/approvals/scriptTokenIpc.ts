@@ -1,4 +1,4 @@
-import { BrowserWindow, type IpcMainInvokeEvent, ipcMain } from 'electron'
+import { type BrowserWindow, type IpcMainInvokeEvent, ipcMain } from 'electron'
 import {
   type ScriptTokenSaveResult,
   type ScriptTokenUsage,
@@ -6,6 +6,7 @@ import {
   tokenExpiry,
 } from '../../shared/permissions/scriptTokens'
 import { removeScript } from '../control/idRegistry'
+import { fromAppWindow } from '../platform/appWindowSender'
 import type { ReachListing } from './reach'
 import type { ScriptTokenUsageLog, UsageLookups } from './scriptTokenUsage'
 import {
@@ -153,17 +154,11 @@ export async function usageFromSettings(
   }
 }
 
-export function fromAppWindow(deps: ScriptTokenIpcDeps, e: IpcMainInvokeEvent): boolean {
-  if (!e.senderFrame || e.senderFrame !== e.sender.mainFrame) return false
-  const win = BrowserWindow.fromWebContents(e.sender)
-  return win !== null && [...deps.appWindows()].includes(win)
-}
-
 export function registerScriptTokenIpc(deps: ScriptTokenIpcDeps): void {
   const guarded =
     <A extends unknown[], R>(fn: (...args: A) => R) =>
     (e: IpcMainInvokeEvent, ...args: A): R => {
-      if (!fromAppWindow(deps, e)) {
+      if (!fromAppWindow(deps.appWindows, e)) {
         throw new Error('forbidden: script tokens are managed only from an Ostia window')
       }
       return fn(...args)
