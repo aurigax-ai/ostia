@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { PROMPT, occurrences, openWorkspace, quitApp, typeLine } from './helpers'
 import {
@@ -169,6 +171,29 @@ test('tabs a pane opens with ostia process run line up beside it in launch order
     await expect(tabs.nth(0)).toHaveAttribute('aria-selected', 'true')
     expect(await callerHasFocus(win)).toBe(true)
   } finally {
+    await quitApp(app)
+  }
+})
+
+test('a tab ostia process run opens while the window draws no frames starts its shell and runs the command', async () => {
+  const dataHome = freshDataHome()
+  const marker = join(dataHome, 'hidden-window-ran')
+  const { app, win } = await launch(dataHome)
+  try {
+    await openWorkspace(win)
+    await win.locator('.xterm').first().click()
+
+    await typeLine(win, `sleep 3; ostia process run "echo ran > ${marker}; sleep 30" --name late`)
+    await app.evaluate(({ BrowserWindow }) => {
+      for (const w of BrowserWindow.getAllWindows()) w.hide()
+    })
+
+    await expect.poll(() => existsSync(marker), { timeout: 30_000 }).toBe(true)
+    expect(readFileSync(marker, 'utf8').trim()).toBe('ran')
+  } finally {
+    await app.evaluate(({ BrowserWindow }) => {
+      for (const w of BrowserWindow.getAllWindows()) w.show()
+    })
     await quitApp(app)
   }
 })

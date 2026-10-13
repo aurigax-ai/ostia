@@ -195,6 +195,19 @@ describe('TerminalView spawn size', () => {
     expect(window.ostia.pty.resize).toHaveBeenCalledWith(paneId, 90, 30)
   })
 
+  it('starts a terminal an extension opened in a laid-out hidden tab while the window draws no frames', async () => {
+    noteFittedGrid(129, 42)
+    box.width = 520
+    box.height = 600
+    startOffscreen('p1')
+    render(<TerminalView workspaceId="w1" paneId="p1" />)
+    await act(nextFrame)
+    expect(window.ostia.pty.attach).not.toHaveBeenCalled()
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalledTimes(1), {
+      timeout: 3000,
+    })
+  })
+
   it('reattaches a parked kept shell at the size tmux already has, not the remembered grid', async () => {
     noteFittedGrid(129, 42)
     vi.mocked(window.ostia.pty.attach).mockResolvedValueOnce({
