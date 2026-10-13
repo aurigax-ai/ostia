@@ -3,6 +3,7 @@ import { create } from 'zustand'
 export type TabSleepNotice =
   | { kind: 'notAgent' | 'asleep' | 'awake' }
   | { kind: 'conflict'; tab: string }
+  | { kind: 'forkFolderMissing'; agent: string; path: string }
 
 interface TabSleepNoticeState {
   notice: TabSleepNotice | null

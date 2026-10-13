@@ -579,11 +579,14 @@
         "src/renderer/lib/agents/activationResume.ts",
         "src/renderer/lib/agents/autoResume.ts",
         "src/renderer/lib/agents/resumeFolder.ts",
+        "src/renderer/lib/agents/forkConversation.ts",
+        "src/renderer/components/agents/AgentForkButton.tsx",
         "src/renderer/components/terminal/HibernatedView.tsx",
         "src/renderer/components/rail/HibernateSkippedDialog.tsx",
         "src/renderer/components/panes/ResumeFolderNotice.tsx"
       ],
       "specs": [
+        "e2e/agent-fork.spec.ts",
         "e2e/auto-resume.spec.ts",
         "e2e/hibernate-background-work.spec.ts",
         "e2e/hibernate-group.spec.ts",

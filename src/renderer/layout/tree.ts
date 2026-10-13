@@ -144,6 +144,10 @@ export function setPaneCwd(root: LayoutNode, paneId: string, cwd: string): Layou
   })
 }
 
+export function setPaneSpawnDir(root: LayoutNode, paneId: string, spawnDir: string): LayoutNode {
+  return mapPane(root, paneId, (p) => (p.spawnDir === spawnDir ? p : { ...p, spawnDir }))
+}
+
 export function settleSpawnDir(root: LayoutNode, paneId: string, missing: boolean): LayoutNode {
   return mapPane(root, paneId, (p) => {
     if (p.spawnDir === undefined) return p
