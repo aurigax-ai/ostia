@@ -296,6 +296,7 @@ export interface PtyApi {
   onData: (paneId: string, cb: (data: string) => void) => () => void
   onExit: (paneId: string, cb: (exitCode: number, closes: boolean) => void) => () => void
   listDir: (paneId: string, dir: string) => Promise<FsEntry[]>
+  history: (paneId: string) => Promise<ShellHistoryEntry[]>
   localPrompt: (paneId: string) => Promise<boolean>
   onSize: (paneId: string, cb: (cols: number, rows: number) => void) => () => void
   onRun: (cb: (paneId: string, command: string) => void) => () => void
@@ -308,6 +309,11 @@ export interface ManagerOpenPaneRequest {
 
 export interface ManagerApi {
   onOpen: (cb: (req: ManagerOpenPaneRequest) => string | null) => () => void
+}
+
+export interface ShellHistoryEntry {
+  command: string
+  time: number | null
 }
 
 export interface FsEntry {

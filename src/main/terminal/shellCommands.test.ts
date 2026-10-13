@@ -42,12 +42,13 @@ afterEach(() => {
 describe('readShellState', () => {
   it('reads the PATH, the environment lines and the command names after them', async () => {
     const state = join(root, 'state')
-    writeFileSync(state, '/a b:/c\n/p/.venv\nbase\n/k/config\ncd  if\tll \n')
+    writeFileSync(state, '/a b:/c\n/p/.venv\nbase\n/k/config\n/h/.zsh_history\ncd  if\tll \n')
     expect(await readShellState(state)).toEqual({
       path: '/a b:/c',
       virtualEnv: '/p/.venv',
       condaEnv: 'base',
       kubeconfig: '/k/config',
+      histFile: '/h/.zsh_history',
       names: ['cd', 'if', 'll'],
     })
   })
@@ -70,11 +71,12 @@ describe('readShellState', () => {
 
 describe('parseShellState', () => {
   it('reads empty environment lines as unset', () => {
-    expect(parseShellState('/usr/bin\n\n\n\nls cd\n')).toEqual({
+    expect(parseShellState('/usr/bin\n\n\n\n\nls cd\n')).toEqual({
       path: '/usr/bin',
       virtualEnv: null,
       condaEnv: null,
       kubeconfig: null,
+      histFile: null,
       names: ['ls', 'cd'],
     })
   })
@@ -82,6 +84,7 @@ describe('parseShellState', () => {
   it('refuses a file cut off before the command names', () => {
     expect(parseShellState('/usr/bin\n/p/.venv\nbase')).toBeNull()
     expect(parseShellState('/usr/bin\n/p/.venv\nbase\n/k')).toBeNull()
+    expect(parseShellState('/usr/bin\n/p/.venv\nbase\n/k\n/h/.zsh_history')).toBeNull()
   })
 })
 

@@ -697,6 +697,15 @@ describe('shellIntegrationSpawnOptions', () => {
         expect(readState().names).toEqual(expect.arrayContaining(['cd', 'ostia_fn']))
       })
 
+      it('reports the history file the shell writes, and a scratch pane’s own file', () => {
+        expect(
+          readStateAfter('HISTFILE=/home/u/.shell_history; __ostia_report_shell'),
+        ).toMatchObject({ histFile: '/home/u/.shell_history', kubeconfig: null })
+        expect(readState().names).toEqual(expect.arrayContaining(['cd', 'ostia_fn']))
+        report('__ostia_report_shell', stateFile, { OSTIA_HISTFILE: '/scratch/a/history' })
+        expect(readState().histFile).toBe('/scratch/a/history')
+      })
+
       it('drops newlines from a reported variable so it cannot shift the lines after it', () => {
         report('__ostia_report_shell', stateFile, { CONDA_DEFAULT_ENV: 'a\nb' })
         expect(readState()).toMatchObject({ condaEnv: 'ab', kubeconfig: null })

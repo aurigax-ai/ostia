@@ -221,6 +221,7 @@ const bridge: OstiaBridge = {
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
     commands: (paneId) => ipcRenderer.invoke('pty:commands', paneId) as Promise<string[]>,
     listDir: (paneId, dir) => ipcRenderer.invoke('pty:list-dir', paneId, dir),
+    history: (paneId) => ipcRenderer.invoke('pty:history', paneId),
     localPrompt: (paneId) => ipcRenderer.invoke('pty:local-prompt', paneId),
     foreground: (paneId) => ipcRenderer.invoke('pty:foreground', paneId) as Promise<string | null>,
     activity: (paneId) =>
