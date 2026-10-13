@@ -41,7 +41,7 @@ import { type DragEvent, useEffect, useRef } from 'react'
 import { PaneRenameField } from './PaneRenameField'
 import { PaneHeaderActions, PaneTabMenu } from './PaneTabMenu'
 import { ResumeConflictNotice, ResumeFolderNotice } from './ResumeFolderNotice'
-import { SplitTabBody, SplitTabPill } from './SplitTab'
+import { SplitTabBody, SplitTabPill, focusPane } from './SplitTab'
 import { TabBody } from './TabBody'
 import { TabFace, usePaneMark } from './TabFace'
 import { TabHint } from './TabHint'
@@ -426,10 +426,7 @@ function PaneTab({
             role="tab"
             aria-selected={selected}
             className="pane-tab-main"
-            onClick={() => {
-              void commands.exec('pane.focus', { paneId: pane.id })
-              requestAnimationFrame(() => focusSurface(pane.id))
-            }}
+            onClick={() => focusPane(pane.id)}
             onDoubleClick={() => usePaneRenameStore.getState().begin(pane.id)}
           >
             <TabFace pane={pane} />

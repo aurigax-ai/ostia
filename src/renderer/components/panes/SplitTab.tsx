@@ -32,9 +32,11 @@ import { TabBody } from './TabBody'
 import { TabFace, usePaneMark, usePaneTitle } from './TabFace'
 import { TabHint } from './TabHint'
 
-function focusPane(paneId: string): void {
+export function focusPane(paneId: string): void {
   void commands.exec('pane.focus', { paneId })
-  requestAnimationFrame(() => focusSurface(paneId))
+  requestAnimationFrame(() => {
+    if (usePaneRenameStore.getState().paneId !== paneId) focusSurface(paneId)
+  })
 }
 
 function GlyphNode({ node, focusedId }: { node: LayoutNode; focusedId: string | null }) {
@@ -164,6 +166,7 @@ function useSplitTabLabel(tab: SplitNode): string {
 
 function moveSegmentFocus(e: KeyboardEvent<HTMLElement>): void {
   if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+  if (e.target instanceof HTMLInputElement) return
   const buttons = [...e.currentTarget.querySelectorAll<HTMLElement>('.split-tab-segment-main')]
   const at = buttons.indexOf(document.activeElement as HTMLElement)
   const next = at === -1 ? buttons[0] : buttons[at + (e.key === 'ArrowRight' ? 1 : -1)]
@@ -189,6 +192,7 @@ export function SplitTabPill({
 }): JSX.Element {
   const label = useSplitTabLabel(tab)
   const panes = allPanes(tab)
+  const renaming = usePaneRenameStore((s) => panes.some((p) => p.id === s.paneId))
   return (
     <div
       style={{ '--split-segments': panes.length } as CSSProperties}
@@ -202,7 +206,7 @@ export function SplitTabPill({
       aria-selected={selected}
       aria-label={label}
       data-tab-id={tab.id}
-      draggable
+      draggable={!renaming}
       onDragStart={(e) => {
         e.dataTransfer.setData(PANE_DND, tab.id)
         e.dataTransfer.effectAllowed = 'move'

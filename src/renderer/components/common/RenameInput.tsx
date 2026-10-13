@@ -12,7 +12,10 @@ export function RenameInput({
 }): JSX.Element {
   const [draft, setDraft] = useState(value)
   const input = useRef<HTMLInputElement>(null)
-  useEffect(() => input.current?.select(), [])
+  useEffect(() => {
+    input.current?.focus()
+    input.current?.select()
+  }, [])
   return (
     <Input
       ref={input}

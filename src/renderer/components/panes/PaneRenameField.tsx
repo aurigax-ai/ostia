@@ -21,6 +21,7 @@ export function PaneRenameField({
       onDone={(name) => {
         usePaneRenameStore.getState().end()
         if (name === null || !workspaceId) return
+        if (!pane.titlePinned && name.trim() === title) return
         useLayoutStore.getState().rename(workspaceId, pane.id, name)
       }}
     />
