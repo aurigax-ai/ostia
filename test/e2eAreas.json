@@ -384,6 +384,10 @@
         "src/shared/terminal/completionSpec.ts",
         "src/renderer/lib/prompt/specCompletion.ts",
         "src/renderer/lib/prompt/completionMatch.ts",
+        "src/main/terminal/shellHistory.ts",
+        "src/renderer/lib/prompt/historyRank.ts",
+        "src/renderer/lib/prompt/historyArguments.ts",
+        "src/renderer/lib/prompt/useFileHistory.ts",
         "src/renderer/lib/prompt/terminalGhost.ts"
       ],
       "specs": ["e2e/input-editor.spec.ts"]

@@ -154,7 +154,7 @@ describe('paneHistory', () => {
     stateFile = join(root, 'state')
     mkdirSync(join(root, 'home'))
     writeFileSync(histFile, ': 1700000000:0;git checkout main\n')
-    writeFileSync(stateFile, `/usr/bin\n\n\n\n${histFile}\nls cd\n`)
+    writeFileSync(stateFile, `/usr/bin\n\n\n\nls cd\n${histFile}\n`)
   })
 
   const expected = [{ command: 'git checkout main', time: 1_700_000_000_000 }]
@@ -186,7 +186,7 @@ describe('paneHistory', () => {
 
   it('has nothing for a shell it has no parser for or that reported no file', async () => {
     expect(await paneHistory(deps({ shell: '/usr/bin/fish' }), OWNER, PANE)).toEqual([])
-    writeFileSync(stateFile, '/usr/bin\n\n\n\n\nls cd\n')
+    writeFileSync(stateFile, '/usr/bin\n\n\n\nls cd\n')
     expect(await paneHistory(deps(), OWNER, PANE)).toEqual([])
   })
 })

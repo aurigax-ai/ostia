@@ -31,6 +31,10 @@ interface Gathered {
   after: Set<string> | null
 }
 
+function withValue(set: Set<string> | null, value: string): Set<string> {
+  return (set ?? new Set<string>()).add(value)
+}
+
 export function sessionBlocks(
   byPane: Record<string, readonly CommandBlock[] | undefined>,
   paneId: string,
@@ -65,7 +69,7 @@ export function historyFacts(
     }
     facts.count++
     facts.order = order++
-    if (previous) (facts.after ??= new Set()).add(previous)
+    if (previous) facts.after = withValue(facts.after, previous)
     return facts
   }
   let previous: string | null = null
@@ -84,10 +88,10 @@ export function historyFacts(
       previous = command
       facts.ranThisSession = true
       if (!block.cwd) continue
-      ;(facts.folders ??= new Set()).add(block.cwd)
+      facts.folders = withValue(facts.folders, block.cwd)
       if (block.exitCode === null) continue
       if (block.exitCode === 0) facts.failedIn?.delete(block.cwd)
-      else (facts.failedIn ??= new Set()).add(block.cwd)
+      else facts.failedIn = withValue(facts.failedIn, block.cwd)
     }
   }
   return [...gathered.values()].map((facts) => ({

@@ -14,19 +14,19 @@ export interface ShellState {
 
 const SHELL_STATE_CAP_BYTES = 1024 * 1024
 
-const SHELL_STATE_HEADER_LINES = 5
+const SHELL_STATE_HEADER_LINES = 4
 
 export function parseShellState(text: string): ShellState | null {
   const lines = text.split('\n')
   if (lines.length <= SHELL_STATE_HEADER_LINES) return null
-  const [path, virtualEnv, condaEnv, kubeconfig, histFile] = lines
+  const [path, virtualEnv, condaEnv, kubeconfig, names, histFile] = lines
   return {
     path,
     virtualEnv: virtualEnv || null,
     condaEnv: condaEnv || null,
     kubeconfig: kubeconfig || null,
     histFile: histFile || null,
-    names: lines.slice(SHELL_STATE_HEADER_LINES).join(' ').split(/\s+/).filter(Boolean),
+    names: names.split(/\s+/).filter(Boolean),
   }
 }
 

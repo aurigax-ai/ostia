@@ -3365,7 +3365,7 @@ export const en = {
       'Esc switches to normal mode (h j k l w b e 0 $ x dd dw cw u, with counts); i a A I o O return to insert mode. Enter runs the command from either mode.',
     historySuggestions: 'History suggestions',
     historySuggestionsDesc:
-      'Show the latest matching command from history as gray text in the input editor; Right arrow accepts it.',
+      'Suggest commands from this session and from your shell’s history file in the input editor, as gray text and in Tab and Up; Right arrow accepts the gray text. Off: the history file is not read.',
     promptStyle: 'Prompt style',
     promptStyleDesc:
       '{product} prompt shows context chips in the input editor and gives new shells a plain "directory" prompt, so scrollback stays readable.',
@@ -6861,7 +6861,8 @@ export const zhHant: Dict = {
     inputEditorVimDesc:
       'Esc 切換到一般模式（h j k l w b e 0 $ x dd dw cw u，可加次數）；i a A I o O 回到插入模式。兩種模式下按 Enter 都會執行指令。',
     historySuggestions: '歷史建議',
-    historySuggestionsDesc: '在輸入編輯器中以灰色文字顯示最近相符的歷史指令；按右方向鍵接受。',
+    historySuggestionsDesc:
+      '在輸入編輯器中，依本次工作階段與 shell 歷史檔建議指令（灰色文字、Tab 與向上鍵）；按右方向鍵接受灰色文字。關閉時不會讀取歷史檔。',
     promptStyle: '提示字元樣式',
     promptStyleDesc:
       '{product} 提示字元會在輸入編輯器中顯示情境標籤，並讓新的 shell 使用簡易的「目錄」提示字元，讓捲動記錄保持易讀。',
