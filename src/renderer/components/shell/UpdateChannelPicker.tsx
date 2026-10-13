@@ -5,7 +5,7 @@ import { useUpdateStore } from '@/stores/app/updateStore'
 import { isMacInstall, offeredChannels, updateCommandLine } from '@shared/app/installMethod'
 import type { UpdateChannel } from '@shared/app/releases'
 
-const LINUX_CHANNELS = ['stable', 'main'] as const
+const LINUX_CHANNELS = ['stable', 'beta', 'main'] as const
 
 export function UpdateChannelPicker(): JSX.Element | null {
   const d = useDict()
@@ -39,6 +39,7 @@ export function UpdateChannelPicker(): JSX.Element | null {
   const offered = offeredChannels(method).includes('main')
   const labels: Record<(typeof LINUX_CHANNELS)[number], string> = {
     stable: d.update.channelStable,
+    beta: d.update.channelBeta,
     main: d.update.channelMain,
   }
   return (
@@ -47,7 +48,7 @@ export function UpdateChannelPicker(): JSX.Element | null {
       desc={offered ? d.update.channelDesc : d.update.channelStableOnly}
     >
       <SelectField
-        value={offered && channel === 'main' ? 'main' : 'stable'}
+        value={offered && channel !== 'stable' ? channel : 'stable'}
         onChange={pick}
         label={d.update.channel}
         disabled={!offered}

@@ -1038,11 +1038,12 @@ export const en = {
       'Asks GitHub once after launch and then once an hour whether a newer release exists. Updating is always your own click, through the way you installed it.',
     channel: 'Update channel',
     channelStable: 'Stable',
+    channelBeta: 'Beta',
     channelMain: 'Main',
     channelDesc:
-      'Stable offers releases only. Main also offers the daily build of the main branch and release candidates, and a newer release when there is one.',
+      'Stable offers releases only. Beta also offers release candidates. Main also offers the daily build of the main branch and release candidates. Every channel offers a newer release when there is one.',
     channelStableOnly:
-      'Main builds come only as the Linux tarball. Installs from apt stay on Stable.',
+      'Beta and Main builds come only as the Linux tarball. Installs from apt stay on Stable.',
     beta: 'Receive beta updates',
     betaDesc:
       'Also offers release candidates and installs them from here. A beta can be less stable. Turn this off and you stay on your beta until a release catches up; nothing is downgraded.',
@@ -4624,15 +4625,16 @@ export const zhHant: Dict = {
       '啟動後向 GitHub 查詢一次，之後每小時查詢一次是否有新版本。更新一律由你自己點選，並依照你安裝的方式進行。',
     channel: '更新管道',
     channelStable: '穩定版',
+    channelBeta: 'Beta',
     channelMain: 'Main',
     channelDesc:
-      '穩定版只提供正式發行版本。Main 另外提供 main 分支的每日建置與候選版本，有更新的正式版本時也會提供。',
-    channelStableOnly: 'Main 建置只以 Linux tarball 提供。透過 apt 安裝的版本維持在穩定版。',
+      '穩定版只提供正式發行版本。Beta 另外提供候選版本。Main 另外提供 main 分支的每日建置與候選版本。有更新的正式版本時，每個管道都會提供。',
+    channelStableOnly:
+      'Beta 與 Main 建置只以 Linux tarball 提供。透過 apt 安裝的版本維持在穩定版。',
     beta: '接收 Beta 版更新',
     betaDesc:
       '另外提供候選版本，並從這裡安裝。Beta 版可能比較不穩定。關閉後會停在目前的 Beta 版，等正式版追上再更新，不會降版。',
-    betaBrewNote:
-      '自己執行 {command} 會重新安裝 Homebrew 的正式版，可能比這個 Beta 版舊。',
+    betaBrewNote: '自己執行 {command} 會重新安裝 Homebrew 的正式版，可能比這個 Beta 版舊。',
   },
   passwords: {
     title: '密碼',

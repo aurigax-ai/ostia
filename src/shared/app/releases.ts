@@ -33,6 +33,12 @@ export function dmgAssetName(version: string): string {
   return `${PRODUCT_NAME}-${version}-arm64.dmg`
 }
 
+export function tarballAssetName(version: string): string {
+  return `${PRODUCT_NAME}-${version}-linux-x64.tar.gz`
+}
+
+export type AssetName = (version: string) => string
+
 export type ReleaseCheckError = 'offline' | 'rate-limited' | 'unavailable'
 
 export type ReleaseCheckResult =
@@ -121,6 +127,15 @@ interface ParsedEntry {
   draft: boolean
   flagged: boolean
   dmg: { sha256: string | null } | null
+  assetNames: string[]
+}
+
+function assetNames(assets: unknown): string[] {
+  if (!Array.isArray(assets)) return []
+  return assets.flatMap((asset) => {
+    const name = typeof asset === 'object' && asset !== null ? asset.name : undefined
+    return typeof name === 'string' ? [name] : []
+  })
 }
 
 function dmgAsset(assets: unknown, text: string): ParsedEntry['dmg'] {
@@ -168,6 +183,7 @@ function parseEntry(raw: unknown): ParsedEntry | null {
     draft,
     flagged: prerelease,
     dmg: dmgAsset(assets, text),
+    assetNames: assetNames(assets),
   }
 }
 
@@ -197,8 +213,8 @@ function offeredOnMain(entry: ParsedEntry): boolean {
   return entry.flagged && !entry.text.includes('+') && isMainChannelVersion(entry.version)
 }
 
-function offeredOnBeta(entry: ParsedEntry): boolean {
-  if (entry.draft || !entry.dmg) return false
+function offeredOnBeta(entry: ParsedEntry, asset: AssetName): boolean {
+  if (entry.draft || !entry.assetNames.includes(asset(entry.text))) return false
   if (entry.stable) return true
   return entry.flagged && !entry.text.includes('+') && isBetaChannelVersion(entry.version)
 }
@@ -218,8 +234,8 @@ export function pickMainChannelRelease(raw: unknown): ParsedRelease {
   return pickHighest(raw, offeredOnMain)
 }
 
-export function pickBetaRelease(raw: unknown): ParsedRelease {
-  return pickHighest(raw, offeredOnBeta)
+export function pickBetaRelease(raw: unknown, asset: AssetName = dmgAssetName): ParsedRelease {
+  return pickHighest(raw, (entry) => offeredOnBeta(entry, asset))
 }
 
 export function parseUpdateChannel(raw: unknown): UpdateChannel {

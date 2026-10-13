@@ -12,7 +12,12 @@ import {
   type ReplaceState,
   UPDATE_DOWNLOAD_HOSTS,
 } from '../../shared/app/installMethod'
-import { RELEASE_REPOSITORY, type ReleaseInfo, parseVersion } from '../../shared/app/releases'
+import {
+  RELEASE_REPOSITORY,
+  type ReleaseInfo,
+  parseVersion,
+  tarballAssetName,
+} from '../../shared/app/releases'
 import { type EnvSource, readEnv } from '../../shared/appEnv'
 import { PRODUCT_NAME } from '../../shared/product'
 import {
@@ -55,7 +60,7 @@ const newPath = (appDir: string): string => `${appDir}.new`
 const oldPath = (appDir: string): string => `${appDir}.old`
 
 export function archiveName(version: string): string {
-  return `${PRODUCT_NAME}-${version}-linux-x64.tar.gz`
+  return tarballAssetName(version)
 }
 
 export function releaseDownloadBase(isPackaged: boolean, env: EnvSource): string {

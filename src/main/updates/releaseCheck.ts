@@ -7,10 +7,12 @@ import {
   type ReplaceProgress,
   type ReplaceState,
   type UpdateRunState,
+  isMacInstall,
   updateChannelFor,
   updateCommandLine,
 } from '../../shared/app/installMethod'
 import {
+  type AssetName,
   type ParsedRelease,
   RELEASE_API_BASE_URL,
   RELEASE_REPOSITORY,
@@ -18,12 +20,14 @@ import {
   type ReleaseCheckResult,
   type ReleaseInfo,
   type UpdateChannel,
+  dmgAssetName,
   isNewerVersion,
   parseLatestRelease,
   parseUpdateChannel,
   parseVersion,
   pickBetaRelease,
   pickMainChannelRelease,
+  tarballAssetName,
 } from '../../shared/app/releases'
 import { readEnv } from '../../shared/appEnv'
 import { PRODUCT_NAME } from '../../shared/product'
@@ -114,13 +118,16 @@ function readRelease(text: string | null, parse: (raw: unknown) => ParsedRelease
   return parsed.reason === 'not-stable' ? { kind: 'none' } : { kind: 'error', error: 'unavailable' }
 }
 
-function releaseQuery(channel: UpdateChannel): {
+function releaseQuery(
+  channel: UpdateChannel,
+  betaAsset: AssetName,
+): {
   path: string
   parse: (raw: unknown) => ParsedRelease
 } {
   const list = `releases?per_page=${RELEASE_LIST_PAGE_SIZE}`
   if (channel === 'main') return { path: list, parse: pickMainChannelRelease }
-  if (channel === 'beta') return { path: list, parse: pickBetaRelease }
+  if (channel === 'beta') return { path: list, parse: (raw) => pickBetaRelease(raw, betaAsset) }
   return { path: 'releases/latest', parse: parseLatestRelease }
 }
 
@@ -128,10 +135,11 @@ export async function fetchLatestRelease(opts: {
   baseUrl: string
   userAgent: string
   channel: UpdateChannel
+  betaAsset?: AssetName
   timeoutMs?: number
 }): Promise<LatestRelease> {
   const { owner, name } = RELEASE_REPOSITORY
-  const query = releaseQuery(opts.channel)
+  const query = releaseQuery(opts.channel, opts.betaAsset ?? dmgAssetName)
   try {
     const response = await fetch(`${opts.baseUrl}/repos/${owner}/${name}/${query.path}`, {
       headers: { 'User-Agent': opts.userAgent, Accept: 'application/vnd.github+json' },
@@ -299,6 +307,7 @@ export function registerReleaseCheck(deps: {
         baseUrl: endpoint.baseUrl,
         userAgent: releaseUserAgent(currentVersion),
         channel,
+        betaAsset: isMacInstall(deps.method()) ? dmgAssetName : tarballAssetName,
       }),
     now: Date.now,
     enabled: () => readCheckForUpdates(deps.readSettings()),

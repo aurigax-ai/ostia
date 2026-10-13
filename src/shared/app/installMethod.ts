@@ -24,7 +24,7 @@ export function isMacInstall(method: InstallMethod): boolean {
 
 export function offeredChannels(method: InstallMethod): readonly UpdateChannel[] {
   if (isMacInstall(method)) return ['stable', 'beta']
-  if (method === 'local' || method === 'tarball') return ['stable', 'main']
+  if (method === 'local' || method === 'tarball') return ['stable', 'beta', 'main']
   return [DEFAULT_UPDATE_CHANNEL]
 }
 
