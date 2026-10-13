@@ -38,6 +38,19 @@ describe('openLink', () => {
     ])
   })
 
+  it('opens the raw, encoded and bare obsidian forms, each encoded once', async () => {
+    openExternal.mockClear()
+    const encoded =
+      'obsidian://advanced-uri?vault=Interdisciplinary%20Nexus&filepath=05%20Projects/%E4%B8%AD.md'
+    for (const raw of [
+      'obsidian://advanced-uri?vault=Interdisciplinary Nexus&filepath=05 Projects/中.md',
+      encoded,
+    ]) {
+      expect(await openLink(fromApp, raw)).toBe(true)
+    }
+    expect(openExternal.mock.calls.map(([url]) => url)).toEqual([encoded, encoded])
+  })
+
   it('refuses scripts, files, data, unknown schemes and non-strings', async () => {
     openExternal.mockClear()
     for (const raw of [

@@ -1,5 +1,6 @@
 import { type ILink, type ILinkProvider, Terminal } from '@xterm/xterm'
 import { describe, expect, it, vi } from 'vitest'
+import { terminalLinkTarget } from './linkModifier'
 import type { OstiaTerminal } from './ostiaTerminal'
 import { createAppLinkProvider, xtermLinkHandler } from './terminalAppLinks'
 
@@ -68,5 +69,67 @@ describe('xtermLinkHandler', () => {
     link.activate(click, link.text)
     expect(links.activate).toHaveBeenCalledWith(click, VAULT, link.range)
     term.dispose()
+  })
+})
+
+describe('the four link forms Claude Code prints', () => {
+  const A = VAULT
+  const B =
+    'obsidian://advanced-uri?vault=Interdisciplinary%20Nexus&filepath=05%20Projects/%E4%B8%AD.md'
+  const C = 'obsidian://advanced-uri?vault=Interdisciplinary%20Nexus&filepath=a.md'
+  const D = 'https://gitlab.fism.app'
+  const osc8 = (target: string, text: string) =>
+    `\x1b]8;id=${text};${target}\x07${text}\x1b]8;;\x07`
+
+  async function screen(lines: string[], raw: boolean) {
+    const term = new Terminal({ cols: 200, rows: 8, allowProposedApi: true })
+    if (!raw) term.options.linkHandler = xtermLinkHandler(handler())
+    await write(term, lines.join('\r\n'))
+    const core = (
+      term as unknown as { _core: { _linkProviderService: { linkProviders: ILinkProvider[] } } }
+    )._core
+    const osc = core._linkProviderService.linkProviders[0]
+    const app = createAppLinkProvider(term as unknown as OstiaTerminal, handler())
+    const rows = await Promise.all(
+      lines.map(async (_, i) => [...(await provide(osc, i + 1)), ...(await provide(app, i + 1))]),
+    )
+    term.dispose()
+    return rows.map((links) => links.map((l) => l.text))
+  }
+
+  const rendered = [osc8(A, 'A'), osc8(B, 'B'), C, osc8(D, 'GitLab')]
+  const click = { ctrlKey: false, metaKey: false, shiftKey: false, detail: 1 }
+  const ctx = { mac: true, hasSelection: false, mouseReporting: false }
+
+  it('shows every form as a link, the way Claude Code renders them', async () => {
+    expect(await screen(rendered, false)).toEqual([[A], [B], [C], [D]])
+  })
+
+  it('shows only the web link before the change, as reported', async () => {
+    const term = new Terminal({ cols: 200, rows: 8, allowProposedApi: true })
+    term.options.linkHandler = handler()
+    await write(term, rendered.join('\r\n'))
+    const core = (
+      term as unknown as { _core: { _linkProviderService: { linkProviders: ILinkProvider[] } } }
+    )._core
+    const found = await Promise.all(
+      [1, 2, 3, 4].map((row) => provide(core._linkProviderService.linkProviders[0], row)),
+    )
+    expect(found.map((links) => links.map((l) => l.text))).toEqual([[], [], [], [D]])
+    term.dispose()
+  })
+
+  it('shows the raw markdown forms as links when a program prints them unrendered', async () => {
+    const raw = [`[A](<${A}>)`, `[B](${B})`, C, `[GitLab](${D})`]
+    expect(await screen(raw, false)).toEqual([[A], [B], [C], []])
+  })
+
+  it('opens A, B and C in their app and D in the browser on a plain click', () => {
+    expect([A, B, C, D].map((uri) => terminalLinkTarget(uri, click, ctx))).toEqual([
+      'app',
+      'app',
+      'app',
+      'same-tab',
+    ])
   })
 })
