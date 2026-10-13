@@ -12,7 +12,7 @@ import {
   type ReplaceState,
   UPDATE_DOWNLOAD_HOSTS,
 } from '../../shared/app/installMethod'
-import { RELEASE_REPOSITORY, parseVersion } from '../../shared/app/releases'
+import { RELEASE_REPOSITORY, type ReleaseInfo, parseVersion } from '../../shared/app/releases'
 import { type EnvSource, readEnv } from '../../shared/appEnv'
 import { PRODUCT_NAME } from '../../shared/product'
 import {
@@ -24,14 +24,15 @@ import {
   followAllowed,
   isAllowedHop,
 } from '../platform/checkedDownload'
+import { bundleFs } from './bundleFs'
 
-const UPDATE_ARCHIVE_MAX_BYTES = 1024 * 1024 * 1024
-const CHECKSUMS_MAX_BYTES = 64 * 1024
+export const UPDATE_ARCHIVE_MAX_BYTES = 1024 * 1024 * 1024
+export const CHECKSUMS_MAX_BYTES = 64 * 1024
 const UPDATE_DOWNLOAD_TIMEOUT_MS = 30 * 60_000
 const EXTRACT_TIMEOUT_MS = 10 * 60_000
 const RELEASE_DOWNLOAD_BASE_URL = 'https://github.com'
 const RELEASE_DOWNLOAD_BASE_URL_ENV = 'RELEASE_DOWNLOAD_BASE_URL'
-const CHECKSUMS_FILE = 'SHA256SUMS'
+export const CHECKSUMS_FILE = 'SHA256SUMS'
 const PROGRESS_STEP_BYTES = 1024 * 1024
 const SYSTEM_PARENTS = ['/opt', '/usr'] as const
 
@@ -192,7 +193,7 @@ async function checkExtracted(dir: string, version: string): Promise<void> {
   if (!info || releaseVersion(info.version) !== version) throw new ReplaceError('wrong-version')
 }
 
-function replaceFailure(err: unknown): ReplaceError {
+export function replaceFailure(err: unknown): ReplaceError {
   if (err instanceof ReplaceError) return err
   if (!(err instanceof DownloadError)) return new ReplaceError('offline')
   return new ReplaceError(err.reason === 'host-not-allowed' ? 'redirect-refused' : err.reason)
@@ -213,7 +214,7 @@ function releaseRequest(
   }
 }
 
-async function fetchText(
+export async function fetchText(
   fetchImpl: Fetch,
   url: URL,
   base: string,
@@ -235,7 +236,7 @@ async function fetchText(
   return Buffer.concat(chunks).toString('utf8')
 }
 
-async function downloadTo(opts: {
+export async function downloadTo(opts: {
   fetch: Fetch
   url: URL
   base: string
@@ -344,20 +345,44 @@ export async function sweepOldInstall(
 ): Promise<boolean> {
   if (!pending || !appDir || pending.appDir !== appDir) return false
   if (releaseVersion(runningVersion) !== pending.version) return false
-  await rm(oldPath(appDir), { recursive: true, force: true })
+  await bundleFs.promises.rm(oldPath(appDir), { recursive: true, force: true })
   return true
 }
 
+export interface ReplaceJob {
+  appDir: string
+  release: ReleaseInfo
+  signal: AbortSignal
+  onProgress: (progress: ReplaceProgress) => void
+  onInstalling: () => void
+}
+
 export interface InstallReplacer {
-  start: (version: string) => Promise<ReplaceStart>
+  start: (release: ReleaseInfo) => Promise<ReplaceStart>
   state: () => ReplaceState
+}
+
+export function tarballReplace(deps: {
+  base: string
+  fetch: Fetch
+  tar: RunTar
+}): (job: ReplaceJob) => Promise<void> {
+  return (job) =>
+    replaceInstall({
+      appDir: job.appDir,
+      version: job.release.version,
+      base: deps.base,
+      fetch: deps.fetch,
+      tar: deps.tar,
+      signal: job.signal,
+      onProgress: job.onProgress,
+      onInstalling: job.onInstalling,
+    })
 }
 
 export function createInstallReplacer(deps: {
   appDir: () => string | null
-  base: string
-  fetch: Fetch
-  tar: RunTar
+  replace: (job: ReplaceJob) => Promise<void>
   onState: (state: ReplaceState) => void
   onProgress: (progress: ReplaceProgress) => void
   onReplaced: (pending: PendingSweep) => void
@@ -369,31 +394,31 @@ export function createInstallReplacer(deps: {
   }
   return {
     state: () => state,
-    start: async (version) => {
+    start: async (release) => {
       const appDir = deps.appDir()
       if (!appDir) return 'no-action'
       if (state.status === 'downloading' || state.status === 'installing') return 'busy'
+      const { version } = release
       set({ status: 'downloading' })
-      void replaceInstall({
-        appDir,
-        version,
-        base: deps.base,
-        fetch: deps.fetch,
-        tar: deps.tar,
-        signal: AbortSignal.timeout(UPDATE_DOWNLOAD_TIMEOUT_MS),
-        onProgress: deps.onProgress,
-        onInstalling: () => set({ status: 'installing' }),
-      }).then(
-        () => {
-          deps.onReplaced({ appDir, version })
-          set({ status: 'done', version })
-        },
-        (err: unknown) =>
-          set({
-            status: 'failed',
-            reason: err instanceof ReplaceError ? err.reason : 'extract-failed',
-          }),
-      )
+      void deps
+        .replace({
+          appDir,
+          release,
+          signal: AbortSignal.timeout(UPDATE_DOWNLOAD_TIMEOUT_MS),
+          onProgress: deps.onProgress,
+          onInstalling: () => set({ status: 'installing' }),
+        })
+        .then(
+          () => {
+            deps.onReplaced({ appDir, version })
+            set({ status: 'done', version })
+          },
+          (err: unknown) =>
+            set({
+              status: 'failed',
+              reason: err instanceof ReplaceError ? err.reason : 'extract-failed',
+            }),
+        )
       return 'started'
     },
   }

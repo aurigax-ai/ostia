@@ -150,4 +150,76 @@ describe('UpdateNotice', () => {
     act(() => useUpdateStore.getState().receiveUpdateRun({ status: 'failed', exitCode: 100 }))
     expect(screen.getByRole('button', { name: 'Update with apt' })).toBeEnabled()
   })
+
+  it('a brew install on Stable updates with Homebrew, and on Beta or a dmg install downloads in the app', async () => {
+    render(<UpdateNotice />)
+    act(() =>
+      useUpdateStore.getState().receiveRelease({
+        ...state(RELEASE, 'brew'),
+        updateCommand: 'brew upgrade --cask ostia',
+      }),
+    )
+    expect(screen.getByRole('button', { name: 'Update with Homebrew' })).toBeTruthy()
+
+    for (const method of ['brew', 'dmg'] as const) {
+      act(() =>
+        useUpdateStore
+          .getState()
+          .receiveRelease({ ...state(RELEASE, method), replace: { ok: true } }),
+      )
+      expect(screen.queryByRole('button', { name: 'Update with Homebrew' })).toBeNull()
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Download and install' }))
+      })
+      expect(window.ostia.update.replaceInstall).toHaveBeenCalled()
+      act(() => useUpdateStore.getState().receiveReplace({ status: 'done', version: '1.1.0' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Restart Ostia' }))
+      expect(window.ostia.update.restart).toHaveBeenCalled()
+      act(() => useUpdateStore.getState().receiveReplace({ status: 'idle' }))
+    }
+  })
+
+  it.each([
+    ['translocated', 'macOS is running Ostia from a temporary copy.'],
+    ['read-only', 'Ostia is running from its disk image.'],
+    ['not-writable', 'You can’t write to the app folder'],
+    ['symlink', 'The app folder is a symbolic link'],
+  ] as const)(
+    'a dmg install that cannot be replaced (%s) opens the release page and says why',
+    async (reason, text) => {
+      render(<UpdateCheck />)
+      await act(async () =>
+        useUpdateStore.getState().receiveRelease({
+          ...state(RELEASE, 'dmg'),
+          replace: { ok: false, reason },
+        }),
+      )
+      expect(screen.getByText(new RegExp(`^${text}`))).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Download and install' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Update with Homebrew' })).toBeNull()
+      expect(screen.getByRole('button', { name: 'View release' })).toBeTruthy()
+    },
+  )
+
+  it('names each macOS verification failure and offers the download again', async () => {
+    render(<UpdateCheck />)
+    await act(async () =>
+      useUpdateStore.getState().receiveRelease({ ...state(RELEASE, 'dmg'), replace: { ok: true } }),
+    )
+    const reasons = {
+      'mount-failed': 'Couldn’t open the downloaded disk image. Nothing was changed.',
+      'bad-signature': 'The downloaded app’s signature is broken. Nothing was changed.',
+      'wrong-team': 'The downloaded app isn’t signed as Ostia. Nothing was changed.',
+      'not-notarized': 'macOS didn’t accept the downloaded app as notarized. Nothing was changed.',
+    } as const
+    for (const [reason, text] of Object.entries(reasons)) {
+      act(() =>
+        useUpdateStore
+          .getState()
+          .receiveReplace({ status: 'failed', reason: reason as keyof typeof reasons }),
+      )
+      expect(screen.getByText(text)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Download and install' })).toBeEnabled()
+    }
+  })
 })

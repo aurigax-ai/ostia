@@ -31,6 +31,7 @@ import {
   runTar,
   swapInstall,
   sweepOldInstall,
+  tarballReplace,
 } from './installReplace'
 
 const VERSION = '9.9.9'
@@ -444,16 +445,14 @@ describe('createInstallReplacer', () => {
     const replaced: unknown[] = []
     const replacer = createInstallReplacer({
       appDir: () => appDir,
-      base: server.url,
-      fetch,
-      tar: runTar,
+      replace: tarballReplace({ base: server.url, fetch, tar: runTar }),
       onState: (s) => states.push(s.status),
       onProgress: () => {},
       onReplaced: (p) => replaced.push(p),
     })
     try {
-      expect(await replacer.start(VERSION)).toBe('started')
-      expect(await replacer.start(VERSION)).toBe('busy')
+      expect(await replacer.start({ version: VERSION, url: '' })).toBe('started')
+      expect(await replacer.start({ version: VERSION, url: '' })).toBe('busy')
       await expect.poll(() => replacer.state().status, { timeout: 20_000 }).toBe('done')
     } finally {
       await server.close()
@@ -465,13 +464,11 @@ describe('createInstallReplacer', () => {
   it('does nothing without a replaceable app folder', async () => {
     const replacer = createInstallReplacer({
       appDir: () => null,
-      base: 'https://github.com',
-      fetch,
-      tar: runTar,
+      replace: tarballReplace({ base: 'https://github.com', fetch, tar: runTar }),
       onState: () => {},
       onProgress: () => {},
       onReplaced: () => {},
     })
-    expect(await replacer.start(VERSION)).toBe('no-action')
+    expect(await replacer.start({ version: VERSION, url: '' })).toBe('no-action')
   })
 })

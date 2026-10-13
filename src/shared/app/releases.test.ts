@@ -7,6 +7,7 @@ import {
   parseLatestRelease,
   parseUpdateChannel,
   parseVersion,
+  pickBetaRelease,
   pickMainChannelRelease,
 } from './releases'
 
@@ -226,10 +227,69 @@ describe('pickMainChannelRelease', () => {
   })
 })
 
+const SHA = 'ab'.repeat(32)
+
+const withDmg = (tag: string, digest: unknown = `sha256:${SHA}`) => ({
+  ...release(tag),
+  assets: [
+    { name: `ostia-${tag.slice(1)}-linux-x64.tar.gz`, digest: `sha256:${'cd'.repeat(32)}` },
+    { name: `ostia-${tag.slice(1)}-arm64.dmg`, digest },
+  ],
+})
+
+describe('pickBetaRelease', () => {
+  it('picks the highest release candidate or stable release that ships a dmg, with its digest', () => {
+    const list = [withDmg('v0.5.12'), withDmg('v0.5.13-rc.2'), withDmg('v0.5.13-rc.1')]
+    expect(pickBetaRelease(list)).toEqual({
+      ok: true,
+      release: { version: '0.5.13-rc.2', url: page('v0.5.13-rc.2'), dmgSha256: SHA },
+    })
+    expect(pickBetaRelease([...list, withDmg('v0.5.13')])).toMatchObject({
+      release: { version: '0.5.13' },
+    })
+  })
+
+  it('skips main builds, drafts, other prereleases, build metadata and unflagged rc tags', () => {
+    const list = [
+      withDmg('v0.6.0-main.4'),
+      { ...withDmg('v0.6.0-rc.1'), draft: true },
+      withDmg('v0.6.0-beta.1'),
+      withDmg('v0.6.0-rc.2+sha.1a2b3c'),
+      { ...withDmg('v0.6.0-rc.3'), prerelease: false },
+      withDmg('v0.5.12-rc.1'),
+    ]
+    expect(pickBetaRelease(list)).toMatchObject({ release: { version: '0.5.12-rc.1' } })
+  })
+
+  it('skips a release without the dmg and keeps one whose digest is missing without a digest', () => {
+    const list = [release('v0.6.0-rc.1'), withDmg('v0.5.13-rc.1', 'md5:abc')]
+    expect(pickBetaRelease(list)).toEqual({
+      ok: true,
+      release: { version: '0.5.13-rc.1', url: page('v0.5.13-rc.1') },
+    })
+    expect(pickBetaRelease([release('v0.6.0-rc.1')])).toEqual({ ok: false, reason: 'not-stable' })
+    expect(pickBetaRelease(withDmg('v0.6.0-rc.1'))).toEqual({ ok: false, reason: 'malformed' })
+  })
+
+  it('matches the dmg of the same version only', () => {
+    const other = { ...release('v0.6.0-rc.1'), assets: [{ name: 'ostia-0.5.0-arm64.dmg' }] }
+    expect(pickBetaRelease([other])).toEqual({ ok: false, reason: 'not-stable' })
+  })
+})
+
+describe('parseLatestRelease with a dmg', () => {
+  it('carries the dmg digest of the stable release', () => {
+    expect(parseLatestRelease(withDmg('v1.4.0'))).toMatchObject({
+      release: { version: '1.4.0', dmgSha256: SHA },
+    })
+  })
+})
+
 describe('parseUpdateChannel', () => {
-  it('is main only when set to exactly main, else stable', () => {
+  it('is main or beta only when set to exactly that, else stable', () => {
     expect(parseUpdateChannel('main')).toBe('main')
-    for (const raw of ['stable', 'Main', 'nightly', undefined, null, 1]) {
+    expect(parseUpdateChannel('beta')).toBe('beta')
+    for (const raw of ['stable', 'Main', 'Beta', 'nightly', undefined, null, 1]) {
       expect(parseUpdateChannel(raw)).toBe('stable')
     }
   })
