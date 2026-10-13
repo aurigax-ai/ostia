@@ -30,6 +30,7 @@ import { startUserActions } from '@/lib/palette/userActions'
 import { livePaneIds } from '@/lib/panes/livePanes'
 import { startPaneDragTracking } from '@/lib/panes/paneDrag'
 import { applyStoredPanelWidths } from '@/lib/panes/panelWidth'
+import { startKeptReattach } from '@/lib/terminal/keptReattach'
 import { loadLocalHostName } from '@/lib/terminal/osc7'
 import { applyUiFonts, preloadFonts } from '@/lib/theme/uiFonts'
 import { initWindow, startWindowSync } from '@/lib/workspaces/windowHandoff'
@@ -141,6 +142,7 @@ async function boot(): Promise<void> {
   startPaneRecencySync()
   startPaneRenameSync()
   startHibernation()
+  startKeptReattach()
   startAutoResume()
   startActivationResume()
   startAgentDetection()

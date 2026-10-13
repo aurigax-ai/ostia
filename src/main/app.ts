@@ -2641,6 +2641,8 @@ function registerPtyIpc(): void {
       ...(sandbox?.stamp ? { sandboxStamp: sandbox.stamp } : {}),
       kept: true,
       reattached: true,
+      cols: pane.cols,
+      rows: pane.rows,
     }
   }
 
@@ -2659,6 +2661,11 @@ function registerPtyIpc(): void {
     const busy = backgroundWork(agentWork.reason(paneId), await readProcessTable(), entry.pty.pid)
     if (busy) return busy
     return ptys.get(paneId) === entry && hibernatePty(paneId) ? 'hibernated' : 'no-terminal'
+  })
+
+  ipcMain.handle('pty:kept-waiting', async (): Promise<string[]> => {
+    await keptShells.ready
+    return keptShells.waitingPaneIds()
   })
 
   ipcMain.handle('pty:stashed', (e, paneId: string): string | null =>
