@@ -1,6 +1,7 @@
 import { statSync } from 'node:fs'
 import { extname } from 'node:path'
-import { ipcMain, shell } from 'electron'
+import { type IpcMainInvokeEvent, ipcMain, shell } from 'electron'
+import { externalHref } from '../../shared/links/externalLinks'
 import type { OpenPathResult } from '../../shared/types'
 import { resolveSafe } from '../platform/pathGuard'
 
@@ -41,6 +42,19 @@ function locate(
   }
 }
 
+export async function openLink(e: IpcMainInvokeEvent, raw: unknown): Promise<boolean> {
+  if (!e.senderFrame || e.senderFrame !== e.sender.mainFrame || typeof raw !== 'string')
+    return false
+  const href = externalHref(raw, { apps: true })
+  if (!href) return false
+  try {
+    await shell.openExternal(href)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function registerOpenPathIpc(roots: string[]): void {
   ipcMain.handle('shell:open-default', async (_e, raw: unknown): Promise<OpenPathResult> => {
     const found = locate(raw, roots)
@@ -49,6 +63,7 @@ export function registerOpenPathIpc(roots: string[]): void {
     const error = await shell.openPath(found.path)
     return error ? { ok: false, error: 'failed' } : { ok: true }
   })
+  ipcMain.handle('shell:open-link', openLink)
   ipcMain.handle('shell:reveal', (_e, raw: unknown): OpenPathResult => {
     const found = locate(raw, roots)
     if (!found) return { ok: false, error: 'not-found' }

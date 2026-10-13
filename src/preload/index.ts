@@ -573,6 +573,7 @@ const bridge: OstiaBridge = {
     openDefault: (path) =>
       ipcRenderer.invoke('shell:open-default', path) as Promise<OpenPathResult>,
     reveal: (path) => ipcRenderer.invoke('shell:reveal', path) as Promise<OpenPathResult>,
+    openLink: (url) => ipcRenderer.invoke('shell:open-link', url) as Promise<boolean>,
     project: (dir, exact) =>
       ipcRenderer.invoke('workspace:project', dir, exact) as Promise<WorkspaceProject | null>,
   },
