@@ -42,6 +42,7 @@ import { parseChatToolSettings } from '../shared/assist/chatTools'
 import { parseGitSettings } from '../shared/boards/git'
 import { parsePortsSettings } from '../shared/boards/ports'
 import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browser/browserProfile'
+import { PASSKEY_GUARD_JS } from '../shared/browser/passkeyGuard'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import { languageForPath } from '../shared/editorLanguages'
 import type {
@@ -145,6 +146,7 @@ import {
   OSTIA_ERROR_PREFIX,
   PAGE_ERROR_CATCHER_JS,
   clearGuestBrowseState,
+  injectPageScripts,
   ownedGuest,
   pushConsoleEntry,
   registerBrowseMethods,
@@ -1599,14 +1601,7 @@ function instrumentBrowserGuest(gc: Electron.WebContents): void {
   if (!gc.debugger.isAttached()) {
     try {
       gc.debugger.attach('1.3')
-      gc.debugger
-        .sendCommand('Page.enable')
-        .then(() =>
-          gc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
-            source: PAGE_ERROR_CATCHER_JS,
-          }),
-        )
-        .catch(() => {})
+      injectPageScripts(gc, [PAGE_ERROR_CATCHER_JS, PASSKEY_GUARD_JS])
     } catch {}
   }
   watchGuestNetwork(gc)

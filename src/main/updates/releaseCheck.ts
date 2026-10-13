@@ -32,8 +32,9 @@ import type { InstallReplacer } from './installReplace'
 import type { UpdateRunner } from './updateRun'
 
 export const RELEASE_CHECK_STARTUP_DELAY_MS = 5_000
-export const RELEASE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000
+export const RELEASE_CHECK_INTERVAL_MS = 60 * 60 * 1000
 export const RELEASE_CHECK_RETRY_MS = 60 * 60 * 1000
+export const RELEASE_CHECK_TICK_MS = 60 * 1000
 export const RELEASE_REQUEST_TIMEOUT_MS = 10_000
 export const RELEASE_RESPONSE_MAX_BYTES = 1024 * 1024
 export const RELEASE_API_URL_ENV = 'RELEASE_API_URL'
@@ -216,7 +217,7 @@ export function createReleaseChecker(deps: {
   }
 
   const tick = async (): Promise<void> => {
-    if (deps.enabled() && deps.now() >= nextAutoAt) await check('auto')
+    if (deps.now() >= nextAutoAt && deps.enabled()) await check('auto')
   }
 
   return {
@@ -316,7 +317,7 @@ export function registerReleaseCheck(deps: {
   })
   if (endpoint.automatic) {
     setTimeout(() => void checker.tick(), RELEASE_CHECK_STARTUP_DELAY_MS).unref()
-    setInterval(() => void checker.tick(), RELEASE_CHECK_RETRY_MS).unref()
+    setInterval(() => void checker.tick(), RELEASE_CHECK_TICK_MS).unref()
   }
   ipcMain.handle('app:release-state', () => stateOf(checker.pending()))
   ipcMain.handle('app:install-replace', () => {

@@ -303,7 +303,7 @@ export const SETTINGS_JSON_SCHEMA = {
         checkForUpdates: {
           type: 'boolean',
           description:
-            'Ask GitHub once after launch and then once a day whether a newer release exists, ' +
+            'Ask GitHub once after launch and then once an hour whether a newer release exists, ' +
             'and show a notice when one does. Nothing is downloaded or installed. Only you can ' +
             'change this, in Settings → About. Default: true.',
         },
