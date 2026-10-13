@@ -291,6 +291,20 @@ export function parseGroupColorArgs(argv: string[]): { group: string; color: str
   return { group, color }
 }
 
+export function parseGroupRenameArgs(argv: string[]): { group: string; name: string } {
+  const usage = 'usage: ostia workspace group-rename <group> <name>'
+  const { positional } = parseArgs(argv, { unknown: 'keep' })
+  const [group, name, ...extra] = positional.map((word) => word.trim())
+  if (!group || !name || extra.length > 0) throw new Error(usage)
+  return { group, name }
+}
+
+export function parseGroupDeleteArgs(argv: string[]): { group: string } {
+  const [group, ...extra] = argv.map((word) => word.trim())
+  if (!group || extra.length > 0) throw new Error('usage: ostia workspace group-delete <group>')
+  return { group }
+}
+
 export async function runPaneVerb(
   conn: MessageConnection,
   argv: string[],

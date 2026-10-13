@@ -243,6 +243,14 @@ function groupWorkspaceIds(workspaceId: string | null): string[] {
   return groupMates(useWorkspacesStore.getState().workspaces, workspaceId).map((w) => w.id)
 }
 
+function namedGroup(raw: unknown) {
+  const name = normalizeGroupName(raw)
+  const found = useWorkspacesStore.getState().groups.filter((g) => g.name === name)
+  if (found.length === 0) throw new Error(`no group named '${String(raw)}'`)
+  if (found.length > 1) throw new Error(`ambiguous: ${found.length} groups are named '${name}'`)
+  return found[0]
+}
+
 function workspaceWithoutPanes(ctx: CommandContext, paneId?: string): string | null {
   const workspaceId = ctx.activeWorkspaceId
   if (!workspaceId || paneId || ctx.activePaneId) return null
@@ -871,6 +879,35 @@ export function registerBuiltinCommands(): void {
     },
   })
 
+  registerCore<{ group: string; name: string }>({
+    id: 'workspace.groupRename',
+    category: 'workspace',
+    hidden: true,
+    capabilities: ['drive-self'],
+    target: 'none',
+    run: (args) => {
+      const name = normalizeGroupName(args?.name)
+      if (!name) throw new Error('missing group name')
+      const store = useWorkspacesStore.getState()
+      const group = namedGroup(args?.group)
+      if (group.name !== name && store.groups.some((g) => g.name === name)) {
+        throw new Error(`a group named '${name}' already exists`)
+      }
+      store.renameGroup(group.id, name)
+    },
+  })
+
+  registerCore<{ group: string }>({
+    id: 'workspace.groupDelete',
+    category: 'workspace',
+    hidden: true,
+    capabilities: ['drive-self'],
+    target: 'none',
+    run: (args) => {
+      useWorkspacesStore.getState().deleteGroup(namedGroup(args?.group).id)
+    },
+  })
+
   registerCore({
     id: 'workspace.toggleGroup',
     category: 'workspace',
@@ -935,6 +972,24 @@ export function registerBuiltinCommands(): void {
       if (current) store.setPinned(current.id, !current.pinned)
     },
   })
+
+  for (const [id, pinned] of [
+    ['workspace.pin', true],
+    ['workspace.unpin', false],
+  ] as const) {
+    registerCore({
+      id,
+      category: 'workspace',
+      hidden: true,
+      capabilities: ['drive-self'],
+      run: (_args, ctx) => {
+        const store = useWorkspacesStore.getState()
+        const current = store.workspaces.find((w) => w.id === ctx.activeWorkspaceId)
+        if (!current) throw new Error('no target workspace')
+        if (Boolean(current.pinned) !== pinned) store.setPinned(current.id, pinned)
+      },
+    })
+  }
 
   registerCore({
     id: 'workspace.markRead',

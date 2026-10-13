@@ -282,6 +282,7 @@ export interface PtyApi {
   detach: (paneId: string) => void
   hibernate: (paneId: string) => Promise<HibernateOutcome>
   stashed: (paneId: string) => Promise<string | null>
+  keptWaiting: () => Promise<string[]>
   restart: (paneId: string) => Promise<boolean>
   reportAgentRunning: (paneId: string, running: boolean) => void
   reportWaking: (paneId: string, waking: boolean) => void

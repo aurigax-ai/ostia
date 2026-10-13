@@ -309,6 +309,10 @@ describe('script tokens on command.exec', () => {
     descriptor('workspace.ungroup', ['drive-self']),
     descriptor('workspace.describe', ['drive-self']),
     descriptor('workspace.groupColor', ['drive-self'], 'none'),
+    descriptor('workspace.groupRename', ['drive-self'], 'none'),
+    descriptor('workspace.groupDelete', ['drive-self'], 'none'),
+    descriptor('workspace.pin', ['drive-self']),
+    descriptor('workspace.unpin', ['drive-self']),
     descriptor('workspace.newScratch', DEFAULT_CAPABILITIES, 'none'),
     descriptor('workspace.hibernateAgents', ['kill-pane']),
     descriptor('workspace.hibernateGroupAgents', ['kill-pane']),
@@ -436,6 +440,8 @@ describe('script tokens on command.exec', () => {
     ['workspace.group', { name: 'AurigaX' }],
     ['workspace.ungroup', undefined],
     ['workspace.describe', { text: 'tracker#24' }],
+    ['workspace.pin', undefined],
+    ['workspace.unpin', undefined],
   ])('runs %s on the workspace it names, with all-workspaces', async (id, args) => {
     const conn = await client(createScriptToken(storeFile, 'ceo', ['all-workspaces']).token)
     await expect(conn.sendRequest('command.exec', { id, args, target: WS2 })).resolves.toEqual({
@@ -448,6 +454,8 @@ describe('script tokens on command.exec', () => {
 
   it.each([
     ['workspace.groupColor', { group: 'AurigaX', color: 'blue' }],
+    ['workspace.groupRename', { group: 'AurigaX', name: 'Auriga' }],
+    ['workspace.groupDelete', { group: 'AurigaX' }],
     ['workspace.newScratch', undefined],
   ])('runs %s, which needs no workspace, in the primary window', async (id, args) => {
     const conn = await client(createScriptToken(storeFile, 'ceo', ['all-workspaces']).token)
@@ -672,6 +680,10 @@ describe('scoped script tokens', () => {
     descriptor('workspace.describe', ['drive-self']),
     descriptor('workspace.group', ['drive-self']),
     descriptor('workspace.groupColor', ['drive-self'], 'none'),
+    descriptor('workspace.groupRename', ['drive-self'], 'none'),
+    descriptor('workspace.groupDelete', ['drive-self'], 'none'),
+    descriptor('workspace.pin', ['drive-self']),
+    descriptor('workspace.unpin', ['drive-self']),
     descriptor('workspace.newScratch', DEFAULT_CAPABILITIES, 'none'),
     descriptor('workspace.hibernateAgents', ['kill-pane']),
     descriptor('workspace.hibernateGroupAgents', ['kill-pane']),
@@ -852,6 +864,15 @@ describe('scoped script tokens', () => {
       id: 'workspace.groupColor',
       args: { group: 'Work', color: 'blue' },
     })
+    await group.sendRequest('command.exec', {
+      id: 'workspace.groupRename',
+      args: { group: 'Work', name: 'Job' },
+    })
+    await group.sendRequest('command.exec', {
+      id: 'workspace.groupDelete',
+      args: { group: 'Work' },
+    })
+    await group.sendRequest('command.exec', { id: 'workspace.pin', target: on('wsA') })
     await expect(
       group.sendRequest('command.exec', {
         id: 'workspace.groupColor',
@@ -861,11 +882,16 @@ describe('scoped script tokens', () => {
     expect(executed.map((e) => e.id)).toEqual([
       'workspace.hibernateGroupAgents',
       'workspace.groupColor',
+      'workspace.groupRename',
+      'workspace.groupDelete',
+      'workspace.pin',
     ])
   })
 
   it.each<[string, Record<string, unknown>, boolean]>([
     ['workspace.groupColor', { group: 'Other', color: 'blue' }, false],
+    ['workspace.groupRename', { group: 'Other', name: 'x' }, false],
+    ['workspace.groupDelete', { group: 'Other' }, false],
     ['workspace.new', { group: 'Work' }, false],
     ['workspace.new', { group: 'Other' }, true],
     ['workspace.newScratch', {}, true],
@@ -882,6 +908,25 @@ describe('scoped script tokens', () => {
       expect(executed).toEqual([])
     },
   )
+
+  it('renames a group only to a name no group outside its scope has', async () => {
+    const { token } = createScriptToken(storeFile, 'work', ['read-board'], {
+      scope: limited([WORK]),
+    })
+    const conn = await client(token)
+    await expect(
+      conn.sendRequest('command.exec', {
+        id: 'workspace.groupRename',
+        args: { group: 'Work', name: 'Other' },
+      }),
+    ).rejects.toThrow('needs-elevation: all-workspaces')
+    expect(executed).toEqual([])
+    await conn.sendRequest('command.exec', {
+      id: 'workspace.groupRename',
+      args: { group: 'Work', name: 'Fresh' },
+    })
+    expect(executed.map((e) => e.id)).toEqual(['workspace.groupRename'])
+  })
 
   it('moves a workspace only into a group of its scope', async () => {
     const { token } = createScriptToken(storeFile, 'work', ['read-board'], {
