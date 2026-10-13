@@ -14,12 +14,14 @@ import { isMac } from '@/platform'
 import { actionsFor } from '@/settings/actions'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import {
   AppWindowIcon,
   ArrowsInIcon,
   ArrowsOutIcon,
   LockSimpleIcon,
   LockSimpleOpenIcon,
+  PencilSimpleIcon,
 } from '@phosphor-icons/react'
 import { isRemotePath } from '@shared/remoteFolders'
 import type { ReactElement } from 'react'
@@ -51,7 +53,10 @@ export function PaneTabMenu({
     const shared = layout.root.type === 'split' || splitTabOfPane(layout.root, pane.id) !== null
     return shared ? 'zoomable' : null
   })
-  if (!file && tabActions.length === 0 && !movable && !lockable && !zoom) return trigger
+  const renamable = workspaceId !== null
+  if (!file && tabActions.length === 0 && !movable && !lockable && !zoom && !renamable) {
+    return trigger
+  }
 
   return (
     <ContextMenu>
@@ -70,8 +75,16 @@ export function PaneTabMenu({
             {action.title}
           </MenuItem>
         ))}
-        {(movable || lockable || zoom) && (file || tabActions.length > 0) ? (
+        {(movable || lockable || zoom || renamable) && (file || tabActions.length > 0) ? (
           <ContextMenuSeparator />
+        ) : null}
+        {renamable ? (
+          <MenuItem
+            icon={PencilSimpleIcon}
+            onClick={() => usePaneRenameStore.getState().begin(pane.id)}
+          >
+            {d.pane.renameTab}
+          </MenuItem>
         ) : null}
         {zoom ? (
           <MenuItem
