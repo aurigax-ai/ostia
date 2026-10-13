@@ -16,6 +16,7 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { withAsar } from './fakeAsar'
 import {
   PROMPT,
   openWorkspace,
@@ -49,36 +50,6 @@ function plist(version: string, identifier: string): string {
     .map(([key, value]) => `<key>${key}</key><string>${value}</string>`)
     .join('')
   return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>${body}</dict></plist>\n`
-}
-
-function asarArchive(files: Record<string, string>): Buffer {
-  const header: { files: Record<string, { size: number; offset: string }> } = { files: {} }
-  const bodies: Buffer[] = []
-  let offset = 0
-  for (const [name, content] of Object.entries(files)) {
-    const body = Buffer.from(content)
-    header.files[name] = { size: body.length, offset: String(offset) }
-    offset += body.length
-    bodies.push(body)
-  }
-  const json = Buffer.from(JSON.stringify(header))
-  const padded = Math.ceil(json.length / 4) * 4
-  const headerPickle = Buffer.alloc(8 + padded)
-  headerPickle.writeUInt32LE(4 + padded, 0)
-  headerPickle.writeUInt32LE(json.length, 4)
-  json.copy(headerPickle, 8)
-  const sizePickle = Buffer.alloc(8)
-  sizePickle.writeUInt32LE(4, 0)
-  sizePickle.writeUInt32LE(headerPickle.length, 4)
-  return Buffer.concat([sizePickle, headerPickle, ...bodies])
-}
-
-function withAsar(resources: string): void {
-  mkdirSync(resources, { recursive: true })
-  writeFileSync(
-    join(resources, 'app.asar'),
-    asarArchive({ 'package.json': '{"name":"ostia"}', 'index.js': 'module.exports = 1\n' }),
-  )
 }
 
 function appBundle(

@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { constants } from 'node:fs'
-import { access, lstat, mkdir, readFile, rename, rm, stat } from 'node:fs/promises'
+import { access, lstat, mkdir, readFile, stat } from 'node:fs/promises'
 import { dirname, resolve, sep } from 'node:path'
 import { type ReadEntry, list as listTar } from 'tar'
 import { parseBuildInfo, releaseVersion } from '../../shared/app/buildInfo'
@@ -279,14 +279,14 @@ export const runTar: RunTar = (args) =>
 
 export async function swapInstall(appDir: string): Promise<void> {
   try {
-    await rename(appDir, oldPath(appDir))
+    await bundleFs.promises.rename(appDir, oldPath(appDir))
   } catch {
     throw new ReplaceError('swap-failed')
   }
   try {
-    await rename(newPath(appDir), appDir)
+    await bundleFs.promises.rename(newPath(appDir), appDir)
   } catch {
-    await rename(oldPath(appDir), appDir).catch(() => {})
+    await bundleFs.promises.rename(oldPath(appDir), appDir).catch(() => {})
     throw new ReplaceError('swap-failed')
   }
 }
@@ -309,7 +309,7 @@ export async function replaceInstall(opts: {
   if (!(await canReplaceInstall(appDir)).ok) throw new ReplaceError('blocked')
   const file = downloadPath(appDir)
   const staged = newPath(appDir)
-  await rm(file, { force: true })
+  await bundleFs.promises.rm(file, { force: true })
   try {
     const sums = await fetchText(opts.fetch, sumsUrl, opts.base, CHECKSUMS_MAX_BYTES, opts.signal)
     const expected = checksumFor(sums, asset)
@@ -331,10 +331,10 @@ export async function replaceInstall(opts: {
     await checkExtracted(staged, version)
     await swapInstall(appDir)
   } catch (err) {
-    await rm(staged, { recursive: true, force: true })
+    await bundleFs.promises.rm(staged, { recursive: true, force: true })
     throw err instanceof ReplaceError ? err : new ReplaceError('extract-failed')
   } finally {
-    await rm(file, { force: true })
+    await bundleFs.promises.rm(file, { force: true })
   }
 }
 
