@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, openWorkspace, quitApp } from './helpers'
+import { PROMPT, addTab, openWorkspace, quitApp } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 interface Launched {
@@ -86,6 +86,42 @@ test(
     }
   },
 )
+
+test('the pane the human last used takes the keyboard after a restart, without a click', async () => {
+  const shownRows = '.pane-slot:not([data-hidden]) .xterm-rows'
+  const first = await launchApp(dataHome)
+  try {
+    await openWorkspace(first.win)
+    await addTab(first.win)
+    await expect(first.win.getByRole('tablist').getByRole('tab')).toHaveCount(2, {
+      timeout: 15_000,
+    })
+    await expect(first.win.locator(shownRows)).toContainText(PROMPT, { timeout: 15_000 })
+    await first.win.locator('.pane-slot:not([data-hidden]) .xterm').click()
+    await waitForTerminalFocus(first.win)
+  } finally {
+    await quitApp(first.app)
+  }
+
+  const second = await launchApp(dataHome)
+  try {
+    await expect(second.win.getByRole('tablist').getByRole('tab')).toHaveCount(2, {
+      timeout: 15_000,
+    })
+    await expect(second.win.locator(shownRows)).toHaveCount(1)
+    await expect(second.win.locator(shownRows)).toContainText(PROMPT, { timeout: 15_000 })
+    await second.win.keyboard.type('echo $((6*7))_typed')
+    await second.win.keyboard.press('Enter')
+    await expect(second.win.locator(shownRows)).toContainText('42_typed', { timeout: 15_000 })
+    expect(
+      await second.win.evaluate(() =>
+        Boolean(document.activeElement?.closest('.pane-slot:not([data-hidden])')),
+      ),
+    ).toBe(true)
+  } finally {
+    await quitApp(second.app)
+  }
+})
 
 test('restores terminal history after a crash (no before-quit)', { tag: '@core' }, async () => {
   const marker = `ostia_crash_${Date.now()}`

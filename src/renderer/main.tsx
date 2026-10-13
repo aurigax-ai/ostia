@@ -31,6 +31,7 @@ import { startUserActions } from '@/lib/palette/userActions'
 import { livePaneIds } from '@/lib/panes/livePanes'
 import { startPaneDragTracking } from '@/lib/panes/paneDrag'
 import { applyStoredPanelWidths } from '@/lib/panes/panelWidth'
+import { focusActivePaneWhenReady } from '@/lib/terminal/focusNewTerminal'
 import { startKeptReattach } from '@/lib/terminal/keptReattach'
 import { loadLocalHostName } from '@/lib/terminal/osc7'
 import { applyUiFonts, preloadFonts } from '@/lib/theme/uiFonts'
@@ -136,6 +137,8 @@ async function boot(): Promise<void> {
     console.error('[workspace] restore failed', err)
   }
   useWorkspacesStore.getState().hydrate(snapshot)
+  const restoredWorkspaceId = useWorkspacesStore.getState().activeWorkspaceId
+  if (restoredWorkspaceId) focusActivePaneWhenReady(restoredWorkspaceId)
   startSnapshotAutosave()
   startWindowSync()
   startPaneDragTracking()
