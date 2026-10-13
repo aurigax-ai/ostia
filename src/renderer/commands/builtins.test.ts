@@ -2184,6 +2184,62 @@ describe('workspace row commands', () => {
     expect(group().color).toBeUndefined()
   })
 
+  it('renames a group by name and refuses a blank name, a taken name or an unknown group', async () => {
+    seed()
+    useWorkspacesStore.getState().createGroup('w1', 'api')
+    useWorkspacesStore.getState().createGroup('w2', 'web')
+    const names = () => useWorkspacesStore.getState().groups.map((g) => g.name)
+
+    const ok = await commands.execWith(ctx(null, null), 'workspace.groupRename', {
+      group: ' api ',
+      name: '  backend ',
+    })
+    expect(ok).toEqual({ ok: true, result: undefined })
+    expect(names()).toEqual(['backend', 'web'])
+
+    for (const args of [
+      { group: 'backend', name: '   ' },
+      { group: 'backend', name: 'web' },
+      { group: 'nope', name: 'x' },
+    ]) {
+      expect(await commands.execWith(ctx(null, null), 'workspace.groupRename', args)).toMatchObject(
+        { ok: false },
+      )
+    }
+    expect(names()).toEqual(['backend', 'web'])
+  })
+
+  it('deletes a group by name and leaves its workspaces ungrouped', async () => {
+    seed()
+    useWorkspacesStore.getState().createGroup('w1', 'api')
+
+    const missing = await commands.execWith(ctx(null, null), 'workspace.groupDelete', {
+      group: 'nope',
+    })
+    expect(missing).toMatchObject({ ok: false })
+    expect(useWorkspacesStore.getState().groups).toHaveLength(1)
+
+    const ok = await commands.execWith(ctx(null, null), 'workspace.groupDelete', { group: 'api' })
+    expect(ok).toEqual({ ok: true, result: undefined })
+    expect(useWorkspacesStore.getState().groups).toEqual([])
+    expect(useWorkspacesStore.getState().workspaces.map((w) => w.id)).toEqual(['w1', 'w2'])
+    expect(useWorkspacesStore.getState().workspaces[0].groupId).toBeUndefined()
+  })
+
+  it('pins and unpins the target workspace, and does nothing when it is already so', async () => {
+    seed()
+    await commands.execWith(ctx('w2', null), 'workspace.pin')
+    expect(useWorkspacesStore.getState().workspaces.map((w) => w.id)).toEqual(['w2', 'w1'])
+    expect(useWorkspacesStore.getState().workspaces[0].pinned).toBe(true)
+    await commands.execWith(ctx('w2', null), 'workspace.pin')
+    expect(useWorkspacesStore.getState().workspaces[0].pinned).toBe(true)
+    await commands.execWith(ctx('w2', null), 'workspace.unpin')
+    expect(useWorkspacesStore.getState().workspaces.every((w) => !w.pinned)).toBe(true)
+    await commands.execWith(ctx('w2', null), 'workspace.unpin')
+    expect(useWorkspacesStore.getState().workspaces.every((w) => !w.pinned)).toBe(true)
+    expect(await commands.execWith(ctx(null, null), 'workspace.pin')).toMatchObject({ ok: false })
+  })
+
   it('lists groups with their members and tags grouped workspaces in workspace.list', async () => {
     seed()
     useWorkspacesStore.getState().createGroup('w1', 'api')

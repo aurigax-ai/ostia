@@ -315,6 +315,10 @@ describe('script tokens on command.exec', () => {
     descriptor('workspace.resumeAgents', ['type-other-pane']),
     descriptor('workspace.resumeGroupAgents', ['type-other-pane']),
     descriptor('workspace.deleteGroup', DEFAULT_CAPABILITIES),
+    descriptor('workspace.groupRename', ['drive-self'], 'none'),
+    descriptor('workspace.groupDelete', ['drive-self'], 'none'),
+    descriptor('workspace.pin', ['drive-self']),
+    descriptor('workspace.unpin', ['drive-self']),
     descriptor('settings.set', ['settings-write']),
     descriptor('workspace.goto', DEFAULT_CAPABILITIES),
   ]
@@ -529,6 +533,10 @@ describe('script tokens on command.exec', () => {
   it.each([
     'settings.set',
     'workspace.deleteGroup',
+    'workspace.groupRename',
+    'workspace.groupDelete',
+    'workspace.pin',
+    'workspace.unpin',
     'workspace.goto',
     'workspace.closeOthers',
     'tab.new',

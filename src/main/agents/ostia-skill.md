@@ -159,6 +159,9 @@ ostia workspace group --workspace <id> "payments"   # same, for another workspac
 ostia workspace describe --workspace <id> "..."     # describe, ungroup and group-color work from a script token too
 ostia workspace close --workspace <id>        # close a workspace where nothing runs (kill-pane); busy: lists what still runs
 ostia workspace group-color "payments" blue   # colour the group: red orange yellow green teal blue purple pink; --clear removes it
+ostia workspace group-rename "payments" "billing"   # rename a group; the new name must be free
+ostia workspace group-delete "billing"        # delete a group; its workspaces stay, ungrouped
+ostia workspace pin                           # pin this workspace to the top of the sidebar; unpin undoes it, --workspace <id> picks another
 ostia workspace list --json                   # {workspaces, groups}: who is grouped with whom
 ```
 

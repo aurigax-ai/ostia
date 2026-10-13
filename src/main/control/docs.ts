@@ -68,6 +68,14 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia workspace group-color <group> <red|orange|yellow|green|teal|blue|purple|pink>
                                  colour an existing sidebar group; --clear instead of a colour
                                  removes it
+  ostia workspace group-rename <group> <name>
+                                 rename an existing sidebar group; <name> must not be the
+                                 name of another group
+  ostia workspace group-delete <group>
+                                 delete a sidebar group; its workspaces stay, ungrouped
+  ostia workspace pin [--workspace <id>] | unpin [--workspace <id>]
+                                 pin this pane's workspace (or --workspace) to the top of the
+                                 sidebar, or unpin it. Not open to script tokens
   ostia workspace close [--workspace <id>]
                                  close that workspace and its tabs (kill-pane, plus
                                  all-workspaces outside your reach). Only when nothing runs
