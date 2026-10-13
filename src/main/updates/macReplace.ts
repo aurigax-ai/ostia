@@ -1,6 +1,6 @@
 import { execFile, execFileSync } from 'node:child_process'
-import { constants, lstatSync, renameSync, rmSync } from 'node:fs'
-import { access, lstat, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
+import { constants } from 'node:fs'
+import { access, lstat, mkdir, mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { parseBuildInfo, releaseVersion } from '../../shared/app/buildInfo'
@@ -9,6 +9,7 @@ import { type ReleaseInfo, dmgAssetName } from '../../shared/app/releases'
 import { type EnvSource, readEnv } from '../../shared/appEnv'
 import { PRODUCT_NAME } from '../../shared/product'
 import type { Fetch } from '../platform/checkedDownload'
+import { bundleFs } from './bundleFs'
 import {
   CHECKSUMS_FILE,
   CHECKSUMS_MAX_BYTES,
@@ -218,11 +219,11 @@ export async function replaceMacInstall(opts: {
     mounted = false
     await verifyBundle({ bundle: staged, version, policy: opts.policy, run })
   } catch (err) {
-    await rm(staged, { recursive: true, force: true })
+    await bundleFs.promises.rm(staged, { recursive: true, force: true })
     throw err instanceof ReplaceError ? err : new ReplaceError('extract-failed')
   } finally {
     if (mounted) await detach(mountPoint, run)
-    await rm(work, { recursive: true, force: true })
+    await bundleFs.promises.rm(work, { recursive: true, force: true })
   }
 }
 
@@ -242,7 +243,7 @@ export function macReplace(deps: {
 }
 
 export async function discardStaged(bundle: string): Promise<void> {
-  await rm(stagedBundlePath(bundle), { recursive: true, force: true })
+  await bundleFs.promises.rm(stagedBundlePath(bundle), { recursive: true, force: true })
 }
 
 type Rename = (from: string, to: string) => void
@@ -266,12 +267,12 @@ export function swapStagedBundle(
   bundle: string,
   deps: { verify: (staged: string) => boolean; rename?: Rename },
 ): SwapResult {
-  const rename = deps.rename ?? renameSync
+  const rename = deps.rename ?? bundleFs.renameSync
   const staged = stagedBundlePath(bundle)
   const old = oldBundlePath(bundle)
   const kind = (path: string): 'dir' | 'other' | null => {
     try {
-      return lstatSync(path).isDirectory() ? 'dir' : 'other'
+      return bundleFs.lstatSync(path).isDirectory() ? 'dir' : 'other'
     } catch {
       return null
     }
@@ -279,7 +280,7 @@ export function swapStagedBundle(
   const stagedKind = kind(staged)
   if (stagedKind === null) return 'nothing-staged'
   if (stagedKind !== 'dir' || !deps.verify(staged)) {
-    rmSync(staged, { recursive: true, force: true })
+    bundleFs.rmSync(staged, { recursive: true, force: true })
     return 'rejected'
   }
   if (kind(old) !== null) return 'failed'

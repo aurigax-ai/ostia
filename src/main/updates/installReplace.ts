@@ -29,6 +29,7 @@ import {
   followAllowed,
   isAllowedHop,
 } from '../platform/checkedDownload'
+import { bundleFs } from './bundleFs'
 
 export const UPDATE_ARCHIVE_MAX_BYTES = 1024 * 1024 * 1024
 export const CHECKSUMS_MAX_BYTES = 64 * 1024
@@ -349,7 +350,7 @@ export async function sweepOldInstall(
 ): Promise<boolean> {
   if (!pending || !appDir || pending.appDir !== appDir) return false
   if (releaseVersion(runningVersion) !== pending.version) return false
-  await rm(oldPath(appDir), { recursive: true, force: true })
+  await bundleFs.promises.rm(oldPath(appDir), { recursive: true, force: true })
   return true
 }
 

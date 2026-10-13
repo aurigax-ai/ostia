@@ -52,6 +52,7 @@ afterEach(() => {
 
 function appBundle(dir: string, version: string): string {
   mkdirSync(join(dir, 'Contents', 'Resources'), { recursive: true })
+  writeFileSync(join(dir, 'Contents', 'Resources', 'app.asar'), 'asar archive')
   writeFileSync(join(dir, 'Contents', 'Info.plist'), version)
   writeFileSync(
     join(dir, 'Contents', 'Resources', 'build-info.json'),

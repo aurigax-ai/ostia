@@ -51,6 +51,36 @@ function plist(version: string, identifier: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>${body}</dict></plist>\n`
 }
 
+function asarArchive(files: Record<string, string>): Buffer {
+  const header: { files: Record<string, { size: number; offset: string }> } = { files: {} }
+  const bodies: Buffer[] = []
+  let offset = 0
+  for (const [name, content] of Object.entries(files)) {
+    const body = Buffer.from(content)
+    header.files[name] = { size: body.length, offset: String(offset) }
+    offset += body.length
+    bodies.push(body)
+  }
+  const json = Buffer.from(JSON.stringify(header))
+  const padded = Math.ceil(json.length / 4) * 4
+  const headerPickle = Buffer.alloc(8 + padded)
+  headerPickle.writeUInt32LE(4 + padded, 0)
+  headerPickle.writeUInt32LE(json.length, 4)
+  json.copy(headerPickle, 8)
+  const sizePickle = Buffer.alloc(8)
+  sizePickle.writeUInt32LE(4, 0)
+  sizePickle.writeUInt32LE(headerPickle.length, 4)
+  return Buffer.concat([sizePickle, headerPickle, ...bodies])
+}
+
+function withAsar(resources: string): void {
+  mkdirSync(resources, { recursive: true })
+  writeFileSync(
+    join(resources, 'app.asar'),
+    asarArchive({ 'package.json': '{"name":"ostia"}', 'index.js': 'module.exports = 1\n' }),
+  )
+}
+
 function appBundle(
   bundle: string,
   version: string,
@@ -59,6 +89,7 @@ function appBundle(
   mkdirSync(join(bundle, 'Contents', 'MacOS'), { recursive: true })
   mkdirSync(join(bundle, 'Contents', 'Resources'), { recursive: true })
   copyFileSync('/usr/bin/true', join(bundle, 'Contents', 'MacOS', 'Ostia'))
+  withAsar(join(bundle, 'Contents', 'Resources'))
   chmodSync(join(bundle, 'Contents', 'MacOS', 'Ostia'), 0o755)
   writeFileSync(
     join(bundle, 'Contents', 'Info.plist'),
@@ -555,5 +586,44 @@ test('after an update restart with keep-shells on, the agent keeps running with 
     } catch {}
     await github.close()
     rmSync(dataHome, { recursive: true, force: true })
+  }
+})
+
+function runningVersion(): string {
+  const root = join(__dirname, '..')
+  const built = join(root, 'out', 'build-info.json')
+  const version = existsSync(built)
+    ? JSON.parse(readFileSync(built, 'utf8')).version
+    : JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version
+  return String(version).replace(/\+.*$/, '')
+}
+
+test('a staged copy and an old app left by an earlier update are deleted at launch, app.asar included', async () => {
+  test.setTimeout(120_000)
+  const l = layout()
+  appBundle(stagedOf(l.bundle), BETA)
+  appBundle(`${l.bundle}.old`, INSTALLED)
+  const github = await startFakeGitHub(l.files, l.digest)
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, {
+    ...DOM_RENDERER_SETTINGS,
+    behavior: { gpuAcceleration: false, updateChannel: 'beta' },
+  })
+  mkdirSync(join(dataHome, 'ostia'), { recursive: true })
+  writeFileSync(
+    join(dataHome, 'ostia', 'install-replace.json'),
+    JSON.stringify({ appDir: l.bundle, version: runningVersion() }),
+  )
+  const { app, win } = await launch(dataHome, macEnv(github, l.bundle))
+  try {
+    await expect
+      .poll(() => readdirSync(join(l.bundle, '..')).sort(), { timeout: 20_000 })
+      .toEqual(['Ostia.app'])
+    expect(mainLog(dataHome)).not.toMatch(/update-staged-discard-failed|install-sweep-failed/)
+    await downloadAndStage(win)
+    expect(versionIn(stagedOf(l.bundle))).toBe(BETA)
+  } finally {
+    await quitApp(app)
+    await github.close()
   }
 })
