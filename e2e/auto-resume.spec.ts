@@ -212,7 +212,6 @@ test('agents in a background tab and in another workspace resume without being s
   slowShellStart(dataHome)
   const relaunched = await launchAgentApp(dataHome, undefined, SESSION_PER_PANE)
   try {
-    await shownTerminal(relaunched.win).click()
     await expect.poll(() => focusedPane(relaunched.win)).toBe(focused)
     await expect.poll(() => resumedSessions(dataHome), { timeout: 90_000 }).toHaveLength(3)
     await expect(relaunched.win.locator(SHOWN_ROWS)).toContainText('fake-agent-resumed')
@@ -243,7 +242,6 @@ test('an agent resumed in a visible split leaves keyboard focus in the pane the 
   slowShellStart(dataHome, 6)
   const relaunched = await launchAgentApp(dataHome)
   try {
-    await relaunched.win.locator(`.surface-host[data-pane-id="${focused}"] .xterm`).click()
     await expect.poll(() => focusedPane(relaunched.win)).toBe(focused)
     expect(existsSync(resumedLog(dataHome))).toBe(false)
     await expect.poll(() => existsSync(resumedLog(dataHome)), { timeout: 30_000 }).toBe(true)
