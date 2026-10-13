@@ -289,7 +289,7 @@ describe.skipIf(skipWithoutTmux)('TmuxServer', () => {
   it('KSH-C24 resizing a tmux pane at an idle prompt leaves one clean prompt line', async () => {
     writeFileSync(join(home, '.zshrc'), "PROMPT='%~ ❯ '\n")
     const server = await connect()
-    const integration = shellIntegrationSpawnOptions(zsh, env)
+    const integration = shellIntegrationSpawnOptions(zsh, { HOME: home })
     const term = new Terminal({ cols: 100, rows: 30, allowProposedApi: true })
     const pane = await server.spawn({
       file: zsh,

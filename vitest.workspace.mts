@@ -10,7 +10,12 @@ export default defineWorkspace([
       name: 'node',
       environment: 'node',
       globalSetup: ['./test/buildOnce.ts'],
-      setupFiles: ['./test/privateTmp.ts', './test/appEnv.ts', './test/quarantineSetup.ts'],
+      setupFiles: [
+        './test/hostEnv.ts',
+        './test/privateTmp.ts',
+        './test/appEnv.ts',
+        './test/quarantineSetup.ts',
+      ],
       include: [
         'src/main/**/*.test.ts',
         'src/shared/**/*.test.ts',
@@ -35,7 +40,12 @@ export default defineWorkspace([
       name: 'dom',
       environment: 'jsdom',
       globals: true,
-      setupFiles: ['./test/domEvents.ts', './test/setup.ts', './test/quarantineSetup.ts'],
+      setupFiles: [
+        './test/hostEnv.ts',
+        './test/domEvents.ts',
+        './test/setup.ts',
+        './test/quarantineSetup.ts',
+      ],
       include: ['src/renderer/**/*.test.{ts,tsx}'],
       deps: {
         optimizer: {
