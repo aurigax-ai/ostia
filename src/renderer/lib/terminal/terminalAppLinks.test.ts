@@ -60,7 +60,10 @@ describe('createAppLinkProvider on a real xterm buffer', () => {
 describe('any scheme in the terminal', () => {
   it('links plain and angle-bracket links of any scheme and skips blocked ones', async () => {
     const term = new Terminal({ cols: 120, rows: 4, allowProposedApi: true })
-    await write(term, 'slack://channel?id=1 [z](<zed://file/My Dir/a>) devtools://x foo::bar')
+    await write(
+      term,
+      'slack://channel?id=1 [z](<zed://file/My Dir/a>) devtools://x foo::bar smb://h/s ms-msdt://i postgres://u:p@h/db',
+    )
     const found = await provide(
       createAppLinkProvider(term as unknown as OstiaTerminal, handler()),
       1,

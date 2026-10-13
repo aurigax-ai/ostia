@@ -28,6 +28,17 @@ const BLOCKED_SCHEMES = new Set(
     'remote',
     'untitled',
     'app',
+    'smb',
+    'cifs',
+    'afp',
+    'nfs',
+    'ftp',
+    'ftps',
+    'dav',
+    'davs',
+    'webdav',
+    'search',
+    'search-ms',
   ].map((scheme) => `${scheme}:`),
 )
 const SCHEME_FORMAT = /^[a-z][a-z0-9+.-]+:$/
@@ -42,8 +53,11 @@ function parse(url: string): URL | null {
 
 function isAppLink(url: URL): boolean {
   const scheme = url.protocol
-  if (BLOCKED_SCHEMES.has(scheme) || !SCHEME_FORMAT.test(scheme)) return false
-  return APP_SCHEMES.has(scheme) || url.href.startsWith(`${scheme}//`)
+  if (BLOCKED_SCHEMES.has(scheme) || scheme.startsWith('ms-') || !SCHEME_FORMAT.test(scheme)) {
+    return false
+  }
+  if (APP_SCHEMES.has(scheme)) return true
+  return url.href.startsWith(`${scheme}//`) && !url.username && !url.password
 }
 
 export function linkKind(url: string): LinkKind | null {

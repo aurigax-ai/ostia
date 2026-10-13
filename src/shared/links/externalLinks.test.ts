@@ -69,6 +69,55 @@ describe('externalHref', () => {
     }
   })
 
+  it('refuses schemes that mount remote folders or reach Windows handlers', () => {
+    for (const url of [
+      'smb://host/share',
+      'cifs://host/share',
+      'afp://host/share',
+      'nfs://host/export',
+      'ftp://host/a',
+      'ftps://host/a',
+      'dav://host/a',
+      'davs://host/a',
+      'webdav://host/a',
+      'search://query',
+      'search-ms://query=a&crumb=location:\\\\h\\s',
+      'ms-msdt://id',
+      'ms-officecmd://x',
+      'MS-Excel://ofe|u|http://h/a.xlsx',
+    ]) {
+      expect(externalHref(url, { apps: true })).toBeNull()
+      expect(linkKind(url)).toBeNull()
+    }
+  })
+
+  it('keeps everyday app schemes open', () => {
+    for (const url of [
+      'msteams://teams.microsoft.com/l/chat/0/0',
+      'vnc://host:5900',
+      'ssh://host:22',
+      'tel://+886212345678',
+      'facetime://+886212345678',
+      'x-apple.systempreferences://com.apple.preference.security',
+      'steam://run/440',
+    ]) {
+      expect(linkKind(url)).toBe('external')
+      expect(externalHref(url, { apps: true })).not.toBeNull()
+    }
+  })
+
+  it('refuses credentials in links of schemes outside the list', () => {
+    for (const url of ['postgres://u:p@h/db', 'redis://:pw@h', 'ssh://token@host']) {
+      expect(externalHref(url, { apps: true })).toBeNull()
+      expect(linkKind(url)).toBeNull()
+    }
+    expect(externalHref('https://u:p@example.com/', { apps: false })).toBe(
+      'https://u:p@example.com/',
+    )
+    expect(externalHref('vscode://u:p@file/a', { apps: true })).toBe('vscode://u:p@file/a')
+    expect(findAppLinks('db postgres://u:p@h/db or <redis://:pw@h>')).toEqual([])
+  })
+
   it('refuses a scheme that is too short or has no double slash', () => {
     for (const url of ['a://b', 'x-custom:do', 'foo::bar', 'C://Windows']) {
       expect(externalHref(url, { apps: true })).toBeNull()
