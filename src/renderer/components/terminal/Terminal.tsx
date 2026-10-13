@@ -73,7 +73,7 @@ import {
   attachLinkModifier,
   linkModifierHeld,
   linkSpan,
-  webLinkTarget,
+  terminalLinkTarget,
 } from '@/lib/terminal/linkModifier'
 import {
   noteFittedGrid,
@@ -94,6 +94,11 @@ import {
 import { commitProgramTitle, commitShellTitle } from '@/lib/terminal/paneTitle'
 import { installPrimarySelection } from '@/lib/terminal/primarySelection'
 import { createPtyAcker } from '@/lib/terminal/ptyAck'
+import {
+  createAppLinkProvider,
+  hintedLinkHandler,
+  xtermLinkHandler,
+} from '@/lib/terminal/terminalAppLinks'
 import { createFileLinkProvider } from '@/lib/terminal/terminalFileLinks'
 import { inputEditorFor, registerTerminal } from '@/lib/terminal/terminalHandles'
 import {
@@ -244,7 +249,7 @@ function TerminalSurface({
     let fit: TerminalFit
     let hoveredLink = false
     let linkHintTimer: ReturnType<typeof setTimeout> | null = null
-    const showLinkHint = (kind: LinkKind, range: IBufferRange): void => {
+    const showLinkHint = (kind: LinkKind, range: IBufferRange, url?: string): void => {
       hoveredLink = true
       if (linkHintTimer) clearTimeout(linkHintTimer)
       linkHintTimer = setTimeout(() => {
@@ -253,6 +258,7 @@ function TerminalSurface({
         const span = linkSpan(range, term.buffer.active.viewportY, term.cols)
         setLinkHint({
           kind,
+          url,
           plainClick: term.modes.mouseTrackingMode === 'none',
           left: cells.left + span.start * cells.width,
           top: cells.top + span.row * cells.height,
@@ -268,7 +274,7 @@ function TerminalSurface({
       setLinkHint(null)
     }
     const openWebLink = (e: MouseEvent, uri: string): void => {
-      const target = webLinkTarget(e, {
+      const target = terminalLinkTarget(uri, e, {
         mac: isMac,
         hasSelection: term.hasSelection(),
         mouseReporting: term.modes.mouseTrackingMode !== 'none',
@@ -276,12 +282,12 @@ function TerminalSurface({
       if (target === 'same-tab') openBrowserAs(workspaceIdRef.current, uri, 'human')
       else if (target === 'new-tab') openBrowserTabAs(workspaceIdRef.current, uri, 'human')
       else if (target === 'system') window.open(uri, '_blank')
+      else if (target === 'app') void window.ostia.openPath.openLink(uri)
     }
-    const webLinks: WebLinkHandler = {
-      activate: openWebLink,
-      hover: (_e, _text, range) => showLinkHint('web', range),
-      leave: hideLinkHint,
-    }
+    const webLinks: WebLinkHandler = hintedLinkHandler(openWebLink, {
+      show: (range, uri) => showLinkHint('web', range, uri),
+      hide: hideLinkHint,
+    })
     let searchAddon: TerminalSearch | null = null
     let webgl: WebglRenderer | null = null
     let silenceReplies: () => { dispose(): void }
@@ -303,10 +309,10 @@ function TerminalSurface({
       xterm.loadAddon(xtermFit)
       xterm.loadAddon(new Unicode11Addon())
       xterm.unicode.activeVersion = '11'
-      xterm.options.linkHandler = webLinks
+      xterm.options.linkHandler = xtermLinkHandler(webLinks)
       xterm.loadAddon(
         new WebLinksAddon(openWebLink, {
-          hover: (_e, _text, range) => showLinkHint('web', range),
+          hover: (_e, uri, range) => showLinkHint('web', range, uri),
           leave: hideLinkHint,
         }),
       )
@@ -600,6 +606,7 @@ function TerminalSurface({
       paneId,
       cwd: cwdRef.current,
     })
+    const appLinks = term.registerLinkProvider(createAppLinkProvider(term, webLinks))
     const fileLinks = term.registerLinkProvider(
       createFileLinkProvider(term, {
         cwd: () => cwdRef.current,
@@ -951,6 +958,7 @@ function TerminalSurface({
       bell.dispose()
       copySelection.dispose()
       useLiveSelectionStore.getState().clear(paneId)
+      appLinks.dispose()
       fileLinks.dispose()
       detachWheelZoom()
       detachLinkModifier()

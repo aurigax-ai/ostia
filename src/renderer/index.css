@@ -876,6 +876,12 @@
   outline-offset: -2px;
 }
 
+.pane-tab .tab-rename,
+.split-tab-segment .tab-rename {
+  min-width: 6rem;
+  flex: 1;
+}
+
 .rail-group-main .tab-rename {
   text-transform: none;
   letter-spacing: normal;
