@@ -29,7 +29,10 @@ interface FakeGitHub {
   close: () => Promise<void>
 }
 
-async function startFakeGitHub(files: Record<string, Buffer> = {}): Promise<FakeGitHub> {
+async function startFakeGitHub(
+  files: Record<string, Buffer> = {},
+  extra: object[] = [],
+): Promise<FakeGitHub> {
   const requests: FakeGitHub['requests'] = []
   const server: Server = createServer((req, res) => {
     const file = files[req.url ?? '']
@@ -52,7 +55,7 @@ async function startFakeGitHub(files: Record<string, Buffer> = {}): Promise<Fake
       draft: false,
       prerelease: true,
     }
-    res.end(JSON.stringify(req.url?.includes('/releases?') ? [main, stable] : stable))
+    res.end(JSON.stringify(req.url?.includes('/releases?') ? [...extra, main, stable] : stable))
   })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   return {
@@ -143,16 +146,19 @@ interface ReplaceLayout {
   files: Record<string, Buffer>
 }
 
-function replaceLayout(checksum: (archive: Buffer) => string): ReplaceLayout {
+function replaceLayout(
+  checksum: (archive: Buffer) => string,
+  version: string = VERSION,
+): ReplaceLayout {
   const root = mkdtempSync(join(tmpdir(), 'ostia-e2e-replace-'))
   const appDir = join(root, 'apps', 'ostia')
   appFolder(appDir, '1.0.0')
-  const top = `ostia-${VERSION}-linux-x64`
-  appFolder(join(root, 'stage', top), VERSION)
+  const top = `ostia-${version}-linux-x64`
+  appFolder(join(root, 'stage', top), version)
   const file = join(root, 'stage', `${top}.tar.gz`)
   execFileSync('tar', ['-C', join(root, 'stage'), '-czf', file, top])
   const archive = readFileSync(file)
-  const base = `/aurigax-ai/ostia/releases/download/v${VERSION}`
+  const base = `/aurigax-ai/ostia/releases/download/v${version}`
   return {
     appDir,
     files: {
@@ -208,6 +214,46 @@ test('a wrong checksum leaves the app folder as it was and says why', async () =
     expect(versionIn(layout.appDir)).toBe('1.0.0')
     expect(readdirSync(join(layout.appDir, '..'))).toEqual(['ostia'])
     await expect(settings.getByRole('button', { name: 'Download and install' })).toBeEnabled()
+  } finally {
+    await app.close()
+    await github.close()
+  }
+})
+
+test('a tarball install on the Beta channel downloads the release candidate, not a main build', async () => {
+  const beta = '999.0.2-rc.1'
+  const layout = replaceLayout(
+    (archive) => createHash('sha256').update(archive).digest('hex'),
+    beta,
+  )
+  const rc = {
+    tag_name: `v${beta}`,
+    html_url: `https://github.com/aurigax-ai/ostia/releases/tag/v${beta}`,
+    draft: false,
+    prerelease: true,
+    assets: [{ name: `ostia-${beta}-linux-x64.tar.gz` }],
+  }
+  const github = await startFakeGitHub(layout.files, [rc])
+  const dataHome = freshDataHome()
+  const { app, win } = await launch(github, dataHome, replaceEnv(github, layout.appDir))
+  try {
+    const settings = await openAbout(win)
+    const picker = settings.getByRole('combobox', { name: 'Update channel' })
+    await picker.click()
+    await win.getByRole('option', { name: 'Beta' }).click()
+    await expect(picker).toHaveText('Beta')
+    await expect(settings.getByRole('switch', { name: 'Receive beta updates' })).toHaveCount(0)
+    await expect(settings.getByText(`Version ${beta} is available`)).toBeVisible({
+      timeout: 20_000,
+    })
+    const notice = win.locator('.update-notice')
+    await notice.getByRole('button', { name: 'Download and install' }).click({ timeout: 20_000 })
+    await expect(notice.getByRole('button', { name: 'Restart Ostia' })).toBeVisible({
+      timeout: 30_000,
+    })
+    expect(versionIn(layout.appDir)).toBe(beta)
+    expect(versionIn(`${layout.appDir}.old`)).toBe('1.0.0')
+    expect(github.requests.some((r) => r.path?.includes('/releases?'))).toBe(true)
   } finally {
     await app.close()
     await github.close()
