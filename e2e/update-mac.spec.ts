@@ -16,7 +16,14 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, openWorkspace, quitApp, runInTerminal, stubExternalOpener } from './helpers'
+import {
+  PROMPT,
+  openWorkspace,
+  quitApp,
+  runInTerminal,
+  stubExternalOpener,
+  waitForExit,
+} from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 test.skip(process.platform !== 'darwin', 'app bundles, hdiutil and codesign are macOS only')
@@ -213,7 +220,7 @@ async function restartFromNotice(app: ElectronApplication, win: Page): Promise<v
   await app.evaluate(({ app: electronApp }) => {
     electronApp.relaunch = () => undefined
   })
-  const closed = app.waitForEvent('close')
+  const closed = waitForExit(app)
   await win.locator('.update-notice').getByRole('button', { name: 'Restart Ostia' }).click()
   const quit = win.getByRole('dialog').getByRole('button', { name: 'Quit' })
   const asked = await Promise.race([
