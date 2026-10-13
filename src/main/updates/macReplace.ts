@@ -167,6 +167,7 @@ export async function replaceMacInstall(opts: {
   onProgress: (progress: ReplaceProgress) => void
   onInstalling: () => void
   workRoot?: string
+  arch?: string
 }): Promise<void> {
   const { bundle, run } = opts
   const { version } = opts.release
@@ -174,7 +175,7 @@ export async function replaceMacInstall(opts: {
   const dmgUrl = releaseAssetUrl(opts.base, version, asset)
   const sumsUrl = releaseAssetUrl(opts.base, version, CHECKSUMS_FILE)
   if (!dmgUrl || !sumsUrl) throw new ReplaceError('http-error')
-  if (!(await canReplaceBundle(bundle)).ok) throw new ReplaceError('blocked')
+  if (!(await canReplaceBundle(bundle, opts.arch)).ok) throw new ReplaceError('blocked')
   const staged = stagedBundlePath(bundle)
   const work = await mkdtemp(join(opts.workRoot ?? tmpdir(), `${PRODUCT_NAME}-update-`))
   const mountPoint = join(work, 'mount')
