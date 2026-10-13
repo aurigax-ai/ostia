@@ -120,6 +120,30 @@ test('restores terminal history after a crash (no before-quit)', { tag: '@core' 
   }
 })
 
+test('keeps the scrollback saved at quit when an autosave fires during teardown', async () => {
+  const marker = `ostia_teardown_${Date.now()}`
+  const launch = isolatedLaunch(dataHome)
+  const app = await electron.launch({
+    ...launch,
+    env: { ...launch.env, OSTIA_TEST_SCROLLBACK_AUTOSAVE_MS: '25' },
+  })
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    await win.locator('.xterm').first().click()
+    await waitForTerminalFocus(win)
+    await win.keyboard.type(`echo ${marker}`)
+    await win.keyboard.press('Enter')
+    await expect(win.locator('.xterm-rows').first()).toContainText(marker, { timeout: 15_000 })
+  } finally {
+    await quitApp(app)
+  }
+
+  const scrollbackFile = join(dataHome, 'ostia', 'scrollback.json')
+  expect(readFileSync(scrollbackFile, 'utf8')).toContain(marker)
+})
+
 async function setWindowSize(app: ElectronApplication, width: number, height: number) {
   await app.evaluate(
     ({ BrowserWindow }, size) => {

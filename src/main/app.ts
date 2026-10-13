@@ -35,7 +35,7 @@ import {
 import { fmt } from '../shared/app/dict'
 import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
 import { clampZoom, zoomFactor } from '../shared/app/zoom'
-import { appEnv } from '../shared/appEnv'
+import { appEnv, readEnv } from '../shared/appEnv'
 import { ARTIFACT_LIST_MAX } from '../shared/artifacts/artifacts'
 import { isPreviewPartition } from '../shared/artifacts/htmlPreview'
 import { parseChatToolSettings } from '../shared/assist/chatTools'
@@ -4302,10 +4302,14 @@ function persistScrollback(): Promise<void> {
 let scrollbackSavedForQuit = false
 let savingScrollbackForQuit = false
 
-const SCROLLBACK_AUTOSAVE_MS = 5000
+const SCROLLBACK_AUTOSAVE_MS =
+  process.env.NODE_ENV === 'test' && Number(readEnv('TEST_SCROLLBACK_AUTOSAVE_MS')) > 0
+    ? Number(readEnv('TEST_SCROLLBACK_AUTOSAVE_MS'))
+    : 5000
 let lastScrollbackSignature = ''
 
 function autosaveScrollback(): void {
+  if (savingScrollbackForQuit) return
   let signature = ''
   for (const [paneId, entry] of ptys) signature += `${paneId}:${entry.mirror.revision};`
   signature += `pending:${Object.keys(pendingRestoredScrollback()).length}`
