@@ -99,9 +99,7 @@
       text-decoration-color: currentColor;
     }
     &:where(a:focus-visible) {
-      outline: 2px solid var(--color-ring, currentColor);
       outline-offset: 2px;
-      border-radius: 0.125em;
     }
     &:where(:is(h1, h2, h3, h4, h5, h6) :is(a)) {
       font-weight: inherit;

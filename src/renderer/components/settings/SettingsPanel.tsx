@@ -1203,16 +1203,17 @@ function AccentRow(): JSX.Element {
             aria-pressed={accent === color}
             onClick={() => setAccent(color)}
             style={{ background: color }}
-            className="size-5 rounded-full border border-line-strong outline-offset-2 focus-visible:outline-2 focus-visible:outline-brand aria-pressed:outline-2 aria-pressed:outline-fg"
+            className="size-5 rounded-full border border-line-strong outline-offset-2 aria-pressed:outline-2 aria-pressed:outline-fg"
           />
         ))}
         <Hint label={d.settings.accentCustom}>
           <label
             data-testid="accent-custom"
             data-selected={custom || undefined}
+            data-focus-ring="within"
             style={custom ? { background: accent } : undefined}
             className={cn(
-              'relative flex size-5 items-center justify-center rounded-full border outline-offset-2 has-focus-visible:outline-2 has-focus-visible:outline-brand',
+              'relative flex size-5 items-center justify-center rounded-full border outline-offset-2',
               custom
                 ? 'border-line-strong outline-2 outline-fg'
                 : 'border-line-strong border-dashed text-fg-muted hover:text-fg',
@@ -1224,7 +1225,7 @@ function AccentRow(): JSX.Element {
               aria-label={d.settings.accentCustom}
               value={custom ? accent : themeBrand}
               onChange={(e) => setAccent(e.target.value)}
-              className="absolute inset-0 size-full opacity-0"
+              className="absolute inset-0 size-full opacity-0 outline-none"
             />
           </label>
         </Hint>

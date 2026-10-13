@@ -25,7 +25,7 @@ export function SectionTab({
   return (
     <TabsTrigger
       className={cn(
-        'h-full flex-none gap-1 rounded-none border-0 px-2.5 font-normal text-fg-muted text-ui-sm transition-colors hover:text-fg focus-visible:border-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-active:font-medium data-active:text-fg dark:text-fg-muted dark:hover:text-fg dark:data-active:text-fg',
+        'h-full flex-none gap-1 rounded-none border-0 px-2.5 font-normal text-fg-muted text-ui-sm transition-colors hover:text-fg -outline-offset-2 data-active:font-medium data-active:text-fg dark:text-fg-muted dark:hover:text-fg dark:data-active:text-fg',
         'after:bg-primary group-data-horizontal/tabs:after:bottom-[-1px] group-data-horizontal/tabs:after:h-0.5',
         className,
       )}
