@@ -233,7 +233,15 @@ test('a tarball install on the Beta channel downloads the release candidate, not
     prerelease: true,
     assets: [{ name: `ostia-${beta}-linux-x64.tar.gz` }],
   }
-  const github = await startFakeGitHub(layout.files, [rc])
+  const main = '999.0.3-main.1'
+  const newerMain = {
+    tag_name: `v${main}`,
+    html_url: `https://github.com/aurigax-ai/ostia/releases/tag/v${main}`,
+    draft: false,
+    prerelease: true,
+    assets: [{ name: `ostia-${main}-linux-x64.tar.gz` }],
+  }
+  const github = await startFakeGitHub(layout.files, [newerMain, rc])
   const dataHome = freshDataHome()
   const { app, win } = await launch(github, dataHome, replaceEnv(github, layout.appDir))
   try {

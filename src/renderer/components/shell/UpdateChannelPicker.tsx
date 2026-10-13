@@ -36,7 +36,7 @@ export function UpdateChannelPicker(): JSX.Element | null {
       />
     )
   }
-  const offered = offeredChannels(method).includes('main')
+  const offered = offeredChannels(method).length > 1
   const labels: Record<(typeof LINUX_CHANNELS)[number], string> = {
     stable: d.update.channelStable,
     beta: d.update.channelBeta,
