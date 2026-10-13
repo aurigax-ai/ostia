@@ -1,8 +1,7 @@
-import type { Locator, Page } from '@playwright/test'
 import { chords } from './chords'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
-import { _electron as electron, expect, test } from './test'
+import { type Locator, type Page, _electron as electron, expect, test } from './test'
 
 type Indicator = {
   focused: boolean
