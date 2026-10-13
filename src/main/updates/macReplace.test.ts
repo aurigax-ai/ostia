@@ -187,6 +187,7 @@ async function replaceWith(
       onProgress: () => {},
       onInstalling: () => stages.push('installing'),
       workRoot: work,
+      arch: 'arm64',
     })
     return 'ok'
   } catch (err) {
