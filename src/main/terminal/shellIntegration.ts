@@ -68,7 +68,7 @@ __ostia_report_shell() {
   [[ -n "${SHELL_STATE_FILE}" ]] || return 0
   local names="\${(j: :)\${(@ok)builtins}} \${(j: :)\${(@ok)reswords}} \${(j: :)\${(@ok)aliases}} \${(j: :)\${(@)\${(@ok)functions}:#_*}}"
   local nl=$'\\n'
-  local state="$PATH$nl\${VIRTUAL_ENV//$nl/}$nl\${CONDA_DEFAULT_ENV//$nl/}$nl\${KUBECONFIG//$nl/}$nl$names"
+  local state="$PATH$nl\${VIRTUAL_ENV//$nl/}$nl\${CONDA_DEFAULT_ENV//$nl/}$nl\${KUBECONFIG//$nl/}$nl\${names//$nl/ }$nl\${HISTFILE//$nl/}"
   [[ "$state" == "$__ostia_last_state" ]] && return 0
   __ostia_last_state=$state
   print -r -- "$state" >| "${SHELL_STATE_FILE}" 2>/dev/null
@@ -238,7 +238,7 @@ __ostia_report_shell() {
   local names
   names=$(compgen -abk -A function -X '_*' 2>/dev/null)
   local nl=$'\\n'
-  local state="$PATH$nl\${VIRTUAL_ENV//$nl/}$nl\${CONDA_DEFAULT_ENV//$nl/}$nl\${KUBECONFIG//$nl/}$nl\${names//$nl/ }"
+  local state="$PATH$nl\${VIRTUAL_ENV//$nl/}$nl\${CONDA_DEFAULT_ENV//$nl/}$nl\${KUBECONFIG//$nl/}$nl\${names//$nl/ }$nl\${HISTFILE//$nl/}"
   [ "$state" = "$__ostia_last_state" ] && return 0
   __ostia_last_state=$state
   printf '%s\\n' "$state" >| "${SHELL_STATE_FILE}" 2>/dev/null

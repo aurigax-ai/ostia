@@ -366,6 +366,7 @@ import { HIBERNATE_SEAM, HISTORY_LINES, RESTORE_SEAM, ScreenMirror } from './ter
 import { registerSelectionIpc } from './terminal/selectionReport'
 import { ExecutableIndex, commandNames, readShellState } from './terminal/shellCommands'
 import { closesPaneOnExit } from './terminal/shellExit'
+import { ShellHistoryFiles, registerShellHistoryIpc } from './terminal/shellHistory'
 import {
   INTEGRATION_DIR,
   setAgentPlugins,
@@ -514,6 +515,7 @@ const ptys = new Map<string, PtyEntry>()
 const PTY_BUFFER_CAP = 1_000_000
 const executables = new ExecutableIndex()
 const promptSources = { node: new NodeVersionResolver(), kube: new KubeContextReader() }
+const shellHistoryFiles = new ShellHistoryFiles()
 
 function listDir(dir: string): FsEntry[] {
   try {
@@ -2719,6 +2721,21 @@ function registerPtyIpc(): void {
     const rules = sandboxReadRules(entry)
     return commandNames(executables, rules ? sandboxPath(path, rules) : path, state?.names ?? [])
   })
+  registerShellHistoryIpc({
+    enabled: () => readSettingsFile().behavior?.historySuggestions !== false,
+    files: shellHistoryFiles,
+    pane: (paneId) => {
+      const entry = ptys.get(paneId)
+      if (!entry) return null
+      return {
+        owners: entry.subs,
+        localPrompt: holdsLocalPrompt(entry),
+        shell: entry.shell,
+        stateFile: entry.stateFile,
+        rules: sandboxReadRules(entry),
+      }
+    },
+  })
   ipcMain.handle('pty:local-prompt', (e, paneId: string): boolean => {
     const entry = ptys.get(paneId)
     return entry?.subs.has(String(e.sender.id)) === true && holdsLocalPrompt(entry)
@@ -3293,6 +3310,7 @@ function readSettingsFile(): {
   privacy?: unknown
   terminal?: { shell?: unknown; keepShells?: unknown }
   agents?: { hooks?: unknown }
+  behavior?: { historySuggestions?: unknown }
 } {
   try {
     return JSON.parse(readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'))

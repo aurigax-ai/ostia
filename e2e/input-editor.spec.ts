@@ -125,6 +125,42 @@ test('the input editor runs commands, walks history and steps aside for interact
   }
 })
 
+test('a fresh pane suggests a command from the shell’s history file', async () => {
+  test.setTimeout(60_000)
+  const dataHome = freshDataHome()
+  const home = join(dataHome, 'home')
+  mkdirSync(home, { recursive: true })
+  writeFileSync(join(home, '.zshrc'), "PROMPT='%~ ❯ '\nHISTFILE=$HOME/.zsh_history\n")
+  writeFileSync(
+    join(home, '.zsh_history'),
+    ': 1700000000:0;echo ostia_seeded_history_entry\n: 1700000060:0;ls\n',
+  )
+  seedSettings(dataHome, {
+    ...DOM_RENDERER_SETTINGS,
+    behavior: { ...DOM_RENDERER_SETTINGS.behavior, inputMode: 'editor' },
+  })
+  const launch = isolatedLaunch(dataHome)
+  const app = await electron.launch({
+    ...launch,
+    env: { ...launch.env, HOME: home, SHELL: '/bin/zsh' },
+  })
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    const input = win.getByRole('textbox', { name: 'Command input' })
+    await expect(input).toBeVisible({ timeout: 15_000 })
+    await input.click()
+
+    await win.keyboard.type('echo ostia_see')
+    await expect(win.locator('.input-editor-ghost')).toHaveText('ded_history_entry')
+    await win.keyboard.press('End')
+    await expect(input).toHaveValue('echo ostia_seeded_history_entry')
+  } finally {
+    await app.close()
+  }
+})
+
 test('the input editor sits on the shell prompt line and takes what is aimed at the terminal', async () => {
   test.setTimeout(90_000)
   const dataHome = freshDataHome()

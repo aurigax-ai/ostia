@@ -273,8 +273,9 @@ export const SETTINGS_JSON_SCHEMA = {
         historySuggestions: {
           type: 'boolean',
           description:
-            'Show the latest matching history command as gray text in the input editor; Right ' +
-            'arrow or End accepts it. Default: true.',
+            'Suggest commands from this session and from the shell’s history file in the input ' +
+            'editor: gray text (Right arrow or End accepts it), Tab arguments and Up. When false ' +
+            'the history file is not read. Default: true.',
         },
         copyOnSelect: {
           type: 'boolean',

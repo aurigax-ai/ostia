@@ -113,6 +113,31 @@ describe('InputEditor AI ghost completion', () => {
     expect(window.ostia.pty.write).not.toHaveBeenCalledWith(PANE, '\r')
   })
 
+  it('never puts a command from the shell’s history file into an assist request', async () => {
+    assistOn()
+    vi.mocked(window.ostia.pty.history).mockResolvedValue([
+      { command: 'export FILE_ONLY_TOKEN=from-history-file', time: 1_700_000_000_000 },
+      { command: 'gh auth login --with-token file-only-entry', time: null },
+    ])
+    vi.mocked(window.ostia.assist.request).mockResolvedValue({
+      ok: true,
+      result: { text: ' log --oneline' },
+    } as never)
+    renderEditor()
+    await waitFor(() => expect(window.ostia.pty.history).toHaveBeenCalledWith(PANE))
+    const area = screen.getByRole('textbox', { name: 'Command input' })
+    await userEvent.type(area, 'gh')
+    await waitFor(() => expect(ghost()).toHaveTextContent('auth login'), WAIT)
+    await userEvent.clear(area)
+    await userEvent.type(area, 'git')
+    await waitFor(() => expect(window.ostia.assist.request).toHaveBeenCalled(), WAIT)
+    const sent = JSON.stringify(vi.mocked(window.ostia.assist.request).mock.calls)
+    expect(sent).not.toContain('FILE_ONLY_TOKEN')
+    expect(sent).not.toContain('file-only-entry')
+    vi.mocked(window.ostia.pty.history).mockReset()
+    vi.mocked(window.ostia.pty.history).mockResolvedValue([])
+  })
+
   it('lets a history prefix match win over the AI', async () => {
     assistOn()
     const block = {
