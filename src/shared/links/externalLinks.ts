@@ -1,3 +1,5 @@
+import { PREVIEW_SCHEME } from '../artifacts/htmlPreview'
+
 export type LinkKind = 'browser' | 'external'
 
 export interface ExternalLinkPolicy {
@@ -7,6 +9,39 @@ export interface ExternalLinkPolicy {
 const BROWSER_SCHEMES = new Set(['http:', 'https:'])
 const SYSTEM_SCHEMES = new Set(['mailto:'])
 const APP_SCHEMES = new Set(['obsidian:', 'vscode:', 'vscode-insiders:'])
+const BLOCKED_SCHEMES = new Set(
+  [
+    'javascript',
+    'data',
+    'vbscript',
+    'blob',
+    'about',
+    'chrome',
+    'chrome-extension',
+    'chrome-untrusted',
+    'devtools',
+    'view-source',
+    'filesystem',
+    'file',
+    'ostia',
+    PREVIEW_SCHEME,
+    'remote',
+    'untitled',
+    'app',
+    'smb',
+    'cifs',
+    'afp',
+    'nfs',
+    'ftp',
+    'ftps',
+    'dav',
+    'davs',
+    'webdav',
+    'search',
+    'search-ms',
+  ].map((scheme) => `${scheme}:`),
+)
+const SCHEME_FORMAT = /^[a-z][a-z0-9+.-]+:$/
 
 function parse(url: string): URL | null {
   try {
@@ -16,11 +51,20 @@ function parse(url: string): URL | null {
   }
 }
 
+function isAppLink(url: URL): boolean {
+  const scheme = url.protocol
+  if (BLOCKED_SCHEMES.has(scheme) || scheme.startsWith('ms-') || !SCHEME_FORMAT.test(scheme)) {
+    return false
+  }
+  if (APP_SCHEMES.has(scheme)) return true
+  return url.href.startsWith(`${scheme}//`) && !url.password
+}
+
 export function linkKind(url: string): LinkKind | null {
-  const scheme = parse(url)?.protocol
-  if (!scheme) return null
-  if (BROWSER_SCHEMES.has(scheme)) return 'browser'
-  return SYSTEM_SCHEMES.has(scheme) || APP_SCHEMES.has(scheme) ? 'external' : null
+  const parsed = parse(url)
+  if (!parsed) return null
+  if (BROWSER_SCHEMES.has(parsed.protocol)) return 'browser'
+  return SYSTEM_SCHEMES.has(parsed.protocol) || isAppLink(parsed) ? 'external' : null
 }
 
 export function externalHref(url: string, policy: ExternalLinkPolicy): string | null {
@@ -28,9 +72,7 @@ export function externalHref(url: string, policy: ExternalLinkPolicy): string | 
   if (!parsed) return null
   const scheme = parsed.protocol
   const allowed =
-    BROWSER_SCHEMES.has(scheme) ||
-    SYSTEM_SCHEMES.has(scheme) ||
-    (policy.apps && APP_SCHEMES.has(scheme))
+    BROWSER_SCHEMES.has(scheme) || SYSTEM_SCHEMES.has(scheme) || (policy.apps && isAppLink(parsed))
   return allowed ? parsed.href : null
 }
 
@@ -40,9 +82,9 @@ export interface AppLinkMatch {
   url: string
 }
 
-const SCHEME = String.raw`(?:obsidian|vscode|vscode-insiders):\/\/`
+const SCHEME = String.raw`[a-z][a-z0-9+.-]+:\/\/`
 const BRACKETED = new RegExp(String.raw`<(${SCHEME}[^<>\r\n]+)>`, 'gi')
-const PLAIN = new RegExp(String.raw`(?<![\w+.-])${SCHEME}[^\s<>"'\`　-〿＀-￯]+`, 'gi')
+const PLAIN = new RegExp(String.raw`(?<![\w+.:/-])${SCHEME}[^\s<>"'\`　-〿＀-￯]+`, 'gi')
 const TRAILING = new Set(['.', ',', ';', ':', '!', '?', "'", '"'])
 const OPENER: Record<string, string> = { ')': '(', ']': '[' }
 
@@ -66,6 +108,7 @@ export function findAppLinks(text: string): AppLinkMatch[] {
   const out: AppLinkMatch[] = []
   for (const m of text.matchAll(BRACKETED)) {
     const start = (m.index ?? 0) + 1
+    if (linkKind(m[1]) !== 'external') continue
     out.push({ start, end: start + m[1].length, url: m[1] })
   }
   const covered = (start: number, end: number): boolean =>
@@ -73,7 +116,8 @@ export function findAppLinks(text: string): AppLinkMatch[] {
   for (const m of text.matchAll(PLAIN)) {
     const start = m.index ?? 0
     const url = balanced(m[0])
-    if (!/:\/\/./.test(url) || covered(start, start + url.length)) continue
+    if (!/:\/\/./.test(url) || linkKind(url) !== 'external' || covered(start, start + url.length))
+      continue
     out.push({ start, end: start + url.length, url })
   }
   return out.sort((a, b) => a.start - b.start)
