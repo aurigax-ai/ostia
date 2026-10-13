@@ -12,9 +12,9 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { en, zhHant } from '../../shared/dict'
+import { en, zhHant } from '../../shared/app/dict'
+import { DEFAULT_GIT_SETTINGS, type GitSettings } from '../../shared/boards/git'
 import type { ExtensionOpenDiffRequest } from '../../shared/extensions'
-import { DEFAULT_GIT_SETTINGS, type GitSettings } from '../../shared/git'
 import { type DiscardPrompt, type GitCaller, GitCommands } from './commands'
 import { ViewStateStore } from './viewState'
 
@@ -286,5 +286,23 @@ describe('git commands against a real repository', () => {
     await commands.setScope(panel, { kind: 'current' })
     settings = { ...settings, graphScope: 'current' }
     expect(await subjects()).toEqual(['stage b', 'init'])
+  })
+
+  it('lists the files a merge brought in against its first parent', async () => {
+    git('checkout', '-q', '-b', 'topic')
+    writeFileSync(join(repo, 't.txt'), 'topic\n')
+    git('add', 't.txt')
+    git('commit', '-q', '-m', 'topic work')
+    git('checkout', '-q', 'main')
+    writeFileSync(join(repo, 'm.txt'), 'main\n')
+    git('add', 'm.txt')
+    git('commit', '-q', '-m', 'main work')
+    git('merge', '-q', '--no-ff', '-m', 'merge topic', 'topic')
+    const merge = git('rev-parse', 'HEAD').trim()
+
+    const res = await commands.commitFiles(panel, merge)
+
+    expect(res.ok && res.data.parent).toBe(git('rev-parse', 'HEAD^1').trim())
+    expect(res.ok && res.data.files).toEqual([{ path: 't.txt', code: 'A' }])
   })
 })

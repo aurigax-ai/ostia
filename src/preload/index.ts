@@ -1,6 +1,21 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AgentSessionInfo } from '../shared/agentSessionInfo'
-import type { ApprovalState } from '../shared/approvals'
+import type { AgentSessionInfo } from '../shared/agents/agentSessionInfo'
+import type { HibernateOutcome } from '../shared/agents/agentWork'
+import type { QuestionState } from '../shared/agents/questions'
+import type { BuildInfo } from '../shared/app/buildInfo'
+import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
+import type {
+  ReleaseState,
+  ReplaceProgress,
+  ReplaceStart,
+  ReplaceState,
+  UpdateRunStart,
+  UpdateRunState,
+} from '../shared/app/installMethod'
+import type { ReleaseCheckResult } from '../shared/app/releases'
+import type { RequirementsReport } from '../shared/app/systemRequirements'
+import type { ArtifactListing } from '../shared/artifacts/artifacts'
+import type { PreviewEvent, PreviewOpened } from '../shared/artifacts/htmlPreview'
 import type {
   AssistAvailability,
   AssistCatalog,
@@ -8,26 +23,25 @@ import type {
   AssistExtensionState,
   AssistOpenUiRequest,
 } from '../shared/assist'
-import type { BrowserProfile } from '../shared/browserProfile'
-import type { BrowserStorageRead, StorageWriteResult } from '../shared/browserStorage'
-import type { BuildInfo } from '../shared/buildInfo'
 import type {
   ChatExportResult,
   ChatSaveResult,
   ChatSession,
   ChatSessionSummary,
-} from '../shared/chatSessions'
-import type { McpServerStatus } from '../shared/chatTools'
-import type { CmuxSessionRead } from '../shared/cmuxSession'
-import type { SpecCommand } from '../shared/completionSpec'
+} from '../shared/assist/chatSessions'
+import type { McpServerStatus } from '../shared/assist/chatTools'
+import type { CoreItems } from '../shared/boards/git'
+import type { BrowserProfile } from '../shared/browser/browserProfile'
+import type { BrowserStorageRead, StorageWriteResult } from '../shared/browser/browserStorage'
 import type {
   CredentialImportResult,
   CredentialSaveResult,
   CredentialSummary,
-} from '../shared/credentials'
-import type { DiscreteGpuInfo } from '../shared/discreteGpu'
+} from '../shared/browser/credentials'
+import type { PickOutcome, PickSendResult, PickState } from '../shared/browser/pick'
+import type { RegionCaptureOutcome, RegionCopyResult } from '../shared/browser/regionCapture'
+import type { SelectionSendResult } from '../shared/browser/selection'
 import type { EditorLanguage } from '../shared/editorLanguages'
-import type { ExtensionSuggestion } from '../shared/extensionSuggestions'
 import type {
   ExtensionAgentOffer,
   ExtensionInfo,
@@ -43,19 +57,14 @@ import type {
   PaneChip,
   WorkspaceChip,
 } from '../shared/extensions'
-import type { FileOpResult } from '../shared/fileOps'
-import type { CoreItems } from '../shared/git'
-import type { GuestChordFire } from '../shared/guestChords'
+import type { ExtensionSuggestion } from '../shared/extensions/extensionSuggestions'
+import type { MarketplaceResult, MarketplaceState } from '../shared/extensions/marketplace'
+import type { FileOpResult } from '../shared/files/fileOps'
+import type { OpenFileVerdict } from '../shared/files/openFiles'
+import type { SearchOutcome } from '../shared/files/search'
 import type { LoadedIconTheme } from '../shared/iconTheme'
-import type {
-  ReleaseState,
-  ReplaceProgress,
-  ReplaceStart,
-  ReplaceState,
-  UpdateRunStart,
-  UpdateRunState,
-} from '../shared/installMethod'
-import type { KeymapLoad } from '../shared/keymapFile'
+import type { GuestChordFire } from '../shared/keyboard/guestChords'
+import type { KeymapLoad } from '../shared/keyboard/keymapFile'
 import type { LanguagePack } from '../shared/languagePack'
 import type {
   LanguageServerInfo,
@@ -63,13 +72,13 @@ import type {
   LspLog,
   LspSessionInfo,
 } from '../shared/languageServers'
-import type { MarketplaceResult, MarketplaceState } from '../shared/marketplace'
-import type { OpenFileVerdict } from '../shared/openFiles'
-import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
-import type { QuestionState } from '../shared/questions'
-import type { AgentGroupPlacement } from '../shared/reach'
-import type { RegionCaptureOutcome, RegionCopyResult } from '../shared/regionCapture'
-import type { ReleaseCheckResult } from '../shared/releases'
+import type { ApprovalState } from '../shared/permissions/approvals'
+import type { AgentGroupPlacement } from '../shared/permissions/reach'
+import type {
+  ScriptTokenSaveResult,
+  ScriptTokenUsage,
+  ScriptTokensState,
+} from '../shared/permissions/scriptTokens'
 import type {
   RemoteFolder,
   RemoteFolderAsk,
@@ -87,15 +96,14 @@ import type {
   SandboxPortRow,
   SandboxViolation,
   WorkspaceSandbox,
-} from '../shared/sandbox'
-import type { SandboxReadPreset } from '../shared/sandboxPresets'
-import type { SearchOutcome } from '../shared/search'
-import type { SecretEntry, SecretGrant } from '../shared/secrets'
-import type { SelectionSendResult } from '../shared/selection'
-import type { RequirementsReport } from '../shared/systemRequirements'
+} from '../shared/sandbox/sandbox'
+import type { SandboxReadPreset } from '../shared/sandbox/sandboxPresets'
+import type { SecretEntry, SecretGrant } from '../shared/sandbox/secrets'
+import type { SpecCommand } from '../shared/terminal/completionSpec'
 import type {
   AppInfo,
   AppSnapshot,
+  ClipboardContents,
   CommandInvokeRequest,
   CredentialFillResult,
   ExternalEditorResult,
@@ -133,8 +141,9 @@ import type {
   WorkspaceMergeResult,
   WorkspaceProject,
 } from '../shared/types'
-import type { ViewListing } from '../shared/views'
+import type { ViewListing } from '../shared/views/views'
 import type { WorkflowListing, WorkflowSaveResult } from '../shared/workflows'
+import type { CmuxSessionRead } from '../shared/workspaces/cmuxSession'
 
 const bridge: OstiaBridge = {
   ping: () => ipcRenderer.invoke('app:ping') as Promise<'pong'>,
@@ -201,8 +210,9 @@ const bridge: OstiaBridge = {
     attach: (paneId, opts) =>
       ipcRenderer.invoke('pty:attach', paneId, opts) as Promise<PtyAttachResult>,
     detach: (paneId) => ipcRenderer.send('pty:detach', paneId),
-    hibernate: (paneId) => ipcRenderer.invoke('pty:hibernate', paneId) as Promise<boolean>,
+    hibernate: (paneId) => ipcRenderer.invoke('pty:hibernate', paneId) as Promise<HibernateOutcome>,
     stashed: (paneId) => ipcRenderer.invoke('pty:stashed', paneId) as Promise<string | null>,
+    keptWaiting: () => ipcRenderer.invoke('pty:kept-waiting') as Promise<string[]>,
     restart: (paneId) => ipcRenderer.invoke('pty:restart', paneId) as Promise<boolean>,
     reportAgentRunning: (paneId, running) => ipcRenderer.send('pty:agent-running', paneId, running),
     reportWaking: (paneId, waking) => ipcRenderer.send('pty:waking', paneId, waking),
@@ -211,6 +221,7 @@ const bridge: OstiaBridge = {
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
     commands: (paneId) => ipcRenderer.invoke('pty:commands', paneId) as Promise<string[]>,
     listDir: (paneId, dir) => ipcRenderer.invoke('pty:list-dir', paneId, dir),
+    history: (paneId) => ipcRenderer.invoke('pty:history', paneId),
     localPrompt: (paneId) => ipcRenderer.invoke('pty:local-prompt', paneId),
     foreground: (paneId) => ipcRenderer.invoke('pty:foreground', paneId) as Promise<string | null>,
     activity: (paneId) =>
@@ -383,6 +394,37 @@ const bridge: OstiaBridge = {
     files: (workspaceId) => ipcRenderer.invoke('scratch:files', workspaceId) as Promise<number>,
     reveal: (workspaceId) => ipcRenderer.send('scratch:reveal', workspaceId),
   },
+  artifacts: {
+    list: (workspaceId) =>
+      ipcRenderer.invoke('artifacts:list', workspaceId) as Promise<ArtifactListing | null>,
+    pad: (workspaceId) =>
+      ipcRenderer.invoke('artifacts:pad', workspaceId) as Promise<string | null>,
+    reveal: (workspaceId) => ipcRenderer.send('artifacts:reveal', workspaceId),
+    onChanged: (cb) => {
+      const handler = (_e: Electron.IpcRendererEvent, workspaceId: string): void => cb(workspaceId)
+      ipcRenderer.on('artifacts:changed', handler)
+      return () => ipcRenderer.removeListener('artifacts:changed', handler)
+    },
+  },
+  openWaits: {
+    onEnded: (cb) => {
+      const handler = (_e: Electron.IpcRendererEvent, paneIds: string[]): void => cb(paneIds)
+      ipcRenderer.on('open-waits:ended', handler)
+      return () => ipcRenderer.removeListener('open-waits:ended', handler)
+    },
+  },
+  preview: {
+    open: (paneId, path, theme) =>
+      ipcRenderer.invoke('preview:open', paneId, path, theme) as Promise<PreviewOpened | null>,
+    shown: (id, visible) => ipcRenderer.send('preview:shown', id, visible),
+    stop: (id) => ipcRenderer.send('preview:stop', id),
+    close: (id) => ipcRenderer.send('preview:close', id),
+    onEvent: (cb) => {
+      const handler = (_e: Electron.IpcRendererEvent, event: PreviewEvent): void => cb(event)
+      ipcRenderer.on('preview:event', handler)
+      return () => ipcRenderer.removeListener('preview:event', handler)
+    },
+  },
   windows: {
     info: () => ipcRenderer.invoke('windows:info') as Promise<WindowInfo>,
     detach: (workspace, at) =>
@@ -518,7 +560,7 @@ const bridge: OstiaBridge = {
   },
   clipboard: {
     edit: (edit) => ipcRenderer.invoke('clipboard:edit', edit) as Promise<void>,
-    hasImage: () => ipcRenderer.invoke('clipboard:has-image') as Promise<boolean>,
+    contents: () => ipcRenderer.invoke('clipboard:contents') as Promise<ClipboardContents>,
     setChords: (chords) => ipcRenderer.send('clipboard:set-chords', chords),
   },
   guestChords: {
@@ -533,6 +575,7 @@ const bridge: OstiaBridge = {
     openDefault: (path) =>
       ipcRenderer.invoke('shell:open-default', path) as Promise<OpenPathResult>,
     reveal: (path) => ipcRenderer.invoke('shell:reveal', path) as Promise<OpenPathResult>,
+    openLink: (url) => ipcRenderer.invoke('shell:open-link', url) as Promise<boolean>,
     project: (dir, exact) =>
       ipcRenderer.invoke('workspace:project', dir, exact) as Promise<WorkspaceProject | null>,
   },
@@ -690,6 +733,20 @@ const bridge: OstiaBridge = {
     remove: (id) => ipcRenderer.invoke('credentials:remove', id) as Promise<boolean>,
     copyPassword: (id) => ipcRenderer.invoke('credentials:copy-password', id) as Promise<boolean>,
     import: () => ipcRenderer.invoke('credentials:import') as Promise<CredentialImportResult>,
+  },
+  scriptTokens: {
+    list: () => ipcRenderer.invoke('scriptTokens:list') as Promise<ScriptTokensState>,
+    create: (input) =>
+      ipcRenderer.invoke('scriptTokens:create', input) as Promise<ScriptTokenSaveResult>,
+    update: (input) =>
+      ipcRenderer.invoke('scriptTokens:update', input) as Promise<ScriptTokenSaveResult>,
+    revoke: (id) => ipcRenderer.invoke('scriptTokens:revoke', id) as Promise<boolean>,
+    usage: (id) => ipcRenderer.invoke('scriptTokens:usage', id) as Promise<ScriptTokenUsage | null>,
+    onChanged: (cb) => {
+      const handler = (): void => cb()
+      ipcRenderer.on('scriptTokens:changed', handler)
+      return () => ipcRenderer.removeListener('scriptTokens:changed', handler)
+    },
   },
   approvals: {
     state: () => ipcRenderer.invoke('approvals:state') as Promise<ApprovalState>,

@@ -13,8 +13,8 @@ import type { CommandDescriptor, CommandResult } from '../../shared/types'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
 
-const { registerControlServer, stopControlServer } = await import('../controlServer')
-const { registerPane } = await import('../idRegistry')
+const { registerControlServer, stopControlServer } = await import('../control/controlServer')
+const { registerPane } = await import('../control/idRegistry')
 const { registerSecretMethods } = await import('./register')
 const { SecretService } = await import('./secretService')
 

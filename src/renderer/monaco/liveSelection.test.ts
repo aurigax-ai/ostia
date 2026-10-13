@@ -1,7 +1,7 @@
+import { useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
 import { renderHook } from '@testing-library/react'
 import type * as monaco from 'monaco-editor'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useLiveSelectionStore } from '../stores/liveSelectionStore'
 import { LIVE_SELECTION_DELAY_MS, useLiveEditorSelection } from './liveSelection'
 
 interface Range {

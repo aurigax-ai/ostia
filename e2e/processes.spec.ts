@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { PROMPT, occurrences, openWorkspace, quitApp, typeLine } from './helpers'
 import {
@@ -96,55 +98,59 @@ test('ostia process run shows the command in a terminal tab the human can watch'
   }
 })
 
-test('a pane types into and reads a tab it opened, and asks the human for any other pane', async () => {
-  test.setTimeout(60_000)
-  const { app, win } = await launch(freshDataHome())
-  try {
-    await openWorkspace(win)
-    await win.locator('.xterm').first().click()
-    await typeLine(win, 'ostia pane.splitRight')
-    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
-    await expect(rows(win, 1)).toContainText(PROMPT, { timeout: 15_000 })
-    await win.locator('.xterm').first().click()
+test(
+  'a pane types into and reads a tab it opened, and asks the human for any other pane',
+  { tag: '@core' },
+  async () => {
+    test.setTimeout(60_000)
+    const { app, win } = await launch(freshDataHome())
+    try {
+      await openWorkspace(win)
+      await win.locator('.xterm').first().click()
+      await typeLine(win, 'ostia pane.splitRight')
+      await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
+      await expect(rows(win, 1)).toContainText(PROMPT, { timeout: 15_000 })
+      await win.locator('.xterm').first().click()
 
-    await typeLine(
-      win,
-      `OTHER=$(ostia pane.list | grep '"paneId"' | grep -v "$OSTIA_PANE_ID" | head -1 | cut -d'"' -f4)`,
-    )
-    await typeLine(win, 'ostia pane send "$OTHER" intruder --enter || echo SEND-$((1+1))-REFUSED')
-    const card = win.getByRole('region', { name: 'Agent permission request' })
-    await expect(card).toBeVisible({ timeout: 20_000 })
-    await expect(card).toContainText('type into other terminal panes')
-    await card.getByRole('button', { name: 'Deny' }).click()
-    await expect(rows(win, 0)).toContainText('denied: type-other-pane', { timeout: 15_000 })
-    await expect(rows(win, 0)).toContainText('SEND-2-REFUSED')
-    await expect(rows(win, 1)).not.toContainText('intruder')
+      await typeLine(
+        win,
+        `OTHER=$(ostia pane.list | grep '"paneId"' | grep -v "$OSTIA_PANE_ID" | head -1 | cut -d'"' -f4)`,
+      )
+      await typeLine(win, 'ostia pane send "$OTHER" intruder --enter || echo SEND-$((1+1))-REFUSED')
+      const card = win.getByRole('region', { name: 'Agent permission request' })
+      await expect(card).toBeVisible({ timeout: 20_000 })
+      await expect(card).toContainText('type into other terminal panes')
+      await card.getByRole('button', { name: 'Deny' }).click()
+      await expect(rows(win, 0)).toContainText('denied: type-other-pane', { timeout: 15_000 })
+      await expect(rows(win, 0)).toContainText('SEND-2-REFUSED')
+      await expect(rows(win, 1)).not.toContainText('intruder')
 
-    await win.locator('.xterm').first().click()
-    await typeLine(win, 'ostia pane read "$OTHER" || echo READ-$((1+1))-REFUSED')
-    await expect(card).toBeVisible({ timeout: 20_000 })
-    await expect(card).toContainText('read the screen of other terminal panes')
-    await card.getByRole('button', { name: 'Deny' }).click()
-    await expect(rows(win, 0)).toContainText('READ-2-REFUSED', { timeout: 15_000 })
+      await win.locator('.xterm').first().click()
+      await typeLine(win, 'ostia pane read "$OTHER" || echo READ-$((1+1))-REFUSED')
+      await expect(card).toBeVisible({ timeout: 20_000 })
+      await expect(card).toContainText('read the screen of other terminal panes')
+      await card.getByRole('button', { name: 'Deny' }).click()
+      await expect(rows(win, 0)).toContainText('READ-2-REFUSED', { timeout: 15_000 })
 
-    await win.locator('.xterm').first().click()
-    await typeLine(win, 'ostia process run "cat" --name echo')
-    await expect(win.locator('.xterm')).toHaveCount(3, { timeout: 15_000 })
-    await typeLine(
-      win,
-      'until ostia process ls | grep -q running; do sleep 0.2; done; ostia pane send echo "sum-$((20+3))" --enter; sleep 1; ostia pane read echo',
-    )
-    const caller = win.locator('.xterm-rows').filter({ hasText: 'SEND-2-REFUSED' })
-    await expect(caller).toContainText('sum-23', { timeout: 30_000 })
-    await expect(card).toHaveCount(0)
-    await expect(win.locator('.xterm-rows').filter({ hasText: 'sum-23' })).toHaveCount(2)
+      await win.locator('.xterm').first().click()
+      await typeLine(win, 'ostia process run "cat" --name echo')
+      await expect(win.locator('.xterm')).toHaveCount(3, { timeout: 15_000 })
+      await typeLine(
+        win,
+        'until ostia process ls | grep -q running; do sleep 0.2; done; ostia pane send echo "sum-$((20+3))" --enter; sleep 1; ostia pane read echo',
+      )
+      const caller = win.locator('.xterm-rows').filter({ hasText: 'SEND-2-REFUSED' })
+      await expect(caller).toContainText('sum-23', { timeout: 30_000 })
+      await expect(card).toHaveCount(0)
+      await expect(win.locator('.xterm-rows').filter({ hasText: 'sum-23' })).toHaveCount(2)
 
-    await typeLine(win, 'ostia pane key echo ctrl-d && sleep 1 && ostia process ls')
-    await expect(caller).toContainText(/echo\s+exited\(0\)/, { timeout: 15_000 })
-  } finally {
-    await quitApp(app)
-  }
-})
+      await typeLine(win, 'ostia pane key echo ctrl-d && sleep 1 && ostia process ls')
+      await expect(caller).toContainText(/echo\s+exited\(0\)/, { timeout: 15_000 })
+    } finally {
+      await quitApp(app)
+    }
+  },
+)
 
 test('tabs a pane opens with ostia process run line up beside it in launch order', async () => {
   const { app, win } = await launch(freshDataHome())
@@ -165,6 +171,29 @@ test('tabs a pane opens with ostia process run line up beside it in launch order
     await expect(tabs.nth(0)).toHaveAttribute('aria-selected', 'true')
     expect(await callerHasFocus(win)).toBe(true)
   } finally {
+    await quitApp(app)
+  }
+})
+
+test('a tab ostia process run opens while the window draws no frames starts its shell and runs the command', async () => {
+  const dataHome = freshDataHome()
+  const marker = join(dataHome, 'hidden-window-ran')
+  const { app, win } = await launch(dataHome)
+  try {
+    await openWorkspace(win)
+    await win.locator('.xterm').first().click()
+
+    await typeLine(win, `sleep 3; ostia process run "echo ran > ${marker}; sleep 30" --name late`)
+    await app.evaluate(({ BrowserWindow }) => {
+      for (const w of BrowserWindow.getAllWindows()) w.hide()
+    })
+
+    await expect.poll(() => existsSync(marker), { timeout: 30_000 }).toBe(true)
+    expect(readFileSync(marker, 'utf8').trim()).toBe('ran')
+  } finally {
+    await app.evaluate(({ BrowserWindow }) => {
+      for (const w of BrowserWindow.getAllWindows()) w.show()
+    })
     await quitApp(app)
   }
 })

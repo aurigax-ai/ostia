@@ -1,5 +1,5 @@
-import type { ApprovalOutcome } from '../../shared/approvals'
-import { type PackageRef, packageVersionKey } from '../../shared/packages'
+import type { ApprovalOutcome } from '../../shared/permissions/approvals'
+import { type PackageRef, packageVersionKey } from '../../shared/sandbox/packages'
 import type { PackageBlockReason } from './packagePolicy'
 
 export interface BlockedPackage {

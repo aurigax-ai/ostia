@@ -1,6 +1,6 @@
 import { readFileSync, utimesSync } from 'node:fs'
 import { join } from 'node:path'
-import type { SecretSpan } from '../../shared/redaction'
+import type { SecretSpan } from '../../shared/privacy/redaction'
 import type { SecretSyncStatus, SyncConflict, SyncOffer, SyncStatus } from '../../shared/types'
 import {
   canonicalJson,

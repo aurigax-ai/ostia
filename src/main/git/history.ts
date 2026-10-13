@@ -5,7 +5,7 @@ import type {
   CommitSummary,
   GraphCommit,
   RefKind,
-} from '../../shared/git'
+} from '../../shared/boards/git'
 export const FIELD_SEP = '\x1f'
 export const RECORD_SEP = '\x1e'
 export const LOG_FORMAT = `%H${FIELD_SEP}%an${FIELD_SEP}%ae${FIELD_SEP}%at${FIELD_SEP}%s${RECORD_SEP}`
@@ -100,7 +100,7 @@ export function parseNameStatus(output: string): CommitFile[] {
   return files
 }
 
-export { isUncommitted } from '../../shared/git'
+export { isUncommitted } from '../../shared/boards/git'
 
 interface BlameCommit {
   author: string

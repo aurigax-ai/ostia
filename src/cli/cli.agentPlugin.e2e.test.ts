@@ -11,11 +11,11 @@ import {
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { agentPluginContent } from '../main/agentSkills'
-import { registerControlServer, stopControlServer } from '../main/controlServer'
-import { ExtensionHost, registerExtensionMethods } from '../main/extensionHost'
-import { ExtensionStore } from '../main/extensionStore'
-import { type PaneIdentity, registerPane } from '../main/idRegistry'
+import { agentPluginContent } from '../main/agents/agentSkills'
+import { registerControlServer, stopControlServer } from '../main/control/controlServer'
+import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
+import { ExtensionHost, registerExtensionMethods } from '../main/extensions/extensionHost'
+import { ExtensionStore } from '../main/extensions/extensionStore'
 import {
   codexHookKey,
   codexHookTrustHash,
@@ -23,7 +23,7 @@ import {
   setAgentPlugins,
   shellIntegrationDir,
   shellIntegrationSpawnOptions,
-} from '../main/shellIntegration'
+} from '../main/terminal/shellIntegration'
 import type { CommandResult } from '../shared/types'
 
 const repoRoot = process.cwd()
@@ -106,6 +106,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
   let agentDir: string
   let identity: PaneIdentity
   let host: ExtensionHost
+  let serving: ExtensionHost
   const notify = vi.fn()
 
   function paneEnv(): NodeJS.ProcessEnv {
@@ -142,7 +143,8 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
       requestTimeoutMs: 5000,
       log: () => {},
     })
-    registerExtensionMethods(() => host)
+    serving = host
+    registerExtensionMethods(() => serving)
     registerControlServer(
       {
         execCommand: async () => ({ ok: true, result: null }) as CommandResult,
@@ -234,6 +236,49 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
     expect(context).toContain(`- agent-kit-review (${skillFile}): Use when reviewing a change`)
     expect(existsSync(skillFile)).toBe(true)
     expect(context).not.toContain('agent-kit-undeclared')
+  }, 60_000)
+
+  it('an approved extension’s declared skill and hook reach claude in a new pane', async () => {
+    const pending: ExtensionHost = new ExtensionHost({
+      roots: [{ dir: fixtures, builtin: false }],
+      store: new ExtensionStore(join(dir, 'pending-extensions.json')),
+      socketPath: () => socketPath,
+      nodePath: process.execPath,
+      workDirForWorkspace: () => dir,
+      broadcast: () => {},
+      openPanelIn: () => {},
+      onChanged: () => {
+        agentDir = setAgentPlugins(agentPluginContent(pending.agentPlugins()))
+      },
+      notify,
+      requestTimeoutMs: 5000,
+      log: () => {},
+    })
+    serving = pending
+    agentDir = setAgentPlugins(agentPluginContent(pending.agentPlugins()))
+    try {
+      const blocked = await inPane('claude')
+      expect(blocked.stdout).toContain('skill ostia SKILL.md')
+      expect(blocked.stdout).not.toContain('agent-kit')
+
+      pending.approve('agent-kit')
+      const allowed = await inPane('claude')
+      const lines = allowed.stdout.split('\n').map((line) => line.trimEnd())
+      expect(lines).toContain('skill agent-kit-review SKILL.md,checklist.md')
+      expect(lines).toContain(
+        `hook SessionStart ${JSON.stringify({
+          hookSpecificOutput: {
+            hookEventName: 'SessionStart',
+            additionalContext: 'agent-kit saw claude SessionStart for s-1',
+          },
+        })}`,
+      )
+      expect(allowed.stdout).not.toContain('agent-kit-undeclared')
+    } finally {
+      pending.stopAll()
+      serving = host
+      agentDir = setAgentPlugins(agentPluginContent(host.agentPlugins()))
+    }
   }, 60_000)
 
   it('fails quietly and adds nothing when Ostia cannot be reached', async () => {

@@ -1,3 +1,13 @@
+import {
+  type SplitBounds,
+  clampPosition,
+  fractionOf,
+  keyPosition,
+  percentOf,
+  splitBasis,
+  splitBounds,
+} from '@/lib/git/gitSplit'
+import { rememberPanelFractions, rememberedPanelFraction } from '@/lib/panes/panelSizes'
 import { cn } from '@/lib/utils'
 import {
   type KeyboardEvent,
@@ -8,16 +18,6 @@ import {
   useRef,
   useState,
 } from 'react'
-import {
-  type SplitBounds,
-  clampPosition,
-  fractionOf,
-  keyPosition,
-  percentOf,
-  splitBasis,
-  splitBounds,
-} from '../../lib/gitSplit'
-import { rememberPanelFractions, rememberedPanelFraction } from '../../lib/panelSizes'
 
 const DRAGGING_CLASS = 'ostia-split-dragging'
 

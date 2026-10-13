@@ -1,7 +1,7 @@
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ManagerOpenPaneRequest } from '@shared/types'
 import { currentDict, fmt } from '../i18n/useDict'
-import { useLayoutStore } from '../stores/layoutStore'
-import { useWorkspacesStore } from '../stores/workspacesStore'
 
 export function openManagerWorkspace(req: ManagerOpenPaneRequest): string | null {
   const store = useWorkspacesStore.getState()

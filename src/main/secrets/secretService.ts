@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import type { ApprovalOutcome } from '../../shared/approvals'
-import type { SecretEntry } from '../../shared/secrets'
+import type { ApprovalOutcome } from '../../shared/permissions/approvals'
+import type { SecretEntry } from '../../shared/sandbox/secrets'
 
 const SECRET_ENV_NAME = /_(TOKEN|KEY|SECRET|PASSWORD)$/
 const PRIVATE_KEY_HEADER = /-----BEGIN [A-Z ]*PRIVATE KEY-----/

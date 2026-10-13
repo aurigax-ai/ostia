@@ -1,11 +1,126 @@
-import { type AgentResume, resumeCommand } from '@shared/agentResume'
-import type { CmuxImportReport } from '@shared/cmuxSession'
-import { wantsDesktopBanner } from '@shared/notificationSettings'
-import { OPEN_FILES_COMMAND, parseFileTargets } from '@shared/openFiles'
-import { PROGRAM_SETTINGS } from '@shared/programSettings'
+import {
+  type PaneHibernateOutcome,
+  hibernateAgentPane,
+  hibernateWorkspaces,
+  resumeWorkspaces,
+  wakePane,
+} from '@/lib/agents/hibernationScheduler'
+import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '@/lib/agents/paneAgent'
+import { withCommandLineEnv } from '@/lib/agents/resumeEnv'
+import { claimResume, paneResumeHolder, resumeHolder } from '@/lib/agents/resumeFolder'
+import { resetZoom } from '@/lib/app/wheelZoom'
+import { postAgentNotification } from '@/lib/attention/agentNotification'
+import { announceBusMessage } from '@/lib/attention/busNotice'
+import {
+  focusAdjacentTab,
+  focusPaneInDirection,
+  goToWorkspace,
+  isPaneViewed,
+  jumpToLatestUnread,
+  markWorkspaceRead,
+  signalPane,
+  stepWorkspace,
+  workspaceOfPane,
+} from '@/lib/attention/workspaceActivity'
+import { browserProfileIn, openerOf } from '@/lib/browser/browserProfile'
+import { openArtifact, openPad } from '@/lib/files/artifacts'
+import {
+  markOpenedQuietly,
+  openFilesQuietly,
+  openPlaced,
+  openRequestedFiles,
+} from '@/lib/files/openFile'
+import { waitOnPanes } from '@/lib/files/openWaits'
+import { revealFolder } from '@/lib/files/revealFolder'
+import { setKeybindingSetting } from '@/lib/keys/chords'
+import {
+  FILES_PREFIX,
+  GO_TO_FILE_COMMAND,
+  GO_TO_WORKSPACE_COMMAND,
+  GO_TO_WORKSPACE_SYMBOL_COMMAND,
+  SYMBOLS_PREFIX,
+  WORKSPACES_PREFIX,
+} from '@/lib/palette/paletteModes'
+import { openWorkflowPicker } from '@/lib/palette/workflows'
+import { callerHasFocus, openKeepingFocus, opensQuietly } from '@/lib/panes/callerFocus'
+import { groupMates } from '@/lib/sidebar/groupPeers'
+import {
+  type BlockPart,
+  copyBlock,
+  insertCommand,
+  rerunBlock,
+  stepBlock,
+} from '@/lib/terminal/blockActions'
+import { clearKeepingScrollback } from '@/lib/terminal/clearTerminal'
+import { focusActivePaneWhenReady } from '@/lib/terminal/focusNewTerminal'
+import { terminalFor } from '@/lib/terminal/terminalHandles'
+import {
+  closeBlockers,
+  closePaneForAgent,
+  requestCloseOtherTabs,
+  requestCloseOthers,
+  requestClosePane,
+  requestCloseWorkspace,
+} from '@/lib/workspaces/closeConfirm'
+import { runCmuxImport } from '@/lib/workspaces/cmuxImport'
+import { mergeRefusalText } from '@/lib/workspaces/mergeRefusalText'
+import { startNewWorkspace, startScratchWorkspace } from '@/lib/workspaces/newWorkspace'
+import { tabMoveRefusalText } from '@/lib/workspaces/tabMoveRefusalText'
+import {
+  activeTabId,
+  moveTabToWorkspace,
+  tabMoveRefusalFor,
+  tabMoveTargets,
+} from '@/lib/workspaces/tabWorkspaceMove'
+import { loadMergeTargets, requestMergeWorkspace } from '@/lib/workspaces/workspaceMerge'
+import {
+  anchorToFocusedPane,
+  canMoveWorkspace,
+  moveWorkspaceTo,
+} from '@/lib/workspaces/workspaceProjects'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import {
+  type InputMode,
+  type SettingChange,
+  getByPath,
+  useSettingsStore,
+} from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useUpdateStore } from '@/stores/app/updateStore'
+import { useArtifactsStore } from '@/stores/files/artifactsStore'
+import { useAgentTurnStore } from '@/stores/terminal/agentTurnStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useHistorySearchStore } from '@/stores/terminal/historySearchStore'
+import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
+import { saveSnapshotNow } from '@/stores/workspaces/persistence'
+import { useTabSleepNoticeStore } from '@/stores/workspaces/tabSleepNoticeStore'
+import type { WorkspaceKind, WorkspaceState } from '@/stores/workspaces/workspacesStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import { type AgentResume, parseAgentResume, resumeCommand } from '@shared/agents/agentResume'
+import { isAgentBusyReason } from '@shared/agents/agentWork'
+import { wantsDesktopBanner } from '@shared/app/notificationSettings'
+import { stepZoom } from '@shared/app/zoom'
+import { PAD_COMMAND } from '@shared/artifacts/artifacts'
+import {
+  OPEN_DIFF_COMMAND,
+  OPEN_FILES_COMMAND,
+  type OpenedPane,
+  REVEAL_FOLDER_COMMAND,
+  parseFileTargets,
+  parsePlacement,
+} from '@shared/files/openFiles'
+import { PROGRAM_SETTINGS } from '@shared/permissions/programSettings'
 import type { AttentionState } from '@shared/types'
-import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
-import { stepZoom } from '@shared/zoom'
+import type { CmuxImportReport } from '@shared/workspaces/cmuxSession'
+import {
+  WORKSPACE_GROUP_COLORS,
+  type WorkspaceGroupColor,
+  isWorkspaceGroupColor,
+  normalizeGroupName,
+} from '@shared/workspaces/workspaceGroups'
 import { currentDict } from '../i18n/useDict'
 import {
   type DropZone,
@@ -17,81 +132,9 @@ import {
   tabNeighbor,
 } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
-import { postAgentNotification } from '../lib/agentNotification'
-import {
-  type BlockPart,
-  copyBlock,
-  insertCommand,
-  rerunBlock,
-  stepBlock,
-} from '../lib/blockActions'
-import { browserProfileIn, openerOf } from '../lib/browserProfile'
-import { announceBusMessage } from '../lib/busNotice'
-import { setKeybindingSetting } from '../lib/chords'
-import { clearKeepingScrollback } from '../lib/clearTerminal'
-import {
-  closePaneForAgent,
-  requestCloseOthers,
-  requestClosePane,
-  requestCloseWorkspace,
-} from '../lib/closeConfirm'
-import { runCmuxImport } from '../lib/cmuxImport'
-import { focusActivePaneWhenReady } from '../lib/focusNewTerminal'
-import { groupMates } from '../lib/groupPeers'
-import { hibernateWorkspaces, resumeWorkspaces, wakePane } from '../lib/hibernationScheduler'
-import { mergeRefusalText } from '../lib/mergeRefusalText'
-import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
-import { openRequestedFiles } from '../lib/openFile'
-import {
-  FILES_PREFIX,
-  GO_TO_FILE_COMMAND,
-  GO_TO_WORKSPACE_COMMAND,
-  GO_TO_WORKSPACE_SYMBOL_COMMAND,
-  SYMBOLS_PREFIX,
-  WORKSPACES_PREFIX,
-} from '../lib/paletteModes'
-import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '../lib/paneAgent'
-import { tabMoveRefusalText } from '../lib/tabMoveRefusalText'
-import {
-  activeTabId,
-  moveTabToWorkspace,
-  tabMoveRefusalFor,
-  tabMoveTargets,
-} from '../lib/tabWorkspaceMove'
-import { terminalFor } from '../lib/terminalHandles'
-import { resetZoom } from '../lib/wheelZoom'
-import { openWorkflowPicker } from '../lib/workflows'
-import {
-  focusAdjacentTab,
-  focusPaneInDirection,
-  goToWorkspace,
-  isPaneViewed,
-  jumpToLatestUnread,
-  markWorkspaceRead,
-  signalPane,
-  stepWorkspace,
-} from '../lib/workspaceActivity'
-import { loadMergeTargets, requestMergeWorkspace } from '../lib/workspaceMerge'
-import { anchorToFocusedPane, canMoveWorkspace, moveWorkspaceTo } from '../lib/workspaceProjects'
 import { isMac } from '../platform'
 import { keymapSettingValue, terminalKeymapSettingValue } from '../settings/keymapSetting'
 import { settingsSchemaAt } from '../settings/settingsSchema'
-import { useAgentTurnStore } from '../stores/agentTurnStore'
-import { useAttentionStore } from '../stores/attentionStore'
-import { useBlocksStore } from '../stores/blocksStore'
-import { useHistorySearchStore } from '../stores/historySearchStore'
-import { useLayoutStore } from '../stores/layoutStore'
-import { saveSnapshotNow } from '../stores/persistence'
-import {
-  type InputMode,
-  type SettingChange,
-  getByPath,
-  useSettingsStore,
-} from '../stores/settingsStore'
-import { useUIStore } from '../stores/uiStore'
-import { useUpdateStore } from '../stores/updateStore'
-import type { WorkspaceKind, WorkspaceState } from '../stores/workspacesStore'
-import { useWorkspacesStore } from '../stores/workspacesStore'
 import { registerBrowserCommands } from './browserCommands'
 import { type CoreCommandId, registerCore } from './core'
 import { registerGitCommands } from './gitCommands'
@@ -200,9 +243,23 @@ const PANE_FOCUS_COMMANDS: readonly (readonly [CoreCommandId, FocusDirection])[]
   ['pane.focusDown', 'down'],
 ]
 
+async function hibernateAgents(workspaceIds: readonly string[]): Promise<string[]> {
+  const report = await hibernateWorkspaces(workspaceIds)
+  useHibernateSkippedStore.getState().show(report)
+  return report.hibernated
+}
+
 function groupWorkspaceIds(workspaceId: string | null): string[] {
   if (!workspaceId) return []
   return groupMates(useWorkspacesStore.getState().workspaces, workspaceId).map((w) => w.id)
+}
+
+function namedGroup(raw: unknown) {
+  const name = normalizeGroupName(raw)
+  const found = useWorkspacesStore.getState().groups.filter((g) => g.name === name)
+  if (found.length === 0) throw new Error(`no group named '${String(raw)}'`)
+  if (found.length > 1) throw new Error(`ambiguous: ${found.length} groups are named '${name}'`)
+  return found[0]
 }
 
 function workspaceWithoutPanes(ctx: CommandContext, paneId?: string): string | null {
@@ -551,8 +608,10 @@ export function registerBuiltinCommands(): void {
     category: 'pane',
     hidden: true,
     capabilities: ['drive-self'],
-    run: (resume, ctx) => {
+    run: (raw, ctx) => {
       if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
+      const resume = withCommandLineEnv(parseAgentResume(raw), ctx.activePaneId)
+      if (!resume) throw new Error('invalid resume')
       useLayoutStore.getState().setResume(ctx.activeWorkspaceId, ctx.activePaneId, resume)
       useBlocksStore.getState().markAgent(ctx.activePaneId, resume.agent)
     },
@@ -567,9 +626,17 @@ export function registerBuiltinCommands(): void {
       const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
       const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
       if (pane?.kind !== 'terminal' || !pane.resume) return { resumed: false }
+      const holder = resumeHolder(pane.id, pane.resume)
+      if (holder) {
+        throw new Error(
+          `${pane.resume.agent} session ${pane.resume.id} is already running in "${holder.title}"`,
+        )
+      }
       if (pane.hibernated) return { resumed: wakePane(pane.id) }
       if (pane.resumeFolderMissing) return { resumed: false }
-      return { resumed: insertCommand(pane.id, resumeCommand(pane.resume), true) }
+      const resumed = insertCommand(pane.id, resumeCommand(pane.resume), true)
+      if (resumed) claimResume(pane.id, pane.resume)
+      return { resumed }
     },
   })
 
@@ -586,14 +653,57 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  registerCore<undefined, { woke: boolean }>({
+  registerCore<{ paneId?: string } | undefined, { woke: boolean; conflict?: string }>({
     id: 'pane.wake',
     category: 'pane',
-    hidden: true,
     capabilities: ['type-other-pane'],
-    run: (_args, ctx) => {
-      if (!ctx.activePaneId) throw new Error('no target pane')
-      return { woke: wakePane(ctx.activePaneId) }
+    argsSchema: { type: 'object', properties: { paneId: { type: 'string' } } },
+    run: (args, ctx) => {
+      const paneId = args?.paneId ?? ctx.activePaneId
+      if (!paneId) throw new Error('no target pane')
+      const holder = paneResumeHolder(paneId)
+      if (holder) {
+        if (!ctx.target)
+          useTabSleepNoticeStore.getState().show({ kind: 'conflict', tab: holder.title })
+        return { woke: false, conflict: holder.title }
+      }
+      const woke = wakePane(paneId)
+      if (!woke && !ctx.target) useTabSleepNoticeStore.getState().show({ kind: 'awake' })
+      return { woke }
+    },
+  })
+
+  registerCore<{ paneId?: string } | undefined, { hibernated: boolean; outcome: string }>({
+    id: 'pane.hibernate',
+    category: 'pane',
+    capabilities: ['kill-pane'],
+    argsSchema: { type: 'object', properties: { paneId: { type: 'string' } } },
+    run: async (args, ctx) => {
+      const paneId = args?.paneId ?? ctx.activePaneId
+      const workspaceId = paneId ? workspaceOfPane(paneId) : null
+      if (!paneId || !workspaceId) throw new Error('no target pane')
+      const outcome: PaneHibernateOutcome = await hibernateAgentPane(workspaceId, paneId)
+      if (isAgentBusyReason(outcome)) {
+        useHibernateSkippedStore.getState().show({ hibernated: [], skipped: { [outcome]: 1 } })
+      }
+      if (outcome === 'not-agent' && !ctx.target) {
+        const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+        const asleep = layout ? findPane(layout.root, paneId)?.hibernated === true : false
+        useTabSleepNoticeStore.getState().show({ kind: asleep ? 'asleep' : 'notAgent' })
+      }
+      return { hibernated: outcome === 'hibernated', outcome }
+    },
+  })
+
+  registerCore<{ paneId?: string } | undefined>({
+    id: 'tab.closeOthers',
+    category: 'pane',
+    capabilities: ['kill-pane'],
+    argsSchema: { type: 'object', properties: { paneId: { type: 'string' } } },
+    run: async (args, ctx) => {
+      const paneId = args?.paneId ?? ctx.activePaneId
+      if (ctx.activeWorkspaceId && paneId)
+        await requestCloseOtherTabs(ctx.activeWorkspaceId, paneId)
     },
   })
 
@@ -756,11 +866,14 @@ export function registerBuiltinCommands(): void {
   registerCore<{ title?: string } | undefined>({
     id: 'pane.rename',
     category: 'pane',
-    hidden: true,
     capabilities: ['drive-self'],
     run: (args, ctx) => {
       if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
-      useLayoutStore.getState().rename(ctx.activeWorkspaceId, ctx.activePaneId, args?.title ?? '')
+      if (typeof args?.title !== 'string') {
+        usePaneRenameStore.getState().begin(ctx.activePaneId)
+        return
+      }
+      useLayoutStore.getState().rename(ctx.activeWorkspaceId, ctx.activePaneId, args.title)
     },
   })
 
@@ -802,6 +915,54 @@ export function registerBuiltinCommands(): void {
     },
   })
 
+  registerCore<{ group: string; color: string | null }>({
+    id: 'workspace.groupColor',
+    category: 'workspace',
+    hidden: true,
+    capabilities: ['drive-self'],
+    target: 'none',
+    run: (args) => {
+      const color = args?.color ?? null
+      if (color !== null && !isWorkspaceGroupColor(color)) {
+        throw new Error(`unknown color '${color}' (one of ${WORKSPACE_GROUP_COLORS.join(', ')})`)
+      }
+      const name = normalizeGroupName(args?.group)
+      const store = useWorkspacesStore.getState()
+      const group = store.groups.find((g) => g.name === name)
+      if (!group) throw new Error(`no group named '${args?.group}'`)
+      store.setGroupColor(group.id, color)
+    },
+  })
+
+  registerCore<{ group: string; name: string }>({
+    id: 'workspace.groupRename',
+    category: 'workspace',
+    hidden: true,
+    capabilities: ['drive-self'],
+    target: 'none',
+    run: (args) => {
+      const name = normalizeGroupName(args?.name)
+      if (!name) throw new Error('missing group name')
+      const store = useWorkspacesStore.getState()
+      const group = namedGroup(args?.group)
+      if (group.name !== name && store.groups.some((g) => g.name === name)) {
+        throw new Error(`a group named '${name}' already exists`)
+      }
+      store.renameGroup(group.id, name)
+    },
+  })
+
+  registerCore<{ group: string }>({
+    id: 'workspace.groupDelete',
+    category: 'workspace',
+    hidden: true,
+    capabilities: ['drive-self'],
+    target: 'none',
+    run: (args) => {
+      useWorkspacesStore.getState().deleteGroup(namedGroup(args?.group).id)
+    },
+  })
+
   registerCore({
     id: 'workspace.toggleGroup',
     category: 'workspace',
@@ -826,16 +987,16 @@ export function registerBuiltinCommands(): void {
   registerCore<undefined, { hibernated: string[] }>({
     id: 'workspace.hibernateAgents',
     category: 'workspace',
-    local: true,
+    capabilities: ['kill-pane'],
     run: async (_args, ctx) => ({
-      hibernated: await hibernateWorkspaces(ctx.activeWorkspaceId ? [ctx.activeWorkspaceId] : []),
+      hibernated: await hibernateAgents(ctx.activeWorkspaceId ? [ctx.activeWorkspaceId] : []),
     }),
   })
 
   registerCore<undefined, { resumed: string[] }>({
     id: 'workspace.resumeAgents',
     category: 'workspace',
-    local: true,
+    capabilities: ['type-other-pane'],
     run: (_args, ctx) => ({
       resumed: resumeWorkspaces(ctx.activeWorkspaceId ? [ctx.activeWorkspaceId] : []),
     }),
@@ -844,16 +1005,16 @@ export function registerBuiltinCommands(): void {
   registerCore<undefined, { hibernated: string[] }>({
     id: 'workspace.hibernateGroupAgents',
     category: 'workspace',
-    local: true,
+    capabilities: ['kill-pane'],
     run: async (_args, ctx) => ({
-      hibernated: await hibernateWorkspaces(groupWorkspaceIds(ctx.activeWorkspaceId)),
+      hibernated: await hibernateAgents(groupWorkspaceIds(ctx.activeWorkspaceId)),
     }),
   })
 
   registerCore<undefined, { resumed: string[] }>({
     id: 'workspace.resumeGroupAgents',
     category: 'workspace',
-    local: true,
+    capabilities: ['type-other-pane'],
     run: (_args, ctx) => ({ resumed: resumeWorkspaces(groupWorkspaceIds(ctx.activeWorkspaceId)) }),
   })
 
@@ -866,6 +1027,24 @@ export function registerBuiltinCommands(): void {
       if (current) store.setPinned(current.id, !current.pinned)
     },
   })
+
+  for (const [id, pinned] of [
+    ['workspace.pin', true],
+    ['workspace.unpin', false],
+  ] as const) {
+    registerCore({
+      id,
+      category: 'workspace',
+      hidden: true,
+      capabilities: ['drive-self'],
+      run: (_args, ctx) => {
+        const store = useWorkspacesStore.getState()
+        const current = store.workspaces.find((w) => w.id === ctx.activeWorkspaceId)
+        if (!current) throw new Error('no target workspace')
+        if (Boolean(current.pinned) !== pinned) store.setPinned(current.id, pinned)
+      },
+    })
+  }
 
   registerCore({
     id: 'workspace.markRead',
@@ -904,6 +1083,40 @@ export function registerBuiltinCommands(): void {
   })
 
   registerCore({
+    id: 'workspace.close',
+    category: 'workspace',
+    capabilities: ['kill-pane'],
+    run: async (_args, ctx) => {
+      if (!ctx.activeWorkspaceId) throw new Error('no target workspace')
+      if (!ctx.target) {
+        await requestCloseWorkspace(ctx.activeWorkspaceId)
+        return
+      }
+      const workspace = useWorkspacesStore
+        .getState()
+        .workspaces.find((w) => w.id === ctx.activeWorkspaceId)
+      if (!workspace) throw new Error(`unknown-workspace: ${ctx.activeWorkspaceId}`)
+      if (workspace.kind === 'manager') throw new Error('manager: the manager workspace stays open')
+      if (useLayoutStore.getState().isLocked(workspace.id)) {
+        throw new Error('pane-locked: the human locked a pane in this workspace')
+      }
+      const blockers = await closeBlockers(workspace)
+      if (blockers) {
+        const still = [
+          ...(blockers.agents ?? []).map((a) => `agent ${a || '?'}`),
+          ...blockers.commands.map((c) => `command ${c || '?'}`),
+          ...blockers.files.map((f) => `unsaved ${f}`),
+          ...(blockers.scratchFiles ? [`${blockers.scratchFiles} scratch files`] : []),
+        ]
+        throw new Error(
+          `busy: workspace ${workspace.id} still has ${still.join(', ')}; stop or close those first, or let the human close it`,
+        )
+      }
+      useWorkspacesStore.getState().closeWorkspace(workspace.id)
+    },
+  })
+
+  registerCore({
     id: 'workspace.closeOthers',
     category: 'workspace',
     capabilities: ['kill-pane'],
@@ -930,6 +1143,48 @@ export function registerBuiltinCommands(): void {
       const target = args?.argument
       if (!ctx.activeWorkspaceId || !target) return { merged: false }
       return { merged: await requestMergeWorkspace(ctx.activeWorkspaceId, target) }
+    },
+  })
+
+  registerCore<{ argument?: string } | undefined, { opened: boolean }>({
+    id: 'artifacts.open',
+    local: true,
+    choices: async () => {
+      const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+      if (!workspaceId) return []
+      await useArtifactsStore.getState().refresh(workspaceId)
+      const entries = useArtifactsStore.getState().byWorkspace[workspaceId]?.entries ?? []
+      return entries.map((entry) => ({ value: entry.path, label: entry.name }))
+    },
+    emptyChoices: () => currentDict().artifacts.none,
+    run: (args, ctx) => {
+      const workspaceId = ctx.activeWorkspaceId
+      const entries = workspaceId
+        ? (useArtifactsStore.getState().byWorkspace[workspaceId]?.entries ?? [])
+        : []
+      const entry = entries.find((e) => e.path === args?.argument)
+      if (!workspaceId || !entry) return { opened: false }
+      openArtifact(workspaceId, entry)
+      return { opened: true }
+    },
+  })
+
+  registerCore<undefined, { opened: boolean }>({
+    id: PAD_COMMAND,
+    category: 'workspace',
+    local: true,
+    run: async (_args, ctx) => ({
+      opened: ctx.activeWorkspaceId ? await openPad(ctx.activeWorkspaceId) : false,
+    }),
+  })
+
+  registerCore<undefined, { revealed: boolean }>({
+    id: 'artifacts.reveal',
+    local: true,
+    run: (_args, ctx) => {
+      if (!ctx.activeWorkspaceId) return { revealed: false }
+      window.ostia.artifacts.reveal(ctx.activeWorkspaceId)
+      return { revealed: true }
     },
   })
 
@@ -1037,6 +1292,13 @@ export function registerBuiltinCommands(): void {
     category: 'view',
     target: 'none',
     run: () => useUIStore.getState().togglePalette(),
+  })
+
+  registerCore({
+    id: 'palette.searchEverywhere',
+    category: 'view',
+    target: 'none',
+    run: () => useUIStore.getState().openPalette('everywhere'),
   })
 
   registerCore({
@@ -1188,7 +1450,10 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  registerCore<{ files?: unknown }>({
+  registerCore<
+    { files?: unknown; background?: unknown; placement?: unknown; wait?: unknown },
+    { opened: OpenedPane[] }
+  >({
     id: OPEN_FILES_COMMAND,
     hidden: true,
     capabilities: ['drive-self'],
@@ -1196,27 +1461,112 @@ export function registerBuiltinCommands(): void {
     run: (args, ctx) => {
       const files = parseFileTargets(args?.files)
       if (!files) throw new Error('expected files: [{ path, line?, column? }]')
-      if (ctx.activeWorkspaceId) {
-        openRequestedFiles(ctx.activeWorkspaceId, files, ctx.activePaneId ?? undefined)
+      const workspaceId = ctx.activeWorkspaceId
+      if (!workspaceId) return { opened: [] }
+      const paneId = ctx.activePaneId ?? undefined
+      const quiet = opensQuietly(ctx, args?.background)
+      const wait = args?.wait === true
+      const placement = wait ? 'tab' : parsePlacement(args?.placement)
+      if (!placement) {
+        if (quiet) openFilesQuietly(workspaceId, files, paneId)
+        else openRequestedFiles(workspaceId, files, paneId)
+        return { opened: [] }
       }
+      const opened = openPlaced(workspaceId, files, paneId, { placement, quiet, fresh: wait })
+      if (wait) waitOnPanes(workspaceId, paneId, opened)
+      return { opened }
     },
   })
 
-  registerCore<{ url?: string } | undefined>({
+  registerCore<
+    {
+      title?: unknown
+      original?: unknown
+      modified?: unknown
+      path?: unknown
+      background?: unknown
+    },
+    { opened: OpenedPane[] }
+  >({
+    id: OPEN_DIFF_COMMAND,
+    hidden: true,
+    capabilities: ['drive-self'],
+    target: 'active',
+    run: (args, ctx) => {
+      const workspaceId = ctx.activeWorkspaceId
+      if (
+        typeof args?.title !== 'string' ||
+        typeof args.original !== 'string' ||
+        typeof args.modified !== 'string' ||
+        typeof args.path !== 'string'
+      ) {
+        throw new Error('expected { title, original, modified, path }')
+      }
+      if (!workspaceId) return { opened: [] }
+      const content = {
+        title: args.title,
+        original: args.original,
+        modified: args.modified,
+        path: args.path,
+      }
+      const open = (): string | null => {
+        const before = useLayoutStore.getState().byWorkspace[workspaceId]?.activePaneId
+        const paneId = useLayoutStore.getState().openDiff(workspaceId, content)
+        if (quiet && before && paneId) useLayoutStore.getState().focusPane(workspaceId, before)
+        return paneId
+      }
+      const quiet = opensQuietly(ctx, args.background)
+      const paneId = quiet ? openKeepingFocus(open) : open()
+      if (!paneId) return { opened: [] }
+      if (quiet) markOpenedQuietly(paneId, content.title)
+      return { opened: [{ path: content.path, paneId }] }
+    },
+  })
+
+  registerCore<{ path?: unknown }, { revealed: boolean }>({
+    id: REVEAL_FOLDER_COMMAND,
+    hidden: true,
+    capabilities: ['drive-self'],
+    target: 'active',
+    run: async (args, ctx) => {
+      if (typeof args?.path !== 'string' || !args.path.startsWith('/')) {
+        throw new Error('expected path: an absolute folder path')
+      }
+      const workspaceId = ctx.activeWorkspaceId
+      if (!workspaceId) return { revealed: false }
+      if (ctx.origin === 'remote' && useSandboxStore.getState().enabled[workspaceId] === true) {
+        throw new Error('outside-sandbox: a sandboxed workspace cannot show folders')
+      }
+      if ((await window.ostia.fs.stat(args.path)) !== 'dir') {
+        throw new Error('not-a-directory: no such folder inside the file roots')
+      }
+      revealFolder(workspaceId, args.path)
+      return { revealed: true }
+    },
+  })
+
+  registerCore<{ url?: string; background?: unknown } | undefined>({
     id: 'browser.new',
     hidden: true,
     capabilities: ['browse'],
     target: 'active',
     run: (args, ctx) => {
-      if (ctx.activeWorkspaceId) {
+      const workspaceId = ctx.activeWorkspaceId
+      if (!workspaceId) return
+      const url = args?.url || 'about:blank'
+      const profile = browserProfileIn(workspaceId, openerOf(ctx))
+      const show = (): void => useLayoutStore.getState().openBrowser(workspaceId, url, profile)
+      if (args?.background !== true) {
+        if (callerHasFocus(ctx)) show()
+        else openKeepingFocus(show)
+        return
+      }
+      const opened = openKeepingFocus(() =>
         useLayoutStore
           .getState()
-          .openBrowser(
-            ctx.activeWorkspaceId,
-            args?.url || 'about:blank',
-            browserProfileIn(ctx.activeWorkspaceId, openerOf(ctx)),
-          )
-      }
+          .openBrowserTab(workspaceId, url, profile, { beside: ctx.activePaneId ?? undefined }),
+      )
+      if (opened) markOpenedQuietly(opened, url)
     },
   })
 

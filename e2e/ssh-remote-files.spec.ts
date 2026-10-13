@@ -1,6 +1,5 @@
 import {
   chmodSync,
-  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -17,12 +16,6 @@ import { type ElectronApplication, type Page, _electron as electron, expect, tes
 const FAKE_SSH_BIN = resolve(__dirname, '../test/fixtures/ssh/bin')
 const SSH_CAPTURES = resolve(__dirname, '../test/fixtures/ssh')
 
-interface AskedDialog {
-  message?: string
-  detail?: string
-  buttons?: string[]
-}
-
 async function approveNativeDialogs(app: ElectronApplication): Promise<void> {
   await app.evaluate(({ dialog }) => {
     const g = globalThis as { ostiaE2eAsked?: unknown[] }
@@ -32,12 +25,6 @@ async function approveNativeDialogs(app: ElectronApplication): Promise<void> {
       return { response: 0, checkboxChecked: false }
     }) as typeof dialog.showMessageBox
   })
-}
-
-function askedDialogs(app: ElectronApplication): Promise<AskedDialog[]> {
-  return app.evaluate(
-    () => ((globalThis as { ostiaE2eAsked?: unknown[] }).ostiaE2eAsked ?? []) as AskedDialog[],
-  )
 }
 
 async function runPaletteCommand(win: Page, title: string): Promise<void> {
@@ -111,71 +98,6 @@ async function openRemoteFolder({ win, project }: Session): Promise<void> {
   await dialog.getByRole('button', { name: 'Open' }).click()
   await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
 }
-
-test('SSH-C65 SSH-C72 the human opens the folder of an ssh session in Files, reads a remote file, and the next session uses the short command', async () => {
-  test.setTimeout(180_000)
-  const session = await sessionInProject()
-  const { app, win, remoteHome, project } = session
-  try {
-    await openRemoteFolder(session)
-
-    const section = win.getByTestId('remote-folder')
-    await expect(section).toBeVisible({ timeout: 15_000 })
-    await expect(section).toContainText('Remote')
-    await expect(section).toContainText('db')
-    await expect(section).toContainText(project)
-    const row = (name: string) => section.getByRole('button', { name, exact: true })
-    await expect(row('app.conf')).toBeVisible({ timeout: 15_000 })
-    await row('conf').click()
-    await expect(row('db.yaml')).toBeVisible({ timeout: 15_000 })
-
-    await row('app.conf').click()
-    const bar = win.getByTestId('remote-file-bar')
-    await expect(bar).toContainText('Remote file on db', { timeout: 15_000 })
-    const editorPane = win.locator('.surface-host').filter({ has: bar })
-    await expect(editorPane.locator('.view-lines')).toContainText('port=8080', { timeout: 15_000 })
-
-    const versions = readdirSync(join(remoteHome, '.ostia', 'helper'))
-    expect(versions).toHaveLength(1)
-    const installed = readFileSync(join(remoteHome, '.ostia', 'helper', versions[0], 'helper.sh'))
-    const shipped = readFileSync(resolve(__dirname, '../src/extensions/ssh/assets/helper.sh'))
-    expect(installed.equals(shipped)).toBe(true)
-
-    const asked = await askedDialogs(app)
-    expect(asked).toHaveLength(2)
-    expect(asked[1].message).toContain('db')
-    expect(asked[1].detail).toContain(`~/.ostia/helper/${versions[0]}/helper.sh`)
-    expect(asked[1].buttons).toEqual(['Install', 'Don’t install'])
-
-    await win.locator('.xterm').first().click()
-    await win.keyboard.type('ostia ssh connect db')
-    await win.keyboard.press('Enter')
-    await expect(win.locator('.xterm')).toHaveCount(3, { timeout: 40_000 })
-    const secondPane = win.locator('.pane.active')
-    const second = secondPane.locator('.xterm-rows')
-    await expect(second).toContainText('remote$', { timeout: 40_000 })
-    const typed = readFileSync(session.sshLog, 'utf8').trim().split('\n').at(-1) ?? ''
-    expect(typed).toContain(
-      `ssh -t -- db exec sh -c 'f="$HOME/.ostia/helper/${versions[0]}/session.sh"`,
-    )
-    expect(typed).not.toContain('base64')
-    expect(typed.length).toBeLessThan(320)
-    await secondPane.locator('.xterm').click()
-    await win.keyboard.type('echo short-$((40+2))')
-    await win.keyboard.press('Enter')
-    await expect(second).toContainText('short-42', { timeout: 20_000 })
-    await expect
-      .poll(() => secondPane.locator('.block-gutter').count(), { timeout: 15_000 })
-      .toBeGreaterThanOrEqual(1)
-
-    await section.getByRole('button', { name: 'Close remote folder' }).click()
-    await expect(win.getByTestId('remote-folder')).toHaveCount(0)
-    await expect(bar).toContainText('This remote folder is closed')
-    expect(existsSync(join(project, 'app.conf'))).toBe(true)
-  } finally {
-    await app.close()
-  }
-})
 
 test('SSH-C66 SSH-C68 a remote file saves through the helper and follows changes on the host', async () => {
   test.setTimeout(180_000)

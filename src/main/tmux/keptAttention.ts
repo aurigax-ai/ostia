@@ -1,4 +1,4 @@
-import type { PaneAttentionPeek } from '../paneIo'
+import type { PaneAttentionPeek } from '../panes/paneIo'
 
 export const KEPT_AGENT_UNREPORTED =
   'its agent kept running across a restart and has not reported its state since'

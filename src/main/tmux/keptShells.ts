@@ -223,6 +223,10 @@ export class KeptShells {
     return this.waiting.has(paneId)
   }
 
+  waitingPaneIds(): string[] {
+    return [...this.waiting.keys()]
+  }
+
   async spawn(spec: KeptSpawnSpec): Promise<TmuxPane> {
     return (await this.connect()).spawn(spec)
   }

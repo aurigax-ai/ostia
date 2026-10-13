@@ -1,22 +1,22 @@
+import { findPane } from '@/layout/tree'
+import { revealPane } from '@/lib/attention/workspaceActivity'
+import { openKeepingFocus } from '@/lib/panes/callerFocus'
+import { runWhenIdle } from '@/lib/terminal/blockActions'
+import { startOffscreen } from '@/lib/terminal/offscreenStart'
+import { pinTitle } from '@/lib/terminal/pinnedTitles'
+import { useAgentOfferStore } from '@/stores/agents/agentOfferStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { usePluginsStore } from '@/stores/extensions/pluginsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type {
   ExtensionInfo,
   ExtensionOpenDiffRequest,
   ExtensionOpenPanelRequest,
 } from '@shared/extensions'
 import type { ProcessTerminalRequest } from '@shared/types'
-import { flushSync } from 'react-dom'
-import { runWhenIdle } from '../lib/blockActions'
-import { startOffscreen } from '../lib/offscreenStart'
-import { pinTitle } from '../lib/pinnedTitles'
-import { revealPane } from '../lib/workspaceActivity'
-import { useAgentOfferStore } from '../stores/agentOfferStore'
-import { useExtensionsStore } from '../stores/extensionsStore'
-import { useLayoutStore } from '../stores/layoutStore'
-import { usePluginsStore } from '../stores/pluginsStore'
-import { useSandboxStore } from '../stores/sandboxStore'
-import { useSettingsStore } from '../stores/settingsStore'
-import { focusSurface } from '../stores/surfaceSlotsStore'
-import { useWorkspacesStore } from '../stores/workspacesStore'
 import { commands } from './registry'
 
 const registered = new Map<string, string>()
@@ -105,17 +105,6 @@ export function openExtensionDiff(req: ExtensionOpenDiffRequest): string | null 
   return workspaceId ? useLayoutStore.getState().openDiff(workspaceId, content) : null
 }
 
-function focusedPaneId(): string | undefined {
-  return document.activeElement?.closest<HTMLElement>('.surface-host')?.dataset.paneId
-}
-
-function openKeepingFocus(open: () => string | null): string | null {
-  const focused = focusedPaneId()
-  const paneId = flushSync(open)
-  if (focused && focusedPaneId() !== focused) focusSurface(focused)
-  return paneId
-}
-
 export function openExtensionTerminal(req: ProcessTerminalRequest): string | null {
   const workspaces = useWorkspacesStore.getState()
   const workspaceId = req.workspaceId ?? workspaces.activeWorkspaceId
@@ -137,8 +126,30 @@ export function openExtensionTerminal(req: ProcessTerminalRequest): string | nul
     workspaces.setActive(workspaceId)
   }
   startOffscreen(paneId)
-  runWhenIdle(paneId, req.command)
+  runWhenShellStarts(paneId, req.command)
   return paneId
+}
+
+function paneExists(paneId: string): boolean {
+  return Object.values(useLayoutStore.getState().byWorkspace).some(
+    (layout) => layout && findPane(layout.root, paneId),
+  )
+}
+
+function runWhenShellStarts(paneId: string, command: string): void {
+  let unwatch: (() => void) | null = null
+  let settled = false
+  const settle = (): void => {
+    settled = true
+    unwatch?.()
+  }
+  const stop = runWhenIdle(paneId, command, null, undefined, settle, settle)
+  if (settled) return
+  unwatch = useLayoutStore.subscribe(() => {
+    if (paneExists(paneId)) return
+    settle()
+    stop()
+  })
 }
 
 export function wireExtensionBridge(): void {

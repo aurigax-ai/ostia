@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, vi } from 'vitest'
-import { cancelSettingsSave } from '../src/renderer/stores/settingsStore'
+import { cancelSettingsSave } from '../src/renderer/stores/app/settingsStore'
 import { startConsoleGuard, stopConsoleGuard } from './consoleGuard'
 import { installLocalStorage } from './mocks/memoryStorage'
 import { makeOstiaMock } from './mocks/ostia'
@@ -47,6 +47,14 @@ if (!Element.prototype.getAnimations) {
 
 HTMLCanvasElement.prototype.getContext = (() =>
   null) as typeof HTMLCanvasElement.prototype.getContext
+
+if (!('OffscreenCanvas' in globalThis)) {
+  globalThis.OffscreenCanvas = class {
+    getContext(kind: string) {
+      return kind === '2d' ? { font: '', measureText: () => ({ width: 0 }) } : null
+    }
+  } as unknown as typeof OffscreenCanvas
+}
 
 beforeEach(() => {
   startConsoleGuard()

@@ -1,10 +1,10 @@
+import { MATCH_OSTIA_THEME, parseThemeChoice } from '@shared/app/themeChoice'
 import {
   DEFAULT_PROMPT_SETTINGS,
   type PromptSettings,
   parsePromptSettings,
-} from '../../shared/promptSettings'
-import { parseShellSetting } from '../../shared/terminalShell'
-import { MATCH_OSTIA_THEME, parseThemeChoice } from '../../shared/themeChoice'
+} from '@shared/terminal/promptSettings'
+import { parseShellSetting } from '@shared/terminal/terminalShell'
 
 export interface TerminalSettings {
   scrollSpeed: number
@@ -51,7 +51,7 @@ export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
   clipboardKeys: 'shift',
   theme: MATCH_OSTIA_THEME,
   shell: '',
-  osc52Write: false,
+  osc52Write: true,
   keepShells: false,
   primarySelection: true,
   macOptionIsMeta: false,

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GatewayTailnetState } from '../../shared/types'
-import { saveJson, storePath } from '../jsonStore'
+import { saveJson, storePath } from '../platform/jsonStore'
 import type { Tailnet } from './tailnet'
 
 const handlers = vi.hoisted(() => new Map<string, (...args: unknown[]) => unknown>())
@@ -16,7 +16,7 @@ vi.mock('electron', () => ({
   },
 }))
 
-vi.mock('../controlServer', () => ({
+vi.mock('../control/controlServer', () => ({
   registerControlMethod: (name: string) => registeredMethods.push(name),
 }))
 

@@ -1,0 +1,883 @@
+import { ASK_COMMAND_ID } from '@/commands/askCommand'
+import {
+  type CommandChoice,
+  type CommandWording,
+  commandWording,
+  commands,
+} from '@/commands/registry'
+import { ChatView } from '@/components/assist/ChatView'
+import { settingsSections } from '@/components/settings/SettingsPanel'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Kbd } from '@/components/ui/kbd'
+import { fmt, useDict } from '@/i18n/useDict'
+import { allPanes, firstPaneOfKind } from '@/layout/tree'
+import type { PaneNode } from '@/layout/types'
+import { countUsage } from '@/lib/app/usageCounts'
+import { useChatAvailable } from '@/lib/assist/assistFeatures'
+import { revealPane } from '@/lib/attention/workspaceActivity'
+import { childPath } from '@/lib/files/fileTree'
+import { openFileAt, openFileInWorkspace } from '@/lib/files/openFile'
+import {
+  FILE_SEARCH_DELAY_MS,
+  type WorkspaceFileResult,
+  findWorkspaceFiles,
+  splitFilePath,
+} from '@/lib/files/workspaceFileSearch'
+import {
+  SYMBOL_SEARCH_DELAY_MS,
+  type WorkspaceSymbolResult,
+  findWorkspaceSymbols,
+  symbolPlace,
+} from '@/lib/files/workspaceSymbolSearch'
+import { chordLabel, useBindings } from '@/lib/keys/chords'
+import { paletteFilter } from '@/lib/palette/paletteFilter'
+import { paletteReturnFocus } from '@/lib/palette/paletteFocus'
+import {
+  PALETTE_MODES,
+  type PaletteMode,
+  paletteMode,
+  paletteQuery,
+} from '@/lib/palette/paletteModes'
+import { cn } from '@/lib/utils'
+import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/workspaces/windowWorkspaces'
+import { isMac } from '@/platform'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useAssistProvider } from '@/stores/assist/assistStore'
+import { chatFor, currentSessionId } from '@/stores/assist/chatStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWindowsStore } from '@/stores/workspaces/windowsStore'
+import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import { AppWindowIcon } from '@phosphor-icons/react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+
+const LIST_CLASS = 'max-h-[min(27rem,calc(88vh-5rem))]'
+
+function runFromPalette(id: string, args?: { argument: string }): void {
+  countUsage('features', 'command', id)
+  void commands.exec(id, args)
+}
+
+const GROUP_CLASS =
+  '**:[[cmdk-group-heading]]:pt-3 **:[[cmdk-group-heading]]:pb-1.5 **:[[cmdk-group-heading]]:text-ui-base **:[[cmdk-group-heading]]:font-semibold'
+
+const subscribeCommands = (cb: () => void): (() => void) => commands.subscribe(cb)
+const commandsVersion = (): number => commands.version()
+
+function stopUnseenAnswer(): void {
+  const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+  const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
+  if (layout && firstPaneOfKind(layout.root, 'chat')) return
+  const sessionId = currentSessionId(workspaceId)
+  if (sessionId) void chatFor(sessionId).stop()
+}
+
+export function CommandPalette(): JSX.Element {
+  const d = useDict()
+  const open = useUIStore((s) => s.paletteOpen)
+  const close = useUIStore((s) => s.closePalette)
+  const openMode = useUIStore((s) => s.paletteMode)
+  const seed = useUIStore((s) => s.paletteSeed)
+  const provider = useAssistProvider('chat')
+  const chat = useChatAvailable() ? provider : null
+  const [search, setSearch] = useState('')
+  const [asking, setAsking] = useState<ArgumentCommand | null>(null)
+  const [askSeed, setAskSeed] = useState('')
+  const [selected, setSelected] = useState('')
+  const mode = paletteMode(search)
+  const places = useMemo(() => (open ? snapshotPlaces() : EMPTY_PLACES), [open])
+  const askMode = openMode === 'ask' && chat !== null
+  const everywhere = openMode === 'everywhere' && mode === 'all' && search.trim() !== ''
+  const placeholder =
+    openMode === 'everywhere' ? d.palette.everywherePlaceholder : d.palette.placeholder
+  const activeWorkspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
+  const activeWorkDir = useWorkspacesStore(
+    (s) => s.workspaces.find((w) => w.id === s.activeWorkspaceId)?.workDir ?? null,
+  )
+
+  useSyncExternalStore(subscribeCommands, commandsVersion)
+
+  const wasAsking = useRef(false)
+  useEffect(() => {
+    if (open) {
+      wasAsking.current = askMode
+      return
+    }
+    setSearch('')
+    setAsking(null)
+    setAskSeed('')
+    if (wasAsking.current) stopUnseenAnswer()
+    wasAsking.current = false
+  }, [open, askMode])
+
+  useEffect(() => {
+    if (open && seed) setSearch(seed)
+  }, [open, seed])
+
+  const enterAsk = (seed: string): void => {
+    setAskSeed(seed)
+    setSearch('')
+    useUIStore.getState().setPaletteMode('ask')
+  }
+
+  const leaveAsk = (): void => {
+    setAskSeed('')
+    useUIStore.getState().setPaletteMode('search')
+  }
+
+  const finish = close
+
+  const ask = (command: ArgumentCommand): void => {
+    setAsking(command)
+    setSearch('')
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) finish()
+      }}
+    >
+      <DialogHeader className="sr-only">
+        <DialogTitle>
+          {askMode && chat
+            ? fmt(d.ask.tabHint, { name: chat.name })
+            : openMode === 'everywhere'
+              ? d.palette.everywhereTitle
+              : d.palette.title}
+        </DialogTitle>
+        <DialogDescription>{askMode ? d.ask.placeholder : placeholder}</DialogDescription>
+      </DialogHeader>
+      <DialogContent
+        className={cn(
+          'top-[12vh] origin-top translate-y-0 overflow-hidden rounded-xl! p-0',
+          askMode ? 'sm:max-w-3xl' : 'sm:max-w-[47rem]',
+        )}
+        showCloseButton={false}
+        finalFocus={paletteReturnFocus}
+      >
+        <Command
+          filter={paletteFilter}
+          shouldFilter={mode !== 'files'}
+          value={mode === 'files' ? selected : undefined}
+          onValueChange={setSelected}
+        >
+          {askMode && chat ? (
+            <ChatView
+              workspaceId={activeWorkspaceId}
+              variant="palette"
+              seed={askSeed}
+              onBack={leaveAsk}
+              onInserted={finish}
+            />
+          ) : asking ? (
+            <ArgumentStep
+              command={asking}
+              value={search}
+              onValueChange={setSearch}
+              onDone={finish}
+            />
+          ) : (
+            <>
+              <CommandInput
+                placeholder={placeholder}
+                value={search}
+                onValueChange={setSearch}
+                onKeyDown={(e) => {
+                  if (
+                    !chat ||
+                    e.key !== 'Tab' ||
+                    e.shiftKey ||
+                    e.ctrlKey ||
+                    e.metaKey ||
+                    e.altKey
+                  ) {
+                    return
+                  }
+                  e.preventDefault()
+                  enterAsk(mode === 'help' ? '' : mode === 'all' ? search : paletteQuery(search))
+                }}
+              />
+              <CommandList className={LIST_CLASS}>
+                <PaletteColumns />
+                {mode === 'symbols' ? (
+                  <SymbolItems
+                    query={paletteQuery(search)}
+                    workspaceId={activeWorkspaceId}
+                    onDone={finish}
+                  />
+                ) : mode === 'files' ? (
+                  <FileItems
+                    query={paletteQuery(search)}
+                    workDir={activeWorkDir}
+                    onSelect={setSelected}
+                    onDone={finish}
+                  />
+                ) : (
+                  <CommandEmpty>{d.palette.empty}</CommandEmpty>
+                )}
+                {mode === 'help' ? (
+                  <HelpItems
+                    onPick={(symbol) => setSearch(symbol)}
+                    askName={chat?.name ?? null}
+                    onAsk={() => enterAsk('')}
+                  />
+                ) : null}
+                {mode === 'all' || mode === 'workspaces' ? (
+                  <WorkspaceItems
+                    workspaces={places.workspaces}
+                    remote={places.remote}
+                    onDone={finish}
+                  />
+                ) : null}
+                {mode === 'all' || mode === 'tabs' ? (
+                  <TabItems tabs={places.tabs} onDone={finish} />
+                ) : null}
+                {mode === 'all' || mode === 'commands' ? (
+                  <CommandItems
+                    grouped={search.trim().length <= (mode === 'all' ? 0 : 1)}
+                    heading={everywhere ? d.palette.modes.commands : undefined}
+                    onDone={finish}
+                    onAsk={ask}
+                    onAskAssistant={() => enterAsk('')}
+                  />
+                ) : null}
+                {everywhere ? (
+                  <>
+                    <FileItems
+                      query={search.trim()}
+                      workDir={activeWorkDir}
+                      onSelect={setSelected}
+                      onDone={finish}
+                      quiet
+                    />
+                    <FilesTextItem query={search.trim()} onDone={finish} />
+                    <SettingsItems query={search.trim()} onDone={finish} />
+                  </>
+                ) : null}
+              </CommandList>
+            </>
+          )}
+        </Command>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+interface ArgumentCommand {
+  id: string
+  title: string
+  argument: string
+  choices?: () => Promise<CommandChoice[]>
+  emptyChoices?: () => string
+}
+
+function ArgumentStep({
+  command,
+  value,
+  onValueChange,
+  onDone,
+}: {
+  command: ArgumentCommand
+  value: string
+  onValueChange: (value: string) => void
+  onDone: () => void
+}): JSX.Element {
+  const d = useDict()
+  const argument = value.trim()
+  const run = (): void => {
+    if (!argument) return
+    runFromPalette(command.id, { argument })
+    onDone()
+  }
+  if (command.choices) {
+    return (
+      <ChoiceStep
+        command={command}
+        choices={command.choices}
+        value={value}
+        onValueChange={onValueChange}
+        onDone={onDone}
+      />
+    )
+  }
+  return (
+    <>
+      <CommandInput
+        autoFocus
+        placeholder={command.argument}
+        value={value}
+        onValueChange={onValueChange}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter') return
+          e.preventDefault()
+          run()
+        }}
+      />
+      <CommandList className={LIST_CLASS}>
+        <CommandEmpty>
+          {argument
+            ? fmt(d.palette.runWith, { title: command.title, value: argument })
+            : d.palette.argumentEmpty}
+        </CommandEmpty>
+      </CommandList>
+    </>
+  )
+}
+
+function ChoiceStep({
+  command,
+  choices: loadChoices,
+  value,
+  onValueChange,
+  onDone,
+}: {
+  command: ArgumentCommand
+  choices: () => Promise<CommandChoice[]>
+  value: string
+  onValueChange: (value: string) => void
+  onDone: () => void
+}): JSX.Element {
+  const [choices, setChoices] = useState<CommandChoice[] | null>(null)
+  useEffect(() => {
+    let live = true
+    void loadChoices().then((next) => {
+      if (live) setChoices(next)
+    })
+    return () => {
+      live = false
+    }
+  }, [loadChoices])
+  return (
+    <>
+      <CommandInput
+        autoFocus
+        placeholder={command.argument}
+        value={value}
+        onValueChange={onValueChange}
+      />
+      <CommandList className={LIST_CLASS}>
+        <PaletteColumns />
+        {choices !== null && choices.length === 0 ? (
+          <CommandEmpty>{command.emptyChoices?.() ?? command.argument}</CommandEmpty>
+        ) : null}
+        {choices?.map((choice) => (
+          <CommandItem
+            key={choice.value}
+            value={`${choice.label} ${choice.value}`}
+            disabled={choice.disabledReason !== undefined}
+            onSelect={() => {
+              runFromPalette(command.id, { argument: choice.value })
+              onDone()
+            }}
+          >
+            <ItemRow name={choice.label} meta={choice.disabledReason} />
+          </CommandItem>
+        ))}
+      </CommandList>
+    </>
+  )
+}
+
+function symbolOf(mode: PaletteMode): string {
+  return PALETTE_MODES.find((m) => m.mode === mode)?.symbol ?? ''
+}
+
+function HelpItems({
+  onPick,
+  askName,
+  onAsk,
+}: {
+  onPick: (symbol: string) => void
+  askName: string | null
+  onAsk: () => void
+}): JSX.Element {
+  const d = useDict()
+  return (
+    <CommandGroup heading={d.palette.helpHeading} className={GROUP_CLASS}>
+      {askName ? (
+        <CommandItem value={`? tab ${fmt(d.ask.tabHint, { name: askName })}`} onSelect={onAsk}>
+          <Kbd>Tab</Kbd>
+          <span>{fmt(d.ask.tabHint, { name: askName })}</span>
+        </CommandItem>
+      ) : null}
+      {PALETTE_MODES.map((m) => (
+        <CommandItem
+          key={m.mode}
+          value={`? ${m.symbol} ${d.palette.modes[m.mode]}`}
+          onSelect={() => onPick(m.symbol)}
+        >
+          <Kbd>{m.symbol}</Kbd>
+          <span>{d.palette.modes[m.mode]}</span>
+        </CommandItem>
+      ))}
+    </CommandGroup>
+  )
+}
+
+interface Places {
+  workspaces: Workspace[]
+  remote: RemoteWorkspace[]
+  tabs: { pane: PaneNode; workspace: Workspace }[]
+}
+
+const EMPTY_PLACES: Places = { workspaces: [], remote: [], tabs: [] }
+
+function snapshotPlaces(): Places {
+  const { workspaces } = useWorkspacesStore.getState()
+  const { byWorkspace } = useLayoutStore.getState()
+  const tabs = workspaces.flatMap((workspace) => {
+    const layout = byWorkspace[workspace.id]
+    return layout ? allPanes(layout.root).map((pane) => ({ pane, workspace })) : []
+  })
+  const { list, windowId } = useWindowsStore.getState()
+  return { workspaces, remote: remoteWorkspacesOf(list, windowId), tabs }
+}
+
+function WorkspaceItems({
+  workspaces,
+  remote,
+  onDone,
+}: {
+  workspaces: Workspace[]
+  remote: RemoteWorkspace[]
+  onDone: () => void
+}): JSX.Element | null {
+  const d = useDict()
+  if (workspaces.length === 0 && remote.length === 0) return null
+  const symbol = symbolOf('workspaces')
+  return (
+    <CommandGroup heading={d.palette.modes.workspaces} className={GROUP_CLASS}>
+      {workspaces.map((w) => {
+        const name = w.customName ?? w.name
+        return (
+          <CommandItem
+            key={w.id}
+            value={`${symbol} ${name} ${w.workDir} ${w.id}`}
+            onSelect={() => {
+              useUIStore.getState().showWorkspaces()
+              useWorkspacesStore.getState().setActive(w.id)
+              onDone()
+            }}
+          >
+            <ItemRow name={name} meta={w.workDir} mono />
+          </CommandItem>
+        )
+      })}
+      {remote.map((w) => (
+        <CommandItem
+          key={w.id}
+          value={`${symbol} ${w.name} ${w.workDir} ${w.id}`}
+          onSelect={() => {
+            window.ostia.windows.focusWorkspace(w.id, false)
+            onDone()
+          }}
+        >
+          <AppWindowIcon aria-label={d.window.inOtherWindow} />
+          <ItemRow name={w.name} meta={w.workDir} mono />
+        </CommandItem>
+      ))}
+    </CommandGroup>
+  )
+}
+
+function PaletteColumns(): JSX.Element {
+  const ref = useRef<HTMLSpanElement>(null)
+  useLayoutEffect(() => {
+    const host = ref.current?.closest<HTMLElement>('[data-slot="command-list"]')
+    if (!host) return
+    const measure = (): void => {
+      const cap = Math.floor(
+        (host.querySelector('[data-slot="palette-row"]')?.clientWidth ?? 0) / 2,
+      )
+      host.style.removeProperty('--palette-name-w')
+      let name = 0
+      let keys = 0
+      for (const row of host.querySelectorAll('[data-slot="palette-row"]:not([data-fluid])')) {
+        const cell = row.querySelector('[data-slot="palette-name"]')
+        if (cell) name = Math.max(name, Number.parseFloat(getComputedStyle(cell).width) || 0)
+        keys = Math.max(keys, row.querySelector('[data-slot="palette-keys"]')?.scrollWidth ?? 0)
+      }
+      const width = Math.ceil(name)
+      if (width > 0)
+        host.style.setProperty('--palette-name-w', `${cap > 0 ? Math.min(width, cap) : width}px`)
+      host.style.setProperty('--palette-keys-w', `${keys}px`)
+    }
+    measure()
+    const mutations = new MutationObserver(measure)
+    mutations.observe(host, { childList: true, subtree: true, characterData: true })
+    const resizes = new ResizeObserver(measure)
+    resizes.observe(host)
+    return () => {
+      mutations.disconnect()
+      resizes.disconnect()
+    }
+  }, [])
+  return <span ref={ref} hidden />
+}
+
+function ItemRow({
+  name,
+  meta,
+  keys,
+  detail,
+  mono,
+  nameMono,
+  fluid,
+}: {
+  name: string
+  meta?: string
+  keys?: string | null
+  detail?: string
+  mono?: boolean
+  nameMono?: boolean
+  fluid?: boolean
+}): JSX.Element {
+  return (
+    <span
+      data-slot="palette-row"
+      data-fluid={fluid ? '' : undefined}
+      className={cn(
+        'grid min-w-0 flex-1 items-center gap-x-3 tabular-nums',
+        fluid
+          ? 'grid-cols-[fit-content(50%)_var(--palette-keys-w,max-content)_minmax(0,1fr)]'
+          : 'grid-cols-[var(--palette-name-w,max-content)_var(--palette-keys-w,max-content)_minmax(0,1fr)]',
+      )}
+    >
+      <span
+        data-slot="palette-name"
+        className="flex max-w-full min-w-0 items-baseline gap-2 justify-self-start overflow-hidden"
+      >
+        <span className={cn('truncate', nameMono && 'font-mono')}>{name}</span>
+        {detail ? (
+          <span className="min-w-0 truncate text-fg-muted text-ui-xs">{detail}</span>
+        ) : null}
+      </span>
+      <span data-slot="palette-keys" className="justify-self-start">
+        {keys ? <Kbd className="whitespace-nowrap">{keys}</Kbd> : null}
+      </span>
+      <span
+        data-slot="palette-meta"
+        className={cn(
+          'min-w-0 max-w-full justify-self-end truncate text-right text-fg-muted text-ui-xs group-data-selected/command-item:text-fg',
+          mono && 'font-mono',
+        )}
+      >
+        {meta}
+      </span>
+    </span>
+  )
+}
+
+function TabItems({
+  tabs,
+  onDone,
+}: {
+  tabs: Places['tabs']
+  onDone: () => void
+}): JSX.Element | null {
+  const d = useDict()
+  if (tabs.length === 0) return null
+  const symbol = symbolOf('tabs')
+  return (
+    <CommandGroup heading={d.palette.modes.tabs} className={GROUP_CLASS}>
+      {tabs.map(({ pane, workspace }) => {
+        const where = workspace.customName ?? workspace.name
+        return (
+          <CommandItem
+            key={pane.id}
+            value={`${symbol} ${pane.title} ${where} ${pane.kind} ${pane.id}`}
+            onSelect={() => {
+              revealPane(pane.id)
+              onDone()
+            }}
+          >
+            <ItemRow name={pane.title} meta={where} />
+          </CommandItem>
+        )
+      })}
+    </CommandGroup>
+  )
+}
+
+function FileItems({
+  query,
+  workDir,
+  onSelect,
+  onDone,
+  quiet = false,
+}: {
+  query: string
+  workDir: string | null
+  onSelect: (value: string) => void
+  onDone: () => void
+  quiet?: boolean
+}): JSX.Element | null {
+  const d = useDict()
+  const includeIgnored = useSettingsStore((s) => s.files.searchIgnored)
+  const [result, setResult] = useState<WorkspaceFileResult | null>(null)
+  useEffect(() => {
+    if (!workDir || !query) {
+      setResult(null)
+      return
+    }
+    let live = true
+    const timer = setTimeout(() => {
+      void findWorkspaceFiles(workDir, query, includeIgnored).then((next) => {
+        if (!live || next.status === 'cancelled') return
+        setResult(next)
+        const first = next.status === 'hits' ? next.hits[0] : undefined
+        onSelect(first ? `${symbolOf('files')} ${first.path}` : '')
+      })
+    }, FILE_SEARCH_DELAY_MS)
+    return () => {
+      live = false
+      clearTimeout(timer)
+    }
+  }, [workDir, query, includeIgnored, onSelect])
+  const status = (text: string): JSX.Element | null =>
+    quiet ? null : (
+      <output className="block px-3 py-6 text-center text-fg-muted text-ui-sm">{text}</output>
+    )
+  if (!workDir) return status(d.palette.filesNoWorkspace)
+  if (!query) return status(d.palette.filesHint)
+  if (!result) return null
+  if (result.status === 'failed') return status(d.palette.filesFailed)
+  if (result.status === 'cancelled') return null
+  if (result.hits.length === 0) return status(d.palette.empty)
+  const symbol = symbolOf('files')
+  return (
+    <CommandGroup heading={d.palette.modes.files} className={GROUP_CLASS}>
+      {result.hits.map((hit) => {
+        const { name, dir } = splitFilePath(hit.path)
+        return (
+          <CommandItem
+            key={hit.path}
+            value={`${symbol} ${hit.path}`}
+            onSelect={() => {
+              openFileInWorkspace(childPath(result.root, hit.path))
+              onDone()
+            }}
+          >
+            <ItemRow name={name} meta={dir} mono />
+          </CommandItem>
+        )
+      })}
+    </CommandGroup>
+  )
+}
+
+const SETTINGS_SYMBOL = '§'
+const FILES_TEXT_SYMBOL = '¶'
+
+function FilesTextItem({ query, onDone }: { query: string; onDone: () => void }): JSX.Element {
+  const d = useDict()
+  return (
+    <CommandItem
+      className="mx-1"
+      value={FILES_TEXT_SYMBOL}
+      forceMount
+      onSelect={() => {
+        useUIStore.getState().searchFiles(query)
+        onDone()
+      }}
+    >
+      <ItemRow name={fmt(d.palette.searchFilesText, { query })} />
+    </CommandItem>
+  )
+}
+
+function SettingsItems({ query, onDone }: { query: string; onDone: () => void }): JSX.Element {
+  const d = useDict()
+  const sections = useMemo(() => settingsSections(d), [d])
+  const open = (section: string | undefined, text: string): void => {
+    useUIStore.getState().openSettings(section, { query: text })
+    onDone()
+  }
+  return (
+    <>
+      <CommandGroup heading={d.palette.settings} className={GROUP_CLASS}>
+        {sections.map((s) => (
+          <CommandItem
+            key={s.id}
+            value={`${SETTINGS_SYMBOL} ${s.label} ${s.id}`}
+            onSelect={() => open(s.id, '')}
+          >
+            <ItemRow name={s.label} />
+          </CommandItem>
+        ))}
+      </CommandGroup>
+      <CommandItem
+        className="mx-1"
+        value={SETTINGS_SYMBOL}
+        forceMount
+        onSelect={() => open(undefined, query)}
+      >
+        <ItemRow name={fmt(d.palette.searchSettings, { query })} />
+      </CommandItem>
+    </>
+  )
+}
+
+function SymbolItems({
+  query,
+  workspaceId,
+  onDone,
+}: {
+  query: string
+  workspaceId: string | null
+  onDone: () => void
+}): JSX.Element | null {
+  const d = useDict()
+  const [result, setResult] = useState<WorkspaceSymbolResult | null>(null)
+  useEffect(() => {
+    let live = true
+    const timer = setTimeout(() => {
+      void findWorkspaceSymbols(workspaceId, query).then((next) => {
+        if (live) setResult(next)
+      })
+    }, SYMBOL_SEARCH_DELAY_MS)
+    return () => {
+      live = false
+      clearTimeout(timer)
+    }
+  }, [query, workspaceId])
+  if (!result) return null
+  if (result.hits.length === 0) {
+    return (
+      <output className="block px-3 py-6 text-center text-fg-muted text-ui-sm">
+        {result.servers === 0
+          ? d.palette.symbolsNoServer
+          : query
+            ? d.palette.empty
+            : d.palette.symbolsHint}
+      </output>
+    )
+  }
+  const workDir = useWorkspacesStore
+    .getState()
+    .workspaces.find((w) => w.id === workspaceId)?.workDir
+  const symbol = symbolOf('symbols')
+  return (
+    <CommandGroup heading={d.palette.modes.symbols} className={GROUP_CLASS} forceMount>
+      {result.hits.map((hit) => {
+        const place = symbolPlace(hit, workDir)
+        return (
+          <CommandItem
+            key={hit.id}
+            value={`${symbol} ${hit.name} ${hit.path}:${hit.line}:${hit.column}`}
+            forceMount
+            onSelect={() => {
+              openFileAt(hit.path, hit.line, hit.column)
+              onDone()
+            }}
+          >
+            <ItemRow name={hit.name} nameMono detail={hit.container} meta={place} mono />
+          </CommandItem>
+        )
+      })}
+    </CommandGroup>
+  )
+}
+
+type RegisteredCommand = ReturnType<typeof commands.list>[number]
+
+interface PaletteCommand {
+  command: RegisteredCommand
+  shown: CommandWording
+}
+
+function searchValue(symbol: string, command: RegisteredCommand, shown: CommandWording): string {
+  const words = [shown.title, command.title, command.id, shown.category, command.category]
+  return [symbol, ...new Set(words.filter(Boolean))].join(' ')
+}
+
+function CommandItems({
+  grouped,
+  heading,
+  onDone,
+  onAsk,
+  onAskAssistant,
+}: {
+  grouped: boolean
+  heading?: string
+  onDone: () => void
+  onAsk: (command: ArgumentCommand) => void
+  onAskAssistant: () => void
+}): JSX.Element {
+  const d = useDict()
+  useBindings()
+  const groups = new Map<string, { heading: string; items: PaletteCommand[] }>()
+  for (const command of commands.list()) {
+    if (command.hidden) continue
+    const shown = commandWording(command, d)
+    const key = command.category ?? ''
+    const group = groups.get(key) ?? { heading: shown.category ?? d.palette.general, items: [] }
+    group.items.push({ command, shown })
+    groups.set(key, group)
+  }
+  const symbol = symbolOf('commands')
+  const renderItem = ({ command: c, shown }: PaletteCommand): JSX.Element => {
+    const keys = chordLabel(c.id, isMac)
+    return (
+      <CommandItem
+        key={c.id}
+        className={grouped || heading ? undefined : 'mx-1'}
+        value={searchValue(symbol, c, shown)}
+        onSelect={() => {
+          if (c.id === ASK_COMMAND_ID) {
+            onAskAssistant()
+            return
+          }
+          if (shown.argument) {
+            onAsk({
+              id: c.id,
+              title: shown.title,
+              argument: shown.argument,
+              choices: c.choices,
+              emptyChoices: c.emptyChoices,
+            })
+            return
+          }
+          runFromPalette(c.id)
+          onDone()
+        }}
+      >
+        <ItemRow name={shown.title} meta={c.id} keys={keys} mono />
+      </CommandItem>
+    )
+  }
+  if (!grouped) {
+    const items = [...groups.values()].flatMap((group) => group.items).map(renderItem)
+    if (!heading) return <>{items}</>
+    return (
+      <CommandGroup heading={heading} className={GROUP_CLASS}>
+        {items}
+      </CommandGroup>
+    )
+  }
+  return (
+    <>
+      {[...groups.entries()].map(([key, group]) => (
+        <CommandGroup key={key} heading={group.heading} className={GROUP_CLASS}>
+          {group.items.map(renderItem)}
+        </CommandGroup>
+      ))}
+    </>
+  )
+}

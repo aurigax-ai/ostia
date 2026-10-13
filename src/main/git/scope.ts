@@ -1,4 +1,4 @@
-import type { BranchRef, GraphScope, ScopePlan } from '../../shared/git'
+import type { BranchRef, GraphScope, ScopePlan } from '../../shared/boards/git'
 import { FIELD_SEP } from './history'
 
 export const CURRENT_SCOPE: GraphScope = { kind: 'current' }

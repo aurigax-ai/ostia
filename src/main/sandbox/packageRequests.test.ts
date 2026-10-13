@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ApprovalOutcome } from '../../shared/approvals'
-import type { PackageRef } from '../../shared/packages'
+import type { ApprovalOutcome } from '../../shared/permissions/approvals'
+import type { PackageRef } from '../../shared/sandbox/packages'
 import { type PackageAsk, PackageRequests } from './packageRequests'
 
 const pkg = (name: string, version = '1.0.0'): PackageRef => ({ ecosystem: 'npm', name, version })

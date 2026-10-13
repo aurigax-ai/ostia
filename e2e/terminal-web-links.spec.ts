@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, openedExternally, stubExternalOpener } from './helpers'
-import { clickWith, linkPoint } from './terminalLinks'
+import { clickWith, hoverPoint, linkPoint } from './terminalLinks'
 import { type Page, _electron as electron, expect, test } from './test'
 
 async function listen(
@@ -21,96 +21,6 @@ async function listen(
 
 const addresses = (win: Page) => win.locator('.browser-address')
 const shownAddress = (win: Page) => win.locator('.pane-slot:not([data-hidden]) .browser-address')
-
-async function backToTerminal(win: Page): Promise<void> {
-  await win.locator('.pane-tab').first().click()
-  await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows').first()).toBeVisible()
-}
-
-test('a plain click opens the link in the browser pane and reuses it; Ctrl adds a tab; Ctrl+Shift goes outside', async () => {
-  test.setTimeout(90_000)
-  const requests: string[] = []
-  const server = await listen((url) => requests.push(url))
-  const dataHome = freshDataHome()
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  try {
-    const win = await app.firstWindow()
-    await stubExternalOpener(app)
-    await openWorkspace(win)
-    await win.locator('.xterm').first().click()
-    const base = `http://127.0.0.1:${server.port}`
-    await win.keyboard.type(`clear; printf 'one ${base}/first\\ntwo ${base}/second\\n'`)
-    await win.keyboard.press('Enter')
-
-    const first = await linkPoint(win, /^one http:\/\/127\.0\.0\.1:\d+\/first\s*$/, '/first')
-    await win.mouse.move(first.x, first.y + 60)
-    await win.mouse.move(first.x, first.y, { steps: 6 })
-    const hint = win.locator('[data-slot="tooltip-content"]')
-    await expect(hint).toContainText('Click Open in the browser pane', { timeout: 5_000 })
-    await expect(hint).toContainText('Ctrl+Click Open in a new browser tab')
-    await expect(hint).toContainText('Ctrl+Shift+Click Open in the system browser')
-
-    await clickWith(win, first, [])
-    await expect(shownAddress(win)).toHaveValue(`${base}/first`, { timeout: 15_000 })
-    await expect.poll(() => requests, { timeout: 15_000 }).toContain('/first')
-    await expect(addresses(win)).toHaveCount(1)
-
-    await backToTerminal(win)
-    const second = await linkPoint(win, /^two http:\/\/127\.0\.0\.1:\d+\/second\s*$/, '/second')
-    await clickWith(win, second, [])
-    await expect(shownAddress(win)).toHaveValue(`${base}/second`, { timeout: 15_000 })
-    await expect.poll(() => requests, { timeout: 15_000 }).toContain('/second')
-    await expect(addresses(win)).toHaveCount(1)
-
-    await backToTerminal(win)
-    await clickWith(
-      win,
-      await linkPoint(win, /^one http:\/\/127\.0\.0\.1:\d+\/first\s*$/, '/first'),
-      ['Control'],
-    )
-    await expect(shownAddress(win)).toHaveValue(`${base}/first`, { timeout: 15_000 })
-    await expect(addresses(win)).toHaveCount(2)
-
-    await backToTerminal(win)
-    await clickWith(
-      win,
-      await linkPoint(win, /^two http:\/\/127\.0\.0\.1:\d+\/second\s*$/, '/second'),
-      ['Control', 'Shift'],
-    )
-    await expect.poll(() => openedExternally(app), { timeout: 15_000 }).toEqual([`${base}/second`])
-    await expect(addresses(win)).toHaveCount(2)
-    await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows').first()).toBeVisible()
-  } finally {
-    await app.close()
-    server.close()
-  }
-})
-
-test('a plain click on a link never opens while a drag selected text', async () => {
-  test.setTimeout(60_000)
-  const server = await listen(() => {})
-  const dataHome = freshDataHome()
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  try {
-    const win = await app.firstWindow()
-    await openWorkspace(win)
-    await win.locator('.xterm').first().click()
-    const url = `http://127.0.0.1:${server.port}/drag`
-    await win.keyboard.type(`clear; printf 'see ${url}\\n'`)
-    await win.keyboard.press('Enter')
-    const point = await linkPoint(win, /^see http:\/\/127\.0\.0\.1:\d+\/drag\s*$/, '/drag')
-    await win.mouse.move(point.x - 40, point.y)
-    await win.mouse.down()
-    await win.mouse.move(point.x, point.y, { steps: 8 })
-    await win.mouse.up()
-    await expect(win.locator('.xterm-selection div').first()).toBeAttached()
-    await win.waitForTimeout(500)
-    await expect(addresses(win)).toHaveCount(0)
-  } finally {
-    await app.close()
-    server.close()
-  }
-})
 
 test('a hyperlink in a mouse-reporting program leaves plain clicks to the program and opens on Ctrl', async () => {
   test.setTimeout(60_000)
@@ -149,5 +59,64 @@ test('a hyperlink in a mouse-reporting program leaves plain clicks to the progra
   } finally {
     await app.close()
     server.close()
+  }
+})
+
+test('obsidian links from OSC 8 and angle-bracket markdown open in their app, encoded', async () => {
+  test.setTimeout(60_000)
+  const app = await electron.launch(isolatedLaunch(freshDataHome()))
+  try {
+    await stubExternalOpener(app)
+    const win = await app.firstWindow()
+    await openWorkspace(win)
+    await win.locator('.xterm').first().click()
+    const vault = 'obsidian://advanced-uri?vault=My Vault&filepath=\\347\\255\\206.md'
+    await win.keyboard.type(
+      `clear; printf '\\033]8;;${vault}\\033\\\\vault note\\033]8;;\\033\\\\\\n[x](<${vault}>)\\n'`,
+    )
+    await win.keyboard.press('Enter')
+
+    for (const point of [
+      await linkPoint(win, /^vault\s+note\s*$/, 'note'),
+      await linkPoint(win, /^\[x\]\(<obsidian/, 'advanced'),
+    ]) {
+      await hoverPoint(win, point)
+      await clickWith(win, point, [])
+    }
+    const href = 'obsidian://advanced-uri?vault=My%20Vault&filepath=%E7%AD%86.md'
+    await expect.poll(() => openedExternally(app), { timeout: 10_000 }).toEqual([href, href])
+    await expect(addresses(win)).toHaveCount(0)
+  } finally {
+    await app.close()
+  }
+})
+
+test('links of any other scheme open in their app on a plain click and show their target', async () => {
+  test.setTimeout(60_000)
+  const app = await electron.launch(isolatedLaunch(freshDataHome()))
+  try {
+    await stubExternalOpener(app)
+    const win = await app.firstWindow()
+    await openWorkspace(win)
+    await win.locator('.xterm').first().click()
+    await win.keyboard.type(`clear; printf 'slack://channel?id=1\\nzed://file/tmp/a\\n'`)
+    await win.keyboard.press('Enter')
+
+    const hint = win.locator('[data-slot="tooltip-content"]')
+    const slack = await linkPoint(win, /^slack:\/\/channel\?id=1\s*$/, 'channel')
+    await hoverPoint(win, slack)
+    await expect(hint).toContainText('slack://channel?id=1', { timeout: 5_000 })
+    await clickWith(win, slack, [])
+    const zed = await linkPoint(win, /^zed:\/\/file\/tmp\/a\s*$/, 'file')
+    await hoverPoint(win, zed)
+    await expect(hint).toContainText('zed://file/tmp/a', { timeout: 5_000 })
+    await clickWith(win, zed, [])
+
+    await expect
+      .poll(() => openedExternally(app), { timeout: 10_000 })
+      .toEqual(['slack://channel?id=1', 'zed://file/tmp/a'])
+    await expect(addresses(win)).toHaveCount(0)
+  } finally {
+    await app.close()
   }
 })

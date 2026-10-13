@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto'
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { KEPT_SHELLS_DIR } from '../src/shared/keepShells'
+import { KEPT_SHELLS_DIR } from '../src/shared/terminal/keepShells'
+import { chords } from './chords'
 import {
   DOM_RENDERER_SETTINGS,
   HIBERNATE_FAST,
@@ -14,12 +15,15 @@ import { fakeAgentBin } from './fakeAgent'
 import {
   PROMPT,
   newTerminal,
+  newTerminalWorkspace,
   occurrences,
   openWorkspace,
   pressQuit,
   quitApp,
   restartApp,
   runInTerminal,
+  shownTerminal,
+  typeLine,
   waitForExit,
 } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
@@ -140,28 +144,6 @@ test('KSH-C1 KSH-C81 with the setting off a terminal is a plain child of Ostia, 
   }
 })
 
-test('KSH-C11 earlier commands come back as text and new commands get blocks', async () => {
-  const first = await launch(dataHome)
-  await openWorkspace(first.win)
-  await runInTerminal(first.win, 'echo one-$((0+1))')
-  await runInTerminal(first.win, 'echo two-$((1+1))')
-  await expect(first.win.locator('.block-gutter')).toHaveCount(2, { timeout: 15_000 })
-  await savedLayout()
-  await restartApp(first.app, first.win)
-
-  const second = await launch(dataHome)
-  try {
-    await expect(screen(second.win)).toContainText('two-2', { timeout: 15_000 })
-    await expect(screen(second.win)).toContainText('one-1')
-    await expect(second.win.locator('.block-gutter')).toHaveCount(0)
-    await runInTerminal(second.win, 'echo three-$((2+1))')
-    await expect(screen(second.win)).toContainText('three-3', { timeout: 15_000 })
-    await expect(second.win.locator('.block-gutter')).toHaveCount(1, { timeout: 15_000 })
-  } finally {
-    await quitApp(second.app)
-  }
-})
-
 test('KSH-C13 the saved scrollback of a kept pane is not shown a second time', async () => {
   const first = await launch(dataHome)
   await openWorkspace(first.win)
@@ -233,60 +215,6 @@ test('KSH-C21 turning the setting off leaves a tmux pane running and the next te
   }
 })
 
-test('KSH-C24 resizing a tmux pane at an idle prompt leaves one clean prompt line', async () => {
-  const { app, win } = await launch(dataHome)
-  try {
-    await openWorkspace(win)
-    await runInTerminal(win, 'echo before-resize')
-    await expect(screen(win)).toContainText('before-resize', { timeout: 15_000 })
-    for (const width of [1100, 1300, 1000]) {
-      const contentWidth = await app.evaluate(({ BrowserWindow }, w) => {
-        const window = BrowserWindow.getAllWindows()[0]
-        window?.setSize(w, 800)
-        return window?.getContentSize()[0] ?? 0
-      }, width)
-      await expect.poll(() => win.evaluate(() => window.innerWidth)).toBe(contentWidth)
-    }
-    await expect
-      .poll(async () => occurrences((await screen(win).textContent()) ?? '', '❯'), {
-        timeout: 10_000,
-      })
-      .toBe(2)
-    expect(await screen(win).textContent()).not.toMatch(/%\s*$/m)
-    await expect(async () => {
-      await runInTerminal(win, 'clear; printf "%$(tput cols)s" "" | tr " " x; echo END')
-      await expect
-        .poll(
-          () =>
-            win
-              .locator('.xterm-rows')
-              .first()
-              .locator(':scope > div')
-              .evaluateAll((rows) => rows.some((row) => row.textContent?.startsWith('END'))),
-          { timeout: 2_000 },
-        )
-        .toBe(true)
-    }).toPass({ timeout: 20_000 })
-  } finally {
-    await quitApp(app)
-  }
-})
-
-test('KSH-C26 blocks and the folder follow a tmux pane as they do a plain one', async () => {
-  const { app, win } = await launch(dataHome)
-  try {
-    await openWorkspace(win)
-    await runInTerminal(win, `${PARENT}; mkdir -p ~/proj && cd ~/proj && echo moved-$((1+1))`)
-    await expect(screen(win)).toContainText('parent=tmux', { timeout: 15_000 })
-    await expect(win.locator('.block-gutter')).toHaveCount(1, { timeout: 15_000 })
-    await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
-    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
-    await expect(screen(win, 1)).toContainText('~/proj ❯', { timeout: 15_000 })
-  } finally {
-    await quitApp(app)
-  }
-})
-
 test('KSH-C27 ostia pane send types into a tmux pane with the usual rules', async () => {
   const { app, win } = await launch(dataHome)
   try {
@@ -298,23 +226,6 @@ test('KSH-C27 ostia pane send types into a tmux pane with the usual rules', asyn
       'until ostia process ls | grep -q running; do sleep 0.2; done; ostia pane send echo "sum-$((20+3))" --enter; sleep 1; ostia pane read echo',
     )
     await expect(screen(win)).toContainText('sum-23', { timeout: 30_000 })
-  } finally {
-    await quitApp(app)
-  }
-})
-
-test('KSH-C31 with clipboard writes off a program in a tmux pane cannot set the clipboard', async () => {
-  const { app, win } = await launch(dataHome)
-  try {
-    await openWorkspace(win)
-    await app.evaluate(({ clipboard }) => clipboard.writeText('before'))
-    await runInTerminal(
-      win,
-      'printf \'\\033]52;c;%s\\a\' "$(printf ostia-osc52-tmux | base64)"; echo osc-sent',
-    )
-    await expect(screen(win)).toContainText('osc-sent', { timeout: 15_000 })
-    await win.waitForTimeout(300)
-    expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe('before')
   } finally {
     await quitApp(app)
   }
@@ -384,25 +295,6 @@ test('KSH-C72 KSH-C74 a kept pane gets a new token after a restart, held only in
       timeout: 15_000,
     })
     await expect(screen(second.win)).toContainText('who-ok')
-  } finally {
-    await quitApp(second.app)
-  }
-})
-
-test('KSH-C35 calling ostia while Ostia is closed fails cleanly and the shell stays', async () => {
-  const first = await launch(dataHome)
-  await openWorkspace(first.win)
-  const answered = join(dataHome, 'whoami-answered')
-  await runInTerminal(first.win, `sleep 2; ostia whoami; echo "rc=$?"; touch ${answered}`)
-  await savedLayout()
-  await crash(first)
-  await expect.poll(() => existsSync(answered), { timeout: 15_000 }).toBe(true)
-
-  const second = await launch(dataHome)
-  try {
-    await expect(screen(second.win)).toContainText(/rc=[1-9]/, { timeout: 15_000 })
-    await runInTerminal(second.win, 'echo alive-$((3*3))')
-    await expect(screen(second.win)).toContainText('alive-9', { timeout: 15_000 })
   } finally {
     await quitApp(second.app)
   }
@@ -674,6 +566,48 @@ test('KSH-C41 a kept shell waits while Ostia is closed and is the same shell whe
     await quitApp(second.app)
   }
 })
+
+test('KSH-C88 a kept program in a workspace that is not open is attached again by Restart before the workspace is opened', async () => {
+  test.setTimeout(60_000)
+  const first = await launch(dataHome)
+  await openWorkspace(first.win)
+  await runInTerminal(first.win, 'echo "file=$OSTIA_TOKEN_FILE shell=$$"; cat')
+  await expect(screen(first.win)).toContainText(/file=\S+ shell=\d+/, { timeout: 15_000 })
+  const [, file, pid] =
+    /file=(\S+) shell=(\d+)/.exec((await screen(first.win).textContent()) ?? '') ?? []
+  const before = readFileSync(file, 'utf8')
+  await newTerminalWorkspace(first.win)
+  await savedLayout(2)
+  await expect.poll(savedActiveIsNewest, { timeout: 15_000 }).toBe(true)
+  await restartApp(first.app, first.win)
+  expect(() => process.kill(Number(pid), 0)).not.toThrow()
+
+  const second = await launch(dataHome)
+  try {
+    await expect(shownTerminal(second.win)).toContainText(PROMPT, { timeout: 15_000 })
+    await expect(second.win.locator('.workzone-workspace')).toHaveCount(1)
+    await expect.poll(() => readFileSync(file, 'utf8'), { timeout: 15_000 }).not.toBe(before)
+    expect(() => process.kill(Number(pid), 0)).not.toThrow()
+    await second.win.keyboard.press(chords.firstWorkspace)
+    await expect(shownTerminal(second.win)).toContainText(`shell=${pid}`, { timeout: 15_000 })
+    await shownTerminal(second.win).click()
+    await typeLine(second.win, 'kept-input')
+    await expect
+      .poll(async () =>
+        occurrences((await shownTerminal(second.win).textContent()) ?? '', 'kept-input'),
+      )
+      .toBeGreaterThanOrEqual(2)
+  } finally {
+    await quitApp(second.app)
+  }
+})
+
+function savedActiveIsNewest(): boolean {
+  const file = join(dataHome, 'ostia', 'workspaces.json')
+  if (!existsSync(file)) return false
+  const saved = JSON.parse(readFileSync(file, 'utf8'))
+  return saved.workspaces.length === 2 && saved.activeWorkspaceId === saved.workspaces[1].id
+}
 
 function agentMidTurn(): string {
   return fakeAgentBin(

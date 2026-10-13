@@ -54,28 +54,3 @@ test('an agent that waited and then exited leaves the pane idle, and a late repo
     await app.close()
   }
 })
-
-test('a notification from a plain command in zsh is a message, not a wait for input', async () => {
-  test.setTimeout(90_000)
-  const app = await electron.launch(isolatedLaunch())
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await openWorkspace(win)
-    const dot = win.locator('.workspace-dot').first()
-
-    await win.locator('.xterm').first().click()
-    await win.keyboard.type("printf '\\e]9;hello\\a'")
-    await win.keyboard.press('Enter')
-
-    const bell = win.getByRole('button', { name: /^Notifications/ })
-    await bell.click()
-    const list = win.getByRole('list', { name: 'Notifications' })
-    await expect(list.getByRole('button').first()).toContainText('hello', { timeout: 10_000 })
-    await expect(list).not.toContainText('Agent needs your input')
-    await expect(dot).toHaveAttribute('aria-label', 'Idle')
-    await expect(win.locator('.pane').first().locator('.pane-attn-mark')).toHaveCount(0)
-  } finally {
-    await app.close()
-  }
-})

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { PaneEntry } from '../paneList'
+import type { PaneEntry } from '../panes/paneList'
 import { paneChipValues, workspaceChipValues } from './chips'
 import type { TreeInfo } from './scan'
 

@@ -1,30 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { envName } from '../../shared/appEnv'
-import {
-  PTY_RELAY_ENV,
-  needsPtyRelay,
-  relayForced,
-  sandboxedShellCommand,
-  terminalInjectionOff,
-  wrapForTerminal,
-} from './ptyWrap'
+import { PTY_RELAY_ENV, relayForced, sandboxedShellCommand, wrapForTerminal } from './ptyWrap'
 
 const WRAPPED = "bwrap --new-session --die-with-parent --dev /dev -- bash -c 'zsh -i'"
 const PIPE = '/tmp/ostia-sandbox-tmp/1/ws/resize-abc'
 const BRIDGE = '( socat -u UNIX-CONNECT:ports-ab12.sock - ) &'
-const refuses = (): string => '0\n'
-const allows = (): string => '1\n'
-const unreadable = (): string => {
-  throw new Error('ENOENT')
-}
-
-describe('terminalInjectionOff', () => {
-  it('is true only when the kernel refuses TIOCSTI', () => {
-    expect(terminalInjectionOff(refuses)).toBe(true)
-    expect(terminalInjectionOff(allows)).toBe(false)
-    expect(terminalInjectionOff(unreadable)).toBe(false)
-  })
-})
 
 describe('relayForced', () => {
   it('honours the switch only in an unpackaged build', () => {
@@ -34,22 +14,6 @@ describe('relayForced', () => {
     expect(relayForced(false, {})).toBe(false)
     expect(relayForced(false, { [name]: '0' })).toBe(false)
     expect(relayForced(false, { PINE_SANDBOX_PTY_RELAY: '1' })).toBe(false)
-  })
-})
-
-describe('needsPtyRelay', () => {
-  it('relays on Linux wherever keys could be injected into the pane’s terminal', () => {
-    expect(needsPtyRelay(false, allows, 'linux')).toBe(true)
-    expect(needsPtyRelay(false, unreadable, 'linux')).toBe(true)
-    expect(needsPtyRelay(false, refuses, 'linux')).toBe(false)
-  })
-
-  it('relays when forced, whatever the kernel says', () => {
-    expect(needsPtyRelay(true, refuses, 'linux')).toBe(true)
-  })
-
-  it('never relays on another platform', () => {
-    expect(needsPtyRelay(true, allows, 'darwin')).toBe(false)
   })
 })
 

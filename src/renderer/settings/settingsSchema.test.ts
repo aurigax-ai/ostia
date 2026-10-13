@@ -1,9 +1,9 @@
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ALL_CAPABILITIES } from '../../shared/capabilities'
 import { commands } from '../commands/registry'
 import { langFor, setSettingsFile } from '../monaco/language'
 import { settingsJsonDefaults } from '../monaco/settingsLanguage'
-import { useSettingsStore } from '../stores/settingsStore'
 import { registerSettingsSchema } from './registerSettingsSchema'
 import { SETTINGS_JSON_SCHEMA, settingsSchemaAt } from './settingsSchema'
 

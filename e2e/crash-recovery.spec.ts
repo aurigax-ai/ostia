@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { PROMPT, openWorkspace, runInTerminal } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
@@ -78,6 +79,36 @@ test('a renderer error shows the recovery screen, and Reload window brings the s
     expect(log).toMatch(/renderer-error window=\d+ kind=render message="test crash requested/)
     expect(log).toMatch(/window-recovering window=\d+ reason=render-error/)
     expect(log).toMatch(/window-reload window=\d+/)
+    expect(log).not.toMatch(/pty-reap .*reason=grace-expired/)
+  } finally {
+    await app.close()
+  }
+})
+
+test('Reload Window from the command palette keeps the same shells running', async () => {
+  test.setTimeout(120_000)
+  const { app, win, dataHome } = await launch()
+  try {
+    await openWorkspace(win)
+    await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
+    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
+    await expect(win.locator('.xterm-rows').nth(1)).toContainText(PROMPT, { timeout: 15_000 })
+    const before = [await shellPid(win, 0, 'palleft'), await shellPid(win, 1, 'palright')]
+
+    await win.keyboard.press(chords.palette)
+    await win.keyboard.type('Reload Window')
+    await win.getByRole('option', { name: /Reload Window/ }).click()
+
+    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 20_000 })
+    await expect(win.locator('.xterm-rows').nth(0)).toContainText(`palleft-${before[0]}`, {
+      timeout: 15_000,
+    })
+    const after = [await shellPid(win, 0, 'palleftagain'), await shellPid(win, 1, 'palrightagain')]
+    expect(after).toEqual(before)
+
+    const log = mainLog(dataHome)
+    expect(log).toMatch(/window-recovering window=\d+ reason=reload/)
+    expect(log).toMatch(/window-recovered window=\d+ held=\d+ reaped=0/)
     expect(log).not.toMatch(/pty-reap .*reason=grace-expired/)
   } finally {
     await app.close()

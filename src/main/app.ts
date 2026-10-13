@@ -25,15 +25,27 @@ import {
 } from 'electron'
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
-import type { AgentResume } from '../shared/agentResume'
-import { appEnv } from '../shared/appEnv'
-import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browserProfile'
+import type { AgentResume } from '../shared/agents/agentResume'
+import type { HibernateOutcome } from '../shared/agents/agentWork'
+import {
+  MANAGER_FEATURE,
+  managerAgents,
+  parseManagerSettings,
+} from '../shared/agents/managerSettings'
+import { fmt } from '../shared/app/dict'
+import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
+import { isMacInstall, replacesInApp } from '../shared/app/installMethod'
+import { clampZoom, zoomFactor } from '../shared/app/zoom'
+import { appEnv, readEnv } from '../shared/appEnv'
+import { ARTIFACT_LIST_MAX } from '../shared/artifacts/artifacts'
+import { isPreviewPartition } from '../shared/artifacts/htmlPreview'
+import { parseChatToolSettings } from '../shared/assist/chatTools'
+import { parseGitSettings } from '../shared/boards/git'
+import { parsePortsSettings } from '../shared/boards/ports'
+import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browser/browserProfile'
+import { PASSKEY_GUARD_JS } from '../shared/browser/passkeyGuard'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
-import { parseChatToolSettings } from '../shared/chatTools'
-import { desktopsOf } from '../shared/desktopChords'
-import type { DiscreteGpuInfo } from '../shared/discreteGpu'
 import { languageForPath } from '../shared/editorLanguages'
-import { EXTENSION_SUGGESTIONS } from '../shared/extensionSuggestions'
 import type {
   ExtensionEventPayloads,
   ExtensionEventType,
@@ -41,21 +53,26 @@ import type {
   ExtensionResult,
   WorkspaceChip,
 } from '../shared/extensions'
-import { parseGitSettings } from '../shared/git'
-import { KEEP_SHELLS_FEATURE, KEPT_SHELLS_DIR, parseKeepShells } from '../shared/keepShells'
+import { EXTENSION_SUGGESTIONS } from '../shared/extensions/extensionSuggestions'
+import { OPEN_FILES_COMMAND } from '../shared/files/openFiles'
+import { OPEN_FILES_MAX } from '../shared/files/openFiles'
+import { desktopsOf } from '../shared/keyboard/desktopChords'
 import { languageServerKey } from '../shared/languageServers'
-import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
-import { OPEN_FILES_MAX } from '../shared/openFiles'
-import { isHostNamed } from '../shared/osc7'
-import { parsePortsSettings } from '../shared/ports'
+import { externalHref } from '../shared/links/externalLinks'
+import { parsePrivacySettings } from '../shared/privacy/redaction'
+import { bucketCount } from '../shared/privacy/telemetry'
 import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
 import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
-import { parsePrivacySettings } from '../shared/redaction'
 import { type RemoteCwd, normalizeRemoteCwd } from '../shared/remoteFolders'
-import { parseSandboxGlobals } from '../shared/sandbox'
-import { quoteArg, quoteArgv } from '../shared/shellQuote'
-import { bucketCount } from '../shared/telemetry'
-import { shellArgv, shellName } from '../shared/terminalShell'
+import { parseSandboxGlobals } from '../shared/sandbox/sandbox'
+import {
+  KEEP_SHELLS_FEATURE,
+  KEPT_SHELLS_DIR,
+  parseKeepShells,
+} from '../shared/terminal/keepShells'
+import { isHostNamed } from '../shared/terminal/osc7'
+import { quoteArg, quoteArgv } from '../shared/terminal/shellQuote'
+import { shellArgv, shellName } from '../shared/terminal/terminalShell'
 import type {
   AppInfo,
   CommandDescriptor,
@@ -73,71 +90,147 @@ import type {
   TerminalStateSnapshot,
   WindowBounds,
 } from '../shared/types'
-import { clampZoom, zoomFactor } from '../shared/zoom'
-import { AGENT_OFFER_RESULT_CHANNEL, createAgentOfferRelay } from './agentOfferRelay'
-import { AgentRunningPanes } from './agentRunning'
-import { agentPluginContent } from './agentSkills'
-import { registerAgentTranscriptIpc } from './agentTranscript'
-import { type AppLog, LOG_FILE_NAME, createAppLog } from './appLog'
-import { installAppMenu } from './appMenu'
-import { registerAppUpdate } from './appUpdate'
-import { appVersion, runningBuild } from './appVersion'
-import { approvals, registerApprovals } from './approvals'
-import { createAskHub } from './asks'
-import { registerAssistIpc } from './assistIpc'
-import { registerAttentionMethods, targetOf } from './attention'
+import { AGENT_OFFER_RESULT_CHANNEL, createAgentOfferRelay } from './agents/agentOfferRelay'
+import { AgentRunningPanes } from './agents/agentRunning'
+import { agentPluginContent } from './agents/agentSkills'
+import { registerAgentTranscriptIpc } from './agents/agentTranscript'
+import {
+  ReportedAgentWork,
+  backgroundWork,
+  readProcessTable,
+  registerAgentWorkMethods,
+} from './agents/agentWork'
+import { registerBusMethods } from './agents/bus'
+import type { OriginReach } from './agents/originAgents'
+import { approvals, registerApprovals } from './approvals/approvals'
+import { createAskHub } from './approvals/asks'
+import {
+  dropIdentity,
+  loadReachMode,
+  refreshCapabilitySettings,
+  setCaps,
+} from './approvals/capabilityStore'
+import { registerPermissionAsk } from './approvals/permissionAsk'
+import { questions, registerQuestions } from './approvals/questions'
+import { type ReachListing, createReach } from './approvals/reach'
+import { registerScriptTokenIpc } from './approvals/scriptTokenIpc'
+import { createScriptTokenUsage } from './approvals/scriptTokenUsage'
+import {
+  checkScriptToken,
+  listScriptTokens,
+  recordCreatedWorkspace,
+  registerScriptTokenMethods,
+  retireLegacyScriptTokens,
+  scriptTokenScope,
+  setUserPresenceCheck,
+} from './approvals/scriptTokens'
+import { electronPresenceDeps, verifyUserPresence } from './approvals/userPresence'
+import { ArtifactCompiler } from './artifacts/artifactCompiler'
+import { ArtifactFolders, registerArtifactIpc } from './artifacts/artifactFolders'
+import { loadEsbuild } from './artifacts/esbuildService'
+import {
+  PreviewHost,
+  type PreviewSession,
+  hardenPreviewAttach,
+  registerPreviewIpc,
+} from './artifacts/htmlPreview'
+import { registerAttentionMethods, targetOf } from './attention/attention'
+import { announceBusMessage } from './attention/busNotice'
+import {
+  postActionNotification,
+  postNotification,
+  postPanelNotification,
+  registerNotifyIpc,
+  registerNotifyMethods,
+} from './attention/notify'
 import {
   type ConsoleEntry,
   OSTIA_ERROR_PREFIX,
   PAGE_ERROR_CATCHER_JS,
   clearGuestBrowseState,
+  injectPageScripts,
   ownedGuest,
   pushConsoleEntry,
   registerBrowseMethods,
-} from './browse'
-import { cancelPick, registerPickIpc, registerPickMethods } from './browsePick'
-import { registerRegionIpc } from './browseRegion'
-import { BrowserProfiles } from './browserProfiles'
-import { registerBrowserStorageIpc } from './browserStorage'
-import { browserUserAgent } from './browserUserAgent'
-import { registerBusMethods } from './bus'
-import { announceBusMessage } from './busNotice'
-import { dropIdentity, loadReachMode, refreshCapabilitySettings, setCaps } from './capabilityStore'
-import { createChatSessionStore } from './chatSessions'
-import { registerChatSessionIpc } from './chatSessionsIpc'
-import { ChatToolGrants } from './chatToolGrants'
-import { registerChatToolsIpc } from './chatToolsIpc'
-import { type ClipboardEdits, registerClipboardEdits } from './clipboardEdits'
-import { confirmQuit, freezeAll, registerCloseGuard } from './closeGuard'
-import { registerCmuxSessionIpc } from './cmuxSession'
-import { registerCompletionIpc } from './completionSpecs'
-import { attachContextMenu } from './contextMenu'
-import { setCapFilter, setScriptTokenCheck } from './controlAuth'
-import { clearControlInfo, controlInfoPath, writeControlInfo } from './controlDiscovery'
+} from './browser/browse'
+import { cancelPick, registerPickIpc, registerPickMethods } from './browser/browsePick'
+import { registerRegionIpc } from './browser/browseRegion'
+import { BrowserProfiles } from './browser/browserProfiles'
+import { registerBrowserStorageIpc } from './browser/browserStorage'
+import { credentials, registerCredentials } from './browser/credentials'
+import { type GuestChords, registerGuestChords } from './browser/guestChords'
+import { clearGuestNetwork, forgetGuestNetwork, watchGuestNetwork } from './browser/guestNetwork'
+import { registerLoginFill } from './browser/loginFill'
+import { type BrowserAgents, followAgentByHost, useBrowserAgents } from './browser/signinUserAgent'
+import { registerAssistIpc } from './chat/assistIpc'
+import { createChatSessionStore } from './chat/chatSessions'
+import { registerChatSessionIpc } from './chat/chatSessionsIpc'
+import { ChatToolGrants } from './chat/chatToolGrants'
+import { registerChatToolsIpc } from './chat/chatToolsIpc'
+import { McpHost } from './chat/mcpHost'
+import { McpOAuth, mcpOAuthBrowser } from './chat/mcpOAuth'
+import { createMcpOAuthStore } from './chat/mcpOAuthStore'
+import { setCapFilter, setScriptTokenCheck } from './control/controlAuth'
+import { clearControlInfo, controlInfoPath, writeControlInfo } from './control/controlDiscovery'
 import {
   controlSocketPath,
   keptControlSocketPath,
   listenKeptControlSocket,
   registerControlServer,
   stopControlServer,
-} from './controlServer'
-import { credentials, registerCredentials } from './credentials'
-import { type Diagnostics, registerDiagnostics } from './diagnostics'
-import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './discreteGpu'
-import { registerDocsMethods } from './docs'
-import { registerEditorLanguageIpc } from './editorLanguages'
-import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
-import { confirmForExtension } from './extensionConfirm'
-import { ExtensionHost, registerExtensionMethods } from './extensionHost'
-import type { ExtensionRoot } from './extensionManifest'
-import { type SecretStoreDeps, createSecretStore } from './extensionSecrets'
-import { ExtensionStore } from './extensionStore'
-import { DismissedSuggestions, suggestionFor } from './extensionSuggestions'
-import { openInExternalEditor } from './externalEditor'
-import { FileOps } from './fileOps'
-import { FileWatches, TreeWatches } from './fileWatch'
-import { readBinaryConfined } from './fsBinary'
-import { readTextConfined, versionConfined, writeText } from './fsText'
+} from './control/controlServer'
+import { registerDocsMethods } from './control/docs'
+import { emitPlatformEvent, emitSessionState, platformEvents } from './control/events'
+import {
+  type PaneIdentity,
+  adoptPane,
+  getByPaneId,
+  markManager,
+  moveToWorkspace,
+  panesOwnedBy,
+  registerPane,
+  rehomeWorkspace,
+  removePane,
+  removeWindow,
+  resolveExternal,
+  setPaneIdSalt,
+  windowOfWorkspace,
+  workspaceHasManager,
+} from './control/idRegistry'
+import { loadPaneIdSalt } from './control/paneIdSalt'
+import { type AppLog, LOG_FILE_NAME, createAppLog } from './diagnostics/appLog'
+import { type Diagnostics, registerDiagnostics } from './diagnostics/diagnostics'
+import {
+  type SessionFacts,
+  TELEMETRY_FILE,
+  type Telemetry,
+  registerTelemetry,
+} from './diagnostics/telemetry'
+import { confirmForExtension } from './extensions/extensionConfirm'
+import { ExtensionHost, registerExtensionMethods } from './extensions/extensionHost'
+import type { ExtensionRoot } from './extensions/extensionManifest'
+import { type SecretStoreDeps, createSecretStore } from './extensions/extensionSecrets'
+import { ExtensionStore } from './extensions/extensionStore'
+import { DismissedSuggestions, suggestionFor } from './extensions/extensionSuggestions'
+import { registerIconThemeIpc } from './extensions/iconThemes'
+import { describeSkipped, registerKeymapIpc } from './extensions/keymaps'
+import { registerLanguagePackIpc } from './extensions/languagePacks'
+import { Marketplace, marketplaceId, normalizeMarketplaceUrl } from './extensions/marketplace'
+import { createMainStrings } from './extensions/strings'
+import { firstKnownOwner, workspaceChipsForWindow } from './extensions/workspaceChips'
+import { openInExternalEditor } from './files/externalEditor'
+import { FileOps } from './files/fileOps'
+import { FileWatches, TreeWatches } from './files/fileWatch'
+import { readBinaryConfined } from './files/fsBinary'
+import { readTextConfined, versionConfined, writeText } from './files/fsText'
+import { OpenFileGrants } from './files/openFileGrants'
+import { openFileForExtension, registerOpenFileMethods } from './files/openFileMethods'
+import { registerOpenPathIpc } from './files/openPath'
+import { OpenWaits } from './files/openWaits'
+import { confirmRemoteFolder, registerRemoteFolderConfirm } from './files/remoteFolderConfirm'
+import type { RemoteFolders } from './files/remoteFolders'
+import { ripgrepPath } from './files/ripgrep'
+import { registerSearchIpc } from './files/workspaceSearch'
 import {
   configureAnnouncer,
   configureTailnet,
@@ -155,129 +248,81 @@ import { confirmDiscard } from './git/confirmDiscard'
 import { registerGitIpc, registerGitMethods } from './git/register'
 import { GitService } from './git/service'
 import { ViewStateStore } from './git/viewState'
-import { GlobalHotkey, toggleWindows } from './globalHotkey'
-import { type GuestChords, registerGuestChords } from './guestChords'
-import { clearGuestNetwork, forgetGuestNetwork, watchGuestNetwork } from './guestNetwork'
-import { registerIconThemeIpc } from './iconThemes'
+import { registerEditorLanguageIpc } from './lsp/editorLanguages'
+import { LanguageServers, scrubbedEnv } from './lsp/languageServers'
+import { registerLanguageServersIpc } from './lsp/languageServersIpc'
+import { ManagedServers, downloadBaseUrl } from './lsp/managedServers'
+import { ServerOverrides } from './lsp/serverOverrides'
+import { ManagerService, managerWindowId } from './manager/manager'
 import {
-  type PaneIdentity,
-  adoptPane,
-  getByPaneId,
-  markManager,
-  moveToWorkspace,
-  panesOwnedBy,
-  registerPane,
-  rehomeWorkspace,
-  removePane,
-  removeWindow,
-  resolveExternal,
-  setPaneIdSalt,
-  windowOfWorkspace,
-  workspaceHasManager,
-} from './idRegistry'
-import { installAppDir, installMethod } from './installMethod'
-import {
-  type PendingSweep,
-  canReplaceInstall,
-  createInstallReplacer,
-  releaseDownloadBase,
-  runTar,
-  sweepOldInstall,
-} from './installReplace'
-import { loadJson, saveJson, storePath } from './jsonStore'
-import { describeSkipped, registerKeymapIpc } from './keymaps'
-import { registerLanguagePackIpc } from './languagePacks'
-import { LanguageServers, scrubbedEnv } from './languageServers'
-import { registerLanguageServersIpc } from './languageServersIpc'
-import { atLocalPrompt, busyProgram } from './localPrompt'
-import { registerLoginFill } from './loginFill'
-import { ManagedServers, downloadBaseUrl } from './managedServers'
-import { ManagerService, managerWindowId } from './manager'
-import { managerArgv, writeManagerClaudePlugin, writeManagerCodexContext } from './managerAgent'
-import { type ManagerLimiter, registerManagerMethods } from './managerMethods'
-import { Marketplace, marketplaceId, normalizeMarketplaceUrl } from './marketplace'
-import { McpHost } from './mcpHost'
-import { McpOAuth, mcpOAuthBrowser } from './mcpOAuth'
-import { createMcpOAuthStore } from './mcpOAuthStore'
-import {
-  postActionNotification,
-  postNotification,
-  postPanelNotification,
-  registerNotifyIpc,
-  registerNotifyMethods,
-} from './notify'
-import { OpenFileGrants } from './openFileGrants'
-import { openFileForExtension, registerOpenFileMethods } from './openFileMethods'
-import { registerOpenPathIpc } from './openPath'
-import type { OriginReach } from './originAgents'
-import { loadPaneIdSalt } from './paneIdSalt'
-import {
-  type PaneAttentionPeek,
-  type PaneIo,
-  type PaneReachDeps,
-  pastedText,
-  registerPaneIoMethods,
-} from './paneIo'
-import { replaceFile, writeOstiaLauncher } from './paneLauncher'
-import { listPanes, listWorkspaceGroups, listWorkspaces, registerPaneListMethods } from './paneList'
-import { registerPaneMoveIpc } from './paneMove'
-import { registerPaneMoveToMethods } from './paneMoveTo'
-import type { PaneProcess } from './paneProcess'
-import { registerPaneRenameMethods } from './paneRename'
-import { registerPaneResumeMethods } from './paneResume'
-import { PaneWatch, registerPaneWaitMethods } from './paneWait'
-import { PaneWaking } from './paneWaking'
-import { resolveSafe } from './pathGuard'
-import { registerPermissionAsk } from './permissionAsk'
+  managerArgv,
+  writeManagerClaudePlugin,
+  writeManagerCodexContext,
+} from './manager/managerAgent'
+import { type ManagerLimiter, registerManagerMethods } from './manager/managerMethods'
 import {
   type MirrorHandle,
   type MirrorSink,
   Portal,
   portalSocketPath,
   portalSupported,
-} from './portal'
-import { callerVerdict, procFs, ttysOf } from './portalCaller'
-import { registerPortsIpc, registerPortsMethods } from './ports/register'
-import { PortsService } from './ports/service'
-import { acceptsPrimarySelection } from './primarySelection'
-import { registerPrivacyIpc } from './privacyIpc'
-import { privateTmpDir } from './privateTmp'
+} from './manager/portal'
+import { callerVerdict, procFs, ttysOf } from './manager/portalCaller'
+import {
+  type PaneAttentionPeek,
+  type PaneIo,
+  type PaneReachDeps,
+  pastedText,
+  registerPaneIoMethods,
+} from './panes/paneIo'
+import {
+  listPanes,
+  listWorkspaceGroups,
+  listWorkspaces,
+  registerPaneListMethods,
+} from './panes/paneList'
+import { registerPaneMoveIpc } from './panes/paneMove'
+import { registerPaneMoveToMethods } from './panes/paneMoveTo'
+import type { PaneProcess } from './panes/paneProcess'
+import { registerPaneRenameMethods } from './panes/paneRename'
+import { registerPaneResumeMethods } from './panes/paneResume'
+import { PaneWatch, registerPaneWaitMethods } from './panes/paneWait'
+import { PaneWaking } from './panes/paneWaking'
 import {
   INTERRUPT_GRACE_MS,
   type ProcessRegistry,
   type ProcessTabRequest,
   registerProcessMethods,
-} from './processManager'
+} from './panes/processManager'
+import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './platform/discreteGpu'
+import { loadJson, saveJson, storePath } from './platform/jsonStore'
+import { resolveSafe } from './platform/pathGuard'
+import { privateTmpDir } from './platform/privateTmp'
+import { needsPtyRelay } from './platform/ptyRelay'
+import {
+  SANDBOX_FEATURE,
+  installHint,
+  missingRequirements,
+  onPath,
+  programPath,
+  registerRequirements,
+  requirementLabel,
+} from './platform/systemRequirements'
+import { registerSystemRequirementsIpc } from './platform/systemRequirementsIpc'
+import {
+  OLD_PRODUCT_NAME,
+  appConfigDir,
+  appDataDir,
+  configHome,
+  dataHome,
+} from './platform/userDirs'
+import { registerPortsIpc, registerPortsMethods } from './ports/register'
+import { PortsService } from './ports/service'
+import { registerPrivacyIpc } from './privacy/privacyIpc'
+import { createRedactor, createScrollbackRedactor } from './privacy/redaction'
+import { createWorkerScan, redactionWorkerScript } from './privacy/redactionScan'
 import { type ProfileSyncHandle, startProfileSync } from './profileSync/ipc'
 import { flatSource, groupedSource, loginsSource } from './profileSync/secrets'
-import { registerProjectRootIpc } from './projectRoot'
-import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
-import { CoalescedOutput, PtyFlowControl } from './ptyFlow'
-import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
-import { PtySession, type Subscriber, type SubscriberRole } from './ptySession'
-import { questions, registerQuestions } from './questions'
-import {
-  QUIT_SIGNALS,
-  createQuitTrace,
-  exitAfterDeadline,
-  keptOnQuit,
-  planQuit,
-  summarizeKinds,
-} from './quitPlan'
-import { confirmQuitNatively } from './quitPrompt'
-import { createReach } from './reach'
-import { createRedactor, createScrollbackRedactor } from './redaction'
-import { createWorkerScan, redactionWorkerScript } from './redactionScan'
-import {
-  announceReplace,
-  announceReplaceProgress,
-  announceUpdateRun,
-  registerReleaseCheck,
-  releaseUserAgent,
-} from './releaseCheck'
-import { confirmRemoteFolder, registerRemoteFolderConfirm } from './remoteFolderConfirm'
-import type { RemoteFolders } from './remoteFolders'
-import { ripgrepPath } from './ripgrep'
 import { attachWorkspace } from './sandbox/attachWorkspace'
 import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
@@ -290,62 +335,59 @@ import { PortBridge, bridgesPorts } from './sandbox/portBridge'
 import { PortForwarder, type SandboxListener, type SandboxPane } from './sandbox/portForwarder'
 import { PortRequests } from './sandbox/portRequests'
 import { HOST_PROTOCOL_VERSION } from './sandbox/protocol'
-import {
-  needsPtyRelay,
-  relayForced,
-  sandboxedShellCommand,
-  wrapForTerminal,
-} from './sandbox/ptyWrap'
+import { relayForced, sandboxedShellCommand, wrapForTerminal } from './sandbox/ptyWrap'
 import { hiddenHomeNotice, sandboxFailureBanner } from './sandbox/spawnBanner'
 import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
 import { type SandboxBasePaths, reachableContainerSockets, srtVendorDir } from './sandbox/srtConfig'
 import { SandboxStore } from './sandbox/store'
 import { ViolationLog, recordViolations } from './sandbox/violations'
-import {
-  type SandboxReadRules,
-  sandboxEntries,
-  sandboxPath,
-  visibleInSandbox,
-} from './sandbox/visibility'
+import { type SandboxReadRules, sandboxPath, visibleInSandbox } from './sandbox/visibility'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
-import { ScratchFolders, registerScratchIpc } from './scratchFolders'
-import { HIBERNATE_SEAM, HISTORY_LINES, RESTORE_SEAM, ScreenMirror } from './screenMirror'
-import { registerScriptTokenMethods, verifyScriptToken } from './scriptTokens'
 import { registerSecretMethods } from './secrets/register'
 import { prepareSecrets } from './secrets/secretInjection'
 import { SecretService } from './secrets/secretService'
-import { WorkspaceAgents } from './secrets/workspaceAgents'
-import { registerSelectionIpc } from './selectionReport'
-import { ServerOverrides } from './serverOverrides'
-import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
-import { closesPaneOnExit } from './shellExit'
-import { INTEGRATION_DIR, setAgentPlugins, shellIntegrationSpawnOptions } from './shellIntegration'
-import { sandboxCwd, spawnFolder } from './spawnCwd'
-import { createMainStrings } from './strings'
 import {
-  SANDBOX_FEATURE,
-  installHint,
-  missingRequirements,
-  onPath,
-  programPath,
-  registerRequirements,
-  requirementLabel,
-} from './systemRequirements'
-import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
-import { type SessionFacts, TELEMETRY_FILE, type Telemetry, registerTelemetry } from './telemetry'
+  deleteGlobalVaultValue,
+  registerVaultMethods,
+  setGlobalVaultValue,
+  vaultKeys,
+  vaultValue,
+} from './secrets/vault'
+import { WorkspaceAgents } from './secrets/workspaceAgents'
+import { registerCompletionIpc } from './terminal/completionSpecs'
+import { atLocalPrompt, busyProgram } from './terminal/localPrompt'
+import { replaceFile, writeOstiaLauncher } from './terminal/paneLauncher'
+import { registerPathCompletionIpc } from './terminal/pathCompletion'
+import { KubeContextReader, NodeVersionResolver, promptContext } from './terminal/promptContext'
+import { CoalescedOutput, PtyFlowControl } from './terminal/ptyFlow'
+import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './terminal/ptyReaper'
+import { PtySession, type Subscriber, type SubscriberRole } from './terminal/ptySession'
+import { HIBERNATE_SEAM, HISTORY_LINES, RESTORE_SEAM, ScreenMirror } from './terminal/screenMirror'
+import { registerSelectionIpc } from './terminal/selectionReport'
+import { ExecutableIndex, commandNames, readShellState } from './terminal/shellCommands'
+import { closesPaneOnExit } from './terminal/shellExit'
+import { ShellHistoryFiles, registerShellHistoryIpc } from './terminal/shellHistory'
+import {
+  INTEGRATION_DIR,
+  setAgentPlugins,
+  shellIntegrationSpawnOptions,
+} from './terminal/shellIntegration'
+import { sandboxCwd, spawnFolder } from './terminal/spawnCwd'
 import {
   type PaneOutput,
   TerminalPathLinks,
   registerTerminalPathLinkIpc,
-} from './terminalPathLinks'
+} from './terminal/terminalPathLinks'
 import {
   PTY_COLOR_ENV,
   PTY_TERM_NAME,
   paneShellEnv,
+  ptyHyperlinkEnv,
   ptyIdentityEnv,
+  ptyLocaleEnv,
   withPaneToken,
-} from './terminalType'
+} from './terminal/terminalType'
 import { type SavedAttention, isKeptAttentionState } from './tmux/attentionFile'
 import { SANDBOX_NOT_KEPT, TMUX_MISSING, keepShellsNotice } from './tmux/keepShellsBanner'
 import { KeptAttention } from './tmux/keptAttention'
@@ -359,30 +401,77 @@ import {
   SANDBOX_HOST_KIND,
 } from './tmux/keptShells'
 import type { TmuxPane } from './tmux/tmuxServer'
-import { AppTray, closeAction, isHiddenLaunch, readCloseToTray, unreadWorkspaces } from './tray'
-import { type UpdateRunner, createUpdateRunner } from './updateRun'
-import { OLD_PRODUCT_NAME, appConfigDir, configHome, dataHome } from './userDirs'
+import { registerAppUpdate } from './updates/appUpdate'
+import { appVersion, runningBuild } from './updates/appVersion'
+import { installAppDir, installMethod } from './updates/installMethod'
 import {
-  deleteGlobalVaultValue,
-  registerVaultMethods,
-  setGlobalVaultValue,
-  vaultKeys,
-  vaultValue,
-} from './vault'
-import { ViewHost, ViewStore } from './viewHost'
-import { registerViewMethods, registerViewsIpc } from './viewsIpc'
-import { MAIN_SLOT } from './windowBook'
-import { WindowBroker } from './windowBroker'
-import { type WorkflowDeps, registerWorkflowIpc, registerWorkflowMethods } from './workflows'
-import { firstKnownOwner, workspaceChipsForWindow } from './workspaceChips'
-import { registerWorkspaceMergeIpc } from './workspaceMerge'
+  type PendingSweep,
+  canReplaceInstall,
+  createInstallReplacer,
+  releaseDownloadBase,
+  runTar,
+  sweepOldInstall,
+  tarballReplace,
+} from './updates/installReplace'
+import {
+  canReplaceBundle,
+  discardStaged,
+  macReplace,
+  runCommand,
+  signaturePolicy,
+  swapStagedBundle,
+  verifyStagedSync,
+} from './updates/macReplace'
+import {
+  announceReplace,
+  announceReplaceProgress,
+  announceUpdateRun,
+  readUpdateChannel,
+  registerReleaseCheck,
+  releaseUserAgent,
+} from './updates/releaseCheck'
+import { type UpdateRunner, createUpdateRunner } from './updates/updateRun'
+import { installAppMenu } from './windows/appMenu'
+import { type ClipboardEdits, registerClipboardEdits } from './windows/clipboardEdits'
+import { confirmQuit, freezeAll, registerCloseGuard } from './windows/closeGuard'
+import { attachContextMenu } from './windows/contextMenu'
+import { GlobalHotkey, toggleWindows } from './windows/globalHotkey'
+import { acceptsPrimarySelection } from './windows/primarySelection'
+import {
+  QUIT_SIGNALS,
+  createQuitTrace,
+  exitAfterDeadline,
+  keptOnQuit,
+  planQuit,
+  summarizeKinds,
+} from './windows/quitPlan'
+import { confirmQuitNatively } from './windows/quitPrompt'
+import {
+  AppTray,
+  closeAction,
+  isHiddenLaunch,
+  readCloseToTray,
+  unreadWorkspaces,
+} from './windows/tray'
+import { MAIN_SLOT } from './windows/windowBook'
+import { WindowBroker } from './windows/windowBroker'
+import { registerCmuxSessionIpc } from './workspaces/cmuxSession'
+import { registerProjectRootIpc } from './workspaces/projectRoot'
+import { ScratchFolders, registerScratchIpc } from './workspaces/scratchFolders'
+import { ViewHost, ViewStore } from './workspaces/viewHost'
+import { registerViewMethods, registerViewsIpc } from './workspaces/viewsIpc'
+import {
+  type WorkflowDeps,
+  registerWorkflowIpc,
+  registerWorkflowMethods,
+} from './workspaces/workflows'
+import { registerWorkspaceMergeIpc } from './workspaces/workspaceMerge'
 import {
   removeWorkspace,
   setWorkspaceWorkDir,
   windowForWorkspace,
   workDirForWorkspace,
-} from './workspaceRegistry'
-import { registerSearchIpc } from './workspaceSearch'
+} from './workspaces/workspaceRegistry'
 import {
   type RestoreOutcome,
   dropRestoredScrollback,
@@ -395,7 +484,7 @@ import {
   stashScrollback,
   stashedScreen,
   takeRestoredScrollback,
-} from './workspaceSnapshot'
+} from './workspaces/workspaceSnapshot'
 
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
 
@@ -438,6 +527,7 @@ const ptys = new Map<string, PtyEntry>()
 const PTY_BUFFER_CAP = 1_000_000
 const executables = new ExecutableIndex()
 const promptSources = { node: new NodeVersionResolver(), kube: new KubeContextReader() }
+const shellHistoryFiles = new ShellHistoryFiles()
 
 function listDir(dir: string): FsEntry[] {
   try {
@@ -621,17 +711,10 @@ function releaseMovingPane(paneId: string): void {
   if (entry && entry.session.ownerCount === 0) killPty(paneId, 'closed')
 }
 
-const EXTERNAL_SCHEMES = new Set(['http:', 'https:', 'mailto:'])
-
 function openExternalSafe(url: string): boolean {
-  let scheme: string
-  try {
-    scheme = new URL(url).protocol
-  } catch {
-    return false
-  }
-  if (!EXTERNAL_SCHEMES.has(scheme)) return false
-  void shell.openExternal(url)
+  const href = externalHref(url, { apps: false })
+  if (!href) return false
+  void shell.openExternal(href)
   return true
 }
 
@@ -651,6 +734,8 @@ const keptShells = new KeptShells({
 })
 let tmuxTerminal: string | null = null
 let restartRequested = false
+let stagedUpdate: { pending: PendingSweep; sweepFile: string } | null = null
+const updatePolicy = signaturePolicy(app.isPackaged, process.env)
 let updateRunner: UpdateRunner | null = null
 const UPDATE_HOST_GRANT_ID = 'core:update'
 
@@ -783,6 +868,7 @@ function killPty(paneId: string, reason: ReapReason): void {
   removeStateFile(entry)
   keptShells.removeToken(paneId)
   ptys.delete(paneId)
+  agentWork.clear(paneId)
 }
 
 function hibernatePty(paneId: string): boolean {
@@ -872,13 +958,56 @@ function resizePty(entry: PtyEntry | undefined, cols: number, rows: number): voi
 
 const scratchFolders = new ScratchFolders(privateTmpDir(`${PRODUCT_NAME}-scratch`))
 
+const artifactFolders = new ArtifactFolders(
+  {
+    root: join(appDataDir(), 'artifacts'),
+    scratchDirOf: (workspaceId) => scratchFolders.dirOf(workspaceId),
+    scratchDirs: () => scratchFolders.dirs(),
+  },
+  (workspaceId, changes) => {
+    const windowId = windowForWorkspace(workspaceId)
+    if (windowId) windows.get(windowId)?.webContents.send('artifacts:changed', workspaceId)
+    for (const { path, change } of changes.slice(0, ARTIFACT_LIST_MAX)) {
+      emitPlatformEvent('artifact.changed', { sessionId: workspaceId, path, change })
+    }
+  },
+)
+
 function fileRoots(): string[] {
-  return [homedir(), app.getPath('userData'), scratchFolders.root]
+  return [homedir(), app.getPath('userData'), scratchFolders.root, artifactFolders.root]
 }
 
 const openFileGrants = new OpenFileGrants({
   roots: fileRoots,
   file: join(app.getPath('userData'), 'opened-files.json'),
+})
+
+const artifactCompiler = new ArtifactCompiler(
+  () => loadEsbuild(app.isPackaged),
+  `chrome${process.versions.chrome.split('.')[0]}`,
+)
+
+const openWaits = new OpenWaits((windowId, paneIds) =>
+  windows.get(windowId)?.webContents.send('open-waits:ended', paneIds),
+)
+
+const previews = new PreviewHost({
+  sessionOf: (partition) => session.fromPartition(partition) as unknown as PreviewSession,
+  confine: (path) => openFileGrants.confine(path),
+  servesFolder: (dir) => artifactFolders.holds(dir),
+  ownsPane: (windowId, paneId) => getByPaneId(paneId)?.windowId === windowId,
+  send: (windowId, event) => windows.get(windowId)?.webContents.send('preview:event', event),
+  processes: () =>
+    app.getAppMetrics().map((metric) => ({
+      pid: metric.pid,
+      memoryBytes: metric.memory.workingSetSize * 1024,
+      cpuPercent: metric.cpu.percentCPUUsage,
+    })),
+  runtimeDir: () =>
+    app.isPackaged
+      ? join(process.resourcesPath, 'artifact-runtime')
+      : join(app.getAppPath(), 'out', 'artifact-runtime'),
+  compile: (file, source) => artifactCompiler.compile(file, source),
 })
 
 function isScratchPane(paneId: string): boolean {
@@ -1307,6 +1436,14 @@ setCapFilter((conn, cap) => {
   return workspaceSandboxes.resolved(workspaceId).controls.allWorkspaces
 })
 
+async function workspaceListing(): Promise<ReachListing> {
+  const [workspaces, groups] = await Promise.all([
+    listWorkspaces({ execCommand, windowIds }),
+    listWorkspaceGroups({ execCommand, windowIds }),
+  ])
+  return { workspaces, groups }
+}
+
 const reach = createReach({
   mode: loadReachMode,
   home: homedir(),
@@ -1317,15 +1454,12 @@ const reach = createReach({
     ...workspaceSandboxes.settings(workspaceId),
     enabled: workspaceSandboxes.isEnabled(workspaceId),
   }),
-  workspaces: async () => {
-    const [workspaces, groups] = await Promise.all([
-      listWorkspaces({ execCommand, windowIds }),
-      listWorkspaceGroups({ execCommand, windowIds }),
-    ])
-    return { workspaces, groups }
-  },
+  workspaces: workspaceListing,
   ask: (ask) => approvals()?.request(ask) ?? null,
   agentGroupsChanged: (placements) => broadcast('reach:agent-groups-changed', placements),
+  scriptScope: (tokenId) => scriptTokenScope(scriptTokensPath(), tokenId),
+  scriptCreated: (tokenId, workspaceId) =>
+    recordCreatedWorkspace(scriptTokensPath(), tokenId, workspaceId),
 })
 ipcMain.handle('reach:agent-groups', () => reach.agentGroups())
 
@@ -1388,6 +1522,7 @@ let mcpHost: McpHost | null = null
 let mcpOAuth: McpOAuth | null = null
 let broker: WindowBroker | null = null
 const agentRunning = new AgentRunningPanes(() => broker?.persist())
+const agentWork = new ReportedAgentWork()
 
 const askHub = createAskHub({
   questions,
@@ -1440,6 +1575,15 @@ function extensionOfPartition(partition: string | undefined): string | null {
   return partition.slice(EXTENSION_PARTITION_PREFIX.length)
 }
 
+function browserAgentsOf(target: Electron.Session): BrowserAgents {
+  return useBrowserAgents(target, app.getName(), {
+    chromeVersion: process.versions.chrome,
+    platform: process.platform,
+    systemVersion: process.getSystemVersion(),
+    arch: process.arch,
+  })
+}
+
 const instrumentedGuests = new WeakSet<Electron.WebContents>()
 let clipboardEdits: ClipboardEdits | null = null
 let guestChords: GuestChords | null = null
@@ -1463,14 +1607,7 @@ function instrumentBrowserGuest(gc: Electron.WebContents): void {
   if (!gc.debugger.isAttached()) {
     try {
       gc.debugger.attach('1.3')
-      gc.debugger
-        .sendCommand('Page.enable')
-        .then(() =>
-          gc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
-            source: PAGE_ERROR_CATCHER_JS,
-          }),
-        )
-        .catch(() => {})
+      injectPageScripts(gc, [PAGE_ERROR_CATCHER_JS, PASSKEY_GUARD_JS])
     } catch {}
   }
   watchGuestNetwork(gc)
@@ -1576,6 +1713,14 @@ function wireWindow(win: BrowserWindow): void {
   attachContextMenu(win.webContents, false)
 
   win.webContents.on('will-attach-webview', (event, webPreferences, params) => {
+    if (isPreviewPartition(params.partition)) {
+      if (previews.acceptsAttach(params.partition, params.src, String(win.webContents.id))) {
+        hardenPreviewAttach(webPreferences, params)
+      } else {
+        event.preventDefault()
+      }
+      return
+    }
     const extId = extensionOfPartition(params.partition)
     const allowed = extId
       ? (extensionHost?.isAllowedPanelUrl(extId, params.src) ?? false)
@@ -1592,15 +1737,16 @@ function wireWindow(win: BrowserWindow): void {
   win.webContents.on('did-attach-webview', (_e, guest) => {
     clipboardEdits?.guardGuest(guest)
     guestChords?.guardGuest(guest)
+    if (previews.adopt(guest)) return
     if (hardenExtensionGuest(guest)) {
       attachContextMenu(guest, false)
       return
     }
     attachContextMenu(guest, true)
-    const agent = browserUserAgent(guest.session.getUserAgent(), app.getName())
-    guest.session.setUserAgent(agent)
-    guest.setUserAgent(agent)
+    const agents = browserAgentsOf(guest.session)
+    guest.setUserAgent(agents.rewritten)
     instrumentBrowserGuest(guest)
+    followAgentByHost(guest, agents)
     fenceBrowserGuest(guest)
     const wcId = guest.id
     guest.once('destroyed', () => {
@@ -1620,6 +1766,8 @@ function wireWindow(win: BrowserWindow): void {
     gitService?.windowGone(wid)
     portsService?.windowGone(wid)
     releaseWindowPtys(wid)
+    previews.windowClosed(wid)
+    openWaits.windowGone(wid)
     fileWatches?.unwatchOwner(wid)
     commandsByWindow.delete(wid)
     for (const [paneId, wcId] of browserPanes) {
@@ -1641,12 +1789,18 @@ function wireWindow(win: BrowserWindow): void {
   })
 }
 
+function initialBackground(): string {
+  const follow = (readSettingsFile() as { appearance?: { followSystem?: unknown } }).appearance
+    ?.followSystem
+  return follow !== false && !nativeTheme.shouldUseDarkColors ? '#fbfcfd' : '#1d2022'
+}
+
 function createWindow(slot: string, bounds?: WindowBounds): BrowserWindow {
   const win = new BrowserWindow({
     ...(bounds ?? { width: 1280, height: 800 }),
     minWidth: 720,
     minHeight: 480,
-    backgroundColor: '#1d2022',
+    backgroundColor: initialBackground(),
     show: false,
     autoHideMenuBar: true,
     title: PRODUCT_DISPLAY_NAME,
@@ -1735,6 +1889,8 @@ function registerIpc(): void {
         workspaceId: event.workspaceId,
       })
     } else if (event.type === 'pane-closed') {
+      previews.paneClosed(event.paneId)
+      openWaits.paneClosed(event.paneId)
       const identity = getByPaneId(event.paneId)
       if (identity) {
         dropIdentity(identity.externalId)
@@ -1769,6 +1925,8 @@ function registerIpc(): void {
       processes?.workspaceClosed(event.workspaceId)
       extensionHost?.clearWorkspaceChips(event.workspaceId)
       extensionHost?.remoteFolders?.workspaceClosed(event.workspaceId)
+      openWaits.workspaceClosed(event.workspaceId)
+      artifactFolders.close(event.workspaceId)
       scratchFolders.remove(event.workspaceId)
       forgetWorkspaceRequests(event.workspaceId)
       forgetSandboxRuntime(event.workspaceId)
@@ -2017,6 +2175,7 @@ function releaseMergedSandbox(workspaceId: string, exiting?: PtyEntry): void {
 }
 
 function movePanesToWorkspace(paneIds: string[], sourceId: string, targetId: string): void {
+  for (const paneId of paneIds) openWaits.paneMoved(paneId)
   for (const identity of moveToWorkspace(paneIds, targetId)) {
     emitPaneEvent('pane.created', {
       paneId: identity.externalId,
@@ -2040,6 +2199,8 @@ function mergeWorkspace(sourceId: string, targetId: string): void {
     if (entry.workspaceId === sourceId) entry.workspaceId = targetId
   }
   workspaceSandboxes.merge(sourceId, targetId)
+  artifactFolders.merge(sourceId, targetId)
+  artifactFolders.close(sourceId)
   removeWorkspace(sourceId)
   forgetWorkspaceRequests(sourceId)
   mergedSandboxes.add(sourceId)
@@ -2205,6 +2366,7 @@ function registerPtyIpc(): void {
     const stateFile = join(privateTmpDir(`${PRODUCT_NAME}-shell-state`), randomUUID())
     let env = paneShellEnv({
       version: app.getVersion(),
+      locale: app.getLocale(),
       parent: process.env,
       integration: integration.env,
       pane: appEnv({
@@ -2216,6 +2378,7 @@ function registerPtyIpc(): void {
         SHELL_STATE: stateFile,
       }),
       agentHooks: settings.agents?.hooks,
+      artifactsDir: workspaceId ? artifactFolders.ensure(workspaceId) : null,
       launcherDir: paneLauncherDir(),
     })
     let secretNotice = ''
@@ -2368,6 +2531,7 @@ function registerPtyIpc(): void {
     }
 
     const history = takeRestoredScrollback(paneId)
+    if (history) appLog?.info('scrollback-replay', { pane: paneId, chars: history.length })
     const seam = hibernatedPanes.delete(paneId) ? HIBERNATE_SEAM : RESTORE_SEAM
     if (history) feedPty(entry, `${history}${seam}`)
     if (secretNotice) feedPty(entry, secretNotice)
@@ -2483,6 +2647,8 @@ function registerPtyIpc(): void {
       ...(sandbox?.stamp ? { sandboxStamp: sandbox.stamp } : {}),
       kept: true,
       reattached: true,
+      cols: pane.cols,
+      rows: pane.rows,
     }
   }
 
@@ -2494,7 +2660,19 @@ function registerPtyIpc(): void {
     entry.session.removeSubscriber(subId)
   })
 
-  ipcMain.handle('pty:hibernate', (_e, paneId: string): boolean => hibernatePty(String(paneId)))
+  ipcMain.handle('pty:hibernate', async (_e, raw: string): Promise<HibernateOutcome> => {
+    const paneId = String(raw)
+    const entry = ptys.get(paneId)
+    if (!entry) return 'no-terminal'
+    const busy = backgroundWork(agentWork.reason(paneId), await readProcessTable(), entry.pty.pid)
+    if (busy) return busy
+    return ptys.get(paneId) === entry && hibernatePty(paneId) ? 'hibernated' : 'no-terminal'
+  })
+
+  ipcMain.handle('pty:kept-waiting', async (): Promise<string[]> => {
+    await keptShells.ready
+    return keptShells.waitingPaneIds()
+  })
 
   ipcMain.handle('pty:stashed', (e, paneId: string): string | null =>
     stashedScreen(String(paneId), String(e.sender.id), windowOfPane(String(paneId))),
@@ -2517,7 +2695,10 @@ function registerPtyIpc(): void {
     if (typeof paneId !== 'string' || typeof chars !== 'number') return
     ptys.get(paneId)?.flow.ack(String(e.sender.id), chars)
   })
-  app.on('render-process-gone', (_e, contents) => releasePtyFlow(String(contents.id)))
+  app.on('render-process-gone', (_e, contents) => {
+    releasePtyFlow(String(contents.id))
+    openWaits.windowGone(String(contents.id))
+  })
 
   ipcMain.on('pty:waking', (e, paneId: unknown, waking: unknown) => {
     if (typeof paneId !== 'string' || typeof waking !== 'boolean') return
@@ -2554,18 +2735,33 @@ function registerPtyIpc(): void {
     const rules = sandboxReadRules(entry)
     return commandNames(executables, rules ? sandboxPath(path, rules) : path, state?.names ?? [])
   })
+  registerShellHistoryIpc({
+    enabled: () => readSettingsFile().behavior?.historySuggestions !== false,
+    files: shellHistoryFiles,
+    pane: (paneId) => {
+      const entry = ptys.get(paneId)
+      if (!entry) return null
+      return {
+        owners: entry.subs,
+        localPrompt: holdsLocalPrompt(entry),
+        shell: entry.shell,
+        stateFile: entry.stateFile,
+        rules: sandboxReadRules(entry),
+      }
+    },
+  })
   ipcMain.handle('pty:local-prompt', (e, paneId: string): boolean => {
     const entry = ptys.get(paneId)
     return entry?.subs.has(String(e.sender.id)) === true && holdsLocalPrompt(entry)
   })
-  ipcMain.handle('pty:list-dir', (e, paneId: string, dir: string): FsEntry[] => {
+  registerPathCompletionIpc((paneId) => {
     const entry = ptys.get(paneId)
-    if (!entry?.subs.has(String(e.sender.id)) || !holdsLocalPrompt(entry)) return []
-    const safe = resolveSafe(dir, fileRoots())
-    if (safe === null) return []
-    const rules = sandboxReadRules(entry)
-    const entries = listDir(safe)
-    return rules ? sandboxEntries(safe, entries, rules) : entries
+    if (!entry) return null
+    return {
+      owners: entry.subs,
+      localPrompt: holdsLocalPrompt(entry),
+      rules: sandboxReadRules(entry),
+    }
   })
   ipcMain.handle(
     'pty:prompt-context',
@@ -2640,8 +2836,10 @@ function trackPty(
       removeStateFile(entry)
       if (ptys.get(paneId) === entry) {
         ptys.delete(paneId)
+        openWaits.callerExited(paneId)
         movingPanes.delete(paneId)
         agentRunning.shellEnded(paneId)
+        agentWork.clear(paneId)
         keptAttention.reported(paneId)
         recoveryHeld.delete(paneId)
         closedPanes.delete(paneId)
@@ -2698,7 +2896,11 @@ function managerLaunchArgv(argv: string[], resume: AgentResume | null): string[]
 }
 
 const managerResumePath = (): string => storePath('manager-resume', 'global')
-const scriptTokensPath = (): string => storePath('script-tokens', 'global')
+const scriptTokensPath = (): string => storePath('script-tokens-v2', 'global')
+const retiredScriptTokensPath = (): string => storePath('retired-script-tokens', 'global')
+const scriptTokenUsage = createScriptTokenUsage(() => storePath('script-token-usage', 'global'), {
+  known: () => new Set(listScriptTokens(scriptTokensPath()).map((t) => t.id)),
+})
 
 function spawnManagerPty(req: {
   paneId: string
@@ -2719,6 +2921,8 @@ function spawnManagerPty(req: {
     ...process.env,
     ...(req.path === undefined ? {} : { PATH: req.path }),
     ...paneEnv(req.paneId, windowId, cwd),
+    ...ptyLocaleEnv(process.env, app.getLocale()),
+    ...ptyHyperlinkEnv(process.env),
     ...PTY_COLOR_ENV,
     ...ptyIdentityEnv(app.getVersion()),
   } as Record<string, string>
@@ -2787,7 +2991,7 @@ let fileWatches: FileWatches | null = null
 function registerFsIpc(): void {
   const allowedRoots = fileRoots()
   const settingsFile = join(app.getPath('userData'), 'settings.json')
-  registerOpenPathIpc(allowedRoots)
+  registerOpenPathIpc(allowedRoots, () => windows.values())
   registerTerminalPathLinkIpc(
     new TerminalPathLinks({
       grants: openFileGrants,
@@ -2927,6 +3131,12 @@ function runMenuCommandInFocusedWindow(command: string): void {
   const focused = BrowserWindow.getFocusedWindow()
   const win = focused && [...windows.values()].includes(focused) ? focused : mainWindow()
   if (win && !win.isDestroyed()) win.webContents.send('app-menu:run', command)
+}
+
+function reloadFocusedWindow(): void {
+  const focused = BrowserWindow.getFocusedWindow()
+  const win = focused && [...windows.values()].includes(focused) ? focused : mainWindow()
+  if (win && !win.isDestroyed()) diagnostics?.reloadWindow(win.webContents)
 }
 
 function mainWindow(): BrowserWindow | undefined {
@@ -3114,6 +3324,7 @@ function readSettingsFile(): {
   privacy?: unknown
   terminal?: { shell?: unknown; keepShells?: unknown }
   agents?: { hooks?: unknown }
+  behavior?: { historySuggestions?: unknown }
 } {
   try {
     return JSON.parse(readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'))
@@ -3323,8 +3534,9 @@ function applyGlobalHotkey(): void {
 }
 
 function revealApp(): void {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow(MAIN_SLOT)
-  else appTray?.showWindows()
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow(MAIN_SLOT, broker?.restoredBounds(MAIN_SLOT))
+  } else appTray?.showWindows()
 }
 
 app.on('second-instance', (_event, argv) => {
@@ -3338,6 +3550,7 @@ app.whenReady().then(() => {
     productName: PRODUCT_DISPLAY_NAME,
     openSettings: openSettingsInFocusedWindow,
     runCommand: runMenuCommandInFocusedWindow,
+    reloadWindow: reloadFocusedWindow,
   })
   ipcMain.on('app-menu:set', (e, spec: unknown) => {
     const win = BrowserWindow.fromWebContents(e.sender)
@@ -3366,6 +3579,10 @@ app.whenReady().then(() => {
   })
   handleQuitSignals()
   restoreOutcome = loadRestoredScrollback()
+  appLog?.info('scrollback-load', {
+    outcome: restoreOutcome,
+    panes: Object.keys(pendingRestoredScrollback()).length,
+  })
   void keptShells
     .start(parseKeepShells(readSettingsFile().terminal?.keepShells), savedPaneIds())
     .then(() => {
@@ -3385,13 +3602,25 @@ app.whenReady().then(() => {
     })
   }
   scratchFolders.sweep()
+  artifactFolders.sweep()
   workspaceSandboxes.sweepTmp()
   registerScratchIpc(scratchFolders)
+  registerArtifactIpc({
+    folders: artifactFolders,
+    ownsWorkspace: (windowId, workspaceId) => windowForWorkspace(workspaceId) === windowId,
+  })
   registerCmuxSessionIpc()
   clipboardEdits = registerClipboardEdits({
     ipc: ipcMain,
     isAppWindow: (sender) => windows.get(String(sender.id))?.webContents === sender,
-    availableFormats: async () => (await clipboard.read()).flatMap((item) => item.types),
+    snapshot: async () => {
+      const items = await clipboard.read()
+      const listed = items.find((item) => item.types.includes('text/uri-list'))
+      return {
+        formats: items.flatMap((item) => item.types),
+        uriList: listed ? await (await listed.getType('text/uri-list')).text() : '',
+      }
+    },
     mac: process.platform === 'darwin',
   })
   guestChords = registerGuestChords({
@@ -3403,6 +3632,7 @@ app.whenReady().then(() => {
   registerPtyIpc()
   registerFsIpc()
   registerSelectionIpc(reachesPane, redactor.text)
+  registerPreviewIpc(previews)
   registerPrivacyIpc(redactor)
   const approvalCaps = new Map<string, readonly string[]>()
   registerApprovals(revealWindow, settingsChanged, {
@@ -3457,6 +3687,14 @@ app.whenReady().then(() => {
     },
     () => appLog?.warn('install-sweep-failed'),
   )
+  const macInstall = isMacInstall(installMethod())
+  const updateDir = (): string | null =>
+    replacesInApp(installMethod(), readUpdateChannel(readSettingsFile())) ? installAppDir() : null
+  const downloadBase = releaseDownloadBase(app.isPackaged, process.env)
+  const installedDir = installAppDir()
+  if (macInstall && installedDir) {
+    void discardStaged(installedDir).catch(() => appLog?.warn('update-staged-discard-failed'))
+  }
   releaseChecks = registerReleaseCheck({
     openExternal: openExternalSafe,
     readSettings: readSettingsFile,
@@ -3465,17 +3703,26 @@ app.whenReady().then(() => {
     method: installMethod,
     updateRunner,
     replaceAvailability: async () => {
-      const dir = installAppDir()
-      return dir ? canReplaceInstall(dir) : null
+      const dir = updateDir()
+      if (!dir) return null
+      return macInstall ? canReplaceBundle(dir) : canReplaceInstall(dir)
     },
     replacer: createInstallReplacer({
-      appDir: installAppDir,
-      base: releaseDownloadBase(app.isPackaged, process.env),
-      fetch,
-      tar: runTar,
+      appDir: updateDir,
+      replace: macInstall
+        ? macReplace({
+            base: downloadBase,
+            fetch,
+            run: runCommand,
+            policy: updatePolicy,
+          })
+        : tarballReplace({ base: downloadBase, fetch, tar: runTar }),
       onState: announceReplace,
       onProgress: announceReplaceProgress,
-      onReplaced: (pending) => saveJson(sweepFile, pending),
+      onReplaced: (pending) => {
+        if (macInstall) stagedUpdate = { pending, sweepFile }
+        else saveJson(sweepFile, pending)
+      },
     }),
   })
   registerAgentTranscriptIpc()
@@ -3524,7 +3771,8 @@ app.whenReady().then(() => {
     )
   registerNotifyIpc(notifyDeps)
   registerAttentionMethods({ execCommand, reported: (paneId) => keptAttention.reported(paneId) })
-  registerPaneRenameMethods({ execCommand, reach })
+  registerAgentWorkMethods(agentWork)
+  registerPaneRenameMethods({ execCommand, reach, windowOfWorkspace: workspaceWindowId })
   registerPaneResumeMethods({
     execCommand,
     onResume: (identity, resume) => {
@@ -3570,9 +3818,15 @@ app.whenReady().then(() => {
     const res = await execCommand(targetOf(to), 'pane.hibernated')
     return res.ok && (res.result as { hibernated?: unknown } | undefined)?.hibernated === true
   }
-  const wakeHibernatedPane = async (to: PaneIdentity): Promise<boolean> => {
+  const wakeHibernatedPane = async (
+    to: PaneIdentity,
+  ): Promise<{ woke: boolean; conflict?: string }> => {
     const res = await execCommand(targetOf(to), 'pane.wake')
-    return res.ok && (res.result as { woke?: unknown } | undefined)?.woke === true
+    const result = res.ok ? (res.result as { woke?: unknown; conflict?: unknown }) : undefined
+    return {
+      woke: result?.woke === true,
+      ...(typeof result?.conflict === 'string' ? { conflict: result.conflict } : {}),
+    }
   }
   const paneReachDeps: PaneReachDeps = {
     processPane: async (ref, ctx) => {
@@ -3593,8 +3847,11 @@ app.whenReady().then(() => {
     inputSent: (to) => void execCommand(targetOf(to), 'attention.typed'),
     hibernated: paneHibernated,
     wake: wakeHibernatedPane,
+    hibernate: (to) => execCommand(targetOf(to), 'pane.hibernate'),
+    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
     waking: paneWaking,
     close: (to) => execCommand(targetOf(to), 'pane.close'),
+    resume: (to) => execCommand(targetOf(to), 'agent.resume'),
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   })
   registerPaneMoveToMethods({
@@ -3621,9 +3878,12 @@ app.whenReady().then(() => {
     grants: openFileGrants,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
+    confineFolder: (path) => resolveSafe(path, fileRoots()),
+    waits: openWaits,
     execCommand,
   })
   registerBusMethods({
+    inScope: reach.inScope,
     managerSendAllowed: () => managerLimiter?.busAllowed() ?? true,
     sent: () => telemetry?.count('agents', 'bus_message'),
     announce: (from, to, text) => {
@@ -3869,6 +4129,7 @@ app.whenReady().then(() => {
     ptyPid,
     windowIds,
     waking: isWaking,
+    reach,
   })
   registerGatewayMethods()
   const tailnet = createTailnet({
@@ -3902,6 +4163,16 @@ app.whenReady().then(() => {
       }),
     listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
     fileScope: phoneFileScope,
+    artifactsDir: (workspaceId) => artifactFolders.followed(workspaceId),
+    openArtifact: async (workspaceId, path) => {
+      const windowId = windowForWorkspace(workspaceId)
+      if (!windowId) return false
+      const res = await execCommand({ windowId, workspaceId, paneId: null }, OPEN_FILES_COMMAND, {
+        files: [{ path }],
+        background: true,
+      })
+      return res.ok
+    },
     listWorkspaceGroups: () => listWorkspaceGroups({ execCommand, windowIds }),
     primaryWindowId,
     attachPhoneObserver,
@@ -3912,7 +4183,7 @@ app.whenReady().then(() => {
     agentRunning: (paneId) => agentRunning.has(paneId) && ptys.has(paneId),
   })
   const sharedBrowser = session.fromPartition(SHARED_BROWSER_PARTITION)
-  sharedBrowser.setUserAgent(browserUserAgent(sharedBrowser.getUserAgent(), app.getName()))
+  browserAgentsOf(sharedBrowser)
   const isSharedPane = (paneId: string): boolean => browserProfiles.isShared(paneId)
   registerBrowseMethods({
     allowNavigation: (workspaceId, url) => browserFence.check(workspaceId, url),
@@ -3940,8 +4211,43 @@ app.whenReady().then(() => {
     ownedGuest: (paneId, senderWindowId) => ownedGuest(browserPanes, paneId, senderWindowId),
     reach,
   })
-  registerScriptTokenMethods(scriptTokensPath)
-  setScriptTokenCheck((token) => verifyScriptToken(scriptTokensPath(), token))
+  const retiredTokens = retireLegacyScriptTokens(
+    storePath('script-tokens', 'global'),
+    retiredScriptTokensPath(),
+  )
+  if (retiredTokens.length > 0) {
+    const text = mainStrings().native.scriptTokensRetired
+    postNotification(notifyDeps, {
+      title: fmt(text.title, { count: retiredTokens.length }),
+      body: fmt(text.body, { names: retiredTokens.join(', ') }),
+      from: 'script-tokens',
+    })
+  }
+  const scriptTokenDeps = {
+    path: scriptTokensPath,
+    retiredPath: retiredScriptTokensPath,
+    listing: workspaceListing,
+    changed: () => broadcast('scriptTokens:changed', null),
+    appWindows: () => windows.values(),
+    usage: scriptTokenUsage,
+    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
+  }
+  registerScriptTokenMethods(scriptTokenDeps)
+  registerScriptTokenIpc(scriptTokenDeps)
+  setScriptTokenCheck((token) =>
+    checkScriptToken({ path: scriptTokensPath(), retiredPath: retiredScriptTokensPath() }, token),
+  )
+  const presenceDeps = electronPresenceDeps(
+    () => windows.values(),
+    () => mainStrings().native.userPresence,
+    process.resourcesPath,
+  )
+  setUserPresenceCheck(({ action, name }) =>
+    verifyUserPresence(
+      { reason: fmt(mainStrings().native.userPresence[action], { name }), name },
+      presenceDeps,
+    ),
+  )
   registerControlServer({
     execCommand,
     listCommandsFor,
@@ -3950,6 +4256,8 @@ app.whenReady().then(() => {
     windowOfWorkspace: workspaceWindowId,
     primaryWindow: primaryWindowId,
     byAgent: reach.byAgent,
+    reach,
+    usage: scriptTokenUsage,
   })
   writeControlInfo(controlInfoPath(), controlSocketPath(), process.pid)
   if (keepShellsOn()) ensureKeptPlumbing()
@@ -4039,10 +4347,14 @@ function persistScrollback(): Promise<void> {
 let scrollbackSavedForQuit = false
 let savingScrollbackForQuit = false
 
-const SCROLLBACK_AUTOSAVE_MS = 5000
+const SCROLLBACK_AUTOSAVE_MS =
+  process.env.NODE_ENV === 'test' && Number(readEnv('TEST_SCROLLBACK_AUTOSAVE_MS')) > 0
+    ? Number(readEnv('TEST_SCROLLBACK_AUTOSAVE_MS'))
+    : 5000
 let lastScrollbackSignature = ''
 
 function autosaveScrollback(): void {
+  if (savingScrollbackForQuit) return
   let signature = ''
   for (const [paneId, entry] of ptys) signature += `${paneId}:${entry.mirror.revision};`
   signature += `pending:${Object.keys(pendingRestoredScrollback()).length}`
@@ -4165,6 +4477,8 @@ app.on('before-quit', (event) => {
   workspaceAgents.stopAll()
   for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)
   workspaceSandboxes.clearTmp(!keepingShells)
+  artifactFolders.dispose()
+  previews.dispose()
   scratchFolders.removeAll()
   quitTrace.stage('teardown-hosts')
   portForwarder.stopAll()
@@ -4184,10 +4498,23 @@ app.on('before-quit', (event) => {
   void stopGateway()
   appTray?.remove()
   globalHotkey?.clear()
+  if (stagedUpdate) {
+    quitTrace.stage('update-swap')
+    const { pending, sweepFile } = stagedUpdate
+    stagedUpdate = null
+    const result = swapStagedBundle(pending.appDir, {
+      verify: (staged) => verifyStagedSync(staged, updatePolicy),
+    })
+    appLog?.info('update-swap', { version: pending.version, result })
+    if (result === 'swapped') saveJson(sweepFile, pending)
+  }
   quitTrace.stage('teardown-done')
 })
 
-app.on('will-quit', () => quitTrace.stage('will-quit'))
+app.on('will-quit', () => {
+  quitTrace.stage('will-quit')
+  scriptTokenUsage.close()
+})
 app.on('quit', () => quitTrace.stage('quit'))
 
 app.on('window-all-closed', () => {

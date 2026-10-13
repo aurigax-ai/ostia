@@ -1,5 +1,5 @@
+import { registerRegionCapture } from '@/lib/browser/regionCaptures'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { registerRegionCapture } from '../lib/regionCaptures'
 import { CAPTURE_REGION_COMMAND, registerRegionCaptureCommand } from './regionCapture'
 import { commands } from './registry'
 

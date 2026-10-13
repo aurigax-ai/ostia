@@ -1,6 +1,6 @@
+import { registerSelectionSender } from '@/lib/agents/selectionSenders'
+import { chordLabel } from '@/lib/keys/chords'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { chordLabel } from '../lib/chords'
-import { registerSelectionSender } from '../lib/selectionSenders'
 import { commands } from './registry'
 import { SEND_SELECTION_COMMAND, registerSelectionSendCommand } from './selectionSend'
 

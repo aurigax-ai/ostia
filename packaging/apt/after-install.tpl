@@ -17,6 +17,9 @@ else
     chmod 0755 '/opt/${sanitizedProductName}/chrome-sandbox' || true
 fi
 
+mkdir -p /usr/share/polkit-1/actions
+cp -f '/opt/${sanitizedProductName}/resources/polkit/ai.aurigax.ostia.manage-script-tokens.policy' /usr/share/polkit-1/actions/ || true
+
 if hash update-mime-database 2>/dev/null; then
     update-mime-database /usr/share/mime || true
 fi

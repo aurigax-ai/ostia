@@ -12,7 +12,7 @@ vi.mock('electron', () => ({
   ipcMain: { handle: () => {} },
 }))
 
-vi.mock('../controlServer', () => ({ registerControlMethod: () => {} }))
+vi.mock('../control/controlServer', () => ({ registerControlMethod: () => {} }))
 
 const { startGateway, stopGateway } = await import('./server')
 const { configureTailnet, gatewayPair } = await import('./index')

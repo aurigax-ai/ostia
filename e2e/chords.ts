@@ -1,6 +1,7 @@
 export const isMac = process.platform === 'darwin'
 
 export const chords = {
+  newWorkspace: isMac ? 'Meta+n' : 'Control+Shift+N',
   palette: isMac ? 'Meta+Shift+p' : 'Control+Shift+p',
   find: isMac ? 'Meta+f' : 'Control+Shift+f',
   copy: isMac ? 'Meta+c' : 'Control+Shift+c',
@@ -13,9 +14,15 @@ export const chords = {
   splitRight: isMac ? 'Meta+Alt+Backslash' : 'Control+Alt+Backslash',
   focusLeft: isMac ? 'Meta+Control+ArrowLeft' : 'Control+Shift+Alt+h',
   focusRight: isMac ? 'Meta+Control+ArrowRight' : 'Control+Shift+Alt+l',
+  closePane: isMac ? 'Meta+w' : 'Control+Shift+w',
   zoomPane: isMac ? 'Meta+Shift+x' : 'Control+Shift+x',
   openSettings: 'ControlOrMeta+,',
+  firstWorkspace: isMac ? 'Meta+1' : 'Control+1',
   resumeAgent: 'ControlOrMeta+Shift+R',
   nextTab: 'Control+Tab',
   previousTab: 'Control+Shift+Tab',
+}
+
+export const labels = {
+  newWorkspace: isMac ? '⌘N' : 'Ctrl+Shift+N',
 }

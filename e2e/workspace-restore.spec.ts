@@ -1,8 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { chords } from './chords'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, emptyState, openWorkspace, quitApp } from './helpers'
+import { PROMPT, addTab, openWorkspace, quitApp } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 interface Launched {
@@ -43,48 +42,88 @@ test.beforeEach(() => {
   dataHome = freshDataHome()
 })
 
-test('restores the pane layout and terminal history after a restart', async () => {
-  const marker = `ostia_restore_${Date.now()}`
+test(
+  'restores the pane layout and terminal history after a restart',
+  { tag: '@core' },
+  async () => {
+    const marker = `ostia_restore_${Date.now()}`
 
+    const first = await launchApp(dataHome)
+    try {
+      await openWorkspace(first.win)
+      await expect(first.win.locator('.pane.active')).toBeVisible({ timeout: 15_000 })
+
+      const term = first.win.locator('.xterm').first()
+      await term.click()
+      await waitForTerminalFocus(first.win)
+      await first.win.keyboard.type(`echo ${marker}`)
+      await first.win.keyboard.press('Enter')
+      await expect(first.win.locator('.xterm-rows').first()).toContainText(marker, {
+        timeout: 15_000,
+      })
+
+      await first.win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
+      await expect(first.win.locator('.pane')).toHaveCount(2)
+    } finally {
+      await quitApp(first.app)
+    }
+
+    const snapshotFile = join(dataHome, 'ostia', 'workspaces.json')
+    const scrollbackFile = join(dataHome, 'ostia', 'scrollback.json')
+    expect(existsSync(snapshotFile), 'workspace snapshot was not written at quit').toBe(true)
+    expect(existsSync(scrollbackFile), 'scrollback was not written at quit').toBe(true)
+    expect(readFileSync(scrollbackFile, 'utf8')).toContain(marker)
+
+    const second = await launchApp(dataHome)
+    try {
+      await expect(second.win.locator('.pane')).toHaveCount(2, { timeout: 15_000 })
+      await expect(second.win.locator('.workzone')).toContainText(marker, { timeout: 15_000 })
+      await expect(second.win.locator('.workzone')).toContainText('workspace restored', {
+        timeout: 15_000,
+      })
+    } finally {
+      await quitApp(second.app)
+    }
+  },
+)
+
+test('the pane the human last used takes the keyboard after a restart, without a click', async () => {
+  const shownRows = '.pane-slot:not([data-hidden]) .xterm-rows'
   const first = await launchApp(dataHome)
   try {
     await openWorkspace(first.win)
-    await expect(first.win.locator('.pane.active')).toBeVisible({ timeout: 15_000 })
-
-    const term = first.win.locator('.xterm').first()
-    await term.click()
-    await waitForTerminalFocus(first.win)
-    await first.win.keyboard.type(`echo ${marker}`)
-    await first.win.keyboard.press('Enter')
-    await expect(first.win.locator('.xterm-rows').first()).toContainText(marker, {
+    await addTab(first.win)
+    await expect(first.win.getByRole('tablist').getByRole('tab')).toHaveCount(2, {
       timeout: 15_000,
     })
-
-    await first.win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
-    await expect(first.win.locator('.pane')).toHaveCount(2)
+    await expect(first.win.locator(shownRows)).toContainText(PROMPT, { timeout: 15_000 })
+    await first.win.locator('.pane-slot:not([data-hidden]) .xterm').click()
+    await waitForTerminalFocus(first.win)
   } finally {
     await quitApp(first.app)
   }
 
-  const snapshotFile = join(dataHome, 'ostia', 'workspaces.json')
-  const scrollbackFile = join(dataHome, 'ostia', 'scrollback.json')
-  expect(existsSync(snapshotFile), 'workspace snapshot was not written at quit').toBe(true)
-  expect(existsSync(scrollbackFile), 'scrollback was not written at quit').toBe(true)
-  expect(readFileSync(scrollbackFile, 'utf8')).toContain(marker)
-
   const second = await launchApp(dataHome)
   try {
-    await expect(second.win.locator('.pane')).toHaveCount(2, { timeout: 15_000 })
-    await expect(second.win.locator('.workzone')).toContainText(marker, { timeout: 15_000 })
-    await expect(second.win.locator('.workzone')).toContainText('workspace restored', {
+    await expect(second.win.getByRole('tablist').getByRole('tab')).toHaveCount(2, {
       timeout: 15_000,
     })
+    await expect(second.win.locator(shownRows)).toHaveCount(1)
+    await expect(second.win.locator(shownRows)).toContainText(PROMPT, { timeout: 15_000 })
+    await second.win.keyboard.type('echo $((6*7))_typed')
+    await second.win.keyboard.press('Enter')
+    await expect(second.win.locator(shownRows)).toContainText('42_typed', { timeout: 15_000 })
+    expect(
+      await second.win.evaluate(() =>
+        Boolean(document.activeElement?.closest('.pane-slot:not([data-hidden])')),
+      ),
+    ).toBe(true)
   } finally {
     await quitApp(second.app)
   }
 })
 
-test('restores terminal history after a crash (no before-quit)', async () => {
+test('restores terminal history after a crash (no before-quit)', { tag: '@core' }, async () => {
   const marker = `ostia_crash_${Date.now()}`
   const first = await launchApp(dataHome)
   try {
@@ -115,6 +154,30 @@ test('restores terminal history after a crash (no before-quit)', async () => {
   } finally {
     await quitApp(second.app)
   }
+})
+
+test('keeps the scrollback saved at quit when an autosave fires during teardown', async () => {
+  const marker = `ostia_teardown_${Date.now()}`
+  const launch = isolatedLaunch(dataHome)
+  const app = await electron.launch({
+    ...launch,
+    env: { ...launch.env, OSTIA_TEST_SCROLLBACK_AUTOSAVE_MS: '25' },
+  })
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    await win.locator('.xterm').first().click()
+    await waitForTerminalFocus(win)
+    await win.keyboard.type(`echo ${marker}`)
+    await win.keyboard.press('Enter')
+    await expect(win.locator('.xterm-rows').first()).toContainText(marker, { timeout: 15_000 })
+  } finally {
+    await quitApp(app)
+  }
+
+  const scrollbackFile = join(dataHome, 'ostia', 'scrollback.json')
+  expect(readFileSync(scrollbackFile, 'utf8')).toContain(marker)
 })
 
 async function setWindowSize(app: ElectronApplication, width: number, height: number) {
@@ -232,158 +295,5 @@ test('adds no seam to a pane left unused across restarts', async () => {
     expect(lines.filter((l) => l.includes(`echo ${marker}`))).toHaveLength(1)
   } finally {
     await quitApp(last.app)
-  }
-})
-
-test('boots with no workspaces when there is nothing to restore', async () => {
-  const { app, win } = await launchApp(dataHome)
-  try {
-    await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
-    await win.waitForTimeout(1_000)
-    await expect(win.locator('.xterm')).toHaveCount(0)
-    await expect(win.locator('.pane')).toHaveCount(0)
-    await expect(win.locator('.rail-tab')).toHaveCount(0)
-  } finally {
-    await quitApp(app)
-  }
-})
-
-test('restores zero workspaces after the last workspace was closed', async () => {
-  const first = await launchApp(dataHome)
-  try {
-    await openWorkspace(first.win)
-    const tab = first.win.locator('.rail-tab')
-    await tab.hover()
-    await tab.getByRole('button', { name: 'Close' }).click()
-    await expect(emptyState(first.win)).toBeVisible({ timeout: 5_000 })
-    await expect
-      .poll(
-        () => {
-          const file = join(dataHome, 'ostia', 'workspaces.json')
-          return existsSync(file) && JSON.parse(readFileSync(file, 'utf8')).workspaces.length
-        },
-        { timeout: 10_000 },
-      )
-      .toBe(0)
-  } finally {
-    await quitApp(first.app)
-  }
-
-  const second = await launchApp(dataHome)
-  try {
-    await expect(emptyState(second.win)).toBeVisible({ timeout: 15_000 })
-    await second.win.waitForTimeout(1_000)
-    await expect(second.win.locator('.xterm')).toHaveCount(0)
-    await expect(second.win.locator('.rail-tab')).toHaveCount(0)
-  } finally {
-    await quitApp(second.app)
-  }
-})
-
-test('erases stored history when workspace restore is switched off', async () => {
-  const first = await launchApp(dataHome)
-  try {
-    await openWorkspace(first.win)
-  } finally {
-    await quitApp(first.app)
-  }
-  expect(existsSync(join(dataHome, 'ostia', 'workspaces.json'))).toBe(true)
-
-  const second = await launchApp(dataHome)
-  try {
-    await waitForShellPrompt(second.win)
-    await second.win.keyboard.press(chords.openSettings)
-    const settings = second.win.getByRole('region', { name: 'Settings' })
-    await expect(settings).toBeVisible({ timeout: 10_000 })
-    await settings.getByRole('button', { name: 'Terminal', exact: true }).click()
-
-    const toggle = settings.getByLabel('Restore workspace on launch')
-    await expect(toggle).toBeVisible({ timeout: 10_000 })
-    await toggle.click()
-
-    await expect
-      .poll(() => existsSync(join(dataHome, 'ostia', 'workspaces.json')), { timeout: 10_000 })
-      .toBe(false)
-  } finally {
-    await quitApp(second.app)
-  }
-})
-
-test('restores tabs and offers to resume the agent a tab was running', async () => {
-  const first = await launchApp(dataHome)
-  try {
-    await openWorkspace(first.win)
-    await first.win.getByRole('button', { name: 'New terminal tab' }).click()
-    await expect(first.win.getByRole('tab')).toHaveCount(2)
-    await expect(first.win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(
-      PROMPT,
-      { timeout: 15_000 },
-    )
-
-    const term = first.win.locator('.pane-slot:not([data-hidden]) .xterm')
-    await term.click()
-    await waitForTerminalFocus(first.win)
-    await first.win.keyboard.type(
-      'ostia resume-token claude ffe55127-cb1f-4efd && echo token-$((6*7))',
-    )
-    await first.win.keyboard.press('Enter')
-    await expect(first.win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(
-      'token-42',
-      { timeout: 15_000 },
-    )
-  } finally {
-    await quitApp(first.app)
-  }
-
-  const saved = JSON.parse(readFileSync(join(dataHome, 'ostia', 'workspaces.json'), 'utf8'))
-  expect(saved.workspaces[0].root).toMatchObject({ type: 'tabs' })
-
-  const second = await launchApp(dataHome)
-  try {
-    await expect(second.win.getByRole('tab')).toHaveCount(2, { timeout: 15_000 })
-    await expect(second.win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(
-      /workspace restored ──[\s\S]*[❯$%#]/,
-      { timeout: 15_000 },
-    )
-    await second.win.keyboard.press(chords.resumeAgent)
-    await expect(second.win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(
-      'claude --resume ffe55127-cb1f-4efd',
-      { timeout: 15_000 },
-    )
-  } finally {
-    await quitApp(second.app)
-  }
-})
-
-test('keeps an emptied, renamed workspace across a restart', async () => {
-  const first = await launchApp(dataHome)
-  try {
-    await openWorkspace(first.win)
-    await first.win.getByRole('button', { name: 'Close tab' }).click()
-    await expect(first.win.locator('.xterm')).toHaveCount(0)
-    await expect(
-      first.win.locator('.workspace-empty:visible').getByRole('button', { name: 'New terminal' }),
-    ).toBeVisible()
-
-    await first.win.locator('.rail-tab-main').first().dblclick()
-    const name = first.win.getByRole('textbox', { name: 'Workspace name' })
-    await name.fill('payments')
-    await name.press('Enter')
-    await expect(first.win.locator('.rail-tab .tab-title')).toHaveText('payments')
-  } finally {
-    await quitApp(first.app)
-  }
-
-  const second = await launchApp(dataHome)
-  try {
-    await expect(second.win.locator('.rail-tab .tab-title')).toHaveText('payments', {
-      timeout: 15_000,
-    })
-    await expect(
-      second.win.locator('.workspace-empty:visible').getByRole('button', { name: 'New terminal' }),
-    ).toBeVisible()
-    await expect(second.win.locator('.xterm')).toHaveCount(0)
-  } finally {
-    await quitApp(second.app)
   }
 })

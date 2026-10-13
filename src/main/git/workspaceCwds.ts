@@ -1,5 +1,5 @@
-import type { PaneEntry, WorkspaceEntry } from '../paneList'
-import { expandHome } from '../pathGuard'
+import type { PaneEntry, WorkspaceEntry } from '../panes/paneList'
+import { expandHome } from '../platform/pathGuard'
 
 export class WorkspaceCwds {
   private lastTerminal = new Map<string, string>()

@@ -1,5 +1,5 @@
-import type { AgentResume } from '@shared/agentResume'
-import type { BrowserProfile } from '@shared/browserProfile'
+import type { AgentResume } from '@shared/agents/agentResume'
+import type { BrowserProfile } from '@shared/browser/browserProfile'
 
 export type Direction = 'horizontal' | 'vertical'
 

@@ -1,37 +1,10 @@
-import type { AgentResume, ResumableAgent } from './agentResume'
-import type { AgentSessionInfo } from './agentSessionInfo'
-import type { AppMenuSpec } from './appMenu'
-import type { ApprovalAnswer, ApprovalState } from './approvals'
-import type { AssistApi } from './assist'
-import type { BrowserProfile } from './browserProfile'
-import type {
-  BrowserStorageRead,
-  StorageEdit,
-  StorageKind,
-  StorageRemoval,
-  StorageWriteResult,
-} from './browserStorage'
-import type { BuildInfo } from './buildInfo'
-import type { Capability } from './capabilities'
-import type { ChatSessionsApi } from './chatSessions'
-import type { ChatToolsApi } from './chatTools'
-import type { ClipboardChords, ClipboardEdit } from './clipboardChords'
-import type { CmuxSessionRead } from './cmuxSession'
-import type { SpecCommand } from './completionSpec'
-import type {
-  CredentialImportResult,
-  CredentialInput,
-  CredentialSaveResult,
-  CredentialSummary,
-} from './credentials'
-import type { DiscreteGpuInfo } from './discreteGpu'
-import type { EditorLanguagesApi } from './editorLanguages'
-import type { SuggestionsApi } from './extensionSuggestions'
-import type { ExtensionOpenTerminalRequest, ExtensionResult, ExtensionsApi } from './extensions'
-import type { FileOpsApi } from './fileOps'
-import type { GitBridge } from './git'
-import type { GuestChordFire } from './guestChords'
-import type { IconThemesApi } from './iconTheme'
+import type { AgentResume, ResumableAgent } from './agents/agentResume'
+import type { AgentSessionInfo } from './agents/agentSessionInfo'
+import type { HibernateOutcome } from './agents/agentWork'
+import type { QuestionReply, QuestionState } from './agents/questions'
+import type { AppMenuSpec } from './app/appMenu'
+import type { BuildInfo } from './app/buildInfo'
+import type { DiscreteGpuInfo } from './app/discreteGpu'
 import type {
   ReleaseState,
   ReplaceProgress,
@@ -39,26 +12,70 @@ import type {
   ReplaceState,
   UpdateRunStart,
   UpdateRunState,
-} from './installMethod'
-import type { KeymapsApi } from './keymapFile'
-import type { LanguagePacksApi } from './languagePack'
-import type { LspApi } from './languageServers'
-import type { MarketplaceApi } from './marketplace'
-import type { OpenFileVerdict } from './openFiles'
-import type { PhoneGrantableCap } from './phoneCapabilities'
-import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
-import type { PortsBridge } from './ports'
-import type { PromptSeparator } from './promptSettings'
-import type { QuestionReply, QuestionState } from './questions'
-import type { AgentGroupPlacement, ReachMode } from './reach'
-import type { PrivacyApi } from './redaction'
+} from './app/installMethod'
+import type { ReleaseCheckResult } from './app/releases'
+import type { RequirementsReport } from './app/systemRequirements'
+import type { ArtifactListing } from './artifacts/artifacts'
+import type { PreviewApi } from './artifacts/htmlPreview'
+import type { AssistApi } from './assist'
+import type { ChatSessionsApi } from './assist/chatSessions'
+import type { ChatToolsApi } from './assist/chatTools'
+import type { GitBridge } from './boards/git'
+import type { PortsBridge } from './boards/ports'
+import type { BrowserProfile } from './browser/browserProfile'
+import type {
+  BrowserStorageRead,
+  StorageEdit,
+  StorageKind,
+  StorageRemoval,
+  StorageWriteResult,
+} from './browser/browserStorage'
+import type {
+  CredentialImportResult,
+  CredentialInput,
+  CredentialSaveResult,
+  CredentialSummary,
+} from './browser/credentials'
+import type {
+  PickOutcome,
+  PickSendRequest,
+  PickSendResult,
+  PickState,
+  PickTheme,
+} from './browser/pick'
 import type {
   RegionCaptureOutcome,
   RegionCaptureRequest,
   RegionCopyResult,
   RegionSendRequest,
-} from './regionCapture'
-import type { ReleaseCheckResult } from './releases'
+} from './browser/regionCapture'
+import type { SelectionSendRequest, SelectionSendResult } from './browser/selection'
+import type { Capability } from './capabilities'
+import type { EditorLanguagesApi } from './editorLanguages'
+import type { ExtensionOpenTerminalRequest, ExtensionResult, ExtensionsApi } from './extensions'
+import type { SuggestionsApi } from './extensions/extensionSuggestions'
+import type { MarketplaceApi } from './extensions/marketplace'
+import type { FileOpsApi } from './files/fileOps'
+import type { OpenFileVerdict } from './files/openFiles'
+import type { SearchApi } from './files/search'
+import type { PhoneGrantableCap } from './gateway/phoneCapabilities'
+import type { IconThemesApi } from './iconTheme'
+import type { ClipboardChords, ClipboardEdit } from './keyboard/clipboardChords'
+import type { GuestChordFire } from './keyboard/guestChords'
+import type { KeymapsApi } from './keyboard/keymapFile'
+import type { LanguagePacksApi } from './languagePack'
+import type { LspApi } from './languageServers'
+import type { ApprovalAnswer, ApprovalState } from './permissions/approvals'
+import type { AgentGroupPlacement, ReachMode } from './permissions/reach'
+import type {
+  ScriptTokenCreateInput,
+  ScriptTokenSaveResult,
+  ScriptTokenUpdateInput,
+  ScriptTokenUsage,
+  ScriptTokensState,
+} from './permissions/scriptTokens'
+import type { PrivacyApi } from './privacy/redaction'
+import type { TelemetryApi } from './privacy/telemetry'
 import type {
   RemoteCwd,
   RemoteFolder,
@@ -83,17 +100,16 @@ import type {
   SandboxViolation,
   WorkspacePackages,
   WorkspaceSandbox,
-} from './sandbox'
-import type { SandboxReadPreset } from './sandboxPresets'
-import type { SearchApi } from './search'
-import type { SecretEntry, SecretGrant } from './secrets'
-import type { SelectionSendRequest, SelectionSendResult } from './selection'
-import type { SplitTabPlacement } from './splitTabs'
-import type { RequirementsReport } from './systemRequirements'
-import type { TelemetryApi } from './telemetry'
-import type { ViewsApi } from './views'
+} from './sandbox/sandbox'
+import type { SandboxReadPreset } from './sandbox/sandboxPresets'
+import type { SecretEntry, SecretGrant } from './sandbox/secrets'
+import type { SpecCommand } from './terminal/completionSpec'
+import type { PromptSeparator } from './terminal/promptSettings'
+import type { ViewsApi } from './views/views'
 import type { WorkflowDocument, WorkflowListing, WorkflowSaveResult } from './workflows'
-import type { WorkspaceGroupColor } from './workspaceGroups'
+import type { CmuxSessionRead } from './workspaces/cmuxSession'
+import type { SplitTabPlacement } from './workspaces/splitTabs'
+import type { WorkspaceGroupColor } from './workspaces/workspaceGroups'
 
 export type Platform = 'darwin' | 'linux' | 'win32' | (string & {})
 
@@ -264,8 +280,9 @@ export interface SandboxApi {
 export interface PtyApi {
   attach: (paneId: string, opts: PtySpawnOptions) => Promise<PtyAttachResult>
   detach: (paneId: string) => void
-  hibernate: (paneId: string) => Promise<boolean>
+  hibernate: (paneId: string) => Promise<HibernateOutcome>
   stashed: (paneId: string) => Promise<string | null>
+  keptWaiting: () => Promise<string[]>
   restart: (paneId: string) => Promise<boolean>
   reportAgentRunning: (paneId: string, running: boolean) => void
   reportWaking: (paneId: string, waking: boolean) => void
@@ -279,6 +296,7 @@ export interface PtyApi {
   onData: (paneId: string, cb: (data: string) => void) => () => void
   onExit: (paneId: string, cb: (exitCode: number, closes: boolean) => void) => () => void
   listDir: (paneId: string, dir: string) => Promise<FsEntry[]>
+  history: (paneId: string) => Promise<ShellHistoryEntry[]>
   localPrompt: (paneId: string) => Promise<boolean>
   onSize: (paneId: string, cb: (cols: number, rows: number) => void) => () => void
   onRun: (cb: (paneId: string, command: string) => void) => () => void
@@ -291,6 +309,11 @@ export interface ManagerOpenPaneRequest {
 
 export interface ManagerApi {
   onOpen: (cb: (req: ManagerOpenPaneRequest) => string | null) => () => void
+}
+
+export interface ShellHistoryEntry {
+  command: string
+  time: number | null
 }
 
 export interface FsEntry {
@@ -545,6 +568,8 @@ export interface AppSnapshot {
   activeWorkspaceId: string | null
   workspaces: SnapshotWorkspace[]
   groups: SnapshotGroup[]
+  bounds?: WindowBounds
+  detachedBounds?: Record<string, WindowBounds>
   windows?: SnapshotWindow[]
 }
 
@@ -641,6 +666,17 @@ export interface ScratchApi {
   create: () => Promise<string | null>
   files: (workspaceId: string) => Promise<number>
   reveal: (workspaceId: string) => void
+}
+
+export interface ArtifactsApi {
+  list: (workspaceId: string) => Promise<ArtifactListing | null>
+  pad: (workspaceId: string) => Promise<string | null>
+  reveal: (workspaceId: string) => void
+  onChanged: (cb: (workspaceId: string) => void) => () => void
+}
+
+export interface OpenWaitsApi {
+  onEnded: (cb: (paneIds: string[]) => void) => () => void
 }
 
 export interface ScreenPoint {
@@ -809,9 +845,14 @@ export interface TerminalLinksApi {
   openFolder: (paneId: string, written: string) => Promise<OpenPathResult>
 }
 
+export interface ClipboardContents {
+  files: string[]
+  image: boolean
+}
+
 export interface ClipboardApi {
   edit: (edit: ClipboardEdit) => Promise<void>
-  hasImage: () => Promise<boolean>
+  contents: () => Promise<ClipboardContents>
   setChords: (chords: ClipboardChords) => void
 }
 
@@ -823,6 +864,7 @@ export interface GuestChordsApi {
 export interface OpenPathApi {
   openDefault: (path: string) => Promise<OpenPathResult>
   reveal: (path: string) => Promise<OpenPathResult>
+  openLink: (url: string) => Promise<boolean>
   project: (dir: string, exact?: boolean) => Promise<WorkspaceProject | null>
 }
 
@@ -861,6 +903,15 @@ export interface CredentialsApi {
   remove: (id: string) => Promise<boolean>
   copyPassword: (id: string) => Promise<boolean>
   import: () => Promise<CredentialImportResult>
+}
+
+export interface ScriptTokensApi {
+  list: () => Promise<ScriptTokensState>
+  create: (input: ScriptTokenCreateInput) => Promise<ScriptTokenSaveResult>
+  update: (input: ScriptTokenUpdateInput) => Promise<ScriptTokenSaveResult>
+  revoke: (id: string) => Promise<boolean>
+  usage: (id: string) => Promise<ScriptTokenUsage | null>
+  onChanged: (cb: () => void) => () => void
 }
 
 export interface ApprovalsApi {
@@ -1030,6 +1081,9 @@ export interface OstiaBridge {
   sync: SyncApi
   workspace: WorkspaceApi
   scratch: ScratchApi
+  artifacts: ArtifactsApi
+  preview: PreviewApi
+  openWaits: OpenWaitsApi
   windows: WindowsApi
   lifecycle: LifecycleApi
   commands: CommandsApi
@@ -1040,6 +1094,7 @@ export interface OstiaBridge {
   approvals: ApprovalsApi
   questions: QuestionsApi
   credentials: CredentialsApi
+  scriptTokens: ScriptTokensApi
   sandbox: SandboxApi
   secrets: SecretsApi
   system: SystemApi

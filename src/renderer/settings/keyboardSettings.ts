@@ -1,6 +1,6 @@
-import { type KeybindingMap, parseKeybindings } from '@shared/chordSpec'
-import { KEYBOARD_PLATFORMS, type KeyboardPlatform } from '@shared/keyboardPresets'
-import { type TerminalKeyMap, parseTerminalKeys } from '@shared/terminalKeys'
+import { type KeybindingMap, parseKeybindings } from '@shared/keyboard/chordSpec'
+import { KEYBOARD_PLATFORMS, type KeyboardPlatform } from '@shared/keyboard/keyboardPresets'
+import { type TerminalKeyMap, parseTerminalKeys } from '@shared/keyboard/terminalKeys'
 import { parseKeymapSetting, parseTerminalKeymapSetting } from './keymapSetting'
 
 export interface PlatformKeyboard {

@@ -1,6 +1,6 @@
-import { chatAvailable } from '../lib/assistFeatures'
-import { openChatPane } from '../lib/chatPane'
-import { useAssistStore } from '../stores/assistStore'
+import { chatAvailable } from '@/lib/assist/assistFeatures'
+import { openChatPane } from '@/lib/assist/chatPane'
+import { useAssistStore } from '@/stores/assist/assistStore'
 import { registerCore } from './core'
 import { commands } from './registry'
 

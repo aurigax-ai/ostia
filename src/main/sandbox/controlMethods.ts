@@ -1,5 +1,5 @@
 import { ResponseError } from 'vscode-jsonrpc/node'
-import { registerControlMethod } from '../controlServer'
+import { registerControlMethod } from '../control/controlServer'
 import type { DomainRequests } from './domainRequests'
 import type { PortRequests } from './portRequests'
 

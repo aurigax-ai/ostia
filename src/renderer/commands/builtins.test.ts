@@ -1,27 +1,31 @@
+import type { PaneNode } from '@/layout/types'
+import * as resumeFolder from '@/lib/agents/resumeFolder'
+import { activeFontZoom, zoomFont } from '@/lib/app/wheelZoom'
+import { registerBrowserHandle } from '@/lib/browser/browserHandles'
+import { type KeyLike, runAppChord } from '@/lib/keys/chords'
+import { needsTrust } from '@/lib/palette/userActions'
+import * as blockActions from '@/lib/terminal/blockActions'
+import { registerTerminal } from '@/lib/terminal/terminalHandles'
+import * as closeConfirm from '@/lib/workspaces/closeConfirm'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useUpdateStore } from '@/stores/app/updateStore'
+import { useEditorStatus } from '@/stores/files/editorStatusStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useCloseConfirmStore } from '@/stores/workspaces/closeConfirmStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { saveSnapshotNow } from '@/stores/workspaces/persistence'
+import * as surfaceSlots from '@/stores/workspaces/surfaceSlotsStore'
+import { useTabSleepNoticeStore } from '@/stores/workspaces/tabSleepNoticeStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import { SCRIPT_CAPABILITIES } from '@shared/permissions/scriptTokens'
 import { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { SCRIPT_COMMANDS } from '../../main/commandArgs'
+import { SCRIPT_COMMANDS } from '../../main/control/commandArgs'
 import { type Capability, DEFAULT_CAPABILITIES } from '../../shared/capabilities'
-import { SCRIPT_CAPABILITIES } from '../../shared/scriptTokens'
-import { createPane, splitOf, tabsOf } from '../layout/tree'
-import * as blockActions from '../lib/blockActions'
-import { registerBrowserHandle } from '../lib/browserHandles'
-import { type KeyLike, runAppChord } from '../lib/chords'
-import * as closeConfirm from '../lib/closeConfirm'
-import { registerTerminal } from '../lib/terminalHandles'
-import { needsTrust } from '../lib/userActions'
-import { activeFontZoom, zoomFont } from '../lib/wheelZoom'
-import { useAttentionStore } from '../stores/attentionStore'
-import { useBlocksStore } from '../stores/blocksStore'
-import { useCloseConfirmStore } from '../stores/closeConfirmStore'
-import { useEditorStatus } from '../stores/editorStatusStore'
-import { useLayoutStore } from '../stores/layoutStore'
-import { useSandboxStore } from '../stores/sandboxStore'
-import { useSettingsStore } from '../stores/settingsStore'
-import * as surfaceSlots from '../stores/surfaceSlotsStore'
-import { useUIStore } from '../stores/uiStore'
-import { useUpdateStore } from '../stores/updateStore'
-import { useWorkspacesStore } from '../stores/workspacesStore'
+import { createPane, paneIds, splitOf, tabsOf } from '../layout/tree'
 import { registerBuiltinCommands } from './builtins'
 import { type CommandContext, commands } from './registry'
 
@@ -217,6 +221,11 @@ describe('builtins route to store actions', () => {
     expect(failed).toEqual({ ok: false, error: { code: 'command-failed', message: 'no browser' } })
   })
 
+  it('settings.set needs settings-write, so a pane asks the human before it changes a setting', () => {
+    const described = commands.describe().find((c) => c.id === 'settings.set')
+    expect(described?.capabilities).toEqual(['settings-write'])
+  })
+
   it('terminal.toggleInputEditor flips behavior.inputMode and needs settings-write', async () => {
     const described = commands.describe().find((c) => c.id === 'terminal.toggleInputEditor')
     expect(described?.capabilities).toEqual(['settings-write'])
@@ -290,6 +299,12 @@ describe('builtins route to store actions', () => {
     })
   })
 
+  it('settings.set needs settings-write, which a pane does not hold by default', () => {
+    const described = commands.describe().find((c) => c.id === 'settings.set')
+    expect(described?.capabilities).toEqual(['settings-write'])
+    expect(DEFAULT_CAPABILITIES).not.toContain('settings-write')
+  })
+
   it('settings.set reports a rejected path as a failed command', async () => {
     const r = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'init',
@@ -298,6 +313,11 @@ describe('builtins route to store actions', () => {
 
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.error.message).toMatch(/unknown settings key: init/)
+  })
+
+  it('settings.set needs settings-write', () => {
+    const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
+    expect(byId['settings.set'].capabilities).toContain('settings-write')
   })
 
   it('settings.set refuses to change the external editor command, directly or via behavior', async () => {
@@ -479,7 +499,7 @@ describe('builtins route to store actions', () => {
   it('settings.set refuses OSC 52 clipboard writes and the global hotkey', async () => {
     const osc = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'terminal.osc52Write',
-      value: true,
+      value: false,
     })
     const hotkey = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'workspaces',
@@ -487,7 +507,7 @@ describe('builtins route to store actions', () => {
     })
     expect(osc.ok).toBe(false)
     expect(hotkey.ok).toBe(false)
-    expect(useSettingsStore.getState().terminal.osc52Write).toBe(false)
+    expect(useSettingsStore.getState().terminal.osc52Write).toBe(true)
     expect(useSettingsStore.getState().workspaces.globalHotkey).toBe('')
   })
 
@@ -1010,6 +1030,122 @@ describe('builtins route to store actions', () => {
     expect(useLayoutStore.getState().isLocked('s1', pane.id)).toBe(false)
   })
 
+  it('an agent closes a busy tab without a confirm, but never a tab the human locked', async () => {
+    const ask = vi.spyOn(useCloseConfirmStore.getState(), 'ask').mockResolvedValue(false)
+    const first = createPane('terminal')
+    const busy = createPane('terminal')
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 'w', kind: 'terminal', workDir: '/w', state: 'idle' }],
+    })
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: { root: tabsOf(first.id, first, busy), activePaneId: first.id, zoomedPaneId: null },
+      },
+    })
+    useBlocksStore.setState({ running: { [busy.id]: 'b1' } })
+    const fromSocket = { ...ctx('s1', first.id), target: { workspaceId: 's1', paneId: first.id } }
+    try {
+      await commands.execWith(ctx('s1', busy.id), 'pane.toggleLock')
+      const refused = await commands.execWith(fromSocket, 'pane.close', { paneId: busy.id })
+      expect(refused.ok ? '' : refused.error.message).toContain('pane-locked')
+      expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+        children: [{ id: first.id }, { id: busy.id, locked: true }],
+      })
+
+      await commands.execWith(ctx('s1', busy.id), 'pane.toggleLock')
+      const closed = await commands.execWith(fromSocket, 'pane.close', { paneId: busy.id })
+      expect(closed.ok).toBe(true)
+      expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({ id: first.id })
+      expect(ask).not.toHaveBeenCalled()
+    } finally {
+      useBlocksStore.setState({ running: {} })
+    }
+  })
+
+  describe('workspace.close', () => {
+    const fromSocket = { ...ctx('s1', null), target: { workspaceId: 's1', paneId: null } }
+    const seed = (kind: 'terminal' | 'manager' = 'terminal') => {
+      const pane = createPane('terminal')
+      useWorkspacesStore.setState({
+        workspaces: [
+          { id: 's0', name: 'keep', kind: 'terminal', workDir: '/k', state: 'idle' },
+          { id: 's1', name: 'line', kind, workDir: '/w', state: 'idle' },
+        ],
+      })
+      useLayoutStore.setState({
+        byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+      })
+      return pane
+    }
+    const open = () => useWorkspacesStore.getState().workspaces.map((w) => w.id)
+    const message = (r: Awaited<ReturnType<typeof commands.execWith>>) =>
+      r.ok ? '' : r.error.message
+
+    it('asks every socket caller for kill-pane on the workspace it targets', () => {
+      const described = commands.describe().find((c) => c.id === 'workspace.close')
+      expect(described).toMatchObject({ capabilities: ['kill-pane'], target: 'active' })
+    })
+
+    it('closes a socket caller an idle workspace without asking the human', async () => {
+      const ask = vi.spyOn(useCloseConfirmStore.getState(), 'ask')
+      seed()
+      expect((await commands.execWith(fromSocket, 'workspace.close')).ok).toBe(true)
+      expect(open()).toEqual(['s0'])
+      expect(ask).not.toHaveBeenCalled()
+    })
+
+    it('refuses a socket caller a workspace where a command or an agent still runs', async () => {
+      const ask = vi.spyOn(useCloseConfirmStore.getState(), 'ask')
+      const pane = seed()
+      useBlocksStore.setState({
+        running: { [pane.id]: 'b1' },
+        byPane: { [pane.id]: [{ id: 'b1', command: 'pnpm dev' } as never] },
+      })
+      try {
+        expect(message(await commands.execWith(fromSocket, 'workspace.close'))).toContain(
+          'busy: workspace s1 still has command pnpm dev',
+        )
+      } finally {
+        useBlocksStore.setState({ running: {}, byPane: {} })
+      }
+      vi.mocked(window.ostia.pty.activity).mockResolvedValueOnce({
+        program: 'claude',
+        agentRunning: true,
+      })
+      expect(message(await commands.execWith(fromSocket, 'workspace.close'))).toContain(
+        'still has agent',
+      )
+      expect(open()).toEqual(['s0', 's1'])
+      expect(ask).not.toHaveBeenCalled()
+    })
+
+    it('never closes the manager workspace or a workspace with a locked pane', async () => {
+      seed('manager')
+      expect(message(await commands.execWith(fromSocket, 'workspace.close'))).toContain('manager:')
+      const pane = seed()
+      await commands.execWith(ctx('s1', pane.id), 'pane.toggleLock')
+      expect(message(await commands.execWith(fromSocket, 'workspace.close'))).toContain(
+        'pane-locked',
+      )
+      expect(open()).toEqual(['s0', 's1'])
+    })
+
+    it('answers unknown-workspace for a workspace that is gone', async () => {
+      seed()
+      const gone = { ...ctx('s9', null), target: { workspaceId: 's9', paneId: null } }
+      expect(message(await commands.execWith(gone, 'workspace.close'))).toContain(
+        'unknown-workspace: s9',
+      )
+    })
+
+    it('goes through the close confirm for the human in the palette', async () => {
+      const request = vi.spyOn(closeConfirm, 'requestCloseWorkspace').mockResolvedValue()
+      seed()
+      await commands.execWith(ctx('s1', null), 'workspace.close')
+      expect(request).toHaveBeenCalledWith('s1')
+    })
+  })
+
   describe('opening the first pane of an empty workspace', () => {
     const newTabKeys: [string, boolean, Partial<KeyLike>][] = [
       ['macOS', true, { key: 't', metaKey: true }],
@@ -1389,13 +1525,17 @@ describe('builtins route to store actions', () => {
   })
 
   describe('view.searchFiles', () => {
-    const mountPanel = (): HTMLInputElement => {
+    const mountPanel = (): { search: HTMLInputElement; tree: HTMLButtonElement } => {
       const panel = document.createElement('aside')
       panel.id = 'files-panel'
-      const input = document.createElement('input')
-      panel.append(input)
+      const box = document.createElement('div')
+      box.className = 'files-search'
+      const search = document.createElement('input')
+      box.append(search)
+      const tree = document.createElement('button')
+      panel.append(box, tree)
       document.body.append(panel)
-      return input
+      return { search, tree }
     }
     const outside = (): HTMLButtonElement => {
       const button = document.createElement('button')
@@ -1405,7 +1545,7 @@ describe('builtins route to store actions', () => {
 
     afterEach(() => {
       document.body.replaceChildren()
-      useUIStore.setState({ filesOpen: false, filesSearchFocus: false })
+      useUIStore.setState({ filesOpen: false, filesSearchOpen: false, filesSearchFocus: false })
     })
 
     it('opens the Files panel and asks for the search box when it is closed', async () => {
@@ -1413,26 +1553,37 @@ describe('builtins route to store actions', () => {
 
       await commands.execWith(ctx(null, null), 'view.searchFiles')
 
-      expect(useUIStore.getState()).toMatchObject({ filesOpen: true, filesSearchFocus: true })
+      expect(useUIStore.getState()).toMatchObject({
+        filesOpen: true,
+        filesSearchOpen: true,
+        filesSearchFocus: true,
+      })
     })
 
-    it('closes the Files panel when focus is inside it', async () => {
-      useUIStore.setState({ filesOpen: true, filesSearchFocus: false })
-      mountPanel().focus()
+    it('closes the Files panel when focus is in the search box or the tree', async () => {
+      const { search, tree } = mountPanel()
+      for (const target of [search, tree]) {
+        useUIStore.setState({ filesOpen: true, filesSearchOpen: true, filesSearchFocus: false })
+        target.focus()
 
-      await commands.execWith(ctx(null, null), 'view.searchFiles')
+        await commands.execWith(ctx(null, null), 'view.searchFiles')
 
-      expect(useUIStore.getState()).toMatchObject({ filesOpen: false, filesSearchFocus: false })
+        expect(useUIStore.getState()).toMatchObject({ filesOpen: false, filesSearchFocus: false })
+      }
     })
 
-    it('moves focus to the search box without closing when focus is elsewhere', async () => {
-      useUIStore.setState({ filesOpen: true, filesSearchFocus: false })
+    it('moves focus to the search box without closing when focus is outside the panel', async () => {
+      useUIStore.setState({ filesOpen: true, filesSearchOpen: true, filesSearchFocus: false })
       mountPanel()
       outside().focus()
 
       await commands.execWith(ctx(null, null), 'view.searchFiles')
 
-      expect(useUIStore.getState()).toMatchObject({ filesOpen: true, filesSearchFocus: true })
+      expect(useUIStore.getState()).toMatchObject({
+        filesOpen: true,
+        filesSearchOpen: true,
+        filesSearchFocus: true,
+      })
     })
   })
 
@@ -1813,6 +1964,92 @@ describe('builtins with zero workspaces', () => {
   })
 })
 
+describe('tab menu commands in the palette', () => {
+  it('lists Close Other Tabs, Hibernate Tab and Wake Tab, and runs them on the pane it is given', async () => {
+    const listed = new Map(commands.list().map((c) => [c.id, c]))
+    for (const [id, title] of [
+      ['tab.closeOthers', 'Close Other Tabs'],
+      ['pane.hibernate', 'Hibernate Tab'],
+      ['pane.wake', 'Wake Tab'],
+    ]) {
+      expect(listed.get(id)?.hidden).toBeFalsy()
+      expect(listed.get(id)?.title).toBe(title)
+    }
+    const a = { ...createPane('terminal'), resume: { agent: 'claude' as const, id: 'tok' } }
+    const b = createPane('terminal')
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
+      activeWorkspaceId: 's1',
+    })
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: { type: 'tabs', id: 't', activeId: a.id, children: [a, b] },
+          activePaneId: a.id,
+          zoomedPaneId: null,
+        },
+      },
+    })
+    const r = await commands.execWith(ctx('s1', a.id), 'tab.closeOthers', { paneId: a.id })
+    expect(r).toMatchObject({ ok: true })
+    expect(paneIds(useLayoutStore.getState().byWorkspace.s1.root)).toEqual([a.id])
+    const slept = await commands.execWith(ctx('s1', a.id), 'pane.hibernate', { paneId: a.id })
+    expect(slept).toMatchObject({ ok: true, result: { hibernated: false, outcome: 'not-agent' } })
+  })
+})
+
+describe('tab sleep notices', () => {
+  const notice = () => useTabSleepNoticeStore.getState().notice
+  afterEach(() => useTabSleepNoticeStore.setState({ notice: null }))
+
+  function seed(pane: PaneNode): void {
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
+      activeWorkspaceId: 's1',
+    })
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+  }
+
+  it('says why hibernating a tab with no agent did nothing', async () => {
+    const pane = createPane('terminal')
+    seed(pane)
+    await commands.execWith(ctx('s1', pane.id), 'pane.hibernate')
+    expect(notice()).toEqual({ kind: 'notAgent' })
+  })
+
+  it('says a tab is already asleep when asked to hibernate it again', async () => {
+    const pane = {
+      ...createPane('terminal'),
+      resume: { agent: 'claude' as const, id: 't' },
+      hibernated: true as const,
+    }
+    seed(pane)
+    await commands.execWith(ctx('s1', pane.id), 'pane.hibernate')
+    expect(notice()).toEqual({ kind: 'asleep' })
+  })
+
+  it('says a tab is already awake when asked to wake it', async () => {
+    const pane = createPane('terminal')
+    seed(pane)
+    await commands.execWith(ctx('s1', pane.id), 'pane.wake')
+    expect(notice()).toEqual({ kind: 'awake' })
+  })
+
+  it('names the tab holding the session when a wake conflicts', async () => {
+    const pane = {
+      ...createPane('terminal'),
+      resume: { agent: 'claude' as const, id: 't' },
+      hibernated: true as const,
+    }
+    seed(pane)
+    vi.spyOn(resumeFolder, 'paneResumeHolder').mockReturnValue({ title: 'other' } as never)
+    await commands.execWith(ctx('s1', pane.id), 'pane.wake')
+    expect(notice()).toEqual({ kind: 'conflict', tab: 'other' })
+  })
+})
+
 describe('agent resume', () => {
   function seedPane(resume?: { agent: 'claude' | 'codex'; id: string }) {
     const pane = { ...createPane('terminal'), ...(resume ? { resume } : {}) }
@@ -1828,6 +2065,62 @@ describe('agent resume', () => {
     expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
       resume: { agent: 'claude', id: 'abc' },
     })
+  })
+
+  it('keeps the launch flags and the variables typed in front of the agent, then replays them', async () => {
+    const pane = seedPane()
+    useBlocksStore
+      .getState()
+      .commandStart(pane.id, { line: 1 }, 'GL_ISSUE=685 GH_TOKEN=x claude --agent ostia')
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'claude',
+      id: 'abc',
+      args: ['--agent', 'ostia', '--session-id', 'old'],
+    })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+      resume: { agent: 'claude', id: 'abc', args: ['--agent', 'ostia'], env: { GL_ISSUE: '685' } },
+    })
+    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
+    await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    expect(insert).toHaveBeenCalledWith(
+      pane.id,
+      'GL_ISSUE=685 claude --resume abc --agent ostia',
+      true,
+    )
+  })
+
+  it('keeps the flags but no variables when the line starts with something else', async () => {
+    const pane = seedPane()
+    useBlocksStore
+      .getState()
+      .commandStart(
+        pane.id,
+        { line: 1 },
+        `GL_ISSUE=1 true && (ostia workspace group 'Home' || true) && claude --agent homelab -n "修 probe"`,
+      )
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'claude',
+      id: 'abc',
+      args: ['--agent', 'homelab', '-n', '修 probe'],
+    })
+    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
+    await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    expect(insert).toHaveBeenCalledWith(
+      pane.id,
+      "claude --resume abc --agent homelab --name '修 probe'",
+      true,
+    )
+  })
+
+  it('keeps the old command when nothing about the launch is known', async () => {
+    const pane = seedPane()
+    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, 'my-agent-script')
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'codex', id: 'abc' })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+      resume: { agent: 'codex', id: 'abc' },
+    })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.env')
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.args')
   })
 
   it('runs the agent’s resume command in the pane', async () => {
@@ -1865,6 +2158,45 @@ describe('agent resume', () => {
     const r = await commands.execWith(ctx('s1', pane.id), 'agent.resume')
     expect(insert).not.toHaveBeenCalled()
     expect(r).toMatchObject({ ok: true, result: { resumed: false } })
+  })
+
+  it('restores tabs and offers to resume the agent a tab was running', async () => {
+    useWorkspacesStore.getState().addWorkspace('/w')
+    const sid = useWorkspacesStore.getState().activeWorkspaceId ?? ''
+    useLayoutStore.getState().ensure(sid)
+    await commands.execWith(ctx(sid, null), 'tab.new')
+    const tab = useLayoutStore.getState().byWorkspace[sid].activePaneId
+    await commands.execWith(ctx(sid, tab), 'resume.set', {
+      agent: 'claude',
+      id: 'ffe55127-cb1f-4efd',
+    })
+
+    saveSnapshotNow()
+    const saved = JSON.parse(
+      JSON.stringify(vi.mocked(window.ostia.workspace.save).mock.calls.at(-1)?.[0]),
+    )
+    expect(saved.workspaces[0].root).toMatchObject({ type: 'tabs' })
+    useWorkspacesStore.setState(workspacesInit, true)
+    useLayoutStore.setState(layoutInit, true)
+    useWorkspacesStore.getState().hydrate(saved)
+
+    const layout = useLayoutStore.getState().byWorkspace[sid]
+    expect(layout.root.type === 'tabs' && layout.root.children).toHaveLength(2)
+    expect(layout.activePaneId).toBe(tab)
+    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
+    commands.setContextProvider(() => ({ activeWorkspaceId: sid, activePaneId: tab }))
+    try {
+      for (const mac of [false, true]) {
+        insert.mockClear()
+        const press = { key: 'R', ctrlKey: !mac, metaKey: mac, shiftKey: true, altKey: false }
+        expect(runAppChord({ ...press, preventDefault: () => {} }, mac)).toBe(true)
+        await vi.waitFor(() =>
+          expect(insert).toHaveBeenCalledWith(tab, 'claude --resume ffe55127-cb1f-4efd', true),
+        )
+      }
+    } finally {
+      commands.setContextProvider(() => ({ activeWorkspaceId: null, activePaneId: null }))
+    }
   })
 })
 
@@ -1913,7 +2245,7 @@ describe('workspace row commands', () => {
     const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
     for (const id of ['pane.rename', 'workspace.rename']) {
       expect(byId[id].capabilities).toEqual(['drive-self'])
-      expect(byId[id].hidden).toBe(true)
+      expect(byId[id].hidden).toBe(id === 'workspace.rename')
     }
   })
 
@@ -1967,6 +2299,115 @@ describe('workspace row commands', () => {
       target: 'none',
       capabilities: ['read-board'],
     })
+  })
+
+  it('colours a group by name, clears it, and refuses an unknown group or colour', async () => {
+    seed()
+    useWorkspacesStore.getState().createGroup('w1', 'api')
+    const group = () => useWorkspacesStore.getState().groups[0]
+
+    const set = await commands.execWith(ctx(null, null), 'workspace.groupColor', {
+      group: ' api ',
+      color: 'teal',
+    })
+    expect(set).toEqual({ ok: true, result: undefined })
+    expect(group().color).toBe('teal')
+
+    await commands.execWith(ctx(null, null), 'workspace.groupColor', { group: 'api', color: null })
+    expect(group().color).toBeUndefined()
+
+    const missing = await commands.execWith(ctx(null, null), 'workspace.groupColor', {
+      group: 'nope',
+      color: 'red',
+    })
+    expect(missing).toMatchObject({ ok: false })
+    const bad = await commands.execWith(ctx(null, null), 'workspace.groupColor', {
+      group: 'api',
+      color: 'magenta',
+    })
+    expect(bad).toMatchObject({ ok: false })
+    expect(group().color).toBeUndefined()
+  })
+
+  it('renames a group by name and refuses a blank name, a taken name or an unknown group', async () => {
+    seed()
+    useWorkspacesStore.getState().createGroup('w1', 'api')
+    useWorkspacesStore.getState().createGroup('w2', 'web')
+    const names = () => useWorkspacesStore.getState().groups.map((g) => g.name)
+
+    const ok = await commands.execWith(ctx(null, null), 'workspace.groupRename', {
+      group: ' api ',
+      name: '  backend ',
+    })
+    expect(ok).toEqual({ ok: true, result: undefined })
+    expect(names()).toEqual(['backend', 'web'])
+
+    for (const args of [
+      { group: 'backend', name: '   ' },
+      { group: 'backend', name: 'web' },
+      { group: 'nope', name: 'x' },
+    ]) {
+      expect(await commands.execWith(ctx(null, null), 'workspace.groupRename', args)).toMatchObject(
+        { ok: false },
+      )
+    }
+    expect(names()).toEqual(['backend', 'web'])
+  })
+
+  it('deletes a group by name and leaves its workspaces ungrouped', async () => {
+    seed()
+    useWorkspacesStore.getState().createGroup('w1', 'api')
+
+    const missing = await commands.execWith(ctx(null, null), 'workspace.groupDelete', {
+      group: 'nope',
+    })
+    expect(missing).toMatchObject({ ok: false })
+    expect(useWorkspacesStore.getState().groups).toHaveLength(1)
+
+    const ok = await commands.execWith(ctx(null, null), 'workspace.groupDelete', { group: 'api' })
+    expect(ok).toEqual({ ok: true, result: undefined })
+    expect(useWorkspacesStore.getState().groups).toEqual([])
+    expect(useWorkspacesStore.getState().workspaces.map((w) => w.id)).toEqual(['w1', 'w2'])
+    expect(useWorkspacesStore.getState().workspaces[0].groupId).toBeUndefined()
+  })
+
+  it('refuses to rename or delete a group whose name two groups share', async () => {
+    seed()
+    useWorkspacesStore.getState().createGroup('w1', 'api')
+    useWorkspacesStore.getState().createGroup('w2', 'web')
+    const [first, second] = useWorkspacesStore.getState().groups
+    useWorkspacesStore.setState({
+      groups: [first, { ...second, name: first.name }],
+    })
+
+    const rename = await commands.execWith(ctx(null, null), 'workspace.groupRename', {
+      group: 'api',
+      name: 'x',
+    })
+    const del = await commands.execWith(ctx(null, null), 'workspace.groupDelete', { group: 'api' })
+    expect(rename).toMatchObject({
+      ok: false,
+      error: { message: expect.stringContaining('ambiguous') },
+    })
+    expect(del).toMatchObject({
+      ok: false,
+      error: { message: expect.stringContaining('ambiguous') },
+    })
+    expect(useWorkspacesStore.getState().groups).toHaveLength(2)
+  })
+
+  it('pins and unpins the target workspace, and does nothing when it is already so', async () => {
+    seed()
+    await commands.execWith(ctx('w2', null), 'workspace.pin')
+    expect(useWorkspacesStore.getState().workspaces.map((w) => w.id)).toEqual(['w2', 'w1'])
+    expect(useWorkspacesStore.getState().workspaces[0].pinned).toBe(true)
+    await commands.execWith(ctx('w2', null), 'workspace.pin')
+    expect(useWorkspacesStore.getState().workspaces[0].pinned).toBe(true)
+    await commands.execWith(ctx('w2', null), 'workspace.unpin')
+    expect(useWorkspacesStore.getState().workspaces.every((w) => !w.pinned)).toBe(true)
+    await commands.execWith(ctx('w2', null), 'workspace.unpin')
+    expect(useWorkspacesStore.getState().workspaces.every((w) => !w.pinned)).toBe(true)
+    expect(await commands.execWith(ctx(null, null), 'workspace.pin')).toMatchObject({ ok: false })
   })
 
   it('lists groups with their members and tags grouped workspaces in workspace.list', async () => {
@@ -2220,7 +2661,72 @@ describe('commands open to script tokens', () => {
       relaxed: [],
       reason: 'declares only kill-pane, so no default capability is relaxed',
     },
+    'workspace.close': {
+      relaxed: [],
+      reason: 'declares only kill-pane; a socket caller closes only a workspace where nothing runs',
+    },
+    'workspace.newScratch': {
+      relaxed: DEFAULT_CAPABILITIES,
+      reason: 'like workspace.new; a scratch workspace is never in anyone’s reach',
+    },
+    'workspace.group': {
+      relaxed: ['drive-self'],
+      reason: 'runs inside byAgent, so a group a script makes widens no pane’s reach',
+    },
+    'workspace.ungroup': {
+      relaxed: ['drive-self'],
+      reason: 'the reverse of workspace.group, with the same risk',
+    },
+    'workspace.groupColor': {
+      relaxed: ['drive-self'],
+      reason: 'changes only the colour of an existing group',
+    },
+    'workspace.groupRename': {
+      relaxed: ['drive-self'],
+      reason: 'changes only the name of an existing group',
+    },
+    'workspace.groupDelete': {
+      relaxed: ['drive-self'],
+      reason: 'only ungroups its workspaces; none is closed',
+    },
+    'workspace.pin': {
+      relaxed: ['drive-self'],
+      reason: 'moves one workspace within the sidebar',
+    },
+    'workspace.unpin': {
+      relaxed: ['drive-self'],
+      reason: 'the reverse of workspace.pin',
+    },
+    'workspace.describe': {
+      relaxed: ['drive-self'],
+      reason: 'a sidebar summary, the same risk as renaming the workspace',
+    },
+    'workspace.hibernateAgents': {
+      relaxed: [],
+      reason: 'declares only kill-pane; a busy agent is skipped and pane wake brings it back',
+    },
+    'workspace.hibernateGroupAgents': {
+      relaxed: [],
+      reason: 'declares only kill-pane, like workspace.hibernateAgents for a whole group',
+    },
+    'workspace.resumeAgents': {
+      relaxed: [],
+      reason: 'declares only type-other-pane, the same as pane.wake on each pane',
+    },
+    'workspace.resumeGroupAgents': {
+      relaxed: [],
+      reason: 'declares only type-other-pane, like workspace.resumeAgents for a whole group',
+    },
   }
+
+  it.each([
+    ['workspace.hibernateAgents', 'kill-pane'],
+    ['workspace.hibernateGroupAgents', 'kill-pane'],
+    ['workspace.resumeAgents', 'type-other-pane'],
+    ['workspace.resumeGroupAgents', 'type-other-pane'],
+  ])('%s asks every socket caller for %s', (id, cap) => {
+    expect(commands.describe().find((c) => c.id === id)?.capabilities).toEqual([cap])
+  })
 
   it('SCRIPT_COMMANDS matches the relaxed-capability allowlist', () => {
     expect(

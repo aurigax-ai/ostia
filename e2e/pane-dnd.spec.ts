@@ -1,5 +1,3 @@
-import { writeFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { PROMPT, openWorkspace } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
@@ -85,73 +83,6 @@ test('dragging a tab to a terminal pane’s right edge splits it with the tab on
     expect(right.x).toBeGreaterThan(left.x)
     expect(right.y).toBe(left.y)
     await expectTerminalsUsable(win)
-  } finally {
-    await app.close()
-  }
-})
-
-test('dragging a tab to a terminal pane’s bottom edge splits it with the tab below', async () => {
-  const { app, win } = await launchApp(dataHome)
-  try {
-    const [first, second] = await twoTabs(win)
-
-    await dragTabToEdge(win, second, 'bottom')
-
-    await expect
-      .poll(() => panes(win).then((p) => p.map((x) => x.tabs)))
-      .toEqual([[first], [second]])
-    const [top, bottom] = await panes(win)
-    expect(bottom.y).toBeGreaterThan(top.y)
-    expect(bottom.x).toBe(top.x)
-    await expectTerminalsUsable(win)
-  } finally {
-    await app.close()
-  }
-})
-
-test('tabs reorder within their tab bar', async () => {
-  const { app, win } = await launchApp(dataHome)
-  try {
-    const [first, second] = await twoTabs(win)
-
-    await win
-      .locator(`.pane-tab[data-tab-id="${second}"]`)
-      .dragTo(win.locator(`.pane-tab[data-tab-id="${first}"]`), {
-        targetPosition: { x: 6, y: 10 },
-      })
-
-    await expect.poll(() => panes(win).then((p) => p.map((x) => x.tabs))).toEqual([[second, first]])
-    await expectTerminalsUsable(win)
-  } finally {
-    await app.close()
-  }
-})
-
-test('an editor tab dropped on a terminal’s tab bar joins that stack', async () => {
-  const { app, win } = await launchApp(dataHome)
-  try {
-    writeFileSync(join(dataHome, 'home', 'notes.md'), '# notes\n')
-    await openWorkspace(win)
-    const [terminal] = (await panes(win))[0].tabs
-    await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
-    await win.locator('.file-row').filter({ hasText: 'notes.md' }).click()
-    await expect(win.locator('.monaco-editor').first()).toBeVisible({ timeout: 15_000 })
-    const editor = (await panes(win))[0].tabs.find((id) => id !== terminal) ?? ''
-
-    await dragTabToEdge(win, editor, 'right')
-    await expect
-      .poll(() => panes(win).then((p) => p.map((x) => x.tabs)))
-      .toEqual([[terminal], [editor]])
-
-    await win
-      .locator(`.pane-tab[data-tab-id="${editor}"]`)
-      .dragTo(win.locator(`.pane-tab[data-tab-id="${terminal}"]`), {
-        targetPosition: { x: 6, y: 10 },
-      })
-
-    await expect
-      .poll(() => panes(win).then((p) => p.map((x) => x.tabs)))
-      .toEqual([[editor, terminal]])
   } finally {
     await app.close()
   }

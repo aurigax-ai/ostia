@@ -1,3 +1,7 @@
+import { IconButton } from '@/components/common/IconButton'
+import { type TreeNode, buildFileTree } from '@/lib/git/gitFileTree'
+import { AREA_ORDER, leaves, rowIndent, splitPath } from '@/lib/git/gitView'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   ArrowCounterClockwiseIcon,
   ArrowDownIcon,
@@ -13,7 +17,7 @@ import {
   PlusIcon,
   TreeStructureIcon,
 } from '@phosphor-icons/react'
-import type { Dict } from '@shared/dict'
+import type { Dict } from '@shared/app/dict'
 import type {
   BranchInfo,
   ChangeArea,
@@ -22,13 +26,9 @@ import type {
   GitChangesData,
   GitPathsRequest,
   StatusSummary,
-} from '@shared/git'
+} from '@shared/boards/git'
 import { Fragment, type KeyboardEvent, type ReactNode, useMemo } from 'react'
 import { fmt, useDict } from '../../i18n/useDict'
-import { type TreeNode, buildFileTree } from '../../lib/gitFileTree'
-import { AREA_ORDER, leaves, rowIndent, splitPath } from '../../lib/gitView'
-import { useSettingsStore } from '../../stores/settingsStore'
-import { IconButton } from '../IconButton'
 
 type GitDict = Dict['git']
 

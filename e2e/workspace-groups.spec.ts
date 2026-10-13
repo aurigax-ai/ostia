@@ -1,5 +1,6 @@
+import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { newTerminalWorkspace, openWorkspace, quitApp } from './helpers'
+import { PROMPT, emptyWorkspace, newTerminalWorkspace, openWorkspace, quitApp } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 interface Launched {
@@ -43,15 +44,26 @@ test('workspace groups: create, add, collapse with attention, restore, drag out'
     await expect(groupToggle(win)).toBeVisible()
     await expect(memberRows(win)).toHaveCount(1)
 
-    await newTerminalWorkspace(win)
+    await win.keyboard.press(chords.newWorkspace)
+    await expect(ungroupedRows(win)).toHaveCount(2)
+    await expect(memberRows(win)).toHaveCount(1)
+
+    await groupHead(win).hover()
+    await groupHead(win).getByRole('button', { name: 'New workspace in group' }).click()
     await expect(memberRows(win)).toHaveCount(2)
-    await expect(ungroupedRows(win)).toHaveCount(1)
+    await expect(memberRows(win).last().locator('.rail-tab')).toHaveClass(/active/)
+    await expect(ungroupedRows(win)).toHaveCount(2)
     await expect(groupHead(win).getByLabel('Members: 2')).toHaveText('2')
+    await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
+    await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows').last()).toContainText(
+      PROMPT,
+      { timeout: 15_000 },
+    )
 
     await win.locator('.pane-slot:not([data-hidden]) .xterm').last().click()
     await win.keyboard.type('sleep 2; false')
     await win.keyboard.press('Enter')
-    await ungroupedRows(win).locator('.rail-tab-main').click()
+    await ungroupedRows(win).first().locator('.rail-tab-main').click()
 
     await groupToggle(win).click()
     await expect(groupToggle(win)).toHaveAttribute('aria-expanded', 'false')
@@ -70,7 +82,7 @@ test('workspace groups: create, add, collapse with attention, restore, drag out'
     await expect(groupToggle(win)).toBeVisible({ timeout: 15_000 })
     await expect(groupToggle(win)).toHaveAttribute('aria-expanded', 'false')
     await expect(groupHead(win).getByLabel('Members: 2')).toHaveText('2')
-    await expect(ungroupedRows(win)).toHaveCount(1)
+    await expect(ungroupedRows(win)).toHaveCount(2)
 
     await groupToggle(win).click()
     await expect(memberRows(win)).toHaveCount(2)
@@ -79,7 +91,7 @@ test('workspace groups: create, add, collapse with attention, restore, drag out'
       .last()
       .dragTo(ungroupedRows(win).first(), { targetPosition: { x: 40, y: 4 } })
     await expect(memberRows(win)).toHaveCount(1)
-    await expect(ungroupedRows(win)).toHaveCount(2)
+    await expect(ungroupedRows(win)).toHaveCount(3)
     await expect(groupHead(win).getByLabel('Members: 1')).toHaveText('1')
   } finally {
     await quitApp(second.app)

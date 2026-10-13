@@ -1,8 +1,8 @@
-import type { AgentResume } from '@shared/agentResume'
-import { type BrowserProfile, parseBrowserProfile } from '@shared/browserProfile'
+import { namespacedId } from '@/lib/workspaces/idNamespace'
+import { type AgentResume, sameResume } from '@shared/agents/agentResume'
+import { type BrowserProfile, parseBrowserProfile } from '@shared/browser/browserProfile'
 import { isRemotePath } from '@shared/remoteFolders'
 import type { PanePlacement } from '@shared/types'
-import { namespacedId } from '../lib/idNamespace'
 import type {
   Direction,
   DropZone,
@@ -192,12 +192,7 @@ export function setDefaultPaneTitles(root: LayoutNode, title: string): LayoutNod
 
 export function setPaneResume(root: LayoutNode, paneId: string, resume: AgentResume): LayoutNode {
   return mapPane(root, paneId, (p) => {
-    if (
-      p.resume?.agent === resume.agent &&
-      p.resume.id === resume.id &&
-      p.resume.cwd === resume.cwd
-    )
-      return p
+    if (sameResume(p.resume, resume)) return p
     const { resumeFolderMissing: _missing, ...rest } = p
     return { ...rest, resume }
   })

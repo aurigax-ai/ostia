@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -49,6 +50,41 @@ const writeClipboardImage = (app: ElectronApplication) =>
     await clipboard.write([new ClipboardItem({ 'image/png': png })])
   }, RED_DOT_PNG)
 
+const readLine = (n: number) =>
+  `sh -c 'echo line${n}_$((3+4)); IFS= read -r line; echo "got${n}<$line>"'`
+
+const readByte = (n: number) =>
+  `sh -c 'stty raw -echo; echo byte${n}_$((3+4)); b=$(dd bs=1 count=1 2>/dev/null | od -An -tx1 | tr -d " "); stty sane; echo hex${n}_$b'`
+
+type Flavors =
+  | 'image'
+  | 'file-and-image'
+  | 'file-and-text'
+  | 'image-and-text'
+  | 'image-and-spaced-text'
+
+const copyFileOnMac = (path: string, flavors: Flavors) => {
+  const png = 'read p as «class PNGf»'
+  const clipboard = {
+    image: `set the clipboard to (${png})`,
+    'file-and-image': `set the clipboard to {«class furl»:p, «class PNGf»:(${png})}`,
+    'file-and-text': 'set the clipboard to {«class furl»:p, string:"see this"}',
+    'image-and-text': `set the clipboard to {«class PNGf»:(${png}), string:"my-shot.png"}`,
+    'image-and-spaced-text': `set the clipboard to {«class PNGf»:(${png}), string:"my shot.png"}`,
+  }[flavors]
+  execFileSync('osascript', [
+    '-e',
+    'on run argv',
+    '-e',
+    'set p to POSIX file (item 1 of argv)',
+    '-e',
+    clipboard,
+    '-e',
+    'end run',
+    path,
+  ])
+}
+
 async function selectTerminalWord(win: Page, word: string): Promise<void> {
   const row = win
     .locator('.xterm-rows > div')
@@ -59,81 +95,73 @@ async function selectTerminalWord(win: Page, word: string): Promise<void> {
   await win.mouse.dblclick(box.x + 12, box.y + box.height / 2)
 }
 
-test('the copy and paste chords work in a terminal and paste an image as Ctrl+V for a program', async () => {
-  const { app, win } = await launch()
+test(
+  'the copy and paste chords work in a terminal and paste an image as Ctrl+V for a program',
+  { tag: '@core' },
+  async () => {
+    const { app, win } = await launch()
+    try {
+      const rows = win.locator('.xterm-rows').first()
+      await win.locator('.xterm').first().click()
+      await win.keyboard.type('echo ostiacopyword')
+      await win.keyboard.press('Enter')
+      await expect(rows.locator('> div', { hasText: /^ostiacopyword/ })).toHaveCount(1)
+      await selectTerminalWord(win, 'ostiacopyword')
+      await win.keyboard.press(chords.copy)
+      await expect.poll(() => readClipboard(app)).toBe('ostiacopyword')
+
+      await writeClipboard(app, 'echo pasted_$((6*7))')
+      await win.keyboard.press(chords.paste)
+      await expect(rows).toContainText('echo pasted_')
+      await win.keyboard.press('Enter')
+      await expect(rows).toContainText('pasted_42')
+
+      await win.keyboard.type(READ_ONE_BYTE)
+      await win.keyboard.press('Enter')
+      await expect(rows).toContainText('reading_7')
+      await writeClipboardImage(app)
+      await win.keyboard.press(chords.paste)
+      await expect(rows).toContainText('byte_16', { timeout: 10_000 })
+    } finally {
+      await app.close()
+    }
+  },
+)
+
+test('Cmd+V pastes a copied file as a quoted path and hands an image to the program', async () => {
+  test.skip(!isMac, 'the native pasteboard types only exist on macOS')
+  const { app, win, home } = await launch()
   try {
     const rows = win.locator('.xterm-rows').first()
+    const shot = join(home, 'my shot.png')
+    writeFileSync(shot, Buffer.from(RED_DOT_PNG.split(',')[1], 'base64'))
     await win.locator('.xterm').first().click()
-    await win.keyboard.type('echo ostiacopyword')
-    await win.keyboard.press('Enter')
-    await expect(rows.locator('> div', { hasText: /^ostiacopyword/ })).toHaveCount(1)
-    await selectTerminalWord(win, 'ostiacopyword')
-    await win.keyboard.press(chords.copy)
-    await expect.poll(() => readClipboard(app)).toBe('ostiacopyword')
+    const contents = () => win.evaluate(() => window.ostia.clipboard.contents())
+    let n = 0
 
-    await writeClipboard(app, 'echo pasted_$((6*7))')
-    await win.keyboard.press(chords.paste)
-    await expect(rows).toContainText('echo pasted_')
-    await win.keyboard.press('Enter')
-    await expect(rows).toContainText('pasted_42')
+    for (const flavors of ['file-and-image', 'file-and-text'] as const) {
+      n += 1
+      copyFileOnMac(shot, flavors)
+      expect((await contents()).files).toEqual([shot])
+      await win.keyboard.type(readLine(n))
+      await win.keyboard.press('Enter')
+      await expect(rows).toContainText(`line${n}_7`)
+      await win.keyboard.press(chords.paste)
+      await expect(rows).toContainText(`'${shot}' `, { timeout: 10_000 })
+      await win.keyboard.press('Enter')
+      await expect(rows).toContainText(`got${n}<'${shot}' >`, { timeout: 10_000 })
+    }
 
-    await win.keyboard.type(READ_ONE_BYTE)
-    await win.keyboard.press('Enter')
-    await expect(rows).toContainText('reading_7')
-    await writeClipboardImage(app)
-    await win.keyboard.press(chords.paste)
-    await expect(rows).toContainText('byte_16', { timeout: 10_000 })
-  } finally {
-    await app.close()
-  }
-})
-
-test('smart Ctrl+V hands an image-only clipboard to the program as Ctrl+V', async () => {
-  test.skip(isMac, 'smart Ctrl+C and Ctrl+V do not exist on macOS, which uses the Cmd keys')
-  const { app, win } = await launch({ clipboardKeys: 'smart' })
-  try {
-    const rows = win.locator('.xterm-rows').first()
-    await win.locator('.xterm').first().click()
-    await win.keyboard.type(READ_ONE_BYTE)
-    await win.keyboard.press('Enter')
-    await expect(rows).toContainText('reading_7')
-    await writeClipboardImage(app)
-    await win.keyboard.press('Control+v')
-    await expect(rows).toContainText('byte_16', { timeout: 10_000 })
-  } finally {
-    await app.close()
-  }
-})
-
-test('the input editor copies on the chord and on smart Ctrl+C, and pastes on both', async () => {
-  test.skip(isMac, 'smart Ctrl+C and Ctrl+V do not exist on macOS, which uses the Cmd keys')
-  const { app, win } = await launch({ clipboardKeys: 'smart', inputMode: 'editor' })
-  try {
-    const input = win.getByRole('textbox', { name: 'Command input' })
-    await expect(input).toBeVisible({ timeout: 15_000 })
-    await input.click()
-    await win.keyboard.type('echo editor_copy')
-    await win.keyboard.press('Shift+Home')
-    await win.keyboard.press(chords.copy)
-    await expect.poll(() => readClipboard(app)).toBe('echo editor_copy')
-
-    await writeClipboard(app, 'nothing')
-    await input.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(5, 16))
-    await win.keyboard.press('Control+c')
-    await expect.poll(() => readClipboard(app)).toBe('editor_copy')
-    await expect(input).toHaveValue('echo editor_copy')
-
-    await input.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(0, 0))
-    await win.keyboard.press('Control+c')
-    await expect(input).toHaveValue('')
-
-    await writeClipboard(app, 'echo from_chord')
-    await win.keyboard.press(chords.paste)
-    await expect(input).toHaveValue('echo from_chord')
-    await win.keyboard.press('Control+c')
-    await writeClipboard(app, 'echo from_ctrl_v\u0007')
-    await win.keyboard.press('Control+v')
-    await expect(input).toHaveValue('echo from_ctrl_v')
+    for (const flavors of ['image', 'image-and-text', 'image-and-spaced-text'] as const) {
+      n += 1
+      copyFileOnMac(shot, flavors)
+      expect(await contents()).toEqual({ files: [], image: true })
+      await win.keyboard.type(readByte(n))
+      await win.keyboard.press('Enter')
+      await expect(rows).toContainText(`byte${n}_7`)
+      await win.keyboard.press(chords.paste)
+      await expect(rows).toContainText(`hex${n}_16`, { timeout: 10_000 })
+    }
   } finally {
     await app.close()
   }
@@ -160,10 +188,11 @@ test('the copy and paste chords work in Monaco and in a text field', async () =>
     await win.keyboard.press(chords.palette)
     const palette = win.getByRole('combobox').first()
     await expect(palette).toBeFocused()
+    await expect(palette).toHaveValue('>')
     await win.keyboard.type('palette_text')
     await win.keyboard.press(chords.selectAll)
     await win.keyboard.press(chords.copy)
-    await expect.poll(() => readClipboard(app)).toBe('palette_text')
+    await expect.poll(() => readClipboard(app)).toBe('>palette_text')
     await writeClipboard(app, 'field_pasted')
     await win.keyboard.press(chords.paste)
     await expect(palette).toHaveValue('field_pasted')
@@ -171,6 +200,106 @@ test('the copy and paste chords work in Monaco and in a text field', async () =>
     await app.close()
   }
 })
+
+interface GuestClipboardRecord {
+  inputs: string[]
+  edits: string[]
+  hostMessages: string[]
+}
+
+const GUEST_PAGE_STATE = `(() => {
+  const source = document.getElementById('source')
+  const sink = document.getElementById('sink')
+  return {
+    hasFocus: document.hasFocus(),
+    visibility: document.visibilityState,
+    activeElement: document.activeElement && document.activeElement.id,
+    sourceSelection: [source.selectionStart, source.selectionEnd],
+    pageSelection: String(getSelection()),
+    sinkValue: sink.value,
+  }
+})()`
+
+const recordGuestClipboard = (app: ElectronApplication, url: string) =>
+  app.evaluate(({ webContents }, url) => {
+    const guest = webContents
+      .getAllWebContents()
+      .find((wc) => wc.getType() === 'webview' && wc.getURL() === url)
+    if (!guest) return
+    const record: GuestClipboardRecord = { inputs: [], edits: [], hostMessages: [] }
+    ;(globalThis as { guestClipboardRecord?: GuestClipboardRecord }).guestClipboardRecord = record
+    guest.on('before-input-event', (event, input) => {
+      const modifiers = [
+        input.control ? 'ctrl' : '',
+        input.shift ? 'shift' : '',
+        input.alt ? 'alt' : '',
+        input.meta ? 'meta' : '',
+      ].filter(Boolean)
+      record.inputs.push(
+        `${input.type} ${input.key} [${modifiers.join('+')}] prevented=${event.defaultPrevented}`,
+      )
+    })
+    for (const edit of ['copy', 'paste', 'pasteAndMatchStyle'] as const) {
+      const run = guest[edit].bind(guest)
+      guest[edit] = () => {
+        record.edits.push(edit)
+        run()
+      }
+    }
+    const host = guest.hostWebContents
+    if (!host) return
+    const send = host.send.bind(host)
+    host.send = (channel, ...args) => {
+      if (channel.startsWith('guest-chords:')) record.hostMessages.push(channel)
+      send(channel, ...args)
+    }
+  }, url)
+
+const guestClipboardState = (app: ElectronApplication, url: string) =>
+  app.evaluate(
+    async ({ webContents, BrowserWindow, clipboard }, { url, pageState }) => {
+      const guest = webContents
+        .getAllWebContents()
+        .find((wc) => wc.getType() === 'webview' && wc.getURL() === url)
+      const host = guest?.hostWebContents
+      return {
+        record: (globalThis as { guestClipboardRecord?: GuestClipboardRecord })
+          .guestClipboardRecord,
+        guestFound: guest !== undefined,
+        guestFocused: guest?.isFocused(),
+        hostFocused: host?.isFocused(),
+        windowFocused: BrowserWindow.getAllWindows().map((w) => w.isFocused()),
+        guestUrls: webContents
+          .getAllWebContents()
+          .filter((wc) => wc.getType() === 'webview')
+          .map((wc) => wc.getURL()),
+        clipboardFormats: (await clipboard.read()).flatMap((item) => item.types),
+        clipboardText: await clipboard.readText(),
+        page: await guest?.executeJavaScript(pageState).catch((error) => String(error)),
+      }
+    },
+    { url, pageState: GUEST_PAGE_STATE },
+  )
+
+async function attachingGuestState(
+  step: string,
+  app: ElectronApplication,
+  url: string,
+  check: () => Promise<void>,
+): Promise<void> {
+  try {
+    await check()
+  } catch (error) {
+    const state = await guestClipboardState(app, url).catch((failed) => ({
+      failed: String(failed),
+    }))
+    await test.info().attach(`guest-clipboard-${step}`, {
+      body: JSON.stringify(state, null, 2),
+      contentType: 'application/json',
+    })
+    throw error
+  }
+}
 
 test('the copy and paste chords work inside a browser pane', async () => {
   const server = createServer((_req, res) => {
@@ -248,14 +377,19 @@ test('the copy and paste chords work inside a browser pane', async () => {
         .toBe('guest_pasted')
       return
     }
+    await recordGuestClipboard(app, url)
     await guestRun("document.getElementById('source').select()")
     await guestChord('C')
-    await expect.poll(() => readClipboard(app)).toBe('guest_copy')
+    await attachingGuestState('copy', app, url, () =>
+      expect.poll(() => readClipboard(app)).toBe('guest_copy'),
+    )
 
     await writeClipboard(app, 'guest_pasted')
     await guestRun("document.getElementById('sink').focus()")
     await guestChord('V')
-    await expect.poll(() => guestRun("document.getElementById('sink').value")).toBe('guest_pasted')
+    await attachingGuestState('paste', app, url, () =>
+      expect.poll(() => guestRun("document.getElementById('sink').value")).toBe('guest_pasted'),
+    )
   } finally {
     await app.close()
     server.close()

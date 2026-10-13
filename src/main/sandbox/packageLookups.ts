@@ -1,5 +1,5 @@
-import type { PackageRef } from '../../shared/packages'
-import { packageVersionKey } from '../../shared/packages'
+import type { PackageRef } from '../../shared/sandbox/packages'
+import { packageVersionKey } from '../../shared/sandbox/packages'
 import type { MalwareCheck, PackageLookups } from './packagePolicy'
 
 const LOOKUP_TIMEOUT_MS = 8000

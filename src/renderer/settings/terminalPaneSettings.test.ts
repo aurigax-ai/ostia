@@ -67,7 +67,7 @@ describe('parseTerminalSettings', () => {
       clipboardKeys: 'shift',
       theme: 'match',
       shell: '',
-      osc52Write: false,
+      osc52Write: true,
       keepShells: false,
       primarySelection: true,
       macOptionIsMeta: false,
@@ -79,6 +79,10 @@ describe('parseTerminalSettings', () => {
     expect(parseTerminalSettings({ renderer: 'ghostty' }).renderer).toBe('ghostty')
     expect(parseTerminalSettings({ renderer: 'kitty' }).renderer).toBe('xterm')
     expect(parseTerminalSettings({ renderer: 1 }).renderer).toBe('xterm')
+  })
+
+  it('keeps the smart clipboard keys mode', () => {
+    expect(parseTerminalSettings({ clipboardKeys: 'smart' }).clipboardKeys).toBe('smart')
   })
 
   it('keeps the shell command as trimmed text and drops a non-string one', () => {

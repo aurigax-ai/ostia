@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { DEFAULT_SANDBOX_GLOBALS, emptyWorkspaceSandbox } from '../../shared/sandbox'
+import { DEFAULT_SANDBOX_GLOBALS, emptyWorkspaceSandbox } from '../../shared/sandbox/sandbox'
 import { buildSrtConfig } from './srtConfig'
 import { SandboxStore } from './store'
 import { WorkspaceSandboxes } from './workspaceSandboxes'
@@ -60,6 +60,18 @@ describe('WorkspaceSandboxes temp folders', () => {
     quitting.clearTmp()
     expect(existsSync(quitting.tmpDir('ws'))).toBe(false)
     expect(existsSync(join(running.tmpDir('ws'), 'probe'))).toBe(true)
+  })
+
+  it('a sandboxed shell keeps its temp folder when another Ostia quits', () => {
+    const running = instance(202)
+    running.config('ws')
+    writeFileSync(join(running.tmpDir('ws'), 'probe'), 'in use')
+    const other = instance(303, [202])
+    other.sweepTmp()
+    other.config('ws')
+    other.clearTmp()
+    expect(existsSync(join(running.tmpDir('ws'), 'probe'))).toBe(true)
+    expect(running.config('ws').filesystem.allowWrite).toContain(running.tmpDir('ws'))
   })
 
   it('keeps the shared temp root hidden from every sandbox, whichever instance owns a folder', () => {

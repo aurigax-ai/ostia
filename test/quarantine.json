@@ -12,5 +12,68 @@
     "issue": 505,
     "until": "2026-11-06",
     "platforms": ["linux"]
+  },
+  {
+    "file": "e2e/trellis-agents.spec.ts",
+    "name": "a Trellis card goes to a new agent or to a running one, only on the human’s clicks",
+    "issue": 547,
+    "until": "2026-11-07",
+    "platforms": ["linux"]
+  },
+  {
+    "file": "src/renderer/components/palette/CommandPalette.test.tsx",
+    "name": "CommandPalette > languages > the Traditional Chinese pack is an extension: pick it, keep it across a restart, lose it when disabled",
+    "issue": 679,
+    "until": "2026-11-11",
+    "platforms": ["linux"]
+  },
+  {
+    "file": "src/renderer/components/palette/CommandPalette.test.tsx",
+    "name": "CommandPalette > symbols in the workspace > opens on the symbol prefix from the command and asks the workspace’s servers as the human types",
+    "issue": 679,
+    "until": "2026-11-11",
+    "platforms": ["linux"]
+  },
+  {
+    "file": "src/renderer/components/palette/CommandPalette.test.tsx",
+    "name": "CommandPalette > symbols in the workspace > opens the file at the symbol and closes",
+    "issue": 679,
+    "until": "2026-11-11",
+    "platforms": ["linux"]
+  },
+  {
+    "file": "src/renderer/components/terminal/Terminal.engine.test.tsx",
+    "name": "TerminalView engines > a Cmd+V on macOS that may carry a file sends the text before the Enter pressed while the clipboard is read",
+    "issue": 701,
+    "until": "2026-11-12",
+    "platforms": ["linux"]
+  },
+  {
+    "file": "src/renderer/components/terminal/Terminal.engine.test.tsx",
+    "name": "TerminalView engines > a Cmd+V on macOS pastes the text of the paste when the clipboard read hangs",
+    "issue": 701,
+    "until": "2026-11-12",
+    "platforms": ["linux"]
+  },
+  {
+    "file": "src/renderer/components/settings/SettingsPanel.search.test.tsx",
+    "name": "SettingsPanel search > finds the script tokens page in English and in Traditional Chinese",
+    "issue": 705,
+    "until": "2026-11-12",
+    "platforms": ["linux"]
+  },
+  {
+    "file": "src/renderer/components/settings/SettingsPanel.search.test.tsx",
+    "name": "SettingsPanel search > shows a matching row from a section that is not open, with the query marked",
+    "issue": 705,
+    "until": "2026-11-12",
+    "platforms": ["linux"]
+  },
+  {
+    "file": "e2e/clipboard-surfaces.spec.ts",
+    "name": "the copy and paste chords work inside a browser pane",
+    "issue": 526,
+    "until": "2026-11-12",
+    "platforms": ["linux"]
   }
 ]

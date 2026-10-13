@@ -1,51 +1,52 @@
+import { AgentOfferDialog } from '@/components/agents/AgentOfferDialog'
+import { ExtensionApprovalDialog } from '@/components/extensions/ExtensionApprovalDialog'
+import { FilesPanel } from '@/components/files/FilesPanel'
+import { RemoteFolderDialog } from '@/components/files/RemoteFolderDialog'
+import { CommandPalette } from '@/components/palette/CommandPalette'
+import { HistorySearch } from '@/components/palette/HistorySearch'
+import { SaveWorkflowDialog } from '@/components/palette/SaveWorkflowDialog'
+import { WorkflowPicker } from '@/components/palette/WorkflowPicker'
+import { CloseConfirmDialog } from '@/components/rail/CloseConfirmDialog'
+import { DeckRail } from '@/components/rail/DeckRail'
+import { HibernateSkippedDialog } from '@/components/rail/HibernateSkippedDialog'
+import { MergeConfirmDialog } from '@/components/rail/MergeConfirmDialog'
+import { TabSleepNoticeDialog } from '@/components/rail/TabSleepNoticeDialog'
+import { SandboxFolderDialog } from '@/components/sandbox/SandboxFolderDialog'
+import { SandboxRequirementsDialog } from '@/components/sandbox/SandboxRequirementsDialog'
+import { ActionConfirmDialog } from '@/components/settings/ActionConfirmDialog'
+import { TelemetryConsentDialog } from '@/components/settings/TelemetryConsentDialog'
+import { CmuxImportDialog } from '@/components/shell/CmuxImportDialog'
+import { DetachedTitleBar } from '@/components/shell/DetachedTitleBar'
+import { TopBar } from '@/components/shell/TopBar'
+import { UpdateConfirmDialog } from '@/components/shell/UpdateConfirmDialog'
+import { WindowControls } from '@/components/shell/WindowControls'
+import { WorkZone } from '@/components/shell/WorkZone'
+import { useMotionAttribute } from '@/lib/app/motion'
+import { installDoubleShift, runAppChord } from '@/lib/keys/chords'
+import { handleDocumentClipboardChord, syncClipboardChords } from '@/lib/keys/documentClipboard'
+import { wireGuestChords } from '@/lib/keys/guestChordBridge'
+import { useModifierHint } from '@/lib/keys/useModifierHint'
+import { installMiddlePasteGuard } from '@/lib/terminal/middlePaste'
+import { useIconStyle } from '@/lib/theme/iconWeight'
+import { applyTheme, useEffectiveTheme } from '@/lib/theme/theme'
+import { applyUiFonts } from '@/lib/theme/uiFonts'
+import { collectQuitGroups, confirmQuit } from '@/lib/workspaces/closeConfirm'
+import { useWindowTitle } from '@/lib/workspaces/useWindowTitle'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { freezeSnapshots } from '@/stores/workspaces/persistence'
+import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { IconContext } from '@phosphor-icons/react'
-import { clampZoom } from '@shared/zoom'
+import { clampZoom } from '@shared/app/zoom'
 import { useEffect } from 'react'
 import { commands } from './commands/registry'
-import { ActionConfirmDialog } from './components/ActionConfirmDialog'
-import { AgentOfferDialog } from './components/AgentOfferDialog'
-import { CloseConfirmDialog } from './components/CloseConfirmDialog'
-import { CmuxImportDialog } from './components/CmuxImportDialog'
-import { CommandPalette } from './components/CommandPalette'
-import { DeckRail } from './components/DeckRail'
-import { DetachedTitleBar } from './components/DetachedTitleBar'
-import { ExtensionApprovalDialog } from './components/ExtensionApprovalDialog'
-import { FilesPanel } from './components/FilesPanel'
-import { HistorySearch } from './components/HistorySearch'
-import { MergeConfirmDialog } from './components/MergeConfirmDialog'
-import { RemoteFolderDialog } from './components/RemoteFolderDialog'
-import { SandboxFolderDialog } from './components/SandboxFolderDialog'
-import { SandboxRequirementsDialog } from './components/SandboxRequirementsDialog'
-import { SaveWorkflowDialog } from './components/SaveWorkflowDialog'
-import { TelemetryConsentDialog } from './components/TelemetryConsentDialog'
-import { TopBar } from './components/TopBar'
-import { UpdateConfirmDialog } from './components/UpdateConfirmDialog'
-import { WindowControls } from './components/WindowControls'
-import { WorkZone } from './components/WorkZone'
-import { WorkflowPicker } from './components/WorkflowPicker'
 import { TooltipProvider } from './components/ui/tooltip'
-import { runAppChord } from './lib/chords'
-import { collectQuitGroups, confirmQuit } from './lib/closeConfirm'
-import { handleDocumentClipboardChord, syncClipboardChords } from './lib/documentClipboard'
-import { wireGuestChords } from './lib/guestChordBridge'
-import { installMiddlePasteGuard } from './lib/middlePaste'
-import { useMotionAttribute } from './lib/motion'
-import { applyTheme, useEffectiveTheme } from './lib/theme'
-import { applyUiFonts } from './lib/uiFonts'
-import { useModifierHint } from './lib/useModifierHint'
-import { useWindowTitle } from './lib/useWindowTitle'
 import { startLanguageServices } from './lsp/client'
 import { loadEditorLanguages } from './monaco/contributedLanguages'
 import { useMonacoTheme } from './monaco/useMonacoTheme'
 import { isMac } from './platform'
 import { registerSettingsSchema } from './settings/registerSettingsSchema'
-import { useExtensionsStore } from './stores/extensionsStore'
-import { freezeSnapshots } from './stores/persistence'
-
-const ICON_STYLE = { weight: 'regular' } as const
-import { useSettingsStore } from './stores/settingsStore'
-import { useUIStore } from './stores/uiStore'
-import { useWindowsStore } from './stores/windowsStore'
 
 export function App(): JSX.Element {
   const locale = useSettingsStore((s) => s.locale)
@@ -56,6 +57,7 @@ export function App(): JSX.Element {
   const zoom = useSettingsStore((s) => s.appearance.zoom)
   const detached = useWindowsStore((s) => s.detached)
   const theme = useEffectiveTheme()
+  const iconStyle = useIconStyle()
   useMotionAttribute()
   useMonacoTheme()
 
@@ -81,6 +83,7 @@ export function App(): JSX.Element {
 
   useEffect(() => syncClipboardChords(isMac), [])
   useEffect(() => wireGuestChords(isMac), [])
+  useEffect(() => installDoubleShift(window, isMac), [])
 
   useEffect(() => installMiddlePasteGuard(window), [])
 
@@ -119,7 +122,7 @@ export function App(): JSX.Element {
   }, [])
 
   return (
-    <IconContext.Provider value={ICON_STYLE}>
+    <IconContext.Provider value={iconStyle}>
       <TooltipProvider delay={350}>
         <div className={`app${isMac ? ' is-mac' : ''}${detached ? ' is-detached' : ''}`}>
           {detached ? <DetachedTitleBar /> : <TopBar />}
@@ -131,6 +134,8 @@ export function App(): JSX.Element {
           <ExtensionApprovalDialog />
           <CloseConfirmDialog />
           <MergeConfirmDialog />
+          <HibernateSkippedDialog />
+          <TabSleepNoticeDialog />
           <CmuxImportDialog />
           <ActionConfirmDialog />
           <UpdateConfirmDialog />

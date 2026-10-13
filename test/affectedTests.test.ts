@@ -6,10 +6,12 @@ import {
   E2E_HARNESS,
   ROOT,
   changedQuarantineFiles,
+  coreTests,
   domFileReaders,
   e2eImports,
   e2eShards,
   e2eSpecs,
+  e2eWeight,
   nodeFolderReaders,
   planAgainst,
   planChanges,
@@ -19,27 +21,27 @@ import {
 } from './affectedTests.mjs'
 
 const readers = {
-  dom: ['src/renderer/lib/motion.test.tsx'],
+  dom: ['src/renderer/lib/app/motion.test.tsx'],
   folders: {
     'e2e/': ['test/e2eImports.test.ts'],
-    '.github/': ['src/main/releasePackaging.test.ts'],
+    '.github/': ['src/main/updates/releasePackaging.test.ts'],
   },
 }
 
 const map = {
-  smoke: ['e2e/smoke.spec.ts'],
+  core: ['e2e/smoke.spec.ts:5', 'e2e/workflows.spec.ts:41'],
   areas: [
     { name: 'sandbox', paths: ['src/main/sandbox/'], specs: ['e2e/sandbox.spec.ts'] },
     {
       name: 'ssh',
-      paths: ['src/extensions/ssh/', 'src/main/remoteFolder'],
+      paths: ['src/extensions/ssh/', 'src/main/files/remoteFolder'],
       specs: ['e2e/ssh.spec.ts'],
     },
   ],
 }
 
 const imports = {
-  'e2e/marketplace.spec.ts': ['e2e/helpers.ts', 'src/shared/marketplace.ts'],
+  'e2e/marketplace.spec.ts': ['e2e/helpers.ts', 'src/shared/extensions/marketplace.ts'],
   'e2e/smoke.spec.ts': ['e2e/helpers.ts'],
 }
 
@@ -55,7 +57,7 @@ describe('planTests', () => {
       'scripts/build-extensions.mjs',
       'sdk/docs/EXTENSIONS.md',
     ]) {
-      expect(planTests(['src/renderer/lib/keyPresets.ts', file], readers), file).toEqual({
+      expect(planTests(['src/renderer/lib/keys/keyPresets.ts', file], readers), file).toEqual({
         node: null,
         dom: null,
       })
@@ -63,19 +65,19 @@ describe('planTests', () => {
   })
 
   it('runs only related tests for a renderer change, plus the dom tests that read files', () => {
-    expect(planTests(['src/renderer/lib/keyPresets.ts'], readers)).toEqual({
-      node: ['src/renderer/lib/keyPresets.ts'],
-      dom: ['src/renderer/lib/keyPresets.ts', 'src/renderer/lib/motion.test.tsx'],
+    expect(planTests(['src/renderer/lib/keys/keyPresets.ts'], readers)).toEqual({
+      node: ['src/renderer/lib/keys/keyPresets.ts'],
+      dom: ['src/renderer/lib/keys/keyPresets.ts', 'src/renderer/lib/app/motion.test.tsx'],
     })
   })
 
   it('runs every node test when a change reaches the built CLI, extensions or SDK', () => {
     for (const file of [
-      'src/main/paneIo.ts',
+      'src/main/panes/paneIo.ts',
       'src/shared/types.ts',
       'src/cli/index.ts',
       'src/extensions/ssh/main.ts',
-      'src/shared/dict.ts',
+      'src/shared/app/dict.ts',
     ]) {
       expect(planTests([file], readers), file).toEqual({
         node: null,
@@ -94,19 +96,19 @@ describe('planTests', () => {
   it('runs only the tests that read workflows when only .github changes', () => {
     expect(
       planTests(['.github/workflows/ci.yml', '.github/actions/setup/action.yml'], readers),
-    ).toEqual({ node: ['src/main/releasePackaging.test.ts'], dom: [] })
+    ).toEqual({ node: ['src/main/updates/releasePackaging.test.ts'], dom: [] })
   })
 
   it('runs the quarantine check and the tests whose entries changed for a quarantine change', () => {
     expect(
       planTests(['test/quarantine.json'], readers, [
         'src/main/tmux/keptShells.integration.test.ts',
-        'src/renderer/components/SettingsPanel.test.tsx',
+        'src/renderer/components/settings/SettingsPanel.test.tsx',
         'e2e/sandbox.spec.ts',
       ]),
     ).toEqual({
       node: ['test/quarantine.test.ts', 'src/main/tmux/keptShells.integration.test.ts'],
-      dom: ['src/renderer/components/SettingsPanel.test.tsx'],
+      dom: ['src/renderer/components/settings/SettingsPanel.test.tsx'],
     })
   })
 
@@ -123,22 +125,31 @@ describe('planE2e', () => {
   })
 
   it('runs a changed spec and the specs importing a changed file', () => {
-    expect(planE2e(['e2e/ssh.spec.ts', 'src/shared/marketplace.ts'], map, imports)).toEqual([
-      'e2e/marketplace.spec.ts',
-      'e2e/ssh.spec.ts',
-    ])
+    expect(
+      planE2e(['e2e/ssh.spec.ts', 'src/shared/extensions/marketplace.ts'], map, imports),
+    ).toEqual(['e2e/marketplace.spec.ts', 'e2e/ssh.spec.ts'])
   })
 
   it('runs the specs of every area a changed file belongs to', () => {
     expect(
-      planE2e(['src/main/sandbox/ptyWrap.ts', 'src/main/remoteFolders.ts'], map, imports),
+      planE2e(['src/main/sandbox/ptyWrap.ts', 'src/main/files/remoteFolders.ts'], map, imports),
     ).toEqual(['e2e/sandbox.spec.ts', 'e2e/ssh.spec.ts'])
   })
 
-  it('runs the smoke set for a hub or any other unmapped file', () => {
-    for (const file of ['src/main/app.ts', 'src/shared/dict.ts', 'package.json']) {
-      expect(planE2e([file], map, imports), file).toEqual(['e2e/smoke.spec.ts'])
+  it('runs the @core tests for a hub or any other unmapped file', () => {
+    for (const file of ['src/main/app.ts', 'src/shared/app/dict.ts', 'package.json']) {
+      expect(planE2e([file], map, imports), file).toEqual([
+        'e2e/smoke.spec.ts:5',
+        'e2e/workflows.spec.ts:41',
+      ])
     }
+  })
+
+  it('runs a whole planned spec instead of its @core tests', () => {
+    expect(planE2e(['src/main/app.ts', 'e2e/smoke.spec.ts'], map, imports)).toEqual([
+      'e2e/smoke.spec.ts',
+      'e2e/workflows.spec.ts:41',
+    ])
   })
 
   it('runs no e2e for docs, unit tests, workflows and test tooling', () => {
@@ -148,7 +159,7 @@ describe('planE2e', () => {
           'README.md',
           '.github/workflows/ci.yml',
           'src/main/sandbox/ptyWrap.test.ts',
-          'src/renderer/lib/chords.test.ts',
+          'src/renderer/lib/keys/chords.test.ts',
           'test/mocks/ostia.ts',
           'test/quarantine.json',
           'scripts/retry.sh',
@@ -188,7 +199,7 @@ describe('e2eImports', () => {
   it('follows a spec through the e2e helpers into the shared code they import', () => {
     const graph = e2eImports()
     expect(graph['e2e/marketplace.spec.ts']).toContain('e2e/helpers.ts')
-    expect(graph['e2e/marketplace.spec.ts']).toContain('src/shared/marketplace.ts')
+    expect(graph['e2e/marketplace.spec.ts']).toContain('src/shared/extensions/marketplace.ts')
     expect(Object.keys(graph)).toEqual(e2eSpecs())
   })
 })
@@ -204,6 +215,40 @@ describe('planChanges', () => {
 
   it('drops a deleted spec from the e2e plan', () => {
     expect(planChanges(['e2e/no-such.spec.ts'], 'HEAD').e2e).toEqual([])
+  })
+
+  it('runs the @core tests of the real specs for a hub change, never an empty list', () => {
+    const { e2e } = planChanges(['src/main/app.ts'], 'HEAD')
+    expect(e2e).toEqual(coreTests().sort())
+    expect(e2e?.length).toBeGreaterThan(0)
+    expect(e2e?.some((entry) => entry.includes('sandbox'))).toBe(false)
+  })
+})
+
+describe('coreTests', () => {
+  it('names every @core test by the file and line of its test call', () => {
+    const found = coreTests()
+    const marks = e2eSpecs().flatMap(
+      (spec) => readFileSync(join(ROOT, spec), 'utf8').match(/@core\b/g) ?? [],
+    )
+    expect(found).toHaveLength(marks.length)
+    expect(found).toContain('e2e/smoke.spec.ts:5')
+    for (const entry of found) {
+      const [spec, line] = entry.split(':')
+      const source = readFileSync(join(ROOT, spec), 'utf8').split('\n')
+      expect(source[Number(line) - 1], entry).toMatch(/^test\(/)
+    }
+  })
+})
+
+describe('e2eWeight', () => {
+  it('counts a spec as one and every five single tests as one more', () => {
+    expect(e2eWeight([])).toBe(0)
+    expect(e2eWeight(['e2e/a.spec.ts', 'e2e/b.spec.ts'])).toBe(2)
+    expect(e2eWeight(['e2e/a.spec.ts', 'e2e/b.spec.ts:3'])).toBe(2)
+    const tests = Array.from({ length: 33 }, (_, index) => `e2e/c.spec.ts:${index + 1}`)
+    expect(e2eWeight(tests)).toBe(7)
+    expect(e2eShards(e2eWeight(tests))).toEqual([1])
   })
 })
 
@@ -245,8 +290,8 @@ describe('planAgainst', () => {
 describe('domFileReaders', () => {
   it('lists the dom tests that read the source tree at run time', () => {
     const found = domFileReaders()
-    expect(found).toContain('src/renderer/lib/motion.test.tsx')
-    expect(found).toContain('src/renderer/lib/typography.test.ts')
+    expect(found).toContain('src/renderer/lib/app/motion.test.tsx')
+    expect(found).toContain('src/renderer/lib/theme/typography.test.ts')
     expect(found).not.toContain('src/renderer/layout/tree.test.ts')
   })
 })
@@ -256,9 +301,9 @@ describe('nodeFolderReaders', () => {
     const found = nodeFolderReaders()
     expect(found['e2e/']).toContain('test/e2eImports.test.ts')
     expect(found['e2e/']).toContain('test/e2eAreas.test.ts')
-    expect(found['.github/']).toContain('src/main/releasePackaging.test.ts')
+    expect(found['.github/']).toContain('src/main/updates/releasePackaging.test.ts')
     expect(found['.github/']).toContain('test/ciMergeQueue.test.ts')
-    expect(found['.github/']).not.toContain('src/main/releaseCheck.test.ts')
+    expect(found['.github/']).not.toContain('src/main/updates/releaseCheck.test.ts')
   })
 })
 
@@ -278,7 +323,7 @@ describe('vitestArgs', () => {
 
 describe('vitest related', () => {
   it('follows a ?raw import of a markdown file to the test that imports it', async () => {
-    const skill = join(ROOT, 'src/main/agent/ostia-skill.md')
+    const skill = join(ROOT, 'src/main/agents/ostia-skill.md')
     const vitest = await createVitest(
       'test',
       { root: ROOT, watch: false, project: ['node'], related: [skill] },
@@ -286,10 +331,10 @@ describe('vitest related', () => {
       {},
     )
     try {
-      const specs = await vitest.globTestSpecs(['src/main/managerAgent.test.ts'])
+      const specs = await vitest.globTestSpecs(['src/main/manager/managerAgent.test.ts'])
       const related = await vitest.filterTestsBySource(specs)
       expect(related.map((spec) => spec.moduleId)).toEqual([
-        join(ROOT, 'src/main/managerAgent.test.ts'),
+        join(ROOT, 'src/main/manager/managerAgent.test.ts'),
       ])
     } finally {
       await vitest.close()

@@ -1,12 +1,19 @@
-import { openNewWindow } from '../lib/newWorkspace'
+import { openNewWindow } from '@/lib/workspaces/newWorkspace'
 import {
   movePaneToNewWindow,
   moveWorkspaceToNewWindow,
   returnToMainWindow,
-} from '../lib/windowHandoff'
+} from '@/lib/workspaces/windowHandoff'
 import { registerCore } from './core'
 
 export function registerWindowCommands(detached: boolean): void {
+  registerCore({
+    id: 'window.reload',
+    category: 'window',
+    target: 'none',
+    capabilities: ['destructive'],
+    run: () => window.ostia.diagnostics.reloadWindow(),
+  })
   registerCore<undefined, { opened: boolean }>({
     id: 'window.new',
     category: 'window',

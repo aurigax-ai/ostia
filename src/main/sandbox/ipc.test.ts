@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_SANDBOX_GLOBALS } from '../../shared/sandbox'
+import { DEFAULT_SANDBOX_GLOBALS } from '../../shared/sandbox/sandbox'
 import { ViolationLog, parseViolationLine } from './violations'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()

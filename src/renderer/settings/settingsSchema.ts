@@ -1,7 +1,14 @@
-import { GIT_POLL_SECONDS } from '@shared/git'
-import { PORTS_INTERVAL_SECONDS } from '@shared/ports'
-import { CHORDS_PER_COMMAND_MAX } from '../../shared/chordSpec'
-import { GLOBAL_HOTKEY_MAX_LENGTH } from '../../shared/globalHotkey'
+import { DEFAULT_CHORDS, bindableIds } from '@/lib/keys/chords'
+import {
+  BELL_MODES,
+  LONG_COMMAND_MAX_SECONDS,
+  LONG_COMMAND_MIN_SECONDS,
+} from '@shared/app/notificationSettings'
+import { MATCH_OSTIA_THEME } from '@shared/app/themeChoice'
+import { GIT_POLL_SECONDS } from '@shared/boards/git'
+import { PORTS_INTERVAL_SECONDS } from '@shared/boards/ports'
+import { CHORDS_PER_COMMAND_MAX } from '@shared/keyboard/chordSpec'
+import { GLOBAL_HOTKEY_MAX_LENGTH } from '@shared/keyboard/globalHotkey'
 import {
   KEYBOARD_PLATFORMS,
   type KeyboardPlatform,
@@ -9,24 +16,17 @@ import {
   TERMINAL_KEYMAPS,
   isKeyboardPlatform,
   keyboardPlatform,
-} from '../../shared/keyboardPresets'
-import {
-  BELL_MODES,
-  LONG_COMMAND_MAX_SECONDS,
-  LONG_COMMAND_MIN_SECONDS,
-} from '../../shared/notificationSettings'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
+} from '@shared/keyboard/keyboardPresets'
+import { TERMINAL_SEND_MAX, TERMINAL_SEND_TYPES } from '@shared/keyboard/terminalKeys'
+import { REDACTION_PATTERNS_MAX, REDACTION_PATTERN_MAX } from '@shared/privacy/redaction'
 import {
   CORE_CHIP_IDS,
   MAX_PROMPT_CHIPS,
   PROMPT_SEPARATORS,
   PROMPT_STYLES,
-} from '../../shared/promptSettings'
-import { REDACTION_PATTERNS_MAX, REDACTION_PATTERN_MAX } from '../../shared/redaction'
-import { TERMINAL_SEND_MAX, TERMINAL_SEND_TYPES } from '../../shared/terminalKeys'
-import { SHELL_SETTING_MAX_LENGTH } from '../../shared/terminalShell'
-import { MATCH_OSTIA_THEME } from '../../shared/themeChoice'
-import { DEFAULT_CHORDS, bindableIds } from '../lib/chords'
+} from '@shared/terminal/promptSettings'
+import { SHELL_SETTING_MAX_LENGTH } from '@shared/terminal/terminalShell'
+import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import { platform } from '../platform'
 import { BUILTIN_COLOR_SCHEMES } from '../plugins/colorSchemes'
 import { ACTIONS_MAX, ACTION_ICONS, ACTION_ID, ACTION_PLACES, ACTION_TITLE_MAX } from './actions'
@@ -85,8 +85,8 @@ const CHORD_VALUE = {
     'elsewhere), a list of chords that all run the command (menus show the first one that ' +
     'works everywhere), or null to unbind. A chord written "terminal:Cmd+K" runs the ' +
     'command only while a terminal has the focus, and elsewhere the key keeps its other ' +
-    'use. Chords the shell needs are ignored: plain Ctrl+letter, plain or Ctrl arrows, ' +
-    'Escape, Tab and keys without Ctrl/Cmd.',
+    'use. "Shift+Shift" is Shift pressed twice on its own. Chords the shell needs are ' +
+    'ignored: plain Ctrl+letter, plain or Ctrl arrows, Escape, Tab and keys without Ctrl/Cmd.',
 }
 
 export function keybindingsSchema(ids: readonly string[]) {
@@ -187,7 +187,7 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'boolean',
           description:
             'Switch between lightTheme and darkTheme when the operating system switches. When ' +
-            'off, "theme" is used. Default: false.',
+            'off, "theme" is used. Default: true.',
         },
         lightTheme: {
           type: 'string',
@@ -273,8 +273,9 @@ export const SETTINGS_JSON_SCHEMA = {
         historySuggestions: {
           type: 'boolean',
           description:
-            'Show the latest matching history command as gray text in the input editor; Right ' +
-            'arrow or End accepts it. Default: true.',
+            'Suggest commands from this session and from the shell’s history file in the input ' +
+            'editor: gray text (Right arrow or End accepts it), Tab arguments and Up. When false ' +
+            'the history file is not read. Default: true.',
         },
         copyOnSelect: {
           type: 'boolean',
@@ -303,19 +304,21 @@ export const SETTINGS_JSON_SCHEMA = {
         checkForUpdates: {
           type: 'boolean',
           description:
-            'Ask GitHub once after launch and then once a day whether a newer release exists, ' +
+            'Ask GitHub once after launch and then once an hour whether a newer release exists, ' +
             'and show a notice when one does. Nothing is downloaded or installed. Only you can ' +
             'change this, in Settings → About. Default: true.',
         },
         updateChannel: {
           type: 'string',
-          enum: ['stable', 'main'],
+          enum: ['stable', 'beta', 'main'],
           description:
-            'Which builds the update check offers. "stable" offers releases only. "main" also ' +
-            'offers the daily build of the main branch and release candidates, and a newer ' +
-            'release when there is one. Offered only for an install from the tarball or a ' +
-            'local build; package managers stay on stable. Only you can change this, in ' +
-            'Settings → About. Default: stable.',
+            'Which builds the update check offers. "stable" offers releases only. "beta" also ' +
+            'offers release candidates and installs them in the app: macOS (the dmg or ' +
+            'Homebrew install, shown as "Receive beta updates") and the Linux tarball or a ' +
+            'local build. "main" (the Linux tarball or a local build) also offers the daily ' +
+            'build of the main branch and release candidates. A newer release is offered on ' +
+            'every channel. apt stays on stable. Only you can change this, in Settings → ' +
+            'About. Default: stable.',
         },
         discreteGpu: {
           type: 'boolean',
@@ -479,7 +482,7 @@ export const SETTINGS_JSON_SCHEMA = {
           description:
             'Let programs in a terminal set the clipboard with OSC 52 (tmux, vim and agents ' +
             'over ssh copy this way). Programs can never read the clipboard. Only you can ' +
-            'change this, in Settings; agents cannot. Default: false.',
+            'change this, in Settings; agents cannot. Default: true.',
         },
         shell: {
           type: 'string',
@@ -778,7 +781,7 @@ export const SETTINGS_JSON_SCHEMA = {
         },
         closeToTray: {
           type: 'boolean',
-          description: `Closing the window hides ${PRODUCT_DISPLAY_NAME} instead of quitting; your terminals keep running and a tray icon brings the window back. Quit from the tray icon. Needs a desktop with a system tray. Default: false.`,
+          description: `Closing the window hides ${PRODUCT_DISPLAY_NAME} instead of quitting; your terminals keep running and a tray icon brings the window back. Quit from the tray icon. Needs a desktop with a system tray. Default: true.`,
         },
         globalHotkey: {
           type: 'string',

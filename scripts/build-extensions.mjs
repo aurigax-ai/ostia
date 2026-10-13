@@ -14,7 +14,7 @@ const panelBaseCss = join(srcRoot, 'sdk/panel.css')
 async function writeCatalog(exportName, file) {
   const bundle = resolve(builtinRoot, 'dict-build.mjs')
   await build({
-    entryPoints: ['src/shared/dict.ts'],
+    entryPoints: ['src/shared/app/dict.ts'],
     outfile: bundle,
     bundle: true,
     platform: 'node',

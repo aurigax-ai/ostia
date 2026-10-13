@@ -1,8 +1,9 @@
+import { DEFAULT_CHORDS, defaultChords } from '@/lib/keys/chords'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { resetWorkspaceIds, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { SnapshotWorkspace } from '@shared/types'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { useLayoutStore } from '../stores/layoutStore'
-import { useSettingsStore } from '../stores/settingsStore'
-import { resetWorkspaceIds, useWorkspacesStore } from '../stores/workspacesStore'
 import { commands } from './registry'
 import { registerWindowCommands } from './windowCommands'
 
@@ -22,6 +23,7 @@ afterEach(() => {
   useLayoutStore.setState(layoutInit, true)
   resetWorkspaceIds()
   commands.unregister('window.new')
+  commands.unregister('window.reload')
   commands.unregister('window.moveToMain')
   commands.unregister('workspace.moveToNewWindow')
   commands.unregister('pane.moveToNewWindow')
@@ -86,5 +88,29 @@ describe('window.new', () => {
     expect(commands.has('workspace.moveToNewWindow')).toBe(false)
     await commands.exec('window.new')
     expect(opened()).toHaveLength(1)
+  })
+})
+
+describe('window.reload', () => {
+  it('asks main to reload the window through its recovery path, and nothing else', async () => {
+    registerWindowCommands(false)
+
+    const res = await commands.exec('window.reload')
+
+    expect(res.ok).toBe(true)
+    expect(window.ostia.diagnostics.reloadWindow).toHaveBeenCalledTimes(1)
+    expect(window.ostia.windows.openWith).not.toHaveBeenCalled()
+  })
+
+  it('is available in a detached window too', () => {
+    registerWindowCommands(true)
+
+    expect(commands.has('window.reload')).toBe(true)
+  })
+
+  it('has no default shortcut on any platform', () => {
+    expect(DEFAULT_CHORDS).not.toHaveProperty('window.reload')
+    expect(defaultChords('window.reload', true)).toEqual([])
+    expect(defaultChords('window.reload', false)).toEqual([])
   })
 })

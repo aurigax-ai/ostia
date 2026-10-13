@@ -24,6 +24,8 @@ const deps = {
   listPanes: vi.fn().mockResolvedValue([]),
   listWorkspaces: vi.fn().mockResolvedValue([]),
   listWorkspaceGroups: vi.fn().mockResolvedValue([]),
+  artifactsDir: vi.fn().mockReturnValue(null),
+  openArtifact: vi.fn().mockResolvedValue(true),
   fileScope: vi.fn().mockReturnValue({
     home: '/nonexistent-home',
     dataDirs: [],

@@ -11,7 +11,7 @@ test('the terminal text stops before the scrollbar and inside the pane', async (
     await openWorkspace(win)
     await win.locator('.xterm-helper-textarea').first().focus()
     await win.keyboard.type('seq 1 400\n')
-    const bar = win.locator('.xterm-scrollable-element > .scrollbar.vertical').first()
+    const bar = win.locator('.xterm-scrollable-element > .xterm-scrollbar.xterm-vertical').first()
     await expect(win.locator('.xterm-rows')).toContainText('400')
     await win.locator('.xterm-screen').first().hover()
     await win.mouse.wheel(0, -300)
@@ -26,6 +26,22 @@ test('the terminal text stops before the scrollbar and inside the pane', async (
     expect(scrollbar).not.toBeNull()
     expect(screen.x + screen.width).toBeLessThanOrEqual((scrollbar?.x ?? 0) + 0.5)
     expect(screen.y + screen.height).toBeLessThanOrEqual(host.y + host.height + 0.5)
+  } finally {
+    await app.close()
+  }
+})
+
+test('the terminal viewport stays transparent so no black frame shows around the text', async () => {
+  const dataHome = freshDataHome()
+  const app = await electron.launch(isolatedLaunch(dataHome))
+  try {
+    const win = await app.firstWindow()
+    await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
+    await openWorkspace(win)
+    const viewport = win.locator('.xterm-viewport').first()
+    await expect(viewport).toBeAttached()
+    const background = await viewport.evaluate((el) => getComputedStyle(el).backgroundColor)
+    expect(background).toBe('rgba(0, 0, 0, 0)')
   } finally {
     await app.close()
   }

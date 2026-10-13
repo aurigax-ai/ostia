@@ -1,4 +1,4 @@
-import type { BrowserProfile } from '@shared/browserProfile'
+import type { BrowserProfile } from '@shared/browser/browserProfile'
 import type { OstiaBridge, SyncStatus } from '@shared/types'
 import { vi } from 'vitest'
 
@@ -54,8 +54,9 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     pty: {
       attach: vi.fn().mockResolvedValue({ created: true, buffer: '', cursor: 0, dropped: false }),
       detach: vi.fn(),
-      hibernate: vi.fn().mockResolvedValue(true),
+      hibernate: vi.fn().mockResolvedValue('hibernated'),
       stashed: vi.fn().mockResolvedValue(null),
+      keptWaiting: vi.fn().mockResolvedValue([]),
       restart: vi.fn().mockResolvedValue(true),
       reportAgentRunning: vi.fn(),
       reportWaking: vi.fn(),
@@ -64,6 +65,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       resize: vi.fn(),
       commands: vi.fn().mockResolvedValue([]),
       listDir: vi.fn().mockResolvedValue([]),
+      history: vi.fn().mockResolvedValue([]),
       localPrompt: vi.fn().mockResolvedValue(true),
       foreground: vi.fn().mockResolvedValue(null),
       activity: vi.fn().mockResolvedValue(null),
@@ -151,6 +153,20 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       files: vi.fn().mockResolvedValue(0),
       reveal: vi.fn(),
     },
+    artifacts: {
+      list: vi.fn().mockResolvedValue(null),
+      pad: vi.fn().mockResolvedValue(null),
+      reveal: vi.fn(),
+      onChanged: vi.fn(noopUnsub),
+    },
+    openWaits: { onEnded: vi.fn(noopUnsub) },
+    preview: {
+      open: vi.fn().mockResolvedValue(null),
+      shown: vi.fn(),
+      stop: vi.fn(),
+      close: vi.fn(),
+      onEvent: vi.fn(noopUnsub),
+    },
     windows: {
       info: vi.fn().mockResolvedValue({ windowId: '1', detached: false }),
       detach: vi.fn().mockResolvedValue(true),
@@ -217,7 +233,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     },
     clipboard: {
       edit: vi.fn().mockResolvedValue(undefined),
-      hasImage: vi.fn().mockResolvedValue(false),
+      contents: vi.fn().mockResolvedValue({ files: [], image: false }),
       setChords: vi.fn(),
     },
     guestChords: {
@@ -227,6 +243,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     openPath: {
       openDefault: vi.fn().mockResolvedValue({ ok: true }),
       reveal: vi.fn().mockResolvedValue({ ok: true }),
+      openLink: vi.fn().mockResolvedValue(true),
       project: vi.fn().mockResolvedValue(null),
     },
     agentSession: {
@@ -294,6 +311,14 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       remove: vi.fn().mockResolvedValue(true),
       copyPassword: vi.fn().mockResolvedValue(true),
       import: vi.fn().mockResolvedValue({ ok: false, error: 'cancelled' }),
+    },
+    scriptTokens: {
+      list: vi.fn().mockResolvedValue({ tokens: [], retired: [], workspaces: [], groups: [] }),
+      create: vi.fn().mockResolvedValue({ ok: false, error: 'not mocked' }),
+      update: vi.fn().mockResolvedValue({ ok: false, error: 'not mocked' }),
+      revoke: vi.fn().mockResolvedValue(true),
+      usage: vi.fn().mockResolvedValue(null),
+      onChanged: vi.fn(noopUnsub),
     },
     approvals: {
       state: vi.fn().mockResolvedValue({ pending: [], history: [] }),

@@ -2,7 +2,7 @@ import { type ChildProcess, spawn } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { QuestionRequest, QuestionState } from '../shared/questions'
+import type { QuestionRequest, QuestionState } from '../shared/agents/questions'
 import type { CommandResult } from '../shared/types'
 
 const WINDOW_ID = '7'
@@ -21,10 +21,10 @@ vi.mock('electron', () => ({
   },
 }))
 
-const { registerControlServer, stopControlServer } = await import('../main/controlServer')
-const { registerPane, removePane } = await import('../main/idRegistry')
-const { questions, registerQuestions } = await import('../main/questions')
-const { registerPermissionAsk } = await import('../main/permissionAsk')
+const { registerControlServer, stopControlServer } = await import('../main/control/controlServer')
+const { registerPane, removePane } = await import('../main/control/idRegistry')
+const { questions, registerQuestions } = await import('../main/approvals/questions')
+const { registerPermissionAsk } = await import('../main/approvals/permissionAsk')
 
 let phoneCanAnswer = true
 registerQuestions({ opened: () => {}, settled: () => {} })
@@ -149,6 +149,34 @@ describe('ostia ask (the real CLI against a live control server)', () => {
     const res = await run.done
     expect(res.code).toBe(0)
     expect(JSON.parse(res.stdout)).toEqual({ answered: true, choices: ['lint', 'unit'], text: '' })
+  })
+
+  it('ostia ask takes a free-text reply and several choices with a comment', async () => {
+    const run = ostia([
+      'ask',
+      'Which checks?',
+      '--choice',
+      'lint',
+      '--choice',
+      'unit',
+      '--choice',
+      'e2e',
+      '--multi',
+      '--json',
+    ])
+    const question = await nextQuestion()
+    expect(question.mode).toBe('multi')
+    questions()?.answer(WINDOW_ID, question.id, {
+      choices: [2, 0],
+      text: 'skip unit, it is red on main',
+    })
+    const res = await run.done
+    expect(res.code).toBe(0)
+    expect(JSON.parse(res.stdout)).toEqual({
+      answered: true,
+      choices: ['lint', 'e2e'],
+      text: 'skip unit, it is red on main',
+    })
   })
 
   it('reads the context from stdin only for --context -', async () => {

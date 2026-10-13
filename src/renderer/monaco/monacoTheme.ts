@@ -1,6 +1,6 @@
+import { ensureContrast, mix } from '@/lib/theme/color'
 import { converter, formatHex, modeOklch, parse, useMode, wcagContrast } from 'culori/fn'
 import type { editor } from 'monaco-editor'
-import { ensureContrast, mix } from '../lib/color'
 import type { ColorScheme } from '../plugins/types'
 
 useMode(modeOklch)

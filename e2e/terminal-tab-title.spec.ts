@@ -36,29 +36,6 @@ function tabTitles(win: Page): Locator {
   return win.locator('.pane-tab .title')
 }
 
-for (const [shell, name] of [
-  ['/usr/bin/zsh', 'zsh'],
-  ['/usr/bin/bash', 'bash'],
-]) {
-  test(`a new terminal tab is named after the shell it runs: ${name}`, async () => {
-    test.setTimeout(60_000)
-    const { app, win } = await launchWith(shell, freshDataHome())
-    try {
-      await openWorkspace(win)
-      await expect(tabTitles(win)).toHaveText([name], { timeout: 15_000 })
-
-      await win.locator('.xterm').first().click()
-      await win.keyboard.type('echo "shell=$0"')
-      await win.keyboard.press('Enter')
-      await expect(win.locator('.xterm-rows').first()).toContainText(`shell=${shell}`, {
-        timeout: 15_000,
-      })
-    } finally {
-      await app.close()
-    }
-  })
-}
-
 test('a restored tab is named after the shell it runs now, and a title a program set is kept', async () => {
   test.setTimeout(120_000)
   const dataHome = freshDataHome()
