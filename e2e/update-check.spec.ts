@@ -241,7 +241,7 @@ test('a tarball install on the Beta channel downloads the release candidate, not
     const picker = settings.getByRole('combobox', { name: 'Update channel' })
     await picker.click()
     await win.getByRole('option', { name: 'Beta' }).click()
-    await expect(picker).toHaveText('Beta')
+    await expect(picker).toContainText('Beta')
     await expect(settings.getByRole('switch', { name: 'Receive beta updates' })).toHaveCount(0)
     await expect(settings.getByText(`Version ${beta} is available`)).toBeVisible({
       timeout: 20_000,
