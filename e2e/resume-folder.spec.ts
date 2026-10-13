@@ -64,6 +64,9 @@ test('waking an agent whose folder was removed shows a notice and runs nothing',
   try {
     renameSync(tree, join(root, 'work', 'tree-moved'))
     await sleeping.click()
+    await win
+      .locator('.pane-slot:not([data-hidden]) .hibernated-view')
+      .click({ position: { x: 20, y: 20 } })
     const notice = win.getByRole('region', { name: 'Agent folder missing' })
     await expect(notice).toBeVisible({ timeout: 20_000 })
     await expect(notice).toContainText(tree)
