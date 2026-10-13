@@ -2,7 +2,7 @@ import type { OstiaTerminal as Terminal } from './ostiaTerminal'
 
 export type WheelRoute = 'report' | 'arrows'
 
-const WHEEL_NOTCH_DELTA = 50
+const WHEEL_NOTCH_DELTA = 120
 
 const WHEEL_TRACKING_MODES: ReadonlySet<string> = new Set(['vt200', 'drag', 'any'])
 
@@ -35,16 +35,12 @@ export function createWheelRows(): WheelRows {
   let pending = 0
   return {
     take: (deltaY, scale) => {
-      if (deltaY === 0) return 0
-      if (scale.notches && Math.abs(deltaY) >= WHEEL_NOTCH_DELTA) {
-        pending = 0
-        return Math.sign(deltaY)
-      }
-      if (!(scale.cellHeight > 0)) return 0
+      const unit = scale.notches ? WHEEL_NOTCH_DELTA : scale.cellHeight
+      if (deltaY === 0 || !(unit > 0)) return 0
       if (Math.sign(deltaY) !== Math.sign(pending)) pending = 0
-      pending += (deltaY * scale.sensitivity) / scale.cellHeight
-      const rows = Math.trunc(pending) || 0
-      pending -= rows
+      pending += deltaY * scale.sensitivity
+      const rows = Math.trunc(pending / unit) || 0
+      pending -= rows * unit
       return Math.max(-scale.maxRows, Math.min(scale.maxRows, rows))
     },
     reset: () => {
