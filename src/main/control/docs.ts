@@ -195,6 +195,14 @@ const CLI_HELP = `ostia — control-socket CLI
                                  out, 4 pane closed, 1 resume-failed (the agent could not
                                  start). Then send: ostia pane wake X --wait && ostia pane
                                  send X --enter "..."
+  ostia pane hibernate <pane>… [--json]  stop the agent of those panes to save memory
+                                 (hibernated: true in ostia pane.list): the same busy checks
+                                 as workspace.hibernateAgents, so a pane whose agent still
+                                 runs a subagent, a background task, a scheduled task or a
+                                 child process is skipped with its reason. Prints the
+                                 hibernated paneIds; exit 2 when a pane was skipped, also
+                                 one with no agent. A pane already asleep answers hibernated.
+                                 Asks for kill-pane unless you opened the pane
   ostia pane close <pane>… [--json]  close those panes at once, even while a command runs in
                                  them; the human is asked only about unsaved file changes.
                                  Prints the closed paneIds. A tab you opened with process run
@@ -240,7 +248,7 @@ const CLI_HELP = `ostia — control-socket CLI
                                  Scripts reach only these methods: whoami, docs, command.list
                                  (the commands below), pane.list, pane.info, workspace.list,
                                  workspace.groups, pane.read, pane.input, pane.wait, pane.wake,
-                                 pane.close, pane.rename, pane.moveTo, workspace.rename,
+                                 pane.hibernate, pane.close, pane.rename, pane.moveTo, workspace.rename,
                                  process.run, process.list, process.info, process.output,
                                  process.kill, process.restart, agent.run, agent.resume, notify
                                  (a desktop notification only) and bus.send; and these commands:

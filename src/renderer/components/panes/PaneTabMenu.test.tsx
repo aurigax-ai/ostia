@@ -2,11 +2,12 @@ import '@testing-library/jest-dom/vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
 import { ActionConfirmDialog } from '@/components/settings/ActionConfirmDialog'
-import { paneIds } from '@/layout/tree'
+import { paneIds, tabsOf } from '@/layout/tree'
 import type { LayoutNode, PaneNode } from '@/layout/types'
 import * as blockActions from '@/lib/terminal/blockActions'
 import { useActionConfirmStore } from '@/stores/agents/actionConfirmStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -75,6 +76,77 @@ describe('PaneTabMenu zoom', () => {
     openMenu()
     await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'Lock tab' }))
     expect(exec).toHaveBeenCalledWith('pane.toggleLock', { paneId: 'left' })
+  })
+})
+
+describe('PaneTabMenu close others and hibernation', () => {
+  let layoutInit: ReturnType<typeof useLayoutStore.getState>
+  let blocksInit: ReturnType<typeof useBlocksStore.getState>
+
+  beforeAll(() => {
+    layoutInit = useLayoutStore.getState()
+    blocksInit = useBlocksStore.getState()
+  })
+
+  afterEach(() => {
+    cleanup()
+    useLayoutStore.setState(layoutInit, true)
+    useBlocksStore.setState(blocksInit, true)
+    vi.restoreAllMocks()
+  })
+
+  const shell: PaneNode = { type: 'pane', id: 'a', kind: 'terminal', title: 'zsh' }
+  const agentTab: PaneNode = {
+    type: 'pane',
+    id: 'b',
+    kind: 'terminal',
+    title: 'claude',
+    resume: { agent: 'claude', id: 'tok' },
+  }
+
+  function openMenu(pane: PaneNode, children: PaneNode[]): void {
+    useLayoutStore.setState({
+      byWorkspace: {
+        w: { root: tabsOf(pane.id, ...children), activePaneId: pane.id, zoomedPaneId: null },
+      },
+    })
+    render(<PaneTabMenu pane={pane} workspaceId="w" trigger={<button type="button">tab</button>} />)
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'tab' }))
+  }
+
+  it('closes the other tabs of the group from the tab menu', async () => {
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    openMenu(shell, [shell, agentTab])
+    await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'Close other tabs' }))
+    expect(exec).toHaveBeenCalledWith('tab.closeOthers', { paneId: 'a' })
+  })
+
+  it('leaves Close other tabs out when the tab is alone', async () => {
+    openMenu(shell, [shell])
+    expect(await screen.findByRole('menuitem', { name: 'Lock tab' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Close other tabs' })).toBeNull()
+  })
+
+  it('hibernates an agent tab, and offers no hibernation for a plain shell', async () => {
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    useBlocksStore.getState().promptStart('b', { line: 0 }, null)
+    useBlocksStore.getState().commandStart('b', { line: 1 }, 'claude')
+    openMenu(agentTab, [shell, agentTab])
+    await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'Hibernate tab' }))
+    expect(exec).toHaveBeenCalledWith('pane.hibernate', { paneId: 'b' })
+    cleanup()
+    openMenu(shell, [shell, agentTab])
+    expect(await screen.findByRole('menuitem', { name: 'Lock tab' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /Hibernate tab|Wake tab/ })).toBeNull()
+  })
+
+  it('wakes a hibernated agent tab instead', async () => {
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    const asleep: PaneNode = { ...agentTab, hibernated: true }
+    openMenu(asleep, [shell, asleep])
+    expect(screen.queryByRole('menuitem', { name: 'Hibernate tab' })).toBeNull()
+    await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'Wake tab' }))
+    expect(exec).toHaveBeenCalledWith('pane.wake', { paneId: 'b' })
   })
 })
 

@@ -22,7 +22,7 @@ import { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { SCRIPT_COMMANDS } from '../../main/control/commandArgs'
 import { type Capability, DEFAULT_CAPABILITIES } from '../../shared/capabilities'
-import { createPane, splitOf, tabsOf } from '../layout/tree'
+import { createPane, paneIds, splitOf, tabsOf } from '../layout/tree'
 import { registerBuiltinCommands } from './builtins'
 import { type CommandContext, commands } from './registry'
 
@@ -1958,6 +1958,40 @@ describe('builtins with zero workspaces', () => {
 
     expect(res.ok).toBe(false)
     expect(useWorkspacesStore.getState().workspaces).toEqual([])
+  })
+})
+
+describe('tab menu commands in the palette', () => {
+  it('lists Close Other Tabs, Hibernate Tab and Wake Tab, and runs them on the pane it is given', async () => {
+    const listed = new Map(commands.list().map((c) => [c.id, c]))
+    for (const [id, title] of [
+      ['tab.closeOthers', 'Close Other Tabs'],
+      ['pane.hibernate', 'Hibernate Tab'],
+      ['pane.wake', 'Wake Tab'],
+    ]) {
+      expect(listed.get(id)?.hidden).toBeFalsy()
+      expect(listed.get(id)?.title).toBe(title)
+    }
+    const a = { ...createPane('terminal'), resume: { agent: 'claude' as const, id: 'tok' } }
+    const b = createPane('terminal')
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
+      activeWorkspaceId: 's1',
+    })
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: { type: 'tabs', id: 't', activeId: a.id, children: [a, b] },
+          activePaneId: a.id,
+          zoomedPaneId: null,
+        },
+      },
+    })
+    const r = await commands.execWith(ctx('s1', a.id), 'tab.closeOthers', { paneId: a.id })
+    expect(r).toMatchObject({ ok: true })
+    expect(paneIds(useLayoutStore.getState().byWorkspace.s1.root)).toEqual([a.id])
+    const slept = await commands.execWith(ctx('s1', a.id), 'pane.hibernate', { paneId: a.id })
+    expect(slept).toMatchObject({ ok: true, result: { hibernated: false, outcome: 'not-agent' } })
   })
 })
 

@@ -1513,6 +1513,9 @@ commands:
                             command at a fresh prompt (same asks as pane send); --wait
                             returns once their agents started: exit 0 started, 3 timed
                             out, 4 pane closed
+  pane hibernate <pane>… [--json]
+                            stop those agent panes to save memory (kill-pane unless you opened
+                            them); a busy agent is skipped: exit 2
   pane close <pane>… [--json]
                             close those panes at once, even while a command runs (a tab you
                             opened needs nothing more, any other asks for kill-pane)

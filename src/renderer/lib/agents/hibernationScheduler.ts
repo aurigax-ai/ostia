@@ -53,6 +53,16 @@ export async function hibernatePane(workspaceId: string, paneId: string): Promis
   return (await stopPane(workspaceId, paneId)) === 'hibernated'
 }
 
+export type PaneHibernateOutcome = HibernateOutcome | 'not-agent'
+
+export async function hibernateAgentPane(
+  workspaceId: string,
+  paneId: string,
+): Promise<PaneHibernateOutcome> {
+  if (!hibernatableAgentPanes(workspaceId).includes(paneId)) return 'not-agent'
+  return stopPane(workspaceId, paneId)
+}
+
 export function wakePane(paneId: string, onSettled: () => void = () => {}): boolean {
   const workspaceId = workspaceOfPane(paneId)
   const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined

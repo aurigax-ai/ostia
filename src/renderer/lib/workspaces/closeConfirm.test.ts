@@ -1,3 +1,4 @@
+import { paneIds } from '@/layout/tree'
 import type { LayoutNode, PaneNode } from '@/layout/types'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
@@ -17,6 +18,7 @@ import {
   collectQuitGroups,
   quitGroups,
   quitLosses,
+  requestCloseOtherTabs,
   requestClosePane,
   requestCloseWorkspace,
 } from './closeConfirm'
@@ -402,6 +404,67 @@ describe('what a quit loses', () => {
       expect(lost()).toEqual(['agents'])
       reportTurn('m1', 'waiting')
       expect(lost()).toEqual(['agents'])
+    })
+  })
+
+  describe('closing the other tabs', () => {
+    const tabs = (...children: PaneNode[]): LayoutNode => ({
+      type: 'tabs',
+      id: 't1',
+      activeId: children[0].id,
+      children,
+    })
+    const left = (): string[] => {
+      const root = useLayoutStore.getState().byWorkspace.w1?.root
+      return root ? paneIds(root) : []
+    }
+
+    it('keeps the tab it was asked about and closes the rest when nothing runs', async () => {
+      seedWorkspace(tabs(terminal('p1', false), terminal('p2', false), terminal('p3', false)))
+      await requestCloseOtherTabs('w1', 'p2')
+      expect(left()).toEqual(['p2'])
+    })
+
+    it('asks first when another tab runs a command, and closes nothing on Cancel', async () => {
+      seedWorkspace(tabs(terminal('p1', false), terminal('p2', false)))
+      run('p1', 'npm run dev')
+      const done = requestCloseOtherTabs('w1', 'p2')
+      await vi.waitFor(() => {
+        expect(useCloseConfirmStore.getState().pending?.groups[0]?.commands).toEqual([
+          'npm run dev',
+        ])
+      })
+      useCloseConfirmStore.getState().answer(false)
+      await done
+      expect(left()).toEqual(['p1', 'p2'])
+    })
+
+    it('closes them after the human confirms', async () => {
+      seedWorkspace(tabs(terminal('p1', false), terminal('p2', false)))
+      run('p1', 'npm run dev')
+      const done = requestCloseOtherTabs('w1', 'p2')
+      await vi.waitFor(() => expect(useCloseConfirmStore.getState().pending).not.toBeNull())
+      useCloseConfirmStore.getState().answer(true)
+      await done
+      expect(left()).toEqual(['p2'])
+    })
+
+    it('leaves a locked tab open', async () => {
+      seedWorkspace(
+        tabs(
+          terminal('p1', false),
+          { ...terminal('p2', false), locked: true },
+          terminal('p3', false),
+        ),
+      )
+      await requestCloseOtherTabs('w1', 'p1')
+      expect(left()).toEqual(['p1', 'p2'])
+    })
+
+    it('does nothing for a pane that is not in a tab group', async () => {
+      seedWorkspace(terminal('p1', false))
+      await requestCloseOtherTabs('w1', 'p1')
+      expect(left()).toEqual(['p1'])
     })
   })
 })

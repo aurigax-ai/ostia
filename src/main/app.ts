@@ -3801,6 +3801,7 @@ app.whenReady().then(() => {
     inputSent: (to) => void execCommand(targetOf(to), 'attention.typed'),
     hibernated: paneHibernated,
     wake: wakeHibernatedPane,
+    hibernate: (to) => execCommand(targetOf(to), 'pane.hibernate'),
     panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
     waking: paneWaking,
     close: (to) => execCommand(targetOf(to), 'pane.close'),
