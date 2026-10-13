@@ -63,9 +63,11 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { AppWindowIcon } from '@phosphor-icons/react'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 
 const LIST_CLASS = 'max-h-[min(27rem,calc(88vh-5rem))]'
+
+const SECONDARY_CLASS = 'min-w-0 truncate text-fg-muted text-ui-xs'
 
 function runFromPalette(id: string, args?: { argument: string }): void {
   countUsage('features', 'command', id)
@@ -214,7 +216,6 @@ export function CommandPalette(): JSX.Element {
                 }}
               />
               <CommandList className={LIST_CLASS}>
-                <PaletteColumns />
                 {mode === 'symbols' ? (
                   <SymbolItems
                     query={paletteQuery(search)}
@@ -372,7 +373,6 @@ function ChoiceStep({
         onValueChange={onValueChange}
       />
       <CommandList className={LIST_CLASS}>
-        <PaletteColumns />
         {choices !== null && choices.length === 0 ? (
           <CommandEmpty>{command.emptyChoices?.() ?? command.argument}</CommandEmpty>
         ) : null}
@@ -496,41 +496,6 @@ function WorkspaceItems({
   )
 }
 
-function PaletteColumns(): JSX.Element {
-  const ref = useRef<HTMLSpanElement>(null)
-  useLayoutEffect(() => {
-    const host = ref.current?.closest<HTMLElement>('[data-slot="command-list"]')
-    if (!host) return
-    const measure = (): void => {
-      const cap = Math.floor(
-        (host.querySelector('[data-slot="palette-row"]')?.clientWidth ?? 0) / 2,
-      )
-      host.style.removeProperty('--palette-name-w')
-      let name = 0
-      let keys = 0
-      for (const row of host.querySelectorAll('[data-slot="palette-row"]:not([data-fluid])')) {
-        const cell = row.querySelector('[data-slot="palette-name"]')
-        if (cell) name = Math.max(name, Number.parseFloat(getComputedStyle(cell).width) || 0)
-        keys = Math.max(keys, row.querySelector('[data-slot="palette-keys"]')?.scrollWidth ?? 0)
-      }
-      const width = Math.ceil(name)
-      if (width > 0)
-        host.style.setProperty('--palette-name-w', `${cap > 0 ? Math.min(width, cap) : width}px`)
-      host.style.setProperty('--palette-keys-w', `${keys}px`)
-    }
-    measure()
-    const mutations = new MutationObserver(measure)
-    mutations.observe(host, { childList: true, subtree: true, characterData: true })
-    const resizes = new ResizeObserver(measure)
-    resizes.observe(host)
-    return () => {
-      mutations.disconnect()
-      resizes.disconnect()
-    }
-  }, [])
-  return <span ref={ref} hidden />
-}
-
 function ItemRow({
   name,
   meta,
@@ -538,7 +503,6 @@ function ItemRow({
   detail,
   mono,
   nameMono,
-  fluid,
 }: {
   name: string
   meta?: string
@@ -546,40 +510,39 @@ function ItemRow({
   detail?: string
   mono?: boolean
   nameMono?: boolean
-  fluid?: boolean
 }): JSX.Element {
   return (
-    <span
-      data-slot="palette-row"
-      data-fluid={fluid ? '' : undefined}
-      className={cn(
-        'grid min-w-0 flex-1 items-center gap-x-3 tabular-nums',
-        fluid
-          ? 'grid-cols-[fit-content(50%)_var(--palette-keys-w,max-content)_minmax(0,1fr)]'
-          : 'grid-cols-[var(--palette-name-w,max-content)_var(--palette-keys-w,max-content)_minmax(0,1fr)]',
-      )}
-    >
+    <span data-slot="palette-row" className="flex min-w-0 flex-1 items-center gap-x-3 tabular-nums">
       <span
-        data-slot="palette-name"
-        className="flex max-w-full min-w-0 items-baseline gap-2 justify-self-start overflow-hidden"
+        data-slot="palette-title"
+        className="flex max-w-full min-w-0 shrink-0 items-center gap-x-2"
       >
-        <span className={cn('truncate', nameMono && 'font-mono')}>{name}</span>
-        {detail ? (
-          <span className="min-w-0 truncate text-fg-muted text-ui-xs">{detail}</span>
+        <span data-slot="palette-name" className={cn('min-w-0 truncate', nameMono && 'font-mono')}>
+          {name}
+        </span>
+        {keys ? (
+          <Kbd data-slot="palette-keys" className="shrink-0 whitespace-nowrap">
+            {keys}
+          </Kbd>
         ) : null}
       </span>
-      <span data-slot="palette-keys" className="justify-self-start">
-        {keys ? <Kbd className="whitespace-nowrap">{keys}</Kbd> : null}
-      </span>
-      <span
-        data-slot="palette-meta"
-        className={cn(
-          'min-w-0 max-w-full justify-self-end truncate text-right text-fg-muted text-ui-xs group-data-selected/command-item:text-fg',
-          mono && 'font-mono',
-        )}
-      >
-        {meta}
-      </span>
+      {detail ? (
+        <span data-slot="palette-detail" className={SECONDARY_CLASS}>
+          {detail}
+        </span>
+      ) : null}
+      {meta ? (
+        <span
+          data-slot="palette-meta"
+          className={cn(
+            SECONDARY_CLASS,
+            'group-data-selected/command-item:text-fg',
+            mono && 'font-mono',
+          )}
+        >
+          {meta}
+        </span>
+      ) : null}
     </span>
   )
 }

@@ -5,54 +5,65 @@ import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
 
-async function columns(win: Page) {
+const TITLE_GAP_MAX = 12.5
+
+async function rows(win: Page) {
   return win.evaluate(() => {
     const list = document.querySelector('[data-slot="command-list"]') as HTMLElement
     const listRect = list.getBoundingClientRect()
     const rowEls = [...document.querySelectorAll('[data-slot="palette-row"]')] as HTMLElement[]
-    const cap = Math.floor(rowEls[0].clientWidth / 2)
-    const nameColumn = Number.parseFloat(list.style.getPropertyValue('--palette-name-w'))
-    const rows = rowEls.map((row) => {
+    const measured = rowEls.map((row) => {
       const name = row.querySelector('[data-slot="palette-name"]') as HTMLElement
-      const title = name.firstElementChild as HTMLElement
+      const keys = row.querySelector<HTMLElement>('[data-slot="palette-keys"]')
+      const meta = row.querySelector<HTMLElement>('[data-slot="palette-meta"]')
       const text = document.createRange()
-      text.selectNodeContents(title)
-      const keys = row.querySelector('[data-slot="palette-keys"]') as HTMLElement
-      const meta = row.querySelector('[data-slot="palette-meta"]') as HTMLElement
+      text.selectNodeContents(name)
+      const textRect = text.getBoundingClientRect()
       const nameRect = name.getBoundingClientRect()
-      const keysRect = keys.getBoundingClientRect()
-      const metaRect = meta.getBoundingClientRect()
+      const keysRect = keys?.getBoundingClientRect()
+      const metaRect = meta?.getBoundingClientRect()
+      const before = keysRect ?? nameRect
       return {
-        nameRight: nameRect.left + name.scrollWidth,
-        keysLeft: keys.getBoundingClientRect().left,
-        hasKeys: keys.childElementCount > 0,
-        metaRight: metaRect.right,
-        metaClear: metaRect.left >= keysRect.right - 0.5 && metaRect.right <= listRect.right + 0.5,
-        metaCut: meta.scrollWidth > meta.clientWidth,
-        sameLine: Math.abs(keysRect.top - nameRect.top) < 20,
-        titleCut:
-          !row.hasAttribute('data-fluid') &&
-          text.getBoundingClientRect().width > title.getBoundingClientRect().width + 0.01,
+        keyGap: keysRect ? keysRect.left - textRect.right : null,
+        keysDimmer: keys ? getComputedStyle(keys).color !== getComputedStyle(name).color : true,
+        sameLine: keysRect ? Math.abs(keysRect.top - nameRect.top) < 20 : true,
+        metaGap: metaRect ? metaRect.left - before.right : null,
+        inside: (metaRect ?? before).right <= listRect.right + 0.5,
+        metaCut: meta ? meta.scrollWidth > meta.clientWidth : false,
+        titleCut: textRect.width > nameRect.width + 0.01,
       }
     })
-    const spread = (values: number[]) => Math.max(...values) - Math.min(...values)
-    const widest = rows.reduce((a, b) => (b.nameRight > a.nameRight ? b : a))
+    const gaps = (key: 'keyGap' | 'metaGap') =>
+      measured.map((r) => r[key]).filter((gap): gap is number => gap !== null)
     return {
-      count: rows.length,
-      keyed: rows.filter((r) => r.hasKeys).length,
-      sameLine: rows.every((r) => r.sameLine),
-      metaClear: rows.every((r) => r.metaClear),
-      metaCut: rows.filter((r) => r.metaCut).length,
-      titleCut: nameColumn < cap ? rows.filter((r) => r.titleCut).length : 0,
-      keysLeftSpread: spread(rows.map((r) => r.keysLeft)),
-      metaRightSpread: spread(rows.map((r) => r.metaRight)),
-      widestGap: widest.keysLeft - widest.nameRight,
-      keysWithinHalf: rows.every((r) => r.keysLeft - listRect.left <= listRect.width * 0.7),
+      count: measured.length,
+      keyGaps: gaps('keyGap'),
+      metaGaps: gaps('metaGap'),
+      keysDimmer: measured.every((r) => r.keysDimmer),
+      sameLine: measured.every((r) => r.sameLine),
+      inside: measured.every((r) => r.inside),
+      metaCut: measured.filter((r) => r.metaCut).length,
+      titleCut: measured.filter((r) => r.titleCut).length,
     }
   })
 }
 
-test('the palette lines keycaps up in one column right after the names and secondary text up at the right edge, with and without a query', async () => {
+function expectInline(found: Awaited<ReturnType<typeof rows>>): void {
+  expect(found.sameLine).toBe(true)
+  expect(found.inside).toBe(true)
+  expect(found.keysDimmer).toBe(true)
+  expect(found.titleCut).toBe(0)
+  for (const gap of found.keyGaps) {
+    expect(gap).toBeGreaterThan(0)
+    expect(gap).toBeLessThanOrEqual(TITLE_GAP_MAX)
+  }
+  for (const gap of found.metaGaps) {
+    expect(gap).toBeGreaterThan(0)
+    expect(gap).toBeLessThanOrEqual(TITLE_GAP_MAX)
+  }
+}
+
+test('each palette row shows its keycap directly after its title, dimmer, then the secondary text, with and without a query', async () => {
   const app = await electron.launch(isolatedLaunch())
   try {
     const win = await app.firstWindow()
@@ -62,32 +73,24 @@ test('the palette lines keycaps up in one column right after the names and secon
     const palette = win.getByRole('dialog', { name: 'Command palette' })
     await expect(palette.getByRole('option').first()).toBeVisible()
 
-    const all = await columns(win)
+    const all = await rows(win)
     expect(all.count).toBeGreaterThan(1)
-    expect(all.keyed).toBeGreaterThan(1)
-    expect(all.sameLine).toBe(true)
-    expect(all.metaClear).toBe(true)
-    expect(all.keysLeftSpread).toBeLessThanOrEqual(1)
-    expect(all.metaRightSpread).toBeLessThanOrEqual(1)
-    expect(all.widestGap).toBeLessThanOrEqual(24)
-    expect(all.keysWithinHalf).toBe(true)
-    expect(all.titleCut).toBe(0)
+    expect(all.keyGaps.length).toBeGreaterThan(1)
+    expect(all.metaGaps.length).toBeGreaterThan(1)
+    expectInline(all)
 
     await palette.getByRole('combobox').fill('pane')
     await expect(palette.getByRole('option', { name: /pane/i }).first()).toBeVisible()
-    const searched = await columns(win)
+    const searched = await rows(win)
     expect(searched.count).toBeGreaterThan(1)
-    expect(searched.metaClear).toBe(true)
-    expect(searched.keysLeftSpread).toBeLessThanOrEqual(1)
-    expect(searched.metaRightSpread).toBeLessThanOrEqual(1)
-    expect(searched.widestGap).toBeLessThanOrEqual(24)
-    expect(searched.titleCut).toBe(0)
+    expect(searched.keyGaps.length).toBeGreaterThan(0)
+    expectInline(searched)
   } finally {
     await app.close()
   }
 })
 
-test('a long workspace path is cut short instead of spilling over the keycaps and names', async () => {
+test('a long workspace path is cut short inside its row and the names stay whole', async () => {
   const dataHome = freshDataHome()
   const deep = join(dataHome, ...Array(4).fill('a-rather-long-folder-name-for-the-palette-row'))
   mkdirSync(deep, { recursive: true })
@@ -118,19 +121,19 @@ test('a long workspace path is cut short instead of spilling over the keycaps an
     await expect(win.getByText('deep').first()).toBeVisible({ timeout: 15_000 })
     await win.keyboard.press(chords.palette)
     const palette = win.getByRole('dialog', { name: 'Command palette' })
+    await palette.getByRole('combobox').fill('')
     await expect(palette.getByRole('option', { name: /deep/ }).first()).toBeVisible()
 
-    const all = await columns(win)
-    expect(all.keyed).toBeGreaterThan(1)
-    expect(all.metaClear).toBe(true)
+    const all = await rows(win)
+    expect(all.keyGaps.length).toBeGreaterThan(1)
     expect(all.metaCut).toBeGreaterThan(0)
-    expect(all.keysLeftSpread).toBeLessThanOrEqual(1)
+    expectInline(all)
 
     await palette.getByRole('combobox').fill('@deep')
     await expect(palette.getByRole('option', { name: /deep/ }).first()).toBeVisible()
-    const workspaces = await columns(win)
-    expect(workspaces.metaClear).toBe(true)
+    const workspaces = await rows(win)
     expect(workspaces.metaCut).toBeGreaterThan(0)
+    expectInline(workspaces)
   } finally {
     await app.close()
   }
