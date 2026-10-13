@@ -341,12 +341,7 @@ import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
 import { type SandboxBasePaths, reachableContainerSockets, srtVendorDir } from './sandbox/srtConfig'
 import { SandboxStore } from './sandbox/store'
 import { ViolationLog, recordViolations } from './sandbox/violations'
-import {
-  type SandboxReadRules,
-  sandboxEntries,
-  sandboxPath,
-  visibleInSandbox,
-} from './sandbox/visibility'
+import { type SandboxReadRules, sandboxPath, visibleInSandbox } from './sandbox/visibility'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { registerSecretMethods } from './secrets/register'
 import { prepareSecrets } from './secrets/secretInjection'
@@ -362,6 +357,7 @@ import { WorkspaceAgents } from './secrets/workspaceAgents'
 import { registerCompletionIpc } from './terminal/completionSpecs'
 import { atLocalPrompt, busyProgram } from './terminal/localPrompt'
 import { replaceFile, writeOstiaLauncher } from './terminal/paneLauncher'
+import { registerPathCompletionIpc } from './terminal/pathCompletion'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './terminal/promptContext'
 import { CoalescedOutput, PtyFlowControl } from './terminal/ptyFlow'
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './terminal/ptyReaper'
@@ -2727,14 +2723,14 @@ function registerPtyIpc(): void {
     const entry = ptys.get(paneId)
     return entry?.subs.has(String(e.sender.id)) === true && holdsLocalPrompt(entry)
   })
-  ipcMain.handle('pty:list-dir', (e, paneId: string, dir: string): FsEntry[] => {
+  registerPathCompletionIpc((paneId) => {
     const entry = ptys.get(paneId)
-    if (!entry?.subs.has(String(e.sender.id)) || !holdsLocalPrompt(entry)) return []
-    const safe = resolveSafe(dir, fileRoots())
-    if (safe === null) return []
-    const rules = sandboxReadRules(entry)
-    const entries = listDir(safe)
-    return rules ? sandboxEntries(safe, entries, rules) : entries
+    if (!entry) return null
+    return {
+      owners: entry.subs,
+      localPrompt: holdsLocalPrompt(entry),
+      rules: sandboxReadRules(entry),
+    }
   })
   ipcMain.handle(
     'pty:prompt-context',
