@@ -1978,6 +1978,62 @@ describe('agent resume', () => {
     })
   })
 
+  it('keeps the launch flags and the variables typed in front of the agent, then replays them', async () => {
+    const pane = seedPane()
+    useBlocksStore
+      .getState()
+      .commandStart(pane.id, { line: 1 }, 'GL_ISSUE=685 GH_TOKEN=x claude --agent ostia')
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'claude',
+      id: 'abc',
+      args: ['--agent', 'ostia', '--session-id', 'old'],
+    })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+      resume: { agent: 'claude', id: 'abc', args: ['--agent', 'ostia'], env: { GL_ISSUE: '685' } },
+    })
+    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
+    await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    expect(insert).toHaveBeenCalledWith(
+      pane.id,
+      'GL_ISSUE=685 claude --resume abc --agent ostia',
+      true,
+    )
+  })
+
+  it('keeps the flags but no variables when the line starts with something else', async () => {
+    const pane = seedPane()
+    useBlocksStore
+      .getState()
+      .commandStart(
+        pane.id,
+        { line: 1 },
+        `GL_ISSUE=1 true && (ostia workspace group 'Home' || true) && claude --agent homelab -n "修 probe"`,
+      )
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'claude',
+      id: 'abc',
+      args: ['--agent', 'homelab', '-n', '修 probe'],
+    })
+    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
+    await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    expect(insert).toHaveBeenCalledWith(
+      pane.id,
+      "claude --resume abc --agent homelab --name '修 probe'",
+      true,
+    )
+  })
+
+  it('keeps the old command when nothing about the launch is known', async () => {
+    const pane = seedPane()
+    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, 'my-agent-script')
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'codex', id: 'abc' })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+      resume: { agent: 'codex', id: 'abc' },
+    })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.env')
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.args')
+  })
+
   it('runs the agent’s resume command in the pane', async () => {
     const pane = seedPane({ agent: 'claude', id: 'abc' })
     const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
@@ -2182,6 +2238,87 @@ describe('workspace row commands', () => {
     })
     expect(bad).toMatchObject({ ok: false })
     expect(group().color).toBeUndefined()
+  })
+
+  it('renames a group by name and refuses a blank name, a taken name or an unknown group', async () => {
+    seed()
+    useWorkspacesStore.getState().createGroup('w1', 'api')
+    useWorkspacesStore.getState().createGroup('w2', 'web')
+    const names = () => useWorkspacesStore.getState().groups.map((g) => g.name)
+
+    const ok = await commands.execWith(ctx(null, null), 'workspace.groupRename', {
+      group: ' api ',
+      name: '  backend ',
+    })
+    expect(ok).toEqual({ ok: true, result: undefined })
+    expect(names()).toEqual(['backend', 'web'])
+
+    for (const args of [
+      { group: 'backend', name: '   ' },
+      { group: 'backend', name: 'web' },
+      { group: 'nope', name: 'x' },
+    ]) {
+      expect(await commands.execWith(ctx(null, null), 'workspace.groupRename', args)).toMatchObject(
+        { ok: false },
+      )
+    }
+    expect(names()).toEqual(['backend', 'web'])
+  })
+
+  it('deletes a group by name and leaves its workspaces ungrouped', async () => {
+    seed()
+    useWorkspacesStore.getState().createGroup('w1', 'api')
+
+    const missing = await commands.execWith(ctx(null, null), 'workspace.groupDelete', {
+      group: 'nope',
+    })
+    expect(missing).toMatchObject({ ok: false })
+    expect(useWorkspacesStore.getState().groups).toHaveLength(1)
+
+    const ok = await commands.execWith(ctx(null, null), 'workspace.groupDelete', { group: 'api' })
+    expect(ok).toEqual({ ok: true, result: undefined })
+    expect(useWorkspacesStore.getState().groups).toEqual([])
+    expect(useWorkspacesStore.getState().workspaces.map((w) => w.id)).toEqual(['w1', 'w2'])
+    expect(useWorkspacesStore.getState().workspaces[0].groupId).toBeUndefined()
+  })
+
+  it('refuses to rename or delete a group whose name two groups share', async () => {
+    seed()
+    useWorkspacesStore.getState().createGroup('w1', 'api')
+    useWorkspacesStore.getState().createGroup('w2', 'web')
+    const [first, second] = useWorkspacesStore.getState().groups
+    useWorkspacesStore.setState({
+      groups: [first, { ...second, name: first.name }],
+    })
+
+    const rename = await commands.execWith(ctx(null, null), 'workspace.groupRename', {
+      group: 'api',
+      name: 'x',
+    })
+    const del = await commands.execWith(ctx(null, null), 'workspace.groupDelete', { group: 'api' })
+    expect(rename).toMatchObject({
+      ok: false,
+      error: { message: expect.stringContaining('ambiguous') },
+    })
+    expect(del).toMatchObject({
+      ok: false,
+      error: { message: expect.stringContaining('ambiguous') },
+    })
+    expect(useWorkspacesStore.getState().groups).toHaveLength(2)
+  })
+
+  it('pins and unpins the target workspace, and does nothing when it is already so', async () => {
+    seed()
+    await commands.execWith(ctx('w2', null), 'workspace.pin')
+    expect(useWorkspacesStore.getState().workspaces.map((w) => w.id)).toEqual(['w2', 'w1'])
+    expect(useWorkspacesStore.getState().workspaces[0].pinned).toBe(true)
+    await commands.execWith(ctx('w2', null), 'workspace.pin')
+    expect(useWorkspacesStore.getState().workspaces[0].pinned).toBe(true)
+    await commands.execWith(ctx('w2', null), 'workspace.unpin')
+    expect(useWorkspacesStore.getState().workspaces.every((w) => !w.pinned)).toBe(true)
+    await commands.execWith(ctx('w2', null), 'workspace.unpin')
+    expect(useWorkspacesStore.getState().workspaces.every((w) => !w.pinned)).toBe(true)
+    expect(await commands.execWith(ctx(null, null), 'workspace.pin')).toMatchObject({ ok: false })
   })
 
   it('lists groups with their members and tags grouped workspaces in workspace.list', async () => {
@@ -2454,6 +2591,22 @@ describe('commands open to script tokens', () => {
     'workspace.groupColor': {
       relaxed: ['drive-self'],
       reason: 'changes only the colour of an existing group',
+    },
+    'workspace.groupRename': {
+      relaxed: ['drive-self'],
+      reason: 'changes only the name of an existing group',
+    },
+    'workspace.groupDelete': {
+      relaxed: ['drive-self'],
+      reason: 'only ungroups its workspaces; none is closed',
+    },
+    'workspace.pin': {
+      relaxed: ['drive-self'],
+      reason: 'moves one workspace within the sidebar',
+    },
+    'workspace.unpin': {
+      relaxed: ['drive-self'],
+      reason: 'the reverse of workspace.pin',
     },
     'workspace.describe': {
       relaxed: ['drive-self'],

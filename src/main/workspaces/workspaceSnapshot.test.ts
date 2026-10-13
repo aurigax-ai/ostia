@@ -183,6 +183,17 @@ describe('parseSnapshot', () => {
     expect(
       withResume({ agent: 'claude', id: 'x; rm -rf ~' })?.workspaces[0].root,
     ).not.toHaveProperty('resume')
+    const saved = JSON.parse(
+      JSON.stringify({
+        agent: 'codex',
+        id: 'abc-1',
+        args: ['-m', 'gpt-5', '-c', 'x.api_key="k"'],
+        env: { GL_ISSUE: '685', OPENAI_API_KEY: 'k' },
+      }),
+    )
+    expect(withResume(saved)?.workspaces[0].root).toMatchObject({
+      resume: { agent: 'codex', id: 'abc-1', args: ['-m', 'gpt-5'], env: { GL_ISSUE: '685' } },
+    })
   })
 
   it('keeps a view pane by name and drops one without a valid view name', () => {

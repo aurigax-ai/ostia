@@ -845,6 +845,51 @@ describe('shellIntegrationSpawnOptions', () => {
     })
   })
 
+  describe.each([
+    ['bash', '--norc'],
+    ['zsh', '-f'],
+  ])('the arguments an agent was started with in %s', (shell, noRc) => {
+    let bin = ''
+    let wrapper = ''
+
+    beforeAll(() => {
+      bin = mkdtempSync(join(tmpdir(), 'ostia-fake-agents-'))
+      for (const agent of ['claude', 'codex']) {
+        const name = agent === 'claude' ? 'OSTIA_CLAUDE_ARGS' : 'OSTIA_CODEX_ARGS'
+        writeFileSync(
+          join(bin, agent),
+          `#!/bin/sh\nprintf '%s' "\${${name}-unset}" | tr '\\037' '|'\n`,
+        )
+        chmodSync(join(bin, agent), 0o755)
+      }
+      wrapper = join(bin, 'wrapper.sh')
+      writeFileSync(wrapper, claudeWrapper() + codexWrapper())
+    })
+
+    afterAll(() => {
+      rmSync(bin, { recursive: true, force: true })
+    })
+
+    const run = (script: string) =>
+      spawnSync(shell, [noRc, '-c', `source '${wrapper}'; ${script}`], {
+        env: { PATH: `${bin}:/usr/bin:/bin`, OSTIA_CLI: '/x/cli.js', OSTIA_AGENT_DIR: AGENT_DIR },
+        encoding: 'utf8',
+      }).stdout
+
+    it('hands claude its own arguments, without the plugin, and leaves the shell untouched', () => {
+      expect(run(`claude --agent 'two words' -p hi; echo " \${OSTIA_CLAUDE_ARGS-unset}"`)).toBe(
+        '--agent|two words|-p|hi unset\n',
+      )
+      expect(run('claude')).toBe('')
+      expect(run('command claude --agent x')).toBe('unset')
+    })
+
+    it('hands codex its own arguments, without the hook flags', () => {
+      expect(run(`codex -m gpt-5 'fix it'`)).toBe('-m|gpt-5|fix it')
+      expect(run('codex exec run')).toBe('unset')
+    })
+  })
+
   describe('the ostia command', () => {
     it.each([
       ['bash', '--norc', BASH_INIT],
