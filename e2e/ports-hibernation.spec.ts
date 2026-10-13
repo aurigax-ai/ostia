@@ -69,7 +69,7 @@ test('a port a terminal listens on shows in the top bar and opens in the browser
   }
 })
 
-test('a hibernated agent is still hibernated after a restart and wakes when the human opens its tab', async () => {
+test('a hibernated agent is still hibernated after a restart and wakes when the human clicks inside its pane', async () => {
   test.setTimeout(120_000)
   const dataHome = freshDataHome()
   const bin = join(dataHome, 'bin')

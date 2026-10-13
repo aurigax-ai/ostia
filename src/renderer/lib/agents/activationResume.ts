@@ -8,7 +8,7 @@ function paneBodyAt(target: EventTarget | null): string | null {
 
 export function startActivationResume(): () => void {
   const onPointerDown = (e: Event): void => {
-    if (!e.isTrusted) return
+    if (!e.isTrusted || (e as PointerEvent).button !== 0) return
     const paneId = paneBodyAt(e.target)
     if (paneId) resumeOnActivation(paneId)
   }

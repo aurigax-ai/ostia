@@ -336,6 +336,7 @@ describe('startAutoResume', () => {
     inputListeners.get('pointerdown')?.({
       type: 'pointerdown',
       isTrusted: true,
+      button: 0,
       target,
     } as unknown as Event)
 
@@ -373,6 +374,7 @@ describe('startAutoResume', () => {
     inputListeners.get('pointerdown')?.({
       type: 'pointerdown',
       isTrusted: true,
+      button: 0,
       target,
     } as unknown as Event)
     useWorkspacesStore.getState().setActive('s2')

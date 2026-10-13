@@ -233,6 +233,7 @@ describe('hibernateIdleAgents', () => {
     inputListeners.get('pointerdown')?.({
       type: 'pointerdown',
       isTrusted: true,
+      button: 0,
       target,
     } as unknown as Event)
 

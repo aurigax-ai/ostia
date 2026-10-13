@@ -26,10 +26,11 @@ vi.spyOn(window, 'addEventListener').mockImplementation((type, listener, options
   addListener(type, listener, options)
 })
 
-function press(target: Element, trusted = true): void {
+function press(target: Element, trusted = true, button = 0): void {
   listeners.get('pointerdown')?.({
     type: 'pointerdown',
     isTrusted: trusted,
+    button,
     target,
   } as unknown as Event)
 }
@@ -67,6 +68,13 @@ describe('startActivationResume', () => {
     for (const type of ['keydown', 'keyup', 'focusin']) {
       listeners.get(type)?.({ type, isTrusted: true, target: body } as unknown as Event)
     }
+    expect(resumeOnActivation).not.toHaveBeenCalled()
+  })
+
+  it('never resumes on a right or middle click', () => {
+    const { body } = paneDom()
+    press(body, true, 2)
+    press(body, true, 1)
     expect(resumeOnActivation).not.toHaveBeenCalled()
   })
 
