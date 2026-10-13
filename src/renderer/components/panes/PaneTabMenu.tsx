@@ -7,6 +7,7 @@ import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/compone
 import { useDict } from '@/i18n/useDict'
 import { splitTabOfPane } from '@/layout/tree'
 import type { PaneNode } from '@/layout/types'
+import { forkConversation, forkableResume } from '@/lib/agents/forkConversation'
 import { hibernatableAgentPanes } from '@/lib/agents/hibernationScheduler'
 import { useChordLabel } from '@/lib/keys/chords'
 import { runUserAction } from '@/lib/palette/userActions'
@@ -21,6 +22,7 @@ import {
   AppWindowIcon,
   ArrowsInIcon,
   ArrowsOutIcon,
+  GitForkIcon,
   LockSimpleIcon,
   LockSimpleOpenIcon,
   MoonIcon,
@@ -136,6 +138,11 @@ export function PaneTabMenu({
         ) : null}
         {agentTab && workspaceId ? (
           <TabHibernateItems workspaceId={workspaceId} pane={pane} />
+        ) : null}
+        {workspaceId && forkableResume(pane) ? (
+          <MenuItem icon={GitForkIcon} onClick={() => forkConversation(workspaceId, pane.id)}>
+            {d.pane.forkConversation}
+          </MenuItem>
         ) : null}
         {otherTabs > 0 ? (
           <MenuItem
