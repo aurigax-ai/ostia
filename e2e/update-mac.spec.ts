@@ -247,6 +247,16 @@ async function downloadAndStage(win: Page): Promise<void> {
   })
 }
 
+let traces = 0
+
+async function stopTraceBeforeExit(app: ElectronApplication): Promise<void> {
+  traces += 1
+  await app
+    .context()
+    .tracing.stop({ path: test.info().outputPath(`app-trace-before-exit-${traces}.zip`) })
+    .catch(() => {})
+}
+
 async function restartFromNotice(
   app: ElectronApplication,
   win: Page,
@@ -255,10 +265,7 @@ async function restartFromNotice(
   await app.evaluate(({ app: electronApp }) => {
     electronApp.relaunch = () => undefined
   })
-  await app
-    .context()
-    .tracing.stop({ path: test.info().outputPath('before-update-restart-trace.zip') })
-    .catch(() => {})
+  await stopTraceBeforeExit(app)
   const closed = waitForExit(app)
   await win.locator('.update-notice').getByRole('button', { name: 'Restart Ostia' }).click()
   const quit = win.getByRole('dialog').getByRole('button', { name: 'Quit' })
@@ -528,6 +535,7 @@ test('after an update restart, an agent resumes with --resume and the same sessi
         .filter({ hasText: /fake-agent-resumed .*--resume e2e-update-session-1\b/ }),
     ).toHaveCount(1, { timeout: 30_000 })
   } finally {
+    await stopTraceBeforeExit(second.app)
     second.app.process().kill('SIGKILL')
     await github.close()
   }
