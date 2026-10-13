@@ -1,3 +1,4 @@
+import { linkKind } from '@shared/links/externalLinks'
 import type { IBufferRange } from '@xterm/xterm'
 import type { FileLinkAction } from './terminalFileLinks'
 
@@ -45,6 +46,19 @@ export function webLinkTarget(e: WebLinkClick, ctx: WebLinkClickContext): WebLin
   if (e.ctrlKey || e.metaKey || e.shiftKey || e.detail > 1) return null
   if (ctx.hasSelection || ctx.mouseReporting) return null
   return 'same-tab'
+}
+
+export type TerminalLinkTarget = WebLinkTarget | 'app'
+
+export function terminalLinkTarget(
+  uri: string,
+  e: WebLinkClick,
+  ctx: WebLinkClickContext,
+): TerminalLinkTarget | null {
+  const kind = linkKind(uri)
+  const target = kind ? webLinkTarget(e, ctx) : null
+  if (!target) return null
+  return kind === 'external' ? 'app' : target
 }
 
 export type LinkKind = 'web' | FileLinkAction

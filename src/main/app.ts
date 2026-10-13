@@ -57,6 +57,7 @@ import { OPEN_FILES_COMMAND } from '../shared/files/openFiles'
 import { OPEN_FILES_MAX } from '../shared/files/openFiles'
 import { desktopsOf } from '../shared/keyboard/desktopChords'
 import { languageServerKey } from '../shared/languageServers'
+import { externalHref } from '../shared/links/externalLinks'
 import { parsePrivacySettings } from '../shared/privacy/redaction'
 import { bucketCount } from '../shared/privacy/telemetry'
 import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
@@ -700,17 +701,10 @@ function releaseMovingPane(paneId: string): void {
   if (entry && entry.session.ownerCount === 0) killPty(paneId, 'closed')
 }
 
-const EXTERNAL_SCHEMES = new Set(['http:', 'https:', 'mailto:'])
-
 function openExternalSafe(url: string): boolean {
-  let scheme: string
-  try {
-    scheme = new URL(url).protocol
-  } catch {
-    return false
-  }
-  if (!EXTERNAL_SCHEMES.has(scheme)) return false
-  void shell.openExternal(url)
+  const href = externalHref(url, { apps: false })
+  if (!href) return false
+  void shell.openExternal(href)
   return true
 }
 
@@ -2970,7 +2964,7 @@ let fileWatches: FileWatches | null = null
 function registerFsIpc(): void {
   const allowedRoots = fileRoots()
   const settingsFile = join(app.getPath('userData'), 'settings.json')
-  registerOpenPathIpc(allowedRoots)
+  registerOpenPathIpc(allowedRoots, () => windows.values())
   registerTerminalPathLinkIpc(
     new TerminalPathLinks({
       grants: openFileGrants,

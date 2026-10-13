@@ -3,8 +3,8 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
-import { clickWith, linkPoint } from './terminalLinks'
+import { openWorkspace, openedExternally, stubExternalOpener } from './helpers'
+import { clickWith, hoverPoint, linkPoint } from './terminalLinks'
 import { type Page, _electron as electron, expect, test } from './test'
 
 async function listen(
@@ -59,5 +59,34 @@ test('a hyperlink in a mouse-reporting program leaves plain clicks to the progra
   } finally {
     await app.close()
     server.close()
+  }
+})
+
+test('obsidian links from OSC 8 and angle-bracket markdown open in their app, encoded', async () => {
+  test.setTimeout(60_000)
+  const app = await electron.launch(isolatedLaunch(freshDataHome()))
+  try {
+    await stubExternalOpener(app)
+    const win = await app.firstWindow()
+    await openWorkspace(win)
+    await win.locator('.xterm').first().click()
+    const vault = 'obsidian://advanced-uri?vault=My Vault&filepath=\\347\\255\\206.md'
+    await win.keyboard.type(
+      `clear; printf '\\033]8;;${vault}\\033\\\\vault note\\033]8;;\\033\\\\\\n[x](<${vault}>)\\n'`,
+    )
+    await win.keyboard.press('Enter')
+
+    for (const point of [
+      await linkPoint(win, /^vault\s+note\s*$/, 'note'),
+      await linkPoint(win, /^\[x\]\(<obsidian/, 'advanced'),
+    ]) {
+      await hoverPoint(win, point)
+      await clickWith(win, point, [])
+    }
+    const href = 'obsidian://advanced-uri?vault=My%20Vault&filepath=%E7%AD%86.md'
+    await expect.poll(() => openedExternally(app), { timeout: 10_000 }).toEqual([href, href])
+    await expect(addresses(win)).toHaveCount(0)
+  } finally {
+    await app.close()
   }
 })
