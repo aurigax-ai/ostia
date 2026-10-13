@@ -49,6 +49,13 @@
     "platforms": ["linux"]
   },
   {
+    "file": "src/renderer/components/terminal/Terminal.engine.test.tsx",
+    "name": "TerminalView engines > a Cmd+V on macOS pastes the text of the paste when the clipboard read hangs",
+    "issue": 701,
+    "until": "2026-11-12",
+    "platforms": ["linux"]
+  },
+  {
     "file": "src/renderer/components/settings/SettingsPanel.search.test.tsx",
     "name": "SettingsPanel search > finds the script tokens page in English and in Traditional Chinese",
     "issue": 705,
