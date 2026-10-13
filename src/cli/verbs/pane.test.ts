@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  hibernateOutcome,
   parseGroupColorArgs,
   parseGroupDeleteArgs,
   parseGroupRenameArgs,
@@ -234,6 +235,37 @@ describe('pane wake', () => {
     expect(wakeOutcome({ woke: ['p1'], closed: 'p1' }, false)).toEqual({
       line: 'ostia pane wake: p1 closed',
       code: 4,
+    })
+  })
+})
+
+describe('pane hibernate', () => {
+  it('takes one or more panes and --json', () => {
+    expect(parsePaneArgs(['hibernate', 'fixer', 'w2'])).toEqual({
+      method: 'pane.hibernate',
+      params: { panes: ['fixer', 'w2'] },
+      json: false,
+    })
+    expect(parsePaneArgs(['hibernate', 'fixer', '--json'])).toEqual({
+      method: 'pane.hibernate',
+      params: { panes: ['fixer'] },
+      json: true,
+    })
+    expect(() => parsePaneArgs(['hibernate'])).toThrow('ostia pane hibernate <pane>')
+  })
+
+  it('exits 0 when every pane went to sleep and 2 when one was skipped', () => {
+    expect(hibernateOutcome({ hibernated: ['p1', 'p2'], skipped: {} }, false)).toEqual({
+      line: 'p1\np2',
+      code: 0,
+    })
+    expect(hibernateOutcome({ hibernated: ['p1'], skipped: { p2: 'subagent' } }, false)).toEqual({
+      line: 'p1\nostia pane hibernate: p2 skipped (subagent)',
+      code: 2,
+    })
+    expect(hibernateOutcome({ hibernated: [], skipped: { p2: 'not-agent' } }, true)).toEqual({
+      line: '{"hibernated":[],"skipped":{"p2":"not-agent"}}',
+      code: 2,
     })
   })
 })

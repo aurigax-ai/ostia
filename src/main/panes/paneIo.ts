@@ -195,6 +195,7 @@ export interface PaneIoDeps extends PaneReachDeps {
   inputSent: (pane: PaneIdentity) => void
   hibernated: (pane: PaneIdentity) => Promise<boolean>
   wake: (pane: PaneIdentity) => Promise<{ woke: boolean; conflict?: string }>
+  hibernate: (pane: PaneIdentity) => Promise<CommandResult>
   panes: () => Promise<PaneEntry[]>
   waking: PaneWaking
   close: (pane: PaneIdentity) => Promise<CommandResult>
@@ -221,6 +222,10 @@ function starting(to: PaneIdentity): ResponseError<void> {
 
 function notHibernated(to: PaneIdentity): ResponseError<void> {
   return fail(`not-hibernated: ${to.externalId} is not hibernated`)
+}
+
+function alreadyHibernated(to: PaneIdentity): ResponseError<void> {
+  return fail(`hibernated: ${to.externalId} is already asleep; wake it with ostia pane wake`)
 }
 
 function sessionConflict(to: PaneIdentity, other: string): ResponseError<void> {
@@ -417,6 +422,34 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
       throw fail(
         `resume-failed: ${external(ended.paneId)} could not start its agent; read it with ostia pane read`,
       )
+    },
+  })
+
+  registerControlMethod('pane.hibernate', {
+    scripts: true,
+    handler: async (raw, ctx) => {
+      const refs = paneRefs(record(raw).panes)
+      const panes: PaneIdentity[] = []
+      for (const ref of refs) {
+        const to = await target(ref, ctx)
+        await ensurePaneReach(deps, 'close', to, ctx, {
+          ref,
+          method: 'pane.hibernate',
+          detail: `hibernate ${to.externalId}: stop its agent until it is woken`,
+        })
+        if (await deps.hibernated(to)) throw alreadyHibernated(to)
+        panes.push(to)
+      }
+      const hibernated: string[] = []
+      const skipped: Record<string, string> = {}
+      for (const to of panes) {
+        const res = await deps.hibernate(to)
+        if (!res.ok) throw fail(res.error.message)
+        const outcome = (res.result as { outcome?: unknown } | undefined)?.outcome
+        if (outcome === 'hibernated') hibernated.push(to.externalId)
+        else skipped[to.externalId] = typeof outcome === 'string' ? outcome : 'unknown'
+      }
+      return { ok: true, hibernated, skipped }
     },
   })
 

@@ -274,6 +274,7 @@ ostia pane key <pane> <key>...           # enter tab escape up down ctrl-c ...
 ostia pane read <pane> [--lines N] [--json]  # its screen as plain text
 ostia pane wait <pane>... [--until done|waiting|idle|exited]... [--timeout <s>] [--json]
 ostia pane wake <pane>... [--wait [--timeout <s>]] [--json]  # wake hibernated agent panes
+ostia pane hibernate <pane>... [--json]  # stop those agent panes (kill-pane); a busy agent is skipped, exit 2
 ostia agent resume <pane>                # type its recorded resume command (wakes it when hibernated)
 ostia workspace.hibernateAgents --workspace <id|name>  # hibernate its idle agents (kill-pane); resumeAgents wakes them
 ostia pane close <pane>... [--json]      # close those panes

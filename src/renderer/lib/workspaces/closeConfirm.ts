@@ -1,4 +1,4 @@
-import { allPanes, findPane } from '@/layout/tree'
+import { allPanes, findPane, tabIdOf, tabsOfPane } from '@/layout/tree'
 import type { PaneNode } from '@/layout/types'
 import { commandAgent } from '@/lib/agents/hibernation'
 import { runningAgent, runningAgentOf } from '@/lib/agents/paneAgent'
@@ -266,6 +266,30 @@ export async function requestCloseOthers(id: string): Promise<void> {
     .workspaces.filter((w) => w.id !== id && !useLayoutStore.getState().isLocked(w.id))
   if (await confirmGroups('workspace', await closeGroups(others))) {
     useWorkspacesStore.getState().closeOthers(id)
+  }
+}
+
+export function closableOtherTabPanes(workspaceId: string, paneId: string): PaneNode[] {
+  const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+  const tabs = layout ? tabsOfPane(layout.root, paneId) : null
+  const keep = layout ? tabIdOf(layout.root, paneId) : null
+  if (!tabs || !keep) return []
+  return tabs.children
+    .filter((tab) => tab.id !== keep)
+    .flatMap((tab) => allPanes(tab))
+    .filter((pane) => pane.kind !== 'manager' && !pane.locked)
+}
+
+export async function requestCloseOtherTabs(workspaceId: string, paneId: string): Promise<void> {
+  const workspace = useWorkspacesStore.getState().workspaces.find((w) => w.id === workspaceId)
+  const panes = closableOtherTabPanes(workspaceId, paneId)
+  if (!workspace || panes.length === 0) return
+  const { confirmClose } = useSettingsStore.getState().workspaces
+  const group = confirmClose
+    ? groupOf(workspace, panes, { ...PLAIN, activity: await paneActivities(panes) })
+    : null
+  if (await confirmGroups('pane', group ? [group] : [])) {
+    for (const pane of panes) useLayoutStore.getState().closePane(workspaceId, pane.id)
   }
 }
 

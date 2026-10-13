@@ -1,4 +1,10 @@
-import { hibernateWorkspaces, resumeWorkspaces, wakePane } from '@/lib/agents/hibernationScheduler'
+import {
+  type PaneHibernateOutcome,
+  hibernateAgentPane,
+  hibernateWorkspaces,
+  resumeWorkspaces,
+  wakePane,
+} from '@/lib/agents/hibernationScheduler'
 import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '@/lib/agents/paneAgent'
 import { withCommandLineEnv } from '@/lib/agents/resumeEnv'
 import { claimResume, paneResumeHolder, resumeHolder } from '@/lib/agents/resumeFolder'
@@ -14,6 +20,7 @@ import {
   markWorkspaceRead,
   signalPane,
   stepWorkspace,
+  workspaceOfPane,
 } from '@/lib/attention/workspaceActivity'
 import { browserProfileIn, openerOf } from '@/lib/browser/browserProfile'
 import { openArtifact, openPad } from '@/lib/files/artifacts'
@@ -50,6 +57,7 @@ import { terminalFor } from '@/lib/terminal/terminalHandles'
 import {
   closeBlockers,
   closePaneForAgent,
+  requestCloseOtherTabs,
   requestCloseOthers,
   requestClosePane,
   requestCloseWorkspace,
@@ -88,9 +96,11 @@ import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedSt
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import { saveSnapshotNow } from '@/stores/workspaces/persistence'
+import { useTabSleepNoticeStore } from '@/stores/workspaces/tabSleepNoticeStore'
 import type { WorkspaceKind, WorkspaceState } from '@/stores/workspaces/workspacesStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { type AgentResume, parseAgentResume, resumeCommand } from '@shared/agents/agentResume'
+import { isAgentBusyReason } from '@shared/agents/agentWork'
 import { wantsDesktopBanner } from '@shared/app/notificationSettings'
 import { stepZoom } from '@shared/app/zoom'
 import { PAD_COMMAND } from '@shared/artifacts/artifacts'
@@ -643,16 +653,57 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  registerCore<undefined, { woke: boolean; conflict?: string }>({
+  registerCore<{ paneId?: string } | undefined, { woke: boolean; conflict?: string }>({
     id: 'pane.wake',
     category: 'pane',
-    hidden: true,
     capabilities: ['type-other-pane'],
-    run: (_args, ctx) => {
-      if (!ctx.activePaneId) throw new Error('no target pane')
-      const holder = paneResumeHolder(ctx.activePaneId)
-      if (holder) return { woke: false, conflict: holder.title }
-      return { woke: wakePane(ctx.activePaneId) }
+    argsSchema: { type: 'object', properties: { paneId: { type: 'string' } } },
+    run: (args, ctx) => {
+      const paneId = args?.paneId ?? ctx.activePaneId
+      if (!paneId) throw new Error('no target pane')
+      const holder = paneResumeHolder(paneId)
+      if (holder) {
+        if (!ctx.target)
+          useTabSleepNoticeStore.getState().show({ kind: 'conflict', tab: holder.title })
+        return { woke: false, conflict: holder.title }
+      }
+      const woke = wakePane(paneId)
+      if (!woke && !ctx.target) useTabSleepNoticeStore.getState().show({ kind: 'awake' })
+      return { woke }
+    },
+  })
+
+  registerCore<{ paneId?: string } | undefined, { hibernated: boolean; outcome: string }>({
+    id: 'pane.hibernate',
+    category: 'pane',
+    capabilities: ['kill-pane'],
+    argsSchema: { type: 'object', properties: { paneId: { type: 'string' } } },
+    run: async (args, ctx) => {
+      const paneId = args?.paneId ?? ctx.activePaneId
+      const workspaceId = paneId ? workspaceOfPane(paneId) : null
+      if (!paneId || !workspaceId) throw new Error('no target pane')
+      const outcome: PaneHibernateOutcome = await hibernateAgentPane(workspaceId, paneId)
+      if (isAgentBusyReason(outcome)) {
+        useHibernateSkippedStore.getState().show({ hibernated: [], skipped: { [outcome]: 1 } })
+      }
+      if (outcome === 'not-agent' && !ctx.target) {
+        const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+        const asleep = layout ? findPane(layout.root, paneId)?.hibernated === true : false
+        useTabSleepNoticeStore.getState().show({ kind: asleep ? 'asleep' : 'notAgent' })
+      }
+      return { hibernated: outcome === 'hibernated', outcome }
+    },
+  })
+
+  registerCore<{ paneId?: string } | undefined>({
+    id: 'tab.closeOthers',
+    category: 'pane',
+    capabilities: ['kill-pane'],
+    argsSchema: { type: 'object', properties: { paneId: { type: 'string' } } },
+    run: async (args, ctx) => {
+      const paneId = args?.paneId ?? ctx.activePaneId
+      if (ctx.activeWorkspaceId && paneId)
+        await requestCloseOtherTabs(ctx.activeWorkspaceId, paneId)
     },
   })
 

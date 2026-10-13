@@ -7,8 +7,10 @@ import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/compone
 import { useDict } from '@/i18n/useDict'
 import { splitTabOfPane } from '@/layout/tree'
 import type { PaneNode } from '@/layout/types'
+import { hibernatableAgentPanes } from '@/lib/agents/hibernationScheduler'
 import { useChordLabel } from '@/lib/keys/chords'
 import { runUserAction } from '@/lib/palette/userActions'
+import { closableOtherTabPanes } from '@/lib/workspaces/closeConfirm'
 import { canMovePane, movePaneToNewWindow } from '@/lib/workspaces/windowHandoff'
 import { isMac } from '@/platform'
 import { actionsFor } from '@/settings/actions'
@@ -21,7 +23,10 @@ import {
   ArrowsOutIcon,
   LockSimpleIcon,
   LockSimpleOpenIcon,
+  MoonIcon,
   PencilSimpleIcon,
+  SunIcon,
+  XSquareIcon,
 } from '@phosphor-icons/react'
 import { isRemotePath } from '@shared/remoteFolders'
 import type { ReactElement } from 'react'
@@ -53,8 +58,23 @@ export function PaneTabMenu({
     const shared = layout.root.type === 'split' || splitTabOfPane(layout.root, pane.id) !== null
     return shared ? 'zoomable' : null
   })
+  const otherTabs = useLayoutStore((s) =>
+    workspaceId && s.byWorkspace[workspaceId]
+      ? closableOtherTabPanes(workspaceId, pane.id).length
+      : 0,
+  )
+  const agentTab = pane.kind === 'terminal' && pane.resume !== undefined
   const renamable = workspaceId !== null
-  if (!file && tabActions.length === 0 && !movable && !lockable && !zoom && !renamable) {
+  if (
+    !file &&
+    tabActions.length === 0 &&
+    !movable &&
+    !lockable &&
+    !zoom &&
+    !renamable &&
+    otherTabs === 0 &&
+    !agentTab
+  ) {
     return trigger
   }
 
@@ -114,8 +134,46 @@ export function PaneTabMenu({
         {lockable && workspaceId ? (
           <TabMoveMenuItems workspaceId={workspaceId} tabId={pane.id} />
         ) : null}
+        {agentTab && workspaceId ? (
+          <TabHibernateItems workspaceId={workspaceId} pane={pane} />
+        ) : null}
+        {otherTabs > 0 ? (
+          <MenuItem
+            icon={XSquareIcon}
+            onClick={() => void commands.exec('tab.closeOthers', { paneId: pane.id })}
+          >
+            {d.pane.closeOtherTabs}
+          </MenuItem>
+        ) : null}
       </MenuContent>
     </ContextMenu>
+  )
+}
+
+function TabHibernateItems({
+  workspaceId,
+  pane,
+}: {
+  workspaceId: string
+  pane: PaneNode
+}): JSX.Element | null {
+  const d = useDict()
+  if (pane.hibernated) {
+    if (pane.resumeFolderMissing) return null
+    return (
+      <MenuItem icon={SunIcon} onClick={() => void commands.exec('pane.wake', { paneId: pane.id })}>
+        {d.pane.wakeTab}
+      </MenuItem>
+    )
+  }
+  return (
+    <MenuItem
+      icon={MoonIcon}
+      disabled={!hibernatableAgentPanes(workspaceId).includes(pane.id)}
+      onClick={() => void commands.exec('pane.hibernate', { paneId: pane.id })}
+    >
+      {d.pane.hibernateTab}
+    </MenuItem>
   )
 }
 
