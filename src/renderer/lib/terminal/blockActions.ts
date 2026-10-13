@@ -79,6 +79,14 @@ export function canTypeInto(paneId: string): boolean {
   return Boolean(terminalFor(paneId)) && isIdlePrompt(useBlocksStore.getState(), paneId)
 }
 
+function runCommand(paneId: string, command: string): boolean {
+  const term = terminalFor(paneId)
+  if (!term || !command || !canTypeInto(paneId)) return false
+  term.paste(command)
+  window.ostia.pty.write(paneId, '\r')
+  return true
+}
+
 export function insertCommand(paneId: string, command: string, execute = false): boolean {
   const term = terminalFor(paneId)
   if (!term || !command || !canTypeInto(paneId)) return false
@@ -87,8 +95,8 @@ export function insertCommand(paneId: string, command: string, execute = false):
     editor.insert(command)
     return true
   }
-  term.paste(command)
-  if (execute) window.ostia.pty.write(paneId, '\r')
+  if (execute) runCommand(paneId, command)
+  else term.paste(command)
   term.focus()
   return true
 }
@@ -117,7 +125,7 @@ export function runWhenIdle(
   const attempt = (): void => {
     if (done || !atReadyPrompt(paneId)) return
     stop()
-    if (!allowed() || !insertCommand(paneId, command, true)) onGiveUp()
+    if (!allowed() || !runCommand(paneId, command)) onGiveUp()
     else onTyped()
   }
   const unsubscribe = useBlocksStore.subscribe(attempt)

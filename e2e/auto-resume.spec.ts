@@ -1,6 +1,7 @@
 import type { ChildProcess } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { chords } from './chords'
 import {
   DOM_RENDERER_SETTINGS,
   freshDataHome,
@@ -160,11 +161,11 @@ function shownState(dataHome: string): { workspace: unknown; tabs: unknown[] } {
   return { workspace: saved.activeWorkspaceId, tabs }
 }
 
-function slowShellStart(dataHome: string): void {
+function slowShellStart(dataHome: string, seconds = SLOW_SHELL_SECONDS): void {
   const home = testHome(dataHome)
   for (const rc of ['.zshrc', '.bashrc']) {
     const file = join(home, rc)
-    writeFileSync(file, `sleep ${SLOW_SHELL_SECONDS}\n${readFileSync(file, 'utf8')}`)
+    writeFileSync(file, `sleep ${seconds}\n${readFileSync(file, 'utf8')}`)
   }
 }
 
@@ -211,10 +212,43 @@ test('agents in a background tab and in another workspace resume without being s
   slowShellStart(dataHome)
   const relaunched = await launchAgentApp(dataHome, undefined, SESSION_PER_PANE)
   try {
+    await shownTerminal(relaunched.win).click()
+    await expect.poll(() => focusedPane(relaunched.win)).toBe(focused)
     await expect.poll(() => resumedSessions(dataHome), { timeout: 90_000 }).toHaveLength(3)
     await expect(relaunched.win.locator(SHOWN_ROWS)).toContainText('fake-agent-resumed')
     expect(await focusedPane(relaunched.win)).toBe(focused)
     expect(shownState(dataHome)).toEqual(before)
+  } finally {
+    await closeAsked(relaunched.app, relaunched.win)
+  }
+})
+
+test('an agent resumed in a visible split leaves keyboard focus in the pane the human was in', async () => {
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, AUTO_RESUME_SETTINGS)
+  const { app, win } = await launchAgentApp(dataHome)
+  await openWorkspace(win)
+  await startAgentInShownTerminal(dataHome, win, 1)
+  const agentPane = String(savedPanes(dataHome).find((p) => p.agentRunning === true)?.id)
+  await win.keyboard.press(chords.splitRight)
+  const plain = win.locator(`.surface-host:not([data-pane-id="${agentPane}"]) .xterm`)
+  await expect(win.locator('.xterm:visible')).toHaveCount(2, { timeout: 15_000 })
+  await expect(plain.locator('.xterm-rows')).toContainText(PROMPT, { timeout: 15_000 })
+  await plain.click()
+  await expect.poll(() => focusedPane(win)).not.toBeNull()
+  const focused = await focusedPane(win)
+  expect(focused).not.toBe(agentPane)
+  await quitAndWait(app, win)
+
+  slowShellStart(dataHome, 6)
+  const relaunched = await launchAgentApp(dataHome)
+  try {
+    await relaunched.win.locator(`.surface-host[data-pane-id="${focused}"] .xterm`).click()
+    await expect.poll(() => focusedPane(relaunched.win)).toBe(focused)
+    expect(existsSync(resumedLog(dataHome))).toBe(false)
+    await expect.poll(() => existsSync(resumedLog(dataHome)), { timeout: 30_000 }).toBe(true)
+    await expect(relaunched.win.locator('.xterm-rows:visible')).toHaveCount(2)
+    expect(await focusedPane(relaunched.win)).toBe(focused)
   } finally {
     await closeAsked(relaunched.app, relaunched.win)
   }

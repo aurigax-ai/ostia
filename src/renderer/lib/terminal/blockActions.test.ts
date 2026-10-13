@@ -113,6 +113,7 @@ describe('blockActions', () => {
     expect(rerunBlock(PANE, ids()[0])).toBe(true)
     expect(term.paste).toHaveBeenCalledWith('echo one')
     expect(window.ostia.pty.write).toHaveBeenCalledWith(PANE, '\r')
+    expect(term.focus).toHaveBeenCalledTimes(1)
   })
 
   it('refuses to type into a pane while a command is running', () => {
@@ -127,6 +128,7 @@ describe('blockActions', () => {
     expect(insertCommand(PANE, 'git log')).toBe(true)
     expect(term.paste).toHaveBeenCalledWith('git log')
     expect(window.ostia.pty.write).not.toHaveBeenCalled()
+    expect(term.focus).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -169,6 +171,16 @@ describe('runWhenIdle', () => {
     s.promptStart(NEW, { line: 2 }, '/home')
     s.promptEnd(NEW, { line: 2 })
     expect(term.paste).toHaveBeenCalledTimes(1)
+  })
+
+  it('types at the prompt without moving keyboard focus to the pane', () => {
+    const s = useBlocksStore.getState()
+    s.promptStart(NEW, { line: 0 }, '/home')
+    s.promptEnd(NEW, { line: 0 })
+    runWhenIdle(NEW, 'claude --resume abc-1')
+
+    expect(term.paste).toHaveBeenCalledWith('claude --resume abc-1')
+    expect(term.focus).not.toHaveBeenCalled()
   })
 
   it('does not type while something is running in the pane', () => {
