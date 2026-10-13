@@ -43,19 +43,23 @@ export interface AppLinkMatch {
 const SCHEME = String.raw`(?:obsidian|vscode|vscode-insiders):\/\/`
 const BRACKETED = new RegExp(String.raw`<(${SCHEME}[^<>\r\n]+)>`, 'gi')
 const PLAIN = new RegExp(String.raw`(?<![\w+.-])${SCHEME}[^\s<>"'\`　-〿＀-￯]+`, 'gi')
-const TRAILING = /[.,;:!?'"]+$/
+const TRAILING = new Set(['.', ',', ';', ':', '!', '?', "'", '"'])
+const OPENER: Record<string, string> = { ')': '(', ']': '[' }
 
 function balanced(url: string): string {
-  let out = url.replace(TRAILING, '')
-  for (const [open, close] of [
-    ['(', ')'],
-    ['[', ']'],
-  ] as const) {
-    while (out.endsWith(close) && out.split(close).length > out.split(open).length) {
-      out = out.slice(0, -1).replace(TRAILING, '')
-    }
+  const count: Record<string, number> = { '(': 0, ')': 0, '[': 0, ']': 0 }
+  for (const ch of url) if (ch in count) count[ch]++
+  let end = url.length
+  while (end > 0) {
+    const ch = url[end - 1]
+    const opener = OPENER[ch]
+    if (TRAILING.has(ch)) end--
+    else if (opener && count[ch] > count[opener]) {
+      count[ch]--
+      end--
+    } else break
   }
-  return out
+  return url.slice(0, end)
 }
 
 export function findAppLinks(text: string): AppLinkMatch[] {

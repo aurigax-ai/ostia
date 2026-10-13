@@ -92,6 +92,15 @@ describe('findAppLinks', () => {
     ])
   })
 
+  it('trims a long run of closing brackets and punctuation in linear time', () => {
+    const started = performance.now()
+    const [closers] = findAppLinks(`obsidian://a${')'.repeat(20_000)}`)
+    const [mixed] = findAppLinks(`vscode://file/a${'.)]'.repeat(10_000)}`)
+    expect(performance.now() - started).toBeLessThan(100)
+    expect(closers.url).toBe('obsidian://a')
+    expect(mixed.url).toBe('vscode://file/a')
+  })
+
   it('ignores other schemes and words that only end in a scheme name', () => {
     expect(findAppLinks('https://a.b javascript://x myobsidian://x obsidian://')).toEqual([])
   })
