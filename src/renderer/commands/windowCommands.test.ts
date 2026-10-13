@@ -91,6 +91,25 @@ describe('window.new', () => {
   })
 })
 
+describe('workspace.moveToNewWindow', () => {
+  it('is listed in the palette and hands the active workspace to a new window', async () => {
+    registerWindowCommands(false)
+    useWorkspacesStore.getState().addWorkspace('/home/me')
+    const id = useWorkspacesStore.getState().workspaces[0].id
+
+    const entry = commands.describe().find((c) => c.id === 'workspace.moveToNewWindow')
+    expect(entry?.hidden).toBeFalsy()
+    const res = await commands.execWith(
+      { activeWorkspaceId: id, activePaneId: null },
+      'workspace.moveToNewWindow',
+    )
+
+    expect(res).toMatchObject({ ok: true })
+    expect(window.ostia.windows.detach).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(window.ostia.windows.detach).mock.calls[0][0].id).toBe(id)
+  })
+})
+
 describe('window.reload', () => {
   it('asks main to reload the window through its recovery path, and nothing else', async () => {
     registerWindowCommands(false)

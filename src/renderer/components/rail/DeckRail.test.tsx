@@ -1,4 +1,6 @@
 import '@testing-library/jest-dom/vitest'
+import { registerBuiltinCommands } from '@/commands/builtins'
+import { commands } from '@/commands/registry'
 import { allPanes, createPane, tabsOf } from '@/layout/tree'
 import { languagesFrom } from '@/lib/extensions/languagePacks'
 import * as blockActions from '@/lib/terminal/blockActions'
@@ -12,6 +14,7 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useMergeConfirmStore } from '@/stores/workspaces/mergeConfirmStore'
+import { useRailEditStore } from '@/stores/workspaces/railEditStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { zhHant } from '@shared/app/dict'
@@ -901,6 +904,76 @@ describe('DeckRail', () => {
       await user.clear(name)
       await user.type(name, 'services{Enter}')
       expect(useWorkspacesStore.getState().groups[0].name).toBe('services')
+    })
+
+    describe('palette commands without an argument', () => {
+      afterEach(() => useRailEditStore.getState().clear())
+
+      function runCommand(id: string, activeWorkspaceId: string, args?: unknown) {
+        if (!commands.has('workspace.renameGroup')) registerBuiltinCommands()
+        return act(() =>
+          commands.execWith({ activeWorkspaceId, activePaneId: null }, id, args as never),
+        )
+      }
+
+      it('workspace.rename opens the inline name editor on the active workspace', async () => {
+        seedGroups()
+        render(<DeckRail />)
+        await runCommand('workspace.rename', 's1')
+        const input = screen.getByRole('textbox', { name: 'Workspace name' })
+        expect(input).toHaveValue('solo')
+        expect(input).toHaveFocus()
+        const user = userEvent.setup()
+        await user.clear(input)
+        await user.type(input, 'main{Enter}')
+        expect(useWorkspacesStore.getState().workspaces[0].customName).toBe('main')
+        expect(screen.queryByRole('textbox')).toBeNull()
+      })
+
+      it('workspace.describe opens the inline description editor', async () => {
+        seedGroups()
+        render(<DeckRail />)
+        await runCommand('workspace.describe', 's2')
+        const input = screen.getByRole('textbox', { name: 'Workspace description' })
+        await userEvent.setup().type(input, 'PR 7{Enter}')
+        expect(useWorkspacesStore.getState().workspaces[1].description).toBe('PR 7')
+      })
+
+      it('workspace.renameGroup opens the group editor for the active workspace group', async () => {
+        seedGroups()
+        render(<DeckRail />)
+        await runCommand('workspace.renameGroup', 's3')
+        const input = screen.getByRole('textbox', { name: 'Group name' })
+        expect(input).toHaveValue('backend')
+        const user = userEvent.setup()
+        await user.clear(input)
+        await user.type(input, 'services{Enter}')
+        expect(useWorkspacesStore.getState().groups[0].name).toBe('services')
+      })
+
+      it('workspace.renameGroup refuses a workspace that is in no group', async () => {
+        seedGroups()
+        render(<DeckRail />)
+        const res = await runCommand('workspace.renameGroup', 's1')
+        expect(res).toMatchObject({ ok: false })
+        expect(screen.queryByRole('textbox')).toBeNull()
+      })
+
+      it('workspace.renameGroup with a name renames directly, as the CLI does', async () => {
+        seedGroups()
+        render(<DeckRail />)
+        await runCommand('workspace.renameGroup', 's2', { name: 'svc' })
+        expect(useWorkspacesStore.getState().groups[0].name).toBe('svc')
+        expect(screen.queryByRole('textbox')).toBeNull()
+      })
+
+      it('workspace.rename with a name still renames without opening an editor', async () => {
+        seedGroups()
+        render(<DeckRail />)
+        await runCommand('workspace.rename', 's1', { name: 'cli' })
+        expect(useWorkspacesStore.getState().workspaces[0].customName).toBe('cli')
+        expect(screen.queryByRole('textbox')).toBeNull()
+      })
     })
 
     it('deletes a group from its menu and keeps every member', async () => {

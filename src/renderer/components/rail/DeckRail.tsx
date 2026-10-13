@@ -66,6 +66,7 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
+import { useRailEditStore } from '@/stores/workspaces/railEditStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import {
   type Workspace,
@@ -229,6 +230,12 @@ function WorkspacesView(): JSX.Element {
     if (!paneDragging) setTabOver(null)
   }, [paneDragging])
   const [renamingGroup, setRenamingGroup] = useState<string | null>(null)
+  const pendingEdit = useRailEditStore((s) => s.pending)
+  useEffect(() => {
+    if (pendingEdit?.kind !== 'group') return
+    useRailEditStore.getState().clear()
+    setRenamingGroup(pendingEdit.id)
+  }, [pendingEdit])
   const settingsTabOpen = useUIStore((s) => s.settingsTabOpen)
   const settingsActive = useUIStore((s) => s.settingsActive)
   const covered = useUIStore(coversWorkspaces)
@@ -683,6 +690,12 @@ function WorkspaceRow({
   const canMoveDown = useWorkspacesStore((s) => canMove(s, w.id, 1))
   const digitHints = useUIStore((s) => s.digitHints)
   const [editing, setEditing] = useState<'name' | 'description' | null>(null)
+  const pendingEdit = useRailEditStore((s) => s.pending)
+  useEffect(() => {
+    if (pendingEdit?.kind !== 'workspace' || pendingEdit.id !== w.id) return
+    useRailEditStore.getState().clear()
+    setEditing(pendingEdit.field)
+  }, [pendingEdit, w.id])
   const title = w.customName ?? w.name
   const sandboxed = useSandboxStore((s) => s.enabled[w.id] ?? false)
   const locked = useLayoutStore((s) => {
@@ -1058,7 +1071,10 @@ function RenameInput({
 }): JSX.Element {
   const [draft, setDraft] = useState(value)
   const input = useRef<HTMLInputElement>(null)
-  useEffect(() => input.current?.select(), [])
+  useEffect(() => {
+    input.current?.focus()
+    input.current?.select()
+  }, [])
   return (
     <Input
       ref={input}

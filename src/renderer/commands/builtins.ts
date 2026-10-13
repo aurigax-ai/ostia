@@ -86,6 +86,7 @@ import { useHistorySearchStore } from '@/stores/terminal/historySearchStore'
 import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { saveSnapshotNow } from '@/stores/workspaces/persistence'
+import { useRailEditStore } from '@/stores/workspaces/railEditStore'
 import type { WorkspaceKind, WorkspaceState } from '@/stores/workspaces/workspacesStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { type AgentResume, resumeCommand } from '@shared/agents/agentResume'
@@ -781,22 +782,49 @@ export function registerBuiltinCommands(): void {
   registerCore<{ text?: string } | undefined>({
     id: 'workspace.describe',
     category: 'workspace',
-    hidden: true,
     capabilities: ['drive-self'],
     run: (args, ctx) => {
       if (!ctx.activeWorkspaceId) throw new Error('no target workspace')
-      useWorkspacesStore.getState().describe(ctx.activeWorkspaceId, args?.text ?? '')
+      if (typeof args?.text !== 'string') {
+        useRailEditStore
+          .getState()
+          .begin({ kind: 'workspace', id: ctx.activeWorkspaceId, field: 'description' })
+        return
+      }
+      useWorkspacesStore.getState().describe(ctx.activeWorkspaceId, args.text)
     },
   })
 
   registerCore<{ name?: string } | undefined>({
     id: 'workspace.rename',
     category: 'workspace',
-    hidden: true,
     capabilities: ['drive-self'],
     run: (args, ctx) => {
       if (!ctx.activeWorkspaceId) throw new Error('no target workspace')
-      useWorkspacesStore.getState().rename(ctx.activeWorkspaceId, args?.name ?? '')
+      if (typeof args?.name !== 'string') {
+        useRailEditStore
+          .getState()
+          .begin({ kind: 'workspace', id: ctx.activeWorkspaceId, field: 'name' })
+        return
+      }
+      useWorkspacesStore.getState().rename(ctx.activeWorkspaceId, args.name)
+    },
+  })
+
+  registerCore<{ name?: string } | undefined>({
+    id: 'workspace.renameGroup',
+    category: 'workspace',
+    capabilities: ['drive-self'],
+    run: (args, ctx) => {
+      const store = useWorkspacesStore.getState()
+      const groupId = store.workspaces.find((w) => w.id === ctx.activeWorkspaceId)?.groupId
+      const group = store.groups.find((g) => g.id === groupId)
+      if (!group) throw new Error('workspace is not in a group')
+      if (typeof args?.name !== 'string') {
+        useRailEditStore.getState().begin({ kind: 'group', id: group.id })
+        return
+      }
+      store.renameGroup(group.id, args.name)
     },
   })
 
