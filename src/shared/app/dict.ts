@@ -4631,8 +4631,7 @@ export const zhHant: Dict = {
     beta: '接收 Beta 版更新',
     betaDesc:
       '另外提供候選版本，並從這裡安裝。Beta 版可能比較不穩定。關閉後會停在目前的 Beta 版，等正式版追上再更新，不會降版。',
-    betaBrewNote:
-      '自己執行 {command} 會重新安裝 Homebrew 的正式版，可能比這個 Beta 版舊。',
+    betaBrewNote: '自己執行 {command} 會重新安裝 Homebrew 的正式版，可能比這個 Beta 版舊。',
   },
   passwords: {
     title: '密碼',
