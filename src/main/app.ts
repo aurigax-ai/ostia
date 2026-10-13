@@ -4309,6 +4309,7 @@ const SCROLLBACK_AUTOSAVE_MS =
 let lastScrollbackSignature = ''
 
 function autosaveScrollback(): void {
+  if (savingScrollbackForQuit) return
   let signature = ''
   for (const [paneId, entry] of ptys) signature += `${paneId}:${entry.mirror.revision};`
   signature += `pending:${Object.keys(pendingRestoredScrollback()).length}`
