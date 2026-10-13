@@ -1510,9 +1510,11 @@ commands:
   workspace group-color <group> <red|orange|yellow|green|teal|blue|purple|pink> | <group> --clear
                             set or clear a sidebar group's color
   workspace group-rename <group> <name>
-                            rename a sidebar group (the new name must not be taken)
+                            rename a sidebar group (the new name must not be taken); quote
+                            a name with spaces: workspace group-rename "code review" review
   workspace group-delete <group>
-                            delete a sidebar group; its workspaces stay, ungrouped
+                            delete a sidebar group; its workspaces stay, ungrouped; quote
+                            a name with spaces
   workspace pin [--workspace <id>] | unpin [--workspace <id>]
                             pin a workspace (default: this one) to the top of the sidebar, or unpin it
   workspace close [--workspace <id>]

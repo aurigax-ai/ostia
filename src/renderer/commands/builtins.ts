@@ -244,9 +244,10 @@ function groupWorkspaceIds(workspaceId: string | null): string[] {
 
 function namedGroup(raw: unknown) {
   const name = normalizeGroupName(raw)
-  const group = useWorkspacesStore.getState().groups.find((g) => g.name === name)
-  if (!group) throw new Error(`no group named '${String(raw)}'`)
-  return group
+  const found = useWorkspacesStore.getState().groups.filter((g) => g.name === name)
+  if (found.length === 0) throw new Error(`no group named '${String(raw)}'`)
+  if (found.length > 1) throw new Error(`ambiguous: ${found.length} groups are named '${name}'`)
+  return found[0]
 }
 
 function workspaceWithoutPanes(ctx: CommandContext, paneId?: string): string | null {

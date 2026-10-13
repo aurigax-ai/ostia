@@ -300,8 +300,8 @@ export function parseGroupRenameArgs(argv: string[]): { group: string; name: str
 }
 
 export function parseGroupDeleteArgs(argv: string[]): { group: string } {
-  const group = argv.join(' ').trim()
-  if (!group) throw new Error('usage: ostia workspace group-delete <group>')
+  const [group, ...extra] = argv.map((word) => word.trim())
+  if (!group || extra.length > 0) throw new Error('usage: ostia workspace group-delete <group>')
   return { group }
 }
 

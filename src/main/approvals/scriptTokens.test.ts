@@ -909,6 +909,25 @@ describe('scoped script tokens', () => {
     },
   )
 
+  it('renames a group only to a name no group outside its scope has', async () => {
+    const { token } = createScriptToken(storeFile, 'work', ['read-board'], {
+      scope: limited([WORK]),
+    })
+    const conn = await client(token)
+    await expect(
+      conn.sendRequest('command.exec', {
+        id: 'workspace.groupRename',
+        args: { group: 'Work', name: 'Other' },
+      }),
+    ).rejects.toThrow('needs-elevation: all-workspaces')
+    expect(executed).toEqual([])
+    await conn.sendRequest('command.exec', {
+      id: 'workspace.groupRename',
+      args: { group: 'Work', name: 'Fresh' },
+    })
+    expect(executed.map((e) => e.id)).toEqual(['workspace.groupRename'])
+  })
+
   it('moves a workspace only into a group of its scope', async () => {
     const { token } = createScriptToken(storeFile, 'work', ['read-board'], {
       scope: limited([WORK], ['wsD']),

@@ -70,9 +70,10 @@ const CLI_HELP = `ostia — control-socket CLI
                                  removes it
   ostia workspace group-rename <group> <name>
                                  rename an existing sidebar group; <name> must not be the
-                                 name of another group
+                                 name of another group; quote a name with spaces
   ostia workspace group-delete <group>
-                                 delete a sidebar group; its workspaces stay, ungrouped
+                                 delete a sidebar group; its workspaces stay, ungrouped;
+                                 quote a name with spaces
   ostia workspace pin [--workspace <id>] | unpin [--workspace <id>]
                                  pin this pane's workspace (or --workspace) to the top of the
                                  sidebar, or unpin it

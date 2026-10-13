@@ -2226,6 +2226,31 @@ describe('workspace row commands', () => {
     expect(useWorkspacesStore.getState().workspaces[0].groupId).toBeUndefined()
   })
 
+  it('refuses to rename or delete a group whose name two groups share', async () => {
+    seed()
+    useWorkspacesStore.getState().createGroup('w1', 'api')
+    useWorkspacesStore.getState().createGroup('w2', 'web')
+    const [first, second] = useWorkspacesStore.getState().groups
+    useWorkspacesStore.setState({
+      groups: [first, { ...second, name: first.name }],
+    })
+
+    const rename = await commands.execWith(ctx(null, null), 'workspace.groupRename', {
+      group: 'api',
+      name: 'x',
+    })
+    const del = await commands.execWith(ctx(null, null), 'workspace.groupDelete', { group: 'api' })
+    expect(rename).toMatchObject({
+      ok: false,
+      error: { message: expect.stringContaining('ambiguous') },
+    })
+    expect(del).toMatchObject({
+      ok: false,
+      error: { message: expect.stringContaining('ambiguous') },
+    })
+    expect(useWorkspacesStore.getState().groups).toHaveLength(2)
+  })
+
   it('pins and unpins the target workspace, and does nothing when it is already so', async () => {
     seed()
     await commands.execWith(ctx('w2', null), 'workspace.pin')

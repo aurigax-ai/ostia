@@ -329,11 +329,14 @@ describe('parseGroupRenameArgs', () => {
 })
 
 describe('parseGroupDeleteArgs', () => {
-  it('joins the words into the group name', () => {
-    expect(parseGroupDeleteArgs(['code', 'review'])).toEqual({ group: 'code review' })
+  it('takes the one group name', () => {
+    expect(parseGroupDeleteArgs(['code review'])).toEqual({ group: 'code review' })
   })
 
-  it('refuses an empty name', () => {
+  it('refuses an empty name and a name split into words', () => {
+    expect(() => parseGroupDeleteArgs(['code', 'review'])).toThrow(
+      'usage: ostia workspace group-delete',
+    )
     expect(() => parseGroupDeleteArgs([])).toThrow('usage: ostia workspace group-delete')
   })
 })
