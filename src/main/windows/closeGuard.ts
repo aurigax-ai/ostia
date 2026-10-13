@@ -1,5 +1,5 @@
 import { type BrowserWindow, ipcMain } from 'electron'
-import type { PaneActivity, RunningGroup } from '../../shared/types'
+import type { PaneActivity, QuitAnswer, RunningGroup } from '../../shared/types'
 
 interface PendingAnswer {
   senderId: number
@@ -136,19 +136,26 @@ export function groupsFromPtys(
 export interface QuitCheck {
   scratchFiles: (workspaceId: string) => number
   kept: readonly string[]
+  keptShells: readonly string[]
   workspacesOf: (win: BrowserWindow) => readonly WorkspaceName[]
   processes: () => readonly PaneProcess[]
-  confirmNative: (groups: readonly RunningGroup[]) => Promise<boolean>
+  confirmNative: (groups: readonly RunningGroup[], keptShells: number) => Promise<QuitAnswer>
 }
 
 const GONE = Symbol('gone')
 const LATE = Symbol('late')
 
+export function parseQuitAnswer(raw: unknown, offered: boolean): QuitAnswer {
+  if (raw === 'quit') return 'quit'
+  if (raw === 'keep-shells' && offered) return 'keep-shells'
+  return 'cancel'
+}
+
 export async function confirmQuit(
   windows: readonly BrowserWindow[],
   asker: BrowserWindow | undefined,
   check: QuitCheck,
-): Promise<boolean> {
+): Promise<QuitAnswer> {
   const live = windows.filter((w) => !w.isDestroyed())
   const answers = await Promise.all(
     live.map((w) => ask(w, 'window:running', [...check.kept], GONE, RUNNING_ANSWER_MS, LATE)),
@@ -167,13 +174,19 @@ export async function confirmQuit(
     }
   }
   const groups = withScratchFiles(found, check.scratchFiles)
-  if (groups.length === 0) return true
+  const keptShells = [...check.keptShells]
+  const offered = keptShells.length > 0
+  if (groups.length === 0 && !offered) return 'quit'
   const showing = answered.filter((w) => !unresponsive(w))
   const target = asker && showing.includes(asker) ? asker : showing[0]
-  if (!target) return check.confirmNative(groups)
+  if (!target) return check.confirmNative(groups, keptShells.length)
   if (target.isMinimized()) target.restore()
   target.focus()
-  return (await ask(target, 'window:confirm-close', groups, true)) === true
+  const gone = offered ? 'keep-shells' : 'quit'
+  return parseQuitAnswer(
+    await ask(target, 'window:confirm-close', { groups, keptShells }, gone),
+    offered,
+  )
 }
 
 export function freezeAll(windows: readonly BrowserWindow[]): void {

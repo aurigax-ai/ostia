@@ -3,6 +3,7 @@ import {
   type QuitState,
   createQuitTrace,
   exitAfterDeadline,
+  keepsShellsOnQuit,
   keptOnQuit,
   planQuit,
   summarizeKinds,
@@ -70,12 +71,39 @@ describe('keptOnQuit', () => {
     { paneId: 'p2', kept: false },
   ]
 
-  it('KSH-C39 names the kept shells when Ostia restarts', () => {
-    expect(keptOnQuit(true, panes)).toEqual(['p1'])
+  it('KSH-C39 leaves the kept shells out of the question when Ostia restarts, since they live on', () => {
+    expect(keptOnQuit(true, true, panes)).toEqual({ kept: ['p1'], offer: [] })
   })
 
-  it('KSH-C40 names none when Ostia quits, so every running command is asked about', () => {
-    expect(keptOnQuit(false, panes)).toEqual([])
+  it('KSH-C40 offers to keep the kept shells when Ostia quits and asks before quitting', () => {
+    expect(keptOnQuit(false, true, panes)).toEqual({ kept: ['p1'], offer: ['p1'] })
+  })
+
+  it('KSH-C92 offers nothing when no shell is kept', () => {
+    expect(keptOnQuit(false, true, [{ paneId: 'p2', kept: false }])).toEqual({
+      kept: [],
+      offer: [],
+    })
+  })
+
+  it('KSH-C93 offers nothing and asks about every command when quitting does not ask', () => {
+    expect(keptOnQuit(false, false, panes)).toEqual({ kept: [], offer: [] })
+  })
+})
+
+describe('keepsShellsOnQuit', () => {
+  it('KSH-C94 keeps the shells when the quit chose to keep them', () => {
+    expect(keepsShellsOnQuit(false, 'keep-shells')).toBe(true)
+  })
+
+  it('KSH-C95 ends the shells when the quit chose to end them or nobody was asked', () => {
+    expect(keepsShellsOnQuit(false, 'quit')).toBe(false)
+    expect(keepsShellsOnQuit(false, null)).toBe(false)
+  })
+
+  it('KSH-C96 keeps the shells on a restart whatever the answer', () => {
+    expect(keepsShellsOnQuit(true, null)).toBe(true)
+    expect(keepsShellsOnQuit(true, 'quit')).toBe(true)
   })
 })
 

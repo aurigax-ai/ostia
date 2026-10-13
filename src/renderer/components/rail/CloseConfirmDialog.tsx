@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { fmt, useDict } from '@/i18n/useDict'
-import { type QuitLosses, quitLosses } from '@/lib/workspaces/closeConfirm'
+import { type QuitLosses, keptAgents, quitLosses } from '@/lib/workspaces/closeConfirm'
 import {
   type CloseConfirmKind,
   type RunningGroup,
@@ -28,6 +28,9 @@ export function CloseConfirmDialog(): JSX.Element {
   const d = useDict()
   const pending = useCloseConfirmStore((s) => s.pending)
   const answer = useCloseConfirmStore((s) => s.answer)
+  const keepShells = useCloseConfirmStore((s) => s.keepShells)
+  const keptShells = pending?.kind === 'quit' ? pending.keptShells : []
+  const offersKeep = keptShells.length > 0
 
   const copy: Record<CloseConfirmKind, { title: string; body: string; action: string }> = {
     workspace: {
@@ -51,7 +54,11 @@ export function CloseConfirmDialog(): JSX.Element {
       action: d.closeConfirm.moveAction,
     },
   }
-  const text = withScratch(d, pending?.kind ?? 'workspace', pending?.groups ?? [], copy)
+  const text = withKept(
+    d,
+    withScratch(d, pending?.kind ?? 'workspace', pending?.groups ?? [], copy),
+    offersKeep && (pending?.groups.length ?? 0) === 0,
+  )
 
   return (
     <Dialog
@@ -65,7 +72,7 @@ export function CloseConfirmDialog(): JSX.Element {
           <DialogTitle>{text.title}</DialogTitle>
           <DialogDescription>{text.body}</DialogDescription>
         </DialogHeader>
-        {pending?.kind === 'quit' ? (
+        {pending?.kind === 'quit' && pending.groups.length > 0 ? (
           <ul aria-label={text.body} className="flex flex-col gap-1">
             {lossLines(d, quitLosses(pending.groups)).map((line) => (
               <li key={line} className="font-medium text-fg text-ui-sm">
@@ -138,13 +145,44 @@ export function CloseConfirmDialog(): JSX.Element {
             </li>
           ))}
         </ul>
+        {offersKeep ? (
+          <section aria-label={d.closeConfirm.keptTitle} className="flex flex-col gap-1">
+            <div className="font-medium text-fg text-ui-sm">
+              {keptShells.length === 1
+                ? d.closeConfirm.keptShellsOne
+                : fmt(d.closeConfirm.keptShells, { count: keptShells.length })}
+            </div>
+            <ul className="flex flex-col gap-1">
+              {keptAgents(keptShells).map((agent, index) => (
+                <li
+                  // biome-ignore lint/suspicious/noArrayIndexKey: agents can repeat and never reorder while the dialog is open
+                  key={index}
+                  className="flex min-w-0 items-center gap-2 text-fg-muted"
+                >
+                  <RobotIcon size={14} className="shrink-0" aria-hidden />
+                  <span className="truncate font-mono text-fg text-ui-sm">
+                    {agent || d.closeConfirm.unknownCommand}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {pending?.groups.length ? (
+              <p className="text-fg-muted text-ui-sm">{d.closeConfirm.keptBody}</p>
+            ) : null}
+          </section>
+        ) : null}
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => answer(false)}>
             {d.closeConfirm.cancel}
           </Button>
           <Button variant="destructive" size="sm" onClick={() => answer(true)}>
-            {text.action}
+            {offersKeep ? d.closeConfirm.endAction : text.action}
           </Button>
+          {offersKeep ? (
+            <Button size="sm" autoFocus onClick={keepShells}>
+              {d.closeConfirm.keepAction}
+            </Button>
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -174,6 +212,11 @@ function withScratch(
     body: d.closeConfirm.scratchBody,
     action: kind === 'quit' ? copy.quit.action : d.closeConfirm.scratchAction,
   }
+}
+
+function withKept(d: Dict, text: ConfirmCopy, onlyKept: boolean): ConfirmCopy {
+  if (!onlyKept) return text
+  return { ...text, title: d.closeConfirm.keptTitle, body: d.closeConfirm.keptBody }
 }
 
 function lossLines(d: Dict, losses: QuitLosses): string[] {

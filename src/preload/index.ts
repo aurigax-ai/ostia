@@ -132,8 +132,8 @@ import type {
   Platform,
   PromptContext,
   PtyAttachResult,
+  QuitQuestion,
   ReferenceInsert,
-  RunningGroup,
   SnapshotWorkspace,
   SyncStatus,
   WindowInfo,
@@ -192,9 +192,9 @@ const bridge: OstiaBridge = {
       return () => ipcRenderer.removeListener('window:running', handler)
     },
     onConfirmClose: (cb) => {
-      const handler = (_event: unknown, requestId: number, groups: RunningGroup[]): void => {
-        void cb(groups).then((approved) =>
-          ipcRenderer.send('window:close-answer', requestId, approved),
+      const handler = (_event: unknown, requestId: number, question: QuitQuestion): void => {
+        void cb(question).then((answer) =>
+          ipcRenderer.send('window:close-answer', requestId, answer),
         )
       }
       ipcRenderer.on('window:confirm-close', handler)

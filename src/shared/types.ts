@@ -155,8 +155,15 @@ export interface WindowControls {
   onSystemDarkChange: (cb: (dark: boolean) => void) => () => void
   onMaximizeChange: (cb: (maximized: boolean) => void) => () => void
   onRunningQuery: (cb: (kept: string[]) => RunningGroup[] | Promise<RunningGroup[]>) => () => void
-  onConfirmClose: (cb: (groups: RunningGroup[]) => Promise<boolean>) => () => void
+  onConfirmClose: (cb: (question: QuitQuestion) => Promise<QuitAnswer>) => () => void
   onFreeze: (cb: () => void) => () => void
+}
+
+export type QuitAnswer = 'cancel' | 'quit' | 'keep-shells'
+
+export interface QuitQuestion {
+  groups: RunningGroup[]
+  keptShells: string[]
 }
 
 export interface RunningGroup {
