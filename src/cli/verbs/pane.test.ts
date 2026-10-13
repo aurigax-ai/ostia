@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   hibernateOutcome,
   parseGroupColorArgs,
+  parseGroupDeleteArgs,
+  parseGroupRenameArgs,
   parsePaneArgs,
   parseWorkspaceGroupArgs,
   parseWorkspaceRenameArgs,
@@ -341,5 +343,32 @@ describe('parseGroupColorArgs', () => {
     expect(() => parseGroupColorArgs(['Work'])).toThrow('usage: ostia workspace group-color')
     expect(() => parseGroupColorArgs(['blue'])).toThrow('usage: ostia workspace group-color')
     expect(() => parseGroupColorArgs(['--clear'])).toThrow('usage: ostia workspace group-color')
+  })
+})
+
+describe('parseGroupRenameArgs', () => {
+  it('takes the group and the new name', () => {
+    expect(parseGroupRenameArgs(['Work', 'Billing'])).toEqual({ group: 'Work', name: 'Billing' })
+  })
+
+  it('refuses a missing or extra word', () => {
+    expect(() => parseGroupRenameArgs(['Work'])).toThrow('usage: ostia workspace group-rename')
+    expect(() => parseGroupRenameArgs(['a', 'b', 'c'])).toThrow(
+      'usage: ostia workspace group-rename',
+    )
+    expect(() => parseGroupRenameArgs([])).toThrow('usage: ostia workspace group-rename')
+  })
+})
+
+describe('parseGroupDeleteArgs', () => {
+  it('takes the one group name', () => {
+    expect(parseGroupDeleteArgs(['code review'])).toEqual({ group: 'code review' })
+  })
+
+  it('refuses an empty name and a name split into words', () => {
+    expect(() => parseGroupDeleteArgs(['code', 'review'])).toThrow(
+      'usage: ostia workspace group-delete',
+    )
+    expect(() => parseGroupDeleteArgs([])).toThrow('usage: ostia workspace group-delete')
   })
 })

@@ -598,15 +598,19 @@ describe('TerminalView engines', () => {
     expect(window.ostia.clipboard.contents).not.toHaveBeenCalled()
   })
 
-  for (const [name, contents, pasted] of [
-    ['the text', { files: [], image: false }, 'echo hi'],
+  for (const [title, contents, pasted] of [
     [
-      'the quoted path of a copied file',
+      'a Cmd+V on macOS that may carry a file sends the text before the Enter pressed while the clipboard is read',
+      { files: [], image: false },
+      'echo hi',
+    ],
+    [
+      'a Cmd+V on macOS that may carry a file sends the quoted path of a copied file before the Enter pressed while the clipboard is read',
       { files: ['/tmp/a b.png'], image: true },
       "'/tmp/a b.png' ",
     ],
   ] as const) {
-    it(`a Cmd+V on macOS that may carry a file sends ${name} before the Enter pressed while the clipboard is read`, async () => {
+    it(title, async () => {
       os.mac = true
       onTestFinished(() => {
         os.mac = false
