@@ -381,6 +381,7 @@
       "paths": [
         "src/extensions/completions/",
         "src/main/terminal/completionSpecs.ts",
+        "src/main/terminal/pathCompletion.ts",
         "src/shared/terminal/completionSpec.ts",
         "src/renderer/lib/prompt/specCompletion.ts",
         "src/renderer/lib/prompt/completionMatch.ts",
