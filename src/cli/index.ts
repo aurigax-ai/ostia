@@ -9,6 +9,7 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { controlInfoPath, readControlSocket } from '../main/control/controlDiscovery'
+import { capturedArgs } from '../shared/agents/agentLaunch'
 import {
   RESUMABLE_AGENTS,
   isResumableAgent,
@@ -1479,9 +1480,11 @@ async function runResumeTokenVerb(conn: MessageConnection): Promise<void> {
     process.exitCode = 1
     return
   }
+  const args = capturedArgs(agent, process.env)
   const res = await conn.sendRequest<{ ok: boolean; error?: string }>('pane.setResume', {
     agent,
     ...session,
+    ...(args ? { args } : {}),
   })
   if (res.ok) {
     console.log('ok')
