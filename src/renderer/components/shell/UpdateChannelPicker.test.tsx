@@ -2,7 +2,7 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUpdateStore } from '@/stores/app/updateStore'
 import type { InstallMethod } from '@shared/app/installMethod'
 import type { ReleaseCheckResult } from '@shared/app/releases'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { UpdateChannelPicker } from './UpdateChannelPicker'
@@ -110,12 +110,13 @@ describe('UpdateChannelPicker', () => {
     },
   )
 
-  it('warns a brew install on Beta that brew upgrade --cask ostia returns to the release', () => {
+  it('warns a brew install on Beta that brew upgrade --cask ostia returns to the release', async () => {
     installedWith('brew')
     useSettingsStore.setState({
       behavior: { ...useSettingsStore.getState().behavior, updateChannel: 'beta' },
     })
     render(<UpdateChannelPicker />)
+    await act(async () => {})
     expect(
       screen.getByText(
         'Running brew upgrade --cask ostia yourself installs the Homebrew release again, which can be older than this beta.',
@@ -123,12 +124,41 @@ describe('UpdateChannelPicker', () => {
     ).toBeInTheDocument()
   })
 
-  it('shows Beta off on a dmg install whose settings still say main', () => {
+  it('says a release candidate stays until a release catches up once Beta is off, and only then', async () => {
+    const running = async (version: string) => {
+      const info = await window.ostia.info()
+      vi.mocked(window.ostia.info).mockResolvedValue({ ...info, version })
+    }
+    const note =
+      'You’re on beta 0.6.0-rc.2. It stays until a release catches up; nothing is downgraded.'
+    await running('0.6.0-rc.2+sha.1a2b3c')
+    installedWith('dmg')
+    const { unmount } = render(<UpdateChannelPicker />)
+    expect(await screen.findByText(note)).toBeInTheDocument()
+    act(() =>
+      useSettingsStore.setState({
+        behavior: { ...useSettingsStore.getState().behavior, updateChannel: 'beta' },
+      }),
+    )
+    expect(screen.queryByText(note)).toBeNull()
+    unmount()
+
+    await running('0.5.12')
+    useSettingsStore.setState({
+      behavior: { ...useSettingsStore.getState().behavior, updateChannel: 'stable' },
+    })
+    render(<UpdateChannelPicker />)
+    await waitFor(() => expect(window.ostia.info).toHaveBeenCalled())
+    expect(screen.queryByText(/You’re on beta/)).toBeNull()
+  })
+
+  it('shows Beta off on a dmg install whose settings still say main', async () => {
     installedWith('dmg')
     useSettingsStore.setState({
       behavior: { ...useSettingsStore.getState().behavior, updateChannel: 'main' },
     })
     render(<UpdateChannelPicker />)
+    await act(async () => {})
     expect(screen.getByRole('switch', { name: 'Receive beta updates' })).not.toBeChecked()
   })
 

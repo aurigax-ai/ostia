@@ -423,6 +423,7 @@ import {
   runCommand,
   signaturePolicy,
   swapStagedBundle,
+  verifyStagedSync,
 } from './updates/macReplace'
 import {
   announceReplace,
@@ -736,6 +737,7 @@ const keptShells = new KeptShells({
 let tmuxTerminal: string | null = null
 let restartRequested = false
 let stagedUpdate: { pending: PendingSweep; sweepFile: string } | null = null
+const updatePolicy = signaturePolicy(app.isPackaged, process.env)
 let updateRunner: UpdateRunner | null = null
 const UPDATE_HOST_GRANT_ID = 'core:update'
 
@@ -3698,7 +3700,7 @@ app.whenReady().then(() => {
             base: downloadBase,
             fetch,
             run: runCommand,
-            policy: signaturePolicy(app.isPackaged, process.env),
+            policy: updatePolicy,
           })
         : tarballReplace({ base: downloadBase, fetch, tar: runTar }),
       onState: announceReplace,
@@ -4486,9 +4488,11 @@ app.on('before-quit', (event) => {
     quitTrace.stage('update-swap')
     const { pending, sweepFile } = stagedUpdate
     stagedUpdate = null
-    const swapped = swapStagedBundle(pending.appDir)
-    appLog?.info('update-swap', { version: pending.version, swapped })
-    if (swapped) saveJson(sweepFile, pending)
+    const result = swapStagedBundle(pending.appDir, {
+      verify: (staged) => verifyStagedSync(staged, updatePolicy),
+    })
+    appLog?.info('update-swap', { version: pending.version, result })
+    if (result === 'swapped') saveJson(sweepFile, pending)
   }
   quitTrace.stage('teardown-done')
 })

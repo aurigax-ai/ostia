@@ -1,5 +1,5 @@
-import { execFile } from 'node:child_process'
-import { constants, lstatSync, renameSync } from 'node:fs'
+import { execFile, execFileSync } from 'node:child_process'
+import { constants, lstatSync, renameSync, rmSync } from 'node:fs'
 import { access, lstat, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
@@ -25,6 +25,7 @@ export const MAC_BUNDLE_ID = 'ai.aurigax.ostia'
 export const DMG_APP = 'Ostia.app'
 const UPDATE_SIGNATURE_ENV = 'UPDATE_SIGNATURE'
 const COMMAND_TIMEOUT_MS = 5 * 60_000
+const SWAP_VERIFY_TIMEOUT_MS = 60_000
 const NOTARIZED = /^source=Notarized Developer ID$/m
 
 export type SignaturePolicy = 'release' | 'adhoc'
@@ -246,30 +247,54 @@ export async function discardStaged(bundle: string): Promise<void> {
 
 type Rename = (from: string, to: string) => void
 
-export function swapStagedBundle(bundle: string, rename: Rename = renameSync): boolean {
-  const staged = stagedBundlePath(bundle)
-  const old = oldBundlePath(bundle)
-  const present = (path: string): boolean => {
-    try {
-      lstatSync(path)
-      return true
-    } catch {
-      return false
-    }
-  }
-  if (!present(staged) || present(old)) return false
+export type SwapResult = 'swapped' | 'nothing-staged' | 'rejected' | 'failed'
+
+export function verifyStagedSync(staged: string, policy: SignaturePolicy): boolean {
   try {
-    rename(bundle, old)
+    execFileSync(
+      'codesign',
+      ['--verify', '--strict', `-R=${designatedRequirement(policy)}`, staged],
+      { stdio: 'ignore', timeout: SWAP_VERIFY_TIMEOUT_MS },
+    )
+    return true
   } catch {
     return false
   }
+}
+
+export function swapStagedBundle(
+  bundle: string,
+  deps: { verify: (staged: string) => boolean; rename?: Rename },
+): SwapResult {
+  const rename = deps.rename ?? renameSync
+  const staged = stagedBundlePath(bundle)
+  const old = oldBundlePath(bundle)
+  const kind = (path: string): 'dir' | 'other' | null => {
+    try {
+      return lstatSync(path).isDirectory() ? 'dir' : 'other'
+    } catch {
+      return null
+    }
+  }
+  const stagedKind = kind(staged)
+  if (stagedKind === null) return 'nothing-staged'
+  if (stagedKind !== 'dir' || !deps.verify(staged)) {
+    rmSync(staged, { recursive: true, force: true })
+    return 'rejected'
+  }
+  if (kind(old) !== null) return 'failed'
+  try {
+    rename(bundle, old)
+  } catch {
+    return 'failed'
+  }
   try {
     rename(staged, bundle)
-    return true
+    return 'swapped'
   } catch {
     try {
       rename(old, bundle)
     } catch {}
-    return false
+    return 'failed'
   }
 }
