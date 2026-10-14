@@ -228,8 +228,7 @@
   :root[data-keyboard-nav] :focus-visible,
   :root[data-keyboard-nav] [data-focus-ring="within"]:has(:focus-visible),
   :read-write:focus-visible,
-  [data-slot="combobox-chips"]:focus-within,
-  [data-slot="input-group"]:has([data-slot="input-group-control"]:focus-visible):not(
+  [data-slot="input-group"]:has(.input-group-control:focus-visible):not(
       [data-slot="combobox-content"] *
     ) {
     outline: 2px solid var(--brand);
@@ -439,20 +438,20 @@
   animation: rail-content-fade var(--motion-panel) var(--ease-in-out) reverse both;
 }
 
-.app:has(> .deck-rail[data-rail-motion]) {
+:root[data-rail-motion] .app {
   grid-template-columns: var(--rail-w-collapsed) auto 1fr;
   overflow: clip;
 }
 
-.app:has(> .deck-rail[data-rail-motion]) > :is(.files-panel, .workzone) {
+:root[data-rail-motion] .app > :is(.files-panel, .workzone) {
   will-change: transform;
 }
 
-.app:has(> .deck-rail[data-rail-motion="opening"]) > :is(.files-panel, .workzone) {
+:root[data-rail-motion="opening"] .app > :is(.files-panel, .workzone) {
   animation: rail-follow var(--motion-panel) var(--ease-in-out) both;
 }
 
-.app:has(> .deck-rail[data-rail-motion="closing"]) > :is(.files-panel, .workzone) {
+:root[data-rail-motion="closing"] .app > :is(.files-panel, .workzone) {
   animation: rail-follow var(--motion-panel) var(--ease-in-out) reverse both;
 }
 
@@ -3796,11 +3795,6 @@ button.prompt-chip:hover {
 
 .motion-hint[data-instant] {
   transition-duration: 0ms;
-}
-
-:has(> [data-slot="tooltip-content"]),
-[data-slot="tooltip-content"] {
-  pointer-events: none;
 }
 
 .block-frame {

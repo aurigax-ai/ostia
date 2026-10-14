@@ -6,20 +6,6 @@ import * as React from 'react'
 
 import { Separator } from '@/components/ui/separator'
 
-function ItemGroup({ className, ...props }: React.ComponentProps<'div'>) {
-  return (
-    <div
-      role="list"
-      data-slot="item-group"
-      className={cn(
-        'group/item-group flex w-full flex-col gap-4 has-data-[size=sm]:gap-2.5 has-data-[size=xs]:gap-2',
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
 function ItemSeparator({ className, ...props }: React.ComponentProps<typeof Separator>) {
   return (
     <Separator
@@ -75,38 +61,6 @@ function Item({
       size,
     },
   })
-}
-
-const itemMediaVariants = cva(
-  'flex shrink-0 items-center justify-center gap-2 group-has-data-[slot=item-description]/item:translate-y-0.5 group-has-data-[slot=item-description]/item:self-start [&_svg]:pointer-events-none',
-  {
-    variants: {
-      variant: {
-        default: 'bg-transparent',
-        icon: "[&_svg:not([class*='size-'])]:size-4",
-        image:
-          'size-10 overflow-hidden rounded-sm group-data-[size=sm]/item:size-8 group-data-[size=xs]/item:size-6 [&_img]:size-full [&_img]:object-cover',
-      },
-    },
-    defaultVariants: {
-      variant: 'default',
-    },
-  },
-)
-
-function ItemMedia({
-  className,
-  variant = 'default',
-  ...props
-}: React.ComponentProps<'div'> & VariantProps<typeof itemMediaVariants>) {
-  return (
-    <div
-      data-slot="item-media"
-      data-variant={variant}
-      className={cn(itemMediaVariants({ variant, className }))}
-      {...props}
-    />
-  )
 }
 
 function ItemContent({ className, ...props }: React.ComponentProps<'div'>) {
@@ -183,10 +137,8 @@ function ItemFooter({ className, ...props }: React.ComponentProps<'div'>) {
 
 export {
   Item,
-  ItemMedia,
   ItemContent,
   ItemActions,
-  ItemGroup,
   ItemSeparator,
   ItemTitle,
   ItemDescription,

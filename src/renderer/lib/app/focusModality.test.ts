@@ -137,8 +137,7 @@ describe('one focus indicator', () => {
       ':root[data-keyboard-nav] :focus-visible',
       ':root[data-keyboard-nav] [data-focus-ring="within"]:has(:focus-visible)',
       ':read-write:focus-visible',
-      '[data-slot="combobox-chips"]:focus-within',
-      '[data-slot="input-group"]:has([data-slot="input-group-control"]:focus-visible):not( [data-slot="combobox-content"] * )',
+      '[data-slot="input-group"]:has(.input-group-control:focus-visible):not( [data-slot="combobox-content"] * )',
     ])
   })
 })

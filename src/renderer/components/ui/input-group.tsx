@@ -14,7 +14,7 @@ function InputGroup({ className, ...props }: React.ComponentProps<'div'>) {
       data-slot="input-group"
       role="group"
       className={cn(
-        'group/input-group relative flex h-8 w-full min-w-0 items-center rounded-lg border border-input transition-colors has-disabled:bg-input/50 has-disabled:opacity-50 has-[[data-slot][aria-invalid=true]]:border-destructive has-[[data-slot][aria-invalid=true]]:ring-3 has-[[data-slot][aria-invalid=true]]:ring-destructive/20 has-[>[data-align=block-end]]:h-auto has-[>[data-align=block-end]]:flex-col has-[>[data-align=block-start]]:h-auto has-[>[data-align=block-start]]:flex-col has-[>textarea]:h-auto dark:bg-input/30 dark:has-disabled:bg-input/80 dark:has-[[data-slot][aria-invalid=true]]:ring-destructive/40 has-[>[data-align=block-end]]:[&>input]:pt-3 has-[>[data-align=block-start]]:[&>input]:pb-3 has-[>[data-align=inline-end]]:[&>input]:pr-1.5 has-[>[data-align=inline-start]]:[&>input]:pl-1.5',
+        'group/input-group relative flex h-8 w-full min-w-0 items-center rounded-lg border border-input transition-colors has-disabled:bg-input/50 has-disabled:opacity-50 has-[>.input-group-addon-block-end]:h-auto has-[>.input-group-addon-block-end]:flex-col has-[>.input-group-addon-block-start]:h-auto has-[>.input-group-addon-block-start]:flex-col has-[>textarea]:h-auto dark:bg-input/30 dark:has-disabled:bg-input/80 has-[>.input-group-addon-block-end]:[&>input]:pt-3 has-[>.input-group-addon-block-start]:[&>input]:pb-3 has-[>.input-group-addon-inline-end]:[&>input]:pr-1.5 has-[>.input-group-addon-inline-start]:[&>input]:pl-1.5',
         className,
       )}
       {...props}
@@ -27,12 +27,14 @@ const inputGroupAddonVariants = cva(
   {
     variants: {
       align: {
-        'inline-start': 'order-first pl-2 has-[>button]:ml-[-0.3rem] has-[>kbd]:ml-[-0.15rem]',
-        'inline-end': 'order-last pr-2 has-[>button]:mr-[-0.3rem] has-[>kbd]:mr-[-0.15rem]',
+        'inline-start':
+          'input-group-addon-inline-start order-first pl-2 has-[>button]:ml-[-0.3rem] has-[>kbd]:ml-[-0.15rem]',
+        'inline-end':
+          'input-group-addon-inline-end order-last pr-2 has-[>button]:mr-[-0.3rem] has-[>kbd]:mr-[-0.15rem]',
         'block-start':
-          'order-first w-full justify-start px-2.5 pt-2 group-has-[>input]/input-group:pt-2 [.border-b]:pb-2',
+          'input-group-addon-block-start order-first w-full justify-start px-2.5 pt-2 group-has-[>input]/input-group:pt-2 [.border-b]:pb-2',
         'block-end':
-          'order-last w-full justify-start px-2.5 pb-2 group-has-[>input]/input-group:pb-2 [.border-t]:pt-2',
+          'input-group-addon-block-end order-last w-full justify-start px-2.5 pb-2 group-has-[>input]/input-group:pb-2 [.border-t]:pt-2',
       },
     },
     defaultVariants: {
@@ -118,7 +120,7 @@ const InputGroupInput = React.forwardRef<HTMLInputElement, React.ComponentProps<
         ref={ref}
         data-slot="input-group-control"
         className={cn(
-          'flex-1 rounded-none border-0 bg-transparent shadow-none ring-0 outline-none disabled:bg-transparent aria-invalid:ring-0 dark:bg-transparent dark:disabled:bg-transparent',
+          'input-group-control flex-1 rounded-none border-0 bg-transparent shadow-none ring-0 outline-none disabled:bg-transparent aria-invalid:ring-0 dark:bg-transparent dark:disabled:bg-transparent',
           className,
         )}
         {...props}
@@ -134,7 +136,7 @@ const InputGroupTextarea = React.forwardRef<HTMLTextAreaElement, React.Component
         ref={ref}
         data-slot="input-group-control"
         className={cn(
-          'flex-1 resize-none rounded-none border-0 bg-transparent py-2 shadow-none ring-0 outline-none disabled:bg-transparent aria-invalid:ring-0 dark:bg-transparent dark:disabled:bg-transparent',
+          'input-group-control flex-1 resize-none rounded-none border-0 bg-transparent py-2 shadow-none ring-0 outline-none disabled:bg-transparent aria-invalid:ring-0 dark:bg-transparent dark:disabled:bg-transparent',
           className,
         )}
         {...props}

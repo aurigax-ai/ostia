@@ -966,7 +966,7 @@ export function WarningNote({
   return (
     <Alert
       className={cn(
-        'mt-1 items-center rounded-none border-0 bg-transparent p-0 text-warn-fg has-data-[slot=alert-action]:pr-0',
+        'mt-1 items-center rounded-none border-0 bg-transparent p-0 text-warn-fg has-[.alert-action]:pr-0',
         actions ? 'has-[>svg]:grid-cols-[auto_1fr_auto]' : null,
       )}
     >

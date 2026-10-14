@@ -916,7 +916,16 @@
         "src/renderer/lib/workspaces/workspaceSummary.ts",
         "src/renderer/lib/attention/workspaceActivity.ts"
       ],
-      "specs": ["e2e/workspace-groups.spec.ts"]
+      "specs": ["e2e/has-free-styles.spec.ts", "e2e/workspace-groups.spec.ts"]
+    },
+    {
+      "name": "component styles",
+      "paths": [
+        "src/renderer/components/ui/",
+        "src/renderer/lib/theme/hasSelectors.",
+        "e2e/hasFixtures.tsx"
+      ],
+      "specs": ["e2e/has-free-styles.spec.ts"]
     },
     {
       "name": "appearance",

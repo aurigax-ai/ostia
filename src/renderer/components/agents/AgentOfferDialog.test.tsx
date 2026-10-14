@@ -87,6 +87,52 @@ describe('AgentOfferDialog', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
+  it('shades exactly the agent row whose radio is checked', async () => {
+    const user = userEvent.setup()
+    const shell = { ...createPane('terminal'), id: 'p-shell', title: 'zsh' }
+    const claude = { ...createPane('terminal'), id: 'p-claude', title: 'claude' }
+    const codex = { ...createPane('terminal'), id: 'p-codex', title: 'codex' }
+    useLayoutStore.setState({
+      byWorkspace: {
+        w1: {
+          root: {
+            type: 'tabs',
+            id: 'tabs-1',
+            children: [shell, claude, codex],
+            activeId: shell.id,
+          },
+          activePaneId: shell.id,
+          zoomedPaneId: null,
+        },
+      } as never,
+    })
+    useBlocksStore.setState({
+      running: { 'p-claude': 'b1', 'p-codex': 'b2' },
+      agentBlocks: {
+        'p-claude': { blockId: 'b1', agent: 'claude' },
+        'p-codex': { blockId: 'b2', agent: 'codex' },
+      },
+    })
+    render(<AgentOfferDialog />)
+    act(() => useAgentOfferStore.getState().receive(OFFER))
+    const dialog = await screen.findByRole('dialog')
+    const shadedLikeChecked = () => {
+      const rows = dialog.querySelectorAll('label')
+      expect(rows).toHaveLength(2)
+      for (const row of rows) {
+        expect(row.classList.contains('bg-surface-2')).toBe(
+          row.querySelector('[data-checked]') !== null,
+        )
+      }
+    }
+    shadedLikeChecked()
+    const radios = screen.getAllByRole('radio')
+    expect(radios).toHaveLength(2)
+    await user.click(radios[1])
+    shadedLikeChecked()
+    expect(dialog.querySelectorAll('label.bg-surface-2')).toHaveLength(1)
+  })
+
   it('answers not sent when the human declines', async () => {
     const user = userEvent.setup()
     render(<AgentOfferDialog />)

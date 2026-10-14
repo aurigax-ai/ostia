@@ -61,7 +61,7 @@ function OfferBody({ offer }: { offer: ExtensionAgentOffer }): JSX.Element {
               <label
                 key={t.paneId}
                 htmlFor={`${ids}-${t.paneId}`}
-                className="flex items-center gap-2 rounded-sm px-2 py-1 text-ui-sm hover:bg-surface-2 has-data-checked:bg-surface-2"
+                className={`flex items-center gap-2 rounded-sm px-2 py-1 text-ui-sm hover:bg-surface-2${t.paneId === target?.paneId ? ' bg-surface-2' : ''}`}
               >
                 <RadioGroupItem id={`${ids}-${t.paneId}`} value={t.paneId} />
                 <span

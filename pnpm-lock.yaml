@@ -6,6 +6,7 @@ settings:
 
 patchedDependencies:
   '@xterm/xterm@6.1.0-beta.304': ccc9ddddeea876a0a50af7193b252cacba37a7b8e2807097552522f7e377e133
+  monaco-editor@0.57.0: d8a0b3a563025958621786885025d1cb4656cbf006cde9a0f05581ccdad11868
   swr@2.5.1: 88cbabb501253020ef82b08d21a0172d1f299c8b2e9fc3523475a159d7202ac9
 
 importers:
@@ -261,7 +262,7 @@ importers:
         version: 3.0.0
       monaco-editor:
         specifier: ^0.57.0
-        version: 0.57.0
+        version: 0.57.0(patch_hash=d8a0b3a563025958621786885025d1cb4656cbf006cde9a0f05581ccdad11868)
       papaparse:
         specifier: ^5.7.0
         version: 5.7.0
@@ -10052,7 +10053,7 @@ snapshots:
     dependencies:
       minimist: 1.2.8
 
-  monaco-editor@0.57.0:
+  monaco-editor@0.57.0(patch_hash=d8a0b3a563025958621786885025d1cb4656cbf006cde9a0f05581ccdad11868):
     dependencies:
       dompurify: 3.4.15
       marked: 14.0.0

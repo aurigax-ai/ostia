@@ -148,6 +148,31 @@ describe('QuestionCard', () => {
     })
   })
 
+  it('shades exactly the rows whose choice is checked', async () => {
+    const user = userEvent.setup()
+    const shadedLikeChecked = () => {
+      for (const row of document.querySelectorAll('label')) {
+        expect(row.classList.contains('bg-surface-2')).toBe(
+          row.querySelector('[data-checked]') !== null,
+        )
+      }
+    }
+    show(SINGLE)
+    shadedLikeChecked()
+    await user.click(screen.getByRole('radio', { name: 'production' }))
+    shadedLikeChecked()
+    await user.click(screen.getByRole('radio', { name: 'staging' }))
+    shadedLikeChecked()
+    cleanup()
+    show({ ...MULTI, id: 'question-2' })
+    await user.click(screen.getByRole('checkbox', { name: 'e2e' }))
+    await user.click(screen.getByRole('checkbox', { name: 'lint' }))
+    shadedLikeChecked()
+    await user.click(screen.getByRole('checkbox', { name: 'e2e' }))
+    shadedLikeChecked()
+    expect(document.querySelectorAll('label.bg-surface-2')).toHaveLength(1)
+  })
+
   it('sends with Ctrl+Enter from the reply box', async () => {
     const user = userEvent.setup()
     show(question())

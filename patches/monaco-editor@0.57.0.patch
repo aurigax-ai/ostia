@@ -1,0 +1,12 @@
+diff --git a/esm/vs/editor/browser/widget/markdownRenderer/browser/renderedMarkdown.css b/esm/vs/editor/browser/widget/markdownRenderer/browser/renderedMarkdown.css
+index 25962ee714e3a4563b29bd9d391d472369587db4..3b6f9933429a970b13270fab1bccbf232da1cb48 100644
+--- a/esm/vs/editor/browser/widget/markdownRenderer/browser/renderedMarkdown.css
++++ b/esm/vs/editor/browser/widget/markdownRenderer/browser/renderedMarkdown.css
+@@ -16,6 +16,6 @@
+ 	padding: 1px 3px;
+ }
+ 
+-.rendered-markdown li:has(input[type=checkbox]) {
++.rendered-markdown li:has(input) {
+ 	list-style-type: none;
+ }
