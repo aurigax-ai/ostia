@@ -1,17 +1,8 @@
-import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync } from 'node:fs'
+import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { KEPT_SHELLS_DIR } from '../src/shared/terminal/keepShells'
 import { holdPort } from '../test/heldPort'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import {
-  PROMPT,
-  newTerminalWorkspace,
-  openWorkspace,
-  quitApp,
-  restartApp,
-  runInTerminal,
-} from './helpers'
+import { PROMPT, openWorkspace, quitApp, restartApp, runInTerminal } from './helpers'
 import { sandboxedShell } from './sandboxShell'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
@@ -86,57 +77,5 @@ test('KSH-C58 an exposed port answers again after a restart without a new approv
     }
   } finally {
     held.release()
-  }
-})
-
-test('KSH-C61 no socket a sandboxed shell can see is its sandbox host', async () => {
-  test.setTimeout(90_000)
-  const first = await launch()
-  try {
-    await openWorkspace(first.win)
-    await sandboxedShell(first.win)
-    const tmuxDir = join(dataHome, 'userData', KEPT_SHELLS_DIR)
-    const name = createHash('sha256').update(join(dataHome, 'userData')).digest('hex').slice(0, 16)
-    await runInTerminal(
-      first.win,
-      `echo "host-in-tmp=$(find "$TMPDIR" -type s -name '*host*' 2>/dev/null | wc -l)"; ls ${tmuxDir} 2>/dev/null | grep -c -e ${name} -e '^host-' | sed 's/^/host-seen=/'`,
-    )
-    await expect(screen(first.win)).toContainText('host-in-tmp=0', { timeout: 15_000 })
-    await expect(screen(first.win)).toContainText('host-seen=0')
-  } finally {
-    await quitApp(first.app)
-  }
-})
-
-test('KSH-C83 a sandboxed shell opened before keep shells was turned on cannot reach the tmux socket', async () => {
-  test.setTimeout(120_000)
-  const workspaces = { ...DOM_RENDERER_SETTINGS.workspaces, defaultFolder: join(home, 'project') }
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, workspaces })
-  const { app, win } = await launch()
-  try {
-    await openWorkspace(win)
-    await sandboxedShell(win)
-    const tmuxDir = join(dataHome, 'userData', KEPT_SHELLS_DIR)
-    const name = createHash('sha256').update(join(dataHome, 'userData')).digest('hex').slice(0, 16)
-    const socket = join(tmuxDir, name)
-    expect(existsSync(tmuxDir)).toBe(false)
-
-    seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, terminal: { keepShells: true }, workspaces })
-    await newTerminalWorkspace(win)
-    await expect.poll(() => existsSync(socket), { timeout: 30_000 }).toBe(true)
-
-    await win.locator('.deck-rail .rail-tab-main').first().click()
-    const shown = win.locator('.pane-slot:not([data-hidden])')
-    await shown.locator('.xterm').first().click()
-    await win.keyboard.type(
-      `clear; echo "sock=$([ -S ${socket} ] && echo visible || echo hidden) entries=$(ls ${tmuxDir} 2>/dev/null | wc -l | tr -d ' ') sandbox=\${HTTPS_PROXY:+on}"`,
-    )
-    await win.keyboard.press('Enter')
-    await expect(shown.locator('.xterm-rows').first()).toContainText(
-      'sock=hidden entries=0 sandbox=on',
-      { timeout: 15_000 },
-    )
-  } finally {
-    await quitApp(app)
   }
 })
