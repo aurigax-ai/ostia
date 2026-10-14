@@ -9,7 +9,6 @@ import {
   completionScope,
   completionToken,
   escapeShellWord,
-  historySuggestion,
   inputHistory,
   isCommandWord,
   rankCommands,
@@ -158,33 +157,6 @@ describe('argumentCandidates', () => {
   })
 })
 
-describe('historySuggestion', () => {
-  const history = ['git status', 'git commit -m "wip"', 'ls -la', 'git status --short']
-
-  it('completes the draft with the first history entry it prefixes', () => {
-    expect(historySuggestion('git', history)).toBe(' status')
-    expect(historySuggestion('git c', history)).toBe('ommit -m "wip"')
-    expect(historySuggestion('git status ', history)).toBe('--short')
-  })
-
-  it('suggests nothing for an empty draft, an exact entry or no match', () => {
-    expect(historySuggestion('', history)).toBe('')
-    expect(historySuggestion('  ', history)).toBe('')
-    expect(historySuggestion('ls -la', history)).toBe('')
-    expect(historySuggestion('make', history)).toBe('')
-  })
-
-  it('follows the history order, so this pane’s newest command wins over other panes', () => {
-    const byPane = {
-      other: [block('other', 'npm run lint', 9)],
-      mine: [block('mine', 'npm test', 1), block('mine', 'npm run build', 2)],
-    }
-    const ordered = inputHistory(byPane, 'mine')
-    expect(historySuggestion('npm ', ordered)).toBe('run build')
-    expect(historySuggestion('npm run l', ordered)).toBe('int')
-  })
-})
-
 describe('suggestionWord', () => {
   it('takes the leading spaces and the next word of the suggestion', () => {
     expect(suggestionWord(' status --short')).toBe(' status')
@@ -251,5 +223,47 @@ describe('applyCompletionItem', () => {
       text: 'cat my\\ file ',
       caret: 13,
     })
+  })
+})
+
+describe('argumentCandidates with history', () => {
+  const spec = vi.fn(async (command: string) =>
+    command === 'cd' ? { names: ['cd'], args: [{ template: ['folders' as const] }] } : null,
+  )
+  const list = vi.fn(async (path: string) =>
+    path === '/w'
+      ? [
+          { name: 'src', dir: true },
+          { name: 'notes.txt', dir: false },
+        ]
+      : path === '/w/src'
+        ? [{ name: 'main', dir: true }]
+        : [],
+  )
+  const history = (...found: string[]) => ({ arguments: () => found, label: 'From history' })
+
+  it('adds history arguments after the folder’s, marked, without repeating a name', async () => {
+    const sources = { spec, list, history: history('build-box', 'src', 'feature/x') }
+    expect(await argumentCandidates('ssh ', 4, '/w', sources)).toEqual([
+      { name: 'src', dir: true },
+      { name: 'notes.txt', dir: false },
+      { name: 'build-box', dir: false, description: 'From history' },
+      { name: 'feature/x', dir: false, description: 'From history' },
+    ])
+  })
+
+  it('offers a history path only where a path is expected if it still exists', async () => {
+    const sources = { spec, list, history: history('src/main', 'src/gone', 'notes.txt', 'old') }
+    expect(await argumentCandidates('cd ', 3, '/w', sources)).toEqual([
+      { name: 'src', dir: true },
+      { name: 'src/main', dir: true, description: 'From history' },
+    ])
+  })
+
+  it('keeps only history arguments under the folder already typed', async () => {
+    const sources = { spec, list, history: history('src/main', 'docs/api') }
+    expect(await argumentCandidates('ssh src/', 8, '/w', sources)).toEqual([
+      { name: 'main', dir: true },
+    ])
   })
 })

@@ -48,6 +48,8 @@ const asleepPanes = new Set<string>()
 const wakeConflicts = new Map<string, string>()
 let listed: PaneEntry[] = []
 const woken: string[] = []
+const hibernateOutcomes = new Map<string, string>()
+const hibernateCalls: string[] = []
 const closed: string[] = []
 const resumed: string[] = []
 const lockedPanes = new Set<string>()
@@ -97,6 +99,12 @@ registerPaneIoMethods({
     if (conflict) return { woke: false, conflict }
     return { woke: asleepPanes.delete(pane.paneId) }
   },
+  hibernate: async (pane) => {
+    hibernateCalls.push(pane.paneId)
+    const outcome = hibernateOutcomes.get(pane.paneId) ?? 'hibernated'
+    if (outcome === 'hibernated') asleepPanes.add(pane.paneId)
+    return { ok: true, result: { hibernated: outcome === 'hibernated', outcome } }
+  },
   panes: async () => listed,
   waking,
   close: async (pane) => {
@@ -125,11 +133,14 @@ markManager('mgr-pane')
 const extension = registerExtension('probe')
 
 const SCRIPT_TOKEN = 'ostia_pane-io-script'
+const SCRIPT_KILL = 'ostia_pane-io-kill'
 const SCRIPT_NO_TYPE = 'ostia_pane-io-no-type'
 const SCRIPT_NO_REACH = 'ostia_pane-io-no-reach'
 setScriptTokenCheck((token) => {
   if (token === SCRIPT_NO_TYPE) return { id: 'script_pane_io_no_type', caps: ['all-workspaces'] }
   if (token === SCRIPT_NO_REACH) return { id: 'script_pane_io_no_reach', caps: ['type-other-pane'] }
+  if (token === SCRIPT_KILL)
+    return { id: 'script_pane_io_kill', caps: ['kill-pane', 'all-workspaces'] }
   return token === SCRIPT_TOKEN
     ? { id: 'script_pane_io', caps: ['type-other-pane', 'all-workspaces'] }
     : undefined
@@ -187,6 +198,8 @@ beforeEach(() => {
   wakeConflicts.clear()
   listed = []
   woken.length = 0
+  hibernateOutcomes.clear()
+  hibernateCalls.length = 0
   closed.length = 0
   resumed.length = 0
   lockedPanes.clear()
@@ -476,6 +489,120 @@ const listedPane = (to: Identity, extra: Partial<PaneEntry>): PaneEntry => ({
   running: false,
   blockCount: 0,
   ...extra,
+})
+
+describe('pane.hibernate', () => {
+  it('hibernates a tab the caller opened without asking', async () => {
+    const conn = await client(agent)
+    await expect(conn.sendRequest('pane.hibernate', { panes: ['echo'] })).resolves.toEqual({
+      ok: true,
+      hibernated: [child.externalId],
+      skipped: {},
+    })
+    expect(hibernateCalls).toEqual(['child-pane'])
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('lists a busy agent as skipped with its reason and still stops the others', async () => {
+    answer = 'once'
+    hibernateOutcomes.set('sibling-pane', 'subagent')
+    const conn = await client(agent)
+    await expect(
+      conn.sendRequest('pane.hibernate', { panes: ['echo', sibling.externalId] }),
+    ).resolves.toEqual({
+      ok: true,
+      hibernated: [child.externalId],
+      skipped: { [sibling.externalId]: 'subagent' },
+    })
+  })
+
+  it('reports a tab with no agent as skipped', async () => {
+    hibernateOutcomes.set('child-pane', 'not-agent')
+    const conn = await client(agent)
+    await expect(conn.sendRequest('pane.hibernate', { panes: ['echo'] })).resolves.toEqual({
+      ok: true,
+      hibernated: [],
+      skipped: { [child.externalId]: 'not-agent' },
+    })
+  })
+
+  it('answers hibernated for a pane already asleep and stops none of the named panes', async () => {
+    asleepPanes.add('sibling-pane')
+    answer = 'once'
+    const conn = await client(agent)
+    await expect(
+      conn.sendRequest('pane.hibernate', { panes: ['echo', sibling.externalId] }),
+    ).rejects.toThrow(`hibernated: ${sibling.externalId} is already asleep`)
+    expect(hibernateCalls).toEqual([])
+  })
+
+  it('asks for kill-pane before stopping a pane the caller did not open, and stops on Deny', async () => {
+    const conn = await client(agent)
+    await expect(
+      conn.sendRequest('pane.hibernate', { panes: [sibling.externalId] }),
+    ).rejects.toThrow('denied: kill-pane')
+    expect(asked[0]).toMatchObject({ caps: ['kill-pane'], action: 'pane.hibernate' })
+    expect(hibernateCalls).toEqual([])
+    answer = 'once'
+    await conn.sendRequest('pane.hibernate', { panes: [sibling.externalId] })
+    expect(hibernateCalls).toEqual(['sibling-pane'])
+  })
+
+  it('needs all-workspaces as well for a pane in another workspace', async () => {
+    const conn = await client(agent)
+    await expect(
+      conn.sendRequest('pane.hibernate', { panes: [foreign.externalId] }),
+    ).rejects.toThrow('denied: kill-pane, all-workspaces')
+    expect(hibernateCalls).toEqual([])
+  })
+
+  it('refuses a sandboxed caller outside its workspace and the manager pane', async () => {
+    sandboxedWorkspaces.add('ws1')
+    const conn = await client(agent)
+    await expect(
+      conn.sendRequest('pane.hibernate', { panes: [foreign.externalId] }),
+    ).rejects.toThrow('sandboxed:')
+    answer = 'once'
+    await expect(
+      conn.sendRequest('pane.hibernate', { panes: [manager.externalId] }),
+    ).rejects.toThrow(`unknown-pane: ${manager.externalId}`)
+    expect(hibernateCalls).toEqual([])
+  })
+
+  it('lets a script token holding kill-pane and all-workspaces hibernate a pane in any workspace', async () => {
+    const conn = await client({ token: SCRIPT_KILL })
+    await expect(
+      conn.sendRequest('pane.hibernate', { panes: [sibling.externalId, foreign.externalId] }),
+    ).resolves.toEqual({
+      ok: true,
+      hibernated: [sibling.externalId, foreign.externalId],
+      skipped: {},
+    })
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('refuses a script token without kill-pane', async () => {
+    const noKill = await client({ token: SCRIPT_TOKEN })
+    await expect(
+      noKill.sendRequest('pane.hibernate', { panes: [sibling.externalId] }),
+    ).rejects.toThrow('needs-elevation: kill-pane')
+    expect(hibernateCalls).toEqual([])
+  })
+
+  it('refuses an empty pane list and is not available to extensions', async () => {
+    const conn = await client(agent)
+    await expect(conn.sendRequest('pane.hibernate', { panes: [] })).rejects.toThrow(
+      'bad-request: panes',
+    )
+    setCaps(extension.externalId, ['process', 'all-workspaces', 'kill-pane'])
+    const ext = await client(extension)
+    await expect(
+      ext.sendRequest('pane.hibernate', {
+        panes: [sibling.externalId],
+        targetPaneId: agent.externalId,
+      }),
+    ).rejects.toThrow('not-available-to-extension')
+  })
 })
 
 describe('pane.wake', () => {

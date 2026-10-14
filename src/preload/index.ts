@@ -212,6 +212,7 @@ const bridge: OstiaBridge = {
     detach: (paneId) => ipcRenderer.send('pty:detach', paneId),
     hibernate: (paneId) => ipcRenderer.invoke('pty:hibernate', paneId) as Promise<HibernateOutcome>,
     stashed: (paneId) => ipcRenderer.invoke('pty:stashed', paneId) as Promise<string | null>,
+    keptWaiting: () => ipcRenderer.invoke('pty:kept-waiting') as Promise<string[]>,
     restart: (paneId) => ipcRenderer.invoke('pty:restart', paneId) as Promise<boolean>,
     reportAgentRunning: (paneId, running) => ipcRenderer.send('pty:agent-running', paneId, running),
     reportWaking: (paneId, waking) => ipcRenderer.send('pty:waking', paneId, waking),
@@ -220,6 +221,7 @@ const bridge: OstiaBridge = {
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
     commands: (paneId) => ipcRenderer.invoke('pty:commands', paneId) as Promise<string[]>,
     listDir: (paneId, dir) => ipcRenderer.invoke('pty:list-dir', paneId, dir),
+    history: (paneId) => ipcRenderer.invoke('pty:history', paneId),
     localPrompt: (paneId) => ipcRenderer.invoke('pty:local-prompt', paneId),
     foreground: (paneId) => ipcRenderer.invoke('pty:foreground', paneId) as Promise<string | null>,
     activity: (paneId) =>
@@ -573,6 +575,7 @@ const bridge: OstiaBridge = {
     openDefault: (path) =>
       ipcRenderer.invoke('shell:open-default', path) as Promise<OpenPathResult>,
     reveal: (path) => ipcRenderer.invoke('shell:reveal', path) as Promise<OpenPathResult>,
+    openLink: (url) => ipcRenderer.invoke('shell:open-link', url) as Promise<boolean>,
     project: (dir, exact) =>
       ipcRenderer.invoke('workspace:project', dir, exact) as Promise<WorkspaceProject | null>,
   },

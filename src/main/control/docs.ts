@@ -68,6 +68,15 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia workspace group-color <group> <red|orange|yellow|green|teal|blue|purple|pink>
                                  colour an existing sidebar group; --clear instead of a colour
                                  removes it
+  ostia workspace group-rename <group> <name>
+                                 rename an existing sidebar group; <name> must not be the
+                                 name of another group; quote a name with spaces
+  ostia workspace group-delete <group>
+                                 delete a sidebar group; its workspaces stay, ungrouped;
+                                 quote a name with spaces
+  ostia workspace pin [--workspace <id>] | unpin [--workspace <id>]
+                                 pin this pane's workspace (or --workspace) to the top of the
+                                 sidebar, or unpin it
   ostia workspace close [--workspace <id>]
                                  close that workspace and its tabs (kill-pane, plus
                                  all-workspaces outside your reach). Only when nothing runs
@@ -195,6 +204,15 @@ const CLI_HELP = `ostia — control-socket CLI
                                  out, 4 pane closed, 1 resume-failed (the agent could not
                                  start). Then send: ostia pane wake X --wait && ostia pane
                                  send X --enter "..."
+  ostia pane hibernate <pane>… [--json]  stop the agent of those panes to save memory
+                                 (hibernated: true in ostia pane.list): the same busy checks
+                                 as workspace.hibernateAgents, so a pane whose agent still
+                                 runs a subagent, a background task, a scheduled task or a
+                                 child process is skipped with its reason. Prints the
+                                 hibernated paneIds; exit 2 when a pane was skipped, also
+                                 one with no agent. A pane already asleep fails the whole
+                                 call with hibernated: and none of the panes is stopped.
+                                 Asks for kill-pane unless you opened the pane
   ostia pane close <pane>… [--json]  close those panes at once, even while a command runs in
                                  them; the human is asked only about unsaved file changes.
                                  Prints the closed paneIds. A tab you opened with process run
@@ -240,13 +258,15 @@ const CLI_HELP = `ostia — control-socket CLI
                                  Scripts reach only these methods: whoami, docs, command.list
                                  (the commands below), pane.list, pane.info, workspace.list,
                                  workspace.groups, pane.read, pane.input, pane.wait, pane.wake,
-                                 pane.close, pane.rename, pane.moveTo, workspace.rename,
+                                 pane.hibernate, pane.close, pane.rename, pane.moveTo, workspace.rename,
                                  process.run, process.list, process.info, process.output,
                                  process.kill, process.restart, agent.run, agent.resume, notify
                                  (a desktop notification only) and bus.send; and these commands:
                                  workspace.new, workspace.newScratch, pane.close,
                                  workspace.close (kill-pane), workspace.group,
-                                 workspace.ungroup, workspace.groupColor, workspace.describe,
+                                 workspace.ungroup, workspace.groupColor, workspace.groupRename,
+                                 workspace.groupDelete, workspace.pin, workspace.unpin,
+                                 workspace.describe,
                                  workspace.hibernateAgents, workspace.hibernateGroupAgents
                                  (kill-pane), workspace.resumeAgents and
                                  workspace.resumeGroupAgents (type-other-pane). They never ask

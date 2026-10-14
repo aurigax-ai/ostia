@@ -79,6 +79,14 @@ export function canTypeInto(paneId: string): boolean {
   return Boolean(terminalFor(paneId)) && isIdlePrompt(useBlocksStore.getState(), paneId)
 }
 
+function runCommand(paneId: string, command: string): boolean {
+  const term = terminalFor(paneId)
+  if (!term || !command || !canTypeInto(paneId)) return false
+  term.paste(command)
+  window.ostia.pty.write(paneId, '\r')
+  return true
+}
+
 export function insertCommand(paneId: string, command: string, execute = false): boolean {
   const term = terminalFor(paneId)
   if (!term || !command || !canTypeInto(paneId)) return false
@@ -87,8 +95,8 @@ export function insertCommand(paneId: string, command: string, execute = false):
     editor.insert(command)
     return true
   }
-  term.paste(command)
-  if (execute) window.ostia.pty.write(paneId, '\r')
+  if (execute) runCommand(paneId, command)
+  else term.paste(command)
   term.focus()
   return true
 }
@@ -102,7 +110,7 @@ function atReadyPrompt(paneId: string): boolean {
 export function runWhenIdle(
   paneId: string,
   command: string,
-  timeoutMs = RUN_WHEN_IDLE_TIMEOUT_MS,
+  timeoutMs: number | null = RUN_WHEN_IDLE_TIMEOUT_MS,
   allowed: () => boolean = () => true,
   onGiveUp: () => void = () => {},
   onTyped: () => void = () => {},
@@ -111,20 +119,23 @@ export function runWhenIdle(
   const stop = (): void => {
     if (done) return
     done = true
-    clearTimeout(timer)
+    if (timer) clearTimeout(timer)
     unsubscribe()
   }
   const attempt = (): void => {
     if (done || !atReadyPrompt(paneId)) return
     stop()
-    if (!allowed() || !insertCommand(paneId, command, true)) onGiveUp()
+    if (!allowed() || !runCommand(paneId, command)) onGiveUp()
     else onTyped()
   }
   const unsubscribe = useBlocksStore.subscribe(attempt)
-  const timer = setTimeout(() => {
-    stop()
-    onGiveUp()
-  }, timeoutMs)
+  const timer =
+    timeoutMs === null
+      ? null
+      : setTimeout(() => {
+          stop()
+          onGiveUp()
+        }, timeoutMs)
   attempt()
   return stop
 }

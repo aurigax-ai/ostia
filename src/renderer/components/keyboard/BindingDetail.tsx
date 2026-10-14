@@ -65,7 +65,7 @@ export function RowToggle({
       aria-controls={expanded ? controls : undefined}
       onClick={onToggle}
       onKeyDown={(e) => onToggleKey(e, expanded, onCollapse)}
-      className="block w-full min-w-0 rounded-sm text-left outline-none focus-visible:ring-1 focus-visible:ring-brand"
+      className="block w-full min-w-0 rounded-sm text-left"
     >
       {children}
     </button>

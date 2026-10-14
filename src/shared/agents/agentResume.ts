@@ -1,9 +1,13 @@
+import { resumeFlags, safeEnv, shellQuote } from './agentLaunch'
+
 export type ResumableAgent = 'claude' | 'codex'
 
 export interface AgentResume {
   agent: ResumableAgent
   id: string
   cwd?: string
+  args?: string[]
+  env?: Record<string, string>
 }
 
 export const RESUMABLE_AGENTS: readonly ResumableAgent[] = ['claude', 'codex']
@@ -33,15 +37,55 @@ function isResumeCwd(value: unknown): value is string {
   )
 }
 
+function resumeArgs(agent: ResumableAgent, raw: unknown): string[] {
+  if (!Array.isArray(raw) || !raw.every((arg) => typeof arg === 'string')) return []
+  return resumeFlags(agent, raw)
+}
+
 export function parseAgentResume(raw: unknown): AgentResume | null {
   if (typeof raw !== 'object' || raw === null) return null
-  const { agent, id, cwd } = raw as { agent?: unknown; id?: unknown; cwd?: unknown }
+  const { agent, id, cwd, args, env } = raw as Record<string, unknown>
   if (!isResumableAgent(agent) || typeof id !== 'string' || !RESUME_ID.test(id)) return null
-  return isResumeCwd(cwd) ? { agent, id, cwd } : { agent, id }
+  const resume: AgentResume = { agent, id }
+  if (isResumeCwd(cwd)) resume.cwd = cwd
+  const flags = resumeArgs(agent, args)
+  if (flags.length > 0) resume.args = flags
+  const vars = safeEnv(env)
+  if (Object.keys(vars).length > 0) resume.env = vars
+  return resume
+}
+
+export function sameResume(a: AgentResume | undefined, b: AgentResume): boolean {
+  return (
+    a?.agent === b.agent &&
+    a.id === b.id &&
+    a.cwd === b.cwd &&
+    JSON.stringify(a.args ?? []) === JSON.stringify(b.args ?? []) &&
+    JSON.stringify(a.env ?? {}) === JSON.stringify(b.env ?? {})
+  )
+}
+
+function agentCommandLine(resume: AgentResume, base: string[]): string {
+  const env = Object.entries(resume.env ?? {}).map(
+    ([name, value]) => `${name}=${shellQuote(value)}`,
+  )
+  return [...env, ...base, ...(resume.args ?? []).map(shellQuote)].join(' ')
 }
 
 export function resumeCommand(resume: AgentResume): string {
-  return resume.agent === 'claude' ? `claude --resume ${resume.id}` : `codex resume ${resume.id}`
+  return agentCommandLine(
+    resume,
+    resume.agent === 'claude' ? ['claude', '--resume', resume.id] : ['codex', 'resume', resume.id],
+  )
+}
+
+export function forkCommand(resume: AgentResume): string {
+  return agentCommandLine(
+    resume,
+    resume.agent === 'claude'
+      ? ['claude', '--resume', resume.id, '--fork-session']
+      : ['codex', 'fork', resume.id],
+  )
 }
 
 export function resumeFromHookPayload(payload: string): { id: string; cwd?: string } | null {

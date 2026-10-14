@@ -273,8 +273,9 @@ export const SETTINGS_JSON_SCHEMA = {
         historySuggestions: {
           type: 'boolean',
           description:
-            'Show the latest matching history command as gray text in the input editor; Right ' +
-            'arrow or End accepts it. Default: true.',
+            'Suggest commands from this session and from the shell’s history file in the input ' +
+            'editor: gray text (Right arrow or End accepts it), Tab arguments and Up. When false ' +
+            'the history file is not read. Default: true.',
         },
         copyOnSelect: {
           type: 'boolean',
@@ -309,13 +310,15 @@ export const SETTINGS_JSON_SCHEMA = {
         },
         updateChannel: {
           type: 'string',
-          enum: ['stable', 'main'],
+          enum: ['stable', 'beta', 'main'],
           description:
-            'Which builds the update check offers. "stable" offers releases only. "main" also ' +
-            'offers the daily build of the main branch and release candidates, and a newer ' +
-            'release when there is one. Offered only for an install from the tarball or a ' +
-            'local build; package managers stay on stable. Only you can change this, in ' +
-            'Settings → About. Default: stable.',
+            'Which builds the update check offers. "stable" offers releases only. "beta" also ' +
+            'offers release candidates and installs them in the app: macOS (the dmg or ' +
+            'Homebrew install, shown as "Receive beta updates") and the Linux tarball or a ' +
+            'local build. "main" (the Linux tarball or a local build) also offers the daily ' +
+            'build of the main branch and release candidates. A newer release is offered on ' +
+            'every channel. apt stays on stable. Only you can change this, in Settings → ' +
+            'About. Default: stable.',
         },
         discreteGpu: {
           type: 'boolean',

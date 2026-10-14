@@ -3,6 +3,7 @@ import { type WheelTerminal, attachWheelReports, createWheelRows, wheelRoute } f
 
 const CELL = 17
 const scale = { cellHeight: CELL, sensitivity: 1, maxRows: 40, notches: false }
+const linux = { ...scale, notches: true }
 
 type TrackingMode = WheelTerminal['modes']['mouseTrackingMode']
 
@@ -76,21 +77,53 @@ describe('createWheelRows', () => {
     expect(rows.take(-10, scale)).toBe(-1)
   })
 
-  it('keeps a Linux wheel notch at one row and accumulates touchpad deltas', () => {
-    const linux = { ...scale, notches: true }
+  it('sends one row for one Linux wheel notch', () => {
     expect(createWheelRows().take(120, linux)).toBe(1)
-    expect(createWheelRows().take(-53, linux)).toBe(-1)
-    expect(createWheelRows().take(10_000, linux)).toBe(1)
-    const rows = createWheelRows()
-    expect([5, 5, 5, 5].map((d) => rows.take(d, linux))).toEqual([0, 0, 0, 1])
+    expect(createWheelRows().take(-120, linux)).toBe(-1)
   })
 
-  it('lets a Linux wheel notch drop the touchpad leftover', () => {
+  it('sends a row for every notch a Linux wheel event carries, up to the terminal height', () => {
+    expect(createWheelRows().take(360, linux)).toBe(3)
+    expect(createWheelRows().take(-1080, linux)).toBe(-9)
+    expect(createWheelRows().take(10_000, { ...linux, maxRows: 24 })).toBe(24)
+    expect(createWheelRows().take(-10_000, { ...linux, maxRows: 24 })).toBe(-24)
+  })
+
+  it('doubles the rows of a Linux wheel event at scroll speed 2', () => {
+    const fast = { ...linux, sensitivity: 2 }
+    expect(createWheelRows().take(120, fast)).toBe(2)
+    expect(createWheelRows().take(360, fast)).toBe(6)
+    const slow = createWheelRows()
+    expect([120, 120].map((d) => slow.take(d, { ...linux, sensitivity: 0.5 }))).toEqual([0, 1])
+  })
+
+  it('adds fractions of a Linux wheel notch up to the same total as whole notches', () => {
     const rows = createWheelRows()
-    const linux = { ...scale, notches: true }
-    expect(rows.take(10, linux)).toBe(0)
-    expect(rows.take(120, linux)).toBe(1)
-    expect(rows.take(10, linux)).toBe(0)
+    expect(Array.from({ length: 8 }, () => rows.take(15, linux))).toEqual([0, 0, 0, 0, 0, 0, 0, 1])
+    const spin = createWheelRows()
+    const total = Array.from({ length: 24 }, () => spin.take(-15, linux)).reduce((a, b) => a + b, 0)
+    expect(total).toBe(createWheelRows().take(-360, linux))
+    const thirds = createWheelRows()
+    expect([40, 40, 40, 40, 40, 40].map((d) => thirds.take(d, linux))).toEqual([0, 0, 1, 0, 0, 1])
+  })
+
+  it('carries the rest of a Linux wheel event to the next one in the same direction', () => {
+    const rows = createWheelRows()
+    expect(rows.take(180, linux)).toBe(1)
+    expect(rows.take(60, linux)).toBe(1)
+    expect(rows.take(60, linux)).toBe(0)
+  })
+
+  it('drops the rest of a Linux wheel notch when the wheel turns back', () => {
+    const rows = createWheelRows()
+    expect(rows.take(105, linux)).toBe(0)
+    expect(rows.take(-15, linux)).toBe(0)
+    expect(rows.take(-105, linux)).toBe(-1)
+  })
+
+  it('counts Linux wheel notches whatever the cell height is', () => {
+    expect(createWheelRows().take(240, { ...linux, cellHeight: 0 })).toBe(2)
+    expect(createWheelRows().take(240, { ...linux, cellHeight: 40 })).toBe(2)
   })
 
   it('does nothing without a measured cell', () => {
@@ -164,17 +197,23 @@ describe('attachWheelReports', () => {
     expect(unmeasured.handled).toEqual([early])
   })
 
-  it('sends one tick per Linux wheel notch and accumulates touchpad travel', () => {
+  it('sends a tick for every notch of a Linux wheel event and adds up the fractions', () => {
     const app = fakeTerminal({ mode: 'any', buffer: 'alternate', notches: true })
     app.wheel(120)
-    app.wheel(-100)
-    expect(app.ticks().map((e) => e.deltaY)).toEqual([1, -1])
-    for (let i = 0; i < 12; i++) app.wheel(4)
-    expect(app.ticks()).toHaveLength(4)
+    app.wheel(-360)
+    expect(app.ticks().map((e) => e.deltaY)).toEqual([1, -1, -1, -1])
+    for (let i = 0; i < 16; i++) app.wheel(15)
+    expect(app.ticks()).toHaveLength(6)
 
-    const less = fakeTerminal({ mode: 'none', buffer: 'alternate', notches: true })
-    less.wheel(53)
-    expect(less.ticks().map((e) => e.deltaY)).toEqual([1])
+    const less = fakeTerminal({ mode: 'none', buffer: 'alternate', notches: true, sensitivity: 2 })
+    less.wheel(240)
+    expect(less.ticks().map((e) => e.deltaY)).toEqual([1, 1, 1, 1])
+  })
+
+  it('caps the ticks of one Linux wheel event at the terminal height', () => {
+    const app = fakeTerminal({ mode: 'any', buffer: 'alternate', notches: true })
+    app.wheel(120 * 100)
+    expect(app.ticks()).toHaveLength(24)
   })
 
   it('swallows a delta too small for a row without letting it scroll the page', () => {

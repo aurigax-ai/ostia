@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   type InstallProbe,
+  appBundleOf,
   detectInstallMethod,
   replaceableAppDir,
   seededInstallMethod,
@@ -101,8 +102,29 @@ describe('replaceableAppDir', () => {
     }
   })
 
-  it('is null for installs a package manager owns or a dev build without the env', () => {
-    for (const method of ['apt', 'brew', 'dmg', 'dev'] as const) {
+  it('is the app bundle of the running binary for brew and dmg installs', () => {
+    const bundle = '/Applications/Ostia Beta.app'
+    for (const method of ['brew', 'dmg'] as const) {
+      expect(
+        replaceableAppDir({
+          method,
+          isPackaged: true,
+          execPath: `${bundle}/Contents/MacOS/Ostia`,
+          env: {},
+        }),
+      ).toBe(bundle)
+      expect(
+        replaceableAppDir({ method, isPackaged: true, execPath: '/usr/bin/ostia', env: {} }),
+      ).toBeNull()
+    }
+    expect(appBundleOf('/Applications/Ostia.app/Contents/MacOS/Ostia')).toBe(
+      '/Applications/Ostia.app',
+    )
+    expect(appBundleOf('/Applications/Ostia.app/Contents/Frameworks/x')).toBeNull()
+  })
+
+  it('is null for an apt install or a dev build without the env', () => {
+    for (const method of ['apt', 'dev'] as const) {
       expect(replaceableAppDir({ method, isPackaged: true, execPath, env: {} })).toBeNull()
     }
     expect(

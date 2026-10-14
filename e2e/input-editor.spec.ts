@@ -1,4 +1,5 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
@@ -124,6 +125,42 @@ test('the input editor runs commands, walks history and steps aside for interact
   }
 })
 
+test('a fresh pane suggests a command from the shell’s history file', async () => {
+  test.setTimeout(60_000)
+  const dataHome = freshDataHome()
+  const home = join(dataHome, 'home')
+  mkdirSync(home, { recursive: true })
+  writeFileSync(join(home, '.zshrc'), "PROMPT='%~ ❯ '\nHISTFILE=$HOME/.zsh_history\n")
+  writeFileSync(
+    join(home, '.zsh_history'),
+    ': 1700000000:0;echo ostia_seeded_history_entry\n: 1700000060:0;ls\n',
+  )
+  seedSettings(dataHome, {
+    ...DOM_RENDERER_SETTINGS,
+    behavior: { ...DOM_RENDERER_SETTINGS.behavior, inputMode: 'editor' },
+  })
+  const launch = isolatedLaunch(dataHome)
+  const app = await electron.launch({
+    ...launch,
+    env: { ...launch.env, HOME: home, SHELL: '/bin/zsh' },
+  })
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    const input = win.getByRole('textbox', { name: 'Command input' })
+    await expect(input).toBeVisible({ timeout: 15_000 })
+    await input.click()
+
+    await win.keyboard.type('echo ostia_see')
+    await expect(win.locator('.input-editor-ghost')).toHaveText('ded_history_entry')
+    await win.keyboard.press('End')
+    await expect(input).toHaveValue('echo ostia_seeded_history_entry')
+  } finally {
+    await app.close()
+  }
+})
+
 test('the input editor sits on the shell prompt line and takes what is aimed at the terminal', async () => {
   test.setTimeout(90_000)
   const dataHome = freshDataHome()
@@ -181,5 +218,39 @@ test('the input editor sits on the shell prompt line and takes what is aimed at 
     await expect(input).toBeVisible({ timeout: 15_000 })
   } finally {
     await app.close()
+  }
+})
+
+test('Tab in the input editor completes a path outside the home folder', async () => {
+  test.setTimeout(60_000)
+  const outside = mkdtempSync(join(tmpdir(), 'ostia-e2e-outside-'))
+  mkdirSync(join(outside, 'ostia_nested'))
+  writeFileSync(join(outside, 'ostia_nested', 'only.txt'), '')
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, {
+    ...DOM_RENDERER_SETTINGS,
+    behavior: { ...DOM_RENDERER_SETTINGS.behavior, inputMode: 'editor' },
+  })
+  const app = await electron.launch(isolatedLaunch(dataHome))
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    const input = win.getByRole('textbox', { name: 'Command input' })
+    await expect(input).toBeVisible({ timeout: 15_000 })
+    await input.click()
+
+    await win.keyboard.type(`ls ${outside}/ostia_n`)
+    await win.keyboard.press('Tab')
+    await expect(input).toHaveValue(`ls ${outside}/ostia_nested/`)
+    await win.keyboard.type('on')
+    await win.keyboard.press('Tab')
+    await expect(input).toHaveValue(`ls ${outside}/ostia_nested/only.txt `)
+
+    const opened = await win.evaluate((dir) => window.ostia.fs.list(dir), outside)
+    expect(opened).toEqual([])
+  } finally {
+    await app.close()
+    rmSync(outside, { recursive: true, force: true })
   }
 })

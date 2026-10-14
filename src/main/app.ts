@@ -34,8 +34,9 @@ import {
 } from '../shared/agents/managerSettings'
 import { fmt } from '../shared/app/dict'
 import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
+import { isMacInstall, replacesInApp } from '../shared/app/installMethod'
 import { clampZoom, zoomFactor } from '../shared/app/zoom'
-import { appEnv } from '../shared/appEnv'
+import { appEnv, readEnv } from '../shared/appEnv'
 import { ARTIFACT_LIST_MAX } from '../shared/artifacts/artifacts'
 import { isPreviewPartition } from '../shared/artifacts/htmlPreview'
 import { parseChatToolSettings } from '../shared/assist/chatTools'
@@ -57,6 +58,7 @@ import { OPEN_FILES_COMMAND } from '../shared/files/openFiles'
 import { OPEN_FILES_MAX } from '../shared/files/openFiles'
 import { desktopsOf } from '../shared/keyboard/desktopChords'
 import { languageServerKey } from '../shared/languageServers'
+import { externalHref } from '../shared/links/externalLinks'
 import { parsePrivacySettings } from '../shared/privacy/redaction'
 import { bucketCount } from '../shared/privacy/telemetry'
 import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
@@ -340,12 +342,7 @@ import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
 import { type SandboxBasePaths, reachableContainerSockets, srtVendorDir } from './sandbox/srtConfig'
 import { SandboxStore } from './sandbox/store'
 import { ViolationLog, recordViolations } from './sandbox/violations'
-import {
-  type SandboxReadRules,
-  sandboxEntries,
-  sandboxPath,
-  visibleInSandbox,
-} from './sandbox/visibility'
+import { type SandboxReadRules, sandboxPath, visibleInSandbox } from './sandbox/visibility'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { registerSecretMethods } from './secrets/register'
 import { prepareSecrets } from './secrets/secretInjection'
@@ -361,6 +358,7 @@ import { WorkspaceAgents } from './secrets/workspaceAgents'
 import { registerCompletionIpc } from './terminal/completionSpecs'
 import { atLocalPrompt, busyProgram } from './terminal/localPrompt'
 import { replaceFile, writeOstiaLauncher } from './terminal/paneLauncher'
+import { registerPathCompletionIpc } from './terminal/pathCompletion'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './terminal/promptContext'
 import { CoalescedOutput, PtyFlowControl } from './terminal/ptyFlow'
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './terminal/ptyReaper'
@@ -369,6 +367,7 @@ import { HIBERNATE_SEAM, HISTORY_LINES, RESTORE_SEAM, ScreenMirror } from './ter
 import { registerSelectionIpc } from './terminal/selectionReport'
 import { ExecutableIndex, commandNames, readShellState } from './terminal/shellCommands'
 import { closesPaneOnExit } from './terminal/shellExit'
+import { ShellHistoryFiles, registerShellHistoryIpc } from './terminal/shellHistory'
 import {
   INTEGRATION_DIR,
   setAgentPlugins,
@@ -412,11 +411,22 @@ import {
   releaseDownloadBase,
   runTar,
   sweepOldInstall,
+  tarballReplace,
 } from './updates/installReplace'
+import {
+  canReplaceBundle,
+  discardStaged,
+  macReplace,
+  runCommand,
+  signaturePolicy,
+  swapStagedBundle,
+  verifyStagedSync,
+} from './updates/macReplace'
 import {
   announceReplace,
   announceReplaceProgress,
   announceUpdateRun,
+  readUpdateChannel,
   registerReleaseCheck,
   releaseUserAgent,
 } from './updates/releaseCheck'
@@ -517,6 +527,7 @@ const ptys = new Map<string, PtyEntry>()
 const PTY_BUFFER_CAP = 1_000_000
 const executables = new ExecutableIndex()
 const promptSources = { node: new NodeVersionResolver(), kube: new KubeContextReader() }
+const shellHistoryFiles = new ShellHistoryFiles()
 
 function listDir(dir: string): FsEntry[] {
   try {
@@ -700,17 +711,10 @@ function releaseMovingPane(paneId: string): void {
   if (entry && entry.session.ownerCount === 0) killPty(paneId, 'closed')
 }
 
-const EXTERNAL_SCHEMES = new Set(['http:', 'https:', 'mailto:'])
-
 function openExternalSafe(url: string): boolean {
-  let scheme: string
-  try {
-    scheme = new URL(url).protocol
-  } catch {
-    return false
-  }
-  if (!EXTERNAL_SCHEMES.has(scheme)) return false
-  void shell.openExternal(url)
+  const href = externalHref(url, { apps: false })
+  if (!href) return false
+  void shell.openExternal(href)
   return true
 }
 
@@ -730,6 +734,8 @@ const keptShells = new KeptShells({
 })
 let tmuxTerminal: string | null = null
 let restartRequested = false
+let stagedUpdate: { pending: PendingSweep; sweepFile: string } | null = null
+const updatePolicy = signaturePolicy(app.isPackaged, process.env)
 let updateRunner: UpdateRunner | null = null
 const UPDATE_HOST_GRANT_ID = 'core:update'
 
@@ -2641,6 +2647,8 @@ function registerPtyIpc(): void {
       ...(sandbox?.stamp ? { sandboxStamp: sandbox.stamp } : {}),
       kept: true,
       reattached: true,
+      cols: pane.cols,
+      rows: pane.rows,
     }
   }
 
@@ -2659,6 +2667,11 @@ function registerPtyIpc(): void {
     const busy = backgroundWork(agentWork.reason(paneId), await readProcessTable(), entry.pty.pid)
     if (busy) return busy
     return ptys.get(paneId) === entry && hibernatePty(paneId) ? 'hibernated' : 'no-terminal'
+  })
+
+  ipcMain.handle('pty:kept-waiting', async (): Promise<string[]> => {
+    await keptShells.ready
+    return keptShells.waitingPaneIds()
   })
 
   ipcMain.handle('pty:stashed', (e, paneId: string): string | null =>
@@ -2722,18 +2735,33 @@ function registerPtyIpc(): void {
     const rules = sandboxReadRules(entry)
     return commandNames(executables, rules ? sandboxPath(path, rules) : path, state?.names ?? [])
   })
+  registerShellHistoryIpc({
+    enabled: () => readSettingsFile().behavior?.historySuggestions !== false,
+    files: shellHistoryFiles,
+    pane: (paneId) => {
+      const entry = ptys.get(paneId)
+      if (!entry) return null
+      return {
+        owners: entry.subs,
+        localPrompt: holdsLocalPrompt(entry),
+        shell: entry.shell,
+        stateFile: entry.stateFile,
+        rules: sandboxReadRules(entry),
+      }
+    },
+  })
   ipcMain.handle('pty:local-prompt', (e, paneId: string): boolean => {
     const entry = ptys.get(paneId)
     return entry?.subs.has(String(e.sender.id)) === true && holdsLocalPrompt(entry)
   })
-  ipcMain.handle('pty:list-dir', (e, paneId: string, dir: string): FsEntry[] => {
+  registerPathCompletionIpc((paneId) => {
     const entry = ptys.get(paneId)
-    if (!entry?.subs.has(String(e.sender.id)) || !holdsLocalPrompt(entry)) return []
-    const safe = resolveSafe(dir, fileRoots())
-    if (safe === null) return []
-    const rules = sandboxReadRules(entry)
-    const entries = listDir(safe)
-    return rules ? sandboxEntries(safe, entries, rules) : entries
+    if (!entry) return null
+    return {
+      owners: entry.subs,
+      localPrompt: holdsLocalPrompt(entry),
+      rules: sandboxReadRules(entry),
+    }
   })
   ipcMain.handle(
     'pty:prompt-context',
@@ -2963,7 +2991,7 @@ let fileWatches: FileWatches | null = null
 function registerFsIpc(): void {
   const allowedRoots = fileRoots()
   const settingsFile = join(app.getPath('userData'), 'settings.json')
-  registerOpenPathIpc(allowedRoots)
+  registerOpenPathIpc(allowedRoots, () => windows.values())
   registerTerminalPathLinkIpc(
     new TerminalPathLinks({
       grants: openFileGrants,
@@ -3296,6 +3324,7 @@ function readSettingsFile(): {
   privacy?: unknown
   terminal?: { shell?: unknown; keepShells?: unknown }
   agents?: { hooks?: unknown }
+  behavior?: { historySuggestions?: unknown }
 } {
   try {
     return JSON.parse(readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'))
@@ -3658,6 +3687,14 @@ app.whenReady().then(() => {
     },
     () => appLog?.warn('install-sweep-failed'),
   )
+  const macInstall = isMacInstall(installMethod())
+  const updateDir = (): string | null =>
+    replacesInApp(installMethod(), readUpdateChannel(readSettingsFile())) ? installAppDir() : null
+  const downloadBase = releaseDownloadBase(app.isPackaged, process.env)
+  const installedDir = installAppDir()
+  if (macInstall && installedDir) {
+    void discardStaged(installedDir).catch(() => appLog?.warn('update-staged-discard-failed'))
+  }
   releaseChecks = registerReleaseCheck({
     openExternal: openExternalSafe,
     readSettings: readSettingsFile,
@@ -3666,17 +3703,26 @@ app.whenReady().then(() => {
     method: installMethod,
     updateRunner,
     replaceAvailability: async () => {
-      const dir = installAppDir()
-      return dir ? canReplaceInstall(dir) : null
+      const dir = updateDir()
+      if (!dir) return null
+      return macInstall ? canReplaceBundle(dir) : canReplaceInstall(dir)
     },
     replacer: createInstallReplacer({
-      appDir: installAppDir,
-      base: releaseDownloadBase(app.isPackaged, process.env),
-      fetch,
-      tar: runTar,
+      appDir: updateDir,
+      replace: macInstall
+        ? macReplace({
+            base: downloadBase,
+            fetch,
+            run: runCommand,
+            policy: updatePolicy,
+          })
+        : tarballReplace({ base: downloadBase, fetch, tar: runTar }),
       onState: announceReplace,
       onProgress: announceReplaceProgress,
-      onReplaced: (pending) => saveJson(sweepFile, pending),
+      onReplaced: (pending) => {
+        if (macInstall) stagedUpdate = { pending, sweepFile }
+        else saveJson(sweepFile, pending)
+      },
     }),
   })
   registerAgentTranscriptIpc()
@@ -3801,6 +3847,7 @@ app.whenReady().then(() => {
     inputSent: (to) => void execCommand(targetOf(to), 'attention.typed'),
     hibernated: paneHibernated,
     wake: wakeHibernatedPane,
+    hibernate: (to) => execCommand(targetOf(to), 'pane.hibernate'),
     panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
     waking: paneWaking,
     close: (to) => execCommand(targetOf(to), 'pane.close'),
@@ -4300,10 +4347,14 @@ function persistScrollback(): Promise<void> {
 let scrollbackSavedForQuit = false
 let savingScrollbackForQuit = false
 
-const SCROLLBACK_AUTOSAVE_MS = 5000
+const SCROLLBACK_AUTOSAVE_MS =
+  process.env.NODE_ENV === 'test' && Number(readEnv('TEST_SCROLLBACK_AUTOSAVE_MS')) > 0
+    ? Number(readEnv('TEST_SCROLLBACK_AUTOSAVE_MS'))
+    : 5000
 let lastScrollbackSignature = ''
 
 function autosaveScrollback(): void {
+  if (savingScrollbackForQuit) return
   let signature = ''
   for (const [paneId, entry] of ptys) signature += `${paneId}:${entry.mirror.revision};`
   signature += `pending:${Object.keys(pendingRestoredScrollback()).length}`
@@ -4447,6 +4498,16 @@ app.on('before-quit', (event) => {
   void stopGateway()
   appTray?.remove()
   globalHotkey?.clear()
+  if (stagedUpdate) {
+    quitTrace.stage('update-swap')
+    const { pending, sweepFile } = stagedUpdate
+    stagedUpdate = null
+    const result = swapStagedBundle(pending.appDir, {
+      verify: (staged) => verifyStagedSync(staged, updatePolicy),
+    })
+    appLog?.info('update-swap', { version: pending.version, result })
+    if (result === 'swapped') saveJson(sweepFile, pending)
+  }
   quitTrace.stage('teardown-done')
 })
 

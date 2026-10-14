@@ -9,7 +9,10 @@ import {
 } from '@/components/ui/command'
 import { useDict } from '@/i18n/useDict'
 import { allPanes } from '@/layout/tree'
+import { fileOnlyCommands } from '@/lib/prompt/historyRank'
+import { useFileHistory } from '@/lib/prompt/useFileHistory'
 import { type PaneOrigin, collectHistory } from '@/lib/terminal/blocks'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHistorySearchStore } from '@/stores/terminal/historySearchStore'
 import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
@@ -17,6 +20,14 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { BookmarkSimpleIcon } from '@phosphor-icons/react'
 import { useMemo } from 'react'
+
+const FILE_ENTRIES_MAX = 1000
+
+function activePaneId(): string | null {
+  const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+  const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
+  return layout?.activePaneId ?? null
+}
 
 export function paneOrigins(): Map<string, PaneOrigin> {
   const origins = new Map<string, PaneOrigin>()
@@ -37,7 +48,18 @@ export function HistorySearch(): JSX.Element {
   const setOpen = useHistorySearchStore((s) => s.setOpen)
   const byPane = useBlocksStore((s) => s.byPane)
 
+  const fileHistoryOn = useSettingsStore((s) => s.behavior.historySuggestions)
+  const fileHistory = useFileHistory(open ? activePaneId() : null, open && fileHistoryOn)
+
   const entries = useMemo(() => (open ? collectHistory(byPane, paneOrigins()) : []), [open, byPane])
+  const fromFile = useMemo(
+    () =>
+      fileOnlyCommands(
+        fileHistory,
+        entries.map((e) => e.command),
+      ).slice(0, FILE_ENTRIES_MAX),
+    [fileHistory, entries],
+  )
 
   const insert = (command: string): void => {
     setOpen(false)
@@ -84,6 +106,19 @@ export function HistorySearch(): JSX.Element {
                 saveAsWorkflow(e.command)
               }}
             />
+          </CommandItem>
+        ))}
+        {fromFile.map((command) => (
+          <CommandItem
+            key={command}
+            value={command}
+            onSelect={() => insert(command)}
+            className="history-row"
+          >
+            <span className="history-text">
+              <span className="history-command">{command}</span>
+              <span className="history-meta">{d.history.shellHistory}</span>
+            </span>
           </CommandItem>
         ))}
       </CommandList>

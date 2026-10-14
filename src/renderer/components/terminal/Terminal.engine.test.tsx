@@ -96,11 +96,19 @@ const linkRange = { start: { x: 1, y: 1 }, end: { x: 30, y: 1 } }
 const click = (init: MouseEventInit = {}): MouseEvent =>
   new MouseEvent('click', { detail: 1, ...init })
 
+function showWorkspace(): void {
+  useWorkspacesStore.setState({
+    workspaces: [{ id: 'w1', name: 'me', kind: 'terminal', workDir: '/home/me', state: 'idle' }],
+    activeWorkspaceId: 'w1',
+  })
+}
+
 async function renderLinkTerminal(): Promise<{
   term: Xterm
   links: ILinkHandler
   paneId: string
 }> {
+  showWorkspace()
   useLayoutStore.getState().ensure('w1')
   const paneId = firstPaneId(useLayoutStore.getState().byWorkspace.w1.root)
   await renderSettled(<TerminalView workspaceId="w1" paneId={paneId} />)
@@ -598,15 +606,19 @@ describe('TerminalView engines', () => {
     expect(window.ostia.clipboard.contents).not.toHaveBeenCalled()
   })
 
-  for (const [name, contents, pasted] of [
-    ['the text', { files: [], image: false }, 'echo hi'],
+  for (const [title, contents, pasted] of [
     [
-      'the quoted path of a copied file',
+      'a Cmd+V on macOS that may carry a file sends the text before the Enter pressed while the clipboard is read',
+      { files: [], image: false },
+      'echo hi',
+    ],
+    [
+      'a Cmd+V on macOS that may carry a file sends the quoted path of a copied file before the Enter pressed while the clipboard is read',
       { files: ['/tmp/a b.png'], image: true },
       "'/tmp/a b.png' ",
     ],
   ] as const) {
-    it(`a Cmd+V on macOS that may carry a file sends ${name} before the Enter pressed while the clipboard is read`, async () => {
+    it(title, async () => {
       os.mac = true
       onTestFinished(() => {
         os.mac = false
@@ -692,6 +704,16 @@ describe('TerminalView engines', () => {
       useFileTreeStore.setState({ revealed: null })
       useUIStore.setState({ filesOpen: false })
       useEditorRevealStore.setState({ pending: {} })
+      showWorkspace()
+      useLayoutStore.setState({
+        byWorkspace: {
+          w1: {
+            root: { ...createPane('terminal'), id: 'p1' },
+            activePaneId: 'p1',
+            zoomedPaneId: null,
+          },
+        },
+      })
       vi.mocked(window.ostia.pty.attach).mockResolvedValue({
         created: true,
         buffer: 'notes/sub\r\n/out/shots/\r\n/out/shots/report.txt:7\r\n',
@@ -826,11 +848,13 @@ describe('TerminalView engines', () => {
 
   it('a plain click opens the link in the browser pane and reuses it; Ctrl adds a tab; Ctrl+Shift goes outside', async () => {
     const systemOpen = vi.spyOn(window, 'open').mockReturnValue(null)
+    const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
     const box = vi
       .spyOn(Element.prototype, 'getBoundingClientRect')
       .mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 600 }))
     onTestFinished(() => {
       systemOpen.mockRestore()
+      fitted.mockRestore()
       box.mockRestore()
     })
     const { links, paneId } = await renderLinkTerminal()
@@ -879,6 +903,48 @@ describe('TerminalView engines', () => {
     expect(term.hasSelection()).toBe(true)
     act(() => links.activate(click(), 'http://127.0.0.1:8000/drag', linkRange))
     expect(browserUrls()).toEqual([])
+  })
+
+  it('a link’s hover hint goes away when its pane stops being visible, the window loses focus or the terminal resizes', async () => {
+    const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
+    const box = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 600 }))
+    const settingsActive = useUIStore.getState().settingsActive
+    onTestFinished(() => {
+      fitted.mockRestore()
+      box.mockRestore()
+      useUIStore.setState({ settingsActive })
+    })
+    const { term, links } = await renderLinkTerminal()
+    const hint = (): Element | null => document.querySelector('[data-slot="tooltip-content"]')
+    const hoverUntilHinted = async (): Promise<void> => {
+      act(() =>
+        links.hover?.(new MouseEvent('mousemove'), 'http://127.0.0.1:8000/first', linkRange),
+      )
+      await waitFor(() => expect(hint()).not.toBeNull())
+    }
+
+    await hoverUntilHinted()
+    act(() => useUIStore.setState({ settingsActive: true }))
+    expect(hint()).toBeNull()
+    act(() => useUIStore.setState({ settingsActive: false }))
+    expect(hint()).toBeNull()
+
+    await hoverUntilHinted()
+    act(() => useWorkspacesStore.setState({ activeWorkspaceId: 'w2' }))
+    expect(hint()).toBeNull()
+    act(() => useWorkspacesStore.setState({ activeWorkspaceId: 'w1' }))
+
+    await hoverUntilHinted()
+    act(() => {
+      window.dispatchEvent(new Event('blur'))
+    })
+    expect(hint()).toBeNull()
+
+    await hoverUntilHinted()
+    act(() => term.resize(term.cols + 1, term.rows))
+    expect(hint()).toBeNull()
   })
 
   it('dragging a file from the Files panel types its quoted path at the terminal prompt', async () => {

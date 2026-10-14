@@ -8,6 +8,7 @@ export interface ShellState {
   virtualEnv: string | null
   condaEnv: string | null
   kubeconfig: string | null
+  histFile: string | null
   names: string[]
 }
 
@@ -18,13 +19,14 @@ const SHELL_STATE_HEADER_LINES = 4
 export function parseShellState(text: string): ShellState | null {
   const lines = text.split('\n')
   if (lines.length <= SHELL_STATE_HEADER_LINES) return null
-  const [path, virtualEnv, condaEnv, kubeconfig] = lines
+  const [path, virtualEnv, condaEnv, kubeconfig, names, histFile] = lines
   return {
     path,
     virtualEnv: virtualEnv || null,
     condaEnv: condaEnv || null,
     kubeconfig: kubeconfig || null,
-    names: lines.slice(SHELL_STATE_HEADER_LINES).join(' ').split(/\s+/).filter(Boolean),
+    histFile: histFile || null,
+    names: names.split(/\s+/).filter(Boolean),
   }
 }
 

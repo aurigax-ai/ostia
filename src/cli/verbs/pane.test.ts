@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  hibernateOutcome,
   parseGroupColorArgs,
+  parseGroupDeleteArgs,
+  parseGroupRenameArgs,
   parsePaneArgs,
   parseWorkspaceGroupArgs,
   parseWorkspaceRenameArgs,
@@ -236,6 +239,37 @@ describe('pane wake', () => {
   })
 })
 
+describe('pane hibernate', () => {
+  it('takes one or more panes and --json', () => {
+    expect(parsePaneArgs(['hibernate', 'fixer', 'w2'])).toEqual({
+      method: 'pane.hibernate',
+      params: { panes: ['fixer', 'w2'] },
+      json: false,
+    })
+    expect(parsePaneArgs(['hibernate', 'fixer', '--json'])).toEqual({
+      method: 'pane.hibernate',
+      params: { panes: ['fixer'] },
+      json: true,
+    })
+    expect(() => parsePaneArgs(['hibernate'])).toThrow('ostia pane hibernate <pane>')
+  })
+
+  it('exits 0 when every pane went to sleep and 2 when one was skipped', () => {
+    expect(hibernateOutcome({ hibernated: ['p1', 'p2'], skipped: {} }, false)).toEqual({
+      line: 'p1\np2',
+      code: 0,
+    })
+    expect(hibernateOutcome({ hibernated: ['p1'], skipped: { p2: 'subagent' } }, false)).toEqual({
+      line: 'p1\nostia pane hibernate: p2 skipped (subagent)',
+      code: 2,
+    })
+    expect(hibernateOutcome({ hibernated: [], skipped: { p2: 'not-agent' } }, true)).toEqual({
+      line: '{"hibernated":[],"skipped":{"p2":"not-agent"}}',
+      code: 2,
+    })
+  })
+})
+
 describe('pane close', () => {
   it('takes one or more panes and --json', () => {
     expect(parsePaneArgs(['close', 'fixer', 'w2'])).toEqual({
@@ -309,5 +343,32 @@ describe('parseGroupColorArgs', () => {
     expect(() => parseGroupColorArgs(['Work'])).toThrow('usage: ostia workspace group-color')
     expect(() => parseGroupColorArgs(['blue'])).toThrow('usage: ostia workspace group-color')
     expect(() => parseGroupColorArgs(['--clear'])).toThrow('usage: ostia workspace group-color')
+  })
+})
+
+describe('parseGroupRenameArgs', () => {
+  it('takes the group and the new name', () => {
+    expect(parseGroupRenameArgs(['Work', 'Billing'])).toEqual({ group: 'Work', name: 'Billing' })
+  })
+
+  it('refuses a missing or extra word', () => {
+    expect(() => parseGroupRenameArgs(['Work'])).toThrow('usage: ostia workspace group-rename')
+    expect(() => parseGroupRenameArgs(['a', 'b', 'c'])).toThrow(
+      'usage: ostia workspace group-rename',
+    )
+    expect(() => parseGroupRenameArgs([])).toThrow('usage: ostia workspace group-rename')
+  })
+})
+
+describe('parseGroupDeleteArgs', () => {
+  it('takes the one group name', () => {
+    expect(parseGroupDeleteArgs(['code review'])).toEqual({ group: 'code review' })
+  })
+
+  it('refuses an empty name and a name split into words', () => {
+    expect(() => parseGroupDeleteArgs(['code', 'review'])).toThrow(
+      'usage: ostia workspace group-delete',
+    )
+    expect(() => parseGroupDeleteArgs([])).toThrow('usage: ostia workspace group-delete')
   })
 })

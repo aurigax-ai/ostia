@@ -2,7 +2,12 @@ import { realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, sep } from 'node:path'
 import { app } from 'electron'
-import { type InstallMethod, isInstallMethod, isReplaceable } from '../../shared/app/installMethod'
+import {
+  type InstallMethod,
+  hasAppFolder,
+  isInstallMethod,
+  isMacInstall,
+} from '../../shared/app/installMethod'
 import { type EnvSource, readEnv } from '../../shared/appEnv'
 import { PRODUCT_NAME } from '../../shared/product'
 
@@ -58,12 +63,19 @@ function realExecPath(): string {
 }
 
 export function installAppDir(): string | null {
+  const method = installMethod()
   return replaceableAppDir({
-    method: installMethod(),
+    method,
     isPackaged: app.isPackaged,
-    execPath: realExecPath(),
+    execPath: isMacInstall(method) ? process.execPath : realExecPath(),
     env: process.env,
   })
+}
+
+const BUNDLE_EXECUTABLE = /^(.*\.app)\/Contents\/MacOS\/[^/]+$/
+
+export function appBundleOf(execPath: string): string | null {
+  return BUNDLE_EXECUTABLE.exec(execPath)?.[1] ?? null
 }
 
 function existsReal(path: string): boolean {
@@ -81,9 +93,9 @@ export function replaceableAppDir(opts: {
   execPath: string
   env: EnvSource
 }): string | null {
-  if (!isReplaceable(opts.method)) return null
+  if (!hasAppFolder(opts.method)) return null
   if (!opts.isPackaged) return readEnv(INSTALL_APP_DIR_ENV, opts.env) ?? null
-  return dirname(opts.execPath)
+  return isMacInstall(opts.method) ? appBundleOf(opts.execPath) : dirname(opts.execPath)
 }
 
 let detected: InstallMethod | undefined

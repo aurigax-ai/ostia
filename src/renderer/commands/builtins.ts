@@ -1,5 +1,13 @@
-import { hibernateWorkspaces, resumeWorkspaces, wakePane } from '@/lib/agents/hibernationScheduler'
+import { forkConversation } from '@/lib/agents/forkConversation'
+import {
+  type PaneHibernateOutcome,
+  hibernateAgentPane,
+  hibernateWorkspaces,
+  resumeWorkspaces,
+  wakePane,
+} from '@/lib/agents/hibernationScheduler'
 import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '@/lib/agents/paneAgent'
+import { withCommandLineEnv } from '@/lib/agents/resumeEnv'
 import { claimResume, paneResumeHolder, resumeHolder } from '@/lib/agents/resumeFolder'
 import { resetZoom } from '@/lib/app/wheelZoom'
 import { postAgentNotification } from '@/lib/attention/agentNotification'
@@ -13,6 +21,7 @@ import {
   markWorkspaceRead,
   signalPane,
   stepWorkspace,
+  workspaceOfPane,
 } from '@/lib/attention/workspaceActivity'
 import { browserProfileIn, openerOf } from '@/lib/browser/browserProfile'
 import { openArtifact, openPad } from '@/lib/files/artifacts'
@@ -49,6 +58,7 @@ import { terminalFor } from '@/lib/terminal/terminalHandles'
 import {
   closeBlockers,
   closePaneForAgent,
+  requestCloseOtherTabs,
   requestCloseOthers,
   requestClosePane,
   requestCloseWorkspace,
@@ -85,12 +95,15 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHistorySearchStore } from '@/stores/terminal/historySearchStore'
 import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import { saveSnapshotNow } from '@/stores/workspaces/persistence'
 import { type RailEdit, revealRailEdit } from '@/stores/workspaces/railEditStore'
+import { useTabSleepNoticeStore } from '@/stores/workspaces/tabSleepNoticeStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import type { WorkspaceKind, WorkspaceState } from '@/stores/workspaces/workspacesStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { type AgentResume, resumeCommand } from '@shared/agents/agentResume'
+import { type AgentResume, parseAgentResume, resumeCommand } from '@shared/agents/agentResume'
+import { isAgentBusyReason } from '@shared/agents/agentWork'
 import { wantsDesktopBanner } from '@shared/app/notificationSettings'
 import { stepZoom } from '@shared/app/zoom'
 import { PAD_COMMAND } from '@shared/artifacts/artifacts'
@@ -242,6 +255,14 @@ async function hibernateAgents(workspaceIds: readonly string[]): Promise<string[
 function groupWorkspaceIds(workspaceId: string | null): string[] {
   if (!workspaceId) return []
   return groupMates(useWorkspacesStore.getState().workspaces, workspaceId).map((w) => w.id)
+}
+
+function namedGroup(raw: unknown) {
+  const name = normalizeGroupName(raw)
+  const found = useWorkspacesStore.getState().groups.filter((g) => g.name === name)
+  if (found.length === 0) throw new Error(`no group named '${String(raw)}'`)
+  if (found.length > 1) throw new Error(`ambiguous: ${found.length} groups are named '${name}'`)
+  return found[0]
 }
 
 function workspaceWithoutPanes(ctx: CommandContext, paneId?: string): string | null {
@@ -599,8 +620,10 @@ export function registerBuiltinCommands(): void {
     category: 'pane',
     hidden: true,
     capabilities: ['drive-self'],
-    run: (resume, ctx) => {
+    run: (raw, ctx) => {
       if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
+      const resume = withCommandLineEnv(parseAgentResume(raw), ctx.activePaneId)
+      if (!resume) throw new Error('invalid resume')
       useLayoutStore.getState().setResume(ctx.activeWorkspaceId, ctx.activePaneId, resume)
       useBlocksStore.getState().markAgent(ctx.activePaneId, resume.agent)
     },
@@ -629,6 +652,16 @@ export function registerBuiltinCommands(): void {
     },
   })
 
+  registerCore<undefined, { forked: boolean }>({
+    id: 'agent.forkConversation',
+    category: 'pane',
+    local: true,
+    run: (_args, ctx) => {
+      if (!ctx.activeWorkspaceId || !ctx.activePaneId) return { forked: false }
+      return { forked: forkConversation(ctx.activeWorkspaceId, ctx.activePaneId) !== null }
+    },
+  })
+
   registerCore<undefined, { hibernated: boolean }>({
     id: 'pane.hibernated',
     category: 'pane',
@@ -642,16 +675,57 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  registerCore<undefined, { woke: boolean; conflict?: string }>({
+  registerCore<{ paneId?: string } | undefined, { woke: boolean; conflict?: string }>({
     id: 'pane.wake',
     category: 'pane',
-    hidden: true,
     capabilities: ['type-other-pane'],
-    run: (_args, ctx) => {
-      if (!ctx.activePaneId) throw new Error('no target pane')
-      const holder = paneResumeHolder(ctx.activePaneId)
-      if (holder) return { woke: false, conflict: holder.title }
-      return { woke: wakePane(ctx.activePaneId) }
+    argsSchema: { type: 'object', properties: { paneId: { type: 'string' } } },
+    run: (args, ctx) => {
+      const paneId = args?.paneId ?? ctx.activePaneId
+      if (!paneId) throw new Error('no target pane')
+      const holder = paneResumeHolder(paneId)
+      if (holder) {
+        if (!ctx.target)
+          useTabSleepNoticeStore.getState().show({ kind: 'conflict', tab: holder.title })
+        return { woke: false, conflict: holder.title }
+      }
+      const woke = wakePane(paneId)
+      if (!woke && !ctx.target) useTabSleepNoticeStore.getState().show({ kind: 'awake' })
+      return { woke }
+    },
+  })
+
+  registerCore<{ paneId?: string } | undefined, { hibernated: boolean; outcome: string }>({
+    id: 'pane.hibernate',
+    category: 'pane',
+    capabilities: ['kill-pane'],
+    argsSchema: { type: 'object', properties: { paneId: { type: 'string' } } },
+    run: async (args, ctx) => {
+      const paneId = args?.paneId ?? ctx.activePaneId
+      const workspaceId = paneId ? workspaceOfPane(paneId) : null
+      if (!paneId || !workspaceId) throw new Error('no target pane')
+      const outcome: PaneHibernateOutcome = await hibernateAgentPane(workspaceId, paneId)
+      if (isAgentBusyReason(outcome)) {
+        useHibernateSkippedStore.getState().show({ hibernated: [], skipped: { [outcome]: 1 } })
+      }
+      if (outcome === 'not-agent' && !ctx.target) {
+        const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+        const asleep = layout ? findPane(layout.root, paneId)?.hibernated === true : false
+        useTabSleepNoticeStore.getState().show({ kind: asleep ? 'asleep' : 'notAgent' })
+      }
+      return { hibernated: outcome === 'hibernated', outcome }
+    },
+  })
+
+  registerCore<{ paneId?: string } | undefined>({
+    id: 'tab.closeOthers',
+    category: 'pane',
+    capabilities: ['kill-pane'],
+    argsSchema: { type: 'object', properties: { paneId: { type: 'string' } } },
+    run: async (args, ctx) => {
+      const paneId = args?.paneId ?? ctx.activePaneId
+      if (ctx.activeWorkspaceId && paneId)
+        await requestCloseOtherTabs(ctx.activeWorkspaceId, paneId)
     },
   })
 
@@ -841,11 +915,14 @@ export function registerBuiltinCommands(): void {
   registerCore<{ title?: string } | undefined>({
     id: 'pane.rename',
     category: 'pane',
-    hidden: true,
     capabilities: ['drive-self'],
     run: (args, ctx) => {
       if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
-      useLayoutStore.getState().rename(ctx.activeWorkspaceId, ctx.activePaneId, args?.title ?? '')
+      if (typeof args?.title !== 'string') {
+        usePaneRenameStore.getState().begin(ctx.activePaneId)
+        return
+      }
+      useLayoutStore.getState().rename(ctx.activeWorkspaceId, ctx.activePaneId, args.title)
     },
   })
 
@@ -903,6 +980,35 @@ export function registerBuiltinCommands(): void {
       const group = store.groups.find((g) => g.name === name)
       if (!group) throw new Error(`no group named '${args?.group}'`)
       store.setGroupColor(group.id, color)
+    },
+  })
+
+  registerCore<{ group: string; name: string }>({
+    id: 'workspace.groupRename',
+    category: 'workspace',
+    hidden: true,
+    capabilities: ['drive-self'],
+    target: 'none',
+    run: (args) => {
+      const name = normalizeGroupName(args?.name)
+      if (!name) throw new Error('missing group name')
+      const store = useWorkspacesStore.getState()
+      const group = namedGroup(args?.group)
+      if (group.name !== name && store.groups.some((g) => g.name === name)) {
+        throw new Error(`a group named '${name}' already exists`)
+      }
+      store.renameGroup(group.id, name)
+    },
+  })
+
+  registerCore<{ group: string }>({
+    id: 'workspace.groupDelete',
+    category: 'workspace',
+    hidden: true,
+    capabilities: ['drive-self'],
+    target: 'none',
+    run: (args) => {
+      useWorkspacesStore.getState().deleteGroup(namedGroup(args?.group).id)
     },
   })
 
@@ -970,6 +1076,24 @@ export function registerBuiltinCommands(): void {
       if (current) store.setPinned(current.id, !current.pinned)
     },
   })
+
+  for (const [id, pinned] of [
+    ['workspace.pin', true],
+    ['workspace.unpin', false],
+  ] as const) {
+    registerCore({
+      id,
+      category: 'workspace',
+      hidden: true,
+      capabilities: ['drive-self'],
+      run: (_args, ctx) => {
+        const store = useWorkspacesStore.getState()
+        const current = store.workspaces.find((w) => w.id === ctx.activeWorkspaceId)
+        if (!current) throw new Error('no target workspace')
+        if (Boolean(current.pinned) !== pinned) store.setPinned(current.id, pinned)
+      },
+    })
+  }
 
   registerCore({
     id: 'workspace.markRead',

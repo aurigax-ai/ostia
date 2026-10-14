@@ -137,6 +137,7 @@ describe.skipIf(skipWithoutTmux)('KeptShells', () => {
     const second = await restart(name, new Set(['p1']))
     expect(second.kept.isWaiting('p1')).toBe(true)
     expect(second.kept.isWaiting('p2')).toBe(false)
+    expect(second.kept.waitingPaneIds()).toEqual(['p1'])
     expect(second.log).toContainEqual(['pty-reap', { pane: 'p2', reason: 'unclaimed' }])
     expect(running(named.pid)).toBe(true)
     await ended(unnamed.pid)

@@ -1,5 +1,5 @@
 import { namespacedId } from '@/lib/workspaces/idNamespace'
-import type { AgentResume } from '@shared/agents/agentResume'
+import { type AgentResume, sameResume } from '@shared/agents/agentResume'
 import { type BrowserProfile, parseBrowserProfile } from '@shared/browser/browserProfile'
 import { isRemotePath } from '@shared/remoteFolders'
 import type { PanePlacement } from '@shared/types'
@@ -144,6 +144,10 @@ export function setPaneCwd(root: LayoutNode, paneId: string, cwd: string): Layou
   })
 }
 
+export function setPaneSpawnDir(root: LayoutNode, paneId: string, spawnDir: string): LayoutNode {
+  return mapPane(root, paneId, (p) => (p.spawnDir === spawnDir ? p : { ...p, spawnDir }))
+}
+
 export function settleSpawnDir(root: LayoutNode, paneId: string, missing: boolean): LayoutNode {
   return mapPane(root, paneId, (p) => {
     if (p.spawnDir === undefined) return p
@@ -192,12 +196,7 @@ export function setDefaultPaneTitles(root: LayoutNode, title: string): LayoutNod
 
 export function setPaneResume(root: LayoutNode, paneId: string, resume: AgentResume): LayoutNode {
   return mapPane(root, paneId, (p) => {
-    if (
-      p.resume?.agent === resume.agent &&
-      p.resume.id === resume.id &&
-      p.resume.cwd === resume.cwd
-    )
-      return p
+    if (sameResume(p.resume, resume)) return p
     const { resumeFolderMissing: _missing, ...rest } = p
     return { ...rest, resume }
   })

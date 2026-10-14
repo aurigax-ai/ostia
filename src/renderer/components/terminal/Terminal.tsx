@@ -67,13 +67,14 @@ import {
 } from '@/lib/terminal/blockActions'
 import { decodeCommandLine, readCommandText } from '@/lib/terminal/blockText'
 import { ghosttyModule, loadGhostty } from '@/lib/terminal/ghosttyEngine'
+import { createLinkHint } from '@/lib/terminal/linkHint'
 import {
   type LinkKind,
   attachLinkClaim,
   attachLinkModifier,
   linkModifierHeld,
   linkSpan,
-  webLinkTarget,
+  terminalLinkTarget,
 } from '@/lib/terminal/linkModifier'
 import {
   noteFittedGrid,
@@ -94,6 +95,11 @@ import {
 import { commitProgramTitle, commitShellTitle } from '@/lib/terminal/paneTitle'
 import { installPrimarySelection } from '@/lib/terminal/primarySelection'
 import { createPtyAcker } from '@/lib/terminal/ptyAck'
+import {
+  createAppLinkProvider,
+  hintedLinkHandler,
+  xtermLinkHandler,
+} from '@/lib/terminal/terminalAppLinks'
 import { createFileLinkProvider } from '@/lib/terminal/terminalFileLinks'
 import { inputEditorFor, registerTerminal } from '@/lib/terminal/terminalHandles'
 import {
@@ -129,6 +135,7 @@ import { isPromptRepaint, nextSizeAction, settleFit } from './terminalSizing'
 
 const FOCUS_REPORTS = new Set(['\x1b[I', '\x1b[O'])
 const LINK_HINT_DELAY_MS = 400
+const UNDRAWN_START_MS = 1000
 
 interface TerminalViewProps {
   workspaceId: string
@@ -196,6 +203,10 @@ function TerminalSurface({
   const findStepRef = useRef<((by: number) => void) | null>(null)
   const [alternateScreen, setAlternateScreen] = useState(false)
   const shown = usePaneVisible(paneId)
+  const dismissLinkHintRef = useRef<() => void>(() => {})
+  useEffect(() => {
+    if (!shown) dismissLinkHintRef.current()
+  }, [shown])
   const [suppressedPrompt, setSuppressedPrompt] = useState<LineAnchor | null>(null)
   const searchOptions = useMemo(() => findOptions(palette), [palette])
   const selectionSend = useSelectionSend(workspaceId, paneId)
@@ -243,32 +254,35 @@ function TerminalSurface({
     let term: OstiaTerminal
     let fit: TerminalFit
     let hoveredLink = false
-    let linkHintTimer: ReturnType<typeof setTimeout> | null = null
-    const showLinkHint = (kind: LinkKind, range: IBufferRange): void => {
+    const hint = createLinkHint<LinkHintBox>(
+      LINK_HINT_DELAY_MS,
+      () => isPaneVisible(paneId),
+      setLinkHint,
+    )
+    dismissLinkHintRef.current = hint.hide
+    const showLinkHint = (kind: LinkKind, range: IBufferRange, url?: string): void => {
       hoveredLink = true
-      if (linkHintTimer) clearTimeout(linkHintTimer)
-      linkHintTimer = setTimeout(() => {
+      hint.show(() => {
         const cells = measureCells(host, term)
-        if (!cells) return
+        if (!cells) return null
         const span = linkSpan(range, term.buffer.active.viewportY, term.cols)
-        setLinkHint({
+        return {
           kind,
+          url,
           plainClick: term.modes.mouseTrackingMode === 'none',
           left: cells.left + span.start * cells.width,
           top: cells.top + span.row * cells.height,
           width: (span.end - span.start) * cells.width,
           height: cells.height,
-        })
-      }, LINK_HINT_DELAY_MS)
+        }
+      })
     }
     const hideLinkHint = (): void => {
       hoveredLink = false
-      if (linkHintTimer) clearTimeout(linkHintTimer)
-      linkHintTimer = null
-      setLinkHint(null)
+      hint.hide()
     }
     const openWebLink = (e: MouseEvent, uri: string): void => {
-      const target = webLinkTarget(e, {
+      const target = terminalLinkTarget(uri, e, {
         mac: isMac,
         hasSelection: term.hasSelection(),
         mouseReporting: term.modes.mouseTrackingMode !== 'none',
@@ -276,12 +290,12 @@ function TerminalSurface({
       if (target === 'same-tab') openBrowserAs(workspaceIdRef.current, uri, 'human')
       else if (target === 'new-tab') openBrowserTabAs(workspaceIdRef.current, uri, 'human')
       else if (target === 'system') window.open(uri, '_blank')
+      else if (target === 'app') void window.ostia.openPath.openLink(uri)
     }
-    const webLinks: WebLinkHandler = {
-      activate: openWebLink,
-      hover: (_e, _text, range) => showLinkHint('web', range),
-      leave: hideLinkHint,
-    }
+    const webLinks: WebLinkHandler = hintedLinkHandler(openWebLink, {
+      show: (range, uri) => showLinkHint('web', range, uri),
+      hide: hideLinkHint,
+    })
     let searchAddon: TerminalSearch | null = null
     let webgl: WebglRenderer | null = null
     let silenceReplies: () => { dispose(): void }
@@ -303,10 +317,10 @@ function TerminalSurface({
       xterm.loadAddon(xtermFit)
       xterm.loadAddon(new Unicode11Addon())
       xterm.unicode.activeVersion = '11'
-      xterm.options.linkHandler = webLinks
+      xterm.options.linkHandler = xtermLinkHandler(webLinks)
       xterm.loadAddon(
         new WebLinksAddon(openWebLink, {
-          hover: (_e, _text, range) => showLinkHint('web', range),
+          hover: (_e, uri, range) => showLinkHint('web', range, uri),
           leave: hideLinkHint,
         }),
       )
@@ -330,6 +344,9 @@ function TerminalSurface({
     const detachLinkClaim = screenElement
       ? attachLinkClaim(screenElement, (e) => hoveredLink && linkModifierHeld(e, isMac))
       : () => {}
+    const linkMoved = term.onScroll(hint.hide)
+    const linkResized = term.onResize(hint.hide)
+    window.addEventListener('blur', hint.hide)
     termRef.current = term
     setSearch(searchAddon)
     const unregisterTerminal = registerTerminal(paneId, term)
@@ -600,6 +617,7 @@ function TerminalSurface({
       paneId,
       cwd: cwdRef.current,
     })
+    const appLinks = term.registerLinkProvider(createAppLinkProvider(term, webLinks))
     const fileLinks = term.registerLinkProvider(
       createFileLinkProvider(term, {
         cwd: () => cwdRef.current,
@@ -763,8 +781,14 @@ function TerminalSurface({
           hostToken: useSandboxStore.getState().takeHostToken(paneId),
           ...spawnPromptOption(useSettingsStore.getState()),
         })
-        .then(({ buffer, sandboxed, sandboxStamp, host, shell, kept, reattached, cwdMissing }) => {
+        .then((result) => {
+          const { buffer, sandboxed, sandboxStamp, host, shell, kept, reattached, cwdMissing } =
+            result
           if (disposed) return
+          if (lastSizeRef.current.cols === 0 && result.cols && result.rows) {
+            term.resize(result.cols, result.rows)
+            lastSizeRef.current = { cols: result.cols, rows: result.rows }
+          }
           useLayoutStore
             .getState()
             .settleSpawnDir(workspaceIdRef.current, paneId, cwdMissing === true)
@@ -888,11 +912,29 @@ function TerminalSurface({
     syncSizeRef.current = () => {
       if (attached) syncSize()
     }
-    const unregisterOffscreen = registerOffscreenStarter(paneId, () => {
-      if (attached || disposed || (host.offsetWidth > 0 && host.offsetHeight > 0)) return
+    let undrawnStart: ReturnType<typeof setTimeout> | null = null
+    const startOffscreenNow = (keepSize: boolean | undefined): void => {
+      if (keepSize) {
+        attachAtCurrentSize(0, 0)
+        return
+      }
       const grid = offscreenGrid()
       term.resize(grid.cols, grid.rows)
       attachAtCurrentSize(grid.cols, grid.rows)
+    }
+    const unregisterOffscreen = registerOffscreenStarter(paneId, ({ keepSize }) => {
+      if (attached || disposed) return
+      if (host.offsetWidth === 0 || host.offsetHeight === 0) {
+        startOffscreenNow(keepSize)
+        return
+      }
+      if (undrawnStart) clearTimeout(undrawnStart)
+      undrawnStart = setTimeout(() => {
+        undrawnStart = null
+        if (attached || disposed) return
+        applyFit()
+        if (!attached) startOffscreenNow(keepSize)
+      }, UNDRAWN_START_MS)
     })
 
     let resizeTimer: ReturnType<typeof setTimeout> | null = null
@@ -914,6 +956,7 @@ function TerminalSurface({
     return () => {
       disposed = true
       unregisterOffscreen()
+      if (undrawnStart) clearTimeout(undrawnStart)
       querySilencer?.dispose()
       syncSizeRef.current = () => {}
       if (resizeTimer) clearTimeout(resizeTimer)
@@ -941,12 +984,15 @@ function TerminalSurface({
       bell.dispose()
       copySelection.dispose()
       useLiveSelectionStore.getState().clear(paneId)
+      appLinks.dispose()
       fileLinks.dispose()
       detachWheelZoom()
       detachLinkModifier()
       detachLinkClaim()
-      if (linkHintTimer) clearTimeout(linkHintTimer)
-      setLinkHint(null)
+      linkMoved.dispose()
+      linkResized.dispose()
+      window.removeEventListener('blur', hint.hide)
+      hint.hide()
       titleChange.dispose()
       titles.cancel()
       promptMarker?.dispose()
@@ -1055,17 +1101,13 @@ function TerminalSurface({
         termRef.current?.focus()
       }}
     >
-      <div className="terminal-stack">
+      <div className="terminal-stack" style={{ background }}>
         <TerminalMenu
           paneId={paneId}
           termRef={termRef}
           onPaste={() => pasteClipboardRef.current()}
           trigger={
-            <div
-              ref={hostRef}
-              className={engine === 'ghostty' ? 'ghostty-host' : 'xterm-host'}
-              style={{ background }}
-            />
+            <div ref={hostRef} className={engine === 'ghostty' ? 'ghostty-host' : 'xterm-host'} />
           }
         />
         <Blocks paneId={paneId} termRef={termRef} hostRef={hostRef} shown={shown} />
@@ -1090,7 +1132,7 @@ function TerminalSurface({
           onNeedRows={makeRows}
         />
         <AssistComposer paneId={paneId} cwd={cwd} termRef={termRef} />
-        <TerminalLinkHint hint={linkHint} />
+        <TerminalLinkHint hint={shown ? linkHint : null} />
         {findOpen && search && (
           <TerminalFind
             search={search}

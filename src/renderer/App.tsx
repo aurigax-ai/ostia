@@ -2,6 +2,7 @@ import { AgentOfferDialog } from '@/components/agents/AgentOfferDialog'
 import { ExtensionApprovalDialog } from '@/components/extensions/ExtensionApprovalDialog'
 import { FilesPanel } from '@/components/files/FilesPanel'
 import { RemoteFolderDialog } from '@/components/files/RemoteFolderDialog'
+import { CommandPalette } from '@/components/palette/CommandPalette'
 import { HistorySearch } from '@/components/palette/HistorySearch'
 import { SaveWorkflowDialog } from '@/components/palette/SaveWorkflowDialog'
 import { WorkflowPicker } from '@/components/palette/WorkflowPicker'
@@ -9,6 +10,7 @@ import { CloseConfirmDialog } from '@/components/rail/CloseConfirmDialog'
 import { DeckRail } from '@/components/rail/DeckRail'
 import { HibernateSkippedDialog } from '@/components/rail/HibernateSkippedDialog'
 import { MergeConfirmDialog } from '@/components/rail/MergeConfirmDialog'
+import { TabSleepNoticeDialog } from '@/components/rail/TabSleepNoticeDialog'
 import { SandboxFolderDialog } from '@/components/sandbox/SandboxFolderDialog'
 import { SandboxRequirementsDialog } from '@/components/sandbox/SandboxRequirementsDialog'
 import { ActionConfirmDialog } from '@/components/settings/ActionConfirmDialog'
@@ -39,7 +41,6 @@ import { IconContext } from '@phosphor-icons/react'
 import { clampZoom } from '@shared/app/zoom'
 import { useEffect } from 'react'
 import { commands } from './commands/registry'
-import { CommandPalette } from './components/CommandPalette'
 import { TooltipProvider } from './components/ui/tooltip'
 import { startLanguageServices } from './lsp/client'
 import { loadEditorLanguages } from './monaco/contributedLanguages'
@@ -134,6 +135,7 @@ export function App(): JSX.Element {
           <CloseConfirmDialog />
           <MergeConfirmDialog />
           <HibernateSkippedDialog />
+          <TabSleepNoticeDialog />
           <CmuxImportDialog />
           <ActionConfirmDialog />
           <UpdateConfirmDialog />

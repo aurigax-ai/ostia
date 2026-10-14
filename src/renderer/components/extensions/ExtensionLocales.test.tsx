@@ -1,5 +1,5 @@
 import { syncExtensionCommands, wireExtensionBridge } from '@/commands/extensionBridge'
-import { CommandPalette } from '@/components/CommandPalette'
+import { CommandPalette } from '@/components/palette/CommandPalette'
 import { PanelToggles } from '@/components/shell/PanelToggles'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'

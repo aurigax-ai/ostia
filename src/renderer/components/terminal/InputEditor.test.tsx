@@ -515,6 +515,28 @@ describe('InputEditor', () => {
     expect(editor()).toHaveFocus()
   })
 
+  it('completes a path outside the home folder from the pane’s own listing', async () => {
+    setMode('editor')
+    idlePrompt()
+    vi.mocked(window.ostia.pty.listDir).mockImplementation(async (_pane, path) =>
+      path === '/'
+        ? [
+            { name: 'usr', dir: true },
+            { name: 'var', dir: true },
+            { name: 'vmlinuz', dir: false },
+          ]
+        : [],
+    )
+    renderEditor()
+    const user = userEvent.setup()
+    await user.type(editor() as HTMLElement, 'cat /va')
+    await user.keyboard('{Tab}')
+    await waitFor(() => expect(editor()).toHaveValue('cat /var/'))
+    expect(window.ostia.pty.listDir).toHaveBeenLastCalledWith(PANE, '/')
+    expect(window.ostia.fs.list).not.toHaveBeenCalled()
+    vi.mocked(window.ostia.pty.listDir).mockReset()
+  })
+
   it('completes subcommands and options from the command’s spec with descriptions', async () => {
     setMode('editor')
     idlePrompt()
@@ -553,6 +575,41 @@ describe('InputEditor', () => {
     await waitFor(() => expect(editor()).toHaveValue('git add package.json '))
     vi.mocked(window.ostia.completions.spec).mockReset()
     vi.mocked(window.ostia.pty.listDir).mockReset()
+  })
+
+  it('offers arguments that followed the same command in history after the spec’s items', async () => {
+    setMode('editor')
+    idlePrompt()
+    vi.mocked(window.ostia.completions.spec).mockImplementation(async (command) =>
+      command === 'git'
+        ? {
+            names: ['git'],
+            subcommands: [
+              {
+                names: ['checkout'],
+                args: [{ suggestions: [{ name: 'HEAD', description: 'Current commit' }] }],
+              },
+            ],
+          }
+        : null,
+    )
+    vi.mocked(window.ostia.pty.history).mockResolvedValue([
+      { command: 'git checkout fix/login', time: null },
+      { command: 'git checkout main', time: null },
+    ])
+    renderEditor()
+    await waitFor(() => expect(window.ostia.pty.history).toHaveBeenCalledWith(PANE))
+    const user = userEvent.setup()
+    await user.type(editor() as HTMLElement, 'git checkout ')
+    await user.keyboard('{Escape}')
+    await user.keyboard('{Tab}')
+    const options = (await screen.findAllByRole('option')).map((o) => o.textContent)
+    expect(options).toEqual(['HEADCurrent commit', 'mainFrom history', 'fix/loginFrom history'])
+    await user.keyboard('{ArrowDown}{Enter}')
+    await waitFor(() => expect(editor()).toHaveValue('git checkout main '))
+    vi.mocked(window.ostia.completions.spec).mockReset()
+    vi.mocked(window.ostia.pty.history).mockReset()
+    vi.mocked(window.ostia.pty.history).mockResolvedValue([])
   })
 
   it('receives history inserts instead of the shell line while it is shown', async () => {
@@ -735,6 +792,75 @@ describe('InputEditor', () => {
       expect(ghost()).toBe('test')
       await user.type(editor() as HTMLElement, 'r')
       expect(ghost()).toBe('un lint')
+    })
+
+    it('prefers a command run in this folder over a newer one from elsewhere', async () => {
+      setMode('editor')
+      const s = useBlocksStore.getState()
+      s.promptStart(PANE, { line: 0 }, '/home/u/proj')
+      s.promptEnd(PANE, { line: 0 })
+      runCommand('pnpm test:e2e')
+      useBlocksStore.getState().commandEnd(PANE, { line: 2 }, 0)
+      idlePrompt()
+      runCommand('pnpm build')
+      finishCommand()
+      renderEditor()
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'pnpm ')
+      expect(ghost()).toBe('test:e2e')
+    })
+
+    it('suggests from the shell’s history file in a pane with no session history', async () => {
+      setMode('editor')
+      idlePrompt()
+      vi.mocked(window.ostia.pty.history).mockResolvedValue([
+        { command: 'kubectl get pods', time: 1_700_000_000_000 },
+        { command: 'kubectl get nodes -o wide', time: 1_700_000_060_000 },
+      ])
+      renderEditor()
+      await waitFor(() => expect(window.ostia.pty.history).toHaveBeenCalledWith(PANE))
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'kubectl get p')
+      await waitFor(() => expect(ghost()).toBe('ods'))
+      vi.mocked(window.ostia.pty.history).mockReset()
+      vi.mocked(window.ostia.pty.history).mockResolvedValue([])
+    })
+
+    it('reaches a command that is only in the history file with Up after a typed prefix', async () => {
+      withHistory('ls -la')
+      vi.mocked(window.ostia.pty.history).mockResolvedValue([
+        { command: 'terraform plan', time: null },
+        { command: 'ls -la', time: null },
+        { command: 'terraform apply', time: null },
+      ])
+      renderEditor()
+      await waitFor(() => expect(window.ostia.pty.history).toHaveBeenCalledWith(PANE))
+      const user = userEvent.setup()
+      await user.keyboard('{ArrowUp}')
+      expect(editor()).toHaveValue('ls -la')
+      await user.keyboard('{ArrowUp}')
+      expect(editor()).toHaveValue('ls -la')
+      await user.clear(editor() as HTMLElement)
+      await user.type(editor() as HTMLElement, 'terraform ')
+      await user.keyboard('{Escape}')
+      await user.keyboard('{ArrowUp}')
+      expect(editor()).toHaveValue('terraform apply')
+      await user.keyboard('{ArrowUp}')
+      expect(editor()).toHaveValue('terraform plan')
+      vi.mocked(window.ostia.pty.history).mockReset()
+      vi.mocked(window.ostia.pty.history).mockResolvedValue([])
+    })
+
+    it('does not read the history file while behavior.historySuggestions is off', async () => {
+      useSettingsStore.setState({
+        behavior: { ...useSettingsStore.getState().behavior, historySuggestions: false },
+      })
+      vi.mocked(window.ostia.pty.history).mockClear()
+      setMode('editor')
+      idlePrompt()
+      renderEditor()
+      await waitFor(() => expect(window.ostia.pty.commands).toHaveBeenCalledWith(PANE))
+      expect(window.ostia.pty.history).not.toHaveBeenCalled()
     })
 
     it('accepts one word with Ctrl+Right', async () => {

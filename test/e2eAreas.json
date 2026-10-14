@@ -381,9 +381,14 @@
       "paths": [
         "src/extensions/completions/",
         "src/main/terminal/completionSpecs.ts",
+        "src/main/terminal/pathCompletion.ts",
         "src/shared/terminal/completionSpec.ts",
         "src/renderer/lib/prompt/specCompletion.ts",
         "src/renderer/lib/prompt/completionMatch.ts",
+        "src/main/terminal/shellHistory.ts",
+        "src/renderer/lib/prompt/historyRank.ts",
+        "src/renderer/lib/prompt/historyArguments.ts",
+        "src/renderer/lib/prompt/useFileHistory.ts",
         "src/renderer/lib/prompt/terminalGhost.ts"
       ],
       "specs": ["e2e/input-editor.spec.ts"]
@@ -468,6 +473,8 @@
         "src/main/updates/appUpdate.ts",
         "src/main/updates/installMethod.ts",
         "src/main/updates/installReplace.ts",
+        "src/main/updates/macReplace.ts",
+        "src/main/updates/bundleFs.ts",
         "src/main/updates/updateRun.ts",
         "src/shared/app/installMethod.ts",
         "src/shared/app/releases.ts",
@@ -477,7 +484,7 @@
         "src/renderer/components/shell/UpdateNotice.",
         "src/renderer/stores/app/updateStore.ts"
       ],
-      "specs": ["e2e/update-check.spec.ts"]
+      "specs": ["e2e/update-check.spec.ts", "e2e/update-mac.spec.ts"]
     },
     {
       "name": "files",
@@ -572,11 +579,14 @@
         "src/renderer/lib/agents/activationResume.ts",
         "src/renderer/lib/agents/autoResume.ts",
         "src/renderer/lib/agents/resumeFolder.ts",
+        "src/renderer/lib/agents/forkConversation.ts",
+        "src/renderer/components/agents/AgentForkButton.tsx",
         "src/renderer/components/terminal/HibernatedView.tsx",
         "src/renderer/components/rail/HibernateSkippedDialog.tsx",
         "src/renderer/components/panes/ResumeFolderNotice.tsx"
       ],
       "specs": [
+        "e2e/agent-fork.spec.ts",
         "e2e/auto-resume.spec.ts",
         "e2e/hibernate-background-work.spec.ts",
         "e2e/hibernate-group.spec.ts",
@@ -805,11 +815,13 @@
         "e2e/terminal-ghostty-gpu.spec.ts",
         "e2e/terminal-ghostty-parity.spec.ts",
         "e2e/terminal-overflow.spec.ts",
+        "e2e/terminal-padding.spec.ts",
         "e2e/terminal-scrollbar.spec.ts",
         "e2e/terminal-selection.spec.ts",
         "e2e/terminal-tab-title.spec.ts",
         "e2e/terminal-web-links.spec.ts",
-        "e2e/terminal-webgl.spec.ts"
+        "e2e/terminal-webgl.spec.ts",
+        "e2e/terminal-wheel.spec.ts"
       ]
     },
     {
@@ -890,6 +902,7 @@
         "e2e/panel-open.spec.ts",
         "e2e/split-tabs.spec.ts",
         "e2e/surface-persistence.spec.ts",
+        "e2e/tab-rename.spec.ts",
         "e2e/tab-switch.spec.ts"
       ]
     },
@@ -955,6 +968,11 @@
       ]
     },
     {
+      "name": "focus ring",
+      "paths": ["src/renderer/lib/app/focusModality.", "src/renderer/components/ui/button.tsx"],
+      "specs": ["e2e/focus-ring.spec.ts"]
+    },
+    {
       "name": "app shell",
       "paths": [
         "src/main/windows/tray.ts",
@@ -984,12 +1002,12 @@
     {
       "name": "command palette",
       "paths": [
-        "src/renderer/components/CommandPalette.tsx",
+        "src/renderer/components/palette/CommandPalette.tsx",
         "src/renderer/lib/palette/paletteFilter.",
         "src/renderer/lib/palette/paletteFocus.ts",
         "src/renderer/lib/palette/paletteModes."
       ],
-      "specs": ["e2e/palette-focus.spec.ts"]
+      "specs": ["e2e/command-palette-layout.spec.ts", "e2e/palette-focus.spec.ts"]
     },
     {
       "name": "crash recovery",

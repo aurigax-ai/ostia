@@ -1,5 +1,6 @@
 import { allPanes } from '@/layout/tree'
 import type { LayoutNode, PaneNode } from '@/layout/types'
+import { startOffscreen } from '@/lib/terminal/offscreenStart'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -79,14 +80,20 @@ export function startAutoResume(): () => void {
         continue
       }
       if (scheduled.has(pane.id)) continue
-      let refused = false
-      const cancel = resumeWhenIdle(pane.id, resume, () => {
-        if (!resumeHolder(pane.id, resume)) return
-        refused = true
-        scheduled.delete(pane.id)
-        activated.delete(pane.id)
-      })
-      if (!refused) scheduled.set(pane.id, cancel)
+      let settled = false
+      startOffscreen(pane.id)
+      const cancel = resumeWhenIdle(
+        pane.id,
+        resume,
+        () => {
+          settled = true
+          scheduled.delete(pane.id)
+          if (resumeHolder(pane.id, resume)) activated.delete(pane.id)
+        },
+        undefined,
+        null,
+      )
+      if (!settled) scheduled.set(pane.id, cancel)
     }
   }
 

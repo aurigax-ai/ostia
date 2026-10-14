@@ -1,3 +1,5 @@
+import type { PaneNode } from '@/layout/types'
+import * as resumeFolder from '@/lib/agents/resumeFolder'
 import { activeFontZoom, zoomFont } from '@/lib/app/wheelZoom'
 import { registerBrowserHandle } from '@/lib/browser/browserHandles'
 import { type KeyLike, runAppChord } from '@/lib/keys/chords'
@@ -16,6 +18,7 @@ import { useCloseConfirmStore } from '@/stores/workspaces/closeConfirmStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { saveSnapshotNow } from '@/stores/workspaces/persistence'
 import * as surfaceSlots from '@/stores/workspaces/surfaceSlotsStore'
+import { useTabSleepNoticeStore } from '@/stores/workspaces/tabSleepNoticeStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { SCRIPT_CAPABILITIES } from '@shared/permissions/scriptTokens'
@@ -23,7 +26,7 @@ import { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { SCRIPT_COMMANDS } from '../../main/control/commandArgs'
 import { type Capability, DEFAULT_CAPABILITIES } from '../../shared/capabilities'
-import { createPane, splitOf, tabsOf } from '../layout/tree'
+import { createPane, paneIds, splitOf, tabsOf } from '../layout/tree'
 import { registerBuiltinCommands } from './builtins'
 import { type CommandContext, commands } from './registry'
 
@@ -1962,6 +1965,137 @@ describe('builtins with zero workspaces', () => {
   })
 })
 
+describe('agent.forkConversation', () => {
+  it('is a local palette command that forks the active pane only', async () => {
+    const command = commands.list().find((c) => c.id === 'agent.forkConversation')
+    expect(command?.title).toBe('Fork Agent Conversation')
+    expect(command?.hidden).toBeFalsy()
+    expect(commands.isLocal('agent.forkConversation')).toBe(true)
+
+    const agent = { ...createPane('terminal'), resume: { agent: 'claude' as const, id: 'tok' } }
+    const other = { ...createPane('terminal'), resume: { agent: 'claude' as const, id: 'other' } }
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: splitOf('horizontal', agent, other),
+          activePaneId: agent.id,
+          zoomedPaneId: null,
+        },
+      },
+    })
+    useBlocksStore.getState().commandStart(agent.id, { line: 1 }, 'claude')
+    useBlocksStore.getState().commandStart(other.id, { line: 1 }, 'claude')
+    const run = vi.spyOn(blockActions, 'runWhenIdle').mockReturnValue(() => {})
+
+    const res = await commands.execWith(ctx('s1', agent.id), 'agent.forkConversation', {
+      paneId: other.id,
+    })
+
+    expect(res).toMatchObject({ ok: true, result: { forked: true } })
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(run.mock.calls[0][1]).toBe('claude --resume tok --fork-session')
+    expect(run.mock.calls[0][0]).not.toBe(agent.id)
+    expect(run.mock.calls[0][0]).not.toBe(other.id)
+  })
+
+  it('does nothing in a pane with no agent session', async () => {
+    const pane = createPane('terminal')
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+    const run = vi.spyOn(blockActions, 'runWhenIdle')
+    const res = await commands.execWith(ctx('s1', pane.id), 'agent.forkConversation')
+    expect(res).toMatchObject({ ok: true, result: { forked: false } })
+    expect(run).not.toHaveBeenCalled()
+  })
+})
+
+describe('tab menu commands in the palette', () => {
+  it('lists Close Other Tabs, Hibernate Tab and Wake Tab, and runs them on the pane it is given', async () => {
+    const listed = new Map(commands.list().map((c) => [c.id, c]))
+    for (const [id, title] of [
+      ['tab.closeOthers', 'Close Other Tabs'],
+      ['pane.hibernate', 'Hibernate Tab'],
+      ['pane.wake', 'Wake Tab'],
+    ]) {
+      expect(listed.get(id)?.hidden).toBeFalsy()
+      expect(listed.get(id)?.title).toBe(title)
+    }
+    const a = { ...createPane('terminal'), resume: { agent: 'claude' as const, id: 'tok' } }
+    const b = createPane('terminal')
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
+      activeWorkspaceId: 's1',
+    })
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: { type: 'tabs', id: 't', activeId: a.id, children: [a, b] },
+          activePaneId: a.id,
+          zoomedPaneId: null,
+        },
+      },
+    })
+    const r = await commands.execWith(ctx('s1', a.id), 'tab.closeOthers', { paneId: a.id })
+    expect(r).toMatchObject({ ok: true })
+    expect(paneIds(useLayoutStore.getState().byWorkspace.s1.root)).toEqual([a.id])
+    const slept = await commands.execWith(ctx('s1', a.id), 'pane.hibernate', { paneId: a.id })
+    expect(slept).toMatchObject({ ok: true, result: { hibernated: false, outcome: 'not-agent' } })
+  })
+})
+
+describe('tab sleep notices', () => {
+  const notice = () => useTabSleepNoticeStore.getState().notice
+  afterEach(() => useTabSleepNoticeStore.setState({ notice: null }))
+
+  function seed(pane: PaneNode): void {
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
+      activeWorkspaceId: 's1',
+    })
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+  }
+
+  it('says why hibernating a tab with no agent did nothing', async () => {
+    const pane = createPane('terminal')
+    seed(pane)
+    await commands.execWith(ctx('s1', pane.id), 'pane.hibernate')
+    expect(notice()).toEqual({ kind: 'notAgent' })
+  })
+
+  it('says a tab is already asleep when asked to hibernate it again', async () => {
+    const pane = {
+      ...createPane('terminal'),
+      resume: { agent: 'claude' as const, id: 't' },
+      hibernated: true as const,
+    }
+    seed(pane)
+    await commands.execWith(ctx('s1', pane.id), 'pane.hibernate')
+    expect(notice()).toEqual({ kind: 'asleep' })
+  })
+
+  it('says a tab is already awake when asked to wake it', async () => {
+    const pane = createPane('terminal')
+    seed(pane)
+    await commands.execWith(ctx('s1', pane.id), 'pane.wake')
+    expect(notice()).toEqual({ kind: 'awake' })
+  })
+
+  it('names the tab holding the session when a wake conflicts', async () => {
+    const pane = {
+      ...createPane('terminal'),
+      resume: { agent: 'claude' as const, id: 't' },
+      hibernated: true as const,
+    }
+    seed(pane)
+    vi.spyOn(resumeFolder, 'paneResumeHolder').mockReturnValue({ title: 'other' } as never)
+    await commands.execWith(ctx('s1', pane.id), 'pane.wake')
+    expect(notice()).toEqual({ kind: 'conflict', tab: 'other' })
+  })
+})
+
 describe('agent resume', () => {
   function seedPane(resume?: { agent: 'claude' | 'codex'; id: string }) {
     const pane = { ...createPane('terminal'), ...(resume ? { resume } : {}) }
@@ -1977,6 +2111,62 @@ describe('agent resume', () => {
     expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
       resume: { agent: 'claude', id: 'abc' },
     })
+  })
+
+  it('keeps the launch flags and the variables typed in front of the agent, then replays them', async () => {
+    const pane = seedPane()
+    useBlocksStore
+      .getState()
+      .commandStart(pane.id, { line: 1 }, 'GL_ISSUE=685 GH_TOKEN=x claude --agent ostia')
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'claude',
+      id: 'abc',
+      args: ['--agent', 'ostia', '--session-id', 'old'],
+    })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+      resume: { agent: 'claude', id: 'abc', args: ['--agent', 'ostia'], env: { GL_ISSUE: '685' } },
+    })
+    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
+    await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    expect(insert).toHaveBeenCalledWith(
+      pane.id,
+      'GL_ISSUE=685 claude --resume abc --agent ostia',
+      true,
+    )
+  })
+
+  it('keeps the flags but no variables when the line starts with something else', async () => {
+    const pane = seedPane()
+    useBlocksStore
+      .getState()
+      .commandStart(
+        pane.id,
+        { line: 1 },
+        `GL_ISSUE=1 true && (ostia workspace group 'Home' || true) && claude --agent homelab -n "修 probe"`,
+      )
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'claude',
+      id: 'abc',
+      args: ['--agent', 'homelab', '-n', '修 probe'],
+    })
+    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
+    await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    expect(insert).toHaveBeenCalledWith(
+      pane.id,
+      "claude --resume abc --agent homelab --name '修 probe'",
+      true,
+    )
+  })
+
+  it('keeps the old command when nothing about the launch is known', async () => {
+    const pane = seedPane()
+    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, 'my-agent-script')
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'codex', id: 'abc' })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+      resume: { agent: 'codex', id: 'abc' },
+    })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.env')
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.args')
   })
 
   it('runs the agent’s resume command in the pane', async () => {
@@ -2101,7 +2291,7 @@ describe('workspace row commands', () => {
     const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
     for (const id of ['pane.rename', 'workspace.rename']) {
       expect(byId[id].capabilities).toEqual(['drive-self'])
-      expect(byId[id].hidden).toBe(id === 'pane.rename')
+      expect(byId[id].hidden).toBeFalsy()
     }
     for (const id of ['workspace.describe', 'workspace.renameGroup']) {
       expect(byId[id].capabilities).toEqual(['drive-self'])
@@ -2196,6 +2386,87 @@ describe('workspace row commands', () => {
     })
     expect(bad).toMatchObject({ ok: false })
     expect(group().color).toBeUndefined()
+  })
+
+  it('renames a group by name and refuses a blank name, a taken name or an unknown group', async () => {
+    seed()
+    useWorkspacesStore.getState().createGroup('w1', 'api')
+    useWorkspacesStore.getState().createGroup('w2', 'web')
+    const names = () => useWorkspacesStore.getState().groups.map((g) => g.name)
+
+    const ok = await commands.execWith(ctx(null, null), 'workspace.groupRename', {
+      group: ' api ',
+      name: '  backend ',
+    })
+    expect(ok).toEqual({ ok: true, result: undefined })
+    expect(names()).toEqual(['backend', 'web'])
+
+    for (const args of [
+      { group: 'backend', name: '   ' },
+      { group: 'backend', name: 'web' },
+      { group: 'nope', name: 'x' },
+    ]) {
+      expect(await commands.execWith(ctx(null, null), 'workspace.groupRename', args)).toMatchObject(
+        { ok: false },
+      )
+    }
+    expect(names()).toEqual(['backend', 'web'])
+  })
+
+  it('deletes a group by name and leaves its workspaces ungrouped', async () => {
+    seed()
+    useWorkspacesStore.getState().createGroup('w1', 'api')
+
+    const missing = await commands.execWith(ctx(null, null), 'workspace.groupDelete', {
+      group: 'nope',
+    })
+    expect(missing).toMatchObject({ ok: false })
+    expect(useWorkspacesStore.getState().groups).toHaveLength(1)
+
+    const ok = await commands.execWith(ctx(null, null), 'workspace.groupDelete', { group: 'api' })
+    expect(ok).toEqual({ ok: true, result: undefined })
+    expect(useWorkspacesStore.getState().groups).toEqual([])
+    expect(useWorkspacesStore.getState().workspaces.map((w) => w.id)).toEqual(['w1', 'w2'])
+    expect(useWorkspacesStore.getState().workspaces[0].groupId).toBeUndefined()
+  })
+
+  it('refuses to rename or delete a group whose name two groups share', async () => {
+    seed()
+    useWorkspacesStore.getState().createGroup('w1', 'api')
+    useWorkspacesStore.getState().createGroup('w2', 'web')
+    const [first, second] = useWorkspacesStore.getState().groups
+    useWorkspacesStore.setState({
+      groups: [first, { ...second, name: first.name }],
+    })
+
+    const rename = await commands.execWith(ctx(null, null), 'workspace.groupRename', {
+      group: 'api',
+      name: 'x',
+    })
+    const del = await commands.execWith(ctx(null, null), 'workspace.groupDelete', { group: 'api' })
+    expect(rename).toMatchObject({
+      ok: false,
+      error: { message: expect.stringContaining('ambiguous') },
+    })
+    expect(del).toMatchObject({
+      ok: false,
+      error: { message: expect.stringContaining('ambiguous') },
+    })
+    expect(useWorkspacesStore.getState().groups).toHaveLength(2)
+  })
+
+  it('pins and unpins the target workspace, and does nothing when it is already so', async () => {
+    seed()
+    await commands.execWith(ctx('w2', null), 'workspace.pin')
+    expect(useWorkspacesStore.getState().workspaces.map((w) => w.id)).toEqual(['w2', 'w1'])
+    expect(useWorkspacesStore.getState().workspaces[0].pinned).toBe(true)
+    await commands.execWith(ctx('w2', null), 'workspace.pin')
+    expect(useWorkspacesStore.getState().workspaces[0].pinned).toBe(true)
+    await commands.execWith(ctx('w2', null), 'workspace.unpin')
+    expect(useWorkspacesStore.getState().workspaces.every((w) => !w.pinned)).toBe(true)
+    await commands.execWith(ctx('w2', null), 'workspace.unpin')
+    expect(useWorkspacesStore.getState().workspaces.every((w) => !w.pinned)).toBe(true)
+    expect(await commands.execWith(ctx(null, null), 'workspace.pin')).toMatchObject({ ok: false })
   })
 
   it('lists groups with their members and tags grouped workspaces in workspace.list', async () => {
@@ -2468,6 +2739,22 @@ describe('commands open to script tokens', () => {
     'workspace.groupColor': {
       relaxed: ['drive-self'],
       reason: 'changes only the colour of an existing group',
+    },
+    'workspace.groupRename': {
+      relaxed: ['drive-self'],
+      reason: 'changes only the name of an existing group',
+    },
+    'workspace.groupDelete': {
+      relaxed: ['drive-self'],
+      reason: 'only ungroups its workspaces; none is closed',
+    },
+    'workspace.pin': {
+      relaxed: ['drive-self'],
+      reason: 'moves one workspace within the sidebar',
+    },
+    'workspace.unpin': {
+      relaxed: ['drive-self'],
+      reason: 'the reverse of workspace.pin',
     },
     'workspace.describe': {
       relaxed: ['drive-self'],

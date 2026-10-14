@@ -56,6 +56,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       detach: vi.fn(),
       hibernate: vi.fn().mockResolvedValue('hibernated'),
       stashed: vi.fn().mockResolvedValue(null),
+      keptWaiting: vi.fn().mockResolvedValue([]),
       restart: vi.fn().mockResolvedValue(true),
       reportAgentRunning: vi.fn(),
       reportWaking: vi.fn(),
@@ -64,6 +65,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       resize: vi.fn(),
       commands: vi.fn().mockResolvedValue([]),
       listDir: vi.fn().mockResolvedValue([]),
+      history: vi.fn().mockResolvedValue([]),
       localPrompt: vi.fn().mockResolvedValue(true),
       foreground: vi.fn().mockResolvedValue(null),
       activity: vi.fn().mockResolvedValue(null),
@@ -241,6 +243,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     openPath: {
       openDefault: vi.fn().mockResolvedValue({ ok: true }),
       reveal: vi.fn().mockResolvedValue({ ok: true }),
+      openLink: vi.fn().mockResolvedValue(true),
       project: vi.fn().mockResolvedValue(null),
     },
     agentSession: {

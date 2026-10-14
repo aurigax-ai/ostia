@@ -9,7 +9,7 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionInfo, ExtensionSettingsStored, PaneChip } from '@shared/extensions'
 import type { Terminal } from '@xterm/xterm'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { findPane, isPaneShown, paneIds, resetIds, tabsOfPane } from '../layout/tree'
 import {
   openExtensionDiff,
@@ -426,6 +426,48 @@ describe('extensionBridge', () => {
       const start = vi.fn()
       const unregister = registerOffscreenStarter(paneId, start)
       expect(start).toHaveBeenCalledTimes(1)
+      unregister()
+    })
+
+    it('types the command at the first prompt of a shell that starts more than 30 s later', () => {
+      vi.useFakeTimers()
+      onTestFinished(() => {
+        vi.useRealTimers()
+      })
+      twoWorkspaces()
+      const paneId = openExtensionTerminal({
+        requestId: 'r7',
+        workspaceId: 's1',
+        command: 'late-start',
+        backgroundTab: true,
+      }) as string
+      vi.advanceTimersByTime(10 * 60_000)
+
+      const paste = vi.fn()
+      const unregister = registerTerminal(paneId, { paste, focus: vi.fn() } as unknown as Terminal)
+      const blocks = useBlocksStore.getState()
+      blocks.promptStart(paneId, { line: 0 }, '/a')
+      blocks.promptEnd(paneId, { line: 0 })
+      expect(paste).toHaveBeenCalledWith('late-start')
+      unregister()
+    })
+
+    it('drops the waiting command once its tab is closed', () => {
+      twoWorkspaces()
+      const paneId = openExtensionTerminal({
+        requestId: 'r8',
+        workspaceId: 's1',
+        command: 'closed-early',
+        backgroundTab: true,
+      }) as string
+      useLayoutStore.getState().closePane('s1', paneId)
+
+      const paste = vi.fn()
+      const unregister = registerTerminal(paneId, { paste, focus: vi.fn() } as unknown as Terminal)
+      const blocks = useBlocksStore.getState()
+      blocks.promptStart(paneId, { line: 0 }, '/a')
+      blocks.promptEnd(paneId, { line: 0 })
+      expect(paste).not.toHaveBeenCalledWith('closed-early')
       unregister()
     })
 

@@ -20,6 +20,7 @@ import { startAgentDetection } from '@/lib/agents/paneAgent'
 import { startAppMenu } from '@/lib/app/appMenu'
 import { loadDesktops } from '@/lib/app/desktop'
 import { errorDetails, reportError, startErrorReporting } from '@/lib/app/errorReporting'
+import { startFocusModality } from '@/lib/app/focusModality'
 import { startShortcutReporting } from '@/lib/assist/assistShortcuts'
 import { startAssistUi } from '@/lib/assist/assistUi'
 import { revealPane, startAttentionSync } from '@/lib/attention/workspaceActivity'
@@ -30,6 +31,8 @@ import { startUserActions } from '@/lib/palette/userActions'
 import { livePaneIds } from '@/lib/panes/livePanes'
 import { startPaneDragTracking } from '@/lib/panes/paneDrag'
 import { applyStoredPanelWidths } from '@/lib/panes/panelWidth'
+import { focusActivePaneWhenReady } from '@/lib/terminal/focusNewTerminal'
+import { startKeptReattach } from '@/lib/terminal/keptReattach'
 import { loadLocalHostName } from '@/lib/terminal/osc7'
 import { applyUiFonts, preloadFonts } from '@/lib/theme/uiFonts'
 import { initWindow, startWindowSync } from '@/lib/workspaces/windowHandoff'
@@ -48,6 +51,7 @@ import { wireArtifacts } from '@/stores/files/artifactsStore'
 import { wireOpenWaits } from '@/stores/files/openWaitsStore'
 import { wireRemoteFolders } from '@/stores/files/remoteFoldersStore'
 import { startPaneRecencySync } from '@/stores/workspaces/paneRecencyStore'
+import { startPaneRenameSync } from '@/stores/workspaces/paneRenameStore'
 import { startSnapshotAutosave } from '@/stores/workspaces/persistence'
 import { startRailEditSync } from '@/stores/workspaces/railEditStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
@@ -74,6 +78,7 @@ import { setSettingsFile } from './monaco/language'
 import { isMac } from './platform'
 
 startErrorReporting()
+startFocusModality()
 registerBuiltinCommands()
 registerExternalEditorCommand()
 registerSelectionSendCommand()
@@ -133,14 +138,18 @@ async function boot(): Promise<void> {
     console.error('[workspace] restore failed', err)
   }
   useWorkspacesStore.getState().hydrate(snapshot)
+  const restoredWorkspaceId = useWorkspacesStore.getState().activeWorkspaceId
+  if (restoredWorkspaceId) focusActivePaneWhenReady(restoredWorkspaceId)
   startSnapshotAutosave()
   startWindowSync()
   startPaneDragTracking()
   startFileDropTracking()
   startAttentionSync()
   startPaneRecencySync()
+  startPaneRenameSync()
   startRailEditSync()
   startHibernation()
+  startKeptReattach()
   startAutoResume()
   startActivationResume()
   startAgentDetection()

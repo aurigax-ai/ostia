@@ -42,12 +42,13 @@ afterEach(() => {
 describe('readShellState', () => {
   it('reads the PATH, the environment lines and the command names after them', async () => {
     const state = join(root, 'state')
-    writeFileSync(state, '/a b:/c\n/p/.venv\nbase\n/k/config\ncd  if\tll \n')
+    writeFileSync(state, '/a b:/c\n/p/.venv\nbase\n/k/config\ncd  if\tll \n/h/.zsh_history\n')
     expect(await readShellState(state)).toEqual({
       path: '/a b:/c',
       virtualEnv: '/p/.venv',
       condaEnv: 'base',
       kubeconfig: '/k/config',
+      histFile: '/h/.zsh_history',
       names: ['cd', 'if', 'll'],
     })
   })
@@ -75,6 +76,7 @@ describe('parseShellState', () => {
       virtualEnv: null,
       condaEnv: null,
       kubeconfig: null,
+      histFile: null,
       names: ['ls', 'cd'],
     })
   })

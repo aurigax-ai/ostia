@@ -16,14 +16,29 @@ export const UPDATE_COMMANDS: Readonly<Record<'apt' | 'brew', readonly (readonly
 
 type ManagedInstallMethod = keyof typeof UPDATE_COMMANDS
 
-const REPLACEABLE_METHODS: readonly InstallMethod[] = ['local', 'tarball']
+const MAC_METHODS: readonly InstallMethod[] = ['dmg', 'brew']
 
-export function isReplaceable(method: InstallMethod): boolean {
-  return REPLACEABLE_METHODS.includes(method)
+export function isMacInstall(method: InstallMethod): boolean {
+  return MAC_METHODS.includes(method)
+}
+
+export function offeredChannels(method: InstallMethod): readonly UpdateChannel[] {
+  if (isMacInstall(method)) return ['stable', 'beta']
+  if (method === 'local' || method === 'tarball') return ['stable', 'beta', 'main']
+  return [DEFAULT_UPDATE_CHANNEL]
 }
 
 export function updateChannelFor(method: InstallMethod, picked: UpdateChannel): UpdateChannel {
-  return isReplaceable(method) ? picked : DEFAULT_UPDATE_CHANNEL
+  return offeredChannels(method).includes(picked) ? picked : DEFAULT_UPDATE_CHANNEL
+}
+
+export function hasAppFolder(method: InstallMethod): boolean {
+  return method !== 'apt' && method !== 'dev'
+}
+
+export function replacesInApp(method: InstallMethod, picked: UpdateChannel): boolean {
+  if (method === 'brew') return updateChannelFor(method, picked) === 'beta'
+  return hasAppFolder(method)
 }
 
 export function isInstallMethod(value: unknown): value is InstallMethod {
@@ -54,7 +69,14 @@ export const UPDATE_DOWNLOAD_HOSTS: readonly string[] = [
   'release-assets.githubusercontent.com',
 ]
 
-type ReplaceBlock = 'not-writable' | 'system-path' | 'symlink' | 'leftover'
+type ReplaceBlock =
+  | 'not-writable'
+  | 'system-path'
+  | 'symlink'
+  | 'leftover'
+  | 'translocated'
+  | 'read-only'
+  | 'unsupported'
 
 export type ReplaceAvailability = { ok: true } | { ok: false; reason: ReplaceBlock; path?: string }
 
@@ -71,6 +93,10 @@ export type ReplaceFailure =
   | 'not-executable'
   | 'wrong-version'
   | 'swap-failed'
+  | 'mount-failed'
+  | 'bad-signature'
+  | 'wrong-team'
+  | 'not-notarized'
 
 export type ReplaceState =
   | { status: 'idle' }

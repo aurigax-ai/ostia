@@ -1,14 +1,20 @@
+import { PRODUCT_NAME } from '../product'
+
 export const RELEASE_REPOSITORY = { owner: 'aurigax-ai', name: 'ostia' } as const
 
 export const RELEASE_API_BASE_URL = 'https://api.github.com'
 
-export const UPDATE_CHANNELS = ['stable', 'main'] as const
+export const UPDATE_CHANNELS = ['stable', 'beta', 'main'] as const
 
 export type UpdateChannel = (typeof UPDATE_CHANNELS)[number]
 
 export const DEFAULT_UPDATE_CHANNEL: UpdateChannel = 'stable'
 
 const MAIN_CHANNEL_PRERELEASES = ['main', 'rc'] as const
+
+const BETA_CHANNEL_PRERELEASES = ['rc'] as const
+
+const SHA256_DIGEST = /^sha256:([0-9a-f]{64})$/
 
 export interface Version {
   major: number
@@ -20,7 +26,18 @@ export interface Version {
 export interface ReleaseInfo {
   version: string
   url: string
+  dmgSha256?: string
 }
+
+export function dmgAssetName(version: string): string {
+  return `${PRODUCT_NAME}-${version}-arm64.dmg`
+}
+
+export function tarballAssetName(version: string): string {
+  return `${PRODUCT_NAME}-${version}-linux-x64.tar.gz`
+}
+
+export type AssetName = (version: string) => string
 
 export type ReleaseCheckError = 'offline' | 'rate-limited' | 'unavailable'
 
@@ -109,11 +126,46 @@ interface ParsedEntry {
   stable: boolean
   draft: boolean
   flagged: boolean
+  dmg: { sha256: string | null } | null
+  assetNames: string[]
+}
+
+function assetNames(assets: unknown): string[] {
+  if (!Array.isArray(assets)) return []
+  return assets.flatMap((asset) => {
+    const name = typeof asset === 'object' && asset !== null ? asset.name : undefined
+    return typeof name === 'string' ? [name] : []
+  })
+}
+
+function dmgAsset(assets: unknown, text: string): ParsedEntry['dmg'] {
+  if (!Array.isArray(assets)) return null
+  const name = dmgAssetName(text)
+  for (const asset of assets) {
+    if (typeof asset !== 'object' || asset === null) continue
+    const { name: assetName, digest } = asset as Record<string, unknown>
+    if (assetName !== name) continue
+    const match = typeof digest === 'string' ? SHA256_DIGEST.exec(digest) : null
+    return { sha256: match ? match[1] : null }
+  }
+  return null
+}
+
+function releaseInfo(entry: ParsedEntry): ReleaseInfo {
+  const info: ReleaseInfo = { version: entry.text, url: entry.url }
+  if (entry.dmg?.sha256) info.dmgSha256 = entry.dmg.sha256
+  return info
 }
 
 function parseEntry(raw: unknown): ParsedEntry | null {
   if (typeof raw !== 'object' || raw === null) return null
-  const { tag_name: tag, html_url: page, draft, prerelease } = raw as Record<string, unknown>
+  const {
+    tag_name: tag,
+    html_url: page,
+    draft,
+    prerelease,
+    assets,
+  } = raw as Record<string, unknown>
   if (typeof tag !== 'string' || typeof draft !== 'boolean' || typeof prerelease !== 'boolean') {
     return null
   }
@@ -123,24 +175,36 @@ function parseEntry(raw: unknown): ParsedEntry | null {
   const url = releasePageUrl(page, tag)
   if (!url) return null
   const plain = version.prerelease.length === 0 && !text.includes('+')
-  return { text, version, url, stable: plain && !prerelease, draft, flagged: prerelease }
+  return {
+    text,
+    version,
+    url,
+    stable: plain && !prerelease,
+    draft,
+    flagged: prerelease,
+    dmg: dmgAsset(assets, text),
+    assetNames: assetNames(assets),
+  }
+}
+
+function isNumberedPrerelease(version: Version, kinds: readonly string[]): boolean {
+  const [kind, number, ...rest] = version.prerelease
+  return rest.length === 0 && kinds.includes(kind) && number !== undefined && isNumeric(number)
 }
 
 export function isMainChannelVersion(version: Version): boolean {
-  const [kind, number, ...rest] = version.prerelease
-  return (
-    rest.length === 0 &&
-    (MAIN_CHANNEL_PRERELEASES as readonly string[]).includes(kind) &&
-    number !== undefined &&
-    isNumeric(number)
-  )
+  return isNumberedPrerelease(version, MAIN_CHANNEL_PRERELEASES)
+}
+
+export function isBetaChannelVersion(version: Version): boolean {
+  return isNumberedPrerelease(version, BETA_CHANNEL_PRERELEASES)
 }
 
 export function parseLatestRelease(raw: unknown): ParsedRelease {
   const entry = parseEntry(raw)
   if (!entry) return { ok: false, reason: 'malformed' }
   if (entry.draft || !entry.stable) return { ok: false, reason: 'not-stable' }
-  return { ok: true, release: { version: entry.text, url: entry.url } }
+  return { ok: true, release: releaseInfo(entry) }
 }
 
 function offeredOnMain(entry: ParsedEntry): boolean {
@@ -149,19 +213,31 @@ function offeredOnMain(entry: ParsedEntry): boolean {
   return entry.flagged && !entry.text.includes('+') && isMainChannelVersion(entry.version)
 }
 
-export function pickMainChannelRelease(raw: unknown): ParsedRelease {
+function offeredOnBeta(entry: ParsedEntry, asset: AssetName): boolean {
+  if (entry.draft || !entry.assetNames.includes(asset(entry.text))) return false
+  if (entry.stable) return true
+  return entry.flagged && !entry.text.includes('+') && isBetaChannelVersion(entry.version)
+}
+
+function pickHighest(raw: unknown, offered: (entry: ParsedEntry) => boolean): ParsedRelease {
   if (!Array.isArray(raw)) return { ok: false, reason: 'malformed' }
   let best: ParsedEntry | null = null
   for (const item of raw) {
     const entry = parseEntry(item)
-    if (!entry || !offeredOnMain(entry)) continue
+    if (!entry || !offered(entry)) continue
     if (!best || compareVersions(entry.version, best.version) > 0) best = entry
   }
-  return best
-    ? { ok: true, release: { version: best.text, url: best.url } }
-    : { ok: false, reason: 'not-stable' }
+  return best ? { ok: true, release: releaseInfo(best) } : { ok: false, reason: 'not-stable' }
+}
+
+export function pickMainChannelRelease(raw: unknown): ParsedRelease {
+  return pickHighest(raw, offeredOnMain)
+}
+
+export function pickBetaRelease(raw: unknown, asset: AssetName = dmgAssetName): ParsedRelease {
+  return pickHighest(raw, (entry) => offeredOnBeta(entry, asset))
 }
 
 export function parseUpdateChannel(raw: unknown): UpdateChannel {
-  return raw === 'main' ? 'main' : DEFAULT_UPDATE_CHANNEL
+  return raw === 'main' || raw === 'beta' ? raw : DEFAULT_UPDATE_CHANNEL
 }

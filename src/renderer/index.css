@@ -222,9 +222,18 @@
   }
 
   :focus-visible {
+    outline: none;
+  }
+
+  :root[data-keyboard-nav] :focus-visible,
+  :root[data-keyboard-nav] [data-focus-ring="within"]:has(:focus-visible),
+  :read-write:focus-visible,
+  [data-slot="combobox-chips"]:focus-within,
+  [data-slot="input-group"]:has([data-slot="input-group-control"]:focus-visible):not(
+      [data-slot="combobox-content"] *
+    ) {
     outline: 2px solid var(--brand);
     outline-offset: 1px;
-    border-radius: var(--radius-sm);
   }
 }
 
@@ -352,12 +361,6 @@
 .zoom-chip:hover {
   background: color-mix(in srgb, var(--fg) 10%, transparent);
   color: var(--fg);
-}
-
-.zoom-chip:focus-visible {
-  outline: 2px solid var(--focus-border);
-  outline-offset: 1px;
-  box-shadow: inset 0 0 0 1px var(--line);
 }
 
 .zoom-chip[data-leaving] {
@@ -630,7 +633,6 @@
 }
 
 .rail-tab-main:focus-visible {
-  outline: 2px solid var(--brand);
   outline-offset: -2px;
 }
 
@@ -638,10 +640,6 @@
 .rail-tab.active {
   background: var(--surface-2);
   color: var(--fg);
-}
-
-.rail-tab:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--focus-border);
 }
 
 .tab-lead-wrap {
@@ -872,8 +870,13 @@
 }
 
 .rail-group-main:focus-visible {
-  outline: 2px solid var(--brand);
   outline-offset: -2px;
+}
+
+.pane-tab .tab-rename,
+.split-tab-segment .tab-rename {
+  min-width: 6rem;
+  flex: 1;
 }
 
 .rail-group-main .tab-rename {
@@ -1134,7 +1137,6 @@
 }
 
 .rail-meta-more:focus-visible {
-  outline: 2px solid var(--brand);
   outline-offset: -2px;
 }
 
@@ -1745,7 +1747,6 @@
 }
 
 .pane-tabs-attn:focus-visible {
-  outline: 2px solid var(--brand);
   outline-offset: -2px;
 }
 
@@ -1840,7 +1841,6 @@
 }
 
 .pane-tab-main:focus-visible {
-  outline: 2px solid var(--brand);
   outline-offset: -2px;
 }
 
@@ -2012,7 +2012,6 @@
 }
 
 .split-tab-segment-main:focus-visible {
-  outline: 2px solid var(--brand);
   outline-offset: -2px;
 }
 
@@ -2308,11 +2307,6 @@ button.prompt-chip:hover {
   background: var(--surface-3);
 }
 
-button.prompt-chip:focus-visible {
-  outline: 1px solid var(--brand);
-  outline-offset: 1px;
-}
-
 .prompt-chip[data-tone="ok"] svg {
   color: var(--ok);
 }
@@ -2494,8 +2488,9 @@ button.prompt-chip:focus-visible {
   cursor: inherit;
 }
 
-.xterm-host .xterm .xterm-viewport {
+.xterm-host .xterm .xterm-viewport.xterm-viewport {
   background-color: transparent;
+  scrollbar-width: none;
 }
 
 .xterm-host .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider {
@@ -2600,8 +2595,7 @@ button.prompt-chip:focus-visible {
 }
 
 .block-sticky:focus-visible {
-  outline: none;
-  box-shadow: inset 0 0 0 1px var(--focus-border);
+  outline-offset: -2px;
 }
 
 .block-sticky-command {
@@ -3083,11 +3077,6 @@ button.prompt-chip:focus-visible {
 
 .win-controls button:active {
   background: color-mix(in srgb, var(--fg) 26%, transparent);
-}
-
-.win-controls button:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 1px;
 }
 
 .assist-composer {
@@ -3627,7 +3616,6 @@ button.prompt-chip:focus-visible {
 }
 
 .rail-view-head:focus-visible {
-  outline: 2px solid var(--brand);
   outline-offset: -2px;
 }
 

@@ -11,8 +11,9 @@ import {
   isAgentHookEvent,
 } from '../../shared/agentPlugins'
 import { AGENT_HOOKS_OFF_ENV } from '../../shared/agents/agentHooks'
+import { AGENT_ARGS_ENV } from '../../shared/agents/agentLaunch'
 import { CLAUDE_QUESTION_TOOLS } from '../../shared/agents/claudeAttention'
-import { appEnv, shellEnv } from '../../shared/appEnv'
+import { appEnv, envName, shellEnv } from '../../shared/appEnv'
 import { PRODUCT_NAME } from '../../shared/product'
 import { type PromptSeparator, isPromptSeparator } from '../../shared/terminal/promptSettings'
 import {
@@ -30,6 +31,8 @@ const CLI_PATH = shellEnv('CLI')
 const CLI_RUN = `ELECTRON_RUN_AS_NODE=1 "${shellEnv('NODE')}" "${CLI_PATH}"`
 const IN_PANE = `[ -n "${shellEnv('SOCKET')}" ]`
 const AGENT_DIR = shellEnv('AGENT_DIR')
+const CLAUDE_ARGS = envName(AGENT_ARGS_ENV.claude)
+const CODEX_ARGS = envName(AGENT_ARGS_ENV.codex)
 const SHELL_STATE_FILE = shellEnv('SHELL_STATE')
 
 const BASH_B_MARK = String.raw`\[\e]133;B\e\\\]`
@@ -65,7 +68,7 @@ __ostia_report_shell() {
   [[ -n "${SHELL_STATE_FILE}" ]] || return 0
   local names="\${(j: :)\${(@ok)builtins}} \${(j: :)\${(@ok)reswords}} \${(j: :)\${(@ok)aliases}} \${(j: :)\${(@)\${(@ok)functions}:#_*}}"
   local nl=$'\\n'
-  local state="$PATH$nl\${VIRTUAL_ENV//$nl/}$nl\${CONDA_DEFAULT_ENV//$nl/}$nl\${KUBECONFIG//$nl/}$nl$names"
+  local state="$PATH$nl\${VIRTUAL_ENV//$nl/}$nl\${CONDA_DEFAULT_ENV//$nl/}$nl\${KUBECONFIG//$nl/}$nl\${names//$nl/ }$nl\${HISTFILE//$nl/}"
   [[ "$state" == "$__ostia_last_state" ]] && return 0
   __ostia_last_state=$state
   print -r -- "$state" >| "${SHELL_STATE_FILE}" 2>/dev/null
@@ -235,7 +238,7 @@ __ostia_report_shell() {
   local names
   names=$(compgen -abk -A function -X '_*' 2>/dev/null)
   local nl=$'\\n'
-  local state="$PATH$nl\${VIRTUAL_ENV//$nl/}$nl\${CONDA_DEFAULT_ENV//$nl/}$nl\${KUBECONFIG//$nl/}$nl\${names//$nl/ }"
+  local state="$PATH$nl\${VIRTUAL_ENV//$nl/}$nl\${CONDA_DEFAULT_ENV//$nl/}$nl\${KUBECONFIG//$nl/}$nl\${names//$nl/ }$nl\${HISTFILE//$nl/}"
   [ "$state" = "$__ostia_last_state" ] && return 0
   __ostia_last_state=$state
   printf '%s\\n' "$state" >| "${SHELL_STATE_FILE}" 2>/dev/null
@@ -400,10 +403,11 @@ export function claudeWrapper(): string {
     '# attention hooks). `command claude` skips it.',
     `if [ -n "${CLI_PATH}" ] && [ -z "${shellEnv(AGENT_HOOKS_OFF_ENV.claude)}" ]; then`,
     '  claude() {',
+    "    local IFS=$'\\037'",
     `    if [ -n "${AGENT_DIR}" ] && [ -d "${AGENT_DIR}/claude-plugin" ]; then`,
-    `      command claude --plugin-dir "${AGENT_DIR}/claude-plugin" "$@"`,
+    `      ${CLAUDE_ARGS}="$*" command claude --plugin-dir "${AGENT_DIR}/claude-plugin" "$@"`,
     '    else',
-    '      command claude "$@"',
+    `      ${CLAUDE_ARGS}="$*" command claude "$@"`,
     '    fi',
     '  }',
     'fi',
@@ -635,8 +639,9 @@ export function codexWrapper(): string {
     '  codex() {',
     `    if [ -n "${AGENT_DIR}" ] && [ -f "${AGENT_DIR}/codex/${CODEX_HOOK_ARGS_FILE}" ] && __ostia_codex_starts_session "$@"; then`,
     '      local -a __ostia_codex_hook_args',
+    "      local IFS=$'\\037'",
     `      . "${AGENT_DIR}/codex/${CODEX_HOOK_ARGS_FILE}"`,
-    '      command codex "${__ostia_codex_hook_args[@]}" "$@"',
+    `      ${CODEX_ARGS}="$*" command codex "\${__ostia_codex_hook_args[@]}" "$@"`,
     '    else',
     '      command codex "$@"',
     '    fi',

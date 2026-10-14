@@ -156,9 +156,12 @@ ostia workspace describe "PR [#512](https://github.com/o/r/pull/512): fix refund
 ostia workspace group "payments"              # put this workspace in a sidebar group (created if missing)
 ostia workspace ungroup                       # take it out again
 ostia workspace group --workspace <id> "payments"   # same, for another workspace (ids from `ostia workspace list`); a script token needs --workspace, and the workspace in its scope or the scope all
-ostia workspace describe --workspace <id> "..."     # describe, ungroup and group-color work from a script token too
+ostia workspace describe --workspace <id> "..."     # describe, ungroup, group-color, group-rename, group-delete, pin and unpin work from a script token too
 ostia workspace close --workspace <id>        # close a workspace where nothing runs (kill-pane); busy: lists what still runs
 ostia workspace group-color "payments" blue   # colour the group: red orange yellow green teal blue purple pink; --clear removes it
+ostia workspace group-rename "payments" "billing"   # rename a group; the new name must be free
+ostia workspace group-delete "billing"        # delete a group; its workspaces stay, ungrouped
+ostia workspace pin                           # pin this workspace to the top of the sidebar; unpin undoes it, --workspace <id> picks another
 ostia workspace list --json                   # {workspaces, groups}: who is grouped with whom
 ```
 
@@ -271,6 +274,7 @@ ostia pane key <pane> <key>...           # enter tab escape up down ctrl-c ...
 ostia pane read <pane> [--lines N] [--json]  # its screen as plain text
 ostia pane wait <pane>... [--until done|waiting|idle|exited]... [--timeout <s>] [--json]
 ostia pane wake <pane>... [--wait [--timeout <s>]] [--json]  # wake hibernated agent panes
+ostia pane hibernate <pane>... [--json]  # stop those agent panes (kill-pane); a busy agent is skipped, exit 2
 ostia agent resume <pane>                # type its recorded resume command (wakes it when hibernated)
 ostia workspace.hibernateAgents --workspace <id|name>  # hibernate its idle agents (kill-pane); resumeAgents wakes them
 ostia pane close <pane>... [--json]      # close those panes

@@ -104,7 +104,7 @@ export function updateAction(
   s: Pick<UpdateState, 'release' | 'method' | 'replace'>,
 ): 'apt' | 'brew' | 'replace' | 'release' | null {
   if (!s.release) return null
-  if (s.replace?.ok) return 'replace'
+  if (s.replace) return s.replace.ok ? 'replace' : 'release'
   return managedUpdateMethod(s.method) ?? 'release'
 }
 

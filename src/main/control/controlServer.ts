@@ -154,6 +154,12 @@ const GROUP_COMMANDS: ReadonlySet<string> = new Set([
   'workspace.resumeGroupAgents',
 ])
 
+const GROUP_ARG_COMMANDS: ReadonlySet<string> = new Set([
+  'workspace.groupColor',
+  'workspace.groupRename',
+  'workspace.groupDelete',
+])
+
 function argOf(args: unknown, key: 'group' | 'name'): unknown {
   return typeof args === 'object' && args !== null
     ? (args as Record<string, unknown>)[key]
@@ -171,7 +177,10 @@ function scriptTargetInScope(
   if (targetless) {
     const group = scoped.groupNamed(argOf(args, 'group'))
     if (id === 'workspace.new') return scoped.ownWorkspaces && scoped.hasGroup(group ?? '')
-    return id === 'workspace.groupColor' && scoped.hasGroup(group ?? '')
+    if (!GROUP_ARG_COMMANDS.has(id) || !scoped.hasGroup(group ?? '')) return false
+    if (id !== 'workspace.groupRename') return true
+    const taken = scoped.groupNamed(argOf(args, 'name'))
+    return taken === undefined || scoped.hasGroup(taken)
   }
   if (!target.workspaceId || !scoped.covers(target.workspaceId)) return false
   if (GROUP_COMMANDS.has(id)) {

@@ -14,6 +14,7 @@ import { startActivationResume } from './activationResume'
 import {
   HIBERNATION_CHECK_MS,
   WAKE_WAVE_SIZE,
+  hibernateAgentPane,
   hibernateIdleAgents,
   hibernateWorkspaces,
   resumeWorkspaces,
@@ -193,6 +194,11 @@ describe('hibernateIdleAgents', () => {
         addListener(type, listener, options)
       })
     stops.push(() => listening.mockRestore())
+    document.body.innerHTML =
+      '<div class="pane" data-pane-id="idle-claude"><div id="body"></div></div>'
+    stops.push(() => {
+      document.body.innerHTML = ''
+    })
     useSettingsStore.setState((s) => ({
       agents: { ...s.agents, hibernation: { enabled: true, idleSeconds: 5, maxLiveTerminals: 0 } },
     }))
@@ -221,13 +227,46 @@ describe('hibernateIdleAgents', () => {
     expect(hibernated('idle-claude')).toBe(true)
 
     const typed = holdResumes()
-    inputListeners.get('pointerdown')?.({ type: 'pointerdown', isTrusted: true } as Event)
     await commands.exec('pane.focus', { paneId: 'idle-claude' })
+    expect(hibernated('idle-claude')).toBe(true)
+    const target = document.getElementById('body')
+    inputListeners.get('pointerdown')?.({
+      type: 'pointerdown',
+      isTrusted: true,
+      button: 0,
+      target,
+    } as unknown as Event)
 
     expect(hibernated('idle-claude')).toBe(false)
     expect(typed.mock.calls.map(([id, command]) => [id, command])).toEqual([
       ['idle-claude', 'claude --resume e2e-tok-1'],
     ])
+  })
+})
+
+describe('hibernateAgentPane', () => {
+  it('stops one agent tab, shown or not, and leaves its neighbours', async () => {
+    seed(10)
+    expect(await hibernateAgentPane('s2', 'idle-claude')).toBe('hibernated')
+    expect(hibernated('idle-claude')).toBe(true)
+    expect(hibernated('fresh-claude')).toBe(false)
+    expect(await hibernateAgentPane('s1', 'shown')).toBe('hibernated')
+  })
+
+  it('refuses a tab that is no agent, or already asleep', async () => {
+    seed(10)
+    expect(await hibernateAgentPane('s2', 'no-token')).toBe('not-agent')
+    expect(await hibernateAgentPane('s2', 'npm')).toBe('not-agent')
+    await hibernateAgentPane('s2', 'idle-claude')
+    expect(await hibernateAgentPane('s2', 'idle-claude')).toBe('not-agent')
+    expect(window.ostia.pty.hibernate).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports why a busy agent was kept awake and leaves it running', async () => {
+    seed(10)
+    vi.mocked(window.ostia.pty.hibernate).mockResolvedValueOnce('subagent')
+    expect(await hibernateAgentPane('s2', 'idle-claude')).toBe('subagent')
+    expect(hibernated('idle-claude')).toBe(false)
   })
 })
 

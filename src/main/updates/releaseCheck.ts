@@ -7,10 +7,12 @@ import {
   type ReplaceProgress,
   type ReplaceState,
   type UpdateRunState,
+  isMacInstall,
   updateChannelFor,
   updateCommandLine,
 } from '../../shared/app/installMethod'
 import {
+  type AssetName,
   type ParsedRelease,
   RELEASE_API_BASE_URL,
   RELEASE_REPOSITORY,
@@ -18,11 +20,14 @@ import {
   type ReleaseCheckResult,
   type ReleaseInfo,
   type UpdateChannel,
+  dmgAssetName,
   isNewerVersion,
   parseLatestRelease,
   parseUpdateChannel,
   parseVersion,
+  pickBetaRelease,
   pickMainChannelRelease,
+  tarballAssetName,
 } from '../../shared/app/releases'
 import { readEnv } from '../../shared/appEnv'
 import { PRODUCT_NAME } from '../../shared/product'
@@ -38,7 +43,7 @@ export const RELEASE_CHECK_TICK_MS = 60 * 1000
 export const RELEASE_REQUEST_TIMEOUT_MS = 10_000
 export const RELEASE_RESPONSE_MAX_BYTES = 1024 * 1024
 export const RELEASE_API_URL_ENV = 'RELEASE_API_URL'
-const MAIN_CHANNEL_PAGE_SIZE = 30
+const RELEASE_LIST_PAGE_SIZE = 30
 
 export type LatestRelease =
   | { kind: 'release'; release: ReleaseInfo }
@@ -113,23 +118,28 @@ function readRelease(text: string | null, parse: (raw: unknown) => ParsedRelease
   return parsed.reason === 'not-stable' ? { kind: 'none' } : { kind: 'error', error: 'unavailable' }
 }
 
-function releaseQuery(channel: UpdateChannel): {
+function releaseQuery(
+  channel: UpdateChannel,
+  betaAsset: AssetName,
+): {
   path: string
   parse: (raw: unknown) => ParsedRelease
 } {
-  return channel === 'main'
-    ? { path: `releases?per_page=${MAIN_CHANNEL_PAGE_SIZE}`, parse: pickMainChannelRelease }
-    : { path: 'releases/latest', parse: parseLatestRelease }
+  const list = `releases?per_page=${RELEASE_LIST_PAGE_SIZE}`
+  if (channel === 'main') return { path: list, parse: pickMainChannelRelease }
+  if (channel === 'beta') return { path: list, parse: (raw) => pickBetaRelease(raw, betaAsset) }
+  return { path: 'releases/latest', parse: parseLatestRelease }
 }
 
 export async function fetchLatestRelease(opts: {
   baseUrl: string
   userAgent: string
   channel: UpdateChannel
+  betaAsset?: AssetName
   timeoutMs?: number
 }): Promise<LatestRelease> {
   const { owner, name } = RELEASE_REPOSITORY
-  const query = releaseQuery(opts.channel)
+  const query = releaseQuery(opts.channel, opts.betaAsset ?? dmgAssetName)
   try {
     const response = await fetch(`${opts.baseUrl}/repos/${owner}/${name}/${query.path}`, {
       headers: { 'User-Agent': opts.userAgent, Accept: 'application/vnd.github+json' },
@@ -297,6 +307,7 @@ export function registerReleaseCheck(deps: {
         baseUrl: endpoint.baseUrl,
         userAgent: releaseUserAgent(currentVersion),
         channel,
+        betaAsset: isMacInstall(deps.method()) ? dmgAssetName : tarballAssetName,
       }),
     now: Date.now,
     enabled: () => readCheckForUpdates(deps.readSettings()),
@@ -322,7 +333,7 @@ export function registerReleaseCheck(deps: {
   ipcMain.handle('app:release-state', () => stateOf(checker.pending()))
   ipcMain.handle('app:install-replace', () => {
     const release = checker.available()
-    return release ? deps.replacer.start(release.version) : 'no-action'
+    return release ? deps.replacer.start(release) : 'no-action'
   })
   ipcMain.handle('app:install-replace-state', () => deps.replacer.state())
   ipcMain.handle('app:update-run', () => deps.updateRunner.start())

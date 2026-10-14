@@ -2,9 +2,9 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
-import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
-import { clickWith, linkPoint } from './terminalLinks'
+import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { addTab, openWorkspace, openedExternally, stubExternalOpener } from './helpers'
+import { clickWith, hoverPoint, linkPoint } from './terminalLinks'
 import { type Page, _electron as electron, expect, test } from './test'
 
 async function listen(
@@ -56,6 +56,122 @@ test('a hyperlink in a mouse-reporting program leaves plain clicks to the progra
     await expect(shownAddress(win)).toHaveValue(url, { timeout: 15_000 })
     await expect.poll(() => requests, { timeout: 15_000 }).toContain('/osc')
     expect(readFileSync(reports, 'utf8').match(/\[<\d+;\d+;\d+M/g)).toHaveLength(1)
+  } finally {
+    await app.close()
+    server.close()
+  }
+})
+
+test('obsidian links from OSC 8 and angle-bracket markdown open in their app, encoded', async () => {
+  test.setTimeout(60_000)
+  const app = await electron.launch(isolatedLaunch(freshDataHome()))
+  try {
+    await stubExternalOpener(app)
+    const win = await app.firstWindow()
+    await openWorkspace(win)
+    await win.locator('.xterm').first().click()
+    const vault = 'obsidian://advanced-uri?vault=My Vault&filepath=\\347\\255\\206.md'
+    await win.keyboard.type(
+      `clear; printf '\\033]8;;${vault}\\033\\\\vault note\\033]8;;\\033\\\\\\n[x](<${vault}>)\\n'`,
+    )
+    await win.keyboard.press('Enter')
+
+    for (const point of [
+      await linkPoint(win, /^vault\s+note\s*$/, 'note'),
+      await linkPoint(win, /^\[x\]\(<obsidian/, 'advanced'),
+    ]) {
+      await hoverPoint(win, point)
+      await clickWith(win, point, [])
+    }
+    const href = 'obsidian://advanced-uri?vault=My%20Vault&filepath=%E7%AD%86.md'
+    await expect.poll(() => openedExternally(app), { timeout: 10_000 }).toEqual([href, href])
+    await expect(addresses(win)).toHaveCount(0)
+  } finally {
+    await app.close()
+  }
+})
+
+test('links of any other scheme open in their app on a plain click and show their target', async () => {
+  test.setTimeout(60_000)
+  const app = await electron.launch(isolatedLaunch(freshDataHome()))
+  try {
+    await stubExternalOpener(app)
+    const win = await app.firstWindow()
+    await openWorkspace(win)
+    await win.locator('.xterm').first().click()
+    await win.keyboard.type(`clear; printf 'slack://channel?id=1\\nzed://file/tmp/a\\n'`)
+    await win.keyboard.press('Enter')
+
+    const hint = win.locator('[data-slot="tooltip-content"]')
+    const slack = await linkPoint(win, /^slack:\/\/channel\?id=1\s*$/, 'channel')
+    await hoverPoint(win, slack)
+    await expect(hint).toContainText('slack://channel?id=1', { timeout: 5_000 })
+    await clickWith(win, slack, [])
+    const zed = await linkPoint(win, /^zed:\/\/file\/tmp\/a\s*$/, 'file')
+    await hoverPoint(win, zed)
+    await expect(hint).toContainText('zed://file/tmp/a', { timeout: 5_000 })
+    await clickWith(win, zed, [])
+
+    await expect
+      .poll(() => openedExternally(app), { timeout: 10_000 })
+      .toEqual(['slack://channel?id=1', 'zed://file/tmp/a'])
+    await expect(addresses(win)).toHaveCount(0)
+  } finally {
+    await app.close()
+  }
+})
+
+test('a link’s hover hint goes away when a chord switches to another tab', async () => {
+  test.setTimeout(60_000)
+  const app = await electron.launch(isolatedLaunch(freshDataHome()))
+  try {
+    const win = await app.firstWindow()
+    await openWorkspace(win)
+    await win.locator('.xterm').first().click()
+    await win.keyboard.type("clear; printf 'slack://channel?id=1\\n'")
+    await win.keyboard.press('Enter')
+    const link = await linkPoint(win, /^slack:\/\/channel\?id=1\s*$/, 'channel')
+
+    await addTab(win)
+    const tabs = win.getByRole('tablist').getByRole('tab')
+    await expect(tabs).toHaveCount(2, { timeout: 15_000 })
+    await tabs.nth(0).click()
+    await expect(tabs.nth(0)).toHaveAttribute('aria-selected', 'true')
+
+    const hint = win.locator('[data-slot="tooltip-content"]')
+    await hoverPoint(win, link)
+    await expect(hint).toContainText('slack://channel?id=1', { timeout: 5_000 })
+
+    await win.keyboard.press('Control+Tab')
+    await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true')
+    await expect(hint).toHaveCount(0)
+  } finally {
+    await app.close()
+  }
+})
+
+test('a link’s hover hint goes away when a command shows another tab while the pointer rests on the link', async () => {
+  test.setTimeout(60_000)
+  const server = await listen(() => {})
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, capabilities: { grants: ['browse'] } })
+  const app = await electron.launch(isolatedLaunch(dataHome))
+  try {
+    const win = await app.firstWindow()
+    await openWorkspace(win)
+    await win.locator('.xterm').first().click()
+    await win.keyboard.type(
+      `clear; printf 'slack://channel?id=1\\n'; sleep 4; ostia browse open http://127.0.0.1:${server.port}/`,
+    )
+    await win.keyboard.press('Enter')
+    const link = await linkPoint(win, /^slack:\/\/channel\?id=1\s*$/, 'channel')
+
+    const hint = win.locator('[data-slot="tooltip-content"]')
+    await hoverPoint(win, link)
+    await expect(hint).toContainText('slack://channel?id=1', { timeout: 3_000 })
+
+    await expect(shownAddress(win)).toHaveCount(1, { timeout: 15_000 })
+    await expect(hint).toHaveCount(0)
   } finally {
     await app.close()
     server.close()

@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
-import { CommandPalette } from '@/components/CommandPalette'
+import { CommandPalette } from '@/components/palette/CommandPalette'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useAssistStore } from '@/stores/assist/assistStore'

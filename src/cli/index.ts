@@ -9,6 +9,7 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { controlInfoPath, readControlSocket } from '../main/control/controlDiscovery'
+import { capturedArgs } from '../shared/agents/agentLaunch'
 import {
   RESUMABLE_AGENTS,
   isResumableAgent,
@@ -72,6 +73,8 @@ import { runInstallPolkit } from './verbs/installPolkit'
 import { runManagerVerb } from './verbs/manager'
 import {
   parseGroupColorArgs,
+  parseGroupDeleteArgs,
+  parseGroupRenameArgs,
   parseWorkspaceGroupArgs,
   parseWorkspaceRenameArgs,
   runPaneVerb,
@@ -1187,7 +1190,8 @@ async function runStateVerb(conn: MessageConnection): Promise<void> {
 const WORKSPACE_USAGE =
   'ostia workspace: usage: workspace list [--json] | describe [--workspace <id>] <text|-> | describe --clear | ' +
   'group [--workspace <id>] <name> | ungroup [--workspace <id>] | group-color <group> <color> | ' +
-  'group-color <group> --clear | close [--workspace <id>] | dir [path] | rename [--workspace <id>] <name…> | rename --clear | ' +
+  'group-color <group> --clear | group-rename <group> <name> | group-delete <group> | pin [--workspace <id>] | ' +
+  'unpin [--workspace <id>] | close [--workspace <id>] | dir [path] | rename [--workspace <id>] <name…> | rename --clear | ' +
   'import-cmux [session-file] [--json]'
 
 interface WorkspaceListing {
@@ -1285,6 +1289,39 @@ async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
       return
     }
     await runWorkspaceCommand(conn, 'group-color', 'workspace.groupColor', params)
+    return
+  }
+  if (sub === 'group-rename' || sub === 'group-delete') {
+    let params: { group: string; name?: string }
+    try {
+      params = sub === 'group-rename' ? parseGroupRenameArgs(rest) : parseGroupDeleteArgs(rest)
+    } catch (err) {
+      console.error(`ostia workspace ${sub}: ${err instanceof Error ? err.message : String(err)}`)
+      process.exitCode = 1
+      return
+    }
+    await runWorkspaceCommand(
+      conn,
+      sub,
+      sub === 'group-rename' ? 'workspace.groupRename' : 'workspace.groupDelete',
+      params,
+    )
+    return
+  }
+  if (sub === 'pin' || sub === 'unpin') {
+    const { positional, values } = parseArgs(rest, { values: { workspace: '--workspace' } })
+    if (positional.length > 0) {
+      console.error(`ostia workspace ${sub}: usage: workspace ${sub} [--workspace <id>]`)
+      process.exitCode = 1
+      return
+    }
+    await runWorkspaceCommand(
+      conn,
+      sub,
+      sub === 'pin' ? 'workspace.pin' : 'workspace.unpin',
+      undefined,
+      values.workspace,
+    )
     return
   }
   if (sub === 'import-cmux') {
@@ -1443,9 +1480,11 @@ async function runResumeTokenVerb(conn: MessageConnection): Promise<void> {
     process.exitCode = 1
     return
   }
+  const args = capturedArgs(agent, process.env)
   const res = await conn.sendRequest<{ ok: boolean; error?: string }>('pane.setResume', {
     agent,
     ...session,
+    ...(args ? { args } : {}),
   })
   if (res.ok) {
     console.log('ok')
@@ -1473,6 +1512,14 @@ commands:
                             move a workspace (default: this one) into a sidebar group, or out of it
   workspace group-color <group> <red|orange|yellow|green|teal|blue|purple|pink> | <group> --clear
                             set or clear a sidebar group's color
+  workspace group-rename <group> <name>
+                            rename a sidebar group (the new name must not be taken); quote
+                            a name with spaces: workspace group-rename "code review" review
+  workspace group-delete <group>
+                            delete a sidebar group; its workspaces stay, ungrouped; quote
+                            a name with spaces
+  workspace pin [--workspace <id>] | unpin [--workspace <id>]
+                            pin a workspace (default: this one) to the top of the sidebar, or unpin it
   workspace close [--workspace <id>]
                             close a workspace where nothing runs (kill-pane; another workspace
                             needs all-workspaces); one with a running command, a live agent or
@@ -1513,6 +1560,9 @@ commands:
                             command at a fresh prompt (same asks as pane send); --wait
                             returns once their agents started: exit 0 started, 3 timed
                             out, 4 pane closed
+  pane hibernate <pane>… [--json]
+                            stop those agent panes to save memory (kill-pane unless you opened
+                            them); a busy agent is skipped: exit 2
   pane close <pane>… [--json]
                             close those panes at once, even while a command runs (a tab you
                             opened needs nothing more, any other asks for kill-pane)

@@ -39,6 +39,7 @@ const state = (patch: Partial<ShellState> = {}): ShellState => ({
   virtualEnv: null,
   condaEnv: null,
   kubeconfig: null,
+  histFile: null,
   names: [],
   ...patch,
 })

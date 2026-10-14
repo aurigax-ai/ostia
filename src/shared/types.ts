@@ -282,6 +282,7 @@ export interface PtyApi {
   detach: (paneId: string) => void
   hibernate: (paneId: string) => Promise<HibernateOutcome>
   stashed: (paneId: string) => Promise<string | null>
+  keptWaiting: () => Promise<string[]>
   restart: (paneId: string) => Promise<boolean>
   reportAgentRunning: (paneId: string, running: boolean) => void
   reportWaking: (paneId: string, waking: boolean) => void
@@ -295,6 +296,7 @@ export interface PtyApi {
   onData: (paneId: string, cb: (data: string) => void) => () => void
   onExit: (paneId: string, cb: (exitCode: number, closes: boolean) => void) => () => void
   listDir: (paneId: string, dir: string) => Promise<FsEntry[]>
+  history: (paneId: string) => Promise<ShellHistoryEntry[]>
   localPrompt: (paneId: string) => Promise<boolean>
   onSize: (paneId: string, cb: (cols: number, rows: number) => void) => () => void
   onRun: (cb: (paneId: string, command: string) => void) => () => void
@@ -307,6 +309,11 @@ export interface ManagerOpenPaneRequest {
 
 export interface ManagerApi {
   onOpen: (cb: (req: ManagerOpenPaneRequest) => string | null) => () => void
+}
+
+export interface ShellHistoryEntry {
+  command: string
+  time: number | null
 }
 
 export interface FsEntry {
@@ -857,6 +864,7 @@ export interface GuestChordsApi {
 export interface OpenPathApi {
   openDefault: (path: string) => Promise<OpenPathResult>
   reveal: (path: string) => Promise<OpenPathResult>
+  openLink: (url: string) => Promise<boolean>
   project: (dir: string, exact?: boolean) => Promise<WorkspaceProject | null>
 }
 

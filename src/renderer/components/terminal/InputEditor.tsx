@@ -22,6 +22,13 @@ import {
   markRuns,
   tabStep,
 } from '@/lib/prompt/completionMatch'
+import { historyArguments } from '@/lib/prompt/historyArguments'
+import {
+  fileOnlyCommands,
+  historyFacts,
+  rankedSuggestion,
+  sessionBlocks,
+} from '@/lib/prompt/historyRank'
 import {
   type CompletionItem,
   applyCompletionItem,
@@ -32,7 +39,6 @@ import {
   completionToken,
   escapeShellWord,
   historyMatches,
-  historySuggestion,
   inputHistory,
   isCommandWord,
   recentCommands,
@@ -53,6 +59,7 @@ import {
   recentHistory,
   terminalRequest,
 } from '@/lib/prompt/terminalGhost'
+import { useFileHistory } from '@/lib/prompt/useFileHistory'
 import { usePromptChips } from '@/lib/prompt/usePromptChips'
 import { usePromptGeometry } from '@/lib/prompt/usePromptGeometry'
 import {
@@ -359,6 +366,19 @@ export function InputEditor({
     [byPane, paneId, localPrompt],
   )
   const commandSet = useMemo(() => (commands ? new Set(commands) : null), [commands])
+  const fileHistory = useFileHistory(
+    paneId,
+    visible && localPrompt && historySuggestionsOn,
+    promptLine,
+  )
+  const facts = useMemo(
+    () =>
+      localPrompt && historySuggestionsOn
+        ? historyFacts(fileHistory, sessionBlocks(byPane, paneId, historyHiddenFrom(paneId)))
+        : [],
+    [fileHistory, byPane, paneId, localPrompt, historySuggestionsOn],
+  )
+  const fileOnly = useMemo(() => fileOnlyCommands(fileHistory, history), [fileHistory, history])
 
   const setMenu = (next: Menu | null): void => {
     liveMenu.current = next
@@ -525,7 +545,7 @@ export function InputEditor({
     const state = walk.current ?? {
       index: -1,
       saved: text,
-      entries: historyMatches(history, text),
+      entries: [...historyMatches(history, text), ...(text ? historyMatches(fileOnly, text) : [])],
     }
     const index = dir === 'older' ? state.index + 1 : state.index - 1
     if (index >= state.entries.length || index < -1) return false
@@ -558,6 +578,12 @@ export function InputEditor({
       : argumentCandidates(draft, caret, cwd ?? '~', {
           spec: loadSpec,
           list: (p) => window.ostia.pty.listDir(paneId, p),
+          history: historySuggestionsOn
+            ? {
+                arguments: (before) => historyArguments(before, facts),
+                label: d.inputEditor.fromHistory,
+              }
+            : undefined,
         })
 
   const relist = async (draft: string, caret: number): Promise<void> => {
@@ -631,7 +657,13 @@ export function InputEditor({
   }
   const blocked = ghostBlocked(blockers)
   const historyText =
-    visible && !blocked && historySuggestionsOn ? historySuggestion(text, history) : ''
+    visible && !blocked && historySuggestionsOn
+      ? rankedSuggestion(text, facts, {
+          cwd: cwd ?? null,
+          previous: byPane[paneId]?.at(-1)?.command.trim() || null,
+          commands: commandSet,
+        })
+      : ''
   const ghost = visible ? pickGhost(text, blockers, historyText, ghostOn ? aiGhost : null) : null
   const suggestion = ghost?.text ?? ''
 
@@ -1129,7 +1161,7 @@ export function InputEditor({
               autoCapitalize="off"
               autoCorrect="off"
               autoComplete="off"
-              className="input-editor-area min-h-0 resize-none rounded-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
+              className="input-editor-area min-h-0 resize-none rounded-none border-0 bg-transparent p-0 shadow-none outline-none dark:bg-transparent"
               style={{ ...cellStyle, maxHeight: cellHeight ? maxLines * cellHeight : undefined }}
               onChange={(e) => {
                 setText(e.target.value)

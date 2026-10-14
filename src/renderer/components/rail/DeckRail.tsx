@@ -9,6 +9,7 @@ import {
   MenuSubTrigger,
 } from '@/components/common/Menu'
 import { PanelResizer } from '@/components/common/PanelResizer'
+import { RenameInput } from '@/components/common/RenameInput'
 import { Badge } from '@/components/ui/badge'
 import {
   ContextMenu,
@@ -17,7 +18,6 @@ import {
   ContextMenuSub,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
-import { Input } from '@/components/ui/input'
 import { Kbd } from '@/components/ui/kbd'
 import { ViewsRail } from '@/components/views/ViewsRail'
 import { fmt, useDict } from '@/i18n/useDict'
@@ -114,7 +114,7 @@ import {
   WORKSPACE_GROUP_COLORS,
   type WorkspaceGroupColor,
 } from '@shared/workspaces/workspaceGroups'
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import { MergeMenuItems } from './MergeMenuItems'
 import { LiveLine, LocationLine, SidebarItem } from './RailMeta'
@@ -1057,37 +1057,6 @@ function WorkspaceDescription({ text }: { text: string }): JSX.Element {
         {text}
       </Markdown>
     </div>
-  )
-}
-
-function RenameInput({
-  value,
-  label,
-  onDone,
-}: {
-  value: string
-  label: string
-  onDone: (name: string | null) => void
-}): JSX.Element {
-  const [draft, setDraft] = useState(value)
-  const input = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    input.current?.focus()
-    input.current?.select()
-  }, [])
-  return (
-    <Input
-      ref={input}
-      className="tab-rename h-6 px-1.5"
-      aria-label={label}
-      value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => onDone(draft)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') onDone(draft)
-        if (e.key === 'Escape') onDone(null)
-      }}
-    />
   )
 }
 
