@@ -47,19 +47,5 @@
     "issue": 701,
     "until": "2026-11-12",
     "platforms": ["linux"]
-  },
-  {
-    "file": "src/renderer/components/settings/SettingsPanel.search.test.tsx",
-    "name": "SettingsPanel search > finds the script tokens page in English and in Traditional Chinese",
-    "issue": 705,
-    "until": "2026-11-12",
-    "platforms": ["linux"]
-  },
-  {
-    "file": "src/renderer/components/settings/SettingsPanel.search.test.tsx",
-    "name": "SettingsPanel search > shows a matching row from a section that is not open, with the query marked",
-    "issue": 705,
-    "until": "2026-11-12",
-    "platforms": ["linux"]
   }
 ]
