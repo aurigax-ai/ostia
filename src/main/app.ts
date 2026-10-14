@@ -5,6 +5,7 @@ import { homedir, hostname } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import {
   BrowserWindow,
+  ClipboardItem,
   app,
   clipboard,
   dialog,
@@ -33,7 +34,7 @@ import { isMacInstall, replacesInApp } from '../shared/app/installMethod'
 import { clampZoom, zoomFactor } from '../shared/app/zoom'
 import { appEnv, readEnv } from '../shared/appEnv'
 import { ARTIFACT_LIST_MAX } from '../shared/artifacts/artifacts'
-import { isPreviewPartition } from '../shared/artifacts/htmlPreview'
+import { type PreviewTheme, isPreviewPartition } from '../shared/artifacts/htmlPreview'
 import { parseChatToolSettings } from '../shared/assist/chatTools'
 import { parseGitSettings } from '../shared/boards/git'
 import { parsePortsSettings } from '../shared/boards/ports'
@@ -120,6 +121,12 @@ import {
 } from './approvals/scriptTokens'
 import { electronPresenceDeps, verifyUserPresence } from './approvals/userPresence'
 import { ArtifactFolders, registerArtifactIpc } from './artifacts/artifactFolders'
+import {
+  ArtifactHistory,
+  previewBuild,
+  registerArtifactHistoryIpc,
+} from './artifacts/artifactHistory'
+import { ArtifactProducers, registerArtifactProducersIpc } from './artifacts/artifactProducers'
 import { loadEsbuild } from './artifacts/esbuildService'
 import {
   PreviewHost,
@@ -954,8 +961,10 @@ const artifactFolders = new ArtifactFolders(
   (workspaceId, changes) => {
     const windowId = windowForWorkspace(workspaceId)
     if (windowId) windows.get(windowId)?.webContents.send('artifacts:changed', workspaceId)
+    const dir = artifactFolders.dirOf(workspaceId)
     for (const { path, change } of changes.slice(0, ARTIFACT_LIST_MAX)) {
       emitPlatformEvent('artifact.changed', { sessionId: workspaceId, path, change })
+      if (dir && change !== 'removed') artifactHistory.changed(workspaceId, join(dir, path))
     }
   },
 )
@@ -997,7 +1006,10 @@ const previews = new PreviewHost({
       memoryBytes: metric.memory.workingSetSize * 1024,
       cpuPercent: metric.cpu.percentCPUUsage,
     })),
-  build: (source, theme) => portableBuilder.preview(source, theme),
+  build: (source, theme) => {
+    lastPreviewTheme = theme
+    return previewBuild(artifactHistory, (s, t) => portableBuilder.preview(s, t))(source, theme)
+  },
 })
 
 const portableExport = new PortableExport({
@@ -1027,6 +1039,25 @@ const portableExport = new PortableExport({
   writeClipboard: (text) => clipboard.writeText(text),
   version: app.getVersion(),
 })
+
+let lastPreviewTheme: PreviewTheme = { dark: false, vars: {} }
+
+const artifactHistory = new ArtifactHistory({
+  root: artifactFolders.root,
+  folderOf: (workspaceId) => artifactFolders.dirOf(workspaceId),
+  isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
+  make: (file) => portableExport.fileFor(file, lastPreviewTheme),
+})
+
+const artifactProducers = new ArtifactProducers({
+  file: (workspaceId) => join(artifactHistory.dirOf(workspaceId), 'producers.json'),
+  folderOf: (workspaceId) => artifactFolders.dirOf(workspaceId),
+})
+
+function artifactsChanged(workspaceId: string): void {
+  const windowId = windowForWorkspace(workspaceId)
+  if (windowId) windows.get(windowId)?.webContents.send('artifacts:changed', workspaceId)
+}
 
 function isScratchPane(paneId: string): boolean {
   return scratchFolders.isScratch(getByPaneId(paneId)?.workspaceId)
@@ -1947,6 +1978,7 @@ function registerIpc(): void {
     } else if (event.type === 'pane-closed') {
       previews.paneClosed(event.paneId)
       paneAttentionEvents.forget(event.paneId)
+      artifactProducers.paneClosed(event.paneId)
       openWaits.paneClosed(event.paneId)
       const identity = getByPaneId(event.paneId)
       if (identity) {
@@ -2214,7 +2246,7 @@ const workspaceClosed = createWorkspaceClosed({
   closeProcesses: (id) => processes?.workspaceClosed(id),
   clearChips: (id) => extensionHost?.clearWorkspaceChips(id),
   closeRemoteFolders: (id) => extensionHost?.remoteFolders?.workspaceClosed(id),
-  closeArtifacts: (id) => artifactFolders.close(id),
+  closeArtifacts: (id) => artifactHistory.close(id, artifactFolders.close(id)),
   removeScratch: (id) => scratchFolders.remove(id),
   forgetRequests: forgetWorkspaceRequests,
   forgetSandbox: forgetSandboxRuntime,
@@ -2270,8 +2302,10 @@ function mergeWorkspace(sourceId: string, targetId: string): void {
     if (entry.workspaceId === sourceId) entry.workspaceId = targetId
   }
   workspaceSandboxes.merge(sourceId, targetId)
-  artifactFolders.merge(sourceId, targetId)
-  artifactFolders.close(sourceId)
+  const movedArtifacts = artifactFolders.merge(sourceId, targetId)
+  artifactProducers.merge(sourceId, targetId, movedArtifacts)
+  artifactHistory.merge(sourceId, targetId, movedArtifacts)
+  artifactHistory.close(sourceId, artifactFolders.close(sourceId))
   removeWorkspace(sourceId)
   forgetWorkspaceRequests(sourceId)
   mergedSandboxes.add(sourceId)
@@ -3728,8 +3762,18 @@ app.whenReady().then(() => {
   registerPtyIpc()
   registerFsIpc()
   registerSelectionIpc(reachesPane, redactor.text)
-  registerPreviewIpc(previews)
+  registerPreviewIpc(previews, (png) => {
+    void clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(png)]) })])
+  })
   registerPortableIpc(portableExport)
+  registerArtifactHistoryIpc({
+    history: artifactHistory,
+    ownsWorkspace: (windowId, workspaceId) => windowForWorkspace(workspaceId) === windowId,
+  })
+  registerArtifactProducersIpc({
+    producers: artifactProducers,
+    ownsWorkspace: (windowId, workspaceId) => windowForWorkspace(workspaceId) === windowId,
+  })
   registerPrivacyIpc(redactor)
   const approvalCaps = new Map<string, readonly string[]>()
   registerApprovals(revealWindow, settingsChanged, {
@@ -4018,6 +4062,10 @@ app.whenReady().then(() => {
     confineFolder: (path) => resolveSafe(path, fileRoots()),
     waits: openWaits,
     execCommand,
+    opened: (workspaceId, paneId, paths) => {
+      const noted = paths.filter((path) => artifactProducers.note(workspaceId, paneId, path))
+      if (noted.length > 0) artifactsChanged(workspaceId)
+    },
   })
   registerBusMethods({
     inScope: reach.inScope,
@@ -4672,6 +4720,7 @@ app.on('before-quit', (event) => {
   for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)
   workspaceSandboxes.clearTmp(!keepingShells)
   artifactFolders.dispose()
+  artifactHistory.dispose()
   previews.dispose()
   scratchFolders.removeAll()
   quitTrace.stage('teardown-hosts')

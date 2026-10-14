@@ -66,10 +66,31 @@ export interface PreviewSession {
   clearStorageData: () => Promise<void>
 }
 
+export interface PreviewRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+const REGION_MIN = 4
+
+function regionOf(value: unknown): PreviewRect | null {
+  const raw = value as Partial<PreviewRect> | null
+  if (!raw || typeof raw !== 'object') return null
+  const [x, y, width, height] = [raw.x, raw.y, raw.width, raw.height].map((n) =>
+    typeof n === 'number' && Number.isFinite(n) ? Math.round(n) : Number.NaN,
+  )
+  if ([x, y, width, height].some(Number.isNaN) || x < 0 || y < 0) return null
+  if (width < REGION_MIN || height < REGION_MIN) return null
+  return { x, y, width, height }
+}
+
 export interface PreviewGuest {
   id: number
   session: unknown
   isDestroyed: () => boolean
+  capturePage: (rect: PreviewRect) => Promise<{ toPNG: () => Buffer; isEmpty: () => boolean }>
   getOSProcessId: () => number
   reload: () => void
   executeJavaScript: (code: string) => Promise<unknown>
@@ -410,6 +431,20 @@ export class PreviewHost {
     this.thaw(live)
   }
 
+  async capture(windowId: string, id: string, rect: unknown): Promise<Uint8Array | null> {
+    const live = this.live.get(id)
+    const region = regionOf(rect)
+    if (!live || live.windowId !== windowId || !region) return null
+    const guest = live.guest
+    if (!guest || guest.isDestroyed()) return null
+    try {
+      const image = await guest.capturePage(region)
+      return image.isEmpty() ? null : new Uint8Array(image.toPNG())
+    } catch {
+      return null
+    }
+  }
+
   stopByHuman(windowId: string, id: string): void {
     const live = this.live.get(id)
     if (live && live.windowId === windowId) this.stop(live, 'human')
@@ -563,7 +598,18 @@ export function hardenPreviewAttach(
   }
 }
 
-export function registerPreviewIpc(host: PreviewHost): void {
+export function registerPreviewIpc(
+  host: PreviewHost,
+  copyImage: (png: Uint8Array) => void = () => {},
+): void {
+  ipcMain.handle('preview:capture', (e, id: unknown, rect: unknown) =>
+    typeof id === 'string' ? host.capture(String(e.sender.id), id, rect) : null,
+  )
+  ipcMain.handle('preview:copy-region', async (e, id: unknown, rect: unknown) => {
+    const png = typeof id === 'string' ? await host.capture(String(e.sender.id), id, rect) : null
+    if (png) copyImage(png)
+    return png !== null
+  })
   ipcMain.handle(
     'preview:open',
     (e, paneId: unknown, path: unknown, theme: unknown): PreviewOpened | null =>

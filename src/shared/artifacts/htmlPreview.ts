@@ -1,3 +1,5 @@
+import type { Region } from '../browser/selection'
+
 export const PREVIEW_SCHEME = 'ostia-preview'
 const PREVIEW_PARTITION_PREFIX = 'ostia-preview-'
 
@@ -43,6 +45,8 @@ export interface PreviewApi {
   stop: (id: string) => void
   close: (id: string) => void
   onEvent: (cb: (event: PreviewEvent) => void) => () => void
+  capture: (id: string, rect: Region) => Promise<Uint8Array | null>
+  copyRegion: (id: string, rect: Region) => Promise<boolean>
 }
 
 export const PREVIEW_PAGE_CSP = [

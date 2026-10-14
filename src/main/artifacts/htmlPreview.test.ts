@@ -180,6 +180,11 @@ class FakeGuest implements PreviewGuest {
   throttled: boolean | null = null
   attached = false
   lifecycle: string[] = []
+  captured: { x: number; y: number; width: number; height: number }[] = []
+  capturePage = async (rect: { x: number; y: number; width: number; height: number }) => {
+    this.captured.push(rect)
+    return { toPNG: () => Buffer.from('89504e470d0a1a0a0000', 'hex'), isEmpty: () => false }
+  }
   debugger = {
     isAttached: (): boolean => this.attached,
     attach: (): void => {
@@ -681,5 +686,22 @@ describe('PreviewHost', () => {
     expect(next.id).not.toBe(first.id)
     expect(r.sessions.size).toBe(1)
     expect(r.host.acceptsAttach(first.partition, first.url, '1')).toBe(false)
+  })
+
+  it('PRT-C55 captures a region of a live preview of its own window, and nothing for a tiny or stopped one', async () => {
+    const opened = r.open()
+    const guest = r.attach(opened)
+    const png = await r.host.capture('1', opened.id, { x: 10, y: 20, width: 100, height: 50 })
+    expect(png && Buffer.from(png).subarray(0, 4).toString('hex')).toBe('89504e47')
+    expect(guest.captured).toEqual([{ x: 10, y: 20, width: 100, height: 50 }])
+    expect(await r.host.capture('1', opened.id, { x: 10, y: 20, width: 3, height: 50 })).toBeNull()
+    expect(
+      await r.host.capture('2', opened.id, { x: 10, y: 20, width: 100, height: 50 }),
+    ).toBeNull()
+    r.host.stopByHuman('1', opened.id)
+    expect(
+      await r.host.capture('1', opened.id, { x: 10, y: 20, width: 100, height: 50 }),
+    ).toBeNull()
+    expect(guest.captured).toHaveLength(1)
   })
 })

@@ -432,6 +432,10 @@ const bridge: OstiaBridge = {
     shown: (id, visible) => ipcRenderer.send('preview:shown', id, visible),
     stop: (id) => ipcRenderer.send('preview:stop', id),
     close: (id) => ipcRenderer.send('preview:close', id),
+    capture: (id, rect) =>
+      ipcRenderer.invoke('preview:capture', id, rect) as Promise<Uint8Array | null>,
+    copyRegion: (id, rect) =>
+      ipcRenderer.invoke('preview:copy-region', id, rect) as Promise<boolean>,
     onEvent: (cb) => {
       const handler = (_e: Electron.IpcRendererEvent, event: PreviewEvent): void => cb(event)
       ipcRenderer.on('preview:event', handler)

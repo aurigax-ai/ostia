@@ -28,6 +28,7 @@ export interface OpenFileDeps {
   confineFolder: (path: string) => string | null
   waits: OpenWaits
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
+  opened?: (workspaceId: string, paneId: string, paths: string[]) => void
 }
 
 function folderKind(path: string): 'directory' | 'other' | 'missing' {
@@ -112,6 +113,11 @@ export function registerOpenFileMethods(deps: OpenFileDeps): void {
         ...(wait ? { wait: true } : {}),
       })
       if (!res.ok) return { ok: false, error: res.error.code, message: res.error.message }
+      deps.opened?.(
+        workspaceId,
+        ctx.identity.paneId,
+        files.map((file) => file.path),
+      )
       if (!wait) return { ok: true, results }
       return { ok: true, results, waited: await waitFor(deps, ctx, openedPaneIds(res.result)) }
     },
