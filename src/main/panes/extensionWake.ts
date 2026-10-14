@@ -4,7 +4,9 @@ import { registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import { type PaneIoDeps, checkSessions, notHibernated, sessionConflict } from './paneIo'
 
-export type ExtensionWakeDeps = Pick<PaneIoDeps, 'hibernated' | 'wake' | 'panes' | 'waking'>
+export type ExtensionWakeDeps = Pick<PaneIoDeps, 'hibernated' | 'wake' | 'panes' | 'waking'> & {
+  openedBy: (caller: PaneIdentity, paneId: string) => boolean
+}
 
 function waitMsOf(raw: unknown): number | null | 'bad' {
   if (raw === undefined) return null
@@ -36,6 +38,14 @@ export function registerExtensionWake(deps: ExtensionWakeDeps): void {
       const found = typeof p.paneId === 'string' ? resolveExternal(p.paneId) : undefined
       if (found?.kind !== 'pane' || found.manager) {
         return { ok: false, error: 'unknown-pane', message: 'no open pane has that id' }
+      }
+      if (!deps.openedBy(ctx.identity, found.externalId)) {
+        return {
+          ok: false,
+          error: 'not-reached',
+          message:
+            'ext.wakePane is only for a pane you opened with ext.runAgent or ext.openTerminal',
+        }
       }
       const to: PaneIdentity = found
       try {

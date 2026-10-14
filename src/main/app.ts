@@ -3911,6 +3911,7 @@ app.whenReady().then(() => {
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   })
   registerExtensionWake({
+    openedBy: (caller, paneId) => extensionHost?.openedBy(caller, paneId) ?? false,
     hibernated: paneHibernated,
     wake: wakeHibernatedPane,
     panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),

@@ -56,6 +56,7 @@ describe('the extension API a graph host needs', () => {
   const target = panes({ windowId: '7', workspaceId: 'w1', paneId: 'pane-target' })
   const sleeper = panes({ windowId: '7', workspaceId: 'w1', paneId: 'pane-sleeper' })
   const twin = panes({ windowId: '7', workspaceId: 'w1', paneId: 'pane-twin' })
+  const held = panes({ windowId: '7', workspaceId: 'w1', paneId: 'pane-held' })
   const started = panes({ windowId: '7', workspaceId: 'w1', paneId: 'pane-started' })
   const manager = panes({ windowId: '7', workspaceId: 'w1', paneId: 'pane-manager' })
   markManager(manager.paneId)
@@ -111,9 +112,12 @@ describe('the extension API a graph host needs', () => {
       extensionName: (id) => (id === 'runner' ? 'Runner' : id),
     })
     registerExtensionWake({
+      openedBy: (caller, paneId) => host.openedBy(caller, paneId),
       hibernated: async (pane) => hibernated.has(pane.paneId),
       wake: async (pane) => {
-        if (pane.paneId === twin.paneId) return { woke: false, conflict: 'other tab' }
+        if (pane.paneId === twin.paneId || pane.paneId === held.paneId) {
+          return { woke: false, conflict: 'other tab' }
+        }
         hibernated.delete(pane.paneId)
         typed.push(`${pane.paneId}: claude --resume s1`)
         return { woke: true }
@@ -130,6 +134,14 @@ describe('the extension API a graph host needs', () => {
       },
       socketPath,
     )
+  })
+
+  beforeAll(async () => {
+    for (const pane of [target, sleeper, held, manager]) {
+      openTerminalIn.mockResolvedValueOnce(pane.externalId)
+      await call('runner', 'ext.openTerminal', { command: ['true'], workspaceId: 'w1' })
+    }
+    openTerminalIn.mockReset()
   })
 
   afterAll(() => {
@@ -205,9 +217,9 @@ describe('the extension API a graph host needs', () => {
     ).toMatchObject({
       error: 'not-hibernated',
     })
-    hibernated.add(twin.paneId)
+    hibernated.add(held.paneId)
     expect(
-      await call('runner', 'ext.wakePane', { paneId: twin.externalId, command: 'ls' }),
+      await call('runner', 'ext.wakePane', { paneId: held.externalId, command: 'ls' }),
     ).toMatchObject({
       error: 'session-conflict',
     })
@@ -397,5 +409,23 @@ describe('the extension API a graph host needs', () => {
       )
     }
     close()
+  })
+
+  it('ext.wakePane and continueFrom refuse a pane the extension did not open, such as one its hook reached', async () => {
+    const human = registerPane({ windowId: '7', workspaceId: 'w1', paneId: 'pane-human-agent' })
+    hibernated.add(human.paneId)
+    expect(await call('runner', 'ext.wakePane', { paneId: human.externalId })).toMatchObject({
+      error: 'not-reached',
+    })
+    expect(
+      await call('runner', 'ext.runAgent', {
+        workspaceId: 'w1',
+        continueFrom: human.externalId,
+        prompt: 'p',
+      }),
+    ).toMatchObject({
+      error: 'not-reached',
+    })
+    expect(typed).toEqual([])
   })
 })

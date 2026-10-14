@@ -213,6 +213,7 @@ interface Runtime {
   assistReport: AssistRuntimeReport | null
   offering: boolean
   reached: Set<string>
+  opened: Set<string>
 }
 
 interface AssistRuntimeReport {
@@ -259,6 +260,7 @@ function newRuntime(ext: LoadedExtension): Runtime {
     assistReport: null,
     offering: false,
     reached: new Set(),
+    opened: new Set(),
   }
 }
 
@@ -1660,6 +1662,7 @@ export class ExtensionHost {
     const paneId = await this.deps.openTerminalIn(req)
     if (!paneId) return fail('not-opened', 'no workspace to open it in')
     this.reach(rt, paneId)
+    this.markOpened(rt, paneId)
     if (waitMs === null) return { ok: true, paneId }
     return { ok: true, paneId, wait: await this.waitForTerminal(paneId, waitMs) }
   }
@@ -1735,7 +1738,21 @@ export class ExtensionHost {
     })
     if (!paneId) return fail('not-opened', 'no workspace to open it in')
     this.reach(rt, paneId)
+    this.markOpened(rt, paneId)
     return { ok: true, paneId }
+  }
+
+  private markOpened(rt: Runtime, paneId: string): void {
+    if (rt.opened.size >= REACHED_PANES_MAX) {
+      for (const id of rt.opened) if (resolveExternal(id)?.kind !== 'pane') rt.opened.delete(id)
+    }
+    if (rt.opened.size < REACHED_PANES_MAX) rt.opened.add(paneId)
+  }
+
+  openedBy(identity: PaneIdentity, paneId: string): boolean {
+    const extId = identity.kind === 'extension' ? identity.extId : undefined
+    const rt = extId ? this.runtimes.get(extId) : undefined
+    return rt?.identity?.externalId === identity.externalId && rt.opened.has(paneId)
   }
 
   private startCommand(
@@ -1759,8 +1776,13 @@ export class ExtensionHost {
     prompt: string,
     workspaceId: string,
   ): Promise<{ command: string; cwd: string } | { error: unknown }> {
-    if (typeof raw !== 'string' || !rt.reached.has(raw)) {
-      return { error: fail('not-reached', 'continueFrom is a pane you opened') }
+    if (typeof raw !== 'string' || !rt.opened.has(raw)) {
+      return {
+        error: fail(
+          'not-reached',
+          'continueFrom is only for a pane you opened with ext.runAgent or ext.openTerminal',
+        ),
+      }
     }
     const pane = resolveExternal(raw)
     if (pane?.kind !== 'pane' || pane.workspaceId !== workspaceId) {
