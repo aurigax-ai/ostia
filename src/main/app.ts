@@ -466,13 +466,9 @@ import { WindowBroker } from './windows/windowBroker'
 import { registerCmuxSessionIpc } from './workspaces/cmuxSession'
 import { registerProjectRootIpc } from './workspaces/projectRoot'
 import { ScratchFolders, registerScratchIpc } from './workspaces/scratchFolders'
+import { type SnippetDeps, registerSnippetIpc, registerSnippetMethods } from './workspaces/snippets'
 import { ViewHost, ViewStore } from './workspaces/viewHost'
 import { registerViewMethods, registerViewsIpc } from './workspaces/viewsIpc'
-import {
-  type WorkflowDeps,
-  registerWorkflowIpc,
-  registerWorkflowMethods,
-} from './workspaces/workflows'
 import { registerWorkspaceMergeIpc } from './workspaces/workspaceMerge'
 import {
   removeWorkspace,
@@ -4189,14 +4185,14 @@ app.whenReady().then(() => {
     grants: new ChatToolGrants(join(app.getPath('userData'), 'chat-tool-grants.json')),
     onGrants: (keys) => broadcast('chatTools:always-grants', keys),
   })
-  const workflowDeps: WorkflowDeps = {
-    userDir: join(configDir(), 'workflows'),
+  const snippetDeps: SnippetDeps = {
+    userDir: join(configDir(), 'snippets'),
     roots: () => [homedir(), app.getPath('userData')],
     workDirForWorkspace,
-    extensionWorkflows: () => extensionHost?.workflows() ?? [],
+    extensionSnippets: () => extensionHost?.snippets() ?? [],
   }
-  registerWorkflowIpc(workflowDeps)
-  registerWorkflowMethods(workflowDeps)
+  registerSnippetIpc(snippetDeps)
+  registerSnippetMethods(snippetDeps)
   registerCompletionIpc({
     userDir: join(configDir(), 'completions'),
     extensionDirs: () => extensionHost?.completionDirs() ?? [],

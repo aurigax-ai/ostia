@@ -103,10 +103,10 @@ import type {
 } from './sandbox/sandbox'
 import type { SandboxReadPreset } from './sandbox/sandboxPresets'
 import type { SecretEntry, SecretGrant } from './sandbox/secrets'
+import type { SnippetDocument, SnippetListing, SnippetSaveResult } from './snippets'
 import type { SpecCommand } from './terminal/completionSpec'
 import type { PromptSeparator } from './terminal/promptSettings'
 import type { ViewsApi } from './views/views'
-import type { WorkflowDocument, WorkflowListing, WorkflowSaveResult } from './workflows'
 import type { CmuxSessionRead } from './workspaces/cmuxSession'
 import type { SplitTabPlacement } from './workspaces/splitTabs'
 import type { WorkspaceGroupColor } from './workspaces/workspaceGroups'
@@ -1070,9 +1070,9 @@ interface CompletionsApi {
   spec: (command: string) => Promise<SpecCommand | null>
 }
 
-interface WorkflowsApi {
-  list: (workspaceId: string | null) => Promise<WorkflowListing>
-  save: (doc: WorkflowDocument) => Promise<WorkflowSaveResult>
+interface SnippetsApi {
+  list: (workspaceId: string | null) => Promise<SnippetListing>
+  save: (doc: SnippetDocument) => Promise<SnippetSaveResult>
 }
 
 export interface OstiaBridge {
@@ -1122,7 +1122,7 @@ export interface OstiaBridge {
   externalEditor: ExternalEditorApi
   gateway: GatewayApi
   notifications: NotificationsApi
-  workflows: WorkflowsApi
+  snippets: SnippetsApi
   git: GitBridge
   ports: PortsBridge
   completions: CompletionsApi

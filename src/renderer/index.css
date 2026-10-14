@@ -3672,28 +3672,28 @@ button.prompt-chip:hover {
   text-overflow: ellipsis;
 }
 
-.workflow-row {
+.snippet-row {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 2px;
 }
 
-.workflow-row-head {
+.snippet-row-head {
   display: flex;
   min-width: 0;
   align-items: center;
   gap: 6px;
 }
 
-.workflow-name {
+.snippet-name {
   overflow: hidden;
   color: var(--fg);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.workflow-source {
+.snippet-source {
   margin-left: auto;
   flex-shrink: 0;
   color: var(--fg-muted);
@@ -3701,7 +3701,7 @@ button.prompt-chip:hover {
   line-height: var(--text-ui-xs--line-height);
 }
 
-.workflow-description {
+.snippet-description {
   overflow: hidden;
   color: var(--fg-muted);
   font-size: var(--text-ui-xs);
@@ -3710,7 +3710,7 @@ button.prompt-chip:hover {
   text-overflow: ellipsis;
 }
 
-.workflow-row .workflow-command {
+.snippet-row .snippet-command {
   overflow: hidden;
   color: var(--fg-muted);
   font-size: var(--text-ui-sm);
@@ -3719,11 +3719,11 @@ button.prompt-chip:hover {
   text-overflow: ellipsis;
 }
 
-.workflow-command {
+.snippet-command {
   font-family: var(--font-code);
 }
 
-.workflow-arg {
+.snippet-arg {
   border-radius: 3px;
   background: var(--brand-glow);
   color: var(--syn-variable, var(--fg));

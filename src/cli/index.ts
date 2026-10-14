@@ -32,8 +32,8 @@ import type {
   RevealFolderResult,
 } from '../shared/files/openFiles'
 import { SCRIPT_TOKEN_PREFIX } from '../shared/permissions/scriptTokens'
+import type { SnippetEntry, SnippetListing } from '../shared/snippets'
 import type { CommandDescriptor, CommandResult } from '../shared/types'
-import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
 import { FlagError, type ParsedArgs, parseArgs } from './common/args'
 import { commandHelp, wantsHelp } from './common/commandHelp'
 import { buildCommandCall, parseCommandFlags, resolveWorkspaceRef } from './common/crossWorkspace'
@@ -1354,9 +1354,9 @@ async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
   }
 }
 
-const WORKFLOW_USAGE = 'ostia workflow: usage: workflow list [--json] | show <name> [--json]'
+const SNIPPET_USAGE = 'ostia snippet: usage: snippet list [--json] | show <name> [--json]'
 
-function describeWorkflow(w: WorkflowEntry): string {
+function describeSnippet(w: SnippetEntry): string {
   const lines = [`name: ${w.name}`, `source: ${w.source} (${w.origin})`]
   if (w.description) lines.push(`description: ${w.description}`)
   if (w.tags.length > 0) lines.push(`tags: ${w.tags.join(', ')}`)
@@ -1375,7 +1375,7 @@ function describeWorkflow(w: WorkflowEntry): string {
   return lines.join('\n')
 }
 
-async function runWorkflowVerb(conn: MessageConnection): Promise<void> {
+async function runSnippetVerb(conn: MessageConnection): Promise<void> {
   const [sub, ...rest] = process.argv.slice(3)
   const { positional, booleans } = parseArgs(rest, {
     booleans: { json: '--json' },
@@ -1384,31 +1384,31 @@ async function runWorkflowVerb(conn: MessageConnection): Promise<void> {
   const { json } = booleans
   const name = positional.join(' ').trim()
   if (sub !== 'list' && !(sub === 'show' && name)) {
-    console.error(WORKFLOW_USAGE)
+    console.error(SNIPPET_USAGE)
     process.exitCode = 1
     return
   }
-  const listing = await conn.sendRequest<WorkflowListing>('workflow.list')
+  const listing = await conn.sendRequest<SnippetListing>('snippet.list')
   if (sub === 'list') {
     if (json) {
       console.log(JSON.stringify(listing, null, 2))
       return
     }
-    for (const w of listing.workflows) {
+    for (const w of listing.snippets) {
       console.log([w.name, `${w.source}:${w.origin}`, w.command.replace(/\n/g, ' ')].join('\t'))
     }
     for (const p of listing.problems) {
-      console.error(`ostia workflow: couldn't read ${p.source}:${p.origin}: ${p.error}`)
+      console.error(`ostia snippet: couldn't read ${p.source}:${p.origin}: ${p.error}`)
     }
     return
   }
-  const matches = listing.workflows.filter((w) => w.name === name)
+  const matches = listing.snippets.filter((w) => w.name === name)
   if (matches.length === 0) {
-    console.error(`ostia workflow show: no workflow named '${name}'`)
+    console.error(`ostia snippet show: no snippet named '${name}'`)
     process.exitCode = 1
     return
   }
-  console.log(json ? JSON.stringify(matches, null, 2) : matches.map(describeWorkflow).join('\n\n'))
+  console.log(json ? JSON.stringify(matches, null, 2) : matches.map(describeSnippet).join('\n\n'))
 }
 
 async function runClaudeHookVerb(conn: MessageConnection): Promise<void> {
@@ -1494,7 +1494,7 @@ commands:
                             unsaved files is refused with busy:
   workspace import-cmux [file] [--json]   recreate cmux's saved workspaces, splits and tabs
   resume-token <claude|codex> <id|->  remember how to resume this pane's agent after a restart
-  workflow list [--json] | show <name> [--json]   saved command workflows (read-only)
+  snippet list [--json] | show <name> [--json]   saved commands (read-only)
   view list [--json] | open <name>   declarative views (~/.config/ostia/views/<name>.json)
   view validate <file> | schema      check a view file / print its JSON schema (no app needed)
   <target>... | open [-b|--background] [--tab | --split right|down] [-w|--wait] <target>...
@@ -1697,8 +1697,8 @@ async function main(): Promise<void> {
         out: (line) => console.log(line),
         err: (line) => console.error(line),
       })
-    } else if (cmd === 'workflow') {
-      await runWorkflowVerb(conn)
+    } else if (cmd === 'snippet') {
+      await runSnippetVerb(conn)
     } else if (cmd === 'git') {
       await runGitVerb(conn, process.argv.slice(3))
     } else if (cmd === 'ports') {

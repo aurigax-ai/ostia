@@ -216,16 +216,16 @@ describe('block chords', () => {
     expect(chordLabel('history.search', true)).toBe('⌘⇧H')
   })
 
-  it('opens workflow search with Ctrl+Shift+S or Cmd+Shift+S, a chord free in the shell and Monaco', () => {
-    expect(matchChord(key('S', { ctrlKey: true, shiftKey: true }), false)).toBe('workflows.search')
-    expect(matchChord(key('s', { metaKey: true, shiftKey: true }), true)).toBe('workflows.search')
-    expect(isAppChord('workflows.search')).toBe(true)
+  it('opens snippet search with Ctrl+Shift+S or Cmd+Shift+S, a chord free in the shell and Monaco', () => {
+    expect(matchChord(key('S', { ctrlKey: true, shiftKey: true }), false)).toBe('snippets.search')
+    expect(matchChord(key('s', { metaKey: true, shiftKey: true }), true)).toBe('snippets.search')
+    expect(isAppChord('snippets.search')).toBe(true)
     for (const mac of [false, true]) {
-      const [spec] = effectiveBindings({}, mac).byId.get('workflows.search') ?? []
+      const [spec] = effectiveBindings({}, mac).byId.get('snippets.search') ?? []
       if (!spec) throw new Error('unbound')
       expect(stealsTerminalKey(spec, mac)).toBeNull()
       expect(usedByMonaco(spec, mac)).toBe(false)
-      expect(conflictsWith('workflows.search', spec, mac)).toEqual([])
+      expect(conflictsWith('snippets.search', spec, mac)).toEqual([])
     }
   })
 })

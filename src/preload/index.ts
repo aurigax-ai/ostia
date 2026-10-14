@@ -99,6 +99,7 @@ import type {
 } from '../shared/sandbox/sandbox'
 import type { SandboxReadPreset } from '../shared/sandbox/sandboxPresets'
 import type { SecretEntry, SecretGrant } from '../shared/sandbox/secrets'
+import type { SnippetListing, SnippetSaveResult } from '../shared/snippets'
 import type { SpecCommand } from '../shared/terminal/completionSpec'
 import type {
   AppInfo,
@@ -143,7 +144,6 @@ import type {
   WorkspaceProject,
 } from '../shared/types'
 import type { ViewListing } from '../shared/views/views'
-import type { WorkflowListing, WorkflowSaveResult } from '../shared/workflows'
 import type { CmuxSessionRead } from '../shared/workspaces/cmuxSession'
 
 const bridge: OstiaBridge = {
@@ -1108,10 +1108,10 @@ const bridge: OstiaBridge = {
       return () => ipcRenderer.removeListener('ports:items', handler)
     },
   },
-  workflows: {
+  snippets: {
     list: (workspaceId) =>
-      ipcRenderer.invoke('workflows:list', workspaceId) as Promise<WorkflowListing>,
-    save: (doc) => ipcRenderer.invoke('workflows:save', doc) as Promise<WorkflowSaveResult>,
+      ipcRenderer.invoke('snippets:list', workspaceId) as Promise<SnippetListing>,
+    save: (doc) => ipcRenderer.invoke('snippets:save', doc) as Promise<SnippetSaveResult>,
   },
   completions: {
     spec: (command) =>

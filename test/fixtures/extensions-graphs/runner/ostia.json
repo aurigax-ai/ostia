@@ -2,7 +2,7 @@
   "id": "runner",
   "name": "Runner",
   "version": "0.1.0",
-  "api": "3.1",
+  "api": "4.0",
   "description": "Test fixture: runs steps with ext.exec, ext.busSend, ext.wakePane, ext.ask and ext.runAgent",
   "capabilities": ["shell", "drive-self", "process", "send-other-pane", "type-other-pane", "all-workspaces"],
   "main": "main.js",

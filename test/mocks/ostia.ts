@@ -538,9 +538,9 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       watch: vi.fn(),
       onItems: vi.fn().mockReturnValue(() => {}),
     },
-    workflows: {
-      list: vi.fn().mockResolvedValue({ workflows: [], problems: [] }),
-      save: vi.fn().mockResolvedValue({ ok: true, file: 'workflow.yaml' }),
+    snippets: {
+      list: vi.fn().mockResolvedValue({ snippets: [], problems: [] }),
+      save: vi.fn().mockResolvedValue({ ok: true, file: 'snippet.yaml' }),
     },
     completions: {
       spec: vi.fn().mockResolvedValue(null),

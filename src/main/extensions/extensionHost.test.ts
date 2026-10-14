@@ -15,7 +15,7 @@ function writeExt(root: string, id: string, manifest: Record<string, unknown>): 
   mkdirSync(dir, { recursive: true })
   writeFileSync(
     join(dir, 'ostia.json'),
-    JSON.stringify({ id, name: id, version: '1.0.0', api: '3.0', ...manifest }),
+    JSON.stringify({ id, name: id, version: '1.0.0', api: '4.0', ...manifest }),
   )
   return dir
 }
@@ -266,20 +266,20 @@ describe('ExtensionHost — panels', () => {
   })
 })
 
-describe('ExtensionHost — workflows', () => {
-  it('offers contributed workflows only from enabled, approved extensions', () => {
+describe('ExtensionHost — snippets', () => {
+  it('offers contributed snippets only from enabled, approved extensions', () => {
     const flow = { name: 'Deploy', command: 'make deploy ENV={{env}}' }
-    writeExt(join(base, 'builtin'), 'ops', { contributes: { workflows: [flow] } })
-    writeExt(join(base, 'user'), 'mine', { contributes: { workflows: [flow] } })
+    writeExt(join(base, 'builtin'), 'ops', { contributes: { snippets: [flow] } })
+    writeExt(join(base, 'user'), 'mine', { contributes: { snippets: [flow] } })
     const { host } = makeHost()
-    expect(host.workflows().map((w) => w.extId)).toEqual(['ops'])
-    expect(host.workflows()[0].workflows[0]).toMatchObject({ name: 'Deploy', tags: [] })
+    expect(host.snippets().map((w) => w.extId)).toEqual(['ops'])
+    expect(host.snippets()[0].snippets[0]).toMatchObject({ name: 'Deploy', tags: [] })
 
     host.approve('mine')
-    expect(host.workflows().map((w) => w.extId)).toEqual(['ops', 'mine'])
+    expect(host.snippets().map((w) => w.extId)).toEqual(['ops', 'mine'])
 
     host.setEnabled('ops', false)
-    expect(host.workflows().map((w) => w.extId)).toEqual(['mine'])
+    expect(host.snippets().map((w) => w.extId)).toEqual(['mine'])
   })
 })
 

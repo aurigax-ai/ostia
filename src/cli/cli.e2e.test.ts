@@ -39,9 +39,9 @@ import { registerPaneResumeMethods } from '../main/panes/paneResume'
 import { registerSandboxMethods } from '../main/sandbox/controlMethods'
 import { DomainRequests } from '../main/sandbox/domainRequests'
 import { PortRequests } from '../main/sandbox/portRequests'
+import { registerSnippetMethods, workspaceSnippetsDir } from '../main/workspaces/snippets'
 import { ViewHost, ViewStore } from '../main/workspaces/viewHost'
 import { registerViewMethods } from '../main/workspaces/viewsIpc'
-import { registerWorkflowMethods, workspaceWorkflowsDir } from '../main/workspaces/workflows'
 import { setWorkspaceWorkDir, windowForWorkspace } from '../main/workspaces/workspaceRegistry'
 import { managerAgents, parseManagerSettings } from '../shared/agents/managerSettings'
 import {
@@ -914,16 +914,16 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     })
   })
 
-  describe('ostia workflow', () => {
+  describe('ostia snippet', () => {
     const env = () => withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token })
     let dir: string
 
     beforeAll(() => {
-      dir = mkdtempSync(join(tmpdir(), 'ostia-cli-workflows-'))
+      dir = mkdtempSync(join(tmpdir(), 'ostia-cli-snippets-'))
       const userDir = join(dir, 'user')
       const workDir = join(dir, 'project')
       mkdirSync(userDir, { recursive: true })
-      mkdirSync(workspaceWorkflowsDir(workDir), { recursive: true })
+      mkdirSync(workspaceSnippetsDir(workDir), { recursive: true })
       writeFileSync(
         join(userDir, 'logs.yaml'),
         [
@@ -940,17 +940,17 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       )
       writeFileSync(join(userDir, 'broken.yaml'), 'name: nothing to run\n')
       writeFileSync(
-        join(workspaceWorkflowsDir(workDir), 'test.yml'),
+        join(workspaceSnippetsDir(workDir), 'test.yml'),
         'name: Test\ncommand: pnpm test\n',
       )
-      registerWorkflowMethods({
+      registerSnippetMethods({
         userDir,
         roots: () => [dir],
         workDirForWorkspace: (id) => (id === 's1' ? workDir : undefined),
-        extensionWorkflows: () => [
+        extensionSnippets: () => [
           {
             extId: 'ops',
-            workflows: [{ name: 'Deploy', command: 'make deploy', tags: [], arguments: [] }],
+            snippets: [{ name: 'Deploy', command: 'make deploy', tags: [], arguments: [] }],
           },
         ],
       })
@@ -960,8 +960,8 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       rmSync(dir, { recursive: true, force: true })
     })
 
-    it('lists the caller workspace, user and extension workflows, reporting unreadable files', async () => {
-      const res = await runOstia(['workflow', 'list'], env())
+    it('lists the caller workspace, user and extension snippets, reporting unreadable files', async () => {
+      const res = await runOstia(['snippet', 'list'], env())
       expect(res.code).toBe(0)
       expect(res.stdout.trim().split('\n')).toEqual([
         'Test\tworkspace:test.yml\tpnpm test',
@@ -970,16 +970,16 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       ])
       expect(res.stderr).toContain("couldn't read user:broken.yaml: missing command")
 
-      const json = await runOstia(['workflow', 'list', '--json'], env())
+      const json = await runOstia(['snippet', 'list', '--json'], env())
       const listing = JSON.parse(json.stdout)
-      expect(listing.workflows).toHaveLength(3)
+      expect(listing.snippets).toHaveLength(3)
       expect(listing.problems).toEqual([
         { source: 'user', origin: 'broken.yaml', error: 'missing command' },
       ])
     })
 
-    it('shows one workflow by name', async () => {
-      const res = await runOstia(['workflow', 'show', 'Follow', 'logs'], env())
+    it('shows one snippet by name', async () => {
+      const res = await runOstia(['snippet', 'show', 'Follow', 'logs'], env())
       expect(res.code).toBe(0)
       expect(res.stdout.trim().split('\n')).toEqual([
         'name: Follow logs',
@@ -991,7 +991,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         '  app — Deployment name (default: api)',
       ])
 
-      const json = await runOstia(['workflow', 'show', 'Deploy', '--json'], env())
+      const json = await runOstia(['snippet', 'show', 'Deploy', '--json'], env())
       expect(JSON.parse(json.stdout)).toEqual([
         {
           name: 'Deploy',
@@ -1005,13 +1005,13 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     })
 
     it('fails on an unknown name or a missing subcommand, and has no run verb', async () => {
-      const missing = await runOstia(['workflow', 'show', 'Nope'], env())
+      const missing = await runOstia(['snippet', 'show', 'Nope'], env())
       expect(missing.code).toBe(1)
-      expect(missing.stderr).toContain("no workflow named 'Nope'")
+      expect(missing.stderr).toContain("no snippet named 'Nope'")
 
-      const run = await runOstia(['workflow', 'run', 'Deploy'], env())
+      const run = await runOstia(['snippet', 'run', 'Deploy'], env())
       expect(run.code).toBe(1)
-      expect(run.stderr).toContain('usage: workflow list')
+      expect(run.stderr).toContain('usage: snippet list')
       expect(execCalls).toEqual([])
     })
   })

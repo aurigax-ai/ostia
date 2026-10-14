@@ -103,12 +103,12 @@ const CLI_HELP = `ostia — control-socket CLI
                                  Stop, SubagentStart and SubagentStop also tell Ostia about
                                  running subagents, background tasks and scheduled wake-ups,
                                  so the pane is not hibernated while they run
-  ostia workflow list [--json]   saved command workflows this pane can use: this workspace's
-                                 .ostia/workflows, the user's workflows
+  ostia snippet list [--json]    saved commands this pane can use: this workspace's
+                                 .ostia/snippets, the user's snippets
                                  folder and extensions;
-                                 --json prints {workflows,problems}
-  ostia workflow show <name> [--json]
-                                 one workflow's command, arguments and defaults (read-only;
+                                 --json prints {snippets,problems}
+  ostia snippet show <name> [--json]
+                                 one snippet's command, arguments and defaults (read-only;
                                  fill the {{placeholders}} and run the command yourself)
   ostia git status | changes     branch, upstream and change counts of the repository of your
                                  folder; changes adds the changed files (JSON)

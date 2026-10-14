@@ -13,7 +13,7 @@ import { PROGRAM_SETTINGS } from '../../shared/permissions/programSettings'
 import { SPEC_COMMAND_PATTERN, SPEC_FILE_MAX_BYTES } from '../../shared/terminal/completionSpec'
 import { VIEW_FILES_MAX, VIEW_FILE_MAX_BYTES, VIEW_NAME } from '../../shared/views/views'
 import { normalizeMarketplaceUrl } from '../extensions/marketplace'
-import { WORKFLOW_FILES_MAX, WORKFLOW_FILE_MAX_BYTES } from '../workspaces/workflows'
+import { SNIPPET_FILES_MAX, SNIPPET_FILE_MAX_BYTES } from '../workspaces/snippets'
 
 export type JsonObject = Record<string, unknown>
 
@@ -51,10 +51,10 @@ const stemOf = (file: string, ext: string): string | null =>
 
 export const PROFILE_FOLDERS: readonly ProfileFolder[] = [
   {
-    name: 'workflows',
+    name: 'snippets',
     accepts: (file) => /^[A-Za-z0-9][A-Za-z0-9._ -]*\.ya?ml$/i.test(file),
-    maxBytes: WORKFLOW_FILE_MAX_BYTES,
-    maxFiles: WORKFLOW_FILES_MAX,
+    maxBytes: SNIPPET_FILE_MAX_BYTES,
+    maxFiles: SNIPPET_FILES_MAX,
   },
   {
     name: 'completions',

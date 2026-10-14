@@ -565,14 +565,14 @@
       "specs": ["e2e/views.spec.ts"]
     },
     {
-      "name": "workflows",
+      "name": "snippets",
       "paths": [
-        "src/main/workspaces/workflows.ts",
-        "src/shared/workflows.ts",
-        "src/renderer/components/palette/WorkflowPicker.tsx",
-        "src/renderer/components/palette/SaveWorkflowDialog.tsx",
-        "src/renderer/lib/palette/workflows.ts",
-        "src/renderer/stores/terminal/workflowsStore.ts"
+        "src/main/workspaces/snippets.ts",
+        "src/shared/snippets.ts",
+        "src/renderer/components/palette/SnippetPicker.tsx",
+        "src/renderer/components/palette/SaveSnippetDialog.tsx",
+        "src/renderer/lib/palette/snippets.ts",
+        "src/renderer/stores/terminal/snippetsStore.ts"
       ],
       "specs": ["e2e/workflows.spec.ts"]
     },

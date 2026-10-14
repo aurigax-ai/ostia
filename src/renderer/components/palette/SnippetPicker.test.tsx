@@ -3,14 +3,14 @@ import { commands } from '@/commands/registry'
 import { allPanes } from '@/layout/tree'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
+import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { WorkflowEntry, WorkflowListing } from '@shared/workflows'
+import type { SnippetEntry, SnippetListing } from '@shared/snippets'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { WorkflowPicker } from './WorkflowPicker'
+import { SnippetPicker } from './SnippetPicker'
 
 const actions = vi.hoisted(() => ({
   insertCommand: vi.fn().mockReturnValue(true),
@@ -22,8 +22,8 @@ vi.mock('@/lib/terminal/blockActions', async (importOriginal) => ({
   ...actions,
 }))
 
-function entry(partial: Partial<WorkflowEntry> & Pick<WorkflowEntry, 'name' | 'command'>) {
-  return { tags: [], arguments: [], source: 'user', origin: 'x.yaml', ...partial } as WorkflowEntry
+function entry(partial: Partial<SnippetEntry> & Pick<SnippetEntry, 'name' | 'command'>) {
+  return { tags: [], arguments: [], source: 'user', origin: 'x.yaml', ...partial } as SnippetEntry
 }
 
 const CLONE = entry({
@@ -40,26 +40,26 @@ const CLONE = entry({
 
 const DISK = entry({ name: 'Disk usage', command: 'du -sh .', tags: ['fs'], source: 'workspace' })
 
-const LISTING: WorkflowListing = {
-  workflows: [CLONE, DISK],
+const LISTING: SnippetListing = {
+  snippets: [CLONE, DISK],
   problems: [{ source: 'user', origin: 'broken.yaml', error: 'missing command' }],
 }
 
-describe('WorkflowPicker', () => {
+describe('SnippetPicker', () => {
   let blocksInit: ReturnType<typeof useBlocksStore.getState>
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
   let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
-  let workflowsInit: ReturnType<typeof useWorkflowsStore.getState>
+  let snippetsInit: ReturnType<typeof useSnippetsStore.getState>
   let paneId: string
   let workspaceId: string
   const writeText = vi.fn().mockResolvedValue(undefined)
 
   beforeAll(() => {
-    if (!commands.has('workflows.search')) registerBuiltinCommands()
+    if (!commands.has('snippets.search')) registerBuiltinCommands()
     blocksInit = useBlocksStore.getState()
     layoutInit = useLayoutStore.getState()
     workspacesInit = useWorkspacesStore.getState()
-    workflowsInit = useWorkflowsStore.getState()
+    snippetsInit = useSnippetsStore.getState()
   })
 
   beforeEach(() => {
@@ -69,7 +69,7 @@ describe('WorkflowPicker', () => {
     const root = useLayoutStore.getState().byWorkspace[workspaceId]?.root
     if (!root) throw new Error('no layout')
     paneId = allPanes(root)[0].id
-    vi.mocked(window.ostia.workflows.list).mockResolvedValue(LISTING)
+    vi.mocked(window.ostia.snippets.list).mockResolvedValue(LISTING)
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
   })
 
@@ -78,23 +78,23 @@ describe('WorkflowPicker', () => {
     useBlocksStore.setState(blocksInit, true)
     useLayoutStore.setState(layoutInit, true)
     useWorkspacesStore.setState(workspacesInit, true)
-    useWorkflowsStore.setState(workflowsInit, true)
+    useSnippetsStore.setState(snippetsInit, true)
     actions.insertCommand.mockClear().mockReturnValue(true)
     actions.canTypeInto.mockClear().mockReturnValue(true)
     writeText.mockClear()
   })
 
   const openPicker = async (): Promise<void> => {
-    render(<WorkflowPicker />)
+    render(<SnippetPicker />)
     await act(async () => {
-      await commands.exec('workflows.search')
+      await commands.exec('snippets.search')
     })
   }
 
-  it('lists the workflows main found for the active workspace, with unreadable files', async () => {
+  it('lists the snippets main found for the active workspace, with unreadable files', async () => {
     await openPicker()
 
-    expect(window.ostia.workflows.list).toHaveBeenCalledWith(workspaceId)
+    expect(window.ostia.snippets.list).toHaveBeenCalledWith(workspaceId)
     expect(await screen.findByText('Clone a repository')).toBeInTheDocument()
     expect(screen.getByText('Disk usage')).toBeInTheDocument()
     expect(screen.getByText('Yours · clone.yaml')).toBeInTheDocument()
@@ -102,9 +102,9 @@ describe('WorkflowPicker', () => {
     expect(screen.getByText('missing command')).toBeInTheDocument()
   })
 
-  it('finds a workflow by tag, description or command text', async () => {
+  it('finds a snippet by tag, description or command text', async () => {
     await openPicker()
-    const input = await screen.findByPlaceholderText('Search workflows by name, tag or command…')
+    const input = await screen.findByPlaceholderText('Search snippets by name, tag or command…')
 
     await userEvent.type(input, 'du -sh')
     expect(screen.queryByText('Clone a repository')).not.toBeInTheDocument()
@@ -138,15 +138,15 @@ describe('WorkflowPicker', () => {
     expect(dir).toHaveFocus()
     const preview = screen.getByLabelText('Command')
     expect(preview).toHaveTextContent('git clone https://x/y.git src')
-    expect(preview.querySelectorAll('.workflow-arg')).toHaveLength(2)
+    expect(preview.querySelectorAll('.snippet-arg')).toHaveLength(2)
 
     await userEvent.click(screen.getByRole('button', { name: 'Insert' }))
 
     expect(actions.insertCommand).toHaveBeenCalledWith(paneId, 'git clone https://x/y.git src')
-    expect(useWorkflowsStore.getState().pickerOpen).toBe(false)
+    expect(useSnippetsStore.getState().pickerOpen).toBe(false)
   })
 
-  it('fills the arguments of a picked workflow and pastes it without running', async () => {
+  it('fills the arguments of a picked snippet and pastes it without running', async () => {
     const real = await vi.importActual<typeof import('@/lib/terminal/blockActions')>(
       '@/lib/terminal/blockActions',
     )
@@ -158,7 +158,7 @@ describe('WorkflowPicker', () => {
     useBlocksStore.getState().promptEnd(paneId, { line: 0 })
     await openPicker()
     await userEvent.type(
-      await screen.findByPlaceholderText('Search workflows by name, tag or command…'),
+      await screen.findByPlaceholderText('Search snippets by name, tag or command…'),
       'git',
     )
     await userEvent.click(screen.getByText('Clone a repository'))
@@ -207,7 +207,7 @@ describe('WorkflowPicker', () => {
     expect(await screen.findByRole('button', { name: 'Copy to clipboard' })).toBeInTheDocument()
   })
 
-  it('inserts a workflow without arguments straight away', async () => {
+  it('inserts a snippet without arguments straight away', async () => {
     await openPicker()
     await userEvent.click(await screen.findByText('Disk usage'))
 
@@ -224,13 +224,13 @@ describe('WorkflowPicker', () => {
     expect(await screen.findByText('Disk usage')).toBeInTheDocument()
   })
 
-  it('explains how to add workflows when there are none', async () => {
-    vi.mocked(window.ostia.workflows.list).mockResolvedValue({ workflows: [], problems: [] })
+  it('explains how to add snippets when there are none', async () => {
+    vi.mocked(window.ostia.snippets.list).mockResolvedValue({ snippets: [], problems: [] })
     await openPicker()
 
     expect(
       await screen.findByText(
-        'No workflows yet. Save a command from a block’s menu or from command history.',
+        'No snippets yet. Save a command from a block’s menu or from command history.',
       ),
     ).toBeInTheDocument()
   })

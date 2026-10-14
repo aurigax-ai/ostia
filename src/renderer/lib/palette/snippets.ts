@@ -1,16 +1,16 @@
 import { insertCommand } from '@/lib/terminal/blockActions'
-import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
+import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 
 export type Delivery = 'inserted' | 'copied'
 
 const SUGGESTED_NAME_MAX = 60
 
-export async function openWorkflowPicker(
+export async function openSnippetPicker(
   workspaceId: string | null,
   targetPaneId: string | null,
 ): Promise<void> {
-  const listing = await window.ostia.workflows.list(workspaceId)
-  useWorkflowsStore.getState().showPicker(listing, targetPaneId)
+  const listing = await window.ostia.snippets.list(workspaceId)
+  useSnippetsStore.getState().showPicker(listing, targetPaneId)
 }
 
 export async function deliverCommand(paneId: string | null, command: string): Promise<Delivery> {

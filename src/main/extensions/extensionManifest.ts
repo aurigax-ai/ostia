@@ -49,14 +49,14 @@ import {
 } from '../../shared/keymap'
 import { LANGUAGE_ID_PATTERN, type LanguageContribution } from '../../shared/languagePack'
 import { parseLanguageServers } from '../../shared/languageServers'
-import { type Workflow, parseWorkflow } from '../../shared/workflows'
+import { type Snippet, parseSnippet } from '../../shared/snippets'
 import { isInsideDir } from '../platform/pathGuard'
 
 export const EXTENSION_ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/
 export const COMMAND_ID_PATTERN = /^[a-z][a-z0-9-]{0,39}$/
 export const KEYMAP_ID_PATTERN = new RegExp(COMMAND_ID_PATTERN)
 export const MAX_COMMANDS = 64
-export const MAX_WORKFLOWS = 64
+export const MAX_SNIPPETS = 64
 export const MAX_TEXT = 200
 export const MAX_DESCRIPTION = 500
 export const MAX_CHIPS = 8
@@ -441,18 +441,18 @@ function parseLocales(raw: unknown): string[] | string {
   return locales
 }
 
-function parseWorkflows(raw: unknown): Workflow[] | string | undefined {
+function parseSnippets(raw: unknown): Snippet[] | string | undefined {
   if (raw === undefined) return undefined
-  if (!Array.isArray(raw) || raw.length > MAX_WORKFLOWS) {
-    return `contributes.workflows must be an array of at most ${MAX_WORKFLOWS}`
+  if (!Array.isArray(raw) || raw.length > MAX_SNIPPETS) {
+    return `contributes.snippets must be an array of at most ${MAX_SNIPPETS}`
   }
-  const workflows: Workflow[] = []
+  const snippets: Snippet[] = []
   for (const [i, item] of raw.entries()) {
-    const workflow = parseWorkflow(item)
-    if (workflow instanceof Error) return `contributes.workflows[${i}]: ${workflow.message}`
-    workflows.push(workflow)
+    const snippet = parseSnippet(item)
+    if (snippet instanceof Error) return `contributes.snippets[${i}]: ${snippet.message}`
+    snippets.push(snippet)
   }
-  return workflows
+  return snippets
 }
 
 function parseAgentSkills(raw: unknown, dir: string): AgentSkillContribution[] | string {
@@ -564,8 +564,8 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   }
   const panel = parsePanel(contributes.panel, dir)
   if (typeof panel === 'string') return { ok: false, error: panel }
-  const workflows = parseWorkflows(contributes.workflows)
-  if (typeof workflows === 'string') return { ok: false, error: workflows }
+  const snippets = parseSnippets(contributes.snippets)
+  if (typeof snippets === 'string') return { ok: false, error: snippets }
   const completions = contributes.completions
   if (
     completions !== undefined &&
@@ -653,7 +653,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (locales.length > 0) manifest.locales = locales
   if (panel) manifest.contributes.panel = panel
   if (settingsPage) manifest.contributes.settingsPage = settingsPage
-  if (workflows && workflows.length > 0) manifest.contributes.workflows = workflows
+  if (snippets && snippets.length > 0) manifest.contributes.snippets = snippets
   if (completions !== undefined) manifest.contributes.completions = completions
   if (iconThemes.length > 0) manifest.contributes.iconThemes = iconThemes
   if (languages.length > 0) manifest.contributes.languages = languages

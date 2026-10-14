@@ -10,8 +10,8 @@ import {
   MAX_ICON_THEMES,
   MAX_KEYMAPS,
   MAX_LANGUAGES,
+  MAX_SNIPPETS,
   MAX_TEXT,
-  MAX_WORKFLOWS,
   SETTING_KEY_PATTERN,
 } from '../../main/extensions/extensionManifest'
 import {
@@ -231,7 +231,7 @@ const contributes = z.looseObject({
     .optional(),
   secrets: z.record(settingKey, secret).optional(),
   assist: z.array(z.enum(ASSIST_POINTS)).optional(),
-  workflows: z.array(z.looseObject({})).max(MAX_WORKFLOWS).optional(),
+  snippets: z.array(z.looseObject({})).max(MAX_SNIPPETS).optional(),
   completions: z.string().min(1).optional(),
   iconThemes: z
     .array(

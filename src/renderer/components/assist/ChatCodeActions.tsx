@@ -23,7 +23,7 @@ import {
 } from '@/lib/assist/chatActions'
 import { confirmsGeneratedText } from '@/lib/keys/pasteGate'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
+import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
@@ -105,8 +105,8 @@ export function ChatCodeActions(props: CodeActionsProps): JSX.Element {
       {shell ? (
         <IconButton
           icon={BookmarkSimpleIcon}
-          label={d.chatActions.saveWorkflow}
-          onClick={() => useWorkflowsStore.getState().startSave(code.trim())}
+          label={d.chatActions.saveSnippet}
+          onClick={() => useSnippetsStore.getState().startSave(code.trim())}
         />
       ) : null}
     </>

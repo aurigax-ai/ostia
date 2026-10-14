@@ -9,7 +9,7 @@ import { isIdlePrompt } from '@/lib/terminal/blocks'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { useAssistProvider } from '@/stores/assist/assistStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
+import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import {
   ArrowClockwiseIcon,
   BookmarkSimpleIcon,
@@ -114,9 +114,9 @@ export function BlockMenu({
         <MenuItem
           icon={BookmarkSimpleIcon}
           disabled={!command}
-          onClick={() => useWorkflowsStore.getState().startSave(command ?? null)}
+          onClick={() => useSnippetsStore.getState().startSave(command ?? null)}
         >
-          {d.blocks.saveAsWorkflow}
+          {d.blocks.saveAsSnippet}
         </MenuItem>
       </MenuContent>
     </ContextMenu>

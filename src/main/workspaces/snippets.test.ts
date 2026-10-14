@@ -14,14 +14,14 @@ import { ipcMain } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { parse } from 'yaml'
 import {
-  WORKFLOW_FILE_MAX_BYTES,
-  loadWorkflows,
-  parseWorkflowFile,
-  readWorkflowDir,
-  registerWorkflowIpc,
-  saveWorkflow,
-  workspaceWorkflowsDir,
-} from './workflows'
+  SNIPPET_FILE_MAX_BYTES,
+  loadSnippets,
+  parseSnippetFile,
+  readSnippetDir,
+  registerSnippetIpc,
+  saveSnippet,
+  workspaceSnippetsDir,
+} from './snippets'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
 
@@ -30,11 +30,11 @@ let userDir: string
 let workDir: string
 
 beforeEach(() => {
-  base = mkdtempSync(join(tmpdir(), 'ostia-workflows-'))
-  userDir = join(base, 'config', 'ostia', 'workflows')
+  base = mkdtempSync(join(tmpdir(), 'ostia-snippets-'))
+  userDir = join(base, 'config', 'ostia', 'snippets')
   workDir = join(base, 'project')
   mkdirSync(userDir, { recursive: true })
-  mkdirSync(workspaceWorkflowsDir(workDir), { recursive: true })
+  mkdirSync(workspaceSnippetsDir(workDir), { recursive: true })
 })
 
 afterEach(() => {
@@ -52,40 +52,40 @@ arguments:
     default_value: src
 `
 
-describe('parseWorkflowFile', () => {
-  it('reads one workflow, a list, or several YAML documents', () => {
-    expect(parseWorkflowFile(CLONE)).toMatchObject([
+describe('parseSnippetFile', () => {
+  it('reads one snippet, a list, or several YAML documents', () => {
+    expect(parseSnippetFile(CLONE)).toMatchObject([
       {
         name: 'Clone a repository',
         arguments: [{ name: 'url' }, { name: 'dir', defaultValue: 'src' }],
       },
     ])
-    expect(parseWorkflowFile('- {name: a, command: ls}\n- {name: b, command: pwd}\n')).toHaveLength(
+    expect(parseSnippetFile('- {name: a, command: ls}\n- {name: b, command: pwd}\n')).toHaveLength(
       2,
     )
-    expect(parseWorkflowFile('name: a\ncommand: ls\n---\nname: b\ncommand: pwd\n')).toHaveLength(2)
+    expect(parseSnippetFile('name: a\ncommand: ls\n---\nname: b\ncommand: pwd\n')).toHaveLength(2)
   })
 
-  it('reports YAML syntax errors and invalid workflows', () => {
-    expect(parseWorkflowFile('name: [unclosed\n')).toBeInstanceOf(Error)
-    expect((parseWorkflowFile('- {name: a, command: ls}\n- {name: b}\n') as Error).message).toBe(
+  it('reports YAML syntax errors and invalid snippets', () => {
+    expect(parseSnippetFile('name: [unclosed\n')).toBeInstanceOf(Error)
+    expect((parseSnippetFile('- {name: a, command: ls}\n- {name: b}\n') as Error).message).toBe(
       'item 2: missing command',
     )
   })
 
   it('refuses YAML aliases', () => {
-    expect(parseWorkflowFile('a: &x ls\nname: n\ncommand: *x\n')).toBeInstanceOf(Error)
+    expect(parseSnippetFile('a: &x ls\nname: n\ncommand: *x\n')).toBeInstanceOf(Error)
   })
 })
 
-describe('readWorkflowDir', () => {
+describe('readSnippetDir', () => {
   it('reads .yaml and .yml files and names each by its file', () => {
     writeFileSync(join(userDir, 'clone.yaml'), CLONE)
     writeFileSync(join(userDir, 'list.yml'), 'name: List\ncommand: ls -la\n')
     writeFileSync(join(userDir, 'notes.txt'), 'name: nope\ncommand: nope\n')
-    const listing = readWorkflowDir(userDir, 'user')
+    const listing = readSnippetDir(userDir, 'user')
     expect(listing.problems).toEqual([])
-    expect(listing.workflows.map((w) => [w.name, w.origin, w.source])).toEqual([
+    expect(listing.snippets.map((w) => [w.name, w.origin, w.source])).toEqual([
       ['Clone a repository', 'clone.yaml', 'user'],
       ['List', 'list.yml', 'user'],
     ])
@@ -94,8 +94,8 @@ describe('readWorkflowDir', () => {
   it('reports a broken file as a problem and still reads the others', () => {
     writeFileSync(join(userDir, 'bad.yaml'), 'name: only a name\n')
     writeFileSync(join(userDir, 'good.yaml'), 'name: Good\ncommand: echo ok\n')
-    const listing = readWorkflowDir(userDir, 'user')
-    expect(listing.workflows.map((w) => w.name)).toEqual(['Good'])
+    const listing = readSnippetDir(userDir, 'user')
+    expect(listing.snippets.map((w) => w.name)).toEqual(['Good'])
     expect(listing.problems).toEqual([
       { source: 'user', origin: 'bad.yaml', error: 'missing command' },
     ])
@@ -104,67 +104,67 @@ describe('readWorkflowDir', () => {
   it('skips oversized files and symbolic links', () => {
     writeFileSync(
       join(userDir, 'big.yaml'),
-      `name: Big\ncommand: ${'x'.repeat(WORKFLOW_FILE_MAX_BYTES)}\n`,
+      `name: Big\ncommand: ${'x'.repeat(SNIPPET_FILE_MAX_BYTES)}\n`,
     )
     const outside = join(base, 'outside.yaml')
     writeFileSync(outside, 'name: Outside\ncommand: cat /etc/passwd\n')
     symlinkSync(outside, join(userDir, 'link.yaml'))
-    const listing = readWorkflowDir(userDir, 'user')
-    expect(listing.workflows).toEqual([])
+    const listing = readSnippetDir(userDir, 'user')
+    expect(listing.snippets).toEqual([])
     expect(listing.problems.map((p) => p.origin)).toEqual(['big.yaml', 'link.yaml'])
   })
 
-  it('does not follow a symlinked workflows folder', () => {
+  it('does not follow a symlinked snippets folder', () => {
     const real = join(base, 'elsewhere')
     mkdirSync(real)
     writeFileSync(join(real, 'x.yaml'), 'name: X\ncommand: ls\n')
     const linked = join(base, 'linked')
     symlinkSync(real, linked)
-    expect(readWorkflowDir(linked, 'user').workflows).toEqual([])
+    expect(readSnippetDir(linked, 'user').snippets).toEqual([])
   })
 
   it('returns nothing for a missing folder', () => {
-    expect(readWorkflowDir(join(base, 'missing'), 'user')).toEqual({ workflows: [], problems: [] })
+    expect(readSnippetDir(join(base, 'missing'), 'user')).toEqual({ snippets: [], problems: [] })
   })
 })
 
-describe('loadWorkflows', () => {
-  it('lists workspace, user, then extension workflows', () => {
+describe('loadSnippets', () => {
+  it('lists workspace, user, then extension snippets', () => {
     writeFileSync(
-      join(workspaceWorkflowsDir(workDir), 'test.yaml'),
+      join(workspaceSnippetsDir(workDir), 'test.yaml'),
       'name: Test\ncommand: pnpm test\n',
     )
     writeFileSync(join(userDir, 'clone.yaml'), CLONE)
-    const listing = loadWorkflows({
+    const listing = loadSnippets({
       userDir,
       workDir,
       extensions: [
         {
           extId: 'ops',
-          workflows: [{ name: 'Deploy', command: 'make deploy', tags: [], arguments: [] }],
+          snippets: [{ name: 'Deploy', command: 'make deploy', tags: [], arguments: [] }],
         },
       ],
     })
-    expect(listing.workflows.map((w) => [w.source, w.origin, w.name])).toEqual([
+    expect(listing.snippets.map((w) => [w.source, w.origin, w.name])).toEqual([
       ['workspace', 'test.yaml', 'Test'],
       ['user', 'clone.yaml', 'Clone a repository'],
       ['extension', 'ops', 'Deploy'],
     ])
   })
 
-  it('reads only user and extension workflows without a workspace', () => {
+  it('reads only user and extension snippets without a workspace', () => {
     writeFileSync(
-      join(workspaceWorkflowsDir(workDir), 'test.yaml'),
+      join(workspaceSnippetsDir(workDir), 'test.yaml'),
       'name: Test\ncommand: pnpm test\n',
     )
-    expect(loadWorkflows({ userDir, extensions: [] }).workflows).toEqual([])
+    expect(loadSnippets({ userDir, extensions: [] }).snippets).toEqual([])
   })
 })
 
-describe('saveWorkflow', () => {
-  it('writes a Warp-format YAML file named after the workflow, private to the user', () => {
-    const fresh = join(base, 'fresh', 'workflows')
-    const res = saveWorkflow(fresh, {
+describe('saveSnippet', () => {
+  it('writes a Warp-format YAML file named after the snippet, private to the user', () => {
+    const fresh = join(base, 'fresh', 'snippets')
+    const res = saveSnippet(fresh, {
       name: 'Tail a log',
       command: 'tail -f {{file}}',
       arguments: [{ name: 'file', default_value: 'app.log' }],
@@ -177,12 +177,12 @@ describe('saveWorkflow', () => {
       arguments: [{ name: 'file', default_value: 'app.log' }],
     })
     expect(statSync(path).mode & 0o777).toBe(0o600)
-    expect(readWorkflowDir(fresh, 'user').workflows[0]).toMatchObject({ name: 'Tail a log' })
+    expect(readSnippetDir(fresh, 'user').snippets[0]).toMatchObject({ name: 'Tail a log' })
   })
 
   it('never overwrites an existing file', () => {
     writeFileSync(join(userDir, 'build.yaml'), 'name: Mine\ncommand: make\n')
-    expect(saveWorkflow(userDir, { name: 'Build', command: 'make all' })).toEqual({
+    expect(saveSnippet(userDir, { name: 'Build', command: 'make all' })).toEqual({
       ok: true,
       file: 'build-2.yaml',
     })
@@ -190,19 +190,19 @@ describe('saveWorkflow', () => {
     expect(readdirSync(userDir).sort()).toEqual(['build-2.yaml', 'build.yaml'])
   })
 
-  it('keeps the file inside the workflows folder whatever the name', () => {
-    const res = saveWorkflow(userDir, { name: '../../../evil', command: 'ls' })
+  it('keeps the file inside the snippets folder whatever the name', () => {
+    const res = saveSnippet(userDir, { name: '../../../evil', command: 'ls' })
     expect(res).toEqual({ ok: true, file: 'evil.yaml' })
     expect(readdirSync(userDir)).toEqual(['evil.yaml'])
   })
 
-  it('saves a workflow from the dialog next to the existing ones and lists it', () => {
+  it('saves a snippet from the dialog next to the existing ones and lists it', () => {
     writeFileSync(join(userDir, 'greet.yaml'), 'name: Greet someone\ncommand: echo hi\n')
-    registerWorkflowIpc({
+    registerSnippetIpc({
       userDir,
       roots: () => [base],
       workDirForWorkspace: () => undefined,
-      extensionWorkflows: () => [],
+      extensionSnippets: () => [],
     })
     const handler = (channel: string) =>
       vi.mocked(ipcMain.handle).mock.calls.find(([c]) => c === channel)?.[1] as (
@@ -211,7 +211,7 @@ describe('saveWorkflow', () => {
       ) => unknown
 
     expect(
-      handler('workflows:save')(null, {
+      handler('snippets:save')(null, {
         name: 'Greet again',
         command: 'echo again_{{name}}',
         arguments: [{ name: 'name', default_value: 'ostia' }],
@@ -222,14 +222,14 @@ describe('saveWorkflow', () => {
       'name: Greet again\ncommand: echo again_{{name}}\narguments:\n  - name: name\n    default_value: ostia\n',
     )
     expect(
-      (handler('workflows:list')(null, null) as ReturnType<typeof loadWorkflows>).workflows.map(
+      (handler('snippets:list')(null, null) as ReturnType<typeof loadSnippets>).snippets.map(
         (w) => w.name,
       ),
     ).toEqual(['Greet again', 'Greet someone'])
   })
 
-  it('refuses an invalid workflow', () => {
-    expect(saveWorkflow(userDir, { name: 'x' })).toEqual({ ok: false, error: 'missing command' })
+  it('refuses an invalid snippet', () => {
+    expect(saveSnippet(userDir, { name: 'x' })).toEqual({ ok: false, error: 'missing command' })
     expect(readdirSync(userDir)).toEqual([])
   })
 })

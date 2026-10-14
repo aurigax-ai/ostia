@@ -8,7 +8,7 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useAssistStore } from '@/stores/assist/assistStore'
 import { resetChats, useChatStore } from '@/stores/assist/chatStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
+import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { AssistChunk } from '@shared/assist'
@@ -179,7 +179,7 @@ describe('chat actions', () => {
     useSettingsStore.setState(settingsInit, true)
     useBlocksStore.setState(blocksInit, true)
     useAssistStore.setState({ availability: {}, overview: [] })
-    useWorkflowsStore.setState({ saveCommand: null })
+    useSnippetsStore.setState({ saveCommand: null })
     useWorkspacesStore.setState({ workspaces: [], activeWorkspaceId: null })
     useLayoutStore.setState({ byWorkspace: {} })
     vi.mocked(window.ostia.assist.request).mockReset()
@@ -281,11 +281,11 @@ describe('chat actions', () => {
     await waitFor(() => expect(opened.file).toHaveBeenCalledWith('/home/u/proj/snippet.py'))
   })
 
-  it('opens Save as workflow with the block command', async () => {
+  it('opens Save as snippet with the block command', async () => {
     const answer = await askInPane('find', '```sh\nfind . -name "*.log"\n```')
-    await userEvent.click(within(answer).getByRole('button', { name: 'Save as workflow…' }))
+    await userEvent.click(within(answer).getByRole('button', { name: 'Save as snippet…' }))
 
-    expect(useWorkflowsStore.getState().saveCommand).toBe('find . -name "*.log"')
+    expect(useSnippetsStore.getState().saveCommand).toBe('find . -name "*.log"')
   })
 
   it('opens a path in an answer in the editor at its line, against the workspace folder', async () => {
