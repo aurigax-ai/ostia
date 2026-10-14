@@ -907,6 +907,12 @@ describe('CommandPalette', () => {
     const headings = (): string[] =>
       [...document.querySelectorAll('[cmdk-group-heading]')].map((h) => h.textContent ?? '')
 
+    const requests = (kind: 'namesOnly' | 'linesOnly'): string[] =>
+      vi
+        .mocked(window.ostia.search.run)
+        .mock.calls.filter(([req]) => req[kind])
+        .map(([req]) => req.text)
+
     it('opens from its command with its own title and placeholder', async () => {
       render(<CommandPalette />)
       act(() => {
@@ -939,10 +945,13 @@ describe('CommandPalette', () => {
           'Tabs',
         ]),
       )
-      await waitFor(() =>
-        expect(window.ostia.search.run).toHaveBeenLastCalledWith(
-          expect.objectContaining({ root: '/src/zoomer', text: 'zoom', namesOnly: true }),
-        ),
+      await waitFor(() => expect(requests('linesOnly').at(-1)).toBe('zoom'))
+      expect(requests('namesOnly').at(-1)).toBe('zoom')
+      expect(window.ostia.search.run).toHaveBeenCalledWith(
+        expect.objectContaining({ root: '/src/zoomer', text: 'zoom', namesOnly: true }),
+      )
+      expect(window.ostia.search.run).toHaveBeenCalledWith(
+        expect.objectContaining({ root: '/src/zoomer', text: 'zoom', linesOnly: true }),
       )
     })
 
@@ -1073,12 +1082,6 @@ describe('CommandPalette', () => {
       vi.mocked(window.ostia.search.run).mockImplementation(async (req) => answer(req))
     }
 
-    const requests = (kind: 'namesOnly' | 'linesOnly'): string[] =>
-      vi
-        .mocked(window.ostia.search.run)
-        .mock.calls.filter(([req]) => req[kind])
-        .map(([req]) => req.text)
-
     it('opens a file at the line, or the line and column, typed after its name', async () => {
       seed()
       useUIStore.setState({ paletteOpen: true, paletteMode: 'everywhere' })
@@ -1159,12 +1162,15 @@ describe('CommandPalette', () => {
       useUIStore.setState({ paletteOpen: true, paletteMode: 'everywhere' })
       render(<CommandPalette />)
       const input = await screen.findByRole('combobox')
+      const typeAtOnce = (...values: string[]): void => {
+        for (const value of values) fireEvent.change(input, { target: { value } })
+      }
 
-      await userEvent.type(input, 'need')
+      typeAtOnce('ne', 'nee', 'need')
       await waitFor(() => expect(pending).toHaveLength(1))
       expect(requests('linesOnly')).toEqual(['need'])
 
-      await userEvent.type(input, 'le')
+      typeAtOnce('needl', 'needle')
       await waitFor(() => expect(pending).toHaveLength(2))
       expect(requests('linesOnly')).toEqual(['need', 'needle'])
 
