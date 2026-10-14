@@ -15,7 +15,8 @@ import type { ExtensionInfo } from '@shared/extensions'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { ChordRecorder, KeyboardSection } from './KeyboardSection'
+import { ChordRecorder } from './ChordRecorder'
+import { KeyboardSection } from './KeyboardSection'
 
 const initialSettings = useSettingsStore.getState()
 const initialPlugins = usePluginsStore.getState()
@@ -235,6 +236,54 @@ describe('KeyboardSection', () => {
     useExtensionsStore.setState(initialExtensions, true)
     useKeymapStore.setState(initialKeymap, true)
     useUIStore.setState({ paletteOpen: false })
+  })
+
+  it('filters the list to the commands bound to a pressed chord, conflicts included', async () => {
+    useSettingsStore.setState({ keybindings: { 'view.toggleRail': 'Ctrl+Shift+P' } })
+    render(<KeyboardSection />)
+    const search = screen.getByRole('textbox', { name: 'Search shortcuts' })
+    await userEvent.click(screen.getByRole('button', { name: 'Search by pressing the shortcut' }))
+
+    press('P', { code: 'KeyP', ctrlKey: true, shiftKey: true })
+
+    expect(search).not.toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Commands bound to Ctrl+Shift+P' })).toBeVisible()
+    expect(row(/Command Palette/)).toBeInTheDocument()
+    expect(row(/Toggle Sidebar/)).toBeInTheDocument()
+    expect(() => row(/Clear Terminal/)).toThrow()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Clear the shortcut search' }))
+    expect(row(/Clear Terminal/)).toBeInTheDocument()
+  })
+
+  it('leaves chord recording on Escape and never takes a key outside it', async () => {
+    render(<KeyboardSection />)
+    const record = screen.getByRole('button', { name: 'Search by pressing the shortcut' })
+    await userEvent.click(record)
+    expect(record).toHaveAttribute('aria-pressed', 'true')
+
+    press('Escape')
+    expect(record).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('textbox', { name: 'Search shortcuts' })).toHaveValue('')
+
+    const key = new KeyboardEvent('keydown', { key: 'K', ctrlKey: true, cancelable: true })
+    act(() => {
+      window.dispatchEvent(key)
+    })
+    expect(key.defaultPrevented).toBe(false)
+    expect(row(/Clear Terminal/)).toBeInTheDocument()
+  })
+
+  it('chooses whether Ctrl+click on a terminal link opens a browser tab or the system browser', async () => {
+    render(<KeyboardSection />)
+    const field = screen.getByRole('combobox', { name: 'Ctrl+Click on a terminal link opens' })
+    expect(field).toHaveTextContent('A new browser tab')
+    expect(screen.getByText('Ctrl+Shift+Click opens it in the other one.')).toBeInTheDocument()
+
+    await userEvent.click(field)
+    await userEvent.click(await screen.findByRole('option', { name: 'The system browser' }))
+
+    expect(useSettingsStore.getState().terminal.linkClick).toBe('system')
   })
 
   it('marks the chords that act only in a terminal', () => {

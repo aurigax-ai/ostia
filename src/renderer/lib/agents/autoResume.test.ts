@@ -158,7 +158,7 @@ describe('startAutoResume', () => {
     ])
   })
 
-  it('types nothing and forgets the mark when the agent folder turned out to be gone', () => {
+  it('types nothing and forgets the mark when the agent folder turned out to be gone', async () => {
     const pane = {
       ...createPane('terminal'),
       resume: { ...resume, cwd: '/w/tree' },
@@ -171,10 +171,10 @@ describe('startAutoResume', () => {
     stop = startAutoResume()
     expect(runWhenIdle).toHaveBeenCalledTimes(1)
     const guard = vi.mocked(runWhenIdle).mock.calls[0][3]
-    expect(guard?.()).toBe(true)
+    expect(await guard?.()).toBe(true)
 
     useLayoutStore.getState().settleSpawnDir('w1', pane.id, true)
-    expect(guard?.()).toBe(false)
+    expect(await guard?.()).toBe(false)
     expect(cancel).toHaveBeenCalledTimes(1)
     expect(pending(pane.id)?.resumePending).toBeUndefined()
     expect(pending(pane.id)?.resumeFolderMissing).toBe('/w/tree')
@@ -204,7 +204,7 @@ describe('startAutoResume', () => {
     expect(runWhenIdle).toHaveBeenCalledTimes(1)
   })
 
-  it('skips a restored tab whose session runs in another tab, and resumes it on activation once that agent exits', () => {
+  it('skips a restored tab whose session runs in another tab, and resumes it on activation once that agent exits', async () => {
     const holder = { ...createPane('terminal'), title: 'coordinator', resume }
     const stale = { ...createPane('terminal'), resume, resumePending: true as const }
     seed(tabsOf(stale.id, holder, stale), stale.id, false)
@@ -221,17 +221,17 @@ describe('startAutoResume', () => {
     resumeOnActivation(stale.id)
     expect(runWhenIdle).toHaveBeenCalledTimes(1)
     const [, , , allowed, giveUp] = vi.mocked(runWhenIdle).mock.calls[0]
-    expect(allowed?.()).toBe(false)
+    expect(await allowed?.()).toBe(false)
     giveUp?.()
     expect(pending(stale.id)?.resumePending).toBe(true)
 
     useBlocksStore.setState({ running: {} })
     resumeOnActivation(stale.id)
     expect(runWhenIdle).toHaveBeenCalledTimes(2)
-    expect(vi.mocked(runWhenIdle).mock.calls[1][3]?.()).toBe(true)
+    expect(await vi.mocked(runWhenIdle).mock.calls[1][3]?.()).toBe(true)
   })
 
-  it('with auto-resume on, a tab held back by another tab resumes once that tab reports a new session', () => {
+  it('with auto-resume on, a tab held back by another tab resumes once that tab reports a new session', async () => {
     const holder = { ...createPane('terminal'), title: 'coordinator', resume }
     const stale = { ...createPane('terminal'), resume, resumePending: true as const }
     seed(tabsOf(holder.id, holder, stale), holder.id, true)
@@ -247,13 +247,13 @@ describe('startAutoResume', () => {
 
     expect(runWhenIdle).toHaveBeenCalledTimes(1)
     const [, , , heldBack, giveUp] = vi.mocked(runWhenIdle).mock.calls[0]
-    expect(heldBack?.()).toBe(false)
+    expect(await heldBack?.()).toBe(false)
     giveUp?.()
 
     useLayoutStore.getState().setResume('w1', holder.id, { agent: 'claude', id: 'new-session' })
     expect(runWhenIdle).toHaveBeenCalledTimes(2)
     expect(vi.mocked(runWhenIdle).mock.calls[1][0]).toBe(stale.id)
-    expect(vi.mocked(runWhenIdle).mock.calls[1][3]?.()).toBe(true)
+    expect(await vi.mocked(runWhenIdle).mock.calls[1][3]?.()).toBe(true)
   })
 
   it('never resumes on activation a pane without the mark', () => {
@@ -392,7 +392,7 @@ describe('startAutoResume', () => {
     expect(workspacesAwaitingResume(useLayoutStore.getState().byWorkspace)).toEqual([])
   })
 
-  it('a woken agent starts in the folder its session belongs to, not the pane’s folder', () => {
+  it('a woken agent starts in the folder its session belongs to, not the pane’s folder', async () => {
     const pane = {
       ...createPane('terminal'),
       cwd: '/w',
@@ -407,7 +407,7 @@ describe('startAutoResume', () => {
 
     useLayoutStore.getState().settleSpawnDir('w1', pane.id, false)
     const typeable = vi.mocked(runWhenIdle).mock.calls[0][3]
-    expect(typeable?.()).toBe(true)
+    expect(await typeable?.()).toBe(true)
     expect(pending(pane.id)?.resumeFolderMissing).toBeUndefined()
   })
 

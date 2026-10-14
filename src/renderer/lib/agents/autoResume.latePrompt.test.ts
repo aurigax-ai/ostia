@@ -55,7 +55,10 @@ describe('startAutoResume with a late prompt', () => {
 
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.stubGlobal('ostia', { pty: { write } })
+    vi.stubGlobal('ostia', {
+      pty: { write },
+      agentSession: { claimResume: vi.fn().mockResolvedValue({ ok: true }) },
+    })
   })
 
   afterEach(() => {
@@ -71,7 +74,7 @@ describe('startAutoResume with a late prompt', () => {
     useBlocksStore.setState(init.blocks, true)
   })
 
-  it('types the resume when the prompt arrives after the idle timeout', () => {
+  it('types the resume when the prompt arrives after the idle timeout', async () => {
     const shown = agentPane()
     const background = agentPane()
     seed(shown, background)
@@ -80,6 +83,7 @@ describe('startAutoResume with a late prompt', () => {
     vi.advanceTimersByTime(RUN_WHEN_IDLE_TIMEOUT_MS * 2)
     const paste = shellStarts(background.id)
     promptArrives(background.id)
+    await vi.advanceTimersByTimeAsync(0)
 
     expect(paste).toHaveBeenCalledWith('claude --resume late-1')
     expect(write).toHaveBeenCalledWith(background.id, '\r')

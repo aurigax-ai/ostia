@@ -1,8 +1,9 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useDict } from '@/i18n/useDict'
-import type { LinkKind } from '@/lib/terminal/linkModifier'
+import { type LinkKind, webLinkTarget } from '@/lib/terminal/linkModifier'
 import type { FileLinkAction } from '@/lib/terminal/terminalFileLinks'
 import { isMac } from '@/platform'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { Dict } from '@shared/app/dict'
 import { chordText } from '@shared/keyboard/chordSpec'
 import { linkKind } from '@shared/links/externalLinks'
@@ -26,9 +27,17 @@ export interface LinkHintBox {
 
 export function TerminalLinkHint({ hint }: { hint: LinkHintBox | null }): JSX.Element | null {
   const d = useDict()
+  const linkClick = useSettingsStore((s) => s.terminal.linkClick)
   if (!hint) return null
   const click = (shift: boolean): string =>
     chordText({ ctrl: !isMac, meta: isMac, shift, alt: false, key: d.terminalLinks.click }, isMac)
+  const opens = (shift: boolean): string =>
+    webLinkTarget(
+      { ctrlKey: !isMac, metaKey: isMac, shiftKey: shift, detail: 1 },
+      { mac: isMac, hasSelection: false, mouseReporting: false, linkClick },
+    ) === 'system'
+      ? d.terminalLinks.openSystem
+      : d.terminalLinks.openNewTab
   const rows: [string, string][] =
     hint.kind !== 'web'
       ? [[click(false), FILE_ACTION_TEXT[hint.kind](d)]]
@@ -38,8 +47,8 @@ export function TerminalLinkHint({ hint }: { hint: LinkHintBox | null }): JSX.El
             ...(hint.plainClick
               ? [[d.terminalLinks.click, d.terminalLinks.openPane] as [string, string]]
               : []),
-            [click(false), d.terminalLinks.openNewTab],
-            [click(true), d.terminalLinks.openSystem],
+            [click(false), opens(false)],
+            [click(true), opens(true)],
           ]
   const { left, top, width, height } = hint
   return (

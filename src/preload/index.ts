@@ -134,6 +134,7 @@ import type {
   PtyAttachResult,
   QuitQuestion,
   ReferenceInsert,
+  ResumeVerdict,
   SnapshotWorkspace,
   SyncStatus,
   WindowInfo,
@@ -582,6 +583,8 @@ const bridge: OstiaBridge = {
   agentSession: {
     info: (resume) =>
       ipcRenderer.invoke('agent:session-info', resume) as Promise<AgentSessionInfo | null>,
+    claimResume: (paneId, resume) =>
+      ipcRenderer.invoke('agent:claim-resume', paneId, resume) as Promise<ResumeVerdict>,
   },
   update: {
     state: () => ipcRenderer.invoke('app:update-state') as Promise<BuildInfo | null>,

@@ -27,6 +27,7 @@ describe('settingsStore terminal and pane settings', () => {
       warnOnRiskyPaste: true,
       minimumContrast: 1,
       clipboardKeys: 'shift',
+      linkClick: 'app',
       prompt: {
         style: 'shell',
         chips: ['conda', 'virtualenv', 'node', 'cwd', 'git.branch', 'git.diff-stats'],
@@ -72,6 +73,7 @@ describe('settingsStore terminal and pane settings', () => {
       warnOnRiskyPaste: true,
       prompt: { style: 'ostia', chips: ['cwd', 'git.branch'], sameLine: false, separator: 'none' },
       clipboardKeys: 'shift',
+      linkClick: 'app',
       theme: 'match',
       shell: '',
       osc52Write: true,

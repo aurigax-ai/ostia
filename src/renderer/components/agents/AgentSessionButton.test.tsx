@@ -57,6 +57,26 @@ describe('AgentSessionButton', () => {
     expect(screen.getByRole('button', { name: 'Copy resume command' })).toBeTruthy()
   })
 
+  it('copies the full resume command with the flags the session started with', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    const pane = {
+      ...createPane('terminal'),
+      resume: {
+        agent: 'claude' as const,
+        id: 'abc-123',
+        args: ['--model', 'opus', '--permission-mode', 'plan'],
+      },
+    }
+    runCommand(pane.id, 'claude --model opus --permission-mode plan')
+    render(<AgentSessionButton pane={pane} />)
+    fireEvent.click(screen.getByRole('button', { name: /Claude Code session/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Copy resume command' }))
+    expect(writeText).toHaveBeenCalledWith(
+      'claude --resume abc-123 --model opus --permission-mode plan',
+    )
+  })
+
   it('adds the model, context, branch and folder the transcript reports, and skips what it lacks', async () => {
     vi.mocked(window.ostia.agentSession.info).mockResolvedValue({
       title: 'Editor highlight',

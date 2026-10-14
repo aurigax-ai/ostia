@@ -65,6 +65,7 @@ describe('parseTerminalSettings', () => {
       warnOnRiskyPaste: true,
       prompt: DEFAULT_TERMINAL_SETTINGS.prompt,
       clipboardKeys: 'shift',
+      linkClick: 'app',
       theme: 'match',
       shell: '',
       osc52Write: true,
@@ -83,6 +84,8 @@ describe('parseTerminalSettings', () => {
 
   it('keeps the smart clipboard keys mode', () => {
     expect(parseTerminalSettings({ clipboardKeys: 'smart' }).clipboardKeys).toBe('smart')
+    expect(parseTerminalSettings({ linkClick: 'system' }).linkClick).toBe('system')
+    expect(parseTerminalSettings({ linkClick: 'browser' }).linkClick).toBe('app')
   })
 
   it('keeps the shell command as trimmed text and drops a non-string one', () => {
