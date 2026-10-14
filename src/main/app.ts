@@ -3232,6 +3232,7 @@ export function execCommand(
   target: CommandTarget,
   id: string,
   args?: unknown,
+  fromMain = false,
 ): Promise<CommandResult> {
   const win = target.windowId ? windows.get(target.windowId) : mainWindow()
   if (!win || win.isDestroyed()) {
@@ -3249,7 +3250,12 @@ export function execCommand(
       resolve(result)
     }
     ipcMain.on('command:result', onResult)
-    win.webContents.send('command:invoke', reqId, { id, args, target })
+    win.webContents.send('command:invoke', reqId, {
+      id,
+      args,
+      target,
+      ...(fromMain ? { fromMain: true } : {}),
+    })
     const timer = setTimeout(() => {
       ipcMain.removeListener('command:result', onResult)
       resolve({ ok: false, error: { code: 'command-failed', message: 'command timed out' } })
@@ -3937,9 +3943,9 @@ app.whenReady().then(() => {
     ensureReach: reach.ensure,
     move: (to, workspaceId) => execCommand(targetOf(to), 'pane.moveToWorkspace', { workspaceId }),
     tabPlan: (workspaceId, paneIds, tab) =>
-      execCommand(workspaceCommandTarget(workspaceId), 'pane.tabPlan', { paneIds, tab }),
+      execCommand(workspaceCommandTarget(workspaceId), 'pane.tabPlan', { paneIds, tab }, true),
     joinTab: (workspaceId, paneIds, tab) =>
-      execCommand(workspaceCommandTarget(workspaceId), 'pane.joinTab', { paneIds, tab }),
+      execCommand(workspaceCommandTarget(workspaceId), 'pane.joinTab', { paneIds, tab }, true),
     panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
   })
   registerPaneWaitMethods({

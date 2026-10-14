@@ -82,8 +82,7 @@ export function registerPaneTabCommands(): void {
   registerCore<PaneTabArgs, { members: string[]; locked: string[] }>({
     id: 'pane.tabPlan',
     category: 'pane',
-    hidden: true,
-    capabilities: ['all-workspaces', 'type-other-pane'],
+    local: true,
     argsSchema: PANE_TAB_SCHEMA,
     run: (args, ctx) => {
       const workspaceId = ctx.activeWorkspaceId
@@ -106,8 +105,7 @@ export function registerPaneTabCommands(): void {
   registerCore<PaneTabArgs, { moved: string[]; whole: boolean }>({
     id: 'pane.joinTab',
     category: 'pane',
-    hidden: true,
-    capabilities: ['all-workspaces', 'type-other-pane'],
+    local: true,
     argsSchema: PANE_TAB_SCHEMA,
     run: (args, ctx) => {
       const workspaceId = ctx.activeWorkspaceId
