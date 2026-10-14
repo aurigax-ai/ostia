@@ -48,8 +48,8 @@ import {
   symbolPlace,
 } from '@/lib/files/workspaceSymbolSearch'
 import { chordLabel, matchChord, runAppChord, useBindings } from '@/lib/keys/chords'
-import { paletteFilter } from '@/lib/palette/paletteFilter'
 import { isComposingEscape, swallowHeldEscape } from '@/lib/palette/paletteEscape'
+import { paletteFilter } from '@/lib/palette/paletteFilter'
 import { paletteReturnFocus } from '@/lib/palette/paletteFocus'
 import {
   PALETTE_MODES,
