@@ -10,6 +10,7 @@ import {
 } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { PRODUCT_NAME } from '../src/shared/product'
+import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { occurrences, waitForPaletteSelection } from './helpers'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
@@ -115,7 +116,7 @@ test('a Trellis card goes to a new agent or to a running one, only on the humanâ
         .getByRole('button', { name: /^Trellis cards: 4/ }),
     ).toBeVisible({ timeout: 20_000 })
 
-    await win.keyboard.press('Control+Shift+P')
+    await win.keyboard.press(chords.palette)
     await win.locator('[data-slot="command-input"]').fill('Trellis: Open Board')
     await waitForPaletteSelection(win, 'Trellis: Open Board')
     await win.keyboard.press('Enter')

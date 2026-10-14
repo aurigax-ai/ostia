@@ -145,11 +145,11 @@ export async function restartApp(app: ElectronApplication, win: Page): Promise<v
   await app.evaluate(({ app: electronApp }) => {
     electronApp.relaunch = () => undefined
   })
-  const closed = app.waitForEvent('close')
+  const exited = waitForExit(app)
   await win.evaluate(() => {
     void window.ostia.update.restart()
   })
-  await closed
+  await exited
 }
 
 async function dialogShown(win: Page): Promise<'asked' | null> {

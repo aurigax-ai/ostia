@@ -1,5 +1,6 @@
 import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
+import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
 import { _electron as electron, expect, test } from './test'
@@ -46,7 +47,7 @@ test('a passkey request that only a platform or phone authenticator could answer
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
 
-    await win.keyboard.press('Control+Shift+P')
+    await win.keyboard.press(chords.palette)
     await win.locator('[data-slot="command-input"]').fill('Open Browser')
     await waitForPaletteSelection(win, 'Open Browser')
     await win.keyboard.press('Enter')

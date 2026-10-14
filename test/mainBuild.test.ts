@@ -1,4 +1,4 @@
-import { execFile, execFileSync } from 'node:child_process'
+import { execFile, spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -70,8 +70,11 @@ describe('mainBuild.mjs', () => {
     server = undefined
   })
 
-  const run = (...args: string[]): string =>
-    execFileSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8' })
+  const run = (...args: string[]) =>
+    spawnSync(process.execPath, [SCRIPT, ...args], {
+      encoding: 'utf8',
+      env: { PATH: process.env.PATH ?? '' },
+    })
 
   async function ciPassed(checkRuns: unknown[], status = 200): Promise<string> {
     const asked: string[] = []
@@ -110,16 +113,23 @@ describe('mainBuild.mjs', () => {
 
   it('fails when GitHub cannot be asked', async () => {
     await expect(ciPassed([checkRun()], 500)).rejects.toThrow(/HTTP 500/)
-    expect(() => run('ci-passed', SHA)).toThrow(/GH_TOKEN/)
+    const unset = run('ci-passed', SHA)
+    expect(unset.status).not.toBe(0)
+    expect(unset.stderr).toMatch(/GH_TOKEN must all be set/)
   })
 
   it('prints which tags to prune', () => {
     writeFileSync(join(dir, 'releases.json'), JSON.stringify([1, 2, 3].map(mainBuild)))
-    expect(run('prune', join(dir, 'releases.json'), '2')).toBe('v0.5.10-main.1\n')
+    expect(run('prune', join(dir, 'releases.json'), '2')).toMatchObject({
+      status: 0,
+      stdout: 'v0.5.10-main.1\n',
+    })
   })
 
   it('fails on a wrong call', () => {
-    expect(() => run('prune', join(dir, 'missing.json'), '0')).toThrow()
-    expect(() => run('publish')).toThrow()
+    for (const wrong of [run('prune', join(dir, 'missing.json'), '0'), run('publish')]) {
+      expect(wrong.status).toBe(2)
+      expect(wrong.stderr).toMatch(/^usage: node scripts\/mainBuild\.mjs/)
+    }
   })
 })

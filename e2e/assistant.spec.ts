@@ -1,3 +1,4 @@
+import { chords } from './chords'
 import { isolatedLaunch } from './dataHome'
 import { extensionHosts } from './extensionHosts'
 import { type FakeRequest, startFakeProvider } from './fakeProvider'
@@ -67,7 +68,7 @@ test('an OpenAI-compatible provider added in Settings with two models answers in
     await win.keyboard.press('Escape')
 
     await win.locator('.xterm').first().click()
-    await win.keyboard.press('Control+Shift+P')
+    await win.keyboard.press(chords.palette)
     const palette = win.getByRole('dialog')
     await expect(palette).toBeVisible()
     await win.keyboard.type('how do I list files')

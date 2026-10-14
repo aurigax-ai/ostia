@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
@@ -35,7 +36,7 @@ test('a browser pane moved to its own window sends a picked element to the agent
     await openWorkspace(win)
     await startFakeAgent(win)
 
-    await win.keyboard.press('Control+Shift+P')
+    await win.keyboard.press(chords.palette)
     await win.locator('[data-slot="command-input"]').fill('Open Browser')
     await waitForPaletteSelection(win, 'Open Browser')
     await win.keyboard.press('Enter')

@@ -1,6 +1,9 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { chords, defaultChord } from '../e2e/chords'
+import { dataHomeBase } from '../e2e/dataHome'
+import { KEPT_SHELLS_DIR } from '../src/shared/terminal/keepShells'
 
 const E2E = join(process.cwd(), 'e2e')
 const PLAYWRIGHT_IMPORT = /from '@playwright\/test'/
@@ -42,5 +45,36 @@ describe('e2e specs', () => {
       .filter((name) => name.endsWith('.spec.ts'))
       .filter((name) => /\bretries\b|\.fixme\(/.test(readFileSync(join(E2E, name), 'utf8')))
     expect(offenders).toEqual([])
+  })
+})
+
+describe('e2e chords', () => {
+  it('press the palette chord the app binds by default on each platform', () => {
+    expect(defaultChord('palette.toggle', true)).toBe('Shift+Meta+p')
+    expect(defaultChord('palette.toggle', false)).toBe('Control+Shift+p')
+    expect(chords.palette).toBe(defaultChord('palette.toggle', process.platform === 'darwin'))
+  })
+
+  it('open the palette through chords.palette in every spec that runs on macOS', () => {
+    const offenders = specSources()
+      .filter(({ name }) => name !== 'keybindings.spec.ts')
+      .filter(({ source }) => /press\('Control\+Shift\+P'\)/i.test(source))
+      .map(({ name }) => name)
+    expect(offenders).toEqual([])
+  })
+})
+
+describe('e2e data home', () => {
+  const MACOS_SOCKET_PATH_MAX = 103
+  const RUNNER_TMPDIR = '/var/folders/9f/2kx1l3_x6k7gxv7m0m6dmc4w0000gn/T'
+  const keptSocket = (base: string): string =>
+    join('/private', base, 'ostia-e2e-data-AbC123', 'userData', KEPT_SHELLS_DIR, 'f'.repeat(16))
+
+  it('keeps the kept-shells tmux socket under the macOS limit, which the runner TMPDIR passes', () => {
+    expect(keptSocket(RUNNER_TMPDIR).length).toBeGreaterThan(MACOS_SOCKET_PATH_MAX)
+    expect(keptSocket(dataHomeBase('darwin', RUNNER_TMPDIR)).length).toBeLessThanOrEqual(
+      MACOS_SOCKET_PATH_MAX,
+    )
+    expect(dataHomeBase('linux', '/tmp/run-1')).toBe('/tmp/run-1')
   })
 })

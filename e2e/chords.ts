@@ -1,8 +1,30 @@
+import { type ChordSpec, chordTexts, parseScopedChord } from '../src/shared/keyboard/chordSpec'
+import { DEFAULT_CHORDS } from '../src/shared/keyboard/defaultChords'
+
 export const isMac = process.platform === 'darwin'
+
+function pressedChord(spec: ChordSpec): string {
+  if (!/^([a-z0-9]|f\d+)$/.test(spec.key)) throw new Error(`no Playwright key for ${spec.key}`)
+  const modifiers = [
+    spec.ctrl ? 'Control' : null,
+    spec.alt ? 'Alt' : null,
+    spec.shift ? 'Shift' : null,
+    spec.meta ? 'Meta' : null,
+  ].filter((name) => name !== null)
+  return [...modifiers, spec.key.length > 1 ? spec.key.toUpperCase() : spec.key].join('+')
+}
+
+export function defaultChord(id: keyof typeof DEFAULT_CHORDS, mac: boolean): string {
+  const spec = chordTexts(DEFAULT_CHORDS[id][mac ? 0 : 1])
+    .map((text) => parseScopedChord(text, mac))
+    .find((parsed) => parsed !== null && !parsed.terminal)
+  if (!spec) throw new Error(`no default chord for ${id}`)
+  return pressedChord(spec)
+}
 
 export const chords = {
   newWorkspace: isMac ? 'Meta+n' : 'Control+Shift+N',
-  palette: isMac ? 'Meta+Shift+p' : 'Control+Shift+p',
+  palette: defaultChord('palette.toggle', isMac),
   find: isMac ? 'Meta+f' : 'Control+Shift+f',
   copy: isMac ? 'Meta+c' : 'Control+Shift+c',
   paste: isMac ? 'Meta+v' : 'Control+Shift+v',

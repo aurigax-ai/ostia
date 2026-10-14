@@ -1,4 +1,4 @@
-import { DEFAULT_CHORDS, bindableIds } from '@/lib/keys/chords'
+import { bindableIds } from '@/lib/keys/chords'
 import {
   BELL_MODES,
   LONG_COMMAND_MAX_SECONDS,
@@ -8,6 +8,7 @@ import { MATCH_OSTIA_THEME } from '@shared/app/themeChoice'
 import { GIT_POLL_SECONDS } from '@shared/boards/git'
 import { PORTS_INTERVAL_SECONDS } from '@shared/boards/ports'
 import { CHORDS_PER_COMMAND_MAX } from '@shared/keyboard/chordSpec'
+import { DEFAULT_CHORDS } from '@shared/keyboard/defaultChords'
 import { GLOBAL_HOTKEY_MAX_LENGTH } from '@shared/keyboard/globalHotkey'
 import {
   KEYBOARD_PLATFORMS,

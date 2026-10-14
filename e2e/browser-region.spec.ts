@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
@@ -36,7 +37,7 @@ test('crop a region of a browser page and send it to an agent pane', async () =>
     await openWorkspace(win)
     await startFakeAgent(win)
 
-    await win.keyboard.press('Control+Shift+P')
+    await win.keyboard.press(chords.palette)
     await win.locator('[data-slot="command-input"]').fill('Open Browser')
     await waitForPaletteSelection(win, 'Open Browser')
     await win.keyboard.press('Enter')
@@ -58,7 +59,7 @@ test('crop a region of a browser page and send it to an agent pane', async () =>
       )
       .toBe('complete')
 
-    await win.keyboard.press('Control+Shift+P')
+    await win.keyboard.press(chords.palette)
     await win.locator('[data-slot="command-input"]').fill('Capture Browser Region')
     await waitForPaletteSelection(win, 'Capture Browser Region')
     await win.keyboard.press('Enter')

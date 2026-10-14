@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
@@ -33,7 +34,7 @@ test('pick an element in a browser pane and send it to a terminal pane', async (
     await openWorkspace(win)
     await startFakeAgent(win)
 
-    await win.keyboard.press('Control+Shift+P')
+    await win.keyboard.press(chords.palette)
     await win.locator('[data-slot="command-input"]').fill('Open Browser')
     await waitForPaletteSelection(win, 'Open Browser')
     await expect(win.getByRole('dialog').getByText('Open Browser', { exact: true })).toBeVisible()

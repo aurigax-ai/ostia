@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
 import {
@@ -54,7 +55,7 @@ function panelEval(app: ElectronApplication, script: string): Promise<string> {
 }
 
 async function openActivity(win: Page): Promise<void> {
-  await win.keyboard.press('Control+Shift+P')
+  await win.keyboard.press(chords.palette)
   await win.locator('[data-slot="command-input"]').fill('Activity: Open')
   await waitForPaletteSelection(win, 'Activity: Open')
   await win.keyboard.press('Enter')
