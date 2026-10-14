@@ -1917,6 +1917,7 @@ export const en = {
       credentials: 'Use your saved passwords and your signed-in browser',
       'language-server': 'Run language servers for code intelligence in the editor',
       'agent-plugin': 'Add skills and hooks to claude and codex in your terminals',
+      mcp: 'Call the MCP servers you set up and left on',
     } as Record<string, string>,
   },
   extensionsBrowse: {
@@ -5505,6 +5506,7 @@ export const zhHant: Dict = {
       credentials: '使用您儲存的密碼與已登入的瀏覽器',
       'language-server': '執行語言伺服器，為編輯器提供程式碼智慧功能',
       'agent-plugin': '為終端機中的 claude 與 codex 加入技能與掛鉤',
+      mcp: '呼叫你設定並開啟的 MCP 伺服器',
     } as Record<string, string>,
   },
   extensionsBrowse: {

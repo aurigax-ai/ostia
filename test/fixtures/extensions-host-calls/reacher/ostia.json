@@ -1,0 +1,15 @@
+{
+  "id": "reacher",
+  "name": "Reacher",
+  "version": "0.1.0",
+  "api": "4.0",
+  "description": "Test fixture: calls MCP servers and records pane events",
+  "capabilities": ["mcp", "read-board"],
+  "main": "main.js",
+  "contributes": {
+    "commands": [
+      { "id": "call", "title": "Call a method", "palette": false, "interactive": true },
+      { "id": "events", "title": "Hand over the recorded events", "palette": false }
+    ]
+  }
+}

@@ -35,7 +35,10 @@ function text(value, isError = false) {
 }
 
 async function call(name, args) {
-  if (name === 'echo') return text(`echo: ${args.text ?? ''}`)
+  if (name === 'echo') {
+    const answer = text(`echo: ${args.text ?? ''}`)
+    return args.structured ? { ...answer, structuredContent: { echoed: args.text ?? '' } } : answer
+  }
   if (name === 'env') return text(process.env[args.name] ?? '(unset)')
   if (name === 'fail') return text('boom', true)
   if (name === 'slow') {

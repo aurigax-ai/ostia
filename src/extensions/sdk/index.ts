@@ -69,6 +69,8 @@ import {
   type BusSendResult,
   type ExecOptions,
   type ExecResult,
+  type McpCallReply,
+  type McpServersResult,
   type WakePaneResult,
   rpcFailure,
 } from './workApi'
@@ -79,6 +81,9 @@ export type {
   BusSendResult,
   ExecOptions,
   ExecResult,
+  McpCallReply,
+  McpServerInfo,
+  McpServersResult,
   WakePaneOutcome,
   WakePaneResult,
 } from './workApi'
@@ -321,6 +326,13 @@ export interface OstiaExtension {
   busSend: (to: string, text: string) => Promise<BusSendResult>
   wakePane: (paneId: string, waitMs?: number) => Promise<WakePaneResult>
   ask: (opts: AskOptions, signal?: AbortSignal) => Promise<AskResult>
+  mcpCall: (
+    server: string,
+    tool: string,
+    input: Record<string, unknown>,
+    signal?: AbortSignal,
+  ) => Promise<McpCallReply>
+  mcpServers: () => Promise<McpServersResult>
   listWorkspaces: () => Promise<WorkspaceInfo[]>
   listPanes: () => Promise<PaneInfo[]>
   onAssist: (handler: AssistHandler) => void
@@ -663,6 +675,31 @@ export async function connect(): Promise<OstiaExtension> {
       } finally {
         signal?.removeEventListener('abort', cancel)
         source.dispose()
+      }
+    },
+    mcpCall: async (server, tool, input, signal) => {
+      const source = new CancellationTokenSource()
+      const cancel = (): void => source.cancel()
+      signal?.addEventListener('abort', cancel, { once: true })
+      if (signal?.aborted) source.cancel()
+      try {
+        return await conn.sendRequest<McpCallReply>(
+          'ext.mcpCall',
+          { server, tool, input },
+          source.token,
+        )
+      } catch (err) {
+        return rpcFailure(err, 'mcp-call-failed')
+      } finally {
+        signal?.removeEventListener('abort', cancel)
+        source.dispose()
+      }
+    },
+    mcpServers: async () => {
+      try {
+        return await conn.sendRequest<McpServersResult>('ext.mcpServers')
+      } catch (err) {
+        return rpcFailure(err, 'mcp-servers-failed')
       }
     },
     listWorkspaces: () => conn.sendRequest('workspace.list'),

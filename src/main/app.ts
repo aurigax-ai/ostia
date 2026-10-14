@@ -167,6 +167,7 @@ import { createChatSessionStore } from './chat/chatSessions'
 import { registerChatSessionIpc } from './chat/chatSessionsIpc'
 import { ChatToolGrants } from './chat/chatToolGrants'
 import { registerChatToolsIpc } from './chat/chatToolsIpc'
+import { registerExtensionMcp } from './chat/extensionMcp'
 import { McpHost } from './chat/mcpHost'
 import { McpOAuth, mcpOAuthBrowser } from './chat/mcpOAuth'
 import { createMcpOAuthStore } from './chat/mcpOAuthStore'
@@ -3695,6 +3696,7 @@ app.whenReady().then(() => {
       askHub.settled(id, outcome)
     },
   })
+  registerExtensionMcp({ mcp: () => mcpHost })
   registerExtensionQuestions({
     windowOfWorkspace: windowForWorkspace,
     extensionName: (extId) => extensionHost?.displayName(extId) ?? extId,
