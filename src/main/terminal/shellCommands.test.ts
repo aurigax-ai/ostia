@@ -11,8 +11,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
+  type CommandsPane,
   ExecutableIndex,
   commandNames,
+  paneCommandNames,
   parseShellState,
   pathDirs,
   readShellState,
@@ -152,5 +154,29 @@ describe('commandNames', () => {
     file(dir, 'echo', 0o755)
     const names = await commandNames(new ExecutableIndex(':'), dir, ['echo', 'cd', 'll'])
     expect(names).toEqual(['cd', 'echo', 'git', 'll'])
+  })
+})
+
+describe('paneCommandNames', () => {
+  it('suggestions come from the pane’s own shell only while it holds the terminal', async () => {
+    const bin = join(root, 'bin')
+    mkdirSync(bin)
+    file(bin, 'git', 0o755)
+    const stateFile = join(root, 'state')
+    writeFileSync(stateFile, `${bin}\n\n\n\nll\n`)
+    const pane = (over: Partial<CommandsPane> = {}): CommandsPane => ({
+      owners: new Set(['7']),
+      localPrompt: true,
+      stateFile,
+      spawnPath: '/nowhere',
+      rules: null,
+      ...over,
+    })
+    const index = new ExecutableIndex(':')
+
+    expect(await paneCommandNames(index, pane(), '7')).toEqual(['git', 'll'])
+    expect(await paneCommandNames(index, pane({ localPrompt: false }), '7')).toEqual([])
+    expect(await paneCommandNames(index, pane(), '8')).toEqual([])
+    expect(await paneCommandNames(index, null, '7')).toEqual([])
   })
 })

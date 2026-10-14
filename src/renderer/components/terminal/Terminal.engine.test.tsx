@@ -1207,4 +1207,44 @@ describe('TerminalView engines', () => {
     act(() => useLayoutStore.getState().focusPane('w1', 'other'))
     expect(hint()).toBeNull()
   })
+
+  it('a tab closes when its shell exits by itself, unless the human locked it', async () => {
+    showWorkspace()
+    const kept = { ...createPane('terminal'), id: 'kept' }
+    const own = { ...createPane('terminal'), id: 'own' }
+    const locked = { ...createPane('terminal'), id: 'locked' }
+    useLayoutStore.setState({
+      byWorkspace: {
+        w1: { root: tabsOf('own', kept, own, locked), activePaneId: 'own', zoomedPaneId: null },
+      },
+    })
+    act(() => useLayoutStore.getState().setLocked('w1', 'locked', true))
+    await renderSettled(
+      <>
+        <TerminalView workspaceId="w1" paneId="own" />
+        <TerminalView workspaceId="w1" paneId="locked" />
+      </>,
+    )
+    const exitOf = (paneId: string) => {
+      const call = vi.mocked(window.ostia.pty.onExit).mock.calls.find(([id]) => id === paneId)
+      if (!call) throw new Error(`no exit listener for ${paneId}`)
+      return call[1]
+    }
+    const tabIds = () => allPanes(useLayoutStore.getState().byWorkspace.w1.root).map((p) => p.id)
+
+    act(() => exitOf('own')(0, false))
+    expect(tabIds()).toEqual(['kept', 'own', 'locked'])
+    act(() => exitOf('own')(1, true))
+    expect(tabIds()).toEqual(['kept', 'locked'])
+
+    act(() => exitOf('locked')(0, true))
+    expect(tabIds()).toEqual(['kept', 'locked'])
+    const lockedTerm = terminalFor('locked') as unknown as Xterm
+    await act(() => new Promise<void>((done) => lockedTerm.write('', done)))
+    const text = Array.from(
+      { length: lockedTerm.buffer.active.length },
+      (_, i) => lockedTerm.buffer.active.getLine(i)?.translateToString(true) ?? '',
+    ).join('')
+    expect(text).toContain('[process exited]')
+  })
 })
