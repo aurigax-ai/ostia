@@ -295,6 +295,7 @@ export interface OstiaExtension {
     kind?: SidebarKind
     url?: string
   }) => Promise<unknown>
+  startWithWindow: (on: boolean) => Promise<ExtensionResult>
   notify: (title: string, body?: string) => Promise<unknown>
   openPanel: (workspaceId?: string, path?: string) => Promise<unknown>
   setPaneChip: (chip: PaneChipValue) => Promise<ExtensionResult>
@@ -538,6 +539,7 @@ export async function connect(): Promise<OstiaExtension> {
       return conn.sendRequest('ext.subscribe', { events })
     },
     setSidebarItem: (item) => conn.sendRequest('ext.setSidebarItem', item),
+    startWithWindow: (on) => conn.sendRequest('ext.startWithWindow', { on }),
     notify: (title, body) => conn.sendRequest('ext.notify', { title, body }),
     openPanel: (workspaceId, path) => conn.sendRequest('ext.openPanel', { workspaceId, path }),
     setPaneChip: (chip) => conn.sendRequest('ext.setPaneChip', chip),

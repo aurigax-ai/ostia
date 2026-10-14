@@ -213,6 +213,7 @@ import {
 import { confirmForExtension } from './extensions/extensionConfirm'
 import { ExtensionExec } from './extensions/extensionExec'
 import { ExtensionHost, registerExtensionMethods } from './extensions/extensionHost'
+import { ExtensionLaunches } from './extensions/extensionLaunches'
 import type { ExtensionRoot } from './extensions/extensionManifest'
 import { type SecretStoreDeps, createSecretStore } from './extensions/extensionSecrets'
 import { ExtensionStore } from './extensions/extensionStore'
@@ -3987,6 +3988,7 @@ app.whenReady().then(() => {
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     roots: extensionRoots(),
     store: extensionStore,
+    launches: new ExtensionLaunches(join(app.getPath('userData'), 'extension-launches.json')),
     socketPath: controlSocketPath,
     nodePath: process.execPath,
     dataDir: join(app.getPath('userData'), 'extension-data'),

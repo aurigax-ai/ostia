@@ -164,6 +164,7 @@ import type { LanguageServerSource } from '../lsp/languageServers'
 import { isInsideDir } from '../platform/pathGuard'
 import { spawnFolder } from '../terminal/spawnCwd'
 import type { ExtensionExec } from './extensionExec'
+import type { ExtensionLaunches } from './extensionLaunches'
 import { loadLocaleCatalogs, manifestIn } from './extensionLocales'
 import {
   type DiscoveredExtension,
@@ -335,6 +336,7 @@ function manifestSignature(ext: LoadedExtension): string {
 export interface ExtensionHostDeps {
   roots: ExtensionRoot[]
   store: ExtensionStore
+  launches?: ExtensionLaunches
   socketPath: () => string
   nodePath: string
   dataDir?: string
@@ -903,8 +905,11 @@ export class ExtensionHost {
   }
 
   private onDemand(rt: Runtime): boolean {
-    const assist = rt.ext.manifest.contributes.assist.length > 0
-    return rt.ext.builtin && assist && this.assistEntries(rt).length === 0
+    if (!rt.ext.builtin) return false
+    const c = rt.ext.manifest.contributes
+    if (c.assist.length > 0) return this.assistEntries(rt).length === 0
+    const chips = c.paneChips.length > 0 || c.workspaceChips.length > 0
+    return !chips && !this.deps.launches?.has(rt.ext.manifest.id)
   }
 
   private eager(rt: Runtime): boolean {
@@ -1345,6 +1350,14 @@ export class ExtensionHost {
     }
     for (const type of events) rt.subscriptions.add(type as ExtensionEventType)
     return { ok: true, events: [...rt.subscriptions] }
+  }
+
+  startWithWindow(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const on = (params as { on?: unknown } | null)?.on
+    if (typeof on !== 'boolean') return fail('invalid-params', 'on must be a boolean')
+    this.deps.launches?.set(rt.ext.manifest.id, on)
+    return { ok: true }
   }
 
   setSidebarItem(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
@@ -2463,6 +2476,10 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   registerControlMethod(
     'ext.subscribe',
     forExtension((h, id, conn, p) => h.subscribe(id, conn, p)),
+  )
+  registerControlMethod(
+    'ext.startWithWindow',
+    forExtension((h, id, conn, p) => h.startWithWindow(id, conn, p)),
   )
   registerControlMethod(
     'ext.setSidebarItem',
