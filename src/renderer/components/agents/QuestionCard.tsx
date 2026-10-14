@@ -216,7 +216,7 @@ export function QuestionCard({
                   <label
                     key={choice}
                     htmlFor={`${ids}-choice-${index}`}
-                    className="flex items-center gap-2 rounded-sm px-2 py-1 text-ui-sm hover:bg-surface-2 has-data-checked:bg-surface-2"
+                    className={`flex items-center gap-2 rounded-sm px-2 py-1 text-ui-sm hover:bg-surface-2${draft.choices[0] === index ? ' bg-surface-2' : ''}`}
                   >
                     <RadioGroupItem id={`${ids}-choice-${index}`} value={index} />
                     <span className="min-w-0 [overflow-wrap:anywhere]">{choice}</span>
@@ -242,7 +242,7 @@ export function QuestionCard({
                 <label
                   key={choice}
                   htmlFor={`${ids}-choice-${index}`}
-                  className="flex items-center gap-2 rounded-sm px-2 py-1 text-ui-sm hover:bg-surface-2 has-data-checked:bg-surface-2"
+                  className={`flex items-center gap-2 rounded-sm px-2 py-1 text-ui-sm hover:bg-surface-2${draft.choices.includes(index) ? ' bg-surface-2' : ''}`}
                 >
                   <Checkbox
                     id={`${ids}-choice-${index}`}

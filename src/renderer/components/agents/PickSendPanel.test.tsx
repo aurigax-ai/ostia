@@ -8,9 +8,15 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRecencyStore } from '@/stores/workspaces/paneRecencyStore'
 import { type WorkspaceKind, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { OriginAgents } from '@shared/types'
-import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
+import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { useAgentTargets, useLocalAgentTargets, useNoAgentsText } from './PickSendPanel'
+import {
+  PickSendPanel,
+  useAgentTargets,
+  useLocalAgentTargets,
+  useNoAgentsText,
+} from './PickSendPanel'
 
 const HOME: OriginAgents = {
   workspaceId: 'w-home',
@@ -380,5 +386,49 @@ describe('useNoAgentsText', () => {
     expect(result.current).toBe(
       'No agent is running in this workspace, and the workspace this pane came from is no longer open.',
     )
+  })
+})
+
+describe('PickSendPanel', () => {
+  afterEach(cleanup)
+
+  it('shades exactly the target row whose radio is checked', async () => {
+    const user = userEvent.setup()
+    const target = (paneId: string, title: string) => ({
+      paneId,
+      workspaceId: 'w1',
+      workspaceName: 'api',
+      title,
+      state: 'working' as const,
+      sameWorkspace: true,
+    })
+    render(
+      <PickSendPanel
+        id="p1"
+        summary="src/app.ts:3"
+        noteLabel="Note"
+        notePlaceholder=""
+        closeLabel="Close"
+        targets={[target('p-claude', 'claude'), target('p-codex', 'codex')]}
+        noTargets=""
+        sending={false}
+        onSend={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+    const shadedLikeChecked = () => {
+      const rows = document.querySelectorAll('label[for*="-target-"]')
+      expect(rows).toHaveLength(2)
+      for (const row of rows) {
+        expect(row.classList.contains('bg-surface-2')).toBe(
+          row.querySelector('[data-checked]') !== null,
+        )
+      }
+    }
+    shadedLikeChecked()
+    expect(document.querySelectorAll('label.bg-surface-2')).toHaveLength(1)
+    await user.click(screen.getAllByRole('radio')[1])
+    shadedLikeChecked()
+    expect(document.querySelectorAll('label.bg-surface-2')).toHaveLength(1)
   })
 })

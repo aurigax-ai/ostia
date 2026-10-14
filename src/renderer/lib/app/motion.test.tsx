@@ -184,7 +184,7 @@ describe('motion CSS contract', () => {
   })
 
   const railRules = [
-    ...css.matchAll(/\n((?:\.deck-rail|\.app:has\(> \.deck-rail)[^{\n]*)\{([^}]*)\}/g),
+    ...css.matchAll(/\n((?:\.deck-rail|:root\[data-rail-motion)[^{\n]*)\{([^}]*)\}/g),
   ]
 
   it('slides the sidebar with transform and opacity only, so a toggle reflows once', () => {
@@ -213,9 +213,9 @@ describe('motion CSS contract', () => {
   it('moves the main area and middle panels with the sidebar edge, on one shared timing', () => {
     const follow = railRules.filter(([, selector]) => /\.workzone/.test(selector))
     expect(follow.map(([, selector]) => selector.trim())).toEqual([
-      '.app:has(> .deck-rail[data-rail-motion]) > :is(.files-panel, .workzone)',
-      '.app:has(> .deck-rail[data-rail-motion="opening"]) > :is(.files-panel, .workzone)',
-      '.app:has(> .deck-rail[data-rail-motion="closing"]) > :is(.files-panel, .workzone)',
+      ':root[data-rail-motion] .app > :is(.files-panel, .workzone)',
+      ':root[data-rail-motion="opening"] .app > :is(.files-panel, .workzone)',
+      ':root[data-rail-motion="closing"] .app > :is(.files-panel, .workzone)',
     ])
     const timings = railRules.flatMap(([, , body]) =>
       [...body.matchAll(/animation:\s*[a-z-]+\s+(var\([^)]+\)\s+var\([^)]+\))/g)].map((m) => m[1]),
@@ -223,7 +223,7 @@ describe('motion CSS contract', () => {
     expect(new Set(timings)).toEqual(new Set(['var(--motion-panel) var(--ease-in-out)']))
     expect(css).toContain('transform: translateX(calc(var(--rail-w-collapsed) - var(--rail-w)));')
     expect(css).toContain('transform: translateX(calc(var(--rail-w) - var(--rail-w-collapsed)));')
-    const footprint = railRules.find(([, selector]) => /\[data-rail-motion\]\)\s*$/.test(selector))
+    const footprint = railRules.find(([, selector]) => /\[data-rail-motion\] \.app\s*$/.test(selector))
     expect(footprint?.[2]).toMatch(/grid-template-columns: var\(--rail-w-collapsed\) auto 1fr;/)
     expect(footprint?.[2]).toMatch(/overflow: clip;/)
   })

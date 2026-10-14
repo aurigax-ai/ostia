@@ -11,8 +11,7 @@ import { RadioGroup, RadioGroupItem } from '../ui/radio-group'
 
 type ScopeKind = GraphScope['kind']
 
-const OPTION_CLASS =
-  'flex min-h-7 items-center gap-2 rounded-sm px-2 text-ui-sm hover:bg-surface-3 has-data-disabled:opacity-50'
+const OPTION_CLASS = 'flex min-h-7 items-center gap-2 rounded-sm px-2 text-ui-sm hover:bg-surface-3'
 const GROUP_TITLE_CLASS =
   'px-2 pt-2 pb-0.5 font-medium text-fg-muted text-ui-xs uppercase tracking-caps'
 const HINT_CLASS = 'ml-auto whitespace-nowrap text-fg-muted text-ui-xs'
@@ -50,7 +49,7 @@ function BranchGroup({
           <label
             key={b.ref}
             htmlFor={id}
-            className={`branch-choice ${OPTION_CLASS}`}
+            className={`branch-choice ${OPTION_CLASS}${last ? ' opacity-50' : ''}`}
             title={last ? t.lastChosen : b.ref}
           >
             <Checkbox
@@ -164,7 +163,7 @@ export function ScopeControl({
             <label
               key={o.kind}
               htmlFor={`${ids}-${o.kind}`}
-              className={`scope-option ${OPTION_CLASS}`}
+              className={`scope-option ${OPTION_CLASS}${o.disabled ? ' opacity-50' : ''}`}
             >
               <RadioGroupItem
                 id={`${ids}-${o.kind}`}
