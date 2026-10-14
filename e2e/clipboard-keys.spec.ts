@@ -22,14 +22,17 @@ test(
   async () => {
     const { app, win } = await launch('shift')
     try {
+      const rows = win.locator('.xterm-rows')
       await win.keyboard.press('Control+v')
       await win.keyboard.press('x')
-      await expect(win.locator('.xterm-rows')).not.toContainText('pasted_')
+      await expect(rows).toContainText(/[❯$%#] x/)
+      await expect(rows).not.toContainText('pasted_')
       await win.keyboard.press('Control+c')
+      await expect(rows).toContainText(/[❯$%#] x.*[❯$%#]/)
       await win.keyboard.press(chords.paste)
-      await expect(win.locator('.xterm-rows')).toContainText('echo pasted_')
+      await expect(rows).toContainText('echo pasted_')
       await win.keyboard.press('Enter')
-      await expect(win.locator('.xterm-rows')).toContainText('pasted_42', { timeout: 10_000 })
+      await expect(rows).toContainText('pasted_42', { timeout: 10_000 })
     } finally {
       await app.close()
     }

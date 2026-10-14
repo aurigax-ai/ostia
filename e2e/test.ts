@@ -161,6 +161,17 @@ async function closeWithin(
   throw new Error(await reportStuck(app, `${CLOSE_DEADLINE_MS / 1000} s after close`))
 }
 
+async function listOnlyAnnouncedContents(app: ElectronApplication): Promise<void> {
+  await app.evaluate(async ({ app: electronApp, webContents }) => {
+    const announced = new WeakSet<object>()
+    electronApp.on('web-contents-created', (_event, contents) => announced.add(contents))
+    await new Promise((resolve) => setImmediate(resolve))
+    const all = webContents.getAllWebContents
+    for (const contents of all()) announced.add(contents)
+    webContents.getAllWebContents = () => all().filter((contents) => announced.has(contents))
+  })
+}
+
 export const _electron: Electron = {
   async launch(options) {
     const crashDumps = base.info().outputPath(`crash-dumps-${launched.size + 1}`)
@@ -178,6 +189,7 @@ export const _electron: Electron = {
       log: userData ? join(userData.slice(USER_DATA_FLAG.length), 'logs', 'main.log') : null,
     }
     launched.set(app, entry)
+    await listOnlyAnnouncedContents(app)
     if (recordsTrace()) {
       const path = base.info().outputPath(`app-trace-${recording.size + recorded.length + 1}.zip`)
       await app.context().tracing.start({ screenshots: true, snapshots: true, sources: true })
