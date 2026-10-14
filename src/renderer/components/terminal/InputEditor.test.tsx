@@ -1,9 +1,12 @@
+import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
+import { CommandPalette } from '@/components/palette/CommandPalette'
 import { WorkflowPicker } from '@/components/palette/WorkflowPicker'
 import { handleDocumentClipboardChord } from '@/lib/keys/documentClipboard'
 import { insertCommand } from '@/lib/terminal/blockActions'
 import { inputEditorFor, registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
@@ -74,16 +77,19 @@ function renderEditor(overrides: Partial<InputEditorProps> = {}) {
 const editor = () => screen.queryByRole('textbox', { name: 'Command input' })
 
 describe('InputEditor', () => {
+  let uiInit: ReturnType<typeof useUIStore.getState>
   let blocksInit: ReturnType<typeof useBlocksStore.getState>
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
 
   beforeAll(() => {
+    uiInit = useUIStore.getState()
     blocksInit = useBlocksStore.getState()
     settingsInit = useSettingsStore.getState()
   })
 
   afterEach(() => {
     cleanup()
+    useUIStore.setState(uiInit, true)
     useBlocksStore.setState(blocksInit, true)
     useSettingsStore.setState(settingsInit, true)
   })
@@ -289,6 +295,28 @@ describe('InputEditor', () => {
     await user.keyboard('{Escape}')
     expect(props.onHandOff).toHaveBeenCalledTimes(1)
     expect(props.onHandOff).toHaveBeenCalledWith('git st', '')
+  })
+
+  it('Escape closes the palette opened over the input editor and gives it its keyboard back untouched', async () => {
+    if (!commands.has('palette.toggle')) registerBuiltinCommands()
+    setMode('editor')
+    idlePrompt()
+    const { props } = renderEditor()
+    render(<CommandPalette />)
+    const user = userEvent.setup()
+    await user.type(editor() as HTMLElement, 'echo draft')
+
+    for (const mode of ['search', 'everywhere'] as const) {
+      act(() => useUIStore.getState().openPalette(mode))
+      await waitFor(() => expect(screen.getByRole('combobox')).toHaveFocus())
+      await user.keyboard('{Escape}')
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+      expect(useUIStore.getState().paletteOpen, mode).toBe(false)
+      expect(editor(), mode).toHaveFocus()
+      expect(editor(), mode).toHaveValue('echo draft')
+    }
+    expect(props.onHandOff).not.toHaveBeenCalled()
+    expect(props.onSubmit).not.toHaveBeenCalled()
   })
 
   it('copies the selected draft text on smart Ctrl+C and keeps the draft', async () => {
