@@ -101,6 +101,20 @@ describe('extension connections', () => {
     expect(save(store, null)).toMatchObject({ ok: false })
   })
 
+  it('refuses a secret or field value with a control character, and says so without the value', () => {
+    const { store } = setup()
+    const base = { name: 'api', kind: 'http', fields: { baseUrl: 'https://a.test' } }
+    for (const bad of [`${TOKEN}\r\nX-Evil: 1`, `${TOKEN}\n`, 'a\u0000b', 'a\u007fb', 'a\tb']) {
+      const res = save(store, { ...base, secrets: { secret: bad } })
+      expect(res).toMatchObject({ ok: false })
+      expect(JSON.stringify(res)).not.toContain(TOKEN)
+      expect(save(store, { ...base, fields: { baseUrl: `https://a.test/${bad}` } })).toMatchObject({
+        ok: false,
+      })
+    }
+    expect(store.list('graphs', KINDS)).toEqual([])
+  })
+
   it('keeps an omitted secret, clears a null one, and removing a connection drops its secrets', () => {
     const { store, secrets } = setup()
     const base = { name: 'api', kind: 'http', fields: { baseUrl: 'https://a.test' } }

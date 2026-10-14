@@ -57,6 +57,14 @@ function sanitize(raw: unknown): StoredConnections {
   return out
 }
 
+function hasControl(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i)
+    if (code < 0x20 || code === 0x7f) return true
+  }
+  return false
+}
+
 function checkFields(kind: ExtensionConnectionKind, raw: unknown): Record<string, string> | string {
   const given = isRecord(raw) ? raw : {}
   const fields: Record<string, string> = Object.create(null)
@@ -72,6 +80,7 @@ function checkFields(kind: ExtensionConnectionKind, raw: unknown): Record<string
     if (typeof value !== 'string' || value.length > EXTENSION_CONNECTION_VALUE_MAX) {
       return `${field.key} must be text of at most ${EXTENSION_CONNECTION_VALUE_MAX} characters`
     }
+    if (hasControl(value)) return `${field.key} must not hold a control character`
     if (field.type === 'enum' && !(field.enum ?? []).includes(value)) {
       return `${field.key} must be one of ${(field.enum ?? []).join(', ')}`
     }
@@ -92,6 +101,8 @@ function checkSecrets(
     if (value === null) out[key] = null
     else if (typeof value !== 'string' || !value || value.length > EXTENSION_SECRET_MAX) {
       return `${key} must be 1-${EXTENSION_SECRET_MAX} characters`
+    } else if (hasControl(value)) {
+      return `${key} must not hold a control character such as a line break`
     } else out[key] = value
   }
   return out
