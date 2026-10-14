@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { createHash, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import {
   existsSync,
   mkdirSync,
@@ -65,11 +65,7 @@ import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
 import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
 import { type RemoteCwd, normalizeRemoteCwd } from '../shared/remoteFolders'
 import { parseSandboxGlobals } from '../shared/sandbox/sandbox'
-import {
-  KEEP_SHELLS_FEATURE,
-  KEPT_SHELLS_DIR,
-  parseKeepShells,
-} from '../shared/terminal/keepShells'
+import { KEEP_SHELLS_FEATURE, parseKeepShells } from '../shared/terminal/keepShells'
 import { isHostNamed } from '../shared/terminal/osc7'
 import { quoteArg, quoteArgv } from '../shared/terminal/shellQuote'
 import { shellArgv, shellName } from '../shared/terminal/terminalShell'
@@ -399,6 +395,7 @@ import {
 import { type SavedAttention, isKeptAttentionState } from './tmux/attentionFile'
 import { SANDBOX_NOT_KEPT, TMUX_MISSING, keepShellsNotice } from './tmux/keepShellsBanner'
 import { KeptAttention } from './tmux/keptAttention'
+import { keptHostChannel, keptShellsDir, keptShellsName } from './tmux/keptPaths'
 import {
   type KeptHostMeta,
   type KeptMeta,
@@ -722,17 +719,9 @@ function openExternalSafe(url: string): boolean {
   return true
 }
 
-function keptTmuxDir(): string {
-  return join(app.getPath('userData'), KEPT_SHELLS_DIR)
-}
-
-function keptShellsName(): string {
-  return createHash('sha256').update(app.getPath('userData')).digest('hex').slice(0, 16)
-}
-
 const keptShells = new KeptShells({
-  dir: keptTmuxDir(),
-  name: keptShellsName(),
+  dir: keptShellsDir(app.getPath('userData')),
+  name: keptShellsName(app.getPath('userData')),
   program: keptShellsProgram,
   log: (event, fields) => appLog?.info(event, fields),
 })
@@ -1072,12 +1061,11 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
     ),
   kept: {
     enabled: () => keepShellsOn() && keptShellsProgram() !== null,
-    tmpRoot: join(privateTmpDir(`${PRODUCT_NAME}-sbx`), `kept-${keptShellsName()}`),
-    channel: (workspaceId) =>
-      join(
-        keptTmuxDir(),
-        `host-${createHash('sha256').update(`${keptShellsName()}\0${workspaceId}`).digest('hex').slice(0, 16)}.sock`,
-      ),
+    tmpRoot: join(
+      privateTmpDir(`${PRODUCT_NAME}-sbx`),
+      `kept-${keptShellsName(app.getPath('userData'))}`,
+    ),
+    channel: (workspaceId) => keptHostChannel(app.getPath('userData'), workspaceId),
     claim: (workspaceId) => {
       const claimed = keptShells.claimHost(workspaceId)
       if (!claimed) return undefined

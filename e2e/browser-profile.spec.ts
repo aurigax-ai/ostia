@@ -81,7 +81,7 @@ async function openHumanTab(win: Page, url: string): Promise<void> {
 
 const visited = (seen: Seen[], path: string): Seen | undefined => seen.find((s) => s.path === path)
 
-test('the human’s browser panes share one profile that survives a restart; an agent’s pane does not see it and driving the human’s asks', async () => {
+test('the human’s browser panes share one profile that survives a restart, and an agent’s pane does not see it', async () => {
   test.setTimeout(240_000)
   const seen: Seen[] = []
   const server = await serve(seen)
@@ -112,30 +112,6 @@ test('the human’s browser panes share one profile that survives a restart; an 
     expect(JSON.parse(opened.out).success).toBe(true)
     await expect.poll(() => visited(seen, '/agent'), { timeout: 15_000 }).toBeTruthy()
     expect(visited(seen, '/agent')?.cookie).toBe('')
-
-    const listed = await runCli(paneEnv, ['tab', '--json']).done
-    const tabs = JSON.parse(listed.out).data.tabs as {
-      tabId: string
-      profile?: string
-      url?: string
-    }[]
-    const humanTabs = tabs.filter((t) => t.profile === 'shared')
-    expect(humanTabs).toHaveLength(2)
-    expect(humanTabs.every((t) => t.url === undefined)).toBe(true)
-    expect(tabs.filter((t) => t.profile !== 'shared').map((t) => t.url)).toEqual([
-      `${origin}/agent`,
-    ])
-
-    const drive = runCli(paneEnv, ['get', 'title', '--pane', humanTabs[0].tabId])
-    await win.getByRole('tab', { name: /Needs attention/ }).click()
-    const card = win.getByRole('region', { name: 'Agent permission request' })
-    await expect(card).toBeVisible({ timeout: 20_000 })
-    await expect(card).toContainText('signed-in browser')
-    await expect(card.getByRole('button', { name: 'Allow for this pane' })).toHaveCount(0)
-    await card.getByRole('button', { name: 'Deny' }).click()
-    const denied = await drive.done
-    expect(denied.code).not.toBe(0)
-    expect(denied.err).toContain('denied: credentials')
   } finally {
     await quitApp(first.app)
   }

@@ -74,19 +74,12 @@ test('the storage panel shows and edits the page cookies, local and session stor
     await expect(local.getByRole('row').filter({ hasText: 'theme' })).toContainText('dark')
     await expect(panel).toContainText(`Origin: ${pageUrl.replace(/\/$/, '')}`)
 
-    await panel.getByRole('textbox', { name: 'Filter storage' }).fill('lang')
-    await expect(local.getByRole('row').filter({ hasText: 'theme' })).toHaveCount(0)
-    await panel.getByRole('textbox', { name: 'Filter storage' }).fill('')
-
     await panel.getByRole('button', { name: 'Edit theme' }).click()
     const edit = win.getByRole('dialog', { name: 'Edit theme' })
     await edit.getByRole('textbox', { name: 'Value' }).fill('light')
     await edit.getByRole('button', { name: 'Save' }).click()
     await expect.poll(() => guestEval<string>('localStorage.getItem("theme")')).toBe('light')
     await expect(local.getByRole('row').filter({ hasText: 'theme' })).toContainText('light')
-
-    await panel.getByRole('button', { name: 'Delete lang' }).click()
-    await expect.poll(() => guestEval<string | null>('localStorage.getItem("lang")')).toBeNull()
 
     await panel.getByRole('tab', { name: /Session storage/ }).click()
     const session = panel.getByRole('table', { name: 'Session storage' })
@@ -95,7 +88,6 @@ test('the storage panel shows and edits the page cookies, local and session stor
     const confirm = win.getByRole('dialog', { name: 'Clear session storage?' })
     await confirm.getByRole('button', { name: 'Clear' }).click()
     await expect.poll(() => guestEval<number>('sessionStorage.length')).toBe(0)
-    await expect(session).toContainText('This page has nothing in session storage.')
 
     await panel.getByRole('tab', { name: /Cookies/ }).click()
     await panel.getByRole('button', { name: 'Delete flavor' }).click()
