@@ -51,6 +51,7 @@ import { LANGUAGE_ID_PATTERN, type LanguageContribution } from '../../shared/lan
 import { parseLanguageServers } from '../../shared/languageServers'
 import { type Snippet, parseSnippet } from '../../shared/snippets'
 import { isInsideDir } from '../platform/pathGuard'
+import { parseConnectionKinds } from './connectionKinds'
 
 export const EXTENSION_ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/
 export const COMMAND_ID_PATTERN = /^[a-z][a-z0-9-]{0,39}$/
@@ -582,11 +583,13 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (typeof settings === 'string') return { ok: false, error: settings }
   const secrets = parseSecrets(contributes.secrets)
   if (typeof secrets === 'string') return { ok: false, error: secrets }
+  const connections = parseConnectionKinds(contributes.connections)
+  if (typeof connections === 'string') return { ok: false, error: connections }
   const assist = parseAssist(contributes.assist, caps)
   if (typeof assist === 'string') return { ok: false, error: assist }
   const settingsPage = parseSettingsPage(
     contributes.settingsPage,
-    settings.length > 0 || secrets.length > 0,
+    settings.length > 0 || secrets.length > 0 || connections.length > 0,
     assist.length > 0,
   )
   if (typeof settingsPage === 'string') return { ok: false, error: settingsPage }
@@ -653,6 +656,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (locales.length > 0) manifest.locales = locales
   if (panel) manifest.contributes.panel = panel
   if (settingsPage) manifest.contributes.settingsPage = settingsPage
+  if (connections.length > 0) manifest.contributes.connections = connections
   if (snippets && snippets.length > 0) manifest.contributes.snippets = snippets
   if (completions !== undefined) manifest.contributes.completions = completions
   if (iconThemes.length > 0) manifest.contributes.iconThemes = iconThemes

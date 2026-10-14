@@ -187,6 +187,7 @@ describe('Ostia prompt in the input editor', () => {
           assist: [],
           secrets: [],
           secretsSet: [],
+          connectionKinds: [],
           settingsPage: null,
           category: 'other',
           languages: [],

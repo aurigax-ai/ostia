@@ -71,6 +71,7 @@ import {
   AGENT_OFFER_TEXT_MAX,
   AGENT_PROMPT_MAX,
   ASSIST_PROVIDERS_CHANGED_EVENT,
+  CONNECTIONS_CHANGED_EVENT,
   DIFF_TEXT_MAX,
   EXTENSION_EVENT_TYPES,
   EXTENSION_ICONS,
@@ -81,6 +82,8 @@ import {
   type ExtensionChip,
   type ExtensionChipContribution,
   type ExtensionCommandContribution,
+  type ExtensionConnectionEntry,
+  type ExtensionConnectionResult,
   type ExtensionEventPayloads,
   type ExtensionEventType,
   type ExtensionIcon,
@@ -163,6 +166,7 @@ import type { EditorLanguageSource } from '../lsp/editorLanguages'
 import type { LanguageServerSource } from '../lsp/languageServers'
 import { isInsideDir } from '../platform/pathGuard'
 import { spawnFolder } from '../terminal/spawnCwd'
+import type { ExtensionConnections } from './extensionConnections'
 import type { ExtensionExec } from './extensionExec'
 import type { ExtensionLaunches } from './extensionLaunches'
 import { loadLocaleCatalogs, manifestIn } from './extensionLocales'
@@ -366,6 +370,7 @@ export interface ExtensionHostDeps {
   assistChatTimeoutMs?: number
   assistModelsTimeoutMs?: number
   secrets?: ExtensionSecretStore
+  connections?: ExtensionConnections
   confirm?: (req: ExtensionConfirmRequest) => Promise<boolean>
   isSandboxed?: (workspaceId: string) => boolean
   hostGrants?: {
@@ -641,7 +646,10 @@ export class ExtensionHost {
       settingsPage: this.active(rt) ? (m.contributes.settingsPage ?? null) : null,
       assist: m.contributes.assist,
       secrets: m.contributes.secrets,
-      secretsSet: this.deps.secrets?.keys(m.id) ?? [],
+      secretsSet: (this.deps.secrets?.keys(m.id) ?? []).filter((key) =>
+        m.contributes.secrets.some((s) => s.key === key),
+      ),
+      connectionKinds: m.contributes.connections ?? [],
       iconThemes: (m.contributes.iconThemes ?? []).map(({ id, label }) => ({ id, label })),
       languages: (m.contributes.languages ?? []).map(({ id, label }) => ({ id, label })),
       keymaps: (m.contributes.keymaps ?? []).map(({ id, label, platform }) => ({
@@ -2440,6 +2448,58 @@ export class ExtensionHost {
     return { ok: true, list: this.list() }
   }
 
+  connectionsOf(extId: string): ExtensionConnectionEntry[] {
+    const rt = this.runtimes.get(extId)
+    if (!rt || !this.deps.connections) return []
+    return this.deps.connections.list(extId, rt.ext.manifest.contributes.connections ?? [])
+  }
+
+  saveConnection(extId: string, req: unknown): ExtensionConnectionResult {
+    const rt = this.runtimes.get(extId)
+    if (!rt) return { ok: false, error: 'unknown-extension' }
+    const kinds = rt.ext.manifest.contributes.connections ?? []
+    if (kinds.length === 0) return { ok: false, error: 'not-contributed' }
+    if (!this.deps.connections) return { ok: false, error: 'unavailable' }
+    const res = this.deps.connections.save(extId, kinds, req)
+    if (res.ok) this.connectionsChanged(rt)
+    return res
+  }
+
+  removeConnection(extId: string, name: unknown): ExtensionConnectionResult {
+    const rt = this.runtimes.get(extId)
+    if (!rt) return { ok: false, error: 'unknown-extension' }
+    if (!this.deps.connections) return { ok: false, error: 'unavailable' }
+    const res = this.deps.connections.remove(extId, name)
+    if (res.ok) this.connectionsChanged(rt)
+    return res
+  }
+
+  private connectionsChanged(rt: Runtime): void {
+    if (rt.conn) {
+      void rt.conn
+        .sendNotification('ext.event', { type: CONNECTIONS_CHANGED_EVENT, payload: {} })
+        .catch(() => {})
+    }
+    this.changed(rt)
+  }
+
+  listConnections(identity: PaneIdentity, conn: MessageConnection) {
+    const rt = this.runtimeOf(identity, conn)
+    const kinds = rt.ext.manifest.contributes.connections ?? []
+    return { ok: true, connections: this.deps.connections?.names(rt.ext.manifest.id, kinds) ?? [] }
+  }
+
+  getConnection(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const kinds = rt.ext.manifest.contributes.connections ?? []
+    const name = (params as { name?: unknown } | null)?.name
+    if (typeof name !== 'string') return fail('invalid-params', 'name must be a string')
+    return {
+      ok: true,
+      connection: this.deps.connections?.value(rt.ext.manifest.id, kinds, name) ?? null,
+    }
+  }
+
   reloadRecords(): void {
     for (const rt of this.runtimes.values()) {
       if (!this.active(rt)) {
@@ -2609,6 +2669,14 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   registerControlMethod(
     'ext.getSecret',
     forExtension((h, id, conn, p) => h.getSecret(id, conn, p)),
+  )
+  registerControlMethod(
+    'ext.connections',
+    forExtension((h, id, conn) => h.listConnections(id, conn)),
+  )
+  registerControlMethod(
+    'ext.connection',
+    forExtension((h, id, conn, p) => h.getConnection(id, conn, p)),
   )
 
   registerControlMethod(

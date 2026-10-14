@@ -37,6 +37,7 @@ function provider(id: string, keymaps: KeymapInfo[], enabled = true): ExtensionI
     assist: [],
     secrets: [],
     secretsSet: [],
+    connectionKinds: [],
     iconThemes: [],
     languages: [],
     keymaps,

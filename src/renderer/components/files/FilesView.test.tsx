@@ -73,6 +73,7 @@ function iconThemeExtension(): ExtensionInfo {
     assist: [],
     secrets: [],
     secretsSet: [],
+    connectionKinds: [],
     settingsPage: null,
     category: 'other',
     languages: [],

@@ -207,7 +207,9 @@ import {
   type Telemetry,
   registerTelemetry,
 } from './diagnostics/telemetry'
+import { registerConnectionsIpc } from './extensions/connectionsIpc'
 import { confirmForExtension } from './extensions/extensionConfirm'
+import { ExtensionConnections } from './extensions/extensionConnections'
 import { ExtensionExec } from './extensions/extensionExec'
 import { ExtensionHost, registerExtensionMethods } from './extensions/extensionHost'
 import { ExtensionLaunches } from './extensions/extensionLaunches'
@@ -2084,6 +2086,7 @@ function registerExtensionIpc(host: ExtensionHost): void {
   ipcMain.handle('extensions:set-secret', (_e, extId: unknown, key: unknown, value: unknown) =>
     host.setSecret(String(extId), String(key), value),
   )
+  registerConnectionsIpc(() => host)
   ipcMain.handle(
     'extensions:invoke',
     (
@@ -3320,6 +3323,16 @@ function sendToWorkspaceWindow(
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
 }
 
+let connectionsStore: ExtensionConnections | null = null
+
+function extensionConnections(): ExtensionConnections {
+  connectionsStore ??= new ExtensionConnections(
+    join(app.getPath('userData'), 'extension-connections.json'),
+    () => extensionSecretStore(),
+  )
+  return connectionsStore
+}
+
 function extensionSecretStore() {
   return encryptedStore(storePath('extension-secrets', 'global'))
 }
@@ -3997,6 +4010,7 @@ app.whenReady().then(() => {
     redact: redactor.redact,
     assistKeys: assistKeyStore(),
     secrets: extensionSecretStore(),
+    connections: extensionConnections(),
     openAssistUiIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'assist:open-ui', req),
     broadcast,
     publishWorkspaceChips,
@@ -4082,6 +4096,7 @@ app.whenReady().then(() => {
       managedServers.forgetExtension(extId)
       serverOverrides.forgetExtension(extId)
       extensionStore.delete(extId)
+      extensionConnections().forget(extId)
       for (const secrets of [extensionSecretStore(), assistKeyStore()]) {
         for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
       }

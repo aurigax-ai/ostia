@@ -45,6 +45,7 @@ const keymapExtension: ExtensionInfo = {
   assist: [],
   secrets: [],
   secretsSet: [],
+  connectionKinds: [],
   iconThemes: [],
   languages: [],
   keymaps: [

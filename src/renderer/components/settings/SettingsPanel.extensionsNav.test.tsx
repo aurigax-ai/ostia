@@ -37,6 +37,7 @@ function ext(id: string, name: string, overrides: Partial<ExtensionInfo> = {}): 
     assist: [],
     secrets: [],
     secretsSet: [],
+    connectionKinds: [],
     settingsPage: null,
     category: 'other',
     languages: [],
