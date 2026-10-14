@@ -66,7 +66,7 @@ export interface PreviewSession {
   clearStorageData: () => Promise<void>
 }
 
-export interface PreviewRect {
+interface PreviewRect {
   x: number
   y: number
   width: number
