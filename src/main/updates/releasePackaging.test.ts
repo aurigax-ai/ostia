@@ -32,15 +32,16 @@ describe('release packaging', () => {
     expect(published).not.toMatch(/AppImage/i)
   })
 
-  it('ships the preview runtime as a resource and the compiler binary outside the archive', () => {
+  it('ships the preview runtime package tree as a resource and the bundler binary outside the archive', () => {
     const builder = parse(readFileSync(join(process.cwd(), 'electron-builder.yml'), 'utf8')) as {
       files: string[]
-      extraResources: { from: string; to: string }[]
+      extraResources: { from: string; to: string; filter?: string[] }[]
       asarUnpack: string[]
     }
     expect(builder.extraResources).toContainEqual({
-      from: 'out/artifact-runtime',
-      to: 'artifact-runtime',
+      from: 'out',
+      to: '.',
+      filter: ['artifact-runtime/**'],
     })
     expect(builder.files).toContain('!out/artifact-runtime/**')
     expect(builder.asarUnpack).toContain('node_modules/@esbuild/**')
