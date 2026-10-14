@@ -179,6 +179,24 @@ describe('confirmQuit', () => {
     ])
   })
 
+  it('quitting while the window is too busy to answer asks instead of quitting', async () => {
+    vi.useFakeTimers()
+    const { win } = silentWindow(7)
+    const spec = check({
+      workspaces: { 7: [{ id: 'w1', name: 'api' }] },
+      processes: [{ paneId: 'p1', workspaceId: 'w1', program: null, agentRunning: false }],
+    })
+    let approved: QuitAnswer | null = null
+    void confirmQuit([win], win, spec.check).then((v) => {
+      approved = v
+    })
+    await vi.advanceTimersByTimeAsync(RUNNING_ANSWER_MS)
+    expect(approved).toBe('cancel')
+    expect(spec.asked).toEqual([
+      [{ workspaceId: 'w1', workspace: 'api', commands: [], files: [], unanswered: true }],
+    ])
+  })
+
   it('reads the ptys of a crashed window instead of quitting past its agents', async () => {
     const spec = check({
       workspaces: { 7: [{ id: 'w1', name: 'api' }] },
