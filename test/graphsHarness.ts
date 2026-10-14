@@ -10,6 +10,8 @@ const repoRoot = process.cwd()
 const CLI = join(repoRoot, 'out', 'cli', 'index.js')
 export const SCAN_EXPLODES = 'scan-explodes-here'
 export const FAKE_TOOL = join(repoRoot, 'test', 'fixtures', 'tools', 'bin', 'fake-tool')
+export const FAKE_MCP_SERVER = join(repoRoot, 'test', 'fixtures', 'mcp', 'fake-server.mjs')
+export const MCP_SECRET = ['mcp', 'tok', 'Q'.repeat(28)].join('_')
 
 interface CliResult {
   code: number | null
@@ -92,7 +94,9 @@ function runCli(args: string[], env: NodeJS.ProcessEnv, stdin = ''): Promise<Cli
   })
 }
 
-export async function graphsHarness(opts: { activity?: boolean } = {}): Promise<Harness> {
+export async function graphsHarness(
+  opts: { activity?: boolean; mcp?: boolean } = {},
+): Promise<Harness> {
   const { registerControlServer } = await import('../src/main/control/controlServer')
   const { registerPane, markManager, getByPaneId } = await import('../src/main/control/idRegistry')
   const { ExtensionHost, registerExtensionMethods } = await import(
@@ -108,6 +112,8 @@ export async function graphsHarness(opts: { activity?: boolean } = {}): Promise<
   const { registerDocsMethods } = await import('../src/main/control/docs')
   const { createRedactor } = await import('../src/main/privacy/redaction')
   const { scanSecrets } = await import('../src/main/privacy/secretScanner')
+  const { McpHost } = await import('../src/main/chat/mcpHost')
+  const { registerExtensionMcp } = await import('../src/main/chat/extensionMcp')
 
   const dir = mkdtempSync(join(tmpdir(), 'ostia-graphs-'))
   const workDir = join(dir, 'shop')
@@ -222,6 +228,33 @@ export async function graphsHarness(opts: { activity?: boolean } = {}): Promise<
     log: (extId, line) => logs.push(`${extId}: ${line}`),
   })
   registerExtensionMethods(() => host)
+  const mcp = opts.mcp
+    ? new McpHost({
+        servers: () => [
+          {
+            name: 'fake',
+            enabled: true,
+            command: [process.execPath, FAKE_MCP_SERVER],
+            env: {},
+            secrets: ['FAKE_TOKEN'],
+            disabledTools: ['fail'],
+          },
+          {
+            name: 'quiet',
+            enabled: false,
+            command: [process.execPath, FAKE_MCP_SERVER],
+            env: {},
+            secrets: [],
+            disabledTools: [],
+          },
+        ],
+        secret: (server, key) => (server === 'fake' && key === 'FAKE_TOKEN' ? MCP_SECRET : null),
+        onStatus: () => {},
+        connectTimeoutMs: 10_000,
+        callTimeoutMs: 5000,
+      })
+    : null
+  registerExtensionMcp({ mcp: () => mcp })
   registerBusMethods({
     managerSendAllowed: () => true,
     announce: () => {},
@@ -349,6 +382,7 @@ export async function graphsHarness(opts: { activity?: boolean } = {}): Promise<
       ),
     stopAll: () => {
       host.stopAll()
+      mcp?.closeAll()
       rmSync(dir, { recursive: true, force: true })
     },
   }
