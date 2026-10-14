@@ -183,6 +183,7 @@ describe('LanguagesSection', () => {
         { at: 9, kind: 'stop', reason: 'off' },
         { at: 10, kind: 'fetch-start', how: 'download', version: '1.0.0' },
         { at: 11, kind: 'fetch-done', version: '1.0.0' },
+        { at: 12, kind: 'start', pid: 4343, sandboxed: true },
       ],
       errors: { 'textDocument/hover': 3 },
     }
@@ -208,6 +209,7 @@ describe('LanguagesSection', () => {
       'Stopping: turned off',
       'Downloading version 1.0.0',
       'Version 1.0.0 is ready',
+      'Started in the sandbox (pid 4343)',
       'textDocument/hover',
     ]) {
       expect(await within(dialog).findByText(line)).toBeInTheDocument()

@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { DEFAULT_CONTROLS } from '../../shared/sandbox/sandbox'
+import { DEFAULT_CONTROLS, DEFAULT_SWITCHES } from '../../shared/sandbox/sandbox'
 import { SandboxHost } from './hostClient'
 import { buildSrtConfig } from './srtConfig'
 
@@ -46,8 +46,9 @@ function contents(path: string): string {
 function run(
   script: string,
   env: NodeJS.ProcessEnv = process.env,
+  on: SandboxHost = host,
 ): Promise<{ code: number; out: string }> {
-  return host.wrap(script, 'bash').then(
+  return on.wrap(script, 'bash').then(
     (wrapped) =>
       new Promise((resolve) => {
         const child = spawn('/bin/sh', ['-c', wrapped], { cwd: workDir, env: { ...env } })
@@ -227,3 +228,47 @@ describe('sandbox runtime', () => {
     expect(res.out).not.toContain('bus')
   })
 })
+
+describe.skipIf(process.platform !== 'linux')(
+  'sandbox runtime with Unix sockets off (Linux only: seccomp)',
+  () => {
+    let closed: SandboxHost
+
+    beforeAll(async () => {
+      const closedTmp = join(root, 'closedtmp')
+      mkdirSync(closedTmp, { recursive: true })
+      closed = new SandboxHost({ nodePath: process.execPath, hostScript, onAsk: async () => false })
+      await closed.start(
+        buildSrtConfig(
+          {
+            allowRead: [],
+            domains: [],
+            controls: DEFAULT_CONTROLS,
+            switches: { ...DEFAULT_SWITCHES, unixSockets: false },
+          },
+          {
+            home,
+            workDir,
+            tmpDir: closedTmp,
+            dataDirs: [dataDir],
+            runtimeDir,
+            socketPath,
+            runtimeReads: [],
+          },
+        ),
+      )
+    }, 60_000)
+
+    afterAll(() => closed?.stop())
+
+    it('keeps the ostia socket out of reach while the shell still runs', async () => {
+      const res = await run(
+        `node -e "require('net').connect('${socketPath}').on('connect',()=>{console.log('ostia-ok');process.exit(0)}).on('error',e=>{console.log('ostia-err',e.code);process.exit(0)})"; echo STILL-RUNNING`,
+        process.env,
+        closed,
+      )
+      expect(res.out).not.toContain('ostia-ok')
+      expect(res.out).toContain('STILL-RUNNING')
+    })
+  },
+)

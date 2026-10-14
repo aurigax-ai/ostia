@@ -60,6 +60,21 @@ export async function versionConfined(
   }
 }
 
+export async function writeTextConfined(
+  path: string,
+  confine: (path: string) => string | null,
+  save: (safe: string) => Promise<unknown>,
+): Promise<boolean> {
+  const safe = confine(path)
+  if (safe === null) return false
+  try {
+    await save(safe)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function writeText(path: string, text: string): Promise<FileStamp> {
   const file = await open(path, 'w')
   try {

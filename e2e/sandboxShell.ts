@@ -1,25 +1,5 @@
-import { type Server, createServer } from 'node:http'
-import type { AddressInfo } from 'node:net'
 import { runInTerminal } from './helpers'
 import { type Page, expect } from './test'
-
-export const UPSTREAM_BODY = 'UPSTREAM-REACHED'
-
-export async function fakeUpstream(): Promise<{
-  server: Server
-  url: string
-  requested: string[]
-}> {
-  const requested: string[] = []
-  const server = createServer((req, res) => {
-    requested.push(req.url ?? '')
-    res.writeHead(200, { 'content-type': 'text/plain' })
-    res.end(UPSTREAM_BODY)
-  })
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  const { port } = server.address() as AddressInfo
-  return { server, url: `http://127.0.0.1:${port}`, requested }
-}
 
 export async function setSandbox(win: Page, on: boolean): Promise<void> {
   await win.locator('.rail-row').first().click({ button: 'right' })

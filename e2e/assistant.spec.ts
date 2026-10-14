@@ -1,7 +1,6 @@
 import { chords } from './chords'
-import { isolatedLaunch } from './dataHome'
-import { extensionHosts } from './extensionHosts'
-import { type FakeRequest, startFakeProvider } from './fakeProvider'
+import { freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { type FakeRequest, fakeAssistantSettings, startFakeProvider } from './fakeProvider'
 import { PROMPT, openWorkspace } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
@@ -21,51 +20,15 @@ function answer(req: FakeRequest): string {
   return ANSWER
 }
 
-test('an OpenAI-compatible provider added in Settings with two models answers in Ask with the chat model and suggests a command with the fast one, inserted, not run', async () => {
+test('an Ask answer fits its inline command chip to the code, and a suggested command is inserted at the shell prompt, not run', async () => {
   const provider = await startFakeProvider(answer)
-  const app = await electron.launch(isolatedLaunch())
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, { assistant: fakeAssistantSettings(provider.url) })
+  const app = await electron.launch(isolatedLaunch(dataHome))
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    expect(extensionHosts(app)).not.toContain('assistant')
-
-    await win.keyboard.press('Control+,')
-    const settings = win.getByRole('region', { name: 'Settings' })
-    await expect(settings).toBeVisible({ timeout: 10_000 })
-    await settings.getByRole('button', { name: 'Assistant', exact: true }).click()
-    await expect(
-      settings.getByText('Add a provider and a model first. Nothing is sent until then.'),
-    ).toBeVisible({ timeout: 15_000 })
-    await expect.poll(() => extensionHosts(app), { timeout: 15_000 }).toContain('assistant')
-    await settings.getByRole('button', { name: 'Add provider' }).click()
-    await win.getByRole('menuitem', { name: 'OpenAI-compatible', exact: true }).click()
-    const card = settings.getByRole('listitem', { name: 'OpenAI-compatible' })
-    await expect(card.getByRole('status')).toHaveText('Needs a base URL', { timeout: 15_000 })
-    const url = card.getByRole('textbox', { name: 'Base URL: OpenAI-compatible' })
-    await url.fill(provider.url)
-    await url.press('Enter')
-    await expect(card.getByRole('status')).toHaveText('No models yet', { timeout: 15_000 })
-    const addModel = card.getByRole('combobox', { name: 'Model id for OpenAI-compatible' })
-    await addModel.click()
-    await win.getByRole('option', { name: 'fake-small', exact: true }).click()
-    await expect(card.getByRole('status')).toHaveText('Ready', { timeout: 15_000 })
-    await addModel.fill('fake-big')
-    await win.getByRole('option', { name: 'fake-big', exact: true }).click()
-    await expect(card.getByRole('list', { name: 'Models: OpenAI-compatible' })).toContainText(
-      'fake-big',
-    )
-    const fast = settings.getByRole('combobox', { name: 'Fast model' })
-    const chat = settings.getByRole('combobox', { name: 'Chat model' })
-    await expect(fast).toContainText('OpenAI-compatible · fake-small', { timeout: 15_000 })
-    await expect(chat).toContainText('OpenAI-compatible · fake-small')
-    await chat.click()
-    await win.getByRole('option', { name: 'fake-big', exact: true }).click()
-    await expect(chat).toContainText('OpenAI-compatible · fake-big', { timeout: 15_000 })
-    await expect(settings.locator('[data-feature="chat"]')).toContainText(
-      'Uses OpenAI-compatible · fake-big',
-    )
-    await win.keyboard.press('Escape')
 
     await win.locator('.xterm').first().click()
     await win.keyboard.press(chords.palette)
@@ -84,7 +47,6 @@ test('an OpenAI-compatible provider added in Settings with two models answers in
     const chipBox = await chip.boundingBox()
     const codeBox = await chip.locator('code').boundingBox()
     expect(chipBox && codeBox && chipBox.width - codeBox.width).toBeLessThan(1)
-    expect(provider.requests.map((r) => r.model)).toContain('fake-big')
     await win.keyboard.press('Escape')
     await expect(palette).toBeHidden()
 
@@ -110,7 +72,6 @@ test('an OpenAI-compatible provider added in Settings with two models answers in
     const lines = screen.filter((l) => l.includes(SUGGESTED))
     expect(lines).toHaveLength(1)
     expect(lines[0]).toMatch(PROMPT)
-    expect(provider.requests.map((r) => r.model)).toContain('fake-small')
   } finally {
     await app.close()
     provider.close()

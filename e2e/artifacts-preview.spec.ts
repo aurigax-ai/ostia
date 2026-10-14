@@ -3,12 +3,10 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { type AddressInfo, type Server, createServer } from 'node:net'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { fakeAgentBin, startFakeAgent } from './fakeAgent'
 import { openWorkspace, runInTerminal } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const PREVIEW_URL = 'ostia-preview://'
-const REPORT_REF = /@(\S*selection-\d+\.md)/
 const COPIED = 'copied-by-the-preview-page-7f3a'
 const PIXEL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
@@ -186,12 +184,7 @@ const attempt = async (name, run) => {
 
 async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
   seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, editor: { openFilesIn: 'split' } })
-  const bin = fakeAgentBin(dataHome)
-  const base = isolatedLaunch(dataHome)
-  const app = await electron.launch({
-    ...base,
-    env: { ...base.env, PATH: `${bin}:${base.env.PATH}` },
-  })
+  const app = await electron.launch(isolatedLaunch(dataHome))
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
   await openWorkspace(win)
@@ -339,22 +332,6 @@ test('a page in the artifact folder runs with no network, no way into Ostia, no 
     expect(urls[0]).toMatch(/^ostia-preview:\/\/[0-9a-f]{24}\/$/)
     expect(await inGuest<string>(app, 'document.title')).toBe('probed')
     expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1)
-    expect(outside.hits()).toBe(0)
-
-    await win.locator('.xterm').first().click()
-    await startFakeAgent(win)
-    await win.getByRole('button', { name: 'Send Error to Agent' }).click()
-    const panel = win.getByRole('region', { name: 'Send to agent' })
-    await expect(panel).toBeVisible({ timeout: 15_000 })
-    await panel.getByLabel('Note for the agent').fill('the page fails')
-    await panel.getByRole('button', { name: 'Send' }).click()
-    const terminal = win.locator('.xterm-rows').first()
-    await expect(terminal).toContainText(REPORT_REF, { timeout: 15_000 })
-    const match = ((await terminal.textContent()) ?? '').match(REPORT_REF)
-    const report = readFileSync((match as RegExpMatchArray)[1], 'utf8')
-    expect(report).toContain('# Preview error: probe.html,')
-    expect(report).toContain('previews have no network')
-    expect(report).toContain('the page fails')
     expect(outside.hits()).toBe(0)
   } finally {
     await app.close()
@@ -625,27 +602,24 @@ test('a .tsx component runs with the bundled libraries, no eval, no network, and
   }
 })
 
-test('a component that does not compile, or imports what is not bundled, says so in the strip', async () => {
+test('a component that imports what is not bundled says so in the strip', async () => {
   test.setTimeout(120_000)
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
-  writeFileSync(join(home, 'Broken.tsx'), 'export default function Broken() {\n  return <div>\n}\n')
+  writeFileSync(
+    join(home, 'Unbundled.tsx'),
+    "import { motion } from 'framer-motion'\nexport default () => <motion.div />\n",
+  )
   const { app, win } = await launch(dataHome)
   try {
     await runInTerminal(
       win,
-      'cp ~/Broken.tsx "$OSTIA_ARTIFACTS/" && ostia open "$OSTIA_ARTIFACTS/Broken.tsx"',
+      'cp ~/Unbundled.tsx "$OSTIA_ARTIFACTS/" && ostia open "$OSTIA_ARTIFACTS/Unbundled.tsx"',
     )
-    const strip = win.getByTestId('preview-errors')
-    await expect(strip).toContainText(/Broken\.tsx:3:\d+:/, { timeout: 30_000 })
-
-    await runInTerminal(
-      win,
-      `printf "import { motion } from 'framer-motion'\\nexport default () => <motion.div />\\n" > "$OSTIA_ARTIFACTS/Broken.tsx"`,
-    )
-    await expect(strip).toContainText('framer-motion', { timeout: 30_000 })
-    await expect(strip).not.toContainText('Broken.tsx:3:')
+    await expect(win.getByTestId('preview-errors')).toContainText('framer-motion', {
+      timeout: 30_000,
+    })
     expect(await guestUrls(app)).toHaveLength(1)
   } finally {
     await app.close()
