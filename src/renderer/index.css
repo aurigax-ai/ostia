@@ -2162,8 +2162,8 @@
 
 .preview-tools {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  right: 8px;
+  bottom: 8px;
   z-index: 2;
 }
 
@@ -2803,7 +2803,7 @@ button.prompt-chip:hover {
 
 .html-preview {
   position: absolute;
-  inset: 0;
+  inset: var(--language-notice-height, 0px) 0 0 0;
   z-index: 1;
   display: flex;
   flex-direction: column;

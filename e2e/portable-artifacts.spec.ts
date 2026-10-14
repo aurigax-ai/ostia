@@ -1,8 +1,9 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { type AddressInfo, type Server, type Socket, createServer } from 'node:net'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { fakeAgentBin, startFakeAgent } from './fakeAgent'
 import { openWorkspace, runInTerminal } from './helpers'
 import {
   type BrowserContext,
@@ -596,6 +597,56 @@ fetch('./data.json').then(() => { out.textContent = 'reached' }, () => { out.tex
       })
       .toBe('refused')
     await expect(win.getByTestId('preview-errors')).toContainText('Refused to connect')
+  } finally {
+    await app.close()
+  }
+})
+
+const REPORT_REF = /@(\S*selection-\d+\.md)/g
+
+test('PRT-C54 a region of a running preview goes to the agent as a report with its picture, without Enter', async () => {
+  test.setTimeout(240_000)
+  const dataHome = freshDataHome()
+  writeFileSync(join(home(dataHome), 'chart.tsx'), CHART)
+  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, editor: { openFilesIn: 'split' } })
+  const bin = fakeAgentBin(dataHome)
+  const base = isolatedLaunch(dataHome)
+  const app = await electron.launch({
+    ...base,
+    env: { ...base.env, PATH: `${bin}:${base.env.PATH}` },
+  })
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    await openArtifact(win, 'chart.tsx')
+    await expect
+      .poll(() => inGuest<string>(app, "document.getElementById('inc')?.textContent ?? ''"), {
+        timeout: 30_000,
+      })
+      .toBe('count 0')
+    await startFakeAgent(win)
+    await win.getByRole('button', { name: 'Send Region to Agent' }).click()
+    const overlay = win.getByTestId('preview-region')
+    const box = await overlay.boundingBox()
+    if (!box) throw new Error('no region overlay')
+    await win.mouse.move(box.x + 10, box.y + 10)
+    await win.mouse.down()
+    await win.mouse.move(box.x + 160, box.y + 90, { steps: 5 })
+    await win.mouse.up()
+    const panel = win.getByRole('region', { name: 'Send to agent' })
+    await expect(panel).toBeVisible({ timeout: 15_000 })
+    await panel.getByRole('button', { name: 'Send' }).click()
+    const terminal = win.locator('.xterm-rows').first()
+    await expect(terminal).toContainText(/@\S*selection-\d+\.md/, { timeout: 15_000 })
+    await win.waitForTimeout(1_000)
+    const refs = [...((await terminal.textContent()) ?? '').matchAll(REPORT_REF)]
+    expect(refs).toHaveLength(1)
+    const report = readFileSync(refs[0][1], 'utf8')
+    expect(report).toContain('# Preview region: chart.tsx')
+    expect(report).toMatch(/- Region: x 10, y 10, 150 × 80/)
+    const png = /- Snapshot: (\S+\.png)/.exec(report)?.[1] ?? ''
+    expect(readFileSync(png).subarray(0, 4).toString('hex')).toBe('89504e47')
   } finally {
     await app.close()
   }

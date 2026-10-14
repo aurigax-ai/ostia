@@ -95,6 +95,8 @@ export function insertPathReference(target: ReferenceTarget, path: string): Prom
   return sendReference(target, reportReference(path))
 }
 
+const PREVIEW_KINDS: ReadonlySet<string> = new Set(['preview-error', 'preview-region'])
+
 async function deliverReport(
   target: ReferenceTarget,
   references: string,
@@ -189,7 +191,7 @@ export async function sendSelectionToPane(opts: {
     reportReference(res.path),
     opts.note,
     selectionLabel(opts.capture),
-    opts.capture.kind !== 'preview-error',
+    !PREVIEW_KINDS.has(opts.capture.kind),
   )
   return { ok: true, path: res.path, imagePath: res.imagePath, inserted }
 }
