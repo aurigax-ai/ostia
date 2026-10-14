@@ -33,6 +33,7 @@ export default defineWorkspace([
         'test/installScript.test.ts',
         'test/electronHeaders.test.ts',
         'test/coverageReport.test.ts',
+        'test/heldPort.test.ts',
       ],
     },
   },

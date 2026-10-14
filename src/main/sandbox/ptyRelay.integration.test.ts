@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
-import { type AddressInfo, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'esbuild'
 import type { IPty } from 'node-pty'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { holdPort } from '../../../test/heldPort'
 import { DEFAULT_SANDBOX_GLOBALS, type SandboxSwitches } from '../../shared/sandbox/sandbox'
 import { PortBridge } from './portBridge'
 import { PortForwarder } from './portForwarder'
@@ -110,17 +110,9 @@ async function startSleep(session: Session): Promise<number> {
   return session.seen('SLEEPING\r', from)
 }
 
-function freePort(): Promise<number> {
-  return new Promise((resolve) => {
-    const probe = createServer().listen(0, '127.0.0.1', () => {
-      const { port } = probe.address() as AddressInfo
-      probe.close(() => resolve(port))
-    })
-  })
-}
-
 async function exposeAndServe(session: Session, marker: string): Promise<string> {
-  const port = await freePort()
+  const held = await holdPort()
+  const { port } = held
   const url = `http://127.0.0.1:${port}/`
   const forwarder = new PortForwarder({
     panesOf: () => [{ pid: session.term.pid, bridge: session.bridge }],
@@ -157,6 +149,7 @@ async function exposeAndServe(session: Session, marker: string): Promise<string>
     return body
   } finally {
     forwarder.stopAll()
+    held.release()
   }
 }
 

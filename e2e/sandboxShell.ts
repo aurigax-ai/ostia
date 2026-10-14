@@ -21,14 +21,6 @@ export async function fakeUpstream(): Promise<{
   return { server, url: `http://127.0.0.1:${port}`, requested }
 }
 
-export async function freePort(): Promise<number> {
-  const probe = createServer()
-  await new Promise<void>((resolve) => probe.listen(0, '127.0.0.1', resolve))
-  const { port } = probe.address() as AddressInfo
-  await new Promise((resolve) => probe.close(resolve))
-  return port
-}
-
 export async function setSandbox(win: Page, on: boolean): Promise<void> {
   await win.locator('.rail-row').first().click({ button: 'right' })
   const item = win.getByRole('menuitemcheckbox', { name: 'Sandbox' })
