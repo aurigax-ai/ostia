@@ -52,7 +52,7 @@ process.stdin.on('data', (chunk) => {
 })
 `
 
-test('ostia pane send presses Enter again when an agent swallowed the first one after a paste', async () => {
+test('ostia pane send answers not-submitted when an agent swallowed the Enter after a paste, and types nothing more', async () => {
   test.setTimeout(90_000)
   const dataHome = freshDataHome()
   const script = join(dataHome, 'fake-claude.cjs')
@@ -80,10 +80,14 @@ test('ostia pane send presses Enter again when an agent swallowed the first one 
       win,
       "printf 'line one\\nline two' | ostia pane send worker - --enter; echo send-exit-$?",
     )
-    await expect(caller).toContainText('send-exit-0', { timeout: 30_000 })
-    await typeLine(win, 'ostia pane read worker')
+    await expect(caller).toContainText('send-exit-1', { timeout: 30_000 })
+    await expect(caller).toContainText('not-submitted:')
+    await typeLine(win, 'clear; ostia pane read worker')
     await expect(caller).toContainText('swallowed-enter', { timeout: 15_000 })
-    await expect(caller).toContainText('submitted: line one | line two')
+    await expect(caller).not.toContainText('submitted: line one')
+
+    await typeLine(win, 'clear; ostia pane key worker enter && ostia pane read worker')
+    await expect(caller).toContainText('submitted: line one | line two', { timeout: 15_000 })
   } finally {
     await app.close()
   }

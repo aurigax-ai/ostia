@@ -1148,15 +1148,19 @@ describe('pane.input for unattended agents', () => {
     expect(written.map((w) => w.data)).toEqual(['more'])
   })
 
-  it('confirms the input showed in the pane, and reports a pane that showed nothing as an error', async () => {
+  it('reads back whether the pane showed the input, and never fails once the bytes went in', async () => {
     const conn = await granted()
     const seen = await conn.sendRequest('pane.input', { pane: sibling.externalId, text: 'x' })
-    expect(seen).toMatchObject({ responded: true, bytes: 1 })
+    expect(seen).toMatchObject({ ok: true, responded: true, bytes: 1 })
 
     echoes = false
-    await expect(
-      conn.sendRequest('pane.input', { pane: sibling.externalId, text: 'y', confirmMs: 120 }),
-    ).rejects.toThrow(`no-echo: ${sibling.externalId} showed nothing within 120 ms`)
+    const quiet = await conn.sendRequest('pane.input', {
+      pane: sibling.externalId,
+      keys: ['enter'],
+      confirmMs: 120,
+    })
+    expect(quiet).toMatchObject({ ok: true, responded: false, bytes: 1 })
+    expect(written.map((w) => w.data)).toEqual(['x', '\r'])
   })
 
   describe('an agent that reports its turns', () => {
@@ -1177,27 +1181,16 @@ describe('pane.input for unattended agents', () => {
     }
     const task = { pane: sibling.externalId, text: 'line one\nline two', keys: ['enter'] }
 
-    it('presses Enter once more when the first Enter after a paste did not start a turn', async () => {
+    it('answers not-submitted, never ok, when the Enter after a paste did not start a turn, and never presses Enter again', async () => {
       claudeIn('sibling-pane', 1)
-      const conn = await granted()
-      await expect(conn.sendRequest('pane.input', task)).resolves.toMatchObject({ ok: true })
-      expect(written.map((w) => w.data)).toEqual([
-        '\x1b[200~line one\rline two\x1b[201~',
-        '\r',
-        '\r',
-      ])
-    })
-
-    it('answers not-submitted, never ok, when the agent still did not start a turn', async () => {
-      claudeIn('sibling-pane', 5)
       const conn = await granted()
       await expect(conn.sendRequest('pane.input', task)).rejects.toThrow(
         `not-submitted: ${sibling.externalId} shows the text at its prompt but did not start a turn`,
       )
-      expect(written.filter((w) => w.data === '\r')).toHaveLength(2)
+      expect(written.map((w) => w.data)).toEqual(['\x1b[200~line one\rline two\x1b[201~', '\r'])
     })
 
-    it('presses Enter once when the turn starts, and never checks text without Enter, a turn in progress or an agent without hooks', async () => {
+    it('answers ok when the turn starts, and never checks text without Enter, a turn in progress or an agent without hooks', async () => {
       claudeIn('sibling-pane', 0)
       const conn = await granted()
       await conn.sendRequest('pane.input', task)

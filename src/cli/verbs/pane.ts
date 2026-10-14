@@ -387,6 +387,11 @@ export async function runPaneVerb(
   } else if (call.method === 'pane.close') {
     const { closed } = result as { closed: string[] }
     console.log(call.json ? JSON.stringify(result) : closed.join('\n'))
+  } else if (
+    call.method === 'pane.input' &&
+    (result as { responded?: boolean }).responded === false
+  ) {
+    console.log(`sent; ${call.params.pane} showed nothing yet: read it with ostia pane read`)
   } else {
     console.log('ok')
   }

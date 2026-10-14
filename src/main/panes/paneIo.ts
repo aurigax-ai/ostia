@@ -28,8 +28,7 @@ const WAKE_WAIT_DEFAULT_MS = 2 * 60_000
 const WAKE_WAIT_MAX_MS = 30 * 60_000
 const CONFIRM_POLL_MS = 50
 const CLOSE_CONFIRM_MS = 3000
-const SUBMIT_CONFIRM_MS = 3000
-const SUBMIT_RETRY_CONFIRM_MS = 5000
+const SUBMIT_CONFIRM_MS = 5000
 const TURN_STATES: ReadonlySet<string | undefined> = new Set(['working', 'waiting'])
 const PASTE_START = '\x1b[200~'
 const PASTE_END = '\x1b[201~'
@@ -373,42 +372,42 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
     })
   }
 
-  const confirmInput = (to: PaneIdentity, before: number | undefined, ms: number) => {
+  const confirmInput = async (
+    to: PaneIdentity,
+    before: number | undefined,
+    ms: number,
+  ): Promise<boolean> => {
     let polls = 0
-    return actThenConfirm<true>({
+    const seen = await actThenConfirm<boolean>({
       act: () => undefined,
       observe: () => {
         const now = deps.io.outputCursor(to.paneId)
-        if (now === undefined) return mismatch(`gone: ${to.externalId} closed after the input`)
+        if (now === undefined) return confirmed(false)
         if (before !== undefined && now > before) return confirmed(true)
         polls += 1
-        if (polls * CONFIRM_POLL_MS > ms) {
-          return mismatch(
-            `no-echo: ${to.externalId} showed nothing within ${ms} ms of the input; read it with ostia pane read`,
-          )
-        }
-        return undefined
+        return polls * CONFIRM_POLL_MS > ms ? confirmed(false) : undefined
       },
       signal: ticks,
       timeoutMs: CONFIRM_MAX_MS * 10,
-      onTimeout: () => mismatch(`no-echo: ${to.externalId} showed nothing after the input`),
+      onTimeout: () => confirmed(false),
     })
+    return seen.value === true
   }
 
-  const confirmSubmitted = (to: PaneIdentity, act: () => void, ms: number) => {
+  const confirmSubmitted = (to: PaneIdentity) => {
     let polls = 0
     return actThenConfirm<true>({
-      act,
+      act: () => undefined,
       observe: async () => {
         if (TURN_STATES.has((await deps.attention(to)).state)) return confirmed(true)
         polls += 1
-        if (polls * CONFIRM_POLL_MS <= ms) return undefined
+        if (polls * CONFIRM_POLL_MS <= SUBMIT_CONFIRM_MS) return undefined
         return mismatch(
-          `not-submitted: ${to.externalId} shows the text at its prompt but did not start a turn after Enter; press it with ostia pane key ${to.externalId} enter, or read it with ostia pane read`,
+          `not-submitted: ${to.externalId} shows the text at its prompt but did not start a turn after Enter; press Enter with ostia pane key ${to.externalId} enter, or read it with ostia pane read`,
         )
       },
       signal: ticks,
-      timeoutMs: ms * 10,
+      timeoutMs: SUBMIT_CONFIRM_MS * 10,
       onTimeout: () => mismatch(`not-submitted: ${to.externalId} did not start a turn`),
     })
   }
@@ -417,17 +416,6 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
     const entry = (await deps.panes()).find((p) => p.paneId === to.externalId)
     if (!entry?.agent || !deps.hooksOn(entry.agent)) return false
     return !TURN_STATES.has((await deps.attention(to)).state)
-  }
-
-  const ensureSubmitted = async (to: PaneIdentity): Promise<void> => {
-    const first = await confirmSubmitted(to, () => undefined, SUBMIT_CONFIRM_MS)
-    if (first.ok) return
-    const again = await confirmSubmitted(
-      to,
-      () => deps.io.write(to.paneId, NAMED_KEYS.enter),
-      SUBMIT_RETRY_CONFIRM_MS,
-    )
-    if (!again.ok) throw fail(again.reason)
   }
 
   registerControlMethod('pane.input', {
@@ -473,16 +461,18 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
         }
       }
       deps.inputSent(to)
-      const seen = await confirmInput(to, before, confirmMs)
-      if (!seen.ok) throw fail(seen.reason)
-      if (watched) await ensureSubmitted(to)
+      const responded = await confirmInput(to, before, confirmMs)
+      if (responded && watched) {
+        const submitted = await confirmSubmitted(to)
+        if (!submitted.ok) throw fail(submitted.reason)
+      }
       const state = deps.state(to.paneId)
       return {
         ok: true,
         paneId: to.externalId,
         bytes: first.length + rest.length,
         pasted,
-        responded: true,
+        responded,
         running: state?.running ?? false,
       }
     },
