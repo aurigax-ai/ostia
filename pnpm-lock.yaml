@@ -16,9 +16,9 @@ importers:
       '@anthropic-ai/sandbox-runtime':
         specifier: 0.0.79
         version: 0.0.79
-      '@aurigax-ai/graph':
-        specifier: 0.1.1
-        version: 0.1.1
+      '@aurigax-ai/wire':
+        specifier: 0.1.2
+        version: 0.1.2
       '@xterm/headless':
         specifier: ^6.0.0
         version: 6.0.0
@@ -434,8 +434,8 @@ packages:
   '@aurigax-ai/ghostty-web@0.3.3':
     resolution: {integrity: sha512-P5/9jq9TzzEpLqzu4KA7ljWY3BYSybS7nCwuI8H08rHrTfvBTTOwhGHNlL9DjarG9y0Rj7729joLqc13PoXeJQ==}
 
-  '@aurigax-ai/graph@0.1.1':
-    resolution: {integrity: sha512-w0X9dgquAsAkyLcVyBVc478BZwEFYoav4Gq5+3eDsPqWCHmNm3B1+NRvLQlhVl2kj41tAkEplySLoTo+l2pnGw==}
+  '@aurigax-ai/wire@0.1.2':
+    resolution: {integrity: sha512-2dl9E4rUZQ5HdBD9dqbUUPMcsw1NAcHlB0dGWsJRmmoo2AwGcX50kBjuiUWqc8YLJqeYhVsVTXlEZZFVcm9Bcw==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -5950,7 +5950,7 @@ snapshots:
 
   '@aurigax-ai/ghostty-web@0.3.3': {}
 
-  '@aurigax-ai/graph@0.1.1':
+  '@aurigax-ai/wire@0.1.2':
     dependencies:
       croner: 10.0.1
       picomatch: 4.0.7
