@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
 import {
@@ -77,7 +78,7 @@ const click = (app: ElectronApplication, selector: string, label?: string) =>
   )
 
 async function palette(win: Page, query: string, pick?: string): Promise<void> {
-  await win.keyboard.press('Control+Shift+P')
+  await win.keyboard.press(chords.palette)
   await win.locator('[data-slot="command-input"]').fill(query)
   if (pick) {
     await waitForPaletteSelection(win, pick)

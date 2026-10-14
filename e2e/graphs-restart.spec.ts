@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { extensionHosts } from './extensionHosts'
 import { openWorkspace, quitApp, waitForPaletteSelection } from './helpers'
@@ -23,7 +24,7 @@ const clickLabel = (app: ElectronApplication, selector: string, label: string) =
   )
 
 async function openPanel(win: Page): Promise<void> {
-  await win.keyboard.press('Control+Shift+P')
+  await win.keyboard.press(chords.palette)
   await win.locator('[data-slot="command-input"]').fill('Graphs: Open Panel')
   await waitForPaletteSelection(win, 'Graphs: Open Panel')
   await win.keyboard.press('Enter')
@@ -166,7 +167,7 @@ edges: []
     await openPanel(win)
     await enableAndRun(app, 'held')
     await expect.poll(launches, { timeout: 15_000 }).toEqual(['graphs'])
-    await win.keyboard.press('Control+Shift+P')
+    await win.keyboard.press(chords.palette)
     await win.locator('[data-slot="command-input"]').fill('Close Pane')
     await waitForPaletteSelection(win, 'Close Pane')
     await win.keyboard.press('Enter')
