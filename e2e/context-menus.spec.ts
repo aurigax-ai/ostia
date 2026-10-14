@@ -17,6 +17,17 @@ test('right-click in a terminal offers copy, paste, select all and clear', async
     await win.locator('.xterm').first().click({ button: 'right' })
     await expect(win.getByRole('menuitem', { name: 'Paste' })).toBeVisible()
     await expect(win.getByRole('menuitem', { name: 'Select All' })).toBeVisible()
+    const selectAll = win.getByRole('menuitem', { name: 'Select All' })
+    await selectAll.hover()
+    await expect(selectAll).toHaveAttribute('data-highlighted', '')
+    const background = (selector: string): Promise<string> =>
+      win
+        .locator(selector)
+        .first()
+        .evaluate((el) => getComputedStyle(el).backgroundColor)
+    await expect
+      .poll(() => background('[data-slot="context-menu-item"][data-highlighted]'))
+      .not.toBe(await background('[data-slot="context-menu-content"]'))
     await win.getByRole('menuitem', { name: 'Clear Terminal' }).click()
     await expect(rows).not.toContainText('ostia_menu_marker', { timeout: 15_000 })
     await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused()

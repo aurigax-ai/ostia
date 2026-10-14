@@ -1,25 +1,8 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it } from 'vitest'
+import { backgroundTokenOf, themesWhereSame } from '../../../../test/themeColours'
 import { Command, CommandInput, CommandItem, CommandList } from './command'
-
-const CSS = readFileSync(resolve(process.cwd(), 'src/renderer/index.css'), 'utf8')
-
-function colourOf(variable: string): string {
-  const declared = new RegExp(`--${variable}:\\s*([^;]+);`).exec(CSS)?.[1]?.trim()
-  if (!declared) return variable
-  const alias = /^var\(--([\w-]+)\)$/.exec(declared)
-  return alias ? colourOf(alias[1]) : declared
-}
-
-function backgroundOf(element: Element, variant = ''): string {
-  const pattern = new RegExp(`(?:^|\\s)${variant.replace(':', '\\:')}bg-([\\w-]+)(?:\\s|$)`)
-  const token = pattern.exec(element.className)?.[1]
-  if (!token) throw new Error(`no ${variant}bg- class on ${element.className}`)
-  return colourOf(`color-${token}`)
-}
 
 describe('CommandItem', () => {
   afterEach(cleanup)
@@ -50,6 +33,8 @@ describe('CommandItem', () => {
     const row = screen.getByRole('option', { name: 'Second' })
     const list = row.closest('[data-slot="command"]')
     if (!list) throw new Error('no command root')
-    expect(backgroundOf(row, 'data-selected:')).not.toBe(backgroundOf(list))
+    expect(
+      themesWhereSame(backgroundTokenOf(row, 'data-selected:'), backgroundTokenOf(list)),
+    ).toEqual([])
   })
 })
