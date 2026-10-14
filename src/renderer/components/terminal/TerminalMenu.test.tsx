@@ -1,6 +1,6 @@
 import * as clearTerminal from '@/lib/terminal/clearTerminal'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Terminal as Xterm } from '@xterm/xterm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -61,5 +61,12 @@ describe('TerminalMenu', () => {
     fireEvent.contextMenu(screen.getByTestId('host'))
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Clear Terminal' }))
     expect(clear).toHaveBeenLastCalledWith(term, false)
+  })
+
+  it('gives the keyboard back to the terminal after Clear Terminal', async () => {
+    vi.spyOn(clearTerminal, 'clearKeepingScrollback').mockResolvedValue(true)
+    const { term } = setup('')
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Clear Terminal' }))
+    await waitFor(() => expect(term.focus).toHaveBeenCalled())
   })
 })

@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { chords, isMac } from './chords'
+import { isMac } from './chords'
 import {
   DOM_RENDERER_SETTINGS,
   freshDataHome,
@@ -8,7 +8,7 @@ import {
   seedSettings,
   testHome,
 } from './dataHome'
-import { PROMPT, openWorkspace, runInTerminal } from './helpers'
+import { openWorkspace, runInTerminal } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 async function launch(settings: object, inProjectFolder = false) {
@@ -25,22 +25,6 @@ async function launch(settings: object, inProjectFolder = false) {
   await openWorkspace(win)
   return { app, win }
 }
-
-test('OSC 52 sets the clipboard only while terminal.osc52Write is on', async () => {
-  const { app, win } = await launch({ terminal: { osc52Write: true } })
-  try {
-    await app.evaluate(({ clipboard }) => clipboard.writeText('before'))
-    await runInTerminal(win, 'printf \'\\033]52;c;%s\\a\' "$(printf ostia-osc52 | base64)"')
-    await expect
-      .poll(() => app.evaluate(({ clipboard }) => clipboard.readText()), { timeout: 10_000 })
-      .toBe('ostia-osc52')
-    await runInTerminal(win, "printf '\\033]52;c;?\\a'")
-    await win.waitForTimeout(300)
-    expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe('ostia-osc52')
-  } finally {
-    await app.close()
-  }
-})
 
 test('selecting terminal text fills the primary selection, and middle click pastes it unless turned off', async () => {
   test.skip(isMac, 'the primary selection is X11 only')
@@ -79,47 +63,3 @@ test('selecting terminal text fills the primary selection, and middle click past
     await off.app.close()
   }
 })
-
-test(
-  'default chords split a pane, move focus by direction and zoom it',
-  { tag: '@core' },
-  async () => {
-    const { app, win } = await launch({})
-    try {
-      await win.locator('.xterm').first().click()
-      const panes = win.locator('.pane')
-      await expect(panes).toHaveCount(1)
-      const first = await panes.first().getAttribute('data-pane-id')
-      const leftRows = win.locator(`.pane[data-pane-id="${first}"] .xterm-rows`)
-      const leftWidth = () =>
-        win
-          .locator(`.pane[data-pane-id="${first}"] .xterm-screen`)
-          .evaluate((screen) => screen.getBoundingClientRect().width)
-      const unsplit = await leftWidth()
-
-      await win.keyboard.press(chords.splitRight)
-      await expect(panes).toHaveCount(2)
-      const active = win.locator('.pane.active')
-      await expect(active).not.toHaveAttribute('data-pane-id', first ?? '')
-      const second = await active.getAttribute('data-pane-id')
-
-      await win.keyboard.press(chords.focusLeft)
-      await expect(active).toHaveAttribute('data-pane-id', first ?? '')
-      await expect(active.locator('.xterm-helper-textarea')).toBeFocused()
-      await expect.poll(leftWidth).toBeLessThan(unsplit)
-      await expect(leftRows).toContainText(PROMPT)
-      await win.keyboard.type('echo typed-in-left')
-      await expect(leftRows).toContainText('echo typed-in-left')
-
-      await win.keyboard.press(chords.focusRight)
-      await expect(active).toHaveAttribute('data-pane-id', second ?? '')
-
-      await win.keyboard.press(chords.zoomPane)
-      await expect(win.locator('.pane:visible')).toHaveCount(1)
-      await win.keyboard.press(chords.zoomPane)
-      await expect(win.locator('.pane:visible')).toHaveCount(2)
-    } finally {
-      await app.close()
-    }
-  },
-)

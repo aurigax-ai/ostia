@@ -1,7 +1,9 @@
 import type { Dirent } from 'node:fs'
 import { lstat, readFile, readdir, stat } from 'node:fs/promises'
 import { delimiter, extname, isAbsolute, join } from 'node:path'
+import { ipcMain } from 'electron'
 import { LRUCache } from 'lru-cache'
+import { type SandboxReadRules, sandboxPath } from '../sandbox/visibility'
 
 export interface ShellState {
   path: string
@@ -117,4 +119,33 @@ export async function commandNames(
 ): Promise<string[]> {
   const executables = await index.list(path)
   return [...new Set([...executables, ...shellNames])].sort()
+}
+
+export interface CommandsPane {
+  owners: { has: (senderId: string) => boolean }
+  localPrompt: boolean
+  stateFile: string
+  spawnPath: string
+  rules: SandboxReadRules | null
+}
+
+export type CommandsPaneLookup = (paneId: string) => CommandsPane | null
+
+export async function paneCommandNames(
+  index: ExecutableIndex,
+  pane: CommandsPane | null,
+  senderId: string,
+): Promise<string[]> {
+  if (!pane?.owners.has(senderId) || !pane.localPrompt) return []
+  const state = await readShellState(pane.stateFile)
+  const path = state?.path ?? pane.spawnPath
+  return commandNames(index, pane.rules ? sandboxPath(path, pane.rules) : path, state?.names ?? [])
+}
+
+export function registerCommandNamesIpc(index: ExecutableIndex, paneOf: CommandsPaneLookup): void {
+  ipcMain.handle(
+    'pty:commands',
+    (e, paneId: string): Promise<string[]> =>
+      paneCommandNames(index, paneOf(paneId), String(e.sender.id)),
+  )
 }

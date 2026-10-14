@@ -445,7 +445,6 @@
         "e2e/browser-keys.spec.ts",
         "e2e/clipboard-keys.spec.ts",
         "e2e/clipboard-surfaces.spec.ts",
-        "e2e/context-menus.spec.ts",
         "e2e/keybindings.spec.ts",
         "e2e/palette-focus.spec.ts"
       ]
@@ -537,7 +536,6 @@
         "src/renderer/settings/fileTreeSettings.ts"
       ],
       "specs": [
-        "e2e/files-panel.spec.ts",
         "e2e/open-any-file.spec.ts",
         "e2e/palette-focus.spec.ts",
         "e2e/terminal-file-links.spec.ts"
@@ -762,8 +760,7 @@
       ],
       "specs": [
         "e2e/scratch-workspace.spec.ts",
-        "e2e/workspace-groups.spec.ts",
-        "e2e/workspace-rename.spec.ts"
+        "e2e/workspace-groups.spec.ts"
       ]
     },
     {
@@ -823,7 +820,6 @@
         "e2e/pty-flow.spec.ts",
         "e2e/resize-hold.spec.ts",
         "e2e/resize-prompt.spec.ts",
-        "e2e/surface-persistence.spec.ts",
         "e2e/terminal-basics.spec.ts",
         "e2e/terminal-file-links.spec.ts",
         "e2e/terminal-ghostty-gpu.spec.ts",
@@ -915,7 +911,6 @@
         "e2e/pane-lock.spec.ts",
         "e2e/panel-open.spec.ts",
         "e2e/split-tabs.spec.ts",
-        "e2e/surface-persistence.spec.ts",
         "e2e/tab-rename.spec.ts",
         "e2e/tab-switch.spec.ts"
       ]
@@ -977,7 +972,6 @@
       ],
       "specs": [
         "e2e/settings-gap.spec.ts",
-        "e2e/terminal-pane-settings.spec.ts",
         "e2e/terminal-settings.spec.ts"
       ]
     },
@@ -1007,7 +1001,6 @@
       ],
       "specs": [
         "e2e/auto-resume.spec.ts",
-        "e2e/context-menus.spec.ts",
         "e2e/linux-app-menu.spec.ts",
         "e2e/quit-confirm.spec.ts",
         "e2e/tray.spec.ts"

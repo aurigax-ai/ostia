@@ -1315,6 +1315,30 @@ describe('builtins route to store actions', () => {
     expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(right.id)
   })
 
+  it('pane.zoom zooms the caller’s pane and a second run restores the split', async () => {
+    const left = createPane()
+    const right = createPane()
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: {
+            type: 'split',
+            id: 'sp',
+            direction: 'horizontal',
+            children: [left, right],
+            sizes: [1, 1],
+          },
+          activePaneId: right.id,
+          zoomedPaneId: null,
+        },
+      },
+    })
+    await commands.execWith(ctx('s1', right.id), 'pane.zoom')
+    expect(useLayoutStore.getState().byWorkspace.s1.zoomedPaneId).toBe(right.id)
+    await commands.execWith(ctx('s1', right.id), 'pane.zoom')
+    expect(useLayoutStore.getState().byWorkspace.s1.zoomedPaneId).toBeNull()
+  })
+
   it('cycles the tabs of the caller’s pane with tab.next and tab.previous', async () => {
     const a = createPane()
     const b = createPane()

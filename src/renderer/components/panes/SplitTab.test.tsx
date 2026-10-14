@@ -8,6 +8,7 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { Pane } from './Pane'
 import { PaneTree } from './PaneTree'
@@ -284,5 +285,27 @@ describe('split tab segment rename', () => {
     fireEvent.keyDown(input, { key: 'ArrowLeft' })
     fireEvent.keyDown(input, { key: 'ArrowRight' })
     expect(screen.getByRole('textbox', { name: 'Rename Tab…' })).toHaveFocus()
+  })
+
+  it('arrow keys inside a split segment rename move the caret and keep the edit open', async () => {
+    const { c, root } = stackWithSplit()
+    useLayoutStore.setState({
+      byWorkspace: { w: { root, activePaneId: c.id, zoomedPaneId: null } },
+    })
+    const { container } = renderStack(root, c.id)
+    const user = userEvent.setup()
+    const segment = container.querySelector(`[data-segment-id="${c.id}"]`) as HTMLElement
+    await user.dblClick(segment.querySelector('.split-tab-segment-main') as HTMLElement)
+    const input = screen.getByRole('textbox', { name: 'Rename Tab…' })
+    expect(input).toHaveFocus()
+
+    await user.keyboard('abc{ArrowLeft}{ArrowLeft}')
+    expect(input).toHaveFocus()
+    await user.keyboard('X{Enter}')
+
+    expect(screen.queryByRole('textbox', { name: 'Rename Tab…' })).toBeNull()
+    expect(allPanes(useLayoutStore.getState().byWorkspace.w.root)).toContainEqual(
+      expect.objectContaining({ id: c.id, title: 'aXbc', titlePinned: true }),
+    )
   })
 })

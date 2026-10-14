@@ -349,7 +349,7 @@ import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
 import { type SandboxBasePaths, reachableContainerSockets, srtVendorDir } from './sandbox/srtConfig'
 import { SandboxStore } from './sandbox/store'
 import { ViolationLog, recordViolations } from './sandbox/violations'
-import { type SandboxReadRules, sandboxPath, visibleInSandbox } from './sandbox/visibility'
+import { type SandboxReadRules, visibleInSandbox } from './sandbox/visibility'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { registerSecretMethods } from './secrets/register'
 import { prepareSecrets } from './secrets/secretInjection'
@@ -372,7 +372,7 @@ import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './te
 import { PtySession, type Subscriber, type SubscriberRole } from './terminal/ptySession'
 import { HIBERNATE_SEAM, HISTORY_LINES, RESTORE_SEAM, ScreenMirror } from './terminal/screenMirror'
 import { registerSelectionIpc } from './terminal/selectionReport'
-import { ExecutableIndex, commandNames, readShellState } from './terminal/shellCommands'
+import { ExecutableIndex, readShellState, registerCommandNamesIpc } from './terminal/shellCommands'
 import { closesPaneOnExit } from './terminal/shellExit'
 import { ShellHistoryFiles, registerShellHistoryIpc } from './terminal/shellHistory'
 import {
@@ -2771,14 +2771,16 @@ function registerPtyIpc(): void {
     if (!entry?.subs.has(String(e.sender.id))) return null
     return paneActivity(entry)
   })
-  ipcMain.handle('pty:commands', async (e, paneId: string): Promise<string[]> => {
+  registerCommandNamesIpc(executables, (paneId) => {
     const entry = ptys.get(paneId)
-    if (!entry?.subs.has(String(e.sender.id))) return []
-    if (!holdsLocalPrompt(entry)) return []
-    const state = await readShellState(entry.stateFile)
-    const path = state?.path ?? entry.spawnPath
-    const rules = sandboxReadRules(entry)
-    return commandNames(executables, rules ? sandboxPath(path, rules) : path, state?.names ?? [])
+    if (!entry) return null
+    return {
+      owners: entry.subs,
+      localPrompt: holdsLocalPrompt(entry),
+      stateFile: entry.stateFile,
+      spawnPath: entry.spawnPath,
+      rules: sandboxReadRules(entry),
+    }
   })
   registerShellHistoryIpc({
     enabled: () => readSettingsFile().behavior?.historySuggestions !== false,

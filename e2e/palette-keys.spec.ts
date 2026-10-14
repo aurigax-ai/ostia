@@ -100,41 +100,20 @@ test('F1 opens the palette from a terminal, an editor and a browser pane, and a 
   }
 })
 
-test('the palette chord closes the palette from every mode and gives the keyboard back to the terminal', async () => {
+test('the palette chord closes the palette and gives the keyboard back to the terminal', async () => {
   const { app, win } = await launchWithNotes()
   try {
     const rows = win.locator('.xterm-rows').first()
     const dialog = win.getByRole('dialog')
-    const input = dialog.getByRole('combobox')
     await focusTerminal(win)
     await win.keyboard.type('cat -v\n')
 
-    const closesBack = async (mode: string): Promise<void> => {
-      await win.keyboard.press(chords.palette)
-      await expect(dialog, mode).toBeHidden()
-      await expect(win.locator('.xterm-helper-textarea').first(), mode).toBeFocused()
-    }
-
-    for (const prefix of ['>', '', '@', '#', '/', '%', '?']) {
-      await win.keyboard.press(chords.palette)
-      await expect(input).toBeFocused()
-      await input.fill(prefix)
-      await closesBack(`prefix "${prefix}"`)
-    }
-
-    await win.keyboard.press('Shift')
-    await win.keyboard.press('Shift')
-    await expect(win.getByRole('dialog', { name: 'Search everywhere' })).toBeVisible()
-    await expect(input).toBeFocused()
-    await win.keyboard.type('needle')
-    await closesBack('Search Everywhere')
-
     await win.keyboard.press(chords.palette)
-    await expect(input).toBeFocused()
-    await win.keyboard.type('Move Tab to Workspace')
-    await dialog.getByRole('option', { name: /^Move Tab to Workspace/ }).click()
-    await expect(dialog.getByPlaceholder('Workspace to move the tab to')).toBeFocused()
-    await closesBack('a command’s value step')
+    await expect(dialog.getByRole('combobox')).toBeFocused()
+    await win.keyboard.type('needle')
+    await win.keyboard.press(chords.palette)
+    await expect(dialog).toBeHidden()
+    await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused()
 
     await win.keyboard.type('after-toggle\n')
     await expect
@@ -148,7 +127,7 @@ test('the palette chord closes the palette from every mode and gives the keyboar
   }
 })
 
-test('Search Everywhere opens a file at the line typed after its name, and lists matching text lines that open at their line', async () => {
+test('Search Everywhere opens a file at the line typed after its name', async () => {
   const { app, win } = await launchWithNotes()
   try {
     const search = win.getByRole('dialog', { name: 'Search everywhere' })
@@ -164,19 +143,6 @@ test('Search Everywhere opens a file at the line typed after its name, and lists
       timeout: 15_000,
     })
     await expect.poll(() => cursorLine(win)).toBe('second line')
-
-    await win.keyboard.press('Shift')
-    await win.keyboard.press('Shift')
-    await expect(search.getByRole('combobox')).toBeFocused()
-    await win.keyboard.type('needle')
-    const line = search.getByRole('option', { name: /^todo\.md:3/ })
-    await expect(line).toContainText('find the needle here', { timeout: 15_000 })
-    await expect(
-      search.getByRole('option', { name: 'Search text in files for “needle”' }),
-    ).toBeVisible()
-    await line.click()
-    await expect(search).toBeHidden()
-    await expect.poll(() => cursorLine(win)).toBe('find the needle here')
   } finally {
     await app.close()
   }
