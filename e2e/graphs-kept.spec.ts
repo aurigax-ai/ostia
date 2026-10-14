@@ -26,6 +26,7 @@ const fire = (event, payload) => {
       } catch {}
     }
 }
+fire('SessionStart', { session_id: 'e2e-graph', source: 'startup', cwd: process.cwd() })
 fire('UserPromptSubmit', { session_id: 'e2e-graph', prompt: 'fix it' })
 appendFileSync(${JSON.stringify(log)}, 'start\\n')
 console.log('fake-agent-ready')
