@@ -2,7 +2,13 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
-import { openWorkspace, quitApp, waitForPaletteSelection } from './helpers'
+import {
+  openWorkspace,
+  quitApp,
+  runInTerminal,
+  shownTerminal,
+  waitForPaletteSelection,
+} from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 test.describe.configure({ timeout: 180_000 })
@@ -214,6 +220,47 @@ test('GRF-C149 the palette keeps the Git commit graph and Graphs apart', async (
     const rows = names.map((n) => n.replace(/\s+/g, ' ').trim())
     expect(new Set(rows).size).toBe(rows.length)
     expect(rows.find((r) => r.includes('Show Graph'))).not.toContain('Graphs:')
+  } finally {
+    await quitApp(app)
+  }
+})
+
+test('GRF-C118 an agent a graph starts opens in a background tab and takes no focus', async () => {
+  const dataHome = freshDataHome()
+  const launch = isolatedLaunch(dataHome)
+  const bin = fakeAgentBin(dataHome)
+  seed(launch.home, {
+    background: `version: 1
+on: [{ manual: { agents: true } }]
+start: work
+state: { n: { type: integer, default: 0 } }
+nodes:
+  - { id: work, kind: agent, with: { mode: start, agent: claude, prompt: "Fix it" } }
+edges: []
+`,
+  })
+  const app = await electron.launch({
+    ...launch,
+    env: { ...launch.env, PATH: `${bin}:${launch.env.PATH ?? ''}` },
+  })
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    await palette(win, 'Graphs: Open Panel', 'Graphs: Open Panel')
+    await expect.poll(() => text(app, '.row .name'), { timeout: 30_000 }).toBe('background')
+    await click(app, '[data-graph="background"] button', 'Look and enable')
+    await expect.poll(() => click(app, 'button', 'Enable'), { timeout: 15_000 }).toBe('ok')
+    await expect.poll(() => text(app, '.actions button'), { timeout: 15_000 }).toContain('Disable')
+    const terminal = shownTerminal(win)
+    const tabs = win.getByRole('tablist', { name: 'Tabs' }).first().getByRole('tab')
+    const before = await tabs.count()
+    await runInTerminal(win, 'ostia graph run background', terminal)
+    await expect(tabs).toHaveCount(before + 1, { timeout: 30_000 })
+    await expect(tabs.first()).toHaveAttribute('aria-selected', 'true')
+    await expect(tabs.last()).toHaveAttribute('aria-selected', 'false')
+    await expect(win.locator('.xterm-helper-textarea:focus')).toHaveCount(1)
+    await expect(shownTerminal(win)).toContainText('ostia graph run background')
   } finally {
     await quitApp(app)
   }

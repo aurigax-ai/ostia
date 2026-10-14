@@ -215,4 +215,23 @@ edges: []
     await later.stop('pane-1')
     expect(run?.state.state.v).toBe('resumed')
   })
+
+  it('GRF-C93 a command node whose sandbox cannot start raises SandboxUnavailable', async () => {
+    const h = hostHarness(
+      workspace({
+        g: `${head('e: { type: object, default: {} }')}nodes:
+  - { id: a, kind: command, with: { run: [make] }, out: { error: e }, catch: [{ errors: [SandboxUnavailable], then: continue }] }
+edges: []
+`,
+      }),
+    )
+    h.execReply = () => ({
+      ok: false,
+      error: 'sandbox-unavailable',
+      message: 'bwrap is not installed',
+    })
+    const id = enableAndStart(h, 'g')
+    await settle()
+    expect(h.runner.engine.run(id)?.state.state.e).toMatchObject({ name: 'SandboxUnavailable' })
+  })
 })
