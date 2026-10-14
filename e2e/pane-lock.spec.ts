@@ -1,5 +1,5 @@
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, openWorkspace, runInTerminal } from './helpers'
+import { PROMPT, openWorkspace, runInTerminal, shownTerminal } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 test('a tab closes when its shell exits by itself, unless the human locked it', async () => {
@@ -13,7 +13,9 @@ test('a tab closes when its shell exits by itself, unless the human locked it', 
 
     await newTab.click()
     await expect(tabs).toHaveCount(2)
-    await expect(win.locator('.xterm-rows').nth(1)).toContainText(PROMPT, { timeout: 15_000 })
+    await expect(shownTerminal(win).locator('.xterm-rows')).toContainText(PROMPT, {
+      timeout: 15_000,
+    })
     await win.locator('.xterm').nth(1).click()
     await win.keyboard.type('sleep 3.5; false; exit')
     await win.keyboard.press('Enter')
@@ -21,13 +23,15 @@ test('a tab closes when its shell exits by itself, unless the human locked it', 
 
     await newTab.click()
     await expect(tabs).toHaveCount(2)
-    await expect(win.locator('.xterm-rows').nth(1)).toContainText(PROMPT, { timeout: 15_000 })
+    await expect(shownTerminal(win).locator('.xterm-rows')).toContainText(PROMPT, {
+      timeout: 15_000,
+    })
     await tabs.nth(1).click({ button: 'right' })
     await win.getByRole('menuitem', { name: 'Lock tab' }).click()
     await win.locator('.xterm').nth(1).click()
     await win.keyboard.type('exit')
     await win.keyboard.press('Enter')
-    await expect(win.locator('.xterm-rows').nth(1)).toContainText('[process exited]', {
+    await expect(shownTerminal(win).locator('.xterm-rows')).toContainText('[process exited]', {
       timeout: 15_000,
     })
     await expect(tabs).toHaveCount(2)
