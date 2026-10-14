@@ -208,7 +208,7 @@
         "src/renderer/components/editor/DiffView.tsx",
         "src/renderer/stores/files/diffStore.ts"
       ],
-      "specs": ["e2e/diff-hidden.spec.ts", "e2e/extension-on-demand.spec.ts", "e2e/git.spec.ts"]
+      "specs": ["e2e/diff-hidden.spec.ts", "e2e/git.spec.ts"]
     },
     {
       "name": "trellis and keeper",
@@ -267,11 +267,7 @@
         "src/cli/hooks/agentHook.ts",
         "test/fixtures/extensions"
       ],
-      "specs": [
-        "e2e/extension-locales.spec.ts",
-        "e2e/extension-on-demand.spec.ts",
-        "e2e/extensions-v2.spec.ts"
-      ]
+      "specs": ["e2e/extension-locales.spec.ts", "e2e/extensions-v2.spec.ts"]
     },
     {
       "name": "marketplace",
@@ -645,10 +641,7 @@
         "src/renderer/lib/agents/paneAgent.ts",
         "test/fixtures/agents/"
       ],
-      "specs": [
-        "e2e/processes.spec.ts",
-        "e2e/worker-workspace.spec.ts"
-      ]
+      "specs": ["e2e/processes.spec.ts", "e2e/worker-workspace.spec.ts"]
     },
     {
       "name": "attention",
