@@ -47,6 +47,7 @@ import {
   setPaneView,
   setResumePending,
   setSizes,
+  setSplitTabName,
   settleSpawnDir,
   slotCount,
   slotPaneOfKind,
@@ -68,7 +69,11 @@ import type { AgentResume } from '@shared/agents/agentResume'
 import type { BrowserProfile } from '@shared/browser/browserProfile'
 import type { DiffContent } from '@shared/extensions'
 import type { PanePlacement } from '@shared/types'
-import type { SplitTabPlacement } from '@shared/workspaces/splitTabs'
+import {
+  SPLIT_TAB_NAME_MAX,
+  type SplitTabPlacement,
+  normalizeSplitTabName,
+} from '@shared/workspaces/splitTabs'
 import { create } from 'zustand'
 
 export interface WorkspaceLayout {
@@ -96,6 +101,7 @@ interface LayoutState {
   movePane: (workspaceId: string, sourceId: string, targetId: string, zone: DropZone) => void
   moveTab: (workspaceId: string, sourceId: string, targetId: string, after: boolean) => void
   joinTab: (workspaceId: string, paneIds: readonly string[], tab: string | null) => string[]
+  renameSplitTab: (workspaceId: string, tabId: string, name: string) => void
   setCwd: (workspaceId: string, paneId: string, cwd: string) => void
   setUrl: (workspaceId: string, paneId: string, url: string) => void
   setResume: (workspaceId: string, paneId: string, resume: AgentResume) => void
@@ -463,6 +469,16 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
           const root = moveTab(l.root, sourceId, targetId, after)
           return { ...l, root, activePaneId: focusIdOf(root, sourceId) ?? l.activePaneId }
         }) ?? s,
+    )
+  },
+
+  renameSplitTab: (workspaceId, tabId, name) => {
+    const trimmed = name.trim()
+    const next = trimmed ? normalizeSplitTabName(trimmed.slice(0, SPLIT_TAB_NAME_MAX)) : null
+    if (trimmed && !next) return
+    set(
+      (s) =>
+        patch(s, workspaceId, (l) => ({ ...l, root: setSplitTabName(l.root, tabId, next) })) ?? s,
     )
   },
 

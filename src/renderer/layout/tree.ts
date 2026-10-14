@@ -496,12 +496,13 @@ export function findSplitTabByName(root: LayoutNode, name: string): SplitNode | 
   return splitTabs(root).find((t) => t.name === name) ?? null
 }
 
-export function nameSplitTabOf(root: LayoutNode, paneId: string, name: string): LayoutNode {
-  const tab = splitTabOfPane(root, paneId)
-  const tabs = tabsOfPane(root, paneId)
-  if (!tab || !tabs || tab.name !== undefined) return root
-  const children = tabs.children.map((c) => (c === tab ? { ...tab, name } : c))
-  return replaceSlot(root, tabs.id, () => ({ ...tabs, children }))
+export function setSplitTabName(root: LayoutNode, tabId: string, name: string | null): LayoutNode {
+  return replaceTab(root, tabId, (tab) => {
+    if (tab.type !== 'split' || (tab.name ?? null) === name) return tab
+    if (name !== null) return { ...tab, name }
+    const { name: _name, ...unnamed } = tab
+    return unnamed
+  })
 }
 
 export function focusIdOf(root: LayoutNode, id: string): string | null {

@@ -65,6 +65,10 @@ export function PaneTabMenu({
       ? closableOtherTabPanes(workspaceId, pane.id).length
       : 0,
   )
+  const splitTabId = useLayoutStore((s) => {
+    const layout = workspaceId ? s.byWorkspace[workspaceId] : undefined
+    return layout ? (splitTabOfPane(layout.root, pane.id)?.id ?? null) : null
+  })
   const agentTab = pane.kind === 'terminal' && pane.resume !== undefined
   const renamable = workspaceId !== null
   if (
@@ -106,6 +110,14 @@ export function PaneTabMenu({
             onClick={() => usePaneRenameStore.getState().begin(pane.id)}
           >
             {d.pane.renameTab}
+          </MenuItem>
+        ) : null}
+        {splitTabId ? (
+          <MenuItem
+            icon={PencilSimpleIcon}
+            onClick={() => usePaneRenameStore.getState().beginSplitTab(splitTabId)}
+          >
+            {d.pane.renameSplitTab}
           </MenuItem>
         ) : null}
         {zoom ? (

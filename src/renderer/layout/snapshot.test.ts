@@ -3,12 +3,13 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { buildSnapshot, restoreSnapshot } from './snapshot'
 import {
   createPane,
-  nameSplitTabOf,
   resetIds,
   setDefaultPaneTitle,
   setPaneView,
+  setSplitTabName,
   splitOf,
   splitPane,
+  tabIdOf,
   tabsOf,
 } from './tree'
 import type { LayoutNode } from './types'
@@ -56,7 +57,7 @@ describe('buildSnapshot', () => {
   it('round-trips a named split tab and the pane shown in it', () => {
     const [a, b, c] = [createPane(), createPane(), createPane()]
     const stacked = splitPane(tabsOf(b.id, a, b), b.id, 'vertical', c).root
-    const root = nameSplitTabOf(stacked, c.id, 'api')
+    const root = setSplitTabName(stacked, tabIdOf(stacked, c.id) ?? '', 'api')
     const snapshot = build(root, c.id)
     const restored = restoreSnapshot(snapshot).layouts.s1
     expect(restored.root).toEqual(root)

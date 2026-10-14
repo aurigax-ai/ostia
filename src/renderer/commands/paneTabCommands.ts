@@ -1,6 +1,8 @@
 import { allPanes, findPane, findSplitTabByName, splitTabOfPane } from '@/layout/tree'
 import { splitTabSeed } from '@/lib/panes/splitTabSeeds'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { normalizeSplitTabName } from '@shared/workspaces/splitTabs'
 import { registerCore } from './core'
 
@@ -51,7 +53,32 @@ function tabMembers(workspaceId: string, tab: string): string[] {
   return seed && findPane(root, seed) && !splitTabOfPane(root, seed) ? [seed] : []
 }
 
+function activeSplitTabId(workspaceId: string | null, paneId: string | null): string | null {
+  const root = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId]?.root : null
+  return root && paneId ? (splitTabOfPane(root, paneId)?.id ?? null) : null
+}
+
+function shownSplitTabId(): string | null {
+  const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+  const paneId = workspaceId
+    ? useLayoutStore.getState().byWorkspace[workspaceId]?.activePaneId
+    : null
+  return activeSplitTabId(workspaceId, paneId ?? null)
+}
+
 export function registerPaneTabCommands(): void {
+  registerCore({
+    id: 'pane.renameSplitTab',
+    category: 'pane',
+    local: true,
+    listed: () => shownSplitTabId() !== null,
+    run: (_args, ctx) => {
+      const tabId = activeSplitTabId(ctx.activeWorkspaceId, ctx.activePaneId)
+      if (!tabId) throw new Error('the active pane is not in a split tab')
+      usePaneRenameStore.getState().beginSplitTab(tabId)
+    },
+  })
+
   registerCore<PaneTabArgs, { members: string[]; locked: string[] }>({
     id: 'pane.tabPlan',
     category: 'pane',

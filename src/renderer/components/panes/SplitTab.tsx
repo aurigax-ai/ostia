@@ -2,6 +2,7 @@ import { commands } from '@/commands/registry'
 import { ApprovalCard } from '@/components/agents/ApprovalCard'
 import { QuestionNotice } from '@/components/agents/QuestionNotice'
 import { IconButton } from '@/components/common/IconButton'
+import { RenameInput } from '@/components/common/RenameInput'
 import { fmt, useDict } from '@/i18n/useDict'
 import { allPanes } from '@/layout/tree'
 import type { LayoutNode, PaneNode, SplitNode } from '@/layout/types'
@@ -62,12 +63,19 @@ function GlyphNode({ node, focusedId }: { node: LayoutNode; focusedId: string | 
 export function SplitTabGlyph({
   tab,
   focusedId,
+  onDoubleClick,
 }: {
   tab: SplitNode
   focusedId: string | null
+  onDoubleClick?: () => void
 }): JSX.Element {
   return (
-    <span className="split-tab-glyph" data-split-glyph={splitTabLayout(tab)} aria-hidden>
+    <span
+      className="split-tab-glyph"
+      data-split-glyph={splitTabLayout(tab)}
+      aria-hidden
+      onDoubleClick={onDoubleClick}
+    >
       <GlyphNode node={tab} focusedId={focusedId} />
     </span>
   )
@@ -149,6 +157,27 @@ function SplitTabSegment({
   return <PaneTabMenu pane={pane} workspaceId={workspaceId} trigger={segment} />
 }
 
+function SplitTabRenameField({
+  tab,
+  workspaceId,
+}: {
+  tab: SplitNode
+  workspaceId: string | null
+}): JSX.Element {
+  const d = useDict()
+  return (
+    <RenameInput
+      value={tab.name ?? ''}
+      label={d.pane.renameSplitTab}
+      onDone={(name) => {
+        usePaneRenameStore.getState().end()
+        if (name === null || !workspaceId) return
+        useLayoutStore.getState().renameSplitTab(workspaceId, tab.id, name)
+      }}
+    />
+  )
+}
+
 function useSplitTabLabel(tab: SplitNode): string {
   const d = useDict()
   const layout = {
@@ -192,7 +221,11 @@ export function SplitTabPill({
 }): JSX.Element {
   const label = useSplitTabLabel(tab)
   const panes = allPanes(tab)
-  const renaming = usePaneRenameStore((s) => panes.some((p) => p.id === s.paneId))
+  const renaming = usePaneRenameStore(
+    (s) => s.splitTabId === tab.id || panes.some((p) => p.id === s.paneId),
+  )
+  const naming = usePaneRenameStore((s) => s.splitTabId === tab.id)
+  const beginNaming = () => usePaneRenameStore.getState().beginSplitTab(tab.id)
   return (
     <div
       style={{ '--split-segments': panes.length } as CSSProperties}
@@ -215,8 +248,18 @@ export function SplitTabPill({
       onDragEnd={(e) => endPaneDrag(workspaceId, tab.id, e)}
       onKeyDown={moveSegmentFocus}
     >
-      <SplitTabGlyph tab={tab} focusedId={selected ? focusedId : null} />
-      {tab.name ? <span className="split-tab-name">{tab.name}</span> : null}
+      <SplitTabGlyph
+        tab={tab}
+        focusedId={selected ? focusedId : null}
+        onDoubleClick={beginNaming}
+      />
+      {naming ? (
+        <SplitTabRenameField tab={tab} workspaceId={workspaceId} />
+      ) : tab.name ? (
+        <span className="split-tab-name" onDoubleClick={beginNaming}>
+          {tab.name}
+        </span>
+      ) : null}
       {panes.map((pane) => (
         <SplitTabSegment
           key={pane.id}
