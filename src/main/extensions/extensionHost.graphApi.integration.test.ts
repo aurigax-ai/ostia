@@ -79,7 +79,7 @@ describe('the extension API a graph host needs', () => {
     return { conn, close: () => socket.destroy() }
   }
 
-  beforeAll(() => {
+  beforeAll(async () => {
     dir = mkdtempSync(join(tmpdir(), 'ostia-graph-api-host-'))
     socketPath = join(dir, 'control.sock')
     host = new ExtensionHost({
@@ -134,9 +134,6 @@ describe('the extension API a graph host needs', () => {
       },
       socketPath,
     )
-  })
-
-  beforeAll(async () => {
     for (const pane of [target, sleeper, held, manager]) {
       openTerminalIn.mockResolvedValueOnce(pane.externalId)
       await call('runner', 'ext.openTerminal', { command: ['true'], workspaceId: 'w1' })
