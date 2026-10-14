@@ -817,7 +817,6 @@
         "e2e/pty-flow.spec.ts",
         "e2e/resize-hold.spec.ts",
         "e2e/resize-prompt.spec.ts",
-        "e2e/surface-persistence.spec.ts",
         "e2e/terminal-basics.spec.ts",
         "e2e/terminal-file-links.spec.ts",
         "e2e/terminal-ghostty-gpu.spec.ts",
@@ -909,7 +908,6 @@
         "e2e/pane-lock.spec.ts",
         "e2e/panel-open.spec.ts",
         "e2e/split-tabs.spec.ts",
-        "e2e/surface-persistence.spec.ts",
         "e2e/tab-rename.spec.ts",
         "e2e/tab-switch.spec.ts"
       ]
