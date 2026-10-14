@@ -12,12 +12,13 @@ import {
   TERMINAL_COMMAND_MAX_ARGS,
 } from '../../shared/extensions'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
+import { withoutGpuLaunchEnv } from '../platform/discreteGpu'
 import { SandboxUnavailableError } from '../sandbox/workspaceSandboxes'
 
 export const EXEC_CONCURRENT_MAX = 8
 const EXEC_KILL_GRACE_MS = 5000
 const EXEC_DIR_ENV = envName('EXEC_DIR')
-const ENV_NAME = /^[A-Z][A-Z0-9_]{0,63}$/
+const ENV_NAME = /^GRAPH_[A-Z0-9_]{1,58}$/
 
 function hasControl(value: string): boolean {
   for (let i = 0; i < value.length; i++) {
@@ -74,7 +75,8 @@ function parseEnv(raw: unknown): Record<string, string> | string {
   const entries = Object.entries(raw)
   if (entries.length > EXEC_ENV_MAX) return `env has at most ${EXEC_ENV_MAX} names`
   for (const [name, value] of entries) {
-    if (!ENV_NAME.test(name) || isAppEnvName(name)) return `env name ${name} is not allowed`
+    if (!ENV_NAME.test(name))
+      return `env name ${name} is not allowed; names are GRAPH_ and capitals`
     if (typeof value !== 'string' || value.length > EXEC_ENV_VALUE_MAX || hasControl(value)) {
       return `env ${name} must be a string of at most ${EXEC_ENV_VALUE_MAX} characters without control characters`
     }
@@ -156,6 +158,7 @@ function cleanEnv(base: NodeJS.ProcessEnv): Record<string, string> {
 interface Running {
   child: ChildProcess
   kill: () => void
+  killNow: () => void
 }
 
 export class ExtensionExec {
@@ -173,6 +176,10 @@ export class ExtensionExec {
 
   stopAll(): void {
     for (const extId of this.running.keys()) this.stopFor(extId)
+  }
+
+  killAll(): void {
+    for (const set of this.running.values()) for (const run of set) run.killNow()
   }
 
   async run(extId: string, raw: unknown, signal?: AbortSignal): Promise<ExecReply> {
@@ -195,7 +202,10 @@ export class ExtensionExec {
     if (this.active(extId) >= EXEC_CONCURRENT_MAX) {
       return refuse('too-many', `at most ${EXEC_CONCURRENT_MAX} commands at once`)
     }
-    let env: Record<string, string> = { ...cleanEnv(this.deps.baseEnv()), ...req.env }
+    let env: Record<string, string> = {
+      ...cleanEnv(withoutGpuLaunchEnv(this.deps.baseEnv())),
+      ...req.env,
+    }
     if (execDir) env[EXEC_DIR_ENV] = execDir
     let file = req.command[0]
     let args = req.command.slice(1)
@@ -257,9 +267,8 @@ export class ExtensionExec {
         if (killTimer) return
         group('SIGTERM')
         killTimer = setTimeout(() => group('SIGKILL'), EXEC_KILL_GRACE_MS)
-        killTimer.unref?.()
       }
-      const entry: Running = { child, kill }
+      const entry: Running = { child, kill, killNow: () => group('SIGKILL') }
       const set = this.running.get(extId) ?? new Set<Running>()
       set.add(entry)
       this.running.set(extId, set)

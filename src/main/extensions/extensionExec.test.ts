@@ -163,4 +163,44 @@ describe('ext.exec', () => {
     exec.stopFor('graphs')
     await Promise.all(many)
   }, 40_000)
+
+  it('refuses env names that change loading or the shell, and gives the command the app GPU env back', async () => {
+    const { exec } = setup({ w1: { workDir: tmpdir() } })
+    track(exec)
+    for (const name of [
+      'LD_PRELOAD',
+      'DYLD_INSERT_LIBRARIES',
+      'BASH_ENV',
+      'ENV',
+      'IFS',
+      'PATH',
+      'NODE_OPTIONS',
+    ]) {
+      const res = await exec.run('graphs', {
+        workspaceId: 'w1',
+        command: [FAKE_TOOL, 'env'],
+        timeoutMs: 1000,
+        env: { [name]: 'x' },
+      })
+      expect(res, name).toMatchObject({ ok: false, error: 'invalid-params' })
+    }
+    const gpu = new ExtensionExec({
+      workspace: () => ({ workDir: tmpdir() }),
+      wrap: async (_id, command) => command,
+      sandboxEnv: (_id, env) => env,
+      dataDir: () => tmpdir(),
+      baseEnv: () => ({
+        PATH: process.env.PATH ?? '',
+        DRI_PRIME: '1',
+        OSTIA_GPU_RESTORE: JSON.stringify({ DRI_PRIME: null }),
+      }),
+    })
+    track(gpu)
+    const res = await gpu.run('graphs', {
+      workspaceId: 'w1',
+      command: [FAKE_TOOL, 'env'],
+      timeoutMs: 10_000,
+    })
+    expect(Object.keys(envLines((res as { stdout: string }).stdout))).not.toContain('DRI_PRIME')
+  })
 })

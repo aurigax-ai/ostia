@@ -1122,6 +1122,7 @@ export class ExtensionHost {
     this.closeWatchers()
     this.scheduleRescan.cancel()
     for (const rt of this.runtimes.values()) this.stop(rt)
+    this.deps.exec?.killAll()
   }
 
   private waitFor(rt: Runtime, predicate: () => boolean): Promise<void> {
