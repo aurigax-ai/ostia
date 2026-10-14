@@ -222,7 +222,7 @@
     },
     {
       "name": "graphs",
-      "paths": ["src/extensions/graphs/", "graph-engine/src/", "src/main/extensions/extensionExec.ts"],
+      "paths": ["src/extensions/graphs/", "src/main/extensions/extensionExec.ts"],
       "specs": ["e2e/graphs.spec.ts", "e2e/graphs-restart.spec.ts"]
     },
     {

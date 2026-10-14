@@ -6,7 +6,7 @@ import {
   nodesCommand,
   schemaCommand,
   validateCommand,
-} from '../../../graph-engine/src/cli/commands'
+} from '@aurigax-ai/graph'
 import {
   type CommandHandler,
   type ExtensionCaller,

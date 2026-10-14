@@ -1,5 +1,4 @@
-import { realClock } from '../../../graph-engine/src/cli/headlessHost'
-import { HOUR_MS } from '../../../graph-engine/src/format/duration'
+import { HOUR_MS, realClock } from '@aurigax-ai/graph'
 import { isAgentHookEvent, isHookAgent } from '../../shared/agentPlugins'
 import { readEnv } from '../../shared/appEnv'
 import {

@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { runCli as headless } from '@aurigax-ai/graph'
+import { WORKED_GRAPHS, workedGraph } from '@aurigax-ai/graph/testing'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { main as headless } from '../../graph-engine/src/cli/main'
-import { WORKED_GRAPHS, workedGraph } from '../../graph-engine/src/engine/fixtures'
 import { FAKE_TOOL, type Harness, graphsHarness, until } from '../../test/graphsHarness'
 
 vi.mock('electron', () => ({

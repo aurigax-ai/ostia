@@ -1,13 +1,14 @@
 import {
+  DEFAULT_CHOICES,
   NodeError,
   type NodeKind,
   type NodeWait,
   type Notice,
   type Output,
-} from '../../../graph-engine/src/engine/contract'
-import { type ProcessRunner, commandNode } from '../../../graph-engine/src/kinds/command'
-import { DEFAULT_CHOICES } from '../../../graph-engine/src/kinds/humanKinds'
-import { notifyNode } from '../../../graph-engine/src/kinds/smallKinds'
+  type ProcessRunner,
+  commandNode,
+  notifyNode,
+} from '@aurigax-ai/graph'
 import { EXTENSION_REDACT_TEXTS_MAX, EXTENSION_REDACT_TEXT_MAX, type OstiaExtension } from '../sdk'
 
 const ANSWER = 'answer'

@@ -1,15 +1,17 @@
-import { neededConnectors, neededKinds } from '../../../graph-engine/src/engine/explain'
-import type { RunSummary, RunView } from '../../../graph-engine/src/engine/summary'
 import {
   END,
   type GraphFile,
   type Problem,
+  type RunSummary,
+  type RunView,
+  descriptorOf,
   isConditional,
   isJoin,
+  neededConnectors,
+  neededKinds,
   startNodes,
   triggerKind,
-} from '../../../graph-engine/src/format/model'
-import { descriptorOf } from '../../../graph-engine/src/kinds/catalog'
+} from '@aurigax-ai/graph'
 import { graphsFolder } from './graphFiles'
 import type { GraphListing, GraphState } from './runner'
 

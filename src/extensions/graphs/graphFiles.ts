@@ -1,11 +1,12 @@
 import { readdirSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
-import { type LoadedGraph, readGraphFile } from '../../../graph-engine/src/format/graphFile'
 import {
   GRAPHS_LISTED_MAX,
+  type LoadedGraph,
   NAME_PATTERN,
   type Problem,
-} from '../../../graph-engine/src/format/model'
+  readGraphFile,
+} from '@aurigax-ai/graph'
 import { PRODUCT_NAME } from '../sdk'
 
 const GRAPHS_FOLDER = join(`.${PRODUCT_NAME.toLowerCase()}`, 'graphs')
