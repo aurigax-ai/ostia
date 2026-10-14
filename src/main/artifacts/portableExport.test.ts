@@ -61,9 +61,9 @@ function rig(): Rig {
     load: async () => {
       const real = (await import('esbuild')) as unknown as Bundler
       return {
-        build: (options) => {
+        context: (options) => {
           builds += 1
-          return real.build(options)
+          return real.context(options)
         },
       }
     },
@@ -75,7 +75,10 @@ function rig(): Rig {
     confine: (path) => (path.startsWith(`${base}/`) ? path : null),
     servesFolder: (dir) => dir === folder,
     ownsWorkspace: (windowId, workspaceId) => workspaceId.startsWith(`${windowId}:`),
-    sandboxed: (workspaceId) => sandboxed.has(workspaceId),
+    sandboxedFolders: () =>
+      [...sandboxed].map((workspaceId) =>
+        workspaceId === '1:w' ? folder : join(base, workspaceId),
+      ),
     tmpDir: () => temp,
     openPath: async (path) => {
       opened.push(path)
@@ -253,5 +256,41 @@ describe('PortableExport', () => {
     expect(r.opened).toEqual([])
     expect(r.clipboard).toEqual([])
     expect(existsSync(r.saveTo.path)).toBe(false)
+  })
+
+  it('PRT-C70 refuses a runnable file inside a sandboxed workspace folder whatever workspace the request names', async () => {
+    const box = join(r.folder, '..', '1:s')
+    mkdirSync(box)
+    writeFileSync(join(box, 'escape.tsx'), COMPONENT)
+    r.sandboxed.add('1:s')
+    for (const action of ['open', 'save', 'copy'] as const) {
+      const result = await r.exporter.run('1', action, {
+        workspaceId: '1:w',
+        path: join(box, 'escape.tsx'),
+        theme: THEME,
+      })
+      expect(result, action).toEqual({ ok: false, reason: 'sandboxed' })
+    }
+    expect(r.builds()).toBe(0)
+  })
+
+  it('PRT-C72 saves a Markdown artifact up to 1 MiB, the most a source file may be', async () => {
+    const path = write('long.md', `# Long\n\n${'x'.repeat(900 * 1024)}\n`)
+    r.saveTo.path = join(r.folder, 'long.html')
+    const saved = await r.exporter.run('1', 'save', {
+      workspaceId: '1:w',
+      path,
+      theme: THEME,
+      document: MARKDOWN,
+    })
+    expect(saved).toEqual({ ok: true })
+    const tooLong = write('too-long.md', 'x'.repeat(1024 * 1024 + 1))
+    const refused = await r.exporter.run('1', 'save', {
+      workspaceId: '1:w',
+      path: tooLong,
+      theme: THEME,
+      document: MARKDOWN,
+    })
+    expect(refused).toEqual({ ok: false, reason: 'too-large' })
   })
 })

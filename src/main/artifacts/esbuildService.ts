@@ -50,7 +50,7 @@ let started: Promise<Bundler> | null = null
 export function loadEsbuild(packaged: boolean): Promise<Bundler> {
   started ??= startEsbuild({ packaged }).then(
     (esbuild) => ({
-      build: (options) => esbuild.build(options),
+      context: (options) => esbuild.context(options),
       stop: () => {
         started = null
         return esbuild.stop?.()

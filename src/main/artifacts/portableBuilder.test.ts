@@ -27,9 +27,9 @@ function counting(): { load: () => Promise<Bundler>; builds: () => number } {
     load: async () => {
       const real = await esbuild()
       return {
-        build: (options) => {
+        context: (options) => {
           builds += 1
-          return real.build(options)
+          return real.context(options)
         },
       }
     },
@@ -37,8 +37,18 @@ function counting(): { load: () => Promise<Bundler>; builds: () => number } {
   }
 }
 
-function builder(load: () => Promise<Bundler> = esbuild, timeoutMs?: number): PortableBuilder {
-  return new PortableBuilder({ load, runtimeDir: () => runtimeDir, version: '9.9.9', timeoutMs })
+function builder(
+  load: () => Promise<Bundler> = esbuild,
+  timeoutMs?: number,
+  cacheBytes?: number,
+): PortableBuilder {
+  return new PortableBuilder({
+    load,
+    runtimeDir: () => runtimeDir,
+    version: '9.9.9',
+    timeoutMs,
+    cacheBytes,
+  })
 }
 
 const made: string[] = []
@@ -314,30 +324,95 @@ describe('PortableBuilder', () => {
     expect(text).toMatch(/big\.png \(13\.0 MiB\).*small\.png/)
   })
 
-  it('PRT-C26 stops a build that takes over its time and starts a fresh bundler next', async () => {
-    let instances = 0
-    let current: Bundler | null = null
+  it('PRT-C26 cancels a build that takes over its time and lets the next one run', async () => {
+    let cancelled = 0
+    let disposed = 0
     let stopped = 0
-    const load = async (): Promise<Bundler> => {
-      if (current) return current
-      instances += 1
-      const made: Bundler = {
-        build: () => new Promise(() => {}),
-        stop: () => {
-          stopped += 1
-          current = null
-        },
-      }
-      current = made
-      return made
-    }
+    const real = await esbuild()
+    const load = async (): Promise<Bundler> => ({
+      context: async (options) => {
+        const slow = JSON.stringify(options.entryPoints).includes('ostia-shell') && hanging
+        if (!slow) return real.context(options)
+        let fail: (error: Error) => void = () => {}
+        return {
+          rebuild: () =>
+            new Promise((_resolve, reject) => {
+              fail = reject
+            }),
+          cancel: async () => {
+            cancelled += 1
+            fail(new Error('cancelled'))
+          },
+          dispose: async () => {
+            disposed += 1
+          },
+        }
+      },
+      stop: () => {
+        stopped += 1
+      },
+    })
+    let hanging = true
     const dir = folder({ 'App.tsx': COUNTER })
     const b = builder(load, 50)
     const first = await b.build(artifact(dir, 'App.tsx'), LIGHT, 'development')
     expect(messages(first)).toContain('took over 10 seconds to build')
-    expect(stopped).toBe(1)
-    await b.build(artifact(dir, 'App.tsx'), LIGHT, 'development')
-    expect(instances).toBe(2)
+    expect(cancelled).toBe(1)
+    expect(disposed).toBe(1)
+    expect(stopped).toBe(0)
+    hanging = false
+    const next = await builder(load).build(artifact(dir, 'App.tsx'), LIGHT, 'development')
+    expect(next.ok, messages(next)).toBe(true)
+  })
+
+  it('PRT-C67 cancels only the build that timed out, never one running beside it', async () => {
+    const real = await esbuild()
+    let cancelled = 0
+    const slowLoad = async (): Promise<Bundler> => ({
+      context: async (options) => {
+        const ctx = await real.context(options)
+        return {
+          rebuild: () => new Promise(() => {}),
+          cancel: async () => {
+            cancelled += 1
+            await ctx.cancel()
+          },
+          dispose: () => ctx.dispose(),
+        }
+      },
+      stop: () => real.stop?.(),
+    })
+    const slowDir = folder({ 'Slow.tsx': COUNTER })
+    const fastDir = folder({
+      'Fast.tsx':
+        "import { LineChart } from 'recharts'\nexport default () => <LineChart width={1} height={1} data={[]} />\n",
+    })
+    const fast = builder(esbuild, 30_000).build(artifact(fastDir, 'Fast.tsx'), LIGHT, 'development')
+    const slow = await builder(slowLoad, 100).build(
+      artifact(slowDir, 'Slow.tsx'),
+      LIGHT,
+      'development',
+    )
+    expect(messages(slow)).toContain('took over 10 seconds to build')
+    expect(cancelled).toBe(1)
+    const fastBuilt = await fast
+    expect(fastBuilt.ok, messages(fastBuilt)).toBe(true)
+  })
+
+  it('PRT-C71 keeps the cache under its byte cap, with one copy of each build', async () => {
+    const b = builder(esbuild, undefined, 1024 * 1024)
+    for (let i = 0; i < 6; i += 1) {
+      const dir = folder({
+        'App.jsx': "import big from './big.txt'\nexport default () => <p>{big.length}</p>\n",
+        'big.txt': `${i}`.repeat(300 * 1024),
+      })
+      const built = await b.build(artifact(dir, 'App.jsx'), LIGHT, 'production')
+      expect(built.ok, messages(built)).toBe(true)
+      if (built.ok)
+        expect(Object.getOwnPropertyDescriptor(built, 'file')?.get).toBeTypeOf('function')
+    }
+    expect(b.cachedBytes()).toBeLessThanOrEqual(1024 * 1024)
+    expect(b.cachedBytes()).toBeGreaterThan(0)
   })
 
   it('PRT-C27 serves an unchanged build from the cache and rebuilds when an import changes', async () => {

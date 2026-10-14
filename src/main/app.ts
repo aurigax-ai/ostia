@@ -479,6 +479,7 @@ import { ViewHost, ViewStore } from './workspaces/viewHost'
 import { registerViewMethods, registerViewsIpc } from './workspaces/viewsIpc'
 import { registerWorkspaceMergeIpc } from './workspaces/workspaceMerge'
 import {
+  knownWorkspaces,
   removeWorkspace,
   setWorkspaceWorkDir,
   windowForWorkspace,
@@ -1033,7 +1034,14 @@ const portableExport = new PortableExport({
   confine: (path) => openFileGrants.confine(path),
   servesFolder: (dir) => artifactFolders.holds(dir),
   ownsWorkspace: (windowId, workspaceId) => windowForWorkspace(workspaceId) === windowId,
-  sandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+  sandboxedFolders: () =>
+    knownWorkspaces()
+      .filter((workspaceId) => workspaceSandboxes.isEnabled(workspaceId))
+      .flatMap((workspaceId) =>
+        [workspaceSandboxes.workDir(workspaceId), artifactFolders.dirOf(workspaceId)].filter(
+          (folder): folder is string => typeof folder === 'string',
+        ),
+      ),
   tmpDir: () => privateTmpDir(`${PRODUCT_NAME}-portable`),
   openPath: (path) => shell.openPath(path),
   saveDialog: async (windowId, defaultPath) => {

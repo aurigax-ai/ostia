@@ -1,24 +1,6 @@
-import { readFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
-import { dirname, join, resolve } from 'node:path'
+import { join } from 'node:path'
+import { Worker } from 'node:worker_threads'
 import { RUNTIME_MODULES, TAILWIND_PACKAGE } from '../../shared/artifacts/artifactRuntime'
-
-interface TailwindCompiler {
-  build: (candidates: string[]) => string
-}
-
-interface TailwindModule {
-  compile: (
-    css: string,
-    options: {
-      base: string
-      loadStylesheet: (
-        id: string,
-        base: string,
-      ) => Promise<{ path: string; base: string; content: string }>
-    },
-  ) => Promise<TailwindCompiler>
-}
 
 const DARK_BY_CLASS = '@custom-variant dark (&:where(.dark, .dark *));'
 const AT_IMPORT = '@import'
@@ -29,6 +11,31 @@ const WITHOUT_PREFLIGHT = [
   DARK_BY_CLASS,
 ].join('\n')
 const CANDIDATE = /[^\s"'`<>={};\\]+/g
+
+const COMPILE_IN_WORKER = `
+const { parentPort, workerData } = require('node:worker_threads')
+const { createRequire } = require('node:module')
+const { readFile } = require('node:fs/promises')
+const { dirname, join, resolve } = require('node:path')
+const { runtimeDir, tree, packageName, css, candidates, dropEmpty } = workerData
+const packageDir = join(tree, packageName)
+const tailwind = createRequire(join(runtimeDir, 'package.json'))(packageName)
+const options = {
+  base: packageDir,
+  loadStylesheet: async (id, base) => {
+    const path = id.startsWith(packageName)
+      ? join(tree, id === packageName ? packageName + '/index.css' : id)
+      : resolve(base, id)
+    if (!path.startsWith(packageDir + '/')) throw new Error('no stylesheet ' + id)
+    return { path, base: dirname(path), content: await readFile(path, 'utf8') }
+  },
+}
+;(async () => {
+  const out = (await tailwind.compile(css, options)).build(candidates)
+  const empty = dropEmpty ? (await tailwind.compile(css, options)).build([]) : null
+  parentPort.postMessage(out === empty ? '' : out)
+})().catch((error) => parentPort.postMessage({ error: String(error && error.message || error) }))
+`
 
 export type TailwindStyle = 'component' | 'page'
 
@@ -43,26 +50,39 @@ function classCandidates(texts: Iterable<string>): string[] {
 export class PortableTailwind {
   constructor(private readonly runtimeDir: () => string) {}
 
-  private compiler(style: TailwindStyle): Promise<TailwindCompiler> {
-    const tree = join(this.runtimeDir(), RUNTIME_MODULES)
-    const packageDir = join(tree, TAILWIND_PACKAGE)
-    const required = createRequire(join(this.runtimeDir(), 'package.json'))
-    const tailwind = required(TAILWIND_PACKAGE) as TailwindModule
-    return tailwind.compile(style === 'component' ? WITH_PREFLIGHT : WITHOUT_PREFLIGHT, {
-      base: packageDir,
-      loadStylesheet: async (id, base) => {
-        const path = id.startsWith(TAILWIND_PACKAGE)
-          ? join(tree, id === TAILWIND_PACKAGE ? `${TAILWIND_PACKAGE}/index.css` : id)
-          : resolve(base, id)
-        if (!path.startsWith(`${packageDir}/`)) throw new Error(`no stylesheet ${id}`)
-        return { path, base: dirname(path), content: await readFile(path, 'utf8') }
+  css(style: TailwindStyle, texts: Iterable<string>, signal?: AbortSignal): Promise<string> {
+    const runtimeDir = this.runtimeDir()
+    const worker = new Worker(COMPILE_IN_WORKER, {
+      eval: true,
+      workerData: {
+        runtimeDir,
+        tree: join(runtimeDir, RUNTIME_MODULES),
+        packageName: TAILWIND_PACKAGE,
+        css: style === 'component' ? WITH_PREFLIGHT : WITHOUT_PREFLIGHT,
+        candidates: classCandidates(texts),
+        dropEmpty: style === 'page',
       },
     })
-  }
-
-  async css(style: TailwindStyle, texts: Iterable<string>): Promise<string> {
-    const css = (await this.compiler(style)).build(classCandidates(texts))
-    if (style === 'page' && css === (await this.compiler(style)).build([])) return ''
-    return css
+    return new Promise<string>((resolve, reject) => {
+      const stop = (): void => {
+        void worker.terminate()
+        reject(new Error('the Tailwind compile was stopped'))
+      }
+      if (signal?.aborted) {
+        stop()
+        return
+      }
+      signal?.addEventListener('abort', stop, { once: true })
+      worker.once('message', (message: string | { error: string }) => {
+        signal?.removeEventListener('abort', stop)
+        void worker.terminate()
+        if (typeof message === 'string') resolve(message)
+        else reject(new Error(message.error))
+      })
+      worker.once('error', (error) => {
+        signal?.removeEventListener('abort', stop)
+        reject(error)
+      })
+    })
   }
 }

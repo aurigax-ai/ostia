@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { mkdirSync, readdirSync, realpathSync, rmSync, statSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname, join, sep } from 'node:path'
 import { ipcMain } from 'electron'
 import { normalizePreviewTheme } from '../../shared/artifacts/htmlPreview'
 import {
@@ -24,14 +24,13 @@ import { problemText } from './portableBundle'
 import { readRegularFile } from './previewFiles'
 
 const SWEEP_AGE_MS = 24 * 60 * 60 * 1000
-const DOCUMENT_TEXT_MAX = 256 * 1024
 
 export interface PortableExportDeps {
   builder: Pick<PortableBuilder, 'build'>
   confine: (path: string) => string | null
   servesFolder: (dir: string) => boolean
   ownsWorkspace: (windowId: string, workspaceId: string) => boolean
-  sandboxed: (workspaceId: string) => boolean
+  sandboxedFolders: () => string[]
   tmpDir: () => string
   openPath: (path: string) => Promise<string>
   saveDialog: (windowId: string, defaultPath: string) => Promise<string | null>
@@ -108,7 +107,7 @@ export class PortableExport {
     } catch {
       return { ok: false, reason: 'not-allowed' }
     }
-    if (runsScripts(type) && this.deps.sandboxed(request.workspaceId)) {
+    if (runsScripts(type) && this.insideSandbox(file)) {
       return { ok: false, reason: 'sandboxed' }
     }
     const made = await this.make(file, type, request)
@@ -120,6 +119,18 @@ export class PortableExport {
     return action === 'open' ? this.open(file, made.file) : this.save(windowId, file, made.file)
   }
 
+  private insideSandbox(file: string): boolean {
+    return this.deps.sandboxedFolders().some((folder) => {
+      let real: string
+      try {
+        real = realpathSync(folder)
+      } catch {
+        real = folder
+      }
+      return file === real || file.startsWith(`${real}${sep}`)
+    })
+  }
+
   private async make(file: string, type: PortableType, request: PortableRequest): Promise<Made> {
     if (runsScripts(type)) {
       const root = this.deps.servesFolder(dirname(file)) ? dirname(file) : null
@@ -127,7 +138,7 @@ export class PortableExport {
       if (built.ok) return { ok: true, file: built.file }
       return { ok: false, reason: 'not-built', message: built.problems.map(problemText).join('\n') }
     }
-    const read = await readRegularFile(file, DOCUMENT_TEXT_MAX)
+    const read = await readRegularFile(file, PORTABLE_LIMITS.sourceFileBytes)
     if (!read.ok) return { ok: false, reason: read.status === 413 ? 'too-large' : 'not-allowed' }
     const text = read.body.toString('utf8')
     const page = this.documentFor(type, text, read.body, request.document)

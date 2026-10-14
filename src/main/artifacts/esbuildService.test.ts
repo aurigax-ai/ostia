@@ -35,7 +35,7 @@ describe('starting the compiler', () => {
       env,
       binary: () => UNPACKED,
       load: async () => ({
-        build: unused,
+        context: unused,
         transform: async () => {
           seen.push(env[BINARY_ENV])
           return { code: '' }
@@ -52,7 +52,7 @@ describe('starting the compiler', () => {
       packaged: true,
       env,
       binary: () => UNPACKED,
-      load: async () => ({ build: unused, transform: async () => ({ code: '' }) }),
+      load: async () => ({ context: unused, transform: async () => ({ code: '' }) }),
     })
     expect(BINARY_ENV in env).toBe(false)
     await expect(
@@ -75,7 +75,7 @@ describe('starting the compiler', () => {
       packaged: false,
       env,
       load: async () => ({
-        build: unused,
+        context: unused,
         transform: async () => {
           seen.push(env[BINARY_ENV])
           return { code: '' }

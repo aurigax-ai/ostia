@@ -27,6 +27,7 @@ import { PortableTailwind } from './portableTailwind'
 import { type PreviewSource, readRegularFile } from './previewFiles'
 
 const CACHE_MAX = 64
+const CACHE_BYTES = 64 * 1024 * 1024
 const DEFAULT_TARGET = ['chrome120', 'firefox121']
 
 export type PortableBuild =
@@ -39,12 +40,27 @@ export interface PortableBuilderDeps {
   version: string
   target?: string[]
   timeoutMs?: number
+  cacheBytes?: number
   now?: () => Date
 }
 
 interface Cached {
   hashes: Map<string, string>
   result: PortableBuild & { ok: true }
+  bytes: number
+}
+
+function withFile(
+  document: string,
+  manifest: PortableManifest,
+  inputs: string[],
+): PortableBuild & { ok: true } {
+  const result = { ok: true as const, document, manifest, inputs }
+  Object.defineProperty(result, 'file', {
+    enumerable: true,
+    get: () => wrapPortable(document, manifest),
+  })
+  return result as PortableBuild & { ok: true }
 }
 
 function sha256(data: string | Buffer): string {
@@ -101,6 +117,12 @@ export class PortableBuilder {
     return result
   }
 
+  cachedBytes(): number {
+    let total = 0
+    for (const entry of this.cache.values()) total += entry.bytes
+    return total
+  }
+
   private async unchanged(hashes: Map<string, string>): Promise<boolean> {
     for (const [path, hash] of hashes) {
       const found = await readRegularFile(path, PORTABLE_LIMITS.fileBytes)
@@ -116,11 +138,15 @@ export class PortableBuilder {
       if (!found.ok) return
       hashes.set(path, sha256(found.body))
     }
+    const bytes = result.document.length + JSON.stringify(result.manifest).length
+    const cap = this.deps.cacheBytes ?? CACHE_BYTES
+    if (bytes > cap) return
     this.cache.delete(key)
-    this.cache.set(key, { hashes, result })
-    if (this.cache.size > CACHE_MAX) {
+    this.cache.set(key, { hashes, result, bytes })
+    while (this.cache.size > CACHE_MAX || this.cachedBytes() > cap) {
       const oldest = this.cache.keys().next().value
-      if (oldest !== undefined) this.cache.delete(oldest)
+      if (oldest === undefined) break
+      this.cache.delete(oldest)
     }
   }
 
@@ -146,8 +172,7 @@ export class PortableBuilder {
         late,
       ])
       if (outcome !== 'late') return outcome
-      const bundler = await this.deps.load().catch(() => null)
-      void bundler?.stop?.()
+      run.stop()
       return failed([problem(run, 'took over 10 seconds to build')])
     } finally {
       clearTimeout(timer)
@@ -177,7 +202,11 @@ export class PortableBuilder {
     let document: string
     if (type === 'component') {
       const out = await bundle(bundler, run, { kind: 'component' }, mode, this.target)
-      const tailwind = await this.tailwind.css('component', run.sources.values())
+      const tailwind = await this.tailwind.css(
+        'component',
+        run.sources.values(),
+        run.stopping.signal,
+      )
       const css = [tailwind, out.css].filter(Boolean).join('\n')
       document = documentPage(
         title,
@@ -187,7 +216,7 @@ export class PortableBuilder {
       )
     } else {
       const page = await buildPage(bundler, run, mode, this.target, (texts) =>
-        this.tailwind.css('page', texts),
+        this.tailwind.css('page', texts, run.stopping.signal),
       )
       document = page.html
     }
@@ -202,9 +231,9 @@ export class PortableBuilder {
       hash: sha256(document),
       sources: Object.fromEntries(run.sources),
     }
-    const file = wrapPortable(document, manifest)
-    if (Buffer.byteLength(file) > PORTABLE_LIMITS.fileBytes) throw run.tooLarge()
-    return { ok: true, document, file, manifest, inputs: [...run.inputs.keys()] }
+    const built = withFile(document, manifest, [...run.inputs.keys()])
+    if (Buffer.byteLength(built.file) > PORTABLE_LIMITS.fileBytes) throw run.tooLarge()
+    return built
   }
 }
 

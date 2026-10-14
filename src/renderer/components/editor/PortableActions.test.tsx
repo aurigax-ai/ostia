@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import type { PortableResult } from '@shared/artifacts/portable'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -16,19 +17,28 @@ function actions(path: string): JSX.Element {
 
 describe('PortableActions', () => {
   let sandboxInit: ReturnType<typeof useSandboxStore.getState>
+  let artifactsInit: ReturnType<typeof useArtifactsStore.getState>
 
   beforeAll(() => {
     sandboxInit = useSandboxStore.getState()
+    artifactsInit = useArtifactsStore.getState()
   })
 
   beforeEach(() => {
     vi.mocked(window.ostia.artifacts.portable).mockResolvedValue({ ok: true })
     vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: '# Plan\n', version: 'v1' })
+    vi.mocked(window.ostia.artifacts.list).mockResolvedValue({
+      dir: DIR,
+      pad: `${DIR}/PAD.md`,
+      padModified: null,
+      entries: [],
+    })
   })
 
   afterEach(() => {
     cleanup()
     useSandboxStore.setState(sandboxInit, true)
+    useArtifactsStore.setState(artifactsInit, true)
   })
 
   it('PRT-C37 puts one Open in Browser split button on each type with a portable form, none on a PNG', async () => {
@@ -44,6 +54,14 @@ describe('PortableActions', () => {
     }
     const png = await renderSettled(actions('photo.png'))
     expect(png.container).toBeEmptyDOMElement()
+  })
+
+  it('PRT-C69 offers nothing for a project file that is not in the artifact folder', async () => {
+    for (const path of ['/repo/src/App.tsx', '/repo/README.md', '/repo/index.html']) {
+      const view = await renderSettled(<PortableActions workspaceId="s1" filePath={path} />)
+      expect(view.container, path).toBeEmptyDOMElement()
+      view.unmount()
+    }
   })
 
   it('PRT-C38 offers nothing for a runnable file of a sandboxed workspace, but saves its Markdown', async () => {

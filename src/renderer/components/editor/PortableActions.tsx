@@ -2,6 +2,7 @@ import { MenuItem } from '@/components/common/Menu'
 import { SplitButton, SplitButtonMenu } from '@/components/common/SplitButton'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/i18n/useDict'
+import { useArtifactListing } from '@/lib/files/artifacts'
 import { previewTheme } from '@/lib/theme/previewTheme'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { WarningIcon } from '@phosphor-icons/react'
@@ -27,14 +28,17 @@ function problemOf(d: Dict, result: PortableResult): string | null {
   return fmt(d.portable.failed, { message: result.message ?? result.reason })
 }
 
-function canTakeOut(filePath: string, sandboxed: boolean): boolean {
+function canTakeOut(filePath: string, sandboxed: boolean, artifactDir: string | null): boolean {
   const type = portableType(filePath)
-  return type !== null && !isRemotePath(filePath) && !(runsScripts(type) && sandboxed)
+  if (type === null || isRemotePath(filePath) || !artifactDir) return false
+  if (!filePath.startsWith(`${artifactDir}/`)) return false
+  return !(runsScripts(type) && sandboxed)
 }
 
 export function usePortableFile(workspaceId: string, filePath: string) {
   const d = useDict()
   const sandboxed = useSandboxStore((s) => s.enabled[workspaceId] ?? false)
+  const artifactDir = useArtifactListing(workspaceId)?.dir ?? null
   const [problem, setProblem] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -77,7 +81,7 @@ export function usePortableFile(workspaceId: string, filePath: string) {
     }
   }
 
-  return { shown: canTakeOut(filePath, sandboxed), run, problem, copied }
+  return { shown: canTakeOut(filePath, sandboxed, artifactDir), run, problem, copied }
 }
 
 export function PortableProblem({ problem }: { problem: string | null }): JSX.Element | null {

@@ -18,8 +18,14 @@ import { PORTABLE_LIMITS, type PortableMode } from '../../shared/artifacts/porta
 import { type PreviewSource, readRegularFile, resolvePreviewFile } from './previewFiles'
 import shellSource from './previewShellModule.txt?raw'
 
+export interface BundleContext {
+  rebuild: () => Promise<BuildResult>
+  cancel: () => Promise<void>
+  dispose: () => Promise<void>
+}
+
 export interface Bundler {
-  build: (options: BuildOptions & { write: false }) => Promise<BuildResult>
+  context: (options: BuildOptions & { write: false }) => Promise<BundleContext>
   stop?: () => void | Promise<void>
 }
 
@@ -99,6 +105,8 @@ export class BuildRun {
   readonly inputs = new Map<string, InputRecord>()
   readonly sources = new Map<string, string>()
   readonly libraries = new Set<string>()
+  readonly stopping = new AbortController()
+  private readonly contexts = new Set<BundleContext>()
   private sourceBytes = 0
   private inputBytes = 0
 
@@ -106,6 +114,17 @@ export class BuildRun {
     readonly source: PreviewSource,
     readonly runtimeDir: string,
   ) {}
+
+  hold(context: BundleContext): () => void {
+    this.contexts.add(context)
+    if (this.stopping.signal.aborted) void context.cancel()
+    return () => this.contexts.delete(context)
+  }
+
+  stop(): void {
+    this.stopping.abort()
+    for (const context of this.contexts) void context.cancel().catch(() => {})
+  }
 
   label(path: string): string {
     const base = dirname(this.source.file)
@@ -359,8 +378,10 @@ export async function bundle(
   target: string[],
 ): Promise<Bundled> {
   let result: BuildResult
+  let context: BundleContext | null = null
+  let release = (): void => {}
   try {
-    result = await bundler.build({
+    context = await bundler.context({
       entryPoints: [entryPoint(entry)],
       bundle: true,
       write: false,
@@ -377,9 +398,14 @@ export async function bundle(
       logLevel: 'silent',
       plugins: [entryPlugin(), artifactPlugin(run, entry)],
     })
+    release = run.hold(context)
+    result = await context.rebuild()
   } catch (error) {
     if (error instanceof BuildFailure) throw error
     throw new BuildFailure(problemsOf(error, run))
+  } finally {
+    release()
+    void context?.dispose().catch(() => {})
   }
   const files = result.outputFiles ?? []
   const text = (extension: string): string =>
