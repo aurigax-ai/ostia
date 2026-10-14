@@ -1,17 +1,17 @@
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   ARTIFACT_RUNTIME,
+  RUNTIME_MODULES,
   RUNTIME_NOTICES,
-  TAILWIND_RUNTIME,
+  TAILWIND_PACKAGE,
+  allowsRuntimeImport,
   importableSpecifiers,
-  runtimeFiles,
-  runtimeImportMap,
+  runtimePackages,
 } from './artifactRuntime'
 
 const built = join(process.cwd(), 'out', 'artifact-runtime')
-const skill = readFileSync(join(process.cwd(), 'src/main/agents/skills/ostia/SKILL.md'), 'utf8')
 const manifest = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
   dependencies: Record<string, string>
   devDependencies: Record<string, string>
@@ -30,60 +30,51 @@ describe('the preview runtime', () => {
       'd3',
       'papaparse',
     ])
-    expect(TAILWIND_RUNTIME.package).toBe('@tailwindcss/browser')
+    expect(TAILWIND_PACKAGE).toBe('tailwindcss')
     expect(manifest.devDependencies.react).toBe('^18.3.1')
   })
 
-  it('maps every specifier to its own local file and nothing remote', () => {
-    const { imports } = runtimeImportMap()
-    expect(Object.keys(imports)).toEqual(ARTIFACT_RUNTIME.map((module) => module.specifier))
-    for (const module of ARTIFACT_RUNTIME) {
-      expect(imports[module.specifier]).toBe(`/runtime/${module.file}`)
+  it('allows only the listed specifiers, exactly', () => {
+    for (const specifier of [...importableSpecifiers(), 'react/jsx-runtime']) {
+      expect(allowsRuntimeImport(specifier), specifier).toBe(true)
     }
-    expect(new Set(runtimeFiles()).size).toBe(runtimeFiles().length)
-    expect(JSON.stringify(imports)).not.toMatch(/https?:|\/\//)
+    for (const specifier of [
+      'lodash',
+      'react-dom/server',
+      'd3-scale',
+      '/runtime/react.js',
+      'tailwindcss',
+    ]) {
+      expect(allowsRuntimeImport(specifier), specifier).toBe(false)
+    }
   })
 
-  it('is built: one file per entry, sharing one React, with the licence notices', () => {
-    for (const file of runtimeFiles()) {
-      expect(existsSync(join(built, file)), file).toBe(true)
-      expect(statSync(join(built, file)).size, file).toBeGreaterThan(200)
+  it('is built as a package tree with the licence notices and no whole-library files', () => {
+    for (const name of runtimePackages()) {
+      expect(existsSync(join(built, RUNTIME_MODULES, name, 'package.json')), name).toBe(true)
     }
-    for (const module of ARTIFACT_RUNTIME) {
-      const code = readFileSync(join(built, module.file), 'utf8')
-      const imported = [...code.matchAll(/^import .* from "([^"]+)";?$/gm)].map((m) => m[1])
-      expect([...new Set(imported)].sort(), module.file).toEqual(
-        [...module.external].filter((name) => imported.includes(name)).sort(),
-      )
-      expect(code, module.file).not.toMatch(/https?:\/\/(cdn|unpkg|esm\.sh|cdnjs)/)
-    }
-    const react = readFileSync(join(built, 'react.js'), 'utf8')
-    expect(react).not.toMatch(/^import /m)
-    const recharts = readFileSync(join(built, 'recharts.js'), 'utf8')
-    expect(recharts).toContain('from "react"')
-    expect(recharts).not.toContain('react.development.js')
+    expect(existsSync(join(built, 'react.js'))).toBe(false)
+    expect(existsSync(join(built, 'tailwind.js'))).toBe(false)
     const notices = readFileSync(join(built, RUNTIME_NOTICES), 'utf8')
-    for (const name of ['react ', 'recharts ', 'lucide-react ', 'd3 ', 'papaparse ']) {
+    for (const name of [
+      'react ',
+      'recharts ',
+      'lucide-react ',
+      'd3 ',
+      'papaparse ',
+      'tailwindcss ',
+    ]) {
       expect(notices, name).toContain(name)
     }
   })
 
-  it('is what the skill, which ostia docs prints, tells agents they can import', () => {
-    for (const specifier of importableSpecifiers()) {
-      expect(skill, specifier).toMatch(
-        new RegExp(`^${specifier.replace(/[/@.-]/g, '\\$&')}\\s`, 'm'),
-      )
-    }
-    expect(skill).toContain('/runtime/tailwind.js')
-    expect(importableSpecifiers()).not.toContain('react/jsx-runtime')
-  })
-
-  it('ships the compiler as a dependency and the libraries only as build inputs', () => {
+  it('ships the bundler as a dependency and the libraries only as build inputs', () => {
     expect(manifest.dependencies.esbuild).toBeDefined()
     expect(manifest.devDependencies.esbuild).toBeUndefined()
-    for (const name of ['recharts', 'lucide-react', 'd3', 'papaparse', '@tailwindcss/browser']) {
+    for (const name of ['recharts', 'lucide-react', 'd3', 'papaparse', 'tailwindcss']) {
       expect(manifest.devDependencies[name], name).toBeDefined()
       expect(manifest.dependencies[name], name).toBeUndefined()
     }
+    expect(manifest.devDependencies['@tailwindcss/browser']).toBeUndefined()
   })
 })

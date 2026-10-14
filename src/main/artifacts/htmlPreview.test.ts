@@ -1,10 +1,6 @@
-import { execFileSync } from 'node:child_process'
 import {
-  closeSync,
-  ftruncateSync,
   mkdirSync,
   mkdtempSync,
-  openSync,
   realpathSync,
   rmSync,
   symlinkSync,
@@ -23,10 +19,10 @@ vi.mock('node:fs', async (importOriginal) => {
 
 import {
   PREVIEW_LIMITS,
-  PREVIEW_PAGE_CSP,
   type PreviewEvent,
   type PreviewOpened,
 } from '../../shared/artifacts/htmlPreview'
+import { PORTABLE_CSP } from '../../shared/artifacts/portable'
 import {
   type PreviewGuest,
   PreviewHost,
@@ -34,10 +30,8 @@ import {
   type ProcessUse,
   hardenPreviewAttach,
   previewHeaders,
-  readPreviewFile,
-  readRegularFile,
-  resolvePreviewFile,
 } from './htmlPreview'
+import type { PreviewSource } from './previewFiles'
 
 const MIB = 1024 * 1024
 
@@ -54,115 +48,23 @@ beforeEach(() => {
   writeFileSync(join(folder, 'data.json'), '{"a":1}')
   writeFileSync(join(folder, 'assets', 'app.js'), 'export const a = 1')
   writeFileSync(join(base, 'outside.txt'), 'outside')
-  mkdirSync(join(base, 'runtime'))
-  writeFileSync(join(base, 'runtime', 'react.js'), 'export default {}')
-  writeFileSync(join(base, 'runtime', 'secret.js'), 'not in the list')
 })
 
 afterEach(() => {
   rmSync(base, { recursive: true, force: true })
 })
 
-describe('resolvePreviewFile', () => {
-  const source = (): { file: string; root: string | null } => ({ file: page, root: folder })
-
-  it('serves the page itself at /', () => {
-    expect(resolvePreviewFile(source(), '/')).toMatchObject({ ok: true, path: page })
-  })
-
-  it('serves regular files beside the page and below', () => {
-    expect(resolvePreviewFile(source(), '/data.json')).toMatchObject({
-      ok: true,
-      path: join(folder, 'data.json'),
-      size: 7,
-    })
-    expect(resolvePreviewFile(source(), '/assets/app.js')).toMatchObject({ ok: true })
-    expect(resolvePreviewFile(source(), '/assets/a%70p.js')).toMatchObject({ ok: true })
-  })
-
-  it('refuses a path that leaves the folder', () => {
-    for (const path of ['/../outside.txt', '/assets/../../outside.txt', '/%2e%2e/outside.txt']) {
-      expect(resolvePreviewFile(source(), path), path).toEqual({ ok: false, status: 404 })
-    }
-  })
-
-  it('refuses a symlink, and a file reached through a symlinked folder that leaves', () => {
-    symlinkSync(join(base, 'outside.txt'), join(folder, 'link.txt'))
-    symlinkSync(base, join(folder, 'up'))
-    expect(resolvePreviewFile(source(), '/link.txt')).toEqual({ ok: false, status: 404 })
-    expect(resolvePreviewFile(source(), '/up/outside.txt')).toEqual({ ok: false, status: 404 })
-  })
-
-  it('refuses credential paths, folders, missing files and bad escapes', () => {
-    mkdirSync(join(folder, '.ssh'))
-    writeFileSync(join(folder, '.ssh', 'id_ed25519'), 'key')
-    writeFileSync(join(folder, '.env'), 'A=1')
-    writeFileSync(join(folder, '.env.local'), 'A=1')
-    for (const path of ['/.ssh/id_ed25519', '/.env', '/.env.local', '/assets', '/nope.js']) {
-      expect(resolvePreviewFile(source(), path), path).toEqual({ ok: false, status: 404 })
-    }
-    expect(resolvePreviewFile(source(), '/%E0%A4%A')).toEqual({ ok: false, status: 400 })
-  })
-
-  it('serves only the page when its folder is not a file root', () => {
-    const lone = { file: page, root: null }
-    expect(resolvePreviewFile(lone, '/')).toMatchObject({ ok: true })
-    expect(resolvePreviewFile(lone, '/data.json')).toEqual({ ok: false, status: 404 })
-  })
-})
-
-describe('readPreviewFile', () => {
-  const source = (): { file: string; root: string | null } => ({ file: page, root: folder })
-
-  it('reads the file it resolved, within what is left of the load', async () => {
-    const read = await readPreviewFile(source(), '/data.json', 100)
-    expect(read.ok && read.body.toString()).toBe('{"a":1}')
-    expect(await readPreviewFile(source(), '/data.json', 6)).toEqual({ ok: false, status: 413 })
-    expect(await readPreviewFile(source(), '/../outside.txt', 100)).toEqual({
-      ok: false,
-      status: 404,
-    })
-  })
-
-  it('never waits on a FIFO put where a file was, also when it appears after the check', async () => {
-    const pipe = join(folder, 'pipe.json')
-    execFileSync('mkfifo', [pipe])
-    const started = Date.now()
-    expect(await readPreviewFile(source(), '/pipe.json', 100)).toEqual({ ok: false, status: 404 })
-    expect(await readRegularFile(pipe, 100)).toEqual({ ok: false, status: 404 })
-    expect(Date.now() - started).toBeLessThan(2000)
-  })
-
-  it('refuses a page that became a symlink after the preview was opened', async () => {
-    rmSync(page)
-    symlinkSync(join(base, 'outside.txt'), page)
-    expect(await readPreviewFile(source(), '/', 100)).toEqual({ ok: false, status: 404 })
-  })
-
-  it('refuses a file whose folder was replaced by a symlink to somewhere else', async () => {
-    const elsewhere = join(base, 'elsewhere')
-    mkdirSync(elsewhere)
-    writeFileSync(join(elsewhere, 'app.js'), 'secret')
-    rmSync(join(folder, 'assets'), { recursive: true })
-    symlinkSync(elsewhere, join(folder, 'assets'))
-    expect(await readPreviewFile(source(), '/assets/app.js', 100)).toEqual({
-      ok: false,
-      status: 404,
-    })
-  })
-})
-
 describe('previewHeaders', () => {
-  it('carries the sandbox policy and an open CORS header on every response', () => {
-    expect(previewHeaders('/a/page.html')).toMatchObject({
+  it('PRT-C21 sends the portable policy with the frame’s sandbox as headers', () => {
+    const headers = previewHeaders('/a/App.tsx')
+    expect(headers['content-security-policy'].split(', ')[0]).toBe(PORTABLE_CSP)
+    expect(headers['content-security-policy']).toContain('sandbox allow-scripts')
+    expect(headers['content-security-policy']).not.toMatch(/unsafe-eval|allow-same-origin/)
+    expect(headers).toMatchObject({
       'x-dns-prefetch-control': 'off',
       'content-type': 'text/html; charset=utf-8',
-      'content-security-policy': PREVIEW_PAGE_CSP,
-      'access-control-allow-origin': '*',
       'x-content-type-options': 'nosniff',
     })
-    expect(previewHeaders('/a/app.mjs')['content-type']).toBe('text/javascript; charset=utf-8')
-    expect(previewHeaders('/a/unknown.bin')['content-type']).toBe('application/octet-stream')
   })
 })
 
@@ -320,6 +222,9 @@ class FakeGuest implements PreviewGuest {
   }
 }
 
+const builds: PreviewSource[] = []
+let inputsOf = (source: PreviewSource): string[] => [source.file]
+
 interface Rig {
   host: PreviewHost
   sessions: Map<string, FakeSession>
@@ -345,11 +250,13 @@ function rig(): Rig {
     },
     confine: (path) => (path.startsWith(`${base}/`) ? path : null),
     servesFolder: (dir) => dir === folder || dir.startsWith(`${folder}/`),
+    build: async (source) => {
+      builds.push(source)
+      return { document: `<!doctype html><title>${source.file}</title>`, inputs: inputsOf(source) }
+    },
     ownsPane: (windowId, paneId) => paneId.startsWith(`${windowId}:`),
     send: (_windowId, event) => events.push(event),
     processes: () => processes,
-    runtimeDir: () => join(base, 'runtime'),
-    compile: async (file, source) => `/* compiled ${file} */${source.toString().length}`,
     now: () => clock.now,
   })
   const open = (paneId = '1:p1', path = page, windowId = '1'): PreviewOpened => {
@@ -519,7 +426,7 @@ describe('PreviewHost', () => {
     expect(r.events).toEqual([{ id: opened.id, type: 'link', url: 'https://example.com/next' }])
   })
 
-  it('passes on console errors only, with the file-relative source', () => {
+  it('passes on console errors only, named after the previewed file', () => {
     const opened = r.open()
     const guest = r.attach(opened)
     guest.emit('console-message', { level: 'info', message: 'hello' })
@@ -528,7 +435,7 @@ describe('PreviewHost', () => {
       level: 'error',
       message: 'Uncaught Error: boom',
       lineNumber: 7,
-      sourceId: `${opened.url}assets/app.js`,
+      sourceId: opened.url,
     })
     guest.emit('console-message', {
       level: 'error',
@@ -545,7 +452,7 @@ describe('PreviewHost', () => {
       {
         id: opened.id,
         type: 'error',
-        error: { kind: 'error', message: 'Uncaught Error: boom', line: 7, source: 'assets/app.js' },
+        error: { kind: 'error', message: 'Uncaught Error: boom', line: 7, source: 'page.html' },
       },
       {
         id: opened.id,
@@ -561,112 +468,53 @@ describe('PreviewHost', () => {
     ])
   })
 
-  it('serves the page with the policy, and nothing to another load id or method', async () => {
-    const opened = r.open()
+  it('PRT-C28 serves the built document at / and nothing else', async () => {
+    const app = join(folder, 'App.tsx')
+    writeFileSync(app, 'export default () => null')
+    const opened = r.open('1:p1', app)
     const serve = r.sessionOf(opened).serve as (request: Request) => Promise<Response>
     const ok = await serve(new Request(opened.url))
     expect(ok.status).toBe(200)
     expect(r.events).toEqual([{ id: opened.id, type: 'loading' }])
-    expect(ok.headers.get('content-security-policy')).toBe(PREVIEW_PAGE_CSP)
-    expect(await ok.text()).toContain('<title>t</title>')
-    const data = await serve(new Request(`${opened.url}data.json`))
-    expect(await data.json()).toEqual({ a: 1 })
-    expect(data.headers.get('access-control-allow-origin')).toBe('*')
+    expect(await ok.text()).toBe(`<!doctype html><title>${app}</title>`)
+    expect(builds.at(-1)).toEqual({ file: app, root: folder })
+    for (const path of [
+      'data.json',
+      'runtime/react.js',
+      'App.tsx',
+      '__ostia_shell.js',
+      '../outside.txt',
+    ]) {
+      expect((await serve(new Request(`${opened.url}${path}`))).status, path).toBe(404)
+    }
     expect((await serve(new Request('ostia-preview://someone-else/'))).status).toBe(404)
-    expect((await serve(new Request(`${opened.url}../outside.txt`))).status).toBe(404)
     expect((await serve(new Request(opened.url, { method: 'POST', body: 'x' }))).status).toBe(405)
   })
 
-  it('serves a page outside an artifact folder alone: no sibling, whatever folder it sits in', async () => {
+  it('builds a page outside an artifact folder with no folder to read from', async () => {
     const elsewhere = join(base, 'home')
     mkdirSync(elsewhere)
     writeFileSync(join(elsewhere, 'x.html'), '<!doctype html><title>x</title>')
-    writeFileSync(join(elsewhere, 'notes.txt'), 'private notes')
     const opened = r.open('1:p1', join(elsewhere, 'x.html'))
     const serve = r.sessionOf(opened).serve as (request: Request) => Promise<Response>
     expect((await serve(new Request(opened.url))).status).toBe(200)
-    expect((await serve(new Request(`${opened.url}notes.txt`))).status).toBe(404)
-    expect((await serve(new Request(`${opened.url}x.html`))).status).toBe(404)
+    expect(builds.at(-1)).toEqual({ file: join(elsewhere, 'x.html'), root: null })
   })
 
-  it('serves only the listed runtime files, to pages and components alike', async () => {
-    const opened = r.open()
-    const serve = r.sessionOf(opened).serve as (request: Request) => Promise<Response>
-    const react = await serve(new Request(`${opened.url}runtime/react.js`))
-    expect(react.status).toBe(200)
-    expect(react.headers.get('content-type')).toBe('text/javascript; charset=utf-8')
-    expect(await react.text()).toBe('export default {}')
-    for (const name of ['secret.js', '../outside.txt', 'recharts.js', 'react.js/..', '']) {
-      const res = await serve(new Request(`${opened.url}runtime/${name}`))
-      expect(res.status, name).toBe(404)
-    }
-  })
-
-  it('serves a component through the shell page with a fresh nonce and no inline scripts', async () => {
+  it('PRT-C29 reloads the preview when a file the build imported changes', async () => {
     const app = join(folder, 'App.tsx')
-    writeFileSync(app, 'export default function App() { return null }')
-    writeFileSync(join(folder, 'Chart.tsx'), 'export const Chart = () => null')
+    const chart = join(folder, 'assets', 'Chart.tsx')
+    writeFileSync(app, "import Chart from './assets/Chart'")
+    writeFileSync(chart, 'export default () => null')
+    inputsOf = () => [app, chart]
     const opened = r.open('1:p1', app)
-    const serve = r.sessionOf(opened).serve as (request: Request) => Promise<Response>
-    const first = await serve(new Request(opened.url))
-    const second = await serve(new Request(opened.url))
-    const csp = first.headers.get('content-security-policy') ?? ''
-    const nonce = /script-src ostia-preview: 'nonce-([^']+)'/.exec(csp)?.[1]
-    expect(nonce).toBeTruthy()
-    expect(csp).not.toContain("script-src ostia-preview: 'unsafe-inline'")
-    expect(csp).not.toContain('unsafe-eval')
-    expect(csp).toContain('sandbox allow-scripts')
-    expect(csp).not.toContain('allow-same-origin')
-    expect(second.headers.get('content-security-policy')).not.toBe(csp)
-    const html = await first.text()
-    expect(html).toContain(`<script type="importmap" nonce="${nonce}">`)
-    expect(html).toContain('"react":"/runtime/react.js"')
-    expect(html).not.toContain('export default function App')
-    expect(html.match(/<script(?![^>]*nonce=)/g)).toBeNull()
-
-    const shell = await serve(new Request(`${opened.url}__ostia_shell.js`))
-    expect(await shell.text()).toContain("import('/__ostia_entry.js')".replace(/'/g, '"'))
-    const entry = await serve(new Request(`${opened.url}__ostia_entry.js`))
-    expect(entry.headers.get('content-type')).toBe('text/javascript; charset=utf-8')
-    expect(await entry.text()).toBe('/* compiled App.tsx */45')
-    const bare = await serve(new Request(`${opened.url}Chart`))
-    expect(await bare.text()).toBe('/* compiled Chart.tsx */31')
-    expect((await serve(new Request(`${opened.url}Missing`))).status).toBe(404)
-    expect((await serve(new Request(`${opened.url}data.json`))).headers.get('content-type')).toBe(
-      'application/json; charset=utf-8',
-    )
-  })
-
-  it('keeps the shell for components: an HTML page never gets it', async () => {
-    const opened = r.open()
-    const serve = r.sessionOf(opened).serve as (request: Request) => Promise<Response>
-    expect((await serve(new Request(`${opened.url}__ostia_shell.js`))).status).toBe(404)
-    expect((await serve(new Request(`${opened.url}__ostia_entry.js`))).status).toBe(404)
-  })
-
-  it('serves at most 16 MiB per load and starts counting again with the page', async () => {
-    const big = join(folder, 'big.bin')
-    const fd = openSync(big, 'w')
-    ftruncateSync(fd, PREVIEW_LIMITS.loadBytes - 10)
-    closeSync(fd)
-    const opened = r.open()
-    const serve = r.sessionOf(opened).serve as (request: Request) => Promise<Response>
-    expect((await serve(new Request(`${opened.url}big.bin`))).status).toBe(200)
-    expect((await serve(new Request(`${opened.url}data.json`))).status).toBe(200)
-    expect((await serve(new Request(`${opened.url}assets/app.js`))).status).toBe(413)
-    expect((await serve(new Request(opened.url))).status).toBe(200)
-    expect((await serve(new Request(`${opened.url}assets/app.js`))).status).toBe(200)
-  })
-
-  it('reloads the guest when a file it loaded changes', async () => {
-    const opened = r.open()
     const guest = r.attach(opened)
     const serve = r.sessionOf(opened).serve as (request: Request) => Promise<Response>
     await serve(new Request(opened.url))
-    await serve(new Request(`${opened.url}data.json`))
     writeFileSync(join(folder, 'unrelated.txt'), 'x')
-    writeFileSync(join(folder, 'data.json'), '{"a":2}')
+    writeFileSync(chart, 'export default () => 1')
     await vi.waitFor(() => expect(guest.reloads).toBe(1), { timeout: 3000 })
+    inputsOf = (source) => [source.file]
   })
 
   it('says a page is not responding after 5 s, then stops and kills it at 15 s', async () => {

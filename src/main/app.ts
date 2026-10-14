@@ -126,7 +126,6 @@ import {
   setUserPresenceCheck,
 } from './approvals/scriptTokens'
 import { electronPresenceDeps, verifyUserPresence } from './approvals/userPresence'
-import { ArtifactCompiler } from './artifacts/artifactCompiler'
 import { ArtifactFolders, registerArtifactIpc } from './artifacts/artifactFolders'
 import { loadEsbuild } from './artifacts/esbuildService'
 import {
@@ -135,6 +134,7 @@ import {
   hardenPreviewAttach,
   registerPreviewIpc,
 } from './artifacts/htmlPreview'
+import { PortableBuilder } from './artifacts/portableBuilder'
 import { registerAttentionMethods, targetOf } from './attention/attention'
 import { announceBusMessage } from './attention/busNotice'
 import {
@@ -995,10 +995,17 @@ const openFileGrants = new OpenFileGrants({
   file: join(app.getPath('userData'), 'opened-files.json'),
 })
 
-const artifactCompiler = new ArtifactCompiler(
-  () => loadEsbuild(app.isPackaged),
-  `chrome${process.versions.chrome.split('.')[0]}`,
-)
+function artifactRuntimeDir(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, 'artifact-runtime')
+    : join(app.getAppPath(), 'out', 'artifact-runtime')
+}
+
+const portableBuilder = new PortableBuilder({
+  load: () => loadEsbuild(app.isPackaged),
+  runtimeDir: artifactRuntimeDir,
+  version: app.getVersion(),
+})
 
 const openWaits = new OpenWaits((windowId, paneIds) =>
   windows.get(windowId)?.webContents.send('open-waits:ended', paneIds),
@@ -1016,11 +1023,7 @@ const previews = new PreviewHost({
       memoryBytes: metric.memory.workingSetSize * 1024,
       cpuPercent: metric.cpu.percentCPUUsage,
     })),
-  runtimeDir: () =>
-    app.isPackaged
-      ? join(process.resourcesPath, 'artifact-runtime')
-      : join(app.getAppPath(), 'out', 'artifact-runtime'),
-  compile: (file, source) => artifactCompiler.compile(file, source),
+  build: (source, theme) => portableBuilder.preview(source, theme),
 })
 
 function isScratchPane(paneId: string): boolean {

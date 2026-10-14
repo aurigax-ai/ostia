@@ -74,9 +74,12 @@ in the Files panel; an open tab follows edits to its file. The folder is removed
 workspace. `$OSTIA_PAD` (`PAD.md` in it, 256 KiB at most) is the workspace's one shared note.
 
 **Previews.** An `.html` file, or a `.jsx`/`.tsx` file whose default export is a React component
-without required props, opens as a live preview. It has no network and no storage: data comes
-from the file or a file beside it (`fetch('./data.json')`, `import Chart from './Chart'`). A
-script that never yields stops after 15 s, a page over 512 MiB too. Only these libraries resolve:
+without required props, opens as a live preview. Ostia bundles it, the files it imports and only
+the libraries it uses into one self-contained HTML file, the same file the human can open in a
+browser or save. It has no network and no storage, and `fetch` reaches nothing: data comes in by
+import (`import rows from './data.json'`, `import text from './notes.csv'` as text,
+`import Chart from './Chart'`). A script that never yields stops after 15 s, a page over 512 MiB
+too, and a file over 16 MiB is not built. Only these libraries resolve:
 
 ```
 react                      React 18
@@ -87,13 +90,13 @@ lucide-react               icons
 @phosphor-icons/react      icons
 d3                         data visualisation
 papaparse                  CSV parsing
-<script src="/runtime/tailwind.js">   Tailwind CSS utility classes, built in the page
 ```
 
-A component imports them by name (`import { LineChart } from 'recharts'`); an `.html` page by
-path (`import { LineChart } from '/runtime/recharts.js'`). Components get `--ostia-bg`,
-`--ostia-fg`, `--ostia-muted`, `--ostia-line`, `--ostia-accent`, `--ostia-font` and a `dark`
-class from the app's theme.
+A component and an `.html` page's module script both import them by name
+(`import { LineChart } from 'recharts'`). Tailwind classes work with no script tag; a class name
+built from pieces (`bg-${tone}-500`) gets no CSS. Components get `--ostia-bg`, `--ostia-fg`,
+`--ostia-muted`, `--ostia-line`, `--ostia-accent`, `--ostia-font` and a `dark` class from the app's
+theme when they are built.
 
 ## Attention and questions
 

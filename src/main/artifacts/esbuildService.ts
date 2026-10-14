@@ -1,5 +1,9 @@
 import { createRequire } from 'node:module'
-import type { Transformer } from './artifactCompiler'
+import type { Bundler } from './portableBundle'
+
+interface Esbuild extends Bundler {
+  transform: (source: string, options: Record<string, unknown>) => Promise<unknown>
+}
 
 export const BINARY_ENV = 'ESBUILD_BINARY_PATH'
 const PACKED = 'app.asar'
@@ -22,16 +26,16 @@ export interface EsbuildLoad {
   packaged: boolean
   env?: NodeJS.ProcessEnv
   binary?: () => string
-  load?: () => Promise<Transformer>
+  load?: () => Promise<Esbuild>
 }
 
-export async function startEsbuild(options: EsbuildLoad): Promise<Transformer> {
+export async function startEsbuild(options: EsbuildLoad): Promise<Esbuild> {
   const env = options.env ?? process.env
   const inherited = env[BINARY_ENV]
   if (options.packaged) env[BINARY_ENV] = (options.binary ?? packagedBinary)()
   else delete env[BINARY_ENV]
   try {
-    const load = options.load ?? (async () => (await import('esbuild')) as unknown as Transformer)
+    const load = options.load ?? (async () => (await import('esbuild')) as unknown as Esbuild)
     const esbuild = await load()
     await esbuild.transform('', { loader: 'js' })
     return esbuild
@@ -41,12 +45,12 @@ export async function startEsbuild(options: EsbuildLoad): Promise<Transformer> {
   }
 }
 
-let started: Promise<Transformer> | null = null
+let started: Promise<Bundler> | null = null
 
-export function loadEsbuild(packaged: boolean): Promise<Transformer> {
+export function loadEsbuild(packaged: boolean): Promise<Bundler> {
   started ??= startEsbuild({ packaged }).then(
     (esbuild) => ({
-      transform: (source, options) => esbuild.transform(source, options),
+      build: (options) => esbuild.build(options),
       stop: () => {
         started = null
         return esbuild.stop?.()

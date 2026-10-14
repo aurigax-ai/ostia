@@ -1,32 +1,25 @@
 import { randomBytes } from 'node:crypto'
-import { constants, type FSWatcher, type Stats, lstatSync, realpathSync, watch } from 'node:fs'
-import { open, readFile, realpath, stat } from 'node:fs/promises'
-import { basename, dirname, extname, join, relative, sep } from 'node:path'
+import { type FSWatcher, realpathSync, watch } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { ipcMain } from 'electron'
-import { RUNTIME_PREFIX, runtimeFiles } from '../../shared/artifacts/artifactRuntime'
 import {
   PREVIEW_LIMITS,
-  PREVIEW_PAGE_CSP,
   PREVIEW_SCHEME,
   type PreviewError,
   type PreviewEvent,
   type PreviewOpened,
   type PreviewStopReason,
   type PreviewTheme,
-  SHELL_MODULE_PATH,
   allowsPreviewRequest,
   blockedByPolicy,
   blockedHost,
-  isComponentPath,
   isPreviewPath,
   normalizePreviewTheme,
   previewPartition,
-  shellCsp,
 } from '../../shared/artifacts/htmlPreview'
-import { isHiddenFromPhone } from '../gateway/workspaceFiles'
-import { compiles } from './artifactCompiler'
+import { PORTABLE_CSP, portableSandbox, portableType } from '../../shared/artifacts/portable'
+import { type PreviewSource, regularFileSize } from './previewFiles'
 import { busySince, previewVerdict, previewsOverCap } from './previewLimits'
-import { ENTRY_MODULE_PATH, shellModule, shellPage } from './previewShell'
 
 const PING_MS = 1_000
 const METRICS_MS = 5_000
@@ -39,154 +32,20 @@ const CLIPBOARD_WRITE = 'clipboard-sanitized-write'
 const DEBUGGER_PROTOCOL = '1.3'
 const PAUSE_SCRIPTS = 'Emulation.setScriptExecutionDisabled'
 
-const MIME: Readonly<Record<string, string>> = {
-  '.html': 'text/html; charset=utf-8',
-  '.htm': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.txt': 'text/plain; charset=utf-8',
-  '.md': 'text/plain; charset=utf-8',
-  '.csv': 'text/csv; charset=utf-8',
-  '.tsv': 'text/tab-separated-values; charset=utf-8',
-  '.xml': 'application/xml; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-  '.avif': 'image/avif',
-  '.ico': 'image/x-icon',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-  '.ttf': 'font/ttf',
-  '.otf': 'font/otf',
-  '.mp3': 'audio/mpeg',
-  '.wav': 'audio/wav',
-  '.ogg': 'audio/ogg',
-  '.mp4': 'video/mp4',
-  '.webm': 'video/webm',
+export interface PreviewBuild {
+  document: string
+  inputs: readonly string[]
 }
 
-function previewMime(path: string): string {
-  return MIME[extname(path).toLowerCase()] ?? 'application/octet-stream'
-}
-
-export function previewHeaders(path: string): Record<string, string> {
-  return typedHeaders(previewMime(path))
-}
-
-function typedHeaders(type: string): Record<string, string> {
+export function previewHeaders(file: string): Record<string, string> {
+  const type = portableType(file)
   return {
-    'content-type': type,
-    'content-security-policy': PREVIEW_PAGE_CSP,
-    'access-control-allow-origin': '*',
+    'content-type': 'text/html; charset=utf-8',
+    'content-security-policy': `${PORTABLE_CSP}, sandbox ${type ? portableSandbox(type) : 'allow-scripts'}`,
     'cache-control': 'no-store',
     'x-content-type-options': 'nosniff',
     'x-dns-prefetch-control': 'off',
   }
-}
-
-export interface PreviewSource {
-  file: string
-  root: string | null
-}
-
-const MODULE_EXTENSIONS = ['.tsx', '.ts', '.jsx', '.js']
-const SCRIPT_TYPE = 'text/javascript; charset=utf-8'
-const PAGE_TYPE = 'text/html; charset=utf-8'
-
-export type PreviewFile = { ok: true; path: string; size: number } | { ok: false; status: number }
-
-function regularFileSize(path: string): number | null {
-  try {
-    const st = lstatSync(path)
-    return st.isFile() ? st.size : null
-  } catch {
-    return null
-  }
-}
-
-export function resolvePreviewFile(source: PreviewSource, pathname: string): PreviewFile {
-  let decoded: string
-  try {
-    decoded = decodeURIComponent(pathname)
-  } catch {
-    return { ok: false, status: 400 }
-  }
-  if (decoded === '/' || decoded === '') {
-    const size = regularFileSize(source.file)
-    return size === null ? { ok: false, status: 404 } : { ok: true, path: source.file, size }
-  }
-  if (!source.root || decoded.includes('\0')) return { ok: false, status: 404 }
-  const lexical = join(source.root, decoded)
-  const inside = relative(source.root, lexical)
-  if (inside === '' || inside.startsWith('..') || isHiddenFromPhone(inside)) {
-    return { ok: false, status: 404 }
-  }
-  const size = regularFileSize(lexical)
-  if (size === null) return { ok: false, status: 404 }
-  let folder: string
-  try {
-    folder = realpathSync(dirname(lexical))
-  } catch {
-    return { ok: false, status: 404 }
-  }
-  if (folder !== source.root && !folder.startsWith(`${source.root}${sep}`)) {
-    return { ok: false, status: 404 }
-  }
-  const path = join(folder, basename(lexical))
-  if (isHiddenFromPhone(relative(source.root, path))) return { ok: false, status: 404 }
-  return { ok: true, path, size }
-}
-
-export type PreviewRead = { ok: true; path: string; body: Buffer } | { ok: false; status: number }
-
-function sameFile(a: Stats, b: Stats): boolean {
-  return a.dev === b.dev && a.ino === b.ino
-}
-
-async function stillAt(path: string, opened: Stats): Promise<boolean> {
-  try {
-    return (await realpath(path)) === path && sameFile(await stat(path), opened)
-  } catch {
-    return false
-  }
-}
-
-const READ_FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
-
-export async function readRegularFile(path: string, maxBytes: number): Promise<PreviewRead> {
-  const handle = await open(path, READ_FLAGS).catch(() => null)
-  if (!handle) return { ok: false, status: 404 }
-  try {
-    const opened = await handle.stat()
-    if (!opened.isFile() || !(await stillAt(path, opened))) return { ok: false, status: 404 }
-    if (opened.size > maxBytes) return { ok: false, status: 413 }
-    const body = Buffer.alloc(opened.size)
-    let read = 0
-    while (read < body.length) {
-      const { bytesRead } = await handle.read(body, read, body.length - read, read)
-      if (bytesRead === 0) break
-      read += bytesRead
-    }
-    return { ok: true, path, body: body.subarray(0, read) }
-  } catch {
-    return { ok: false, status: 404 }
-  } finally {
-    await handle.close()
-  }
-}
-
-export async function readPreviewFile(
-  source: PreviewSource,
-  pathname: string,
-  maxBytes: number,
-): Promise<PreviewRead> {
-  const found = resolvePreviewFile(source, pathname)
-  return found.ok ? readRegularFile(found.path, maxBytes) : found
 }
 
 export interface PreviewSession {
@@ -240,8 +99,7 @@ export interface PreviewHostDeps {
   ownsPane: (windowId: string, paneId: string) => boolean
   send: (windowId: string, event: PreviewEvent) => void
   processes: () => ProcessUse[]
-  runtimeDir: () => string
-  compile: (file: string, source: Buffer) => Promise<string>
+  build: (source: PreviewSource, theme: PreviewTheme) => Promise<PreviewBuild>
   now?: () => number
 }
 
@@ -277,7 +135,7 @@ interface Live {
 }
 
 function notFound(status: number): Response {
-  return new Response(null, { status, headers: { 'access-control-allow-origin': '*' } })
+  return new Response(null, { status })
 }
 
 export class PreviewHost {
@@ -441,10 +299,9 @@ export class PreviewHost {
   }
 
   private shownSource(live: Live, sourceId: string): string {
-    const prefix = `${PREVIEW_SCHEME}://${live.id}/`
-    if (!sourceId.startsWith(prefix)) return sourceId.slice(0, 200)
-    const rest = sourceId.slice(prefix.length)
-    return rest === '' || `/${rest}` === ENTRY_MODULE_PATH ? basename(live.source.file) : rest
+    return sourceId.startsWith(`${PREVIEW_SCHEME}://${live.id}/`)
+      ? (live.source.file.split('/').pop() ?? sourceId)
+      : sourceId.slice(0, 200)
   }
 
   private report(live: Live, error: PreviewError): void {
@@ -465,54 +322,19 @@ export class PreviewHost {
     }
     if (!live || url.host !== live.id) return notFound(404)
     if (request.method !== 'GET' && request.method !== 'HEAD') return notFound(405)
-    const send = (body: Buffer | string, headers: Record<string, string>): Response =>
-      new Response(request.method === 'HEAD' ? null : new Uint8Array(Buffer.from(body)), {
-        status: 200,
-        headers,
-      })
-    const path = url.pathname
-    if (path.startsWith(RUNTIME_PREFIX)) {
-      const library = await this.runtimeFile(path.slice(RUNTIME_PREFIX.length))
-      return library ? send(library, typedHeaders(SCRIPT_TYPE)) : notFound(404)
-    }
-    const component = isComponentPath(live.source.file)
-    const main = path === '/' || path === ''
-    if (main) {
-      live.loaded = 0
-      this.deps.send(live.windowId, { id: live.id, type: 'loading' })
-    }
-    if (component && main) {
-      const nonce = randomBytes(16).toString('base64')
-      return send(shellPage(nonce, live.theme), {
-        ...typedHeaders(PAGE_TYPE),
-        'content-security-policy': shellCsp(nonce),
-      })
-    }
-    if (component && path === SHELL_MODULE_PATH)
-      return send(shellModule(), typedHeaders(SCRIPT_TYPE))
-    const found = await this.read(live, component && path === ENTRY_MODULE_PATH ? '/' : path)
-    if (!found.ok) return notFound(found.status)
-    live.loaded += found.body.length
-    this.follow(live, found.path)
-    if (!compiles(found.path)) return send(found.body, previewHeaders(found.path))
-    const label = live.source.root ? relative(live.source.root, found.path) : basename(found.path)
-    return send(await this.deps.compile(label, found.body), typedHeaders(SCRIPT_TYPE))
-  }
-
-  private async read(live: Live, pathname: string): Promise<PreviewRead> {
-    const left = PREVIEW_LIMITS.loadBytes - live.loaded
-    const exact = await readPreviewFile(live.source, pathname, left)
-    if (exact.ok || exact.status !== 404 || extname(pathname) !== '') return exact
-    for (const extension of MODULE_EXTENSIONS) {
-      const guess = await readPreviewFile(live.source, `${pathname}${extension}`, left)
-      if (guess.ok || guess.status !== 404) return guess
-    }
-    return exact
-  }
-
-  private async runtimeFile(name: string): Promise<Buffer | null> {
-    if (!runtimeFiles().includes(name)) return null
-    return readFile(join(this.deps.runtimeDir(), name)).catch(() => null)
+    if (url.pathname !== '/' && url.pathname !== '') return notFound(404)
+    live.loaded = 0
+    this.deps.send(live.windowId, { id: live.id, type: 'loading' })
+    const built = await this.deps.build(live.source, live.theme)
+    if (slot.live !== live) return notFound(404)
+    live.served.clear()
+    for (const input of built.inputs) this.follow(live, input)
+    const body = Buffer.from(built.document)
+    live.loaded = body.length
+    return new Response(request.method === 'HEAD' ? null : new Uint8Array(body), {
+      status: 200,
+      headers: previewHeaders(live.source.file),
+    })
   }
 
   private follow(live: Live, path: string): void {
@@ -540,7 +362,6 @@ export class PreviewHost {
   private reload(live: Live): void {
     if (live.slot.live !== live || !live.guest || live.guest.isDestroyed()) return
     live.stale = false
-    live.served.clear()
     live.guest.reload()
   }
 
