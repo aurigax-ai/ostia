@@ -84,19 +84,37 @@ export function resumeFolderMissing(paneId: string): string | undefined {
   return layout ? findPane(layout.root, paneId)?.resumeFolderMissing : undefined
 }
 
+export async function claimAcrossWindows(
+  paneId: string,
+  resume: AgentResume,
+): Promise<string | null> {
+  const verdict = await window.ostia.agentSession.claimResume(paneId, resume)
+  return verdict.ok ? null : verdict.holder
+}
+
 export function resumeWhenIdle(
   paneId: string,
   resume: AgentResume,
-  onGiveUp?: () => void,
+  onGiveUp?: (held: boolean) => void,
   onTyped?: () => void,
   timeoutMs?: number | null,
 ): () => void {
+  let heldElsewhere = false
+  const allowed = async (): Promise<boolean> => {
+    if (resumeFolderMissing(paneId) || resumeHolder(paneId, resume)) return false
+    claimResume(paneId, resume)
+    heldElsewhere = (await claimAcrossWindows(paneId, resume)) !== null
+    return !heldElsewhere
+  }
   return runWhenIdle(
     paneId,
     resumeCommand(resume),
     timeoutMs,
-    () => !resumeFolderMissing(paneId) && !resumeHolder(paneId, resume),
-    onGiveUp,
+    allowed,
+    () => {
+      claims.delete(paneId)
+      onGiveUp?.(heldElsewhere || resumeHolder(paneId, resume) !== null)
+    },
     () => {
       claimResume(paneId, resume)
       onTyped?.()

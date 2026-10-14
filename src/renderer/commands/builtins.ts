@@ -8,7 +8,12 @@ import {
 } from '@/lib/agents/hibernationScheduler'
 import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '@/lib/agents/paneAgent'
 import { withCommandLineEnv } from '@/lib/agents/resumeEnv'
-import { claimResume, paneResumeHolder, resumeHolder } from '@/lib/agents/resumeFolder'
+import {
+  claimAcrossWindows,
+  claimResume,
+  paneResumeHolder,
+  resumeHolder,
+} from '@/lib/agents/resumeFolder'
 import { resetZoom } from '@/lib/app/wheelZoom'
 import { postAgentNotification } from '@/lib/attention/agentNotification'
 import { announceBusMessage } from '@/lib/attention/busNotice'
@@ -633,15 +638,19 @@ export function registerBuiltinCommands(): void {
     id: 'agent.resume',
     category: 'pane',
     capabilities: ['shell'],
-    run: (_args, ctx) => {
+    run: async (_args, ctx) => {
       if (!ctx.activeWorkspaceId || !ctx.activePaneId) return { resumed: false }
       const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
       const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
       if (pane?.kind !== 'terminal' || !pane.resume) return { resumed: false }
-      const holder = resumeHolder(pane.id, pane.resume)
-      if (holder) {
+      const holder =
+        resumeHolder(pane.id, pane.resume)?.title ??
+        (pane.hibernated || pane.resumeFolderMissing
+          ? null
+          : await claimAcrossWindows(pane.id, pane.resume))
+      if (holder !== null) {
         throw new Error(
-          `${pane.resume.agent} session ${pane.resume.id} is already running in "${holder.title}"`,
+          `${pane.resume.agent} session ${pane.resume.id} is already running in "${holder}"`,
         )
       }
       if (pane.hibernated) return { resumed: wakePane(pane.id) }

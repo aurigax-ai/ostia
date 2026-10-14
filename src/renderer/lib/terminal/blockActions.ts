@@ -111,7 +111,7 @@ export function runWhenIdle(
   paneId: string,
   command: string,
   timeoutMs: number | null = RUN_WHEN_IDLE_TIMEOUT_MS,
-  allowed: () => boolean = () => true,
+  allowed: () => boolean | Promise<boolean> = () => true,
   onGiveUp: () => void = () => {},
   onTyped: () => void = () => {},
 ): () => void {
@@ -125,8 +125,17 @@ export function runWhenIdle(
   const attempt = (): void => {
     if (done || !atReadyPrompt(paneId)) return
     stop()
-    if (!allowed() || !runCommand(paneId, command)) onGiveUp()
-    else onTyped()
+    const type = (ok: boolean): void => {
+      if (!ok || !runCommand(paneId, command)) onGiveUp()
+      else onTyped()
+    }
+    const verdict = allowed()
+    if (typeof verdict === 'boolean') type(verdict)
+    else
+      void verdict.then(
+        (ok) => type(ok && atReadyPrompt(paneId)),
+        () => onGiveUp(),
+      )
   }
   const unsubscribe = useBlocksStore.subscribe(attempt)
   const timer =

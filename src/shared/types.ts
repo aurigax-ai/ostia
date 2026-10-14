@@ -875,8 +875,11 @@ interface OpenPathApi {
   project: (dir: string, exact?: boolean) => Promise<WorkspaceProject | null>
 }
 
+export type ResumeVerdict = { ok: true } | { ok: false; holder: string }
+
 interface AgentSessionApi {
   info: (resume: AgentResume) => Promise<AgentSessionInfo | null>
+  claimResume: (paneId: string, resume: AgentResume) => Promise<ResumeVerdict>
 }
 
 interface AppUpdateApi {

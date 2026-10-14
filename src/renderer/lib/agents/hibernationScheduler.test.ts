@@ -588,12 +588,12 @@ describe('the pane.wake command an agent reaches through main', () => {
       findPane(useLayoutStore.getState().byWorkspace.s2?.root ?? terminal('x'), 'idle-claude')
     expect(pane()?.spawnDir).toBe('/b/tree')
     const allowed = typed.mock.calls[0][3]
-    expect(allowed?.()).toBe(true)
+    expect(await allowed?.()).toBe(true)
 
     useLayoutStore.getState().settleSpawnDir('s2', 'idle-claude', true)
     expect(pane()?.spawnDir).toBeUndefined()
     expect(pane()?.resumeFolderMissing).toBe('/b/tree')
-    expect(allowed?.()).toBe(false)
+    expect(await allowed?.()).toBe(false)
     expect(await commands.execWith(target('idle-claude'), 'agent.resume')).toEqual({
       ok: true,
       result: { resumed: false },
@@ -626,6 +626,25 @@ describe('the pane.wake command an agent reaches through main', () => {
     expect(typed).toHaveBeenCalledTimes(1)
   })
 
+  it('refuses the Resume command for a session another window runs, and types nothing', async () => {
+    seed(10)
+    vi.mocked(window.ostia.agentSession.claimResume).mockResolvedValueOnce({
+      ok: false,
+      holder: 'coordinator',
+    })
+    const insert = vi.spyOn(blockActions, 'insertCommand')
+
+    expect(await commands.execWith(target('at-prompt'), 'agent.resume')).toMatchObject({
+      ok: false,
+      error: { message: expect.stringContaining('already running in "coordinator"') },
+    })
+    expect(window.ostia.agentSession.claimResume).toHaveBeenCalledWith('at-prompt', {
+      agent: 'claude',
+      id: 'tok-at-prompt',
+    })
+    expect(insert).not.toHaveBeenCalled()
+  })
+
   it('wakes two hibernated panes of one session together: one resumes, the other waits with the warning', async () => {
     seed(10)
     useLayoutStore
@@ -633,7 +652,11 @@ describe('the pane.wake command an agent reaches through main', () => {
       .setResume('s2', 'fresh-claude', { agent: 'claude', id: 'tok-idle-claude' })
     await hibernateWorkspaces(['s2'])
     useBlocksStore.setState({ running: {} })
-    const attempts: Array<{ allowed: () => boolean; giveUp: () => void; typed: () => void }> = []
+    const attempts: Array<{
+      allowed: () => boolean | Promise<boolean>
+      giveUp: () => void
+      typed: () => void
+    }> = []
     vi.spyOn(blockActions, 'runWhenIdle').mockImplementation(
       (_paneId, _command, _timeoutMs, allowed, onGiveUp, onTyped) => {
         attempts.push({
@@ -648,11 +671,12 @@ describe('the pane.wake command an agent reaches through main', () => {
     report.mockClear()
 
     expect(resumeWorkspaces(['s2'])).toEqual(['idle-claude', 'fresh-claude'])
-    const outcomes = attempts.map((a) => {
-      const allowed = a.allowed()
+    const outcomes: boolean[] = []
+    for (const a of attempts) {
+      const allowed = await a.allowed()
       ;(allowed ? a.typed : a.giveUp)()
-      return allowed
-    })
+      outcomes.push(allowed)
+    }
 
     expect(outcomes).toEqual([true, false])
     const fresh = () =>

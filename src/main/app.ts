@@ -103,6 +103,7 @@ import {
 } from './agents/agentWork'
 import { registerBusMethods } from './agents/bus'
 import type { OriginReach } from './agents/originAgents'
+import { createResumeClaimer, registerResumeClaimIpc } from './agents/resumeClaims'
 import { approvals, registerApprovals } from './approvals/approvals'
 import { createAskHub } from './approvals/asks'
 import {
@@ -3770,6 +3771,11 @@ app.whenReady().then(() => {
     }),
   })
   registerAgentTranscriptIpc()
+  registerResumeClaimIpc(
+    createResumeClaimer(() =>
+      listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
+    ),
+  )
   const notifyDeps = {
     execCommand,
     isScratchPane,

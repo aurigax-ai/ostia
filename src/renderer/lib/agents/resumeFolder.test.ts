@@ -13,16 +13,21 @@ vi.mock('@/lib/terminal/blockActions', () => ({
       paneId: string,
       command: string,
       _timeout: number | undefined,
-      allowed: () => boolean,
+      allowed: () => boolean | Promise<boolean>,
       onGiveUp: () => void = () => {},
       onTyped: () => void = () => {},
     ) => {
-      if (allowed()) {
-        typed.push([paneId, command])
-        onTyped()
-      } else {
-        onGiveUp()
+      const type = (ok: boolean): void => {
+        if (ok) {
+          typed.push([paneId, command])
+          onTyped()
+        } else {
+          onGiveUp()
+        }
       }
+      const verdict = allowed()
+      if (typeof verdict === 'boolean') type(verdict)
+      else void verdict.then(type)
       return vi.fn()
     },
   ),
@@ -61,6 +66,8 @@ function end(paneId: string): void {
   useBlocksStore.setState((s) => ({ running: { ...s.running, [paneId]: undefined } }))
 }
 
+const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
+
 const current = (pane: PaneNode): PaneNode =>
   findPane(useLayoutStore.getState().byWorkspace.w1.root, pane.id) ?? pane
 
@@ -96,7 +103,7 @@ describe('resume session conflicts', () => {
     expect(resumeHolder(pane.id, session)).toBeNull()
   })
 
-  it('lets another pane resume the session once the first agent has exited', () => {
+  it('lets another pane resume the session once the first agent has exited', async () => {
     const before = agentPane('old tab')
     const after = agentPane('new tab', { resumePending: true })
     seed(before, after)
@@ -104,6 +111,7 @@ describe('resume session conflicts', () => {
     end(before.id)
 
     resumeWhenIdle(after.id, session)
+    await settle()
     start(after.id, `claude --resume ${session.id}`)
 
     expect(typed).toEqual([[after.id, `claude --resume ${session.id}`]])
@@ -111,7 +119,7 @@ describe('resume session conflicts', () => {
     expect(resumeConflict(before)).toBeNull()
   })
 
-  it('refuses to type a resume while the session runs in another pane and warns there', () => {
+  it('refuses to type a resume while the session runs in another pane and warns there', async () => {
     const coordinator = agentPane('Ostia coordinator')
     const stale = agentPane('Ostia small bugs', { resumePending: true })
     seed(coordinator, stale)
@@ -119,9 +127,10 @@ describe('resume session conflicts', () => {
     const gaveUp = vi.fn()
 
     resumeWhenIdle(stale.id, session, gaveUp)
+    await settle()
 
     expect(typed).toEqual([])
-    expect(gaveUp).toHaveBeenCalledTimes(1)
+    expect(gaveUp).toHaveBeenCalledWith(true)
     expect(resumeConflict(stale)?.title).toBe('Ostia coordinator')
   })
 
@@ -144,7 +153,7 @@ describe('resume session conflicts', () => {
     expect(resumeConflict(asleep)?.id).toBe(coordinator.id)
   })
 
-  it('resumes only one of two panes restored with the same session at the same time', () => {
+  it('resumes only one of two panes restored with the same session at the same time', async () => {
     const first = agentPane('first', { resumePending: true })
     const second = agentPane('second', { resumePending: true })
     const other = agentPane('other', { resumePending: true, resume: own })
@@ -153,6 +162,7 @@ describe('resume session conflicts', () => {
     resumeWhenIdle(first.id, session)
     resumeWhenIdle(second.id, session)
     resumeWhenIdle(other.id, own)
+    await settle()
 
     expect(typed).toEqual([
       [first.id, `claude --resume ${session.id}`],
@@ -161,18 +171,39 @@ describe('resume session conflicts', () => {
     expect(resumeHolder(second.id, session)?.id).toBe(first.id)
   })
 
-  it('releases a typed resume that never started an agent', () => {
+  it('releases a typed resume that never started an agent', async () => {
     const first = agentPane('first', { resumePending: true })
     const second = agentPane('second', { resumePending: true })
     seed(first, second)
     const now = Date.now()
 
     resumeWhenIdle(first.id, session)
+    await settle()
     expect(resumeHolder(second.id, session, now)?.id).toBe(first.id)
     expect(resumeHolder(second.id, session, now + RESUME_CLAIM_MS + 1000)).toBeNull()
 
     resumeWhenIdle(first.id, session)
+    await settle()
     start(first.id, 'ls')
     expect(resumeHolder(second.id, session)).toBeNull()
+  })
+
+  it('refuses a session that runs in another window and keeps the pane free', async () => {
+    const pane = agentPane('restored', { resumePending: true })
+    const other = agentPane('other')
+    seed(pane, other)
+    vi.mocked(window.ostia.agentSession.claimResume).mockResolvedValueOnce({
+      ok: false,
+      holder: 'coordinator',
+    })
+    const gaveUp = vi.fn()
+
+    resumeWhenIdle(pane.id, session, gaveUp)
+    await settle()
+
+    expect(window.ostia.agentSession.claimResume).toHaveBeenCalledWith(pane.id, session)
+    expect(typed).toEqual([])
+    expect(gaveUp).toHaveBeenCalledWith(true)
+    expect(resumeHolder(other.id, session)).toBeNull()
   })
 })

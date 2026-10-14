@@ -248,6 +248,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     },
     agentSession: {
       info: vi.fn().mockResolvedValue(null),
+      claimResume: vi.fn().mockResolvedValue({ ok: true }),
     },
     update: {
       state: vi.fn().mockResolvedValue(null),
