@@ -311,6 +311,16 @@ describe('TrellisService with a fake trellis on PATH', () => {
     expect(spawns).toBeLessThanOrEqual(6)
   })
 
+  it('starts no event feed when stopped while it was still starting', async () => {
+    writeFileSync(join(fake, 'consumers.json'), '[{"name":"ostia","cursor":0,"lag":0,"gap":false}]')
+    const svc = make()
+    const starting = svc.startEvents()
+    svc.stop()
+    await starting
+    await new Promise((r) => setTimeout(r, 300))
+    expect(calls().filter((c) => c.endsWith('--follow'))).toEqual([])
+  })
+
   it('runs trellis init in the given directory', async () => {
     const dir = join(home, 'shop')
     mkdirSync(dir)

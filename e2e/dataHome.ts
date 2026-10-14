@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -9,7 +9,9 @@ export function dataHomeBase(platform: NodeJS.Platform, tmp: string): string {
 }
 
 export function freshDataHome(): string {
-  const dir = mkdtempSync(join(dataHomeBase(process.platform, tmpdir()), 'ostia-e2e-data-'))
+  const dir = realpathSync(
+    mkdtempSync(join(dataHomeBase(process.platform, tmpdir()), 'ostia-e2e-data-')),
+  )
   created.push(dir)
   return dir
 }

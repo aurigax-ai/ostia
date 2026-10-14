@@ -46,9 +46,9 @@ async function launch(dataHome: string, env: Record<string, string> = {}): Promi
 }
 
 async function crash({ app }: Launched): Promise<void> {
-  const closed = app.waitForEvent('close')
+  const exited = waitForExit(app)
   app.process().kill('SIGKILL')
-  await closed
+  await exited
 }
 
 function savedPanes(): Record<string, unknown>[] {
@@ -84,7 +84,7 @@ function pathWith(bin: string): Record<string, string> {
   return { PATH: `${bin}:${process.env.PATH ?? ''}` }
 }
 
-const PARENT = 'echo parent=$(ps -o comm= -p $PPID)'
+const PARENT = 'echo parent=$(basename "$(ps -o comm= -p $PPID)")'
 
 let dataHome: string
 
