@@ -115,6 +115,26 @@ describe('resumeCommand', () => {
     ).toBe("CODEX_HOME='/Users/j/.codex work' codex resume abc")
   })
 
+  it('quotes an account folder with shell characters and drops a relative one', () => {
+    expect(
+      resumeCommand(
+        parseAgentResume({
+          agent: 'claude',
+          id: 'abc',
+          env: { CLAUDE_CONFIG_DIR: "/home/j/it's $HOME" },
+        }) ?? { agent: 'claude', id: 'none' },
+      ),
+    ).toBe(`CLAUDE_CONFIG_DIR='/home/j/it'\\''s $HOME' claude --resume abc`)
+    expect(
+      resumeCommand(
+        parseAgentResume({ agent: 'codex', id: 'abc', env: { CODEX_HOME: './.codex' } }) ?? {
+          agent: 'codex',
+          id: 'none',
+        },
+      ),
+    ).toBe('codex resume abc')
+  })
+
   it('reads its own variables back from the command it typed', () => {
     const env = { GL_ISSUE: '685', NOTE: "it's two words" }
     for (const agent of ['claude', 'codex'] as const) {

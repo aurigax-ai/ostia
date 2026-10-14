@@ -382,6 +382,18 @@ describe('safeEnv', () => {
       CODEX_SANDBOX: 'seatbelt',
     })
   })
+
+  it('keeps the account folders only as absolute paths', () => {
+    for (const value of ['./x', 'x', '../profiles/a', '~/.claude', '']) {
+      expect(safeEnv({ CLAUDE_CONFIG_DIR: value, CODEX_HOME: value })).toEqual({})
+    }
+    expect(
+      safeEnv({ CLAUDE_CONFIG_DIR: '/home/j/.claude-b', CODEX_HOME: 'C:\\Users\\j\\.codex' }),
+    ).toEqual({
+      CLAUDE_CONFIG_DIR: '/home/j/.claude-b',
+      CODEX_HOME: 'C:\\Users\\j\\.codex',
+    })
+  })
 })
 
 describe('looksSecret', () => {
