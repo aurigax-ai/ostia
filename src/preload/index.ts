@@ -99,6 +99,7 @@ import type {
 } from '../shared/sandbox/sandbox'
 import type { SandboxReadPreset } from '../shared/sandbox/sandboxPresets'
 import type { SecretEntry, SecretGrant } from '../shared/sandbox/secrets'
+import type { WorkflowListing, WorkflowSaveResult } from '../shared/snippets'
 import type { SpecCommand } from '../shared/terminal/completionSpec'
 import type {
   AppInfo,
@@ -143,7 +144,6 @@ import type {
   WorkspaceProject,
 } from '../shared/types'
 import type { ViewListing } from '../shared/views/views'
-import type { WorkflowListing, WorkflowSaveResult } from '../shared/workflows'
 import type { CmuxSessionRead } from '../shared/workspaces/cmuxSession'
 
 const bridge: OstiaBridge = {

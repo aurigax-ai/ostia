@@ -3,14 +3,14 @@ import { commands } from '@/commands/registry'
 import { allPanes } from '@/layout/tree'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
+import { useWorkflowsStore } from '@/stores/terminal/snippetsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { WorkflowEntry, WorkflowListing } from '@shared/workflows'
+import type { WorkflowEntry, WorkflowListing } from '@shared/snippets'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { WorkflowPicker } from './WorkflowPicker'
+import { WorkflowPicker } from './SnippetPicker'
 
 const actions = vi.hoisted(() => ({
   insertCommand: vi.fn().mockReturnValue(true),

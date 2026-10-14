@@ -23,7 +23,7 @@ import {
 } from '@/lib/assist/chatActions'
 import { confirmsGeneratedText } from '@/lib/keys/pasteGate'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
+import { useWorkflowsStore } from '@/stores/terminal/snippetsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {

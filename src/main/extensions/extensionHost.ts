@@ -130,8 +130,8 @@ import {
   type RemoteFilesRequest,
   type RemoteFolder,
 } from '../../shared/remoteFolders'
+import type { Workflow } from '../../shared/snippets'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
-import type { Workflow } from '../../shared/workflows'
 import type { AgentPluginSource } from '../agents/agentSkills'
 import {
   type AgentOfferDelivery,

@@ -49,7 +49,7 @@ import {
 } from '../../shared/keymap'
 import { LANGUAGE_ID_PATTERN, type LanguageContribution } from '../../shared/languagePack'
 import { parseLanguageServers } from '../../shared/languageServers'
-import { type Workflow, parseWorkflow } from '../../shared/workflows'
+import { type Workflow, parseWorkflow } from '../../shared/snippets'
 import { isInsideDir } from '../platform/pathGuard'
 
 export const EXTENSION_ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/

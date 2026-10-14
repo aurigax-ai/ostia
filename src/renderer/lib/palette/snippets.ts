@@ -1,5 +1,5 @@
 import { insertCommand } from '@/lib/terminal/blockActions'
-import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
+import { useWorkflowsStore } from '@/stores/terminal/snippetsStore'
 
 export type Delivery = 'inserted' | 'copied'
 

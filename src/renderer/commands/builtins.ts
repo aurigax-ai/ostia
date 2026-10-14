@@ -47,7 +47,7 @@ import {
   SYMBOLS_PREFIX,
   WORKSPACES_PREFIX,
 } from '@/lib/palette/paletteModes'
-import { openWorkflowPicker } from '@/lib/palette/workflows'
+import { openWorkflowPicker } from '@/lib/palette/snippets'
 import { callerHasFocus, openKeepingFocus, opensQuietly } from '@/lib/panes/callerFocus'
 import { groupMates } from '@/lib/sidebar/groupPeers'
 import {

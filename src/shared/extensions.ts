@@ -11,7 +11,7 @@ import type { KeymapContribution, KeymapInfo } from './keymap'
 import type { LanguageContribution, LanguageInfo } from './languagePack'
 import type { LanguageServerContribution, LanguageServerSummary } from './languageServers'
 import type { RemoteCwd } from './remoteFolders'
-import type { Workflow } from './workflows'
+import type { Workflow } from './snippets'
 
 export const EXTENSION_MANIFEST_FILE = 'ostia.json'
 

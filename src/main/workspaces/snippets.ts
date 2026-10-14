@@ -12,7 +12,7 @@ import {
   parseWorkflow,
   workflowDocument,
   workflowFileStem,
-} from '../../shared/workflows'
+} from '../../shared/snippets'
 import { registerControlMethod } from '../control/controlServer'
 import { PROJECT_DIR } from '../platform/jsonStore'
 import { resolveSafe } from '../platform/pathGuard'

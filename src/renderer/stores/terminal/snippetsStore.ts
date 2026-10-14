@@ -1,4 +1,4 @@
-import type { WorkflowEntry, WorkflowListing } from '@shared/workflows'
+import type { WorkflowEntry, WorkflowListing } from '@shared/snippets'
 import { create } from 'zustand'
 
 const EMPTY_LISTING: WorkflowListing = { workflows: [], problems: [] }

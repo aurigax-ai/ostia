@@ -11,12 +11,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useDict } from '@/i18n/useDict'
-import { parseTags, suggestedName } from '@/lib/palette/workflows'
-import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
+import { parseTags, suggestedName } from '@/lib/palette/snippets'
+import { useWorkflowsStore } from '@/stores/terminal/snippetsStore'
 import { fmt } from '@shared/app/dict'
-import { placeholderNames, workflowDocument } from '@shared/workflows'
+import { placeholderNames, workflowDocument } from '@shared/snippets'
 import { type FormEvent, useId, useState } from 'react'
-import { WorkflowCommand } from './WorkflowPicker'
+import { WorkflowCommand } from './SnippetPicker'
 
 interface ArgumentDraft {
   defaultValue: string

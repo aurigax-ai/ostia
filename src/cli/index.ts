@@ -32,8 +32,8 @@ import type {
   RevealFolderResult,
 } from '../shared/files/openFiles'
 import { SCRIPT_TOKEN_PREFIX } from '../shared/permissions/scriptTokens'
+import type { WorkflowEntry, WorkflowListing } from '../shared/snippets'
 import type { CommandDescriptor, CommandResult } from '../shared/types'
-import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
 import { FlagError, type ParsedArgs, parseArgs } from './common/args'
 import { commandHelp, wantsHelp } from './common/commandHelp'
 import { buildCommandCall, parseCommandFlags, resolveWorkspaceRef } from './common/crossWorkspace'

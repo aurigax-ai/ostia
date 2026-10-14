@@ -466,13 +466,13 @@ import { WindowBroker } from './windows/windowBroker'
 import { registerCmuxSessionIpc } from './workspaces/cmuxSession'
 import { registerProjectRootIpc } from './workspaces/projectRoot'
 import { ScratchFolders, registerScratchIpc } from './workspaces/scratchFolders'
-import { ViewHost, ViewStore } from './workspaces/viewHost'
-import { registerViewMethods, registerViewsIpc } from './workspaces/viewsIpc'
 import {
   type WorkflowDeps,
   registerWorkflowIpc,
   registerWorkflowMethods,
-} from './workspaces/workflows'
+} from './workspaces/snippets'
+import { ViewHost, ViewStore } from './workspaces/viewHost'
+import { registerViewMethods, registerViewsIpc } from './workspaces/viewsIpc'
 import { registerWorkspaceMergeIpc } from './workspaces/workspaceMerge'
 import {
   removeWorkspace,

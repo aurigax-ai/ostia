@@ -9,7 +9,7 @@ import { isIdlePrompt } from '@/lib/terminal/blocks'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { useAssistProvider } from '@/stores/assist/assistStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
+import { useWorkflowsStore } from '@/stores/terminal/snippetsStore'
 import {
   ArrowClockwiseIcon,
   BookmarkSimpleIcon,

@@ -9,7 +9,7 @@ import {
   workflowArguments,
   workflowDocument,
   workflowFileStem,
-} from './workflows'
+} from './snippets'
 
 function parsed(raw: unknown): Workflow {
   const w = parseWorkflow(raw)

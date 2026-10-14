@@ -1,8 +1,8 @@
-import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
+import { useWorkflowsStore } from '@/stores/terminal/snippetsStore'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { SaveWorkflowDialog } from './SaveWorkflowDialog'
+import { SaveWorkflowDialog } from './SaveSnippetDialog'
 
 describe('SaveWorkflowDialog', () => {
   let init: ReturnType<typeof useWorkflowsStore.getState>

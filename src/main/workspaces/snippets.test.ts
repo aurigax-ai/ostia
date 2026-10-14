@@ -21,7 +21,7 @@ import {
   registerWorkflowIpc,
   saveWorkflow,
   workspaceWorkflowsDir,
-} from './workflows'
+} from './snippets'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
 

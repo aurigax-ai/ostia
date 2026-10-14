@@ -19,11 +19,11 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useDict } from '@/i18n/useDict'
-import { deliverCommand } from '@/lib/palette/workflows'
+import { deliverCommand } from '@/lib/palette/snippets'
 import { canTypeInto } from '@/lib/terminal/blockActions'
 import { isIdlePrompt } from '@/lib/terminal/blocks'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
+import { useWorkflowsStore } from '@/stores/terminal/snippetsStore'
 import {
   type WorkflowArgument,
   type WorkflowEntry,
@@ -31,7 +31,7 @@ import {
   defaultValues,
   renderWorkflow,
   workflowArguments,
-} from '@shared/workflows'
+} from '@shared/snippets'
 import { type FormEvent, useId, useState } from 'react'
 
 export function WorkflowCommand({
