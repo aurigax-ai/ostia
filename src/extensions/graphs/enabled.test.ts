@@ -10,7 +10,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { FakeClock, settle } from '@aurigax-ai/graph/testing'
+import { FakeClock, settle } from '@aurigax-ai/wire/testing'
 import { describe, expect, it } from 'vitest'
 import { fakeExt } from './fakeExt'
 import { GraphsRunner } from './runner'

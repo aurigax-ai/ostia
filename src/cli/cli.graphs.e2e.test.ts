@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { runCli as headless } from '@aurigax-ai/graph'
-import { WORKED_GRAPHS, workedGraph } from '@aurigax-ai/graph/testing'
+import { runCli as headless } from '@aurigax-ai/wire'
+import { WORKED_GRAPHS, workedGraph } from '@aurigax-ai/wire/testing'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { FAKE_TOOL, type Harness, graphsHarness, until } from '../../test/graphsHarness'
 

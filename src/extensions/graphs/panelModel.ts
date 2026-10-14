@@ -12,7 +12,7 @@ import {
   neededKinds,
   startNodes,
   triggerKind,
-} from '@aurigax-ai/graph'
+} from '@aurigax-ai/wire'
 import { NATIVE_CONNECTORS } from './connectorHost'
 import { graphsFolder } from './graphFiles'
 import type { GraphListing, GraphState } from './runner'

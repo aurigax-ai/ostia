@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { settle } from '@aurigax-ai/graph/testing'
+import { settle } from '@aurigax-ai/wire/testing'
 import { describe, expect, it } from 'vitest'
 import { SANDBOXED_CONNECTOR } from './connectorHost'
 import { type HostHarness, hostHarness } from './fakeExt'

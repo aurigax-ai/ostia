@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { FakeClock, contractFailures, settle } from '@aurigax-ai/graph/testing'
+import { FakeClock, contractFailures, settle } from '@aurigax-ai/wire/testing'
 import { describe, expect, it } from 'vitest'
 import { RATE_RETRY_MS } from './agentNode'
 import { type HostHarness, fakeExt, hostHarness } from './fakeExt'
@@ -50,7 +50,7 @@ describe('the Ostia host', () => {
     const runner = new GraphsRunner({
       ext: fake.ext,
       dataDir: null,
-      clock: (await import('@aurigax-ai/graph')).realClock,
+      clock: (await import('@aurigax-ai/wire')).realClock,
       changed: () => {},
     })
     const failures = await contractFailures({

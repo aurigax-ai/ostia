@@ -1,6 +1,6 @@
 import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import type { ScheduleMemory } from '@aurigax-ai/graph'
+import type { ScheduleMemory } from '@aurigax-ai/wire'
 
 export const ENABLED_FILE = 'enabled.json'
 const CHANGED_FILE = 'changed.json'

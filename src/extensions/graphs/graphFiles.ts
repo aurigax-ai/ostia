@@ -6,7 +6,7 @@ import {
   NAME_PATTERN,
   type Problem,
   readGraphFile,
-} from '@aurigax-ai/graph'
+} from '@aurigax-ai/wire'
 import { PRODUCT_NAME } from '../sdk'
 
 const GRAPHS_FOLDER = join(`.${PRODUCT_NAME.toLowerCase()}`, 'graphs')

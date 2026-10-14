@@ -120,10 +120,10 @@
       }
     },
     {
-      "name": "only-graphs-imports-the-graph-package",
+      "name": "only-graphs-imports-wire",
       "severity": "error",
       "from": { "pathNot": "^src/extensions/graphs/|^src/cli/cli\\.graph[A-Za-z]*\\.e2e\\.test\\.ts$" },
-      "to": { "path": "node_modules/@aurigax-ai/graph/" }
+      "to": { "path": "node_modules/@aurigax-ai/wire/" }
     },
     {
       "name": "sdk-imports-only-shared",

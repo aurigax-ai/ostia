@@ -1,4 +1,4 @@
-import type { FileJournalStore, GraphRun, MemoryJournalStore, Output } from '@aurigax-ai/graph'
+import type { FileJournalStore, GraphRun, MemoryJournalStore, Output } from '@aurigax-ai/wire'
 
 export class RunPanes {
   private readonly panes = new Map<string, Set<string>>()
