@@ -1,0 +1,33 @@
+{
+  "messages": {
+    "title": "Activity",
+    "view.label": "What to show",
+    "view.recap": "Recap",
+    "view.activity": "Recap + activity",
+    "empty": "No agent has reported anything yet.",
+    "agent.claude": "Claude Code",
+    "agent.codex": "Codex",
+    "state.working": "Working",
+    "state.waiting": "Waiting",
+    "state.done": "Done",
+    "state.error": "Error",
+    "show": "Show the pane of {agent}",
+    "notReached": "This pane can be shown after its agent's next step.",
+    "paneClosed": "That pane is closed.",
+    "earlier": "Earlier turns ({count})",
+    "event.prompt": "Prompt",
+    "event.stop": "Stopped",
+    "event.tool.edit": "Edited",
+    "event.tool.command": "Ran",
+    "event.tool.search": "Searched",
+    "event.tool.read": "Read",
+    "event.tool.subagent": "Started a subagent",
+    "event.tool.web": "Opened",
+    "event.tool.other": "Used",
+    "time.now": "now",
+    "time.minutes": "{count} min",
+    "time.hours": "{count} h",
+    "time.days": "{count} d",
+    "loadFailed": "Could not load the activity: {reason}"
+  }
+}

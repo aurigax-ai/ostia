@@ -80,7 +80,11 @@ export type {
   TerminalWaitOutcome,
 } from '../../shared/extensions'
 
-export { OPEN_TERMINAL_WAIT_MAX_MS } from '../../shared/extensions'
+export {
+  EXTENSION_REDACT_TEXTS_MAX,
+  EXTENSION_REDACT_TEXT_MAX,
+  OPEN_TERMINAL_WAIT_MAX_MS,
+} from '../../shared/extensions'
 
 export {
   type MessageVars,
@@ -183,7 +187,13 @@ export interface PaneInfo {
   blockCount: number
   lastExitCode?: number
   pid?: number
+  agent?: string
+  agentSessionId?: string
+  agentState?: PaneAgentState
+  agentMessage?: string
 }
+
+export type PaneAgentState = 'working' | 'waiting' | 'done' | 'error'
 
 export type CommandHandler = (
   args: unknown,
@@ -283,6 +293,7 @@ export interface OstiaExtension {
   runAgent: (opts: RunAgentOptions) => Promise<OpenTerminalResult>
   offerToAgent: (opts: AgentOfferOptions) => Promise<AgentOfferResult>
   focusPane: (paneId: string) => Promise<ExtensionResult>
+  redact: (texts: string[]) => Promise<string[] | null>
   listWorkspaces: () => Promise<WorkspaceInfo[]>
   listPanes: () => Promise<PaneInfo[]>
   onAssist: (handler: AssistHandler) => void
@@ -565,6 +576,20 @@ export async function connect(): Promise<OstiaExtension> {
         return await conn.sendRequest<ExtensionResult>('ext.focusPane', { paneId })
       } catch (err) {
         return failure('focus-failed', errorMessage(err))
+      }
+    },
+    redact: async (texts) => {
+      try {
+        const res = await conn.sendRequest<{ ok?: unknown; texts?: unknown }>('ext.redact', {
+          texts,
+        })
+        const redacted = res?.ok === true && Array.isArray(res.texts) ? res.texts : null
+        return redacted?.length === texts.length &&
+          redacted.every((t): t is string => typeof t === 'string')
+          ? redacted
+          : null
+      } catch {
+        return null
       }
     },
     listWorkspaces: () => conn.sendRequest('workspace.list'),

@@ -1,0 +1,36 @@
+{
+  "id": "activity",
+  "name": "Activity",
+  "version": "1.0.0",
+  "api": "3.1",
+  "description": "One panel for what each agent did: its latest closing message as a running recap, and on request the prompt, tool calls and stops of each turn. It only records what the agents report through hooks, keeps it on this computer, and never types into a terminal.",
+  "category": "tools",
+  "capabilities": ["agent-plugin", "read-board"],
+  "main": "main.js",
+  "locales": ["zh-Hant"],
+  "contributes": {
+    "commands": [
+      { "id": "open", "title": "Activity: Open", "category": "Activity" },
+      {
+        "id": "on-hook",
+        "title": "Record one agent hook event",
+        "palette": false,
+        "stdin": true
+      }
+    ],
+    "agentHooks": [
+      { "event": "UserPromptSubmit", "command": "on-hook" },
+      { "event": "PreToolUse", "command": "on-hook" },
+      { "event": "Stop", "command": "on-hook" }
+    ],
+    "panel": { "title": "Activity", "icon": "chat", "entry": "url" },
+    "settings": {
+      "showActivity": {
+        "type": "boolean",
+        "title": "Show activity",
+        "default": false,
+        "description": "Show each agent's events under its recap in the Activity panel"
+      }
+    }
+  }
+}
