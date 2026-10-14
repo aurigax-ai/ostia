@@ -5,7 +5,7 @@ import ts from 'typescript'
 const root = process.argv.find((a, i) => i > 1 && !a.startsWith('--')) ?? process.cwd()
 const check = process.argv.includes('--check')
 
-const SCAN_DIRS = ['src', 'e2e', 'test', 'scripts']
+const SCAN_DIRS = ['src', 'graph-engine', 'e2e', 'test', 'scripts']
 const ROOT_FILES = [
   'electron.vite.config.ts',
   'vitest.config.mts',

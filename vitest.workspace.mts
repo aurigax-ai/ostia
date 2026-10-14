@@ -21,6 +21,7 @@ export default defineWorkspace([
         'src/shared/**/*.test.ts',
         'src/cli/**/*.test.ts',
         'src/extensions/**/*.test.ts',
+        'graph-engine/src/**/*.test.ts',
         'test/quarantine.test.ts',
         'test/e2eImports.test.ts',
         'test/affectedTests.test.ts',
