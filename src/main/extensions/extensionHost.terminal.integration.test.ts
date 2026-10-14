@@ -6,6 +6,7 @@ import type { ExtensionCaller } from '../../shared/extensions'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { type PaneIdentity, registerPane } from '../control/idRegistry'
+import { HostPaneGrants } from '../sandbox/hostPanes'
 import {
   type ExtensionConfirmRequest,
   ExtensionHost,
@@ -42,6 +43,8 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
       notify: () => {},
       confirm,
       openTerminalIn,
+      isSandboxed: (workspaceId) => workspaceId === 'w2',
+      hostGrants: new HostPaneGrants({ now: Date.now, ttlMs: 60_000 }),
       readyTimeoutMs: 8000,
       requestTimeoutMs: REQUEST_TIMEOUT_MS,
       interactiveTimeoutMs: 8000,
@@ -108,6 +111,29 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
       workspaceId: 'w2',
       title: 'db',
     })
+  })
+
+  it('SBX-C3 opens an extension’s terminal in a sandboxed workspace with no host token, and refuses a host terminal nobody approved', async () => {
+    openTerminalIn.mockResolvedValue('sandboxed-external-id')
+    const opened = await host.invoke(
+      'opener',
+      'open',
+      { command: ['cat', '/home/u/.ssh/id_ed25519'], workspaceId: 'w2' },
+      { kind: 'user', capabilities: [] },
+    )
+    expect(opened).toEqual({ ok: true, data: { ok: true, paneId: 'sandboxed-external-id' } })
+    expect(openTerminalIn).toHaveBeenCalledWith({
+      command: 'cat /home/u/.ssh/id_ed25519',
+      workspaceId: 'w2',
+    })
+    const refused = await host.invoke(
+      'opener',
+      'open',
+      { command: ['cat', '/home/u/.ssh/id_ed25519'], workspaceId: 'w2', host: true },
+      { kind: 'user', capabilities: [] },
+    )
+    expect(refused).toMatchObject({ ok: true, data: { ok: false, error: 'host-not-approved' } })
+    expect(openTerminalIn).toHaveBeenCalledTimes(1)
   })
 
   it('refuses bad requests without opening anything', async () => {
