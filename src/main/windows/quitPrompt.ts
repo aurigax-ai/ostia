@@ -45,13 +45,14 @@ export function quitPromptOptions(
   }
 }
 
-export async function confirmQuitNatively(
-  groups: readonly RunningGroup[],
-  keptShells: number,
-  text: Text,
-): Promise<QuitAnswer> {
-  const { response } = await dialog.showMessageBox(quitPromptOptions(groups, keptShells, text))
-  if (response === 1) return 'quit'
-  if (response === 2 && keptShells > 0) return 'keep-shells'
-  return 'cancel'
+export function nativeQuitConfirm(
+  strings: () => Dict,
+): (groups: readonly RunningGroup[], keptShells: number) => Promise<QuitAnswer> {
+  return async (groups, keptShells) => {
+    const text = strings().native.quit
+    const { response } = await dialog.showMessageBox(quitPromptOptions(groups, keptShells, text))
+    if (response === 1) return 'quit'
+    if (response === 2 && keptShells > 0) return 'keep-shells'
+    return 'cancel'
+  }
 }

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 const showMessageBox = vi.hoisted(() => vi.fn())
 vi.mock('electron', () => ({ dialog: { showMessageBox } }))
 
-const { confirmQuitNatively, quitPromptOptions } = await import('./quitPrompt')
+const { nativeQuitConfirm, quitPromptOptions } = await import('./quitPrompt')
 const { en, zhHant } = await import('../../shared/app/dict')
 
 const GROUPS = [
@@ -71,20 +71,42 @@ describe('quitPromptOptions with kept shells', () => {
   })
 })
 
-describe('confirmQuitNatively', () => {
+describe('nativeQuitConfirm', () => {
+  const confirm = nativeQuitConfirm(() => en)
+
   it('quits only on the Quit button', async () => {
     showMessageBox.mockResolvedValueOnce({ response: 1 })
-    expect(await confirmQuitNatively(GROUPS, 0, en.native.quit)).toBe('quit')
+    expect(await confirm(GROUPS, 0)).toBe('quit')
     showMessageBox.mockResolvedValueOnce({ response: 0 })
-    expect(await confirmQuitNatively(GROUPS, 0, en.native.quit)).toBe('cancel')
+    expect(await confirm(GROUPS, 0)).toBe('cancel')
     showMessageBox.mockResolvedValueOnce({ response: 2 })
-    expect(await confirmQuitNatively(GROUPS, 0, en.native.quit)).toBe('cancel')
+    expect(await confirm(GROUPS, 0)).toBe('cancel')
   })
 
   it('KSH-C101 answers keep-shells or quit when kept shells are offered', async () => {
     showMessageBox.mockResolvedValueOnce({ response: 2 })
-    expect(await confirmQuitNatively([], 1, en.native.quit)).toBe('keep-shells')
+    expect(await confirm([], 1)).toBe('keep-shells')
     showMessageBox.mockResolvedValueOnce({ response: 1 })
-    expect(await confirmQuitNatively([], 1, en.native.quit)).toBe('quit')
+    expect(await confirm([], 1)).toBe('quit')
+  })
+
+  it('the main process asks in the language of the chosen pack: the native quit prompt', async () => {
+    let catalog = zhHant
+    const ask = nativeQuitConfirm(() => catalog)
+    showMessageBox.mockResolvedValueOnce({ response: 0 })
+    expect(await ask([GROUPS[1]], 0)).toBe('cancel')
+    expect(showMessageBox).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        title: zhHant.native.quit.title,
+        detail: expect.stringContaining(zhHant.native.quit.unanswered),
+        buttons: [zhHant.native.quit.cancel, zhHant.native.quit.quit],
+      }),
+    )
+    catalog = en
+    showMessageBox.mockResolvedValueOnce({ response: 0 })
+    await ask([GROUPS[1]], 0)
+    expect(showMessageBox).toHaveBeenLastCalledWith(
+      expect.objectContaining({ buttons: [en.native.quit.cancel, en.native.quit.quit] }),
+    )
   })
 })

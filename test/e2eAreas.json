@@ -291,7 +291,7 @@
         "src/renderer/lib/extensions/languagePacks.ts",
         "src/extensions/langpack-zh-hant/"
       ],
-      "specs": ["e2e/language-pack.spec.ts", "e2e/extension-locales.spec.ts"]
+      "specs": ["e2e/extension-locales.spec.ts"]
     },
     {
       "name": "ports",

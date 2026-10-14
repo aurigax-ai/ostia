@@ -454,7 +454,7 @@ import {
   planQuit,
   summarizeKinds,
 } from './windows/quitPlan'
-import { confirmQuitNatively } from './windows/quitPrompt'
+import { nativeQuitConfirm } from './windows/quitPrompt'
 import {
   AppTray,
   closeAction,
@@ -4501,8 +4501,7 @@ app.on('before-quit', (event) => {
           workspaceId: entry.workspaceId,
           ...paneActivity(entry),
         })),
-      confirmNative: (groups, keptShells) =>
-        confirmQuitNatively(groups, keptShells, mainStrings().native.quit),
+      confirmNative: nativeQuitConfirm(mainStrings),
     }).then((answer) => {
       quitAsking = false
       if (answer === 'cancel') {
