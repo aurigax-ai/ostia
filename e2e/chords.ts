@@ -41,7 +41,3 @@ export const chords = {
   nextTab: 'Control+Tab',
   previousTab: 'Control+Shift+Tab',
 }
-
-export const labels = {
-  newWorkspace: isMac ? '⌘N' : 'Ctrl+Shift+N',
-}

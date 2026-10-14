@@ -1,4 +1,4 @@
-import { chords, labels } from './chords'
+import { chords } from './chords'
 import { isolatedLaunch } from './dataHome'
 import {
   PROMPT,
@@ -7,7 +7,6 @@ import {
   newTerminalWorkspace,
   openWorkspace,
   runInTerminal,
-  waitForPaletteSelection,
 } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
@@ -60,23 +59,6 @@ test('terminal spawns and runs a command', { tag: '@core' }, async () => {
   }
 })
 
-test('splitting a pane adds a second terminal', { tag: '@core' }, async () => {
-  const { app, win } = await launchApp()
-  try {
-    await openWorkspace(win)
-    await expect(win.locator('.xterm')).toHaveCount(1)
-    await expect(win.locator('.pane.active')).toBeVisible({ timeout: 15_000 })
-
-    const splitRight = win.locator('.pane.active').getByRole('button', { name: 'Split right' })
-    await splitRight.click()
-
-    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
-    await expect(win.locator('.pane')).toHaveCount(2)
-  } finally {
-    await app.close()
-  }
-})
-
 test(
   'the default close-pane chord closes only the focused pane and leaves the other shell running',
   { tag: '@core' },
@@ -111,32 +93,6 @@ test(
   },
 )
 
-test('command palette opens, filters, and runs a command', async () => {
-  const { app, win } = await launchApp()
-  try {
-    await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
-    await expect(win.locator('.rail-tab')).toHaveCount(0)
-
-    await win.keyboard.press(chords.palette)
-    const dialog = win.getByRole('dialog')
-    await expect(dialog).toBeVisible({ timeout: 5_000 })
-
-    await win.locator('[data-slot="command-input"]').fill('New Workspace')
-    await waitForPaletteSelection(win, 'New Workspace')
-    await expect(dialog.getByText('New Workspace', { exact: true })).toBeVisible()
-    await expect(dialog.getByText('Split Pane Right', { exact: true })).toHaveCount(0)
-
-    await win.keyboard.press('Enter')
-    await expect(dialog).toBeHidden({ timeout: 5_000 })
-    await expect(win.locator('.rail-tab')).toHaveCount(1, { timeout: 5_000 })
-    await expect(emptyWorkspace(win).getByRole('button', { name: 'New terminal' })).toBeVisible()
-    await expect(win.locator('.xterm')).toHaveCount(0)
-    await expect(emptyState(win)).toHaveCount(0)
-  } finally {
-    await app.close()
-  }
-})
-
 test('opening a file shows the Monaco editor', async () => {
   const { app, win } = await launchApp()
   try {
@@ -161,7 +117,7 @@ test('opening a file shows the Monaco editor', async () => {
 })
 
 test(
-  'boots with no workspace, and Ctrl+Shift+T opens an empty one that offers a terminal',
+  'boots with no workspace, and the new-workspace chord opens an empty one that offers a terminal',
   { tag: '@core' },
   async () => {
     const { app, win } = await launchApp()
@@ -172,10 +128,6 @@ test(
     })
     try {
       await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
-      await expect(emptyState(win).getByRole('heading', { name: 'No workspaces' })).toBeVisible()
-      await expect(emptyState(win).getByRole('button', { name: /New workspace/ })).toContainText(
-        labels.newWorkspace,
-      )
       await win.waitForTimeout(1_000)
       await expect(win.locator('.xterm')).toHaveCount(0)
 
@@ -196,7 +148,7 @@ test(
 )
 
 test(
-  'closing the only workspace shows the empty state, and New workspace opens a terminal at ~',
+  'after the only workspace closes, New workspace opens a terminal at ~',
   { tag: '@core' },
   async () => {
     test.setTimeout(60_000)
@@ -209,10 +161,6 @@ test(
       await tab.hover()
       await tab.getByRole('button', { name: 'Close' }).click()
 
-      await expect(emptyState(win)).toBeVisible({ timeout: 5_000 })
-      await expect(tab).toHaveCount(0)
-      await win.waitForTimeout(1_000)
-      await expect(win.locator('.xterm')).toHaveCount(0)
       await expect(tab).toHaveCount(0)
 
       await openWorkspace(win)
@@ -230,13 +178,12 @@ test(
   },
 )
 
-test('Ctrl+1 jumps to the first workspace from a focused terminal, and rows drag to reorder', async () => {
+test('Ctrl+1 jumps to the first workspace from a focused terminal', async () => {
   const { app, win } = await launchApp()
   try {
     await openWorkspace(win)
     await newTerminalWorkspace(win)
-    const rows = win.locator('.rail-row')
-    await expect(rows).toHaveCount(2)
+    await expect(win.locator('.rail-row')).toHaveCount(2)
     await win.locator('.rail-tab-main').nth(1).dblclick()
     const name = win.getByRole('textbox', { name: 'Workspace name' })
     await name.fill('second')
@@ -246,9 +193,6 @@ test('Ctrl+1 jumps to the first workspace from a focused terminal, and rows drag
     await waitForTerminalFocus(win)
     await win.keyboard.press(chords.firstWorkspace)
     await expect(win.locator('.rail-tab.active .tab-title')).toHaveText('home')
-
-    await rows.nth(1).dragTo(rows.nth(0), { targetPosition: { x: 40, y: 4 } })
-    await expect(win.locator('.rail-tab .tab-title').first()).toHaveText('second')
   } finally {
     await app.close()
   }

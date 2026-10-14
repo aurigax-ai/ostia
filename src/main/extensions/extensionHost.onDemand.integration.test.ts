@@ -6,10 +6,12 @@ import type { AssistModelSettings } from '../../shared/assist'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import { ExtensionLaunches } from './extensionLaunches'
 import { ExtensionStore } from './extensionStore'
 
 const echoFixtures = resolve(__dirname, '../../../test/fixtures/extensions')
 const assistFixtures = resolve(__dirname, '../../../test/fixtures/extensions-assist-models')
+const builtinExtensions = resolve(__dirname, '../../../out/extensions')
 
 async function until<T>(read: () => T | undefined, timeoutMs = 8000): Promise<T> {
   const start = Date.now()
@@ -116,5 +118,41 @@ describe('a built-in assist extension starts on demand', () => {
     expect(await host.invoke('echo', 'echo', { argv: ['again'] }, caller)).toMatchObject({
       ok: true,
     })
+  })
+})
+
+describe('the real built-in extensions', () => {
+  it('start no extension host with the window, so the branch, the diff stats and the Git panel run without one', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ostia-ext-builtins-'))
+    const host = new ExtensionHost({
+      roots: [{ dir: builtinExtensions, builtin: true }],
+      store: new ExtensionStore(join(dir, 'extensions.json')),
+      launches: new ExtensionLaunches(join(dir, 'extension-launches.json')),
+      socketPath: () => join(dir, 'control.sock'),
+      nodePath: process.execPath,
+      dataDir: join(dir, 'extension-data'),
+      workDirForWorkspace: () => undefined,
+      broadcast: () => {},
+      openPanelIn: () => {},
+      notify: () => {},
+      readAssistSettings: () => ({ assistant: { providers: [] } }),
+      log: () => {},
+    })
+    try {
+      expect(host.list().map((e) => e.id)).toEqual(
+        expect.arrayContaining(['activity', 'assistant', 'graphs', 'ssh', 'system']),
+      )
+      host.startEager()
+      await new Promise((r) => setTimeout(r, 300))
+      expect(
+        host
+          .list()
+          .filter((e) => e.status !== 'idle')
+          .map((e) => e.id),
+      ).toEqual([])
+    } finally {
+      host.stopAll()
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

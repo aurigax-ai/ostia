@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
-import { tabsOf } from '@/layout/tree'
+import { allPanes, tabsOf } from '@/layout/tree'
 import type { PaneNode, TabsNode } from '@/layout/types'
 import { PANE_DND, startPaneDragTracking } from '@/lib/panes/paneDrag'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
@@ -400,6 +400,20 @@ describe('Pane', () => {
           direction: 'horizontal',
         })
         expect(document.querySelector('.pane-drop-layer')).toBeNull()
+      } finally {
+        stop()
+      }
+    })
+
+    it('splitting a pane adds a second terminal', async () => {
+      const stop = workspace(tabsOf(first.id, first))
+      try {
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Split right' }))
+
+        await waitFor(() => expect(document.querySelectorAll('.pane-cell')).toHaveLength(2))
+        const panesNow = allPanes(useLayoutStore.getState().byWorkspace.w.root)
+        expect(panesNow.map((p) => p.kind)).toEqual(['terminal', 'terminal'])
+        expect(panesNow[0].id).toBe(first.id)
       } finally {
         stop()
       }

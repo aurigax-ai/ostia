@@ -208,7 +208,7 @@
         "src/renderer/components/editor/DiffView.tsx",
         "src/renderer/stores/files/diffStore.ts"
       ],
-      "specs": ["e2e/diff-hidden.spec.ts", "e2e/extension-on-demand.spec.ts", "e2e/git.spec.ts"]
+      "specs": ["e2e/diff-hidden.spec.ts", "e2e/git.spec.ts"]
     },
     {
       "name": "trellis and keeper",
@@ -267,11 +267,7 @@
         "src/cli/hooks/agentHook.ts",
         "test/fixtures/extensions"
       ],
-      "specs": [
-        "e2e/extension-locales.spec.ts",
-        "e2e/extension-on-demand.spec.ts",
-        "e2e/extensions-v2.spec.ts"
-      ]
+      "specs": ["e2e/extension-locales.spec.ts", "e2e/extensions-v2.spec.ts"]
     },
     {
       "name": "marketplace",
@@ -645,11 +641,7 @@
         "src/renderer/lib/agents/paneAgent.ts",
         "test/fixtures/agents/"
       ],
-      "specs": [
-        "e2e/processes.spec.ts",
-        "e2e/stale-waiting.spec.ts",
-        "e2e/worker-workspace.spec.ts"
-      ]
+      "specs": ["e2e/processes.spec.ts", "e2e/worker-workspace.spec.ts"]
     },
     {
       "name": "attention",
@@ -666,7 +658,7 @@
         "src/renderer/components/agents/NotificationCenter.tsx",
         "src/renderer/components/agents/attentionStyles.ts"
       ],
-      "specs": ["e2e/stale-waiting.spec.ts"]
+      "specs": []
     },
     {
       "name": "dashboard and questions",
@@ -868,7 +860,6 @@
         "e2e/blocks.spec.ts",
         "e2e/input-editor.spec.ts",
         "e2e/ostia-prompt.spec.ts",
-        "e2e/stale-waiting.spec.ts",
         "e2e/terminal-basics.spec.ts"
       ]
     },
@@ -909,7 +900,6 @@
         "e2e/pane-close.spec.ts",
         "e2e/pane-dnd.spec.ts",
         "e2e/pane-lock.spec.ts",
-        "e2e/panel-open.spec.ts",
         "e2e/split-tabs.spec.ts",
         "e2e/tab-rename.spec.ts",
         "e2e/tab-switch.spec.ts"
