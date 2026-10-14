@@ -171,4 +171,48 @@ edges: []
     expect(run?.state.status).toBe('interrupted')
     expect(later.runAgent).toEqual([])
   })
+
+  it('GRF-C163 an agent that stops without a report raises NoResult 30 seconds later', async () => {
+    const h = hostHarness(
+      workspace({
+        g: `${head('v: { type: string, default: "" }')}nodes:
+  - { id: a, kind: agent, with: { mode: start, agent: claude, prompt: p }, result: { type: object, properties: { v: { type: string } }, required: [v] }, out: { result.v: v } }
+edges: []
+`,
+      }),
+    )
+    const id = enableAndStart(h, 'g')
+    await settle()
+    await h.stop('pane-1')
+    expect(h.runner.engine.run(id)?.state.status).toBe('running')
+    await h.clock.advance(29_000)
+    expect(h.runner.engine.run(id)?.state.status).toBe('running')
+    await h.clock.advance(1_000)
+    expect(h.runner.engine.run(id)?.state.failure).toMatchObject({ node: 'a', name: 'NoResult' })
+  })
+
+  it('GRF-C168 Continue session on an interrupted agent node continues its session with the fixed prompt and waits for its report', async () => {
+    const text = `${head('v: { type: string, default: "" }')}nodes:
+  - { id: a, kind: agent, with: { mode: start, agent: claude, prompt: p }, result: { type: object, properties: { v: { type: string } }, required: [v] }, out: { result.v: v } }
+edges: []
+`
+    const ws = workspace({ g: text })
+    const h = hostHarness(ws)
+    const id = enableAndStart(h, 'g')
+    await settle()
+    const later = hostHarness(ws, h.store)
+    await settle()
+    const run = later.runner.engine.run(id)
+    expect(run?.state.status).toBe('interrupted')
+    expect(await later.runner.control('w1', id, 'continue', 'a')).toEqual({ ok: true })
+    await settle()
+    expect(later.runAgent[0]).toMatchObject({ continueFrom: 'pane-1', background: true })
+    expect(String(later.runAgent[0].prompt)).toMatch(
+      /^You were interrupted\. Finish the task and report\.\n\nWhen you have finished, report/,
+    )
+    expect(run?.state.active.get('a')?.phase).toBe('waiting')
+    expect(await later.runner.report('pane-1', { v: 'resumed' })).toEqual({ ok: true })
+    await later.stop('pane-1')
+    expect(run?.state.state.v).toBe('resumed')
+  })
 })

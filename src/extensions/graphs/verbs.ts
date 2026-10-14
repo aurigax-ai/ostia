@@ -52,6 +52,14 @@ function fileOf(
   return { path: isAbsolute(arg) ? arg : resolve(base, arg), workDir: caller.workDir ?? base }
 }
 
+async function known(
+  runner: GraphsRunner,
+  refresh: () => Promise<void>,
+  caller: ExtensionCaller,
+): Promise<void> {
+  if (!runner.workspace(caller.workspaceId)) await refresh()
+}
+
 function paneProblem(caller: ExtensionCaller): ExtensionResult | null {
   if (caller.kind !== 'pane' || !caller.paneId || !caller.workspaceId) {
     return failure('not-available', 'only a pane of the graph’s own workspace can do this')
@@ -61,7 +69,10 @@ function paneProblem(caller: ExtensionCaller): ExtensionResult | null {
   return null
 }
 
-export function graphVerbs(runner: GraphsRunner): Record<string, CommandHandler> {
+export function graphVerbs(
+  runner: GraphsRunner,
+  refresh: () => Promise<void>,
+): Record<string, CommandHandler> {
   const withFile =
     (
       fn: (path: string, workDir: string, argv: string[]) => CommandOutput | Promise<CommandOutput>,
@@ -91,9 +102,10 @@ export function graphVerbs(runner: GraphsRunner): Record<string, CommandHandler>
         ...(json.values[0] ? { inputJson: json.values[0] } : {}),
       })
     }),
-    list: (_args, caller) => {
+    list: async (_args, caller) => {
       const refused = paneProblem(caller)
       if (refused) return refused
+      await known(runner, refresh, caller)
       const graphs = runner.graphs(caller.workspaceId as string)
       if ('error' in graphs) return failure(graphs.error)
       return ok(
@@ -108,16 +120,18 @@ export function graphVerbs(runner: GraphsRunner): Record<string, CommandHandler>
         })),
       )
     },
-    runs: (args, caller) => {
+    runs: async (args, caller) => {
       const refused = paneProblem(caller)
       if (refused) return refused
+      await known(runner, refresh, caller)
       const name = cliArgs(args)?.argv[0]
       if (runner.workspace(caller.workspaceId)?.kind === 'scratch') return failure('scratch')
       return ok(undefined, runner.runs(caller.workspaceId as string, name))
     },
-    show: (args, caller) => {
+    show: async (args, caller) => {
       const refused = paneProblem(caller)
       if (refused) return refused
+      await known(runner, refresh, caller)
       const { flags, rest } = parseFlags(cliArgs(args)?.argv ?? [], ['node'])
       const view = rest[0] ? runner.view(caller.workspaceId as string, rest[0]) : null
       if (!view) return failure('unknown-run', rest[0] ?? 'a run id is needed')
@@ -126,9 +140,10 @@ export function graphVerbs(runner: GraphsRunner): Record<string, CommandHandler>
         flags.node ? { ...view, nodes: view.nodes.filter((n) => n.node === flags.node) } : view,
       )
     },
-    run: (args, caller) => {
+    run: async (args, caller) => {
       const refused = paneProblem(caller)
       if (refused) return refused
+      await known(runner, refresh, caller)
       const argv = cliArgs(args)?.argv ?? []
       const inputs = repeated(argv.slice(1), 'input')
       const json = repeated(inputs.rest, 'input-json')

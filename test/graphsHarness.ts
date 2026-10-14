@@ -8,6 +8,7 @@ import type { CommandResult } from '../src/shared/types'
 
 const repoRoot = process.cwd()
 const CLI = join(repoRoot, 'out', 'cli', 'index.js')
+export const SCAN_EXPLODES = 'scan-explodes-here'
 export const FAKE_TOOL = join(repoRoot, 'test', 'fixtures', 'tools', 'bin', 'fake-tool')
 
 interface CliResult {
@@ -39,6 +40,8 @@ export interface Harness {
   opened: FakePane[]
   notices: { title: string; body?: string; panelPath?: string }[]
   resumes: Map<string, AgentResume>
+  onOpen: (pane: FakePane) => void
+  logs: string[]
   human: FakePane
   stranger: FakePane
   scratchPane: FakePane
@@ -124,6 +127,8 @@ export async function graphsHarness(opts: { activity?: boolean } = {}): Promise<
   const notices: Harness['notices'] = []
   const resumes = new Map<string, AgentResume>()
   let counter = 0
+  let agentClock = 0
+  const logs: string[] = []
   const addPane = (workspaceId: string, fields: Partial<FakePane> = {}): FakePane => {
     counter += 1
     const internalId = `gp${counter}`
@@ -147,7 +152,10 @@ export async function graphsHarness(opts: { activity?: boolean } = {}): Promise<
   const workDirs: Record<string, string> = { w1: workDir, w2: otherDir, sc1: join(dir, 'scratch') }
   const redactor = createRedactor(
     () => ({ redaction: { enabled: true } }),
-    (text) => scanSecrets(text),
+    (text) => {
+      if (text.includes(SCAN_EXPLODES)) throw new Error('the scanner stopped')
+      return scanSecrets(text)
+    },
   )
 
   const host = new ExtensionHost({
@@ -179,11 +187,16 @@ export async function graphsHarness(opts: { activity?: boolean } = {}): Promise<
         ...(req.cwd ? { cwd: req.cwd } : {}),
       })
       opened.push(pane)
+      harness.onOpen(pane)
       return pane.externalId
     },
     agentArgv: (name) => ({ claude: ['claude'], codex: ['codex'] })[name] ?? null,
     agentNames: () => ['claude', 'codex'],
     focusPaneIn: () => true,
+    agentTaskClock: () => {
+      agentClock += 61_000
+      return agentClock
+    },
     exec: new ExtensionExec({
       workspace: (id) =>
         workDirs[id] ? { workDir: workDirs[id], scratch: id === 'sc1', sandboxed: false } : null,
@@ -206,7 +219,7 @@ export async function graphsHarness(opts: { activity?: boolean } = {}): Promise<
     requestTimeoutMs: 8000,
     readyTimeoutMs: 8000,
     interactiveTimeoutMs: 15_000,
-    log: () => {},
+    log: (extId, line) => logs.push(`${extId}: ${line}`),
   })
   registerExtensionMethods(() => host)
   registerBusMethods({
@@ -305,6 +318,8 @@ export async function graphsHarness(opts: { activity?: boolean } = {}): Promise<
     opened,
     notices,
     resumes,
+    onOpen: () => {},
+    logs,
     human,
     stranger,
     scratchPane,

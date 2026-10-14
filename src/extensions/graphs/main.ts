@@ -43,10 +43,7 @@ function ceilingsOf(values: ExtensionSettingValues) {
 async function main(): Promise<void> {
   const ext = await connect()
   const translate = createTranslator()
-  let locale = await ext.getLocale()
-  ext.onLocaleChanged((next) => {
-    locale = next
-  })
+  let locale = 'en'
   let panelChanged = (): void => {}
   let sidebarTimer: ReturnType<typeof setTimeout> | null = null
   const runner = new GraphsRunner({
@@ -80,10 +77,6 @@ async function main(): Promise<void> {
         .catch(() => {})
     }
   }
-  runner.engine.ceilings = ceilingsOf(await ext.getSettings())
-  ext.onSettingsChanged((values) => {
-    runner.engine.ceilings = ceilingsOf(values)
-  })
   const refresh = async (): Promise<void> => {
     try {
       runner.setWorkspaces(workspacesOf(await ext.listWorkspaces()))
@@ -108,11 +101,19 @@ async function main(): Promise<void> {
       }),
     }
   })
+  locale = await ext.getLocale()
+  ext.onLocaleChanged((next) => {
+    locale = next
+  })
+  runner.engine.ceilings = ceilingsOf(await ext.getSettings())
+  ext.onSettingsChanged((values) => {
+    runner.engine.ceilings = ceilingsOf(values)
+  })
   const panel = await panelStarting
   panelChanged = () => panel.changed()
 
   const commands: Record<string, CommandHandler> = {
-    ...graphVerbs(runner),
+    ...graphVerbs(runner, refresh),
     open: async (_args, caller) => {
       await ext.openPanel(caller.workspaceId)
       return ok()

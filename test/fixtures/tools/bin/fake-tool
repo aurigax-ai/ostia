@@ -28,6 +28,11 @@ if (command === 'env') {
   fs.writeFileSync(file, String(seen + 1))
   console.log(`attempt ${process.env.GRAPH_ATTEMPT ?? ''} key ${process.env.GRAPH_ATTEMPT_KEY ?? ''}`)
   process.exit(seen < times ? 1 : 0)
+} else if (command === 'visit-log') {
+  const env = process.env
+  fs.appendFileSync(args[0], `${env.GRAPH_RUN_ID} ${env.GRAPH_NODE} ${env.GRAPH_ATTEMPT_KEY} ${env.GRAPH_ATTEMPT}\n`)
+  const failing = env.GRAPH_ATTEMPT_KEY?.endsWith(`:${args[1]}`) && env.GRAPH_ATTEMPT === '1'
+  process.exit(failing ? 1 : 0)
 } else if (command === 'read') {
   process.stdout.write(fs.readFileSync(args[0], 'utf8'))
 } else if (command === 'write') {

@@ -15,12 +15,15 @@ export function panelHandlers(
   ext: Pick<OstiaExtension, 'listPanes' | 'focusPane'>,
   refresh: () => Promise<void>,
 ): Record<string, PanelHandler> {
-  const workspaceOf = (args: unknown) =>
-    runner.workspace(text(namedArgs(args).workspaceId) ?? undefined)
+  const workspaceOf = async (args: unknown) => {
+    const id = text(namedArgs(args).workspaceId) ?? undefined
+    if (!runner.workspace(id)) await refresh()
+    return runner.workspace(id)
+  }
   return {
     list: async (args) => {
       await refresh()
-      const w = workspaceOf(args)
+      const w = await workspaceOf(args)
       if (!w) return failure('unknown-workspace')
       const listings = runner.graphs(w.workspaceId)
       if ('error' in listings) {
@@ -34,7 +37,7 @@ export function panelHandlers(
       )
     },
     definition: async (args) => {
-      const w = workspaceOf(args)
+      const w = await workspaceOf(args)
       const name = text(namedArgs(args).name)
       if (!w || !name) return failure('invalid-args')
       const listing = runner.graph(w.workspaceId, name)
@@ -44,7 +47,7 @@ export function panelHandlers(
       return ok(undefined, { ...shown, state: listing.state })
     },
     enable: async (args) => {
-      const w = workspaceOf(args)
+      const w = await workspaceOf(args)
       const name = text(namedArgs(args).name)
       const fingerprint = text(namedArgs(args).fingerprint)
       if (!w || !name || !fingerprint) return failure('invalid-args')
@@ -52,14 +55,14 @@ export function panelHandlers(
       return res.ok ? ok() : failure(res.error, res.message)
     },
     disable: async (args) => {
-      const w = workspaceOf(args)
+      const w = await workspaceOf(args)
       const name = text(namedArgs(args).name)
       if (!w || !name) return failure('invalid-args')
       const res = runner.disable(w.workspaceId, name)
       return res.ok ? ok() : failure(res.error, res.message)
     },
     runNow: async (args) => {
-      const w = workspaceOf(args)
+      const w = await workspaceOf(args)
       const name = text(namedArgs(args).name)
       if (!w || !name) return failure('invalid-args')
       const inputs = namedArgs(args).inputs
@@ -73,12 +76,12 @@ export function panelHandlers(
       return ok(undefined, 'runId' in res ? { runId: res.runId } : { queued: true })
     },
     runs: async (args) => {
-      const w = workspaceOf(args)
+      const w = await workspaceOf(args)
       if (!w) return failure('unknown-workspace')
       return ok(undefined, runner.runs(w.workspaceId, text(namedArgs(args).name) ?? undefined))
     },
     run: async (args) => {
-      const w = workspaceOf(args)
+      const w = await workspaceOf(args)
       const runId = text(namedArgs(args).runId)
       if (!w || !runId) return failure('invalid-args')
       const view = runner.view(w.workspaceId, runId)
@@ -87,7 +90,7 @@ export function panelHandlers(
       return ok(undefined, runModel(view, panes))
     },
     control: async (args) => {
-      const w = workspaceOf(args)
+      const w = await workspaceOf(args)
       const p = namedArgs(args)
       const runId = text(p.runId)
       const action = text(p.action)

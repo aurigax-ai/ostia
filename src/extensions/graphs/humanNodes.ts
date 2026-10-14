@@ -8,7 +8,7 @@ import {
 import { type ProcessRunner, commandNode } from '../../../graph-engine/src/kinds/command'
 import { DEFAULT_CHOICES } from '../../../graph-engine/src/kinds/humanKinds'
 import { notifyNode } from '../../../graph-engine/src/kinds/smallKinds'
-import type { OstiaExtension } from '../sdk'
+import { EXTENSION_REDACT_TEXTS_MAX, EXTENSION_REDACT_TEXT_MAX, type OstiaExtension } from '../sdk'
 
 const ANSWER = 'answer'
 
@@ -115,10 +115,44 @@ export function ostiaCommandNode(ext: Pick<OstiaExtension, 'exec'>): NodeKind {
 
 export function panelNotifier(ext: Pick<OstiaExtension, 'notifyPanel'>): (notice: Notice) => void {
   return (notice) => {
-    void ext.notifyPanel(notice.title, notice.body, notice.run ? `?run=${notice.run}` : undefined)
+    void ext.notifyPanel(notice.title, notice.body, notice.run ? `/?run=${notice.run}` : undefined)
   }
 }
 
 export function ostiaNotifyNode(ext: Pick<OstiaExtension, 'notifyPanel'>): NodeKind {
   return notifyNode(panelNotifier(ext))
+}
+
+function chunks(text: string, max: number): string[] {
+  const out: string[] = []
+  let rest = text
+  while (rest.length > max) {
+    const cut = rest.lastIndexOf('\n', max)
+    const at = cut > 0 ? cut + 1 : max
+    out.push(rest.slice(0, at))
+    rest = rest.slice(at)
+  }
+  out.push(rest)
+  return out
+}
+
+export function chunkedRedact(
+  redact: (texts: string[]) => Promise<string[] | null>,
+): (texts: string[]) => Promise<string[] | null> {
+  return async (texts) => {
+    const pieces = texts.map((text) => chunks(text, EXTENSION_REDACT_TEXT_MAX))
+    const flat = pieces.flat()
+    const clean: string[] = []
+    for (let i = 0; i < flat.length; i += EXTENSION_REDACT_TEXTS_MAX) {
+      const batch = await redact(flat.slice(i, i + EXTENSION_REDACT_TEXTS_MAX))
+      if (!batch) return null
+      clean.push(...batch)
+    }
+    let at = 0
+    return pieces.map((parts) => {
+      const joined = clean.slice(at, at + parts.length).join('')
+      at += parts.length
+      return joined
+    })
+  }
 }

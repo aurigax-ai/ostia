@@ -12,7 +12,13 @@ import type { OstiaExtension } from '../sdk'
 import { AGENT_LATE, AGENT_STOP, agentNode } from './agentNode'
 import { ENABLED_FILE, EnableStore } from './enabled'
 import { type GraphEntry, graphPath, listGraphs, readGraph } from './graphFiles'
-import { approvalNode, ostiaCommandNode, ostiaNotifyNode, panelNotifier } from './humanNodes'
+import {
+  approvalNode,
+  chunkedRedact,
+  ostiaCommandNode,
+  ostiaNotifyNode,
+  panelNotifier,
+} from './humanNodes'
 
 const OSTIA_TRIGGERS = ['manual']
 const SCRATCH = 'scratch'
@@ -95,7 +101,7 @@ export class GraphsRunner {
       triggers: OSTIA_TRIGGERS,
       clock: opts.clock,
       notify: panelNotifier(opts.ext),
-      redact: async (texts) => opts.ext.redact(texts),
+      redact: chunkedRedact((texts) => opts.ext.redact(texts)),
     }
     this.store =
       opts.store ??
