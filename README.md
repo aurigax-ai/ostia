@@ -129,6 +129,7 @@ pnpm rebuild      # rebuild node-pty for Electron's ABI
 pnpm dev          # run with hot reload
 pnpm typecheck
 pnpm lint
+pnpm quality
 pnpm test         # unit and component tests
 pnpm build && pnpm test:e2e   # Playwright against the built app
 ```

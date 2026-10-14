@@ -1,0 +1,19 @@
+[files]
+extend-exclude = [
+  "patches/",
+  "pnpm-lock.yaml",
+  "go.mod",
+  "go.sum",
+  "e2e/",
+  "test/fixtures/",
+  "*.test.ts",
+  "*.test.tsx",
+  ".dependency-cruiser-known-violations.json",
+]
+ignore-hidden = false
+
+[default.extend-words]
+pn = "pn"
+sur = "sur"
+fpr = "fpr"
+chec = "chec"

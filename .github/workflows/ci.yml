@@ -95,9 +95,11 @@ jobs:
             fi
             [ "$MACOS_SWITCH" = off ] || macos='["self-hosted","ostia-macos"]'
           fi
-          echo "linux=$linux" >> "$GITHUB_OUTPUT"
-          echo "linux_small=$linux_small" >> "$GITHUB_OUTPUT"
-          echo "macos=$macos" >> "$GITHUB_OUTPUT"
+          {
+            echo "linux=$linux"
+            echo "linux_small=$linux_small"
+            echo "macos=$macos"
+          } >> "$GITHUB_OUTPUT"
       - id: plan
         env:
           SPECS: ${{ inputs.specs }}
@@ -145,8 +147,9 @@ jobs:
             echo "grep_invert=$grep_invert"
             echo "macos_matrix=$macos_matrix"
           } >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          persist-credentials: false
           fetch-depth: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && '0' || '1' }}
       - if: github.event_name == 'pull_request'
         id: tests
@@ -167,7 +170,7 @@ jobs:
             { echo "e2e: $count specs in $(jq '.e2eShards | length' <<< "$plan") job(s)"; jq -r '.e2e[] | "- " + .' <<< "$plan"; } >> "$GITHUB_STEP_SUMMARY"
           fi
       - if: github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'merge_group'
-        uses: dorny/paths-filter@v4
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
         id: filter
         with:
           predicate-quantifier: every
@@ -194,7 +197,9 @@ jobs:
     runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup
         timeout-minutes: 10
         with:
@@ -202,6 +207,37 @@ jobs:
           electron: false
       - run: pnpm typecheck
       - run: pnpm lint
+      - run: pnpm quality
+
+  hygiene:
+    needs: changes
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.verified != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+      - uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482
+        with:
+          inputs: .github
+          version: 1.30.1
+          advanced-security: false
+      - uses: crate-ci/typos@7f9d0819ca1c008ade73f4b41fa9d258d48f605b
+
+  dependency-review:
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294
+        with:
+          fail-on-severity: high
 
   unit:
     needs: changes
@@ -209,7 +245,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/linux-deps
       - uses: ./.github/actions/setup
         timeout-minutes: 10
@@ -226,7 +264,9 @@ jobs:
     runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup
         timeout-minutes: 10
         with:
@@ -243,13 +283,15 @@ jobs:
     runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup
         timeout-minutes: 10
         with:
           electron: false
       - run: pnpm build
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: out
           path: out
@@ -265,18 +307,20 @@ jobs:
       matrix:
         shard: ${{ fromJSON(needs.changes.outputs.shards) }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/linux-deps
       - uses: ./.github/actions/setup
         timeout-minutes: 10
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         id: pty
         with:
           path: node_modules/node-pty/build
           key: node-pty-electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
       - if: steps.pty.outputs.cache-hit != 'true'
         run: pnpm rebuild
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: out
           path: out
@@ -285,18 +329,19 @@ jobs:
           SELF_HOSTED: ${{ runner.environment == 'self-hosted' }}
           SPECS: ${{ needs.changes.outputs.specs }}
           REPEAT: ${{ needs.changes.outputs.repeat }}
+          SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
           GREP: ${{ needs.changes.outputs.grep }}
           GREP_INVERT: ${{ needs.changes.outputs.grep_invert }}
         run: |
           read -ra specs <<< "$SPECS"
-          args=("${specs[@]}" --shard=${{ matrix.shard }}/${{ strategy.job-total }} --repeat-each="$REPEAT")
+          args=("${specs[@]}" --shard="$SHARD" --repeat-each="$REPEAT")
           if [ -n "$GREP" ]; then args+=(--grep "$GREP"); fi
           invert=$GREP_INVERT
           if [ "$SELF_HOSTED" = true ]; then invert=${invert:+$invert|}$PTRACE_E2E; fi
           if [ -n "$invert" ]; then args+=(--grep-invert "$invert"); fi
           pnpm test:e2e "${args[@]}"
       - if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: blob-${{ matrix.shard }}
           path: blob-report
@@ -312,18 +357,20 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: ${{ needs.changes.outputs.repeat == '1' && 10 || 60 }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/linux-deps
       - uses: ./.github/actions/setup
         timeout-minutes: 10
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         id: pty
         with:
           path: node_modules/node-pty/build
           key: node-pty-electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
       - if: steps.pty.outputs.cache-hit != 'true'
         run: pnpm rebuild
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: out
           path: out
@@ -332,7 +379,7 @@ jobs:
           REPEAT: ${{ needs.changes.outputs.repeat }}
         run: pnpm test:e2e e2e/sandbox.spec.ts --grep "$PTRACE_E2E" --repeat-each="$REPEAT"
       - if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: ptrace-blob-report
           path: blob-report
@@ -345,25 +392,27 @@ jobs:
     timeout-minutes: 45
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/linux-deps
       - uses: ./.github/actions/setup
         timeout-minutes: 10
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         id: pty
         with:
           path: node_modules/node-pty/build
           key: node-pty-electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
       - if: steps.pty.outputs.cache-hit != 'true'
         run: pnpm rebuild
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: out
           path: out
       - timeout-minutes: 30
         run: pnpm test:e2e --grep @race --repeat-each=10
       - if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: race-blob-report
           path: blob-report
@@ -376,7 +425,9 @@ jobs:
     timeout-minutes: 45
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - run: |
           command -v rg >/dev/null || brew install ripgrep
           command -v tmux >/dev/null || brew install tmux
@@ -401,12 +452,14 @@ jobs:
     timeout-minutes: 20
     continue-on-error: ${{ github.ref_type != 'tag' }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup
         timeout-minutes: 10
       - run: pnpm rebuild
       - run: pnpm build
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: out-macos
           path: out
@@ -421,7 +474,9 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.changes.outputs.macos_matrix) }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - run: |
           command -v rg >/dev/null || brew install ripgrep
           command -v tmux >/dev/null || brew install tmux
@@ -431,7 +486,7 @@ jobs:
       - uses: ./.github/actions/setup
         timeout-minutes: 10
       - run: pnpm rebuild
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: out-macos
           path: out
@@ -443,7 +498,7 @@ jobs:
           read -ra specs <<< "$SPECS"
           pnpm test:e2e "${specs[@]}" --repeat-each="$REPEAT"
       - if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: macos-blob-${{ matrix.group }}
           path: blob-report
@@ -456,7 +511,9 @@ jobs:
     timeout-minutes: 30
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - run: |
           command -v rg >/dev/null || brew install ripgrep
           command -v tmux >/dev/null || brew install tmux
@@ -466,14 +523,14 @@ jobs:
       - uses: ./.github/actions/setup
         timeout-minutes: 10
       - run: pnpm rebuild
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: out-macos
           path: out
       - timeout-minutes: 15
         run: pnpm test:e2e --grep @core
       - if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: macos-core-blob-report
           path: blob-report
@@ -486,16 +543,18 @@ jobs:
     timeout-minutes: 10
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup
         timeout-minutes: 10
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: blob-*
           path: all-blob
           merge-multiple: true
       - run: pnpm exec playwright merge-reports --reporter html ./all-blob
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: e2e-report
           path: playwright-report
@@ -517,7 +576,9 @@ jobs:
       RUNS: ${{ contains(fromJSON('["schedule","workflow_dispatch"]'), github.event_name) && 10 || 5 }}
       E2E: ${{ needs.changes.outputs.full == 'true' && (needs.build.result == 'success' || needs.build-macos.result == 'success') }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - if: runner.os == 'Linux'
         uses: ./.github/actions/linux-deps
       - if: runner.os == 'macOS'
@@ -537,7 +598,7 @@ jobs:
       - if: env.E2E == 'true'
         id: out
         continue-on-error: true
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: ${{ matrix.out }}
           path: out
@@ -552,8 +613,10 @@ jobs:
       contents: read
       issues: read
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 24
       - env:
@@ -561,7 +624,7 @@ jobs:
         run: node scripts/quarantine.mjs issues
 
   ci-result:
-    needs: [changes, static, unit, unit-dom, build, e2e, e2e-ptrace, build-macos, e2e-macos]
+    needs: [changes, static, hygiene, dependency-review, unit, unit-dom, build, e2e, e2e-ptrace, build-macos, e2e-macos]
     if: ${{ !cancelled() }}
     runs-on: ${{ fromJSON(needs.changes.outputs.linux_small) }}
     timeout-minutes: 5
@@ -578,9 +641,10 @@ jobs:
           echo "$NEEDS" | jq -e --arg code "$CODE" --arg full "$FULL" --arg selected "$SELECTED" --arg platform "$PLATFORM" --arg gate "$GATE_MACOS" '
             .changes.result == "success" and
             (."e2e-ptrace".result | IN("success", "skipped")) and
+            (."dependency-review".result | IN("success", "skipped")) and
             .e2e.result == (if ($full == "true" or $selected == "true") and $platform != "macos" then "success" else "skipped" end) and
             (if $gate == "true" and $full == "true" and $platform != "linux"
               then (."build-macos".result == "success" and ."e2e-macos".result == "success")
               else true end) and
-            (del(.changes, ."e2e-ptrace", .e2e, ."build-macos", ."e2e-macos") | to_entries
+            (del(.changes, ."e2e-ptrace", ."dependency-review", .e2e, ."build-macos", ."e2e-macos") | to_entries
               | all(.value.result == (if $code == "true" and env.VERIFIED != "true" then "success" else "skipped" end)))'

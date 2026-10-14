@@ -58,13 +58,15 @@ function e2eArgs(env: {
   mkdirSync(bin, { recursive: true })
   writeFileSync(join(bin, 'pnpm'), '#!/bin/sh\nshift\nprintf \'%s\\n\' "$@"\n')
   chmodSync(join(bin, 'pnpm'), 0o755)
-  const run = (
-    workflow.jobs.e2e.steps?.find((step) => step.run?.includes('pnpm test:e2e'))?.run ?? ''
+  const step = workflow.jobs.e2e.steps?.find((candidate) =>
+    candidate.run?.includes('pnpm test:e2e'),
   )
+  const shard = (step?.env?.SHARD ?? '')
     .replaceAll('${{ matrix.shard }}', '1')
     .replaceAll('${{ strategy.job-total }}', '2')
-  return bash(run, {
+  return bash(step?.run ?? '', {
     PATH: `${bin}:${process.env.PATH}`,
+    SHARD: shard,
     SPECS: env.specs ?? '',
     REPEAT: '1',
     GREP: env.grep ?? '',
@@ -81,6 +83,7 @@ function jobRuns(name: string, ctx: { event: string; refType?: string }): boolea
     .replace(/^\$\{\{\s*|\s*\}\}$/g, '')
     .replaceAll('github.event_name', 'event')
     .replaceAll('github.ref_type', 'refType')
+    .replaceAll('needs.changes.outputs.code', "'true'")
     .replaceAll('==', '===')
   return new Function('event', 'refType', `return ${expression}`)(
     ctx.event,
@@ -122,7 +125,12 @@ function fullFor(ctx: {
   )
 }
 
-function ciResultAccepts(opts: { code: boolean; full: boolean; e2e: string }): boolean {
+function ciResultAccepts(opts: {
+  code: boolean
+  full: boolean
+  e2e: string
+  results?: Record<string, string>
+}): boolean {
   const step = workflow.jobs['ci-result'].steps?.find((candidate) =>
     candidate.run?.includes('jq -e'),
   )
@@ -135,13 +143,14 @@ function ciResultAccepts(opts: { code: boolean; full: boolean; e2e: string }): b
       name,
       {
         result:
-          name === 'changes'
+          opts.results?.[name] ??
+          (name === 'changes'
             ? 'success'
             : name === 'e2e'
               ? opts.e2e
               : ['e2e-ptrace', 'build-macos', 'e2e-macos'].includes(name)
                 ? 'skipped'
-                : other,
+                : other),
       },
     ]),
   )
@@ -282,6 +291,32 @@ describe('e2e plan for each event', () => {
     expect(
       planFor({ event: 'workflow_dispatch', specs: '--grep @core', refType: 'tag' }),
     ).toMatchObject({ specs: '--grep @core', shards: '[1]', grep: '', grep_invert: '' })
+  })
+})
+
+describe('quality and security gates', () => {
+  const pullRequest = { code: true, full: false, e2e: 'skipped' }
+
+  it('runs knip, dependency-cruiser and jscpd in the static job', () => {
+    const runs = workflow.jobs.static.steps?.map((step) => step.run) ?? []
+    expect(runs).toContain('pnpm quality')
+  })
+
+  it('blocks ci-result when the workflow and spelling checks fail', () => {
+    expect(ciResultAccepts(pullRequest)).toBe(true)
+    expect(ciResultAccepts({ ...pullRequest, results: { hygiene: 'failure' } })).toBe(false)
+    expect(ciResultAccepts({ ...pullRequest, results: { hygiene: 'skipped' } })).toBe(false)
+  })
+
+  it('blocks ci-result on a failed dependency review and accepts it skipped outside a pull request', () => {
+    expect(jobRuns('dependency-review', { event: 'pull_request' })).toBe(true)
+    expect(jobRuns('dependency-review', { event: 'merge_group' })).toBe(false)
+    expect(ciResultAccepts({ ...pullRequest, results: { 'dependency-review': 'failure' } })).toBe(
+      false,
+    )
+    expect(ciResultAccepts({ ...pullRequest, results: { 'dependency-review': 'skipped' } })).toBe(
+      true,
+    )
   })
 })
 

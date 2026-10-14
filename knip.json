@@ -1,0 +1,52 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/cli/sdk/{sdkCliEntry,manifestSchema}.ts",
+    "src/shared/artifacts/artifactRuntime.ts",
+    "src/shared/{agentPlugins,appEnv,assist,capabilities,editorLanguages,extensionApi,extensionLocales,extensions,iconTheme,keymap,languagePack,languageServers,product,productDisplay,protoGuard,remoteFolders,workflows}.ts",
+    "src/extensions/sdk/**/*.ts",
+    "src/extensions/*/{main,panel}.ts",
+    "src/extensions/*/panel.css",
+    "scripts/*.mjs",
+    "marketplace/*.mjs",
+    "e2e/**/*.{spec,bench}.ts",
+    "e2e/failed-report/*.ts",
+    "test/fixtures/**/*.{mjs,js,ts}"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx,css}",
+    "scripts/**/*.mjs",
+    "marketplace/**/*.{mjs,ts}",
+    "test/**/*.{ts,tsx,mjs}",
+    "e2e/**/*.ts"
+  ],
+  "ignore": [
+    "src/renderer/components/ui/**"
+  ],
+  "ignoreDependencies": [
+    "@tailwindcss/browser",
+    "@withfig/autocomplete",
+    "bash-language-server",
+    "d3",
+    "lucide-react",
+    "pyright",
+    "recharts",
+    "typescript-language-server",
+    "yaml-language-server"
+  ],
+  "ignoreBinaries": [
+    "busctl",
+    "hdiutil",
+    "infocmp",
+    "jq",
+    "locale",
+    "mkfifo",
+    "openssl",
+    "osascript",
+    "script",
+    "shellcheck",
+    "ss",
+    "ssh-agent",
+    "ssh-keygen"
+  ]
+}

@@ -1,0 +1,9 @@
+paths-ignore:
+  - '**/node_modules/**'
+  - out/**
+  - dist/**
+  - e2e/**
+  - test/**
+  - '**/*.test.ts'
+  - '**/*.test.tsx'
+  - src/renderer/components/ui/**
