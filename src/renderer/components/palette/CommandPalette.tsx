@@ -30,12 +30,16 @@ import { countUsage } from '@/lib/app/usageCounts'
 import { useChatAvailable } from '@/lib/assist/assistFeatures'
 import { revealPane } from '@/lib/attention/workspaceActivity'
 import { childPath } from '@/lib/files/fileTree'
-import { openFileAt, openFileInWorkspace } from '@/lib/files/openFile'
+import { openFileAt } from '@/lib/files/openFile'
 import {
   FILE_SEARCH_DELAY_MS,
+  LINE_SEARCH_DELAY_MS,
   type WorkspaceFileResult,
+  type WorkspaceLineResult,
   findWorkspaceFiles,
+  findWorkspaceLines,
   splitFilePath,
+  splitFilePosition,
 } from '@/lib/files/workspaceFileSearch'
 import {
   SYMBOL_SEARCH_DELAY_MS,
@@ -43,7 +47,7 @@ import {
   findWorkspaceSymbols,
   symbolPlace,
 } from '@/lib/files/workspaceSymbolSearch'
-import { chordLabel, useBindings } from '@/lib/keys/chords'
+import { chordLabel, matchChord, runAppChord, useBindings } from '@/lib/keys/chords'
 import { paletteFilter } from '@/lib/palette/paletteFilter'
 import { paletteReturnFocus } from '@/lib/palette/paletteFocus'
 import {
@@ -63,6 +67,7 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { AppWindowIcon } from '@phosphor-icons/react'
+import { PALETTE_TOGGLE } from '@shared/keyboard/chordSpec'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 
 const LIST_CLASS = 'max-h-[min(27rem,calc(88vh-5rem))]'
@@ -174,6 +179,11 @@ export function CommandPalette(): JSX.Element {
         finalFocus={paletteReturnFocus}
       >
         <Command
+          onKeyDownCapture={(e) => {
+            if (matchChord(e.nativeEvent, isMac) !== PALETTE_TOGGLE) return
+            e.stopPropagation()
+            runAppChord(e.nativeEvent, isMac)
+          }}
           filter={paletteFilter}
           shouldFilter={mode !== 'files'}
           value={mode === 'files' ? selected : undefined}
@@ -267,6 +277,7 @@ export function CommandPalette(): JSX.Element {
                       onDone={finish}
                       quiet
                     />
+                    <LineItems query={search.trim()} workDir={activeWorkDir} onDone={finish} />
                     <FilesTextItem query={search.trim()} onDone={finish} />
                     <SettingsItems query={search.trim()} onDone={finish} />
                   </>
@@ -594,14 +605,15 @@ function FileItems({
   const d = useDict()
   const includeIgnored = useSettingsStore((s) => s.files.searchIgnored)
   const [result, setResult] = useState<WorkspaceFileResult | null>(null)
+  const { name: wanted, line, column } = splitFilePosition(query)
   useEffect(() => {
-    if (!workDir || !query) {
+    if (!workDir || !wanted) {
       setResult(null)
       return
     }
     let live = true
     const timer = setTimeout(() => {
-      void findWorkspaceFiles(workDir, query, includeIgnored).then((next) => {
+      void findWorkspaceFiles(workDir, wanted, includeIgnored).then((next) => {
         if (!live || next.status === 'cancelled') return
         setResult(next)
         const first = next.status === 'hits' ? next.hits[0] : undefined
@@ -612,28 +624,29 @@ function FileItems({
       live = false
       clearTimeout(timer)
     }
-  }, [workDir, query, includeIgnored, onSelect])
+  }, [workDir, wanted, includeIgnored, onSelect])
   const status = (text: string): JSX.Element | null =>
     quiet ? null : (
       <output className="block px-3 py-6 text-center text-fg-muted text-ui-sm">{text}</output>
     )
   if (!workDir) return status(d.palette.filesNoWorkspace)
-  if (!query) return status(d.palette.filesHint)
+  if (!wanted) return status(d.palette.filesHint)
   if (!result) return null
   if (result.status === 'failed') return status(d.palette.filesFailed)
   if (result.status === 'cancelled') return null
   if (result.hits.length === 0) return status(d.palette.empty)
   const symbol = symbolOf('files')
   return (
-    <CommandGroup heading={d.palette.modes.files} className={GROUP_CLASS}>
+    <CommandGroup heading={d.palette.modes.files} className={GROUP_CLASS} forceMount>
       {result.hits.map((hit) => {
         const { name, dir } = splitFilePath(hit.path)
         return (
           <CommandItem
             key={hit.path}
             value={`${symbol} ${hit.path}`}
+            forceMount
             onSelect={() => {
-              openFileInWorkspace(childPath(result.root, hit.path))
+              openFileAt(childPath(result.root, hit.path), line, column)
               onDone()
             }}
           >
@@ -647,6 +660,60 @@ function FileItems({
 
 const SETTINGS_SYMBOL = '§'
 const FILES_TEXT_SYMBOL = '¶'
+const LINE_SEARCH_MIN_CHARS = 2
+
+function LineItems({
+  query,
+  workDir,
+  onDone,
+}: {
+  query: string
+  workDir: string | null
+  onDone: () => void
+}): JSX.Element | null {
+  const d = useDict()
+  const includeIgnored = useSettingsStore((s) => s.files.searchIgnored)
+  const [result, setResult] = useState<WorkspaceLineResult | null>(null)
+  useEffect(() => {
+    if (!workDir || query.length < LINE_SEARCH_MIN_CHARS) {
+      setResult(null)
+      return
+    }
+    let live = true
+    const timer = setTimeout(() => {
+      void findWorkspaceLines(workDir, query, includeIgnored).then((next) => {
+        if (live && next.status !== 'cancelled') setResult(next)
+      })
+    }, LINE_SEARCH_DELAY_MS)
+    return () => {
+      live = false
+      clearTimeout(timer)
+    }
+  }, [workDir, query, includeIgnored])
+  if (result?.status !== 'hits' || result.lines.length === 0) return null
+  return (
+    <CommandGroup heading={d.palette.textLines} className={GROUP_CLASS} forceMount>
+      {result.lines.map((hit) => (
+        <CommandItem
+          key={`${hit.path}:${hit.line}:${hit.column}`}
+          value={`${FILES_TEXT_SYMBOL} ${hit.path}:${hit.line}:${hit.column}`}
+          forceMount
+          onSelect={() => {
+            openFileAt(childPath(result.root, hit.path), hit.line, hit.column)
+            onDone()
+          }}
+        >
+          <ItemRow
+            name={`${splitFilePath(hit.path).name}:${hit.line}`}
+            nameMono
+            meta={hit.text}
+            mono
+          />
+        </CommandItem>
+      ))}
+    </CommandGroup>
+  )
+}
 
 function FilesTextItem({ query, onDone }: { query: string; onDone: () => void }): JSX.Element {
   const d = useDict()
@@ -787,7 +854,7 @@ function CommandItems({
   useBindings()
   const groups = new Map<string, { heading: string; items: PaletteCommand[] }>()
   for (const command of commands.list()) {
-    if (command.hidden) continue
+    if (command.hidden || command.listed?.() === false) continue
     const shown = commandWording(command, d)
     const key = command.category ?? ''
     const group = groups.get(key) ?? { heading: shown.category ?? d.palette.general, items: [] }

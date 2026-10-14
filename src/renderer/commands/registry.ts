@@ -38,6 +38,7 @@ export interface CommandDef<Args = void, R = void> {
   category?: string
   wording?: (d: Dict) => CommandWording
   hidden?: boolean
+  listed?: () => boolean
   local?: boolean
   argument?: string
   choices?: () => Promise<CommandChoice[]>

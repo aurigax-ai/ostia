@@ -19,6 +19,7 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { saveSnapshotNow } from '@/stores/workspaces/persistence'
 import * as surfaceSlots from '@/stores/workspaces/surfaceSlotsStore'
 import { useTabSleepNoticeStore } from '@/stores/workspaces/tabSleepNoticeStore'
+import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { SCRIPT_CAPABILITIES } from '@shared/permissions/scriptTokens'
 import { Terminal } from '@xterm/xterm'
@@ -2290,7 +2291,20 @@ describe('workspace row commands', () => {
     const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
     for (const id of ['pane.rename', 'workspace.rename']) {
       expect(byId[id].capabilities).toEqual(['drive-self'])
-      expect(byId[id].hidden).toBe(id === 'workspace.rename')
+      expect(byId[id].hidden).toBeFalsy()
+    }
+    for (const id of ['workspace.describe', 'workspace.renameGroup']) {
+      expect(byId[id].capabilities).toEqual(['drive-self'])
+      expect(byId[id].hidden).toBeFalsy()
+    }
+    const editors = ['workspace.rename', 'workspace.describe', 'workspace.renameGroup']
+    const listed = () => commands.list().filter((c) => editors.includes(c.id) && c.listed?.())
+    expect(listed()).toHaveLength(3)
+    useWindowsStore.setState({ detached: true })
+    try {
+      expect(listed()).toHaveLength(0)
+    } finally {
+      useWindowsStore.setState({ detached: false })
     }
   })
 

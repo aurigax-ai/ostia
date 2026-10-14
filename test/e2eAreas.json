@@ -119,7 +119,9 @@
         "src/main/browser/browserProfiles.",
         "src/main/browser/browserStorage.",
         "src/main/browser/browserUserAgent.",
+        "src/main/browser/guestFirstLoad.",
         "src/main/browser/guestNetwork.ts",
+        "src/main/browser/guestPopups.",
         "src/main/browser/signinUserAgent.",
         "src/main/browser/loginFill.ts",
         "src/main/browser/credentials.ts",
@@ -164,8 +166,10 @@
         "e2e/browser-login.spec.ts",
         "e2e/browser-passkey.spec.ts",
         "e2e/browser-pick.spec.ts",
+        "e2e/browser-popup.spec.ts",
         "e2e/browser-profile.spec.ts",
         "e2e/browser-region.spec.ts",
+        "e2e/browser-restore-scripts.spec.ts",
         "e2e/browser-storage.spec.ts",
         "e2e/browser-tab.spec.ts",
         "e2e/browser-width.spec.ts",
@@ -746,7 +750,11 @@
         "src/renderer/lib/sidebar/groupPeers.ts",
         "src/renderer/stores/agents/agentGroupsStore.ts"
       ],
-      "specs": ["e2e/scratch-workspace.spec.ts", "e2e/workspace-groups.spec.ts"]
+      "specs": [
+        "e2e/scratch-workspace.spec.ts",
+        "e2e/workspace-groups.spec.ts",
+        "e2e/workspace-rename.spec.ts"
+      ]
     },
     {
       "name": "restore and user folders",
@@ -1003,7 +1011,11 @@
         "src/renderer/lib/palette/paletteFocus.ts",
         "src/renderer/lib/palette/paletteModes."
       ],
-      "specs": ["e2e/command-palette-layout.spec.ts", "e2e/palette-focus.spec.ts"]
+      "specs": [
+        "e2e/command-palette-layout.spec.ts",
+        "e2e/palette-focus.spec.ts",
+        "e2e/palette-keys.spec.ts"
+      ]
     },
     {
       "name": "crash recovery",

@@ -374,7 +374,15 @@ const altChord = (spec: ChordSpec): boolean =>
 const ctrlChord = (spec: ChordSpec): boolean =>
   spec.ctrl && !spec.alt && !spec.shift && !spec.meta && notShellOwned(spec)
 
+export const PALETTE_TOGGLE = 'palette.toggle'
+
+export function isPaletteF1(id: string, spec: ChordSpec): boolean {
+  const bare = !spec.ctrl && !spec.shift && !spec.alt && !spec.meta && !spec.terminal
+  return id === PALETTE_TOGGLE && spec.key === 'f1' && bare
+}
+
 export function bindingProblem(id: string, spec: ChordSpec, mac: boolean): ChordProblem | null {
+  if (isPaletteF1(id, spec)) return null
   if (isDoubleShift(spec)) {
     return spec.terminal || BROWSER_IDS.has(id) || TERMINAL_IDS.has(id) ? 'invalid' : null
   }

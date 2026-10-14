@@ -264,6 +264,18 @@ describe('commandLineEnv', () => {
     expect(commandLineEnv('claude', 'claude')).toEqual({})
   })
 
+  it('keeps the config directory typed in front of the agent', () => {
+    expect(
+      commandLineEnv(
+        'claude',
+        `CLAUDE_CONFIG_DIR='/Users/j/.claude-profiles/twai' GL_ISSUE='665#2' claude --agent research`,
+      ),
+    ).toEqual({ CLAUDE_CONFIG_DIR: '/Users/j/.claude-profiles/twai', GL_ISSUE: '665#2' })
+    expect(commandLineEnv('codex', 'CODEX_HOME=/Users/j/.codex-work HOME=/tmp/h codex')).toEqual({
+      CODEX_HOME: '/Users/j/.codex-work',
+    })
+  })
+
   it('reads a single-quoted value with a hash, as process run passes it', () => {
     expect(
       commandLineEnv(
@@ -328,8 +340,6 @@ describe('safeEnv', () => {
         BASH_ENV: '/tmp/x',
         PATH: '/tmp',
         SPINNER: 'dots',
-        CODEX_HOME: '/tmp/c',
-        CLAUDE_CONFIG_DIR: '/tmp/c',
         HOME: '/tmp/h',
         XDG_CONFIG_HOME: '/tmp/x',
         XDG_DATA_HOME: '/tmp/x',
@@ -349,6 +359,28 @@ describe('safeEnv', () => {
     ).toEqual({ GL_ISSUE: '685', SPINNER: 'dots' })
     expect(safeEnv(['A'])).toEqual({})
     expect(safeEnv(null)).toEqual({})
+  })
+
+  it('keeps the variables that pick the agent account and still drops the ones beside them', () => {
+    expect(
+      safeEnv({
+        CLAUDE_CONFIG_DIR: '/Users/j/.claude-profiles/twai',
+        CODEX_HOME: '/Users/j/.codex-work',
+        HOME: '/tmp/h',
+        PATH: '/tmp',
+        XDG_CONFIG_HOME: '/tmp/x',
+        LD_PRELOAD: '/tmp/x.so',
+        DYLD_INSERT_LIBRARIES: '/tmp/x.dylib',
+        EDITOR: '/tmp/e',
+        CLAUDE_CODE_USE_BEDROCK: '1',
+        CODEX_SANDBOX: 'seatbelt',
+      }),
+    ).toEqual({
+      CLAUDE_CONFIG_DIR: '/Users/j/.claude-profiles/twai',
+      CODEX_HOME: '/Users/j/.codex-work',
+      CLAUDE_CODE_USE_BEDROCK: '1',
+      CODEX_SANDBOX: 'seatbelt',
+    })
   })
 })
 
