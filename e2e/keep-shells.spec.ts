@@ -170,6 +170,21 @@ test('KSH-C20 with tmux gone a new terminal starts a plain shell and says it is 
   }
 })
 
+test('KSH-C65 when tmux cannot start its server a new terminal starts a plain shell', async () => {
+  const bin = binWith(
+    'tmux',
+    '#!/bin/sh\nif [ "$1" = -V ]; then echo "tmux 3.4"; exit 0; fi\necho "server refused" >&2\nexit 1\n',
+  )
+  const { app, win } = await launch(dataHome, pathWith(bin))
+  try {
+    await newTerminal(win)
+    await runInTerminal(win, 'echo plain-$((6*7))')
+    await expect(screen(win)).toContainText('plain-42', { timeout: 15_000 })
+  } finally {
+    await quitApp(app)
+  }
+})
+
 test('KSH-C91 started with the bare PATH a desktop launch gives, Ostia keeps shells with the tmux on the login shell PATH', async () => {
   const realTmux = execFileSync('sh', ['-c', 'command -v tmux'], { encoding: 'utf8' }).trim()
   const log = join(dataHome, 'tmux-calls')
