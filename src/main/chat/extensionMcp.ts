@@ -27,6 +27,6 @@ export function registerExtensionMcp(deps: ExtensionMcpDeps): void {
   registerControlMethod('ext.mcpServers', {
     callers: 'extensions',
     cap: 'mcp',
-    handler: async () => ({ ok: true, servers: (await deps.mcp()?.serversForExtensions()) ?? [] }),
+    handler: () => ({ ok: true, servers: deps.mcp()?.serversForExtensions() ?? [] }),
   })
 }

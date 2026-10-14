@@ -37,10 +37,19 @@ async function connectorListing(ext: VerbsExt) {
   }
 }
 
-async function nodesListing(runner: GraphsRunner, ext: VerbsExt): Promise<CommandOutput> {
+async function nodesListing(
+  runner: GraphsRunner,
+  ext: VerbsExt,
+  caller: ExtensionCaller,
+): Promise<CommandOutput> {
   const out = nodesCommand(runner.host.kinds.map((k) => k.kind))
   const kinds = JSON.parse(out.stdout) as { kind: string }[]
-  const listing = await connectorListing(ext)
+  const scratch = runner.workspace(caller.workspaceId)?.kind === 'scratch'
+  const listing = caller.sandboxed
+    ? { refused: 'sandboxed' }
+    : scratch
+      ? { refused: 'scratch' }
+      : await connectorListing(ext)
   const shown = kinds.map((k) => (k.kind === 'connector' ? { ...k, connectors: listing } : k))
   return { exitCode: 0, stdout: `${JSON.stringify(shown, null, 2)}\n` }
 }
@@ -115,7 +124,7 @@ export function graphVerbs(
   return {
     validate: withFile((path, workDir) => validateCommand(path, workDir)),
     schema: () => fromOutput(schemaCommand()),
-    nodes: async () => fromOutput(await nodesListing(runner, ext)),
+    nodes: async (_args, caller) => fromOutput(await nodesListing(runner, ext, caller)),
     explain: withFile((path, workDir) => explainCommand(path, workDir)),
     'dry-run': withFile((path, workDir, rest) => {
       const inputs = repeated(rest, 'input')

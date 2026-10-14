@@ -117,6 +117,16 @@ describe('ext.mcpCall and ext.mcpServers', () => {
     expect(host.list().find((e) => e.id === 'reacher')?.unapproved).toEqual([])
   })
 
+  it('ext.mcpServers never starts a server: it lists only the servers already running', async () => {
+    expect(await call('reacher', 'ext.mcpServers')).toEqual({ ok: true, servers: [] })
+    await new Promise((r) => setTimeout(r, 300))
+    expect(mcp.status().map((s) => [s.name, s.state])).toEqual([
+      ['fake', 'idle'],
+      ['web', 'idle'],
+      ['quiet', 'off'],
+    ])
+  })
+
   it('GRF-C123 connects a server that is on but not yet connected, answers with its text, and lists names only', async () => {
     expect(mcp.status().find((s) => s.name === 'fake')?.state).toBe('idle')
     expect(
@@ -138,13 +148,13 @@ describe('ext.mcpCall and ext.mcpServers', () => {
       servers: { name: string; state: string; tools: string[] }[]
     }
     expect(listed.ok).toBe(true)
-    expect(listed.servers.map((s) => s.name)).toEqual(['fake', 'web'])
+    expect(listed.servers.map((s) => s.name)).toEqual(['fake'])
     expect(listed.servers[0]).toEqual({
       name: 'fake',
       state: 'ready',
       tools: ['echo', 'env', 'slow', 'exit'],
     })
-    expect(Object.keys(listed.servers[1] ?? {}).sort()).toEqual(['name', 'state', 'tools'])
+    expect(Object.keys(listed.servers[0] ?? {}).sort()).toEqual(['name', 'state', 'tools'])
   })
 
   it('GRF-C124 refuses without mcp, passes on the host errors and never hands out a command, header or secret', async () => {

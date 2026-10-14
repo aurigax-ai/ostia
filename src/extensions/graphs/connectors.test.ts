@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { SANDBOXED_CONNECTOR } from './connectorHost'
 import { type HostHarness, hostHarness } from './fakeExt'
 import { panelHandlers } from './panelHandlers'
+import { graphVerbs } from './verbs'
 
 const SECRET = ['ghp', 'Z'.repeat(36)].join('_')
 
@@ -87,6 +88,46 @@ describe('connectors in the Ostia host', () => {
     })
     h.runner.setMcpGranted(true)
     expect(h.runner.graph('w1', 'echo')?.problems).toEqual([])
+  })
+
+  it('ostia graph nodes lists no connectors and asks for no MCP server for a sandboxed or scratch caller', async () => {
+    const h = hostHarness(workspace({}))
+    h.runner.setWorkspaces([
+      { workspaceId: 'w1', workDir: h.workspace.workDir, kind: 'terminal' },
+      { workspaceId: 'sc', workDir: h.workspace.workDir, kind: 'scratch' },
+    ])
+    let asked = 0
+    const ext = {
+      mcpServers: async () => {
+        asked++
+        return {
+          ok: true as const,
+          servers: [{ name: 'fake', state: 'ready' as const, tools: ['echo'] }],
+        }
+      },
+      connections: async () => ({
+        ok: true as const,
+        connections: [{ name: 'api', kind: 'http' }],
+      }),
+    }
+    const verbs = graphVerbs(h.runner, async () => {}, ext)
+    const listing = async (caller: Record<string, unknown>) => {
+      const res = (await verbs.nodes?.({}, {
+        kind: 'pane',
+        capabilities: [],
+        ...caller,
+      } as never)) as {
+        text: string
+      }
+      return (JSON.parse(res.text) as { kind: string; connectors?: unknown }[]).find(
+        (k) => k.kind === 'connector',
+      )?.connectors
+    }
+    expect(await listing({ workspaceId: 'w1' })).toMatchObject({ mcp: [{ server: 'fake' }] })
+    expect(asked).toBe(1)
+    expect(await listing({ workspaceId: 'w1', sandboxed: true })).toEqual({ refused: 'sandboxed' })
+    expect(await listing({ workspaceId: 'sc' })).toEqual({ refused: 'scratch' })
+    expect(asked).toBe(1)
   })
 
   it('refuses a connector in a sandboxed workspace', () => {

@@ -187,19 +187,17 @@ export class McpHost {
     })
   }
 
-  async serversForExtensions(): Promise<McpExtensionServer[]> {
-    const on = this.deps.servers().filter((s) => s.enabled)
-    await Promise.all(on.map((s) => this.connected(s.name)))
-    return on.map((s) => {
+  serversForExtensions(): McpExtensionServer[] {
+    return this.deps.servers().flatMap((s) => {
       const entry = this.entries.get(s.name)
-      const ready = entry?.state === 'ready'
-      return {
-        name: s.name,
-        state: entry?.state ?? 'idle',
-        tools: ready
-          ? entry.tools.map((t) => t.name).filter((t) => !s.disabledTools.includes(t))
-          : [],
-      }
+      if (!s.enabled || entry?.state !== 'ready') return []
+      return [
+        {
+          name: s.name,
+          state: entry.state,
+          tools: entry.tools.map((t) => t.name).filter((t) => !s.disabledTools.includes(t)),
+        },
+      ]
     })
   }
 
