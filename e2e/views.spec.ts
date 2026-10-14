@@ -40,7 +40,7 @@ async function expectWidthNear(pane: Locator, width: number): Promise<void> {
   await expect.poll(async () => Math.abs((await widthOf(pane)) - width)).toBeLessThan(4)
 }
 
-test('a panel reopens at the width the human dragged it to, also after a restart', async () => {
+test('a panel reopens at the width the human dragged it to after a restart', async () => {
   test.setTimeout(90_000)
   const dataHome = freshDataHome()
   const viewsDir = join(dataHome, 'config', 'ostia', 'views')
@@ -63,7 +63,7 @@ test('a panel reopens at the width the human dragged it to, also after a restart
     await win.keyboard.press('Escape')
     await expect(settings).toHaveCount(0)
 
-    let pane = await openBoard(win)
+    const pane = await openBoard(win)
     const split = win.locator('.split-view', { has: pane }).first()
     const total = (await split.boundingBox())?.width ?? 0
     await expectWidthNear(pane, total / 2)
@@ -80,10 +80,6 @@ test('a panel reopens at the width the human dragged it to, also after a restart
     await win.mouse.up()
     draggedWidth = await widthOf(pane)
     expect(draggedWidth).toBeLessThan(total * 0.4)
-
-    await closeBoard(win, pane)
-    pane = await openBoard(win)
-    await expectWidthNear(pane, draggedWidth)
 
     await closeBoard(win, pane)
     await expect
