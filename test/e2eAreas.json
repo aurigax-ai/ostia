@@ -642,7 +642,6 @@
         "test/fixtures/agents/"
       ],
       "specs": [
-        "e2e/agent-run-start.spec.ts",
         "e2e/pane-move-tab.spec.ts",
         "e2e/pane-send-submit.spec.ts",
         "e2e/processes.spec.ts",
