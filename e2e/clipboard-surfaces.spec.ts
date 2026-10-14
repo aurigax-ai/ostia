@@ -301,6 +301,22 @@ async function attachingGuestState(
   }
 }
 
+const GUEST_PAINT_COUNT = "performance.getEntriesByType('paint').length"
+
+const FOCUS_PROBE_KEY = 'ScrollLock'
+
+const GUEST_SEES_FOCUS_PROBE = `addEventListener('keydown', (event) => {
+  if (event.key === '${FOCUS_PROBE_KEY}') window.sawFocusProbe = true
+}, true); 0`
+
+async function windowKeyReachesGuest(
+  win: Page,
+  guestRun: (code: string) => Promise<unknown>,
+): Promise<boolean> {
+  await win.keyboard.press(FOCUS_PROBE_KEY)
+  return (await guestRun('window.sawFocusProbe === true')) === true
+}
+
 test('the copy and paste chords work inside a browser pane', async () => {
   const server = createServer((_req, res) => {
     res.setHeader('content-type', 'text/html')
@@ -342,9 +358,10 @@ test('the copy and paste chords work inside a browser pane', async () => {
     await address.fill(url)
     await address.press('Enter')
     await expect(win.getByRole('tab', { name: /Clipboard page/ })).toBeVisible({ timeout: 15_000 })
+    await expect.poll(() => guestRun(GUEST_PAINT_COUNT)).toBeGreaterThan(0)
     await win.locator('.pane-slot:not([data-hidden]) webview').click()
-    await expect.poll(() => guestRun('document.hasFocus()')).toBe(true)
     if (isMac) {
+      await expect.poll(() => guestRun('document.hasFocus()')).toBe(true)
       const roles = await app.evaluate(({ Menu }) => {
         const found: string[] = []
         const walk = (items: Electron.MenuItem[]) => {
@@ -378,6 +395,10 @@ test('the copy and paste chords work inside a browser pane', async () => {
       return
     }
     await recordGuestClipboard(app, url)
+    await guestRun(GUEST_SEES_FOCUS_PROBE)
+    await attachingGuestState('focus', app, url, () =>
+      expect.poll(() => windowKeyReachesGuest(win, guestRun)).toBe(true),
+    )
     await guestRun("document.getElementById('source').select()")
     await guestChord('C')
     await attachingGuestState('copy', app, url, () =>
