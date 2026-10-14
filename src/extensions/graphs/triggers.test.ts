@@ -87,6 +87,25 @@ describe('the Ostia host of triggers', () => {
     host.stop()
   })
 
+  it('the panes its runs opened still never fire the graph after a restart, ended runs included', async () => {
+    const ws = workspace({
+      loop: `${head('{ manual: {} }, { agent: { state: stopped } }')}nodes:\n  - { id: a, kind: agent, with: { mode: start, agent: claude, prompt: p } }\nedges: []\n`,
+    })
+    const h = hostHarness(ws)
+    enable(h, 'loop')
+    expect(h.runner.start('w1', 'loop', { byAgent: false, inputs: [] })).toMatchObject({ ok: true })
+    await settle()
+    await h.stop('pane-1')
+    expect(runsOf(h, 'loop').map((r) => r.status)).toEqual(['done'])
+    const later = hostHarness(ws, h.store)
+    expect(later.runner.ownPane('w1', 'loop', 'pane-1')).toBe(true)
+    const host = triggerHost(later)
+    host.agent('w1', 'pane-1', 'stopped', 'claude')
+    await settle()
+    expect(runsOf(later, 'loop')).toHaveLength(1)
+    host.stop()
+  })
+
   it('an agent that is waiting fires a state: waiting trigger with the pane in trigger.pane', async () => {
     const h = hostHarness(
       workspace({

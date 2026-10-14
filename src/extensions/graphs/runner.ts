@@ -32,6 +32,7 @@ import {
   ostiaNotifyNode,
   panelNotifier,
 } from './humanNodes'
+import { RunPanes } from './runPanes'
 import type { EnabledGraph } from './triggers'
 
 const OSTIA_TRIGGERS = ['manual', 'schedule', 'files', 'command', 'agent']
@@ -131,7 +132,7 @@ export class GraphsRunner {
   private workspaces = new Map<string, Workspace>()
   private connections: ConnectionName[] = []
   private mcpGranted = true
-  private readonly panesOfGraphs = new Map<string, Set<string>>()
+  private readonly runPanes = new RunPanes()
 
   constructor(private readonly opts: RunnerOptions) {
     const kinds: NodeKind[] = [
@@ -167,7 +168,8 @@ export class GraphsRunner {
       host: this.host,
       store: this.store,
       changed: (runId) => {
-        this.notePanes(runId)
+        const run = this.engine.run(runId)
+        if (run) this.runPanes.noteRun(run)
         opts.changed()
       },
     })
@@ -181,22 +183,8 @@ export class GraphsRunner {
     this.mcpGranted = granted
   }
 
-  private notePanes(runId: string): void {
-    const run = this.engine.run(runId)
-    if (!run) return
-    const key = `${run.state.scope}/${run.state.graphName}`
-    const records = [...run.state.active.values(), ...run.state.history.values()]
-    for (const record of records) {
-      const pane = record.started?.pane
-      if (typeof pane !== 'string') continue
-      const panes = this.panesOfGraphs.get(key) ?? new Set<string>()
-      panes.add(pane)
-      this.panesOfGraphs.set(key, panes)
-    }
-  }
-
   ownPane(workspaceId: string, graph: string, pane: string): boolean {
-    return this.panesOfGraphs.get(`${workspaceId}/${graph}`)?.has(pane) === true
+    return this.runPanes.has(workspaceId, graph, pane)
   }
 
   enabledGraphs(): EnabledGraph[] {
@@ -232,7 +220,11 @@ export class GraphsRunner {
 
   setWorkspaces(list: Workspace[]): void {
     this.workspaces = new Map(list.map((w) => [w.workspaceId, w]))
-    for (const w of list) if (w.kind !== SCRATCH) this.engine.recover(w.workspaceId)
+    for (const w of list) {
+      if (w.kind === SCRATCH) continue
+      this.runPanes.rebuild(this.store, w.workspaceId)
+      this.engine.recover(w.workspaceId)
+    }
   }
 
   hasUnfinishedRuns(): boolean {
