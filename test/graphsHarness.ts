@@ -56,6 +56,7 @@ export interface Harness {
   stop: (pane: FakePane, payload: Record<string, unknown>) => Promise<CliResult>
   stopAll: () => void
   host: import('../src/main/extensions/extensionHost').ExtensionHost
+  secrets: import('../src/main/extensions/extensionHost').ExtensionSecretStore
 }
 
 export async function until<T>(
@@ -95,7 +96,7 @@ function runCli(args: string[], env: NodeJS.ProcessEnv, stdin = ''): Promise<Cli
 }
 
 export async function graphsHarness(
-  opts: { activity?: boolean; mcp?: boolean } = {},
+  opts: { activity?: boolean; mcp?: boolean; connections?: boolean } = {},
 ): Promise<Harness> {
   const { registerControlServer } = await import('../src/main/control/controlServer')
   const { registerPane, markManager, getByPaneId } = await import('../src/main/control/idRegistry')
@@ -114,6 +115,8 @@ export async function graphsHarness(
   const { scanSecrets } = await import('../src/main/privacy/secretScanner')
   const { McpHost } = await import('../src/main/chat/mcpHost')
   const { registerExtensionMcp } = await import('../src/main/chat/extensionMcp')
+  const { ExtensionConnections } = await import('../src/main/extensions/extensionConnections')
+  const { createSecretStore } = await import('../src/main/extensions/extensionSecrets')
 
   const dir = mkdtempSync(join(tmpdir(), 'ostia-graphs-'))
   const workDir = join(dir, 'shop')
@@ -164,7 +167,21 @@ export async function graphsHarness(
     },
   )
 
+  let storedSecrets: unknown = {}
+  const secretStore = createSecretStore({
+    load: () => storedSecrets,
+    save: (data) => {
+      storedSecrets = data
+    },
+    canEncrypt: () => true,
+    encrypt: (plain) => Buffer.from(plain).toString('base64'),
+    decrypt: (stored) => Buffer.from(stored, 'base64').toString(),
+  })
+  const connections = opts.connections
+    ? new ExtensionConnections(join(dir, 'extension-connections.json'), () => secretStore)
+    : undefined
   const host = new ExtensionHost({
+    ...(connections ? { connections, secrets: secretStore } : {}),
     roots: [{ dir: join(dir, 'builtin'), builtin: true }],
     store: new ExtensionStore(join(dir, 'extensions.json')),
     socketPath: () => socketPath,
@@ -382,6 +399,7 @@ export async function graphsHarness(
         env(pane),
         JSON.stringify({ session_id: 's-1', ...payload }),
       ),
+    secrets: secretStore,
     stopAll: () => {
       host.stopAll()
       mcp?.closeAll()
