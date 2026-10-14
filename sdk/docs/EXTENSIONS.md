@@ -137,7 +137,7 @@ The manifest is `ostia.json`; a marketplace's is `ostia-marketplace.json`.
 
 | Field | Meaning |
 |---|---|
-| `id` | Lowercase letters, digits and dashes, 2–40 chars. It is the CLI verb (`ostia dev-ports ls`) and the command prefix (`dev-ports.open`). `git` and `ports` are taken: Git and Ports are part of Ostia, and a manifest with one of those ids is refused. |
+| `id` | Lowercase letters, digits and dashes, 2–40 chars. It is the CLI word (`ostia dev-ports ls`) unless `contributes.verb` is set: an extension with a `verb` is reached only by that verb, and `ostia <id> <command>` then answers with its usage and runs nothing. The id is always the command prefix (`dev-ports.open`). `git` and `ports` are taken: Git and Ports are part of Ostia, and a manifest with one of those ids is refused. |
 | `name`, `version`, `description` | Shown in Settings and the approval dialog. |
 | `locales` | Optional. Up to 32 language tags (`"zh-Hant"`, `"fr"`) you ship a catalog for, each read from `locales/<tag>.json` in the extension. See "Translations" below. |
 | `capabilities` | What the extension process may do through Ostia. It gets this list intersected with what the user approved. Names are Ostia's capability names (`shared/capabilities.ts`). |
