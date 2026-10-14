@@ -594,7 +594,6 @@
         "src/renderer/components/panes/ResumeFolderNotice.tsx"
       ],
       "specs": [
-        "e2e/agent-fork.spec.ts",
         "e2e/auto-resume.spec.ts",
         "e2e/hibernate-background-work.spec.ts",
         "e2e/hibernate-group.spec.ts",
