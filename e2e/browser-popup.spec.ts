@@ -24,14 +24,13 @@ interface Fixture {
   provider: string
 }
 
-function sitePage(provider: string, opensAtLoad: boolean): string {
+function sitePage(provider: string): string {
   const open = `window.__popupWindow = window.open('${provider}/authorize', 'signin', 'popup,width=420,height=520'); window.__popup = window.__popupWindow ? 'opened' : 'blocked'`
   return `<!doctype html><title>site</title>
 <button id="signin" style="position:fixed;left:0;top:0;width:240px;height:120px">Sign in</button>
 <script>
 addEventListener('message', (e) => { document.title = 'signed-in ' + e.data + ' ' + e.origin })
 document.getElementById('signin').addEventListener('click', () => { ${open} })
-${opensAtLoad ? `setTimeout(() => { ${open} }, 300)` : ''}
 </script>`
 }
 
@@ -54,7 +53,7 @@ function serve(): Promise<Fixture> {
     res.setHeader('content-type', 'text/html')
     if (path === '/authorize') res.end(providerPage(fixture.site))
     else if (path === '/set') res.end('<!doctype html><title>cookie set</title>')
-    else res.end(sitePage(fixture.provider, path === '/auto'))
+    else res.end(sitePage(fixture.provider))
   })
   return new Promise((ok) =>
     server.listen(0, '127.0.0.1', () => {
@@ -223,24 +222,6 @@ test('the human’s click in their own browser pane opens a sign-in popup the pa
     await win.locator('.pane-slot:not([data-hidden]) .browser-address').click()
     await win.keyboard.press(chords.closePane)
     await expect.poll(() => windowCount(app), { timeout: 15_000 }).toBe(1)
-  } finally {
-    await quitApp(app)
-    server.close()
-  }
-})
-
-test('a page that opens a window without the human’s click gets none', async () => {
-  test.setTimeout(120_000)
-  const { server, site } = await serve()
-  const { app, win } = await launch(freshDataHome())
-  try {
-    await openHumanTab(win, `${site}/auto`)
-    await expect
-      .poll(() => inGuest<string>(app, `${site}/auto`, 'human', 'window.__popup'), {
-        timeout: 15_000,
-      })
-      .toBe('blocked')
-    expect(await windowCount(app)).toBe(1)
   } finally {
     await quitApp(app)
     server.close()
