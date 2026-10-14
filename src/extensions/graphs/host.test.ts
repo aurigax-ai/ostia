@@ -234,4 +234,35 @@ edges: []
     await settle()
     expect(h.runner.engine.run(id)?.state.state.e).toMatchObject({ name: 'SandboxUnavailable' })
   })
+
+  it('a report reaches the run it names, and one that names none is refused while two runs wait on the pane', async () => {
+    const text = (name: string) => `${head('v: { type: string, default: "" }')}nodes:
+  - { id: a, kind: agent, with: { mode: message, to: trigger, prompt: "${name}" }, result: { type: object, properties: { v: { type: string } }, required: [v] }, out: { result.v: v } }
+edges: []
+`
+    const h = hostHarness(workspace({ one: text('one'), two: text('two') }))
+    h.panes.push({
+      paneId: 'starter',
+      workspaceId: 'w1',
+      kind: 'terminal',
+      title: 'claude',
+      running: true,
+      blockCount: 0,
+      agent: 'claude',
+    })
+    const first = enableAndStart(h, 'one', [], 'starter')
+    const second = enableAndStart(h, 'two', [], 'starter')
+    await settle()
+    expect(h.busSent.map((m) => m.text.split('\n')[0])).toEqual(['one', 'two'])
+    expect(h.busSent[0]?.text).toContain(`--run ${first}`)
+    expect(await h.runner.report('starter', { v: 'x' })).toMatchObject({
+      ok: false,
+      error: 'ambiguous',
+    })
+    expect(await h.runner.report('starter', { v: 'for one' }, first)).toEqual({ ok: true })
+    expect(await h.runner.report('starter', { v: 'for two' }, second)).toEqual({ ok: true })
+    await h.stop('starter')
+    expect(h.runner.engine.run(first)?.state.state.v).toBe('for one')
+    expect(h.runner.engine.run(second)?.state.state.v).toBe('for two')
+  })
 })

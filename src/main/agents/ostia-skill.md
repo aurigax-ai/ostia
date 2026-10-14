@@ -443,7 +443,7 @@ ostia graph list                     # this workspace's graphs and whether they 
 ostia graph runs [name]              # its runs
 ostia graph show <run> [--node <id>] # a run node by node: input, output, state after
 ostia graph run <name> [--input key=value]   # start an enabled graph (see below)
-ostia graph report --json '<object>' # an agent node's result, when its prompt asks for it
+ostia graph report --json '<object>' --run <id>  # an agent node's result, when its prompt asks for it
 ```
 
 Only the human enables a graph, in the Graphs panel, after reading its exact definition; any

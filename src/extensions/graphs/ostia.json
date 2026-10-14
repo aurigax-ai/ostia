@@ -70,7 +70,7 @@
         "id": "report",
         "title": "Report an agent node's result",
         "palette": false,
-        "usage": "report --json <object>"
+        "usage": "report --json <object> [--run <id>]"
       },
       {
         "id": "on-stop",

@@ -21,12 +21,16 @@ type AgentExt = Pick<OstiaExtension, 'runAgent' | 'busSend' | 'wakePane' | 'list
 export interface AgentDeps {
   ext: AgentExt
   clock: Clock
-  takeReport: (pane: string) => Output | null
-  expectReport: (pane: string, ms: number) => void
+  takeReport: (pane: string, runId: string) => Output | null
+  expectReport: (pane: string, runId: string, ms: number) => void
 }
 
-function stopWait(pane: string, type = AGENT_STOP): NodeWait {
-  return { on: 'event', match: { type, pane } }
+function stopWait(pane: string): NodeWait {
+  return { on: 'event', match: { type: AGENT_STOP, pane } }
+}
+
+function lateWait(pane: string, run: string): NodeWait {
+  return { on: 'event', match: { type: AGENT_LATE, pane, run } }
 }
 
 function sleep(clock: Clock, ms: number, signal: AbortSignal): Promise<void> {
@@ -133,11 +137,11 @@ export function agentNode(deps: AgentDeps): NodeKind {
       if (event.backgroundWork === true) return { waiting: wait }
       const out = stopOutput(event, started)
       if (!ctx.node.result) return { done: out }
-      const report = deps.takeReport(String(event.pane))
+      const report = deps.takeReport(String(event.pane), ctx.run.id)
       if (report) return { done: { ...out, result: report } }
       if (out.outcome !== 'stopped') return { done: out }
-      deps.expectReport(String(event.pane), LATE_REPORT_MS)
-      return { waiting: stopWait(String(event.pane), AGENT_LATE), started: out }
+      deps.expectReport(String(event.pane), ctx.run.id, LATE_REPORT_MS)
+      return { waiting: lateWait(String(event.pane), ctx.run.id), started: out }
     },
     reattach: async (started, wait) => {
       const panes = await deps.ext.listPanes()

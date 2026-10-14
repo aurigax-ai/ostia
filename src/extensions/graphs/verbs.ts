@@ -159,14 +159,14 @@ export function graphVerbs(
     },
     report: async (args, caller) => {
       if (caller.kind !== 'pane' || !caller.paneId) return failure('not-available')
-      const { flags } = parseFlags(cliArgs(args)?.argv ?? [], ['json'])
+      const { flags } = parseFlags(cliArgs(args)?.argv ?? [], ['json', 'run'])
       let value: unknown
       try {
         value = JSON.parse(flags.json ?? '')
       } catch {
         return failure('bad-result', '--json is one JSON object')
       }
-      const res = await runner.report(caller.paneId, value)
+      const res = await runner.report(caller.paneId, value, flags.run)
       return res.ok ? ok('report accepted') : failure(res.error, res.message)
     },
   }

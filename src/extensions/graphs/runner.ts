@@ -67,6 +67,10 @@ function hostProblems(
   return problems
 }
 
+function reportKey(runId: string, pane: string): string {
+  return `${runId}\u0000${pane}`
+}
+
 function fail(error: string, message: string): { ok: false; error: string; message: string } {
   return { ok: false, error, message }
 }
@@ -85,8 +89,8 @@ export class GraphsRunner {
       agentNode({
         ext: opts.ext,
         clock: opts.clock,
-        takeReport: (pane) => this.takeReport(pane),
-        expectReport: (pane, ms) => this.expectReport(pane, ms),
+        takeReport: (pane, runId) => this.takeReport(pane, runId),
+        expectReport: (pane, runId, ms) => this.expectReport(pane, runId, ms),
       }),
       approvalNode({ ext: opts.ext, deliver: (event) => void this.engine.deliver(event) }),
       ostiaCommandNode(opts.ext),
@@ -219,19 +223,21 @@ export class GraphsRunner {
     )
   }
 
-  private takeReport(pane: string): Output | null {
-    const report = this.reports.get(pane) ?? null
-    this.reports.delete(pane)
+  private takeReport(pane: string, runId: string): Output | null {
+    const key = reportKey(runId, pane)
+    const report = this.reports.get(key) ?? null
+    this.reports.delete(key)
     return report
   }
 
-  private expectReport(pane: string, ms: number): void {
-    this.lateTimers.get(pane)?.()
+  private expectReport(pane: string, runId: string, ms: number): void {
+    const key = reportKey(runId, pane)
+    this.lateTimers.get(key)?.()
     this.lateTimers.set(
-      pane,
+      key,
       this.opts.clock.setTimer(this.opts.clock.now() + ms, () => {
-        this.lateTimers.delete(pane)
-        void this.engine.deliver({ type: AGENT_LATE, pane })
+        this.lateTimers.delete(key)
+        void this.engine.deliver({ type: AGENT_LATE, pane, run: runId })
       }),
     )
   }
@@ -239,25 +245,45 @@ export class GraphsRunner {
   async report(
     pane: string,
     raw: unknown,
+    runId?: string,
   ): Promise<{ ok: true } | { ok: false; error: string; message: string }> {
-    const waiting = [
-      ...this.engine.waitingOn({ type: AGENT_STOP, pane }),
-      ...this.engine.waitingOn({ type: AGENT_LATE, pane }),
-    ]
-    const found = waiting[0]
-    if (!found) return fail('no-waiting-node', 'no graph node is waiting for this pane')
+    const waiting = this.engine
+      .active()
+      .flatMap((run) =>
+        [
+          ...run.waitingOn({ type: AGENT_STOP, pane }),
+          ...run.waitingOn({ type: AGENT_LATE, pane, run: run.id }),
+        ].map((node) => ({ run, node })),
+      )
+    const lateOf = (id: string) =>
+      this.engine.waitingOn({ type: AGENT_LATE, pane, run: id }).length > 0
+    const mine = runId ? waiting.filter((w) => w.run.id === runId) : waiting
+    const runs = new Set(mine.map((w) => w.run.id))
+    if (mine.length === 0) return fail('no-waiting-node', 'no graph node is waiting for this pane')
+    if (runs.size > 1) {
+      return fail(
+        'ambiguous',
+        `${runs.size} runs wait on this pane; pass --run <id> as the prompt says`,
+      )
+    }
+    const found = mine[0] as (typeof mine)[number]
     const node = found.run.state.graph.nodes.find((n) => n.id === found.node)
     if (!node?.result) return fail('no-result', `${found.node} takes no result`)
     const errors = resultErrors(node.result, raw)
     await found.run.recordReport(found.node, errors.length === 0)
     if (errors.length > 0) return fail('bad-result', errors.join('; '))
-    const late = this.engine.waitingOn({ type: AGENT_LATE, pane }).length > 0
-    if (late) {
-      this.lateTimers.get(pane)?.()
-      this.lateTimers.delete(pane)
-      await this.engine.deliver({ type: AGENT_LATE, pane, result: raw as Output })
+    const key = reportKey(found.run.id, pane)
+    if (lateOf(found.run.id)) {
+      this.lateTimers.get(key)?.()
+      this.lateTimers.delete(key)
+      await this.engine.deliver({
+        type: AGENT_LATE,
+        pane,
+        run: found.run.id,
+        result: raw as Output,
+      })
     } else {
-      this.reports.set(pane, raw as Output)
+      this.reports.set(key, raw as Output)
     }
     return { ok: true }
   }
