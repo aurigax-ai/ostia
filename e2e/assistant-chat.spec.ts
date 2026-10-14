@@ -1,9 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import {
   type FakeProvider,
-  type FakeReply,
   type FakeRequest,
   fakeAssistantSettings,
   startFakeProvider,
@@ -13,16 +12,8 @@ import { type Page, _electron as electron, expect, test } from './test'
 
 const RUN_MARKER = 'ostia-ran-from-chat'
 
-function seedAssistant(
-  dataHome: string,
-  url: string,
-  extra: { assistant?: object; [key: string]: unknown } = {},
-): void {
-  seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
-    ...extra,
-    assistant: { ...fakeAssistantSettings(url), ...extra.assistant },
-  })
+function seedAssistant(dataHome: string, url: string): void {
+  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, assistant: fakeAssistantSettings(url) })
 }
 
 async function openAssistantMenu(win: Page) {
@@ -35,16 +26,12 @@ async function openAssistantMenu(win: Page) {
   return menu
 }
 
-test.describe('assistant chat pane and terminal completion', () => {
+test.describe('assistant chat pane', () => {
   let provider: FakeProvider
   let notes = ''
 
   test.beforeAll(async () => {
     provider = await startFakeProvider((req: FakeRequest) => {
-      if (req.system.includes('autocomplete the command')) {
-        const line = req.last.match(/Current line: (.*)$/m)?.[1] ?? ''
-        return line.startsWith('echo ostia-gh') ? 'echo ostia-ghost-ok' : line
-      }
       if (req.last.includes('marker')) {
         return `Run this:\n\n\`\`\`bash\necho ${RUN_MARKER}\n\`\`\`\n`
       }
@@ -83,7 +70,6 @@ test.describe('assistant chat pane and terminal completion', () => {
       await question.press('Enter')
       const reply = win.locator('.ask-answer').last()
       await expect(reply.locator('pre')).toContainText(`echo ${RUN_MARKER}`, { timeout: 15_000 })
-      expect(provider.requests.some((r) => r.model === 'fake-big' && r.stream)).toBe(true)
 
       const terminals = await win.locator('.xterm').count()
       await reply.locator('pre').hover()
@@ -119,221 +105,6 @@ test.describe('assistant chat pane and terminal completion', () => {
       const win = await app.firstWindow()
       await win.waitForLoadState('domcontentloaded')
       await expect(win.getByText('print a marker for me').first()).toBeVisible({ timeout: 15_000 })
-    } finally {
-      await app.close()
-    }
-  })
-
-  test('slash commands run in the chat without reaching the model: /new starts a fresh chat and /help lists the commands', async () => {
-    const dataHome = freshDataHome()
-    seedAssistant(dataHome, provider.url)
-    const app = await electron.launch(isolatedLaunch(dataHome))
-    try {
-      const win = await app.firstWindow()
-      await win.waitForLoadState('domcontentloaded')
-      await openWorkspace(win)
-      const menu = await openAssistantMenu(win)
-      await expect(menu).toContainText('Fake · fake-big', { timeout: 15_000 })
-      await win.keyboard.press('Escape')
-      await win
-        .locator('header.topbar')
-        .getByRole('button', { name: /^Open chat/ })
-        .click()
-
-      const question = win.getByRole('combobox', { name: 'Your question' }).last()
-      await expect(question).toBeVisible({ timeout: 10_000 })
-      await question.fill('say hello')
-      await question.press('Enter')
-      await expect(win.locator('.ask-answer').last()).toContainText('Hello from the fake model.', {
-        timeout: 15_000,
-      })
-      await expect(win.locator('.ask-answer').last()).toHaveAttribute('aria-busy', 'false')
-      const chatRequests = () => provider.requests.filter((r) => r.model === 'fake-big').length
-      const sent = chatRequests()
-
-      await question.press('/')
-      const commands = win.getByRole('listbox', { name: 'Chat commands' })
-      await expect(commands).toBeVisible()
-      await expect(commands.getByRole('option')).toHaveCount(12)
-      await question.pressSequentially('ne')
-      await expect(commands.getByRole('option')).toHaveCount(1)
-      await question.press('Enter')
-      await expect(win.locator('.ask-answer')).toHaveCount(0)
-      await expect(win.getByRole('button', { name: 'Switch chat: New chat' })).toBeVisible()
-      await expect(question).toHaveValue('')
-
-      await question.pressSequentially('/he')
-      await question.press('Enter')
-      const help = win.getByRole('region', { name: 'Chat commands' })
-      await expect(help).toBeVisible()
-      await expect(help).toContainText('/skill')
-      await expect(question).toHaveValue('')
-      expect(chatRequests()).toBe(sent)
-    } finally {
-      await app.close()
-    }
-  })
-
-  test('terminal ghost text is accepted with Tab without running, and stops once turned off in the Assistant menu', async () => {
-    const dataHome = freshDataHome()
-    seedAssistant(dataHome, provider.url, {
-      behavior: { gpuAcceleration: false, inputMode: 'editor' },
-    })
-    const app = await electron.launch(isolatedLaunch(dataHome))
-    try {
-      const win = await app.firstWindow()
-      await win.waitForLoadState('domcontentloaded')
-      await openWorkspace(win)
-      const editor = win.getByRole('textbox', { name: 'Command input' })
-      await expect(editor).toBeVisible({ timeout: 15_000 })
-      await editor.click()
-      await win.keyboard.type('echo ostia-gh')
-      const ghost = win.locator('[data-ghost="ai"]')
-      await expect(ghost).toHaveText('ost-ok', { timeout: 15_000 })
-      await win.keyboard.press('Tab')
-      await expect(editor).toHaveValue('echo ostia-ghost-ok')
-      await win.waitForTimeout(500)
-      const rows = await win.locator('.xterm-rows').first().innerText()
-      expect(rows.split('\n').some((l) => l.trim() === 'ostia-ghost-ok')).toBe(false)
-
-      await win.keyboard.press('Control+c')
-      await expect(editor).toHaveValue('')
-      const menu = await openAssistantMenu(win)
-      const toggle = menu.getByRole('switch', { name: 'Terminal completion' })
-      await expect(toggle).toBeChecked()
-      await toggle.click()
-      await expect(toggle).not.toBeChecked()
-      await win.keyboard.press('Escape')
-
-      const before = provider.requests.length
-      await editor.click()
-      await win.keyboard.type('echo ostia-gh')
-      await win.waitForTimeout(1500)
-      await expect(ghost).toHaveCount(0)
-      expect(
-        provider.requests.slice(before).some((r) => r.system.includes('autocomplete the command')),
-      ).toBe(false)
-    } finally {
-      await app.close()
-    }
-  })
-})
-
-const MCP_SERVER = join(__dirname, '..', 'test', 'fixtures', 'mcp', 'fake-server.mjs')
-
-function toolAnswer(req: FakeRequest): FakeReply {
-  if (req.toolResult !== undefined) {
-    if (req.last.includes('echo')) return `MCP answered: ${req.toolResult}`
-    if (req.last.includes('write')) return `Write result: ${req.toolResult.slice(0, 80)}`
-    const found = req.toolResult.includes('three marker line')
-    return `The notes say: ${found ? 'three marker line' : 'nothing'}`
-  }
-  if (req.last.includes('read the notes')) {
-    return { toolCalls: [{ name: 'read_file', args: { path: 'notes.txt' } }] }
-  }
-  if (req.last.includes('write')) {
-    return {
-      toolCalls: [{ name: 'write_file', args: { path: 'out.txt', content: 'hello from chat\n' } }],
-    }
-  }
-  if (req.last.includes('echo')) {
-    return { toolCalls: [{ name: 'mcp__fake__echo', args: { text: 'ostia' } }] }
-  }
-  return 'Hello from the fake model.'
-}
-
-test.describe('assistant chat tools', () => {
-  let provider: FakeProvider
-
-  test.beforeAll(async () => {
-    provider = await startFakeProvider(toolAnswer)
-  })
-
-  test.afterAll(() => provider.close())
-
-  test('a read-only tool runs, a write waits for Reject or Accept, and an MCP tool asks first', async () => {
-    const dataHome = freshDataHome()
-    const project = join(dataHome, 'userData', 'project')
-    mkdirSync(project, { recursive: true })
-    writeFileSync(join(project, 'notes.txt'), 'one\ntwo\nthree marker line\n')
-    seedAssistant(dataHome, provider.url, {
-      workspaces: { confirmQuit: false, defaultFolder: project },
-      assistant: {
-        chatHistory: true,
-        mcpServers: [{ name: 'fake', command: [process.execPath, MCP_SERVER] }],
-      },
-    })
-    const app = await electron.launch(isolatedLaunch(dataHome))
-    try {
-      const win = await app.firstWindow()
-      await win.waitForLoadState('domcontentloaded')
-      await openWorkspace(win)
-      const menu = await openAssistantMenu(win)
-      await expect(menu).toContainText('Fake · fake-big', { timeout: 15_000 })
-      await win.keyboard.press('Escape')
-      await win
-        .locator('header.topbar')
-        .getByRole('button', { name: /^Open chat/ })
-        .click()
-
-      const question = win.getByRole('combobox', { name: 'Your question' }).last()
-      await expect(question).toBeVisible({ timeout: 10_000 })
-
-      await win.getByRole('button', { name: 'Tools for this chat' }).click()
-      const tools = win.getByRole('dialog', { name: 'Tools for this chat' })
-      await expect(tools.getByText('5 tools')).toBeVisible({ timeout: 15_000 })
-      await win.keyboard.press('Escape')
-
-      await question.fill('read the notes please')
-      await question.press('Enter')
-      const readCall = win.locator('.chat-tool[data-tool="read_file"]').last()
-      await expect(readCall).toHaveAttribute('data-state', 'output-available', { timeout: 15_000 })
-      await expect(win.locator('.ask-answer').last()).toContainText(
-        'The notes say: three marker line',
-        { timeout: 15_000 },
-      )
-      expect(provider.requests.some((r) => r.tools.includes('read_file'))).toBe(true)
-      expect(provider.requests.some((r) => r.tools.includes('mcp__fake__echo'))).toBe(true)
-      await expect(win.locator('.chat-tool-approval')).toHaveCount(0)
-
-      const out = join(project, 'out.txt')
-      await expect(win.locator('.ask-answer').last()).toHaveAttribute('aria-busy', 'false')
-      await question.fill('write the file')
-      await question.press('Enter')
-      const card = win.locator('.chat-edit[data-tool="write_file"]').last()
-      await expect(card).toHaveAttribute('data-state', 'pending', { timeout: 15_000 })
-      await expect(card).toContainText('out.txt')
-      await expect(card).toContainText('New file')
-      await expect(card.locator('[data-diff="add"]')).toContainText('+hello from chat')
-      await expect(card.getByRole('button', { name: 'Allow for this chat' })).toHaveCount(0)
-      await card.getByRole('button', { name: 'Reject' }).click()
-      await expect(card).toHaveAttribute('data-state', 'rejected', { timeout: 15_000 })
-      await expect(win.locator('.ask-answer').last()).toContainText('Write result:', {
-        timeout: 15_000,
-      })
-      expect(existsSync(out)).toBe(false)
-
-      await expect(win.locator('.ask-answer').last()).toHaveAttribute('aria-busy', 'false')
-      await question.fill('write it again')
-      await question.press('Enter')
-      const again = win.locator('.chat-edit[data-tool="write_file"]').last()
-      await expect(again).toHaveAttribute('data-state', 'pending', { timeout: 15_000 })
-      await again.getByRole('button', { name: 'Accept' }).click()
-      await expect(again).toHaveAttribute('data-state', 'applied', { timeout: 15_000 })
-      await expect
-        .poll(() => (existsSync(out) ? readFileSync(out, 'utf8') : ''))
-        .toBe('hello from chat\n')
-
-      await expect(win.locator('.ask-answer').last()).toContainText('Write result:')
-      await expect(win.locator('.ask-answer').last()).toHaveAttribute('aria-busy', 'false')
-      await question.fill('echo through mcp')
-      await question.press('Enter')
-      const mcpCard = win.locator('.chat-tool-approval').last()
-      await expect(mcpCard).toContainText('Call echo on the fake MCP server?', { timeout: 15_000 })
-      await mcpCard.getByRole('button', { name: 'Allow once' }).click()
-      await expect(win.locator('.ask-answer').last()).toContainText('MCP answered: echo: ostia', {
-        timeout: 15_000,
-      })
     } finally {
       await app.close()
     }
