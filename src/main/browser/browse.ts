@@ -118,23 +118,26 @@ const followedDebuggers = new WeakSet<PageScriptDebugger>()
 export function injectPageScripts(
   guest: { debugger: PageScriptDebugger },
   sources: readonly string[],
-): void {
+): Promise<void> {
   const dbg = guest.debugger
-  const send = (method: string, params: object, sessionId?: string): void => {
+  const send = (method: string, params: object, sessionId?: string): Promise<unknown> => {
     try {
       const sent =
         sessionId === undefined
           ? dbg.sendCommand(method, params)
           : dbg.sendCommand(method, params, sessionId)
-      sent.catch(() => {})
-    } catch {}
-  }
-  const prepare = (sessionId?: string): void => {
-    send('Page.enable', {}, sessionId)
-    for (const source of sources) {
-      send('Page.addScriptToEvaluateOnNewDocument', { source, runImmediately: true }, sessionId)
+      return sent.catch(() => {})
+    } catch {
+      return Promise.resolve()
     }
-    send('Target.setAutoAttach', IFRAME_AUTO_ATTACH, sessionId)
+  }
+  const prepare = (sessionId?: string): Promise<void> => {
+    void send('Page.enable', {}, sessionId)
+    const registered = sources.map((source) =>
+      send('Page.addScriptToEvaluateOnNewDocument', { source, runImmediately: true }, sessionId),
+    )
+    void send('Target.setAutoAttach', IFRAME_AUTO_ATTACH, sessionId)
+    return Promise.all(registered).then(() => {})
   }
   if (!followedDebuggers.has(dbg)) {
     followedDebuggers.add(dbg)
@@ -147,12 +150,12 @@ export function injectPageScripts(
       if (typeof sessionId !== 'string' || sessionId === '') return
       const isFrame = targetInfo?.type === 'iframe'
       setImmediate(() => {
-        if (isFrame) prepare(sessionId)
-        send('Runtime.runIfWaitingForDebugger', {}, sessionId)
+        if (isFrame) void prepare(sessionId)
+        void send('Runtime.runIfWaitingForDebugger', {}, sessionId)
       })
     })
   }
-  prepare()
+  return prepare()
 }
 
 interface Route {

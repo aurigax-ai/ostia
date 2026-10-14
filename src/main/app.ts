@@ -159,6 +159,7 @@ import { BrowserProfiles } from './browser/browserProfiles'
 import { registerBrowserStorageIpc } from './browser/browserStorage'
 import { credentials, registerCredentials } from './browser/credentials'
 import { type GuestChords, registerGuestChords } from './browser/guestChords'
+import { holdFirstLoad } from './browser/guestFirstLoad'
 import { clearGuestNetwork, forgetGuestNetwork, watchGuestNetwork } from './browser/guestNetwork'
 import { openHumanPopups } from './browser/guestPopups'
 import { registerLoginFill } from './browser/loginFill'
@@ -1589,7 +1590,7 @@ const instrumentedGuests = new WeakSet<Electron.WebContents>()
 let clipboardEdits: ClipboardEdits | null = null
 let guestChords: GuestChords | null = null
 
-function instrumentBrowserGuest(gc: Electron.WebContents): void {
+function instrumentBrowserGuest(gc: Electron.WebContents, attaching = false): void {
   const wcId = gc.id
   if (!instrumentedGuests.has(gc)) {
     instrumentedGuests.add(gc)
@@ -1606,10 +1607,12 @@ function instrumentBrowserGuest(gc: Electron.WebContents): void {
     })
   }
   if (!gc.debugger.isAttached()) {
+    let registered: Promise<unknown> = Promise.resolve()
     try {
       gc.debugger.attach('1.3')
-      injectPageScripts(gc, [PAGE_ERROR_CATCHER_JS, PASSKEY_GUARD_JS])
+      registered = injectPageScripts(gc, [PAGE_ERROR_CATCHER_JS, PASSKEY_GUARD_JS])
     } catch {}
+    if (attaching) void holdFirstLoad(gc, registered)
   }
   watchGuestNetwork(gc)
 }
@@ -1772,7 +1775,7 @@ function wireWindow(win: BrowserWindow): void {
     attachContextMenu(guest, true)
     const agents = browserAgentsOf(guest.session)
     guest.setUserAgent(agents.rewritten)
-    instrumentBrowserGuest(guest)
+    instrumentBrowserGuest(guest, true)
     followAgentByHost(guest, agents)
     fenceBrowserGuest(guest)
     allowHumanPopups(guest)
