@@ -389,6 +389,7 @@ export interface ExtensionHostDeps {
   resumeOf?: (pane: PaneIdentity) => Promise<HeldResume | null>
   agentTaskClock?: () => number
   remoteCwdForPane?: (paneId: string) => RemoteCwd | undefined
+  agentRunning?: (paneId: string) => boolean
   remoteFolders?: Pick<RemoteFoldersDeps, 'windowOfWorkspace' | 'refusal' | 'confirm'> & {
     publish: (folders: RemoteFolders) => void
   }
@@ -1228,6 +1229,7 @@ export class ExtensionHost {
     if (locale) caller.locale = locale
     if (this.deps.isSandboxed?.(identity.workspaceId)) caller.sandboxed = true
     if (identity.manager) caller.manager = true
+    if (this.deps.agentRunning?.(identity.paneId)) caller.agentRunning = true
     const remote = this.deps.remoteCwdForPane?.(identity.paneId)
     if (remote) caller.remote = remote
     return caller

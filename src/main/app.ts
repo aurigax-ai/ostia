@@ -2003,7 +2003,13 @@ function registerIpc(): void {
         const identity = getByPaneId(snapshot.paneId)
         if (identity) {
           updateRunner?.paneState(identity.externalId, snapshot.running, snapshot.lastExitCode)
-          emitTerminalExtensionEvents(identity.externalId, identity.workspaceId, cur, snapshot)
+          emitTerminalExtensionEvents(
+            identity.externalId,
+            identity.workspaceId,
+            cur,
+            snapshot,
+            remoteCwdOfPane(identity.paneId) !== undefined,
+          )
           emitPlatformEvent('pane.state', {
             paneId: identity.externalId,
             generation: snapshot.generation,
@@ -2050,6 +2056,7 @@ function emitTerminalExtensionEvents(
   workspaceId: string,
   prev: TerminalStateSnapshot | undefined,
   next: TerminalStateSnapshot,
+  remote: boolean,
 ): void {
   if (next.cwd && prev?.cwd !== next.cwd) {
     emitPaneEvent('cwd.changed', { paneId, workspaceId, cwd: next.cwd })
@@ -2062,6 +2069,7 @@ function emitTerminalExtensionEvents(
       workspaceId,
       cwd: next.cwd,
       exitCode: next.lastExitCode,
+      ...(remote ? { remote: true } : {}),
     })
   }
 }
@@ -3988,6 +3996,7 @@ app.whenReady().then(() => {
     workDirForWorkspace,
     cwdForPane: (paneId) => terminalState.get(paneId)?.cwd,
     remoteCwdForPane: remoteCwdOfPane,
+    agentRunning: (paneId) => agentRunning.has(paneId),
     remoteFolders: {
       windowOfWorkspace: workspaceWindowId,
       refusal: (workspaceId) =>

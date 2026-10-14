@@ -88,8 +88,18 @@ export class TriggerHost {
     return this.graphs.some((g) => g.definition.graph.on.some((t) => !('manual' in t)))
   }
 
-  command(workspaceId: string, pane: string, exitCode: number): void {
-    this.deliver(workspaceId, { kind: 'command', pane, exitCode })
+  commandFinished(event: {
+    paneId: string
+    workspaceId: string
+    exitCode?: number
+    remote?: boolean
+  }): void {
+    if (event.remote === true || typeof event.exitCode !== 'number') return
+    this.deliver(event.workspaceId, {
+      kind: 'command',
+      pane: event.paneId,
+      exitCode: event.exitCode,
+    })
   }
 
   agent(workspaceId: string, pane: string, state: AgentState, agent?: string): void {

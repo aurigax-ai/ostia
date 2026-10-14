@@ -415,6 +415,7 @@ export interface ExtensionCaller {
   sandboxed?: boolean
   remote?: RemoteCwd
   manager?: boolean
+  agentRunning?: boolean
   capabilities: Capability[]
 }
 
@@ -437,7 +438,13 @@ export interface ExtensionEventPayloads {
   'pane.created': { paneId: string; workspaceId: string }
   'pane.closed': { paneId: string; workspaceId: string }
   'command.started': { paneId: string; workspaceId: string; cwd?: string }
-  'command.finished': { paneId: string; workspaceId: string; cwd?: string; exitCode?: number }
+  'command.finished': {
+    paneId: string
+    workspaceId: string
+    cwd?: string
+    exitCode?: number
+    remote?: boolean
+  }
   'cwd.changed': { paneId: string; workspaceId: string; cwd: string }
   'pane.attention': { paneId: string; workspaceId: string; state: PaneAttentionEventState }
   'focus.changed': { focused: boolean }

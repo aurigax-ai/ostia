@@ -79,7 +79,7 @@ describe('the Ostia host of triggers', () => {
     expect(h.runner.ownPane('w1', 'loop', 'pane-1')).toBe(true)
     await h.stop('pane-1')
     host.agent('w1', 'pane-1', 'stopped', 'claude')
-    host.command('w1', 'pane-1', 0)
+    host.commandFinished({ paneId: 'pane-1', workspaceId: 'w1', exitCode: 0 })
     await settle()
     expect(runsOf(h, 'loop')).toHaveLength(1)
     host.agent('w1', 'pane-other', 'stopped', 'claude')
@@ -117,8 +117,8 @@ describe('the Ostia host of triggers', () => {
     const host = triggerHost(h)
     expect(h.runner.start('w1', 'busy', { byAgent: false, inputs: [] })).toMatchObject({ ok: true })
     await settle()
-    host.command('w1', 'p-other', 0)
-    host.command('w1', 'p-other', 1)
+    host.commandFinished({ paneId: 'p-other', workspaceId: 'w1', exitCode: 0 })
+    host.commandFinished({ paneId: 'p-other', workspaceId: 'w1', exitCode: 1 })
     await settle()
     expect(runsOf(h, 'busy')).toHaveLength(1)
     const handlers = panelHandlers(
@@ -130,6 +130,26 @@ describe('the Ostia host of triggers', () => {
       data: { graphs: { name: string; skipped?: number }[] }
     }
     expect(res.data.graphs.find((g) => g.name === 'busy')?.skipped).toBe(2)
+    host.stop()
+  })
+
+  it('a command with no exit code, or one in a remote pane, never fires a command trigger', async () => {
+    const h = hostHarness(
+      workspace({
+        any: `${head('{ command: {} }')}nodes:\n  - { id: a, kind: router }\nedges: []\n`,
+        zero: `${head('{ command: { exit: zero } }')}nodes:\n  - { id: a, kind: router }\nedges: []\n`,
+      }),
+    )
+    enable(h, 'any')
+    enable(h, 'zero')
+    const host = triggerHost(h)
+    host.commandFinished({ paneId: 'p1', workspaceId: 'w1' })
+    host.commandFinished({ paneId: 'p1', workspaceId: 'w1', exitCode: 0, remote: true })
+    await settle()
+    expect([runsOf(h, 'any'), runsOf(h, 'zero')]).toEqual([[], []])
+    host.commandFinished({ paneId: 'p1', workspaceId: 'w1', exitCode: 0 })
+    await settle()
+    expect([runsOf(h, 'any').length, runsOf(h, 'zero').length]).toEqual([1, 1])
     host.stop()
   })
 
@@ -182,7 +202,7 @@ describe('the Ostia host of triggers', () => {
       stop: () => {},
     }))
     expect(off.filesRefused('w1')).toBe(true)
-    off.command('w1', 'p1', 0)
+    off.commandFinished({ paneId: 'p1', workspaceId: 'w1', exitCode: 0 })
     await settle()
     expect(runsOf(refused, 'files')).toHaveLength(1)
     off.stop()

@@ -172,6 +172,7 @@ export async function graphsHarness(
     dataDir,
     workDirForWorkspace: (id) => (id ? workDirs[id] : undefined),
     cwdForPane: (paneId) => workDirs[panes.get(paneId)?.workspaceId ?? ''],
+    agentRunning: (paneId) => panes.get(paneId)?.agent !== undefined,
     remoteCwdForPane: (paneId) =>
       (paneId === remotePane.internalId ? { host: 'box', cwd: '/srv' } : undefined) as never,
     broadcast: () => {},
@@ -255,6 +256,7 @@ export async function graphsHarness(
       })
     : null
   registerExtensionMcp({ mcp: () => mcp })
+  if (opts.mcp) host.approve('graphs')
   registerBusMethods({
     managerSendAllowed: () => true,
     announce: () => {},

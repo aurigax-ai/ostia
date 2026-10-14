@@ -163,6 +163,7 @@ async function main(): Promise<void> {
       const parsed = cliArgs(args)
       const [agent, event] = parsed?.argv ?? []
       if (!parsed?.stdin || caller.kind !== 'pane' || !caller.paneId) return ok()
+      if (caller.agentRunning !== true) return ok()
       if (!isHookAgent(agent) || !isAgentHookEvent(event) || event !== 'Stop') return ok()
       const stop = parseAgentStop(agent, parsed.stdin)
       if (!stop) return ok()
@@ -183,6 +184,7 @@ async function main(): Promise<void> {
       workspaceId?: string
       exitCode?: number
       state?: string
+      remote?: boolean
     }
     const pane = event.paneId
     if (type === 'pane.attention') {
@@ -193,7 +195,8 @@ async function main(): Promise<void> {
     if (type === 'pane.closed' && pane) void runner.stopped({ pane, closed: true })
     else if (type === 'command.finished' && pane) {
       void runner.stopped({ pane, exited: true })
-      if (event.workspaceId) triggers.command(event.workspaceId, pane, event.exitCode ?? 0)
+      if (event.workspaceId)
+        triggers.commandFinished({ ...event, paneId: pane, workspaceId: event.workspaceId })
     }
     void refresh()
   })

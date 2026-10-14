@@ -69,7 +69,7 @@ edges: []
     expect((await h.panel('disable', { name: 'onsave' })).ok).toBe(true)
   }, 60_000)
 
-  it('GRF-C50 the stop of the agent its run started ends the node and starts nothing; another agent stopping starts a run', async () => {
+  it('GRF-C50 the stop of the agent its run started ends the node and starts nothing; another agent stopping starts a run, and a pane running no agent never does', async () => {
     await enable(
       'restart',
       `version: 1
@@ -91,6 +91,10 @@ edges: []
     )
     await settleFor(500)
     expect(runIds('restart')).toEqual([runId])
+    expect((await h.stop(h.remotePane, {})).code).toBe(0)
+    await settleFor(500)
+    expect(runIds('restart')).toEqual([runId])
+    h.human.agent = 'claude'
     expect((await h.stop(h.human, {})).code).toBe(0)
     await until(() => (runIds('restart').length === 2 ? true : undefined))
     const second = runIds('restart').find((id) => id !== runId) as string
@@ -126,6 +130,14 @@ edges: []
     expect(listed.filesRefused).toBe(true)
     writeFileSync(join(h.workDir, 'src/a/c.ts'), '1')
     await settleFor(1500)
+    expect(runIds('huge')).toEqual([])
+    h.host.emitEvent('command.finished', {
+      paneId: h.human.externalId,
+      workspaceId: 'w1',
+      exitCode: 0,
+      remote: true,
+    })
+    await settleFor(500)
     expect(runIds('huge')).toEqual([])
     h.host.emitEvent('command.finished', {
       paneId: h.human.externalId,
