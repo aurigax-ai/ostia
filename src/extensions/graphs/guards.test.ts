@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest'
 
 const HERE = __dirname
 const REPO = resolve(HERE, '../../..')
-const ENGINE = join(REPO, 'graph-engine/src')
+const ENGINE_PACKAGE = join(REPO, 'node_modules/@aurigax-ai/graph')
+const ENGINE = join(ENGINE_PACKAGE, 'src')
 
 function files(dir: string, test: (name: string) => boolean): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -44,7 +45,7 @@ describe('what the graphs extension may do', () => {
       .filter((f) => WRITES.test(read(f)))
       .map((f) => f.slice(REPO.length + 1))
     expect(writers.sort()).toEqual([
-      'graph-engine/src/engine/fileStore.ts',
+      'node_modules/@aurigax-ai/graph/src/engine/fileStore.ts',
       'src/extensions/graphs/enabled.ts',
     ])
     expect(read(join(HERE, 'enabled.ts'))).not.toContain('graphsFolder')
@@ -54,7 +55,7 @@ describe('what the graphs extension may do', () => {
   it('GRF-C4 no surveyed engine is a dependency of the bundle, the engine or the app', () => {
     const names = ['@langchain/', 'langsmith', 'xstate', '@mastra/', '@temporalio/', '@restatedev/']
     const bundle = join(REPO, 'out/extensions/graphs/main.js')
-    const texts = [read(join(REPO, 'package.json')), read(join(REPO, 'graph-engine/package.json'))]
+    const texts = [read(join(REPO, 'package.json')), read(join(ENGINE_PACKAGE, 'package.json'))]
     if (existsSync(bundle)) texts.push(read(bundle))
     expect(texts).toHaveLength(3)
     for (const text of texts) for (const name of names) expect(text).not.toContain(name)

@@ -1,14 +1,24 @@
 import { join } from 'node:path'
-import type { Clock, Host, NodeKind, Output } from '../../../graph-engine/src/engine/contract'
-import { Engine, type StartResult, missingKinds } from '../../../graph-engine/src/engine/engine'
-import { FileJournalStore } from '../../../graph-engine/src/engine/fileStore'
-import { parseInputs } from '../../../graph-engine/src/engine/inputs'
-import type { MemoryJournalStore } from '../../../graph-engine/src/engine/journal'
-import { isEnded } from '../../../graph-engine/src/engine/runState'
-import { type RunView, runView } from '../../../graph-engine/src/engine/summary'
-import type { GraphFile, Problem } from '../../../graph-engine/src/format/model'
-import { resultErrors } from '../../../graph-engine/src/format/resultSchema'
-import { routerNode, waitNode } from '../../../graph-engine/src/kinds/smallKinds'
+import {
+  type Clock,
+  Engine,
+  FileJournalStore,
+  type GraphFile,
+  type Host,
+  type MemoryJournalStore,
+  type NodeKind,
+  type Output,
+  type Problem,
+  type RunView,
+  type StartResult,
+  isEnded,
+  missingKinds,
+  parseInputs,
+  resultErrors,
+  routerNode,
+  runView,
+  waitNode,
+} from '@aurigax-ai/graph'
 import type { OstiaExtension } from '../sdk'
 import { AGENT_LATE, AGENT_STOP, agentNode } from './agentNode'
 import { ENABLED_FILE, EnableStore } from './enabled'

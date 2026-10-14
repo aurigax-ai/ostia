@@ -1,13 +1,14 @@
 import {
   type Clock,
+  MESSAGE_MAX,
   type NodeContext,
   NodeError,
   type NodeKind,
   type NodeResult,
   type NodeWait,
   type Output,
-} from '../../../graph-engine/src/engine/contract'
-import { MESSAGE_MAX, TRIGGER_TARGET } from '../../../graph-engine/src/kinds/agent'
+  TRIGGER_TARGET,
+} from '@aurigax-ai/graph'
 import type { OstiaExtension, PaneInfo } from '../sdk'
 
 export const RATE_RETRY_MS = 60_000
