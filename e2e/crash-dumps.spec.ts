@@ -37,6 +37,30 @@ test('a main process that crashes during a test leaves its signal and a crash du
   }
 })
 
+test('a test that lists the web contents while a new session is being made for one sees only finished ones and the app lives', async () => {
+  const app = await electron.launch(isolatedLaunch())
+  try {
+    await app.firstWindow()
+    const listed = await app.evaluate(({ app: electronApp, webContents, BrowserWindow }) => {
+      let urls: string[] | null = null
+      electronApp.once('session-created', () => {
+        urls = webContents.getAllWebContents().map((contents) => contents.getURL())
+      })
+      const fresh = new BrowserWindow({
+        show: false,
+        webPreferences: { partition: `e2e-fresh-${process.pid}` },
+      })
+      fresh.destroy()
+      return urls
+    })
+    expect(listed).not.toBeNull()
+    expect(listed).toContainEqual(expect.stringMatching(/index\.html/))
+    expect(exitLine(app.process())).toMatch(/is still running$/)
+  } finally {
+    await app.close()
+  }
+})
+
 interface ReportedAttachment {
   name: string
   path?: string
