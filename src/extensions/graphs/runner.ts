@@ -11,6 +11,7 @@ import {
   type Problem,
   type RunView,
   type StartResult,
+  connectorProblems,
   isEnded,
   missingKinds,
   parseInputs,
@@ -21,6 +22,7 @@ import {
 } from '@aurigax-ai/graph'
 import type { OstiaExtension } from '../sdk'
 import { AGENT_LATE, AGENT_STOP, agentNode } from './agentNode'
+import { NATIVE_CONNECTORS, SANDBOXED_CONNECTOR, ostiaConnectorNode } from './connectorHost'
 import { ENABLED_FILE, EnableStore } from './enabled'
 import { type GraphEntry, graphPath, listGraphs, readGraph } from './graphFiles'
 import {
@@ -30,19 +32,35 @@ import {
   ostiaNotifyNode,
   panelNotifier,
 } from './humanNodes'
+import type { EnabledGraph } from './triggers'
 
-const OSTIA_TRIGGERS = ['manual']
+const OSTIA_TRIGGERS = ['manual', 'schedule', 'files', 'command', 'agent']
 const SCRATCH = 'scratch'
 
 export type GraphsExt = Pick<
   OstiaExtension,
-  'runAgent' | 'busSend' | 'wakePane' | 'listPanes' | 'ask' | 'exec' | 'notifyPanel' | 'redact'
+  | 'runAgent'
+  | 'busSend'
+  | 'wakePane'
+  | 'listPanes'
+  | 'ask'
+  | 'exec'
+  | 'notifyPanel'
+  | 'redact'
+  | 'mcpCall'
+  | 'connection'
 >
+
+export interface ConnectionName {
+  name: string
+  kind: string
+}
 
 export interface Workspace {
   workspaceId: string
   workDir: string
   kind: string
+  sandboxed?: boolean
 }
 
 export type GraphState = 'enabled' | 'changed' | 'not-enabled' | 'invalid'
@@ -64,8 +82,18 @@ export interface RunnerOptions {
 function hostProblems(
   graph: GraphFile,
   host: Pick<Host, 'kinds' | 'triggers' | 'name'>,
+  connections: readonly ConnectionName[],
+  sandboxed: boolean,
 ): Problem[] {
-  const problems = missingKinds(graph, host)
+  const problems = [
+    ...missingKinds(graph, host),
+    ...connectorProblems(graph, { mcp: true, native: NATIVE_CONNECTORS, connections }),
+  ]
+  for (const node of graph.nodes) {
+    if (node.kind === 'connector' && sandboxed) {
+      problems.push({ code: 'sandboxed', message: SANDBOXED_CONNECTOR, node: node.id })
+    }
+  }
   for (const node of graph.nodes) {
     if (node.kind === 'approval' && node.with?.fields !== undefined) {
       problems.push({
@@ -94,6 +122,8 @@ export class GraphsRunner {
   private readonly reports = new Map<string, Output>()
   private readonly lateTimers = new Map<string, () => void>()
   private workspaces = new Map<string, Workspace>()
+  private connections: ConnectionName[] = []
+  private readonly panesOfGraphs = new Map<string, Set<string>>()
 
   constructor(private readonly opts: RunnerOptions) {
     const kinds: NodeKind[] = [
@@ -106,6 +136,7 @@ export class GraphsRunner {
       approvalNode({ ext: opts.ext, deliver: (event) => void this.engine.deliver(event) }),
       ostiaCommandNode(opts.ext),
       ostiaNotifyNode(opts.ext),
+      ostiaConnectorNode(opts.ext, opts.clock, (id) => this.workspaces.get(id)?.sandboxed === true),
       routerNode,
       waitNode(() => opts.clock.now()),
     ]
@@ -124,7 +155,67 @@ export class GraphsRunner {
     this.enabled = new EnableStore(opts.dataDir ? join(opts.dataDir, ENABLED_FILE) : null, () =>
       opts.clock.now(),
     )
-    this.engine = new Engine({ host: this.host, store: this.store, changed: () => opts.changed() })
+    this.engine = new Engine({
+      host: this.host,
+      store: this.store,
+      changed: (runId) => {
+        this.notePanes(runId)
+        opts.changed()
+      },
+    })
+  }
+
+  setConnections(list: ConnectionName[]): void {
+    this.connections = list
+  }
+
+  private notePanes(runId: string): void {
+    const run = this.engine.run(runId)
+    if (!run) return
+    const key = `${run.state.scope}/${run.state.graphName}`
+    const records = [...run.state.active.values(), ...run.state.history.values()]
+    for (const record of records) {
+      const pane = record.started?.pane
+      if (typeof pane !== 'string') continue
+      const panes = this.panesOfGraphs.get(key) ?? new Set<string>()
+      panes.add(pane)
+      this.panesOfGraphs.set(key, panes)
+    }
+  }
+
+  ownPane(workspaceId: string, graph: string, pane: string): boolean {
+    return this.panesOfGraphs.get(`${workspaceId}/${graph}`)?.has(pane) === true
+  }
+
+  enabledGraphs(): EnabledGraph[] {
+    return [...this.workspaces.values()].flatMap((w) => {
+      if (w.kind === SCRATCH) return []
+      return listGraphs(w.workDir).flatMap((entry) => {
+        const listing = this.listing(w.workspaceId, entry)
+        const loaded = entry.loaded
+        if (listing.state !== 'enabled' || listing.problems.length > 0 || !loaded) return []
+        return [
+          {
+            workspaceId: w.workspaceId,
+            workDir: w.workDir,
+            name: entry.name,
+            definition: { name: entry.name, graph: loaded.graph, fingerprint: loaded.fingerprint },
+          },
+        ]
+      })
+    })
+  }
+
+  fire(graph: EnabledGraph, payload: Output): StartResult {
+    const listing = this.graph(graph.workspaceId, graph.name)
+    const loaded = listing?.entry.loaded
+    if (!listing || listing.state !== 'enabled' || !loaded) {
+      return fail('not-enabled', `${graph.name} is not enabled`)
+    }
+    if (loaded.fingerprint !== graph.definition.fingerprint || listing.problems.length > 0) {
+      return fail('changed', `${graph.name} changed since its triggers were set`)
+    }
+    return this.engine.start(graph.workspaceId, graph.definition, payload, {})
   }
 
   setWorkspaces(list: Workspace[]): void {
@@ -157,7 +248,12 @@ export class GraphsRunner {
       return { entry, state: 'invalid', problems: entry.problems }
     }
     const state = this.enabled.checked(workspaceId, entry.realPath, entry.loaded.fingerprint)
-    return { entry, state, problems: hostProblems(entry.loaded.graph, this.host) }
+    const sandboxed = this.workspaces.get(workspaceId)?.sandboxed === true
+    return {
+      entry,
+      state,
+      problems: hostProblems(entry.loaded.graph, this.host, this.connections, sandboxed),
+    }
   }
 
   graph(workspaceId: string, name: string): GraphListing | null {

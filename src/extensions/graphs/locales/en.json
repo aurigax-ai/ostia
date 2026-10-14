@@ -76,6 +76,13 @@
     "effect.external": "calls a connector",
     "effect.human": "asks or tells you",
     "sidebar.active": "{count} running",
-    "error": "Something went wrong: {error}"
+    "error": "Something went wrong: {error}",
+    "def.use": "{node}: {use}, {effect}",
+    "def.useVia": "{node}: {use} through the connection {connection}, {effect}",
+    "use.read": "reads only",
+    "use.write": "can change things",
+    "use.external": "calls an outside service",
+    "def.secretInput": "The input of {node} looks like a secret. Keep secrets in a connection in Settings, never in the graph file.",
+    "row.filesRefused": "Its files trigger is off: this folder has more than 5000 folders to watch outside .git, node_modules and ignored paths."
   }
 }

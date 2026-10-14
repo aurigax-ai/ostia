@@ -14,7 +14,18 @@
     "settings.maxAgentsPerRun.title": "每次執行啟動的代理程式上限",
     "settings.maxAgentsPerRun.description": "圖的 limits.agents 不能超過的上限",
     "settings.maxRunHours.title": "每次執行的時數上限",
-    "settings.maxRunHours.description": "圖的 limits.time 不能超過的上限"
+    "settings.maxRunHours.description": "圖的 limits.time 不能超過的上限",
+    "connections.http.title": "HTTP API",
+    "connections.http.description": "狀態圖的 http 連接器呼叫的 API：請求只會送往其基本網址的來源",
+    "connections.http.fields.baseUrl.title": "基本網址",
+    "connections.http.fields.baseUrl.description": "請求送往的位置，例如 https://api.example.com/v1",
+    "connections.http.fields.auth.title": "驗證方式",
+    "connections.http.fields.header.title": "標頭名稱",
+    "connections.http.fields.header.description": "用於標頭驗證，例如 X-Api-Key",
+    "connections.http.fields.username.title": "使用者名稱",
+    "connections.http.fields.username.description": "用於基本驗證",
+    "connections.http.secrets.secret.title": "權杖或密碼",
+    "connections.http.secrets.secret.description": "隨此連線的每個請求送出；絕不寫進狀態圖檔案"
   },
   "messages": {
     "title": "狀態圖",
@@ -93,6 +104,13 @@
     "effect.external": "呼叫連接器",
     "effect.human": "詢問或通知你",
     "sidebar.active": "{count} 個執行中",
-    "error": "發生錯誤：{error}"
+    "error": "發生錯誤：{error}",
+    "def.use": "{node}：{use}，{effect}",
+    "def.useVia": "{node}：{use}，經由連線 {connection}，{effect}",
+    "use.read": "只讀取",
+    "use.write": "會變更內容",
+    "use.external": "呼叫外部服務",
+    "def.secretInput": "{node} 的輸入看起來像密鑰。請把密鑰放在「設定」的連線中，切勿寫進狀態圖檔案。",
+    "row.filesRefused": "它的檔案觸發已關閉：這個資料夾在 .git、node_modules 與忽略的路徑之外有超過 5000 個資料夾要監看。"
   }
 }

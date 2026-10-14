@@ -1,6 +1,6 @@
 import { MemoryJournalStore, type Output } from '@aurigax-ai/graph'
 import { FakeClock, settle } from '@aurigax-ai/graph/testing'
-import type { AskOptions, ExecOptions, PaneInfo } from '../sdk'
+import type { AskOptions, ConnectionValue, ExecOptions, PaneInfo } from '../sdk'
 import { type GraphsExt, GraphsRunner, type Workspace } from './runner'
 
 export interface FakeExt {
@@ -17,6 +17,9 @@ export interface FakeExt {
   ) => { ok: false; error: string; message?: string } | null
   execReply: (opts: ExecOptions) => Awaited<ReturnType<GraphsExt['exec']>>
   answer: (reply: Awaited<ReturnType<GraphsExt['ask']>>) => void
+  mcpCalls: { server: string; tool: string; input: Record<string, unknown> }[]
+  mcpReply: (server: string, tool: string) => Awaited<ReturnType<GraphsExt['mcpCall']>>
+  connections: ConnectionValue[]
 }
 
 export function fakeExt(): FakeExt {
@@ -40,6 +43,9 @@ export function fakeExt(): FakeExt {
       sandboxed: false,
     }),
     answer: (reply) => pendingAsks.shift()?.(reply),
+    mcpCalls: [],
+    mcpReply: (server, tool) => ({ ok: true, text: `${server}/${tool}` }),
+    connections: [],
     ext: {
       runAgent: async (opts) => {
         fake.runAgent.push(opts)
@@ -82,6 +88,14 @@ export function fakeExt(): FakeExt {
         return { ok: true }
       },
       redact: async (texts) => texts,
+      mcpCall: async (server, tool, input) => {
+        fake.mcpCalls.push({ server, tool, input })
+        return fake.mcpReply(server, tool)
+      },
+      connection: async (name) => ({
+        ok: true,
+        connection: fake.connections.find((c) => c.name === name) ?? null,
+      }),
     },
   }
   return fake

@@ -17,16 +17,27 @@ import {
 } from '../sdk'
 import { panelHandlers } from './panelHandlers'
 import { GraphsRunner, type Workspace } from './runner'
+import { TriggerHost } from './triggers'
 import { graphVerbs } from './verbs'
 
 const PANEL_FILES = ['panel.html', 'panel.js', 'panel.css', 'base.css']
-const EVENTS: ExtensionEventType[] = ['pane.closed', 'command.finished', 'pane.created']
+const EVENTS: ExtensionEventType[] = [
+  'pane.closed',
+  'command.finished',
+  'pane.created',
+  'pane.attention',
+]
 
 function workspacesOf(raw: unknown): Workspace[] {
   if (!Array.isArray(raw)) return []
   return raw
     .filter((w) => typeof w?.workspaceId === 'string' && typeof w?.workDir === 'string')
-    .map((w) => ({ workspaceId: w.workspaceId, workDir: w.workDir, kind: String(w.kind ?? '') }))
+    .map((w) => ({
+      workspaceId: w.workspaceId,
+      workDir: w.workDir,
+      kind: String(w.kind ?? ''),
+      ...(w.sandboxed === true ? { sandboxed: true } : {}),
+    }))
 }
 
 function ceilingsOf(values: ExtensionSettingValues) {
@@ -54,13 +65,21 @@ async function main(): Promise<void> {
       if (!sidebarTimer) sidebarTimer = setTimeout(() => void showActive(), 300)
     },
   })
+  const triggers = new TriggerHost({
+    clock: realClock,
+    dataDir: readEnv('EXTENSION_DATA') ?? null,
+    enabled: () => runner.enabledGraphs(),
+    fire: (graph, payload) => void runner.fire(graph, payload),
+    ownPane: (workspaceId, graph, pane) => runner.ownPane(workspaceId, graph, pane),
+    changed: () => panelChanged(),
+  })
   const shown = new Set<string>()
   let startsWithWindow: boolean | null = null
   const keepStarting = async (): Promise<void> => {
-    const unfinished = runner.hasUnfinishedRuns()
-    if (unfinished === startsWithWindow) return
-    startsWithWindow = unfinished
-    await ext.startWithWindow(unfinished).catch(() => {})
+    const needed = runner.hasUnfinishedRuns() || triggers.needsLiveHost()
+    if (needed === startsWithWindow) return
+    startsWithWindow = needed
+    await ext.startWithWindow(needed).catch(() => {})
   }
   const showActive = async (): Promise<void> => {
     sidebarTimer = null
@@ -86,10 +105,14 @@ async function main(): Promise<void> {
   }
   const refresh = async (): Promise<void> => {
     try {
-      runner.setWorkspaces(workspacesOf(await ext.listWorkspaces()))
+      const [workspaces, connections] = await Promise.all([ext.listWorkspaces(), ext.connections()])
+      if (connections.ok) runner.setConnections(connections.connections)
+      runner.setWorkspaces(workspacesOf(workspaces))
+      triggers.refresh()
+      await keepStarting()
     } catch {}
   }
-  const handlers = panelHandlers(runner, ext, refresh)
+  const handlers = panelHandlers(runner, ext, refresh, (id) => triggers.filesRefused(id))
   const panelStarting = startPanelServer({
     dir: __dirname,
     files: PANEL_FILES,
@@ -113,14 +136,20 @@ async function main(): Promise<void> {
     locale = next
   })
   runner.engine.ceilings = ceilingsOf(await ext.getSettings())
+  ext.onConnectionsChanged(() => void refresh())
   ext.onSettingsChanged((values) => {
     runner.engine.ceilings = ceilingsOf(values)
   })
   const panel = await panelStarting
   panelChanged = () => panel.changed()
 
+  const agentWaiting = async (pane: string, workspaceId: string): Promise<void> => {
+    const info = (await ext.listPanes().catch(() => [])).find((p) => p.paneId === pane)
+    triggers.agent(workspaceId, pane, 'waiting', info?.agent)
+  }
+
   const commands: Record<string, CommandHandler> = {
-    ...graphVerbs(runner, refresh),
+    ...graphVerbs(runner, refresh, ext),
     open: async (_args, caller) => {
       await ext.openPanel(caller.workspaceId)
       return ok()
@@ -138,14 +167,29 @@ async function main(): Promise<void> {
         backgroundWork: stop.backgroundWork,
         ...(stop.message !== undefined ? { message: stop.message } : {}),
       })
+      if (caller.workspaceId) triggers.agent(caller.workspaceId, caller.paneId, 'stopped', agent)
       return ok()
     },
   }
   await ext.registerCommands(commands)
   await ext.subscribe(EVENTS, (type, payload) => {
-    const pane = (payload as { paneId?: string }).paneId
+    const event = payload as {
+      paneId?: string
+      workspaceId?: string
+      exitCode?: number
+      state?: string
+    }
+    const pane = event.paneId
+    if (type === 'pane.attention') {
+      if (pane && event.workspaceId && event.state === 'waiting')
+        void agentWaiting(pane, event.workspaceId)
+      return
+    }
     if (type === 'pane.closed' && pane) void runner.stopped({ pane, closed: true })
-    else if (type === 'command.finished' && pane) void runner.stopped({ pane, exited: true })
+    else if (type === 'command.finished' && pane) {
+      void runner.stopped({ pane, exited: true })
+      if (event.workspaceId) triggers.command(event.workspaceId, pane, event.exitCode ?? 0)
+    }
     void refresh()
   })
   await refresh()

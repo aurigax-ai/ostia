@@ -67,6 +67,9 @@ function graphRow(row: GraphRow): HTMLElement {
         : null,
     ),
     row.description ? h('div', { class: 'muted' }, row.description) : null,
+    row.filesRefused
+      ? h('div', { class: 'error', 'data-files-refused': '' }, t('row.filesRefused'))
+      : null,
     row.problem
       ? h(
           'div',
@@ -175,6 +178,25 @@ async function definitionView(name: string): Promise<HTMLElement[]> {
       { class: 'muted' },
       t('def.connectors', { connectors: def.connectors.join(', ') || t('def.none') }),
     ),
+    ...def.connectorUses.flatMap((u) => [
+      h(
+        'div',
+        { class: 'mono', 'data-connector': u.node, 'data-effect': u.effect },
+        t(u.connection ? 'def.useVia' : 'def.use', {
+          node: u.node,
+          use: u.use,
+          connection: u.connection ?? '',
+          effect: t(`use.${u.effect}`),
+        }),
+      ),
+      u.secretShaped
+        ? h(
+            'div',
+            { class: 'error', 'data-secret-warning': u.node },
+            t('def.secretInput', { node: u.node }),
+          )
+        : null,
+    ]),
     def.problems.length > 0
       ? h(
           'div',
