@@ -205,6 +205,7 @@ export class TrellisService {
       this.opts.host.log(`events: ${(err as Error).message}`)
       return this.scheduleFollow()
     }
+    if (this.stopped || this.follower) return
     this.follow()
   }
 

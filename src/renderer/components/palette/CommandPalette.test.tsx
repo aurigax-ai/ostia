@@ -15,7 +15,7 @@ import { zhHant } from '@shared/app/dict'
 import type { SearchOutcome, SearchRequest } from '@shared/files/search'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { CommandPalette } from './CommandPalette'
 
 const searchWorkspaceSymbols = vi.hoisted(() => vi.fn())
@@ -1215,44 +1215,58 @@ describe('CommandPalette', () => {
       expect(requests('linesOnly')).toEqual(['zo'])
     })
 
-    it('closes on the palette chord from every prefix, from Search Everywhere and from a command’s value step', async () => {
-      seed()
-      const toggle = { key: 'P', code: 'KeyP', ctrlKey: true, shiftKey: true }
+    const PALETTE_TOGGLE_KEY = { key: 'P', code: 'KeyP', ctrlKey: true, shiftKey: true }
+
+    const keysOutside = (): ReturnType<typeof vi.fn> => {
       const outside = vi.fn()
       window.addEventListener('keydown', outside)
-      try {
-        render(<CommandPalette />)
-        for (const typed of ['', '>', '@', '#', '/', '%', '?']) {
-          act(() => useUIStore.getState().openPalette('search', typed))
-          const input = await screen.findByRole('combobox')
-          await waitFor(() => expect(input).toHaveValue(typed))
-          fireEvent.keyDown(input, toggle)
-          expect(useUIStore.getState().paletteOpen, typed).toBe(false)
-          await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull())
-        }
+      onTestFinished(() => window.removeEventListener('keydown', outside))
+      return outside
+    }
 
-        act(() => useUIStore.getState().openPalette('everywhere'))
-        fireEvent.keyDown(await screen.findByRole('combobox'), { key: 'F1', code: 'F1' })
+    it.each(['', '>', '@', '#', '/', '%', '?'])(
+      'closes on the palette chord from the %j prefix',
+      async (typed) => {
+        seed()
+        const outside = keysOutside()
+        render(<CommandPalette />)
+        act(() => useUIStore.getState().openPalette('search', typed))
+        const input = await screen.findByRole('combobox')
+        await waitFor(() => expect(input).toHaveValue(typed))
+        fireEvent.keyDown(input, PALETTE_TOGGLE_KEY)
         expect(useUIStore.getState().paletteOpen).toBe(false)
         await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull())
-
-        act(() => {
-          commands.register<{ argument?: string }, void>({
-            id: 'test.toggle-card',
-            title: 'Test: Toggle Card',
-            argument: 'Card id',
-            run: vi.fn(),
-          })
-          useUIStore.getState().openPalette('search')
-        })
-        await userEvent.click(await screen.findByRole('option', { name: /Test: Toggle Card/ }))
-        fireEvent.keyDown(screen.getByPlaceholderText('Card id'), toggle)
-        expect(useUIStore.getState().paletteOpen).toBe(false)
         expect(outside).not.toHaveBeenCalled()
-      } finally {
-        window.removeEventListener('keydown', outside)
-        act(() => commands.unregister('test.toggle-card'))
-      }
+      },
+    )
+
+    it('closes on F1 from Search Everywhere', async () => {
+      seed()
+      const outside = keysOutside()
+      render(<CommandPalette />)
+      act(() => useUIStore.getState().openPalette('everywhere'))
+      fireEvent.keyDown(await screen.findByRole('combobox'), { key: 'F1', code: 'F1' })
+      expect(useUIStore.getState().paletteOpen).toBe(false)
+      await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull())
+      expect(outside).not.toHaveBeenCalled()
+    })
+
+    it('closes on the palette chord from a command’s value step', async () => {
+      seed()
+      const outside = keysOutside()
+      commands.register<{ argument?: string }, void>({
+        id: 'test.toggle-card',
+        title: 'Test: Toggle Card',
+        argument: 'Card id',
+        run: vi.fn(),
+      })
+      onTestFinished(() => commands.unregister('test.toggle-card'))
+      render(<CommandPalette />)
+      act(() => useUIStore.getState().openPalette('search'))
+      await userEvent.click(await screen.findByRole('option', { name: /Test: Toggle Card/ }))
+      fireEvent.keyDown(screen.getByPlaceholderText('Card id'), PALETTE_TOGGLE_KEY)
+      expect(useUIStore.getState().paletteOpen).toBe(false)
+      expect(outside).not.toHaveBeenCalled()
     })
 
     it('words the search-text row in Traditional Chinese', async () => {
