@@ -1,13 +1,13 @@
 import type { PaneNode } from '@/layout/types'
 import type { PaneAttention } from '@/lib/attention/attention'
 import type { CommandBlock } from '@/stores/terminal/blocksStore'
-import type { ResumableAgent } from '@shared/agents/agentResume'
+import type { AgentResume, ResumableAgent } from '@shared/agents/agentResume'
 import type { AttentionState } from '@shared/types'
 
 export interface AgentSession {
   agent: ResumableAgent
   title: string | null
-  sessionId: string | null
+  resume: AgentResume | null
   command: string
   cwd: string | null
   startedAt: number
@@ -36,7 +36,7 @@ export function agentSession(
   return {
     agent,
     title: pane.defaultTitle ? null : sessionTitle(pane.title, agent),
-    sessionId: pane.resume?.agent === agent ? pane.resume.id : null,
+    resume: pane.resume?.agent === agent ? pane.resume : null,
     command: running.command,
     cwd: running.cwd,
     startedAt: running.startedAt,

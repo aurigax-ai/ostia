@@ -53,7 +53,7 @@ describe('agentSession', () => {
     expect(session).toEqual({
       agent: 'claude',
       title: 'Resume tokens',
-      sessionId: 'abc-123',
+      resume: { agent: 'claude', id: 'abc-123' },
       command: 'claude --model opus',
       cwd: '/home/u/proj',
       startedAt: 100,
@@ -66,7 +66,7 @@ describe('agentSession', () => {
     const pane = { ...createPane('terminal'), resume: { agent: 'claude' as const, id: 'x' } }
     expect(agentSession(pane, running('pnpm test'), undefined, null)).toBeNull()
     expect(agentSession(pane, undefined, undefined, 'claude')).toBeNull()
-    expect(agentSession(pane, running('codex'), undefined, 'codex')?.sessionId).toBeNull()
+    expect(agentSession(pane, running('codex'), undefined, 'codex')?.resume).toBeNull()
   })
 
   it('describes an agent started through an alias once it is detected', () => {
@@ -74,7 +74,7 @@ describe('agentSession', () => {
     expect(agentSession(pane, running('cc'), undefined, 'claude')).toMatchObject({
       agent: 'claude',
       command: 'cc',
-      sessionId: null,
+      resume: null,
     })
   })
 })
