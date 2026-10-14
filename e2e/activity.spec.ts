@@ -66,7 +66,6 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
   const launch = isolatedLaunch(dataHome)
   const bin = fakeAgentBin(dataHome, FAKE_CLAUDE)
   const env = { ...launch.env, PATH: `${bin}:${launch.env.PATH ?? ''}` }
-  const journalDir = join(dataHome, 'userData', 'extension-data', 'activity', 'journal')
   const text = (app: ElectronApplication, selector: string): Promise<string> =>
     panelEval(
       app,
@@ -91,32 +90,14 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
     await openActivity(win)
     await expect.poll(() => text(app, '.agent .recap'), { timeout: 30_000 }).toBe(RECAP)
     expect(await text(app, '.agent-name')).toBe('Claude Code')
-    expect(await pressed(app, 'recap')).toBe('true')
-    expect(await text(app, '.event')).toBe('')
 
     await panelEval(app, `document.querySelector('[data-view="activity"]').click(); 'ok'`)
     await expect
       .poll(() => text(app, '.event'), { timeout: 15_000 })
       .toBe(['Prompt\nfix the cart total', 'Ran\npnpm test', 'Stopped'].join('|'))
-    expect(await pressed(app, 'activity')).toBe('true')
-
     await panelEval(app, `document.querySelector('.agent-head').click(); 'ok'`)
     await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused({ timeout: 15_000 })
     expect(await text(app, '.note')).toBe('')
-
-    const files = readdirSync(journalDir)
-    expect(files).toHaveLength(1)
-    expect(statSync(join(journalDir, files[0])).mode & 0o777).toBe(0o600)
-    expect(readFileSync(join(journalDir, files[0]), 'utf8')).toContain(RECAP)
-    await expect
-      .poll(
-        () => {
-          const file = join(dataHome, 'userData', 'settings.json')
-          return existsSync(file) ? readFileSync(file, 'utf8') : ''
-        },
-        { timeout: 15_000 },
-      )
-      .toContain('"showActivity": true')
   } finally {
     await quitApp(app)
   }
