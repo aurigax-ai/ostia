@@ -297,27 +297,28 @@ describe('InputEditor', () => {
     expect(props.onHandOff).toHaveBeenCalledWith('git st', '')
   })
 
-  it('Escape closes the palette opened over the input editor and gives it its keyboard back untouched', async () => {
-    if (!commands.has('palette.toggle')) registerBuiltinCommands()
-    setMode('editor')
-    idlePrompt()
-    const { props } = renderEditor()
-    render(<CommandPalette />)
-    const user = userEvent.setup()
-    await user.type(editor() as HTMLElement, 'echo draft')
+  it.each(['search', 'everywhere'] as const)(
+    'Escape closes the %s palette opened over the input editor and gives it its keyboard back untouched',
+    async (mode) => {
+      if (!commands.has('palette.toggle')) registerBuiltinCommands()
+      setMode('editor')
+      idlePrompt()
+      const { props } = renderEditor()
+      render(<CommandPalette />)
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'echo draft')
 
-    for (const mode of ['search', 'everywhere'] as const) {
       act(() => useUIStore.getState().openPalette(mode))
       await waitFor(() => expect(screen.getByRole('combobox')).toHaveFocus())
       await user.keyboard('{Escape}')
       await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-      expect(useUIStore.getState().paletteOpen, mode).toBe(false)
-      expect(editor(), mode).toHaveFocus()
-      expect(editor(), mode).toHaveValue('echo draft')
-    }
-    expect(props.onHandOff).not.toHaveBeenCalled()
-    expect(props.onSubmit).not.toHaveBeenCalled()
-  })
+      expect(useUIStore.getState().paletteOpen).toBe(false)
+      expect(editor()).toHaveFocus()
+      expect(editor()).toHaveValue('echo draft')
+      expect(props.onHandOff).not.toHaveBeenCalled()
+      expect(props.onSubmit).not.toHaveBeenCalled()
+    },
+  )
 
   it('copies the selected draft text on smart Ctrl+C and keeps the draft', async () => {
     setMode('editor')

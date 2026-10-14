@@ -1301,20 +1301,27 @@ describe('CommandPalette', () => {
       await waitFor(() => expect(screen.queryByRole('combobox'), state).toBeNull())
     }
 
-    it('Escape closes the palette from every prefix, from Search Everywhere and from a command’s value step', async () => {
-      render(<CommandPalette />)
-      for (const typed of ['>', '', '@', '#', '/', '%', '?']) {
+    it.each(['>', '', '@', '#', '/', '%', '?'])(
+      'Escape closes the palette from the %j prefix',
+      async (typed) => {
+        render(<CommandPalette />)
         act(() => useUIStore.getState().openPalette('search', typed))
         const input = await screen.findByRole('combobox')
         await waitFor(() => expect(input).toHaveValue(typed))
         await waitFor(() => expect(input).toHaveFocus())
         await closedByEscape(`prefix "${typed}"`)
-      }
+      },
+    )
 
+    it('Escape closes Search Everywhere after typing', async () => {
+      render(<CommandPalette />)
       act(() => useUIStore.getState().openPalette('everywhere'))
       await userEvent.type(await screen.findByRole('combobox'), 'needle')
       await closedByEscape('Search Everywhere after typing')
+    })
 
+    it('Escape closes the palette from a command’s value step', async () => {
+      render(<CommandPalette />)
       act(() => {
         commands.register<{ argument?: string }, void>({
           id: 'test.escape-card',
@@ -1329,22 +1336,23 @@ describe('CommandPalette', () => {
       await closedByEscape('a command’s value step')
     })
 
-    it('Escape while an input method is composing in the palette closes it, and the next Escape in a reopened palette closes it too', async () => {
-      render(<CommandPalette />)
-      for (const mode of ['search', 'everywhere'] as const) {
+    it.each(['search', 'everywhere'] as const)(
+      'Escape while an input method is composing in the %s palette closes it, and the next Escape in a reopened palette closes it too',
+      async (mode) => {
+        render(<CommandPalette />)
         act(() => useUIStore.getState().openPalette(mode))
         const input = await screen.findByRole('combobox')
         fireEvent.change(input, { target: { value: 'ni' } })
         fireEvent.keyDown(input, { key: 'Process', code: 'Escape', keyCode: 229 })
-        expect(useUIStore.getState().paletteOpen, mode).toBe(false)
-        await waitFor(() => expect(screen.queryByRole('combobox'), mode).toBeNull())
+        expect(useUIStore.getState().paletteOpen).toBe(false)
+        await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull())
 
         act(() => useUIStore.getState().openPalette(mode))
         const reopened = await screen.findByRole('combobox')
-        expect(reopened, mode).not.toHaveValue(expect.stringMatching(/ni$/))
+        expect(reopened).not.toHaveValue(expect.stringMatching(/ni$/))
         await waitFor(() => expect(reopened).toHaveFocus())
         await closedByEscape(`${mode}, reopened`)
-      }
-    })
+      },
+    )
   })
 })

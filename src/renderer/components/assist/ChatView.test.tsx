@@ -246,8 +246,9 @@ describe('chat', () => {
     }
   })
 
-  it('Escape closes the palette in Ask mode from the question box', async () => {
-    for (const mode of ['search', 'everywhere'] as const) {
+  it.each(['search', 'everywhere'] as const)(
+    'Escape closes the %s palette in Ask mode from the question box',
+    async (mode) => {
       render(<CommandPalette />)
       act(() => useUIStore.getState().openPalette(mode))
       await userEvent.type(await screen.findByRole('combobox'), 'how do I list files')
@@ -256,10 +257,9 @@ describe('chat', () => {
       await waitFor(() => expect(question).toHaveFocus())
 
       await userEvent.keyboard('{Escape}')
-      expect(useUIStore.getState().paletteOpen, mode).toBe(false)
-      cleanup()
-    }
-  })
+      expect(useUIStore.getState().paletteOpen).toBe(false)
+    },
+  )
 
   it('takes focus back into the question box when the dialog grabs it as Ask opens', async () => {
     const frames: FrameRequestCallback[] = []
