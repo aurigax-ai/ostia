@@ -305,12 +305,12 @@ import {
   SANDBOX_FEATURE,
   installHint,
   missingRequirements,
-  onPath,
   programPath,
   registerRequirements,
   requirementLabel,
 } from './platform/systemRequirements'
 import { registerSystemRequirementsIpc } from './platform/systemRequirementsIpc'
+import { loginPathSettled, resolveLoginPath } from './platform/toolPath'
 import {
   OLD_PRODUCT_NAME,
   appConfigDir,
@@ -1333,10 +1333,11 @@ let ghTokenCache: { at: number; value: string | null } | null = null
 function ghToken(): string | null {
   if (ghTokenCache && Date.now() - ghTokenCache.at < GH_TOKEN_TTL_MS) return ghTokenCache.value
   let value: string | null = null
-  if (onPath('gh')) {
+  const gh = programPath('gh')
+  if (gh) {
     try {
       value =
-        execFileSync('gh', ['auth', 'token'], { encoding: 'utf8', timeout: 3000 }).trim() || null
+        execFileSync(gh, ['auth', 'token'], { encoding: 'utf8', timeout: 3000 }).trim() || null
     } catch {
       value = null
     }
@@ -2268,6 +2269,7 @@ function registerPtyIpc(): void {
     systemExtensionEnabled: () =>
       extensionHost?.list().some((ext) => ext.id === 'system' && ext.enabled) ?? false,
     missing: (feature) => missingRequirements(feature),
+    settled: loginPathSettled,
     label: requirementLabel,
     invokeInstall: (args, caller) =>
       extensionHost
@@ -2423,6 +2425,7 @@ function registerPtyIpc(): void {
     const host = opts.hostToken ? hostPaneGrants.consume(opts.hostToken) : false
     const sandboxed = !host && workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
     const wantsKeep = keepShellsOn() && !host
+    if (wantsKeep && !keptShellsProgram()) await loginPathSettled()
     let notKept = wantsKeep && !keptShellsProgram() ? TMUX_MISSING : ''
     let tokenFile: string | null = null
     if (sandboxed) {
@@ -3589,6 +3592,9 @@ app.whenReady().then(() => {
   })
   const logDir = join(app.getPath('userData'), 'logs')
   appLog = createAppLog(join(logDir, LOG_FILE_NAME))
+  void resolveLoginPath().then(({ path, ms }) =>
+    appLog?.info('login-path', { found: path !== null, ms }),
+  )
   telemetry = registerTelemetry({
     file: join(app.getPath('userData'), TELEMETRY_FILE),
     version: appVersion(),

@@ -59,4 +59,25 @@ describe('system requirements IPC', () => {
     expect(reasons).toEqual([expect.stringContaining('gopls feature')])
     expect(reasons[0]).not.toContain('lsp:')
   })
+
+  it('KSH-C90 answers the Settings requirement check only after the login shell PATH is known', async () => {
+    let found = false
+    let finish: () => void = () => {}
+    registerSystemRequirementsIpc({
+      ownerWindow: () => undefined,
+      workDir: () => undefined,
+      locale: () => 'en',
+      systemExtensionEnabled: () => true,
+      missing: () => (found ? [] : [{ program: 'tmux', package: 'tmux' }]),
+      settled: () =>
+        new Promise<void>((done) => {
+          finish = done
+        }),
+      invokeInstall: async () => ({ ok: true }),
+    })
+    const answer = handlers.get('system:requirements')?.({}, 'keep-shells') as Promise<unknown>
+    found = true
+    finish()
+    expect(await answer).toMatchObject({ missing: [], canInstall: false })
+  })
 })

@@ -9,7 +9,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, describe, expect, it } from 'vitest'
 import { MANAGER_FEATURE } from '../../shared/agents/managerSettings'
 import { KEEP_SHELLS_FEATURE } from '../../shared/terminal/keepShells'
 import {
@@ -20,10 +20,18 @@ import {
   registerRequirements,
   requirementLabel,
 } from './systemRequirements'
+import { resetLoginPath, resolveLoginPath } from './toolPath'
 
 const root = mkdtempSync(join(tmpdir(), 'ostia-reqs-'))
 
 afterAll(() => rmSync(root, { recursive: true, force: true }))
+
+const savedPath = process.env.PATH
+
+afterEach(() => {
+  process.env.PATH = savedPath
+  resetLoginPath()
+})
 
 function binDir(name: string, programs: string[]): string {
   const dir = join(root, name)
@@ -151,6 +159,21 @@ describe('systemRequirements', () => {
         }),
       ).toEqual([{ program: 'tmux', package: 'tmux', needs: '3.2', found }])
     }
+  })
+
+  it('KSH-C89 finds tmux for keeping shells with a launchd PATH when only the login shell has it on PATH', async () => {
+    const dir = versionedTmux('tmux 3.5a')
+    const launchdPath = binDir('launchd', ['ls'])
+    process.env.PATH = launchdPath
+    expect(programPath('tmux')).not.toBe(join(dir, 'tmux'))
+    await resolveLoginPath({
+      platform: 'darwin',
+      shell: '/bin/zsh',
+      run: async () => `motd\n__OSTIA_LOGIN_PATH__${dir}:/usr/bin:/bin\n__OSTIA_LOGIN_PATH__`,
+    })
+    expect(process.env.PATH).toBe(launchdPath)
+    expect(programPath('tmux')).toBe(join(dir, 'tmux'))
+    expect(missingRequirements(KEEP_SHELLS_FEATURE, { platform: 'darwin' })).toEqual([])
   })
 
   it('KSH-C80 asks tmux for its version once per program file, again only after the file changes', () => {

@@ -1,0 +1,120 @@
+import { afterEach, describe, expect, it } from 'vitest'
+import {
+  LOGIN_PATH_TIMEOUT_MS,
+  fallbackDirs,
+  loginPathSettled,
+  mergePaths,
+  parseLoginPath,
+  resetLoginPath,
+  resolveLoginPath,
+  toolPath,
+} from './toolPath'
+
+const LAUNCHD_PATH = '/usr/bin:/bin:/usr/sbin:/sbin'
+const MARK = '__OSTIA_LOGIN_PATH__'
+
+afterEach(() => resetLoginPath())
+
+describe('toolPath', () => {
+  it('adds the Homebrew prefixes to a launchd PATH on macOS, after the PATH it was given', () => {
+    expect(toolPath({ path: LAUNCHD_PATH, platform: 'darwin', home: '/Users/me' })).toBe(
+      `${LAUNCHD_PATH}:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin`,
+    )
+  })
+
+  it('adds the usual user and package prefixes on Linux and nothing on Windows', () => {
+    expect(fallbackDirs('linux', '/home/me')).toEqual([
+      '/usr/local/bin',
+      '/usr/local/sbin',
+      '/home/me/.local/bin',
+      '/home/linuxbrew/.linuxbrew/bin',
+      '/snap/bin',
+    ])
+    expect(fallbackDirs('win32', 'C:\\Users\\me')).toEqual([])
+  })
+
+  it('puts the login shell PATH between the given PATH and the fallbacks, without duplicates', async () => {
+    const run = async () => `${MARK}/opt/homebrew/bin:/Users/me/bin:/usr/bin\n${MARK}`
+    expect(await resolveLoginPath({ platform: 'darwin', shell: '/bin/zsh', run })).toEqual({
+      path: '/opt/homebrew/bin:/Users/me/bin:/usr/bin',
+      ms: expect.any(Number),
+    })
+    expect(toolPath({ path: LAUNCHD_PATH, platform: 'darwin', home: '/Users/me' })).toBe(
+      `${LAUNCHD_PATH}:/opt/homebrew/bin:/Users/me/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin`,
+    )
+  })
+
+  it('runs the login shell as an interactive login shell with a time limit', async () => {
+    const calls: [string, string[], number][] = []
+    await resolveLoginPath({
+      platform: 'linux',
+      shell: '/usr/bin/fish',
+      run: async (shell, args, timeoutMs) => {
+        calls.push([shell, args, timeoutMs])
+        return ''
+      },
+    })
+    expect(calls).toHaveLength(1)
+    expect(calls[0][0]).toBe('/usr/bin/fish')
+    expect(calls[0][1][0]).toBe('-ilc')
+    expect(calls[0][1][1]).toContain('printenv PATH')
+    expect(calls[0][2]).toBe(LOGIN_PATH_TIMEOUT_MS)
+  })
+
+  it('keeps the fallbacks when the login shell fails, times out or prints no PATH', async () => {
+    for (const run of [
+      async () => {
+        throw new Error('spawn ENOENT')
+      },
+      async () => '',
+      async () => `${MARK}${MARK}`,
+      async () => `${MARK}/a\n/b${MARK}`,
+    ]) {
+      resetLoginPath()
+      expect((await resolveLoginPath({ platform: 'darwin', shell: '/bin/zsh', run })).path).toBe(
+        null,
+      )
+      expect(toolPath({ path: LAUNCHD_PATH, platform: 'darwin', home: '/Users/me' })).toBe(
+        `${LAUNCHD_PATH}:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin`,
+      )
+    }
+  })
+
+  it('does not start a shell on Windows', async () => {
+    let ran = false
+    const run = async () => {
+      ran = true
+      return ''
+    }
+    expect(await resolveLoginPath({ platform: 'win32', run })).toEqual({ path: null, ms: 0 })
+    expect(ran).toBe(false)
+  })
+
+  it('lets callers wait for the login shell, and returns at once when none was started', async () => {
+    await loginPathSettled()
+    let finish: (output: string) => void = () => {}
+    void resolveLoginPath({
+      platform: 'darwin',
+      shell: '/bin/zsh',
+      run: () =>
+        new Promise((done) => {
+          finish = done
+        }),
+    })
+    let settled = false
+    const waiting = loginPathSettled().then(() => {
+      settled = true
+    })
+    await Promise.resolve()
+    expect(settled).toBe(false)
+    finish(`${MARK}/late/bin${MARK}`)
+    await waiting
+    expect(toolPath({ path: '', platform: 'win32' })).toBe('/late/bin')
+  })
+
+  it('reads the PATH between the markers and ignores what the shell prints around them', () => {
+    expect(parseLoginPath(`Last login\n${MARK}/a:/b\n${MARK}bye`)).toBe('/a:/b')
+    expect(parseLoginPath('/a:/b')).toBeNull()
+    expect(mergePaths('/a::/b', '/b:/c', '')).toBe('/a:/b:/c')
+  })
+})
