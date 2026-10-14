@@ -6,6 +6,7 @@ import {
   readdirSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { createServer } from 'node:net'
@@ -39,6 +40,7 @@ import { registerPaneResumeMethods } from '../main/panes/paneResume'
 import { registerSandboxMethods } from '../main/sandbox/controlMethods'
 import { DomainRequests } from '../main/sandbox/domainRequests'
 import { PortRequests } from '../main/sandbox/portRequests'
+import { registerSameFolder } from '../main/workspaces/sameFolder'
 import { registerSnippetMethods, workspaceSnippetsDir } from '../main/workspaces/snippets'
 import { ViewHost, ViewStore } from '../main/workspaces/viewHost'
 import { registerViewMethods } from '../main/workspaces/viewsIpc'
@@ -87,6 +89,11 @@ const fakeDeps: ControlServerDeps = {
   execCommand: async (target, id, args) => {
     execCalls.push({ target, id, args })
     const waited = (args as { wait?: boolean } | undefined)?.wait === true
+    if (id === 'workspace.new') {
+      const workspaceId = 'ws-made'
+      listed = { ...listed, workspaces: [...listed.workspaces, { workspaceId }] }
+      return { ok: true, result: { workspaceId } }
+    }
     if (id === OPEN_FILES_COMMAND && !waited) {
       for (const file of (args as { files: { path: string }[] }).files) {
         if (!skipShowing) showPane('editor', file.path, file.path)
@@ -136,6 +143,16 @@ const fakeDeps: ControlServerDeps = {
         resultSchema: null,
         capabilities: ['drive-self'],
         target: 'active',
+      },
+      {
+        id: 'workspace.new',
+        title: 'New Workspace',
+        category: 'Workspace',
+        hidden: true,
+        argsSchema: null,
+        resultSchema: null,
+        capabilities: ['drive-self'],
+        target: 'none',
       },
       {
         id: 'workspace.groupColor',
@@ -1219,6 +1236,9 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       writeFileSync(join(home, 'echo'), 'a file named like an extension')
       writeFileSync(join(home, 'pane.splitRight'), 'a file named like a command')
       writeFileSync(join(home, 'state'), 'a file named like a verb')
+      writeFileSync(join(home, 'pane'), 'a file named like a noun')
+      symlinkSync(home, join(base, 'home-link'))
+      registerSameFolder({ workDir: (id) => (id === 's1' ? home : undefined), home: () => base })
       writeFileSync(join(outside, 'app.log'), 'one\ntwo\nthree\n')
       writeFileSync(join(outside, 'shot.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]))
       registerOpenFileMethods({
@@ -1285,24 +1305,54 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       expect(opened()).toEqual([{ files: [{ path: join(home, 'README') }] }])
     })
 
-    it('never opens a file named after a noun, an extension, a command or a folder without open', async () => {
+    it('a noun, an extension or a command wins over a file of the same name', async () => {
       const verb = await runOstia(['state', 'done'], env(), home)
       expect(verb.code).toBe(0)
       expect(execCalls.map((c) => c.id)).toEqual(['attention.set'])
       execCalls.length = 0
+
+      const noun = await runOstia(['pane'], env(), home)
+      expect(noun.code).toBe(1)
+      expect(noun.stderr).toContain('usage: ostia pane <verb>')
 
       const extension = await runOstia(['echo', 'hi'], env(), home)
       expect(extension.stderr).toContain('usage: ostia echo <command>')
 
       const command = await runOstia(['pane.splitRight'], env(), home)
       expect(command.stdout).toContain('{"ran":"pane.splitRight"}')
-
-      for (const word of ['README', 'tools']) {
-        const plain = await runOstia([word], env(), home)
-        expect(plain.code, word).toBe(1)
-        expect(plain.stderr, word).toContain('usage: ostia <noun> <verb>')
-      }
       expect(opened()).toEqual([])
+    })
+
+    it('ostia <file> is ostia open <file>', async () => {
+      const res = await runOstia(['README'], env(), home)
+
+      expect(res.stderr).toBe('')
+      expect(res.code).toBe(0)
+      expect(opened()).toEqual([{ files: [{ path: join(home, 'README') }] }])
+      expect(res.stdout).toMatch(new RegExp(`^[0-9a-f-]+\\t${join(home, 'README')}\\n$`))
+    })
+
+    it('ostia <folder> opens a new workspace on it, and nothing for the folder of this workspace', async () => {
+      const made = await runOstia(['tools'], env(), home)
+      expect(made.stderr).toBe('')
+      expect(made.code).toBe(0)
+      const news = execCalls.filter((c) => c.id === 'workspace.new')
+      expect(news.map((c) => c.args)).toEqual([{ dir: join(home, 'tools') }])
+      expect(made.stdout).toBe(`ws-made\t${join(home, 'tools')}\n`)
+      execCalls.length = 0
+
+      const link = join(base, 'home-link')
+      for (const [word, cwd, shown] of [
+        ['.', home, home],
+        [link, outside, link],
+        ['~', outside, home],
+      ]) {
+        const same = await runOstia([word], { ...env(), HOME: home }, cwd)
+        expect(same.code, word).toBe(0)
+        expect(same.stdout, word).toBe(`already open\t${shown}\n`)
+      }
+      expect(execCalls.filter((c) => c.id === 'workspace.new')).toEqual([])
+      expect(revealed()).toEqual([])
     })
 
     it('ostia open takes several files and still opens the ones it can', async () => {

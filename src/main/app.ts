@@ -466,6 +466,7 @@ import { MAIN_SLOT } from './windows/windowBook'
 import { WindowBroker } from './windows/windowBroker'
 import { registerCmuxSessionIpc } from './workspaces/cmuxSession'
 import { registerProjectRootIpc } from './workspaces/projectRoot'
+import { registerSameFolder } from './workspaces/sameFolder'
 import { ScratchFolders, registerScratchIpc } from './workspaces/scratchFolders'
 import { type SnippetDeps, registerSnippetIpc, registerSnippetMethods } from './workspaces/snippets'
 import { ViewHost, ViewStore } from './workspaces/viewHost'
@@ -4242,6 +4243,7 @@ app.whenReady().then(() => {
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
     extensionHost?.emitEvent('notification', n),
   )
+  registerSameFolder({ workDir: workDirForWorkspace, home: homedir })
   registerPaneListMethods({
     execCommand,
     getTerminalState,

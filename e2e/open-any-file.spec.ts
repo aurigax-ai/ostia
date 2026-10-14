@@ -104,7 +104,7 @@ test('ostia <file> shows a text file and an image from outside the home folder, 
       error: 'denied',
     })
 
-    await win.keyboard.type(`ostia open ${log}:2 ${image}`)
+    await win.keyboard.type(`ostia ${log}:2 ${image}`)
     await win.keyboard.press('Enter')
 
     await expect(tab(win, 'app.log')).toBeVisible({ timeout: 15_000 })

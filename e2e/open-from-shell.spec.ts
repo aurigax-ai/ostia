@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, openWorkspace, quitApp, runInTerminal, terminalTab } from './helpers'
+import { openWorkspace, quitApp, runInTerminal, terminalTab } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
@@ -25,7 +25,7 @@ async function backToTerminal(win: Page): Promise<void> {
   await terminalTab(win).click()
 }
 
-test('GIT_EDITOR="ostia open --wait" commits when the tab is closed, and Ctrl+C ends a wait without closing the tab', async () => {
+test('GIT_EDITOR="ostia --wait" commits when the tab is closed, and Ctrl+C ends a wait without closing the tab', async () => {
   test.setTimeout(180_000)
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
@@ -37,7 +37,7 @@ test('GIT_EDITOR="ostia open --wait" commits when the tab is closed, and Ctrl+C 
   try {
     await runInTerminal(
       win,
-      'cd ~/repo && git init -q && git add a.txt && GIT_EDITOR="ostia open --wait" git -c user.name=E2E -c user.email=e2e@example.com commit; echo "git-exit:$?"',
+      'cd ~/repo && git init -q && git add a.txt && GIT_EDITOR="ostia --wait" git -c user.name=E2E -c user.email=e2e@example.com commit; echo "git-exit:$?"',
     )
     await expect(tab(win, 'COMMIT_EDITMSG')).toBeVisible({ timeout: 30_000 })
     const waited = win.getByTestId('editor-waited')
@@ -59,7 +59,7 @@ test('GIT_EDITOR="ostia open --wait" commits when the tab is closed, and Ctrl+C 
       'written in the waited tab',
     )
 
-    await runInTerminal(win, 'ostia open --wait ~/notes.txt')
+    await runInTerminal(win, 'ostia --wait ~/notes.txt')
     await expect(tab(win, 'notes.txt')).toBeVisible({ timeout: 20_000 })
     await expect(win.getByTestId('editor-waited')).toBeVisible()
     await backToTerminal(win)
@@ -87,7 +87,7 @@ test('closing the workspace ends a waiting editor with a failure instead of hang
   try {
     await runInTerminal(
       win,
-      `nohup sh -c 'ostia open --wait ~/notes.txt; echo "exit:$?" > ${marker}' > /dev/null 2>&1 &`,
+      `nohup sh -c 'ostia --wait ~/notes.txt; echo "exit:$?" > ${marker}' > /dev/null 2>&1 &`,
     )
     await expect(tab(win, 'notes.txt')).toBeVisible({ timeout: 20_000 })
     await expect(win.getByTestId('editor-waited')).toBeVisible()
@@ -116,7 +116,7 @@ test('closing the workspace ends a waiting editor with a failure instead of hang
   }
 })
 
-test('ostia diff and ostia workspace new open a comparison and a new workspace', async () => {
+test('ostia diff compares two files, and ostia <folder> opens a workspace on it once', async () => {
   test.setTimeout(120_000)
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
@@ -140,10 +140,15 @@ test('ostia diff and ostia workspace new open a comparison and a new workspace',
     )
 
     await expect(win.locator('.rail-tab')).toHaveCount(1)
-    await runInTerminal(win, 'ostia workspace new ~/proj')
+    const shell = win.locator('.xterm:visible .xterm-rows').first()
+    await runInTerminal(win, 'clear; ostia ~; echo "same-exit:$?"')
+    await expect(shell).toContainText('same-exit:0', { timeout: 15_000 })
+    await expect(shell).toContainText('already open')
+    await expect(win.locator('.rail-tab')).toHaveCount(1)
+
+    await runInTerminal(win, 'ostia ~/proj')
     await expect(win.locator('.rail-tab')).toHaveCount(2, { timeout: 15_000 })
     await expect(win.locator('.rail-tab').filter({ hasText: 'proj' })).toBeVisible()
-    await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT)
   } finally {
     await quitApp(app)
   }

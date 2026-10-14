@@ -23,11 +23,12 @@ import {
 } from '../shared/agents/claudeAttention'
 import { readEnv } from '../shared/appEnv'
 import { ARTIFACTS_ENV } from '../shared/artifacts/artifacts'
-import type {
-  DiffFilesResult,
-  FileTarget,
-  OpenFilesResult,
-  RevealFolderResult,
+import {
+  type DiffFilesResult,
+  type FileTarget,
+  type OpenFilesResult,
+  type RevealFolderResult,
+  openTargetKind,
 } from '../shared/files/openFiles'
 import { SCRIPT_TOKEN_PREFIX } from '../shared/permissions/scriptTokens'
 import type { SnippetEntry, SnippetListing } from '../shared/snippets'
@@ -511,7 +512,63 @@ function failUsage(noun: string): void {
   fail(usageOf(noun))
 }
 
-async function runOpenFiles(conn: MessageConnection, args: string[]): Promise<void> {
+type FolderOpener = (conn: MessageConnection, path: string) => Promise<Opened>
+
+async function workspaceFolderIn(conn: MessageConnection, path: string): Promise<Opened> {
+  const here = await conn
+    .sendRequest<{ ok: boolean; same?: boolean }>('workspace.sameFolder', { dir: path })
+    .catch(() => undefined)
+  if (here?.same) return { problems: [], shown: [`already open\t${path}`] }
+  const made = await newWorkspace(conn, { dir: path })
+  return made.ok
+    ? { problems: [], shown: [`${made.workspaceId}\t${path}`] }
+    : { problems: [`ostia: ${path}: ${made.message}`], shown: [] }
+}
+
+const OPEN_FLAG_WORDS: ReadonlySet<string> = new Set([
+  '-b',
+  '--background',
+  '-w',
+  '--wait',
+  '--name',
+])
+
+function looksLikePath(word: string): boolean {
+  if (word === '-' || OPEN_FLAG_WORDS.has(word)) return true
+  if (word.startsWith('-')) return false
+  return (
+    openTargetKind(word) === 'url' ||
+    word.includes('/') ||
+    word.startsWith('.') ||
+    word.startsWith('~')
+  )
+}
+
+function opensOffline(word: string): boolean {
+  return looksLikePath(word) || FILE_PROBE.isFile(parseFileArg(word, FILE_PROBE).path)
+}
+
+async function opensAsTarget(conn: MessageConnection, word: string): Promise<boolean> {
+  if (looksLikePath(word)) return true
+  if (word.startsWith('-')) return false
+  const { path } = parseFileArg(word, FILE_PROBE)
+  if (!FILE_PROBE.isFile(path) && !FILE_PROBE.isDir?.(path)) return false
+  const [extensions, commands] = await Promise.all([
+    conn.sendRequest<{ id: string; verb?: string }[]>('ext.list').catch(() => []),
+    conn.sendRequest<{ id: string }[]>('command.list').catch(() => []),
+  ])
+  const claimed = [
+    ...extensions.flatMap((e) => (e.verb ? [e.id, e.verb] : [e.id])),
+    ...commands.map((c) => c.id),
+  ]
+  return !claimed.includes(word)
+}
+
+async function runOpenFiles(
+  conn: MessageConnection,
+  args: string[],
+  folderIn: FolderOpener = revealFolderIn,
+): Promise<void> {
   let parsed: ParsedArgs<'name', never, 'background' | 'wait'>
   try {
     parsed = parseArgs(args, {
@@ -554,7 +611,7 @@ async function runOpenFiles(conn: MessageConnection, args: string[]): Promise<vo
     shown.push(...opened.shown)
   }
   for (const target of targets) {
-    if (target.kind === 'folder') take(await revealFolderIn(conn, target.path))
+    if (target.kind === 'folder') take(await folderIn(conn, target.path))
     if (target.kind === 'url') take(await openUrlIn(conn, target.url, background))
   }
   take(await openFilesIn(conn, files, { background, wait }))
@@ -1113,27 +1170,39 @@ async function runWorkspaceCommand(
   }
 }
 
+interface NewWorkspaceArgs {
+  dir: string
+  name?: string
+  group?: string
+  focus?: false
+}
+
+async function newWorkspace(
+  conn: MessageConnection,
+  args: NewWorkspaceArgs,
+): Promise<{ ok: true; workspaceId: string } | { ok: false; message: string }> {
+  const res = await conn.sendRequest<CommandResult>('command.exec', { id: 'workspace.new', args })
+  if (!res.ok) return { ok: false, message: res.error.message }
+  const workspaceId = (res.result as { workspaceId?: unknown } | undefined)?.workspaceId
+  if (typeof workspaceId !== 'string') return { ok: false, message: 'no workspace was made' }
+  const seen = await confirmWorkspace(conn, workspaceId)
+  return seen.ok ? { ok: true, workspaceId: seen.value } : { ok: false, message: seen.reason }
+}
+
 async function runWorkspaceNew(conn: MessageConnection, argv: string[]): Promise<void> {
   const { positional, values, booleans } = parseArgs(argv, {
     values: { name: '--name', group: '--group' },
     booleans: { noFocus: '--no-focus' },
   })
   if (positional.length > 1) return failUsage('workspace')
-  const res = await conn.sendRequest<CommandResult>('command.exec', {
-    id: 'workspace.new',
-    args: {
-      dir: resolvePath(positional[0] ?? '.'),
-      ...(values.name ? { name: values.name } : {}),
-      ...(values.group ? { group: values.group } : {}),
-      ...(booleans.noFocus ? { focus: false } : {}),
-    },
+  const made = await newWorkspace(conn, {
+    dir: resolvePath(positional[0] ?? '.'),
+    ...(values.name ? { name: values.name } : {}),
+    ...(values.group ? { group: values.group } : {}),
+    ...(booleans.noFocus ? { focus: false as const } : {}),
   })
-  if (!res.ok) return fail(`ostia workspace new: ${res.error.message}`)
-  const workspaceId = (res.result as { workspaceId?: unknown } | undefined)?.workspaceId
-  if (typeof workspaceId !== 'string') return fail('ostia workspace new: no workspace was made')
-  const seen = await confirmWorkspace(conn, workspaceId)
-  if (!seen.ok) return fail(seen.reason)
-  console.log(JSON.stringify({ workspaceId: seen.value }))
+  if (!made.ok) return fail(`ostia workspace new: ${made.message}`)
+  console.log(JSON.stringify({ workspaceId: made.workspaceId }))
 }
 
 async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
@@ -1537,7 +1606,9 @@ async function main(): Promise<void> {
   }
   if (!socketPath) {
     if (cmd !== undefined && wantsHelp(cmd)) return printUsage({ text: topUsage(), code: 0 })
-    if (cmd === 'open') return fail('ostia open: files open from a terminal inside Ostia')
+    if (cmd === 'open' || (cmd !== undefined && opensOffline(cmd))) {
+      return fail('ostia: files open from a terminal inside Ostia')
+    }
     process.exitCode = await runPortalCommand(argv, {
       stdin: process.stdin,
       stdout: process.stdout,
@@ -1577,6 +1648,7 @@ async function main(): Promise<void> {
     await conn.sendRequest('hello', { token, pid: process.ppid })
     const runner = Object.hasOwn(RUNNERS, cmd) ? RUNNERS[cmd] : undefined
     if (runner) await runner(conn)
+    else if (await opensAsTarget(conn, cmd)) await runOpenFiles(conn, argv, workspaceFolderIn)
     else if (cmd.includes('.')) await runRawCommand(conn, cmd)
     else await runExtCommand(conn, cmd, process.argv[3], process.argv.slice(4))
   } catch (e) {

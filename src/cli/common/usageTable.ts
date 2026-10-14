@@ -446,6 +446,8 @@ export function topUsage(): string {
     '',
     'for the human:',
     ...of('admin').map(nounLine),
+    '  ostia <target>… [-b] [-w|--wait]   the same as open, but a folder opens a new workspace',
+    '              on it (nothing when it is this workspace\'s folder); EDITOR="ostia --wait"',
     '',
     'any app command by id (see: ostia commands):',
     '  ostia <command.id> [json-args] [--workspace <id|name>]',
