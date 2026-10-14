@@ -67,6 +67,7 @@ import {
 } from '@/lib/terminal/blockActions'
 import { decodeCommandLine, readCommandText } from '@/lib/terminal/blockText'
 import { ghosttyModule, loadGhostty } from '@/lib/terminal/ghosttyEngine'
+import { createLinkHint } from '@/lib/terminal/linkHint'
 import {
   type LinkKind,
   attachLinkClaim,
@@ -202,6 +203,10 @@ function TerminalSurface({
   const findStepRef = useRef<((by: number) => void) | null>(null)
   const [alternateScreen, setAlternateScreen] = useState(false)
   const shown = usePaneVisible(paneId)
+  const dismissLinkHintRef = useRef<() => void>(() => {})
+  useEffect(() => {
+    if (!shown) dismissLinkHintRef.current()
+  }, [shown])
   const [suppressedPrompt, setSuppressedPrompt] = useState<LineAnchor | null>(null)
   const searchOptions = useMemo(() => findOptions(palette), [palette])
   const selectionSend = useSelectionSend(workspaceId, paneId)
@@ -249,15 +254,19 @@ function TerminalSurface({
     let term: OstiaTerminal
     let fit: TerminalFit
     let hoveredLink = false
-    let linkHintTimer: ReturnType<typeof setTimeout> | null = null
+    const hint = createLinkHint<LinkHintBox>(
+      LINK_HINT_DELAY_MS,
+      () => isPaneVisible(paneId),
+      setLinkHint,
+    )
+    dismissLinkHintRef.current = hint.hide
     const showLinkHint = (kind: LinkKind, range: IBufferRange, url?: string): void => {
       hoveredLink = true
-      if (linkHintTimer) clearTimeout(linkHintTimer)
-      linkHintTimer = setTimeout(() => {
+      hint.show(() => {
         const cells = measureCells(host, term)
-        if (!cells) return
+        if (!cells) return null
         const span = linkSpan(range, term.buffer.active.viewportY, term.cols)
-        setLinkHint({
+        return {
           kind,
           url,
           plainClick: term.modes.mouseTrackingMode === 'none',
@@ -265,14 +274,12 @@ function TerminalSurface({
           top: cells.top + span.row * cells.height,
           width: (span.end - span.start) * cells.width,
           height: cells.height,
-        })
-      }, LINK_HINT_DELAY_MS)
+        }
+      })
     }
     const hideLinkHint = (): void => {
       hoveredLink = false
-      if (linkHintTimer) clearTimeout(linkHintTimer)
-      linkHintTimer = null
-      setLinkHint(null)
+      hint.hide()
     }
     const openWebLink = (e: MouseEvent, uri: string): void => {
       const target = terminalLinkTarget(uri, e, {
@@ -337,6 +344,9 @@ function TerminalSurface({
     const detachLinkClaim = screenElement
       ? attachLinkClaim(screenElement, (e) => hoveredLink && linkModifierHeld(e, isMac))
       : () => {}
+    const linkMoved = term.onScroll(hint.hide)
+    const linkResized = term.onResize(hint.hide)
+    window.addEventListener('blur', hint.hide)
     termRef.current = term
     setSearch(searchAddon)
     const unregisterTerminal = registerTerminal(paneId, term)
@@ -979,8 +989,10 @@ function TerminalSurface({
       detachWheelZoom()
       detachLinkModifier()
       detachLinkClaim()
-      if (linkHintTimer) clearTimeout(linkHintTimer)
-      setLinkHint(null)
+      linkMoved.dispose()
+      linkResized.dispose()
+      window.removeEventListener('blur', hint.hide)
+      hint.hide()
       titleChange.dispose()
       titles.cancel()
       promptMarker?.dispose()
@@ -1089,17 +1101,13 @@ function TerminalSurface({
         termRef.current?.focus()
       }}
     >
-      <div className="terminal-stack">
+      <div className="terminal-stack" style={{ background }}>
         <TerminalMenu
           paneId={paneId}
           termRef={termRef}
           onPaste={() => pasteClipboardRef.current()}
           trigger={
-            <div
-              ref={hostRef}
-              className={engine === 'ghostty' ? 'ghostty-host' : 'xterm-host'}
-              style={{ background }}
-            />
+            <div ref={hostRef} className={engine === 'ghostty' ? 'ghostty-host' : 'xterm-host'} />
           }
         />
         <Blocks paneId={paneId} termRef={termRef} hostRef={hostRef} shown={shown} />
@@ -1124,7 +1132,7 @@ function TerminalSurface({
           onNeedRows={makeRows}
         />
         <AssistComposer paneId={paneId} cwd={cwd} termRef={termRef} />
-        <TerminalLinkHint hint={linkHint} />
+        <TerminalLinkHint hint={shown ? linkHint : null} />
         {findOpen && search && (
           <TerminalFind
             search={search}

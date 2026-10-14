@@ -64,6 +64,7 @@ test('waking an agent whose folder was removed shows a notice and runs nothing',
   try {
     renameSync(tree, join(root, 'work', 'tree-moved'))
     await sleeping.click()
+    await shownTerminal(win).click()
     const notice = win.getByRole('region', { name: 'Agent folder missing' })
     await expect(notice).toBeVisible({ timeout: 20_000 })
     await expect(notice).toContainText(tree)
