@@ -24,7 +24,7 @@ interface RuntimeModel {
   idle_secs?: unknown
 }
 
-export function modelRuntimeProvider(endpoint: Endpoint): Provider {
+function modelRuntimeProvider(endpoint: Endpoint): Provider {
   const fetch = endpointFetch(endpoint)
   const compat = createOpenAICompatible({
     name: MODEL_RUNTIME,

@@ -108,7 +108,7 @@ function workAreas(): WindowBounds[] {
   return [primary, ...others].map((d) => d.workArea)
 }
 
-export function parseReports(raw: unknown): WindowWorkspaceReport[] {
+function parseReports(raw: unknown): WindowWorkspaceReport[] {
   if (!Array.isArray(raw)) return []
   const out: WindowWorkspaceReport[] = []
   for (const entry of raw.slice(0, SUMMARY_MAX)) {

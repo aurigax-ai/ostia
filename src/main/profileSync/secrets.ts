@@ -49,7 +49,7 @@ export interface SecretSyncDeps {
 export type SecretResult = { ok: true } | { ok: false; error: string }
 export type SetupResult = { ok: true; recoveryKey: string } | { ok: false; error: string }
 
-export interface SecretConflict {
+interface SecretConflict {
   id: string
   key: string
   winner: 'local' | 'remote'

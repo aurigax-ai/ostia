@@ -15,7 +15,7 @@ function settingsFile(): string {
   return join(app.getPath('userData'), 'settings.json')
 }
 
-export function loadGrantedCaps(): Capability[] {
+function loadGrantedCaps(): Capability[] {
   if (grantedCapsCache) return grantedCapsCache
   grantedCapsCache = readGrantedCapsFromDisk()
   return grantedCapsCache

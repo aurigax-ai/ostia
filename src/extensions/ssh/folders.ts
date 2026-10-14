@@ -11,8 +11,8 @@ import { type HelperChannel, HelperFailure } from './channel'
 import type { HelperHosts } from './helperHosts'
 import { type ConnectPlan, hostKey } from './plan'
 
-export const LIST_BYTES_MAX = 2 * 1024 * 1024
-export const SESSIONS_MAX = 256
+const LIST_BYTES_MAX = 2 * 1024 * 1024
+const SESSIONS_MAX = 256
 const VERSION_PATTERN = /^\d{1,10}-\d{1,12}$/
 const STAT_FILE_PATTERN = /^f:\d{1,15}:(\d{1,10}-\d{1,12}|-)$/
 

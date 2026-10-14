@@ -101,7 +101,7 @@ const FILE_EXTENSIONS: Record<string, string> = {
   xml: 'xml',
 }
 
-export function suggestedFileName(language: string): string {
+function suggestedFileName(language: string): string {
   const lang = language.toLowerCase()
   if (lang === 'dockerfile') return 'Dockerfile'
   if (lang === 'makefile' || lang === 'make') return 'Makefile'

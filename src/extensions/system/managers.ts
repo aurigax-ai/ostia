@@ -79,8 +79,8 @@ const FAMILY_MANAGER: Record<string, ManagerName> = {
   windows: 'winget',
 }
 
-export const PACKAGE_NAME = /^[A-Za-z0-9][A-Za-z0-9@._+:-]*$/
-export const PACKAGE_NAME_MAX = 128
+const PACKAGE_NAME = /^[A-Za-z0-9][A-Za-z0-9@._+:-]*$/
+const PACKAGE_NAME_MAX = 128
 export const MAX_PACKAGES = 32
 
 export function isManagerName(name: string): name is ManagerName {
@@ -91,7 +91,7 @@ export function invalidPackages(pkgs: string[]): string[] {
   return pkgs.filter((p) => p.length > PACKAGE_NAME_MAX || !PACKAGE_NAME.test(p))
 }
 
-export function executableNames(name: string, platform: string, pathExt: string): string[] {
+function executableNames(name: string, platform: string, pathExt: string): string[] {
   if (platform !== 'win32') return [name]
   return [
     name,

@@ -113,7 +113,7 @@ export function newTickets(previous: ReadonlySet<string>, current: KeeperApprova
   return current.filter((a) => !previous.has(a.ticket)).map((a) => a.ticket)
 }
 
-export function ageLabel(createdAt: string, nowMs: number): string {
+function ageLabel(createdAt: string, nowMs: number): string {
   const t = Date.parse(createdAt)
   if (Number.isNaN(t)) return '?'
   const s = Math.max(0, Math.round((nowMs - t) / 1000))

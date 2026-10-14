@@ -99,7 +99,7 @@ export async function loadMergeTargets(sourceId: string): Promise<MergeTarget[]>
   return (await evaluate(sourceId))?.targets ?? []
 }
 
-export function mergeSummary(source: Workspace, target: Workspace, sandbox: boolean): MergeSummary {
+function mergeSummary(source: Workspace, target: Workspace, sandbox: boolean): MergeSummary {
   const layout = useLayoutStore.getState().byWorkspace[source.id]
   const panes = layout ? allPanes(layout.root) : []
   const { running, byPane } = useBlocksStore.getState()

@@ -7,7 +7,7 @@ import {
 } from '../../shared/sandbox/sandbox'
 import { expandHome, realPath, touches, within } from './srtConfig'
 
-export type PathCheckReason =
+type PathCheckReason =
   | 'not-absolute'
   | 'too-long'
   | 'pattern'

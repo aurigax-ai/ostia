@@ -1,7 +1,7 @@
 import picomatch from 'picomatch/posix'
 import type { ServerCapabilities } from 'vscode-languageserver-protocol'
 
-export const EXECUTE_COMMAND_METHOD = 'workspace/executeCommand'
+const EXECUTE_COMMAND_METHOD = 'workspace/executeCommand'
 export const DIAGNOSTIC_METHOD = 'textDocument/diagnostic'
 export const WORKSPACE_SYMBOL_METHOD = 'workspace/symbol'
 const MAX_REGISTRATIONS = 256

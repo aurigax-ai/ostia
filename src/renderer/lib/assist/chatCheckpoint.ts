@@ -21,7 +21,7 @@ export interface CheckpointFile {
   toolCallIds: string[]
 }
 
-export type CheckpointStatus = 'ready' | 'unchanged' | 'not-kept' | ChatFsError
+type CheckpointStatus = 'ready' | 'unchanged' | 'not-kept' | ChatFsError
 
 export interface CheckpointCheck {
   file: CheckpointFile

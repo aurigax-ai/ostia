@@ -13,14 +13,14 @@ import { type GraphEdge, type GraphNode, type GraphRow, layoutGraph } from './gi
 export const AREA_ORDER: ChangeArea[] = ['conflicted', 'staged', 'unstaged', 'untracked']
 export const WORKTREE = 'worktree'
 export const ROW_HEIGHT = 24
-export const LANE_WIDTH = 14
-export const GRAPH_PAD = 8
-export const MAX_DRAWN_LANES = 12
-export const OVERSCAN = 8
+const LANE_WIDTH = 14
+const GRAPH_PAD = 8
+const MAX_DRAWN_LANES = 12
+const OVERSCAN = 8
 export const GRAPH_PAGE = 300
 export const LOAD_MORE_MARGIN = 40
 export const LANE_COLORS = 8
-export const FALLBACK_VISIBLE_ROWS = 20
+const FALLBACK_VISIBLE_ROWS = 20
 
 const RELATIVE_STEPS: RelativeStep[] = [
   ['year', 31_536_000],

@@ -1,7 +1,7 @@
 import type { SpecArg, SpecCommand, SpecOption } from '@shared/terminal/completionSpec'
 import { tokenizeShell } from './shellTokens'
 
-export type SpecItemKind = 'subcommand' | 'option' | 'value'
+type SpecItemKind = 'subcommand' | 'option' | 'value'
 
 export interface SpecItem {
   name: string

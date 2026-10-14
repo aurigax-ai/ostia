@@ -17,7 +17,7 @@ const GROUP_TITLE_CLASS =
   'px-2 pt-2 pb-0.5 font-medium text-fg-muted text-ui-xs uppercase tracking-caps'
 const HINT_CLASS = 'ml-auto whitespace-nowrap text-fg-muted text-ui-xs'
 
-export function scopeLabel(t: Dict['git'], data: GitGraphData): string {
+function scopeLabel(t: Dict['git'], data: GitGraphData): string {
   const scope = data.scope
   if (scope.kind === 'current') return t.scopeCurrent
   if (scope.kind === 'all') return t.scopeAll

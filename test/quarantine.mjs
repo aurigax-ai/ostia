@@ -57,7 +57,7 @@ export function announce(entries, runner) {
   console.warn(`${runner}: quarantined by test/quarantine.json, skipped:\n${lines.join('\n')}`)
 }
 
-export function isCoreTest(root, entry) {
+function isCoreTest(root, entry) {
   const path = resolve(root, entry.file)
   if (typeof entry.name !== 'string' || !existsSync(path)) return false
   const source = readFileSync(path, 'utf8')

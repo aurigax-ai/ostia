@@ -32,7 +32,7 @@ export interface HelperDeps {
   closeFolder: (folderId: string) => Promise<unknown>
 }
 
-export function failureOf(err: unknown, s: Strings): ExtensionResult {
+function failureOf(err: unknown, s: Strings): ExtensionResult {
   if (!(err instanceof HelperFailure)) {
     return failure('helper-failed', err instanceof Error ? err.message : String(err))
   }
@@ -63,7 +63,7 @@ function login(plan: ConnectPlan, target: SshTarget): string {
   return target.user ? `${target.user}@${address}` : address
 }
 
-export function installConfirm(
+function installConfirm(
   plan: ConnectPlan,
   target: SshTarget,
   helper: HelperBundle,
@@ -83,7 +83,7 @@ export function installConfirm(
   }
 }
 
-export type Ensured =
+type Ensured =
   | { ok: true; channel: HelperChannel; installed: boolean }
   | { ok: false; result: ExtensionResult }
 
@@ -111,7 +111,7 @@ async function openOrInstall(
   return { channel: await deps.hosts.channel(plan), installed: true }
 }
 
-export async function ensureHelper(
+async function ensureHelper(
   plan: ConnectPlan,
   target: SshTarget,
   s: Strings,

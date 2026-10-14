@@ -2,10 +2,10 @@ import { RENDERER_ERROR_KINDS, type RendererErrorReport } from '../../shared/typ
 
 export const REPORT_MESSAGE_MAX = 1000
 export const REPORT_STACK_MAX = 8000
-export const REPORT_SOURCE_MAX = 200
+const REPORT_SOURCE_MAX = 200
 export const REPORT_PANE_IDS_MAX = 2000
-export const REPORTS_PER_WINDOW = 20
-export const REPORT_WINDOW_MS = 60_000
+const REPORTS_PER_WINDOW = 20
+const REPORT_WINDOW_MS = 60_000
 
 const TAB = 9
 const LINE_FEED = 10

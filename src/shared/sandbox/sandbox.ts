@@ -11,7 +11,7 @@ export interface SandboxSwitches {
   strictDomains: boolean
 }
 
-export const SANDBOX_SWITCHES = ['unixSockets', 'gitConfig', 'strictDomains'] as const
+const SANDBOX_SWITCHES = ['unixSockets', 'gitConfig', 'strictDomains'] as const
 
 export const DEFAULT_SWITCHES: SandboxSwitches = {
   unixSockets: true,
@@ -125,7 +125,7 @@ export interface SandboxFixedPolicy {
   socketBlocking: boolean
 }
 
-export const SANDBOX_FOLDER_PROBLEMS = ['home', 'above-home', 'ostia-data'] as const
+const SANDBOX_FOLDER_PROBLEMS = ['home', 'above-home', 'ostia-data'] as const
 export type SandboxFolderReason = (typeof SANDBOX_FOLDER_PROBLEMS)[number]
 
 export interface SandboxFolderProblem {
@@ -140,7 +140,7 @@ export type SandboxEnableResult =
 
 export type SandboxViolationKind = 'network' | 'write' | 'read' | 'other'
 
-export const SANDBOX_VIOLATION_REASONS = [
+const SANDBOX_VIOLATION_REASONS = [
   'not-allowed',
   'blocked',
   'refused',
@@ -295,8 +295,8 @@ export function checkDomainPattern(input: string): DomainCheck {
   return { ok: true, domain }
 }
 
-export const EXPOSE_PORT_MIN = 1024
-export const EXPOSE_PORT_MAX = 65535
+const EXPOSE_PORT_MIN = 1024
+const EXPOSE_PORT_MAX = 65535
 
 export function checkExposePort(input: string | number): number | null {
   const text = String(input).trim()
@@ -425,7 +425,7 @@ export function hostMatches(host: string, port: number, patterns: readonly strin
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/
 const FILE_NAME = /^[A-Za-z0-9._-]{1,128}$/
 
-export function checkSecretGrant(grant: SecretGrant): boolean {
+function checkSecretGrant(grant: SecretGrant): boolean {
   if (typeof grant.id !== 'string' || !grant.id) return false
   if (!SECRET_GRANT_MODES.includes(grant.mode)) return false
   if (grant.name === undefined) return true
@@ -463,7 +463,7 @@ function packageList(value: unknown): string[] | null {
   return list?.every(checkPackageKey) ? list : null
 }
 
-export function parsePackageSettings(value: unknown): PackageSettings | null {
+function parsePackageSettings(value: unknown): PackageSettings | null {
   if (typeof value !== 'object' || value === null) return null
   const raw = value as Record<string, unknown>
   const denyList = packageList(raw.denyList ?? [])

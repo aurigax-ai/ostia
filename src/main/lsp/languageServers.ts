@@ -50,11 +50,11 @@ import {
 import type { Requirement } from '../platform/systemRequirements'
 import { overrideFileProblem } from './serverOverrides'
 
-export const LSP_IDLE_STOP_MS = 60_000
-export const LSP_MAX_RESTARTS = 5
-export const LSP_RESTART_DELAY_MS = 500
-export const LSP_STABLE_RUN_MS = 60_000
-export const LSP_STOP_GRACE_MS = 2_000
+const LSP_IDLE_STOP_MS = 60_000
+const LSP_MAX_RESTARTS = 5
+const LSP_RESTART_DELAY_MS = 500
+const LSP_STABLE_RUN_MS = 60_000
+const LSP_STOP_GRACE_MS = 2_000
 const HOST_SCOPE = 'host'
 const SESSION_ID_PATTERN = /^lsp-\d{1,12}$/
 const MAX_TRACKED_REQUESTS = 2_000
@@ -78,7 +78,7 @@ export interface LanguageServerPane {
   workspaceId: string
 }
 
-export interface LanguageServerSandbox {
+interface LanguageServerSandbox {
   owner: (workspaceId: string) => string | null
   readable: (workspaceId: string, path: string) => boolean
   wrap: (workspaceId: string, command: string, extraReads: string[]) => Promise<string>

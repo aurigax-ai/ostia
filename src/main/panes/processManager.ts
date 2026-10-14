@@ -21,14 +21,14 @@ import type { TerminalOpenRequest } from '../extensions/extensionHost'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import { PromptMarkScanner, plainTerminalText } from '../terminal/terminalText'
 
-export const PROCESS_COMMAND_MAX = 8 * 1024
-export const PROCESS_NAME_MAX = 60
+const PROCESS_COMMAND_MAX = 8 * 1024
+const PROCESS_NAME_MAX = 60
 export const INTERRUPT_GRACE_MS = 3000
 const INTERRUPT = '\x03'
 const COMMAND_START = 'C'
 const COMMAND_END = 'D'
 
-export type ProcessStatus = 'starting' | 'running' | 'exited' | 'closed'
+type ProcessStatus = 'starting' | 'running' | 'exited' | 'closed'
 
 export interface RingSlice {
   data: string

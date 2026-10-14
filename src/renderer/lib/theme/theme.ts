@@ -21,9 +21,6 @@ export function resolveTheme(themes: Theme[], id: string): Theme | undefined {
   return themes.find((t) => t.id === id) ?? themes[0]
 }
 
-export const DEFAULT_LIGHT_THEME = 'ostia-light'
-export const DEFAULT_DARK_THEME = 'adeberry'
-
 export function themedTokens(theme: Theme, accent: string): Record<string, string> {
   const hex = normalizeHex(accent)
   const tokens = hex
@@ -46,7 +43,7 @@ export function applyTheme(root: HTMLElement, theme: Theme | undefined, accent: 
   root.classList.toggle('dark', theme.appearance === 'dark')
 }
 
-export const useSystemDark = (): boolean => useSystemThemeStore((s) => s.dark)
+const useSystemDark = (): boolean => useSystemThemeStore((s) => s.dark)
 
 const systemDarkNow = (): boolean => useSystemThemeStore.getState().dark
 

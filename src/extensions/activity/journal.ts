@@ -14,11 +14,11 @@ import { join } from 'node:path'
 import { type ActivityEvent, parseStoredEvent } from './hookEvent'
 
 export const JOURNAL_DIR = 'journal'
-export const JOURNAL_SUFFIX = '.jsonl'
-export const JOURNAL_MAX_BYTES = 512 * 1024
+const JOURNAL_SUFFIX = '.jsonl'
+const JOURNAL_MAX_BYTES = 512 * 1024
 export const JOURNAL_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000
-export const JOURNAL_FILE_MODE = 0o600
-export const JOURNAL_DIR_MODE = 0o700
+const JOURNAL_FILE_MODE = 0o600
+const JOURNAL_DIR_MODE = 0o700
 
 const WORKSPACE_FILE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/
 const APPEND_FLAGS =
@@ -47,7 +47,7 @@ function bytesOf(events: readonly ActivityEvent[]): number {
   return events.reduce((sum, event) => sum + Buffer.byteLength(lineOf(event)), 0)
 }
 
-export function storableWorkspaceId(workspaceId: string): boolean {
+function storableWorkspaceId(workspaceId: string): boolean {
   return WORKSPACE_FILE_PATTERN.test(workspaceId)
 }
 

@@ -100,7 +100,7 @@ function throughSymlink(path: string, real: string, folder: string | null): bool
   return real !== nearest
 }
 
-export function locate(req: ChatFsTarget, roots: readonly string[]): Located | Fail {
+function locate(req: ChatFsTarget, roots: readonly string[]): Located | Fail {
   if (typeof req?.path !== 'string' || !req.path || req.path.length > PATH_MAX) {
     return fail('invalid')
   }
@@ -117,7 +117,7 @@ export function locate(req: ChatFsTarget, roots: readonly string[]): Located | F
   return { path, real, outside, symlink: throughSymlink(path, real, folder) }
 }
 
-export function openUnsaved(dirty: unknown, real: string, roots: readonly string[]): boolean {
+function openUnsaved(dirty: unknown, real: string, roots: readonly string[]): boolean {
   if (!Array.isArray(dirty)) return false
   return dirty.slice(0, CHAT_DIRTY_PATHS_MAX).some((raw) => {
     if (typeof raw !== 'string' || !raw || raw.length > PATH_MAX) return false

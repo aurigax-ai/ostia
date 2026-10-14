@@ -60,7 +60,7 @@ const {
   enableRemote,
   gatewayPair,
   registerGatewayIpc,
-} = await import('./index')
+} = await import('./gatewayIpc')
 const { consumeCode, resetCodes } = await import('./pairing')
 const { saveRoute } = await import('./route')
 

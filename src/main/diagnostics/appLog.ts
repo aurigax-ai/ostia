@@ -1,13 +1,13 @@
 import { existsSync, renameSync, rmSync } from 'node:fs'
-import { dirname, join, parse } from 'node:path'
+import { join, parse } from 'node:path'
 import log from 'electron-log/node'
 
 export const LOG_FILE_NAME = 'main.log'
-export const LOG_MAX_BYTES = 1024 * 1024
-export const LOG_KEEP_FILES = 3
+const LOG_MAX_BYTES = 1024 * 1024
+const LOG_KEEP_FILES = 3
 export const LOG_FIELD_MAX_CHARS = 4000
 
-export type LogValue = string | number | boolean | null | undefined
+type LogValue = string | number | boolean | null | undefined
 export type LogFields = Record<string, LogValue>
 
 export interface AppLog {
@@ -36,7 +36,7 @@ export function redactSecrets(text: string): string {
   return out
 }
 
-export function clip(text: string, max: number): string {
+function clip(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}…(${text.length - max} more)` : text
 }
 
@@ -104,8 +104,4 @@ export function createAppLog(
       } catch {}
     }
   return { file, info: write('info'), warn: write('warn'), error: write('error') }
-}
-
-export function logDirOf(appLog: AppLog): string {
-  return dirname(appLog.file)
 }

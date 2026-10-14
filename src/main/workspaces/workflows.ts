@@ -19,11 +19,11 @@ import { resolveSafe } from '../platform/pathGuard'
 
 export const WORKFLOW_FILE_MAX_BYTES = 64 * 1024
 export const WORKFLOW_FILES_MAX = 200
-export const WORKFLOWS_PER_FILE_MAX = 50
+const WORKFLOWS_PER_FILE_MAX = 50
 const WORKFLOW_FILE = /\.ya?ml$/i
 const SAVE_ATTEMPTS = 100
 
-export interface ExtensionWorkflows {
+interface ExtensionWorkflows {
   extId: string
   workflows: Workflow[]
 }

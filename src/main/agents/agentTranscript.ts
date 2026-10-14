@@ -29,7 +29,7 @@ function listDir(path: string): string[] {
   }
 }
 
-export function claudeTranscript(home: string, id: string): string | null {
+function claudeTranscript(home: string, id: string): string | null {
   const root = join(home, '.claude', 'projects')
   for (const project of listDir(root)) {
     const path = join(root, project, `${id}.jsonl`)
@@ -38,7 +38,7 @@ export function claudeTranscript(home: string, id: string): string | null {
   return null
 }
 
-export function codexTranscript(home: string, id: string): string | null {
+function codexTranscript(home: string, id: string): string | null {
   const root = join(home, '.codex', 'sessions')
   const newestFirst = (dir: string) => listDir(dir).sort().reverse()
   for (const year of newestFirst(root)) {

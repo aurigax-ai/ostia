@@ -3,17 +3,11 @@ import { ensureCaps } from '../approvals/controlElevation'
 import { registerTargetableMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 
-export type AttentionVerb = Exclude<AttentionState, 'none'> | 'clear'
+type AttentionVerb = Exclude<AttentionState, 'none'> | 'clear'
 
-export const ATTENTION_VERBS: readonly AttentionVerb[] = [
-  'waiting',
-  'done',
-  'working',
-  'error',
-  'clear',
-]
+const ATTENTION_VERBS: readonly AttentionVerb[] = ['waiting', 'done', 'working', 'error', 'clear']
 
-export const ATTENTION_MESSAGE_MAX = 1024
+const ATTENTION_MESSAGE_MAX = 1024
 
 export interface AttentionDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>

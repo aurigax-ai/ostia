@@ -1,14 +1,14 @@
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process'
 import { HELPER_PROTOCOL, STATUS_PREFIX } from './helper'
 
-export const HELLO_TIMEOUT_MS = 20_000
-export const REQUEST_TIMEOUT_MS = 30_000
-export const NOISE_MAX_BYTES = 64 * 1024
-export const HEADER_MAX_BYTES = 512
-export const ERROR_LINE_MAX = 240
+const HELLO_TIMEOUT_MS = 20_000
+const REQUEST_TIMEOUT_MS = 30_000
+const NOISE_MAX_BYTES = 64 * 1024
+const HEADER_MAX_BYTES = 512
+const ERROR_LINE_MAX = 240
 export const BUFFER_MAX_BYTES = 16 * 1024 * 1024
 
-export const HELPER_ERRORS = [
+const HELPER_ERRORS = [
   'not-found',
   'outside',
   'not-file',
@@ -21,7 +21,7 @@ export const HELPER_ERRORS = [
   'failed',
 ] as const
 
-export type HelperError = (typeof HELPER_ERRORS)[number]
+type HelperError = (typeof HELPER_ERRORS)[number]
 
 export type ChannelError =
   | HelperError
@@ -48,7 +48,7 @@ export class HelperFailure extends Error {
 
 export type SpawnSsh = (argv: string[]) => ChildProcessWithoutNullStreams
 
-export const spawnSsh: SpawnSsh = (argv) =>
+const spawnSsh: SpawnSsh = (argv) =>
   spawn(argv[0], argv.slice(1), { stdio: ['pipe', 'pipe', 'pipe'], env: process.env })
 
 export class ByteQueue {
@@ -114,7 +114,7 @@ export class ByteQueue {
   }
 }
 
-export function firstLine(text: string): string | undefined {
+function firstLine(text: string): string | undefined {
   const line = text
     .split(/\r?\n/)
     .map((l) => l.trim())

@@ -128,7 +128,7 @@ async function readStdin(): Promise<string> {
   return data
 }
 
-export async function executeCall(
+async function executeCall(
   conn: MessageConnection,
   call: BrowseCall,
   paneId: string | undefined,

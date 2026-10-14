@@ -40,7 +40,7 @@ export function parseFileArg(arg: string, probe: FileProbe): FileTarget {
 
 export type FileWord = 'path' | 'name' | null
 
-export const OPEN_FLAGS: readonly string[] = [
+const OPEN_FLAGS: readonly string[] = [
   '-b',
   '--background',
   '--name',

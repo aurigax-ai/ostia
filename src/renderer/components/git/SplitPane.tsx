@@ -30,7 +30,7 @@ interface Measure {
 
 const UNMEASURED: Measure = { collapsed: false, min: 0, max: 100, now: 0 }
 
-export function splitSizeKey(splitKey: string): string {
+function splitSizeKey(splitKey: string): string {
   return `git:${splitKey}`
 }
 

@@ -113,7 +113,7 @@ export function startAssistAvailability(): () => void {
 let requestSeq = 0
 const CHUNK_CATCH_UP_MS = 3000
 
-export function nextAssistRequestId(): string {
+function nextAssistRequestId(): string {
   requestSeq += 1
   return `r${Date.now().toString(36)}-${requestSeq}`
 }

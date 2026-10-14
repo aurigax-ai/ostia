@@ -234,14 +234,14 @@ import { confirmRemoteFolder, registerRemoteFolderConfirm } from './files/remote
 import type { RemoteFolders } from './files/remoteFolders'
 import { ripgrepPath } from './files/ripgrep'
 import { registerSearchIpc } from './files/workspaceSearch'
+import { createBonjourPublisher } from './gateway/announce'
 import {
   configureAnnouncer,
   configureTailnet,
   onTailnetChange,
   registerGatewayIpc,
   registerGatewayMethods,
-} from './gateway'
-import { createBonjourPublisher } from './gateway/announce'
+} from './gateway/gatewayIpc'
 import { listPairRequests, onPairRequestsChanged } from './gateway/pairRequests'
 import { configureGatewayControl, phoneCanRespond, stopGateway } from './gateway/server'
 import { createTailnet, tailnetNodeName, tsnetHelperPath } from './gateway/tailnet'

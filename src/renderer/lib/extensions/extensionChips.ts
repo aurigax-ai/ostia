@@ -50,11 +50,11 @@ function catalogOf(
     )
 }
 
-export function corePaneChips(d: Dict): ChipCatalogEntry[] {
+function corePaneChips(d: Dict): ChipCatalogEntry[] {
   return [{ extId: PORTS_SOURCE, extName: d.ports.title, id: SSH_CHIP, title: d.ports.sshChip }]
 }
 
-export function coreWorkspaceChips(d: Dict): ChipCatalogEntry[] {
+function coreWorkspaceChips(d: Dict): ChipCatalogEntry[] {
   return [
     { extId: GIT_SOURCE, extName: d.git.title, id: GIT_BRANCH_CHIP, title: d.git.branchChip },
     {
@@ -67,7 +67,7 @@ export function coreWorkspaceChips(d: Dict): ChipCatalogEntry[] {
   ]
 }
 
-export function chipCatalog(list: ExtensionInfo[]): ChipCatalogEntry[] {
+function chipCatalog(list: ExtensionInfo[]): ChipCatalogEntry[] {
   return catalogOf(list, (ext) => [...ext.paneChips, ...ext.workspaceChips])
 }
 
@@ -75,7 +75,7 @@ export function paneChipCatalog(list: ExtensionInfo[]): ChipCatalogEntry[] {
   return catalogOf(list, (ext) => ext.paneChips)
 }
 
-export function workspaceChipCatalog(list: ExtensionInfo[]): ChipCatalogEntry[] {
+function workspaceChipCatalog(list: ExtensionInfo[]): ChipCatalogEntry[] {
   return catalogOf(list, (ext) => ext.workspaceChips)
 }
 

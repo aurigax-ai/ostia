@@ -15,7 +15,7 @@ import { crossesSandbox } from '../windows/windowBook'
 
 export const REFERENCE_TEXT_MAX = 64 * 1024
 export const REFERENCE_NOTE_MAX = 120
-export const REFERENCE_REPLY_MS = 3000
+const REFERENCE_REPLY_MS = 3000
 
 const ID_MAX = 256
 const ATTENTION_STATES: ReadonlySet<string> = new Set<AttentionState>([

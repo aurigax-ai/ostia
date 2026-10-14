@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { extname } from 'node:path'
 
 export const COMPILE_MAX_BYTES = 1024 * 1024
-export const COMPILE_TIMEOUT_MS = 5_000
+const COMPILE_TIMEOUT_MS = 5_000
 const CACHE_MAX = 64
 const LOADERS: Readonly<Record<string, 'jsx' | 'tsx' | 'ts'>> = {
   '.jsx': 'jsx',
@@ -26,7 +26,7 @@ export function compiles(path: string): boolean {
   return extname(path).toLowerCase() in LOADERS
 }
 
-export function problemText(problem: CompileProblem): string {
+function problemText(problem: CompileProblem): string {
   return `${problem.file}:${problem.line}:${problem.column}: ${problem.message}`
 }
 

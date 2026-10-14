@@ -67,7 +67,7 @@ export function useCopied(): [boolean, () => void] {
   return [copied, () => setCopied(true)]
 }
 
-export function CopyCodeButton({ code }: { code: string }): JSX.Element {
+function CopyCodeButton({ code }: { code: string }): JSX.Element {
   const d = useDict()
   const [copied, setCopied] = useCopied()
   return (

@@ -7153,15 +7153,6 @@ export const zhHant: Dict = {
   },
 }
 
-export function resolveLocale(tag: string | undefined): Locale {
-  if (!tag) return 'en'
-  const t = tag.toLowerCase()
-  if (t.startsWith('zh')) {
-    return 'zh-Hant'
-  }
-  return 'en'
-}
-
 export function withProductName(text: string, product: string = PRODUCT_DISPLAY_NAME): string {
   return text.split(PRODUCT_PLACEHOLDER).join(product)
 }

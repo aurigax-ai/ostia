@@ -1,7 +1,7 @@
 /// <reference lib="dom" />
 import type { SnapshotNode } from './browseSnapshot'
 
-export type BrowseFail = { ok: false; error: string; message?: string }
+type BrowseFail = { ok: false; error: string; message?: string }
 export type BrowseOutcome<T extends object = object> = ({ ok: true } & T) | BrowseFail
 
 export type StorageArea = 'local' | 'session'

@@ -1,8 +1,8 @@
 export type VimMode = 'insert' | 'normal'
 
-export type VimMotion = 'h' | 'j' | 'k' | 'l' | 'w' | 'b' | 'e' | '0' | '$'
+type VimMotion = 'h' | 'j' | 'k' | 'l' | 'w' | 'b' | 'e' | '0' | '$'
 
-export type VimInsert = 'i' | 'a' | 'A' | 'I' | 'o' | 'O'
+type VimInsert = 'i' | 'a' | 'A' | 'I' | 'o' | 'O'
 
 export type VimCommand =
   | { kind: 'move'; motion: VimMotion; count: number }
@@ -125,12 +125,7 @@ function verticalTarget(text: string, caret: number, down: boolean, count: numbe
   return Math.min(start + column, lastColumn(text, start))
 }
 
-export function motionTarget(
-  text: string,
-  caret: number,
-  motion: VimMotion,
-  count: number,
-): number {
+function motionTarget(text: string, caret: number, motion: VimMotion, count: number): number {
   switch (motion) {
     case 'h':
       return Math.max(lineStart(text, caret), caret - count)
@@ -270,8 +265,4 @@ export function enterNormal(buffer: VimBuffer): VimResult {
   const { text, caret } = buffer
   const back = caret > lineStart(text, caret) ? caret - 1 : caret
   return { text, caret: clampNormal(text, back), mode: 'normal' }
-}
-
-export function changesText(command: VimCommand): boolean {
-  return command.kind === 'delete' || command.kind === 'change' || command.kind === 'deleteChar'
 }

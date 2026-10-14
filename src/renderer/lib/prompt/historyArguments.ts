@@ -1,7 +1,7 @@
 import type { HistoryFacts } from './historyRank'
 import { type CommandWords, commandWords } from './specCompletion'
 
-export const HISTORY_ARGUMENTS_MAX = 8
+const HISTORY_ARGUMENTS_MAX = 8
 
 function nextArgument(entry: string, typed: CommandWords): string | null {
   const words = commandWords(entry)

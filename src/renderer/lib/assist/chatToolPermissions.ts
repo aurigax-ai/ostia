@@ -12,7 +12,7 @@ export const DEFAULT_CHAT_MODE: ChatMode = 'ask'
 
 export type ApprovalKind = 'read-outside' | 'act' | 'write' | 'command' | 'mcp'
 
-export type ToolAccess = ChatToolAccess | 'mcp'
+type ToolAccess = ChatToolAccess | 'mcp'
 
 export type WriteAskReason = 'ask-mode' | 'outside' | 'symlink' | 'repository' | 'unsaved'
 
@@ -32,9 +32,9 @@ export type ToolDecision =
   | { run: true }
   | { run: false; kind: ApprovalKind; grantKey: string | null; reason?: WriteAskReason }
 
-export type ApprovalScope = 'once' | 'chat' | 'always'
+type ApprovalScope = 'once' | 'chat' | 'always'
 
-export type CommandChoice = 'insert' | 'run'
+type CommandChoice = 'insert' | 'run'
 
 export type ApprovalAnswer =
   | { approved: false }

@@ -14,7 +14,7 @@ import {
 import type { DynamicToolUIPart, ToolUIPart } from 'ai'
 import type { ComponentProps, ReactNode } from 'react'
 
-export type ToolPart = ToolUIPart | DynamicToolUIPart
+type ToolPart = ToolUIPart | DynamicToolUIPart
 
 export type ToolState = ToolPart['state']
 

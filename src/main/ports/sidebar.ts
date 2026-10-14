@@ -3,7 +3,7 @@ import type { ExtensionIcon, SidebarKind } from '../../shared/extensions'
 import type { PaneEntry } from '../panes/paneList'
 import type { TreeInfo } from './scan'
 
-export const SSH_KEY = 'ssh'
+const SSH_KEY = 'ssh'
 
 export interface WorkspaceProcesses {
   ports: number[]
@@ -60,8 +60,4 @@ export function sidebarEntries(groups: Map<string, WorkspaceProcesses>): Sidebar
     })
   }
   return out
-}
-
-export function slotOf(entry: Pick<SidebarEntry, 'workspaceId' | 'key'>): string {
-  return `${entry.workspaceId}\u0000${entry.key}`
 }

@@ -47,7 +47,7 @@ export function normalizeUri(uri: string): string {
   return monaco.Uri.parse(uri).toString()
 }
 
-export function markerSeverity(severity: number | undefined): monaco.MarkerSeverity {
+function markerSeverity(severity: number | undefined): monaco.MarkerSeverity {
   const S = monaco.MarkerSeverity
   if (severity === 1) return S.Error
   if (severity === 2) return S.Warning
@@ -81,7 +81,7 @@ export function toMarkers(diagnostics: readonly Diagnostic[]): monaco.editor.IMa
   })
 }
 
-export function completionKind(kind: number | undefined): monaco.languages.CompletionItemKind {
+function completionKind(kind: number | undefined): monaco.languages.CompletionItemKind {
   const K = monaco.languages.CompletionItemKind
   const kinds: Record<number, monaco.languages.CompletionItemKind> = {
     1: K.Text,
@@ -180,7 +180,7 @@ export function toCompletion(
   }
 }
 
-export function hoverContents(contents: Hover['contents']): monaco.IMarkdownString[] {
+function hoverContents(contents: Hover['contents']): monaco.IMarkdownString[] {
   const one = (part: string | { language?: string; value: string }): string => {
     if (typeof part === 'string') return part
     return part.language ? `\`\`\`${part.language}\n${part.value}\n\`\`\`` : part.value
@@ -220,7 +220,7 @@ export function toLocations(
   )
 }
 
-export function symbolKind(kind: number): monaco.languages.SymbolKind {
+function symbolKind(kind: number): monaco.languages.SymbolKind {
   return Math.max(0, Math.min(25, kind - 1)) as monaco.languages.SymbolKind
 }
 

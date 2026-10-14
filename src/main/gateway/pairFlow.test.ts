@@ -15,7 +15,7 @@ vi.mock('electron', () => ({
 vi.mock('../control/controlServer', () => ({ registerControlMethod: () => {} }))
 
 const { startGateway, stopGateway } = await import('./server')
-const { configureTailnet, gatewayPair } = await import('./index')
+const { configureTailnet, gatewayPair } = await import('./gatewayIpc')
 const { newCode, resetCodes, resetPairRateLimit } = await import('./pairing')
 const { answerPairRequest, listPairRequests, onPairRequestsChanged, resetPairRequests } =
   await import('./pairRequests')

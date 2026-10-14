@@ -3,7 +3,7 @@ export const MANAGER_FEATURE = 'manager'
 export const MANAGER_AGENT_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
 export const MANAGER_MAX_ARGS = 64
 export const MANAGER_MAX_ARG_LENGTH = 4096
-export const MANAGER_MAX_SKILLS = 32
+const MANAGER_MAX_SKILLS = 32
 const MAX_SKILL_PATH = 4096
 
 export const BUILTIN_MANAGER_AGENTS: Readonly<Record<string, readonly string[]>> = {
@@ -30,7 +30,7 @@ export const MANAGER_LIMIT_BOUNDS: Readonly<Record<keyof ManagerLimits, [number,
   busPerMinute: [0, 600],
 }
 
-export const DEFAULT_MANAGER_LIMITS: ManagerLimits = {
+const DEFAULT_MANAGER_LIMITS: ManagerLimits = {
   maxWorkers: 8,
   spawnsPer10Min: 20,
   busPerMinute: 60,

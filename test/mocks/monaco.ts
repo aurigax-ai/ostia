@@ -153,7 +153,7 @@ export class FakeModel {
   }
 }
 
-export class FakeEmitter<T> {
+class FakeEmitter<T> {
   private readonly listeners = new Set<Listener<T>>()
 
   readonly event = (listener: Listener<T>): { dispose: () => void } => {
@@ -170,7 +170,7 @@ export class FakeEmitter<T> {
   }
 }
 
-export interface Registration {
+interface Registration {
   kind: string
   language: string
   provider: Record<string, unknown>

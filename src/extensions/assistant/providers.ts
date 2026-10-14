@@ -14,18 +14,12 @@ import {
 import type { Provider, ProviderCatalog } from '../sdk/assist/provider'
 import { createTranslator } from '../sdk/i18n'
 
-export const PROVIDER_KINDS = [
-  'ollama',
-  'openai-compatible',
-  'openrouter',
-  'openai',
-  'anthropic',
-] as const
+const PROVIDER_KINDS = ['ollama', 'openai-compatible', 'openrouter', 'openai', 'anthropic'] as const
 
 export type ProviderKind = (typeof PROVIDER_KINDS)[number]
 
-export const ANTHROPIC_VERSION = '2023-06-01'
-export const OPENROUTER_HEADERS = { 'X-Title': PRODUCT_DISPLAY_NAME }
+const ANTHROPIC_VERSION = '2023-06-01'
+const OPENROUTER_HEADERS = { 'X-Title': PRODUCT_DISPLAY_NAME }
 const MODELS_TIMEOUT_MS = 15_000
 const SHOW_TIMEOUT_MS = 5000
 const native = async (): Promise<ChatToolMode> => 'native'

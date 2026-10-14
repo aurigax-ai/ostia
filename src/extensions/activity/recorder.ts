@@ -3,8 +3,8 @@ import type { ExtensionCaller } from '../../shared/extensions'
 import { type ActivityEvent, parseHookEvent } from './hookEvent'
 import type { Journal } from './journal'
 
-export const RECORDED_EVENTS: readonly AgentHookEvent[] = ['UserPromptSubmit', 'PreToolUse', 'Stop']
-export const MEMORY_ONLY_KINDS: readonly string[] = ['scratch']
+const RECORDED_EVENTS: readonly AgentHookEvent[] = ['UserPromptSubmit', 'PreToolUse', 'Stop']
+const MEMORY_ONLY_KINDS: readonly string[] = ['scratch']
 
 export interface RecorderDeps {
   journal: Journal
@@ -14,7 +14,7 @@ export interface RecorderDeps {
   changed: () => void
 }
 
-export function keepsOnDisk(caller: ExtensionCaller, kind: string | null): boolean {
+function keepsOnDisk(caller: ExtensionCaller, kind: string | null): boolean {
   return caller.sandboxed !== true && kind !== null && !MEMORY_ONLY_KINDS.includes(kind)
 }
 

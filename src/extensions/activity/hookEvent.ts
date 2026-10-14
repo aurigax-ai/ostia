@@ -1,14 +1,14 @@
 import type { AgentHookEvent, HookAgent } from '../../shared/agentPlugins'
 
-export const TOOL_KINDS = ['edit', 'command', 'search', 'read', 'subagent', 'web', 'other'] as const
+const TOOL_KINDS = ['edit', 'command', 'search', 'read', 'subagent', 'web', 'other'] as const
 
 export type ToolKind = (typeof TOOL_KINDS)[number]
 
-export const ACTIVITY_KINDS = ['prompt', 'tool', 'stop'] as const
+const ACTIVITY_KINDS = ['prompt', 'tool', 'stop'] as const
 
 export type ActivityKind = (typeof ACTIVITY_KINDS)[number]
 
-export const JOURNAL_VERSION = 1
+const JOURNAL_VERSION = 1
 
 export interface ActivityEvent {
   v: typeof JOURNAL_VERSION
@@ -22,10 +22,10 @@ export interface ActivityEvent {
 }
 
 export const PROMPT_TEXT_MAX = 200
-export const TARGET_TEXT_MAX = 200
+const TARGET_TEXT_MAX = 200
 export const RECAP_TEXT_MAX = 600
-export const RECAP_LINES_MAX = 4
-export const SESSION_ID_MAX = 80
+const RECAP_LINES_MAX = 4
+const SESSION_ID_MAX = 80
 
 const ELLIPSIS = '…'
 const SESSION_ID_PATTERN = /^[A-Za-z0-9._:-]+$/
@@ -62,12 +62,12 @@ function withoutControls(text: string): string {
   return out
 }
 
-export function capped(text: string, max: number): string {
+function capped(text: string, max: number): string {
   const chars = [...text]
   return chars.length > max ? `${chars.slice(0, max - 1).join('')}${ELLIPSIS}` : text
 }
 
-export function firstLine(text: string, max: number): string {
+function firstLine(text: string, max: number): string {
   const line =
     text
       .split('\n')

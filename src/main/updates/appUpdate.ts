@@ -4,7 +4,7 @@ import { type BuildInfo, sameBuild } from '../../shared/app/buildInfo'
 import { restoreGpuLaunchEnv } from '../platform/discreteGpu'
 import { readBuildInfo, runningBuild } from './appVersion'
 
-export const UPDATE_POLL_MS = 30_000
+const UPDATE_POLL_MS = 30_000
 
 export interface UpdateWatcher {
   check: () => BuildInfo | null

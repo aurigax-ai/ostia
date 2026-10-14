@@ -1,4 +1,4 @@
-export const PATH_ELLIPSIS = '…'
+const PATH_ELLIPSIS = '…'
 
 function splitPath(path: string): { head: string; segments: string[] } {
   const trimmed = path.length > 1 ? path.replace(/\/+$/, '') : path

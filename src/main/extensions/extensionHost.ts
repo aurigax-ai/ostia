@@ -172,18 +172,18 @@ import type { KeymapSource } from './keymaps'
 import type { LanguageSource } from './languagePacks'
 
 export const MAX_RESTARTS = 3
-export const REQUEST_TIMEOUT_MS = 30_000
-export const INTERACTIVE_TIMEOUT_MS = 10 * 60_000
+const REQUEST_TIMEOUT_MS = 30_000
+const INTERACTIVE_TIMEOUT_MS = 10 * 60_000
 const MAX_SIDEBAR_ITEMS = 32
 const SIDEBAR_TEXT_MAX = 80
 const DIFF_TITLE_MAX = 200
 const DIFF_LANGUAGE_MAX = 40
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost'])
 const RESCAN_DEBOUNCE_MS = 250
-export const ASSIST_TIMEOUT_MS = 60_000
-export const ASSIST_CHAT_TIMEOUT_MS = 5 * 60_000
-export const ASSIST_MODELS_TIMEOUT_MS = 15_000
-export const ASSIST_MODEL_CHANGE_TIMEOUT_MS = 5 * 60_000
+const ASSIST_TIMEOUT_MS = 60_000
+const ASSIST_CHAT_TIMEOUT_MS = 5 * 60_000
+const ASSIST_MODELS_TIMEOUT_MS = 15_000
+const ASSIST_MODEL_CHANGE_TIMEOUT_MS = 5 * 60_000
 const ASSIST_CHUNK_MAX = 262_144
 
 type RunState = 'idle' | 'starting' | 'running' | 'crashed'
@@ -432,7 +432,7 @@ function terminalWaitMs(raw: unknown): number | null | string {
   return Math.min(Math.round(raw), OPEN_TERMINAL_WAIT_MAX_MS)
 }
 
-export function terminalArgv(raw: unknown): string[] | string {
+function terminalArgv(raw: unknown): string[] | string {
   if (!Array.isArray(raw) || raw.length === 0) return 'command must be a non-empty array'
   if (raw.length > TERMINAL_COMMAND_MAX_ARGS) {
     return `command is limited to ${TERMINAL_COMMAND_MAX_ARGS} arguments`
@@ -499,7 +499,7 @@ function normalizeResult(raw: unknown): ExtensionResult {
   return raw === undefined || raw === null ? { ok: true } : { ok: true, data: raw }
 }
 
-export function capsOf(externalId: string): Capability[] {
+function capsOf(externalId: string): Capability[] {
   return ALL_CAPABILITIES.filter((cap) => hasCap(externalId, cap))
 }
 

@@ -251,7 +251,7 @@ export function setPaneEditor(
   return mapPane(root, paneId, (p) => ({ ...named(p, title), kind: 'editor', filePath, cwd }))
 }
 
-export function movedPath(path: string, from: string, to: string): string | null {
+function movedPath(path: string, from: string, to: string): string | null {
   if (path === from) return to
   return path.startsWith(`${from}/`) ? to + path.slice(from.length) : null
 }
@@ -464,7 +464,7 @@ export function backgroundTabAnchor(
   return inStack[inStack.length - 1] ?? callerId
 }
 
-export function tabOfPane(root: LayoutNode, paneId: string): TabNode | null {
+function tabOfPane(root: LayoutNode, paneId: string): TabNode | null {
   const tabs = tabsOfPane(root, paneId)
   return tabs ? tabs.children[tabIndex(tabs, paneId)] : null
 }
@@ -478,7 +478,7 @@ export function tabIdOf(root: LayoutNode, paneId: string): string | null {
   return tabOfPane(root, paneId)?.id ?? (findPane(root, paneId) ? paneId : null)
 }
 
-export function shownTab(tabs: TabsNode): TabNode {
+function shownTab(tabs: TabsNode): TabNode {
   return tabs.children[tabIndex(tabs, tabs.activeId)] ?? tabs.children[0]
 }
 

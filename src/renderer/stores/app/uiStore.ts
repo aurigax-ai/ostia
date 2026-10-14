@@ -3,9 +3,9 @@ import { releaseFocusForPalette } from '@/lib/palette/paletteFocus'
 import { COMMANDS_PREFIX } from '@/lib/palette/paletteModes'
 import { create } from 'zustand'
 
-export type PaletteOpenMode = 'search' | 'everywhere' | 'ask'
+type PaletteOpenMode = 'search' | 'everywhere' | 'ask'
 
-export interface OpenSettingsOptions {
+interface OpenSettingsOptions {
   previewPaneId?: string
   extension?: string
   query?: string

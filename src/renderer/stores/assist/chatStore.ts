@@ -106,19 +106,19 @@ const chats = new Map<string, Chat<OstiaChatMessage>>()
 const loading = new Map<string, Promise<string>>()
 let sessionSeq = 0
 
-export const TITLE_FROM_QUESTION = 60
+const TITLE_FROM_QUESTION = 60
 
 export function chatKey(workspaceId: string | null | undefined): string {
   return workspaceId ?? ''
 }
 
-export function newSessionId(): string {
+function newSessionId(): string {
   sessionSeq += 1
   const random = Math.random().toString(36).slice(2, 8)
   return `c${Date.now().toString(36)}${sessionSeq.toString(36)}${random}`
 }
 
-export function titleFromMessages(messages: readonly OstiaChatMessage[]): string {
+function titleFromMessages(messages: readonly OstiaChatMessage[]): string {
   const first = messages.find((m) => m.role === 'user')
   const text = first ? chatTitle(messageText(first)) : ''
   if (text.length <= TITLE_FROM_QUESTION) return text
@@ -129,7 +129,7 @@ function historyOn(): boolean {
   return useSettingsStore.getState().assistant.chatHistory
 }
 
-export function toSessionMessages(messages: readonly OstiaChatMessage[]): ChatSessionMessage[] {
+function toSessionMessages(messages: readonly OstiaChatMessage[]): ChatSessionMessage[] {
   return messages.map((m) => {
     const out: ChatSessionMessage = { id: m.id, role: m.role, parts: m.parts as never }
     if (m.metadata) out.metadata = m.metadata
@@ -191,7 +191,7 @@ export async function saveSession(sessionId: string): Promise<void> {
   await refreshSessions()
 }
 
-export function isScratchWorkspace(workspaceId: string | null | undefined): boolean {
+function isScratchWorkspace(workspaceId: string | null | undefined): boolean {
   return useWorkspacesStore
     .getState()
     .workspaces.some((w) => w.id === workspaceId && w.kind === 'scratch')
@@ -384,12 +384,6 @@ export async function deleteSession(sessionId: string): Promise<void> {
   }
   store.setNotice(sessionId, null)
   await refreshSessions()
-}
-
-export function stopAllChats(): void {
-  for (const chat of chats.values()) {
-    if (chat.status === 'streaming' || chat.status === 'submitted') void chat.stop()
-  }
 }
 
 export function resetChats(): void {

@@ -98,7 +98,7 @@ import { PromptChipRow } from './PromptChips'
 const UNDO_LIMIT = 100
 const MAX_LINES = 8
 const MENU_LIMIT = 200
-export const NATURAL_COMMAND_DEBOUNCE_MS = 600
+const NATURAL_COMMAND_DEBOUNCE_MS = 600
 
 export interface InputEditorProps {
   paneId: string
@@ -137,7 +137,7 @@ interface Selection {
   end: number
 }
 
-export function useInputEditorVisible(
+function useInputEditorVisible(
   paneId: string,
   alternateScreen: boolean,
   suppressedPrompt: LineAnchor | null,

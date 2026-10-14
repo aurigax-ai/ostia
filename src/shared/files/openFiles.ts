@@ -26,7 +26,7 @@ export type OpenFilesResult =
   | { ok: false; error: string; message: string }
 
 export const OPEN_DIFF_COMMAND = 'diff.openFiles'
-export const OPEN_PLACEMENTS = ['tab', 'right', 'down'] as const
+const OPEN_PLACEMENTS = ['tab', 'right', 'down'] as const
 export type OpenPlacement = (typeof OPEN_PLACEMENTS)[number]
 
 export function parsePlacement(value: unknown): OpenPlacement | undefined {
@@ -46,7 +46,7 @@ export function openedPaneIds(result: unknown): string[] {
   )
 }
 
-export type DiffFilesError =
+type DiffFilesError =
   | 'invalid-args'
   | 'not-found'
   | 'directory'
@@ -77,7 +77,7 @@ export function parseFileTargets(raw: unknown): FileTarget[] | null {
   return targets
 }
 
-export type RevealFolderError = 'invalid-args' | 'outside-home' | 'not-found' | 'not-a-directory'
+type RevealFolderError = 'invalid-args' | 'outside-home' | 'not-found' | 'not-a-directory'
 
 export type RevealFolderResult =
   | { ok: true; path: string }

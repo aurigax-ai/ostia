@@ -1,7 +1,7 @@
 import type { LayoutNode, PaneNode, SplitNode } from './types'
 
-export const MIN_PANEL_FRACTION = 0.15
-export const MAX_PANEL_FRACTION = 0.85
+const MIN_PANEL_FRACTION = 0.15
+const MAX_PANEL_FRACTION = 0.85
 
 export interface PanelFraction {
   key: string

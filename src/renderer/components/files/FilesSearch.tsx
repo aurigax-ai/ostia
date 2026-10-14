@@ -22,7 +22,7 @@ import { fileIcon } from './fileIcon'
 
 export const SEARCH_DELAY_MS = 200
 
-export interface SearchToggles {
+interface SearchToggles {
   caseSensitive: boolean
   wholeWord: boolean
   regex: boolean

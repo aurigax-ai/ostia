@@ -396,7 +396,7 @@ const CLI_HELP = `ostia — control-socket CLI
                                   do the same for the workspace's whole sidebar group
 `
 
-export const MANAGER_HELP = `
+const MANAGER_HELP = `
 
   Manager only (you are the manager):
   ostia manager read <paneId> [--lines N]    a pane's screen as plain text (default 200 lines)
@@ -408,9 +408,7 @@ export const MANAGER_HELP = `
                                   left right home end pageup pagedown ctrl-a..ctrl-z
 `
 
-export function extensionHelp(
-  extensions: Pick<ExtensionInfo, 'id' | 'name' | 'commands'>[],
-): string {
+function extensionHelp(extensions: Pick<ExtensionInfo, 'id' | 'name' | 'commands'>[]): string {
   const lines: string[] = []
   for (const ext of extensions) {
     if (ext.commands.length === 0) continue

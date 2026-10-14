@@ -1,4 +1,4 @@
-export type KeyModifier = 'shift' | 'control' | 'alt' | 'meta'
+type KeyModifier = 'shift' | 'control' | 'alt' | 'meta'
 
 export interface KeyCombo {
   keyCode: string
@@ -65,7 +65,7 @@ export function parseKeyCombo(combo: string): KeyCombo | null {
   return { keyCode, modifiers, printable }
 }
 
-export function globToRegExp(pattern: string): RegExp {
+function globToRegExp(pattern: string): RegExp {
   let source = ''
   for (const ch of pattern) {
     if (ch === '*') source += source.endsWith('.*') ? '' : '.*'

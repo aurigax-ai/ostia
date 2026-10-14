@@ -67,9 +67,9 @@ export interface ConsoleEntry {
   ts: number
 }
 
-export const MAX_CONSOLE_ENTRIES = 500
-export const DEFAULT_TIMEOUT_MS = 25_000
-export const MAX_TIMEOUT_MS = 120_000
+const MAX_CONSOLE_ENTRIES = 500
+const DEFAULT_TIMEOUT_MS = 25_000
+const MAX_TIMEOUT_MS = 120_000
 const POLL_MS = 100
 const NETWORK_IDLE_MS = 500
 const NEW_TAB_WAIT_MS = 10_000

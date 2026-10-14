@@ -54,10 +54,7 @@ const CODE_ACTION_INVOKED = 1
 const CODE_ACTION_AUTOMATIC = 2
 let applyCommand: monaco.IDisposable | null = null
 
-export async function applyCodeAction(
-  session: LspSession,
-  action: CodeAction | Command,
-): Promise<void> {
+async function applyCodeAction(session: LspSession, action: CodeAction | Command): Promise<void> {
   let chosen = action
   const provider = session.capabilities.codeActionProvider
   const resolves = typeof provider === 'object' && provider.resolveProvider === true

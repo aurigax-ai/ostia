@@ -1,7 +1,7 @@
 import { useReducedMotion } from '@/lib/app/motion'
 import { type AnimationEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-export type RailMotionPhase = 'opening' | 'closing'
+type RailMotionPhase = 'opening' | 'closing'
 
 export const RAIL_MOTION_FALLBACK_MS = 600
 

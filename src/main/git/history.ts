@@ -138,4 +138,4 @@ export function parseBlamePorcelain(output: string): BlameLine[] {
   return lines
 }
 
-export type { BlameLine, CommitFile, CommitRef, CommitSummary, GraphCommit, RefKind }
+export type { BlameLine, CommitFile, CommitRef, CommitSummary, GraphCommit }

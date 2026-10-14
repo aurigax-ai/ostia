@@ -99,11 +99,11 @@ export function syncWorkspaceState(workspaceId: string): void {
   workspaces.setState(workspaceId, aggregateWorkspaceState(states))
 }
 
-export function syncAllWorkspaceStates(): void {
+function syncAllWorkspaceStates(): void {
   for (const s of useWorkspacesStore.getState().workspaces) syncWorkspaceState(s.id)
 }
 
-export function viewActivePane(): void {
+function viewActivePane(): void {
   if (!document.hasFocus() || coversWorkspaces(useUIStore.getState())) return
   const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
   if (!workspaceId) return
@@ -190,7 +190,7 @@ export function revealPane(paneId: string): boolean {
   return true
 }
 
-export function allPaneIds(): string[] {
+function allPaneIds(): string[] {
   const ids: string[] = []
   for (const layout of Object.values(useLayoutStore.getState().byWorkspace)) {
     if (layout) ids.push(...paneIds(layout.root))

@@ -36,7 +36,7 @@ import {
 import type { SandboxStore } from './store'
 import type { WriteRefusal } from './violations'
 
-export interface KeptHostSpawn {
+interface KeptHostSpawn {
   file: string
   args: string[]
   env: Record<string, string>
@@ -97,7 +97,7 @@ const FOLDER_PROBLEM_TEXT: Record<SandboxFolderProblem['reason'], string> = {
   'ostia-data': `holds ${PRODUCT_DISPLAY_NAME}'s own data`,
 }
 
-export function folderProblemMessage(problem: SandboxFolderProblem): string {
+function folderProblemMessage(problem: SandboxFolderProblem): string {
   return `${problem.folder} ${FOLDER_PROBLEM_TEXT[problem.reason]}, so a sandbox cannot confine it; open a project folder instead`
 }
 

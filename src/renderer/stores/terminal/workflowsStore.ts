@@ -1,7 +1,7 @@
 import type { WorkflowEntry, WorkflowListing } from '@shared/workflows'
 import { create } from 'zustand'
 
-export const EMPTY_LISTING: WorkflowListing = { workflows: [], problems: [] }
+const EMPTY_LISTING: WorkflowListing = { workflows: [], problems: [] }
 
 interface WorkflowsState {
   pickerOpen: boolean

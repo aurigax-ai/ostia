@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export interface WaitingFor {
+interface WaitingFor {
   from: string
   command: string | null
 }

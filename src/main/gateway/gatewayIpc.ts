@@ -119,7 +119,7 @@ export async function enableRemote(): Promise<GatewayEnableResponse> {
   return remoteStatus()
 }
 
-export function setRoute(value: unknown): GatewaySetRouteResult {
+function setRoute(value: unknown): GatewaySetRouteResult {
   if (gatewayStatus().running) return { ok: false, error: 'running' }
   const route = checkRoute(value)
   if (route === 'invalid-phone-address') return { ok: false, error: route }
@@ -164,11 +164,11 @@ export function gatewayPair(): GatewayPairResponse {
   }
 }
 
-export function gatewayDevicesList(): { devices: GatewayDevice[] } {
+function gatewayDevicesList(): { devices: GatewayDevice[] } {
   return { devices: listDevices().map(toPhoneSafeDevice) }
 }
 
-export function gatewayRevoke(params: unknown): { ok: boolean; error?: string } {
+function gatewayRevoke(params: unknown): { ok: boolean; error?: string } {
   const { deviceId } = (params ?? {}) as { deviceId?: unknown }
   if (typeof deviceId !== 'string' || !deviceId) {
     return { ok: false, error: 'missing-device-id' }

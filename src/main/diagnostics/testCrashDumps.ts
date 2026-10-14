@@ -3,7 +3,7 @@ import { isAbsolute } from 'node:path'
 import { app, crashReporter } from 'electron'
 import { type EnvSource, envName, readEnv } from '../../shared/appEnv'
 
-export const CRASH_DUMPS_ENV = 'E2E_CRASH_DUMPS'
+const CRASH_DUMPS_ENV = 'E2E_CRASH_DUMPS'
 
 export function crashDumpDir(packaged: boolean, env: EnvSource): string | null {
   if (packaged) return null

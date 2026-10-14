@@ -29,7 +29,7 @@ function activePaneId(): string | null {
   return layout?.activePaneId ?? null
 }
 
-export function paneOrigins(): Map<string, PaneOrigin> {
+function paneOrigins(): Map<string, PaneOrigin> {
   const origins = new Map<string, PaneOrigin>()
   const byWorkspace = useLayoutStore.getState().byWorkspace
   for (const workspace of useWorkspacesStore.getState().workspaces) {

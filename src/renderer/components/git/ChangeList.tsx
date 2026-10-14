@@ -50,7 +50,7 @@ export interface ChangeHandlers {
   discard: (req: GitPathsRequest) => void
 }
 
-export function areaLabel(t: GitDict, area: ChangeArea): string {
+function areaLabel(t: GitDict, area: ChangeArea): string {
   const labels: Record<ChangeArea, string> = {
     conflicted: t.areaConflicted,
     staged: t.areaStaged,
@@ -60,7 +60,7 @@ export function areaLabel(t: GitDict, area: ChangeArea): string {
   return labels[area]
 }
 
-export function codeLabel(t: GitDict, code: string): string {
+function codeLabel(t: GitDict, code: string): string {
   const labels: Record<string, string> = {
     M: t.codeM,
     A: t.codeA,

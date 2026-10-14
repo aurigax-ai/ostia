@@ -48,7 +48,7 @@ export function splitFilePosition(text: string): FilePosition {
   return { name: found[1], line, ...(column && column > 0 ? { column } : {}) }
 }
 
-export interface WorkspaceLine {
+interface WorkspaceLine {
   path: string
   line: number
   column: number

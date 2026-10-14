@@ -25,7 +25,7 @@ export interface TerminalSettings {
 export const TERMINAL_RENDERERS = ['xterm', 'ghostty'] as const
 export type TerminalRenderer = (typeof TERMINAL_RENDERERS)[number]
 
-export const CLIPBOARD_KEYS = ['shift', 'smart'] as const
+const CLIPBOARD_KEYS = ['shift', 'smart'] as const
 export type ClipboardKeys = (typeof CLIPBOARD_KEYS)[number]
 
 export interface PaneSettings {

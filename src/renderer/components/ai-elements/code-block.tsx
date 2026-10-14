@@ -2,7 +2,7 @@ import { useScheme } from '@/lib/theme/colorScheme'
 import { colorizeCode } from '@/lib/theme/colorize'
 import { cn } from '@/lib/utils'
 import type { ComponentProps, HTMLAttributes, ReactNode } from 'react'
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useEffect, useState } from 'react'
 
 interface CodeBlockContextType {
   code: string
@@ -10,8 +10,6 @@ interface CodeBlockContextType {
 }
 
 const CodeBlockContext = createContext<CodeBlockContextType>({ code: '', language: '' })
-
-export const useCodeBlock = (): CodeBlockContextType => useContext(CodeBlockContext)
 
 export type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
   code: string
@@ -27,9 +25,9 @@ export const CodeBlock = ({ code, language, className, children, ...props }: Cod
   </CodeBlockContext.Provider>
 )
 
-export type CodeBlockContainerProps = HTMLAttributes<HTMLDivElement> & { language: string }
+type CodeBlockContainerProps = HTMLAttributes<HTMLDivElement> & { language: string }
 
-export const CodeBlockContainer = ({ className, language, ...props }: CodeBlockContainerProps) => (
+const CodeBlockContainer = ({ className, language, ...props }: CodeBlockContainerProps) => (
   <div
     className={cn('code-block group relative w-full overflow-hidden rounded-md border', className)}
     data-language={language || undefined}

@@ -172,10 +172,7 @@ export async function returnToMainWindow(): Promise<boolean> {
   )
 }
 
-export function rejoinTarget(
-  workspace: SnapshotWorkspace,
-  localIds: ReadonlySet<string>,
-): string | null {
+function rejoinTarget(workspace: SnapshotWorkspace, localIds: ReadonlySet<string>): string | null {
   const home = workspace.origin?.workspaceId
   return home && home !== workspace.id && localIds.has(home) ? home : null
 }

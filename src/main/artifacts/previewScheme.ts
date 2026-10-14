@@ -1,7 +1,7 @@
 import { app, protocol } from 'electron'
 import { PREVIEW_SCHEME } from '../../shared/artifacts/htmlPreview'
 
-export const NO_DNS_PREFETCH = ['blink-settings', 'dnsPrefetchingEnabled=false'] as const
+const NO_DNS_PREFETCH = ['blink-settings', 'dnsPrefetchingEnabled=false'] as const
 
 export function registerPreviewScheme(): void {
   app.commandLine.appendSwitch(...NO_DNS_PREFETCH)

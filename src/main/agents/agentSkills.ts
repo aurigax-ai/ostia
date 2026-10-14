@@ -20,7 +20,7 @@ export interface AgentPluginSource {
   hooks: AgentHookContribution[]
 }
 
-export interface AgentSkillFile {
+interface AgentSkillFile {
   name: string
   data: Buffer
 }

@@ -5,8 +5,8 @@ import { isDangerousSegment } from '../../shared/protoGuard'
 import { readConfined } from '../platform/confinedRead'
 
 export const LANGUAGE_FILE_MAX_BYTES = 1024 * 1024
-export const LANGUAGE_MAX_DEPTH = 8
-export const LANGUAGE_MAX_STRINGS = 20_000
+const LANGUAGE_MAX_DEPTH = 8
+const LANGUAGE_MAX_STRINGS = 20_000
 export const LANGUAGE_STRING_MAX = 4000
 
 export interface LanguageSource {
@@ -45,9 +45,9 @@ export function normalizeCatalog(raw: unknown): LanguageCatalog | null {
   return walk(raw, 1)
 }
 
-export type CatalogResult = { ok: true; catalog: LanguageCatalog } | { ok: false; error: string }
+type CatalogResult = { ok: true; catalog: LanguageCatalog } | { ok: false; error: string }
 
-export function readCatalog(dir: string, path: string): CatalogResult {
+function readCatalog(dir: string, path: string): CatalogResult {
   const file = readConfined(dir, resolve(dir, path), LANGUAGE_FILE_MAX_BYTES)
   if (!file.ok) return file
   let raw: unknown

@@ -24,7 +24,7 @@ export interface RawPick {
   name: string
 }
 
-export interface PickLogEntry {
+interface PickLogEntry {
   level: string
   text: string
   ts: number
@@ -56,7 +56,7 @@ export interface PickCapture {
   capturedAt: string
 }
 
-export type PickError =
+type PickError =
   | 'cancelled'
   | 'timeout'
   | 'navigated'
@@ -89,9 +89,9 @@ export const PICK_TEXT_MAX = 300
 export const PICK_URL_MAX = 500
 export const PICK_NOTE_MAX = 4000
 export const PICK_LOG_MAX = 20
-export const PICK_STYLE_VALUE_MAX = 200
+const PICK_STYLE_VALUE_MAX = 200
 
-export const PICK_STYLE_PROPS = [
+const PICK_STYLE_PROPS = [
   'display',
   'position',
   'box-sizing',
@@ -273,7 +273,7 @@ export function renderPickReport(capture: PickCapture, note: string): string {
   return lines.join('\n')
 }
 
-export interface PickBusMessage {
+interface PickBusMessage {
   kind: 'capture'
   report: string
   image: string | null

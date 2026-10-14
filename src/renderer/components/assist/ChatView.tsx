@@ -171,7 +171,7 @@ const CONTEXT_ICONS: Record<AskContextKind, Icon> = {
 const REHYPE_PLUGINS = [rehypeFileLinks]
 export const REDACTION_PREVIEW_MS = 300
 
-export type ChatVariant = 'pane' | 'palette'
+type ChatVariant = 'pane' | 'palette'
 
 export interface ChatViewProps {
   workspaceId: string | null
@@ -198,7 +198,7 @@ export function ChatView(props: ChatViewProps): JSX.Element | null {
 
 type Notice = ChatActionNotice | 'copiedMessage' | ChatNotice | null
 
-export function quoteText(text: string): string {
+function quoteText(text: string): string {
   return `${text
     .trim()
     .split('\n')
@@ -897,7 +897,7 @@ type Segment =
   | { kind: 'text'; key: string; text: string }
   | { kind: 'tool'; key: string; part: ToolPartLike }
 
-export function messageSegments(message: Pick<OstiaChatMessage, 'parts'>): Segment[] {
+function messageSegments(message: Pick<OstiaChatMessage, 'parts'>): Segment[] {
   const out: Segment[] = []
   message.parts.forEach((part, index) => {
     if (part.type === 'text') {
@@ -911,7 +911,7 @@ export function messageSegments(message: Pick<OstiaChatMessage, 'parts'>): Segme
   return out.filter((s) => s.kind === 'tool' || s.text.trim() !== '')
 }
 
-export function opensPicker(text: string, caret: number): boolean {
+function opensPicker(text: string, caret: number): boolean {
   if (caret < 1 || text[caret - 1] !== '@') return false
   const before = caret >= 2 ? text[caret - 2] : ''
   return before === '' || /\s/.test(before)
@@ -1165,7 +1165,7 @@ function hastText(node: HastLike): string {
   return (node.children ?? []).map(hastText).join('')
 }
 
-export function codeLanguage(node: HastLike | undefined): string {
+function codeLanguage(node: HastLike | undefined): string {
   const code = node?.children?.find((c) => c.tagName === 'code')
   const classes = code?.properties?.className
   const list = Array.isArray(classes) ? classes.map(String) : []
@@ -1185,7 +1185,7 @@ function workspaceRoot(workspaceId: string | null): string {
   return workspaces.find((w) => w.id === (workspaceId ?? activeWorkspaceId))?.workDir ?? '~'
 }
 
-export function openFileLink(target: FileLinkTarget, workspaceId: string | null): void {
+function openFileLink(target: FileLinkTarget, workspaceId: string | null): void {
   useUIStore.getState().closePalette()
   openFileAt(resolveLinkPath(target.path, workspaceRoot(workspaceId)), target.line, target.column)
 }

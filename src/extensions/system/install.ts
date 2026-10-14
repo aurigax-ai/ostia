@@ -12,7 +12,7 @@ import {
 import type { OsIdentity } from './os'
 import type { Strings } from './strings'
 
-export const REASON_MAX = 500
+const REASON_MAX = 500
 const INSTALL_WAIT_BUDGET_MS = OPEN_TERMINAL_WAIT_MAX_MS - 30_000
 const INSTALL_WAIT_MIN_MS = 1000
 

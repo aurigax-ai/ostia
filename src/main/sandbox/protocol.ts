@@ -23,17 +23,17 @@ export type HostResponse =
 
 export type HostAsk = { type: 'ask'; askId: number; host: string; port?: number }
 
-export type HostAskAnswer = { type: 'ask-answer'; askId: number; allow: boolean }
+type HostAskAnswer = { type: 'ask-answer'; askId: number; allow: boolean }
 
-export type HostPackageBlocked = {
+type HostPackageBlocked = {
   type: 'package-blocked'
   pkg: PackageRef
   reason: PackageBlockReason
 }
 
-export type HostViolations = { type: 'violations'; lines: string[] }
+type HostViolations = { type: 'violations'; lines: string[] }
 
-export type HostHello = { type: 'hello'; protocol: number }
+type HostHello = { type: 'hello'; protocol: number }
 
 export type HostToMain = HostResponse | HostAsk | HostPackageBlocked | HostViolations | HostHello
 

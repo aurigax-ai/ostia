@@ -66,7 +66,7 @@ function KeyHint({ name }: { name: string }): JSX.Element {
   return <span className="truncate font-mono text-fg-muted text-ui-xs">{name}</span>
 }
 
-export function settingBounds(d: Dict, setting: ExtensionSettingContribution): string | null {
+function settingBounds(d: Dict, setting: ExtensionSettingContribution): string | null {
   const { minimum: min, maximum: max, unit } = setting
   const range =
     min !== undefined && max !== undefined

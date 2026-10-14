@@ -1,7 +1,5 @@
 import type { AttentionState, WorkspaceLiveState } from '@shared/types'
 
-export type { AttentionState }
-
 export interface PaneAttention {
   state: AttentionState
   unread: boolean

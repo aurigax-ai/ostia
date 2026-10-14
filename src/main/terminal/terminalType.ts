@@ -51,7 +51,7 @@ const DEFAULT_REGIONS: Record<string, string> = {
 
 const CHINESE_SCRIPT_REGIONS: Record<string, string> = { hant: 'TW', hans: 'CN' }
 
-export const FALLBACK_LANG = 'en_US.UTF-8'
+const FALLBACK_LANG = 'en_US.UTF-8'
 
 function localeCandidates(locale: string | undefined): string[] {
   const parts = (locale ?? '').split('.')[0].split('@')[0].split(/[-_]/).filter(Boolean)
@@ -89,7 +89,7 @@ function listInstalledLocales(): Set<string> | null {
   return installedLocales
 }
 
-export function systemHasLocale(name: string): boolean {
+function systemHasLocale(name: string): boolean {
   if (process.platform === 'darwin') return existsSync(join('/usr/share/locale', name))
   const installed = listInstalledLocales()
   return installed ? installed.has(normalizeLocaleName(name)) : true
@@ -117,7 +117,7 @@ export interface PaneShellEnvParts {
   launcherDir?: string
 }
 
-export function artifactsEnv(dir: string | null | undefined): Record<string, string> {
+function artifactsEnv(dir: string | null | undefined): Record<string, string> {
   return dir ? appEnv({ [ARTIFACTS_ENV]: dir, [PAD_ENV]: join(dir, PAD_FILE) }) : {}
 }
 

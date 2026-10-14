@@ -18,7 +18,7 @@ export interface OpenChatOptions {
   send?: boolean
 }
 
-export const CHAT_PANE_TITLE = 'Chat'
+const CHAT_PANE_TITLE = 'Chat'
 
 export function openChatPane(opts: OpenChatOptions = {}): string | null {
   const workspaces = useWorkspacesStore.getState()

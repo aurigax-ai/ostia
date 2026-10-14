@@ -1,6 +1,6 @@
-export type SpecTemplate = 'filepaths' | 'folders'
+type SpecTemplate = 'filepaths' | 'folders'
 
-export interface SpecSuggestion {
+interface SpecSuggestion {
   name: string
   description?: string
 }

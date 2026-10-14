@@ -8,7 +8,7 @@ import type {
 } from '@shared/extensions'
 import { create } from 'zustand'
 
-export interface PanelNavigation {
+interface PanelNavigation {
   path: string
   seq: number
 }

@@ -5,8 +5,8 @@ import { type RefObject, useEffect } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import type { monaco } from './setup'
 
-export const ASSIST_COMPLETIONS_ACTION_ID = 'ostia.assist.toggleEditorCompletions'
-export const ASK_SELECTION_ACTION_ID = 'ostia.assist.askAboutSelection'
+const ASSIST_COMPLETIONS_ACTION_ID = 'ostia.assist.toggleEditorCompletions'
+const ASK_SELECTION_ACTION_ID = 'ostia.assist.askAboutSelection'
 
 export function useAssistCompletionsAction(
   editorRef: RefObject<monaco.editor.IStandaloneCodeEditor | null>,
@@ -28,7 +28,7 @@ export function useAssistCompletionsAction(
   }, [editorRef, on, label])
 }
 
-export function askAboutEditorSelection(
+function askAboutEditorSelection(
   editor: monaco.editor.IStandaloneCodeEditor,
   path: string | null | undefined,
   label: string,

@@ -41,7 +41,7 @@ export interface PickDeps {
 export const PICK_WORLD_ID = 1024
 export const REPORT_DIR_NAME = `${PRODUCT_NAME}-reports`
 export const DEFAULT_AGENT_PICK_TIMEOUT_MS = 120_000
-export const MIN_PICK_TIMEOUT_MS = 1_000
+const MIN_PICK_TIMEOUT_MS = 1_000
 export const MAX_PICK_TIMEOUT_MS = 600_000
 const USER_PICK_TIMEOUT_MS = MAX_PICK_TIMEOUT_MS
 const MAX_STORED_CAPTURES = 20

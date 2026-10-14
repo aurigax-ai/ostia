@@ -29,7 +29,7 @@ function fileName(path: string): string {
   return path.slice(path.lastIndexOf('/') + 1)
 }
 
-export function fileSuffix(path: string): string {
+function fileSuffix(path: string): string {
   const name = fileName(path)
   const dot = name.lastIndexOf('.')
   return dot <= 0 ? '' : name.slice(dot + 1).toLowerCase()

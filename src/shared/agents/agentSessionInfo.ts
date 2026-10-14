@@ -10,7 +10,7 @@ export interface AgentSessionInfo {
   effort: string | null
 }
 
-export const EMPTY_SESSION_INFO: AgentSessionInfo = {
+const EMPTY_SESSION_INFO: AgentSessionInfo = {
   title: null,
   model: null,
   contextTokens: null,

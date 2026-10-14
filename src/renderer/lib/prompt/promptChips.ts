@@ -9,9 +9,9 @@ import {
 } from '@shared/terminal/promptSettings'
 import type { PromptContext, PromptContextRequest, PtySpawnOptions } from '@shared/types'
 
-export type ChipTone = 'default' | 'ok' | 'warn' | 'error'
+type ChipTone = 'default' | 'ok' | 'warn' | 'error'
 
-export interface ChipValue {
+interface ChipValue {
   text: string
   tooltip?: string
   tone: ChipTone
@@ -73,7 +73,7 @@ export function lastCommand(blocks: readonly CommandBlock[] | undefined): LastCo
 const plain = (text: string | null | undefined, tooltip?: string): ChipValue | null =>
   text ? { text, tone: 'default', ...(tooltip ? { tooltip } : {}) } : null
 
-export function coreChipValue(id: CoreChipId, inputs: CoreChipInputs): ChipValue | null {
+function coreChipValue(id: CoreChipId, inputs: CoreChipInputs): ChipValue | null {
   const { context, now, locale } = inputs
   switch (id) {
     case 'cwd':

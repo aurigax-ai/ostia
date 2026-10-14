@@ -5,8 +5,6 @@ export interface MissingRequirement {
   found?: string
 }
 
-export type RequirementCheck = { ok: true } | { ok: false; missing: MissingRequirement[] }
-
 export interface InstallHint {
   command: string | null
   packages: string[]

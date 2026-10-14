@@ -8,17 +8,17 @@ import { registerControlMethod } from '../control/controlServer'
 import { resolveGuest } from './browse'
 import { credentials } from './credentials'
 
-export const LOGIN_WORLD_ID = 1026
+const LOGIN_WORLD_ID = 1026
 
 function run<T>(guest: Electron.WebContents, code: string): Promise<T> {
   return guest.executeJavaScriptInIsolatedWorld(LOGIN_WORLD_ID, [{ code }]) as Promise<T>
 }
 
-export type FillResult =
+type FillResult =
   | { ok: true; username: string }
   | { ok: false; error: 'no-login' | 'no-form' | 'origin-changed' | 'locked' }
 
-export async function fillFromStore(
+async function fillFromStore(
   guest: Electron.WebContents,
   pick: (list: CredentialSummary[]) => CredentialSummary | undefined,
 ): Promise<FillResult> {

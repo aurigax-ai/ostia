@@ -2,7 +2,7 @@ import type { ExtensionSidebarItem, PaneChip, WorkspaceChip } from '../extension
 
 export const GIT_SOURCE = 'git'
 export const PORTS_SOURCE = 'ports'
-export const CORE_SOURCES: readonly string[] = [GIT_SOURCE, PORTS_SOURCE]
+const CORE_SOURCES: readonly string[] = [GIT_SOURCE, PORTS_SOURCE]
 
 export const GIT_BRANCH_CHIP = 'branch'
 export const GIT_DIFF_STATS_CHIP = 'diff-stats'
@@ -118,7 +118,7 @@ export function isUncommitted(sha: string): boolean {
   return UNCOMMITTED_SHA.test(sha)
 }
 
-export type GraphScopeSetting = 'current' | 'all'
+type GraphScopeSetting = 'current' | 'all'
 export type ChangesView = 'list' | 'tree'
 
 export interface GitSettings {

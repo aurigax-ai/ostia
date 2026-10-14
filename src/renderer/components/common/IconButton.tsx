@@ -6,7 +6,7 @@ import { Hint } from './Hint'
 
 const BUTTON_SIZE = { bar: 'icon-sm', row: 'icon-2xs' } as const
 
-export type IconButtonSize = keyof typeof BUTTON_SIZE
+type IconButtonSize = keyof typeof BUTTON_SIZE
 
 export interface IconButtonProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'aria-label' | 'type'> {

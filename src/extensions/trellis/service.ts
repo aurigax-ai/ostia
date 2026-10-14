@@ -26,7 +26,7 @@ export interface WorkspaceRef {
   workDir: string
 }
 
-export interface TrellisHost {
+interface TrellisHost {
   listWorkspaces: () => Promise<WorkspaceRef[]>
   setWorkspaceChip: (chip: {
     workspaceId: string
@@ -64,8 +64,8 @@ const FOLLOW_HEALTHY_MS = 60_000
 const CHANGE_DELAY_MS = 250
 const PANEL_ENTITIES = new Set(['card', 'comment', 'entry', 'board'])
 
-export const UNKNOWN_PROJECT_RETRIES = 5
-export const UNKNOWN_PROJECT_RETRY_MS = 1000
+const UNKNOWN_PROJECT_RETRIES = 5
+const UNKNOWN_PROJECT_RETRY_MS = 1000
 
 export type InitResult = { ok: true; text: string } | { ok: false; message: string }
 

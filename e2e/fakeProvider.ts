@@ -10,7 +10,7 @@ export interface FakeRequest {
   toolResult?: string
 }
 
-export interface FakeToolCall {
+interface FakeToolCall {
   name: string
   args: Record<string, unknown>
 }

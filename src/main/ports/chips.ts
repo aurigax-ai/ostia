@@ -43,11 +43,3 @@ export function workspaceChipValues(
   }
   return out
 }
-
-export function chipSlot(chip: Pick<PaneChipValue, 'paneId' | 'id'>): string {
-  return `${chip.paneId}\u0000${chip.id}`
-}
-
-export function workspaceChipSlot(chip: Pick<WorkspaceChipValue, 'workspaceId' | 'id'>): string {
-  return `${chip.workspaceId}\u0000${chip.id}`
-}

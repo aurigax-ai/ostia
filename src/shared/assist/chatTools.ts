@@ -3,7 +3,7 @@ import { CHAT_TOOL_NAME_PATTERN } from '../assist'
 import { isDangerousSegment } from '../protoGuard'
 import type { ChatEdit } from './chatEdits'
 
-export const BUILTIN_CHAT_TOOLS = [
+const BUILTIN_CHAT_TOOLS = [
   'read_file',
   'list_directory',
   'search_files',
@@ -39,19 +39,19 @@ export function isBuiltinChatTool(name: unknown): name is BuiltinChatTool {
   return BUILTIN_CHAT_TOOLS.includes(name as BuiltinChatTool)
 }
 
-export const MCP_TOOL_PREFIX = 'mcp__'
+const MCP_TOOL_PREFIX = 'mcp__'
 export const MCP_SERVER_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$/
 export const MCP_ENV_KEY = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/
-export const MCP_HEADER_KEY = /^[A-Za-z0-9][A-Za-z0-9-]{0,63}$/
+const MCP_HEADER_KEY = /^[A-Za-z0-9][A-Za-z0-9-]{0,63}$/
 export const MCP_SERVERS_MAX = 16
-export const MCP_ARGS_MAX = 64
-export const MCP_ARG_MAX = 4096
+const MCP_ARGS_MAX = 64
+const MCP_ARG_MAX = 4096
 export const MCP_ENV_MAX = 32
-export const MCP_ENV_VALUE_MAX = 4096
+const MCP_ENV_VALUE_MAX = 4096
 export const MCP_SECRETS_MAX = 8
-export const MCP_URL_MAX = 2048
+const MCP_URL_MAX = 2048
 export const MCP_TOOLS_PER_SERVER_MAX = 64
-export const CHAT_SKILL_FOLDERS_MAX = 32
+const CHAT_SKILL_FOLDERS_MAX = 32
 export const SKILL_FILE_MAX = 256 * 1024
 export const SKILL_DESCRIPTION_MAX = 1024
 export const SKILLS_MAX = 128
@@ -178,7 +178,7 @@ export function mcpToolName(server: string, tool: string): string {
   return `${MCP_TOOL_PREFIX}${server}__${safeTool}`.slice(0, 64)
 }
 
-export function isMcpToolName(name: string): boolean {
+function isMcpToolName(name: string): boolean {
   return name.startsWith(MCP_TOOL_PREFIX) && CHAT_TOOL_NAME_PATTERN.test(name)
 }
 

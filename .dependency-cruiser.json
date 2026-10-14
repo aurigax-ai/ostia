@@ -1,0 +1,188 @@
+{
+  "$schema": "./node_modules/dependency-cruiser/src/schema/configuration.schema.json",
+  "forbidden": [
+    {
+      "name": "no-cycles",
+      "severity": "error",
+      "from": {},
+      "to": {
+        "circular": true,
+        "viaOnly": {
+          "dependencyTypesNot": [
+            "type-only"
+          ]
+        }
+      }
+    },
+    {
+      "name": "platform-imports-only-shared",
+      "severity": "error",
+      "from": {
+        "path": "^src/main/platform/",
+        "pathNot": "\\.test\\.ts$"
+      },
+      "to": {
+        "path": "^(src|test|e2e|scripts)/",
+        "pathNot": "^src/(shared|main/platform)/"
+      }
+    },
+    {
+      "name": "privacy-and-diagnostics-import-only-shared-and-platform",
+      "severity": "error",
+      "from": {
+        "path": "^src/main/(privacy|diagnostics)/",
+        "pathNot": "\\.test\\.ts$"
+      },
+      "to": {
+        "path": "^(src|test|e2e|scripts)/",
+        "pathNot": "^src/(shared|main/platform|main/$1)/"
+      }
+    },
+    {
+      "name": "lib-and-stores-never-import-components",
+      "severity": "error",
+      "from": {
+        "path": "^src/renderer/(lib|stores)/"
+      },
+      "to": {
+        "path": "^src/renderer/components/"
+      }
+    },
+    {
+      "name": "no-barrels",
+      "severity": "error",
+      "from": {},
+      "to": {
+        "path": "(^|/)index\\.tsx?$",
+        "pathNot": [
+          "^node_modules/",
+          "^src/extensions/sdk/(assist/)?index\\.ts$"
+        ]
+      }
+    },
+    {
+      "name": "shared-is-dependency-free",
+      "severity": "error",
+      "from": {
+        "path": "^src/shared/",
+        "pathNot": "\\.test\\.ts$"
+      },
+      "to": {
+        "path": "^(src|test|e2e|scripts)/",
+        "pathNot": "^src/shared/"
+      }
+    },
+    {
+      "name": "renderer-has-no-node-access",
+      "severity": "error",
+      "from": {
+        "path": "^src/renderer/",
+        "pathNot": "\\.test\\.tsx?$"
+      },
+      "to": {
+        "path": "^src/(main|cli|preload)/"
+      }
+    },
+    {
+      "name": "renderer-has-no-node-builtins",
+      "severity": "error",
+      "from": {
+        "path": "^src/renderer/",
+        "pathNot": "\\.test\\.tsx?$"
+      },
+      "to": {
+        "dependencyTypes": [
+          "core"
+        ]
+      }
+    },
+    {
+      "name": "main-never-imports-app-or-index",
+      "severity": "error",
+      "from": {
+        "path": "^src/main/[^/]+/",
+        "pathNot": "\\.test\\.ts$"
+      },
+      "to": {
+        "path": "^src/main/(app|index)\\.ts$"
+      }
+    },
+    {
+      "name": "extensions-use-only-the-sdk-and-shared",
+      "severity": "error",
+      "from": {
+        "path": "^src/extensions/([^/]+)/",
+        "pathNot": "^src/extensions/sdk/"
+      },
+      "to": {
+        "path": "^(src|e2e|scripts)/",
+        "pathNot": "^src/(shared|extensions/sdk|extensions/$1)/"
+      }
+    },
+    {
+      "name": "sdk-imports-only-shared",
+      "severity": "error",
+      "from": {
+        "path": "^src/extensions/sdk/"
+      },
+      "to": {
+        "path": "^(src|test|e2e|scripts)/",
+        "pathNot": "^src/(shared|extensions/sdk)/"
+      }
+    },
+    {
+      "name": "core-never-imports-extension-code",
+      "severity": "error",
+      "from": {
+        "path": "^src/(main|renderer|preload|shared|cli)/",
+        "pathNot": "\\.test\\.tsx?$"
+      },
+      "to": {
+        "path": "^src/extensions/"
+      }
+    },
+    {
+      "name": "cli-loads-no-electron",
+      "severity": "error",
+      "from": {
+        "path": "^src/cli/index\\.ts$"
+      },
+      "to": {
+        "path": "(^|/)node_modules/electron/",
+        "reachable": true
+      }
+    },
+    {
+      "name": "sources-never-import-tests",
+      "severity": "error",
+      "from": {
+        "path": "^src/",
+        "pathNot": "\\.test\\.tsx?$"
+      },
+      "to": {
+        "path": "^(test|e2e)/|\\.test\\.tsx?$"
+      }
+    }
+  ],
+  "options": {
+    "doNotFollow": {
+      "path": "node_modules"
+    },
+    "tsPreCompilationDeps": true,
+    "tsConfig": {
+      "fileName": "tsconfig.e2e.json"
+    },
+    "enhancedResolveOptions": {
+      "exportsFields": [
+        "exports"
+      ],
+      "conditionNames": [
+        "import",
+        "require",
+        "node",
+        "default",
+        "types"
+      ]
+    }
+  }
+}

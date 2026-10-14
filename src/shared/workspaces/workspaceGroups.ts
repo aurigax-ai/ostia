@@ -11,7 +11,7 @@ export const WORKSPACE_GROUP_COLORS = [
 
 export type WorkspaceGroupColor = (typeof WORKSPACE_GROUP_COLORS)[number]
 
-export const WORKSPACE_GROUP_NAME_MAX = 60
+const WORKSPACE_GROUP_NAME_MAX = 60
 
 export function isWorkspaceGroupColor(value: unknown): value is WorkspaceGroupColor {
   return (WORKSPACE_GROUP_COLORS as readonly unknown[]).includes(value)

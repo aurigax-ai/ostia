@@ -20,9 +20,9 @@ export function redactionWorkerScript(appPath: string): string {
   return join(appPath.replace(/\.asar$/, '.asar.unpacked'), 'out/redaction/worker.js')
 }
 
-export const SCAN_BASE_MS = 2000
-export const SCAN_PER_MIB_MS = 6000
-export const SCAN_MAX_MS = 20_000
+const SCAN_BASE_MS = 2000
+const SCAN_PER_MIB_MS = 6000
+const SCAN_MAX_MS = 20_000
 const MIB = 1024 * 1024
 
 export function scanDeadline(length: number): number {

@@ -2,7 +2,7 @@ import { type JsonObject, isObject } from './profile'
 
 export type Side = 'local' | 'remote'
 
-export interface MergeConflict<T> {
+interface MergeConflict<T> {
   key: string
   local: T | undefined
   remote: T | undefined
@@ -55,7 +55,7 @@ export function canonicalJson(value: unknown): string {
 export const sameJson = (a: unknown, b: unknown): boolean =>
   a === undefined || b === undefined ? a === b : canonicalJson(a) === canonicalJson(b)
 
-export const pathKey = (path: readonly string[]): string => JSON.stringify(path)
+const pathKey = (path: readonly string[]): string => JSON.stringify(path)
 
 export const keyPath = (key: string): string[] => JSON.parse(key) as string[]
 

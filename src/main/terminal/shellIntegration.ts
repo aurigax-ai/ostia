@@ -362,7 +362,7 @@ export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[]
   return { hooks }
 }
 
-export const AGENT_SKILL_NAME = PRODUCT_NAME
+const AGENT_SKILL_NAME = PRODUCT_NAME
 
 export const CLAUDE_PLUGIN_MANIFEST = {
   name: AGENT_SKILL_NAME,
@@ -577,9 +577,9 @@ function codexSessionContext(
   ].join('\n')
 }
 
-export const CODEX_HOOK_ARGS_FILE = 'hook-args.sh'
+const CODEX_HOOK_ARGS_FILE = 'hook-args.sh'
 
-export function codexHookArgsScript(args: readonly string[]): string {
+function codexHookArgsScript(args: readonly string[]): string {
   return ['__ostia_codex_hook_args=(', ...args.map((arg) => `  ${shellQuote(arg)}`), ')', ''].join(
     '\n',
   )
@@ -651,7 +651,7 @@ export function codexWrapper(): string {
   ].join('\n')
 }
 
-export function agentPluginDigest(content: AgentPluginContent): string {
+function agentPluginDigest(content: AgentPluginContent): string {
   const hash = createHash('sha256')
   hash.update(JSON.stringify({ version, hooks: content.hooks }))
   hash.update(agentSkill)
@@ -704,7 +704,7 @@ export function writeAgentPlugin(root: string, content: AgentPluginContent): str
   return dir
 }
 
-export const AGENT_PLUGINS_DIR = join(INTEGRATION_DIR, 'agents')
+const AGENT_PLUGINS_DIR = join(INTEGRATION_DIR, 'agents')
 
 let agentDir: string | null = null
 
@@ -797,7 +797,7 @@ export function writeShellIntegration(
   return dir
 }
 
-export const SHELLS_DIR = join(INTEGRATION_DIR, 'shells')
+const SHELLS_DIR = join(INTEGRATION_DIR, 'shells')
 
 let cached: IntegrationPaths | null = null
 

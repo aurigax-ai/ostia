@@ -30,9 +30,9 @@ export type SandboxBasePaths = Omit<SandboxPaths, 'workDir' | 'tmpDir'>
 
 export const SSH_AGENT_SOCKET_NAME = 'a.sock'
 
-export const AGENT_DATA_DIRS = ['.claude', '.codex']
+const AGENT_DATA_DIRS = ['.claude', '.codex']
 
-export const AGENT_PROTECTED_FILES = [
+const AGENT_PROTECTED_FILES = [
   '.claude/settings.json',
   '.claude/settings.local.json',
   '.claude/hooks',
@@ -44,14 +44,14 @@ export const AGENT_PROTECTED_FILES = [
 ]
 
 const GIT_CONFIG_FILE = '.git/config'
-export const WORKDIR_PROTECTED_FILES = ['.envrc', '.git/hooks', GIT_CONFIG_FILE]
+const WORKDIR_PROTECTED_FILES = ['.envrc', '.git/hooks', GIT_CONFIG_FILE]
 export const WORKDIR_HIDDEN_FILES = [
   `.${PRODUCT_NAME}/vault.json`,
   `.${OLD_PRODUCT_NAME}/vault.json`,
 ]
 export const HOME_HIDDEN_FILES = ['.cargo/credentials.toml', '.cargo/credentials']
 
-export const CONTAINER_SOCKETS = [
+const CONTAINER_SOCKETS = [
   '/run/docker.sock',
   '/var/run/docker.sock',
   '/run/containerd/containerd.sock',
@@ -286,13 +286,4 @@ export function buildSrtConfig(
     ...(isMac ? { allowPty: true } : {}),
     ...vendoredBinaries(paths.srtVendorDir, platform, arch),
   }
-}
-
-export function runtimeReadsFor(input: {
-  integrationDir: string
-  stateFile: string
-  appPath: string
-  execPath: string
-}): string[] {
-  return [input.integrationDir, dirname(input.stateFile), input.appPath, dirname(input.execPath)]
 }

@@ -7,7 +7,7 @@ const SECRET_ENV_NAME = /_(TOKEN|KEY|SECRET|PASSWORD)$/
 const PRIVATE_KEY_HEADER = /-----BEGIN [A-Z ]*PRIVATE KEY-----/
 const KEY_PEEK_BYTES = 128
 
-export interface SecretAsk {
+interface SecretAsk {
   workspaceId: string
   paneId: string
   name: string

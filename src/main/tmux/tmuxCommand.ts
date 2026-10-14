@@ -14,7 +14,7 @@ export function tmuxQuote(arg: string): string {
   return `${out}"`
 }
 
-export function tmuxFormatQuote(arg: string): string {
+function tmuxFormatQuote(arg: string): string {
   return tmuxQuote(arg.replaceAll('#', '##'))
 }
 

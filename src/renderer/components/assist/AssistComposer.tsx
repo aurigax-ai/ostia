@@ -26,8 +26,8 @@ import type {
 } from '@shared/assist'
 import { type KeyboardEvent, type RefObject, useEffect, useMemo, useRef, useState } from 'react'
 
-export const TYPO_DEBOUNCE_MS = 700
-export const COMMAND_DEBOUNCE_MS = 500
+const TYPO_DEBOUNCE_MS = 700
+const COMMAND_DEBOUNCE_MS = 500
 const REDACTION_PREVIEW_MS = 300
 
 type Status =

@@ -4,7 +4,7 @@ import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionInfo } from '@shared/extensions'
 import { startNewWorkspace } from './newWorkspace'
 
-export const SSH_EXTENSION = 'ssh'
+const SSH_EXTENSION = 'ssh'
 
 export interface SshHosts {
   hosts: string[]

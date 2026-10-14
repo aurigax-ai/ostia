@@ -112,7 +112,7 @@ export const procFs: ProcReader = {
   },
 }
 
-export function socketInode(socket: Socket): number | null {
+function socketInode(socket: Socket): number | null {
   const fd = (socket as unknown as { _handle?: { fd?: unknown } })._handle?.fd
   if (typeof fd !== 'number' || fd < 0) return null
   try {

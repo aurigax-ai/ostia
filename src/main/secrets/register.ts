@@ -18,7 +18,7 @@ export interface SecretsRegisterDeps {
   vaultDelete?: (key: string) => boolean
 }
 
-export interface SecretsView {
+interface SecretsView {
   secrets: SecretEntry[]
   grants: NonNullable<WorkspaceSandbox['secrets']>
 }

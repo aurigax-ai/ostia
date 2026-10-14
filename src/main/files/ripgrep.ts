@@ -22,7 +22,7 @@ export interface FileList {
   truncated: boolean
 }
 
-export type RgFailureCode = 'rg-missing' | 'invalid-pattern' | 'failed' | 'cancelled'
+type RgFailureCode = 'rg-missing' | 'invalid-pattern' | 'failed' | 'cancelled'
 
 export function ripgrepPath(appPath: string, platform: string, arch: string): string {
   return join(
@@ -39,11 +39,11 @@ export type RgOutcome<T> =
   | { ok: true; value: T }
   | { ok: false; error: RgFailureCode; message: string }
 
-export const MATCH_LIMIT = 2000
-export const FILE_LIST_LIMIT = 50_000
+const MATCH_LIMIT = 2000
+const FILE_LIST_LIMIT = 50_000
 export const PREVIEW_CHARS = 240
-export const PREVIEW_LEAD = 40
-export const RG_TIMEOUT_MS = 15_000
+const PREVIEW_LEAD = 40
+const RG_TIMEOUT_MS = 15_000
 const STDERR_MAX = 4000
 
 const COMMON_ARGS = ['--no-config', '--hidden', '--glob', '!.git', '--no-messages']
@@ -140,7 +140,7 @@ function failureOf(stderr: string): RgOutcome<never> {
   return { ok: false, error: invalid ? 'invalid-pattern' : 'failed', message }
 }
 
-export function runRg(
+function runRg(
   bin: string,
   root: string,
   argv: string[],

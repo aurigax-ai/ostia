@@ -46,7 +46,7 @@ export interface ProcessRow {
   tty: string
 }
 
-export const PROCESS_TABLE_ARGS = ['-axo', 'pid=,ppid=,stat=,tty=']
+const PROCESS_TABLE_ARGS = ['-axo', 'pid=,ppid=,stat=,tty=']
 
 const PROCESS_TABLE_TIMEOUT_MS = 3000
 const PROCESS_TABLE_MAX_BYTES = 8 * 1024 * 1024

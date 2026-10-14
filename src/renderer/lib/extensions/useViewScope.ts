@@ -13,7 +13,7 @@ import type { ViewDoc } from '@shared/views/views'
 import { useEffect, useMemo, useState } from 'react'
 import { buildViewScope } from './viewData'
 
-export const VIEW_TICK_MS = 1000
+const VIEW_TICK_MS = 1000
 
 function useNow(ticks: boolean): number {
   const [now, setNow] = useState(() => Date.now())

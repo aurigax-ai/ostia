@@ -21,7 +21,7 @@ import { ControlRow, SelectField, ToggleRow } from './SettingsPanel'
 
 const SWATCH_HUES = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan'] as const
 
-export function SchemeSwatch({ scheme }: { scheme: ColorScheme }): JSX.Element {
+function SchemeSwatch({ scheme }: { scheme: ColorScheme }): JSX.Element {
   const { colors } = scheme
   return (
     <span
@@ -257,7 +257,7 @@ function PreviewCaption({ label, scheme }: { label: string; scheme: string }): J
   )
 }
 
-export function ThemePreview(): JSX.Element {
+function ThemePreview(): JSX.Element {
   const d = useDict()
   const theme = useEffectiveTheme()
   const terminal = useScheme('terminal')

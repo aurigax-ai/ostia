@@ -53,7 +53,7 @@ export interface ClipboardEdits {
   guardGuest: (guest: WebContents) => void
 }
 
-export function applyClipboardEdit(target: WebContents, edit: ClipboardEdit): void {
+function applyClipboardEdit(target: WebContents, edit: ClipboardEdit): void {
   if (edit === 'copy') target.copy()
   else target.pasteAndMatchStyle()
 }

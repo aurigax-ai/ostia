@@ -106,7 +106,7 @@ function loadRings(path: string): Map<string, Ring> {
   return rings
 }
 
-export interface ConnectionSource {
+interface ConnectionSource {
   pid?: number
 }
 

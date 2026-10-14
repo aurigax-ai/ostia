@@ -55,7 +55,7 @@ export interface UserAction {
 export const ACTION_ID = /^[a-z0-9][a-z0-9-]{0,39}$/
 const COMMAND_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/
 export const ACTION_TITLE_MAX = 60
-export const ACTION_ARGS_MAX = 4096
+const ACTION_ARGS_MAX = 4096
 export const ACTIONS_MAX = 50
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>

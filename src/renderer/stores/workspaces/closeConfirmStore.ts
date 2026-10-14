@@ -5,7 +5,7 @@ export type { RunningGroup }
 
 export type CloseConfirmKind = 'workspace' | 'pane' | 'quit' | 'move'
 
-export interface CloseConfirmRequest {
+interface CloseConfirmRequest {
   kind: CloseConfirmKind
   groups: RunningGroup[]
   keptShells: string[]

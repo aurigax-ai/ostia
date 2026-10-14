@@ -1,4 +1,4 @@
-export interface BufferLineLike {
+interface BufferLineLike {
   readonly isWrapped: boolean
   translateToString(trimRight?: boolean, startColumn?: number, endColumn?: number): string
 }

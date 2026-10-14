@@ -523,7 +523,7 @@ export async function checkUserPresence(request: PresenceRequest): Promise<Prese
   }
 }
 
-export async function confirmUserPresence(request: PresenceRequest): Promise<void> {
+async function confirmUserPresence(request: PresenceRequest): Promise<void> {
   const what = `${request.action} the script token "${request.name}"`
   const result = await checkUserPresence(request)
   if (!result.ok) {

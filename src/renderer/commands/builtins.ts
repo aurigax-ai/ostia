@@ -181,7 +181,7 @@ const HUMAN_ONLY_ROOTS: readonly string[] = [
   'workspaceGroups',
 ]
 
-export function launchesProgram(key: string, value: unknown): string | null {
+function launchesProgram(key: string, value: unknown): string | null {
   const path = key.split('.').filter(Boolean).join('.')
   const root = path.split('.')[0]
   if (HUMAN_ONLY_ROOTS.includes(root)) return root

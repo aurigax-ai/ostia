@@ -2,7 +2,7 @@ import { type RelativeStep, formatRelative } from '../common/relativeTime'
 import { isDangerousSegment } from '../protoGuard'
 
 export const VIEW_FILTERS = ['upper', 'lower', 'count', 'not', 'relative', 'time', 'date'] as const
-export type ViewFilter = (typeof VIEW_FILTERS)[number]
+type ViewFilter = (typeof VIEW_FILTERS)[number]
 
 export interface Binding {
   path: string[]
@@ -163,13 +163,13 @@ function applyFilter(filter: ViewFilter, v: unknown, fmt: ViewFormat): unknown {
   }
 }
 
-export function evalBinding(binding: Binding, scope: ViewScope, fmt: ViewFormat): unknown {
+function evalBinding(binding: Binding, scope: ViewScope, fmt: ViewFormat): unknown {
   let value = lookup(scope, binding.path)
   for (const filter of binding.filters) value = applyFilter(filter, value, fmt)
   return value
 }
 
-export function displayString(v: unknown): string {
+function displayString(v: unknown): string {
   if (typeof v === 'string') return v
   if (typeof v === 'number') return Number.isFinite(v) ? String(v) : ''
   if (typeof v === 'boolean') return String(v)

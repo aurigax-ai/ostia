@@ -18,7 +18,7 @@ export const TELEMETRY_CATEGORIES = [
 ] as const
 export type TelemetryCategory = (typeof TELEMETRY_CATEGORIES)[number]
 
-export const USAGE_CATEGORIES = ['usage', 'features', 'terminal', 'extensions', 'agents'] as const
+const USAGE_CATEGORIES = ['usage', 'features', 'terminal', 'extensions', 'agents'] as const
 export type UsageCategory = (typeof USAGE_CATEGORIES)[number]
 
 type UsageKeyKind = 'count' | 'ids' | 'value' | 'list'
@@ -74,7 +74,7 @@ const ERROR_SOURCES = [
   'surface-error',
   'extension-crashed',
 ] as const
-export type ErrorSource = (typeof ERROR_SOURCES)[number]
+type ErrorSource = (typeof ERROR_SOURCES)[number]
 
 export type TelemetrySettings = Record<TelemetryCategory, boolean>
 
@@ -166,9 +166,9 @@ export interface ErrorReport extends ReportBase {
   }
 }
 
-export type UsageValue = number | string | string[]
+type UsageValue = number | string | string[]
 
-export type UsageProperties = InstallContext & { $process_person_profile: false } & {
+type UsageProperties = InstallContext & { $process_person_profile: false } & {
   [key: string]: UsageValue | false
 }
 

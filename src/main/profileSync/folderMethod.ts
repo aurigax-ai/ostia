@@ -13,7 +13,7 @@ import {
   writeAtomic,
 } from './profile'
 
-export function versionOf(files: ReadonlyMap<string, string>): string {
+function versionOf(files: ReadonlyMap<string, string>): string {
   const hash = createHash('sha256')
   for (const [path, text] of [...files].sort(([a], [b]) => a.localeCompare(b))) {
     hash.update(path).update('\0').update(text).update('\0')

@@ -55,7 +55,9 @@ vi.mock('./server', () => ({
   closeDeviceSockets: vi.fn(),
 }))
 
-const { configureTailnet, registerGatewayIpc, registerGatewayMethods } = await import('./index')
+const { configureTailnet, registerGatewayIpc, registerGatewayMethods } = await import(
+  './gatewayIpc'
+)
 const { startGateway } = await import('./server')
 
 let prevXdg: string | undefined

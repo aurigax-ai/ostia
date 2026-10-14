@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type LiveSelectionSource =
+type LiveSelectionSource =
   | { kind: 'editor'; file: string; startLine: number; endLine: number }
   | { kind: 'terminal' }
 

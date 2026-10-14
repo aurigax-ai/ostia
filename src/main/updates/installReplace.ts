@@ -198,7 +198,7 @@ async function checkExtracted(dir: string, version: string): Promise<void> {
   if (!info || releaseVersion(info.version) !== version) throw new ReplaceError('wrong-version')
 }
 
-export function replaceFailure(err: unknown): ReplaceError {
+function replaceFailure(err: unknown): ReplaceError {
   if (err instanceof ReplaceError) return err
   if (!(err instanceof DownloadError)) return new ReplaceError('offline')
   return new ReplaceError(err.reason === 'host-not-allowed' ? 'redirect-refused' : err.reason)

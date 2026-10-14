@@ -16,7 +16,7 @@ export interface PrepareSecretsInput {
   dir: string
 }
 
-export function envName(name: string): string {
+function envName(name: string): string {
   const upper = name.toUpperCase().replace(/[^A-Z0-9_]/g, '_')
   return /^[0-9]/.test(upper) ? `_${upper}` : upper
 }

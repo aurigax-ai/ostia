@@ -1,7 +1,7 @@
 import type { CommandAction } from '@/lib/palette/userActions'
 import { create } from 'zustand'
 
-export type ActionConfirmAnswer = 'cancel' | 'once' | 'trust'
+type ActionConfirmAnswer = 'cancel' | 'once' | 'trust'
 
 interface PendingAction {
   action: CommandAction

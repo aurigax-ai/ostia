@@ -34,11 +34,11 @@ import { redactSecrets } from '../diagnostics/appLog'
 import { DownloadError, downloadChecked, isAllowedHop } from '../platform/checkedDownload'
 
 export const DOWNLOAD_BASE_URL_ENV = 'LSP_DOWNLOAD_BASE_URL'
-export const DOWNLOAD_MAX_BYTES = 256 * 1024 * 1024
-export const EXTRACT_MAX_BYTES = 1024 * 1024 * 1024
-export const EXTRACT_MAX_FILES = 20_000
-export const DOWNLOAD_TIMEOUT_MS = 10 * 60_000
-export const GO_INSTALL_TIMEOUT_MS = 15 * 60_000
+const DOWNLOAD_MAX_BYTES = 256 * 1024 * 1024
+const EXTRACT_MAX_BYTES = 1024 * 1024 * 1024
+const EXTRACT_MAX_FILES = 20_000
+const DOWNLOAD_TIMEOUT_MS = 10 * 60_000
+const GO_INSTALL_TIMEOUT_MS = 15 * 60_000
 const GO_OUTPUT_MAX_BYTES = 1024 * 1024
 const OUTPUT_LINE_MAX = 500
 const SYMLINK_TYPE = 0o120000
@@ -66,7 +66,7 @@ export interface FetchHooks {
   onOutput?: (line: string) => void
 }
 
-export type ExecFile = (
+type ExecFile = (
   file: string,
   args: string[],
   options: {

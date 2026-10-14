@@ -99,7 +99,7 @@ export function isNewerVersion(candidate: string, current: string): boolean {
   return Boolean(a && b && compareVersions(a, b) > 0)
 }
 
-export function releasePageUrl(raw: unknown, tag: string): string | null {
+function releasePageUrl(raw: unknown, tag: string): string | null {
   if (typeof raw !== 'string') return null
   let url: URL
   try {
@@ -196,7 +196,7 @@ export function isMainChannelVersion(version: Version): boolean {
   return isNumberedPrerelease(version, MAIN_CHANNEL_PRERELEASES)
 }
 
-export function isBetaChannelVersion(version: Version): boolean {
+function isBetaChannelVersion(version: Version): boolean {
   return isNumberedPrerelease(version, BETA_CHANNEL_PRERELEASES)
 }
 

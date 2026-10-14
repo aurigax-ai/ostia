@@ -3,7 +3,7 @@ import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 
-export function isAnchored(workspace: Pick<Workspace, 'anchored'>): boolean {
+function isAnchored(workspace: Pick<Workspace, 'anchored'>): boolean {
   return workspace.anchored === true
 }
 
@@ -32,7 +32,7 @@ export async function anchorToFocusedPane(workspaceId: string): Promise<boolean>
   return dir ? moveWorkspaceTo(workspaceId, dir) : false
 }
 
-export function focusedDirs(): Map<string, string> {
+function focusedDirs(): Map<string, string> {
   const dirs = new Map<string, string>()
   const layouts = useLayoutStore.getState().byWorkspace
   for (const workspace of useWorkspacesStore.getState().workspaces) {

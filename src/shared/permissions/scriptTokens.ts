@@ -40,13 +40,13 @@ export interface RetiredScriptToken {
   retiredAt: string
 }
 
-export interface ScriptTokenWorkspace {
+interface ScriptTokenWorkspace {
   id: string
   name: string
   groupId?: string
 }
 
-export interface ScriptTokenGroup {
+interface ScriptTokenGroup {
   id: string
   name: string
   color?: string
@@ -79,7 +79,7 @@ export interface ScriptTokenCall {
   code?: string
 }
 
-export interface ScriptTokenConnection {
+interface ScriptTokenConnection {
   pid?: number
 }
 

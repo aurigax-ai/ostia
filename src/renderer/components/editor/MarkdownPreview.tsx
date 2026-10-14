@@ -25,7 +25,7 @@ function tagSourceLines(node: HastNode): void {
   for (const child of node.children ?? []) tagSourceLines(child)
 }
 
-export function rehypeSourceLines() {
+function rehypeSourceLines() {
   return (tree: HastNode): void => tagSourceLines(tree)
 }
 
@@ -37,7 +37,7 @@ function textOf(node: HastNode & { value?: string }): string {
   return (node.children ?? []).map(textOf).join('')
 }
 
-export function mermaidSource(pre: HastNode | undefined): string | null {
+function mermaidSource(pre: HastNode | undefined): string | null {
   const code = pre?.children?.[0] as (HastNode & { tagName?: string }) | undefined
   if (!code || code.tagName !== 'code') return null
   const classes = code.properties?.className

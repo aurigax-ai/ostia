@@ -8,7 +8,7 @@ import {
 
 export const KEYMAP_FILE_MAX_BYTES = 64 * 1024
 export const KEYMAP_COMMAND_MAX = 200
-export const KEYMAP_CHORD_MAX = 100
+const KEYMAP_CHORD_MAX = 100
 
 export interface KeymapSkip {
   command: string

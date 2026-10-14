@@ -9,12 +9,12 @@ import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import { type PaneEntry, liveSessionHolder } from './paneList'
 import type { PaneWaking } from './paneWaking'
 
-export const READ_LINES_DEFAULT = 200
-export const READ_LINES_MAX = 2000
-export const INPUT_MAX_LENGTH = 16 * 1024
-export const PASTE_SETTLE_MS = 100
-export const CONFIRM_DEFAULT_MS = 2000
-export const CONFIRM_MAX_MS = 10_000
+const READ_LINES_DEFAULT = 200
+const READ_LINES_MAX = 2000
+const INPUT_MAX_LENGTH = 16 * 1024
+const PASTE_SETTLE_MS = 100
+const CONFIRM_DEFAULT_MS = 2000
+const CONFIRM_MAX_MS = 10_000
 const WAKE_WAIT_MIN_MS = 1000
 const WAKE_WAIT_DEFAULT_MS = 2 * 60_000
 const WAKE_WAIT_MAX_MS = 30 * 60_000
@@ -48,7 +48,7 @@ const KEY_ALIASES: Readonly<Record<string, string>> = {
 
 const CTRL_LETTER = /^ctrl-([a-z])$/
 
-export const INPUT_KEY_NAMES = [...Object.keys(NAMED_KEYS), 'ctrl-a..ctrl-z'].join(', ')
+const INPUT_KEY_NAMES = [...Object.keys(NAMED_KEYS), 'ctrl-a..ctrl-z'].join(', ')
 
 export interface PaneIo {
   read: (paneId: string, lines: number) => Promise<string | null>
@@ -81,7 +81,7 @@ export function keyBytes(key: unknown): string | undefined {
   return Object.hasOwn(NAMED_KEYS, name) ? NAMED_KEYS[name] : undefined
 }
 
-export function inputParts(text: unknown, keys: unknown): { text: string; keys: string } {
+function inputParts(text: unknown, keys: unknown): { text: string; keys: string } {
   const parts = { text: '', keys: '' }
   if (text !== undefined) {
     if (typeof text !== 'string') throw fail('bad-request: text')
@@ -124,7 +124,7 @@ function optionalFlag(raw: unknown, name: string): boolean | undefined {
   return raw
 }
 
-export function confirmWindow(raw: unknown): number {
+function confirmWindow(raw: unknown): number {
   if (raw === undefined) return CONFIRM_DEFAULT_MS
   const ms = Number(raw)
   if (!Number.isInteger(ms) || ms < 0) throw fail('bad-request: confirmMs')

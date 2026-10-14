@@ -69,7 +69,7 @@ const TRY_UI: Partial<Record<AssistFeatureId, AssistUi>> = {
   commandSuggest: 'compose',
 }
 
-export function featureHints(d: Dict, id: AssistFeatureId, keys: Chords): string[] {
+function featureHints(d: Dict, id: AssistFeatureId, keys: Chords): string[] {
   const h = d.assistantSettings.hints
   const keyed = (k: string | null, template: string): string[] =>
     k ? [fmt(template, { keys: k })] : []

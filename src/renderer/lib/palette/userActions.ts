@@ -9,7 +9,7 @@ import { focusSurface } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { DEFAULT_CAPABILITIES } from '@shared/capabilities'
 
-export const ACTION_COMMAND_PREFIX = 'action.'
+const ACTION_COMMAND_PREFIX = 'action.'
 
 export type CommandAction = Pick<UserAction, 'id' | 'title' | 'command' | 'args'> & {
   origin?: string

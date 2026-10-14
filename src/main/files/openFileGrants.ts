@@ -4,7 +4,7 @@ import type { OpenFileVerdict } from '../../shared/files/openFiles'
 import { loadJson, saveJson } from '../platform/jsonStore'
 import { expandHome, resolveSafe } from '../platform/pathGuard'
 
-export const OPEN_FILE_GRANTS_MAX = 200
+const OPEN_FILE_GRANTS_MAX = 200
 
 export interface OpenFileGrantsDeps {
   roots: () => string[]

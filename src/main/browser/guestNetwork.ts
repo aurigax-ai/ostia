@@ -2,7 +2,7 @@ import type { NetworkRequest } from '../../shared/browser/browseNetwork'
 import type { PickFailedRequest } from '../../shared/browser/pick'
 
 export const MAX_FAILED_REQUESTS = 200
-export const MAX_LOGGED_REQUESTS = 500
+const MAX_LOGGED_REQUESTS = 500
 const MAX_PENDING_REQUESTS = 1000
 
 export interface NetworkTracker {

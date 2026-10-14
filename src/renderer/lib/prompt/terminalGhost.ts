@@ -10,8 +10,8 @@ import { TERMINAL_LINE_MAX } from '@shared/assist'
 import { LRUCache } from 'lru-cache'
 
 export const GHOST_DEBOUNCE_MS = 300
-export const GHOST_CACHE_MAX = 100
-export const GHOST_HISTORY_MAX = 5
+const GHOST_CACHE_MAX = 100
+const GHOST_HISTORY_MAX = 5
 
 export interface AiGhost {
   line: string

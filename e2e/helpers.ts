@@ -152,15 +152,6 @@ export async function restartApp(app: ElectronApplication, win: Page): Promise<v
   await closed
 }
 
-export function guestText(app: ElectronApplication, origin: string): Promise<string> {
-  return app.evaluate(async ({ webContents }, prefix) => {
-    const guest = webContents
-      .getAllWebContents()
-      .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith(prefix))
-    return guest ? String(await guest.executeJavaScript('document.body.innerText')) : ''
-  }, origin)
-}
-
 async function dialogShown(win: Page): Promise<'asked' | null> {
   try {
     await win.getByRole('dialog').waitFor({ timeout: 30_000 })

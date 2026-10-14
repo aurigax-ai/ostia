@@ -254,7 +254,7 @@ function Node({ node, ctx }: { node: RenderNode; ctx: RenderContext }): JSX.Elem
   }
 }
 
-export function ViewStatusNote({ children }: { children: React.ReactNode }): JSX.Element {
+function ViewStatusNote({ children }: { children: React.ReactNode }): JSX.Element {
   return (
     <Alert className={cn(ATTENTION_ALERT, 'flex items-start gap-1.5 text-ui-xs')}>
       <WarningIcon size={12} className="mt-0.5 shrink-0" aria-hidden />

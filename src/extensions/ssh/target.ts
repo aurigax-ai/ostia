@@ -1,6 +1,6 @@
 import type { ToolRun } from '../sdk'
 
-export const RESOLVE_ERROR_MAX = 240
+const RESOLVE_ERROR_MAX = 240
 
 export interface SshTarget {
   alias: string

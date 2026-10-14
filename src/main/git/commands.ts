@@ -42,8 +42,8 @@ import { type GitText, listedPaths } from './text'
 import type { ViewStateStore } from './viewState'
 
 export const AREAS: readonly ChangeArea[] = ['staged', 'unstaged', 'untracked', 'conflicted']
-export const DEFAULT_LOG_LIMIT = 50
-export const MAX_LOG_LIMIT = 500
+const DEFAULT_LOG_LIMIT = 50
+const MAX_LOG_LIMIT = 500
 const GRAPH_PAGE = 300
 const MAX_GRAPH_COMMITS = 10_000
 
@@ -84,7 +84,7 @@ function invalid(message: string): GitReply<never> {
   return { ok: false, error: 'invalid-args', message }
 }
 
-export function logLimit(raw: unknown): number {
+function logLimit(raw: unknown): number {
   const n = typeof raw === 'number' ? raw : Number(raw)
   if (!Number.isInteger(n) || n < 1) return DEFAULT_LOG_LIMIT
   return Math.min(n, MAX_LOG_LIMIT)
@@ -100,13 +100,13 @@ function shortDate(time: number): string {
   return new Date(time * 1000).toISOString().slice(0, 10)
 }
 
-export function logText(commits: CommitSummary[]): string {
+function logText(commits: CommitSummary[]): string {
   return commits
     .map((c) => `${c.sha.slice(0, 7)} ${shortDate(c.time)} ${c.author}  ${c.subject}`)
     .join('\n')
 }
 
-export function blameText(lines: BlameLine[], uncommitted: string): string {
+function blameText(lines: BlameLine[], uncommitted: string): string {
   const width = String(lines.length).length
   return lines
     .map((l) => {

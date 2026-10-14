@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react'
 import { RequirementsNoteView, useRequirements } from './RequirementsNote'
 import { ExperimentalBadge, ToggleRow } from './SettingsPanel'
 
-export function drawingGpu(): string | null {
+function drawingGpu(): string | null {
   const gl = document.createElement('canvas').getContext('webgl')
   if (!gl) return null
   const info = gl.getExtension('WEBGL_debug_renderer_info')
