@@ -3,22 +3,34 @@ import {
   type CommandHandler,
   type ExtensionEventType,
   type ExtensionResult,
+  type ExtensionSettingValues,
   booleanSetting,
   cliArgs,
   connect,
+  createTranslator,
   failure,
   namedArgs,
+  numberSetting,
   ok,
   startPanelServer,
 } from '../sdk'
-import { Journal } from './journal'
+import { isRecordId } from './hookEvent'
+import { ARCHIVE_DAYS, DAY_MS, Journal, RETENTION_DAYS, type Retention } from './journal'
 import { Recorder } from './recorder'
+import { activityVerbs } from './verbs'
 import { type OpenPane, type OpenWorkspace, panelModel } from './view'
 
 const PANEL_FILES = ['panel.html', 'panel.js', 'panel.css', 'base.css']
 const SHOW_ACTIVITY = 'showActivity'
 const EVENTS: ExtensionEventType[] = ['pane.closed']
 const PRUNE_EVERY_MS = 60 * 60 * 1000
+const SIDEBAR_KEY = 'needs-you'
+
+function retentionOf(values: ExtensionSettingValues): Retention {
+  const liveDays = numberSetting(values, 'retentionDays', RETENTION_DAYS, { min: 1, max: 365 })
+  const archiveDays = numberSetting(values, 'archiveDays', ARCHIVE_DAYS, { min: 1, max: 3650 })
+  return { liveMs: liveDays * DAY_MS, archiveMs: archiveDays * DAY_MS }
+}
 
 type PanelCommand = (args: unknown) => Promise<ExtensionResult>
 
@@ -67,12 +79,45 @@ async function main(): Promise<void> {
     }),
   }))
   const journal = new Journal({ dir: readEnv('EXTENSION_DATA') ?? null, now: Date.now })
-  journal.load()
+  const translate = createTranslator()
+  let locale = 'en'
   let panelChanged = (): void => {}
   let showActivity = false
   const settingsLoaded = ext.getSettings().then((values) => {
     showActivity = booleanSetting(values, SHOW_ACTIVITY, false)
+    journal.setRetention(retentionOf(values))
   })
+  await settingsLoaded
+  journal.load()
+  const counted = new Set<string>()
+  let startsWithWindow: boolean | null = null
+  const showNeedsYou = async (): Promise<void> => {
+    const open = journal.workspaceIds().filter((id) => journal.openNeedsYou(id).length > 0)
+    for (const workspaceId of new Set([...counted, ...open])) {
+      const count = journal.openNeedsYou(workspaceId).length
+      if (count === 0) counted.delete(workspaceId)
+      else counted.add(workspaceId)
+      await ext
+        .setSidebarItem({
+          key: SIDEBAR_KEY,
+          workspaceId,
+          text: count > 0 ? translate(locale)('sidebar.needsYou', { count }) : '',
+          badge: String(count),
+          icon: 'alert',
+          tone: 'warn',
+        })
+        .catch(() => {})
+    }
+    const keep = open.length > 0
+    if (keep !== startsWithWindow) {
+      startsWithWindow = keep
+      await ext.startWithWindow(keep).catch(() => {})
+    }
+  }
+  const changed = (): void => {
+    panelChanged()
+    void showNeedsYou()
+  }
   let workspaces: ListedWorkspace[] = []
 
   const refreshWorkspaces = async (): Promise<ListedWorkspace[] | null> => {
@@ -97,7 +142,7 @@ async function main(): Promise<void> {
     now: Date.now,
     redact: (texts) => ext.redact(texts),
     workspaceKind,
-    changed: () => panelChanged(),
+    changed,
   })
 
   const snapshot = async (): Promise<ExtensionResult> => {
@@ -135,6 +180,14 @@ async function main(): Promise<void> {
       const paneId = namedArgs(args).paneId
       return typeof paneId === 'string' ? ext.focusPane(paneId) : failure('invalid-args')
     },
+    done: async (args: unknown) => {
+      const { workspaceId, id } = namedArgs(args)
+      if (typeof workspaceId !== 'string' || !isRecordId(id)) return failure('invalid-args')
+      const done = journal.markDone(workspaceId, id, Date.now())
+      if (!done) return failure('unknown-entry')
+      changed()
+      return ok()
+    },
   })
 
   await settingsLoaded
@@ -143,10 +196,24 @@ async function main(): Promise<void> {
 
   ext.onSettingsChanged((values) => {
     showActivity = booleanSetting(values, SHOW_ACTIVITY, false)
-    panel.changed()
+    journal.setRetention(retentionOf(values))
+    journal.prune()
+    changed()
+  })
+  locale = await ext.getLocale()
+  ext.onLocaleChanged((next) => {
+    locale = next
+    void showNeedsYou()
   })
 
   const handlers: Record<string, CommandHandler> = {
+    ...activityVerbs({
+      journal,
+      now: Date.now,
+      redact: (texts) => ext.redact(texts),
+      workspaceKind,
+      changed,
+    }),
     open: async (_args, caller) => {
       await ext.openPanel(caller.workspaceId)
       return ok()
@@ -163,8 +230,10 @@ async function main(): Promise<void> {
     void refreshWorkspaces().then(() => panel.changed())
   })
   await refreshWorkspaces()
+  journal.prune()
+  await showNeedsYou()
   setInterval(() => {
-    if (journal.prune()) panel.changed()
+    if (journal.prune()) changed()
   }, PRUNE_EVERY_MS).unref()
 }
 

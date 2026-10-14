@@ -28,6 +28,12 @@
     "time.minutes": "{count} min",
     "time.hours": "{count} h",
     "time.days": "{count} d",
-    "loadFailed": "Could not load the activity: {reason}"
+    "loadFailed": "Could not load the activity: {reason}",
+    "sidebar.needsYou": "{count} need you",
+    "needsYou": "Needs you",
+    "noteDone": "Done",
+    "markDone": "Mark done",
+    "notes": "Notes",
+    "doneFailed": "Could not mark it done: {reason}"
   }
 }

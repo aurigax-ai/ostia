@@ -162,3 +162,62 @@ code.event-text {
   padding-top: 6px;
   border-top: 1px solid var(--line);
 }
+
+.notes {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.note-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 8px;
+}
+
+.note-row > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--fg-muted);
+}
+
+.note-row[data-needs-you="true"][data-done="false"] > svg,
+.needs-you {
+  color: var(--attn-fg);
+}
+
+.note-row[data-done="true"] .needs-you {
+  color: var(--fg-muted);
+}
+
+.note-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.needs-you {
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+  font-weight: var(--font-weight-medium);
+}
+
+.note-text {
+  margin: 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.note-link {
+  display: block;
+  font-family: var(--font-code);
+  overflow-wrap: anywhere;
+}
+
+.note-body .note {
+  margin-left: 0;
+}
+
+button.done-button {
+  flex: 0 0 auto;
+}

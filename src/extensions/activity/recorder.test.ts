@@ -92,7 +92,9 @@ describe('Recorder', () => {
     throwing.accept(['codex', 'UserPromptSubmit'], prompt('log in with hunter2'), pane())
     await rec.settled()
     await throwing.settled()
-    expect(journal.events('w1').map((e) => [e.agent, e.kind, e.text])).toEqual([
+    expect(
+      journal.events('w1').map((e) => [e.kind === 'note' ? null : e.agent, e.kind, e.text]),
+    ).toEqual([
       ['claude', 'prompt', undefined],
       ['codex', 'prompt', undefined],
     ])
