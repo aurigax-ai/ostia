@@ -5,12 +5,5 @@
     "issue": 129,
     "until": "2026-11-02",
     "platforms": ["linux"]
-  },
-  {
-    "file": "e2e/clipboard-keys.spec.ts",
-    "name": "the paste chord pastes in the default mode, and Ctrl+V goes to the shell",
-    "issue": 794,
-    "until": "2026-10-21",
-    "platforms": ["linux"]
   }
 ]
