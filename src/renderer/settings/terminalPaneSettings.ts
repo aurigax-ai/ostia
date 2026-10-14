@@ -13,6 +13,7 @@ export interface TerminalSettings {
   minimumContrast: number
   prompt: PromptSettings
   clipboardKeys: ClipboardKeys
+  linkClick: LinkClick
   theme: string
   shell: string
   osc52Write: boolean
@@ -27,6 +28,9 @@ export type TerminalRenderer = (typeof TERMINAL_RENDERERS)[number]
 
 const CLIPBOARD_KEYS = ['shift', 'smart'] as const
 export type ClipboardKeys = (typeof CLIPBOARD_KEYS)[number]
+
+const LINK_CLICKS = ['app', 'system'] as const
+export type LinkClick = (typeof LINK_CLICKS)[number]
 
 export interface PaneSettings {
   dimInactive: boolean
@@ -49,6 +53,7 @@ export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
   minimumContrast: 1,
   prompt: DEFAULT_PROMPT_SETTINGS,
   clipboardKeys: 'shift',
+  linkClick: 'app',
   theme: MATCH_OSTIA_THEME,
   shell: '',
   osc52Write: true,
@@ -103,6 +108,9 @@ export function parseTerminalSettings(raw: unknown): TerminalSettings {
     clipboardKeys: CLIPBOARD_KEYS.includes(source.clipboardKeys as ClipboardKeys)
       ? (source.clipboardKeys as ClipboardKeys)
       : DEFAULT_TERMINAL_SETTINGS.clipboardKeys,
+    linkClick: LINK_CLICKS.includes(source.linkClick as LinkClick)
+      ? (source.linkClick as LinkClick)
+      : DEFAULT_TERMINAL_SETTINGS.linkClick,
     theme: parseThemeChoice(source.theme),
     shell: parseShellSetting(source.shell),
     renderer: TERMINAL_RENDERERS.includes(source.renderer as TerminalRenderer)

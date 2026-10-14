@@ -1,3 +1,4 @@
+import type { LinkClick } from '@/settings/terminalPaneSettings'
 import { linkKind } from '@shared/links/externalLinks'
 import type { IBufferRange } from '@xterm/xterm'
 import type { FileLinkAction } from './terminalFileLinks'
@@ -39,10 +40,13 @@ export interface WebLinkClickContext {
   mac: boolean
   hasSelection: boolean
   mouseReporting: boolean
+  linkClick: LinkClick
 }
 
 export function webLinkTarget(e: WebLinkClick, ctx: WebLinkClickContext): WebLinkTarget | null {
-  if (linkModifierHeld(e, ctx.mac)) return e.shiftKey ? 'system' : 'new-tab'
+  if (linkModifierHeld(e, ctx.mac)) {
+    return e.shiftKey === (ctx.linkClick === 'app') ? 'system' : 'new-tab'
+  }
   if (e.ctrlKey || e.metaKey || e.shiftKey || e.detail > 1) return null
   if (ctx.hasSelection || ctx.mouseReporting) return null
   return 'same-tab'

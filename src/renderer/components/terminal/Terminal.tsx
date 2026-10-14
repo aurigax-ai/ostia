@@ -286,6 +286,7 @@ function TerminalSurface({
         mac: isMac,
         hasSelection: term.hasSelection(),
         mouseReporting: term.modes.mouseTrackingMode !== 'none',
+        linkClick: useSettingsStore.getState().terminal.linkClick,
       })
       if (target === 'same-tab') openBrowserAs(workspaceIdRef.current, uri, 'human')
       else if (target === 'new-tab') openBrowserTabAs(workspaceIdRef.current, uri, 'human')

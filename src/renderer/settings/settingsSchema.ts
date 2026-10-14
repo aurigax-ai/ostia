@@ -442,6 +442,14 @@ export const SETTINGS_JSON_SCHEMA = {
             'go to the program. "smart": Ctrl+C copies when text is selected (else interrupts), ' +
             'Ctrl+V pastes; Ctrl+Shift+C/V still work. macOS always uses Cmd+C/V. Default: shift.',
         },
+        linkClick: {
+          type: 'string',
+          enum: ['app', 'system'],
+          description:
+            'Where Ctrl+click (Cmd+click on macOS) opens a web link in a terminal. "app": a new ' +
+            'browser tab in the app, and adding Shift opens the system browser. "system": the ' +
+            'system browser, and adding Shift opens a new browser tab in the app. Default: app.',
+        },
         warnOnRiskyPaste: {
           type: 'boolean',
           description:

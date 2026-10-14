@@ -45,7 +45,7 @@ describe('attachLinkModifier', () => {
 
 describe('webLinkTarget', () => {
   const plain = { ctrlKey: false, metaKey: false, shiftKey: false, detail: 1 }
-  const idle = { mac: false, hasSelection: false, mouseReporting: false }
+  const idle = { mac: false, hasSelection: false, mouseReporting: false, linkClick: 'app' as const }
 
   it('opens a plain click in the same browser tab', () => {
     expect(webLinkTarget(plain, idle)).toBe('same-tab')
@@ -63,6 +63,17 @@ describe('webLinkTarget', () => {
     expect(webLinkTarget({ ...plain, ctrlKey: true }, mac)).toBe(null)
     expect(webLinkTarget({ ...plain, ctrlKey: true }, idle)).toBe('new-tab')
     expect(webLinkTarget({ ...plain, metaKey: true }, idle)).toBe(null)
+  })
+
+  it('swaps the new tab and the system browser when the setting asks, on Linux and macOS', () => {
+    const linux = { ...idle, linkClick: 'system' as const }
+    expect(webLinkTarget({ ...plain, ctrlKey: true }, linux)).toBe('system')
+    expect(webLinkTarget({ ...plain, ctrlKey: true, shiftKey: true }, linux)).toBe('new-tab')
+    expect(webLinkTarget(plain, linux)).toBe('same-tab')
+    const mac = { ...linux, mac: true }
+    expect(webLinkTarget({ ...plain, metaKey: true }, mac)).toBe('system')
+    expect(webLinkTarget({ ...plain, metaKey: true, shiftKey: true }, mac)).toBe('new-tab')
+    expect(webLinkTarget({ ...plain, ctrlKey: true }, mac)).toBe(null)
   })
 
   it('ignores a plain click that ends a selection or drag, or is a double click', () => {
@@ -132,7 +143,7 @@ describe('attachLinkClaim', () => {
 })
 
 describe('terminalLinkTarget', () => {
-  const ctx = { mac: true, hasSelection: false, mouseReporting: false }
+  const ctx = { mac: true, hasSelection: false, mouseReporting: false, linkClick: 'app' as const }
   const click = { ctrlKey: false, metaKey: false, shiftKey: false, detail: 1 }
   const vault = 'obsidian://advanced-uri?vault=Interdisciplinary Nexus&filepath=中文.md'
 

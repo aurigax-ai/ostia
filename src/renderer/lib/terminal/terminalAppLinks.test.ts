@@ -82,7 +82,7 @@ describe('any scheme in the terminal', () => {
     link.hover?.(new MouseEvent('mouseover'), link.text)
     expect(hint.show).toHaveBeenCalledWith(link.range, slack)
     const click = { ctrlKey: false, metaKey: false, shiftKey: false, detail: 1 }
-    const ctx = { mac: true, hasSelection: false, mouseReporting: false }
+    const ctx = { mac: true, hasSelection: false, mouseReporting: false, linkClick: 'app' as const }
     expect(terminalLinkTarget(link.text, click, ctx)).toBe('app')
     term.dispose()
   })
@@ -189,7 +189,7 @@ describe('the four link forms Claude Code prints', () => {
 
   const rendered = [osc8(A, 'A'), osc8(B, 'B'), C, osc8(D, 'GitLab')]
   const click = { ctrlKey: false, metaKey: false, shiftKey: false, detail: 1 }
-  const ctx = { mac: true, hasSelection: false, mouseReporting: false }
+  const ctx = { mac: true, hasSelection: false, mouseReporting: false, linkClick: 'app' as const }
 
   it('shows every form as a link, the way Claude Code renders them', async () => {
     expect(await screen(rendered, false)).toEqual([[A], [B], [C], [D]])

@@ -1,6 +1,11 @@
 import { commands } from '@/commands/registry'
 import { IconButton } from '@/components/common/IconButton'
-import { SectionHead, SelectField, WarningNote } from '@/components/settings/SettingsPanel'
+import {
+  ControlRow,
+  SectionHead,
+  SelectField,
+  WarningNote,
+} from '@/components/settings/SettingsPanel'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Kbd } from '@/components/ui/kbd'
@@ -51,6 +56,7 @@ import {
   withChordReplaced,
 } from '@/lib/keys/keySources'
 import { isMac, platform } from '@/platform'
+import type { LinkClick } from '@/settings/terminalPaneSettings'
 import { appKeymap, keymapChoices, useKeymapStore } from '@/stores/app/keymapStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
@@ -926,6 +932,28 @@ function ViewSwitch({
   )
 }
 
+function LinkClickRow(): JSX.Element {
+  const d = useDict()
+  const linkClick = useSettingsStore((s) => s.terminal.linkClick)
+  const setTerminal = useSettingsStore((s) => s.setTerminal)
+  const click = (shift: boolean): string =>
+    chordText({ ctrl: !isMac, meta: isMac, shift, alt: false, key: d.terminalLinks.click }, isMac)
+  const label = fmt(d.keyboard.linkClick, { click: click(false) })
+  return (
+    <ControlRow label={label} desc={fmt(d.keyboard.linkClickDesc, { shiftClick: click(true) })}>
+      <SelectField<LinkClick>
+        value={linkClick}
+        onChange={(v) => setTerminal({ linkClick: v })}
+        label={label}
+        options={[
+          { value: 'app', label: d.keyboard.linkClickApp },
+          { value: 'system', label: d.keyboard.linkClickSystem },
+        ]}
+      />
+    </ControlRow>
+  )
+}
+
 export function KeyboardSection(): JSX.Element {
   const d = useDict()
   const [query, setQuery] = useState('')
@@ -968,6 +996,7 @@ export function KeyboardSection(): JSX.Element {
     <section aria-label={d.keyboard.title}>
       <SectionHead title={d.keyboard.title} desc={d.keyboard.desc} />
       <KeymapCombo onShowChanges={() => setView('changes')} />
+      <LinkClickRow />
       <div className="mb-2 flex items-center gap-2">
         <ViewSwitch view={view} total={total} onChange={setView} />
         {view === 'active' ? (
