@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { contractFailures, settle } from '@aurigax-ai/graph/testing'
+import { FakeClock, contractFailures, settle } from '@aurigax-ai/graph/testing'
 import { describe, expect, it } from 'vitest'
 import { RATE_RETRY_MS } from './agentNode'
 import { type HostHarness, fakeExt, hostHarness } from './fakeExt'
@@ -169,6 +169,50 @@ edges: []
     const run = later.runner.engine.run(id)
     expect(run?.state.status).toBe('interrupted')
     expect(later.runAgent).toEqual([])
+  })
+
+  it('a kept pane whose agent state comes back late, even without its agent, is reattached as running, and one that never says is busy', async () => {
+    const text = `${head()}nodes:
+  - { id: a, kind: agent, with: { mode: start, agent: claude, prompt: p } }
+edges: []
+`
+    const ws = workspace({ g: text })
+    const h = hostHarness(ws)
+    const id = enableAndStart(h, 'g')
+    await settle()
+    for (const late of [true, false]) {
+      const fake = fakeExt()
+      const pane = {
+        paneId: 'pane-1',
+        workspaceId: 'w1',
+        kind: 'terminal',
+        title: 'claude',
+        running: true,
+        blockCount: 0,
+        agent: 'claude',
+      }
+      fake.panes.push(pane)
+      const clock = new FakeClock()
+      const runner = new GraphsRunner({
+        ext: fake.ext,
+        dataDir: null,
+        clock,
+        store: h.store,
+        changed: () => {},
+      })
+      runner.setWorkspaces([ws])
+      await settle()
+      if (late) fake.panes[0] = { ...pane, agent: undefined, running: false, agentState: 'working' }
+      await clock.advance(6000)
+      await settle()
+      const lines = h.store.read({ scope: 'w1', graph: 'g', runId: id })?.lines ?? []
+      const verdicts = lines
+        .filter((l) => l.type === 'reattach')
+        .map((l) => (l as { verdict?: string }).verdict)
+      expect(verdicts.at(-1)).toBe('running')
+      expect(runner.engine.run(id)?.state.status).toBe('running')
+      expect(fake.runAgent).toEqual([])
+    }
   })
 
   it('GRF-C163 an agent that stops without a report raises NoResult 30 seconds later', async () => {
