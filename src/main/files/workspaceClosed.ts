@@ -9,6 +9,7 @@ export interface WorkspaceClosedDeps {
   closeProcesses: WorkspaceStep
   clearChips: WorkspaceStep
   closeRemoteFolders: WorkspaceStep
+  tellExtensions: WorkspaceStep
   closeArtifacts: WorkspaceStep
   removeScratch: WorkspaceStep
   forgetRequests: WorkspaceStep
@@ -22,6 +23,7 @@ export function createWorkspaceClosed(deps: WorkspaceClosedDeps): WorkspaceStep 
     deps.closeProcesses(workspaceId)
     deps.clearChips(workspaceId)
     deps.closeRemoteFolders(workspaceId)
+    deps.tellExtensions(workspaceId)
     deps.openWaits.workspaceClosed(workspaceId)
     deps.closeArtifacts(workspaceId)
     deps.removeScratch(workspaceId)

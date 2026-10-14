@@ -298,6 +298,17 @@ describe('extension API version', () => {
     ).toBe(lock.digest)
   })
 
+  it('SCX-C21 locks the workspace.closed event and ext.sandboxDomains in the published contract', () => {
+    const lock = JSON.parse(readFileSync(join(repoRoot, 'sdk/api-lock.json'), 'utf8'))
+    const built = JSON.parse(readFileSync(join(sdkPackage, 'api.json'), 'utf8'))
+    expect(built).toEqual(lock)
+    expect(lock.version).toBe(EXTENSION_API_VERSION)
+    const shared = readFileSync(join(sdkPackage, 'types/shared/extensions.d.ts'), 'utf8')
+    const sdk = readFileSync(join(sdkPackage, 'types/extensions/sdk/index.d.ts'), 'utf8')
+    expect(shared).toContain("'workspace.closed': {")
+    expect(sdk).toContain('sandboxDomains: (workspaceId: string) => Promise<SandboxDomainsResult>')
+  })
+
   it('ships the TypeScript it was built from, unchanged', () => {
     for (const file of [
       'src/extensions/sdk/index.ts',

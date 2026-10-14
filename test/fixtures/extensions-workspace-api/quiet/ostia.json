@@ -1,0 +1,15 @@
+{
+  "id": "quiet",
+  "name": "Quiet",
+  "version": "0.1.0",
+  "api": "4.0",
+  "description": "Test fixture: never subscribes",
+  "capabilities": ["read-board"],
+  "main": "main.js",
+  "contributes": {
+    "commands": [
+      { "id": "call", "title": "Call a method", "palette": false },
+      { "id": "events", "title": "Events seen", "palette": false }
+    ]
+  }
+}

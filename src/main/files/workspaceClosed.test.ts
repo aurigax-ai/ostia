@@ -11,6 +11,7 @@ const STEPS: Step[] = [
   'closeProcesses',
   'clearChips',
   'closeRemoteFolders',
+  'tellExtensions',
   'closeArtifacts',
   'removeScratch',
   'forgetRequests',

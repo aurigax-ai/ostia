@@ -44,6 +44,7 @@ import type {
   OpenTerminalOptions,
   PaneChipItem,
   RunAgentOptions,
+  SandboxDomainsResult,
   SidebarKind,
   SidebarTone,
   TerminalWait,
@@ -108,6 +109,7 @@ export type {
   OpenTerminalOptions,
   PaneChipItem,
   RunAgentOptions,
+  SandboxDomainsResult,
   SidebarTone,
   TerminalWait,
   TerminalWaitOutcome,
@@ -358,6 +360,7 @@ export interface OstiaExtension {
   closeFolder: (folderId: string) => Promise<ExtensionResult>
   onFiles: (handler: FilesHandler) => void
   onFolderClosed: (handler: FolderClosedHandler) => void
+  sandboxDomains: (workspaceId: string) => Promise<SandboxDomainsResult>
 }
 
 export interface AssistModelsHandler {
@@ -784,6 +787,13 @@ export async function connect(): Promise<OstiaExtension> {
     },
     onFolderClosed: (handler) => {
       folderClosedHandler = handler
+    },
+    sandboxDomains: async (workspaceId) => {
+      try {
+        return await conn.sendRequest<SandboxDomainsResult>('ext.sandboxDomains', { workspaceId })
+      } catch (err) {
+        return { ok: false, error: 'sandbox-domains-failed', message: errorMessage(err) }
+      }
     },
   }
 }

@@ -2244,6 +2244,7 @@ const workspaceClosed = createWorkspaceClosed({
   closeProcesses: (id) => processes?.workspaceClosed(id),
   clearChips: (id) => extensionHost?.clearWorkspaceChips(id),
   closeRemoteFolders: (id) => extensionHost?.remoteFolders?.workspaceClosed(id),
+  tellExtensions: (id) => extensionHost?.workspaceClosed(id),
   closeArtifacts: (id) => artifactHistory.close(id, artifactFolders.close(id)),
   removeScratch: (id) => scratchFolders.remove(id),
   forgetRequests: forgetWorkspaceRequests,
@@ -4106,6 +4107,10 @@ app.whenReady().then(() => {
       }),
     hostGrants: hostPaneGrants,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+    sandboxDomains: (workspaceId) =>
+      workspaceSandboxes.isEnabled(workspaceId)
+        ? workspaceSandboxes.resolved(workspaceId).domains
+        : null,
     roots: extensionRoots(),
     store: extensionStore,
     launches: new ExtensionLaunches(join(app.getPath('userData'), 'extension-launches.json')),

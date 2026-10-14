@@ -428,6 +428,7 @@ export const EXTENSION_EVENT_TYPES = [
   'focus.changed',
   'notification',
   'pane.attention',
+  'workspace.closed',
 ] as const
 
 export type ExtensionEventType = (typeof EXTENSION_EVENT_TYPES)[number]
@@ -449,7 +450,12 @@ export interface ExtensionEventPayloads {
   'pane.attention': { paneId: string; workspaceId: string; state: PaneAttentionEventState }
   'focus.changed': { focused: boolean }
   notification: { title: string; body?: string; from: string }
+  'workspace.closed': { workspaceId: string }
 }
+
+export type SandboxDomainsResult =
+  | { ok: true; domains: string[] }
+  | { ok: false; error: string; message?: string }
 
 export interface ExtensionSettingsChangedPayload {
   values: ExtensionSettingValues
