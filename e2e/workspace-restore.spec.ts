@@ -169,15 +169,17 @@ test('keeps the scrollback saved at quit when an autosave fires during teardown'
     await openWorkspace(win)
     await win.locator('.xterm').first().click()
     await waitForTerminalFocus(win)
-    await win.keyboard.type(`echo ${marker}`)
+    await win.keyboard.type(`echo ${marker}_$((6*7))`)
     await win.keyboard.press('Enter')
-    await expect(win.locator('.xterm-rows').first()).toContainText(marker, { timeout: 15_000 })
+    await expect(win.locator('.xterm-rows').first()).toContainText(`${marker}_42`, {
+      timeout: 15_000,
+    })
   } finally {
     await quitApp(app)
   }
 
   const scrollbackFile = join(dataHome, 'ostia', 'scrollback.json')
-  expect(readFileSync(scrollbackFile, 'utf8')).toContain(marker)
+  expect(readFileSync(scrollbackFile, 'utf8')).toContain(`${marker}_42`)
 })
 
 async function setWindowSize(app: ElectronApplication, width: number, height: number) {
