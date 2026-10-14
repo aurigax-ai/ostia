@@ -65,7 +65,7 @@ export function splitPathWord(word: string): { dir: string; base: string } {
   return { dir: word.slice(0, cut), base: word.slice(cut) }
 }
 
-export function completionDir(dir: string, cwd: string): string {
+function completionDir(dir: string, cwd: string): string {
   return dir ? resolveLinkPath(dir, cwd) : cwd
 }
 
@@ -80,7 +80,7 @@ export function completionScope(word: string): string {
   return dir + optionStem(base)
 }
 
-export async function pathCandidates(
+async function pathCandidates(
   text: string,
   caret: number,
   cwd: string,
@@ -125,7 +125,7 @@ function specCandidates(items: readonly SpecItem[]): CompletionItem[] {
   return items.map((item) => ({ name: item.name, dir: false, description: item.description }))
 }
 
-export interface HistorySource {
+interface HistorySource {
   arguments: (before: string) => string[]
   label: string
 }

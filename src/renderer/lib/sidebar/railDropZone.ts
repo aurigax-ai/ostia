@@ -2,7 +2,7 @@ export type RowDropZone = 'before' | 'after' | 'merge' | 'tab'
 
 export type RailDragKind = 'workspace' | 'tab'
 
-export const MERGE_ZONE_EDGE = 0.3
+const MERGE_ZONE_EDGE = 0.3
 
 export function rowDropZone(
   kind: RailDragKind,

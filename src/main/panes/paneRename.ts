@@ -7,7 +7,7 @@ import { targetOf } from '../attention/attention'
 import { registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 
-export const NAME_MAX = 200
+const NAME_MAX = 200
 
 export interface PaneRenameDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>

@@ -1,6 +1,6 @@
 import { clip } from './pick'
 
-export interface TextRange {
+interface TextRange {
   startLine: number
   endLine: number
   startColumn?: number
@@ -29,7 +29,7 @@ export type SelectionCapture =
   | { kind: 'terminal'; cwd: string | null; command: string | null; text: string }
   | { kind: 'preview-error'; file: string; count: number; text: string }
 
-export const SELECTION_COMMAND_MAX = 2000
+const SELECTION_COMMAND_MAX = 2000
 
 export interface SelectionSendRequest {
   capture: SelectionCapture
@@ -46,10 +46,10 @@ export type SelectionSendResult =
   | { ok: false; error: SelectionSendError }
 
 export const SELECTION_TEXT_MAX = 50_000
-export const SELECTION_PATH_MAX = 4096
+const SELECTION_PATH_MAX = 4096
 export const SELECTION_NOTE_MAX = 4000
 export const SELECTION_IMAGE_MAX = 25 * 1024 * 1024
-export const PREVIEW_ERROR_MAX = 8 * 1024
+const PREVIEW_ERROR_MAX = 8 * 1024
 
 const ABSOLUTE_PATH = /^(\/|[A-Za-z]:[\\/])/
 
@@ -303,7 +303,7 @@ export function renderSelectionReport(
   return lines.join('\n')
 }
 
-export interface SelectionBusMessage {
+interface SelectionBusMessage {
   kind: 'selection'
   report: string
   file: string | null

@@ -3,7 +3,7 @@ import type { HelperBundle } from './helper'
 import { ALIAS_PATTERN } from './hosts'
 import { REMOTE_COMMAND } from './remote'
 
-export const MAX_HOPS = 8
+const MAX_HOPS = 8
 
 export interface ConnectPlan {
   destination: string

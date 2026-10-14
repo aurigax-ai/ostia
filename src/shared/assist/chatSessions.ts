@@ -11,7 +11,7 @@ export interface ChatPart {
   [key: string]: unknown
 }
 
-export type ChatSessionRole = 'system' | 'user' | 'assistant'
+type ChatSessionRole = 'system' | 'user' | 'assistant'
 
 export interface ChatMessageMetadata {
   createdAt?: number
@@ -40,7 +40,7 @@ export interface ChatSessionSummary {
   trimmed?: boolean
 }
 
-export type ChatEditHunkDecision = 'accepted' | 'rejected' | null
+type ChatEditHunkDecision = 'accepted' | 'rejected' | null
 
 export interface ChatSessionEdit {
   toolCallId: string
@@ -84,9 +84,9 @@ export const CHAT_TITLE_MAX = 120
 export const CHAT_SESSION_MAX_BYTES = 512 * 1024
 export const CHAT_TOTAL_MAX_BYTES = 16 * 1024 * 1024
 export const CHAT_SESSIONS_MAX = 500
-export const CHAT_SESSION_MESSAGES_MAX = 400
+const CHAT_SESSION_MESSAGES_MAX = 400
 export const CHAT_EDIT_TEXT_MAX = 64 * 1024
-export const CHAT_SESSION_EDITS_MAX = 200
+const CHAT_SESSION_EDITS_MAX = 200
 const EDIT_DECISIONS_MAX = 5000
 const EDIT_PATH_MAX = 4096
 const VERSION_PATTERN = /^[0-9a-f]{64}$/
@@ -140,7 +140,7 @@ function part(raw: unknown): ChatPart | null {
 const CLIP_STEPS = [16_000, 4000, 1000, 200]
 const CLIP_MARK = '…[truncated]'
 
-export function isToolPartType(type: string): boolean {
+function isToolPartType(type: string): boolean {
   return type === 'dynamic-tool' || type.startsWith('tool-')
 }
 
@@ -208,7 +208,7 @@ function keptText(v: unknown): v is string {
   return typeof v === 'string' && v.length <= CHAT_EDIT_TEXT_MAX
 }
 
-export function normalizeChatEdit(raw: unknown): ChatSessionEdit | null {
+function normalizeChatEdit(raw: unknown): ChatSessionEdit | null {
   if (!isRecord(raw)) return null
   const toolCallId =
     typeof raw.toolCallId === 'string' && raw.toolCallId && raw.toolCallId.length <= 128
@@ -302,13 +302,6 @@ export function normalizeChatSession(raw: unknown): ChatSession | null {
 export function chatSummary(session: ChatSession): ChatSessionSummary {
   const { messages: _messages, edits: _edits, ...summary } = session
   return { ...summary, messageCount: session.messages.length }
-}
-
-export function messageText(msg: ChatSessionMessage): string {
-  return msg.parts
-    .filter((p) => p.type === 'text' && typeof p.text === 'string')
-    .map((p) => p.text as string)
-    .join('')
 }
 
 const MARKDOWN_TOOL_MAX = 4000

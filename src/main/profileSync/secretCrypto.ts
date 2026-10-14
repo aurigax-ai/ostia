@@ -2,7 +2,7 @@ import { argon2, createCipheriv, createDecipheriv, randomBytes, randomUUID } fro
 import { canonicalJson } from './merge'
 import { isObject } from './profile'
 
-export const BUNDLE_FORMAT = 1
+const BUNDLE_FORMAT = 1
 const KDF_MEMORY_KIB = 64 * 1024
 const KDF_PASSES = 3
 const KDF_PARALLELISM = 1

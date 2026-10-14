@@ -3,7 +3,7 @@ import { type AppMenuEntry, type AppMenuSpec, parseAppMenuSpec } from '../../sha
 
 export const MAC_CLOSE_WINDOW_ACCELERATOR = 'Cmd+Shift+W'
 export const MAC_SETTINGS_ACCELERATOR = 'Cmd+,'
-export const RELOAD_WINDOW_COMMAND = 'window.reload'
+const RELOAD_WINDOW_COMMAND = 'window.reload'
 
 export interface AppMenuDeps {
   productName: string

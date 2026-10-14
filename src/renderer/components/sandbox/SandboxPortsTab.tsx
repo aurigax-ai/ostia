@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 const REFRESH_MS = 3000
 
-export function PortsPolicySelect({
+function PortsPolicySelect({
   value,
   onChange,
 }: {

@@ -44,7 +44,7 @@ export interface ExistingWorkspace {
   saved: boolean
 }
 
-export interface PlannedWorkspace {
+interface PlannedWorkspace {
   workspace: SnapshotWorkspace
   name: string
   window: number

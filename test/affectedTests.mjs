@@ -41,9 +41,9 @@ const UNIT_ONLY_FILES = [
 
 const EVERY_TEST = { node: null, dom: null, e2e: null }
 
-export const E2E_SPECS_PER_SHARD = 20
-export const E2E_MAX_SHARDS = 4
-export const E2E_TESTS_PER_SPEC = 5
+const E2E_SPECS_PER_SHARD = 20
+const E2E_MAX_SHARDS = 4
+const E2E_TESTS_PER_SPEC = 5
 
 export function specOf(entry) {
   return entry.replace(/:\d+$/, '')

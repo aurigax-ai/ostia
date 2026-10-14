@@ -54,7 +54,7 @@ vi.mock('./server', () => ({
 }))
 
 const { configureTailnet, registerGatewayIpc, registerGatewayMethods, remoteStatus } = await import(
-  './index'
+  './gatewayIpc'
 )
 const { listPairRequests, openPairRequest, resetPairRequests, revealPairRequest } = await import(
   './pairRequests'

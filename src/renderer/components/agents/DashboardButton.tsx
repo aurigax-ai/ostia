@@ -5,7 +5,7 @@ import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { SquaresFourIcon } from '@phosphor-icons/react'
 
-export function useNeedsYouCount(): number {
+function useNeedsYouCount(): number {
   const questions = useQuestionsStore((s) => s.pending.length)
   const approvals = useApprovalsStore((s) => s.pending.length)
   return questions + approvals

@@ -28,7 +28,7 @@ export type SlashId =
   | 'model'
   | 'help'
 
-export type SlashReason =
+type SlashReason =
   | 'busy'
   | 'empty'
   | 'noAnswer'
@@ -45,7 +45,7 @@ export type SlashReason =
   | 'unknownSession'
   | 'unknownSource'
 
-export type SlashArgKind = 'title' | 'path' | 'skill' | 'session' | 'source'
+type SlashArgKind = 'title' | 'path' | 'skill' | 'session' | 'source'
 
 export interface SlashChoice {
   value: string
@@ -83,7 +83,7 @@ export interface SlashActions {
   showHelp: () => void
 }
 
-export interface SlashArg {
+interface SlashArg {
   kind: SlashArgKind
   required: boolean
   choices?: (ctx: SlashContext) => SlashChoice[]

@@ -1,5 +1,5 @@
-export const SPLIT_KEY_STEP = 16
-export const SPLIT_PAGE_STEP = 64
+const SPLIT_KEY_STEP = 16
+const SPLIT_PAGE_STEP = 64
 
 export interface SplitBounds {
   min: number

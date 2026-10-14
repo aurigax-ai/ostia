@@ -1,6 +1,6 @@
 import type { Capability } from '../capabilities'
 
-export const APPROVAL_MODES = ['ask', 'allow'] as const
+const APPROVAL_MODES = ['ask', 'allow'] as const
 export type ApprovalMode = (typeof APPROVAL_MODES)[number]
 
 export const APPROVAL_ANSWERS = ['once', 'session', 'always', 'workspace', 'deny'] as const
@@ -14,7 +14,7 @@ export const APPROVAL_DETAIL_MAX = 600
 
 export const ALWAYS_ASK: readonly Capability[] = ['destructive', 'credentials']
 
-export const APPROVAL_KINDS = [
+const APPROVAL_KINDS = [
   'capability',
   'sandbox-domain',
   'sandbox-port',
@@ -26,7 +26,7 @@ export const APPROVAL_KINDS = [
 ] as const
 export type ApprovalKind = (typeof APPROVAL_KINDS)[number]
 
-export function answersFor(kind: ApprovalKind = 'capability'): readonly ApprovalAnswer[] {
+function answersFor(kind: ApprovalKind = 'capability'): readonly ApprovalAnswer[] {
   if (kind === 'capability') return ['once', 'session', 'always', 'deny']
   if (kind === 'secret') return ['once', 'session', 'deny']
   if (kind === 'package') return ['once', 'workspace', 'deny']

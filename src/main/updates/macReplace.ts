@@ -21,9 +21,9 @@ import {
   releaseAssetUrl,
 } from './installReplace'
 
-export const MAC_TEAM_ID = '4ZNCN9338G'
-export const MAC_BUNDLE_ID = 'ai.aurigax.ostia'
-export const DMG_APP = 'Ostia.app'
+const MAC_TEAM_ID = '4ZNCN9338G'
+const MAC_BUNDLE_ID = 'ai.aurigax.ostia'
+const DMG_APP = 'Ostia.app'
 const UPDATE_SIGNATURE_ENV = 'UPDATE_SIGNATURE'
 const COMMAND_TIMEOUT_MS = 5 * 60_000
 const SWAP_VERIFY_TIMEOUT_MS = 60_000
@@ -128,7 +128,7 @@ async function buildInfoVersion(bundle: string): Promise<string | null> {
   }
 }
 
-export async function verifyBundle(opts: {
+async function verifyBundle(opts: {
   bundle: string
   version: string
   policy: SignaturePolicy

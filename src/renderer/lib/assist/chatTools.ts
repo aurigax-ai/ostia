@@ -98,7 +98,7 @@ const FS_ERRORS: Record<ChatFsError, string> = {
   unsaved: 'The file has unsaved edits in the editor.',
 }
 
-export function fsErrorText(failure: ChatFsFailure, path: string): string {
+function fsErrorText(failure: ChatFsFailure, path: string): string {
   const which = failure.edit === undefined ? '' : `Edit ${failure.edit + 1}: `
   const count = failure.count === undefined ? '' : ` (${failure.count} matches)`
   return `${which}${FS_ERRORS[failure.error]}${count} (${failure.path ?? path})`
@@ -108,7 +108,7 @@ function fsError(failure: ChatFsFailure, path: string): ToolOutcome {
   return { state: 'error', error: fsErrorText(failure, path) }
 }
 
-export const DENIED: ToolOutcome = { state: 'denied' }
+const DENIED: ToolOutcome = { state: 'denied' }
 
 async function gate(
   run: ToolRun,
@@ -329,7 +329,7 @@ function writeFailure(run: ToolRun, failure: ChatFsFailure, path: string): ToolO
   return fsError(failure, path)
 }
 
-export function isRepositoryPath(path: string): boolean {
+function isRepositoryPath(path: string): boolean {
   return path.split('/').includes('.git')
 }
 
@@ -568,7 +568,7 @@ function skillsDescription(skills: SkillSummary[]): string {
   )
 }
 
-export function gitAvailable(): boolean {
+function gitAvailable(): boolean {
   return useSettingsStore.getState().git.enabled
 }
 

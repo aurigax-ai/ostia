@@ -28,7 +28,7 @@ export interface RegionCapture {
   capturedAt: string
 }
 
-export type RegionCaptureError = 'invalid' | 'browser-not-ready' | 'empty' | 'image-too-large'
+type RegionCaptureError = 'invalid' | 'browser-not-ready' | 'empty' | 'image-too-large'
 
 export type RegionCaptureOutcome =
   | { ok: true; capture: RegionCapture }
@@ -166,7 +166,7 @@ export function renderRegionReport(
   ].join('\n')
 }
 
-export interface RegionBusMessage {
+interface RegionBusMessage {
   kind: 'capture'
   report: string
   image: string

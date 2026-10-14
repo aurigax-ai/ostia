@@ -37,7 +37,7 @@ export interface Block<W extends Groupable> {
   workspaces: W[]
 }
 
-export function withGroup<W extends Groupable>(w: W, groupId: string | undefined): W {
+function withGroup<W extends Groupable>(w: W, groupId: string | undefined): W {
   if (w.groupId === groupId) return w
   const { groupId: _old, ...rest } = w
   return (groupId ? { ...rest, groupId } : rest) as W
@@ -86,7 +86,7 @@ export function toBlocks<W extends Groupable>(g: Grouping<W>): Block<W>[] {
   return blocks
 }
 
-export function groupMembers<W extends Groupable>(workspaces: W[], groupId: string): W[] {
+function groupMembers<W extends Groupable>(workspaces: W[], groupId: string): W[] {
   return workspaces.filter((w) => w.groupId === groupId)
 }
 

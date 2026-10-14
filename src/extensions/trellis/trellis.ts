@@ -52,7 +52,7 @@ export interface ProjectInfo {
   name: string
 }
 
-export interface CardRelation {
+interface CardRelation {
   rel: string
   ref: string
   title: string
@@ -131,11 +131,11 @@ export interface CardCounts {
 
 export type NeedsUser = { kind: 'review' | 'blocked'; column: string }
 
-export const PRIORITIES = ['urgent', 'high', 'normal', 'low'] as const
+const PRIORITIES = ['urgent', 'high', 'normal', 'low'] as const
 export type Priority = (typeof PRIORITIES)[number]
 
-export const TITLE_MAX = 300
-export const TEXT_MAX = 64 * 1024
+const TITLE_MAX = 300
+const TEXT_MAX = 64 * 1024
 const NAME_MAX = 100
 
 const KEY_RE = /^[A-Z][A-Z0-9]*(-[A-Z0-9]+)*$/
@@ -382,7 +382,7 @@ export function countBoard(board: TrellisBoard, nowMs: number): CardCounts {
   return { open, claimed }
 }
 
-export function isClaimLive(card: TrellisCard, nowMs: number): boolean {
+function isClaimLive(card: TrellisCard, nowMs: number): boolean {
   return Boolean(card.claimedBy) && (card.claimUntil === undefined || card.claimUntil > nowMs)
 }
 

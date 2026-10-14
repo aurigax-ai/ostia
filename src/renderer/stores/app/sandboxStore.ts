@@ -4,7 +4,7 @@ import { create } from 'zustand'
 
 export const SANDBOX_FEATURE = 'sandbox'
 
-export interface SandboxBlocked {
+interface SandboxBlocked {
   workspaceId: string
   report: RequirementsReport
 }

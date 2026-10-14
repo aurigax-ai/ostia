@@ -20,7 +20,7 @@ export interface SnapshotOptions {
   urls?: boolean
 }
 
-export interface SnapshotRef {
+interface SnapshotRef {
   role: string
   name: string
 }
@@ -30,7 +30,7 @@ export interface FormattedSnapshot {
   refs: Record<string, SnapshotRef>
 }
 
-export const TEXT_ROLE = 'text'
+const TEXT_ROLE = 'text'
 
 function isStructural(node: SnapshotNode): boolean {
   return node.role !== TEXT_ROLE && !node.interactive && !node.name

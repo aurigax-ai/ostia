@@ -18,7 +18,7 @@ import {
 } from './keeper'
 import { type Strings, stringsFor } from './strings'
 
-export interface KeeperHost {
+interface KeeperHost {
   setSidebarItem: (item: {
     key: string
     text: string

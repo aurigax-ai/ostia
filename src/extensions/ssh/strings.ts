@@ -4,7 +4,7 @@ export const CONNECT_USAGE = 'connect [-J <hop>[,<hop>...]] [-p <port>] <[user@]
 export const SHOW_USAGE = 'show <host>'
 export const HELPER_INSTALL_USAGE = 'helper-install [-J <hop>[,<hop>...]] [-p <port>] <[user@]host>'
 export const HELPER_REMOVE_USAGE = 'helper-remove [-J <hop>[,<hop>...]] [-p <port>] <[user@]host>'
-export const REMOVE_HELPER_TITLE = 'SSH: Remove Remote Helper'
+const REMOVE_HELPER_TITLE = 'SSH: Remove Remote Helper'
 
 export interface Strings {
   confirmTitle: string

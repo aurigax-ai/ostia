@@ -24,7 +24,7 @@ export function nodeVersionFromPath(nodePath: string): string | null {
   return match ? `v${match[1]}` : null
 }
 
-export async function findExecutable(pathEnv: string, name: string): Promise<string | null> {
+async function findExecutable(pathEnv: string, name: string): Promise<string | null> {
   for (const dir of pathDirs(pathEnv)) {
     const candidate = join(dir, name)
     try {

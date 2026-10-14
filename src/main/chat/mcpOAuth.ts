@@ -20,10 +20,10 @@ import type {
 import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import type { McpOAuthStore } from './mcpOAuthStore'
 
-export const MCP_OAUTH_TIMEOUT_MS = 5 * 60_000
-export const MCP_OAUTH_CONNECT_TIMEOUT_MS = 15_000
+const MCP_OAUTH_TIMEOUT_MS = 5 * 60_000
+const MCP_OAUTH_CONNECT_TIMEOUT_MS = 15_000
 export const MCP_OAUTH_BROWSER_ENV = 'MCP_OAUTH_BROWSER'
-export const MCP_OAUTH_CALLBACK_PATH = '/callback'
+const MCP_OAUTH_CALLBACK_PATH = '/callback'
 const DETAIL_MAX = 240
 
 export type McpOAuthBrowser = 'system' | 'fetch'
@@ -68,7 +68,7 @@ function sameState(given: string | null, expected: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b)
 }
 
-export interface CallbackResult {
+interface CallbackResult {
   code: string
   issuer?: string
 }

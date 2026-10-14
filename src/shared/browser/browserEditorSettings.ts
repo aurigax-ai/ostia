@@ -4,14 +4,14 @@ export const SEARCH_ENGINES = ['google', 'duckduckgo', 'bing', 'kagi', 'custom']
 
 export type SearchEngine = (typeof SEARCH_ENGINES)[number]
 
-export const SEARCH_TEMPLATES: Record<Exclude<SearchEngine, 'custom'>, string> = {
+const SEARCH_TEMPLATES: Record<Exclude<SearchEngine, 'custom'>, string> = {
   google: 'https://www.google.com/search?q={query}',
   duckduckgo: 'https://duckduckgo.com/?q={query}',
   bing: 'https://www.bing.com/search?q={query}',
   kagi: 'https://kagi.com/search?q={query}',
 }
 
-export const QUERY_PLACEHOLDER = '{query}'
+const QUERY_PLACEHOLDER = '{query}'
 
 export const ZOOM_MIN = 50
 export const ZOOM_MAX = 300
@@ -79,14 +79,14 @@ export function parseBrowserSettings(raw: unknown): BrowserSettings {
   }
 }
 
-export const WORD_WRAPS = ['off', 'on'] as const
-export const LINE_NUMBER_MODES = ['on', 'off', 'relative'] as const
+const WORD_WRAPS = ['off', 'on'] as const
+const LINE_NUMBER_MODES = ['on', 'off', 'relative'] as const
 export const TAB_WIDTHS = [2, 4, 8] as const
-export const AUTO_SAVE_MODES = ['off', 'afterDelay', 'onFocusChange'] as const
+const AUTO_SAVE_MODES = ['off', 'afterDelay', 'onFocusChange'] as const
 export const OPEN_FILES_IN = ['tab', 'split'] as const
 export const DIFF_LAYOUTS = ['sideBySide', 'inline'] as const
 
-export type WordWrap = (typeof WORD_WRAPS)[number]
+type WordWrap = (typeof WORD_WRAPS)[number]
 export type LineNumberMode = (typeof LINE_NUMBER_MODES)[number]
 export type TabWidth = (typeof TAB_WIDTHS)[number]
 export type AutoSaveMode = (typeof AUTO_SAVE_MODES)[number]

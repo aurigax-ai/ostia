@@ -20,7 +20,7 @@ const OFF: SyncStatus = {
   secrets: { state: 'off', logins: false },
 }
 
-export function syncErrorText(d: Dict, error: string | undefined): string {
+function syncErrorText(d: Dict, error: string | undefined): string {
   if (error === 'missing') return d.sync.errMissing
   if (error === 'not-a-directory') return d.sync.errNotDir
   if (error === 'same-as-local') return d.sync.errSame

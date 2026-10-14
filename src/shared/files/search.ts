@@ -41,12 +41,7 @@ export interface SearchResults {
   truncated: boolean
 }
 
-export type SearchError =
-  | 'outside-roots'
-  | 'invalid-pattern'
-  | 'rg-missing'
-  | 'failed'
-  | 'cancelled'
+type SearchError = 'outside-roots' | 'invalid-pattern' | 'rg-missing' | 'failed' | 'cancelled'
 
 export type SearchOutcome =
   | { ok: true; results: SearchResults }

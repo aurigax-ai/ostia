@@ -5,7 +5,7 @@ import { expandHome, resolveSafe } from '../platform/pathGuard'
 import { HOME_HIDDEN_FILES, WORKDIR_HIDDEN_FILES, folderProblem } from '../sandbox/srtConfig'
 import { type SandboxReadRules, visibleInSandbox } from '../sandbox/visibility'
 
-export const FS_READ_MAX_BYTES = 256 * 1024
+const FS_READ_MAX_BYTES = 256 * 1024
 
 type FileEntryKind = 'file' | 'dir' | 'link'
 
@@ -29,7 +29,7 @@ export interface PhoneFileScope {
   rules: SandboxReadRules
 }
 
-export const PHONE_HIDDEN_PATHS: readonly string[] = [
+const PHONE_HIDDEN_PATHS: readonly string[] = [
   ...HOME_HIDDEN_FILES,
   ...WORKDIR_HIDDEN_FILES,
   '.ssh',

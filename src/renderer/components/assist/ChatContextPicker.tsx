@@ -36,19 +36,19 @@ import { useEffect, useMemo, useState } from 'react'
 
 const PREVIEW_MAX = 4000
 
-export interface FileQuery {
+interface FileQuery {
   dir: string
   prefix: string
 }
 
-export function fileQuery(root: string, typed: string): FileQuery {
+function fileQuery(root: string, typed: string): FileQuery {
   const clean = typed.replace(/^\/+/, '')
   const cut = clean.lastIndexOf('/')
   const sub = cut === -1 ? '' : clean.slice(0, cut)
   return { dir: sub ? `${root}/${sub}` : root, prefix: cut === -1 ? clean : clean.slice(cut + 1) }
 }
 
-export function relativeTo(root: string, path: string): string {
+function relativeTo(root: string, path: string): string {
   return path.startsWith(`${root}/`) ? path.slice(root.length + 1) : path
 }
 

@@ -60,7 +60,7 @@ interface LoadedFile {
   problems: ViewProblem[]
 }
 
-export function readViewFile(path: string): { text: string } | { error: string } {
+function readViewFile(path: string): { text: string } | { error: string } {
   let stat: ReturnType<typeof lstatSync>
   try {
     stat = lstatSync(path)

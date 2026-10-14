@@ -15,7 +15,7 @@ import {
 } from '../../shared/assist'
 import type { AssistCallOptions } from '../extensions/extensionHost'
 
-export const MAX_ASSIST_REQUESTS_PER_WINDOW = 8
+const MAX_ASSIST_REQUESTS_PER_WINDOW = 8
 
 export interface AssistHost {
   assistAvailability: () => AssistAvailability

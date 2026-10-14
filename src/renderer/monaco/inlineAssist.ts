@@ -8,7 +8,7 @@ import {
 import type * as Monaco from 'monaco-editor'
 import { isLargeModel } from './largeFile'
 
-export const INLINE_DEBOUNCE_MS = 300
+const INLINE_DEBOUNCE_MS = 300
 const NEIGHBORS = 2
 
 export interface OpenDocument {

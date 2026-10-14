@@ -4,12 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useDict } from '@/i18n/useDict'
 import { isMac } from '@/platform'
-import type {
-  SandboxEditError,
-  SandboxFixedPolicy,
-  SandboxPathKind,
-  SandboxSwitches,
-} from '@shared/sandbox/sandbox'
+import type { SandboxFixedPolicy, SandboxPathKind, SandboxSwitches } from '@shared/sandbox/sandbox'
 import {
   SANDBOX_READ_PRESETS,
   type SandboxReadPreset,
@@ -31,10 +26,6 @@ export interface SandboxPolicyScope {
   overridden?: Partial<SandboxSwitches>
   setSwitch: (key: keyof SandboxSwitches, value: boolean | undefined) => void
   fixed: SandboxFixedPolicy | null
-}
-
-export function listErrors(errors: SandboxEditError[]): ListEditResult {
-  return errors.length > 0 ? { ok: false, errors } : { ok: true }
 }
 
 function ScopedList({

@@ -1,4 +1,4 @@
-export type PackageEcosystem = 'npm' | 'PyPI' | 'crates.io' | 'Go'
+type PackageEcosystem = 'npm' | 'PyPI' | 'crates.io' | 'Go'
 
 export interface PackageRef {
   ecosystem: PackageEcosystem

@@ -98,7 +98,7 @@ import { normalizeGroupName } from '@shared/workspaces/workspaceGroups'
 import { debounce } from 'es-toolkit'
 import { create } from 'zustand'
 
-export type ThemeId = string
+type ThemeId = string
 
 const kindOf = (v: unknown): string => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v)
 
@@ -111,14 +111,14 @@ export interface SurfaceFont {
   baseSize?: number
 }
 
-export interface TerminalFont extends SurfaceFont {
+interface TerminalFont extends SurfaceFont {
   lineHeight: number
 }
 
 export const LINE_HEIGHT_MIN = 1
 export const LINE_HEIGHT_MAX = 2
 
-export const clampLineHeight = (n: number): number =>
+const clampLineHeight = (n: number): number =>
   Math.min(LINE_HEIGHT_MAX, Math.max(LINE_HEIGHT_MIN, Math.round(n * 100) / 100))
 
 export interface SidebarSettings {
@@ -135,14 +135,14 @@ export interface HibernationSettings {
   maxLiveTerminals: number
 }
 
-export interface AgentSettings {
+interface AgentSettings {
   hibernation: HibernationSettings
   autoResume: boolean
   autoSendReferences: boolean
   hooks: AgentHooks
 }
 
-export interface AssistantSettings extends ChatToolSettings, AssistModelSettings {
+interface AssistantSettings extends ChatToolSettings, AssistModelSettings {
   chatHistory: boolean
 }
 
@@ -161,7 +161,7 @@ export const clampIdleSeconds = (v: unknown): number =>
 export const clampMaxLive = (v: unknown): number =>
   clampInt(v, 0, HIBERNATION_LIVE_MAX, DEFAULT_HIBERNATION.maxLiveTerminals)
 
-export const DEFAULT_HIBERNATION: HibernationSettings = {
+const DEFAULT_HIBERNATION: HibernationSettings = {
   enabled: false,
   idleSeconds: 600,
   maxLiveTerminals: 6,
@@ -176,13 +176,13 @@ function parseHibernation(raw: unknown): HibernationSettings {
   }
 }
 
-export interface WorkspaceGroupSettings {
+interface WorkspaceGroupSettings {
   byCwd: GroupRule[]
 }
 
 const MAX_GROUP_RULES = 50
 
-export function parseWorkspaceGroupSettings(raw: unknown): WorkspaceGroupSettings {
+function parseWorkspaceGroupSettings(raw: unknown): WorkspaceGroupSettings {
   const list = isPlainObject(raw) && Array.isArray(raw.byCwd) ? raw.byCwd : []
   const byCwd: GroupRule[] = []
   for (const entry of list) {
@@ -204,7 +204,7 @@ export const MOTION_MODES: readonly MotionMode[] = ['system', 'reduced', 'full']
 export const motionMode = (v: unknown): MotionMode =>
   MOTION_MODES.includes(v as MotionMode) ? (v as MotionMode) : 'system'
 
-export interface Appearance {
+interface Appearance {
   theme: ThemeId
   followSystem: boolean
   lightTheme: ThemeId
@@ -226,10 +226,10 @@ export type InputMode = 'terminal' | 'editor'
 
 export const INPUT_MODES: readonly InputMode[] = ['terminal', 'editor']
 
-export const inputMode = (v: unknown): InputMode =>
+const inputMode = (v: unknown): InputMode =>
   INPUT_MODES.includes(v as InputMode) ? (v as InputMode) : 'terminal'
 
-export interface Behavior {
+interface Behavior {
   cursorStyle: CursorStyle
   cursorBlink: boolean
   restoreWorkspace: boolean
@@ -253,7 +253,7 @@ export const NEW_WORKSPACE_PLACEMENTS: readonly NewWorkspacePlacement[] = [
   'afterCurrent',
 ]
 
-export interface WorkspaceSettings {
+interface WorkspaceSettings {
   placement: NewWorkspacePlacement
   inheritFolder: boolean
   defaultFolder: string
@@ -264,7 +264,7 @@ export interface WorkspaceSettings {
   globalHotkey: string
 }
 
-export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
+const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   placement: 'end',
   inheritFolder: false,
   defaultFolder: '~',
@@ -275,7 +275,7 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   globalHotkey: '',
 }
 
-export function parseWorkspaceSettings(raw: unknown): WorkspaceSettings {
+function parseWorkspaceSettings(raw: unknown): WorkspaceSettings {
   const base = DEFAULT_WORKSPACE_SETTINGS
   if (!isPlainObject(raw)) return base
   const folder = typeof raw.defaultFolder === 'string' ? raw.defaultFolder.trim() : ''
@@ -291,12 +291,12 @@ export function parseWorkspaceSettings(raw: unknown): WorkspaceSettings {
 
 export type FontSurface = 'ui' | 'terminal' | 'editor'
 
-export interface Capabilities {
+interface Capabilities {
   grants?: Capability[]
   reach?: ReachMode
 }
 
-export interface SyncSettings {
+interface SyncSettings {
   dir: string
 }
 

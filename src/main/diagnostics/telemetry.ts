@@ -131,7 +131,7 @@ function parseStored(raw: unknown): StoredTelemetry {
 
 type SendOutcome = 'sent' | 'failed'
 
-export async function sendBatch(opts: {
+async function sendBatch(opts: {
   endpoint: TelemetryEndpoint
   body: string
   client: string
@@ -425,7 +425,7 @@ export function createTelemetry(deps: TelemetryDeps): Telemetry {
   }
 }
 
-export function installContext(version: string, locale: string, packaged: boolean): InstallContext {
+function installContext(version: string, locale: string, packaged: boolean): InstallContext {
   return {
     app_version: version,
     electron_version: process.versions.electron ?? '',

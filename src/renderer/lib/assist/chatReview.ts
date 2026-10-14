@@ -10,7 +10,7 @@ import type { ChatFsResult, ChatRestoreOutput } from '@shared/assist/chatTools'
 import { type HunkDecision, allDecided, contentWith, editHunks } from './chatHunks'
 import { dirtyPaths } from './chatTools'
 
-export const EDIT_TOOLS: ReadonlySet<string> = new Set(['edit_file', 'write_file'])
+const EDIT_TOOLS: ReadonlySet<string> = new Set(['edit_file', 'write_file'])
 
 export interface ReviewItem {
   toolCallId: string

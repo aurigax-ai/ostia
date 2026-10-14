@@ -176,7 +176,7 @@ export function parseChord(text: string, mac: boolean): ChordSpec | null {
 
 export const DOUBLE_SHIFT = 'Shift+Shift'
 
-export const DOUBLE_SHIFT_MS = 300
+const DOUBLE_SHIFT_MS = 300
 
 export const DOUBLE_SHIFT_KEY: KeyLike = {
   key: 'Shift',
@@ -292,7 +292,7 @@ export function overlaps(a: ChordSpec, b: ChordSpec): boolean {
   return (a.key === DIGIT_RANGE && digit(b.key)) || (b.key === DIGIT_RANGE && digit(a.key))
 }
 
-export function isModifierKey(key: string): boolean {
+function isModifierKey(key: string): boolean {
   return MODIFIER_KEYS.has(key)
 }
 

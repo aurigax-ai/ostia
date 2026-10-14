@@ -1,5 +1,5 @@
-export type SecretSource = 'host' | 'ostia'
-export type SecretKind = 'ssh-key' | 'env' | 'gh-token' | 'vault'
+type SecretSource = 'host' | 'ostia'
+type SecretKind = 'ssh-key' | 'env' | 'gh-token' | 'vault'
 
 export interface SecretEntry {
   id: string

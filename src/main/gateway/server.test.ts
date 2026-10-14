@@ -21,7 +21,7 @@ vi.mock('../control/controlServer', () => ({
 
 const { capForPlatformEvent, configureGatewayControl, phoneCanRespond, startGateway, stopGateway } =
   await import('./server')
-const { gatewaySetCap, registerGatewayMethods } = await import('./index')
+const { gatewaySetCap, registerGatewayMethods } = await import('./gatewayIpc')
 
 type Json = {
   id?: unknown

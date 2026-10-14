@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, randomUUID } from 'node:crypto'
 
-export type IdentityKind = 'pane' | 'extension' | 'script'
+type IdentityKind = 'pane' | 'extension' | 'script'
 
 export interface PaneIdentity {
   kind: IdentityKind

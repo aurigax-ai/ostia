@@ -13,8 +13,8 @@ import { fuzzyMatch } from './fuzzyPaths'
 import { type FileList, type RgOutcome, listFiles, searchText } from './ripgrep'
 
 export const QUERY_MAX = 1000
-export const NAME_LIMIT = 50
-export const PDF_LIMIT = 50
+const NAME_LIMIT = 50
+const PDF_LIMIT = 50
 const FILE_LIST_TTL_MS = 10_000
 
 export function parseSearchRequest(raw: unknown): SearchRequest | null {
@@ -67,7 +67,7 @@ export function nameHits(
   return hits.slice(0, limit).map(({ score: _score, ...hit }) => hit)
 }
 
-export function pdfFiles(root: string, files: readonly string[], limit: number): SearchPdf[] {
+function pdfFiles(root: string, files: readonly string[], limit: number): SearchPdf[] {
   const pdfs: SearchPdf[] = []
   for (const path of files) {
     if (pdfs.length >= limit) break

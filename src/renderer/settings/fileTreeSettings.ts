@@ -8,7 +8,7 @@ export const FILE_SORT_ORDERS: readonly FileSortOrder[] = ['foldersFirst', 'mixe
 export const FILE_SORT_BYS: readonly FileSortBy[] = ['name', 'type']
 export const BREADCRUMB_STYLES: readonly BreadcrumbStyle[] = ['auto', 'full', 'short']
 
-export interface FileNestingSettings {
+interface FileNestingSettings {
   enabled: boolean
   patterns: Record<string, string>
 }

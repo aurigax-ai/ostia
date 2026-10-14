@@ -5,7 +5,7 @@ export type TreeEdit =
   | { kind: 'create'; entry: NewEntryKind; dir: string }
   | { kind: 'rename'; path: string }
 
-export interface TreeClipboard {
+interface TreeClipboard {
   mode: 'copy' | 'cut'
   paths: string[]
 }

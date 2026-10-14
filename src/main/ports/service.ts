@@ -17,7 +17,7 @@ const REFRESH_EVENTS: ReadonlySet<string> = new Set([
 
 export const PORTS_ITEMS_CHANNEL = 'ports:items'
 
-export type TreeScan = (roots: number[], hostPid: number) => Promise<Map<number, TreeInfo>>
+type TreeScan = (roots: number[], hostPid: number) => Promise<Map<number, TreeInfo>>
 
 export interface PortsServiceDeps {
   settings: () => PortsSettings

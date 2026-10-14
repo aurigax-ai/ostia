@@ -190,7 +190,7 @@ function workDirOf(workspaceId: string): string | undefined {
   return workspaceOf(workspaceId)?.workDir
 }
 
-export type NewTabKind = Extract<SurfaceKind, 'terminal' | 'browser'>
+type NewTabKind = Extract<SurfaceKind, 'terminal' | 'browser'>
 
 function layoutOf(root: LayoutNode): WorkspaceLayout {
   return { root, activePaneId: firstPaneId(root), zoomedPaneId: null }

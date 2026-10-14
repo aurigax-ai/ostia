@@ -31,8 +31,6 @@ import { normalizeDescription } from '@shared/workspaces/workspaceText'
 import { create } from 'zustand'
 import { setWorkspaceLookup, useLayoutStore } from './layoutStore'
 
-export type { WorkspaceGroup }
-
 export type WorkspaceState = WorkspaceLiveState
 
 export type WorkspaceKind = 'agent' | 'terminal' | 'scratch' | 'manager'

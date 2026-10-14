@@ -31,7 +31,7 @@ export interface KeptProcessMeta {
   exitCode?: number
 }
 
-export interface KeptSandboxMeta {
+interface KeptSandboxMeta {
   stamp: string | null
   bridgeId: string | null
   resizePipe: string | null
@@ -135,7 +135,7 @@ function text(raw: unknown): string | null {
   return typeof raw === 'string' && raw.length <= TEXT_MAX ? raw : null
 }
 
-export function parseKeptMeta(raw: unknown): KeptMeta | null {
+function parseKeptMeta(raw: unknown): KeptMeta | null {
   if (typeof raw !== 'object' || raw === null) return null
   const r = raw as Record<string, unknown>
   const fields = {

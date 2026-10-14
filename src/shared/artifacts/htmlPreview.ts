@@ -1,5 +1,5 @@
 export const PREVIEW_SCHEME = 'ostia-preview'
-export const PREVIEW_PARTITION_PREFIX = 'ostia-preview-'
+const PREVIEW_PARTITION_PREFIX = 'ostia-preview-'
 
 export const PREVIEW_LIMITS = {
   notRespondingMs: 5_000,

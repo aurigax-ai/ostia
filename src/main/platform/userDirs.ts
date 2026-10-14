@@ -17,9 +17,9 @@ export type EnvSource = Record<string, string | undefined>
 
 export const OLD_PRODUCT_NAME = 'pine'
 
-export const RUNNING_LOCK = 'SingletonLock'
+const RUNNING_LOCK = 'SingletonLock'
 
-export const CHROMIUM_CACHES = [
+const CHROMIUM_CACHES = [
   'SingletonLock',
   'SingletonSocket',
   'SingletonCookie',
@@ -35,7 +35,7 @@ export const CHROMIUM_CACHES = [
   'Crashpad',
 ]
 
-export const INSTALLED_APP = 'app'
+const INSTALLED_APP = 'app'
 
 const RENAMED_ENTRIES: Readonly<Record<string, string>> = {
   [`Partitions/${OLD_PRODUCT_NAME}-browser`]: `Partitions/${PRODUCT_NAME}-browser`,

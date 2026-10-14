@@ -6,7 +6,7 @@ export const SHARED_BROWSER_PARTITION = 'persist:ostia-browser'
 
 const ISOLATED_PREFIX = 'ostia-browser-'
 
-export function isolatedBrowserPartition(paneId: string): string {
+function isolatedBrowserPartition(paneId: string): string {
   return `${ISOLATED_PREFIX}${paneId}`
 }
 

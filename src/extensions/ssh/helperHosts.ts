@@ -2,7 +2,7 @@ import { type ChannelOptions, HelperChannel, HelperFailure, runStatus } from './
 import type { HelperBundle } from './helper'
 import { type ConnectPlan, hostKey, planHelper } from './plan'
 
-export const IDLE_CLOSE_MS = 60_000
+const IDLE_CLOSE_MS = 60_000
 
 export interface HelperHostsDeps extends ChannelOptions {
   helper: HelperBundle

@@ -15,7 +15,7 @@ export interface AgentHookCall {
   event: AgentHookEvent
 }
 
-export const AGENT_HOOK_USAGE =
+const AGENT_HOOK_USAGE =
   'usage: ostia agent-hook <extId> <command> <claude|codex> <event>   (stdin: the hook JSON)'
 
 export function parseAgentHookArgs(args: readonly string[]): AgentHookCall | null {

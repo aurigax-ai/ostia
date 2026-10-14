@@ -1,4 +1,4 @@
-export const UNATTENDED_QUIT_DEADLINE_MS = 5000
+const UNATTENDED_QUIT_DEADLINE_MS = 5000
 
 export type QuitPlan = 'proceed' | 'ask' | 'unattended'
 

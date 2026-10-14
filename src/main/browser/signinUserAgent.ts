@@ -5,7 +5,7 @@ export const ELECTRON_AGENT_HOSTS: readonly string[] = [
   'accounts.youtube.com',
 ]
 
-export interface UserAgentBrand {
+interface UserAgentBrand {
   brand: string
   version: string
 }
@@ -99,7 +99,7 @@ export function wantsElectronAgent(
   }
 }
 
-export function agentFor(url: string, agents: BrowserAgents): string {
+function agentFor(url: string, agents: BrowserAgents): string {
   return wantsElectronAgent(url) ? agents.electron : agents.rewritten
 }
 

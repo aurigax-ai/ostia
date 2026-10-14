@@ -13,7 +13,7 @@ const PRESENCE_TIMEOUT_MS = 120_000
 const ALLOW_TITLE = 'ostia-presence:allow:'
 const CANCEL_TITLE = 'ostia-presence:cancel'
 
-export const PKCHECK_PATHS = ['/usr/bin/pkcheck', '/bin/pkcheck']
+const PKCHECK_PATHS = ['/usr/bin/pkcheck', '/bin/pkcheck']
 
 export type PresenceFailure = 'cancelled' | 'failed' | 'timeout' | 'unavailable'
 

@@ -50,7 +50,7 @@ export function featuresInUse({ overview, catalog }: AssistView): FeatureInUse[]
   return out
 }
 
-export function assistFeature(id: AssistFeatureId): AssistFeatureRef | null {
+function assistFeature(id: AssistFeatureId): AssistFeatureRef | null {
   return findFeature(useAssistStore.getState(), id)
 }
 

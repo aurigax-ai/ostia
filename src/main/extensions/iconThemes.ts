@@ -10,7 +10,7 @@ import { readConfined } from '../platform/confinedRead'
 
 export const ICON_THEME_MAX_BYTES = 4 * 1024 * 1024
 export const ICON_FILE_MAX_BYTES = 512 * 1024
-export const ICON_TOTAL_MAX_BYTES = 48 * 1024 * 1024
+const ICON_TOTAL_MAX_BYTES = 48 * 1024 * 1024
 const MAX_DEFINITIONS = 10_000
 const MAX_ASSOCIATIONS = 50_000
 const MAX_KEY_LENGTH = 200
@@ -130,7 +130,7 @@ export function loadIconTheme(
   return { ok: true, theme }
 }
 
-export interface IconThemeSource {
+interface IconThemeSource {
   dir: string
   theme: IconThemeContribution
 }

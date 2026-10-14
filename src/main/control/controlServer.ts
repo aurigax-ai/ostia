@@ -45,7 +45,7 @@ function unauthenticatedError(message: string): ResponseError<void> {
   return new ResponseError(ErrorCodes.InvalidRequest, message)
 }
 
-export type ControlCallers = 'panes' | 'extensions' | 'manager' | 'all'
+type ControlCallers = 'panes' | 'extensions' | 'manager' | 'all'
 
 export interface ControlMethodContext {
   identity: PaneIdentity

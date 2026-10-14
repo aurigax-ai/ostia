@@ -39,12 +39,12 @@ export interface ManagerDeps {
   saveResume: (saved: SavedManagerResume | null) => void
 }
 
-export interface SavedManagerResume {
+interface SavedManagerResume {
   agent: string
   resume: AgentResume
 }
 
-export function parseSavedResume(raw: unknown): SavedManagerResume | null {
+function parseSavedResume(raw: unknown): SavedManagerResume | null {
   if (typeof raw !== 'object' || raw === null) return null
   const { agent, resume } = raw as { agent?: unknown; resume?: unknown }
   const parsed = parseAgentResume(resume)

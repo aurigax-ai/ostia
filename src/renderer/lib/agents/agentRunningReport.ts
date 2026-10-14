@@ -5,7 +5,7 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { ResumableAgent } from '@shared/agents/agentResume'
 import { runningAgentOf } from './paneAgent'
 
-export function paneAgentRunning(paneId: string, agent: ResumableAgent): boolean | null {
+function paneAgentRunning(paneId: string, agent: ResumableAgent): boolean | null {
   if (runningAgentOf(paneId) === agent) return true
   const { running, byPane } = useBlocksStore.getState()
   if (running[paneId] !== undefined) return false

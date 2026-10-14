@@ -46,10 +46,7 @@ export function relativeTime(at: number, now: number, locale: string): string {
   return formatRelative(beyondMinute, RELATIVE_STEPS, format)
 }
 
-export function filterSessions(
-  list: readonly ChatSessionSummary[],
-  query: string,
-): ChatSessionSummary[] {
+function filterSessions(list: readonly ChatSessionSummary[], query: string): ChatSessionSummary[] {
   const q = query.trim().toLowerCase()
   if (!q) return [...list]
   return list.filter((s) => s.title.toLowerCase().includes(q))

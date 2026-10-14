@@ -1,4 +1,4 @@
-export interface FolderNode<T> {
+interface FolderNode<T> {
   kind: 'folder'
   name: string
   path: string
@@ -6,7 +6,7 @@ export interface FolderNode<T> {
   children: TreeNode<T>[]
 }
 
-export interface FileNode<T> {
+interface FileNode<T> {
   kind: 'file'
   name: string
   path: string

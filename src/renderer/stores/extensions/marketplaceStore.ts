@@ -5,7 +5,7 @@ import type {
 } from '@shared/extensions/marketplace'
 import { create } from 'zustand'
 
-export interface MarketplaceFailure {
+interface MarketplaceFailure {
   error: MarketplaceError
   detail?: string
 }

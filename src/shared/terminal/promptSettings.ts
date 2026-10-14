@@ -53,7 +53,7 @@ const EXTENSION_CHIP_ID = /^[a-z][a-z0-9-]{1,39}\.[a-z][a-z0-9-]{0,39}$/
 export const isCoreChipId = (id: string): id is CoreChipId =>
   (CORE_CHIP_IDS as readonly string[]).includes(id)
 
-export const isExtensionChipId = (id: string): boolean => EXTENSION_CHIP_ID.test(id)
+const isExtensionChipId = (id: string): boolean => EXTENSION_CHIP_ID.test(id)
 
 export const isPromptChipId = (id: unknown): id is string =>
   typeof id === 'string' && (isCoreChipId(id) || isExtensionChipId(id))

@@ -5,9 +5,9 @@ import type { ErrorInput } from '../../shared/privacy/telemetry'
 import type { AppLog } from './appLog'
 import { ReportLimiter, normalizePaneIds, normalizeRendererReport } from './rendererReports'
 
-export const CRASH_RELOADS_PER_MINUTE = 3
+const CRASH_RELOADS_PER_MINUTE = 3
 
-export type RecoveryReason = 'reload' | 'render-error' | 'renderer-gone'
+type RecoveryReason = 'reload' | 'render-error' | 'renderer-gone'
 
 export interface DiagnosticsDeps {
   log: AppLog

@@ -7,7 +7,7 @@ import { registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 
-export interface Message {
+interface Message {
   id: string
   from: string
   to: string
@@ -17,7 +17,7 @@ export interface Message {
   quiet?: true
 }
 
-export interface SentMessage {
+interface SentMessage {
   id: string
   from: string
   to: string
@@ -26,14 +26,14 @@ export interface SentMessage {
   seenAt?: string
 }
 
-export type HandoffState = 'submitted' | 'claimed' | 'completed' | 'failed'
+type HandoffState = 'submitted' | 'claimed' | 'completed' | 'failed'
 
-export interface HandoffContext {
+interface HandoffContext {
   artifacts?: string[]
   workDir?: string
 }
 
-export interface Handoff {
+interface Handoff {
   id: string
   from: string
   to: string

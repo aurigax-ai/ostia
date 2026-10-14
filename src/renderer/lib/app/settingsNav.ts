@@ -2,7 +2,7 @@ import { readPref, writePref } from './localPrefs'
 
 export const EXTENSIONS_NAV_EXPANDED_KEY = 'settingsNav.extensionsExpanded'
 export const SANDBOX_NAV_EXPANDED_KEY = 'settingsNav.sandboxExpanded'
-export const EXTENSIONS_SECTION = 'extensions'
+const EXTENSIONS_SECTION = 'extensions'
 
 export interface SettingsTarget {
   section: string | null

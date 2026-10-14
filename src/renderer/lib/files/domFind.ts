@@ -1,5 +1,5 @@
-export const FIND_HIGHLIGHT = 'ostia-find'
-export const FIND_ACTIVE_HIGHLIGHT = 'ostia-find-active'
+const FIND_HIGHLIGHT = 'ostia-find'
+const FIND_ACTIVE_HIGHLIGHT = 'ostia-find-active'
 
 export function findRanges(root: Node, query: string): Range[] {
   if (!query) return []

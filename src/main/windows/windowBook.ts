@@ -18,7 +18,7 @@ function emptySnapshot(savedAt = ''): AppSnapshot {
   return { v: 1, savedAt, activeWorkspaceId: null, workspaces: [], groups: [] }
 }
 
-export function withoutWorkspace(snapshot: AppSnapshot, workspaceId: string): AppSnapshot {
+function withoutWorkspace(snapshot: AppSnapshot, workspaceId: string): AppSnapshot {
   if (!snapshot.workspaces.some((w) => w.id === workspaceId)) return snapshot
   const workspaces = snapshot.workspaces.filter((w) => w.id !== workspaceId)
   const activeWorkspaceId =
@@ -38,7 +38,7 @@ function withoutGroup(workspace: SnapshotWorkspace): SnapshotWorkspace {
   return rest
 }
 
-export function withWorkspace(snapshot: AppSnapshot, workspace: SnapshotWorkspace): AppSnapshot {
+function withWorkspace(snapshot: AppSnapshot, workspace: SnapshotWorkspace): AppSnapshot {
   const base = withoutWorkspace(snapshot, workspace.id)
   return {
     ...base,

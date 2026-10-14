@@ -4,7 +4,7 @@ import { bindingsOf, compileTemplate, hasBindings, isIdentifier, parsePath } fro
 export const VIEW_VERSION = 1
 export const OPEN_VIEW_COMMAND = 'views.open'
 export const VIEW_NAME = /^[a-z0-9][a-z0-9-]{0,39}$/
-export const VIEW_FILE_EXTENSION = '.json'
+const VIEW_FILE_EXTENSION = '.json'
 export const VIEW_FILE_MAX_BYTES = 64 * 1024
 export const VIEW_FILES_MAX = 50
 export const VIEW_MAX_NODES = 200
@@ -15,8 +15,8 @@ export const VIEW_KV_MAX = 20
 export const VIEW_TITLE_MAX = 60
 export const VIEW_TEXT_MAX = 500
 export const VIEW_ARGS_MAX = 4096
-export const VIEW_URL_MAX = 2048
-export const VIEW_PROBLEMS_MAX = 50
+const VIEW_URL_MAX = 2048
+const VIEW_PROBLEMS_MAX = 50
 
 export const VIEW_PLACEMENTS = ['sidebar', 'panel'] as const
 export type ViewPlacement = (typeof VIEW_PLACEMENTS)[number]
@@ -90,7 +90,7 @@ export type ViewWeight = (typeof VIEW_WEIGHTS)[number]
 export const VIEW_BUTTON_VARIANTS = ['default', 'outline', 'ghost'] as const
 export type ViewButtonVariant = (typeof VIEW_BUTTON_VARIANTS)[number]
 
-export type ViewAction = { command: string; args?: Record<string, unknown> } | { openUrl: string }
+type ViewAction = { command: string; args?: Record<string, unknown> } | { openUrl: string }
 
 interface NodeBase {
   if?: string
@@ -638,7 +638,7 @@ class Checker {
   }
 }
 
-export function parseViewValue(raw: unknown, lines = new Map<string, number>()): ViewParseResult {
+function parseViewValue(raw: unknown, lines = new Map<string, number>()): ViewParseResult {
   const c = new Checker(lines)
   if (!isRecord(raw)) {
     c.report('', 'a view file must be a JSON object')

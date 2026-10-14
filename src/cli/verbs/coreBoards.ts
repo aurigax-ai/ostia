@@ -1,7 +1,7 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { FlagError, parseArgs } from '../common/args'
 
-export const GIT_USAGE = `usage: ostia git <command>
+const GIT_USAGE = `usage: ostia git <command>
   status                         branch, upstream and change counts (JSON)
   changes                        changed files: staged, unstaged, untracked (JSON)
   diff <path> [--staged]         unified diff of one changed file (JSON)
@@ -12,7 +12,7 @@ export const GIT_USAGE = `usage: ostia git <command>
   unstage <path...> | --all      unstage paths
   commit -m <message>            commit the staged changes`
 
-export const PORTS_USAGE = `usage: ostia ports ls [--all]
+const PORTS_USAGE = `usage: ostia ports ls [--all]
   ls [--all]   listening ports and ssh hosts of your workspace (JSON); --all needs all-workspaces`
 
 export interface BoardRequest {

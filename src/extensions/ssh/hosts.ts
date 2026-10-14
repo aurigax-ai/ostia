@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, realpathSync, statSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join } from 'node:path'
 
 export const ALIAS_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,252}$/
-export const MAX_INCLUDE_DEPTH = 8
+const MAX_INCLUDE_DEPTH = 8
 export const MAX_FILES = 64
 export const MAX_FILE_BYTES = 256 * 1024
 export const MAX_HOSTS = 200

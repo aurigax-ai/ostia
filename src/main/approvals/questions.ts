@@ -16,7 +16,7 @@ import {
 import { registerControlMethod } from '../control/controlServer'
 import { RateWindow } from '../platform/rateWindow'
 
-export interface QuestionAsk extends QuestionContent {
+interface QuestionAsk extends QuestionContent {
   externalId: string
   windowId: string
   paneId: string
@@ -33,12 +33,12 @@ export interface QuestionDeps extends Partial<QuestionEvents> {
   now: () => number
 }
 
-export interface OpenQuestion {
+interface OpenQuestion {
   windowId: string
   request: QuestionRequest
 }
 
-export type QuestionTicket =
+type QuestionTicket =
   | { ok: true; id: string; outcome: Promise<QuestionOutcome> }
   | { ok: false; error: 'too-many-questions' | 'rate-limited'; message: string }
 

@@ -12,7 +12,7 @@ import {
 import { MIRROR_DETACH_KEY, portalSocketPath } from '../../shared/agents/portal'
 import { readEnv } from '../../shared/appEnv'
 
-export const PORTAL_USAGE = `usage: ostia <agent> [args…]
+const PORTAL_USAGE = `usage: ostia <agent> [args…]
 
 Run from a terminal outside Ostia. Opens Ostia's manager workspace running <agent>
 (a preset such as claude or codex) and shows it here. Starts Ostia in the tray if it

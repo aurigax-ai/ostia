@@ -1,6 +1,6 @@
 import type { Dict } from '@shared/app/dict'
 
-export type Appearance = 'dark' | 'light'
+type Appearance = 'dark' | 'light'
 
 export interface Theme {
   id: string
@@ -29,7 +29,7 @@ export const ANSI_NAMES = [
   'brightWhite',
 ] as const
 
-export type AnsiName = (typeof ANSI_NAMES)[number]
+type AnsiName = (typeof ANSI_NAMES)[number]
 
 export type TerminalColors = Record<AnsiName, string> & {
   background: string
@@ -53,7 +53,7 @@ export interface LanguageContribution {
   catalog: Dict
 }
 
-export interface PluginContributions {
+interface PluginContributions {
   themes?: Theme[]
   colorSchemes?: ColorScheme[]
 }

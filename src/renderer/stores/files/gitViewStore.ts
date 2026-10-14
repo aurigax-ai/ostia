@@ -2,7 +2,7 @@ import { create } from 'zustand'
 
 export type GitPage = 'changes' | 'graph' | 'blame'
 
-export interface GitNavigation {
+interface GitNavigation {
   page: GitPage
   file?: string
   seq: number

@@ -63,7 +63,7 @@ export async function runBusHook(args: readonly string[], io: BusHookIo): Promis
   return 0
 }
 
-export function sentLine(message: SentMessage): string {
+function sentLine(message: SentMessage): string {
   const state = message.seenAt ? `seen ${message.seenAt}` : 'unseen'
   return [message.ts, message.to, state, message.preview].join('\t')
 }

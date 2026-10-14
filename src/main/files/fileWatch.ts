@@ -23,9 +23,9 @@ export type WatchDir = (
   listener: (event: string, name: string | null) => void,
 ) => FSWatcher
 
-export const DARWIN_RECONCILE_MS = 1000
+const DARWIN_RECONCILE_MS = 1000
 
-export function defaultReconcileMs(): number {
+function defaultReconcileMs(): number {
   return process.platform === 'darwin' ? DARWIN_RECONCILE_MS : 0
 }
 
@@ -257,8 +257,8 @@ export class FileWatches {
   }
 }
 
-export const TREE_WATCH_MAX_DIRS = 2000
-export const TREE_WATCH_SKIPPED_DIRS: readonly string[] = ['.git', '.hg', '.svn', 'node_modules']
+const TREE_WATCH_MAX_DIRS = 2000
+const TREE_WATCH_SKIPPED_DIRS: readonly string[] = ['.git', '.hg', '.svn', 'node_modules']
 
 export type TreeChangeKind = 'created' | 'changed' | 'deleted'
 

@@ -6,7 +6,7 @@ const INSTALL_METHODS = ['apt', 'brew', 'local', 'tarball', 'dmg', 'dev'] as con
 
 export type InstallMethod = (typeof INSTALL_METHODS)[number]
 
-export const UPDATE_COMMANDS: Readonly<Record<'apt' | 'brew', readonly (readonly string[])[]>> = {
+const UPDATE_COMMANDS: Readonly<Record<'apt' | 'brew', readonly (readonly string[])[]>> = {
   apt: [
     ['sudo', 'apt', 'update'],
     ['sudo', 'apt', 'install', '--only-upgrade', PRODUCT_NAME],

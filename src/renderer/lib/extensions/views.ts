@@ -12,7 +12,7 @@ import type { ViewActionTarget } from './viewExpand'
 
 const OPEN_VIEW_PREFIX = `${OPEN_VIEW_COMMAND}.`
 
-export function openView(name: string, workspaceId: string | null): string | null {
+function openView(name: string, workspaceId: string | null): string | null {
   const view = enabledViews(useViewsStore.getState().views, 'panel').find((v) => v.name === name)
   if (!view || !workspaceId) return null
   useUIStore.getState().showWorkspaces()

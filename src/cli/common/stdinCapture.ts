@@ -2,7 +2,7 @@ import { type Stats, lstatSync, writeFileSync } from 'node:fs'
 import { extname, join } from 'node:path'
 
 export const STDIN_MAX_BYTES = 16 * 1024 * 1024
-export const STDIN_NAME_MAX = 200
+const STDIN_NAME_MAX = 200
 export const NO_ARTIFACT_FOLDER = 'ostia: stdin needs an artifact folder'
 export const TTY_NOTICE = 'ostia: reading from the terminal; end with Ctrl+D'
 
@@ -61,7 +61,7 @@ function numbered(name: string, n: number): string {
   return `${ext ? name.slice(0, -ext.length) : name}-${n}${ext}`
 }
 
-export function writeNewFile(dir: string, name: string, content: Buffer): string {
+function writeNewFile(dir: string, name: string, content: Buffer): string {
   for (let n = 1; ; n += 1) {
     const path = join(dir, numbered(name, n))
     try {

@@ -4,7 +4,7 @@ import type { ReachMode } from '../../shared/permissions/reach'
 import { type WorkspaceSandbox, sandboxMergeRefusal } from '../../shared/sandbox/sandbox'
 import { expandHome } from '../platform/pathGuard'
 
-export interface ScopeGroup {
+interface ScopeGroup {
   id: string
   byAgent: boolean
 }

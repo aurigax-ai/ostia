@@ -10,7 +10,7 @@ import {
 import { join } from 'node:path'
 import { POLKIT_ACTIONS_DIR, POLKIT_POLICY_FILE } from '../../shared/permissions/scriptTokens'
 
-export const INSTALL_POLKIT_USAGE = 'usage: sudo ostia install-polkit'
+const INSTALL_POLKIT_USAGE = 'usage: sudo ostia install-polkit'
 
 export const POLKIT_POLICY = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"

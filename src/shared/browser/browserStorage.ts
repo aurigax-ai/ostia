@@ -1,6 +1,6 @@
 export type StorageKind = 'cookies' | 'local' | 'session'
 
-export type CookieSameSite = 'unspecified' | 'no_restriction' | 'lax' | 'strict'
+type CookieSameSite = 'unspecified' | 'no_restriction' | 'lax' | 'strict'
 
 export interface StorageCookie {
   name: string
@@ -40,7 +40,7 @@ export type StorageRemoval =
 
 export type StorageWriteResult = { ok: true } | { ok: false; error: string }
 
-export const STORAGE_KEY_MAX = 4096
+const STORAGE_KEY_MAX = 4096
 export const STORAGE_VALUE_MAX = 5 * 1024 * 1024
 
 const SAME_SITE: CookieSameSite[] = ['unspecified', 'no_restriction', 'lax', 'strict']

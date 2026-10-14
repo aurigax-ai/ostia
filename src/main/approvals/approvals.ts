@@ -44,7 +44,7 @@ export interface ApprovalEvents {
   settled: (id: string, outcome: ApprovalOutcome) => void
 }
 
-export interface OpenApproval {
+interface OpenApproval {
   windowId: string
   request: ApprovalRequest
 }

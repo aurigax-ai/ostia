@@ -3,10 +3,10 @@ import { dirname } from 'node:path'
 
 export const CONSENT_FILE = 'helper-hosts.json'
 export const CONSENT_HOSTS_MAX = 500
-export const HOST_KEY_PATTERN = /^[A-Za-z0-9._@:-]{1,330}$/
+const HOST_KEY_PATTERN = /^[A-Za-z0-9._@:-]{1,330}$/
 const VERSION_PATTERN = /^[0-9a-f]{12}$/
 
-export type HelperAnswer = 'allowed' | 'refused'
+type HelperAnswer = 'allowed' | 'refused'
 
 export interface HostRecord {
   answer: HelperAnswer

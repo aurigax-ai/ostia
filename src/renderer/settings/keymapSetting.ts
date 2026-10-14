@@ -1,6 +1,6 @@
 import { OSTIA_KEYMAP, TERMINAL_KEYMAPS, isTerminalKeymap } from '@shared/keyboard/keyboardPresets'
 
-export const KEYMAP_REF_PATTERN = /^[a-z][a-z0-9-]{1,39}\/[a-z][a-z0-9-]{0,39}$/
+const KEYMAP_REF_PATTERN = /^[a-z][a-z0-9-]{1,39}\/[a-z][a-z0-9-]{0,39}$/
 
 export const KEYMAP_SETTING_PATTERN = new RegExp(
   `^(?:${OSTIA_KEYMAP}|${KEYMAP_REF_PATTERN.source.slice(1, -1)})$`,

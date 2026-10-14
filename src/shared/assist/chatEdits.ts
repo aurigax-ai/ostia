@@ -6,7 +6,7 @@ export interface ChatEdit {
   replaceAll?: boolean
 }
 
-export type ChatEditError = 'no-match' | 'ambiguous' | 'no-change'
+type ChatEditError = 'no-match' | 'ambiguous' | 'no-change'
 
 export type ChatEditResult =
   | { ok: true; text: string }

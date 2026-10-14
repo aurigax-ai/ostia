@@ -37,7 +37,7 @@ export function stateLabel(d: Dict, state: AttentionState): string {
   }
 }
 
-export function agentLabel(d: Dict, title: string, agent: ResumableAgent | 'other'): string {
+function agentLabel(d: Dict, title: string, agent: ResumableAgent | 'other'): string {
   if (agent === 'other') return title
   const name = d.agentSession[agent]
   const session = sessionTitle(title, agent)

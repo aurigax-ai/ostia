@@ -10,9 +10,9 @@ interface HastNode {
 
 const SKIP_TAGS = new Set(['a', 'code', 'pre'])
 
-export const FILE_LINK_PATH = 'data-ostia-path'
-export const FILE_LINK_LINE = 'data-ostia-line'
-export const FILE_LINK_COLUMN = 'data-ostia-column'
+const FILE_LINK_PATH = 'data-ostia-path'
+const FILE_LINK_LINE = 'data-ostia-line'
+const FILE_LINK_COLUMN = 'data-ostia-column'
 
 function linkElement(text: string, path: string, line?: number, column?: number): HastNode {
   const properties: Record<string, unknown> = { dataOstiaPath: path }

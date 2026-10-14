@@ -93,7 +93,7 @@ export function waitTimeout(raw: unknown): number {
   return Math.min(PANE_WAIT_MAX_MS, Math.max(PANE_WAIT_MIN_MS, raw))
 }
 
-export type PaneWaitResult =
+type PaneWaitResult =
   | { reached: true; paneId: string; state: PaneWaitState; message?: string }
   | { timedOut: true }
   | { closed: true; paneId: string }

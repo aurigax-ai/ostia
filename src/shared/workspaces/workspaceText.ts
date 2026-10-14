@@ -1,4 +1,4 @@
-export const WORKSPACE_DESCRIPTION_MAX = 500
+const WORKSPACE_DESCRIPTION_MAX = 500
 
 export function normalizeDescription(raw: unknown): string | undefined {
   if (typeof raw !== 'string') return undefined

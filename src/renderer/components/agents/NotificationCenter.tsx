@@ -66,7 +66,7 @@ function usePaneLabels(): (paneId: string | undefined) => PaneLabel | null {
   )
 }
 
-export function useUnreadTotal(): number {
+function useUnreadTotal(): number {
   return useAttentionStore((s) => {
     let n = 0
     for (const a of Object.values(s.byPane)) if (a.unread) n += 1

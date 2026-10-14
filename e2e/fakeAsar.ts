@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-export function asarArchive(files: Record<string, string>): Buffer {
+function asarArchive(files: Record<string, string>): Buffer {
   const header: { files: Record<string, { size: number; offset: string }> } = { files: {} }
   const bodies: Buffer[] = []
   let offset = 0

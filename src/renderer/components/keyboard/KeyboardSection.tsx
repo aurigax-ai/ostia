@@ -138,7 +138,7 @@ function matchesTerminalRow(row: TerminalKeyRow, q: string, d: Dict): boolean {
   ].some((t) => t.toLowerCase().includes(q))
 }
 
-export function recordedChord(id: string, spec: ChordSpec): ChordSpec {
+function recordedChord(id: string, spec: ChordSpec): ChordSpec {
   if (id !== WORKSPACE_GOTO || workspaceDigit(spec.key) === null) return spec
   return { ...spec, key: DIGIT_RANGE }
 }
@@ -309,7 +309,7 @@ function useCollapse(expanded: boolean, onToggle: () => void, before: () => void
   return { toggleRef, toggle, collapse }
 }
 
-export function KeybindingRow({
+function KeybindingRow({
   id,
   title,
   presetName,

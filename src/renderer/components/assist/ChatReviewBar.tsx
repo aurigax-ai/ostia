@@ -7,7 +7,7 @@ import { useChatToolsStore } from '@/stores/assist/chatToolsStore'
 import { CaretDownIcon, CaretUpIcon } from '@phosphor-icons/react'
 import { useMemo, useState } from 'react'
 
-export const REVIEW_BAR_MIN = 2
+const REVIEW_BAR_MIN = 2
 
 function revealCard(toolCallId: string): void {
   const card = document.querySelector<HTMLElement>(`[data-edit-call="${CSS.escape(toolCallId)}"]`)

@@ -17,7 +17,7 @@ import type {
 } from 'react'
 import { forwardRef, useCallback, useState } from 'react'
 
-export interface PromptInputMessage {
+interface PromptInputMessage {
   text: string
 }
 

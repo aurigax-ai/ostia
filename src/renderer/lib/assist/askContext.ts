@@ -1,7 +1,6 @@
 import { allPanes, findPane } from '@/layout/tree'
 import { editorPositionOf } from '@/lib/files/editorPositions'
-import { blockText, canTypeInto, insertCommand } from '@/lib/terminal/blockActions'
-import { isIdlePrompt } from '@/lib/terminal/blocks'
+import { blockText } from '@/lib/terminal/blockActions'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { chatKey, useChatStore } from '@/stores/assist/chatStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
@@ -14,7 +13,7 @@ import { CHAT_CONTEXT_TEXT_MAX, type ChatContextItem, type ChatContextKind } fro
 import { isRemotePath } from '@shared/remoteFolders'
 import { openChatPane } from './chatPane'
 
-export const OUTPUT_TAIL_MAX = 8000
+const OUTPUT_TAIL_MAX = 8000
 
 export type AskContextKind = Extract<
   ChatContextKind,
@@ -50,11 +49,7 @@ export function workspaceTerminal(
   return pane.cwd ? { paneId: pane.id, cwd: pane.cwd } : { paneId: pane.id }
 }
 
-export function activeTerminalPane(): { paneId: string; cwd?: string } | null {
-  return workspaceTerminal(null)
-}
-
-export function workspaceEditorFile(
+function workspaceEditorFile(
   workspaceId: string | null | undefined,
 ): { paneId: string; file: string } | null {
   const id = workspaceId ?? useWorkspacesStore.getState().activeWorkspaceId
@@ -80,7 +75,7 @@ function fileName(path: string): string {
   return path.split('/').pop() || path
 }
 
-export function editorFileContext(
+function editorFileContext(
   workspaceId: string | null | undefined,
   label: string,
 ): ChatContextItem | null {
@@ -94,15 +89,6 @@ export function editorFileContext(
     text: `The file the user has open in the editor${cursor}.`,
     path: open.file,
   }
-}
-
-export function insertTarget(
-  workspaceId: string | null | undefined,
-  blocks: { drafts: Record<string, unknown>; running: Record<string, string | undefined> },
-): { paneId: string; idle: boolean } | null {
-  const pane = workspaceTerminal(workspaceId)
-  if (!pane) return null
-  return { paneId: pane.paneId, idle: isIdlePrompt(blocks, pane.paneId) }
 }
 
 function lastFinishedBlock(paneId: string): CommandBlock | undefined {
@@ -177,16 +163,12 @@ export function liveSelectionContext(
   return { ...item, path: source.file, startLine: source.startLine, endLine: source.endLine }
 }
 
-export function failedBlock(paneId: string, blockId: string): CommandBlock | null {
+function failedBlock(paneId: string, blockId: string): CommandBlock | null {
   const block = useBlocksStore.getState().byPane[paneId]?.find((b) => b.id === blockId)
   return block?.endLine && block.exitCode !== null && block.exitCode !== 0 ? block : null
 }
 
-export function errorContext(
-  paneId: string,
-  blockId: string,
-  label: string,
-): ChatContextItem | null {
+function errorContext(paneId: string, blockId: string, label: string): ChatContextItem | null {
   const block = failedBlock(paneId, blockId)
   if (!block) return null
   return {
@@ -212,19 +194,6 @@ export function explainFailedBlock(
       send: true,
     }) !== null
   )
-}
-
-export type InsertOutcome = 'inserted' | 'copied'
-
-export async function insertAtPrompt(
-  text: string,
-  workspaceId?: string | null,
-): Promise<InsertOutcome> {
-  const command = text.replace(/\s+$/, '')
-  const pane = workspaceTerminal(workspaceId)
-  if (pane && canTypeInto(pane.paneId) && insertCommand(pane.paneId, command)) return 'inserted'
-  await navigator.clipboard?.writeText(command).catch(() => undefined)
-  return 'copied'
 }
 
 const SHELL_LANGUAGES = new Set(['', 'sh', 'bash', 'zsh', 'shell', 'console', 'fish'])
@@ -270,7 +239,7 @@ export async function askAboutFile(
   return item ? attachAndOpenChat(item, workspaceId) : false
 }
 
-export type ExplainSourceKind = 'selection' | 'block' | 'output'
+type ExplainSourceKind = 'selection' | 'block' | 'output'
 
 export interface ExplainSource {
   value: ExplainSourceKind

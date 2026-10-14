@@ -44,7 +44,7 @@ function currentProviders(): AssistProviderConfig[] {
   return useSettingsStore.getState().assistant.providers
 }
 
-export function providerStateKey(enabled: boolean, state: AssistProviderState | undefined): string {
+function providerStateKey(enabled: boolean, state: AssistProviderState | undefined): string {
   if (!enabled) return 'off'
   if (!state) return 'checking'
   return state.setup ?? 'ready'

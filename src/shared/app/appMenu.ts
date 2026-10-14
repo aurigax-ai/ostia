@@ -1,6 +1,6 @@
 import type { ChordSpec } from '../keyboard/chordSpec'
 
-export interface AppMenuCommand {
+interface AppMenuCommand {
   command: string
   label: string
   accelerator?: string

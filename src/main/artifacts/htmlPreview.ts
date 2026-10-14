@@ -70,7 +70,7 @@ const MIME: Readonly<Record<string, string>> = {
   '.webm': 'video/webm',
 }
 
-export function previewMime(path: string): string {
+function previewMime(path: string): string {
   return MIME[extname(path).toLowerCase()] ?? 'application/octet-stream'
 }
 
@@ -78,7 +78,7 @@ export function previewHeaders(path: string): Record<string, string> {
   return typedHeaders(previewMime(path))
 }
 
-export function typedHeaders(type: string): Record<string, string> {
+function typedHeaders(type: string): Record<string, string> {
   return {
     'content-type': type,
     'content-security-policy': PREVIEW_PAGE_CSP,

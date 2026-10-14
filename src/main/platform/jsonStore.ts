@@ -16,7 +16,7 @@ export function storePath(name: string, scope: StoreScope, workDir?: string): st
 
 export const PROJECT_DIR = `.${PRODUCT_NAME}`
 
-export function projectFile(workDir: string, ...parts: string[]): string {
+function projectFile(workDir: string, ...parts: string[]): string {
   return join(workDir, PROJECT_DIR, ...parts)
 }
 

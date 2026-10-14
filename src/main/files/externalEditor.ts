@@ -5,9 +5,9 @@ import { splitArgs } from '../../shared/terminal/argv'
 import type { ExternalEditorRequest, ExternalEditorResult } from '../../shared/types'
 import { findOnPath } from '../platform/pathLookup'
 
-export const AUTO_EDITOR = 'auto'
+const AUTO_EDITOR = 'auto'
 
-export const KNOWN_EDITORS: readonly { bin: string; template: string }[] = [
+const KNOWN_EDITORS: readonly { bin: string; template: string }[] = [
   { bin: 'code', template: 'code -g {file}:{line}:{column}' },
   { bin: 'cursor', template: 'cursor -g {file}:{line}:{column}' },
   { bin: 'zed', template: 'zed {file}:{line}:{column}' },

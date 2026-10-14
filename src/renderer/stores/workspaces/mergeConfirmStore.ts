@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export interface MergeRunning {
+interface MergeRunning {
   paneId: string
   title: string
   command: string

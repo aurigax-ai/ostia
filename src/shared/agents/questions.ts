@@ -8,11 +8,11 @@ export const QUESTION_REPLY_MAX = 4000
 export const QUESTIONS_PER_PANE = 3
 export const QUESTION_RATE_LIMIT = 6
 export const QUESTION_RATE_WINDOW_MS = 60_000
-export const QUESTION_TIMEOUT_MIN_S = 1
+const QUESTION_TIMEOUT_MIN_S = 1
 export const QUESTION_TIMEOUT_MAX_S = 86_400
 
-export const QUESTION_MODES = ['text', 'single', 'multi'] as const
-export type QuestionMode = (typeof QUESTION_MODES)[number]
+const QUESTION_MODES = ['text', 'single', 'multi'] as const
+type QuestionMode = (typeof QUESTION_MODES)[number]
 
 export interface QuestionRequest {
   id: string
@@ -41,7 +41,7 @@ export type QuestionOutcome =
   | { outcome: 'answered'; choices: string[]; text: string }
   | { outcome: QuestionEnd }
 
-export type QuestionAskError =
+type QuestionAskError =
   | 'invalid-question'
   | 'invalid-context'
   | 'invalid-choices'

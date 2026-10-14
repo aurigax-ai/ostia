@@ -4,7 +4,7 @@ import { useAssistStore } from '@/stores/assist/assistStore'
 import { registerCore } from './core'
 import { commands } from './registry'
 
-export const CHAT_COMMAND_ID = 'assist.chat'
+const CHAT_COMMAND_ID = 'assist.chat'
 
 function syncChatCommand(): void {
   const ready = chatAvailable()

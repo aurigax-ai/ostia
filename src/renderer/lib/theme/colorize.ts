@@ -23,7 +23,7 @@ const ALIASES: Record<string, string> = {
   'c++': 'cpp',
 }
 
-export function monacoLanguageId(fence: string, known: readonly string[]): string | null {
+function monacoLanguageId(fence: string, known: readonly string[]): string | null {
   const name = fence.trim().toLowerCase()
   if (!name) return null
   const id = ALIASES[name] ?? name

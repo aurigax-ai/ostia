@@ -28,7 +28,7 @@ const TRIGGER = 'h-6 gap-1 px-1.5 text-ui-xs'
 
 const MODE_ICONS: Record<ChatMode, Icon> = { ask: ChatCircleIcon, write: PencilSimpleIcon }
 
-export function openAssistantSettings(): void {
+function openAssistantSettings(): void {
   useUIStore.getState().closePalette()
   useUIStore.getState().openSettings('assistant')
 }

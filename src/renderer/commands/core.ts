@@ -2,7 +2,7 @@ import type { Dict } from '@shared/app/dict'
 import { type CommandDef, commands, wordedBy } from './registry'
 
 export type CoreCommandId = keyof Dict['commands']['titles']
-export type CoreCommandCategory = keyof Dict['commands']['categories']
+type CoreCommandCategory = keyof Dict['commands']['categories']
 
 export interface CoreCommandDef<Args = void, R = void>
   extends Omit<CommandDef<Args, R>, 'id' | 'title' | 'category' | 'argument' | 'wording'> {

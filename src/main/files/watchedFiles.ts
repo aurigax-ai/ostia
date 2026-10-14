@@ -4,8 +4,8 @@ import picomatch from 'picomatch/posix'
 import type { TreeChange, TreeChangeKind } from './fileWatch'
 
 export const WATCHED_FILES_METHOD = 'workspace/didChangeWatchedFiles'
-export const MAX_FILE_WATCHERS = 200
-export const MAX_FILE_EVENTS = 500
+const MAX_FILE_WATCHERS = 200
+const MAX_FILE_EVENTS = 500
 const PATTERN_MAX = 1000
 const WATCH_CREATE = 1
 const WATCH_CHANGE = 2

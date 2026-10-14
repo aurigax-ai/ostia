@@ -89,7 +89,7 @@ const CHORD_VALUE = {
     'ignored: plain Ctrl+letter, plain or Ctrl arrows, Escape, Tab and keys without Ctrl/Cmd.',
 }
 
-export function keybindingsSchema(ids: readonly string[]) {
+function keybindingsSchema(ids: readonly string[]) {
   return {
     type: 'object',
     description:
@@ -152,7 +152,7 @@ const KEYBINDINGS_DESC =
   'Your keyboard shortcuts for each platform ("mac", "linux"): command id → chord, or null ' +
   'to unbind. Unlisted commands keep their default. Edit them in Settings → Keyboard.'
 
-export function perPlatformSchema<T>(description: string, value: T) {
+function perPlatformSchema<T>(description: string, value: T) {
   const properties = Object.fromEntries(KEYBOARD_PLATFORMS.map((p) => [p, value]))
   return {
     type: 'object',

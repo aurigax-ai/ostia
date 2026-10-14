@@ -132,7 +132,7 @@ export interface RendererErrorReport {
   source?: string
 }
 
-export interface DiagnosticsApi {
+interface DiagnosticsApi {
   report: (report: RendererErrorReport) => void
   ready: (paneIds: string[]) => void
   reloadWindow: () => void
@@ -142,7 +142,7 @@ export interface DiagnosticsApi {
   onTestCrash: (handler: () => void) => () => void
 }
 
-export interface WindowControls {
+interface WindowControls {
   minimize: () => void
   toggleMaximize: () => void
   close: () => void
@@ -186,7 +186,7 @@ export interface PtySpawnOptions {
   attachOnly?: boolean
 }
 
-export interface OstiaPromptSpawn {
+interface OstiaPromptSpawn {
   separator: PromptSeparator
   sameLine: boolean
 }
@@ -222,20 +222,20 @@ export interface PtyAttachResult {
   cwdMissing?: boolean
 }
 
-export interface SystemApi {
+interface SystemApi {
   requirements: (feature: string) => Promise<RequirementsReport | null>
   installRequirements: (feature: string, workspaceId: string) => Promise<ExtensionResult>
   discreteGpu: () => Promise<DiscreteGpuInfo | null>
 }
 
-export interface SecretsApi {
+interface SecretsApi {
   view: (workspaceId: string) => Promise<{ secrets: SecretEntry[]; grants: SecretGrant[] } | null>
   setGrants: (workspaceId: string, grants: SecretGrant[]) => Promise<SandboxEditResult>
   vaultSet: (workspaceId: string, key: string, value: string) => Promise<boolean>
   vaultDelete: (workspaceId: string, key: string) => Promise<boolean>
 }
 
-export interface SandboxApi {
+interface SandboxApi {
   get: (workspaceId: string) => Promise<WorkspaceSandbox | null>
   setEnabled: (workspaceId: string, enabled: boolean) => Promise<SandboxEnableResult>
   setPaths: (
@@ -277,7 +277,7 @@ export interface SandboxApi {
   ) => () => void
 }
 
-export interface PtyApi {
+interface PtyApi {
   attach: (paneId: string, opts: PtySpawnOptions) => Promise<PtyAttachResult>
   detach: (paneId: string) => void
   hibernate: (paneId: string) => Promise<HibernateOutcome>
@@ -307,7 +307,7 @@ export interface ManagerOpenPaneRequest {
   cwd: string
 }
 
-export interface ManagerApi {
+interface ManagerApi {
   onOpen: (cb: (req: ManagerOpenPaneRequest) => string | null) => () => void
 }
 
@@ -321,7 +321,7 @@ export interface FsEntry {
   dir: boolean
 }
 
-export interface FsApi {
+interface FsApi {
   list: (path: string) => Promise<FsEntry[]>
   read: (path: string) => Promise<FsTextResult>
   write: (path: string, content: string) => Promise<boolean>
@@ -333,7 +333,7 @@ export interface FsApi {
   onChanged: (cb: (change: { path: string; exists: boolean }) => void) => () => void
 }
 
-export interface RemoteFilesApi {
+interface RemoteFilesApi {
   folders: () => Promise<RemoteFolder[]>
   onFolders: (cb: (folders: RemoteFolder[]) => void) => () => void
   close: (folderId: string) => Promise<boolean>
@@ -356,7 +356,7 @@ export type FsTextResult =
 
 export type FsKind = 'file' | 'dir'
 
-export interface SettingsApi {
+interface SettingsApi {
   path: () => Promise<string>
   onChanged: (cb: () => void) => () => void
 }
@@ -405,7 +405,7 @@ export type SecretReveal =
   | { ok: true; local: string | null; remote: string | null; winner: 'local' | 'remote' }
   | { ok: false }
 
-export interface SecretSyncApi {
+interface SecretSyncApi {
   reveal: (conflictId: string) => Promise<SecretReveal>
   enable: () => Promise<SecretActionResult>
   disable: () => Promise<SecretActionResult>
@@ -418,7 +418,7 @@ export interface SecretSyncApi {
   recover: (recoveryKey: string, password: string, confirm: string) => Promise<SecretActionResult>
 }
 
-export interface SyncApi {
+interface SyncApi {
   status: () => Promise<SyncStatus>
   run: () => Promise<SyncStatus>
   resolve: (conflictId: string) => Promise<SyncStatus>
@@ -432,7 +432,7 @@ export type WorkspaceLiveState = 'idle' | 'working' | 'waiting' | 'done' | 'erro
 
 export type AttentionState = 'none' | 'working' | 'waiting' | 'done' | 'error'
 
-export const NOTIFICATION_KINDS = ['waiting', 'approval', 'done', 'error', 'message'] as const
+const NOTIFICATION_KINDS = ['waiting', 'approval', 'done', 'error', 'message'] as const
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number]
 
 export function notificationKindOf(value: unknown): NotificationKind {
@@ -461,7 +461,7 @@ export interface NotificationPost {
   desktop: boolean
 }
 
-export interface NotificationsApi {
+interface NotificationsApi {
   list: () => Promise<NotificationEntry[]>
   post: (post: NotificationPost) => void
   clear: () => void
@@ -516,7 +516,7 @@ export interface ProcessTerminalRequest extends ExtensionOpenTerminalRequest {
 
 export type SnapshotTabNode = SnapshotPaneNode | SnapshotSplitNode
 
-export interface SnapshotTabsNode {
+interface SnapshotTabsNode {
   type: 'tabs'
   id: string
   children: SnapshotTabNode[]
@@ -662,20 +662,20 @@ export interface NewWorkspaceRequest {
   sandboxed?: boolean
 }
 
-export interface ScratchApi {
+interface ScratchApi {
   create: () => Promise<string | null>
   files: (workspaceId: string) => Promise<number>
   reveal: (workspaceId: string) => void
 }
 
-export interface ArtifactsApi {
+interface ArtifactsApi {
   list: (workspaceId: string) => Promise<ArtifactListing | null>
   pad: (workspaceId: string) => Promise<string | null>
   reveal: (workspaceId: string) => void
   onChanged: (cb: (workspaceId: string) => void) => () => void
 }
 
-export interface OpenWaitsApi {
+interface OpenWaitsApi {
   onEnded: (cb: (paneIds: string[]) => void) => () => void
 }
 
@@ -690,7 +690,7 @@ export interface PaneDrop {
   placement: PanePlacement
 }
 
-export interface WindowsApi {
+interface WindowsApi {
   info: () => Promise<WindowInfo>
   detach: (workspace: SnapshotWorkspace, at?: ScreenPoint) => Promise<boolean>
   dropPane: (drop: PaneDrop) => void
@@ -713,7 +713,7 @@ export interface WindowsApi {
   answerInsertReference: (requestId: string, inserted: boolean) => void
 }
 
-export type WorkspaceMergeError = 'not-owned' | 'manager' | SandboxMergeRefusal
+type WorkspaceMergeError = 'not-owned' | 'manager' | SandboxMergeRefusal
 
 export type WorkspaceMergeResult = { ok: true } | { ok: false; error: WorkspaceMergeError }
 
@@ -721,7 +721,7 @@ export type PaneMoveError = 'not-owned' | 'manager' | 'sandbox' | 'scratch'
 
 export type PaneMoveResult = { ok: true } | { ok: false; error: PaneMoveError }
 
-export interface WorkspaceApi {
+interface WorkspaceApi {
   save: (snapshot: AppSnapshot | null) => void
   load: () => Promise<AppSnapshot | null>
   merge: (sourceId: string, targetId: string) => Promise<WorkspaceMergeResult>
@@ -738,7 +738,7 @@ export type LifecycleEvent =
   | { type: 'workspace-state'; workspaceId: string; state: WorkspaceLiveState }
   | { type: 'pane-attention'; paneId: string; state: AttentionState; message?: string }
 
-export interface LifecycleApi {
+interface LifecycleApi {
   emit: (event: LifecycleEvent) => void
 }
 
@@ -746,9 +746,9 @@ export type JSONSchema = Record<string, unknown>
 
 export type TargetMode = 'active' | 'explicit' | 'none'
 
-export type CommandErrorCode = 'unknown-command' | 'command-failed' | 'needs-elevation'
+type CommandErrorCode = 'unknown-command' | 'command-failed' | 'needs-elevation'
 
-export interface CommandError {
+interface CommandError {
   code: CommandErrorCode
   message: string
 }
@@ -785,7 +785,7 @@ export interface CommandsApi {
   onInvoke: (handler: (req: CommandInvokeRequest) => Promise<CommandResult>) => () => void
 }
 
-export interface AppMenuApi {
+interface AppMenuApi {
   set: (spec: AppMenuSpec) => void
   onRun: (cb: (command: string) => void) => () => void
 }
@@ -800,11 +800,11 @@ export interface TerminalStateSnapshot {
   remote?: RemoteCwd
 }
 
-export interface TerminalStateApi {
+interface TerminalStateApi {
   push: (snapshot: TerminalStateSnapshot) => void
 }
 
-export interface BrowserApi {
+interface BrowserApi {
   claimProfile: (paneId: string, profile: BrowserProfile) => Promise<BrowserProfile>
   register: (paneId: string, webContentsId: number) => void
   unregister: (paneId: string) => void
@@ -821,7 +821,7 @@ export interface BrowserApi {
   storageClear: (paneId: string, kind: StorageKind) => Promise<StorageWriteResult>
 }
 
-export interface SelectionApi {
+interface SelectionApi {
   send: (req: SelectionSendRequest) => Promise<SelectionSendResult>
 }
 
@@ -834,12 +834,12 @@ export interface WorkspaceProject {
 
 export type OpenPathResult = { ok: true } | { ok: false; error: 'not-found' | 'program' | 'failed' }
 
-export interface FilesApi {
+interface FilesApi {
   pathForFile: (file: File) => string
   admitDropped: (files: File[], workspaceId: string | null) => Promise<OpenFileVerdict[]>
 }
 
-export interface TerminalLinksApi {
+interface TerminalLinksApi {
   probe: (paneId: string, path: string) => Promise<FsKind | null>
   admit: (paneId: string, written: string) => Promise<OpenFileVerdict | null>
   openFolder: (paneId: string, written: string) => Promise<OpenPathResult>
@@ -850,29 +850,29 @@ export interface ClipboardContents {
   image: boolean
 }
 
-export interface ClipboardApi {
+interface ClipboardApi {
   edit: (edit: ClipboardEdit) => Promise<void>
   contents: () => Promise<ClipboardContents>
   setChords: (chords: ClipboardChords) => void
 }
 
-export interface GuestChordsApi {
+interface GuestChordsApi {
   set: (signatures: string[]) => void
   onFire: (cb: (fire: GuestChordFire) => void) => () => void
 }
 
-export interface OpenPathApi {
+interface OpenPathApi {
   openDefault: (path: string) => Promise<OpenPathResult>
   reveal: (path: string) => Promise<OpenPathResult>
   openLink: (url: string) => Promise<boolean>
   project: (dir: string, exact?: boolean) => Promise<WorkspaceProject | null>
 }
 
-export interface AgentSessionApi {
+interface AgentSessionApi {
   info: (resume: AgentResume) => Promise<AgentSessionInfo | null>
 }
 
-export interface AppUpdateApi {
+interface AppUpdateApi {
   state: () => Promise<BuildInfo | null>
   restart: () => Promise<void>
   onAvailable: (cb: (info: BuildInfo) => void) => () => void
@@ -894,7 +894,7 @@ export type CredentialFillResult =
   | { ok: true; username: string }
   | { ok: false; error: 'no-login' | 'no-form' | 'origin-changed' | 'locked' }
 
-export interface CredentialsApi {
+interface CredentialsApi {
   forPage: (paneId: string) => Promise<CredentialSummary[]>
   fill: (paneId: string, id: string) => Promise<CredentialFillResult>
   saveFromPage: (paneId: string) => Promise<CredentialSaveResult>
@@ -905,7 +905,7 @@ export interface CredentialsApi {
   import: () => Promise<CredentialImportResult>
 }
 
-export interface ScriptTokensApi {
+interface ScriptTokensApi {
   list: () => Promise<ScriptTokensState>
   create: (input: ScriptTokenCreateInput) => Promise<ScriptTokenSaveResult>
   update: (input: ScriptTokenUpdateInput) => Promise<ScriptTokenSaveResult>
@@ -914,7 +914,7 @@ export interface ScriptTokensApi {
   onChanged: (cb: () => void) => () => void
 }
 
-export interface ApprovalsApi {
+interface ApprovalsApi {
   state: () => Promise<ApprovalState>
   answer: (id: string, answer: ApprovalAnswer) => Promise<boolean>
   revoke: (id: string) => Promise<boolean>
@@ -925,7 +925,7 @@ export interface ApprovalsApi {
   onAgentGroupsChanged: (cb: (placements: AgentGroupPlacement[]) => void) => () => void
 }
 
-export interface QuestionsApi {
+interface QuestionsApi {
   state: () => Promise<QuestionState>
   answer: (id: string, reply: QuestionReply) => Promise<boolean>
   dismiss: (id: string) => Promise<boolean>
@@ -939,7 +939,7 @@ export type GatewayTailnetState =
   | { state: 'running'; ip: string | null; dnsName: string | null }
   | { state: 'error'; code: string }
 
-export interface GatewayStatus {
+interface GatewayStatus {
   running: boolean
   host: string | null
   port: number | null
@@ -1014,7 +1014,7 @@ export type GatewaySetCapResult =
   | { ok: true; caps: string[] }
   | { ok: false; error: 'not-found' | 'invalid-cap' | 'requires-command' }
 
-export interface GatewayApi {
+interface GatewayApi {
   enable: () => Promise<GatewayEnableResponse>
   disable: () => Promise<GatewayRemoteStatus>
   pair: () => Promise<GatewayPairResponse>
@@ -1052,15 +1052,15 @@ export type ExternalEditorResult =
       message?: string
     }
 
-export interface ExternalEditorApi {
+interface ExternalEditorApi {
   open: (req: ExternalEditorRequest) => Promise<ExternalEditorResult>
 }
 
-export interface CompletionsApi {
+interface CompletionsApi {
   spec: (command: string) => Promise<SpecCommand | null>
 }
 
-export interface WorkflowsApi {
+interface WorkflowsApi {
   list: (workspaceId: string | null) => Promise<WorkflowListing>
   save: (doc: WorkflowDocument) => Promise<WorkflowSaveResult>
 }

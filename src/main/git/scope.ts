@@ -1,8 +1,8 @@
 import type { BranchRef, GraphScope, ScopePlan } from '../../shared/boards/git'
 import { FIELD_SEP } from './history'
 
-export const CURRENT_SCOPE: GraphScope = { kind: 'current' }
-export const MAX_CHOSEN_REFS = 64
+const CURRENT_SCOPE: GraphScope = { kind: 'current' }
+const MAX_CHOSEN_REFS = 64
 const MAX_REF_LENGTH = 256
 const LOCAL_PREFIX = 'refs/heads/'
 const REMOTE_PREFIX = 'refs/remotes/'
@@ -14,7 +14,7 @@ export const BRANCH_REF_FORMAT = [
   '%(symref)',
 ].join(FIELD_SEP)
 
-export function isBranchRef(ref: string): boolean {
+function isBranchRef(ref: string): boolean {
   return (
     ref.length <= MAX_REF_LENGTH &&
     (ref.startsWith(LOCAL_PREFIX) || ref.startsWith(REMOTE_PREFIX)) &&

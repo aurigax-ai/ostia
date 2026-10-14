@@ -15,7 +15,7 @@ import {
 import { GitEmpty } from './GitEmpty'
 import { SplitPane } from './SplitPane'
 
-export const CHANGES_SPLIT = 'changes-commit'
+const CHANGES_SPLIT = 'changes-commit'
 const FILES_MIN = 72
 const COMMIT_KEYS = isMac ? '⌘Enter' : 'Ctrl+Enter'
 

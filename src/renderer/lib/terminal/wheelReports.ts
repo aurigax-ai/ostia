@@ -11,7 +11,7 @@ export type WheelTerminal = Pick<
   'attachCustomWheelEventHandler' | 'buffer' | 'element' | 'modes' | 'options' | 'rows'
 >
 
-export interface WheelScale {
+interface WheelScale {
   cellHeight: number
   sensitivity: number
   maxRows: number

@@ -16,7 +16,7 @@ function gatewayDir(baseDirOverride?: string): string {
   return baseDirOverride ?? join(app.getPath('userData'), 'gateway')
 }
 
-export function fingerprintOf(certPem: string): string {
+function fingerprintOf(certPem: string): string {
   const der = new X509Certificate(certPem).raw
   return `sha256/${createHash('sha256').update(der).digest('base64')}`
 }
@@ -55,8 +55,4 @@ export async function getCert(baseDirOverride?: string): Promise<GatewayCert> {
 
   if (!baseDirOverride) cached = result
   return result
-}
-
-export function resetCertCache(): void {
-  cached = null
 }

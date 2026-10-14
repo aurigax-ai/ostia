@@ -6,7 +6,7 @@ import {
 import { FlagError, parseArgs } from '../common/args'
 import { resolveWorkspaceRef } from '../common/crossWorkspace'
 
-export interface PaneInputParams {
+interface PaneInputParams {
   pane: string
   text?: string
   keys?: string[]

@@ -50,7 +50,7 @@ async function refusedPresence(request: PresenceRequest): Promise<ScriptTokenSav
   }
 }
 
-export async function scriptTokensState(deps: ScriptTokenIpcDeps): Promise<ScriptTokensState> {
+async function scriptTokensState(deps: ScriptTokenIpcDeps): Promise<ScriptTokensState> {
   const listing = await deps.listing().catch((): ReachListing => ({ workspaces: [], groups: [] }))
   return {
     tokens: listScriptTokens(deps.path()),
@@ -68,7 +68,7 @@ export async function scriptTokensState(deps: ScriptTokenIpcDeps): Promise<Scrip
   }
 }
 
-export async function createFromSettings(
+async function createFromSettings(
   deps: ScriptTokenIpcDeps,
   raw: unknown,
 ): Promise<ScriptTokenSaveResult> {
@@ -90,7 +90,7 @@ export async function createFromSettings(
   }
 }
 
-export async function updateFromSettings(
+async function updateFromSettings(
   deps: ScriptTokenIpcDeps,
   raw: unknown,
 ): Promise<ScriptTokenSaveResult> {
@@ -133,7 +133,7 @@ export async function updateFromSettings(
   }
 }
 
-export function revokeFromSettings(deps: ScriptTokenIpcDeps, id: unknown): boolean {
+function revokeFromSettings(deps: ScriptTokenIpcDeps, id: unknown): boolean {
   if (typeof id !== 'string' || !id || !revokeScriptToken(deps.path(), id)) return false
   removeScript(id)
   deps.usage?.clear(id)
@@ -141,7 +141,7 @@ export function revokeFromSettings(deps: ScriptTokenIpcDeps, id: unknown): boole
   return true
 }
 
-export async function usageFromSettings(
+async function usageFromSettings(
   deps: ScriptTokenIpcDeps,
   id: unknown,
 ): Promise<ScriptTokenUsage | null> {

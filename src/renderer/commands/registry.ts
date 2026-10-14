@@ -6,11 +6,7 @@ import type { CommandDescriptor, CommandResult, JSONSchema, TargetMode } from '.
 
 export type {
   CommandResult,
-  CommandError,
-  CommandErrorCode,
   CommandDescriptor,
-  TargetMode,
-  JSONSchema,
 } from '../../shared/types'
 
 export interface CommandContext {

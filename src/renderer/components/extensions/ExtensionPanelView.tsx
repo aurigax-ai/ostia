@@ -13,7 +13,7 @@ import type { ExtensionPanelContext, ExtensionPanelSource } from '@shared/extens
 import type { WebviewTag } from 'electron'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-export const EXTENSION_PARTITION_PREFIX = 'ostia-ext-'
+const EXTENSION_PARTITION_PREFIX = 'ostia-ext-'
 
 function useThemeCss(): string {
   const activeTheme = useEffectiveTheme()

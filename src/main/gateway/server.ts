@@ -151,7 +151,7 @@ function phonePayload(type: PlatformEventType, payload: unknown): unknown {
   return { ...rest, from: external }
 }
 
-export function broadcastEvent(type: PlatformEventType, payload: unknown): void {
+function broadcastEvent(type: PlatformEventType, payload: unknown): void {
   const cap = capForPlatformEvent(type)
   const frame = eventFrame(type, phonePayload(type, payload))
   for (const [ws, state] of sockets) {

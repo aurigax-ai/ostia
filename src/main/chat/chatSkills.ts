@@ -11,7 +11,7 @@ import {
   type SkillSummary,
 } from '../../shared/assist/chatTools'
 
-export const SKILL_FILE = 'SKILL.md'
+const SKILL_FILE = 'SKILL.md'
 
 interface ParsedSkill {
   name: string

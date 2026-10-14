@@ -59,8 +59,8 @@ import { GitEmpty } from './GitEmpty'
 import { ScopeControl } from './ScopeControl'
 import { SplitPane } from './SplitPane'
 
-export const GRAPH_SPLIT = 'graph-details'
-export const DETAIL_DELAY_MS = 120
+const GRAPH_SPLIT = 'graph-details'
+const DETAIL_DELAY_MS = 120
 const MAX_CACHED_DETAILS = 200
 const GRAPH_LIST_FRACTION = 0.55
 const GRAPH_MIN_LIST = 96

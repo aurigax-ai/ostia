@@ -2,8 +2,8 @@ import type { Translate } from '@aurigax-ai/ostia-extension-sdk'
 import type { CardDetail, TrellisProject } from './trellis'
 
 export const PROMPT_BODY_MAX = 6000
-export const OFFER_LABEL_MAX = 120
-export const TASK_SKILL = 'trellis-card'
+const OFFER_LABEL_MAX = 120
+const TASK_SKILL = 'trellis-card'
 
 const REVIEW_COLUMN = /review/i
 

@@ -97,7 +97,7 @@ export interface ManagerArgvOptions {
   resume: AgentResume | null
 }
 
-export function resumeArgs(resume: AgentResume): string[] {
+function resumeArgs(resume: AgentResume): string[] {
   return resume.agent === 'claude' ? ['--resume', resume.id] : ['resume', resume.id]
 }
 

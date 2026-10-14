@@ -41,7 +41,7 @@ export interface PortalDeps {
   attachMirror: (paneId: string, sink: MirrorSink) => MirrorHandle | null
 }
 
-export interface PortalOpenResult {
+interface PortalOpenResult {
   paneId: string
   agent: string
   created: boolean
@@ -53,7 +53,7 @@ function refuse(message: string): ResponseError<void> {
   return new ResponseError(ErrorCodes.InvalidRequest, message)
 }
 
-export function requirementsError(missing: MissingRequirement[], hint: InstallHint): string | null {
+function requirementsError(missing: MissingRequirement[], hint: InstallHint): string | null {
   if (missing.length === 0) return null
   const programs = missing.map((m) => `${m.program} (package ${m.package})`).join(', ')
   const install = hint.command

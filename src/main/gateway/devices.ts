@@ -100,7 +100,7 @@ export function revoke(deviceId: string): boolean {
   return true
 }
 
-export function isGrantableCap(cap: unknown): cap is PhoneGrantableCap {
+function isGrantableCap(cap: unknown): cap is PhoneGrantableCap {
   return typeof cap === 'string' && (PHONE_GRANTABLE_CAPS as readonly string[]).includes(cap)
 }
 

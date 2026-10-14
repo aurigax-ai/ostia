@@ -3,11 +3,11 @@ import { REMOTE_BOOTSTRAP } from './remote'
 
 export const HELPER_PROTOCOL = 1
 export const STATUS_PREFIX = 'OSTIA-HELPER '
-export const HELPER_HOME = '.ostia'
-export const HELPER_DIR = `${HELPER_HOME}/helper`
-export const OLD_HELPER_HOME = '.pine'
-export const OLD_HELPER_DIR = `${OLD_HELPER_HOME}/helper`
-export const HELPER_FILE = 'helper.sh'
+const HELPER_HOME = '.ostia'
+const HELPER_DIR = `${HELPER_HOME}/helper`
+const OLD_HELPER_HOME = '.pine'
+const OLD_HELPER_DIR = `${OLD_HELPER_HOME}/helper`
+const HELPER_FILE = 'helper.sh'
 export const SESSION_FILE = 'session.sh'
 export const HELPER_TOOLS = [
   'cat',

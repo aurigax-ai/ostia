@@ -51,13 +51,13 @@ export function codeColors(scheme: ColorScheme): CodeColors {
 export const monacoThemeId = (scheme: ColorScheme): string => `ostia-scheme-${scheme.id}`
 
 export const DIFF_LINE_ALPHA = 0.1
-export const DIFF_TEXT_ALPHA = 0.18
-export const DIFF_MARK_ALPHA = 0.7
+const DIFF_TEXT_ALPHA = 0.18
+const DIFF_MARK_ALPHA = 0.7
 export const DIFF_TOKEN_CONTRAST = 3
 export const DIFF_CONTRAST_KEEP = 0.9
 export const DIFF_MIN_STRENGTH = 0.25
-export const REMOVED_HUE = 25
-export const INSERTED_HUE = 145
+const REMOVED_HUE = 25
+const INSERTED_HUE = 145
 const HUE_TOLERANCE = 45
 const MIN_CHROMA = 0.06
 
@@ -105,7 +105,7 @@ function hueDistance(color: string, hue: number): number {
   return d > 180 ? 360 - d : d
 }
 
-export function changeHue(scheme: ColorScheme, slot: 'red' | 'green', hue: number): string {
+function changeHue(scheme: ColorScheme, slot: 'red' | 'green', hue: number): string {
   const c = scheme.colors
   if (hueDistance(c[slot], hue) <= HUE_TOLERANCE) return c[slot]
   const ansi = [c.red, c.green, c.yellow, c.blue, c.magenta, c.cyan]

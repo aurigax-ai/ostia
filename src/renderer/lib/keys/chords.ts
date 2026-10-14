@@ -78,7 +78,7 @@ export type TerminalChord = (typeof TERMINAL_CHORD_IDS)[number]
 
 export type BrowserChord = (typeof BROWSER_CHORD_IDS)[number]
 
-export const TERMINAL_CHORDS: readonly TerminalChord[] = TERMINAL_CHORD_IDS
+const TERMINAL_CHORDS: readonly TerminalChord[] = TERMINAL_CHORD_IDS
 
 const TERMINAL_SET: ReadonlySet<string> = new Set(TERMINAL_CHORDS)
 

@@ -77,7 +77,7 @@ function readNotificationSettings(): NotificationSettings {
   }
 }
 
-export function ostiaInFront(windows: Iterable<BrowserWindow>): boolean {
+function ostiaInFront(windows: Iterable<BrowserWindow>): boolean {
   for (const win of windows) {
     if (!win.isDestroyed() && win.isVisible() && win.isFocused()) return true
   }

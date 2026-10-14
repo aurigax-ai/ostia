@@ -13,8 +13,7 @@ import {
 } from '../../shared/views/views'
 import { parseArgs } from '../common/args'
 
-export const VIEW_USAGE =
-  'ostia view: usage: view list [--json] | validate <file> | open <name> | schema'
+const VIEW_USAGE = 'ostia view: usage: view list [--json] | validate <file> | open <name> | schema'
 
 interface ViewSummary {
   name: string

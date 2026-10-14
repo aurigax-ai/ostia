@@ -3,13 +3,13 @@ import type { ArtifactChangeKind } from '../../shared/artifacts/artifacts'
 import type { WorkspaceLiveState } from '../../shared/types'
 import type { Ask, AskResolved } from '../approvals/asks'
 
-export interface NotifyEventPayload {
+interface NotifyEventPayload {
   title: string
   body?: string
   from: string
 }
 
-export interface PaneStateEventPayload {
+interface PaneStateEventPayload {
   paneId: string
   generation: number
   cwd?: string

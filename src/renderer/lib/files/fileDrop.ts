@@ -8,11 +8,11 @@ export const FILE_DRAG_ATTRIBUTE = 'data-file-drag'
 
 const POINTER_BACK_EVENTS = ['mousemove', 'mousedown', 'wheel'] as const
 
-export function isFileDrag(types: readonly string[]): boolean {
+function isFileDrag(types: readonly string[]): boolean {
   return types.includes('Files')
 }
 
-export function dropPaneId(target: EventTarget | null): string | undefined {
+function dropPaneId(target: EventTarget | null): string | undefined {
   if (!(target instanceof Element)) return undefined
   return target.closest<HTMLElement>('.pane[data-pane-id]')?.dataset.paneId
 }
@@ -21,7 +21,7 @@ export function refusalText(verdict: OpenFileVerdict & { ok: false }): string {
   return fmt(currentDict().openFile[verdict.error], { path: verdict.path })
 }
 
-export async function openDroppedFiles(dropped: readonly File[], paneId?: string): Promise<void> {
+async function openDroppedFiles(dropped: readonly File[], paneId?: string): Promise<void> {
   if (dropped.length === 0) return
   const verdicts = await window.ostia.files.admitDropped(
     [...dropped],

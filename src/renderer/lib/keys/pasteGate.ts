@@ -5,7 +5,7 @@ export interface HumanPastePlan {
   confirm: boolean
 }
 
-export interface PreviewPart {
+interface PreviewPart {
   text: string
   control: boolean
   offset: number
@@ -59,7 +59,7 @@ export function countLines(text: string): number {
   return text.replace(TRAILING_NEWLINE, '').split(LINE_BREAK).length
 }
 
-export function controlLabel(code: number): string {
+function controlLabel(code: number): string {
   if (code === DEL) return '^?'
   if (code < 32) return `^${String.fromCharCode(code + 64)}`
   return `\\x${code.toString(16)}`

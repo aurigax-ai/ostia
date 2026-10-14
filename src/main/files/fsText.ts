@@ -15,7 +15,7 @@ export function stampOf(info: Stats): FileStamp {
   return { ino: info.ino, mtimeMs: info.mtimeMs, size: info.size }
 }
 
-export function versionOf(stamp: FileStamp): string {
+function versionOf(stamp: FileStamp): string {
   return `${stamp.ino}:${stamp.mtimeMs}:${stamp.size}`
 }
 

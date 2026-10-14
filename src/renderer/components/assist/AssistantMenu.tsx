@@ -28,7 +28,7 @@ import {
 } from '@shared/assist'
 import { useState } from 'react'
 
-export function useAssistMenuVisible(): boolean {
+function useAssistMenuVisible(): boolean {
   return useExtensionsStore((s) => s.list.some((e) => e.enabled && e.assist.length > 0))
 }
 

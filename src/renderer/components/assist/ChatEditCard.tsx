@@ -19,7 +19,7 @@ import { useMemo } from 'react'
 
 const DIFF_LINES_MAX = 400
 
-export type EditCardState =
+type EditCardState =
   | 'preparing'
   | 'pending'
   | 'applied'
@@ -84,7 +84,7 @@ function hunkSize(hunk: EditHunk): number {
   return hunk.leading.length + hunk.removed.length + hunk.added.length + hunk.trailing.length
 }
 
-export function EditHunks({
+function EditHunks({
   hunks,
   decisions,
   onDecide,

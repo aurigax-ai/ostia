@@ -6,7 +6,7 @@ import { type AgentResume, type ResumableAgent, isResumableAgent } from '@shared
 import type { AttentionState } from '@shared/types'
 import { commandAgent } from './hibernation'
 
-export const FOREGROUND_CHECKS_MS = [800, 3000, 10_000] as const
+const FOREGROUND_CHECKS_MS = [800, 3000, 10_000] as const
 
 export function runningAgentOf(paneId: string): ResumableAgent | null {
   const { running, byPane, agentBlocks } = useBlocksStore.getState()

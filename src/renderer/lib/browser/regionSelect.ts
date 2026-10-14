@@ -10,7 +10,7 @@ export interface Size {
   height: number
 }
 
-export const MIN_REGION = 2
+const MIN_REGION = 2
 
 export const ZOOM_STEPS = [0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 6, 8] as const
 

@@ -130,7 +130,7 @@ function listenersIn(tree: number[]): SandboxListener[] {
   return [...seen.values()]
 }
 
-export function paneListeners(pids: number[]): SandboxListener[][] {
+function paneListeners(pids: number[]): SandboxListener[][] {
   const children = childrenMap()
   return pids.map((pid) => listenersIn(descendants([pid], children)))
 }

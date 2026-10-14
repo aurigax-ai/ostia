@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type TabSleepNotice =
+type TabSleepNotice =
   | { kind: 'notAgent' | 'asleep' | 'awake' }
   | { kind: 'conflict'; tab: string }
   | { kind: 'forkFolderMissing'; agent: string; path: string }

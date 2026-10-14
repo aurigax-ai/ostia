@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export interface RevealPosition {
+interface RevealPosition {
   line: number
   column: number
 }

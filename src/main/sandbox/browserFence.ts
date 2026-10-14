@@ -1,6 +1,6 @@
 import { type SandboxControls, hostMatches } from '../../shared/sandbox/sandbox'
 
-export interface BrowserPolicy {
+interface BrowserPolicy {
   browser: SandboxControls['browser']
   domains: readonly string[]
   denied?: readonly string[]

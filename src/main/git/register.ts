@@ -23,7 +23,7 @@ function text(raw: unknown): string | undefined {
   return typeof raw === 'string' && raw ? raw : undefined
 }
 
-export function pathsRequest(raw: unknown): GitPathsRequest {
+function pathsRequest(raw: unknown): GitPathsRequest {
   const r = record(raw)
   const paths = Array.isArray(r.paths)
     ? r.paths.filter((p): p is string => typeof p === 'string' && p !== '')

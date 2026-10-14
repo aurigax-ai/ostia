@@ -28,7 +28,7 @@ function batches(texts: readonly string[]): string[][] {
   return out
 }
 
-export async function redactTexts(texts: readonly string[]): Promise<RedactionResult[]> {
+async function redactTexts(texts: readonly string[]): Promise<RedactionResult[]> {
   const out: RedactionResult[] = []
   for (const batch of batches(texts)) {
     const results = await window.ostia.privacy.redact(batch).catch(() => [])

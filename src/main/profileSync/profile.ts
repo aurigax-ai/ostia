@@ -31,7 +31,7 @@ export const TOP_FILE_MAX_BYTES = 1024 * 1024
 export const SECRETS_FILE_MAX_BYTES = 16 * 1024 * 1024
 const COMPLETION_FILES_MAX = 500
 
-export const LOCAL_ONLY_ROOTS: readonly string[] = [
+const LOCAL_ONLY_ROOTS: readonly string[] = [
   'sync',
   'capabilities',
   'approvals',
@@ -195,7 +195,7 @@ export function encodeProfile(profile: {
   return out
 }
 
-export function folderOf(path: string): ProfileFolder | null {
+function folderOf(path: string): ProfileFolder | null {
   const slash = path.indexOf('/')
   if (slash < 0 || path.indexOf('/', slash + 1) >= 0) return null
   const folder = PROFILE_FOLDERS.find((f) => f.name === path.slice(0, slash))

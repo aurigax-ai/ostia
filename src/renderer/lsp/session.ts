@@ -30,14 +30,14 @@ import {
 import { applyWorkspaceEdit } from './workspaceEdit'
 
 const SYNC_NONE = 0
-export const INITIALIZE_TIMEOUT_MS = 60_000
-export const PULL_DEBOUNCE_MS = 200
-export const PULL_MAX_RETRIES = 3
+const INITIALIZE_TIMEOUT_MS = 60_000
+const PULL_DEBOUNCE_MS = 200
+const PULL_MAX_RETRIES = 3
 export const FULL_SYNC_DEBOUNCE_MS = 50
 const SYNC_INCREMENTAL = 2
 const SERVER_CANCELLED = -32802
 
-export const SEMANTIC_TOKEN_TYPES = [
+const SEMANTIC_TOKEN_TYPES = [
   'namespace',
   'type',
   'class',
@@ -63,7 +63,7 @@ export const SEMANTIC_TOKEN_TYPES = [
   'decorator',
 ] as const
 
-export const SEMANTIC_TOKEN_MODIFIERS = [
+const SEMANTIC_TOKEN_MODIFIERS = [
   'declaration',
   'definition',
   'readonly',
@@ -76,7 +76,7 @@ export const SEMANTIC_TOKEN_MODIFIERS = [
   'defaultLibrary',
 ] as const
 
-export const CLIENT_CAPABILITIES: ClientCapabilities = {
+const CLIENT_CAPABILITIES: ClientCapabilities = {
   textDocument: {
     synchronization: { dynamicRegistration: false, didSave: true },
     completion: {
@@ -211,7 +211,7 @@ function diagnosticIdentity(diagnostic: Diagnostic): string {
   ])
 }
 
-export function mergeDiagnostics(
+function mergeDiagnostics(
   pushed: readonly Diagnostic[],
   pulled: readonly Diagnostic[],
 ): Diagnostic[] {

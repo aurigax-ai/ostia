@@ -21,12 +21,12 @@ const MIRRORED_STYLES = [
   'tabSize',
 ] as const
 
-export interface CaretPoint {
+interface CaretPoint {
   left: number
   top: number
 }
 
-export function caretPoint(area: HTMLTextAreaElement, index: number): CaretPoint {
+function caretPoint(area: HTMLTextAreaElement, index: number): CaretPoint {
   const style = getComputedStyle(area)
   const mirror = document.createElement('div')
   for (const key of MIRRORED_STYLES) mirror.style[key] = style[key]

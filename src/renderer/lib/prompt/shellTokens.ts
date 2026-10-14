@@ -1,4 +1,4 @@
-export type ShellTokenKind =
+type ShellTokenKind =
   | 'command'
   | 'argument'
   | 'flag'

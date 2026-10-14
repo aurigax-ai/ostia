@@ -5,7 +5,7 @@ export interface TerminalDisposable {
   dispose(): void
 }
 
-export type TerminalEvent<T> = (listener: (arg: T) => void) => TerminalDisposable
+type TerminalEvent<T> = (listener: (arg: T) => void) => TerminalDisposable
 
 export interface TerminalMarker extends TerminalDisposable {
   readonly line: number
@@ -13,7 +13,7 @@ export interface TerminalMarker extends TerminalDisposable {
   readonly onDispose: TerminalEvent<void>
 }
 
-export interface TerminalBufferCell {
+interface TerminalBufferCell {
   getChars(): string
   getWidth(): number
 }
@@ -25,7 +25,7 @@ export interface TerminalBufferLine {
   translateToString(trimRight?: boolean, startColumn?: number, endColumn?: number): string
 }
 
-export interface TerminalBuffer {
+interface TerminalBuffer {
   readonly type: 'normal' | 'alternate'
   readonly cursorX: number
   readonly cursorY: number
@@ -35,7 +35,7 @@ export interface TerminalBuffer {
   getLine(y: number): TerminalBufferLine | undefined
 }
 
-export interface TerminalBufferNamespace {
+interface TerminalBufferNamespace {
   readonly active: TerminalBuffer
   readonly normal: TerminalBuffer
   readonly onBufferChange: TerminalEvent<TerminalBuffer>

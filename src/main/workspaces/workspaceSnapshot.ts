@@ -195,7 +195,7 @@ function isId(v: unknown): v is string {
   return typeof v === 'string' && v.length > 0 && v.length <= ID_MAX
 }
 
-export function parsePlacement(raw: unknown): PanePlacement | null {
+function parsePlacement(raw: unknown): PanePlacement | null {
   if (!isRecord(raw) || !isId(raw.paneId)) return null
   if (typeof raw.zone !== 'string' || !PLACEMENT_ZONES.has(raw.zone)) return null
   return { paneId: raw.paneId, zone: raw.zone as PanePlacementZone }
@@ -207,7 +207,7 @@ export function parsePaneDrop(raw: unknown): PaneDrop | null {
   return placement ? { paneId: raw.paneId, workspaceId: raw.workspaceId, placement } : null
 }
 
-export function parseOrigin(raw: unknown): WorkspaceOrigin | null {
+function parseOrigin(raw: unknown): WorkspaceOrigin | null {
   if (!isRecord(raw) || !isId(raw.workspaceId)) return null
   const index = raw.index
   const beside = parsePlacement(raw.beside)
@@ -308,7 +308,7 @@ function activeOf(raw: unknown, workspaces: SnapshotWorkspace[]): string | null 
 const BOUNDS_MIN = 100
 const BOUNDS_MAX = 100_000
 
-export function parseBounds(raw: unknown): WindowBounds | null {
+function parseBounds(raw: unknown): WindowBounds | null {
   if (!isRecord(raw)) return null
   const { x, y, width, height } = raw
   const coords = [x, y].every(

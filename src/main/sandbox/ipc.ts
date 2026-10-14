@@ -86,7 +86,7 @@ function withList<K extends keyof WorkspaceSandbox>(
   return (list.length > 0 || required ? { ...rest, [key]: list } : rest) as WorkspaceSandbox
 }
 
-export function ownsWorkspace(
+function ownsWorkspace(
   deps: Pick<SandboxIpcDeps, 'ownerWindow'>,
   senderId: number,
   workspaceId: unknown,

@@ -49,7 +49,7 @@ function dropOrphanEdits(session: ChatSession): void {
   session.edits = kept.length > 0 ? kept : undefined
 }
 
-export function trimSession(session: ChatSession, maxBytes: number): number {
+function trimSession(session: ChatSession, maxBytes: number): number {
   let dropped = 0
   while (session.messages.length > 1 && sizeOf(session) > maxBytes) {
     session.messages.shift()

@@ -198,7 +198,7 @@ async function retiredNotice(conn: MessageConnection): Promise<void> {
   )
 }
 
-export const PRESENCE_NOTICE =
+const PRESENCE_NOTICE =
   'ostia token: approve the card in Ostia, then confirm it is you (Touch ID, polkit or an Ostia dialog)'
 
 export function asksPresence(call: TokenCall): boolean {

@@ -16,7 +16,7 @@ import { paneResumeHolder, resumeHolder, resumeWhenIdle } from './resumeFolder'
 export const HIBERNATION_CHECK_MS = 5000
 export const WAKE_WAVE_SIZE = 3
 
-export function hibernationCandidates(now: number): HibernationCandidate[] {
+function hibernationCandidates(now: number): HibernationCandidate[] {
   const out: HibernationCandidate[] = []
   for (const [workspaceId, layout] of Object.entries(useLayoutStore.getState().byWorkspace)) {
     if (!layout) continue
@@ -48,7 +48,7 @@ async function stopPane(workspaceId: string, paneId: string): Promise<HibernateO
   return outcome
 }
 
-export async function hibernatePane(workspaceId: string, paneId: string): Promise<boolean> {
+async function hibernatePane(workspaceId: string, paneId: string): Promise<boolean> {
   if (isPaneVisible(paneId)) return false
   return (await stopPane(workspaceId, paneId)) === 'hibernated'
 }

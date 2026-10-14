@@ -6,7 +6,7 @@ import { shortenPath } from './railMeta'
 
 export const DASHBOARD_PATH_CHARS = 44
 export const CONTEXT_FOLD_CHARS = 320
-export const CONTEXT_FOLD_LINES = 4
+const CONTEXT_FOLD_LINES = 4
 
 export type NeedsYouItem =
   | { kind: 'question'; id: string; at: number; question: QuestionRequest; sent: boolean }

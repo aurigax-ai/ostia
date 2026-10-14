@@ -33,7 +33,7 @@ export interface ToolPartLike {
 }
 
 const TEXT_ID = 'answer'
-export const MAX_TOOL_ROUNDS = 8
+const MAX_TOOL_ROUNDS = 8
 export const OLD_TOOL_OUTPUT_MAX = 2000
 export const STOPPED_TOOL_ERROR = 'Not run: the chat was stopped.'
 
@@ -60,7 +60,7 @@ function inputObject(input: unknown): Record<string, unknown> {
     : {}
 }
 
-export function toolCallOf(part: ToolPartLike, outputMax = CHAT_TOOL_OUTPUT_MAX): ChatToolCall {
+function toolCallOf(part: ToolPartLike, outputMax = CHAT_TOOL_OUTPUT_MAX): ChatToolCall {
   const base = { id: part.toolCallId, name: toolNameOf(part), input: inputObject(part.input) }
   if (part.state === 'output-available') {
     return { ...base, state: 'done', output: outputText(part.output, outputMax) }
@@ -125,7 +125,7 @@ export function toChatRequest(messages: readonly OstiaChatMessage[]): ChatAssist
   return { messages: turns, context }
 }
 
-export function parseChunk(text: string): UIMessageChunk | null {
+function parseChunk(text: string): UIMessageChunk | null {
   if (!text.startsWith('{')) return null
   try {
     const value = JSON.parse(text) as { type?: unknown }
@@ -135,7 +135,7 @@ export function parseChunk(text: string): UIMessageChunk | null {
   }
 }
 
-export function encodeChatError(code: AssistError, message?: string): string {
+function encodeChatError(code: AssistError, message?: string): string {
   return message ? `${code}\n${message}` : code
 }
 

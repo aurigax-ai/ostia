@@ -14,7 +14,7 @@ import {
 import type { ReleaseCheckResult, ReleaseInfo } from '@shared/app/releases'
 import { create } from 'zustand'
 
-export type ReleaseCheckState = { status: 'idle' } | { status: 'checking' } | ReleaseCheckResult
+type ReleaseCheckState = { status: 'idle' } | { status: 'checking' } | ReleaseCheckResult
 
 interface UpdateState {
   available: BuildInfo | null

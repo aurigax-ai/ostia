@@ -11,7 +11,7 @@ function pasteZone(target: EventTarget | null): Element | null {
   return target.closest(TERMINAL) ?? target.closest(TEXT_TARGET)
 }
 
-export function routeMiddlePaste(e: MouseEvent, doc: Document): void {
+function routeMiddlePaste(e: MouseEvent, doc: Document): void {
   if (e.button !== MIDDLE_BUTTON || e.defaultPrevented) return
   const zone = pasteZone(e.target)
   const focused = doc.activeElement

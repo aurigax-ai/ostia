@@ -3,7 +3,7 @@ import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 
-export function scratchPaneIds(): Set<string> {
+function scratchPaneIds(): Set<string> {
   const ids = new Set<string>()
   const byWorkspace = useLayoutStore.getState().byWorkspace
   for (const workspace of useWorkspacesStore.getState().workspaces) {

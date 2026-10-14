@@ -16,7 +16,7 @@ function isOctalDigit(byte: number | undefined): boolean {
   return byte !== undefined && byte >= 0x30 && byte <= 0x37
 }
 
-export function unescapeOutput(escaped: Buffer): Buffer {
+function unescapeOutput(escaped: Buffer): Buffer {
   const out = Buffer.allocUnsafe(escaped.length)
   let n = 0
   for (let i = 0; i < escaped.length; i++) {
