@@ -972,7 +972,6 @@
       ],
       "specs": [
         "e2e/settings-gap.spec.ts",
-        "e2e/terminal-pane-settings.spec.ts",
         "e2e/terminal-settings.spec.ts"
       ]
     },

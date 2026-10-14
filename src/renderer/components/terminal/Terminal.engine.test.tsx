@@ -1125,4 +1125,32 @@ describe('TerminalView engines', () => {
     })
     await waitFor(() => expect(input('right')).toHaveFocus())
   })
+
+  it('a multi-line paste into an xterm terminal asks first; Cancel pastes nothing, Paste pastes', async () => {
+    const user = userEvent.setup()
+    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+    const input = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    input.focus()
+
+    await navigator.clipboard.writeText('echo ostiacancelled\necho two\n')
+    await user.keyboard('{Control>}{Shift>}V{/Shift}{/Control}')
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('It has 2 lines')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
+
+    await navigator.clipboard.writeText('echo ostiafirst\necho ostiapasted42')
+    await user.keyboard('{Control>}{Shift>}V{/Shift}{/Control}')
+    await screen.findByRole('dialog')
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Paste' }))
+    await waitFor(() =>
+      expect(window.ostia.pty.write).toHaveBeenCalledWith(
+        'p1',
+        expect.stringContaining('echo ostiafirst\recho ostiapasted42'),
+      ),
+    )
+  })
 })
