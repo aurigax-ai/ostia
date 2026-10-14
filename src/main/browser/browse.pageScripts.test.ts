@@ -91,6 +91,27 @@ describe('injectPageScripts', () => {
     expect(calls.map((c) => c.method)).toContain('Page.addScriptToEvaluateOnNewDocument')
   })
 
+  it('answers once every script of the main frame is registered, even when one fails', async () => {
+    const answers: Record<string, () => void> = {}
+    const { guest } = fakeGuest(({ method, params }) => {
+      if (method !== 'Page.addScriptToEvaluateOnNewDocument') return new Promise(() => {})
+      const { source } = params as { source: string }
+      return new Promise((ok, fail) => {
+        answers[source] = source === 'B' ? () => fail(new Error('detached')) : () => ok({})
+      })
+    })
+    let registered = false
+    void injectPageScripts(guest, ['A', 'B']).then(() => {
+      registered = true
+    })
+    answers.A()
+    await settle()
+    expect(registered).toBe(false)
+    answers.B()
+    await settle()
+    expect(registered).toBe(true)
+  })
+
   it('gives a new cross-site iframe the same scripts on its own session, then resumes it', async () => {
     const { guest, calls, attach } = fakeGuest()
     injectPageScripts(guest, ['A', 'B'])

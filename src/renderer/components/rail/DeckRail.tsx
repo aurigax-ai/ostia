@@ -66,6 +66,7 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
+import { useRailEditStore } from '@/stores/workspaces/railEditStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import {
   type Workspace,
@@ -228,7 +229,12 @@ function WorkspacesView(): JSX.Element {
   useEffect(() => {
     if (!paneDragging) setTabOver(null)
   }, [paneDragging])
-  const [renamingGroup, setRenamingGroup] = useState<string | null>(null)
+  const renamingGroup = useRailEditStore((s) => (s.editing?.kind === 'group' ? s.editing.id : null))
+  const setRenamingGroup = (id: string | null): void => {
+    const edit = useRailEditStore.getState()
+    if (id !== null) edit.begin({ kind: 'group', id })
+    else if (renamingGroup !== null) edit.end({ kind: 'group', id: renamingGroup })
+  }
   const settingsTabOpen = useUIStore((s) => s.settingsTabOpen)
   const settingsActive = useUIStore((s) => s.settingsActive)
   const covered = useUIStore(coversWorkspaces)
@@ -682,7 +688,14 @@ function WorkspaceRow({
   const canMoveUp = useWorkspacesStore((s) => canMove(s, w.id, -1))
   const canMoveDown = useWorkspacesStore((s) => canMove(s, w.id, 1))
   const digitHints = useUIStore((s) => s.digitHints)
-  const [editing, setEditing] = useState<'name' | 'description' | null>(null)
+  const editing = useRailEditStore((s) =>
+    s.editing?.kind === 'workspace' && s.editing.id === w.id ? s.editing.field : null,
+  )
+  const setEditing = (field: 'name' | 'description' | null): void => {
+    const edit = useRailEditStore.getState()
+    if (field !== null) edit.begin({ kind: 'workspace', id: w.id, field })
+    else if (editing !== null) edit.end({ kind: 'workspace', id: w.id, field: editing })
+  }
   const title = w.customName ?? w.name
   const sandboxed = useSandboxStore((s) => s.enabled[w.id] ?? false)
   const locked = useLayoutStore((s) => {

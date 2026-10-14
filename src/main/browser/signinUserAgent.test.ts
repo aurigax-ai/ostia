@@ -247,6 +247,15 @@ describe('followAgentByHost', () => {
     })
   })
 
+  it('starts from the agent of the address a popup opens at', () => {
+    const { guest, sendCommand, emit } = fakeGuest()
+    followAgentByHost(guest, agents, 'https://accounts.google.com/o/oauth2/auth')
+    expect(overrides(sendCommand)).toEqual([ELECTRON])
+    emit('did-start-navigation', 'https://accounts.google.com/v3/signin')
+    emit('did-start-navigation', 'https://example.com/callback')
+    expect(overrides(sendCommand)).toEqual([ELECTRON, REWRITTEN])
+  })
+
   it('leaves subframes and same-document navigations alone', () => {
     const { guest, sendCommand, emit } = fakeGuest()
     followAgentByHost(guest, agents)
