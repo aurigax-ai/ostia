@@ -18,6 +18,11 @@ import {
   previewPartition,
 } from '../../shared/artifacts/htmlPreview'
 import { PORTABLE_CSP, portableSandbox, portableType } from '../../shared/artifacts/portable'
+import {
+  REGION_IMAGE_MAX,
+  regionCaptureRect,
+  regionPageRect,
+} from '../../shared/browser/regionCapture'
 import { type PreviewSource, regularFileSize } from './previewFiles'
 import { busySince, previewVerdict, previewsOverCap } from './previewLimits'
 
@@ -120,6 +125,7 @@ export interface PreviewHostDeps {
   ownsPane: (windowId: string, paneId: string) => boolean
   send: (windowId: string, event: PreviewEvent) => void
   processes: () => ProcessUse[]
+  hostZoom?: (windowId: string) => number
   build: (source: PreviewSource, theme: PreviewTheme) => Promise<PreviewBuild>
   now?: () => number
 }
@@ -164,6 +170,7 @@ export class PreviewHost {
   private readonly byPane = new Map<string, Slot>()
   private readonly free: Slot[] = []
   private readonly live = new Map<string, Live>()
+  private readonly themes = new Map<string, PreviewTheme>()
   private readonly now: () => number
   private pingTimer: ReturnType<typeof setInterval> | null = null
   private metricsTimer: ReturnType<typeof setInterval> | null = null
@@ -197,7 +204,7 @@ export class PreviewHost {
       windowId,
       paneId,
       source: { file, root: this.deps.servesFolder(folder) ? folder : null },
-      theme: normalizePreviewTheme(theme),
+      theme: this.rememberTheme(windowId, theme),
       slot,
       guest: null,
       loaded: 0,
@@ -224,6 +231,16 @@ export class PreviewHost {
       partition: slot.partition,
       url: `${PREVIEW_SCHEME}://${live.id}/`,
     }
+  }
+
+  private rememberTheme(windowId: string, theme: unknown): PreviewTheme {
+    const normal = normalizePreviewTheme(theme)
+    this.themes.set(windowId, normal)
+    return normal
+  }
+
+  themeOf(windowId: string | undefined): PreviewTheme {
+    return (windowId ? this.themes.get(windowId) : undefined) ?? normalizePreviewTheme(null)
   }
 
   private slotFor(paneId: string): Slot {
@@ -437,12 +454,20 @@ export class PreviewHost {
     if (!live || live.windowId !== windowId || !region) return null
     const guest = live.guest
     if (!guest || guest.isDestroyed()) return null
+    const zoom = this.deps.hostZoom?.(windowId) ?? 1
     try {
-      const image = await guest.capturePage(region)
-      return image.isEmpty() ? null : new Uint8Array(image.toPNG())
+      const image = await guest.capturePage(regionCaptureRect(region, zoom))
+      if (image.isEmpty()) return null
+      const png = image.toPNG()
+      return png.byteLength > REGION_IMAGE_MAX ? null : new Uint8Array(png)
     } catch {
       return null
     }
+  }
+
+  pageRegion(windowId: string, rect: unknown): PreviewRect | null {
+    const region = regionOf(rect)
+    return region ? regionPageRect(region, this.deps.hostZoom?.(windowId) ?? 1, 1) : null
   }
 
   stopByHuman(windowId: string, id: string): void {
@@ -602,9 +627,13 @@ export function registerPreviewIpc(
   host: PreviewHost,
   copyImage: (png: Uint8Array) => void = () => {},
 ): void {
-  ipcMain.handle('preview:capture', (e, id: unknown, rect: unknown) =>
-    typeof id === 'string' ? host.capture(String(e.sender.id), id, rect) : null,
-  )
+  ipcMain.handle('preview:capture', async (e, id: unknown, rect: unknown) => {
+    if (typeof id !== 'string') return null
+    const windowId = String(e.sender.id)
+    const image = await host.capture(windowId, id, rect)
+    const region = host.pageRegion(windowId, rect)
+    return image && region ? { image, region } : null
+  })
   ipcMain.handle('preview:copy-region', async (e, id: unknown, rect: unknown) => {
     const png = typeof id === 'string' ? await host.capture(String(e.sender.id), id, rect) : null
     if (png) copyImage(png)

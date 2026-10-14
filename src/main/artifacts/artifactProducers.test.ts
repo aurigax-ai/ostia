@@ -62,4 +62,31 @@ describe('ArtifactProducers', () => {
     expect(p.of('w1')).toEqual({})
     expect(producers().of('w1')).toEqual({})
   })
+
+  it('PRT-C76 follows a merge through the moved names', () => {
+    const into = join(root, 'w2')
+    mkdirSync(into)
+    const plan = write('plan.md')
+    mkdirSync(join(folder, 'sub'))
+    const nested = join(folder, 'sub', 'notes.md')
+    writeFileSync(nested, 'notes')
+    const p = new ArtifactProducers({
+      file: (workspaceId) => join(root, '.history', workspaceId, 'producers.json'),
+      folderOf: (workspaceId) =>
+        workspaceId === 'w1' ? folder : workspaceId === 'w2' ? into : null,
+    })
+    p.note('w1', 'pane-a', plan)
+    p.note('w1', 'pane-b', nested)
+    writeFileSync(join(into, 'plan-2.md'), 'moved')
+    mkdirSync(join(into, 'sub-2'))
+    writeFileSync(join(into, 'sub-2', 'notes.md'), 'moved')
+    p.merge('w1', 'w2', [
+      ['plan.md', 'plan-2.md'],
+      ['sub', 'sub-2'],
+    ])
+    expect(p.of('w2')).toEqual({
+      [join(into, 'plan-2.md')]: 'pane-a',
+      [join(into, 'sub-2', 'notes.md')]: 'pane-b',
+    })
+  })
 })

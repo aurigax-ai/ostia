@@ -1,5 +1,5 @@
 import { IconButton } from '@/components/common/IconButton'
-import { Item, ItemContent, ItemMedia, ItemTitle } from '@/components/ui/item'
+import { Item, ItemContent, ItemTitle } from '@/components/ui/item'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { fmt, useDict } from '@/i18n/useDict'
@@ -103,9 +103,9 @@ export function ArtifactChip({
                 />
               }
             >
-              <ItemMedia>
+              <span className="artifact-chip-icon" aria-hidden="true">
                 <Icon size={16} style={{ color }} />
-              </ItemMedia>
+              </span>
               <ItemContent>
                 <ItemTitle className="text-ui-sm">{entry.name}</ItemTitle>
               </ItemContent>

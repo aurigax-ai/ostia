@@ -3,11 +3,17 @@ import { useArtifactVersionsStore } from '@/stores/files/artifactVersionsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { ArtifactListing, ArtifactVersion } from '@shared/artifacts/artifacts'
+import type { PreviewEvent } from '@shared/artifacts/htmlPreview'
 import { act, cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
 import { ArtifactVersionsButton, VersionView } from './ArtifactVersions'
+
+vi.mock('@/lib/attention/workspaceActivity', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/attention/workspaceActivity')>()),
+  usePaneVisible: () => true,
+}))
 
 const DIR = '/data/artifacts/s1'
 const FILE = `${DIR}/plan.md`
@@ -114,5 +120,34 @@ describe('artifact versions', () => {
       modified: '# Plan now\n',
       path: FILE,
     })
+  })
+
+  it('PRT-C78 offers no Send Error to Agent for an old version that runs', async () => {
+    await load(1000)
+    let emit: (event: PreviewEvent) => void = () => {}
+    vi.mocked(window.ostia.preview.onEvent).mockImplementation((cb) => {
+      emit = cb
+      return () => {}
+    })
+    vi.mocked(window.ostia.preview.open).mockResolvedValue({
+      id: 'v1',
+      partition: 'ostia-preview-v',
+      url: 'ostia-preview://v1/',
+    })
+    vi.mocked(window.ostia.artifacts.version).mockResolvedValue({
+      file: `${HISTORY}/${VERSIONS[1].id}`,
+      type: 'component',
+      sources: { 'plan.md': 'x' },
+    })
+    await renderSettled(<VersionView workspaceId="s1" paneId="p1" filePath={FILE} />)
+    await act(() => useArtifactVersionsStore.getState().show('s1', 'p1', FILE, VERSIONS[1]))
+    await waitFor(() => expect(document.querySelector('webview')).not.toBeNull())
+    await act(async () =>
+      emit({ id: 'v1', type: 'error', error: { kind: 'error', message: 'boom' } }),
+    )
+    expect(screen.getByTestId('preview-errors')).toHaveTextContent('boom')
+    expect(screen.queryByRole('button', { name: 'Send Error to Agent' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Send Region to Agent' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Copy errors' })).toBeInTheDocument()
   })
 })

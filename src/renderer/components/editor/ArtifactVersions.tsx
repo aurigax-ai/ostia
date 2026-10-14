@@ -172,7 +172,6 @@ function VersionBody({
         paneId={paneId}
         filePath={content.file}
         visible={visible}
-        onSendErrors={() => {}}
       />
     )
   }

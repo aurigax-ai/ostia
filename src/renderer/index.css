@@ -2122,6 +2122,11 @@
   list-style: none;
 }
 
+.artifact-chip-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
 .artifact-chip-scroll {
   max-height: 320px;
 }

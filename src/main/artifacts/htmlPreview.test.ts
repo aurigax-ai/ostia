@@ -24,6 +24,11 @@ import {
 } from '../../shared/artifacts/htmlPreview'
 import { PORTABLE_CSP } from '../../shared/artifacts/portable'
 import {
+  REGION_IMAGE_MAX,
+  regionCaptureRect,
+  regionPageRect,
+} from '../../shared/browser/regionCapture'
+import {
   type PreviewGuest,
   PreviewHost,
   type PreviewSession,
@@ -181,9 +186,12 @@ class FakeGuest implements PreviewGuest {
   attached = false
   lifecycle: string[] = []
   captured: { x: number; y: number; width: number; height: number }[] = []
+  pngBytes = 10
   capturePage = async (rect: { x: number; y: number; width: number; height: number }) => {
     this.captured.push(rect)
-    return { toPNG: () => Buffer.from('89504e470d0a1a0a0000', 'hex'), isEmpty: () => false }
+    const png = Buffer.alloc(this.pngBytes)
+    Buffer.from('89504e470d0a1a0a', 'hex').copy(png)
+    return { toPNG: () => png, isEmpty: () => false }
   }
   debugger = {
     isAttached: (): boolean => this.attached,
@@ -230,6 +238,8 @@ class FakeGuest implements PreviewGuest {
 const builds: PreviewSource[] = []
 let inputsOf = (source: PreviewSource): string[] => [source.file]
 
+const hostZoom = { value: 1 }
+
 interface Rig {
   host: PreviewHost
   sessions: Map<string, FakeSession>
@@ -262,6 +272,7 @@ function rig(): Rig {
     ownsPane: (windowId, paneId) => paneId.startsWith(`${windowId}:`),
     send: (_windowId, event) => events.push(event),
     processes: () => processes,
+    hostZoom: () => hostZoom.value,
     now: () => clock.now,
   })
   const open = (paneId = '1:p1', path = page, windowId = '1'): PreviewOpened => {
@@ -703,5 +714,31 @@ describe('PreviewHost', () => {
       await r.host.capture('1', opened.id, { x: 10, y: 20, width: 100, height: 50 }),
     ).toBeNull()
     expect(guest.captured).toHaveLength(1)
+  })
+
+  it('PRT-C79 remembers the theme each window previews with', () => {
+    const dark = { dark: true, vars: { '--ostia-bg': '#000000' } }
+    const light = { dark: false, vars: { '--ostia-bg': '#ffffff' } }
+    r.host.open('1', '1:p1', page, dark)
+    r.host.open('2', '2:p2', page, light)
+    expect(r.host.themeOf('1')).toEqual(dark)
+    expect(r.host.themeOf('2')).toEqual(light)
+    expect(r.host.themeOf('3')).toEqual({ dark: false, vars: {} })
+  })
+
+  it('PRT-C77 scales a region by the host window’s zoom and refuses a picture over the cap', async () => {
+    hostZoom.value = 1.25
+    try {
+      const opened = r.open()
+      const guest = r.attach(opened)
+      const rect = { x: 10, y: 20, width: 100, height: 50 }
+      expect(await r.host.capture('1', opened.id, rect)).not.toBeNull()
+      expect(guest.captured).toEqual([regionCaptureRect(rect, 1.25)])
+      expect(r.host.pageRegion('1', rect)).toEqual(regionPageRect(rect, 1.25, 1))
+      guest.pngBytes = REGION_IMAGE_MAX + 1
+      expect(await r.host.capture('1', opened.id, rect)).toBeNull()
+    } finally {
+      hostZoom.value = 1
+    }
   })
 })

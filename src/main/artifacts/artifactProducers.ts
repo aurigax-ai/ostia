@@ -1,5 +1,5 @@
 import { lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, relative, sep } from 'node:path'
+import { dirname, join, relative, sep } from 'node:path'
 import { ipcMain } from 'electron'
 
 export interface ArtifactProducersDeps {
@@ -91,9 +91,17 @@ export class ArtifactProducers {
   merge(source: string, target: string, moved: readonly [string, string][]): void {
     const from = this.load(source)
     const into = this.load(target)
-    for (const [before, after] of moved) {
-      const owner = from.get(before)
-      if (owner && !into.has(after)) into.set(after, owner)
+    const sourceFolder = this.deps.folderOf(source)
+    const targetFolder = this.deps.folderOf(target)
+    if (sourceFolder && targetFolder) {
+      const renamed = new Map(moved)
+      for (const [path, owner] of from) {
+        const [first, ...rest] = relative(sourceFolder, path).split(sep)
+        const after = renamed.get(first)
+        if (!after) continue
+        const next = join(targetFolder, after, ...rest)
+        if (!into.has(next)) into.set(next, owner)
+      }
     }
     this.loaded.delete(source)
     this.save(target)

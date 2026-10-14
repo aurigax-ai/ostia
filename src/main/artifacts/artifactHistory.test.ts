@@ -37,15 +37,21 @@ function sha(text: string): string {
   return createHash('sha256').update(text).digest('hex')
 }
 
-async function make(file: string): Promise<string | null> {
+const madeFor: string[] = []
+let titleOf = (file: string): string => basename(file)
+let slowMake: Promise<void> | null = null
+
+async function make(workspaceId: string, file: string): Promise<string | null> {
   made += 1
+  madeFor.push(workspaceId)
+  if (slowMake) await slowMake
   const text = readFileSync(file, 'utf8')
   if (failing.has(basename(file)) || text.includes('SYNTAX')) return null
   const document = `<pre>${text}</pre>`
   const manifest: PortableManifest = {
     format: PORTABLE_FORMAT,
     type: 'markdown',
-    name: basename(file),
+    name: titleOf(file),
     built: new Date(clock.now).toISOString(),
     ostia: 'test',
     libraries: [],
@@ -283,5 +289,60 @@ describe('ArtifactHistory', () => {
     )
     expect(methods.length).toBeGreaterThan(20)
     expect(methods.filter((name) => /version|restore|history/i.test(name))).toEqual([])
+  })
+
+  it('PRT-C73 removes a scratch workspace’s history when Ostia quits', async () => {
+    scratch.add('w1')
+    const path = write('plan.md', 'scratch')
+    await history.snapshot('w1', path)
+    expect(existsSync(history.dirOf('w1'))).toBe(true)
+    history.quit()
+    expect(existsSync(history.dirOf('w1'))).toBe(false)
+  })
+
+  it('PRT-C74 sweeps at startup the history of a workspace whose folder is gone', async () => {
+    const path = write('plan.md', 'kept')
+    await history.snapshot('w1', path)
+    mkdirSync(join(history.root, 'gone'), { recursive: true })
+    writeFileSync(join(history.root, 'gone', 'x'), 'x')
+    mkdirSync(join(history.root, 'scratch-1'), { recursive: true })
+    expect(history.sweep()).toEqual(
+      expect.arrayContaining([join(history.root, 'gone'), join(history.root, 'scratch-1')]),
+    )
+    expect(existsSync(history.dirOf('w1'))).toBe(true)
+    expect(existsSync(join(history.root, 'gone'))).toBe(false)
+  })
+
+  it('PRT-C75 leaves nothing when a snapshot is still running as the workspace closes', async () => {
+    const path = write('plan.md', 'late')
+    let release = (): void => {}
+    slowMake = new Promise((resolve) => {
+      release = resolve
+    })
+    const running = history.snapshot('w1', path)
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    history.close('w1', null)
+    release()
+    expect(await running).toBe(false)
+    slowMake = null
+    expect(existsSync(history.dirOf('w1'))).toBe(false)
+  })
+
+  it('PRT-C79 builds a version for the workspace it belongs to', async () => {
+    madeFor.length = 0
+    const path = write('plan.md', 'mine')
+    await history.snapshot('w1', path)
+    expect(madeFor).toEqual(['w1'])
+  })
+
+  it('PRT-C80 reads a version whose title holds a >, and names it with an 8-hex hash', async () => {
+    titleOf = () => 'a <b> & "c" > d.md'
+    const path = write('plan.md', 'odd title')
+    await history.snapshot('w1', path)
+    titleOf = (file) => basename(file)
+    const [version] = history.list('w1', path)
+    expect(version.id).toMatch(/^\d+-[0-9a-f]{8}\.html$/)
+    const file = history.version('w1', path, version.id)?.file ?? ''
+    expect(history.document(file)).toBe('<pre>odd title</pre>')
   })
 })

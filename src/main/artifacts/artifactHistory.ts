@@ -32,9 +32,9 @@ const HISTORY_LIMITS = {
 } as const
 
 const COPIED = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.pdf'])
-const VERSION_NAME = /^(\d+)-([0-9a-f]{16})(\.\w+)$/
+const VERSION_NAME = /^(\d+)-([0-9a-f]{8})(\.\w+)$/
 const MANIFEST = /<script type="application\/json" id="ostia-artifact">([^<]*)<\/script>/
-const SRCDOC = /<iframe [^>]*srcdoc="([^"]*)"/
+const SRCDOC = ' srcdoc="'
 const WRITE_FLAGS =
   constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW
 
@@ -42,7 +42,7 @@ export interface ArtifactHistoryDeps {
   root: string
   folderOf: (workspaceId: string) => string | null
   isScratch: (workspaceId: string) => boolean
-  make: (file: string) => Promise<string | null>
+  make: (workspaceId: string, file: string) => Promise<string | null>
   now?: () => number
   quietMs?: number
 }
@@ -62,7 +62,11 @@ function sha(data: string | Buffer): string {
 }
 
 function unescapeAttribute(text: string): string {
-  return text.replace(/&quot;/g, '"').replace(/&amp;/g, '&')
+  return text
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
 }
 
 function manifestOf(text: string): Manifest | null {
@@ -83,6 +87,14 @@ function isRegular(path: string): boolean {
   }
 }
 
+function isRealDir(path: string): boolean {
+  try {
+    return lstatSync(path).isDirectory()
+  } catch {
+    return false
+  }
+}
+
 function isCopied(name: string): boolean {
   return COPIED.has(extname(name).toLowerCase())
 }
@@ -94,6 +106,7 @@ function keeps(name: string): boolean {
 export class ArtifactHistory {
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>()
   private readonly running = new Map<string, Promise<boolean>>()
+  private readonly closings = new Map<string, number>()
   private readonly now: () => number
 
   constructor(private readonly deps: ArtifactHistoryDeps) {
@@ -159,12 +172,14 @@ export class ArtifactHistory {
       body = read.body
       hash = sha(read.body)
     } else {
-      const text = await this.deps.make(path).catch(() => null)
+      const closing = this.closings.get(workspaceId) ?? 0
+      const text = await this.deps.make(workspaceId, path).catch(() => null)
+      if ((this.closings.get(workspaceId) ?? 0) !== closing) return false
       if (!text) return false
       body = Buffer.from(text)
       hash = manifestOf(text)?.hash ?? sha(text)
     }
-    const short = hash.slice(0, 16)
+    const short = hash.slice(0, 8)
     if (this.stored(workspaceId, name)[0]?.hash === short) return false
     const dir = this.versionsDir(workspaceId, name)
     mkdirSync(dir, { recursive: true, mode: 0o700 })
@@ -255,8 +270,12 @@ export class ArtifactHistory {
 
   document(file: string): string | null {
     if (!this.holds(file) || !isRegular(file)) return null
-    const raw = SRCDOC.exec(readFileSync(file, 'utf8'))?.[1]
-    return raw === undefined ? null : unescapeAttribute(raw)
+    const text = readFileSync(file, 'utf8')
+    const start = text.lastIndexOf(SRCDOC)
+    if (start === -1) return null
+    const from = start + SRCDOC.length
+    const end = text.indexOf('"', from)
+    return end === -1 ? null : unescapeAttribute(text.slice(from, end))
   }
 
   async restore(workspaceId: string, path: string, id: string): Promise<ArtifactRestore | null> {
@@ -286,6 +305,7 @@ export class ArtifactHistory {
   }
 
   close(workspaceId: string, closedDir: string | null): void {
+    this.closings.set(workspaceId, (this.closings.get(workspaceId) ?? 0) + 1)
     const dir = this.dirOf(workspaceId)
     if (!existsSync(dir)) return
     if (this.deps.isScratch(workspaceId) || !closedDir) {
@@ -314,6 +334,32 @@ export class ArtifactHistory {
       }
     }
     rmSync(from, { recursive: true, force: true })
+  }
+
+  quit(): void {
+    for (const workspaceId of this.workspaces()) {
+      if (this.deps.isScratch(workspaceId))
+        rmSync(this.dirOf(workspaceId), { recursive: true, force: true })
+    }
+  }
+
+  sweep(): string[] {
+    const removed: string[] = []
+    for (const workspaceId of this.workspaces()) {
+      if (isRealDir(join(this.deps.root, workspaceId))) continue
+      const dir = this.dirOf(workspaceId)
+      rmSync(dir, { recursive: true, force: true })
+      removed.push(dir)
+    }
+    return removed
+  }
+
+  private workspaces(): string[] {
+    try {
+      return readdirSync(this.root)
+    } catch {
+      return []
+    }
   }
 
   dispose(): void {

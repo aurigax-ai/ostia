@@ -285,9 +285,10 @@ describe('HtmlPreview', () => {
 
   it('PRT-C55 captures nothing for a tiny drag, a drag ending outside, or a stopped preview', async () => {
     const sendRegion = vi.fn()
-    vi.mocked(window.ostia.preview.capture).mockResolvedValue(
-      new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
-    )
+    vi.mocked(window.ostia.preview.capture).mockResolvedValue({
+      image: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+      region: { x: 10, y: 20, width: 100, height: 50 },
+    })
     const view = await renderSettled(
       <HtmlPreview
         workspaceId="s1"

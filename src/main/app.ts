@@ -34,7 +34,7 @@ import { isMacInstall, replacesInApp } from '../shared/app/installMethod'
 import { clampZoom, zoomFactor } from '../shared/app/zoom'
 import { appEnv, readEnv } from '../shared/appEnv'
 import { ARTIFACT_LIST_MAX } from '../shared/artifacts/artifacts'
-import { type PreviewTheme, isPreviewPartition } from '../shared/artifacts/htmlPreview'
+import { isPreviewPartition } from '../shared/artifacts/htmlPreview'
 import { parseChatToolSettings } from '../shared/assist/chatTools'
 import { parseGitSettings } from '../shared/boards/git'
 import { parsePortsSettings } from '../shared/boards/ports'
@@ -994,7 +994,7 @@ const openWaits = new OpenWaits((windowId, paneIds) =>
   windows.get(windowId)?.webContents.send('open-waits:ended', paneIds),
 )
 
-const previews = new PreviewHost({
+const previews: PreviewHost = new PreviewHost({
   sessionOf: (partition) => session.fromPartition(partition) as unknown as PreviewSession,
   confine: (path) => openFileGrants.confine(path),
   servesFolder: (dir) => artifactFolders.holds(dir),
@@ -1006,10 +1006,9 @@ const previews = new PreviewHost({
       memoryBytes: metric.memory.workingSetSize * 1024,
       cpuPercent: metric.cpu.percentCPUUsage,
     })),
-  build: (source, theme) => {
-    lastPreviewTheme = theme
-    return previewBuild(artifactHistory, (s, t) => portableBuilder.preview(s, t))(source, theme)
-  },
+  build: (source, theme) =>
+    previewBuild(artifactHistory, (s, t) => portableBuilder.preview(s, t))(source, theme),
+  hostZoom: (windowId) => windows.get(windowId)?.webContents.getZoomFactor() ?? 1,
 })
 
 const portableExport = new PortableExport({
@@ -1040,13 +1039,12 @@ const portableExport = new PortableExport({
   version: app.getVersion(),
 })
 
-let lastPreviewTheme: PreviewTheme = { dark: false, vars: {} }
-
-const artifactHistory = new ArtifactHistory({
+const artifactHistory: ArtifactHistory = new ArtifactHistory({
   root: artifactFolders.root,
   folderOf: (workspaceId) => artifactFolders.dirOf(workspaceId),
   isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
-  make: (file) => portableExport.fileFor(file, lastPreviewTheme),
+  make: (workspaceId, file) =>
+    portableExport.fileFor(file, previews.themeOf(windowForWorkspace(workspaceId))),
 })
 
 const artifactProducers = new ArtifactProducers({
@@ -3732,6 +3730,7 @@ app.whenReady().then(() => {
   }
   scratchFolders.sweep()
   artifactFolders.sweep()
+  artifactHistory.sweep()
   portableExport.sweep()
   workspaceSandboxes.sweepTmp()
   registerScratchIpc(scratchFolders)
@@ -4720,6 +4719,7 @@ app.on('before-quit', (event) => {
   for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)
   workspaceSandboxes.clearTmp(!keepingShells)
   artifactFolders.dispose()
+  artifactHistory.quit()
   artifactHistory.dispose()
   previews.dispose()
   scratchFolders.removeAll()

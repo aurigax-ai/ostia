@@ -461,7 +461,10 @@ const bridge: OstiaBridge = {
     stop: (id) => ipcRenderer.send('preview:stop', id),
     close: (id) => ipcRenderer.send('preview:close', id),
     capture: (id, rect) =>
-      ipcRenderer.invoke('preview:capture', id, rect) as Promise<Uint8Array | null>,
+      ipcRenderer.invoke('preview:capture', id, rect) as Promise<{
+        image: Uint8Array
+        region: { x: number; y: number; width: number; height: number }
+      } | null>,
     copyRegion: (id, rect) =>
       ipcRenderer.invoke('preview:copy-region', id, rect) as Promise<boolean>,
     onEvent: (cb) => {

@@ -47,7 +47,7 @@ export function HtmlPreview({
   paneId: string
   filePath: string
   visible: boolean
-  onSendErrors: (count: number, text: string) => void
+  onSendErrors?: (count: number, text: string) => void
   onSendRegion?: (capture: SelectionCapture, image: Uint8Array) => void
 }): JSX.Element {
   const d = useDict()
@@ -139,18 +139,18 @@ export function HtmlPreview({
       await window.ostia.preview.copyRegion(opened.id, picked.region)
       return
     }
-    const image = await window.ostia.preview.capture(opened.id, picked.region)
-    if (!image || !onSendRegion) return
+    const captured = await window.ostia.preview.capture(opened.id, picked.region)
+    if (!captured || !onSendRegion) return
     onSendRegion(
       {
         kind: 'preview-region',
         file: filePath,
         viewWidth: picked.viewWidth,
         viewHeight: picked.viewHeight,
-        region: picked.region,
+        region: captured.region,
         version: null,
       },
-      image,
+      captured.image,
     )
   }
   const report = (): string => errors.map((error) => errorText(d.preview.blocked, error)).join('\n')
@@ -175,27 +175,37 @@ export function HtmlPreview({
             </span>
             <span className="preview-strip-newest">{errorText(d.preview.blocked, newest)}</span>
           </button>
-          <ButtonGroup aria-label={d.preview.errorActions}>
+          {onSendErrors ? (
+            <ButtonGroup aria-label={d.preview.errorActions}>
+              <Button
+                variant="outline"
+                size="xs"
+                onClick={() => onSendErrors(errors.length, report())}
+              >
+                {d.preview.sendError}
+              </Button>
+              <ButtonGroupSeparator />
+              <DropdownMenu
+                trigger={
+                  <Button variant="outline" size="icon-xs" aria-label={d.preview.errorActions}>
+                    <CaretDownIcon aria-hidden />
+                  </Button>
+                }
+              >
+                <MenuItem onClick={() => void navigator.clipboard.writeText(report())}>
+                  {d.preview.copyErrors}
+                </MenuItem>
+              </DropdownMenu>
+            </ButtonGroup>
+          ) : (
             <Button
               variant="outline"
               size="xs"
-              onClick={() => onSendErrors(errors.length, report())}
+              onClick={() => void navigator.clipboard.writeText(report())}
             >
-              {d.preview.sendError}
+              {d.preview.copyErrors}
             </Button>
-            <ButtonGroupSeparator />
-            <DropdownMenu
-              trigger={
-                <Button variant="outline" size="icon-xs" aria-label={d.preview.errorActions}>
-                  <CaretDownIcon aria-hidden />
-                </Button>
-              }
-            >
-              <MenuItem onClick={() => void navigator.clipboard.writeText(report())}>
-                {d.preview.copyErrors}
-              </MenuItem>
-            </DropdownMenu>
-          </ButtonGroup>
+          )}
         </div>
       ) : null}
       {newest && expanded ? (
