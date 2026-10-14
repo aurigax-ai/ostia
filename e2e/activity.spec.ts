@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
@@ -132,6 +132,87 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
     expect(await text(app, '.event')).toBe(
       ['Prompt\nfix the cart total', 'Ran\npnpm test', 'Stopped'].join('|'),
     )
+  } finally {
+    await app.close()
+  }
+})
+
+test('a needs-you item an agent adds is counted in the sidebar, marked done by the human, and archived after the live window', async () => {
+  const dataHome = freshDataHome()
+  const launch = isolatedLaunch(dataHome)
+  const activityDir = join(dataHome, 'userData', 'extension-data', 'activity')
+  const idFile = join(dataHome, 'added-id.txt')
+  const archivedFile = join(dataHome, 'archived.json')
+  const count = (win: Page) => win.getByText('1 need you')
+
+  let app = await electron.launch(launch)
+  let id = ''
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    await runInTerminal(
+      win,
+      `ostia activity add "Check the staging deploy" --needs-you > '${idFile}'`,
+      shownTerminal(win),
+    )
+    await expect
+      .poll(() => (existsSync(idFile) ? readFileSync(idFile, 'utf8').trim() : ''), {
+        timeout: 30_000,
+      })
+      .toMatch(/^[a-z2-7]{10}$/)
+    id = readFileSync(idFile, 'utf8').trim()
+    await expect(count(win)).toBeVisible({ timeout: 15_000 })
+
+    await openActivity(win)
+    await expect
+      .poll(() => panelEval(app, `document.querySelector('.note-row')?.innerText ?? ''`), {
+        timeout: 30_000,
+      })
+      .toContain('Check the staging deploy')
+    await panelEval(app, `document.querySelector('.done-button').click(); 'ok'`)
+    await expect(count(win)).toHaveCount(0, { timeout: 15_000 })
+    await expect
+      .poll(() => panelEval(app, `document.querySelector('.needs-you')?.innerText ?? ''`))
+      .toBe('Done')
+  } finally {
+    await quitApp(app)
+  }
+
+  const journalDir = join(activityDir, 'journal')
+  const [file] = readdirSync(journalDir)
+  const monthAgo = Date.now() - 30 * 24 * 60 * 60 * 1000
+  const aged = readFileSync(join(journalDir, file), 'utf8')
+    .trim()
+    .split('\n')
+    .map((line) => JSON.stringify({ ...JSON.parse(line), t: monthAgo }))
+    .join('\n')
+  writeFileSync(join(journalDir, file), `${aged}\n`)
+
+  app = await electron.launch(launch)
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 30_000 })
+    await runInTerminal(
+      win,
+      `ostia activity list --archived --json > '${archivedFile}'`,
+      shownTerminal(win),
+    )
+    await expect
+      .poll(() => (existsSync(archivedFile) ? readFileSync(archivedFile, 'utf8') : ''), {
+        timeout: 30_000,
+      })
+      .toContain(id)
+    expect(JSON.parse(readFileSync(archivedFile, 'utf8'))).toEqual([
+      expect.objectContaining({ id, needsYou: true, done: true }),
+    ])
+    const archive = join(activityDir, 'archive', file.replace(/\.jsonl$/, ''))
+    const months = readdirSync(archive)
+    expect(months).toEqual([`${new Date(monthAgo).toISOString().slice(0, 7)}.jsonl.gz`])
+    expect(statSync(join(archive, months[0])).mode & 0o777).toBe(0o600)
+    expect(existsSync(join(journalDir, file))).toBe(false)
+    await expect(count(win)).toHaveCount(0)
   } finally {
     await app.close()
   }

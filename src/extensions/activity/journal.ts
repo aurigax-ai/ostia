@@ -11,58 +11,78 @@ import {
   writeSync,
 } from 'node:fs'
 import { join } from 'node:path'
-import { type ActivityEvent, parseStoredEvent } from './hookEvent'
+import { ARCHIVE_DIR, ARCHIVE_MAX_BYTES, Archive, storableWorkspaceId } from './archive'
+import {
+  type ActivityNote,
+  type ActivityRecord,
+  isOpenNeedsYou,
+  parseStoredRecord,
+} from './hookEvent'
 
 export const JOURNAL_DIR = 'journal'
 const JOURNAL_SUFFIX = '.jsonl'
 const JOURNAL_MAX_BYTES = 512 * 1024
-export const JOURNAL_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000
+export const DAY_MS = 24 * 60 * 60 * 1000
+export const RETENTION_DAYS = 14
+export const ARCHIVE_DAYS = 180
 const JOURNAL_FILE_MODE = 0o600
 const JOURNAL_DIR_MODE = 0o700
 
-const WORKSPACE_FILE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/
 const APPEND_FLAGS =
   constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | constants.O_NOFOLLOW
 const REWRITE_FLAGS =
   constants.O_WRONLY | constants.O_TRUNC | constants.O_CREAT | constants.O_NOFOLLOW
 
 interface WorkspaceJournal {
-  events: ActivityEvent[]
+  events: ActivityRecord[]
   bytes: number
   onDisk: boolean
+}
+
+export interface Retention {
+  liveMs: number
+  archiveMs: number
 }
 
 export interface JournalOptions {
   dir: string | null
   now: () => number
   maxBytes?: number
-  maxAgeMs?: number
+  archiveMaxBytes?: number
+  retention?: Retention
 }
 
-function lineOf(event: ActivityEvent): string {
+function lineOf(event: ActivityRecord): string {
   return `${JSON.stringify(event)}\n`
 }
 
-function bytesOf(events: readonly ActivityEvent[]): number {
+function bytesOf(events: readonly ActivityRecord[]): number {
   return events.reduce((sum, event) => sum + Buffer.byteLength(lineOf(event)), 0)
-}
-
-function storableWorkspaceId(workspaceId: string): boolean {
-  return WORKSPACE_FILE_PATTERN.test(workspaceId)
 }
 
 export class Journal {
   private readonly byWorkspace = new Map<string, WorkspaceJournal>()
   private readonly dir: string | null
+  private readonly archive: Archive | null
   private readonly now: () => number
   private readonly maxBytes: number
-  private readonly maxAgeMs: number
+  private readonly archiveMaxBytes: number
+  private retention: Retention
 
   constructor(options: JournalOptions) {
     this.dir = options.dir ? join(options.dir, JOURNAL_DIR) : null
+    this.archive = options.dir ? new Archive(join(options.dir, ARCHIVE_DIR)) : null
     this.now = options.now
     this.maxBytes = options.maxBytes ?? JOURNAL_MAX_BYTES
-    this.maxAgeMs = options.maxAgeMs ?? JOURNAL_MAX_AGE_MS
+    this.archiveMaxBytes = options.archiveMaxBytes ?? ARCHIVE_MAX_BYTES
+    this.retention = options.retention ?? {
+      liveMs: RETENTION_DAYS * DAY_MS,
+      archiveMs: ARCHIVE_DAYS * DAY_MS,
+    }
+  }
+
+  setRetention(retention: Retention): void {
+    this.retention = retention
   }
 
   load(): void {
@@ -78,7 +98,8 @@ export class Journal {
       if (!storableWorkspaceId(workspaceId)) continue
       const stored = this.readFile(workspaceId)
       if (!stored) continue
-      const events = this.fresh(stored.events)
+      const { kept: events, old } = this.split(stored.events)
+      this.archive?.add(workspaceId, old)
       if (events.length === 0) {
         this.removeFile(workspaceId)
         continue
@@ -90,7 +111,7 @@ export class Journal {
     }
   }
 
-  append(workspaceId: string, event: ActivityEvent, persist: boolean): void {
+  append(workspaceId: string, event: ActivityRecord, persist: boolean): void {
     const journal = this.byWorkspace.get(workspaceId) ?? this.create(workspaceId, persist)
     if (journal.onDisk && !persist) {
       journal.onDisk = false
@@ -103,8 +124,37 @@ export class Journal {
     this.trim(workspaceId, journal)
   }
 
-  events(workspaceId: string): readonly ActivityEvent[] {
+  events(workspaceId: string): readonly ActivityRecord[] {
     return this.byWorkspace.get(workspaceId)?.events ?? []
+  }
+
+  archived(workspaceId: string): ActivityRecord[] {
+    return this.archive && storableWorkspaceId(workspaceId) ? this.archive.records(workspaceId) : []
+  }
+
+  find(workspaceId: string, id: string): ActivityRecord | null {
+    return (
+      this.events(workspaceId).find((record) => record.id === id) ??
+      this.archived(workspaceId).find((record) => record.id === id) ??
+      null
+    )
+  }
+
+  openNeedsYou(workspaceId: string): ActivityNote[] {
+    return this.events(workspaceId).filter(isOpenNeedsYou) as ActivityNote[]
+  }
+
+  markDone(workspaceId: string, id: string, at: number): ActivityNote | null {
+    const journal = this.byWorkspace.get(workspaceId)
+    const index = journal?.events.findIndex((record) => record.id === id) ?? -1
+    const found = journal?.events[index]
+    if (!journal || !found || found.kind !== 'note' || !found.needsYou) return null
+    if (found.doneAt !== undefined) return found
+    const done: ActivityNote = { ...found, doneAt: at }
+    journal.events = journal.events.map((record, i) => (i === index ? done : record))
+    journal.bytes = bytesOf(journal.events)
+    if (journal.onDisk) this.rewrite(workspaceId, journal)
+    return done
   }
 
   workspaceIds(): string[] {
@@ -127,9 +177,14 @@ export class Journal {
 
   prune(): boolean {
     let changed = false
+    this.archive?.prune(this.now(), {
+      maxAgeMs: this.retention.archiveMs,
+      maxBytes: this.archiveMaxBytes,
+    })
     for (const [workspaceId, journal] of this.byWorkspace) {
-      const events = this.fresh(journal.events)
-      if (events.length === journal.events.length) continue
+      const { kept: events, old } = this.split(journal.events)
+      if (old.length === 0) continue
+      if (journal.onDisk) this.archive?.add(workspaceId, old)
       changed = true
       if (events.length === 0) {
         this.byWorkspace.delete(workspaceId)
@@ -153,21 +208,34 @@ export class Journal {
     return journal
   }
 
-  private fresh(events: readonly ActivityEvent[]): ActivityEvent[] {
-    const oldest = this.now() - this.maxAgeMs
-    return events.filter((event) => event.t >= oldest)
+  private split(events: readonly ActivityRecord[]): {
+    kept: ActivityRecord[]
+    old: ActivityRecord[]
+  } {
+    const oldest = this.now() - this.retention.liveMs
+    const kept: ActivityRecord[] = []
+    const old: ActivityRecord[] = []
+    for (const event of events) {
+      if (event.t >= oldest || isOpenNeedsYou(event)) kept.push(event)
+      else old.push(event)
+    }
+    return { kept, old }
   }
 
   private trim(workspaceId: string, journal: WorkspaceJournal): void {
     if (journal.bytes <= this.maxBytes) return
     const target = Math.floor(this.maxBytes / 2)
     let bytes = journal.bytes
-    let first = 0
-    while (first < journal.events.length - 1 && bytes > target) {
-      bytes -= Buffer.byteLength(lineOf(journal.events[first]))
-      first += 1
+    const moved = new Set<ActivityRecord>()
+    for (const event of journal.events.slice(0, -1)) {
+      if (bytes <= target) break
+      if (isOpenNeedsYou(event)) continue
+      moved.add(event)
+      bytes -= Buffer.byteLength(lineOf(event))
     }
-    journal.events = journal.events.slice(first)
+    if (moved.size === 0) return
+    if (journal.onDisk) this.archive?.add(workspaceId, [...moved])
+    journal.events = journal.events.filter((event) => !moved.has(event))
     journal.bytes = bytes
     if (journal.onDisk) this.rewrite(workspaceId, journal)
   }
@@ -182,7 +250,7 @@ export class Journal {
     chmodSync(this.dir, JOURNAL_DIR_MODE)
   }
 
-  private readFile(workspaceId: string): { events: ActivityEvent[]; dirty: boolean } | null {
+  private readFile(workspaceId: string): { events: ActivityRecord[]; dirty: boolean } | null {
     let fd: number
     try {
       fd = openSync(this.file(workspaceId), constants.O_RDONLY | constants.O_NOFOLLOW)
@@ -190,13 +258,13 @@ export class Journal {
       return null
     }
     try {
-      const events: ActivityEvent[] = []
+      const events: ActivityRecord[] = []
       let dirty = false
       for (const line of readFileSync(fd, 'utf8').split('\n')) {
         if (line === '') continue
-        let event: ActivityEvent | null = null
+        let event: ActivityRecord | null = null
         try {
-          event = parseStoredEvent(JSON.parse(line))
+          event = parseStoredRecord(JSON.parse(line))
         } catch {}
         if (event) events.push(event)
         else dirty = true

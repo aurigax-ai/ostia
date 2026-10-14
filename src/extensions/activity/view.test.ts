@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ActivityEvent } from './hookEvent'
+import type { ActivityEvent, ActivityNote } from './hookEvent'
 import { EARLIER_TURNS_MAX, ageOf, panelModel, turnsOf } from './view'
 
 let clock = 0
@@ -12,8 +12,9 @@ function ev(
 ): ActivityEvent {
   clock += 10
   const event: ActivityEvent = {
-    v: 1,
+    v: 2,
     t: clock,
+    id: 'eventidaaa',
     pane,
     agent: 'claude',
     session: 's',
@@ -130,6 +131,41 @@ describe('panelModel', () => {
     expect(agent.earlier).toHaveLength(EARLIER_TURNS_MAX)
     expect(agent.earlier[0].prompt).toBe(`turn ${EARLIER_TURNS_MAX + 3}`)
     expect(agent.recap).toBe(`recap ${EARLIER_TURNS_MAX + 4}`)
+  })
+})
+
+describe('panelModel notes', () => {
+  const note = (t: number, id: string, extra: Partial<ActivityNote> = {}): ActivityNote => ({
+    v: 2,
+    t,
+    id,
+    pane: 'p1',
+    kind: 'note',
+    text: id,
+    ...extra,
+  })
+
+  it('lists open needs-you items first, then the latest notes, and shows a workspace that has only notes', () => {
+    const model = panelModel({
+      showActivity: false,
+      workspaces: [{ workspaceId: 'w1', name: 'shop' }],
+      panes: [],
+      events: () => [
+        note(1, 'olderopenn', { needsYou: true }),
+        note(2, 'plainnotea'),
+        note(3, 'donedonedo', { needsYou: true, doneAt: 4 }),
+        note(5, 'neweropenn', { needsYou: true, link: '/w/a.md' }),
+      ],
+    })
+    expect(model.workspaces).toHaveLength(1)
+    expect(model.workspaces[0].agents).toEqual([])
+    expect(model.workspaces[0].last).toBe(5)
+    expect(model.workspaces[0].notes).toEqual([
+      { id: 'neweropenn', t: 5, text: 'neweropenn', needsYou: true, done: false, link: '/w/a.md' },
+      { id: 'olderopenn', t: 1, text: 'olderopenn', needsYou: true, done: false },
+      { id: 'donedonedo', t: 3, text: 'donedonedo', needsYou: true, done: true },
+      { id: 'plainnotea', t: 2, text: 'plainnotea', needsYou: false, done: false },
+    ])
   })
 })
 

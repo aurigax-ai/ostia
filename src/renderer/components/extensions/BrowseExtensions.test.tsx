@@ -60,6 +60,8 @@ function marketplace(overrides: Partial<MarketplaceInfo> = {}): MarketplaceInfo 
     extensions: [WEATHER],
     installs: [],
     unlisted: false,
+    official: false,
+    downloaded: true,
     ...overrides,
   }
 }
@@ -335,6 +337,52 @@ describe('BrowseExtensions', () => {
       within(details()).getByRole('button', { name: 'Replace with this version' }),
     )
     expect(window.ostia.marketplace.install).toHaveBeenCalledWith('abc123', 'weather')
+  })
+
+  it('offers the listed official marketplace for download, and Download fetches it', async () => {
+    const pending = marketplace({
+      name: 'https://github.com/aurigax-ai/ostia-extensions.git',
+      url: 'https://github.com/aurigax-ai/ostia-extensions.git',
+      description: '',
+      extensions: [],
+      official: true,
+      downloaded: false,
+    })
+    await browse(stateWith(pending))
+    expect(screen.getByText('Download a marketplace below to browse its extensions.')).toBeVisible()
+    const panel = screen.getByRole('region', { name: 'Marketplaces' })
+    const row = within(panel).getByRole('listitem', { name: pending.name })
+    expect(within(row).getByText('Not downloaded yet.')).toBeVisible()
+    expect(within(row).queryByText('This marketplace lists no extensions.')).toBeNull()
+    expect(within(panel).queryByRole('button', { name: 'Add the official marketplace' })).toBeNull()
+    vi.mocked(window.ostia.marketplace.refresh).mockResolvedValue({
+      ok: true,
+      state: stateWith(marketplace({ official: true })),
+    })
+    await userEvent.click(within(row).getByRole('button', { name: 'Download' }))
+    expect(window.ostia.marketplace.refresh).toHaveBeenCalledWith('abc123')
+    expect(await within(results()).findByRole('listitem', { name: 'Weather' })).toBeVisible()
+  })
+
+  it('adds the official marketplace back in one click once it was removed', async () => {
+    await browse(stateWith(marketplace()))
+    const panel = screen.getByRole('region', { name: 'Marketplaces' })
+    vi.mocked(window.ostia.marketplace.add).mockResolvedValue({
+      ok: true,
+      state: {
+        marketplaces: [marketplace(), marketplace({ ...OTHER, official: true })],
+        installed: [],
+      },
+    })
+    await userEvent.click(
+      within(panel).getByRole('button', { name: 'Add the official marketplace' }),
+    )
+    expect(window.ostia.marketplace.add).toHaveBeenCalledWith('aurigax-ai/ostia-extensions')
+    await waitFor(() =>
+      expect(
+        within(panel).queryByRole('button', { name: 'Add the official marketplace' }),
+      ).toBeNull(),
+    )
   })
 
   it('refreshes and removes a marketplace from its panel', async () => {

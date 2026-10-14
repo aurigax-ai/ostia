@@ -9,17 +9,51 @@ const ACTIVITY_KINDS = ['prompt', 'tool', 'stop'] as const
 
 export type ActivityKind = (typeof ACTIVITY_KINDS)[number]
 
-const JOURNAL_VERSION = 1
+const JOURNAL_VERSION = 2
 
 export interface ActivityEvent {
   v: typeof JOURNAL_VERSION
   t: number
+  id: string
   pane: string
   agent: HookAgent
   session: string
   kind: ActivityKind
   tool?: ToolKind
   text?: string
+}
+
+export interface ActivityNote {
+  v: typeof JOURNAL_VERSION
+  t: number
+  id: string
+  pane: string
+  kind: 'note'
+  text: string
+  needsYou?: true
+  link?: string
+  doneAt?: number
+}
+
+export type ActivityRecord = ActivityEvent | ActivityNote
+
+export const NOTE_TEXT_MAX = 2000
+export const NOTE_LINK_MAX = 2000
+const RECORD_ID_PATTERN = /^[a-z2-7]{10}$/
+const BASE32 = 'abcdefghijklmnopqrstuvwxyz234567'
+
+export function newRecordId(): string {
+  return [...globalThis.crypto.getRandomValues(new Uint8Array(10))]
+    .map((byte) => BASE32[byte % 32])
+    .join('')
+}
+
+export function isRecordId(value: unknown): value is string {
+  return typeof value === 'string' && RECORD_ID_PATTERN.test(value)
+}
+
+export function isOpenNeedsYou(record: ActivityRecord): boolean {
+  return record.kind === 'note' && record.needsYou === true && record.doneAt === undefined
 }
 
 export const PROMPT_TEXT_MAX = 200
@@ -135,6 +169,7 @@ export function parseHookEvent(source: HookSource, stdin: string): ActivityEvent
   const base = {
     v: JOURNAL_VERSION,
     t: source.now,
+    id: newRecordId(),
     pane: source.pane,
     agent: source.agent,
     session: sessionOf(payload.session_id),
@@ -163,17 +198,30 @@ export function parseHookEvent(source: HookSource, stdin: string): ActivityEvent
   return null
 }
 
-export function parseStoredEvent(raw: unknown): ActivityEvent | null {
+function parseStoredNote(raw: Record<string, unknown>, t: number, id: string, pane: string) {
+  const { text, needsYou, link, doneAt } = raw
+  if (typeof text !== 'string' || text === '' || [...text].length > NOTE_TEXT_MAX) return null
+  const note: ActivityNote = { v: JOURNAL_VERSION, t, id, pane, kind: 'note', text }
+  if (needsYou === true) note.needsYou = true
+  if (typeof link === 'string' && link !== '' && link.length <= NOTE_LINK_MAX) note.link = link
+  if (typeof doneAt === 'number' && Number.isFinite(doneAt)) note.doneAt = doneAt
+  return note
+}
+
+export function parseStoredRecord(raw: unknown): ActivityRecord | null {
   if (!isRecord(raw) || raw.v !== JOURNAL_VERSION) return null
-  const { t, pane, agent, session, kind, tool, text } = raw
+  const { t, id, pane, agent, session, kind, tool, text } = raw
   if (typeof t !== 'number' || !Number.isFinite(t)) return null
-  if (typeof pane !== 'string' || pane === '' || typeof session !== 'string') return null
+  if (!isRecordId(id) || typeof pane !== 'string' || pane === '') return null
+  if (kind === 'note') return parseStoredNote(raw, t, id, pane)
+  if (typeof session !== 'string') return null
   if (agent !== 'claude' && agent !== 'codex') return null
   if (!ACTIVITY_KINDS.includes(kind as ActivityKind)) return null
   if (text !== undefined && typeof text !== 'string') return null
   const event: ActivityEvent = {
     v: JOURNAL_VERSION,
     t,
+    id,
     pane,
     agent,
     session,

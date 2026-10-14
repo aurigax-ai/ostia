@@ -430,4 +430,42 @@ describe('the Activity extension records two fake agents and shows them in its p
     expect(await panel('setShowActivity', { value: false })).toMatchObject({ ok: true })
     expect((await snapshot()).showActivity).toBe(false)
   }, 60_000)
+
+  it('lets an agent add a needs-you item, read it back, count it in the sidebar, and the human mark it done', async () => {
+    const bashInit = join(shellIntegrationDir(), 'init.bash')
+    const ostia = (identity: PaneIdentity, command: string): Promise<RunResult> =>
+      run('bash', ['--norc', '-c', `source '${bashInit}'; ${command}`], paneEnv(identity, []))
+    const openCount = (): string | undefined =>
+      serving.sidebarItems().find((i) => i.extId === 'activity' && i.workspaceId === 'w1')?.badge
+
+    const added = await ostia(
+      claudePane,
+      `ostia activity add "Put ${FAKE.githubClassic} into .env.local" --needs-you --link /w/shop/.env.example`,
+    )
+    expect(added.stderr).toBe('')
+    expect(added.code).toBe(0)
+    const id = added.stdout.trim()
+    expect(id).toMatch(/^[a-z2-7]{10}$/)
+    expect(readFileSync(journalFile('w1'), 'utf8')).not.toContain(FAKE.githubClassic)
+    expect(await until(async () => (openCount() === '1' ? '1' : undefined))).toBe('1')
+
+    const listed = await ostia(codexPane, 'ostia activity list --open --json')
+    expect(listed.code).toBe(0)
+    expect(JSON.parse(listed.stdout)).toEqual([
+      expect.objectContaining({ id, kind: 'note', needsYou: true, link: '/w/shop/.env.example' }),
+    ])
+    const notYours = await ostia(codexPane, `ostia activity done ${id}`)
+    expect(notYours.code).toBe(1)
+    expect(notYours.stderr).toContain('marks only its own items')
+
+    const note = (await snapshot()).workspaces
+      .find((w) => w.workspaceId === 'w1')
+      ?.notes.find((n) => n.id === id)
+    expect(note).toMatchObject({ needsYou: true, done: false })
+    expect(await panel('done', { workspaceId: 'w1', id })).toEqual({ ok: true })
+    await until(async () => (openCount() === undefined ? true : undefined))
+
+    const shown = await ostia(claudePane, `ostia activity show ${id} --json`)
+    expect(JSON.parse(shown.stdout)).toMatchObject({ id, needsYou: true, done: true })
+  }, 60_000)
 })

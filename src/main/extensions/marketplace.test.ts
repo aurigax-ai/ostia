@@ -115,7 +115,13 @@ interface Harness {
 }
 
 function harness(
-  opts: { builtinIds?: string[]; git?: GitRunner; locale?: () => string } = {},
+  opts: {
+    builtinIds?: string[]
+    git?: GitRunner
+    locale?: () => string
+    official?: string
+    recordsText?: string
+  } = {},
 ): Harness {
   const data = tmp()
   const extensionsDir = join(data, 'extensions')
@@ -123,6 +129,7 @@ function harness(
   const forgotten: string[] = []
   let rescans = 0
   const recordsPath = join(data, 'marketplaces.json')
+  if (opts.recordsText !== undefined) writeFileSync(recordsPath, opts.recordsText)
   const open = (): Marketplace =>
     new Marketplace({
       recordsPath,
@@ -135,6 +142,7 @@ function harness(
       },
       gitMissing: () => false,
       ...(opts.locale ? { locale: opts.locale } : {}),
+      ...(opts.official ? { official: opts.official } : {}),
       ...(opts.git ? { git: opts.git } : {}),
     })
   return {
@@ -264,6 +272,67 @@ describe('planCopy', () => {
 })
 
 describe('Marketplace', () => {
+  const OFFICIAL_URL = 'https://github.com/aurigax-ai/ostia-extensions.git'
+
+  it('lists the official marketplace on a fresh install without downloading it', () => {
+    const cloned: string[][] = []
+    const h = harness({
+      official: 'aurigax-ai/ostia-extensions',
+      git: async (args) => {
+        cloned.push(args)
+      },
+    })
+    expect(h.marketplace.state().marketplaces).toEqual([
+      expect.objectContaining({
+        url: OFFICIAL_URL,
+        official: true,
+        downloaded: false,
+        extensions: [],
+      }),
+    ])
+    expect(h.marketplace.state().marketplaces[0]).not.toHaveProperty('error')
+    expect(cloned).toEqual([])
+    expect(existsSync(h.recordsPath)).toBe(false)
+  })
+
+  it('downloads the default official marketplace on the human’s refresh', async () => {
+    const official = marketplaceRepo()
+    const h = harness({
+      official: 'aurigax-ai/ostia-extensions',
+      git: async (args) => runGit([...args.slice(0, -2), official, args[args.length - 1]]),
+    })
+    const [listed] = h.marketplace.state().marketplaces
+    const res = await h.marketplace.refresh(listed?.id)
+    expect(res.state.marketplaces[0]).toMatchObject({ downloaded: true, official: true })
+    expect(res.state.marketplaces[0]?.extensions.map((e) => e.id)).toEqual(['weather'])
+  })
+
+  it('keeps the official marketplace removed once the human removed it, until it is added back', async () => {
+    const official = marketplaceRepo()
+    const h = harness({
+      official: 'aurigax-ai/ostia-extensions',
+      git: async (args) => runGit([...args.slice(0, -2), official, args[args.length - 1]]),
+    })
+    const [listed] = h.marketplace.state().marketplaces
+    expect((await h.marketplace.remove(listed?.id, false)).state.marketplaces).toEqual([])
+    expect(h.reopen().state().marketplaces).toEqual([])
+
+    const back = await h.reopen().add('aurigax-ai/ostia-extensions')
+    expect(back.state.marketplaces).toEqual([
+      expect.objectContaining({ url: OFFICIAL_URL, official: true, downloaded: true }),
+    ])
+  })
+
+  it('adds no default to an install that already keeps a marketplace list', () => {
+    const h = harness({
+      official: 'aurigax-ai/ostia-extensions',
+      recordsText: JSON.stringify({ sources: [{ url: 'acme/ext' }], installs: {} }),
+    })
+    expect(h.marketplace.state().marketplaces.map((m) => [m.url, m.official])).toEqual([
+      ['https://github.com/acme/ext.git', false],
+    ])
+  })
+
   it('adds a git repository and lists its extensions as available', async () => {
     const repo = marketplaceRepo()
     const h = harness()
@@ -278,6 +347,8 @@ describe('Marketplace', () => {
         problems: [],
         installs: [],
         unlisted: false,
+        official: false,
+        downloaded: true,
         extensions: [
           {
             id: 'weather',
@@ -717,6 +788,18 @@ describe('Marketplace', () => {
     expect(
       JSON.parse(readFileSync(join(h.extensionsDir, 'weather', 'ostia.json'), 'utf8')).name,
     ).toBe('Official weather')
+  })
+
+  it('downloads the listed but not yet downloaded official marketplace for a suggested extension', async () => {
+    const official = marketplaceRepo()
+    const h = harness({
+      official: 'aurigax-ai/ostia-extensions',
+      git: async (args) => runGit([...args.slice(0, -2), official, args[args.length - 1]]),
+    })
+    const res = await h.marketplace.installSuggested('weather', 'aurigax-ai/ostia-extensions', true)
+    expect(res.ok).toBe(true)
+    expect(res.state.marketplaces).toHaveLength(1)
+    expect(existsSync(join(h.extensionsDir, 'weather', 'ostia.json'))).toBe(true)
   })
 
   it('installs nothing when the official marketplace does not have the extension or cannot be fetched', async () => {

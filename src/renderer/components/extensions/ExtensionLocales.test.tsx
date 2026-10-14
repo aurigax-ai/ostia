@@ -193,6 +193,8 @@ describe('extension wording follows the list main resolved for the language', ()
           description: '',
           problems: [],
           installs: [],
+          official: false,
+          downloaded: true,
           unlisted: false,
           extensions: [
             {

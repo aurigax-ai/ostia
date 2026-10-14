@@ -39,6 +39,8 @@ export interface MarketplaceInfo {
   extensions: MarketplaceExtension[]
   installs: string[]
   unlisted: boolean
+  official: boolean
+  downloaded: boolean
 }
 
 export interface MarketplaceState {

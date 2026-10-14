@@ -4,7 +4,7 @@ import {
   PROMPT_TEXT_MAX,
   RECAP_TEXT_MAX,
   parseHookEvent,
-  parseStoredEvent,
+  parseStoredRecord,
   recapOf,
 } from './hookEvent'
 
@@ -15,7 +15,8 @@ const source = (event: HookSource['event'], agent: HookSource['agent'] = 'claude
   now: 1000,
 })
 
-const base = { v: 1, t: 1000, pane: 'pane-1', agent: 'claude', session: 's-1' }
+const base = { v: 2, t: 1000, pane: 'pane-1', agent: 'claude', session: 's-1' }
+const anyId = expect.stringMatching(/^[a-z2-7]{10}$/)
 
 describe('parseHookEvent', () => {
   it('keeps the first non-empty line of the prompt, capped', () => {
@@ -43,6 +44,7 @@ describe('parseHookEvent', () => {
         }),
       )
     expect(tool('Edit', { file_path: '/w/shop/src/cart.ts', old_string: 'secret body' })).toEqual({
+      id: anyId,
       ...base,
       kind: 'tool',
       tool: 'edit',
@@ -73,12 +75,13 @@ describe('parseHookEvent', () => {
       text: 'https://example.com/a',
     })
     expect(tool('mcp__board__move', { card: 'A-1' })).toEqual({
+      id: anyId,
       ...base,
       kind: 'tool',
       tool: 'other',
       text: 'mcp__board__move',
     })
-    expect(tool('Edit', {})).toEqual({ ...base, kind: 'tool', tool: 'edit' })
+    expect(tool('Edit', {})).toEqual({ ...base, id: anyId, kind: 'tool', tool: 'edit' })
     expect(JSON.stringify(tool('Bash', { command: 'ls' }))).not.toContain('printed output')
   })
 
@@ -93,7 +96,8 @@ describe('parseHookEvent', () => {
       }),
     )
     expect(event).toEqual({
-      v: 1,
+      v: 2,
+      id: anyId,
       t: 1000,
       pane: 'pane-1',
       agent: 'codex',
@@ -112,6 +116,7 @@ describe('parseHookEvent', () => {
         JSON.stringify({ session_id: 's-1', last_assistant_message: message }),
       ),
     ).toEqual({
+      id: anyId,
       ...base,
       kind: 'stop',
       text: 'Fixed the cart total.\nTests pass.\nThree\nFour…',
@@ -122,6 +127,7 @@ describe('parseHookEvent', () => {
   it('records a stop without a recap when the agent sent no closing message', () => {
     expect(parseHookEvent(source('Stop'), JSON.stringify({ session_id: 's-1' }))).toEqual({
       ...base,
+      id: anyId,
       kind: 'stop',
     })
   })
@@ -131,7 +137,7 @@ describe('parseHookEvent', () => {
       source('UserPromptSubmit'),
       JSON.stringify({ session_id: '../../etc', prompt: 'a\u001b[31mb\u0007c' }),
     )
-    expect(event).toEqual({ ...base, session: '', kind: 'prompt', text: 'a [31mb c' })
+    expect(event).toEqual({ ...base, id: anyId, session: '', kind: 'prompt', text: 'a [31mb c' })
     expect(parseHookEvent(source('SessionStart'), '{}')).toBeNull()
     expect(parseHookEvent(source('Stop'), 'not json')).toBeNull()
     expect(parseHookEvent(source('Stop'), '[]')).toBeNull()
@@ -139,16 +145,43 @@ describe('parseHookEvent', () => {
   })
 })
 
-describe('parseStoredEvent', () => {
+describe('parseStoredRecord', () => {
   it('accepts what parseHookEvent writes and refuses anything else', () => {
-    const stored = { ...base, kind: 'tool', tool: 'edit', text: 'a.ts' }
-    expect(parseStoredEvent(stored)).toEqual(stored)
-    expect(parseStoredEvent({ ...stored, extra: 'x' })).toEqual(stored)
-    expect(parseStoredEvent({ ...stored, v: 2 })).toBeNull()
-    expect(parseStoredEvent({ ...stored, agent: 'other' })).toBeNull()
-    expect(parseStoredEvent({ ...stored, tool: 'rm' })).toBeNull()
-    expect(parseStoredEvent({ ...stored, kind: 'output' })).toBeNull()
-    expect(parseStoredEvent({ ...stored, text: 4 })).toBeNull()
-    expect(parseStoredEvent(null)).toBeNull()
+    const stored = { ...base, id: 'abcdefghij', kind: 'tool', tool: 'edit', text: 'a.ts' }
+    expect(parseStoredRecord(stored)).toEqual(stored)
+    expect(parseStoredRecord({ ...stored, extra: 'x' })).toEqual(stored)
+    expect(parseStoredRecord({ ...stored, v: 1 })).toBeNull()
+    expect(parseStoredRecord({ ...stored, id: 'short' })).toBeNull()
+    expect(parseStoredRecord({ ...stored, agent: 'other' })).toBeNull()
+    expect(parseStoredRecord({ ...stored, tool: 'rm' })).toBeNull()
+    expect(parseStoredRecord({ ...stored, kind: 'output' })).toBeNull()
+    expect(parseStoredRecord({ ...stored, text: 4 })).toBeNull()
+    expect(parseStoredRecord(null)).toBeNull()
+  })
+
+  it('accepts a note with its needs-you mark, link and done time, and refuses an empty or oversized one', () => {
+    const note = {
+      v: 2,
+      t: 5,
+      id: 'notenotena',
+      pane: 'pane-1',
+      kind: 'note',
+      text: 'set the key',
+      needsYou: true,
+      link: '/w/README.md',
+      doneAt: 9,
+    }
+    expect(parseStoredRecord(note)).toEqual(note)
+    expect(parseStoredRecord({ ...note, needsYou: 'yes', doneAt: 'x' })).toEqual({
+      v: 2,
+      t: 5,
+      id: 'notenotena',
+      pane: 'pane-1',
+      kind: 'note',
+      text: 'set the key',
+      link: '/w/README.md',
+    })
+    expect(parseStoredRecord({ ...note, text: '' })).toBeNull()
+    expect(parseStoredRecord({ ...note, text: 'x'.repeat(2001) })).toBeNull()
   })
 })

@@ -3,10 +3,12 @@ import checkCircle from '@phosphor-icons/core/regular/check-circle.svg'
 import fileText from '@phosphor-icons/core/regular/file-text.svg'
 import globe from '@phosphor-icons/core/regular/globe.svg'
 import magnifyingGlass from '@phosphor-icons/core/regular/magnifying-glass.svg'
+import noteIcon from '@phosphor-icons/core/regular/note.svg'
 import pencilSimple from '@phosphor-icons/core/regular/pencil-simple.svg'
 import robot from '@phosphor-icons/core/regular/robot.svg'
 import terminalWindow from '@phosphor-icons/core/regular/terminal-window.svg'
 import usersThree from '@phosphor-icons/core/regular/users-three.svg'
+import warningCircle from '@phosphor-icons/core/regular/warning-circle.svg'
 import wrench from '@phosphor-icons/core/regular/wrench.svg'
 import { call, errorText, h, icon, onChange, panelTranslator } from '../sdk/panel'
 import type { ToolKind } from './hookEvent'
@@ -15,6 +17,7 @@ import zhHant from './locales/zh-Hant.json'
 import {
   type AgentView,
   type EventView,
+  type NoteView,
   type PanelModel,
   type TurnView,
   type WorkspaceView,
@@ -40,6 +43,7 @@ const list = h('main', { class: 'list' })
 const recapButton = viewButton(false)
 const activityButton = viewButton(true)
 const notes = new Map<string, string>()
+const doneFailures = new Map<string, string>()
 const expanded = new Set<string>()
 let model: PanelModel | null = null
 
@@ -156,13 +160,67 @@ function agentCard(agent: AgentView, showActivity: boolean): HTMLElement {
   )
 }
 
+function noteRow(workspaceId: string, note: NoteView): HTMLElement {
+  const open = note.needsYou && !note.done
+  const failed = doneFailures.get(note.id)
+  return h(
+    'li',
+    {
+      class: 'note-row',
+      'data-note': note.id,
+      'data-needs-you': String(note.needsYou),
+      'data-done': String(note.done),
+    },
+    icon(note.needsYou ? warningCircle : noteIcon),
+    h(
+      'div',
+      { class: 'note-body' },
+      note.needsYou
+        ? h('span', { class: 'needs-you' }, t(note.done ? 'noteDone' : 'needsYou'))
+        : null,
+      h('p', { class: 'note-text' }, note.text),
+      note.link ? h('code', { class: 'note-link muted' }, note.link) : null,
+      failed ? h('p', { class: 'note muted', role: 'status' }, failed) : null,
+    ),
+    age(note.t),
+    open
+      ? h(
+          'button',
+          {
+            class: 'done-button',
+            type: 'button',
+            onClick: () => void markDone(workspaceId, note.id),
+          },
+          t('markDone'),
+        )
+      : null,
+  )
+}
+
+function notesList(workspace: WorkspaceView): HTMLElement | null {
+  if (workspace.notes.length === 0) return null
+  return h(
+    'ul',
+    { class: 'notes', 'aria-label': t('notes') },
+    ...workspace.notes.map((note) => noteRow(workspace.workspaceId, note)),
+  )
+}
+
 function workspaceSection(workspace: WorkspaceView, showActivity: boolean): HTMLElement {
   return h(
     'section',
     { class: 'workspace', 'data-workspace': workspace.workspaceId },
     h('h2', { class: 'workspace-name muted' }, workspace.name),
+    notesList(workspace),
     ...workspace.agents.map((agent) => agentCard(agent, showActivity)),
   )
+}
+
+async function markDone(workspaceId: string, id: string): Promise<void> {
+  const res = await call('done', { workspaceId, id })
+  if (res.ok) doneFailures.delete(id)
+  else doneFailures.set(id, t('doneFailed', { reason: errorText(res) }))
+  await refresh()
 }
 
 function render(): void {
