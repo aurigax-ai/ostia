@@ -160,7 +160,11 @@ export interface AgentGuest {
 
 const followedGuests = new WeakSet<AgentGuest>()
 
-export function followAgentByHost(guest: AgentGuest, agents: BrowserAgents): void {
+export function followAgentByHost(
+  guest: AgentGuest,
+  agents: BrowserAgents,
+  startUrl?: string,
+): void {
   if (followedGuests.has(guest) || !guest.debugger.isAttached()) return
   followedGuests.add(guest)
   const override = (userAgent: string): void => {
@@ -171,7 +175,7 @@ export function followAgentByHost(guest: AgentGuest, agents: BrowserAgents): voi
       })
       .catch(() => {})
   }
-  let current = agents.rewritten
+  let current = startUrl === undefined ? agents.rewritten : agentFor(startUrl, agents)
   override(current)
   const follow = (url: string): void => {
     const next = agentFor(url, agents)
