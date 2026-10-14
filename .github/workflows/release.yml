@@ -144,11 +144,11 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Notes from the commits since the previous tag
-        run: |
-          prev=$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2>/dev/null || true)
-          git log --no-merges --pretty='- %s (%h)' ${prev:+$prev..}"$GITHUB_REF_NAME" \
-            | grep -v 'chore(release)' > notes.md || true
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Notes from the commits since the previous release
+        run: node scripts/releaseNotes.mjs "$GITHUB_REF_NAME" > notes.md
       - uses: actions/download-artifact@v8
         with:
           name: packages
