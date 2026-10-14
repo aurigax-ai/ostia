@@ -15,7 +15,7 @@ import { quoteArgv } from '../../shared/terminal/shellQuote'
 import { SandboxUnavailableError } from '../sandbox/workspaceSandboxes'
 
 export const EXEC_CONCURRENT_MAX = 8
-export const EXEC_KILL_GRACE_MS = 5000
+const EXEC_KILL_GRACE_MS = 5000
 const EXEC_DIR_ENV = envName('EXEC_DIR')
 const ENV_NAME = /^[A-Z][A-Z0-9_]{0,63}$/
 
