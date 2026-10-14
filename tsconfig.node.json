@@ -26,7 +26,6 @@
     "src/shared/**/*",
     "src/cli/**/*",
     "src/extensions/**/*",
-    "graph-engine/src/**/*",
     "electron.vite.config.ts"
   ],
   "exclude": ["src/extensions/**/panel.ts"]

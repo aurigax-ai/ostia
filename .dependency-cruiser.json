@@ -120,10 +120,10 @@
       }
     },
     {
-      "name": "graph-engine-stands-alone",
+      "name": "only-graphs-imports-the-graph-package",
       "severity": "error",
-      "from": { "path": "^graph-engine/" },
-      "to": { "path": "^(src|e2e|scripts|test)/" }
+      "from": { "pathNot": "^src/extensions/graphs/|^src/cli/cli\\.graph[A-Za-z]*\\.e2e\\.test\\.ts$" },
+      "to": { "path": "node_modules/@aurigax-ai/graph/" }
     },
     {
       "name": "sdk-imports-only-shared",
