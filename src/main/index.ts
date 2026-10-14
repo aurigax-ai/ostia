@@ -17,7 +17,7 @@ import {
   savedWorkspaceFolders,
 } from './platform/userDirs'
 
-const ANSWERS: Readonly<Record<string, number>> = { move: 0, later: 1 }
+const ANSWERS: Readonly<Record<string, number>> = { move: 0 }
 
 function presetAnswer(): number | undefined {
   if (app.isPackaged) return undefined
