@@ -2490,6 +2490,7 @@ button.prompt-chip:hover {
 
 .xterm-host .xterm .xterm-viewport.xterm-viewport {
   background-color: transparent;
+  scrollbar-width: none;
 }
 
 .xterm-host .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider {

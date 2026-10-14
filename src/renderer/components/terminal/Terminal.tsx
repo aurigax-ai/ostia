@@ -1089,17 +1089,13 @@ function TerminalSurface({
         termRef.current?.focus()
       }}
     >
-      <div className="terminal-stack">
+      <div className="terminal-stack" style={{ background }}>
         <TerminalMenu
           paneId={paneId}
           termRef={termRef}
           onPaste={() => pasteClipboardRef.current()}
           trigger={
-            <div
-              ref={hostRef}
-              className={engine === 'ghostty' ? 'ghostty-host' : 'xterm-host'}
-              style={{ background }}
-            />
+            <div ref={hostRef} className={engine === 'ghostty' ? 'ghostty-host' : 'xterm-host'} />
           }
         />
         <Blocks paneId={paneId} termRef={termRef} hostRef={hostRef} shown={shown} />
