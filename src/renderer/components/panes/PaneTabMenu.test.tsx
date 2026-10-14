@@ -148,6 +148,22 @@ describe('PaneTabMenu close others and hibernation', () => {
     await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'Wake tab' }))
     expect(exec).toHaveBeenCalledWith('pane.wake', { paneId: 'b' })
   })
+
+  it('forks a hibernated agent tab into a new tab, and offers no fork for a plain shell', async () => {
+    const run = vi.spyOn(blockActions, 'runWhenIdle').mockReturnValue(() => {})
+    const asleep: PaneNode = { ...agentTab, hibernated: true }
+    openMenu(asleep, [shell, asleep])
+    await userEvent
+      .setup()
+      .click(await screen.findByRole('menuitem', { name: 'Fork conversation into a new tab' }))
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(run.mock.calls[0][0]).not.toBe('b')
+    expect(run.mock.calls[0][1]).toContain('--fork-session')
+    cleanup()
+    openMenu(shell, [shell, asleep])
+    expect(await screen.findByRole('menuitem', { name: 'Lock tab' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Fork conversation into a new tab' })).toBeNull()
+  })
 })
 
 describe('user actions in the pane header and tab menu', () => {

@@ -1,5 +1,31 @@
+import { ASK_COMMAND_ID } from '@/commands/askCommand'
+import {
+  type CommandChoice,
+  type CommandWording,
+  commandWording,
+  commands,
+} from '@/commands/registry'
 import { ChatView } from '@/components/assist/ChatView'
 import { settingsSections } from '@/components/settings/SettingsPanel'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Kbd } from '@/components/ui/kbd'
+import { fmt, useDict } from '@/i18n/useDict'
+import { allPanes, firstPaneOfKind } from '@/layout/tree'
+import type { PaneNode } from '@/layout/types'
 import { countUsage } from '@/lib/app/usageCounts'
 import { useChatAvailable } from '@/lib/assist/assistFeatures'
 import { revealPane } from '@/lib/attention/workspaceActivity'
@@ -28,6 +54,7 @@ import {
 } from '@/lib/palette/paletteModes'
 import { cn } from '@/lib/utils'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/workspaces/windowWorkspaces'
+import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useAssistProvider } from '@/stores/assist/assistStore'
@@ -37,29 +64,10 @@ import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { AppWindowIcon } from '@phosphor-icons/react'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { ASK_COMMAND_ID } from '../commands/askCommand'
-import {
-  type CommandChoice,
-  type CommandWording,
-  commandWording,
-  commands,
-} from '../commands/registry'
-import { fmt, useDict } from '../i18n/useDict'
-import { allPanes, firstPaneOfKind } from '../layout/tree'
-import type { PaneNode } from '../layout/types'
-import { isMac } from '../platform'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from './ui/command'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
-import { Kbd } from './ui/kbd'
 
 const LIST_CLASS = 'max-h-[min(27rem,calc(88vh-5rem))]'
+
+const SECONDARY_CLASS = 'min-w-0 truncate text-fg-muted text-ui-xs'
 
 function runFromPalette(id: string, args?: { argument: string }): void {
   countUsage('features', 'command', id)
@@ -504,25 +512,37 @@ function ItemRow({
   nameMono?: boolean
 }): JSX.Element {
   return (
-    <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_7.5rem] items-center gap-x-3 tabular-nums">
-      <span className="flex min-w-0 items-baseline gap-2">
-        <span className={cn('truncate', nameMono && 'font-mono')}>{name}</span>
-        {detail ? (
-          <span className="min-w-0 truncate text-fg-muted text-ui-xs">{detail}</span>
+    <span data-slot="palette-row" className="flex min-w-0 flex-1 items-center gap-x-3 tabular-nums">
+      <span
+        data-slot="palette-title"
+        className="flex max-w-full min-w-0 shrink-0 items-center gap-x-2"
+      >
+        <span data-slot="palette-name" className={cn('min-w-0 truncate', nameMono && 'font-mono')}>
+          {name}
+        </span>
+        {keys ? (
+          <Kbd data-slot="palette-keys" className="shrink-0 whitespace-nowrap">
+            {keys}
+          </Kbd>
         ) : null}
       </span>
-      <span
-        data-slot="palette-meta"
-        className={cn(
-          'min-w-0 max-w-80 justify-self-end truncate text-fg-muted text-ui-xs group-data-selected/command-item:text-fg',
-          mono && 'font-mono',
-        )}
-      >
-        {meta}
-      </span>
-      <span className="flex justify-end">
-        {keys ? <Kbd className="whitespace-nowrap">{keys}</Kbd> : null}
-      </span>
+      {detail ? (
+        <span data-slot="palette-detail" className={SECONDARY_CLASS}>
+          {detail}
+        </span>
+      ) : null}
+      {meta ? (
+        <span
+          data-slot="palette-meta"
+          className={cn(
+            SECONDARY_CLASS,
+            'group-data-selected/command-item:text-fg',
+            mono && 'font-mono',
+          )}
+        >
+          {meta}
+        </span>
+      ) : null}
     </span>
   )
 }

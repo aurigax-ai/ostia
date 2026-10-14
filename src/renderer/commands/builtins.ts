@@ -1,3 +1,4 @@
+import { forkConversation } from '@/lib/agents/forkConversation'
 import {
   type PaneHibernateOutcome,
   hibernateAgentPane,
@@ -637,6 +638,16 @@ export function registerBuiltinCommands(): void {
       const resumed = insertCommand(pane.id, resumeCommand(pane.resume), true)
       if (resumed) claimResume(pane.id, pane.resume)
       return { resumed }
+    },
+  })
+
+  registerCore<undefined, { forked: boolean }>({
+    id: 'agent.forkConversation',
+    category: 'pane',
+    local: true,
+    run: (_args, ctx) => {
+      if (!ctx.activeWorkspaceId || !ctx.activePaneId) return { forked: false }
+      return { forked: forkConversation(ctx.activeWorkspaceId, ctx.activePaneId) !== null }
     },
   })
 

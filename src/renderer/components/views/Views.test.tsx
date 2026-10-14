@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
-import { CommandPalette } from '@/components/CommandPalette'
+import { CommandPalette } from '@/components/palette/CommandPalette'
 import { ActionConfirmDialog } from '@/components/settings/ActionConfirmDialog'
 import { findViewPane } from '@/layout/tree'
 import { registerViewCommands, startViews } from '@/lib/extensions/views'

@@ -41,6 +41,7 @@ import {
   setPaneHibernated,
   setPaneLocked,
   setPaneResume,
+  setPaneSpawnDir,
   setPaneTitle,
   setPaneUrl,
   setPaneView,
@@ -95,6 +96,7 @@ interface LayoutState {
   setResume: (workspaceId: string, paneId: string, resume: AgentResume) => void
   setResumePending: (workspaceId: string, paneId: string, pending: boolean) => void
   setHibernated: (workspaceId: string, paneId: string, hibernated: boolean) => void
+  setSpawnDir: (workspaceId: string, paneId: string, spawnDir: string) => void
   settleSpawnDir: (workspaceId: string, paneId: string, missing: boolean) => void
   setLocked: (workspaceId: string, paneId: string, locked: boolean) => void
   isLocked: (workspaceId: string, paneId?: string) => boolean
@@ -536,6 +538,16 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       if (!layout) return s
       const asleep = setPaneHibernated(layout.root, paneId, hibernated)
       const root = hibernated ? setDefaultPaneTitle(asleep, paneId, neutralTerminalTitle()) : asleep
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
+  setSpawnDir: (workspaceId, paneId, spawnDir) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout) return s
+      const root = setPaneSpawnDir(layout.root, paneId, spawnDir)
       return root === layout.root
         ? s
         : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }

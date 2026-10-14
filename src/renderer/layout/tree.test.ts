@@ -38,6 +38,7 @@ import {
   setPaneExtension,
   setPaneHibernated,
   setPaneLocked,
+  setPaneSpawnDir,
   setPaneTitle,
   setPaneUrl,
   setSizes,
@@ -946,6 +947,13 @@ describe('setPaneHibernated', () => {
 })
 
 describe('settleSpawnDir', () => {
+  it('starts a pane in a given folder, the same object when it already is', () => {
+    const root = createPane()
+    const placed = setPaneSpawnDir(root, root.id, '/w/t')
+    expect(placed).toMatchObject({ spawnDir: '/w/t' })
+    expect(setPaneSpawnDir(placed, root.id, '/w/t')).toBe(placed)
+  })
+
   it('drops the spawn folder once the shell started, keeping it as missing only when it was gone', () => {
     const root = { ...createPane(), spawnDir: '/w/t' }
     expect(settleSpawnDir(root, root.id, false)).not.toHaveProperty('spawnDir')

@@ -21,21 +21,21 @@
     "platforms": ["linux"]
   },
   {
-    "file": "src/renderer/components/CommandPalette.test.tsx",
+    "file": "src/renderer/components/palette/CommandPalette.test.tsx",
     "name": "CommandPalette > languages > the Traditional Chinese pack is an extension: pick it, keep it across a restart, lose it when disabled",
     "issue": 679,
     "until": "2026-11-11",
     "platforms": ["linux"]
   },
   {
-    "file": "src/renderer/components/CommandPalette.test.tsx",
+    "file": "src/renderer/components/palette/CommandPalette.test.tsx",
     "name": "CommandPalette > symbols in the workspace > opens on the symbol prefix from the command and asks the workspace’s servers as the human types",
     "issue": 679,
     "until": "2026-11-11",
     "platforms": ["linux"]
   },
   {
-    "file": "src/renderer/components/CommandPalette.test.tsx",
+    "file": "src/renderer/components/palette/CommandPalette.test.tsx",
     "name": "CommandPalette > symbols in the workspace > opens the file at the symbol and closes",
     "issue": 679,
     "until": "2026-11-11",

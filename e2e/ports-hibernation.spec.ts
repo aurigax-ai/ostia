@@ -69,7 +69,7 @@ test('a port a terminal listens on shows in the top bar and opens in the browser
   }
 })
 
-test('a hibernated agent is still hibernated after a restart and wakes when the human opens its tab', async () => {
+test('a hibernated agent is still hibernated after a restart and wakes when the human clicks inside its pane', async () => {
   test.setTimeout(120_000)
   const dataHome = freshDataHome()
   const bin = join(dataHome, 'bin')
@@ -131,6 +131,7 @@ test('a hibernated agent is still hibernated after a restart and wakes when the 
     await expect(win.locator('.terminal-surface .xterm')).toHaveCount(1)
 
     await sleeping.click()
+    await shownTerminal(win).click()
     const rows = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
     await expect(rows).toContainText(/fake agent up: .*--resume e2e-tok-2/, { timeout: 20_000 })
     await expect(win.locator('.hibernated-view')).toHaveCount(0)

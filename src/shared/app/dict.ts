@@ -22,6 +22,7 @@ export const en = {
       git: 'Git',
     },
     titles: {
+      'agent.forkConversation': 'Fork Agent Conversation',
       'agent.resume': 'Resume Agent',
       'app.checkForUpdates': 'Check for Updates',
       'app.openSettings': 'Open Settings',
@@ -633,6 +634,8 @@ export const en = {
     closeOtherTabs: 'Close other tabs',
     hibernateTab: 'Hibernate tab',
     wakeTab: 'Wake tab',
+    forkConversation: 'Fork conversation into a new tab',
+    forkTitle: 'Fork of {title}',
     zoom: 'Zoom pane',
     unzoom: 'Restore pane',
     resume: 'Resume {agent}',
@@ -2249,6 +2252,8 @@ export const en = {
     awake: 'This tab is already awake.',
     conflict:
       'The agent session of this tab is already running in “{tab}”. Close one of the two tabs.',
+    forkFolderMissing:
+      'The folder {agent} worked in no longer exists: {path}. The conversation was not forked.',
     ok: 'OK',
   },
   tabMove: {
@@ -3645,6 +3650,7 @@ export const zhHant: Dict = {
       git: 'Git 版本控制',
     },
     titles: {
+      'agent.forkConversation': '分支代理程式對話',
       'agent.resume': '恢復代理程式',
       'app.checkForUpdates': '檢查更新',
       'app.openSettings': '開啟設定',
@@ -4247,6 +4253,8 @@ export const zhHant: Dict = {
     closeOtherTabs: '關閉其他分頁',
     hibernateTab: '讓分頁休眠',
     wakeTab: '喚醒分頁',
+    forkConversation: '將對話分支到新分頁',
+    forkTitle: '{title} 的分支',
     zoom: '放大窗格',
     unzoom: '還原窗格',
     resume: '繼續 {agent}',
@@ -5805,6 +5813,7 @@ export const zhHant: Dict = {
     asleep: '此分頁已在休眠中。',
     awake: '此分頁本來就是清醒的。',
     conflict: '此分頁的代理程式 session 已在「{tab}」執行中。請關閉其中一個分頁。',
+    forkFolderMissing: '{agent} 工作的資料夾已不存在：{path}。對話未分支。',
     ok: '確定',
   },
   tabMove: {
