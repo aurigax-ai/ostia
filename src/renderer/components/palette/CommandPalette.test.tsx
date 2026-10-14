@@ -569,13 +569,14 @@ describe('CommandPalette', () => {
       render(<CommandPalette />)
       const input = await screen.findByRole('combobox')
 
-      await userEvent.type(input, '向右分割窗格')
+      await userEvent.click(input)
+      await userEvent.paste('向右分割窗格')
       expect(await screen.findByRole('option', { name: /^向右分割窗格/ })).toHaveAttribute(
         'aria-selected',
         'true',
       )
       await userEvent.clear(input)
-      await userEvent.type(input, 'Split Pane Right')
+      await userEvent.paste('Split Pane Right')
       expect(await screen.findByRole('option', { name: /^向右分割窗格/ })).toHaveAttribute(
         'aria-selected',
         'true',
@@ -586,7 +587,8 @@ describe('CommandPalette', () => {
       vi.mocked(window.ostia.languagePacks.load).mockResolvedValue([])
       await act(() => usePluginsStore.getState().loadLanguages())
       act(() => useUIStore.setState({ paletteOpen: true }))
-      await userEvent.type(await screen.findByRole('combobox'), 'Split Pane Right')
+      await userEvent.click(await screen.findByRole('combobox'))
+      await userEvent.paste('Split Pane Right')
       expect(await screen.findByRole('option', { name: /^Split Pane Right/ })).toHaveAttribute(
         'aria-selected',
         'true',
@@ -661,7 +663,10 @@ describe('CommandPalette', () => {
 
     it('opens on the symbol prefix from the command and asks the workspace’s servers as the human types', async () => {
       seed()
-      searchWorkspaceSymbols.mockResolvedValue({ servers: 1, hits: [hit] })
+      searchWorkspaceSymbols.mockImplementation(async (_panes: Set<string>, query: string) => ({
+        servers: 1,
+        hits: query === 'gre' ? [hit] : [],
+      }))
       render(<CommandPalette />)
       act(() => {
         void commands.exec('view.goToWorkspaceSymbol')
@@ -672,9 +677,7 @@ describe('CommandPalette', () => {
 
       const option = await screen.findByRole('option', { name: /greet/ })
       expect(option).toHaveTextContent('lib/greet.ts:12')
-      await waitFor(() =>
-        expect(searchWorkspaceSymbols).toHaveBeenLastCalledWith(new Set(['pane-3']), 'gre'),
-      )
+      expect(searchWorkspaceSymbols).toHaveBeenLastCalledWith(new Set(['pane-3']), 'gre')
       expect(screen.queryByRole('option', { name: /Open Settings/ })).toBeNull()
     })
 
@@ -904,6 +907,12 @@ describe('CommandPalette', () => {
       vi.mocked(window.ostia.search.run).mockResolvedValue(hits(['src/zoom.ts']))
     }
 
+    const answerNamesOnly = (text: string): void => {
+      vi.mocked(window.ostia.search.run).mockImplementation(async (req) =>
+        hits(req.namesOnly && req.text === text ? ['src/zoom.ts'] : []),
+      )
+    }
+
     const headings = (): string[] =>
       [...document.querySelectorAll('[cmdk-group-heading]')].map((h) => h.textContent ?? '')
 
@@ -1088,6 +1097,7 @@ describe('CommandPalette', () => {
       render(<CommandPalette />)
       const input = await screen.findByRole('combobox')
 
+      answerNamesOnly('zoom.ts')
       await userEvent.type(input, 'zoom.ts:12')
       await userEvent.click(await screen.findByRole('option', { name: /^zoom\.ts/ }))
 
@@ -1099,6 +1109,7 @@ describe('CommandPalette', () => {
       expect(useUIStore.getState().paletteOpen).toBe(false)
 
       act(() => useUIStore.getState().openPalette('everywhere'))
+      answerNamesOnly('zoom')
       await userEvent.type(await screen.findByRole('combobox'), 'zoom:12:5')
       await userEvent.click(await screen.findByRole('option', { name: /^zoom\.ts/ }))
 
