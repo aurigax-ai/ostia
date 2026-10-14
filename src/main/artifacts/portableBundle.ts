@@ -1,6 +1,14 @@
 import { readFileSync } from 'node:fs'
 import { dirname, extname, isAbsolute, join, relative, sep } from 'node:path'
-import type { BuildOptions, BuildResult, Loader, OnResolveArgs, Plugin, PluginBuild } from 'esbuild'
+import type {
+  BuildOptions,
+  BuildResult,
+  Loader,
+  OnResolveArgs,
+  OnResolveResult,
+  Plugin,
+  PluginBuild,
+} from 'esbuild'
 import {
   RUNTIME_MODULES,
   allowsRuntimeImport,
@@ -72,11 +80,11 @@ const SHELL = 'ostia-shell'
 const INLINE = 'ostia-inline'
 const RUNTIME_DATA = { runtime: true }
 
-export function isTextInput(path: string): boolean {
+function isTextInput(path: string): boolean {
   return extname(path).toLowerCase() in CODE_LOADERS || /\.html?$/i.test(path)
 }
 
-export function loaderFor(path: string): Loader | null {
+function loaderFor(path: string): Loader | null {
   const extension = extname(path).toLowerCase()
   if (extension in CODE_LOADERS) return CODE_LOADERS[extension]
   return ASSET_EXTENSIONS.has(extension) ? 'dataurl' : null
@@ -206,6 +214,22 @@ function artifactPlugin(run: BuildRun, entry: ArtifactEntry): Plugin {
   const tree = join(run.runtimeDir, RUNTIME_MODULES)
   const insideTree = (path: string): boolean => path === tree || path.startsWith(`${tree}${sep}`)
 
+  const insideRuntime = async (
+    build: PluginBuild,
+    args: OnResolveArgs,
+  ): Promise<OnResolveResult> => {
+    const found = await build.resolve(args.path, {
+      kind: args.kind,
+      resolveDir: args.resolveDir,
+      pluginData: RUNTIME_DATA,
+    })
+    if (found.errors.length > 0) return { errors: found.errors }
+    if (!found.external && !insideTree(found.path)) {
+      return { errors: [{ text: `the preview runtime has no ${JSON.stringify(args.path)}` }] }
+    }
+    return { path: found.path, external: found.external, sideEffects: found.sideEffects }
+  }
+
   const library = async (build: PluginBuild, args: OnResolveArgs) => {
     const found = await build.resolve(args.path, {
       kind: args.kind,
@@ -254,21 +278,16 @@ function artifactPlugin(run: BuildRun, entry: ArtifactEntry): Plugin {
         fromArtifact(build, args, run.source.file),
       )
       build.onResolve({ filter: /.*/, namespace: SHELL }, (args) => library(build, args))
+      const resolved = new Map<string, Promise<OnResolveResult>>()
       build.onResolve({ filter: /^[^./]/, namespace: 'file' }, (args) => {
         if (args.pluginData === RUNTIME_DATA || args.kind === 'entry-point') return undefined
-        return build
-          .resolve(args.path, {
-            kind: args.kind,
-            resolveDir: args.resolveDir,
-            pluginData: RUNTIME_DATA,
-          })
-          .then((found) => {
-            if (found.errors.length > 0) return { errors: found.errors }
-            if (!found.external && !insideTree(found.path)) {
-              return { errors: [{ text: `the preview runtime has no "${args.path}"` }] }
-            }
-            return { path: found.path, external: found.external, sideEffects: found.sideEffects }
-          })
+        const key = `${args.kind}\0${args.resolveDir}\0${args.path}`
+        let found = resolved.get(key)
+        if (!found) {
+          found = insideRuntime(build, args)
+          resolved.set(key, found)
+        }
+        return found
       })
       build.onLoad({ filter: /.*/, namespace: ARTIFACT }, async (args) => {
         const loader = loaderFor(args.path)

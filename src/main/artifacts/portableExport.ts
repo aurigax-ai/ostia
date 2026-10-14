@@ -71,7 +71,7 @@ function normalizeDocument(value: unknown): PortableDocument | null {
   return { body: raw.body, css: raw.css }
 }
 
-export function normalizePortableRequest(value: unknown): PortableRequest | null {
+function normalizePortableRequest(value: unknown): PortableRequest | null {
   const raw = value as Partial<PortableRequest> | null
   if (!raw || typeof raw.workspaceId !== 'string' || typeof raw.path !== 'string') return null
   const document = raw.document === undefined ? undefined : normalizeDocument(raw.document)

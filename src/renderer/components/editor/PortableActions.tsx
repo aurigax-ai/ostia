@@ -27,7 +27,7 @@ function problemOf(d: Dict, result: PortableResult): string | null {
   return fmt(d.portable.failed, { message: result.message ?? result.reason })
 }
 
-export function canTakeOut(filePath: string, sandboxed: boolean): boolean {
+function canTakeOut(filePath: string, sandboxed: boolean): boolean {
   const type = portableType(filePath)
   return type !== null && !isRemotePath(filePath) && !(runsScripts(type) && sandboxed)
 }

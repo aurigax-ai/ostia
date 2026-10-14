@@ -20,11 +20,8 @@
     "test/**/*.{ts,tsx,mjs}",
     "e2e/**/*.ts"
   ],
-  "ignore": [
-    "src/renderer/components/ui/**"
-  ],
+  "ignore": ["src/renderer/components/ui/**"],
   "ignoreDependencies": [
-    "@tailwindcss/browser",
     "@withfig/autocomplete",
     "bash-language-server",
     "d3",

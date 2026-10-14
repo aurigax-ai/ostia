@@ -1,7 +1,7 @@
 import type { PreviewTheme } from './htmlPreview'
 
 export const PORTABLE_FORMAT = 'ostia-artifact/1'
-export const PORTABLE_MANIFEST_ID = 'ostia-artifact'
+const PORTABLE_MANIFEST_ID = 'ostia-artifact'
 
 export const PORTABLE_CSP = [
   "default-src 'none'",
@@ -123,7 +123,7 @@ export function wrapPortable(document: string, manifest: PortableManifest): stri
   ].join('\n')
 }
 
-export function themeRule(theme: PreviewTheme): string {
+function themeRule(theme: PreviewTheme): string {
   const vars = Object.entries(theme.vars)
     .map(([name, value]) => `${name}:${value}`)
     .join(';')

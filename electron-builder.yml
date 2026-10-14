@@ -15,8 +15,10 @@ extraResources:
     to: extensions
   - from: out/build-info.json
     to: build-info.json
-  - from: out/artifact-runtime
-    to: artifact-runtime
+  - from: out
+    to: .
+    filter:
+      - artifact-runtime/**
 asarUnpack:
   - out/cli/**
   - out/sandbox/**

@@ -8,15 +8,23 @@ const PACKAGED = process.env.OSTIA_E2E_PACKAGED ?? ''
 const PREVIEW_URL = 'ostia-preview://'
 
 const WIDGET = `import { useState } from 'react'
+import { createPortal } from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import { Line, LineChart } from 'recharts'
 import { Rocket } from 'lucide-react'
+import { HeartIcon } from '@phosphor-icons/react'
+import { max } from 'd3'
+import Papa from 'papaparse'
+
+const rows = Papa.parse('y\\n1\\n2', { header: true, dynamicTyping: true }).data
 
 export default function Widget() {
   const [count] = useState(3)
-  document.title = 'widget ' + count
+  document.title = 'widget ' + count + ' ' + max(rows, (r) => r.y) + ' ' + typeof createPortal + ' ' + typeof createRoot
   return (
     <div className="p-4">
       <Rocket />
+      <HeartIcon />
       <LineChart width={200} height={80} data={[{ y: 1 }, { y: 2 }]}>
         <Line dataKey="y" isAnimationActive={false} />
       </LineChart>
@@ -27,7 +35,7 @@ export default function Widget() {
 
 const PAGE = `<!doctype html><title>loading</title>
 <script type="module">
-import * as d3 from '/runtime/d3.js'
+import * as d3 from 'd3'
 document.title = 'd3 max ' + d3.max([1, 7, 3])
 </script>
 `
@@ -43,12 +51,25 @@ function guestTitle(app: ElectronApplication): Promise<string | null> {
   )
 }
 
-test('the packaged app compiles a component, serves the bundled runtime and reports a compile error', async () => {
+test('PRT-C23 the packaged app builds a component with every runtime library from its package tree', async () => {
   test.skip(PACKAGED === '', 'runs only against a packaged build: OSTIA_E2E_PACKAGED=<executable>')
   test.setTimeout(180_000)
   const resources = join(dirname(PACKAGED), 'resources')
-  expect(existsSync(join(resources, 'artifact-runtime', 'react.js'))).toBe(true)
-  expect(existsSync(join(resources, 'artifact-runtime', 'tailwind.js'))).toBe(true)
+  const tree = join(resources, 'artifact-runtime', 'node_modules')
+  for (const name of [
+    'react',
+    'react-dom',
+    'recharts',
+    'lucide-react',
+    '@phosphor-icons/react',
+    'd3',
+    'papaparse',
+    'tailwindcss',
+  ]) {
+    expect(existsSync(join(tree, name, 'package.json')), name).toBe(true)
+  }
+  expect(existsSync(join(resources, 'artifact-runtime', 'react.js'))).toBe(false)
+  expect(existsSync(join(resources, 'artifact-runtime', 'tailwind.js'))).toBe(false)
   const binary = join(
     resources,
     'app.asar.unpacked',
@@ -81,7 +102,9 @@ test('the packaged app compiles a component, serves the bundled runtime and repo
       win,
       'cp ~/Widget.tsx ~/page.html ~/Broken.tsx "$OSTIA_ARTIFACTS/" && ostia open "$OSTIA_ARTIFACTS/Widget.tsx"',
     )
-    await expect.poll(() => guestTitle(app), { timeout: 60_000 }).toBe('widget 3')
+    await expect
+      .poll(() => guestTitle(app), { timeout: 60_000 })
+      .toBe('widget 3 2 function function')
     await expect(win.getByTestId('preview-errors')).toHaveCount(0)
     expect(
       await app.evaluate(() => process.env.ESBUILD_BINARY_PATH ?? null),

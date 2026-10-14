@@ -22,7 +22,7 @@ function packagedBinary(): string {
   return unpackedPath(fromEsbuild.resolve(binaryPackage(process.platform, process.arch)))
 }
 
-export interface EsbuildLoad {
+interface EsbuildLoad {
   packaged: boolean
   env?: NodeJS.ProcessEnv
   binary?: () => string

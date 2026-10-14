@@ -32,7 +32,7 @@ const CANDIDATE = /[^\s"'`<>={};\\]+/g
 
 export type TailwindStyle = 'component' | 'page'
 
-export function classCandidates(texts: Iterable<string>): string[] {
+function classCandidates(texts: Iterable<string>): string[] {
   const found = new Set<string>()
   for (const text of texts) {
     for (const match of text.matchAll(CANDIDATE)) found.add(match[0])
