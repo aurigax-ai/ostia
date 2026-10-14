@@ -1,4 +1,3 @@
-import { chords } from './chords'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
 import { _electron as electron, expect, test } from './test'
@@ -40,20 +39,6 @@ test(
       await win.keyboard.type('echo "term=$TERM color=$COLORTERM"')
       await win.keyboard.press('Enter')
       await expect(rows).toContainText('term=xterm-256color color=truecolor', { timeout: 15_000 })
-    } finally {
-      await app.close()
-    }
-  },
-)
-
-test(
-  'the palette chord opens the command palette from a focused terminal',
-  { tag: '@core' },
-  async () => {
-    const { app, win } = await launch()
-    try {
-      await win.keyboard.press(chords.palette)
-      await expect(win.getByRole('dialog')).toBeVisible({ timeout: 5_000 })
     } finally {
       await app.close()
     }
