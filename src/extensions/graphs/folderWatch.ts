@@ -1,15 +1,47 @@
-import { type Dirent, type FSWatcher, lstatSync, readFileSync, readdirSync, watch } from 'node:fs'
+import {
+  constants,
+  type Dirent,
+  type FSWatcher,
+  closeSync,
+  fstatSync,
+  lstatSync,
+  openSync,
+  readSync,
+  readdirSync,
+  watch,
+} from 'node:fs'
 import { join } from 'node:path'
 import ignore, { type Ignore } from 'ignore'
 
 const WATCH_FOLDERS_MAX = 5000
 const ALWAYS_IGNORED = new Set(['.git', 'node_modules'])
+const RULES_MAX_BYTES = 64 * 1024
 
 export type WatchStart = { ok: true; folders: number } | { ok: false; reason: 'too-many-folders' }
 
 function parentOf(rel: string): string {
   const cut = rel.lastIndexOf('/')
   return cut < 0 ? '' : rel.slice(0, cut)
+}
+
+function readRules(path: string): string | null {
+  let fd: number
+  try {
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK)
+  } catch {
+    return null
+  }
+  try {
+    if (!fstatSync(fd).isFile()) return null
+    const buffer = Buffer.alloc(RULES_MAX_BYTES)
+    const read = readSync(fd, buffer, 0, RULES_MAX_BYTES, 0)
+    const text = buffer.subarray(0, read).toString('utf8')
+    return read < RULES_MAX_BYTES ? text : text.slice(0, text.lastIndexOf('\n') + 1)
+  } catch {
+    return null
+  } finally {
+    closeSync(fd)
+  }
 }
 
 function entries(path: string): Dirent[] {
@@ -65,12 +97,9 @@ export class FolderWatcher {
   }
 
   private loadRules(dir: string): void {
-    try {
-      const text = readFileSync(join(this.root, dir, '.gitignore'), 'utf8')
-      this.rules.set(dir, ignore().add(text))
-    } catch {
-      this.rules.delete(dir)
-    }
+    const text = readRules(join(this.root, dir, '.gitignore'))
+    if (text === null) this.rules.delete(dir)
+    else this.rules.set(dir, ignore().add(text))
   }
 
   private scan(dir: string, out: string[]): string[] | null {

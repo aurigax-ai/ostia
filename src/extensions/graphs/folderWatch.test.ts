@@ -1,7 +1,17 @@
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+
+const hasMkfifo = (() => {
+  try {
+    execFileSync('sh', ['-c', 'command -v mkfifo'], { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+})()
 import { FolderWatcher } from './folderWatch'
 
 const roots: string[] = []
@@ -98,5 +108,42 @@ describe('the folder watcher of a files trigger', () => {
     await new Promise((r) => setTimeout(r, 150))
     expect(seen.filter((p) => p.startsWith('src/before') || p.startsWith('src/after'))).toEqual([])
     expect(watcher.watching()).toBe(3)
+  })
+
+  it('reads no .gitignore that is a link, so rules from a file outside are never applied', async () => {
+    const root = folder()
+    const outside = mkdtempSync(join(tmpdir(), 'graphs-outside-'))
+    roots.push(outside)
+    writeFileSync(join(outside, 'rules'), 'src/\n')
+    rmSync(join(root, '.gitignore'))
+    symlinkSync(join(outside, 'rules'), join(root, '.gitignore'))
+    const seen: string[] = []
+    const watcher = new FolderWatcher(
+      root,
+      (rel) => seen.push(rel),
+      () => {},
+    )
+    watchers.push(watcher)
+    expect(watcher.start()).toEqual({ ok: true, folders: 5 })
+    expect(watcher.ignored('src/a/b.ts', false)).toBe(false)
+    writeFileSync(join(root, 'src/a/b.ts'), '1')
+    await until(() => seen.includes('src/a/b.ts'))
+    expect(seen).toContain('src/a/b.ts')
+  })
+
+  it.skipIf(!hasMkfifo)('never blocks on a .gitignore that is a fifo', () => {
+    const root = folder()
+    rmSync(join(root, '.gitignore'))
+    execFileSync('mkfifo', [join(root, '.gitignore')])
+    const watcher = new FolderWatcher(
+      root,
+      () => {},
+      () => {},
+    )
+    watchers.push(watcher)
+    const started = Date.now()
+    expect(watcher.start()).toEqual({ ok: true, folders: 5 })
+    expect(Date.now() - started).toBeLessThan(1000)
+    expect(watcher.ignored('build/out/b.ts', false)).toBe(false)
   })
 })
