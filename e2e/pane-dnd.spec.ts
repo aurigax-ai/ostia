@@ -1,5 +1,5 @@
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, openWorkspace } from './helpers'
+import { openWorkspace } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 interface PaneBox {
@@ -32,60 +32,10 @@ async function panes(win: Page): Promise<PaneBox[]> {
   )
 }
 
-async function twoTabs(win: Page): Promise<string[]> {
-  await openWorkspace(win)
-  await win.getByRole('button', { name: 'New terminal tab' }).first().click()
-  await expect(win.locator('.pane-tab:visible')).toHaveCount(2)
-  await expect(win.locator('.xterm-rows:visible')).toContainText(PROMPT, { timeout: 15_000 })
-  return (await panes(win))[0].tabs
-}
-
-async function expectTerminalsUsable(win: Page): Promise<void> {
-  await expect(win.locator('.pane-drop-layer')).toHaveCount(0)
-  const term = win.locator('.xterm:visible').first()
-  await term.click()
-  await win.keyboard.type('echo still-typing')
-  await win.keyboard.press('Enter')
-  await expect(win.locator('.xterm-rows:visible').first()).toContainText('still-typing')
-}
-
-async function dragTabToEdge(win: Page, tabId: string, edge: 'right' | 'bottom'): Promise<void> {
-  const pane = win.locator(`.pane:visible:has(.pane-tab[data-tab-id="${tabId}"])`)
-  const box = await pane.boundingBox()
-  if (!box) throw new Error('no pane')
-  const targetPosition =
-    edge === 'right'
-      ? { x: box.width - 16, y: box.height / 2 }
-      : { x: box.width / 2, y: box.height - 16 }
-  await win.locator(`.pane-tab[data-tab-id="${tabId}"]`).dragTo(pane, { targetPosition })
-}
-
 let dataHome: string
 
 test.beforeEach(() => {
   dataHome = freshDataHome()
-})
-
-test('dragging a tab to a terminal pane’s right edge splits it with the tab on the right', async () => {
-  const { app, win } = await launchApp(dataHome)
-  try {
-    const [first, second] = await twoTabs(win)
-
-    await dragTabToEdge(win, second, 'right')
-
-    await expect
-      .poll(() => panes(win))
-      .toEqual([
-        expect.objectContaining({ tabs: [first] }),
-        expect.objectContaining({ tabs: [second] }),
-      ])
-    const [left, right] = await panes(win)
-    expect(right.x).toBeGreaterThan(left.x)
-    expect(right.y).toBe(left.y)
-    await expectTerminalsUsable(win)
-  } finally {
-    await app.close()
-  }
 })
 
 test('a drag over a browser pane lands on the drop layer above the page and splits it', async () => {

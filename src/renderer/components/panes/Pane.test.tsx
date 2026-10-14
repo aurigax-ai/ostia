@@ -389,6 +389,22 @@ describe('Pane', () => {
       }
     })
 
+    it('dragging a tab to a terminal pane’s right edge splits it with the tab on the right', async () => {
+      const stop = workspace(tabsOf(second.id, first, second))
+      try {
+        await dragToEdge(second.id, 'right')
+
+        expect(panes()).toEqual([[first.id], [second.id]])
+        expect(useLayoutStore.getState().byWorkspace.w.root).toMatchObject({
+          type: 'split',
+          direction: 'horizontal',
+        })
+        expect(document.querySelector('.pane-drop-layer')).toBeNull()
+      } finally {
+        stop()
+      }
+    })
+
     it('tabs reorder within their tab bar', async () => {
       const stop = workspace(tabsOf(second.id, first, second))
       try {
