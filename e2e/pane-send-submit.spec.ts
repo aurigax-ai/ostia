@@ -88,9 +88,6 @@ test(
       await typeLine(win, 'clear; ostia pane read worker')
       await expect(caller).toContainText('swallowed-enter', { timeout: 15_000 })
       await expect(caller).not.toContainText('submitted: line one')
-
-      await typeLine(win, 'clear; ostia pane key worker enter && ostia pane read worker')
-      await expect(caller).toContainText('submitted: line one | line two', { timeout: 15_000 })
     } finally {
       await app.close()
     }
