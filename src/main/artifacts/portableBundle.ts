@@ -199,7 +199,7 @@ function isRelative(path: string): boolean {
 }
 
 function notAllowed(specifier: string): string {
-  return `cannot import "${specifier}"; an artifact can import only ${importableSpecifiers().join(', ')} and files beside it`
+  return `cannot import ${JSON.stringify(specifier)}; an artifact can import only ${importableSpecifiers().join(', ')} and files beside it`
 }
 
 function artifactPlugin(run: BuildRun, entry: ArtifactEntry): Plugin {
@@ -224,7 +224,11 @@ function artifactPlugin(run: BuildRun, entry: ArtifactEntry): Plugin {
       if (args.kind === 'url-token' || args.kind === 'import-rule') {
         return { path: args.path, external: true }
       }
-      return { errors: [{ text: `cannot import "${args.path}"; an artifact has no network` }] }
+      return {
+        errors: [
+          { text: `cannot import ${JSON.stringify(args.path)}; an artifact has no network` },
+        ],
+      }
     }
     if (isRelative(args.path)) {
       const found = run.resolveLocal(args.path, importer)

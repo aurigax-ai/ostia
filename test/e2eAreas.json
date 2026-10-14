@@ -756,10 +756,7 @@
         "src/renderer/lib/sidebar/groupPeers.ts",
         "src/renderer/stores/agents/agentGroupsStore.ts"
       ],
-      "specs": [
-        "e2e/scratch-workspace.spec.ts",
-        "e2e/workspace-groups.spec.ts"
-      ]
+      "specs": ["e2e/scratch-workspace.spec.ts", "e2e/workspace-groups.spec.ts"]
     },
     {
       "name": "restore and user folders",
@@ -1079,8 +1076,16 @@
         "src/renderer/lib/panes/callerFocus.ts",
         "src/renderer/lib/files/revealFolder.ts",
         "src/cli/common/stdinCapture.ts",
-        "src/main/artifacts/artifactCompiler.ts",
-        "src/main/artifacts/previewShell.ts",
+        "src/main/artifacts/portableBuilder.ts",
+        "src/main/artifacts/portableBundle.ts",
+        "src/main/artifacts/portablePage.ts",
+        "src/main/artifacts/portableTailwind.ts",
+        "src/main/artifacts/portableExport.ts",
+        "src/main/artifacts/previewFiles.ts",
+        "src/shared/artifacts/portable.ts",
+        "src/renderer/components/editor/PortableActions.tsx",
+        "src/renderer/components/editor/portableDocuments.tsx",
+        "src/renderer/lib/files/portableStyles.ts",
         "src/main/artifacts/esbuildService.ts",
         "src/main/gateway/artifactFiles.ts",
         "src/shared/artifacts/artifactRuntime.ts",

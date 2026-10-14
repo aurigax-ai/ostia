@@ -21,8 +21,13 @@ interface TailwindModule {
 }
 
 const DARK_BY_CLASS = '@custom-variant dark (&:where(.dark, .dark *));'
-const WITH_PREFLIGHT = `@import "tailwindcss";\n${DARK_BY_CLASS}`
-const WITHOUT_PREFLIGHT = `@import "tailwindcss/theme.css" layer(theme);\n@import "tailwindcss/utilities.css" layer(utilities);\n${DARK_BY_CLASS}`
+const AT_IMPORT = '@import'
+const WITH_PREFLIGHT = `${AT_IMPORT} "${TAILWIND_PACKAGE}";\n${DARK_BY_CLASS}`
+const WITHOUT_PREFLIGHT = [
+  `${AT_IMPORT} "${TAILWIND_PACKAGE}/theme.css" layer(theme);`,
+  `${AT_IMPORT} "${TAILWIND_PACKAGE}/utilities.css" layer(utilities);`,
+  DARK_BY_CLASS,
+].join('\n')
 const CANDIDATE = /[^\s"'`<>={};\\]+/g
 
 export type TailwindStyle = 'component' | 'page'

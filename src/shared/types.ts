@@ -17,6 +17,7 @@ import type { ReleaseCheckResult } from './app/releases'
 import type { RequirementsReport } from './app/systemRequirements'
 import type { ArtifactListing } from './artifacts/artifacts'
 import type { PreviewApi } from './artifacts/htmlPreview'
+import type { PortableAction, PortableRequest, PortableResult } from './artifacts/portable'
 import type { AssistApi } from './assist'
 import type { ChatSessionsApi } from './assist/chatSessions'
 import type { ChatToolsApi } from './assist/chatTools'
@@ -680,6 +681,7 @@ interface ArtifactsApi {
   pad: (workspaceId: string) => Promise<string | null>
   reveal: (workspaceId: string) => void
   onChanged: (cb: (workspaceId: string) => void) => () => void
+  portable: (action: PortableAction, request: PortableRequest) => Promise<PortableResult>
 }
 
 interface OpenWaitsApi {

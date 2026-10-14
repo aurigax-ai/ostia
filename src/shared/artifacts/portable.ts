@@ -71,6 +71,13 @@ export interface PortableDocument {
   css: string
 }
 
+export interface PortableRequest {
+  workspaceId: string
+  path: string
+  theme: PreviewTheme
+  document?: PortableDocument
+}
+
 export type PortableResult =
   | { ok: true }
   | {

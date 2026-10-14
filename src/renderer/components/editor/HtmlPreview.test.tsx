@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { findPane, paneBrowserProfile } from '@/layout/tree'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { PreviewEvent, PreviewOpened } from '@shared/artifacts/htmlPreview'
@@ -260,5 +261,25 @@ describe('HtmlPreview', () => {
     await fire({ id: 'load1', type: 'link', url: 'file:///etc/passwd' })
     expect(screen.getByTestId('preview-link')).toHaveTextContent('file:///etc/passwd')
     expect(screen.queryByRole('button', { name: 'Open in Browser Pane' })).toBeNull()
+  })
+
+  it('PRT-C19 builds the preview again with the new theme when the app theme changes', async () => {
+    const settingsInit = useSettingsStore.getState()
+    await renderSettled(preview())
+    expect(window.ostia.preview.open).toHaveBeenCalledTimes(1)
+    document.documentElement.classList.add('dark')
+    await act(async () => {
+      useSettingsStore.setState((s) => ({
+        appearance: { ...s.appearance, followSystem: false, theme: 'some-other-theme' },
+      }))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    expect(window.ostia.preview.open).toHaveBeenCalledTimes(2)
+    expect(window.ostia.preview.open).toHaveBeenLastCalledWith('p1', FILE, { dark: true, vars: {} })
+    expect(window.ostia.preview.close).toHaveBeenCalledWith('load1')
+    expect(guest()).toHaveAttribute('src', 'ostia-preview://load2/')
+    cleanup()
+    document.documentElement.classList.remove('dark')
+    useSettingsStore.setState(settingsInit, true)
   })
 })

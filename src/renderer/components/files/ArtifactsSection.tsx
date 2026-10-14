@@ -1,4 +1,11 @@
 import { IconButton } from '@/components/common/IconButton'
+import { MenuContent } from '@/components/common/Menu'
+import {
+  PortableMenuItems,
+  PortableProblem,
+  usePortableFile,
+} from '@/components/editor/PortableActions'
+import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { useDict } from '@/i18n/useDict'
 import { openArtifact, openPad, opensInOstia, sizeText } from '@/lib/files/artifacts'
 import { agoText } from '@/lib/sidebar/dashboard'
@@ -32,7 +39,8 @@ function ArtifactRow({
   const d = useDict()
   const unread = useArtifactsStore((s) => s.unread[entry.path] === true)
   const { Icon, color } = fileIcon({ name: entry.name, dir: false }, false)
-  return (
+  const portable = usePortableFile(workspaceId, entry.path)
+  const row = (
     <button
       type="button"
       className="artifact-row"
@@ -45,6 +53,18 @@ function ArtifactRow({
       {unread ? <span className="unread-dot" role="img" aria-label={d.artifacts.unread} /> : null}
       <span className="artifact-meta">{opensInOstia(entry) ? age : sizeText(entry.size)}</span>
     </button>
+  )
+  if (!portable.shown) return row
+  return (
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger render={row} />
+        <MenuContent>
+          <PortableMenuItems run={portable.run} />
+        </MenuContent>
+      </ContextMenu>
+      <PortableProblem problem={portable.problem} />
+    </>
   )
 }
 

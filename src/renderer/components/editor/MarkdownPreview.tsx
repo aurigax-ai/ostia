@@ -1,7 +1,7 @@
 import { sourceLinesOf, trackSelection } from '@/lib/browser/domSelection'
 import { findStep, matchChord } from '@/lib/keys/chords'
 import { isMac } from '@/platform'
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { DocumentFind } from './DocumentFind'
@@ -45,18 +45,24 @@ function mermaidSource(pre: HastNode | undefined): string | null {
   return names.includes('language-mermaid') ? textOf(code).replace(/\n$/, '') : null
 }
 
-const COMPONENTS: Components = {
-  a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer" />,
-  pre: ({ node, ...props }) => {
-    const diagram = mermaidSource(node as HastNode | undefined)
-    return diagram === null ? <pre {...props} /> : <MermaidDiagram code={diagram} />
-  },
-  table: ({ node: _node, ...props }) => (
-    <div className="typeset-scroll">
-      <table {...props} />
-    </div>
-  ),
+export const MARKDOWN_REMARK = REMARK_PLUGINS
+
+export function markdownComponents(diagram: (code: string) => ReactNode): Components {
+  return {
+    a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer" />,
+    pre: ({ node, ...props }) => {
+      const code = mermaidSource(node as HastNode | undefined)
+      return code === null ? <pre {...props} /> : diagram(code)
+    },
+    table: ({ node: _node, ...props }) => (
+      <div className="typeset-scroll">
+        <table {...props} />
+      </div>
+    ),
+  }
 }
+
+const COMPONENTS = markdownComponents((code) => <MermaidDiagram code={code} />)
 
 function isPlainFindKey(e: KeyboardEvent<HTMLElement>): boolean {
   return (isMac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f'

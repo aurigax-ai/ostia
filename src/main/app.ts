@@ -15,6 +15,7 @@ import {
   BrowserWindow,
   app,
   clipboard,
+  dialog,
   globalShortcut,
   ipcMain,
   nativeTheme,
@@ -135,6 +136,7 @@ import {
   registerPreviewIpc,
 } from './artifacts/htmlPreview'
 import { PortableBuilder } from './artifacts/portableBuilder'
+import { PortableExport, registerPortableIpc } from './artifacts/portableExport'
 import { registerAttentionMethods, targetOf } from './attention/attention'
 import { announceBusMessage } from './attention/busNotice'
 import {
@@ -1024,6 +1026,27 @@ const previews = new PreviewHost({
       cpuPercent: metric.cpu.percentCPUUsage,
     })),
   build: (source, theme) => portableBuilder.preview(source, theme),
+})
+
+const portableExport = new PortableExport({
+  builder: portableBuilder,
+  confine: (path) => openFileGrants.confine(path),
+  servesFolder: (dir) => artifactFolders.holds(dir),
+  ownsWorkspace: (windowId, workspaceId) => windowForWorkspace(workspaceId) === windowId,
+  sandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+  tmpDir: () => privateTmpDir(`${PRODUCT_NAME}-portable`),
+  openPath: (path) => shell.openPath(path),
+  saveDialog: async (windowId, defaultPath) => {
+    const owner = windows.get(windowId)
+    const options = { defaultPath, filters: [{ name: 'HTML', extensions: ['html'] }] }
+    const picked = owner
+      ? await dialog.showSaveDialog(owner, options)
+      : await dialog.showSaveDialog(options)
+    return picked.canceled || !picked.filePath ? null : picked.filePath
+  },
+  downloads: () => app.getPath('downloads'),
+  writeClipboard: (text) => clipboard.writeText(text),
+  version: app.getVersion(),
 })
 
 function isScratchPane(paneId: string): boolean {
@@ -3692,6 +3715,7 @@ app.whenReady().then(() => {
   }
   scratchFolders.sweep()
   artifactFolders.sweep()
+  portableExport.sweep()
   workspaceSandboxes.sweepTmp()
   registerScratchIpc(scratchFolders)
   registerArtifactIpc({
@@ -3722,6 +3746,7 @@ app.whenReady().then(() => {
   registerFsIpc()
   registerSelectionIpc(reachesPane, redactor.text)
   registerPreviewIpc(previews)
+  registerPortableIpc(portableExport)
   registerPrivacyIpc(redactor)
   const approvalCaps = new Map<string, readonly string[]>()
   registerApprovals(revealWindow, settingsChanged, {
