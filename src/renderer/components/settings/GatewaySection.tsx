@@ -546,11 +546,7 @@ export function GatewaySection(): JSX.Element {
 
       <Separator className="my-3" />
 
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="text-fg text-ui-base">{d.settings.remotePair}</div>
-          <p className="mt-0.5 text-fg-muted text-ui-sm">{d.settings.remotePairDesc}</p>
-        </div>
+      <ControlRow label={d.settings.remotePair} desc={d.settings.remotePairDesc}>
         <Button
           variant="outline"
           size="sm"
@@ -559,7 +555,7 @@ export function GatewaySection(): JSX.Element {
         >
           {pairing ? d.settings.remotePairing : d.settings.remotePairButton}
         </Button>
-      </div>
+      </ControlRow>
 
       <PairRequests requests={requests} onAnswer={(id, approve) => void onAnswer(id, approve)} />
 

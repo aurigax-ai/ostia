@@ -312,7 +312,7 @@ export function ExtensionsSection({
   const selected = list.find((e) => e.id === selectedId) ?? list[0] ?? null
 
   return (
-    <section aria-label={d.extensions.title}>
+    <section aria-label={d.extensions.title} className="@container">
       <div className="mb-3 flex items-start justify-between gap-6">
         <p className="text-fg-muted text-ui-sm">{d.extensions.desc}</p>
         <Button
@@ -328,7 +328,7 @@ export function ExtensionsSection({
       {list.length === 0 ? (
         <p className="text-fg-muted text-ui-sm">{d.extensions.none}</p>
       ) : (
-        <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-start gap-4">
+        <div className="grid grid-cols-1 items-start gap-4 @2xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <ul aria-label={d.extensions.listLabel} className="flex flex-col gap-0.5">
             {list.map((ext) => (
               <ExtensionListRow

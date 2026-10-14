@@ -1,6 +1,6 @@
 import { IconButton } from '@/components/common/IconButton'
 import { RequirementsNote } from '@/components/settings/RequirementsNote'
-import { SubHead, WarningNote } from '@/components/settings/SettingsPanel'
+import { MachineValue, SubHead, WarningNote } from '@/components/settings/SettingsPanel'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -154,7 +154,9 @@ function MarketplaceRow({ marketplace }: { marketplace: MarketplaceInfo }): JSX.
       <div className="flex items-start justify-between gap-6">
         <div className="min-w-0">
           <div className="text-fg text-ui-sm">{marketplace.name}</div>
-          <div className="truncate font-mono text-fg-muted text-ui-xs">{marketplace.url}</div>
+          <div className="flex min-w-0">
+            <MachineValue value={marketplace.url} />
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {marketplace.downloaded ? (

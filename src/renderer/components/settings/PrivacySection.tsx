@@ -22,7 +22,14 @@ import {
 } from '@shared/privacy/redaction'
 import { TELEMETRY_CATEGORIES, type TelemetryCategory } from '@shared/privacy/telemetry'
 import { useEffect, useState } from 'react'
-import { ControlRow, SectionHead, SettingsGroup, ToggleRow, WarningNote } from './SettingsPanel'
+import {
+  ControlRow,
+  MachineValue,
+  SectionHead,
+  SettingsGroup,
+  ToggleRow,
+  WarningNote,
+} from './SettingsPanel'
 import { CategoryDetails } from './TelemetryConsentDialog'
 import { TelemetryReportsDialog } from './TelemetryReportsDialog'
 
@@ -291,14 +298,10 @@ function TelemetryGroup(): JSX.Element {
         />
       ))}
       <ControlRow label={d.privacy.installId} desc={d.privacy.installIdDesc}>
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-fg-muted text-ui-xs" aria-label={d.privacy.installId}>
-            {installId}
-          </span>
-          <Button variant="outline" size="sm" onClick={() => void reset()}>
-            {d.privacy.resetInstallId}
-          </Button>
-        </div>
+        <MachineValue value={installId} label={d.privacy.installId} />
+        <Button variant="outline" size="sm" onClick={() => void reset()}>
+          {d.privacy.resetInstallId}
+        </Button>
       </ControlRow>
       <div className="pt-2">
         <Button variant="outline" size="sm" onClick={() => showConsent(telemetry)}>
