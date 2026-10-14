@@ -858,7 +858,6 @@
       "specs": [
         "e2e/blocks.spec.ts",
         "e2e/input-editor.spec.ts",
-        "e2e/ostia-prompt.spec.ts",
         "e2e/terminal-basics.spec.ts"
       ]
     },
