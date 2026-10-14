@@ -19,7 +19,7 @@ import {
   routerNode,
   runView,
   waitNode,
-} from '@aurigax-ai/graph'
+} from '@aurigax-ai/wire'
 import type { OstiaExtension } from '../sdk'
 import { AGENT_LATE, AGENT_STOP, agentNode } from './agentNode'
 import { NATIVE_CONNECTORS, SANDBOXED_CONNECTOR, ostiaConnectorNode } from './connectorHost'

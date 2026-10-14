@@ -7,7 +7,7 @@ import {
   type ResolvedConnection,
   connectorNode,
   httpConnector,
-} from '@aurigax-ai/graph'
+} from '@aurigax-ai/wire'
 import type { OstiaExtension } from '../sdk'
 
 export type ConnectorExt = Pick<OstiaExtension, 'mcpCall' | 'connection'>

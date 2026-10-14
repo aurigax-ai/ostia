@@ -8,7 +8,7 @@ import {
   type NodeWait,
   type Output,
   TRIGGER_TARGET,
-} from '@aurigax-ai/graph'
+} from '@aurigax-ai/wire'
 import type { OstiaExtension, PaneInfo } from '../sdk'
 
 export const RATE_RETRY_MS = 60_000

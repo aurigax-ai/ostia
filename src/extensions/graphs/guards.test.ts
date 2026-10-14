@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 const HERE = __dirname
 const REPO = resolve(HERE, '../../..')
-const ENGINE_PACKAGE = join(REPO, 'node_modules/@aurigax-ai/graph')
+const ENGINE_PACKAGE = join(REPO, 'node_modules/@aurigax-ai/wire')
 const ENGINE = join(ENGINE_PACKAGE, 'src')
 
 function files(dir: string, test: (name: string) => boolean): string[] {
@@ -45,7 +45,7 @@ describe('what the graphs extension may do', () => {
       .filter((f) => WRITES.test(read(f)))
       .map((f) => f.slice(REPO.length + 1))
     expect(writers.sort()).toEqual([
-      'node_modules/@aurigax-ai/graph/src/engine/fileStore.ts',
+      'node_modules/@aurigax-ai/wire/src/engine/fileStore.ts',
       'src/extensions/graphs/enabled.ts',
     ])
     expect(read(join(HERE, 'enabled.ts'))).not.toContain('graphsFolder')

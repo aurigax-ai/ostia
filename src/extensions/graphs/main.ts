@@ -1,4 +1,4 @@
-import { HOUR_MS, realClock } from '@aurigax-ai/graph'
+import { HOUR_MS, realClock } from '@aurigax-ai/wire'
 import { isAgentHookEvent, isHookAgent } from '../../shared/agentPlugins'
 import { readEnv } from '../../shared/appEnv'
 import {

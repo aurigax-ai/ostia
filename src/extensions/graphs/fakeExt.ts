@@ -1,5 +1,5 @@
-import { MemoryJournalStore, type Output } from '@aurigax-ai/graph'
-import { FakeClock, settle } from '@aurigax-ai/graph/testing'
+import { MemoryJournalStore, type Output } from '@aurigax-ai/wire'
+import { FakeClock, settle } from '@aurigax-ai/wire/testing'
 import type { AskOptions, ConnectionValue, ExecOptions, PaneInfo } from '../sdk'
 import { type GraphsExt, GraphsRunner, type Workspace } from './runner'
 

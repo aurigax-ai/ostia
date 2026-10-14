@@ -7,7 +7,7 @@ import {
   nodesCommand,
   schemaCommand,
   validateCommand,
-} from '@aurigax-ai/graph'
+} from '@aurigax-ai/wire'
 import {
   type CommandHandler,
   type ExtensionCaller,

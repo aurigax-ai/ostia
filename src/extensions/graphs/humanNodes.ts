@@ -8,7 +8,7 @@ import {
   type ProcessRunner,
   commandNode,
   notifyNode,
-} from '@aurigax-ai/graph'
+} from '@aurigax-ai/wire'
 import { EXTENSION_REDACT_TEXTS_MAX, EXTENSION_REDACT_TEXT_MAX, type OstiaExtension } from '../sdk'
 
 const ANSWER = 'answer'

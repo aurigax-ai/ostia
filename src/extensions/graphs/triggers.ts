@@ -8,7 +8,7 @@ import {
   type TriggerEvent,
   TriggerScheduler,
   firedBy,
-} from '@aurigax-ai/graph'
+} from '@aurigax-ai/wire'
 import { scheduleMemory } from './enabled'
 import { FolderWatcher, type WatchStart } from './folderWatch'
 
