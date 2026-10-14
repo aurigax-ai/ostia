@@ -3,7 +3,6 @@ import { IconButton } from '@/components/common/IconButton'
 import { SectionHead, SelectField, WarningNote } from '@/components/settings/SettingsPanel'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { Kbd } from '@/components/ui/kbd'
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { fmt, useDict } from '@/i18n/useDict'
@@ -25,7 +24,6 @@ import {
   chordsWithout,
   chordsWithoutKey,
   conflictsWith,
-  holdDoubleShift,
   keymapBindings,
   terminalKeyConflicts,
   useBindings,
@@ -56,26 +54,18 @@ import { isMac, platform } from '@/platform'
 import { appKeymap, keymapChoices, useKeymapStore } from '@/stores/app/keymapStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import {
-  ArrowCounterClockwiseIcon,
-  MagnifyingGlassIcon,
-  PlusIcon,
-  XIcon,
-} from '@phosphor-icons/react'
+import { ArrowCounterClockwiseIcon, PlusIcon, XIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import {
   type ChordProblem,
   type ChordSpec,
   type ChordValue,
   DIGIT_RANGE,
-  DOUBLE_SHIFT,
   chordText,
   chordTexts,
-  doubleShiftDetector,
   formatScopedChord,
   isPaletteF1,
-  parseChord,
-  specFromEvent,
+  overlaps,
   usedByMonaco,
 } from '@shared/keyboard/chordSpec'
 import { desktopTaking } from '@shared/keyboard/desktopChords'
@@ -86,9 +76,11 @@ import {
   sendChordProblem,
   sendData,
 } from '@shared/keyboard/terminalKeys'
-import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { Fragment, useRef, useState, useSyncExternalStore } from 'react'
 import { BindingDetail, RowToggle, TerminalKeyDetail } from './BindingDetail'
 import { ChangesView, useChangeTotal } from './ChangesView'
+import { ChordRecorder } from './ChordRecorder'
+import { KeySearch, boundTo } from './KeySearch'
 import { KeymapCombo } from './KeymapCombo'
 import {
   KEY_TABLE_COLUMNS,
@@ -142,51 +134,6 @@ function matchesTerminalRow(row: TerminalKeyRow, q: string, d: Dict): boolean {
 function recordedChord(id: string, spec: ChordSpec): ChordSpec {
   if (id !== WORKSPACE_GOTO || workspaceDigit(spec.key) === null) return spec
   return { ...spec, key: DIGIT_RANGE }
-}
-
-export function ChordRecorder({
-  label,
-  onRecord,
-  onCancel,
-}: {
-  label: string
-  onRecord: (spec: ChordSpec) => void
-  onCancel: () => void
-}): JSX.Element {
-  const d = useDict()
-  const [doubleShift] = useState(doubleShiftDetector)
-  useEffect(() => {
-    const release = holdDoubleShift()
-    const onKey = (e: KeyboardEvent): void => {
-      e.preventDefault()
-      e.stopPropagation()
-      doubleShift.down(e, e.timeStamp)
-      const plain = !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey
-      if (e.key === 'Escape' && plain) {
-        onCancel()
-        return
-      }
-      const spec = specFromEvent(e)
-      if (spec) onRecord(spec)
-    }
-    const onKeyUp = (e: KeyboardEvent): void => {
-      if (!doubleShift.up(e, e.timeStamp)) return
-      const spec = parseChord(DOUBLE_SHIFT, isMac)
-      if (spec) onRecord(spec)
-    }
-    window.addEventListener('keydown', onKey, true)
-    window.addEventListener('keyup', onKeyUp, true)
-    return () => {
-      release()
-      window.removeEventListener('keydown', onKey, true)
-      window.removeEventListener('keyup', onKeyUp, true)
-    }
-  }, [onRecord, onCancel, doubleShift])
-  return (
-    <output aria-label={label} aria-live="polite" className="text-fg text-ui-sm">
-      {d.keyboard.recording}
-    </output>
-  )
 }
 
 interface Pending {
@@ -982,6 +929,7 @@ function ViewSwitch({
 export function KeyboardSection(): JSX.Element {
   const d = useDict()
   const [query, setQuery] = useState('')
+  const [chord, setChord] = useState<ChordSpec | null>(null)
   const [adding, setAdding] = useState(false)
   const [view, setView] = useState<View>('active')
   const [open, setOpen] = useState<string | null>(null)
@@ -1004,8 +952,16 @@ export function KeyboardSection(): JSX.Element {
   const sends = terminalKeySources(terminalKeys, terminalKeymap, isMac)
 
   const q = query.trim().toLowerCase()
-  const visible = q ? rows.filter((r) => matchesQuery(r, q)) : rows
-  const visibleSends = q ? sends.filter((r) => matchesTerminalRow(r.row, q, d)) : sends
+  const visible = chord
+    ? rows.filter((r) => boundTo(r.id, chord))
+    : q
+      ? rows.filter((r) => matchesQuery(r, q))
+      : rows
+  const visibleSends = chord
+    ? sends.filter((r) => overlaps(r.row.spec, chord))
+    : q
+      ? sends.filter((r) => matchesTerminalRow(r.row, q, d))
+      : sends
   const toggle = (key: string) => (): void => setOpen((was) => (was === key ? null : key))
 
   return (
@@ -1015,17 +971,7 @@ export function KeyboardSection(): JSX.Element {
       <div className="mb-2 flex items-center gap-2">
         <ViewSwitch view={view} total={total} onChange={setView} />
         {view === 'active' ? (
-          <InputGroup className="h-7 flex-1">
-            <InputGroupAddon>
-              <MagnifyingGlassIcon />
-            </InputGroupAddon>
-            <InputGroupInput
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={d.keyboard.search}
-              aria-label={d.keyboard.search}
-            />
-          </InputGroup>
+          <KeySearch query={query} onQuery={setQuery} chord={chord} onChord={setChord} />
         ) : null}
       </div>
       {view === 'changes' ? (
