@@ -1,5 +1,6 @@
 import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import type { ScheduleMemory } from '@aurigax-ai/graph'
 
 export const ENABLED_FILE = 'enabled.json'
 const CHANGED_FILE = 'changed.json'
@@ -45,6 +46,33 @@ function parse(raw: unknown): Stored {
   return { enabled, changed }
 }
 
+function writeDataFile(file: string, value: unknown): void {
+  mkdirSync(dirname(file), { recursive: true, mode: 0o700 })
+  const temp = `${file}.tmp`
+  writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 })
+  chmodSync(temp, 0o600)
+  renameSync(temp, file)
+}
+
+export function scheduleMemory(path: string | null): ScheduleMemory {
+  let marks: Record<string, number> = {}
+  if (path) {
+    try {
+      const raw = JSON.parse(readFileSync(path, 'utf8')) as unknown
+      if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+        for (const [k, v] of Object.entries(raw)) if (typeof v === 'number') marks[k] = v
+      }
+    } catch {}
+  }
+  return {
+    last: (key) => marks[key],
+    mark: (key, at) => {
+      marks = { ...marks, [key]: at }
+      if (path) writeDataFile(path, marks)
+    },
+  }
+}
+
 export class EnableStore {
   constructor(
     private readonly file: string | null,
@@ -68,21 +96,13 @@ export class EnableStore {
     return { enabled, changed }
   }
 
-  private writeFile(file: string, value: unknown): void {
-    mkdirSync(dirname(file), { recursive: true, mode: 0o700 })
-    const temp = `${file}.tmp`
-    writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 })
-    chmodSync(temp, 0o600)
-    renameSync(temp, file)
-  }
-
   private save(stored: Stored): void {
     if (!this.file) {
       this.memory = stored
       return
     }
-    this.writeFile(this.file, { enabled: stored.enabled })
-    this.writeFile(changedFile(this.file), { changed: stored.changed })
+    writeDataFile(this.file, { enabled: stored.enabled })
+    writeDataFile(changedFile(this.file), { changed: stored.changed })
   }
 
   record(workspaceId: string, realPath: string): EnabledRecord | null {

@@ -37,6 +37,9 @@ importers:
       esbuild:
         specifier: ^0.21.5
         version: 0.21.5
+      ignore:
+        specifier: 7.0.12
+        version: 7.0.12
       lru-cache:
         specifier: ^11.5.3
         version: 11.5.3
