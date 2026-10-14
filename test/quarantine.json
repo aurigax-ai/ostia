@@ -1,9 +1,1 @@
-[
-  {
-    "file": "e2e/stale-waiting.spec.ts",
-    "name": "an agent that waited and then exited leaves the pane idle, and a late report is ignored",
-    "issue": 129,
-    "until": "2026-11-02",
-    "platforms": ["linux"]
-  }
-]
+[]

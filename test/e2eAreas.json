@@ -647,7 +647,6 @@
       ],
       "specs": [
         "e2e/processes.spec.ts",
-        "e2e/stale-waiting.spec.ts",
         "e2e/worker-workspace.spec.ts"
       ]
     },
@@ -666,7 +665,7 @@
         "src/renderer/components/agents/NotificationCenter.tsx",
         "src/renderer/components/agents/attentionStyles.ts"
       ],
-      "specs": ["e2e/stale-waiting.spec.ts"]
+      "specs": []
     },
     {
       "name": "dashboard and questions",
@@ -868,7 +867,6 @@
         "e2e/blocks.spec.ts",
         "e2e/input-editor.spec.ts",
         "e2e/ostia-prompt.spec.ts",
-        "e2e/stale-waiting.spec.ts",
         "e2e/terminal-basics.spec.ts"
       ]
     },
