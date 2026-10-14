@@ -2162,6 +2162,13 @@ export const en = {
     quitTitle: 'Quit and lose this work?',
     quitBody: 'Quitting ends or discards everything listed here.',
     quitAction: 'Quit',
+    keptTitle: 'Quit with kept shells running?',
+    keptShells: '{count} kept shells are running',
+    keptShellsOne: '1 kept shell is running',
+    keptBody:
+      'Quit and keep shells leaves them running in tmux, and the next start, of any version, reattaches them. Quit and end shells ends them and every program in them.',
+    keepAction: 'Quit and keep shells',
+    endAction: 'Quit and end shells',
     lostProcesses: '{count} shell processes will be ended',
     lostProcessesOne: '1 shell process will be ended',
     lostAgents: '{count} agents will be stopped',
@@ -3475,7 +3482,7 @@ export const en = {
       'Program new terminals run, with its arguments, like /usr/bin/fish. Empty uses your login shell. Blocks and the input editor need zsh or bash.',
     keepShells: 'Keep shells running across a restart',
     keepShellsDesc:
-      'Terminals opened from now on run in a private tmux server, so restarting for an update or a crash leaves them running. Quit still ends them.',
+      'Terminals opened from now on run in a private tmux server, so restarting for an update or a crash leaves them running. When Confirm before quitting is on, Quit asks whether to keep them for the next start; otherwise Quit ends them.',
     keepShellsRequirementsBody: 'tmux {version} or newer is needed to keep shells.',
     experimental: 'Experimental',
     terminalRenderer: 'Terminal engine',
@@ -3591,6 +3598,13 @@ export const en = {
       unanswered: 'The window did not answer, so it may have running commands or unsaved files',
       quit: 'Quit',
       cancel: 'Cancel',
+      keptTitle: 'Quit with kept shells running?',
+      keptShells: '{count} kept shells are running',
+      keptShellsOne: '1 kept shell is running',
+      keptBody:
+        'Quit and keep shells leaves them running in tmux, and the next start reattaches them. Quit and end shells ends them.',
+      keep: 'Quit and keep shells',
+      end: 'Quit and end shells',
     },
     tray: { show: 'Show', quit: 'Quit', unread: '{count} unread' },
     signIn: {
@@ -5714,6 +5728,13 @@ export const zhHant: Dict = {
     quitTitle: '要結束並捨棄這些工作嗎？',
     quitBody: '結束後，下列項目會被終止或捨棄。',
     quitAction: '結束',
+    keptTitle: '要在保留的 shell 執行中結束嗎？',
+    keptShells: '{count} 個保留的 shell 正在執行',
+    keptShellsOne: '1 個保留的 shell 正在執行',
+    keptBody:
+      '「結束並保留 shell」會讓它們繼續在 tmux 中執行，下次啟動（任何版本）時會重新接上。「結束並關閉 shell」會關閉它們和其中所有程式。',
+    keepAction: '結束並保留 shell',
+    endAction: '結束並關閉 shell',
     lostProcesses: '{count} 個 shell 裡的程序會被結束',
     lostProcessesOne: '1 個 shell 裡的程序會被結束',
     lostAgents: '{count} 個代理程式會被停止',
@@ -6989,7 +7010,7 @@ export const zhHant: Dict = {
       '新終端機執行的程式及其引數，例如 /usr/bin/fish。留空則使用登入 shell。指令區塊與輸入編輯器需要 zsh 或 bash。',
     keepShells: '重新啟動時保留 shell',
     keepShellsDesc:
-      '此後開啟的終端機在私有的 tmux 伺服器中執行，因此為更新而重新啟動或當機後仍會繼續執行。結束程式時仍會關閉它們。',
+      '此後開啟的終端機在私有的 tmux 伺服器中執行，因此為更新而重新啟動或當機後仍會繼續執行。開啟「結束前確認」時，結束程式會詢問要保留它們給下次啟動，還是一併關閉；否則結束程式會關閉它們。',
     keepShellsRequirementsBody: '需要 tmux {version} 或更新版本才能保留 shell。',
     experimental: '實驗性',
     terminalRenderer: '終端機引擎',
@@ -7098,6 +7119,13 @@ export const zhHant: Dict = {
       unanswered: '視窗沒有回應，可能仍有執行中的指令或未儲存的檔案',
       quit: '結束',
       cancel: '取消',
+      keptTitle: '要在保留的 shell 執行中結束嗎？',
+      keptShells: '{count} 個保留的 shell 正在執行',
+      keptShellsOne: '1 個保留的 shell 正在執行',
+      keptBody:
+        '「結束並保留 shell」會讓它們繼續在 tmux 中執行，下次啟動時會重新接上。「結束並關閉 shell」會關閉它們。',
+      keep: '結束並保留 shell',
+      end: '結束並關閉 shell',
     },
     tray: { show: '顯示', quit: '結束', unread: '{count} 則未讀' },
     signIn: {

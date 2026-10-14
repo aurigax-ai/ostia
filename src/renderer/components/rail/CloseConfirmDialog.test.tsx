@@ -12,6 +12,7 @@ import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore
 import { useCloseConfirmStore } from '@/stores/workspaces/closeConfirmStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { QuitAnswer } from '@shared/types'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -100,13 +101,13 @@ describe('close confirmation', () => {
     render(<CloseConfirmDialog />)
     const user = userEvent.setup()
 
-    let quit: Promise<boolean> = Promise.resolve(true)
+    let quit: Promise<QuitAnswer> = Promise.resolve('quit')
     act(() => {
       quit = confirmQuit(quitGroups())
     })
     await screen.findByRole('dialog')
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
-    await expect(quit).resolves.toBe(false)
+    await expect(quit).resolves.toBe('cancel')
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 
     act(() => {
@@ -114,7 +115,7 @@ describe('close confirmation', () => {
     })
     await screen.findByRole('dialog')
     await user.click(screen.getByRole('button', { name: 'Quit' }))
-    await expect(quit).resolves.toBe(true)
+    await expect(quit).resolves.toBe('quit')
   })
 
   it('closes the workspace when the dialog is confirmed', async () => {
@@ -226,7 +227,7 @@ describe('close confirmation', () => {
     render(<CloseConfirmDialog />)
     const user = userEvent.setup()
 
-    let quit: Promise<boolean> = Promise.resolve(true)
+    let quit: Promise<QuitAnswer> = Promise.resolve('quit')
     act(() => {
       quit = confirmQuit(quitGroups())
     })
@@ -235,7 +236,7 @@ describe('close confirmation', () => {
     expect(dialog).toHaveTextContent('tail -f log')
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
-    await expect(quit).resolves.toBe(false)
+    await expect(quit).resolves.toBe('cancel')
   })
 
   it('says what the quit loses, counted, above the workspaces', async () => {
@@ -288,23 +289,78 @@ describe('close confirmation', () => {
   it('confirms quit immediately when the setting is off or nothing runs', async () => {
     seed('sleep 100')
     useSettingsStore.getState().setWorkspaces({ confirmQuit: false })
-    await expect(confirmQuit(quitGroups())).resolves.toBe(true)
+    await expect(confirmQuit(quitGroups())).resolves.toBe('quit')
 
     useSettingsStore.getState().setWorkspaces({ confirmQuit: true })
     useBlocksStore.setState({ running: {} })
-    await expect(confirmQuit(quitGroups())).resolves.toBe(true)
+    await expect(confirmQuit(quitGroups())).resolves.toBe('quit')
   })
 
   it('KSH-C39 leaves a kept shell out of the restart question', async () => {
     seed('sleep 100')
     expect(quitGroups(new Set(['p1']))).toEqual([])
-    await expect(confirmQuit(quitGroups(new Set(['p1'])))).resolves.toBe(true)
+    await expect(confirmQuit(quitGroups(new Set(['p1'])))).resolves.toBe('quit')
   })
 
   it('KSH-C40 still asks about a running command whose shell is not kept', () => {
     seed('sleep 100')
     expect(quitGroups(new Set()).map((g) => g.commands)).toEqual([['sleep 100']])
     expect(quitGroups(new Set(['p2'])).map((g) => g.commands)).toEqual([['sleep 100']])
+  })
+
+  it('KSH-C89 offers to keep the kept shells on Quit, focused, and answers keep-shells', async () => {
+    seed('sleep 100')
+    render(<CloseConfirmDialog />)
+    const user = userEvent.setup()
+    let quit: Promise<QuitAnswer> = Promise.resolve('cancel')
+    act(() => {
+      quit = confirmQuit(quitGroups(new Set(['p1'])), ['p1'])
+    })
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('Quit with kept shells running?')
+    expect(dialog).toHaveTextContent('1 kept shell is running')
+    expect(dialog).toHaveTextContent('the next start, of any version, reattaches them')
+    const keep = screen.getByRole('button', { name: 'Quit and keep shells' })
+    await waitFor(() => expect(keep).toHaveFocus())
+    expect(screen.queryByRole('button', { name: 'Quit' })).toBeNull()
+    await user.click(keep)
+    await expect(quit).resolves.toBe('keep-shells')
+  })
+
+  it('KSH-C90 ends the kept shells on Quit and end shells', async () => {
+    seed('sleep 100')
+    render(<CloseConfirmDialog />)
+    const user = userEvent.setup()
+    let quit: Promise<QuitAnswer> = Promise.resolve('cancel')
+    act(() => {
+      quit = confirmQuit(quitGroups(new Set(['p1'])), ['p1'])
+    })
+    await screen.findByRole('dialog')
+    await user.click(screen.getByRole('button', { name: 'Quit and end shells' }))
+    await expect(quit).resolves.toBe('quit')
+  })
+
+  it('KSH-C91 lists what a quit loses and the kept shells, with a choice for the kept ones', async () => {
+    seed('sleep 100')
+    useBlocksStore.setState((s) => ({
+      running: { ...s.running, p2: 'b2' },
+      byPane: { ...s.byPane, p2: [{ id: 'b2', paneId: 'p2', command: 'make' } as CommandBlock] },
+    }))
+    render(<CloseConfirmDialog />)
+    const user = userEvent.setup()
+    let quit: Promise<QuitAnswer> = Promise.resolve('quit')
+    act(() => {
+      quit = confirmQuit(quitGroups(new Set(['p1'])), ['p1'])
+    })
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('Quit and lose this work?')
+    expect(dialog).toHaveTextContent('1 shell process will be ended')
+    expect(dialog).toHaveTextContent('make')
+    expect(
+      screen.getByRole('region', { name: 'Quit with kept shells running?' }),
+    ).toHaveTextContent('1 kept shell is running')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await expect(quit).resolves.toBe('cancel')
   })
 
   describe('scratch workspaces', () => {

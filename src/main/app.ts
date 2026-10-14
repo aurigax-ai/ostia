@@ -87,6 +87,7 @@ import type {
   PromptContextRequest,
   PtyAttachResult,
   PtySpawnOptions,
+  QuitAnswer,
   TerminalStateSnapshot,
   WindowBounds,
 } from '../shared/types'
@@ -443,6 +444,7 @@ import {
   QUIT_SIGNALS,
   createQuitTrace,
   exitAfterDeadline,
+  keepsShellsOnQuit,
   keptOnQuit,
   planQuit,
   summarizeKinds,
@@ -736,10 +738,15 @@ const keptShells = new KeptShells({
 })
 let tmuxTerminal: string | null = null
 let restartRequested = false
+let quitAnswer: QuitAnswer | null = null
 let stagedUpdate: { pending: PendingSweep; sweepFile: string } | null = null
 const updatePolicy = signaturePolicy(app.isPackaged, process.env)
 let updateRunner: UpdateRunner | null = null
 const UPDATE_HOST_GRANT_ID = 'core:update'
+
+function confirmQuitOn(): boolean {
+  return readSettingsFile().workspaces?.confirmQuit !== false
+}
 
 function keepShellsOn(): boolean {
   return parseKeepShells(readSettingsFile().terminal?.keepShells)
@@ -3352,7 +3359,7 @@ function readSettingsFile(): {
   extensionSettings?: unknown
   git?: unknown
   ports?: unknown
-  workspaces?: { globalHotkey?: unknown }
+  workspaces?: { globalHotkey?: unknown; confirmQuit?: unknown }
   manager?: unknown
   assistant?: unknown
   privacy?: unknown
@@ -4430,12 +4437,15 @@ app.on('before-quit', (event) => {
     if (quitAsking) return
     quitAsking = true
     const all = [...windows.values()]
+    const kept = keptOnQuit(
+      restartRequested,
+      confirmQuitOn(),
+      [...ptys.values()].map((entry) => ({ paneId: entry.paneId, kept: entry.kept !== null })),
+    )
     void confirmQuit(all, BrowserWindow.getFocusedWindow() ?? mainWindow(), {
       scratchFiles: (workspaceId) => scratchFolders.countFiles(workspaceId),
-      kept: keptOnQuit(
-        restartRequested,
-        [...ptys.values()].map((entry) => ({ paneId: entry.paneId, kept: entry.kept !== null })),
-      ),
+      kept: kept.kept,
+      keptShells: kept.offer,
       workspacesOf: (win) => broker?.workspacesOf(win) ?? [],
       processes: () =>
         [...ptys.values()].map((entry) => ({
@@ -4443,13 +4453,15 @@ app.on('before-quit', (event) => {
           workspaceId: entry.workspaceId,
           ...paneActivity(entry),
         })),
-      confirmNative: (groups) => confirmQuitNatively(groups, mainStrings().native.quit),
-    }).then((approved) => {
+      confirmNative: (groups, keptShells) =>
+        confirmQuitNatively(groups, keptShells, mainStrings().native.quit),
+    }).then((answer) => {
       quitAsking = false
-      if (!approved) {
+      if (answer === 'cancel') {
         restartRequested = false
         return
       }
+      quitAnswer = answer
       quitApproved = true
       freezeAll(all)
       app.quit()
@@ -4482,7 +4494,11 @@ app.on('before-quit', (event) => {
   broker?.persist()
   managerService?.shutdown()
   appLog?.info('app-quit', { ptys: ptys.size })
-  const keepingShells = restartRequested
+  const keepingShells = keepsShellsOnQuit(restartRequested, quitAnswer)
+  appLog?.info('quit-kept-shells', {
+    keep: keepingShells ? 1 : 0,
+    restart: restartRequested ? 1 : 0,
+  })
   if (keepingShells) {
     for (const workspaceId of keptHostPanes.keys()) {
       syncKeptExposed(workspaceId, portForwarder.listeners(workspaceId))
