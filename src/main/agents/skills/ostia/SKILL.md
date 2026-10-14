@@ -148,8 +148,10 @@ Ctrl+C.
 
 **Split tabs.** `--tab <name>` puts the new tab into the split tab of that name in its
 workspace, created once two panes share the name; Ostia arranges it (side by side while each
-segment stays readable, then a grid). From an agent, `agent run` without `--tab` joins the split
-tab `<caller title> · workers`. `ostia pane list` reports `splitTabName`.
+segment stays readable, then a grid). Only a split tab an agent made can be joined: one the human
+made, named or renamed answers `human-tab:`. From an agent, `agent run` without `--tab` joins its
+split tab `<caller title> · workers`, the same tab for as long as the caller pane lives, and opens a
+plain tab when the human took that tab over. `ostia pane list` reports `splitTabName`.
 
 ## Panes
 
@@ -203,9 +205,11 @@ ostia pane close [<pane>…] [--json]      # no pane: your own
   creating it once two panes share it; `--tab new` puts each back into a tab of its own;
   `--workspace` moves them into another workspace of the same window first. A pane already in
   place is left alone. Processes keep running and nothing is typed. It reads the layout back:
-  `--json` lists each pane's `placement`, and a pane that did not land answers `misplaced:`. It refuses a locked pane
-  (`pane-locked:`), scratch and sandboxed workspaces (`scratch:`, `sandboxed:`) and another
-  window (`other-window:`), and joins only a split tab whose panes you all reach.
+  `--json` lists each pane's `placement`, and a pane that did not land answers `misplaced:`.
+  Panes that end up as the whole workspace share its layout without a split tab name. It refuses
+  a locked pane (`pane-locked:`), a split tab the human made (`human-tab:`, also for `--tab new`
+  out of one), scratch and sandboxed workspaces (`scratch:`, `sandboxed:`) and another window
+  (`other-window:`), and joins only a split tab whose panes you all reach.
 - **close** closes at once, even while a command runs; unsaved file changes ask the human. A
   locked pane answers `pane-locked:`; a pane still listed afterwards answers `still-open:`.
 - A tab you opened with `process run` or `agent run` needs no question. Any other pane asks the
