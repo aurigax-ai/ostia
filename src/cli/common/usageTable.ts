@@ -13,6 +13,7 @@ export interface NounUsage {
   noun: string
   about: string
   audience: Audience
+  extension?: string
   args?: string
   needsArgs?: true
   verbs?: VerbUsage[]
@@ -239,6 +240,38 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       { verb: 'open', args: '<name>', about: 'open a view in a panel' },
       { verb: 'validate', args: '<file>', about: 'check a view file' },
       { verb: 'schema', about: 'print the view JSON schema' },
+    ],
+  },
+  {
+    noun: 'graph',
+    audience: 'agent',
+    extension: 'graphs',
+    about: 'graphs: procedures the human enabled, run node by node (the graphs extension)',
+    verbs: [
+      { verb: 'schema', about: "the graph file's JSON Schema" },
+      { verb: 'nodes', about: 'the node kinds Ostia runs, their fields and outputs' },
+      { verb: 'validate', args: '<file>', about: 'check a graph file' },
+      { verb: 'explain', args: '<file>', about: 'an outline: triggers, nodes, edges' },
+      {
+        verb: 'dry-run',
+        args: '<file> [--input k=v]… [--input-json <json>] [--mock <node>=<json>]… [--json]',
+        about: 'walk a graph with mocked outputs; nothing runs',
+      },
+      { verb: 'list', about: "this workspace's graphs and whether each is enabled" },
+      { verb: 'runs', args: '[name]', about: 'the runs of a graph' },
+      { verb: 'show', args: '<run> [--node <id>]', about: 'a run node by node' },
+      {
+        verb: 'run',
+        args: '<name> [--input key=value]… [--input-json <json>]',
+        about: 'start an enabled graph whose manual trigger lets agents start it',
+      },
+      {
+        verb: 'report',
+        args: '--json <object> [--run <id>]',
+        about: "report an agent node's result",
+      },
+      { verb: 'open', about: 'open the Graphs panel' },
+      { verb: 'on-stop', about: 'agent hook', hidden: true },
     ],
   },
   {

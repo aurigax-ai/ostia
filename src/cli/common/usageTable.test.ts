@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { CORE_VERBS } from '../../shared/extensions/extensionVerbs'
 import { USAGE_TABLE, findNoun, nounUsage, topUsage, usageGate } from './usageTable'
 
 const shown = USAGE_TABLE.filter((n) => n.audience !== 'plumbing')
@@ -79,5 +82,25 @@ describe('usage table', () => {
       expect(usageGate([noun, verb]), `${noun} ${verb}`).toMatchObject({ code: 1 })
     }
     for (const word of ['info', 'cwd', 'install-polkit']) expect(findNoun(word)).toBeUndefined()
+  })
+
+  it('reserves every core noun against extension ids and verbs, and no extension-backed one', () => {
+    const core = USAGE_TABLE.filter((n) => !n.extension).map((n) => n.noun)
+    expect([...CORE_VERBS].sort()).toEqual([...core].sort())
+  })
+
+  it('lists exactly the commands of the extension behind an extension-backed noun', () => {
+    for (const noun of USAGE_TABLE.filter((n) => n.extension)) {
+      const manifest = JSON.parse(
+        readFileSync(
+          join(__dirname, '..', '..', 'extensions', noun.extension ?? '', 'ostia.json'),
+          'utf8',
+        ),
+      ) as { contributes: { verb?: string; commands: { id: string }[] } }
+      expect(manifest.contributes.verb, noun.noun).toBe(noun.noun)
+      expect((noun.verbs ?? []).map((v) => v.verb).sort(), noun.noun).toEqual(
+        manifest.contributes.commands.map((c) => c.id).sort(),
+      )
+    }
   })
 })

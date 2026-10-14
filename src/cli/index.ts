@@ -46,7 +46,7 @@ import {
 } from './common/fileArgs'
 import { paneToken } from './common/paneToken'
 import { TTY_NOTICE, captureStdin } from './common/stdinCapture'
-import { type UsageAnswer, topUsage, usageGate, usageOf } from './common/usageTable'
+import { type UsageAnswer, findNoun, topUsage, usageGate, usageOf } from './common/usageTable'
 import { buildVersionAt } from './common/version'
 import { runAgentHook } from './hooks/agentHook'
 import { STATE_VERBS, messageFromStdin, saveAttentionOffline } from './hooks/offlineAttention'
@@ -371,8 +371,9 @@ async function runExtList(conn: MessageConnection): Promise<void> {
 }
 
 function extUsage(ext: ExtInfo): string {
-  const lines = ext.commands.map((c) => `  ostia ${ext.id} ${c.usage ?? c.id}\n      ${c.title}`)
-  return [`usage: ostia ${ext.id} <command>   ${ext.name}`, ...lines].join('\n')
+  const word = ext.verb ?? ext.id
+  const lines = ext.commands.map((c) => `  ostia ${word} ${c.usage ?? c.id}\n      ${c.title}`)
+  return [`usage: ostia ${word} <command>   ${ext.name}`, ...lines].join('\n')
 }
 
 async function runExtCommand(
@@ -383,6 +384,8 @@ async function runExtCommand(
 ): Promise<void> {
   const list = await conn.sendRequest<ExtInfo[]>('ext.list')
   const ext = list.find((e) => e.id === extId) ?? list.find((e) => e.verb === extId)
+  const backing = findNoun(extId)?.extension
+  if (!ext && backing) return fail(`ostia ${extId}: the ${backing} extension is not enabled`)
   if (!ext) {
     console.error(topUsage())
     process.exitCode = 1

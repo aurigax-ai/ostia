@@ -24,7 +24,7 @@ const runtimeSource = [
 ]
 
 function skillSection(): string {
-  const skill = read(join(REPO, 'src/main/agents/ostia-skill.md'))
+  const skill = read(join(REPO, 'src/main/agents/skills/ostia/SKILL.md'))
   const start = skill.indexOf('## Graphs')
   return skill.slice(start, skill.indexOf('\n## ', start + 1))
 }

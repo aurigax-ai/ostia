@@ -43,6 +43,7 @@ the enabled extensions.
 | `settings` | `settings.json` | reading or changing an app setting |
 | `vault`, `secret`, `sandbox` | stored secrets; asks from a sandboxed workspace | a credential, a blocked host or port |
 | `snippet` | the human's saved commands, read-only | learning how a project is built and run |
+| `graph` | graphs: procedures with waits that outlive a session, run node by node | a long procedure that must survive restarts and wait on checks or the human |
 | `ext`, `system`, `<extId>` | extension commands | `ostia ext list` names them |
 
 Capabilities, reach and phone pairing: see [reference/capabilities.md](reference/capabilities.md).
@@ -283,6 +284,29 @@ workspace is sandboxed when `$HTTPS_PROXY` is an `http://srt…` address: it rea
 its folder and a private `$TMPDIR`, reaches only allowed hosts, and `vault get` is refused there.
 A blocked download answers 403 with the reason. On Linux the rest of the home folder is an empty
 in-memory copy that is gone when the shell exits.
+
+## Graphs
+
+```sh
+ostia graph schema                       # the graph file's JSON Schema
+ostia graph nodes                        # the node kinds Ostia runs, their fields and outputs
+ostia graph validate .ostia/graphs/ship.yaml   # checks the file and prints each problem
+ostia graph explain <file>               # an outline: triggers, nodes, edges, what it needs
+ostia graph dry-run <file> [--input k=v]… [--mock <node>=<json>]… [--json]   # mocked outputs; nothing runs
+ostia graph list                         # this workspace's graphs and whether each is enabled
+ostia graph runs [name] | graph show <run> [--node <id>]
+ostia graph run <name> [--input key=value]… [--input-json <json>]
+ostia graph report --json '<object>' [--run <id>]
+```
+
+A graph is one YAML file, `.ostia/graphs/<name>.yaml` in the workspace folder. It runs only
+after the human clicks Enable on its exact definition in the Graphs panel; any change outside
+`ui` disables it, and no command enables one. `graph run` starts only an enabled graph whose
+manual trigger says `agents: true`, from a pane of its workspace, which becomes `trigger.pane`.
+An agent node's prompt names its `--run`; `report` without one is refused as `ambiguous` when
+two runs wait on the pane. A `command` node runs without a terminal tab; its output is in the
+Graphs panel and `graph show`. A `message` node reaches an agent through the bus. Graphs run only
+while Ostia runs.
 
 ## Settings and snippets
 

@@ -599,7 +599,7 @@ edges: []
     const runId = await start('shared-stop', graph)
     const pane = await openedPane(opened)
     const stop = JSON.stringify({ session_id: 's-9', last_assistant_message: 'All green.' })
-    await h.cli(pane, ['ext', 'activity', 'on-hook', 'claude', 'Stop'], stop)
+    await h.cli(pane, ['activity', 'on-hook', 'claude', 'Stop'], stop)
     await h.cli(pane, ['graph', 'on-stop', 'claude', 'Stop'], stop)
     await ended(runId, 'shared-stop')
     expect(state(runId, 'shared-stop').message).toBe('All green.')
@@ -699,7 +699,7 @@ edges: []
     )
     const off = await h.cli(h.human, ['graph', 'list'])
     expect(off.code).toBe(1)
-    expect(off.stderr).toContain('unknown command or extension')
+    expect(off.stderr).toContain('ostia graph: the graphs extension is not enabled')
     h.host.setEnabled('graphs', true)
     await h.cli(h.human, ['graph', 'list'])
     const again = await until(() =>
