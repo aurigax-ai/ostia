@@ -1,5 +1,4 @@
 import { IconButton } from '@/components/common/IconButton'
-import { ControlRow, SelectField } from '@/components/settings/SettingsPanel'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/i18n/useDict'
@@ -10,7 +9,22 @@ import type {
   ExtensionConnectionKind,
   ExtensionInfo,
 } from '@shared/extensions'
-import { useCallback, useEffect, useState } from 'react'
+import { type ComponentType, type ReactNode, useCallback, useEffect, useState } from 'react'
+
+export interface SettingsRows {
+  ControlRow: ComponentType<{
+    label: string
+    desc?: string
+    labelHint?: ReactNode
+    children?: ReactNode
+  }>
+  SelectField: ComponentType<{
+    value: string
+    onChange: (value: string) => void
+    options: { value: string; label: string }[]
+    label: string
+  }>
+}
 
 interface Draft {
   editing: boolean
@@ -40,7 +54,14 @@ function editDraft(entry: ExtensionConnectionEntry): Draft {
   }
 }
 
-export function ExtensionConnections({ ext }: { ext: ExtensionInfo }): JSX.Element | null {
+export function ExtensionConnections({
+  ext,
+  rows,
+}: {
+  ext: ExtensionInfo
+  rows: SettingsRows
+}): JSX.Element | null {
+  const { ControlRow } = rows
   const d = useDict()
   const load = useExtensionsStore((s) => s.connections)
   const remove = useExtensionsStore((s) => s.removeConnection)
@@ -112,6 +133,7 @@ export function ExtensionConnections({ ext }: { ext: ExtensionInfo }): JSX.Eleme
       {draft ? (
         <ConnectionForm
           ext={ext}
+          rows={rows}
           draft={draft}
           setDraft={setDraft}
           saved={entries.find((e) => e.name === draft.name && draft.editing)?.secretsSet ?? []}
@@ -133,6 +155,7 @@ export function ExtensionConnections({ ext }: { ext: ExtensionInfo }): JSX.Eleme
 
 function ConnectionForm({
   ext,
+  rows,
   draft,
   setDraft,
   saved,
@@ -141,6 +164,7 @@ function ConnectionForm({
   onDone,
 }: {
   ext: ExtensionInfo
+  rows: SettingsRows
   draft: Draft
   setDraft: (draft: Draft | null) => void
   saved: string[]
@@ -150,6 +174,7 @@ function ConnectionForm({
 }): JSX.Element {
   const d = useDict()
   const save = useExtensionsStore((s) => s.saveConnection)
+  const { ControlRow, SelectField } = rows
   const kind = ext.connectionKinds.find((k) => k.kind === draft.kind) as ExtensionConnectionKind
   const submit = (): void => {
     const secrets = Object.fromEntries(

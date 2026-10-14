@@ -60,7 +60,7 @@ export function ExtensionSettingsForm({
           {fmt(d.extensions.settingInvalid, { error })}
         </p>
       ) : null}
-      <ExtensionConnections ext={ext} />
+      <ExtensionConnections ext={ext} rows={{ ControlRow, SelectField }} />
     </fieldset>
   )
 }

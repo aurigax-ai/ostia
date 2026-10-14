@@ -26,10 +26,6 @@ export function connectionSecretKey(name: string, key: string): string {
   return `${SECRET_PREFIX}${name}/${key}`
 }
 
-export function isConnectionSecretKey(key: string): boolean {
-  return key.startsWith(SECRET_PREFIX)
-}
-
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
