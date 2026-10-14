@@ -730,10 +730,24 @@ export function discoverExtensions(
         onError(dir, `duplicate extension id '${res.manifest.id}'`)
         continue
       }
-      const clash = verbClash(res.manifest, [...found.values()])
+      const clash = verbClash(
+        res.manifest,
+        [...found.values()].filter((e) => e.builtin || !root.builtin),
+      )
       if (clash) {
         onError(dir, clash)
         continue
+      }
+      if (root.builtin) {
+        for (const [id, other] of found) {
+          if (
+            !other.builtin &&
+            verbClash(other.manifest, [{ dir, builtin: true, manifest: res.manifest }])
+          ) {
+            onError(other.dir, `'${id}' gives way to the built-in '${res.manifest.id}'`)
+            found.delete(id)
+          }
+        }
       }
       found.set(res.manifest.id, { dir, builtin: root.builtin, manifest: res.manifest })
     }
