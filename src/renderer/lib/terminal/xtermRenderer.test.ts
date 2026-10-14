@@ -60,7 +60,7 @@ vi.mock('@xterm/addon-webgl', () => ({
 }))
 
 const { GPU_CONTEXT_BUDGET } = await import('./gpuBudget')
-const { createWebglRenderer } = await import('./webglRenderer')
+const { createXtermRenderer } = await import('./xtermRenderer')
 
 interface FakeTerm {
   term: Terminal
@@ -99,8 +99,8 @@ function fakeTerm(): FakeTerm {
   return { term: term as unknown as Terminal, viewport, screen, intersections, loaded }
 }
 
-function create(t: FakeTerm) {
-  const renderer = createWebglRenderer(t.term)
+function create(t: FakeTerm, gpu = true) {
+  const renderer = createXtermRenderer(t.term, gpu)
   renderers.push(renderer)
   return renderer
 }
@@ -120,7 +120,37 @@ afterEach(() => {
   loadFailures.remaining = 0
 })
 
-describe('createWebglRenderer', () => {
+describe('createXtermRenderer', () => {
+  it('parks and pauses a hidden pane on the DOM renderer without ever making a WebGL context', () => {
+    const t = fakeTerm()
+    const renderer = create(t, false)
+    renderer.pause(false)
+    expect(t.screen.parentElement).toBe(t.viewport)
+    renderer.pause(true)
+    expect(t.screen.isConnected).toBe(false)
+    expect(t.intersections).toEqual([true, false])
+
+    renderer.pause(false)
+    expect(t.screen.parentElement).toBe(t.viewport)
+    expect(t.intersections).toEqual([true, false, true])
+    expect(t.loaded).toHaveLength(0)
+
+    renderer.pause(true)
+    renderer.dispose()
+    expect(t.screen.parentElement).toBe(t.viewport)
+  })
+
+  it('leaves the WebGL budget to GPU panes when GPU acceleration is off', () => {
+    for (let i = 0; i < GPU_CONTEXT_BUDGET - 1; i++) create(fakeTerm()).pause(false)
+    const dom = fakeTerm()
+    create(dom, false).pause(false)
+    const last = fakeTerm()
+    create(last).pause(false)
+    expect(live(last)).toHaveLength(1)
+    expect(dom.loaded).toHaveLength(0)
+    expect(liveTotal()).toBe(GPU_CONTEXT_BUDGET)
+  })
+
   it('keeps WebGL for a hidden pane and draws it again without a new context', () => {
     const t = fakeTerm()
     const renderer = create(t)

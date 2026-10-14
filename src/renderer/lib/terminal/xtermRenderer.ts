@@ -4,7 +4,7 @@ import type { Terminal } from '@xterm/xterm'
 import { type GpuSlot, gpuBudget } from './gpuBudget'
 import type { PauseTerminal } from './ostiaTerminal'
 
-export interface WebglRenderer {
+export interface XtermRenderer {
   pause: PauseTerminal
   dispose(): void
 }
@@ -41,7 +41,7 @@ function contextLoser(
   return null
 }
 
-export function createWebglRenderer(term: Terminal): WebglRenderer {
+export function createXtermRenderer(term: Terminal, gpu: boolean): XtermRenderer {
   const screen = term.element?.querySelector<HTMLElement>('.xterm-screen') ?? null
   let addon: WebglAddon | null = null
   let loseContext: (() => void) | null = null
@@ -70,7 +70,7 @@ export function createWebglRenderer(term: Terminal): WebglRenderer {
     loseContext = null
   }
 
-  const attach = (slot: GpuSlot): boolean => {
+  const attach = (): boolean => {
     const before = new Set(screen?.querySelectorAll('canvas'))
     const next = new WebglAddon()
     try {
@@ -86,23 +86,23 @@ export function createWebglRenderer(term: Terminal): WebglRenderer {
       if (addon !== next) return
       countUsage('terminal', 'webgl_fallback')
       release()
-      slot.lost()
+      slot?.lost()
     })
     return true
   }
 
-  const slot: GpuSlot = gpuBudget.join({ acquire: () => attach(slot), revoke: release })
+  const slot: GpuSlot | null = gpu ? gpuBudget.join({ acquire: attach, revoke: release }) : null
 
   const pause: PauseTerminal = (paused) => {
     if (disposed) return
     if (paused) {
       syncRenderPause(term, true)
       park()
-      slot.hide()
+      slot?.hide()
       return
     }
     unpark()
-    slot.show()
+    slot?.show()
     syncRenderPause(term, false)
   }
 
@@ -110,7 +110,7 @@ export function createWebglRenderer(term: Terminal): WebglRenderer {
     pause,
     dispose: () => {
       disposed = true
-      slot.dispose()
+      slot?.dispose()
       release()
       unpark()
     },
