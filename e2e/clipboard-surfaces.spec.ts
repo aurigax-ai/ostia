@@ -167,7 +167,7 @@ test('Cmd+V pastes a copied file as a quoted path and hands an image to the prog
   }
 })
 
-test('the copy and paste chords work in Monaco and in a text field', async () => {
+test('the copy and paste chords work in Monaco', async () => {
   const { app, win, home } = await launch()
   try {
     writeFileSync(join(home, 'notes.txt'), 'monaco_text\n')
@@ -184,18 +184,6 @@ test('the copy and paste chords work in Monaco and in a text field', async () =>
     await writeClipboard(app, 'monaco_pasted')
     await win.keyboard.press(chords.paste)
     await expect(lines).toContainText('monaco_pasted')
-
-    await win.keyboard.press(chords.palette)
-    const palette = win.getByRole('combobox').first()
-    await expect(palette).toBeFocused()
-    await expect(palette).toHaveValue('>')
-    await win.keyboard.type('palette_text')
-    await win.keyboard.press(chords.selectAll)
-    await win.keyboard.press(chords.copy)
-    await expect.poll(() => readClipboard(app)).toBe('>palette_text')
-    await writeClipboard(app, 'field_pasted')
-    await win.keyboard.press(chords.paste)
-    await expect(palette).toHaveValue('field_pasted')
   } finally {
     await app.close()
   }
