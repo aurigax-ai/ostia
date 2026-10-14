@@ -447,6 +447,20 @@ describe('ProfileSync', () => {
       expect(targetFile(target, 'views.json')).toBeNull()
     })
 
+    it('never syncs the connections an extension holds', async () => {
+      const target = temp()
+      const a = machine(target)
+      const b = machine(target)
+      const connections = {
+        graphs: { api: { kind: 'http', fields: { baseUrl: 'https://a.test' } } },
+      }
+      writeFileSync(join(a.userData, 'extension-connections.json'), JSON.stringify(connections))
+      await a.sync.run()
+      await b.sync.run()
+      expect(targetFile(target, 'extension-connections.json')).toBeNull()
+      expect(existsSync(join(b.userData, 'extension-connections.json'))).toBe(false)
+    })
+
     it('PSY-C27 ignores a views.json hand-placed in the target', async () => {
       const target = temp()
       const b = machine(target)
