@@ -167,6 +167,7 @@ describe('renderSelectionReport', () => {
       null,
       AT,
     )
+    expect(md).toContain('# PDF text selection: d.pdf, page 4')
     expect(md).toContain('- Pages: 4 (1-based)')
     expect(md).toContain('```\nTotal: 42\n```')
   })

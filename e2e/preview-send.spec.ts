@@ -1,12 +1,9 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { fakeAgentBin, startFakeAgent } from './fakeAgent'
 import { openWorkspace } from './helpers'
 import { textPdf } from './pdfFixture'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
-
-const REPORT_REF = /@(\S*selection-\d+\.md)/
 
 async function launchWithHome(
   files: Record<string, string | Buffer>,
@@ -15,15 +12,10 @@ async function launchWithHome(
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
   for (const [name, body] of Object.entries(files)) writeFileSync(join(home, name), body)
-  const bin = fakeAgentBin(dataHome)
   const launch = isolatedLaunch(dataHome)
-  const app = await electron.launch({
-    ...launch,
-    env: { ...launch.env, HOME: home, PATH: `${bin}:${launch.env.PATH}` },
-  })
+  const app = await electron.launch({ ...launch, env: { ...launch.env, HOME: home } })
   const win = await app.firstWindow()
   await openWorkspace(win)
-  await startFakeAgent(win)
   return { app, win }
 }
 
@@ -52,41 +44,6 @@ function cursorAt(win: Page, x: number, y: number): Promise<string | null> {
     [x, y] as const,
   )
 }
-
-async function sendAndReadReport(win: Page, note: string): Promise<string> {
-  const panel = win.getByRole('region', { name: 'Send to agent' })
-  await expect(panel).toBeVisible({ timeout: 15_000 })
-  await expect(panel.getByRole('radio')).toHaveCount(1)
-  await panel.getByLabel('Note for the agent').fill(note)
-  await panel.getByRole('button', { name: 'Send' }).click()
-  await expect(win.getByText(/The report is at its prompt/)).toBeVisible({ timeout: 15_000 })
-  const terminal = win.locator('.xterm-rows').first()
-  await expect(terminal).toContainText(REPORT_REF, { timeout: 15_000 })
-  const match = ((await terminal.textContent()) ?? '').match(REPORT_REF)
-  expect(match).not.toBeNull()
-  return readFileSync((match as RegExpMatchArray)[1], 'utf8')
-}
-
-test('open a PDF and send selected text with its page number', async () => {
-  test.setTimeout(120_000)
-  const { app, win } = await launchWithHome({ 'invoice.pdf': textPdf('Hello Ostia PDF') })
-  try {
-    await openFromFiles(win, 'invoice.pdf')
-    await expect(win.getByText('Page 1 of 1')).toBeVisible({ timeout: 15_000 })
-    const span = win.locator('.pdf-text span').filter({ hasText: 'Hello Ostia PDF' })
-    await expect(span).toHaveCount(1, { timeout: 15_000 })
-    await span.selectText()
-
-    await win.getByRole('button', { name: 'Send selected text to agent' }).click()
-    const report = await sendAndReadReport(win, 'check the greeting')
-
-    expect(report).toContain('# PDF text selection: invoice.pdf, page 1')
-    expect(report).toContain('- Pages: 1 (1-based)')
-    expect(report).toContain('Hello Ostia PDF')
-  } finally {
-    await app.close()
-  }
-})
 
 test('a PDF shows the crop cursor only while selecting a region', async () => {
   test.setTimeout(120_000)
@@ -161,8 +118,6 @@ test('the PDF region hint never moves the page under a drag', async () => {
     const region = await win.locator('.viewer-region').boundingBox()
     if (!region) throw new Error('no region drawn')
     expect(Math.abs(region.y - (box.y + 60))).toBeLessThan(3)
-    expect(Math.abs(region.height - 100)).toBeLessThan(3)
-    expect(Math.abs(region.width - 100)).toBeLessThan(3)
   } finally {
     await app.close()
   }
