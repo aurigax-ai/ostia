@@ -3,6 +3,7 @@ import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
 import { registerWindowCommands } from '@/commands/windowCommands'
 import { languagesFrom } from '@/lib/extensions/languagePacks'
+import { LINE_SEARCH_DELAY_MS } from '@/lib/files/workspaceFileSearch'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
@@ -11,8 +12,8 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { zhHant } from '@shared/app/dict'
-import type { SearchOutcome } from '@shared/files/search'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import type { SearchOutcome, SearchRequest } from '@shared/files/search'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CommandPalette } from './CommandPalette'
@@ -1042,6 +1043,199 @@ describe('CommandPalette', () => {
         filesSearchQuery: 'zoom level',
       })
       act(() => useUIStore.setState({ filesOpen: false, filesSearchFocus: false }))
+    })
+
+    const lines = (path: string, texts: string[]): SearchOutcome => ({
+      ok: true,
+      results: {
+        root: '/src/zoomer',
+        names: [],
+        files: [
+          {
+            path,
+            matches: texts.map((text, index) => ({
+              line: index + 4,
+              column: 3,
+              text,
+              ranges: [[2, 6]] as [number, number][],
+            })),
+          },
+        ],
+        pdfs: [],
+        matches: texts.length,
+        truncated: false,
+      },
+    })
+
+    const answerBy = (
+      answer: (req: SearchRequest) => SearchOutcome | Promise<SearchOutcome>,
+    ): void => {
+      vi.mocked(window.ostia.search.run).mockImplementation(async (req) => answer(req))
+    }
+
+    const requests = (kind: 'namesOnly' | 'linesOnly'): string[] =>
+      vi
+        .mocked(window.ostia.search.run)
+        .mock.calls.filter(([req]) => req[kind])
+        .map(([req]) => req.text)
+
+    it('opens a file at the line, or the line and column, typed after its name', async () => {
+      seed()
+      useUIStore.setState({ paletteOpen: true, paletteMode: 'everywhere' })
+      render(<CommandPalette />)
+      const input = await screen.findByRole('combobox')
+
+      await userEvent.type(input, 'zoom.ts:12')
+      await userEvent.click(await screen.findByRole('option', { name: /^zoom\.ts/ }))
+
+      expect(requests('namesOnly').at(-1)).toBe('zoom.ts')
+      expect(useEditorRevealStore.getState().pending['/src/zoomer/src/zoom.ts']).toMatchObject({
+        line: 12,
+        column: 1,
+      })
+      expect(useUIStore.getState().paletteOpen).toBe(false)
+
+      act(() => useUIStore.getState().openPalette('everywhere'))
+      await userEvent.type(await screen.findByRole('combobox'), 'zoom:12:5')
+      await userEvent.click(await screen.findByRole('option', { name: /^zoom\.ts/ }))
+
+      expect(requests('namesOnly').at(-1)).toBe('zoom')
+      expect(useEditorRevealStore.getState().pending['/src/zoomer/src/zoom.ts']).toMatchObject({
+        line: 12,
+        column: 5,
+      })
+      act(() => useEditorRevealStore.setState({ pending: {} }))
+    })
+
+    it('opens a file at a line from the file prefix too', async () => {
+      seed()
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '/zoom:7' })
+      render(<CommandPalette />)
+      await userEvent.click(await screen.findByRole('option', { name: /^zoom\.ts/ }))
+
+      expect(useEditorRevealStore.getState().pending['/src/zoomer/src/zoom.ts']).toMatchObject({
+        line: 7,
+      })
+      act(() => useEditorRevealStore.setState({ pending: {} }))
+    })
+
+    it('lists the matching text lines as file, line number and line, and opens the file there', async () => {
+      seed()
+      answerBy((req) =>
+        req.linesOnly ? lines('src/level.ts', ['  zoomLevel = 2', '  return zoomLevel']) : hits([]),
+      )
+      useUIStore.setState({ paletteOpen: true, paletteMode: 'everywhere' })
+      render(<CommandPalette />)
+      await userEvent.type(await screen.findByRole('combobox'), 'zoomLevel')
+
+      const first = await screen.findByRole('option', { name: /level\.ts:4/ })
+      expect(first).toHaveTextContent('level.ts:4zoomLevel = 2')
+      expect(screen.getByRole('option', { name: /level\.ts:5/ })).toHaveTextContent(
+        'return zoomLevel',
+      )
+      expect(headings()).toContain('Text in this workspace')
+      expect(
+        screen.getByRole('option', { name: 'Search text in files for “zoomLevel”' }),
+      ).toBeInTheDocument()
+
+      await userEvent.click(first)
+
+      expect(useEditorRevealStore.getState().pending['/src/zoomer/src/level.ts']).toMatchObject({
+        line: 4,
+        column: 3,
+      })
+      expect(useUIStore.getState().paletteOpen).toBe(false)
+      act(() => useEditorRevealStore.setState({ pending: {} }))
+    })
+
+    it('searches text only for the last thing typed, and drops an answer that a newer search replaced', async () => {
+      seed()
+      const pending: { text: string; settle: (outcome: SearchOutcome) => void }[] = []
+      answerBy((req) =>
+        req.linesOnly
+          ? new Promise<SearchOutcome>((settle) => pending.push({ text: req.text, settle }))
+          : hits([]),
+      )
+      useUIStore.setState({ paletteOpen: true, paletteMode: 'everywhere' })
+      render(<CommandPalette />)
+      const input = await screen.findByRole('combobox')
+
+      await userEvent.type(input, 'need')
+      await waitFor(() => expect(pending).toHaveLength(1))
+      expect(requests('linesOnly')).toEqual(['need'])
+
+      await userEvent.type(input, 'le')
+      await waitFor(() => expect(pending).toHaveLength(2))
+      expect(requests('linesOnly')).toEqual(['need', 'needle'])
+
+      await act(async () => pending[0].settle(lines('old.ts', ['  need'])))
+      expect(screen.queryByRole('option', { name: /old\.ts/ })).toBeNull()
+
+      await act(async () => pending[1].settle(lines('new.ts', ['  needle'])))
+      expect(await screen.findByRole('option', { name: /new\.ts:4/ })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /old\.ts/ })).toBeNull()
+    })
+
+    it('searches no text for a single character or outside Search Everywhere, and shows no group without lines', async () => {
+      seed()
+      answerBy((req) => (req.linesOnly ? lines('src/level.ts', []) : hits(['src/zoom.ts'])))
+      useUIStore.setState({ paletteOpen: true, paletteMode: 'everywhere' })
+      render(<CommandPalette />)
+      const input = await screen.findByRole('combobox')
+
+      await userEvent.type(input, 'z')
+      expect(await screen.findByRole('option', { name: /zoom\.ts/ })).toBeInTheDocument()
+      await new Promise((resolve) => setTimeout(resolve, LINE_SEARCH_DELAY_MS + 50))
+      expect(requests('linesOnly')).toEqual([])
+
+      await userEvent.type(input, 'o')
+      await waitFor(() => expect(requests('linesOnly')).toEqual(['zo']))
+      expect(headings()).not.toContain('Text in this workspace')
+
+      await userEvent.clear(input)
+      await userEvent.type(input, '>zoom')
+      await new Promise((resolve) => setTimeout(resolve, LINE_SEARCH_DELAY_MS + 50))
+      expect(requests('linesOnly')).toEqual(['zo'])
+    })
+
+    it('closes on the palette chord from every prefix, from Search Everywhere and from a command’s value step', async () => {
+      seed()
+      const toggle = { key: 'P', code: 'KeyP', ctrlKey: true, shiftKey: true }
+      const outside = vi.fn()
+      window.addEventListener('keydown', outside)
+      try {
+        render(<CommandPalette />)
+        for (const typed of ['', '>', '@', '#', '/', '%', '?']) {
+          act(() => useUIStore.getState().openPalette('search', typed))
+          const input = await screen.findByRole('combobox')
+          await waitFor(() => expect(input).toHaveValue(typed))
+          fireEvent.keyDown(input, toggle)
+          expect(useUIStore.getState().paletteOpen, typed).toBe(false)
+          await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull())
+        }
+
+        act(() => useUIStore.getState().openPalette('everywhere'))
+        fireEvent.keyDown(await screen.findByRole('combobox'), { key: 'F1', code: 'F1' })
+        expect(useUIStore.getState().paletteOpen).toBe(false)
+        await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull())
+
+        act(() => {
+          commands.register<{ argument?: string }, void>({
+            id: 'test.toggle-card',
+            title: 'Test: Toggle Card',
+            argument: 'Card id',
+            run: vi.fn(),
+          })
+          useUIStore.getState().openPalette('search')
+        })
+        await userEvent.click(await screen.findByRole('option', { name: /Test: Toggle Card/ }))
+        fireEvent.keyDown(screen.getByPlaceholderText('Card id'), toggle)
+        expect(useUIStore.getState().paletteOpen).toBe(false)
+        expect(outside).not.toHaveBeenCalled()
+      } finally {
+        window.removeEventListener('keydown', outside)
+        act(() => commands.unregister('test.toggle-card'))
+      }
     })
 
     it('words the search-text row in Traditional Chinese', async () => {

@@ -195,6 +195,7 @@ export async function searchText(
   root: string,
   q: TextQuery,
   signal?: AbortSignal,
+  limit = MATCH_LIMIT,
 ): Promise<RgOutcome<TextResults>> {
   const byPath = new Map<string, LineMatch[]>()
   let matches = 0
@@ -210,7 +211,7 @@ export async function searchText(
       if (list) list.push(hit.match)
       else byPath.set(hit.path, [hit.match])
       matches++
-      if (matches < MATCH_LIMIT) return true
+      if (matches < limit) return true
       truncated = true
       return false
     },

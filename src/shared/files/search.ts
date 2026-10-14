@@ -6,6 +6,7 @@ export interface SearchRequest {
   wholeWord: boolean
   includeIgnored: boolean
   namesOnly?: boolean
+  linesOnly?: boolean
 }
 
 export interface LineMatch {

@@ -322,7 +322,7 @@ describe('effectiveBindings', () => {
   it('ignores an override that would steal a terminal key and keeps the default', () => {
     const table = effectiveBindings({ 'palette.toggle': 'Ctrl+R', find: 'Escape' }, false)
     expect(table.bySignature.get('Ctrl+Shift+P')).toBe('palette.toggle')
-    expect(table.byId.get('palette.toggle')).toHaveLength(1)
+    expect(table.byId.get('palette.toggle')).toHaveLength(2)
     expect(table.bySignature.get('Ctrl+R')).toBe('browser.reload')
     expect(table.bySignature.get('Ctrl+Shift+F')).toBe('find')
   })
@@ -602,6 +602,7 @@ describe('commands with several chords', () => {
       'tab.previous',
     ])
     expect(several(false)).toEqual([
+      'palette.toggle',
       'pane.zoom',
       'tab.next',
       'tab.previous',
@@ -610,7 +611,8 @@ describe('commands with several chords', () => {
     ])
     for (const mac of [true, false]) {
       for (const id of Object.keys(DEFAULT_CHORDS)) {
-        expect(defaultChords(id, mac).length, `${id} ${mac}`).toBeLessThanOrEqual(2)
+        const most = id === 'palette.toggle' && mac ? 3 : 2
+        expect(defaultChords(id, mac).length, `${id} ${mac}`).toBeLessThanOrEqual(most)
       }
     }
   })
@@ -840,6 +842,38 @@ describe('DEFAULT_CHORDS', () => {
       'workspace.previous',
     )
     expect(matchChord(key('PageDown', { ctrlKey: true }), false)).toBe('tab.next')
+  })
+})
+
+describe('F1 and the palette', () => {
+  it('opens the palette by default on every platform, next to the chords it already had', () => {
+    for (const mac of [true, false]) {
+      expect(matchChord(key('F1'), mac)).toBe('palette.toggle')
+      expect(isAppChord(matchChord(key('F1'), mac))).toBe(true)
+    }
+    expect(matchChord(key('P', { ctrlKey: true, shiftKey: true }), false)).toBe('palette.toggle')
+    expect(matchChord(key('p', { metaKey: true, shiftKey: true }), true)).toBe('palette.toggle')
+    expect(matchChord(key('k', { metaKey: true }), true)).toBe('palette.toggle')
+    expect(chordLabel('palette.toggle', false)).toBe('Ctrl+Shift+P')
+  })
+
+  it('is allowed bare for the palette only, never with a modifier, in a terminal scope or for another command', () => {
+    for (const mac of [true, false]) {
+      expect(checkBinding('palette.toggle', 'F1', mac)).toBeNull()
+      expect(checkBinding('palette.toggle', 'F2', mac)).toBe('bare')
+      expect(checkBinding('palette.toggle', 'terminal:F1', mac)).toBe('bare')
+      expect(checkBinding('palette.toggle', 'Shift+F1', mac)).toBe('needs-modifier')
+      expect(checkBinding('palette.searchEverywhere', 'F1', mac)).toBe('bare')
+      expect(checkBinding('tab.new', 'F1', mac)).toBe('bare')
+      expect(stealsTerminalKey(chord('F1', mac), mac)).toBe('bare')
+    }
+  })
+
+  it('stays the human’s to remove and to bind again', () => {
+    bind({ 'palette.toggle': 'Ctrl+Shift+P' })
+    expect(matchChord(key('F1'), false)).toBeNull()
+    bind({ 'palette.toggle': ['Ctrl+Shift+P', 'F1'] })
+    expect(matchChord(key('F1'), false)).toBe('palette.toggle')
   })
 })
 

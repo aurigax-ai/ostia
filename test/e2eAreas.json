@@ -1002,7 +1002,11 @@
         "src/renderer/lib/palette/paletteFocus.ts",
         "src/renderer/lib/palette/paletteModes."
       ],
-      "specs": ["e2e/command-palette-layout.spec.ts", "e2e/palette-focus.spec.ts"]
+      "specs": [
+        "e2e/command-palette-layout.spec.ts",
+        "e2e/palette-focus.spec.ts",
+        "e2e/palette-keys.spec.ts"
+      ]
     },
     {
       "name": "crash recovery",

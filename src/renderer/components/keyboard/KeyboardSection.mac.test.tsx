@@ -133,6 +133,7 @@ describe('KeyboardSection on macOS', () => {
     expect(useSettingsStore.getState().keybindings['palette.toggle']).toEqual([
       'Shift+Cmd+P',
       'Cmd+Left',
+      'F1',
     ])
     expect(useSettingsStore.getState().terminalKeys).toEqual({ 'Cmd+Left': null })
   })
@@ -140,7 +141,7 @@ describe('KeyboardSection on macOS', () => {
   it('removes ⌘K from the palette and keeps ⇧⌘P', async () => {
     render(<KeyboardSection />)
     await userEvent.click(screen.getByRole('button', { name: 'Remove ⌘K from Command Palette' }))
-    expect(useSettingsStore.getState().keybindings['palette.toggle']).toBe('Shift+Cmd+P')
+    expect(useSettingsStore.getState().keybindings['palette.toggle']).toEqual(['Shift+Cmd+P', 'F1'])
     const palette = row(/Command Palette/)
     expect(palette).toHaveTextContent('⌘⇧P')
     expect(screen.queryByRole('button', { name: 'Change ⌘K for Command Palette' })).toBeNull()
