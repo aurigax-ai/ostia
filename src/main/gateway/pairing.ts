@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto'
+import { randomInt } from 'node:crypto'
 import { appendFileSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { appDataDir } from '../platform/userDirs'
@@ -35,10 +35,9 @@ function sweepExpired(): void {
 
 export function newCode(): string {
   sweepExpired()
-  const bytes = randomBytes(CODE_LENGTH)
   let code = ''
   for (let i = 0; i < CODE_LENGTH; i++) {
-    code += CODE_ALPHABET[bytes[i] % CODE_ALPHABET.length]
+    code += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]
   }
   codes.set(code, Date.now() + CODE_TTL_MS)
   setTimeout(codesChanged, CODE_TTL_MS + 1).unref?.()
