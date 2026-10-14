@@ -228,7 +228,7 @@ import { openInExternalEditor } from './files/externalEditor'
 import { FileOps } from './files/fileOps'
 import { FileWatches, TreeWatches } from './files/fileWatch'
 import { readBinaryConfined } from './files/fsBinary'
-import { readTextConfined, versionConfined, writeText } from './files/fsText'
+import { readTextConfined, versionConfined, writeText, writeTextConfined } from './files/fsText'
 import { OpenFileGrants } from './files/openFileGrants'
 import { openFileForExtension, registerOpenFileMethods } from './files/openFileMethods'
 import { registerOpenPathIpc } from './files/openPath'
@@ -3112,28 +3112,29 @@ function registerFsIpc(): void {
     versionConfined(path, (candidate) => openFileGrants.confine(candidate)),
   )
 
-  ipcMain.handle('fs:write', async (e, path: string, content: string): Promise<boolean> => {
-    const safe = openFileGrants.confine(path)
-    if (safe === null) return false
-    try {
-      const save = () => writeText(safe, content)
-      await (fileWatches?.write(String(e.sender.id), safe, content, save) ?? save())
-      if (safe === settingsFile) {
-        settingsChanged()
-        telemetry?.settingsChanged()
-        refreshCapabilitySettings()
-        extensionHost?.refreshLocale()
-        extensionHost?.reloadAssistSettings()
-        gitService?.settingsChanged()
-        portsService?.settingsChanged()
-        applyGlobalHotkey()
-        releaseChecks?.settingsChanged()
-      }
-      return true
-    } catch {
-      return false
-    }
-  })
+  ipcMain.handle(
+    'fs:write',
+    (e, path: string, content: string): Promise<boolean> =>
+      writeTextConfined(
+        path,
+        (p) => openFileGrants.confine(p),
+        async (safe) => {
+          const save = () => writeText(safe, content)
+          await (fileWatches?.write(String(e.sender.id), safe, content, save) ?? save())
+          if (safe === settingsFile) {
+            settingsChanged()
+            telemetry?.settingsChanged()
+            refreshCapabilitySettings()
+            extensionHost?.refreshLocale()
+            extensionHost?.reloadAssistSettings()
+            gitService?.settingsChanged()
+            portsService?.settingsChanged()
+            applyGlobalHotkey()
+            releaseChecks?.settingsChanged()
+          }
+        },
+      ),
+  )
 }
 
 function settingsChanged(): void {

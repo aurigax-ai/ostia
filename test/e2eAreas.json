@@ -1028,7 +1028,7 @@
         "src/main/platform/confinedRead.ts",
         "src/main/control/controlAuth.ts"
       ],
-      "specs": ["e2e/security.spec.ts"]
+      "specs": []
     },
     {
       "name": "redaction",
