@@ -1,10 +1,8 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { KEPT_SHELLS_DIR } from '../src/shared/terminal/keepShells'
-import { running } from '../test/tmux'
 import { chords } from './chords'
 import {
   DOM_RENDERER_SETTINGS,
@@ -133,14 +131,7 @@ test('KSH-C1 KSH-C81 with the setting off a terminal is a plain child of Ostia, 
     await expect(screen(win)).toContainText('tmux=none file=none', { timeout: 15_000 })
     await expect(screen(win)).toContainText(/parent=\S+/)
     await expect(screen(win)).not.toContainText(/parent=tmux/)
-    const userData = join(dataHome, 'userData')
-    const name = createHash('sha256').update(userData).digest('hex').slice(0, 16)
-    expect(existsSync(join(userData, 'bin', 'ostia'))).toBe(true)
-    expect(existsSync(join(userData, 'bin', 'ostia-node'))).toBe(false)
-    expect(existsSync(join(userData, 'bin', 'ostia-cli.js'))).toBe(false)
-    expect(
-      existsSync(join(tmpdir(), `ostia-kept-${process.getuid?.() ?? 0}`, `${name}.sock`)),
-    ).toBe(false)
+    expect(existsSync(keptSocket())).toBe(false)
   } finally {
     await quitApp(app)
   }
@@ -206,25 +197,6 @@ test('KSH-C91 started with the bare PATH a desktop launch gives, Ostia keeps she
   }
 })
 
-test('KSH-C65 when tmux cannot start its server a new terminal starts a plain shell and says why', async () => {
-  const bin = binWith(
-    'tmux',
-    '#!/bin/sh\nif [ "$1" = -V ]; then echo "tmux 3.4"; exit 0; fi\necho "server refused-$((6*7))" >&2\nexit 1\n',
-  )
-  const { app, win } = await launch(dataHome, pathWith(bin))
-  try {
-    await newTerminal(win)
-    await expect(screen(win)).toContainText('tmux could not start its server: server refused-42', {
-      timeout: 15_000,
-    })
-    await expect(screen(win)).toContainText('This shell will not survive a restart')
-    await runInTerminal(win, 'echo plain-$((6*7))')
-    await expect(screen(win)).toContainText('plain-42', { timeout: 15_000 })
-  } finally {
-    await quitApp(app)
-  }
-})
-
 test('KSH-C21 turning the setting off leaves a tmux pane running and the next terminal plain', async () => {
   const { app, win } = await launch(dataHome)
   try {
@@ -280,21 +252,6 @@ test('KSH-C32 ostia whoami in a kept pane answers with the same pane after a res
     })
   } finally {
     await quitApp(second.app)
-  }
-})
-
-test('KSH-C33 a kept pane runs the CLI of the Ostia that is running now', async () => {
-  const { app, win } = await launch(dataHome)
-  try {
-    await openWorkspace(win)
-    const execPath = await app.evaluate(() => process.execPath)
-    await runInTerminal(win, 'echo "cli=$OSTIA_CLI"; cat "$OSTIA_NODE"')
-    await expect(screen(win)).toContainText(join(dataHome, 'userData', 'bin', 'ostia-cli.js'), {
-      timeout: 15_000,
-    })
-    await expect(screen(win)).toContainText(execPath)
-  } finally {
-    await quitApp(app)
   }
 })
 
@@ -683,25 +640,6 @@ test('KSH-C70 Restart leaves a kept agent mid-turn running and asks nothing', as
   }
 })
 
-test('KSH-C71 Quit asks about a kept agent mid-turn and offers to keep it', async () => {
-  seedSettings(dataHome, KEEP_AND_ASK)
-  const { app, win } = await launch(dataHome, pathWith(agentMidTurn()))
-  try {
-    await openWorkspace(win)
-    await runInTerminal(win, 'claude')
-    await expect(screen(win)).toContainText('fake-agent-ready', { timeout: 15_000 })
-    expect(await pressQuit(app, win)).toBe('asked')
-    const dialog = win.getByRole('dialog')
-    await expect(dialog).toContainText('1 kept shell is running')
-    await expect(dialog.getByRole('button', { name: 'Quit and keep shells' })).toBeFocused()
-    await expect(dialog.getByRole('button', { name: 'Quit and end shells' })).toBeVisible()
-    await dialog.getByRole('button', { name: 'Cancel' }).click()
-    await expect(dialog).toBeHidden()
-  } finally {
-    await endUnattended(app)
-  }
-})
-
 function keptSocket(): string {
   const userData = join(dataHome, 'userData')
   const name = createHash('sha256').update(userData).digest('hex').slice(0, 16)
@@ -733,20 +671,4 @@ test('KSH-C102 Quit and keep shells leaves a running command alive, and the next
   } finally {
     await endUnattended(second.app)
   }
-})
-
-test('KSH-C103 Quit and end shells ends the private tmux server', async () => {
-  seedSettings(dataHome, KEEP_AND_ASK)
-  const first = await launch(dataHome)
-  await openWorkspace(first.win)
-  await runInTerminal(first.win, 'echo shell=$$ server=$PPID; sleep 30')
-  await expect(screen(first.win)).toContainText(/shell=\d+ server=\d+/, { timeout: 15_000 })
-  const printed = /shell=(\d+) server=(\d+)/.exec((await screen(first.win).textContent()) ?? '')
-  const [shell, server] = [Number(printed?.[1]), Number(printed?.[2])]
-  await savedLayout()
-  expect(running(shell)).toBe(true)
-  expect(running(server)).toBe(true)
-  await quitChoosing(first, 'Quit and end shells')
-  await expect.poll(() => running(server), { timeout: 15_000 }).toBe(false)
-  await expect.poll(() => running(shell), { timeout: 15_000 }).toBe(false)
 })

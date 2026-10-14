@@ -1,14 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir, hostname } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import {
@@ -70,7 +62,7 @@ import { type RemoteCwd, normalizeRemoteCwd } from '../shared/remoteFolders'
 import { parseSandboxGlobals } from '../shared/sandbox/sandbox'
 import { KEEP_SHELLS_FEATURE, parseKeepShells } from '../shared/terminal/keepShells'
 import { isHostNamed } from '../shared/terminal/osc7'
-import { quoteArg, quoteArgv } from '../shared/terminal/shellQuote'
+import { quoteArgv } from '../shared/terminal/shellQuote'
 import { shellArgv, shellName } from '../shared/terminal/terminalShell'
 import type {
   AppInfo,
@@ -369,7 +361,7 @@ import {
 import { WorkspaceAgents } from './secrets/workspaceAgents'
 import { registerCompletionIpc } from './terminal/completionSpecs'
 import { atLocalPrompt, busyProgram } from './terminal/localPrompt'
-import { replaceFile, writeOstiaLauncher } from './terminal/paneLauncher'
+import { writeOstiaLauncher } from './terminal/paneLauncher'
 import { registerPathCompletionIpc } from './terminal/pathCompletion'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './terminal/promptContext'
 import { CoalescedOutput, PtyFlowControl } from './terminal/ptyFlow'
@@ -403,6 +395,7 @@ import {
 import { type SavedAttention, isKeptAttentionState } from './tmux/attentionFile'
 import { SANDBOX_NOT_KEPT, TMUX_MISSING, keepShellsNotice } from './tmux/keepShellsBanner'
 import { KeptAttention } from './tmux/keptAttention'
+import { KeptPlumbing, keptLauncherPaths } from './tmux/keptLaunchers'
 import { keptHostChannel, keptShellsDir, keptShellsName } from './tmux/keptPaths'
 import {
   type KeptHostMeta,
@@ -817,36 +810,13 @@ function paneLauncherDir(): string {
   return join(app.getPath('userData'), 'bin')
 }
 
-function writeKeptLaunchers(): void {
-  const dir = paneLauncherDir()
-  mkdirSync(dir, { recursive: true, mode: 0o700 })
-  replaceFile(
-    join(dir, 'ostia-node'),
-    `#!/bin/sh\nexec ${quoteArg(process.execPath)} "$@"\n`,
-    0o700,
-  )
-  replaceFile(
-    join(dir, 'ostia-cli.js'),
-    `require(${JSON.stringify(join(app.getAppPath(), 'out/cli/index.js'))})\n`,
-    0o600,
-  )
-}
-
-let keptPlumbingReady = false
-
-function ensureKeptPlumbing(): void {
-  if (keptPlumbingReady) return
-  keptPlumbingReady = true
-  try {
-    writeKeptLaunchers()
-  } catch (err) {
-    appLog?.warn('launcher-write-failed', {
-      launcher: 'kept',
-      code: (err as NodeJS.ErrnoException).code ?? null,
-    })
-  }
-  listenKeptControlSocket(keptControlSocketPath(app.getPath('userData')))
-}
+const keptPlumbing = new KeptPlumbing({
+  launcherDir: paneLauncherDir(),
+  execPath: process.execPath,
+  appPath: app.getAppPath(),
+  listen: () => listenKeptControlSocket(keptControlSocketPath(app.getPath('userData'))),
+  warn: (code) => appLog?.warn('launcher-write-failed', { launcher: 'kept', code }),
+})
 
 function keptPaneEnv(env: NodeJS.ProcessEnv): Record<string, string> {
   const out: Record<string, string> = {}
@@ -854,13 +824,13 @@ function keptPaneEnv(env: NodeJS.ProcessEnv): Record<string, string> {
     if (value === undefined || key === 'TERM') continue
     out[key] = value
   }
-  const launchers = paneLauncherDir()
+  const launchers = keptLauncherPaths(paneLauncherDir())
   return Object.assign(
     out,
     appEnv({
       SOCKET: keptControlSocketPath(app.getPath('userData')),
-      CLI: join(launchers, 'ostia-cli.js'),
-      NODE: join(launchers, 'ostia-node'),
+      CLI: launchers.cli,
+      NODE: launchers.node,
     }),
   )
 }
@@ -2527,7 +2497,7 @@ function registerPtyIpc(): void {
     let kept: TmuxPane | null = null
     let keptMeta: KeptMeta | null = null
     if (wantsKeep && !notKept) {
-      ensureKeptPlumbing()
+      keptPlumbing.ensure()
       keptMeta = withKeptProcess({
         paneId,
         externalId: identity.externalId,
@@ -2638,7 +2608,7 @@ function registerPtyIpc(): void {
     if (identity.externalId !== meta.externalId) {
       appLog?.info('kept-pane-id-changed', { pane: paneId })
     }
-    ensureKeptPlumbing()
+    keptPlumbing.ensure()
     const savedAttention = keptShells.savedAttention(paneId)
     keptShells.writeToken(paneId, identity.token)
     keptAttention.reattached(paneId, agentRunning.has(paneId))
@@ -4435,7 +4405,7 @@ app.whenReady().then(() => {
     usage: scriptTokenUsage,
   })
   writeControlInfo(controlInfoPath(), controlSocketPath(), process.pid)
-  if (keepShellsOn()) ensureKeptPlumbing()
+  keptPlumbing.start(keepShellsOn())
   registerManagerIpc()
   managerLimiter = registerManagerMethods({
     settings: managerSettings,
