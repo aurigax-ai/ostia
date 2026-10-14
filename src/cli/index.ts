@@ -391,7 +391,7 @@ async function runExtCommand(
     process.exitCode = 1
     return
   }
-  if (!command) {
+  if (!command || (ext.verb && extId !== ext.verb)) {
     console.error(extUsage(ext))
     process.exitCode = 1
     return

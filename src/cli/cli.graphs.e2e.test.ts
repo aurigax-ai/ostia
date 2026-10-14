@@ -48,11 +48,14 @@ describe('ostia graph on the built-in graphs extension (real CLI, real socket)',
 
   afterAll(() => h.stopAll())
 
-  it('GRF-C1 and GRF-C127 the verbs answer under graph and graphs, and ostia docs lists all ten', async () => {
+  it('GRF-C1 and GRF-C127 the verbs answer under graph only, and ostia docs lists all ten', async () => {
     const schema = await h.cli(h.human, ['graph', 'schema'])
     expect(schema.code).toBe(0)
     expect(json(schema.stdout).title).toBe('Graph file')
-    expect((await h.cli(h.human, ['graphs', 'schema'])).stdout).toBe(schema.stdout)
+    const byId = await h.cli(h.human, ['graphs', 'schema'])
+    expect(byId.code).toBe(1)
+    expect(byId.stdout).toBe('')
+    expect(byId.stderr).toContain('usage: ostia graph <command>')
     expect((await h.cli(h.human, ['graph', 'nodes'])).code).toBe(0)
     expect(
       (await h.cli(h.human, ['graph', 'explain', '.ostia/graphs/review-loop.yaml'])).stdout,
