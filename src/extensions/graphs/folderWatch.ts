@@ -1,4 +1,4 @@
-import { type Dirent, type FSWatcher, readFileSync, readdirSync, statSync, watch } from 'node:fs'
+import { type Dirent, type FSWatcher, lstatSync, readFileSync, readdirSync, watch } from 'node:fs'
 import { join } from 'node:path'
 import ignore, { type Ignore } from 'ignore'
 
@@ -39,6 +39,10 @@ export class FolderWatcher {
     }
     for (const dir of folders) this.watchDir(dir)
     return { ok: true, folders: folders.length }
+  }
+
+  watching(): number {
+    return this.watchers.size
   }
 
   stop(): void {
@@ -103,7 +107,9 @@ export class FolderWatcher {
   private changed(rel: string): void {
     let isDir = false
     try {
-      isDir = statSync(join(this.root, rel)).isDirectory()
+      const info = lstatSync(join(this.root, rel))
+      if (info.isSymbolicLink()) return
+      isDir = info.isDirectory()
     } catch {}
     if (rel.endsWith('.gitignore') && !isDir) this.loadRules(parentOf(rel))
     if (this.ignored(rel, isDir)) return
