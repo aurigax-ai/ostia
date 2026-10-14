@@ -50,6 +50,7 @@ import type {
 } from '../../shared/extensions'
 import {
   ASSIST_PROVIDERS_CHANGED_EVENT,
+  CONNECTIONS_CHANGED_EVENT,
   SETTINGS_CHANGED_EVENT,
   TARGET_PANE_PARAM,
 } from '../../shared/extensions'
@@ -67,6 +68,8 @@ import {
   type AskOptions,
   type AskResult,
   type BusSendResult,
+  type ConnectionResult,
+  type ConnectionsResult,
   type ExecOptions,
   type ExecResult,
   type McpCallReply,
@@ -79,6 +82,8 @@ export type {
   AskOptions,
   AskResult,
   BusSendResult,
+  ConnectionResult,
+  ConnectionsResult,
   ExecOptions,
   ExecResult,
   McpCallReply,
@@ -92,6 +97,8 @@ export { type AgentStop, parseAgentStop } from './agentStop'
 export type {
   AgentOfferOptions,
   AgentOfferResult,
+  ConnectionInfo,
+  ConnectionValue,
   DiffContent,
   ExtensionCaller,
   ExtensionEventType,
@@ -334,6 +341,9 @@ export interface OstiaExtension {
     signal?: AbortSignal,
   ) => Promise<McpCallReply>
   mcpServers: () => Promise<McpServersResult>
+  connections: () => Promise<ConnectionsResult>
+  connection: (name: string) => Promise<ConnectionResult>
+  onConnectionsChanged: (handler: () => void) => void
   listWorkspaces: () => Promise<WorkspaceInfo[]>
   listPanes: () => Promise<PaneInfo[]>
   onAssist: (handler: AssistHandler) => void
@@ -413,6 +423,7 @@ export async function connect(): Promise<OstiaExtension> {
   let panelHandler: PanelHandler | null = null
   let eventHandler: EventHandler | null = null
   let settingsHandler: SettingsHandler | null = null
+  let connectionsHandler: (() => void) | null = null
   let localeHandler: LocaleHandler | null = null
   let assistHandler: AssistHandler | null = null
   let providersHandler: AssistProvidersHandler | null = null
@@ -509,6 +520,7 @@ export async function connect(): Promise<OstiaExtension> {
         | typeof LOCALE_CHANGED_EVENT
         | typeof ASSIST_PROVIDERS_CHANGED_EVENT
         | typeof FOLDER_CLOSED_EVENT
+        | typeof CONNECTIONS_CHANGED_EVENT
       payload: never
     }) => {
       if (params.type === SETTINGS_CHANGED_EVENT) {
@@ -517,6 +529,8 @@ export async function connect(): Promise<OstiaExtension> {
         providersHandler?.((params.payload as { providers: AssistProviderEntry[] }).providers)
       } else if (params.type === LOCALE_CHANGED_EVENT) {
         localeHandler?.((params.payload as ExtensionLocaleChangedPayload).locale)
+      } else if (params.type === CONNECTIONS_CHANGED_EVENT) {
+        connectionsHandler?.()
       } else if (params.type === FOLDER_CLOSED_EVENT) {
         folderClosedHandler?.((params.payload as { folderId: string }).folderId)
       } else {
@@ -702,6 +716,23 @@ export async function connect(): Promise<OstiaExtension> {
       } catch (err) {
         return rpcFailure(err, 'mcp-servers-failed')
       }
+    },
+    connections: async () => {
+      try {
+        return await conn.sendRequest<ConnectionsResult>('ext.connections')
+      } catch (err) {
+        return rpcFailure(err, 'connections-failed')
+      }
+    },
+    connection: async (name) => {
+      try {
+        return await conn.sendRequest<ConnectionResult>('ext.connection', { name })
+      } catch (err) {
+        return rpcFailure(err, 'connection-failed')
+      }
+    },
+    onConnectionsChanged: (handler) => {
+      connectionsHandler = handler
     },
     listWorkspaces: () => conn.sendRequest('workspace.list'),
     listPanes: () => conn.sendRequest('pane.list'),

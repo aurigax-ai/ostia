@@ -601,6 +601,12 @@ export interface ExtensionsApi {
   workspaceChips: () => Promise<WorkspaceChip[]>
   setSetting: (extId: string, key: string, value: unknown) => Promise<ExtensionSettingResult>
   setSecret: (extId: string, key: string, value: string | null) => Promise<ExtensionSecretResult>
+  connections: (extId: string) => Promise<ExtensionConnectionEntry[]>
+  saveConnection: (
+    extId: string,
+    connection: ExtensionConnectionSave,
+  ) => Promise<ExtensionConnectionResult>
+  removeConnection: (extId: string, name: string) => Promise<ExtensionConnectionResult>
   onChanged: (cb: (list: ExtensionInfo[]) => void) => () => void
   onSidebar: (cb: (items: ExtensionSidebarItem[]) => void) => () => void
   onPaneChips: (cb: (chips: PaneChip[]) => void) => () => void
