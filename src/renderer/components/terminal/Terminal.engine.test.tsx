@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { commands } from '@/commands/registry'
 import { FilesView } from '@/components/files/FilesView'
 import { allPanes, createPane, findPane, firstPaneId } from '@/layout/tree'
+import { focusPaneInDirection } from '@/lib/attention/workspaceActivity'
 import { runAppChord } from '@/lib/keys/chords'
 import { CLIPBOARD_READ_MS } from '@/lib/keys/clipboardKeys'
 import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
@@ -13,6 +14,7 @@ import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { releaseSurfaces, surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { PTY_ACK_CHARS } from '@shared/terminal/ptyFlow'
 import type { ClipboardContents } from '@shared/types'
@@ -29,6 +31,7 @@ import userEvent from '@testing-library/user-event'
 import { FitAddon } from '@xterm/addon-fit'
 import type { ILink, ILinkHandler, ILinkProvider, Terminal as Xterm } from '@xterm/xterm'
 import type { ReactElement } from 'react'
+import { createPortal } from 'react-dom'
 import { afterAll, afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
 import { TerminalView } from './Terminal'
@@ -1045,4 +1048,81 @@ describe('TerminalView engines', () => {
       for (const init of kept) expect(opensPalette(init)).toBe(true)
     })
   }
+
+  it('OSC 52 sets the clipboard only while terminal.osc52Write is on', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    const realClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    onTestFinished(() => {
+      if (realClipboard) Object.defineProperty(navigator, 'clipboard', realClipboard)
+      else Reflect.deleteProperty(navigator, 'clipboard')
+    })
+    act(() => useSettingsStore.getState().setTerminal({ osc52Write: true }))
+    useLayoutStore.getState().ensure('w1')
+    const { activePaneId } = useLayoutStore.getState().byWorkspace.w1
+    await renderSettled(<TerminalView workspaceId="w1" paneId={activePaneId} />)
+    await waitFor(() => expect(window.ostia.pty.onData).toHaveBeenCalled())
+    const deliver = vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
+    const cwd = () => findPane(useLayoutStore.getState().byWorkspace.w1.root, activePaneId)?.cwd
+    const parsed = async (text: string, folder: string): Promise<void> => {
+      act(() => deliver(`${text}\x1b]7;file://${folder}\x07`))
+      await waitFor(() => expect(cwd()).toBe(folder))
+    }
+
+    await parsed(`\x1b]52;c;${btoa('ostia-osc52')}\x07`, '/tmp/one')
+    expect(writeText.mock.calls).toEqual([['ostia-osc52']])
+
+    vi.mocked(window.ostia.pty.write).mockClear()
+    await parsed('\x1b]52;c;?\x07', '/tmp/two')
+    expect(writeText).toHaveBeenCalledTimes(1)
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
+
+    act(() => useSettingsStore.getState().setTerminal({ osc52Write: false }))
+    await parsed(`\x1b]52;c;${btoa('ostia-off')}\x07`, '/tmp/three')
+    expect(writeText).toHaveBeenCalledTimes(1)
+  })
+
+  it('moving focus by direction puts the keyboard in the terminal it makes active', async () => {
+    showWorkspace()
+    const left = { ...createPane('terminal'), id: 'left' }
+    const right = { ...createPane('terminal'), id: 'right' }
+    useLayoutStore.setState({
+      byWorkspace: {
+        w1: {
+          root: {
+            type: 'split',
+            id: 'sp',
+            direction: 'horizontal',
+            children: [left, right],
+            sizes: [1, 1],
+          },
+          activePaneId: 'right',
+          zoomedPaneId: null,
+        },
+      },
+    })
+    const hosts = { left: surfaceHost('left'), right: surfaceHost('right') }
+    document.body.append(hosts.left, hosts.right)
+    onTestFinished(() => releaseSurfaces(new Set()))
+    await renderSettled(
+      <>
+        {createPortal(<TerminalView workspaceId="w1" paneId="left" />, hosts.left)}
+        {createPortal(<TerminalView workspaceId="w1" paneId="right" />, hosts.right)}
+      </>,
+    )
+    const input = (paneId: 'left' | 'right'): HTMLElement =>
+      hosts[paneId].querySelector('.xterm-helper-textarea') as HTMLElement
+    input('right').focus()
+
+    act(() => {
+      focusPaneInDirection('w1', 'right', 'left')
+    })
+    expect(useLayoutStore.getState().byWorkspace.w1.activePaneId).toBe('left')
+    await waitFor(() => expect(input('left')).toHaveFocus())
+
+    act(() => {
+      focusPaneInDirection('w1', 'left', 'right')
+    })
+    await waitFor(() => expect(input('right')).toHaveFocus())
+  })
 })
