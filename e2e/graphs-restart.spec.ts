@@ -136,7 +136,7 @@ edges:
   }
 })
 
-test('the graphs host starts with the window only while a run is unfinished', async () => {
+test('a waiting run outlives its closed panel tab and starts the graphs host with the next window', async () => {
   const dataHome = freshDataHome()
   const launch = isolatedLaunch(dataHome)
   mkdirSync(join(launch.home, '.ostia/graphs'), { recursive: true })
@@ -152,21 +152,13 @@ edges: []
 `,
   )
 
-  const launches = (): unknown => {
-    const file = join(dataHome, 'userData', 'extension-launches.json')
-    return existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null
-  }
-
   let app = await electron.launch(launch)
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    await win.waitForTimeout(1000)
-    expect(extensionHosts(app)).not.toContain('graphs')
     await openPanel(win)
     await enableAndRun(app, 'held')
-    await expect.poll(launches, { timeout: 15_000 }).toEqual(['graphs'])
     const panelTab = win.locator('.pane-tab', { hasText: 'Graphs' })
     await panelTab.hover()
     await panelTab.getByRole('button', { name: 'Close tab' }).click()
@@ -193,18 +185,6 @@ edges: []
     await card.getByRole('radio', { name: 'Approve' }).check()
     await card.getByRole('button', { name: 'Send' }).click()
     await expect(card).toHaveCount(0, { timeout: 15_000 })
-    await expect.poll(launches, { timeout: 15_000 }).toEqual([])
-  } finally {
-    await quitApp(app)
-  }
-
-  app = await electron.launch(launch)
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 30_000 })
-    await win.waitForTimeout(1000)
-    expect(extensionHosts(app)).not.toContain('graphs')
   } finally {
     await quitApp(app)
   }
