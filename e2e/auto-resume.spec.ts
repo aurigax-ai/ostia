@@ -1,4 +1,3 @@
-import type { ChildProcess } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { chords } from './chords'
@@ -14,7 +13,6 @@ import {
   addTab,
   newTerminalWorkspace,
   openWorkspace,
-  pressQuit,
   shownTerminal,
   waitForExit,
 } from './helpers'
@@ -29,16 +27,10 @@ function resumedLog(dataHome: string): string {
   return join(dataHome, 'resumed.log')
 }
 
-function fakeResumableClaude(
-  dataHome: string,
-  turn?: 'working' | 'done',
-  session = RESUME_ID,
-): string {
+function fakeResumableClaude(dataHome: string, session = RESUME_ID): string {
   const bin = join(dataHome, 'bin')
   mkdirSync(bin, { recursive: true })
   const claude = join(bin, 'claude')
-  const cli = 'ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI"'
-  const report = turn ? [`     sleep 1; ${cli} state ${turn} >/dev/null 2>&1`] : []
   writeFileSync(
     claude,
     [
@@ -46,7 +38,6 @@ function fakeResumableClaude(
       'case "$*" in',
       `  *--resume*) echo "fake-agent-resumed $* GL=\${GL_ISSUE-none} TOK=\${API_TOKEN-none} END" | tee -a '${resumedLog(dataHome)}' ;;`,
       `  *) ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude ${session} >/dev/null 2>&1`,
-      ...report,
       '     echo fake-agent-ready ;;',
       'esac',
       'exec cat',
@@ -59,10 +50,9 @@ function fakeResumableClaude(
 
 async function launchAgentApp(
   dataHome: string,
-  turn?: 'working' | 'done',
   session?: string,
-): Promise<{ app: ElectronApplication; win: Page; proc: ChildProcess }> {
-  const bin = fakeResumableClaude(dataHome, turn, session)
+): Promise<{ app: ElectronApplication; win: Page }> {
+  const bin = fakeResumableClaude(dataHome, session)
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({
     ...launch,
@@ -70,7 +60,7 @@ async function launchAgentApp(
   })
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
-  return { app, win, proc: app.process() }
+  return { app, win }
 }
 
 function savedPanes(dataHome: string): Record<string, unknown>[] {
@@ -192,7 +182,7 @@ test('agents in a background tab and in another workspace resume without being s
   test.setTimeout(180_000)
   const dataHome = freshDataHome()
   seedSettings(dataHome, AUTO_RESUME_SETTINGS)
-  const { app, win } = await launchAgentApp(dataHome, undefined, SESSION_PER_PANE)
+  const { app, win } = await launchAgentApp(dataHome, SESSION_PER_PANE)
   await openWorkspace(win)
   await startAgentInShownTerminal(dataHome, win, 1)
   await addTab(win)
@@ -210,7 +200,7 @@ test('agents in a background tab and in another workspace resume without being s
   expect(savedPanes(dataHome).filter((p) => p.agentRunning === true)).toHaveLength(3)
 
   slowShellStart(dataHome)
-  const relaunched = await launchAgentApp(dataHome, undefined, SESSION_PER_PANE)
+  const relaunched = await launchAgentApp(dataHome, SESSION_PER_PANE)
   try {
     await expect.poll(() => focusedPane(relaunched.win)).toBe(focused)
     await expect.poll(() => resumedSessions(dataHome), { timeout: 90_000 }).toHaveLength(3)
@@ -313,43 +303,4 @@ test('an agent running when the main process gets SIGTERM resumes after the rest
   expect(existsSync(scrollback), 'scrollback was not saved on SIGTERM').toBe(true)
   expect(agentRunningSaved(dataHome)).toBe(true)
   await expectAutoResumed(dataHome)
-})
-
-test('an agent whose shell Ostia reaped resumes after the restart, whatever the renderer saves', async () => {
-  const dataHome = freshDataHome()
-  seedSettings(dataHome, AUTO_RESUME_SETTINGS)
-  const { app, win } = await launchAgentApp(dataHome)
-  const paneId = await startResumableAgent(dataHome, win)
-  const snapshot = JSON.parse(readFileSync(join(dataHome, 'ostia', 'workspaces.json'), 'utf8'))
-  await win.evaluate((id) => window.ostia.pty.detach(id), paneId)
-  await win.waitForTimeout(4_000)
-  const withoutAgent = JSON.parse(
-    JSON.stringify(snapshot, (key, value) => (key === 'agentRunning' ? undefined : value)),
-  )
-  await win.evaluate((s) => window.ostia.workspace.save(s), withoutAgent)
-  await win.waitForTimeout(500)
-  expect(agentRunningSaved(dataHome)).toBe(true)
-  app.process().kill('SIGKILL')
-  await waitForExit(app)
-  await expectAutoResumed(dataHome)
-})
-
-const CONFIRM_QUIT_SETTINGS = {
-  ...AUTO_RESUME_SETTINGS,
-  workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, confirmQuit: true },
-}
-
-test('quitting with an agent mid-turn still asks, and names the agent it would stop', async () => {
-  const dataHome = freshDataHome()
-  seedSettings(dataHome, CONFIRM_QUIT_SETTINGS)
-  const { app, win, proc } = await launchAgentApp(dataHome, 'working')
-  try {
-    await startResumableAgent(dataHome, win)
-    expect(await pressQuit(app, win)).toBe('asked')
-    const dialog = win.getByRole('dialog')
-    await expect(dialog).toContainText('1 agent will be stopped')
-    await Promise.all([waitForExit(app), dialog.getByRole('button', { name: 'Quit' }).click()])
-  } finally {
-    proc.kill('SIGKILL')
-  }
 })

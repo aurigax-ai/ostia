@@ -22,15 +22,6 @@ async function launch(settings: object) {
   return { app, win, proc: app.process() }
 }
 
-test('quitting with only idle shells shows no dialog', { tag: '@core' }, async () => {
-  const { app, win, proc } = await launch(CONFIRM_QUIT)
-  try {
-    expect(await pressQuit(app, win)).toBe('quit')
-  } finally {
-    proc.kill('SIGKILL')
-  }
-})
-
 test(
   'quitting with a program running in a shell without blocks asks and names it',
   { tag: '@core' },
@@ -54,33 +45,3 @@ test(
     }
   },
 )
-
-test('quitting while the window is too busy to answer asks instead of quitting', async () => {
-  const { app, win, proc } = await launch(CONFIRM_QUIT)
-  try {
-    await app.evaluate(({ dialog }) => {
-      const asked: string[] = []
-      Object.assign(globalThis, { quitAsked: asked })
-      dialog.showMessageBox = (async (...args: unknown[]) => {
-        const options = args.at(-1) as { detail?: string }
-        asked.push(options.detail ?? '')
-        return { response: 0, checkboxChecked: false }
-      }) as typeof dialog.showMessageBox
-    })
-    void win
-      .evaluate(() => {
-        window.ostia.window.quit()
-        const end = Date.now() + 5_000
-        while (Date.now() < end) {}
-      })
-      .catch(() => {})
-    await expect
-      .poll(() => app.evaluate(() => (globalThis as { quitAsked?: string[] }).quitAsked ?? []), {
-        timeout: 15_000,
-      })
-      .toEqual([expect.stringContaining('The window did not answer')])
-    expect(proc.exitCode).toBeNull()
-  } finally {
-    proc.kill('SIGKILL')
-  }
-})

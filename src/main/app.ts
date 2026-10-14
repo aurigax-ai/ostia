@@ -294,6 +294,7 @@ import type { PaneProcess } from './panes/paneProcess'
 import { registerPaneRenameMethods } from './panes/paneRename'
 import { registerPaneResumeMethods } from './panes/paneResume'
 import { PaneWatch, registerPaneWaitMethods } from './panes/paneWait'
+import { wakeHibernatedPane } from './panes/paneWake'
 import { PaneWaking } from './panes/paneWaking'
 import {
   INTERRUPT_GRACE_MS,
@@ -417,12 +418,11 @@ import {
   createInstallReplacer,
   releaseDownloadBase,
   runTar,
-  sweepOldInstall,
   tarballReplace,
 } from './updates/installReplace'
+import { sweepUpdateLeftovers } from './updates/launchSweep'
 import {
   canReplaceBundle,
-  discardStaged,
   macReplace,
   runCommand,
   signaturePolicy,
@@ -453,7 +453,7 @@ import {
   planQuit,
   summarizeKinds,
 } from './windows/quitPlan'
-import { confirmQuitNatively } from './windows/quitPrompt'
+import { nativeQuitConfirm } from './windows/quitPrompt'
 import {
   AppTray,
   closeAction,
@@ -3727,24 +3727,18 @@ app.whenReady().then(() => {
     onChange: announceUpdateRun,
   })
   const sweepFile = storePath('install-replace', 'global')
-  void sweepOldInstall(
-    loadJson<PendingSweep | null>(sweepFile, null),
-    installAppDir(),
-    appVersion(),
-  ).then(
-    (swept) => {
-      if (swept) saveJson(sweepFile, null)
-    },
-    () => appLog?.warn('install-sweep-failed'),
-  )
   const macInstall = isMacInstall(installMethod())
+  void sweepUpdateLeftovers({
+    pending: loadJson<PendingSweep | null>(sweepFile, null),
+    appDir: installAppDir(),
+    version: appVersion(),
+    macInstall,
+    swept: () => saveJson(sweepFile, null),
+    warn: (event) => appLog?.warn(event),
+  })
   const updateDir = (): string | null =>
     replacesInApp(installMethod(), readUpdateChannel(readSettingsFile())) ? installAppDir() : null
   const downloadBase = releaseDownloadBase(app.isPackaged, process.env)
-  const installedDir = installAppDir()
-  if (macInstall && installedDir) {
-    void discardStaged(installedDir).catch(() => appLog?.warn('update-staged-discard-failed'))
-  }
   releaseChecks = registerReleaseCheck({
     openExternal: openExternalSafe,
     readSettings: readSettingsFile,
@@ -3873,16 +3867,6 @@ app.whenReady().then(() => {
     const res = await execCommand(targetOf(to), 'pane.hibernated')
     return res.ok && (res.result as { hibernated?: unknown } | undefined)?.hibernated === true
   }
-  const wakeHibernatedPane = async (
-    to: PaneIdentity,
-  ): Promise<{ woke: boolean; conflict?: string }> => {
-    const res = await execCommand(targetOf(to), 'pane.wake')
-    const result = res.ok ? (res.result as { woke?: unknown; conflict?: unknown }) : undefined
-    return {
-      woke: result?.woke === true,
-      ...(typeof result?.conflict === 'string' ? { conflict: result.conflict } : {}),
-    }
-  }
   const paneReachDeps: PaneReachDeps = {
     processPane: async (ref, ctx) => {
       const entry = registry.resolve(ref, ctx.identity.workspaceId, await reach.visible(ctx))
@@ -3901,7 +3885,7 @@ app.whenReady().then(() => {
     attention: peekAttention,
     inputSent: (to) => void execCommand(targetOf(to), 'attention.typed'),
     hibernated: paneHibernated,
-    wake: wakeHibernatedPane,
+    wake: (to) => wakeHibernatedPane(execCommand, to),
     hibernate: (to) => execCommand(targetOf(to), 'pane.hibernate'),
     panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
     waking: paneWaking,
@@ -3912,7 +3896,7 @@ app.whenReady().then(() => {
   registerExtensionWake({
     openedBy: (caller, paneId) => extensionHost?.openedBy(caller, paneId) ?? false,
     hibernated: paneHibernated,
-    wake: wakeHibernatedPane,
+    wake: (to) => wakeHibernatedPane(execCommand, to),
     panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
     waking: paneWaking,
   })
@@ -4510,8 +4494,7 @@ app.on('before-quit', (event) => {
           workspaceId: entry.workspaceId,
           ...paneActivity(entry),
         })),
-      confirmNative: (groups, keptShells) =>
-        confirmQuitNatively(groups, keptShells, mainStrings().native.quit),
+      confirmNative: nativeQuitConfirm(mainStrings),
     }).then((answer) => {
       quitAsking = false
       if (answer === 'cancel') {

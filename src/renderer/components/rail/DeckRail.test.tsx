@@ -505,6 +505,19 @@ describe('DeckRail', () => {
       [api.id, 'claude --resume tok-api'],
       [web.id, 'claude --resume tok-web'],
     ])
+
+    act(() => {
+      for (const pane of [api, web]) {
+        blocks.promptStart(pane.id, { line: 2 }, null)
+        blocks.commandStart(pane.id, { line: 3 }, 'claude')
+      }
+    })
+    fireEvent.contextMenu(header)
+    expect(await screen.findByRole('menuitem', { name: 'Hibernate agents' })).not.toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    expect(screen.queryByRole('menuitem', { name: 'Resume agents' })).toBeNull()
   })
 
   it('offers a merge when a workspace is dragged onto the middle of one with the same folder', async () => {

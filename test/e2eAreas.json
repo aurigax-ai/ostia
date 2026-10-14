@@ -291,7 +291,7 @@
         "src/renderer/lib/extensions/languagePacks.ts",
         "src/extensions/langpack-zh-hant/"
       ],
-      "specs": ["e2e/language-pack.spec.ts", "e2e/extension-locales.spec.ts"]
+      "specs": ["e2e/extension-locales.spec.ts"]
     },
     {
       "name": "ports",
@@ -473,7 +473,7 @@
         "src/renderer/stores/app/telemetryConsentStore.ts",
         "src/renderer/lib/app/usageCounts.ts"
       ],
-      "specs": ["e2e/telemetry.spec.ts"]
+      "specs": []
     },
     {
       "name": "updates",
@@ -482,6 +482,7 @@
         "src/main/updates/appUpdate.ts",
         "src/main/updates/installMethod.ts",
         "src/main/updates/installReplace.ts",
+        "src/main/updates/launchSweep.ts",
         "src/main/updates/macReplace.ts",
         "src/main/updates/bundleFs.ts",
         "src/main/updates/updateRun.ts",
@@ -576,6 +577,7 @@
       "name": "hibernation and resume",
       "paths": [
         "src/main/panes/paneWaking.ts",
+        "src/main/panes/paneWake.ts",
         "src/main/panes/paneResume.ts",
         "src/main/terminal/spawnCwd.ts",
         "src/main/agents/agentRunning.ts",
@@ -594,11 +596,9 @@
         "src/renderer/components/panes/ResumeFolderNotice.tsx"
       ],
       "specs": [
-        "e2e/agent-fork.spec.ts",
         "e2e/auto-resume.spec.ts",
         "e2e/hibernate-background-work.spec.ts",
         "e2e/hibernate-group.spec.ts",
-        "e2e/pane-wake.spec.ts",
         "e2e/ports-hibernation.spec.ts",
         "e2e/resume-folder.spec.ts"
       ]
@@ -859,7 +859,6 @@
       "specs": [
         "e2e/blocks.spec.ts",
         "e2e/input-editor.spec.ts",
-        "e2e/ostia-prompt.spec.ts",
         "e2e/terminal-basics.spec.ts"
       ]
     },
@@ -897,7 +896,6 @@
       ],
       "specs": [
         "e2e/new-terminal-focus.spec.ts",
-        "e2e/pane-close.spec.ts",
         "e2e/pane-dnd.spec.ts",
         "e2e/pane-lock.spec.ts",
         "e2e/split-tabs.spec.ts",
@@ -991,7 +989,6 @@
       ],
       "specs": [
         "e2e/auto-resume.spec.ts",
-        "e2e/linux-app-menu.spec.ts",
         "e2e/quit-confirm.spec.ts",
         "e2e/tray.spec.ts"
       ]

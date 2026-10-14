@@ -15,7 +15,8 @@ import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { bundleFs } from './bundleFs'
 import {
   ReplaceError,
   allowedHop,
@@ -353,6 +354,25 @@ describe('replaceInstall', () => {
       expect(await failure(replaceFrom(server, appDir))).toBe('wrong-version')
     } finally {
       await server.close()
+    }
+    untouched(appDir)
+  })
+
+  it('an archive with another version is cleaned up, app.asar included, and the app folder is left as it was', async () => {
+    const appDir = installed()
+    const rm = vi.spyOn(bundleFs.promises, 'rm')
+    const data = archive(VERSION, (top) => {
+      appFolder(top, '9.9.8')
+      writeFileSync(join(top, 'resources', 'app.asar'), 'asar')
+    })
+    const server = await serve(release(data))
+    try {
+      expect(await failure(replaceFrom(server, appDir))).toBe('wrong-version')
+      expect(rm).toHaveBeenCalledWith(`${appDir}.new`, { recursive: true, force: true })
+      expect(rm).toHaveBeenCalledWith(`${appDir}.download`, { force: true })
+    } finally {
+      await server.close()
+      rm.mockRestore()
     }
     untouched(appDir)
   })
