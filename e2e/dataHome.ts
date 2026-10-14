@@ -4,8 +4,12 @@ import { join } from 'node:path'
 
 const created: string[] = []
 
+export function dataHomeBase(platform: NodeJS.Platform, tmp: string): string {
+  return platform === 'darwin' ? '/tmp' : tmp
+}
+
 export function freshDataHome(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'ostia-e2e-data-'))
+  const dir = mkdtempSync(join(dataHomeBase(process.platform, tmpdir()), 'ostia-e2e-data-'))
   created.push(dir)
   return dir
 }
