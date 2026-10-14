@@ -5,13 +5,14 @@ import {
   formatScopedChord,
   parseScopedChord,
 } from '@shared/keyboard/chordSpec'
+import { DEFAULT_CHORDS } from '@shared/keyboard/defaultChords'
 import {
   NATURAL_TEXT_EDITING,
   NO_TERMINAL_KEYMAP,
   OSTIA_KEYMAP,
 } from '@shared/keyboard/keyboardPresets'
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_CHORDS, effectiveBindings } from './chords'
+import { effectiveBindings } from './chords'
 import {
   COMMAND_GROUPS,
   canAddChord,

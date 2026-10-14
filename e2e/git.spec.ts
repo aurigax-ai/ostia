@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { extensionHosts } from './extensionHosts'
 import { emptyState, emptyWorkspace, openWorkspace, waitForPaletteSelection } from './helpers'
@@ -73,7 +74,7 @@ test('a dirty repo shows in the sidebar and the top bar, opens a diff, commits, 
     expect(subject.toString().trim()).toBe('commit from e2e')
     await expect(chips.filter({ hasText: '1 • +1' })).toHaveCount(0, { timeout: 15_000 })
 
-    await win.keyboard.press('Control+Shift+P')
+    await win.keyboard.press(chords.palette)
     await win.locator('[data-slot="command-input"]').fill('Show Graph')
     await waitForPaletteSelection(win, 'Show Graph')
     await win.keyboard.press('Enter')

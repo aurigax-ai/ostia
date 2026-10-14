@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
@@ -157,7 +158,7 @@ test('a view panel opened into a nested split is painted only at its split posit
     const lower = await win.locator('.pane').nth(1).boundingBox()
     if (!lower) throw new Error('no lower pane')
 
-    await win.keyboard.press('Control+Shift+P')
+    await win.keyboard.press(chords.palette)
     await win.locator('[data-slot="command-input"]').fill('Views: Open Board')
     await waitForPaletteSelection(win, 'Views: Open Board')
     await watchNewPane(win)

@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
 import { type Locator, type Page, _electron as electron, expect, test } from './test'
@@ -15,7 +16,7 @@ const BOARD_VIEW = {
 }
 
 async function openBoard(win: Page): Promise<Locator> {
-  await win.keyboard.press('Control+Shift+P')
+  await win.keyboard.press(chords.palette)
   await win.locator('[data-slot="command-input"]').fill('Views: Open Board')
   await waitForPaletteSelection(win, 'Views: Open Board')
   await win.keyboard.press('Enter')

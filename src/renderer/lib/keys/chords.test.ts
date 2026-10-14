@@ -20,10 +20,10 @@ import {
   stealsTerminalKey,
   usedByMonaco,
 } from '@shared/keyboard/chordSpec'
+import { DEFAULT_CHORDS } from '@shared/keyboard/defaultChords'
 import { parseKeymapBindings } from '@shared/keyboard/keymapFile'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  DEFAULT_CHORDS,
   type KeyLike,
   type KeybindingMap,
   TERMINAL_COMMAND_CHORDS,

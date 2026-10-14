@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { chords, defaultChord } from '../e2e/chords'
 
 const E2E = join(process.cwd(), 'e2e')
 const PLAYWRIGHT_IMPORT = /from '@playwright\/test'/
@@ -41,6 +42,22 @@ describe('e2e specs', () => {
       .map(String)
       .filter((name) => name.endsWith('.spec.ts'))
       .filter((name) => /\bretries\b|\.fixme\(/.test(readFileSync(join(E2E, name), 'utf8')))
+    expect(offenders).toEqual([])
+  })
+})
+
+describe('e2e chords', () => {
+  it('press the palette chord the app binds by default on each platform', () => {
+    expect(defaultChord('palette.toggle', true)).toBe('Shift+Meta+p')
+    expect(defaultChord('palette.toggle', false)).toBe('Control+Shift+p')
+    expect(chords.palette).toBe(defaultChord('palette.toggle', process.platform === 'darwin'))
+  })
+
+  it('open the palette through chords.palette in every spec that runs on macOS', () => {
+    const offenders = specSources()
+      .filter(({ name }) => name !== 'keybindings.spec.ts')
+      .filter(({ source }) => /press\('Control\+Shift\+P'\)/i.test(source))
+      .map(({ name }) => name)
     expect(offenders).toEqual([])
   })
 })

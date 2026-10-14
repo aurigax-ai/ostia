@@ -2,6 +2,7 @@ import { cpSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { buildSync } from 'esbuild'
 import { PRODUCT_NAME } from '../src/shared/product'
+import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
@@ -25,7 +26,7 @@ function installTranslatedExtension(configHome: string): void {
 }
 
 async function paletteOffers(win: Page, title: string): Promise<void> {
-  await win.keyboard.press('Control+Shift+P')
+  await win.keyboard.press(chords.palette)
   await win.locator('[data-slot="command-input"]').fill(title)
   await waitForPaletteSelection(win, title)
   await expect(win.getByRole('dialog').getByText(title, { exact: true })).toBeVisible()

@@ -65,7 +65,7 @@ describe('core command wording', () => {
 
   it('has a registration for every title in the dictionary', () => {
     const code = sources.map(({ text }) => text).join('\n')
-    const shared = ['files/openFiles.ts', 'views/views.ts']
+    const shared = ['artifacts/artifacts.ts', 'files/openFiles.ts', 'views/views.ts']
       .map((f) => readFileSync(resolve(ROOT, 'src/shared', f), 'utf8'))
       .join('\n')
     const unregistered = Object.keys(en.commands.titles).filter(

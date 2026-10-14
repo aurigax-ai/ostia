@@ -1,6 +1,7 @@
 import { cpSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { PRODUCT_NAME } from '../src/shared/product'
+import { chords } from './chords'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { hoverInEditor, openWorkspace } from './helpers'
 import {
@@ -190,7 +191,7 @@ test('the Pyright extension’s bundled server checks a .py file', async () => {
 
     await win.keyboard.press('Escape')
 
-    await win.keyboard.press('Control+Shift+P')
+    await win.keyboard.press(chords.palette)
     const palette = win.getByRole('dialog').filter({ has: win.getByRole('combobox') })
     await palette.getByRole('combobox').fill('%greet')
     const symbol = palette.getByRole('option', { name: /greet/ }).first()
