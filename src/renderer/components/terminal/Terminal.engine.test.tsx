@@ -248,6 +248,29 @@ describe('TerminalView engines', () => {
     )
   })
 
+  it('waking an agent whose folder was removed marks the folder missing when main says so', async () => {
+    const pane = { ...createPane('terminal'), id: 'p1', cwd: '/w', spawnDir: '/w/gone' }
+    useLayoutStore.setState({
+      byWorkspace: { w1: { root: pane, activePaneId: 'p1', zoomedPaneId: null } },
+    })
+    vi.mocked(window.ostia.pty.attach).mockResolvedValueOnce({
+      created: true,
+      buffer: '',
+      cursor: 0,
+      dropped: false,
+      cwdMissing: true,
+    })
+    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" cwd="/w/gone" />)
+    await waitFor(() =>
+      expect(findPane(useLayoutStore.getState().byWorkspace.w1.root, 'p1')).toMatchObject({
+        resumeFolderMissing: '/w/gone',
+      }),
+    )
+    expect(findPane(useLayoutStore.getState().byWorkspace.w1.root, 'p1')).not.toHaveProperty(
+      'spawnDir',
+    )
+  })
+
   it('keeps xterm.js for a terminal opened before the switch', async () => {
     const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
     act(() => useGhostty())
