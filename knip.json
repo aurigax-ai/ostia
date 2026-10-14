@@ -22,6 +22,7 @@
   ],
   "ignore": ["src/renderer/components/ui/**"],
   "ignoreDependencies": [
+    "@novnc/novnc",
     "@withfig/autocomplete",
     "bash-language-server",
     "d3",

@@ -1,0 +1,542 @@
+#!/usr/bin/env node
+const fs = require('node:fs')
+const path = require('node:path')
+const { randomBytes } = require('node:crypto')
+const net = require('node:net')
+const { spawn } = require('node:child_process')
+
+const dir = process.env.FAKE_SCREENS_DIR
+if (!dir) {
+  process.stderr.write('FAKE_SCREENS_DIR is not set\n')
+  process.exit(5)
+}
+const argv = process.argv.slice(2)
+if (argv[0] === '--version') {
+  process.stdout.write(`${process.env.FAKE_SCREENS_VERSION ?? '0.1.1'}\n`)
+  process.exit(0)
+}
+fs.appendFileSync(path.join(dir, 'calls.log'), `${argv.join(' ')}\n`)
+
+const PNG_1X1 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+const VALUE_FLAGS = new Set([
+  'width',
+  'height',
+  'allow',
+  'label',
+  'token',
+  'out',
+  'max-side',
+  'button',
+  'count',
+  'modifiers',
+  'repeat',
+  'screen',
+])
+const BOOL_FLAGS = new Set(['json', 'down', 'up'])
+const SCREEN_VERBS = new Set([
+  'stop',
+  'screenshot',
+  'zoom',
+  'click',
+  'move',
+  'drag',
+  'scroll',
+  'type',
+  'key',
+  'hold-key',
+  'cursor',
+  'launch',
+  'windows',
+  'focus',
+  'log',
+  'events',
+])
+
+function parse(args) {
+  const flags = {}
+  const many = {}
+  const bools = new Set()
+  const rest = []
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]
+    if (arg === '--') {
+      rest.push(...args.slice(i + 1).map((a) => ({ word: a })))
+      break
+    }
+    if (arg.startsWith('--') && VALUE_FLAGS.has(arg.slice(2)) && i + 1 < args.length) {
+      const name = arg.slice(2)
+      flags[name] = args[++i]
+      many[name] = [...(many[name] || []), flags[name]]
+    } else if (arg.startsWith('--') && BOOL_FLAGS.has(arg.slice(2))) {
+      bools.add(arg.slice(2))
+    } else if (arg.startsWith('--')) {
+      fail(2, 'usage', `unknown flag ${arg}`)
+    } else {
+      rest.push(arg)
+    }
+  }
+  return { flags, many, bools, rest }
+}
+
+const parsed = parse(argv.slice(1))
+const json = parsed.bools.has('json')
+const stateFile = path.join(dir, 'state.json')
+
+function load() {
+  if (!fs.existsSync(stateFile)) return { screens: [], answers: [] }
+  return JSON.parse(fs.readFileSync(stateFile, 'utf8'))
+}
+
+function save(state) {
+  const temporary = `${stateFile}.${process.pid}`
+  fs.writeFileSync(temporary, JSON.stringify(state, null, 2))
+  fs.renameSync(temporary, stateFile)
+}
+
+const lockDir = path.join(dir, 'state.lock')
+let holding = false
+
+function lock() {
+  const deadline = Date.now() + 10_000
+  for (;;) {
+    try {
+      fs.mkdirSync(lockDir)
+      holding = true
+      return
+    } catch {
+      if (Date.now() > deadline) fail(5, 'backend', 'fake state lock timed out')
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5)
+    }
+  }
+}
+
+function unlock() {
+  if (!holding) return
+  holding = false
+  fs.rmdirSync(lockDir)
+}
+
+process.on('exit', unlock)
+
+function fail(exit, code, message) {
+  process.stderr.write(`screens: ${message}\n`)
+  if (json) process.stdout.write(`${JSON.stringify({ error: { code, message } })}\n`)
+  process.exit(exit)
+}
+
+function answer(value, text) {
+  process.stdout.write(json ? `${JSON.stringify(value)}\n` : `${text ?? JSON.stringify(value)}\n`)
+  process.exit(0)
+}
+
+function token() {
+  return randomBytes(32).toString('hex')
+}
+
+function viewerScreenFor(state, id) {
+  const screen = state.screens.find((s) => s.id === id)
+  if (!screen) fail(3, 'not-found', `no screen ${id}`)
+  if ((parsed.flags.token ?? process.env.SCREENS_TOKEN) !== screen.viewerToken) {
+    fail(4, 'refused', 'wrong or missing token')
+  }
+  return screen
+}
+
+function screenFor(state, id) {
+  const screen = state.screens.find((s) => s.id === id)
+  if (!screen) fail(3, 'not-found', `no screen ${id}`)
+  const given = parsed.flags.token ?? process.env.SCREENS_TOKEN
+  if (given !== screen.agentToken && given !== screen.viewerToken) {
+    fail(4, 'refused', 'wrong or missing token')
+  }
+  return screen
+}
+
+function eventsFile(id) {
+  return path.join(dir, `events-${id}.jsonl`)
+}
+
+function streamEvents(id) {
+  let sent = 0
+  const tick = () => {
+    const file = eventsFile(id)
+    const lines = fs.existsSync(file)
+      ? fs.readFileSync(file, 'utf8').split('\n').filter(Boolean)
+      : []
+    for (const line of lines.slice(sent)) process.stdout.write(`${line}\n`)
+    sent = lines.length
+    if (!load().screens.some((s) => s.id === id)) {
+      process.stdout.write(`${JSON.stringify({ type: 'stopped', id })}\n`)
+      process.exit(0)
+    }
+  }
+  tick()
+  setInterval(tick, 50)
+}
+
+function fakeColour() {
+  const [r, g, b] = (process.env.FAKE_SCREENS_COLOUR ?? '0,128,255').split(',').map(Number)
+  return { r, g, b }
+}
+
+function rfbServer(id, viewer, width, height) {
+  let pending = Buffer.alloc(0)
+  let stage = 'version'
+  let format = { bpp: 32, bigEndian: false, redMax: 255, greenMax: 255, blueMax: 255, redShift: 16, greenShift: 8, blueShift: 0 }
+  let framed = false
+  const send = (buffer) => process.stdout.write(buffer)
+  const holds = () => load().screens.find((s) => s.id === id)?.holder === viewer
+  const record = (event) => {
+    fs.appendFileSync(
+      path.join(dir, `input-${id}.jsonl`),
+      `${JSON.stringify({ ...event, held: holds() })}\n`,
+    )
+  }
+  const pixel = () => {
+    const { r, g, b } = fakeColour()
+    const value =
+      (Math.round((r * format.redMax) / 255) << format.redShift) |
+      (Math.round((g * format.greenMax) / 255) << format.greenShift) |
+      (Math.round((b * format.blueMax) / 255) << format.blueShift)
+    const out = Buffer.alloc(format.bpp / 8)
+    if (format.bpp === 32) {
+      if (format.bigEndian) out.writeUInt32BE(value >>> 0)
+      else out.writeUInt32LE(value >>> 0)
+    } else if (format.bpp === 16) {
+      if (format.bigEndian) out.writeUInt16BE(value & 0xffff)
+      else out.writeUInt16LE(value & 0xffff)
+    } else out.writeUInt8(value & 0xff)
+    return out
+  }
+  const frame = () => {
+    const head = Buffer.alloc(16)
+    head.writeUInt8(0, 0)
+    head.writeUInt16BE(1, 2)
+    head.writeUInt16BE(0, 4)
+    head.writeUInt16BE(0, 6)
+    head.writeUInt16BE(width, 8)
+    head.writeUInt16BE(height, 10)
+    head.writeInt32BE(0, 12)
+    const one = pixel()
+    const body = Buffer.alloc(width * height * one.length)
+    for (let i = 0; i < width * height; i++) one.copy(body, i * one.length)
+    send(Buffer.concat([head, body]))
+  }
+  const serverInit = () => {
+    const name = Buffer.from('fake')
+    const init = Buffer.alloc(24)
+    init.writeUInt16BE(width, 0)
+    init.writeUInt16BE(height, 2)
+    init.writeUInt8(32, 4)
+    init.writeUInt8(24, 5)
+    init.writeUInt8(0, 6)
+    init.writeUInt8(1, 7)
+    init.writeUInt16BE(255, 8)
+    init.writeUInt16BE(255, 10)
+    init.writeUInt16BE(255, 12)
+    init.writeUInt8(16, 14)
+    init.writeUInt8(8, 15)
+    init.writeUInt8(0, 16)
+    init.writeUInt32BE(name.length, 20)
+    send(Buffer.concat([init, name]))
+  }
+  const take = (n) => {
+    if (pending.length < n) return null
+    const out = pending.subarray(0, n)
+    pending = pending.subarray(n)
+    return out
+  }
+  const step = () => {
+    if (stage === 'version') {
+      if (!take(12)) return false
+      send(Buffer.from([1, 1]))
+      stage = 'security'
+    } else if (stage === 'security') {
+      if (!take(1)) return false
+      send(Buffer.alloc(4))
+      stage = 'init'
+    } else if (stage === 'init') {
+      if (!take(1)) return false
+      serverInit()
+      stage = 'messages'
+    } else if (stage === 'messages') {
+      if (pending.length < 1) return false
+      const type = pending[0]
+      if (type === 0) {
+        const m = take(20)
+        if (!m) return false
+        format = {
+          bpp: m[4],
+          bigEndian: m[6] !== 0,
+          redMax: m.readUInt16BE(8),
+          greenMax: m.readUInt16BE(10),
+          blueMax: m.readUInt16BE(12),
+          redShift: m[14],
+          greenShift: m[15],
+          blueShift: m[16],
+        }
+      } else if (type === 2) {
+        if (pending.length < 4) return false
+        if (!take(4 + 4 * pending.readUInt16BE(2))) return false
+      } else if (type === 3) {
+        const m = take(10)
+        if (!m) return false
+        if (!framed || m[1] === 0) {
+          framed = true
+          frame()
+        }
+      } else if (type === 4) {
+        const m = take(8)
+        if (!m) return false
+        record({ type: 'key', down: m[1] === 1, key: m.readUInt32BE(4) })
+      } else if (type === 5) {
+        const m = take(6)
+        if (!m) return false
+        record({ type: 'pointer', mask: m[1], x: m.readUInt16BE(2), y: m.readUInt16BE(4) })
+      } else if (type === 6) {
+        if (pending.length < 8) return false
+        if (!take(8 + pending.readUInt32BE(4))) return false
+      } else {
+        stage = 'done'
+      }
+    } else {
+      return false
+    }
+    return true
+  }
+  return (chunk) => {
+    pending = Buffer.concat([pending, chunk])
+    while (step()) {}
+  }
+}
+
+function newScreen(state, request) {
+  const screen = {
+    id: `s${state.screens.length + 1}${randomBytes(2).toString('hex')}`,
+    width: Number(request.width ?? 1280),
+    height: Number(request.height ?? 800),
+    label: request.label ?? '',
+    allow: request.allow ?? [],
+    owner: 'agent',
+    state: 'running',
+    agentToken: token(),
+    viewerToken: token(),
+  }
+  state.screens.push(screen)
+  return screen
+}
+
+function daemonSocket() {
+  const runtime = path.join(dir, 'run')
+  if (process.env.XDG_RUNTIME_DIR !== runtime) {
+    fail(5, 'backend', 'the fake screens needs XDG_RUNTIME_DIR set to $FAKE_SCREENS_DIR/run')
+  }
+  return path.join(runtime, 'screens', 'daemon.sock')
+}
+
+function ensureDaemon() {
+  const socket = daemonSocket()
+  if (fs.existsSync(socket)) return
+  if (fs.existsSync(path.join(dir, 'daemon.off'))) fail(5, 'backend', 'the fake daemon is off')
+  spawn(process.execPath, [__filename, 'daemon', 'run'], {
+    env: process.env,
+    detached: true,
+    stdio: 'ignore',
+  }).unref()
+  const deadline = Date.now() + 5000
+  while (!fs.existsSync(socket)) {
+    if (Date.now() > deadline) fail(5, 'backend', 'the fake daemon did not start')
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20)
+  }
+}
+
+function screenGone(id) {
+  return !load().screens.some((s) => s.id === id)
+}
+
+function serveLease(conn, id) {
+  const watch = setInterval(() => {
+    if (screenGone(id)) conn.end()
+  }, 100)
+  conn.on('close', () => {
+    clearInterval(watch)
+    lock()
+    const state = load()
+    if (state.screens.some((s) => s.id === id)) {
+      state.screens = state.screens.filter((s) => s.id !== id)
+      save(state)
+    }
+    unlock()
+  })
+}
+
+function serveRequest(conn, request) {
+  if (request?.verb !== 'create') {
+    conn.end(`${JSON.stringify({ ok: false, code: 'usage', message: 'the fake daemon takes only create' })}\n`)
+    return
+  }
+  lock()
+  const state = load()
+  const screen = newScreen(state, request)
+  save(state)
+  unlock()
+  fs.appendFileSync(
+    path.join(dir, 'calls.log'),
+    `daemon create${request.lease ? ' --lease' : ''} ${screen.label}\n`,
+  )
+  const { id, agentToken, viewerToken, width, height } = screen
+  const reply = `${JSON.stringify({ ok: true, id, agentToken, viewerToken, width, height })}\n`
+  if (!request.lease) return conn.end(reply)
+  conn.write(reply)
+  serveLease(conn, id)
+}
+
+function runDaemon() {
+  const socket = daemonSocket()
+  fs.mkdirSync(path.dirname(socket), { recursive: true, mode: 0o700 })
+  if (fs.existsSync(socket)) fs.unlinkSync(socket)
+  const server = net.createServer((conn) => {
+    let pending = ''
+    conn.on('error', () => {})
+    conn.on('data', (chunk) => {
+      if (pending === null) return
+      pending += chunk.toString('utf8')
+      const end = pending.indexOf('\n')
+      if (end === -1) return
+      const line = pending.slice(0, end)
+      pending = null
+      let request = null
+      try {
+        request = JSON.parse(line)
+      } catch {}
+      serveRequest(conn, request)
+    })
+  })
+  server.listen(socket, () => {
+    fs.chmodSync(socket, 0o600)
+    fs.writeFileSync(path.join(dir, 'daemon.pid'), String(process.pid))
+  })
+  setInterval(() => {
+    if (!fs.existsSync(dir)) process.exit(0)
+  }, 200)
+}
+
+const verb = argv[0]
+const daemonRun = verb === 'daemon' && argv[1] === 'run'
+if (!daemonRun) ensureDaemon()
+if (verb !== 'events' && !daemonRun) lock()
+if (verb === 'list') {
+  const screens = load().screens.map(({ id, width, height, label, owner, state }) => ({
+    id,
+    width,
+    height,
+    label,
+    owner,
+    state,
+  }))
+  answer(
+    { screens },
+    screens.map((s) => `${s.id}\t${s.width}x${s.height}\t${s.owner}\t${s.state}\t${s.label}`).join('\n'),
+  )
+} else if (verb === 'create') {
+  const state = load()
+  if (process.env.FAKE_SCREENS_FAIL_CREATE) fail(5, 'backend', 'Xvnc is not installed')
+  const screen = newScreen(state, {
+    width: parsed.flags.width,
+    height: parsed.flags.height,
+    label: parsed.flags.label,
+    allow: parsed.many.allow,
+  })
+  save(state)
+  const { id, agentToken, viewerToken, width, height } = screen
+  answer({ id, agentToken, viewerToken, width, height }, `${id}\n${agentToken}\n${viewerToken}`)
+} else if (verb === 'daemon' && parsed.rest[0] === 'run') {
+  runDaemon()
+} else if (verb === 'daemon') {
+  answer({ pid: process.pid, screens: load().screens.length })
+} else if (verb === 'allow' || verb === 'deny') {
+  const [id, host] = parsed.rest
+  if (!id || !host) fail(2, 'usage', `${verb} <id> <host>`)
+  const state = load()
+  viewerScreenFor(state, id)
+  state.answers = [...(state.answers ?? []), { id, host, allow: verb === 'allow' }]
+  save(state)
+  answer({ host, allow: verb === 'allow' })
+} else if (verb === 'view') {
+  const id = parsed.rest[0]
+  const state = load()
+  const screen = viewerScreenFor(state, id)
+  const viewer = `v${(screen.viewers ?? []).length + (screen.closedViewers ?? 0) + 1}`
+  screen.viewers = [...(screen.viewers ?? []), viewer]
+  save(state)
+  unlock()
+  process.stderr.write(`viewer ${viewer}\n`)
+  process.stdout.write('RFB 003.008\n')
+  const input = path.join(dir, `view-${id}-${viewer}.in`)
+  fs.writeFileSync(input, '')
+  const rfb = rfbServer(id, viewer, screen.width, screen.height)
+  process.stdin.on('data', (chunk) => {
+    fs.appendFileSync(input, chunk)
+    rfb(chunk)
+  })
+  process.stdin.on('end', () => {
+    lock()
+    const now = load()
+    const live = now.screens.find((s) => s.id === id)
+    if (live) {
+      live.viewers = (live.viewers ?? []).filter((v) => v !== viewer)
+      live.closedViewers = (live.closedViewers ?? 0) + 1
+      if (live.holder === viewer) {
+        live.owner = 'agent'
+        live.holder = null
+      }
+      save(now)
+    }
+    process.exit(0)
+  })
+} else if (verb === 'takeover' || verb === 'giveback') {
+  const [id, viewer] = parsed.rest
+  if (!id || !viewer) fail(2, 'usage', `${verb} <id> <viewer-id>`)
+  const state = load()
+  const screen = viewerScreenFor(state, id)
+  if (!(screen.viewers ?? []).includes(viewer)) fail(3, 'not-found', `no viewer ${viewer}`)
+  if (verb === 'giveback' && screen.holder !== viewer) fail(4, 'refused', 'not the holder')
+  screen.owner = verb === 'takeover' ? 'human' : 'agent'
+  screen.holder = verb === 'takeover' ? viewer : null
+  save(state)
+  fs.appendFileSync(eventsFile(id), `${JSON.stringify({ type: 'owner', id, owner: screen.owner })}\n`)
+  answer({ owner: screen.owner })
+} else if (SCREEN_VERBS.has(verb)) {
+  const id = parsed.rest[0]
+  if (!id) fail(2, 'usage', `${verb} needs a screen id`)
+  const state = load()
+  const screen = screenFor(state, id)
+  const args = parsed.rest.slice(1)
+  if (verb === 'stop') {
+    state.screens = state.screens.filter((s) => s.id !== id)
+    save(state)
+    answer({ id })
+  } else if (verb === 'events') {
+    streamEvents(id)
+  } else if (verb === 'screenshot' || verb === 'zoom') {
+    answer({ width: screen.width, height: screen.height, png: PNG_1X1 })
+  } else if (verb === 'cursor') {
+    answer({ x: 0, y: 0 })
+  } else if (verb === 'windows') {
+    answer({ windows: [] })
+  } else if (verb === 'launch') {
+    const program = args.find((a) => typeof a === 'object')
+    if (!program) fail(2, 'usage', 'launch needs -- <program>')
+    answer({ pid: 4242 })
+  } else if (verb === 'log') {
+    answer({ entries: screen.log ?? [] })
+  } else {
+    if (screen.owner === 'human') fail(4, 'refused', 'human-owns-input')
+    screen.log = [...(screen.log ?? []), { time: new Date().toISOString(), verb }]
+    save(state)
+    answer({})
+  }
+} else {
+  fail(2, 'usage', `unknown verb ${verb ?? ''}`)
+}

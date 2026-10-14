@@ -1,0 +1,83 @@
+{
+  "id": "screens",
+  "name": "Screens",
+  "version": "0.1.0",
+  "api": "4.2",
+  "description": "Alpha: gives agents their own screen, a desktop that never touches yours, through the screens service: ostia screen create, token, list and stop, the screen verbs from a sandboxed workspace, a card before an agent's first screen in a workspace, and a panel with this workspace's screens. Screens stop when their workspace closes or this extension stops.",
+  "category": "tools",
+  "capabilities": ["read-board", "shell", "agent-plugin"],
+  "main": "main.js",
+  "locales": ["zh-Hant"],
+  "contributes": {
+    "verb": "screen",
+    "commands": [
+      { "id": "open", "title": "Screens: Open Panel", "category": "Screens" },
+      {
+        "id": "create",
+        "title": "Create a screen for this workspace",
+        "usage": "create [--width N] [--height N] [--allow DOMAIN]...",
+        "palette": false,
+        "interactive": true
+      },
+      {
+        "id": "token",
+        "title": "Print the agent token of this workspace's screen",
+        "usage": "token [id]",
+        "palette": false
+      },
+      { "id": "list", "title": "List this workspace's screens", "usage": "list", "palette": false },
+      { "id": "stop", "title": "Stop a screen", "usage": "stop [id]", "palette": false },
+      {
+        "id": "screenshot",
+        "title": "Screenshot as JSON with a base64 PNG",
+        "usage": "screenshot [--screen ID] [--max-side N]",
+        "palette": false
+      },
+      {
+        "id": "click",
+        "title": "Click in the screen",
+        "usage": "click [--screen ID] [x y] [--button B] [--count N] [--modifiers KEYS] [--down|--up]",
+        "palette": false
+      },
+      {
+        "id": "move",
+        "title": "Move the pointer",
+        "usage": "move [--screen ID] x y",
+        "palette": false
+      },
+      {
+        "id": "drag",
+        "title": "Drag in the screen",
+        "usage": "drag [--screen ID] x0 y0 x1 y1 [--modifiers KEYS]",
+        "palette": false
+      },
+      {
+        "id": "scroll",
+        "title": "Scroll in the screen",
+        "usage": "scroll [--screen ID] up|down|left|right amount [x y] [--modifiers KEYS]",
+        "palette": false
+      },
+      { "id": "type", "title": "Type text", "usage": "type [--screen ID] text", "palette": false },
+      {
+        "id": "key",
+        "title": "Press keys",
+        "usage": "key [--screen ID] keys... [--repeat N]",
+        "palette": false
+      },
+      {
+        "id": "launch",
+        "title": "Start a program in the screen",
+        "usage": "launch [--screen ID] -- program [args...]",
+        "palette": false
+      },
+      {
+        "id": "windows",
+        "title": "List the screen's windows",
+        "usage": "windows [--screen ID]",
+        "palette": false
+      }
+    ],
+    "agentSkills": [{ "name": "screen", "path": "skills/screen" }],
+    "panel": { "title": "Screens", "icon": "globe", "entry": "url" }
+  }
+}
