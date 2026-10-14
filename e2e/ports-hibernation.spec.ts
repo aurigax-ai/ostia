@@ -1,5 +1,6 @@
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { holdPort } from '../test/heldPort'
 import {
   DOM_RENDERER_SETTINGS,
   HIBERNATE_FAST,
@@ -9,7 +10,6 @@ import {
 } from './dataHome'
 import { extensionHosts } from './extensionHosts'
 import { PROMPT, openWorkspace, runInTerminal, shownTerminal } from './helpers'
-import { freePort } from './sandboxShell'
 import { _electron as electron, expect, test } from './test'
 
 function launchIn(dataHome: string, bin?: string) {
@@ -22,7 +22,8 @@ function launchIn(dataHome: string, bin?: string) {
 
 test('a port a terminal listens on shows in the top bar and opens in the browser pane', async () => {
   const dataHome = freshDataHome()
-  const port = await freePort()
+  const held = await holdPort()
+  const { port } = held
   const app = await launchIn(dataHome)
   try {
     const win = await app.firstWindow()
@@ -68,6 +69,7 @@ test('a port a terminal listens on shows in the top bar and opens in the browser
     await expect(chip).toHaveCount(0, { timeout: 20_000 })
   } finally {
     await app.close()
+    held.release()
   }
 })
 

@@ -2,9 +2,10 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from
 import { join } from 'node:path'
 import { buildSync } from 'esbuild'
 import { PRODUCT_NAME } from '../src/shared/product'
+import { holdPort } from '../test/heldPort'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { PROMPT, openWorkspace, runInTerminal } from './helpers'
-import { UPSTREAM_BODY, fakeUpstream, freePort, sandboxedShell, setSandbox } from './sandboxShell'
+import { UPSTREAM_BODY, fakeUpstream, sandboxedShell, setSandbox } from './sandboxShell'
 import { type Page, _electron as electron, expect, test } from './test'
 
 async function launch(env: Record<string, string> = {}) {
@@ -248,6 +249,8 @@ test('behind the pty relay a sandboxed shell has its own terminal: Ctrl+C interr
 test('with Unix sockets off the shell still starts, ostia cannot reach Ostia, a port is not exposed and the Ports tab says why, and a write outside is listed', async () => {
   test.skip(process.platform !== 'linux', 'Linux blocks Unix sockets through seccomp')
   test.setTimeout(120_000)
+  const held = await holdPort()
+  const { port } = held
   const { app, win } = await launch()
   try {
     await sandboxedShell(win)
@@ -269,7 +272,6 @@ test('with Unix sockets off the shell still starts, ostia cannot reach Ostia, a 
     await expect(rows).toContainText('PROBED-18', { timeout: 15_000 })
     await expect(win.locator('.block-gutter').first()).toBeAttached({ timeout: 10_000 })
 
-    const port = await freePort()
     await runInTerminal(win, serveInside(port, 'INSIDE-NOSOCK'))
     const ports = await openWorkspacePage(win, 'Ports')
     const server = ports.getByRole('listitem').filter({ hasText: `:${port}` })
@@ -291,5 +293,6 @@ test('with Unix sockets off the shell still starts, ostia cannot reach Ostia, a 
     await expect(row).toContainText('Write')
   } finally {
     await app.close()
+    held.release()
   }
 })

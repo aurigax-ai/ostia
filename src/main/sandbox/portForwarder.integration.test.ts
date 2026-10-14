@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { holdPort } from '../../../test/heldPort'
 import { DEFAULT_CONTROLS } from '../../shared/sandbox/sandbox'
 import { SandboxHost } from './hostClient'
 import { PortBridge } from './portBridge'
@@ -16,6 +17,7 @@ const repoRoot = process.cwd()
 const hostScript = join(repoRoot, 'node_modules/.cache/ostia-test/sandbox-host-ports.mjs')
 let INNER_PORT = 0
 let OTHER_PORT = 0
+const heldPorts: { port: number; release: () => void }[] = []
 const BIG_BODY_BYTES = 2 * 1024 * 1024
 
 let root: string
@@ -49,33 +51,10 @@ function portFree(port: number): Promise<boolean> {
   })
 }
 
-function freePorts(count: number): Promise<number[]> {
-  return new Promise((resolve, reject) => {
-    const probes = Array.from({ length: count }, () => createServer())
-    Promise.all(
-      probes.map(
-        (probe) =>
-          new Promise<number>((done, fail) => {
-            probe.once('error', fail)
-            probe.listen(0, '127.0.0.1', () => done((probe.address() as AddressInfo).port))
-          }),
-      ),
-    )
-      .then((ports) => {
-        let closed = 0
-        for (const probe of probes) {
-          probe.close(() => {
-            if (++closed === count) resolve(ports.sort((a, b) => a - b))
-          })
-        }
-      })
-      .catch(reject)
-  })
-}
-
 beforeAll(async () => {
   if (process.platform !== 'linux') return
-  ;[INNER_PORT, OTHER_PORT] = await freePorts(2)
+  heldPorts.push(...(await Promise.all([holdPort(), holdPort()])))
+  ;[INNER_PORT, OTHER_PORT] = heldPorts.map((held) => held.port).sort((x, y) => x - y)
   await build({
     entryPoints: [join(repoRoot, 'src/main/sandbox/host.ts')],
     outfile: hostScript,
@@ -130,6 +109,7 @@ beforeAll(async () => {
 
 afterAll(() => {
   forwarder?.stopAll()
+  for (const held of heldPorts.splice(0)) held.release()
   for (const pane of panes) {
     pane.bridge?.close()
     try {

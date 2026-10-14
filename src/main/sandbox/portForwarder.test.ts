@@ -1,8 +1,9 @@
 import { mkdtempSync, rmSync } from 'node:fs'
-import { type AddressInfo, type Server, type Socket, connect, createServer } from 'node:net'
+import { type Server, type Socket, connect, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { holdPort } from '../../../test/heldPort'
 import { PortBridge, controlSocketName, dataSocketName } from './portBridge'
 import { PortForwarder, type SandboxListener, type SandboxPane } from './portForwarder'
 
@@ -45,12 +46,10 @@ function dial(target: string | number): Promise<Socket> {
   })
 }
 
-async function freePort(): Promise<number> {
-  const probe: Server = createServer()
-  await new Promise<void>((r) => probe.listen(0, '127.0.0.1', r))
-  const { port } = probe.address() as AddressInfo
-  await new Promise((r) => probe.close(r))
-  return port
+async function heldPort(): Promise<number> {
+  const held = await holdPort()
+  opened.push({ destroy: held.release })
+  return held.port
 }
 
 function portFree(port: number): Promise<boolean> {
@@ -109,9 +108,9 @@ async function read(port: number): Promise<string> {
   return text
 }
 
-describe('PortForwarder', () => {
+describe.skipIf(process.platform !== 'linux')('PortForwarder', () => {
   it('refuses to expose a port while no sandboxed terminal runs, and binds nothing', async () => {
-    const port = await freePort()
+    const port = await heldPort()
     const forwarder = setup([])
     expect(forwarder.refusal('ws')).toBe('not-running')
     await expect(forwarder.expose('ws', port)).resolves.toEqual({ ok: false, error: 'not-running' })
@@ -120,7 +119,7 @@ describe('PortForwarder', () => {
   })
 
   it('says Unix sockets are off when no terminal of the sandbox has a bridge and the switch is off', async () => {
-    const port = await freePort()
+    const port = await heldPort()
     const forwarder = setup([{ pid: 11, bridge: null }], { 11: [{ port, process: 'node' }] }, true)
     expect(forwarder.refusal('ws')).toBe('unix-sockets-off')
     await expect(forwarder.expose('ws', port)).resolves.toEqual({
@@ -135,7 +134,7 @@ describe('PortForwarder', () => {
   })
 
   it('exposes through a terminal that started with a bridge even after the switch went off', async () => {
-    const port = await freePort()
+    const port = await heldPort()
     const pane = await sandboxPane(11, 'a')
     const forwarder = setup([pane], { 11: [{ port, process: 'node' }] }, true)
     expect(forwarder.refusal('ws')).toBeNull()
@@ -144,7 +143,7 @@ describe('PortForwarder', () => {
   })
 
   it('sends a host connection to the terminal whose sandbox listens on the port', async () => {
-    const port = await freePort()
+    const port = await heldPort()
     const first = await sandboxPane(11, 'first')
     const second = await sandboxPane(22, 'second')
     const forwarder = setup([first, second], {
@@ -158,7 +157,7 @@ describe('PortForwarder', () => {
   })
 
   it('closes a host connection when nothing in the sandbox listens on the exposed port', async () => {
-    const port = await freePort()
+    const port = await heldPort()
     const pane = await sandboxPane(11, 'a')
     const forwarder = setup([pane], { 11: [{ port: port + 1, process: 'node' }] })
     await forwarder.expose('ws', port)
@@ -167,7 +166,7 @@ describe('PortForwarder', () => {
   })
 
   it('never asks a terminal without a bridge, even when its sandbox listens on the port', async () => {
-    const port = await freePort()
+    const port = await heldPort()
     const bridged = await sandboxPane(11, 'a')
     const forwarder = setup([{ pid: 22, bridge: null }, bridged], {
       22: [{ port, process: 'node' }],
@@ -202,7 +201,7 @@ describe('PortForwarder', () => {
   })
 
   it('drops live connections and frees the host port when the port is unexposed', async () => {
-    const port = await freePort()
+    const port = await heldPort()
     const bridge = await PortBridge.open(dir)
     if (!bridge) throw new Error('the bridge did not open')
     opened.push(bridge)
