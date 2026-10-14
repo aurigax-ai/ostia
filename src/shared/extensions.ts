@@ -358,9 +358,12 @@ export const EXTENSION_EVENT_TYPES = [
   'cwd.changed',
   'focus.changed',
   'notification',
+  'pane.attention',
 ] as const
 
 export type ExtensionEventType = (typeof EXTENSION_EVENT_TYPES)[number]
+
+export type PaneAttentionEventState = 'working' | 'waiting' | 'done' | 'error' | 'cleared'
 
 export interface ExtensionEventPayloads {
   'pane.created': { paneId: string; workspaceId: string }
@@ -368,6 +371,7 @@ export interface ExtensionEventPayloads {
   'command.started': { paneId: string; workspaceId: string; cwd?: string }
   'command.finished': { paneId: string; workspaceId: string; cwd?: string; exitCode?: number }
   'cwd.changed': { paneId: string; workspaceId: string; cwd: string }
+  'pane.attention': { paneId: string; workspaceId: string; state: PaneAttentionEventState }
   'focus.changed': { focused: boolean }
   notification: { title: string; body?: string; from: string }
 }

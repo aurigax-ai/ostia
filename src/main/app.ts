@@ -219,6 +219,7 @@ import { registerIconThemeIpc } from './extensions/iconThemes'
 import { describeSkipped, registerKeymapIpc } from './extensions/keymaps'
 import { registerLanguagePackIpc } from './extensions/languagePacks'
 import { Marketplace, marketplaceId, normalizeMarketplaceUrl } from './extensions/marketplace'
+import { PaneAttentionEvents } from './extensions/paneAttentionEvents'
 import { createMainStrings } from './extensions/strings'
 import { firstKnownOwner, workspaceChipsForWindow } from './extensions/workspaceChips'
 import { openInExternalEditor } from './files/externalEditor'
@@ -1538,6 +1539,10 @@ function restoreKeptAttention(identity: PaneIdentity, saved: SavedAttention): vo
   })
 }
 const paneWatch = new PaneWatch()
+const paneAttentionEvents = new PaneAttentionEvents({
+  identity: getByPaneId,
+  emit: (payload) => emitPaneEvent('pane.attention', payload),
+})
 const paneWaking = new PaneWaking()
 const isWaking = (paneId: string): boolean => paneWaking.has(paneId)
 const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
@@ -1918,6 +1923,7 @@ function registerIpc(): void {
       })
     } else if (event.type === 'pane-closed') {
       previews.paneClosed(event.paneId)
+      paneAttentionEvents.forget(event.paneId)
       openWaits.paneClosed(event.paneId)
       const identity = getByPaneId(event.paneId)
       if (identity) {
@@ -1963,6 +1969,7 @@ function registerIpc(): void {
       emitSessionState(event.workspaceId, event.state)
     } else if (event.type === 'pane-attention') {
       paneWatch.attention(event.paneId, event.state, event.message)
+      paneAttentionEvents.change(event.paneId, event.state)
       if (ptys.get(event.paneId)?.kept) {
         keptShells.saveAttention(
           event.paneId,
