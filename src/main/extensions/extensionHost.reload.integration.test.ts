@@ -3,16 +3,17 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
-import type { ExtensionCaller } from '../../shared/extensions'
+import type { ExtensionCaller, PaneChip } from '../../shared/extensions'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
+import { registerPane } from '../control/idRegistry'
 import { ExtensionHost, registerExtensionMethods } from './extensionHost'
 import { ExtensionStore } from './extensionStore'
 
 const caller: ExtensionCaller = { kind: 'user', workspaceId: 's1', capabilities: [] }
 const jsonrpc = require.resolve('vscode-jsonrpc/node')
 
-const MAIN_JS = `
+const mainJs = (commands: string[]): string => `
 const { createConnection } = require('node:net')
 const rpc = require(${JSON.stringify(jsonrpc)})
 const socket = createConnection(process.env.OSTIA_SOCKET)
@@ -20,12 +21,16 @@ const conn = rpc.createMessageConnection(
   new rpc.StreamMessageReader(socket),
   new rpc.StreamMessageWriter(socket),
 )
-conn.onRequest('ext.command', () => ({ ok: true, data: { pid: process.pid } }))
+conn.onRequest('ext.command', ({ command, args }) =>
+  command === 'chip'
+    ? conn.sendRequest('ext.setPaneChip', args)
+    : { ok: true, data: { pid: process.pid } },
+)
 socket.on('close', () => process.exit(0))
 conn.listen()
 socket.on('connect', async () => {
   await conn.sendRequest('hello', { token: process.env.OSTIA_TOKEN })
-  await conn.sendRequest('ext.registerCommands', { commands: ['ping'] })
+  await conn.sendRequest('ext.registerCommands', { commands: ${JSON.stringify(commands)} })
 })
 `
 
@@ -49,11 +54,17 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
   let host: ExtensionHost
   let socketPath: string
   let store: ExtensionStore
+  let chipBroadcasts: PaneChip[][] = []
+  const pane = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p1' })
 
-  const writeExtension = (id: string, manifest: Record<string, unknown>): string => {
+  const writeExtension = (
+    id: string,
+    manifest: Record<string, unknown>,
+    commands = ['ping'],
+  ): string => {
     const extDir = join(userRoot, id)
     mkdirSync(extDir, { recursive: true })
-    writeFileSync(join(extDir, 'main.js'), MAIN_JS)
+    writeFileSync(join(extDir, 'main.js'), mainJs(commands))
     writeFileSync(
       join(extDir, 'ostia.json'),
       JSON.stringify({ id, name: id, version: '1.0.0', api: '4.0', main: 'main.js', ...manifest }),
@@ -96,6 +107,7 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
 
   const startHost = (): void => {
     userRoot = mkdtempSync(join(dir, 'user-'))
+    chipBroadcasts = []
     store = new ExtensionStore(join(userRoot, '..', `${Date.now()}-extensions.json`))
     host = new ExtensionHost({
       roots: [{ dir: userRoot, builtin: false }],
@@ -103,7 +115,9 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
       socketPath: () => socketPath,
       nodePath: process.execPath,
       workDirForWorkspace: () => undefined,
-      broadcast: () => {},
+      broadcast: (channel, payload) => {
+        if (channel === 'extensions:chips') chipBroadcasts.push(payload as PaneChip[])
+      },
       openPanelIn: () => {},
       notify: () => {},
       restartDelayMs: 20,
@@ -156,6 +170,36 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
     host.rescan()
     expect(info('pinger')).toBeUndefined()
     expect(await host.invoke('pinger', 'ping', null, caller)).toMatchObject({
+      ok: false,
+      error: 'unknown-extension',
+    })
+  })
+
+  it('an extension whose manifest turns invalid while ostia runs is dropped with its pane chips', async () => {
+    startHost()
+    const extDir = writeExtension(
+      'chipper',
+      {
+        capabilities: [],
+        contributes: {
+          commands: [{ id: 'chip', title: 'Chip' }],
+          paneChips: [{ id: 'status', title: 'Status' }],
+        },
+      },
+      ['chip'],
+    )
+    host.rescan()
+    host.approve('chipper')
+    const chip = { paneId: pane.externalId, id: 'status', text: 'hello chip' }
+    expect(await host.invoke('chipper', 'chip', chip, caller)).toEqual({ ok: true })
+    expect(host.paneChips()).toMatchObject([{ extId: 'chipper', paneId: 'p1', text: 'hello chip' }])
+
+    writeFileSync(join(extDir, 'ostia.json'), '{ "broken": ')
+    host.rescan()
+    expect(info('chipper')).toBeUndefined()
+    expect(host.paneChips()).toEqual([])
+    expect(chipBroadcasts.at(-1)).toEqual([])
+    expect(await host.invoke('chipper', 'chip', chip, caller)).toMatchObject({
       ok: false,
       error: 'unknown-extension',
     })
