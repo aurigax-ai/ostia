@@ -1302,7 +1302,7 @@ export function registerBuiltinCommands(): void {
         group: { type: 'string' },
       },
     },
-    run: (args) => {
+    run: (args, ctx) => {
       const dir = args?.dir
       const name = args?.name
       const focus = args?.focus
@@ -1317,8 +1317,9 @@ export function registerBuiltinCommands(): void {
       if (group !== undefined && (typeof group !== 'string' || !normalizeGroupName(group))) {
         throw new Error('group must be a group name')
       }
-      if (focus !== false) useUIStore.getState().showWorkspaces()
-      const workspaceId = startNewWorkspace({ dir, name, focus: focus !== false })
+      const takesKeyboard = focus !== false && (ctx.activePaneId === null || callerHasFocus(ctx))
+      if (takesKeyboard) useUIStore.getState().showWorkspaces()
+      const workspaceId = startNewWorkspace({ dir, name, focus: takesKeyboard })
       if (workspaceId && group) useWorkspacesStore.getState().moveToGroupNamed(workspaceId, group)
       return { workspaceId }
     },

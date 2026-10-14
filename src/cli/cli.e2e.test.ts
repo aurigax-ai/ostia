@@ -1341,6 +1341,13 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       expect(made.stdout).toBe(`ws-made\t${join(home, 'tools')}\n`)
       execCalls.length = 0
 
+      const background = await runOstia(['-b', 'tools'], env(), home)
+      expect(background.code).toBe(0)
+      expect(execCalls.filter((c) => c.id === 'workspace.new').map((c) => c.args)).toEqual([
+        { dir: join(home, 'tools'), focus: false },
+      ])
+      execCalls.length = 0
+
       const link = join(base, 'home-link')
       for (const [word, cwd, shown] of [
         ['.', home, home],

@@ -512,14 +512,21 @@ function failUsage(noun: string): void {
   fail(usageOf(noun))
 }
 
-type FolderOpener = (conn: MessageConnection, path: string) => Promise<Opened>
+type FolderOpener = (conn: MessageConnection, path: string, background: boolean) => Promise<Opened>
 
-async function workspaceFolderIn(conn: MessageConnection, path: string): Promise<Opened> {
+async function workspaceFolderIn(
+  conn: MessageConnection,
+  path: string,
+  background: boolean,
+): Promise<Opened> {
   const here = await conn
     .sendRequest<{ ok: boolean; same?: boolean }>('workspace.sameFolder', { dir: path })
     .catch(() => undefined)
   if (here?.same) return { problems: [], shown: [`already open\t${path}`] }
-  const made = await newWorkspace(conn, { dir: path })
+  const made = await newWorkspace(conn, {
+    dir: path,
+    ...(background ? { focus: false as const } : {}),
+  })
   return made.ok
     ? { problems: [], shown: [`${made.workspaceId}\t${path}`] }
     : { problems: [`ostia: ${path}: ${made.message}`], shown: [] }
@@ -611,7 +618,7 @@ async function runOpenFiles(
     shown.push(...opened.shown)
   }
   for (const target of targets) {
-    if (target.kind === 'folder') take(await folderIn(conn, target.path))
+    if (target.kind === 'folder') take(await folderIn(conn, target.path, background))
     if (target.kind === 'url') take(await openUrlIn(conn, target.url, background))
   }
   take(await openFilesIn(conn, files, { background, wait }))

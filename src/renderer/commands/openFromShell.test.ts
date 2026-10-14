@@ -382,3 +382,25 @@ describe('diff.openFiles', () => {
     expect(res.ok).toBe(false)
   })
 })
+
+describe('workspace.new from a pane', () => {
+  it('takes the keyboard only when the calling pane has it, and never with focus false', async () => {
+    const caller = seed()
+    const quiet = await commands.execWith(fromPane(caller), 'workspace.new', { dir: '/home/me/a' })
+    expect(quiet.ok).toBe(true)
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('s1')
+
+    focusPane(caller)
+    const asked = await commands.execWith(fromPane(caller), 'workspace.new', {
+      dir: '/home/me/b',
+      focus: false,
+    })
+    expect(asked.ok).toBe(true)
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('s1')
+
+    const shown = await commands.execWith(fromPane(caller), 'workspace.new', { dir: '/home/me/c' })
+    const made = shown.ok ? (shown.result as { workspaceId: string }).workspaceId : null
+    expect(made).not.toBeNull()
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe(made)
+  })
+})
