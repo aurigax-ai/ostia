@@ -211,6 +211,44 @@ describe('core git and ports in the window', () => {
     expect(within(header).getByText('deploy@build-box')).toBeVisible()
   })
 
+  it('names the process listening on each port, and copies and opens only the port URL', async () => {
+    const { container } = render(<TopBar />)
+    act(() =>
+      useExtensionsStore.getState().setPortsItems({
+        ...PORTS_ITEMS,
+        workspaceChips: [
+          {
+            ...PORTS_ITEMS.workspaceChips[0],
+            text: '2',
+            items: [
+              { text: ':5173', detail: 'node', url: 'http://localhost:5173/' },
+              { text: ':8000', url: 'http://localhost:8000/' },
+            ],
+          },
+        ],
+      }),
+    )
+    const user = userEvent.setup()
+    const topBar = container.querySelector('.topbar-right') as HTMLElement
+    await user.click(within(topBar).getByRole('button', { name: /Listening ports: 2/ }))
+
+    const named = await screen.findByRole('button', {
+      name: 'Open http://localhost:5173/ in the browser pane',
+    })
+    expect(named).toHaveTextContent(':5173node')
+    expect(within(named).getByText('node')).toHaveClass('pane-chip-item-detail')
+    expect(
+      screen.getByRole('button', { name: 'Open http://localhost:8000/ in the browser pane' }),
+    ).toHaveTextContent(/^:8000$/)
+
+    await user.click(screen.getByRole('button', { name: /Copy http:\/\/localhost:5173\// }))
+    await expect(navigator.clipboard.readText()).resolves.toBe('http://localhost:5173/')
+    await user.click(named)
+    expect(firstPaneOfKind(useLayoutStore.getState().byWorkspace.s1.root, 'browser')?.url).toBe(
+      'http://localhost:5173/',
+    )
+  })
+
   it('toggles the Git panel from the top bar, and hides the button when Git is off', async () => {
     const user = userEvent.setup()
     render(<PanelToggles />)

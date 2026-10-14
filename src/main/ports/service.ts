@@ -4,6 +4,7 @@ import type { ExtensionSidebarItem, PaneChip, WorkspaceChip } from '../../shared
 import type { PaneEntry } from '../panes/paneList'
 import { WatchSets } from '../platform/watchSets'
 import { paneChipValues, workspaceChipValues } from './chips'
+import type { ListeningPort } from './procfs'
 import { type TreeInfo, scanTrees } from './scan'
 import { type WorkspaceProcesses, groupByWorkspace, sidebarEntries, terminalPids } from './sidebar'
 
@@ -31,7 +32,7 @@ export interface PortsServiceDeps {
 
 export interface WorkspacePorts {
   workspaceId: string
-  ports: number[]
+  ports: ListeningPort[]
   ssh: string[]
 }
 

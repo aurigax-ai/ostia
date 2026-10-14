@@ -251,6 +251,7 @@ export const PANE_CHIP_ITEM_TEXT_MAX = 80
 
 export interface PaneChipItem {
   text: string
+  detail?: string
   url?: string
 }
 
@@ -317,13 +318,16 @@ export function paneChipItems(raw: unknown): PaneChipItem[] | null {
     const e = (entry ?? {}) as Record<string, unknown>
     const text = typeof e.text === 'string' ? e.text.trim().slice(0, PANE_CHIP_ITEM_TEXT_MAX) : ''
     if (!text) return null
+    const detail =
+      typeof e.detail === 'string' ? e.detail.trim().slice(0, PANE_CHIP_ITEM_TEXT_MAX) : ''
+    const item: PaneChipItem = detail ? { text, detail } : { text }
     if (e.url === undefined) {
-      items.push({ text })
+      items.push(item)
       continue
     }
     const url = sidebarItemUrl(e.url)
     if (!url) return null
-    items.push({ text, url })
+    items.push({ ...item, url })
   }
   return items
 }

@@ -112,8 +112,8 @@ describe('ostia git and ostia ports (real CLI process, real socket)', () => {
         send: () => {},
         scan: async () =>
           new Map([
-            [10, { ports: [3000], ssh: null }],
-            [20, { ports: [8080], ssh: { host: 'box' } }],
+            [10, { ports: [{ port: 3000, name: 'node' }], ssh: null }],
+            [20, { ports: [{ port: 8080 }], ssh: { host: 'box' } }],
           ]),
       }),
     )
@@ -223,7 +223,7 @@ describe('ostia git and ostia ports (real CLI process, real socket)', () => {
     const own = await runOstia(['ports', 'ls'])
     expect(own.stderr).toBe('')
     expect(JSON.parse(own.stdout)).toEqual({
-      workspaces: [{ workspaceId: 's1', ports: [3000], ssh: [] }],
+      workspaces: [{ workspaceId: 's1', ports: [{ port: 3000, name: 'node' }], ssh: [] }],
     })
     const all = await runOstia(['ports', 'ls', '--all'])
     expect(all.code).not.toBe(0)

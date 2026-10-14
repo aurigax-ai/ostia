@@ -1,19 +1,21 @@
 import { execFile } from 'node:child_process'
 import { readFile, readdir, readlink } from 'node:fs/promises'
 import { type ProcEntry, parseProcStat } from '../../shared/common/procfs'
-import { parseLsofListeners, parsePsTable, splitPsArgs } from './darwin'
+import { parseLsofListeners, parsePsTable, portsOfTree, splitPsArgs } from './darwin'
 import {
+  type ListeningPort,
   type ListeningSocket,
   childrenOf,
   parseNetTcp,
-  portsForInodes,
+  portsForHolders,
+  processName,
   processTree,
   socketInode,
 } from './procfs'
 import { type SshLogin, sshArgs, sshLogin } from './ssh'
 
 export interface TreeInfo {
-  ports: number[]
+  ports: ListeningPort[]
   ssh: SshLogin | null
 }
 
@@ -83,10 +85,20 @@ async function scanLinux(roots: number[], hostPid: number): Promise<Map<number, 
   for (const root of roots) {
     if (!byPid.has(root)) continue
     const tree = processTree(root, children)
-    let ports: number[] = []
+    let ports: ListeningPort[] = []
     if (sockets.length > 0) {
-      const inodes = new Set((await Promise.all(tree.map(socketInodes))).flat())
-      ports = portsForInodes(sockets, inodes)
+      const listeningInodes = new Set(sockets.map((s) => s.inode))
+      const held = await Promise.all(tree.map(socketInodes))
+      const holders = await Promise.all(
+        tree.map(async (pid, i) => {
+          const comm = byPid.get(pid)?.comm
+          if (!held[i].some((inode) => listeningInodes.has(inode)))
+            return { name: comm, inodes: [] }
+          const exe = await readlink(`${PROC}/${pid}/exe`).catch(() => '')
+          return { name: processName(exe, comm), inodes: held[i] }
+        }),
+      )
+      ports = portsForHolders(sockets, holders)
     }
     const ssh = foregroundSsh(tree, byPid)
     const argv = ssh ? (await readText(`${PROC}/${ssh.pid}/cmdline`)).split('\0') : []
@@ -109,8 +121,7 @@ async function scanDarwin(roots: number[], hostPid: number): Promise<Map<number,
   for (const root of roots) {
     if (!byPid.has(root)) continue
     const tree = processTree(root, children)
-    const owned = tree.flatMap((pid) => listeners.get(pid) ?? []).filter((p) => !inherited.has(p))
-    const ports = [...new Set(owned)].sort((a, b) => a - b)
+    const ports = portsOfTree(tree, listeners, byPid, inherited)
     const ssh = foregroundSsh(tree, byPid)
     let login: SshLogin | null = null
     if (ssh) {

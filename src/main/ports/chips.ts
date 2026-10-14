@@ -36,9 +36,11 @@ export function workspaceChipValues(
       id: PORTS_CHIP,
       icon: 'plugs',
       text: String(group.ports.length),
-      items: group.ports
-        .slice(0, PANE_CHIP_ITEMS_MAX)
-        .map((port) => ({ text: `:${port}`, url: portUrl(port, host) })),
+      items: group.ports.slice(0, PANE_CHIP_ITEMS_MAX).map(({ port, name }) => ({
+        text: `:${port}`,
+        ...(name ? { detail: name } : {}),
+        url: portUrl(port, host),
+      })),
     })
   }
   return out

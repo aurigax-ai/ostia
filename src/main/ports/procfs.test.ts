@@ -2,7 +2,14 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { type ProcEntry, parseProcStat } from '../../shared/common/procfs'
-import { childrenOf, parseNetTcp, portsForInodes, processTree, socketInode } from './procfs'
+import {
+  childrenOf,
+  parseNetTcp,
+  portsForHolders,
+  processName,
+  processTree,
+  socketInode,
+} from './procfs'
 
 const fixture = (name: string): string =>
   readFileSync(join(__dirname, '../../../test/fixtures/ports', name), 'utf8')
@@ -91,13 +98,50 @@ describe('processTree', () => {
   })
 })
 
-describe('portsForInodes', () => {
-  it('matches a tree’s socket inodes to listening ports, sorted and deduplicated', () => {
-    const sockets = [
-      ...parseNetTcp(fixture('net-tcp.txt')),
-      ...parseNetTcp(fixture('net-tcp6.txt')),
-    ]
-    expect(portsForInodes(sockets, new Set(['3598505', '60431', '999']))).toEqual([3000, 5173])
-    expect(portsForInodes(sockets, new Set())).toEqual([])
+describe('portsForHolders', () => {
+  const sockets = [...parseNetTcp(fixture('net-tcp.txt')), ...parseNetTcp(fixture('net-tcp6.txt'))]
+
+  it('names each listening port by the process holding its socket, sorted and deduplicated', () => {
+    expect(
+      portsForHolders(sockets, [
+        { name: 'zsh', inodes: [] },
+        { name: 'node', inodes: ['3598505', '60431', '999'] },
+      ]),
+    ).toEqual([
+      { port: 3000, name: 'node' },
+      { port: 5173, name: 'node' },
+    ])
+    expect(portsForHolders(sockets, [])).toEqual([])
+  })
+
+  it('keeps a port whose holder has no readable name, without a name', () => {
+    expect(portsForHolders(sockets, [{ name: undefined, inodes: ['3598505'] }])).toEqual([
+      { port: 3000 },
+    ])
+  })
+
+  it('names a socket shared by a parent and its child after the first holder in the tree', () => {
+    expect(
+      portsForHolders(sockets, [
+        { name: 'gunicorn', inodes: ['3598505'] },
+        { name: 'worker', inodes: ['3598505'] },
+      ]),
+    ).toEqual([{ port: 3000, name: 'gunicorn' }])
+  })
+})
+
+describe('processName', () => {
+  it('names a process by its executable, so a Node server is node, not its thread name', () => {
+    expect(processName('/usr/bin/node', 'node-MainThread')).toBe('node')
+    expect(processName('/usr/lib/python3.12/bin/python3.12', 'python3')).toBe('python3.12')
+  })
+
+  it('strips the suffix of a deleted binary', () => {
+    expect(processName('/usr/bin/node (deleted)', 'node-MainThread')).toBe('node')
+  })
+
+  it('falls back to comm when the link cannot be read, and to nothing without either', () => {
+    expect(processName('', 'postgres')).toBe('postgres')
+    expect(processName('', undefined)).toBeUndefined()
   })
 })

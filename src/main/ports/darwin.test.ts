@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { parseLsofListeners, parsePsTable, splitPsArgs } from './darwin'
+import { parseLsofListeners, parsePsTable, portsOfTree, splitPsArgs } from './darwin'
 import { childrenOf, processTree } from './procfs'
 
 const fixture = (name: string): string =>
@@ -24,6 +24,36 @@ describe('parseLsofListeners', () => {
         [777, [5173]],
       ]),
     )
+  })
+})
+
+describe('portsOfTree', () => {
+  const procs = parsePsTable(fixture('ps-table.txt'))
+  const byPid = new Map(procs.map((p) => [p.pid, p]))
+  const tree = processTree(500, childrenOf(procs))
+
+  it('names each port by the basename of the process listening on it', () => {
+    const listeners = new Map([
+      [501, [5173, 3000]],
+      [600, [2222]],
+    ])
+    expect(portsOfTree(tree, listeners, byPid, new Set())).toEqual([
+      { port: 2222, name: 'ssh' },
+      { port: 3000, name: 'node' },
+      { port: 5173, name: 'node' },
+    ])
+  })
+
+  it('keeps a port whose process is gone from the table, without a name', () => {
+    expect(portsOfTree([...tree, 999], new Map([[999, [8000]]]), byPid, new Set())).toEqual([
+      { port: 8000 },
+    ])
+  })
+
+  it('leaves out ports the app itself already held', () => {
+    expect(portsOfTree(tree, new Map([[501, [3000, 5173]]]), byPid, new Set([3000]))).toEqual([
+      { port: 5173, name: 'node' },
+    ])
   })
 })
 

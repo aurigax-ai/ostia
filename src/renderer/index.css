@@ -172,7 +172,7 @@
   --secondary-foreground: var(--color-fg);
   --muted: var(--color-surface-2);
   --muted-foreground: var(--color-fg-muted);
-  --accent: var(--color-surface-2);
+  --accent: var(--color-surface-3);
   --accent-foreground: var(--color-fg);
   --destructive: var(--color-attn-fg);
   --border: var(--color-line);
@@ -3423,6 +3423,11 @@ button.prompt-chip:hover {
   background: var(--surface-3);
 }
 
+.pane-chip-item-detail {
+  margin-inline-start: 12px;
+  color: var(--fg-muted);
+}
+
 .pane-chip-action {
   transition: color var(--motion-fast) var(--ease-out), border-color var(--motion-fast)
     var(--ease-out);
@@ -4012,7 +4017,7 @@ button.prompt-chip:hover {
 }
 
 .chat-inline-insert:hover {
-  background-color: var(--accent);
+  background-color: var(--surface-2);
 }
 
 .chat-inline-command:hover .chat-inline-insert,

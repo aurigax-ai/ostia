@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { PaneEntry } from '../panes/paneList'
 import { paneChipValues, workspaceChipValues } from './chips'
 import type { TreeInfo } from './scan'
+import type { WorkspaceProcesses } from './sidebar'
 
 const pane = (paneId: string, pid?: number, kind = 'terminal'): PaneEntry => ({
   paneId,
@@ -15,7 +16,7 @@ const pane = (paneId: string, pid?: number, kind = 'terminal'): PaneEntry => ({
 
 describe('paneChipValues', () => {
   const trees = new Map<number, TreeInfo>([
-    [10, { ports: [5173, 3000], ssh: null }],
+    [10, { ports: [{ port: 3000 }, { port: 5173 }], ssh: null }],
     [11, { ports: [], ssh: { user: 'deploy', host: 'build-box' } }],
     [12, { ports: [], ssh: null }],
   ])
@@ -34,9 +35,15 @@ describe('paneChipValues', () => {
 })
 
 describe('workspaceChipValues', () => {
-  it('gives a workspace with listeners one icon chip with the port count and a link per port', () => {
-    const groups = new Map([
-      ['s1', { ports: [3000, 5173], ssh: [] }],
+  it('gives a workspace with listeners one icon chip with the port count and a link per port, named by its process', () => {
+    const groups = new Map<string, WorkspaceProcesses>([
+      [
+        's1',
+        {
+          ports: [{ port: 3000, name: 'node' }, { port: 5173, name: 'node' }, { port: 8000 }],
+          ssh: [],
+        },
+      ],
       ['s2', { ports: [], ssh: ['box'] }],
     ])
     expect(workspaceChipValues(groups, 'localhost')).toEqual([
@@ -44,24 +51,25 @@ describe('workspaceChipValues', () => {
         workspaceId: 's1',
         id: 'ports',
         icon: 'plugs',
-        text: '2',
+        text: '3',
         items: [
-          { text: ':3000', url: 'http://localhost:3000/' },
-          { text: ':5173', url: 'http://localhost:5173/' },
+          { text: ':3000', detail: 'node', url: 'http://localhost:3000/' },
+          { text: ':5173', detail: 'node', url: 'http://localhost:5173/' },
+          { text: ':8000', url: 'http://localhost:8000/' },
         ],
       },
     ])
   })
 
   it('lists at most the chip item limit, while the count says how many listen', () => {
-    const ports = Array.from({ length: 25 }, (_, i) => 30000 + i)
+    const ports = Array.from({ length: 25 }, (_, i) => ({ port: 30000 + i }))
     const [chip] = workspaceChipValues(new Map([['s1', { ports, ssh: [] }]]), 'localhost')
     expect(chip?.text).toBe('25')
     expect(chip?.items).toHaveLength(20)
   })
 
   it('uses the configured host in the port link', () => {
-    const groups = new Map([['s1', { ports: [5173], ssh: [] }]])
+    const groups = new Map([['s1', { ports: [{ port: 5173 }], ssh: [] }]])
     expect(workspaceChipValues(groups, '127.0.0.1')[0]?.items?.[0]?.url).toBe(
       'http://127.0.0.1:5173/',
     )

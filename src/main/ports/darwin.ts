@@ -1,4 +1,5 @@
 import type { ProcEntry } from '../../shared/common/procfs'
+import { type ListeningPort, addOwner, sortedPorts } from './procfs'
 
 export function parsePsTable(text: string): ProcEntry[] {
   const out: ProcEntry[] = []
@@ -37,4 +38,19 @@ export function parseLsofListeners(text: string): Map<number, number[]> {
 
 export function splitPsArgs(text: string): string[] {
   return text.trim().split(/\s+/).filter(Boolean)
+}
+
+export function portsOfTree(
+  tree: number[],
+  listeners: Map<number, number[]>,
+  byPid: Map<number, ProcEntry>,
+  inherited: Set<number>,
+): ListeningPort[] {
+  const owners = new Map<number, string | undefined>()
+  for (const pid of tree) {
+    for (const port of listeners.get(pid) ?? []) {
+      if (!inherited.has(port)) addOwner(owners, port, byPid.get(pid)?.comm)
+    }
+  }
+  return sortedPorts(owners)
 }
