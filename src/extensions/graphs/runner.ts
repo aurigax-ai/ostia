@@ -36,6 +36,8 @@ import type { EnabledGraph } from './triggers'
 
 const OSTIA_TRIGGERS = ['manual', 'schedule', 'files', 'command', 'agent']
 const SCRATCH = 'scratch'
+const NEEDS_MCP =
+  'Graphs may not call MCP servers yet: grant it MCP in Settings › Extensions › Graphs › Review permissions'
 
 export type GraphsExt = Pick<
   OstiaExtension,
@@ -84,6 +86,7 @@ function hostProblems(
   host: Pick<Host, 'kinds' | 'triggers' | 'name'>,
   connections: readonly ConnectionName[],
   sandboxed: boolean,
+  mcpGranted: boolean,
 ): Problem[] {
   const problems = [
     ...missingKinds(graph, host),
@@ -92,6 +95,10 @@ function hostProblems(
   for (const node of graph.nodes) {
     if (node.kind === 'connector' && sandboxed) {
       problems.push({ code: 'sandboxed', message: SANDBOXED_CONNECTOR, node: node.id })
+    }
+    const use = node.kind === 'connector' ? String(node.with?.use ?? '') : ''
+    if (use.startsWith('mcp:') && !mcpGranted) {
+      problems.push({ code: 'needs-mcp', message: NEEDS_MCP, node: node.id })
     }
   }
   for (const node of graph.nodes) {
@@ -123,6 +130,7 @@ export class GraphsRunner {
   private readonly lateTimers = new Map<string, () => void>()
   private workspaces = new Map<string, Workspace>()
   private connections: ConnectionName[] = []
+  private mcpGranted = true
   private readonly panesOfGraphs = new Map<string, Set<string>>()
 
   constructor(private readonly opts: RunnerOptions) {
@@ -167,6 +175,10 @@ export class GraphsRunner {
 
   setConnections(list: ConnectionName[]): void {
     this.connections = list
+  }
+
+  setMcpGranted(granted: boolean): void {
+    this.mcpGranted = granted
   }
 
   private notePanes(runId: string): void {
@@ -252,7 +264,13 @@ export class GraphsRunner {
     return {
       entry,
       state,
-      problems: hostProblems(entry.loaded.graph, this.host, this.connections, sandboxed),
+      problems: hostProblems(
+        entry.loaded.graph,
+        this.host,
+        this.connections,
+        sandboxed,
+        this.mcpGranted,
+      ),
     }
   }
 

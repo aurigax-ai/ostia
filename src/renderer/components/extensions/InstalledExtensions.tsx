@@ -166,8 +166,7 @@ function ExtensionDetails({
   const reducedMotion = useReducedMotion()
   const source = useSourceLabel(ext)
   const Icon = extensionIcon(ext.panel?.icon ?? ext.settingsPage?.icon)
-  const needsReview =
-    !ext.builtin && (ext.status === 'pending-approval' || ext.unapproved.length > 0)
+  const needsReview = ext.status === 'pending-approval' || ext.unapproved.length > 0
   return (
     <section
       id={extensionAnchorId(ext.id)}

@@ -1,4 +1,4 @@
-import { ALL_CAPABILITIES, type Capability } from '../../shared/capabilities'
+import { ALL_CAPABILITIES, BUILTIN_CAPABILITIES, type Capability } from '../../shared/capabilities'
 import { loadJson, saveJson } from '../platform/jsonStore'
 
 export interface ExtensionRecord {
@@ -25,7 +25,7 @@ export function effectiveRecord(
 ): ExtensionRecord {
   if (record) return record
   return builtin
-    ? { enabled: true, approved: [...ALL_CAPABILITIES] }
+    ? { enabled: true, approved: [...BUILTIN_CAPABILITIES] }
     : { enabled: false, approved: null }
 }
 

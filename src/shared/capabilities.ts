@@ -60,6 +60,12 @@ export const ALL_CAPABILITIES: Capability[] = [
   'mcp',
 ]
 
+export const HUMAN_GRANTED_CAPABILITIES: readonly Capability[] = ['mcp']
+
+export const BUILTIN_CAPABILITIES: Capability[] = ALL_CAPABILITIES.filter(
+  (cap) => !HUMAN_GRANTED_CAPABILITIES.includes(cap),
+)
+
 export const MANAGER_CAPABILITIES: Capability[] = ALL_CAPABILITIES.filter(
   (cap) => cap !== 'phone' && cap !== 'gateway' && cap !== 'destructive' && cap !== 'mcp',
 )

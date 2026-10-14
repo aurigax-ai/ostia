@@ -107,6 +107,16 @@ describe('ext.mcpCall and ext.mcpServers', () => {
     rmSync(dir, { recursive: true, force: true })
   })
 
+  it('a built-in that asks for mcp holds it only once the human approved it', async () => {
+    expect(
+      (await call('reacher', 'ext.mcpCall', { server: 'fake', tool: 'echo', input: { text: 'x' } }))
+        .rpcError,
+    ).toContain('needs-elevation: mcp')
+    expect(host.list().find((e) => e.id === 'reacher')?.unapproved).toEqual(['mcp'])
+    host.approve('reacher')
+    expect(host.list().find((e) => e.id === 'reacher')?.unapproved).toEqual([])
+  })
+
   it('GRF-C123 connects a server that is on but not yet connected, answers with its text, and lists names only', async () => {
     expect(mcp.status().find((s) => s.name === 'fake')?.state).toBe('idle')
     expect(

@@ -105,8 +105,13 @@ async function main(): Promise<void> {
   }
   const refresh = async (): Promise<void> => {
     try {
-      const [workspaces, connections] = await Promise.all([ext.listWorkspaces(), ext.connections()])
+      const [workspaces, connections, servers] = await Promise.all([
+        ext.listWorkspaces(),
+        ext.connections(),
+        ext.mcpServers(),
+      ])
       if (connections.ok) runner.setConnections(connections.connections)
+      runner.setMcpGranted(servers.ok || !servers.error.includes('needs-elevation'))
       runner.setWorkspaces(workspacesOf(workspaces))
       triggers.refresh()
       await keepStarting()

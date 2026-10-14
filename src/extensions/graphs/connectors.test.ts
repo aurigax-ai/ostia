@@ -73,6 +73,22 @@ describe('connectors in the Ostia host', () => {
     expect(h.runner.engine.run(id)?.state.state.err).toContain('This MCP server is not connected.')
   })
 
+  it('a graph with an MCP connector says so and cannot be enabled while Graphs lacks the mcp grant', () => {
+    const h = hostHarness(
+      workspace({ echo: graph('  - { id: a, kind: connector, with: { use: "mcp:fake/echo" } }') }),
+    )
+    h.runner.setMcpGranted(false)
+    const listing = h.runner.graph('w1', 'echo')
+    expect(listing?.problems.map((p) => p.code)).toEqual(['needs-mcp'])
+    expect(listing?.problems[0]?.message).toContain('Settings')
+    expect(h.runner.enable('w1', 'echo', listing?.entry.loaded?.fingerprint ?? '')).toMatchObject({
+      ok: false,
+      error: 'needs-mcp',
+    })
+    h.runner.setMcpGranted(true)
+    expect(h.runner.graph('w1', 'echo')?.problems).toEqual([])
+  })
+
   it('refuses a connector in a sandboxed workspace', () => {
     const h = hostHarness(
       workspace(
