@@ -22,6 +22,7 @@ import {
   PAD_FILE,
   artifactChanges,
 } from '../../shared/artifacts/artifacts'
+import { HISTORY_DIR } from './artifactHistory'
 
 const FOLDER_NAME = 'artifacts'
 const CLOSED_DIR = '.closed'
@@ -148,8 +149,10 @@ export class ArtifactFolders {
   }
 
   holds(path: string): boolean {
-    const closed = join(this.deps.root, CLOSED_DIR)
-    if (path === closed || path.startsWith(`${closed}${sep}`)) return false
+    for (const kept of [CLOSED_DIR, HISTORY_DIR]) {
+      const dir = join(this.deps.root, kept)
+      if (path === dir || path.startsWith(`${dir}${sep}`)) return false
+    }
     if (path.startsWith(`${this.deps.root}${sep}`)) return true
     return this.deps.scratchDirs().some((scratch) => {
       const folder = join(scratch, FOLDER_NAME)
@@ -232,35 +235,43 @@ export class ArtifactFolders {
     this.timers.delete(workspaceId)
   }
 
-  close(workspaceId: string): void {
+  close(workspaceId: string): string | null {
     this.unwatch(workspaceId)
     const dir = this.dirOf(workspaceId)
-    if (!dir || this.deps.scratchDirOf(workspaceId) || !isRealDir(dir)) return
+    if (!dir || this.deps.scratchDirOf(workspaceId) || !isRealDir(dir)) return null
     if (entriesOf(dir).length === 0) {
       try {
         rmdirSync(dir)
       } catch {}
-      return
+      return null
     }
     const closed = join(this.deps.root, CLOSED_DIR)
-    if (!privateDir(closed)) return
+    if (!privateDir(closed)) return null
+    const target = join(closed, `${workspaceId}-${this.now()}`)
     try {
-      renameSync(dir, join(closed, `${workspaceId}-${this.now()}`))
-    } catch {}
+      renameSync(dir, target)
+      return target
+    } catch {
+      return null
+    }
   }
 
-  merge(sourceId: string, targetId: string): void {
+  merge(sourceId: string, targetId: string): [string, string][] {
     const source = this.dirOf(sourceId)
-    if (!source || !isRealDir(source)) return
+    if (!source || !isRealDir(source)) return []
     const target = this.ensure(targetId)
-    if (!target) return
+    if (!target) return []
+    const moved: [string, string][] = []
     for (const entry of entriesOf(source)) {
       if (entry.name === PAD_FILE || (!entry.isFile() && !entry.isDirectory())) continue
+      const name = freeName(target, entry.name)
       try {
-        renameSync(join(source, entry.name), join(target, freeName(target, entry.name)))
+        renameSync(join(source, entry.name), join(target, name))
+        moved.push([entry.name, name])
       } catch {}
     }
     this.report(targetId)
+    return moved
   }
 
   sweep(): string[] {

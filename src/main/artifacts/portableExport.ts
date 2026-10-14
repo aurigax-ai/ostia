@@ -3,7 +3,7 @@ import { mkdirSync, readdirSync, realpathSync, rmSync, statSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { basename, dirname, join, sep } from 'node:path'
 import { ipcMain } from 'electron'
-import { normalizePreviewTheme } from '../../shared/artifacts/htmlPreview'
+import { type PreviewTheme, normalizePreviewTheme } from '../../shared/artifacts/htmlPreview'
 import {
   PORTABLE_FORMAT,
   PORTABLE_LIMITS,
@@ -131,6 +131,13 @@ export class PortableExport {
     })
   }
 
+  async fileFor(file: string, theme: PreviewTheme): Promise<string | null> {
+    const type = portableType(file)
+    if (!type) return null
+    const made = await this.make(file, type, { workspaceId: '', path: file, theme })
+    return made.ok ? made.file : null
+  }
+
   private async make(file: string, type: PortableType, request: PortableRequest): Promise<Made> {
     if (runsScripts(type)) {
       const root = this.deps.servesFolder(dirname(file)) ? dirname(file) : null
@@ -142,7 +149,6 @@ export class PortableExport {
     if (!read.ok) return { ok: false, reason: read.status === 413 ? 'too-large' : 'not-allowed' }
     const text = read.body.toString('utf8')
     const page = this.documentFor(type, text, read.body, request.document)
-    if (!page) return { ok: false, reason: 'not-built' }
     const name = basename(file)
     const document = documentPage(name, page.body, page.css, request.theme)
     const manifest: PortableManifest = {
@@ -168,7 +174,7 @@ export class PortableExport {
     text: string,
     body: Buffer,
     given: PortableDocument | undefined,
-  ): PortableDocument | null {
+  ): PortableDocument {
     if (type === 'svg') {
       return {
         body: `<img alt="" src="data:image/svg+xml;base64,${body.toString('base64')}">`,
@@ -177,7 +183,7 @@ export class PortableExport {
     }
     if (type === 'json')
       return { body: `<pre>${escapeHtml(prettyJson(text))}</pre>`, css: JSON_CSS }
-    return given ?? null
+    return given ?? { body: `<pre>${escapeHtml(text)}</pre>`, css: JSON_CSS }
   }
 
   private async open(file: string, text: string): Promise<PortableResult> {
