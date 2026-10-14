@@ -223,7 +223,9 @@ describe('motion CSS contract', () => {
     expect(new Set(timings)).toEqual(new Set(['var(--motion-panel) var(--ease-in-out)']))
     expect(css).toContain('transform: translateX(calc(var(--rail-w-collapsed) - var(--rail-w)));')
     expect(css).toContain('transform: translateX(calc(var(--rail-w) - var(--rail-w-collapsed)));')
-    const footprint = railRules.find(([, selector]) => /\[data-rail-motion\] \.app\s*$/.test(selector))
+    const footprint = railRules.find(([, selector]) =>
+      /\[data-rail-motion\] \.app\s*$/.test(selector),
+    )
     expect(footprint?.[2]).toMatch(/grid-template-columns: var\(--rail-w-collapsed\) auto 1fr;/)
     expect(footprint?.[2]).toMatch(/overflow: clip;/)
   })
