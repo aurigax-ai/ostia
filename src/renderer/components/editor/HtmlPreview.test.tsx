@@ -282,4 +282,69 @@ describe('HtmlPreview', () => {
     document.documentElement.classList.remove('dark')
     useSettingsStore.setState(settingsInit, true)
   })
+
+  it('PRT-C55 captures nothing for a tiny drag, a drag ending outside, or a stopped preview', async () => {
+    const sendRegion = vi.fn()
+    vi.mocked(window.ostia.preview.capture).mockResolvedValue(
+      new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+    )
+    const view = await renderSettled(
+      <HtmlPreview
+        workspaceId="s1"
+        paneId="p1"
+        filePath={FILE}
+        visible
+        onSendErrors={sendErrors}
+        onSendRegion={sendRegion}
+      />,
+    )
+    const box = { left: 0, top: 0, right: 400, bottom: 300, width: 400, height: 300, x: 0, y: 0 }
+    const drag = async (from: [number, number], to: [number, number]): Promise<void> => {
+      await userEvent.click(screen.getByRole('button', { name: 'Send Region to Agent' }))
+      const overlay = await screen.findByTestId('preview-region')
+      vi.spyOn(overlay, 'getBoundingClientRect').mockReturnValue({
+        ...box,
+        toJSON: () => box,
+      } as DOMRect)
+      Object.defineProperty(overlay, 'clientWidth', { value: 400, configurable: true })
+      Object.defineProperty(overlay, 'clientHeight', { value: 300, configurable: true })
+      await act(async () => {
+        overlay.dispatchEvent(
+          new MouseEvent('pointerdown', { bubbles: true, clientX: from[0], clientY: from[1] }),
+        )
+      })
+      await act(async () => {
+        window.dispatchEvent(
+          new MouseEvent('pointermove', { bubbles: true, clientX: to[0], clientY: to[1] }),
+        )
+        window.dispatchEvent(
+          new MouseEvent('pointerup', { bubbles: true, clientX: to[0], clientY: to[1] }),
+        )
+      })
+    }
+    await drag([10, 10], [12, 12])
+    expect(screen.queryByTestId('preview-region')).toBeNull()
+    await drag([10, 10], [500, 120])
+    expect(screen.queryByTestId('preview-region')).toBeNull()
+    expect(window.ostia.preview.capture).not.toHaveBeenCalled()
+    await drag([10, 20], [110, 70])
+    await vi.waitFor(() => expect(sendRegion).toHaveBeenCalledTimes(1))
+    expect(window.ostia.preview.capture).toHaveBeenCalledWith('load1', {
+      x: 10,
+      y: 20,
+      width: 100,
+      height: 50,
+    })
+    expect(sendRegion.mock.calls[0][0]).toEqual({
+      kind: 'preview-region',
+      file: FILE,
+      viewWidth: 400,
+      viewHeight: 300,
+      region: { x: 10, y: 20, width: 100, height: 50 },
+      version: null,
+    })
+    await fire({ id: 'load1', type: 'stopped', reason: 'human' })
+    expect(screen.queryByRole('button', { name: 'Send Region to Agent' })).toBeNull()
+    view.unmount()
+  })
 })

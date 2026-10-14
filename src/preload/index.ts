@@ -15,6 +15,11 @@ import type {
 import type { ReleaseCheckResult } from '../shared/app/releases'
 import type { RequirementsReport } from '../shared/app/systemRequirements'
 import type { ArtifactListing } from '../shared/artifacts/artifacts'
+import type {
+  ArtifactRestore,
+  ArtifactVersion,
+  ArtifactVersionContent,
+} from '../shared/artifacts/artifacts'
 import type { PreviewEvent, PreviewOpened } from '../shared/artifacts/htmlPreview'
 import type { PortableResult } from '../shared/artifacts/portable'
 import type {
@@ -413,6 +418,29 @@ const bridge: OstiaBridge = {
             : 'artifacts:portable-copy'
       return ipcRenderer.invoke(channel, request) as Promise<PortableResult>
     },
+    versions: (workspaceId, path) =>
+      ipcRenderer.invoke('artifacts:versions', workspaceId, path) as Promise<
+        ArtifactVersion[] | null
+      >,
+    version: (workspaceId, path, id) =>
+      ipcRenderer.invoke(
+        'artifacts:version',
+        workspaceId,
+        path,
+        id,
+      ) as Promise<ArtifactVersionContent | null>,
+    restore: (workspaceId, path, id) =>
+      ipcRenderer.invoke(
+        'artifacts:restore',
+        workspaceId,
+        path,
+        id,
+      ) as Promise<ArtifactRestore | null>,
+    producers: (workspaceId) =>
+      ipcRenderer.invoke('artifacts:producers', workspaceId) as Promise<Record<
+        string,
+        string
+      > | null>,
     onChanged: (cb) => {
       const handler = (_e: Electron.IpcRendererEvent, workspaceId: string): void => cb(workspaceId)
       ipcRenderer.on('artifacts:changed', handler)

@@ -2112,6 +2112,74 @@
   margin-right: 4px;
 }
 
+.artifact-chip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 240px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.artifact-chip-scroll {
+  max-height: 320px;
+}
+
+.version-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.version-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.version-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.version-source {
+  margin: 0;
+  padding: 12px;
+  white-space: pre-wrap;
+}
+
+.preview-frame {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.preview-tools {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+}
+
+.preview-region {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  cursor: crosshair;
+}
+
+.preview-region-box {
+  position: absolute;
+  border: 1px solid var(--brand);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+}
+
 .portable-problem {
   display: flex;
   align-items: center;

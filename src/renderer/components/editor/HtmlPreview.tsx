@@ -18,7 +18,14 @@ import {
   keepErrors,
   previewErrorLine,
 } from '@shared/artifacts/htmlPreview'
+import type { SelectionCapture } from '@shared/browser/selection'
 import { useEffect, useRef, useState } from 'react'
+import {
+  type PickedRegion,
+  PreviewRegionOverlay,
+  PreviewRegionTools,
+  type RegionAction,
+} from './PreviewRegion'
 
 type Stopped = PreviewStopReason | 'failed'
 
@@ -34,12 +41,14 @@ export function HtmlPreview({
   filePath,
   visible,
   onSendErrors,
+  onSendRegion,
 }: {
   workspaceId: string
   paneId: string
   filePath: string
   visible: boolean
   onSendErrors: (count: number, text: string) => void
+  onSendRegion?: (capture: SelectionCapture, image: Uint8Array) => void
 }): JSX.Element {
   const d = useDict()
   const [opened, setOpened] = useState<PreviewOpened | null>(null)
@@ -48,6 +57,7 @@ export function HtmlPreview({
   const [expanded, setExpanded] = useState(false)
   const [vitals, setVitals] = useState({ responding: true, busy: false })
   const [link, setLink] = useState<string | null>(null)
+  const [picking, setPicking] = useState<RegionAction | null>(null)
   const openedRef = useRef<PreviewOpened | null>(null)
   openedRef.current = opened
   const visibleRef = useRef(visible)
@@ -120,6 +130,28 @@ export function HtmlPreview({
     setErrors([])
     setExpanded(false)
     setStopped(null)
+  }
+  const region = async (picked: PickedRegion | null): Promise<void> => {
+    const action = picking
+    setPicking(null)
+    if (!picked || !opened || !action) return
+    if (action === 'copy') {
+      await window.ostia.preview.copyRegion(opened.id, picked.region)
+      return
+    }
+    const image = await window.ostia.preview.capture(opened.id, picked.region)
+    if (!image || !onSendRegion) return
+    onSendRegion(
+      {
+        kind: 'preview-region',
+        file: filePath,
+        viewWidth: picked.viewWidth,
+        viewHeight: picked.viewHeight,
+        region: picked.region,
+        version: null,
+      },
+      image,
+    )
   }
   const report = (): string => errors.map((error) => errorText(d.preview.blocked, error)).join('\n')
   const newest = errors[errors.length - 1]
@@ -216,12 +248,16 @@ export function HtmlPreview({
           </Button>
         </div>
       ) : opened ? (
-        <webview
-          key={opened.url}
-          className="preview-webview"
-          src={opened.url}
-          partition={opened.partition}
-        />
+        <div className="preview-frame">
+          {onSendRegion ? <PreviewRegionTools onPick={setPicking} /> : null}
+          <webview
+            key={opened.url}
+            className="preview-webview"
+            src={opened.url}
+            partition={opened.partition}
+          />
+          {picking ? <PreviewRegionOverlay onDone={(picked) => void region(picked)} /> : null}
+        </div>
       ) : null}
     </div>
   )
