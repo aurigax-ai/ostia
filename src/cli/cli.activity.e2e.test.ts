@@ -1,0 +1,433 @@
+import { spawn } from 'node:child_process'
+import {
+  chmodSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { FAKE } from '../../test/fixtures/secrets/samples'
+import type { PanelModel } from '../extensions/activity/view'
+import { agentPluginContent } from '../main/agents/agentSkills'
+import { registerControlServer, stopControlServer } from '../main/control/controlServer'
+import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
+import { ExtensionHost, registerExtensionMethods } from '../main/extensions/extensionHost'
+import { ExtensionStore } from '../main/extensions/extensionStore'
+import { registerPaneListMethods } from '../main/panes/paneList'
+import { createRedactor } from '../main/privacy/redaction'
+import { scanSecrets } from '../main/privacy/secretScanner'
+import {
+  setAgentPlugins,
+  shellIntegrationDir,
+  shellIntegrationSpawnOptions,
+} from '../main/terminal/shellIntegration'
+import type { ExtensionResult, ExtensionSettingValues } from '../shared/extensions'
+import type { CommandResult } from '../shared/types'
+
+const repoRoot = process.cwd()
+const cliPath = join(repoRoot, 'out', 'cli', 'index.js')
+const builtExtension = join(repoRoot, 'out', 'extensions', 'activity')
+
+const FAKE_AGENT = `#!/usr/bin/env node
+const { readFileSync } = require('node:fs')
+const { join } = require('node:path')
+const { execFileSync } = require('node:child_process')
+const agent = process.argv[1].endsWith('codex') ? 'codex' : 'claude'
+const args = process.argv.slice(2)
+const commands = {}
+if (agent === 'claude') {
+  const dir = args[args.indexOf('--plugin-dir') + 1]
+  const hooks = JSON.parse(readFileSync(join(dir, 'hooks', 'hooks.json'), 'utf8')).hooks
+  for (const [event, groups] of Object.entries(hooks)) {
+    commands[event] = groups.flatMap((group) => group.hooks.map((hook) => hook.command))
+  }
+} else {
+  for (const arg of args) {
+    const event = (arg.match(/^hooks\\.([A-Za-z]+)=/) || [])[1]
+    if (!event) continue
+    commands[event] = [...arg.matchAll(/command=("(?:[^"\\\\]|\\\\.)*")/g)].map((m) => JSON.parse(m[1]))
+  }
+}
+for (const [event, payload] of JSON.parse(readFileSync(process.env.FAKE_AGENT_EVENTS, 'utf8'))) {
+  for (const command of commands[event] || []) {
+    if (!command.includes(' agent-hook activity ')) continue
+    const out = execFileSync('sh', ['-c', command], { input: JSON.stringify(payload), encoding: 'utf8' })
+    console.log('hook ' + event + ' [' + out.trim() + ']')
+  }
+}
+`
+
+type HookPayload = [string, Record<string, unknown>]
+
+interface RunResult {
+  code: number | null
+  stdout: string
+  stderr: string
+}
+
+function run(command: string, args: string[], env: NodeJS.ProcessEnv): Promise<RunResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { env })
+    let stdout = ''
+    let stderr = ''
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL')
+      reject(new Error(`${command} timed out (${stdout} ${stderr})`))
+    }, 30_000)
+    child.stdout.on('data', (c: Buffer) => {
+      stdout += c.toString()
+    })
+    child.stderr.on('data', (c: Buffer) => {
+      stderr += c.toString()
+    })
+    child.on('close', (code) => {
+      clearTimeout(timer)
+      resolve({ code, stdout, stderr })
+    })
+    child.stdin.end('')
+  })
+}
+
+async function until<T>(read: () => Promise<T | undefined>, timeoutMs = 10_000): Promise<T> {
+  const start = Date.now()
+  for (;;) {
+    const value = await read()
+    if (value !== undefined) return value
+    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
+    await new Promise((r) => setTimeout(r, 50))
+  }
+}
+
+describe('the Activity extension records two fake agents and shows them in its panel (real CLI, real socket)', () => {
+  let dir: string
+  let bin: string
+  let dataDir: string
+  let socketPath: string
+  let agentDir: string
+  let host: ExtensionHost
+  let serving: ExtensionHost
+  let claudePane: PaneIdentity
+  let codexPane: PaneIdentity
+  let quietPane: PaneIdentity
+  let scratchPane: PaneIdentity
+  let storedSettings: Record<string, ExtensionSettingValues> = {}
+  const focusPaneIn = vi.fn<(pane: PaneIdentity) => boolean>()
+  const redactor = createRedactor(
+    () => ({ redaction: { enabled: true } }),
+    (text) => scanSecrets(text),
+  )
+  const journalFile = (workspaceId: string): string =>
+    join(dataDir, 'activity', 'journal', `${workspaceId}.jsonl`)
+
+  function newHost(): ExtensionHost {
+    return new ExtensionHost({
+      roots: [{ dir: join(dir, 'builtin'), builtin: true }],
+      store: new ExtensionStore(join(dir, 'extensions.json')),
+      socketPath: () => socketPath,
+      nodePath: process.execPath,
+      dataDir,
+      workDirForWorkspace: () => dir,
+      broadcast: (channel, payload) => {
+        if (channel !== 'extensions:settings-stored') return
+        const { extId, stored } = payload as { extId: string; stored: ExtensionSettingValues }
+        storedSettings = { ...storedSettings, [extId]: stored }
+      },
+      readExtensionSettings: () => storedSettings,
+      redact: redactor.redact,
+      focusPaneIn,
+      openPanelIn: () => {},
+      notify: () => {},
+      requestTimeoutMs: 8000,
+      readyTimeoutMs: 8000,
+      log: () => {},
+    })
+  }
+
+  function paneEnv(identity: PaneIdentity, events: HookPayload[]): NodeJS.ProcessEnv {
+    const eventsFile = join(dir, `events-${identity.paneId}.json`)
+    writeFileSync(eventsFile, JSON.stringify(events))
+    return {
+      PATH: `${bin}:${dirname(process.execPath)}:/usr/bin:/bin`,
+      HOME: dir,
+      OSTIA_CLI: cliPath,
+      OSTIA_NODE: process.execPath,
+      OSTIA_SOCKET: socketPath,
+      OSTIA_TOKEN: identity.token,
+      OSTIA_AGENT_DIR: agentDir,
+      FAKE_AGENT_EVENTS: eventsFile,
+    }
+  }
+
+  function runAgent(
+    agent: 'claude' | 'codex',
+    identity: PaneIdentity,
+    events: HookPayload[],
+  ): Promise<RunResult> {
+    const bashInit = join(shellIntegrationDir(), 'init.bash')
+    return run(
+      'bash',
+      ['--norc', '-c', `source '${bashInit}'; ${agent}`],
+      paneEnv(identity, events),
+    )
+  }
+
+  async function panel(command: string, args: unknown = {}): Promise<ExtensionResult> {
+    const source = await serving.resolvePanel('activity', { workspaceId: 'w1', locale: 'en' })
+    if (!source.ok) throw new Error(source.error)
+    const url = new URL(source.src)
+    const res = await fetch(new URL('/api', url), {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-ostia-panel': url.searchParams.get('t') ?? '',
+      },
+      body: JSON.stringify({ command, args, context: {} }),
+    })
+    return (await res.json()) as ExtensionResult
+  }
+
+  async function snapshot(): Promise<PanelModel> {
+    const res = await panel('snapshot')
+    if (!res.ok) throw new Error(res.error)
+    return res.data as PanelModel
+  }
+
+  const eventCount = (model: PanelModel): number =>
+    model.workspaces
+      .flatMap((w) => w.agents)
+      .reduce((sum, agent) => sum + agent.current.events.length, 0)
+
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), 'ostia-activity-'))
+    bin = join(dir, 'bin')
+    dataDir = join(dir, 'extension-data')
+    socketPath = join(dir, 'control.sock')
+    cpSync(builtExtension, join(dir, 'builtin', 'activity'), { recursive: true })
+    claudePane = registerPane({ windowId: 'w', workspaceId: 'w1', paneId: 'pActivityClaude' })
+    codexPane = registerPane({ windowId: 'w', workspaceId: 'w1', paneId: 'pActivityCodex' })
+    quietPane = registerPane({ windowId: 'w', workspaceId: 'w1', paneId: 'pActivityQuiet' })
+    scratchPane = registerPane({ windowId: 'w', workspaceId: 'sc1', paneId: 'pActivityScratch' })
+    host = newHost()
+    serving = host
+    registerExtensionMethods(() => serving)
+    registerPaneListMethods({
+      execCommand: async (_target, id) =>
+        ({
+          ok: true,
+          result:
+            id === 'workspace.list'
+              ? [
+                  {
+                    workspaceId: 'w1',
+                    name: 'shop',
+                    kind: 'terminal',
+                    workDir: dir,
+                    state: 'idle',
+                  },
+                  {
+                    workspaceId: 'sc1',
+                    name: 'notes',
+                    kind: 'scratch',
+                    workDir: dir,
+                    state: 'idle',
+                  },
+                ]
+              : [
+                  {
+                    paneId: 'pActivityClaude',
+                    workspaceId: 'w1',
+                    kind: 'terminal',
+                    title: 'claude',
+                    agent: 'claude',
+                    agentState: 'done',
+                  },
+                  {
+                    paneId: 'pActivityCodex',
+                    workspaceId: 'w1',
+                    kind: 'terminal',
+                    title: 'codex',
+                    agent: 'codex',
+                    agentState: 'working',
+                  },
+                  { paneId: 'pActivityQuiet', workspaceId: 'w1', kind: 'terminal', title: 'bash' },
+                  {
+                    paneId: 'pActivityScratch',
+                    workspaceId: 'sc1',
+                    kind: 'terminal',
+                    title: 'claude',
+                  },
+                ],
+        }) as CommandResult,
+      getTerminalState: () => undefined,
+      ptyPid: () => undefined,
+      windowIds: () => ['w'],
+      waking: () => false,
+    })
+    registerControlServer(
+      {
+        execCommand: async () => ({ ok: true, result: null }) as CommandResult,
+        listCommandsFor: () => [],
+        getTerminalState: () => undefined,
+        isSandboxed: () => false,
+      },
+      socketPath,
+    )
+    shellIntegrationSpawnOptions('/bin/bash', {})
+    agentDir = setAgentPlugins(agentPluginContent(host.agentPlugins()))
+    mkdirSync(bin, { recursive: true })
+    for (const agent of ['claude', 'codex']) {
+      writeFileSync(join(bin, agent), FAKE_AGENT)
+      chmodSync(join(bin, agent), 0o755)
+    }
+  }, 120_000)
+
+  afterAll(() => {
+    serving.stopAll()
+    stopControlServer()
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('shows each agent’s prompt line, tool events and stop in order, and the recap after the stop', async () => {
+    const claude = await runAgent('claude', claudePane, [
+      [
+        'UserPromptSubmit',
+        { session_id: 'c-1', prompt: `deploy with ${FAKE.githubClassic}\nand a second line` },
+      ],
+      [
+        'PreToolUse',
+        {
+          session_id: 'c-1',
+          cwd: '/w/shop',
+          tool_name: 'Edit',
+          tool_input: { file_path: '/w/shop/src/cart.ts', new_string: 'edited body' },
+        },
+      ],
+      [
+        'PreToolUse',
+        { session_id: 'c-1', tool_name: 'Bash', tool_input: { command: 'pnpm test' } },
+      ],
+      [
+        'Stop',
+        {
+          session_id: 'c-1',
+          last_assistant_message: 'Fixed the cart total.\n\nAll tests pass.',
+        },
+      ],
+    ])
+    expect(claude.stderr).toBe('')
+    expect(claude.stdout.split('\n').filter(Boolean)).toEqual([
+      'hook UserPromptSubmit []',
+      'hook PreToolUse []',
+      'hook PreToolUse []',
+      'hook Stop []',
+    ])
+    const codex = await runAgent('codex', codexPane, [
+      ['UserPromptSubmit', { session_id: 'x-9', turn_id: 't-1', prompt: 'write the docs' }],
+      ['PreToolUse', { session_id: 'x-9', tool_name: 'Bash', tool_input: { command: 'ls docs' } }],
+    ])
+    expect(codex.stderr).toBe('')
+    expect(codex.stdout.split('\n').filter(Boolean)).toEqual([
+      'hook UserPromptSubmit []',
+      'hook PreToolUse []',
+    ])
+
+    const model = await until(async () => {
+      const current = await snapshot()
+      return eventCount(current) === 6 ? current : undefined
+    })
+    expect(model.showActivity).toBe(false)
+    expect(model.workspaces.map((w) => w.name)).toEqual(['shop'])
+    const [latest, earlier] = model.workspaces[0].agents
+    expect(latest).toMatchObject({ paneId: codexPane.externalId, agent: 'codex', state: 'working' })
+    expect('recap' in latest).toBe(false)
+    expect(latest.current.events.map((e) => [e.kind, e.tool, e.text])).toEqual([
+      ['prompt', undefined, 'write the docs'],
+      ['tool', 'command', 'ls docs'],
+    ])
+    expect(earlier).toMatchObject({
+      paneId: claudePane.externalId,
+      agent: 'claude',
+      state: 'done',
+      recap: 'Fixed the cart total.\nAll tests pass.',
+    })
+    expect(earlier.current.events.map((e) => [e.kind, e.tool, e.text])).toEqual([
+      ['prompt', undefined, expect.stringMatching(/^deploy with (?!ghp_)\S+$/)],
+      ['tool', 'edit', 'src/cart.ts'],
+      ['tool', 'command', 'pnpm test'],
+      ['stop', undefined, 'Fixed the cart total.\nAll tests pass.'],
+    ])
+    expect(JSON.stringify(model)).not.toContain('edited body')
+    expect(JSON.stringify(model)).not.toContain('second line')
+  }, 90_000)
+
+  it('keeps the journal 0600 on disk without the secret from the prompt', () => {
+    const file = journalFile('w1')
+    expect(statSync(file).mode & 0o777).toBe(0o600)
+    expect(statSync(dirname(file)).mode & 0o777).toBe(0o700)
+    const text = readFileSync(file, 'utf8')
+    expect(text.trim().split('\n')).toHaveLength(6)
+    expect(text).toContain('deploy with ')
+    expect(text).not.toContain(FAKE.githubClassic)
+  })
+
+  it('shows a scratch workspace’s agent from memory and leaves no journal for it', async () => {
+    await runAgent('claude', scratchPane, [
+      ['UserPromptSubmit', { session_id: 's-3', prompt: 'jot this down' }],
+    ])
+    const model = await until(async () => {
+      const current = await snapshot()
+      return current.workspaces.some((w) => w.name === 'notes') ? current : undefined
+    })
+    const notes = model.workspaces.find((w) => w.name === 'notes')
+    expect(notes?.agents[0].current.prompt).toBe('jot this down')
+    expect(existsSync(journalFile('sc1'))).toBe(false)
+    expect(readdirSync(dirname(journalFile('w1')))).toEqual(['w1.jsonl'])
+  }, 60_000)
+
+  it('focuses the pane of an agent whose hook reached it, and no other pane', async () => {
+    focusPaneIn.mockReturnValue(true)
+    expect(await panel('focus', { paneId: claudePane.externalId })).toEqual({ ok: true })
+    expect(focusPaneIn.mock.calls.map(([pane]) => pane.paneId)).toEqual(['pActivityClaude'])
+    const bashInit = join(shellIntegrationDir(), 'init.bash')
+    const opened = await run(
+      'bash',
+      ['--norc', '-c', `source '${bashInit}'; ostia activity open`],
+      paneEnv(quietPane, []),
+    )
+    expect(opened.code).toBe(0)
+    expect(await panel('focus', { paneId: quietPane.externalId })).toMatchObject({
+      ok: false,
+      error: 'not-reached',
+    })
+    expect(focusPaneIn).toHaveBeenCalledTimes(1)
+  })
+
+  it('remembers the toggle and the journal across a restart, and forgets the scratch workspace', async () => {
+    expect(await panel('setShowActivity', { value: true })).toMatchObject({ ok: true })
+    expect((await snapshot()).showActivity).toBe(true)
+    expect(storedSettings).toEqual({ activity: { showActivity: true } })
+
+    host.stopAll()
+    await until(async () =>
+      host.list().find((e) => e.id === 'activity')?.status !== 'running' ? true : undefined,
+    )
+    serving = newHost()
+
+    const model = await snapshot()
+    expect(model.showActivity).toBe(true)
+    expect(model.workspaces.map((w) => w.name)).toEqual(['shop'])
+    const claude = model.workspaces[0].agents.find((a) => a.paneId === claudePane.externalId)
+    expect(claude?.recap).toBe('Fixed the cart total.\nAll tests pass.')
+    expect(claude?.current.events.map((e) => e.kind)).toEqual(['prompt', 'tool', 'tool', 'stop'])
+    expect(await panel('setShowActivity', { value: false })).toMatchObject({ ok: true })
+    expect((await snapshot()).showActivity).toBe(false)
+  }, 60_000)
+})

@@ -74,6 +74,8 @@ import {
   DIFF_TEXT_MAX,
   EXTENSION_EVENT_TYPES,
   EXTENSION_ICONS,
+  EXTENSION_REDACT_TEXTS_MAX,
+  EXTENSION_REDACT_TEXT_MAX,
   type ExtensionAgentOffer,
   type ExtensionCaller,
   type ExtensionChip,
@@ -1761,7 +1763,10 @@ export class ExtensionHost {
     const rt = this.runtimeOf(identity, conn)
     const paneId = isPlainRecord(params) ? params.paneId : undefined
     if (typeof paneId !== 'string' || !rt.reached.has(paneId)) {
-      return fail('not-reached', 'only a pane you opened or the human picked for you')
+      return fail(
+        'not-reached',
+        'only a pane you opened, the human picked for you, or whose agent hook reached you',
+      )
     }
     const pane = resolveExternal(paneId)
     if (pane?.kind !== 'pane') {
@@ -1770,6 +1775,39 @@ export class ExtensionHost {
     }
     if (!this.deps.focusPaneIn) return fail('no-window')
     return this.deps.focusPaneIn(pane) ? { ok: true } : fail('unknown-pane', 'that pane is closed')
+  }
+
+  reachHookCaller(extId: string, command: string, identity: PaneIdentity): void {
+    if (identity.kind !== 'pane') return
+    const rt = this.runtimes.get(extId)
+    if (!rt || !this.active(rt) || !this.granted(rt).includes(AGENT_PLUGIN_CAPABILITY)) return
+    const hooks = rt.ext.manifest.contributes.agentHooks ?? []
+    if (hooks.some((hook) => hook.command === command)) this.reach(rt, identity.externalId)
+  }
+
+  async redactTexts(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    this.runtimeOf(identity, conn)
+    const texts = isPlainRecord(params) ? params.texts : undefined
+    if (
+      !Array.isArray(texts) ||
+      texts.length > EXTENSION_REDACT_TEXTS_MAX ||
+      !texts.every(
+        (t): t is string => typeof t === 'string' && t.length <= EXTENSION_REDACT_TEXT_MAX,
+      )
+    ) {
+      return fail(
+        'invalid-params',
+        `texts must be at most ${EXTENSION_REDACT_TEXTS_MAX} strings of at most ${EXTENSION_REDACT_TEXT_MAX} characters`,
+      )
+    }
+    const redact = this.deps.redact
+    if (!redact) return fail('redaction-failed')
+    try {
+      const results = await Promise.all(texts.map((text) => redact(text)))
+      return { ok: true, texts: results.map((result) => result.text) }
+    } catch {
+      return fail('redaction-failed')
+    }
   }
 
   listForAgents() {
@@ -2408,9 +2446,15 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
       if (typeof p.extId !== 'string' || typeof p.command !== 'string') {
         return fail('invalid-params', 'extId and command are required')
       }
+      h.reachHookCaller(p.extId, p.command, ctx.identity)
       return h.invoke(p.extId, p.command, p.args, h.paneCaller(ctx.identity))
     },
   })
+
+  registerControlMethod(
+    'ext.redact',
+    forExtension((h, id, conn, p) => h.redactTexts(id, conn, p)),
+  )
 
   registerControlMethod('ext.setAssistStatus', {
     ...forExtension((h, id, conn, p) => h.setAssistStatus(id, conn, p)),
