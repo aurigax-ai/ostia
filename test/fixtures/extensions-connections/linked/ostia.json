@@ -1,0 +1,26 @@
+{
+  "id": "linked",
+  "name": "Linked",
+  "version": "0.1.0",
+  "api": "4.0",
+  "description": "Test fixture: declares an http connection kind and reads its connections",
+  "capabilities": [],
+  "main": "main.js",
+  "contributes": {
+    "commands": [
+      { "id": "call", "title": "Call a method", "palette": false, "interactive": true },
+      { "id": "events", "title": "Events seen", "palette": false }
+    ],
+    "connections": [
+      {
+        "kind": "http",
+        "title": "HTTP API",
+        "fields": {
+          "baseUrl": { "title": "Base URL", "type": "string", "required": true },
+          "auth": { "title": "Auth", "type": "enum", "enum": ["none", "bearer"], "default": "bearer" }
+        },
+        "secrets": { "secret": { "title": "Token" } }
+      }
+    ]
+  }
+}
