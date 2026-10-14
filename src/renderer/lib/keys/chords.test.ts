@@ -843,6 +843,14 @@ describe('DEFAULT_CHORDS', () => {
     )
     expect(matchChord(key('PageDown', { ctrlKey: true }), false)).toBe('tab.next')
   })
+
+  it('closes the focused pane with ⌘W on macOS as an app chord, also from a terminal', () => {
+    const cmdW = key('w', { metaKey: true })
+    expect(matchChord(cmdW, true)).toBe('pane.close')
+    expect(matchChordInTerminal(cmdW, true)).toBe('pane.close')
+    expect(isAppChord('pane.close')).toBe(true)
+    expect(chordLabel('pane.close', true)).toBe('⌘W')
+  })
 })
 
 describe('F1 and the palette', () => {

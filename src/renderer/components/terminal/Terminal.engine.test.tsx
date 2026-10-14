@@ -1,6 +1,8 @@
 import '@testing-library/jest-dom/vitest'
+import { commands } from '@/commands/registry'
 import { FilesView } from '@/components/files/FilesView'
 import { allPanes, createPane, findPane, firstPaneId } from '@/layout/tree'
+import { runAppChord } from '@/lib/keys/chords'
 import { CLIPBOARD_READ_MS } from '@/lib/keys/clipboardKeys'
 import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import { createFileLinkProvider } from '@/lib/terminal/terminalFileLinks'
@@ -992,4 +994,55 @@ describe('TerminalView engines', () => {
 
     expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', "'/home/me/notes file.md' ")
   })
+
+  for (const [system, binding, rebound, dropped, kept] of [
+    [
+      'Linux',
+      ['Ctrl+Shift+Y', 'F1'],
+      { key: 'Y', code: 'KeyY', keyCode: 89, ctrlKey: true, shiftKey: true },
+      { key: 'P', code: 'KeyP', keyCode: 80, ctrlKey: true, shiftKey: true },
+      [],
+    ],
+    [
+      'macOS',
+      ['Shift+Cmd+P', 'Shift+Cmd+Y', 'F1'],
+      { key: 'Y', code: 'KeyY', keyCode: 89, metaKey: true, shiftKey: true },
+      { key: 'k', code: 'KeyK', keyCode: 75, metaKey: true },
+      [{ key: 'P', code: 'KeyP', keyCode: 80, metaKey: true, shiftKey: true }],
+    ],
+  ] as const) {
+    it(`a rebound palette chord works from a focused terminal, and resets: ${system}`, async () => {
+      os.mac = system === 'macOS'
+      const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+      const onKey = (e: KeyboardEvent): void => {
+        runAppChord(e, os.mac)
+      }
+      window.addEventListener('keydown', onKey)
+      onTestFinished(() => {
+        os.mac = false
+        window.removeEventListener('keydown', onKey)
+        exec.mockRestore()
+      })
+      const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+      await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+      const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+      const opensPalette = (init: KeyboardEventInit): boolean => {
+        exec.mockClear()
+        fireEvent.keyDown(textarea, init)
+        return exec.mock.calls.some(([id]) => id === 'palette.toggle')
+      }
+
+      act(() => useSettingsStore.setState({ keybindings: { 'palette.toggle': [...binding] } }))
+      expect(opensPalette(dropped)).toBe(false)
+      vi.mocked(window.ostia.pty.write).mockClear()
+      expect(opensPalette(rebound)).toBe(true)
+      expect(window.ostia.pty.write).not.toHaveBeenCalled()
+      for (const init of kept) expect(opensPalette(init)).toBe(true)
+
+      act(() => useSettingsStore.setState({ keybindings: {} }))
+      expect(opensPalette(rebound)).toBe(false)
+      expect(opensPalette(dropped)).toBe(true)
+      for (const init of kept) expect(opensPalette(init)).toBe(true)
+    })
+  }
 })
