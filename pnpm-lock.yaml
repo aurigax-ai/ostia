@@ -15,6 +15,9 @@ importers:
       '@anthropic-ai/sandbox-runtime':
         specifier: 0.0.79
         version: 0.0.79
+      '@aurigax-ai/graph':
+        specifier: 0.1.0
+        version: 0.1.0
       '@xterm/headless':
         specifier: ^6.0.0
         version: 6.0.0
@@ -103,9 +106,6 @@ importers:
       '@fontsource-variable/inter':
         specifier: ^5.3.0
         version: 5.3.0
-      '@marcbachmann/cel-js':
-        specifier: ^8.0.0
-        version: 8.0.0
       '@openrouter/ai-sdk-provider':
         specifier: ^3.1.0
         version: 3.1.0(ai@7.0.122(zod@4.6.5))(zod@4.6.5)
@@ -199,9 +199,6 @@ importers:
       ai:
         specifier: ^7.0.122
         version: 7.0.122(zod@4.6.5)
-      ajv:
-        specifier: ^8.20.0
-        version: 8.20.0
       allotment:
         specifier: ^1.20.5
         version: 1.20.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -432,6 +429,11 @@ packages:
 
   '@aurigax-ai/ghostty-web@0.3.3':
     resolution: {integrity: sha512-P5/9jq9TzzEpLqzu4KA7ljWY3BYSybS7nCwuI8H08rHrTfvBTTOwhGHNlL9DjarG9y0Rj7729joLqc13PoXeJQ==}
+
+  '@aurigax-ai/graph@0.1.0':
+    resolution: {integrity: sha512-VO85OQn6aUanX9UuB8JssJMt9chWO+oAFmEOlxHyqU55q2ge63b0MNAkRSNNSZXPYg9yx1Yki4PgfDaWLc2+bA==}
+    engines: {node: '>=22'}
+    hasBin: true
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -1172,11 +1174,6 @@ packages:
   '@malept/flatpak-bundler@0.4.0':
     resolution: {integrity: sha512-9QOtNffcOF/c1seMCDnjckb3R9WHcG34tky+FHpNKKCW0wc/scYLwMtO+ptyGUfMW0/b/n4qRiALlaFHc9Oj7Q==}
     engines: {node: '>= 10.0.0'}
-
-  '@marcbachmann/cel-js@8.0.0':
-    resolution: {integrity: sha512-oaTrAziGr3zDLFiMt/yLU3nZuRMawyWQB5X1a0I7s9eGy3JYzX9l8ZXXHyMd64nzbeVFZTewuUShwsZQdK6UCA==}
-    engines: {node: '>=20.19.0'}
-    hasBin: true
 
   '@mermaid-js/parser@2.0.1':
     resolution: {integrity: sha512-j37dj/h6p6pots1L7pLPPNuABEEu9WP4OYg9pW1g+nYG331j0+3canE9OagtYdytYvdSAMG+2fKU5cxep6LgjA==}
@@ -5945,6 +5942,11 @@ snapshots:
 
   '@aurigax-ai/ghostty-web@0.3.3': {}
 
+  '@aurigax-ai/graph@0.1.0':
+    dependencies:
+      yaml: 2.9.1
+      zod: 4.6.5
+
   '@babel/code-frame@7.29.7':
     dependencies:
       '@babel/helper-validator-identifier': 7.29.7
@@ -6625,8 +6627,6 @@ snapshots:
       tmp-promise: 3.0.3
     transitivePeerDependencies:
       - supports-color
-
-  '@marcbachmann/cel-js@8.0.0': {}
 
   '@mermaid-js/parser@2.0.1':
     dependencies:
