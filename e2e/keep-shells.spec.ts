@@ -3,6 +3,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileS
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { KEPT_SHELLS_DIR } from '../src/shared/terminal/keepShells'
+import { running } from '../test/tmux'
 import { chords } from './chords'
 import {
   DOM_RENDERER_SETTINGS,
@@ -710,9 +711,14 @@ test('KSH-C103 Quit and end shells ends the private tmux server', async () => {
   seedSettings(dataHome, KEEP_AND_ASK)
   const first = await launch(dataHome)
   await openWorkspace(first.win)
-  await runInTerminal(first.win, 'sleep 30')
+  await runInTerminal(first.win, 'echo shell=$$ server=$PPID; sleep 30')
+  await expect(screen(first.win)).toContainText(/shell=\d+ server=\d+/, { timeout: 15_000 })
+  const printed = /shell=(\d+) server=(\d+)/.exec((await screen(first.win).textContent()) ?? '')
+  const [shell, server] = [Number(printed?.[1]), Number(printed?.[2])]
   await savedLayout()
-  expect(existsSync(keptSocket())).toBe(true)
+  expect(running(shell)).toBe(true)
+  expect(running(server)).toBe(true)
   await quitChoosing(first, 'Quit and end shells')
-  expect(existsSync(keptSocket())).toBe(false)
+  await expect.poll(() => running(server), { timeout: 15_000 }).toBe(false)
+  await expect.poll(() => running(shell), { timeout: 15_000 }).toBe(false)
 })
