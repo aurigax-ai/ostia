@@ -190,11 +190,13 @@ test('KSH-C91 started with the bare PATH a desktop launch gives, Ostia keeps she
     `#!/bin/bash\nif [ "$1" = -ilc ]; then export PATH='${bin}:/usr/bin:/bin':"$PATH"; fi\nexec /bin/bash "$@"\n`,
   )
   chmodSync(shell, 0o755)
-  const bare = process.platform === 'darwin' ? '/usr/bin:/bin:/usr/sbin:/sbin' : '/usr/sbin:/sbin'
+  const empty = join(dataHome, 'empty-path')
+  mkdirSync(empty, { recursive: true })
+  const bare = process.platform === 'darwin' ? '/usr/bin:/bin:/usr/sbin:/sbin' : empty
   const { app, win } = await launch(dataHome, { PATH: bare, SHELL: shell })
   try {
     await openWorkspace(win)
-    await runInTerminal(win, 'echo kept=${TMUX:+yes}')
+    await runInTerminal(win, 'echo kept=${OSTIA_TOKEN_FILE:+yes}')
     await expect(screen(win)).toContainText('kept=yes', { timeout: 15_000 })
     await expect(screen(win)).not.toContainText('This shell will not survive a restart')
     if (process.platform !== 'darwin') expect(readFileSync(log, 'utf8')).not.toBe('')
