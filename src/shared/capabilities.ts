@@ -22,6 +22,7 @@ export type Capability =
   | 'credentials'
   | 'language-server'
   | 'agent-plugin'
+  | 'mcp'
 
 export const DEFAULT_CAPABILITIES: Capability[] = [
   'drive-self',
@@ -56,10 +57,17 @@ export const ALL_CAPABILITIES: Capability[] = [
   'credentials',
   'language-server',
   'agent-plugin',
+  'mcp',
 ]
 
+export const HUMAN_GRANTED_CAPABILITIES: readonly Capability[] = ['mcp']
+
+export const BUILTIN_CAPABILITIES: Capability[] = ALL_CAPABILITIES.filter(
+  (cap) => !HUMAN_GRANTED_CAPABILITIES.includes(cap),
+)
+
 export const MANAGER_CAPABILITIES: Capability[] = ALL_CAPABILITIES.filter(
-  (cap) => cap !== 'phone' && cap !== 'gateway' && cap !== 'destructive',
+  (cap) => cap !== 'phone' && cap !== 'gateway' && cap !== 'destructive' && cap !== 'mcp',
 )
 
 export const CAPABILITY_ALLOWS: Record<Capability, string> = {
@@ -85,6 +93,7 @@ export const CAPABILITY_ALLOWS: Record<Capability, string> = {
   credentials: 'use your saved passwords and your signed-in browser',
   'language-server': 'run language servers',
   'agent-plugin': 'manage agent plugins',
+  mcp: 'call the MCP servers you set up',
 }
 
 export type CapabilityRefusal = 'denied' | 'not-approved'

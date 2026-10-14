@@ -519,6 +519,7 @@ describe('Uninstall and source on the Extensions page', () => {
       assist: [],
       secrets: [],
       secretsSet: [],
+      connectionKinds: [],
       settingsPage: null,
       category: 'other',
       languages: [],

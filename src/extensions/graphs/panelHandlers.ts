@@ -1,6 +1,6 @@
 import { type ExtensionResult, type OstiaExtension, failure, namedArgs, ok } from '../sdk'
 import { definition, listModel, runModel } from './panelModel'
-import type { GraphsRunner } from './runner'
+import type { GraphListing, GraphsRunner } from './runner'
 
 export type PanelHandler = (args: unknown) => Promise<ExtensionResult>
 
@@ -10,10 +10,25 @@ function text(value: unknown): string | null {
   return typeof value === 'string' && value ? value : null
 }
 
+async function secretShapedInputs(
+  ext: Pick<OstiaExtension, 'redact'>,
+  listing: GraphListing,
+): Promise<Set<string>> {
+  const nodes = (listing.entry.loaded?.graph.nodes ?? []).filter(
+    (n) => n.kind === 'connector' && n.with?.input !== undefined,
+  )
+  if (nodes.length === 0) return new Set()
+  const texts = nodes.map((n) => JSON.stringify(n.with?.input))
+  const redacted = await ext.redact(texts)
+  if (!redacted) return new Set(nodes.map((n) => n.id))
+  return new Set(nodes.filter((_n, i) => redacted[i] !== texts[i]).map((n) => n.id))
+}
+
 export function panelHandlers(
   runner: GraphsRunner,
-  ext: Pick<OstiaExtension, 'listPanes' | 'focusPane'>,
+  ext: Pick<OstiaExtension, 'listPanes' | 'focusPane' | 'redact'>,
   refresh: () => Promise<void>,
+  filesRefused: (workspaceId: string) => boolean = () => false,
 ): Record<string, PanelHandler> {
   const workspaceOf = async (args: unknown) => {
     const id = text(namedArgs(args).workspaceId) ?? undefined
@@ -33,7 +48,14 @@ export function panelHandlers(
       }
       return ok(
         undefined,
-        listModel(w.workspaceId, w.workDir, listings, runner.runs(w.workspaceId)),
+        listModel(
+          w.workspaceId,
+          w.workDir,
+          listings,
+          runner.runs(w.workspaceId),
+          filesRefused(w.workspaceId),
+          (name) => runner.engine.skippedCount(w.workspaceId, name),
+        ),
       )
     },
     definition: async (args) => {
@@ -41,7 +63,7 @@ export function panelHandlers(
       const name = text(namedArgs(args).name)
       if (!w || !name) return failure('invalid-args')
       const listing = runner.graph(w.workspaceId, name)
-      const shown = listing ? definition(listing) : null
+      const shown = listing ? definition(listing, await secretShapedInputs(ext, listing)) : null
       if (!listing || !shown)
         return failure(listing?.problems[0]?.code ?? 'unknown-graph', listing?.problems[0]?.message)
       return ok(undefined, { ...shown, state: listing.state })
@@ -52,6 +74,7 @@ export function panelHandlers(
       const fingerprint = text(namedArgs(args).fingerprint)
       if (!w || !name || !fingerprint) return failure('invalid-args')
       const res = runner.enable(w.workspaceId, name, fingerprint)
+      if (res.ok) await refresh()
       return res.ok ? ok() : failure(res.error, res.message)
     },
     disable: async (args) => {
@@ -59,6 +82,7 @@ export function panelHandlers(
       const name = text(namedArgs(args).name)
       if (!w || !name) return failure('invalid-args')
       const res = runner.disable(w.workspaceId, name)
+      if (res.ok) await refresh()
       return res.ok ? ok() : failure(res.error, res.message)
     },
     runNow: async (args) => {

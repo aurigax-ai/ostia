@@ -225,6 +225,14 @@ describe('ExtensionHost — command routing guards', () => {
     })
   })
 
+  it('marks a pane caller agentRunning only while main says its pane runs an agent', () => {
+    const agent = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-agent' })
+    const shell = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-shell' })
+    const { host } = makeHost({ agentRunning: (paneId) => paneId === 'p-agent' })
+    expect(host.paneCaller(agent).agentRunning).toBe(true)
+    expect(host.paneCaller(shell)).not.toHaveProperty('agentRunning')
+  })
+
   it('SSH-C2 marks pane and user callers of a sandboxed workspace as sandboxed', () => {
     const identity = registerPane({ windowId: 'w1', workspaceId: 'ws-sbx', paneId: 'p-sbx' })
     const { host } = makeHost({ isSandboxed: (workspaceId) => workspaceId === 'ws-sbx' })

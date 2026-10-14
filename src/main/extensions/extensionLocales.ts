@@ -13,6 +13,7 @@ import {
   COMMAND_ARGUMENT_LABEL_MAX,
   EXTENSION_SETTING_TITLE_MAX,
   type ExtensionChipContribution,
+  type ExtensionConnectionKind,
   type ExtensionManifest,
 } from '../../shared/extensions'
 import { readConfined } from '../platform/confinedRead'
@@ -59,6 +60,20 @@ export function manifestSlots(manifest: ExtensionManifest): Map<string, number> 
   for (const secret of c.secrets) {
     if (secret.title) slots.set(`secrets.${secret.key}.title`, EXTENSION_SETTING_TITLE_MAX)
     slots.set(`secrets.${secret.key}.description`, MAX_DESCRIPTION)
+  }
+  for (const kind of c.connections ?? []) {
+    const base = `connections.${kind.kind}`
+    slots.set(`${base}.title`, EXTENSION_SETTING_TITLE_MAX)
+    if (kind.description) slots.set(`${base}.description`, MAX_DESCRIPTION)
+    for (const entry of [
+      ...kind.fields.map((f) => ({ ...f, group: 'fields' })),
+      ...kind.secrets.map((f) => ({ ...f, group: 'secrets' })),
+    ]) {
+      slots.set(`${base}.${entry.group}.${entry.key}.title`, EXTENSION_SETTING_TITLE_MAX)
+      if (entry.description) {
+        slots.set(`${base}.${entry.group}.${entry.key}.description`, MAX_DESCRIPTION)
+      }
+    }
   }
   return slots
 }
@@ -240,7 +255,32 @@ export function localizeManifest(
         ...(secret.title ? { title: t(`secrets.${secret.key}.title`, secret.title) } : {}),
         description: t(`secrets.${secret.key}.description`, secret.description),
       })),
+      ...(c.connections ? { connections: c.connections.map((kind) => localizeKind(kind, t)) } : {}),
     },
+  }
+}
+
+function localizeKind(
+  kind: ExtensionConnectionKind,
+  t: (key: string, fallback: string) => string,
+): ExtensionConnectionKind {
+  const base = `connections.${kind.kind}`
+  const entry = <T extends { key: string; title: string; description?: string }>(
+    group: string,
+    item: T,
+  ): T => ({
+    ...item,
+    title: t(`${base}.${group}.${item.key}.title`, item.title),
+    ...(item.description
+      ? { description: t(`${base}.${group}.${item.key}.description`, item.description) }
+      : {}),
+  })
+  return {
+    ...kind,
+    title: t(`${base}.title`, kind.title),
+    ...(kind.description ? { description: t(`${base}.description`, kind.description) } : {}),
+    fields: kind.fields.map((f) => entry('fields', f)),
+    secrets: kind.secrets.map((f) => entry('secrets', f)),
   }
 }
 

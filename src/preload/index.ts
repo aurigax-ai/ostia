@@ -44,6 +44,8 @@ import type { SelectionSendResult } from '../shared/browser/selection'
 import type { EditorLanguage } from '../shared/editorLanguages'
 import type {
   ExtensionAgentOffer,
+  ExtensionConnectionEntry,
+  ExtensionConnectionResult,
   ExtensionInfo,
   ExtensionOpenDiffRequest,
   ExtensionOpenPanelRequest,
@@ -851,6 +853,20 @@ const bridge: OstiaBridge = {
         key,
         value,
       ) as Promise<ExtensionSecretResult>,
+    connections: (extId) =>
+      ipcRenderer.invoke('extensions:connections', extId) as Promise<ExtensionConnectionEntry[]>,
+    saveConnection: (extId, connection) =>
+      ipcRenderer.invoke(
+        'extensions:save-connection',
+        extId,
+        connection,
+      ) as Promise<ExtensionConnectionResult>,
+    removeConnection: (extId, name) =>
+      ipcRenderer.invoke(
+        'extensions:remove-connection',
+        extId,
+        name,
+      ) as Promise<ExtensionConnectionResult>,
     onChanged: (cb) => {
       const handler = (_e: unknown, list: ExtensionInfo[]): void => cb(list)
       ipcRenderer.on('extensions:changed', handler)

@@ -114,9 +114,24 @@ function reattachVerdict(
     return 'lost' as const
   }
   if (wait?.on === 'event' && wait.match.type === AGENT_LATE) return 'running' as const
-  if (pane.agent && pane.agentState === 'working') return 'running' as const
+  if (pane.agentState === 'working') return 'running' as const
+  if (pane.agent && pane.agentState === undefined) return 'running' as const
   return {
     done: { ...(started ?? {}), pane: pane.paneId, outcome: pane.agent ? 'stopped' : 'exited' },
+  }
+}
+
+const STATE_SETTLE_MS = 5000
+const STATE_POLL_MS = 250
+
+async function settledPane(deps: AgentDeps, paneId: unknown): Promise<PaneInfo | undefined> {
+  const until = deps.clock.now() + STATE_SETTLE_MS
+  for (;;) {
+    const pane = (await deps.ext.listPanes()).find((p) => p.paneId === paneId)
+    if (!pane || pane.agentState !== undefined || deps.clock.now() >= until) return pane
+    await new Promise<void>((resolve) =>
+      deps.clock.setTimer(deps.clock.now() + STATE_POLL_MS, resolve),
+    )
   }
 }
 
@@ -145,12 +160,8 @@ export function agentNode(deps: AgentDeps): NodeKind {
       return { waiting: lateWait(String(event.pane), ctx.run.id), started: out }
     },
     reattach: async (started, wait) => {
-      const panes = await deps.ext.listPanes()
-      return reattachVerdict(
-        panes.find((p) => p.paneId === started?.pane),
-        started,
-        wait,
-      )
+      const pane = await settledPane(deps, started?.pane)
+      return reattachVerdict(pane, started, wait)
     },
   }
 }

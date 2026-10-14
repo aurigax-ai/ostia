@@ -1,3 +1,4 @@
+import { ExtensionConnections } from '@/components/extensions/ExtensionConnections'
 import { ControlRow, SelectField } from '@/components/settings/SettingsPanel'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,7 +29,8 @@ export function ExtensionSettingsForm({
   const setSetting = useExtensionsStore((s) => s.setSetting)
   const [error, setError] = useState<string | null>(null)
   const settings = ext.settings.filter((s) => !omit.includes(s.key))
-  if (settings.length === 0 && ext.secrets.length === 0) return null
+  if (settings.length === 0 && ext.secrets.length === 0 && ext.connectionKinds.length === 0)
+    return null
   const save = (key: string, value: unknown): void => {
     void setSetting(ext.id, key, value).then(setError)
   }
@@ -58,6 +60,7 @@ export function ExtensionSettingsForm({
           {fmt(d.extensions.settingInvalid, { error })}
         </p>
       ) : null}
+      <ExtensionConnections ext={ext} rows={{ ControlRow, SelectField }} />
     </fieldset>
   )
 }

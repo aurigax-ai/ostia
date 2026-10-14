@@ -499,6 +499,7 @@ describe('NotificationCenter', () => {
           assist: [],
           secrets: [],
           secretsSet: [],
+          connectionKinds: [],
           settingsPage: null,
           category: 'other',
           languages: [],

@@ -170,6 +170,7 @@ import { createChatSessionStore } from './chat/chatSessions'
 import { registerChatSessionIpc } from './chat/chatSessionsIpc'
 import { ChatToolGrants } from './chat/chatToolGrants'
 import { registerChatToolsIpc } from './chat/chatToolsIpc'
+import { registerExtensionMcp } from './chat/extensionMcp'
 import { McpHost } from './chat/mcpHost'
 import { McpOAuth, mcpOAuthBrowser } from './chat/mcpOAuth'
 import { createMcpOAuthStore } from './chat/mcpOAuthStore'
@@ -209,7 +210,9 @@ import {
   type Telemetry,
   registerTelemetry,
 } from './diagnostics/telemetry'
+import { registerConnectionsIpc } from './extensions/connectionsIpc'
 import { confirmForExtension } from './extensions/extensionConfirm'
+import { ExtensionConnections } from './extensions/extensionConnections'
 import { ExtensionExec } from './extensions/extensionExec'
 import { ExtensionHost, registerExtensionMethods } from './extensions/extensionHost'
 import { ExtensionLaunches } from './extensions/extensionLaunches'
@@ -221,6 +224,7 @@ import { registerIconThemeIpc } from './extensions/iconThemes'
 import { describeSkipped, registerKeymapIpc } from './extensions/keymaps'
 import { registerLanguagePackIpc } from './extensions/languagePacks'
 import { Marketplace, marketplaceId, normalizeMarketplaceUrl } from './extensions/marketplace'
+import { PaneAttentionEvents } from './extensions/paneAttentionEvents'
 import { createMainStrings } from './extensions/strings'
 import { firstKnownOwner, workspaceChipsForWindow } from './extensions/workspaceChips'
 import { openInExternalEditor } from './files/externalEditor'
@@ -1553,6 +1557,10 @@ function restoreKeptAttention(identity: PaneIdentity, saved: SavedAttention): vo
   })
 }
 const paneWatch = new PaneWatch()
+const paneAttentionEvents = new PaneAttentionEvents({
+  identity: getByPaneId,
+  emit: (payload) => emitPaneEvent('pane.attention', payload),
+})
 const paneWaking = new PaneWaking()
 const isWaking = (paneId: string): boolean => paneWaking.has(paneId)
 const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
@@ -1933,6 +1941,7 @@ function registerIpc(): void {
       })
     } else if (event.type === 'pane-closed') {
       previews.paneClosed(event.paneId)
+      paneAttentionEvents.forget(event.paneId)
       openWaits.paneClosed(event.paneId)
       const identity = getByPaneId(event.paneId)
       if (identity) {
@@ -1978,6 +1987,7 @@ function registerIpc(): void {
       emitSessionState(event.workspaceId, event.state)
     } else if (event.type === 'pane-attention') {
       paneWatch.attention(event.paneId, event.state, event.message)
+      paneAttentionEvents.change(event.paneId, event.state)
       if (ptys.get(event.paneId)?.kept) {
         keptShells.saveAttention(
           event.paneId,
@@ -2009,7 +2019,13 @@ function registerIpc(): void {
         const identity = getByPaneId(snapshot.paneId)
         if (identity) {
           updateRunner?.paneState(identity.externalId, snapshot.running, snapshot.lastExitCode)
-          emitTerminalExtensionEvents(identity.externalId, identity.workspaceId, cur, snapshot)
+          emitTerminalExtensionEvents(
+            identity.externalId,
+            identity.workspaceId,
+            cur,
+            snapshot,
+            remoteCwdOfPane(identity.paneId) !== undefined,
+          )
           emitPlatformEvent('pane.state', {
             paneId: identity.externalId,
             generation: snapshot.generation,
@@ -2056,6 +2072,7 @@ function emitTerminalExtensionEvents(
   workspaceId: string,
   prev: TerminalStateSnapshot | undefined,
   next: TerminalStateSnapshot,
+  remote: boolean,
 ): void {
   if (next.cwd && prev?.cwd !== next.cwd) {
     emitPaneEvent('cwd.changed', { paneId, workspaceId, cwd: next.cwd })
@@ -2068,6 +2085,7 @@ function emitTerminalExtensionEvents(
       workspaceId,
       cwd: next.cwd,
       exitCode: next.lastExitCode,
+      ...(remote ? { remote: true } : {}),
     })
   }
 }
@@ -2092,6 +2110,7 @@ function registerExtensionIpc(host: ExtensionHost): void {
   ipcMain.handle('extensions:set-secret', (_e, extId: unknown, key: unknown, value: unknown) =>
     host.setSecret(String(extId), String(key), value),
   )
+  registerConnectionsIpc(() => host)
   ipcMain.handle(
     'extensions:invoke',
     (
@@ -3334,6 +3353,16 @@ function sendToWorkspaceWindow(
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
 }
 
+let connectionsStore: ExtensionConnections | null = null
+
+function extensionConnections(): ExtensionConnections {
+  connectionsStore ??= new ExtensionConnections(
+    join(app.getPath('userData'), 'extension-connections.json'),
+    () => extensionSecretStore(),
+  )
+  return connectionsStore
+}
+
 function extensionSecretStore() {
   return encryptedStore(storePath('extension-secrets', 'global'))
 }
@@ -3717,6 +3746,7 @@ app.whenReady().then(() => {
       askHub.settled(id, outcome)
     },
   })
+  registerExtensionMcp({ mcp: () => mcpHost })
   registerExtensionQuestions({
     windowOfWorkspace: windowForWorkspace,
     extensionName: (extId) => extensionHost?.displayName(extId) ?? extId,
@@ -4027,6 +4057,7 @@ app.whenReady().then(() => {
     workDirForWorkspace,
     cwdForPane: (paneId) => terminalState.get(paneId)?.cwd,
     remoteCwdForPane: remoteCwdOfPane,
+    agentRunning: (paneId) => agentRunning.has(paneId),
     remoteFolders: {
       windowOfWorkspace: workspaceWindowId,
       refusal: (workspaceId) =>
@@ -4049,6 +4080,7 @@ app.whenReady().then(() => {
     redact: redactor.redact,
     assistKeys: assistKeyStore(),
     secrets: extensionSecretStore(),
+    connections: extensionConnections(),
     openAssistUiIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'assist:open-ui', req),
     broadcast,
     publishWorkspaceChips,
@@ -4134,6 +4166,7 @@ app.whenReady().then(() => {
       managedServers.forgetExtension(extId)
       serverOverrides.forgetExtension(extId)
       extensionStore.delete(extId)
+      extensionConnections().forget(extId)
       for (const secrets of [extensionSecretStore(), assistKeyStore()]) {
         for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
       }
@@ -4271,6 +4304,7 @@ app.whenReady().then(() => {
       return entry ? processStatusOf(entry) : undefined
     },
     reach,
+    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
   })
   registerGatewayMethods()
   const tailnet = createTailnet({

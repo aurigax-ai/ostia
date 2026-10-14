@@ -33,6 +33,7 @@ const base = {
   keymaps: [],
   secrets: [],
   secretsSet: [],
+  connectionKinds: [],
   settingsPage: null,
   category: 'other',
   languages: [],

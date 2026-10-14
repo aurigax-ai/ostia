@@ -1,6 +1,7 @@
 import { isAbsolute, resolve } from 'node:path'
 import {
   type CommandOutput,
+  connectorCatalog,
   dryRunCommand,
   explainCommand,
   nodesCommand,
@@ -11,12 +12,47 @@ import {
   type CommandHandler,
   type ExtensionCaller,
   type ExtensionResult,
+  type OstiaExtension,
   cliArgs,
   failure,
   ok,
   parseFlags,
 } from '../sdk'
+import { NATIVE_CONNECTORS } from './connectorHost'
 import type { GraphsRunner } from './runner'
+
+export type VerbsExt = Pick<OstiaExtension, 'mcpServers' | 'connections'>
+
+async function connectorListing(ext: VerbsExt) {
+  const [servers, connections] = await Promise.all([
+    ext.mcpServers().catch(() => null),
+    ext.connections().catch(() => null),
+  ])
+  return {
+    mcp: servers?.ok ? servers.servers.map((s) => ({ server: s.name, tools: s.tools })) : [],
+    native: connectorCatalog(NATIVE_CONNECTORS),
+    connections: connections?.ok
+      ? connections.connections.map((c) => ({ name: c.name, kind: c.kind }))
+      : [],
+  }
+}
+
+async function nodesListing(
+  runner: GraphsRunner,
+  ext: VerbsExt,
+  caller: ExtensionCaller,
+): Promise<CommandOutput> {
+  const out = nodesCommand(runner.host.kinds.map((k) => k.kind))
+  const kinds = JSON.parse(out.stdout) as { kind: string }[]
+  const scratch = runner.workspace(caller.workspaceId)?.kind === 'scratch'
+  const listing = caller.sandboxed
+    ? { refused: 'sandboxed' }
+    : scratch
+      ? { refused: 'scratch' }
+      : await connectorListing(ext)
+  const shown = kinds.map((k) => (k.kind === 'connector' ? { ...k, connectors: listing } : k))
+  return { exitCode: 0, stdout: `${JSON.stringify(shown, null, 2)}\n` }
+}
 
 function repeated(argv: string[], flag: string): { values: string[]; rest: string[] } {
   const values: string[] = []
@@ -72,6 +108,7 @@ function paneProblem(caller: ExtensionCaller): ExtensionResult | null {
 export function graphVerbs(
   runner: GraphsRunner,
   refresh: () => Promise<void>,
+  ext: VerbsExt,
 ): Record<string, CommandHandler> {
   const withFile =
     (
@@ -87,7 +124,7 @@ export function graphVerbs(
   return {
     validate: withFile((path, workDir) => validateCommand(path, workDir)),
     schema: () => fromOutput(schemaCommand()),
-    nodes: () => fromOutput(nodesCommand(runner.host.kinds.map((k) => k.kind))),
+    nodes: async (_args, caller) => fromOutput(await nodesListing(runner, ext, caller)),
     explain: withFile((path, workDir) => explainCommand(path, workDir)),
     'dry-run': withFile((path, workDir, rest) => {
       const inputs = repeated(rest, 'input')

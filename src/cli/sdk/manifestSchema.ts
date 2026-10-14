@@ -46,6 +46,12 @@ import { EXTENSION_LOCALES_MAX } from '../../shared/extensionLocales'
 import {
   COMMAND_ARGUMENT_LABEL_MAX,
   EXTENSION_CATEGORIES,
+  EXTENSION_CONNECTION_FIELDS_MAX,
+  EXTENSION_CONNECTION_FIELD_TYPES,
+  EXTENSION_CONNECTION_KINDS_MAX,
+  EXTENSION_CONNECTION_KIND_PATTERN,
+  EXTENSION_CONNECTION_SECRETS_MAX,
+  EXTENSION_CONNECTION_VALUE_MAX,
   EXTENSION_ICONS,
   EXTENSION_SETTING_TITLE_MAX,
   EXTENSION_SETTING_TYPES,
@@ -116,6 +122,54 @@ const secret = z.looseObject({
   description: z.string().min(1).max(MAX_DESCRIPTION),
   title: title.optional(),
 })
+
+const CONNECTION_ENUM_MAX = 32
+
+const connectionField = z
+  .looseObject({
+    title,
+    description: z.string().min(1).max(MAX_DESCRIPTION).optional(),
+    type: z.enum(EXTENSION_CONNECTION_FIELD_TYPES),
+    enum: z.array(title).min(1).max(CONNECTION_ENUM_MAX).optional(),
+    default: z.string().max(EXTENSION_CONNECTION_VALUE_MAX).optional(),
+    required: z.boolean().optional(),
+  })
+  .refine((f) => (f.type === 'enum') === (f.enum !== undefined), 'enum is for enum fields')
+  .refine((f) => !f.enum || new Set(f.enum).size === f.enum.length, 'enum values are distinct')
+  .refine(
+    (f) => !f.enum || f.default === undefined || f.enum.includes(f.default),
+    'default is not in enum',
+  )
+
+const connectionKind = z
+  .looseObject({
+    kind: z.string().regex(EXTENSION_CONNECTION_KIND_PATTERN),
+    title,
+    description: z.string().min(1).max(MAX_DESCRIPTION).optional(),
+    fields: z
+      .record(z.string().regex(SETTING_KEY_PATTERN), connectionField)
+      .refine((f) => Object.keys(f).length <= EXTENSION_CONNECTION_FIELDS_MAX),
+    secrets: z
+      .record(
+        z.string().regex(SETTING_KEY_PATTERN),
+        z.looseObject({ title, description: z.string().min(1).max(MAX_DESCRIPTION).optional() }),
+      )
+      .refine((s) => Object.keys(s).length <= EXTENSION_CONNECTION_SECRETS_MAX)
+      .optional(),
+  })
+  .refine(
+    (k) => Object.keys(k.secrets ?? {}).every((key) => !Object.hasOwn(k.fields, key)),
+    'a secret is also a field',
+  )
+
+const connections = z
+  .array(connectionKind)
+  .min(1)
+  .max(EXTENSION_CONNECTION_KINDS_MAX)
+  .refine(
+    (kinds) => new Set(kinds.map((k) => k.kind)).size === kinds.length,
+    'a kind is declared twice',
+  )
 
 const chips = z
   .array(z.looseObject({ id: z.string().regex(COMMAND_ID_PATTERN), title: text }))
@@ -230,6 +284,7 @@ const contributes = z.looseObject({
     })
     .optional(),
   secrets: z.record(settingKey, secret).optional(),
+  connections: connections.optional(),
   assist: z.array(z.enum(ASSIST_POINTS)).optional(),
   snippets: z.array(z.looseObject({})).max(MAX_SNIPPETS).optional(),
   completions: z.string().min(1).optional(),

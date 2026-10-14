@@ -33,6 +33,7 @@ function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     assist: [],
     secrets: [],
     secretsSet: [],
+    connectionKinds: [],
     settingsPage: null,
     category: 'other',
     languages: [],
@@ -146,13 +147,17 @@ describe('Extensions UI', () => {
       await waitFor(() => expect(useExtensionsStore.getState().list[0].status).toBe('disabled'))
     })
 
-    it('offers a permission review for user extensions with unapproved caps only', async () => {
+    it('offers a permission review for any extension with unapproved caps, a built-in included', async () => {
       useExtensionsStore.setState({
-        list: [ext({ unapproved: ['notify'] }), ext({ ...pending, status: 'idle', enabled: true })],
+        list: [
+          ext({ unapproved: ['mcp'], requested: ['notify', 'mcp'], granted: ['notify'] }),
+          ext({ ...pending, status: 'idle', enabled: true }),
+        ],
       })
       await renderSettled(<ExtensionsSection />)
       const user = userEvent.setup()
-      expect(screen.queryByRole('button', { name: 'Review permissions' })).toBeNull()
+      await user.click(screen.getByRole('button', { name: 'Review permissions' }))
+      expect(useExtensionsStore.getState().reviewing).toBe('demo')
       expect(
         within(screen.getByRole('listitem', { name: 'Trellis' })).getByText('Problem'),
       ).toBeInTheDocument()

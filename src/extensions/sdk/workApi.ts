@@ -1,3 +1,4 @@
+import type { ConnectionInfo, ConnectionValue } from '../../shared/extensions'
 export interface ExecOptions {
   workspaceId: string
   command: string[]
@@ -42,6 +43,28 @@ export interface AskOptions {
 export type AskResult =
   | { ok: true; outcome: 'answered'; reply: { choices: string[]; text: string } }
   | { ok: true; outcome: 'dismissed' | 'timeout' | 'closed' }
+  | { ok: false; error: string; message?: string }
+
+export type McpCallReply =
+  | { ok: true; text: string; structured?: Record<string, unknown> }
+  | { ok: false; error: string; message?: string }
+
+export interface McpServerInfo {
+  name: string
+  state: 'idle' | 'connecting' | 'ready' | 'error'
+  tools: string[]
+}
+
+export type McpServersResult =
+  | { ok: true; servers: McpServerInfo[] }
+  | { ok: false; error: string; message?: string }
+
+export type ConnectionsResult =
+  | { ok: true; connections: ConnectionInfo[] }
+  | { ok: false; error: string; message?: string }
+
+export type ConnectionResult =
+  | { ok: true; connection: ConnectionValue | null }
   | { ok: false; error: string; message?: string }
 
 export function rpcFailure(

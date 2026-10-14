@@ -51,6 +51,7 @@ const BOARD: ExtensionInfo = {
   assist: [],
   secrets: [],
   secretsSet: [],
+  connectionKinds: [],
   settingsPage: { title: 'Board sync', icon: 'kanban' },
   category: 'other',
   languages: [],

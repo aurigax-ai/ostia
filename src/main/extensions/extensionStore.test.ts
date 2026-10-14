@@ -30,9 +30,10 @@ describe('needsApproval / effectiveRecord', () => {
   it('pre-approves and enables built-ins, and keeps user extensions off by default', () => {
     expect(effectiveRecord(true, undefined)).toEqual({
       enabled: true,
-      approved: [...ALL_CAPABILITIES],
+      approved: ALL_CAPABILITIES.filter((c) => c !== 'mcp'),
     })
     expect(effectiveRecord(false, undefined)).toEqual({ enabled: false, approved: null })
+    expect(effectiveRecord(true, undefined).approved).not.toContain('mcp')
     const saved = { enabled: false, approved: ['notify' as const] }
     expect(effectiveRecord(true, saved)).toBe(saved)
   })

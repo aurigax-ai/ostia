@@ -88,6 +88,33 @@ describe('manifest schemas', () => {
           })),
         },
       },
+      ...[
+        [],
+        [{ kind: 'Bad', title: 'T', fields: {} }],
+        [{ kind: 'http', title: '', fields: {} }],
+        [{ kind: 'http', title: 'T', fields: { n: { title: 'N', type: 'number' } } }],
+        [{ kind: 'http', title: 'T', fields: { a: { title: 'A', type: 'enum' } } }],
+        [{ kind: 'http', title: 'T', fields: { a: { title: 'A', type: 'string', enum: ['x'] } } }],
+        [
+          {
+            kind: 'http',
+            title: 'T',
+            fields: { a: { title: 'A', type: 'enum', enum: ['x'], default: 'y' } },
+          },
+        ],
+        [
+          {
+            kind: 'http',
+            title: 'T',
+            fields: { a: { title: 'A', type: 'string' } },
+            secrets: { a: { title: 'A' } },
+          },
+        ],
+        [
+          { kind: 'http', title: 'T', fields: {} },
+          { kind: 'http', title: 'U', fields: {} },
+        ],
+      ].map((connections) => ({ ...base, contributes: { connections } })),
       { ...base, locales: 'zh-Hant' },
       { ...base, locales: ['../zh-Hant'] },
       { ...base, locales: Array.from({ length: 33 }, (_, i) => `zh-T${i}`) },

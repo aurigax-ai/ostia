@@ -4,6 +4,7 @@ import {
   type Problem,
   type RunSummary,
   type RunView,
+  connectorUses,
   descriptorOf,
   isConditional,
   isJoin,
@@ -12,6 +13,7 @@ import {
   startNodes,
   triggerKind,
 } from '@aurigax-ai/graph'
+import { NATIVE_CONNECTORS } from './connectorHost'
 import { graphsFolder } from './graphFiles'
 import type { GraphListing, GraphState } from './runner'
 
@@ -24,6 +26,16 @@ export interface GraphRow {
   agentsMayStart: boolean
   lastRun?: { runId: string; status: string; startedAt: number }
   fingerprint?: string
+  filesRefused?: boolean
+  skipped?: number
+}
+
+interface ConnectorUseView {
+  node: string
+  use: string
+  connection?: string
+  effect: 'read' | 'write' | 'external'
+  secretShaped: boolean
 }
 
 interface NodeDefinition {
@@ -56,6 +68,7 @@ export interface Definition {
   limits: Record<string, unknown>
   kinds: string[]
   connectors: string[]
+  connectorUses: ConnectorUseView[]
   problems: Problem[]
 }
 
@@ -78,6 +91,8 @@ export function listModel(
   workDir: string,
   listings: GraphListing[],
   runs: RunSummary[],
+  filesRefused = false,
+  skipped: (name: string) => number = () => 0,
 ): ListModel {
   return {
     workspaceId,
@@ -97,6 +112,8 @@ export function listModel(
           ? { lastRun: { runId: last.runId, status: last.status, startedAt: last.startedAt } }
           : {}),
         ...(l.entry.loaded ? { fingerprint: l.entry.loaded.fingerprint } : {}),
+        ...(filesRefused && graph?.on.some((t) => 'files' in t) ? { filesRefused: true } : {}),
+        ...(skipped(l.entry.name) > 0 ? { skipped: skipped(l.entry.name) } : {}),
       }
     }),
   }
@@ -117,7 +134,10 @@ function edges(graph: GraphFile): Definition['edges'] {
   return out
 }
 
-export function definition(listing: GraphListing): Definition | null {
+export function definition(
+  listing: GraphListing,
+  secretShaped: ReadonlySet<string> = new Set(),
+): Definition | null {
   const loaded = listing.entry.loaded
   if (!loaded) return null
   const graph = loaded.graph
@@ -150,6 +170,13 @@ export function definition(listing: GraphListing): Definition | null {
     limits: { ...graph.limits },
     kinds: neededKinds(graph),
     connectors: neededConnectors(graph),
+    connectorUses: connectorUses(graph, { native: NATIVE_CONNECTORS }).map((u) => ({
+      node: u.node,
+      use: u.use,
+      effect: u.effect,
+      secretShaped: secretShaped.has(u.node),
+      ...(u.connection ? { connection: u.connection } : {}),
+    })),
     problems: listing.problems,
   }
 }
