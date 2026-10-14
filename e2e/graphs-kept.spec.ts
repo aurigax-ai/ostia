@@ -26,8 +26,8 @@ const fire = (event, payload) => {
       } catch {}
     }
 }
-appendFileSync(${JSON.stringify(log)}, 'start\\n')
 fire('UserPromptSubmit', { session_id: 'e2e-graph', prompt: 'fix it' })
+appendFileSync(${JSON.stringify(log)}, 'start\\n')
 console.log('fake-agent-ready')
 const timer = setInterval(() => {
   if (!existsSync(${JSON.stringify(go)})) return
@@ -38,7 +38,7 @@ const timer = setInterval(() => {
       stdio: 'ignore',
     })
   }
-  fire('Stop', { session_id: 'e2e-graph', last_assistant_message: 'done' })
+  fire('Stop', { session_id: 'e2e-graph', last_assistant_message: 'Closing words from while Ostia was closed' })
   appendFileSync(${JSON.stringify(log)}, 'stopped\\n')
 }, 200)
 setInterval(() => {}, 1 << 30)
@@ -194,7 +194,7 @@ test('GRF-C167 an agent that stopped while Ostia was closed is reattached as don
       .toBe(true)
     const end = lines().find((l) => l.type === 'node-end' && l.node === 'work')
     expect(JSON.stringify(end)).toContain('NoResult')
-    expect(JSON.stringify(end)).not.toContain('"message"')
+    expect(JSON.stringify(lines())).not.toContain('Closing words from while Ostia was closed')
     expect(lines().filter((l) => l.type === 'node-start' && l.node === 'work')).toHaveLength(1)
   } finally {
     await quitApp(second)
