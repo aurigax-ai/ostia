@@ -339,6 +339,50 @@ describe('BrowserView address bar', () => {
     })
   }
 
+  const failedLoad = (container: HTMLElement, errorCode: number, isMainFrame = true) => {
+    const webview = container.querySelector('webview') as HTMLElement
+    const event = Object.assign(new Event('did-fail-load'), {
+      errorCode,
+      errorDescription: 'ERR_CONNECTION_REFUSED',
+      validatedURL: 'http://127.0.0.1:9/',
+      isMainFrame,
+    })
+    act(() => {
+      webview.dispatchEvent(event)
+    })
+  }
+
+  it('a browser tab shows why a page failed, and clears it when a page loads', async () => {
+    const { workspaceId } = twoTerminals()
+    const { container } = await renderView(workspaceId)
+    await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
+
+    failedLoad(container, -102)
+
+    const error = screen.getByRole('alert')
+    expect(error).toHaveTextContent('This page couldn’t load')
+    expect(error).toHaveTextContent('http://127.0.0.1:9/')
+    expect(error).toHaveTextContent('ERR_CONNECTION_REFUSED')
+    expect(screen.getByRole('textbox', { name: /address/i })).toHaveValue('http://127.0.0.1:9/')
+
+    navigated(container, 'http://localhost/page')
+
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it.each([
+    ['an aborted load', -3, true],
+    ['a failed frame inside the page', -102, false],
+  ])('shows no failure for %s', async (_name, errorCode, isMainFrame) => {
+    const { workspaceId } = twoTerminals()
+    const { container } = await renderView(workspaceId)
+    await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
+
+    failedLoad(container, errorCode, isMainFrame)
+
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
   it('keeps what the user is typing when a slow page finishes loading', async () => {
     const { workspaceId } = twoTerminals()
     const { container } = await renderView(workspaceId)
