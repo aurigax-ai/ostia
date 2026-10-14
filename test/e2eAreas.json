@@ -221,6 +221,11 @@
       "specs": ["e2e/activity.spec.ts"]
     },
     {
+      "name": "graphs",
+      "paths": ["src/extensions/graphs/", "graph-engine/src/", "src/main/extensions/extensionExec.ts"],
+      "specs": ["e2e/graphs.spec.ts", "e2e/graphs-restart.spec.ts"]
+    },
+    {
       "name": "extensions",
       "paths": [
         "src/main/agents/extensionAgents.",

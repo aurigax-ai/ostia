@@ -1,4 +1,6 @@
 import { isAbsolute, join } from 'node:path'
+import { shellQuote } from '../../shared/agents/agentLaunch'
+import { type AgentResume, forkCommand, resumeCommand } from '../../shared/agents/agentResume'
 import { MANAGER_AGENT_NAME } from '../../shared/agents/managerSettings'
 import {
   AGENT_OFFER_LABEL_MAX,
@@ -57,4 +59,14 @@ export function workspaceFolder(workDir: string | undefined, home: string): stri
   if (workDir === '~') return home
   const expanded = workDir.startsWith('~/') ? join(home, workDir.slice(2)) : workDir
   return isAbsolute(expanded) ? expanded : undefined
+}
+
+export interface HeldResume {
+  resume: AgentResume
+  held: boolean
+}
+
+export function continueCommand(found: HeldResume, prompt: string): string {
+  const base = found.held ? forkCommand(found.resume) : resumeCommand(found.resume)
+  return `${base} ${shellQuote(prompt)}`
 }

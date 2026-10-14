@@ -71,6 +71,7 @@ export function addedQuestions(
 }
 
 function settle(question: QuestionRequest, remaining: readonly QuestionRequest[]): void {
+  if (!question.paneId) return
   const attention = useAttentionStore.getState()
   const current = attention.byPane[question.paneId]
   if (current?.state !== 'waiting' || current.message !== question.question) return
@@ -88,6 +89,7 @@ function settle(question: QuestionRequest, remaining: readonly QuestionRequest[]
 }
 
 function announce(question: QuestionRequest): void {
+  if (!question.paneId) return
   signalPane(question.paneId, {
     type: 'set',
     state: 'waiting',

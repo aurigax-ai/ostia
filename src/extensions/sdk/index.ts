@@ -6,6 +6,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import {
   type CancellationToken,
+  CancellationTokenSource,
   type MessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
@@ -62,6 +63,26 @@ import {
 } from '../../shared/remoteFolders'
 import { PANEL_SIZES_FILE, PanelSizeStore } from './panelSizes'
 import { PANEL_SIZES_PATH } from './split'
+import {
+  type AskOptions,
+  type AskResult,
+  type BusSendResult,
+  type ExecOptions,
+  type ExecResult,
+  type WakePaneResult,
+  rpcFailure,
+} from './workApi'
+
+export type {
+  AskOptions,
+  AskResult,
+  BusSendResult,
+  ExecOptions,
+  ExecResult,
+  WakePaneOutcome,
+  WakePaneResult,
+} from './workApi'
+export { type AgentStop, parseAgentStop } from './agentStop'
 
 export type {
   AgentOfferOptions,
@@ -191,6 +212,7 @@ export interface PaneInfo {
   agentSessionId?: string
   agentState?: PaneAgentState
   agentMessage?: string
+  hibernated?: boolean
 }
 
 export type PaneAgentState = 'working' | 'waiting' | 'done' | 'error'
@@ -273,6 +295,7 @@ export interface OstiaExtension {
     kind?: SidebarKind
     url?: string
   }) => Promise<unknown>
+  startWithWindow: (on: boolean) => Promise<ExtensionResult>
   notify: (title: string, body?: string) => Promise<unknown>
   openPanel: (workspaceId?: string, path?: string) => Promise<unknown>
   setPaneChip: (chip: PaneChipValue) => Promise<ExtensionResult>
@@ -294,6 +317,10 @@ export interface OstiaExtension {
   offerToAgent: (opts: AgentOfferOptions) => Promise<AgentOfferResult>
   focusPane: (paneId: string) => Promise<ExtensionResult>
   redact: (texts: string[]) => Promise<string[] | null>
+  exec: (opts: ExecOptions, signal?: AbortSignal) => Promise<ExecResult>
+  busSend: (to: string, text: string) => Promise<BusSendResult>
+  wakePane: (paneId: string, waitMs?: number) => Promise<WakePaneResult>
+  ask: (opts: AskOptions, signal?: AbortSignal) => Promise<AskResult>
   listWorkspaces: () => Promise<WorkspaceInfo[]>
   listPanes: () => Promise<PaneInfo[]>
   onAssist: (handler: AssistHandler) => void
@@ -512,6 +539,7 @@ export async function connect(): Promise<OstiaExtension> {
       return conn.sendRequest('ext.subscribe', { events })
     },
     setSidebarItem: (item) => conn.sendRequest('ext.setSidebarItem', item),
+    startWithWindow: (on) => conn.sendRequest('ext.startWithWindow', { on }),
     notify: (title, body) => conn.sendRequest('ext.notify', { title, body }),
     openPanel: (workspaceId, path) => conn.sendRequest('ext.openPanel', { workspaceId, path }),
     setPaneChip: (chip) => conn.sendRequest('ext.setPaneChip', chip),
@@ -590,6 +618,51 @@ export async function connect(): Promise<OstiaExtension> {
           : null
       } catch {
         return null
+      }
+    },
+    exec: async (opts, signal) => {
+      const source = new CancellationTokenSource()
+      const cancel = (): void => source.cancel()
+      signal?.addEventListener('abort', cancel, { once: true })
+      if (signal?.aborted) source.cancel()
+      try {
+        return await conn.sendRequest<ExecResult>('ext.exec', opts, source.token)
+      } catch (err) {
+        return rpcFailure(err, 'exec-failed')
+      } finally {
+        signal?.removeEventListener('abort', cancel)
+        source.dispose()
+      }
+    },
+    busSend: async (to, text) => {
+      try {
+        return await conn.sendRequest<BusSendResult>('ext.busSend', { to, text })
+      } catch (err) {
+        return rpcFailure(err, 'bus-send-failed')
+      }
+    },
+    wakePane: async (paneId, waitMs) => {
+      try {
+        return await conn.sendRequest<WakePaneResult>(
+          'ext.wakePane',
+          waitMs === undefined ? { paneId } : { paneId, waitMs },
+        )
+      } catch (err) {
+        return rpcFailure(err, 'wake-failed')
+      }
+    },
+    ask: async (opts, signal) => {
+      const source = new CancellationTokenSource()
+      const cancel = (): void => source.cancel()
+      signal?.addEventListener('abort', cancel, { once: true })
+      if (signal?.aborted) source.cancel()
+      try {
+        return await conn.sendRequest<AskResult>('ext.ask', opts, source.token)
+      } catch (err) {
+        return rpcFailure(err, 'ask-failed')
+      } finally {
+        signal?.removeEventListener('abort', cancel)
+        source.dispose()
       }
     },
     listWorkspaces: () => conn.sendRequest('workspace.list'),

@@ -1,0 +1,12 @@
+{
+  "id": "limited",
+  "name": "Limited",
+  "version": "0.1.0",
+  "api": "3.1",
+  "description": "Test fixture: holds send-other-pane and type-other-pane but not all-workspaces",
+  "capabilities": ["send-other-pane", "type-other-pane"],
+  "main": "main.js",
+  "contributes": {
+    "commands": [{ "id": "call", "title": "Call a method", "palette": false, "interactive": true }]
+  }
+}

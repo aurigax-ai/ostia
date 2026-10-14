@@ -6,6 +6,7 @@ import {
   CircleIcon,
   GitBranchIcon,
   GlobeIcon,
+  GraphIcon,
   HardDrivesIcon,
   type Icon as IconComponent,
   KanbanIcon,
@@ -34,6 +35,7 @@ const ICONS: Record<ExtensionIcon, IconComponent> = {
   chat: ChatCircleDotsIcon,
   plugs: PlugsIcon,
   'magnifying-glass': MagnifyingGlassIcon,
+  graph: GraphIcon,
 }
 
 export function extensionIcon(icon: ExtensionIcon | undefined): IconComponent {

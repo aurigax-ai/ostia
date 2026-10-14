@@ -1,4 +1,4 @@
-import type { PaneWhere } from '@/lib/sidebar/dashboard'
+import { type PaneWhere, sourceWhere } from '@/lib/sidebar/dashboard'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -285,5 +285,26 @@ describe('QuestionCard', () => {
       expect(window.ostia.questions.dismiss).toHaveBeenCalledWith('question-1')
       expect(window.ostia.questions.answer).not.toHaveBeenCalled()
     })
+  })
+
+  it('GRF-C120 an extension’s question is labelled with the extension in its workspace and offers no pane', () => {
+    const source = { extension: 'Graphs', workspaceId: 'w1' }
+    const where = sourceWhere(source, [{ id: 'w1', name: 'payments', workDir: '/home/u/payments' }])
+    expect(where).toMatchObject({ workspace: 'payments', pane: 'Graphs' })
+    render(
+      <QuestionCard
+        question={question({
+          paneId: '',
+          source,
+          choices: ['Open it', 'Stop here'],
+          mode: 'single',
+        })}
+        where={where}
+      />,
+    )
+    const card = screen.getByRole('article')
+    expect(within(card).getByText('Graphs')).toBeTruthy()
+    expect(within(card).getByText('payments')).toBeTruthy()
+    expect(within(card).queryByRole('button', { name: /pane/i })).toBeNull()
   })
 })

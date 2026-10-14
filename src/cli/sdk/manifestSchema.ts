@@ -50,7 +50,9 @@ import {
   EXTENSION_SETTING_TITLE_MAX,
   EXTENSION_SETTING_TYPES,
   EXTENSION_SETTING_UNITS,
+  EXTENSION_VERB_PATTERN,
 } from '../../shared/extensions'
+import { verbProblem } from '../../shared/extensions/extensionVerbs'
 import { MARKETPLACE_CODE_PATTERN } from '../../shared/extensions/marketplace'
 import { ICON_THEME_ID_PATTERN } from '../../shared/iconTheme'
 import { KEYMAP_LABEL_MAX, KEYMAP_PLATFORMS } from '../../shared/keymap'
@@ -290,6 +292,13 @@ const contributes = z.looseObject({
       }),
     )
     .max(MAX_AGENT_HOOKS)
+    .optional(),
+  verb: z
+    .string()
+    .regex(EXTENSION_VERB_PATTERN)
+    .refine((verb) => verbProblem(verb) === null, {
+      message: 'contributes.verb is a built-in verb',
+    })
     .optional(),
 })
 

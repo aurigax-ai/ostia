@@ -1,4 +1,5 @@
 import type { AgentHookEvent, HookAgent } from '../../shared/agentPlugins'
+import { parseAgentStop } from '../sdk/agentStop'
 
 const TOOL_KINDS = ['edit', 'command', 'search', 'read', 'subagent', 'web', 'other'] as const
 
@@ -155,8 +156,8 @@ export function parseHookEvent(source: HookSource, stdin: string): ActivityEvent
       : { ...base, kind: 'tool', tool: known.kind }
   }
   if (source.event === 'Stop') {
-    const message = payload.last_assistant_message
-    const text = typeof message === 'string' ? recapOf(message) : ''
+    const message = parseAgentStop(source.agent, stdin)?.message
+    const text = message ? recapOf(message) : ''
     return text ? { ...base, kind: 'stop', text } : { ...base, kind: 'stop' }
   }
   return null

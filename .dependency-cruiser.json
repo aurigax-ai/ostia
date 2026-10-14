@@ -120,6 +120,12 @@
       }
     },
     {
+      "name": "graph-engine-stands-alone",
+      "severity": "error",
+      "from": { "path": "^graph-engine/" },
+      "to": { "path": "^(src|e2e|scripts|test)/" }
+    },
+    {
       "name": "sdk-imports-only-shared",
       "severity": "error",
       "from": {

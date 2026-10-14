@@ -9,6 +9,7 @@ import {
   type QuestionEnd,
   type QuestionOutcome,
   type QuestionRequest,
+  type QuestionSource,
   type QuestionState,
   normalizeQuestion,
   normalizeReply,
@@ -21,6 +22,7 @@ interface QuestionAsk extends QuestionContent {
   windowId: string
   paneId: string
   permission?: PermissionInfo
+  source?: QuestionSource
 }
 
 export interface QuestionEvents {
@@ -82,7 +84,7 @@ export function createQuestions(deps: QuestionDeps): Questions {
       return {
         ok: false,
         error: 'too-many-questions',
-        message: `a pane has at most ${QUESTIONS_PER_PANE} open questions`,
+        message: `${request.source ? 'an extension has, per workspace,' : 'a pane has'} at most ${QUESTIONS_PER_PANE} open questions`,
       }
     }
     const rate = rates.get(request.externalId) ?? new RateWindow(QUESTION_RATE_WINDOW_MS)
@@ -106,6 +108,7 @@ export function createQuestions(deps: QuestionDeps): Questions {
       at,
       ...(request.timeoutMs === undefined ? {} : { expiresAt: at + request.timeoutMs }),
       ...(request.permission ? { permission: { ...request.permission } } : {}),
+      ...(request.source ? { source: { ...request.source } } : {}),
     }
     const outcome = new Promise<QuestionOutcome>((resolve) => {
       const timer =
@@ -230,6 +233,64 @@ export function registerQuestions(events: QuestionEvents): void {
       const outcome = await ticket.outcome
       closed.dispose()
       return { ok: true, ...outcome }
+    },
+  })
+}
+
+export interface ExtensionQuestionDeps {
+  windowOfWorkspace: (workspaceId: string) => string | undefined
+  extensionName: (extId: string) => string
+}
+
+function extensionAskParams(raw: Record<string, unknown>): Record<string, unknown> {
+  const { mode, timeoutS, workspaceId: _w, ...rest } = raw
+  return {
+    ...rest,
+    ...(mode === 'multi' ? { multi: true } : {}),
+    ...(mode === 'text' ? { choices: [] } : {}),
+    ...(timeoutS === undefined ? {} : { timeoutSeconds: timeoutS }),
+  }
+}
+
+export function registerExtensionQuestions(deps: ExtensionQuestionDeps): void {
+  registerControlMethod('ext.ask', {
+    callers: 'extensions',
+    cap: 'drive-self',
+    handler: async (params, ctx) => {
+      const current = active
+      if (!current) return { ok: false, error: 'no-window' }
+      const raw = (typeof params === 'object' && params !== null ? params : {}) as Record<
+        string,
+        unknown
+      >
+      const workspaceId = typeof raw.workspaceId === 'string' ? raw.workspaceId : ''
+      const windowId = workspaceId ? deps.windowOfWorkspace(workspaceId) : undefined
+      if (!windowId)
+        return { ok: false, error: 'unknown-workspace', message: 'no window holds that workspace' }
+      const parsed = normalizeQuestion(extensionAskParams(raw))
+      if (!parsed.ok) return parsed
+      const extId = ctx.identity.extId ?? ctx.identity.externalId
+      const ticket = current.ask({
+        ...parsed.content,
+        externalId: `${ctx.identity.externalId}:${workspaceId}`,
+        windowId,
+        paneId: '',
+        source: { extension: deps.extensionName(extId), workspaceId },
+      })
+      if (!ticket.ok) return ticket
+      const closed = ctx.conn.onClose(() => current.withdraw(ticket.id))
+      const disposed = ctx.conn.onDispose(() => current.withdraw(ticket.id))
+      const cancelled = ctx.token?.onCancellationRequested(() => current.withdraw(ticket.id))
+      const outcome = await ticket.outcome
+      closed.dispose()
+      disposed.dispose()
+      cancelled?.dispose()
+      if (outcome.outcome !== 'answered') return { ok: true, outcome: outcome.outcome }
+      return {
+        ok: true,
+        outcome: 'answered',
+        reply: { choices: outcome.choices, text: outcome.text },
+      }
     },
   })
 }

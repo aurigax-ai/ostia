@@ -1,0 +1,127 @@
+{
+  "id": "graphs",
+  "name": "Graphs",
+  "version": "1.0.0",
+  "api": "3.3",
+  "description": "Run a procedure written as a graph of agents, commands, questions and waits, kept on disk after every step so it survives a restart. A graph does nothing until you enable its exact definition in the Graphs panel, and it runs while Ostia is open.",
+  "category": "tools",
+  "capabilities": [
+    "read-board",
+    "drive-self",
+    "notify",
+    "process",
+    "shell",
+    "agent-plugin",
+    "send-other-pane",
+    "type-other-pane",
+    "all-workspaces"
+  ],
+  "main": "main.js",
+  "locales": ["zh-Hant"],
+  "contributes": {
+    "verb": "graph",
+    "sidebarItems": true,
+    "commands": [
+      { "id": "open", "title": "Graphs: Open Panel", "category": "Graphs" },
+      {
+        "id": "validate",
+        "title": "Check a graph file",
+        "palette": false,
+        "usage": "validate <file>"
+      },
+      { "id": "schema", "title": "Print the graph file's JSON Schema", "palette": false },
+      { "id": "nodes", "title": "List the node kinds Ostia runs", "palette": false },
+      {
+        "id": "explain",
+        "title": "Print an outline of a graph",
+        "palette": false,
+        "usage": "explain <file>"
+      },
+      {
+        "id": "dry-run",
+        "title": "Walk a graph with mocked outputs; nothing runs",
+        "palette": false,
+        "usage": "dry-run <file> [--input k=v]… [--input-json <json>] [--mock <node>=<json>]… [--json]"
+      },
+      {
+        "id": "list",
+        "title": "List this workspace's graphs and whether they are enabled",
+        "palette": false
+      },
+      {
+        "id": "runs",
+        "title": "List the runs of a graph",
+        "palette": false,
+        "usage": "runs [name]"
+      },
+      {
+        "id": "show",
+        "title": "Print a run node by node",
+        "palette": false,
+        "usage": "show <run> [--node <id>]"
+      },
+      {
+        "id": "run",
+        "title": "Start an enabled graph whose manual trigger lets agents start it",
+        "palette": false,
+        "usage": "run <name> [--input key=value]… [--input-json <json>]"
+      },
+      {
+        "id": "report",
+        "title": "Report an agent node's result",
+        "palette": false,
+        "usage": "report --json <object> [--run <id>]"
+      },
+      {
+        "id": "on-stop",
+        "title": "Hand an agent's stop to the graph waiting for it",
+        "palette": false,
+        "stdin": true
+      }
+    ],
+    "agentHooks": [{ "event": "Stop", "command": "on-stop" }],
+    "panel": { "title": "Graphs", "icon": "graph", "entry": "url" },
+    "settings": {
+      "maxSteps": {
+        "type": "number",
+        "title": "Node runs per run, at most",
+        "default": 500,
+        "minimum": 1,
+        "maximum": 500,
+        "description": "The ceiling a graph's limits.steps may not pass"
+      },
+      "maxRunsPerHour": {
+        "type": "number",
+        "title": "Runs an hour per graph, at most",
+        "default": 60,
+        "minimum": 1,
+        "maximum": 60,
+        "description": "The ceiling a graph's limits.runsPerHour may not pass"
+      },
+      "maxParallel": {
+        "type": "number",
+        "title": "Nodes running at once per run, at most",
+        "default": 8,
+        "minimum": 1,
+        "maximum": 8,
+        "description": "The ceiling a graph's limits.parallel may not pass"
+      },
+      "maxAgentsPerRun": {
+        "type": "number",
+        "title": "Agents started per run, at most",
+        "default": 24,
+        "minimum": 0,
+        "maximum": 24,
+        "description": "The ceiling a graph's limits.agents may not pass"
+      },
+      "maxRunHours": {
+        "type": "number",
+        "title": "Hours per run, at most",
+        "default": 168,
+        "minimum": 1,
+        "maximum": 168,
+        "description": "The ceiling a graph's limits.time may not pass"
+      }
+    }
+  }
+}

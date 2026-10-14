@@ -13,6 +13,7 @@ import {
   type PaneWhere,
   needsYouItems,
   paneWhere,
+  sourceWhere,
 } from '@/lib/sidebar/dashboard'
 import { shortenPath } from '@/lib/sidebar/railMeta'
 import { cn } from '@/lib/utils'
@@ -128,10 +129,16 @@ function EmptyLine({ children }: { children: string }): JSX.Element {
   return <p className="px-1 py-2 text-fg-muted text-ui-sm">{children}</p>
 }
 
-function useWhere(): (paneId: string) => PaneWhere | null {
+function useWhere(): (item: NeedsYouItem) => PaneWhere | null {
   const workspaces = useWorkspacesStore((s) => s.workspaces)
   const layouts = useLayoutStore((s) => s.byWorkspace)
-  return useMemo(() => (paneId) => paneWhere(paneId, workspaces, layouts), [workspaces, layouts])
+  return useMemo(
+    () => (item) =>
+      item.kind === 'question' && item.question.source
+        ? sourceWhere(item.question.source, workspaces)
+        : paneWhere(itemPane(item), workspaces, layouts),
+    [workspaces, layouts],
+  )
 }
 
 function NeedsYou(): JSX.Element {
@@ -151,7 +158,7 @@ function NeedsYou(): JSX.Element {
         <ul className="flex flex-col gap-2">
           {items.map((item) => (
             <li key={item.id}>
-              <NeedsYouCard item={item} where={whereOf(itemPane(item))} />
+              <NeedsYouCard item={item} where={whereOf(item)} />
             </li>
           ))}
         </ul>
