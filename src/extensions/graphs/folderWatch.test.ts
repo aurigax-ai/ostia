@@ -146,4 +146,26 @@ describe('the folder watcher of a files trigger', () => {
     expect(Date.now() - started).toBeLessThan(1000)
     expect(watcher.ignored('build/out/b.ts', false)).toBe(false)
   })
+
+  it('drops the watchers of a removed folder and watches it again when it comes back', async () => {
+    const root = folder()
+    mkdirSync(join(root, 'src/a/deep'))
+    const seen: string[] = []
+    const watcher = new FolderWatcher(
+      root,
+      (rel) => seen.push(rel),
+      () => {},
+    )
+    watchers.push(watcher)
+    expect(watcher.start()).toEqual({ ok: true, folders: 4 })
+    rmSync(join(root, 'src/a'), { recursive: true, force: true })
+    await until(() => watcher.watching() === 2)
+    expect(watcher.watching()).toBe(2)
+    mkdirSync(join(root, 'src/a'))
+    await until(() => watcher.watching() === 3)
+    writeFileSync(join(root, 'src/a/c.ts'), '1')
+    await until(() => seen.includes('src/a/c.ts'))
+    expect(seen).toContain('src/a/c.ts')
+    expect(watcher.watching()).toBe(3)
+  })
 })

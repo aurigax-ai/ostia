@@ -133,13 +133,27 @@ export class FolderWatcher {
     this.watchers.set(dir, watcher)
   }
 
+  private forget(rel: string): boolean {
+    let found = false
+    for (const [dir, watcher] of [...this.watchers]) {
+      if (dir !== rel && !dir.startsWith(`${rel}/`)) continue
+      watcher.close()
+      this.watchers.delete(dir)
+      this.rules.delete(dir)
+      found = true
+    }
+    return found
+  }
+
   private changed(rel: string): void {
     let isDir = false
     try {
       const info = lstatSync(join(this.root, rel))
       if (info.isSymbolicLink()) return
       isDir = info.isDirectory()
-    } catch {}
+    } catch {
+      if (this.forget(rel)) return
+    }
     if (rel.endsWith('.gitignore') && !isDir) this.loadRules(parentOf(rel))
     if (this.ignored(rel, isDir)) return
     if (isDir && !this.watchers.has(rel)) {
