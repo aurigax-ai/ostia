@@ -46,6 +46,7 @@ import {
   requestsFor,
   setGuestRoutes,
 } from './guestNetwork'
+import { noteAgentDrive } from './guestPopups'
 
 type MethodCtx = { identity: PaneIdentity; authed: AuthedConn }
 
@@ -324,6 +325,7 @@ export async function resolveGuest(
     }
     const guest = liveGuest(wcId)
     if (!guest) return { ok: false, error: 'browser-not-ready' }
+    noteAgentDrive(guest.id)
     return { ok: true, guest, rendererPaneId: identity.paneId }
   }
   const rendererPaneId = defaultBrowserPane(deps, ctx)
@@ -334,6 +336,7 @@ export async function resolveGuest(
     const refused = await elevate(ctx, 'credentials', sharedDetail(tabId))
     if (refused) return refused
   }
+  noteAgentDrive(guest.id)
   return { ok: true, guest, rendererPaneId }
 }
 
@@ -617,6 +620,8 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
           return await run(resolution.guest, p, ctx, resolution.rendererPaneId)
         } catch (e) {
           return fail('failed', errMessage(e))
+        } finally {
+          noteAgentDrive(resolution.guest.id)
         }
       },
     })

@@ -160,6 +160,7 @@ import { registerBrowserStorageIpc } from './browser/browserStorage'
 import { credentials, registerCredentials } from './browser/credentials'
 import { type GuestChords, registerGuestChords } from './browser/guestChords'
 import { clearGuestNetwork, forgetGuestNetwork, watchGuestNetwork } from './browser/guestNetwork'
+import { openHumanPopups } from './browser/guestPopups'
 import { registerLoginFill } from './browser/loginFill'
 import { type BrowserAgents, followAgentByHost, useBrowserAgents } from './browser/signinUserAgent'
 import { registerAssistIpc } from './chat/assistIpc'
@@ -1613,6 +1614,29 @@ function instrumentBrowserGuest(gc: Electron.WebContents): void {
   watchGuestNetwork(gc)
 }
 
+function prepareBrowserPopup(popup: BrowserWindow, url: string): void {
+  const contents = popup.webContents
+  attachContextMenu(contents, true)
+  const agents = browserAgentsOf(contents.session)
+  contents.setUserAgent(agents.rewritten)
+  try {
+    contents.debugger.attach('1.3')
+  } catch {}
+  followAgentByHost(contents, agents, url)
+}
+
+function allowHumanPopups(guest: Electron.WebContents): void {
+  openHumanPopups(guest, {
+    isHumanProfile: (opener) => opener.session === session.fromPartition(SHARED_BROWSER_PARTITION),
+    ownerWindow: (opener) => {
+      const host = opener.hostWebContents
+      const owner = host ? BrowserWindow.fromWebContents(host) : null
+      return owner && [...windows.values()].includes(owner) ? owner : null
+    },
+    prepare: prepareBrowserPopup,
+  })
+}
+
 function hardenExtensionGuest(guest: Electron.WebContents): boolean {
   const host = extensionHost
   if (!host) return false
@@ -1733,6 +1757,9 @@ function wireWindow(win: BrowserWindow): void {
     webPreferences.nodeIntegration = false
     webPreferences.contextIsolation = true
     webPreferences.sandbox = true
+    Object.assign(webPreferences, {
+      disablePopups: params.partition !== SHARED_BROWSER_PARTITION,
+    })
   })
   win.webContents.on('did-attach-webview', (_e, guest) => {
     clipboardEdits?.guardGuest(guest)
@@ -1748,6 +1775,7 @@ function wireWindow(win: BrowserWindow): void {
     instrumentBrowserGuest(guest)
     followAgentByHost(guest, agents)
     fenceBrowserGuest(guest)
+    allowHumanPopups(guest)
     const wcId = guest.id
     guest.once('destroyed', () => {
       consoleBuffers.delete(wcId)
@@ -3525,7 +3553,7 @@ function showWindow(win: BrowserWindow): void {
 }
 
 function toggleAllWindows(): void {
-  toggleWindows(BrowserWindow.getAllWindows(), appTray, revealApp)
+  toggleWindows([...windows.values()], appTray, revealApp)
 }
 
 function applyGlobalHotkey(): void {
@@ -3534,7 +3562,7 @@ function applyGlobalHotkey(): void {
 }
 
 function revealApp(): void {
-  if (BrowserWindow.getAllWindows().length === 0) {
+  if (windows.size === 0) {
     createWindow(MAIN_SLOT, broker?.restoredBounds(MAIN_SLOT))
   } else appTray?.showWindows()
 }
@@ -4285,7 +4313,7 @@ app.whenReady().then(() => {
     iconPath: appIcon,
     tooltip: PRODUCT_DISPLAY_NAME,
     text: () => mainStrings().native.tray,
-    windows: () => BrowserWindow.getAllWindows(),
+    windows: () => [...windows.values()],
     quit: requestQuit,
     setBadgeCount: (count) => app.setBadgeCount(count),
   })
@@ -4385,14 +4413,14 @@ app.on('before-quit', (event) => {
   quitTrace.stage(`plan-${plan}`)
   if (plan === 'unattended') {
     quitApproved = true
-    freezeAll(BrowserWindow.getAllWindows())
+    freezeAll([...windows.values()])
     exitAfterDeadline(exitAtQuitDeadline)
   }
   if (plan === 'ask') {
     event.preventDefault()
     if (quitAsking) return
     quitAsking = true
-    const all = BrowserWindow.getAllWindows()
+    const all = [...windows.values()]
     void confirmQuit(all, BrowserWindow.getFocusedWindow() ?? mainWindow(), {
       scratchFiles: (workspaceId) => scratchFolders.countFiles(workspaceId),
       kept: keptOnQuit(
