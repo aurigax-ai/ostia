@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { commands } from '@/commands/registry'
 import { FilesView } from '@/components/files/FilesView'
-import { allPanes, createPane, findPane, firstPaneId } from '@/layout/tree'
+import { allPanes, createPane, findPane, firstPaneId, tabsOf } from '@/layout/tree'
 import { focusPaneInDirection } from '@/lib/attention/workspaceActivity'
 import { runAppChord } from '@/lib/keys/chords'
 import { CLIPBOARD_READ_MS } from '@/lib/keys/clipboardKeys'
@@ -1152,5 +1152,59 @@ describe('TerminalView engines', () => {
         expect.stringContaining('echo ostiafirst\recho ostiapasted42'),
       ),
     )
+  })
+
+  it('a link’s hint in a mouse-reporting program offers Ctrl+Click and leaves plain clicks to the program', async () => {
+    const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
+    const box = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 600 }))
+    onTestFinished(() => {
+      fitted.mockRestore()
+      box.mockRestore()
+    })
+    const { term, links } = await renderLinkTerminal()
+    await act(() => new Promise<void>((done) => term.write('\x1b[?1000h\x1b[?1006h', done)))
+    expect(term.modes.mouseTrackingMode).not.toBe('none')
+
+    act(() => links.hover?.(new MouseEvent('mousemove'), 'http://127.0.0.1:8000/osc', linkRange))
+    const hint = await waitFor(() => {
+      const shown = document.querySelector('[data-slot="tooltip-content"]')
+      expect(shown).not.toBeNull()
+      return shown as HTMLElement
+    })
+    expect(hint).toHaveTextContent('Ctrl+Click Open in a new browser tab')
+    expect(hint).not.toHaveTextContent('Open in the browser pane')
+
+    act(() => links.activate(click(), 'http://127.0.0.1:8000/osc', linkRange))
+    expect(browserUrls()).toEqual([])
+  })
+
+  it('a link’s hover hint goes away when another tab of its stack is shown', async () => {
+    const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
+    const box = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 600 }))
+    onTestFinished(() => {
+      fitted.mockRestore()
+      box.mockRestore()
+    })
+    showWorkspace()
+    const linked = { ...createPane('terminal'), id: 'linked' }
+    const other = { ...createPane('terminal'), id: 'other' }
+    useLayoutStore.setState({
+      byWorkspace: {
+        w1: { root: tabsOf('linked', linked, other), activePaneId: 'linked', zoomedPaneId: null },
+      },
+    })
+    await renderSettled(<TerminalView workspaceId="w1" paneId="linked" />)
+    const links = (terminalFor('linked') as unknown as Xterm).options.linkHandler as ILinkHandler
+    const hint = (): Element | null => document.querySelector('[data-slot="tooltip-content"]')
+
+    act(() => links.hover?.(new MouseEvent('mousemove'), 'slack://channel?id=1', linkRange))
+    await waitFor(() => expect(hint()).not.toBeNull())
+
+    act(() => useLayoutStore.getState().focusPane('w1', 'other'))
+    expect(hint()).toBeNull()
   })
 })
