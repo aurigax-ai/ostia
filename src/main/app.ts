@@ -231,6 +231,7 @@ import { OpenWaits } from './files/openWaits'
 import { confirmRemoteFolder, registerRemoteFolderConfirm } from './files/remoteFolderConfirm'
 import type { RemoteFolders } from './files/remoteFolders'
 import { ripgrepPath } from './files/ripgrep'
+import { createWorkspaceClosed } from './files/workspaceClosed'
 import { registerSearchIpc } from './files/workspaceSearch'
 import { createBonjourPublisher } from './gateway/announce'
 import {
@@ -1942,16 +1943,7 @@ function registerIpc(): void {
       extensionHost?.publishWorkspaceChips()
       extensionHost?.remoteFolders?.ownerChanged(event.workspaceId)
     } else if (event.type === 'workspace-closed') {
-      removeWorkspace(event.workspaceId)
-      reach.forget(event.workspaceId)
-      processes?.workspaceClosed(event.workspaceId)
-      extensionHost?.clearWorkspaceChips(event.workspaceId)
-      extensionHost?.remoteFolders?.workspaceClosed(event.workspaceId)
-      openWaits.workspaceClosed(event.workspaceId)
-      artifactFolders.close(event.workspaceId)
-      scratchFolders.remove(event.workspaceId)
-      forgetWorkspaceRequests(event.workspaceId)
-      forgetSandboxRuntime(event.workspaceId)
+      workspaceClosed(event.workspaceId)
     } else if (event.type === 'workspace-activated') {
     } else if (event.type === 'workspace-state') {
       emitSessionState(event.workspaceId, event.state)
@@ -2180,6 +2172,19 @@ function registerMarketplaceIpc(marketplace: Marketplace): void {
     ),
   )
 }
+
+const workspaceClosed = createWorkspaceClosed({
+  openWaits,
+  removeWorkspace,
+  forgetReach: (id) => reach.forget(id),
+  closeProcesses: (id) => processes?.workspaceClosed(id),
+  clearChips: (id) => extensionHost?.clearWorkspaceChips(id),
+  closeRemoteFolders: (id) => extensionHost?.remoteFolders?.workspaceClosed(id),
+  closeArtifacts: (id) => artifactFolders.close(id),
+  removeScratch: (id) => scratchFolders.remove(id),
+  forgetRequests: forgetWorkspaceRequests,
+  forgetSandbox: forgetSandboxRuntime,
+})
 
 function forgetWorkspaceRequests(workspaceId: string): void {
   packageRequests.forget(workspaceId)

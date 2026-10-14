@@ -361,6 +361,7 @@ describe('diff.openFiles', () => {
     const res = await commands.execWith(fromPane(caller), OPEN_DIFF_COMMAND, content)
     const diff = allPanes(layout().root).find((p) => p.kind === 'diff')
     expect(diff).toBeDefined()
+    expect(diff?.title).toBe('a ↔ b')
     expect(useDiffStore.getState().byPane[diff?.id ?? '']).toMatchObject({
       original: 'one',
       modified: 'two',
