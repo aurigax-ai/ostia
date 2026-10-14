@@ -1,3 +1,5 @@
+import type { QuitAnswer } from '../../shared/types'
+
 const UNATTENDED_QUIT_DEADLINE_MS = 5000
 
 export type QuitPlan = 'proceed' | 'ask' | 'unattended'
@@ -27,11 +29,24 @@ export function exitAfterDeadline(
   return timer
 }
 
+export interface KeptOnQuit {
+  kept: string[]
+  offer: string[]
+}
+
 export function keptOnQuit(
   restart: boolean,
+  confirm: boolean,
   panes: readonly { paneId: string; kept: boolean }[],
-): string[] {
-  return restart ? panes.filter((p) => p.kept).map((p) => p.paneId) : []
+): KeptOnQuit {
+  const kept = panes.filter((p) => p.kept).map((p) => p.paneId)
+  if (restart) return { kept, offer: [] }
+  if (!confirm) return { kept: [], offer: [] }
+  return { kept, offer: kept }
+}
+
+export function keepsShellsOnQuit(restart: boolean, answer: QuitAnswer | null): boolean {
+  return restart || answer === 'keep-shells'
 }
 
 export type QuitLog = (event: string, fields: Record<string, string | number>) => void

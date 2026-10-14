@@ -1012,12 +1012,14 @@
       "name": "command palette",
       "paths": [
         "src/renderer/components/palette/CommandPalette.tsx",
+        "src/renderer/lib/palette/paletteEscape.",
         "src/renderer/lib/palette/paletteFilter.",
         "src/renderer/lib/palette/paletteFocus.ts",
         "src/renderer/lib/palette/paletteModes."
       ],
       "specs": [
         "e2e/command-palette-layout.spec.ts",
+        "e2e/palette-escape.spec.ts",
         "e2e/palette-focus.spec.ts",
         "e2e/palette-keys.spec.ts"
       ]

@@ -48,6 +48,7 @@ import {
   symbolPlace,
 } from '@/lib/files/workspaceSymbolSearch'
 import { chordLabel, matchChord, runAppChord, useBindings } from '@/lib/keys/chords'
+import { isComposingEscape, swallowHeldEscape } from '@/lib/palette/paletteEscape'
 import { paletteFilter } from '@/lib/palette/paletteFilter'
 import { paletteReturnFocus } from '@/lib/palette/paletteFocus'
 import {
@@ -156,8 +157,10 @@ export function CommandPalette(): JSX.Element {
   return (
     <Dialog
       open={open}
-      onOpenChange={(o) => {
-        if (!o) finish()
+      onOpenChange={(o, details) => {
+        if (o) return
+        if (details.reason === 'escape-key') swallowHeldEscape()
+        finish()
       }}
     >
       <DialogHeader className="sr-only">
@@ -180,6 +183,13 @@ export function CommandPalette(): JSX.Element {
       >
         <Command
           onKeyDownCapture={(e) => {
+            if (!askMode && isComposingEscape(e.nativeEvent)) {
+              e.preventDefault()
+              e.stopPropagation()
+              swallowHeldEscape()
+              finish()
+              return
+            }
             if (matchChord(e.nativeEvent, isMac) !== PALETTE_TOGGLE) return
             e.stopPropagation()
             runAppChord(e.nativeEvent, isMac)

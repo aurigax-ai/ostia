@@ -17,7 +17,7 @@ import {
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { isRestorable } from '@/stores/workspaces/persistence'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { PaneActivity } from '@shared/types'
+import type { PaneActivity, QuitAnswer } from '@shared/types'
 
 export function runningCommandsOf(
   panes: readonly string[],
@@ -345,8 +345,26 @@ export async function collectQuitGroups(kept: ReadonlySet<string>): Promise<Runn
   return quitGroups(kept, enabled ? await paneActivities(panes) : {})
 }
 
-export function confirmQuit(groups: RunningGroup[]): Promise<boolean> {
-  return confirmGroups('quit', groups)
+export function confirmQuit(
+  groups: RunningGroup[],
+  keptShells: readonly string[] = [],
+): Promise<QuitAnswer> {
+  if (keptShells.length === 0) {
+    return confirmGroups('quit', groups).then((confirmed) => (confirmed ? 'quit' : 'cancel'))
+  }
+  return useCloseConfirmStore.getState().askQuit(groups, [...keptShells])
+}
+
+export function keptAgents(paneIds: readonly string[]): string[] {
+  const ids = new Set(paneIds)
+  return useWorkspacesStore.getState().workspaces.flatMap(
+    (workspace) =>
+      runningIn(
+        workspace,
+        panesOf([workspace]).filter((pane) => ids.has(pane.id)),
+        PLAIN,
+      ).agents,
+  )
 }
 
 export function confirmMove(workspace: Workspace, panes: readonly PaneNode[]): Promise<boolean> {

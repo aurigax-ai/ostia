@@ -1,6 +1,6 @@
 import type { BrowserWindow } from 'electron'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { RunningGroup } from '../../shared/types'
+import type { QuitAnswer, RunningGroup } from '../../shared/types'
 
 const ipcOn = vi.hoisted(() => vi.fn())
 vi.mock('electron', () => ({ ipcMain: { on: ipcOn } }))
@@ -10,6 +10,7 @@ const {
   ask,
   confirmQuit,
   groupsFromPtys,
+  parseQuitAnswer,
   parseRunningGroups,
   registerCloseGuard,
   withScratchFiles,
@@ -64,17 +65,25 @@ describe('ask', () => {
   })
 })
 
-function answeringWindow(id: number, running: unknown, confirm: boolean): BrowserWindow {
+function answeringWindow(
+  id: number,
+  running: unknown,
+  confirm: boolean | QuitAnswer,
+  questions: unknown[] = [],
+): BrowserWindow {
+  const reply = typeof confirm === 'boolean' ? (confirm ? 'quit' : 'cancel') : confirm
   const contents = {
     id,
     isLoading: () => false,
     isCrashed: () => false,
     once: vi.fn(),
     removeListener: vi.fn(),
-    send: (channel: string, requestId: number) =>
+    send: (channel: string, requestId: number, payload: unknown) => {
+      if (channel === 'window:confirm-close') questions.push(payload)
       queueMicrotask(() =>
-        answer({ sender: { id } }, requestId, channel === 'window:running' ? running : confirm),
-      ),
+        answer({ sender: { id } }, requestId, channel === 'window:running' ? running : reply),
+      )
+    },
   }
   return {
     isDestroyed: () => false,
@@ -99,21 +108,26 @@ interface Check {
     agentRunning: boolean
   }[]
   kept?: string[]
-  native?: boolean
+  keptShells?: string[]
+  native?: QuitAnswer
 }
 
 function check(spec: Check = {}) {
   const asked: (readonly RunningGroup[])[] = []
+  const askedKept: number[] = []
   return {
     asked,
+    askedKept,
     check: {
       scratchFiles: () => 0,
       kept: spec.kept ?? [],
+      keptShells: spec.keptShells ?? [],
       workspacesOf: (win: BrowserWindow) => spec.workspaces?.[win.webContents.id] ?? [],
       processes: () => spec.processes ?? [],
-      confirmNative: async (groups: readonly RunningGroup[]) => {
+      confirmNative: async (groups: readonly RunningGroup[], keptShells: number) => {
         asked.push(groups)
-        return spec.native ?? false
+        askedKept.push(keptShells)
+        return spec.native ?? 'cancel'
       },
     },
   }
@@ -123,12 +137,12 @@ describe('confirmQuit', () => {
   it('quits without asking when a window is still booting and holds no workspace yet', async () => {
     vi.useFakeTimers()
     const { win, sent } = silentWindow()
-    let approved: boolean | null = null
+    let approved: QuitAnswer | null = null
     void confirmQuit([win], win, check().check).then((v) => {
       approved = v
     })
     await vi.advanceTimersByTimeAsync(RUNNING_ANSWER_MS)
-    expect(approved).toBe(true)
+    expect(approved).toBe('quit')
     expect(sent.map(([channel]) => channel)).toEqual(['window:running'])
   })
 
@@ -137,12 +151,12 @@ describe('confirmQuit', () => {
     const { win: slow } = silentWindow(7)
     const fast = answeringWindow(8, [], false)
     const spec = check({ workspaces: { 7: [{ id: 'w1', name: 'api' }] } })
-    let approved: boolean | null = null
+    let approved: QuitAnswer | null = null
     void confirmQuit([slow, fast], slow, spec.check).then((v) => {
       approved = v
     })
     await vi.advanceTimersByTimeAsync(RUNNING_ANSWER_MS)
-    expect(approved).toBe(false)
+    expect(approved).toBe('cancel')
     expect(spec.asked).toEqual([])
   })
 
@@ -152,14 +166,14 @@ describe('confirmQuit', () => {
     const spec = check({
       workspaces: { 7: [{ id: 'w1', name: 'api' }] },
       processes: [{ paneId: 'p1', workspaceId: 'w1', program: 'make', agentRunning: false }],
-      native: true,
+      native: 'quit',
     })
-    let approved: boolean | null = null
+    let approved: QuitAnswer | null = null
     void confirmQuit([win], win, spec.check).then((v) => {
       approved = v
     })
     await vi.advanceTimersByTimeAsync(RUNNING_ANSWER_MS)
-    expect(approved).toBe(true)
+    expect(approved).toBe('quit')
     expect(spec.asked).toEqual([
       [{ workspaceId: 'w1', workspace: 'api', commands: ['make'], files: [], unanswered: true }],
     ])
@@ -170,7 +184,7 @@ describe('confirmQuit', () => {
       workspaces: { 7: [{ id: 'w1', name: 'api' }] },
       processes: [{ paneId: 'p1', workspaceId: 'w1', program: null, agentRunning: true }],
     })
-    expect(await confirmQuit([crashedWindow(7)], undefined, spec.check)).toBe(false)
+    expect(await confirmQuit([crashedWindow(7)], undefined, spec.check)).toBe('cancel')
     expect(spec.asked).toEqual([
       [{ workspaceId: 'w1', workspace: 'api', commands: [], agents: [''], files: [] }],
     ])
@@ -181,7 +195,7 @@ describe('confirmQuit', () => {
       workspaces: { 7: [{ id: 'w1', name: 'api' }] },
       processes: [{ paneId: 'p1', workspaceId: 'w1', program: null, agentRunning: false }],
     })
-    expect(await confirmQuit([crashedWindow(7)], undefined, spec.check)).toBe(true)
+    expect(await confirmQuit([crashedWindow(7)], undefined, spec.check)).toBe('quit')
     expect(spec.asked).toEqual([])
   })
 
@@ -191,7 +205,7 @@ describe('confirmQuit', () => {
       workspaces: { 9: [{ id: 'w1', name: 'api' }] },
       processes: [{ paneId: 'p1', workspaceId: 'w1', program: 'claude', agentRunning: true }],
     })
-    expect(await confirmQuit([win], win, spec.check)).toBe(true)
+    expect(await confirmQuit([win], win, spec.check)).toBe('quit')
     expect(win.focus).not.toHaveBeenCalled()
     expect(spec.asked).toEqual([])
   })
@@ -203,7 +217,7 @@ describe('confirmQuit', () => {
       true,
     )
     const spec = check()
-    expect(await confirmQuit([win], win, spec.check)).toBe(true)
+    expect(await confirmQuit([win], win, spec.check)).toBe('quit')
     expect(win.focus).toHaveBeenCalled()
     expect(spec.asked).toEqual([])
   })
@@ -211,9 +225,48 @@ describe('confirmQuit', () => {
   it('quits without asking when every window answers that nothing runs', async () => {
     const win = answeringWindow(9, [], false)
     const spec = check()
-    expect(await confirmQuit([win], win, spec.check)).toBe(true)
+    expect(await confirmQuit([win], win, spec.check)).toBe('quit')
     expect(win.focus).not.toHaveBeenCalled()
     expect(spec.asked).toEqual([])
+  })
+})
+
+describe('confirmQuit with kept shells', () => {
+  it('KSH-C97 asks about the kept shells even when nothing else would be lost', async () => {
+    const questions: unknown[] = []
+    const win = answeringWindow(9, [], 'keep-shells', questions)
+    const spec = check({ kept: ['p1'], keptShells: ['p1'] })
+    expect(await confirmQuit([win], win, spec.check)).toBe('keep-shells')
+    expect(questions).toEqual([{ groups: [], keptShells: ['p1'] }])
+  })
+
+  it('KSH-C98 ends the kept shells when the window answers Quit', async () => {
+    const win = answeringWindow(9, [], 'quit')
+    const spec = check({ kept: ['p1'], keptShells: ['p1'] })
+    expect(await confirmQuit([win], win, spec.check)).toBe('quit')
+  })
+
+  it('KSH-C99 offers the kept shells in the native dialog when no window can show one', async () => {
+    const spec = check({
+      workspaces: { 7: [{ id: 'w1', name: 'api' }] },
+      processes: [{ paneId: 'p1', workspaceId: 'w1', program: 'claude', agentRunning: true }],
+      kept: ['p1'],
+      keptShells: ['p1'],
+      native: 'keep-shells',
+    })
+    expect(await confirmQuit([crashedWindow(7)], undefined, spec.check)).toBe('keep-shells')
+    expect(spec.asked).toEqual([[]])
+    expect(spec.askedKept).toEqual([1])
+  })
+})
+
+describe('parseQuitAnswer', () => {
+  it('takes keep-shells only when keeping was offered and reads anything else as cancel', () => {
+    expect(parseQuitAnswer('keep-shells', true)).toBe('keep-shells')
+    expect(parseQuitAnswer('keep-shells', false)).toBe('cancel')
+    expect(parseQuitAnswer('quit', true)).toBe('quit')
+    expect(parseQuitAnswer(true, false)).toBe('cancel')
+    expect(parseQuitAnswer(undefined, true)).toBe('cancel')
   })
 })
 

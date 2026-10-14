@@ -4,6 +4,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileS
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { KEPT_SHELLS_DIR } from '../src/shared/terminal/keepShells'
+import { running } from '../test/tmux'
 import { chords } from './chords'
 import {
   DOM_RENDERER_SETTINGS,
@@ -682,7 +683,7 @@ test('KSH-C70 Restart leaves a kept agent mid-turn running and asks nothing', as
   }
 })
 
-test('KSH-C71 Quit still ends a kept agent mid-turn, so it asks and names the agent', async () => {
+test('KSH-C71 Quit asks about a kept agent mid-turn and offers to keep it', async () => {
   seedSettings(dataHome, KEEP_AND_ASK)
   const { app, win } = await launch(dataHome, pathWith(agentMidTurn()))
   try {
@@ -691,10 +692,61 @@ test('KSH-C71 Quit still ends a kept agent mid-turn, so it asks and names the ag
     await expect(screen(win)).toContainText('fake-agent-ready', { timeout: 15_000 })
     expect(await pressQuit(app, win)).toBe('asked')
     const dialog = win.getByRole('dialog')
-    await expect(dialog).toContainText('1 agent will be stopped')
+    await expect(dialog).toContainText('1 kept shell is running')
+    await expect(dialog.getByRole('button', { name: 'Quit and keep shells' })).toBeFocused()
+    await expect(dialog.getByRole('button', { name: 'Quit and end shells' })).toBeVisible()
     await dialog.getByRole('button', { name: 'Cancel' }).click()
     await expect(dialog).toBeHidden()
   } finally {
     await endUnattended(app)
   }
+})
+
+function keptSocket(): string {
+  const userData = join(dataHome, 'userData')
+  const name = createHash('sha256').update(userData).digest('hex').slice(0, 16)
+  return join(userData, KEPT_SHELLS_DIR, name)
+}
+
+async function quitChoosing(launched: Launched, button: string): Promise<void> {
+  expect(await pressQuit(launched.app, launched.win)).toBe('asked')
+  const dialog = launched.win.getByRole('dialog')
+  await expect(dialog).toContainText('1 kept shell is running')
+  const exited = waitForExit(launched.app)
+  await dialog.getByRole('button', { name: button }).click()
+  await exited
+}
+
+test('KSH-C102 Quit and keep shells leaves a running command alive, and the next start shows it finish', async () => {
+  seedSettings(dataHome, KEEP_AND_ASK)
+  const first = await launch(dataHome)
+  await openWorkspace(first.win)
+  await runInTerminal(first.win, 'sleep 5; echo quit-kept-$((6*7))')
+  await savedLayout()
+  await quitChoosing(first, 'Quit and keep shells')
+  expect(existsSync(keptSocket())).toBe(true)
+
+  const second = await launch(dataHome)
+  try {
+    await expect(screen(second.win)).toContainText('quit-kept-42', { timeout: 15_000 })
+    await expect(screen(second.win)).toContainText(PROMPT)
+  } finally {
+    await endUnattended(second.app)
+  }
+})
+
+test('KSH-C103 Quit and end shells ends the private tmux server', async () => {
+  seedSettings(dataHome, KEEP_AND_ASK)
+  const first = await launch(dataHome)
+  await openWorkspace(first.win)
+  await runInTerminal(first.win, 'echo shell=$$ server=$PPID; sleep 30')
+  await expect(screen(first.win)).toContainText(/shell=\d+ server=\d+/, { timeout: 15_000 })
+  const printed = /shell=(\d+) server=(\d+)/.exec((await screen(first.win).textContent()) ?? '')
+  const [shell, server] = [Number(printed?.[1]), Number(printed?.[2])]
+  await savedLayout()
+  expect(running(shell)).toBe(true)
+  expect(running(server)).toBe(true)
+  await quitChoosing(first, 'Quit and end shells')
+  await expect.poll(() => running(server), { timeout: 15_000 }).toBe(false)
+  await expect.poll(() => running(shell), { timeout: 15_000 }).toBe(false)
 })
