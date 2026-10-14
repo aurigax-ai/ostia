@@ -5,7 +5,7 @@ allowBuilds:
   esbuild: true
   node-pty: true
 minimumReleaseAgeExclude:
-  - '@aurigax-ai/graph@0.1.0'
+  - '@aurigax-ai/graph@0.2.0'
   - '@anthropic-ai/sandbox-runtime@0.0.79'
   - '@aurigax-ai/ghostty-web@0.3.3'
 patchedDependencies:
