@@ -896,7 +896,6 @@
       ],
       "specs": [
         "e2e/new-terminal-focus.spec.ts",
-        "e2e/pane-close.spec.ts",
         "e2e/pane-dnd.spec.ts",
         "e2e/pane-lock.spec.ts",
         "e2e/split-tabs.spec.ts",
