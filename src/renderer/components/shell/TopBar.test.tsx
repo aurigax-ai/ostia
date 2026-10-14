@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { extensionCommandId } from '@/commands/extensionBridge'
 import { commands } from '@/commands/registry'
+import { CommandPalette } from '@/components/palette/CommandPalette'
 import { createPane, findExtensionPane } from '@/layout/tree'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
@@ -234,6 +235,21 @@ describe('TopBar', () => {
     await user.click(files)
     expect(useUIStore.getState().filesOpen).toBe(false)
     expect(files).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('the top-bar search opens Search Everywhere with the keyboard in its input', async () => {
+    render(
+      <>
+        <TopBar />
+        <CommandPalette />
+      </>,
+    )
+    await userEvent.click(screen.getByRole('button', { name: /Search or run a command/ }))
+
+    const everywhere = await screen.findByRole('dialog', { name: 'Search everywhere' })
+    expect(useUIStore.getState().paletteMode).toBe('everywhere')
+    await waitFor(() => expect(within(everywhere).getByRole('combobox')).toHaveFocus())
+    expect(within(everywhere).getByRole('combobox')).toHaveValue('')
   })
 
   it('puts the dashboard button after Files and before the Git and extension panel toggles', () => {
