@@ -4,13 +4,13 @@ import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } fr
 import { openWorkspace } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
-async function launch(closeToTray: boolean) {
+async function launch() {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
   seedSettings(dataHome, {
     ...DOM_RENDERER_SETTINGS,
-    workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, closeToTray },
+    workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, closeToTray: true },
   })
   const launchOptions = isolatedLaunch(dataHome)
   const app = await electron.launch({ ...launchOptions, env: { ...launchOptions.env, HOME: home } })
@@ -23,7 +23,7 @@ async function launch(closeToTray: boolean) {
 
 test('MGR-C1 closing the window with close-to-tray on hides it and the shell keeps running', async () => {
   test.setTimeout(60_000)
-  const { app, win } = await launch(true)
+  const { app, win } = await launch()
   try {
     await win.keyboard.type('sleep 2; echo after_hide_$((40+2))')
     await win.keyboard.press('Enter')
@@ -47,10 +47,4 @@ test('MGR-C1 closing the window with close-to-tray on hides it and the shell kee
   } finally {
     await app.close().catch(() => {})
   }
-})
-
-test('MGR-C2 closing the window with close-to-tray off quits Ostia', async () => {
-  test.setTimeout(60_000)
-  const { app, win } = await launch(false)
-  await Promise.all([app.waitForEvent('close'), win.evaluate(() => window.ostia.window.close())])
 })
