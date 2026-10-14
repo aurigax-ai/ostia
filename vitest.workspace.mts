@@ -31,6 +31,7 @@ export default defineWorkspace([
         'test/retry.test.ts',
         'test/installScript.test.ts',
         'test/electronHeaders.test.ts',
+        'test/coverageReport.test.ts',
       ],
     },
   },
