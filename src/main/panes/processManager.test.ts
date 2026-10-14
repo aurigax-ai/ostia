@@ -53,6 +53,8 @@ const AGENTS: Record<string, string[]> = {
 }
 
 const sandboxedWorkspaces = new Set<string>()
+const agentPanes = new Set<string>()
+const titles = new Map<string, string>()
 
 const registry = registerProcessMethods({
   isSandboxed: (workspaceId) => sandboxedWorkspaces.has(workspaceId),
@@ -86,6 +88,8 @@ const registry = registerProcessMethods({
     rings.delete(paneId)
   },
   agentArgv: (name) => AGENTS[name] ?? null,
+  isAgent: (paneId) => agentPanes.has(paneId),
+  paneTitle: async (paneId) => titles.get(paneId),
   hasShell: (paneId) => rings.has(paneId),
   runInPane: (paneId, command) => {
     reruns.push({ paneId, command })
@@ -165,9 +169,33 @@ afterEach(() => {
   stopControlServer()
   for (const workspaceId of ['ws1', 'ws2']) registry.workspaceClosed(workspaceId)
   sandboxedWorkspaces.clear()
+  agentPanes.clear()
+  titles.clear()
 })
 
 describe('agent.run', () => {
+  it('puts an agent caller’s workers into one split tab named after the caller', async () => {
+    agentPanes.add('agent-pane')
+    titles.set('agent-pane', 'api')
+    const conn = await client(agent)
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'one' })
+    titles.set('agent-pane', '✳ Fixing the build')
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'two' })
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'three', splitTab: 'docs' })
+    expect(opened.map((req) => req.splitTab)).toEqual([
+      { name: 'api · workers' },
+      { name: 'api · workers' },
+      { name: 'docs' },
+    ])
+  })
+
+  it('opens a plain tab for a caller that is not an agent', async () => {
+    titles.set('neighbour-pane', 'zsh')
+    const conn = await client(neighbour)
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'one' })
+    expect(opened[0]).not.toHaveProperty('splitTab')
+  })
+
   it('starts a known agent in a background tab with the prompt as one quoted argument', async () => {
     cwds.set('agent-pane', '/home/u/proj')
     const conn = await client(agent)

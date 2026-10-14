@@ -1,4 +1,4 @@
-const SPLIT_TAB_NAME_MAX = 60
+export const SPLIT_TAB_NAME_MAX = 60
 
 function hasControlCharacter(text: string): boolean {
   for (const ch of text) {
@@ -12,8 +12,7 @@ export type SplitTabSide = 'right' | 'down'
 
 export interface SplitTabPlacement {
   name: string
-  side: SplitTabSide
-  joinPaneId?: string
+  side?: SplitTabSide
 }
 
 export function normalizeSplitTabName(raw: unknown): string | null {

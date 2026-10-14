@@ -502,6 +502,11 @@ function loadPty(): typeof import('node-pty') | null {
   return ptyModule ?? null
 }
 
+interface PaneTitleEntry {
+  paneId: string
+  title: string
+}
+
 interface PtyEntry {
   paneId: string
   pty: PaneProcess
@@ -3842,6 +3847,14 @@ app.whenReady().then(() => {
     },
     cwdOfPane: (paneId) => terminalState.get(paneId)?.cwd,
     agentArgv: (name) => managerAgents(managerSettings())[name] ?? null,
+    isAgent: (paneId) => agentRunning.has(paneId),
+    paneTitle: async (paneId) => {
+      const pane = getByPaneId(paneId)
+      if (!pane) return undefined
+      const res = await execCommand({ ...targetOf(pane), paneId: null }, 'pane.list')
+      const panes = res.ok && Array.isArray(res.result) ? (res.result as PaneTitleEntry[]) : []
+      return panes.find((p) => p.paneId === paneId)?.title
+    },
     reach,
     interruptGraceMs: INTERRUPT_GRACE_MS,
   })
@@ -3889,6 +3902,11 @@ app.whenReady().then(() => {
     panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
     waking: paneWaking,
   })
+  const workspaceCommandTarget = (workspaceId: string): CommandTarget => ({
+    windowId: windowForWorkspace(workspaceId) ?? '',
+    workspaceId,
+    paneId: null,
+  })
   registerPaneMoveToMethods({
     ...paneReachDeps,
     ownerWindow: windowForWorkspace,
@@ -3896,6 +3914,10 @@ app.whenReady().then(() => {
     isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
     ensureReach: reach.ensure,
     move: (to, workspaceId) => execCommand(targetOf(to), 'pane.moveToWorkspace', { workspaceId }),
+    tabPlan: (workspaceId, paneIds, tab) =>
+      execCommand(workspaceCommandTarget(workspaceId), 'pane.tabPlan', { paneIds, tab }),
+    joinTab: (workspaceId, paneIds, tab) =>
+      execCommand(workspaceCommandTarget(workspaceId), 'pane.joinTab', { paneIds, tab }),
   })
   registerPaneWaitMethods({
     ...paneReachDeps,

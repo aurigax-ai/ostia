@@ -753,6 +753,38 @@ export function addTab(
   })
 }
 
+export function insertTab(
+  root: LayoutNode,
+  nearId: string,
+  tab: TabNode,
+  after: boolean,
+): LayoutNode {
+  const slotId = slotIdOf(root, nearId)
+  if (!slotId) return root
+  return replaceSlot(root, slotId, (slot) => {
+    if (slot.type === 'pane') return tabsOf(slot.id, ...(after ? [slot, tab] : [tab, slot]))
+    const children = [...slot.children]
+    children.splice(tabIndex(slot, nearId) + (after ? 1 : 0), 0, tab)
+    return { ...slot, children }
+  })
+}
+
+export function replaceTab(
+  root: LayoutNode,
+  tabId: string,
+  fn: (tab: TabNode) => TabNode,
+): LayoutNode {
+  const tab = tabSource(root, tabId)
+  const tabs = tab ? tabsOfPane(root, firstPaneId(tab)) : null
+  if (!tab || !tabs || !tabs.children.includes(tab)) return root
+  const next = fn(tab)
+  if (next === tab) return root
+  const children = tabs.children.map((c) => (c === tab ? next : c))
+  const lost = findPane(tab, tabs.activeId) && !findPane(next, tabs.activeId)
+  const activeId = lost ? firstPaneId(next) : tabs.activeId
+  return replaceSlot(root, tabs.id, () => ({ ...tabs, children, activeId }))
+}
+
 export function selectTab(root: LayoutNode, paneId: string): LayoutNode {
   const tabs = tabsOfPane(root, paneId)
   if (!tabs || tabs.activeId === paneId) return root

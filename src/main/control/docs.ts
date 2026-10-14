@@ -138,21 +138,22 @@ const CLI_HELP = `ostia — control-socket CLI
                                  outside your reach needs all-workspaces, and a sandboxed
                                  workspace opens tabs only in itself.
                                  --split-tab T: the first run with T opens its tab as usual;
-                                 each later run with the same T joins that tab, splitting it
-                                 --split right (default) or down, so one tab shows them side
-                                 by side (a split tab named T). It never types into a pane
-                                 that is already open
+                                 each later run with the same T joins that tab, so one tab
+                                 shows them together (a split tab named T, arranged by
+                                 Ostia). It never types into a pane that is already open
   ostia agent resume <pane>      type the pane's recorded resume command at its prompt, or wake
                                  it when hibernated; prints {paneId,resumed}, exit 1 when it
                                  has nothing to resume. Same asks as pane send
   ostia agent run <agent> [--name X] [--cwd P] [--workspace <id|name>]
-                                 [--split-tab T [--split right|down]] <prompt|->
+                                 [--split-tab T] <prompt|->
                                  start another agent (claude, codex or
                                  one the human configured) in a new terminal tab with that prompt
                                  as its one argument, quoted for you (- reads it from stdin).
                                  Same result and rules as process run: wait for it with ostia pane
                                  wait, follow it with ostia process logs, talk to it with ostia
-                                 pane send and ostia pane read
+                                 pane send and ostia pane read. From an agent without
+                                 --split-tab the worker joins one split tab for you,
+                                 "<your tab title> · workers"
   ostia process ls               id, name, status, paneId, command of this workspace's
                                  processes: starting, running, exited(code), or closed (the
                                  human closed the tab)
@@ -219,7 +220,13 @@ const CLI_HELP = `ostia — control-socket CLI
                                  or agent run needs nothing more; any other pane asks the
                                  human (kill-pane, plus all-workspaces outside your
                                  reach). A pane the human locked answers pane-locked
-  ostia pane move <pane>… --workspace <id|name> [--json]  move those tabs, running, into
+  ostia pane move <pane>… --tab <name>|new [--json]  put those panes, running, into the
+                                 split tab of that name in their workspace (created when two
+                                 panes share it, arranged by Ostia), or with new back into
+                                 tabs of their own. A pane already there is left alone; it
+                                 joins only a split tab whose panes you all reach; a locked
+                                 pane answers pane-locked. Prints the moved paneIds
+  ostia pane move <pane>… --workspace <id|name> [--tab <name>|new] [--json]  move those tabs, running, into
                                  another workspace of their window; each lands as a new
                                  tab with the same paneId, process and screen. Prints the
                                  moved paneIds. A tab you opened with process run or agent

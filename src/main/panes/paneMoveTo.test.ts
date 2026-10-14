@@ -42,6 +42,9 @@ const scoped = new Set<string>()
 const children = new Map<string, string>()
 const moved: { paneId: string; workspaceId: string }[] = []
 const reachAsked: string[] = []
+const tabMembers = new Map<string, string[]>()
+const lockedPanes = new Set<string>()
+const joins: { workspaceId: string; paneIds: string[]; tab: string | null }[] = []
 
 const inScope = async (ctx: ReachCaller, workspaceId: string) =>
   ctx.identity.workspaceId === workspaceId || scoped.has(workspaceId)
@@ -71,6 +74,18 @@ registerPaneMoveToMethods({
   move: async (pane, workspaceId) => {
     moved.push({ paneId: pane.paneId, workspaceId })
     return { ok: true, result: { moved: [pane.paneId] } } as CommandResult
+  },
+  tabPlan: async (workspaceId, paneIds, tab) => ({
+    ok: true,
+    result: {
+      members: tab ? (tabMembers.get(`${workspaceId}/${tab}`) ?? []) : [],
+      locked: paneIds.filter((id) => lockedPanes.has(id)),
+    },
+  }),
+  joinTab: async (workspaceId, paneIds, tab) => {
+    joins.push({ workspaceId, paneIds, tab })
+    const members = tab ? (tabMembers.get(`${workspaceId}/${tab}`) ?? []) : []
+    return { ok: true, result: { moved: paneIds.filter((id) => !members.includes(id)) } }
   },
 })
 
@@ -126,6 +141,9 @@ beforeEach(() => {
   children.set('child-pane', 'agent-pane')
   moved.length = 0
   reachAsked.length = 0
+  tabMembers.clear()
+  lockedPanes.clear()
+  joins.length = 0
   setCapFilter(() => true)
 })
 
@@ -202,7 +220,7 @@ describe('pane.moveTo', () => {
     await expect(move(conn, ['worker'], 'ws-other')).rejects.toThrow('other-window:')
     await expect(move(conn, ['worker'], 'nope')).rejects.toThrow('unknown-workspace: nope')
     await expect(conn.sendRequest('pane.moveTo', { panes: ['worker'] })).rejects.toThrow(
-      'bad-request: workspace',
+      'bad-request: workspace or tab',
     )
     expect(moved).toEqual([])
   })
@@ -215,6 +233,77 @@ describe('pane.moveTo', () => {
       workspaceId: 'ws1',
     })
     expect(moved).toEqual([])
+  })
+})
+
+const moveToTab = (conn: MessageConnection, panes: string[], tab: string, workspace?: string) =>
+  conn.sendRequest('pane.moveTo', { panes, tab, ...(workspace ? { workspace } : {}) })
+
+describe('pane.moveTo with a tab', () => {
+  it('joins a tab the caller opened into a split tab of its workspace without asking', async () => {
+    const conn = await client(agent)
+    await expect(moveToTab(conn, ['worker'], 'workers')).resolves.toEqual({
+      ok: true,
+      moved: [child.externalId],
+    })
+    expect(joins).toEqual([{ workspaceId: 'ws1', paneIds: ['child-pane'], tab: 'workers' }])
+    expect(moved).toEqual([])
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('reports nothing for a pane already in the tab', async () => {
+    tabMembers.set('ws1/workers', ['child-pane'])
+    const conn = await client(agent)
+    await expect(moveToTab(conn, ['worker'], 'workers')).resolves.toEqual({ ok: true, moved: [] })
+  })
+
+  it('puts panes back into their own tabs with new', async () => {
+    const conn = await client(agent)
+    await moveToTab(conn, ['worker'], 'new')
+    expect(joins).toEqual([{ workspaceId: 'ws1', paneIds: ['child-pane'], tab: null }])
+  })
+
+  it('joins a tab only when the caller reaches every pane in it', async () => {
+    tabMembers.set('ws1/workers', ['sibling-pane'])
+    const conn = await client(agent)
+    await expect(moveToTab(conn, ['worker'], 'workers')).rejects.toThrow('denied: type-other-pane')
+    expect(asked[0]).toMatchObject({ action: 'pane.moveTo' })
+    expect(joins).toEqual([])
+  })
+
+  it('refuses a locked pane before moving anything', async () => {
+    scoped.add('ws2')
+    lockedPanes.add('child-pane')
+    const conn = await client(agent)
+    await expect(moveToTab(conn, ['worker'], 'workers', 'ws2')).rejects.toThrow('pane-locked')
+    expect(moved).toEqual([])
+    expect(joins).toEqual([])
+  })
+
+  it('moves into another workspace first and joins the tab there', async () => {
+    scoped.add('ws2')
+    const conn = await client(agent)
+    await expect(moveToTab(conn, ['worker'], 'workers', 'ws2')).resolves.toEqual({
+      ok: true,
+      moved: [child.externalId],
+      workspaceId: 'ws2',
+    })
+    expect(moved).toEqual([{ paneId: 'child-pane', workspaceId: 'ws2' }])
+    expect(joins).toEqual([{ workspaceId: 'ws2', paneIds: ['child-pane'], tab: 'workers' }])
+  })
+
+  it('refuses the manager pane, scratch and sandboxed workspaces and a bad name', async () => {
+    answer = 'once'
+    for (const ws of ['ws-scratch', 'ws-sbx']) scoped.add(ws)
+    const conn = await client(agent)
+    await expect(moveToTab(conn, [managerPane.externalId], 'workers')).rejects.toThrow(
+      'unknown-pane',
+    )
+    await expect(moveToTab(conn, ['worker'], 'workers', 'ws-scratch')).rejects.toThrow('scratch:')
+    await expect(moveToTab(conn, ['worker'], 'workers', 'ws-sbx')).rejects.toThrow('sandboxed:')
+    await expect(moveToTab(conn, ['worker'], ' ')).rejects.toThrow('bad-request: tab')
+    expect(moved).toEqual([])
+    expect(joins).toEqual([])
   })
 })
 
@@ -241,7 +330,7 @@ describe('pane.moveTo from a script token', () => {
     )
     const full = await client({ token: 'ostia_move-full' })
     await expect(full.sendRequest('pane.moveTo', { panes: [sibling.externalId] })).rejects.toThrow(
-      'bad-request: workspace',
+      'bad-request: workspace or tab',
     )
     await expect(full.sendRequest('pane.moveTo', { workspace: 'ws2' })).rejects.toThrow(
       'bad-request: panes',

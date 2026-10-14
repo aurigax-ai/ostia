@@ -145,6 +145,8 @@ const registry = registerProcessMethods({
     return true
   },
   cwdOfPane: () => undefined,
+  isAgent: () => false,
+  paneTitle: async () => undefined,
   agentArgv: (name) => (name === 'claude' ? ['claude'] : null),
   interruptGraceMs: 50,
 })
@@ -300,36 +302,19 @@ describe('ostia process (the real CLI against a live control server)', () => {
     expect(Object.keys(started).sort()).toEqual(['id', 'name', 'paneId'])
   })
 
-  it('run --split-tab: the first opens its own tab, later ones join the newest member', async () => {
+  it('run --split-tab: passes the split tab name, and a side only with --split', async () => {
     const first = await ostia(['process', 'run', 'pnpm web', '--split-tab', 'dev'])
     expect(first.stderr).toBe('')
-    expect(opened[0]).toMatchObject({
-      backgroundTab: true,
-      splitTab: { name: 'dev', side: 'right' },
-    })
-    expect(opened[0].splitTab).not.toHaveProperty('joinPaneId')
-    const firstTab = `tab-${tabSeq}`
+    expect(opened[0]).toMatchObject({ backgroundTab: true, splitTab: { name: 'dev' } })
+    expect(opened[0].splitTab).toEqual({ name: 'dev' })
 
     await ostia(['process', 'run', 'pnpm api', '--split-tab', 'dev', '--split', 'down'])
-    expect(opened[1]).toMatchObject({
-      splitTab: { name: 'dev', side: 'down', joinPaneId: firstTab },
-    })
-    const secondTab = `tab-${tabSeq}`
+    expect(opened[1].splitTab).toEqual({ name: 'dev', side: 'down' })
 
     await ostia(['agent', 'run', 'claude', '--split-tab', 'dev', 'watch the logs'])
-    expect(opened[2]).toMatchObject({ splitTab: { name: 'dev', joinPaneId: secondTab } })
-
-    await ostia(['process', 'run', 'pnpm docs', '--split-tab', 'other'])
-    expect(opened[3].splitTab).toEqual({ name: 'other', side: 'right' })
+    expect(opened[2].splitTab).toEqual({ name: 'dev' })
     const listed = await ostia(['process', 'ls'])
     expect(listed.code).toBe(0)
-  })
-
-  it('run --split-tab: skips a member whose tab the human closed', async () => {
-    await ostia(['process', 'run', 'pnpm web', '--split-tab', 'gone'])
-    registry.paneClosed(`tab-${tabSeq}`)
-    await ostia(['process', 'run', 'pnpm api', '--split-tab', 'gone'])
-    expect(opened[1].splitTab).toEqual({ name: 'gone', side: 'right' })
   })
 
   it('run: refuses --split without --split-tab and a side that is not right or down', async () => {

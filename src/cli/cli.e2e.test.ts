@@ -277,6 +277,8 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         moves.push({ paneId: to.paneId, workspaceId })
         return { ok: true, result: undefined }
       },
+      tabPlan: async () => ({ ok: true, result: { members: [], locked: [] } }),
+      joinTab: async (_workspaceId, paneIds) => ({ ok: true, result: { moved: paneIds } }),
     })
   }, 60_000)
 

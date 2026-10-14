@@ -23,7 +23,13 @@ export type PaneCall =
   | { method: 'pane.wake'; params: PaneWakeParams; json: boolean }
   | { method: 'pane.hibernate'; params: { panes: string[] }; json: boolean }
   | { method: 'pane.close'; params: { panes: string[] }; json: boolean }
-  | { method: 'pane.moveTo'; params: { panes: string[]; workspace: string }; json: boolean }
+  | { method: 'pane.moveTo'; params: PaneMoveParams; json: boolean }
+
+interface PaneMoveParams {
+  panes: string[]
+  workspace?: string
+  tab?: string
+}
 
 interface PaneWakeParams {
   panes: string[]
@@ -66,6 +72,7 @@ const USAGE = [
   '       ostia pane wake <pane>… [--wait [--timeout <s>]] [--json]',
   '       ostia pane hibernate <pane>… [--json]',
   '       ostia pane close <pane>… [--json]',
+  '       ostia pane move <pane>… --tab <name>|new [--workspace <id|name>] [--json]',
   '       ostia pane move <pane>… --workspace <id|name> [--json]',
   '<pane> is a paneId or a process id or name (ostia process ls); list panes with',
   'ostia pane.list (JSON: paneId, kind, title, cwd, running, agent, agentState, hibernated, …)',
@@ -137,13 +144,17 @@ export function hibernateOutcome(
 
 function parseMove(argv: string[]): PaneCall {
   const { positional, values, booleans } = parseArgs(argv, {
-    values: { workspace: '--workspace' },
+    values: { workspace: '--workspace', tab: '--tab' },
     booleans: { json: '--json' },
   })
-  if (positional.length === 0 || !values.workspace) throw new Error(USAGE)
+  if (positional.length === 0 || (!values.workspace && !values.tab)) throw new Error(USAGE)
   return {
     method: 'pane.moveTo',
-    params: { panes: positional, workspace: values.workspace },
+    params: {
+      panes: positional,
+      ...(values.workspace ? { workspace: values.workspace } : {}),
+      ...(values.tab ? { tab: values.tab } : {}),
+    },
     json: booleans.json,
   }
 }
@@ -353,10 +364,10 @@ export async function runPaneVerb(
     call = { method: 'pane.input', params: { ...call.params, text } }
   }
   if (call.method === 'pane.moveTo') {
-    const workspace = await resolveWorkspaceRef(conn, call.params.workspace)
+    const { workspace } = call.params
     const result = await conn.sendRequest<{ moved: string[] }>(call.method, {
       ...call.params,
-      workspace,
+      ...(workspace ? { workspace: await resolveWorkspaceRef(conn, workspace) } : {}),
     })
     console.log(call.json ? JSON.stringify(result) : result.moved.join('\n'))
     return 0

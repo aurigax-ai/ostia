@@ -209,8 +209,6 @@ Anything registered in the command palette can be run directly by id, with an
 optional JSON args blob as the next argv:
 
 ```sh
-ostia pane.splitRight
-ostia pane.splitDown
 ostia pane.close
 ostia workspace.new
 ostia editor.open '{"path":"src/index.ts"}'  # the raw command: reuses the editor pane, home folder only
@@ -232,7 +230,7 @@ focus.
 
 ```sh
 ostia process run "npm run dev" [--name web] [--cwd /path]  # -> { id, name, paneId }
-ostia process run "npm run api" --name api --split-tab dev [--split right|down]
+ostia process run "npm run api" --name api --split-tab dev
 ostia process ls                   # id, name, status, paneId, cmd
 ostia process logs <id|name> [--since N]  # that command's output only, as plain text
 ostia process kill <id|name>       # Ctrl+C; ends the tab's shell if it keeps running
@@ -252,11 +250,13 @@ ostia process restart <id|name>    # Ctrl+C, then the same line again in the sam
   `ostia pane read <paneId>` let you answer it. An unknown name answers `unknown-agent`: start
   that one with `ostia process run` instead.
 - To show related processes in one tab, give them the same `--split-tab <name>`: the first
-  run opens its tab as usual, and every later run with that name joins that tab beside the
-  others (`--split right`, the default, or `--split down`). The human sees one tab, a split
-  tab, with a segment per process. `ostia agent run` takes the same flags. It still only
-  opens new terminals: it never types into one that is open. `ostia pane.list` gives
+  run opens its tab as usual, and every later run with that name joins that tab. The human
+  sees one tab, a split tab, with a segment per process; Ostia arranges it (side by side while
+  each segment stays readable, then a grid). `ostia agent run` takes the same flag. It still
+  only opens new terminals: it never types into one that is open. `ostia pane.list` gives
   each member's `splitTabId` and `splitTabName`.
+- `ostia agent run` from an agent without `--split-tab` puts the new worker into one split tab
+  for you, `<your tab title> · workers`; `--split-tab <name>` picks another.
 - Status is `starting` (not typed yet), `running`, `exited(<code>)`, or `closed` (the human
   closed the tab; start it again with `ostia process run`). Nothing survives a restart of
   Ostia: a restored tab is an idle shell and the list is empty.
@@ -279,7 +279,8 @@ ostia pane hibernate <pane>... [--json]  # stop those agent panes (kill-pane); a
 ostia agent resume <pane>                # type its recorded resume command (wakes it when hibernated)
 ostia workspace.hibernateAgents --workspace <id|name>  # hibernate its idle agents (kill-pane); resumeAgents wakes them
 ostia pane close <pane>... [--json]      # close those panes
-ostia pane move <pane>... --workspace <id|name> [--json]  # move running tabs to another workspace
+ostia pane move <pane>... --tab <name>|new [--json]  # into a split tab, or back into own tabs
+ostia pane move <pane>... --workspace <id|name> [--tab <name>|new] [--json]  # to another workspace
 ostia pane rename <pane> <title...> | --clear  # name its tab (your own needs nothing)
 ```
 
@@ -316,7 +317,13 @@ ostia pane rename <pane> <title...> | --clear  # name its tab (your own needs no
 - `pane close` closes the pane at once, even while a command runs in it; the human is asked
   only when it holds their unsaved file changes. A pane the human locked answers
   `pane-locked`: leave it open, you can't unlock it.
-- `pane move` moves running tabs into another workspace of the same window (`--workspace`
+- `pane move --tab <name>` puts running panes into the split tab of that name in their
+  workspace (the name `--split-tab` uses), creating it when two panes share the name, and
+  arranges it; `--tab new` puts each pane back into a tab of its own. A pane already there is
+  left alone, so it is safe to repeat. It joins only a split tab whose panes you all reach, and
+  refuses a pane the human locked (`pane-locked:`). The processes keep running; nothing is
+  typed.
+- `pane move --workspace` moves running tabs into another workspace of the same window (`--workspace`
   takes an id or a name from `ostia workspace list`). The process, screen and `paneId` stay
   the same; each lands as a new tab. Your own pane and tabs you opened need nothing more;
   any other pane asks for `type-other-pane`, and a workspace outside your reach asks for

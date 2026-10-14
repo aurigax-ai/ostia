@@ -641,7 +641,11 @@
         "src/renderer/lib/agents/paneAgent.ts",
         "test/fixtures/agents/"
       ],
-      "specs": ["e2e/processes.spec.ts", "e2e/worker-workspace.spec.ts"]
+      "specs": [
+        "e2e/pane-move-tab.spec.ts",
+        "e2e/processes.spec.ts",
+        "e2e/worker-workspace.spec.ts"
+      ]
     },
     {
       "name": "attention",
@@ -884,6 +888,9 @@
         "src/renderer/components/rail/CloseConfirmDialog.tsx",
         "src/renderer/lib/panes/tabRow.ts",
         "src/renderer/lib/panes/splitTabs.ts",
+        "src/renderer/lib/panes/splitTabSeeds.ts",
+        "src/renderer/layout/tabJoin.ts",
+        "src/renderer/commands/paneTabCommands.ts",
         "src/renderer/lib/panes/paneDrag.ts",
         "src/renderer/lib/panes/dropZone.ts",
         "src/renderer/lib/panes/panelSizes.ts",
@@ -898,6 +905,7 @@
         "e2e/new-terminal-focus.spec.ts",
         "e2e/pane-dnd.spec.ts",
         "e2e/pane-lock.spec.ts",
+        "e2e/pane-move-tab.spec.ts",
         "e2e/split-tabs.spec.ts",
         "e2e/tab-rename.spec.ts",
         "e2e/tab-switch.spec.ts"

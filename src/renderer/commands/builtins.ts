@@ -146,6 +146,7 @@ import { settingsSchemaAt } from '../settings/settingsSchema'
 import { registerBrowserCommands } from './browserCommands'
 import { type CoreCommandId, registerCore } from './core'
 import { registerGitCommands } from './gitCommands'
+import { registerPaneTabCommands } from './paneTabCommands'
 import { type CommandContext, commands } from './registry'
 
 interface PaneListEntry extends PaneAgentReport {
@@ -296,6 +297,7 @@ function editInRail(edit: RailEdit): void {
 export function registerBuiltinCommands(): void {
   registerBrowserCommands()
   registerGitCommands()
+  registerPaneTabCommands()
   commands.setContextProvider((): CommandContext => {
     const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
     const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined

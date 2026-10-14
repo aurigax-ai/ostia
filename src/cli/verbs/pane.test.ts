@@ -300,7 +300,20 @@ describe('pane move', () => {
     })
   })
 
-  it('needs a pane and a workspace', () => {
+  it('takes a split tab by name or new, with or without a workspace', () => {
+    expect(parsePaneArgs(['move', 'fixer', 'w2', '--tab', 'api · workers'])).toEqual({
+      method: 'pane.moveTo',
+      params: { panes: ['fixer', 'w2'], tab: 'api · workers' },
+      json: false,
+    })
+    expect(parsePaneArgs(['move', 'fixer', '--tab', 'new', '--workspace', 'w3'])).toEqual({
+      method: 'pane.moveTo',
+      params: { panes: ['fixer'], workspace: 'w3', tab: 'new' },
+      json: false,
+    })
+  })
+
+  it('needs a pane and a workspace or a tab', () => {
     expect(() => parsePaneArgs(['move', 'fixer'])).toThrow('ostia pane move <pane>')
     expect(() => parsePaneArgs(['move', '--workspace', 'w3'])).toThrow('ostia pane move <pane>')
   })

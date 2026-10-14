@@ -4,6 +4,7 @@ import { MANAGER_AGENT_NAME } from '../../shared/agents/managerSettings'
 import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import {
+  SPLIT_TAB_NAME_MAX,
   type SplitTabPlacement,
   type SplitTabSide,
   normalizeSplitTabName,
@@ -274,14 +275,6 @@ export class ProcessRegistry {
       .map((e) => e.paneId)
   }
 
-  splitTabMember(workspaceId: string, splitTab: string): string | undefined {
-    const members = [...this.entries.values()].filter(
-      (e) =>
-        e.splitTab === splitTab && e.status !== 'closed' && this.workspaceOf(e) === workspaceId,
-    )
-    return members[members.length - 1]?.paneId
-  }
-
   resolve(
     ref: string,
     workspaceId: string,
@@ -363,6 +356,8 @@ export interface ProcessDeps {
   runInPane: (paneId: string, command: string) => boolean
   cwdOfPane: (paneId: string) => string | undefined
   agentArgv: (name: string) => string[] | null
+  isAgent: (paneId: string) => boolean
+  paneTitle: (paneId: string) => Promise<string | undefined>
   isSandboxed: (workspaceId: string) => boolean
   reach: Pick<Reach, 'ensure' | 'visible' | 'scriptReach'>
   interruptGraceMs: number
@@ -436,7 +431,7 @@ function defaultName(cmd: string): string {
 
 interface SplitTabRequest {
   name: string
-  side: SplitTabSide
+  side?: SplitTabSide
 }
 
 function splitTabOf(rawName: unknown, rawSide: unknown): SplitTabRequest | undefined {
@@ -446,9 +441,20 @@ function splitTabOf(rawName: unknown, rawSide: unknown): SplitTabRequest | undef
   }
   const name = normalizeSplitTabName(rawName)
   if (!name) throw badRequest('splitTab')
-  const side = rawSide === undefined || rawSide === null ? 'right' : parseSplitTabSide(rawSide)
+  if (rawSide === undefined || rawSide === null) return { name }
+  const side = parseSplitTabSide(rawSide)
   if (!side) throw badRequest('split must be right or down')
   return { name, side }
+}
+
+const WORKERS_SUFFIX = ' · workers'
+
+function workersTabName(title: string): string | undefined {
+  return (
+    normalizeSplitTabName(
+      `${title.trim().slice(0, SPLIT_TAB_NAME_MAX - WORKERS_SUFFIX.length)}${WORKERS_SUFFIX}`,
+    ) ?? undefined
+  )
 }
 
 function cwdOf(raw: unknown): string | undefined {
@@ -487,6 +493,20 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
     return typeof id === 'string'
       ? registry.resolve(id, ctx.identity.workspaceId, await deps.reach.visible(ctx))
       : undefined
+  }
+
+  const workersTabs = new Map<string, string>()
+
+  const workersTab = async (ctx: ControlMethodContext): Promise<SplitTabRequest | undefined> => {
+    const caller = ctx.identity.paneId
+    if (ctx.identity.kind !== 'pane' || !caller || !deps.isAgent(caller)) return undefined
+    const known = workersTabs.get(caller)
+    if (known) return { name: known }
+    const title = await deps.paneTitle(caller)
+    const name = title ? workersTabName(title) : undefined
+    if (!name) return undefined
+    workersTabs.set(caller, name)
+    return { name }
   }
 
   const interrupt = async (entry: ProcessEntry): Promise<boolean> => {
@@ -529,7 +549,6 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
       )
     }
     const cwd = givenCwd ?? (here ? deps.cwdOfPane(ctx.identity.paneId) : undefined)
-    const joinPaneId = splitTab ? registry.splitTabMember(workspaceId, splitTab.name) : undefined
     const opened = await deps.openTab({
       command: cmd,
       workspaceId,
@@ -544,7 +563,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
       pinTitle: true,
       title: name,
       ...(cwd ? { cwd } : {}),
-      ...(splitTab ? { splitTab: { ...splitTab, ...(joinPaneId ? { joinPaneId } : {}) } } : {}),
+      ...(splitTab ? { splitTab } : {}),
     })
     const pane = opened ? resolveExternal(opened) : undefined
     if (pane?.kind !== 'pane') return NOT_OPENED
@@ -587,7 +606,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
   registerControlMethod('agent.run', {
     cap: 'process',
     scripts: true,
-    handler: (raw, ctx) => {
+    handler: async (raw, ctx) => {
       const p = record(raw)
       const agent = agentOf(p.agent)
       const argv = deps.agentArgv(agent)
@@ -599,7 +618,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
         nameOf(p.name) ?? agent,
         cwdOf(p.cwd),
         workspaceOf(p.workspace),
-        splitTabOf(p.splitTab, p.split),
+        splitTabOf(p.splitTab, p.split) ?? (await workersTab(ctx)),
       )
     },
   })
