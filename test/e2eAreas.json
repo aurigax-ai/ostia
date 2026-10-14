@@ -988,7 +988,6 @@
       ],
       "specs": [
         "e2e/auto-resume.spec.ts",
-        "e2e/linux-app-menu.spec.ts",
         "e2e/quit-confirm.spec.ts",
         "e2e/tray.spec.ts"
       ]
