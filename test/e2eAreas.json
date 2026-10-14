@@ -440,7 +440,6 @@
         "e2e/browser-keys.spec.ts",
         "e2e/clipboard-keys.spec.ts",
         "e2e/clipboard-surfaces.spec.ts",
-        "e2e/context-menus.spec.ts",
         "e2e/keybindings.spec.ts",
         "e2e/palette-focus.spec.ts"
       ]
@@ -1001,7 +1000,6 @@
       ],
       "specs": [
         "e2e/auto-resume.spec.ts",
-        "e2e/context-menus.spec.ts",
         "e2e/linux-app-menu.spec.ts",
         "e2e/quit-confirm.spec.ts",
         "e2e/tray.spec.ts"
