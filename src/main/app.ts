@@ -418,12 +418,11 @@ import {
   createInstallReplacer,
   releaseDownloadBase,
   runTar,
-  sweepOldInstall,
   tarballReplace,
 } from './updates/installReplace'
+import { sweepUpdateLeftovers } from './updates/launchSweep'
 import {
   canReplaceBundle,
-  discardStaged,
   macReplace,
   runCommand,
   signaturePolicy,
@@ -3728,24 +3727,18 @@ app.whenReady().then(() => {
     onChange: announceUpdateRun,
   })
   const sweepFile = storePath('install-replace', 'global')
-  void sweepOldInstall(
-    loadJson<PendingSweep | null>(sweepFile, null),
-    installAppDir(),
-    appVersion(),
-  ).then(
-    (swept) => {
-      if (swept) saveJson(sweepFile, null)
-    },
-    () => appLog?.warn('install-sweep-failed'),
-  )
   const macInstall = isMacInstall(installMethod())
+  void sweepUpdateLeftovers({
+    pending: loadJson<PendingSweep | null>(sweepFile, null),
+    appDir: installAppDir(),
+    version: appVersion(),
+    macInstall,
+    swept: () => saveJson(sweepFile, null),
+    warn: (event) => appLog?.warn(event),
+  })
   const updateDir = (): string | null =>
     replacesInApp(installMethod(), readUpdateChannel(readSettingsFile())) ? installAppDir() : null
   const downloadBase = releaseDownloadBase(app.isPackaged, process.env)
-  const installedDir = installAppDir()
-  if (macInstall && installedDir) {
-    void discardStaged(installedDir).catch(() => appLog?.warn('update-staged-discard-failed'))
-  }
   releaseChecks = registerReleaseCheck({
     openExternal: openExternalSafe,
     readSettings: readSettingsFile,

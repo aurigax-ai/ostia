@@ -173,6 +173,37 @@ describe('UpdateCheck', () => {
     stop()
   })
 
+  it.each([
+    [
+      'a wrong checksum',
+      'checksum-mismatch',
+      'The downloaded archive didn’t match its checksum. Nothing was changed.',
+    ],
+    [
+      'an archive with another version',
+      'wrong-version',
+      'The archive holds a different version. Nothing was changed.',
+    ],
+  ] as const)(
+    '%s says why a tarball update changed nothing and offers the download again',
+    async (_case, reason, text) => {
+      render(<UpdateCheck />)
+      await act(async () =>
+        useUpdateStore.getState().receiveRelease({ ...state(RELEASE), replace: { ok: true } }),
+      )
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Download and install' }))
+      })
+      expect(window.ostia.update.replaceInstall).toHaveBeenCalled()
+      act(() => useUpdateStore.getState().receiveReplace({ status: 'downloading' }))
+      expect(screen.getByRole('button', { name: /Downloading/ })).toBeDisabled()
+
+      act(() => useUpdateStore.getState().receiveReplace({ status: 'failed', reason }))
+      expect(screen.getByText(text)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Download and install' })).toBeEnabled()
+    },
+  )
+
   it('with the automatic check off nothing is asked until the human checks from About', async () => {
     useSettingsStore.setState({
       behavior: { ...useSettingsStore.getState().behavior, checkForUpdates: false },
