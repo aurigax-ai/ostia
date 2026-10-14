@@ -548,6 +548,21 @@ describe('Pane tab rename', () => {
     expect(await screen.findByRole('textbox', { name: 'Rename Tab…' })).toHaveValue('claude')
   })
 
+  it('Escape in the menu rename keeps a pinned name', async () => {
+    setup()
+    act(() => useLayoutStore.getState().rename('w', 'r2', 'builder'))
+    const user = userEvent.setup()
+    fireEvent.contextMenu(screen.getByRole('tab', { name: /builder/ }))
+    await user.click(await screen.findByRole('menuitem', { name: /Rename Tab/ }))
+    const input = await screen.findByRole('textbox', { name: 'Rename Tab…' })
+    await user.clear(input)
+    await user.type(input, 'discarded{Escape}')
+
+    expect(screen.queryByRole('textbox', { name: 'Rename Tab…' })).toBeNull()
+    expect(titleOf('r2')).toMatchObject({ title: 'builder', titlePinned: true })
+    expect(screen.getByRole('tab', { name: /builder/ })).toBeInTheDocument()
+  })
+
   it('pane.rename without a title starts the inline edit on the active tab', async () => {
     setup()
     await act(async () => {
