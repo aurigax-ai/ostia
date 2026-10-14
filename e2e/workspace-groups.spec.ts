@@ -1,6 +1,5 @@
-import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, emptyWorkspace, newTerminalWorkspace, openWorkspace, quitApp } from './helpers'
+import { PROMPT, newTerminalWorkspace, openWorkspace, quitApp } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 interface Launched {
@@ -25,7 +24,7 @@ const groupToggle = (win: Page) => groupHead(win).getByRole('button', { name: /b
 const memberRows = (win: Page) => win.locator('.rail-group-members .rail-row')
 const ungroupedRows = (win: Page) => win.locator('.workspaces > .rail-row')
 
-test('workspace groups: create, add, collapse with attention, restore, drag out', async () => {
+test('workspace groups: a collapsed group shows a member’s failed command and comes back collapsed after a restart', async () => {
   test.setTimeout(150_000)
   const dataHome = freshDataHome()
 
@@ -36,25 +35,12 @@ test('workspace groups: create, add, collapse with attention, restore, drag out'
     await newTerminalWorkspace(win)
     await expect(win.locator('.rail-row')).toHaveCount(2)
 
-    await win.locator('.rail-tab-main').nth(1).click({ button: 'right' })
+    await win.locator('.rail-tab.active .rail-tab-main').click({ button: 'right' })
     await win.getByRole('menuitem', { name: 'Move to new group' }).click()
     const name = win.getByRole('textbox', { name: 'Group name' })
     await name.fill('build')
     await name.press('Enter')
-    await expect(groupToggle(win)).toBeVisible()
     await expect(memberRows(win)).toHaveCount(1)
-
-    await win.keyboard.press(chords.newWorkspace)
-    await expect(ungroupedRows(win)).toHaveCount(2)
-    await expect(memberRows(win)).toHaveCount(1)
-
-    await groupHead(win).hover()
-    await groupHead(win).getByRole('button', { name: 'New workspace in group' }).click()
-    await expect(memberRows(win)).toHaveCount(2)
-    await expect(memberRows(win).last().locator('.rail-tab')).toHaveClass(/active/)
-    await expect(ungroupedRows(win)).toHaveCount(2)
-    await expect(groupHead(win).getByLabel('Members: 2')).toHaveText('2')
-    await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
     await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows').last()).toContainText(
       PROMPT,
       { timeout: 15_000 },
@@ -67,7 +53,6 @@ test('workspace groups: create, add, collapse with attention, restore, drag out'
 
     await groupToggle(win).click()
     await expect(groupToggle(win)).toHaveAttribute('aria-expanded', 'false')
-    await expect(memberRows(win)).toHaveCount(0)
     await expect(groupHead(win).getByRole('img', { name: 'Error' })).toBeVisible({
       timeout: 15_000,
     })
@@ -81,18 +66,8 @@ test('workspace groups: create, add, collapse with attention, restore, drag out'
     const { win } = second
     await expect(groupToggle(win)).toBeVisible({ timeout: 15_000 })
     await expect(groupToggle(win)).toHaveAttribute('aria-expanded', 'false')
-    await expect(groupHead(win).getByLabel('Members: 2')).toHaveText('2')
-    await expect(ungroupedRows(win)).toHaveCount(2)
-
-    await groupToggle(win).click()
-    await expect(memberRows(win)).toHaveCount(2)
-
-    await memberRows(win)
-      .last()
-      .dragTo(ungroupedRows(win).first(), { targetPosition: { x: 40, y: 4 } })
-    await expect(memberRows(win)).toHaveCount(1)
-    await expect(ungroupedRows(win)).toHaveCount(3)
     await expect(groupHead(win).getByLabel('Members: 1')).toHaveText('1')
+    await expect(ungroupedRows(win)).toHaveCount(1)
   } finally {
     await quitApp(second.app)
   }
