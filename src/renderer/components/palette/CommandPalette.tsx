@@ -854,7 +854,7 @@ function CommandItems({
   useBindings()
   const groups = new Map<string, { heading: string; items: PaletteCommand[] }>()
   for (const command of commands.list()) {
-    if (command.hidden) continue
+    if (command.hidden || command.listed?.() === false) continue
     const shown = commandWording(command, d)
     const key = command.category ?? ''
     const group = groups.get(key) ?? { heading: shown.category ?? d.palette.general, items: [] }
