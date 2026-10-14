@@ -211,6 +211,8 @@ describe('UpdateNotice', () => {
       'bad-signature': 'The downloaded app’s signature is broken. Nothing was changed.',
       'wrong-team': 'The downloaded app isn’t signed as Ostia. Nothing was changed.',
       'not-notarized': 'macOS didn’t accept the downloaded app as notarized. Nothing was changed.',
+      'checksum-mismatch': 'The downloaded archive didn’t match its checksum. Nothing was changed.',
+      'wrong-version': 'The archive holds a different version. Nothing was changed.',
     } as const
     for (const [reason, text] of Object.entries(reasons)) {
       act(() =>
