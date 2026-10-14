@@ -3,6 +3,7 @@ import { chmodSync, rmSync } from 'node:fs'
 import { type Server, type Socket, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import {
+  type CancellationToken,
   ErrorCodes,
   type MessageConnection,
   ResponseError,
@@ -51,6 +52,7 @@ export interface ControlMethodContext {
   identity: PaneIdentity
   authed: AuthedConn
   conn: MessageConnection
+  token?: CancellationToken
 }
 
 export interface ControlMethod {
@@ -241,15 +243,18 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
     let authed: AuthedConn | null = null
     let disconnect: (() => void) | null = null
 
-    const onCall = <P, R>(name: string, handler: (params: P) => R | Promise<R>): void => {
-      conn.onRequest(name, async (params: P): Promise<R> => {
+    const onCall = <P, R>(
+      name: string,
+      handler: (params: P, token: CancellationToken) => R | Promise<R>,
+    ): void => {
+      conn.onRequest(name, async (params: P, token: CancellationToken): Promise<R> => {
         const tokenId = authed?.scriptSession ? authed.externalId : undefined
         const usage = deps.usage
-        if (!tokenId || !usage) return handler(params)
+        if (!tokenId || !usage) return handler(params, token)
         const method = calledMethod(name, params)
         const target = calledTarget(params)
         try {
-          const result = await handler(params)
+          const result = await handler(params, token)
           usage.record(tokenId, { method, target, ...resultOutcome(result) })
           return result
         } catch (err) {
@@ -434,15 +439,15 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
     })
 
     for (const [name, m] of methods) {
-      onCall(name, async (params: unknown) => {
+      onCall(name, async (params: unknown, token: CancellationToken) => {
         const caller = requireIdentity(m.targetable ? 'all' : (m.callers ?? 'panes'), m.scripts)
         if (!authed) throw unauthenticatedError('call hello first')
         if (m.cap) await ensureCaps(authed, caller, [m.cap], name, describeParams(name, params))
         if (caller.kind === 'extension' && m.targetable) {
           const acting = actingPane(authed, params)
-          return m.handler(acting.params, { identity: acting.identity, authed, conn })
+          return m.handler(acting.params, { identity: acting.identity, authed, conn, token })
         }
-        return m.handler(params, { identity: caller, authed, conn })
+        return m.handler(params, { identity: caller, authed, conn, token })
       })
     }
 

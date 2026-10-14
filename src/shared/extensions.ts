@@ -179,6 +179,7 @@ export interface ExtensionManifest {
     editorLanguages?: EditorLanguageContribution[]
     agentSkills?: AgentSkillContribution[]
     agentHooks?: AgentHookContribution[]
+    verb?: string
   }
 }
 
@@ -202,6 +203,7 @@ export interface ExtensionInfo {
   requested: Capability[]
   granted: Capability[]
   unapproved: Capability[]
+  verb?: string
   commands: ExtensionCommandContribution[]
   panel: { title: string; icon?: ExtensionIcon } | null
   paneChips: ExtensionChipContribution[]
@@ -473,9 +475,20 @@ export type AgentOfferResult =
 
 export interface RunAgentOptions {
   workspaceId: string
-  agent: string
+  agent?: string
   prompt: string
+  background?: boolean
+  continueFrom?: string
 }
+
+export const EXEC_TIMEOUT_MAX_MS = 600_000
+export const EXEC_OUTPUT_DEFAULT = 64 * 1024
+export const EXEC_OUTPUT_MAX = 1024 * 1024
+export const EXEC_ENV_MAX = 16
+export const EXEC_ENV_VALUE_MAX = 4096
+export const BUS_SEND_TEXT_MAX = 16_000
+export const WAKE_WAIT_MAX_MS = 120_000
+export const EXTENSION_VERB_PATTERN = /^[a-z][a-z0-9-]{1,19}$/
 
 export interface ExtensionAgentOffer {
   requestId: string

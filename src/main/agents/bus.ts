@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { type BusDelivery, busContext, busPreview } from '../../shared/agents/busMessages'
+import { BUS_SEND_TEXT_MAX } from '../../shared/extensions'
 import { ensureCaps } from '../approvals/controlElevation'
 import type { Reach } from '../approvals/reach'
 import { registerControlMethod } from '../control/controlServer'
@@ -226,6 +227,42 @@ export function registerBusMethods(deps: BusDeps): void {
       const delivered = deliver(data, { id, from, to, text, ts: new Date().toISOString() })
       announceQueued(delivered, ctx.identity, receiver, text)
       deps.sent?.()
+      const asleep = await deps.hibernated(receiver)
+      return { ok: true, id, delivered, ...(asleep ? { asleep: true } : {}) }
+    },
+  })
+
+  registerControlMethod('ext.busSend', {
+    callers: 'extensions',
+    cap: 'send-other-pane',
+    handler: async (params, ctx) => {
+      const { to, text } = (params ?? {}) as { to?: unknown; text?: unknown }
+      if (typeof text !== 'string' || !text || text.length > BUS_SEND_TEXT_MAX) {
+        return {
+          ok: false,
+          error: 'invalid-params',
+          message: `text is 1-${BUS_SEND_TEXT_MAX} characters`,
+        }
+      }
+      await ensureCaps(
+        ctx.authed,
+        ctx.identity,
+        ['all-workspaces'],
+        'ext.busSend',
+        `to ${String(to)}`,
+      )
+      const receiver = receiverOf(to)
+      if (!receiver || receiver.manager) return UNKNOWN_PANE
+      const from = ctx.identity.extId ?? ctx.identity.externalId
+      const id = randomUUID()
+      const delivered = deliver(loadBus(), {
+        id,
+        from,
+        to: receiver.externalId,
+        text,
+        ts: new Date().toISOString(),
+      })
+      announceQueued(delivered, ctx.identity, receiver, text)
       const asleep = await deps.hibernated(receiver)
       return { ok: true, id, delivered, ...(asleep ? { asleep: true } : {}) }
     },

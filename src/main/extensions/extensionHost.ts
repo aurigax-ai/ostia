@@ -135,10 +135,12 @@ import type { Workflow } from '../../shared/workflows'
 import type { AgentPluginSource } from '../agents/agentSkills'
 import {
   type AgentOfferDelivery,
+  type HeldResume,
   REACHED_PANES_MAX,
   agentName,
   agentPrompt,
   agentTaskLimiter,
+  continueCommand,
   offerLabel,
   offerText,
   workspaceFolder,
@@ -160,6 +162,8 @@ import {
 import type { EditorLanguageSource } from '../lsp/editorLanguages'
 import type { LanguageServerSource } from '../lsp/languageServers'
 import { isInsideDir } from '../platform/pathGuard'
+import { spawnFolder } from '../terminal/spawnCwd'
+import type { ExtensionExec } from './extensionExec'
 import { loadLocaleCatalogs, manifestIn } from './extensionLocales'
 import {
   type DiscoveredExtension,
@@ -372,6 +376,8 @@ export interface ExtensionHostDeps {
   agentNames?: () => string[]
   offerToAgentIn?: (offer: Omit<ExtensionAgentOffer, 'requestId'>) => Promise<AgentOfferDelivery>
   focusPaneIn?: (pane: PaneIdentity) => boolean
+  exec?: ExtensionExec
+  resumeOf?: (pane: PaneIdentity) => Promise<HeldResume | null>
   agentTaskClock?: () => number
   remoteCwdForPane?: (paneId: string) => RemoteCwd | undefined
   remoteFolders?: Pick<RemoteFoldersDeps, 'windowOfWorkspace' | 'refusal' | 'confirm'> & {
@@ -555,6 +561,11 @@ export class ExtensionHost {
     return manifestIn(rt.ext.manifest, rt.ext.catalogs, locale)
   }
 
+  displayName(extId: string): string {
+    const rt = this.runtimes.get(extId)
+    return rt ? this.shownName(rt) : extId
+  }
+
   private shownName(rt: Runtime): string {
     return this.manifestIn(rt, this.deps.locale?.()).name
   }
@@ -640,6 +651,7 @@ export class ExtensionHost {
         ...hook,
         agents: hookAgentsFor(hook.event),
       })),
+      ...(m.contributes.verb ? { verb: m.contributes.verb } : {}),
     }
   }
 
@@ -1050,6 +1062,7 @@ export class ExtensionHost {
     this.clearChipsWhere((chip) => chip.extId === id)
     this.clearWorkspaceChipsWhere((chip) => chip.extId === id)
     this.remoteFolders?.extensionGone(id)
+    this.deps.exec?.stopFor(id)
     if (rt.stopping || !this.active(rt)) {
       rt.state = 'idle'
     } else if (rt.restarts < MAX_RESTARTS) {
@@ -1099,6 +1112,7 @@ export class ExtensionHost {
     this.clearChipsWhere((chip) => chip.extId === id)
     this.clearWorkspaceChipsWhere((chip) => chip.extId === id)
     this.remoteFolders?.extensionGone(id)
+    this.deps.exec?.stopFor(id)
   }
 
   stopAll(): void {
@@ -1695,8 +1709,9 @@ export class ExtensionHost {
     const p = isPlainRecord(params) ? params : {}
     const workspaceId = workspaceIdOf(p.workspaceId)
     if (!workspaceId) return fail('invalid-params', 'workspaceId is required')
-    const agent = agentName(p.agent)
-    if (!agent) return fail('invalid-params', 'agent must be one of the names ext.agents lists')
+    if (p.background !== undefined && typeof p.background !== 'boolean') {
+      return fail('invalid-params', 'background is true or false')
+    }
     const prompt = agentPrompt(p.prompt)
     if (!prompt) {
       return fail(
@@ -1704,19 +1719,59 @@ export class ExtensionHost {
         `prompt must be 1-${AGENT_PROMPT_MAX} characters without control characters other than newlines and tabs`,
       )
     }
-    const argv = this.deps.agentArgv?.(agent)
-    if (!argv) return fail('unknown-agent', 'no agent by that name')
+    const planned =
+      p.continueFrom === undefined
+        ? this.startCommand(p.agent, prompt, workspaceId)
+        : await this.continuedCommand(rt, p.continueFrom, prompt, workspaceId)
+    if ('error' in planned) return planned.error
     if (!this.deps.openTerminalIn) return fail('no-window')
     if (!this.takeAgentTask(rt)) return fail('rate-limited', 'too many agent tasks this minute')
-    const cwd = workspaceFolder(this.deps.workDirForWorkspace(workspaceId), homedir())
     const paneId = await this.deps.openTerminalIn({
-      command: quoteArgv([...argv, prompt]),
+      command: planned.command,
       workspaceId,
-      ...(cwd ? { cwd } : {}),
+      ...(planned.cwd ? { cwd: planned.cwd } : {}),
+      ...(p.background === true ? { backgroundTab: true } : {}),
     })
     if (!paneId) return fail('not-opened', 'no workspace to open it in')
     this.reach(rt, paneId)
     return { ok: true, paneId }
+  }
+
+  private startCommand(
+    raw: unknown,
+    prompt: string,
+    workspaceId: string,
+  ): { command: string; cwd?: string } | { error: unknown } {
+    const agent = agentName(raw)
+    if (!agent) {
+      return { error: fail('invalid-params', 'agent must be one of the names ext.agents lists') }
+    }
+    const argv = this.deps.agentArgv?.(agent)
+    if (!argv) return { error: fail('unknown-agent', 'no agent by that name') }
+    const cwd = workspaceFolder(this.deps.workDirForWorkspace(workspaceId), homedir())
+    return { command: quoteArgv([...argv, prompt]), ...(cwd ? { cwd } : {}) }
+  }
+
+  private async continuedCommand(
+    rt: Runtime,
+    raw: unknown,
+    prompt: string,
+    workspaceId: string,
+  ): Promise<{ command: string; cwd: string } | { error: unknown }> {
+    if (typeof raw !== 'string' || !rt.reached.has(raw)) {
+      return { error: fail('not-reached', 'continueFrom is a pane you opened') }
+    }
+    const pane = resolveExternal(raw)
+    if (pane?.kind !== 'pane' || pane.workspaceId !== workspaceId) {
+      return { error: fail('unknown-pane', 'that pane is closed or in another workspace') }
+    }
+    const found = await this.deps.resumeOf?.(pane)
+    if (!found) return { error: fail('no-session', 'that pane has no agent session to continue') }
+    const folder = spawnFolder(found.resume.cwd)
+    if (folder.missing) {
+      return { error: fail('resume-folder-missing', `${found.resume.cwd} no longer exists`) }
+    }
+    return { command: continueCommand(found, prompt), cwd: folder.cwd }
   }
 
   async offerToAgent(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
@@ -1785,6 +1840,20 @@ export class ExtensionHost {
     if (hooks.some((hook) => hook.command === command)) this.reach(rt, identity.externalId)
   }
 
+  exec(
+    identity: PaneIdentity,
+    conn: MessageConnection,
+    params: unknown,
+    token?: CancellationToken,
+  ) {
+    const rt = this.runtimeOf(identity, conn)
+    if (!this.deps.exec) return fail('no-window')
+    const abort = new AbortController()
+    token?.onCancellationRequested(() => abort.abort())
+    if (token?.isCancellationRequested) abort.abort()
+    return this.deps.exec.run(rt.ext.manifest.id, params, abort.signal)
+  }
+
   async redactTexts(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
     this.runtimeOf(identity, conn)
     const texts = isPlainRecord(params) ? params.texts : undefined
@@ -1813,7 +1882,13 @@ export class ExtensionHost {
   listForAgents() {
     return this.listIn(undefined)
       .filter((e) => e.enabled)
-      .map((e) => ({ id: e.id, name: e.name, status: e.status, commands: e.commands }))
+      .map((e) => ({
+        id: e.id,
+        name: e.name,
+        status: e.status,
+        ...(e.verb ? { verb: e.verb } : {}),
+        commands: e.commands,
+      }))
   }
 
   private createRemoteFolders(): RemoteFolders | null {
@@ -2420,6 +2495,15 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   registerControlMethod('ext.agents', {
     ...forExtension((h, id, conn) => h.agentNames(id, conn)),
     cap: 'shell',
+  })
+  registerControlMethod('ext.exec', {
+    callers: 'extensions',
+    cap: 'process',
+    handler: (params: unknown, ctx) => {
+      const h = host()
+      if (!h) return fail('no-extension-host')
+      return h.exec(ctx.identity, ctx.conn, params, ctx.token)
+    },
   })
   registerControlMethod('ext.runAgent', {
     ...forExtension((h, id, conn, p) => h.runAgent(id, conn, p)),

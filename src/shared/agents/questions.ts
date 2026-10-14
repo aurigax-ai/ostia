@@ -24,6 +24,12 @@ export interface QuestionRequest {
   at: number
   expiresAt?: number
   permission?: PermissionInfo
+  source?: QuestionSource
+}
+
+export interface QuestionSource {
+  extension: string
+  workspaceId: string
 }
 
 export interface QuestionState {

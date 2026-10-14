@@ -104,3 +104,25 @@ export function paneWhere(
   }
   return null
 }
+
+export function sourceWhere(
+  source: { extension: string; workspaceId: string },
+  workspaces: readonly {
+    id: string
+    name: string
+    customName?: string
+    workDir: string
+    projectDir?: string
+  }[],
+): PaneWhere | null {
+  const workspace = workspaces.find((w) => w.id === source.workspaceId)
+  if (!workspace) return null
+  const path = workspace.projectDir ?? workspace.workDir
+  return {
+    workspaceId: workspace.id,
+    workspace: workspace.customName ?? workspace.name,
+    path,
+    shortPath: shortenPath(path, DASHBOARD_PATH_CHARS),
+    pane: source.extension,
+  }
+}

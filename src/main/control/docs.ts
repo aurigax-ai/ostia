@@ -408,13 +408,15 @@ const MANAGER_HELP = `
                                   left right home end pageup pagedown ctrl-a..ctrl-z
 `
 
-function extensionHelp(extensions: Pick<ExtensionInfo, 'id' | 'name' | 'commands'>[]): string {
+function extensionHelp(
+  extensions: Pick<ExtensionInfo, 'id' | 'name' | 'commands' | 'verb'>[],
+): string {
   const lines: string[] = []
   for (const ext of extensions) {
     if (ext.commands.length === 0) continue
     lines.push('', `  ${ext.name} (extension '${ext.id}'):`)
     for (const cmd of ext.commands) {
-      const usage = `ostia ${ext.id} ${cmd.usage ?? cmd.id}`
+      const usage = `ostia ${ext.verb ?? ext.id} ${cmd.usage ?? cmd.id}`
       lines.push(`  ${usage.padEnd(52)} ${cmd.title}`)
     }
   }
@@ -422,7 +424,7 @@ function extensionHelp(extensions: Pick<ExtensionInfo, 'id' | 'name' | 'commands
 }
 
 export function registerDocsMethods(deps: {
-  extensions: () => Pick<ExtensionInfo, 'id' | 'name' | 'commands'>[]
+  extensions: () => Pick<ExtensionInfo, 'id' | 'name' | 'commands' | 'verb'>[]
 }): void {
   registerControlMethod('docs', {
     scripts: true,

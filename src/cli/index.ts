@@ -23,6 +23,7 @@ import {
 } from '../shared/agents/claudeAttention'
 import { readEnv } from '../shared/appEnv'
 import { ARTIFACTS_ENV } from '../shared/artifacts/artifacts'
+import { CORE_VERBS as CORE_VERB_LIST } from '../shared/extensions/extensionVerbs'
 import type {
   DiffFilesResult,
   FileTarget,
@@ -359,6 +360,7 @@ interface ExtInfo {
   id: string
   name: string
   status: string
+  verb?: string
   commands: ExtCommandInfo[]
 }
 
@@ -371,7 +373,7 @@ async function runExtList(conn: MessageConnection): Promise<void> {
   for (const ext of list) {
     console.log(`${ext.id}\t${ext.status}\t${ext.name}`)
     for (const cmd of ext.commands)
-      console.log(`  ostia ${ext.id} ${cmd.usage ?? cmd.id}\t${cmd.title}`)
+      console.log(`  ostia ${ext.verb ?? ext.id} ${cmd.usage ?? cmd.id}\t${cmd.title}`)
   }
 }
 
@@ -387,7 +389,7 @@ async function runExtCommand(
     return
   }
   const list = await conn.sendRequest<ExtInfo[]>('ext.list')
-  const ext = list.find((e) => e.id === extId)
+  const ext = list.find((e) => e.id === extId) ?? list.find((e) => e.verb === extId)
   if (!ext) {
     console.error(`ostia: unknown command or extension '${extId}' (see: ostia ext ls)`)
     process.exitCode = 1
@@ -402,7 +404,7 @@ async function runExtCommand(
   }
   const args: { argv: string[]; stdin?: string } = { argv }
   if (cmd.stdin) args.stdin = await readAllStdin()
-  const res = await conn.sendRequest<ExtResult>('ext.invoke', { extId, command, args })
+  const res = await conn.sendRequest<ExtResult>('ext.invoke', { extId: ext.id, command, args })
   if (!res.ok) {
     const detail = res.message ? `${res.error}: ${res.message}` : res.error
     if (res.data !== undefined) console.log(JSON.stringify(res.data, null, 2))
@@ -417,41 +419,7 @@ async function runExtCommand(
   }
 }
 
-const CORE_VERBS = new Set([
-  'whoami',
-  'manager',
-  'commands',
-  'info',
-  'cwd',
-  'pane.list',
-  'workspace.list',
-  'workspace',
-  'notify',
-  'ask',
-  'state',
-  'resume-token',
-  'claude-hook',
-  'permission-hook',
-  'agent-hook',
-  'open',
-  'diff',
-  'docs',
-  'process',
-  'pane',
-  'token',
-  'vault',
-  'sandbox',
-  'secret',
-  'bus',
-  'settings',
-  'browse',
-  'gateway',
-  'ext',
-  'workflow',
-  'view',
-  'git',
-  'ports',
-])
+const CORE_VERBS = new Set(CORE_VERB_LIST)
 
 const FILE_PROBE: FileProbe = {
   cwd: process.cwd(),
@@ -475,11 +443,11 @@ async function opensAsFile(conn: MessageConnection, word: string): Promise<boole
   const kind = fileWord(word, FILE_PROBE)
   if (kind !== 'name') return kind === 'path'
   const [extensions, commands] = await Promise.all([
-    conn.sendRequest<{ id: string }[]>('ext.list').catch(() => []),
+    conn.sendRequest<{ id: string; verb?: string }[]>('ext.list').catch(() => []),
     conn.sendRequest<{ id: string }[]>('command.list').catch(() => []),
   ])
   return !isClaimedWord(word, {
-    extensionIds: extensions.map((e) => e.id),
+    extensionIds: extensions.flatMap((e) => (e.verb ? [e.id, e.verb] : [e.id])),
     commandIds: commands.map((c) => c.id),
   })
 }

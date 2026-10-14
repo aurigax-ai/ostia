@@ -77,11 +77,14 @@ function isPhoneApproval(request: ApprovalRequest): boolean {
   )
 }
 
-function questionAsk(request: QuestionRequest, identity: PaneIdentity): Ask {
+function questionAsk(
+  request: QuestionRequest,
+  at: { workspaceId: string; externalId: string },
+): Ask {
   const base = {
     askId: request.id,
-    sessionId: identity.workspaceId,
-    paneId: identity.externalId,
+    sessionId: at.workspaceId,
+    paneId: at.externalId,
     title: request.question,
     ...(request.context ? { detail: request.context } : {}),
     since: request.at,
@@ -135,6 +138,8 @@ export function createAskHub(deps: AskHubDeps): AskHub {
   const shown = new Set<string>()
 
   const fromQuestion = (request: QuestionRequest): Ask | null => {
+    if (request.source)
+      return questionAsk(request, { workspaceId: request.source.workspaceId, externalId: '' })
     const identity = deps.identity(request.paneId)
     return identity ? questionAsk(request, identity) : null
   }

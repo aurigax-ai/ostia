@@ -684,6 +684,19 @@ export function registerBuiltinCommands(): void {
     },
   })
 
+  registerCore<undefined, { resume: AgentResume | null }>({
+    id: 'pane.resumeToken',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['read-board'],
+    run: (_args, ctx) => {
+      if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
+      const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
+      const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
+      return { resume: pane?.kind === 'terminal' && pane.resume ? pane.resume : null }
+    },
+  })
+
   registerCore<{ paneId?: string } | undefined, { woke: boolean; conflict?: string }>({
     id: 'pane.wake',
     category: 'pane',

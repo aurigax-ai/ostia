@@ -25,7 +25,7 @@ import {
 } from 'electron'
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
-import type { AgentResume } from '../shared/agents/agentResume'
+import { type AgentResume, parseAgentResume } from '../shared/agents/agentResume'
 import type { HibernateOutcome } from '../shared/agents/agentWork'
 import {
   MANAGER_FEATURE,
@@ -113,7 +113,7 @@ import {
   setCaps,
 } from './approvals/capabilityStore'
 import { registerPermissionAsk } from './approvals/permissionAsk'
-import { questions, registerQuestions } from './approvals/questions'
+import { questions, registerExtensionQuestions, registerQuestions } from './approvals/questions'
 import { type ReachListing, createReach } from './approvals/reach'
 import { registerScriptTokenIpc } from './approvals/scriptTokenIpc'
 import { createScriptTokenUsage } from './approvals/scriptTokenUsage'
@@ -211,6 +211,7 @@ import {
   registerTelemetry,
 } from './diagnostics/telemetry'
 import { confirmForExtension } from './extensions/extensionConfirm'
+import { ExtensionExec } from './extensions/extensionExec'
 import { ExtensionHost, registerExtensionMethods } from './extensions/extensionHost'
 import type { ExtensionRoot } from './extensions/extensionManifest'
 import { type SecretStoreDeps, createSecretStore } from './extensions/extensionSecrets'
@@ -272,6 +273,7 @@ import {
   portalSupported,
 } from './manager/portal'
 import { callerVerdict, procFs, ttysOf } from './manager/portalCaller'
+import { registerExtensionWake } from './panes/extensionWake'
 import {
   type PaneAttentionPeek,
   type PaneIo,
@@ -300,7 +302,7 @@ import {
 } from './panes/processManager'
 import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './platform/discreteGpu'
 import { loadJson, saveJson, storePath } from './platform/jsonStore'
-import { resolveSafe } from './platform/pathGuard'
+import { expandHome, resolveSafe } from './platform/pathGuard'
 import { privateTmpDir } from './platform/privateTmp'
 import { needsPtyRelay } from './platform/ptyRelay'
 import {
@@ -3705,6 +3707,10 @@ app.whenReady().then(() => {
       askHub.settled(id, outcome)
     },
   })
+  registerExtensionQuestions({
+    windowOfWorkspace: windowForWorkspace,
+    extensionName: (extId) => extensionHost?.displayName(extId) ?? extId,
+  })
   registerPermissionAsk({ questions, phoneCanAnswer: phoneCanRespond })
   registerCredentials()
   registerAppUpdate(() => {
@@ -3904,6 +3910,12 @@ app.whenReady().then(() => {
     resume: (to) => execCommand(targetOf(to), 'agent.resume'),
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   })
+  registerExtensionWake({
+    hibernated: paneHibernated,
+    wake: wakeHibernatedPane,
+    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
+    waking: paneWaking,
+  })
   registerPaneMoveToMethods({
     ...paneReachDeps,
     ownerWindow: windowForWorkspace,
@@ -4020,6 +4032,44 @@ app.whenReady().then(() => {
     agentNames: () => Object.keys(managerAgents(managerSettings())),
     offerToAgentIn: (offer) => agentOffers.offer(offer),
     focusPaneIn: focusPaneInWindow,
+    exec: new ExtensionExec({
+      workspace: (workspaceId) => {
+        if (!windowForWorkspace(workspaceId)) return null
+        const sandboxed = workspaceSandboxes.isEnabled(workspaceId)
+        const workDir = sandboxed
+          ? workspaceSandboxes.workDir(workspaceId)
+          : workDirForWorkspace(workspaceId)
+        return {
+          workDir: expandHome(workDir ?? homedir(), homedir()),
+          scratch: scratchFolders.isScratch(workspaceId),
+          sandboxed,
+        }
+      },
+      wrap: (workspaceId, command, extraReads) =>
+        workspaceSandboxes.wrap(workspaceId, command, 'bash', [], extraReads),
+      sandboxEnv: (workspaceId, env) => ({
+        ...sandboxSpawnEnv(env),
+        TMPDIR: workspaceSandboxes.tmpDir(workspaceId),
+      }),
+      dataDir: (extId) => join(app.getPath('userData'), 'extension-data', extId),
+      baseEnv: () => process.env,
+    }),
+    resumeOf: async (pane) => {
+      const res = await execCommand(targetOf(pane), 'pane.resumeToken')
+      const resume = res.ok ? parseAgentResume((res.result as { resume?: unknown })?.resume) : null
+      if (!resume) return null
+      const panes = await listPanes({
+        execCommand,
+        getTerminalState,
+        ptyPid,
+        windowIds,
+        waking: isWaking,
+      })
+      const held = panes.some(
+        (p) => p.agentSessionId === resume.id && p.agent === resume.agent && !p.hibernated,
+      )
+      return { resume, held }
+    },
   })
   refreshAgentPlugins()
   registerExtensionMethods(() => extensionHost)

@@ -39,6 +39,7 @@ import {
   type ExtensionSettingsPageContribution,
   validSettingValue,
 } from '../../shared/extensions'
+import { verbProblem } from '../../shared/extensions/extensionVerbs'
 import { ICON_THEME_ID_PATTERN, type IconThemeContribution } from '../../shared/iconTheme'
 import {
   KEYMAP_LABEL_MAX,
@@ -620,6 +621,10 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
       error: `contributes.agentSkills and agentHooks need the '${AGENT_PLUGIN_CAPABILITY}' capability`,
     }
   }
+  if (contributes.verb !== undefined) {
+    const problem = verbProblem(contributes.verb)
+    if (problem) return { ok: false, error: problem }
+  }
   const needsMain =
     commands.length > 0 ||
     sidebarItems ||
@@ -657,6 +662,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (editorLanguages.length > 0) manifest.contributes.editorLanguages = editorLanguages
   if (agentSkills.length > 0) manifest.contributes.agentSkills = agentSkills
   if (agentHooks.length > 0) manifest.contributes.agentHooks = agentHooks
+  if (typeof contributes.verb === 'string') manifest.contributes.verb = contributes.verb
   return { ok: true, manifest }
 }
 
@@ -689,6 +695,24 @@ function subdirs(root: string): string[] {
   }
 }
 
+function verbClash(manifest: ExtensionManifest, found: DiscoveredExtension[]): string | null {
+  const words = (m: ExtensionManifest): string[] => [
+    m.id,
+    ...(m.contributes.verb ? [m.contributes.verb] : []),
+  ]
+  const mine = manifest.contributes.verb
+  for (const other of found) {
+    const taken = words(other.manifest)
+    if (mine && mine !== manifest.id && taken.includes(mine)) {
+      return `contributes.verb '${mine}' is already the id or verb of '${other.manifest.id}'`
+    }
+    if (other.manifest.contributes.verb === manifest.id) {
+      return `id '${manifest.id}' is already the verb of '${other.manifest.id}'`
+    }
+  }
+  return null
+}
+
 export function discoverExtensions(
   roots: ExtensionRoot[],
   onError: (dir: string, error: string) => void = () => {},
@@ -704,6 +728,11 @@ export function discoverExtensions(
       }
       if (found.has(res.manifest.id)) {
         onError(dir, `duplicate extension id '${res.manifest.id}'`)
+        continue
+      }
+      const clash = verbClash(res.manifest, [...found.values()])
+      if (clash) {
+        onError(dir, clash)
         continue
       }
       found.set(res.manifest.id, { dir, builtin: root.builtin, manifest: res.manifest })

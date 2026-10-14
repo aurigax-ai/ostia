@@ -220,7 +220,7 @@ function starting(to: PaneIdentity): ResponseError<void> {
   )
 }
 
-function notHibernated(to: PaneIdentity): ResponseError<void> {
+export function notHibernated(to: PaneIdentity): ResponseError<void> {
   return fail(`not-hibernated: ${to.externalId} is not hibernated`)
 }
 
@@ -228,13 +228,13 @@ function alreadyHibernated(to: PaneIdentity): ResponseError<void> {
   return fail(`hibernated: ${to.externalId} is already asleep; wake it with ostia pane wake`)
 }
 
-function sessionConflict(to: PaneIdentity, other: string): ResponseError<void> {
+export function sessionConflict(to: PaneIdentity, other: string): ResponseError<void> {
   return fail(
     `session-conflict: the agent session of ${to.externalId} is already running in ${other}; close one of them`,
   )
 }
 
-function checkSessions(targets: PaneIdentity[], panes: PaneEntry[]): void {
+export function checkSessions(targets: PaneIdentity[], panes: PaneEntry[]): void {
   const taken = new Map<string, string>()
   for (const to of targets) {
     const holder = liveSessionHolder(panes, to.externalId)
