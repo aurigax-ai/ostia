@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
+import { syncExtensionCommands } from '@/commands/extensionBridge'
 import { commands } from '@/commands/registry'
 import { registerWindowCommands } from '@/commands/windowCommands'
 import { languagesFrom } from '@/lib/extensions/languagePacks'
@@ -12,6 +13,7 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { zhHant } from '@shared/app/dict'
+import type { ExtensionInfo } from '@shared/extensions'
 import type { SearchOutcome, SearchRequest } from '@shared/files/search'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -622,6 +624,77 @@ describe('CommandPalette', () => {
       expect(await screen.findByRole('option', { name: /哈囉：開啟面板/ })).toBeInTheDocument()
       expect(screen.getByRole('group', { name: '哈囉' })).toBeInTheDocument()
       expect(screen.getByRole('option', { name: /開啟設定/ })).toBeInTheDocument()
+    })
+  })
+
+  describe('the Git commit graph and Graphs', () => {
+    const graphs: ExtensionInfo = {
+      id: 'graphs',
+      name: 'Graphs',
+      version: '1.0.0',
+      description: '',
+      builtin: true,
+      enabled: true,
+      status: 'idle',
+      requested: [],
+      granted: [],
+      unapproved: [],
+      commands: [
+        {
+          id: 'open',
+          title: 'Graphs: Open Panel',
+          category: 'Graphs',
+          palette: true,
+          stdin: false,
+          capabilities: [],
+        },
+        {
+          id: 'validate',
+          title: 'Check a graph file',
+          palette: false,
+          stdin: false,
+          capabilities: [],
+        },
+      ],
+      panel: { title: 'Graphs', icon: 'graph' },
+      paneChips: [],
+      workspaceChips: [],
+      settings: [],
+      settingValues: {},
+      assist: [],
+      secrets: [],
+      secretsSet: [],
+      connectionKinds: [],
+      settingsPage: null,
+      category: 'other',
+      languages: [],
+      languageServers: [],
+      agentSkills: [],
+      agentHooks: [],
+      iconThemes: [],
+      keymaps: [],
+    }
+
+    afterEach(() => act(() => syncExtensionCommands([])))
+
+    it('GRF-C149 typing graph shows Show Graph and the Graphs panel command once each, apart', async () => {
+      syncExtensionCommands([graphs])
+      syncExtensionCommands([graphs])
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+
+      await userEvent.type(await screen.findByRole('combobox'), 'graph')
+
+      const panel = await screen.findAllByRole('option', { name: /Graphs: Open Panel/ })
+      const showGraph = screen.getAllByRole('option', { name: /Show Graph/ })
+      expect(panel).toHaveLength(1)
+      expect(showGraph).toHaveLength(1)
+      expect(showGraph[0]).not.toHaveTextContent('Graphs')
+      expect(screen.queryByRole('option', { name: /Check a graph file/ })).toBeNull()
+      expect(showGraph[0]).toHaveTextContent('git.showGraph')
+      expect(panel[0]).toHaveTextContent('graphs.open')
+      const rows = screen.getAllByRole('option').map((o) => o.textContent)
+      expect(new Set(rows).size).toBe(rows.length)
     })
   })
 
