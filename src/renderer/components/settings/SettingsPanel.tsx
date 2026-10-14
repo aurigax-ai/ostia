@@ -502,7 +502,7 @@ export function SettingsPanel(): JSX.Element | null {
       aria-label={d.settings.title}
       className="absolute inset-0 z-20 flex min-h-0 flex-col bg-bg text-fg"
     >
-      <div className="grid min-h-0 flex-1 grid-cols-[210px_1fr]">
+      <div className="grid min-h-0 flex-1 grid-cols-[210px_minmax(0,1fr)]">
         <nav ref={navRef} className="flex min-h-0 flex-col border-line border-r bg-surface-1">
           <InputGroup className="m-2 h-7 w-auto">
             <InputGroupAddon>
@@ -1004,9 +1004,12 @@ export function ControlRow({
       data-settings-row
       hidden={search.hidden}
       data-search-hit={search.hit || undefined}
-      className={`flex justify-between gap-6 py-1.5 ${desc || error || below ? 'items-start' : 'items-center'}`}
+      className={cn(
+        'flex flex-wrap justify-between gap-x-6 gap-y-2 py-1.5',
+        desc || error || below ? 'items-start' : 'items-center',
+      )}
     >
-      <div className="min-w-0">
+      <div data-settings-row-text className="min-w-0 grow basis-96">
         {labelHint ? (
           <div className="flex min-w-0 items-baseline gap-2">
             <span className="text-fg text-ui-base">
@@ -1032,11 +1035,21 @@ export function ControlRow({
         {below ? <div className="mt-1.5">{below}</div> : null}
       </div>
       {children ? (
-        <div className="flex shrink-0 items-center gap-2">
+        <div data-settings-row-control className="flex min-w-0 max-w-full items-center gap-2">
           <SearchScopeProvider value={search.scope}>{children}</SearchScopeProvider>
         </div>
       ) : null}
     </div>
+  )
+}
+
+export function MachineValue({ value, label }: { value: string; label?: string }): JSX.Element {
+  return (
+    <Hint label={value}>
+      <span aria-label={label} className="min-w-0 truncate font-mono text-fg-muted text-ui-xs">
+        {value}
+      </span>
+    </Hint>
   )
 }
 

@@ -208,15 +208,12 @@ function FeatureRow({
   ]
   const ui = TRY_UI[feature.id]
   return (
-    <div className="flex items-start justify-between gap-6 py-1.5" data-feature={feature.id}>
-      <div className="min-w-0">
-        <div className="text-fg text-ui-base">{name}</div>
-        <p className="mt-0.5 text-fg-muted text-ui-sm">
-          {d.assistantSettings.featureDesc[feature.id]}
-        </p>
-        <p className="mt-0.5 text-fg-muted text-ui-xs">{hints.join(' · ')}</p>
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
+    <div data-feature={feature.id}>
+      <ControlRow
+        label={name}
+        desc={d.assistantSettings.featureDesc[feature.id]}
+        below={<p className="text-fg-muted text-ui-xs">{hints.join(' · ')}</p>}
+      >
         {feature.on && !feature.ready ? (
           <span className="text-fg-muted text-ui-sm">{d.assistMenu.notReady}</span>
         ) : null}
@@ -238,7 +235,7 @@ function FeatureRow({
           aria-label={name}
           onCheckedChange={() => void toggleAssistFeature(extId, feature)}
         />
-      </div>
+      </ControlRow>
     </div>
   )
 }

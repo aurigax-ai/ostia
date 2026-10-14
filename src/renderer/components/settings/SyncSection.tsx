@@ -1,4 +1,3 @@
-import { Hint } from '@/components/common/Hint'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { fmt, useDict } from '@/i18n/useDict'
@@ -6,7 +5,7 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { Dict } from '@shared/app/dict'
 import type { SyncConflict, SyncStatus } from '@shared/types'
 import { useEffect, useMemo, useState } from 'react'
-import { ControlRow, SectionHead, WarningNote } from './SettingsPanel'
+import { ControlRow, MachineValue, SectionHead, WarningNote } from './SettingsPanel'
 import { SyncSecretsSection } from './SyncSecretsSection'
 
 const OFF: SyncStatus = {
@@ -133,9 +132,7 @@ export function SyncSection(): JSX.Element {
       <Separator className="mb-2" />
       <ControlRow label={d.sync.folder} desc={d.sync.folderDesc}>
         {dir ? (
-          <Hint label={dir}>
-            <span className="max-w-60 truncate font-mono text-fg-muted text-ui-sm">{dir}</span>
-          </Hint>
+          <MachineValue value={dir} />
         ) : (
           <span className="text-fg-muted text-ui-sm">{d.sync.notSet}</span>
         )}

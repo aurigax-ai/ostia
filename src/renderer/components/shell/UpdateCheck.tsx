@@ -94,7 +94,7 @@ export function UpdateCheck(): JSX.Element {
           {d.update.viewRelease}
         </Button>
       ) : null}
-      <div className="mt-4 w-full max-w-md text-left">
+      <div className="mt-4 w-full max-w-2xl text-left">
         <ToggleRow
           label={d.update.automatic}
           desc={d.update.automaticDesc}
