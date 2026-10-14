@@ -265,4 +265,32 @@ edges: []
     expect(h.runner.engine.run(first)?.state.state.v).toBe('for one')
     expect(h.runner.engine.run(second)?.state.state.v).toBe('for two')
   })
+
+  it('has unfinished runs while a run is live or stored for a workspace not open, and none once it ended', async () => {
+    const h = hostHarness(
+      workspace({
+        g: `${head('v: { type: string, default: "" }')}nodes:
+  - { id: a, kind: agent, with: { mode: start, agent: claude, prompt: p }, result: { type: object, properties: { v: { type: string } }, required: [v] }, out: { result.v: v } }
+edges: []
+`,
+      }),
+    )
+    expect(h.runner.hasUnfinishedRuns()).toBe(false)
+    enableAndStart(h, 'g')
+    await settle()
+    expect(h.runner.hasUnfinishedRuns()).toBe(true)
+    const closed = new GraphsRunner({
+      ext: fakeExt().ext,
+      dataDir: null,
+      clock: h.clock,
+      store: h.store,
+      changed: () => {},
+    })
+    expect(closed.engine.active()).toEqual([])
+    expect(closed.hasUnfinishedRuns()).toBe(true)
+    expect(await h.runner.report('pane-1', { v: 'ok' })).toEqual({ ok: true })
+    await h.stop('pane-1')
+    expect(h.runner.hasUnfinishedRuns()).toBe(false)
+    expect(closed.hasUnfinishedRuns()).toBe(false)
+  })
 })

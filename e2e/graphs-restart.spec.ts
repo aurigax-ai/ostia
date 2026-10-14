@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
+import { extensionHosts } from './extensionHosts'
 import { openWorkspace, quitApp, waitForPaletteSelection } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
@@ -129,6 +130,81 @@ edges:
     expect(slow[0]?.[2]).toBe(slow[1]?.[2])
     expect(lines().filter((l) => l === 'first')).toHaveLength(1)
     expect(lines().filter((l) => l === 'before')).toHaveLength(1)
+  } finally {
+    await quitApp(app)
+  }
+})
+
+test('the graphs host starts with the window only while a run is unfinished', async () => {
+  const dataHome = freshDataHome()
+  const launch = isolatedLaunch(dataHome)
+  mkdirSync(join(launch.home, '.ostia/graphs'), { recursive: true })
+  writeFileSync(
+    join(launch.home, '.ostia/graphs/held.yaml'),
+    `version: 1
+on: [{ manual: {} }]
+start: ask
+state: { n: { type: integer, default: 0 } }
+nodes:
+  - { id: ask, kind: approval, with: { question: "Still waiting after the restart?" } }
+edges: []
+`,
+  )
+
+  const launches = (): unknown => {
+    const file = join(dataHome, 'userData', 'extension-launches.json')
+    return existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null
+  }
+
+  let app = await electron.launch(launch)
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    await win.waitForTimeout(1000)
+    expect(extensionHosts(app)).not.toContain('graphs')
+    await openPanel(win)
+    await enableAndRun(app, 'held')
+    await expect.poll(launches, { timeout: 15_000 }).toEqual(['graphs'])
+    await win.keyboard.press('Control+Shift+P')
+    await win.locator('[data-slot="command-input"]').fill('Close Pane')
+    await waitForPaletteSelection(win, 'Close Pane')
+    await win.keyboard.press('Enter')
+    await expect.poll(() => panelEval(app, '1'), { timeout: 15_000 }).toBe('')
+    await win.keyboard.press('Control+Shift+D')
+    await expect(
+      win.locator('article[data-question]', { hasText: 'Still waiting after the restart?' }),
+    ).toBeVisible({ timeout: 30_000 })
+  } finally {
+    await quitApp(app)
+  }
+
+  app = await electron.launch(launch)
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 30_000 })
+    await expect.poll(() => extensionHosts(app), { timeout: 30_000 }).toContain('graphs')
+    await win.keyboard.press('Control+Shift+D')
+    const card = win.locator('article[data-question]', {
+      hasText: 'Still waiting after the restart?',
+    })
+    await expect(card).toBeVisible({ timeout: 30_000 })
+    await card.getByRole('radio', { name: 'Approve' }).check()
+    await card.getByRole('button', { name: 'Send' }).click()
+    await expect(card).toHaveCount(0, { timeout: 15_000 })
+    await expect.poll(launches, { timeout: 15_000 }).toEqual([])
+  } finally {
+    await quitApp(app)
+  }
+
+  app = await electron.launch(launch)
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 30_000 })
+    await win.waitForTimeout(1000)
+    expect(extensionHosts(app)).not.toContain('graphs')
   } finally {
     await quitApp(app)
   }

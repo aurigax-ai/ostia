@@ -4,6 +4,7 @@ import { Engine, type StartResult, missingKinds } from '../../../graph-engine/sr
 import { FileJournalStore } from '../../../graph-engine/src/engine/fileStore'
 import { parseInputs } from '../../../graph-engine/src/engine/inputs'
 import type { MemoryJournalStore } from '../../../graph-engine/src/engine/journal'
+import { isEnded } from '../../../graph-engine/src/engine/runState'
 import { type RunView, runView } from '../../../graph-engine/src/engine/summary'
 import type { GraphFile, Problem } from '../../../graph-engine/src/format/model'
 import { resultErrors } from '../../../graph-engine/src/format/resultSchema'
@@ -119,6 +120,13 @@ export class GraphsRunner {
   setWorkspaces(list: Workspace[]): void {
     this.workspaces = new Map(list.map((w) => [w.workspaceId, w]))
     for (const w of list) if (w.kind !== SCRATCH) this.engine.recover(w.workspaceId)
+  }
+
+  hasUnfinishedRuns(): boolean {
+    if (this.engine.active().length > 0) return true
+    return this.engine
+      .summaries()
+      .some((run) => run.status !== 'journal-version' && !isEnded(run.status))
   }
 
   workspace(id: string | undefined): Workspace | undefined {

@@ -56,8 +56,16 @@ async function main(): Promise<void> {
     },
   })
   const shown = new Set<string>()
+  let startsWithWindow: boolean | null = null
+  const keepStarting = async (): Promise<void> => {
+    const unfinished = runner.hasUnfinishedRuns()
+    if (unfinished === startsWithWindow) return
+    startsWithWindow = unfinished
+    await ext.startWithWindow(unfinished).catch(() => {})
+  }
   const showActive = async (): Promise<void> => {
     sidebarTimer = null
+    await keepStarting()
     const counts = new Map<string, number>()
     for (const run of runner.engine.active())
       counts.set(run.state.scope, (counts.get(run.state.scope) ?? 0) + 1)
@@ -142,6 +150,7 @@ async function main(): Promise<void> {
     void refresh()
   })
   await refresh()
+  await keepStarting()
 }
 
 main().catch((err) => {
