@@ -104,6 +104,7 @@ export function createXtermRenderer(term: Terminal, gpu: boolean): XtermRenderer
     unpark()
     slot?.show()
     syncRenderPause(term, false)
+    term.refresh(0, term.rows - 1)
   }
 
   return {

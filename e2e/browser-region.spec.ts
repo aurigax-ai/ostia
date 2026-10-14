@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
-import { openWorkspace, waitForPaletteSelection } from './helpers'
+import { openWorkspace, shownTerminal, terminalTab, waitForPaletteSelection } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 const PAGE = `<!doctype html>
@@ -89,7 +89,8 @@ test('crop a region of a browser page and send it to an agent pane', async () =>
     await panel.getByRole('button', { name: 'Send' }).click()
 
     await expect(win.getByText(/The report is at its prompt/)).toBeVisible({ timeout: 15_000 })
-    const terminal = win.locator('.xterm-rows').first()
+    await terminalTab(win).click()
+    const terminal = shownTerminal(win).locator('.xterm-rows')
     const inserted = /@(\S*capture-(\d+)\S*)\.md @(\S*capture-\2\S*)\.png/
     await expect(terminal).toContainText(inserted, { timeout: 15_000 })
     const match = ((await terminal.textContent()) ?? '').match(inserted) as RegExpMatchArray

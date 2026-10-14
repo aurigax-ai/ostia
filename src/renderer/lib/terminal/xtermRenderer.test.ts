@@ -67,6 +67,7 @@ interface FakeTerm {
   viewport: HTMLElement
   screen: HTMLElement
   intersections: boolean[]
+  refreshes: [number, number][]
   loaded: FakeWebglAddon[]
 }
 
@@ -82,9 +83,12 @@ function fakeTerm(): FakeTerm {
   element.appendChild(viewport)
   document.body.appendChild(element)
   const intersections: boolean[] = []
+  const refreshes: [number, number][] = []
   const loaded: FakeWebglAddon[] = []
   const term = {
     element,
+    rows: 24,
+    refresh: (start: number, end: number) => refreshes.push([start, end]),
     loadAddon: (addon: FakeWebglAddon & { activate(t: unknown): void }) => {
       addon.activate(term)
       loaded.push(addon)
@@ -96,7 +100,7 @@ function fakeTerm(): FakeTerm {
       },
     },
   }
-  return { term: term as unknown as Terminal, viewport, screen, intersections, loaded }
+  return { term: term as unknown as Terminal, viewport, screen, intersections, refreshes, loaded }
 }
 
 function create(t: FakeTerm, gpu = true) {
@@ -138,6 +142,22 @@ describe('createXtermRenderer', () => {
     renderer.pause(true)
     renderer.dispose()
     expect(t.screen.parentElement).toBe(t.viewport)
+  })
+
+  it('redraws every row once a parked pane is back on the page, so its listeners measure it again', () => {
+    for (const gpu of [false, true]) {
+      const t = fakeTerm()
+      const renderer = create(t, gpu)
+      renderer.pause(true)
+      expect(t.refreshes).toEqual([])
+      const refresh = t.term.refresh.bind(t.term)
+      t.term.refresh = (start, end) => {
+        expect(t.screen.isConnected).toBe(true)
+        refresh(start, end)
+      }
+      renderer.pause(false)
+      expect(t.refreshes).toEqual([[0, 23]])
+    }
   })
 
   it('leaves the WebGL budget to GPU panes when GPU acceleration is off', () => {
