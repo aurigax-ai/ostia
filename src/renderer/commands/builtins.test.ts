@@ -1760,6 +1760,29 @@ describe('pane.list / workspace.list', () => {
     })
   })
 
+  it('workspace.list reports a workspace that has no panes yet with its folder, for the branch chip', async () => {
+    const pane = createPane('terminal', 'zsh', '/work/api')
+    useWorkspacesStore.setState({
+      workspaces: [
+        { id: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
+        { id: 's2', name: 'repo', kind: 'terminal', workDir: '~/repo', state: 'idle' },
+      ],
+    })
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+
+    const res = await commands.execWith(ctx(null, null), 'workspace.list')
+
+    expect(res.ok && res.result).toContainEqual({
+      workspaceId: 's2',
+      name: 'repo',
+      kind: 'terminal',
+      workDir: '~/repo',
+      state: 'idle',
+    })
+  })
+
   it('pane.list reports the agent, its session id and its state for a terminal pane', async () => {
     const blocksBefore = useBlocksStore.getState()
     const attentionBefore = useAttentionStore.getState()
