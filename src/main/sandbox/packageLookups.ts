@@ -30,27 +30,37 @@ async function registryPublishedAt(pkg: PackageRef): Promise<number | null> {
   try {
     if (pkg.ecosystem === 'npm') {
       const body = (await getJson(
-        `https://registry.npmjs.org/${pkg.name.replace('/', '%2f')}`,
+        `https://registry.npmjs.org/${encodeURIComponent(pkg.name)}`,
       )) as { time?: Record<string, string> }
       const at = body.time?.[pkg.version]
       return at ? Date.parse(at) : null
     }
     if (pkg.ecosystem === 'PyPI') {
-      const body = (await getJson(`https://pypi.org/pypi/${pkg.name}/${pkg.version}/json`)) as {
+      const body = (await getJson(
+        `https://pypi.org/pypi/${encodeURIComponent(pkg.name)}/${encodeURIComponent(pkg.version)}/json`,
+      )) as {
         urls?: { upload_time_iso_8601?: string }[]
       }
       const at = body.urls?.[0]?.upload_time_iso_8601
       return at ? Date.parse(at) : null
     }
     if (pkg.ecosystem === 'crates.io') {
-      const body = (await getJson(`https://crates.io/api/v1/crates/${pkg.name}/${pkg.version}`, {
-        headers: { 'user-agent': 'ostia-sandbox (package cooldown check)' },
-      })) as { version?: { created_at?: string } }
+      const body = (await getJson(
+        `https://crates.io/api/v1/crates/${encodeURIComponent(pkg.name)}/${encodeURIComponent(pkg.version)}`,
+        {
+          headers: { 'user-agent': 'ostia-sandbox (package cooldown check)' },
+        },
+      )) as { version?: { created_at?: string } }
       const at = body.version?.created_at
       return at ? Date.parse(at) : null
     }
-    const escaped = pkg.name.replace(/[A-Z]/g, (c) => `!${c.toLowerCase()}`)
-    const body = (await getJson(`https://proxy.golang.org/${escaped}/@v/${pkg.version}.info`)) as {
+    const escaped = pkg.name
+      .split('/')
+      .map((part) => encodeURIComponent(part.replace(/[A-Z]/g, (c) => `!${c.toLowerCase()}`)))
+      .join('/')
+    const body = (await getJson(
+      `https://proxy.golang.org/${escaped}/@v/${encodeURIComponent(pkg.version)}.info`,
+    )) as {
       Time?: string
     }
     return body.Time ? Date.parse(body.Time) : null

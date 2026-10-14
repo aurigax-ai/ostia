@@ -114,6 +114,11 @@ describe('manifest schemas', () => {
         ...[
           { url: 'http://github.com/o/r/t.gz' },
           { url: 'https://evil.example/t.gz' },
+          { url: 'https://github.com.evil.example/t.gz' },
+          { url: 'https://objectsXgithubusercontent.com/t.gz' },
+          { url: 'https://release-assets.githubusercontentXcom/t.gz' },
+          { url: 'https://github.com@evil.example/t.gz' },
+          { url: 'https://evil.example/https://github.com/t.gz' },
           { sha256: 'abc' },
           { archive: 'rar' },
           { executable: '../t' },

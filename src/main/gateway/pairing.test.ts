@@ -33,6 +33,25 @@ describe('gateway/pairing', () => {
     expect(codes.size).toBe(20)
   })
 
+  it('newCode draws every symbol of the alphabet with equal chance at every position', () => {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+    const draws = 4000
+    const counts = Array.from({ length: 8 }, () => new Map<string, number>())
+    for (let n = 0; n < draws; n++) {
+      ;[...newCode()].forEach((symbol, position) => {
+        counts[position].set(symbol, (counts[position].get(symbol) ?? 0) + 1)
+      })
+    }
+    const expected = draws / alphabet.length
+    for (const byPosition of counts) {
+      const chiSquared = [...alphabet].reduce(
+        (sum, symbol) => sum + ((byPosition.get(symbol) ?? 0) - expected) ** 2 / expected,
+        0,
+      )
+      expect(chiSquared).toBeLessThan(90)
+    }
+  })
+
   it('consumeCode accepts a freshly-minted, unexpired code', () => {
     const code = newCode()
     expect(consumeCode(code)).toBe(true)
