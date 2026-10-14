@@ -29,7 +29,7 @@ export function noteAgentDrive(guestId: number, now: number = Date.now()): void 
   activityOf(guestId).agentAt = now
 }
 
-export function forgetGuestPopups(guestId: number): void {
+function forgetGuestPopups(guestId: number): void {
   activities.delete(guestId)
 }
 
@@ -42,7 +42,7 @@ export function popupTitle(url: string, title: string): string {
   return title && title !== host ? `${host} · ${title}` : host
 }
 
-export function popupWindowOptions(parent: BrowserWindow): BrowserWindowConstructorOptions {
+function popupWindowOptions(parent: BrowserWindow): BrowserWindowConstructorOptions {
   return {
     parent,
     autoHideMenuBar: true,
