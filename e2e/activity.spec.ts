@@ -98,6 +98,15 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
     await panelEval(app, `document.querySelector('.agent-head').click(); 'ok'`)
     await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused({ timeout: 15_000 })
     expect(await text(app, '.note')).toBe('')
+    await expect
+      .poll(
+        () => {
+          const file = join(dataHome, 'userData', 'settings.json')
+          return existsSync(file) ? readFileSync(file, 'utf8') : ''
+        },
+        { timeout: 15_000 },
+      )
+      .toContain('"showActivity": true')
   } finally {
     await quitApp(app)
   }
