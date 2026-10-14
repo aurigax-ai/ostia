@@ -31,6 +31,7 @@ export const EXTENSION_ICONS = [
   'chat',
   'plugs',
   'magnifying-glass',
+  'graph',
 ] as const
 
 export type ExtensionIcon = (typeof EXTENSION_ICONS)[number]
@@ -345,6 +346,7 @@ export interface ExtensionCaller {
   locale?: string
   sandboxed?: boolean
   remote?: RemoteCwd
+  manager?: boolean
   capabilities: Capability[]
 }
 

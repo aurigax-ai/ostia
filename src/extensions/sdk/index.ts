@@ -319,7 +319,7 @@ export interface OstiaExtension {
   exec: (opts: ExecOptions, signal?: AbortSignal) => Promise<ExecResult>
   busSend: (to: string, text: string) => Promise<BusSendResult>
   wakePane: (paneId: string, waitMs?: number) => Promise<WakePaneResult>
-  ask: (opts: AskOptions) => Promise<AskResult>
+  ask: (opts: AskOptions, signal?: AbortSignal) => Promise<AskResult>
   listWorkspaces: () => Promise<WorkspaceInfo[]>
   listPanes: () => Promise<PaneInfo[]>
   onAssist: (handler: AssistHandler) => void
@@ -649,11 +649,18 @@ export async function connect(): Promise<OstiaExtension> {
         return rpcFailure(err, 'wake-failed')
       }
     },
-    ask: async (opts) => {
+    ask: async (opts, signal) => {
+      const source = new CancellationTokenSource()
+      const cancel = (): void => source.cancel()
+      signal?.addEventListener('abort', cancel, { once: true })
+      if (signal?.aborted) source.cancel()
       try {
-        return await conn.sendRequest<AskResult>('ext.ask', opts)
+        return await conn.sendRequest<AskResult>('ext.ask', opts, source.token)
       } catch (err) {
         return rpcFailure(err, 'ask-failed')
+      } finally {
+        signal?.removeEventListener('abort', cancel)
+        source.dispose()
       }
     },
     listWorkspaces: () => conn.sendRequest('workspace.list'),

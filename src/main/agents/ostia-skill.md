@@ -224,9 +224,10 @@ it before guessing an id or an args shape.
 
 ## Processes run in visible terminal tabs
 
-Ostia has no hidden background processes. `ostia process run` opens a new terminal tab next
-to your pane, titled with the process name, and runs your command there once the tab's
-shell is ready. The human sees it, can type into it and can close it. Your pane keeps the
+A process you start is never hidden: `ostia process run` opens a new terminal tab next to your
+pane, titled with the process name, and runs your command there once the tab's shell is ready.
+The one thing that runs without a tab is a `command` node of a graph the human enabled
+(`ostia graph`); its output is in the Graphs panel and in `ostia graph show`. The human sees it, can type into it and can close it. Your pane keeps the
 focus.
 
 ```sh
@@ -424,6 +425,34 @@ the placeholders yourself and run the command in your own shell. There is no
 `run` or `save` verb, and ostia never types a workflow for you; files that fail to
 parse are listed under `problems` (stderr in text mode). Needs `read-board`
 (a default capability).
+
+## Graphs — procedures that outlive your session
+
+A graph is a procedure with waits that must outlive your session, your context and a restart:
+implement, test, review, loop, ask the human, open a pull request, wait for checks. You write
+it as one YAML file, `.ostia/graphs/<name>.yaml` in the workspace folder, with your file tools;
+Ostia runs it node by node and stores it after every node. It runs only while Ostia runs.
+
+```sh
+ostia graph schema                   # the file's JSON Schema
+ostia graph nodes                    # the node kinds Ostia runs, their fields and outputs
+ostia graph validate <file>          # check your file; fix every problem it prints
+ostia graph explain <file>           # an outline: triggers, nodes, edges, what it needs
+ostia graph dry-run <file> [--input k=v] [--mock <node>=<json>]   # walk it with mocked outputs
+ostia graph list                     # this workspace's graphs and whether they are enabled
+ostia graph runs [name]              # its runs
+ostia graph show <run> [--node <id>] # a run node by node: input, output, state after
+ostia graph run <name> [--input key=value]   # start an enabled graph (see below)
+ostia graph report --json '<object>' # an agent node's result, when its prompt asks for it
+```
+
+Only the human enables a graph, in the Graphs panel, after reading its exact definition; any
+change outside `ui` turns it off again. Do not ask for another way to enable it, and do not edit
+an enabled graph to change what it does. `ostia graph run` starts a graph only when it is
+enabled and its manual trigger says `agents: true`; your pane becomes `trigger.pane`. A graph's
+`message` node reaches you through the bus: if a graph should message you later, block in
+`ostia bus wait` instead of ending your turn. A graph is not a saved command and not the Git
+panel's commit graph.
 
 ## Views — build UI for the human (sidebar sections and panels)
 

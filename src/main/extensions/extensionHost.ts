@@ -1210,6 +1210,7 @@ export class ExtensionHost {
     const locale = this.deps.locale?.()
     if (locale) caller.locale = locale
     if (this.deps.isSandboxed?.(identity.workspaceId)) caller.sandboxed = true
+    if (identity.manager) caller.manager = true
     const remote = this.deps.remoteCwdForPane?.(identity.paneId)
     if (remote) caller.remote = remote
     return caller

@@ -279,9 +279,11 @@ export function registerExtensionQuestions(deps: ExtensionQuestionDeps): void {
       if (!ticket.ok) return ticket
       const closed = ctx.conn.onClose(() => current.withdraw(ticket.id))
       const disposed = ctx.conn.onDispose(() => current.withdraw(ticket.id))
+      const cancelled = ctx.token?.onCancellationRequested(() => current.withdraw(ticket.id))
       const outcome = await ticket.outcome
       closed.dispose()
       disposed.dispose()
+      cancelled?.dispose()
       if (outcome.outcome !== 'answered') return { ok: true, outcome: outcome.outcome }
       return {
         ok: true,
