@@ -85,6 +85,9 @@ const slot = (name: string): HTMLElement => {
 
 const keyNotice = (): HTMLElement => slot('key-notice')
 
+const alertSaying = (text: RegExp): HTMLElement | undefined =>
+  screen.getAllByRole('alert').find((alert) => text.test(alert.textContent ?? ''))
+
 const combo = (): HTMLElement => slot('keymap-combo')
 
 const keyEditor = (): HTMLElement => {
@@ -384,7 +387,10 @@ describe('KeyboardSection', () => {
     await change('Ctrl+Shift+P', 'Command Palette')
     expect(within(row(/Command Palette/)).getByText(/Press a shortcut/)).toBeInTheDocument()
     press('Y', { ctrlKey: true, shiftKey: true, code: 'KeyY' })
-    expect(useSettingsStore.getState().keybindings['palette.toggle']).toBe('Ctrl+Shift+Y')
+    expect(useSettingsStore.getState().keybindings['palette.toggle']).toEqual([
+      'Ctrl+Shift+Y',
+      'F1',
+    ])
     expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+Y')).toBeInTheDocument()
   })
 
@@ -392,26 +398,33 @@ describe('KeyboardSection', () => {
     render(<KeyboardSection />)
     await change('Ctrl+Shift+P', 'Command Palette')
     press('r', { ctrlKey: true, code: 'KeyR' })
-    expect(within(row(/Command Palette/)).getByRole('alert')).toHaveTextContent(
+    expect(within(keyNotice()).getByRole('alert')).toHaveTextContent(
       /Ctrl\+R can’t be used: plain Ctrl keys belong to the shell/,
     )
     expect(useSettingsStore.getState().keybindings).toEqual({})
     press('Y', { ctrlKey: true, shiftKey: true, code: 'KeyY' })
-    expect(useSettingsStore.getState().keybindings['palette.toggle']).toBe('Ctrl+Shift+Y')
-    expect(within(row(/Command Palette/)).queryByRole('alert')).toBeNull()
+    expect(useSettingsStore.getState().keybindings['palette.toggle']).toEqual([
+      'Ctrl+Shift+Y',
+      'F1',
+    ])
+    expect(document.querySelector('[data-slot="key-notice"]')).toBeNull()
   })
 
   it('refuses bare keys, Tab and plain arrows', async () => {
     render(<KeyboardSection />)
     await change('Ctrl+Shift+P', 'Command Palette')
     press('k', { code: 'KeyK' })
-    expect(screen.getByRole('alert')).toHaveTextContent(/single keys belong to the shell/)
+    expect(within(keyNotice()).getByRole('alert')).toHaveTextContent(
+      /single keys belong to the shell/,
+    )
     press('Tab', { shiftKey: true, code: 'Tab' })
-    expect(screen.getByRole('alert')).toHaveTextContent(/Tab belongs to the shell/)
+    expect(within(keyNotice()).getByRole('alert')).toHaveTextContent(/Tab belongs to the shell/)
     press('Tab', { ctrlKey: true, altKey: true, code: 'Tab' })
-    expect(screen.getByRole('alert')).toHaveTextContent(/Only Ctrl\+Tab and Ctrl\+Shift\+Tab/)
+    expect(within(keyNotice()).getByRole('alert')).toHaveTextContent(
+      /Only Ctrl\+Tab and Ctrl\+Shift\+Tab/,
+    )
     press('ArrowUp', { ctrlKey: true, code: 'ArrowUp' })
-    expect(screen.getByRole('alert')).toHaveTextContent(/arrows belong to the shell/)
+    expect(within(keyNotice()).getByRole('alert')).toHaveTextContent(/arrows belong to the shell/)
     expect(useSettingsStore.getState().keybindings).toEqual({})
   })
 
@@ -433,10 +446,40 @@ describe('KeyboardSection', () => {
     expect(useSettingsStore.getState().keybindings).toEqual({})
     await userEvent.click(within(keyNotice()).getByRole('button', { name: 'Replace' }))
     expect(useSettingsStore.getState().keybindings).toEqual({
-      'palette.toggle': null,
+      'palette.toggle': 'F1',
       'view.toggleRail': 'Ctrl+Shift+P',
     })
-    expect(within(row(/Command Palette/)).getByText('Unassigned')).toBeInTheDocument()
+    expect(within(row(/Command Palette/)).queryByText('Ctrl+Shift+P')).toBeNull()
+    expect(within(row(/Command Palette/)).getByText('F1')).toBeInTheDocument()
+  })
+
+  it('says on the palette row that terminal programs lose F1, until F1 is removed', async () => {
+    render(<KeyboardSection />)
+    const note = 'F1 opens the palette, so terminal programs never get it'
+    expect(within(row(/Command Palette/)).getByText(note)).toBeInTheDocument()
+    expect(screen.getAllByText(note)).toHaveLength(1)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove F1 from Command Palette' }))
+
+    expect(useSettingsStore.getState().keybindings['palette.toggle']).toBe('Ctrl+Shift+P')
+    expect(screen.queryByText(note)).toBeNull()
+  })
+
+  it('records F1 for the palette again, and refuses it for any other command', async () => {
+    useSettingsStore.setState({ keybindings: { 'palette.toggle': 'Ctrl+Shift+P' } })
+    render(<KeyboardSection />)
+    await add('Command Palette')
+    press('F1', { code: 'F1' })
+    expect(useSettingsStore.getState().keybindings['palette.toggle']).toBeUndefined()
+    expect(within(row(/Command Palette/)).getByText('F1')).toBeInTheDocument()
+    expect(document.querySelector('[data-slot="key-notice"]')).toBeNull()
+
+    await change('Ctrl+Shift+B', 'Toggle Sidebar')
+    press('F1', { code: 'F1' })
+    expect(within(keyNotice()).getByRole('alert')).toHaveTextContent(
+      /F1 can’t be used: single keys belong to the shell/,
+    )
+    expect(useSettingsStore.getState().keybindings['view.toggleRail']).toBeUndefined()
   })
 
   it('shows every chord of a command, and taking one leaves the others', async () => {
@@ -498,7 +541,10 @@ describe('KeyboardSection', () => {
     await change('Ctrl+Shift+P', 'Command Palette')
     press('K', { ctrlKey: true, shiftKey: true, code: 'KeyK' })
     await userEvent.click(within(keyNotice()).getByRole('button', { name: 'Use anyway' }))
-    expect(useSettingsStore.getState().keybindings['palette.toggle']).toBe('Ctrl+Shift+K')
+    expect(useSettingsStore.getState().keybindings['palette.toggle']).toEqual([
+      'Ctrl+Shift+K',
+      'F1',
+    ])
   })
 
   it('records any digit as the 1-9 range for the workspace jump', async () => {
@@ -601,7 +647,7 @@ describe('KeyboardSection', () => {
     render(<KeyboardSection />)
     await userEvent.click(screen.getByText('Add a terminal key', { selector: 'button' }))
     press('k', { code: 'KeyK' })
-    expect(screen.getByRole('alert')).toHaveTextContent(/K can’t be used: single keys/)
+    expect(alertSaying(/K can’t be used: single keys/)).toBeDefined()
     press('K', { ctrlKey: true, altKey: true, code: 'KeyK' })
     await pickAction('Custom bytes (advanced)')
     await userEvent.type(screen.getByRole('textbox', { name: 'What to send' }), 'clear\\r')
@@ -667,7 +713,7 @@ describe('KeyboardSection', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'Hex codes' }))
     await userEvent.type(screen.getByRole('textbox', { name: 'What to send' }), '0x80')
     await userEvent.click(within(keyEditor()).getByRole('button', { name: 'Save' }))
-    expect(screen.getByRole('alert')).toHaveTextContent(/bytes from 0x00 to 0x7F/)
+    expect(alertSaying(/bytes from 0x00 to 0x7F/)).toBeDefined()
     expect(useSettingsStore.getState().terminalKeys).toEqual({})
     await userEvent.clear(screen.getByRole('textbox', { name: 'What to send' }))
     await userEvent.type(screen.getByRole('textbox', { name: 'What to send' }), '0x1b 0x7f')
@@ -689,11 +735,12 @@ describe('KeyboardSection', () => {
     ).toBeInTheDocument()
     expect(useSettingsStore.getState().terminalKeys).toEqual({})
     await userEvent.click(within(keyEditor()).getByRole('button', { name: 'Replace' }))
-    expect(useSettingsStore.getState().keybindings).toEqual({ 'palette.toggle': null })
+    expect(useSettingsStore.getState().keybindings).toEqual({ 'palette.toggle': 'F1' })
     expect(useSettingsStore.getState().terminalKeys).toEqual({
       'Ctrl+Shift+P': { type: 'text', value: 'x' },
     })
-    expect(within(row(/Command Palette/)).getByText('Unassigned')).toBeInTheDocument()
+    expect(within(row(/Command Palette/)).queryByText('Ctrl+Shift+P')).toBeNull()
+    expect(within(row(/Command Palette/)).getByText('F1')).toBeInTheDocument()
   })
 
   it('asks before giving a command a terminal key’s chord, and removes the key on Replace', async () => {
@@ -706,7 +753,7 @@ describe('KeyboardSection', () => {
     ).toBeInTheDocument()
     expect(useSettingsStore.getState().keybindings).toEqual({})
     await userEvent.click(within(keyNotice()).getByRole('button', { name: 'Replace' }))
-    expect(useSettingsStore.getState().keybindings['palette.toggle']).toBe('Ctrl+Alt+K')
+    expect(useSettingsStore.getState().keybindings['palette.toggle']).toEqual(['Ctrl+Alt+K', 'F1'])
     expect(useSettingsStore.getState().terminalKeys).toEqual({})
   })
 
@@ -776,7 +823,7 @@ describe('KeyboardSection', () => {
       await within(row(/Command Palette/)).findByRole('button', { name: /Replace/ }),
     )
     expect(useSettingsStore.getState().keybindings).toEqual({
-      'palette.toggle': 'Shift+Shift',
+      'palette.toggle': ['Shift+Shift', 'F1'],
       'palette.searchEverywhere': null,
     })
   })
@@ -822,6 +869,7 @@ describe('KeyboardSection', () => {
     press('Y', { ctrlKey: true, altKey: true, code: 'KeyY' })
     expect(useSettingsStore.getState().keybindings['palette.toggle']).toEqual([
       'Ctrl+Shift+P',
+      'F1',
       'Ctrl+Alt+Y',
     ])
     const palette = within(row(/Command Palette/))
@@ -1002,7 +1050,7 @@ describe('KeyboardSection layered view', () => {
       expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
       const items = within(preview()).getAllByRole('listitem')
       const palette = items.find((li) => li.textContent?.includes('Command Palette'))
-      expect(palette).toHaveTextContent('Ctrl+Shift+PCtrl+Alt+P')
+      expect(palette).toHaveTextContent('Ctrl+Shift+P / F1Ctrl+Alt+P')
       const sidebar = items.find((li) => li.textContent?.includes('Toggle Sidebar'))
       expect(sidebar).toHaveTextContent('Ctrl+Shift+BNone')
       expect(within(sidebar as HTMLElement).getByText('yours stays')).toBeInTheDocument()
@@ -1095,7 +1143,9 @@ describe('KeyboardSection layered view', () => {
       expect(within(find).getByText('was Ctrl+Shift+F')).toBeInTheDocument()
       expect(within(row(/pane\.zoom/)).getByText('Unassigned')).toBeInTheDocument()
       expect(within(row(/Back one word/)).getByText('Not translated')).toBeInTheDocument()
-      expect(within(row(/Command Palette/)).getByText('Ostia: Ctrl+Shift+P')).toBeInTheDocument()
+      expect(
+        within(row(/Command Palette/)).getByText('Ostia: Ctrl+Shift+P / F1'),
+      ).toBeInTheDocument()
       expect(within(row(/Command Palette/)).getByText('Ctrl+Alt+P')).toBeInTheDocument()
 
       await userEvent.click(screen.getByRole('button', { name: 'Revert Find (terminal)' }))

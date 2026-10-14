@@ -227,6 +227,25 @@ describe('chat', () => {
     expect(screen.getByText(/Answers come from model-runtime · gemma/)).toBeInTheDocument()
   })
 
+  it('closes the palette on its own chord while Ask is shown, though the question box keeps other keys to itself', async () => {
+    const outside = vi.fn()
+    window.addEventListener('keydown', outside)
+    try {
+      useUIStore.setState({ paletteOpen: true, paletteMode: 'ask' })
+      render(<CommandPalette />)
+      const question = await screen.findByRole('combobox', { name: 'Your question' })
+
+      fireEvent.keyDown(question, { key: 'b', code: 'KeyB', ctrlKey: true, shiftKey: true })
+      expect(useUIStore.getState().paletteOpen).toBe(true)
+
+      fireEvent.keyDown(question, { key: 'P', code: 'KeyP', ctrlKey: true, shiftKey: true })
+      expect(useUIStore.getState().paletteOpen).toBe(false)
+      expect(outside).not.toHaveBeenCalled()
+    } finally {
+      window.removeEventListener('keydown', outside)
+    }
+  })
+
   it('takes focus back into the question box when the dialog grabs it as Ask opens', async () => {
     const frames: FrameRequestCallback[] = []
     const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {

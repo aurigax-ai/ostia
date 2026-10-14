@@ -73,6 +73,7 @@ import {
   chordTexts,
   doubleShiftDetector,
   formatScopedChord,
+  isPaletteF1,
   parseChord,
   specFromEvent,
   usedByMonaco,
@@ -232,6 +233,25 @@ function DesktopNote({ specs }: { specs: readonly ChordSpec[] }): JSX.Element | 
       {fmt(d.keyboard.desktopTakes, {
         desktop: taken[0].desktop,
         keys: taken.map((t) => t.keys).join(' '),
+      })}
+    </WarningNote>
+  )
+}
+
+function TerminalLosesNote({
+  id,
+  specs,
+}: {
+  id: string
+  specs: readonly ChordSpec[]
+}): JSX.Element | null {
+  const d = useDict()
+  const lost = specs.filter((spec) => isPaletteF1(id, spec))
+  if (lost.length === 0) return null
+  return (
+    <WarningNote>
+      {fmt(d.keyboard.terminalLoses, {
+        keys: lost.map((spec) => chordText(spec, isMac)).join(' '),
       })}
     </WarningNote>
   )
@@ -474,6 +494,7 @@ export function KeybindingRow({
         </KeyNotice>
       ) : null}
       <DesktopNote specs={current} />
+      <TerminalLosesNote id={id} specs={current} />
       {ignored && mode.kind === 'idle' ? (
         <WarningNote>
           {fmt(d.keyboard.ignored, {

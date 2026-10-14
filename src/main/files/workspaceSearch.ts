@@ -15,6 +15,7 @@ import { type FileList, type RgOutcome, listFiles, searchText } from './ripgrep'
 export const QUERY_MAX = 1000
 export const NAME_LIMIT = 50
 export const PDF_LIMIT = 50
+export const LINE_LIMIT = 30
 const FILE_LIST_TTL_MS = 10_000
 
 export function parseSearchRequest(raw: unknown): SearchRequest | null {
@@ -30,6 +31,7 @@ export function parseSearchRequest(raw: unknown): SearchRequest | null {
     wholeWord: r.wholeWord === true,
     includeIgnored: r.includeIgnored === true,
     ...(r.namesOnly === true ? { namesOnly: true } : {}),
+    ...(r.linesOnly === true && r.namesOnly !== true ? { linesOnly: true } : {}),
   }
 }
 
@@ -116,7 +118,7 @@ export class WorkspaceSearch {
     if (root === null || !isDirectory(root)) {
       return { ok: false, error: 'outside-roots', message: '' }
     }
-    const slot = `${caller}:${req.namesOnly ? 'names' : 'text'}`
+    const slot = `${caller}:${req.namesOnly ? 'names' : req.linesOnly ? 'lines' : 'text'}`
     this.running.get(slot)?.abort()
     const controller = new AbortController()
     this.running.set(slot, controller)
@@ -134,6 +136,21 @@ export class WorkspaceSearch {
             pdfs: [],
             matches: 0,
             truncated: list.value.truncated,
+          },
+        }
+      }
+      if (req.linesOnly) {
+        const lines = await searchText(this.bin, root, req, controller.signal, LINE_LIMIT)
+        if (!lines.ok) return lines
+        return {
+          ok: true,
+          results: {
+            root,
+            names: [],
+            files: lines.value.files,
+            pdfs: [],
+            matches: lines.value.matches,
+            truncated: lines.value.truncated,
           },
         }
       }

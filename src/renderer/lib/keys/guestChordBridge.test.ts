@@ -85,6 +85,29 @@ describe('guestChordSignatures', () => {
     expect(sigs).toContain(DOUBLE_SHIFT)
   })
 
+  it('forwards F1 so it opens the palette from a browser pane, until the human removes it', () => {
+    expect(guestChordSignatures(false)).toContain('F1')
+    expect(guestChordSignatures(true)).toContain('F1')
+    const pressed = guestChordKey(
+      {
+        type: 'keyDown',
+        key: 'F1',
+        code: 'F1',
+        control: false,
+        shift: false,
+        alt: false,
+        meta: false,
+      },
+      new Set(guestChordSignatures(false)),
+      false,
+    )
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    expect(pressed && handleGuestChord({ guestId: 1, key: pressed }, false)).toBe(true)
+    expect(exec).toHaveBeenCalledWith('palette.toggle')
+    useSettingsStore.setState({ keybindings: { 'palette.toggle': 'Ctrl+Shift+P' } })
+    expect(guestChordSignatures(false)).not.toContain('F1')
+  })
+
   it('forwards ⌘G and ⇧⌘G so a page’s find bar steps on macOS', () => {
     expect(guestChordSignatures(true)).toEqual(
       expect.arrayContaining(['Cmd+G', 'Shift+Cmd+G', 'Shift+Cmd+F']),
