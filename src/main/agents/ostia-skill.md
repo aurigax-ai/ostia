@@ -38,11 +38,11 @@ ostia commands       # JSON array of commands available in this window: id, titl
 ostia docs           # this same reference, generated from the running app
 ostia info           # this pane's mirrored terminal state (cwd, running, gen, ...)
 ostia cwd            # just this pane's current working directory
-ostia pane.list      # every pane, every workspace — JSON array (the pane roster, below)
-ostia workspace.list   # every workspace — JSON array of { workspaceId, name, kind, workDir, state, groupId? }
+ostia pane list      # every pane, every workspace — JSON array (the pane roster, below)
+ostia workspace list --json   # every workspace — JSON array of { workspaceId, name, kind, workDir, state, groupId? }
 ```
 
-`ostia pane.list` is one command with a dot; `ostia pane list` is not a verb. It always prints
+`ostia pane list` is one command with a dot; `ostia pane list` is not a verb. It always prints
 JSON, one object per pane:
 
 | Field | Meaning |
@@ -59,14 +59,14 @@ JSON, one object per pane:
 | `splitTabId?`, `splitTabName?` | the split tab it belongs to |
 
 An agent that finished its turn has `agent` set and `agentState: "done"` (no `agentState` once the
-human looked at it); a bare shell has no `agent` and `running: false`. `ostia process ls` prints
+human looked at it); a bare shell has no `agent` and `running: false`. `ostia process list` prints
 a different id, `proc-N`, plus that tab's `paneId`; `pane` verbs take either, or the `--name`.
 
 `ostia commands` always prints JSON (there's no separate `--json` flag to pass —
 JSON is the only output format). It lists *commands*, not other panes — use
-`ostia pane.list`/`ostia workspace.list` for that (the coordination recipe below still
+`ostia pane list`/`ostia workspace list --json` for that (the coordination recipe below still
 applies for LEARNING another agent's `externalId` out-of-band up front, but you no
-longer have to: `ostia pane.list` shows every pane's external id directly).
+longer have to: `ostia pane list` shows every pane's external id directly).
 
 ## Everyday actions
 
@@ -209,12 +209,12 @@ Anything registered in the command palette can be run directly by id, with an
 optional JSON args blob as the next argv:
 
 ```sh
-ostia pane.close
-ostia workspace.new
+ostia pane close
+ostia workspace new
 ostia editor.open '{"path":"src/index.ts"}'  # the raw command: reuses the editor pane, home folder only
 ```
 
-`ostia pane.close` closes your own pane; close another one with `ostia pane close <pane>`
+`ostia pane close` closes your own pane; close another one with `ostia pane close <pane>`
 (below).
 
 `ostia commands` is the authoritative list (id + argsSchema + capabilities) — check
@@ -230,8 +230,8 @@ focus.
 
 ```sh
 ostia process run "npm run dev" [--name web] [--cwd /path]  # -> { id, name, paneId }
-ostia process run "npm run api" --name api --split-tab dev
-ostia process ls                   # id, name, status, paneId, cmd
+ostia process run "npm run api" --name api --tab dev
+ostia process list                   # id, name, status, paneId, cmd
 ostia process logs <id|name> [--since N]  # that command's output only, as plain text
 ostia process kill <id|name>       # Ctrl+C; ends the tab's shell if it keeps running
 ostia process restart <id|name>    # Ctrl+C, then the same line again in the same tab
@@ -249,14 +249,14 @@ ostia process restart <id|name>    # Ctrl+C, then the same line again in the sam
   fixer` shows what it printed, and `ostia pane send <paneId> "..." --enter` and
   `ostia pane read <paneId>` let you answer it. An unknown name answers `unknown-agent`: start
   that one with `ostia process run` instead.
-- To show related processes in one tab, give them the same `--split-tab <name>`: the first
+- To show related processes in one tab, give them the same `--tab <name>`: the first
   run opens its tab as usual, and every later run with that name joins that tab. The human
   sees one tab, a split tab, with a segment per process; Ostia arranges it (side by side while
   each segment stays readable, then a grid). `ostia agent run` takes the same flag. It still
-  only opens new terminals: it never types into one that is open. `ostia pane.list` gives
+  only opens new terminals: it never types into one that is open. `ostia pane list` gives
   each member's `splitTabId` and `splitTabName`.
-- `ostia agent run` from an agent without `--split-tab` puts the new worker into one split tab
-  for you, `<your tab title> · workers`; `--split-tab <name>` picks another.
+- `ostia agent run` from an agent without `--tab` puts the new worker into one split tab
+  for you, `<your tab title> · workers`; `--tab <name>` picks another.
 - Status is `starting` (not typed yet), `running`, `exited(<code>)`, or `closed` (the human
   closed the tab; start it again with `ostia process run`). Nothing survives a restart of
   Ostia: a restored tab is an idle shell and the list is empty.
@@ -284,7 +284,7 @@ ostia pane move <pane>... --workspace <id|name> [--tab <name>|new] [--json]  # t
 ostia pane rename <pane> <title...> | --clear  # name its tab (your own needs nothing)
 ```
 
-`<pane>` is a `paneId` from `ostia pane.list`, or a process id or name from `ostia process ls`.
+`<pane>` is a `paneId` from `ostia pane list`, or a process id or name from `ostia process list`.
 
 - A tab **you** opened with `ostia process run` or `ostia agent run` is yours to type into,
   read, wake and close, with no question asked.
@@ -306,11 +306,11 @@ ostia pane rename <pane> <title...> | --clear  # name its tab (your own needs no
   closed. It needs the same asks as `read` and never reads the screen. A finished pane the
   human looked at reads `idle`, not `done`.
 - A pane Ostia hibernated (an idle agent it stopped to save memory; `hibernated: true` in
-  `ostia pane.list`) has no program running: `pane send` and `pane key` refuse it with
+  `ostia pane list`) has no program running: `pane send` and `pane key` refuse it with
   `hibernated:`. `ostia pane wake <pane>` starts a fresh shell there and types the agent's own
   resume command, nothing else; it needs the same asks as `send` and answers `not-hibernated`
   for a pane that is awake. Until that agent has started, the pane shows `waking: true` in
-  `ostia pane.list` and `pane send` and `pane key` refuse it with `waking:`. With `--wait` it
+  `ostia pane list` and `pane send` and `pane key` refuse it with `waking:`. With `--wait` it
   answers only once every named pane's agent has started: exit 0 started, 3 timed out
   (default 2 minutes, `--timeout` up to 1800 s), 4 a pane closed, 1 with `resume-failed:`
   when the agent could not start. `--wait` on a pane that is already waking just waits.
@@ -318,7 +318,7 @@ ostia pane rename <pane> <title...> | --clear  # name its tab (your own needs no
   only when it holds their unsaved file changes. A pane the human locked answers
   `pane-locked`: leave it open, you can't unlock it.
 - `pane move --tab <name>` puts running panes into the split tab of that name in their
-  workspace (the name `--split-tab` uses), creating it when two panes share the name, and
+  workspace (the name `--tab` uses), creating it when two panes share the name, and
   arranges it; `--tab new` puts each pane back into a tab of its own. A pane already there is
   left alone, so it is safe to repeat. It joins only a split tab whose panes you all reach, and
   refuses a pane the human locked (`pane-locked:`). The processes keep running; nothing is
@@ -345,12 +345,12 @@ when one is waiting or done, and your own tab row stays yours.
 ```sh
 ostia workspace list --json      # your workspace's groupId; is a '<project> · workers' already there?
 ostia workspace group "<project>"  # only if your workspace is in no group yet
-ostia workspace.new '{"name":"<project> · workers","dir":"<repo>","focus":false,"group":"<project>"}'
+ostia workspace new '{"name":"<project> · workers","dir":"<repo>","focus":false,"group":"<project>"}'
                                  # prints ok, then {"workspaceId":"…"}; the human's view stays put
 ostia agent run claude - --name <name> --cwd <worktree> --workspace <workspaceId> < task.md
 ```
 
-- A new workspace is empty, as it is for the human: no tab, nothing in `ostia pane.list`. The first
+- A new workspace is empty, as it is for the human: no tab, nothing in `ostia pane list`. The first
   `ostia agent run … --workspace <workspaceId>` or `ostia process run … --workspace <workspaceId>`
   opens its first tab.
 - Create the workers workspace once and reuse it: look for it by name in `ostia workspace list`
@@ -370,7 +370,7 @@ ostia agent run claude - --name <name> --cwd <worktree> --workspace <workspaceId
 | Layout | How |
 |---|---|
 | Workers as tabs beside you | `ostia agent run …` without `--workspace`: they open after your tab, in launch order |
-| Two or three workers side by side | the same `--split-tab <name>` on each: one tab, a segment per worker |
+| Two or three workers side by side | the same `--tab <name>` on each: one tab, a segment per worker |
 | A workspace per worker | `workspace.new` with `"focus":false` and the same `"group"` for each, then `--workspace` |
 | A group per task | `workspace.new` with `"group":"<task>"`; your workspace stays in its own group |
 
@@ -392,7 +392,7 @@ ostia agent run claude - --name <name> --cwd <worktree> --workspace <workspaceId
    `ostia pane key <name> <key>...`, a question that takes text with
    `ostia pane send <name> "..." --enter --force --confirm` (text to a waiting agent needs
    `--force`). Exit 2 means nothing happened on screen: press `ostia pane key <name> enter`.
-4. **Hibernated workers.** `ostia pane.list` shows `hibernated: true`, and `pane send`
+4. **Hibernated workers.** `ostia pane list` shows `hibernated: true`, and `pane send`
    refuses it. Don't wake a worker just to talk to it: `ostia bus send <paneId> "..."` is
    accepted (`asleep: true`), and when the worker wakes, its agent gets the message as context
    at start-up and `ostia bus sent` marks it `seen`. To give it work now, run
@@ -405,7 +405,7 @@ ostia agent run claude - --name <name> --cwd <worktree> --workspace <workspaceId
    on a permission prompt (`pane send` refuses); answer the prompt with `ostia pane key` first.
 6. **Asks.** Your own `ostia agent run` tabs need no question. Any other pane, including
    your own workers after Ostia restarted (it forgets who opened which tab, so
-   `ostia process ls` is empty and names no longer resolve: use the `paneId`), asks the human
+   `ostia process list` is empty and names no longer resolve: use the `paneId`), asks the human
    for `type-other-pane` to send, key or wake. Expect it, and tell the human up front that
    "Allow for this pane" covers every later send and wake from your pane. On `not-approved`,
    say what is waiting (`ostia state waiting "..."`) and retry once they answer; don't start a
@@ -554,7 +554,7 @@ data), 1000 drawn nodes; over budget, the last good render stays with a note.
 ```sh
 echo -n "sk-..." | ostia vault set OPENAI_KEY [--global]   # value read from STDIN, never argv
 ostia vault get OPENAI_KEY [--global]
-ostia vault ls [--global]                                   # keys only, never values
+ostia vault list [--global]                                   # keys only, never values
 ostia vault rm OPENAI_KEY [--global]
 ```
 
@@ -575,7 +575,7 @@ A refused connection or read does not fail silently — ask the human:
 ```bash
 ostia sandbox request-domain api.example.com  # a card asks the human; prints "allowed: …" or exits 1
 ostia sandbox expose 5173                      # Linux: forwards 127.0.0.1:5173 on the human's computer to your server
-ostia secret ls                                # names and labels (Host / Ostia), never values
+ostia secret list                                # names and labels (Host / Ostia), never values
 ostia secret get DB_PASSWORD --reason "run the migrations"  # the value on stdout once the human allows it
 ```
 
@@ -631,8 +631,8 @@ extension: these verbs always exist and start nothing that keeps running.
 ## Ports — what your workspace's terminals listen on
 
 ```sh
-ostia ports ls                       # {workspaces:[{workspaceId, ports:[{port:3000, name:"node"}], ssh:["host"]}]} for your workspace
-ostia ports ls --all                 # every workspace (asks the human for all-workspaces)
+ostia ports list                       # {workspaces:[{workspaceId, ports:[{port:3000, name:"node"}], ssh:["host"]}]} for your workspace
+ostia ports list --all                 # every workspace (asks the human for all-workspaces)
 ```
 
 `ports` are the TCP ports the processes started from your workspace's terminals listen on, each
@@ -668,7 +668,7 @@ that is on PATH (e.g. `paru` for AUR packages); otherwise the distro's own manag
 ## Extensions — commands contributed by extensions
 
 ```sh
-ostia ext ls                         # enabled extensions + their commands (also appended to `ostia docs`)
+ostia ext list                         # enabled extensions + their commands (also appended to `ostia docs`)
 ostia ext <extId> <command> [args]   # run an extension command
 ostia <extId> <command> [args]       # same, when <extId> isn't a core verb (this is how `ostia system` works)
 ```
@@ -677,7 +677,7 @@ System and ssh are built-in extensions, so their commands behave exactly as docu
 If the user disabled one in Settings → Extensions you'll get `extension-disabled`; don't try to
 enable it yourself (there is no verb for that — only the human approves/enables extensions).
 `extension-unavailable` means its process didn't start or crashed; retry once, then tell the
-user. Third-party extensions show up the same way — check `ostia ext ls` before assuming a verb.
+user. Third-party extensions show up the same way — check `ostia ext list` before assuming a verb.
 Built-in tool extensions: `ostia trellis open|card <REF>|vault|status|init` (the user's Trellis
 board, one card or the vault in a panel for the human; `status` counts open and claimed cards;
 `init` asks the human first; to change cards yourself use the `trellis` CLI) and `ostia keeper open|approvals` (Keeper's dashboard and the
@@ -917,7 +917,7 @@ ostia browse pick [--timeout MS]        # ask the HUMAN to click an element (see
 ```
 
 Every command takes `--pane <externalId>` (a browser pane's id from `ostia browse tab` or
-`ostia pane.list`) and `--json`. With `--json` the output is agent-browser's shape,
+`ostia pane list`) and `--json`. With `--json` the output is agent-browser's shape,
 `{"success": bool, "data": {…} | null, "error": "code: detail" | null}`; without it, text (the
 snapshot tree, the value, `ok`) on stdout and `ostia browse <verb>: <error>` on stderr with exit 1.
 Relative paths resolve against your cwd and must stay under your home directory.
@@ -1127,7 +1127,7 @@ Two peer agents in different panes of the same Ostia window (e.g. Claude driving
 Codex driving pane B) can coordinate like this. To start and supervise workers of your own,
 follow "Coordinating worker agents" instead.
 
-1. **Learn identities.** Run `ostia pane.list` to see every pane's `externalId`
+1. **Learn identities.** Run `ostia pane list` to see every pane's `externalId`
    (its `paneId` field) plus `title`/`cwd`, which is often enough to tell panes
    apart on its own. If it isn't (e.g. two otherwise-identical terminal panes),
    fall back to each agent running `ostia whoami` and publishing its own

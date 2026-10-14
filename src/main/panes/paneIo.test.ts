@@ -660,14 +660,15 @@ describe('pane.wake', () => {
     expect(request).not.toHaveBeenCalled()
   })
 
-  it('answers not-hibernated for a pane that is awake and wakes none of the named panes', async () => {
+  it('types the resume command of an awake agent pane, beside waking a hibernated one', async () => {
     asleepPanes.add('child-pane')
     answer = 'once'
     const conn = await client(agent)
     await expect(
       conn.sendRequest('pane.wake', { panes: ['echo', sibling.externalId] }),
-    ).rejects.toThrow(`not-hibernated: ${sibling.externalId}`)
-    expect(woken).toEqual([])
+    ).resolves.toEqual({ ok: true, woke: [child.externalId, sibling.externalId] })
+    expect(woken).toEqual(['child-pane'])
+    expect(resumed).toEqual(['sibling-pane'])
   })
 
   it('asks for type-other-pane before waking a pane the caller did not open, and stops on Deny', async () => {
@@ -775,9 +776,7 @@ describe('pane.wake', () => {
   it('with wait waits on a pane that is already waking instead of waking it again', async () => {
     waking.start('child-pane')
     const conn = await client(agent)
-    await expect(conn.sendRequest('pane.wake', { panes: ['echo'] })).rejects.toThrow(
-      'not-hibernated',
-    )
+    await expect(conn.sendRequest('pane.wake', { panes: ['echo'] })).rejects.toThrow('waking:')
     const reply = conn.sendRequest('pane.wake', { panes: ['echo'], wait: true })
     await new Promise((resolve) => setTimeout(resolve, 20))
     waking.end('child-pane', 'started')
@@ -906,74 +905,76 @@ describe('pane.close', () => {
   })
 })
 
-describe('agent.resume', () => {
+describe('pane.wake on an awake pane', () => {
   it('refuses to resume a session that an agent runs in another pane, in any window', async () => {
     listed = [
       listedPane(sibling, { agentSessionId: 'sess-a' }),
       listedPane(foreign, { agentSessionId: 'sess-a', agent: 'claude', title: 'coordinator' }),
     ]
     const conn = await client({ token: SCRIPT_TOKEN })
-    await expect(conn.sendRequest('agent.resume', { pane: sibling.externalId })).rejects.toThrow(
+    await expect(conn.sendRequest('pane.wake', { panes: [sibling.externalId] })).rejects.toThrow(
       `session-conflict: the agent session of ${sibling.externalId} is already running in ${foreign.externalId}`,
     )
     expect(resumed).toEqual([])
   })
 
-  it('lets a script token resume an agent pane in any workspace, and says when there was none', async () => {
+  it('lets a script token resume an agent pane in any workspace, and refuses one with nothing to resume', async () => {
     const conn = await client({ token: SCRIPT_TOKEN })
-    await expect(conn.sendRequest('agent.resume', { pane: sibling.externalId })).resolves.toEqual({
-      ok: true,
-      paneId: sibling.externalId,
-      resumed: true,
-    })
-    await expect(conn.sendRequest('agent.resume', { pane: foreign.externalId })).resolves.toEqual({
-      ok: true,
-      paneId: foreign.externalId,
-      resumed: true,
-    })
-    await expect(conn.sendRequest('agent.resume', { pane: noPty.externalId })).resolves.toEqual({
-      ok: true,
-      paneId: noPty.externalId,
-      resumed: false,
-    })
+    await expect(
+      conn.sendRequest('pane.wake', { panes: [sibling.externalId, foreign.externalId] }),
+    ).resolves.toEqual({ ok: true, woke: [sibling.externalId, foreign.externalId] })
+    await expect(conn.sendRequest('pane.wake', { panes: [noPty.externalId] })).rejects.toThrow(
+      `not-resumable: ${noPty.externalId}`,
+    )
     expect(resumed).toEqual(['sibling-pane', 'foreign-pane', 'no-pty'])
     expect(request).not.toHaveBeenCalled()
   })
 
   it('refuses a script token without type-other-pane or all-workspaces', async () => {
     const noType = await client({ token: SCRIPT_NO_TYPE })
-    await expect(noType.sendRequest('agent.resume', { pane: sibling.externalId })).rejects.toThrow(
+    await expect(noType.sendRequest('pane.wake', { panes: [sibling.externalId] })).rejects.toThrow(
       'needs-elevation: type-other-pane',
     )
     const noReach = await client({ token: SCRIPT_NO_REACH })
-    await expect(noReach.sendRequest('agent.resume', { pane: sibling.externalId })).rejects.toThrow(
+    await expect(noReach.sendRequest('pane.wake', { panes: [sibling.externalId] })).rejects.toThrow(
       'needs-elevation: all-workspaces',
     )
     expect(resumed).toEqual([])
     expect(request).not.toHaveBeenCalled()
   })
 
-  it('needs a pane, never the manager, and refuses a pane whose agent is starting', async () => {
+  it('never reaches the manager, and refuses a pane whose agent is starting', async () => {
     const conn = await client({ token: SCRIPT_TOKEN })
-    await expect(conn.sendRequest('agent.resume', {})).rejects.toThrow('bad-request: pane')
-    await expect(conn.sendRequest('agent.resume', { pane: manager.externalId })).rejects.toThrow(
+    await expect(conn.sendRequest('pane.wake', { panes: [manager.externalId] })).rejects.toThrow(
       `unknown-pane: ${manager.externalId}`,
     )
     waking.start('sibling-pane')
-    await expect(conn.sendRequest('agent.resume', { pane: sibling.externalId })).rejects.toThrow(
+    await expect(conn.sendRequest('pane.wake', { panes: [sibling.externalId] })).rejects.toThrow(
       'waking:',
     )
     expect(resumed).toEqual([])
   })
 
-  it('asks a pane caller for type-other-pane, as pane wake does', async () => {
+  it('asks a pane caller for type-other-pane', async () => {
     const conn = await client(agent)
-    await expect(conn.sendRequest('agent.resume', { pane: sibling.externalId })).rejects.toThrow(
+    await expect(conn.sendRequest('pane.wake', { panes: [sibling.externalId] })).rejects.toThrow(
       'denied: type-other-pane',
     )
     answer = 'once'
-    await conn.sendRequest('agent.resume', { pane: sibling.externalId })
+    await conn.sendRequest('pane.wake', { panes: [sibling.externalId] })
     expect(resumed).toEqual(['sibling-pane'])
+  })
+
+  it('closes the caller’s own pane when no pane is named, and needs a pane from a script', async () => {
+    answer = 'once'
+    const conn = await client(agent)
+    await expect(conn.sendRequest('pane.close', {})).resolves.toEqual({
+      ok: true,
+      closed: [agent.externalId],
+    })
+    expect(closed).toEqual(['agent-pane'])
+    const script = await client({ token: SCRIPT_TOKEN })
+    await expect(script.sendRequest('pane.close', {})).rejects.toThrow('bad-request: panes')
   })
 })
 

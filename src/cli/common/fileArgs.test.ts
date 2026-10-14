@@ -2,11 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   type FileProbe,
   diffRefusalLine,
-  fileWord,
-  isClaimedWord,
   openTarget,
   parseFileArg,
-  placementOf,
   refusalLine,
   revealRefusalLine,
 } from './fileArgs'
@@ -19,35 +16,6 @@ function probe(files: string[], dirs: string[] = []): FileProbe {
     isDir: (path) => dirs.includes(path),
   }
 }
-
-describe('fileWord', () => {
-  it('reads a word with a slash, a leading dot or a tilde as a path, existing or not', () => {
-    const p = probe([])
-    expect(fileWord('/tmp/x.png', p)).toBe('path')
-    expect(fileWord('src/main.ts', p)).toBe('path')
-    expect(fileWord('./notes', p)).toBe('path')
-    expect(fileWord('.env', p)).toBe('path')
-    expect(fileWord('~/todo.md', p)).toBe('path')
-  })
-
-  it('reads a bare word as a file only when that file exists in the folder', () => {
-    const p = probe(['/w/project/README', '/w/project/notes.txt'])
-    expect(fileWord('README', p)).toBe('name')
-    expect(fileWord('notes.txt', p)).toBe('name')
-    expect(fileWord('notes.txt:12', p)).toBe('name')
-    expect(fileWord('git', p)).toBeNull()
-    expect(fileWord('pane.splitRight', p)).toBeNull()
-  })
-})
-
-describe('isClaimedWord', () => {
-  it('lets an extension id or a registered command win over a file of the same name', () => {
-    const claimed = { extensionIds: ['git'], commandIds: ['pane.splitRight'] }
-    expect(isClaimedWord('git', claimed)).toBe(true)
-    expect(isClaimedWord('pane.splitRight', claimed)).toBe(true)
-    expect(isClaimedWord('README', claimed)).toBe(false)
-  })
-})
 
 describe('parseFileArg', () => {
   it('resolves a relative path against the caller folder and ~ against home', () => {
@@ -80,24 +48,6 @@ describe('refusalLine', () => {
 })
 
 describe('open targets', () => {
-  it('lets the opener’s own flags, a lone dash and a URL start the bare form', () => {
-    const p = probe([])
-    for (const word of ['-', '-b', '--background', '--name', 'https://example.com/']) {
-      expect(fileWord(word, p), word).toBe('path')
-    }
-    expect(fileWord('--json', p)).toBeNull()
-    expect(fileWord('-x', p)).toBeNull()
-  })
-
-  it('never takes a bare folder name for a target, so an unknown verb stays unknown', () => {
-    const p = probe([], ['/w/project/git', '/w/project/src'])
-    expect(fileWord('git', p)).toBeNull()
-    expect(fileWord('src', p)).toBeNull()
-    expect(fileWord('./src', p)).toBe('path')
-    expect(fileWord('src/', p)).toBe('path')
-    expect(fileWord('.', p)).toBe('path')
-  })
-
   it('sorts each word into a URL, stdin, a folder or a file', () => {
     const p = probe(['/w/project/a.ts'], ['/w/project', '/w/project/src', '/home/u'])
     expect(openTarget('https://example.com/x?y=1', p)).toEqual({
@@ -130,32 +80,7 @@ describe('open targets', () => {
   })
 })
 
-describe('placement and wait flags', () => {
-  it('lets every opener flag start the bare form', () => {
-    const p = probe([])
-    for (const word of ['-w', '--wait', '--tab', '--split', '-n', '--new']) {
-      expect(fileWord(word, p), word).toBe('path')
-    }
-  })
-
-  it('reads --tab and --split right|down, and refuses what cannot be combined', () => {
-    expect(placementOf({ tab: false, split: undefined, wait: false })).toEqual({
-      ok: true,
-      placement: undefined,
-    })
-    expect(placementOf({ tab: true, split: undefined, wait: false })).toEqual({
-      ok: true,
-      placement: 'tab',
-    })
-    expect(placementOf({ tab: false, split: 'down', wait: false })).toEqual({
-      ok: true,
-      placement: 'down',
-    })
-    expect(placementOf({ tab: false, split: 'left', wait: false }).ok).toBe(false)
-    expect(placementOf({ tab: true, split: 'right', wait: false }).ok).toBe(false)
-    expect(placementOf({ tab: false, split: 'right', wait: true }).ok).toBe(false)
-  })
-
+describe('diffRefusalLine', () => {
   it('names the side a diff could not read', () => {
     expect(diffRefusalLine('/a/x.bin', 'binary')).toBe('ostia diff: /a/x.bin: is not a text file')
     expect(diffRefusalLine('/a/x', 'not-found')).toBe('ostia diff: /a/x: no such file')

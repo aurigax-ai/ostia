@@ -224,6 +224,12 @@ export function notHibernated(to: PaneIdentity): ResponseError<void> {
   return fail(`not-hibernated: ${to.externalId} is not hibernated`)
 }
 
+function notResumable(to: PaneIdentity): ResponseError<void> {
+  return fail(
+    `not-resumable: ${to.externalId} has no agent session to resume, or is not at its prompt`,
+  )
+}
+
 function alreadyHibernated(to: PaneIdentity): ResponseError<void> {
   return fail(`hibernated: ${to.externalId} is already asleep; wake it with ostia pane wake`)
 }
@@ -385,8 +391,9 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
       const wait = optionalFlag(p.wait, 'wait') === true
       const timeoutMs = wakeWaitTimeout(p.timeoutMs)
       ensureManagerInput(ctx)
-      const panes: PaneIdentity[] = []
+      const waited: PaneIdentity[] = []
       const asleepPanes: PaneIdentity[] = []
+      const awakePanes: PaneIdentity[] = []
       for (const ref of refs) {
         const to = await target(ref, ctx)
         await ensurePaneReach(deps, 'input', to, ctx, {
@@ -394,21 +401,35 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
           method: 'pane.wake',
           detail: `wake ${to.externalId}: type its agent's resume command`,
         })
-        panes.push(to)
-        if (wait && deps.waking.has(to.paneId)) continue
-        if (!(await deps.hibernated(to))) throw notHibernated(to)
-        asleepPanes.push(to)
+        if (deps.waking.has(to.paneId)) {
+          if (!wait) throw starting(to)
+          waited.push(to)
+        } else if (await deps.hibernated(to)) {
+          asleepPanes.push(to)
+          waited.push(to)
+        } else {
+          awakePanes.push(to)
+        }
       }
-      if (asleepPanes.length > 0) checkSessions(asleepPanes, await deps.panes())
+      checkSessions([...asleepPanes, ...awakePanes], await deps.panes())
       const woke: string[] = []
       for (const to of asleepPanes) {
         const outcome = await deps.wake(to)
         if (outcome.conflict) throw sessionConflict(to, `"${outcome.conflict}"`)
-        if (!outcome.woke) throw notHibernated(to)
+        if (!outcome.woke) throw notResumable(to)
         deps.waking.start(to.paneId)
         woke.push(to.externalId)
       }
-      if (!wait) return { ok: true, woke }
+      for (const to of awakePanes) {
+        const res = await deps.resume(to)
+        if (!res.ok) throw fail(res.error.message)
+        if ((res.result as { resumed?: unknown } | undefined)?.resumed !== true) {
+          throw notResumable(to)
+        }
+        woke.push(to.externalId)
+      }
+      if (!wait || waited.length === 0) return { ok: true, woke }
+      const panes = waited
       const ended = await deps.waking.until(
         panes.map((to) => to.paneId),
         timeoutMs,
@@ -453,30 +474,12 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
     },
   })
 
-  registerControlMethod('agent.resume', {
-    scripts: true,
-    handler: async (raw, ctx) => {
-      const p = record(raw)
-      const to = await target(p.pane, ctx)
-      ensureManagerInput(ctx)
-      await ensurePaneReach(deps, 'input', to, ctx, {
-        ref: String(p.pane),
-        method: 'agent.resume',
-        detail: `resume the agent of ${to.externalId}: type its recorded resume command`,
-      })
-      if (deps.waking.has(to.paneId)) throw starting(to)
-      checkSessions([to], await deps.panes())
-      const res = await deps.resume(to)
-      if (!res.ok) throw fail(res.error.message)
-      const resumed = (res.result as { resumed?: unknown } | undefined)?.resumed === true
-      return { ok: true, paneId: to.externalId, resumed }
-    },
-  })
-
   registerControlMethod('pane.close', {
     scripts: true,
     handler: async (raw, ctx) => {
-      const refs = paneRefs(record(raw).panes)
+      const given = record(raw).panes
+      const own = given === undefined && ctx.identity.kind === 'pane'
+      const refs = own ? [ctx.identity.externalId] : paneRefs(given)
       const panes: PaneIdentity[] = []
       for (const ref of refs) {
         const to = await target(ref, ctx)

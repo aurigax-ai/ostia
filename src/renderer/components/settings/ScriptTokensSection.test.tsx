@@ -9,8 +9,7 @@ import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { registerBuiltinCommands } from '../../commands/builtins'
-import { commands } from '../../commands/registry'
+import { findNoun } from '../../../cli/common/usageTable'
 import { EXAMPLE, ScriptTokensSection } from './ScriptTokensSection'
 
 if (!Element.prototype.getAnimations) {
@@ -145,10 +144,9 @@ describe('ScriptTokensSection', () => {
   })
 
   it('shows an example that is a command the CLI accepts', () => {
-    registerBuiltinCommands()
-    const [bin, verb, ...args] = EXAMPLE.split(' ')
+    const [bin, noun, verb, ...args] = EXAMPLE.split(' ')
     expect(bin).toBe('ostia')
-    expect(commands.describe().map((c) => c.id)).toContain(verb)
+    expect(findNoun(noun)?.verbs?.map((v) => v.verb)).toContain(verb)
     expect(args).toEqual([])
   })
 

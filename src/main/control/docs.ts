@@ -23,7 +23,7 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia <target>...              same as open, when the first word has a /, starts with . or ~,
                                  is a URL or -, or names a file here that is no command or
                                  extension
-  ostia pane.list                 every pane, every workspace — {paneId(external),workspaceId,
+  ostia pane list                 every pane, every workspace — {paneId(external),workspaceId,
                                   kind,title,cwd,running,blockCount,lastExitCode,agent,
                                   agentSessionId,agentState,agentMessage,splitTabId,
                                   splitTabName,hibernated,waking,agentSessionConflict}; a restored
@@ -31,7 +31,7 @@ const CLI_HELP = `ostia — control-socket CLI
                                   pane inside a split tab (one tab showing several panes side by
                                   side). agentSessionConflict lists the other panes running the
                                   same agent session
-  ostia workspace.list              every workspace — {workspaceId,name,kind,workDir,state,groupId}
+  ostia workspace list --json              every workspace — {workspaceId,name,kind,workDir,state,groupId}
   ostia notify <title> [body]    desktop notification + marks this pane unread in Ostia
   ostia ask "<question>" [--context <text|->] [--choice <label>]… [--multi] [--timeout <seconds>] [--json]
                                  ask the human a question and wait for the answer. It shows on
@@ -87,7 +87,7 @@ const CLI_HELP = `ostia — control-socket CLI
                                  sidebar (--clear goes back to its default name); another
                                  workspace asks the human (send-other-pane, plus
                                  all-workspaces outside your reach)
-  ostia workspace import-cmux [file] [--json]
+  ostia cmux import [file] [--json]
                                  recreate cmux's saved workspaces (names, folders, splits,
                                  tabs; default file ~/Library/Application Support/cmux/
                                  session-com.cmuxterm.app.json). Workspaces already here are
@@ -121,7 +121,7 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia git stage <path...> | --all, unstage <path...> | --all, commit -m <message>
                                  change the index and commit what is staged; discarding
                                  changes is the human's, from the Git panel
-  ostia ports ls [--all]         listening ports, each with its process name, and ssh hosts of
+  ostia ports list [--all]         listening ports, each with its process name, and ssh hosts of
                                  your workspace's terminals (JSON); --all needs all-workspaces
   ostia view schema              JSON Schema of a view file (~/.config/ostia/views/<name>.json)
   ostia view validate <file>     check a view file: file:line: path: message, exit 1 on problems
@@ -137,7 +137,7 @@ const CLI_HELP = `ostia — control-socket CLI
                                  share is refused with the candidates listed); a workspace
                                  outside your reach needs all-workspaces, and a sandboxed
                                  workspace opens tabs only in itself.
-                                 --split-tab T: the first run with T opens its tab as usual;
+                                 --tab T: the first run with T opens its tab as usual;
                                  each later run with the same T joins that tab, so one tab
                                  shows them together (a split tab named T, arranged by
                                  Ostia). It never types into a pane that is already open
@@ -145,16 +145,16 @@ const CLI_HELP = `ostia — control-socket CLI
                                  it when hibernated; prints {paneId,resumed}, exit 1 when it
                                  has nothing to resume. Same asks as pane send
   ostia agent run <agent> [--name X] [--cwd P] [--workspace <id|name>]
-                                 [--split-tab T] <prompt|->
+                                 [--tab T] <prompt|->
                                  start another agent (claude, codex or
                                  one the human configured) in a new terminal tab with that prompt
                                  as its one argument, quoted for you (- reads it from stdin).
                                  Same result and rules as process run: wait for it with ostia pane
                                  wait, follow it with ostia process logs, talk to it with ostia
                                  pane send and ostia pane read. From an agent without
-                                 --split-tab the worker joins one split tab for you,
+                                 --tab the worker joins one split tab for you,
                                  "<your tab title> · workers"
-  ostia process ls               id, name, status, paneId, command of this workspace's
+  ostia process list               id, name, status, paneId, command of this workspace's
                                  processes: starting, running, exited(code), or closed (the
                                  human closed the tab)
   ostia process logs <id|name> [--since N]  that command's output only, as plain text; prints
@@ -165,7 +165,7 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia process restart <id|name> interrupt it and run the same line again in the same tab
   ostia pane send <pane> [--enter] [--paste|--raw] [--force] [--confirm] [--] <text…|->
                                  type text into another terminal pane; no Enter unless
-                                 --enter. <pane> is a paneId from ostia pane.list, or a
+                                 --enter. <pane> is a paneId from ostia pane list, or a
                                  process id or name. '-' reads the text from stdin.
                                  Multi-line text goes in as one bracketed paste when the
                                  program turned that mode on (Claude Code, Codex, shells),
@@ -193,12 +193,12 @@ const CLI_HELP = `ostia — control-socket CLI
                                  3 timed out, 4 pane closed. Same asks as pane read; it reads
                                  the state only, never the screen
   ostia pane wake <pane>… [--wait [--timeout <s>]] [--json]  wake panes Ostia hibernated
-                                 (hibernated: true in ostia pane.list): each gets a fresh
+                                 (hibernated: true in ostia pane list): each gets a fresh
                                  shell that runs its agent's own resume command, nothing
                                  else. Prints the woken paneIds. A pane that is awake
                                  answers not-hibernated. Same asks as pane send, which
                                  refuses a hibernated pane, and refuses a pane with waking:
-                                 true in ostia pane.list (woken, agent not started yet).
+                                 true in ostia pane list (woken, agent not started yet).
                                  --wait answers once every pane's agent has started; a pane
                                  already waking is waited on, not woken again. Default
                                  timeout 2 minutes, at most 30. Exit 0 started, 3 timed
@@ -206,7 +206,7 @@ const CLI_HELP = `ostia — control-socket CLI
                                  start). Then send: ostia pane wake X --wait && ostia pane
                                  send X --enter "..."
   ostia pane hibernate <pane>… [--json]  stop the agent of those panes to save memory
-                                 (hibernated: true in ostia pane.list): the same busy checks
+                                 (hibernated: true in ostia pane list): the same busy checks
                                  as workspace.hibernateAgents, so a pane whose agent still
                                  runs a subagent, a background task, a scheduled task or a
                                  child process is skipped with its reason. Prints the
@@ -297,15 +297,15 @@ const CLI_HELP = `ostia — control-socket CLI
                                  asks; --name alone keeps it and skips the second. Regenerating
                                  a token that stays never-expiring needs --yes-never-expires
   ostia token revoke <id|name>   delete a token; scripts using it are cut off at once
-  sudo ostia install-polkit      Linux: install the polkit action so confirming a token asks
+  sudo ostia polkit install      Linux: install the polkit action so confirming a token asks
                                  for your password (or fingerprint) instead of an Ostia dialog
   ostia vault set <KEY> [--global]  store a secret (value read from stdin, no echo)
   ostia vault get <KEY> [--global]  print a stored secret
-  ostia vault ls [--global]        list stored secret keys (never values)
+  ostia vault list [--global]        list stored secret keys (never values)
   ostia vault rm <KEY> [--global]  delete a stored secret
   ostia sandbox request-domain <host>  ask the human to let this sandbox reach a host
   ostia sandbox expose <port>          ask the human to reach a sandboxed server from this computer
-  ostia secret ls                      list secrets you may ask for (names and labels, never values)
+  ostia secret list                      list secrets you may ask for (names and labels, never values)
   ostia secret get <name> [--reason t]  ask the human for a secret's value (prints it on approval)
   ostia bus send <toExternalId> "<msg>"       send a message to another pane's inbox; answers
                                               delivered: waiting (the receiver is in bus wait)
@@ -366,7 +366,7 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia gateway status                       { running, host, port, fingerprint, deviceCount, tailnet, route }
   ostia gateway devices                      list paired phones (never prints tokens; caps are granted only in Settings → Remote)
   ostia gateway revoke <deviceId>             revoke a paired phone immediately
-  ostia ext ls                   list enabled extensions and their commands
+  ostia ext list                   list enabled extensions and their commands
   ostia ext <extId> <command> [args...]  run an extension command
   ostia <extId> <command> [args...]      same, when <extId> isn't a built-in verb
   ostia docs                     show this help
@@ -391,7 +391,7 @@ const CLI_HELP = `ostia — control-socket CLI
                                   with an optional JSON-encoded args blob. --workspace runs it
                                   in that workspace (tab.new adds a tab to its active pane);
                                   another workspace needs all-workspaces
-  ostia workspace.new [jsonArgs] [--no-focus]  open a workspace without switching to it
+  ostia workspace new [jsonArgs] [--no-focus]  open a workspace without switching to it
                                   (same as {"focus":false}); prints its workspaceId
                                   The workspace is empty, like one the human opens: pane.list
                                   shows nothing for it until ostia process run or ostia agent

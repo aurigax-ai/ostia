@@ -6,9 +6,7 @@ import { quoteArgv } from '../../shared/terminal/shellQuote'
 import {
   SPLIT_TAB_NAME_MAX,
   type SplitTabPlacement,
-  type SplitTabSide,
   normalizeSplitTabName,
-  parseSplitTabSide,
 } from '../../shared/workspaces/splitTabs'
 import { ensureCaps } from '../approvals/controlElevation'
 import type { Reach } from '../approvals/reach'
@@ -429,22 +427,11 @@ function defaultName(cmd: string): string {
   return (cmd.trim().split(/\s+/)[0] ?? '').slice(0, PROCESS_NAME_MAX)
 }
 
-interface SplitTabRequest {
-  name: string
-  side?: SplitTabSide
-}
-
-function splitTabOf(rawName: unknown, rawSide: unknown): SplitTabRequest | undefined {
-  if (rawName === undefined || rawName === null) {
-    if (rawSide !== undefined && rawSide !== null) throw badRequest('split needs splitTab')
-    return undefined
-  }
+function splitTabOf(rawName: unknown): SplitTabPlacement | undefined {
+  if (rawName === undefined || rawName === null) return undefined
   const name = normalizeSplitTabName(rawName)
-  if (!name) throw badRequest('splitTab')
-  if (rawSide === undefined || rawSide === null) return { name }
-  const side = parseSplitTabSide(rawSide)
-  if (!side) throw badRequest('split must be right or down')
-  return { name, side }
+  if (!name) throw badRequest('tab')
+  return { name }
 }
 
 const WORKERS_SUFFIX = ' · workers'
@@ -497,7 +484,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
 
   const workersTabs = new Map<string, string>()
 
-  const workersTab = async (ctx: ControlMethodContext): Promise<SplitTabRequest | undefined> => {
+  const workersTab = async (ctx: ControlMethodContext): Promise<SplitTabPlacement | undefined> => {
     const caller = ctx.identity.paneId
     if (ctx.identity.kind !== 'pane' || !caller || !deps.isAgent(caller)) return undefined
     const known = workersTabs.get(caller)
@@ -527,7 +514,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
     name: string,
     givenCwd: string | undefined,
     givenWorkspace: string | undefined,
-    splitTab: SplitTabRequest | undefined,
+    splitTab: SplitTabPlacement | undefined,
   ): Promise<{ id: string; name: string; paneId: string } | typeof NOT_OPENED> => {
     const home = ctx.identity.workspaceId
     const workspaceId = givenWorkspace ?? home
@@ -598,7 +585,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
         nameOf(p.name) ?? defaultName(cmd),
         cwdOf(p.cwd),
         workspaceOf(p.workspace),
-        splitTabOf(p.splitTab, p.split),
+        splitTabOf(p.tab),
       )
     },
   })
@@ -618,7 +605,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
         nameOf(p.name) ?? agent,
         cwdOf(p.cwd),
         workspaceOf(p.workspace),
-        splitTabOf(p.splitTab, p.split) ?? (await workersTab(ctx)),
+        splitTabOf(p.tab) ?? (await workersTab(ctx)),
       )
     },
   })

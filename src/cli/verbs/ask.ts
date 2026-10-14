@@ -1,6 +1,7 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import type { QuestionAskResult, QuestionEnd } from '../../shared/agents/questions'
 import { FlagError, parseArgs } from '../common/args'
+import { usageOf } from '../common/usageTable'
 
 export const ASK_EXIT = {
   answered: 0,
@@ -10,12 +11,7 @@ export const ASK_EXIT = {
   closed: 4,
 } as const
 
-const USAGE = [
-  'usage: ostia ask "<question>" [--context <text|->] [--choice <label>]… [--multi]',
-  '                [--timeout <seconds>] [--json]',
-  'asks the human and waits; prints the chosen labels (one per line), then their reply',
-  'exit: 0 answered, 2 dismissed, 3 timed out, 4 pane closed',
-].join('\n')
+const USAGE = usageOf('ask')
 
 export interface AskCall {
   params: {

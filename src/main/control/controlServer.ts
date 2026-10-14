@@ -151,11 +151,6 @@ export function registerTargetableMethod(name: string, method: ControlMethod): v
   registerControlMethod(name, { ...method, targetable: true })
 }
 
-const GROUP_COMMANDS: ReadonlySet<string> = new Set([
-  'workspace.hibernateGroupAgents',
-  'workspace.resumeGroupAgents',
-])
-
 const GROUP_ARG_COMMANDS: ReadonlySet<string> = new Set([
   'workspace.groupColor',
   'workspace.groupRename',
@@ -185,9 +180,6 @@ function scriptTargetInScope(
     return taken === undefined || scoped.hasGroup(taken)
   }
   if (!target.workspaceId || !scoped.covers(target.workspaceId)) return false
-  if (GROUP_COMMANDS.has(id)) {
-    return scoped.hasGroup(scoped.confirmedGroup(target.workspaceId) ?? '')
-  }
   if (id === 'workspace.group') return scoped.hasGroup(scoped.groupNamed(argOf(args, 'name')) ?? '')
   return true
 }
@@ -345,7 +337,7 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
         if (script && params.id === 'pane.close' && !target.workspaceId) {
           throw new ResponseError(
             ErrorCodes.InvalidParams,
-            'bad-request: pane.close from a script token needs {"paneId": <id from ostia pane.list>}',
+            'bad-request: pane.close from a script token needs {"paneId": <id from ostia pane list>}',
           )
         }
         if (!script && target.workspaceId !== me.workspaceId && deps.isSandboxed(me.workspaceId)) {

@@ -252,7 +252,7 @@ test('KSH-C27 ostia pane send types into a tmux pane with the usual rules', asyn
     await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
     await runInTerminal(
       win,
-      'until ostia process ls | grep -q running; do sleep 0.2; done; ostia pane send echo "sum-$((20+3))" --enter; sleep 1; ostia pane read echo',
+      'until ostia process list | grep -q running; do sleep 0.2; done; ostia pane send echo "sum-$((20+3))" --enter; sleep 1; ostia pane read echo',
     )
     await expect(screen(win)).toContainText('sum-23', { timeout: 30_000 })
   } finally {
@@ -529,7 +529,7 @@ test('KSH-C37 a process tab is still listed after a restart and can still be kil
   await expect(first.win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
   await runInTerminal(
     first.win,
-    'until ostia process ls | grep -q running; do sleep 0.2; done; echo started',
+    'until ostia process list | grep -q running; do sleep 0.2; done; echo started',
   )
   await expect(screen(first.win)).toContainText('started', { timeout: 15_000 })
   await savedLayout(2)
@@ -538,9 +538,9 @@ test('KSH-C37 a process tab is still listed after a restart and can still be kil
   const second = await launch(dataHome)
   try {
     await expect(screen(second.win)).toContainText(PROMPT, { timeout: 15_000 })
-    await runInTerminal(second.win, 'clear; ostia process ls')
+    await runInTerminal(second.win, 'clear; ostia process list')
     await expect(screen(second.win)).toContainText(/demo\s+running/, { timeout: 15_000 })
-    await runInTerminal(second.win, 'ostia process kill demo && ostia process ls')
+    await runInTerminal(second.win, 'ostia process kill demo && ostia process list')
     await expect(screen(second.win)).toContainText(/demo\s+exited/, { timeout: 15_000 })
   } finally {
     await quitApp(second.app)

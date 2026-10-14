@@ -142,7 +142,7 @@ The manifest is `ostia.json`; a marketplace's is `ostia-marketplace.json`.
 | `locales` | Optional. Up to 32 language tags (`"zh-Hant"`, `"fr"`) you ship a catalog for, each read from `locales/<tag>.json` in the extension. See "Translations" below. |
 | `capabilities` | What the extension process may do through Ostia. It gets this list intersected with what the user approved. Names are Ostia's capability names (`shared/capabilities.ts`). |
 | `main` | Path inside the extension dir. `.js`/`.cjs`/`.mjs` run with Ostia's own Electron binary as Node (`ELECTRON_RUN_AS_NODE=1`), so no system Node is needed; anything else is executed directly (any language). cwd is the extension dir. Required if you contribute commands, sidebar items or a `url` panel. |
-| `contributes.commands[]` | `id` (no dots), `title`, optional `category`, `usage` (shown in `ostia docs` / `ostia ext ls`), `palette` (default `true`; `false` = CLI/agents only), `stdin` (CLI pipes stdin to you), `interactive` (the command waits on the human, usually through `ext.confirm`: Ostia waits up to 10 min for your reply instead of 30 s), `argument` (a label, 80 chars: picking the command in the palette asks the human for one value, shown with this label, and you get it as `args.argv[0]`, the same shape as `ostia <id> <command> <value>`; without `argument` palette runs get `null` args), `capabilities` (what the **caller** must hold; checked by Ostia before your process sees the call). |
+| `contributes.commands[]` | `id` (no dots), `title`, optional `category`, `usage` (shown in `ostia docs` / `ostia ext list`), `palette` (default `true`; `false` = CLI/agents only), `stdin` (CLI pipes stdin to you), `interactive` (the command waits on the human, usually through `ext.confirm`: Ostia waits up to 10 min for your reply instead of 30 s), `argument` (a label, 80 chars: picking the command in the palette asks the human for one value, shown with this label, and you get it as `args.argv[0]`, the same shape as `ostia <id> <command> <value>`; without `argument` palette runs get `null` args), `capabilities` (what the **caller** must hold; checked by Ostia before your process sees the call). |
 | `contributes.sidebarItems` | `true` if you call `ext.setSidebarItem`. Such extensions start with the window instead of on first use, and so do extensions that declare `paneChips` or `workspaceChips`. A built-in extension with sidebar items and no chips starts on first use, and with the window only after it asked to with `ext.startWithWindow(true)`. |
 | `contributes.panel` | `title`, optional `icon`, and `entry`: a `.html` path inside the extension, or `"url"` to hand Ostia a loopback URL at runtime. |
 | `contributes.paneChips` | Up to 8 `{id, title}`. Each is a slot for a short value you put on a pane's header with `ext.setPaneChip` (for example a venv or a test count). `title` names it in tooltips and in Settings → Prompt: the human can also place your chip in the Ostia prompt's chip row (`terminal.prompt.chips` id `<extId>.<chip>`), where it shows the same value. Needs `main`. |
@@ -243,7 +243,7 @@ string: a key your catalog leaves out shows the manifest's English. Wherever the
 palette, your panel's toggle and tab, chip names) follows, and switches when the human changes the
 language or your extension folder changes; nothing restarts. A catalog is read with its manifest,
 so the approval dialog and a marketplace listing are translated before the extension is enabled.
-Agents always get the manifest's own strings (`ostia ext ls`, `ostia docs`).
+Agents always get the manifest's own strings (`ostia ext list`, `ostia docs`).
 
 ### `messages`: what your process and panel show
 
@@ -1100,9 +1100,8 @@ all, so Ostia never offers them.
 ## The CLI
 
 ```
-ostia ext ls                              enabled extensions and their commands
-ostia ext <id> <command> [args...]        run a command
-ostia <id> <command> [args...]            same, when <id> isn't a core verb
+ostia ext list                            enabled extensions and their commands
+ostia <id> <command> [args...]            run a command
 ```
 
 Arguments arrive as `args = {argv: [...], stdin?}`. Parse `argv` however you like. `ostia docs`
@@ -1407,7 +1406,7 @@ no script: Ostia validates the file and draws it with its own components, bound 
 only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/renderer`.
 
 Git (the branch and diff stats chips, the Git panel, `ostia git …`) and Ports (the plug in the top
-bar, the ssh login chip, `ostia ports ls`) are part of Ostia itself, not extensions: they need no
+bar, the ssh login chip, `ostia ports list`) are part of Ostia itself, not extensions: they need no
 process, read nothing until a window shows one of their items or a verb is used, and their settings
 are Settings → Git and Settings → Ports.
 

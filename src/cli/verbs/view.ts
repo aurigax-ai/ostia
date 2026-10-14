@@ -12,8 +12,9 @@ import {
   viewNameOf,
 } from '../../shared/views/views'
 import { parseArgs } from '../common/args'
+import { usageOf } from '../common/usageTable'
 
-const VIEW_USAGE = 'ostia view: usage: view list [--json] | validate <file> | open <name> | schema'
+const VIEW_USAGE = usageOf('view')
 
 interface ViewSummary {
   name: string

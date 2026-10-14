@@ -2807,31 +2807,15 @@ describe('commands open to script tokens', () => {
       relaxed: ['drive-self'],
       reason: 'a sidebar summary, the same risk as renaming the workspace',
     },
-    'workspace.hibernateAgents': {
-      relaxed: [],
-      reason: 'declares only kill-pane; a busy agent is skipped and pane wake brings it back',
-    },
-    'workspace.hibernateGroupAgents': {
-      relaxed: [],
-      reason: 'declares only kill-pane, like workspace.hibernateAgents for a whole group',
-    },
-    'workspace.resumeAgents': {
-      relaxed: [],
-      reason: 'declares only type-other-pane, the same as pane.wake on each pane',
-    },
-    'workspace.resumeGroupAgents': {
-      relaxed: [],
-      reason: 'declares only type-other-pane, like workspace.resumeAgents for a whole group',
-    },
   }
 
   it.each([
-    ['workspace.hibernateAgents', 'kill-pane'],
-    ['workspace.hibernateGroupAgents', 'kill-pane'],
-    ['workspace.resumeAgents', 'type-other-pane'],
-    ['workspace.resumeGroupAgents', 'type-other-pane'],
-  ])('%s asks every socket caller for %s', (id, cap) => {
-    expect(commands.describe().find((c) => c.id === id)?.capabilities).toEqual([cap])
+    'workspace.hibernateAgents',
+    'workspace.hibernateGroupAgents',
+    'workspace.resumeAgents',
+    'workspace.resumeGroupAgents',
+  ])('%s is the human’s: local only, never a socket command', (id) => {
+    expect(commands.isLocal(id)).toBe(true)
   })
 
   it('SCRIPT_COMMANDS matches the relaxed-capability allowlist', () => {

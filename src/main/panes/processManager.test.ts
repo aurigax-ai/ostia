@@ -181,7 +181,7 @@ describe('agent.run', () => {
     await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'one' })
     titles.set('agent-pane', '✳ Fixing the build')
     await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'two' })
-    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'three', splitTab: 'docs' })
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'three', tab: 'docs' })
     expect(opened.map((req) => req.splitTab)).toEqual([
       { name: 'api · workers' },
       { name: 'api · workers' },

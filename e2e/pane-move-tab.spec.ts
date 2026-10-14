@@ -49,7 +49,7 @@ test('ostia pane move --tab moves running panes into a split tab and back out', 
 
     await tabs.nth(0).click()
     await win.locator('.xterm:visible').click()
-    await typeLine(win, 'clear; ostia pane move w2 --tab new && ostia process ls')
+    await typeLine(win, 'clear; ostia pane move w2 --tab new && ostia process list')
     await expect(strip.locator('.pane-split-tab')).toHaveCount(0, { timeout: 15_000 })
     await expect(tabs).toHaveCount(3)
     await expect(caller).toContainText(/w1\s+running/, { timeout: 15_000 })

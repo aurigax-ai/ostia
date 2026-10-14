@@ -99,12 +99,9 @@ describe('parsePaneArgs', () => {
     expect(() => parsePaneArgs(['frobnicate', 'p1'])).toThrow('usage: ostia pane')
   })
 
-  it('points pane list at the pane.list command', () => {
-    for (const argv of [['list'], ['list', '--json']]) {
-      expect(() => parsePaneArgs(argv)).toThrow(
-        'list panes with ostia pane.list (JSON), not ostia pane list',
-      )
-    }
+  it('lists panes as JSON and takes nothing more', () => {
+    expect(parsePaneArgs(['list'])).toEqual({ method: 'pane.list', params: {}, json: true })
+    expect(() => parsePaneArgs(['list', 'p1'])).toThrow('usage: ostia pane <verb>')
   })
 })
 
@@ -282,7 +279,7 @@ describe('pane close', () => {
       params: { panes: ['fixer'] },
       json: true,
     })
-    expect(() => parsePaneArgs(['close'])).toThrow('ostia pane close <pane>')
+    expect(parsePaneArgs(['close'])).toEqual({ method: 'pane.close', params: {}, json: false })
   })
 })
 

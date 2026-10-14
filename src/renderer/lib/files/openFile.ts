@@ -4,7 +4,7 @@ import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { FileTarget, OpenPlacement, OpenedPane } from '@shared/files/openFiles'
+import type { FileTarget, OpenedPane } from '@shared/files/openFiles'
 
 function activeOrNewWorkspaceId(): string | null {
   if (!useWorkspacesStore.getState().activeWorkspaceId) startNewWorkspace()
@@ -84,35 +84,27 @@ export function openFilesQuietly(workspaceId: string, files: FileTarget[], paneI
   })
 }
 
-export interface PlacedOpen {
-  placement: OpenPlacement
-  quiet: boolean
-  fresh: boolean
-}
-
-export function openPlaced(
+export function openWaitedFiles(
   workspaceId: string,
   files: FileTarget[],
   paneId: string | undefined,
-  how: PlacedOpen,
+  quiet: boolean,
 ): OpenedPane[] {
   const opened: OpenedPane[] = []
   const place = (): void => {
     let beside = paneId
     for (const file of files) {
       requestReveal(file)
-      const layout = useLayoutStore.getState()
-      const pane =
-        how.placement === 'tab' || opened.length > 0
-          ? layout.openFileTab(workspaceId, file.path, beside, how.quiet, how.fresh)
-          : layout.openFileSplit(workspaceId, file.path, beside, how.placement, how.quiet)
+      const pane = useLayoutStore
+        .getState()
+        .openFileTab(workspaceId, file.path, beside, quiet, true)
       if (!pane) continue
-      if (how.quiet) markOpenedQuietly(pane, file.path.split('/').pop() || file.path)
+      if (quiet) markOpenedQuietly(pane, file.path.split('/').pop() || file.path)
       opened.push({ path: file.path, paneId: pane })
       beside = pane
     }
   }
-  if (how.quiet) openKeepingFocus(place)
+  if (quiet) openKeepingFocus(place)
   else place()
   return opened
 }

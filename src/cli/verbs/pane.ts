@@ -5,6 +5,7 @@ import {
 } from '../../shared/workspaces/workspaceGroups'
 import { FlagError, parseArgs } from '../common/args'
 import { resolveWorkspaceRef } from '../common/crossWorkspace'
+import { usageOf } from '../common/usageTable'
 
 interface PaneInputParams {
   pane: string
@@ -22,7 +23,8 @@ export type PaneCall =
   | { method: 'pane.wait'; params: PaneWaitParams; json: boolean }
   | { method: 'pane.wake'; params: PaneWakeParams; json: boolean }
   | { method: 'pane.hibernate'; params: { panes: string[] }; json: boolean }
-  | { method: 'pane.close'; params: { panes: string[] }; json: boolean }
+  | { method: 'pane.close'; params: { panes?: string[] }; json: boolean }
+  | { method: 'pane.list'; params: Record<string, never>; json: true }
   | { method: 'pane.moveTo'; params: PaneMoveParams; json: boolean }
 
 interface PaneMoveParams {
@@ -62,23 +64,7 @@ export type PaneWaitResult =
 
 const PANE_WAIT_EXIT = { reached: 0, timedOut: 3, closed: 4 } as const
 
-const USAGE = [
-  'usage: ostia pane send <pane> [--enter] [--paste|--raw] [--force] [--confirm]',
-  '                        [--] <text…|->',
-  '       ostia pane key <pane> <key>…',
-  '       ostia pane read <pane> [--lines N] [--json]',
-  '       ostia pane rename <pane> <title…> | --clear',
-  '       ostia pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]',
-  '       ostia pane wake <pane>… [--wait [--timeout <s>]] [--json]',
-  '       ostia pane hibernate <pane>… [--json]',
-  '       ostia pane close <pane>… [--json]',
-  '       ostia pane move <pane>… --tab <name>|new [--workspace <id|name>] [--json]',
-  '       ostia pane move <pane>… --workspace <id|name> [--json]',
-  '<pane> is a paneId or a process id or name (ostia process ls); list panes with',
-  'ostia pane.list (JSON: paneId, kind, title, cwd, running, agent, agentState, hibernated, …)',
-].join('\n')
-
-const PANE_LIST_HINT = 'list panes with ostia pane.list (JSON), not ostia pane list'
+const USAGE = usageOf('pane')
 
 function readFlags(argv: string[]) {
   try {
@@ -119,8 +105,11 @@ function parseWait(argv: string[]): PaneCall {
 
 function parseClose(argv: string[]): PaneCall {
   const { positional, booleans } = parseArgs(argv, { booleans: { json: '--json' } })
-  if (positional.length === 0) throw new Error(USAGE)
-  return { method: 'pane.close', params: { panes: positional }, json: booleans.json }
+  return {
+    method: 'pane.close',
+    params: positional.length > 0 ? { panes: positional } : {},
+    json: booleans.json,
+  }
 }
 
 function parseHibernate(argv: string[]): PaneCall {
@@ -219,12 +208,15 @@ export function waitOutcome(result: PaneWaitResult, json: boolean): { line: stri
 
 export function parsePaneArgs(argv: string[]): PaneCall {
   const [sub, pane, ...rest] = argv
-  if (sub === 'list') throw new Error(PANE_LIST_HINT)
+  if (sub === 'list') {
+    if (pane !== undefined) throw new Error(USAGE)
+    return { method: 'pane.list', params: {}, json: true }
+  }
+  if (sub === 'close') return parseClose(argv.slice(1))
   if (!sub || !pane) throw new Error(USAGE)
   if (sub === 'wait') return parseWait([pane, ...rest])
   if (sub === 'wake') return parseWake([pane, ...rest])
   if (sub === 'hibernate') return parseHibernate([pane, ...rest])
-  if (sub === 'close') return parseClose([pane, ...rest])
   if (sub === 'move') return parseMove([pane, ...rest])
   if (sub === 'send') {
     const { positional: words, booleans } = parseArgs(rest, {
@@ -352,7 +344,11 @@ export async function runPaneVerb(
   try {
     call = parsePaneArgs(argv)
   } catch (err) {
-    console.error(`ostia pane: ${err instanceof Error ? err.message : String(err)}`)
+    console.error(
+      err instanceof Error && err.message === USAGE
+        ? USAGE
+        : `ostia pane: ${err instanceof Error ? err.message : String(err)}`,
+    )
     return 1
   }
   if (call.method === 'pane.input' && call.stdin) {
@@ -370,6 +366,10 @@ export async function runPaneVerb(
       ...(workspace ? { workspace: await resolveWorkspaceRef(conn, workspace) } : {}),
     })
     console.log(call.json ? JSON.stringify(result) : result.moved.join('\n'))
+    return 0
+  }
+  if (call.method === 'pane.list') {
+    console.log(JSON.stringify(await conn.sendRequest('pane.list'), null, 2))
     return 0
   }
   if (call.method === 'pane.wait') {

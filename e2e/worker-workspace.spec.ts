@@ -21,7 +21,7 @@ test('a coordinator makes a background workers workspace in its sidebar group an
 
     await typeLine(
       win,
-      `ostia workspace group proj && ostia workspace.new '{"name":"proj · workers","focus":false,"group":"proj"}'`,
+      `ostia workspace group proj && ostia workspace new --name "proj · workers" --group proj --no-focus`,
     )
     await expect(coordinatorRows(win)).toContainText('"workspaceId"', { timeout: 15_000 })
     await expect(memberRows(win)).toHaveCount(2)

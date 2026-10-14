@@ -1,19 +1,6 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { FlagError, parseArgs } from '../common/args'
-
-const GIT_USAGE = `usage: ostia git <command>
-  status                         branch, upstream and change counts (JSON)
-  changes                        changed files: staged, unstaged, untracked (JSON)
-  diff <path> [--staged]         unified diff of one changed file (JSON)
-  open <path> [--staged]         open a changed file in the diff view
-  log [--limit <n>] [--json]     recent commits
-  blame <file> [--json]          who last changed each line of a file
-  stage <path...> | --all        stage paths
-  unstage <path...> | --all      unstage paths
-  commit -m <message>            commit the staged changes`
-
-const PORTS_USAGE = `usage: ostia ports ls [--all]
-  ls [--all]   listening ports and ssh hosts of your workspace (JSON); --all needs all-workspaces`
+import { usageOf } from '../common/usageTable'
 
 export interface BoardRequest {
   method: string
@@ -71,7 +58,7 @@ export function gitRequest(argv: readonly string[]): BoardRequest | null {
 
 export function portsRequest(argv: readonly string[]): BoardRequest | null {
   const [sub, ...rest] = argv
-  if (sub !== 'ls') return null
+  if (sub !== 'list') return null
   const { positional, booleans } = parseArgs(rest, { booleans: { all: '--all' } })
   return positional.length === 0 ? { method: 'ports.ls', params: { all: booleans.all } } : null
 }
@@ -81,7 +68,6 @@ async function runBoardVerb(
   verb: string,
   argv: readonly string[],
   parse: (argv: readonly string[]) => BoardRequest | null,
-  usage: string,
 ): Promise<void> {
   let request: BoardRequest | null
   try {
@@ -93,7 +79,7 @@ async function runBoardVerb(
     return
   }
   if (!request) {
-    console.error(usage)
+    console.error(usageOf(verb))
     process.exitCode = 1
     return
   }
@@ -110,9 +96,9 @@ async function runBoardVerb(
 }
 
 export function runGitVerb(conn: MessageConnection, argv: readonly string[]): Promise<void> {
-  return runBoardVerb(conn, 'git', argv, gitRequest, GIT_USAGE)
+  return runBoardVerb(conn, 'git', argv, gitRequest)
 }
 
 export function runPortsVerb(conn: MessageConnection, argv: readonly string[]): Promise<void> {
-  return runBoardVerb(conn, 'ports', argv, portsRequest, PORTS_USAGE)
+  return runBoardVerb(conn, 'ports', argv, portsRequest)
 }

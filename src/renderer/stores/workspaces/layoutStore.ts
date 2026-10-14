@@ -26,9 +26,7 @@ import {
   mergeLayouts,
   movePane,
   moveTab,
-  nameSplitTabOf,
   paneIds,
-  paneInDirection,
   renamePane,
   selectTab,
   setDefaultPaneTitle,
@@ -119,13 +117,6 @@ interface LayoutState {
     background?: boolean,
     fresh?: boolean,
   ) => string | null
-  openFileSplit: (
-    workspaceId: string,
-    path: string,
-    paneId: string | undefined,
-    side: 'right' | 'down',
-    background?: boolean,
-  ) => string | null
   openFileBeside: (workspaceId: string, path: string) => void
   openTerminalTab: (workspaceId: string, cwd: string) => string | null
   openBrowser: (workspaceId: string, url: string, profile: BrowserProfile) => void
@@ -185,13 +176,9 @@ function joinedTerminal(
   pane: PaneNode,
   splitTab: SplitTabPlacement,
 ): LayoutNode {
-  if (!splitTab.side) {
-    const withPane = addTab(root, anchor, pane, true)
-    const partner = findSplitTabByName(root, splitTab.name) ? undefined : anchor
-    return joinSplitTab(withPane, [pane.id], splitTab.name, tabColumns(), partner)
-  }
-  const direction: Direction = splitTab.side === 'down' ? 'vertical' : 'horizontal'
-  return nameSplitTabOf(splitPane(root, anchor, direction, pane).root, pane.id, splitTab.name)
+  const withPane = addTab(root, anchor, pane, true)
+  const partner = findSplitTabByName(root, splitTab.name) ? undefined : anchor
+  return joinSplitTab(withPane, [pane.id], splitTab.name, tabColumns(), partner)
 }
 
 function tabColumns(): number {
@@ -252,15 +239,6 @@ function patch(
       [workspaceId]: root === next.root && carried === next.equalized ? next : result,
     },
   }
-}
-
-function insertSplit(
-  root: LayoutNode,
-  targetId: string,
-  pane: PaneNode,
-  side: 'right' | 'down',
-): LayoutNode {
-  return splitBeside(root, targetId, side === 'right' ? 'horizontal' : 'vertical', pane).root
 }
 
 function neutralTerminalTitle(): string {
@@ -679,39 +657,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     if (createdPaneId) {
       window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
-  },
-
-  openFileSplit: (workspaceId, path, paneId, side, background = false) => {
-    const title = path.split('/').pop() || path
-    const seeded = seedLayout(workspaceId, (p) => setPaneEditor(p, p.id, title, path))
-    if (seeded) return seeded
-    let createdPaneId: string | null = null
-    let shownPaneId: string | null = null
-    set((s) => {
-      const next = patch(s, workspaceId, (l) => {
-        const target = paneId && findPane(l.root, paneId) ? paneId : l.activePaneId
-        const besideId = paneInDirection(l.root, target, side)
-        const beside = besideId ? findPane(l.root, besideId) : null
-        const showing = allPanes(l.root).find((p) => p.kind === 'editor' && p.filePath === path)
-        if (showing && beside && tabsOfPane(l.root, showing.id) === tabsOfPane(l.root, beside.id)) {
-          shownPaneId = showing.id
-          return background ? l : { ...l, activePaneId: showing.id }
-        }
-        const pane = createPane('editor')
-        createdPaneId = pane.id
-        const placed =
-          beside?.kind === 'editor' && !isWaitedPane(beside.id)
-            ? addTab(l.root, beside.id, pane, false)
-            : insertSplit(l.root, target, pane, side)
-        const root = setPaneEditor(placed, pane.id, title, path)
-        return background ? { ...l, root } : { ...l, root, activePaneId: pane.id }
-      })
-      return next ?? s
-    })
-    if (createdPaneId) {
-      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
-    }
-    return createdPaneId ?? shownPaneId
   },
 
   openFileTab: (workspaceId, path, paneId, background = false, fresh = false) => {

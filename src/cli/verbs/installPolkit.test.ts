@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { POLKIT_POLICY_FILE } from '../../shared/permissions/scriptTokens'
 import { POLKIT_POLICY, runInstallPolkit } from './installPolkit'
 
-describe('ostia install-polkit', () => {
+describe('ostia polkit install', () => {
   let root = ''
   let actionsDir = ''
   let dest = ''
@@ -77,7 +77,7 @@ describe('ostia install-polkit', () => {
 
   it('needs root and writes nothing without it', () => {
     expect(run([], { uid: 1000 })).toBe(1)
-    expect(err[0]).toContain('sudo ostia install-polkit')
+    expect(err[0]).toContain('sudo ostia polkit install')
     expect(() => statSync(actionsDir)).toThrow()
   })
 
@@ -89,6 +89,6 @@ describe('ostia install-polkit', () => {
   it('takes no arguments', () => {
     expect(run(['--force'])).toBe(2)
     expect(run(['--help'])).toBe(0)
-    expect(err).toEqual(['usage: sudo ostia install-polkit', 'usage: sudo ostia install-polkit'])
+    expect(err).toEqual(['usage: sudo ostia polkit install', 'usage: sudo ostia polkit install'])
   })
 })

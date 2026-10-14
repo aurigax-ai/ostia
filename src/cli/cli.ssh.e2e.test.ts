@@ -151,7 +151,7 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
   })
 
   it('SSH-C1 ships ssh as a built-in with connect, ls and show, running without an approval', async () => {
-    const listed = await runOstia(['ext', 'ls'])
+    const listed = await runOstia(['ext', 'list'])
     expect(listed.stdout).toContain('ssh\t')
     expect(listed.stdout).toContain(
       'ostia ssh connect [-J <hop>[,<hop>...]] [-p <port>] <[user@]host>',

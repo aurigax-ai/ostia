@@ -33,8 +33,8 @@ import { openArtifact, openPad } from '@/lib/files/artifacts'
 import {
   markOpenedQuietly,
   openFilesQuietly,
-  openPlaced,
   openRequestedFiles,
+  openWaitedFiles,
 } from '@/lib/files/openFile'
 import { waitOnPanes } from '@/lib/files/openWaits'
 import { revealFolder } from '@/lib/files/revealFolder'
@@ -118,7 +118,6 @@ import {
   type OpenedPane,
   REVEAL_FOLDER_COMMAND,
   parseFileTargets,
-  parsePlacement,
 } from '@shared/files/openFiles'
 import { PROGRAM_SETTINGS } from '@shared/permissions/programSettings'
 import type { AttentionState } from '@shared/types'
@@ -1060,6 +1059,7 @@ export function registerBuiltinCommands(): void {
   registerCore<undefined, { hibernated: string[] }>({
     id: 'workspace.hibernateAgents',
     category: 'workspace',
+    local: true,
     capabilities: ['kill-pane'],
     run: async (_args, ctx) => ({
       hibernated: await hibernateAgents(ctx.activeWorkspaceId ? [ctx.activeWorkspaceId] : []),
@@ -1069,6 +1069,7 @@ export function registerBuiltinCommands(): void {
   registerCore<undefined, { resumed: string[] }>({
     id: 'workspace.resumeAgents',
     category: 'workspace',
+    local: true,
     capabilities: ['type-other-pane'],
     run: (_args, ctx) => ({
       resumed: resumeWorkspaces(ctx.activeWorkspaceId ? [ctx.activeWorkspaceId] : []),
@@ -1078,6 +1079,7 @@ export function registerBuiltinCommands(): void {
   registerCore<undefined, { hibernated: string[] }>({
     id: 'workspace.hibernateGroupAgents',
     category: 'workspace',
+    local: true,
     capabilities: ['kill-pane'],
     run: async (_args, ctx) => ({
       hibernated: await hibernateAgents(groupWorkspaceIds(ctx.activeWorkspaceId)),
@@ -1087,6 +1089,7 @@ export function registerBuiltinCommands(): void {
   registerCore<undefined, { resumed: string[] }>({
     id: 'workspace.resumeGroupAgents',
     category: 'workspace',
+    local: true,
     capabilities: ['type-other-pane'],
     run: (_args, ctx) => ({ resumed: resumeWorkspaces(groupWorkspaceIds(ctx.activeWorkspaceId)) }),
   })
@@ -1523,33 +1526,30 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  registerCore<
-    { files?: unknown; background?: unknown; placement?: unknown; wait?: unknown },
-    { opened: OpenedPane[] }
-  >({
-    id: OPEN_FILES_COMMAND,
-    hidden: true,
-    capabilities: ['drive-self'],
-    target: 'active',
-    run: (args, ctx) => {
-      const files = parseFileTargets(args?.files)
-      if (!files) throw new Error('expected files: [{ path, line?, column? }]')
-      const workspaceId = ctx.activeWorkspaceId
-      if (!workspaceId) return { opened: [] }
-      const paneId = ctx.activePaneId ?? undefined
-      const quiet = opensQuietly(ctx, args?.background)
-      const wait = args?.wait === true
-      const placement = wait ? 'tab' : parsePlacement(args?.placement)
-      if (!placement) {
-        if (quiet) openFilesQuietly(workspaceId, files, paneId)
-        else openRequestedFiles(workspaceId, files, paneId)
-        return { opened: [] }
-      }
-      const opened = openPlaced(workspaceId, files, paneId, { placement, quiet, fresh: wait })
-      if (wait) waitOnPanes(workspaceId, paneId, opened)
-      return { opened }
+  registerCore<{ files?: unknown; background?: unknown; wait?: unknown }, { opened: OpenedPane[] }>(
+    {
+      id: OPEN_FILES_COMMAND,
+      hidden: true,
+      capabilities: ['drive-self'],
+      target: 'active',
+      run: (args, ctx) => {
+        const files = parseFileTargets(args?.files)
+        if (!files) throw new Error('expected files: [{ path, line?, column? }]')
+        const workspaceId = ctx.activeWorkspaceId
+        if (!workspaceId) return { opened: [] }
+        const paneId = ctx.activePaneId ?? undefined
+        const quiet = opensQuietly(ctx, args?.background)
+        if (args?.wait !== true) {
+          if (quiet) openFilesQuietly(workspaceId, files, paneId)
+          else openRequestedFiles(workspaceId, files, paneId)
+          return { opened: [] }
+        }
+        const opened = openWaitedFiles(workspaceId, files, paneId, quiet)
+        waitOnPanes(workspaceId, paneId, opened)
+        return { opened }
+      },
     },
-  })
+  )
 
   registerCore<
     {

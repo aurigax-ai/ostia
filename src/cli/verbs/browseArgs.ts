@@ -581,7 +581,7 @@ const parsers: Record<string, Parser> = {
   },
 }
 
-const BROWSE_VERBS = [...Object.keys(parsers), 'batch'].sort()
+export const BROWSE_VERBS = [...Object.keys(parsers), 'batch'].sort()
 
 export function parseBrowseCommand(argv: string[], cwd: string): BrowseParse {
   const [verb, ...args] = argv

@@ -267,16 +267,16 @@ describe('files.reveal', () => {
   })
 })
 
-describe('placement', () => {
+describe('waited files', () => {
   const A = '/home/me/project/a.md'
   const B = '/home/me/project/b.md'
 
-  it('--tab opens each file as a tab beside the caller, in order', async () => {
+  it('opens each waited file as a tab beside the caller, in order', async () => {
     const caller = seed()
     focusPane(caller)
     const res = await commands.execWith(fromPane(caller), OPEN_FILES_COMMAND, {
       files: [{ path: A }, { path: B }],
-      placement: 'tab',
+      wait: true,
     })
     const stack = tabsOfPane(layout().root, caller)
     expect(stack?.children).toHaveLength(3)
@@ -286,37 +286,14 @@ describe('placement', () => {
     })
   })
 
-  it('--split right opens a split of the caller and reuses the editor already on that side', async () => {
+  it('ignores a placement the socket no longer takes', async () => {
     const caller = seed()
     focusPane(caller)
     await commands.execWith(fromPane(caller), OPEN_FILES_COMMAND, {
       files: [{ path: A }],
       placement: 'right',
     })
-    expect(tabsOfPane(layout().root, caller)).toBeNull()
-    const first = editors()[0]
-    expect(layout().activePaneId).toBe(first.id)
-    await commands.execWith(fromPane(caller), OPEN_FILES_COMMAND, {
-      files: [{ path: B }],
-      placement: 'right',
-    })
-    const second = editors().find((p) => p.filePath === B)
-    expect(editors()).toHaveLength(2)
-    expect(tabsOfPane(layout().root, first.id)?.children.map((t) => t.id)).toEqual([
-      first.id,
-      second?.id,
-    ])
-  })
-
-  it('a quiet split shows the file and leaves the caller active', async () => {
-    const caller = seed()
-    await commands.execWith(fromPane(caller), OPEN_FILES_COMMAND, {
-      files: [{ path: A }],
-      placement: 'down',
-    })
-    expect(layout().activePaneId).toBe(caller)
-    expect(editors()).toHaveLength(1)
-    expect(tabMark(useAttentionStore.getState().byPane[editors()[0].id])).toBe('unread')
+    expect(tabsOfPane(layout().root, caller)?.children).toHaveLength(2)
   })
 })
 

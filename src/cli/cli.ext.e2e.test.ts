@@ -123,26 +123,27 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
     const piped = await runOstia(['echo', 'stdin'], 'hello **ostia**')
     expect(piped.stderr).toBe('')
     expect(piped.stdout.trim()).toBe('stdin:hello **ostia**')
-    expect((await runOstia(['ext', 'echo', 'echo', 'a'], 'ignored')).stdout.trim()).toBe('echoed')
+    expect((await runOstia(['echo', 'echo', 'a'], 'ignored')).stdout.trim()).toBe('echoed')
   }, 30_000)
 
   it('hands an extension command its arguments untouched, flags and -- included', async () => {
     const argv = ['--json', '-x', '--name=web', '--', '--pane', '-', '-5', 'two words']
-    for (const prefix of [['echo'], ['ext', 'echo']]) {
-      const res = await runOstia([...prefix, 'argv', ...argv])
-      expect(res.stderr).toBe('')
-      expect(JSON.parse(res.stdout)).toEqual(argv)
-    }
+    const res = await runOstia(['echo', 'argv', ...argv])
+    expect(res.stderr).toBe('')
+    expect(JSON.parse(res.stdout)).toEqual(argv)
+    const old = await runOstia(['ext', 'echo', 'argv'])
+    expect(old.code).toBe(1)
+    expect(old.stderr).toContain('usage: ostia ext <verb>')
   }, 30_000)
 
   it('reports an unknown extension with a non-zero exit', async () => {
     const unknown = await runOstia(['nosuchext', 'go'])
     expect(unknown.code).toBe(1)
-    expect(unknown.stderr).toContain("unknown command or extension 'nosuchext'")
+    expect(unknown.stderr).toContain('usage: ostia <noun> <verb>')
   }, 30_000)
 
-  it('ostia ext ls lists the built-in extensions with their CLI usage', async () => {
-    const res = await runOstia(['ext', 'ls'])
+  it('ostia ext list lists the built-in extensions with their CLI usage', async () => {
+    const res = await runOstia(['ext', 'list'])
     expect(res.stdout).toContain('system\t')
     expect(res.stdout).not.toContain('git\t')
     expect(res.stdout).not.toContain('ports\t')

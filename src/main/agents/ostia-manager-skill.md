@@ -19,8 +19,8 @@ Below, `ostia` means that command.
 
 ## See what is running
 
-- `ostia workspace.list` — every workspace: `{workspaceId, name, kind, workDir, state}`.
-- `ostia pane.list` — every pane in every workspace: `{paneId, workspaceId, kind, title, cwd,
+- `ostia workspace list --json` — every workspace: `{workspaceId, name, kind, workDir, state}`.
+- `ostia pane list` — every pane in every workspace: `{paneId, workspaceId, kind, title, cwd,
   running, blockCount, lastExitCode, agent?, agentState?, agentMessage?, hibernated?}`.
   `paneId` is the id every other command takes. `agent` is set while an agent runs there;
   `agentState` is what it reported (`working`, `waiting`, `done`, `error`); `hibernated: true`

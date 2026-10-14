@@ -9,6 +9,7 @@ import {
   isScriptTokenPreset,
 } from '../../shared/permissions/scriptTokens'
 import { parseArgs } from '../common/args'
+import { usageOf } from '../common/usageTable'
 
 type ScopeParam =
   | { kind: 'all' }
@@ -28,16 +29,7 @@ type TokenCall =
   | { method: 'token.usage'; params: { id: string }; json: boolean }
   | { method: 'token.revoke'; params: { id: string } }
 
-const TOKEN_USAGE = [
-  'usage: ostia token create <name> (--cap <capability>… | --preset readonly|coordinator)',
-  '         [--scope all | --scope group:<name|id> | --scope workspace:<name|id>]… [--own-workspaces]',
-  '         [--expires 7d|30d|90d|1y|YYYY-MM-DD|never [--yes-never-expires]]',
-  '       ostia token update <id|name> [--name <name>] [--cap …] [--preset …] [--scope …]… [--own-workspaces] [--expires …] [--yes-never-expires]',
-  '       ostia token show <id|name> [--json]',
-  '       ostia token list [--json]',
-  '       ostia token revoke <id|name>',
-  `capabilities: ${SCRIPT_CAPABILITIES.join(' ')}`,
-].join('\n')
+const TOKEN_USAGE = `${usageOf('token')}\ncapabilities: ${SCRIPT_CAPABILITIES.join(' ')}`
 
 function scopeOf(refs: string[], ownWorkspaces: boolean): ScopeParam | undefined {
   if (refs.length === 0) {

@@ -39,7 +39,6 @@ export interface ReachDeps {
 export interface ScriptReach {
   covers: (workspaceId: string) => boolean
   hasGroup: (groupId: string) => boolean
-  confirmedGroup: (workspaceId: string) => string | undefined
   groupNamed: (name: unknown) => string | undefined
   ownWorkspaces: boolean
 }
@@ -156,7 +155,6 @@ export function createReach(deps: ReachDeps): Reach {
         return groupId !== undefined && hasGroup(groupId)
       },
       hasGroup,
-      confirmedGroup,
       groupNamed: (raw) => {
         const name = normalizeGroupName(raw)
         return name ? listed.groups.find((g) => g.name === name)?.groupId : undefined
