@@ -17,6 +17,7 @@ describe('registerPreviewScheme', () => {
   })
 
   it('registers the preview scheme as standard and secure, never as one that bypasses CSP', () => {
+    registerPreviewScheme()
     const [[schemes]] = electron.protocol.registerSchemesAsPrivileged.mock.calls as [
       [{ scheme: string; privileges: Record<string, boolean> }[]],
     ]

@@ -163,7 +163,7 @@ describe('planE2e', () => {
           'test/mocks/ostia.ts',
           'test/quarantine.json',
           'scripts/retry.sh',
-          'vitest.workspace.mts',
+          'vitest.config.mts',
         ],
         map,
         imports,
@@ -331,8 +331,9 @@ describe('vitest related', () => {
       {},
     )
     try {
-      const specs = await vitest.globTestSpecs(['src/main/manager/managerAgent.test.ts'])
-      const related = await vitest.filterTestsBySource(specs)
+      const related = await vitest.getRelevantTestSpecifications([
+        'src/main/manager/managerAgent.test.ts',
+      ])
       expect(related.map((spec) => spec.moduleId)).toEqual([
         join(ROOT, 'src/main/manager/managerAgent.test.ts'),
       ])

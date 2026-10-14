@@ -299,7 +299,10 @@ describe('PdfViewer', () => {
       const textLayer = document.querySelector('.pdf-text') as HTMLElement
       await userEvent.click(textLayer)
       fireEvent.keyDown(textLayer, { key: 'f', ctrlKey: true })
-      expect(screen.getByRole('textbox', { name: 'Find in PDF' })).toHaveFocus()
+      const reopened = screen.getByRole('textbox', { name: 'Find in PDF' })
+      expect(reopened).toHaveFocus()
+      await userEvent.type(reopened, 'needle')
+      await waitFor(() => expect(document.querySelector('.pdf-find')).toHaveTextContent('1/3'))
     } finally {
       vi.unstubAllGlobals()
       fake.pageText.splice(0, fake.pageText.length, ...pages)

@@ -134,8 +134,10 @@ const fake = vi.hoisted(() => {
     optionUpdates: Record<string, unknown>[]
     visible: boolean
     layouts: number
+    themed: boolean
     themedAtCreate: boolean
   } = {
+    themed: false,
     themedAtCreate: false,
     visible: true,
     layouts: 0,
@@ -230,11 +232,13 @@ const fake = vi.hoisted(() => {
       }),
     },
     editor: {
-      setTheme: vi.fn(),
+      setTheme: vi.fn(() => {
+        state.themed = true
+      }),
       defineTheme: vi.fn(),
       create: (_host: unknown, options: Record<string, unknown>) => {
         state.createOptions = options
-        state.themedAtCreate = monaco.editor.setTheme.mock.calls.length > 0
+        state.themedAtCreate = state.themed
         return editor
       },
       getModel: (uri: { toString(): string }) => models.get(uri.toString()) ?? null,
