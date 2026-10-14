@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { FilesView } from '@/components/files/FilesView'
 import { allPanes, createPane, findPane, firstPaneId } from '@/layout/tree'
+import { CLIPBOARD_READ_MS } from '@/lib/keys/clipboardKeys'
 import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import { createFileLinkProvider } from '@/lib/terminal/terminalFileLinks'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
@@ -582,6 +583,18 @@ describe('TerminalView engines', () => {
     })
   }
 
+  const waitStopped = (check: () => void): Promise<void> =>
+    act(async () => {
+      await vi.waitFor(check)
+    })
+
+  const stopClipboardClock = (): void => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
+  }
+
   const heldContents = (): ((contents: ClipboardContents) => void) => {
     let release: (contents: ClipboardContents) => void = () => {}
     vi.mocked(window.ostia.clipboard.contents).mockReturnValueOnce(
@@ -627,12 +640,13 @@ describe('TerminalView engines', () => {
       const release = heldContents()
       const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
       const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+      stopClipboardClock()
       pasteEvent(textarea, 'echo hi', ['Files', 'text/plain'])
       pressEnter(textarea)
-      await waitFor(() => expect(window.ostia.clipboard.contents).toHaveBeenCalled())
+      await waitStopped(() => expect(window.ostia.clipboard.contents).toHaveBeenCalled())
       expect(written(pasted, '\r')).toEqual([])
       release({ files: [...contents.files], image: contents.image })
-      await waitFor(() => expect(written(pasted, '\r')).toEqual([pasted, '\r']))
+      await waitStopped(() => expect(written(pasted, '\r')).toEqual([pasted, '\r']))
     })
   }
 
@@ -645,9 +659,15 @@ describe('TerminalView engines', () => {
     vi.mocked(window.ostia.clipboard.contents).mockReturnValueOnce(new Promise(() => {}))
     const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
     const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    stopClipboardClock()
     pasteEvent(textarea, 'echo hi', ['Files', 'text/plain'])
     pressEnter(textarea)
-    await waitFor(() => expect(written('echo hi', '\r')).toEqual(['echo hi', '\r']))
+    await waitStopped(() => expect(window.ostia.clipboard.contents).toHaveBeenCalled())
+    expect(written('echo hi', '\r')).toEqual([])
+    act(() => {
+      vi.advanceTimersByTime(CLIPBOARD_READ_MS)
+    })
+    await waitStopped(() => expect(written('echo hi', '\r')).toEqual(['echo hi', '\r']))
   })
 
   it('smart Ctrl+V sends the clipboard before the Enter pressed while the clipboard is read', async () => {
@@ -658,12 +678,13 @@ describe('TerminalView engines', () => {
     const release = heldContents()
     const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
     const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    stopClipboardClock()
     fireEvent.keyDown(textarea, { key: 'v', code: 'KeyV', ctrlKey: true })
     pressEnter(textarea)
-    await waitFor(() => expect(window.ostia.clipboard.contents).toHaveBeenCalled())
+    await waitStopped(() => expect(window.ostia.clipboard.contents).toHaveBeenCalled())
     expect(written('echo hi', '\r')).toEqual([])
     release({ files: [], image: false })
-    await waitFor(() => expect(written('echo hi', '\r')).toEqual(['echo hi', '\r']))
+    await waitStopped(() => expect(written('echo hi', '\r')).toEqual(['echo hi', '\r']))
   })
 
   for (const [system, chord] of [
