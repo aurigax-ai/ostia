@@ -118,7 +118,7 @@ function fakeTty() {
 }
 
 describe('runPortalCommand', () => {
-  it('MGR-C22 keeps keys typed before the manager attaches and sends them after', async () => {
+  it('MGR-C22 keeps keys typed before the manager attaches, sends them after, and detaches on Ctrl+\\ with exit 0', async () => {
     const path = socketPath()
     const events: string[] = []
     let answerOpen: () => void = () => {}
@@ -150,10 +150,11 @@ describe('runPortalCommand', () => {
     await new Promise<void>((resolve) => server?.listen(path, resolve))
 
     const { stdin, stdout } = fakeTty()
+    const stderr = new PassThrough()
     const run = runPortalCommand(['claude'], {
       stdin,
       stdout,
-      stderr: new PassThrough(),
+      stderr,
       env: { OSTIA_PORTAL_SOCKET: path },
       cwd: '/home/u',
     })
@@ -167,6 +168,7 @@ describe('runPortalCommand', () => {
 
     stdin.write('\x1c')
     await expect(run).resolves.toBe(0)
+    expect(String(stderr.read())).toContain('detached; the manager keeps running')
   })
 
   it('MGR-C11 an ostia <agent> run from an Ostia pane is refused even with the socket variables unset', async () => {
