@@ -640,14 +640,14 @@ describe('parseManifest — locales', () => {
   })
 })
 
-describe('parseManifest — workflows', () => {
-  it('accepts workflows without a main process and validates each one', () => {
+describe('parseManifest — snippets', () => {
+  it('accepts snippets without a main process and validates each one', () => {
     const noMain = { id: 'demo', name: 'Demo', version: '1', api: '3.0' }
     const res = parseManifest(
       {
         ...noMain,
         contributes: {
-          workflows: [
+          snippets: [
             {
               name: 'Tail logs',
               command: 'tail -f {{file}}',
@@ -659,7 +659,7 @@ describe('parseManifest — workflows', () => {
       DIR,
     )
     if (!res.ok) throw new Error(res.error)
-    expect(res.manifest.contributes.workflows).toEqual([
+    expect(res.manifest.contributes.snippets).toEqual([
       {
         name: 'Tail logs',
         command: 'tail -f {{file}}',
@@ -667,9 +667,9 @@ describe('parseManifest — workflows', () => {
         arguments: [{ name: 'file', defaultValue: 'app.log' }],
       },
     ])
-    const bad = parseManifest({ ...noMain, contributes: { workflows: [{ name: 'x' }] } }, DIR)
-    expect(bad).toEqual({ ok: false, error: 'contributes.workflows[0]: missing command' })
-    expect(parseManifest({ ...noMain, contributes: { workflows: {} } }, DIR).ok).toBe(false)
+    const bad = parseManifest({ ...noMain, contributes: { snippets: [{ name: 'x' }] } }, DIR)
+    expect(bad).toEqual({ ok: false, error: 'contributes.snippets[0]: missing command' })
+    expect(parseManifest({ ...noMain, contributes: { snippets: {} } }, DIR).ok).toBe(false)
   })
 })
 

@@ -60,7 +60,7 @@ const LAYOUT: Layout = {
     'attention.jumpToLatest',
     SEPARATOR,
     'history.search',
-    'workflows.search',
+    'snippets.search',
   ],
   help: ['developer.openLogFolder'],
 }

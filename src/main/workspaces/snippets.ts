@@ -3,43 +3,43 @@ import { basename, join } from 'node:path'
 import { ipcMain } from 'electron'
 import { parseAllDocuments, stringify } from 'yaml'
 import {
-  type Workflow,
-  type WorkflowEntry,
-  type WorkflowListing,
-  type WorkflowProblem,
-  type WorkflowSaveResult,
-  type WorkflowSource,
-  parseWorkflow,
-  workflowDocument,
-  workflowFileStem,
+  type Snippet,
+  type SnippetEntry,
+  type SnippetListing,
+  type SnippetProblem,
+  type SnippetSaveResult,
+  type SnippetSource,
+  parseSnippet,
+  snippetDocument,
+  snippetFileStem,
 } from '../../shared/snippets'
 import { registerControlMethod } from '../control/controlServer'
 import { PROJECT_DIR } from '../platform/jsonStore'
 import { resolveSafe } from '../platform/pathGuard'
 
-export const WORKFLOW_FILE_MAX_BYTES = 64 * 1024
-export const WORKFLOW_FILES_MAX = 200
-const WORKFLOWS_PER_FILE_MAX = 50
-const WORKFLOW_FILE = /\.ya?ml$/i
+export const SNIPPET_FILE_MAX_BYTES = 64 * 1024
+export const SNIPPET_FILES_MAX = 200
+const SNIPPETS_PER_FILE_MAX = 50
+const SNIPPET_FILE = /\.ya?ml$/i
 const SAVE_ATTEMPTS = 100
 
-interface ExtensionWorkflows {
+interface ExtensionSnippets {
   extId: string
-  workflows: Workflow[]
+  snippets: Snippet[]
 }
 
-export interface WorkflowSources {
+export interface SnippetSources {
   userDir: string
   workDir?: string
-  extensions: ExtensionWorkflows[]
+  extensions: ExtensionSnippets[]
 }
 
-export function workspaceWorkflowsDir(workDir: string): string {
-  return join(workDir, PROJECT_DIR, 'workflows')
+export function workspaceSnippetsDir(workDir: string): string {
+  return join(workDir, PROJECT_DIR, 'snippets')
 }
 
-function workspaceWorkflows(workDir: string): WorkflowListing {
-  return readWorkflowDir(workspaceWorkflowsDir(workDir), 'workspace')
+function workspaceSnippets(workDir: string): SnippetListing {
+  return readSnippetDir(workspaceSnippetsDir(workDir), 'workspace')
 }
 
 function isRealDir(path: string): boolean {
@@ -51,10 +51,10 @@ function isRealDir(path: string): boolean {
   }
 }
 
-export function parseWorkflowFile(text: string): Workflow[] | Error {
+export function parseSnippetFile(text: string): Snippet[] | Error {
   const docs = parseAllDocuments(text)
   if (!Array.isArray(docs)) return new Error('not a YAML document stream')
-  const out: Workflow[] = []
+  const out: Snippet[] = []
   for (const doc of docs) {
     if (doc.errors.length > 0) return new Error(doc.errors[0].message.split('\n')[0])
     let value: unknown
@@ -66,15 +66,15 @@ export function parseWorkflowFile(text: string): Workflow[] | Error {
     if (value === null || value === undefined) continue
     const items = Array.isArray(value) ? value : [value]
     for (const [i, item] of items.entries()) {
-      const workflow = parseWorkflow(item)
-      if (workflow instanceof Error) {
-        return items.length > 1 ? new Error(`item ${i + 1}: ${workflow.message}`) : workflow
+      const snippet = parseSnippet(item)
+      if (snippet instanceof Error) {
+        return items.length > 1 ? new Error(`item ${i + 1}: ${snippet.message}`) : snippet
       }
-      out.push(workflow)
+      out.push(snippet)
     }
   }
-  if (out.length > WORKFLOWS_PER_FILE_MAX) {
-    return new Error(`more than ${WORKFLOWS_PER_FILE_MAX} workflows in one file`)
+  if (out.length > SNIPPETS_PER_FILE_MAX) {
+    return new Error(`more than ${SNIPPETS_PER_FILE_MAX} snippets in one file`)
   }
   return out
 }
@@ -88,8 +88,8 @@ function readFile(path: string): string | Error {
   }
   if (stat.isSymbolicLink()) return new Error('symbolic links are not read')
   if (!stat.isFile()) return new Error('not a regular file')
-  if (stat.size > WORKFLOW_FILE_MAX_BYTES) {
-    return new Error(`larger than ${WORKFLOW_FILE_MAX_BYTES / 1024} KiB`)
+  if (stat.size > SNIPPET_FILE_MAX_BYTES) {
+    return new Error(`larger than ${SNIPPET_FILE_MAX_BYTES / 1024} KiB`)
   }
   try {
     return readFileSync(path, 'utf8')
@@ -98,60 +98,60 @@ function readFile(path: string): string | Error {
   }
 }
 
-export function readWorkflowDir(dir: string, source: WorkflowSource): WorkflowListing {
-  const listing: WorkflowListing = { workflows: [], problems: [] }
+export function readSnippetDir(dir: string, source: SnippetSource): SnippetListing {
+  const listing: SnippetListing = { snippets: [], problems: [] }
   if (!isRealDir(dir)) return listing
   let names: string[]
   try {
     names = readdirSync(dir)
-      .filter((n) => WORKFLOW_FILE.test(n))
+      .filter((n) => SNIPPET_FILE.test(n))
       .sort()
   } catch {
     return listing
   }
-  if (names.length > WORKFLOW_FILES_MAX) {
+  if (names.length > SNIPPET_FILES_MAX) {
     listing.problems.push({
       source,
       origin: basename(dir),
-      error: `only the first ${WORKFLOW_FILES_MAX} files are read`,
+      error: `only the first ${SNIPPET_FILES_MAX} files are read`,
     })
-    names = names.slice(0, WORKFLOW_FILES_MAX)
+    names = names.slice(0, SNIPPET_FILES_MAX)
   }
   for (const name of names) {
     const text = readFile(join(dir, name))
-    const parsed = text instanceof Error ? text : parseWorkflowFile(text)
+    const parsed = text instanceof Error ? text : parseSnippetFile(text)
     if (parsed instanceof Error) {
       listing.problems.push({ source, origin: name, error: parsed.message })
       continue
     }
-    for (const w of parsed) listing.workflows.push({ ...w, source, origin: name })
+    for (const w of parsed) listing.snippets.push({ ...w, source, origin: name })
   }
   return listing
 }
 
-export function loadWorkflows(sources: WorkflowSources): WorkflowListing {
-  const parts: WorkflowListing[] = []
-  if (sources.workDir) parts.push(workspaceWorkflows(sources.workDir))
-  parts.push(readWorkflowDir(sources.userDir, 'user'))
-  const workflows: WorkflowEntry[] = parts.flatMap((p) => p.workflows)
-  const problems: WorkflowProblem[] = parts.flatMap((p) => p.problems)
+export function loadSnippets(sources: SnippetSources): SnippetListing {
+  const parts: SnippetListing[] = []
+  if (sources.workDir) parts.push(workspaceSnippets(sources.workDir))
+  parts.push(readSnippetDir(sources.userDir, 'user'))
+  const snippets: SnippetEntry[] = parts.flatMap((p) => p.snippets)
+  const problems: SnippetProblem[] = parts.flatMap((p) => p.problems)
   for (const ext of sources.extensions) {
-    for (const w of ext.workflows) workflows.push({ ...w, source: 'extension', origin: ext.extId })
+    for (const w of ext.snippets) snippets.push({ ...w, source: 'extension', origin: ext.extId })
   }
-  return { workflows, problems }
+  return { snippets, problems }
 }
 
-export function saveWorkflow(userDir: string, raw: unknown): WorkflowSaveResult {
-  const workflow = parseWorkflow(raw)
-  if (workflow instanceof Error) return { ok: false, error: workflow.message }
+export function saveSnippet(userDir: string, raw: unknown): SnippetSaveResult {
+  const snippet = parseSnippet(raw)
+  if (snippet instanceof Error) return { ok: false, error: snippet.message }
   try {
     mkdirSync(userDir, { recursive: true, mode: 0o700 })
   } catch (err) {
     return { ok: false, error: (err as Error).message }
   }
-  if (!isRealDir(userDir)) return { ok: false, error: 'the workflows folder is not a directory' }
-  const text = stringify(workflowDocument(workflow), { lineWidth: 0 })
-  const stem = workflowFileStem(workflow.name)
+  if (!isRealDir(userDir)) return { ok: false, error: 'the snippets folder is not a directory' }
+  const text = stringify(snippetDocument(snippet), { lineWidth: 0 })
+  const stem = snippetFileStem(snippet.name)
   for (let n = 1; n <= SAVE_ATTEMPTS; n++) {
     const file = n === 1 ? `${stem}.yaml` : `${stem}-${n}.yaml`
     try {
@@ -163,35 +163,35 @@ export function saveWorkflow(userDir: string, raw: unknown): WorkflowSaveResult 
       }
     }
   }
-  return { ok: false, error: 'too many workflows with this name' }
+  return { ok: false, error: 'too many snippets with this name' }
 }
 
-export interface WorkflowDeps {
+export interface SnippetDeps {
   userDir: string
   roots: () => string[]
   workDirForWorkspace: (workspaceId?: string) => string | undefined
-  extensionWorkflows: () => ExtensionWorkflows[]
+  extensionSnippets: () => ExtensionSnippets[]
 }
 
-function listFor(deps: WorkflowDeps, workspaceId: string | null | undefined): WorkflowListing {
+function listFor(deps: SnippetDeps, workspaceId: string | null | undefined): SnippetListing {
   const workDir = deps.workDirForWorkspace(workspaceId ?? undefined)
   const safe = workDir ? resolveSafe(workDir, deps.roots()) : null
-  return loadWorkflows({
+  return loadSnippets({
     userDir: deps.userDir,
     workDir: safe ?? undefined,
-    extensions: deps.extensionWorkflows(),
+    extensions: deps.extensionSnippets(),
   })
 }
 
-export function registerWorkflowIpc(deps: WorkflowDeps): void {
-  ipcMain.handle('workflows:list', (_e, workspaceId: unknown) =>
+export function registerSnippetIpc(deps: SnippetDeps): void {
+  ipcMain.handle('snippets:list', (_e, workspaceId: unknown) =>
     listFor(deps, typeof workspaceId === 'string' ? workspaceId : null),
   )
-  ipcMain.handle('workflows:save', (_e, doc: unknown) => saveWorkflow(deps.userDir, doc))
+  ipcMain.handle('snippets:save', (_e, doc: unknown) => saveSnippet(deps.userDir, doc))
 }
 
-export function registerWorkflowMethods(deps: WorkflowDeps): void {
-  registerControlMethod('workflow.list', {
+export function registerSnippetMethods(deps: SnippetDeps): void {
+  registerControlMethod('snippet.list', {
     cap: 'read-board',
     handler: (_params, ctx) => listFor(deps, ctx.identity.workspaceId),
   })

@@ -4,8 +4,8 @@ import { FilesPanel } from '@/components/files/FilesPanel'
 import { RemoteFolderDialog } from '@/components/files/RemoteFolderDialog'
 import { CommandPalette } from '@/components/palette/CommandPalette'
 import { HistorySearch } from '@/components/palette/HistorySearch'
-import { SaveWorkflowDialog } from '@/components/palette/SaveSnippetDialog'
-import { WorkflowPicker } from '@/components/palette/SnippetPicker'
+import { SaveSnippetDialog } from '@/components/palette/SaveSnippetDialog'
+import { SnippetPicker } from '@/components/palette/SnippetPicker'
 import { CloseConfirmDialog } from '@/components/rail/CloseConfirmDialog'
 import { DeckRail } from '@/components/rail/DeckRail'
 import { HibernateSkippedDialog } from '@/components/rail/HibernateSkippedDialog'
@@ -146,8 +146,8 @@ export function App(): JSX.Element {
           <SandboxRequirementsDialog />
           <SandboxFolderDialog />
           <HistorySearch />
-          <WorkflowPicker />
-          <SaveWorkflowDialog />
+          <SnippetPicker />
+          <SaveSnippetDialog />
           {detached ? null : <TelemetryConsentDialog />}
         </div>
       </TooltipProvider>

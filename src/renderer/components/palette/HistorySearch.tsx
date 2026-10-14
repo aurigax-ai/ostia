@@ -15,7 +15,7 @@ import { type PaneOrigin, collectHistory } from '@/lib/terminal/blocks'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHistorySearchStore } from '@/stores/terminal/historySearchStore'
-import { useWorkflowsStore } from '@/stores/terminal/snippetsStore'
+import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { BookmarkSimpleIcon } from '@phosphor-icons/react'
@@ -66,9 +66,9 @@ export function HistorySearch(): JSX.Element {
     void commands.exec('history.insert', { command })
   }
 
-  const saveAsWorkflow = (command: string): void => {
+  const saveAsSnippet = (command: string): void => {
     setOpen(false)
-    useWorkflowsStore.getState().startSave(command)
+    useSnippetsStore.getState().startSave(command)
   }
 
   return (
@@ -98,12 +98,12 @@ export function HistorySearch(): JSX.Element {
             </span>
             <IconButton
               icon={BookmarkSimpleIcon}
-              label={d.history.saveAsWorkflow}
+              label={d.history.saveAsSnippet}
               hintSide="left"
               onPointerDown={(ev) => ev.stopPropagation()}
               onClick={(ev) => {
                 ev.stopPropagation()
-                saveAsWorkflow(e.command)
+                saveAsSnippet(e.command)
               }}
             />
           </CommandItem>

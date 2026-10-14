@@ -16,7 +16,7 @@ type AppChord =
   | 'view.searchFiles'
   | 'attention.jumpToLatest'
   | 'history.search'
-  | 'workflows.search'
+  | 'snippets.search'
   | 'workspace.new'
   | 'workspace.openPad'
   | 'window.new'
@@ -62,7 +62,7 @@ export const DEFAULT_CHORDS: Readonly<
   'view.searchFiles': ['Shift+Cmd+F', ''],
   'attention.jumpToLatest': ['Cmd+Shift+U', 'Ctrl+Shift+U'],
   'history.search': ['Cmd+Shift+H', 'Ctrl+Shift+H'],
-  'workflows.search': ['Cmd+Shift+S', 'Ctrl+Shift+S'],
+  'snippets.search': ['Cmd+Shift+S', 'Ctrl+Shift+S'],
   'workspace.new': ['Cmd+N', 'Ctrl+Shift+N'],
   'workspace.openPad': ['Cmd+Alt+N', 'Ctrl+Alt+N'],
   'window.new': ['Cmd+Shift+N', 'Ctrl+Shift+Alt+N'],

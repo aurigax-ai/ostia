@@ -3,7 +3,7 @@
   "entry": [
     "src/cli/sdk/{sdkCliEntry,manifestSchema}.ts",
     "src/shared/artifacts/artifactRuntime.ts",
-    "src/shared/{agentPlugins,appEnv,assist,capabilities,editorLanguages,extensionApi,extensionLocales,extensions,iconTheme,keymap,languagePack,languageServers,product,productDisplay,protoGuard,remoteFolders,workflows}.ts",
+    "src/shared/{agentPlugins,appEnv,assist,capabilities,editorLanguages,extensionApi,extensionLocales,extensions,iconTheme,keymap,languagePack,languageServers,product,productDisplay,protoGuard,remoteFolders,snippets}.ts",
     "src/extensions/sdk/**/*.ts",
     "src/extensions/*/{main,panel}.ts",
     "src/extensions/*/panel.css",

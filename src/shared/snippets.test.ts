@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import {
-  type Workflow,
+  type Snippet,
   commandParts,
   defaultValues,
-  parseWorkflow,
+  parseSnippet,
   placeholderNames,
-  renderWorkflow,
-  workflowArguments,
-  workflowDocument,
-  workflowFileStem,
+  renderSnippet,
+  snippetArguments,
+  snippetDocument,
+  snippetFileStem,
 } from './snippets'
 
-function parsed(raw: unknown): Workflow {
-  const w = parseWorkflow(raw)
+function parsed(raw: unknown): Snippet {
+  const w = parseSnippet(raw)
   if (w instanceof Error) throw w
   return w
 }
@@ -47,19 +47,19 @@ describe('placeholderNames', () => {
   })
 })
 
-describe('renderWorkflow', () => {
+describe('renderSnippet', () => {
   it('substitutes every occurrence of each argument verbatim', () => {
-    expect(renderWorkflow('cp {{src}} {{dst}}; ls {{dst}}', { src: 'a b', dst: '/tmp' })).toBe(
+    expect(renderSnippet('cp {{src}} {{dst}}; ls {{dst}}', { src: 'a b', dst: '/tmp' })).toBe(
       'cp a b /tmp; ls /tmp',
     )
   })
 
   it('renders a missing value as empty and keeps escaped braces literal', () => {
-    expect(renderWorkflow('echo {{{x}}} {{x}}!', {})).toBe('echo {{x}} !')
+    expect(renderSnippet('echo {{{x}}} {{x}}!', {})).toBe('echo {{x}} !')
   })
 })
 
-describe('parseWorkflow', () => {
+describe('parseSnippet', () => {
   it('reads the Warp workflow format', () => {
     const w = parsed({
       name: 'Clone a repo',
@@ -89,67 +89,67 @@ describe('parseWorkflow', () => {
     })
   })
 
-  it('rejects a workflow without a name or command', () => {
-    expect(parseWorkflow({ command: 'ls' })).toBeInstanceOf(Error)
-    expect(parseWorkflow({ name: 'x', command: '   ' })).toBeInstanceOf(Error)
-    expect(parseWorkflow(['name'])).toBeInstanceOf(Error)
+  it('rejects a snippet without a name or command', () => {
+    expect(parseSnippet({ command: 'ls' })).toBeInstanceOf(Error)
+    expect(parseSnippet({ name: 'x', command: '   ' })).toBeInstanceOf(Error)
+    expect(parseSnippet(['name'])).toBeInstanceOf(Error)
   })
 
   it('rejects bad argument names, duplicates and non-web source urls', () => {
+    expect(parseSnippet({ name: 'x', command: 'ls', arguments: [{ name: 'a b' }] })).toBeInstanceOf(
+      Error,
+    )
     expect(
-      parseWorkflow({ name: 'x', command: 'ls', arguments: [{ name: 'a b' }] }),
+      parseSnippet({ name: 'x', command: 'ls', arguments: [{ name: 'a' }, { name: 'a' }] }),
     ).toBeInstanceOf(Error)
     expect(
-      parseWorkflow({ name: 'x', command: 'ls', arguments: [{ name: 'a' }, { name: 'a' }] }),
-    ).toBeInstanceOf(Error)
-    expect(
-      (parseWorkflow({ name: 'x', command: 'ls', source_url: 'javascript:alert(1)' }) as Error)
+      (parseSnippet({ name: 'x', command: 'ls', source_url: 'javascript:alert(1)' }) as Error)
         .message,
     ).toContain('source_url')
   })
 
   it('rejects oversized fields', () => {
-    expect(parseWorkflow({ name: 'x', command: 'a'.repeat(9000) })).toBeInstanceOf(Error)
-    expect(parseWorkflow({ name: 'x', command: 'ls', tags: Array(40).fill('t') })).toBeInstanceOf(
+    expect(parseSnippet({ name: 'x', command: 'a'.repeat(9000) })).toBeInstanceOf(Error)
+    expect(parseSnippet({ name: 'x', command: 'ls', tags: Array(40).fill('t') })).toBeInstanceOf(
       Error,
     )
   })
 })
 
-describe('workflowArguments', () => {
+describe('snippetArguments', () => {
   it('follows the placeholders and takes metadata from the declared arguments', () => {
     const w = parsed({
       name: 'x',
       command: 'ssh {{host}} -p {{port}}',
       arguments: [{ name: 'port', default_value: '22' }, { name: 'unused' }],
     })
-    expect(workflowArguments(w)).toEqual([{ name: 'host' }, { name: 'port', defaultValue: '22' }])
+    expect(snippetArguments(w)).toEqual([{ name: 'host' }, { name: 'port', defaultValue: '22' }])
     expect(defaultValues(w)).toEqual({ host: '', port: '22' })
   })
 })
 
-describe('workflowDocument', () => {
-  it('round-trips through parseWorkflow', () => {
+describe('snippetDocument', () => {
+  it('round-trips through parseSnippet', () => {
     const w = parsed({
       name: 'x',
       command: 'echo {{a}}',
       tags: ['t'],
       arguments: [{ name: 'a', description: 'd', default_value: 'v' }],
     })
-    expect(workflowDocument(w)).toEqual({
+    expect(snippetDocument(w)).toEqual({
       name: 'x',
       command: 'echo {{a}}',
       tags: ['t'],
       arguments: [{ name: 'a', description: 'd', default_value: 'v' }],
     })
-    expect(parsed(workflowDocument(w))).toEqual(w)
+    expect(parsed(snippetDocument(w))).toEqual(w)
   })
 })
 
-describe('workflowFileStem', () => {
-  it('makes a safe file name from any workflow name', () => {
-    expect(workflowFileStem('Deploy to Prod!')).toBe('deploy-to-prod')
-    expect(workflowFileStem('../../etc/passwd')).toBe('etc-passwd')
-    expect(workflowFileStem('部署')).toBe('workflow')
+describe('snippetFileStem', () => {
+  it('makes a safe file name from any snippet name', () => {
+    expect(snippetFileStem('Deploy to Prod!')).toBe('deploy-to-prod')
+    expect(snippetFileStem('../../etc/passwd')).toBe('etc-passwd')
+    expect(snippetFileStem('部署')).toBe('snippet')
   })
 })

@@ -26,8 +26,8 @@ function seedOldFolders(dataHome: string): string {
   const oldViews = join(dataHome, 'config', 'pine', 'views')
   mkdirSync(oldViews, { recursive: true })
   writeFileSync(join(oldViews, 'kept.json'), '{}')
-  mkdirSync(join(dataHome, '.pine', 'workflows'), { recursive: true })
-  writeFileSync(join(dataHome, '.pine', 'workflows', 'build.yaml'), 'name: Build\ncommand: make\n')
+  mkdirSync(join(dataHome, '.pine', 'snippets'), { recursive: true })
+  writeFileSync(join(dataHome, '.pine', 'snippets', 'build.yaml'), 'name: Build\ncommand: make\n')
   return snapshot
 }
 
@@ -45,7 +45,7 @@ test('on the human’s confirm the old folders move to ostia, the old ones are d
     await win.waitForLoadState('domcontentloaded')
     await expect(win.getByText('moved-over').first()).toBeVisible({ timeout: 15_000 })
     expect(existsSync(join(dataHome, 'config', 'ostia', 'views', 'kept.json'))).toBe(true)
-    expect(existsSync(join(dataHome, '.ostia', 'workflows', 'build.yaml'))).toBe(true)
+    expect(existsSync(join(dataHome, '.ostia', 'snippets', 'build.yaml'))).toBe(true)
     expect(existsSync(join(dataHome, 'pine'))).toBe(false)
     expect(existsSync(join(dataHome, 'config', 'pine'))).toBe(false)
     expect(existsSync(join(dataHome, '.pine'))).toBe(false)

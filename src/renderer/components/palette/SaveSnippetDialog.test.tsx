@@ -1,28 +1,28 @@
-import { useWorkflowsStore } from '@/stores/terminal/snippetsStore'
+import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { SaveWorkflowDialog } from './SaveSnippetDialog'
+import { SaveSnippetDialog } from './SaveSnippetDialog'
 
-describe('SaveWorkflowDialog', () => {
-  let init: ReturnType<typeof useWorkflowsStore.getState>
+describe('SaveSnippetDialog', () => {
+  let init: ReturnType<typeof useSnippetsStore.getState>
 
   beforeAll(() => {
-    init = useWorkflowsStore.getState()
+    init = useSnippetsStore.getState()
   })
 
   afterEach(() => {
     cleanup()
-    useWorkflowsStore.setState(init, true)
+    useSnippetsStore.setState(init, true)
   })
 
   const open = (command: string): void => {
-    useWorkflowsStore.getState().startSave(command)
-    render(<SaveWorkflowDialog />)
+    useSnippetsStore.getState().startSave(command)
+    render(<SaveSnippetDialog />)
   }
 
   it('renders nothing until a command is being saved', () => {
-    render(<SaveWorkflowDialog />)
+    render(<SaveSnippetDialog />)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
@@ -48,7 +48,7 @@ describe('SaveWorkflowDialog', () => {
     await userEvent.type(screen.getByLabelText('Description of ns'), 'Namespace')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-    expect(window.ostia.workflows.save).toHaveBeenCalledWith({
+    expect(window.ostia.snippets.save).toHaveBeenCalledWith({
       name: 'Follow logs',
       command: 'kubectl logs -f deploy/{{app}} -n {{ns}}',
       tags: ['k8s', 'logs'],
@@ -57,7 +57,7 @@ describe('SaveWorkflowDialog', () => {
         { name: 'ns', description: 'Namespace' },
       ],
     })
-    await waitFor(() => expect(useWorkflowsStore.getState().saveCommand).toBeNull())
+    await waitFor(() => expect(useSnippetsStore.getState().saveCommand).toBeNull())
   })
 
   it('saves a block with a renamed name, an edited command and an argument default', async () => {
@@ -72,7 +72,7 @@ describe('SaveWorkflowDialog', () => {
     await userEvent.type(screen.getByLabelText('Default value of name'), 'ostia')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-    expect(window.ostia.workflows.save).toHaveBeenCalledWith({
+    expect(window.ostia.snippets.save).toHaveBeenCalledWith({
       name: 'Greet again',
       command: 'echo again_{{name}}',
       arguments: [{ name: 'name', default_value: 'ostia' }],
@@ -81,12 +81,12 @@ describe('SaveWorkflowDialog', () => {
   })
 
   it('keeps the dialog open and shows why saving failed', async () => {
-    vi.mocked(window.ostia.workflows.save).mockResolvedValue({ ok: false, error: 'disk full' })
+    vi.mocked(window.ostia.snippets.save).mockResolvedValue({ ok: false, error: 'disk full' })
     open('make')
     await userEvent.click(await screen.findByRole('button', { name: 'Save' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('disk full')
-    expect(useWorkflowsStore.getState().saveCommand).toBe('make')
+    expect(useSnippetsStore.getState().saveCommand).toBe('make')
   })
 
   it('refuses to save without a name', async () => {

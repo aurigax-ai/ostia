@@ -176,7 +176,7 @@ const GROUP_BY_ID: Readonly<Record<string, CommandGroup>> = {
   'palette.searchEverywhere': 'app',
   'attention.jumpToLatest': 'app',
   'history.search': 'app',
-  'workflows.search': 'app',
+  'snippets.search': 'app',
   'agent.resume': 'app',
   'selection.sendToAgent': 'app',
   'assist.compose': 'app',
@@ -204,7 +204,7 @@ const GROUP_BY_PREFIX: Readonly<Record<string, CommandGroup>> = {
   assistant: 'app',
   assist: 'app',
   agent: 'app',
-  workflows: 'app',
+  snippets: 'app',
   developer: 'app',
   editor: 'app',
 }

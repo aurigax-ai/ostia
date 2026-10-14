@@ -1,10 +1,10 @@
-import { SaveWorkflowDialog } from '@/components/palette/SaveSnippetDialog'
+import { SaveSnippetDialog } from '@/components/palette/SaveSnippetDialog'
 import { createPane, firstPaneOfKind } from '@/layout/tree'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useAssistStore } from '@/stores/assist/assistStore'
 import { resetChats, useChatStore } from '@/stores/assist/chatStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { useWorkflowsStore } from '@/stores/terminal/snippetsStore'
+import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -58,7 +58,7 @@ describe('BlockMenu', () => {
     useAssistStore.setState({ availability: {} })
     useUIStore.setState({ paletteOpen: false, paletteMode: 'search' })
     useBlocksStore.setState(init, true)
-    useWorkflowsStore.setState({ saveCommand: null })
+    useSnippetsStore.setState({ saveCommand: null })
     actions.copyBlock.mockClear()
     actions.rerunBlock.mockClear()
   })
@@ -115,15 +115,15 @@ describe('BlockMenu', () => {
     expect(rerun).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('opens Save as workflow with the block command, even while another command runs', async () => {
+  it('opens Save as snippet with the block command, even while another command runs', async () => {
     useBlocksStore.getState().commandStart(PANE, { line: 4 }, 'sleep 5')
     renderMenu()
     fireEvent.contextMenu(screen.getByRole('button', { name: 'gutter' }))
 
-    render(<SaveWorkflowDialog />)
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Save as workflow…' }))
+    render(<SaveSnippetDialog />)
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Save as snippet…' }))
 
-    expect(useWorkflowsStore.getState().saveCommand).toBe('make build')
+    expect(useSnippetsStore.getState().saveCommand).toBe('make build')
     expect(await screen.findByLabelText('Name')).toHaveValue('make build')
   })
 

@@ -565,7 +565,7 @@
       "specs": ["e2e/views.spec.ts"]
     },
     {
-      "name": "workflows",
+      "name": "snippets",
       "paths": [
         "src/main/workspaces/snippets.ts",
         "src/shared/snippets.ts",

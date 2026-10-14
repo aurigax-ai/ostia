@@ -47,7 +47,7 @@ import {
   SYMBOLS_PREFIX,
   WORKSPACES_PREFIX,
 } from '@/lib/palette/paletteModes'
-import { openWorkflowPicker } from '@/lib/palette/snippets'
+import { openSnippetPicker } from '@/lib/palette/snippets'
 import { callerHasFocus, openKeepingFocus, opensQuietly } from '@/lib/panes/callerFocus'
 import { groupMates } from '@/lib/sidebar/groupPeers'
 import {
@@ -844,10 +844,10 @@ export function registerBuiltinCommands(): void {
   })
 
   registerCore({
-    id: 'workflows.search',
-    category: 'workflows',
+    id: 'snippets.search',
+    category: 'snippets',
     target: 'none',
-    run: (_args, ctx) => openWorkflowPicker(ctx.activeWorkspaceId, ctx.activePaneId),
+    run: (_args, ctx) => openSnippetPicker(ctx.activeWorkspaceId, ctx.activePaneId),
   })
 
   registerCore<void, { inputMode: InputMode }>({

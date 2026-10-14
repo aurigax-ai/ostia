@@ -12,24 +12,24 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useDict } from '@/i18n/useDict'
 import { parseTags, suggestedName } from '@/lib/palette/snippets'
-import { useWorkflowsStore } from '@/stores/terminal/snippetsStore'
+import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import { fmt } from '@shared/app/dict'
-import { placeholderNames, workflowDocument } from '@shared/snippets'
+import { placeholderNames, snippetDocument } from '@shared/snippets'
 import { type FormEvent, useId, useState } from 'react'
-import { WorkflowCommand } from './SnippetPicker'
+import { SnippetCommand } from './SnippetPicker'
 
 interface ArgumentDraft {
   defaultValue: string
   description: string
 }
 
-export function SaveWorkflowDialog(): JSX.Element | null {
-  const command = useWorkflowsStore((s) => s.saveCommand)
+export function SaveSnippetDialog(): JSX.Element | null {
+  const command = useSnippetsStore((s) => s.saveCommand)
   if (command === null) return null
-  return <SaveWorkflowForm key={command} initialCommand={command} />
+  return <SaveSnippetForm key={command} initialCommand={command} />
 }
 
-function SaveWorkflowForm({ initialCommand }: { initialCommand: string }): JSX.Element {
+function SaveSnippetForm({ initialCommand }: { initialCommand: string }): JSX.Element {
   const d = useDict()
   const ids = useId()
   const [name, setName] = useState(() => suggestedName(initialCommand))
@@ -41,7 +41,7 @@ function SaveWorkflowForm({ initialCommand }: { initialCommand: string }): JSX.E
   const [saving, setSaving] = useState(false)
   const names = placeholderNames(command)
 
-  const close = (): void => useWorkflowsStore.getState().startSave(null)
+  const close = (): void => useSnippetsStore.getState().startSave(null)
 
   const editArg = (arg: string, patch: Partial<ArgumentDraft>): void =>
     setArgDrafts((all) => ({
@@ -52,7 +52,7 @@ function SaveWorkflowForm({ initialCommand }: { initialCommand: string }): JSX.E
   const submit = async (e: FormEvent): Promise<void> => {
     e.preventDefault()
     setSaving(true)
-    const doc = workflowDocument({
+    const doc = snippetDocument({
       name: name.trim(),
       command,
       description: description.trim() || undefined,
@@ -66,7 +66,7 @@ function SaveWorkflowForm({ initialCommand }: { initialCommand: string }): JSX.E
         }
       }),
     })
-    const res = await window.ostia.workflows.save(doc)
+    const res = await window.ostia.snippets.save(doc)
     setSaving(false)
     if (res.ok) close()
     else setError(res.error)
@@ -82,10 +82,10 @@ function SaveWorkflowForm({ initialCommand }: { initialCommand: string }): JSX.E
       <DialogContent showCloseButton={false} className="sm:max-w-xl">
         <form onSubmit={(e) => void submit(e)} className="grid gap-4">
           <DialogHeader>
-            <DialogTitle>{d.workflows.saveTitle}</DialogTitle>
-            <DialogDescription>{d.workflows.saveDesc}</DialogDescription>
+            <DialogTitle>{d.snippets.saveTitle}</DialogTitle>
+            <DialogDescription>{d.snippets.saveDesc}</DialogDescription>
           </DialogHeader>
-          <Field id={`${ids}-name`} label={d.workflows.name}>
+          <Field id={`${ids}-name`} label={d.snippets.name}>
             <Input
               id={`${ids}-name`}
               value={name}
@@ -94,7 +94,7 @@ function SaveWorkflowForm({ initialCommand }: { initialCommand: string }): JSX.E
               onChange={(e) => setName(e.target.value)}
             />
           </Field>
-          <Field id={`${ids}-command`} label={d.workflows.command}>
+          <Field id={`${ids}-command`} label={d.snippets.command}>
             <Textarea
               id={`${ids}-command`}
               value={command}
@@ -104,29 +104,29 @@ function SaveWorkflowForm({ initialCommand }: { initialCommand: string }): JSX.E
               onChange={(e) => setCommand(e.target.value)}
             />
           </Field>
-          <Field id={`${ids}-description`} label={d.workflows.description}>
+          <Field id={`${ids}-description`} label={d.snippets.description}>
             <Input
               id={`${ids}-description`}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
           </Field>
-          <Field id={`${ids}-tags`} label={d.workflows.tags}>
+          <Field id={`${ids}-tags`} label={d.snippets.tags}>
             <Input
               id={`${ids}-tags`}
               value={tags}
-              placeholder={d.workflows.tagsHint}
+              placeholder={d.snippets.tagsHint}
               onChange={(e) => setTags(e.target.value)}
             />
           </Field>
-          <section className="grid gap-2" aria-label={d.workflows.arguments}>
-            <span className="font-medium text-fg text-ui-sm">{d.workflows.arguments}</span>
+          <section className="grid gap-2" aria-label={d.snippets.arguments}>
+            <span className="font-medium text-fg text-ui-sm">{d.snippets.arguments}</span>
             {names.length === 0 ? (
-              <span className="text-fg-muted text-ui-xs">{d.workflows.noArguments}</span>
+              <span className="text-fg-muted text-ui-xs">{d.snippets.noArguments}</span>
             ) : (
               <>
                 <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm border border-line bg-surface-1 p-2 font-mono text-fg text-ui-sm">
-                  <WorkflowCommand command={command} />
+                  <SnippetCommand command={command} />
                 </pre>
                 {names.map((arg) => (
                   <div
@@ -135,15 +135,15 @@ function SaveWorkflowForm({ initialCommand }: { initialCommand: string }): JSX.E
                   >
                     <span className="truncate font-mono text-fg text-ui-sm">{arg}</span>
                     <Input
-                      aria-label={fmt(d.workflows.defaultValueFor, { name: arg })}
-                      placeholder={d.workflows.defaultValue}
+                      aria-label={fmt(d.snippets.defaultValueFor, { name: arg })}
+                      placeholder={d.snippets.defaultValue}
                       value={argDrafts[arg]?.defaultValue ?? ''}
                       className="font-mono"
                       onChange={(e) => editArg(arg, { defaultValue: e.target.value })}
                     />
                     <Input
-                      aria-label={fmt(d.workflows.argumentDescription, { name: arg })}
-                      placeholder={d.workflows.description}
+                      aria-label={fmt(d.snippets.argumentDescription, { name: arg })}
+                      placeholder={d.snippets.description}
                       value={argDrafts[arg]?.description ?? ''}
                       onChange={(e) => editArg(arg, { description: e.target.value })}
                     />
@@ -159,10 +159,10 @@ function SaveWorkflowForm({ initialCommand }: { initialCommand: string }): JSX.E
           ) : null}
           <DialogFooter>
             <Button type="button" variant="outline" size="sm" onClick={close}>
-              {d.workflows.cancel}
+              {d.snippets.cancel}
             </Button>
             <Button type="submit" size="sm" disabled={saving || !name.trim() || !command.trim()}>
-              {d.workflows.save}
+              {d.snippets.save}
             </Button>
           </DialogFooter>
         </form>

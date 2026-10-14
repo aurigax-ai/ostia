@@ -1,21 +1,21 @@
-import type { WorkflowEntry, WorkflowListing } from '@shared/snippets'
+import type { SnippetEntry, SnippetListing } from '@shared/snippets'
 import { create } from 'zustand'
 
-const EMPTY_LISTING: WorkflowListing = { workflows: [], problems: [] }
+const EMPTY_LISTING: SnippetListing = { snippets: [], problems: [] }
 
-interface WorkflowsState {
+interface SnippetsState {
   pickerOpen: boolean
-  listing: WorkflowListing
+  listing: SnippetListing
   targetPaneId: string | null
-  chosen: WorkflowEntry | null
+  chosen: SnippetEntry | null
   saveCommand: string | null
-  showPicker: (listing: WorkflowListing, targetPaneId: string | null) => void
+  showPicker: (listing: SnippetListing, targetPaneId: string | null) => void
   closePicker: () => void
-  choose: (workflow: WorkflowEntry | null) => void
+  choose: (snippet: SnippetEntry | null) => void
   startSave: (command: string | null) => void
 }
 
-export const useWorkflowsStore = create<WorkflowsState>((set) => ({
+export const useSnippetsStore = create<SnippetsState>((set) => ({
   pickerOpen: false,
   listing: EMPTY_LISTING,
   targetPaneId: null,

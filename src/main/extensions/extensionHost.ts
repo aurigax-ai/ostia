@@ -130,7 +130,7 @@ import {
   type RemoteFilesRequest,
   type RemoteFolder,
 } from '../../shared/remoteFolders'
-import type { Workflow } from '../../shared/snippets'
+import type { Snippet } from '../../shared/snippets'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import type { AgentPluginSource } from '../agents/agentSkills'
 import {
@@ -696,12 +696,12 @@ export class ExtensionHost {
     return { ok: true, locale: this.currentLocale() }
   }
 
-  workflows(): { extId: string; workflows: Workflow[] }[] {
+  snippets(): { extId: string; snippets: Snippet[] }[] {
     return [...this.runtimes.values()]
-      .filter((rt) => this.active(rt) && rt.ext.manifest.contributes.workflows)
+      .filter((rt) => this.active(rt) && rt.ext.manifest.contributes.snippets)
       .map((rt) => ({
         extId: rt.ext.manifest.id,
-        workflows: rt.ext.manifest.contributes.workflows ?? [],
+        snippets: rt.ext.manifest.contributes.snippets ?? [],
       }))
   }
 

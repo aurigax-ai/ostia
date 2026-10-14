@@ -1,6 +1,6 @@
 ---
 name: ostia
-description: Use whenever you run inside Ostia (OSTIA_SOCKET and OSTIA_TOKEN or OSTIA_TOKEN_FILE are set). Read it before you tell the human to run a command or install something (ask with `ostia system install`, never sudo), ask the human a question (`ostia ask`), start a long or background command they should watch (`ostia process run`), read or type into another terminal pane, drive the in-app browser, open a file or URL for the human, notify them or mark your pane waiting/done, or hand work to another agent (`ostia bus`). Also covers sandboxed workspaces (asking for a domain, a port or a secret), the secret vault, settings, sidebar views, selection reports the human sends (@/tmp/ostia-reports-*), saved workflows, the LAN gateway and capabilities. Boards, cards and notes are Trellis, not Ostia.
+description: Use whenever you run inside Ostia (OSTIA_SOCKET and OSTIA_TOKEN or OSTIA_TOKEN_FILE are set). Read it before you tell the human to run a command or install something (ask with `ostia system install`, never sudo), ask the human a question (`ostia ask`), start a long or background command they should watch (`ostia process run`), read or type into another terminal pane, drive the in-app browser, open a file or URL for the human, notify them or mark your pane waiting/done, or hand work to another agent (`ostia bus`). Also covers sandboxed workspaces (asking for a domain, a port or a secret), the secret vault, settings, sidebar views, selection reports the human sends (@/tmp/ostia-reports-*), saved snippets, the LAN gateway and capabilities. Boards, cards and notes are Trellis, not Ostia.
 ---
 
 # Ostia — the agent toolbelt
@@ -410,19 +410,19 @@ ostia agent run claude - --name <name> --cwd <worktree> --workspace <workspaceId
    tab. Close the tab first, then remove its checkout (`git worktree remove <dir>`): a tab
    whose folder is gone can't resume its agent there and only offers to close.
 
-## Workflows — the human's saved commands (read-only)
+## Snippets — the human's saved commands (read-only)
 
 ```sh
-ostia workflow list [--json]         # name<TAB>source:origin<TAB>command; --json -> {workflows, problems}
-ostia workflow show <name> [--json]  # command, {{arguments}}, descriptions, defaults
+ostia snippet list [--json]         # name<TAB>source:origin<TAB>command; --json -> {snippets, problems}
+ostia snippet show <name> [--json]  # command, {{arguments}}, descriptions, defaults
 ```
 
-Workflows are parameterized commands in Warp's YAML format (`name`, `command` with
+Snippets are parameterized commands in Warp's workflow YAML format (`name`, `command` with
 `{{arg}}` placeholders, `description`, `tags`, `arguments[{name, description,
-default_value}]`). You see your workspace's `<workDir>/.ostia/workflows/*.yaml`, the human's `~/.config/ostia/workflows/*.yaml`, and workflows contributed by enabled
+default_value}]`). You see your workspace's `<workDir>/.ostia/snippets/*.yaml`, the human's `~/.config/ostia/snippets/*.yaml`, and snippets contributed by enabled
 extensions. Use them to learn how this project is built, tested and deployed: fill
 the placeholders yourself and run the command in your own shell. There is no
-`run` or `save` verb, and ostia never types a workflow for you; files that fail to
+`run` or `save` verb, and ostia never types a snippet for you; files that fail to
 parse are listed under `problems` (stderr in text mode). Needs `read-board`
 (a default capability).
 

@@ -1,39 +1,39 @@
-export interface WorkflowArgument {
+export interface SnippetArgument {
   name: string
   description?: string
   defaultValue?: string
 }
 
-export interface Workflow {
+export interface Snippet {
   name: string
   command: string
   description?: string
   tags: string[]
-  arguments: WorkflowArgument[]
+  arguments: SnippetArgument[]
   shells?: string[]
   author?: string
   sourceUrl?: string
 }
 
-export type WorkflowSource = 'workspace' | 'user' | 'extension'
+export type SnippetSource = 'workspace' | 'user' | 'extension'
 
-export interface WorkflowEntry extends Workflow {
-  source: WorkflowSource
+export interface SnippetEntry extends Snippet {
+  source: SnippetSource
   origin: string
 }
 
-export interface WorkflowProblem {
-  source: WorkflowSource
+export interface SnippetProblem {
+  source: SnippetSource
   origin: string
   error: string
 }
 
-export interface WorkflowListing {
-  workflows: WorkflowEntry[]
-  problems: WorkflowProblem[]
+export interface SnippetListing {
+  snippets: SnippetEntry[]
+  problems: SnippetProblem[]
 }
 
-export interface WorkflowDocument {
+export interface SnippetDocument {
   name: string
   command: string
   description?: string
@@ -44,11 +44,11 @@ export interface WorkflowDocument {
   source_url?: string
 }
 
-export type WorkflowSaveResult = { ok: true; file: string } | { ok: false; error: string }
+export type SnippetSaveResult = { ok: true; file: string } | { ok: false; error: string }
 
 export type CommandPart = { text: string } | { arg: string }
 
-export const WORKFLOW_LIMITS = {
+export const SNIPPET_LIMITS = {
   name: 200,
   command: 8192,
   description: 1000,
@@ -94,20 +94,20 @@ export function placeholderNames(command: string): string[] {
   return names
 }
 
-export function workflowArguments(workflow: Workflow): WorkflowArgument[] {
-  return placeholderNames(workflow.command).map(
-    (name) => workflow.arguments.find((a) => a.name === name) ?? { name },
+export function snippetArguments(snippet: Snippet): SnippetArgument[] {
+  return placeholderNames(snippet.command).map(
+    (name) => snippet.arguments.find((a) => a.name === name) ?? { name },
   )
 }
 
-export function renderWorkflow(command: string, values: Readonly<Record<string, string>>): string {
+export function renderSnippet(command: string, values: Readonly<Record<string, string>>): string {
   return commandParts(command)
     .map((part) => ('arg' in part ? (values[part.arg] ?? '') : part.text))
     .join('')
 }
 
-export function defaultValues(workflow: Workflow): Record<string, string> {
-  return Object.fromEntries(workflowArguments(workflow).map((a) => [a.name, a.defaultValue ?? '']))
+export function defaultValues(snippet: Snippet): Record<string, string> {
+  return Object.fromEntries(snippetArguments(snippet).map((a) => [a.name, a.defaultValue ?? '']))
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -141,25 +141,21 @@ function textList(v: unknown, count: number, max: number, field: string): string
   return out
 }
 
-function parseArgument(raw: unknown, index: number): WorkflowArgument | Error {
+function parseArgument(raw: unknown, index: number): SnippetArgument | Error {
   const where = `arguments[${index}]`
   if (!isRecord(raw)) return new Error(`${where} must be a mapping`)
   if (typeof raw.name !== 'string' || !ARGUMENT_NAME.test(raw.name)) {
     return new Error(`${where}.name must be letters, digits, _ or -`)
   }
-  const arg: WorkflowArgument = { name: raw.name }
+  const arg: SnippetArgument = { name: raw.name }
   const description = optionalText(
     raw.description,
-    WORKFLOW_LIMITS.argumentDescription,
+    SNIPPET_LIMITS.argumentDescription,
     `${where}.description`,
   )
   if (description instanceof Error) return description
   if (description) arg.description = description
-  const value = scalarText(
-    raw.default_value,
-    WORKFLOW_LIMITS.defaultValue,
-    `${where}.default_value`,
-  )
+  const value = scalarText(raw.default_value, SNIPPET_LIMITS.defaultValue, `${where}.default_value`)
   if (value instanceof Error) return value
   if (value !== undefined) arg.defaultValue = value
   return arg
@@ -174,73 +170,73 @@ function isWebUrl(value: string): boolean {
   }
 }
 
-export function parseWorkflow(raw: unknown): Workflow | Error {
-  if (!isRecord(raw)) return new Error('a workflow must be a mapping')
-  const name = optionalText(raw.name, WORKFLOW_LIMITS.name, 'name')
+export function parseSnippet(raw: unknown): Snippet | Error {
+  if (!isRecord(raw)) return new Error('a snippet must be a mapping')
+  const name = optionalText(raw.name, SNIPPET_LIMITS.name, 'name')
   if (name instanceof Error) return name
   if (!name) return new Error('missing name')
-  const command = optionalText(raw.command, WORKFLOW_LIMITS.command, 'command')
+  const command = optionalText(raw.command, SNIPPET_LIMITS.command, 'command')
   if (command instanceof Error) return command
   if (!command) return new Error('missing command')
-  const workflow: Workflow = { name: name.trim(), command, tags: [], arguments: [] }
+  const snippet: Snippet = { name: name.trim(), command, tags: [], arguments: [] }
 
-  const description = optionalText(raw.description, WORKFLOW_LIMITS.description, 'description')
+  const description = optionalText(raw.description, SNIPPET_LIMITS.description, 'description')
   if (description instanceof Error) return description
-  if (description) workflow.description = description.trim()
+  if (description) snippet.description = description.trim()
 
-  const tags = textList(raw.tags, WORKFLOW_LIMITS.tags, WORKFLOW_LIMITS.tag, 'tags')
+  const tags = textList(raw.tags, SNIPPET_LIMITS.tags, SNIPPET_LIMITS.tag, 'tags')
   if (tags instanceof Error) return tags
-  workflow.tags = tags
+  snippet.tags = tags
 
   const rawArgs = raw.arguments ?? []
-  if (!Array.isArray(rawArgs) || rawArgs.length > WORKFLOW_LIMITS.arguments) {
-    return new Error(`arguments must be a list of at most ${WORKFLOW_LIMITS.arguments}`)
+  if (!Array.isArray(rawArgs) || rawArgs.length > SNIPPET_LIMITS.arguments) {
+    return new Error(`arguments must be a list of at most ${SNIPPET_LIMITS.arguments}`)
   }
   for (const [i, item] of rawArgs.entries()) {
     const arg = parseArgument(item, i)
     if (arg instanceof Error) return arg
-    if (workflow.arguments.some((a) => a.name === arg.name)) {
+    if (snippet.arguments.some((a) => a.name === arg.name)) {
       return new Error(`duplicate argument '${arg.name}'`)
     }
-    workflow.arguments.push(arg)
+    snippet.arguments.push(arg)
   }
 
-  const shells = textList(raw.shells, WORKFLOW_LIMITS.shells, WORKFLOW_LIMITS.tag, 'shells')
+  const shells = textList(raw.shells, SNIPPET_LIMITS.shells, SNIPPET_LIMITS.tag, 'shells')
   if (shells instanceof Error) return shells
-  if (shells.length > 0) workflow.shells = shells
+  if (shells.length > 0) snippet.shells = shells
 
-  const author = optionalText(raw.author, WORKFLOW_LIMITS.author, 'author')
+  const author = optionalText(raw.author, SNIPPET_LIMITS.author, 'author')
   if (author instanceof Error) return author
-  if (author) workflow.author = author.trim()
+  if (author) snippet.author = author.trim()
 
-  const sourceUrl = optionalText(raw.source_url, WORKFLOW_LIMITS.sourceUrl, 'source_url')
+  const sourceUrl = optionalText(raw.source_url, SNIPPET_LIMITS.sourceUrl, 'source_url')
   if (sourceUrl instanceof Error) return sourceUrl
   if (sourceUrl) {
     if (!isWebUrl(sourceUrl.trim())) return new Error('source_url must be an http(s) URL')
-    workflow.sourceUrl = sourceUrl.trim()
+    snippet.sourceUrl = sourceUrl.trim()
   }
-  return workflow
+  return snippet
 }
 
-export function workflowDocument(workflow: Workflow): WorkflowDocument {
-  const doc: WorkflowDocument = { name: workflow.name, command: workflow.command }
-  if (workflow.description) doc.description = workflow.description
-  if (workflow.tags.length > 0) doc.tags = [...workflow.tags]
-  if (workflow.arguments.length > 0) {
-    doc.arguments = workflow.arguments.map((a) => {
+export function snippetDocument(snippet: Snippet): SnippetDocument {
+  const doc: SnippetDocument = { name: snippet.name, command: snippet.command }
+  if (snippet.description) doc.description = snippet.description
+  if (snippet.tags.length > 0) doc.tags = [...snippet.tags]
+  if (snippet.arguments.length > 0) {
+    doc.arguments = snippet.arguments.map((a) => {
       const arg: { name: string; description?: string; default_value?: string } = { name: a.name }
       if (a.description) arg.description = a.description
       if (a.defaultValue !== undefined) arg.default_value = a.defaultValue
       return arg
     })
   }
-  if (workflow.shells) doc.shells = [...workflow.shells]
-  if (workflow.author) doc.author = workflow.author
-  if (workflow.sourceUrl) doc.source_url = workflow.sourceUrl
+  if (snippet.shells) doc.shells = [...snippet.shells]
+  if (snippet.author) doc.author = snippet.author
+  if (snippet.sourceUrl) doc.source_url = snippet.sourceUrl
   return doc
 }
 
-export function workflowFileStem(name: string): string {
+export function snippetFileStem(name: string): string {
   const stem = name
     .normalize('NFKD')
     .toLowerCase()
@@ -248,5 +244,5 @@ export function workflowFileStem(name: string): string {
     .replace(/^-+|-+$/g, '')
     .slice(0, 60)
     .replace(/-+$/g, '')
-  return stem || 'workflow'
+  return stem || 'snippet'
 }

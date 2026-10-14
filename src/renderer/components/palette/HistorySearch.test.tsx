@@ -3,7 +3,7 @@ import { commands } from '@/commands/registry'
 import { allPanes } from '@/layout/tree'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHistorySearchStore } from '@/stores/terminal/historySearchStore'
-import { useWorkflowsStore } from '@/stores/terminal/snippetsStore'
+import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { cleanup, render, screen } from '@testing-library/react'
@@ -39,7 +39,7 @@ describe('HistorySearch', () => {
     useHistorySearchStore.setState(historyInit, true)
     useLayoutStore.setState(layoutInit, true)
     useWorkspacesStore.setState(workspacesInit, true)
-    useWorkflowsStore.setState({ saveCommand: null })
+    useSnippetsStore.setState({ saveCommand: null })
     vi.restoreAllMocks()
   })
 
@@ -125,16 +125,16 @@ describe('HistorySearch', () => {
     expect(useHistorySearchStore.getState().open).toBe(false)
   })
 
-  it('saves a past command as a workflow without inserting it', async () => {
+  it('saves a past command as a snippet without inserting it', async () => {
     const pane = firstPaneId()
     runCommand(pane, 'make test', 0)
     const exec = vi.spyOn(commands, 'exec')
     useHistorySearchStore.getState().setOpen(true)
     render(<HistorySearch />)
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Save as workflow' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Save as snippet' }))
 
-    expect(useWorkflowsStore.getState().saveCommand).toBe('make test')
+    expect(useSnippetsStore.getState().saveCommand).toBe('make test')
     expect(useHistorySearchStore.getState().open).toBe(false)
     expect(exec).not.toHaveBeenCalledWith('history.insert', expect.anything())
   })

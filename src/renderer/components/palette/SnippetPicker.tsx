@@ -23,18 +23,18 @@ import { deliverCommand } from '@/lib/palette/snippets'
 import { canTypeInto } from '@/lib/terminal/blockActions'
 import { isIdlePrompt } from '@/lib/terminal/blocks'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { useWorkflowsStore } from '@/stores/terminal/snippetsStore'
+import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import {
-  type WorkflowArgument,
-  type WorkflowEntry,
+  type SnippetArgument,
+  type SnippetEntry,
   commandParts,
   defaultValues,
-  renderWorkflow,
-  workflowArguments,
+  renderSnippet,
+  snippetArguments,
 } from '@shared/snippets'
 import { type FormEvent, useId, useState } from 'react'
 
-export function WorkflowCommand({
+export function SnippetCommand({
   command,
   values,
 }: {
@@ -42,13 +42,13 @@ export function WorkflowCommand({
   values?: Readonly<Record<string, string>>
 }): JSX.Element {
   return (
-    <span className="workflow-command">
+    <span className="snippet-command">
       {commandParts(command).map((part, i) => {
         const key = `${i}`
         if ('text' in part) return <span key={key}>{part.text}</span>
         const value = values?.[part.arg]
         return (
-          <span key={key} className="workflow-arg" data-arg={part.arg}>
+          <span key={key} className="snippet-arg" data-arg={part.arg}>
             {value || `{{${part.arg}}}`}
           </span>
         )
@@ -57,21 +57,21 @@ export function WorkflowCommand({
   )
 }
 
-export function WorkflowPicker(): JSX.Element {
+export function SnippetPicker(): JSX.Element {
   const d = useDict()
-  const open = useWorkflowsStore((s) => s.pickerOpen)
-  const listing = useWorkflowsStore((s) => s.listing)
-  const chosen = useWorkflowsStore((s) => s.chosen)
-  const targetPaneId = useWorkflowsStore((s) => s.targetPaneId)
+  const open = useSnippetsStore((s) => s.pickerOpen)
+  const listing = useSnippetsStore((s) => s.listing)
+  const chosen = useSnippetsStore((s) => s.chosen)
+  const targetPaneId = useSnippetsStore((s) => s.targetPaneId)
 
-  const pick = (workflow: WorkflowEntry): void => {
-    const store = useWorkflowsStore.getState()
-    if (workflowArguments(workflow).length > 0) {
-      store.choose(workflow)
+  const pick = (snippet: SnippetEntry): void => {
+    const store = useSnippetsStore.getState()
+    if (snippetArguments(snippet).length > 0) {
+      store.choose(snippet)
       return
     }
     store.closePicker()
-    void deliverCommand(targetPaneId, renderWorkflow(workflow.command, {}))
+    void deliverCommand(targetPaneId, renderSnippet(snippet.command, {}))
   }
 
   return (
@@ -79,51 +79,51 @@ export function WorkflowPicker(): JSX.Element {
       <CommandDialog
         open={open && !chosen}
         onOpenChange={(o) => {
-          if (!o) useWorkflowsStore.getState().closePicker()
+          if (!o) useSnippetsStore.getState().closePicker()
         }}
         className="top-[12vh] sm:max-w-2xl"
-        title={d.workflows.title}
-        description={d.workflows.placeholder}
+        title={d.snippets.title}
+        description={d.snippets.placeholder}
       >
-        <CommandInput placeholder={d.workflows.placeholder} />
+        <CommandInput placeholder={d.snippets.placeholder} />
         <CommandList>
           <CommandEmpty>
-            {listing.workflows.length === 0 ? d.workflows.none : d.workflows.empty}
+            {listing.snippets.length === 0 ? d.snippets.none : d.snippets.empty}
           </CommandEmpty>
-          {listing.workflows.map((w, i) => (
+          {listing.snippets.map((w, i) => (
             <CommandItem
               key={`${w.source}:${w.origin}:${w.name}:${i}`}
               value={`${w.name} ${w.source}:${w.origin}:${i}`}
               keywords={[w.description ?? '', ...w.tags, w.command]}
               onSelect={() => pick(w)}
-              className="workflow-row"
+              className="snippet-row"
             >
-              <span className="workflow-row-head">
-                <span className="workflow-name">{w.name}</span>
+              <span className="snippet-row-head">
+                <span className="snippet-name">{w.name}</span>
                 {w.tags.map((tag) => (
                   <Badge key={tag} variant="outline" className="text-ui-xs">
                     {tag}
                   </Badge>
                 ))}
-                <span className="workflow-source">
-                  {d.workflows.sources[w.source]} · {w.origin}
+                <span className="snippet-source">
+                  {d.snippets.sources[w.source]} · {w.origin}
                 </span>
               </span>
-              {w.description ? <span className="workflow-description">{w.description}</span> : null}
-              <WorkflowCommand command={w.command} />
+              {w.description ? <span className="snippet-description">{w.description}</span> : null}
+              <SnippetCommand command={w.command} />
             </CommandItem>
           ))}
           {listing.problems.length > 0 ? (
-            <CommandGroup heading={d.workflows.problems}>
+            <CommandGroup heading={d.snippets.problems}>
               {listing.problems.map((p) => (
                 <CommandItem
                   key={`${p.source}:${p.origin}`}
-                  value={`${d.workflows.problems} ${p.origin}`}
+                  value={`${d.snippets.problems} ${p.origin}`}
                   disabled
-                  className="workflow-row"
+                  className="snippet-row"
                 >
-                  <span className="workflow-name">{p.origin}</span>
-                  <span className="workflow-description">{p.error}</span>
+                  <span className="snippet-name">{p.origin}</span>
+                  <span className="snippet-description">{p.error}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -131,9 +131,9 @@ export function WorkflowPicker(): JSX.Element {
         </CommandList>
       </CommandDialog>
       {chosen ? (
-        <WorkflowForm
+        <SnippetForm
           key={`${chosen.source}:${chosen.origin}:${chosen.name}`}
-          workflow={chosen}
+          snippet={chosen}
           targetPaneId={targetPaneId}
         />
       ) : null}
@@ -141,26 +141,26 @@ export function WorkflowPicker(): JSX.Element {
   )
 }
 
-function WorkflowForm({
-  workflow,
+function SnippetForm({
+  snippet,
   targetPaneId,
 }: {
-  workflow: WorkflowEntry
+  snippet: SnippetEntry
   targetPaneId: string | null
 }): JSX.Element {
   const d = useDict()
   const ids = useId()
-  const [values, setValues] = useState(() => defaultValues(workflow))
-  const args = workflowArguments(workflow)
+  const [values, setValues] = useState(() => defaultValues(snippet))
+  const args = snippetArguments(snippet)
   const idle = useBlocksStore((s) => (targetPaneId ? isIdlePrompt(s, targetPaneId) : false))
   const canInsert = idle && targetPaneId !== null && canTypeInto(targetPaneId)
 
-  const back = (): void => useWorkflowsStore.getState().choose(null)
+  const back = (): void => useSnippetsStore.getState().choose(null)
 
   const submit = (e: FormEvent): void => {
     e.preventDefault()
-    useWorkflowsStore.getState().closePicker()
-    void deliverCommand(targetPaneId, renderWorkflow(workflow.command, values))
+    useSnippetsStore.getState().closePicker()
+    void deliverCommand(targetPaneId, renderSnippet(snippet.command, values))
   }
 
   return (
@@ -173,14 +173,14 @@ function WorkflowForm({
       <DialogContent showCloseButton={false} className="sm:max-w-xl">
         <form onSubmit={submit} className="grid gap-4">
           <DialogHeader>
-            <DialogTitle>{workflow.name}</DialogTitle>
-            <DialogDescription>{workflow.description ?? d.workflows.formDesc}</DialogDescription>
+            <DialogTitle>{snippet.name}</DialogTitle>
+            <DialogDescription>{snippet.description ?? d.snippets.formDesc}</DialogDescription>
           </DialogHeader>
           <pre
-            aria-label={d.workflows.preview}
-            className="workflow-preview max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-sm border border-line bg-surface-1 p-2 font-mono text-fg text-ui-sm"
+            aria-label={d.snippets.preview}
+            className="snippet-preview max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-sm border border-line bg-surface-1 p-2 font-mono text-fg text-ui-sm"
           >
-            <WorkflowCommand command={workflow.command} values={values} />
+            <SnippetCommand command={snippet.command} values={values} />
           </pre>
           <div className="grid gap-3">
             {args.map((arg, i) => (
@@ -194,13 +194,13 @@ function WorkflowForm({
               />
             ))}
           </div>
-          {canInsert ? null : <p className="text-fg-muted text-ui-xs">{d.workflows.copyHint}</p>}
+          {canInsert ? null : <p className="text-fg-muted text-ui-xs">{d.snippets.copyHint}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" size="sm" onClick={back}>
-              {d.workflows.cancel}
+              {d.snippets.cancel}
             </Button>
             <Button type="submit" size="sm">
-              {canInsert ? d.workflows.insert : d.workflows.copy}
+              {canInsert ? d.snippets.insert : d.snippets.copy}
             </Button>
           </DialogFooter>
         </form>
@@ -217,7 +217,7 @@ function ArgumentField({
   onChange,
 }: {
   id: string
-  arg: WorkflowArgument
+  arg: SnippetArgument
   value: string
   autoFocus: boolean
   onChange: (value: string) => void

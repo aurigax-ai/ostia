@@ -31,7 +31,7 @@ export const CORE_VERBS: readonly string[] = [
   'browse',
   'gateway',
   'ext',
-  'workflow',
+  'snippet',
   'view',
   'git',
   'ports',
