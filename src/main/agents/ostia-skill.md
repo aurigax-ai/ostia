@@ -595,11 +595,12 @@ extension: these verbs always exist and start nothing that keeps running.
 ## Ports — what your workspace's terminals listen on
 
 ```sh
-ostia ports ls                       # {workspaces:[{workspaceId, ports:[3000], ssh:["host"]}]} for your workspace
+ostia ports ls                       # {workspaces:[{workspaceId, ports:[{port:3000, name:"node"}], ssh:["host"]}]} for your workspace
 ostia ports ls --all                 # every workspace (asks the human for all-workspaces)
 ```
 
-`ports` are the TCP ports the processes started from your workspace's terminals listen on;
+`ports` are the TCP ports the processes started from your workspace's terminals listen on, each
+with `name`, the listening process's name (never its arguments), absent when it can't be read;
 `ssh` are the hosts of ssh sessions in the foreground of a terminal. Each call scans once.
 
 ## System — what machine you're on, and installing packages

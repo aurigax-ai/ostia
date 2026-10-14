@@ -1,12 +1,13 @@
 import type { PortHost } from '../../shared/boards/ports'
 import type { ExtensionIcon, SidebarKind } from '../../shared/extensions'
 import type { PaneEntry } from '../panes/paneList'
+import { type ListeningPort, addOwner, sortedPorts } from './procfs'
 import type { TreeInfo } from './scan'
 
 const SSH_KEY = 'ssh'
 
 export interface WorkspaceProcesses {
-  ports: number[]
+  ports: ListeningPort[]
   ssh: string[]
 }
 
@@ -27,18 +28,24 @@ export function groupByWorkspace(
   panes: PaneEntry[],
   trees: Map<number, TreeInfo>,
 ): Map<string, WorkspaceProcesses> {
-  const out = new Map<string, WorkspaceProcesses>()
+  const owners = new Map<string, Map<number, string | undefined>>()
+  const ssh = new Map<string, Set<string>>()
   for (const pane of panes) {
     const tree = pane.pid ? trees.get(pane.pid) : undefined
     if (!tree) continue
-    const group = out.get(pane.workspaceId) ?? { ports: [], ssh: [] }
-    for (const port of tree.ports) if (!group.ports.includes(port)) group.ports.push(port)
-    if (tree.ssh && !group.ssh.includes(tree.ssh.host)) group.ssh.push(tree.ssh.host)
-    out.set(pane.workspaceId, group)
+    const ports = owners.get(pane.workspaceId) ?? new Map<number, string | undefined>()
+    const hosts = ssh.get(pane.workspaceId) ?? new Set<string>()
+    for (const { port, name } of tree.ports) addOwner(ports, port, name)
+    if (tree.ssh) hosts.add(tree.ssh.host)
+    owners.set(pane.workspaceId, ports)
+    ssh.set(pane.workspaceId, hosts)
   }
-  for (const group of out.values()) {
-    group.ports.sort((a, b) => a - b)
-    group.ssh.sort()
+  const out = new Map<string, WorkspaceProcesses>()
+  for (const [workspaceId, ports] of owners) {
+    out.set(workspaceId, {
+      ports: sortedPorts(ports),
+      ssh: [...(ssh.get(workspaceId) ?? [])].sort(),
+    })
   }
   return out
 }

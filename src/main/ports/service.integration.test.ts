@@ -1,7 +1,8 @@
 import { type ChildProcess, spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { CoreItems } from '../../shared/boards/git'
 import { DEFAULT_PORTS_SETTINGS } from '../../shared/boards/ports'
@@ -53,7 +54,10 @@ describe.skipIf(process.platform !== 'linux' && process.platform !== 'darwin')(
     let service: PortsService
     let serverPid = 0
     let port = 0
+    let processName = ''
     const sent: CoreItems[] = []
+    const logged: string[] = []
+    const argument = `--secret=${randomUUID()}`
     const items = (): CoreItems | undefined => sent.at(-1)
 
     beforeAll(async () => {
@@ -63,13 +67,18 @@ describe.skipIf(process.platform !== 'linux' && process.platform !== 'darwin')(
       writeFileSync(join(dir, 'server.js'), SERVER)
       symlinkSync('/bin/sh', join(bin, 'ssh'))
       writeFileSync(join(dir, 'deploy@build-box'), 'sleep 60\n')
-      shell = spawn('sh', ['-c', `"${process.execPath}" "${join(dir, 'server.js')}"; sleep 60`], {
-        stdio: ['ignore', 'pipe', 'ignore'],
-        detached: true,
-      })
+      shell = spawn(
+        'sh',
+        ['-c', `"${process.execPath}" "${join(dir, 'server.js')}" ${argument}; sleep 60`],
+        {
+          stdio: ['ignore', 'pipe', 'ignore'],
+          detached: true,
+        },
+      )
       const [pid, listening] = (await firstLine(shell)).split(' ').map(Number)
       serverPid = pid
       port = listening
+      processName = basename(process.execPath)
       remote = inTerminal(`${join(bin, 'ssh')} deploy@build-box`, dir)
       service = new PortsService({
         settings: () => ({ ...DEFAULT_PORTS_SETTINGS, intervalSeconds: 1, portHost: '127.0.0.1' }),
@@ -78,6 +87,7 @@ describe.skipIf(process.platform !== 'linux' && process.platform !== 'darwin')(
         send: (_windowId, channel, payload) => {
           if (channel === PORTS_ITEMS_CHANNEL) sent.push(payload as CoreItems)
         },
+        log: (line) => logged.push(line),
       })
     })
 
@@ -105,13 +115,20 @@ describe.skipIf(process.platform !== 'linux' && process.platform !== 'darwin')(
           id: 'ports',
           icon: 'plugs',
           text: '1',
-          items: [{ text: `:${port}`, url: `http://127.0.0.1:${port}/` }],
+          items: [{ text: `:${port}`, detail: processName, url: `http://127.0.0.1:${port}/` }],
         },
       ])
       expect(items()?.paneChips).toEqual([
         { extId: 'ports', tone: 'brand', paneId: 'p-ssh', id: 'ssh', text: 'deploy@build-box' },
       ])
       expect(items()?.sidebar.map((item) => item.text)).toEqual(['build-box'])
+      const listed = await service.list()
+      expect(listed.find((w) => w.workspaceId === 's1')?.ports).toEqual([
+        { port, name: processName },
+      ])
+      const seen = JSON.stringify([sent, listed, logged])
+      expect(seen).not.toContain(argument)
+      expect(seen).not.toContain('server.js')
 
       process.kill(serverPid, 'SIGINT')
       await vi.waitFor(() => expect(items()?.workspaceChips).toEqual([]), {

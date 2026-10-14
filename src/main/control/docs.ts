@@ -121,8 +121,8 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia git stage <path...> | --all, unstage <path...> | --all, commit -m <message>
                                  change the index and commit what is staged; discarding
                                  changes is the human's, from the Git panel
-  ostia ports ls [--all]         listening ports and ssh hosts of your workspace's terminals
-                                 (JSON); --all needs all-workspaces
+  ostia ports ls [--all]         listening ports, each with its process name, and ssh hosts of
+                                 your workspace's terminals (JSON); --all needs all-workspaces
   ostia view schema              JSON Schema of a view file (~/.config/ostia/views/<name>.json)
   ostia view validate <file>     check a view file: file:line: path: message, exit 1 on problems
   ostia view list [--json]       view files and their status (pending until the human enables)

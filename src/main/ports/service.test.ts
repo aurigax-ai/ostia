@@ -34,7 +34,7 @@ describe('PortsService', () => {
     vi.useFakeTimers()
     settings = { ...DEFAULT_PORTS_SETTINGS }
     trees = new Map([
-      [10, { ports: [5173, 3000], ssh: null }],
+      [10, { ports: [{ port: 3000, name: 'node' }, { port: 5173 }], ssh: null }],
       [20, { ports: [], ssh: { user: 'deploy', host: 'box' } }],
     ])
     sent.length = 0
@@ -87,7 +87,7 @@ describe('PortsService', () => {
           icon: 'plugs',
           text: '2',
           items: [
-            { text: ':3000', url: 'http://localhost:3000/' },
+            { text: ':3000', detail: 'node', url: 'http://localhost:3000/' },
             { text: ':5173', url: 'http://localhost:5173/' },
           ],
         },
@@ -153,7 +153,7 @@ describe('PortsService', () => {
 
   it('lists every workspace for a one-off read without starting to poll', async () => {
     expect(await service.list()).toEqual([
-      { workspaceId: 'one', ports: [3000, 5173], ssh: [] },
+      { workspaceId: 'one', ports: [{ port: 3000, name: 'node' }, { port: 5173 }], ssh: [] },
       { workspaceId: 'two', ports: [], ssh: ['box'] },
     ])
     expect(service.polling).toBe(false)

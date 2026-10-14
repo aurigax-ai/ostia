@@ -5,6 +5,16 @@ export interface ListeningSocket {
   inode: string
 }
 
+export interface ListeningPort {
+  port: number
+  name?: string
+}
+
+export interface SocketHolder {
+  name: string | undefined
+  inodes: string[]
+}
+
 const TCP_LISTEN = '0A'
 
 export function parseNetTcp(text: string): ListeningSocket[] {
@@ -50,8 +60,37 @@ export function processTree(root: number, children: Map<number, number[]>): numb
   return queue
 }
 
-export function portsForInodes(sockets: ListeningSocket[], inodes: Set<string>): number[] {
-  const ports = new Set<number>()
-  for (const s of sockets) if (inodes.has(s.inode)) ports.add(s.port)
-  return [...ports].sort((a, b) => a - b)
+const DELETED_SUFFIX = ' (deleted)'
+
+export function processName(exeLink: string, comm: string | undefined): string | undefined {
+  const path = exeLink.endsWith(DELETED_SUFFIX) ? exeLink.slice(0, -DELETED_SUFFIX.length) : exeLink
+  return path.slice(path.lastIndexOf('/') + 1) || comm
+}
+
+export function sortedPorts(owners: Map<number, string | undefined>): ListeningPort[] {
+  return [...owners]
+    .sort(([a], [b]) => a - b)
+    .map(([port, name]) => (name ? { port, name } : { port }))
+}
+
+export function addOwner(
+  owners: Map<number, string | undefined>,
+  port: number,
+  name?: string,
+): void {
+  if (!owners.get(port)) owners.set(port, name || owners.get(port))
+}
+
+export function portsForHolders(
+  sockets: ListeningSocket[],
+  holders: SocketHolder[],
+): ListeningPort[] {
+  const holderOf = new Map<string, string | undefined>()
+  for (const holder of holders) {
+    for (const inode of holder.inodes) if (!holderOf.has(inode)) holderOf.set(inode, holder.name)
+  }
+  const owners = new Map<number, string | undefined>()
+  for (const s of sockets)
+    if (holderOf.has(s.inode)) addOwner(owners, s.port, holderOf.get(s.inode))
+  return sortedPorts(owners)
 }

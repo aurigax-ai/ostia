@@ -105,10 +105,25 @@ function IconChip({ chip }: { chip: ShownChip }): JSX.Element {
   )
 }
 
+function ChipItemText({ item }: { item: PaneChipItem }): JSX.Element {
+  return (
+    <>
+      {item.text}
+      {item.detail && <span className="pane-chip-item-detail">{item.detail}</span>}
+    </>
+  )
+}
+
 function ChipItem({ chip, item }: { chip: ShownChip; item: PaneChipItem }): JSX.Element {
   const d = useDict()
   const url = item.url
-  if (!url) return <span className="pane-chip-item font-mono text-ui-sm">{item.text}</span>
+  if (!url) {
+    return (
+      <span className="pane-chip-item font-mono text-ui-sm">
+        <ChipItemText item={item} />
+      </span>
+    )
+  }
   return (
     <span className="pane-chip-item">
       <button
@@ -117,7 +132,7 @@ function ChipItem({ chip, item }: { chip: ShownChip; item: PaneChipItem }): JSX.
         aria-label={fmt(d.extensions.chipOpenItem, { url })}
         onClick={() => openChipUrl(chip, url)}
       >
-        {item.text}
+        <ChipItemText item={item} />
       </button>
       <IconButton
         icon={CopyIcon}

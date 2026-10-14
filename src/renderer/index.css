@@ -3423,6 +3423,11 @@ button.prompt-chip:hover {
   background: var(--surface-3);
 }
 
+.pane-chip-item-detail {
+  margin-inline-start: 12px;
+  color: var(--fg-muted);
+}
+
 .pane-chip-action {
   transition: color var(--motion-fast) var(--ease-out), border-color var(--motion-fast)
     var(--ease-out);

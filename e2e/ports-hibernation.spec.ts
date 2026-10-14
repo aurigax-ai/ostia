@@ -36,9 +36,11 @@ test('a port a terminal listens on shows in the top bar and opens in the browser
     await expect(chip).toBeVisible({ timeout: 20_000 })
     expect(extensionHosts(app)).toEqual([])
     await chip.click()
-    await win
-      .getByRole('button', { name: `Open http://localhost:${port}/ in the browser pane` })
-      .click()
+    const open = win.getByRole('button', {
+      name: `Open http://localhost:${port}/ in the browser pane`,
+    })
+    await expect(open).toHaveText(new RegExp(`^:${port}python3`))
+    await open.click()
 
     await expect(win.locator('.pane-tab .title').filter({ hasText: /./ })).toHaveCount(2, {
       timeout: 15_000,
