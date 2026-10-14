@@ -89,15 +89,3 @@ export function importableSpecifiers(): string[] {
     (module) => module.specifier,
   )
 }
-
-export function runtimeHelp(): string {
-  const libraries = ARTIFACT_RUNTIME.filter((module) => module.specifier !== 'react/jsx-runtime')
-    .map((module) => `  ${module.specifier.padEnd(24)} ${module.about}`)
-    .join('\n')
-  return [
-    'Libraries a preview can import (bundled, no network; anything else fails to resolve):',
-    libraries,
-    `  ${`<script src="${RUNTIME_PREFIX}${TAILWIND_RUNTIME.file}">`.padEnd(24)} ${TAILWIND_RUNTIME.about}`,
-    `An .html page loads them by path in a module script, for example ${RUNTIME_PREFIX}recharts.js`,
-  ].join('\n')
-}

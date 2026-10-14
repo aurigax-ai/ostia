@@ -10,7 +10,7 @@ import {
 import { basename, join } from 'node:path'
 import type { AgentResume, ResumableAgent } from '../../shared/agents/agentResume'
 import { PRODUCT_NAME } from '../../shared/product'
-import managerSkill from '../agents/ostia-manager-skill.md?raw'
+import { MANAGER_SKILL_FILES, writeBundledSkill } from '../agents/bundledSkills'
 import {
   CLAUDE_PLUGIN_MANIFEST,
   claudeHookSettings,
@@ -65,7 +65,7 @@ export function writeManagerClaudePlugin(dir: string, skillFolders: readonly str
     `${JSON.stringify(claudeHookSettings(), null, 2)}\n`,
     'utf8',
   )
-  writeFileSync(join(dir, 'skills', MANAGER_SKILL_NAME, 'SKILL.md'), managerSkill, 'utf8')
+  writeBundledSkill(join(dir, 'skills', MANAGER_SKILL_NAME), MANAGER_SKILL_FILES)
   for (const folder of usableSkillFolders(skillFolders)) {
     symlinkSync(folder, join(dir, 'skills', basename(folder)), 'dir')
   }
@@ -74,7 +74,7 @@ export function writeManagerClaudePlugin(dir: string, skillFolders: readonly str
 export function writeManagerCodexContext(dir: string, skillFolders: readonly string[]): string {
   mkdirSync(dir, { recursive: true })
   const skillFile = join(dir, 'SKILL.md')
-  writeFileSync(skillFile, managerSkill, 'utf8')
+  writeBundledSkill(dir, MANAGER_SKILL_FILES)
   const extra = usableSkillFolders(skillFolders).map((f) => `- ${join(f, 'SKILL.md')}`)
   const contextFile = join(dir, 'context.md')
   writeFileSync(

@@ -323,7 +323,7 @@ describe('vitestArgs', () => {
 
 describe('vitest related', () => {
   it('follows a ?raw import of a markdown file to the test that imports it', async () => {
-    const skill = join(ROOT, 'src/main/agents/ostia-skill.md')
+    const skill = join(ROOT, 'src/main/agents/skills/ostia-manager/SKILL.md')
     const vitest = await createVitest(
       'test',
       { root: ROOT, watch: false, project: ['node'], related: [skill] },

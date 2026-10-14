@@ -232,8 +232,8 @@ describe('script callers on the control socket', () => {
   it('reads the CLI reference', async () => {
     const conn = await client(createScriptToken(storeFile, 'docs', ['read-board']).token)
     const res = await conn.sendRequest<{ cli: string }>('docs')
-    expect(res.cli).toContain('Scripts reach only these methods')
-    expect(res.cli).not.toContain('Manager only')
+    expect(res.cli).toContain('Scripts reach only these commands')
+    expect(res.cli).not.toContain('# Ostia manager')
   })
 
   it('refuses an unknown token and cuts a revoked one off at once', async () => {

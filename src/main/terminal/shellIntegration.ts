@@ -22,7 +22,7 @@ import {
   type LoadedAgentSkill,
   NO_AGENT_PLUGINS,
 } from '../agents/agentSkills'
-import agentSkill from '../agents/ostia-skill.md?raw'
+import { CORE_SKILL_FILES, writeBundledSkill } from '../agents/bundledSkills'
 import { privateTmpDir } from '../platform/privateTmp'
 
 export const INTEGRATION_DIR = privateTmpDir(`${PRODUCT_NAME}-shell-integration`)
@@ -381,7 +381,6 @@ export function writeClaudePlugin(
 ): void {
   mkdirSync(join(dir, '.claude-plugin'), { recursive: true })
   mkdirSync(join(dir, 'hooks'), { recursive: true })
-  mkdirSync(join(dir, 'skills', AGENT_SKILL_NAME), { recursive: true })
   writeFileSync(
     join(dir, '.claude-plugin', 'plugin.json'),
     `${JSON.stringify(CLAUDE_PLUGIN_MANIFEST, null, 2)}\n`,
@@ -392,7 +391,7 @@ export function writeClaudePlugin(
     `${JSON.stringify(claudeHookSettings(content.hooks), null, 2)}\n`,
     'utf8',
   )
-  writeFileSync(join(dir, 'skills', AGENT_SKILL_NAME, 'SKILL.md'), agentSkill, 'utf8')
+  writeBundledSkill(join(dir, 'skills', AGENT_SKILL_NAME), CORE_SKILL_FILES)
   for (const skill of content.skills) writeSkillFiles(join(dir, 'skills', skill.id), skill)
 }
 
@@ -593,7 +592,7 @@ export function writeCodexIntegration(
   mkdirSync(dir, { recursive: true })
   const skillFile = join(finalDir, 'SKILL.md')
   const contextFile = join(finalDir, 'session-context.md')
-  writeFileSync(join(dir, 'SKILL.md'), agentSkill, 'utf8')
+  writeBundledSkill(dir, CORE_SKILL_FILES)
   const skills = content.skills.map((skill) => {
     writeSkillFiles(join(dir, 'skills', skill.id), skill)
     return {
@@ -654,7 +653,10 @@ export function codexWrapper(): string {
 function agentPluginDigest(content: AgentPluginContent): string {
   const hash = createHash('sha256')
   hash.update(JSON.stringify({ version, hooks: content.hooks }))
-  hash.update(agentSkill)
+  for (const file of CORE_SKILL_FILES) {
+    hash.update(JSON.stringify({ path: file.path, size: file.text.length }))
+    hash.update(file.text)
+  }
   for (const skill of content.skills) {
     hash.update(JSON.stringify({ id: skill.id, description: skill.description }))
     for (const file of skill.files) {
@@ -669,8 +671,10 @@ function agentPluginFiles(content: AgentPluginContent): string[] {
   return [
     join('claude-plugin', '.claude-plugin', 'plugin.json'),
     join('claude-plugin', 'hooks', 'hooks.json'),
-    join('claude-plugin', 'skills', AGENT_SKILL_NAME, 'SKILL.md'),
-    join('codex', 'SKILL.md'),
+    ...CORE_SKILL_FILES.flatMap((file) => [
+      join('claude-plugin', 'skills', AGENT_SKILL_NAME, file.path),
+      join('codex', file.path),
+    ]),
     join('codex', 'session-context.md'),
     join('codex', CODEX_HOOK_ARGS_FILE),
     ...content.skills.flatMap((skill) =>

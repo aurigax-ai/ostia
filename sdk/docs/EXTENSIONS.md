@@ -718,7 +718,7 @@ hook sees what the agent reports (your prompt, the tools it runs).
 ```markdown
 ---
 name: review
-description: Use when reviewing a change in this repository; follow checklist.md.
+description: Reviews a change in this repository against checklist.md. Use when asked to review a diff, a branch or a pull request here.
 ---
 ```
 
@@ -738,6 +738,25 @@ anywhere on its path, plain UTF-8 text, at most 256 KiB, at most 1 MiB for the w
 skill that fails is left out and logged, and `ostia-extension validate` reports it. Claude gets
 the files as a skill of Ostia's plugin; Codex has no way to add a skill folder, so its session
 context lists each skill's description and the path of its `SKILL.md` for it to read.
+
+### Writing an agent skill
+
+Ostia's own skills follow Anthropic's skill authoring best practices, and a guard test holds the
+skills in this repository to these rules:
+
+- `name`: lowercase letters, digits and hyphens, at most 64 characters, without `anthropic` or
+  `claude`.
+- `description`: third person, at most 1024 characters: what the skill does, then a
+  `Use when …` sentence naming the tasks and words that should bring it up.
+- Teach command usage only: what each command does, its inputs, output, exit codes, refusals and
+  the capability it asks for, with concrete examples. Limits the product enforces are facts of
+  the command. No workflow policy, etiquette, layout defaults, naming schemes or advice about
+  other tools.
+- `SKILL.md` stays under 500 lines. Move a long section that only some tasks need into a file
+  listed in `files`, link it from `SKILL.md`, and link nothing further from it; a file over 100
+  lines starts with a `## Contents` list.
+- One term per thing (pane, split tab, workspace), nothing time-sensitive, forward slashes in
+  paths, and only `ostia <noun> <verb>` forms that `ostia <noun> --help` lists.
 
 ### Hooks
 
