@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { homedir, userInfo } from 'node:os'
 import { delimiter, join } from 'node:path'
 
@@ -78,28 +78,40 @@ function loginShell(env: NodeJS.ProcessEnv = process.env): string {
   return process.platform === 'darwin' ? '/bin/zsh' : '/bin/sh'
 }
 
-const runShell: ShellRunner = (shell, args, timeoutMs) =>
+export const runLoginShell: ShellRunner = (shell, args, timeoutMs) =>
   new Promise((done) => {
-    const child = execFile(
-      shell,
-      args,
-      {
-        encoding: 'utf8',
-        timeout: timeoutMs,
-        killSignal: 'SIGKILL',
-        windowsHide: true,
-        env: { ...process.env, DISABLE_AUTO_UPDATE: 'true' },
-      },
-      (_err, stdout) => done(stdout ?? ''),
-    )
-    child.stdin?.end()
+    const child = spawn(shell, args, {
+      detached: true,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
+      env: { ...process.env, DISABLE_AUTO_UPDATE: 'true' },
+    })
+    let stdout = ''
+    child.stdout.setEncoding('utf8')
+    child.stdout.on('data', (chunk: string) => {
+      stdout += chunk
+    })
+    const killGroup = () => {
+      try {
+        if (child.pid) process.kill(-child.pid, 'SIGKILL')
+      } catch {}
+    }
+    const timer = setTimeout(killGroup, timeoutMs)
+    child.on('error', () => {
+      clearTimeout(timer)
+      done('')
+    })
+    child.on('close', () => {
+      clearTimeout(timer)
+      done(stdout)
+    })
   })
 
 export function resolveLoginPath(options: LoginPathOptions = {}): Promise<LoginPathResult> {
   const platform = options.platform ?? process.platform
   if (platform === 'win32') return Promise.resolve({ path: null, ms: 0 })
   const shell = options.shell ?? loginShell()
-  const run = options.run ?? runShell
+  const run = options.run ?? runLoginShell
   const started = Date.now()
   const command = `printf '%s' '${MARK}'; printenv PATH; printf '%s' '${MARK}'`
   pending = run(shell, ['-ilc', command], options.timeoutMs ?? LOGIN_PATH_TIMEOUT_MS)
