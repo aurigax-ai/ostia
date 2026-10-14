@@ -26,12 +26,17 @@ async function osvMalware(pkg: PackageRef): Promise<MalwareCheck> {
   }
 }
 
+function npmEscapedName(name: string): string {
+  if (!name.startsWith('@')) return encodeURIComponent(name)
+  return `@${name.slice(1).split('/').map(encodeURIComponent).join('%2f')}`
+}
+
 async function registryPublishedAt(pkg: PackageRef): Promise<number | null> {
   try {
     if (pkg.ecosystem === 'npm') {
-      const body = (await getJson(
-        `https://registry.npmjs.org/${encodeURIComponent(pkg.name)}`,
-      )) as { time?: Record<string, string> }
+      const body = (await getJson(`https://registry.npmjs.org/${npmEscapedName(pkg.name)}`)) as {
+        time?: Record<string, string>
+      }
       const at = body.time?.[pkg.version]
       return at ? Date.parse(at) : null
     }

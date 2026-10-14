@@ -15,15 +15,18 @@ describe('sandbox/packageLookups', () => {
     vi.unstubAllGlobals()
   })
 
-  it('asks the npm registry for the whole scoped name', async () => {
+  it('asks the npm registry for a name the way the npm client escapes it', async () => {
     expect(await requestedUrl({ ecosystem: 'npm', name: '@types/node', version: '1.0.0' })).toBe(
-      'https://registry.npmjs.org/%40types%2Fnode',
+      'https://registry.npmjs.org/@types%2fnode',
+    )
+    expect(await requestedUrl({ ecosystem: 'npm', name: 'left-pad', version: '1.0.0' })).toBe(
+      'https://registry.npmjs.org/left-pad',
     )
   })
 
   it('keeps a name or version that carries URL syntax inside its own path segment', async () => {
     expect(await requestedUrl({ ecosystem: 'npm', name: '@a/b#c', version: '1.0.0' })).toBe(
-      'https://registry.npmjs.org/%40a%2Fb%23c',
+      'https://registry.npmjs.org/@a%2fb%23c',
     )
     expect(await requestedUrl({ ecosystem: 'PyPI', name: 'demo', version: '1.0?x=1#y' })).toBe(
       'https://pypi.org/pypi/demo/1.0%3Fx%3D1%23y/json',
