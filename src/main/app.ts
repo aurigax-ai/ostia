@@ -4214,6 +4214,7 @@ app.whenReady().then(() => {
     windowIds,
     waking: isWaking,
     reach,
+    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
   })
   registerGatewayMethods()
   const tailnet = createTailnet({

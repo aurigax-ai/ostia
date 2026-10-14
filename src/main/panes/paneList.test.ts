@@ -400,6 +400,22 @@ describe('paneList.listWorkspaces', () => {
     )
   })
 
+  it('marks a sandboxed workspace, and only that one', async () => {
+    const workspaces = [
+      { workspaceId: 's1', name: 'api', kind: 'terminal', workDir: '/x', state: 'idle' },
+      { workspaceId: 's2', name: 'box', kind: 'terminal', workDir: '/y', state: 'idle' },
+    ]
+    const execCommand = vi.fn().mockResolvedValue(ok(workspaces))
+
+    const result = await listWorkspaces({
+      execCommand,
+      windowIds: ONE_WINDOW,
+      isSandboxed: (id) => id === 's2',
+    })
+
+    expect(result).toEqual([workspaces[0], { ...workspaces[1], sandboxed: true }])
+  })
+
   it('maps the active pane to its external id and drops an unknown one', async () => {
     const identity = registerPane({ windowId: 'w1', workspaceId: 's2', paneId: 'p-active-int' })
     const execCommand = vi.fn().mockResolvedValue(

@@ -200,6 +200,7 @@ export interface WorkspaceInfo {
   workDir: string
   state: string
   activePaneId?: string
+  sandboxed?: boolean
 }
 
 export interface PaneInfo {

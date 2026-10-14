@@ -32,6 +32,7 @@ export interface WorkspaceEntry {
   state: string
   activePaneId?: string
   groupId?: string
+  sandboxed?: boolean
 }
 
 export interface WorkspaceGroupEntry {
@@ -67,6 +68,7 @@ export interface PaneListDeps {
   windowIds: () => string[]
   waking: (paneId: string) => boolean
   reach?: Pick<Reach, 'scriptReach'>
+  isSandboxed?: (workspaceId: string) => boolean
 }
 
 async function listFromEveryWindow<T>(
@@ -150,12 +152,15 @@ export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
 }
 
 export async function listWorkspaces(
-  deps: Pick<PaneListDeps, 'execCommand' | 'windowIds'>,
+  deps: Pick<PaneListDeps, 'execCommand' | 'windowIds' | 'isSandboxed'>,
 ): Promise<WorkspaceEntry[]> {
   const workspaces = await listFromEveryWindow<WorkspaceEntry>(deps, 'workspace.list', {})
   return workspaces.map(({ activePaneId, ...workspace }) => {
     const external = activePaneId ? getByPaneId(activePaneId)?.externalId : undefined
-    return external ? { ...workspace, activePaneId: external } : workspace
+    const marked = deps.isSandboxed?.(workspace.workspaceId)
+      ? { ...workspace, sandboxed: true }
+      : workspace
+    return external ? { ...marked, activePaneId: external } : marked
   })
 }
 
