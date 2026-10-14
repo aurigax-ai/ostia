@@ -70,6 +70,13 @@ function graphRow(row: GraphRow): HTMLElement {
     row.filesRefused
       ? h('div', { class: 'error', 'data-files-refused': '' }, t('row.filesRefused'))
       : null,
+    row.skipped
+      ? h(
+          'div',
+          { class: 'muted', 'data-skipped': String(row.skipped) },
+          t('row.skipped', { count: row.skipped }),
+        )
+      : null,
     row.problem
       ? h(
           'div',

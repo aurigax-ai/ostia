@@ -27,6 +27,7 @@ export interface GraphRow {
   lastRun?: { runId: string; status: string; startedAt: number }
   fingerprint?: string
   filesRefused?: boolean
+  skipped?: number
 }
 
 interface ConnectorUseView {
@@ -91,6 +92,7 @@ export function listModel(
   listings: GraphListing[],
   runs: RunSummary[],
   filesRefused = false,
+  skipped: (name: string) => number = () => 0,
 ): ListModel {
   return {
     workspaceId,
@@ -111,6 +113,7 @@ export function listModel(
           : {}),
         ...(l.entry.loaded ? { fingerprint: l.entry.loaded.fingerprint } : {}),
         ...(filesRefused && graph?.on.some((t) => 'files' in t) ? { filesRefused: true } : {}),
+        ...(skipped(l.entry.name) > 0 ? { skipped: skipped(l.entry.name) } : {}),
       }
     }),
   }

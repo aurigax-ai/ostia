@@ -54,6 +54,7 @@ export function panelHandlers(
           listings,
           runner.runs(w.workspaceId),
           filesRefused(w.workspaceId),
+          (name) => runner.engine.skippedCount(w.workspaceId, name),
         ),
       )
     },

@@ -5,6 +5,7 @@ import { MINUTE_MS } from '@aurigax-ai/graph'
 import { settle } from '@aurigax-ai/graph/testing'
 import { describe, expect, it } from 'vitest'
 import { type HostHarness, hostHarness } from './fakeExt'
+import { panelHandlers } from './panelHandlers'
 import { TriggerHost } from './triggers'
 
 const head = (on: string) => `version: 1
@@ -103,6 +104,32 @@ describe('the Ostia host of triggers', () => {
     host.agent('w1', 'pane-1', 'stopped', 'claude')
     await settle()
     expect(runsOf(later, 'loop')).toHaveLength(1)
+    host.stop()
+  })
+
+  it('GRF-C190 a trigger that fires while a run is still active is skipped, and the panel row says how many', async () => {
+    const h = hostHarness(
+      workspace({
+        busy: `${head('{ manual: {} }, { command: {} }')}nodes:\n  - { id: a, kind: agent, with: { mode: start, agent: claude, prompt: p } }\nedges: []\n`,
+      }),
+    )
+    enable(h, 'busy')
+    const host = triggerHost(h)
+    expect(h.runner.start('w1', 'busy', { byAgent: false, inputs: [] })).toMatchObject({ ok: true })
+    await settle()
+    host.command('w1', 'p-other', 0)
+    host.command('w1', 'p-other', 1)
+    await settle()
+    expect(runsOf(h, 'busy')).toHaveLength(1)
+    const handlers = panelHandlers(
+      h.runner,
+      { ...h.ext, focusPane: async () => ({ ok: true }) },
+      async () => {},
+    )
+    const res = (await handlers.list?.({ workspaceId: 'w1' })) as {
+      data: { graphs: { name: string; skipped?: number }[] }
+    }
+    expect(res.data.graphs.find((g) => g.name === 'busy')?.skipped).toBe(2)
     host.stop()
   })
 

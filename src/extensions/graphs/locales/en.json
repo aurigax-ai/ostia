@@ -83,6 +83,7 @@
     "use.write": "can change things",
     "use.external": "calls an outside service",
     "def.secretInput": "The input of {node} looks like a secret. Keep secrets in a connection in Settings, never in the graph file.",
-    "row.filesRefused": "Its files trigger is off: this folder has more than 5000 folders to watch outside .git, node_modules and ignored paths."
+    "row.filesRefused": "Its files trigger is off: this folder has more than 5000 folders to watch outside .git, node_modules and ignored paths.",
+    "row.skipped": "Skipped {count} times since Ostia started: a run was still active, or a limit was reached"
   }
 }
