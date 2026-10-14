@@ -19,6 +19,7 @@ export const chords = {
   openSettings: 'ControlOrMeta+,',
   firstWorkspace: isMac ? 'Meta+1' : 'Control+1',
   resumeAgent: 'ControlOrMeta+Shift+R',
+  newTab: isMac ? 'Meta+t' : 'Control+Shift+T',
   nextTab: 'Control+Tab',
   previousTab: 'Control+Shift+Tab',
 }
