@@ -2,7 +2,13 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ExtensionAgentOffer, ExtensionCaller } from '../../shared/extensions'
+import {
+  EXTENSION_REDACT_TEXTS_MAX,
+  EXTENSION_REDACT_TEXT_MAX,
+  type ExtensionAgentOffer,
+  type ExtensionCaller,
+} from '../../shared/extensions'
+import type { RedactionResult } from '../../shared/privacy/redaction'
 import type { CommandResult } from '../../shared/types'
 import {
   AGENT_TASKS_PER_MINUTE,
@@ -29,6 +35,7 @@ describe('ExtensionHost agent tasks: ext.agents, ext.runAgent, ext.offerToAgent,
   const openTerminalIn = vi.fn<(req: TerminalOpenRequest) => Promise<string | null>>()
   const offerToAgentIn = vi.fn<(offer: Offer) => Promise<AgentOfferDelivery>>()
   const focusPaneIn = vi.fn<(pane: PaneIdentity) => boolean>()
+  const redact = vi.fn<(text: string) => Promise<RedactionResult>>()
 
   const call = async (extId: string, method: string, params?: unknown) => {
     const res = await host.invoke(extId, 'call', { method, params }, caller)
@@ -54,6 +61,7 @@ describe('ExtensionHost agent tasks: ext.agents, ext.runAgent, ext.offerToAgent,
       openTerminalIn,
       offerToAgentIn,
       focusPaneIn,
+      redact,
       agentArgv: (name) => ({ claude: ['claude'], codex: ['codex', '--full-auto'] })[name] ?? null,
       agentNames: () => ['claude', 'codex'],
       agentTaskClock: () => clock,
@@ -84,6 +92,38 @@ describe('ExtensionHost agent tasks: ext.agents, ext.runAgent, ext.offerToAgent,
     openTerminalIn.mockReset()
     offerToAgentIn.mockReset()
     focusPaneIn.mockReset()
+    redact.mockReset()
+  })
+
+  it('redacts an extension’s texts with main’s redactor and never hands back a text it could not scan', async () => {
+    redact.mockImplementation(async (text) => ({
+      text: text.replaceAll('hunter2', '[redacted]'),
+      count: 1,
+      kinds: {},
+    }))
+    expect(await call('tasker', 'ext.redact', { texts: ['pw hunter2', '', 'plain'] })).toEqual({
+      ok: true,
+      texts: ['pw [redacted]', '', 'plain'],
+    })
+    redact.mockRejectedValue(new Error('scan died'))
+    const failed = await call('tasker', 'ext.redact', { texts: ['pw hunter2'] })
+    expect(failed).toMatchObject({ ok: false, error: 'redaction-failed' })
+    expect(JSON.stringify(failed)).not.toContain('hunter2')
+    redact.mockClear()
+    const refused: unknown[] = [
+      {},
+      { texts: 'pw' },
+      { texts: [4] },
+      { texts: Array.from({ length: EXTENSION_REDACT_TEXTS_MAX + 1 }, () => 'a') },
+      { texts: ['a'.repeat(EXTENSION_REDACT_TEXT_MAX + 1)] },
+    ]
+    for (const params of refused) {
+      expect(await call('tasker', 'ext.redact', params)).toMatchObject({
+        ok: false,
+        error: 'invalid-params',
+      })
+    }
+    expect(redact).not.toHaveBeenCalled()
   })
 
   it('lists only the names of the agents it may run', async () => {

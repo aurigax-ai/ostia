@@ -10,6 +10,7 @@ export interface SystemRequirementsIpcDeps {
   locale: () => string | undefined
   systemExtensionEnabled: () => boolean
   missing: (feature: string) => MissingRequirement[]
+  settled?: () => Promise<void>
   label?: (feature: string) => string
   invokeInstall: (args: { argv: string[] }, caller: ExtensionCaller) => Promise<ExtensionResult>
 }
@@ -30,15 +31,19 @@ export function requirementsInstallArgs(
 }
 
 export function registerSystemRequirementsIpc(deps: SystemRequirementsIpcDeps): void {
-  ipcMain.handle('system:requirements', (_e, feature: unknown): RequirementsReport | null => {
-    if (typeof feature !== 'string') return null
-    const missing = deps.missing(feature)
-    return {
-      missing,
-      hint: installHint(missing),
-      canInstall: missing.length > 0 && deps.systemExtensionEnabled(),
-    }
-  })
+  ipcMain.handle(
+    'system:requirements',
+    async (_e, feature: unknown): Promise<RequirementsReport | null> => {
+      if (typeof feature !== 'string') return null
+      await deps.settled?.()
+      const missing = deps.missing(feature)
+      return {
+        missing,
+        hint: installHint(missing),
+        canInstall: missing.length > 0 && deps.systemExtensionEnabled(),
+      }
+    },
+  )
 
   ipcMain.handle(
     'system:install-requirements',

@@ -216,6 +216,11 @@
       "specs": ["e2e/trellis-agents.spec.ts"]
     },
     {
+      "name": "activity",
+      "paths": ["src/extensions/activity/"],
+      "specs": ["e2e/activity.spec.ts"]
+    },
+    {
       "name": "extensions",
       "paths": [
         "src/main/agents/extensionAgents.",

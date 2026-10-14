@@ -1,0 +1,164 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  min-height: 0;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-ui-base);
+  line-height: var(--text-ui-base--line-height);
+  font-weight: var(--font-weight-semibold);
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+
+button.tab {
+  border: 0;
+  color: var(--fg-muted);
+  font-weight: var(--font-weight-medium);
+}
+
+button.tab[aria-pressed="true"] {
+  color: var(--fg);
+  background: var(--surface-3);
+}
+
+.list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.workspace + .workspace {
+  margin-top: 16px;
+}
+
+.workspace-name {
+  margin: 0 0 4px;
+  padding: 0 8px;
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.agent {
+  padding: 4px 0 8px;
+  border-top: 1px solid var(--line);
+}
+
+button.agent-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: 0;
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.agent-name {
+  font-weight: var(--font-weight-medium);
+}
+
+.state {
+  color: var(--fg-muted);
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+}
+
+.state[data-state="waiting"],
+.state[data-state="error"] {
+  color: var(--attn-fg);
+}
+
+.state[data-state="done"] {
+  color: var(--ok);
+}
+
+.age {
+  flex: 0 0 auto;
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+}
+
+.recap,
+.note {
+  margin: 2px 8px 0 30px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.events {
+  margin: 6px 8px 0 30px;
+  padding: 0;
+  list-style: none;
+}
+
+.event {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 1px 0;
+}
+
+.event > svg {
+  flex: 0 0 auto;
+  align-self: center;
+  color: var(--fg-muted);
+}
+
+.event-label {
+  flex: 0 0 auto;
+}
+
+.event-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+code.event-text {
+  font-family: var(--font-code);
+}
+
+.earlier {
+  margin: 6px 8px 0 30px;
+}
+
+.earlier > summary {
+  cursor: pointer;
+}
+
+.earlier .events,
+.earlier .recap {
+  margin-left: 0;
+}
+
+.turn {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}

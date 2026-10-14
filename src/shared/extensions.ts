@@ -442,6 +442,9 @@ export interface OpenTerminalOptions {
 
 export const OPEN_TERMINAL_WAIT_MAX_MS = 10 * 60_000
 
+export const EXTENSION_REDACT_TEXTS_MAX = 16
+export const EXTENSION_REDACT_TEXT_MAX = 16_000
+
 export type TerminalWaitOutcome = 'finished' | 'closed' | 'timeout'
 
 export interface TerminalWait {

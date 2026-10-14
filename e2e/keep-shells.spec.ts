@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -172,6 +173,33 @@ test('KSH-C20 with tmux gone a new terminal starts a plain shell and says it is 
     await runInTerminal(win, `${PARENT}; echo plain-$((6*7))`)
     await expect(screen(win)).toContainText('plain-42', { timeout: 15_000 })
     await expect(screen(win)).not.toContainText('parent=tmux')
+  } finally {
+    await quitApp(app)
+  }
+})
+
+test('KSH-C91 started with the bare PATH a desktop launch gives, Ostia keeps shells with the tmux on the login shell PATH', async () => {
+  const realTmux = execFileSync('sh', ['-c', 'command -v tmux'], { encoding: 'utf8' }).trim()
+  const log = join(dataHome, 'tmux-calls')
+  const bin = binWith('tmux', `#!/bin/sh\necho "$1" >> '${log}'\nexec '${realTmux}' "$@"\n`)
+  const loginDir = join(dataHome, 'login-shell')
+  mkdirSync(loginDir, { recursive: true })
+  const shell = join(loginDir, 'bash')
+  writeFileSync(
+    shell,
+    `#!/bin/bash\nif [ "$1" = -ilc ]; then export PATH='${bin}:/usr/bin:/bin':"$PATH"; fi\nexec /bin/bash "$@"\n`,
+  )
+  chmodSync(shell, 0o755)
+  const empty = join(dataHome, 'empty-path')
+  mkdirSync(empty, { recursive: true })
+  const bare = process.platform === 'darwin' ? '/usr/bin:/bin:/usr/sbin:/sbin' : empty
+  const { app, win } = await launch(dataHome, { PATH: bare, SHELL: shell })
+  try {
+    await openWorkspace(win)
+    await runInTerminal(win, 'echo kept=${OSTIA_TOKEN_FILE:+yes}')
+    await expect(screen(win)).toContainText('kept=yes', { timeout: 15_000 })
+    await expect(screen(win)).not.toContainText('This shell will not survive a restart')
+    if (process.platform !== 'darwin') expect(readFileSync(log, 'utf8')).not.toBe('')
   } finally {
     await quitApp(app)
   }

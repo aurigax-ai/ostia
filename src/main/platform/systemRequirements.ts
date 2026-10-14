@@ -7,6 +7,7 @@ import { MARKETPLACE_FEATURE } from '../../shared/extensions/marketplace'
 import { KEEP_SHELLS_FEATURE, TMUX_MIN_VERSION } from '../../shared/terminal/keepShells'
 import { findOnPath } from './pathLookup'
 import { needsPtyRelay } from './ptyRelay'
+import { toolPath } from './toolPath'
 
 export interface Requirement {
   program: string
@@ -90,11 +91,11 @@ function isExecutable(file: string): boolean {
   }
 }
 
-export function programPath(program: string, path = process.env.PATH ?? ''): string | null {
+export function programPath(program: string, path = toolPath()): string | null {
   return findOnPath(program, path, isExecutable)
 }
 
-export function onPath(program: string, path = process.env.PATH ?? ''): boolean {
+export function onPath(program: string, path = toolPath()): boolean {
   return programPath(program, path) !== null
 }
 
