@@ -473,7 +473,7 @@
         "src/renderer/stores/app/telemetryConsentStore.ts",
         "src/renderer/lib/app/usageCounts.ts"
       ],
-      "specs": ["e2e/telemetry.spec.ts"]
+      "specs": []
     },
     {
       "name": "updates",

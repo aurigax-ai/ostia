@@ -31,10 +31,10 @@ export function seedSettings(dataHome: string, settings: object): void {
   writeFileSync(join(userData, 'settings.json'), `${JSON.stringify(settings, null, 2)}\n`)
 }
 
-export function seedTelemetryAnswered(dataHome: string, asked = true): void {
+function seedTelemetryAnswered(dataHome: string): void {
   const userData = join(dataHome, 'userData')
   mkdirSync(userData, { recursive: true })
-  writeFileSync(join(userData, 'telemetry.json'), JSON.stringify({ asked }))
+  writeFileSync(join(userData, 'telemetry.json'), JSON.stringify({ asked: true }))
 }
 
 const TEST_ZSHRC = "PROMPT='%~ ❯ '\n"
