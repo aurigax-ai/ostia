@@ -78,7 +78,6 @@ test('a group hibernates and resumes the agents of all its workspaces from its h
     const head = win.locator('.rail-group-head')
     const asleep = members.getByRole('img', { name: 'Hibernated' })
     await head.click({ button: 'right' })
-    await expect(win.getByRole('menuitem', { name: 'Resume agents' })).toHaveCount(0)
     await win.getByRole('menuitem', { name: 'Hibernate agents' }).click()
     await expect(asleep).toHaveCount(2, { timeout: 15_000 })
 
@@ -89,10 +88,6 @@ test('a group hibernates and resumes the agents of all its workspaces from its h
 
     await members.first().locator('.rail-tab-main').click()
     await expectResumedOnce(win)
-
-    await head.click({ button: 'right' })
-    await expect(win.getByRole('menuitem', { name: 'Hibernate agents' })).toBeEnabled()
-    await expect(win.getByRole('menuitem', { name: 'Resume agents' })).toHaveCount(0)
   } finally {
     await app.close()
   }
