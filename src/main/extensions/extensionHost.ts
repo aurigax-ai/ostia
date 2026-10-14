@@ -1156,6 +1156,7 @@ export class ExtensionHost {
   private async connected(rt: Runtime, command?: string): Promise<MessageConnection> {
     if (rt.state === 'crashed') throw new Error('extension crashed')
     if (!rt.ext.manifest.main) throw new Error('extension has no process')
+    if (rt.proc && rt.stopping) rt.restartAfterExit = true
     this.start(rt)
     await this.waitFor(rt, () =>
       Boolean(rt.conn && (command === undefined || rt.ready.has(command))),

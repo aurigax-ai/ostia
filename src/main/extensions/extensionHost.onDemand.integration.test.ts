@@ -107,4 +107,14 @@ describe('a built-in assist extension starts on demand', () => {
     host.reloadAssistSettings()
     await until(() => (status('switchboard') === 'running' ? true : undefined))
   })
+
+  it('runs a command asked for while the extension is still exiting, once the old process is gone', async () => {
+    await until(() => (status('echo') === 'running' ? true : undefined))
+    host.stopAll()
+    expect(host.isRunning('echo')).toBe(true)
+    const caller = { kind: 'user' as const, capabilities: [] }
+    expect(await host.invoke('echo', 'echo', { argv: ['again'] }, caller)).toMatchObject({
+      ok: true,
+    })
+  })
 })
