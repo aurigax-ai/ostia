@@ -1103,6 +1103,7 @@
       "specs": [
         "e2e/artifacts.spec.ts",
         "e2e/artifacts-preview.spec.ts",
+        "e2e/portable-artifacts.spec.ts",
         "e2e/open-from-shell.spec.ts",
         "e2e/packaged-preview.spec.ts"
       ]

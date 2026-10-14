@@ -256,7 +256,7 @@ function inGuest<T>(app: ElectronApplication, expression: string): Promise<T | n
   )
 }
 
-test('a page in the artifact folder runs with no network, no way into Ostia, no storage and no navigation', async () => {
+test('PRT-C30 a page in the artifact folder runs with no network, no way into Ostia, no storage and no navigation', async () => {
   test.setTimeout(180_000)
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
@@ -295,8 +295,8 @@ test('a page in the artifact folder runs with no network, no way into Ostia, no 
       cookie: 'threw:SecurityError',
       clipboardRead: 'threw:NotAllowedError',
       popup: 'null',
-      sibling: 'sibling-read',
-      parentFolder: 404,
+      sibling: 'threw:TypeError',
+      parentFolder: 'threw:TypeError',
       eval: 'threw:EvalError',
       ostia: 'undefined',
       require: 'undefined',
@@ -339,7 +339,7 @@ test('a page in the artifact folder runs with no network, no way into Ostia, no 
   }
 })
 
-test('a page that never yields is stopped, and the terminal beside it keeps working', async () => {
+test('PRT-C30 a page that never yields is stopped, and the terminal beside it keeps working', async () => {
   test.setTimeout(180_000)
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
@@ -414,7 +414,7 @@ test('a page outside the artifact folder previews only when asked, reloads on a 
 
     writeFileSync(
       page,
-      '<!doctype html><title>second</title><script>throw new Error("boom-from-page")</script><script type="module">import "nowhere"</script>',
+      '<!doctype html><title>second</title><script>throw new Error("boom-from-page")</script><script>nowhere()</script>',
     )
     await expect
       .poll(() => inGuest<string>(app, 'document.title'), { timeout: 20_000 })
@@ -464,6 +464,7 @@ import { HeartIcon } from '@phosphor-icons/react'
 import * as d3 from 'd3'
 import Papa from 'papaparse'
 import Part from './Part'
+import data from './data.json'
 
 const points = Papa.parse('x,y\\n1,2\\n2,5\\n3,3', { header: true, dynamicTyping: true }).data
 
@@ -471,7 +472,7 @@ export default function Widget() {
   const [count, setCount] = useState<number>(0)
   const [loaded, setLoaded] = useState('')
   useEffect(() => {
-    fetch('./data.json').then((r) => r.json()).then((d) => setLoaded(d.ok))
+    setLoaded(data.ok)
   }, [])
   useEffect(() => {
     document.title = 'count ' + count + ' ' + loaded + ' max ' + d3.max(points, (p) => p.y)
@@ -553,6 +554,7 @@ test('a .tsx component runs with the bundled libraries, no eval, no network, and
           line: document.querySelectorAll('.recharts-line path').length,
           svgs: document.querySelectorAll('svg').length,
           importMaps: document.querySelectorAll('script[type=importmap]').length,
+          external: document.querySelectorAll('script[src]').length,
         })`,
       ),
     ).toEqual({
@@ -563,7 +565,8 @@ test('a .tsx component runs with the bundled libraries, no eval, no network, and
       chart: 1,
       line: 1,
       svgs: 3,
-      importMaps: 1,
+      importMaps: 0,
+      external: 0,
     })
     await expect(win.getByTestId('preview-errors')).toHaveCount(0)
 
@@ -626,7 +629,7 @@ test('a component that imports what is not bundled says so in the strip', async 
   }
 })
 
-test('a page cannot make the resolver look up a host name: no DNS prefetch, preconnect or anchor lookup', async () => {
+test('PRT-C30 a page cannot make the resolver look up a host name: no DNS prefetch, preconnect or anchor lookup', async () => {
   test.setTimeout(120_000)
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
