@@ -428,4 +428,10 @@ describe('the extension API a graph host needs', () => {
     })
     expect(typed).toEqual([])
   })
+
+  it('ext.ask needs drive-self', async () => {
+    expect((await call('limited', 'ext.ask', { workspaceId: 'w1', question: 'q' })).rpcError).toContain(
+      'needs-elevation: drive-self',
+    )
+  })
 })

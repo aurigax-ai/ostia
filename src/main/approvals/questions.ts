@@ -255,6 +255,7 @@ function extensionAskParams(raw: Record<string, unknown>): Record<string, unknow
 export function registerExtensionQuestions(deps: ExtensionQuestionDeps): void {
   registerControlMethod('ext.ask', {
     callers: 'extensions',
+    cap: 'drive-self',
     handler: async (params, ctx) => {
       const current = active
       if (!current) return { ok: false, error: 'no-window' }
