@@ -71,6 +71,26 @@ describe('pane.joinTab', () => {
     expect(res).toMatchObject({ ok: true, result: { whole: false } })
   })
 
+  it("joins only split tabs an agent made; a tab the human named or renamed is the human's", async () => {
+    const { a, b, c } = workspace()
+    const join = (paneIds: string[], tab: string) =>
+      commands.execWith(fromMain, 'pane.joinTab', { paneIds, tab })
+    expect((await join([b.id, c.id], 'workers')).ok).toBe(true)
+    expect((await join([a.id], 'workers')).ok).toBe(true)
+
+    const root = () => useLayoutStore.getState().byWorkspace.s1.root
+    const made = findSplitTabByName(root(), 'workers') as SplitNode
+    useLayoutStore.getState().renameSplitTab('s1', made.id, 'mine')
+    const refused = await join([a.id], 'mine')
+    expect(refused.ok ? '' : refused.error.message).toContain(
+      "human-tab: split tab mine is the human's",
+    )
+    const plan = await commands.execWith(fromMain, 'pane.tabPlan', { paneIds: [], tab: 'mine' })
+    expect(plan).toMatchObject({ ok: true, result: { human: 'mine' } })
+    const out = await commands.execWith(fromMain, 'pane.joinTab', { paneIds: [b.id], tab: null })
+    expect(out.ok ? '' : out.error.message).toContain('human-tab')
+  })
+
   it('refuses a locked pane and changes nothing', async () => {
     const { b, locked } = workspace()
     const before = useLayoutStore.getState().byWorkspace.s1.root

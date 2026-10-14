@@ -1,4 +1,5 @@
 import { allPanes, findPane, findSplitTabByName, splitTabOfPane, tabsOfPane } from '@/layout/tree'
+import { isAgentSplitTab } from '@/lib/panes/agentSplitTabs'
 import { splitTabSeed } from '@/lib/panes/splitTabSeeds'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
@@ -53,6 +54,20 @@ function tabMembers(workspaceId: string, tab: string): string[] {
   return seed && findPane(root, seed) && !splitTabOfPane(root, seed) ? [seed] : []
 }
 
+function humanTabOf(workspaceId: string, tab: string | null, paneIds: readonly string[]) {
+  const root = useLayoutStore.getState().byWorkspace[workspaceId]?.root
+  if (!root) return null
+  const touched =
+    tab === null ? paneIds.map((id) => splitTabOfPane(root, id)) : [findSplitTabByName(root, tab)]
+  return touched.find((t) => t && !isAgentSplitTab(t.id)) ?? null
+}
+
+function humanTabRefusal(name: string | undefined): Error {
+  return new Error(
+    `human-tab: split tab ${name ?? '(unnamed)'} is the human's; agents join only split tabs an agent made`,
+  )
+}
+
 function activeSplitTabId(workspaceId: string | null, paneId: string | null): string | null {
   const root = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId]?.root : null
   return root && paneId ? (splitTabOfPane(root, paneId)?.id ?? null) : null
@@ -79,7 +94,21 @@ export function registerPaneTabCommands(): void {
     },
   })
 
-  registerCore<PaneTabArgs, { members: string[]; locked: string[] }>({
+  registerCore<{ paneId: string }, { name: string | null; human: boolean }>({
+    id: 'pane.splitTabOf',
+    category: 'pane',
+    local: true,
+    run: (args, ctx) => {
+      const root = ctx.activeWorkspaceId
+        ? useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]?.root
+        : null
+      const tab =
+        root && typeof args?.paneId === 'string' ? splitTabOfPane(root, args.paneId) : null
+      return { name: tab?.name ?? null, human: tab !== null && !isAgentSplitTab(tab.id) }
+    },
+  })
+
+  registerCore<PaneTabArgs, { members: string[]; locked: string[]; human: string | null }>({
     id: 'pane.tabPlan',
     category: 'pane',
     local: true,
@@ -89,9 +118,11 @@ export function registerPaneTabCommands(): void {
       if (!workspaceId) throw new Error('no target workspace')
       const tab = tabOf(args?.tab)
       const paneIds = paneIdsOf(args?.paneIds)
+      const human = humanTabOf(workspaceId, tab, paneIds)
       return {
         members: tab ? tabMembers(workspaceId, tab) : [],
         locked: refusedPanes(paneIds).locked,
+        human: human ? (human.name ?? '') : null,
       }
     },
   })
@@ -120,6 +151,8 @@ export function registerPaneTabCommands(): void {
       if (locked.length > 0) {
         throw new Error('pane-locked: the human locked this pane; only they can unlock it')
       }
+      const human = humanTabOf(workspaceId, tab, paneIds)
+      if (human) throw humanTabRefusal(human.name)
       const moved = useLayoutStore.getState().joinTab(workspaceId, paneIds, tab)
       return { moved, whole: tab !== null && coversWorkspace(workspaceId, paneIds, tab) }
     },

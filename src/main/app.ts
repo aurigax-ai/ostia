@@ -3874,6 +3874,16 @@ app.whenReady().then(() => {
     },
     agentChanges: agentChanges.subscribe,
     tell: tellPane,
+    splitTabNow: async (workspaceId, paneId) => {
+      const target = workspaceCommandTarget(workspaceId)
+      const res = await execCommand(target, 'pane.splitTabOf', { paneId }, true)
+      return res.ok ? (res.result as { name: string | null; human: boolean }) : null
+    },
+    humanTab: async (workspaceId, name) => {
+      const target = workspaceCommandTarget(workspaceId)
+      const res = await execCommand(target, 'pane.tabPlan', { paneIds: [], tab: name }, true)
+      return res.ok && typeof (res.result as { human?: unknown }).human === 'string'
+    },
     paneTitle: async (paneId) => {
       const pane = getByPaneId(paneId)
       if (!pane) return undefined

@@ -59,6 +59,7 @@ import {
   takeTab,
 } from '@/layout/tree'
 import type { Direction, LayoutNode, PaneNode, SurfaceKind } from '@/layout/types'
+import { forgetAgentSplitTab, isAgentSplitTab, markAgentSplitTab } from '@/lib/panes/agentSplitTabs'
 import { rememberedPanelFraction } from '@/lib/panes/panelSizes'
 import { forgetSplitTabSeeds, seedSplitTab, splitTabSeed } from '@/lib/panes/splitTabSeeds'
 import { readableColumns } from '@/lib/panes/splitTabs'
@@ -163,12 +164,18 @@ function splitTabPartner(workspaceId: string, root: LayoutNode, name: string): s
   return seed && findPane(root, seed) && !splitTabOfPane(root, seed) ? seed : undefined
 }
 
+function markNewSplitTab(before: LayoutNode, after: LayoutNode, name: string): void {
+  const made = findSplitTabByName(after, name)
+  if (made && !findSplitTab(before, made.id)) markAgentSplitTab(made.id)
+}
+
 function splitTabAnchor(
   workspaceId: string,
   root: LayoutNode,
   splitTab: SplitTabPlacement,
 ): string | null {
   const named = findSplitTabByName(root, splitTab.name)
+  if (named && !isAgentSplitTab(named.id)) return null
   if (named) {
     const panes = allPanes(named)
     return panes[panes.length - 1].id
@@ -476,6 +483,9 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     const trimmed = name.trim()
     const next = trimmed ? normalizeSplitTabName(trimmed.slice(0, SPLIT_TAB_NAME_MAX)) : null
     if (trimmed && !next) return
+    const root = get().byWorkspace[workspaceId]?.root
+    const current = root ? findSplitTab(root, tabId) : null
+    if (current && (current.name ?? null) !== next) forgetAgentSplitTab(tabId)
     set(
       (s) =>
         patch(s, workspaceId, (l) => ({ ...l, root: setSplitTabName(l.root, tabId, next) })) ?? s,
@@ -492,6 +502,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         ? separateFromSplitTab(before, ids, tabColumns())
         : joinSplitTab(before, ids, tab, tabColumns(), partner)
     forgetSplitTabSeeds(ids)
+    if (tab !== null) markNewSplitTab(before, root, tab)
     const lone = tab !== null && root === before && ids.length === 1 && !partner
     if (lone && !findSplitTabByName(before, tab)) seedSplitTab(workspaceId, tab, ids[0])
     if (tab !== null && findSplitTabByName(root, tab) && partner) forgetSplitTabSeeds([partner])
@@ -882,12 +893,15 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
           createdPaneId = pane.id
           forgetSplitTabSeeds([anchor])
           const root = joinedTerminal(l.root, anchor, pane, opts.splitTab)
+          markNewSplitTab(l.root, root, opts.splitTab.name)
           return { ...l, root: describeTerminal(root, pane.id, opts) }
         }
         if (opts.backgroundTab) {
           const pane = newTerminalPane()
           createdPaneId = pane.id
-          if (opts.splitTab) seedSplitTab(workspaceId, opts.splitTab.name, pane.id)
+          if (opts.splitTab && !findSplitTabByName(l.root, opts.splitTab.name)) {
+            seedSplitTab(workspaceId, opts.splitTab.name, pane.id)
+          }
           const after = backgroundTabAnchor(l.root, beside, opts.openedPaneIds ?? [])
           return { ...l, root: describeTerminal(addTab(l.root, after, pane, true), pane.id, opts) }
         }

@@ -56,6 +56,8 @@ const AGENTS: Record<string, string[]> = {
 const sandboxedWorkspaces = new Set<string>()
 const agentPanes = new Set<string>()
 const titles = new Map<string, string>()
+const humanTabs = new Set<string>()
+const tabNow = new Map<string, { name: string | null; human: boolean }>()
 const startedAgents = new Set<string>()
 const agentSignal = new ChangeSignal()
 const told: { to: string; text: string }[] = []
@@ -102,6 +104,8 @@ const registry = registerProcessMethods({
   agentArgv: (name) => AGENTS[name] ?? null,
   isAgent: (paneId) => agentPanes.has(paneId),
   paneTitle: async (paneId) => titles.get(paneId),
+  splitTabNow: async (_workspaceId, paneId) => tabNow.get(paneId) ?? null,
+  humanTab: async (workspaceId, name) => humanTabs.has(`${workspaceId}/${name}`),
   agentStarted: (paneId) => startedAgents.has(paneId),
   startsWithHook: (argv) => argv[0] === 'claude' || argv[0] === 'codex',
   agentChanges: agentSignal.subscribe,
@@ -190,6 +194,8 @@ afterEach(() => {
   sandboxedWorkspaces.clear()
   agentPanes.clear()
   titles.clear()
+  humanTabs.clear()
+  tabNow.clear()
   startedAgents.clear()
   told.length = 0
   onOpen = null
@@ -282,6 +288,49 @@ describe('agent.run', () => {
       { name: 'api · workers' },
       { name: 'api · workers' },
       { name: 'docs' },
+    ])
+  })
+
+  it('never joins a split tab the human made: --tab is refused, the workers tab opens plain', async () => {
+    agentPanes.add('agent-pane')
+    titles.set('agent-pane', 'api')
+    humanTabs.add('ws1/docs')
+    humanTabs.add('ws1/api · workers')
+    const conn = await client(agent)
+    for (const method of ['agent.run', 'process.run']) {
+      const res = await conn.sendRequest(method, {
+        agent: 'claude',
+        prompt: 'one',
+        cmd: 'npm test',
+        tab: 'docs',
+      })
+      expect(res, method).toMatchObject({ ok: false, error: 'human-tab' })
+    }
+    expect(opened).toEqual([])
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'two' })
+    expect(opened.map((req) => req.splitTab)).toEqual([undefined])
+  })
+
+  it('follows the workers tab by its identity, so no rename makes a second one, and forgets it with the caller', async () => {
+    agentPanes.add('agent-pane')
+    titles.set('agent-pane', 'api')
+    const conn = await client(agent)
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'one' })
+    const first = registry.list(null).at(-1)?.paneId ?? ''
+    tabNow.set(first, { name: 'api · workers', human: false })
+    titles.set('agent-pane', 'renamed by the human')
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'two' })
+    tabNow.set(first, { name: 'my crew', human: true })
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'three' })
+    registry.paneClosed('agent-pane')
+    tabNow.clear()
+    titles.set('agent-pane', 'web')
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'four' })
+    expect(opened.map((req) => req.splitTab)).toEqual([
+      { name: 'api · workers' },
+      { name: 'api · workers' },
+      undefined,
+      { name: 'web · workers' },
     ])
   })
 

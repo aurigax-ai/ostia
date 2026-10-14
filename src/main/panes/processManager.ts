@@ -133,6 +133,7 @@ export class ProcessRegistry {
   private readonly tracked = new Map<string, Tracking>()
   private readonly byPane = new Map<string, ProcessEntry>()
   private readonly frozen = new Map<string, RingSlice>()
+  private readonly workersTabs = new Map<string, string>()
   private counter = 0
 
   constructor(private readonly deps: RegistryDeps) {}
@@ -217,7 +218,16 @@ export class ProcessRegistry {
     }
   }
 
+  rememberWorkersTab(callerPaneId: string, name: string): void {
+    this.workersTabs.set(callerPaneId, name)
+  }
+
+  workersTabOf(callerPaneId: string): string | undefined {
+    return this.workersTabs.get(callerPaneId)
+  }
+
   paneClosed(paneId: string): void {
+    this.workersTabs.delete(paneId)
     const entry = this.byPane.get(paneId)
     if (!entry) return
     this.release(entry)
@@ -383,6 +393,11 @@ export interface ProcessDeps {
   agentArgv: (name: string) => string[] | null
   isAgent: (paneId: string) => boolean
   paneTitle: (paneId: string) => Promise<string | undefined>
+  splitTabNow: (
+    workspaceId: string,
+    paneId: string,
+  ) => Promise<{ name: string | null; human: boolean } | null>
+  humanTab: (workspaceId: string, name: string) => Promise<boolean>
   agentStarted: (paneId: string) => boolean
   startsWithHook: (argv: readonly string[]) => boolean
   agentChanges: Subscribe
@@ -405,6 +420,14 @@ const UNKNOWN_AGENT = {
   error: 'unknown-agent' as const,
   message: `${PRODUCT_DISPLAY_NAME} knows no agent by that name; start it with ostia process run instead`,
 }
+function humanTab(name: string) {
+  return {
+    ok: false as const,
+    error: 'human-tab' as const,
+    message: `split tab ${name} is the human's; agents join only split tabs an agent made`,
+  }
+}
+
 const CLOSED = {
   ok: false as const,
   error: 'closed' as const,
@@ -518,18 +541,32 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
       : undefined
   }
 
-  const workersTabs = new Map<string, string>()
+  const currentWorkersTab = async (caller: string, remembered: string) => {
+    for (const entry of registry.list(null)) {
+      if (entry.ownerPaneId !== caller || entry.status === 'closed') continue
+      if (entry.splitTab !== remembered) continue
+      const now = await deps.splitTabNow(registry.workspaceOf(entry), entry.paneId)
+      if (now?.name) return now
+    }
+    return null
+  }
 
-  const workersTab = async (ctx: ControlMethodContext): Promise<SplitTabPlacement | undefined> => {
+  const workersTab = async (
+    ctx: ControlMethodContext,
+    workspaceId: string,
+  ): Promise<SplitTabPlacement | undefined> => {
     const caller = ctx.identity.paneId
     if (ctx.identity.kind !== 'pane' || !caller || !deps.isAgent(caller)) return undefined
-    const known = workersTabs.get(caller)
-    if (known) return { name: known }
-    const title = await deps.paneTitle(caller)
-    const name = title ? workersTabName(title) : undefined
+    const remembered = registry.workersTabOf(caller)
+    if (remembered) {
+      const now = await currentWorkersTab(caller, remembered)
+      if (now?.name) return now.human ? undefined : { name: now.name }
+    }
+    const title = remembered ? undefined : await deps.paneTitle(caller)
+    const name = remembered ?? (title ? workersTabName(title) : undefined)
     if (!name) return undefined
-    workersTabs.set(caller, name)
-    return { name }
+    registry.rememberWorkersTab(caller, name)
+    return (await deps.humanTab(workspaceId, name)) ? undefined : { name }
   }
 
   const interrupt = async (entry: ProcessEntry): Promise<boolean> => {
@@ -552,7 +589,8 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
     givenWorkspace: string | undefined,
     splitTab: SplitTabPlacement | undefined,
     agentHook: boolean,
-  ): Promise<StartedProcess | typeof NOT_OPENED> => {
+    named: boolean,
+  ): Promise<StartedProcess | typeof NOT_OPENED | ReturnType<typeof humanTab>> => {
     const home = ctx.identity.workspaceId
     const workspaceId = givenWorkspace ?? home
     if (!workspaceId) {
@@ -571,6 +609,9 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
         'process.run',
         `open a terminal in workspace ${workspaceId}`,
       )
+    }
+    if (named && splitTab && (await deps.humanTab(workspaceId, splitTab.name))) {
+      return humanTab(splitTab.name)
     }
     const cwd = givenCwd ?? (here ? deps.cwdOfPane(ctx.identity.paneId) : undefined)
     const opened = await deps.openTab({
@@ -638,6 +679,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
         workspaceOf(p.workspace),
         splitTabOf(p.tab),
         false,
+        true,
       )
     },
   })
@@ -657,8 +699,10 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
         nameOf(p.name) ?? agent,
         cwdOf(p.cwd),
         workspaceOf(p.workspace),
-        splitTabOf(p.tab) ?? (await workersTab(ctx)),
+        splitTabOf(p.tab) ??
+          (await workersTab(ctx, workspaceOf(p.workspace) ?? ctx.identity.workspaceId)),
         deps.startsWithHook(argv),
+        p.tab !== undefined && p.tab !== null,
       )
     },
   })

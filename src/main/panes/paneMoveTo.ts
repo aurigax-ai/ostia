@@ -11,6 +11,7 @@ import { type PaneMoveDeps, checkPaneMove } from './paneMove'
 interface PaneTabPlan {
   members: string[]
   locked: string[]
+  human?: string | null
 }
 
 export interface PaneMoveToDeps extends PaneReachDeps, Omit<PaneMoveDeps, 'movePanes'> {
@@ -179,6 +180,11 @@ export function registerPaneMoveToMethods(deps: PaneMoveToDeps): void {
         const plan = planned.result as PaneTabPlan
         if (plan.locked.length > 0) {
           throw fail('pane-locked: the human locked this pane; only they can unlock it')
+        }
+        if (typeof plan.human === 'string') {
+          throw fail(
+            `human-tab: split tab ${plan.human || '(unnamed)'} is the human's; agents join only split tabs an agent made`,
+          )
         }
         if (tab) await ensureTabReach(deps, ctx, plan.members, moving, tab)
       }

@@ -160,6 +160,8 @@ const registry = registerProcessMethods({
   cwdOfPane: () => undefined,
   isAgent: () => false,
   paneTitle: async () => undefined,
+  splitTabNow: async () => null,
+  humanTab: async () => false,
   agentStarted: () => false,
   startsWithHook: () => false,
   agentChanges: () => () => {},
