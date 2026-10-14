@@ -10,7 +10,7 @@ function manifest(id: string, verb?: string): Record<string, unknown> {
     id,
     name: id,
     version: '1.0.0',
-    api: '3.1',
+    api: '4.0',
     main: 'main.js',
     contributes: {
       commands: [{ id: 'schema', title: 'Print the schema' }],
