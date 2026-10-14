@@ -90,7 +90,10 @@ export const DEFAULT_CHORDS: Readonly<
   Record<AppChord | TerminalChord | BrowserChord, [mac: ChordValue, other: ChordValue]>
 > = {
   'app.quit': ['', 'Ctrl+Shift+Q'],
-  'palette.toggle': [['Shift+Cmd+P', 'Cmd+K'], 'Ctrl+Shift+P'],
+  'palette.toggle': [
+    ['Shift+Cmd+P', 'Cmd+K', 'F1'],
+    ['Ctrl+Shift+P', 'F1'],
+  ],
   'palette.searchEverywhere': [DOUBLE_SHIFT, DOUBLE_SHIFT],
   'view.goToFile': ['Cmd+P', 'Ctrl+Alt+G'],
   'view.toggleRail': [['Cmd+B', 'Cmd+\\'], 'Ctrl+Shift+B'],

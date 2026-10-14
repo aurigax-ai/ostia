@@ -60,9 +60,9 @@ test(
 
       await recordPaletteChord(win, 'Ctrl+Shift+Y')
       await win.keyboard.press('Control+r')
-      await expect(paletteRow(win).getByRole('alert')).toContainText(
-        'Ctrl+R can’t be used: plain Ctrl keys belong to the shell',
-      )
+      await expect(
+        paletteRow(win).locator('[data-slot="key-notice"]').getByRole('alert'),
+      ).toContainText('Ctrl+R can’t be used: plain Ctrl keys belong to the shell')
       await win.keyboard.press('Escape')
       await expect(paletteRow(win)).toContainText('Ctrl+Shift+Y')
       await closeSettings(win)
@@ -141,7 +141,9 @@ test(
 
       await recordPaletteChord(win, '⌘⇧Y')
       await win.keyboard.press('Control+Shift+y')
-      await expect(paletteRow(win).getByRole('alert')).toContainText('it needs ⌘')
+      await expect(
+        paletteRow(win).locator('[data-slot="key-notice"]').getByRole('alert'),
+      ).toContainText('it needs ⌘')
       await win.keyboard.press('Escape')
       await closeSettings(win)
 

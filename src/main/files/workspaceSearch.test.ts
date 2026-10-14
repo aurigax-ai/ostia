@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { ripgrepPath } from './ripgrep'
 import {
+  LINE_LIMIT,
   QUERY_MAX,
   WorkspaceSearch,
   folderPaths,
@@ -38,6 +39,18 @@ describe('parseSearchRequest', () => {
     )
     expect(parseSearchRequest({ root: '/r', text: 'a', namesOnly: 'yes' })).toEqual(
       request('/r', 'a'),
+    )
+  })
+})
+
+describe('parseSearchRequest for lines', () => {
+  it('carries linesOnly only when it is true and namesOnly is not', () => {
+    expect(parseSearchRequest({ root: '/r', text: 'a', linesOnly: true })).toEqual(
+      request('/r', 'a', { linesOnly: true }),
+    )
+    expect(parseSearchRequest({ root: '/r', text: 'a', linesOnly: 1 })).toEqual(request('/r', 'a'))
+    expect(parseSearchRequest({ root: '/r', text: 'a', linesOnly: true, namesOnly: true })).toEqual(
+      request('/r', 'a', { namesOnly: true }),
     )
   })
 })
@@ -168,6 +181,45 @@ describe('WorkspaceSearch', () => {
     const search = new WorkspaceSearch(RG, [home])
     const full = search.run(8, request(root, 'needle'))
     const names = search.run(8, request(root, 'paper', { namesOnly: true }))
+    expect((await full).ok).toBe(true)
+    expect((await names).ok).toBe(true)
+  })
+
+  it('lists only matching text lines, with no names and no PDFs, when linesOnly is set', async () => {
+    const search = new WorkspaceSearch(RG, [home])
+    const res = await search.run(1, request(root, 'needle', { linesOnly: true }))
+    if (!res.ok) throw new Error(res.message)
+    expect(res.results.files).toEqual([
+      {
+        path: 'src/notes/todo.md',
+        matches: [expect.objectContaining({ line: 2, text: 'find the needle here' })],
+      },
+    ])
+    expect(res.results.names).toEqual([])
+    expect(res.results.pdfs).toEqual([])
+    expect(res.results.truncated).toBe(false)
+  })
+
+  it('stops a lines-only search at its limit and says it was cut', async () => {
+    const many = join(home, 'many')
+    mkdirSync(many)
+    writeFileSync(join(many, 'log.txt'), 'needle\n'.repeat(LINE_LIMIT * 3))
+    const search = new WorkspaceSearch(RG, [home])
+    const res = await search.run(1, request(many, 'needle', { linesOnly: true }))
+    if (!res.ok) throw new Error(res.message)
+    expect(res.results.matches).toBe(LINE_LIMIT)
+    expect(res.results.files[0].matches).toHaveLength(LINE_LIMIT)
+    expect(res.results.truncated).toBe(true)
+  })
+
+  it('cancels an earlier lines-only search when the caller starts another, and leaves its full and names searches running', async () => {
+    const search = new WorkspaceSearch(RG, [home])
+    const full = search.run(6, request(root, 'needle'))
+    const names = search.run(6, request(root, 'paper', { namesOnly: true }))
+    const first = search.run(6, request(root, 'needle', { linesOnly: true }))
+    const second = search.run(6, request(root, 'first', { linesOnly: true }))
+    expect(await first).toMatchObject({ ok: false, error: 'cancelled' })
+    expect((await second).ok).toBe(true)
     expect((await full).ok).toBe(true)
     expect((await names).ok).toBe(true)
   })

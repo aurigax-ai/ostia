@@ -67,7 +67,7 @@ describe('commandSources', () => {
     expect(s.preset).toBeNull()
     expect(s.user).toBeNull()
     expect(texts(s.effective, true)).toEqual(texts(s.ostia, true))
-    expect(s.ostia).toHaveLength(2)
+    expect(s.ostia).toHaveLength(3)
     expect(s.dropped).toEqual([])
   })
 
@@ -76,7 +76,7 @@ describe('commandSources', () => {
     expect(s.source).toBe('preset')
     expect(s.label).toBe('preset')
     expect(texts(s.effective, true)).toEqual(texts(specs(true, 'Shift+Cmd+P'), true))
-    expect(texts(s.dropped, true)).toEqual(texts(specs(true, 'Cmd+K'), true))
+    expect(texts(s.dropped, true)).toEqual(texts(specs(true, 'Cmd+K', 'F1'), true))
   })
 
   it('leaves a preset value equal to the Ostia default unlabelled', () => {

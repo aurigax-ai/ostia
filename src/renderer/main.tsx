@@ -53,6 +53,7 @@ import { wireRemoteFolders } from '@/stores/files/remoteFoldersStore'
 import { startPaneRecencySync } from '@/stores/workspaces/paneRecencyStore'
 import { startPaneRenameSync } from '@/stores/workspaces/paneRenameStore'
 import { startSnapshotAutosave } from '@/stores/workspaces/persistence'
+import { startRailEditSync } from '@/stores/workspaces/railEditStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { StrictMode } from 'react'
@@ -146,6 +147,7 @@ async function boot(): Promise<void> {
   startAttentionSync()
   startPaneRecencySync()
   startPaneRenameSync()
+  startRailEditSync()
   startHibernation()
   startKeptReattach()
   startAutoResume()

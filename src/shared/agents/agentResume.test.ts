@@ -93,6 +93,28 @@ describe('resumeCommand', () => {
     ).toBe(`codex resume abc -c 'model_reasoning_effort="high"'`)
   })
 
+  it('resumes in the account the agent was started with', () => {
+    expect(
+      resumeCommand(
+        parseAgentResume({
+          agent: 'claude',
+          id: 'abc',
+          args: ['--agent', 'ostia'],
+          env: { CLAUDE_CONFIG_DIR: '/Users/j/.claude-profiles/twai', HOME: '/tmp/h' },
+        }) ?? { agent: 'claude', id: 'none' },
+      ),
+    ).toBe('CLAUDE_CONFIG_DIR=/Users/j/.claude-profiles/twai claude --resume abc --agent ostia')
+    expect(
+      resumeCommand(
+        parseAgentResume({
+          agent: 'codex',
+          id: 'abc',
+          env: { CODEX_HOME: '/Users/j/.codex work', PATH: '/tmp' },
+        }) ?? { agent: 'codex', id: 'none' },
+      ),
+    ).toBe("CODEX_HOME='/Users/j/.codex work' codex resume abc")
+  })
+
   it('reads its own variables back from the command it typed', () => {
     const env = { GL_ISSUE: '685', NOTE: "it's two words" }
     for (const agent of ['claude', 'codex'] as const) {

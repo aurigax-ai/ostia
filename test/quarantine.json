@@ -7,13 +7,6 @@
     "platforms": ["linux"]
   },
   {
-    "file": "e2e/crash-recovery.spec.ts",
-    "name": "a renderer process crash reloads the window and keeps the shells alive",
-    "issue": 505,
-    "until": "2026-11-06",
-    "platforms": ["linux"]
-  },
-  {
     "file": "e2e/trellis-agents.spec.ts",
     "name": "a Trellis card goes to a new agent or to a running one, only on the human’s clicks",
     "issue": 547,
@@ -66,13 +59,6 @@
     "file": "src/renderer/components/settings/SettingsPanel.search.test.tsx",
     "name": "SettingsPanel search > shows a matching row from a section that is not open, with the query marked",
     "issue": 705,
-    "until": "2026-11-12",
-    "platforms": ["linux"]
-  },
-  {
-    "file": "e2e/clipboard-surfaces.spec.ts",
-    "name": "the copy and paste chords work inside a browser pane",
-    "issue": 526,
     "until": "2026-11-12",
     "platforms": ["linux"]
   }
