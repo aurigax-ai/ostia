@@ -1,12 +1,12 @@
 import type { HookAgent } from '../../shared/agentPlugins'
 import type { ActivityEvent, ActivityKind, ToolKind } from './hookEvent'
 
-export const AGENT_STATES = ['working', 'waiting', 'done', 'error'] as const
+const AGENT_STATES = ['working', 'waiting', 'done', 'error'] as const
 
-export type AgentState = (typeof AGENT_STATES)[number]
+type AgentState = (typeof AGENT_STATES)[number]
 
 export const EARLIER_TURNS_MAX = 20
-export const TURN_EVENTS_MAX = 200
+const TURN_EVENTS_MAX = 200
 
 export interface OpenWorkspace {
   workspaceId: string

@@ -5,7 +5,7 @@ import { delimiter, join } from 'node:path'
 export const LOGIN_PATH_TIMEOUT_MS = 5000
 const MARK = '__OSTIA_LOGIN_PATH__'
 
-export type ShellRunner = (shell: string, args: string[], timeoutMs: number) => Promise<string>
+type ShellRunner = (shell: string, args: string[], timeoutMs: number) => Promise<string>
 
 export interface ToolPathEnv {
   path?: string
@@ -70,7 +70,7 @@ export function parseLoginPath(output: string): string | null {
   return path
 }
 
-export function loginShell(env: NodeJS.ProcessEnv = process.env): string {
+function loginShell(env: NodeJS.ProcessEnv = process.env): string {
   if (env.SHELL) return env.SHELL
   try {
     if (userInfo().shell) return userInfo().shell as string
