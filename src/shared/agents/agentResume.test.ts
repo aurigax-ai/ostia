@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { commandLineEnv } from './agentLaunch'
-import { parseAgentResume, resumeCommand, resumeFromHookPayload, sameResume } from './agentResume'
+import {
+  forkCommand,
+  parseAgentResume,
+  resumeCommand,
+  resumeFromHookPayload,
+  sameResume,
+} from './agentResume'
 
 describe('parseAgentResume', () => {
   it('accepts a known agent with a plain id', () => {
@@ -87,10 +93,73 @@ describe('resumeCommand', () => {
     ).toBe(`codex resume abc -c 'model_reasoning_effort="high"'`)
   })
 
+  it('resumes in the account the agent was started with', () => {
+    expect(
+      resumeCommand(
+        parseAgentResume({
+          agent: 'claude',
+          id: 'abc',
+          args: ['--agent', 'ostia'],
+          env: { CLAUDE_CONFIG_DIR: '/Users/j/.claude-profiles/twai', HOME: '/tmp/h' },
+        }) ?? { agent: 'claude', id: 'none' },
+      ),
+    ).toBe('CLAUDE_CONFIG_DIR=/Users/j/.claude-profiles/twai claude --resume abc --agent ostia')
+    expect(
+      resumeCommand(
+        parseAgentResume({
+          agent: 'codex',
+          id: 'abc',
+          env: { CODEX_HOME: '/Users/j/.codex work', PATH: '/tmp' },
+        }) ?? { agent: 'codex', id: 'none' },
+      ),
+    ).toBe("CODEX_HOME='/Users/j/.codex work' codex resume abc")
+  })
+
   it('reads its own variables back from the command it typed', () => {
     const env = { GL_ISSUE: '685', NOTE: "it's two words" }
     for (const agent of ['claude', 'codex'] as const) {
       expect(commandLineEnv(agent, resumeCommand({ agent, id: 'abc', env, args: [] }))).toEqual(env)
+    }
+  })
+})
+
+describe('forkCommand', () => {
+  it('builds each agent’s own fork command', () => {
+    expect(forkCommand({ agent: 'claude', id: 'abc' })).toBe('claude --resume abc --fork-session')
+    expect(forkCommand({ agent: 'codex', id: 'abc' })).toBe('codex fork abc')
+  })
+
+  it('carries the saved flags after the session and the saved variables in front', () => {
+    expect(
+      forkCommand({
+        agent: 'claude',
+        id: 'abc',
+        cwd: '/home/u/proj',
+        args: ['--agent', 'ostia', '--append-system-prompt', "it's done"],
+        env: { GL_ISSUE: '685', NOTE: 'two words' },
+      }),
+    ).toBe(
+      "GL_ISSUE=685 NOTE='two words' claude --resume abc --fork-session --agent ostia --append-system-prompt 'it'\\''s done'",
+    )
+    expect(
+      forkCommand({
+        agent: 'codex',
+        id: 'abc',
+        args: ['-c', 'model_reasoning_effort="high"'],
+        env: { GL_ISSUE: '685' },
+      }),
+    ).toBe(`GL_ISSUE=685 codex fork abc -c 'model_reasoning_effort="high"'`)
+  })
+
+  it('is still read as its agent with its variables, and saves no fork flag for the fork’s own resume', () => {
+    const env = { GL_ISSUE: '685' }
+    for (const agent of ['claude', 'codex'] as const) {
+      const line = forkCommand({ agent, id: 'abc', env })
+      expect(commandLineEnv(agent, line)).toEqual(env)
+      expect(parseAgentResume({ agent, id: 'new', args: line.split(' ').slice(2) })).toEqual({
+        agent,
+        id: 'new',
+      })
     }
   })
 })

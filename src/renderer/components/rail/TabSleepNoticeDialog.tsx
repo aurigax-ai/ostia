@@ -17,7 +17,9 @@ export function TabSleepNoticeDialog(): JSX.Element {
   const text = notice
     ? notice.kind === 'conflict'
       ? fmt(d.tabSleepNotice.conflict, { tab: notice.tab })
-      : d.tabSleepNotice[notice.kind]
+      : notice.kind === 'forkFolderMissing'
+        ? fmt(d.tabSleepNotice.forkFolderMissing, { agent: notice.agent, path: notice.path })
+        : d.tabSleepNotice[notice.kind]
     : ''
 
   return (

@@ -1964,6 +1964,51 @@ describe('builtins with zero workspaces', () => {
   })
 })
 
+describe('agent.forkConversation', () => {
+  it('is a local palette command that forks the active pane only', async () => {
+    const command = commands.list().find((c) => c.id === 'agent.forkConversation')
+    expect(command?.title).toBe('Fork Agent Conversation')
+    expect(command?.hidden).toBeFalsy()
+    expect(commands.isLocal('agent.forkConversation')).toBe(true)
+
+    const agent = { ...createPane('terminal'), resume: { agent: 'claude' as const, id: 'tok' } }
+    const other = { ...createPane('terminal'), resume: { agent: 'claude' as const, id: 'other' } }
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: splitOf('horizontal', agent, other),
+          activePaneId: agent.id,
+          zoomedPaneId: null,
+        },
+      },
+    })
+    useBlocksStore.getState().commandStart(agent.id, { line: 1 }, 'claude')
+    useBlocksStore.getState().commandStart(other.id, { line: 1 }, 'claude')
+    const run = vi.spyOn(blockActions, 'runWhenIdle').mockReturnValue(() => {})
+
+    const res = await commands.execWith(ctx('s1', agent.id), 'agent.forkConversation', {
+      paneId: other.id,
+    })
+
+    expect(res).toMatchObject({ ok: true, result: { forked: true } })
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(run.mock.calls[0][1]).toBe('claude --resume tok --fork-session')
+    expect(run.mock.calls[0][0]).not.toBe(agent.id)
+    expect(run.mock.calls[0][0]).not.toBe(other.id)
+  })
+
+  it('does nothing in a pane with no agent session', async () => {
+    const pane = createPane('terminal')
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+    const run = vi.spyOn(blockActions, 'runWhenIdle')
+    const res = await commands.execWith(ctx('s1', pane.id), 'agent.forkConversation')
+    expect(res).toMatchObject({ ok: true, result: { forked: false } })
+    expect(run).not.toHaveBeenCalled()
+  })
+})
+
 describe('tab menu commands in the palette', () => {
   it('lists Close Other Tabs, Hibernate Tab and Wake Tab, and runs them on the pane it is given', async () => {
     const listed = new Map(commands.list().map((c) => [c.id, c]))

@@ -579,11 +579,14 @@
         "src/renderer/lib/agents/activationResume.ts",
         "src/renderer/lib/agents/autoResume.ts",
         "src/renderer/lib/agents/resumeFolder.ts",
+        "src/renderer/lib/agents/forkConversation.ts",
+        "src/renderer/components/agents/AgentForkButton.tsx",
         "src/renderer/components/terminal/HibernatedView.tsx",
         "src/renderer/components/rail/HibernateSkippedDialog.tsx",
         "src/renderer/components/panes/ResumeFolderNotice.tsx"
       ],
       "specs": [
+        "e2e/agent-fork.spec.ts",
         "e2e/auto-resume.spec.ts",
         "e2e/hibernate-background-work.spec.ts",
         "e2e/hibernate-group.spec.ts",
@@ -808,6 +811,7 @@
         "e2e/terminal-ghostty-gpu.spec.ts",
         "e2e/terminal-ghostty-parity.spec.ts",
         "e2e/terminal-overflow.spec.ts",
+        "e2e/terminal-padding.spec.ts",
         "e2e/terminal-scrollbar.spec.ts",
         "e2e/terminal-selection.spec.ts",
         "e2e/terminal-tab-title.spec.ts",
@@ -994,12 +998,12 @@
     {
       "name": "command palette",
       "paths": [
-        "src/renderer/components/CommandPalette.tsx",
+        "src/renderer/components/palette/CommandPalette.tsx",
         "src/renderer/lib/palette/paletteFilter.",
         "src/renderer/lib/palette/paletteFocus.ts",
         "src/renderer/lib/palette/paletteModes."
       ],
-      "specs": ["e2e/palette-focus.spec.ts"]
+      "specs": ["e2e/command-palette-layout.spec.ts", "e2e/palette-focus.spec.ts"]
     },
     {
       "name": "crash recovery",

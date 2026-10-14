@@ -1,4 +1,5 @@
 import { commands } from '@/commands/registry'
+import { AgentForkButton } from '@/components/agents/AgentForkButton'
 import { AgentSessionButton } from '@/components/agents/AgentSessionButton'
 import { ApprovalCard } from '@/components/agents/ApprovalCard'
 import { QuestionNotice } from '@/components/agents/QuestionNotice'
@@ -295,6 +296,7 @@ export function Pane({
         <HostPaneBadge pane={shown} />
         <div className="pane-actions">
           <AgentSessionButton pane={shown} />
+          <AgentForkButton pane={shown} workspaceId={workspaceId} />
           <PaneHeaderActions pane={shown} />
           {SERVICE_SURFACES.has(shown.kind) ? null : (
             <>
