@@ -149,11 +149,11 @@
       {
         "kind": "http",
         "title": "HTTP API",
-        "description": "An API a graph's http connector calls: requests stay on its base URL's origin",
+        "description": "An API a graph's http connector calls: requests stay under its base URL, never on another host or a path outside it",
         "fields": {
           "baseUrl": {
             "title": "Base URL",
-            "description": "Where requests go, such as https://api.example.com/v1",
+            "description": "Where requests go, such as https://api.example.com/v1, without user:password@; a node's path is added under it",
             "type": "string",
             "required": true
           },
