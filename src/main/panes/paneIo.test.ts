@@ -54,10 +54,17 @@ const closed: string[] = []
 const resumed: string[] = []
 const lockedPanes = new Set<string>()
 const delays: number[] = []
+const ignoredEnters = new Map<string, number>()
 let cursor = 0
 let echoes = true
 let managerInput = false
 const waking = new PaneWaking()
+let startsAgents = true
+const startLater = (paneId: string): void => {
+  setTimeout(() => {
+    if (startsAgents) waking.end(paneId, 'started')
+  }, 0)
+}
 
 registerPaneIoMethods({
   io: {
@@ -65,6 +72,11 @@ registerPaneIoMethods({
     write: (paneId, data) => {
       written.push({ paneId, data })
       if (echoes) cursor += data.length
+      const ignore = ignoredEnters.get(paneId)
+      if (ignore !== undefined && data.endsWith('\r')) {
+        if (ignore > 0) ignoredEnters.set(paneId, ignore - 1)
+        else attentionOf.set(paneId, { state: 'working' })
+      }
       return paneId !== 'no-pty'
     },
     bracketedPaste: (paneId) => pasteMode.has(paneId),
@@ -97,7 +109,9 @@ registerPaneIoMethods({
     woken.push(pane.paneId)
     const conflict = wakeConflicts.get(pane.paneId)
     if (conflict) return { woke: false, conflict }
-    return { woke: asleepPanes.delete(pane.paneId) }
+    const woke = asleepPanes.delete(pane.paneId)
+    if (woke) startLater(pane.paneId)
+    return { woke }
   },
   hibernate: async (pane) => {
     hibernateCalls.push(pane.paneId)
@@ -116,11 +130,14 @@ registerPaneIoMethods({
   },
   resume: async (pane) => {
     resumed.push(pane.paneId)
-    return { ok: true, result: { resumed: pane.paneId !== 'no-pty' } }
+    const done = pane.paneId !== 'no-pty'
+    if (done) startLater(pane.paneId)
+    return { ok: true, result: { resumed: done } }
   },
   delay: async (ms) => {
     delays.push(ms)
   },
+  hooksOn: (name) => name === 'claude',
 })
 
 const agent = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'agent-pane' })
@@ -204,6 +221,7 @@ beforeEach(() => {
   resumed.length = 0
   lockedPanes.clear()
   delays.length = 0
+  ignoredEnters.clear()
   cursor = 0
   echoes = true
   managerInput = false
@@ -214,6 +232,7 @@ beforeEach(() => {
 afterEach(() => {
   for (const c of clients.splice(0)) c.dispose()
   stopControlServer()
+  startsAgents = true
 })
 
 const facts = (
@@ -365,7 +384,14 @@ describe('pane.input', () => {
     const conn = await client(agent)
     await expect(
       conn.sendRequest('pane.input', { pane: 'echo', text: 'hello world', keys: ['enter'] }),
-    ).resolves.toEqual({ ok: true, paneId: child.externalId, bytes: 12, pasted: false })
+    ).resolves.toEqual({
+      ok: true,
+      paneId: child.externalId,
+      bytes: 12,
+      pasted: false,
+      responded: true,
+      running: true,
+    })
     expect(written).toEqual([
       { paneId: 'child-pane', data: 'hello world' },
       { paneId: 'child-pane', data: '\r' },
@@ -654,20 +680,26 @@ describe('pane.wake', () => {
     await expect(conn.sendRequest('pane.wake', { panes: ['echo'] })).resolves.toEqual({
       ok: true,
       woke: [child.externalId],
+      started: true,
     })
     expect(woken).toEqual(['child-pane'])
     expect(written).toEqual([])
     expect(request).not.toHaveBeenCalled()
   })
 
-  it('answers not-hibernated for a pane that is awake and wakes none of the named panes', async () => {
+  it('types the resume command of an awake agent pane, beside waking a hibernated one', async () => {
     asleepPanes.add('child-pane')
     answer = 'once'
     const conn = await client(agent)
     await expect(
       conn.sendRequest('pane.wake', { panes: ['echo', sibling.externalId] }),
-    ).rejects.toThrow(`not-hibernated: ${sibling.externalId}`)
-    expect(woken).toEqual([])
+    ).resolves.toEqual({
+      ok: true,
+      woke: [child.externalId, sibling.externalId],
+      started: true,
+    })
+    expect(woken).toEqual(['child-pane'])
+    expect(resumed).toEqual(['sibling-pane'])
   })
 
   it('asks for type-other-pane before waking a pane the caller did not open, and stops on Deny', async () => {
@@ -740,11 +772,12 @@ describe('pane.wake', () => {
   })
 
   it('refuses text and keys to a woken pane until its agent started', async () => {
+    startsAgents = false
     asleepPanes.add('child-pane')
     const conn = await client(agent)
-    await conn.sendRequest('pane.wake', { panes: ['echo'] })
-    expect(waking.has('child-pane')).toBe(true)
-    const refusal = `waking: ${child.externalId} is starting its agent; wait for it with ostia pane wake --wait`
+    const reply = conn.sendRequest('pane.wake', { panes: ['echo'] })
+    await vi.waitFor(() => expect(waking.has('child-pane')).toBe(true))
+    const refusal = `waking: ${child.externalId} is starting its agent`
     await expect(
       conn.sendRequest('pane.input', { pane: 'echo', text: 'hi', keys: ['enter'] }),
     ).rejects.toThrow(refusal)
@@ -753,15 +786,17 @@ describe('pane.wake', () => {
     ).rejects.toThrow(refusal)
     expect(written).toEqual([])
     waking.end('child-pane', 'started')
+    await expect(reply).resolves.toMatchObject({ started: true })
     await conn.sendRequest('pane.input', { pane: 'echo', text: 'hi', keys: ['enter'] })
     expect(written.map((w) => w.data)).toEqual(['hi', '\r'])
   })
 
-  it('with wait answers only once the woken agent started', async () => {
+  it('answers only once the woken agent started', async () => {
+    startsAgents = false
     asleepPanes.add('child-pane')
     const conn = await client(agent)
     const done = vi.fn()
-    const reply = conn.sendRequest('pane.wake', { panes: ['echo'], wait: true }).then((r) => {
+    const reply = conn.sendRequest('pane.wake', { panes: ['echo'] }).then((r) => {
       done()
       return r
     })
@@ -772,23 +807,21 @@ describe('pane.wake', () => {
     await expect(reply).resolves.toEqual({ ok: true, woke: [child.externalId], started: true })
   })
 
-  it('with wait waits on a pane that is already waking instead of waking it again', async () => {
+  it('waits on a pane that is already waking instead of waking it again', async () => {
     waking.start('child-pane')
     const conn = await client(agent)
-    await expect(conn.sendRequest('pane.wake', { panes: ['echo'] })).rejects.toThrow(
-      'not-hibernated',
-    )
-    const reply = conn.sendRequest('pane.wake', { panes: ['echo'], wait: true })
+    const reply = conn.sendRequest('pane.wake', { panes: ['echo'] })
     await new Promise((resolve) => setTimeout(resolve, 20))
     waking.end('child-pane', 'started')
     await expect(reply).resolves.toEqual({ ok: true, woke: [], started: true })
     expect(woken).toEqual([])
   })
 
-  it('with wait reports a closed pane, a resume that failed, and a timeout', async () => {
+  it('reports a closed pane, a resume that failed, and a timeout', async () => {
+    startsAgents = false
     const conn = await client(agent)
     asleepPanes.add('child-pane')
-    const closing = conn.sendRequest('pane.wake', { panes: ['echo'], wait: true })
+    const closing = conn.sendRequest('pane.wake', { panes: ['echo'] })
     await vi.waitFor(() => expect(waking.has('child-pane')).toBe(true))
     waking.end('child-pane', 'closed')
     await expect(closing).resolves.toEqual({
@@ -798,7 +831,7 @@ describe('pane.wake', () => {
     })
 
     asleepPanes.add('child-pane')
-    const failing = conn.sendRequest('pane.wake', { panes: ['echo'], wait: true })
+    const failing = conn.sendRequest('pane.wake', { panes: ['echo'] })
     await vi.waitFor(() => expect(waking.has('child-pane')).toBe(true))
     waking.end('child-pane', 'failed')
     await expect(failing).rejects.toThrow(
@@ -806,26 +839,33 @@ describe('pane.wake', () => {
     )
 
     asleepPanes.add('child-pane')
-    await expect(
-      conn.sendRequest('pane.wake', { panes: ['echo'], wait: true, timeoutMs: 1 }),
-    ).resolves.toEqual({ ok: true, woke: [child.externalId], timedOut: true })
+    await expect(conn.sendRequest('pane.wake', { panes: ['echo'], timeoutMs: 1 })).resolves.toEqual(
+      { ok: true, woke: [child.externalId], timedOut: true },
+    )
     expect(waking.has('child-pane')).toBe(true)
+    waking.end('child-pane', 'failed')
   })
 
-  it('refuses a bad wait flag or timeout', async () => {
+  it('refuses a bad timeout', async () => {
     asleepPanes.add('child-pane')
     const conn = await client(agent)
-    await expect(conn.sendRequest('pane.wake', { panes: ['echo'], wait: 'yes' })).rejects.toThrow(
-      'bad-request: wait',
-    )
     await expect(
-      conn.sendRequest('pane.wake', { panes: ['echo'], wait: true, timeoutMs: 'soon' }),
+      conn.sendRequest('pane.wake', { panes: ['echo'], timeoutMs: 'soon' }),
     ).rejects.toThrow('bad-request: timeoutMs')
     expect(woken).toEqual([])
   })
 })
 
 describe('pane.close', () => {
+  it('fails with the reason when the pane is still open after closing it', async () => {
+    listed = [listedPane(child, {})]
+    const conn = await client(agent)
+    await expect(conn.sendRequest('pane.close', { panes: ['echo'] })).rejects.toThrow(
+      `still-open: ${child.externalId} is still open`,
+    )
+    listed = []
+  })
+
   it('closes a tab the caller opened, by process name, without asking', async () => {
     const conn = await client(agent)
     await expect(conn.sendRequest('pane.close', { panes: ['echo'] })).resolves.toEqual({
@@ -906,74 +946,81 @@ describe('pane.close', () => {
   })
 })
 
-describe('agent.resume', () => {
+describe('pane.wake on an awake pane', () => {
   it('refuses to resume a session that an agent runs in another pane, in any window', async () => {
     listed = [
       listedPane(sibling, { agentSessionId: 'sess-a' }),
       listedPane(foreign, { agentSessionId: 'sess-a', agent: 'claude', title: 'coordinator' }),
     ]
     const conn = await client({ token: SCRIPT_TOKEN })
-    await expect(conn.sendRequest('agent.resume', { pane: sibling.externalId })).rejects.toThrow(
+    await expect(conn.sendRequest('pane.wake', { panes: [sibling.externalId] })).rejects.toThrow(
       `session-conflict: the agent session of ${sibling.externalId} is already running in ${foreign.externalId}`,
     )
     expect(resumed).toEqual([])
   })
 
-  it('lets a script token resume an agent pane in any workspace, and says when there was none', async () => {
+  it('lets a script token resume an agent pane in any workspace, and refuses one with nothing to resume', async () => {
     const conn = await client({ token: SCRIPT_TOKEN })
-    await expect(conn.sendRequest('agent.resume', { pane: sibling.externalId })).resolves.toEqual({
+    await expect(
+      conn.sendRequest('pane.wake', { panes: [sibling.externalId, foreign.externalId] }),
+    ).resolves.toEqual({
       ok: true,
-      paneId: sibling.externalId,
-      resumed: true,
+      woke: [sibling.externalId, foreign.externalId],
+      started: true,
     })
-    await expect(conn.sendRequest('agent.resume', { pane: foreign.externalId })).resolves.toEqual({
-      ok: true,
-      paneId: foreign.externalId,
-      resumed: true,
-    })
-    await expect(conn.sendRequest('agent.resume', { pane: noPty.externalId })).resolves.toEqual({
-      ok: true,
-      paneId: noPty.externalId,
-      resumed: false,
-    })
+    await expect(conn.sendRequest('pane.wake', { panes: [noPty.externalId] })).rejects.toThrow(
+      `not-resumable: ${noPty.externalId}`,
+    )
     expect(resumed).toEqual(['sibling-pane', 'foreign-pane', 'no-pty'])
     expect(request).not.toHaveBeenCalled()
   })
 
   it('refuses a script token without type-other-pane or all-workspaces', async () => {
     const noType = await client({ token: SCRIPT_NO_TYPE })
-    await expect(noType.sendRequest('agent.resume', { pane: sibling.externalId })).rejects.toThrow(
+    await expect(noType.sendRequest('pane.wake', { panes: [sibling.externalId] })).rejects.toThrow(
       'needs-elevation: type-other-pane',
     )
     const noReach = await client({ token: SCRIPT_NO_REACH })
-    await expect(noReach.sendRequest('agent.resume', { pane: sibling.externalId })).rejects.toThrow(
+    await expect(noReach.sendRequest('pane.wake', { panes: [sibling.externalId] })).rejects.toThrow(
       'needs-elevation: all-workspaces',
     )
     expect(resumed).toEqual([])
     expect(request).not.toHaveBeenCalled()
   })
 
-  it('needs a pane, never the manager, and refuses a pane whose agent is starting', async () => {
+  it('never reaches the manager, and waits on a pane whose agent is starting without typing again', async () => {
     const conn = await client({ token: SCRIPT_TOKEN })
-    await expect(conn.sendRequest('agent.resume', {})).rejects.toThrow('bad-request: pane')
-    await expect(conn.sendRequest('agent.resume', { pane: manager.externalId })).rejects.toThrow(
+    await expect(conn.sendRequest('pane.wake', { panes: [manager.externalId] })).rejects.toThrow(
       `unknown-pane: ${manager.externalId}`,
     )
     waking.start('sibling-pane')
-    await expect(conn.sendRequest('agent.resume', { pane: sibling.externalId })).rejects.toThrow(
-      'waking:',
-    )
+    const reply = conn.sendRequest('pane.wake', { panes: [sibling.externalId] })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    waking.end('sibling-pane', 'started')
+    await expect(reply).resolves.toEqual({ ok: true, woke: [], started: true })
     expect(resumed).toEqual([])
   })
 
-  it('asks a pane caller for type-other-pane, as pane wake does', async () => {
+  it('asks a pane caller for type-other-pane', async () => {
     const conn = await client(agent)
-    await expect(conn.sendRequest('agent.resume', { pane: sibling.externalId })).rejects.toThrow(
+    await expect(conn.sendRequest('pane.wake', { panes: [sibling.externalId] })).rejects.toThrow(
       'denied: type-other-pane',
     )
     answer = 'once'
-    await conn.sendRequest('agent.resume', { pane: sibling.externalId })
+    await conn.sendRequest('pane.wake', { panes: [sibling.externalId] })
     expect(resumed).toEqual(['sibling-pane'])
+  })
+
+  it('closes the caller’s own pane when no pane is named, and needs a pane from a script', async () => {
+    answer = 'once'
+    const conn = await client(agent)
+    await expect(conn.sendRequest('pane.close', {})).resolves.toEqual({
+      ok: true,
+      closed: [agent.externalId],
+    })
+    expect(closed).toEqual(['agent-pane'])
+    const script = await client({ token: SCRIPT_TOKEN })
+    await expect(script.sendRequest('pane.close', {})).rejects.toThrow('bad-request: panes')
   })
 })
 
@@ -1101,29 +1148,71 @@ describe('pane.input for unattended agents', () => {
     expect(written.map((w) => w.data)).toEqual(['more'])
   })
 
-  it('reports whether the program answered when confirm is set', async () => {
+  it('reads back whether the pane showed the input, and never fails once the bytes went in', async () => {
     const conn = await granted()
-    const seen = await conn.sendRequest('pane.input', {
-      pane: sibling.externalId,
-      text: 'x',
-      confirm: true,
-    })
-    expect(seen).toMatchObject({ responded: true, bytes: 1 })
+    const seen = await conn.sendRequest('pane.input', { pane: sibling.externalId, text: 'x' })
+    expect(seen).toMatchObject({ ok: true, responded: true, bytes: 1 })
 
     echoes = false
-    const silent = await conn.sendRequest('pane.input', {
+    const quiet = await conn.sendRequest('pane.input', {
       pane: sibling.externalId,
-      text: 'y',
-      confirm: true,
+      keys: ['enter'],
       confirmMs: 120,
     })
-    expect(silent).toMatchObject({ responded: false })
-    expect(delays.filter((ms) => ms === 50)).toHaveLength(3)
+    expect(quiet).toMatchObject({ ok: true, responded: false, bytes: 1 })
+    expect(written.map((w) => w.data)).toEqual(['x', '\r'])
+  })
+
+  describe('an agent that reports its turns', () => {
+    const claudeIn = (paneId: string, ignore: number, agentName = 'claude') => {
+      pasteMode.add(paneId)
+      ignoredEnters.set(paneId, ignore)
+      listed = [
+        {
+          paneId: sibling.externalId,
+          workspaceId: 'ws1',
+          kind: 'terminal',
+          title: agentName,
+          running: true,
+          blockCount: 1,
+          agent: agentName,
+        },
+      ]
+    }
+    const task = { pane: sibling.externalId, text: 'line one\nline two', keys: ['enter'] }
+
+    it('answers not-submitted, never ok, when the Enter after a paste did not start a turn, and never presses Enter again', async () => {
+      claudeIn('sibling-pane', 1)
+      const conn = await granted()
+      await expect(conn.sendRequest('pane.input', task)).rejects.toThrow(
+        `not-submitted: ${sibling.externalId} shows the text at its prompt but did not start a turn`,
+      )
+      expect(written.map((w) => w.data)).toEqual(['\x1b[200~line one\rline two\x1b[201~', '\r'])
+    })
+
+    it('answers ok when the turn starts, and never checks text without Enter, a turn in progress or an agent without hooks', async () => {
+      claudeIn('sibling-pane', 0)
+      const conn = await granted()
+      await conn.sendRequest('pane.input', task)
+      expect(written.filter((w) => w.data === '\r')).toHaveLength(1)
+
+      written.length = 0
+      ignoredEnters.set('sibling-pane', 5)
+      await conn.sendRequest('pane.input', task)
+      expect(written.filter((w) => w.data === '\r')).toHaveLength(1)
+
+      attentionOf.clear()
+      await conn.sendRequest('pane.input', { pane: sibling.externalId, text: 'draft' })
+      claudeIn('sibling-pane', 5, 'codex')
+      written.length = 0
+      await conn.sendRequest('pane.input', task)
+      expect(written.filter((w) => w.data === '\r')).toHaveLength(1)
+    })
   })
 
   it('refuses malformed flags', async () => {
     const conn = await granted()
-    for (const params of [{ paste: 'yes' }, { force: 1 }, { confirm: 'true' }, { confirmMs: -1 }]) {
+    for (const params of [{ paste: 'yes' }, { force: 1 }, { confirmMs: -1 }]) {
       await expect(
         conn.sendRequest('pane.input', { pane: sibling.externalId, text: 'x', ...params }),
       ).rejects.toThrow('bad-request')

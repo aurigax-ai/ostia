@@ -71,7 +71,7 @@ const RELATIVE_STEPS: RelativeStep[] = [
   ['hour', 3_600],
   ['minute', 60],
 ]
-export const EXAMPLE = 'ostia pane.list'
+export const EXAMPLE = 'ostia pane list'
 const USAGE_REFRESH_MS = 10_000
 
 type ExpiryChoice = '7d' | '30d' | '90d' | '1y' | 'custom' | 'never' | 'keep'

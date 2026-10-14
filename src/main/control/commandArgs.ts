@@ -13,10 +13,6 @@ export const SCRIPT_COMMANDS: ReadonlySet<string> = new Set([
   'workspace.ungroup',
   'workspace.describe',
   'workspace.newScratch',
-  'workspace.hibernateAgents',
-  'workspace.resumeAgents',
-  'workspace.hibernateGroupAgents',
-  'workspace.resumeGroupAgents',
 ])
 
 export type PaneArgs =
@@ -31,7 +27,7 @@ export function internalPaneArgs(args: unknown): PaneArgs {
   if (typeof given !== 'string') return { ok: true, args, pane: null }
   const pane = resolveExternal(given)
   if (!pane || pane.kind !== 'pane') {
-    return { ok: false, error: `unknown-pane: ${given} (use a paneId from ostia pane.list)` }
+    return { ok: false, error: `unknown-pane: ${given} (use a paneId from ostia pane list)` }
   }
   return { ok: true, args: { ...args, paneId: pane.paneId }, pane }
 }

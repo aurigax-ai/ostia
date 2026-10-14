@@ -58,6 +58,13 @@ export interface PaneEntry extends PaneAgentFields {
   hibernated?: true
   waking?: true
   agentSessionConflict?: string[]
+  process?: PaneProcessStatus
+}
+
+interface PaneProcessStatus {
+  id: string
+  status: string
+  start?: string
 }
 
 export interface PaneListDeps {
@@ -66,6 +73,7 @@ export interface PaneListDeps {
   ptyPid: (paneId: string) => number | undefined
   windowIds: () => string[]
   waking: (paneId: string) => boolean
+  processOf?: (paneId: string) => PaneProcessStatus | undefined
   reach?: Pick<Reach, 'scriptReach'>
 }
 
@@ -128,6 +136,7 @@ export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
     if (!identity) continue
     const state = deps.getTerminalState(p.paneId)
     const pid = p.kind === 'terminal' ? deps.ptyPid(p.paneId) : undefined
+    const run = deps.processOf?.(p.paneId)
     mapped.push({
       paneId: identity.externalId,
       workspaceId: p.workspaceId,
@@ -144,6 +153,7 @@ export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
       ...agentFields(p),
       ...(typeof p.splitTabId === 'string' ? { splitTabId: p.splitTabId } : {}),
       ...(typeof p.splitTabName === 'string' ? { splitTabName: p.splitTabName } : {}),
+      ...(run ? { process: run } : {}),
     })
   }
   return markSessionConflicts(mapped)

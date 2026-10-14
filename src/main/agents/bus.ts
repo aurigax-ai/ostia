@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { type BusDelivery, busContext, busPreview } from '../../shared/agents/busMessages'
+import { actThenConfirm, confirmed, mismatch } from '../../shared/common/actThenConfirm'
 import { BUS_SEND_TEXT_MAX } from '../../shared/extensions'
 import { ensureCaps } from '../approvals/controlElevation'
 import type { Reach } from '../approvals/reach'
@@ -82,7 +83,7 @@ const NOT_FOUND = { ok: false, error: 'not-found' as const }
 const UNKNOWN_PANE = {
   ok: false,
   error: 'unknown-pane' as const,
-  message: 'no open pane has that id (see: ostia pane.list)',
+  message: 'no open pane has that id (see: ostia pane list)',
 }
 
 type WaitResult = { messages: Message[]; timedOut: boolean }
@@ -171,6 +172,35 @@ export function postBusMessage(from: string, to: string, text: string): string {
   return id
 }
 
+function inboxHolds(to: string, messageId: string): Message | undefined {
+  return (loadBus().inboxes[to] ?? []).find((message) => message.id === messageId)
+}
+
+async function confirmDelivered(to: string, messageId: string): Promise<{ seen: boolean }> {
+  const seen = await actThenConfirm<{ seen: boolean }>({
+    act: () => undefined,
+    observe: () => {
+      const message = inboxHolds(to, messageId)
+      return message
+        ? confirmed({ seen: message.seenAt !== undefined })
+        : mismatch(`not-delivered: the message is not in ${to}'s inbox`)
+    },
+    signal: () => () => {},
+    timeoutMs: 0,
+    onTimeout: () => mismatch(`not-delivered: the message is not in ${to}'s inbox`),
+  })
+  if (!seen.ok) throw new ResponseError(ErrorCodes.InternalError, seen.reason)
+  return seen.value
+}
+
+const OSTIA_SENDER = 'ostia'
+
+export function tellPane(to: string, text: string): string {
+  const id = randomUUID()
+  deliver(loadBus(), { id, from: OSTIA_SENDER, to, text, ts: new Date().toISOString() })
+  return id
+}
+
 export interface BusDeps {
   managerSendAllowed: () => boolean
   sent?: () => void
@@ -225,10 +255,11 @@ export function registerBusMethods(deps: BusDeps): void {
       const data = loadBus()
       const id = randomUUID()
       const delivered = deliver(data, { id, from, to, text, ts: new Date().toISOString() })
+      const { seen } = await confirmDelivered(to, id)
       announceQueued(delivered, ctx.identity, receiver, text)
       deps.sent?.()
       const asleep = await deps.hibernated(receiver)
-      return { ok: true, id, delivered, ...(asleep ? { asleep: true } : {}) }
+      return { ok: true, id, delivered, seen, ...(asleep ? { asleep: true } : {}) }
     },
   })
 
@@ -372,15 +403,23 @@ export function registerBusMethods(deps: BusDeps): void {
       }
       data.handoffs.push(handoff)
       enforceHandoffCap(data)
+      const messageId = randomUUID()
       const delivered = deliver(data, {
-        id: randomUUID(),
+        id: messageId,
         from,
         to,
         text: `handoff ${id}: ${task} — ${summary}`,
         ts: now,
       })
+      const { seen } = await confirmDelivered(to, messageId)
+      if (!loadBus().handoffs.some((h) => h.id === id)) {
+        throw new ResponseError(
+          ErrorCodes.InternalError,
+          `not-recorded: handoff ${id} is not on the list`,
+        )
+      }
       announceQueued(delivered, ctx.identity, receiver, `${task} — ${summary}`)
-      return { ok: true, id, delivered }
+      return { ok: true, id, delivered, seen }
     },
   })
 

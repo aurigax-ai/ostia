@@ -48,11 +48,14 @@ describe('ostia graph on the built-in graphs extension (real CLI, real socket)',
 
   afterAll(() => h.stopAll())
 
-  it('GRF-C1 and GRF-C127 the verbs answer under graph and graphs, and ostia docs lists all ten', async () => {
+  it('GRF-C1 and GRF-C127 the verbs answer under graph only, and ostia docs lists all ten', async () => {
     const schema = await h.cli(h.human, ['graph', 'schema'])
     expect(schema.code).toBe(0)
     expect(json(schema.stdout).title).toBe('Graph file')
-    expect((await h.cli(h.human, ['graphs', 'schema'])).stdout).toBe(schema.stdout)
+    const byId = await h.cli(h.human, ['graphs', 'schema'])
+    expect(byId.code).toBe(1)
+    expect(byId.stdout).toBe('')
+    expect(byId.stderr).toContain('usage: ostia graph <command>')
     expect((await h.cli(h.human, ['graph', 'nodes'])).code).toBe(0)
     expect(
       (await h.cli(h.human, ['graph', 'explain', '.ostia/graphs/review-loop.yaml'])).stdout,
@@ -204,17 +207,17 @@ edges:
   it('GRF-C82 no verb, command or invoke enables a graph', async () => {
     const before = readFileSync(join(h.dataDir, 'graphs', 'enabled.json'), 'utf8')
     expect((await h.cli(h.human, ['graph', 'enable', 'quiet'])).stderr).toContain(
-      'unknown subcommand',
+      'usage: ostia graph <verb>',
     )
-    expect((await h.cli(h.human, ['ext', 'graphs', 'enable', 'quiet'])).stderr).toContain(
-      'unknown subcommand',
+    expect((await h.cli(h.human, ['graphs', 'enable', 'quiet'])).stderr).toContain(
+      'usage: ostia graph <command>',
     )
     const manifest = JSON.parse(readFileSync(join(h.dir, 'builtin/graphs/ostia.json'), 'utf8')) as {
       contributes: { commands: { id: string }[] }
     }
     for (const { id } of manifest.contributes.commands) {
       if (id === 'run' || id === 'open') continue
-      await h.cli(h.human, ['ext', 'graphs', id, 'quiet', '--json', '{}'])
+      await h.cli(h.human, ['graph', id, 'quiet', '--json', '{}'])
     }
     const invoke = await h.host.invoke(
       'graphs',
@@ -228,7 +231,9 @@ edges:
 
   it('GRF-C76 pause, cancel, retry and resume-once are not commands', async () => {
     for (const verb of ['pause', 'cancel', 'retry', 'resume-once', 'resume', 'skip']) {
-      expect((await h.cli(h.human, ['graph', verb, 'x'])).stderr).toContain('unknown subcommand')
+      expect((await h.cli(h.human, ['graph', verb, 'x'])).stderr).toContain(
+        'usage: ostia graph <verb>',
+      )
       expect(
         await h.host.invoke('graphs', verb, { argv: [] }, { kind: 'pane', capabilities: [] }),
       ).toMatchObject({

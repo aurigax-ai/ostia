@@ -785,6 +785,7 @@ export interface CommandInvokeRequest {
   id: string
   args?: unknown
   target: CommandTarget
+  fromMain?: true
 }
 
 export interface CommandsApi {

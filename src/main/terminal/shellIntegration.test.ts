@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { AgentPluginContent } from '../agents/agentSkills'
+import { CORE_SKILL_FILES } from '../agents/bundledSkills'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { type ShellState, parseShellState } from './shellCommands'
 import {
@@ -741,6 +742,11 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(skill).toMatch(/^---\nname: ostia\ndescription: /)
       expect(manifest.name).toBe('ostia')
       expect(skill).toContain('ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI"')
+      for (const file of CORE_SKILL_FILES) {
+        expect(readFileSync(join(CLAUDE_PLUGIN, 'skills', 'ostia', file.path), 'utf8')).toBe(
+          file.text,
+        )
+      }
     })
 
     it('writes Claude Code hooks that record the resume token and attention state', () => {
@@ -938,6 +944,9 @@ describe('shellIntegrationSpawnOptions', () => {
         const { contextFile } = writeCodexIntegration(dir)
         const skill = readFileSync(join(dir, 'SKILL.md'), 'utf8')
         expect(skill).toMatch(/^---\nname: ostia\ndescription: /)
+        for (const file of CORE_SKILL_FILES) {
+          expect(readFileSync(join(dir, file.path), 'utf8')).toBe(file.text)
+        }
         const context = readFileSync(contextFile, 'utf8')
         expect(context).toContain(`read its guide: ${join(dir, 'SKILL.md')}`)
         expect(context).toContain('ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI"')

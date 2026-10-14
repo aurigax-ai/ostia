@@ -178,7 +178,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
     expect(res.stderr).toBe('')
     const lines = res.stdout.split('\n').map((line) => line.trimEnd())
     expect(lines).toContain('skill agent-kit-review SKILL.md,checklist.md')
-    expect(lines).toContain('skill ostia SKILL.md')
+    expect(lines).toContain('skill ostia SKILL.md,reference')
     expect(res.stdout).not.toContain('agent-kit-undeclared')
     expect(res.stdout).not.toContain('undeclared.md')
     expect(lines).toContain(
@@ -258,7 +258,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
     agentDir = setAgentPlugins(agentPluginContent(pending.agentPlugins()))
     try {
       const blocked = await inPane('claude')
-      expect(blocked.stdout).toContain('skill ostia SKILL.md')
+      expect(blocked.stdout).toContain('skill ostia SKILL.md,reference')
       expect(blocked.stdout).not.toContain('agent-kit')
 
       pending.approve('agent-kit')

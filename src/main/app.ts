@@ -25,7 +25,9 @@ import {
 } from 'electron'
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
+import { parseAgentHooks } from '../shared/agents/agentHooks'
 import { type AgentResume, parseAgentResume } from '../shared/agents/agentResume'
+import { isResumableAgent } from '../shared/agents/agentResume'
 import type { HibernateOutcome } from '../shared/agents/agentWork'
 import {
   MANAGER_FEATURE,
@@ -45,6 +47,7 @@ import { parsePortsSettings } from '../shared/boards/ports'
 import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browser/browserProfile'
 import { PASSKEY_GUARD_JS } from '../shared/browser/passkeyGuard'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
+import { ChangeSignal } from '../shared/common/actThenConfirm'
 import { languageForPath } from '../shared/editorLanguages'
 import type {
   ExtensionEventPayloads,
@@ -97,7 +100,7 @@ import {
   readProcessTable,
   registerAgentWorkMethods,
 } from './agents/agentWork'
-import { registerBusMethods } from './agents/bus'
+import { registerBusMethods, tellPane } from './agents/bus'
 import type { OriginReach } from './agents/originAgents'
 import { createResumeClaimer, registerResumeClaimIpc } from './agents/resumeClaims'
 import { approvals, registerApprovals } from './approvals/approvals'
@@ -296,6 +299,7 @@ import {
   INTERRUPT_GRACE_MS,
   type ProcessRegistry,
   type ProcessTabRequest,
+  processStatusOf,
   registerProcessMethods,
 } from './panes/processManager'
 import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './platform/discreteGpu'
@@ -462,6 +466,7 @@ import { MAIN_SLOT } from './windows/windowBook'
 import { WindowBroker } from './windows/windowBroker'
 import { registerCmuxSessionIpc } from './workspaces/cmuxSession'
 import { registerProjectRootIpc } from './workspaces/projectRoot'
+import { registerSameFolder } from './workspaces/sameFolder'
 import { ScratchFolders, registerScratchIpc } from './workspaces/scratchFolders'
 import { type SnippetDeps, registerSnippetIpc, registerSnippetMethods } from './workspaces/snippets'
 import { ViewHost, ViewStore } from './workspaces/viewHost'
@@ -500,6 +505,11 @@ function loadPty(): typeof import('node-pty') | null {
     }
   }
   return ptyModule ?? null
+}
+
+interface PaneTitleEntry {
+  paneId: string
+  title: string
 }
 
 interface PtyEntry {
@@ -857,6 +867,7 @@ function killPty(paneId: string, reason: ReapReason): void {
   appLog?.info('pty-reap', { pane: paneId, reason })
   recoveryHeld.delete(paneId)
   closedPanes.delete(paneId)
+  startedAgents.delete(paneId)
   if (entry.killTimer) clearTimeout(entry.killTimer)
   try {
     entry.pty.kill()
@@ -1519,7 +1530,12 @@ let viewHost: ViewHost | null = null
 let mcpHost: McpHost | null = null
 let mcpOAuth: McpOAuth | null = null
 let broker: WindowBroker | null = null
-const agentRunning = new AgentRunningPanes(() => broker?.persist())
+const agentChanges = new ChangeSignal()
+const startedAgents = new Set<string>()
+const agentRunning = new AgentRunningPanes(() => {
+  broker?.persist()
+  agentChanges.fire()
+})
 const agentWork = new ReportedAgentWork()
 
 const askHub = createAskHub({
@@ -3216,6 +3232,7 @@ export function execCommand(
   target: CommandTarget,
   id: string,
   args?: unknown,
+  fromMain = false,
 ): Promise<CommandResult> {
   const win = target.windowId ? windows.get(target.windowId) : mainWindow()
   if (!win || win.isDestroyed()) {
@@ -3233,7 +3250,12 @@ export function execCommand(
       resolve(result)
     }
     ipcMain.on('command:result', onResult)
-    win.webContents.send('command:invoke', reqId, { id, args, target })
+    win.webContents.send('command:invoke', reqId, {
+      id,
+      args,
+      target,
+      ...(fromMain ? { fromMain: true } : {}),
+    })
     const timer = setTimeout(() => {
       ipcMain.removeListener('command:result', onResult)
       resolve({ ok: false, error: { code: 'command-failed', message: 'command timed out' } })
@@ -3816,6 +3838,8 @@ app.whenReady().then(() => {
     onResume: (identity, resume) => {
       telemetry?.count('agents', 'resume')
       paneWaking.end(identity.paneId, 'started')
+      startedAgents.add(identity.paneId)
+      agentChanges.fire()
       if (identity.manager) managerService?.rememberResume(resume)
     },
   })
@@ -3842,6 +3866,31 @@ app.whenReady().then(() => {
     },
     cwdOfPane: (paneId) => terminalState.get(paneId)?.cwd,
     agentArgv: (name) => managerAgents(managerSettings())[name] ?? null,
+    isAgent: (paneId) => agentRunning.has(paneId),
+    agentStarted: (paneId) => startedAgents.has(paneId),
+    startsWithHook: (argv) => {
+      const program = basename(argv[0] ?? '')
+      return isResumableAgent(program) && parseAgentHooks(readSettingsFile().agents?.hooks)[program]
+    },
+    agentChanges: agentChanges.subscribe,
+    tell: tellPane,
+    splitTabNow: async (workspaceId, paneId) => {
+      const target = workspaceCommandTarget(workspaceId)
+      const res = await execCommand(target, 'pane.splitTabOf', { paneId }, true)
+      return res.ok ? (res.result as { name: string | null; human: boolean }) : null
+    },
+    humanTab: async (workspaceId, name) => {
+      const target = workspaceCommandTarget(workspaceId)
+      const res = await execCommand(target, 'pane.tabPlan', { paneIds: [], tab: name }, true)
+      return res.ok && typeof (res.result as { human?: unknown }).human === 'string'
+    },
+    paneTitle: async (paneId) => {
+      const pane = getByPaneId(paneId)
+      if (!pane) return undefined
+      const res = await execCommand({ ...targetOf(pane), paneId: null }, 'pane.list')
+      const panes = res.ok && Array.isArray(res.result) ? (res.result as PaneTitleEntry[]) : []
+      return panes.find((p) => p.paneId === paneId)?.title
+    },
     reach,
     interruptGraceMs: INTERRUPT_GRACE_MS,
   })
@@ -3881,6 +3930,8 @@ app.whenReady().then(() => {
     close: (to) => execCommand(targetOf(to), 'pane.close'),
     resume: (to) => execCommand(targetOf(to), 'agent.resume'),
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    hooksOn: (agent) =>
+      isResumableAgent(agent) && parseAgentHooks(readSettingsFile().agents?.hooks)[agent],
   })
   registerExtensionWake({
     openedBy: (caller, paneId) => extensionHost?.openedBy(caller, paneId) ?? false,
@@ -3889,6 +3940,11 @@ app.whenReady().then(() => {
     panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
     waking: paneWaking,
   })
+  const workspaceCommandTarget = (workspaceId: string): CommandTarget => ({
+    windowId: windowForWorkspace(workspaceId) ?? '',
+    workspaceId,
+    paneId: null,
+  })
   registerPaneMoveToMethods({
     ...paneReachDeps,
     ownerWindow: windowForWorkspace,
@@ -3896,6 +3952,11 @@ app.whenReady().then(() => {
     isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
     ensureReach: reach.ensure,
     move: (to, workspaceId) => execCommand(targetOf(to), 'pane.moveToWorkspace', { workspaceId }),
+    tabPlan: (workspaceId, paneIds, tab) =>
+      execCommand(workspaceCommandTarget(workspaceId), 'pane.tabPlan', { paneIds, tab }, true),
+    joinTab: (workspaceId, paneIds, tab) =>
+      execCommand(workspaceCommandTarget(workspaceId), 'pane.joinTab', { paneIds, tab }, true),
+    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
   })
   registerPaneWaitMethods({
     ...paneReachDeps,
@@ -4198,12 +4259,17 @@ app.whenReady().then(() => {
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
     extensionHost?.emitEvent('notification', n),
   )
+  registerSameFolder({ workDir: workDirForWorkspace, home: homedir })
   registerPaneListMethods({
     execCommand,
     getTerminalState,
     ptyPid,
     windowIds,
     waking: isWaking,
+    processOf: (paneId) => {
+      const entry = processes?.forPane(paneId)
+      return entry ? processStatusOf(entry) : undefined
+    },
     reach,
   })
   registerGatewayMethods()

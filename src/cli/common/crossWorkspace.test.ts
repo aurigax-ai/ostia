@@ -54,18 +54,13 @@ describe('pickWorkspace with names the human gave', () => {
 })
 
 describe('parseCommandFlags', () => {
-  it('pulls --workspace (two spellings) and --no-focus out and keeps the rest in order', () => {
+  it('pulls --workspace (two spellings) out and keeps the rest in order', () => {
     expect(parseCommandFlags(['{"a":1}', '--workspace', 'w2'])).toEqual({
       workspace: 'w2',
-      noFocus: false,
       rest: ['{"a":1}'],
     })
-    expect(parseCommandFlags(['--workspace=w2', '--no-focus'])).toEqual({
-      workspace: 'w2',
-      noFocus: true,
-      rest: [],
-    })
-    expect(parseCommandFlags([])).toEqual({ noFocus: false, rest: [] })
+    expect(parseCommandFlags(['--workspace=w2'])).toEqual({ workspace: 'w2', rest: [] })
+    expect(parseCommandFlags([])).toEqual({ rest: [] })
   })
 
   it('refuses --workspace without a value', () => {
@@ -84,24 +79,5 @@ describe('buildCommandCall', () => {
       id: 'tab.new',
       target: { workspaceId: 'w2', paneId: null },
     })
-  })
-
-  it('turns --no-focus into focus:false next to the JSON args given', () => {
-    expect(buildCommandCall('workspace.new', parseCommandFlags(['--no-focus']), undefined)).toEqual(
-      { id: 'workspace.new', args: { focus: false } },
-    )
-    expect(
-      buildCommandCall(
-        'workspace.new',
-        parseCommandFlags(['{"name":"w","focus":true}', '--no-focus']),
-        undefined,
-      ),
-    ).toEqual({ id: 'workspace.new', args: { name: 'w', focus: false } })
-  })
-
-  it('refuses --no-focus on any other command', () => {
-    expect(() => buildCommandCall('tab.new', parseCommandFlags(['--no-focus']), undefined)).toThrow(
-      'only applies to workspace.new',
-    )
   })
 })

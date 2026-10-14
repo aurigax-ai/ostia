@@ -10,7 +10,7 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import { type Capability, DEFAULT_CAPABILITIES } from '../../shared/capabilities'
+import { DEFAULT_CAPABILITIES } from '../../shared/capabilities'
 import type { ApprovalOutcome } from '../../shared/permissions/approvals'
 import { SCRIPT_CAPABILITIES, type ScriptTokenScope } from '../../shared/permissions/scriptTokens'
 import { emptyWorkspaceSandbox } from '../../shared/sandbox/sandbox'
@@ -232,8 +232,8 @@ describe('script callers on the control socket', () => {
   it('reads the CLI reference', async () => {
     const conn = await client(createScriptToken(storeFile, 'docs', ['read-board']).token)
     const res = await conn.sendRequest<{ cli: string }>('docs')
-    expect(res.cli).toContain('Scripts reach only these methods')
-    expect(res.cli).not.toContain('Manager only')
+    expect(res.cli).toContain('Scripts reach only these commands')
+    expect(res.cli).not.toContain('# Ostia manager')
   })
 
   it('refuses an unknown token and cuts a revoked one off at once', async () => {
@@ -314,10 +314,6 @@ describe('script tokens on command.exec', () => {
     descriptor('workspace.pin', ['drive-self']),
     descriptor('workspace.unpin', ['drive-self']),
     descriptor('workspace.newScratch', DEFAULT_CAPABILITIES, 'none'),
-    descriptor('workspace.hibernateAgents', ['kill-pane']),
-    descriptor('workspace.hibernateGroupAgents', ['kill-pane']),
-    descriptor('workspace.resumeAgents', ['type-other-pane']),
-    descriptor('workspace.resumeGroupAgents', ['type-other-pane']),
     descriptor('workspace.deleteGroup', DEFAULT_CAPABILITIES),
     descriptor('settings.set', ['settings-write']),
     descriptor('workspace.goto', DEFAULT_CAPABILITIES),
@@ -465,44 +461,33 @@ describe('script tokens on command.exec', () => {
     ])
   })
 
-  it.each<[string, Capability]>([
-    ['workspace.hibernateAgents', 'kill-pane'],
-    ['workspace.hibernateGroupAgents', 'kill-pane'],
-    ['workspace.resumeAgents', 'type-other-pane'],
-    ['workspace.resumeGroupAgents', 'type-other-pane'],
-  ])('runs %s on a named workspace only with %s and all-workspaces', async (id, cap) => {
-    const without = await client(createScriptToken(storeFile, 'a', ['all-workspaces']).token)
-    await expect(without.sendRequest('command.exec', { id, target: WS2 })).rejects.toThrow(
-      `needs-elevation: ${cap}`,
-    )
-    const noReach = await client(createScriptToken(storeFile, 'b', [cap]).token)
-    await expect(noReach.sendRequest('command.exec', { id, target: WS2 })).rejects.toThrow(
-      'needs-elevation: all-workspaces',
-    )
-    expect(executed).toEqual([])
-    const full = await client(createScriptToken(storeFile, 'c', ['all-workspaces', cap]).token)
-    await full.sendRequest('command.exec', { id, target: WS2 })
-    expect(executed).toEqual([{ target: inWs2, id }])
-    expect(request).not.toHaveBeenCalled()
-  })
-
   it.each([
-    'workspace.group',
-    'workspace.ungroup',
-    'workspace.describe',
     'workspace.hibernateAgents',
     'workspace.hibernateGroupAgents',
     'workspace.resumeAgents',
     'workspace.resumeGroupAgents',
-  ])('refuses %s without a workspace instead of picking one', async (id) => {
-    const conn = await client(
+  ])('never runs %s, the human’s bulk command', async (id) => {
+    const full = await client(
       createScriptToken(storeFile, 'c', ['all-workspaces', 'kill-pane', 'type-other-pane']).token,
     )
-    await expect(conn.sendRequest('command.exec', { id, args: { name: 'x' } })).rejects.toThrow(
-      `bad-request: ${id} from a script token needs a workspace`,
+    await expect(full.sendRequest('command.exec', { id, target: WS2 })).rejects.toThrow(
+      'not-available-to-script',
     )
     expect(executed).toEqual([])
   })
+
+  it.each(['workspace.group', 'workspace.ungroup', 'workspace.describe'])(
+    'refuses %s without a workspace instead of picking one',
+    async (id) => {
+      const conn = await client(
+        createScriptToken(storeFile, 'c', ['all-workspaces', 'kill-pane', 'type-other-pane']).token,
+      )
+      await expect(conn.sendRequest('command.exec', { id, args: { name: 'x' } })).rejects.toThrow(
+        `bad-request: ${id} from a script token needs a workspace`,
+      )
+      expect(executed).toEqual([])
+    },
+  )
 
   it('closes the workspace it names only with kill-pane and all-workspaces', async () => {
     const id = 'workspace.close'
@@ -685,8 +670,6 @@ describe('scoped script tokens', () => {
     descriptor('workspace.pin', ['drive-self']),
     descriptor('workspace.unpin', ['drive-self']),
     descriptor('workspace.newScratch', DEFAULT_CAPABILITIES, 'none'),
-    descriptor('workspace.hibernateAgents', ['kill-pane']),
-    descriptor('workspace.hibernateGroupAgents', ['kill-pane']),
     descriptor('workspace.close', ['kill-pane']),
   ]
   let executed: { target: unknown; id: string }[] = []
@@ -759,7 +742,7 @@ describe('scoped script tokens', () => {
       conn.sendRequest('command.exec', { id: 'workspace.describe', target: on(ws) }),
     ).rejects.toThrow('needs-elevation: all-workspaces')
     await expect(
-      conn.sendRequest('command.exec', { id: 'workspace.hibernateAgents', target: on(ws) }),
+      conn.sendRequest('command.exec', { id: 'workspace.close', target: on(ws) }),
     ).rejects.toThrow('needs-elevation: all-workspaces')
     await expect(conn.sendRequest('test.ensureReach', { workspaceId: ws })).rejects.toThrow(
       'needs-elevation: all-workspaces',
@@ -788,7 +771,7 @@ describe('scoped script tokens', () => {
     })
     const conn = await client(token)
     await expect(
-      conn.sendRequest('command.exec', { id: 'workspace.hibernateAgents', target: on('wsA') }),
+      conn.sendRequest('command.exec', { id: 'workspace.close', target: on('wsA') }),
     ).rejects.toThrow('needs-elevation: kill-pane')
     expect(executed).toEqual([])
   })
@@ -846,20 +829,10 @@ describe('scoped script tokens', () => {
     expect(executed).toEqual([])
   })
 
-  it('runs group-wide commands only when the group itself is in scope', async () => {
-    const one = await client(
-      createScriptToken(storeFile, 'one', ['kill-pane'], { scope: limited([], ['wsA']) }).token,
-    )
-    await expect(
-      one.sendRequest('command.exec', { id: 'workspace.hibernateGroupAgents', target: on('wsA') }),
-    ).rejects.toThrow('needs-elevation: all-workspaces')
+  it('runs group commands only when the group itself is in scope', async () => {
     const group = await client(
       createScriptToken(storeFile, 'group', ['kill-pane'], { scope: limited([WORK]) }).token,
     )
-    await group.sendRequest('command.exec', {
-      id: 'workspace.hibernateGroupAgents',
-      target: on('wsA'),
-    })
     await group.sendRequest('command.exec', {
       id: 'workspace.groupColor',
       args: { group: 'Work', color: 'blue' },
@@ -880,7 +853,6 @@ describe('scoped script tokens', () => {
       }),
     ).rejects.toThrow('needs-elevation: all-workspaces')
     expect(executed.map((e) => e.id)).toEqual([
-      'workspace.hibernateGroupAgents',
       'workspace.groupColor',
       'workspace.groupRename',
       'workspace.groupDelete',
@@ -1002,10 +974,8 @@ describe('scoped script tokens', () => {
     expect(created.caps).toEqual(['kill-pane'])
     expect(created.scope).toEqual({ kind: 'all' })
     const conn = await client(created.token)
-    await conn.sendRequest('command.exec', { id: 'workspace.hibernateAgents', target: on('wsC') })
-    expect(executed).toEqual([
-      { target: { windowId: 'w1', ...on('wsC') }, id: 'workspace.hibernateAgents' },
-    ])
+    await conn.sendRequest('command.exec', { id: 'workspace.close', target: on('wsC') })
+    expect(executed).toEqual([{ target: { windowId: 'w1', ...on('wsC') }, id: 'workspace.close' }])
   })
 })
 

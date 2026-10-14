@@ -7,12 +7,11 @@ import {
   TAILWIND_RUNTIME,
   importableSpecifiers,
   runtimeFiles,
-  runtimeHelp,
   runtimeImportMap,
 } from './artifactRuntime'
 
 const built = join(process.cwd(), 'out', 'artifact-runtime')
-const skill = readFileSync(join(process.cwd(), 'src/main/agents/ostia-skill.md'), 'utf8')
+const skill = readFileSync(join(process.cwd(), 'src/main/agents/skills/ostia/SKILL.md'), 'utf8')
 const manifest = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
   dependencies: Record<string, string>
   devDependencies: Record<string, string>
@@ -69,15 +68,12 @@ describe('the preview runtime', () => {
     }
   })
 
-  it('is what the skill and ostia docs tell agents they can import', () => {
-    const help = runtimeHelp()
+  it('is what the skill, which ostia docs prints, tells agents they can import', () => {
     for (const specifier of importableSpecifiers()) {
-      expect(help, specifier).toContain(specifier)
       expect(skill, specifier).toMatch(
         new RegExp(`^${specifier.replace(/[/@.-]/g, '\\$&')}\\s`, 'm'),
       )
     }
-    expect(help).toContain('/runtime/tailwind.js')
     expect(skill).toContain('/runtime/tailwind.js')
     expect(importableSpecifiers()).not.toContain('react/jsx-runtime')
   })

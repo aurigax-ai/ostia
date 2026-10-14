@@ -181,8 +181,10 @@ describe('ViewHost', () => {
 
 describe('ostia skill', () => {
   it('teaches a view example that validates', () => {
-    const skill = readFileSync(join(__dirname, '..', 'agents', 'ostia-skill.md'), 'utf8')
-    const section = skill.slice(skill.indexOf('## Views'))
+    const section = readFileSync(
+      join(__dirname, '..', 'agents', 'skills', 'ostia', 'reference', 'views.md'),
+      'utf8',
+    )
     const example = /```json\n([\s\S]*?)```/.exec(section)?.[1]
     expect(example).toBeDefined()
     const res = parseViewText(example ?? '')

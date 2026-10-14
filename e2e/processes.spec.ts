@@ -56,14 +56,14 @@ test('ostia process run shows the command in a terminal tab the human can watch'
     await expect(rows(win, 0)).not.toContainText('hello-from-42')
     expect(await callerHasFocus(win)).toBe(true)
 
-    await typeLine(win, 'ostia process ls')
+    await typeLine(win, 'ostia process list')
     await expect(rows(win, 0)).toContainText(/demo\s+running/, { timeout: 15_000 })
 
     await typeLine(win, 'ostia process logs demo')
     await expect(rows(win, 0)).toContainText('hello-from-42 two  words', { timeout: 15_000 })
     await expect(rows(win, 0)).toContainText('(cursor=')
 
-    await typeLine(win, 'ostia process kill demo && ostia process ls')
+    await typeLine(win, 'ostia process kill demo && ostia process list')
     await expect(rows(win, 0)).toContainText(/demo\s+exited\(130\)/, { timeout: 15_000 })
     await expect(tabs).toHaveCount(2)
     await expect(tabs.nth(1)).toContainText('demo')
@@ -75,7 +75,7 @@ test('ostia process run shows the command in a terminal tab the human can watch'
       })
       .toBeGreaterThanOrEqual(2)
     await expect(win.locator('.xterm')).toHaveCount(2)
-    await typeLine(win, 'ostia process ls')
+    await typeLine(win, 'ostia process list')
     await expect(rows(win, 0)).toContainText(/demo\s+running/, { timeout: 15_000 })
     expect(await callerHasFocus(win)).toBe(true)
 
@@ -91,7 +91,7 @@ test('ostia process run shows the command in a terminal tab the human can watch'
     await restored.nth(0).click()
     await expect(rows(win, 0)).toContainText('workspace restored', { timeout: 20_000 })
     await win.locator('.xterm').first().click()
-    await typeLine(win, 'ostia process ls')
+    await typeLine(win, 'ostia process list')
     await expect(rows(win, 0)).toContainText('(no tracked processes)', { timeout: 15_000 })
   } finally {
     await quitApp(app)
@@ -114,7 +114,7 @@ test(
 
       await typeLine(
         win,
-        `OTHER=$(ostia pane.list | grep '"paneId"' | grep -v "$OSTIA_PANE_ID" | head -1 | cut -d'"' -f4)`,
+        `OTHER=$(ostia pane list | grep '"paneId"' | grep -v "$OSTIA_PANE_ID" | head -1 | cut -d'"' -f4)`,
       )
       await typeLine(win, 'ostia pane send "$OTHER" intruder --enter || echo SEND-$((1+1))-REFUSED')
       const card = win.getByRole('region', { name: 'Agent permission request' })
@@ -137,14 +137,14 @@ test(
       await expect(win.locator('.xterm')).toHaveCount(3, { timeout: 15_000 })
       await typeLine(
         win,
-        'until ostia process ls | grep -q running; do sleep 0.2; done; ostia pane send echo "sum-$((20+3))" --enter; sleep 1; ostia pane read echo',
+        'until ostia process list | grep -q running; do sleep 0.2; done; ostia pane send echo "sum-$((20+3))" --enter; sleep 1; ostia pane read echo',
       )
       const caller = win.locator('.xterm-rows').filter({ hasText: 'SEND-2-REFUSED' })
       await expect(caller).toContainText('sum-23', { timeout: 30_000 })
       await expect(card).toHaveCount(0)
       await expect(win.locator('.xterm-rows').filter({ hasText: 'sum-23' })).toHaveCount(2)
 
-      await typeLine(win, 'ostia pane key echo ctrl-d && sleep 1 && ostia process ls')
+      await typeLine(win, 'ostia pane key echo ctrl-d && sleep 1 && ostia process list')
       await expect(caller).toContainText(/echo\s+exited\(0\)/, { timeout: 15_000 })
     } finally {
       await quitApp(app)

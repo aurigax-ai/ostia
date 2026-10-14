@@ -14,7 +14,6 @@ import {
   type WaitOutcome,
   openedPaneIds,
   parseFileTargets,
-  parsePlacement,
 } from '../../shared/files/openFiles'
 import type { CommandResult, CommandTarget } from '../../shared/types'
 import { targetOf } from '../attention/attention'
@@ -85,7 +84,6 @@ export function registerOpenFileMethods(deps: OpenFileDeps): void {
       const request = params as {
         files?: unknown
         background?: unknown
-        placement?: unknown
         wait?: unknown
       } | null
       const targets = parseFileTargets(request?.files)
@@ -108,11 +106,9 @@ export function registerOpenFileMethods(deps: OpenFileDeps): void {
       })
       if (files.length === 0) return { ok: true, results }
       const wait = request?.wait === true
-      const placement = parsePlacement(request?.placement)
       const res = await deps.execCommand(targetOf(ctx.identity), OPEN_FILES_COMMAND, {
         files,
         ...(request?.background === true ? { background: true } : {}),
-        ...(placement ? { placement } : {}),
         ...(wait ? { wait: true } : {}),
       })
       if (!res.ok) return { ok: false, error: res.error.code, message: res.error.message }

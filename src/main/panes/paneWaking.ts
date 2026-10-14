@@ -1,3 +1,5 @@
+import { ChangeSignal } from '../../shared/common/actThenConfirm'
+
 export type WakeEnd = 'started' | 'failed' | 'closed'
 
 export type WakeWaitResult =
@@ -10,6 +12,12 @@ type WakeListener = (paneId: string, how: WakeEnd) => void
 export class PaneWaking {
   private readonly panes = new Set<string>()
   private readonly listeners = new Set<WakeListener>()
+  private readonly ends = new Map<string, WakeEnd>()
+  readonly changes = new ChangeSignal()
+
+  lastEnd(paneId: string): WakeEnd | undefined {
+    return this.panes.has(paneId) ? undefined : this.ends.get(paneId)
+  }
 
   has(paneId: string): boolean {
     return this.panes.has(paneId)
@@ -17,11 +25,14 @@ export class PaneWaking {
 
   start(paneId: string): void {
     this.panes.add(paneId)
+    this.ends.delete(paneId)
   }
 
   end(paneId: string, how: WakeEnd): void {
     if (!this.panes.delete(paneId)) return
+    this.ends.set(paneId, how)
     for (const listener of [...this.listeners]) listener(paneId, how)
+    this.changes.fire()
   }
 
   until(

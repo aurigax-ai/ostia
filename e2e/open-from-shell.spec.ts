@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, openWorkspace, quitApp, runInTerminal, terminalTab } from './helpers'
+import { openWorkspace, quitApp, runInTerminal, terminalTab } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
@@ -116,7 +116,7 @@ test('closing the workspace ends a waiting editor with a failure instead of hang
   }
 })
 
-test('ostia diff, --split and -n open a comparison, a split and a new workspace', async () => {
+test('ostia diff compares two files, and ostia <folder> opens a workspace on it once', async () => {
   test.setTimeout(120_000)
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
@@ -125,16 +125,6 @@ test('ostia diff, --split and -n open a comparison, a split and a new workspace'
   writeFileSync(join(home, 'new.txt'), 'changed line\nsame\n')
   const { app, win } = await launch(dataHome)
   try {
-    await runInTerminal(win, 'ostia --split down ~/new.txt')
-    await expect(win.locator('.monaco-editor:visible .view-lines')).toContainText('changed line', {
-      timeout: 20_000,
-    })
-    await expect(win.locator('.xterm:visible')).toHaveCount(1)
-    const term = await win.locator('.xterm:visible').boundingBox()
-    const editor = await win.locator('.monaco-editor:visible').first().boundingBox()
-    expect(editor && term && editor.y > term.y + term.height - 4).toBe(true)
-
-    await win.locator('.xterm:visible').first().click()
     await runInTerminal(win, 'ostia diff ~/old.txt ~/new.txt')
     const diff = win.locator('.diff-surface:visible')
     await expect(diff).toBeVisible({ timeout: 20_000 })
@@ -150,10 +140,15 @@ test('ostia diff, --split and -n open a comparison, a split and a new workspace'
     )
 
     await expect(win.locator('.rail-tab')).toHaveCount(1)
-    await runInTerminal(win, 'ostia -n ~/proj')
+    const shell = win.locator('.xterm:visible .xterm-rows').first()
+    await runInTerminal(win, 'clear; ostia ~; echo "same-exit:$?"')
+    await expect(shell).toContainText('same-exit:0', { timeout: 15_000 })
+    await expect(shell).toContainText('already open')
+    await expect(win.locator('.rail-tab')).toHaveCount(1)
+
+    await runInTerminal(win, 'ostia ~/proj')
     await expect(win.locator('.rail-tab')).toHaveCount(2, { timeout: 15_000 })
     await expect(win.locator('.rail-tab').filter({ hasText: 'proj' })).toBeVisible()
-    await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT)
   } finally {
     await quitApp(app)
   }

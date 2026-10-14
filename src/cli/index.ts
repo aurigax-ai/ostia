@@ -23,13 +23,12 @@ import {
 } from '../shared/agents/claudeAttention'
 import { readEnv } from '../shared/appEnv'
 import { ARTIFACTS_ENV } from '../shared/artifacts/artifacts'
-import { CORE_VERBS as CORE_VERB_LIST } from '../shared/extensions/extensionVerbs'
-import type {
-  DiffFilesResult,
-  FileTarget,
-  OpenFilesResult,
-  OpenPlacement,
-  RevealFolderResult,
+import {
+  type DiffFilesResult,
+  type FileTarget,
+  type OpenFilesResult,
+  type RevealFolderResult,
+  openTargetKind,
 } from '../shared/files/openFiles'
 import { SCRIPT_TOKEN_PREFIX } from '../shared/permissions/scriptTokens'
 import type { SnippetEntry, SnippetListing } from '../shared/snippets'
@@ -40,18 +39,16 @@ import { buildCommandCall, parseCommandFlags, resolveWorkspaceRef } from './comm
 import { describeFailure } from './common/failure'
 import {
   type FileProbe,
-  type OpenTarget,
   diffRefusalLine,
-  fileWord,
-  isClaimedWord,
   openTarget,
   parseFileArg,
-  placementOf,
   refusalLine,
   revealRefusalLine,
 } from './common/fileArgs'
 import { paneToken } from './common/paneToken'
+import { confirmFilesOpen, confirmPaneOpen, confirmWorkspace } from './common/readBack'
 import { TTY_NOTICE, captureStdin } from './common/stdinCapture'
+import { type UsageAnswer, findNoun, topUsage, usageGate, usageOf } from './common/usageTable'
 import { buildVersionAt } from './common/version'
 import { runAgentHook } from './hooks/agentHook'
 import { STATE_VERBS, messageFromStdin, saveAttentionOffline } from './hooks/offlineAttention'
@@ -205,7 +202,7 @@ function describeVaultError(res: VaultErr): string {
 
 async function runSecretVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
-  if (sub === 'ls') {
+  if (sub === 'list') {
     const list =
       await conn.sendRequest<{ name: string; source: string; kind: string }[]>('secret.list')
     for (const s of list) console.log(`${s.source}\t${s.kind}\t${s.name}`)
@@ -231,8 +228,7 @@ async function runSecretVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
     }
   } else {
-    console.error(`ostia secret: unknown subcommand '${sub ?? ''}' (try: ls, get)`)
-    process.exitCode = 1
+    failUsage('secret')
   }
 }
 
@@ -280,8 +276,7 @@ async function runSandboxVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
     }
   } else {
-    console.error(`ostia sandbox: unknown subcommand '${sub ?? ''}' (try: request-domain, expose)`)
-    process.exitCode = 1
+    failUsage('sandbox')
   }
 }
 
@@ -321,12 +316,12 @@ async function runVaultVerb(conn: MessageConnection): Promise<void> {
       console.error(`ostia: vault get failed (${describeVaultError(res)})`)
       process.exitCode = 1
     }
-  } else if (sub === 'ls') {
+  } else if (sub === 'list') {
     const res = await conn.sendRequest<VaultListResult | VaultErr>('vault.list', { scope })
     if ('keys' in res) {
       for (const k of res.keys) console.log(k)
     } else {
-      console.error(`ostia: vault ls failed (${describeVaultError(res)})`)
+      console.error(`ostia: vault list failed (${describeVaultError(res)})`)
       process.exitCode = 1
     }
   } else if (sub === 'rm') {
@@ -344,8 +339,7 @@ async function runVaultVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
     }
   } else {
-    console.error(`ostia vault: unknown subcommand '${sub ?? ''}' (try: set, get, ls, rm)`)
-    process.exitCode = 1
+    failUsage('vault')
   }
 }
 
@@ -369,6 +363,7 @@ type ExtResult =
   | { ok: false; error: string; message?: string; data?: unknown }
 
 async function runExtList(conn: MessageConnection): Promise<void> {
+  if (process.argv[3] !== 'list') return failUsage('ext')
   const list = await conn.sendRequest<ExtInfo[]>('ext.list')
   for (const ext of list) {
     console.log(`${ext.id}\t${ext.status}\t${ext.name}`)
@@ -377,29 +372,37 @@ async function runExtList(conn: MessageConnection): Promise<void> {
   }
 }
 
+function extUsage(ext: ExtInfo): string {
+  const word = ext.verb ?? ext.id
+  const lines = ext.commands.map((c) => `  ostia ${word} ${c.usage ?? c.id}\n      ${c.title}`)
+  return [`usage: ostia ${word} <command>   ${ext.name}`, ...lines].join('\n')
+}
+
 async function runExtCommand(
   conn: MessageConnection,
-  extId: string | undefined,
+  extId: string,
   command: string | undefined,
   argv: string[],
 ): Promise<void> {
-  if (!extId || !command) {
-    console.error('usage: ostia ext <extId> <command> [args...]   (see: ostia ext ls)')
+  const list = await conn.sendRequest<ExtInfo[]>('ext.list')
+  const ext = list.find((e) => e.id === extId) ?? list.find((e) => e.verb === extId)
+  const backing = findNoun(extId)?.extension
+  if (!ext && backing) return fail(`ostia ${extId}: the ${backing} extension is not enabled`)
+  if (!ext) {
+    console.error(topUsage())
     process.exitCode = 1
     return
   }
-  const list = await conn.sendRequest<ExtInfo[]>('ext.list')
-  const ext = list.find((e) => e.id === extId) ?? list.find((e) => e.verb === extId)
-  if (!ext) {
-    console.error(`ostia: unknown command or extension '${extId}' (see: ostia ext ls)`)
+  if (!command || (ext.verb && extId !== ext.verb)) {
+    console.error(extUsage(ext))
     process.exitCode = 1
     return
   }
   const cmd = ext.commands.find((c) => c.id === command)
-  if (!cmd) {
-    const known = ext.commands.map((c) => c.id).join(', ')
-    console.error(`ostia ${extId}: unknown subcommand '${command}' (try: ${known})`)
-    process.exitCode = 1
+  if (!cmd || wantsHelp(command)) {
+    if (cmd) console.log(extUsage(ext))
+    else console.error(extUsage(ext))
+    process.exitCode = cmd ? 0 : 1
     return
   }
   const args: { argv: string[]; stdin?: string } = { argv }
@@ -419,8 +422,6 @@ async function runExtCommand(
   }
 }
 
-const CORE_VERBS = new Set(CORE_VERB_LIST)
-
 const FILE_PROBE: FileProbe = {
   cwd: process.cwd(),
   isFile: (path) => {
@@ -439,69 +440,65 @@ const FILE_PROBE: FileProbe = {
   },
 }
 
-async function opensAsFile(conn: MessageConnection, word: string): Promise<boolean> {
-  const kind = fileWord(word, FILE_PROBE)
-  if (kind !== 'name') return kind === 'path'
-  const [extensions, commands] = await Promise.all([
-    conn.sendRequest<{ id: string; verb?: string }[]>('ext.list').catch(() => []),
-    conn.sendRequest<{ id: string }[]>('command.list').catch(() => []),
-  ])
-  return !isClaimedWord(word, {
-    extensionIds: extensions.flatMap((e) => (e.verb ? [e.id, e.verb] : [e.id])),
-    commandIds: commands.map((c) => c.id),
-  })
-}
-
 interface OpenHow {
   background: boolean
-  placement: OpenPlacement | undefined
   wait: boolean
+}
+
+interface Opened {
+  problems: string[]
+  shown: string[]
 }
 
 async function openFilesIn(
   conn: MessageConnection,
   files: FileTarget[],
   how: OpenHow,
-): Promise<string[]> {
-  if (files.length === 0) return []
+): Promise<Opened> {
+  if (files.length === 0) return { problems: [], shown: [] }
   const res = await conn.sendRequest<OpenFilesResult>('file.open', {
     files,
     ...(how.background ? { background: true } : {}),
-    ...(how.placement ? { placement: how.placement } : {}),
     ...(how.wait ? { wait: true } : {}),
   })
-  if (!res.ok) return [`ostia open: ${res.message}`]
+  if (!res.ok) return { problems: [`ostia open: ${res.message}`], shown: [] }
   const refused = res.results.flatMap((r) => (r.ok ? [] : [refusalLine(r.path, r.error)]))
-  if (how.wait && res.waited !== 'closed' && refused.length < res.results.length) {
-    return [...refused, WAIT_ENDED]
+  if (how.wait) {
+    const ended = res.waited !== 'closed' && refused.length < res.results.length
+    return { problems: ended ? [...refused, WAIT_ENDED] : refused, shown: [] }
   }
-  return refused
+  const paths = res.results.flatMap((r) => (r.ok ? [r.path] : []))
+  if (paths.length === 0) return { problems: refused, shown: [] }
+  const seen = await confirmFilesOpen(conn, paths)
+  if (!seen.ok) return { problems: [...refused, seen.reason], shown: [] }
+  return { problems: refused, shown: seen.value.map((o) => `${o.paneId}\t${o.path}`) }
 }
 
-async function revealFolderIn(conn: MessageConnection, path: string): Promise<string[]> {
+async function revealFolderIn(conn: MessageConnection, path: string): Promise<Opened> {
   const res = await conn.sendRequest<RevealFolderResult>('file.reveal', { path })
-  return res.ok ? [] : [revealRefusalLine(path, res.error, res.message)]
+  return res.ok
+    ? { problems: [], shown: [`files\t${path}`] }
+    : { problems: [revealRefusalLine(path, res.error, res.message)], shown: [] }
 }
 
 async function openUrlIn(
   conn: MessageConnection,
   url: string,
   background: boolean,
-): Promise<string[]> {
-  const res = await conn.sendRequest<{ ok: boolean; error?: string; message?: string }>(
-    'browse.open',
-    { url, ...(background ? { background: true } : {}) },
-  )
-  return res.ok ? [] : [`ostia: ${url}: ${res.message ?? res.error ?? 'failed'}`]
-}
-
-async function newWorkspaceIn(conn: MessageConnection, targets: OpenTarget[]): Promise<string[]> {
-  if (targets.length !== 1 || targets[0].kind !== 'folder') return ['ostia -n: takes one folder']
-  const res = await conn.sendRequest<CommandResult>('command.exec', {
-    id: 'workspace.new',
-    args: { dir: targets[0].path },
-  })
-  return res.ok ? [] : [`ostia -n: ${res.error.message}`]
+): Promise<Opened> {
+  const res = await conn.sendRequest<{
+    ok: boolean
+    tabId?: string
+    error?: string
+    message?: string
+  }>('browse.open', { url, ...(background ? { background: true } : {}) })
+  if (!res.ok)
+    return { problems: [`ostia: ${url}: ${res.message ?? res.error ?? 'failed'}`], shown: [] }
+  if (!res.tabId) return { problems: [`ostia open: ${url} names no browser pane`], shown: [] }
+  const seen = await confirmPaneOpen(conn, res.tabId, url)
+  return seen.ok
+    ? { problems: [], shown: [`${seen.value}\t${url}`] }
+    : { problems: [seen.reason], shown: [] }
 }
 
 const WAIT_ENDED = 'ostia: the wait ended before the tab was closed'
@@ -511,34 +508,87 @@ function fail(message: string): void {
   process.exitCode = 1
 }
 
-async function runOpenFiles(conn: MessageConnection, args: string[]): Promise<void> {
-  let parsed: ParsedArgs<'name' | 'split', never, 'background' | 'wait' | 'tab' | 'fresh'>
+function failUsage(noun: string): void {
+  fail(usageOf(noun))
+}
+
+type FolderOpener = (conn: MessageConnection, path: string, background: boolean) => Promise<Opened>
+
+async function workspaceFolderIn(
+  conn: MessageConnection,
+  path: string,
+  background: boolean,
+): Promise<Opened> {
+  const here = await conn
+    .sendRequest<{ ok: boolean; same?: boolean }>('workspace.sameFolder', { dir: path })
+    .catch(() => undefined)
+  if (here?.same) return { problems: [], shown: [`already open\t${path}`] }
+  const made = await newWorkspace(conn, {
+    dir: path,
+    ...(background ? { focus: false as const } : {}),
+  })
+  return made.ok
+    ? { problems: [], shown: [`${made.workspaceId}\t${path}`] }
+    : { problems: [`ostia: ${path}: ${made.message}`], shown: [] }
+}
+
+const OPEN_FLAG_WORDS: ReadonlySet<string> = new Set([
+  '-b',
+  '--background',
+  '-w',
+  '--wait',
+  '--name',
+])
+
+function looksLikePath(word: string): boolean {
+  if (word === '-' || OPEN_FLAG_WORDS.has(word)) return true
+  if (word.startsWith('-')) return false
+  return (
+    openTargetKind(word) === 'url' ||
+    word.includes('/') ||
+    word.startsWith('.') ||
+    word.startsWith('~')
+  )
+}
+
+function opensOffline(word: string): boolean {
+  return looksLikePath(word) || FILE_PROBE.isFile(parseFileArg(word, FILE_PROBE).path)
+}
+
+async function opensAsTarget(conn: MessageConnection, word: string): Promise<boolean> {
+  if (looksLikePath(word)) return true
+  if (word.startsWith('-')) return false
+  const { path } = parseFileArg(word, FILE_PROBE)
+  if (!FILE_PROBE.isFile(path) && !FILE_PROBE.isDir?.(path)) return false
+  const [extensions, commands] = await Promise.all([
+    conn.sendRequest<{ id: string; verb?: string }[]>('ext.list').catch(() => []),
+    conn.sendRequest<{ id: string }[]>('command.list').catch(() => []),
+  ])
+  const claimed = [
+    ...extensions.flatMap((e) => (e.verb ? [e.id, e.verb] : [e.id])),
+    ...commands.map((c) => c.id),
+  ]
+  return !claimed.includes(word)
+}
+
+async function runOpenFiles(
+  conn: MessageConnection,
+  args: string[],
+  folderIn: FolderOpener = revealFolderIn,
+): Promise<void> {
+  let parsed: ParsedArgs<'name', never, 'background' | 'wait'>
   try {
     parsed = parseArgs(args, {
-      values: { name: '--name', split: '--split' },
-      booleans: {
-        background: '-b, --background',
-        wait: '-w, --wait',
-        tab: '--tab',
-        fresh: '-n, --new',
-      },
+      values: { name: '--name' },
+      booleans: { background: '-b, --background', wait: '-w, --wait' },
     })
   } catch (err) {
     if (!(err instanceof FlagError)) throw err
-    return fail(`ostia open: ${err.message}`)
+    return fail(`ostia open: ${err.message}\n${usageOf('open')}`)
   }
   const targets = parsed.positional.map((word) => openTarget(word, FILE_PROBE))
-  if (targets.length === 0) return fail('ostia open: missing <path>')
-  const { background, wait, tab, fresh } = parsed.booleans
-  if (fresh) {
-    const problems = await newWorkspaceIn(conn, targets)
-    for (const line of problems) console.error(line)
-    if (problems.length > 0) process.exitCode = 1
-    else console.log('ok')
-    return
-  }
-  const placed = placementOf({ tab, split: parsed.values.split, wait })
-  if (!placed.ok) return fail(`ostia open: ${placed.message}`)
+  if (targets.length === 0) return fail(usageOf('open'))
+  const { background, wait } = parsed.booleans
   const fromStdin = targets.filter((t) => t.kind === 'stdin').length
   if (fromStdin > 1) return fail('ostia open: only one - reads stdin')
   if (parsed.values.name !== undefined && fromStdin === 0) {
@@ -562,16 +612,19 @@ async function runOpenFiles(conn: MessageConnection, args: string[]): Promise<vo
   if (wait && files.length === 0 && problems.length === 0) {
     return fail('ostia open: --wait needs a file')
   }
-  for (const target of targets) {
-    if (target.kind === 'folder') problems.push(...(await revealFolderIn(conn, target.path)))
-    if (target.kind === 'url') problems.push(...(await openUrlIn(conn, target.url, background)))
+  const shown: string[] = []
+  const take = (opened: Opened): void => {
+    problems.push(...opened.problems)
+    shown.push(...opened.shown)
   }
-  problems.push(
-    ...(await openFilesIn(conn, files, { background, placement: placed.placement, wait })),
-  )
+  for (const target of targets) {
+    if (target.kind === 'folder') take(await folderIn(conn, target.path, background))
+    if (target.kind === 'url') take(await openUrlIn(conn, target.url, background))
+  }
+  take(await openFilesIn(conn, files, { background, wait }))
+  for (const line of shown) console.log(line)
   for (const line of problems) console.error(line)
   if (problems.length > 0) process.exitCode = 1
-  else if (!wait) console.log('ok')
 }
 
 async function runDiffFiles(conn: MessageConnection, args: string[]): Promise<void> {
@@ -584,7 +637,7 @@ async function runDiffFiles(conn: MessageConnection, args: string[]): Promise<vo
     if (!(err instanceof FlagError)) throw err
     return fail(`ostia diff: ${err.message}`)
   }
-  if (parsed.positional.length !== 2) return fail('ostia diff: takes two files: ostia diff <a> <b>')
+  if (parsed.positional.length !== 2) return fail(usageOf('diff'))
   const [original, modified] = parsed.positional.map((word) => parseFileArg(word, FILE_PROBE).path)
   const { background, wait } = parsed.booleans
   const res = await conn.sendRequest<DiffFilesResult>('file.diff', {
@@ -758,10 +811,7 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
     }
   } else {
-    console.error(
-      `ostia bus: unknown subcommand '${sub ?? ''}' (try: send, inbox, sent, wait, handoff, claim, handoffs, done)`,
-    )
-    process.exitCode = 1
+    failUsage('bus')
   }
 }
 
@@ -848,10 +898,7 @@ async function runGatewayVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
     }
   } else {
-    console.error(
-      `ostia gateway: unknown subcommand '${sub ?? ''}' (try: pair, status, devices, revoke)`,
-    )
-    process.exitCode = 1
+    failUsage('gateway')
   }
 }
 
@@ -878,78 +925,40 @@ function describeErrResult(res: ErrResult): string {
   return res.message ? `${res.error}: ${res.message}` : res.error
 }
 
-const SPLIT_TAB_FLAGS = { splitTab: '--split-tab', split: '--split' } as const
-
-function splitTabParams(flags: {
-  splitTab?: string
-  split?: string
-}): { splitTab?: string; split?: string } | string {
-  if (flags.split !== undefined && flags.splitTab === undefined) return '--split needs --split-tab'
-  if (flags.split !== undefined && flags.split !== 'right' && flags.split !== 'down') {
-    return `--split expects right or down, got '${flags.split}'`
-  }
-  return {
-    ...(flags.splitTab !== undefined ? { splitTab: flags.splitTab } : {}),
-    ...(flags.split !== undefined ? { split: flags.split } : {}),
-  }
-}
-
-async function runAgentResume(conn: MessageConnection): Promise<void> {
-  const [pane, ...extra] = process.argv.slice(4)
-  if (!pane || extra.length > 0) {
-    console.error('usage: ostia agent resume <pane>')
-    process.exitCode = 1
-    return
-  }
-  const res = await conn.sendRequest<{ paneId: string; resumed: boolean }>('agent.resume', { pane })
-  console.log(JSON.stringify(res))
-  if (!res.resumed) {
-    console.error(`ostia agent resume: ${res.paneId} has no agent session to resume`)
-    process.exitCode = 1
-  }
-}
-
 async function runAgentVerb(conn: MessageConnection): Promise<void> {
-  if (process.argv[3] === 'resume') {
-    await runAgentResume(conn)
-    return
-  }
   const { values: flags, positional } = parseArgs(process.argv.slice(4), {
-    values: { name: '--name', cwd: '--cwd', workspace: '--workspace', ...SPLIT_TAB_FLAGS },
-    unknown: 'keep',
+    values: { name: '--name', cwd: '--cwd', workspace: '--workspace', tab: '--tab' },
   })
   const [agent, given] = positional
-  if (process.argv[3] !== 'run' || !agent || given === undefined) {
-    console.error(
-      'usage: ostia agent run <agent> [--name N] [--cwd DIR] [--workspace <id|name>] [--split-tab T [--split right|down]] <prompt|-> | agent resume <pane>',
-    )
-    process.exitCode = 1
-    return
-  }
-  const splitTab = splitTabParams(flags)
-  if (typeof splitTab === 'string') {
-    console.error(`ostia agent run: ${splitTab}`)
-    process.exitCode = 1
-    return
-  }
+  if (process.argv[3] !== 'run' || !agent || given === undefined) return failUsage('agent')
   const prompt = given === '-' ? await readAllStdin() : given
-  const res = await conn.sendRequest<{ id: string; name: string; paneId: string } | ErrResult>(
-    'agent.run',
-    {
-      agent,
-      prompt,
-      name: flags.name,
-      ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}),
-      ...(flags.workspace ? { workspace: await resolveWorkspaceRef(conn, flags.workspace) } : {}),
-      ...splitTab,
-    },
-  )
+  const res = await conn.sendRequest<StartAnswer | ErrResult>('agent.run', {
+    agent,
+    prompt,
+    name: flags.name,
+    ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}),
+    ...(flags.workspace ? { workspace: await resolveWorkspaceRef(conn, flags.workspace) } : {}),
+    ...(flags.tab !== undefined ? { tab: flags.tab } : {}),
+  })
   if (isErrResult(res)) {
     console.error(`ostia: agent run failed (${describeErrResult(res)})`)
     process.exitCode = 1
     return
   }
+  printStart('agent run', res)
+}
+
+interface StartAnswer {
+  name: string
+  paneId: string
+  status?: string
+  reason?: string
+}
+
+function printStart(verb: string, res: StartAnswer): void {
   console.log(JSON.stringify(res))
+  if (res.status !== 'failed' && res.status !== 'timed-out') return
+  fail(`ostia ${verb}: ${res.name} (${res.paneId}) ${res.status}: ${res.reason ?? ''}`)
 }
 
 async function runProcessVerb(conn: MessageConnection): Promise<void> {
@@ -958,46 +967,32 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
 
   if (sub === 'run') {
     const { values: flags, positional } = parseArgs(rawArgs, {
-      values: { name: '--name', cwd: '--cwd', workspace: '--workspace', ...SPLIT_TAB_FLAGS },
-      unknown: 'keep',
+      values: { name: '--name', cwd: '--cwd', workspace: '--workspace', tab: '--tab' },
     })
     const cmd = positional[0]
-    if (!cmd) {
-      console.error('ostia process run: missing "<cmd>"')
-      process.exitCode = 1
-      return
-    }
-    const splitTab = splitTabParams(flags)
-    if (typeof splitTab === 'string') {
-      console.error(`ostia process run: ${splitTab}`)
-      process.exitCode = 1
-      return
-    }
-    const res = await conn.sendRequest<{ id: string; name: string; paneId: string } | ErrResult>(
-      'process.run',
-      {
-        cmd,
-        name: flags.name,
-        ...(flags.workspace
-          ? {
-              workspace: await resolveWorkspaceRef(conn, flags.workspace),
-              ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}),
-            }
-          : { cwd: resolvePath(flags.cwd ?? '.') }),
-        ...splitTab,
-      },
-    )
+    if (!cmd) return failUsage('process')
+    const res = await conn.sendRequest<StartAnswer | ErrResult>('process.run', {
+      cmd,
+      name: flags.name,
+      ...(flags.workspace
+        ? {
+            workspace: await resolveWorkspaceRef(conn, flags.workspace),
+            ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}),
+          }
+        : { cwd: resolvePath(flags.cwd ?? '.') }),
+      ...(flags.tab !== undefined ? { tab: flags.tab } : {}),
+    })
     if (isErrResult(res)) {
       console.error(`ostia: process run failed (${describeErrResult(res)})`)
       process.exitCode = 1
       return
     }
-    console.log(JSON.stringify(res))
-  } else if (sub === 'ls') {
+    printStart('process run', res)
+  } else if (sub === 'list') {
     const list = await conn.sendRequest<ProcInfo[] | ErrResult>('process.list')
     if (!Array.isArray(list)) {
       const reason = isErrResult(list) ? describeErrResult(list) : 'unexpected response'
-      console.error(`ostia: process ls failed (${reason})`)
+      console.error(`ostia: process list failed (${reason})`)
       process.exitCode = 1
       return
     }
@@ -1011,11 +1006,7 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
   } else if (sub === 'logs') {
     const { values, positional } = parseArgs(rawArgs, { values: { since: '--since' } })
     const id = positional[0]
-    if (!id) {
-      console.error('ostia process logs: missing <id|name>')
-      process.exitCode = 1
-      return
-    }
+    if (!id) return failUsage('process')
     const sinceCursor = numberFlag(values.since, 'since')
     const res = await conn.sendRequest<
       { data: string; cursor: number; dropped: boolean } | ErrResult
@@ -1029,11 +1020,7 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
     console.error(`(cursor=${res.cursor}${res.dropped ? ', dropped' : ''})`)
   } else if (sub === 'kill') {
     const id = rawArgs[0]
-    if (!id) {
-      console.error('ostia process kill: missing <id|name>')
-      process.exitCode = 1
-      return
-    }
+    if (!id) return failUsage('process')
     const res = await conn.sendRequest<{ ok: true } | ErrResult>('process.kill', { id })
     if (isErrResult(res)) {
       console.error(`ostia: process kill failed (${describeErrResult(res)})`)
@@ -1043,11 +1030,7 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
     console.log('ok')
   } else if (sub === 'restart') {
     const id = rawArgs[0]
-    if (!id) {
-      console.error('ostia process restart: missing <id|name>')
-      process.exitCode = 1
-      return
-    }
+    if (!id) return failUsage('process')
     const res = await conn.sendRequest<{ id: string } | ErrResult>('process.restart', { id })
     if (isErrResult(res)) {
       console.error(`ostia: process restart failed (${describeErrResult(res)})`)
@@ -1056,10 +1039,7 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
     }
     console.log(JSON.stringify(res))
   } else {
-    console.error(
-      `ostia process: unknown subcommand '${sub ?? ''}' (try: run, ls, logs, kill, restart)`,
-    )
-    process.exitCode = 1
+    failUsage('process')
   }
 }
 
@@ -1109,10 +1089,7 @@ async function runSettingsVerb(conn: MessageConnection): Promise<void> {
     const key = process.argv[4]
     await printSettingsCommand(conn, 'settings.schema', key ? { key } : undefined)
   } else {
-    console.error(
-      `ostia settings: unknown subcommand '${sub ?? ''}' (try: get, set, unset, schema)`,
-    )
-    process.exitCode = 1
+    failUsage('settings')
   }
 }
 
@@ -1137,11 +1114,7 @@ async function runStateVerb(conn: MessageConnection): Promise<void> {
   })
   const paneId = values.pane
   const [state, rawMessage] = positional
-  if (!state || !STATE_VERBS.includes(state)) {
-    console.error(`ostia state: expected one of ${STATE_VERBS.join('|')}`)
-    process.exitCode = 1
-    return
-  }
+  if (!state || !STATE_VERBS.includes(state)) return failUsage('state')
   const message = rawMessage === '-' ? messageFromStdin(await readAllStdin()) : rawMessage
   const res = await conn.sendRequest<{ ok: boolean; error?: string; message?: string }>(
     'pane.setAttention',
@@ -1154,13 +1127,6 @@ async function runStateVerb(conn: MessageConnection): Promise<void> {
     process.exitCode = 1
   }
 }
-
-const WORKSPACE_USAGE =
-  'ostia workspace: usage: workspace list [--json] | describe [--workspace <id>] <text|-> | describe --clear | ' +
-  'group [--workspace <id>] <name> | ungroup [--workspace <id>] | group-color <group> <color> | ' +
-  'group-color <group> --clear | group-rename <group> <name> | group-delete <group> | pin [--workspace <id>] | ' +
-  'unpin [--workspace <id>] | close [--workspace <id>] | dir [path] | rename [--workspace <id>] <name…> | rename --clear | ' +
-  'import-cmux [session-file] [--json]'
 
 interface WorkspaceListing {
   workspaceId: string
@@ -1209,6 +1175,41 @@ async function runWorkspaceCommand(
     console.error(`ostia workspace ${verb}: ${res.error?.message ?? 'failed'}`)
     process.exitCode = 1
   }
+}
+
+interface NewWorkspaceArgs {
+  dir: string
+  name?: string
+  group?: string
+  focus?: false
+}
+
+async function newWorkspace(
+  conn: MessageConnection,
+  args: NewWorkspaceArgs,
+): Promise<{ ok: true; workspaceId: string } | { ok: false; message: string }> {
+  const res = await conn.sendRequest<CommandResult>('command.exec', { id: 'workspace.new', args })
+  if (!res.ok) return { ok: false, message: res.error.message }
+  const workspaceId = (res.result as { workspaceId?: unknown } | undefined)?.workspaceId
+  if (typeof workspaceId !== 'string') return { ok: false, message: 'no workspace was made' }
+  const seen = await confirmWorkspace(conn, workspaceId)
+  return seen.ok ? { ok: true, workspaceId: seen.value } : { ok: false, message: seen.reason }
+}
+
+async function runWorkspaceNew(conn: MessageConnection, argv: string[]): Promise<void> {
+  const { positional, values, booleans } = parseArgs(argv, {
+    values: { name: '--name', group: '--group' },
+    booleans: { noFocus: '--no-focus' },
+  })
+  if (positional.length > 1) return failUsage('workspace')
+  const made = await newWorkspace(conn, {
+    dir: resolvePath(positional[0] ?? '.'),
+    ...(values.name ? { name: values.name } : {}),
+    ...(values.group ? { group: values.group } : {}),
+    ...(booleans.noFocus ? { focus: false as const } : {}),
+  })
+  if (!made.ok) return fail(`ostia workspace new: ${made.message}`)
+  console.log(JSON.stringify({ workspaceId: made.workspaceId }))
 }
 
 async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
@@ -1292,8 +1293,8 @@ async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
     )
     return
   }
-  if (sub === 'import-cmux') {
-    process.exitCode = await runCmuxImportVerb(conn, rest, process.cwd())
+  if (sub === 'new') {
+    await runWorkspaceNew(conn, rest)
     return
   }
   if (sub === 'dir') {
@@ -1323,11 +1324,7 @@ async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
     console.log('ok')
     return
   }
-  if (sub !== 'describe') {
-    console.error(WORKSPACE_USAGE)
-    process.exitCode = 1
-    return
-  }
+  if (sub !== 'describe') return failUsage('workspace')
   const { positional, booleans, values } = parseArgs(rest, {
     values: { workspace: '--workspace' },
     booleans: { clear: '--clear' },
@@ -1353,8 +1350,6 @@ async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
     process.exitCode = 1
   }
 }
-
-const SNIPPET_USAGE = 'ostia snippet: usage: snippet list [--json] | show <name> [--json]'
 
 function describeSnippet(w: SnippetEntry): string {
   const lines = [`name: ${w.name}`, `source: ${w.source} (${w.origin})`]
@@ -1383,11 +1378,7 @@ async function runSnippetVerb(conn: MessageConnection): Promise<void> {
   })
   const { json } = booleans
   const name = positional.join(' ').trim()
-  if (sub !== 'list' && !(sub === 'show' && name)) {
-    console.error(SNIPPET_USAGE)
-    process.exitCode = 1
-    return
-  }
+  if (sub !== 'list' && !(sub === 'show' && name)) return failUsage('snippet')
   const listing = await conn.sendRequest<SnippetListing>('snippet.list')
   if (sub === 'list') {
     if (json) {
@@ -1462,101 +1453,6 @@ async function runResumeTokenVerb(conn: MessageConnection): Promise<void> {
   }
 }
 
-const USAGE = `usage: ostia <command> [args]
-       ostia --version
-
-commands:
-  whoami | commands | info | cwd | pane.list | workspace.list | docs
-  notify <title> [body]
-  ask "<question>" [--context <text|->] [--choice <label>]… [--multi] [--timeout <s>] [--json]
-                            ask the human and wait for the answer (exit 2 dismissed, 3 timed
-                            out, 4 pane closed)
-  state <waiting|done|working|error|clear> [message|-] [--pane <externalId>]
-  workspace describe [--workspace <id>] <text|-> | --clear
-                            one-line summary under this workspace (or --workspace) in the sidebar
-  workspace dir [path]      make this folder (default: the current one) the workspace's folder
-  workspace list [--json]   every workspace with its sidebar group (--json adds the groups)
-  workspace group [--workspace <id>] <name> | ungroup [--workspace <id>]
-                            move a workspace (default: this one) into a sidebar group, or out of it
-  workspace group-color <group> <red|orange|yellow|green|teal|blue|purple|pink> | <group> --clear
-                            set or clear a sidebar group's color
-  workspace group-rename <group> <name>
-                            rename a sidebar group (the new name must not be taken); quote
-                            a name with spaces: workspace group-rename "code review" review
-  workspace group-delete <group>
-                            delete a sidebar group; its workspaces stay, ungrouped; quote
-                            a name with spaces
-  workspace pin [--workspace <id>] | unpin [--workspace <id>]
-                            pin a workspace (default: this one) to the top of the sidebar, or unpin it
-  workspace close [--workspace <id>]
-                            close a workspace where nothing runs (kill-pane; another workspace
-                            needs all-workspaces); one with a running command, a live agent or
-                            unsaved files is refused with busy:
-  workspace import-cmux [file] [--json]   recreate cmux's saved workspaces, splits and tabs
-  resume-token <claude|codex> <id|->  remember how to resume this pane's agent after a restart
-  snippet list [--json] | show <name> [--json]   saved commands (read-only)
-  view list [--json] | open <name>   declarative views (~/.config/ostia/views/<name>.json)
-  view validate <file> | schema      check a view file / print its JSON schema (no app needed)
-  <target>... | open [-b|--background] [--tab | --split right|down] [-w|--wait] <target>...
-                            show a file (file:line[:col] jumps), a folder (in the Files
-                            panel), an http(s) URL (in a browser pane) or - (stdin, saved
-                            into $OSTIA_ARTIFACTS; --name <file> names it). The new tab takes
-                            focus only when this pane has it; -b never takes it.
-                            --tab opens a tab beside this pane, --split a split of it.
-                            --wait returns when the tab is closed (EDITOR="ostia --wait"):
-                            exit 0 on a close, 1 when the wait ended any other way
-  diff [-b] [-w|--wait] <a> <b>   compare two text files, read-only
-  -n <dir>                  new workspace on that folder
-  process run "<cmd>" [--name N] [--cwd DIR] [--workspace <id|name>]
-              [--split-tab T [--split right|down]] | ls | logs | kill | restart <id|name>
-                            run a command in a new terminal tab the human can watch;
-                            the same --split-tab T puts them side by side in one tab
-  agent run <agent> [--name N] [--cwd DIR] [--workspace <id|name>]
-            [--split-tab T [--split right|down]] <prompt|->
-                            start claude, codex or an agent the human configured in a new
-                            terminal tab with that prompt; talk to it with ostia pane
-  agent resume <pane>       type that pane's recorded resume command (wakes it when hibernated);
-                            same asks as pane send
-  pane send <pane> <text> [--enter] | key <pane> <key>… | read <pane> [--lines N]
-                            type into or read another terminal pane (asks the human unless
-                            you opened it with ostia process run)
-  pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]
-                            block until one of those panes' agents stops working; exit 0
-                            reached, 3 timed out, 4 pane closed
-  pane wake <pane>… [--wait [--timeout <s>]] [--json]
-                            wake hibernated agent panes: each types its agent's resume
-                            command at a fresh prompt (same asks as pane send); --wait
-                            returns once their agents started: exit 0 started, 3 timed
-                            out, 4 pane closed
-  pane hibernate <pane>… [--json]
-                            stop those agent panes to save memory (kill-pane unless you opened
-                            them); a busy agent is skipped: exit 2
-  pane close <pane>… [--json]
-                            close those panes at once, even while a command runs (a tab you
-                            opened needs nothing more, any other asks for kill-pane)
-  pane move <pane>… --workspace <id|name> [--json]
-                            move those running tabs into another workspace of their window
-                            (a tab you opened needs nothing more, any other asks for
-                            type-other-pane; all-workspaces outside your reach)
-  vault | bus | settings | browse | gateway | token <subcommand> ...
-  install-polkit            (Linux, run with sudo) let polkit confirm new script tokens with
-                            your password or fingerprint
-  ext ls | ext <extId> <command> [args...]
-  <extId> <command> [args...]  an extension command, e.g. ostia ssh hosts
-  git status | changes | diff | open | log | blame | stage | unstage | commit
-                            the repository of your folder (see: ostia git)
-  ports ls [--all]          listening ports and ssh hosts of your workspace
-  <command.id> [json-args] [--workspace <id|name>]
-                            run any registered command (see: ostia commands); --workspace runs
-                            it in that workspace (needs all-workspaces)
-  workspace.new [json-args] [--no-focus]   open a workspace without switching to it
-  workspace.hibernateAgents | workspace.resumeAgents --workspace <id|name>
-                            hibernate the idle agents of a workspace (kill-pane), or wake them
-                            (type-other-pane); hibernateGroupAgents and resumeGroupAgents act on
-                            its whole sidebar group
-
-run 'ostia docs' inside an Ostia pane for the full reference.`
-
 function connectSocket(socketPath: string): Promise<Socket> {
   return new Promise((resolveSocket, reject) => {
     const socket = createConnection(socketPath)
@@ -1568,27 +1464,142 @@ function connectSocket(socketPath: string): Promise<Socket> {
   })
 }
 
+interface WhoAmI {
+  externalId: string
+  paneId?: string
+  workspaceId?: string
+}
+
+async function runWhoami(conn: MessageConnection): Promise<void> {
+  const who = await conn.sendRequest<WhoAmI>('whoami')
+  const state = who.paneId
+    ? await conn.sendRequest<{ cwd?: string; running?: boolean } | null>('pane.info')
+    : null
+  console.log(
+    JSON.stringify(
+      { ...who, ...(state ? { cwd: state.cwd ?? null, running: state.running === true } : {}) },
+      null,
+      2,
+    ),
+  )
+}
+
+async function runRawCommand(conn: MessageConnection, cmd: string): Promise<void> {
+  if (wantsHelp(process.argv[3])) {
+    const list = await conn.sendRequest<CommandDescriptor[]>('command.list')
+    const found = list.find((c) => c.id === cmd)
+    if (found) console.log(commandHelp(found))
+    else fail(`ostia: unknown command '${cmd}' (see: ostia commands)`)
+    return
+  }
+  const flags = parseCommandFlags(process.argv.slice(3))
+  const workspace = flags.workspace ? await resolveWorkspaceRef(conn, flags.workspace) : undefined
+  const res = await conn.sendRequest<CommandResult>(
+    'command.exec',
+    buildCommandCall(cmd, flags, workspace),
+  )
+  if (!res.ok) return fail(`ostia: ${res.error?.message}`)
+  console.log('ok')
+  if (res.result !== undefined) console.log(JSON.stringify(res.result))
+}
+
+async function runNotify(conn: MessageConnection): Promise<void> {
+  const [title, body] = process.argv.slice(3)
+  const res = await conn.sendRequest<{ ok: boolean; error?: string }>('notify', { title, body })
+  if (res.ok) console.log('ok')
+  else fail(`ostia notify: ${res.error ?? 'failed'}`)
+}
+
+async function runDocs(conn: MessageConnection): Promise<void> {
+  const res = await conn.sendRequest<{ cli: string }>('docs')
+  console.log(res.cli)
+}
+
+type Runner = (conn: MessageConnection) => Promise<void>
+
+const argvFrom3 = (): string[] => process.argv.slice(3)
+
+const RUNNERS: Readonly<Record<string, Runner>> = {
+  whoami: runWhoami,
+  commands: async (conn) => {
+    console.log(JSON.stringify(await conn.sendRequest('command.list'), null, 2))
+  },
+  docs: runDocs,
+  notify: runNotify,
+  ask: async (conn) => {
+    process.exitCode = await runAskVerb(conn, argvFrom3(), readAllStdin)
+  },
+  state: runStateVerb,
+  workspace: runWorkspaceVerb,
+  'resume-token': runResumeTokenVerb,
+  'claude-hook': runClaudeHookVerb,
+  'permission-hook': async (conn) => {
+    process.exitCode = await runPermissionHook(argvFrom3(), {
+      readInput: readAllStdin,
+      ask: (params) => conn.sendRequest('permission.ask', params),
+      out: (line) => console.log(line),
+      err: (line) => console.error(line),
+    })
+  },
+  'agent-hook': async (conn) => {
+    process.exitCode = await runAgentHook(argvFrom3(), {
+      readInput: readAllStdin,
+      invoke: (params) => conn.sendRequest('ext.invoke', params),
+      out: (line) => console.log(line),
+      err: (line) => console.error(line),
+    })
+  },
+  snippet: runSnippetVerb,
+  git: (conn) => runGitVerb(conn, argvFrom3()),
+  ports: (conn) => runPortsVerb(conn, argvFrom3()),
+  view: (conn) => runViewVerb(conn, argvFrom3()),
+  open: (conn) => runOpenFiles(conn, argvFrom3()),
+  diff: (conn) => runDiffFiles(conn, argvFrom3()),
+  process: runProcessVerb,
+  agent: runAgentVerb,
+  pane: async (conn) => {
+    process.exitCode = await runPaneVerb(conn, argvFrom3(), readAllStdin)
+  },
+  token: async (conn) => {
+    process.exitCode = await runTokenVerb(conn, argvFrom3())
+  },
+  cmux: async (conn) => {
+    process.exitCode = await runCmuxImportVerb(conn, process.argv.slice(4), process.cwd())
+  },
+  vault: runVaultVerb,
+  sandbox: runSandboxVerb,
+  secret: runSecretVerb,
+  ext: runExtList,
+  manager: async (conn) => {
+    process.exitCode = await runManagerVerb(conn, argvFrom3(), process.cwd())
+  },
+  bus: runBusVerb,
+  settings: runSettingsVerb,
+  browse: (conn) => runBrowse(conn, argvFrom3()),
+  gateway: runGatewayVerb,
+}
+
+function printUsage(answer: UsageAnswer): void {
+  if (answer.code === 0) console.log(answer.text)
+  else console.error(answer.text)
+  process.exitCode = answer.code
+}
+
 async function main(): Promise<void> {
   const token = paneToken()
   const socketPath =
     readEnv('SOCKET') ??
     (token?.startsWith(SCRIPT_TOKEN_PREFIX) ? readControlSocket(controlInfoPath()) : undefined)
-  const [cmd] = process.argv.slice(2)
-  if (cmd === '--help' || cmd === '-h' || cmd === 'help') {
-    console.log(USAGE)
-    return
-  }
+  const argv = process.argv.slice(2)
+  const [cmd] = argv
   if (cmd === '--version') {
     const version = buildVersionAt(__dirname)
     if (version) console.log(version)
-    else {
-      console.error('ostia: build-info.json is missing')
-      process.exitCode = 1
-    }
+    else fail('ostia: build-info.json is missing')
     return
   }
-  if (cmd === 'install-polkit') {
-    process.exitCode = runInstallPolkit(process.argv.slice(3), {
+  if (cmd === 'polkit' && argv[1] === 'install') {
+    process.exitCode = runInstallPolkit(argv.slice(2), {
       platform: process.platform,
       uid: process.getuid?.(),
       out: (line) => console.log(line),
@@ -1596,21 +1607,16 @@ async function main(): Promise<void> {
     })
     return
   }
-  if (isOfflineViewVerb(process.argv.slice(2))) {
-    process.exitCode = runOfflineViewVerb(process.argv.slice(2))
+  if (isOfflineViewVerb(argv)) {
+    process.exitCode = runOfflineViewVerb(argv)
     return
   }
   if (!socketPath) {
-    if (
-      cmd &&
-      fileWord(cmd, FILE_PROBE) === 'path' &&
-      FILE_PROBE.isFile(parseFileArg(cmd, FILE_PROBE).path)
-    ) {
-      console.error('ostia: files open from a terminal inside Ostia (OSTIA_SOCKET unset)')
-      process.exitCode = 1
-      return
+    if (cmd !== undefined && wantsHelp(cmd)) return printUsage({ text: topUsage(), code: 0 })
+    if (cmd === 'open' || (cmd !== undefined && opensOffline(cmd))) {
+      return fail('ostia: files open from a terminal inside Ostia')
     }
-    process.exitCode = await runPortalCommand(process.argv.slice(2), {
+    process.exitCode = await runPortalCommand(argv, {
       stdin: process.stdin,
       stdout: process.stdout,
       stderr: process.stderr,
@@ -1619,11 +1625,13 @@ async function main(): Promise<void> {
     })
     return
   }
+  const gated = usageGate(argv)
+  if (gated) return printUsage(gated)
   let socket: Socket
   try {
     socket = await connectSocket(socketPath)
   } catch {
-    if (await saveAttentionOffline(process.argv.slice(2), readAllStdin)) return
+    if (await saveAttentionOffline(argv, readAllStdin)) return
     console.error(`ostia: app not reachable at ${socketPath}`)
     process.exit(1)
   }
@@ -1645,135 +1653,11 @@ async function main(): Promise<void> {
   conn.listen()
   try {
     await conn.sendRequest('hello', { token, pid: process.ppid })
-    if (cmd === 'whoami') {
-      const who = await conn.sendRequest('whoami')
-      console.log(JSON.stringify(who, null, 2))
-    } else if (cmd === 'commands') {
-      const list = await conn.sendRequest('command.list')
-      console.log(JSON.stringify(list, null, 2))
-    } else if (cmd === 'info') {
-      const info = await conn.sendRequest('pane.info')
-      console.log(JSON.stringify(info, null, 2))
-    } else if (cmd === 'cwd') {
-      const res = await conn.sendRequest<{ cwd: string | null }>('cwd.get')
-      console.log(res.cwd ?? '')
-    } else if (cmd === 'pane.list') {
-      const panes = await conn.sendRequest('pane.list')
-      console.log(JSON.stringify(panes, null, 2))
-    } else if (cmd === 'workspace.list') {
-      const workspaces = await conn.sendRequest('workspace.list')
-      console.log(JSON.stringify(workspaces, null, 2))
-    } else if (cmd === 'notify') {
-      const title = process.argv[3]
-      const body = process.argv[4]
-      const res = await conn.sendRequest<{ ok: boolean; error?: string }>('notify', { title, body })
-      if (res.ok) {
-        console.log('ok')
-      } else {
-        console.error(`ostia notify: ${res.error ?? 'failed'}`)
-        process.exitCode = 1
-      }
-    } else if (cmd === 'ask') {
-      process.exitCode = await runAskVerb(conn, process.argv.slice(3), readAllStdin)
-    } else if (cmd === 'state') {
-      await runStateVerb(conn)
-    } else if (cmd === 'workspace') {
-      await runWorkspaceVerb(conn)
-    } else if (cmd === 'resume-token') {
-      await runResumeTokenVerb(conn)
-    } else if (cmd === 'claude-hook') {
-      await runClaudeHookVerb(conn)
-    } else if (cmd === 'permission-hook') {
-      process.exitCode = await runPermissionHook(process.argv.slice(3), {
-        readInput: readAllStdin,
-        ask: (params) => conn.sendRequest('permission.ask', params),
-        out: (line) => console.log(line),
-        err: (line) => console.error(line),
-      })
-    } else if (cmd === 'agent-hook') {
-      process.exitCode = await runAgentHook(process.argv.slice(3), {
-        readInput: readAllStdin,
-        invoke: (params) => conn.sendRequest('ext.invoke', params),
-        out: (line) => console.log(line),
-        err: (line) => console.error(line),
-      })
-    } else if (cmd === 'snippet') {
-      await runSnippetVerb(conn)
-    } else if (cmd === 'git') {
-      await runGitVerb(conn, process.argv.slice(3))
-    } else if (cmd === 'ports') {
-      await runPortsVerb(conn, process.argv.slice(3))
-    } else if (cmd === 'view') {
-      await runViewVerb(conn, process.argv.slice(3))
-    } else if (cmd === 'open') {
-      await runOpenFiles(conn, process.argv.slice(3))
-    } else if (cmd === 'diff') {
-      await runDiffFiles(conn, process.argv.slice(3))
-    } else if (cmd === 'docs') {
-      const res = await conn.sendRequest<{ cli: string }>('docs')
-      console.log(res.cli)
-    } else if (cmd === 'process') {
-      await runProcessVerb(conn)
-    } else if (cmd === 'agent') {
-      await runAgentVerb(conn)
-    } else if (cmd === 'pane') {
-      process.exitCode = await runPaneVerb(conn, process.argv.slice(3), readAllStdin)
-    } else if (cmd === 'token') {
-      process.exitCode = await runTokenVerb(conn, process.argv.slice(3))
-    } else if (cmd === 'vault') {
-      await runVaultVerb(conn)
-    } else if (cmd === 'sandbox') {
-      await runSandboxVerb(conn)
-    } else if (cmd === 'secret') {
-      await runSecretVerb(conn)
-    } else if (cmd === 'ext') {
-      if (process.argv[3] === 'ls') await runExtList(conn)
-      else await runExtCommand(conn, process.argv[3], process.argv[4], process.argv.slice(5))
-    } else if (cmd && !CORE_VERBS.has(cmd) && (await opensAsFile(conn, cmd))) {
-      await runOpenFiles(conn, process.argv.slice(2))
-    } else if (cmd && !cmd.includes('.') && !CORE_VERBS.has(cmd)) {
-      await runExtCommand(conn, cmd, process.argv[3], process.argv.slice(4))
-    } else if (cmd === 'manager') {
-      process.exitCode = await runManagerVerb(conn, process.argv.slice(3), process.cwd())
-    } else if (cmd === 'bus') {
-      await runBusVerb(conn)
-    } else if (cmd === 'settings') {
-      await runSettingsVerb(conn)
-    } else if (cmd === 'browse') {
-      await runBrowse(conn, process.argv.slice(3))
-    } else if (cmd === 'gateway') {
-      await runGatewayVerb(conn)
-    } else if (cmd && wantsHelp(process.argv[3])) {
-      const list = await conn.sendRequest<CommandDescriptor[]>('command.list')
-      const found = list.find((c) => c.id === cmd)
-      if (found) {
-        console.log(commandHelp(found))
-      } else {
-        console.error(`ostia: unknown command '${cmd}' (try: ostia commands)`)
-        process.exitCode = 1
-      }
-    } else if (cmd) {
-      const flags = parseCommandFlags(process.argv.slice(3))
-      const workspace = flags.workspace
-        ? await resolveWorkspaceRef(conn, flags.workspace)
-        : undefined
-      const res = await conn.sendRequest<CommandResult>(
-        'command.exec',
-        buildCommandCall(cmd, flags, workspace),
-      )
-      if (res.ok) {
-        console.log('ok')
-        if (res.result !== undefined) console.log(JSON.stringify(res.result))
-      } else {
-        console.error('ostia:', res.error?.message)
-        process.exitCode = 1
-      }
-    } else {
-      console.error(
-        `ostia: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, pane.list, workspace.list, notify, ask, state, open, docs, process, pane, vault, bus, settings, browse, gateway, ext)`,
-      )
-      process.exitCode = 1
-    }
+    const runner = Object.hasOwn(RUNNERS, cmd) ? RUNNERS[cmd] : undefined
+    if (runner) await runner(conn)
+    else if (await opensAsTarget(conn, cmd)) await runOpenFiles(conn, argv, workspaceFolderIn)
+    else if (cmd.includes('.')) await runRawCommand(conn, cmd)
+    else await runExtCommand(conn, cmd, process.argv[3], process.argv.slice(4))
   } catch (e) {
     if (connectionLost) {
       console.error('ostia: connection to the app closed (did Ostia quit?)')

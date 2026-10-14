@@ -26,13 +26,6 @@ export type OpenFilesResult =
   | { ok: false; error: string; message: string }
 
 export const OPEN_DIFF_COMMAND = 'diff.openFiles'
-const OPEN_PLACEMENTS = ['tab', 'right', 'down'] as const
-export type OpenPlacement = (typeof OPEN_PLACEMENTS)[number]
-
-export function parsePlacement(value: unknown): OpenPlacement | undefined {
-  return OPEN_PLACEMENTS.find((placement) => placement === value)
-}
-
 export interface OpenedPane {
   path: string
   paneId: string

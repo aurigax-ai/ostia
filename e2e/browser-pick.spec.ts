@@ -100,7 +100,7 @@ test('pick an element in a browser pane and send it to a terminal pane', async (
 
     await expect(win.getByText(/The report is at its prompt/)).toBeVisible({ timeout: 15_000 })
     const terminal = win.locator('.xterm-rows').first()
-    await expect(terminal).toContainText(/@\S*capture-\d+\S*\.md/, {
+    await expect(terminal).toContainText(/@\S*capture-\d+\S*\.md @\S*pick-\S*\.png/, {
       timeout: 15_000,
     })
     const text = (await terminal.textContent()) ?? ''

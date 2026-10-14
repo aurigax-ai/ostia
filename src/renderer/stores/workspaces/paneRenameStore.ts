@@ -1,22 +1,27 @@
-import { findPane } from '@/layout/tree'
+import { findPane, findSplitTab } from '@/layout/tree'
 import { create } from 'zustand'
 import { useLayoutStore } from './layoutStore'
 import { useWorkspacesStore } from './workspacesStore'
 
 interface PaneRenameState {
   paneId: string | null
+  splitTabId: string | null
   begin: (paneId: string) => void
+  beginSplitTab: (splitTabId: string) => void
   end: () => void
 }
 
 export const usePaneRenameStore = create<PaneRenameState>((set) => ({
   paneId: null,
-  begin: (paneId) => set({ paneId }),
-  end: () => set({ paneId: null }),
+  splitTabId: null,
+  begin: (paneId) => set({ paneId, splitTabId: null }),
+  beginSplitTab: (splitTabId) => set({ paneId: null, splitTabId }),
+  end: () => set({ paneId: null, splitTabId: null }),
 }))
 
 function stop(): void {
-  if (usePaneRenameStore.getState().paneId !== null) usePaneRenameStore.getState().end()
+  const { paneId, splitTabId } = usePaneRenameStore.getState()
+  if (paneId !== null || splitTabId !== null) usePaneRenameStore.getState().end()
 }
 
 export function startPaneRenameSync(): () => void {
@@ -24,9 +29,10 @@ export function startPaneRenameSync(): () => void {
     if (s.activeWorkspaceId !== prev.activeWorkspaceId) stop()
   })
   const offLayout = useLayoutStore.subscribe((s) => {
-    const { paneId } = usePaneRenameStore.getState()
-    if (paneId === null) return
-    if (!Object.values(s.byWorkspace).some((layout) => findPane(layout.root, paneId))) stop()
+    const { paneId, splitTabId } = usePaneRenameStore.getState()
+    const layouts = Object.values(s.byWorkspace)
+    if (paneId !== null && !layouts.some((layout) => findPane(layout.root, paneId))) stop()
+    if (splitTabId !== null && !layouts.some((l) => findSplitTab(l.root, splitTabId))) stop()
   })
   return () => {
     offWorkspaces()

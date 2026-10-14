@@ -128,6 +128,9 @@ const SECRET_TEXT = [
 
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/
 
+const PATH_ENV = new Set(['CLAUDE_CONFIG_DIR', 'CODEX_HOME'])
+const ABSOLUTE_PATH = /^(\/|[A-Za-z]:[\\/])/
+
 function hasControlCharacter(text: string): boolean {
   for (const ch of text) {
     const code = ch.charCodeAt(0)
@@ -227,6 +230,7 @@ export function safeEnv(raw: unknown): Record<string, string> {
     if (!ENV_NAME.test(name) || SECRET_NAME.test(name) || CODE_LOADING_ENV.test(name)) continue
     if (name.startsWith(envName(''))) continue
     if (typeof value !== 'string' || !isSafeValue(value, MAX_ENV_VALUE)) continue
+    if (PATH_ENV.has(name) && !ABSOLUTE_PATH.test(value)) continue
     out[name] = value
   }
   return out

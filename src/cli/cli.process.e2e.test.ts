@@ -31,6 +31,10 @@ const cliPath = join(process.cwd(), 'out', 'cli', 'index.js')
 const PROMPT = '\x1b]133;A\x1b\\% \x1b]133;B\x1b\\'
 const C = '\x1b]133;C\x1b\\'
 const exit = (code: number): string => `\x1b]133;D;${code}\x1b\\`
+const startsRunning = (paneId: string, command: string): void =>
+  emit(paneId, `${PROMPT}${command}\r\n${C}`)
+let onOpen: (paneId: string, command: string) => void = startsRunning
+const hiddenWorkspaces = new Set<string>()
 
 const rings = new Map<string, InstanceType<typeof PtyRingBuffer>>()
 const opened: OpenRequest[] = []
@@ -72,7 +76,9 @@ async function execRenderer(
         cwd: '/w',
       })),
     }
-  if (id === 'workspace.list') return { ok: true, result: workspaces }
+  if (id === 'workspace.list') {
+    return { ok: true, result: workspaces.filter((w) => !hiddenWorkspaces.has(w.workspaceId)) }
+  }
   if (id === 'workspace.groups') return { ok: true, result: [] }
   if (id === 'workspace.new') {
     const workspaceId = `ws${workspaces.length + 1}`
@@ -125,7 +131,14 @@ const registry = registerProcessMethods({
     tabSeq += 1
     const paneId = `tab-${tabSeq}`
     rings.set(paneId, new PtyRingBuffer())
-    return registerPane({ windowId: 'w1', workspaceId: req.workspaceId ?? '', paneId }).externalId
+    const id = registerPane({
+      windowId: 'w1',
+      workspaceId: req.workspaceId ?? '',
+      paneId,
+    }).externalId
+    const opening = onOpen
+    setTimeout(() => opening(paneId, req.command), 0)
+    return id
   },
   ring: (paneId) => {
     const ring = rings.get(paneId)
@@ -145,6 +158,15 @@ const registry = registerProcessMethods({
     return true
   },
   cwdOfPane: () => undefined,
+  isAgent: () => false,
+  paneTitle: async () => undefined,
+  splitTabNow: async () => null,
+  humanTab: async () => false,
+  agentStarted: () => false,
+  startsWithHook: () => false,
+  agentChanges: () => () => {},
+  tell: () => {},
+  startTiming: { settleMs: 10, processMs: 60, agentMs: 60, pollMs: 5 },
   agentArgv: (name) => (name === 'claude' ? ['claude'] : null),
   interruptGraceMs: 50,
 })
@@ -154,10 +176,11 @@ registerPaneIoMethods({
     read: async (paneId, lines) => `screen of ${paneId} (${lines})`,
     write: (paneId, data) => {
       written.push({ paneId, data })
+      rings.get(paneId)?.push(data)
       return true
     },
     bracketedPaste: () => false,
-    outputCursor: () => undefined,
+    outputCursor: (paneId) => rings.get(paneId)?.end,
   },
   state: (paneId) => ({ paneId, generation: 1, cwd: '/w', running: true, blockCount: 1 }),
   processPane: async (ref, ctx) => {
@@ -182,6 +205,7 @@ registerPaneIoMethods({
   },
   resume: async () => ({ ok: true, result: { resumed: true } }),
   delay: async () => {},
+  hooksOn: () => false,
 })
 
 registerPaneResumeMethods({
@@ -235,7 +259,9 @@ function ostia(args: string[], cwd = home, token = agent.token): Promise<RunResu
 
 async function run(cmd: string, ...flags: string[]): Promise<{ id: string; tab: string }> {
   const res = await ostia(['process', 'run', cmd, ...flags])
-  expect(res.stderr).toBe('')
+  const status = JSON.parse(res.stdout).status
+  if (status === 'started') expect(res.stderr).toBe('')
+  else expect(res.stderr).toContain('ostia process run: ')
   return { id: JSON.parse(res.stdout).id, tab: `tab-${tabSeq}` }
 }
 
@@ -273,6 +299,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  onOpen = startsRunning
   stopControlServer()
   for (const w of workspaces) {
     registry.workspaceClosed(w.workspaceId)
@@ -297,65 +324,65 @@ describe('ostia process (the real CLI against a live control server)', () => {
     })
     const started = JSON.parse(res.stdout)
     expect(started).toMatchObject({ name: 'reviewer' })
-    expect(Object.keys(started).sort()).toEqual(['id', 'name', 'paneId'])
+    expect(started).toMatchObject({ status: 'started' })
+    expect(Object.keys(started).sort()).toEqual(['id', 'name', 'paneId', 'status'])
   })
 
-  it('run --split-tab: the first opens its own tab, later ones join the newest member', async () => {
-    const first = await ostia(['process', 'run', 'pnpm web', '--split-tab', 'dev'])
+  it('agent run: refuses an unknown flag before opening anything, never passing it to the agent', async () => {
+    const res = await ostia(['agent', 'run', 'claude', '--split-tab', 'workers', 'fix it'])
+    expect(res.code).toBe(1)
+    expect(res.stderr).toContain('unknown flag --split-tab')
+    expect(opened).toEqual([])
+  })
+
+  it('agent run: an agent whose command exits at once is reported failed with its code and output', async () => {
+    onOpen = (paneId, command) =>
+      emit(paneId, `${PROMPT}${command}\r\n${C}error: unknown option '--x'\r\n${exit(1)}${PROMPT}`)
+    const res = await ostia(['agent', 'run', 'claude', '--name', 'lead', 'fix it'])
+    expect(res.code).toBe(1)
+    expect(JSON.parse(res.stdout)).toMatchObject({
+      name: 'lead',
+      status: 'failed',
+      exitCode: 1,
+      output: ["error: unknown option '--x'"],
+    })
+    expect(res.stderr).toContain('ostia agent run: lead (')
+    expect(res.stderr).toContain('failed')
+  })
+
+  it('workspace new: answers with the workspace it read back, and fails when it is not there', async () => {
+    const made = await ostia(['workspace', 'new', home, '--name', 'made', '--no-focus'])
+    expect(made.code).toBe(0)
+    const { workspaceId } = JSON.parse(made.stdout)
+    expect(workspaces.map((w) => w.workspaceId)).toContain(workspaceId)
+    hiddenWorkspaces.add(`ws${workspaces.length + 1}`)
+    const lost = await ostia(['workspace', 'new', home, '--name', 'lost', '--no-focus'])
+    expect(lost.code).toBe(1)
+    expect(lost.stderr).toContain('is not in the workspace list')
+    hiddenWorkspaces.clear()
+  }, 15_000)
+
+  it('run --tab: passes the split tab name, and has no side flag', async () => {
+    const first = await ostia(['process', 'run', 'pnpm web', '--tab', 'dev'])
     expect(first.stderr).toBe('')
-    expect(opened[0]).toMatchObject({
-      backgroundTab: true,
-      splitTab: { name: 'dev', side: 'right' },
-    })
-    expect(opened[0].splitTab).not.toHaveProperty('joinPaneId')
-    const firstTab = `tab-${tabSeq}`
+    expect(opened[0]).toMatchObject({ backgroundTab: true, splitTab: { name: 'dev' } })
 
-    await ostia(['process', 'run', 'pnpm api', '--split-tab', 'dev', '--split', 'down'])
-    expect(opened[1]).toMatchObject({
-      splitTab: { name: 'dev', side: 'down', joinPaneId: firstTab },
-    })
-    const secondTab = `tab-${tabSeq}`
+    await ostia(['agent', 'run', 'claude', '--tab', 'dev', 'watch the logs'])
+    expect(opened[1].splitTab).toEqual({ name: 'dev' })
 
-    await ostia(['agent', 'run', 'claude', '--split-tab', 'dev', 'watch the logs'])
-    expect(opened[2]).toMatchObject({ splitTab: { name: 'dev', joinPaneId: secondTab } })
-
-    await ostia(['process', 'run', 'pnpm docs', '--split-tab', 'other'])
-    expect(opened[3].splitTab).toEqual({ name: 'other', side: 'right' })
-    const listed = await ostia(['process', 'ls'])
-    expect(listed.code).toBe(0)
-  })
-
-  it('run --split-tab: skips a member whose tab the human closed', async () => {
-    await ostia(['process', 'run', 'pnpm web', '--split-tab', 'gone'])
-    registry.paneClosed(`tab-${tabSeq}`)
-    await ostia(['process', 'run', 'pnpm api', '--split-tab', 'gone'])
-    expect(opened[1].splitTab).toEqual({ name: 'gone', side: 'right' })
-  })
-
-  it('run: refuses --split without --split-tab and a side that is not right or down', async () => {
-    const lone = await ostia(['process', 'run', 'pnpm web', '--split', 'down'])
-    expect(lone.code).toBe(1)
-    expect(lone.stderr).toContain('--split needs --split-tab')
-    const sideways = await ostia([
-      'process',
-      'run',
-      'pnpm web',
-      '--split-tab',
-      'x',
-      '--split',
-      'up',
-    ])
-    expect(sideways.code).toBe(1)
-    expect(sideways.stderr).toContain("--split expects right or down, got 'up'")
-    const agentSide = await ostia(['agent', 'run', 'claude', '--split', 'down', 'hi'])
-    expect(agentSide.code).toBe(1)
-    expect(opened).toHaveLength(0)
+    const side = await ostia(['process', 'run', 'pnpm api', '--tab', 'dev', '--split', 'down'])
+    expect(side.code).toBe(1)
+    expect(side.stderr).toContain('unknown flag --split')
+    const old = await ostia(['process', 'run', 'pnpm api', '--split-tab', 'dev'])
+    expect(old.code).toBe(1)
+    expect(old.stderr).toContain('unknown flag --split-tab')
+    expect(opened).toHaveLength(2)
   })
 
   it('run: the socket refuses a split tab name with control characters', async () => {
-    const res = await ostia(['process', 'run', 'pnpm web', '--split-tab', 'a\u0007b'])
+    const res = await ostia(['process', 'run', 'pnpm web', '--tab', 'a\u0007b'])
     expect(res.code).toBe(1)
-    expect(res.stderr).toContain('splitTab')
+    expect(res.stderr).toContain('bad-request: tab')
     expect(opened).toHaveLength(0)
   })
 
@@ -378,7 +405,7 @@ describe('ostia process (the real CLI against a live control server)', () => {
     const unknown = await ostia(['agent', 'run', 'aider', 'hello'])
     expect(unknown.code).toBe(1)
     expect(unknown.stderr).toContain('unknown-agent')
-    expect((await ostia(['agent', 'run', 'claude'])).stderr).toContain('usage: ostia agent run')
+    expect((await ostia(['agent', 'run', 'claude'])).stderr).toContain('ostia agent run <agent>')
     expect(opened).toHaveLength(count)
   })
 
@@ -394,8 +421,9 @@ describe('ostia process (the real CLI against a live control server)', () => {
     mkdirSync(join(elsewhere, '.git'), { recursive: true })
     workspaces[0].workDir = main
 
-    const workers = JSON.stringify({ dir: worktree, name: 'proj workers', focus: false })
-    expect((await ostia(['workspace.new', workers])).code).toBe(0)
+    expect(
+      (await ostia(['workspace', 'new', worktree, '--name', 'proj workers', '--no-focus'])).code,
+    ).toBe(0)
     const fixer = await ostia([
       'agent',
       'run',
@@ -412,16 +440,11 @@ describe('ostia process (the real CLI against a live control server)', () => {
     expect(opened.at(-1)).toMatchObject({ workspaceId: 'ws2', title: 'fixer' })
     expect(request).not.toHaveBeenCalled()
     emit(`tab-${tabSeq}`, `${PROMPT}claude 'fix the login bug'\r\n${C}`)
-    expect((await ostia(['process', 'ls'])).stdout).toMatch(/fixer\s+running/)
+    expect((await ostia(['process', 'list'])).stdout).toMatch(/fixer\s+running/)
 
     const count = opened.length
     expect(
-      (
-        await ostia([
-          'workspace.new',
-          JSON.stringify({ dir: elsewhere, name: 'other', focus: false }),
-        ])
-      ).code,
+      (await ostia(['workspace', 'new', elsewhere, '--name', 'other', '--no-focus'])).code,
     ).toBe(0)
     const stranger = await ostia([
       'agent',
@@ -468,14 +491,15 @@ describe('ostia process (the real CLI against a live control server)', () => {
   it('run: needs a command', async () => {
     const res = await ostia(['process', 'run'])
     expect(res.code).toBe(1)
-    expect(res.stderr).toContain('missing "<cmd>"')
+    expect(res.stderr).toContain('ostia process run "<cmd>"')
   })
 
-  it('ls: prints each process with its status as the pane reports it', async () => {
-    expect((await ostia(['process', 'ls'])).stdout.trim()).toBe('(no tracked processes)')
+  it('list: prints each process with its status as the pane reports it', async () => {
+    onOpen = () => {}
+    expect((await ostia(['process', 'list'])).stdout.trim()).toBe('(no tracked processes)')
     const { id, tab } = await run('make build', '--name', 'build')
     const line = async (): Promise<string[]> =>
-      (await ostia(['process', 'ls'])).stdout.trim().split('\t')
+      (await ostia(['process', 'list'])).stdout.trim().split('\t')
 
     expect(await line()).toEqual([id, 'build', 'starting', expect.any(String), 'make build'])
     emit(tab, `${PROMPT}make build\r\n${C}compiling\r\n`)
@@ -485,6 +509,7 @@ describe('ostia process (the real CLI against a live control server)', () => {
   })
 
   it('logs: prints only that command’s output and resumes from the printed cursor', async () => {
+    onOpen = () => {}
     const { tab } = await run('pnpm test', '--name', 'test')
     emit(tab, `before\r\n${PROMPT}pnpm test\r\n${C}\x1b[32mone\x1b[0m\r\n`)
 
@@ -505,7 +530,7 @@ describe('ostia process (the real CLI against a live control server)', () => {
     expect(res.stderr).toContain('process logs failed (not-found)')
   })
 
-  it('kill: interrupts the command and ls shows it exited', async () => {
+  it('kill: interrupts the command and list shows it exited', async () => {
     const { tab } = await run('sleep 30', '--name', 'nap')
     emit(tab, `${PROMPT}sleep 30\r\n${C}`)
 
@@ -513,7 +538,7 @@ describe('ostia process (the real CLI against a live control server)', () => {
     expect(res.code).toBe(0)
     expect(res.stdout.trim()).toBe('ok')
     expect(written).toEqual([{ paneId: tab, data: '\x03' }])
-    expect((await ostia(['process', 'ls'])).stdout).toContain('exited(130)')
+    expect((await ostia(['process', 'list'])).stdout).toContain('exited(130)')
   })
 
   it('restart: runs the same line again in the same tab', async () => {
@@ -593,33 +618,30 @@ describe('ostia pane (the real CLI against a live control server)', () => {
     expect(closedPanes).toEqual([])
   })
 
-  it('pane wake --wait returns once the woken agent started, and a send before that is refused', async () => {
+  it('pane wake returns once the woken agent started, and a send before that is refused', async () => {
     const { tab } = await run('claude', '--name', 'fixer')
     const fixer = getByPaneId(tab)
     asleep.add(tab)
     const wakingPanes = async (): Promise<string[]> =>
-      JSON.parse((await ostia(['pane.list'])).stdout)
+      JSON.parse((await ostia(['pane', 'list'])).stdout)
         .filter((p: { waking?: true }) => p.waking)
         .map((p: { paneId: string }) => p.paneId)
 
-    const woke = await ostia(['pane', 'wake', 'fixer'])
-    expect(woke.code).toBe(0)
-    expect(woke.stdout.trim()).toBe(fixer?.externalId)
+    const woke = ostia(['pane', 'wake', 'fixer'])
+    const beforeStart = await Promise.race([
+      woke.then(() => 'returned'),
+      new Promise((resolve) => setTimeout(resolve, 1000, 'waiting')),
+    ])
+    expect(beforeStart).toBe('waiting')
     const early = await ostia(['pane', 'send', 'fixer', 'early', '--enter'])
     expect(early.code).toBe(1)
     expect(early.stderr).toContain(`waking: ${fixer?.externalId} is starting its agent`)
     expect(await wakingPanes()).toEqual([fixer?.externalId])
-
-    const waited = ostia(['pane', 'wake', 'fixer', '--wait'])
-    const beforeStart = await Promise.race([
-      waited.then(() => 'returned'),
-      new Promise((resolve) => setTimeout(resolve, 1000, 'waiting')),
-    ])
-    expect(beforeStart).toBe('waiting')
-    expect(await wakingPanes()).toEqual([fixer?.externalId])
     const token = await ostia(['resume-token', 'claude', 'e2e-wake-wait'], home, fixer?.token)
     expect(token.stdout.trim()).toBe('ok')
-    expect((await waited).code).toBe(0)
+    const done = await woke
+    expect(done.code).toBe(0)
+    expect(done.stdout.trim()).toBe(fixer?.externalId)
 
     const sent = await ostia(['pane', 'send', 'fixer', 'hi', '--enter'])
     expect(sent.stdout.trim()).toBe('ok')
@@ -633,7 +655,7 @@ describe('ostia pane (the real CLI against a live control server)', () => {
   it('prints usage for a missing pane or an unknown key', async () => {
     const usage = await ostia(['pane', 'send'])
     expect(usage.code).toBe(1)
-    expect(usage.stderr).toContain('usage: ostia pane send')
+    expect(usage.stderr).toContain('ostia pane send <pane>')
 
     await run('cat', '--name', 'echo')
     const key = await ostia(['pane', 'key', 'echo', 'f13'])

@@ -22,7 +22,6 @@ import {
   mergeLayouts,
   movePane,
   moveTab,
-  nameSplitTabOf,
   paneIds,
   paneInDirection,
   placementOf,
@@ -42,6 +41,7 @@ import {
   setPaneTitle,
   setPaneUrl,
   setSizes,
+  setSplitTabName,
   settleSpawnDir,
   slotKey,
   splitBeside,
@@ -1312,22 +1312,27 @@ describe('split tabs', () => {
 
   it('unwraps a lone split tab to an ordinary split without its name', () => {
     const { a, b, c, root } = stack()
-    const named = nameSplitTabOf(splitPane(root, b.id, 'horizontal', c).root, b.id, 'api')
+    const split = splitPane(root, b.id, 'horizontal', c).root
+    const named = setSplitTabName(split, tabIdOf(split, b.id) ?? '', 'api')
+    expect(findSplitTabByName(named, 'api')).not.toBeNull()
     const closed = closePane(named, a.id)
     expect(closed).toMatchObject({ type: 'split' })
     expect(closed).not.toHaveProperty('name')
     expect(paneIds(closed)).toEqual([b.id, c.id])
   })
 
-  it('names a split tab once and finds it by name and id', () => {
+  it('names, renames and clears a split tab and finds it by name and id', () => {
     const { b, c, root } = stack()
     const next = splitPane(root, b.id, 'horizontal', c).root
-    const named = nameSplitTabOf(next, c.id, 'api')
+    const tabId = tabIdOf(next, c.id) ?? ''
+    const named = setSplitTabName(next, tabId, 'api')
     const tab = findSplitTabByName(named, 'api')
-    expect(tab).toMatchObject({ name: 'api' })
-    expect(findSplitTab(named, tab?.id ?? '')).toBe(tab)
-    expect(nameSplitTabOf(named, c.id, 'web')).toBe(named)
-    expect(nameSplitTabOf(root, b.id, 'web')).toBe(root)
+    expect(tab).toMatchObject({ id: tabId, name: 'api' })
+    expect(findSplitTab(named, tabId)).toBe(tab)
+    expect(setSplitTabName(named, tabId, 'api')).toBe(named)
+    expect(findSplitTab(setSplitTabName(named, tabId, 'web'), tabId)).toMatchObject({ name: 'web' })
+    expect(findSplitTab(setSplitTabName(named, tabId, null), tabId)).not.toHaveProperty('name')
+    expect(setSplitTabName(root, b.id, 'web')).toBe(root)
   })
 
   it('steps tabs, not panes, with adjacentTab and tabNeighbor', () => {
@@ -1371,7 +1376,8 @@ describe('split tabs', () => {
   it('moves a whole split tab to an edge of a plain slot as an ordinary split', () => {
     const { b, c, root } = stack()
     const d = createPane()
-    const withTab = nameSplitTabOf(splitPane(root, b.id, 'horizontal', c).root, b.id, 'api')
+    const split = splitPane(root, b.id, 'horizontal', c).root
+    const withTab = setSplitTabName(split, tabIdOf(split, b.id) ?? '', 'api')
     const tree = splitOf('horizontal', withTab, d)
     const tabId = tabIdOf(tree, b.id) ?? ''
     const moved = movePane(tree, tabId, d.id, 'bottom')
@@ -1385,7 +1391,8 @@ describe('split tabs', () => {
   it('adds a split tab dropped on the center as a tab, keeping its name', () => {
     const { b, c, root } = stack()
     const d = createPane()
-    const withTab = nameSplitTabOf(splitPane(root, b.id, 'horizontal', c).root, b.id, 'api')
+    const split = splitPane(root, b.id, 'horizontal', c).root
+    const withTab = setSplitTabName(split, tabIdOf(split, b.id) ?? '', 'api')
     const tree = splitOf('horizontal', withTab, d)
     const tabId = tabIdOf(tree, b.id) ?? ''
     const moved = movePane(tree, tabId, d.id, 'center')

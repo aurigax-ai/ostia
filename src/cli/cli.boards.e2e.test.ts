@@ -209,7 +209,7 @@ describe('ostia git and ostia ports (real CLI process, real socket)', () => {
     writeFileSync(join(workDir, 'readme.md'), 'v3\n')
     const verb = await runOstia(['git', 'discard', 'readme.md'])
     expect(verb.code).toBe(1)
-    expect(verb.stderr).toContain('usage: ostia git <command>')
+    expect(verb.stderr).toContain('usage: ostia git <verb>')
     expect(verb.stderr).not.toContain('discard')
     const method = await runOstia(['git.discard', '{"paths":["readme.md"],"all":false}'])
     expect(method.code).not.toBe(0)
@@ -220,16 +220,16 @@ describe('ostia git and ostia ports (real CLI process, real socket)', () => {
   }, 30_000)
 
   it('lists the ports of the caller workspace, and asks before listing every workspace', async () => {
-    const own = await runOstia(['ports', 'ls'])
+    const own = await runOstia(['ports', 'list'])
     expect(own.stderr).toBe('')
     expect(JSON.parse(own.stdout)).toEqual({
       workspaces: [{ workspaceId: 's1', ports: [{ port: 3000, name: 'node' }], ssh: [] }],
     })
-    const all = await runOstia(['ports', 'ls', '--all'])
+    const all = await runOstia(['ports', 'list', '--all'])
     expect(all.code).not.toBe(0)
     expect(all.stderr).toContain('all-workspaces')
     const unknown = await runOstia(['ports', 'open'])
     expect(unknown.code).toBe(1)
-    expect(unknown.stderr).toContain('usage: ostia ports ls [--all]')
+    expect(unknown.stderr).toContain('ostia ports list [--all]')
   }, 30_000)
 })

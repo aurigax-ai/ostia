@@ -1,6 +1,7 @@
 import { resolve as resolvePath } from 'node:path'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { FlagError, parseArgs } from '../common/args'
+import { usageOf } from '../common/usageTable'
 
 export type ManagerCall =
   | { method: 'manager.read'; params: { paneId: string; lines?: number } }
@@ -10,11 +11,7 @@ export type ManagerCall =
     }
   | { method: 'manager.input'; params: { paneId: string; text?: string; keys?: string[] } }
 
-const USAGE = [
-  'usage: ostia manager read <paneId> [--lines N]',
-  '       ostia manager spawn <preset> [--cwd DIR] [--workspace ID] [--name NAME] [-- args…]',
-  '       ostia manager input <paneId> [--text TEXT] [--key KEY]…',
-].join('\n')
+const USAGE = usageOf('manager')
 
 function managerCall(argv: string[], cwd: string): ManagerCall {
   const [sub, first, ...rest] = argv

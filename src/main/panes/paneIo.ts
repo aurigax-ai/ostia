@@ -1,5 +1,13 @@
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import type { Capability } from '../../shared/capabilities'
+import {
+  ChangeSignal,
+  type Subscribe,
+  actThenConfirm,
+  anyOf,
+  confirmed,
+  mismatch,
+} from '../../shared/common/actThenConfirm'
 import type { CommandResult, TerminalStateSnapshot } from '../../shared/types'
 import { ensureCaps } from '../approvals/controlElevation'
 import type { Reach } from '../approvals/reach'
@@ -19,6 +27,9 @@ const WAKE_WAIT_MIN_MS = 1000
 const WAKE_WAIT_DEFAULT_MS = 2 * 60_000
 const WAKE_WAIT_MAX_MS = 30 * 60_000
 const CONFIRM_POLL_MS = 50
+const CLOSE_CONFIRM_MS = 3000
+const SUBMIT_CONFIRM_MS = 5000
+const TURN_STATES: ReadonlySet<string | undefined> = new Set(['working', 'waiting'])
 const PASTE_START = '\x1b[200~'
 const PASTE_END = '\x1b[201~'
 
@@ -201,7 +212,13 @@ export interface PaneIoDeps extends PaneReachDeps {
   close: (pane: PaneIdentity) => Promise<CommandResult>
   resume: (pane: PaneIdentity) => Promise<CommandResult>
   delay: (ms: number) => Promise<void>
+  hooksOn: (agent: string) => boolean
 }
+
+type WakeAnswer =
+  | { ok: true; woke: string[]; started: true }
+  | { ok: true; woke: string[]; timedOut: true }
+  | { ok: true; woke: string[]; closed: string }
 
 const REFUSALS: Readonly<Record<string, string>> = {
   'own-pane': 'own-pane: a pane cannot type into itself',
@@ -215,13 +232,17 @@ function asleep(to: PaneIdentity): ResponseError<void> {
 }
 
 function starting(to: PaneIdentity): ResponseError<void> {
-  return fail(
-    `waking: ${to.externalId} is starting its agent; wait for it with ostia pane wake --wait`,
-  )
+  return fail(`waking: ${to.externalId} is starting its agent; wait for it with ostia pane wake`)
 }
 
 export function notHibernated(to: PaneIdentity): ResponseError<void> {
   return fail(`not-hibernated: ${to.externalId} is not hibernated`)
+}
+
+function notResumable(to: PaneIdentity): ResponseError<void> {
+  return fail(
+    `not-resumable: ${to.externalId} has no agent session to resume, or is not at its prompt`,
+  )
 }
 
 function alreadyHibernated(to: PaneIdentity): ResponseError<void> {
@@ -319,14 +340,82 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
     }
   }
 
-  const respondedSince = async (paneId: string, before: number | undefined, ms: number) => {
-    if (before === undefined) return false
-    for (let waited = 0; ; waited += CONFIRM_POLL_MS) {
-      const now = deps.io.outputCursor(paneId)
-      if (now !== undefined && now > before) return true
-      if (waited >= ms) return false
-      await deps.delay(CONFIRM_POLL_MS)
+  const ticks: Subscribe = (wake) => {
+    let on = true
+    void (async () => {
+      while (on) {
+        await deps.delay(CONFIRM_POLL_MS)
+        if (on) wake()
+      }
+    })()
+    return () => {
+      on = false
     }
+  }
+
+  const confirmGone = (to: PaneIdentity) => {
+    let polls = 0
+    return actThenConfirm<true>({
+      act: () => undefined,
+      observe: async () => {
+        const listed = await deps.panes()
+        if (!listed.some((p) => p.paneId === to.externalId)) return confirmed(true)
+        polls += 1
+        if (polls * CONFIRM_POLL_MS <= CLOSE_CONFIRM_MS) return undefined
+        return mismatch(
+          `still-open: ${to.externalId} is still open; the human was asked about its unsaved files`,
+        )
+      },
+      signal: ticks,
+      timeoutMs: CLOSE_CONFIRM_MS * 10,
+      onTimeout: () => mismatch(`still-open: ${to.externalId} is still open`),
+    })
+  }
+
+  const confirmInput = async (
+    to: PaneIdentity,
+    before: number | undefined,
+    ms: number,
+  ): Promise<boolean> => {
+    let polls = 0
+    const seen = await actThenConfirm<boolean>({
+      act: () => undefined,
+      observe: () => {
+        const now = deps.io.outputCursor(to.paneId)
+        if (now === undefined) return confirmed(false)
+        if (before !== undefined && now > before) return confirmed(true)
+        polls += 1
+        return polls * CONFIRM_POLL_MS > ms ? confirmed(false) : undefined
+      },
+      signal: ticks,
+      timeoutMs: CONFIRM_MAX_MS * 10,
+      onTimeout: () => confirmed(false),
+    })
+    return seen.value === true
+  }
+
+  const confirmSubmitted = (to: PaneIdentity) => {
+    let polls = 0
+    return actThenConfirm<true>({
+      act: () => undefined,
+      observe: async () => {
+        if (TURN_STATES.has((await deps.attention(to)).state)) return confirmed(true)
+        polls += 1
+        if (polls * CONFIRM_POLL_MS <= SUBMIT_CONFIRM_MS) return undefined
+        return mismatch(
+          `not-submitted: ${to.externalId} shows the text at its prompt but did not start a turn after Enter; press Enter with ostia pane key ${to.externalId} enter, or read it with ostia pane read`,
+        )
+      },
+      signal: ticks,
+      timeoutMs: SUBMIT_CONFIRM_MS * 10,
+      onTimeout: () => mismatch(`not-submitted: ${to.externalId} did not start a turn`),
+    })
+  }
+
+  const watchesSubmit = async (to: PaneIdentity): Promise<boolean> => {
+    const entry = (await deps.panes()).find((p) => p.paneId === to.externalId)
+    if (!entry?.agent || !deps.hooksOn(entry.agent)) return false
+    return !TURN_STATES.has((await deps.attention(to)).state)
   }
 
   registerControlMethod('pane.input', {
@@ -337,7 +426,6 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
       const parts = inputParts(p.text, p.keys)
       const paste = optionalFlag(p.paste, 'paste') ?? parts.text.includes('\n')
       const force = optionalFlag(p.force, 'force') === true
-      const confirm = optionalFlag(p.confirm, 'confirm') === true
       const confirmMs = confirmWindow(p.confirmMs)
       ensureManagerInput(ctx)
       const shown = [
@@ -356,6 +444,8 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
           )
         }
       }
+      const submits = parts.text !== '' && parts.keys.endsWith(NAMED_KEYS.enter)
+      const watched = submits && (await watchesSubmit(to))
       const pasted = paste && parts.text !== '' && deps.io.bracketedPaste(to.paneId)
       const before = deps.io.outputCursor(to.paneId)
       const text = pasted ? pasteBytes(parts.text) : parts.text
@@ -371,9 +461,20 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
         }
       }
       deps.inputSent(to)
-      const result = { ok: true, paneId: to.externalId, bytes: first.length + rest.length, pasted }
-      if (!confirm) return result
-      return { ...result, responded: await respondedSince(to.paneId, before, confirmMs) }
+      const responded = await confirmInput(to, before, confirmMs)
+      if (responded && watched) {
+        const submitted = await confirmSubmitted(to)
+        if (!submitted.ok) throw fail(submitted.reason)
+      }
+      const state = deps.state(to.paneId)
+      return {
+        ok: true,
+        paneId: to.externalId,
+        bytes: first.length + rest.length,
+        pasted,
+        responded,
+        running: state?.running ?? false,
+      }
     },
   })
 
@@ -382,11 +483,11 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
     handler: async (raw, ctx) => {
       const p = record(raw)
       const refs = paneRefs(p.panes)
-      const wait = optionalFlag(p.wait, 'wait') === true
       const timeoutMs = wakeWaitTimeout(p.timeoutMs)
       ensureManagerInput(ctx)
-      const panes: PaneIdentity[] = []
+      const waited: PaneIdentity[] = []
       const asleepPanes: PaneIdentity[] = []
+      const awakePanes: PaneIdentity[] = []
       for (const ref of refs) {
         const to = await target(ref, ctx)
         await ensurePaneReach(deps, 'input', to, ctx, {
@@ -394,34 +495,65 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
           method: 'pane.wake',
           detail: `wake ${to.externalId}: type its agent's resume command`,
         })
-        panes.push(to)
-        if (wait && deps.waking.has(to.paneId)) continue
-        if (!(await deps.hibernated(to))) throw notHibernated(to)
-        asleepPanes.push(to)
+        if (deps.waking.has(to.paneId)) {
+          waited.push(to)
+        } else if (await deps.hibernated(to)) {
+          asleepPanes.push(to)
+          waited.push(to)
+        } else {
+          awakePanes.push(to)
+        }
       }
-      if (asleepPanes.length > 0) checkSessions(asleepPanes, await deps.panes())
+      checkSessions([...asleepPanes, ...awakePanes], await deps.panes())
       const woke: string[] = []
       for (const to of asleepPanes) {
         const outcome = await deps.wake(to)
         if (outcome.conflict) throw sessionConflict(to, `"${outcome.conflict}"`)
-        if (!outcome.woke) throw notHibernated(to)
+        if (!outcome.woke) throw notResumable(to)
         deps.waking.start(to.paneId)
         woke.push(to.externalId)
       }
-      if (!wait) return { ok: true, woke }
-      const ended = await deps.waking.until(
-        panes.map((to) => to.paneId),
+      for (const to of awakePanes) {
+        const res = await deps.resume(to)
+        if (!res.ok) throw fail(res.error.message)
+        if ((res.result as { resumed?: unknown } | undefined)?.resumed !== true) {
+          throw notResumable(to)
+        }
+        deps.waking.start(to.paneId)
+        waited.push(to)
+        woke.push(to.externalId)
+      }
+      if (waited.length === 0) return { ok: true, woke }
+      const cancelled = new ChangeSignal()
+      const closedConn = ctx.conn.onClose(() => cancelled.fire())
+      let gone = false
+      cancelled.subscribe(() => {
+        gone = true
+      })
+      const seen = await actThenConfirm<WakeAnswer>({
+        act: () => undefined,
+        observe: () => {
+          if (gone) return mismatch('cancelled', { ok: true, woke, timedOut: true })
+          for (const to of waited) {
+            const end = deps.waking.lastEnd(to.paneId)
+            if (end === 'closed')
+              return mismatch('closed', { ok: true, woke, closed: to.externalId })
+            if (end === 'failed') {
+              return mismatch(
+                `resume-failed: ${to.externalId} could not start its agent; read it with ostia pane read`,
+              )
+            }
+          }
+          const started = waited.every((to) => deps.waking.lastEnd(to.paneId) === 'started')
+          return started ? confirmed({ ok: true, woke, started: true }) : undefined
+        },
+        signal: anyOf(deps.waking.changes.subscribe, cancelled.subscribe),
         timeoutMs,
-        (cancel) => ctx.conn.onClose(cancel),
-      )
-      const external = (paneId: string): string =>
-        panes.find((to) => to.paneId === paneId)?.externalId ?? paneId
-      if (ended.how === 'started') return { ok: true, woke, started: true }
-      if (ended.how === 'timeout') return { ok: true, woke, timedOut: true }
-      if (ended.how === 'closed') return { ok: true, woke, closed: external(ended.paneId) }
-      throw fail(
-        `resume-failed: ${external(ended.paneId)} could not start its agent; read it with ostia pane read`,
-      )
+        onTimeout: () => mismatch('timed out', { ok: true, woke, timedOut: true }),
+      })
+      closedConn.dispose()
+      if (seen.value) return seen.value
+      throw fail(seen.ok ? 'resume-failed' : seen.reason)
     },
   })
 
@@ -453,30 +585,12 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
     },
   })
 
-  registerControlMethod('agent.resume', {
-    scripts: true,
-    handler: async (raw, ctx) => {
-      const p = record(raw)
-      const to = await target(p.pane, ctx)
-      ensureManagerInput(ctx)
-      await ensurePaneReach(deps, 'input', to, ctx, {
-        ref: String(p.pane),
-        method: 'agent.resume',
-        detail: `resume the agent of ${to.externalId}: type its recorded resume command`,
-      })
-      if (deps.waking.has(to.paneId)) throw starting(to)
-      checkSessions([to], await deps.panes())
-      const res = await deps.resume(to)
-      if (!res.ok) throw fail(res.error.message)
-      const resumed = (res.result as { resumed?: unknown } | undefined)?.resumed === true
-      return { ok: true, paneId: to.externalId, resumed }
-    },
-  })
-
   registerControlMethod('pane.close', {
     scripts: true,
     handler: async (raw, ctx) => {
-      const refs = paneRefs(record(raw).panes)
+      const given = record(raw).panes
+      const own = given === undefined && ctx.identity.kind === 'pane'
+      const refs = own ? [ctx.identity.externalId] : paneRefs(given)
       const panes: PaneIdentity[] = []
       for (const ref of refs) {
         const to = await target(ref, ctx)
@@ -491,6 +605,8 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
       for (const to of panes) {
         const res = await deps.close(to)
         if (!res.ok) throw fail(res.error.message)
+        const gone = await confirmGone(to)
+        if (!gone.ok) throw fail(gone.reason)
         closed.push(to.externalId)
       }
       return { ok: true, closed }

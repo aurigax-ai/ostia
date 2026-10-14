@@ -137,12 +137,12 @@ The manifest is `ostia.json`; a marketplace's is `ostia-marketplace.json`.
 
 | Field | Meaning |
 |---|---|
-| `id` | Lowercase letters, digits and dashes, 2–40 chars. It is the CLI verb (`ostia dev-ports ls`) and the command prefix (`dev-ports.open`). `git` and `ports` are taken: Git and Ports are part of Ostia, and a manifest with one of those ids is refused. |
+| `id` | Lowercase letters, digits and dashes, 2–40 chars. It is the CLI word (`ostia dev-ports ls`) unless `contributes.verb` is set: an extension with a `verb` is reached only by that verb, and `ostia <id> <command>` then answers with its usage and runs nothing. The id is always the command prefix (`dev-ports.open`). `git` and `ports` are taken: Git and Ports are part of Ostia, and a manifest with one of those ids is refused. |
 | `name`, `version`, `description` | Shown in Settings and the approval dialog. |
 | `locales` | Optional. Up to 32 language tags (`"zh-Hant"`, `"fr"`) you ship a catalog for, each read from `locales/<tag>.json` in the extension. See "Translations" below. |
 | `capabilities` | What the extension process may do through Ostia. It gets this list intersected with what the user approved. Names are Ostia's capability names (`shared/capabilities.ts`). |
 | `main` | Path inside the extension dir. `.js`/`.cjs`/`.mjs` run with Ostia's own Electron binary as Node (`ELECTRON_RUN_AS_NODE=1`), so no system Node is needed; anything else is executed directly (any language). cwd is the extension dir. Required if you contribute commands, sidebar items or a `url` panel. |
-| `contributes.commands[]` | `id` (no dots), `title`, optional `category`, `usage` (shown in `ostia docs` / `ostia ext ls`), `palette` (default `true`; `false` = CLI/agents only), `stdin` (CLI pipes stdin to you), `interactive` (the command waits on the human, usually through `ext.confirm`: Ostia waits up to 10 min for your reply instead of 30 s), `argument` (a label, 80 chars: picking the command in the palette asks the human for one value, shown with this label, and you get it as `args.argv[0]`, the same shape as `ostia <id> <command> <value>`; without `argument` palette runs get `null` args), `capabilities` (what the **caller** must hold; checked by Ostia before your process sees the call). |
+| `contributes.commands[]` | `id` (no dots), `title`, optional `category`, `usage` (shown in `ostia docs` / `ostia ext list`), `palette` (default `true`; `false` = CLI/agents only), `stdin` (CLI pipes stdin to you), `interactive` (the command waits on the human, usually through `ext.confirm`: Ostia waits up to 10 min for your reply instead of 30 s), `argument` (a label, 80 chars: picking the command in the palette asks the human for one value, shown with this label, and you get it as `args.argv[0]`, the same shape as `ostia <id> <command> <value>`; without `argument` palette runs get `null` args), `capabilities` (what the **caller** must hold; checked by Ostia before your process sees the call). |
 | `contributes.sidebarItems` | `true` if you call `ext.setSidebarItem`. Such extensions start with the window instead of on first use, and so do extensions that declare `paneChips` or `workspaceChips`. A built-in extension with sidebar items and no chips starts on first use, and with the window only after it asked to with `ext.startWithWindow(true)`. |
 | `contributes.panel` | `title`, optional `icon`, and `entry`: a `.html` path inside the extension, or `"url"` to hand Ostia a loopback URL at runtime. |
 | `contributes.paneChips` | Up to 8 `{id, title}`. Each is a slot for a short value you put on a pane's header with `ext.setPaneChip` (for example a venv or a test count). `title` names it in tooltips and in Settings → Prompt: the human can also place your chip in the Ostia prompt's chip row (`terminal.prompt.chips` id `<extId>.<chip>`), where it shows the same value. Needs `main`. |
@@ -155,7 +155,7 @@ The manifest is `ostia.json`; a marketplace's is `ostia-marketplace.json`.
 | `contributes.snippets[]` | Saved snippets in Warp's workflow file format (at most 64): `name`, `command` with `{{arg}}` placeholders (`{{{x}}}` is a literal `{{x}}`), optional `description`, `tags`, `arguments[{name, description, default_value}]`, `shells`, `author`, `source_url`. Data only: no `main` needed. They appear in "Snippets: Search" and `ostia snippet list` while the extension is enabled and approved; Ostia inserts one at an idle prompt only when the human picks it. |
 | `contributes.completions` | A folder inside the extension holding command completion specs, one `<command>.json` per command: `{names, description, subcommands[], options[{names, description, args, isPersistent, isRepeatable}], args[{name, description, suggestions[{name, description}], template: ["filepaths" \| "folders"], isOptional, isVariadic}]}`. Data only: no `main` needed, and nothing in a spec runs. Main reads a spec when the input editor completes that command (size-capped, symlinks refused, validated); `~/.config/ostia/completions/<command>.json` wins over any extension's. The built-in `completions` extension ships about 700 specs converted from Fig's `@withfig/autocomplete` at build time (`scripts/completionSpecs.mjs`). |
 
-| `contributes.verb` | API 3.3. A second CLI word for your commands (`[a-z][a-z0-9-]{1,19}`): with `"verb": "graph"`, `ostia graph <command>` runs your command as `ostia <id> <command>` does, and `ostia docs` and `ostia ext ls` show the verb. A core verb (`pane`, `bus`, …), `git`, `ports`, or another extension's id or verb is refused. |
+| `contributes.verb` | API 3.3. Your commands' only CLI word (`[a-z][a-z0-9-]{1,19}`): with `"verb": "graph"`, `ostia graph <command>` runs your command, `ostia <id> <command>` answers with that usage and runs nothing, and `ostia docs` and `ostia ext list` show the verb. A core verb (`pane`, `bus`, …), `git`, `ports`, or another extension's id or verb is refused. |
 | `contributes.secrets` | Up to 8 keys (same pattern as settings), each `{description}` and an optional `title` (same rules as a setting's). Settings → Extensions shows a password field per key; the value is stored encrypted in Ostia's data dir (never in `settings.json`, never synced) and never sent back to the renderer. Read it with `ext.getSecret`. |
 | `contributes.assist` | Which assist points you serve: any of `input`, `command`, `completion`, `terminal`, `chat` (see [Assist](#assist)). Needs the `assist` capability and `main`; such an extension starts with the window. |
 | `contributes.iconThemes[]` | Up to 16 `{id, label, path}` file icon themes in VS Code's format (`path` is the theme JSON inside the extension). Data only: no `main` needed. See [Icon themes](#icon-themes). |
@@ -243,7 +243,7 @@ string: a key your catalog leaves out shows the manifest's English. Wherever the
 palette, your panel's toggle and tab, chip names) follows, and switches when the human changes the
 language or your extension folder changes; nothing restarts. A catalog is read with its manifest,
 so the approval dialog and a marketplace listing are translated before the extension is enabled.
-Agents always get the manifest's own strings (`ostia ext ls`, `ostia docs`).
+Agents always get the manifest's own strings (`ostia ext list`, `ostia docs`).
 
 ### `messages`: what your process and panel show
 
@@ -718,7 +718,7 @@ hook sees what the agent reports (your prompt, the tools it runs).
 ```markdown
 ---
 name: review
-description: Use when reviewing a change in this repository; follow checklist.md.
+description: Reviews a change in this repository against checklist.md. Use when asked to review a diff, a branch or a pull request here.
 ---
 ```
 
@@ -738,6 +738,25 @@ anywhere on its path, plain UTF-8 text, at most 256 KiB, at most 1 MiB for the w
 skill that fails is left out and logged, and `ostia-extension validate` reports it. Claude gets
 the files as a skill of Ostia's plugin; Codex has no way to add a skill folder, so its session
 context lists each skill's description and the path of its `SKILL.md` for it to read.
+
+### Writing an agent skill
+
+Ostia's own skills follow Anthropic's skill authoring best practices, and a guard test holds the
+skills in this repository to these rules:
+
+- `name`: lowercase letters, digits and hyphens, at most 64 characters, without `anthropic` or
+  `claude`.
+- `description`: third person, at most 1024 characters: what the skill does, then a
+  `Use when …` sentence naming the tasks and words that should bring it up.
+- Teach command usage only: what each command does, its inputs, output, exit codes, refusals and
+  the capability it asks for, with concrete examples. Limits the product enforces are facts of
+  the command. No workflow policy, etiquette, layout defaults, naming schemes or advice about
+  other tools.
+- `SKILL.md` stays under 500 lines. Move a long section that only some tasks need into a file
+  listed in `files`, link it from `SKILL.md`, and link nothing further from it; a file over 100
+  lines starts with a `## Contents` list.
+- One term per thing (pane, split tab, workspace), nothing time-sensitive, forward slashes in
+  paths, and only `ostia <noun> <verb>` forms that `ostia <noun> --help` lists.
 
 ### Hooks
 
@@ -1100,9 +1119,8 @@ all, so Ostia never offers them.
 ## The CLI
 
 ```
-ostia ext ls                              enabled extensions and their commands
-ostia ext <id> <command> [args...]        run a command
-ostia <id> <command> [args...]            same, when <id> isn't a core verb
+ostia ext list                            enabled extensions and their commands
+ostia <id> <command> [args...]            run a command
 ```
 
 Arguments arrive as `args = {argv: [...], stdin?}`. Parse `argv` however you like. `ostia docs`
@@ -1407,7 +1425,7 @@ no script: Ostia validates the file and draws it with its own components, bound 
 only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/renderer`.
 
 Git (the branch and diff stats chips, the Git panel, `ostia git …`) and Ports (the plug in the top
-bar, the ssh login chip, `ostia ports ls`) are part of Ostia itself, not extensions: they need no
+bar, the ssh login chip, `ostia ports list`) are part of Ostia itself, not extensions: they need no
 process, read nothing until a window shows one of their items or a verb is used, and their settings
 are Settings → Git and Settings → Ports.
 
