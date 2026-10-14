@@ -167,10 +167,9 @@ edges: []
     await openPanel(win)
     await enableAndRun(app, 'held')
     await expect.poll(launches, { timeout: 15_000 }).toEqual(['graphs'])
-    await win.keyboard.press(chords.palette)
-    await win.locator('[data-slot="command-input"]').fill('Close Pane')
-    await waitForPaletteSelection(win, 'Close Pane')
-    await win.keyboard.press('Enter')
+    const panelTab = win.locator('.pane-tab', { hasText: 'Graphs' })
+    await panelTab.hover()
+    await panelTab.getByRole('button', { name: 'Close tab' }).click()
     await expect.poll(() => panelEval(app, '1'), { timeout: 15_000 }).toBe('')
     await win.keyboard.press('Control+Shift+D')
     await expect(
