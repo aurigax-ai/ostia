@@ -64,13 +64,34 @@ function nextSocketPath(): string {
 const execCalls: { target: CommandTarget; id: string; args?: unknown }[] = []
 const moves: { paneId: string; workspaceId: string }[] = []
 let openedPanes: { path: string; paneId: string }[] = []
+let skipShowing = false
 const agentWork = new ReportedAgentWork()
 let listed: { workspaces: object[]; groups: object[] } = { workspaces: [], groups: [] }
+
+const shownPanes: {
+  paneId: string
+  workspaceId: string
+  kind: string
+  title: string
+  filePath?: string
+}[] = []
+
+function showPane(kind: string, title: string, filePath?: string): string {
+  const paneId = `shown-${shownPanes.length + 1}`
+  registerPane({ windowId: 'w1', workspaceId: 's1', paneId })
+  shownPanes.push({ paneId, workspaceId: 's1', kind, title, ...(filePath ? { filePath } : {}) })
+  return paneId
+}
 
 const fakeDeps: ControlServerDeps = {
   execCommand: async (target, id, args) => {
     execCalls.push({ target, id, args })
     const waited = (args as { wait?: boolean } | undefined)?.wait === true
+    if (id === OPEN_FILES_COMMAND && !waited) {
+      for (const file of (args as { files: { path: string }[] }).files) {
+        if (!skipShowing) showPane('editor', file.path, file.path)
+      }
+    }
     const result = waited || id === OPEN_DIFF_COMMAND ? { opened: openedPanes } : { ran: id }
     return { ok: true, result } as CommandResult
   },
@@ -245,7 +266,12 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       execCommand: async (_target, id) =>
         ({
           ok: true,
-          result: id === 'workspace.groups' ? listed.groups : listed.workspaces,
+          result:
+            id === 'workspace.groups'
+              ? listed.groups
+              : id === 'pane.list'
+                ? shownPanes
+                : listed.workspaces,
         }) as CommandResult,
       getTerminalState: () => undefined,
       ptyPid: () => undefined,
@@ -279,6 +305,15 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       },
       tabPlan: async () => ({ ok: true, result: { members: [], locked: [] } }),
       joinTab: async (_workspaceId, paneIds) => ({ ok: true, result: { moved: paneIds } }),
+      panes: async () =>
+        moves.map((m) => ({
+          paneId: getByPaneId(m.paneId)?.externalId ?? m.paneId,
+          workspaceId: m.workspaceId,
+          kind: 'terminal',
+          title: 't',
+          running: true,
+          blockCount: 0,
+        })),
     })
   }, 60_000)
 
@@ -1200,7 +1235,9 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       registerControlMethod('browse.open', {
         handler: (params: unknown) => {
           browsed.push(params)
-          return { ok: true, url: (params as { url?: string }).url }
+          const url = (params as { url?: string }).url
+          const tabId = getByPaneId(showPane('browser', url ?? ''))?.externalId
+          return { ok: true, url, tabId }
         },
       })
     })
@@ -1281,6 +1318,23 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       expect(revealed()).toEqual([])
     })
 
+    it('reads the tab back and fails with the reason when the file has no tab after opening it', async () => {
+      const shown = await runOstia(['open', 'README'], env(), home)
+      expect(shown.code).toBe(0)
+      expect(shown.stdout).toMatch(new RegExp(`^[0-9a-f-]+\\t${join(home, 'README')}\\n$`))
+      writeFileSync(join(home, 'unshown.txt'), 'x')
+      skipShowing = true
+      try {
+        const missing = await runOstia(['open', 'unshown.txt'], env(), home)
+        expect(missing.code).toBe(1)
+        expect(missing.stderr).toContain(
+          `ostia open: ${join(home, 'unshown.txt')} has no tab after opening it`,
+        )
+      } finally {
+        skipShowing = false
+      }
+    }, 15_000)
+
     it('names what it cannot open and opens nothing for it', async () => {
       const res = await runOstia(['open', outside, join(outside, 'nope.txt')], env())
 
@@ -1294,7 +1348,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     it('shows a folder under the home folder in the Files panel, and never grants one outside', async () => {
       const here = await runOstia(['open', '.'], env(), home)
       expect(here.stderr).toBe('')
-      expect(here.stdout.trim()).toBe('ok')
+      expect(here.stdout.trim()).toBe(`files\t${home}`)
       mkdirSync(join(home, 'docs'), { recursive: true })
       const named = await runOstia(['open', 'docs'], env(), home)
       expect(named.code).toBe(0)

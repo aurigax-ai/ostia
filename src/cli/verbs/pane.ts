@@ -13,7 +13,6 @@ interface PaneInputParams {
   keys?: string[]
   paste?: boolean
   force?: boolean
-  confirm?: boolean
 }
 
 export type PaneCall =
@@ -35,7 +34,6 @@ interface PaneMoveParams {
 
 interface PaneWakeParams {
   panes: string[]
-  wait?: true
   timeoutMs?: number
 }
 
@@ -151,18 +149,13 @@ function parseMove(argv: string[]): PaneCall {
 function parseWake(argv: string[]): PaneCall {
   const { positional, values, booleans } = parseArgs(argv, {
     values: { timeout: '--timeout' },
-    booleans: { wait: '--wait', json: '--json' },
+    booleans: { json: '--json' },
   })
   if (positional.length === 0) throw new Error(USAGE)
-  if (values.timeout !== undefined && !booleans.wait) throw new Error('--timeout needs --wait')
   const timeoutMs = timeoutFlag(values.timeout)
   return {
     method: 'pane.wake',
-    params: {
-      panes: positional,
-      ...(booleans.wait ? { wait: true as const } : {}),
-      ...(timeoutMs === undefined ? {} : { timeoutMs }),
-    },
+    params: { panes: positional, ...(timeoutMs === undefined ? {} : { timeoutMs }) },
     json: booleans.json,
   }
 }
@@ -225,11 +218,9 @@ export function parsePaneArgs(argv: string[]): PaneCall {
         paste: '--paste',
         raw: '--raw',
         force: '--force',
-        confirm: '--confirm',
       },
-      unknown: 'keep',
     })
-    const { enter, paste, raw, force, confirm } = booleans
+    const { enter, paste, raw, force } = booleans
     if ((words.length === 0 && !enter) || (paste && raw)) throw new Error(USAGE)
     const stdin = words.length === 1 && words[0] === '-'
     return {
@@ -240,7 +231,6 @@ export function parsePaneArgs(argv: string[]): PaneCall {
         ...(enter ? { keys: ['enter'] } : {}),
         ...(paste || raw ? { paste } : {}),
         ...(force ? { force: true } : {}),
-        ...(confirm ? { confirm: true } : {}),
       },
       ...(stdin ? { stdin: true as const } : {}),
     }
@@ -397,10 +387,6 @@ export async function runPaneVerb(
   } else if (call.method === 'pane.close') {
     const { closed } = result as { closed: string[] }
     console.log(call.json ? JSON.stringify(result) : closed.join('\n'))
-  } else if (call.method === 'pane.input' && call.params.confirm) {
-    const responded = (result as { responded?: boolean }).responded === true
-    console.log(responded ? 'ok' : 'sent, but the pane printed nothing back')
-    return responded ? 0 : 2
   } else {
     console.log('ok')
   }

@@ -27,7 +27,7 @@ vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
 const { setCapFilter, setScriptTokenCheck } = await import('../control/controlAuth')
 const { ensureCaps } = await import('../approvals/controlElevation')
 const { registerControlServer, stopControlServer } = await import('../control/controlServer')
-const { markManager, registerPane } = await import('../control/idRegistry')
+const { getByPaneId, markManager, registerPane } = await import('../control/idRegistry')
 const { registerPaneMoveToMethods } = await import('./paneMoveTo')
 
 const owners: Record<string, string> = {
@@ -45,6 +45,8 @@ const reachAsked: string[] = []
 const tabMembers = new Map<string, string[]>()
 const lockedPanes = new Set<string>()
 const joins: { workspaceId: string; paneIds: string[]; tab: string | null }[] = []
+const vanished = new Set<string>()
+const straySplitTab = new Map<string, string>()
 
 const inScope = async (ctx: ReachCaller, workspaceId: string) =>
   ctx.identity.workspaceId === workspaceId || scoped.has(workspaceId)
@@ -87,6 +89,25 @@ registerPaneMoveToMethods({
     const members = tab ? (tabMembers.get(`${workspaceId}/${tab}`) ?? []) : []
     return { ok: true, result: { moved: paneIds.filter((id) => !members.includes(id)) } }
   },
+  panes: async () =>
+    ['agent-pane', 'child-pane', 'sibling-pane'].flatMap((paneId) => {
+      if (vanished.has(paneId)) return []
+      const identity = getByPaneId(paneId)
+      const workspaceId = moved.filter((m) => m.paneId === paneId).at(-1)?.workspaceId ?? 'ws1'
+      const join = joins.filter((j) => j.paneIds.includes(paneId)).at(-1)
+      const splitTabName = straySplitTab.get(paneId) ?? join?.tab ?? undefined
+      return [
+        {
+          paneId: identity?.externalId ?? paneId,
+          workspaceId,
+          kind: 'terminal',
+          title: paneId,
+          running: true,
+          blockCount: 0,
+          ...(splitTabName ? { splitTabName } : {}),
+        },
+      ]
+    }),
 })
 
 const agent = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'agent-pane' })
@@ -144,6 +165,8 @@ beforeEach(() => {
   tabMembers.clear()
   lockedPanes.clear()
   joins.length = 0
+  vanished.clear()
+  straySplitTab.clear()
   setCapFilter(() => true)
 })
 
@@ -159,7 +182,7 @@ describe('pane.moveTo', () => {
   it('moves a tab the caller opened into a workspace within its reach without asking', async () => {
     scoped.add('ws2')
     const conn = await client(agent)
-    await expect(move(conn, ['worker'], 'ws2')).resolves.toEqual({
+    await expect(move(conn, ['worker'], 'ws2')).resolves.toMatchObject({
       ok: true,
       moved: [child.externalId],
       workspaceId: 'ws2',
@@ -227,7 +250,7 @@ describe('pane.moveTo', () => {
 
   it('leaves a pane that is already there alone', async () => {
     const conn = await client(agent)
-    await expect(move(conn, ['worker'], 'ws1')).resolves.toEqual({
+    await expect(move(conn, ['worker'], 'ws1')).resolves.toMatchObject({
       ok: true,
       moved: [],
       workspaceId: 'ws1',
@@ -242,7 +265,7 @@ const moveToTab = (conn: MessageConnection, panes: string[], tab: string, worksp
 describe('pane.moveTo with a tab', () => {
   it('joins a tab the caller opened into a split tab of its workspace without asking', async () => {
     const conn = await client(agent)
-    await expect(moveToTab(conn, ['worker'], 'workers')).resolves.toEqual({
+    await expect(moveToTab(conn, ['worker'], 'workers')).resolves.toMatchObject({
       ok: true,
       moved: [child.externalId],
     })
@@ -254,7 +277,10 @@ describe('pane.moveTo with a tab', () => {
   it('reports nothing for a pane already in the tab', async () => {
     tabMembers.set('ws1/workers', ['child-pane'])
     const conn = await client(agent)
-    await expect(moveToTab(conn, ['worker'], 'workers')).resolves.toEqual({ ok: true, moved: [] })
+    await expect(moveToTab(conn, ['worker'], 'workers')).resolves.toMatchObject({
+      ok: true,
+      moved: [],
+    })
   })
 
   it('puts panes back into their own tabs with new', async () => {
@@ -283,7 +309,7 @@ describe('pane.moveTo with a tab', () => {
   it('moves into another workspace first and joins the tab there', async () => {
     scoped.add('ws2')
     const conn = await client(agent)
-    await expect(moveToTab(conn, ['worker'], 'workers', 'ws2')).resolves.toEqual({
+    await expect(moveToTab(conn, ['worker'], 'workers', 'ws2')).resolves.toMatchObject({
       ok: true,
       moved: [child.externalId],
       workspaceId: 'ws2',
@@ -307,10 +333,34 @@ describe('pane.moveTo with a tab', () => {
   })
 })
 
+describe('pane.moveTo reads the placement back', () => {
+  it('answers with the placement the layout reports', async () => {
+    scoped.add('ws2')
+    const conn = await client(agent)
+    const res = await moveToTab(conn, ['worker'], 'workers', 'ws2')
+    expect(res).toMatchObject({
+      placement: [{ paneId: child.externalId, workspaceId: 'ws2', splitTabName: 'workers' }],
+    })
+  })
+
+  it('fails with the reason when the pane did not land where it was sent', async () => {
+    straySplitTab.set('child-pane', 'other')
+    const conn = await client(agent)
+    await expect(moveToTab(conn, ['worker'], 'workers')).rejects.toThrow(
+      `misplaced: ${child.externalId} is in split tab other, not workers`,
+    )
+    straySplitTab.clear()
+    vanished.add('child-pane')
+    await expect(moveToTab(conn, ['worker'], 'new')).rejects.toThrow(
+      `misplaced: ${child.externalId} is gone`,
+    )
+  })
+})
+
 describe('pane.moveTo from a script token', () => {
   it('moves a pane into another workspace with type-other-pane and all-workspaces', async () => {
     const conn = await client({ token: 'ostia_move-full' })
-    await expect(move(conn, [sibling.externalId], 'ws2')).resolves.toEqual({
+    await expect(move(conn, [sibling.externalId], 'ws2')).resolves.toMatchObject({
       ok: true,
       moved: [sibling.externalId],
       workspaceId: 'ws2',

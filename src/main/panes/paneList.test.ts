@@ -64,6 +64,28 @@ describe('paneList.listPanes', () => {
     )
   })
 
+  it('shows the process status and start outcome of a run pane, as process list does', async () => {
+    const run = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-run' })
+    const deps: PaneListDeps = {
+      execCommand: vi
+        .fn()
+        .mockResolvedValue(
+          ok([{ paneId: 'p-run', workspaceId: 's1', kind: 'terminal', title: 'lead' }]),
+        ),
+      getTerminalState: () => undefined,
+      ptyPid: () => undefined,
+      windowIds: ONE_WINDOW,
+      waking: () => false,
+      processOf: (paneId) =>
+        paneId === 'p-run' ? { id: 'proc-1', status: 'exited(1)', start: 'failed' } : undefined,
+    }
+    const [pane] = await listPanes(deps)
+    expect(pane).toMatchObject({
+      paneId: run.externalId,
+      process: { id: 'proc-1', status: 'exited(1)', start: 'failed' },
+    })
+  })
+
   it('reports the pty pid for a live terminal pane and never for other kinds', async () => {
     const term = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-pid-term' })
     registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-pid-editor' })

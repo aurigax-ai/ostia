@@ -45,6 +45,7 @@ import {
   revealRefusalLine,
 } from './common/fileArgs'
 import { paneToken } from './common/paneToken'
+import { confirmFilesOpen, confirmPaneOpen, confirmWorkspace } from './common/readBack'
 import { TTY_NOTICE, captureStdin } from './common/stdinCapture'
 import { type UsageAnswer, findNoun, topUsage, usageGate, usageOf } from './common/usageTable'
 import { buildVersionAt } from './common/version'
@@ -443,40 +444,60 @@ interface OpenHow {
   wait: boolean
 }
 
+interface Opened {
+  problems: string[]
+  shown: string[]
+}
+
 async function openFilesIn(
   conn: MessageConnection,
   files: FileTarget[],
   how: OpenHow,
-): Promise<string[]> {
-  if (files.length === 0) return []
+): Promise<Opened> {
+  if (files.length === 0) return { problems: [], shown: [] }
   const res = await conn.sendRequest<OpenFilesResult>('file.open', {
     files,
     ...(how.background ? { background: true } : {}),
     ...(how.wait ? { wait: true } : {}),
   })
-  if (!res.ok) return [`ostia open: ${res.message}`]
+  if (!res.ok) return { problems: [`ostia open: ${res.message}`], shown: [] }
   const refused = res.results.flatMap((r) => (r.ok ? [] : [refusalLine(r.path, r.error)]))
-  if (how.wait && res.waited !== 'closed' && refused.length < res.results.length) {
-    return [...refused, WAIT_ENDED]
+  if (how.wait) {
+    const ended = res.waited !== 'closed' && refused.length < res.results.length
+    return { problems: ended ? [...refused, WAIT_ENDED] : refused, shown: [] }
   }
-  return refused
+  const paths = res.results.flatMap((r) => (r.ok ? [r.path] : []))
+  if (paths.length === 0) return { problems: refused, shown: [] }
+  const seen = await confirmFilesOpen(conn, paths)
+  if (!seen.ok) return { problems: [...refused, seen.reason], shown: [] }
+  return { problems: refused, shown: seen.value.map((o) => `${o.paneId}\t${o.path}`) }
 }
 
-async function revealFolderIn(conn: MessageConnection, path: string): Promise<string[]> {
+async function revealFolderIn(conn: MessageConnection, path: string): Promise<Opened> {
   const res = await conn.sendRequest<RevealFolderResult>('file.reveal', { path })
-  return res.ok ? [] : [revealRefusalLine(path, res.error, res.message)]
+  return res.ok
+    ? { problems: [], shown: [`files\t${path}`] }
+    : { problems: [revealRefusalLine(path, res.error, res.message)], shown: [] }
 }
 
 async function openUrlIn(
   conn: MessageConnection,
   url: string,
   background: boolean,
-): Promise<string[]> {
-  const res = await conn.sendRequest<{ ok: boolean; error?: string; message?: string }>(
-    'browse.open',
-    { url, ...(background ? { background: true } : {}) },
-  )
-  return res.ok ? [] : [`ostia: ${url}: ${res.message ?? res.error ?? 'failed'}`]
+): Promise<Opened> {
+  const res = await conn.sendRequest<{
+    ok: boolean
+    tabId?: string
+    error?: string
+    message?: string
+  }>('browse.open', { url, ...(background ? { background: true } : {}) })
+  if (!res.ok)
+    return { problems: [`ostia: ${url}: ${res.message ?? res.error ?? 'failed'}`], shown: [] }
+  if (!res.tabId) return { problems: [`ostia open: ${url} names no browser pane`], shown: [] }
+  const seen = await confirmPaneOpen(conn, res.tabId, url)
+  return seen.ok
+    ? { problems: [], shown: [`${seen.value}\t${url}`] }
+    : { problems: [seen.reason], shown: [] }
 }
 
 const WAIT_ENDED = 'ostia: the wait ended before the tab was closed'
@@ -527,14 +548,19 @@ async function runOpenFiles(conn: MessageConnection, args: string[]): Promise<vo
   if (wait && files.length === 0 && problems.length === 0) {
     return fail('ostia open: --wait needs a file')
   }
-  for (const target of targets) {
-    if (target.kind === 'folder') problems.push(...(await revealFolderIn(conn, target.path)))
-    if (target.kind === 'url') problems.push(...(await openUrlIn(conn, target.url, background)))
+  const shown: string[] = []
+  const take = (opened: Opened): void => {
+    problems.push(...opened.problems)
+    shown.push(...opened.shown)
   }
-  problems.push(...(await openFilesIn(conn, files, { background, wait })))
+  for (const target of targets) {
+    if (target.kind === 'folder') take(await revealFolderIn(conn, target.path))
+    if (target.kind === 'url') take(await openUrlIn(conn, target.url, background))
+  }
+  take(await openFilesIn(conn, files, { background, wait }))
+  for (const line of shown) console.log(line)
   for (const line of problems) console.error(line)
   if (problems.length > 0) process.exitCode = 1
-  else if (!wait) console.log('ok')
 }
 
 async function runDiffFiles(conn: MessageConnection, args: string[]): Promise<void> {
@@ -842,23 +868,33 @@ async function runAgentVerb(conn: MessageConnection): Promise<void> {
   const [agent, given] = positional
   if (process.argv[3] !== 'run' || !agent || given === undefined) return failUsage('agent')
   const prompt = given === '-' ? await readAllStdin() : given
-  const res = await conn.sendRequest<{ id: string; name: string; paneId: string } | ErrResult>(
-    'agent.run',
-    {
-      agent,
-      prompt,
-      name: flags.name,
-      ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}),
-      ...(flags.workspace ? { workspace: await resolveWorkspaceRef(conn, flags.workspace) } : {}),
-      ...(flags.tab !== undefined ? { tab: flags.tab } : {}),
-    },
-  )
+  const res = await conn.sendRequest<StartAnswer | ErrResult>('agent.run', {
+    agent,
+    prompt,
+    name: flags.name,
+    ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}),
+    ...(flags.workspace ? { workspace: await resolveWorkspaceRef(conn, flags.workspace) } : {}),
+    ...(flags.tab !== undefined ? { tab: flags.tab } : {}),
+  })
   if (isErrResult(res)) {
     console.error(`ostia: agent run failed (${describeErrResult(res)})`)
     process.exitCode = 1
     return
   }
+  printStart('agent run', res)
+}
+
+interface StartAnswer {
+  name: string
+  paneId: string
+  status?: string
+  reason?: string
+}
+
+function printStart(verb: string, res: StartAnswer): void {
   console.log(JSON.stringify(res))
+  if (res.status !== 'failed' && res.status !== 'timed-out') return
+  fail(`ostia ${verb}: ${res.name} (${res.paneId}) ${res.status}: ${res.reason ?? ''}`)
 }
 
 async function runProcessVerb(conn: MessageConnection): Promise<void> {
@@ -871,26 +907,23 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
     })
     const cmd = positional[0]
     if (!cmd) return failUsage('process')
-    const res = await conn.sendRequest<{ id: string; name: string; paneId: string } | ErrResult>(
-      'process.run',
-      {
-        cmd,
-        name: flags.name,
-        ...(flags.workspace
-          ? {
-              workspace: await resolveWorkspaceRef(conn, flags.workspace),
-              ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}),
-            }
-          : { cwd: resolvePath(flags.cwd ?? '.') }),
-        ...(flags.tab !== undefined ? { tab: flags.tab } : {}),
-      },
-    )
+    const res = await conn.sendRequest<StartAnswer | ErrResult>('process.run', {
+      cmd,
+      name: flags.name,
+      ...(flags.workspace
+        ? {
+            workspace: await resolveWorkspaceRef(conn, flags.workspace),
+            ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}),
+          }
+        : { cwd: resolvePath(flags.cwd ?? '.') }),
+      ...(flags.tab !== undefined ? { tab: flags.tab } : {}),
+    })
     if (isErrResult(res)) {
       console.error(`ostia: process run failed (${describeErrResult(res)})`)
       process.exitCode = 1
       return
     }
-    console.log(JSON.stringify(res))
+    printStart('process run', res)
   } else if (sub === 'list') {
     const list = await conn.sendRequest<ProcInfo[] | ErrResult>('process.list')
     if (!Array.isArray(list)) {
@@ -1096,7 +1129,11 @@ async function runWorkspaceNew(conn: MessageConnection, argv: string[]): Promise
     },
   })
   if (!res.ok) return fail(`ostia workspace new: ${res.error.message}`)
-  console.log(JSON.stringify(res.result))
+  const workspaceId = (res.result as { workspaceId?: unknown } | undefined)?.workspaceId
+  if (typeof workspaceId !== 'string') return fail('ostia workspace new: no workspace was made')
+  const seen = await confirmWorkspace(conn, workspaceId)
+  if (!seen.ok) return fail(seen.reason)
+  console.log(JSON.stringify({ workspaceId: seen.value }))
 }
 
 async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {

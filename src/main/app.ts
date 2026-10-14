@@ -25,7 +25,9 @@ import {
 } from 'electron'
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
+import { parseAgentHooks } from '../shared/agents/agentHooks'
 import { type AgentResume, parseAgentResume } from '../shared/agents/agentResume'
+import { isResumableAgent } from '../shared/agents/agentResume'
 import type { HibernateOutcome } from '../shared/agents/agentWork'
 import {
   MANAGER_FEATURE,
@@ -45,6 +47,7 @@ import { parsePortsSettings } from '../shared/boards/ports'
 import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browser/browserProfile'
 import { PASSKEY_GUARD_JS } from '../shared/browser/passkeyGuard'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
+import { ChangeSignal } from '../shared/common/actThenConfirm'
 import { languageForPath } from '../shared/editorLanguages'
 import type {
   ExtensionEventPayloads,
@@ -97,7 +100,7 @@ import {
   readProcessTable,
   registerAgentWorkMethods,
 } from './agents/agentWork'
-import { registerBusMethods } from './agents/bus'
+import { registerBusMethods, tellPane } from './agents/bus'
 import type { OriginReach } from './agents/originAgents'
 import { createResumeClaimer, registerResumeClaimIpc } from './agents/resumeClaims'
 import { approvals, registerApprovals } from './approvals/approvals'
@@ -296,6 +299,7 @@ import {
   INTERRUPT_GRACE_MS,
   type ProcessRegistry,
   type ProcessTabRequest,
+  processStatusOf,
   registerProcessMethods,
 } from './panes/processManager'
 import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './platform/discreteGpu'
@@ -862,6 +866,7 @@ function killPty(paneId: string, reason: ReapReason): void {
   appLog?.info('pty-reap', { pane: paneId, reason })
   recoveryHeld.delete(paneId)
   closedPanes.delete(paneId)
+  startedAgents.delete(paneId)
   if (entry.killTimer) clearTimeout(entry.killTimer)
   try {
     entry.pty.kill()
@@ -1524,7 +1529,12 @@ let viewHost: ViewHost | null = null
 let mcpHost: McpHost | null = null
 let mcpOAuth: McpOAuth | null = null
 let broker: WindowBroker | null = null
-const agentRunning = new AgentRunningPanes(() => broker?.persist())
+const agentChanges = new ChangeSignal()
+const startedAgents = new Set<string>()
+const agentRunning = new AgentRunningPanes(() => {
+  broker?.persist()
+  agentChanges.fire()
+})
 const agentWork = new ReportedAgentWork()
 
 const askHub = createAskHub({
@@ -3821,6 +3831,8 @@ app.whenReady().then(() => {
     onResume: (identity, resume) => {
       telemetry?.count('agents', 'resume')
       paneWaking.end(identity.paneId, 'started')
+      startedAgents.add(identity.paneId)
+      agentChanges.fire()
       if (identity.manager) managerService?.rememberResume(resume)
     },
   })
@@ -3848,6 +3860,13 @@ app.whenReady().then(() => {
     cwdOfPane: (paneId) => terminalState.get(paneId)?.cwd,
     agentArgv: (name) => managerAgents(managerSettings())[name] ?? null,
     isAgent: (paneId) => agentRunning.has(paneId),
+    agentStarted: (paneId) => startedAgents.has(paneId),
+    startsWithHook: (argv) => {
+      const program = basename(argv[0] ?? '')
+      return isResumableAgent(program) && parseAgentHooks(readSettingsFile().agents?.hooks)[program]
+    },
+    agentChanges: agentChanges.subscribe,
+    tell: tellPane,
     paneTitle: async (paneId) => {
       const pane = getByPaneId(paneId)
       if (!pane) return undefined
@@ -3894,6 +3913,8 @@ app.whenReady().then(() => {
     close: (to) => execCommand(targetOf(to), 'pane.close'),
     resume: (to) => execCommand(targetOf(to), 'agent.resume'),
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    hooksOn: (agent) =>
+      isResumableAgent(agent) && parseAgentHooks(readSettingsFile().agents?.hooks)[agent],
   })
   registerExtensionWake({
     openedBy: (caller, paneId) => extensionHost?.openedBy(caller, paneId) ?? false,
@@ -3918,6 +3939,7 @@ app.whenReady().then(() => {
       execCommand(workspaceCommandTarget(workspaceId), 'pane.tabPlan', { paneIds, tab }),
     joinTab: (workspaceId, paneIds, tab) =>
       execCommand(workspaceCommandTarget(workspaceId), 'pane.joinTab', { paneIds, tab }),
+    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
   })
   registerPaneWaitMethods({
     ...paneReachDeps,
@@ -4226,6 +4248,10 @@ app.whenReady().then(() => {
     ptyPid,
     windowIds,
     waking: isWaking,
+    processOf: (paneId) => {
+      const entry = processes?.forPane(paneId)
+      return entry ? processStatusOf(entry) : undefined
+    },
     reach,
   })
   registerGatewayMethods()

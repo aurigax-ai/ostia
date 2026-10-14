@@ -78,8 +78,8 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       { verb: 'list', about: 'every pane you can see (JSON)' },
       {
         verb: 'send',
-        args: `${PANE} [--enter] [--paste|--raw] [--force] [--confirm] [--] <text…|->`,
-        about: 'type text into a terminal pane; no Enter unless --enter',
+        args: `${PANE} [--enter] [--paste|--raw] [--force] [--] <text…|->`,
+        about: 'type text into a terminal pane (no Enter unless --enter) and confirm it showed',
       },
       { verb: 'key', args: `${PANE} <key>…`, about: 'press keys in a terminal pane' },
       { verb: 'read', args: `${PANE} [--lines N] [--json]`, about: 'its screen as plain text' },
@@ -90,8 +90,8 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       },
       {
         verb: 'wake',
-        args: `${PANE}… [--wait [--timeout <s>]] [--json]`,
-        about: "start a pane's agent again with its own resume command",
+        args: `${PANE}… [--timeout <s>] [--json]`,
+        about: "start a pane's agent again with its own resume command and wait until it started",
       },
       {
         verb: 'hibernate',

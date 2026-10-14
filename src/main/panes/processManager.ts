@@ -1,6 +1,7 @@
 import { isAbsolute } from 'node:path'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { MANAGER_AGENT_NAME } from '../../shared/agents/managerSettings'
+import { ChangeSignal, type Subscribe, anyOf } from '../../shared/common/actThenConfirm'
 import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import {
@@ -19,6 +20,13 @@ import { getByPaneId, resolveExternal } from '../control/idRegistry'
 import type { TerminalOpenRequest } from '../extensions/extensionHost'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import { PromptMarkScanner, plainTerminalText } from '../terminal/terminalText'
+import {
+  START_TIMING,
+  type StartReport,
+  type StartTiming,
+  confirmStart,
+  startMessage,
+} from './startConfirm'
 
 const PROCESS_COMMAND_MAX = 8 * 1024
 const PROCESS_NAME_MAX = 60
@@ -28,6 +36,8 @@ const COMMAND_START = 'C'
 const COMMAND_END = 'D'
 
 type ProcessStatus = 'starting' | 'running' | 'exited' | 'closed'
+
+export type StartOutcome = 'started' | 'exited' | 'failed' | 'timed-out'
 
 export interface RingSlice {
   data: string
@@ -52,6 +62,7 @@ export interface ProcessEntry {
   outputStart?: number
   outputEnd?: number
   splitTab?: string
+  start?: StartOutcome
 }
 
 export interface ProcessInfo {
@@ -64,6 +75,7 @@ export interface ProcessInfo {
   paneId: string
   startedAt: string
   splitTab?: string
+  start?: StartOutcome
 }
 
 export interface ProcessOutput {
@@ -317,6 +329,7 @@ export class ProcessRegistry {
       paneId: entry.externalPaneId,
       startedAt: entry.startedAt,
       ...(entry.splitTab ? { splitTab: entry.splitTab } : {}),
+      ...(entry.start ? { start: entry.start } : {}),
     }
   }
 
@@ -345,6 +358,20 @@ export interface ProcessTabRequest extends TerminalOpenRequest {
   splitTab?: SplitTabPlacement
 }
 
+type StartedProcess = { id: string; name: string; paneId: string } & StartReport
+
+export function processStatusOf(entry: ProcessEntry): {
+  id: string
+  status: string
+  start?: StartOutcome
+} {
+  const status =
+    entry.status === 'exited' && entry.exitCode !== undefined
+      ? `exited(${entry.exitCode})`
+      : entry.status
+  return { id: entry.id, status, ...(entry.start ? { start: entry.start } : {}) }
+}
+
 export interface ProcessDeps {
   openTab: (req: ProcessTabRequest) => Promise<string | null>
   ring: (paneId: string) => RingReader | undefined
@@ -356,6 +383,11 @@ export interface ProcessDeps {
   agentArgv: (name: string) => string[] | null
   isAgent: (paneId: string) => boolean
   paneTitle: (paneId: string) => Promise<string | undefined>
+  agentStarted: (paneId: string) => boolean
+  startsWithHook: (argv: readonly string[]) => boolean
+  agentChanges: Subscribe
+  tell: (toExternalId: string, text: string) => void
+  startTiming?: StartTiming
   isSandboxed: (workspaceId: string) => boolean
   reach: Pick<Reach, 'ensure' | 'visible' | 'scriptReach'>
   interruptGraceMs: number
@@ -451,11 +483,15 @@ function cwdOf(raw: unknown): string | undefined {
 }
 
 export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
+  const registryChanges = new ChangeSignal()
   const registry = new ProcessRegistry({
     ring: deps.ring,
     workspaceOfPane: (paneId) => getByPaneId(paneId)?.workspaceId,
     now: () => new Date(),
-    ...(deps.onChange ? { onChange: deps.onChange } : {}),
+    onChange: (entry) => {
+      deps.onChange?.(entry)
+      registryChanges.fire()
+    },
   })
 
   const scriptReach = async (ctx: ControlMethodContext, method: string): Promise<void> => {
@@ -515,7 +551,8 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
     givenCwd: string | undefined,
     givenWorkspace: string | undefined,
     splitTab: SplitTabPlacement | undefined,
-  ): Promise<{ id: string; name: string; paneId: string } | typeof NOT_OPENED> => {
+    agentHook: boolean,
+  ): Promise<StartedProcess | typeof NOT_OPENED> => {
     const home = ctx.identity.workspaceId
     const workspaceId = givenWorkspace ?? home
     if (!workspaceId) {
@@ -564,7 +601,21 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
       externalPaneId: pane.externalId,
       ...(splitTab ? { splitTab: splitTab.name } : {}),
     })
-    return { id: entry.id, name: entry.name, paneId: entry.externalPaneId }
+    const report = await confirmStart({
+      registry,
+      entry,
+      agentHook,
+      agentStarted: deps.agentStarted,
+      changes: anyOf(registryChanges.subscribe, deps.agentChanges),
+      timing: deps.startTiming ?? START_TIMING,
+    })
+    entry.start = report.status
+    deps.onChange?.(entry)
+    const caller = ctx.identity
+    if (caller.kind === 'pane' && caller.paneId && deps.isAgent(caller.paneId)) {
+      deps.tell(caller.externalId, startMessage(entry.name, entry.externalPaneId, report))
+    }
+    return { id: entry.id, name: entry.name, paneId: entry.externalPaneId, ...report }
   }
 
   const workspaceOf = (raw: unknown): string | undefined => {
@@ -586,6 +637,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
         cwdOf(p.cwd),
         workspaceOf(p.workspace),
         splitTabOf(p.tab),
+        false,
       )
     },
   })
@@ -606,6 +658,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
         cwdOf(p.cwd),
         workspaceOf(p.workspace),
         splitTabOf(p.tab) ?? (await workersTab(ctx)),
+        deps.startsWithHook(argv),
       )
     },
   })

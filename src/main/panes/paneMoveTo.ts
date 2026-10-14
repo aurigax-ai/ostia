@@ -1,9 +1,11 @@
+import { actThenConfirm, confirmed, mismatch, pollEvery } from '../../shared/common/actThenConfirm'
 import type { CommandResult, PaneMoveError } from '../../shared/types'
 import { normalizeSplitTabName } from '../../shared/workspaces/splitTabs'
 import type { Reach } from '../approvals/reach'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, getByPaneId } from '../control/idRegistry'
 import { type PaneReachDeps, ensurePaneReach, fail, paneRefs, paneTarget, record } from './paneIo'
+import type { PaneEntry } from './paneList'
 import { type PaneMoveDeps, checkPaneMove } from './paneMove'
 
 interface PaneTabPlan {
@@ -16,6 +18,7 @@ export interface PaneMoveToDeps extends PaneReachDeps, Omit<PaneMoveDeps, 'moveP
   move: (pane: PaneIdentity, workspaceId: string) => Promise<CommandResult>
   tabPlan: (workspaceId: string, paneIds: string[], tab: string | null) => Promise<CommandResult>
   joinTab: (workspaceId: string, paneIds: string[], tab: string | null) => Promise<CommandResult>
+  panes: () => Promise<PaneEntry[]>
 }
 
 const REFUSALS: Readonly<Record<PaneMoveError, string>> = {
@@ -67,6 +70,68 @@ async function ensureTabReach(
       detail: `join split tab ${tab}, which holds ${to.externalId}`,
     })
   }
+}
+
+interface Placement {
+  paneId: string
+  workspaceId: string
+  splitTabName?: string
+}
+
+const PLACEMENT_CONFIRM_MS = 3000
+const PLACEMENT_POLL_MS = 100
+
+function placementProblem(
+  entry: PaneEntry | undefined,
+  dest: string,
+  tab: string | null | undefined,
+  alone: boolean,
+): string | null {
+  if (!entry) return 'is gone'
+  if (entry.workspaceId !== dest) return `is in workspace ${entry.workspaceId}, not ${dest}`
+  if (tab === undefined) return null
+  if (tab === null) return entry.splitTabName ? `is still in split tab ${entry.splitTabName}` : null
+  if (entry.splitTabName === tab) return null
+  if (!entry.splitTabName && alone) return null
+  return entry.splitTabName
+    ? `is in split tab ${entry.splitTabName}, not ${tab}`
+    : `is in no split tab, not ${tab}`
+}
+
+function confirmPlacement(
+  deps: PaneMoveToDeps,
+  panes: PaneIdentity[],
+  groups: Map<string, PaneIdentity[]>,
+  workspace: string | undefined,
+  tab: string | null | undefined,
+) {
+  let last = 'the layout did not answer'
+  return actThenConfirm<Placement[]>({
+    act: () => undefined,
+    observe: async () => {
+      const listed = await deps.panes()
+      const placed: Placement[] = []
+      for (const to of panes) {
+        const entry = listed.find((p) => p.paneId === to.externalId)
+        const dest = workspace ?? to.workspaceId
+        const alone = (groups.get(dest)?.length ?? 0) === 1
+        const problem = placementProblem(entry, dest, tab, alone)
+        if (problem || !entry) {
+          last = `misplaced: ${to.externalId} ${problem ?? 'is gone'}`
+          return undefined
+        }
+        placed.push({
+          paneId: entry.paneId,
+          workspaceId: entry.workspaceId,
+          ...(entry.splitTabName ? { splitTabName: entry.splitTabName } : {}),
+        })
+      }
+      return confirmed(placed)
+    },
+    signal: pollEvery(PLACEMENT_POLL_MS),
+    timeoutMs: PLACEMENT_CONFIRM_MS,
+    onTimeout: () => mismatch(last),
+  })
 }
 
 export function registerPaneMoveToMethods(deps: PaneMoveToDeps): void {
@@ -135,8 +200,11 @@ export function registerPaneMoveToMethods(deps: PaneMoveToDeps): void {
           for (const to of group) if (joined.includes(to.paneId)) moved.add(to.externalId)
         }
       }
+      const placement = await confirmPlacement(deps, panes, groups, workspace, tab)
+      if (!placement.ok) throw fail(placement.reason)
       return {
         ok: true,
+        placement: placement.value,
         moved: panes.map((to) => to.externalId).filter((id) => moved.has(id)),
         ...(workspace ? { workspaceId: workspace } : {}),
       }

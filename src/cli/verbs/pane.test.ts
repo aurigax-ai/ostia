@@ -34,17 +34,20 @@ describe('parsePaneArgs', () => {
     })
   })
 
-  it('keeps unknown flags of send as text and reads --enter wherever it stands', () => {
-    expect(parsePaneArgs(['send', 'worker', '--enter', 'git', 'commit', '-m', 'fix -1'])).toEqual({
+  it('refuses an unknown flag of send, and takes text with dashes after --', () => {
+    expect(() => parsePaneArgs(['send', 'worker', '--enter', 'git', 'commit', '-m', 'x'])).toThrow(
+      'unknown flag -m',
+    )
+    expect(
+      parsePaneArgs(['send', 'worker', '--enter', '--', 'git', 'commit', '-m', 'fix -1']),
+    ).toEqual({
       method: 'pane.input',
       params: { pane: 'worker', text: 'git commit -m fix -1', keys: ['enter'] },
     })
   })
 
   it('reads the flags for unattended sends and a task from stdin', () => {
-    expect(
-      parsePaneArgs(['send', 'w', '--paste', '--force', '--confirm', '--enter', 'do', 'it']),
-    ).toEqual({
+    expect(parsePaneArgs(['send', 'w', '--paste', '--force', '--enter', 'do', 'it'])).toEqual({
       method: 'pane.input',
       params: {
         pane: 'w',
@@ -52,7 +55,6 @@ describe('parsePaneArgs', () => {
         keys: ['enter'],
         paste: true,
         force: true,
-        confirm: true,
       },
     })
     expect(parsePaneArgs(['send', 'w', '--raw', 'a'])).toEqual({
@@ -65,6 +67,10 @@ describe('parsePaneArgs', () => {
       stdin: true,
     })
     expect(() => parsePaneArgs(['send', 'w', '--paste', '--raw', 'a'])).toThrow('usage: ostia pane')
+    expect(() => parsePaneArgs(['send', 'w', '--confirm', 'a'])).toThrow('unknown flag --confirm')
+    expect(parsePaneArgs(['send', 'w', '--', '--not-a-flag'])).toMatchObject({
+      params: { text: '--not-a-flag' },
+    })
   })
 
   it('passes the keys of key through in order', () => {
@@ -200,21 +206,14 @@ describe('pane wake', () => {
     expect(() => parsePaneArgs(['wake'])).toThrow('ostia pane wake <pane>')
   })
 
-  it('takes --wait with an optional --timeout in seconds', () => {
-    expect(parsePaneArgs(['wake', 'fixer', '--wait'])).toEqual({
+  it('always waits for the start, with an optional --timeout in seconds and no --wait flag', () => {
+    expect(parsePaneArgs(['wake', 'fixer', '--timeout', '30'])).toEqual({
       method: 'pane.wake',
-      params: { panes: ['fixer'], wait: true },
+      params: { panes: ['fixer'], timeoutMs: 30_000 },
       json: false,
     })
-    expect(parsePaneArgs(['wake', 'fixer', '--wait', '--timeout', '30'])).toEqual({
-      method: 'pane.wake',
-      params: { panes: ['fixer'], wait: true, timeoutMs: 30_000 },
-      json: false,
-    })
-    expect(() => parsePaneArgs(['wake', 'fixer', '--timeout', '30'])).toThrow(
-      '--timeout needs --wait',
-    )
-    expect(() => parsePaneArgs(['wake', 'fixer', '--wait', '--timeout', 'soon'])).toThrow(
+    expect(() => parsePaneArgs(['wake', 'fixer', '--wait'])).toThrow('unknown flag --wait')
+    expect(() => parsePaneArgs(['wake', 'fixer', '--timeout', 'soon'])).toThrow(
       "--timeout expects seconds, got 'soon'",
     )
   })

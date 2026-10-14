@@ -91,7 +91,7 @@ afterAll(() => rmSync(dataHome, { recursive: true, force: true }))
 describe('bus delivery', () => {
   it('queues a message for a pane that is not waiting and tells the human', async () => {
     const res = await send('tests are green')
-    expect(res).toMatchObject({ ok: true, delivered: 'queued' })
+    expect(res).toMatchObject({ ok: true, delivered: 'queued', seen: false })
     expect(announce).toHaveBeenCalledWith(sender, receiver, 'tests are green')
     expect(ensureCaps).toHaveBeenCalledWith(
       {},
@@ -107,7 +107,7 @@ describe('bus delivery', () => {
       timeoutMs: 5000,
     })
     const res = await send('wake up')
-    expect(res.delivered).toBe('waiting')
+    expect(res).toMatchObject({ delivered: 'waiting', seen: true })
     expect(announce).not.toHaveBeenCalled()
     const woken = await waiting
     expect(woken.timedOut).toBe(false)
@@ -164,7 +164,7 @@ describe('bus delivery', () => {
       task: 'fix the flaky test',
       summary: 'it fails one run in five',
     })
-    expect(res).toMatchObject({ ok: true, delivered: 'queued' })
+    expect(res).toMatchObject({ ok: true, delivered: 'queued', seen: false })
     expect(announce).toHaveBeenCalledWith(
       sender,
       receiver,

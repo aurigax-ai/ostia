@@ -10,6 +10,7 @@ import {
 } from 'vscode-jsonrpc/node'
 import { ownWorkspaceReach } from '../../../test/reach'
 import type { Capability } from '../../shared/capabilities'
+import { ChangeSignal } from '../../shared/common/actThenConfirm'
 import type { CommandResult } from '../../shared/types'
 import { grant, setCaps } from '../approvals/capabilityStore'
 import { setScriptTokenCheck } from '../control/controlAuth'
@@ -55,6 +56,10 @@ const AGENTS: Record<string, string[]> = {
 const sandboxedWorkspaces = new Set<string>()
 const agentPanes = new Set<string>()
 const titles = new Map<string, string>()
+const startedAgents = new Set<string>()
+const agentSignal = new ChangeSignal()
+const told: { to: string; text: string }[] = []
+let onOpen: ((paneId: string) => void) | null = null
 
 const registry = registerProcessMethods({
   isSandboxed: (workspaceId) => sandboxedWorkspaces.has(workspaceId),
@@ -72,7 +77,14 @@ const registry = registerProcessMethods({
     tabSeq += 1
     const paneId = `tab-${tabSeq}`
     rings.set(paneId, new PtyRingBuffer())
-    return registerPane({ windowId: 'w1', workspaceId: req.workspaceId ?? '', paneId }).externalId
+    const id = registerPane({
+      windowId: 'w1',
+      workspaceId: req.workspaceId ?? '',
+      paneId,
+    }).externalId
+    const opening = onOpen
+    if (opening) setTimeout(() => opening(paneId), 0)
+    return id
   },
   ring: (paneId) => {
     const ring = rings.get(paneId)
@@ -90,6 +102,13 @@ const registry = registerProcessMethods({
   agentArgv: (name) => AGENTS[name] ?? null,
   isAgent: (paneId) => agentPanes.has(paneId),
   paneTitle: async (paneId) => titles.get(paneId),
+  agentStarted: (paneId) => startedAgents.has(paneId),
+  startsWithHook: (argv) => argv[0] === 'claude' || argv[0] === 'codex',
+  agentChanges: agentSignal.subscribe,
+  tell: (to, text) => {
+    told.push({ to, text })
+  },
+  startTiming: { settleMs: 20, processMs: 80, agentMs: 80, pollMs: 5 },
   hasShell: (paneId) => rings.has(paneId),
   runInPane: (paneId, command) => {
     reruns.push({ paneId, command })
@@ -171,6 +190,83 @@ afterEach(() => {
   sandboxedWorkspaces.clear()
   agentPanes.clear()
   titles.clear()
+  startedAgents.clear()
+  told.length = 0
+  onOpen = null
+})
+
+describe('the start of a run is confirmed', () => {
+  it('reports a process started once its command runs past the start window', async () => {
+    onOpen = (paneId) => emit(paneId, `${PROMPT}npm run dev\r\n${C}listening\r\n`)
+    const conn = await client(agent)
+    const res = await conn.sendRequest<Started & { status: string }>('process.run', {
+      cmd: 'npm run dev',
+    })
+    expect(res.status).toBe('started')
+    const [info] = await conn.sendRequest<ProcessInfo[]>('process.list')
+    expect(info).toMatchObject({ status: 'running', start: 'started' })
+  })
+
+  it('reports a command that exits at once as failed with its exit code and its own output', async () => {
+    onOpen = (paneId) =>
+      emit(
+        paneId,
+        `${PROMPT}claude --tab\r\n${C}error: unknown option '--tab'\r\n${exit(1)}${PROMPT}`,
+      )
+    const conn = await client(agent)
+    const res = await conn.sendRequest<Record<string, unknown>>('agent.run', {
+      agent: 'claude',
+      prompt: 'fix it',
+    })
+    expect(res).toMatchObject({
+      status: 'failed',
+      exitCode: 1,
+      output: ["error: unknown option '--tab'"],
+    })
+    expect(String(res.reason)).toContain('exit code 1')
+    const [info] = await conn.sendRequest<ProcessInfo[]>('process.list')
+    expect(info).toMatchObject({ status: 'exited', exitCode: 1, start: 'failed' })
+    expect(written).toEqual([])
+  })
+
+  it('reports an agent started only when its start hook fired, and tells an agent caller', async () => {
+    agentPanes.add('agent-pane')
+    onOpen = (paneId) => {
+      emit(paneId, `${PROMPT}claude 'fix it'\r\n${C}`)
+      setTimeout(() => {
+        startedAgents.add(paneId)
+        agentSignal.fire()
+      }, 10)
+    }
+    const conn = await client(agent)
+    const res = await conn.sendRequest<Started & { status: string }>('agent.run', {
+      agent: 'claude',
+      prompt: 'fix it',
+    })
+    expect(res.status).toBe('started')
+    expect(told).toEqual([
+      { to: agent.externalId, text: expect.stringContaining(`claude (${res.paneId}) started`) },
+    ])
+  })
+
+  it('reports timed-out when the agent never reports its start, and types nothing again', async () => {
+    onOpen = (paneId) => emit(paneId, `${PROMPT}claude 'fix it'\r\n${C}`)
+    const conn = await client(agent)
+    const res = await conn.sendRequest<Record<string, unknown>>('agent.run', {
+      agent: 'claude',
+      prompt: 'fix it',
+    })
+    expect(res).toMatchObject({ status: 'timed-out', reason: 'the agent did not report its start' })
+    expect(written).toEqual([])
+    expect(opened).toHaveLength(1)
+  })
+
+  it('says a process with a quick clean exit exited, not failed', async () => {
+    onOpen = (paneId) => emit(paneId, `${PROMPT}echo hi\r\n${C}hi\r\n${exit(0)}${PROMPT}`)
+    const conn = await client(agent)
+    const res = await conn.sendRequest<Record<string, unknown>>('process.run', { cmd: 'echo hi' })
+    expect(res).toMatchObject({ status: 'exited', exitCode: 0, output: ['hi'] })
+  })
 })
 
 describe('agent.run', () => {

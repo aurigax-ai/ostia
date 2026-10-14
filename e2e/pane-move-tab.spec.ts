@@ -40,7 +40,9 @@ test('ostia pane move --tab moves running panes into a split tab and back out', 
     await expect(tabs.nth(0)).toHaveAttribute('aria-selected', 'true')
 
     await typeLine(win, 'clear; ostia pane move w1 --tab workers --json')
-    await expect(caller).toContainText('{"ok":true,"moved":[]}', { timeout: 15_000 })
+    await expect(caller).toContainText('"splitTabName":"workers"}],"moved":[]}', {
+      timeout: 15_000,
+    })
 
     await pill.locator('.split-tab-segment-main').first().click()
     await expect(win.locator('.pane-cell .xterm-rows').nth(0)).toContainText('one-41')

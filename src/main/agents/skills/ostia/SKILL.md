@@ -63,7 +63,9 @@ ostia diff old.json new.json             # read-only comparison; --wait too
 ```
 
 A tab opened from a pane takes the keyboard only when that pane has it; otherwise it opens
-quietly with an unread mark. A sandboxed workspace opens only files under the home folder.
+quietly with an unread mark. `open` returns once each tab is there and prints one line per target:
+`<paneId>\t<path>`, `files\t<folder>` or `<paneId>\t<url>`; a target with no tab after 3 s
+exits 1. A sandboxed workspace opens only files under the home folder.
 `-` reads at most 16 MiB and needs `$OSTIA_ARTIFACTS`.
 
 **Artifacts.** `$OSTIA_ARTIFACTS` is the workspace's folder for outputs for the human that are
@@ -132,9 +134,14 @@ ostia agent run codex - --name review < task.md   # - reads the prompt from stdi
 ```
 
 `process run` opens a terminal tab beside the pane and runs the line in its interactive shell,
-exactly as written; the pane keeps the keyboard. It prints `{id, name, paneId}`. `agent run`
-starts `claude`, `codex` or an agent the human configured with the prompt as one argument, and
-answers `unknown-agent` for any other name. Status is `starting`, `running`, `exited(<code>)` or
+exactly as written; the pane keeps the keyboard. `agent run` starts `claude`, `codex` or an agent
+the human configured with the prompt as one argument, and answers `unknown-agent` for any other
+name. Both return only once the start is known and print `{id, name, paneId, status, exitCode?,
+output?, reason?}`: `started` (an agent reported its start; a command still runs after a
+second), `exited` (the command ended with exit code 0), `failed` (it ended otherwise, or its tab
+closed; `output` holds its last 20 lines) or `timed-out` (no start within 15 s, 60 s for an
+agent). Exit 1 for `failed` and `timed-out`. An agent caller also gets the outcome as a bus
+message from `ostia`. `pane list` shows it as `process.start`. Unknown flags are refused. Status is `starting`, `running`, `exited(<code>)` or
 `closed`; nothing survives a restart of Ostia. `logs` is empty for a full-screen program: read
 its screen with `ostia pane read`. `restart` answers `still-running` when the command ignores
 Ctrl+C.
@@ -149,12 +156,13 @@ tab `<caller title> · workers`. `ostia pane list` reports `splitTabName`.
 ```sh
 ostia pane list                          # every pane you can see (JSON)
 ostia pane send <pane> "text" [--enter]  # types text; no Enter unless --enter
-ostia pane send <pane> "answer" --enter --force --confirm  # into a waiting agent; exit 2 when the screen did not change
+ostia pane send <pane> --enter -- "-y"   # text starting with - goes after --
+ostia pane send <pane> "answer" --enter --force  # --force types into an agent waiting for the human
 ostia pane key <pane> enter              # keys: enter tab shift-tab escape backspace delete space
                                          # up down left right home end pageup pagedown ctrl-a…ctrl-z
 ostia pane read <pane> [--lines N] [--json]   # its screen as text; --json adds cwd, running, lastExitCode
 ostia pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]
-ostia pane wake <pane>… [--wait [--timeout <s>]] [--json]
+ostia pane wake <pane>… [--timeout <s>] [--json]
 ostia pane hibernate <pane>… [--json]
 ostia pane move <pane>… --tab <name>|new [--workspace <id|name>] [--json]
 ostia pane rename <pane> <title…> | --clear
@@ -171,13 +179,19 @@ ostia pane close [<pane>…] [--json]      # no pane: your own
 | `agentSessionId?`, `agentSessionConflict?` | its session; other panes running the same session |
 | `hibernated?`, `waking?` | Ostia stopped the idle agent; it is starting again |
 | `splitTabId?`, `splitTabName?` | the split tab holding it |
+| `process?` | `{id, status, start}` of the command `process run` or `agent run` started there |
 
 - **wait** returns when any named pane reports `done` or `waiting` or its command exits
   (`--until idle` also counts a pane with nothing reported). It prints
   `<paneId>\t<state>\t<message>` and never reads the screen. Exit 0 reached, 3 timed out (default
   10 minutes, at most 1800 s), 4 the pane closed.
+- **send** and **key** return once the pane shows something new; a pane that shows nothing
+  within a few seconds answers `no-echo:` with exit 1. `--json` answers `{responded, running}`.
+  With `--enter` into an agent that reports its turns (claude or codex with hooks on) and is
+  not in a turn, `send` also waits for the turn to start, presses Enter once more when it did
+  not, and answers `not-submitted:` with exit 1 when it still did not.
 - **wake** starts a hibernated agent again with its own resume command, or types that command
-  at the prompt of an awake agent pane. `--wait` returns once the agent started: exit 0, 3 timed
+  at the prompt of an awake agent pane, and returns once the agent started: exit 0, 3 timed
   out (default 2 minutes), 4 closed, 1 with `resume-failed:`. It answers `not-resumable` for a
   pane with no session to resume. `send` and `key` refuse a pane that is `hibernated:` or
   `waking:`.
@@ -185,11 +199,12 @@ ostia pane close [<pane>…] [--json]      # no pane: your own
 - **move --tab <name>** puts running panes into that split tab (the same name `--tab` uses),
   creating it once two panes share it; `--tab new` puts each back into a tab of its own;
   `--workspace` moves them into another workspace of the same window first. A pane already in
-  place is left alone. Processes keep running and nothing is typed. It refuses a locked pane
+  place is left alone. Processes keep running and nothing is typed. It reads the layout back:
+  `--json` lists each pane's `placement`, and a pane that did not land answers `misplaced:`. It refuses a locked pane
   (`pane-locked:`), scratch and sandboxed workspaces (`scratch:`, `sandboxed:`) and another
   window (`other-window:`), and joins only a split tab whose panes you all reach.
 - **close** closes at once, even while a command runs; unsaved file changes ask the human. A
-  locked pane answers `pane-locked:`.
+  locked pane answers `pane-locked:`; a pane still listed afterwards answers `still-open:`.
 - A tab you opened with `process run` or `agent run` needs no question. Any other pane asks the
   human: `type-other-pane` to send, key, wake or move, `read-other-pane` to read or wait,
   `kill-pane` to close or hibernate, plus `all-workspaces` outside your reach. From a sandboxed
@@ -206,7 +221,9 @@ ostia bus handoff <pane> --task "…" --summary "…"
 ostia bus claim <id> | bus done <id> | bus handoffs [--all]
 ```
 
-Nothing is typed into the receiver. `delivered: "waiting"`: it was blocked in `bus wait` and has
+Nothing is typed into the receiver. `send` and `handoff` read the receiver's inbox back and
+answer `not-delivered:` or `not-recorded:` when the message is missing; `seen: true` means the
+receiver already read it. `delivered: "waiting"`: it was blocked in `bus wait` and has
 the message. `"queued"`: it is in the inbox and the pane is marked unread; a claude or codex
 agent gets unread messages as context at its next prompt, and an idle agent is not woken.
 `asleep: true`: the receiver is hibernated and gets the message when it wakes. Messages stay in
