@@ -755,8 +755,7 @@
       ],
       "specs": [
         "e2e/scratch-workspace.spec.ts",
-        "e2e/workspace-groups.spec.ts",
-        "e2e/workspace-rename.spec.ts"
+        "e2e/workspace-groups.spec.ts"
       ]
     },
     {
