@@ -801,7 +801,7 @@
         "src/renderer/lib/terminal/ostiaTerminal.ts",
         "src/renderer/lib/terminal/ghosttyEngine.",
         "src/renderer/lib/terminal/ghosttyTerminal.",
-        "src/renderer/lib/terminal/webglRenderer.ts",
+        "src/renderer/lib/terminal/xtermRenderer.ts",
         "src/renderer/lib/terminal/gpuBudget.ts",
         "src/renderer/lib/terminal/terminalHandles.ts",
         "src/renderer/lib/terminal/terminalTitle.ts",

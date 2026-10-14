@@ -111,8 +111,8 @@ import {
 import { terminalTitle } from '@/lib/terminal/terminalTitle'
 import { createTitleCommitter } from '@/lib/terminal/titleCommit'
 import { keepDrawing, usePauseWhenHidden } from '@/lib/terminal/usePauseWhenHidden'
-import { type WebglRenderer, createWebglRenderer } from '@/lib/terminal/webglRenderer'
 import { attachWheelReports } from '@/lib/terminal/wheelReports'
+import { type XtermRenderer, createXtermRenderer } from '@/lib/terminal/xtermRenderer'
 import { currentScheme, terminalTheme, useScheme } from '@/lib/theme/colorScheme'
 import { terminalFontStack } from '@/lib/theme/uiFonts'
 import { isLinux, isMac } from '@/platform'
@@ -298,7 +298,7 @@ function TerminalSurface({
       hide: hideLinkHint,
     })
     let searchAddon: TerminalSearch | null = null
-    let webgl: WebglRenderer | null = null
+    let xtermRenderer: XtermRenderer | null = null
     let silenceReplies: () => { dispose(): void }
     const ghostty = engine === 'ghostty' ? ghosttyModule() : null
     if (ghostty) {
@@ -329,10 +329,8 @@ function TerminalSurface({
       xterm.loadAddon(xtermSearch)
       searchAddon = xtermSearch
       xterm.open(host)
-      if (behavior.gpuAcceleration) {
-        webgl = createWebglRenderer(xterm)
-        pauseRef.current = webgl.pause
-      }
+      xtermRenderer = createXtermRenderer(xterm, behavior.gpuAcceleration)
+      pauseRef.current = xtermRenderer.pause
       term = xterm
       fit = xtermFit
       silenceReplies = () => silenceQueryReplies(xterm)
@@ -1003,7 +1001,7 @@ function TerminalSurface({
       useBlocksStore.getState().dropPane(paneId)
       window.ostia.pty.detach(paneId)
       pauseRef.current = keepDrawing
-      webgl?.dispose()
+      xtermRenderer?.dispose()
       term.dispose()
       termRef.current = null
       setSearch(null)

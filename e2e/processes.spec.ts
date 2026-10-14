@@ -22,6 +22,10 @@ function rows(win: Page, index: number): Locator {
   return win.locator('.xterm-rows').nth(index)
 }
 
+function shownRows(win: Page): Locator {
+  return win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
+}
+
 function callerHasFocus(win: Page): Promise<boolean> {
   return win.evaluate(() => {
     const active = document.activeElement
@@ -49,9 +53,7 @@ test('ostia process run shows the command in a terminal tab the human can watch'
     await expect(tabs.nth(1)).toContainText('demo')
     await expect(tabs.nth(0)).toHaveAttribute('aria-selected', 'true')
     await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'false')
-    await expect(rows(win, 1)).toContainText('hello-from-42 two  words', { timeout: 20_000 })
     await expect(tabs.nth(1)).toContainText('demo')
-    await expect(tabs.nth(1)).not.toContainText('hijack')
     await expect(rows(win, 0)).toContainText('"name":"demo"')
     await expect(rows(win, 0)).not.toContainText('hello-from-42')
     expect(await callerHasFocus(win)).toBe(true)
@@ -62,6 +64,7 @@ test('ostia process run shows the command in a terminal tab the human can watch'
     await typeLine(win, 'ostia process logs demo')
     await expect(rows(win, 0)).toContainText('hello-from-42 two  words', { timeout: 15_000 })
     await expect(rows(win, 0)).toContainText('(cursor=')
+    await expect(tabs.nth(1)).not.toContainText('hijack')
 
     await typeLine(win, 'ostia process kill demo && ostia process ls')
     await expect(rows(win, 0)).toContainText(/demo\s+exited\(130\)/, { timeout: 15_000 })
@@ -69,11 +72,6 @@ test('ostia process run shows the command in a terminal tab the human can watch'
     await expect(tabs.nth(1)).toContainText('demo')
 
     await typeLine(win, 'ostia process restart demo')
-    await expect
-      .poll(async () => occurrences((await rows(win, 1).textContent()) ?? '', 'hello-from-42'), {
-        timeout: 20_000,
-      })
-      .toBeGreaterThanOrEqual(2)
     await expect(win.locator('.xterm')).toHaveCount(2)
     await typeLine(win, 'ostia process ls')
     await expect(rows(win, 0)).toContainText(/demo\s+running/, { timeout: 15_000 })
@@ -82,6 +80,12 @@ test('ostia process run shows the command in a terminal tab the human can watch'
     await tabs.nth(1).click()
     await expect(win.locator('.xterm').nth(1)).toBeVisible()
     await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true')
+    await expect
+      .poll(async () => occurrences((await shownRows(win).textContent()) ?? '', 'hello-from-42'), {
+        timeout: 20_000,
+      })
+      .toBeGreaterThanOrEqual(2)
+    await expect(shownRows(win)).toContainText('hello-from-42 two  words')
 
     await quitApp(app)
     ;({ app, win } = await launch(dataHome))
@@ -142,10 +146,11 @@ test(
       const caller = win.locator('.xterm-rows').filter({ hasText: 'SEND-2-REFUSED' })
       await expect(caller).toContainText('sum-23', { timeout: 30_000 })
       await expect(card).toHaveCount(0)
-      await expect(win.locator('.xterm-rows').filter({ hasText: 'sum-23' })).toHaveCount(2)
 
       await typeLine(win, 'ostia pane key echo ctrl-d && sleep 1 && ostia process ls')
       await expect(caller).toContainText(/echo\s+exited\(0\)/, { timeout: 15_000 })
+      await win.getByRole('tab', { name: /echo/ }).click()
+      await expect(shownRows(win).filter({ hasText: 'sum-23' })).toHaveCount(1)
     } finally {
       await quitApp(app)
     }

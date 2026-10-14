@@ -24,9 +24,11 @@ test(
 
       await typeLine(win, 'ostia agent run claude "fix the login bug" --name fixer')
       await expect(tabs).toHaveCount(2)
-      await expect(win.locator('.xterm-rows').nth(1)).toContainText('fake-agent-ready', {
-        timeout: 15_000,
-      })
+      await typeLine(
+        win,
+        'until ostia pane read fixer | grep -q fake-agent-ready; do sleep 0.2; done; echo fixer-$((1+1))-ready',
+      )
+      await expect(coordinator).toContainText('fixer-2-ready', { timeout: 15_000 })
 
       await typeLine(win, 'ostia pane close nobody; echo unknown-exit-$?')
       await expect(coordinator).toContainText('unknown-pane: nobody')
