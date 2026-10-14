@@ -4106,6 +4106,7 @@ app.whenReady().then(() => {
     },
     rescan: () => extensionHost?.rescan(),
     locale: readLocale,
+    official: OFFICIAL_MARKETPLACE,
   })
   registerMarketplaceIpc(marketplace)
   marketplaceInstallIds = () =>

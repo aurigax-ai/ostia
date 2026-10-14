@@ -235,6 +235,7 @@ export interface MarketplaceDeps {
   forget: (extId: string) => void
   rescan: () => void
   locale?: () => string | undefined
+  official?: string
   git?: GitRunner
   gitMissing?: () => boolean
 }
@@ -335,9 +336,15 @@ export class Marketplace {
   private records: Records
   private queue: Promise<unknown> = Promise.resolve()
   private listed: LanguageListing[] | null = null
+  private readonly officialUrl: string | null
 
   constructor(private readonly deps: MarketplaceDeps) {
+    const fresh = !existsSync(deps.recordsPath)
     this.records = sanitizeRecords(loadJson<unknown>(deps.recordsPath, {}))
+    this.officialUrl = normalizeMarketplaceUrl(deps.official)
+    if (fresh && this.officialUrl) {
+      this.records.sources.push({ id: marketplaceId(this.officialUrl), url: this.officialUrl })
+    }
   }
 
   private save(): void {
@@ -406,17 +413,17 @@ export class Marketplace {
     const installs = Object.entries(this.records.installs)
       .filter(([extId, owner]) => owner === source.id && existsSync(this.installDir(extId)))
       .map(([extId]) => extId)
-    const base = { id: source.id, url: source.url, installs }
+    const downloaded = existsSync(this.cloneDir(source.id))
+    const official = source.url === this.officialUrl
+    const base = { id: source.id, url: source.url, installs, official, downloaded }
     const locale = this.deps.locale?.()
-    const catalog = existsSync(this.cloneDir(source.id))
-      ? readCatalog(this.cloneDir(source.id))
-      : 'not downloaded yet'
-    if (typeof catalog === 'string') {
+    const catalog = downloaded ? readCatalog(this.cloneDir(source.id)) : null
+    if (catalog === null || typeof catalog === 'string') {
       return {
         ...base,
         name: source.url,
         description: '',
-        error: catalog,
+        ...(catalog === null ? {} : { error: catalog }),
         problems: [],
         extensions: [],
         unlisted: false,
@@ -579,10 +586,14 @@ export class Marketplace {
       if (officialOnly && !official) return this.fail('unknown-extension')
       let source = this.sourceListing(extId, only)
       if (!source) {
-        if (!official || this.records.sources.some((s) => s.url === official)) {
+        if (!official) return this.fail('unknown-extension')
+        const known = this.records.sources.find((s) => s.url === official)
+        if (known && existsSync(this.cloneDir(known.id))) {
           return this.fail(this.listedAnywhere(extId, only) ? 'conflict' : 'unknown-extension')
         }
-        const added = await this.addSource(official)
+        const added = known
+          ? ((await this.download(known)) ?? this.ok())
+          : await this.addSource(official)
         if (!added.ok) return added
         source = this.sourceListing(extId, only)
         if (!source) return this.fail('unknown-extension')

@@ -18,6 +18,7 @@ import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 import { ArrowsClockwiseIcon, TrashIcon } from '@phosphor-icons/react'
 import { MARKETPLACE_FEATURE, type MarketplaceInfo } from '@shared/extensions/marketplace'
+import { OFFICIAL_MARKETPLACE } from '@shared/product'
 import { useEffect, useState } from 'react'
 
 export function UninstallExtensionButton({
@@ -156,17 +157,31 @@ function MarketplaceRow({ marketplace }: { marketplace: MarketplaceInfo }): JSX.
           <div className="truncate font-mono text-fg-muted text-ui-xs">{marketplace.url}</div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <IconButton
-            icon={ArrowsClockwiseIcon}
-            label={fmt(d.marketplace.refresh, { name: marketplace.name })}
-            disabled={busy}
-            onClick={() => void refresh(marketplace.id)}
-          />
+          {marketplace.downloaded ? (
+            <IconButton
+              icon={ArrowsClockwiseIcon}
+              label={fmt(d.marketplace.refresh, { name: marketplace.name })}
+              disabled={busy}
+              onClick={() => void refresh(marketplace.id)}
+            />
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={() => void refresh(marketplace.id)}
+            >
+              {d.marketplace.download}
+            </Button>
+          )}
           <RemoveMarketplaceButton marketplace={marketplace} />
         </div>
       </div>
       {marketplace.error ? <WarningNote>{marketplace.error}</WarningNote> : null}
-      {!marketplace.error && marketplace.extensions.length === 0 ? (
+      {!marketplace.downloaded ? (
+        <p className="mt-0.5 text-fg-muted text-ui-xs">{d.marketplace.notDownloaded}</p>
+      ) : null}
+      {marketplace.downloaded && !marketplace.error && marketplace.extensions.length === 0 ? (
         <p className="mt-0.5 text-fg-muted text-ui-xs">{d.marketplace.noExtensions}</p>
       ) : null}
       {marketplace.unlisted ? <InstallCodeForm marketplace={marketplace} /> : null}
@@ -242,6 +257,17 @@ export function MarketplacesPanel(): JSX.Element {
           {busy ? d.marketplace.working : d.marketplace.add}
         </Button>
       </form>
+      {marketplaces.some((m) => m.official) ? null : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-2"
+          disabled={busy}
+          onClick={() => void add(OFFICIAL_MARKETPLACE)}
+        >
+          {d.marketplace.addOfficial}
+        </Button>
+      )}
       {marketplaces.length === 0 ? (
         <p className="mt-2 text-fg-muted text-ui-sm">{d.marketplace.none}</p>
       ) : (

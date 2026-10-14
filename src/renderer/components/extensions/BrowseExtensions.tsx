@@ -354,7 +354,11 @@ export function BrowseExtensions(): JSX.Element {
         />
       </div>
       {entries.length === 0 ? (
-        <p className="text-fg-muted text-ui-sm">{d.extensionsBrowse.noMarketplaces}</p>
+        <p className="text-fg-muted text-ui-sm">
+          {marketplaces.some((m) => !m.downloaded)
+            ? d.extensionsBrowse.notDownloaded
+            : d.extensionsBrowse.noMarketplaces}
+        </p>
       ) : results.length === 0 ? (
         <p className="text-fg-muted text-ui-sm">{d.extensionsBrowse.noResults}</p>
       ) : (
