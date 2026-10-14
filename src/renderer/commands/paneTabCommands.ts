@@ -1,4 +1,4 @@
-import { allPanes, findPane, findSplitTabByName, splitTabOfPane } from '@/layout/tree'
+import { allPanes, findPane, findSplitTabByName, splitTabOfPane, tabsOfPane } from '@/layout/tree'
 import { splitTabSeed } from '@/lib/panes/splitTabSeeds'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
@@ -97,7 +97,13 @@ export function registerPaneTabCommands(): void {
     },
   })
 
-  registerCore<PaneTabArgs, { moved: string[] }>({
+  function coversWorkspace(workspaceId: string, paneIds: readonly string[], tab: string): boolean {
+    const root = useLayoutStore.getState().byWorkspace[workspaceId]?.root
+    if (!root || root.type !== 'split' || findSplitTabByName(root, tab)) return false
+    return paneIds.every((id) => findPane(root, id) && !tabsOfPane(root, id))
+  }
+
+  registerCore<PaneTabArgs, { moved: string[]; whole: boolean }>({
     id: 'pane.joinTab',
     category: 'pane',
     hidden: true,
@@ -116,7 +122,8 @@ export function registerPaneTabCommands(): void {
       if (locked.length > 0) {
         throw new Error('pane-locked: the human locked this pane; only they can unlock it')
       }
-      return { moved: useLayoutStore.getState().joinTab(workspaceId, paneIds, tab) }
+      const moved = useLayoutStore.getState().joinTab(workspaceId, paneIds, tab)
+      return { moved, whole: tab !== null && coversWorkspace(workspaceId, paneIds, tab) }
     },
   })
 }

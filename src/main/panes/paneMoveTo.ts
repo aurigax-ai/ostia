@@ -85,14 +85,14 @@ function placementProblem(
   entry: PaneEntry | undefined,
   dest: string,
   tab: string | null | undefined,
-  alone: boolean,
+  untabbed: boolean,
 ): string | null {
   if (!entry) return 'is gone'
   if (entry.workspaceId !== dest) return `is in workspace ${entry.workspaceId}, not ${dest}`
   if (tab === undefined) return null
   if (tab === null) return entry.splitTabName ? `is still in split tab ${entry.splitTabName}` : null
   if (entry.splitTabName === tab) return null
-  if (!entry.splitTabName && alone) return null
+  if (!entry.splitTabName && untabbed) return null
   return entry.splitTabName
     ? `is in split tab ${entry.splitTabName}, not ${tab}`
     : `is in no split tab, not ${tab}`
@@ -104,6 +104,7 @@ function confirmPlacement(
   groups: Map<string, PaneIdentity[]>,
   workspace: string | undefined,
   tab: string | null | undefined,
+  whole: ReadonlySet<string>,
 ) {
   let last = 'the layout did not answer'
   return actThenConfirm<Placement[]>({
@@ -114,8 +115,8 @@ function confirmPlacement(
       for (const to of panes) {
         const entry = listed.find((p) => p.paneId === to.externalId)
         const dest = workspace ?? to.workspaceId
-        const alone = (groups.get(dest)?.length ?? 0) === 1
-        const problem = placementProblem(entry, dest, tab, alone)
+        const untabbed = (groups.get(dest)?.length ?? 0) === 1 || whole.has(dest)
+        const problem = placementProblem(entry, dest, tab, untabbed)
         if (problem || !entry) {
           last = `misplaced: ${to.externalId} ${problem ?? 'is gone'}`
           return undefined
@@ -188,6 +189,7 @@ export function registerPaneMoveToMethods(deps: PaneMoveToDeps): void {
         if (!res.ok) throw fail(res.error.message)
         moved.add(to.externalId)
       }
+      const whole = new Set<string>()
       if (tab !== undefined) {
         for (const [dest, group] of groups) {
           const res = await deps.joinTab(
@@ -196,11 +198,12 @@ export function registerPaneMoveToMethods(deps: PaneMoveToDeps): void {
             tab,
           )
           if (!res.ok) throw fail(res.error.message)
-          const joined = (res.result as { moved: string[] }).moved
-          for (const to of group) if (joined.includes(to.paneId)) moved.add(to.externalId)
+          const joined = res.result as { moved: string[]; whole?: boolean }
+          if (joined.whole) whole.add(dest)
+          for (const to of group) if (joined.moved.includes(to.paneId)) moved.add(to.externalId)
         }
       }
-      const placement = await confirmPlacement(deps, panes, groups, workspace, tab)
+      const placement = await confirmPlacement(deps, panes, groups, workspace, tab, whole)
       if (!placement.ok) throw fail(placement.reason)
       return {
         ok: true,

@@ -47,6 +47,7 @@ const lockedPanes = new Set<string>()
 const joins: { workspaceId: string; paneIds: string[]; tab: string | null }[] = []
 const vanished = new Set<string>()
 const straySplitTab = new Map<string, string>()
+const wholeWorkspaces = new Set<string>()
 
 const inScope = async (ctx: ReachCaller, workspaceId: string) =>
   ctx.identity.workspaceId === workspaceId || scoped.has(workspaceId)
@@ -87,7 +88,13 @@ registerPaneMoveToMethods({
   joinTab: async (workspaceId, paneIds, tab) => {
     joins.push({ workspaceId, paneIds, tab })
     const members = tab ? (tabMembers.get(`${workspaceId}/${tab}`) ?? []) : []
-    return { ok: true, result: { moved: paneIds.filter((id) => !members.includes(id)) } }
+    return {
+      ok: true,
+      result: {
+        moved: paneIds.filter((id) => !members.includes(id)),
+        whole: wholeWorkspaces.has(workspaceId),
+      },
+    }
   },
   panes: async () =>
     ['agent-pane', 'child-pane', 'sibling-pane'].flatMap((paneId) => {
@@ -95,7 +102,9 @@ registerPaneMoveToMethods({
       const identity = getByPaneId(paneId)
       const workspaceId = moved.filter((m) => m.paneId === paneId).at(-1)?.workspaceId ?? 'ws1'
       const join = joins.filter((j) => j.paneIds.includes(paneId)).at(-1)
-      const splitTabName = straySplitTab.get(paneId) ?? join?.tab ?? undefined
+      const splitTabName = wholeWorkspaces.has(workspaceId)
+        ? undefined
+        : (straySplitTab.get(paneId) ?? join?.tab ?? undefined)
       return [
         {
           paneId: identity?.externalId ?? paneId,
@@ -167,6 +176,7 @@ beforeEach(() => {
   joins.length = 0
   vanished.clear()
   straySplitTab.clear()
+  wholeWorkspaces.clear()
   setCapFilter(() => true)
 })
 
@@ -340,6 +350,26 @@ describe('pane.moveTo reads the placement back', () => {
     const res = await moveToTab(conn, ['worker'], 'workers', 'ws2')
     expect(res).toMatchObject({
       placement: [{ paneId: child.externalId, workspaceId: 'ws2', splitTabName: 'workers' }],
+    })
+  })
+
+  it('accepts panes that became the whole layout of their workspace, and nothing else untabbed', async () => {
+    const conn = await client(agent)
+    straySplitTab.set('agent-pane', '')
+    straySplitTab.set('child-pane', '')
+    await expect(moveToTab(conn, [agent.externalId, 'worker'], 'workers')).rejects.toThrow(
+      `misplaced: ${agent.externalId} is in no split tab, not workers`,
+    )
+    straySplitTab.clear()
+
+    wholeWorkspaces.add('ws2')
+    scoped.add('ws2')
+    const res = await moveToTab(conn, [agent.externalId, 'worker'], 'workers', 'ws2')
+    expect(res).toMatchObject({
+      placement: [
+        { paneId: agent.externalId, workspaceId: 'ws2' },
+        { paneId: child.externalId, workspaceId: 'ws2' },
+      ],
     })
   })
 
