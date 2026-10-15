@@ -1041,6 +1041,7 @@
         "src/renderer/components/palette/EverywhereItems.tsx",
         "src/renderer/components/palette/FileItems.tsx",
         "src/renderer/components/palette/PaletteItemRow.tsx",
+        "src/renderer/components/palette/paletteClasses.ts",
         "src/renderer/components/palette/PlaceItems.tsx",
         "src/renderer/components/palette/SearchStep.tsx",
         "src/renderer/components/palette/SymbolItems.tsx",

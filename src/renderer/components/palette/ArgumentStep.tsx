@@ -3,7 +3,8 @@ import { CommandEmpty, CommandInput, CommandItem, CommandList } from '@/componen
 import { countUsage } from '@/lib/app/usageCounts'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useEffect, useState } from 'react'
-import { ItemRow, LIST_CLASS } from './PaletteItemRow'
+import { ItemRow } from './PaletteItemRow'
+import { LIST_CLASS } from './paletteClasses'
 
 export function runFromPalette(id: string, args?: { argument: string }): void {
   countUsage('features', 'command', id)

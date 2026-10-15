@@ -11,7 +11,8 @@ import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { AppWindowIcon } from '@phosphor-icons/react'
-import { GROUP_CLASS, ItemRow } from './PaletteItemRow'
+import { ItemRow } from './PaletteItemRow'
+import { GROUP_CLASS } from './paletteClasses'
 
 export interface Places {
   workspaces: Workspace[]
