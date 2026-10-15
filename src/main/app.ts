@@ -30,7 +30,6 @@ import {
   ClipboardItem,
   app,
   clipboard,
-  dialog,
   globalShortcut,
   ipcMain,
   nativeTheme,
@@ -53,7 +52,6 @@ import { fmt } from '../shared/app/dict'
 import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
 import { isMacInstall, replacesInApp } from '../shared/app/installMethod'
 import { clampZoom, zoomFactor } from '../shared/app/zoom'
-import { ARTIFACT_LIST_MAX } from '../shared/artifacts/artifacts'
 import { isPreviewPartition } from '../shared/artifacts/htmlPreview'
 import { parseChatToolSettings } from '../shared/assist/chatTools'
 import { parseGitSettings } from '../shared/boards/git'
@@ -125,22 +123,12 @@ import {
   setUserPresenceCheck,
 } from './approvals/scriptTokens'
 import { electronPresenceDeps, verifyUserPresence } from './approvals/userPresence'
-import { ArtifactFolders, registerArtifactIpc } from './artifacts/artifactFolders'
-import {
-  ArtifactHistory,
-  previewBuild,
-  registerArtifactHistoryIpc,
-} from './artifacts/artifactHistory'
-import { ArtifactProducers, registerArtifactProducersIpc } from './artifacts/artifactProducers'
-import { loadEsbuild } from './artifacts/esbuildService'
-import {
-  PreviewHost,
-  type PreviewSession,
-  hardenPreviewAttach,
-  registerPreviewIpc,
-} from './artifacts/htmlPreview'
-import { PortableBuilder } from './artifacts/portableBuilder'
-import { PortableExport, registerPortableIpc } from './artifacts/portableExport'
+import { registerArtifactIpc } from './artifacts/artifactFolders'
+import { registerArtifactHistoryIpc } from './artifacts/artifactHistory'
+import { registerArtifactProducersIpc } from './artifacts/artifactProducers'
+import { createArtifactServices } from './artifacts/artifactServices'
+import { hardenPreviewAttach, registerPreviewIpc } from './artifacts/htmlPreview'
+import { registerPortableIpc } from './artifacts/portableExport'
 import { registerAttentionMethods, targetOf } from './attention/attention'
 import { announceBusMessage } from './attention/busNotice'
 import {
@@ -236,7 +224,6 @@ import { FileOps } from './files/fileOps'
 import { FileWatches, TreeWatches } from './files/fileWatch'
 import { readBinaryConfined } from './files/fsBinary'
 import { readTextConfined, versionConfined, writeText, writeTextConfined } from './files/fsText'
-import { OpenFileGrants } from './files/openFileGrants'
 import { openFileForExtension, registerOpenFileMethods } from './files/openFileMethods'
 import { registerOpenPathIpc } from './files/openPath'
 import { OpenWaits } from './files/openWaits'
@@ -323,13 +310,7 @@ import {
 } from './platform/systemRequirements'
 import { registerSystemRequirementsIpc } from './platform/systemRequirementsIpc'
 import { loginPathSettled, resolveLoginPath } from './platform/toolPath'
-import {
-  OLD_PRODUCT_NAME,
-  appConfigDir,
-  appDataDir,
-  configHome,
-  dataHome,
-} from './platform/userDirs'
+import { OLD_PRODUCT_NAME, appConfigDir, configHome, dataHome } from './platform/userDirs'
 import { registerPortsIpc, registerPortsMethods } from './ports/register'
 import { PortsService } from './ports/service'
 import { registerPrivacyIpc } from './privacy/privacyIpc'
@@ -474,13 +455,12 @@ import { WindowBroker } from './windows/windowBroker'
 import { registerCmuxSessionIpc } from './workspaces/cmuxSession'
 import { registerProjectRootIpc } from './workspaces/projectRoot'
 import { registerSameFolder } from './workspaces/sameFolder'
-import { ScratchFolders, registerScratchIpc } from './workspaces/scratchFolders'
+import { registerScratchIpc } from './workspaces/scratchFolders'
 import { type SnippetDeps, registerSnippetIpc, registerSnippetMethods } from './workspaces/snippets'
 import { ViewHost, ViewStore } from './workspaces/viewHost'
 import { registerViewMethods, registerViewsIpc } from './workspaces/viewsIpc'
 import { registerWorkspaceMergeIpc } from './workspaces/workspaceMerge'
 import {
-  knownWorkspaces,
   removeWorkspace,
   setWorkspaceWorkDir,
   windowForWorkspace,
@@ -541,6 +521,16 @@ interface PtyEntry {
   keepAlive: boolean
   exitListeners: Set<(code: number) => void>
 }
+
+const windows = new Map<string, BrowserWindow>()
+const commandsByWindow = new Map<string, CommandDescriptor[]>()
+
+const browserPanes = new Map<string, number>()
+
+const consoleBuffers = new Map<number, ConsoleEntry[]>()
+const errorBuffers = new Map<number, ConsoleEntry[]>()
+
+const terminalState = new Map<string, TerminalStateSnapshot>()
 
 const ptys = new Map<string, PtyEntry>()
 const PTY_BUFFER_CAP = 1_000_000
@@ -950,116 +940,22 @@ function resizePty(entry: PtyEntry | undefined, cols: number, rows: number): voi
   entry.mirror.resize(c, r)
 }
 
-const scratchFolders = new ScratchFolders(privateTmpDir(`${PRODUCT_NAME}-scratch`))
-
-const artifactFolders = new ArtifactFolders(
-  {
-    root: join(appDataDir(), 'artifacts'),
-    scratchDirOf: (workspaceId) => scratchFolders.dirOf(workspaceId),
-    scratchDirs: () => scratchFolders.dirs(),
-  },
-  (workspaceId, changes) => {
-    const windowId = windowForWorkspace(workspaceId)
-    if (windowId) windows.get(windowId)?.webContents.send('artifacts:changed', workspaceId)
-    const dir = artifactFolders.dirOf(workspaceId)
-    for (const { path, change } of changes.slice(0, ARTIFACT_LIST_MAX)) {
-      emitPlatformEvent('artifact.changed', { sessionId: workspaceId, path, change })
-      if (dir && change !== 'removed') artifactHistory.changed(workspaceId, join(dir, path))
-    }
-  },
-)
-
-function fileRoots(): string[] {
-  return [homedir(), app.getPath('userData'), scratchFolders.root, artifactFolders.root]
-}
-
-const openFileGrants = new OpenFileGrants({
-  roots: fileRoots,
-  file: join(app.getPath('userData'), 'opened-files.json'),
-})
-
-function artifactRuntimeDir(): string {
-  return app.isPackaged
-    ? join(process.resourcesPath, 'artifact-runtime')
-    : join(app.getAppPath(), 'out', 'artifact-runtime')
-}
-
-const portableBuilder = new PortableBuilder({
-  load: () => loadEsbuild(app.isPackaged),
-  runtimeDir: artifactRuntimeDir,
-  version: app.getVersion(),
-})
+const {
+  scratchFolders,
+  artifactFolders,
+  fileRoots,
+  openFileGrants,
+  previews,
+  portableExport,
+  artifactHistory,
+  artifactProducers,
+  artifactsChanged,
+  isScratchPane,
+} = createArtifactServices({ windows, workspaceSandboxes: () => workspaceSandboxes })
 
 const openWaits = new OpenWaits((windowId, paneIds) =>
   windows.get(windowId)?.webContents.send('open-waits:ended', paneIds),
 )
-
-const previews: PreviewHost = new PreviewHost({
-  sessionOf: (partition) => session.fromPartition(partition) as unknown as PreviewSession,
-  confine: (path) => openFileGrants.confine(path),
-  servesFolder: (dir) => artifactFolders.holds(dir),
-  ownsPane: (windowId, paneId) => getByPaneId(paneId)?.windowId === windowId,
-  send: (windowId, event) => windows.get(windowId)?.webContents.send('preview:event', event),
-  processes: () =>
-    app.getAppMetrics().map((metric) => ({
-      pid: metric.pid,
-      memoryBytes: metric.memory.workingSetSize * 1024,
-      cpuPercent: metric.cpu.percentCPUUsage,
-    })),
-  build: (source, theme) =>
-    previewBuild(artifactHistory, (s, t) => portableBuilder.preview(s, t))(source, theme),
-  hostZoom: (windowId) => windows.get(windowId)?.webContents.getZoomFactor() ?? 1,
-})
-
-const portableExport = new PortableExport({
-  builder: portableBuilder,
-  confine: (path) => openFileGrants.confine(path),
-  servesFolder: (dir) => artifactFolders.holds(dir),
-  ownsWorkspace: (windowId, workspaceId) => windowForWorkspace(workspaceId) === windowId,
-  sandboxedFolders: () =>
-    knownWorkspaces()
-      .filter((workspaceId) => workspaceSandboxes.isEnabled(workspaceId))
-      .flatMap((workspaceId) =>
-        [workspaceSandboxes.workDir(workspaceId), artifactFolders.dirOf(workspaceId)].filter(
-          (folder): folder is string => typeof folder === 'string',
-        ),
-      ),
-  tmpDir: () => privateTmpDir(`${PRODUCT_NAME}-portable`),
-  openPath: (path) => shell.openPath(path),
-  saveDialog: async (windowId, defaultPath) => {
-    const owner = windows.get(windowId)
-    const options = { defaultPath, filters: [{ name: 'HTML', extensions: ['html'] }] }
-    const picked = owner
-      ? await dialog.showSaveDialog(owner, options)
-      : await dialog.showSaveDialog(options)
-    return picked.canceled || !picked.filePath ? null : picked.filePath
-  },
-  downloads: () => app.getPath('downloads'),
-  writeClipboard: (text) => clipboard.writeText(text),
-  version: app.getVersion(),
-})
-
-const artifactHistory: ArtifactHistory = new ArtifactHistory({
-  root: artifactFolders.root,
-  folderOf: (workspaceId) => artifactFolders.dirOf(workspaceId),
-  isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
-  make: (workspaceId, file) =>
-    portableExport.fileFor(file, previews.themeOf(windowForWorkspace(workspaceId))),
-})
-
-const artifactProducers = new ArtifactProducers({
-  file: (workspaceId) => join(artifactHistory.dirOf(workspaceId), 'producers.json'),
-  folderOf: (workspaceId) => artifactFolders.dirOf(workspaceId),
-})
-
-function artifactsChanged(workspaceId: string): void {
-  const windowId = windowForWorkspace(workspaceId)
-  if (windowId) windows.get(windowId)?.webContents.send('artifacts:changed', workspaceId)
-}
-
-function isScratchPane(paneId: string): boolean {
-  return scratchFolders.isScratch(getByPaneId(paneId)?.workspaceId)
-}
 
 const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
   store: new SandboxStore(join(app.getPath('userData'), 'sandbox.json')),
@@ -1529,16 +1425,6 @@ function fenceBrowserGuest(guest: Electron.WebContents): void {
   guest.on('will-navigate', guard)
   guest.on('will-redirect', guard)
 }
-
-const windows = new Map<string, BrowserWindow>()
-const commandsByWindow = new Map<string, CommandDescriptor[]>()
-
-const browserPanes = new Map<string, number>()
-
-const consoleBuffers = new Map<number, ConsoleEntry[]>()
-const errorBuffers = new Map<number, ConsoleEntry[]>()
-
-const terminalState = new Map<string, TerminalStateSnapshot>()
 
 let extensionHost: ExtensionHost | null = null
 let gitService: GitService | null = null
