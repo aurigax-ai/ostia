@@ -28,11 +28,14 @@ export function wordDiff(before: string, after: string): DiffPart[] {
   let at = 0
   for (const change of changes) {
     if (change.removed) continue
-    const changed = change.added && /\S/.test(change.value)
-    const last = parts.at(-1)
-    if (last && last.changed === changed) last.text += change.value
-    else parts.push({ at, text: change.value, changed })
-    at += change.value.length
+    for (const piece of change.value.split(/(\s+)/)) {
+      if (!piece) continue
+      const changed = change.added && /\S/.test(piece)
+      const last = parts.at(-1)
+      if (last && last.changed === changed) last.text += piece
+      else parts.push({ at, text: piece, changed })
+      at += piece.length
+    }
   }
   return parts
 }
