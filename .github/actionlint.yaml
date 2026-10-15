@@ -1,8 +1,8 @@
 paths:
   .github/workflows/publish-{apt,homebrew}.yml:
     ignore:
-      - 'input "client-id" is not defined in action "actions/create-github-app-token@v3"'
-      - 'missing input "app-id" which is required by action "actions/create-github-app-token@v3"'
+      - 'input "client-id" is not defined in action "actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510"'
+      - 'missing input "app-id" which is required by action "actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510"'
       - 'SC1087'
   .github/workflows/release.yml:
     ignore:

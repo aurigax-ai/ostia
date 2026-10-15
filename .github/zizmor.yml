@@ -1,12 +1,6 @@
 rules:
   self-repository:
     disable: true
-  unpinned-uses:
-    ignore:
-      - release.yml
-      - main-build.yml
-      - publish-apt.yml
-      - publish-homebrew.yml
   artipacked:
     ignore:
       - release.yml
@@ -20,9 +14,6 @@ rules:
     ignore:
       - release.yml
   secrets-inherit:
-    ignore:
-      - release.yml
-  superfluous-actions:
     ignore:
       - release.yml
   github-app:

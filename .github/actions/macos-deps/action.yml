@@ -1,0 +1,12 @@
+name: macOS dependencies
+description: ripgrep and tmux from Homebrew when missing, compaudit and the CI git identity
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        command -v rg >/dev/null || brew install ripgrep
+        command -v tmux >/dev/null || brew install tmux
+        { zsh -fc 'autoload -U compaudit; compaudit' || true; } | xargs chmod go-w
+        git config --global user.name 'Ostia CI'
+        git config --global user.email 'ci@ostia.invalid'

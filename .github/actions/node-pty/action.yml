@@ -1,0 +1,13 @@
+name: node-pty for Electron
+description: node-pty rebuilt for Electron, cached per runner OS and lockfile
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      id: pty
+      with:
+        path: node_modules/node-pty/build
+        key: node-pty-electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+    - if: steps.pty.outputs.cache-hit != 'true'
+      shell: bash
+      run: pnpm rebuild
