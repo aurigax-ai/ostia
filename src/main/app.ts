@@ -78,11 +78,12 @@ import {
   registerTelemetry,
 } from './diagnostics/telemetry'
 import type { ExtensionHost } from './extensions/extensionHost'
-import { startMarketplace } from './extensions/extensionWiring'
 import { startExtensionHost } from './extensions/extensionWiring'
 import { extensionHostParts } from './extensions/extensionWiring'
 import { createExtensionIpc } from './extensions/extensionWiring'
-import { marketplaceId, normalizeMarketplaceUrl } from './extensions/marketplace'
+import { marketplaceId, normalizeMarketplaceUrl } from './extensions/marketplace/marketplace'
+import { createMarketplaceIpc } from './extensions/marketplace/marketplaceIpc'
+import { startMarketplace } from './extensions/marketplace/marketplaceWiring'
 import { PaneAttentionEvents } from './extensions/paneAttentionEvents'
 import { createMainStrings } from './extensions/strings'
 import type { FileWatches } from './files/fileWatch'
@@ -861,22 +862,15 @@ const languagePackDeps = {
   onError: (extId: string, error: string) => console.warn(`[language pack ${extId}] ${error}`),
 }
 
-const {
-  refreshAgentPlugins,
-  extensionRoots,
-  registerExtensionIpc,
-  registerRemoteFilesIpc,
-  registerMarketplaceIpc,
-} = createExtensionIpc({
-  services,
-  configDir,
-  workspaceWindowId,
-  terminalState,
-  remoteCwdOfPane,
+const { registerMarketplaceIpc } = createMarketplaceIpc({
   openFileGrants,
+  services,
   officialMarketplaceId,
   editorLanguageOf,
 })
+
+const { refreshAgentPlugins, extensionRoots, registerExtensionIpc, registerRemoteFilesIpc } =
+  createExtensionIpc({ services, configDir, workspaceWindowId, terminalState, remoteCwdOfPane })
 
 const mainStrings = createMainStrings({ ...languagePackDeps, locale: readLocale })
 

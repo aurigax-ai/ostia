@@ -64,7 +64,7 @@
         "src/main/lsp/managedServers.ts",
         "src/main/lsp/serverOverrides.ts",
         "src/main/lsp/editorLanguages.ts",
-        "src/main/extensions/extensionSuggestions.ts",
+        "src/main/extensions/marketplace/extensionSuggestions.ts",
         "packages/extension-sdk/src/contract/languageServers.ts",
         "packages/extension-sdk/src/contract/editorLanguages.ts",
         "src/shared/extensions/extensionSuggestions.ts",
@@ -285,7 +285,7 @@
         "packages/extension-sdk/src/manifest/extensionManifest.",
         "src/main/extensions/extensionSecrets.",
         "src/main/extensions/extensionStore.",
-        "src/main/extensions/extensionSuggestions.",
+        "src/main/extensions/marketplace/extensionSuggestions.",
         "src/main/agents/agentOfferRelay.ts",
         "packages/extension-sdk/src/manifest/agentSkills.ts",
         "src/main/extensions/iconThemes.ts",
@@ -323,7 +323,7 @@
     {
       "name": "marketplace",
       "paths": [
-        "src/main/extensions/marketplace.ts",
+        "src/main/extensions/marketplace/marketplace.ts",
         "packages/extension-sdk/src/manifest/marketplaceManifest.ts",
         "src/shared/extensions/marketplace.ts",
         "src/renderer/components/extensions/BrowseExtensions.tsx",

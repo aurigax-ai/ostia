@@ -5,14 +5,12 @@ import type {
   ExtensionResult,
   WorkspaceChip,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { OFFICIAL_MARKETPLACE } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import type { RemoteCwd } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { agentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import type { ExtensionRoot } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import { type BrowserWindow, app, ipcMain } from 'electron'
 import { parseAgentResume } from '../../shared/agents/agentResume'
 import { type ManagerSettings, managerAgents } from '../../shared/agents/managerSettings'
-import { EXTENSION_SUGGESTIONS } from '../../shared/extensions/extensionSuggestions'
 import type { CommandResult, CommandTarget, TerminalStateSnapshot } from '../../shared/types'
 import { AGENT_OFFER_RESULT_CHANNEL, type AgentOfferRelay } from '../agents/agentOfferRelay'
 import type { AgentRunningPanes } from '../agents/agentRunning'
@@ -28,7 +26,6 @@ import { confirmRemoteFolder, registerRemoteFolderConfirm } from '../files/remot
 import type { RemoteFolders, RemoteFoldersDeps } from '../files/remoteFolders'
 import type { LanguageServers } from '../lsp/languageServers'
 import { registerLanguageServersIpc } from '../lsp/languageServersIpc'
-import type { ManagedServers } from '../lsp/managedServers'
 import type { ServerOverrides } from '../lsp/serverOverrides'
 import { listPanes } from '../panes/paneList'
 import type { ProcessTabRequest } from '../panes/processLaunch'
@@ -50,8 +47,6 @@ import type { ExtensionHostDeps, ExtensionSecretStore } from './extensionHostDep
 import { ExtensionLaunches } from './extensionLaunches'
 import { registerExtensionMethods } from './extensionMethods'
 import { ExtensionStore } from './extensionStore'
-import { DismissedSuggestions, suggestionFor } from './extensionSuggestions'
-import { Marketplace, marketplaceId } from './marketplace'
 import { type OwnerLookup, workspaceChipsForWindow } from './workspaceChips'
 
 interface ExtensionHostPartsDeps {
@@ -144,8 +139,8 @@ export function extensionHostParts({
 
 interface ExtensionHostStartDeps {
   services: {
-    extensionHost: ExtensionHost | null
     languageServers: LanguageServers | null
+    extensionHost: ExtensionHost | null
     marketplaceInstallIds: () => string[]
     telemetry: Telemetry | null
   }
@@ -306,66 +301,6 @@ export function startExtensionHost({
   return { extensionStore, extensionHost: services.extensionHost }
 }
 
-interface MarketplaceStartDeps {
-  configDir: () => string
-  services: {
-    extensionHost: ExtensionHost | null
-    marketplaceInstallIds: () => string[]
-  }
-  managedServers: ManagedServers
-  serverOverrides: ServerOverrides
-  extensionStore: ExtensionStore
-  extensionConnections: () => ExtensionConnections
-  extensionSecretStore: () => ExtensionSecretStore
-  assistKeyStore: () => ExtensionSecretStore
-  registerMarketplaceIpc: (marketplace: Marketplace) => void
-  officialMarketplaceId: string
-}
-
-export function startMarketplace({
-  configDir,
-  services,
-  managedServers,
-  serverOverrides,
-  extensionStore,
-  extensionConnections,
-  extensionSecretStore,
-  assistKeyStore,
-  registerMarketplaceIpc,
-  officialMarketplaceId,
-}: MarketplaceStartDeps) {
-  const marketplace = new Marketplace({
-    recordsPath: join(app.getPath('userData'), 'marketplaces.json'),
-    clonesDir: join(app.getPath('userData'), 'marketplaces'),
-    extensionsDir: join(configDir(), 'extensions'),
-    builtinIds: () =>
-      services.extensionHost
-        ?.list()
-        .filter((ext) => ext.builtin)
-        .map((ext) => ext.id) ?? [],
-    forget: (extId) => {
-      managedServers.forgetExtension(extId)
-      serverOverrides.forgetExtension(extId)
-      extensionStore.delete(extId)
-      extensionConnections().forget(extId)
-      for (const secrets of [extensionSecretStore(), assistKeyStore()]) {
-        for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
-      }
-    },
-    rescan: () => services.extensionHost?.processes.rescan(),
-    locale: readLocale,
-    official: OFFICIAL_MARKETPLACE,
-  })
-  registerMarketplaceIpc(marketplace)
-  services.marketplaceInstallIds = () =>
-    marketplace
-      .syncedInstalls()
-      .filter((install) => marketplaceId(install.marketplace) === officialMarketplaceId)
-      .map((install) => install.id)
-
-  return { marketplace }
-}
-
 interface ExtensionIpcDeps {
   services: {
     extensionHost: ExtensionHost | null
@@ -376,9 +311,6 @@ interface ExtensionIpcDeps {
   workspaceWindowId: OwnerLookup
   terminalState: Map<string, TerminalStateSnapshot>
   remoteCwdOfPane: (paneId: string) => RemoteCwd | undefined
-  openFileGrants: OpenFileGrants
-  officialMarketplaceId: string
-  editorLanguageOf: (path: string) => string
 }
 
 export function createExtensionIpc({
@@ -387,9 +319,6 @@ export function createExtensionIpc({
   workspaceWindowId,
   terminalState,
   remoteCwdOfPane,
-  openFileGrants,
-  officialMarketplaceId,
-  editorLanguageOf,
 }: ExtensionIpcDeps) {
   function refreshAgentPlugins(): void {
     try {
@@ -486,53 +415,10 @@ export function createExtensionIpc({
     )
   }
 
-  function registerMarketplaceIpc(marketplace: Marketplace): void {
-    ipcMain.handle('marketplace:list', () => marketplace.state())
-    ipcMain.handle('marketplace:add', (_e, url: unknown) => marketplace.add(url))
-    ipcMain.handle('marketplace:remove', (_e, id: unknown, uninstallExtensions: unknown) =>
-      marketplace.remove(id, uninstallExtensions),
-    )
-    ipcMain.handle('marketplace:refresh', (_e, id: unknown) => marketplace.refresh(id))
-    ipcMain.handle('marketplace:install', (_e, id: unknown, extId: unknown) =>
-      marketplace.install(id, extId),
-    )
-    ipcMain.handle('marketplace:install-code', (_e, id: unknown, code: unknown) =>
-      marketplace.installCode(id, code),
-    )
-    ipcMain.handle('marketplace:uninstall', (_e, extId: unknown) => marketplace.uninstall(extId))
-
-    const dismissed = new DismissedSuggestions(
-      join(app.getPath('userData'), 'extension-suggestions.json'),
-    )
-    ipcMain.handle('suggestions:for-file', (e, paneId: unknown, path: unknown) => {
-      if (typeof paneId !== 'string' || typeof path !== 'string') return null
-      if (getByPaneId(paneId)?.windowId !== String(e.sender.id)) return null
-      const file = openFileGrants.confine(path)
-      if (file === null) return null
-      return suggestionFor(file, {
-        servers: () => services.extensionHost?.contributions.languageServers() ?? [],
-        extensions: () => services.extensionHost?.list() ?? [],
-        listings: () => marketplace.languageListings(),
-        dismissed: () => dismissed.list(),
-        official: officialMarketplaceId,
-        languageOf: editorLanguageOf,
-      })
-    })
-    ipcMain.handle('suggestions:dismiss', (_e, extId: unknown) => dismissed.dismiss(extId))
-    ipcMain.handle('suggestions:install', (_e, extId: unknown) =>
-      marketplace.installSuggested(
-        extId,
-        OFFICIAL_MARKETPLACE,
-        typeof extId === 'string' && Object.hasOwn(EXTENSION_SUGGESTIONS, extId),
-      ),
-    )
-  }
-
   return {
     refreshAgentPlugins,
     extensionRoots,
     registerExtensionIpc,
     registerRemoteFilesIpc,
-    registerMarketplaceIpc,
   }
 }
