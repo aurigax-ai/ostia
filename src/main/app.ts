@@ -13,7 +13,6 @@ import {
 import { BrowserWindow, app, ipcMain, shell } from 'electron'
 import { ChangeSignal } from '../shared/common/actThenConfirm'
 import { externalHref } from '../shared/common/externalLinks'
-import { bucketCount } from '../shared/privacy/telemetry'
 import type { CommandDescriptor, CommandTarget, TerminalStateSnapshot } from '../shared/types'
 import { createAgentOfferRelay } from './agents/agentOfferRelay'
 import { AgentRunningPanes } from './agents/agentRunning'
@@ -63,12 +62,8 @@ import {
 import { loadPaneIdSalt } from './control/paneIdSalt'
 import { type AppLog, LOG_FILE_NAME, createAppLog } from './diagnostics/appLog'
 import { type Diagnostics, registerDiagnostics } from './diagnostics/diagnostics'
-import {
-  type SessionFacts,
-  TELEMETRY_FILE,
-  type Telemetry,
-  registerTelemetry,
-} from './diagnostics/telemetry'
+import { createSessionFacts } from './diagnostics/sessionFacts'
+import { TELEMETRY_FILE, type Telemetry, registerTelemetry } from './diagnostics/telemetry'
 import type { ExtensionHost } from './extensions/extensionHost'
 import { startExtensionHost } from './extensions/extensionWiring'
 import { extensionHostParts } from './extensions/extensionWiring'
@@ -275,41 +270,14 @@ const movingPanes = new Set<string>()
 const recoveryHeld = new Set<string>()
 const closedPanes = new Set<string>()
 
-function telemetrySessionFacts(): SessionFacts {
-  const settings = readSettingsFile() as {
-    behavior?: { inputMode?: unknown; gpuAcceleration?: unknown }
-    terminal?: { renderer?: unknown; prompt?: { style?: unknown } }
-  }
-  const text = (value: unknown, fallback: string): string =>
-    typeof value === 'string' ? value : fallback
-  const installed = services.marketplaceInstallIds()
-  const enabled =
-    services.extensionHost
-      ?.list()
-      .filter((ext) => ext.enabled && installed.includes(ext.id))
-      .map((ext) => ext.id) ?? []
-  let workspaces = 0
-  for (const win of windows.values()) {
-    if (!win.isDestroyed()) workspaces += services.broker?.workspacesOf(win).length ?? 0
-  }
-  return {
-    windows: bucketCount(windows.size),
-    workspaces: bucketCount(workspaces),
-    restore: services.restoreOutcome,
-    inEffect: {
-      features: {
-        input_mode: text(settings.behavior?.inputMode, 'terminal'),
-        prompt_style: text(settings.terminal?.prompt?.style, 'shell'),
-      },
-      terminal: {
-        engine: text(settings.terminal?.renderer, 'xterm'),
-        gpu: settings.behavior?.gpuAcceleration === false ? 'off' : 'on',
-      },
-    },
-    installedExtensions: installed,
-    enabledExtensions: enabled,
-  }
-}
+const telemetrySessionFacts = createSessionFacts({
+  readSettings: readSettingsFile,
+  installedExtensions: () => services.marketplaceInstallIds(),
+  extensions: () => services.extensionHost?.list() ?? [],
+  windows,
+  workspacesOf: (win) => services.broker?.workspacesOf(win).length ?? 0,
+  restoreOutcome: () => services.restoreOutcome,
+})
 
 const officialMarketplaceId = marketplaceId(normalizeMarketplaceUrl(OFFICIAL_MARKETPLACE) ?? '')
 
@@ -824,7 +792,7 @@ const workspaceCommandTarget = (workspaceId: string): CommandTarget => ({
   paneId: null,
 })
 
-app.whenReady().then(() => {
+function boot(): void {
   setPaneIdSalt(loadPaneIdSalt(storePath('pane-id-salt', 'global')))
   const appMenu = installAppMenu(process.platform, {
     productName: PRODUCT_DISPLAY_NAME,
@@ -913,7 +881,9 @@ app.whenReady().then(() => {
     extensionHost,
     viewHost,
   })
-})
+}
+
+app.whenReady().then(boot)
 
 const redactionScan = createWorkerScan(redactionWorkerScript(app.getAppPath()))
 const redactor = createRedactor(
