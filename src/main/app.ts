@@ -285,7 +285,6 @@ import { registerExtensionWake } from './panes/extensionWake'
 import {
   type PaneAttentionPeek,
   type PaneIo,
-  type PaneReachDeps,
   pastedText,
   registerPaneIoMethods,
 } from './panes/paneIo'
@@ -298,6 +297,7 @@ import {
 import { registerPaneMoveIpc } from './panes/paneMove'
 import { registerPaneMoveToMethods } from './panes/paneMoveTo'
 import type { PaneProcess } from './panes/paneProcess'
+import type { PaneReachDeps } from './panes/paneReach'
 import { registerPaneRenameMethods } from './panes/paneRename'
 import { registerPaneResumeMethods } from './panes/paneResume'
 import { PaneWatch, registerPaneWaitMethods } from './panes/paneWait'

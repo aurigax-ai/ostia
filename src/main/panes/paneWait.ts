@@ -3,7 +3,8 @@ import type { AttentionState } from '../../shared/types'
 import { clampMessage } from '../attention/attention'
 import { registerControlMethod } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
-import { type PaneAttentionPeek, type PaneReachDeps, ensurePaneReach, paneTarget } from './paneIo'
+import type { PaneAttentionPeek } from './paneIo'
+import { type PaneReachDeps, ensurePaneReach, paneTarget } from './paneReach'
 
 const PANE_WAIT_STATES = ['done', 'waiting', 'idle', 'exited'] as const
 export type PaneWaitState = (typeof PANE_WAIT_STATES)[number]
