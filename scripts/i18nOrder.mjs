@@ -27,7 +27,8 @@ export function sortedSource(text) {
     if (!ts.isObjectLiteralExpression(node)) return span(node, node.getFullStart(), node.end)
     const { properties } = node
     const keys = properties.map(keyOf)
-    if (properties.length < 2 || keys.includes(null)) return span(node, node.getFullStart(), node.end)
+    if (properties.length < 2 || keys.includes(null))
+      return span(node, node.getFullStart(), node.end)
     const pieces = properties.map((property, index) => ({
       key: keys[index],
       text: span(property, property.getFullStart(), property.end),
