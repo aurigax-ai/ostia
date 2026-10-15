@@ -13,6 +13,7 @@ import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
+import { FoldedSplitTab } from './FoldedSplitTab'
 import { PaneActions } from './PaneActions'
 import { PaneTab } from './PaneTab'
 import { ResumeConflictNotice, ResumeFailedNotice, ResumeFolderNotice } from './ResumeFolderNotice'
@@ -95,6 +96,13 @@ export function Pane({
                 selected={tab === shownTab}
                 dropMark={dropMark}
                 showClose={!hideTabClose}
+              />
+            ) : tab.folded ? (
+              <FoldedSplitTab
+                key={tab.id}
+                tab={tab}
+                dropMark={dropMark}
+                workspaceId={workspaceId}
               />
             ) : (
               <SplitTabPill

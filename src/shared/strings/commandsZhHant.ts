@@ -89,6 +89,7 @@ export const commandsZhHant: typeof commandsEn = {
       'pane.collapse': '收合窗格',
       'pane.collapseOthers': '收合其他窗格',
       'pane.expandAll': '展開所有窗格',
+      'pane.foldSplitTab': '摺疊分割分頁',
       'pane.tabPlan': '規劃分割分頁移動',
       'pane.moveToNewWindow': '將窗格移到新視窗',
       'pane.moveToWorkspace': '將窗格移到工作區',

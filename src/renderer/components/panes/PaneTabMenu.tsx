@@ -28,6 +28,7 @@ import {
   ArrowsOutIcon,
   ArrowsOutLineHorizontalIcon,
   ArrowsOutSimpleIcon,
+  CaretDoubleLeftIcon,
   GitForkIcon,
   LockSimpleIcon,
   LockSimpleOpenIcon,
@@ -143,6 +144,14 @@ export function PaneTabMenu({
             onClick={() => usePaneRenameStore.getState().beginSplitTab(splitTabId)}
           >
             {d.pane.renameSplitTab}
+          </MenuItem>
+        ) : null}
+        {splitTabId ? (
+          <MenuItem
+            icon={CaretDoubleLeftIcon}
+            onClick={() => void commands.exec('pane.foldSplitTab', { tabId: splitTabId })}
+          >
+            {d.pane.foldSplitTab}
           </MenuItem>
         ) : null}
         {zoom ? (

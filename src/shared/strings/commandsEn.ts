@@ -87,6 +87,7 @@ export const commandsEn = {
       'pane.collapse': 'Collapse Pane',
       'pane.collapseOthers': 'Collapse Other Panes',
       'pane.expandAll': 'Expand All Panes',
+      'pane.foldSplitTab': 'Fold Split Tab',
       'pane.tabPlan': 'Plan Split Tab Move',
       'pane.moveToNewWindow': 'Move Pane to New Window',
       'pane.moveToWorkspace': 'Move Pane to Workspace',

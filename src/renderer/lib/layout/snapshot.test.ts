@@ -65,6 +65,12 @@ describe('buildSnapshot', () => {
     expect(restored.type === 'split' && restored.children[1]).not.toHaveProperty('collapsed')
   })
 
+  it('round-trips a folded split tab that is not shown', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const root = tabsOf(a.id, a, { ...splitOf('horizontal', b, c), folded: true as const })
+    expect(restoreSnapshot(build(root, a.id)).layouts.s1.root).toEqual(root)
+  })
+
   it('carries an editor’s file path and a browser’s url', () => {
     const editor: LayoutNode = {
       type: 'pane',

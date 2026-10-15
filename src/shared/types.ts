@@ -532,6 +532,7 @@ export interface SnapshotSplitNode {
   children: SnapshotNode[]
   sizes: number[]
   name?: string
+  folded?: true
 }
 
 export interface ProcessTerminalRequest extends ExtensionOpenTerminalRequest {

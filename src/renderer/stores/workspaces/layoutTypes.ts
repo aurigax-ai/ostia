@@ -35,6 +35,7 @@ export interface LayoutState {
   joinTab: (workspaceId: string, paneIds: readonly string[], tab: string | null) => string[]
   renameSplitTab: (workspaceId: string, tabId: string, name: string) => void
   changeCollapse: (workspaceId: string, paneId: string, change: CollapseChange) => void
+  foldSplitTab: (workspaceId: string, tabId: string) => void
   setCwd: (workspaceId: string, paneId: string, cwd: string) => void
   setUrl: (workspaceId: string, paneId: string, url: string) => void
   setResume: (workspaceId: string, paneId: string, resume: AgentResume) => void

@@ -3,7 +3,9 @@ import {
   STRIP_SIZE,
   canCollapse,
   changeCollapse,
+  foldSplitTab,
   isStrip,
+  isTucked,
   settleCollapse,
   stripAxis,
   stripSizes,
@@ -12,6 +14,7 @@ import { setSizes } from './panelSize'
 import {
   createPane,
   findPane,
+  findSplitTab,
   isPaneShown,
   resetIds,
   splitOf,
@@ -174,5 +177,60 @@ describe('strip sizes', () => {
     const next = setSizes(split, split.id, [974, STRIP_SIZE])
     expect(next.type === 'split' && next.sizes).toEqual([974, 600])
     expect(setSizes(next, split.id, [974, STRIP_SIZE])).toBe(next)
+  })
+})
+
+describe('foldSplitTab', () => {
+  function stack() {
+    const [lone, a, b, c, d] = [
+      createPane(),
+      createPane(),
+      createPane(),
+      createPane(),
+      createPane(),
+    ]
+    const first: SplitNode = { ...splitOf('horizontal', a, b), name: 'workers' }
+    const second: SplitNode = { ...splitOf('horizontal', c, d), name: 'more' }
+    return { lone, a, b, c, d, first, second }
+  }
+
+  it('folds a split tab that is not shown and leaves the shown tab alone', () => {
+    const { lone, a, first, second } = stack()
+    const root = tabsOf(lone.id, lone, first, second)
+    const next = foldSplitTab(root, first.id)
+    expect(findSplitTab(next, first.id)?.folded).toBe(true)
+    expect(shownOf(next, lone.id)).toBe(lone.id)
+    expect(isTucked(next, a.id)).toBe(true)
+    expect(foldSplitTab(next, first.id)).toBe(next)
+  })
+
+  it('shows the next tab when the shown split tab folds, skipping folded tabs and collapsed panes', () => {
+    const { lone, a, c, d, first, second } = stack()
+    const tucked = changeCollapse(tabsOf(c.id, lone, first, second), c.id, 'collapse')
+    const root = foldSplitTab(tucked, first.id)
+    expect(shownOf(root, a.id)).toBe(d.id)
+    const back = foldSplitTab(root, second.id)
+    expect(shownOf(back, a.id)).toBe(lone.id)
+  })
+
+  it('refuses to fold the shown tab when no other tab can be shown, and unknown ids', () => {
+    const { lone, first, second } = stack()
+    const root = foldSplitTab(tabsOf(lone.id, lone, first, second), first.id)
+    const onlyFolded = foldSplitTab(root, second.id)
+    expect(findSplitTab(onlyFolded, second.id)?.folded).toBe(true)
+    const solo = tabsOf(first.children[0].id, first, { ...second, folded: true as const })
+    expect(foldSplitTab(solo, first.id)).toBe(solo)
+    expect(foldSplitTab(root, 'nope')).toBe(root)
+  })
+
+  it('unfolds the shown tab and a split that left its stack when settled', () => {
+    const { lone, a, first } = stack()
+    const folded = { ...first, folded: true as const }
+    const shown = settleCollapse(tabsOf(a.id, lone, folded))
+    expect(findSplitTab(shown, first.id)?.folded).toBeUndefined()
+    const hidden = tabsOf(lone.id, lone, folded)
+    expect(settleCollapse(hidden)).toBe(hidden)
+    const loose = settleCollapse(splitOf('horizontal', lone, folded))
+    expect(loose.type === 'split' && loose.children[1]).not.toHaveProperty('folded')
   })
 })

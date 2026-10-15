@@ -46,6 +46,7 @@ export interface SplitNode {
   children: LayoutNode[]
   sizes: number[]
   name?: string
+  folded?: true
 }
 
 export type TabNode = PaneNode | SplitNode
