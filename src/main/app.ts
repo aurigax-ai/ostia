@@ -24,7 +24,7 @@ import type { ExtensionRoot } from '@aurigax-ai/ostia-extension-sdk/manifest/ext
 import { BrowserWindow, ClipboardItem, app, clipboard, ipcMain, shell } from 'electron'
 import type { IPty } from 'node-pty'
 import { parseAgentHooks } from '../shared/agents/agentHooks'
-import { type AgentResume, isResumableAgent, parseAgentResume } from '../shared/agents/agentResume'
+import { type AgentResume, isResumableAgent } from '../shared/agents/agentResume'
 import {
   MANAGER_FEATURE,
   managerAgents,
@@ -48,7 +48,7 @@ import type {
   FsKind,
   TerminalStateSnapshot,
 } from '../shared/types'
-import { AGENT_OFFER_RESULT_CHANNEL, createAgentOfferRelay } from './agents/agentOfferRelay'
+import { createAgentOfferRelay } from './agents/agentOfferRelay'
 import { AgentRunningPanes } from './agents/agentRunning'
 import { registerAgentTranscriptIpc } from './agents/agentTranscript'
 import { ReportedAgentWork, registerAgentWorkMethods } from './agents/agentWork'
@@ -77,8 +77,6 @@ import { registerAttentionMethods, targetOf } from './attention/attention'
 import { announceBusMessage } from './attention/busNotice'
 import {
   postActionNotification,
-  postNotification,
-  postPanelNotification,
   registerNotifyIpc,
   registerNotifyMethods,
 } from './attention/notify'
@@ -118,15 +116,12 @@ import {
   registerTelemetry,
 } from './diagnostics/telemetry'
 import { registerConnectionsIpc } from './extensions/connectionsIpc'
-import { confirmForExtension } from './extensions/extensionConfirm'
-import { ExtensionExec } from './extensions/extensionExec'
-import { ExtensionHost } from './extensions/extensionHost'
-import type { ExtensionHostDeps } from './extensions/extensionHostDeps'
-import { ExtensionLaunches } from './extensions/extensionLaunches'
-import { registerExtensionMethods } from './extensions/extensionMethods'
-import { ExtensionStore } from './extensions/extensionStore'
+import type { ExtensionHost } from './extensions/extensionHost'
 import { DismissedSuggestions, suggestionFor } from './extensions/extensionSuggestions'
-import { Marketplace, marketplaceId, normalizeMarketplaceUrl } from './extensions/marketplace'
+import { startMarketplace } from './extensions/extensionWiring'
+import { startExtensionHost } from './extensions/extensionWiring'
+import { extensionHostParts } from './extensions/extensionWiring'
+import { type Marketplace, marketplaceId, normalizeMarketplaceUrl } from './extensions/marketplace'
 import { PaneAttentionEvents } from './extensions/paneAttentionEvents'
 import { createMainStrings } from './extensions/strings'
 import { workspaceChipsForWindow } from './extensions/workspaceChips'
@@ -134,10 +129,10 @@ import { FileOps } from './files/fileOps'
 import { FileWatches } from './files/fileWatch'
 import { readBinaryConfined } from './files/fsBinary'
 import { readTextConfined, versionConfined, writeText, writeTextConfined } from './files/fsText'
-import { openFileForExtension, registerOpenFileMethods } from './files/openFileMethods'
+import { registerOpenFileMethods } from './files/openFileMethods'
 import { registerOpenPathIpc } from './files/openPath'
 import { OpenWaits } from './files/openWaits'
-import { confirmRemoteFolder, registerRemoteFolderConfirm } from './files/remoteFolderConfirm'
+import { registerRemoteFolderConfirm } from './files/remoteFolderConfirm'
 import { ripgrepPath } from './files/ripgrep'
 import { registerSearchIpc } from './files/workspaceSearch'
 import { startGateway } from './gateway/gatewayWiring'
@@ -149,7 +144,6 @@ import { GitService } from './git/service'
 import { ViewStateStore } from './git/viewState'
 import { createLanguageServerWiring } from './lsp/languageServerWiring'
 import type { LanguageServers } from './lsp/languageServers'
-import { registerLanguageServersIpc } from './lsp/languageServersIpc'
 import { type ManagerService, managerWindowId } from './manager/manager'
 import {
   managerArgv,
@@ -175,9 +169,9 @@ import { INTERRUPT_GRACE_MS, registerProcessMethods } from './panes/processManag
 import type { ProcessRegistry } from './panes/processRegistry'
 import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './platform/discreteGpu'
 import { loadJson, saveJson, storePath } from './platform/jsonStore'
-import { expandHome, resolveSafe } from './platform/pathGuard'
+import { resolveSafe } from './platform/pathGuard'
 import { privateTmpDir } from './platform/privateTmp'
-import { readLocale, readSettingsFile, readSettingsFileOrNull } from './platform/settingsFile'
+import { readLocale, readSettingsFile } from './platform/settingsFile'
 import {
   SANDBOX_FEATURE,
   installHint,
@@ -197,7 +191,6 @@ import { startProfileSyncWiring } from './profileSync/profileSyncWiring'
 import { registerSandboxMethods } from './sandbox/controlMethods'
 import { registerSandboxIpc } from './sandbox/ipc'
 import { createSandboxServices } from './sandbox/sandboxServices'
-import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
 import { createEncryptedStores } from './secrets/encryptedStores'
 import { registerSecretMethods } from './secrets/register'
@@ -1876,163 +1869,15 @@ app.whenReady().then(() => {
     },
     hibernated: paneHibernated,
   })
-  const extensionStore = new ExtensionStore(join(app.getPath('userData'), 'extensions.json'))
-  const extensionRemoteFolders: ExtensionHostDeps['remoteFolders'] = {
-    windowOfWorkspace: workspaceWindowId,
-    refusal: (workspaceId) =>
-      scratchFolders.isScratch(workspaceId)
-        ? 'scratch'
-        : workspaceSandboxes.isEnabled(workspaceId)
-          ? 'sandboxed'
-          : null,
-    confirm: (req) =>
-      confirmRemoteFolder(windows.get(workspaceWindowId(req.workspaceId) ?? ''), {
-        extName: req.extName,
-        host: req.host,
-        path: req.path,
-      }),
-    publish: publishRemoteFolders,
-  }
-  const extensionExec = new ExtensionExec({
-    workspace: (workspaceId) => {
-      if (!windowForWorkspace(workspaceId)) return null
-      const sandboxed = workspaceSandboxes.isEnabled(workspaceId)
-      const workDir = sandboxed
-        ? workspaceSandboxes.workDir(workspaceId)
-        : workDirForWorkspace(workspaceId)
-      return {
-        workDir: expandHome(workDir ?? homedir(), homedir()),
-        scratch: scratchFolders.isScratch(workspaceId),
-        sandboxed,
-      }
-    },
-    wrap: (workspaceId, command, extraReads) =>
-      workspaceSandboxes.wrap(workspaceId, command, 'bash', [], extraReads),
-    sandboxEnv: (workspaceId, env) => ({
-      ...sandboxSpawnEnv(env),
-      TMPDIR: workspaceSandboxes.tmpDir(workspaceId),
-    }),
-    dataDir: (extId) => join(app.getPath('userData'), 'extension-data', extId),
-    baseEnv: () => process.env,
+  const { extensionRemoteFolders, extensionExec, resumeOfPane } = extensionHostParts({ ...wiring })
+  const { extensionStore, extensionHost } = startExtensionHost({
+    ...wiring,
+    extensionRemoteFolders,
+    notifyDeps,
+    extensionExec,
+    resumeOfPane,
   })
-  const resumeOfPane: ExtensionHostDeps['resumeOf'] = async (pane) => {
-    const res = await execCommand(targetOf(pane), 'pane.resumeToken')
-    const resume = res.ok ? parseAgentResume((res.result as { resume?: unknown })?.resume) : null
-    if (!resume) return null
-    const panes = await listPanes({
-      execCommand,
-      getTerminalState,
-      ptyPid,
-      windowIds,
-      waking: isWaking,
-    })
-    const held = panes.some(
-      (p) => p.agentSessionId === resume.id && p.agent === resume.agent && !p.hibernated,
-    )
-    return { resume, held }
-  }
-  services.extensionHost = new ExtensionHost({
-    onChanged: () => {
-      services.languageServers?.refresh()
-      refreshAgentPlugins()
-    },
-    onCrashed: (extId, builtin) =>
-      services.telemetry?.error({
-        source: 'extension-crashed',
-        name: 'ExtensionCrashed',
-        message: 'exited too often',
-        ...(builtin || services.marketplaceInstallIds().includes(extId)
-          ? { extension: extId }
-          : {}),
-      }),
-    hostGrants: hostPaneGrants,
-    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-    sandboxDomains: (workspaceId) =>
-      workspaceSandboxes.isEnabled(workspaceId)
-        ? workspaceSandboxes.resolved(workspaceId).domains
-        : null,
-    roots: extensionRoots(),
-    store: extensionStore,
-    launches: new ExtensionLaunches(join(app.getPath('userData'), 'extension-launches.json')),
-    socketPath: controlSocketPath,
-    nodePath: process.execPath,
-    dataDir: join(app.getPath('userData'), 'extension-data'),
-    workDirForWorkspace,
-    cwdForPane: (paneId) => terminalState.get(paneId)?.cwd,
-    remoteCwdForPane: remoteCwdOfPane,
-    remoteFolders: extensionRemoteFolders,
-    agentRunning: (paneId) => agentRunning.has(paneId),
-    locale: readLocale,
-    readExtensionSettings: () => readSettingsFile().extensionSettings,
-    readAssistSettings: readSettingsFileOrNull,
-    redact: redactor.redact,
-    assistKeys: assistKeyStore(),
-    secrets: extensionSecretStore(),
-    connections: extensionConnections(),
-    openAssistUiIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'assist:open-ui', req),
-    broadcast,
-    publishWorkspaceChips,
-    openPanelIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-panel', req),
-    openDiffIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-diff', req),
-    openFileIn: (req) =>
-      openFileForExtension(
-        { grants: openFileGrants, windowOf: workspaceWindowId, execCommand },
-        req,
-      ),
-    openTerminalIn: openTerminalInWindow,
-    notify: (n) => postNotification(notifyDeps, n),
-    confirm: (req) => confirmForExtension(req, windows.values()),
-    notifyPanel: (n, open) => postPanelNotification(notifyDeps, n, open),
-    agentArgv: (name) => managerAgents(managerSettings())[name] ?? null,
-    agentNames: () => Object.keys(managerAgents(managerSettings())),
-    offerToAgentIn: (offer) => agentOffers.offer(offer),
-    focusPaneIn: focusPaneInWindow,
-    exec: extensionExec,
-    resumeOf: resumeOfPane,
-  })
-  refreshAgentPlugins()
-  registerExtensionMethods(() => services.extensionHost)
-  registerExtensionIpc(services.extensionHost)
-  registerRemoteFilesIpc(services.extensionHost)
-  ipcMain.on(AGENT_OFFER_RESULT_CHANNEL, (e, requestId: unknown, paneId: unknown) =>
-    agentOffers.answer(String(e.sender.id), requestId, paneId),
-  )
-  services.languageServers = createLanguageServers()
-  services.languageServers.refresh()
-  registerLanguageServersIpc({
-    servers: services.languageServers,
-    setEnabled: (extId, serverId, enabled) =>
-      services.extensionHost?.contributions.setLanguageServerEnabled(extId, serverId, enabled),
-    setOverride: (key, override) => serverOverrides.choose(key, override),
-  })
-  const marketplace = new Marketplace({
-    recordsPath: join(app.getPath('userData'), 'marketplaces.json'),
-    clonesDir: join(app.getPath('userData'), 'marketplaces'),
-    extensionsDir: join(configDir(), 'extensions'),
-    builtinIds: () =>
-      services.extensionHost
-        ?.list()
-        .filter((ext) => ext.builtin)
-        .map((ext) => ext.id) ?? [],
-    forget: (extId) => {
-      managedServers.forgetExtension(extId)
-      serverOverrides.forgetExtension(extId)
-      extensionStore.delete(extId)
-      extensionConnections().forget(extId)
-      for (const secrets of [extensionSecretStore(), assistKeyStore()]) {
-        for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
-      }
-    },
-    rescan: () => services.extensionHost?.processes.rescan(),
-    locale: readLocale,
-    official: OFFICIAL_MARKETPLACE,
-  })
-  registerMarketplaceIpc(marketplace)
-  services.marketplaceInstallIds = () =>
-    marketplace
-      .syncedInstalls()
-      .filter((install) => marketplaceId(install.marketplace) === officialMarketplaceId)
-      .map((install) => install.id)
+  const { marketplace } = startMarketplace({ ...wiring, extensionStore })
   startProfileSyncWiring({ ...wiring, marketplace })
   startChat({ ...wiring })
   const { viewHost } = registerContentIpc({ ...wiring })
@@ -2042,7 +1887,7 @@ app.whenReady().then(() => {
   startManager({ ...wiring })
   startWindows({
     ...wiring,
-    extensionHost: services.extensionHost,
+    extensionHost,
     viewHost,
   })
 })
@@ -2157,4 +2002,26 @@ const wiring = {
   encryptedFile,
   fileRoots,
   redactionScan,
+  managedServers,
+  serverOverrides,
+  extensionConnections,
+  extensionSecretStore,
+  assistKeyStore,
+  registerMarketplaceIpc,
+  officialMarketplaceId,
+  publishRemoteFolders,
+  refreshAgentPlugins,
+  hostPaneGrants,
+  extensionRoots,
+  terminalState,
+  remoteCwdOfPane,
+  sendToWorkspaceWindow,
+  publishWorkspaceChips,
+  openFileGrants,
+  openTerminalInWindow,
+  agentOffers,
+  focusPaneInWindow,
+  registerExtensionIpc,
+  registerRemoteFilesIpc,
+  createLanguageServers,
 }
