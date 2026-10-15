@@ -1,3 +1,4 @@
+import { en } from '@shared/app/dict'
 import { describe, expect, it } from 'vitest'
 import {
   DATE_ONLY,
@@ -29,22 +30,46 @@ describe('formatDate', () => {
     expect(formatDate(at, 'zh-Hant', TIME_ONLY)).toBe('下午1:04:05')
     expect(formatDate(at, 'en', TIME_ONLY)).toBe('1:04:05 PM')
   })
+
+  it('says the date is unknown instead of throwing on an invalid one', () => {
+    expect(formatDate(Number.NaN, 'en')).toBe(en.formats.unknownDate)
+    expect(formatDate(Date.parse('not a date'), 'zh-Hant', DATE_ONLY)).toBe(en.formats.unknownDate)
+    expect(formatDate(8.64e15 + 1, 'en')).toBe(en.formats.unknownDate)
+  })
 })
 
 describe('formatBytes', () => {
-  it('steps by 1024 and keeps one decimal above bytes', () => {
-    expect(formatBytes(0, 'en')).toBe('0 byte')
-    expect(formatBytes(1023, 'en')).toBe('1,023 byte')
+  it('steps by 1000, as kB, MB, GB and TB mean, and keeps one decimal above bytes', () => {
+    expect(formatBytes(999, 'en')).toBe('999 bytes')
+    expect(formatBytes(1000, 'en')).toBe('1 kB')
     expect(formatBytes(1536, 'en')).toBe('1.5 kB')
-    expect(formatBytes(16 * 1024 * 1024 + 1, 'en')).toBe('16 MB')
-    expect(formatBytes(3.25 * 1024 ** 3, 'en')).toBe('3.3 GB')
-    expect(formatBytes(2048 * 1024 ** 3, 'en')).toBe('2,048 GB')
+    expect(formatBytes(16 * 1024 * 1024 + 1, 'en')).toBe('16.8 MB')
+    expect(formatBytes(3.25e9, 'en')).toBe('3.3 GB')
+    expect(formatBytes(2e12, 'en')).toBe('2 TB')
+    expect(formatBytes(5e15, 'en')).toBe('5,000 TB')
+  })
+
+  it('moves to the next unit when the rounded value reaches 1000', () => {
+    expect(formatBytes(999_960, 'en')).toBe('1 MB')
+    expect(formatBytes(999_940, 'en')).toBe('999.9 kB')
+  })
+
+  it('spells bytes out in the long form below a kilobyte', () => {
+    expect(formatBytes(1, 'en')).toBe('1 byte')
+    expect(formatBytes(400, 'en')).toBe('400 bytes')
+    expect(formatBytes(400, 'zh-Hant')).toBe('400 byte')
+    expect(formatBytes(400, 'de')).toBe('400 Byte')
   })
 
   it('writes the number and unit in the given locale', () => {
     expect(formatBytes(1536, 'zh-Hant')).toBe('1.5 kB')
     expect(formatBytes(1536, 'de')).toBe('1,5 kB')
-    expect(formatBytes(400, 'de')).toBe('400 Byte')
+  })
+
+  it('writes zero for a negative or non-finite size', () => {
+    expect(formatBytes(-5, 'en')).toBe('0 bytes')
+    expect(formatBytes(Number.NaN, 'en')).toBe('0 bytes')
+    expect(formatBytes(Number.POSITIVE_INFINITY, 'zh-Hant')).toBe('0 byte')
   })
 })
 

@@ -7,10 +7,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { formatBytes } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useCmuxImportStore } from '@/stores/workspaces/cmuxImportStore'
 import type { Dict } from '@shared/app/dict'
-import type { CmuxImportReport, CmuxLossEntry } from '@shared/workspaces/cmuxSession'
+import {
+  CMUX_SESSION_MAX_BYTES,
+  type CmuxImportReport,
+  type CmuxLossEntry,
+} from '@shared/workspaces/cmuxSession'
 import { MAX_PANES, MAX_WORKSPACES } from '@shared/workspaces/workspaceLimits'
 import { useId } from 'react'
 
@@ -74,6 +80,7 @@ function ReportBody({ d, report }: { d: Dict; report: CmuxImportReport }): JSX.E
 
 export function CmuxImportDialog(): JSX.Element {
   const d = useDict()
+  const locale = useSettingsStore((s) => s.locale)
   const outcome = useCmuxImportStore((s) => s.outcome)
   const dismiss = useCmuxImportStore((s) => s.dismiss)
   const actionId = useId()
@@ -93,7 +100,10 @@ export function CmuxImportDialog(): JSX.Element {
           <AlertDialogTitle>{error ? t.failedTitle : t.title}</AlertDialogTitle>
           <AlertDialogDescription>
             {error
-              ? fmt(t.errors[error.error], { path: error.path ?? t.defaultPath })
+              ? fmt(t.errors[error.error], {
+                  path: error.path ?? t.defaultPath,
+                  size: formatBytes(CMUX_SESSION_MAX_BYTES, locale),
+                })
               : fmt(t.from, { path: report?.path ?? '' })}
           </AlertDialogDescription>
         </AlertDialogHeader>

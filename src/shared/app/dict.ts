@@ -5,6 +5,9 @@ import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/p
 export type Locale = string
 
 export const en = {
+  formats: {
+    unknownDate: 'Unknown date',
+  },
   commands: {
     categories: {
       pane: 'Pane',
@@ -2365,7 +2368,7 @@ export const en = {
       'outside-home': '{path} is outside your home folder.',
       'not-found': 'No cmux session at {path}. Open cmux once so it saves one, or pass the file.',
       unreadable: '{path} could not be read.',
-      'too-large': '{path} is larger than 32 MB.',
+      'too-large': '{path} is larger than {size}.',
       invalid: '{path} is not a cmux session file.',
       'unsupported-version': '{path} was saved by a cmux version this import cannot read.',
     },
@@ -3702,6 +3705,9 @@ export const en = {
 export type Dict = typeof en
 
 export const zhHant: Dict = {
+  formats: {
+    unknownDate: '日期不明',
+  },
   commands: {
     categories: {
       pane: '窗格',
@@ -5992,7 +5998,7 @@ export const zhHant: Dict = {
       'outside-home': '{path} 不在您的家目錄裡。',
       'not-found': '{path} 沒有 cmux 工作階段。請先開一次 cmux 讓它存檔，或指定檔案。',
       unreadable: '無法讀取 {path}。',
-      'too-large': '{path} 超過 32 MB。',
+      'too-large': '{path} 超過 {size}。',
       invalid: '{path} 不是 cmux 的工作階段檔。',
       'unsupported-version': '{path} 是由這個匯入功能讀不懂的 cmux 版本存的。',
     },

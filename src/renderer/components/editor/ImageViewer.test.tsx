@@ -86,7 +86,7 @@ describe('ImageViewer', () => {
       size: 60 * 1024 * 1024,
     })
     render(<ImageViewer workspaceId="w1" paneId="img-pane" filePath="/w/huge.png" />)
-    expect(await screen.findByText('This file is too large to preview (60 MB).')).toBeVisible()
+    expect(await screen.findByText('This file is too large to preview (62.9 MB).')).toBeVisible()
     expect(screen.queryByRole('img')).toBeNull()
   })
 

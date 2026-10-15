@@ -187,7 +187,7 @@ describe('ArtifactsSection', () => {
     lists(listing(['dump.bin', 100, ARTIFACT_FILE_MAX_BYTES + 1]))
     await renderSettled(<ArtifactsSection workspaceId="s1" />)
     const row = screen.getByTestId('artifact-row')
-    expect(row).toHaveTextContent('16 MB')
+    expect(row).toHaveTextContent('16.8 MB')
     await userEvent.click(row)
     expect(window.ostia.artifacts.reveal).toHaveBeenCalledWith('s1')
     const layout = useLayoutStore.getState().byWorkspace.s1
