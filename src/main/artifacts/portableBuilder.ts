@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { basename, join } from 'node:path'
+import { LRUCache } from 'lru-cache'
 import { RUNTIME_MODULES, runtimePackages } from '../../shared/artifacts/artifactRuntime'
 import type { PreviewTheme } from '../../shared/artifacts/htmlPreview'
 import {
@@ -83,13 +84,18 @@ export function failedDocument(problems: readonly CompileProblem[], theme: Previ
 }
 
 export class PortableBuilder {
-  private readonly cache = new Map<string, Cached>()
+  private readonly cache: LRUCache<string, Cached>
   private readonly tailwind: PortableTailwind
   private readonly target: string[]
   private readonly timeoutMs: number
   private readonly now: () => Date
 
   constructor(private readonly deps: PortableBuilderDeps) {
+    this.cache = new LRUCache({
+      max: CACHE_MAX,
+      maxSize: deps.cacheBytes ?? CACHE_BYTES,
+      sizeCalculation: (entry) => entry.bytes,
+    })
     this.tailwind = new PortableTailwind(deps.runtimeDir)
     this.target = deps.target ?? DEFAULT_TARGET
     this.timeoutMs = deps.timeoutMs ?? PORTABLE_LIMITS.buildMs
@@ -118,9 +124,7 @@ export class PortableBuilder {
   }
 
   cachedBytes(): number {
-    let total = 0
-    for (const entry of this.cache.values()) total += entry.bytes
-    return total
+    return this.cache.calculatedSize
   }
 
   private async unchanged(hashes: Map<string, string>): Promise<boolean> {
@@ -139,15 +143,7 @@ export class PortableBuilder {
       hashes.set(path, sha256(found.body))
     }
     const bytes = result.document.length + JSON.stringify(result.manifest).length
-    const cap = this.deps.cacheBytes ?? CACHE_BYTES
-    if (bytes > cap) return
-    this.cache.delete(key)
     this.cache.set(key, { hashes, result, bytes })
-    while (this.cache.size > CACHE_MAX || this.cachedBytes() > cap) {
-      const oldest = this.cache.keys().next().value
-      if (oldest === undefined) break
-      this.cache.delete(oldest)
-    }
   }
 
   private async timed(run: BuildRun, work: () => Promise<PortableBuild>): Promise<PortableBuild> {
