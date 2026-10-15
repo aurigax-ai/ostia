@@ -1427,6 +1427,12 @@ app.on('second-instance', (_event, argv) => {
   revealApp()
 })
 
+const workspaceCommandTarget = (workspaceId: string): CommandTarget => ({
+  windowId: windowForWorkspace(workspaceId) ?? '',
+  workspaceId,
+  paneId: null,
+})
+
 app.whenReady().then(() => {
   setPaneIdSalt(loadPaneIdSalt(storePath('pane-id-salt', 'global')))
   const appMenu = installAppMenu(process.platform, {
@@ -1655,6 +1661,7 @@ app.whenReady().then(() => {
     redact: redactor.text,
   }
   registerNotifyMethods(notifyDeps)
+  registerNotifyIpc(notifyDeps)
   registerSandboxMethods({ domains: domainRequests, ports: portRequests })
   registerSecretMethods({
     service: secretService,
@@ -1691,7 +1698,6 @@ app.whenReady().then(() => {
       workspaceId,
       errors,
     )
-  registerNotifyIpc(notifyDeps)
   registerAttentionMethods({ execCommand, reported: (paneId) => keptAttention.reported(paneId) })
   registerAgentWorkMethods(agentWork)
   registerPaneRenameMethods({ execCommand, reach, windowOfWorkspace: workspaceWindowId })
@@ -1801,11 +1807,6 @@ app.whenReady().then(() => {
     wake: (to) => wakeHibernatedPane(execCommand, to),
     panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
     waking: paneWaking,
-  })
-  const workspaceCommandTarget = (workspaceId: string): CommandTarget => ({
-    windowId: windowForWorkspace(workspaceId) ?? '',
-    workspaceId,
-    paneId: null,
   })
   registerPaneMoveToMethods({
     ...paneReachDeps,
