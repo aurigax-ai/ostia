@@ -7,13 +7,13 @@ import { restoreSnapshot, workspaceHandoff } from '@/lib/layout/snapshot'
 import { placementOf } from '@/lib/layout/tabMoves'
 import { allPanes, findPane, paneIds } from '@/lib/layout/tree'
 import type { LayoutNode, PaneNode } from '@/lib/layout/types'
+import { focusActivePaneWhenReady, focusPaneWhenReady } from '@/lib/terminal/focusNewTerminal'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { isMovable, liveAgentPanes } from '@/stores/workspaces/persistence'
-import { focusSurfaceWhenReady } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { nextWorkspaceId, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -28,6 +28,7 @@ import type {
 } from '@shared/types'
 import { confirmMove } from './closeConfirm'
 import { setIdNamespace } from './idNamespace'
+import { selectWorkspace } from './selectWorkspace'
 
 const REPORT_DEBOUNCE_MS = 100
 
@@ -206,17 +207,25 @@ export function adoptWorkspaces(workspaces: SnapshotWorkspace[]): void {
     const active = useWorkspacesStore.getState().activeWorkspaceId
     focus = (active && useLayoutStore.getState().byWorkspace[active]?.activePaneId) || focus
   }
-  if (focus) focusPaneWhenReady(focus)
+  if (focus) focusArrivedPane(focus)
 }
 
-function focusPaneWhenReady(paneId: string): void {
-  if (revealPane(paneId)) focusSurfaceWhenReady(paneId)
+function focusArrivedPane(paneId: string): void {
+  if (revealPane(paneId)) focusPaneWhenReady(paneId)
 }
 
-export function activateWorkspace(workspaceId: string, jumpToUnread: boolean): void {
+export function activateWorkspace(
+  workspaceId: string,
+  jumpToUnread: boolean,
+  takesKeyboard: boolean,
+): void {
   if (!findWorkspace(workspaceId)) return
-  useUIStore.getState().showWorkspaces()
   if (jumpToUnread && jumpToLatestUnreadIn(workspaceId)) return
+  if (takesKeyboard) {
+    selectWorkspace(workspaceId)
+    return
+  }
+  useUIStore.getState().showWorkspaces()
   useWorkspacesStore.getState().setActive(workspaceId)
 }
 
@@ -292,10 +301,7 @@ export function startWindowSync(): () => void {
   if (useWindowsStore.getState().detached) {
     const { workspaces, activeWorkspaceId } = useWorkspacesStore.getState()
     if (workspaces.length === 0) window.ostia.window.close()
-    const paneId = activeWorkspaceId
-      ? useLayoutStore.getState().byWorkspace[activeWorkspaceId]?.activePaneId
-      : undefined
-    if (paneId) focusSurfaceWhenReady(paneId)
+    if (activeWorkspaceId) focusActivePaneWhenReady(activeWorkspaceId)
   }
   const offs = [
     useWorkspacesStore.subscribe(schedule),

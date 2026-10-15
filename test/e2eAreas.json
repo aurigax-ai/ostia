@@ -995,6 +995,7 @@
         "src/renderer/lib/panes/panelSizes.ts",
         "src/renderer/lib/terminal/focusNewTerminal.ts",
         "src/renderer/lib/workspaces/closeConfirm.ts",
+        "src/renderer/lib/workspaces/selectWorkspace.ts",
         "src/renderer/stores/workspaces/paneDndStore.ts",
         "src/renderer/stores/workspaces/surfaceSlotsStore.ts",
         "src/renderer/stores/workspaces/closeConfirmStore.ts",
@@ -1006,7 +1007,8 @@
         "e2e/pane-lock.spec.ts",
         "e2e/pane-move-tab.spec.ts",
         "e2e/tab-rename.spec.ts",
-        "e2e/tab-switch.spec.ts"
+        "e2e/tab-switch.spec.ts",
+        "e2e/workspace-select-focus.spec.ts"
       ]
     },
     {

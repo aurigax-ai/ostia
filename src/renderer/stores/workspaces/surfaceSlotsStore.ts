@@ -35,28 +35,64 @@ export function parkSurface(paneId: string, slot: HTMLElement): void {
   if (host && host.parentNode === slot) parking().appendChild(host)
 }
 
+const SURFACE_INPUTS = [
+  '.input-editor:not([hidden]) textarea',
+  TERMINAL_INPUT_SELECTOR,
+  '.editor.modified .native-edit-context',
+  '.native-edit-context',
+  'textarea[name="message"]',
+  'webview',
+]
+
 function focusTarget(paneId: string): HTMLElement | null {
   const host = hosts.get(paneId)
-  return (
-    host?.querySelector<HTMLElement>('.input-editor:not([hidden]) textarea') ??
-    host?.querySelector<HTMLElement>(TERMINAL_INPUT_SELECTOR) ??
-    null
-  )
+  if (!host) return null
+  for (const selector of SURFACE_INPUTS) {
+    const target = host.querySelector<HTMLElement>(selector)
+    if (target) return target
+  }
+  return null
 }
 
 export function focusSurface(paneId: string): void {
   focusTarget(paneId)?.focus()
 }
 
-const FOCUS_WAIT_FRAMES = 120
+function canTakeFocus(target: HTMLElement): boolean {
+  return (
+    target.isConnected &&
+    !target.closest('[inert], [data-hidden]') &&
+    !document.activeElement?.closest('[role="dialog"], [role="alertdialog"]')
+  )
+}
 
-export function focusSurfaceWhenReady(paneId: string, frames = FOCUS_WAIT_FRAMES): void {
+function tookFocus(paneId: string): boolean {
   const target = focusTarget(paneId)
-  if (target) {
-    target.focus()
-    return
+  if (!target || !canTakeFocus(target)) return false
+  target.focus()
+  return document.activeElement === target
+}
+
+let stopWaiting: (() => void) | null = null
+
+export function focusSurfaceWhenReady(paneId: string, wanted: () => boolean): void {
+  stopWaiting?.()
+  if (!wanted() || tookFocus(paneId)) return
+  const observer = new MutationObserver(() => {
+    if (!wanted() || tookFocus(paneId)) stop()
+  })
+  const stop = (): void => {
+    observer.disconnect()
+    window.removeEventListener('pointerdown', stop, true)
+    if (stopWaiting === stop) stopWaiting = null
   }
-  if (frames > 0) requestAnimationFrame(() => focusSurfaceWhenReady(paneId, frames - 1))
+  observer.observe(document.body, {
+    subtree: true,
+    childList: true,
+    attributeFilter: ['inert', 'data-hidden', 'hidden'],
+  })
+  window.addEventListener('pointerdown', stop, true)
+  stopWaiting = stop
 }
 
 export function releaseSurfaces(live: ReadonlySet<string>): void {

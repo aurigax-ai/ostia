@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   focusSurface,
+  focusSurfaceWhenReady,
   mountSurface,
   parkSurface,
   releaseSurfaces,
@@ -83,5 +84,127 @@ describe('surfaceSlotsStore', () => {
     expect(slot.childNodes).toHaveLength(0)
     expect(surfaceHost('pane-live')).toBe(live)
     expect(surfaceHost('pane-dead')).not.toBe(dead)
+  })
+
+  it('focusSurface focuses the chat composer and the changed side of a diff', () => {
+    const slot = div()
+    document.body.appendChild(slot)
+    mountSurface('chat', slot)
+    const composer = document.createElement('textarea')
+    composer.name = 'message'
+    surfaceHost('chat').appendChild(composer)
+    focusSurface('chat')
+    expect(document.activeElement).toBe(composer)
+
+    mountSurface('diff', slot)
+    const side = (name: string): HTMLElement => {
+      const editor = div()
+      editor.className = `editor ${name}`
+      const input = div()
+      input.className = 'native-edit-context'
+      input.tabIndex = 0
+      editor.appendChild(input)
+      surfaceHost('diff').appendChild(editor)
+      return input
+    }
+    side('original')
+    const modified = side('modified')
+    focusSurface('diff')
+    expect(document.activeElement).toBe(modified)
+    slot.remove()
+  })
+
+  describe('focusSurfaceWhenReady', () => {
+    const settle = () => new Promise<void>((resolve) => setTimeout(resolve))
+
+    function terminalInput(paneId: string): HTMLTextAreaElement {
+      const input = document.createElement('textarea')
+      input.className = 'xterm-helper-textarea'
+      surfaceHost(paneId).appendChild(input)
+      return input
+    }
+
+    it('waits until the surface sits in a shown slot, then focuses it once', async () => {
+      const input = terminalInput('pane-1')
+      const layer = div()
+      layer.setAttribute('data-hidden', '')
+      const slot = div()
+      layer.appendChild(slot)
+      document.body.appendChild(layer)
+
+      focusSurfaceWhenReady('pane-1', () => true)
+      await settle()
+      expect(document.activeElement).not.toBe(input)
+
+      mountSurface('pane-1', slot)
+      await settle()
+      expect(document.activeElement).not.toBe(input)
+
+      layer.removeAttribute('data-hidden')
+      await settle()
+      expect(document.activeElement).toBe(input)
+
+      input.blur()
+      layer.setAttribute('data-hidden', '')
+      layer.removeAttribute('data-hidden')
+      await settle()
+      expect(document.activeElement).not.toBe(input)
+      layer.remove()
+    })
+
+    it('waits while a dialog holds the keyboard', async () => {
+      const slot = div()
+      document.body.appendChild(slot)
+      mountSurface('pane-1', slot)
+      const input = terminalInput('pane-1')
+      const dialog = div()
+      dialog.setAttribute('role', 'dialog')
+      const field = document.createElement('input')
+      dialog.appendChild(field)
+      document.body.appendChild(dialog)
+      field.focus()
+
+      focusSurfaceWhenReady('pane-1', () => true)
+      await settle()
+      expect(document.activeElement).toBe(field)
+
+      dialog.remove()
+      await settle()
+      expect(document.activeElement).toBe(input)
+      slot.remove()
+    })
+
+    it('gives up on a pointer press, a newer request or once the pane is no longer wanted', async () => {
+      const slot = div()
+      document.body.appendChild(slot)
+      mountSurface('pane-1', slot)
+      mountSurface('pane-2', slot)
+      let wanted = true
+
+      focusSurfaceWhenReady('pane-1', () => true)
+      window.dispatchEvent(new Event('pointerdown'))
+      const pressed = terminalInput('pane-1')
+      await settle()
+      expect(document.activeElement).not.toBe(pressed)
+      pressed.remove()
+
+      focusSurfaceWhenReady('pane-1', () => true)
+      const newer = terminalInput('pane-2')
+      focusSurfaceWhenReady('pane-2', () => true)
+      expect(document.activeElement).toBe(newer)
+      const older = terminalInput('pane-1')
+      await settle()
+      expect(document.activeElement).toBe(newer)
+      older.remove()
+      newer.remove()
+      newer.blur()
+
+      focusSurfaceWhenReady('pane-2', () => wanted)
+      wanted = false
+      const unwanted = terminalInput('pane-2')
+      await settle()
+      expect(document.activeElement).not.toBe(unwanted)
+      slot.remove()
+    })
   })
 })

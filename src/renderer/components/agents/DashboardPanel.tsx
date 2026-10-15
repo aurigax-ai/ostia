@@ -17,6 +17,7 @@ import {
 } from '@/lib/sidebar/dashboard'
 import { shortenPath } from '@/lib/sidebar/railMeta'
 import { cn } from '@/lib/utils'
+import { selectWorkspace } from '@/lib/workspaces/selectWorkspace'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/workspaces/windowWorkspaces'
 import { latestAttentionMessage, runningTitle } from '@/lib/workspaces/workspaceSummary'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
@@ -260,10 +261,7 @@ function WorkspaceEntry({ workspace: w }: { workspace: Workspace }): JSX.Element
   const [composing, setComposing] = useState(false)
   const name = w.customName ?? w.name
   const summary = message ?? running
-  const open = (): void => {
-    useUIStore.getState().showWorkspaces()
-    useWorkspacesStore.getState().setActive(w.id)
-  }
+  const open = (): void => selectWorkspace(w.id)
   return (
     <li
       data-workspace={w.id}
@@ -348,7 +346,7 @@ function RemoteEntry({ workspace: w }: { workspace: RemoteWorkspace }): JSX.Elem
         size="sm"
         aria-label={fmt(d.dashboard.openWorkspace, { name: w.name })}
         className="h-auto min-w-0 justify-start p-0 font-medium text-fg text-ui-base"
-        onClick={() => window.ostia.windows.focusWorkspace(w.id, false)}
+        onClick={() => window.ostia.windows.focusWorkspace(w.id, false, true)}
       >
         <span className="truncate">{w.name}</span>
       </TextLink>
