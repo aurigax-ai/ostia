@@ -2,6 +2,7 @@ import { useAgentTargets, useNoAgentsText } from '@/components/agents/PickSendPa
 import type { PickTarget } from '@/lib/agents/pickTargets'
 import { sendPickToPane, sendRegionToPane } from '@/lib/agents/sendPick'
 import { fmt } from '@/lib/app/useDict'
+import { useTransientStatus } from '@/lib/app/useTransientStatus'
 import { registerRegionCapture } from '@/lib/browser/regionCaptures'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { Dict } from '@shared/app/dict'
@@ -41,7 +42,7 @@ export function useBrowserCapture({
   const [cropping, setCropping] = useState(false)
   const [region, setRegion] = useState<RegionCapture | null>(null)
   const [sending, setSending] = useState(false)
-  const [status, setStatus] = useState<string | null>(null)
+  const [status, setStatus] = useTransientStatus(STATUS_MS)
   const targets = useAgentTargets(workspaceId)
   const noTargets = useNoAgentsText(workspaceId)
 
@@ -63,13 +64,7 @@ export function useBrowserCapture({
     }
     el.addEventListener('console-message', onConsole)
     return () => el.removeEventListener('console-message', onConsole)
-  }, [partition, d.browser.passkeyUnsupported, webviewRef])
-
-  useEffect(() => {
-    if (!status) return
-    const timer = setTimeout(() => setStatus(null), STATUS_MS)
-    return () => clearTimeout(timer)
-  }, [status])
+  }, [partition, d.browser.passkeyUnsupported, webviewRef, setStatus])
 
   const startCrop = useCallback((): void => {
     window.ostia.browser.pickCancel(paneId)
@@ -77,7 +72,7 @@ export function useBrowserCapture({
     setRegion(null)
     setStatus(null)
     setCropping(true)
-  }, [paneId])
+  }, [paneId, setStatus])
 
   useEffect(() => registerRegionCapture(paneId, startCrop), [paneId, startCrop])
 

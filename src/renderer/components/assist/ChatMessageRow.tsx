@@ -5,6 +5,7 @@ import {
   MessageContent,
   MessageResponse,
 } from '@/components/ai-elements/message'
+import { useCopied } from '@/lib/app/useCopied'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { rehypeFileLinks } from '@/lib/assist/chatLinks'
 import { redactedCountLabel, redactionsIn } from '@/lib/assist/chatRedaction'
@@ -26,7 +27,6 @@ import {
 } from '@phosphor-icons/react'
 import { useMemo, useRef } from 'react'
 import type { Components } from 'react-markdown'
-import { useCopied } from './ChatCodeActions'
 import { ChatToolPart } from './ChatToolPart'
 
 const REHYPE_PLUGINS = [rehypeFileLinks]

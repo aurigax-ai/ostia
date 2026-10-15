@@ -1,5 +1,6 @@
 import { setPinned, withPinned } from '@/lib/workspaces/workspaceOrder'
 import type { WorkspaceGroupColor } from '@shared/workspaces/workspaceGroups'
+import { clamp } from 'es-toolkit'
 import picomatch from 'picomatch/posix'
 
 export interface WorkspaceGroup {
@@ -88,10 +89,6 @@ export function toBlocks<W extends Groupable>(g: Grouping<W>): Block<W>[] {
 
 function groupMembers<W extends Groupable>(workspaces: W[], groupId: string): W[] {
   return workspaces.filter((w) => w.groupId === groupId)
-}
-
-function clamp(n: number, lo: number, hi: number): number {
-  return Math.min(Math.max(n, lo), hi)
 }
 
 export function moveWorkspaceBy<W extends Groupable>(

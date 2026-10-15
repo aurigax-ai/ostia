@@ -22,6 +22,7 @@ import {
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { useTransientStatus } from '@/lib/app/useTransientStatus'
 import { cookieRowKey, filterCookies, filterEntries, formatExpiry } from '@/lib/browser/storageRows'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
@@ -84,7 +85,7 @@ export function BrowserStoragePanel({
   const [kind, setKind] = useState<StorageKind>('cookies')
   const [snapshot, setSnapshot] = useState<BrowserStorageSnapshot | null>(null)
   const [readError, setReadError] = useState<string | null>(null)
-  const [status, setStatus] = useState<string | null>(null)
+  const [status, setStatus] = useTransientStatus(STATUS_MS)
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<Editing | null>(null)
   const [confirmClear, setConfirmClear] = useState(false)
@@ -103,12 +104,6 @@ export function BrowserStoragePanel({
     void refreshKey
     void load()
   }, [load, refreshKey])
-
-  useEffect(() => {
-    if (!status) return
-    const timer = setTimeout(() => setStatus(null), STATUS_MS)
-    return () => clearTimeout(timer)
-  }, [status])
 
   const apply = async (write: Promise<StorageWriteResult>): Promise<boolean> => {
     const res = await write

@@ -7,6 +7,7 @@ import { type EditHunk, type HunkDecisions, editHunks, hunkCounts } from '@/lib/
 import { awaitsReview, canUndo, decideHunk, keepEdit, undoEdit } from '@/lib/assist/chatReview'
 import { workspaceFolder } from '@/lib/assist/chatTools'
 import type { ToolPartLike } from '@/lib/assist/chatTransport'
+import { baseName } from '@/lib/files/fileTree'
 import { openFileAt } from '@/lib/files/openFile'
 import { langFor } from '@/lib/monaco/language'
 import { cn } from '@/lib/utils'
@@ -220,7 +221,7 @@ export function ChatEditCard({
     if (!target || before === undefined || after === undefined) return
     useUIStore.getState().closePalette()
     useLayoutStore.getState().openDiff(target, {
-      title: fmt(t.diffTitle, { name: path.split('/').pop() || path }),
+      title: fmt(t.diffTitle, { name: baseName(path) }),
       original: before,
       modified: after,
       language: langFor(path),
