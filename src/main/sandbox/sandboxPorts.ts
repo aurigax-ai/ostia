@@ -1,3 +1,4 @@
+import { isEqual } from 'es-toolkit'
 import { approvals } from '../approvals/approvals'
 import { getByPaneId } from '../control/idRegistry'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
@@ -24,7 +25,7 @@ export function createSandboxPorts({
     const host = keptHostPanes.get(workspaceId)
     if (!host) return
     const exposed = portRequests.exposures(workspaceId, listening)
-    if (JSON.stringify(exposed) === JSON.stringify(host.meta.exposed)) return
+    if (isEqual(exposed, host.meta.exposed)) return
     host.meta = { ...host.meta, exposed }
     host.pane.setMeta(host.meta)
   }

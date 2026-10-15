@@ -1,5 +1,6 @@
 import { hostname } from 'node:os'
 import { type IpcMainInvokeEvent, ipcMain } from 'electron'
+import { isEqual } from 'es-toolkit'
 import { LOOPBACK_ADDRESS } from '../../shared/gateway/gatewayRoute'
 import type {
   GatewayActionResult,
@@ -14,7 +15,7 @@ import type {
   GatewayTailnetState,
 } from '../../shared/types'
 import { registerControlMethod } from '../control/controlServer'
-import { type Announcement, type Publisher, announcementFor, sameAnnouncement } from './announce'
+import { type Announcement, type Publisher, announcementFor } from './announce'
 import type { Device } from './devices'
 import { list as listDevices, revoke as revokeDevice, setDeviceCap } from './devices'
 import { listBindAddresses } from './interfaces'
@@ -55,7 +56,7 @@ function refreshAnnouncement(): void {
     port: target?.port ?? null,
     fingerprint: status.fingerprint,
   })
-  if (sameAnnouncement(next, announced)) return
+  if (isEqual(next, announced)) return
   announced = next
   if (next) announcer?.publish(next)
   else announcer?.unpublish()
