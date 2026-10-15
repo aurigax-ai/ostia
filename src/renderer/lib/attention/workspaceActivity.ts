@@ -1,11 +1,5 @@
-import {
-  type FocusDirection,
-  adjacentTab,
-  findPane,
-  isPaneShown,
-  paneIds,
-  paneInDirection,
-} from '@/lib/layout/tree'
+import { type FocusDirection, paneInDirection } from '@/lib/layout/focusDirection'
+import { adjacentTab, findPane, isPaneShown, paneIds } from '@/lib/layout/tree'
 import { globalWorkspaceOrder, latestRemoteUnread } from '@/lib/workspaces/windowWorkspaces'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { coversWorkspaces, useUIStore } from '@/stores/app/uiStore'

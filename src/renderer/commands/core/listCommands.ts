@@ -1,9 +1,9 @@
-import { registerCore } from '@/commands/core'
+import { registerCore } from '@/commands/coreCommand'
 import { type PaneAgentReport, paneAgentReport } from '@/lib/agents/paneAgent'
 import { allPanes, splitTabOfPane } from '@/lib/layout/tree'
 import type { SurfaceKind } from '@/lib/layout/types'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import type { WorkspaceKind, WorkspaceState } from '@/stores/workspaces/workspacesStore'
+import type { WorkspaceKind, WorkspaceState } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { WorkspaceGroupColor } from '@shared/workspaces/workspaceGroups'
 

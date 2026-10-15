@@ -1,14 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { clampFraction, panelFractions, panelKey, sizePanel } from './panelSize'
-import {
-  createPane,
-  resetIds,
-  setPaneChat,
-  setPaneExtension,
-  setPaneView,
-  splitOf,
-  splitPane,
-} from './tree'
+import { setPaneChat, setPaneExtension, setPaneView } from './paneFields'
+import { clampFraction, panelFractions, panelKey, setSizes, sizePanel } from './panelSize'
+import { createPane, resetIds, splitOf, splitPane } from './tree'
 import type { LayoutNode, PaneNode, SplitNode } from './types'
 
 beforeEach(() => resetIds())
@@ -140,5 +133,40 @@ describe('sizePanel', () => {
 
     expect(next.children[0]).toBe(root.children[0])
     expect((next.children[1] as SplitNode).sizes[1]).toBeCloseTo(0.4)
+  })
+})
+
+describe('setSizes', () => {
+  it('replaces the sizes of a nested split addressed by id', () => {
+    const a = createPane()
+    const b = createPane()
+    const inner = splitOf('vertical', a, b)
+    const root = splitOf('horizontal', createPane(), inner)
+    const next = setSizes(root, inner.id, [0.3, 0.7])
+    expect(next.type).toBe('split')
+    if (next.type === 'split') {
+      const innerNext = next.children[1]
+      expect(innerNext.type).toBe('split')
+      if (innerNext.type === 'split') expect(innerNext.sizes).toEqual([0.3, 0.7])
+    }
+  })
+
+  it('updates the root split when its own id matches', () => {
+    const root = splitOf('horizontal', createPane(), createPane())
+    const next = setSizes(root, root.id, [2, 5])
+    expect(next.type).toBe('split')
+    if (next.type === 'split') expect(next.sizes).toEqual([2, 5])
+  })
+
+  it('leaves sizes unchanged when no split id matches', () => {
+    const root = splitOf('horizontal', createPane(), createPane())
+    const next = setSizes(root, 'ghost', [9, 9])
+    expect(next.type).toBe('split')
+    if (next.type === 'split') expect(next.sizes).toEqual([1, 1])
+  })
+
+  it('returns a lone root pane unchanged', () => {
+    const root = createPane()
+    expect(setSizes(root, 'any', [1])).toBe(root)
   })
 })

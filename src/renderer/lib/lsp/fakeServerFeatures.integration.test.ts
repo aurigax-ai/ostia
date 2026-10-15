@@ -15,9 +15,9 @@ vi.mock('@/lib/monaco/setup', () => ({
 }))
 vi.mock('vscode-jsonrpc/browser', async () => await import('vscode-jsonrpc/node'))
 
-const { APPLY_CODE_ACTION_COMMAND, refreshCodeLenses, registerProviders } = await import(
-  './providers'
-)
+const { APPLY_CODE_ACTION_COMMAND } = await import('./codeActions')
+const { refreshCodeLenses } = await import('./codeLens')
+const { registerProviders } = await import('./providers')
 const { LspSession } = await import('./session')
 const { toWorkspaceSymbolHits } = await import('./workspaceSymbols')
 const { openDocument, resetLspClient, startLanguageServices } = await import('./client')

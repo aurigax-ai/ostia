@@ -1,4 +1,4 @@
-import { delegate, registerCore } from '@/commands/core'
+import { delegate, registerCore } from '@/commands/coreCommand'
 import { browserProfileIn, openerOf } from '@/lib/browser/browserProfile'
 import {
   markOpenedQuietly,

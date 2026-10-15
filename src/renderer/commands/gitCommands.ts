@@ -2,7 +2,7 @@ import { currentDict } from '@/lib/app/useDict'
 import { openGit } from '@/lib/git/gitPanel'
 import { findPane } from '@/lib/layout/tree'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { registerCore } from './core'
+import { registerCore } from './coreCommand'
 import type { CommandContext } from './registry'
 
 function activeFile(ctx: CommandContext): string | null {

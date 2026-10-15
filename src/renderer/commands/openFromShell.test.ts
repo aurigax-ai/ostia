@@ -1,6 +1,7 @@
 import { tabMark } from '@/lib/attention/attention'
 import { followedFolder, treeRoot } from '@/lib/files/revealFolder'
-import { allPanes, findPane, paneBrowserProfile, tabsOfPane } from '@/lib/layout/tree'
+import { paneBrowserProfile } from '@/lib/layout/paneFields'
+import { allPanes, findPane, tabsOfPane } from '@/lib/layout/tree'
 import { callerHasFocus, opensQuietly } from '@/lib/panes/callerFocus'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { LanguageServerContribution } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { LanguageServerSource } from '../lsp/languageServers'
+import type { LanguageServerSource } from '../lsp/serverBinaries'
 import { DismissedSuggestions, type SuggestionSources, suggestionFor } from './extensionSuggestions'
 
 function server(

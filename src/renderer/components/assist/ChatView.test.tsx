@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
 import { CommandPalette } from '@/components/palette/CommandPalette'
-import { firstPaneOfKind } from '@/lib/layout/tree'
+import { firstPaneOfKind } from '@/lib/layout/paneFields'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useAssistStore } from '@/stores/assist/assistStore'
@@ -19,7 +19,8 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
 import { ChatPane } from './ChatPane'
-import { ChatView, REDACTION_PREVIEW_MS, hasVisibleContent } from './ChatView'
+import { ChatView, hasVisibleContent } from './ChatView'
+import { REDACTION_PREVIEW_MS } from './useChatAsk'
 
 vi.mock('@/lib/theme/colorize', () => ({ colorizeCode: async () => null }))
 

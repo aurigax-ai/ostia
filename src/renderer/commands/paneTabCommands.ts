@@ -11,7 +11,7 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { normalizeSplitTabName } from '@shared/workspaces/splitTabs'
-import { registerCore } from './core'
+import { registerCore } from './coreCommand'
 
 interface PaneTabArgs {
   paneIds: string[]

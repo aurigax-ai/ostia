@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { en, mergeCatalog, zhHant } from '@shared/app/dict'
 import { describe, expect, it } from 'vitest'
-import { registerCore } from './core'
+import { registerCore } from './coreCommand'
 import { commandWording, commands } from './registry'
 
 const ROOT = process.cwd()
@@ -17,7 +17,7 @@ const sources = readdirSync(RENDERER, { recursive: true, encoding: 'utf8' })
 
 const REGISTER_CALL = /\bcommands\s*\.register\b/g
 
-const CORE_FILE = 'src/renderer/commands/core.ts'
+const CORE_FILE = 'src/renderer/commands/coreCommand.ts'
 
 const WORDED_FILES = new Map([
   ['src/renderer/commands/assistToggles.ts', 'titles are built from the feature names'],

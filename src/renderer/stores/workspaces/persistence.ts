@@ -5,7 +5,8 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { debounce } from 'es-toolkit/compat'
 import { useLayoutStore } from './layoutStore'
-import { type Workspace, useWorkspacesStore } from './workspacesStore'
+import type { Workspace } from './workspaceTypes'
+import { useWorkspacesStore } from './workspacesStore'
 
 export function isMovable(workspace: Workspace): workspace is Workspace & RestorableWorkspace {
   return workspace.kind !== 'manager'

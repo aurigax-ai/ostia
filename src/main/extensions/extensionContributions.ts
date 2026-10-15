@@ -7,7 +7,7 @@ import { LANGUAGE_SERVER_CAPABILITY } from '@aurigax-ai/ostia-extension-sdk/cont
 import type { Snippet } from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
 import type { AgentPluginSource } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import type { EditorLanguageSource } from '../lsp/editorLanguages'
-import type { LanguageServerSource } from '../lsp/languageServers'
+import type { LanguageServerSource } from '../lsp/serverBinaries'
 import type { ExtensionHostDeps } from './extensionHostDeps'
 import type { Runtime } from './extensionRuntime'
 import type { ExtensionRecord } from './extensionStore'

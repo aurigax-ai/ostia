@@ -1,4 +1,4 @@
-import type { LayoutNode, PaneNode, SplitNode } from './types'
+import type { LayoutNode, PaneNode, SplitNode, TabNode } from './types'
 
 const MIN_PANEL_FRACTION = 0.15
 const MAX_PANEL_FRACTION = 0.85
@@ -67,4 +67,27 @@ export function sizePanel(root: LayoutNode, paneId: string, fraction: number): L
   sizes[neighbor] = combined - panel
   if (sizes.every((n, i) => n === split.sizes[i])) return root
   return replaceSplit(root, { ...split, sizes })
+}
+
+export function equalizeSizes(node: LayoutNode): LayoutNode {
+  if (node.type !== 'split') return node
+  const children = node.children.map(equalizeSizes)
+  const sizes = node.children.map(() => 1)
+  const sameChildren = children.every((c, i) => c === node.children[i])
+  const sameSizes = node.sizes.length === sizes.length && node.sizes.every((n) => n === 1)
+  if (sameChildren && sameSizes) return node
+  return { ...node, children, sizes }
+}
+
+export function setSizes(root: LayoutNode, splitId: string, sizes: number[]): LayoutNode {
+  const recur = (node: LayoutNode): LayoutNode => {
+    if (node.type === 'pane') return node
+    if (node.type === 'split' && node.id === splitId) return { ...node, sizes }
+    const children = node.children.map(recur)
+    if (children.every((c, i) => c === node.children[i])) return node
+    return node.type === 'tabs'
+      ? { ...node, children: children as TabNode[] }
+      : { ...node, children }
+  }
+  return recur(root)
 }

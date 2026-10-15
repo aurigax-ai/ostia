@@ -150,16 +150,14 @@ import {
   registerNotifyIpc,
   registerNotifyMethods,
 } from './attention/notify'
+import { pushConsoleEntry, registerBrowseMethods } from './browser/browse'
+import { clearGuestBrowseState, ownedGuest } from './browser/browseGuests'
+import type { ConsoleEntry } from './browser/browseMethod'
 import {
-  type ConsoleEntry,
   OSTIA_ERROR_PREFIX,
   PAGE_ERROR_CATCHER_JS,
-  clearGuestBrowseState,
   injectPageScripts,
-  ownedGuest,
-  pushConsoleEntry,
-  registerBrowseMethods,
-} from './browser/browse'
+} from './browser/browsePageScripts'
 import { cancelPick, registerPickIpc, registerPickMethods } from './browser/browsePick'
 import { registerRegionIpc } from './browser/browseRegion'
 import { BrowserProfiles } from './browser/browserProfiles'
@@ -265,10 +263,11 @@ import { registerGitIpc, registerGitMethods } from './git/register'
 import { GitService } from './git/service'
 import { ViewStateStore } from './git/viewState'
 import { registerEditorLanguageIpc } from './lsp/editorLanguages'
-import { LanguageServers, scrubbedEnv } from './lsp/languageServers'
+import { LanguageServers } from './lsp/languageServers'
 import { registerLanguageServersIpc } from './lsp/languageServersIpc'
 import { ManagedServers, downloadBaseUrl } from './lsp/managedServers'
 import { ServerOverrides } from './lsp/serverOverrides'
+import { scrubbedEnv } from './lsp/serverSpawn'
 import { ManagerService, managerWindowId } from './manager/manager'
 import {
   managerArgv,
@@ -288,7 +287,6 @@ import { registerExtensionWake } from './panes/extensionWake'
 import {
   type PaneAttentionPeek,
   type PaneIo,
-  type PaneReachDeps,
   pastedText,
   registerPaneIoMethods,
 } from './panes/paneIo'
@@ -301,18 +299,15 @@ import {
 import { registerPaneMoveIpc } from './panes/paneMove'
 import { registerPaneMoveToMethods } from './panes/paneMoveTo'
 import type { PaneProcess } from './panes/paneProcess'
+import type { PaneReachDeps } from './panes/paneReach'
 import { registerPaneRenameMethods } from './panes/paneRename'
 import { registerPaneResumeMethods } from './panes/paneResume'
 import { PaneWatch, registerPaneWaitMethods } from './panes/paneWait'
 import { wakeHibernatedPane } from './panes/paneWake'
 import { PaneWaking } from './panes/paneWaking'
-import {
-  INTERRUPT_GRACE_MS,
-  type ProcessRegistry,
-  type ProcessTabRequest,
-  processStatusOf,
-  registerProcessMethods,
-} from './panes/processManager'
+import type { ProcessTabRequest } from './panes/processLaunch'
+import { INTERRUPT_GRACE_MS, processStatusOf, registerProcessMethods } from './panes/processManager'
+import type { ProcessRegistry } from './panes/processRegistry'
 import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './platform/discreteGpu'
 import { loadJson, saveJson, storePath } from './platform/jsonStore'
 import { expandHome, resolveSafe } from './platform/pathGuard'
