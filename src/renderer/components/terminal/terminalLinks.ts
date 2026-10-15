@@ -117,12 +117,14 @@ export function createTerminalLinks({
     const linkMoved = term.onScroll(hint.hide)
     const linkResized = term.onResize(hint.hide)
     window.addEventListener('blur', hint.hide)
+    host.addEventListener('mousedown', hint.hide, true)
     return () => {
       detachLinkModifier()
       detachLinkClaim()
       linkMoved.dispose()
       linkResized.dispose()
       window.removeEventListener('blur', hint.hide)
+      host.removeEventListener('mousedown', hint.hide, true)
       hint.hide()
     }
   }
