@@ -3,8 +3,6 @@ import { join } from 'node:path'
 import type {
   ExtensionEventPayloads,
   ExtensionEventType,
-  ExtensionPanelContext,
-  ExtensionResult,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { OFFICIAL_MARKETPLACE } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
@@ -12,14 +10,11 @@ import {
   type RemoteCwd,
   normalizeRemoteCwd,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import { agentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
-import type { ExtensionRoot } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import { BrowserWindow, ClipboardItem, app, clipboard, ipcMain, shell } from 'electron'
 import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
 import { isMacInstall, replacesInApp } from '../shared/app/installMethod'
 import { ChangeSignal } from '../shared/common/actThenConfirm'
 import { externalHref } from '../shared/common/externalLinks'
-import { EXTENSION_SUGGESTIONS } from '../shared/extensions/extensionSuggestions'
 import { bucketCount } from '../shared/privacy/telemetry'
 import { parseKeepShells } from '../shared/terminal/keepShells'
 import type { CommandDescriptor, CommandTarget, TerminalStateSnapshot } from '../shared/types'
@@ -82,20 +77,17 @@ import {
   type Telemetry,
   registerTelemetry,
 } from './diagnostics/telemetry'
-import { registerConnectionsIpc } from './extensions/connectionsIpc'
 import type { ExtensionHost } from './extensions/extensionHost'
-import { DismissedSuggestions, suggestionFor } from './extensions/extensionSuggestions'
 import { startMarketplace } from './extensions/extensionWiring'
 import { startExtensionHost } from './extensions/extensionWiring'
 import { extensionHostParts } from './extensions/extensionWiring'
-import { type Marketplace, marketplaceId, normalizeMarketplaceUrl } from './extensions/marketplace'
+import { createExtensionIpc } from './extensions/extensionWiring'
+import { marketplaceId, normalizeMarketplaceUrl } from './extensions/marketplace'
 import { PaneAttentionEvents } from './extensions/paneAttentionEvents'
 import { createMainStrings } from './extensions/strings'
-import { workspaceChipsForWindow } from './extensions/workspaceChips'
 import type { FileWatches } from './files/fileWatch'
 import { registerFsIpc } from './files/fsIpc'
 import { OpenWaits } from './files/openWaits'
-import { registerRemoteFolderConfirm } from './files/remoteFolderConfirm'
 import { startGateway } from './gateway/gatewayWiring'
 import { phoneCanRespond } from './gateway/server'
 import { createCoreBoards } from './git/coreBoards'
@@ -150,7 +142,6 @@ import { createPtyStart } from './terminal/pty/ptyStart'
 import { createPtyStop } from './terminal/pty/ptyStop'
 import type { SubscriberRole } from './terminal/ptySession'
 import { registerSelectionIpc } from './terminal/selectionReport'
-import { setAgentPlugins } from './terminal/shellIntegration'
 import type { SavedAttention } from './tmux/attentionFile'
 import { KeptAttention } from './tmux/keptAttention'
 import { createKeptReattach } from './tmux/keptReattach'
@@ -527,19 +518,6 @@ function emitPaneEvent<T extends ExtensionEventType>(
   services.gitService?.activity(type)
   services.portsService?.activity(type)
 }
-
-function refreshAgentPlugins(): void {
-  try {
-    setAgentPlugins(
-      agentPluginContent(
-        services.extensionHost?.contributions.agentPlugins() ?? [],
-        (extId, problem) => console.error(`[ext:${extId}] ${problem}`),
-      ),
-    )
-  } catch (err) {
-    console.error(`agent plugins: ${(err as Error).message}`)
-  }
-}
 const agentChanges = new ChangeSignal()
 const startedAgents = new Set<string>()
 const agentRunning = new AgentRunningPanes(() => {
@@ -737,16 +715,6 @@ function configDir(): string {
   return appConfigDir()
 }
 
-function extensionRoots(): ExtensionRoot[] {
-  const builtinDir = app.isPackaged
-    ? join(process.resourcesPath, 'extensions')
-    : join(app.getAppPath(), 'out/extensions')
-  return [
-    { dir: builtinDir, builtin: true },
-    { dir: join(configDir(), 'extensions'), builtin: false },
-  ]
-}
-
 function registerIpc(): void {
   registerWindowIpc({ requestQuit })
   registerPaneLifecycleIpc({
@@ -781,118 +749,8 @@ function registerIpc(): void {
   })
 }
 
-function registerExtensionIpc(host: ExtensionHost): void {
-  ipcMain.handle('extensions:list', () => host.list())
-  ipcMain.handle('extensions:set-enabled', (_e, extId: string, enabled: boolean) =>
-    host.processes.setEnabled(String(extId), enabled === true),
-  )
-  ipcMain.handle('extensions:approve', (_e, extId: string) => host.processes.approve(String(extId)))
-  ipcMain.handle('extensions:sidebar', () => host.slots.sidebarItems())
-  ipcMain.handle('extensions:chips', () => host.slots.paneChips())
-  ipcMain.handle('extensions:workspace-chips', (e) =>
-    workspaceChipsForWindow(host.slots.workspaceChips(), workspaceWindowId, String(e.sender.id)),
-  )
-  ipcMain.handle('extensions:set-setting', (_e, extId: unknown, key: unknown, value: unknown) => {
-    if (typeof extId === 'string' && services.marketplaceInstallIds().includes(extId)) {
-      services.telemetry?.count('extensions', 'setting_change', `${extId}.${String(key)}`)
-    }
-    return host.config.setSetting(String(extId), String(key), value)
-  })
-  ipcMain.handle('extensions:set-secret', (_e, extId: unknown, key: unknown, value: unknown) =>
-    host.config.setSecret(String(extId), String(key), value),
-  )
-  registerConnectionsIpc(() => host?.config ?? null)
-  ipcMain.handle(
-    'extensions:invoke',
-    (
-      _e,
-      extId: string,
-      command: string,
-      target: { workspaceId: string | null; paneId: string | null },
-      argument?: unknown,
-    ): Promise<ExtensionResult> => {
-      const paneId = target?.paneId ? getByPaneId(target.paneId)?.externalId : undefined
-      const cwd = target?.paneId ? terminalState.get(target.paneId)?.cwd : undefined
-      const remote = target?.paneId ? remoteCwdOfPane(target.paneId) : undefined
-      const caller = host.userCaller(target?.workspaceId ?? null, {
-        capabilities: host.commandCapabilities(extId, command),
-        ...(paneId ? { paneId } : {}),
-        ...(cwd ? { cwd } : {}),
-        ...(remote ? { remote } : {}),
-      })
-      return host.invoke(extId, command, host.paletteArgs(extId, command, argument), caller)
-    },
-  )
-  ipcMain.handle('extensions:panel', (_e, extId: string, context: ExtensionPanelContext) =>
-    host.panels.resolvePanel(String(extId), {
-      workspaceId: String(context?.workspaceId ?? ''),
-      locale: String(context?.locale ?? 'en'),
-      ...(context?.path === undefined ? {} : { path: String(context.path) }),
-    }),
-  )
-}
-
 function remoteCwdOfPane(paneId: string): RemoteCwd | undefined {
   return normalizeRemoteCwd(terminalState.get(paneId)?.remote) ?? undefined
-}
-
-function registerRemoteFilesIpc(host: ExtensionHost): void {
-  const folders = host.remoteFolders
-  if (!folders) return
-  registerRemoteFolderConfirm()
-  const sender = (e: Electron.IpcMainInvokeEvent): string => String(e.sender.id)
-  ipcMain.handle('remote-files:folders', (e) => folders.forWindow(sender(e)))
-  ipcMain.handle('remote-files:close', (e, folderId: unknown) =>
-    folders.closeByWindow(sender(e), folderId),
-  )
-  ipcMain.handle('remote-files:list', (e, path: unknown) => folders.list(sender(e), path))
-  ipcMain.handle('remote-files:stat', (e, path: unknown) => folders.stat(sender(e), path))
-  ipcMain.handle('remote-files:read', (e, path: unknown) => folders.read(sender(e), path))
-  ipcMain.handle('remote-files:write', (e, path: unknown, content: unknown, baseVersion: unknown) =>
-    folders.write(sender(e), path, content, baseVersion),
-  )
-}
-
-function registerMarketplaceIpc(marketplace: Marketplace): void {
-  ipcMain.handle('marketplace:list', () => marketplace.state())
-  ipcMain.handle('marketplace:add', (_e, url: unknown) => marketplace.add(url))
-  ipcMain.handle('marketplace:remove', (_e, id: unknown, uninstallExtensions: unknown) =>
-    marketplace.remove(id, uninstallExtensions),
-  )
-  ipcMain.handle('marketplace:refresh', (_e, id: unknown) => marketplace.refresh(id))
-  ipcMain.handle('marketplace:install', (_e, id: unknown, extId: unknown) =>
-    marketplace.install(id, extId),
-  )
-  ipcMain.handle('marketplace:install-code', (_e, id: unknown, code: unknown) =>
-    marketplace.installCode(id, code),
-  )
-  ipcMain.handle('marketplace:uninstall', (_e, extId: unknown) => marketplace.uninstall(extId))
-
-  const dismissed = new DismissedSuggestions(
-    join(app.getPath('userData'), 'extension-suggestions.json'),
-  )
-  ipcMain.handle('suggestions:for-file', (e, paneId: unknown, path: unknown) => {
-    if (typeof paneId !== 'string' || typeof path !== 'string') return null
-    if (getByPaneId(paneId)?.windowId !== String(e.sender.id)) return null
-    const file = openFileGrants.confine(path)
-    if (file === null) return null
-    return suggestionFor(file, {
-      servers: () => services.extensionHost?.contributions.languageServers() ?? [],
-      extensions: () => services.extensionHost?.list() ?? [],
-      listings: () => marketplace.languageListings(),
-      dismissed: () => dismissed.list(),
-      official: officialMarketplaceId,
-      languageOf: editorLanguageOf,
-    })
-  })
-  ipcMain.handle('suggestions:dismiss', (_e, extId: unknown) => dismissed.dismiss(extId))
-  ipcMain.handle('suggestions:install', (_e, extId: unknown) =>
-    marketplace.installSuggested(
-      extId,
-      OFFICIAL_MARKETPLACE,
-      typeof extId === 'string' && Object.hasOwn(EXTENSION_SUGGESTIONS, extId),
-    ),
-  )
 }
 
 function registerSandboxSystemIpc(): void {
@@ -1002,6 +860,23 @@ const languagePackDeps = {
   languages: () => services.extensionHost?.contributions.languages() ?? [],
   onError: (extId: string, error: string) => console.warn(`[language pack ${extId}] ${error}`),
 }
+
+const {
+  refreshAgentPlugins,
+  extensionRoots,
+  registerExtensionIpc,
+  registerRemoteFilesIpc,
+  registerMarketplaceIpc,
+} = createExtensionIpc({
+  services,
+  configDir,
+  workspaceWindowId,
+  terminalState,
+  remoteCwdOfPane,
+  openFileGrants,
+  officialMarketplaceId,
+  editorLanguageOf,
+})
 
 const mainStrings = createMainStrings({ ...languagePackDeps, locale: readLocale })
 
