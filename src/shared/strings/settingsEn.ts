@@ -264,7 +264,14 @@ export const settingsEn = {
     scrollSpeedDesc: 'Wheel scroll multiplier for terminals, 0.5 to 5.',
     scrollbackLines: 'Scrollback lines',
     scrollbackLinesDesc:
-      'History each terminal keeps, 1,000 to 100,000. Applies to open terminals.',
+      'Lines each terminal keeps in memory, 1,000 to 100,000. Older output moves to history on disk. Applies to open terminals.',
+    scrollbackHistory: 'History on disk',
+    scrollbackHistoryDesc:
+      'Output older than the lines in memory is kept on this machine, encrypted, until the pane closes or the app quits. A clear empties it.',
+    scrollbackHistoryOff: 'Off',
+    scrollbackHistoryUnlimited: 'Unlimited',
+    scrollbackHistoryLimit: 'Limit',
+    scrollbackHistoryMib: 'MiB per pane',
     groupPaste: 'Paste',
     clipboardKeys: 'Copy and paste keys',
     clipboardKeysDesc:

@@ -976,7 +976,7 @@ describe('TerminalView engines', () => {
     expect(browserUrls()).toEqual([])
   })
 
-  it('a link’s hover hint goes away when its pane stops being visible, the window loses focus or the terminal resizes', async () => {
+  it('a link’s hover hint goes away when its pane stops being visible, the window loses focus, the terminal resizes or a mouse button goes down', async () => {
     const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
     const box = vi
       .spyOn(Element.prototype, 'getBoundingClientRect')
@@ -1016,6 +1016,25 @@ describe('TerminalView engines', () => {
     await hoverUntilHinted()
     act(() => term.resize(term.cols + 1, term.rows))
     expect(hint()).toBeNull()
+
+    await hoverUntilHinted()
+    act(() => {
+      term.element?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, ctrlKey: true }))
+    })
+    expect(hint()).toBeNull()
+
+    vi.useFakeTimers()
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
+    act(() => links.hover?.(new MouseEvent('mousemove'), 'http://127.0.0.1:8000/first', linkRange))
+    act(() => {
+      term.element?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, ctrlKey: true }))
+    })
+    act(() => {
+      vi.advanceTimersByTime(1_000)
+    })
+    expect(hint()).toBeNull()
   })
 
   it('a Files row starts a native file drag, and that file dropped on the terminal types its quoted path', async () => {
@@ -1036,7 +1055,7 @@ describe('TerminalView engines', () => {
       { dataTransfer: { setData: vi.fn() } },
     )
     expect(dragged).toBe(false)
-    expect(window.ostia.fileOps.startDrag).toHaveBeenCalledWith('/home/me/notes file.md')
+    expect(window.ostia.fileOps.startDrag).toHaveBeenCalledWith('w1', '/home/me/notes file.md')
     const file = new File([''], 'notes file.md')
     vi.mocked(window.ostia.files.pathForFile).mockReturnValue('/home/me/notes file.md')
     fireEvent.drop(container.querySelector('.terminal-surface') as HTMLElement, {

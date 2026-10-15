@@ -10,8 +10,15 @@ import { AgentForkButton } from './AgentForkButton'
 
 const FORK = 'Fork conversation into a new tab'
 
+function hookAgent(command: string): 'claude' | 'codex' | null {
+  const program = command.split(' ')[0]?.replaceAll("'", '')
+  return program === 'claude' || program === 'codex' ? program : null
+}
+
 function runCommand(paneId: string, command: string): void {
   useBlocksStore.getState().commandStart(paneId, { line: 1 }, command)
+  const agent = hookAgent(command)
+  if (agent) useBlocksStore.getState().markAgent(paneId, agent)
 }
 
 function seed(pane: PaneNode): void {

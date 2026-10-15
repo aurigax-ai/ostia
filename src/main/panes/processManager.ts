@@ -13,6 +13,7 @@ import {
   createProcessLauncher,
   cwdOf,
   defaultName,
+  modelFlags,
   nameOf,
   promptOf,
   record,
@@ -98,7 +99,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
       const agent = agentOf(p.agent)
       const argv = deps.agentArgv(agent)
       if (!argv) return UNKNOWN_AGENT
-      const cmd = commandOf(quoteArgv([...argv, promptOf(p.prompt)]))
+      const cmd = commandOf(quoteArgv([...argv, ...modelFlags(argv, p.model), promptOf(p.prompt)]))
       return runInTab(
         ctx,
         cmd,

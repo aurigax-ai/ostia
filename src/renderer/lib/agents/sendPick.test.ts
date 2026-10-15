@@ -88,6 +88,7 @@ function claudeRunning(): void {
     drafts: {},
     running: { [TARGET]: 'b1' },
     byPane: { [TARGET]: [{ id: 'b1', paneId: TARGET, command: 'claude --model opus' } as never] },
+    agentBlocks: { [TARGET]: { blockId: 'b1', agent: 'claude' } },
   })
 }
 

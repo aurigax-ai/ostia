@@ -9,7 +9,10 @@ export function isolatedHome(dataHome: string): string {
   return home
 }
 
-const ECHO_AGENT = '#!/bin/sh\necho fake-agent-ready\nexec cat\n'
+export const REPORT_SESSION =
+  'ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude "e2e-fake-$$" >/dev/null 2>&1'
+
+const ECHO_AGENT = `#!/bin/sh\n${REPORT_SESSION}\necho fake-agent-ready\nexec cat\n`
 
 export function fakeAgentBin(dataHome: string, script: string = ECHO_AGENT): string {
   const bin = join(dataHome, 'bin')

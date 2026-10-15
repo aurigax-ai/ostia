@@ -7,6 +7,7 @@ export interface TerminalSession {
   remote: boolean
   promptMarker: TerminalMarker | undefined
   markNonce: string | null
+  blockSeq: number
 }
 
 export function createTerminalSession(cwd: string | null): TerminalSession {
@@ -17,5 +18,6 @@ export function createTerminalSession(cwd: string | null): TerminalSession {
     remote: false,
     promptMarker: undefined,
     markNonce: null,
+    blockSeq: 0,
   }
 }

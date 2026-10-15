@@ -69,6 +69,9 @@ function run(paneId: string, command: string, blockId = 'b1'): void {
       ...s.byPane,
       [paneId]: [...(s.byPane[paneId] ?? []), { id: blockId, paneId, command } as CommandBlock],
     },
+    ...(command === 'claude'
+      ? { agentBlocks: { ...s.agentBlocks, [paneId]: { blockId, agent: 'claude' as const } } }
+      : {}),
   }))
 }
 
@@ -209,6 +212,14 @@ describe('what a quit loses', () => {
         agentRunning: true,
       })
       expect(await collectQuitGroups(new Set())).toEqual([])
+    })
+
+    it('still asks about a command line that only names claude, which program output can forge', () => {
+      useSettingsStore.getState().setAutoResume(true)
+      seedWorkspace(terminal('p1'))
+      run('p1', "'claude' --resume tok")
+      reportTurn('p1', 'done')
+      expect(lost()).toEqual(['agents'])
     })
 
     it('still asks when session restore is off, since nothing brings the pane back', () => {

@@ -342,6 +342,39 @@ describe('parseSnapshot', () => {
     })
   })
 
+  it('keeps a collapsed mark only on a pane inside a tab and only when it is true', () => {
+    const pane = (id: string, collapsed: unknown) => ({
+      type: 'pane',
+      id,
+      title: 'zsh',
+      kind: 'terminal',
+      collapsed,
+    })
+    const tabs = {
+      type: 'tabs',
+      id: 'tabs-3',
+      activeId: 'pane-1',
+      children: [
+        pane('pane-1', true),
+        { ...split('pane-2', 'pane-3'), children: [pane('pane-2', true), pane('pane-3', 'yes')] },
+      ],
+    }
+    const root = parseSnapshot(
+      snap({ workspaces: [{ ...snap().workspaces[0], root: tabs as never }] }),
+    )?.workspaces[0].root
+    const inTab = root?.type === 'tabs' ? root.children[1] : null
+    expect(inTab?.type === 'split' && inTab.children[0]).toMatchObject({ collapsed: true })
+    expect(inTab?.type === 'split' && inTab.children[1]).not.toHaveProperty('collapsed')
+    const outside = {
+      ...split('pane-1', 'pane-2'),
+      children: [pane('pane-1', true), pane('pane-2', true)],
+    }
+    const top = parseSnapshot(
+      snap({ workspaces: [{ ...snap().workspaces[0], root: outside as never }] }),
+    )?.workspaces[0].root
+    expect(top?.type === 'split' && top.children[0]).not.toHaveProperty('collapsed')
+  })
+
   it('drops a bad split tab name and repairs the shown pane to the first pane', () => {
     const tabs = {
       type: 'tabs',
@@ -797,5 +830,38 @@ describe('browser profile on a pane', () => {
     const isolated = parseHandoff({ ...base, activePaneId: 'b1', root: browserPane({}) })
     expect(shared?.root).toMatchObject({ browserProfile: 'shared' })
     expect(isolated?.root).not.toHaveProperty('browserProfile')
+  })
+})
+
+describe('device mode on a browser pane', () => {
+  function restored(pane: Record<string, unknown>): unknown {
+    const base = snap()
+    return parseSnapshot({
+      ...base,
+      workspaces: [{ ...base.workspaces[0], activePaneId: 'b1', root: { id: 'b1', ...pane } }],
+    })?.workspaces[0].root
+  }
+
+  const browser = { type: 'pane', title: 'site', kind: 'browser', url: 'http://x/' }
+
+  it('keeps the device a browser pane was in through a save and restore', () => {
+    const browserDevice = { preset: 'responsive', width: 600, height: 900, dpr: 2, zoom: 'actual' }
+    expect(restored({ ...browser, browserDevice })).toMatchObject({ browserDevice })
+  })
+
+  it('restores a preset from the data, keeping only its orientation and zoom', () => {
+    const browserDevice = { preset: 'iphone-se', width: 900, height: 100, dpr: 7, zoom: 'fit' }
+    expect(restored({ ...browser, browserDevice })).toMatchObject({
+      browserDevice: { preset: 'iphone-se', width: 667, height: 375, dpr: 2, zoom: 'fit' },
+    })
+  })
+
+  it('drops a device that is not one, or on a pane that is not a browser', () => {
+    for (const browserDevice of [true, 'iphone-se', { preset: 'responsive' }, { width: 'x' }]) {
+      expect(restored({ ...browser, browserDevice })).not.toHaveProperty('browserDevice')
+    }
+    const terminal = { type: 'pane', title: 'zsh', kind: 'terminal' }
+    const browserDevice = { preset: 'responsive', width: 600, height: 900, dpr: 1, zoom: 'fit' }
+    expect(restored({ ...terminal, browserDevice })).not.toHaveProperty('browserDevice')
   })
 })

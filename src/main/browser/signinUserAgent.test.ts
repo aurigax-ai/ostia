@@ -7,6 +7,7 @@ import {
   browserAgents,
   electronAgentMetadata,
   followAgentByHost,
+  setDeviceAgent,
   useBrowserAgents,
   wantsElectronAgent,
 } from './signinUserAgent'
@@ -26,7 +27,10 @@ const agents: BrowserAgents = browserAgents(ELECTRON, 'ostia', HOST)
 
 type Listener = Parameters<AgentSession['webRequest']['onBeforeSendHeaders']>[0]
 
-function fakeSession(): { session: AgentSession; send: (url: string) => Record<string, string> } {
+function fakeSession(): {
+  session: AgentSession
+  send: (url: string, webContentsId?: number) => Record<string, string>
+} {
   let listener: Listener | null = null
   let agent = ELECTRON
   const session: AgentSession = {
@@ -40,11 +44,14 @@ function fakeSession(): { session: AgentSession; send: (url: string) => Record<s
       }),
     },
   }
-  const send = (url: string): Record<string, string> => {
+  const send = (url: string, webContentsId?: number): Record<string, string> => {
     let sent: Record<string, string> = {}
-    listener?.({ url, requestHeaders: { Accept: '*/*', 'User-Agent': ELECTRON } }, (response) => {
-      sent = response.requestHeaders
-    })
+    listener?.(
+      { url, webContentsId, requestHeaders: { Accept: '*/*', 'User-Agent': ELECTRON } },
+      (response) => {
+        sent = response.requestHeaders
+      },
+    )
     return sent
   }
   return { session, send }
@@ -55,6 +62,8 @@ type NavigationListener = (details: {
   isMainFrame: boolean
   isSameDocument?: boolean
 }) => void
+
+let nextGuestId = 1
 
 function fakeGuest(): {
   guest: AgentGuest
@@ -68,6 +77,7 @@ function fakeGuest(): {
   const listeners = new Map<string, NavigationListener[]>()
   const sendCommand = vi.fn(() => new Promise<unknown>(() => {}))
   const guest: AgentGuest = {
+    id: nextGuestId++,
     debugger: { isAttached: () => true, sendCommand },
     on: (event: string, listener: NavigationListener) => {
       listeners.set(event, [...(listeners.get(event) ?? []), listener])
@@ -295,5 +305,48 @@ describe('followAgentByHost', () => {
     followAgentByHost(detached.guest, agents)
     detached.emit('did-start-navigation', 'https://accounts.google.com/')
     expect(detached.sendCommand).not.toHaveBeenCalled()
+  })
+})
+
+describe('setDeviceAgent', () => {
+  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) Mobile/15E148 Safari/604.1'
+  const device = { userAgent: IPHONE, metadata: { ...agents.metadata, mobile: true } }
+
+  it('sends the device agent from that guest only, sign-in hosts included, until cleared', () => {
+    const { session, send } = fakeSession()
+    useBrowserAgents(session, 'ostia', HOST)
+    const { guest } = fakeGuest()
+    followAgentByHost(guest, agents)
+    setDeviceAgent(guest.id, device)
+    expect(send('https://example.com/', guest.id)['User-Agent']).toBe(IPHONE)
+    expect(send('https://accounts.google.com/', guest.id)['User-Agent']).toBe(IPHONE)
+    expect(send('https://example.com/', guest.id + 1000)['User-Agent']).toBe(REWRITTEN)
+    expect(send('https://example.com/')['User-Agent']).toBe(REWRITTEN)
+    setDeviceAgent(guest.id, null)
+    expect(send('https://example.com/', guest.id)['User-Agent']).toBe(REWRITTEN)
+  })
+
+  it('overrides the page agent with the device and its metadata, and navigation keeps it', () => {
+    const { guest, sendCommand, emit } = fakeGuest()
+    followAgentByHost(guest, agents)
+    setDeviceAgent(guest.id, device)
+    expect(sendCommand).toHaveBeenLastCalledWith('Emulation.setUserAgentOverride', {
+      userAgent: IPHONE,
+      userAgentMetadata: device.metadata,
+    })
+    emit('did-start-navigation', 'https://accounts.google.com/')
+    expect(overrides(sendCommand)).toEqual([REWRITTEN, IPHONE])
+    setDeviceAgent(guest.id, null)
+    expect(overrides(sendCommand)).toEqual([REWRITTEN, IPHONE, ELECTRON])
+  })
+
+  it('forgets the device agent when the guest is destroyed', () => {
+    const { session, send } = fakeSession()
+    useBrowserAgents(session, 'ostia', HOST)
+    const { guest, emit } = fakeGuest()
+    followAgentByHost(guest, agents)
+    setDeviceAgent(guest.id, device)
+    emit('destroyed', '')
+    expect(send('https://example.com/', guest.id)['User-Agent']).toBe(REWRITTEN)
   })
 })

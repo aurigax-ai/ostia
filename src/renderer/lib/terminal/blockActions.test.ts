@@ -1,4 +1,5 @@
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useHistoryViewStore } from '@/stores/terminal/historyViewStore'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { copyBlock, insertCommand, rerunBlock, runWhenIdle, stepBlock } from './blockActions'
@@ -82,6 +83,33 @@ describe('blockActions', () => {
   it('copies command and output together for a specific block', async () => {
     await copyBlock(PANE, 'both', ids()[0])
     expect(writeText).toHaveBeenCalledWith('echo one\none')
+  })
+
+  it('copies a block whose output left the terminal from the history on disk', async () => {
+    const s = useBlocksStore.getState()
+    s.promptStart(PANE, { line: -1 }, '/w')
+    s.commandStart(PANE, { line: -1 }, 'make', undefined, 7)
+    s.commandEnd(PANE, { line: 1 }, 0)
+    const blockOutput = vi.mocked(window.ostia.pty.blockOutput)
+    blockOutput.mockResolvedValueOnce('built\nall')
+    await copyBlock(PANE, 'both', ids().at(-1))
+    expect(blockOutput).toHaveBeenCalledWith(PANE, 7, 'make')
+    expect(writeText).toHaveBeenCalledWith('make\nbuilt\nall')
+  })
+
+  it('opens the history view at a block whose start left the terminal', async () => {
+    const s = useBlocksStore.getState()
+    s.promptStart(PANE, { line: -1 }, '/w')
+    s.commandStart(PANE, { line: -1 }, 'make', undefined, 7)
+    s.commandEnd(PANE, { line: 1 }, 0)
+    vi.mocked(window.ostia.pty.historyBlock).mockResolvedValueOnce({ start: 120, end: 400 })
+    s.select(PANE, ids()[1])
+    stepBlock(PANE, 'next')
+    await vi.waitFor(() =>
+      expect(useHistoryViewStore.getState().open[PANE]).toEqual({ kind: 'line', line: 120 }),
+    )
+    expect(term.scrollToLine).not.toHaveBeenCalled()
+    useHistoryViewStore.getState().close(PANE)
   })
 
   it('falls back to the latest block when nothing is selected', async () => {

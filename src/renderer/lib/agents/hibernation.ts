@@ -1,5 +1,3 @@
-import { type ResumableAgent, isResumableAgent } from '@shared/agents/agentResume'
-
 export interface HibernationPolicy {
   idleSeconds: number
   maxLiveTerminals: number
@@ -11,19 +9,6 @@ export interface HibernationCandidate {
   agentRunning: boolean
   visible: boolean
   idleMs: number
-}
-
-const ENV_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/
-const PREFIX_WORDS = new Set(['exec', 'env', 'command', 'nohup'])
-
-export function commandAgent(command: string): ResumableAgent | null {
-  for (const word of command.trim().split(/\s+/)) {
-    if (!word || ENV_ASSIGNMENT.test(word) || PREFIX_WORDS.has(word)) continue
-    const bare = word.replace(/^'([^']*)'$/, '$1')
-    const name = bare.slice(bare.lastIndexOf('/') + 1)
-    return isResumableAgent(name) ? name : null
-  }
-  return null
 }
 
 export interface HibernationPlan {

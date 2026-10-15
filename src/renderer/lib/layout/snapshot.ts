@@ -7,6 +7,7 @@ import type {
   SnapshotWorkspace,
   WorkspaceOrigin,
 } from '@shared/types'
+import { settleCollapse } from './collapse'
 import { isRemoteFilePane } from './paneFields'
 import { TERMINAL_TITLE, adoptIds, findPane, firstPaneId, withoutPanes } from './tree'
 import type { LayoutNode, PaneNode, SplitNode } from './types'
@@ -211,7 +212,7 @@ export function restoreSnapshot(snapshot: AppSnapshot): {
       ...(s.origin ? { origin: copyOrigin(s.origin) } : {}),
     })
     if (!s.root) continue
-    const root = toLayoutNode(s.root)
+    const root = settleCollapse(toLayoutNode(s.root))
     adoptIds(root)
     layouts[s.id] = { root, activePaneId: s.activePaneId ?? firstPaneId(root), zoomedPaneId: null }
   }

@@ -71,7 +71,7 @@ describe('Files tree operations', () => {
     await userEvent.click(within(await menuOn('src')).getByRole('menuitem', { name: 'New file' }))
     const input = await screen.findByRole('textbox', { name: 'New file name' })
     await userEvent.type(input, 'new.ts{Enter}')
-    expect(window.ostia.fileOps.create).toHaveBeenCalledWith(`${CWD}/src`, 'new.ts', 'file')
+    expect(window.ostia.fileOps.create).toHaveBeenCalledWith('s1', `${CWD}/src`, 'new.ts', 'file')
     await waitFor(() => expect(screen.queryByRole('textbox', { name: 'New file name' })).toBeNull())
     expect(useFileTreeStore.getState().versions[`${CWD}/src`]).toBe(1)
   })
@@ -137,7 +137,7 @@ describe('Files tree operations', () => {
     expect(input).toHaveClass('file-name-input')
 
     await userEvent.type(input, 'docs{Enter}')
-    expect(window.ostia.fileOps.create).toHaveBeenCalledWith(CWD, 'docs', 'folder')
+    expect(window.ostia.fileOps.create).toHaveBeenCalledWith('s1', CWD, 'docs', 'folder')
     expect(
       await screen.findByRole('button', { name: 'docs' }, { timeout: 3000 }),
     ).toBeInTheDocument()
@@ -179,7 +179,7 @@ describe('Files tree operations', () => {
     const input = await screen.findByRole('textbox', { name: 'New name for notes.md' })
     await userEvent.clear(input)
     await userEvent.type(input, 'readme.md{Enter}')
-    expect(window.ostia.fileOps.rename).toHaveBeenCalledWith(`${CWD}/notes.md`, 'readme.md')
+    expect(window.ostia.fileOps.rename).toHaveBeenCalledWith('s1', `${CWD}/notes.md`, 'readme.md')
     await waitFor(() => {
       const panes = Object.values(useLayoutStore.getState().byWorkspace)
       const root = panes[0]?.root
@@ -209,7 +209,7 @@ describe('Files tree operations', () => {
     expect(within(dialog).getByText('Move “notes.md” to the Trash?')).toBeVisible()
     expect(window.ostia.fileOps.trash).not.toHaveBeenCalled()
     await userEvent.click(within(dialog).getByRole('button', { name: 'Move to Trash' }))
-    expect(window.ostia.fileOps.trash).toHaveBeenCalledWith([`${CWD}/notes.md`])
+    expect(window.ostia.fileOps.trash).toHaveBeenCalledWith('s1', [`${CWD}/notes.md`])
   })
 
   it('cuts and pastes into a folder as a move, then forgets the cut', async () => {
@@ -222,7 +222,11 @@ describe('Files tree operations', () => {
     expect(screen.getByRole('button', { name: 'notes.md' })).toHaveClass('cut')
     fireEvent.keyDown(screen.getByRole('button', { name: 'src' }), { key: 'v', ctrlKey: true })
     await waitFor(() =>
-      expect(window.ostia.fileOps.move).toHaveBeenCalledWith([`${CWD}/notes.md`], `${CWD}/src`),
+      expect(window.ostia.fileOps.move).toHaveBeenCalledWith(
+        's1',
+        [`${CWD}/notes.md`],
+        `${CWD}/src`,
+      ),
     )
     expect(useFileTreeStore.getState().clipboard).toBeNull()
   })
@@ -236,7 +240,11 @@ describe('Files tree operations', () => {
     })
     fireEvent.keyDown(screen.getByRole('button', { name: 'src' }), { key: 'v', ctrlKey: true })
     await waitFor(() =>
-      expect(window.ostia.fileOps.copy).toHaveBeenCalledWith([`${CWD}/notes.md`], `${CWD}/src`),
+      expect(window.ostia.fileOps.copy).toHaveBeenCalledWith(
+        's1',
+        [`${CWD}/notes.md`],
+        `${CWD}/src`,
+      ),
     )
     expect(useFileTreeStore.getState().clipboard).toEqual({
       mode: 'copy',
@@ -300,9 +308,17 @@ describe('Files tree operations', () => {
       render(<FilesView />)
       const src = await screen.findByRole('button', { name: 'src' })
       dropFiles(src, [`${CWD}/notes.md`])
-      expect(window.ostia.fileOps.move).toHaveBeenCalledWith([`${CWD}/notes.md`], `${CWD}/src`)
+      expect(window.ostia.fileOps.move).toHaveBeenCalledWith(
+        's1',
+        [`${CWD}/notes.md`],
+        `${CWD}/src`,
+      )
       dropFiles(src, [`${CWD}/notes.md`], { ctrlKey: true })
-      expect(window.ostia.fileOps.copy).toHaveBeenCalledWith([`${CWD}/notes.md`], `${CWD}/src`)
+      expect(window.ostia.fileOps.copy).toHaveBeenCalledWith(
+        's1',
+        [`${CWD}/notes.md`],
+        `${CWD}/src`,
+      )
       expect(window.ostia.fileOps.importDropped).not.toHaveBeenCalled()
       await waitFor(() => expect(useFileTreeStore.getState().versions[CWD]).toBe(1))
       await waitFor(() => expect(useFileTreeStore.getState().versions[`${CWD}/src`]).toBe(2))
@@ -358,7 +374,7 @@ describe('Files tree operations', () => {
       const row = await screen.findByRole('button', { name: 'notes.md' })
       const started = fireEvent.dragStart(row, { dataTransfer: { setData: vi.fn() } })
       expect(started).toBe(false)
-      expect(window.ostia.fileOps.startDrag).toHaveBeenCalledWith(`${CWD}/notes.md`)
+      expect(window.ostia.fileOps.startDrag).toHaveBeenCalledWith('s1', `${CWD}/notes.md`)
     })
   })
 })
