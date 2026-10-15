@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -33,15 +33,48 @@ describe('spawnFolder', () => {
 })
 
 describe('sandboxCwd', () => {
+  let root: string
+  let w: string
+
+  beforeEach(() => {
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'sandbox-cwd-')))
+    w = join(root, 'w')
+    mkdirSync(join(w, 'tree'), { recursive: true })
+    mkdirSync(join(root, 'wide'))
+    mkdirSync(join(root, 'wx'))
+    symlinkSync('/etc', join(w, 'etc-link'))
+    symlinkSync('/', join(w, 'root-link'))
+    symlinkSync(join(w, 'tree'), join(w, 'tree-link'))
+  })
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true })
+  })
+
   it('keeps a folder inside the workspace and clamps one outside to the workspace folder', () => {
-    expect(sandboxCwd('/w/tree', '/w')).toBe('/w/tree')
-    expect(sandboxCwd('/home/u', '/w')).toBe('/w')
-    expect(sandboxCwd('/wide', '/w')).toBe('/w')
+    expect(sandboxCwd(join(w, 'tree'), w)).toBe(join(w, 'tree'))
+    expect(sandboxCwd(w, w)).toBe(w)
+    expect(sandboxCwd(join(root, 'wide'), w)).toBe(w)
+    expect(sandboxCwd(join(root, 'wx'), w)).toBe(w)
   })
 
   it('clamps a folder that leaves the workspace through .. to the workspace folder', () => {
-    expect(sandboxCwd('/w/../etc', '/w')).toBe('/w')
-    expect(sandboxCwd('/w/tree/../../home/u', '/w')).toBe('/w')
-    expect(sandboxCwd('/w/tree/..', '/w')).toBe('/w/tree/..')
+    expect(sandboxCwd(`${w}/../wide`, w)).toBe(w)
+    expect(sandboxCwd(`${w}/tree/../../wide`, w)).toBe(w)
+  })
+
+  it('starts in the resolved folder, which the kernel would reach', () => {
+    expect(sandboxCwd(`${w}/tree/..`, w)).toBe(w)
+    expect(sandboxCwd(join(w, 'tree-link'), w)).toBe(join(w, 'tree'))
+  })
+
+  it('clamps a symbolic link that points out of the workspace', () => {
+    expect(sandboxCwd(join(w, 'etc-link'), w)).toBe(w)
+    expect(sandboxCwd(join(w, 'root-link'), w)).toBe(w)
+    expect(sandboxCwd(`${w}/etc-link/..`, w)).toBe(w)
+  })
+
+  it('clamps a folder that does not exist to the workspace folder', () => {
+    expect(sandboxCwd(join(w, 'gone'), w)).toBe(w)
   })
 })
