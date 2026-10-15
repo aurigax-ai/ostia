@@ -87,6 +87,7 @@ export function createKeptReattach({
       subs: new Map([[subId, e.sender]]),
       spawnPath: meta.spawnPath,
       stateFile: meta.stateFile,
+      markNonce: meta.markNonce ?? null,
       keepAlive: false,
       workspaceId,
       shell: meta.shell,
@@ -146,6 +147,7 @@ export function createKeptReattach({
       ...(keptAgent ? { agentRunning: true } : {}),
       cols: pane.cols,
       rows: pane.rows,
+      ...(meta.markNonce ? { markNonce: meta.markNonce } : {}),
     }
   }
 

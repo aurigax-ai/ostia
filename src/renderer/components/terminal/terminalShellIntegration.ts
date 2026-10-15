@@ -11,6 +11,19 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { wantsDesktopBanner } from '@shared/app/notificationSettings'
 import type { TerminalSession } from './terminalSession'
 
+interface ReportedCommand {
+  command: string
+  typed: boolean
+}
+
+function readCommandMark(payload: string, markNonce: string | null): ReportedCommand {
+  const [encoded = '', nonce, ...rest] = payload.split(';')
+  return {
+    command: decodeCommandLine(encoded),
+    typed: markNonce !== null && nonce === markNonce && rest.length === 0,
+  }
+}
+
 interface ShellIntegration {
   anchor: () => LineAnchor
   disposeMarkers: () => void
@@ -42,7 +55,7 @@ export function createShellIntegration({
   let inputAnchor: LineAnchor | null = null
   let inputCol = 0
   let runningCommand = ''
-  const onCommandEnd = (exitCode: number, wholeCommand: string | null): void => {
+  const onCommandEnd = (exitCode: number, whole: ReportedCommand | null): void => {
     const blocks = useBlocksStore.getState()
     const runningId = blocks.running[paneId]
     const block = runningId ? blocks.byPane[paneId]?.find((b) => b.id === runningId) : undefined
@@ -51,7 +64,8 @@ export function createShellIntegration({
       anchor(),
       exitCode,
       term.buffer.active.cursorX,
-      wholeCommand ?? undefined,
+      whole?.command,
+      whole?.typed ? whole.command : undefined,
     )
     if (!block || session.replaying) return
     const long = shouldNotifyCommandEnd(
@@ -104,9 +118,9 @@ export function createShellIntegration({
     }
     return true
   })
-  let reportedCommand: string | null = null
+  let reportedCommand: ReportedCommand | null = null
   const oscCommandLine = term.parser.registerOscHandler(633, (data) => {
-    if (data.startsWith('E;')) reportedCommand = decodeCommandLine(data.slice(2))
+    if (data.startsWith('E;')) reportedCommand = readCommandMark(data.slice(2), session.markNonce)
     return true
   })
   const oscBlocks = term.parser.registerOscHandler(133, (data) => {
@@ -124,8 +138,9 @@ export function createShellIntegration({
       blocks.promptEnd(paneId, inputAnchor)
     } else if (kind === 'C') {
       const start = anchor()
+      const typed = reportedCommand?.typed ? reportedCommand.command : undefined
       runningCommand =
-        reportedCommand ??
+        reportedCommand?.command ??
         (inputAnchor
           ? readCommandText(
               term.buffer.active,
@@ -134,14 +149,14 @@ export function createShellIntegration({
             )
           : '')
       reportedCommand = null
-      blocks.commandStart(paneId, start, runningCommand)
+      blocks.commandStart(paneId, start, runningCommand, typed)
       if (!session.replaying) {
         useAttentionStore.getState().dispatch(paneId, { type: 'commandStart', at: Date.now() })
       }
     } else if (kind === 'D') {
-      const wholeCommand = reportedCommand
+      const whole = reportedCommand
       reportedCommand = null
-      onCommandEnd(Number(arg ?? 0), wholeCommand)
+      onCommandEnd(Number(arg ?? 0), whole)
     }
     return true
   })
