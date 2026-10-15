@@ -55,6 +55,7 @@ export function createPtyStart({
       cols,
       rows,
       stateFile,
+      markNonce,
       env,
       secretNotice,
       sandboxStamp,
@@ -86,6 +87,7 @@ export function createPtyStart({
       subs: new Map([[subId, e.sender]]),
       spawnPath: env.PATH ?? '',
       stateFile,
+      markNonce,
       keepAlive: false,
       workspaceId,
       sandboxed,
@@ -132,6 +134,7 @@ export function createPtyStart({
       ...(sandboxStamp ? { sandboxStamp } : {}),
       ...(kept ? { kept: true } : {}),
       ...(folder.missing ? { cwdMissing: true } : {}),
+      ...(markNonce ? { markNonce } : {}),
     }
   }
 
