@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -146,7 +146,10 @@ describe('script token IPC', () => {
   })
 
   it('is the only way the preload reaches script tokens', () => {
-    const preload = readFileSync(join(__dirname, '..', '..', 'preload', 'index.ts'), 'utf8')
+    const preloadDir = join(__dirname, '..', '..', 'preload')
+    const preload = readdirSync(preloadDir)
+      .map((name) => readFileSync(join(preloadDir, name), 'utf8'))
+      .join('\n')
     const block = /\n {2}scriptTokens: \{\n([\s\S]*?)\n {2}\},\n/.exec(preload)?.[1] ?? ''
     const channels = [...block.matchAll(/ipcRenderer\.(\w+)\('([^']+)'/g)].map((m) => m[2])
     expect(channels.sort()).toEqual([
