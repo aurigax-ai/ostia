@@ -32,6 +32,12 @@ describe('wordDiff', () => {
     ])
   })
 
+  it('marks a single fix inside a long text', () => {
+    const tail = ' word'.repeat(700)
+    const parts = wordDiff(`teh${tail}`, `the${tail}`)
+    expect(parts.filter((p) => p.changed).map((p) => p.text)).toEqual(['the'])
+  })
+
   it('keeps offsets into the corrected text', () => {
     expect(wordDiff('a b', 'a c')).toEqual([
       { at: 0, text: 'a ', changed: false },
