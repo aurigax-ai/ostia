@@ -205,7 +205,6 @@ export const securityZhHant: typeof securityEn = {
     editTitle: '編輯「{name}」',
     dialogDesc: '只給這個腳本需要的權限與工作區。',
     name: '名稱',
-    nameHint: '最多 60 個字元，可用英文字母、數字、空格與 . _ @ -',
     expiration: '到期',
     days: '{n} 天',
     oneYear: '1 年',

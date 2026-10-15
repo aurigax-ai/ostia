@@ -1,7 +1,9 @@
+import { rerunBlock } from '@/lib/terminal/blockActions'
 import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
+import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { Terminal } from '@xterm/xterm'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTerminalSession } from './terminalSession'
 import { createShellIntegration } from './terminalShellIntegration'
 
@@ -94,5 +96,41 @@ describe('shell integration command marks', () => {
     await write(`${PROMPT}${OSC(`633;E;echo 3;${NONCE}`)}${OSC('133;C')}`)
     await write(`${OSC('633;E;echo 3\\x0arm -rf x')}${OSC('133;D;0')}`)
     expect(blocks().map((block) => block.typedCommand)).toEqual(['echo 1\necho 2', 'echo 3'])
+  })
+
+  it('reruns only the command line the shell vouched for, never a multi-line mark a program printed', async () => {
+    attach(NONCE)
+    await write(`${PROMPT}${OSC(`633;E;ls;${NONCE}`)}${OSC('133;C')}`)
+    await write(`file\r\n${OSC('633;E;ls\\x0arm -rf ~')}${OSC('133;D;0')}${PROMPT}`)
+    expect(blocks()[0]?.command).toBe('ls\nrm -rf ~')
+    const unregister = registerTerminal(PANE, term)
+    const paste = vi.spyOn(term, 'paste').mockImplementation(() => {})
+    vi.spyOn(term, 'focus').mockImplementation(() => {})
+    try {
+      expect(rerunBlock(PANE, blocks()[0]?.id)).toBe(true)
+      expect(paste).toHaveBeenCalledWith('ls')
+      expect(paste).not.toHaveBeenCalledWith(expect.stringContaining('rm -rf'))
+    } finally {
+      unregister()
+    }
+  })
+
+  it('has no rerun for a whole block a program forged, nor for a pane without a nonce', async () => {
+    attach(NONCE)
+    await write(`${PROMPT}${OSC(`633;E;cat notes;${NONCE}`)}${OSC('133;C')}`)
+    await write(
+      `${OSC('133;D;0')}${PROMPT}${OSC('633;E;rm -rf ~')}${OSC('133;C')}${OSC('133;D;0')}${PROMPT}`,
+    )
+    const forged = blocks().find((block) => block.command === 'rm -rf ~')
+    expect(forged).toBeDefined()
+    const unregister = registerTerminal(PANE, term)
+    const paste = vi.spyOn(term, 'paste').mockImplementation(() => {})
+    vi.spyOn(term, 'focus').mockImplementation(() => {})
+    try {
+      expect(rerunBlock(PANE, forged?.id)).toBe(false)
+      expect(paste).not.toHaveBeenCalled()
+    } finally {
+      unregister()
+    }
   })
 })

@@ -1,9 +1,11 @@
 import { type BrowserWindow, dialog } from 'electron'
+import type { Dict } from '../../shared/app/dict'
 import type { ExtensionConfirmRequest } from './extensionRuns'
 
 export async function confirmForExtension(
   req: ExtensionConfirmRequest,
   windows: Iterable<BrowserWindow>,
+  text: Dict['native']['extensionConfirm'],
 ): Promise<boolean> {
   const all = [...windows].filter((w) => !w.isDestroyed())
   const win = all.find((w) => w.isFocused()) ?? all[0]
@@ -12,7 +14,7 @@ export async function confirmForExtension(
     title: `${req.extName}: ${req.title}`,
     message: req.message,
     detail: req.detail ? `${req.detail}\n\n${req.extName}` : req.extName,
-    buttons: [req.confirmLabel ?? 'OK', req.cancelLabel ?? 'Cancel'],
+    buttons: [req.confirmLabel ?? text.ok, req.cancelLabel ?? text.cancel],
     defaultId: 1,
     cancelId: 1,
     noLink: true,

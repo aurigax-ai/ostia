@@ -1,6 +1,7 @@
 import { MenuItem } from '@/components/common/Menu'
 import { SplitButton, SplitButtonMenu } from '@/components/common/SplitButton'
 import { Button } from '@/components/ui/button'
+import { useCopied } from '@/lib/app/useCopied'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useArtifactListing } from '@/lib/files/artifacts'
 import { previewTheme } from '@/lib/theme/previewTheme'
@@ -14,10 +15,8 @@ import {
   portableType,
   runsScripts,
 } from '@shared/artifacts/portable'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { portableDocument } from './portableDocuments'
-
-const COPIED_MS = 2_000
 
 function problemOf(d: Dict, result: PortableResult): string | null {
   if (result.ok || result.reason === 'cancelled') return null
@@ -40,19 +39,11 @@ export function usePortableFile(workspaceId: string, filePath: string) {
   const sandboxed = useSandboxStore((s) => s.enabled[workspaceId] ?? false)
   const artifactDir = useArtifactListing(workspaceId)?.dir ?? null
   const [problem, setProblem] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
-  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [copied, markCopied] = useCopied()
 
   useEffect(() => {
     void useSandboxStore.getState().load(workspaceId)
   }, [workspaceId])
-
-  useEffect(
-    () => () => {
-      if (copiedTimer.current) clearTimeout(copiedTimer.current)
-    },
-    [],
-  )
 
   const run = async (action: PortableAction): Promise<void> => {
     setProblem(null)
@@ -74,11 +65,7 @@ export function usePortableFile(workspaceId: string, filePath: string) {
       ...(document ? { document } : {}),
     })
     setProblem(problemOf(d, result))
-    if (result.ok && action === 'copy') {
-      setCopied(true)
-      if (copiedTimer.current) clearTimeout(copiedTimer.current)
-      copiedTimer.current = setTimeout(() => setCopied(false), COPIED_MS)
-    }
+    if (result.ok && action === 'copy') markCopied()
   }
 
   return { shown: canTakeOut(filePath, sandboxed, artifactDir), run, problem, copied }

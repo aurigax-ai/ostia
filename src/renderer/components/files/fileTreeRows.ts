@@ -1,4 +1,5 @@
-import { copyInto, moveInto, parentOf } from '@/lib/files/fileTreeActions'
+import { parentOf } from '@/lib/files/fileTree'
+import { copyInto, moveInto } from '@/lib/files/fileTreeActions'
 import { OSTIA_PATH_MIME } from '@/lib/keyboard/dropPaths'
 import { isMac } from '@/platform'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'

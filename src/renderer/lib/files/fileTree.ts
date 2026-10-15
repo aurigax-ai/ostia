@@ -14,6 +14,22 @@ export function relativeToRoot(path: string, root: string): string | null {
   return path.startsWith(base) ? path.slice(base.length) : null
 }
 
+export function baseName(path: string): string {
+  return path.slice(path.lastIndexOf('/') + 1) || path
+}
+
+export function parentOf(path: string): string {
+  const slash = path.lastIndexOf('/')
+  return slash > 0 ? path.slice(0, slash) : '/'
+}
+
+export function splitPath(path: string): { name: string; dir: string } {
+  const slash = path.lastIndexOf('/')
+  return slash < 0
+    ? { name: path, dir: '' }
+    : { name: path.slice(slash + 1), dir: path.slice(0, slash) }
+}
+
 function expandHome(path: string, home: string | null): string {
   if (!home || (path !== '~' && !path.startsWith('~/'))) return path
   return `${home}${path.slice(1)}`
@@ -54,7 +70,7 @@ export function excludeMatcher(patterns: readonly string[]): ExcludeMatcher {
   }
 }
 
-const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+export const nameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
 function typeKey(entry: FsEntry): string {
   if (entry.dir) return ''
@@ -70,10 +86,10 @@ export function sortEntries(
   return [...entries].sort((a, b) => {
     if (order === 'foldersFirst' && a.dir !== b.dir) return a.dir ? -1 : 1
     if (by === 'type') {
-      const byType = collator.compare(typeKey(a), typeKey(b))
+      const byType = nameCollator.compare(typeKey(a), typeKey(b))
       if (byType !== 0) return byType
     }
-    return collator.compare(a.name, b.name) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
+    return nameCollator.compare(a.name, b.name) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
   })
 }
 

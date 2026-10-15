@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { en, zhHant } from '../../shared/app/dict'
 import { reportSandboxSpawnFailure } from './spawnFailureNotice'
 
 describe('reportSandboxSpawnFailure', () => {
@@ -7,6 +8,7 @@ describe('reportSandboxSpawnFailure', () => {
     const opened: unknown[] = []
     reportSandboxSpawnFailure(
       {
+        text: () => en.native.sandboxSoftware,
         notify: (input, click) => posted.push({ ...input, click }),
         showRequirements: (workspaceId, report) => opened.push({ workspaceId, report }),
         report: () => ({
@@ -26,10 +28,31 @@ describe('reportSandboxSpawnFailure', () => {
     ])
   })
 
+  it('writes the notice in the language the app shows', () => {
+    const posted: { title: string; body?: string }[] = []
+    reportSandboxSpawnFailure(
+      {
+        text: () => zhHant.native.sandboxSoftware,
+        notify: (input) => posted.push(input),
+        showRequirements: () => undefined,
+        report: () => ({ missing: [], hint: { command: null, packages: [] }, canInstall: false }),
+      },
+      'ws',
+      ['bubblewrap (bwrap) not installed'],
+    )
+    expect(posted).toEqual([
+      {
+        title: zhHant.native.sandboxSoftware.title,
+        body: zhHant.native.sandboxSoftware.body.replace('{packages}', 'bubblewrap'),
+      },
+    ])
+  })
+
   it('stays quiet when the failure is not a missing package', () => {
     const posted: unknown[] = []
     reportSandboxSpawnFailure(
       {
+        text: () => en.native.sandboxSoftware,
         notify: (input) => posted.push(input),
         showRequirements: () => undefined,
         report: () => ({ missing: [], hint: { command: null, packages: [] }, canInstall: false }),

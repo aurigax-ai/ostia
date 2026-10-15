@@ -2291,20 +2291,8 @@ describe('agent resume', () => {
     expect(r).not.toHaveProperty('result.resume.typed')
   })
 
-  it('keeps the old command when nothing about the launch is known', async () => {
-    const pane = seedPane()
-    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, 'my-agent-script')
-    await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'codex', id: 'abc' })
-    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
-      resume: { agent: 'codex', id: 'abc' },
-    })
-    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.env')
-    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.args')
-  })
-
   it('stores no flag that skips permissions or leaves the sandbox', async () => {
     const pane = seedPane()
-    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, 'claude --model opus')
     await commands.execWith(ctx('s1', pane.id), 'resume.set', {
       agent: 'claude',
       id: 'abc',

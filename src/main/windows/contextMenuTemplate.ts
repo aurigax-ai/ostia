@@ -1,4 +1,7 @@
 import type { ContextMenuParams, MenuItemConstructorOptions } from 'electron'
+import type { Dict } from '../../shared/app/dict'
+
+export type ContextMenuText = Dict['native']['contextMenu']
 
 export type ContextParams = Pick<
   ContextMenuParams,
@@ -30,6 +33,7 @@ export function contextMenuTemplate(
   params: ContextParams,
   page: ContextPage,
   actions: ContextActions,
+  text: ContextMenuText,
 ): MenuItemConstructorOptions[] {
   const items: MenuItemConstructorOptions[] = []
   const group = (group: MenuItemConstructorOptions[]): void => {
@@ -55,16 +59,16 @@ export function contextMenuTemplate(
     group([{ role: 'copy' }])
   }
   if (params.linkURL) {
-    group([{ label: 'Copy Link Address', click: () => actions.copyLink(params.linkURL) }])
+    group([{ label: text.copyLink, click: () => actions.copyLink(params.linkURL) }])
   }
   if (image) {
-    group([{ label: 'Copy Image', click: () => actions.copyImage(params.x, params.y) }])
+    group([{ label: text.copyImage, click: () => actions.copyImage(params.x, params.y) }])
   }
   if (page.navigation && !params.isEditable && !selected && !params.linkURL && !image) {
     group([
-      { label: 'Back', enabled: page.canGoBack, click: actions.back },
-      { label: 'Forward', enabled: page.canGoForward, click: actions.forward },
-      { label: 'Reload', click: actions.reload },
+      { label: text.back, enabled: page.canGoBack, click: actions.back },
+      { label: text.forward, enabled: page.canGoForward, click: actions.forward },
+      { label: text.reload, click: actions.reload },
     ])
   }
   return items

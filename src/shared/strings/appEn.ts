@@ -357,5 +357,26 @@ export const appEn = {
       confirm: 'Allow',
       cancel: 'Cancel',
     },
+    contextMenu: {
+      copyLink: 'Copy Link Address',
+      copyImage: 'Copy Image',
+      back: 'Back',
+      forward: 'Forward',
+      reload: 'Reload',
+    },
+    appMenu: {
+      about: 'About {product}',
+      settings: 'Settings…',
+      hide: 'Hide {product}',
+      quit: 'Quit {product}',
+      file: 'File',
+      view: 'View',
+      reloadWindow: 'Reload Window',
+    },
+    extensionConfirm: { ok: 'OK', cancel: 'Cancel' },
+    sandboxSoftware: {
+      title: 'Sandbox needs software',
+      body: 'Install {packages} to start this sandboxed workspace’s terminals.',
+    },
   },
 }
