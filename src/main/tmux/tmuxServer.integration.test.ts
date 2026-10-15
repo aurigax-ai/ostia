@@ -44,13 +44,7 @@ function collect(pane: TmuxPane): { text: () => string } {
   return { text: () => text }
 }
 
-async function until(check: () => boolean, ms = 5000): Promise<void> {
-  const end = Date.now() + ms
-  while (!check()) {
-    if (Date.now() > end) throw new Error('timed out')
-    await new Promise((r) => setTimeout(r, 20))
-  }
-}
+const POLL = { timeout: 5000, interval: 20 }
 
 async function rendered(...chunks: string[]): Promise<string> {
   const term = new Terminal({ cols: 80, rows: 24, scrollback: 10_000, allowProposedApi: true })
@@ -81,7 +75,7 @@ describe.skipIf(skipWithoutTmux)('TmuxServer', () => {
     const server = await connect()
     const pane = await spawnSh(server, 'stty size; sleep 5', 154, 40)
     const out = collect(pane)
-    await until(() => out.text().includes('40 154'))
+    await vi.waitUntil(() => out.text().includes('40 154'), POLL)
   })
 
   it('KSH-C82 carries UTF-8 typed text, window options and screen text whole when the locale is not UTF-8', async () => {
@@ -109,7 +103,7 @@ describe.skipIf(skipWithoutTmux)('TmuxServer', () => {
     const out = collect(pane)
     pane.write(`${text}\r`)
     const hex = Buffer.from(text, 'utf8').toString('hex')
-    await until(() => out.text().includes(hex))
+    await vi.waitUntil(() => out.text().includes(hex), POLL)
     const [window] = (await server.windows()).filter((w) => w.windowId === pane.windowId)
     expect(window?.meta).toEqual({ paneId: 'p1', title: text })
     expect(await pane.snapshot(80, 24)).toContain(text)
@@ -120,7 +114,7 @@ describe.skipIf(skipWithoutTmux)('TmuxServer', () => {
     const pane = await spawnSh(server, 'exec cat -v')
     const out = collect(pane)
     pane.write('a\x02b\r')
-    await until(() => out.text().includes('a^Bb'))
+    await vi.waitUntil(() => out.text().includes('a^Bb'), POLL)
   })
 
   it('KSH-C4 runs its own server that ignores the human tmux config and server', async () => {
@@ -187,7 +181,7 @@ describe.skipIf(skipWithoutTmux)('TmuxServer', () => {
       `echo "tmux=\${TMUX-unset}"; TMUX_TMPDIR=${humanTmp} ${tmux} new-session -d -s inner && echo nested-ok; TMUX_TMPDIR=${humanTmp} ${tmux} kill-server; sleep 5`,
     )
     const out = collect(pane)
-    await until(() => out.text().includes('nested-ok'))
+    await vi.waitUntil(() => out.text().includes('nested-ok'), POLL)
     expect(out.text()).toContain('tmux=unset')
   })
 
@@ -210,7 +204,7 @@ describe.skipIf(skipWithoutTmux)('TmuxServer', () => {
     })
     const screen = await pane.snapshot(80, 24)
     pane.live()
-    await until(() => after.includes('n3999') || screen.includes('n3999'))
+    await vi.waitUntil(() => after.includes('n3999') || screen.includes('n3999'), POLL)
     const shown = await rendered(screen, after)
     const numbers = [...shown.matchAll(/n(\d+)/g)].map((m) => Number(m[1]))
     const first = numbers[0] ?? 0
@@ -224,7 +218,8 @@ describe.skipIf(skipWithoutTmux)('TmuxServer', () => {
         spawnSh(server, `echo early-${n}; sleep 5`).then((pane) => ({ n, out: collect(pane) })),
       ),
     )
-    for (const { n, out } of panes) await until(() => out.text().includes(`early-${n}`))
+    for (const { n, out } of panes)
+      await vi.waitUntil(() => out.text().includes(`early-${n}`), POLL)
   })
 
   it.skipIf(tmuxVersion < 3.7)(
@@ -233,7 +228,7 @@ describe.skipIf(skipWithoutTmux)('TmuxServer', () => {
       const server = await connect()
       const pane = await spawnSh(server, "printf '\\033[?2004hpaste-on'; sleep 5")
       const out = collect(pane)
-      await until(() => out.text().includes('paste-on'))
+      await vi.waitUntil(() => out.text().includes('paste-on'), POLL)
       const screen = await pane.snapshot(80, 24)
       pane.live()
       expect(screen).toContain('\x1b[?2004h')
@@ -247,11 +242,14 @@ describe.skipIf(skipWithoutTmux)('TmuxServer', () => {
     const outBracketed = collect(bracketed)
     const plain = await spawnSh(server, ready)
     const outPlain = collect(plain)
-    await until(() => outBracketed.text().includes('ready') && outPlain.text().includes('ready'))
+    await vi.waitUntil(
+      () => outBracketed.text().includes('ready') && outPlain.text().includes('ready'),
+      POLL,
+    )
     bracketed.paste('line-1\rline-2')
     plain.paste('line-1\rline-2')
-    await until(() => outBracketed.text().includes('^[[200~line-1^Mline-2^[[201~'))
-    await until(() => outPlain.text().includes('line-1^Mline-2'))
+    await vi.waitUntil(() => outBracketed.text().includes('^[[200~line-1^Mline-2^[[201~'), POLL)
+    await vi.waitUntil(() => outPlain.text().includes('line-1^Mline-2'), POLL)
     expect(outPlain.text()).not.toContain('200~')
   })
 
@@ -282,7 +280,7 @@ describe.skipIf(skipWithoutTmux)('TmuxServer', () => {
       'printf \'\\033]52;c;%s\\a\' "$(printf ostia-osc52-tmux | base64)"; echo osc-sent; sleep 5',
     )
     const out = collect(pane)
-    await until(() => out.text().includes('osc-sent'))
+    await vi.waitUntil(() => out.text().includes('osc-sent'), POLL)
     expect(await server.command('list-buffers')).toEqual([])
   })
 
@@ -310,7 +308,7 @@ describe.skipIf(skipWithoutTmux)('TmuxServer', () => {
     }
     const shown = (): string => rows().join('\n')
     const settled = async (check: () => boolean): Promise<void> => {
-      await until(check, 10_000)
+      await vi.waitUntil(check, { timeout: 10_000, interval: 20 })
       await new Promise((r) => setTimeout(r, 300))
       await new Promise<void>((resolve) => term.write('', resolve))
     }

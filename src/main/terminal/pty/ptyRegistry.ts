@@ -1,0 +1,197 @@
+import { rmSync } from 'node:fs'
+import type { AgentRunningPanes } from '../../agents/agentRunning'
+import type { ReportedAgentWork } from '../../agents/agentWork'
+import type { AppLog } from '../../diagnostics/appLog'
+import type { OpenWaits } from '../../files/openWaits'
+import type { PaneProcess } from '../../panes/paneProcess'
+import type { ProcessRegistry } from '../../panes/processRegistry'
+import type { PortBridge } from '../../sandbox/portBridge'
+import type { KeptAttention } from '../../tmux/keptAttention'
+import type { KeptMeta } from '../../tmux/keptShells'
+import type { TmuxPane } from '../../tmux/tmuxServer'
+import { PtyFlowControl } from '../ptyFlow'
+import { PtySession } from '../ptySession'
+import { ScreenMirror } from '../screenMirror'
+import { closesPaneOnExit } from '../shellExit'
+
+export interface PaneTitleEntry {
+  paneId: string
+  title: string
+}
+
+export interface PtyEntry {
+  paneId: string
+  pty: PaneProcess
+  kept: TmuxPane | null
+  keptMeta: KeptMeta | null
+  session: PtySession
+  flow: PtyFlowControl
+  mirror: ScreenMirror
+  subs: Map<string, Electron.WebContents>
+  killTimer: ReturnType<typeof setTimeout> | null
+  spawnPath: string
+  stateFile: string
+  workspaceId: string
+  sandboxed: boolean
+  shell: string
+  sandboxStamp: string | null
+  portBridge: PortBridge | null
+  confinedBy: string | null
+  keepAlive: boolean
+  exitListeners: Set<(code: number) => void>
+}
+
+export function removeStateFile(entry: PtyEntry): void {
+  rmSync(entry.stateFile, { force: true })
+}
+
+function pausePty(entry: PtyEntry, paused: boolean): void {
+  try {
+    if (paused) entry.pty.pause?.()
+    else entry.pty.resume?.()
+  } catch {}
+}
+
+interface PtyRegistryDeps {
+  ptys: Map<string, PtyEntry>
+  movingPanes: Set<string>
+  recoveryHeld: Set<string>
+  closedPanes: Set<string>
+  scheduleReap: (paneId: string, entry: PtyEntry) => void
+  openWaits: OpenWaits
+  agentRunning: AgentRunningPanes
+  agentWork: ReportedAgentWork
+  keptAttention: KeptAttention
+  processes: () => ProcessRegistry | null
+  appLog: () => AppLog | null
+}
+
+export type PtyRegistry = ReturnType<typeof createPtyRegistry>
+
+export function createPtyRegistry({
+  ptys,
+  movingPanes,
+  recoveryHeld,
+  closedPanes,
+  scheduleReap,
+  openWaits,
+  agentRunning,
+  agentWork,
+  keptAttention,
+  processes,
+  appLog,
+}: PtyRegistryDeps) {
+  let ptyModule: typeof import('node-pty') | null | undefined
+
+  function loadPty(): typeof import('node-pty') | null {
+    if (ptyModule === undefined) {
+      try {
+        ptyModule = require('node-pty')
+      } catch (err) {
+        console.error('[pty] node-pty unavailable — terminals disabled. Run: npm run rebuild', err)
+        ptyModule = null
+      }
+    }
+    return ptyModule ?? null
+  }
+
+  const PTY_BUFFER_CAP = 1_000_000
+
+  function feedPty(entry: PtyEntry, data: string): void {
+    entry.session.push(data)
+    entry.mirror.write(data)
+    processes()?.feed(entry.paneId, data, entry.session.cursor)
+  }
+
+  function trackPty(
+    paneId: string,
+    pty: PaneProcess,
+    opts: {
+      cols: number
+      rows: number
+      subs: Map<string, Electron.WebContents>
+      spawnPath: string
+      stateFile: string
+      keepAlive: boolean
+      workspaceId?: string
+      sandboxed?: boolean
+      shell?: string
+      sandboxStamp?: string | null
+      portBridge?: PortBridge | null
+      kept?: TmuxPane | null
+      keptMeta?: KeptMeta | null
+    },
+  ): PtyEntry {
+    const spawnedAt = Date.now()
+    const session = new PtySession({
+      capBytes: PTY_BUFFER_CAP,
+      onNoOwners: () => {
+        if (
+          ptys.get(paneId) !== entry ||
+          entry.killTimer ||
+          entry.keepAlive ||
+          movingPanes.has(paneId)
+        ) {
+          return
+        }
+        scheduleReap(paneId, entry)
+      },
+      onExit: (code) => {
+        appLog()?.info('pty-exit', { pane: paneId, code })
+        if (entry.killTimer) clearTimeout(entry.killTimer)
+        entry.killTimer = null
+        const closes = closesPaneOnExit({
+          ownExit: ptys.get(paneId) === entry,
+          code,
+          livedMs: Date.now() - spawnedAt,
+        })
+        for (const wc of entry.subs.values()) {
+          if (!wc.isDestroyed()) wc.send(`pty:exit:${paneId}`, code, closes)
+        }
+        for (const listener of entry.exitListeners) listener(code)
+        processes()?.shellEnded(paneId, (from) => session.since(from))
+        entry.flow.dispose()
+        entry.mirror.dispose()
+        removeStateFile(entry)
+        if (ptys.get(paneId) === entry) {
+          ptys.delete(paneId)
+          openWaits.callerExited(paneId)
+          movingPanes.delete(paneId)
+          agentRunning.shellEnded(paneId)
+          agentWork.clear(paneId)
+          keptAttention.reported(paneId)
+          recoveryHeld.delete(paneId)
+          closedPanes.delete(paneId)
+        }
+      },
+    })
+    const entry: PtyEntry = {
+      paneId,
+      pty,
+      session,
+      flow: new PtyFlowControl({
+        pause: () => pausePty(entry, true),
+        resume: () => pausePty(entry, false),
+      }),
+      mirror: new ScreenMirror(opts.cols, opts.rows),
+      subs: opts.subs,
+      killTimer: null,
+      spawnPath: opts.spawnPath,
+      stateFile: opts.stateFile,
+      keepAlive: opts.keepAlive,
+      exitListeners: new Set(),
+      workspaceId: opts.workspaceId ?? '',
+      sandboxed: opts.sandboxed ?? false,
+      shell: opts.shell ?? '',
+      sandboxStamp: opts.sandboxStamp ?? null,
+      portBridge: opts.portBridge ?? null,
+      confinedBy: opts.sandboxed ? (opts.workspaceId ?? '') : null,
+      kept: opts.kept ?? null,
+      keptMeta: opts.keptMeta ?? null,
+    }
+    ptys.set(paneId, entry)
+    return entry
+  }
+
+  return { loadPty, feedPty, trackPty }
+}

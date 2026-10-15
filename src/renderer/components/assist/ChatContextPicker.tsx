@@ -8,6 +8,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { formatBytes } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import {
   blockOutputContext,
@@ -15,8 +16,9 @@ import {
   lastBlockCommand,
   terminalSelectionContext,
 } from '@/lib/assist/askContext'
-import { byteSize, formatSize, workspaceTerminals } from '@/lib/assist/chatActions'
+import { byteSize, workspaceTerminals } from '@/lib/assist/chatActions'
 import { allPanes } from '@/lib/layout/tree'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -244,12 +246,13 @@ export function AttachmentChips({
   onRemove: (index: number) => void
 }): JSX.Element | null {
   const d = useDict()
+  const locale = useSettingsStore((s) => s.locale)
   if (items.length === 0) return null
   return (
     <ul aria-label={d.chatActions.attached} className="flex min-w-0 flex-wrap gap-1">
       {items.map((item, index) => {
         const IconFor = KIND_ICONS[item.kind]
-        const size = formatSize(byteSize(item.text))
+        const size = formatBytes(byteSize(item.text), locale)
         const preview =
           item.text.length > PREVIEW_MAX ? `${item.text.slice(0, PREVIEW_MAX)}…` : item.text
         return (

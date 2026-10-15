@@ -10,6 +10,7 @@ import {
   exitReport,
   expect,
   test,
+  waitForExit,
 } from './test'
 
 test('a main process that crashes during a test leaves its signal and a crash dump for the report, or says why there is no dump', async () => {
@@ -20,7 +21,7 @@ test('a main process that crashes during a test leaves its signal and a crash du
     env: { ...launch.env, OSTIA_E2E_CRASH_DUMPS: dumps },
   })
   const child = app.process()
-  const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()))
+  const exited = waitForExit(app)
   await app.firstWindow()
   expect(await app.evaluate(() => process.env.OSTIA_E2E_CRASH_DUMPS)).toBeUndefined()
 

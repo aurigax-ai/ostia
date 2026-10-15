@@ -1,4 +1,5 @@
 import { runningAgentOf } from '@/lib/agents/paneAgent'
+import { useNow } from '@/lib/app/useNow'
 import { useCoreWatchAll } from '@/lib/workspaces/coreWatch'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
@@ -14,16 +15,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { buildViewScope } from './viewData'
 
 const VIEW_TICK_MS = 1000
-
-function useNow(ticks: boolean): number {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    if (!ticks) return
-    const timer = setInterval(() => setNow(Date.now()), VIEW_TICK_MS)
-    return () => clearInterval(timer)
-  }, [ticks])
-  return now
-}
 
 function useNotifications(wanted: boolean): NotificationEntry[] {
   const [list, setList] = useState<NotificationEntry[]>([])
@@ -72,7 +63,7 @@ export function useViewScope(doc: ViewDoc): { scope: Record<string, unknown>; fo
   const listsWorkspaces = doc.sources.includes('workspaces') || doc.sources.includes('workspace')
   useCoreWatchAll('git', workspaceIds, listsWorkspaces)
   useCoreWatchAll('ports', workspaceIds, listsWorkspaces || doc.sources.includes('ports'))
-  const now = useNow(doc.ticks)
+  const now = useNow(VIEW_TICK_MS, doc.ticks)
 
   const scope = useMemo(() => {
     void running

@@ -1,5 +1,6 @@
 import { readFileSync, utimesSync } from 'node:fs'
 import { join } from 'node:path'
+import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import type { SecretSpan } from '../../shared/privacy/redaction'
 import type { SecretSyncStatus, SyncConflict, SyncOffer, SyncStatus } from '../../shared/types'
 import {
@@ -26,7 +27,6 @@ import {
   removeRegularFile,
   syncedSettings,
   withLocalOnly,
-  writeAtomic,
 } from './profile'
 import type { SecretSync } from './secrets'
 
@@ -198,7 +198,7 @@ export class ProfileSync {
   }
 
   private saveState(state: SyncState): void {
-    writeAtomic(this.path(STATE_FILE), `${JSON.stringify(state, null, 2)}\n`)
+    writeFileAtomic(this.path(STATE_FILE), `${JSON.stringify(state, null, 2)}\n`)
   }
 
   private loadBase(target: string): Map<string, string> | null {
@@ -217,7 +217,7 @@ export class ProfileSync {
 
   private saveBase(target: string, files: ReadonlyMap<string, string>): void {
     const body = { target, files: Object.fromEntries(files) }
-    writeAtomic(this.path(BASE_DIR, BASE_FILE), `${JSON.stringify(body)}\n`)
+    writeFileAtomic(this.path(BASE_DIR, BASE_FILE), `${JSON.stringify(body)}\n`)
   }
 
   private readLocal(): LocalProfile {
@@ -536,7 +536,7 @@ export class ProfileSync {
           : Object.keys(next).length > 0
         if (changed) {
           const path = this.path(SETTINGS_FILE)
-          writeAtomic(path, `${JSON.stringify(next, null, 2)}\n`)
+          writeFileAtomic(path, `${JSON.stringify(next, null, 2)}\n`)
           stamp(path, Math.max(local.settingsTime, remoteTime(SETTINGS_FILE)))
           pulledSettings = true
         }
@@ -549,7 +549,7 @@ export class ProfileSync {
         const target = join(this.deps.configDir, path)
         if (want === undefined) removeRegularFile(target)
         else {
-          writeAtomic(target, want)
+          writeFileAtomic(target, want)
           stamp(target, remoteTime(path))
         }
       }
@@ -599,13 +599,13 @@ export class ProfileSync {
         other?.value,
       )
       const path = this.path(SETTINGS_FILE)
-      writeAtomic(path, `${JSON.stringify(next, null, 2)}\n`)
+      writeFileAtomic(path, `${JSON.stringify(next, null, 2)}\n`)
       stamp(path, time)
     } else {
       const path = join(this.deps.configDir, id.slice('file:'.length))
       if (other === null) removeRegularFile(path)
       else {
-        writeAtomic(path, String(other.value))
+        writeFileAtomic(path, String(other.value))
         stamp(path, time)
       }
     }

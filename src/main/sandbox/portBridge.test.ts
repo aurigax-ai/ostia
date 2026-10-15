@@ -14,7 +14,7 @@ import {
 import { type AddressInfo, type Server, type Socket, connect, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   PortBridge,
   bridgesPorts,
@@ -38,15 +38,7 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-async function until<T>(read: () => T | undefined, ms = 5000): Promise<T> {
-  const start = Date.now()
-  for (;;) {
-    const value = read()
-    if (value !== undefined) return value
-    if (Date.now() - start > ms) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 10))
-  }
-}
+const POLL = { timeout: 5000, interval: 10 }
 
 async function open(dialTimeoutMs?: number): Promise<PortBridge> {
   const bridge = await PortBridge.open(dir, dialTimeoutMs)
@@ -81,7 +73,7 @@ async function supervise(bridge: PortBridge): Promise<Supervisor> {
   control.on('data', (chunk) => {
     for (const line of String(chunk).split('\n')) if (line) asked.push(Number(line))
   })
-  await until(() => (bridge.connected ? true : undefined))
+  await vi.waitUntil(() => bridge.connected, POLL)
   return { control, asked }
 }
 
@@ -192,7 +184,7 @@ describe.skipIf(process.platform !== 'linux')(
         expect(shell.exitCode).toBeNull()
         const bridge = await PortBridge.open(work, undefined, 'cafe0001')
         if (!bridge) throw new Error('bridge did not open')
-        await until(() => (bridge.connected ? true : undefined))
+        await vi.waitUntil(() => bridge.connected, POLL)
         bridge.close()
       } finally {
         shell.kill()
@@ -207,7 +199,7 @@ describe('PortBridge', () => {
     expect(bridge.connected).toBe(false)
     const { control } = await supervise(bridge)
     control.destroy()
-    await until(() => (bridge.connected ? undefined : true))
+    await vi.waitUntil(() => !bridge.connected, POLL)
   })
 
   it('asks the supervisor for the port and joins the client to the connection it brings', async () => {
@@ -216,16 +208,16 @@ describe('PortBridge', () => {
     const { client, browser } = await hostPair()
     const seen = collect(browser)
     await bridge.dial(4321, client)
-    await until(() => (supervisor.asked.length > 0 ? true : undefined))
+    await vi.waitUntil(() => supervisor.asked.length > 0, POLL)
     expect(supervisor.asked).toEqual([4321])
     const inside = await dial(join(dir, dataSocketName(idOf(bridge), 4321)))
     const reached = collect(inside)
     inside.write('from-inside')
     browser.write('from-host')
-    await until(() => (seen.text() === 'from-inside' ? true : undefined))
-    await until(() => (reached.text() === 'from-host' ? true : undefined))
+    await vi.waitUntil(() => seen.text() === 'from-inside', POLL)
+    await vi.waitUntil(() => reached.text() === 'from-host', POLL)
     inside.destroy()
-    await until(() => (seen.ended() ? true : undefined))
+    await vi.waitUntil(() => seen.ended(), POLL)
   })
 
   it('joins clients to connections in the order they asked, per port', async () => {
@@ -237,15 +229,15 @@ describe('PortBridge', () => {
     await bridge.dial(4000, first.client)
     await bridge.dial(5000, other.client)
     await bridge.dial(4000, second.client)
-    await until(() => (supervisor.asked.length === 3 ? true : undefined))
+    await vi.waitUntil(() => supervisor.asked.length === 3, POLL)
     expect(supervisor.asked).toEqual([4000, 5000, 4000])
     const seen = [collect(first.browser), collect(second.browser), collect(other.browser)]
     const id = idOf(bridge)
     ;(await dial(join(dir, dataSocketName(id, 4000)))).write('a')
-    await until(() => (seen[0].text() === 'a' ? true : undefined))
+    await vi.waitUntil(() => seen[0].text() === 'a', POLL)
     ;(await dial(join(dir, dataSocketName(id, 5000)))).write('c')
     ;(await dial(join(dir, dataSocketName(id, 4000)))).write('b')
-    await until(() => (seen[1].text() === 'b' && seen[2].text() === 'c' ? true : undefined))
+    await vi.waitUntil(() => seen[1].text() === 'b' && seen[2].text() === 'c', POLL)
   })
 
   it('closes a connection to a data socket that no client is waiting on', async () => {
@@ -257,7 +249,7 @@ describe('PortBridge', () => {
     const wanted = await dial(path)
     wanted.write('x')
     const unasked = collect(await dial(path))
-    await until(() => (unasked.ended() ? true : undefined))
+    await vi.waitUntil(() => unasked.ended(), POLL)
     expect(unasked.text()).toBe('')
     expect(browser.destroyed).toBe(false)
   })
@@ -267,7 +259,7 @@ describe('PortBridge', () => {
     const { client, browser } = await hostPair()
     const seen = collect(browser)
     await bridge.dial(4321, client)
-    await until(() => (seen.ended() ? true : undefined))
+    await vi.waitUntil(() => seen.ended(), POLL)
   })
 
   it('closes the client when the supervisor brings no connection in time', async () => {
@@ -276,20 +268,20 @@ describe('PortBridge', () => {
     const { client, browser } = await hostPair()
     const seen = collect(browser)
     await bridge.dial(4321, client)
-    await until(() => (seen.ended() ? true : undefined))
+    await vi.waitUntil(() => seen.ended(), POLL)
     expect(supervisor.asked).toEqual([4321])
     const late = collect(await dial(join(dir, dataSocketName(idOf(bridge), 4321))))
-    await until(() => (late.ended() ? true : undefined))
+    await vi.waitUntil(() => late.ended(), POLL)
   })
 
   it('keeps the first supervisor and closes a second control connection', async () => {
     const bridge = await open()
     const supervisor = await supervise(bridge)
     const second = collect(await dial(join(dir, controlSocketName(idOf(bridge)))))
-    await until(() => (second.ended() ? true : undefined))
+    await vi.waitUntil(() => second.ended(), POLL)
     const { client } = await hostPair()
     await bridge.dial(4321, client)
-    await until(() => (supervisor.asked.length > 0 ? true : undefined))
+    await vi.waitUntil(() => supervisor.asked.length > 0, POLL)
     expect(second.text()).toBe('')
   })
 
@@ -322,8 +314,8 @@ describe('PortBridge', () => {
     await bridge.dial(4321, waiting.client)
     const ends = [collect(waiting.browser), collect(joined.browser), collect(supervisor.control)]
     bridge.close()
-    await until(() => (ends.every((e) => e.ended()) && inside.ended() ? true : undefined))
-    await until(() => (readdirSync(dir).length === 0 ? true : undefined))
+    await vi.waitUntil(() => ends.every((e) => e.ended()) && inside.ended(), POLL)
+    await vi.waitUntil(() => readdirSync(dir).length === 0, POLL)
     expect(existsSync(join(dir, controlSocketName(idOf(bridge))))).toBe(false)
   })
 })

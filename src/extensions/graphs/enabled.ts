@@ -1,5 +1,6 @@
-import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import type { ScheduleMemory } from '@aurigax-ai/wire'
 
 export const ENABLED_FILE = 'enabled.json'
@@ -47,11 +48,7 @@ function parse(raw: unknown): Stored {
 }
 
 function writeDataFile(file: string, value: unknown): void {
-  mkdirSync(dirname(file), { recursive: true, mode: 0o700 })
-  const temp = `${file}.tmp`
-  writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 })
-  chmodSync(temp, 0o600)
-  renameSync(temp, file)
+  writeFileAtomic(file, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600, dirMode: 0o700 })
 }
 
 export function scheduleMemory(path: string | null): ScheduleMemory {

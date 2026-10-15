@@ -21,16 +21,6 @@ const fixtures = resolve(__dirname, '../../../test/fixtures/extensions')
 
 const caller: ExtensionCaller = { kind: 'user', workspaceId: 's1', capabilities: [] }
 
-async function untilAsync<T>(read: () => Promise<T | undefined>, timeoutMs = 5000): Promise<T> {
-  const start = Date.now()
-  for (;;) {
-    const value = await read()
-    if (value !== undefined) return value
-    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 20))
-  }
-}
-
 describe('Extension API v2 over a real control socket with the echo fixture', () => {
   let dir: string
   let host: ExtensionHost
@@ -388,10 +378,13 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
       await host.invoke('echo', 'echo', null, caller)
       const res = host.config.setSetting('echo', 'level', 'high')
       expect(res).toMatchObject({ ok: true, stored: { level: 'high' } })
-      const event = await untilAsync(async () => {
-        const seen = await host.invoke('echo', 'seen-settings', null, caller)
-        return seen.ok && seen.data ? seen.data : undefined
-      })
+      const event = await vi.waitUntil(
+        async () => {
+          const seen = await host.invoke('echo', 'seen-settings', null, caller)
+          return seen.ok && seen.data ? seen.data : undefined
+        },
+        { timeout: 5000, interval: 20 },
+      )
       expect(event).toEqual({ greeting: 'hi', count: 3, loud: false, level: 'high' })
       expect(echo().settingValues.level).toBe('high')
     })

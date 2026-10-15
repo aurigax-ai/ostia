@@ -48,6 +48,7 @@ The package is built: there is no install script to approve. It needs Node 20 or
 | `@aurigax-ai/ostia-extension-sdk` | `connect()` and the `OstiaExtension` API: commands, events, sidebar items, pane chips, settings, secrets, notifications, panels, diffs, terminals, the human's language, `createTranslator`, `runTool`, `startPanelServer`, `onShutdown` |
 | `@aurigax-ai/ostia-extension-sdk/panel` | For the page inside a panel: `call`, `onChange`, `context`, `h`, `icon`, panel sizes |
 | `@aurigax-ai/ostia-extension-sdk/splitter` | A resizable split for panel pages |
+| `@aurigax-ai/ostia-extension-sdk/atomicWrite` | `writeFileAtomic` and `writeFileAtomicAsync`: replace a file in one rename, with the file and folder modes set from the start |
 | `@aurigax-ai/ostia-extension-sdk/panel.css` | Base panel styles on Ostia's theme variables |
 | `@aurigax-ai/ostia-extension-sdk/assist` | The engine behind Ostia's assistant. Give `runAssistExtension` a `ProviderCatalog` to serve chat, completions and prompt help from your own model provider. Needs `ai`, `zod`, `@ai-sdk-tool/parser` and `undici` installed |
 | `schemas/ostia.schema.json` | JSON Schema for the extension manifest (`ostia.json`) |

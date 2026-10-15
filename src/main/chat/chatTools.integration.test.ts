@@ -11,7 +11,7 @@ import {
   normalizeAssistRequest,
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import type { UIMessageChunk } from 'ai'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ASSISTANT_CATALOG } from '../../extensions/assistant/providers'
 import { MODEL_RUNTIME_CATALOG } from '../../extensions/model-runtime/provider'
 import { parseEdits } from '../../shared/assist/chatEdits'
@@ -139,11 +139,8 @@ async function readyHost(): Promise<McpHost> {
   })
   hosts.push(host)
   host.refresh()
-  for (let i = 0; i < 300; i++) {
-    if (host.status()[0].state === 'ready') return host
-    await new Promise((r) => setTimeout(r, 50))
-  }
-  throw new Error('fake MCP server did not connect')
+  await vi.waitUntil(() => host.status()[0].state === 'ready', { timeout: 15_000, interval: 50 })
+  return host
 }
 
 describe('chat tool loop: fake provider, assistant extension and fake MCP server', () => {

@@ -40,7 +40,7 @@ function catalogText(): string {
 describe('what the graphs extension may do', () => {
   it('GRF-C3 nothing it runs writes, renames or deletes a file but its own data files', () => {
     const WRITES =
-      /\b(writeFileSync|writeFile|appendFileSync|appendFile|rmSync|rm|unlinkSync|unlink|renameSync|rename|mkdirSync|copyFileSync|createWriteStream|openSync\([^)]*'a')\(/
+      /\b(writeFileAtomic|writeFileAtomicAsync|writeFileSync|writeFile|appendFileSync|appendFile|rmSync|rm|unlinkSync|unlink|renameSync|rename|mkdirSync|copyFileSync|createWriteStream|openSync\([^)]*'a')\(/
     const writers = runtimeSource
       .filter((f) => WRITES.test(read(f)))
       .map((f) => f.slice(REPO.length + 1))

@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { ExtensionConnections } from './extensionConnections'
@@ -14,14 +14,6 @@ import { ExtensionStore } from './extensionStore'
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions-connections')
 const caller: ExtensionCaller = { kind: 'user', workspaceId: 'w1', capabilities: [] }
 const TOKEN = ['tok', 'z'.repeat(18)].join('-')
-
-async function until(check: () => Promise<boolean>, timeoutMs = 8000): Promise<void> {
-  const start = Date.now()
-  while (!(await check())) {
-    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 20))
-  }
-}
 
 describe('an extension reads its own connections, by name, from main', () => {
   let dir: string
@@ -130,10 +122,13 @@ describe('an extension reads its own connections, by name, from main', () => {
 
   it('tells the extension when the human changed its connections', async () => {
     expect(host.config.removeConnection('linked', 'api')).toEqual({ ok: true })
-    await until(async () => {
-      const res = await host.invoke('linked', 'events', null, caller)
-      return res.ok && Array.isArray(res.data) && res.data.includes('connections.changed')
-    })
+    await vi.waitUntil(
+      async () => {
+        const res = await host.invoke('linked', 'events', null, caller)
+        return res.ok && Array.isArray(res.data) && res.data.includes('connections.changed')
+      },
+      { timeout: 8000, interval: 20 },
+    )
     expect(await call('linked', 'ext.connection', { name: 'api' })).toEqual({
       ok: true,
       connection: null,

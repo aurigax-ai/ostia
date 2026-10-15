@@ -4,7 +4,14 @@ import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { extensionHosts } from './extensionHosts'
 import { openWorkspace, quitApp, waitForPaletteSelection } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import {
+  type ElectronApplication,
+  type Page,
+  _electron as electron,
+  expect,
+  test,
+  waitForExit,
+} from './test'
 
 test.describe.configure({ timeout: 240_000 })
 
@@ -32,7 +39,7 @@ async function openPanel(win: Page): Promise<void> {
 
 async function kill(app: ElectronApplication): Promise<void> {
   const proc = app.process()
-  const gone = new Promise<void>((resolve) => proc.once('exit', () => resolve()))
+  const gone = waitForExit(app)
   proc.kill('SIGKILL')
   await gone
 }

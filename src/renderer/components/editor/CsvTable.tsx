@@ -1,5 +1,6 @@
 import { fmt, useDict } from '@/lib/app/useDict'
 import { CSV_COLUMNS_MAX, CSV_ROWS_MAX, type CsvTableData, parseCsv } from '@/lib/files/csvTable'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type MutableRefObject, useEffect, useState } from 'react'
 
 export function CsvTable({
@@ -35,6 +36,7 @@ export function CsvTableView({
   focusRef?: MutableRefObject<HTMLElement | null>
 }): JSX.Element {
   const d = useDict()
+  const locale = useSettingsStore((s) => s.locale)
   const setRoot = (el: HTMLDivElement | null): void => {
     if (focusRef) focusRef.current = el
   }
@@ -43,7 +45,9 @@ export function CsvTableView({
     <div ref={setRoot} className="csv-table" data-testid="csv-table" tabIndex={0}>
       {table.more || table.columnsCut ? (
         <p className="csv-table-note" data-testid="csv-table-note">
-          {table.more ? fmt(d.viewer.csvRowsCut, { rows: CSV_ROWS_MAX.toLocaleString('en') }) : ''}
+          {table.more
+            ? fmt(d.viewer.csvRowsCut, { rows: CSV_ROWS_MAX.toLocaleString(locale) })
+            : ''}
           {table.more && table.columnsCut ? ' ' : ''}
           {table.columnsCut ? fmt(d.viewer.csvColumnsCut, { columns: CSV_COLUMNS_MAX }) : ''}
         </p>

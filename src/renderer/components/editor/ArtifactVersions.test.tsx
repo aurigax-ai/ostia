@@ -1,7 +1,15 @@
 import '@testing-library/jest-dom/vitest'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useArtifactVersionsStore } from '@/stores/files/artifactVersionsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import {
+  focusSurface,
+  mountSurface,
+  releaseSurfaces,
+  setFocusTarget,
+  surfaceHost,
+} from '@/stores/workspaces/surfaceSlotsStore'
 import type { ArtifactListing, ArtifactVersion } from '@shared/artifacts/artifacts'
 import type { PreviewEvent } from '@shared/artifacts/htmlPreview'
 import { act, cleanup, screen, waitFor } from '@testing-library/react'
@@ -45,11 +53,13 @@ describe('artifact versions', () => {
   let artifactsInit: ReturnType<typeof useArtifactsStore.getState>
   let versionsInit: ReturnType<typeof useArtifactVersionsStore.getState>
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
+  let settingsInit: ReturnType<typeof useSettingsStore.getState>
 
   beforeAll(() => {
     artifactsInit = useArtifactsStore.getState()
     versionsInit = useArtifactVersionsStore.getState()
     layoutInit = useLayoutStore.getState()
+    settingsInit = useSettingsStore.getState()
   })
 
   beforeEach(() => {
@@ -67,6 +77,26 @@ describe('artifact versions', () => {
     useArtifactsStore.setState(artifactsInit, true)
     useArtifactVersionsStore.setState(versionsInit, true)
     useLayoutStore.setState(layoutInit, true)
+    useSettingsStore.setState(settingsInit, true)
+  })
+
+  it('the versions button in a pane header leaves the pane its own keyboard target', async () => {
+    await load(T0)
+    const slot = document.createElement('div')
+    document.body.appendChild(slot)
+    mountSurface('p1', slot)
+    const input = document.createElement('textarea')
+    surfaceHost('p1').appendChild(input)
+    const unregister = setFocusTarget('p1', () => input)
+    try {
+      await renderSettled(<ArtifactVersionsButton workspaceId="s1" paneId="p1" filePath={FILE} />)
+      focusSurface('p1')
+      expect(document.activeElement).toBe(input)
+    } finally {
+      unregister()
+      releaseSurfaces(new Set())
+      slot.remove()
+    }
   })
 
   it('PRT-C46 shows a picked version read-only with its bar, and goes back to the latest', async () => {
@@ -91,6 +121,17 @@ describe('artifact versions', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Back to latest' }))
     expect(screen.queryByTestId('version-bar')).not.toBeInTheDocument()
     expect(useArtifactVersionsStore.getState().byPane.p1).toBeUndefined()
+  })
+
+  it('writes version times and sizes in the locale setting', async () => {
+    useSettingsStore.setState({ locale: 'zh-Hant' })
+    await load(1000)
+    await renderSettled(<ArtifactVersionsButton workspaceId="s1" paneId="p1" filePath={FILE} />)
+    await userEvent.click(screen.getByRole('button', { name: /Versions/ }))
+    const rows = await screen.findAllByRole('button', { name: /plan\.md · / })
+    expect(rows[0]).toHaveAccessibleName('plan.md · 2026/10/14\u2009下午12:04:00')
+    expect(rows[0]).toHaveTextContent(/2026\/10\/14\s下午12:04:00/)
+    expect(rows[0]).toHaveTextContent('400 byte')
   })
 
   it('PRT-C47 goes back to the latest when the file changes on disk', async () => {
