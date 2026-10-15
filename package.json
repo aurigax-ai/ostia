@@ -29,7 +29,7 @@
     "package": "pnpm build && electron-builder",
     "icons": "bash scripts/icons.sh",
     "install:local": "pnpm package && bash scripts/install-linux.sh",
-    "bump": "pnpm version --no-git-tag-version --no-git-checks",
+    "bump": "bash -c 'case \"$*\" in patch|minor|major) exec pnpm version --no-git-tag-version --no-git-checks \"$1\" ;; *) echo \"usage: pnpm bump <patch|minor|major>\" >&2; exit 1 ;; esac' bump",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.e2e.json && tsc --noEmit -p packages/extension-sdk",
     "rebuild": "electron-rebuild -f -w node-pty",
     "lint": "biome check src packages && node scripts/comments.mjs --check",
