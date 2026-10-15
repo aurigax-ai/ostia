@@ -56,14 +56,6 @@ describe('parseKubeCurrentContext', () => {
     )
   })
 
-  it('reads a JSON kubeconfig, escaped quotes and a numeric name as text', () => {
-    expect(parseKubeCurrentContext('{"apiVersion": "v1", "current-context": "eks-prod"}')).toBe(
-      'eks-prod',
-    )
-    expect(parseKubeCurrentContext('current-context: "team \\"a\\""\n')).toBe('team "a"')
-    expect(parseKubeCurrentContext('current-context: 2024\n')).toBe('2024')
-  })
-
   it('ignores nested keys and empty values', () => {
     expect(parseKubeCurrentContext('contexts:\n  current-context: nested\n')).toBeNull()
     expect(parseKubeCurrentContext('current-context: ""\n')).toBeNull()

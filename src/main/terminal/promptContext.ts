@@ -2,9 +2,7 @@ import { execFile } from 'node:child_process'
 import { lstat, readFile, realpath, stat } from 'node:fs/promises'
 import { homedir, hostname, userInfo } from 'node:os'
 import { basename, delimiter, dirname, join } from 'node:path'
-import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { LRUCache } from 'lru-cache'
-import { parse as parseYaml } from 'yaml'
 import type { PromptContext, PromptContextRequest } from '../../shared/types'
 import { type ShellState, pathDirs } from './shellCommands'
 
@@ -93,15 +91,20 @@ export class NodeVersionResolver {
   }
 }
 
+function unquote(value: string): string {
+  const quoted = /^"(.*)"$/.exec(value) ?? /^'(.*)'$/.exec(value)
+  if (quoted) return quoted[1]
+  return value.replace(/\s+#.*$/, '')
+}
+
 export function parseKubeCurrentContext(text: string): string | null {
-  let config: unknown
-  try {
-    config = parseYaml(text, { schema: 'failsafe', maxAliasCount: 0 })
-  } catch {
-    return null
+  for (const line of text.split(/\r?\n/)) {
+    const match = /^current-context:[ \t]*(.*?)[ \t]*$/.exec(line)
+    if (!match) continue
+    const value = unquote(match[1]).trim()
+    return value || null
   }
-  const value = isRecord(config) ? config['current-context'] : undefined
-  return typeof value === 'string' && value.trim() ? value.trim() : null
+  return null
 }
 
 export function kubeconfigFiles(kubeconfigEnv: string | null, home: string): string[] {
