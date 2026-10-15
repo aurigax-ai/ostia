@@ -46,7 +46,6 @@ import {
 import { fmt } from '../shared/app/dict'
 import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
 import { isMacInstall, replacesInApp } from '../shared/app/installMethod'
-import { clampZoom, zoomFactor } from '../shared/app/zoom'
 import { isPreviewPartition } from '../shared/artifacts/htmlPreview'
 import { parseChatToolSettings } from '../shared/assist/chatTools'
 import { parseGitSettings } from '../shared/boards/git'
@@ -57,19 +56,15 @@ import { ChangeSignal } from '../shared/common/actThenConfirm'
 import { externalHref } from '../shared/common/externalLinks'
 import { EXTENSION_SUGGESTIONS } from '../shared/extensions/extensionSuggestions'
 import { OPEN_FILES_COMMAND, OPEN_FILES_MAX } from '../shared/files/openFiles'
-import { desktopsOf } from '../shared/keyboard/desktopChords'
 import { parsePrivacySettings } from '../shared/privacy/redaction'
 import { bucketCount } from '../shared/privacy/telemetry'
 import { parseKeepShells } from '../shared/terminal/keepShells'
 import { quoteArgv } from '../shared/terminal/shellQuote'
 import type {
-  AppInfo,
   CommandDescriptor,
   CommandTarget,
-  ExternalEditorRequest,
   FsEntry,
   FsKind,
-  LifecycleEvent,
   QuitAnswer,
   TerminalStateSnapshot,
   WindowBounds,
@@ -83,12 +78,7 @@ import type { OriginReach } from './agents/originAgents'
 import { createResumeClaimer, registerResumeClaimIpc } from './agents/resumeClaims'
 import { approvals, registerApprovals } from './approvals/approvals'
 import { createAskHub } from './approvals/asks'
-import {
-  dropIdentity,
-  loadReachMode,
-  refreshCapabilitySettings,
-  setCaps,
-} from './approvals/capabilityStore'
+import { loadReachMode, refreshCapabilitySettings, setCaps } from './approvals/capabilityStore'
 import { registerPermissionAsk } from './approvals/permissionAsk'
 import { questions, registerExtensionQuestions, registerQuestions } from './approvals/questions'
 import { type ReachListing, createReach } from './approvals/reach'
@@ -156,7 +146,7 @@ import {
   stopControlServer,
 } from './control/controlServer'
 import { registerDocsMethods } from './control/docs'
-import { emitPlatformEvent, emitSessionState, platformEvents } from './control/events'
+import { emitPlatformEvent, platformEvents } from './control/events'
 import {
   type PaneIdentity,
   getByPaneId,
@@ -164,7 +154,6 @@ import {
   moveToWorkspace,
   registerPane,
   rehomeWorkspace,
-  removePane,
   removeWindow,
   resolveExternal,
   setPaneIdSalt,
@@ -194,7 +183,6 @@ import { Marketplace, marketplaceId, normalizeMarketplaceUrl } from './extension
 import { PaneAttentionEvents } from './extensions/paneAttentionEvents'
 import { createMainStrings } from './extensions/strings'
 import { workspaceChipsForWindow } from './extensions/workspaceChips'
-import { openInExternalEditor } from './files/externalEditor'
 import { FileOps } from './files/fileOps'
 import { FileWatches } from './files/fileWatch'
 import { readBinaryConfined } from './files/fsBinary'
@@ -237,6 +225,7 @@ import { Portal, portalSocketPath, portalSupported } from './manager/portal'
 import { callerVerdict, procFs, ttysOf } from './manager/portalCaller'
 import { registerExtensionWake } from './panes/extensionWake'
 import { type PaneAttentionPeek, registerPaneIoMethods } from './panes/paneIo'
+import { registerPaneLifecycleIpc } from './panes/paneLifecycleIpc'
 import {
   listPanes,
   listWorkspaceGroups,
@@ -313,7 +302,7 @@ import {
   ptyIdentityEnv,
   ptyLocaleEnv,
 } from './terminal/terminalType'
-import { type SavedAttention, isKeptAttentionState } from './tmux/attentionFile'
+import type { SavedAttention } from './tmux/attentionFile'
 import { KeptAttention } from './tmux/keptAttention'
 import { createKeptReattach } from './tmux/keptReattach'
 import { createKeptShellsWiring } from './tmux/keptShellsWiring'
@@ -348,10 +337,9 @@ import {
 import { type UpdateRunner, createUpdateRunner } from './updates/updateRun'
 import { installAppMenu } from './windows/appMenu'
 import { type ClipboardEdits, registerClipboardEdits } from './windows/clipboardEdits'
-import { confirmQuit, freezeAll, registerCloseGuard } from './windows/closeGuard'
+import { confirmQuit, freezeAll } from './windows/closeGuard'
 import { attachContextMenu } from './windows/contextMenu'
 import { GlobalHotkey, toggleWindows } from './windows/globalHotkey'
-import { acceptsPrimarySelection } from './windows/primarySelection'
 import {
   QUIT_SIGNALS,
   createQuitTrace,
@@ -371,6 +359,7 @@ import {
 } from './windows/tray'
 import { MAIN_SLOT } from './windows/windowBook'
 import { WindowBroker } from './windows/windowBroker'
+import { registerWindowIpc } from './windows/windowIpc'
 import { createWindowSend } from './windows/windowSend'
 import { registerCmuxSessionIpc } from './workspaces/cmuxSession'
 import { registerProjectRootIpc } from './workspaces/projectRoot'
@@ -382,13 +371,11 @@ import { registerViewMethods, registerViewsIpc } from './workspaces/viewsIpc'
 import { registerWorkspaceMergeIpc } from './workspaces/workspaceMerge'
 import {
   removeWorkspace,
-  setWorkspaceWorkDir,
   windowForWorkspace,
   workDirForWorkspace,
 } from './workspaces/workspaceRegistry'
 import {
   type RestoreOutcome,
-  dropRestoredScrollback,
   loadRestoredScrollback,
   pendingRestoredScrollback,
   saveScrollback,
@@ -1198,165 +1185,29 @@ function createWindow(slot: string, bounds?: WindowBounds): BrowserWindow {
 }
 
 function registerIpc(): void {
-  ipcMain.handle('app:ping', () => 'pong' as const)
-  ipcMain.handle('settings:path', () => join(app.getPath('userData'), 'settings.json'))
-  ipcMain.handle('editor:open-external', (_e, req: ExternalEditorRequest) =>
-    openInExternalEditor(req),
-  )
-  ipcMain.handle(
-    'app:info',
-    (): AppInfo => ({
-      name: PRODUCT_DISPLAY_NAME,
-      version: appVersion(),
-      platform: process.platform,
-      hostName: hostname(),
-      home: app.getPath('home'),
-      desktops: process.platform === 'linux' ? desktopsOf(process.env.XDG_CURRENT_DESKTOP) : [],
-    }),
-  )
-
-  registerCloseGuard()
-  ipcMain.on('window:minimize', (e) => BrowserWindow.fromWebContents(e.sender)?.minimize())
-  ipcMain.on('window:toggle-maximize', (e) => {
-    const win = BrowserWindow.fromWebContents(e.sender)
-    if (!win) return
-    if (win.isMaximized()) win.unmaximize()
-    else win.maximize()
-  })
-  ipcMain.on('window:close', (e) => BrowserWindow.fromWebContents(e.sender)?.close())
-  ipcMain.on('window:quit', () => requestQuit())
-  ipcMain.handle('window:system-dark', () => nativeTheme.shouldUseDarkColors)
-  nativeTheme.on('updated', () => {
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isDestroyed()) {
-        win.webContents.send('window:system-dark-changed', nativeTheme.shouldUseDarkColors)
-      }
-    }
-  })
-  ipcMain.on('window:beep', () => shell.beep())
-  ipcMain.on('window:write-primary', (_e, text: unknown) => {
-    if (acceptsPrimarySelection(process.platform, text)) {
-      clipboard.selection?.writeText(text).catch(() => undefined)
-    }
-  })
-  ipcMain.handle('window:set-zoom', (e, percent: unknown) => {
-    const clamped = clampZoom(percent)
-    e.sender.setZoomFactor(zoomFactor(clamped))
-    return clamped
-  })
-  ipcMain.handle(
-    'window:is-maximized',
-    (e) => BrowserWindow.fromWebContents(e.sender)?.isMaximized() ?? false,
-  )
-
-  ipcMain.on('lifecycle:event', (e, event: LifecycleEvent) => {
-    const windowId = String(e.sender.id)
-    const owner = 'paneId' in event ? getByPaneId(event.paneId)?.windowId : undefined
-    if (owner && owner !== windowId && windows.has(owner)) return
-    if (event.type === 'pane-created') {
-      const identity = registerPane({
-        windowId,
-        workspaceId: event.workspaceId,
-        paneId: event.paneId,
-      })
-      emitPaneEvent('pane.created', {
-        paneId: identity.externalId,
-        workspaceId: event.workspaceId,
-      })
-    } else if (event.type === 'pane-closed') {
-      previews.paneClosed(event.paneId)
-      paneAttentionEvents.forget(event.paneId)
-      artifactProducers.paneClosed(event.paneId)
-      openWaits.paneClosed(event.paneId)
-      const identity = getByPaneId(event.paneId)
-      if (identity) {
-        dropIdentity(identity.externalId)
-        approvals()?.forget(identity.externalId)
-        questions()?.forget(identity.externalId)
-        services.updateRunner?.paneClosed(identity.externalId)
-        emitPaneEvent('pane.closed', {
-          paneId: identity.externalId,
-          workspaceId: event.workspaceId,
-        })
-      }
-      services.extensionHost?.slots.clearPaneChips(event.paneId)
-      releaseMovingPane(event.paneId)
-      if (services.managerService?.isManagerPane(event.paneId)) killPty(event.paneId, 'closed')
-      if (ptys.has(event.paneId)) closedPanes.add(event.paneId)
-      dropRestoredScrollback(event.paneId)
-      hibernatedPanes.delete(event.paneId)
-      browserProfiles.forget(event.paneId)
-      removePane(event.paneId)
-      terminalState.delete(event.paneId)
-      services.processes?.paneClosed(event.paneId)
-      paneWaking.end(event.paneId, 'closed')
-      paneWatch.emit(event.paneId, { kind: 'closed' })
-    } else if (event.type === 'workspace-added') {
-      setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)
-      scratchFolders.bind(event.workspaceId, event.workDir, windowId)
-      services.extensionHost?.slots.publishWorkspaceChips()
-      services.extensionHost?.remoteFolders?.ownerChanged(event.workspaceId)
-    } else if (event.type === 'workspace-closed') {
-      workspaceClosed(event.workspaceId)
-    } else if (event.type === 'workspace-activated') {
-    } else if (event.type === 'workspace-state') {
-      emitSessionState(event.workspaceId, event.state)
-    } else if (event.type === 'pane-attention') {
-      paneWatch.attention(event.paneId, event.state, event.message)
-      paneAttentionEvents.change(event.paneId, event.state)
-      if (ptys.get(event.paneId)?.kept) {
-        keptShells.saveAttention(
-          event.paneId,
-          isKeptAttentionState(event.state)
-            ? { state: event.state, ...(event.message ? { message: event.message } : {}) }
-            : null,
-        )
-      }
-    }
-  })
-
-  ipcMain.on('commands:register', (e, descriptors: CommandDescriptor[]) => {
-    commandsByWindow.set(String(e.sender.id), descriptors)
-  })
-
-  ipcMain.on('terminal:state', (_e, snapshot: TerminalStateSnapshot) => {
-    const cur = terminalState.get(snapshot.paneId)
-    if (!cur || snapshot.generation >= cur.generation) {
-      const changed =
-        !cur ||
-        cur.cwd !== snapshot.cwd ||
-        cur.running !== snapshot.running ||
-        cur.blockCount !== snapshot.blockCount ||
-        cur.lastExitCode !== snapshot.lastExitCode
-      terminalState.set(snapshot.paneId, snapshot)
-      if (cur?.running && !snapshot.running) paneWaking.end(snapshot.paneId, 'failed')
-      if (changed) {
-        paneWatch.emit(snapshot.paneId, { kind: 'state' })
-        const identity = getByPaneId(snapshot.paneId)
-        if (identity) {
-          services.updateRunner?.paneState(
-            identity.externalId,
-            snapshot.running,
-            snapshot.lastExitCode,
-          )
-          emitTerminalExtensionEvents(
-            identity.externalId,
-            identity.workspaceId,
-            cur,
-            snapshot,
-            remoteCwdOfPane(identity.paneId) !== undefined,
-          )
-          emitPlatformEvent('pane.state', {
-            paneId: identity.externalId,
-            generation: snapshot.generation,
-            cwd: snapshot.cwd,
-            running: snapshot.running,
-            blockCount: snapshot.blockCount,
-            lastExitCode: snapshot.lastExitCode,
-          })
-        }
-      }
-    }
+  registerWindowIpc({ requestQuit })
+  registerPaneLifecycleIpc({
+    windows,
+    emitPaneEvent,
+    previews,
+    paneAttentionEvents,
+    artifactProducers,
+    openWaits,
+    services,
+    releaseMovingPane,
+    killPty,
+    ptys,
+    closedPanes,
+    hibernatedPanes,
+    browserProfiles,
+    terminalState,
+    paneWaking,
+    paneWatch,
+    scratchFolders,
+    workspaceClosed,
+    keptShells,
+    commandsByWindow,
+    remoteCwdOfPane,
   })
 
   ipcMain.handle('browser:claim-profile', (e, paneId: unknown, profile: unknown) =>
@@ -1385,29 +1236,6 @@ function registerIpc(): void {
       clearGuestNetwork(wcId)
     }
   })
-}
-
-function emitTerminalExtensionEvents(
-  paneId: string,
-  workspaceId: string,
-  prev: TerminalStateSnapshot | undefined,
-  next: TerminalStateSnapshot,
-  remote: boolean,
-): void {
-  if (next.cwd && prev?.cwd !== next.cwd) {
-    emitPaneEvent('cwd.changed', { paneId, workspaceId, cwd: next.cwd })
-  }
-  if (next.running && !prev?.running) {
-    emitPaneEvent('command.started', { paneId, workspaceId, cwd: next.cwd })
-  } else if (!next.running && prev?.running) {
-    emitPaneEvent('command.finished', {
-      paneId,
-      workspaceId,
-      cwd: next.cwd,
-      exitCode: next.lastExitCode,
-      ...(remote ? { remote: true } : {}),
-    })
-  }
 }
 
 function registerExtensionIpc(host: ExtensionHost): void {
