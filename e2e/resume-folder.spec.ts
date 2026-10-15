@@ -34,7 +34,9 @@ async function hibernatedAgentIn(tree: string, token: string) {
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
   await openWorkspace(win)
-  const payload = JSON.stringify({ session_id: token, cwd: tree })
+  await runInTerminal(win, `cd '${tree}' && echo in-$((6*7))`, shownTerminal(win))
+  await expect(win.locator('.xterm-rows').first()).toContainText('in-42', { timeout: 15_000 })
+  const payload = JSON.stringify({ session_id: token, cwd: home })
   await runInTerminal(
     win,
     `echo '${payload}' | ostia resume-token claude - && echo token-$((6*7))`,
