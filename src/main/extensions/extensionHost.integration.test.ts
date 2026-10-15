@@ -12,8 +12,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { registerPaneListMethods } from '../panes/paneList'
-import { ExtensionHost, MAX_RESTARTS } from './extensionHost'
+import { ExtensionHost } from './extensionHost'
 import { registerExtensionMethods } from './extensionMethods'
+import { MAX_RESTARTS } from './extensionProcesses'
 import { ExtensionStore } from './extensionStore'
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions')
@@ -117,7 +118,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
@@ -241,10 +242,10 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
   })
 
   it('re-enabling resets the crash budget; disabling stops it and blocks commands', async () => {
-    host.setEnabled('echo', false)
-    host.setEnabled('echo', true)
+    host.processes.setEnabled('echo', false)
+    host.processes.setEnabled('echo', true)
     expect((await host.invoke('echo', 'echo', null, caller)).ok).toBe(true)
-    host.setEnabled('echo', false)
+    host.processes.setEnabled('echo', false)
     await until(() => (status() === 'disabled' ? true : undefined))
     expect(await host.invoke('echo', 'echo', null, caller)).toMatchObject({
       ok: false,
@@ -260,7 +261,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
       error: 'extension-disabled',
     })
 
-    host.approve('hello')
+    host.processes.approve('hello')
     expect(hello()).toMatchObject({ enabled: true, granted: ['notify'], panel: { title: 'Hello' } })
     expect(hello()?.commands).toContainEqual(
       expect.objectContaining({ id: 'open', title: 'Hello: Open Panel', palette: true }),

@@ -278,7 +278,7 @@ export async function graphsHarness(
       })
     : null
   registerExtensionMcp({ mcp: () => mcp })
-  if (opts.mcp) host.approve('graphs')
+  if (opts.mcp) host.processes.approve('graphs')
   registerBusMethods({
     managerSendAllowed: () => true,
     announce: () => {},
@@ -407,7 +407,7 @@ export async function graphsHarness(
       ),
     secrets: secretStore,
     stopAll: () => {
-      host.stopAll()
+      host.processes.stopAll()
       mcp?.closeAll()
       rmSync(dir, { recursive: true, force: true })
     },

@@ -118,7 +118,7 @@ describe('ExtensionHost resolves manifest strings for the language', () => {
   })
 
   afterEach(() => {
-    host.stopAll()
+    host.processes.stopAll()
     rmSync(root, { recursive: true, force: true })
     broadcast.mockClear()
     confirm.mockClear()
@@ -223,7 +223,7 @@ describe('ExtensionHost resolves manifest strings for the language', () => {
     startHost({ builtin: true })
     expect(greeter().name).toBe('Greeter')
     writeCatalog(ZH_HANT)
-    host.rescan()
+    host.processes.rescan()
     expect(greeter().name).toBe('問候者')
     expect(
       changedLists()

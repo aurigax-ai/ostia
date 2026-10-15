@@ -165,7 +165,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
   }, 120_000)
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
@@ -262,7 +262,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
       expect(blocked.stdout).toContain('skill ostia SKILL.md,reference')
       expect(blocked.stdout).not.toContain('agent-kit')
 
-      pending.approve('agent-kit')
+      pending.processes.approve('agent-kit')
       const allowed = await inPane('claude')
       const lines = allowed.stdout.split('\n').map((line) => line.trimEnd())
       expect(lines).toContain('skill agent-kit-review SKILL.md,checklist.md')
@@ -276,7 +276,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
       )
       expect(allowed.stdout).not.toContain('agent-kit-undeclared')
     } finally {
-      pending.stopAll()
+      pending.processes.stopAll()
       serving = host
       agentDir = setAgentPlugins(agentPluginContent(host.contributions.agentPlugins()))
     }

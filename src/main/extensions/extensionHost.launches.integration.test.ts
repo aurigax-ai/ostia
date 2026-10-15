@@ -43,7 +43,7 @@ describe('a built-in with sidebar items only starts with the window only after i
       requestTimeoutMs: 4000,
       log: () => {},
     })
-    host.startEager()
+    host.processes.startEager()
     return host
   }
 
@@ -63,7 +63,7 @@ describe('a built-in with sidebar items only starts with the window only after i
   })
 
   afterEach(() => {
-    host?.stopAll()
+    host?.processes.stopAll()
     host = null
   })
 
@@ -85,30 +85,30 @@ describe('a built-in with sidebar items only starts with the window only after i
   it('does not start at launch, and starts on first use', async () => {
     const h = launch()
     await new Promise((r) => setTimeout(r, 300))
-    expect(h.isRunning('tally')).toBe(false)
+    expect(h.processes.isRunning('tally')).toBe(false)
     expect(await ask(h, 'yes')).toMatchObject({ ok: false, error: 'invalid-params' })
-    expect(h.isRunning('tally')).toBe(true)
+    expect(h.processes.isRunning('tally')).toBe(true)
   })
 
   it('starts at the next launch once it asked to, and stops doing so once it said no', async () => {
     let h = launch()
     expect(await ask(h, true)).toEqual({ ok: true })
     expect(JSON.parse(readFileSync(launchesFile(), 'utf8'))).toEqual(['tally'])
-    h.stopAll()
+    h.processes.stopAll()
 
     h = launch()
-    await until(() => h.isRunning('tally'))
+    await until(() => h.processes.isRunning('tally'))
     expect(await ask(h, false)).toEqual({ ok: true })
-    h.stopAll()
+    h.processes.stopAll()
 
     h = launch()
     await new Promise((r) => setTimeout(r, 300))
-    expect(h.isRunning('tally')).toBe(false)
+    expect(h.processes.isRunning('tally')).toBe(false)
   })
 
   it('leaves a non-built-in with sidebar items starting with the window', async () => {
     const h = launch(false)
-    h.approve('tally')
-    await until(() => h.isRunning('tally'))
+    h.processes.approve('tally')
+    await until(() => h.processes.isRunning('tally'))
   })
 })

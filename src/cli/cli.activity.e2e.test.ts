@@ -294,7 +294,7 @@ describe('the Activity extension records two fake agents and shows them in its p
   }, 120_000)
 
   afterAll(() => {
-    serving.stopAll()
+    serving.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
@@ -419,7 +419,7 @@ describe('the Activity extension records two fake agents and shows them in its p
     expect((await snapshot()).showActivity).toBe(true)
     expect(storedSettings).toEqual({ activity: { showActivity: true } })
 
-    host.stopAll()
+    host.processes.stopAll()
     await until(async () =>
       host.list().find((e) => e.id === 'activity')?.status !== 'running' ? true : undefined,
     )
@@ -436,7 +436,7 @@ describe('the Activity extension records two fake agents and shows them in its p
   }, 60_000)
 
   it('answers the panel’s snapshot right after a restart while the extension still loads its settings', async () => {
-    serving.stopAll()
+    serving.processes.stopAll()
     await until(async () =>
       serving.list().find((e) => e.id === 'activity')?.status !== 'running' ? true : undefined,
     )

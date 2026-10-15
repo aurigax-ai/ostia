@@ -77,7 +77,7 @@ describe('the pane.attention event', () => {
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })

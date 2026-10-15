@@ -84,7 +84,7 @@ describe('assist contribution points over a real control socket', () => {
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
@@ -101,7 +101,7 @@ describe('assist contribution points over a real control socket', () => {
   })
 
   it('starts with the window once approved and lists only ready, contributed points', async () => {
-    host.approve('oracle')
+    host.processes.approve('oracle')
     const availability = await until(() =>
       lastAvailability().chat ? lastAvailability() : undefined,
     )
@@ -339,7 +339,7 @@ describe('assist contribution points over a real control socket', () => {
   })
 
   it('drops the points of a disabled extension', async () => {
-    host.setEnabled('oracle', false)
+    host.processes.setEnabled('oracle', false)
     expect(host.assistant.assistAvailability()).toEqual({})
     expect(lastAvailability()).toEqual({})
     expect(host.assistant.assistOverview()).toEqual([])

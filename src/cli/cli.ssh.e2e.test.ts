@@ -135,7 +135,7 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
   }, 120_000)
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     restore('XDG_DATA_HOME', saved.dataHome)
     restore('PATH', saved.path)

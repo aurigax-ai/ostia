@@ -124,13 +124,13 @@ describe('assist routing across providers, models and extensions', () => {
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
 
   it('gives an extension only its own enabled providers and offers the usable models', async () => {
-    host.approve('switchboard')
+    host.processes.approve('switchboard')
     const catalog = await until(() => (lastCatalog()?.models.length ? lastCatalog() : undefined))
     expect(labels(catalog)).toEqual(['Local/small', 'Local/big'])
     expect(catalog.models[0]).toEqual({
@@ -251,7 +251,7 @@ describe('assist routing across providers, models and extensions', () => {
   })
 
   it('offers a plain assist extension next to the providers and routes to it by choice', async () => {
-    host.approve('oracle')
+    host.processes.approve('oracle')
     const catalog = await until(() =>
       lastCatalog()?.models.some((m) => m.ref.extId === 'oracle') ? lastCatalog() : undefined,
     )

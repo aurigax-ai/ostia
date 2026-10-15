@@ -70,7 +70,7 @@ describe('workspace events and sandbox domains for extensions', () => {
   })
 
   afterAll(async () => {
-    host?.stopAll()
+    host?.processes.stopAll()
     await stopControlServer()
     rmSync(dir, { recursive: true, force: true })
     rmSync(dataHome, { recursive: true, force: true })

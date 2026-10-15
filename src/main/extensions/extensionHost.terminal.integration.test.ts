@@ -60,7 +60,7 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })

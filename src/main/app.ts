@@ -2124,9 +2124,9 @@ function emitTerminalExtensionEvents(
 function registerExtensionIpc(host: ExtensionHost): void {
   ipcMain.handle('extensions:list', () => host.list())
   ipcMain.handle('extensions:set-enabled', (_e, extId: string, enabled: boolean) =>
-    host.setEnabled(String(extId), enabled === true),
+    host.processes.setEnabled(String(extId), enabled === true),
   )
-  ipcMain.handle('extensions:approve', (_e, extId: string) => host.approve(String(extId)))
+  ipcMain.handle('extensions:approve', (_e, extId: string) => host.processes.approve(String(extId)))
   ipcMain.handle('extensions:sidebar', () => host.slots.sidebarItems())
   ipcMain.handle('extensions:chips', () => host.slots.paneChips())
   ipcMain.handle('extensions:workspace-chips', (e) =>
@@ -4245,7 +4245,7 @@ app.whenReady().then(() => {
         for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
       }
     },
-    rescan: () => extensionHost?.rescan(),
+    rescan: () => extensionHost?.processes.rescan(),
     locale: readLocale,
     official: OFFICIAL_MARKETPLACE,
   })
@@ -4553,8 +4553,8 @@ app.whenReady().then(() => {
   })
   broker.register()
   broker.openAll()
-  extensionHost.startEager()
-  extensionHost.watchUserExtensions()
+  extensionHost.processes.startEager()
+  extensionHost.processes.watchUserExtensions()
   viewHost.watch()
   app.on('browser-window-focus', emitFocusChanged)
   app.on('browser-window-blur', emitFocusChanged)
@@ -4743,7 +4743,7 @@ app.on('before-quit', (event) => {
   portForwarder.stopAll()
   gitService?.stop()
   portsService?.stop()
-  extensionHost?.stopAll()
+  extensionHost?.processes.stopAll()
   mcpOAuth?.closeAll()
   mcpHost?.closeAll()
   viewHost?.stop()

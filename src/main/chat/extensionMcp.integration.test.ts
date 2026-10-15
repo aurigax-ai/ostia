@@ -104,7 +104,7 @@ describe('ext.mcpCall and ext.mcpServers', () => {
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     mcp.closeAll()
     web.close()
     stopControlServer()
@@ -117,7 +117,7 @@ describe('ext.mcpCall and ext.mcpServers', () => {
         .rpcError,
     ).toContain('needs-elevation: mcp')
     expect(host.list().find((e) => e.id === 'reacher')?.unapproved).toEqual(['mcp'])
-    host.approve('reacher')
+    host.processes.approve('reacher')
     expect(host.list().find((e) => e.id === 'reacher')?.unapproved).toEqual([])
   })
 

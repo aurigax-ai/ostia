@@ -86,7 +86,7 @@ describe('ExtensionHost — approval and capabilities', () => {
 
   it('approving grants exactly the declared caps, persists, and broadcasts the change', () => {
     const { host, deps } = makeHost()
-    const list = host.approve('tool')
+    const list = host.processes.approve('tool')
     expect(list.find((e) => e.id === 'tool')).toMatchObject({
       enabled: true,
       status: 'idle',
@@ -111,7 +111,7 @@ describe('ExtensionHost — approval and capabilities', () => {
 
   it('declining a pending extension records the review and keeps it disabled', () => {
     const { host, deps } = makeHost()
-    host.setEnabled('tool', false)
+    host.processes.setEnabled('tool', false)
     expect(deps.store.get('tool')).toEqual({ enabled: false, approved: [] })
     expect(host.list().find((e) => e.id === 'tool')?.status).toBe('disabled')
   })
@@ -136,7 +136,7 @@ describe('ExtensionHost — approval and capabilities', () => {
       enabled: true,
       granted: ['notify'],
     })
-    expect(host.setEnabled('kanban', false).map((e) => e.id)).not.toContain('kanban')
+    expect(host.processes.setEnabled('kanban', false).map((e) => e.id)).not.toContain('kanban')
   })
 
   it('never grants more than was declared even when every cap is approved', () => {
@@ -160,9 +160,9 @@ describe('ExtensionHost — settings page', () => {
     const { host } = makeHost()
     const paged = () => host.list().find((e) => e.id === 'paged')
     expect(paged()?.settingsPage).toBeNull()
-    host.approve('paged')
+    host.processes.approve('paged')
     expect(paged()?.settingsPage).toEqual({ title: 'Paged', icon: 'kanban' })
-    host.setEnabled('paged', false)
+    host.processes.setEnabled('paged', false)
     expect(paged()?.settingsPage).toBeNull()
     expect(paged()?.settings.map((s) => s.key)).toEqual(['mode'])
   })
@@ -186,7 +186,7 @@ describe('ExtensionHost — command routing guards', () => {
       ok: false,
       error: 'extension-disabled',
     })
-    host.approve('tool')
+    host.processes.approve('tool')
     expect(await host.invoke('tool', 'nope', null, caller)).toMatchObject({
       ok: false,
       error: 'unknown-command',
@@ -195,7 +195,7 @@ describe('ExtensionHost — command routing guards', () => {
 
   it('refuses a command whose declared caps the caller lacks, before starting anything', async () => {
     const { host } = makeHost()
-    host.approve('tool')
+    host.processes.approve('tool')
     expect(await host.invoke('tool', 'wide', null, caller)).toEqual({
       ok: false,
       error: 'needs-elevation',
@@ -265,7 +265,7 @@ describe('ExtensionHost — panels', () => {
 
   it('refuses panels of disabled extensions', async () => {
     const { host } = makeHost()
-    host.setEnabled('board', false)
+    host.processes.setEnabled('board', false)
     expect(await host.resolvePanel('board', { workspaceId: 's1', locale: 'en' })).toEqual({
       ok: false,
       error: 'extension-disabled',
@@ -283,10 +283,10 @@ describe('ExtensionHost — snippets', () => {
     expect(host.contributions.snippets().map((w) => w.extId)).toEqual(['ops'])
     expect(host.contributions.snippets()[0].snippets[0]).toMatchObject({ name: 'Deploy', tags: [] })
 
-    host.approve('mine')
+    host.processes.approve('mine')
     expect(host.contributions.snippets().map((w) => w.extId)).toEqual(['ops', 'mine'])
 
-    host.setEnabled('ops', false)
+    host.processes.setEnabled('ops', false)
     expect(host.contributions.snippets().map((w) => w.extId)).toEqual(['mine'])
   })
 })
@@ -301,7 +301,7 @@ describe('ExtensionHost — completions', () => {
     expect(host.contributions.completionDirs()).toEqual([
       join(base, 'builtin', 'completions', 'specs'),
     ])
-    host.setEnabled('completions', false)
+    host.processes.setEnabled('completions', false)
     expect(host.contributions.completionDirs()).toEqual([])
   })
 })
@@ -369,7 +369,7 @@ describe('ExtensionHost — language servers', () => {
     ])
     expect(deps.store.get('lsp-demo')).toMatchObject({ enabled: true, serversOff: ['beta'] })
     expect(onChanged).toHaveBeenCalledTimes(1)
-    host.setEnabled('lsp-demo', false)
+    host.processes.setEnabled('lsp-demo', false)
     expect(deps.store.get('lsp-demo')).toMatchObject({ enabled: false, serversOff: ['beta'] })
     expect(
       host.contributions
@@ -403,7 +403,7 @@ describe('ExtensionHost — language servers', () => {
 
   it('runs a user extension’s server only after the human approved it with the capability', () => {
     const { host, deps } = makeHost()
-    host.approve('lsp-user')
+    host.processes.approve('lsp-user')
     expect(host.contributions.languageServers()[2].state).toBe('on')
     deps.store.set('lsp-user', { enabled: true, approved: [] })
     expect(host.contributions.languageServers()[2].state).toBe('pending')
@@ -444,7 +444,7 @@ describe('ExtensionHost agent plugins', () => {
     expect(host.contributions.agentPlugins()).toEqual([])
     deps.store.set('kit', { enabled: true, approved: ['notify'] })
     expect(host.contributions.agentPlugins()).toEqual([])
-    host.approve('kit')
+    host.processes.approve('kit')
     expect(host.contributions.agentPlugins()).toEqual([
       {
         extId: 'kit',
@@ -453,15 +453,15 @@ describe('ExtensionHost agent plugins', () => {
         hooks: kit.contributes.agentHooks,
       },
     ])
-    host.setEnabled('kit', false)
+    host.processes.setEnabled('kit', false)
     expect(host.contributions.agentPlugins()).toEqual([])
   })
 
   it('tells main to rebuild the agent plugin when an extension is approved or switched', () => {
     const onChanged = vi.fn()
     const { host } = makeHost({ onChanged })
-    host.approve('kit')
-    host.setEnabled('kit', false)
+    host.processes.approve('kit')
+    host.processes.setEnabled('kit', false)
     expect(onChanged).toHaveBeenCalledTimes(2)
   })
 })

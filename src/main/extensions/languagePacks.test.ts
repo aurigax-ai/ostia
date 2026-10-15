@@ -140,7 +140,7 @@ describe('loadLanguagePacks', () => {
       },
     ])
 
-    const list = host.setEnabled('langpack-zh-hant', false)
+    const list = host.processes.setEnabled('langpack-zh-hant', false)
 
     expect(broadcast).toHaveBeenCalledWith('extensions:changed', list)
     expect(loadLanguagePacks(deps)).toEqual([])

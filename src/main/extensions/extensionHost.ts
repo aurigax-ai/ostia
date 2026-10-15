@@ -1,22 +1,14 @@
-import { type ChildProcess, spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
-import { type FSWatcher, mkdirSync, readdirSync, watch } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { agentSkillId, hookAgentsFor } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
-import { appEnv, withoutEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import type { AssistOpenUiRequest } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import {
   ALL_CAPABILITIES,
   type Capability,
 } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import {
-  EXTENSION_API_ENV,
-  EXTENSION_API_VERSION,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensionApi'
-import {
   EXTENSION_BASE_LOCALE,
-  EXTENSION_LOCALES_DIR,
   type ExtensionLocaleChangedPayload,
   LOCALE_CHANGED_EVENT,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
@@ -59,12 +51,11 @@ import {
   loadLocaleCatalogs,
   manifestIn,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/localeCatalogs'
-import { debounce } from 'es-toolkit'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import type { RedactionResult } from '../../shared/privacy/redaction'
 import type { AgentOfferDelivery, HeldResume } from '../agents/extensionAgents'
-import { dropIdentity, hasCap, setCaps } from '../approvals/capabilityStore'
-import { type PaneIdentity, registerExtension, removeExtension } from '../control/idRegistry'
+import { hasCap } from '../approvals/capabilityStore'
+import type { PaneIdentity } from '../control/idRegistry'
 import {
   REMOTE_REQUEST_TIMEOUT_MS,
   RemoteFolders,
@@ -76,6 +67,7 @@ import type { ExtensionConnections } from './extensionConnections'
 import { ExtensionContributions } from './extensionContributions'
 import type { ExtensionExec } from './extensionExec'
 import type { ExtensionLaunches } from './extensionLaunches'
+import { ExtensionProcesses } from './extensionProcesses'
 import {
   type ExtensionConfirmRequest,
   ExtensionRuns,
@@ -86,61 +78,15 @@ import {
   type Runtime,
   fail,
   isPlainRecord,
+  newRuntime,
   withTimeout,
 } from './extensionRuntime'
 import { ExtensionSlots } from './extensionSlots'
 import { type ExtensionStore, effectiveRecord, grantedCaps, needsApproval } from './extensionStore'
 import { ExtensionWindowRequests } from './extensionWindowRequests'
-
-export const MAX_RESTARTS = 3
 const REQUEST_TIMEOUT_MS = 30_000
 const INTERACTIVE_TIMEOUT_MS = 10 * 60_000
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost'])
-const RESCAN_DEBOUNCE_MS = 250
-
-function newRuntime(ext: LoadedExtension): Runtime {
-  return {
-    ext,
-    proc: null,
-    identity: null,
-    conn: null,
-    ready: new Map(),
-    subscriptions: new Set(),
-    state: 'idle',
-    restarts: 0,
-    restartTimer: null,
-    stopping: false,
-    restartAfterExit: false,
-    panelOrigins: new Set(),
-    assistStatus: {},
-    assistReport: null,
-    offering: false,
-    reached: new Set(),
-    opened: new Set(),
-    callerWorkspaces: new Set(),
-  }
-}
-
-function startsWithWindow(rt: Runtime): boolean {
-  const c = rt.ext.manifest.contributes
-  return (
-    c.sidebarItems || c.paneChips.length > 0 || c.workspaceChips.length > 0 || c.assist.length > 0
-  )
-}
-
-function subdirectories(root: string): string[] {
-  try {
-    return readdirSync(root, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => join(root, entry.name))
-  } catch {
-    return []
-  }
-}
-
-function manifestSignature(ext: LoadedExtension): string {
-  return JSON.stringify([ext.dir, ext.builtin, ext.manifest, ext.catalogs])
-}
 
 export interface ExtensionHostDeps {
   roots: ExtensionRoot[]
@@ -255,9 +201,6 @@ export function loopbackOrigin(url: string): string | null {
 export class ExtensionHost {
   private runtimes = new Map<string, Runtime>()
   private changes = new EventEmitter()
-  private watchers: FSWatcher[] = []
-  private readonly scheduleRescan = debounce(() => this.rescan(), RESCAN_DEBOUNCE_MS)
-  private watching = false
   private announcedLocale: string
   readonly remoteFolders: RemoteFolders | null
   readonly assistant: ExtensionAssist
@@ -266,6 +209,7 @@ export class ExtensionHost {
   readonly contributions: ExtensionContributions
   readonly config: ExtensionConfig
   readonly windowRequests: ExtensionWindowRequests
+  readonly processes: ExtensionProcesses
 
   constructor(private readonly deps: ExtensionHostDeps) {
     this.changes.setMaxListeners(0)
@@ -286,8 +230,8 @@ export class ExtensionHost {
       record: (rt) => this.record(rt),
       granted: (rt) => this.granted(rt),
       settingValues: (rt) => this.config.settingValues(rt),
-      eager: (rt) => this.eager(rt),
-      start: (rt) => this.start(rt),
+      eager: (rt) => this.processes.eager(rt),
+      start: (rt) => this.processes.start(rt),
       changed: (rt) => this.changed(rt),
     })
     this.runs = new ExtensionRuns({
@@ -310,13 +254,28 @@ export class ExtensionHost {
       granted: (rt) => this.granted(rt),
       shownName: (rt) => this.shownName(rt),
       runtimeOf: (identity, conn) => this.runtimeOf(identity, conn),
-      onDemand: (rt) => this.onDemand(rt),
-      eager: (rt) => this.eager(rt),
-      start: (rt) => this.start(rt),
+      onDemand: (rt) => this.processes.onDemand(rt),
+      eager: (rt) => this.processes.eager(rt),
+      start: (rt) => this.processes.start(rt),
       settingValues: (rt) => this.config.settingValues(rt),
     })
     this.announcedLocale = this.currentLocale()
     this.remoteFolders = this.createRemoteFolders()
+    this.processes = new ExtensionProcesses({
+      deps,
+      runtimes: this.runtimes,
+      changes: this.changes,
+      remoteFolders: this.remoteFolders,
+      assistant: this.assistant,
+      slots: this.slots,
+      list: () => this.list(),
+      record: (rt) => this.record(rt),
+      active: (rt) => this.active(rt),
+      changed: (rt) => this.changed(rt),
+      granted: (rt) => this.granted(rt),
+      discover: () => this.discover(),
+      log: (extId, line) => this.log(extId, line),
+    })
     this.windowRequests = new ExtensionWindowRequests({
       deps,
       remoteFolders: this.remoteFolders,
@@ -472,278 +431,6 @@ export class ExtensionHost {
     this.deps.onChanged?.()
   }
 
-  setEnabled(extId: string, enabled: boolean): ExtensionInfo[] {
-    const rt = this.runtimes.get(extId)
-    if (!rt) return this.list()
-    const record = this.record(rt)
-    this.deps.store.set(extId, { ...record, enabled, approved: record.approved ?? [] })
-    rt.restarts = 0
-    if (rt.state === 'crashed') rt.state = 'idle'
-    if (!enabled) this.stop(rt)
-    else if (this.active(rt) && rt.proc) rt.restartAfterExit = true
-    else if (this.eager(rt)) this.start(rt)
-    this.changed(rt)
-    return this.list()
-  }
-
-  approve(extId: string): ExtensionInfo[] {
-    const rt = this.runtimes.get(extId)
-    if (!rt) return this.list()
-    this.deps.store.set(extId, {
-      ...this.record(rt),
-      enabled: true,
-      approved: [...rt.ext.manifest.capabilities],
-    })
-    if (rt.identity) setCaps(rt.identity.externalId, this.granted(rt))
-    if (this.eager(rt)) this.start(rt)
-    this.changed(rt)
-    return this.list()
-  }
-
-  private onDemand(rt: Runtime): boolean {
-    if (!rt.ext.builtin) return false
-    const c = rt.ext.manifest.contributes
-    if (c.assist.length > 0) return this.assistant.assistEntries(rt).length === 0
-    const chips = c.paneChips.length > 0 || c.workspaceChips.length > 0
-    return !chips && !this.deps.launches?.has(rt.ext.manifest.id)
-  }
-
-  private eager(rt: Runtime): boolean {
-    return this.active(rt) && startsWithWindow(rt) && !this.onDemand(rt)
-  }
-
-  isRunning(extId: string): boolean {
-    return Boolean(this.runtimes.get(extId)?.proc)
-  }
-
-  startEager(): void {
-    for (const rt of this.runtimes.values()) {
-      if (this.eager(rt)) this.start(rt)
-    }
-  }
-
-  rescan(): void {
-    const found = new Map(this.discover().map((ext) => [ext.manifest.id, ext]))
-    let touched = false
-    for (const [id, rt] of [...this.runtimes]) {
-      const next = found.get(id)
-      if (!next) {
-        this.stop(rt)
-        this.runtimes.delete(id)
-        touched = true
-      } else if (manifestSignature(next) !== manifestSignature(rt.ext)) {
-        this.replace(rt, next)
-        touched = true
-      }
-    }
-    for (const [id, ext] of found) {
-      if (this.runtimes.has(id)) continue
-      const rt = newRuntime(ext)
-      this.runtimes.set(id, rt)
-      if (this.eager(rt)) this.start(rt)
-      touched = true
-    }
-    if (touched) this.changed()
-    this.watchRoots()
-  }
-
-  private replace(rt: Runtime, ext: LoadedExtension): void {
-    this.stop(rt)
-    rt.ext = ext
-    rt.restarts = 0
-    rt.state = 'idle'
-    if (rt.proc) rt.restartAfterExit = true
-    else if (this.eager(rt)) this.start(rt)
-  }
-
-  watchUserExtensions(): void {
-    for (const root of this.deps.roots) {
-      if (root.builtin) continue
-      try {
-        mkdirSync(root.dir, { recursive: true })
-      } catch (err) {
-        this.log('host', `cannot create ${root.dir}: ${(err as Error).message}`)
-      }
-    }
-    this.watching = true
-    this.watchRoots()
-  }
-
-  private watchRoots(): void {
-    if (!this.watching) return
-    this.closeWatchers()
-    const roots = this.deps.roots.filter((r) => !r.builtin).map((r) => r.dir)
-    const extensionDirs = roots.flatMap(subdirectories)
-    const localeDirs = extensionDirs.map((dir) => join(dir, EXTENSION_LOCALES_DIR))
-    const dirs = [...roots, ...extensionDirs, ...localeDirs]
-    for (const dir of dirs) {
-      try {
-        const watcher = watch(dir, () => this.scheduleRescan())
-        watcher.on('error', () => this.scheduleRescan())
-        this.watchers.push(watcher)
-      } catch {}
-    }
-  }
-
-  private closeWatchers(): void {
-    for (const watcher of this.watchers) watcher.close()
-    this.watchers = []
-  }
-
-  private start(rt: Runtime): void {
-    const main = rt.ext.manifest.main
-    if (!main || rt.proc || rt.restartTimer || !this.active(rt)) return
-    const id = rt.ext.manifest.id
-    const identity = registerExtension(id)
-    setCaps(identity.externalId, this.granted(rt))
-    const mainPath = join(rt.ext.dir, main)
-    const script = /\.(c|m)?js$/.test(main)
-    const env: NodeJS.ProcessEnv = {
-      ...withoutEnv(process.env, ['PANE_ID', 'START_DIR']),
-      ...appEnv({
-        SOCKET: this.deps.socketPath(),
-        TOKEN: identity.token,
-        [EXTENSION_API_ENV]: EXTENSION_API_VERSION,
-        EXTENSION_ID: id,
-        EXTENSION_DIR: rt.ext.dir,
-        ...(this.deps.dataDir ? { EXTENSION_DATA: join(this.deps.dataDir, id) } : {}),
-      }),
-    }
-    if (script) env.ELECTRON_RUN_AS_NODE = '1'
-    rt.identity = identity
-    rt.stopping = false
-    rt.state = 'starting'
-    const proc = spawn(script ? this.deps.nodePath : mainPath, script ? [mainPath] : [], {
-      cwd: rt.ext.dir,
-      env,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    rt.proc = proc
-    const pipeLog = (chunk: Buffer): void => {
-      for (const line of chunk.toString().split('\n'))
-        if (line.trim()) this.log(id, line.slice(0, 500))
-    }
-    proc.stdout?.on('data', pipeLog)
-    proc.stderr?.on('data', pipeLog)
-    proc.on('error', (err) => {
-      this.log(id, `failed to start: ${err.message}`)
-      this.onExit(rt, proc)
-    })
-    proc.on('exit', () => this.onExit(rt, proc))
-    this.changed(rt)
-  }
-
-  private onExit(rt: Runtime, proc: ChildProcess): void {
-    if (rt.proc !== proc) return
-    const id = rt.ext.manifest.id
-    rt.proc = null
-    this.revoke(rt)
-    rt.ready.clear()
-    rt.subscriptions.clear()
-    rt.panelOrigins.clear()
-    rt.assistStatus = {}
-    rt.assistReport = null
-    this.assistant.dropAssistStreams(rt)
-    this.slots.clearSidebarOf(id)
-    this.slots.clearChipsWhere((chip) => chip.extId === id)
-    this.slots.clearWorkspaceChipsWhere((chip) => chip.extId === id)
-    this.remoteFolders?.extensionGone(id)
-    this.deps.exec?.stopFor(id)
-    if (rt.stopping || !this.active(rt)) {
-      rt.state = 'idle'
-    } else if (rt.restarts < MAX_RESTARTS) {
-      rt.restarts += 1
-      rt.state = 'starting'
-      const delay = (this.deps.restartDelayMs ?? 500) * 2 ** (rt.restarts - 1)
-      this.log(id, `exited; restarting in ${delay}ms (${rt.restarts}/${MAX_RESTARTS})`)
-      rt.restartTimer = setTimeout(() => {
-        rt.restartTimer = null
-        this.start(rt)
-      }, delay)
-    } else {
-      rt.state = 'crashed'
-      this.log(id, 'exited too often; not restarting')
-      this.deps.onCrashed?.(id, rt.ext.builtin)
-    }
-    if (rt.restartAfterExit) {
-      rt.restartAfterExit = false
-      if (this.runtimes.get(id) === rt) this.start(rt)
-    }
-    this.changed(rt)
-  }
-
-  private revoke(rt: Runtime): void {
-    if (rt.identity) {
-      dropIdentity(rt.identity.externalId)
-      removeExtension(rt.ext.manifest.id, rt.identity.externalId)
-    }
-    rt.identity = null
-    rt.conn?.dispose()
-    rt.conn = null
-  }
-
-  private stop(rt: Runtime): void {
-    rt.stopping = true
-    rt.restartAfterExit = false
-    if (rt.restartTimer) clearTimeout(rt.restartTimer)
-    rt.restartTimer = null
-    this.revoke(rt)
-    rt.proc?.kill('SIGTERM')
-    if (!rt.proc) rt.state = 'idle'
-    rt.assistStatus = {}
-    rt.assistReport = null
-    this.assistant.dropAssistStreams(rt)
-    const id = rt.ext.manifest.id
-    this.slots.clearSidebarOf(id)
-    this.slots.clearChipsWhere((chip) => chip.extId === id)
-    this.slots.clearWorkspaceChipsWhere((chip) => chip.extId === id)
-    this.remoteFolders?.extensionGone(id)
-    this.deps.exec?.stopFor(id)
-  }
-
-  stopAll(): void {
-    this.watching = false
-    this.closeWatchers()
-    this.scheduleRescan.cancel()
-    for (const rt of this.runtimes.values()) this.stop(rt)
-    this.deps.exec?.killAll()
-  }
-
-  private waitFor(rt: Runtime, predicate: () => boolean): Promise<void> {
-    if (predicate()) return Promise.resolve()
-    const id = rt.ext.manifest.id
-    return new Promise((resolve, reject) => {
-      const finish = (err?: Error): void => {
-        clearTimeout(timer)
-        this.changes.off(id, check)
-        if (err) reject(err)
-        else resolve()
-      }
-      const check = (): void => {
-        if (predicate()) finish()
-        else if (rt.state === 'crashed') finish(new Error('extension crashed'))
-        else if (!rt.proc && !rt.restartTimer) finish(new Error('extension stopped'))
-      }
-      const timer = setTimeout(
-        () => finish(new Error('extension did not become ready')),
-        this.deps.readyTimeoutMs ?? 10_000,
-      )
-      this.changes.on(id, check)
-    })
-  }
-
-  private async connected(rt: Runtime, command?: string): Promise<MessageConnection> {
-    if (rt.state === 'crashed') throw new Error('extension crashed')
-    if (!rt.ext.manifest.main) throw new Error('extension has no process')
-    if (rt.proc && rt.stopping) rt.restartAfterExit = true
-    this.start(rt)
-    await this.waitFor(rt, () =>
-      Boolean(rt.conn && (command === undefined || rt.ready.has(command))),
-    )
-    if (!rt.conn) throw new Error('extension disconnected')
-    return rt.conn
-  }
-
   async invoke(
     extId: string,
     command: string,
@@ -759,7 +446,7 @@ export class ExtensionHost {
     if (missing) return fail('needs-elevation', missing)
     if (caller.workspaceId) rt.callerWorkspaces.add(caller.workspaceId)
     try {
-      const conn = await this.connected(rt, command)
+      const conn = await this.processes.connected(rt, command)
       const timeoutMs = cmd.interactive
         ? (this.deps.interactiveTimeoutMs ?? INTERACTIVE_TIMEOUT_MS)
         : (this.deps.requestTimeoutMs ?? REQUEST_TIMEOUT_MS)
@@ -834,12 +521,12 @@ export class ExtensionHost {
     const path = context.path === undefined ? null : panelPath(context.path)
     if (context.path !== undefined && !path) return { ok: false, error: 'invalid-panel-path' }
     if (panel.entry !== 'url') {
-      if (rt.ext.manifest.main) this.start(rt)
+      if (rt.ext.manifest.main) this.processes.start(rt)
       const src = this.filePanelUrl(rt, panel.entry, path)
       return src ? { ok: true, src } : { ok: false, error: 'panel-url-not-allowed' }
     }
     try {
-      const conn = await this.connected(rt)
+      const conn = await this.processes.connected(rt)
       const caller = this.userCaller(context.workspaceId, { locale: context.locale })
       if (context.workspaceId) rt.callerWorkspaces.add(context.workspaceId)
       const res = await withTimeout(
@@ -1037,17 +724,5 @@ export class ExtensionHost {
         payload: { folderId: folder.id },
       })
       .catch(() => {})
-  }
-
-  reloadRecords(): void {
-    for (const rt of this.runtimes.values()) {
-      if (!this.active(rt)) {
-        if (rt.proc || rt.restartTimer) this.stop(rt)
-      } else {
-        if (rt.identity) setCaps(rt.identity.externalId, this.granted(rt))
-        if (this.eager(rt)) this.start(rt)
-      }
-    }
-    this.changed()
   }
 }

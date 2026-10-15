@@ -84,7 +84,7 @@ describe('ExtensionHost agent tasks: ext.agents, ext.runAgent, ext.offerToAgent,
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })

@@ -64,7 +64,7 @@ describe('ExtensionHost remote folders (real extension process, real socket)', (
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
@@ -228,7 +228,7 @@ describe('ExtensionHost remote folders (real extension process, real socket)', (
   it('SSH-C60 drops every folder of an extension that stops', async () => {
     await open('/srv/last')
     expect(folders.forWindow('win1')).toHaveLength(1)
-    host.setEnabled('shelf', false)
+    host.processes.setEnabled('shelf', false)
     expect(folders.forWindow('win1')).toEqual([])
     expect(published.at(-1)).toEqual([])
   })

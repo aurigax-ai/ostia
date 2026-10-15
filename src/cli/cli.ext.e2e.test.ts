@@ -103,7 +103,7 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
   }, 120_000)
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     if (savedDataHome === undefined) Reflect.deleteProperty(process.env, 'XDG_DATA_HOME')
     else process.env.XDG_DATA_HOME = savedDataHome

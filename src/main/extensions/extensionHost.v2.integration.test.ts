@@ -104,7 +104,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
@@ -211,9 +211,9 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
         caller,
       )
       expect(host.slots.paneChips()).toHaveLength(1)
-      host.setEnabled('echo', false)
+      host.processes.setEnabled('echo', false)
       expect(chipBroadcast()).toEqual([])
-      host.setEnabled('echo', true)
+      host.processes.setEnabled('echo', true)
       expect(await host.invoke('echo', 'echo', null, caller)).toMatchObject({ ok: true })
     })
 
@@ -302,9 +302,9 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
       expect(host.slots.workspaceChips().map((c) => c.workspaceId)).toEqual(['s1', 's2'])
       host.slots.clearWorkspaceChips('s1')
       expect(lastWorkspaceChips().map((c) => c.workspaceId)).toEqual(['s2'])
-      host.setEnabled('echo', false)
+      host.processes.setEnabled('echo', false)
       expect(lastWorkspaceChips()).toEqual([])
-      host.setEnabled('echo', true)
+      host.processes.setEnabled('echo', true)
       expect(await host.invoke('echo', 'echo', null, caller)).toMatchObject({ ok: true })
     })
   })
@@ -524,14 +524,14 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
         enabled: true,
         approved: ['read-board', 'notify', 'browse', 'process', 'drive-self'],
       })
-      host.reloadRecords()
+      host.processes.reloadRecords()
       const noScope = await call('pane.setAttention', {
         targetPaneId: pane.externalId,
         state: 'done',
       })
       expect(noScope).toMatchObject({ ok: false, message: 'needs-elevation: all-workspaces' })
       store.set('echo', { enabled: true, approved: ['read-board', 'notify', 'all-workspaces'] })
-      host.reloadRecords()
+      host.processes.reloadRecords()
       const noCap = await call('pane.setAttention', {
         targetPaneId: pane.externalId,
         state: 'done',

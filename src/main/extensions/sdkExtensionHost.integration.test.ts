@@ -91,7 +91,7 @@ describe('an extension made from the SDK template', () => {
       language = 'zh-Hant'
       expect(title()).toBe('哈囉：打招呼')
     } finally {
-      host.stopAll()
+      host.processes.stopAll()
       stopControlServer()
       rmSync(dir, { recursive: true, force: true })
     }
