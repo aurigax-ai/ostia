@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { BrowserWindow, clipboard, dialog, ipcMain, safeStorage } from 'electron'
+import Papa from 'papaparse'
 import {
   CREDENTIAL_FIELD_MAX,
   type CredentialImportResult,
@@ -8,7 +9,6 @@ import {
   type CredentialSaveResult,
   type CredentialSummary,
   normalizeOrigin,
-  passwordRowsFromCsv,
 } from '../../shared/browser/credentials'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 
@@ -33,6 +33,29 @@ export interface CredentialStore {
   password: (id: string) => string | null
   forOrigin: (url: string) => (CredentialSummary & { password: string })[]
   importRows: (rows: CredentialInput[]) => CredentialImportResult
+}
+
+const URL_COLUMNS = ['url', 'login_uri', 'origin', 'website']
+const USER_COLUMNS = ['username', 'login_username', 'login', 'user']
+const PASSWORD_COLUMNS = ['password', 'login_password']
+
+export function passwordRowsFromCsv(text: string): CredentialInput[] | null {
+  const [header, ...rows] = Papa.parse<string[]>(text, {
+    delimiter: ',',
+    skipEmptyLines: 'greedy',
+  }).data
+  if (!header) return null
+  const names = header.map((h) => h.trim().toLowerCase())
+  const col = (options: string[]) => names.findIndex((n) => options.includes(n))
+  const urlAt = col(URL_COLUMNS)
+  const userAt = col(USER_COLUMNS)
+  const passwordAt = col(PASSWORD_COLUMNS)
+  if (urlAt < 0 || passwordAt < 0) return null
+  return rows.map((r) => ({
+    origin: r[urlAt] ?? '',
+    username: userAt >= 0 ? (r[userAt] ?? '') : '',
+    password: r[passwordAt] ?? '',
+  }))
 }
 
 const summary = ({ id, origin, username, updatedAt }: StoredCredential): CredentialSummary => ({

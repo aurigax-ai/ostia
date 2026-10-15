@@ -8,7 +8,7 @@ vi.mock('electron', () => ({
   safeStorage: {},
 }))
 
-const { createCredentialStore } = await import('./credentials')
+const { createCredentialStore, passwordRowsFromCsv } = await import('./credentials')
 
 function memoryStore(canEncrypt = true) {
   let saved: unknown[] = []
@@ -97,5 +97,36 @@ describe('credential store', () => {
     expect(store.remove('c1')).toBe(true)
     expect(store.remove('c1')).toBe(false)
     expect(store.list()).toEqual([])
+  })
+})
+
+describe('passwordRowsFromCsv', () => {
+  it('reads a Chrome export', () => {
+    expect(
+      passwordRowsFromCsv('name,url,username,password,note\ngh,https://github.com/,me,s3cret,\n'),
+    ).toEqual([{ origin: 'https://github.com/', username: 'me', password: 's3cret' }])
+  })
+
+  it('reads a Bitwarden export by its column names', () => {
+    const csv =
+      'folder,favorite,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp\n' +
+      ',,login,gh,,,0,https://github.com,me,pw,\n'
+    expect(passwordRowsFromCsv(csv)).toEqual([
+      { origin: 'https://github.com', username: 'me', password: 'pw' },
+    ])
+  })
+
+  it('reads quoted fields with commas, doubled quotes and newlines, and skips blank lines', () => {
+    const csv =
+      'url,username,password\r\n"https://a.test/x,y","say ""hi""","two\nlines"\r\n \r\nhttps://b.test,,p\r\n'
+    expect(passwordRowsFromCsv(csv)).toEqual([
+      { origin: 'https://a.test/x,y', username: 'say "hi"', password: 'two\nlines' },
+      { origin: 'https://b.test', username: '', password: 'p' },
+    ])
+  })
+
+  it('returns null when there is no url or password column', () => {
+    expect(passwordRowsFromCsv('name,note\na,b\n')).toBeNull()
+    expect(passwordRowsFromCsv('')).toBeNull()
   })
 })
