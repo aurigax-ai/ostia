@@ -17,7 +17,7 @@ import {
   registerTargetableMethod,
 } from '../control/controlServer'
 import { getByPaneId, resolveExternal } from '../control/idRegistry'
-import type { TerminalOpenRequest } from '../extensions/extensionHost'
+import type { TerminalOpenRequest } from '../extensions/extensionRuns'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import { PromptMarkScanner, plainTerminalText } from '../terminal/terminalText'
 import {

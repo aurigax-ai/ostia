@@ -8,11 +8,8 @@ import type {
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
-import {
-  type ExtensionConfirmRequest,
-  ExtensionHost,
-  registerExtensionMethods,
-} from './extensionHost'
+import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import type { ExtensionConfirmRequest } from './extensionRuns'
 import { ExtensionStore } from './extensionStore'
 
 const caller: ExtensionCaller = { kind: 'user', workspaceId: 's1', capabilities: [] }

@@ -15,12 +15,8 @@ import type { RemoteFolder } from '@aurigax-ai/ostia-extension-sdk/contract/remo
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerControlServer, stopControlServer } from '../main/control/controlServer'
 import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
-import {
-  type ExtensionConfirmRequest,
-  ExtensionHost,
-  type TerminalOpenRequest,
-  registerExtensionMethods,
-} from '../main/extensions/extensionHost'
+import { ExtensionHost, registerExtensionMethods } from '../main/extensions/extensionHost'
+import type { ExtensionConfirmRequest, TerminalOpenRequest } from '../main/extensions/extensionRuns'
 import { ExtensionStore } from '../main/extensions/extensionStore'
 import type { RemoteFolderConfirm } from '../main/files/remoteFolders'
 import type { CommandResult } from '../shared/types'

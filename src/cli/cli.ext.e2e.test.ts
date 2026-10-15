@@ -5,12 +5,8 @@ import { join } from 'node:path'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerControlServer, stopControlServer } from '../main/control/controlServer'
 import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
-import {
-  type ExtensionConfirmRequest,
-  ExtensionHost,
-  type TerminalOpenRequest,
-  registerExtensionMethods,
-} from '../main/extensions/extensionHost'
+import { ExtensionHost, registerExtensionMethods } from '../main/extensions/extensionHost'
+import type { ExtensionConfirmRequest, TerminalOpenRequest } from '../main/extensions/extensionRuns'
 import { ExtensionStore } from '../main/extensions/extensionStore'
 import { requirementsInstallArgs } from '../main/platform/systemRequirementsIpc'
 import { HostPaneGrants } from '../main/sandbox/hostPanes'

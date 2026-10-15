@@ -1,7 +1,6 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { type FSWatcher, mkdirSync, readdirSync, watch } from 'node:fs'
-import { homedir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
@@ -26,9 +25,6 @@ import {
   LOCALE_CHANGED_EVENT,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
 import {
-  AGENT_OFFER_LABEL_MAX,
-  AGENT_OFFER_TEXT_MAX,
-  AGENT_PROMPT_MAX,
   CONNECTIONS_CHANGED_EVENT,
   DIFF_TEXT_MAX,
   EXTENSION_EVENT_TYPES,
@@ -53,12 +49,7 @@ import {
   type ExtensionSettingResult,
   type ExtensionSettingValues,
   type ExtensionStatus,
-  OPEN_TERMINAL_WAIT_MAX_MS,
   SETTINGS_CHANGED_EVENT,
-  TERMINAL_ARG_MAX,
-  TERMINAL_COMMAND_MAX_ARGS,
-  TERMINAL_TITLE_MAX,
-  type TerminalWait,
   type WorkspaceChip,
   commandArgument,
   effectiveSettingValues,
@@ -89,30 +80,12 @@ import {
   manifestIn,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/localeCatalogs'
 import { debounce } from 'es-toolkit'
-import type { CancellationToken, MessageConnection } from 'vscode-jsonrpc/node'
+import type { MessageConnection } from 'vscode-jsonrpc/node'
 import type { RedactionResult } from '../../shared/privacy/redaction'
-import { quoteArgv } from '../../shared/terminal/shellQuote'
-import {
-  type AgentOfferDelivery,
-  type HeldResume,
-  REACHED_PANES_MAX,
-  agentName,
-  agentPrompt,
-  agentTaskLimiter,
-  continueCommand,
-  offerLabel,
-  offerText,
-  workspaceFolder,
-  workspaceIdOf,
-} from '../agents/extensionAgents'
+import type { AgentOfferDelivery, HeldResume } from '../agents/extensionAgents'
 import { dropIdentity, hasCap, setCaps } from '../approvals/capabilityStore'
 import { registerControlMethod } from '../control/controlServer'
-import {
-  type PaneIdentity,
-  registerExtension,
-  removeExtension,
-  resolveExternal,
-} from '../control/idRegistry'
+import { type PaneIdentity, registerExtension, removeExtension } from '../control/idRegistry'
 import {
   REMOTE_REQUEST_TIMEOUT_MS,
   RemoteFolders,
@@ -120,11 +93,15 @@ import {
 } from '../files/remoteFolders'
 import type { EditorLanguageSource } from '../lsp/editorLanguages'
 import type { LanguageServerSource } from '../lsp/languageServers'
-import { spawnFolder } from '../terminal/spawnCwd'
 import { ExtensionAssist } from './extensionAssist'
 import type { ExtensionConnections } from './extensionConnections'
 import type { ExtensionExec } from './extensionExec'
 import type { ExtensionLaunches } from './extensionLaunches'
+import {
+  type ExtensionConfirmRequest,
+  ExtensionRuns,
+  type TerminalOpenRequest,
+} from './extensionRuns'
 import {
   type LoadedExtension,
   type Runtime,
@@ -262,8 +239,6 @@ export interface ExtensionHostDeps {
     publish: (folders: RemoteFolders) => void
   }
 }
-
-const HOST_TERMINAL_NOTE = 'Runs outside the sandbox, in a terminal you can watch:'
 export interface ExtensionSecretStore {
   keys: (extId: string) => string[]
   get: (extId: string, key: string) => string | null
@@ -272,63 +247,6 @@ export interface ExtensionSecretStore {
     key: string,
     value: string | null,
   ) => { ok: true } | { ok: false; error: string }
-}
-
-export interface TerminalOpenRequest {
-  command: string
-  hostToken?: string
-  workspaceId?: string
-  windowId?: string
-  afterPaneId?: string
-  cwd?: string
-  title?: string
-  backgroundTab?: boolean
-  pinTitle?: boolean
-}
-
-export interface ExtensionConfirmRequest {
-  extId: string
-  extName: string
-  title: string
-  message: string
-  detail?: string
-  confirmLabel?: string
-  cancelLabel?: string
-}
-
-const CONFIRM_TITLE_MAX = 120
-const CONFIRM_MESSAGE_MAX = 500
-const CONFIRM_DETAIL_MAX = 2000
-const CONFIRM_LABEL_MAX = 40
-function hasControlChar(text: string): boolean {
-  for (let i = 0; i < text.length; i++) {
-    const code = text.charCodeAt(i)
-    if (code < 0x20 || code === 0x7f) return true
-  }
-  return false
-}
-
-function terminalWaitMs(raw: unknown): number | null | string {
-  if (raw === undefined) return null
-  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) {
-    return 'waitMs must be a positive number of milliseconds'
-  }
-  return Math.min(Math.round(raw), OPEN_TERMINAL_WAIT_MAX_MS)
-}
-
-function terminalArgv(raw: unknown): string[] | string {
-  if (!Array.isArray(raw) || raw.length === 0) return 'command must be a non-empty array'
-  if (raw.length > TERMINAL_COMMAND_MAX_ARGS) {
-    return `command is limited to ${TERMINAL_COMMAND_MAX_ARGS} arguments`
-  }
-  for (const arg of raw) {
-    if (typeof arg !== 'string') return 'command arguments must be strings'
-    if (arg.length > TERMINAL_ARG_MAX)
-      return `arguments are limited to ${TERMINAL_ARG_MAX} characters`
-    if (hasControlChar(arg)) return 'command arguments must not contain control characters'
-  }
-  if (!raw[0]) return 'command must start with a program'
-  return raw as string[]
 }
 
 function filePosition(value: unknown): number | undefined {
@@ -379,22 +297,29 @@ export function loopbackOrigin(url: string): string | null {
 
 export class ExtensionHost {
   private runtimes = new Map<string, Runtime>()
-  private terminalWaits = new Map<string, (wait: TerminalWait) => void>()
   private settings: Map<string, ExtensionSettingValues>
   private changes = new EventEmitter()
   private watchers: FSWatcher[] = []
   private readonly scheduleRescan = debounce(() => this.rescan(), RESCAN_DEBOUNCE_MS)
   private watching = false
   private announcedLocale: string
-  private readonly agentTasks: ReturnType<typeof agentTaskLimiter>
   readonly remoteFolders: RemoteFolders | null
   readonly assistant: ExtensionAssist
   readonly slots: ExtensionSlots
+  readonly runs: ExtensionRuns
 
   constructor(private readonly deps: ExtensionHostDeps) {
     this.changes.setMaxListeners(0)
     for (const ext of this.discover()) this.runtimes.set(ext.manifest.id, newRuntime(ext))
     this.settings = storedSettings(deps.readExtensionSettings?.())
+    this.runs = new ExtensionRuns({
+      deps,
+      runtimes: this.runtimes,
+      runtimeOf: (identity, conn) => this.runtimeOf(identity, conn),
+      shownName: (rt) => this.shownName(rt),
+      active: (rt) => this.active(rt),
+      granted: (rt) => this.granted(rt),
+    })
     this.slots = new ExtensionSlots({
       deps,
       runtimeOf: (identity, conn) => this.runtimeOf(identity, conn),
@@ -413,7 +338,6 @@ export class ExtensionHost {
       settingValues: (rt) => this.settingValues(rt),
     })
     this.announcedLocale = this.currentLocale()
-    this.agentTasks = agentTaskLimiter(deps.agentTaskClock)
     this.remoteFolders = this.createRemoteFolders()
   }
 
@@ -1111,7 +1035,7 @@ export class ExtensionHost {
   }
 
   emitEvent<T extends ExtensionEventType>(type: T, payload: ExtensionEventPayloads[T]): void {
-    this.settleTerminalWait(type, payload)
+    this.runs.settleTerminalWait(type, payload)
     for (const rt of this.runtimes.values()) {
       if (rt.conn && rt.subscriptions.has(type)) {
         void rt.conn.sendNotification('ext.event', { type, payload }).catch(() => {})
@@ -1317,265 +1241,10 @@ export class ExtensionHost {
     return this.deps.openFileIn(req)
   }
 
-  async openTerminal(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const p = (params ?? {}) as Record<string, unknown>
-    const argv = terminalArgv(p.command)
-    if (typeof argv === 'string') return fail('invalid-params', argv)
-    const rt = this.runtimeOf(identity, conn)
-    const command = quoteArgv(argv)
-    const req: TerminalOpenRequest = { command }
-    const workspaceId =
-      typeof p.workspaceId === 'string' && p.workspaceId ? p.workspaceId : undefined
-    if (p.afterPaneId !== undefined) {
-      const after = typeof p.afterPaneId === 'string' ? resolveExternal(p.afterPaneId) : undefined
-      if (after?.kind !== 'pane') return fail('unknown-pane', 'afterPaneId is not a pane')
-      if (workspaceId && workspaceId !== after.workspaceId) {
-        return fail('invalid-params', 'afterPaneId is not in that workspace')
-      }
-      req.afterPaneId = after.paneId
-      req.workspaceId = after.workspaceId
-      req.windowId = after.windowId
-    } else if (workspaceId) {
-      req.workspaceId = workspaceId
-    }
-    if (p.host === true && this.deps.isSandboxed?.(req.workspaceId ?? '')) {
-      const token = this.deps.hostGrants?.claim(rt.ext.manifest.id, command) ?? null
-      if (!token)
-        return fail(
-          'host-not-approved',
-          'a host terminal needs an approved ext.confirm with hostTerminal',
-        )
-      req.hostToken = token
-      req.command = `${command}; exit`
-    }
-    if (p.cwd !== undefined) {
-      if (typeof p.cwd !== 'string' || !isAbsolute(p.cwd)) {
-        return fail('invalid-params', 'cwd must be absolute')
-      }
-      req.cwd = p.cwd
-    }
-    if (typeof p.title === 'string' && p.title.trim()) {
-      req.title = p.title.trim().slice(0, TERMINAL_TITLE_MAX)
-    }
-    const waitMs = terminalWaitMs(p.waitMs)
-    if (typeof waitMs === 'string') return fail('invalid-params', waitMs)
-    if (!this.deps.openTerminalIn) return fail('no-window')
-    const paneId = await this.deps.openTerminalIn(req)
-    if (!paneId) return fail('not-opened', 'no workspace to open it in')
-    this.reach(rt, paneId)
-    this.markOpened(rt, paneId)
-    if (waitMs === null) return { ok: true, paneId }
-    return { ok: true, paneId, wait: await this.waitForTerminal(paneId, waitMs) }
-  }
-
-  private waitForTerminal(paneId: string, ms: number): Promise<TerminalWait> {
-    this.terminalWaits.get(paneId)?.({ outcome: 'timeout' })
-    return new Promise((resolve) => {
-      const settle = (wait: TerminalWait): void => {
-        clearTimeout(timer)
-        if (this.terminalWaits.get(paneId) === settle) this.terminalWaits.delete(paneId)
-        resolve(wait)
-      }
-      const timer = setTimeout(() => settle({ outcome: 'timeout' }), ms)
-      timer.unref?.()
-      this.terminalWaits.set(paneId, settle)
-    })
-  }
-
-  private settleTerminalWait<T extends ExtensionEventType>(
-    type: T,
-    payload: ExtensionEventPayloads[T],
-  ): void {
-    if (type !== 'command.finished' && type !== 'pane.closed') return
-    const { paneId, exitCode } = payload as { paneId: string; exitCode?: number }
-    const settle = this.terminalWaits.get(paneId)
-    if (!settle) return
-    settle(type === 'pane.closed' ? { outcome: 'closed' } : { outcome: 'finished', exitCode })
-  }
-
-  private reach(rt: Runtime, paneId: string): void {
-    if (rt.reached.size >= REACHED_PANES_MAX) {
-      for (const id of rt.reached) if (resolveExternal(id)?.kind !== 'pane') rt.reached.delete(id)
-    }
-    if (rt.reached.size < REACHED_PANES_MAX) rt.reached.add(paneId)
-  }
-
-  private takeAgentTask(rt: Runtime): boolean {
-    return this.agentTasks.take(rt.ext.manifest.id).allowed
-  }
-
-  agentNames(identity: PaneIdentity, conn: MessageConnection) {
-    this.runtimeOf(identity, conn)
-    return { ok: true, agents: this.deps.agentNames?.() ?? [] }
-  }
-
-  async runAgent(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    const p = isPlainRecord(params) ? params : {}
-    const workspaceId = workspaceIdOf(p.workspaceId)
-    if (!workspaceId) return fail('invalid-params', 'workspaceId is required')
-    if (p.background !== undefined && typeof p.background !== 'boolean') {
-      return fail('invalid-params', 'background is true or false')
-    }
-    const prompt = agentPrompt(p.prompt)
-    if (!prompt) {
-      return fail(
-        'invalid-params',
-        `prompt must be 1-${AGENT_PROMPT_MAX} characters without control characters other than newlines and tabs`,
-      )
-    }
-    const planned =
-      p.continueFrom === undefined
-        ? this.startCommand(p.agent, prompt, workspaceId)
-        : await this.continuedCommand(rt, p.continueFrom, prompt, workspaceId)
-    if ('error' in planned) return planned.error
-    if (!this.deps.openTerminalIn) return fail('no-window')
-    if (!this.takeAgentTask(rt)) return fail('rate-limited', 'too many agent tasks this minute')
-    const paneId = await this.deps.openTerminalIn({
-      command: planned.command,
-      workspaceId,
-      ...(planned.cwd ? { cwd: planned.cwd } : {}),
-      ...(p.background === true ? { backgroundTab: true } : {}),
-    })
-    if (!paneId) return fail('not-opened', 'no workspace to open it in')
-    this.reach(rt, paneId)
-    this.markOpened(rt, paneId)
-    return { ok: true, paneId }
-  }
-
-  private markOpened(rt: Runtime, paneId: string): void {
-    if (rt.opened.size >= REACHED_PANES_MAX) {
-      for (const id of rt.opened) if (resolveExternal(id)?.kind !== 'pane') rt.opened.delete(id)
-    }
-    if (rt.opened.size < REACHED_PANES_MAX) rt.opened.add(paneId)
-  }
-
   openedBy(identity: PaneIdentity, paneId: string): boolean {
     const extId = identity.kind === 'extension' ? identity.extId : undefined
     const rt = extId ? this.runtimes.get(extId) : undefined
     return rt?.identity?.externalId === identity.externalId && rt.opened.has(paneId)
-  }
-
-  private startCommand(
-    raw: unknown,
-    prompt: string,
-    workspaceId: string,
-  ): { command: string; cwd?: string } | { error: unknown } {
-    const agent = agentName(raw)
-    if (!agent) {
-      return { error: fail('invalid-params', 'agent must be one of the names ext.agents lists') }
-    }
-    const argv = this.deps.agentArgv?.(agent)
-    if (!argv) return { error: fail('unknown-agent', 'no agent by that name') }
-    const cwd = workspaceFolder(this.deps.workDirForWorkspace(workspaceId), homedir())
-    return { command: quoteArgv([...argv, prompt]), ...(cwd ? { cwd } : {}) }
-  }
-
-  private async continuedCommand(
-    rt: Runtime,
-    raw: unknown,
-    prompt: string,
-    workspaceId: string,
-  ): Promise<{ command: string; cwd: string } | { error: unknown }> {
-    if (typeof raw !== 'string' || !rt.opened.has(raw)) {
-      return {
-        error: fail(
-          'not-reached',
-          'continueFrom is only for a pane you opened with ext.runAgent or ext.openTerminal',
-        ),
-      }
-    }
-    const pane = resolveExternal(raw)
-    if (pane?.kind !== 'pane' || pane.workspaceId !== workspaceId) {
-      return { error: fail('unknown-pane', 'that pane is closed or in another workspace') }
-    }
-    const found = await this.deps.resumeOf?.(pane)
-    if (!found) return { error: fail('no-session', 'that pane has no agent session to continue') }
-    const folder = spawnFolder(found.resume.cwd)
-    if (folder.missing) {
-      return { error: fail('resume-folder-missing', `${found.resume.cwd} no longer exists`) }
-    }
-    return { command: continueCommand(found, prompt), cwd: folder.cwd }
-  }
-
-  async offerToAgent(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    const p = isPlainRecord(params) ? params : {}
-    const workspaceId = workspaceIdOf(p.workspaceId)
-    if (!workspaceId) return fail('invalid-params', 'workspaceId is required')
-    const text = offerText(p.text)
-    if (!text) {
-      return fail(
-        'invalid-params',
-        `text must be one line of 1-${AGENT_OFFER_TEXT_MAX} characters without control characters`,
-      )
-    }
-    const label = offerLabel(p.label)
-    if (!label) {
-      return fail(
-        'invalid-params',
-        `label must be one line of 1-${AGENT_OFFER_LABEL_MAX} characters without control characters`,
-      )
-    }
-    if (!this.deps.offerToAgentIn) return fail('no-window')
-    if (rt.offering) return fail('busy', 'an earlier offer is still waiting for the human')
-    if (!this.takeAgentTask(rt)) return fail('rate-limited', 'too many agent tasks this minute')
-    rt.offering = true
-    try {
-      const delivery = await this.deps.offerToAgentIn({
-        extId: rt.ext.manifest.id,
-        extName: this.shownName(rt),
-        workspaceId,
-        label,
-        text,
-      })
-      if (!delivery.delivered) return fail('unknown-workspace', 'no window holds that workspace')
-      if (!delivery.paneId) return { ok: true, sent: false }
-      this.reach(rt, delivery.paneId)
-      return { ok: true, sent: true, paneId: delivery.paneId }
-    } finally {
-      rt.offering = false
-    }
-  }
-
-  focusPane(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    const paneId = isPlainRecord(params) ? params.paneId : undefined
-    if (typeof paneId !== 'string' || !rt.reached.has(paneId)) {
-      return fail(
-        'not-reached',
-        'only a pane you opened, the human picked for you, or whose agent hook reached you',
-      )
-    }
-    const pane = resolveExternal(paneId)
-    if (pane?.kind !== 'pane') {
-      rt.reached.delete(paneId)
-      return fail('unknown-pane', 'that pane is closed')
-    }
-    if (!this.deps.focusPaneIn) return fail('no-window')
-    return this.deps.focusPaneIn(pane) ? { ok: true } : fail('unknown-pane', 'that pane is closed')
-  }
-
-  reachHookCaller(extId: string, command: string, identity: PaneIdentity): void {
-    if (identity.kind !== 'pane') return
-    const rt = this.runtimes.get(extId)
-    if (!rt || !this.active(rt) || !this.granted(rt).includes(AGENT_PLUGIN_CAPABILITY)) return
-    const hooks = rt.ext.manifest.contributes.agentHooks ?? []
-    if (hooks.some((hook) => hook.command === command)) this.reach(rt, identity.externalId)
-  }
-
-  exec(
-    identity: PaneIdentity,
-    conn: MessageConnection,
-    params: unknown,
-    token?: CancellationToken,
-  ) {
-    const rt = this.runtimeOf(identity, conn)
-    if (!this.deps.exec) return fail('no-window')
-    const abort = new AbortController()
-    token?.onCancellationRequested(() => abort.abort())
-    if (token?.isCancellationRequested) abort.abort()
-    return this.deps.exec.run(rt.ext.manifest.id, params, abort.signal)
   }
 
   async redactTexts(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
@@ -1660,39 +1329,6 @@ export class ExtensionHost {
     const folderId = (params as { folderId?: unknown } | null)?.folderId
     const closed = this.remoteFolders?.closeByExtension(rt.ext.manifest.id, folderId) ?? false
     return closed ? { ok: true } : fail('unknown-folder')
-  }
-
-  async confirm(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    const p = (params ?? {}) as Record<string, unknown>
-    const text = (v: unknown, max: number): string =>
-      typeof v === 'string' ? v.trim().slice(0, max) : ''
-    const title = text(p.title, CONFIRM_TITLE_MAX)
-    const message = text(p.message, CONFIRM_MESSAGE_MAX)
-    if (!title || !message) return fail('invalid-params', 'title and message are required')
-    if (!this.deps.confirm) return fail('no-window')
-    const req: ExtensionConfirmRequest = {
-      extId: rt.ext.manifest.id,
-      extName: this.shownName(rt),
-      title,
-      message,
-    }
-    const detail = text(p.detail, CONFIRM_DETAIL_MAX)
-    if (detail) req.detail = detail
-    const confirmLabel = text(p.confirmLabel, CONFIRM_LABEL_MAX)
-    if (confirmLabel) req.confirmLabel = confirmLabel
-    const cancelLabel = text(p.cancelLabel, CONFIRM_LABEL_MAX)
-    if (cancelLabel) req.cancelLabel = cancelLabel
-    let hostCommand: string | null = null
-    if (p.hostTerminal !== undefined) {
-      const argv = terminalArgv(p.hostTerminal)
-      if (typeof argv === 'string') return fail('invalid-params', argv)
-      hostCommand = quoteArgv(argv)
-      req.detail = `${req.detail ? `${req.detail}\n\n` : ''}${HOST_TERMINAL_NOTE}\n${hostCommand}`
-    }
-    const confirmed = await this.deps.confirm(req)
-    if (confirmed && hostCommand) this.deps.hostGrants?.offer(rt.ext.manifest.id, hostCommand)
-    return { ok: true, confirmed }
   }
 
   getSecret(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
@@ -1867,12 +1503,12 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   )
 
   registerControlMethod('ext.openTerminal', {
-    ...forExtension((h, id, conn, p) => h.openTerminal(id, conn, p)),
+    ...forExtension((h, id, conn, p) => h.runs.openTerminal(id, conn, p)),
     cap: 'shell',
   })
 
   registerControlMethod('ext.agents', {
-    ...forExtension((h, id, conn) => h.agentNames(id, conn)),
+    ...forExtension((h, id, conn) => h.runs.agentNames(id, conn)),
     cap: 'shell',
   })
   registerControlMethod('ext.exec', {
@@ -1881,20 +1517,20 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
     handler: (params: unknown, ctx) => {
       const h = host()
       if (!h) return fail('no-extension-host')
-      return h.exec(ctx.identity, ctx.conn, params, ctx.token)
+      return h.runs.exec(ctx.identity, ctx.conn, params, ctx.token)
     },
   })
   registerControlMethod('ext.runAgent', {
-    ...forExtension((h, id, conn, p) => h.runAgent(id, conn, p)),
+    ...forExtension((h, id, conn, p) => h.runs.runAgent(id, conn, p)),
     cap: 'shell',
   })
   registerControlMethod(
     'ext.offerToAgent',
-    forExtension((h, id, conn, p) => h.offerToAgent(id, conn, p)),
+    forExtension((h, id, conn, p) => h.runs.offerToAgent(id, conn, p)),
   )
   registerControlMethod(
     'ext.focusPane',
-    forExtension((h, id, conn, p) => h.focusPane(id, conn, p)),
+    forExtension((h, id, conn, p) => h.runs.focusPane(id, conn, p)),
   )
 
   registerControlMethod('ext.list', {
@@ -1909,7 +1545,7 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
       if (typeof p.extId !== 'string' || typeof p.command !== 'string') {
         return fail('invalid-params', 'extId and command are required')
       }
-      h.reachHookCaller(p.extId, p.command, ctx.identity)
+      h.runs.reachHookCaller(p.extId, p.command, ctx.identity)
       return h.invoke(p.extId, p.command, p.args, h.paneCaller(ctx.identity))
     },
   })
@@ -1958,7 +1594,7 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
 
   registerControlMethod(
     'ext.confirm',
-    forExtension((h, id, conn, p) => h.confirm(id, conn, p)),
+    forExtension((h, id, conn, p) => h.runs.confirm(id, conn, p)),
   )
   registerControlMethod(
     'ext.openFolder',

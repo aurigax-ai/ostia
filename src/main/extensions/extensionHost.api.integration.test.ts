@@ -5,11 +5,8 @@ import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/e
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
-import {
-  type ExtensionConfirmRequest,
-  ExtensionHost,
-  registerExtensionMethods,
-} from './extensionHost'
+import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import type { ExtensionConfirmRequest } from './extensionRuns'
 import { ExtensionStore } from './extensionStore'
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions-api')

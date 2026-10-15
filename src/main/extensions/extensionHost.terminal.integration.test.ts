@@ -7,12 +7,8 @@ import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { type PaneIdentity, registerPane } from '../control/idRegistry'
 import { HostPaneGrants } from '../sandbox/hostPanes'
-import {
-  type ExtensionConfirmRequest,
-  ExtensionHost,
-  type TerminalOpenRequest,
-  registerExtensionMethods,
-} from './extensionHost'
+import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import type { ExtensionConfirmRequest, TerminalOpenRequest } from './extensionRuns'
 import { ExtensionStore } from './extensionStore'
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions-terminal')

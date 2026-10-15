@@ -458,7 +458,8 @@ describe('the Activity extension records two fake agents and shows them in its p
     const ostia = (identity: PaneIdentity, command: string): Promise<RunResult> =>
       run('bash', ['--norc', '-c', `source '${bashInit}'; ${command}`], paneEnv(identity, []))
     const openCount = (): string | undefined =>
-      serving.slots.sidebarItems().find((i) => i.extId === 'activity' && i.workspaceId === 'w1')?.badge
+      serving.slots.sidebarItems().find((i) => i.extId === 'activity' && i.workspaceId === 'w1')
+        ?.badge
 
     const added = await ostia(
       claudePane,
