@@ -15,7 +15,12 @@ import type {
 } from './app/installMethod'
 import type { ReleaseCheckResult } from './app/releases'
 import type { RequirementsReport } from './app/systemRequirements'
-import type { ArtifactListing } from './artifacts/artifacts'
+import type {
+  ArtifactListing,
+  ArtifactRestore,
+  ArtifactVersion,
+  ArtifactVersionContent,
+} from './artifacts/artifacts'
 import type { PreviewApi } from './artifacts/htmlPreview'
 import type { PortableAction, PortableRequest, PortableResult } from './artifacts/portable'
 import type { AssistApi } from './assist'
@@ -682,6 +687,10 @@ interface ArtifactsApi {
   reveal: (workspaceId: string) => void
   onChanged: (cb: (workspaceId: string) => void) => () => void
   portable: (action: PortableAction, request: PortableRequest) => Promise<PortableResult>
+  versions: (workspaceId: string, path: string) => Promise<ArtifactVersion[] | null>
+  version: (workspaceId: string, path: string, id: string) => Promise<ArtifactVersionContent | null>
+  restore: (workspaceId: string, path: string, id: string) => Promise<ArtifactRestore | null>
+  producers: (workspaceId: string) => Promise<Record<string, string> | null>
 }
 
 interface OpenWaitsApi {

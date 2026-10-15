@@ -827,6 +827,7 @@ export function EditorView({
           onSendErrors={(count, text) =>
             selectionSend.open({ kind: 'preview-error', file: filePath, count, text })
           }
+          onSendRegion={(capture, image) => selectionSend.open(capture, image)}
         />
       ) : null}
       {tabled && filePath ? (

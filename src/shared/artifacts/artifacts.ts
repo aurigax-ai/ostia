@@ -71,3 +71,21 @@ export function artifactChanges(
   }
   return changes
 }
+
+export interface ArtifactVersion {
+  id: string
+  time: number
+  size: number
+  current: boolean
+}
+
+export interface ArtifactVersionContent {
+  file: string
+  type: string
+  sources: Record<string, string>
+}
+
+export interface ArtifactRestore {
+  restored: string[]
+  refused: string[]
+}

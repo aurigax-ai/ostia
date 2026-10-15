@@ -28,6 +28,14 @@ export type SelectionCapture =
     }
   | { kind: 'terminal'; cwd: string | null; command: string | null; text: string }
   | { kind: 'preview-error'; file: string; count: number; text: string }
+  | {
+      kind: 'preview-region'
+      file: string
+      viewWidth: number
+      viewHeight: number
+      region: Region
+      version: string | null
+    }
 
 const SELECTION_COMMAND_MAX = 2000
 
@@ -60,7 +68,9 @@ export function isPng(bytes: Uint8Array): boolean {
 }
 
 export function needsImage(capture: SelectionCapture): boolean {
-  return capture.kind === 'image' || capture.kind === 'pdf-region'
+  return (
+    capture.kind === 'image' || capture.kind === 'pdf-region' || capture.kind === 'preview-region'
+  )
 }
 
 function count(n: unknown): number | null {
@@ -162,6 +172,14 @@ export function normalizeSelection(value: unknown): SelectionCapture | null {
       if (errors === null || body === null) return null
       return { kind: 'preview-error', file, count: errors, text: clip(body, PREVIEW_ERROR_MAX) }
     }
+    case 'preview-region': {
+      const viewWidth = count(c.viewWidth)
+      const viewHeight = count(c.viewHeight)
+      const region = normalizeRegion(c.region)
+      const version = typeof c.version === 'string' ? clip(c.version, 200) : null
+      if (viewWidth === null || viewHeight === null || !region) return null
+      return { kind: 'preview-region', file, viewWidth, viewHeight, region, version }
+    }
     default:
       return null
   }
@@ -208,6 +226,8 @@ export function selectionLabel(capture: SelectionCapture): string {
       return `${name}, page ${capture.page}${capture.region ? ` (${regionText(capture.region)})` : ''}`
     case 'preview-error':
       return `${name}, ${capture.count} ${capture.count === 1 ? 'error' : 'errors'}`
+    case 'preview-region':
+      return `${name} (${regionText(capture.region)})`
   }
 }
 
@@ -236,6 +256,8 @@ function title(capture: SelectionCapture): string {
       return capture.command ? 'Terminal output' : 'Terminal text'
     case 'preview-error':
       return 'Preview error'
+    case 'preview-region':
+      return 'Preview region'
   }
 }
 
@@ -274,6 +296,13 @@ function sourceLines(capture: SelectionCapture, imagePath: string | null): strin
       return [
         `- Errors: ${capture.count} (console errors of the page running in Ostia's preview, newest last)`,
         '- The preview has no network; a line starting with "blocked" names a host the page tried to reach',
+      ]
+    case 'preview-region':
+      return [
+        `- Page size: ${capture.viewWidth} × ${capture.viewHeight} CSS px, as running in Ostia's preview`,
+        `- Region: ${regionText(capture.region)} (CSS px, origin top-left)`,
+        `- Version: ${capture.version ?? 'latest'}`,
+        snapshot,
       ]
   }
 }

@@ -4,8 +4,10 @@ import { AgentSessionButton } from '@/components/agents/AgentSessionButton'
 import { ApprovalCard } from '@/components/agents/ApprovalCard'
 import { QuestionNotice } from '@/components/agents/QuestionNotice'
 import { IconButton } from '@/components/common/IconButton'
+import { ArtifactVersionsButton } from '@/components/editor/ArtifactVersions'
 import { PortableActions } from '@/components/editor/PortableActions'
 import { PaneChips } from '@/components/extensions/ExtensionChips'
+import { ArtifactChip } from '@/components/files/ArtifactChip'
 import { HostPaneBadge, SandboxRestartButton } from '@/components/sandbox/SandboxRestartButton'
 import { useDict } from '@/i18n/useDict'
 import { allPanes, findPane, firstPaneId } from '@/layout/tree'
@@ -292,12 +294,20 @@ export function Pane({
             <span className="pane-attn-msg">{attention.message}</span>
           </span>
         ) : null}
+        <ArtifactChip workspaceId={workspaceId} paneId={shown.id} />
         <PaneChips paneId={shown.id} />
         <SandboxRestartButton pane={shown} />
         <HostPaneBadge pane={shown} />
         <div className="pane-actions">
           {shown.kind === 'editor' && shown.filePath ? (
-            <PortableActions workspaceId={workspaceId} filePath={shown.filePath} />
+            <>
+              <ArtifactVersionsButton
+                workspaceId={workspaceId}
+                paneId={shown.id}
+                filePath={shown.filePath}
+              />
+              <PortableActions workspaceId={workspaceId} filePath={shown.filePath} />
+            </>
           ) : null}
           <AgentSessionButton pane={shown} />
           <AgentForkButton pane={shown} workspaceId={workspaceId} />
