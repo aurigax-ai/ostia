@@ -1,15 +1,21 @@
 import { useDict } from '@/lib/app/useDict'
+import { unscaledRegion } from '@/lib/browser/deviceFrame'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
+import { type BrowserDevice, DEFAULT_DEVICE } from '@shared/browser/browserDevice'
 import { type BrowserProfile, browserPartition } from '@shared/browser/browserProfile'
+import type { DeviceTouch } from '@shared/browser/deviceTouch'
 import { useCallback, useRef, useState } from 'react'
 import { BrowserCaptureBar } from './BrowserCaptureBar'
 import { BrowserFind, type FindResult } from './BrowserFind'
 import { BrowserLoadError } from './BrowserLoadError'
 import { BrowserStoragePanel } from './BrowserStoragePanel'
 import { BrowserToolbar } from './BrowserToolbar'
+import { DeviceBar } from './DeviceBar'
+import { DeviceStage } from './DeviceStage'
 import { RegionCropOverlay } from './RegionCropOverlay'
 import { useBrowserActions } from './useBrowserActions'
 import { useBrowserCapture } from './useBrowserCapture'
+import { useBrowserDevice } from './useBrowserDevice'
 import { useBrowserNavigation } from './useBrowserNavigation'
 import { useGrantedProfile } from './useGrantedProfile'
 import { useWebviewEvents } from './useWebviewEvents'
@@ -19,11 +25,13 @@ export function BrowserView({
   paneId,
   url,
   profile,
+  device: savedDevice,
 }: {
   workspaceId: string
   paneId: string
   url?: string
   profile: BrowserProfile
+  device?: BrowserDevice
 }): JSX.Element {
   const d = useDict()
   const granted = useGrantedProfile({ workspaceId, paneId, profile })
@@ -64,6 +72,17 @@ export function BrowserView({
     [webviewRef],
   )
   useSurfaceFocus(paneId, () => readyWebview)
+  const sendTouch = useCallback(
+    (input: DeviceTouch) => window.ostia.browser.deviceTouch(paneId, input),
+    [paneId],
+  )
+  const focusPage = useCallback(() => webviewRef.current?.focus(), [webviewRef])
+  const { device, preview, commit } = useBrowserDevice({
+    workspaceId,
+    paneId,
+    saved: savedDevice,
+    readyWebview,
+  })
   const [storageOpen, setStorageOpen] = useState(false)
   const [findFocus, setFindFocus] = useState(-1)
   const [findResult, setFindResult] = useState<FindResult | null>(null)
@@ -141,7 +160,10 @@ export function BrowserView({
         setStatus={setStatus}
         storageOpen={storageOpen}
         setStorageOpen={setStorageOpen}
+        deviceOn={device !== undefined}
+        toggleDevice={() => commit(device ? null : DEFAULT_DEVICE)}
       />
+      {device ? <DeviceBar device={device} onChange={commit} /> : null}
       <BrowserCaptureBar
         picking={picking}
         cropping={cropping}
@@ -157,15 +179,35 @@ export function BrowserView({
         copyRegion={copyRegion}
       />
       <div className="browser-stage">
-        {partition ? (
-          <webview
-            key={partition}
-            ref={attachWebview}
-            className="browser-webview"
-            src={src}
-            partition={partition}
-          />
-        ) : null}
+        <DeviceStage
+          device={device}
+          onPreview={preview}
+          onCommit={commit}
+          onTouch={sendTouch}
+          onFocusPage={focusPage}
+          overlay={(scale) =>
+            cropping ? (
+              <RegionCropOverlay
+                label={d.browser.regionLayer}
+                onDone={(rect, view) => {
+                  const unscaled = unscaledRegion(rect, view, scale)
+                  void finishCrop(unscaled.rect, unscaled.view)
+                }}
+                onCancel={() => setCropping(false)}
+              />
+            ) : null
+          }
+        >
+          {partition ? (
+            <webview
+              key={partition}
+              ref={attachWebview}
+              className="browser-webview"
+              src={src}
+              partition={partition}
+            />
+          ) : null}
+        </DeviceStage>
         {findFocus >= 0 ? (
           <BrowserFind
             focusKey={findFocus}
@@ -174,13 +216,6 @@ export function BrowserView({
             onClear={clearFind}
             onClose={closeFind}
             stepRef={findStepRef}
-          />
-        ) : null}
-        {cropping ? (
-          <RegionCropOverlay
-            label={d.browser.regionLayer}
-            onDone={(rect, view) => void finishCrop(rect, view)}
-            onCancel={() => setCropping(false)}
           />
         ) : null}
         {loadError ? <BrowserLoadError loadError={loadError} navigate={navigate} /> : null}

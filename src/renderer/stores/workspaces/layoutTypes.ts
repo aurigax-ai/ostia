@@ -2,6 +2,7 @@ import type { DropZone } from '@/lib/layout/tree'
 import type { Direction, LayoutNode, SurfaceKind } from '@/lib/layout/types'
 import type { DiffContent } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { AgentResume } from '@shared/agents/agentResume'
+import type { BrowserDevice } from '@shared/browser/browserDevice'
 import type { BrowserProfile } from '@shared/browser/browserProfile'
 import type { PanePlacement } from '@shared/types'
 import type { SplitTabPlacement } from '@shared/workspaces/splitTabs'
@@ -35,6 +36,7 @@ export interface LayoutState {
   renameSplitTab: (workspaceId: string, tabId: string, name: string) => void
   setCwd: (workspaceId: string, paneId: string, cwd: string) => void
   setUrl: (workspaceId: string, paneId: string, url: string) => void
+  setBrowserDevice: (workspaceId: string, paneId: string, device: BrowserDevice | null) => void
   setResume: (workspaceId: string, paneId: string, resume: AgentResume) => void
   setResumePending: (workspaceId: string, paneId: string, pending: boolean) => void
   failResume: (workspaceId: string, paneId: string, resume: AgentResume, exitCode: number) => void

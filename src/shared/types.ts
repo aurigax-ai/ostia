@@ -52,6 +52,7 @@ import type { ChatSessionsApi } from './assist/chatSessions'
 import type { ChatToolsApi } from './assist/chatTools'
 import type { GitBridge } from './boards/git'
 import type { PortsBridge } from './boards/ports'
+import type { BrowserDevice } from './browser/browserDevice'
 import type { BrowserProfile } from './browser/browserProfile'
 import type {
   BrowserStorageRead,
@@ -66,6 +67,7 @@ import type {
   CredentialSaveResult,
   CredentialSummary,
 } from './browser/credentials'
+import type { DeviceTouch } from './browser/deviceTouch'
 import type {
   PickOutcome,
   PickSendRequest,
@@ -515,6 +517,7 @@ export interface SnapshotPaneNode {
   chatSessionId?: string
   viewName?: string
   browserProfile?: BrowserProfile
+  browserDevice?: BrowserDevice
   resume?: AgentResume
   resumeFailed?: ResumeFailure
   agentRunning?: true
@@ -847,6 +850,8 @@ interface BrowserApi {
   regionCapture: (paneId: string, req: RegionCaptureRequest) => Promise<RegionCaptureOutcome>
   regionSend: (req: RegionSendRequest) => Promise<PickSendResult>
   regionCopy: (paneId: string, captureId: string) => Promise<RegionCopyResult>
+  setDevice: (paneId: string, device: BrowserDevice | null) => Promise<boolean>
+  deviceTouch: (paneId: string, input: DeviceTouch) => void
   storageRead: (paneId: string) => Promise<BrowserStorageRead>
   storageSet: (paneId: string, edit: StorageEdit) => Promise<StorageWriteResult>
   storageRemove: (paneId: string, removal: StorageRemoval) => Promise<StorageWriteResult>

@@ -799,3 +799,36 @@ describe('browser profile on a pane', () => {
     expect(isolated?.root).not.toHaveProperty('browserProfile')
   })
 })
+
+describe('device mode on a browser pane', () => {
+  function restored(pane: Record<string, unknown>): unknown {
+    const base = snap()
+    return parseSnapshot({
+      ...base,
+      workspaces: [{ ...base.workspaces[0], activePaneId: 'b1', root: { id: 'b1', ...pane } }],
+    })?.workspaces[0].root
+  }
+
+  const browser = { type: 'pane', title: 'site', kind: 'browser', url: 'http://x/' }
+
+  it('keeps the device a browser pane was in through a save and restore', () => {
+    const browserDevice = { preset: 'responsive', width: 600, height: 900, dpr: 2, zoom: 'actual' }
+    expect(restored({ ...browser, browserDevice })).toMatchObject({ browserDevice })
+  })
+
+  it('restores a preset from the data, keeping only its orientation and zoom', () => {
+    const browserDevice = { preset: 'iphone-se', width: 900, height: 100, dpr: 7, zoom: 'fit' }
+    expect(restored({ ...browser, browserDevice })).toMatchObject({
+      browserDevice: { preset: 'iphone-se', width: 667, height: 375, dpr: 2, zoom: 'fit' },
+    })
+  })
+
+  it('drops a device that is not one, or on a pane that is not a browser', () => {
+    for (const browserDevice of [true, 'iphone-se', { preset: 'responsive' }, { width: 'x' }]) {
+      expect(restored({ ...browser, browserDevice })).not.toHaveProperty('browserDevice')
+    }
+    const terminal = { type: 'pane', title: 'zsh', kind: 'terminal' }
+    const browserDevice = { preset: 'responsive', width: 600, height: 900, dpr: 1, zoom: 'fit' }
+    expect(restored({ ...terminal, browserDevice })).not.toHaveProperty('browserDevice')
+  })
+})

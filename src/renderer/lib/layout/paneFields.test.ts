@@ -1,3 +1,4 @@
+import { DEFAULT_DEVICE, rotated } from '@shared/browser/browserDevice'
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   findExtensionPane,
@@ -6,6 +7,7 @@ import {
   hasLockedPane,
   renamePane,
   setPaneBrowser,
+  setPaneBrowserDevice,
   setPaneCwd,
   setPaneDiff,
   setPaneEditor,
@@ -197,6 +199,32 @@ describe('setPaneBrowser', () => {
   it('leaves a non-matching lone pane unchanged', () => {
     const root = createPane('terminal')
     expect(setPaneBrowser(root, 'ghost', 'https://example.com')).toBe(root)
+  })
+})
+
+describe('setPaneBrowserDevice', () => {
+  function browserPane(): LayoutNode {
+    const root = createPane('terminal')
+    return setPaneBrowser(root, root.id, 'https://example.com')
+  }
+
+  it('saves the device on a browser pane and removes the field when it goes off', () => {
+    const root = browserPane()
+    const on = setPaneBrowserDevice(root, root.id, DEFAULT_DEVICE)
+    expect(findPane(on, root.id)?.browserDevice).toEqual(DEFAULT_DEVICE)
+    const turned = setPaneBrowserDevice(on, root.id, rotated(DEFAULT_DEVICE))
+    expect(findPane(turned, root.id)?.browserDevice).toMatchObject({ width: 800, height: 400 })
+    const off = setPaneBrowserDevice(turned, root.id, null)
+    expect(findPane(off, root.id)).not.toHaveProperty('browserDevice')
+  })
+
+  it('returns the same tree when nothing changes or the pane is not a browser', () => {
+    const root = browserPane()
+    expect(setPaneBrowserDevice(root, root.id, null)).toBe(root)
+    const on = setPaneBrowserDevice(root, root.id, DEFAULT_DEVICE)
+    expect(setPaneBrowserDevice(on, root.id, { ...DEFAULT_DEVICE })).toBe(on)
+    const terminal = createPane('terminal')
+    expect(setPaneBrowserDevice(terminal, terminal.id, DEFAULT_DEVICE)).toBe(terminal)
   })
 })
 

@@ -141,6 +141,7 @@ uncaught exceptions and unhandled rejections. `alert` is logged; `confirm` and `
 policy `dialog accept [text]` or `dialog dismiss` set (default dismiss, reset on each
 navigation). Verbs that use the page's debugger (`addinitscript`, `upload`, `screenshot --full`,
 `set`, `network route`, request logging) fail while the human has DevTools open on that pane.
+`set viewport` fails with `device-mode` while the human has device mode on in that pane.
 
 ## Signing in with the human's saved logins
 

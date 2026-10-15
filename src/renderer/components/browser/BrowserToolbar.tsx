@@ -8,6 +8,7 @@ import {
   CropIcon,
   CursorClickIcon,
   DatabaseIcon,
+  DeviceMobileIcon,
 } from '@phosphor-icons/react'
 import type { WebviewTag } from 'electron'
 import type { Dispatch, KeyboardEvent, MutableRefObject, SetStateAction } from 'react'
@@ -32,6 +33,8 @@ interface BrowserToolbarProps {
   setStatus: (next: string | null) => void
   storageOpen: boolean
   setStorageOpen: Dispatch<SetStateAction<boolean>>
+  deviceOn: boolean
+  toggleDevice: () => void
 }
 
 export function BrowserToolbar({
@@ -53,6 +56,8 @@ export function BrowserToolbar({
   setStatus,
   storageOpen,
   setStorageOpen,
+  deviceOn,
+  toggleDevice,
 }: BrowserToolbarProps): JSX.Element {
   const d = useDict()
   return (
@@ -91,6 +96,12 @@ export function BrowserToolbar({
           editingRef.current = false
         }}
         onKeyDown={onAddressKeyDown}
+      />
+      <IconButton
+        icon={DeviceMobileIcon}
+        label={deviceOn ? d.browser.deviceStop : d.browser.device}
+        aria-pressed={deviceOn}
+        onClick={toggleDevice}
       />
       <IconButton
         icon={CursorClickIcon}
