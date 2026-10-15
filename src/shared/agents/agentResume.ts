@@ -1,5 +1,5 @@
 import { quoteArg } from '../terminal/shellQuote'
-import { resumeFlags } from './agentLaunch'
+import { type TypedLaunch, resumeFlags, typedLaunchOf } from './agentLaunch'
 
 export type ResumableAgent = 'claude' | 'codex'
 
@@ -8,6 +8,7 @@ export interface AgentResume {
   id: string
   cwd?: string
   args?: string[]
+  typed?: TypedLaunch
 }
 
 export interface ResumeFailure {
@@ -18,7 +19,7 @@ export interface ResumeFailure {
 export function parseResumeFailure(raw: unknown): ResumeFailure | null {
   if (typeof raw !== 'object' || raw === null) return null
   const { resume, exitCode } = raw as Record<string, unknown>
-  const parsed = parseAgentResume(resume)
+  const parsed = parseStoredResume(resume)
   return parsed &&
     Number.isInteger(exitCode) &&
     (exitCode as number) > 0 &&
@@ -70,20 +71,31 @@ export function parseAgentResume(raw: unknown): AgentResume | null {
   return resume
 }
 
+export function parseStoredResume(raw: unknown): AgentResume | null {
+  const resume = parseAgentResume(raw)
+  if (!resume) return null
+  const typed = typedLaunchOf(resume.agent, (raw as Record<string, unknown>).typed)
+  return typed ? { ...resume, typed } : resume
+}
+
 export function sameResume(a: AgentResume | undefined, b: AgentResume): boolean {
   return (
     a?.agent === b.agent &&
     a.id === b.id &&
     a.cwd === b.cwd &&
-    JSON.stringify(a.args ?? []) === JSON.stringify(b.args ?? [])
+    JSON.stringify(a.args ?? []) === JSON.stringify(b.args ?? []) &&
+    JSON.stringify(a.typed ?? {}) === JSON.stringify(b.typed ?? {})
   )
 }
 
 function agentCommandLine(resume: AgentResume, words: string[]): string {
+  const typed = typedLaunchOf(resume.agent, resume.typed)
   return [
+    ...Object.entries(typed?.env ?? {}).map(([name, value]) => `${name}=${quoteArg(value)}`),
     `'${resume.agent}'`,
     ...words,
     ...resumeArgs(resume.agent, resume.args).map(quoteArg),
+    ...(typed?.args ?? []).map(quoteArg),
   ].join(' ')
 }
 

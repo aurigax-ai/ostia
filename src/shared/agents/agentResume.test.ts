@@ -3,11 +3,14 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { typedLaunch } from './agentLaunch'
 import {
   type AgentResume,
   forkCommand,
   newSessionCommand,
   parseAgentResume,
+  parseResumeFailure,
+  parseStoredResume,
   resumeCommand,
   resumeFromHookPayload,
   sameResume,
@@ -277,5 +280,74 @@ describe('the line Ostia types for an agent', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
+  })
+})
+
+describe('the launch the human typed', () => {
+  const claude: AgentResume = {
+    agent: 'claude',
+    id: 'abc',
+    args: ['--name', 'Ostia 統籌', '--model', 'opus'],
+    typed: {
+      args: ['--agent', 'ostia', '--dangerously-skip-permissions'],
+      env: { CLAUDE_CONFIG_DIR: '/Users/j/.claude-profiles/twai', GL_ISSUE: 'tracker#24' },
+    },
+  }
+  const codex: AgentResume = {
+    agent: 'codex',
+    id: 'r-9',
+    typed: { args: ['--yolo', '-s', 'danger-full-access'], env: { CODEX_HOME: '/c' } },
+  }
+
+  it('is never taken from a caller, only from a saved record', () => {
+    expect(parseAgentResume(claude)).toEqual({
+      agent: 'claude',
+      id: 'abc',
+      args: ['--name', 'Ostia 統籌', '--model', 'opus'],
+    })
+    expect(parseStoredResume(claude)).toEqual(claude)
+    expect(parseStoredResume(codex)).toEqual(codex)
+    expect(parseResumeFailure({ resume: claude, exitCode: 1 })).toEqual({
+      resume: claude,
+      exitCode: 1,
+    })
+  })
+
+  it('is filtered again when read from a saved record', () => {
+    expect(
+      parseStoredResume({
+        agent: 'claude',
+        id: 'abc',
+        typed: {
+          args: ['--model', 'opus', '--agent', 'a'],
+          env: { GH_TOKEN: 'x', BASH_ENV: '/x', GL_ISSUE: '1' },
+        },
+      }),
+    ).toEqual({
+      agent: 'claude',
+      id: 'abc',
+      typed: { args: ['--agent', 'a'], env: { GL_ISSUE: '1' } },
+    })
+    expect(
+      parseStoredResume({ agent: 'claude', id: 'abc', typed: { args: ['--yolo'], env: {} } }),
+    ).toEqual({ agent: 'claude', id: 'abc' })
+  })
+
+  it('is replayed in front of and after the session', () => {
+    expect(resumeCommand(claude)).toBe(
+      "CLAUDE_CONFIG_DIR=/Users/j/.claude-profiles/twai GL_ISSUE='tracker#24' 'claude' --resume abc --name 'Ostia 統籌' --model opus --agent ostia --dangerously-skip-permissions",
+    )
+    expect(forkCommand(codex)).toBe("CODEX_HOME=/c 'codex' fork r-9 --yolo -s danger-full-access")
+  })
+
+  it('reads back the same from the line Ostia types, so it never wears off over resumes', () => {
+    for (const resume of [claude, codex]) {
+      expect(typedLaunch(resume.agent, resumeCommand(resume))).toEqual(resume.typed)
+    }
+  })
+
+  it('is compared too', () => {
+    expect(sameResume(claude, { ...claude, typed: { ...claude.typed } })).toBe(true)
+    expect(sameResume(claude, { ...claude, typed: undefined })).toBe(false)
   })
 })
