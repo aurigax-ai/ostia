@@ -26,14 +26,12 @@ import {
   ClipboardItem,
   app,
   clipboard,
-  globalShortcut,
   ipcMain,
   safeStorage,
   session,
   shell,
 } from 'electron'
 import type { IPty } from 'node-pty'
-import appIcon from '../../resources/icon.png?asset'
 import { parseAgentHooks } from '../shared/agents/agentHooks'
 import { type AgentResume, isResumableAgent, parseAgentResume } from '../shared/agents/agentResume'
 import {
@@ -305,13 +303,14 @@ import { installAppMenu } from './windows/appMenu'
 import { registerAppQuit } from './windows/appQuit'
 import { createAppWindows } from './windows/appWindows'
 import { type ClipboardEdits, registerClipboardEdits } from './windows/clipboardEdits'
-import { GlobalHotkey } from './windows/globalHotkey'
+import type { GlobalHotkey } from './windows/globalHotkey'
 import { createQuitTrace } from './windows/quitPlan'
 import { createQuitTeardown } from './windows/quitTeardown'
-import { AppTray, isHiddenLaunch, unreadWorkspaces } from './windows/tray'
-import { WindowBroker } from './windows/windowBroker'
+import { type AppTray, isHiddenLaunch } from './windows/tray'
+import type { WindowBroker } from './windows/windowBroker'
 import { registerWindowIpc } from './windows/windowIpc'
 import { createWindowSend } from './windows/windowSend'
+import { startWindows } from './windows/windowStartup'
 import { createWindowWiring } from './windows/windowWiring'
 import { registerCmuxSessionIpc } from './workspaces/cmuxSession'
 import { registerProjectRootIpc } from './workspaces/projectRoot'
@@ -2354,37 +2353,11 @@ app.whenReady().then(() => {
     spawn: spawnManagerPty,
   })
   startPortal()
-  services.appTray = new AppTray({
-    iconPath: appIcon,
-    tooltip: PRODUCT_DISPLAY_NAME,
-    text: () => mainStrings().native.tray,
-    windows: () => [...windows.values()],
-    quit: requestQuit,
-    setBadgeCount: (count) => app.setBadgeCount(count),
+  startWindows({
+    ...wiring,
+    extensionHost: services.extensionHost,
+    viewHost: services.viewHost,
   })
-  startCoreBoards()
-  services.globalHotkey = new GlobalHotkey(globalShortcut, toggleAllWindows)
-  applyGlobalHotkey()
-  services.broker = new WindowBroker({
-    createWindow,
-    holdPtys,
-    execCommand,
-    agents: agentRunning,
-    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-    isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
-    reveal: showWindow,
-    onList: (list) => services.appTray?.setUnread(unreadWorkspaces(list)),
-  })
-  services.broker.register()
-  services.broker.openAll()
-  services.extensionHost.processes.startEager()
-  services.extensionHost.processes.watchUserExtensions()
-  services.viewHost.watch()
-  app.on('browser-window-focus', emitFocusChanged)
-  app.on('browser-window-blur', emitFocusChanged)
-  setInterval(autosaveScrollback, SCROLLBACK_AUTOSAVE_MS).unref()
-
-  app.on('activate', revealApp)
 })
 
 const redactionScan = createWorkerScan(redactionWorkerScript(app.getAppPath()))
@@ -2432,3 +2405,24 @@ const { requestQuit, handleQuitSignals } = registerAppQuit({
   persistScrollback,
   scriptTokenUsage,
 })
+
+const wiring = {
+  services,
+  mainStrings,
+  windows,
+  requestQuit,
+  startCoreBoards,
+  toggleAllWindows,
+  applyGlobalHotkey,
+  createWindow,
+  holdPtys,
+  execCommand,
+  agentRunning,
+  workspaceSandboxes,
+  scratchFolders,
+  showWindow,
+  emitFocusChanged,
+  autosaveScrollback,
+  SCROLLBACK_AUTOSAVE_MS,
+  revealApp,
+}
