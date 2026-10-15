@@ -1,0 +1,9 @@
+{
+  "messages": {
+    "kind.ollama": "Ollama",
+    "kind.openai-compatible": "OpenAI-compatible",
+    "kind.openrouter": "OpenRouter",
+    "kind.openai": "OpenAI",
+    "kind.anthropic": "Anthropic"
+  }
+}

@@ -3,19 +3,15 @@ import { FindBar, findStatus } from '@/components/common/FindBar'
 import { IconButton } from '@/components/common/IconButton'
 import { registerSelectionSender } from '@/lib/agents/selectionSenders'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { useElementSize } from '@/lib/app/useElementSize'
 import { cropToPng } from '@/lib/browser/cropImage'
 import { trackSelection } from '@/lib/browser/domSelection'
 import { type Size, fitWidthScale, pixelRect } from '@/lib/browser/regionSelect'
 import { clearFind, findRanges, paintFind } from '@/lib/files/domFind'
+import { baseName } from '@/lib/files/fileTree'
 import { type PdfDocument, type PdfPage, loadPdfjs, openPdf } from '@/lib/files/pdf'
 import { itemTexts, pageItems, pdfMatches } from '@/lib/files/pdfText'
-import {
-  useElementSize,
-  useFileBytes,
-  usePinchZoom,
-  useRegionDrag,
-  useSettled,
-} from '@/lib/files/viewerHooks'
+import { useFileBytes, usePinchZoom, useRegionDrag, useSettled } from '@/lib/files/viewerHooks'
 import { findStep, matchChord } from '@/lib/keyboard/chords'
 import { isMac } from '@/platform'
 import { usePdfFindStore } from '@/stores/files/pdfFindStore'
@@ -340,7 +336,7 @@ export function PdfViewer({
         />
       ) : null}
       <div className="viewer-toolbar">
-        <span className="viewer-title">{filePath.split('/').pop()}</span>
+        <span className="viewer-title">{baseName(filePath)}</span>
         <span className="flex-1" />
         <IconButton
           size="bar"

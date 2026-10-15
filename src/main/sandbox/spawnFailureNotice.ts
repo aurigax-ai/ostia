@@ -1,7 +1,9 @@
+import { type Dict, fmt } from '../../shared/app/dict'
 import type { RequirementsReport } from '../../shared/app/systemRequirements'
 import { missingPackages } from './spawnBanner'
 
 export interface SpawnFailureDeps {
+  text: () => Dict['native']['sandboxSoftware']
   notify: (input: { title: string; body: string }, onClick: () => void) => void
   showRequirements: (workspaceId: string, report: RequirementsReport) => void
   report: () => RequirementsReport
@@ -14,11 +16,8 @@ export function reportSandboxSpawnFailure(
 ): void {
   const packages = missingPackages(errors)
   if (packages.length === 0) return
-  deps.notify(
-    {
-      title: 'Sandbox needs software',
-      body: `Install ${packages.join(', ')} to start this sandboxed workspace's terminals.`,
-    },
-    () => deps.showRequirements(workspaceId, deps.report()),
+  const text = deps.text()
+  deps.notify({ title: text.title, body: fmt(text.body, { packages: packages.join(', ') }) }, () =>
+    deps.showRequirements(workspaceId, deps.report()),
   )
 }

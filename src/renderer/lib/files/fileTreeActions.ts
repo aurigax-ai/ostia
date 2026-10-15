@@ -3,18 +3,10 @@ import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { FileOpError, FileOpResult, NewEntryKind } from '@shared/files/fileOps'
+import { baseName, parentOf } from './fileTree'
 import { openFileInWorkspace, reportFileProblem } from './openFile'
 
 export type TreeEditError = FileOpError | 'unsaved'
-
-export function parentOf(path: string): string {
-  const slash = path.lastIndexOf('/')
-  return slash > 0 ? path.slice(0, slash) : '/'
-}
-
-function nameOf(path: string): string {
-  return path.slice(path.lastIndexOf('/') + 1)
-}
 
 function unsavedUnder(paths: string[]): string | null {
   const { dirty } = useEditorStatus.getState()
@@ -30,7 +22,7 @@ function report(workspaceId: string, error: TreeEditError, path?: string): void 
   reportFileProblem(
     workspaceId,
     error === 'unsaved' && path
-      ? fmt(d.filesView.ops.unsaved, { name: nameOf(path) })
+      ? fmt(d.filesView.ops.unsaved, { name: baseName(path) })
       : d.filesView.ops.errors[error === 'unsaved' ? 'failed' : error],
   )
 }
@@ -79,6 +71,17 @@ export async function moveInto(workspaceId: string, paths: string[], dir: string
 
 export async function copyInto(workspaceId: string, paths: string[], dir: string): Promise<void> {
   const res = await window.ostia.fileOps.copy(paths, dir)
+  useFileTreeStore.getState().reload([dir])
+  if (!res.ok) report(workspaceId, res.error)
+}
+
+export async function importInto(
+  workspaceId: string,
+  files: File[],
+  dir: string,
+  move: boolean,
+): Promise<void> {
+  const res = await window.ostia.fileOps.importDropped(files, dir, workspaceId, move)
   useFileTreeStore.getState().reload([dir])
   if (!res.ok) report(workspaceId, res.error)
 }

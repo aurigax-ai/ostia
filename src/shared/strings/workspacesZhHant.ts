@@ -2,7 +2,6 @@ import type { workspacesEn } from './workspacesEn'
 
 export const workspacesZhHant: typeof workspacesEn = {
   rail: {
-    workspaces: '工作區',
     newWorkspace: '新增工作區',
     renameWorkspace: '工作區名稱',
     describeWorkspace: '工作區說明',
@@ -79,7 +78,6 @@ export const workspacesZhHant: typeof workspacesEn = {
     messageFrom: '來自 {from} 的訊息',
     messageFromPane: '來自其他面板的訊息',
     commandFailed: '指令失敗（結束代碼 {code}）',
-    jumpToLatest: '跳至最新未讀',
   },
   workzone: {
     emptyTitle: '沒有工作區',
@@ -89,7 +87,6 @@ export const workspacesZhHant: typeof workspacesEn = {
     unsaved: '未儲存的變更',
     splitRight: '向右分割',
     splitDown: '向下分割',
-    close: '關閉面板',
     newTerminal: '新增終端機',
     terminalTitle: '終端機',
     newBrowser: '新增瀏覽器',
@@ -130,6 +127,11 @@ export const workspacesZhHant: typeof workspacesEn = {
     resumeFolderMissingLabel: '代理程式資料夾不存在',
     resumeFolderMissing:
       '{agent} 工作的資料夾已不存在：{path}。未執行任何指令。還原資料夾並 cd 進去即可繼續，或關閉分頁。',
+    folderTrustLabel: 'Claude 資料夾信任',
+    folderTrust: 'Claude 會詢問是否信任此資料夾：{path}',
+    folderTrustOnce: '為 Claude 信任',
+    folderTrustAlways: '一律信任我的工作區資料夾',
+    folderTrustSkip: '仍要接回',
     resumeConflictLabel: '代理程式 session 重複開啟',
     resumeConflictBoth:
       '這個 {agent} session 同時在這裡和「{tab}」分頁執行，兩份會寫進同一份對話記錄。請關閉其中一個分頁。',

@@ -92,6 +92,7 @@ function seed(maxLiveTerminals: number): void {
       hibernation: { enabled: true, idleSeconds: 600, maxLiveTerminals },
       autoResume: false,
       autoSendReferences: true,
+      trustWorkspaceFolders: false,
       hooks: { claude: true, codex: true },
     },
   })
@@ -166,6 +167,7 @@ describe('hibernateIdleAgents', () => {
         hibernation: { enabled: false, idleSeconds: 600, maxLiveTerminals: 0 },
         autoResume: false,
         autoSendReferences: true,
+        trustWorkspaceFolders: false,
         hooks: { claude: true, codex: true },
       },
     })

@@ -96,3 +96,71 @@ jobs:
           else
             gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@coverage-comment/comment.md > /dev/null
           fi
+
+  i18n:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: ./.github/actions/setup
+        timeout-minutes: 10
+        with:
+          go: false
+          electron: false
+      - if: github.event_name == 'push'
+        run: |
+          mkdir -p i18n-baseline
+          node scripts/i18n.mjs coverage --json "$GITHUB_SHA" > i18n-baseline/baseline.json
+      - if: github.event_name == 'push'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: i18n-baseline
+          key: i18n-baseline-${{ github.sha }}
+      - if: github.event_name == 'pull_request'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: i18n-baseline
+          key: i18n-baseline-${{ github.event.pull_request.base.sha }}
+          restore-keys: i18n-baseline-
+      - run: |
+          mkdir -p i18n-comment
+          node scripts/i18n.mjs coverage --baseline i18n-baseline/baseline.json > i18n-comment/comment.md
+          cat i18n-comment/comment.md >> "$GITHUB_STEP_SUMMARY"
+      - if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: i18n-comment
+          path: i18n-comment
+          retention-days: 3
+
+  i18n-comment:
+    needs: i18n
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: i18n-comment
+          path: i18n-comment
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          marker=$(head -n 1 i18n-comment/comment.md)
+          id=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id" | head -n 1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@i18n-comment/comment.md > /dev/null
+          else
+            gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@i18n-comment/comment.md > /dev/null
+          fi

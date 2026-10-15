@@ -1485,6 +1485,10 @@
   box-shadow: none;
 }
 
+.file-tree.drop-target {
+  background: var(--surface-2);
+}
+
 .file-row.drop-target {
   background: var(--surface-2);
   outline: 1px solid var(--line-strong);
@@ -2135,25 +2139,6 @@
   gap: 6px;
   min-width: 0;
   margin-right: 4px;
-}
-
-.artifact-chip-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 240px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.artifact-chip-icon {
-  display: inline-flex;
-  flex-shrink: 0;
-}
-
-.artifact-chip-scroll {
-  max-height: 320px;
 }
 
 .version-view {
@@ -3073,6 +3058,10 @@ button.prompt-chip:hover {
 
 :root[data-file-drag] .pane-file-drop {
   display: block;
+}
+
+.pane-cell > .pane-file-drop {
+  top: 0;
 }
 
 .pane-header.drop-tab {

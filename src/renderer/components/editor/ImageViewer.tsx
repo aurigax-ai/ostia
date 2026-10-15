@@ -2,10 +2,12 @@ import { useSelectionSend } from '@/components/agents/SelectionSend'
 import { IconButton } from '@/components/common/IconButton'
 import { registerSelectionSender } from '@/lib/agents/selectionSenders'
 import { useDict } from '@/lib/app/useDict'
+import { useElementSize } from '@/lib/app/useElementSize'
 import { cropToPng } from '@/lib/browser/cropImage'
 import { type Size, fitScale } from '@/lib/browser/regionSelect'
 import { imageMimeType } from '@/lib/files/fileKinds'
-import { useElementSize, useFileBytes, usePinchZoom, useRegionDrag } from '@/lib/files/viewerHooks'
+import { baseName } from '@/lib/files/fileTree'
+import { useFileBytes, usePinchZoom, useRegionDrag } from '@/lib/files/viewerHooks'
 import { PaperPlaneTiltIcon, XIcon } from '@phosphor-icons/react'
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { ViewerMessage, type Zoom, ZoomControls, useBytesProblem } from './ViewerChrome'
@@ -93,7 +95,7 @@ export function ImageViewer({
   return (
     <div className="viewer-surface">
       <div className="viewer-toolbar">
-        <span className="viewer-title">{filePath.split('/').pop()}</span>
+        <span className="viewer-title">{baseName(filePath)}</span>
         {natural ? (
           <span className="viewer-meta">
             {natural.width} × {natural.height}
@@ -131,7 +133,7 @@ export function ImageViewer({
             <img
               ref={imgRef}
               src={url}
-              alt={filePath.split('/').pop()}
+              alt={baseName(filePath)}
               draggable={false}
               onLoad={onLoad}
               onError={() => setBroken(true)}

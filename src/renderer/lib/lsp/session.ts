@@ -1,3 +1,4 @@
+import { baseName } from '@/lib/files/fileTree'
 import { monaco } from '@/lib/monaco/setup'
 import type { LspSessionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
@@ -226,10 +227,6 @@ function mergeDiagnostics(
   return out
 }
 
-function folderName(root: string): string {
-  return root.slice(root.lastIndexOf('/') + 1) || root
-}
-
 function fileUri(path: string): string {
   return monaco.Uri.file(path).toString()
 }
@@ -292,7 +289,7 @@ export class LspSession {
   }
 
   private workspaceFolders(): { uri: string; name: string }[] {
-    return [{ uri: fileUri(this.info.root), name: folderName(this.info.root) }]
+    return [{ uri: fileUri(this.info.root), name: baseName(this.info.root) }]
   }
 
   async initialize(): Promise<void> {
