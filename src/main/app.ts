@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
-import { readdirSync, rmSync, statSync } from 'node:fs'
-import { homedir, hostname } from 'node:os'
-import { basename, dirname, join } from 'node:path'
+import { readdirSync, statSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { basename, join } from 'node:path'
 import { appEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { MANAGER_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import type {
@@ -21,16 +21,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { agentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import type { ExtensionRoot } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
-import {
-  BrowserWindow,
-  ClipboardItem,
-  app,
-  clipboard,
-  ipcMain,
-  safeStorage,
-  session,
-  shell,
-} from 'electron'
+import { BrowserWindow, ClipboardItem, app, clipboard, ipcMain, shell } from 'electron'
 import type { IPty } from 'node-pty'
 import { parseAgentHooks } from '../shared/agents/agentHooks'
 import { type AgentResume, isResumableAgent, parseAgentResume } from '../shared/agents/agentResume'
@@ -39,18 +30,14 @@ import {
   managerAgents,
   parseManagerSettings,
 } from '../shared/agents/managerSettings'
-import { fmt } from '../shared/app/dict'
 import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
 import { isMacInstall, replacesInApp } from '../shared/app/installMethod'
-import { parseChatToolSettings } from '../shared/assist/chatTools'
 import { parseGitSettings } from '../shared/boards/git'
 import { parsePortsSettings } from '../shared/boards/ports'
-import { SHARED_BROWSER_PARTITION } from '../shared/browser/browserProfile'
 import { ChangeSignal } from '../shared/common/actThenConfirm'
 import { externalHref } from '../shared/common/externalLinks'
 import { EXTENSION_SUGGESTIONS } from '../shared/extensions/extensionSuggestions'
-import { OPEN_FILES_COMMAND, OPEN_FILES_MAX } from '../shared/files/openFiles'
-import { parsePrivacySettings } from '../shared/privacy/redaction'
+import { OPEN_FILES_MAX } from '../shared/files/openFiles'
 import { bucketCount } from '../shared/privacy/telemetry'
 import { parseKeepShells } from '../shared/terminal/keepShells'
 import { quoteArgv } from '../shared/terminal/shellQuote'
@@ -74,18 +61,12 @@ import { loadReachMode, refreshCapabilitySettings, setCaps } from './approvals/c
 import { registerPermissionAsk } from './approvals/permissionAsk'
 import { questions, registerExtensionQuestions, registerQuestions } from './approvals/questions'
 import { type ReachListing, createReach } from './approvals/reach'
-import { registerScriptTokenIpc } from './approvals/scriptTokenIpc'
 import { createScriptTokenUsage } from './approvals/scriptTokenUsage'
 import {
-  checkScriptToken,
   listScriptTokens,
   recordCreatedWorkspace,
-  registerScriptTokenMethods,
-  retireLegacyScriptTokens,
   scriptTokenScope,
-  setUserPresenceCheck,
 } from './approvals/scriptTokens'
-import { electronPresenceDeps, verifyUserPresence } from './approvals/userPresence'
 import { registerArtifactIpc } from './artifacts/artifactFolders'
 import { registerArtifactHistoryIpc } from './artifacts/artifactHistory'
 import { registerArtifactProducersIpc } from './artifacts/artifactProducers'
@@ -101,33 +82,23 @@ import {
   registerNotifyIpc,
   registerNotifyMethods,
 } from './attention/notify'
-import { registerBrowseMethods } from './browser/browse'
-import { ownedGuest } from './browser/browseGuests'
 import type { ConsoleEntry } from './browser/browseMethod'
-import { registerPickIpc, registerPickMethods } from './browser/browsePick'
-import { registerRegionIpc } from './browser/browseRegion'
 import { registerBrowserGuestIpc } from './browser/browserGuestIpc'
 import { createBrowserGuests } from './browser/browserGuests'
-import { registerBrowserStorageIpc } from './browser/browserStorage'
-import { credentials, registerCredentials } from './browser/credentials'
+import { registerBrowserWiring } from './browser/browserWiring'
+import { registerCredentials } from './browser/credentials'
 import { type GuestChords, registerGuestChords } from './browser/guestChords'
 import { createGuestProfiles } from './browser/guestProfiles'
-import { registerLoginFill } from './browser/loginFill'
-import { registerAssistIpc } from './chat/assistIpc'
-import { createChatSessionStore } from './chat/chatSessions'
-import { registerChatSessionIpc } from './chat/chatSessionsIpc'
-import { ChatToolGrants } from './chat/chatToolGrants'
-import { registerChatToolsIpc } from './chat/chatToolsIpc'
+import { startChat } from './chat/chatWiring'
 import { registerExtensionMcp } from './chat/extensionMcp'
-import { McpHost } from './chat/mcpHost'
-import { McpOAuth, mcpOAuthBrowser } from './chat/mcpOAuth'
-import { createMcpOAuthStore } from './chat/mcpOAuthStore'
+import type { McpHost } from './chat/mcpHost'
+import type { McpOAuth } from './chat/mcpOAuth'
 import { createCommandBridge } from './control/commandBridge'
-import { setCapFilter, setScriptTokenCheck } from './control/controlAuth'
-import { controlInfoPath, writeControlInfo } from './control/controlDiscovery'
-import { controlSocketPath, registerControlServer } from './control/controlServer'
+import { setCapFilter } from './control/controlAuth'
+import { controlSocketPath } from './control/controlServer'
+import { startControlServer } from './control/controlWiring'
 import { registerDocsMethods } from './control/docs'
-import { emitPlatformEvent, platformEvents } from './control/events'
+import { emitPlatformEvent } from './control/events'
 import {
   type PaneIdentity,
   getByPaneId,
@@ -154,9 +125,6 @@ import { ExtensionLaunches } from './extensions/extensionLaunches'
 import { registerExtensionMethods } from './extensions/extensionMethods'
 import { ExtensionStore } from './extensions/extensionStore'
 import { DismissedSuggestions, suggestionFor } from './extensions/extensionSuggestions'
-import { registerIconThemeIpc } from './extensions/iconThemes'
-import { describeSkipped, registerKeymapIpc } from './extensions/keymaps'
-import { registerLanguagePackIpc } from './extensions/languagePacks'
 import { Marketplace, marketplaceId, normalizeMarketplaceUrl } from './extensions/marketplace'
 import { PaneAttentionEvents } from './extensions/paneAttentionEvents'
 import { createMainStrings } from './extensions/strings'
@@ -171,44 +139,30 @@ import { OpenWaits } from './files/openWaits'
 import { confirmRemoteFolder, registerRemoteFolderConfirm } from './files/remoteFolderConfirm'
 import { ripgrepPath } from './files/ripgrep'
 import { registerSearchIpc } from './files/workspaceSearch'
-import { createBonjourPublisher } from './gateway/announce'
-import {
-  configureAnnouncer,
-  configureTailnet,
-  onTailnetChange,
-  registerGatewayIpc,
-  registerGatewayMethods,
-} from './gateway/gatewayIpc'
-import { listPairRequests, onPairRequestsChanged } from './gateway/pairRequests'
-import { configureGatewayControl, phoneCanRespond } from './gateway/server'
-import { createTailnet, tailnetNodeName, tsnetHelperPath } from './gateway/tailnet'
+import { startGateway } from './gateway/gatewayWiring'
+import { phoneCanRespond } from './gateway/server'
 import { GitCommands } from './git/commands'
 import { confirmDiscard } from './git/confirmDiscard'
 import { registerGitIpc, registerGitMethods } from './git/register'
 import { GitService } from './git/service'
 import { ViewStateStore } from './git/viewState'
-import { registerEditorLanguageIpc } from './lsp/editorLanguages'
 import { createLanguageServerWiring } from './lsp/languageServerWiring'
 import type { LanguageServers } from './lsp/languageServers'
 import { registerLanguageServersIpc } from './lsp/languageServersIpc'
-import { ManagerService, managerWindowId } from './manager/manager'
+import { type ManagerService, managerWindowId } from './manager/manager'
 import {
   managerArgv,
   writeManagerClaudePlugin,
   writeManagerCodexContext,
 } from './manager/managerAgent'
-import { type ManagerLimiter, registerManagerMethods } from './manager/managerMethods'
+import type { ManagerLimiter } from './manager/managerMethods'
+import { startManager } from './manager/managerWiring'
 import { Portal, portalSocketPath, portalSupported } from './manager/portal'
 import { callerVerdict, procFs, ttysOf } from './manager/portalCaller'
 import { registerExtensionWake } from './panes/extensionWake'
 import { type PaneAttentionPeek, registerPaneIoMethods } from './panes/paneIo'
 import { registerPaneLifecycleIpc } from './panes/paneLifecycleIpc'
-import {
-  listPanes,
-  listWorkspaceGroups,
-  listWorkspaces,
-  registerPaneListMethods,
-} from './panes/paneList'
+import { listPanes, listWorkspaceGroups, listWorkspaces } from './panes/paneList'
 import { registerPaneMoveToMethods } from './panes/paneMoveTo'
 import type { PaneReachDeps } from './panes/paneReach'
 import { registerPaneRenameMethods } from './panes/paneRename'
@@ -216,7 +170,7 @@ import { registerPaneResumeMethods } from './panes/paneResume'
 import { PaneWatch, registerPaneWaitMethods } from './panes/paneWait'
 import { wakeHibernatedPane } from './panes/paneWake'
 import { PaneWaking } from './panes/paneWaking'
-import { INTERRUPT_GRACE_MS, processStatusOf, registerProcessMethods } from './panes/processManager'
+import { INTERRUPT_GRACE_MS, registerProcessMethods } from './panes/processManager'
 import type { ProcessRegistry } from './panes/processRegistry'
 import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './platform/discreteGpu'
 import { loadJson, saveJson, storePath } from './platform/jsonStore'
@@ -237,8 +191,8 @@ import { PortsService } from './ports/service'
 import { registerPrivacyIpc } from './privacy/privacyIpc'
 import { createRedactor } from './privacy/redaction'
 import { createWorkerScan, redactionWorkerScript } from './privacy/redactionScan'
-import { type ProfileSyncHandle, startProfileSync } from './profileSync/ipc'
-import { flatSource, groupedSource, loginsSource } from './profileSync/secrets'
+import type { ProfileSyncHandle } from './profileSync/ipc'
+import { startProfileSyncWiring } from './profileSync/profileSyncWiring'
 import { registerSandboxMethods } from './sandbox/controlMethods'
 import { registerSandboxIpc } from './sandbox/ipc'
 import { createSandboxServices } from './sandbox/sandboxServices'
@@ -248,7 +202,6 @@ import { createEncryptedStores } from './secrets/encryptedStores'
 import { registerSecretMethods } from './secrets/register'
 import { createSecretServices } from './secrets/secretServices'
 import { deleteGlobalVaultValue, registerVaultMethods, setGlobalVaultValue } from './secrets/vault'
-import { registerCompletionIpc } from './terminal/completionSpecs'
 import { writeOstiaLauncher } from './terminal/paneLauncher'
 import { createPtyAttach } from './terminal/pty/ptyAttach'
 import { createPtyIo } from './terminal/pty/ptyIo'
@@ -313,13 +266,11 @@ import { createWindowSend } from './windows/windowSend'
 import { startWindows } from './windows/windowStartup'
 import { createWindowWiring } from './windows/windowWiring'
 import { registerCmuxSessionIpc } from './workspaces/cmuxSession'
+import { registerContentIpc } from './workspaces/contentWiring'
 import { registerProjectRootIpc } from './workspaces/projectRoot'
-import { registerSameFolder } from './workspaces/sameFolder'
 import { registerScratchIpc } from './workspaces/scratchFolders'
 import { createScrollbackPersistence } from './workspaces/scrollbackPersistence'
-import { type SnippetDeps, registerSnippetIpc, registerSnippetMethods } from './workspaces/snippets'
-import { ViewHost, ViewStore } from './workspaces/viewHost'
-import { registerViewMethods, registerViewsIpc } from './workspaces/viewsIpc'
+import type { ViewHost } from './workspaces/viewHost'
 import { createWorkspaceLifecycle } from './workspaces/workspaceLifecycle'
 import { windowForWorkspace, workDirForWorkspace } from './workspaces/workspaceRegistry'
 import {
@@ -2078,285 +2029,17 @@ app.whenReady().then(() => {
       .syncedInstalls()
       .filter((install) => marketplaceId(install.marketplace) === officialMarketplaceId)
       .map((install) => install.id)
-  services.profileSync = startProfileSync({
-    userData: app.getPath('userData'),
-    configDir: configDir(),
-    readSettings: readSettingsFile,
-    broadcast: (channel, payload) => broadcast(channel, payload),
-    onSettingsPulled: () => {
-      services.extensionHost?.config.reloadSettings()
-      services.extensionHost?.refreshLocale()
-    },
-    installedExtensions: () => marketplace.syncedInstalls(),
-    builtinIds: () =>
-      services.extensionHost
-        ?.list()
-        .filter((ext) => ext.builtin)
-        .map((ext) => ext.id) ?? [],
-    installExtension: async (id, url) => (await marketplace.installSuggested(id, url, true)).ok,
-    secretSources: () => {
-      const store = (name: string) => {
-        const path = storePath(name, 'global')
-        return { deps: encryptedFile(path), mtime: () => statSync(path).mtimeMs }
-      }
-      const vault = store('vault')
-      const ext = store('extension-secrets')
-      const assist = store('assist-keys')
-      const mcp = store('mcp-secrets')
-      const logins = credentials()
-      return [
-        flatSource(vault.deps, vault.mtime),
-        groupedSource('extensions', ext.deps, ext.mtime),
-        groupedSource('assistant', assist.deps, assist.mtime),
-        groupedSource('mcp', mcp.deps, mcp.mtime),
-        ...(logins ? [loginsSource(logins)] : []),
-      ]
-    },
-    protect: {
-      encrypt: (plain) => safeStorage.encryptString(plain).toString('base64'),
-      decrypt: (kept) => safeStorage.decryptString(Buffer.from(kept, 'base64')),
-    },
-    detectSecrets: (text) =>
-      redactionScan.scan(text, parsePrivacySettings(readSettingsFile().privacy).redaction.patterns),
-  })
-  void services.profileSync.run()
-  registerAssistIpc(() => services.extensionHost?.assistant ?? null)
-  registerChatSessionIpc(
-    createChatSessionStore({ dir: join(dirname(storePath('chat', 'global')), 'chat-sessions') }),
-    redactor.text,
-  )
-  const mcpSecretsPath = storePath('mcp-secrets', 'global')
-  const mcpSecrets = encryptedStore(mcpSecretsPath)
-  const chatToolSettings = () => parseChatToolSettings(readSettingsFile().assistant)
-  services.mcpOAuth = new McpOAuth({
-    store: createMcpOAuthStore(encryptedFile(mcpSecretsPath)),
-    openExternal: openExternalSafe,
-    browser: mcpOAuthBrowser(app.isPackaged, process.env),
-    pages: () => mainStrings().native.signIn,
-    onChange: () => services.mcpHost?.notify(),
-  })
-  services.mcpHost = new McpHost({
-    servers: () => chatToolSettings().mcpServers,
-    secret: (server, key) => mcpSecrets.get(server, key),
-    onStatus: (status) => broadcast('chatTools:mcp-status', status),
-    auth: services.mcpOAuth,
-  })
-  registerChatToolsIpc({
-    roots: fileRoots,
-    settings: chatToolSettings,
-    mcp: services.mcpHost,
-    secrets: mcpSecrets,
-    oauth: services.mcpOAuth,
-    grants: new ChatToolGrants(join(app.getPath('userData'), 'chat-tool-grants.json')),
-    onGrants: (keys) => broadcast('chatTools:always-grants', keys),
-  })
-  const snippetDeps: SnippetDeps = {
-    userDir: join(configDir(), 'snippets'),
-    roots: () => [homedir(), app.getPath('userData')],
-    workDirForWorkspace,
-    extensionSnippets: () => services.extensionHost?.contributions.snippets() ?? [],
-  }
-  registerSnippetIpc(snippetDeps)
-  registerSnippetMethods(snippetDeps)
-  registerCompletionIpc({
-    userDir: join(configDir(), 'completions'),
-    extensionDirs: () => services.extensionHost?.contributions.completionDirs() ?? [],
-  })
-  services.viewHost = new ViewHost({
-    dir: join(configDir(), 'views'),
-    store: new ViewStore(join(app.getPath('userData'), 'views.json')),
-    onChange: (listing) => broadcast('views:changed', listing),
-    log: (line) => console.warn(`[views] ${line}`),
-  })
-  registerViewsIpc(services.viewHost)
-  registerViewMethods({ host: services.viewHost, execCommand })
-  registerIconThemeIpc({
-    themes: () => services.extensionHost?.contributions.iconThemes() ?? [],
-    onError: (id, error) => console.warn(`[icon theme ${id}] ${error}`),
-  })
-  registerKeymapIpc({
-    keymaps: () => services.extensionHost?.contributions.keymaps() ?? [],
-    platform: process.platform,
-    onError: (ref, error) => console.warn(`[keymap ${ref}] ${error}`),
-    onSkipped: (ref, skipped) =>
-      console.warn(`[keymap ${ref}] skipped entries: ${describeSkipped(skipped)}`),
-  })
-  registerLanguagePackIpc(languagePackDeps)
-  registerEditorLanguageIpc({
-    languages: () => services.extensionHost?.contributions.editorLanguages() ?? [],
-    onError: (extId, error) => console.warn(`[editor language ${extId}] ${error}`),
-  })
-  platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
-    services.extensionHost?.events.emitEvent('notification', n),
-  )
-  registerSameFolder({ workDir: workDirForWorkspace, home: homedir })
-  registerPaneListMethods({
-    execCommand,
-    getTerminalState,
-    ptyPid,
-    windowIds,
-    waking: isWaking,
-    processOf: (paneId) => {
-      const entry = services.processes?.forPane(paneId)
-      return entry ? processStatusOf(entry) : undefined
-    },
-    reach,
-    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-  })
-  registerGatewayMethods()
-  const tailnet = createTailnet({
-    command: tsnetHelperPath(app.getAppPath(), process.platform),
-    stateDir: join(app.getPath('userData'), 'tsnet'),
-    hostname: tailnetNodeName(hostname()),
-    onChange: (state) => {
-      onTailnetChange(state)
-      broadcast('gateway:tailnet-changed', state)
-    },
-    log: (event, fields) => services.appLog?.info(event, fields),
-  })
-  configureTailnet(tailnet, { openExternal: (url) => void openExternalSafe(url) })
-  services.stopTailnet = () => tailnet.stop()
-  const publisher = createBonjourPublisher()
-  configureAnnouncer(publisher)
-  services.stopAnnouncing = publisher.unpublish
-  onPairRequestsChanged(() => broadcast('gateway:pair-requests-changed', listPairRequests()))
-  registerGatewayIpc()
-  configureGatewayControl({
-    execCommand,
-    listCommandsFor,
-    getTerminalState,
-    listPanes: () =>
-      listPanes({
-        execCommand,
-        getTerminalState,
-        ptyPid,
-        windowIds,
-        waking: isWaking,
-      }),
-    listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
-    fileScope: phoneFileScope,
-    artifactsDir: (workspaceId) => artifactFolders.followed(workspaceId),
-    openArtifact: async (workspaceId, path) => {
-      const windowId = windowForWorkspace(workspaceId)
-      if (!windowId) return false
-      const res = await execCommand({ windowId, workspaceId, paneId: null }, OPEN_FILES_COMMAND, {
-        files: [{ path }],
-        background: true,
-      })
-      return res.ok
-    },
-    listWorkspaceGroups: () => listWorkspaceGroups({ execCommand, windowIds }),
-    primaryWindowId,
-    attachPhoneObserver,
-    ptyResize,
-    ptyWrite,
-    listAsks: askHub.list,
-    answerAsk: askHub.answer,
-    agentRunning: (paneId) => agentRunning.has(paneId) && ptys.has(paneId),
-  })
-  const sharedBrowser = session.fromPartition(SHARED_BROWSER_PARTITION)
-  browserAgentsOf(sharedBrowser)
-  const isSharedPane = (paneId: string): boolean => browserProfiles.isShared(paneId)
-  registerBrowseMethods({
-    allowNavigation: (workspaceId, url) => browserFence.check(workspaceId, url),
-    browserPanes,
-    isSharedPane,
-    execCommand,
-    screenshotRoots: [homedir(), app.getPath('userData')],
-    consoleBuffers,
-    errorBuffers,
-    reach,
-  })
-  registerPickMethods({ browserPanes, isSharedPane, errorBuffers, broadcast, reach })
-  registerPickIpc(
-    { browserPanes, isSharedPane, errorBuffers, broadcast, reach },
-    reachesPane,
-    redactor.text,
-  )
-  registerRegionIpc(browserPanes, reachesPane, redactor.text)
-  registerBrowserStorageIpc((paneId, senderWindowId) =>
-    ownedGuest(browserPanes, paneId, senderWindowId),
-  )
-  registerLoginFill({
-    browserPanes,
-    isSharedPane,
-    ownedGuest: (paneId, senderWindowId) => ownedGuest(browserPanes, paneId, senderWindowId),
-    reach,
-  })
-  const retiredTokens = retireLegacyScriptTokens(
-    storePath('script-tokens', 'global'),
-    retiredScriptTokensPath(),
-  )
-  if (retiredTokens.length > 0) {
-    const text = mainStrings().native.scriptTokensRetired
-    postNotification(notifyDeps, {
-      title: fmt(text.title, { count: retiredTokens.length }),
-      body: fmt(text.body, { names: retiredTokens.join(', ') }),
-      from: 'script-tokens',
-    })
-  }
-  const scriptTokenDeps = {
-    path: scriptTokensPath,
-    retiredPath: retiredScriptTokensPath,
-    listing: workspaceListing,
-    changed: () => broadcast('scriptTokens:changed', null),
-    appWindows: () => windows.values(),
-    usage: scriptTokenUsage,
-    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
-  }
-  registerScriptTokenMethods(scriptTokenDeps)
-  registerScriptTokenIpc(scriptTokenDeps)
-  setScriptTokenCheck((token) =>
-    checkScriptToken({ path: scriptTokensPath(), retiredPath: retiredScriptTokensPath() }, token),
-  )
-  const presenceDeps = electronPresenceDeps(
-    () => windows.values(),
-    () => mainStrings().native.userPresence,
-    process.resourcesPath,
-  )
-  setUserPresenceCheck(({ action, name }) =>
-    verifyUserPresence(
-      { reason: fmt(mainStrings().native.userPresence[action], { name }), name },
-      presenceDeps,
-    ),
-  )
-  registerControlServer({
-    execCommand,
-    listCommandsFor,
-    getTerminalState,
-    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-    windowOfWorkspace: workspaceWindowId,
-    primaryWindow: primaryWindowId,
-    byAgent: reach.byAgent,
-    reach,
-    usage: scriptTokenUsage,
-  })
-  writeControlInfo(controlInfoPath(), controlSocketPath(), process.pid)
-  keptPlumbing.start(keepShellsOn())
-  registerManagerIpc()
-  services.managerLimiter = registerManagerMethods({
-    settings: managerSettings,
-    agents: () => managerAgents(managerSettings()),
-    io: paneIo,
-    openWorker,
-    paneAlive: (paneId) => getByPaneId(paneId) !== undefined,
-    now: Date.now,
-  })
-  services.managerService = new ManagerService({
-    loadResume: () => loadJson<unknown>(managerResumePath(), null),
-    saveResume: (saved) => {
-      if (saved) saveJson(managerResumePath(), saved)
-      else rmSync(managerResumePath(), { force: true })
-    },
-    agents: () => managerAgents(managerSettings()),
-    createPane: createManagerPane,
-    spawn: spawnManagerPty,
-  })
-  startPortal()
+  startProfileSyncWiring({ ...wiring, marketplace })
+  startChat({ ...wiring })
+  const { viewHost } = registerContentIpc({ ...wiring })
+  startGateway({ ...wiring })
+  registerBrowserWiring({ ...wiring })
+  startControlServer({ ...wiring, notifyDeps })
+  startManager({ ...wiring })
   startWindows({
     ...wiring,
     extensionHost: services.extensionHost,
-    viewHost: services.viewHost,
+    viewHost,
   })
 })
 
@@ -2425,4 +2108,49 @@ const wiring = {
   autosaveScrollback,
   SCROLLBACK_AUTOSAVE_MS,
   revealApp,
+  registerManagerIpc,
+  managerSettings,
+  paneIo,
+  openWorker,
+  managerResumePath,
+  createManagerPane,
+  spawnManagerPty,
+  startPortal,
+  retiredScriptTokensPath,
+  scriptTokensPath,
+  workspaceListing,
+  broadcast,
+  scriptTokenUsage,
+  getTerminalState,
+  ptyPid,
+  windowIds,
+  isWaking,
+  listCommandsFor,
+  workspaceWindowId,
+  primaryWindowId,
+  reach,
+  keptPlumbing,
+  keepShellsOn,
+  browserAgentsOf,
+  browserProfiles,
+  browserFence,
+  browserPanes,
+  consoleBuffers,
+  errorBuffers,
+  reachesPane,
+  redactor,
+  openExternalSafe,
+  phoneFileScope,
+  artifactFolders,
+  attachPhoneObserver,
+  ptyResize,
+  ptyWrite,
+  askHub,
+  ptys,
+  configDir,
+  languagePackDeps,
+  encryptedStore,
+  encryptedFile,
+  fileRoots,
+  redactionScan,
 }
