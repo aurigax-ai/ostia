@@ -151,9 +151,8 @@ describe('script token IPC', () => {
       .map((name) => readFileSync(join(preloadDir, name), 'utf8'))
       .join('\n')
     const block = /\n {2}scriptTokens: \{\n([\s\S]*?)\n {2}\},\n/.exec(preload)?.[1] ?? ''
-    const channels = [...block.matchAll(/ipcRenderer\.(\w+)\('([^']+)'/g)].map((m) => m[2])
+    const channels = [...block.matchAll(/(?:ipcRenderer\.\w+|listen)\('([^']+)'/g)].map((m) => m[1])
     expect(channels.sort()).toEqual([
-      'scriptTokens:changed',
       'scriptTokens:changed',
       'scriptTokens:create',
       'scriptTokens:list',

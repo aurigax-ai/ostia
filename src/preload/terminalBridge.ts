@@ -11,6 +11,7 @@ import type {
   PromptContext,
   PtyAttachResult,
 } from '../shared/types'
+import { listen } from './listen'
 
 export const terminalBridge: Pick<
   OstiaBridge,
@@ -38,26 +39,10 @@ export const terminalBridge: Pick<
       ipcRenderer.invoke('pty:activity', paneId) as Promise<PaneActivity | null>,
     promptContext: (paneId, want) =>
       ipcRenderer.invoke('pty:prompt-context', paneId, want) as Promise<PromptContext | null>,
-    onData: (paneId, cb) => {
-      const handler = (_e: unknown, data: string): void => cb(data)
-      ipcRenderer.on(`pty:data:${paneId}`, handler)
-      return () => ipcRenderer.removeListener(`pty:data:${paneId}`, handler)
-    },
-    onExit: (paneId, cb) => {
-      const handler = (_e: unknown, code: number, closes: boolean): void => cb(code, closes)
-      ipcRenderer.on(`pty:exit:${paneId}`, handler)
-      return () => ipcRenderer.removeListener(`pty:exit:${paneId}`, handler)
-    },
-    onSize: (paneId, cb) => {
-      const handler = (_e: unknown, cols: number, rows: number): void => cb(cols, rows)
-      ipcRenderer.on(`pty:size:${paneId}`, handler)
-      return () => ipcRenderer.removeListener(`pty:size:${paneId}`, handler)
-    },
-    onRun: (cb) => {
-      const handler = (_e: unknown, paneId: string, command: string): void => cb(paneId, command)
-      ipcRenderer.on('pty:run', handler)
-      return () => ipcRenderer.removeListener('pty:run', handler)
-    },
+    onData: (paneId, cb) => listen(`pty:data:${paneId}`, cb),
+    onExit: (paneId, cb) => listen(`pty:exit:${paneId}`, cb),
+    onSize: (paneId, cb) => listen(`pty:size:${paneId}`, cb),
+    onRun: (cb) => listen('pty:run', cb),
   },
   terminalLinks: {
     probe: (paneId, path) =>

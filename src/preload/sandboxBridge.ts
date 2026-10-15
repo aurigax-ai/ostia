@@ -1,5 +1,4 @@
 import { ipcRenderer } from 'electron'
-import type { RequirementsReport } from '../shared/app/systemRequirements'
 import type {
   SandboxEditError,
   SandboxEditResult,
@@ -13,6 +12,7 @@ import type {
 import type { SandboxReadPreset } from '../shared/sandbox/sandboxPresets'
 import type { SecretEntry, SecretGrant } from '../shared/sandbox/secrets'
 import type { OstiaBridge } from '../shared/types'
+import { listen } from './listen'
 
 export const sandboxBridge: Pick<OstiaBridge, 'secrets' | 'sandbox'> = {
   secrets: {
@@ -29,14 +29,7 @@ export const sandboxBridge: Pick<OstiaBridge, 'secrets' | 'sandbox'> = {
       ipcRenderer.invoke('secrets:vault-delete', workspaceId, key) as Promise<boolean>,
   },
   sandbox: {
-    onBlocked: (cb) => {
-      const handler = (
-        _event: unknown,
-        blocked: { workspaceId: string; report: RequirementsReport },
-      ): void => cb(blocked)
-      ipcRenderer.on('sandbox:blocked', handler)
-      return () => ipcRenderer.removeListener('sandbox:blocked', handler)
-    },
+    onBlocked: (cb) => listen('sandbox:blocked', cb),
     get: (workspaceId) =>
       ipcRenderer.invoke('sandbox:get', workspaceId) as Promise<WorkspaceSandbox | null>,
     setPaths: (workspaceId, kind, paths) =>
