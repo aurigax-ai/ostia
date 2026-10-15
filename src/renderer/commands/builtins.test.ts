@@ -2167,7 +2167,7 @@ describe('agent resume', () => {
 
   it('replays the variables typed in front of the agent, never the ones a caller sent', async () => {
     const pane = seedPane()
-    const line = 'GL_ISSUE=685 GH_TOKEN=x claude --model opus'
+    const line = 'GL_ISSUE=685 GIT_DIR=/tmp/g GH_TOKEN=x claude --model opus'
     useBlocksStore.getState().commandStart(pane.id, { line: 1 }, line, line)
     await commands.execWith(ctx('s1', pane.id), 'resume.set', {
       agent: 'claude',

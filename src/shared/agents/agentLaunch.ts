@@ -145,8 +145,10 @@ const TYPED_FLAGS: Record<ResumableAgent, Record<string, Arity>> = {
 const SECRET_NAME =
   /KEY|TOKEN|SECRET|PASS|PWD|CREDENTIAL|AUTH|COOKIE|SESSION|PRIVATE|CERT|(^|[_.])(PIN|PW)($|[_.])/i
 
+const NOT_SECRET_ENV = new Set(['CLAUDE_SKIP_SESSION_LOG'])
+
 const CODE_LOADING_ENV =
-  /^(LD_|DYLD_|XDG_|GIT_CONFIG_)|^(NODE_OPTIONS|NODE_PATH|BASH_ENV|ENV|PATH|HOME|PROMPT_COMMAND|ZDOTDIR|SHELLOPTS|BASHOPTS|PYTHONPATH|PYTHONSTARTUP|PERL5OPT|PERL5LIB|RUBYOPT|JAVA_TOOL_OPTIONS|GIT_SSH_COMMAND|GIT_EXEC_PATH|GIT_CONFIG|EDITOR|VISUAL|PAGER)$/
+  /^(LD_|DYLD_|XDG_|GIT_|NPM_CONFIG_|CLAUDE_CODE_SHELL)|_BASE_URL$|^(NODE_OPTIONS|NODE_PATH|NODE_EXTRA_CA_CERTS|BASH_ENV|ENV|PATH|HOME|SHELL|PROMPT_COMMAND|ZDOTDIR|SHELLOPTS|BASHOPTS|PYTHONPATH|PYTHONHOME|PYTHONSTARTUP|PERL5OPT|PERL5LIB|PERLLIB|PERL5DB|RUBYOPT|RUBYLIB|LUA_PATH|LUA_CPATH|CLASSPATH|JAVA_TOOL_OPTIONS|_JAVA_OPTIONS|SSH_ASKPASS|EDITOR|VISUAL|PAGER|HTTP_PROXY|HTTPS_PROXY|ALL_PROXY|NO_PROXY)$/i
 
 const CONFIG_FLAGS: Record<ResumableAgent, ReadonlySet<string>> = {
   claude: new Set(['--settings', '--agents', '--mcp-config']),
@@ -226,6 +228,7 @@ function readFlags(
   flags: Record<string, Arity>,
   argv: readonly string[],
   keep: (name: string, values: string[]) => boolean,
+  spacedLists = false,
 ): string[] {
   const out: string[] = []
   let total = 0
@@ -248,8 +251,9 @@ function readFlags(
       if (inline !== undefined) values.push(inline)
       else if (i < argv.length && !argv[i].startsWith('-')) continue
     } else if (arity === 'many') {
-      if (inline === undefined) continue
-      values.push(inline)
+      if (inline !== undefined) values.push(inline)
+      else if (spacedLists && i < argv.length && !argv[i].startsWith('-')) values.push(argv[i++])
+      else continue
     } else {
       continue
     }
@@ -281,6 +285,7 @@ function typedFlags(agent: ResumableAgent, argv: readonly string[]): string[] {
     (name, values) =>
       !isCarried(agent, name, values) &&
       (!CONFIG_FLAGS[agent].has(name) || values.every((value) => isSafeConfig(agent, value))),
+    true,
   )
 }
 
@@ -299,7 +304,8 @@ function safeEnv(raw: unknown): Record<string, string> {
   const out: Record<string, string> = {}
   for (const [name, value] of Object.entries(raw)) {
     if (Object.keys(out).length >= MAX_ENV) break
-    if (!ENV_NAME.test(name) || SECRET_NAME.test(name) || CODE_LOADING_ENV.test(name)) continue
+    if (!ENV_NAME.test(name) || CODE_LOADING_ENV.test(name)) continue
+    if (SECRET_NAME.test(name) && !NOT_SECRET_ENV.has(name)) continue
     if (name.startsWith(envName(''))) continue
     if (typeof value !== 'string' || !isSafeValue(value, MAX_ENV_VALUE)) continue
     if (PATH_ENV.has(name) && !ABSOLUTE_PATH.test(value)) continue

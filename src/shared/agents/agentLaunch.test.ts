@@ -426,6 +426,48 @@ describe('typedLaunch', () => {
     expect(typedLaunch('claude', `GL_ISSUE=${'x'.repeat(40)} claude`)).toBeUndefined()
   })
 
+  it('keeps the session-log switch a coordinator sets, though its name says session', () => {
+    expect(
+      typedLaunch('claude', 'CLAUDE_SKIP_SESSION_LOG=1 CLAUDE_SESSION_TOKEN=x SESSION_ID=y claude'),
+    ).toEqual({ env: { CLAUDE_SKIP_SESSION_LOG: '1' } })
+  })
+
+  it('never stores a variable that points the agent, git or an interpreter at other code', () => {
+    for (const name of [
+      'GIT_DIR',
+      'GIT_WORK_TREE',
+      'GIT_SSH',
+      'GIT_ASKPASS',
+      'CLAUDE_CODE_SHELL_PREFIX',
+      'CLAUDE_CODE_SHELL',
+      'ANTHROPIC_BASE_URL',
+      'OPENAI_BASE_URL',
+      'HTTPS_PROXY',
+      'https_proxy',
+      'PYTHONHOME',
+      'RUBYLIB',
+      'PERLLIB',
+      'CLASSPATH',
+      'SHELL',
+      'NPM_CONFIG_PREFIX',
+      'path',
+    ]) {
+      expect(typedLaunch('claude', `${name}=/x GL_ISSUE=1 claude`), name).toEqual({
+        env: { GL_ISSUE: '1' },
+      })
+    }
+  })
+
+  it('reads one value of a list flag written with a space, with the same value rules', () => {
+    expect(
+      typedLaunch(
+        'claude',
+        'claude --add-dir /a --mcp-config /m.json --mcp-config \'{"x":1}\' --add-dir --agent b fix',
+      ),
+    ).toEqual({ args: ['--add-dir=/a', '--mcp-config=/m.json', '--agent', 'b'] })
+    expect(typedLaunch('codex', 'codex --add-dir /a')).toEqual({ args: ['--add-dir', '/a'] })
+  })
+
   it('drops a value it cannot read without running the shell, or one that looks secret', () => {
     expect(
       typedLaunch('claude', 'GL_ISSUE="$X" claude --agent $A --settings \'{"env":{}}\' --agent ok'),
