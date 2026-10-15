@@ -12,6 +12,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
+import type { FileHandle } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
@@ -46,8 +47,16 @@ function tmp(): string {
 
 const linux = process.platform === 'linux'
 
-function privateTrash(): { homeTrash: string; topdirOf: (path: string) => Promise<string> } {
-  return { homeTrash: join(tmp(), 'Trash'), topdirOf: async (path) => path }
+function privateTrash(): {
+  homeTrash: string
+  topdirOf: (path: string) => Promise<string>
+  trashAllowedAt: (topdir: string) => Promise<boolean>
+} {
+  return {
+    homeTrash: join(tmp(), 'Trash'),
+    topdirOf: async (path) => path,
+    trashAllowedAt: async () => true,
+  }
 }
 
 function setup(): {
@@ -691,6 +700,7 @@ describe('exclusive transfers', () => {
         roots: [root],
         homeTrash,
         topdirOf: async () => shm,
+        trashAllowedAt: async () => true,
         trash: async (path) => {
           trashed.push(path)
         },
@@ -859,6 +869,140 @@ describe('exclusive transfers', () => {
     expect(readdirSync(join(root, 'big'))).toHaveLength(64)
     expect(ticks).toBeGreaterThan(3)
   })
+})
+
+describe('freedesktop Trash on Linux', () => {
+  const uid = process.getuid?.() ?? 0
+
+  function trashCase(options: { homeTrash?: string; fs?: TransferFs; uid?: number } = {}) {
+    const root = tmp()
+    mkdirSync(join(root, 'sub'))
+    writeFileSync(join(root, 'sub', 'notes.md'), 'mine')
+    const homeTrash = options.homeTrash ?? join(tmp(), 'Trash')
+    const ops = new FileOps({
+      roots: [root],
+      homeTrash,
+      fs: options.fs,
+      uid: options.uid,
+      topdirOf: async (path) => path,
+      trashAllowedAt: async () => false,
+      trash: async () => {
+        throw new Error('shell trash must not be used on Linux')
+      },
+    })
+    return { root, homeTrash, ops, item: join(root, 'sub', 'notes.md') }
+  }
+
+  it.runIf(linux)('trashes through a data folder that is reached by a link', async () => {
+    const base = tmp()
+    mkdirSync(join(base, 'real-share'))
+    symlinkSync(join(base, 'real-share'), join(base, 'share'))
+    const c = trashCase({ homeTrash: join(base, 'share', 'Trash') })
+    expect(await c.ops.trash([c.item])).toMatchObject({ ok: true })
+    expect(readFileSync(join(base, 'real-share', 'Trash', 'files', 'notes.md'), 'utf8')).toBe(
+      'mine',
+    )
+  })
+
+  it.runIf(linux && existsSync('/dev/shm'))(
+    'refuses a Trash on /dev/shm, a tmpfs below /dev, the way glib does, and says so',
+    async () => {
+      const shm = mkdtempSync(join('/dev/shm', 'ostia-fileops-'))
+      dirs.push(shm)
+      writeFileSync(join(shm, 'far.txt'), 'far')
+      const root = tmp()
+      const ops = new FileOps({
+        roots: [root],
+        homeTrash: join(tmp(), 'Trash'),
+        trash: async () => {
+          throw new Error('shell trash must not be used on Linux')
+        },
+      })
+      expect(await ops.importInto([join(shm, 'far.txt')], root, true)).toEqual({
+        ok: false,
+        error: 'no-trash',
+        paths: [join(root, 'far.txt')],
+      })
+      expect(readFileSync(join(shm, 'far.txt'), 'utf8')).toBe('far')
+      expect(readdirSync(shm)).toEqual(['far.txt'])
+    },
+  )
+
+  it.runIf(linux)(
+    'keeps the full name in Path= and a short one in the Trash for a long name',
+    async () => {
+      const c = trashCase()
+      const name = `${'n'.repeat(246)}.md`
+      writeFileSync(join(c.root, 'sub', name), 'long')
+      expect(await c.ops.trash([join(c.root, 'sub', name)])).toMatchObject({ ok: true })
+      const [infoName] = readdirSync(join(c.homeTrash, 'info'))
+      expect(Buffer.byteLength(infoName)).toBeLessThanOrEqual(255)
+      const info = readFileSync(join(c.homeTrash, 'info', infoName), 'utf8')
+      expect(info).toContain(`/sub/${name}\n`)
+      const [trashed] = readdirSync(join(c.homeTrash, 'files'))
+      expect(`${trashed}.trashinfo`).toBe(infoName)
+      expect(readFileSync(join(c.homeTrash, 'files', trashed), 'utf8')).toBe('long')
+    },
+  )
+
+  it.runIf(linux)(
+    'leaves no trashinfo behind when writing it or claiming the entry fails',
+    async () => {
+      const failing = (what: 'write' | 'claim'): TransferFs => ({
+        ...nodeTransferFs,
+        open: (async (path: string, ...rest: unknown[]) => {
+          const handle = await (nodeTransferFs.open as (...args: unknown[]) => Promise<FileHandle>)(
+            path,
+            ...rest,
+          )
+          if (what === 'write' && path.endsWith('.trashinfo')) {
+            handle.writeFile = async () => {
+              throw Object.assign(new Error('full'), { code: 'ENOSPC' })
+            }
+          }
+          if (what === 'claim' && !path.endsWith('.trashinfo') && rest.length > 1) {
+            await handle.close()
+            throw Object.assign(new Error('io'), { code: 'EIO' })
+          }
+          return handle
+        }) as TransferFs['open'],
+      })
+      for (const what of ['write', 'claim'] as const) {
+        const c = trashCase({ fs: failing(what) })
+        expect(await c.ops.trash([c.item]), what).toMatchObject({ ok: false, error: 'failed' })
+        expect(readdirSync(join(c.homeTrash, 'info')), what).toEqual([])
+        expect(readFileSync(c.item, 'utf8'), what).toBe('mine')
+      }
+    },
+  )
+
+  it.runIf(linux)('refuses a Trash whose files or info folder is not ours', async () => {
+    const c = trashCase({ uid: uid + 1 })
+    expect(await c.ops.trash([c.item])).toMatchObject({ ok: false, error: 'failed' })
+    expect(readFileSync(c.item, 'utf8')).toBe('mine')
+    expect(readdirSync(join(c.homeTrash, 'info'))).toEqual([])
+  })
+
+  it.runIf(linux && existsSync('/dev/shm'))(
+    "uses a real user mount's own .Trash-$uid",
+    async () => {
+      const shm = mkdtempSync(join('/dev/shm', 'ostia-fileops-'))
+      dirs.push(shm)
+      writeFileSync(join(shm, 'far.txt'), 'far')
+      const root = tmp()
+      const ops = new FileOps({
+        roots: [root],
+        homeTrash: join(tmp(), 'Trash'),
+        topdirOf: async () => shm,
+        trashAllowedAt: async () => true,
+        trash: async () => {
+          throw new Error('shell trash must not be used on Linux')
+        },
+      })
+      expect(await ops.importInto([join(shm, 'far.txt')], root, true)).toMatchObject({ ok: true })
+      expect(readFileSync(join(shm, `.Trash-${uid}`, 'files', 'far.txt'), 'utf8')).toBe('far')
+    },
+  )
 })
 
 describe('FileOps.draggable', () => {

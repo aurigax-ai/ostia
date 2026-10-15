@@ -12,7 +12,13 @@ import {
   moveExclusive,
 } from './exclusiveTransfer'
 import { type FolderAnchor, openAnchor } from './folderAnchor'
-import { homeTrashPlace, mountTopdir, moveToTrash, topdirTrashPlace } from './freedesktopTrash'
+import {
+  NoTrashError,
+  homeTrashPlace,
+  mountTopdir,
+  moveToTrash,
+  topdirTrashPlace,
+} from './freedesktopTrash'
 import { type TransferFs, nodeTransferFs } from './transferFs'
 
 const FILE_OP_MAX_PATHS = 500
@@ -28,7 +34,10 @@ export interface FileOpsDeps {
   homeTrash?: string
   uid?: number
   topdirOf?: (path: string) => Promise<string>
+  trashAllowedAt?: (topdir: string) => Promise<boolean>
 }
+
+type TrashOutcome = 'trashed' | 'failed' | 'no-trash'
 
 function defaultHomeTrash(): string {
   return join(process.env.XDG_DATA_HOME || join(homedir(), '.local', 'share'), 'Trash')
@@ -304,15 +313,20 @@ export class FileOps {
     const copied = await this.copyNew(source, dest, pick)
     if (!copied.ok) return copied
     const trashed = await this.toTrash(source, before)
-    return trashed ? copied : { ok: false, error: 'not-moved', paths: [copied.target] }
+    if (trashed === 'trashed') return copied
+    return {
+      ok: false,
+      error: trashed === 'no-trash' ? 'no-trash' : 'not-moved',
+      paths: [copied.target],
+    }
   }
 
-  private async toTrash(source: TransferEnd, expected: Stats): Promise<boolean> {
+  private async toTrash(source: TransferEnd, expected: Stats): Promise<TrashOutcome> {
     try {
       if (this.platform !== 'linux') {
-        if (!(await entryUnchanged(this.fs, source, expected))) return false
+        if (!(await entryUnchanged(this.fs, source, expected))) return 'failed'
         await this.deps.trash(join(source.anchor.path, source.name))
-        return true
+        return 'trashed'
       }
       const home = this.deps.homeTrash ?? defaultHomeTrash()
       const uid = this.deps.uid ?? process.getuid?.() ?? 0
@@ -322,10 +336,12 @@ export class FileOps {
           await (this.deps.topdirOf ?? mountTopdir)(source.anchor.path),
           uid,
           expected.dev,
+          this.deps.trashAllowedAt,
         ))
-      return await moveToTrash(this.fs, source, expected, place, new Date())
-    } catch {
-      return false
+      const trashed = await moveToTrash(this.fs, source, expected, place, uid, new Date())
+      return trashed ? 'trashed' : 'failed'
+    } catch (error) {
+      return error instanceof NoTrashError ? 'no-trash' : 'failed'
     }
   }
 
@@ -416,8 +432,8 @@ export class FileOps {
       const trashed = await this.anchored(dirname(source), null, async (anchor) => {
         const end = { anchor, name: basename(source) }
         return this.toTrash(end, await this.fs.lstat(await anchor.at(end.name)))
-      }).catch(() => false)
-      if (!trashed) return { ok: false, error: 'failed', paths: done }
+      }).catch((): TrashOutcome => 'failed')
+      if (trashed !== 'trashed') return { ok: false, error: trashed, paths: done }
       done.push(source)
     }
     return { ok: true, paths: done }

@@ -6,6 +6,7 @@ export type FileOpError =
   | 'sandboxed'
   | 'not-moved'
   | 'partial'
+  | 'no-trash'
   | 'failed'
 
 export type FileOpResult =

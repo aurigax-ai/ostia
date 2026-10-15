@@ -1,20 +1,30 @@
 import { constants, type Stats } from 'node:fs'
-import { lstat, mkdir } from 'node:fs/promises'
+import { lstat, mkdir, readFile, realpath } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import type { TransferEnd } from './exclusiveTransfer'
 import { type FolderAnchor, openAnchor } from './folderAnchor'
 import type { TransferFs } from './transferFs'
+import { mountAllowsTrash } from './trashMounts'
 
 const CREATE_FLAGS =
   constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW
 const PRIVATE_MODE = 0o700
 const STICKY_BIT = 0o1000
 const NAME_TRIES = 1000
+const NAME_MAX_BYTES = 255
+const INFO_SUFFIX = '.trashinfo'
+const COUNTER_ROOM = '.1000'.length
 const UNRESERVED = /[A-Za-z0-9\-._~/]/
 
 export interface TrashPlace {
   root: string
   topdir: string | null
+}
+
+export class NoTrashError extends Error {
+  constructor() {
+    super('no-trash')
+  }
 }
 
 function errorCode(error: unknown): string | undefined {
@@ -69,14 +79,22 @@ async function readyTrashRoot(root: string, uid: number, dev: number): Promise<b
 export async function homeTrashPlace(home: string, itemDev: number): Promise<TrashPlace | null> {
   await mkdir(join(home, 'files'), { recursive: true, mode: PRIVATE_MODE })
   await mkdir(join(home, 'info'), { recursive: true, mode: PRIVATE_MODE })
-  return (await lstat(home)).dev === itemDev ? { root: home, topdir: null } : null
+  const root = await realpath(home)
+  return (await lstat(root)).dev === itemDev ? { root, topdir: null } : null
+}
+
+export async function systemAllowsTrash(topdir: string): Promise<boolean> {
+  return mountAllowsTrash(await readFile('/proc/self/mountinfo', 'utf8'), topdir)
 }
 
 export async function topdirTrashPlace(
-  topdir: string,
+  topdirInput: string,
   uid: number,
   itemDev: number,
+  allowsTrash: (topdir: string) => Promise<boolean> = systemAllowsTrash,
 ): Promise<TrashPlace> {
+  const topdir = await realpath(topdirInput)
+  if (!(await allowsTrash(topdir))) throw new NoTrashError()
   const shared = join(topdir, '.Trash')
   const info = await lstat(shared).catch(() => null)
   const sticky = info?.isDirectory() === true && (info.mode & STICKY_BIT) !== 0
@@ -85,7 +103,7 @@ export async function topdirTrashPlace(
   }
   const own = join(topdir, `.Trash-${uid}`)
   if (await readyTrashRoot(own, uid, itemDev)) return { root: own, topdir }
-  throw new Error('no-trash')
+  throw new NoTrashError()
 }
 
 export async function mountTopdir(path: string): Promise<string> {
@@ -117,11 +135,16 @@ async function claimInfo(
       throw error
     })
   if (handle === null) return null
+  let own: Stats | null = null
   try {
+    own = await handle.stat()
     await handle.writeFile(text)
-    return await handle.stat()
+    return own
+  } catch (error) {
+    if (own !== null) await removeOwn(fs, info, `${name}.trashinfo`, own)
+    throw error
   } finally {
-    await handle.close()
+    await handle.close().catch(() => {})
   }
 }
 
@@ -149,8 +172,19 @@ async function claimPlaceholder(
   }
 }
 
-function trashedName(name: string, attempt: number): string {
-  return attempt === 1 ? name : `${name}.${attempt}`
+function fitBytes(name: string, max: number): string {
+  if (Buffer.byteLength(name) <= max) return name
+  let out = ''
+  for (const char of name) {
+    if (Buffer.byteLength(out + char) > max) break
+    out += char
+  }
+  return out
+}
+
+export function trashedName(name: string, attempt: number): string {
+  const base = fitBytes(name, NAME_MAX_BYTES - INFO_SUFFIX.length - COUNTER_ROOM)
+  return attempt === 1 ? base : `${base}.${attempt}`
 }
 
 async function trashInto(
@@ -161,12 +195,16 @@ async function trashInto(
   info: FolderAnchor,
   text: string,
 ): Promise<boolean> {
-  if (files.stat.dev !== expected.dev) return false
   for (let attempt = 1; attempt <= NAME_TRIES; attempt++) {
     const name = trashedName(source.name, attempt)
     const infoStat = await claimInfo(fs, info, name, text)
     if (infoStat === null) continue
-    const placeholder = await claimPlaceholder(fs, files, name, expected.isDirectory())
+    const placeholder = await claimPlaceholder(fs, files, name, expected.isDirectory()).catch(
+      async (error) => {
+        await removeOwn(fs, info, `${name}.trashinfo`, infoStat)
+        throw error
+      },
+    )
     if (placeholder === null) {
       await removeOwn(fs, info, `${name}.trashinfo`, infoStat)
       continue
@@ -185,11 +223,16 @@ async function trashInto(
   return false
 }
 
+function ownAnchor(anchor: FolderAnchor, uid: number, dev: number): boolean {
+  return anchor.stat.uid === uid && anchor.stat.dev === dev
+}
+
 export async function moveToTrash(
   fs: TransferFs,
   source: TransferEnd,
   expected: Stats,
   place: TrashPlace,
+  uid: number,
   at: Date,
 ): Promise<boolean> {
   const text = trashInfo(join(source.anchor.path, source.name), place, at)
@@ -197,6 +240,7 @@ export async function moveToTrash(
   try {
     const info = await openAnchor(fs, join(place.root, 'info'), 'linux')
     try {
+      if (!ownAnchor(files, uid, expected.dev) || !ownAnchor(info, uid, expected.dev)) return false
       return await trashInto(fs, source, expected, files, info, text)
     } finally {
       await info.close().catch(() => {})
