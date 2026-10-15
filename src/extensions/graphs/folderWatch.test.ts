@@ -32,43 +32,65 @@ function folder(): string {
   return root
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms))
+}
+
 async function until(check: () => boolean): Promise<void> {
-  for (let i = 0; i < 200 && !check(); i++) await new Promise((r) => setTimeout(r, 10))
+  for (let i = 0; i < 200 && !check(); i++) await sleep(10)
+}
+
+function observe(root: string) {
+  const seen: string[] = []
+  const probes: string[] = []
+  const onPath = (rel: string): void => {
+    if (rel.split('/').at(-1)?.startsWith('.probe-')) probes.push(rel)
+    else seen.push(rel)
+  }
+  const armed = async (...dirs: string[]): Promise<void> => {
+    for (const dir of dirs) {
+      const wrote: string[] = []
+      for (let i = 0; i < 200 && !wrote.some((probe) => probes.includes(probe)); i++) {
+        const probe = dir ? `${dir}/.probe-${i}` : `.probe-${i}`
+        wrote.push(probe)
+        writeFileSync(join(root, probe), '1')
+        await sleep(10)
+      }
+      expect(probes.filter((probe) => wrote.includes(probe))).not.toEqual([])
+    }
+    seen.length = 0
+  }
+  return { seen, onPath, armed }
 }
 
 describe('the folder watcher of a files trigger', () => {
   it('reports changes outside .git, node_modules and gitignored paths', async () => {
     const root = folder()
-    const seen: string[] = []
-    const watcher = new FolderWatcher(
-      root,
-      (rel) => seen.push(rel),
-      () => {},
-    )
+    const { seen, onPath, armed } = observe(root)
+    const watcher = new FolderWatcher(root, onPath, () => {})
     watchers.push(watcher)
     expect(watcher.start()).toEqual({ ok: true, folders: 3 })
+    await armed('', 'src', 'src/a')
     writeFileSync(join(root, 'node_modules/x/i.js'), '1')
     writeFileSync(join(root, '.git/objects/o'), '1')
     writeFileSync(join(root, 'build/out/b.ts'), '1')
     writeFileSync(join(root, 'src/a/debug.log'), '1')
     writeFileSync(join(root, 'src/a/b.ts'), '1')
     await until(() => seen.includes('src/a/b.ts'))
-    await new Promise((r) => setTimeout(r, 100))
+    await sleep(100)
     expect([...new Set(seen)]).toEqual(['src/a/b.ts'])
   })
 
   it('watches a folder made after it started', async () => {
     const root = folder()
-    const seen: string[] = []
-    const watcher = new FolderWatcher(
-      root,
-      (rel) => seen.push(rel),
-      () => {},
-    )
+    const { seen, onPath, armed } = observe(root)
+    const watcher = new FolderWatcher(root, onPath, () => {})
     watchers.push(watcher)
     watcher.start()
+    await armed('', 'src', 'src/a')
     mkdirSync(join(root, 'src/new'))
-    await new Promise((r) => setTimeout(r, 100))
+    await until(() => watcher.watching() === 4)
+    await armed('src/new')
     writeFileSync(join(root, 'src/new/c.ts'), '1')
     await until(() => seen.includes('src/new/c.ts'))
     expect(seen).toContain('src/new/c.ts')
@@ -92,20 +114,17 @@ describe('the folder watcher of a files trigger', () => {
     const outside = mkdtempSync(join(tmpdir(), 'graphs-outside-'))
     roots.push(outside)
     symlinkSync(outside, join(root, 'src/before'))
-    const seen: string[] = []
-    const watcher = new FolderWatcher(
-      root,
-      (rel) => seen.push(rel),
-      () => {},
-    )
+    const { seen, onPath, armed } = observe(root)
+    const watcher = new FolderWatcher(root, onPath, () => {})
     watchers.push(watcher)
     expect(watcher.start()).toEqual({ ok: true, folders: 3 })
+    await armed('', 'src', 'src/a')
     symlinkSync(outside, join(root, 'src/after'))
-    await new Promise((r) => setTimeout(r, 150))
+    await sleep(150)
     writeFileSync(join(outside, 'secret.ts'), '1')
     writeFileSync(join(root, 'src/a/b.ts'), '1')
     await until(() => seen.includes('src/a/b.ts'))
-    await new Promise((r) => setTimeout(r, 150))
+    await sleep(150)
     expect(seen.filter((p) => p.startsWith('src/before') || p.startsWith('src/after'))).toEqual([])
     expect(watcher.watching()).toBe(3)
   })
@@ -117,15 +136,12 @@ describe('the folder watcher of a files trigger', () => {
     writeFileSync(join(outside, 'rules'), 'src/\n')
     rmSync(join(root, '.gitignore'))
     symlinkSync(join(outside, 'rules'), join(root, '.gitignore'))
-    const seen: string[] = []
-    const watcher = new FolderWatcher(
-      root,
-      (rel) => seen.push(rel),
-      () => {},
-    )
+    const { seen, onPath, armed } = observe(root)
+    const watcher = new FolderWatcher(root, onPath, () => {})
     watchers.push(watcher)
     expect(watcher.start()).toEqual({ ok: true, folders: 5 })
     expect(watcher.ignored('src/a/b.ts', false)).toBe(false)
+    await armed('src/a')
     writeFileSync(join(root, 'src/a/b.ts'), '1')
     await until(() => seen.includes('src/a/b.ts'))
     expect(seen).toContain('src/a/b.ts')
@@ -150,19 +166,17 @@ describe('the folder watcher of a files trigger', () => {
   it('drops the watchers of a removed folder and watches it again when it comes back', async () => {
     const root = folder()
     mkdirSync(join(root, 'src/a/deep'))
-    const seen: string[] = []
-    const watcher = new FolderWatcher(
-      root,
-      (rel) => seen.push(rel),
-      () => {},
-    )
+    const { seen, onPath, armed } = observe(root)
+    const watcher = new FolderWatcher(root, onPath, () => {})
     watchers.push(watcher)
     expect(watcher.start()).toEqual({ ok: true, folders: 4 })
+    await armed('', 'src', 'src/a', 'src/a/deep')
     rmSync(join(root, 'src/a'), { recursive: true, force: true })
     await until(() => watcher.watching() === 2)
     expect(watcher.watching()).toBe(2)
     mkdirSync(join(root, 'src/a'))
     await until(() => watcher.watching() === 3)
+    await armed('src/a')
     writeFileSync(join(root, 'src/a/c.ts'), '1')
     await until(() => seen.includes('src/a/c.ts'))
     expect(seen).toContain('src/a/c.ts')
