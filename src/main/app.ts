@@ -303,13 +303,9 @@ import { registerPaneResumeMethods } from './panes/paneResume'
 import { PaneWatch, registerPaneWaitMethods } from './panes/paneWait'
 import { wakeHibernatedPane } from './panes/paneWake'
 import { PaneWaking } from './panes/paneWaking'
-import {
-  INTERRUPT_GRACE_MS,
-  type ProcessRegistry,
-  type ProcessTabRequest,
-  processStatusOf,
-  registerProcessMethods,
-} from './panes/processManager'
+import type { ProcessTabRequest } from './panes/processLaunch'
+import { INTERRUPT_GRACE_MS, processStatusOf, registerProcessMethods } from './panes/processManager'
+import type { ProcessRegistry } from './panes/processRegistry'
 import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './platform/discreteGpu'
 import { loadJson, saveJson, storePath } from './platform/jsonStore'
 import { expandHome, resolveSafe } from './platform/pathGuard'
