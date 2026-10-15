@@ -308,9 +308,3 @@ export function commandLineEnv(agent: ResumableAgent, line: string): Record<stri
 }
 
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/
-
-export function shellQuote(value: string): string {
-  return /^[A-Za-z0-9_./:,@%+-][A-Za-z0-9_./:,@%+=-]*$/.test(value)
-    ? value
-    : `'${value.replaceAll("'", `'\\''`)}'`
-}

@@ -6,7 +6,6 @@ import {
   looksSecret,
   resumeFlags,
   safeEnv,
-  shellQuote,
 } from './agentLaunch'
 
 describe('resumeFlags for claude', () => {
@@ -417,15 +416,5 @@ describe('looksSecret', () => {
     ]) {
       expect(looksSecret(text)).toBe(false)
     }
-  })
-})
-
-describe('shellQuote', () => {
-  it('quotes a value zsh would expand: a leading = or ~, and anything outside plain words', () => {
-    expect(shellQuote('=opus')).toBe("'=opus'")
-    expect(shellQuote('~/notes')).toBe("'~/notes'")
-    expect(shellQuote('a=b')).toBe('a=b')
-    expect(shellQuote('--model=opus')).toBe('--model=opus')
-    expect(shellQuote("it's")).toBe("'it'\\''s'")
   })
 })

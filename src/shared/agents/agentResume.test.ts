@@ -93,6 +93,17 @@ describe('resumeCommand', () => {
     ).toBe(`codex resume abc -c 'model_reasoning_effort="high"'`)
   })
 
+  it('quotes a flag or variable value that holds an =', () => {
+    expect(
+      resumeCommand({
+        agent: 'claude',
+        id: 'abc',
+        args: ['--model=opus'],
+        env: { OPTS: 'a=b' },
+      }),
+    ).toBe("OPTS='a=b' claude --resume abc '--model=opus'")
+  })
+
   it('resumes in the account the agent was started with', () => {
     expect(
       resumeCommand(
@@ -136,7 +147,7 @@ describe('resumeCommand', () => {
   })
 
   it('reads its own variables back from the command it typed', () => {
-    const env = { GL_ISSUE: '685', NOTE: "it's two words" }
+    const env = { GL_ISSUE: '685', NOTE: "it's two words", OPTS: 'a=b' }
     for (const agent of ['claude', 'codex'] as const) {
       expect(commandLineEnv(agent, resumeCommand({ agent, id: 'abc', env, args: [] }))).toEqual(env)
     }
