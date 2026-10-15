@@ -1,0 +1,110 @@
+import { CommandGroup, CommandItem } from '@/components/ui/command'
+import { useDict } from '@/lib/app/useDict'
+import { revealPane } from '@/lib/attention/workspaceActivity'
+import { allPanes } from '@/lib/layout/tree'
+import type { PaneNode } from '@/lib/layout/types'
+import { symbolOf } from '@/lib/palette/paletteModes'
+import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/workspaces/windowWorkspaces'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWindowsStore } from '@/stores/workspaces/windowsStore'
+import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import { AppWindowIcon } from '@phosphor-icons/react'
+import { GROUP_CLASS, ItemRow } from './PaletteItemRow'
+
+export interface Places {
+  workspaces: Workspace[]
+  remote: RemoteWorkspace[]
+  tabs: { pane: PaneNode; workspace: Workspace }[]
+}
+
+export const EMPTY_PLACES: Places = { workspaces: [], remote: [], tabs: [] }
+
+export function snapshotPlaces(): Places {
+  const { workspaces } = useWorkspacesStore.getState()
+  const { byWorkspace } = useLayoutStore.getState()
+  const tabs = workspaces.flatMap((workspace) => {
+    const layout = byWorkspace[workspace.id]
+    return layout ? allPanes(layout.root).map((pane) => ({ pane, workspace })) : []
+  })
+  const { list, windowId } = useWindowsStore.getState()
+  return { workspaces, remote: remoteWorkspacesOf(list, windowId), tabs }
+}
+
+export function WorkspaceItems({
+  workspaces,
+  remote,
+  onDone,
+}: {
+  workspaces: Workspace[]
+  remote: RemoteWorkspace[]
+  onDone: () => void
+}): JSX.Element | null {
+  const d = useDict()
+  if (workspaces.length === 0 && remote.length === 0) return null
+  const symbol = symbolOf('workspaces')
+  return (
+    <CommandGroup heading={d.palette.modes.workspaces} className={GROUP_CLASS}>
+      {workspaces.map((w) => {
+        const name = w.customName ?? w.name
+        return (
+          <CommandItem
+            key={w.id}
+            value={`${symbol} ${name} ${w.workDir} ${w.id}`}
+            onSelect={() => {
+              useUIStore.getState().showWorkspaces()
+              useWorkspacesStore.getState().setActive(w.id)
+              onDone()
+            }}
+          >
+            <ItemRow name={name} meta={w.workDir} mono />
+          </CommandItem>
+        )
+      })}
+      {remote.map((w) => (
+        <CommandItem
+          key={w.id}
+          value={`${symbol} ${w.name} ${w.workDir} ${w.id}`}
+          onSelect={() => {
+            window.ostia.windows.focusWorkspace(w.id, false)
+            onDone()
+          }}
+        >
+          <AppWindowIcon aria-label={d.window.inOtherWindow} />
+          <ItemRow name={w.name} meta={w.workDir} mono />
+        </CommandItem>
+      ))}
+    </CommandGroup>
+  )
+}
+
+export function TabItems({
+  tabs,
+  onDone,
+}: {
+  tabs: Places['tabs']
+  onDone: () => void
+}): JSX.Element | null {
+  const d = useDict()
+  if (tabs.length === 0) return null
+  const symbol = symbolOf('tabs')
+  return (
+    <CommandGroup heading={d.palette.modes.tabs} className={GROUP_CLASS}>
+      {tabs.map(({ pane, workspace }) => {
+        const where = workspace.customName ?? workspace.name
+        return (
+          <CommandItem
+            key={pane.id}
+            value={`${symbol} ${pane.title} ${where} ${pane.kind} ${pane.id}`}
+            onSelect={() => {
+              revealPane(pane.id)
+              onDone()
+            }}
+          >
+            <ItemRow name={pane.title} meta={where} />
+          </CommandItem>
+        )
+      })}
+    </CommandGroup>
+  )
+}
