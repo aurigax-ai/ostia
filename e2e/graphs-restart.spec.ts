@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { extensionHosts } from './extensionHosts'
+import { guestKeys, pressInPage, webviewHasKeyboard } from './guestKeys'
 import { openWorkspace, quitApp, waitForPaletteSelection } from './helpers'
 import {
   type ElectronApplication,
@@ -30,11 +31,15 @@ const clickLabel = (app: ElectronApplication, selector: string, label: string) =
     `(() => { const el = [...document.querySelectorAll(${JSON.stringify(selector)})].find((e) => e.innerText.trim() === ${JSON.stringify(label)}); el?.click(); return el ? 'ok' : 'missing' })()`,
   )
 
-async function openPanel(win: Page): Promise<void> {
-  await win.keyboard.press(chords.palette)
+async function choosePanel(win: Page): Promise<void> {
   await win.locator('[data-slot="command-input"]').fill('Graphs: Open Panel')
   await waitForPaletteSelection(win, 'Graphs: Open Panel')
   await win.keyboard.press('Enter')
+}
+
+async function openPanel(win: Page): Promise<void> {
+  await win.keyboard.press(chords.palette)
+  await choosePanel(win)
 }
 
 async function kill(app: ElectronApplication): Promise<void> {
@@ -119,8 +124,11 @@ edges:
     const again = await app.firstWindow()
     await again.waitForLoadState('domcontentloaded')
     await expect(again.locator('.xterm').first()).toBeVisible({ timeout: 30_000 })
-    await openPanel(again)
-    await again.keyboard.press('Control+Shift+D')
+    await expect.poll(() => webviewHasKeyboard(again), { timeout: 30_000 }).toBe(true)
+    await pressInPage(app, guestKeys.palette)
+    await choosePanel(again)
+    await expect.poll(() => webviewHasKeyboard(again), { timeout: 15_000 }).toBe(true)
+    await pressInPage(app, guestKeys.dashboard)
     const card = again.locator('article[data-question]', {
       hasText: 'Keep going after the restart?',
     })

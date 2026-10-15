@@ -247,7 +247,7 @@
     {
       "name": "trellis and keeper",
       "paths": ["src/extensions/trellis/", "src/extensions/keeper/", "test/fixtures/tools/"],
-      "specs": ["e2e/trellis-agents.spec.ts"]
+      "specs": ["e2e/trellis-agents.spec.ts", "e2e/trellis-panel.spec.ts"]
     },
     {
       "name": "screens",
@@ -615,7 +615,8 @@
       "specs": [
         "e2e/open-any-file.spec.ts",
         "e2e/palette-focus.spec.ts",
-        "e2e/terminal-file-links.spec.ts"
+        "e2e/terminal-file-links.spec.ts",
+        "e2e/terminal-path-link-actions.spec.ts"
       ]
     },
     {
@@ -919,6 +920,7 @@
         "e2e/terminal-ghostty-parity.spec.ts",
         "e2e/terminal-overflow.spec.ts",
         "e2e/terminal-padding.spec.ts",
+        "e2e/terminal-path-link-actions.spec.ts",
         "e2e/terminal-scrollbar.spec.ts",
         "e2e/terminal-selection.spec.ts",
         "e2e/terminal-tab-title.spec.ts",
@@ -1001,8 +1003,9 @@
         "src/renderer/lib/panes/paneDrag.ts",
         "src/renderer/lib/panes/dropZone.ts",
         "src/renderer/lib/panes/panelSizes.ts",
-        "src/renderer/lib/terminal/focusNewTerminal.ts",
+        "src/renderer/lib/panes/paneFocus.ts",
         "src/renderer/lib/workspaces/closeConfirm.ts",
+        "src/renderer/lib/workspaces/selectWorkspace.ts",
         "src/renderer/stores/workspaces/paneDndStore.ts",
         "src/renderer/stores/workspaces/surfaceSlotsStore.ts",
         "src/renderer/stores/workspaces/closeConfirmStore.ts",
@@ -1014,7 +1017,8 @@
         "e2e/pane-lock.spec.ts",
         "e2e/pane-move-tab.spec.ts",
         "e2e/tab-rename.spec.ts",
-        "e2e/tab-switch.spec.ts"
+        "e2e/tab-switch.spec.ts",
+        "e2e/workspace-select-focus.spec.ts"
       ]
     },
     {

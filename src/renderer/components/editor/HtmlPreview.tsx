@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/button'
 import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { openBrowserAs } from '@/lib/browser/browserProfile'
+import { useGuestReady } from '@/lib/panes/paneFocus'
 import { previewTheme } from '@/lib/theme/previewTheme'
 import { useEffectiveThemeId } from '@/lib/theme/theme'
 import { cn } from '@/lib/utils'
+import { retryPendingFocus } from '@/stores/workspaces/surfaceSlotsStore'
 import { CaretDownIcon, CaretRightIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
 import {
   type PreviewError,
@@ -19,7 +21,7 @@ import {
   previewErrorLine,
 } from '@shared/artifacts/htmlPreview'
 import type { SelectionCapture } from '@shared/browser/selection'
-import { useEffect, useRef, useState } from 'react'
+import { type MutableRefObject, useEffect, useRef, useState } from 'react'
 import {
   type PickedRegion,
   PreviewRegionOverlay,
@@ -42,11 +44,13 @@ export function HtmlPreview({
   visible,
   onSendErrors,
   onSendRegion,
+  focusRef,
 }: {
   workspaceId: string
   paneId: string
   filePath: string
   visible: boolean
+  focusRef?: MutableRefObject<HTMLElement | null>
   onSendErrors?: (count: number, text: string) => void
   onSendRegion?: (capture: SelectionCapture, image: Uint8Array) => void
 }): JSX.Element {
@@ -58,6 +62,16 @@ export function HtmlPreview({
   const [vitals, setVitals] = useState({ responding: true, busy: false })
   const [link, setLink] = useState<string | null>(null)
   const [picking, setPicking] = useState<RegionAction | null>(null)
+  const [webview, setWebview] = useState<HTMLElement | null>(null)
+  const readyWebview = useGuestReady(webview)
+  useEffect(() => {
+    if (!focusRef) return
+    focusRef.current = readyWebview
+    retryPendingFocus()
+    return () => {
+      focusRef.current = null
+    }
+  }, [focusRef, readyWebview])
   const openedRef = useRef<PreviewOpened | null>(null)
   openedRef.current = opened
   const visibleRef = useRef(visible)
@@ -262,6 +276,7 @@ export function HtmlPreview({
           {onSendRegion ? <PreviewRegionTools onPick={setPicking} /> : null}
           <webview
             key={opened.url}
+            ref={setWebview}
             className="preview-webview"
             src={opened.url}
             partition={opened.partition}

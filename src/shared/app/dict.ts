@@ -663,6 +663,12 @@ export const en = {
       'This {agent} session is running here and in the tab “{tab}” at the same time. Both copies write to the same transcript. Close one of the two tabs.',
     resumeConflict:
       'This {agent} session is also running in the tab “{tab}”. Both copies write to the same transcript, so it is not resumed here. Close one of the two tabs.',
+    resumeFailedLabel: 'Agent resume failed',
+    resumeFailed:
+      'Couldn’t resume {agent} session {id}: it exited with code {code}. It won’t be typed again.',
+    resumeFailedRetry: 'Try again',
+    resumeFailedNewSession: 'Start new session',
+    resumeFailedDismiss: 'Dismiss',
   },
   palette: {
     title: 'Command palette',
@@ -2695,6 +2701,10 @@ export const en = {
     openFile: 'Open the file',
     revealFolder: 'Show the folder in Files',
     openFolder: 'Open the folder in the file manager',
+    openDefault: 'Open with its default app',
+    showInFiles: 'Show in Files',
+    showInFileManager: 'Show in the file manager',
+    refusedProgram: '{product} doesn’t launch programs or scripts from a terminal link.',
   },
   terminalGhost: {
     copy: 'Copy',
@@ -4354,6 +4364,11 @@ export const zhHant: Dict = {
       '這個 {agent} session 同時在這裡和「{tab}」分頁執行，兩份會寫進同一份對話記錄。請關閉其中一個分頁。',
     resumeConflict:
       '這個 {agent} session 也在「{tab}」分頁執行，兩份會寫進同一份對話記錄，所以不會在這裡接回。請關閉其中一個分頁。',
+    resumeFailedLabel: '代理程式接回失敗',
+    resumeFailed: '無法接回 {agent} session {id}：它以代碼 {code} 結束，不會再自動輸入。',
+    resumeFailedRetry: '再試一次',
+    resumeFailedNewSession: '開始新的 session',
+    resumeFailedDismiss: '關閉',
   },
   palette: {
     title: '指令面板',
@@ -6312,6 +6327,10 @@ export const zhHant: Dict = {
     openFile: '開啟檔案',
     revealFolder: '在「檔案」中顯示資料夾',
     openFolder: '在檔案管理員開啟資料夾',
+    openDefault: '以預設 App 開啟',
+    showInFiles: '在「檔案」中顯示',
+    showInFileManager: '在檔案管理員中顯示',
+    refusedProgram: '{product} 不會從終端機連結啟動程式或指令碼。',
   },
   terminalGhost: {
     copy: '複製',

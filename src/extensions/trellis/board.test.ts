@@ -11,13 +11,8 @@ import {
   shownColumns,
   threadItems,
 } from './board'
-import {
-  type TrellisBoard,
-  type TrellisCard,
-  parseBoard,
-  parseCardThread,
-  parseVaultList,
-} from './trellis'
+import { parseBoard, parseCardThread, parseVaultList } from './parsers'
+import type { TrellisBoard, TrellisCard } from './trellis'
 
 const fixture = (name: string): string =>
   readFileSync(join(__dirname, '../../../test/fixtures/tools/trellis', name), 'utf8')

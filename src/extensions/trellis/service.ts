@@ -7,19 +7,19 @@ import {
   runTool,
 } from '@aurigax-ai/ostia-extension-sdk'
 import { TrellisCli } from './cli'
+import { parseEventLine } from './parsers'
 import {
   ALL_NOTIFY_KINDS,
   type CardCounts,
   type NotifyKinds,
   type TrellisEvent,
   type TrellisProject,
-  cardPath,
   countBoard,
   findProject,
   needsUser,
-  parseEventLine,
   projectOfRef,
 } from './trellis'
+import { cardPath } from './validate'
 
 export interface WorkspaceRef {
   workspaceId: string

@@ -156,9 +156,9 @@ export class ScreenMirror {
     return new Promise((resolve) => this.term.write('', resolve))
   }
 
-  markRestored(history: string): void {
+  restore(history: string): void {
     if (this.disposed || !history) return
-    this.term.write('', () => {
+    this.term.write(`${history}\r\n`, () => {
       if (this.disposed) return
       this.clearUntouched()
       const seamEnd = this.term.registerMarker(0)

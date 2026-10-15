@@ -1,4 +1,5 @@
 import { fileViewKind } from '@/lib/files/fileKinds'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useArtifactVersionsStore } from '@/stores/files/artifactVersionsStore'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { VersionView } from './ArtifactVersions'
@@ -19,6 +20,8 @@ export function FileView({
   const versioned = useArtifactVersionsStore((s) =>
     Boolean(filePath && s.byPane[paneId]?.path === filePath),
   )
+  const viewerOnly = Boolean(filePath && (versioned || kind === 'image' || kind === 'pdf'))
+  useSurfaceFocus(viewerOnly ? paneId : undefined, null)
   if (filePath && versioned) {
     return <VersionView workspaceId={workspaceId} paneId={paneId} filePath={filePath} />
   }

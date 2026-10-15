@@ -8,7 +8,7 @@ import type { ProcessRegistry } from '../panes/processRegistry'
 import { PortBridge } from '../sandbox/portBridge'
 import type { PortRequests } from '../sandbox/portRequests'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
-import type { PtyEntry, PtyRegistry } from '../terminal/pty/ptyRegistry'
+import { type PtyEntry, type PtyRegistry, feedDisplay } from '../terminal/pty/ptyRegistry'
 import type { Subscriber } from '../terminal/ptySession'
 import { RESTORE_SEAM } from '../terminal/screenMirror'
 import { takeRestoredScrollback } from '../workspaces/workspaceSnapshot'
@@ -87,6 +87,7 @@ export function createKeptReattach({
       subs: new Map([[subId, e.sender]]),
       spawnPath: meta.spawnPath,
       stateFile: meta.stateFile,
+      markNonce: meta.markNonce ?? null,
       keepAlive: false,
       workspaceId,
       shell: meta.shell,
@@ -110,7 +111,8 @@ export function createKeptReattach({
     try {
       screen = await pane.snapshot(cols, rows)
     } catch {}
-    feedPty(entry, `${RESTORE_SEAM}${screen}`)
+    feedDisplay(entry, RESTORE_SEAM)
+    feedPty(entry, screen)
     const keptAgent = agentRunning.stillRunning(paneId, {
       foreground: await pane.currentCommand().catch(() => ''),
       shell: meta.shell,
@@ -145,6 +147,7 @@ export function createKeptReattach({
       ...(keptAgent ? { agentRunning: true } : {}),
       cols: pane.cols,
       rows: pane.rows,
+      ...(meta.markNonce ? { markNonce: meta.markNonce } : {}),
     }
   }
 
