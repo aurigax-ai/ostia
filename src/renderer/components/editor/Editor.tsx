@@ -4,7 +4,6 @@ import { useReducedMotion } from '@/lib/app/motion'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { usePaneVisible } from '@/lib/attention/workspaceActivity'
 import { useArtifactListing } from '@/lib/files/artifacts'
-import { isCsvPath } from '@/lib/files/csvTable'
 import type { monaco } from '@/lib/monaco/setup'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useOpenWaitsStore } from '@/stores/files/openWaitsStore'
@@ -16,7 +15,7 @@ import { isInside, isPadPath } from '@shared/artifacts/artifacts'
 import { isPreviewPath } from '@shared/artifacts/htmlPreview'
 import { useRef, useState } from 'react'
 import { EditorAlerts } from './EditorAlerts'
-import { EditorModes } from './EditorModes'
+import { EditorModes, type OptionViewer } from './EditorModes'
 import { LanguageNotice, LargeFileNotice } from './LanguageNotice'
 import { type PreviewSelection, isMarkdownPath } from './MarkdownPreview'
 import { RemoteFileBar } from './RemoteFileBar'
@@ -52,10 +51,12 @@ export function EditorView({
   workspaceId,
   paneId,
   filePath,
+  optionViewer,
 }: {
   workspaceId: string
   paneId: string
   filePath?: string
+  optionViewer?: OptionViewer
 }): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
@@ -94,9 +95,6 @@ export function EditorView({
   const inArtifacts = isInside(artifacts?.dir, filePath)
   const [runChoice, setRunChoice] = useState<{ file: string; on: boolean } | null>(null)
   const chosen = runChoice && runChoice.file === filePath ? runChoice.on : null
-  const tabular = isCsvPath(filePath) && !remote && !blocked
-  const tabled = tabular && (chosen ?? inArtifacts)
-  const tableText = useModelText(liveEditor, tabled)
   const running = runnable && (chosen ?? inArtifacts)
   const visible = usePaneVisible(paneId)
   const visibleRef = useRef(visible)
@@ -202,9 +200,7 @@ export function EditorView({
         selectionSend={selectionSend}
         running={running}
         runnable={runnable}
-        tabled={tabled}
-        tabular={tabular}
-        tableText={tableText}
+        optionViewer={blocked ? undefined : optionViewer}
         setRunChoice={setRunChoice}
       />
       <EditorAlerts

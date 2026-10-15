@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace, quitApp, runInTerminal, terminalTab } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { viewerGuestText } from './viewerGuest'
 
 async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
   const app = await electron.launch(isolatedLaunch(dataHome))
@@ -105,9 +106,15 @@ test('a CSV artifact opens as a table and a mermaid block in Markdown is drawn a
       win,
       'cp ~/cities.csv ~/plan.md "$OSTIA_ARTIFACTS/" && ostia "$OSTIA_ARTIFACTS/cities.csv"',
     )
-    await expect(win.getByTestId('csv-table')).toBeVisible({ timeout: 20_000 })
-    await win.getByRole('button', { name: 'Edit CSV source' }).click()
-    await expect(win.getByTestId('csv-table')).toHaveCount(0)
+    const viewer = win.locator('[data-testid="file-viewer"]:visible')
+    await expect(viewer).toHaveAttribute('data-view-type', 'csv.table', { timeout: 20_000 })
+    await expect
+      .poll(() => viewerGuestText(app, 'csv.table'), { timeout: 20_000 })
+      .toContain('Hsinchu, East')
+    await viewer.getByRole('button', { name: 'Open With…' }).click()
+    await win.getByRole('radio', { name: 'Text editor' }).click()
+    await win.getByRole('button', { name: 'Open', exact: true }).click()
+    await expect(viewer).toHaveCount(0)
     await expect(win.locator('.monaco-editor:visible .view-lines')).toContainText('Taipei,3')
 
     await terminalTab(win).click()

@@ -62,6 +62,7 @@ export function FileView({
 }): JSX.Element {
   const d = useDict()
   const openWith = useOpenWithStore((s) => s.open)
+  const setViewType = useLayoutStore((s) => s.setViewType)
   const locale = useSettingsStore((s) => s.locale)
   const versioned = useArtifactVersionsStore((s) =>
     Boolean(filePath && s.byPane[paneId]?.path === filePath),
@@ -108,7 +109,22 @@ export function FileView({
       <PdfViewer key={filePath} workspaceId={workspaceId} paneId={paneId} filePath={filePath} />
     )
   } else {
-    body = <EditorView workspaceId={workspaceId} paneId={paneId} filePath={filePath} />
+    const option = options.find((candidate) => candidate.priority === 'option')
+    body = (
+      <EditorView
+        workspaceId={workspaceId}
+        paneId={paneId}
+        filePath={filePath}
+        optionViewer={
+          option
+            ? {
+                name: option.displayName,
+                show: () => setViewType(workspaceId, paneId, option.viewType),
+              }
+            : undefined
+        }
+      />
+    )
   }
 
   return (

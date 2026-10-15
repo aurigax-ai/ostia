@@ -47,6 +47,7 @@ describe('the manifests in this repository', () => {
     for (const id of [
       'assistant',
       'completions',
+      'csv',
       'keeper',
       'keymap-macos',
       'langpack-zh-hant',

@@ -1649,8 +1649,6 @@ export const en = {
     waitedClose: 'Close',
     diagram: 'Diagram',
     diagramProblem: 'This diagram could not be drawn:',
-    csvTable: 'Show as table',
-    csvSource: 'Edit CSV source',
     csvRowsCut: 'Showing the first {rows} rows.',
     csvColumnsCut: 'Showing the first {columns} columns.',
     note: 'Note for the agent',
@@ -1903,6 +1901,9 @@ export const en = {
     approveBody:
       '{name} {version} runs as a program on this computer with your user account. It asks for these {product} permissions:',
     approveNone: 'It asks for no {product} permissions beyond its own commands and panel.',
+    fileViewers: 'File viewers',
+    opensFiles:
+      '{name} shows the {patterns} files you open, read-only. It cannot send them anywhere.',
     approve: 'Approve and enable',
     deny: 'Keep disabled',
     loading: 'Loading…',
@@ -5311,8 +5312,6 @@ export const zhHant: Dict = {
     waitedClose: '關閉',
     diagram: '圖表',
     diagramProblem: '無法繪製這個圖表：',
-    csvTable: '以表格顯示',
-    csvSource: '編輯 CSV 原始碼',
     csvRowsCut: '只顯示前 {rows} 列。',
     csvColumnsCut: '只顯示前 {columns} 欄。',
     note: '給代理程式的說明',
@@ -5558,6 +5557,8 @@ export const zhHant: Dict = {
     approveBody:
       '{name} {version} 會以您的使用者帳號在這台電腦上執行程式。它要求下列 {product} 權限：',
     approveNone: '除了自身的指令與面板外，它不要求任何 {product} 權限。',
+    fileViewers: '檔案檢視器',
+    opensFiles: '{name} 以唯讀方式顯示你開啟的 {patterns} 檔案，且無法把它們傳送到任何地方。',
     approve: '核准並啟用',
     deny: '保持停用',
     loading: '載入中…',
