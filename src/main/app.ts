@@ -63,7 +63,6 @@ import { desktopsOf } from '../shared/keyboard/desktopChords'
 import { parsePrivacySettings } from '../shared/privacy/redaction'
 import { bucketCount } from '../shared/privacy/telemetry'
 import { parseKeepShells } from '../shared/terminal/keepShells'
-import { isHostNamed } from '../shared/terminal/osc7'
 import { quoteArgv } from '../shared/terminal/shellQuote'
 import { shellArgv, shellName } from '../shared/terminal/terminalShell'
 import type {
@@ -251,21 +250,10 @@ import {
   writeManagerCodexContext,
 } from './manager/managerAgent'
 import { type ManagerLimiter, registerManagerMethods } from './manager/managerMethods'
-import {
-  type MirrorHandle,
-  type MirrorSink,
-  Portal,
-  portalSocketPath,
-  portalSupported,
-} from './manager/portal'
+import { Portal, portalSocketPath, portalSupported } from './manager/portal'
 import { callerVerdict, procFs, ttysOf } from './manager/portalCaller'
 import { registerExtensionWake } from './panes/extensionWake'
-import {
-  type PaneAttentionPeek,
-  type PaneIo,
-  pastedText,
-  registerPaneIoMethods,
-} from './panes/paneIo'
+import { type PaneAttentionPeek, registerPaneIoMethods } from './panes/paneIo'
 import {
   listPanes,
   listWorkspaceGroups,
@@ -315,7 +303,6 @@ import { createSandboxServices } from './sandbox/sandboxServices'
 import { hiddenHomeNotice, sandboxFailureBanner } from './sandbox/spawnBanner'
 import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
-import type { SandboxReadRules } from './sandbox/visibility'
 import { SandboxUnavailableError } from './sandbox/workspaceSandboxes'
 import { packageCooldownEnv } from './sandboxPackages/packageEnv'
 import { createEncryptedStores } from './secrets/encryptedStores'
@@ -323,26 +310,20 @@ import { registerSecretMethods } from './secrets/register'
 import { createSecretServices } from './secrets/secretServices'
 import { deleteGlobalVaultValue, registerVaultMethods, setGlobalVaultValue } from './secrets/vault'
 import { registerCompletionIpc } from './terminal/completionSpecs'
-import { atLocalPrompt, busyProgram } from './terminal/localPrompt'
 import { writeOstiaLauncher } from './terminal/paneLauncher'
 import { registerPathCompletionIpc } from './terminal/pathCompletion'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './terminal/promptContext'
-import { CoalescedOutput, PtyFlowControl } from './terminal/ptyFlow'
-import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './terminal/ptyReaper'
-import type { PaneTitleEntry, PtyEntry } from './terminal/ptyRegistry'
-import { PtySession, type Subscriber, type SubscriberRole } from './terminal/ptySession'
-import { HIBERNATE_SEAM, HISTORY_LINES, RESTORE_SEAM, ScreenMirror } from './terminal/screenMirror'
+import { CoalescedOutput } from './terminal/ptyFlow'
+import { createPtyRecovery } from './terminal/ptyRecovery'
+import { type PaneTitleEntry, type PtyEntry, createPtyRegistry } from './terminal/ptyRegistry'
+import type { Subscriber, SubscriberRole } from './terminal/ptySession'
+import { HIBERNATE_SEAM, RESTORE_SEAM } from './terminal/screenMirror'
 import { registerSelectionIpc } from './terminal/selectionReport'
 import { ExecutableIndex, readShellState, registerCommandNamesIpc } from './terminal/shellCommands'
-import { closesPaneOnExit } from './terminal/shellExit'
 import { ShellHistoryFiles, registerShellHistoryIpc } from './terminal/shellHistory'
 import { setAgentPlugins, shellIntegrationSpawnOptions } from './terminal/shellIntegration'
 import { sandboxCwd, spawnFolder } from './terminal/spawnCwd'
-import {
-  type PaneOutput,
-  TerminalPathLinks,
-  registerTerminalPathLinkIpc,
-} from './terminal/terminalPathLinks'
+import { TerminalPathLinks, registerTerminalPathLinkIpc } from './terminal/terminalPathLinks'
 import {
   PTY_COLOR_ENV,
   PTY_TERM_NAME,
@@ -432,25 +413,11 @@ import {
   pendingRestoredScrollback,
   saveScrollback,
   scrollbackToSave,
-  stashScrollback,
   stashedScreen,
   takeRestoredScrollback,
 } from './workspaces/workspaceSnapshot'
 
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
-
-let ptyModule: typeof import('node-pty') | null | undefined
-function loadPty(): typeof import('node-pty') | null {
-  if (ptyModule === undefined) {
-    try {
-      ptyModule = require('node-pty')
-    } catch (err) {
-      console.error('[pty] node-pty unavailable — terminals disabled. Run: npm run rebuild', err)
-      ptyModule = null
-    }
-  }
-  return ptyModule ?? null
-}
 
 const windows = new Map<string, BrowserWindow>()
 const commandsByWindow = new Map<string, CommandDescriptor[]>()
@@ -463,7 +430,6 @@ const errorBuffers = new Map<number, ConsoleEntry[]>()
 const terminalState = new Map<string, TerminalStateSnapshot>()
 
 const ptys = new Map<string, PtyEntry>()
-const PTY_BUFFER_CAP = 1_000_000
 const executables = new ExecutableIndex()
 const promptSources = { node: new NodeVersionResolver(), kube: new KubeContextReader() }
 const shellHistoryFiles = new ShellHistoryFiles()
@@ -478,48 +444,10 @@ function listDir(dir: string): FsEntry[] {
   }
 }
 
-function holdsLocalPrompt(entry: PtyEntry): boolean {
-  return atLocalPrompt({
-    foreground: entry.pty.process,
-    shell: entry.shell,
-    sandboxed: entry.sandboxed,
-  })
-}
-
-function paneActivity(entry: PtyEntry): PaneActivity {
-  let program: string | null = null
-  try {
-    program = busyProgram({
-      foreground: entry.pty.process,
-      shell: entry.shell,
-      sandboxed: entry.sandboxed,
-    })
-  } catch {
-    program = null
-  }
-  return { program, agentRunning: agentRunning.has(entry.paneId) }
-}
-
-function sandboxReadRules(entry: PtyEntry): SandboxReadRules | null {
-  if (!entry.sandboxed) return null
-  try {
-    const { denyRead, allowRead } = workspaceSandboxes.config(entry.workspaceId).filesystem
-    return { denyRead, allowRead }
-  } catch {
-    return { denyRead: ['/'], allowRead: [] }
-  }
-}
-
-function removeStateFile(entry: PtyEntry): void {
-  rmSync(entry.stateFile, { force: true })
-}
-
 const SANDBOX_LOST_WHILE_AWAY = `its sandbox ended while ${PRODUCT_DISPLAY_NAME} was closed`
 
 const hibernatedPanes = new Set<string>()
 const movingPanes = new Set<string>()
-
-const recovery = new RecoveryBook()
 const recoveryHeld = new Set<string>()
 const closedPanes = new Set<string>()
 let appLog: AppLog | null = null
@@ -573,83 +501,6 @@ let telemetrySentForQuit = false
 let sendingTelemetryForQuit = false
 let processes: ProcessRegistry | null = null
 
-function windowOfPane(paneId: string): string | undefined {
-  return getByPaneId(paneId)?.windowId
-}
-
-function scheduleReap(paneId: string, entry: PtyEntry): void {
-  if (entry.killTimer) clearTimeout(entry.killTimer)
-  entry.killTimer = setTimeout(
-    () => reapIfOrphaned(paneId, entry),
-    recovery.graceFor(windowOfPane(paneId)),
-  )
-}
-
-function reapIfOrphaned(paneId: string, entry: PtyEntry): void {
-  entry.killTimer = null
-  const verdict = orphanVerdict({
-    current: ptys.get(paneId) === entry,
-    owners: entry.session.ownerCount,
-    moving: movingPanes.has(paneId) || entry.keepAlive,
-    held: recoveryHeld.has(paneId),
-    recovering: recovery.isRecovering(windowOfPane(paneId)),
-  })
-  if (verdict === 'wait') scheduleReap(paneId, entry)
-  else if (verdict === 'reap') killPty(paneId, closedPanes.has(paneId) ? 'closed' : 'grace-expired')
-}
-
-function startRecovery(windowId: string, reason: string): void {
-  recovery.start(windowId)
-  appLog?.info('window-recovering', { window: windowId, reason })
-  for (const [paneId, entry] of ptys) {
-    if (entry.killTimer && windowOfPane(paneId) === windowId) scheduleReap(paneId, entry)
-  }
-}
-
-function finishRecovery(windowId: string, livePaneIds: Set<string>): void {
-  if (!recovery.end(windowId)) return
-  const windowPtys = [...ptys]
-    .filter(([paneId, entry]) => !entry.keepAlive && windowOfPane(paneId) === windowId)
-    .map(([paneId, entry]) => ({ paneId, owners: entry.session.ownerCount }))
-  const { hold, reap } = planRecovery(windowPtys, livePaneIds)
-  for (const paneId of hold) {
-    const entry = ptys.get(paneId)
-    if (entry?.killTimer) clearTimeout(entry.killTimer)
-    if (entry) entry.killTimer = null
-    recoveryHeld.add(paneId)
-  }
-  for (const paneId of reap) killPty(paneId, 'closed')
-  appLog?.info('window-recovered', { window: windowId, held: hold.length, reaped: reap.length })
-}
-
-function releaseWindowPtys(windowId: string): void {
-  recovery.end(windowId)
-  for (const paneId of [...recoveryHeld]) {
-    if (windowOfPane(paneId) !== windowId) continue
-    recoveryHeld.delete(paneId)
-    const entry = ptys.get(paneId)
-    if (entry && entry.session.ownerCount === 0) scheduleReap(paneId, entry)
-  }
-}
-
-function holdPtys(paneIds: readonly string[]): void {
-  for (const paneId of paneIds) {
-    const entry = ptys.get(paneId)
-    if (!entry) continue
-    movingPanes.add(paneId)
-    if (entry.killTimer) {
-      clearTimeout(entry.killTimer)
-      entry.killTimer = null
-    }
-  }
-}
-
-function releaseMovingPane(paneId: string): void {
-  if (!movingPanes.delete(paneId)) return
-  const entry = ptys.get(paneId)
-  if (entry && entry.session.ownerCount === 0) killPty(paneId, 'closed')
-}
-
 function openExternalSafe(url: string): boolean {
   const href = externalHref(url, { apps: false })
   if (!href) return false
@@ -685,108 +536,9 @@ function confirmQuitOn(): boolean {
   return readSettingsFile().workspaces?.confirmQuit !== false
 }
 
-function killPty(paneId: string, reason: ReapReason): void {
-  const entry = ptys.get(paneId)
-  if (!entry) return
-  appLog?.info('pty-reap', { pane: paneId, reason })
-  recoveryHeld.delete(paneId)
-  closedPanes.delete(paneId)
-  startedAgents.delete(paneId)
-  if (entry.killTimer) clearTimeout(entry.killTimer)
-  try {
-    entry.pty.kill()
-  } catch {}
-  entry.flow.dispose()
-  entry.mirror.dispose()
-  removeStateFile(entry)
-  keptShells.removeToken(paneId)
-  ptys.delete(paneId)
-  agentWork.clear(paneId)
-}
-
-function hibernatePty(paneId: string): boolean {
-  const entry = ptys.get(paneId)
-  if (!entry) return false
-  telemetry?.count('agents', 'hibernation')
-  stashScrollback(paneId, entry.mirror.serialize())
-  hibernatedPanes.add(paneId)
-  paneWaking.end(paneId, 'failed')
-  entry.subs.clear()
-  killPty(paneId, 'hibernated')
-  terminalState.delete(paneId)
-  return true
-}
-
-function ptyPid(paneId: string): number | undefined {
-  return ptys.get(paneId)?.pty.pid
-}
-
-async function paneOutput(paneId: string): Promise<PaneOutput | null> {
-  const entry = ptys.get(paneId)
-  if (!entry) return null
-  const text = await entry.mirror.screenText(HISTORY_LINES)
-  const report = entry.mirror.cwdReport
-  const remote = report !== null && !isHostNamed(report.host, hostname())
-  return { text, cwd: report?.path ?? null, remote }
-}
-
-function feedPty(entry: PtyEntry, data: string): void {
-  entry.session.push(data)
-  entry.mirror.write(data)
-  processes?.feed(entry.paneId, data, entry.session.cursor)
-}
-
-const paneIo: PaneIo = {
-  read: async (paneId, lines) => {
-    const entry = ptys.get(paneId)
-    return entry ? entry.mirror.screenText(lines) : null
-  },
-  write: (paneId, data) => {
-    const entry = ptys.get(paneId)
-    if (!entry) return false
-    const pasted = entry.kept ? pastedText(data) : null
-    if (entry.kept && pasted !== null) entry.kept.paste(pasted)
-    else entry.pty.write(data)
-    return true
-  },
-  bracketedPaste: (paneId) => {
-    const entry = ptys.get(paneId)
-    if (!entry) return false
-    return entry.kept !== null || entry.mirror.bracketedPaste
-  },
-  outputCursor: (paneId) => ptys.get(paneId)?.session.cursor,
-}
-
-function pausePty(entry: PtyEntry, paused: boolean): void {
-  try {
-    if (paused) entry.pty.pause?.()
-    else entry.pty.resume?.()
-  } catch {}
-}
-
-function releasePtyFlow(subId: string): void {
-  for (const entry of ptys.values()) entry.flow.release(subId)
-}
-
 function windowShown(wid: string): boolean {
   const win = windows.get(wid)
   return win !== undefined && !win.isDestroyed() && win.isVisible() && !win.isMinimized()
-}
-
-function hidePtyFlow(wid: string): void {
-  for (const entry of ptys.values()) entry.flow.hidden(wid)
-}
-
-function resizePty(entry: PtyEntry | undefined, cols: number, rows: number): void {
-  if (!entry) return
-  const c = cols || 80
-  const r = rows || 24
-  try {
-    entry.pty.resize(c, r)
-  } catch {
-    return
-  }
-  entry.mirror.resize(c, r)
 }
 
 const {
@@ -994,6 +746,63 @@ const isWaking = (paneId: string): boolean => paneWaking.has(paneId)
 const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
   broker?.reaches(senderWindowId, sourcePaneId, targetPaneId) ?? false
 let profileSync: ProfileSyncHandle | null = null
+
+const {
+  loadPty,
+  holdsLocalPrompt,
+  paneActivity,
+  sandboxReadRules,
+  removeStateFile,
+  killPty,
+  hibernatePty,
+  ptyPid,
+  paneOutput,
+  feedPty,
+  paneIo,
+  releasePtyFlow,
+  hidePtyFlow,
+  resizePty,
+  trackPty,
+  attachMirror,
+  ptyResize,
+  ptyWrite,
+} = createPtyRegistry({
+  ptys,
+  movingPanes,
+  recoveryHeld,
+  closedPanes,
+  hibernatedPanes,
+  startedAgents,
+  terminalState,
+  keptShells,
+  workspaceSandboxes,
+  openWaits,
+  agentRunning,
+  agentWork,
+  keptAttention,
+  paneWaking,
+  scheduleReap: (paneId, entry) => scheduleReap(paneId, entry),
+  processes: () => processes,
+  telemetry: () => telemetry,
+  appLog: () => appLog,
+})
+
+const {
+  windowOfPane,
+  scheduleReap,
+  startRecovery,
+  finishRecovery,
+  releaseWindowPtys,
+  holdPtys,
+  releaseMovingPane,
+} = createPtyRecovery({
+  ptys,
+  movingPanes,
+  recoveryHeld,
+  closedPanes,
+  killPty,
+  appLog: () => appLog,
+})
 
 const EXTENSION_PARTITION_PREFIX = 'ostia-ext-'
 
@@ -2292,96 +2101,6 @@ function registerPtyIpc(): void {
   })
 }
 
-function trackPty(
-  paneId: string,
-  pty: PaneProcess,
-  opts: {
-    cols: number
-    rows: number
-    subs: Map<string, Electron.WebContents>
-    spawnPath: string
-    stateFile: string
-    keepAlive: boolean
-    workspaceId?: string
-    sandboxed?: boolean
-    shell?: string
-    sandboxStamp?: string | null
-    portBridge?: PortBridge | null
-    kept?: TmuxPane | null
-    keptMeta?: KeptMeta | null
-  },
-): PtyEntry {
-  const spawnedAt = Date.now()
-  const session = new PtySession({
-    capBytes: PTY_BUFFER_CAP,
-    onNoOwners: () => {
-      if (
-        ptys.get(paneId) !== entry ||
-        entry.killTimer ||
-        entry.keepAlive ||
-        movingPanes.has(paneId)
-      ) {
-        return
-      }
-      scheduleReap(paneId, entry)
-    },
-    onExit: (code) => {
-      appLog?.info('pty-exit', { pane: paneId, code })
-      if (entry.killTimer) clearTimeout(entry.killTimer)
-      entry.killTimer = null
-      const closes = closesPaneOnExit({
-        ownExit: ptys.get(paneId) === entry,
-        code,
-        livedMs: Date.now() - spawnedAt,
-      })
-      for (const wc of entry.subs.values()) {
-        if (!wc.isDestroyed()) wc.send(`pty:exit:${paneId}`, code, closes)
-      }
-      for (const listener of entry.exitListeners) listener(code)
-      processes?.shellEnded(paneId, (from) => session.since(from))
-      entry.flow.dispose()
-      entry.mirror.dispose()
-      removeStateFile(entry)
-      if (ptys.get(paneId) === entry) {
-        ptys.delete(paneId)
-        openWaits.callerExited(paneId)
-        movingPanes.delete(paneId)
-        agentRunning.shellEnded(paneId)
-        agentWork.clear(paneId)
-        keptAttention.reported(paneId)
-        recoveryHeld.delete(paneId)
-        closedPanes.delete(paneId)
-      }
-    },
-  })
-  const entry: PtyEntry = {
-    paneId,
-    pty,
-    session,
-    flow: new PtyFlowControl({
-      pause: () => pausePty(entry, true),
-      resume: () => pausePty(entry, false),
-    }),
-    mirror: new ScreenMirror(opts.cols, opts.rows),
-    subs: opts.subs,
-    killTimer: null,
-    spawnPath: opts.spawnPath,
-    stateFile: opts.stateFile,
-    keepAlive: opts.keepAlive,
-    exitListeners: new Set(),
-    workspaceId: opts.workspaceId ?? '',
-    sandboxed: opts.sandboxed ?? false,
-    shell: opts.shell ?? '',
-    sandboxStamp: opts.sandboxStamp ?? null,
-    portBridge: opts.portBridge ?? null,
-    confinedBy: opts.sandboxed ? (opts.workspaceId ?? '') : null,
-    kept: opts.kept ?? null,
-    keptMeta: opts.keptMeta ?? null,
-  }
-  ptys.set(paneId, entry)
-  return entry
-}
-
 function paneEnv(paneId: string, windowId: string, cwd: string): Record<string, string> {
   const identity = registerPane({ windowId, workspaceId: '', paneId })
   return appEnv({
@@ -2461,36 +2180,6 @@ function spawnManagerPty(req: {
   pty.onData((d) => feedPty(entry, d))
   pty.onExit(({ exitCode }) => entry.session.exit(exitCode))
   return true
-}
-
-const MIRROR_SUBSCRIBER = 'portal-mirror'
-
-function attachMirror(paneId: string, sink: MirrorSink): MirrorHandle | null {
-  const entry = ptys.get(paneId)
-  if (!entry) return null
-  const onExit = (code: number): void => sink.exit(code)
-  entry.exitListeners.add(onExit)
-  entry.session.addSubscriber(
-    { id: MIRROR_SUBSCRIBER, role: 'owner', send: (data) => sink.data(data) },
-    0,
-  )
-  return {
-    write: (data) => {
-      if (ptys.get(paneId) === entry) entry.pty.write(data)
-    },
-    resize: (cols, rows) => {
-      if (ptys.get(paneId) !== entry) return
-      if (entry.pty.cols === cols && entry.pty.rows === rows) return
-      resizePty(entry, cols, rows)
-      for (const wc of entry.subs.values()) {
-        if (!wc.isDestroyed()) wc.send(`pty:size:${paneId}`, cols, rows)
-      }
-    },
-    detach: () => {
-      entry.exitListeners.delete(onExit)
-      entry.session.removeSubscriber(MIRROR_SUBSCRIBER)
-    },
-  }
 }
 
 const FILE_WATCH_DEBOUNCE_MS = 150
@@ -2677,14 +2366,6 @@ export function attachPhoneObserver(
     rows: entry.pty.rows,
     detach: () => entry.session.removeSubscriber(id),
   }
-}
-
-export function ptyResize(rendererPaneId: string, cols: number, rows: number): void {
-  resizePty(ptys.get(rendererPaneId), cols, rows)
-}
-
-export function ptyWrite(rendererPaneId: string, data: string): void {
-  ptys.get(rendererPaneId)?.pty.write(data)
 }
 
 let reqSeq = 0
