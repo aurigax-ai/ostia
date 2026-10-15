@@ -44,7 +44,8 @@ export function startPathDrag(
   tree: TreeContext,
 ): void {
   e.preventDefault()
-  if (!tree.remote) window.ostia.fileOps.startDrag(fullPath)
+  const { workspaceId } = tree.focus
+  if (!tree.remote && workspaceId) window.ostia.fileOps.startDrag(workspaceId, fullPath)
 }
 
 type DropModifiers = Pick<DragEvent<HTMLElement>, 'altKey' | 'ctrlKey' | 'metaKey' | 'shiftKey'>
