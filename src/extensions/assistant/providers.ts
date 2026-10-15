@@ -1,7 +1,7 @@
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
-import { createTranslator } from '@aurigax-ai/ostia-extension-sdk'
+import { type Translate, createTranslator } from '@aurigax-ai/ostia-extension-sdk'
 import {
   type Endpoint,
   type FetchFn,
@@ -157,20 +157,13 @@ const DEFAULT_BASE_URLS: Partial<Record<ProviderKind, string>> = {
   anthropic: 'https://api.anthropic.com/v1',
 }
 
-const KIND_TITLES: Record<ProviderKind, string> = {
-  ollama: 'Ollama',
-  'openai-compatible': 'OpenAI-compatible',
-  openrouter: 'OpenRouter',
-  openai: 'OpenAI',
-  anthropic: 'Anthropic',
-}
-
-const translate = createTranslator()
+let translate: ((locale: string | undefined) => Translate) | undefined
 
 export function kindTitle(kind: string, locale: string): string {
+  translate ??= createTranslator()
   const key = `kind.${kind}`
   const title = translate(locale)(key)
-  return title === key ? (KIND_TITLES[kind as ProviderKind] ?? kind) : title
+  return title === key ? kind : title
 }
 
 export const ASSISTANT_CATALOG: ProviderCatalog = {

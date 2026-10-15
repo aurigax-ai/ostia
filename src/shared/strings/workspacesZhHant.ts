@@ -2,7 +2,6 @@ import type { workspacesEn } from './workspacesEn'
 
 export const workspacesZhHant: typeof workspacesEn = {
   rail: {
-    workspaces: '工作區',
     newWorkspace: '新增工作區',
     renameWorkspace: '工作區名稱',
     describeWorkspace: '工作區說明',
@@ -79,7 +78,6 @@ export const workspacesZhHant: typeof workspacesEn = {
     messageFrom: '來自 {from} 的訊息',
     messageFromPane: '來自其他面板的訊息',
     commandFailed: '指令失敗（結束代碼 {code}）',
-    jumpToLatest: '跳至最新未讀',
   },
   workzone: {
     emptyTitle: '沒有工作區',
@@ -89,7 +87,6 @@ export const workspacesZhHant: typeof workspacesEn = {
     unsaved: '未儲存的變更',
     splitRight: '向右分割',
     splitDown: '向下分割',
-    close: '關閉面板',
     newTerminal: '新增終端機',
     terminalTitle: '終端機',
     newBrowser: '新增瀏覽器',

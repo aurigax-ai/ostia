@@ -4,7 +4,6 @@ export const chatToolsEn = {
     menuTitle: 'Tools for this chat',
     menuDesc:
       'The model sees only the tools that are on. Edits follow the mode next to the model; commands always ask.',
-    noTools: 'This model does not use tools.',
     prompted:
       'This model has no native tool calling, so the tools are described in its prompt. Small models may call them wrongly or not at all.',
     builtin: 'Built-in',
@@ -81,6 +80,7 @@ export const chatToolsEn = {
       reject: 'Reject',
       undo: 'Undo',
       openDiff: 'Open diff',
+      changes: 'Proposed changes',
       openFile: 'Open {path}',
       diffTitle: '{name} (assistant edit)',
       reasons: {
@@ -314,7 +314,6 @@ export const chatToolsEn = {
       'no-model': 'No models yet',
       unreachable: 'Not reachable',
     } as Record<string, string>,
-    models: 'Models',
     modelsFor: 'Models: {name}',
     modelsLifecycleDesc: 'Load a model before its first request, or unload one to free memory.',
     noModels: 'The provider lists no models.',

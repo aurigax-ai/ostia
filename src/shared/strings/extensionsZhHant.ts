@@ -121,8 +121,6 @@ export const extensionsZhHant: typeof extensionsEn = {
     codeLabel: '{name} 的安裝碼',
     codePlaceholder: '未列出擴充功能的安裝碼',
     update: '更新至 {version}',
-    installed: '已安裝',
-    installedVersion: '已安裝 {version}',
     runsProcess: '會在這台電腦上執行程式',
     dataOnly: '僅資料，不執行程式',
     conflict: '已從其他來源安裝了相同 id 的擴充功能。',
@@ -156,7 +154,7 @@ export const extensionsZhHant: typeof extensionsEn = {
   extensions: {
     title: '擴充功能',
     categories: {
-      ai: 'AI',
+      ai: '人工智慧',
       scm: '原始碼控制',
       tools: '工具',
       themes: '佈景主題',
@@ -165,7 +163,6 @@ export const extensionsZhHant: typeof extensionsEn = {
       languages: '程式語言',
       other: '其他',
     },
-    installed: '已安裝',
     desc: '以獨立程序執行、只使用公開擴充 API 的功能。停用後會停止其程序，並移除其指令、面板與側欄項目。',
     none: '尚未安裝擴充功能。',
     enable: '啟用 {name}',
@@ -176,7 +173,6 @@ export const extensionsZhHant: typeof extensionsEn = {
     statusDisabled: '已停用',
     statusPending: '等待您核准',
     permissions: '權限',
-    permissionsList: '權限：{list}',
     noPermissions: '無額外權限',
     unapproved: '未核准：{caps}',
     review: '檢視權限',
@@ -302,6 +298,5 @@ export const extensionsZhHant: typeof extensionsEn = {
     waitsForApproval: '{name} 已安裝，正在等待您核准。',
     openInExtensions: '在擴充功能中開啟',
     showInstalled: '顯示已安裝的版本',
-    marketplaces: '市集',
   },
 }

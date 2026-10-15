@@ -1,6 +1,5 @@
 export const workspacesEn = {
   rail: {
-    workspaces: 'Workspaces',
     newWorkspace: 'New workspace',
     renameWorkspace: 'Workspace name',
     describeWorkspace: 'Workspace description',
@@ -77,7 +76,6 @@ export const workspacesEn = {
     messageFrom: 'Message from {from}',
     messageFromPane: 'Message from another pane',
     commandFailed: 'Command failed (exit {code})',
-    jumpToLatest: 'Jump to latest unread',
   },
   workzone: {
     emptyTitle: 'No workspaces',
@@ -87,7 +85,6 @@ export const workspacesEn = {
     unsaved: 'Unsaved changes',
     splitRight: 'Split right',
     splitDown: 'Split down',
-    close: 'Close pane',
     newTerminal: 'New terminal',
     terminalTitle: 'Terminal',
     newBrowser: 'New browser',

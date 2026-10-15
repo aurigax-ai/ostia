@@ -5,7 +5,6 @@ export const chatToolsZhHant: typeof chatToolsEn = {
     menu: '工具',
     menuTitle: '此對話可用的工具',
     menuDesc: '模型只看得到已開啟的工具。編輯依模型旁的模式而定；指令一律先詢問。',
-    noTools: '此模型不使用工具。',
     prompted:
       '此模型沒有原生的工具呼叫，因此工具是寫在提示中告訴它的。小型模型可能會用錯工具或不呼叫工具。',
     builtin: '內建',
@@ -82,6 +81,7 @@ export const chatToolsZhHant: typeof chatToolsEn = {
       reject: '拒絕',
       undo: '復原',
       openDiff: '開啟差異',
+      changes: '提議的變更',
       openFile: '開啟 {path}',
       diffTitle: '{name}（助理的編輯）',
       reasons: {
@@ -311,7 +311,6 @@ export const chatToolsZhHant: typeof chatToolsEn = {
       'no-model': '尚無模型',
       unreachable: '無法連線',
     } as Record<string, string>,
-    models: '模型',
     modelsFor: '{name} 的模型',
     modelsLifecycleDesc: '在第一次請求前先載入模型，或卸載模型以釋放記憶體。',
     noModels: '提供者沒有列出任何模型。',

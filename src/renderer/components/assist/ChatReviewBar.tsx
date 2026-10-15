@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { editHunks, hunkCounts } from '@/lib/assist/chatHunks'
 import { type ReviewItem, acceptAll, rejectAll, reviewItems } from '@/lib/assist/chatReview'
+import { baseName } from '@/lib/files/fileTree'
 import { useChatToolsStore } from '@/stores/assist/chatToolsStore'
 import { CaretDownIcon, CaretUpIcon } from '@phosphor-icons/react'
 import { useMemo, useState } from 'react'
@@ -66,7 +67,7 @@ export function ChatReviewBar({ sessionId }: { sessionId: string }): JSX.Element
           {fmt(r.position, {
             n: index + 1,
             count: files.length,
-            name: current.split('/').pop() || current,
+            name: baseName(current),
           })}
         </span>
         <IconButton icon={CaretDownIcon} label={r.next} onClick={() => step(1)} />

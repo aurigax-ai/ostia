@@ -58,7 +58,9 @@ export function MenuItem({
       <Leading icon={icon} leading={leading} />
       <span className="min-w-0 flex-1 truncate">{children}</span>
       {hint ? (
-        <ContextMenuShortcut className="text-ui-xs tracking-normal">{hint}</ContextMenuShortcut>
+        <ContextMenuShortcut className="flex items-center gap-1.5 text-ui-xs tracking-normal">
+          {hint}
+        </ContextMenuShortcut>
       ) : null}
     </ContextMenuItem>
   )

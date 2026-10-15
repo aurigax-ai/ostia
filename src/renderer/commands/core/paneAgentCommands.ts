@@ -14,6 +14,7 @@ import {
   resumeHolder,
 } from '@/lib/agents/resumeFolder'
 import { resumeStarted, watchResumeOutcome } from '@/lib/agents/resumeOutcome'
+import { withTypedLaunch } from '@/lib/agents/resumeTyped'
 import { postAgentNotification } from '@/lib/attention/agentNotification'
 import { announceBusMessage } from '@/lib/attention/busNotice'
 import {
@@ -91,7 +92,13 @@ function registerAgentSessionCommands(): void {
     capabilities: ['drive-self'],
     run: (raw, ctx) => {
       if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
-      const resume = parseAgentResume(raw)
+      const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
+      const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
+      const resume = withTypedLaunch(
+        parseAgentResume(raw),
+        ctx.activePaneId,
+        pane?.kind === 'terminal' ? pane.resume : undefined,
+      )
       if (!resume) throw new Error('invalid resume')
       useLayoutStore.getState().setResume(ctx.activeWorkspaceId, ctx.activePaneId, resume)
       useBlocksStore.getState().markAgent(ctx.activePaneId, resume.agent)
@@ -167,7 +174,9 @@ function registerAgentSessionCommands(): void {
       if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
       const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
       const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
-      return { resume: pane?.kind === 'terminal' && pane.resume ? pane.resume : null }
+      if (pane?.kind !== 'terminal' || !pane.resume) return { resume: null }
+      const { typed: _typed, ...resume } = pane.resume
+      return { resume }
     },
   })
 

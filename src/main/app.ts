@@ -334,6 +334,7 @@ const {
   allowHumanPopups,
   hardenExtensionGuest,
 } = createBrowserGuests({
+  contextMenuText: () => mainStrings().native.contextMenu,
   consoleBuffers,
   errorBuffers,
   windows,
@@ -412,6 +413,7 @@ const agentRunning = new AgentRunningPanes(() => {
 const agentWork = new ReportedAgentWork()
 
 const askHub = createAskHub({
+  text: () => mainStrings().approvals,
   questions,
   approvals,
   identity: getByPaneId,
@@ -496,6 +498,7 @@ const {
 const { spawnManagerPty } = createManagerPty({ loadPty, primaryWindowId, trackPty, feedPty })
 
 const { wireWindow } = createWindowWiring({
+  contextMenuText: () => mainStrings().native.contextMenu,
   services,
   quit,
   readSettingsFile,
@@ -651,6 +654,7 @@ function boot(): void {
   setPaneIdSalt(loadPaneIdSalt(storePath('pane-id-salt', 'global')))
   const appMenu = installAppMenu(process.platform, {
     productName: PRODUCT_DISPLAY_NAME,
+    text: () => mainStrings().native.appMenu,
     openSettings: openSettingsInFocusedWindow,
     runCommand: runMenuCommandInFocusedWindow,
     reloadWindow: reloadFocusedWindow,

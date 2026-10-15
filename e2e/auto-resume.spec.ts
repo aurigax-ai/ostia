@@ -27,10 +27,16 @@ function resumedLog(dataHome: string): string {
   return join(dataHome, 'resumed.log')
 }
 
-function fakeResumableClaude(dataHome: string, session = RESUME_ID, failResume = false): string {
+function fakeResumableClaude(
+  dataHome: string,
+  session = RESUME_ID,
+  failResume = false,
+  reportOnResume = false,
+): string {
   const bin = join(dataHome, 'bin')
   mkdirSync(bin, { recursive: true })
   const claude = join(bin, 'claude')
+  const report = `ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude ${session} >/dev/null 2>&1`
   writeFileSync(
     claude,
     [
@@ -38,8 +44,8 @@ function fakeResumableClaude(dataHome: string, session = RESUME_ID, failResume =
       'case "$*" in',
       failResume
         ? `  *--resume*) echo "No conversation found with session ID: $2" | tee -a '${resumedLog(dataHome)}'; exit 1 ;;`
-        : `  *--resume*) echo "fake-agent-resumed $* GL=\${GL_ISSUE-none} TOK=\${API_TOKEN-none} END" | tee -a '${resumedLog(dataHome)}' ;;`,
-      `  *) ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude ${session} >/dev/null 2>&1`,
+        : `  *--resume*) echo "fake-agent-resumed $* GL=\${GL_ISSUE-none} TOK=\${API_TOKEN-none} END" | tee -a '${resumedLog(dataHome)}'${reportOnResume ? `; ${report}` : ''} ;;`,
+      `  *) ${report}`,
       '     echo fake-agent-ready ;;',
       'esac',
       'exec cat',
@@ -54,8 +60,9 @@ async function launchAgentApp(
   dataHome: string,
   session?: string,
   failResume = false,
+  reportOnResume = false,
 ): Promise<{ app: ElectronApplication; win: Page }> {
-  const bin = fakeResumableClaude(dataHome, session, failResume)
+  const bin = fakeResumableClaude(dataHome, session, failResume, reportOnResume)
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({
     ...launch,
@@ -282,7 +289,7 @@ test('an agent resumed in a visible split leaves keyboard focus in the pane the 
   }
 })
 
-test('an agent a coordinator started with process run resumes with its allowed flags only, not its prompt, variables, agent or permission bypass', async () => {
+test('an agent a coordinator started with process run resumes with the variables, agent and permission bypass of its typed line, not its prompt or secrets', async () => {
   const dataHome = freshDataHome()
   seedSettings(dataHome, AUTO_RESUME_SETTINGS)
   const { app, win } = await launchAgentApp(dataHome)
@@ -306,12 +313,49 @@ test('an agent a coordinator started with process run resumes with its allowed f
       )
       .toMatch(
         new RegExp(
-          `^fake-agent-resumed --plugin-dir [^ ]+ --resume ${RESUME_ID} --model Y --name Slack push GL=none TOK=none END$`,
+          `^fake-agent-resumed --plugin-dir [^ ]+ --resume ${RESUME_ID} --model Y --name Slack push --agent X --dangerously-skip-permissions GL=665#2 TOK=none END$`,
           'm',
         ),
       )
   } finally {
     await closeAsked(relaunched.app, relaunched.win)
+  }
+})
+
+test('an agent the human typed after a cd, with variables, an agent and the permission bypass, resumes with all of them restart after restart', async () => {
+  test.setTimeout(180_000)
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, AUTO_RESUME_SETTINGS)
+  const resumedRuns = () =>
+    existsSync(resumedLog(dataHome))
+      ? readFileSync(resumedLog(dataHome), 'utf8').split('\n').filter(Boolean)
+      : []
+  const first = await launchAgentApp(dataHome, RESUME_ID, false, true)
+  await openWorkspace(first.win)
+  await first.win.locator('.xterm').first().click()
+  await first.win.keyboard.type(
+    `cd . && GL_ISSUE='665#2' API_TOKEN=abc claude --agent X --model Y -n "Slack push" --dangerously-skip-permissions`,
+  )
+  await first.win.keyboard.press('Enter')
+  await expect(first.win.locator('.xterm-rows').first()).toContainText('fake-agent-ready', {
+    timeout: 15_000,
+  })
+  await expect.poll(() => agentRunningSaved(dataHome), { timeout: 15_000 }).toBe(true)
+  await quitAndWait(first.app, first.win)
+
+  for (let restart = 1; restart <= 2; restart++) {
+    const { app, win } = await launchAgentApp(dataHome, RESUME_ID, false, true)
+    try {
+      await expect.poll(() => resumedRuns().length, { timeout: 30_000 }).toBe(restart)
+      expect(resumedRuns().at(-1)).toMatch(
+        new RegExp(
+          `^fake-agent-resumed --plugin-dir [^ ]+ --resume ${RESUME_ID} --model Y --name Slack push --agent X --dangerously-skip-permissions GL=665#2 TOK=none END$`,
+        ),
+      )
+      await expect.poll(() => agentRunningSaved(dataHome), { timeout: 15_000 }).toBe(true)
+    } finally {
+      await quitAndWait(app, win)
+    }
   }
 })
 

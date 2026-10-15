@@ -75,6 +75,16 @@ describe('manifestSlots', () => {
       ].sort(),
     )
   })
+
+  it('carries the English text of each slot', () => {
+    const slots = manifestSlots(demo)
+    expect(slots.get('name')?.text).toBe('Demo')
+    expect(slots.get('commands.run.category')?.text).toBe('Demo')
+    expect(slots.get('commands.run.argument')?.text).toBe('Target')
+    expect(slots.get('panel.title')?.text).toBe('Demo panel')
+    expect(slots.get('settings.mode.valueTitles.fast')?.text).toBe('Fast')
+    expect(slots.get('secrets.token.description')?.text).toBe('The token')
+  })
 })
 
 describe('parseLocaleCatalog', () => {

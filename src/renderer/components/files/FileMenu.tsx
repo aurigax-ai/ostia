@@ -7,12 +7,12 @@ import {
   ContextMenuSub,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
-import { relativePath } from '@/lib/agents/fileReference'
 import type { PickTarget } from '@/lib/agents/pickTargets'
 import { insertPathReference } from '@/lib/agents/sendPick'
 import { currentDict, fmt, useDict } from '@/lib/app/useDict'
 import { askAboutFile } from '@/lib/assist/askContext'
 import { useChatAvailable } from '@/lib/assist/assistFeatures'
+import { parentOf, relativeToRoot } from '@/lib/files/fileTree'
 import {
   openFileBeside,
   openFileInWorkspace,
@@ -53,11 +53,6 @@ function openInNewWorkspace(path: string, dir: boolean): void {
   useUIStore.getState().showWorkspaces()
   startNewWorkspace({ dir: dir ? path : parentOf(path) })
   if (!dir) openFileInWorkspace(path)
-}
-
-function parentOf(path: string): string {
-  const slash = path.lastIndexOf('/')
-  return slash > 0 ? path.slice(0, slash) : '/'
 }
 
 function openDefault(workspaceId: string, path: string): void {
@@ -110,7 +105,7 @@ export function FileMenuItems({
   const noAgents = useNoAgentsText(workspaceId)
   const askOn = useChatAvailable()
   const workDir = useWorkspacesStore((s) => s.workspaces.find((w) => w.id === workspaceId)?.workDir)
-  const relative = workDir ? relativePath(path, workDir) : null
+  const relative = workDir ? relativeToRoot(path, workDir) : null
   const copy = (text: string): void => void navigator.clipboard.writeText(text)
 
   return (
