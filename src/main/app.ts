@@ -9,7 +9,6 @@ import type {
   ExtensionEventType,
   ExtensionPanelContext,
   ExtensionResult,
-  WorkspaceChip,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import {
   OFFICIAL_MARKETPLACE,
@@ -169,7 +168,6 @@ import {
   removeWindow,
   resolveExternal,
   setPaneIdSalt,
-  windowOfWorkspace,
   workspaceHasManager,
 } from './control/idRegistry'
 import { loadPaneIdSalt } from './control/paneIdSalt'
@@ -195,7 +193,7 @@ import { registerLanguagePackIpc } from './extensions/languagePacks'
 import { Marketplace, marketplaceId, normalizeMarketplaceUrl } from './extensions/marketplace'
 import { PaneAttentionEvents } from './extensions/paneAttentionEvents'
 import { createMainStrings } from './extensions/strings'
-import { firstKnownOwner, workspaceChipsForWindow } from './extensions/workspaceChips'
+import { workspaceChipsForWindow } from './extensions/workspaceChips'
 import { openInExternalEditor } from './files/externalEditor'
 import { FileOps } from './files/fileOps'
 import { FileWatches } from './files/fileWatch'
@@ -205,7 +203,6 @@ import { openFileForExtension, registerOpenFileMethods } from './files/openFileM
 import { registerOpenPathIpc } from './files/openPath'
 import { OpenWaits } from './files/openWaits'
 import { confirmRemoteFolder, registerRemoteFolderConfirm } from './files/remoteFolderConfirm'
-import type { RemoteFolders } from './files/remoteFolders'
 import { ripgrepPath } from './files/ripgrep'
 import { createWorkspaceClosed } from './files/workspaceClosed'
 import { registerSearchIpc } from './files/workspaceSearch'
@@ -375,6 +372,7 @@ import {
 } from './windows/tray'
 import { MAIN_SLOT } from './windows/windowBook'
 import { WindowBroker } from './windows/windowBroker'
+import { createWindowSend } from './windows/windowSend'
 import { registerCmuxSessionIpc } from './workspaces/cmuxSession'
 import { registerProjectRootIpc } from './workspaces/projectRoot'
 import { registerSameFolder } from './workspaces/sameFolder'
@@ -489,6 +487,21 @@ const services: AppServices = {
   portal: null,
   fileWatches: null,
 }
+
+const {
+  settingsChanged,
+  windowIds,
+  workspaceWindowId,
+  publishRemoteFolders,
+  sendToWorkspaceWindow,
+  broadcast,
+  publishWorkspaceChips,
+  focusPaneInWindow,
+  primaryWindowId,
+  showWindow,
+  mainWindow,
+  sendToWindow,
+} = createWindowSend({ windows, services })
 
 function listDir(dir: string): FsEntry[] {
   try {
@@ -909,12 +922,6 @@ function extensionRoots(): ExtensionRoot[] {
     { dir: builtinDir, builtin: true },
     { dir: join(configDir(), 'extensions'), builtin: false },
   ]
-}
-
-function broadcast(channel: string, payload: unknown): void {
-  for (const win of windows.values()) {
-    if (!win.isDestroyed()) win.webContents.send(channel, payload)
-  }
 }
 
 function extensionOfPartition(partition: string | undefined): string | null {
@@ -1456,13 +1463,6 @@ function remoteCwdOfPane(paneId: string): RemoteCwd | undefined {
   return normalizeRemoteCwd(terminalState.get(paneId)?.remote) ?? undefined
 }
 
-function publishRemoteFolders(folders: RemoteFolders): void {
-  for (const [windowId, win] of windows) {
-    if (win.isDestroyed()) continue
-    win.webContents.send('remote-files:folders-changed', folders.forWindow(windowId))
-  }
-}
-
 function registerRemoteFilesIpc(host: ExtensionHost): void {
   const folders = host.remoteFolders
   if (!folders) return
@@ -1831,12 +1831,6 @@ function registerFsIpc(): void {
   )
 }
 
-function settingsChanged(): void {
-  for (const win of windows.values()) {
-    if (!win.isDestroyed()) win.webContents.send('settings:changed')
-  }
-}
-
 export function listCommandsFor(windowId: string): CommandDescriptor[] {
   return commandsByWindow.get(windowId) ?? []
 }
@@ -1844,20 +1838,6 @@ export function listCommandsFor(windowId: string): CommandDescriptor[] {
 export function getTerminalState(paneId: string): TerminalStateSnapshot | undefined {
   return terminalState.get(paneId)
 }
-
-function primaryWindowId(): string | undefined {
-  return services.broker?.windowIds()[0] ?? [...windows.keys()][0]
-}
-
-function windowIds(): string[] {
-  return services.broker?.windowIds() ?? [...windows.keys()]
-}
-
-const workspaceWindowId = firstKnownOwner(
-  (workspaceId) => services.broker?.windowOfWorkspace(workspaceId),
-  windowOfWorkspace,
-  windowForWorkspace,
-)
 
 function openSettingsInFocusedWindow(): void {
   const focused = BrowserWindow.getFocusedWindow()
@@ -1875,10 +1855,6 @@ function reloadFocusedWindow(): void {
   const focused = BrowserWindow.getFocusedWindow()
   const win = focused && [...windows.values()].includes(focused) ? focused : mainWindow()
   if (win && !win.isDestroyed()) services.diagnostics?.reloadWindow(win.webContents)
-}
-
-function mainWindow(): BrowserWindow | undefined {
-  return services.broker?.mainWindow() ?? [...windows.values()][0]
 }
 
 let gwSubSeq = 0
@@ -1945,21 +1921,6 @@ export function execCommand(
   })
 }
 
-function publishWorkspaceChips(chips: WorkspaceChip[]): void {
-  for (const [windowId, win] of windows) {
-    if (win.isDestroyed()) continue
-    win.webContents.send(
-      'extensions:workspace-chips',
-      workspaceChipsForWindow(chips, workspaceWindowId, windowId),
-    )
-  }
-}
-
-function sendToWindow(windowId: string, channel: string, payload: unknown): void {
-  const win = windows.get(windowId)
-  if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
-}
-
 function startCoreBoards(): void {
   const panes = () =>
     listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking })
@@ -2004,16 +1965,6 @@ function startCoreBoards(): void {
   services.portsService = ports
   registerPortsMethods(ports)
   registerPortsIpc(ports)
-}
-
-function sendToWorkspaceWindow(
-  workspaceId: string | undefined,
-  channel: string,
-  payload: unknown,
-): void {
-  const windowId = workspaceId ? workspaceWindowId(workspaceId) : undefined
-  const win = (windowId ? windows.get(windowId) : undefined) ?? mainWindow()
-  if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
 }
 
 const {
@@ -2077,14 +2028,6 @@ const agentOffers = createAgentOfferRelay({
   },
   externalIdOf: (paneId) => getByPaneId(paneId)?.externalId,
 })
-
-function focusPaneInWindow(pane: PaneIdentity): boolean {
-  const win = windows.get(pane.windowId)
-  if (!win || win.isDestroyed()) return false
-  showWindow(win)
-  win.webContents.send('extensions:focus-pane', pane.paneId)
-  return true
-}
 
 const OPEN_TERMINAL_TIMEOUT_MS = 5000
 let openTerminalSeq = 0
@@ -2237,13 +2180,6 @@ function emitFocusChanged(): void {
   services.extensionHost?.events.emitEvent('focus.changed', { focused })
   services.gitService?.setFocused(focused)
   services.portsService?.setFocused(focused)
-}
-
-function showWindow(win: BrowserWindow): void {
-  if (win.isDestroyed()) return
-  if (win.isMinimized()) win.restore()
-  win.show()
-  win.focus()
 }
 
 function toggleAllWindows(): void {
