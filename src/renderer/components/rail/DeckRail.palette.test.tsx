@@ -10,6 +10,8 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { DeckRail } from './DeckRail'
 
+const PALETTE_COMMANDS = new Set(['workspace.rename', 'workspace.describe'])
+
 describe('DeckRail edits started from the palette', () => {
   let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
   let uiInit: ReturnType<typeof useUIStore.getState>
@@ -18,6 +20,9 @@ describe('DeckRail edits started from the palette', () => {
 
   beforeAll(() => {
     if (!commands.has('workspace.rename')) registerBuiltinCommands()
+    for (const { id } of commands.list()) {
+      if (!PALETTE_COMMANDS.has(id)) commands.unregister(id)
+    }
     workspacesInit = useWorkspacesStore.getState()
     uiInit = useUIStore.getState()
   })
@@ -45,7 +50,8 @@ describe('DeckRail edits started from the palette', () => {
   async function runFromPalette(title: string, id: string): Promise<void> {
     act(() => useUIStore.getState().togglePalette())
     const user = userEvent.setup()
-    await user.type(await screen.findByRole('combobox'), title)
+    await user.click(await screen.findByRole('combobox'))
+    await user.paste(title)
     const option = screen
       .getAllByRole('option')
       .find((o) => o.querySelector('[data-slot="palette-meta"]')?.textContent === id)
