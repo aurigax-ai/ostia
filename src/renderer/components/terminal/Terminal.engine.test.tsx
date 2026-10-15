@@ -1084,24 +1084,27 @@ describe('TerminalView engines', () => {
     useLayoutStore.getState().ensure('w1')
     const { activePaneId } = useLayoutStore.getState().byWorkspace.w1
     await renderSettled(<TerminalView workspaceId="w1" paneId={activePaneId} />)
-    await waitFor(() => expect(window.ostia.pty.onData).toHaveBeenCalled())
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+    await act(async () => {
+      await vi.mocked(window.ostia.pty.attach).mock.results[0]?.value
+    })
     const deliver = vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
-    const cwd = () => findPane(useLayoutStore.getState().byWorkspace.w1.root, activePaneId)?.cwd
-    const parsed = async (text: string, folder: string): Promise<void> => {
-      act(() => deliver(`${text}\x1b]7;file://${folder}\x07`))
-      await waitFor(() => expect(cwd()).toBe(folder))
+    const term = terminalFor(activePaneId)
+    const parsed = async (text: string): Promise<void> => {
+      act(() => deliver(text))
+      await act(() => new Promise<void>((resolve) => term?.write('', resolve)))
     }
 
-    await parsed(`\x1b]52;c;${btoa('ostia-osc52')}\x07`, '/tmp/one')
+    await parsed(`\x1b]52;c;${btoa('ostia-osc52')}\x07`)
     expect(writeText.mock.calls).toEqual([['ostia-osc52']])
 
     vi.mocked(window.ostia.pty.write).mockClear()
-    await parsed('\x1b]52;c;?\x07', '/tmp/two')
+    await parsed('\x1b]52;c;?\x07')
     expect(writeText).toHaveBeenCalledTimes(1)
     expect(window.ostia.pty.write).not.toHaveBeenCalled()
 
     act(() => useSettingsStore.getState().setTerminal({ osc52Write: false }))
-    await parsed(`\x1b]52;c;${btoa('ostia-off')}\x07`, '/tmp/three')
+    await parsed(`\x1b]52;c;${btoa('ostia-off')}\x07`)
     expect(writeText).toHaveBeenCalledTimes(1)
   })
 
