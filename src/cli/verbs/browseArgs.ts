@@ -1,16 +1,7 @@
-import type { Parser } from './browseFlags'
+import type { BrowseParse, Parser } from './browseFlags'
 import { interactVerbs } from './browseInteractVerbs'
 import { queryVerbs } from './browseQueryVerbs'
 import { stateVerbs } from './browseStateVerbs'
-
-export interface BrowseCall {
-  verb: string
-  method: string
-  params: Record<string, unknown>
-  readsStdin?: boolean
-}
-
-export type BrowseParse = { ok: true; call: BrowseCall } | { ok: false; error: string }
 
 export interface BrowseGlobals {
   json: boolean

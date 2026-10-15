@@ -1,4 +1,11 @@
-import type { BrowseParse } from './browseArgs'
+export interface BrowseCall {
+  verb: string
+  method: string
+  params: Record<string, unknown>
+  readsStdin?: boolean
+}
+
+export type BrowseParse = { ok: true; call: BrowseCall } | { ok: false; error: string }
 
 interface FlagSpec {
   values?: Record<string, string>

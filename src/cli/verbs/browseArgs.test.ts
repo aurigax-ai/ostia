@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-  type BrowseParse,
-  extractGlobals,
-  parseBrowseCommand,
-  splitCommandLine,
-} from './browseArgs'
+import { extractGlobals, parseBrowseCommand, splitCommandLine } from './browseArgs'
+import type { BrowseParse } from './browseFlags'
 
 const CWD = '/home/u/proj'
 
