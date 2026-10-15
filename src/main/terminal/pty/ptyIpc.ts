@@ -1,5 +1,5 @@
 import { app, ipcMain } from 'electron'
-import type { HibernateOutcome } from '../../shared/agents/agentWork'
+import type { HibernateOutcome } from '../../../shared/agents/agentWork'
 import type {
   PaneActivity,
   PromptContext,
@@ -7,20 +7,20 @@ import type {
   PtyAttachResult,
   PtySpawnOptions,
   TerminalStateSnapshot,
-} from '../../shared/types'
-import type { AgentRunningPanes } from '../agents/agentRunning'
-import { type ReportedAgentWork, backgroundWork, readProcessTable } from '../agents/agentWork'
-import { getByPaneId } from '../control/idRegistry'
-import type { OpenWaits } from '../files/openWaits'
-import type { PaneWaking } from '../panes/paneWaking'
-import type { KeptShells } from '../tmux/keptShells'
-import { stashedScreen } from '../workspaces/workspaceSnapshot'
-import { registerPathCompletionIpc } from './pathCompletion'
-import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
+} from '../../../shared/types'
+import type { AgentRunningPanes } from '../../agents/agentRunning'
+import { type ReportedAgentWork, backgroundWork, readProcessTable } from '../../agents/agentWork'
+import { getByPaneId } from '../../control/idRegistry'
+import type { OpenWaits } from '../../files/openWaits'
+import type { PaneWaking } from '../../panes/paneWaking'
+import type { KeptShells } from '../../tmux/keptShells'
+import { stashedScreen } from '../../workspaces/workspaceSnapshot'
+import { registerPathCompletionIpc } from '../pathCompletion'
+import { KubeContextReader, NodeVersionResolver, promptContext } from '../promptContext'
+import { ExecutableIndex, readShellState, registerCommandNamesIpc } from '../shellCommands'
+import { ShellHistoryFiles, registerShellHistoryIpc } from '../shellHistory'
 import type { PtyAttach } from './ptyAttach'
 import type { PtyEntry, PtyRegistry } from './ptyRegistry'
-import { ExecutableIndex, readShellState, registerCommandNamesIpc } from './shellCommands'
-import { ShellHistoryFiles, registerShellHistoryIpc } from './shellHistory'
 
 interface PtyIpcDeps {
   attachPty: PtyAttach['attachPty']

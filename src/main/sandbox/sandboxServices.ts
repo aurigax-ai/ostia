@@ -12,7 +12,7 @@ import { storePath } from '../platform/jsonStore'
 import { privateTmpDir } from '../platform/privateTmp'
 import { OLD_PRODUCT_NAME, configHome, dataHome } from '../platform/userDirs'
 import { PackageRequests } from '../sandboxPackages/packageRequests'
-import type { PtyEntry } from '../terminal/ptyRegistry'
+import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import { INTEGRATION_DIR } from '../terminal/shellIntegration'
 import { keptHostChannel, keptShellsName } from '../tmux/keptPaths'
 import {

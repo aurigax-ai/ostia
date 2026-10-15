@@ -7,7 +7,7 @@ import { keptControlSocketPath, listenKeptControlSocket } from '../control/contr
 import type { AppLog } from '../diagnostics/appLog'
 import type { ProcessRegistry } from '../panes/processRegistry'
 import { missingRequirements, programPath } from '../platform/systemRequirements'
-import type { PtyEntry } from '../terminal/ptyRegistry'
+import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import { handoffPaneIds, loadSnapshot } from '../workspaces/workspaceSnapshot'
 import { KeptPlumbing, keptLauncherPaths } from './keptLaunchers'
 import { keptShellsDir, keptShellsName } from './keptPaths'
