@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { homedir, hostname } from 'node:os'
 import { basename, dirname, join } from 'node:path'
-import { appEnv, readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { appEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { MANAGER_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import type {
   ExtensionEventPayloads,
@@ -61,7 +61,6 @@ import type {
   CommandTarget,
   FsEntry,
   FsKind,
-  QuitAnswer,
   TerminalStateSnapshot,
 } from '../shared/types'
 import { AGENT_OFFER_RESULT_CHANNEL, createAgentOfferRelay } from './agents/agentOfferRelay'
@@ -126,12 +125,8 @@ import { McpOAuth, mcpOAuthBrowser } from './chat/mcpOAuth'
 import { createMcpOAuthStore } from './chat/mcpOAuthStore'
 import { createCommandBridge } from './control/commandBridge'
 import { setCapFilter, setScriptTokenCheck } from './control/controlAuth'
-import { clearControlInfo, controlInfoPath, writeControlInfo } from './control/controlDiscovery'
-import {
-  controlSocketPath,
-  registerControlServer,
-  stopControlServer,
-} from './control/controlServer'
+import { controlInfoPath, writeControlInfo } from './control/controlDiscovery'
+import { controlSocketPath, registerControlServer } from './control/controlServer'
 import { registerDocsMethods } from './control/docs'
 import { emitPlatformEvent, platformEvents } from './control/events'
 import {
@@ -189,7 +184,7 @@ import {
   registerGatewayMethods,
 } from './gateway/gatewayIpc'
 import { listPairRequests, onPairRequestsChanged } from './gateway/pairRequests'
-import { configureGatewayControl, phoneCanRespond, stopGateway } from './gateway/server'
+import { configureGatewayControl, phoneCanRespond } from './gateway/server'
 import { createTailnet, tailnetNodeName, tsnetHelperPath } from './gateway/tailnet'
 import { GitCommands } from './git/commands'
 import { confirmDiscard } from './git/confirmDiscard'
@@ -244,7 +239,7 @@ import { appConfigDir } from './platform/userDirs'
 import { registerPortsIpc, registerPortsMethods } from './ports/register'
 import { PortsService } from './ports/service'
 import { registerPrivacyIpc } from './privacy/privacyIpc'
-import { createRedactor, createScrollbackRedactor } from './privacy/redaction'
+import { createRedactor } from './privacy/redaction'
 import { createWorkerScan, redactionWorkerScript } from './privacy/redactionScan'
 import { type ProfileSyncHandle, startProfileSync } from './profileSync/ipc'
 import { flatSource, groupedSource, loginsSource } from './profileSync/secrets'
@@ -265,12 +260,7 @@ import { registerPtyIpc } from './terminal/pty/ptyIpc'
 import { createLiveAttach } from './terminal/pty/ptyLiveAttach'
 import { createPtyQueries } from './terminal/pty/ptyQueries'
 import { createPtyRecovery } from './terminal/pty/ptyRecovery'
-import {
-  type PaneTitleEntry,
-  type PtyEntry,
-  createPtyRegistry,
-  removeStateFile,
-} from './terminal/pty/ptyRegistry'
+import { type PaneTitleEntry, type PtyEntry, createPtyRegistry } from './terminal/pty/ptyRegistry'
 import { createSandboxSpawn } from './terminal/pty/ptySandboxSpawn'
 import { createSpawnPlanner } from './terminal/pty/ptySpawnPlan'
 import { createPtyStart } from './terminal/pty/ptyStart'
@@ -304,14 +294,7 @@ import {
   tarballReplace,
 } from './updates/installReplace'
 import { sweepUpdateLeftovers } from './updates/launchSweep'
-import {
-  canReplaceBundle,
-  macReplace,
-  runCommand,
-  signaturePolicy,
-  swapStagedBundle,
-  verifyStagedSync,
-} from './updates/macReplace'
+import { canReplaceBundle, macReplace, runCommand, signaturePolicy } from './updates/macReplace'
 import {
   announceReplace,
   announceReplaceProgress,
@@ -321,20 +304,11 @@ import {
 } from './updates/releaseCheck'
 import { type UpdateRunner, createUpdateRunner } from './updates/updateRun'
 import { installAppMenu } from './windows/appMenu'
+import { registerAppQuit } from './windows/appQuit'
 import { createAppWindows } from './windows/appWindows'
 import { type ClipboardEdits, registerClipboardEdits } from './windows/clipboardEdits'
-import { confirmQuit, freezeAll } from './windows/closeGuard'
 import { GlobalHotkey } from './windows/globalHotkey'
-import {
-  QUIT_SIGNALS,
-  createQuitTrace,
-  exitAfterDeadline,
-  keepsShellsOnQuit,
-  keptOnQuit,
-  planQuit,
-  summarizeKinds,
-} from './windows/quitPlan'
-import { nativeQuitConfirm } from './windows/quitPrompt'
+import { createQuitTrace } from './windows/quitPlan'
 import { AppTray, isHiddenLaunch, unreadWorkspaces } from './windows/tray'
 import { WindowBroker } from './windows/windowBroker'
 import { registerWindowIpc } from './windows/windowIpc'
@@ -343,6 +317,7 @@ import { registerCmuxSessionIpc } from './workspaces/cmuxSession'
 import { registerProjectRootIpc } from './workspaces/projectRoot'
 import { registerSameFolder } from './workspaces/sameFolder'
 import { registerScratchIpc } from './workspaces/scratchFolders'
+import { createScrollbackPersistence } from './workspaces/scrollbackPersistence'
 import { type SnippetDeps, registerSnippetIpc, registerSnippetMethods } from './workspaces/snippets'
 import { ViewHost, ViewStore } from './workspaces/viewHost'
 import { registerViewMethods, registerViewsIpc } from './workspaces/viewsIpc'
@@ -356,8 +331,6 @@ import {
   type RestoreOutcome,
   loadRestoredScrollback,
   pendingRestoredScrollback,
-  saveScrollback,
-  scrollbackToSave,
 } from './workspaces/workspaceSnapshot'
 
 const windows = new Map<string, BrowserWindow>()
@@ -520,8 +493,6 @@ function telemetrySessionFacts(): SessionFacts {
 }
 
 const officialMarketplaceId = marketplaceId(normalizeMarketplaceUrl(OFFICIAL_MARKETPLACE) ?? '')
-let telemetrySentForQuit = false
-let sendingTelemetryForQuit = false
 
 function openExternalSafe(url: string): boolean {
   const href = externalHref(url, { apps: false })
@@ -546,13 +517,8 @@ const {
   processes: () => services.processes,
   appLog: () => services.appLog,
 })
-let quitAnswer: QuitAnswer | null = null
 const updatePolicy = signaturePolicy(app.isPackaged, process.env)
 const UPDATE_HOST_GRANT_ID = 'core:update'
-
-function confirmQuitOn(): boolean {
-  return readSettingsFile().workspaces?.confirmQuit !== false
-}
 
 const {
   scratchFolders,
@@ -862,7 +828,7 @@ const {
   services,
   quit,
   readSettingsFile,
-  requestQuit,
+  requestQuit: () => requestQuit(),
   openExternalSafe,
   previews,
   extensionOfPartition,
@@ -895,24 +861,6 @@ function extensionRoots(): ExtensionRoot[] {
     { dir: builtinDir, builtin: true },
     { dir: join(configDir(), 'extensions'), builtin: false },
   ]
-}
-let quitAsking = false
-let quitRequested = false
-
-function requestQuit(): void {
-  quitRequested = true
-  app.quit()
-}
-let quitSignaled = false
-
-function handleQuitSignals(): void {
-  for (const signal of QUIT_SIGNALS) {
-    process.on(signal, () => {
-      services.appLog?.info('quit-signal', { signal })
-      quitSignaled = true
-      app.quit()
-    })
-  }
 }
 
 function registerIpc(): void {
@@ -2548,212 +2496,34 @@ const redactor = createRedactor(
   () => (readSettingsFile() as { privacy?: unknown }).privacy,
   redactionScan.scan,
 )
-const redactScrollback = createScrollbackRedactor(redactor)
-let scrollbackSaves: Promise<void> = Promise.resolve()
-
-function persistScrollback(): Promise<void> {
-  if (services.broker && !services.broker.persisting) return scrollbackSaves
-  let toSave: Record<string, string>
-  try {
-    const byPane = pendingRestoredScrollback()
-    for (const [paneId, entry] of ptys) byPane[paneId] = entry.mirror.serialize()
-    toSave = scrollbackToSave(byPane, isScratchPane)
-  } catch (err) {
-    console.error('[workspace] scrollback save failed', err)
-    return scrollbackSaves
-  }
-  scrollbackSaves = scrollbackSaves
-    .then(async () => {
-      const redacted = await redactScrollback(toSave)
-      if (quit.savingScrollbackForQuit && !quit.scrollbackSavedForQuit)
-        quitTrace.stage('scrollback-redacted')
-      if (services.broker && !services.broker.persisting) return
-      await saveScrollback(redacted)
-    })
-    .catch((err: unknown) => console.error('[workspace] scrollback save failed', err))
-  return scrollbackSaves
-}
-
-const SCROLLBACK_AUTOSAVE_MS =
-  process.env.NODE_ENV === 'test' && Number(readEnv('TEST_SCROLLBACK_AUTOSAVE_MS')) > 0
-    ? Number(readEnv('TEST_SCROLLBACK_AUTOSAVE_MS'))
-    : 5000
-let lastScrollbackSignature = ''
-
-function autosaveScrollback(): void {
-  if (quit.savingScrollbackForQuit) return
-  let signature = ''
-  for (const [paneId, entry] of ptys) signature += `${paneId}:${entry.mirror.revision};`
-  signature += `pending:${Object.keys(pendingRestoredScrollback()).length}`
-  if (signature === lastScrollbackSignature) return
-  lastScrollbackSignature = signature
-  void persistScrollback()
-}
 
 const quitTrace = createQuitTrace((event, fields) => services.appLog?.info(event, fields))
 
-function exitAtQuitDeadline(): void {
-  services.appLog?.warn('quit-deadline', {
-    stage: quitTrace.current(),
-    totalMs: quitTrace.elapsedMs(),
-    alive: summarizeKinds(process.getActiveResourcesInfo()),
-  })
-  app.exit(0)
-}
+const { persistScrollback, SCROLLBACK_AUTOSAVE_MS, autosaveScrollback } =
+  createScrollbackPersistence({ redactor, services, ptys, isScratchPane, quit, quitTrace })
 
-app.on('before-quit', (event) => {
-  const plan = planQuit({
-    approved: quit.quitApproved,
-    requestedByOstia: quitRequested,
-    signaled: quitSignaled,
-    platform: process.platform,
-  })
-  quitRequested = false
-  quitTrace.stage(`plan-${plan}`)
-  if (plan === 'unattended') {
-    quit.quitApproved = true
-    freezeAll([...windows.values()])
-    exitAfterDeadline(exitAtQuitDeadline)
-  }
-  if (plan === 'ask') {
-    event.preventDefault()
-    if (quitAsking) return
-    quitAsking = true
-    const all = [...windows.values()]
-    const kept = keptOnQuit(
-      quit.restartRequested,
-      confirmQuitOn(),
-      [...ptys.values()].map((entry) => ({ paneId: entry.paneId, kept: entry.kept !== null })),
-    )
-    void confirmQuit(all, BrowserWindow.getFocusedWindow() ?? mainWindow(), {
-      scratchFiles: (workspaceId) => scratchFolders.countFiles(workspaceId),
-      kept: kept.kept,
-      keptShells: kept.offer,
-      workspacesOf: (win) => services.broker?.workspacesOf(win) ?? [],
-      processes: () =>
-        [...ptys.values()].map((entry) => ({
-          paneId: entry.paneId,
-          workspaceId: entry.workspaceId,
-          ...paneActivity(entry),
-        })),
-      confirmNative: nativeQuitConfirm(mainStrings),
-    }).then((answer) => {
-      quitAsking = false
-      if (answer === 'cancel') {
-        quit.restartRequested = false
-        return
-      }
-      quitAnswer = answer
-      quit.quitApproved = true
-      freezeAll(all)
-      app.quit()
-    })
-    return
-  }
-  if (!quit.scrollbackSavedForQuit) {
-    event.preventDefault()
-    if (quit.savingScrollbackForQuit) return
-    quit.savingScrollbackForQuit = true
-    quitTrace.stage('scrollback')
-    void persistScrollback().finally(() => {
-      quit.scrollbackSavedForQuit = true
-      app.quit()
-    })
-    return
-  }
-  if (!telemetrySentForQuit) {
-    event.preventDefault()
-    if (sendingTelemetryForQuit) return
-    sendingTelemetryForQuit = true
-    quitTrace.stage('telemetry')
-    void (services.telemetry?.shutdown() ?? Promise.resolve()).finally(() => {
-      telemetrySentForQuit = true
-      app.quit()
-    })
-    return
-  }
-  quitTrace.stage('teardown-windows')
-  services.broker?.persist()
-  services.managerService?.shutdown()
-  services.appLog?.info('app-quit', { ptys: ptys.size })
-  const keepingShells = keepsShellsOnQuit(quit.restartRequested, quitAnswer)
-  services.appLog?.info('quit-kept-shells', {
-    keep: keepingShells ? 1 : 0,
-    restart: quit.restartRequested ? 1 : 0,
-  })
-  if (keepingShells) {
-    for (const workspaceId of keptHostPanes.keys()) {
-      syncKeptExposed(workspaceId, portForwarder.listeners(workspaceId))
-    }
-  }
-  quitTrace.stage('teardown-ptys')
-  for (const entry of ptys.values()) {
-    entry.mirror.dispose()
-    if (keepingShells && entry.kept) {
-      entry.kept.detach()
-      entry.portBridge?.close()
-      continue
-    }
-    try {
-      entry.pty.kill()
-    } catch {}
-    removeStateFile(entry)
-  }
-  ptys.clear()
-  quitTrace.stage('teardown-kept-shells')
-  if (keepingShells) keptShells.release()
-  else keptShells.quitNow()
-  quitTrace.stage('teardown-language-servers')
-  services.languageServers?.stopAll()
-  languageServerWatches.closeAll()
-  quitTrace.stage('teardown-sandboxes')
-  if (keepingShells) workspaceSandboxes.releaseAll()
-  else workspaceSandboxes.stopAll()
-  workspaceAgents.stopAll()
-  for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)
-  workspaceSandboxes.clearTmp(!keepingShells)
-  artifactFolders.dispose()
-  artifactHistory.quit()
-  artifactHistory.dispose()
-  previews.dispose()
-  scratchFolders.removeAll()
-  quitTrace.stage('teardown-hosts')
-  portForwarder.stopAll()
-  services.gitService?.stop()
-  services.portsService?.stop()
-  services.extensionHost?.processes.stopAll()
-  services.mcpOAuth?.closeAll()
-  services.mcpHost?.closeAll()
-  services.viewHost?.stop()
-  services.profileSync?.stop()
-  quitTrace.stage('teardown-network')
-  stopControlServer()
-  clearControlInfo(controlInfoPath(), controlSocketPath())
-  services.portal?.stop()
-  void services.stopTailnet?.()
-  services.stopAnnouncing?.()
-  void stopGateway()
-  services.appTray?.remove()
-  services.globalHotkey?.clear()
-  if (quit.stagedUpdate) {
-    quitTrace.stage('update-swap')
-    const { pending, sweepFile } = quit.stagedUpdate
-    quit.stagedUpdate = null
-    const result = swapStagedBundle(pending.appDir, {
-      verify: (staged) => verifyStagedSync(staged, updatePolicy),
-    })
-    services.appLog?.info('update-swap', { version: pending.version, result })
-    if (result === 'swapped') saveJson(sweepFile, pending)
-  }
-  quitTrace.stage('teardown-done')
-})
-
-app.on('will-quit', () => {
-  quitTrace.stage('will-quit')
-  scriptTokenUsage.close()
-})
-app.on('quit', () => quitTrace.stage('quit'))
-
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') requestQuit()
+const { requestQuit, handleQuitSignals } = registerAppQuit({
+  readSettingsFile,
+  services,
+  quitTrace,
+  quit,
+  windows,
+  ptys,
+  mainWindow,
+  scratchFolders,
+  paneActivity,
+  mainStrings,
+  persistScrollback,
+  keptHostPanes,
+  syncKeptExposed,
+  portForwarder,
+  keptShells,
+  languageServerWatches,
+  workspaceSandboxes,
+  workspaceAgents,
+  artifactFolders,
+  artifactHistory,
+  previews,
+  updatePolicy,
+  scriptTokenUsage,
 })
