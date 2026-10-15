@@ -6,7 +6,6 @@ export function CsvTable({
   source,
   delimiter,
 }: { source: string; delimiter: string }): JSX.Element {
-  const d = useDict()
   const [table, setTable] = useState<CsvTableData | null>(null)
 
   useEffect(() => {
@@ -20,6 +19,11 @@ export function CsvTable({
   }, [source, delimiter])
 
   if (!table) return <div className="csv-table" data-testid="csv-table" />
+  return <CsvTableView table={table} />
+}
+
+export function CsvTableView({ table }: { table: CsvTableData }): JSX.Element {
+  const d = useDict()
   return (
     // biome-ignore lint/a11y/noNoninteractiveTabindex: the table scrolls with the keyboard
     <div className="csv-table" data-testid="csv-table" tabIndex={0}>

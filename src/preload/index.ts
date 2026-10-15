@@ -16,6 +16,7 @@ import type { ReleaseCheckResult } from '../shared/app/releases'
 import type { RequirementsReport } from '../shared/app/systemRequirements'
 import type { ArtifactListing } from '../shared/artifacts/artifacts'
 import type { PreviewEvent, PreviewOpened } from '../shared/artifacts/htmlPreview'
+import type { PortableResult } from '../shared/artifacts/portable'
 import type {
   AssistAvailability,
   AssistCatalog,
@@ -403,6 +404,15 @@ const bridge: OstiaBridge = {
     pad: (workspaceId) =>
       ipcRenderer.invoke('artifacts:pad', workspaceId) as Promise<string | null>,
     reveal: (workspaceId) => ipcRenderer.send('artifacts:reveal', workspaceId),
+    portable: (action, request) => {
+      const channel =
+        action === 'open'
+          ? 'artifacts:portable-open'
+          : action === 'save'
+            ? 'artifacts:portable-save'
+            : 'artifacts:portable-copy'
+      return ipcRenderer.invoke(channel, request) as Promise<PortableResult>
+    },
     onChanged: (cb) => {
       const handler = (_e: Electron.IpcRendererEvent, workspaceId: string): void => cb(workspaceId)
       ipcRenderer.on('artifacts:changed', handler)

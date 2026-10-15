@@ -7,6 +7,7 @@ import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group'
 import { fmt, useDict } from '@/i18n/useDict'
 import { openBrowserAs } from '@/lib/browser/browserProfile'
 import { previewTheme } from '@/lib/theme/previewTheme'
+import { useEffectiveThemeId } from '@/lib/theme/theme'
 import { cn } from '@/lib/utils'
 import { CaretDownIcon, CaretRightIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
 import {
@@ -74,6 +75,14 @@ export function HtmlPreview({
     const { id } = opened
     return () => window.ostia.preview.close(id)
   }, [opened])
+
+  const themeId = useEffectiveThemeId()
+  const builtFor = useRef(themeId)
+  useEffect(() => {
+    if (builtFor.current === themeId) return
+    builtFor.current = themeId
+    setOpened(null)
+  }, [themeId])
 
   useEffect(() => {
     if (opened) window.ostia.preview.shown(opened.id, visible)

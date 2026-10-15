@@ -320,6 +320,7 @@ jobs:
           key: node-pty-electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
       - if: steps.pty.outputs.cache-hit != 'true'
         run: pnpm rebuild
+      - uses: ./.github/actions/playwright-browsers
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: out
@@ -486,6 +487,7 @@ jobs:
       - uses: ./.github/actions/setup
         timeout-minutes: 10
       - run: pnpm rebuild
+      - uses: ./.github/actions/playwright-browsers
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: out-macos

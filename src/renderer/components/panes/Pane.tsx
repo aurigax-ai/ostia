@@ -4,6 +4,7 @@ import { AgentSessionButton } from '@/components/agents/AgentSessionButton'
 import { ApprovalCard } from '@/components/agents/ApprovalCard'
 import { QuestionNotice } from '@/components/agents/QuestionNotice'
 import { IconButton } from '@/components/common/IconButton'
+import { PortableActions } from '@/components/editor/PortableActions'
 import { PaneChips } from '@/components/extensions/ExtensionChips'
 import { HostPaneBadge, SandboxRestartButton } from '@/components/sandbox/SandboxRestartButton'
 import { useDict } from '@/i18n/useDict'
@@ -295,6 +296,9 @@ export function Pane({
         <SandboxRestartButton pane={shown} />
         <HostPaneBadge pane={shown} />
         <div className="pane-actions">
+          {shown.kind === 'editor' && shown.filePath ? (
+            <PortableActions workspaceId={workspaceId} filePath={shown.filePath} />
+          ) : null}
           <AgentSessionButton pane={shown} />
           <AgentForkButton pane={shown} workspaceId={workspaceId} />
           <PaneHeaderActions pane={shown} />

@@ -12,6 +12,7 @@ export default defineConfig({
           '@ai-sdk/mcp',
           '@secretlint/core',
           '@secretlint/secretlint-rule-preset-recommend',
+          'parse5',
         ],
       }),
     ],

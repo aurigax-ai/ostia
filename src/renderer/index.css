@@ -2104,6 +2104,22 @@
   transition: opacity var(--motion-fast) var(--ease-out);
 }
 
+.portable-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-right: 4px;
+}
+
+.portable-problem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 320px;
+}
+
 .pane:hover .pane-actions,
 .pane.active .pane-actions,
 .pane-actions:focus-within {

@@ -68,7 +68,6 @@ export function isPreviewPath(path: string | undefined): boolean {
   return path !== undefined && (/\.html?$/i.test(path) || isComponentPath(path))
 }
 
-export const SHELL_MODULE_PATH = '/__ostia_shell.js'
 const THEME_NAME = /^--ostia-[a-z][a-z-]{0,31}$/
 const THEME_VALUE = /^[#\w\s(),.%"'-]{1,160}$/
 const THEME_VARS_MAX = 16
