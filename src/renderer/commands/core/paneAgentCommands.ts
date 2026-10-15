@@ -1,4 +1,5 @@
 import { registerCore } from '@/commands/coreCommand'
+import { claudeTrustGate } from '@/lib/agents/folderTrust'
 import { forkConversation } from '@/lib/agents/forkConversation'
 import {
   type PaneHibernateOutcome,
@@ -117,8 +118,11 @@ function registerAgentSessionCommands(): void {
           `${pane.resume.agent} session ${pane.resume.id} is already running in "${holder}"`,
         )
       }
-      if (pane.hibernated) return { resumed: wakePane(pane.id) }
+      if (pane.hibernated) return { resumed: wakePane(pane.id, undefined, !ctx.target) }
       if (pane.resumeFolderMissing) return { resumed: false }
+      if (!ctx.target && !(await claudeTrustGate(pane.id, pane.resume.agent))) {
+        return { resumed: false }
+      }
       const resumed = insertCommand(pane.id, resumeCommand(pane.resume), true)
       if (resumed) {
         claimResume(pane.id, pane.resume)
@@ -178,7 +182,7 @@ function registerAgentSessionCommands(): void {
           useTabSleepNoticeStore.getState().show({ kind: 'conflict', tab: holder.title })
         return { woke: false, conflict: holder.title }
       }
-      const woke = wakePane(paneId)
+      const woke = wakePane(paneId, undefined, !ctx.target)
       if (!woke && !ctx.target) useTabSleepNoticeStore.getState().show({ kind: 'awake' })
       return { woke }
     },

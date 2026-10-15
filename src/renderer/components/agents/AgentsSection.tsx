@@ -73,6 +73,8 @@ export function AgentsSection(): JSX.Element {
   const set = useSettingsStore((s) => s.setHibernation)
   const autoResume = useSettingsStore((s) => s.agents.autoResume)
   const setAutoResume = useSettingsStore((s) => s.setAutoResume)
+  const trustWorkspaceFolders = useSettingsStore((s) => s.agents.trustWorkspaceFolders)
+  const setTrustWorkspaceFolders = useSettingsStore((s) => s.setTrustWorkspaceFolders)
   const autoSendReferences = useSettingsStore((s) => s.agents.autoSendReferences)
   const setAutoSendReferences = useSettingsStore((s) => s.setAutoSendReferences)
   const hooks = useSettingsStore((s) => s.agents.hooks)
@@ -103,6 +105,12 @@ export function AgentsSection(): JSX.Element {
           desc={d.settings.autoResumeDesc}
           checked={autoResume}
           onChange={setAutoResume}
+        />
+        <ToggleRow
+          label={d.settings.trustWorkspaceFolders}
+          desc={d.settings.trustWorkspaceFoldersDesc}
+          checked={trustWorkspaceFolders}
+          onChange={setTrustWorkspaceFolders}
         />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupReferences}>

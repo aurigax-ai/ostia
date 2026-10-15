@@ -181,6 +181,9 @@ export const settingsZhHant: typeof settingsEn = {
     autoResume: '重新啟動後自動恢復代理程式',
     autoResumeDesc:
       '結束 {product} 時仍在執行的代理程式工作階段，會在其窗格顯示後、於第一個閒置提示字元自動恢復。背景分頁與其他工作區會在你開啟時才恢復。只有你能變更此設定。',
+    trustWorkspaceFolders: '為 Claude 信任工作區資料夾',
+    trustWorkspaceFoldersDesc:
+      '當 {product} 在工作區資料夾接回或啟動 Claude 時，在 Claude 自己的設定檔（~/.claude.json）將該資料夾標為信任，Claude 便不會詢問。這也會讓 Claude 在 {product} 之外信任此資料夾。絕不包含你的家目錄、暫存或沙箱工作區。關閉此設定不會移除已給予的信任。',
     groupReferences: '參照',
     autoSendReferences: '立即將參照送給代理程式',
     autoSendReferencesDesc:

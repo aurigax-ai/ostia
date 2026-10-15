@@ -257,6 +257,8 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     agentSession: {
       info: vi.fn().mockResolvedValue(null),
       claimResume: vi.fn().mockResolvedValue({ ok: true }),
+      folderTrust: vi.fn().mockResolvedValue({ state: 'trusted' }),
+      trustFolder: vi.fn().mockResolvedValue(true),
     },
     update: {
       state: vi.fn().mockResolvedValue(null),

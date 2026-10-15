@@ -378,6 +378,22 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().agents.autoSendReferences).toBe(true)
   })
 
+  it('CFT-C14 settings.set refuses to turn on folder trust for Claude, directly or via agents', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents.trustWorkspaceFolders',
+      value: true,
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents',
+      value: { ...useSettingsStore.getState().agents, trustWorkspaceFolders: true },
+    })
+    for (const res of [direct, nested]) {
+      expect(res.ok).toBe(false)
+      if (!res.ok) expect(res.error.message).toMatch(/agents.trustWorkspaceFolders/)
+    }
+    expect(useSettingsStore.getState().agents.trustWorkspaceFolders).toBe(false)
+  })
+
   it('settings.set and settings.unset refuse secret redaction, whole or by key', async () => {
     const off = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'privacy.redaction.enabled',

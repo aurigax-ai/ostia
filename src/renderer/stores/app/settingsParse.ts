@@ -165,6 +165,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
       hibernation: parseHibernation(p.agents?.hibernation),
       autoResume: p.agents?.autoResume === true,
       autoSendReferences: p.agents?.autoSendReferences !== false,
+      trustWorkspaceFolders: p.agents?.trustWorkspaceFolders === true,
       hooks: parseAgentHooks(p.agents?.hooks),
     },
     assistant: {

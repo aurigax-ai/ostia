@@ -1,6 +1,11 @@
 import { ipcRenderer } from 'electron'
 import type { AgentSessionInfo } from '../shared/agents/agentSessionInfo'
-import type { ManagerOpenPaneRequest, OstiaBridge, ResumeVerdict } from '../shared/types'
+import type {
+  FolderTrust,
+  ManagerOpenPaneRequest,
+  OstiaBridge,
+  ResumeVerdict,
+} from '../shared/types'
 
 export const agentsBridge: Pick<OstiaBridge, 'manager' | 'agentSession'> = {
   manager: {
@@ -17,5 +22,8 @@ export const agentsBridge: Pick<OstiaBridge, 'manager' | 'agentSession'> = {
       ipcRenderer.invoke('agent:session-info', resume) as Promise<AgentSessionInfo | null>,
     claimResume: (paneId, resume) =>
       ipcRenderer.invoke('agent:claim-resume', paneId, resume) as Promise<ResumeVerdict>,
+    folderTrust: (paneId) =>
+      ipcRenderer.invoke('agent:folder-trust', paneId) as Promise<FolderTrust>,
+    trustFolder: (paneId) => ipcRenderer.invoke('agent:trust-folder', paneId) as Promise<boolean>,
   },
 }
