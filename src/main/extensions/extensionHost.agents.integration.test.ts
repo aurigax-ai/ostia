@@ -17,7 +17,9 @@ import {
 } from '../agents/extensionAgents'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { type PaneIdentity, registerPane, removePane } from '../control/idRegistry'
-import { ExtensionHost, type TerminalOpenRequest, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
+import type { TerminalOpenRequest } from './extensionRuns'
 import { ExtensionStore } from './extensionStore'
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions-agents')
@@ -82,7 +84,7 @@ describe('ExtensionHost agent tasks: ext.agents, ext.runAgent, ext.offerToAgent,
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })

@@ -137,6 +137,14 @@ describe('sizePanel', () => {
 })
 
 describe('setSizes', () => {
+  it('returns the same tree when the split already has those sizes', () => {
+    const inner = splitOf('vertical', createPane(), createPane())
+    const root = splitOf('horizontal', createPane(), inner)
+    expect(setSizes(root, inner.id, [1, 1])).toBe(root)
+    expect(setSizes(root, inner.id, [1, 2])).not.toBe(root)
+    expect(setSizes(root, inner.id, [1, 1, 1])).not.toBe(root)
+  })
+
   it('replaces the sizes of a nested split addressed by id', () => {
     const a = createPane()
     const b = createPane()

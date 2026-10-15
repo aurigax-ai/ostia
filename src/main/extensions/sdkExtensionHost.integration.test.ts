@@ -6,7 +6,8 @@ import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/e
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
-import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
 import { ExtensionStore } from './extensionStore'
 
 const repoRoot = resolve(__dirname, '../../..')
@@ -90,7 +91,7 @@ describe('an extension made from the SDK template', () => {
       language = 'zh-Hant'
       expect(title()).toBe('哈囉：打招呼')
     } finally {
-      host.stopAll()
+      host.processes.stopAll()
       stopControlServer()
       rmSync(dir, { recursive: true, force: true })
     }

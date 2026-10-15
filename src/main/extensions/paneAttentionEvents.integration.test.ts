@@ -9,7 +9,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { getByPaneId, registerPane } from '../control/idRegistry'
-import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
 import { ExtensionStore } from './extensionStore'
 import { PaneAttentionEvents } from './paneAttentionEvents'
 
@@ -61,7 +62,7 @@ describe('the pane.attention event', () => {
     events = new PaneAttentionEvents({
       identity: getByPaneId,
       emit: (payload: ExtensionEventPayloads['pane.attention']) =>
-        host.emitEvent('pane.attention', payload),
+        host.events.emitEvent('pane.attention', payload),
     })
     registerExtensionMethods(() => host)
     registerControlServer(
@@ -76,7 +77,7 @@ describe('the pane.attention event', () => {
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })

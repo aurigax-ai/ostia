@@ -15,7 +15,8 @@ import { useDict } from '@/lib/app/useDict'
 import type { Dict } from '@shared/app/dict'
 import type { SecretActionResult, SyncStatus } from '@shared/types'
 import { useState } from 'react'
-import { ControlRow, SectionHead, WarningNote } from './SettingsPanel'
+import { ControlRow, WarningNote } from './ControlRow'
+import { SectionHead } from './SettingsGroup'
 
 type Form = 'unlock' | 'recover' | 'change' | 'reset' | null
 type Confirming = 'remove' | 'reset' | null

@@ -5,12 +5,9 @@ import { join } from 'node:path'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerControlServer, stopControlServer } from '../main/control/controlServer'
 import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
-import {
-  type ExtensionConfirmRequest,
-  ExtensionHost,
-  type TerminalOpenRequest,
-  registerExtensionMethods,
-} from '../main/extensions/extensionHost'
+import { ExtensionHost } from '../main/extensions/extensionHost'
+import { registerExtensionMethods } from '../main/extensions/extensionMethods'
+import type { ExtensionConfirmRequest, TerminalOpenRequest } from '../main/extensions/extensionRuns'
 import { ExtensionStore } from '../main/extensions/extensionStore'
 import { requirementsInstallArgs } from '../main/platform/systemRequirementsIpc'
 import { HostPaneGrants } from '../main/sandbox/hostPanes'
@@ -106,7 +103,7 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
   }, 120_000)
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     if (savedDataHome === undefined) Reflect.deleteProperty(process.env, 'XDG_DATA_HOME')
     else process.env.XDG_DATA_HOME = savedDataHome

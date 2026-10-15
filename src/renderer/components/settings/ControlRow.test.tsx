@@ -3,7 +3,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it } from 'vitest'
-import { ControlRow, MachineValue } from './SettingsPanel'
+import { ControlRow, MachineValue } from './ControlRow'
 
 const INSTALL_ID = '92c5cc36-ec25-428e-99ec-6cc83cd729e6'
 

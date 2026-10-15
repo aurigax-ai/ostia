@@ -1,4 +1,4 @@
-import { SettingsGroup } from '@/components/settings/SettingsPanel'
+import { SettingsGroup } from '@/components/settings/SettingsGroup'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'

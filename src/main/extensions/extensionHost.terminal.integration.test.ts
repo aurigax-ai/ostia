@@ -7,12 +7,9 @@ import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { type PaneIdentity, registerPane } from '../control/idRegistry'
 import { HostPaneGrants } from '../sandbox/hostPanes'
-import {
-  type ExtensionConfirmRequest,
-  ExtensionHost,
-  type TerminalOpenRequest,
-  registerExtensionMethods,
-} from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
+import type { ExtensionConfirmRequest, TerminalOpenRequest } from './extensionRuns'
 import { ExtensionStore } from './extensionStore'
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions-terminal')
@@ -63,7 +60,7 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
@@ -165,8 +162,16 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
 
   it('waits for the command it opened to finish and returns its exit code', async () => {
     const { result } = await openAndWait('pane-install', 5000)
-    host.emitEvent('command.finished', { paneId: 'other-pane', workspaceId: 'w1', exitCode: 9 })
-    host.emitEvent('command.finished', { paneId: 'pane-install', workspaceId: 'w1', exitCode: 0 })
+    host.events.emitEvent('command.finished', {
+      paneId: 'other-pane',
+      workspaceId: 'w1',
+      exitCode: 9,
+    })
+    host.events.emitEvent('command.finished', {
+      paneId: 'pane-install',
+      workspaceId: 'w1',
+      exitCode: 0,
+    })
     expect(await result).toEqual({
       ok: true,
       data: { ok: true, paneId: 'pane-install', wait: { outcome: 'finished', exitCode: 0 } },
@@ -175,7 +180,7 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
 
   it('stops waiting when the human closes that terminal', async () => {
     const { result } = await openAndWait('pane-closed-early', 5000)
-    host.emitEvent('pane.closed', { paneId: 'pane-closed-early', workspaceId: 'w1' })
+    host.events.emitEvent('pane.closed', { paneId: 'pane-closed-early', workspaceId: 'w1' })
     expect(await result).toMatchObject({ data: { wait: { outcome: 'closed' } } })
   })
 

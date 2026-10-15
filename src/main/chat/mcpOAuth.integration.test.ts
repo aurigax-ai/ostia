@@ -8,7 +8,7 @@ import {
 } from '../../../test/fixtures/mcp/startHttpServer'
 import { en } from '../../shared/app/dict'
 import type { McpServerSettings, McpServerStatus } from '../../shared/assist/chatTools'
-import type { ExtensionSecretStore } from '../extensions/extensionHost'
+import type { ExtensionSecretStore } from '../extensions/extensionHostDeps'
 import type { StoredSecrets } from '../extensions/extensionSecrets'
 import { signInToMcp, signOutOfMcp } from './chatToolsIpc'
 import { McpHost } from './mcpHost'

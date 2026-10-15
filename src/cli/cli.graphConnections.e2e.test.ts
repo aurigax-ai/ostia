@@ -48,7 +48,7 @@ describe('connection secrets on the built-in graphs extension (real CLI, real so
 
   it('a secret with a line break and a base URL with user:pass@ reach no journal, panel model, ostia graph show or log', async () => {
     expect(
-      h.host.saveConnection('graphs', {
+      h.host.config.saveConnection('graphs', {
         name: 'linebreak',
         kind: 'http',
         fields: { baseUrl: base, auth: 'bearer' },
@@ -56,7 +56,7 @@ describe('connection secrets on the built-in graphs extension (real CLI, real so
       }),
     ).toMatchObject({ ok: false })
     expect(
-      h.host.saveConnection('graphs', {
+      h.host.config.saveConnection('graphs', {
         name: 'linebreak',
         kind: 'http',
         fields: { baseUrl: base, auth: 'bearer' },
@@ -66,7 +66,7 @@ describe('connection secrets on the built-in graphs extension (real CLI, real so
     h.secrets.set('graphs', '@connection/linebreak/secret', `${LINE_SECRET}\r\nX-Evil: 1`)
     const withUser = base.replace('http://', `http://someone:${USER_SECRET}@`)
     expect(
-      h.host.saveConnection('graphs', {
+      h.host.config.saveConnection('graphs', {
         name: 'userinfo',
         kind: 'http',
         fields: { baseUrl: withUser, auth: 'none' },

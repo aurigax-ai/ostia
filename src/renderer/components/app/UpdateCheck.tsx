@@ -1,4 +1,4 @@
-import { ToggleRow } from '@/components/settings/SettingsPanel'
+import { ToggleRow } from '@/components/settings/ControlRow'
 import { Button } from '@/components/ui/button'
 import { replaceLabel } from '@/lib/app/updateProgressLabel'
 import { fmt, useDict } from '@/lib/app/useDict'

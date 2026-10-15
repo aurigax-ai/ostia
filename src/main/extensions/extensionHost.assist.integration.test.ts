@@ -12,7 +12,8 @@ import { FAKE } from '../../../test/fixtures/secrets/samples'
 import { testScan } from '../../../test/redactionScan'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { createRedactor } from '../privacy/redaction'
-import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
 import { createSecretStore } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
 
@@ -83,22 +84,24 @@ describe('assist contribution points over a real control socket', () => {
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
 
   it('offers nothing while the extension waits for approval', async () => {
     expect(host.list().find((e) => e.id === 'oracle')?.status).toBe('pending-approval')
-    expect(host.assistAvailability()).toEqual({})
-    expect(await host.assist('chat', { messages: [{ role: 'user', content: 'hi' }] })).toEqual({
+    expect(host.assistant.assistAvailability()).toEqual({})
+    expect(
+      await host.assistant.assist('chat', { messages: [{ role: 'user', content: 'hi' }] }),
+    ).toEqual({
       ok: false,
       error: 'unavailable',
     })
   })
 
   it('starts with the window once approved and lists only ready, contributed points', async () => {
-    host.approve('oracle')
+    host.processes.approve('oracle')
     const availability = await until(() =>
       lastAvailability().chat ? lastAvailability() : undefined,
     )
@@ -117,7 +120,7 @@ describe('assist contribution points over a real control socket', () => {
         ref: { extId: 'oracle' },
       },
     })
-    expect(host.assistCatalog()).toEqual({
+    expect(host.assistant.assistCatalog()).toEqual({
       models: [
         {
           ref: { extId: 'oracle' },
@@ -139,7 +142,7 @@ describe('assist contribution points over a real control socket', () => {
 
   it('streams chat chunks in order and returns the normalized full reply', async () => {
     const chunks: string[] = []
-    const res = await host.assist(
+    const res = await host.assistant.assist(
       'chat',
       {
         messages: [{ role: 'user', content: 'list files' }],
@@ -155,13 +158,19 @@ describe('assist contribution points over a real control socket', () => {
   })
 
   it('rejects a malformed request before it reaches the extension', async () => {
-    expect(await host.assist('chat', { messages: [] })).toEqual({ ok: false, error: 'invalid' })
-    expect(await host.assist('command', { query: '   ' })).toEqual({ ok: false, error: 'invalid' })
+    expect(await host.assistant.assist('chat', { messages: [] })).toEqual({
+      ok: false,
+      error: 'invalid',
+    })
+    expect(await host.assistant.assist('command', { query: '   ' })).toEqual({
+      ok: false,
+      error: 'invalid',
+    })
   })
 
   it('cancels an in-flight request and tells the extension', async () => {
     const source = new CancellationTokenSource()
-    const pending = host.assist(
+    const pending = host.assistant.assist(
       'chat',
       { messages: [{ role: 'user', content: 'hang' }] },
       { token: source.token },
@@ -171,11 +180,11 @@ describe('assist contribution points over a real control socket', () => {
   })
 
   it('dedupes and drops empty command suggestions and passes typed errors through', async () => {
-    expect(await host.assist('command', { query: 'list files' })).toEqual({
+    expect(await host.assistant.assist('command', { query: 'list files' })).toEqual({
       ok: true,
       result: { suggestions: [{ command: 'ls -la', description: 'list' }] },
     })
-    expect(await host.assist('command', { query: 'rate' })).toEqual({
+    expect(await host.assistant.assist('command', { query: 'rate' })).toEqual({
       ok: false,
       error: 'rate-limited',
       message: 'slow down',
@@ -183,7 +192,9 @@ describe('assist contribution points over a real control socket', () => {
   })
 
   it('refuses a point the extension did not report ready', async () => {
-    expect(await host.assist('input', { text: 'fix teh typo', tasks: ['typos'] })).toEqual({
+    expect(
+      await host.assistant.assist('input', { text: 'fix teh typo', tasks: ['typos'] }),
+    ).toEqual({
       ok: false,
       error: 'unavailable',
     })
@@ -195,7 +206,7 @@ describe('assist contribution points over a real control socket', () => {
       data: { ok: true, value: null },
     })
     const before = (await host.invoke('oracle', 'events', null, caller)) as { data: number }
-    const res = host.setSecret('oracle', 'apiKey', 'sk-test-123')
+    const res = host.config.setSecret('oracle', 'apiKey', 'sk-test-123')
     expect(res.ok).toBe(true)
     expect(JSON.stringify(saved)).not.toContain('sk-test-123')
     const info = host.list().find((e) => e.id === 'oracle')
@@ -213,12 +224,18 @@ describe('assist contribution points over a real control socket', () => {
   })
 
   it('refuses an undeclared secret key', () => {
-    expect(host.setSecret('oracle', 'other', 'x')).toEqual({ ok: false, error: 'unknown-secret' })
-    expect(host.setSecret('oracle', 'apiKey', 42)).toEqual({ ok: false, error: 'invalid-value' })
+    expect(host.config.setSecret('oracle', 'other', 'x')).toEqual({
+      ok: false,
+      error: 'unknown-secret',
+    })
+    expect(host.config.setSecret('oracle', 'apiKey', 42)).toEqual({
+      ok: false,
+      error: 'invalid-value',
+    })
   })
 
   it('clears a secret', async () => {
-    expect(host.setSecret('oracle', 'apiKey', null).ok).toBe(true)
+    expect(host.config.setSecret('oracle', 'apiKey', null).ok).toBe(true)
     expect(host.list().find((e) => e.id === 'oracle')?.secretsSet).toEqual([])
     expect(await host.invoke('oracle', 'secret', null, caller)).toMatchObject({
       data: { ok: true, value: null },
@@ -226,7 +243,7 @@ describe('assist contribution points over a real control socket', () => {
   })
 
   it('reports only known features bound to boolean settings, with on read from the setting', () => {
-    expect(host.assistOverview()).toEqual([
+    expect(host.assistant.assistOverview()).toEqual([
       {
         extId: 'oracle',
         name: 'Oracle',
@@ -240,13 +257,13 @@ describe('assist contribution points over a real control socket', () => {
         keysSet: [],
       },
     ])
-    host.setSetting('oracle', 'chat', false)
-    expect(host.assistOverview()[0].features[0].on).toBe(false)
-    host.setSetting('oracle', 'chat', null)
+    host.config.setSetting('oracle', 'chat', false)
+    expect(host.assistant.assistOverview()[0].features[0].on).toBe(false)
+    host.config.setSetting('oracle', 'chat', null)
   })
 
   it('lists the models an extension reports, normalized, and loads and unloads one', async () => {
-    const list = await host.assistModels('oracle')
+    const list = await host.assistant.assistModels('oracle')
     expect(list).toMatchObject({ ok: true, lifecycle: true })
     if (!list.ok) throw new Error('no list')
     expect(list.models.map((m) => m.id)).toEqual(['small', 'big'])
@@ -254,41 +271,47 @@ describe('assist contribution points over a real control socket', () => {
     expect(list.models[1].installed).toBe(false)
     expect(list.models[1].loaded).toBeUndefined()
     expect(list.models[1].description?.length).toBe(400)
-    expect(await host.setAssistModelLoaded('oracle', 'small', true)).toEqual({ ok: true })
-    const after = await host.assistModels('oracle')
+    expect(await host.assistant.setAssistModelLoaded('oracle', 'small', true)).toEqual({ ok: true })
+    const after = await host.assistant.assistModels('oracle')
     expect(after.ok && after.models[0].loaded).toBe(true)
-    expect(await host.setAssistModelLoaded('oracle', 'broken', true)).toEqual({
+    expect(await host.assistant.setAssistModelLoaded('oracle', 'broken', true)).toEqual({
       ok: false,
       error: 'runtime refused',
     })
-    expect(await host.setAssistModelLoaded('oracle', '', true)).toEqual({
+    expect(await host.assistant.setAssistModelLoaded('oracle', '', true)).toEqual({
       ok: false,
       error: 'invalid',
     })
-    expect(await host.assistModels('nobody')).toEqual({ ok: false, error: 'unavailable' })
+    expect(await host.assistant.assistModels('nobody')).toEqual({ ok: false, error: 'unavailable' })
   })
 
   it('keeps a terminal completion to one line', async () => {
     expect(
-      await host.assist('terminal', { line: 'ls', history: [{ command: 'pwd', exitCode: 0 }] }),
+      await host.assistant.assist('terminal', {
+        line: 'ls',
+        history: [{ command: 'pwd', exitCode: 0 }],
+      }),
     ).toEqual({ ok: true, result: { text: ' -la  # ls' } })
-    expect(await host.assist('terminal', { line: '  ' })).toEqual({ ok: false, error: 'invalid' })
+    expect(await host.assistant.assist('terminal', { line: '  ' })).toEqual({
+      ok: false,
+      error: 'invalid',
+    })
   })
 
   it('sends the extension a request with secrets redacted', async () => {
     privacy = undefined
-    const res = await host.assist('terminal', { line: `curl -u ${FAKE.githubClassic}` })
+    const res = await host.assistant.assist('terminal', { line: `curl -u ${FAKE.githubClassic}` })
     expect(res).toEqual({
       ok: true,
       result: { text: ' -la  # curl -u [redacted:github]' },
     })
-    const plain = await host.assist('terminal', { line: 'ls' })
+    const plain = await host.assistant.assist('terminal', { line: 'ls' })
     expect(plain).toEqual({ ok: true, result: { text: ' -la  # ls' } })
   })
 
   it('sends the request as typed while secret redaction is off', async () => {
     privacy = { redaction: { enabled: false } }
-    const res = await host.assist('terminal', { line: `curl -u ${FAKE.githubClassic}` })
+    const res = await host.assistant.assist('terminal', { line: `curl -u ${FAKE.githubClassic}` })
     expect(res).toEqual({
       ok: true,
       result: { text: ` -la  # curl -u ${FAKE.githubClassic}` },
@@ -296,7 +319,7 @@ describe('assist contribution points over a real control socket', () => {
   })
 
   it('answers shortcuts the renderer reported and null for unbound commands', async () => {
-    host.setShortcuts({ 'assist.compose': 'Ctrl+Shift+J', bad: 5 })
+    host.assistant.setShortcuts({ 'assist.compose': 'Ctrl+Shift+J', bad: 5 })
     expect(
       await host.invoke('oracle', 'shortcuts', ['assist.compose', 'assist.chat'], caller),
     ).toMatchObject({
@@ -316,10 +339,10 @@ describe('assist contribution points over a real control socket', () => {
   })
 
   it('drops the points of a disabled extension', async () => {
-    host.setEnabled('oracle', false)
-    expect(host.assistAvailability()).toEqual({})
+    host.processes.setEnabled('oracle', false)
+    expect(host.assistant.assistAvailability()).toEqual({})
     expect(lastAvailability()).toEqual({})
-    expect(host.assistOverview()).toEqual([])
-    expect(await host.assistModels('oracle')).toEqual({ ok: false, error: 'unavailable' })
+    expect(host.assistant.assistOverview()).toEqual([])
+    expect(await host.assistant.assistModels('oracle')).toEqual({ ok: false, error: 'unavailable' })
   })
 })
