@@ -43,6 +43,7 @@ async function until(check: () => boolean): Promise<void> {
 function observe(root: string) {
   const seen: string[] = []
   const probes: string[] = []
+  let next = 0
   const onPath = (rel: string): void => {
     if (rel.split('/').at(-1)?.startsWith('.probe-')) probes.push(rel)
     else seen.push(rel)
@@ -51,7 +52,8 @@ function observe(root: string) {
     for (const dir of dirs) {
       const wrote: string[] = []
       for (let i = 0; i < 200 && !wrote.some((probe) => probes.includes(probe)); i++) {
-        const probe = dir ? `${dir}/.probe-${i}` : `.probe-${i}`
+        const probe = dir ? `${dir}/.probe-${next}` : `.probe-${next}`
+        next += 1
         wrote.push(probe)
         writeFileSync(join(root, probe), '1')
         await sleep(10)
