@@ -1,18 +1,12 @@
-import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { appEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
-import { MANAGER_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import type {
   ExtensionEventPayloads,
   ExtensionEventType,
   ExtensionPanelContext,
   ExtensionResult,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import {
-  OFFICIAL_MARKETPLACE,
-  PRODUCT_NAME,
-} from '@aurigax-ai/ostia-extension-sdk/contract/product'
+import { OFFICIAL_MARKETPLACE } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import {
   type RemoteCwd,
@@ -21,9 +15,6 @@ import {
 import { agentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import type { ExtensionRoot } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import { BrowserWindow, ClipboardItem, app, clipboard, ipcMain, shell } from 'electron'
-import type { IPty } from 'node-pty'
-import type { AgentResume } from '../shared/agents/agentResume'
-import { MANAGER_FEATURE } from '../shared/agents/managerSettings'
 import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
 import { isMacInstall, replacesInApp } from '../shared/app/installMethod'
 import { ChangeSignal } from '../shared/common/actThenConfirm'
@@ -31,7 +22,6 @@ import { externalHref } from '../shared/common/externalLinks'
 import { EXTENSION_SUGGESTIONS } from '../shared/extensions/extensionSuggestions'
 import { bucketCount } from '../shared/privacy/telemetry'
 import { parseKeepShells } from '../shared/terminal/keepShells'
-import { quoteArgv } from '../shared/terminal/shellQuote'
 import type { CommandDescriptor, CommandTarget, TerminalStateSnapshot } from '../shared/types'
 import { createAgentOfferRelay } from './agents/agentOfferRelay'
 import { AgentRunningPanes } from './agents/agentRunning'
@@ -43,7 +33,7 @@ import { createResumeClaimer, registerResumeClaimIpc } from './agents/resumeClai
 import { registerToolbeltWiring } from './agents/toolbeltWiring'
 import { approvals, registerApprovals } from './approvals/approvals'
 import { createAskHub } from './approvals/asks'
-import { loadReachMode, refreshCapabilitySettings, setCaps } from './approvals/capabilityStore'
+import { loadReachMode, refreshCapabilitySettings } from './approvals/capabilityStore'
 import { registerPermissionAsk } from './approvals/permissionAsk'
 import { questions, registerExtensionQuestions, registerQuestions } from './approvals/questions'
 import { type ReachListing, createReach } from './approvals/reach'
@@ -74,14 +64,11 @@ import type { McpHost } from './chat/mcpHost'
 import type { McpOAuth } from './chat/mcpOAuth'
 import { createCommandBridge } from './control/commandBridge'
 import { setCapFilter } from './control/controlAuth'
-import { controlSocketPath } from './control/controlServer'
 import { startControlServer } from './control/controlWiring'
 import { emitPlatformEvent } from './control/events'
 import {
   type PaneIdentity,
   getByPaneId,
-  markManager,
-  registerPane,
   resolveExternal,
   setPaneIdSalt,
   workspaceHasManager,
@@ -115,16 +102,12 @@ import { createCoreBoards } from './git/coreBoards'
 import type { GitService } from './git/service'
 import { createLanguageServerWiring } from './lsp/languageServerWiring'
 import type { LanguageServers } from './lsp/languageServers'
-import { type ManagerService, managerWindowId } from './manager/manager'
-import {
-  managerArgv,
-  writeManagerClaudePlugin,
-  writeManagerCodexContext,
-} from './manager/managerAgent'
+import type { ManagerService } from './manager/manager'
 import type { ManagerLimiter } from './manager/managerMethods'
+import { createManagerPanes } from './manager/managerPanes'
+import { createManagerPty } from './manager/managerPty'
 import { startManager } from './manager/managerWiring'
-import { Portal, portalSocketPath, portalSupported } from './manager/portal'
-import { callerVerdict, procFs, ttysOf } from './manager/portalCaller'
+import type { Portal } from './manager/portal'
 import { registerPaneLifecycleIpc } from './panes/paneLifecycleIpc'
 import { listPanes, listWorkspaceGroups, listWorkspaces } from './panes/paneList'
 import { registerPaneMethodsWiring } from './panes/paneMethodsWiring'
@@ -133,11 +116,9 @@ import { PaneWaking } from './panes/paneWaking'
 import type { ProcessRegistry } from './panes/processRegistry'
 import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './platform/discreteGpu'
 import { loadJson, saveJson, storePath } from './platform/jsonStore'
-import { privateTmpDir } from './platform/privateTmp'
 import { managerSettings, readLocale, readSettingsFile } from './platform/settingsFile'
 import {
   SANDBOX_FEATURE,
-  installHint,
   missingRequirements,
   requirementLabel,
 } from './platform/systemRequirements'
@@ -170,14 +151,6 @@ import { createPtyStop } from './terminal/pty/ptyStop'
 import type { SubscriberRole } from './terminal/ptySession'
 import { registerSelectionIpc } from './terminal/selectionReport'
 import { setAgentPlugins } from './terminal/shellIntegration'
-import { spawnFolder } from './terminal/spawnCwd'
-import {
-  PTY_COLOR_ENV,
-  PTY_TERM_NAME,
-  ptyHyperlinkEnv,
-  ptyIdentityEnv,
-  ptyLocaleEnv,
-} from './terminal/terminalType'
 import type { SavedAttention } from './tmux/attentionFile'
 import { KeptAttention } from './tmux/keptAttention'
 import { createKeptReattach } from './tmux/keptReattach'
@@ -724,6 +697,8 @@ const { attachPty } = createPtyAttach({
   telemetry: () => services.telemetry,
 })
 
+const { spawnManagerPty } = createManagerPty({ loadPty, primaryWindowId, trackPty, feedPty })
+
 const { wireWindow } = createWindowWiring({
   services,
   quit,
@@ -951,86 +926,12 @@ function registerSandboxSystemIpc(): void {
   })
 }
 
-function paneEnv(paneId: string, windowId: string, cwd: string): Record<string, string> {
-  const identity = registerPane({ windowId, workspaceId: '', paneId })
-  return appEnv({
-    PANE_ID: identity.externalId,
-    TOKEN: identity.token,
-    START_DIR: cwd,
-    SOCKET: controlSocketPath(),
-    CLI: join(app.getAppPath(), 'out/cli/index.js'),
-    NODE: process.execPath,
-  })
-}
-
-function managerLaunchArgv(argv: string[], resume: AgentResume | null): string[] {
-  const { skills } = managerSettings()
-  const base = privateTmpDir(`${PRODUCT_NAME}-manager`)
-  const claudePluginDir = join(base, 'claude-plugin')
-  writeManagerClaudePlugin(claudePluginDir, skills)
-  const codexContextFile = writeManagerCodexContext(join(base, 'codex'), skills)
-  return managerArgv(argv, { claudePluginDir, codexContextFile, resume })
-}
-
 const managerResumePath = (): string => storePath('manager-resume', 'global')
 const scriptTokensPath = (): string => storePath('script-tokens-v2', 'global')
 const retiredScriptTokensPath = (): string => storePath('retired-script-tokens', 'global')
 const scriptTokenUsage = createScriptTokenUsage(() => storePath('script-token-usage', 'global'), {
   known: () => new Set(listScriptTokens(scriptTokensPath()).map((t) => t.id)),
 })
-
-function spawnManagerPty(req: {
-  paneId: string
-  argv: string[]
-  cwd: string
-  cols: number
-  rows: number
-  path?: string
-  resume: AgentResume | null
-  onExit: () => void
-}): boolean {
-  const mod = loadPty()
-  const windowId = getByPaneId(req.paneId)?.windowId || primaryWindowId()
-  const [file, ...args] = managerLaunchArgv(req.argv, req.resume)
-  if (!mod || !windowId || !file) return false
-  const { cwd } = spawnFolder(req.cwd)
-  const env = {
-    ...process.env,
-    ...(req.path === undefined ? {} : { PATH: req.path }),
-    ...paneEnv(req.paneId, windowId, cwd),
-    ...ptyLocaleEnv(process.env, app.getLocale()),
-    ...ptyHyperlinkEnv(process.env),
-    ...PTY_COLOR_ENV,
-    ...ptyIdentityEnv(app.getVersion()),
-  } as Record<string, string>
-  const identity = markManager(req.paneId)
-  if (identity) setCaps(identity.externalId, MANAGER_CAPABILITIES)
-  let pty: IPty
-  try {
-    pty = mod.spawn(file, args, {
-      name: PTY_TERM_NAME,
-      cols: req.cols,
-      rows: req.rows,
-      cwd,
-      env,
-    })
-  } catch (err) {
-    console.error('[manager] spawn failed', err)
-    return false
-  }
-  const entry = trackPty(req.paneId, pty, {
-    cols: req.cols,
-    rows: req.rows,
-    subs: new Map(),
-    spawnPath: env.PATH ?? '',
-    stateFile: join(privateTmpDir(`${PRODUCT_NAME}-shell-state`), randomUUID()),
-    keepAlive: true,
-  })
-  entry.exitListeners.add(() => req.onExit())
-  pty.onData((d) => feedPty(entry, d))
-  pty.onExit(({ exitCode }) => entry.session.exit(exitCode))
-  return true
-}
 
 function onSettingsWritten(): void {
   settingsChanged()
@@ -1130,111 +1031,16 @@ const agentOffers = createAgentOfferRelay({
   externalIdOf: (paneId) => getByPaneId(paneId)?.externalId,
 })
 
-const MANAGER_READY_TIMEOUT_MS = 20_000
-const MANAGER_OPEN_TIMEOUT_MS = 5000
-const managerReadyWindows = new Set<string>()
-const managerReadyWaiters = new Set<() => void>()
-let managerOpenSeq = 0
-
-function registerManagerIpc(): void {
-  ipcMain.on('manager:ready', (e) => {
-    managerReadyWindows.add(String(e.sender.id))
-    for (const wake of managerReadyWaiters) wake()
-    managerReadyWaiters.clear()
-  })
-}
-
-function managerWindow(): Promise<BrowserWindow | null> {
-  const ready = (): BrowserWindow | null => {
-    const id = managerWindowId(primaryWindowId(), managerReadyWindows)
-    const win = id ? windows.get(id) : undefined
-    return win && !win.isDestroyed() ? win : null
-  }
-  const now = ready()
-  if (now) return Promise.resolve(now)
-  return new Promise((resolve) => {
-    const wake = (): void => {
-      clearTimeout(timer)
-      managerReadyWaiters.delete(wake)
-      resolve(ready())
-    }
-    const timer = setTimeout(wake, MANAGER_READY_TIMEOUT_MS)
-    managerReadyWaiters.add(wake)
-  })
-}
-
-async function createManagerPane(req: { agent: string; cwd: string }): Promise<string | null> {
-  const win = await managerWindow()
-  if (!win) return null
-  const wid = String(win.webContents.id)
-  const requestId = `manager-${++managerOpenSeq}`
-  return new Promise((resolve) => {
-    const finish = (paneId: string | null): void => {
-      clearTimeout(timer)
-      ipcMain.removeListener('manager:open-result', onResult)
-      resolve(paneId)
-    }
-    const onResult = (e: Electron.IpcMainEvent, rid: unknown, paneId: unknown): void => {
-      if (rid !== requestId || String(e.sender.id) !== wid) return
-      finish(typeof paneId === 'string' && paneId ? paneId : null)
-    }
-    const timer = setTimeout(() => finish(null), MANAGER_OPEN_TIMEOUT_MS)
-    ipcMain.on('manager:open-result', onResult)
-    win.webContents.send('manager:open', requestId, req)
-  })
-}
-
-async function openWorker(req: {
-  argv: string[]
-  cwd?: string
-  workspaceId?: string
-  name?: string
-}): Promise<string | null> {
-  let workspaceId = req.workspaceId
-  if (!workspaceId) {
-    const created = await reach.byAgent(() =>
-      execCommand({ workspaceId: '', paneId: null }, 'workspace.new', {
-        ...(req.cwd ? { dir: req.cwd } : {}),
-        ...(req.name ? { name: req.name } : {}),
-      }),
-    )
-    const result = created.ok ? (created.result as { workspaceId?: unknown }) : undefined
-    if (typeof result?.workspaceId !== 'string') return null
-    workspaceId = result.workspaceId
-  }
-  return openTerminalInWindow({
-    command: quoteArgv(req.argv),
-    workspaceId,
-    ...(req.cwd ? { cwd: req.cwd } : {}),
-    title: req.argv[0],
-  })
-}
-
-function startPortal(): void {
-  if (!services.managerService || !portalSupported(process.platform)) return
-  const service = services.managerService
-  services.portal = new Portal(portalSocketPath(app.isPackaged), {
-    missing: () => missingRequirements(MANAGER_FEATURE),
-    hint: (missing) => installHint(missing),
-    judge: (socket) =>
-      callerVerdict(socket, {
-        mainPid: process.pid,
-        paneTtys: ttysOf(
-          [...ptys.values()].map((entry) => entry.pty.pid),
-          procFs,
-        ),
-        proc: procFs,
-      }),
-    manager: service,
-    attachMirror,
-  })
-  services.portal
-    .start()
-    .then((started) => {
-      if (!started) console.warn(`[portal] another ${PRODUCT_DISPLAY_NAME} owns the portal socket`)
-    })
-    .catch((err) => console.error('[portal] failed to start', err))
-}
+const { registerManagerIpc, createManagerPane, openWorker, startPortal } = createManagerPanes({
+  primaryWindowId,
+  windows,
+  reach,
+  execCommand,
+  openTerminalInWindow,
+  services,
+  ptys,
+  attachMirror,
+})
 
 app.on('second-instance', (_event, argv) => {
   if (!app.isReady() || isHiddenLaunch(argv)) return
