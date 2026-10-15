@@ -8,7 +8,8 @@ import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { registerPane } from '../control/idRegistry'
 import type { RemoteFolderConfirm, RemoteFolders } from '../files/remoteFolders'
-import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
 import { ExtensionStore } from './extensionStore'
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions-folders')
@@ -63,7 +64,7 @@ describe('ExtensionHost remote folders (real extension process, real socket)', (
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
@@ -227,7 +228,7 @@ describe('ExtensionHost remote folders (real extension process, real socket)', (
   it('SSH-C60 drops every folder of an extension that stops', async () => {
     await open('/srv/last')
     expect(folders.forWindow('win1')).toHaveLength(1)
-    host.setEnabled('shelf', false)
+    host.processes.setEnabled('shelf', false)
     expect(folders.forWindow('win1')).toEqual([])
     expect(published.at(-1)).toEqual([])
   })

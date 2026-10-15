@@ -13,7 +13,8 @@ import { registerAttentionMethods } from '../attention/attention'
 import { registerBrowseMethods } from '../browser/browse'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { registerExtension, registerPane } from '../control/idRegistry'
-import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
 import { ExtensionStore } from './extensionStore'
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions')
@@ -103,7 +104,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
@@ -133,7 +134,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
       expect(res).toEqual({ ok: true })
       const chip = { extId: 'echo', id: 'status', paneId: 'p1', text: 'main', tone: 'ok' }
       expect(chipBroadcast()).toEqual([{ ...chip, tooltip: 'branch', command: 'echo' }])
-      expect(host.paneChips()).toEqual(chipBroadcast())
+      expect(host.slots.paneChips()).toEqual(chipBroadcast())
       expect(echo().paneChips).toEqual([{ id: 'status', title: 'Echo status' }])
     })
 
@@ -150,7 +151,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
         { paneId: pane.externalId, id: 'status', text: 'b' },
         caller,
       )
-      expect(host.paneChips()).toEqual([
+      expect(host.slots.paneChips()).toEqual([
         { extId: 'echo', id: 'status', paneId: 'p1', text: 'b', tone: 'neutral' },
       ])
     })
@@ -185,7 +186,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
       expect(notPane).toMatchObject({ ok: false, error: 'unknown-pane' })
       expect(unknown).toMatchObject({ ok: false, error: 'unknown-pane' })
       expect(hidden).toMatchObject({ ok: false, error: 'invalid-params' })
-      expect(host.paneChips().some((c) => c.paneId === 'p2')).toBe(false)
+      expect(host.slots.paneChips().some((c) => c.paneId === 'p2')).toBe(false)
     })
 
     it('clears a chip on request and when its pane closes', async () => {
@@ -195,10 +196,10 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
         { paneId: other.externalId, id: 'status', text: 'x' },
         caller,
       )
-      expect(host.paneChips().map((c) => c.paneId)).toEqual(['p1', 'p2'])
+      expect(host.slots.paneChips().map((c) => c.paneId)).toEqual(['p1', 'p2'])
       await host.invoke('echo', 'unchip', { paneId: pane.externalId, id: 'status' }, caller)
       expect(chipBroadcast().map((c) => c.paneId)).toEqual(['p2'])
-      host.clearPaneChips('p2')
+      host.slots.clearPaneChips('p2')
       expect(chipBroadcast()).toEqual([])
     })
 
@@ -209,10 +210,10 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
         { paneId: pane.externalId, id: 'status', text: 'x' },
         caller,
       )
-      expect(host.paneChips()).toHaveLength(1)
-      host.setEnabled('echo', false)
+      expect(host.slots.paneChips()).toHaveLength(1)
+      host.processes.setEnabled('echo', false)
       expect(chipBroadcast()).toEqual([])
-      host.setEnabled('echo', true)
+      host.processes.setEnabled('echo', true)
       expect(await host.invoke('echo', 'echo', null, caller)).toMatchObject({ ok: true })
     })
 
@@ -224,7 +225,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
         caller,
       )
       expect(res).toEqual({ ok: true })
-      expect(host.paneChips()).toEqual([
+      expect(host.slots.paneChips()).toEqual([
         {
           extId: 'echo',
           id: 'status',
@@ -248,7 +249,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
       )
       expect(file).toMatchObject({ ok: false, error: 'invalid-params' })
       expect(both).toMatchObject({ ok: false, error: 'invalid-params' })
-      expect(host.paneChips()[0]?.text).toBe(':3000')
+      expect(host.slots.paneChips()[0]?.text).toBe(':3000')
       await host.invoke('echo', 'unchip', { paneId: pane.externalId, id: 'status' }, caller)
     })
   })
@@ -272,7 +273,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
         command: 'echo',
       }
       expect(lastWorkspaceChips()).toEqual([chip])
-      expect(host.workspaceChips()).toEqual([chip])
+      expect(host.slots.workspaceChips()).toEqual([chip])
       expect(echo().workspaceChips).toEqual([{ id: 'repo', title: 'Echo repo' }])
       await call('ext.clearWorkspaceChip', { workspaceId: 's1', id: 'repo' })
       expect(lastWorkspaceChips()).toEqual([])
@@ -290,7 +291,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
       await refused({ url: 'file:///etc/passwd' }, 'invalid-params')
       await refused({ icon: 'rocket' }, 'invalid-params')
       await refused({ command: 'probe' }, 'invalid-params')
-      expect(host.workspaceChips()).toEqual([])
+      expect(host.slots.workspaceChips()).toEqual([])
     })
 
     it('clears a workspace chip when its workspace closes or the extension stops', async () => {
@@ -298,12 +299,12 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
       openWorkspaces.add('s2')
       await setChip({})
       await setChip({ workspaceId: 's2', text: 'dev' })
-      expect(host.workspaceChips().map((c) => c.workspaceId)).toEqual(['s1', 's2'])
-      host.clearWorkspaceChips('s1')
+      expect(host.slots.workspaceChips().map((c) => c.workspaceId)).toEqual(['s1', 's2'])
+      host.slots.clearWorkspaceChips('s1')
       expect(lastWorkspaceChips().map((c) => c.workspaceId)).toEqual(['s2'])
-      host.setEnabled('echo', false)
+      host.processes.setEnabled('echo', false)
       expect(lastWorkspaceChips()).toEqual([])
-      host.setEnabled('echo', true)
+      host.processes.setEnabled('echo', true)
       expect(await host.invoke('echo', 'echo', null, caller)).toMatchObject({ ok: true })
     })
   })
@@ -323,7 +324,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
         caller,
       )
       expect(res).toEqual({ ok: true })
-      expect(host.paneChips()[0]).toMatchObject({
+      expect(host.slots.paneChips()[0]).toMatchObject({
         icon: 'plugs',
         text: '2',
         items: [{ text: ':3000', url: 'http://localhost:3000/' }, { text: 'idle' }],
@@ -351,7 +352,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
       ]) {
         expect(await set(extra)).toMatchObject({ ok: false, error: 'invalid-params' })
       }
-      expect(host.paneChips()).toEqual([])
+      expect(host.slots.paneChips()).toEqual([])
     })
   })
 
@@ -385,7 +386,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
 
     it('validates a change in main, stores it and tells the running extension', async () => {
       await host.invoke('echo', 'echo', null, caller)
-      const res = host.setSetting('echo', 'level', 'high')
+      const res = host.config.setSetting('echo', 'level', 'high')
       expect(res).toMatchObject({ ok: true, stored: { level: 'high' } })
       const event = await untilAsync(async () => {
         const seen = await host.invoke('echo', 'seen-settings', null, caller)
@@ -396,14 +397,23 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
     })
 
     it('refuses a value of the wrong type or outside the enum and keeps the old one', () => {
-      expect(host.setSetting('echo', 'count', '4')).toEqual({ ok: false, error: 'invalid-value' })
-      expect(host.setSetting('echo', 'level', 'max')).toEqual({ ok: false, error: 'invalid-value' })
-      expect(host.setSetting('echo', 'count', Number.NaN)).toEqual({
+      expect(host.config.setSetting('echo', 'count', '4')).toEqual({
         ok: false,
         error: 'invalid-value',
       })
-      expect(host.setSetting('echo', 'nope', 1)).toEqual({ ok: false, error: 'unknown-setting' })
-      expect(host.setSetting('ghost', 'count', 1)).toEqual({
+      expect(host.config.setSetting('echo', 'level', 'max')).toEqual({
+        ok: false,
+        error: 'invalid-value',
+      })
+      expect(host.config.setSetting('echo', 'count', Number.NaN)).toEqual({
+        ok: false,
+        error: 'invalid-value',
+      })
+      expect(host.config.setSetting('echo', 'nope', 1)).toEqual({
+        ok: false,
+        error: 'unknown-setting',
+      })
+      expect(host.config.setSetting('ghost', 'count', 1)).toEqual({
         ok: false,
         error: 'unknown-extension',
       })
@@ -411,19 +421,19 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
     })
 
     it('resets a key to its default when set to null', () => {
-      const res = host.setSetting('echo', 'level', null)
+      const res = host.config.setSetting('echo', 'level', null)
       expect(res).toMatchObject({ ok: true, stored: {} })
       expect(echo().settingValues.level).toBe('low')
     })
 
     it('reloads stored values from settings.json and ignores ones of the wrong type', async () => {
       stored = { echo: { greeting: 'yo', count: 'many', loud: true } }
-      host.reloadSettings()
+      host.config.reloadSettings()
       expect(echo().settingValues).toEqual({ greeting: 'yo', count: 3, loud: true, level: 'low' })
       const res = await host.invoke('echo', 'settings', null, caller)
       expect(res).toMatchObject({ data: { values: { greeting: 'yo', loud: true } } })
       stored = {}
-      host.reloadSettings()
+      host.config.reloadSettings()
     })
   })
 
@@ -463,15 +473,15 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
     })
 
     it('asks the process for the url of a path and keeps it on the reported origin', async () => {
-      const res = await host.resolvePanel('echo', {
+      const res = await host.panels.resolvePanel('echo', {
         workspaceId: 's1',
         locale: 'en',
         path: '/cards/7',
       })
       expect(res).toEqual({ ok: true, src: 'http://127.0.0.1:9/cards/7?workspace=s1' })
-      expect(host.isAllowedPanelUrl('echo', 'http://127.0.0.1:9/cards/8')).toBe(true)
+      expect(host.panels.isAllowedPanelUrl('echo', 'http://127.0.0.1:9/cards/8')).toBe(true)
       expect(
-        await host.resolvePanel('echo', { workspaceId: 's1', locale: 'en', path: 'x' }),
+        await host.panels.resolvePanel('echo', { workspaceId: 's1', locale: 'en', path: 'x' }),
       ).toEqual({ ok: false, error: 'invalid-panel-path' })
     })
   })
@@ -514,14 +524,14 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
         enabled: true,
         approved: ['read-board', 'notify', 'browse', 'process', 'drive-self'],
       })
-      host.reloadRecords()
+      host.processes.reloadRecords()
       const noScope = await call('pane.setAttention', {
         targetPaneId: pane.externalId,
         state: 'done',
       })
       expect(noScope).toMatchObject({ ok: false, message: 'needs-elevation: all-workspaces' })
       store.set('echo', { enabled: true, approved: ['read-board', 'notify', 'all-workspaces'] })
-      host.reloadRecords()
+      host.processes.reloadRecords()
       const noCap = await call('pane.setAttention', {
         targetPaneId: pane.externalId,
         state: 'done',

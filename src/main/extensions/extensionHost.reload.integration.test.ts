@@ -7,7 +7,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { registerPane } from '../control/idRegistry'
-import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
 import { ExtensionStore } from './extensionStore'
 
 const caller: ExtensionCaller = { kind: 'user', workspaceId: 's1', capabilities: [] }
@@ -96,7 +97,7 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
   })
 
   afterEach(() => {
-    host.stopAll()
+    host.processes.stopAll()
     rmSync(userRoot, { recursive: true, force: true })
   })
 
@@ -131,25 +132,25 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
     startHost()
     expect(host.list()).toEqual([])
     pinger(['notify'])
-    host.rescan()
+    host.processes.rescan()
     expect(info('pinger')).toMatchObject({ status: 'pending-approval', enabled: false })
     expect(await host.invoke('pinger', 'ping', null, caller)).toMatchObject({
       ok: false,
       error: 'extension-disabled',
     })
-    host.approve('pinger')
+    host.processes.approve('pinger')
     expect(await host.invoke('pinger', 'ping', null, caller)).toMatchObject({ ok: true })
   })
 
   it('reloads a changed manifest, restarts the process and keeps new capabilities unapproved', async () => {
     startHost()
     pinger(['notify'])
-    host.rescan()
-    host.approve('pinger')
+    host.processes.rescan()
+    host.processes.approve('pinger')
     const first = await host.invoke('pinger', 'ping', null, caller)
     const firstPid = first.ok ? (first.data as { pid: number }).pid : 0
     pinger(['notify', 'shell'], '2.0.0')
-    host.rescan()
+    host.processes.rescan()
     expect(info('pinger')).toMatchObject({
       version: '2.0.0',
       granted: ['notify'],
@@ -163,11 +164,11 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
   it('drops a removed extension and stops its process', async () => {
     startHost()
     const extDir = pinger(['notify'])
-    host.rescan()
-    host.approve('pinger')
+    host.processes.rescan()
+    host.processes.approve('pinger')
     expect((await host.invoke('pinger', 'ping', null, caller)).ok).toBe(true)
     rmSync(extDir, { recursive: true, force: true })
-    host.rescan()
+    host.processes.rescan()
     expect(info('pinger')).toBeUndefined()
     expect(await host.invoke('pinger', 'ping', null, caller)).toMatchObject({
       ok: false,
@@ -188,16 +189,18 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
       },
       ['chip'],
     )
-    host.rescan()
-    host.approve('chipper')
+    host.processes.rescan()
+    host.processes.approve('chipper')
     const chip = { paneId: pane.externalId, id: 'status', text: 'hello chip' }
     expect(await host.invoke('chipper', 'chip', chip, caller)).toEqual({ ok: true })
-    expect(host.paneChips()).toMatchObject([{ extId: 'chipper', paneId: 'p1', text: 'hello chip' }])
+    expect(host.slots.paneChips()).toMatchObject([
+      { extId: 'chipper', paneId: 'p1', text: 'hello chip' },
+    ])
 
     writeFileSync(join(extDir, 'ostia.json'), '{ "broken": ')
-    host.rescan()
+    host.processes.rescan()
     expect(info('chipper')).toBeUndefined()
-    expect(host.paneChips()).toEqual([])
+    expect(host.slots.paneChips()).toEqual([])
     expect(chipBroadcasts.at(-1)).toEqual([])
     expect(await host.invoke('chipper', 'chip', chip, caller)).toMatchObject({
       ok: false,
@@ -207,7 +210,7 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
 
   it('rescans by itself when the directory changes on disk', async () => {
     startHost()
-    host.watchUserExtensions()
+    host.processes.watchUserExtensions()
     await settleWatchers()
     pinger(['notify'])
     await until(() => info('pinger'))
@@ -219,7 +222,7 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
 
   it('picks up a manifest written into a directory that appeared empty earlier', async () => {
     startHost()
-    host.watchUserExtensions()
+    host.processes.watchUserExtensions()
     await settleWatchers()
     mkdirSync(join(userRoot, 'late'))
     await new Promise((r) => setTimeout(r, 600))
@@ -245,19 +248,21 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
         contributes: { panel: { title: 'S', entry: 'panel.html' } },
       }),
     )
-    host.rescan()
-    host.approve('static')
+    host.processes.rescan()
+    host.processes.approve('static')
     const context = { workspaceId: 's1', locale: 'en' }
-    expect(await host.resolvePanel('static', context)).toEqual({
+    expect(await host.panels.resolvePanel('static', context)).toEqual({
       ok: true,
       src: pathToFileURL(join(extDir, 'panel.html')).href,
     })
-    expect(await host.resolvePanel('static', { ...context, path: '/card.html?id=4#top' })).toEqual({
+    expect(
+      await host.panels.resolvePanel('static', { ...context, path: '/card.html?id=4#top' }),
+    ).toEqual({
       ok: true,
       src: `${pathToFileURL(join(extDir, 'card.html')).href}?id=4#top`,
     })
     for (const path of ['/../other/x.html', '/%2e%2e/%2e%2e/etc/passwd']) {
-      expect(await host.resolvePanel('static', { ...context, path })).toEqual({
+      expect(await host.panels.resolvePanel('static', { ...context, path })).toEqual({
         ok: false,
         error: 'panel-url-not-allowed',
       })

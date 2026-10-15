@@ -131,7 +131,7 @@ edges: []
     writeFileSync(join(h.workDir, 'src/a/c.ts'), '1')
     await settleFor(1500)
     expect(runIds('huge')).toEqual([])
-    h.host.emitEvent('command.finished', {
+    h.host.events.emitEvent('command.finished', {
       paneId: h.human.externalId,
       workspaceId: 'w1',
       exitCode: 0,
@@ -139,7 +139,7 @@ edges: []
     })
     await settleFor(500)
     expect(runIds('huge')).toEqual([])
-    h.host.emitEvent('command.finished', {
+    h.host.events.emitEvent('command.finished', {
       paneId: h.human.externalId,
       workspaceId: 'w1',
       exitCode: 0,

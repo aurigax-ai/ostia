@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({ app: { getPath: () => '/tmp' }, ipcMain: { handle: vi.fn() } }))
 
-const { withoutCorrection } = await import('./extensionHost')
+const { withoutCorrection } = await import('./extensionAssist')
 
 describe('withoutCorrection', () => {
   it('drops a typo correction made from a redacted draft, so accepting it cannot lose the secret', () => {

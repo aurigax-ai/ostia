@@ -8,11 +8,9 @@ import type {
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
-import {
-  type ExtensionConfirmRequest,
-  ExtensionHost,
-  registerExtensionMethods,
-} from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
+import type { ExtensionConfirmRequest } from './extensionRuns'
 import { ExtensionStore } from './extensionStore'
 
 const caller: ExtensionCaller = { kind: 'user', workspaceId: 's1', capabilities: [] }
@@ -120,7 +118,7 @@ describe('ExtensionHost resolves manifest strings for the language', () => {
   })
 
   afterEach(() => {
-    host.stopAll()
+    host.processes.stopAll()
     rmSync(root, { recursive: true, force: true })
     broadcast.mockClear()
     confirm.mockClear()
@@ -225,7 +223,7 @@ describe('ExtensionHost resolves manifest strings for the language', () => {
     startHost({ builtin: true })
     expect(greeter().name).toBe('Greeter')
     writeCatalog(ZH_HANT)
-    host.rescan()
+    host.processes.rescan()
     expect(greeter().name).toBe('問候者')
     expect(
       changedLists()

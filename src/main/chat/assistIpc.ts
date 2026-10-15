@@ -13,7 +13,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { type IpcMainInvokeEvent, ipcMain } from 'electron'
 import { CancellationTokenSource } from 'vscode-jsonrpc/node'
-import type { AssistCallOptions } from '../extensions/extensionHost'
+import type { AssistCallOptions } from '../extensions/extensionAssist'
 
 const MAX_ASSIST_REQUESTS_PER_WINDOW = 8
 

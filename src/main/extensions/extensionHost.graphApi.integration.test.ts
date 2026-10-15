@@ -36,7 +36,8 @@ const { registerControlServer, stopControlServer } = await import('../control/co
 const { markManager, registerPane } = await import('../control/idRegistry')
 const { PaneWaking } = await import('../panes/paneWaking')
 const { registerExtensionWake } = await import('../panes/extensionWake')
-const { ExtensionHost, registerExtensionMethods } = await import('./extensionHost')
+const { ExtensionHost } = await import('./extensionHost')
+const { registerExtensionMethods } = await import('./extensionMethods')
 const { ExtensionStore } = await import('./extensionStore')
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions-graphs')
@@ -142,7 +143,7 @@ describe('the extension API a graph host needs', () => {
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
@@ -384,7 +385,7 @@ describe('the extension API a graph host needs', () => {
     void call('runner', 'ext.ask', { workspaceId: 'w1', question: 'pending when it stops' })
     await new Promise((r) => setTimeout(r, 200))
     expect(questions()?.stateFor('7').pending).toHaveLength(1)
-    host.stopAll()
+    host.processes.stopAll()
     for (let i = 0; i < 100 && (questions()?.stateFor('7').pending.length ?? 0) > 0; i++) {
       await new Promise((r) => setTimeout(r, 50))
     }

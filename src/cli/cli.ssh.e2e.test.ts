@@ -15,12 +15,9 @@ import type { RemoteFolder } from '@aurigax-ai/ostia-extension-sdk/contract/remo
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerControlServer, stopControlServer } from '../main/control/controlServer'
 import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
-import {
-  type ExtensionConfirmRequest,
-  ExtensionHost,
-  type TerminalOpenRequest,
-  registerExtensionMethods,
-} from '../main/extensions/extensionHost'
+import { ExtensionHost } from '../main/extensions/extensionHost'
+import { registerExtensionMethods } from '../main/extensions/extensionMethods'
+import type { ExtensionConfirmRequest, TerminalOpenRequest } from '../main/extensions/extensionRuns'
 import { ExtensionStore } from '../main/extensions/extensionStore'
 import type { RemoteFolderConfirm } from '../main/files/remoteFolders'
 import type { CommandResult } from '../shared/types'
@@ -138,7 +135,7 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
   }, 120_000)
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     restore('XDG_DATA_HOME', saved.dataHome)
     restore('PATH', saved.path)

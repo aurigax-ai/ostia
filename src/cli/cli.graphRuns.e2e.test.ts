@@ -609,7 +609,7 @@ edges: []
     )
     expect(readFileSync(join(journalDir, 'w1.jsonl'), 'utf8')).toContain('All green.')
 
-    h.host.setEnabled('activity', false)
+    h.host.processes.setEnabled('activity', false)
     const second = await start('shared-stop-2', graph)
     const next = await openedPane(opened + 1)
     await h.cli(next, ['graph', 'on-stop', 'claude', 'Stop'], stop)
@@ -689,7 +689,7 @@ edges: []
         ?.stateFor('7')
         .pending.find((q) => q.question === 'Still there?'),
     )
-    h.host.setEnabled('graphs', false)
+    h.host.processes.setEnabled('graphs', false)
     await until(() =>
       questions()
         ?.stateFor('7')
@@ -700,7 +700,7 @@ edges: []
     const off = await h.cli(h.human, ['graph', 'list'])
     expect(off.code).toBe(1)
     expect(off.stderr).toContain('ostia graph: the graphs extension is not enabled')
-    h.host.setEnabled('graphs', true)
+    h.host.processes.setEnabled('graphs', true)
     await h.cli(h.human, ['graph', 'list'])
     const again = await until(() =>
       questions()
