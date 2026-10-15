@@ -4,6 +4,7 @@ import { runWhenIdle } from '@/lib/terminal/blockActions'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { ResumeFailure } from '@shared/agents/agentResume'
 import { newSessionCommand } from '@shared/agents/agentResume'
+import { claudeTrustGate } from './folderTrust'
 import { resumeWhenIdle } from './resumeFolder'
 
 function failureOf(paneId: string): { workspaceId: string; failure: ResumeFailure } | null {
@@ -17,14 +18,15 @@ export function retryResume(paneId: string): void {
   const found = failureOf(paneId)
   if (!found) return
   useLayoutStore.getState().setResume(found.workspaceId, paneId, found.failure.resume)
-  resumeWhenIdle(paneId, found.failure.resume)
+  resumeWhenIdle(paneId, found.failure.resume, undefined, undefined, undefined, true)
 }
 
 export function startNewSession(paneId: string): void {
   const found = failureOf(paneId)
   if (!found) return
   useLayoutStore.getState().clearResumeFailure(found.workspaceId, paneId)
-  runWhenIdle(paneId, newSessionCommand(found.failure.resume.agent))
+  const { agent } = found.failure.resume
+  runWhenIdle(paneId, newSessionCommand(agent), undefined, () => claudeTrustGate(paneId, agent))
 }
 
 export function dismissResumeFailure(paneId: string): void {

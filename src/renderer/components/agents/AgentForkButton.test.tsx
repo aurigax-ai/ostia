@@ -59,7 +59,6 @@ describe('AgentForkButton', () => {
         id: 'abc-123',
         cwd: '/home/u/proj',
         args: ['--model', 'opus'],
-        env: { GL_ISSUE: '685' },
       },
     }
     seed(pane)
@@ -80,7 +79,7 @@ describe('AgentForkButton', () => {
     expect(run).toHaveBeenCalledTimes(1)
     expect(run.mock.calls[0].slice(0, 2)).toEqual([
       fork?.id,
-      "GL_ISSUE=685 'claude' --resume abc-123 --fork-session --model opus",
+      "'claude' --resume abc-123 --fork-session --model opus",
     ])
     expect(insert).not.toHaveBeenCalled()
     expect(findPane(useLayoutStore.getState().byWorkspace.s1.root, pane.id)).toEqual(pane)

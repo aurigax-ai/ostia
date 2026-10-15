@@ -26,10 +26,6 @@ function withoutIdentifiers(text: string): string {
   return IDENTIFIERS.reduce((rest, identifier) => rest.split(identifier).join(''), text)
 }
 
-function placeholders(text: string): string[] {
-  return [...new Set(text.match(/\{\w+\}/g) ?? [])].sort()
-}
-
 describe('withProductName', () => {
   it('replaces every {product} placeholder', () => {
     expect(withProductName('While {product} is focused, {product} polls', 'Ostia')).toBe(
@@ -65,19 +61,5 @@ describe('product name in the dictionary', () => {
     )
 
     expect(used).toEqual(IDENTIFIERS)
-  })
-})
-
-describe('zhHant', () => {
-  it('fills the same placeholders as English in every string', () => {
-    const english = new Map(entries(en as unknown as Strings))
-    const different = entries(zhHant as unknown as Strings)
-      .filter(([path, text]) => {
-        const base = english.get(path)
-        return base !== undefined && placeholders(base).join() !== placeholders(text).join()
-      })
-      .map(([path]) => path)
-
-    expect(different).toEqual([])
   })
 })

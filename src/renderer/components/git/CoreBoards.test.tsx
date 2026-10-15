@@ -19,8 +19,24 @@ import type { CoreItems } from '@shared/boards/git'
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../../../test/render'
 
 const settle = (): Promise<void> => new Promise((r) => queueMicrotask(r))
+
+function userOnFakeClock(): ReturnType<typeof userEvent.setup> {
+  vi.useFakeTimers({
+    toFake: [
+      'setTimeout',
+      'clearTimeout',
+      'setInterval',
+      'clearInterval',
+      'requestAnimationFrame',
+      'cancelAnimationFrame',
+    ],
+  })
+  vi.stubGlobal('jest', { advanceTimersByTime: (ms: number) => vi.advanceTimersByTime(ms) })
+  return userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+}
 
 const GIT_ITEMS: CoreItems = {
   sidebar: [
@@ -105,6 +121,7 @@ describe('core git and ports in the window', () => {
 
   afterEach(() => {
     cleanup()
+    vi.useRealTimers()
     resetCoreWatch()
     useWorkspacesStore.setState(workspacesInit, true)
     useLayoutStore.setState(layoutInit, true)
@@ -167,7 +184,8 @@ describe('core git and ports in the window', () => {
 
   it('listening ports show as a plug in the top bar that opens the browser pane, and an ssh login shows on its pane', async () => {
     const paneId = useLayoutStore.getState().byWorkspace.s1.activePaneId
-    const { container } = render(
+    const user = userOnFakeClock()
+    const { container } = await renderSettled(
       <>
         <TopBar />
         <PaneChips paneId={paneId} />
@@ -196,7 +214,6 @@ describe('core git and ports in the window', () => {
     expect(within(header).getByText('deploy@build-box')).toBeVisible()
     expect(within(header).queryByRole('button', { name: /Listening ports/ })).toBeNull()
 
-    const user = userEvent.setup()
     await user.click(chip)
     await user.click(
       await screen.findByRole('button', {
@@ -213,7 +230,8 @@ describe('core git and ports in the window', () => {
   })
 
   it('names the process listening on each port, and copies and opens only the port URL', async () => {
-    const { container } = render(<TopBar />)
+    const user = userOnFakeClock()
+    const { container } = await renderSettled(<TopBar />)
     act(() =>
       useExtensionsStore.getState().setPortsItems({
         ...PORTS_ITEMS,
@@ -229,7 +247,6 @@ describe('core git and ports in the window', () => {
         ],
       }),
     )
-    const user = userEvent.setup()
     const topBar = container.querySelector('.topbar-right') as HTMLElement
     await user.click(within(topBar).getByRole('button', { name: /Listening ports: 2/ }))
 
@@ -243,7 +260,7 @@ describe('core git and ports in the window', () => {
     ).toHaveTextContent(/^:8000$/)
 
     await user.click(screen.getByRole('button', { name: /Copy http:\/\/localhost:5173\// }))
-    await expect(navigator.clipboard.readText()).resolves.toBe('http://localhost:5173/')
+    expect(await act(() => navigator.clipboard.readText())).toBe('http://localhost:5173/')
     await user.click(named)
     expect(firstPaneOfKind(useLayoutStore.getState().byWorkspace.s1.root, 'browser')?.url).toBe(
       'http://localhost:5173/',
@@ -324,9 +341,9 @@ describe('core git and ports in the window', () => {
   })
 
   it('shows the graph branches and file layout chosen in the panel, and switches back to a flat list', async () => {
-    const user = userEvent.setup()
+    const user = userOnFakeClock()
     useSettingsStore.getState().setGit({ graphScope: 'all', changesView: 'tree' })
-    render(<GitSection />)
+    await renderSettled(<GitSection />)
     expect(screen.getByRole('combobox', { name: 'Graph branches' })).toHaveTextContent(
       'All branches',
     )

@@ -20,6 +20,7 @@ import { AgentRunningPanes } from './agents/agentRunning'
 import { registerAgentTranscriptIpc } from './agents/agentTranscript'
 import { registerAgentWiring } from './agents/agentWiring'
 import { ReportedAgentWork } from './agents/agentWork'
+import { registerFolderTrustIpc } from './agents/folderTrustIpc'
 import type { OriginReach } from './agents/originAgents'
 import { createResumeClaimer, registerResumeClaimIpc } from './agents/resumeClaims'
 import { registerToolbeltWiring } from './agents/toolbeltWiring'
@@ -337,6 +338,7 @@ const {
   allowHumanPopups,
   hardenExtensionGuest,
 } = createBrowserGuests({
+  contextMenuText: () => mainStrings().native.contextMenu,
   consoleBuffers,
   errorBuffers,
   windows,
@@ -415,6 +417,7 @@ const agentRunning = new AgentRunningPanes(() => {
 const agentWork = new ReportedAgentWork()
 
 const askHub = createAskHub({
+  text: () => mainStrings().approvals,
   questions,
   approvals,
   identity: getByPaneId,
@@ -445,6 +448,8 @@ const {
   killPty,
   hibernatePty,
   paneActivity,
+  foregroundProgram,
+  agentCwd,
   sandboxReadRules,
   ptyPid,
   paneOutput,
@@ -497,6 +502,7 @@ const {
 const { spawnManagerPty } = createManagerPty({ loadPty, primaryWindowId, trackPty, feedPty })
 
 const { wireWindow } = createWindowWiring({
+  contextMenuText: () => mainStrings().native.contextMenu,
   services,
   quit,
   readSettingsFile,
@@ -652,6 +658,7 @@ function boot(): void {
   setPaneIdSalt(loadPaneIdSalt(storePath('pane-id-salt', 'global')))
   const appMenu = installAppMenu(process.platform, {
     productName: PRODUCT_DISPLAY_NAME,
+    text: () => mainStrings().native.appMenu,
     openSettings: openSettingsInFocusedWindow,
     runCommand: runMenuCommandInFocusedWindow,
     reloadWindow: reloadFocusedWindow,
@@ -717,6 +724,7 @@ function boot(): void {
       listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
     ),
   )
+  registerFolderTrustIpc({ ...wiring, readSettingsFile })
   const { notifyDeps } = registerNotifyWiring({ ...wiring })
   registerSandboxWiring({ ...wiring, notifyDeps })
   const { registry } = registerAgentWiring({ ...wiring })
@@ -913,6 +921,8 @@ const wiring = {
   hibernatePty,
   releasePtyFlow,
   paneActivity,
+  foregroundProgram,
+  agentCwd,
   sandboxReadRules,
   windowOfPane,
   readSettingsFile,

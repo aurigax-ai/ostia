@@ -22,6 +22,7 @@ import { FilesSearch } from './FilesSearch'
 import { FilesViewOptions } from './FilesViewOptions'
 import { RemoteFolderSection } from './RemoteFolderSection'
 import { useTreeContext, useTreeFocus } from './fileTreeContext'
+import { useFolderDrop } from './fileTreeRows'
 
 export function FilesView(): JSX.Element {
   const d = useDict()
@@ -34,6 +35,7 @@ export function FilesView(): JSX.Element {
     [workspaceId, cwd, activeFile, reveal],
   )
   const tree = useTreeContext(stableFocus)
+  const { over: rootOver, ...rootDrop } = useFolderDrop(cwd, tree)
   const allFolders = useRemoteFoldersStore((s) => s.folders)
   const folders = useMemo(
     () => allFolders.filter((folder) => folder.workspaceId === workspaceId),
@@ -64,7 +66,7 @@ export function FilesView(): JSX.Element {
         }
         onReveal={(path) => useFileTreeStore.getState().reveal(cwd, path)}
       >
-        <div className="file-tree">
+        <div className={`file-tree${rootOver ? ' drop-target' : ''}`} {...rootDrop}>
           <FileTree key={cwd} path={cwd} depth={0} tree={tree} />
         </div>
       </FilesSearch>

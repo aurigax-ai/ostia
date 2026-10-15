@@ -22,7 +22,6 @@ import {
   relativeTime,
   scrollTopToShow,
   selectionTarget,
-  splitPath,
   toggledRefs,
   visibleRange,
 } from './gitView'
@@ -123,11 +122,6 @@ describe('graph window', () => {
 })
 
 describe('git view text', () => {
-  it('splits a path into its name and folder', () => {
-    expect(splitPath('src/deep/a.ts')).toEqual({ name: 'a.ts', dir: 'src/deep' })
-    expect(splitPath('a.ts')).toEqual({ name: 'a.ts', dir: '' })
-  })
-
   it('names a detached HEAD by its short sha', () => {
     const detached = { oid: '0123456789abcdef', head: null, upstream: null, ahead: 0, behind: 0 }
     expect(branchLabel(detached, 'detached')).toBe('0123456 (detached)')

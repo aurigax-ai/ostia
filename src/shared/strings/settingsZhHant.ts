@@ -105,7 +105,6 @@ export const settingsZhHant: typeof settingsEn = {
     extensions: '擴充功能',
     extensionsNavList: '已安裝的擴充功能',
     about: '關於',
-    builtin: '內建',
     productTheme: '{product} 主題',
     productThemeDesc: '側邊欄、分頁、選單與對話框的配色。',
     terminalColors: '終端機配色',
@@ -181,6 +180,9 @@ export const settingsZhHant: typeof settingsEn = {
     autoResume: '重新啟動後自動恢復代理程式',
     autoResumeDesc:
       '結束 {product} 時仍在執行的代理程式工作階段，會在其窗格顯示後、於第一個閒置提示字元自動恢復。背景分頁與其他工作區會在你開啟時才恢復。只有你能變更此設定。',
+    trustWorkspaceFolders: '為 Claude 信任工作區資料夾',
+    trustWorkspaceFoldersDesc:
+      '當 {product} 在工作區資料夾接回或啟動 Claude 時，在 Claude 自己的設定檔（~/.claude.json）將該資料夾標為信任，Claude 便不會詢問。這也會讓 Claude 在 {product} 之外信任此資料夾。絕不包含你的家目錄、暫存或沙箱工作區。關閉此設定不會移除已給予的信任。',
     groupReferences: '參照',
     autoSendReferences: '立即將參照送給代理程式',
     autoSendReferencesDesc:
@@ -312,7 +314,7 @@ export const settingsZhHant: typeof settingsEn = {
     discreteGpuRestart: '重新啟動',
     copyVersion: '複製版本',
     copied: '已複製',
-    copyright: 'Copyright {year} {name}',
+    copyright: '版權所有 {year} {name}',
     openFile: '開啟設定檔',
     cursorStyle: '游標樣式',
     styleBlock: '方塊',
@@ -323,7 +325,7 @@ export const settingsZhHant: typeof settingsEn = {
     restoreWorkspace: '啟動時還原工作區',
     restoreWorkspaceDesc:
       '下次啟動 {product} 時重新開啟工作區、面板與終端機捲動紀錄。Shell 一律重新啟動。',
-    shell: 'Shell',
+    shell: '殼層程式',
     shellDesc:
       '新終端機執行的程式及其引數，例如 /usr/bin/fish。留空則使用登入 shell。指令區塊與輸入編輯器需要 zsh 或 bash。',
     keepShells: '重新啟動時保留 shell',

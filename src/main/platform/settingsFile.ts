@@ -13,7 +13,7 @@ export interface SettingsFile {
   assistant?: unknown
   privacy?: unknown
   terminal?: { shell?: unknown; keepShells?: unknown; scrollbackHistory?: unknown }
-  agents?: { hooks?: unknown }
+  agents?: { hooks?: unknown; trustWorkspaceFolders?: unknown }
   behavior?: { historySuggestions?: unknown }
 }
 

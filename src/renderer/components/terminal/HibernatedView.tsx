@@ -52,7 +52,7 @@ export function HibernatedView({
           {d.pane.asleep}
         </Badge>
         {resume ? (
-          <Button variant="outline" size="sm" onClick={() => wakePane(paneId)}>
+          <Button variant="outline" size="sm" onClick={() => wakePane(paneId, undefined, true)}>
             <PlayIcon data-icon="inline-start" aria-hidden />
             {fmt(d.pane.resume, { agent: resume.agent })}
           </Button>

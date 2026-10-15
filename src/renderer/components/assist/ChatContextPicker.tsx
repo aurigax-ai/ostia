@@ -17,6 +17,7 @@ import {
   terminalSelectionContext,
 } from '@/lib/assist/askContext'
 import { byteSize, workspaceTerminals } from '@/lib/assist/chatActions'
+import { relativeToRoot } from '@/lib/files/fileTree'
 import { allPanes } from '@/lib/layout/tree'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
@@ -48,10 +49,6 @@ function fileQuery(root: string, typed: string): FileQuery {
   const cut = clean.lastIndexOf('/')
   const sub = cut === -1 ? '' : clean.slice(0, cut)
   return { dir: sub ? `${root}/${sub}` : root, prefix: cut === -1 ? clean : clean.slice(cut + 1) }
-}
-
-function relativeTo(root: string, path: string): string {
-  return path.startsWith(`${root}/`) ? path.slice(root.length + 1) : path
 }
 
 interface PickerSources {
@@ -138,7 +135,7 @@ export function ChatContextPicker({
     setFailed(null)
   }, [open, seedQuery])
 
-  const base = relativeTo(root, query.dir)
+  const base = relativeToRoot(query.dir, root) ?? query.dir
   const matches = entries
     .filter((e) => e.name.toLowerCase().startsWith(query.prefix.toLowerCase()))
     .slice(0, 50)

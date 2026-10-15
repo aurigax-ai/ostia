@@ -1,4 +1,5 @@
 import { registerCore } from '@/commands/coreCommand'
+import { claudeTrustGate } from '@/lib/agents/folderTrust'
 import { forkConversation } from '@/lib/agents/forkConversation'
 import {
   type PaneHibernateOutcome,
@@ -6,7 +7,6 @@ import {
   wakePane,
 } from '@/lib/agents/hibernationScheduler'
 import { isStaleAgentReport } from '@/lib/agents/paneAgent'
-import { withCommandLineEnv } from '@/lib/agents/resumeEnv'
 import {
   claimAcrossWindows,
   claimResume,
@@ -14,6 +14,7 @@ import {
   resumeHolder,
 } from '@/lib/agents/resumeFolder'
 import { resumeStarted, watchResumeOutcome } from '@/lib/agents/resumeOutcome'
+import { withTypedLaunch } from '@/lib/agents/resumeTyped'
 import { postAgentNotification } from '@/lib/attention/agentNotification'
 import { announceBusMessage } from '@/lib/attention/busNotice'
 import {
@@ -87,10 +88,17 @@ function registerAgentSessionCommands(): void {
     id: 'resume.set',
     category: 'pane',
     hidden: true,
+    local: true,
     capabilities: ['drive-self'],
     run: (raw, ctx) => {
       if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
-      const resume = withCommandLineEnv(parseAgentResume(raw), ctx.activePaneId)
+      const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
+      const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
+      const resume = withTypedLaunch(
+        parseAgentResume(raw),
+        ctx.activePaneId,
+        pane?.kind === 'terminal' ? pane.resume : undefined,
+      )
       if (!resume) throw new Error('invalid resume')
       useLayoutStore.getState().setResume(ctx.activeWorkspaceId, ctx.activePaneId, resume)
       useBlocksStore.getState().markAgent(ctx.activePaneId, resume.agent)
@@ -107,22 +115,28 @@ function registerAgentSessionCommands(): void {
       const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
       const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
       if (pane?.kind !== 'terminal' || !pane.resume) return { resumed: false }
-      const holder =
-        resumeHolder(pane.id, pane.resume)?.title ??
-        (pane.hibernated || pane.resumeFolderMissing
-          ? null
-          : await claimAcrossWindows(pane.id, pane.resume))
-      if (holder !== null) {
-        throw new Error(
-          `${pane.resume.agent} session ${pane.resume.id} is already running in "${holder}"`,
-        )
+      const resume = pane.resume
+      const refuseHeld = async (): Promise<void> => {
+        const holder =
+          resumeHolder(pane.id, resume)?.title ??
+          (pane.hibernated || pane.resumeFolderMissing
+            ? null
+            : await claimAcrossWindows(pane.id, resume))
+        if (holder !== null) {
+          throw new Error(`${resume.agent} session ${resume.id} is already running in "${holder}"`)
+        }
       }
-      if (pane.hibernated) return { resumed: wakePane(pane.id) }
+      await refuseHeld()
+      if (pane.hibernated) return { resumed: wakePane(pane.id, undefined, !ctx.target) }
       if (pane.resumeFolderMissing) return { resumed: false }
-      const resumed = insertCommand(pane.id, resumeCommand(pane.resume), true)
+      if (!ctx.target) {
+        if (!(await claudeTrustGate(pane.id, resume.agent))) return { resumed: false }
+        await refuseHeld()
+      }
+      const resumed = insertCommand(pane.id, resumeCommand(resume), true)
       if (resumed) {
-        claimResume(pane.id, pane.resume)
-        watchResumeOutcome(pane.id, pane.resume)
+        claimResume(pane.id, resume)
+        watchResumeOutcome(pane.id, resume)
       }
       return { resumed }
     },
@@ -160,7 +174,9 @@ function registerAgentSessionCommands(): void {
       if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
       const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
       const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
-      return { resume: pane?.kind === 'terminal' && pane.resume ? pane.resume : null }
+      if (pane?.kind !== 'terminal' || !pane.resume) return { resume: null }
+      const { typed: _typed, ...resume } = pane.resume
+      return { resume }
     },
   })
 
@@ -178,7 +194,7 @@ function registerAgentSessionCommands(): void {
           useTabSleepNoticeStore.getState().show({ kind: 'conflict', tab: holder.title })
         return { woke: false, conflict: holder.title }
       }
-      const woke = wakePane(paneId)
+      const woke = wakePane(paneId, undefined, !ctx.target)
       if (!woke && !ctx.target) useTabSleepNoticeStore.getState().show({ kind: 'awake' })
       return { woke }
     },

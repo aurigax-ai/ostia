@@ -1,4 +1,5 @@
 import { editorPositionOf } from '@/lib/files/editorPositions'
+import { baseName } from '@/lib/files/fileTree'
 import { allPanes, findPane } from '@/lib/layout/tree'
 import { blockText } from '@/lib/terminal/blockActions'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
@@ -75,10 +76,6 @@ export function useWorkspaceEditorFile(workspaceId: string | null | undefined): 
   return workspaceEditorFile(workspaceId)?.file ?? null
 }
 
-function fileName(path: string): string {
-  return path.split('/').pop() || path
-}
-
 function editorFileContext(
   workspaceId: string | null | undefined,
   label: string,
@@ -89,7 +86,7 @@ function editorFileContext(
   const cursor = position?.file === open.file ? `, cursor at line ${position.line}` : ''
   return {
     kind: 'editor',
-    label: `${label} ${fileName(open.file)}`,
+    label: `${label} ${baseName(open.file)}`,
     text: `The file the user has open in the editor${cursor}.`,
     path: open.file,
   }
@@ -142,7 +139,7 @@ export function askContextOptions(
 export function selectionRef(selection: LiveSelection): string | null {
   const { source } = selection
   if (source.kind !== 'editor') return null
-  const name = fileName(source.file)
+  const name = baseName(source.file)
   return source.startLine === source.endLine
     ? `${name}:${source.startLine}`
     : `${name}:${source.startLine}-${source.endLine}`

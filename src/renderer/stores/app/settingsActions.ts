@@ -276,6 +276,7 @@ export function createTrustActions(
   | 'setAssistModels'
   | 'setAutoResume'
   | 'setAutoSendReferences'
+  | 'setTrustWorkspaceFolders'
   | 'setAgentHooks'
   | 'setHibernation'
   | 'trustAction'
@@ -350,6 +351,11 @@ export function createTrustActions(
 
     setAutoSendReferences: (autoSendReferences) => {
       set((s) => ({ agents: { ...s.agents, autoSendReferences } }))
+      scheduleSave(get)
+    },
+
+    setTrustWorkspaceFolders: (trustWorkspaceFolders) => {
+      set((s) => ({ agents: { ...s.agents, trustWorkspaceFolders } }))
       scheduleSave(get)
     },
 

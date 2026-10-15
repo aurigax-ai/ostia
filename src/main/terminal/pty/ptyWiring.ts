@@ -9,6 +9,7 @@ import type { Telemetry } from '../../diagnostics/telemetry'
 import type { OpenWaits } from '../../files/openWaits'
 import type { PaneWaking } from '../../panes/paneWaking'
 import type { ProcessRegistry } from '../../panes/processRegistry'
+import { foregroundCwd } from '../../platform/foregroundCwd'
 import { readSettingsFile } from '../../platform/settingsFile'
 import type { HostPaneGrants } from '../../sandbox/hostPanes'
 import type { PortRequests } from '../../sandbox/portRequests'
@@ -131,11 +132,13 @@ export function createPtyWiring({
     appLog: () => services.appLog,
   })
 
-  const { paneActivity, sandboxReadRules, ptyPid, paneOutput } = createPtyQueries({
-    ptys,
-    agentRunning,
-    workspaceSandboxes,
-  })
+  const { paneActivity, foregroundProgram, agentCwd, sandboxReadRules, ptyPid, paneOutput } =
+    createPtyQueries({
+      ptys,
+      agentRunning,
+      workspaceSandboxes,
+      foregroundCwd,
+    })
 
   const {
     paneIo,
@@ -201,6 +204,8 @@ export function createPtyWiring({
     killPty,
     hibernatePty,
     paneActivity,
+    foregroundProgram,
+    agentCwd,
     sandboxReadRules,
     ptyPid,
     paneOutput,

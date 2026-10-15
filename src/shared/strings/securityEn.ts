@@ -210,7 +210,6 @@ export const securityEn = {
     editTitle: 'Edit "{name}"',
     dialogDesc: 'Give this script only the permissions and workspaces it needs.',
     name: 'Name',
-    nameHint: 'Up to 60 letters, digits, spaces and . _ @ -',
     expiration: 'Expiration',
     days: '{n} days',
     oneYear: '1 year',

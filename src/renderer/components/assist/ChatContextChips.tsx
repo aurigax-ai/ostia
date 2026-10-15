@@ -2,6 +2,7 @@ import { PromptInputHeader } from '@/components/ai-elements/prompt-input'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
 import type { AskContextKind } from '@/lib/assist/askContext'
+import { baseName } from '@/lib/files/fileTree'
 import { useChatStore } from '@/stores/assist/chatStore'
 import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import {
@@ -92,7 +93,7 @@ export function ChatContextChips({
                 ) : null}
                 {kind === 'editor' && editorFile ? (
                   <span className="max-w-48 truncate font-mono text-ui-xs">
-                    {editorFile.split('/').pop()}
+                    {baseName(editorFile)}
                   </span>
                 ) : null}
               </Button>
