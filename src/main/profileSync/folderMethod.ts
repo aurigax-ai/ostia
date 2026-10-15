@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { writeFileAtomic } from '../platform/atomicWrite'
 import { type SyncMethod, type SyncSnapshot, SyncTargetError, type WriteResult } from './engine'
 import {
   SECRETS_FILE,
@@ -10,7 +11,6 @@ import {
   readProfileFolders,
   readTopFile,
   removeRegularFile,
-  writeAtomic,
 } from './profile'
 
 function versionOf(files: ReadonlyMap<string, string>): string {
@@ -64,7 +64,7 @@ export class FolderMethod implements SyncMethod {
     const current = await this.read()
     if (current.version !== expected) return { ok: false }
     for (const [path, text] of files) {
-      if (current.files.get(path) !== text) writeAtomic(join(this.dir, path), text)
+      if (current.files.get(path) !== text) writeFileAtomic(join(this.dir, path), text)
     }
     for (const path of current.files.keys()) {
       if (!files.has(path)) removeRegularFile(join(this.dir, path))

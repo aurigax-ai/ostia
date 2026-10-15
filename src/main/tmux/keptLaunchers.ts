@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { quoteArg } from '../../shared/terminal/shellQuote'
-import { replaceFile } from '../terminal/paneLauncher'
+import { writeFileAtomic } from '../platform/atomicWrite'
 
 export interface KeptLauncherPaths {
   node: string
@@ -23,8 +23,10 @@ export function keptLauncherPaths(launcherDir: string): KeptLauncherPaths {
 function writeKeptLaunchers(launcherDir: string, execPath: string, appPath: string): void {
   const paths = keptLauncherPaths(launcherDir)
   mkdirSync(launcherDir, { recursive: true, mode: 0o700 })
-  replaceFile(paths.node, `#!/bin/sh\nexec ${quoteArg(execPath)} "$@"\n`, 0o700)
-  replaceFile(paths.cli, `require(${JSON.stringify(join(appPath, 'out/cli/index.js'))})\n`, 0o600)
+  writeFileAtomic(paths.node, `#!/bin/sh\nexec ${quoteArg(execPath)} "$@"\n`, { mode: 0o700 })
+  writeFileAtomic(paths.cli, `require(${JSON.stringify(join(appPath, 'out/cli/index.js'))})\n`, {
+    mode: 0o600,
+  })
 }
 
 export class KeptPlumbing {

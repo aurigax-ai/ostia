@@ -1,6 +1,7 @@
-import { mkdirSync, renameSync, writeFileSync } from 'node:fs'
+import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { shellEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { writeFileAtomic } from '../platform/atomicWrite'
 
 export const OSTIA_LAUNCHER_NAME = 'ostia'
 
@@ -8,15 +9,9 @@ export function ostiaLauncherScript(): string {
   return `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "${shellEnv('NODE')}" "${shellEnv('CLI')}" "$@"\n`
 }
 
-export function replaceFile(path: string, content: string, mode: number): void {
-  const next = `${path}.${process.pid}.new`
-  writeFileSync(next, content, { mode })
-  renameSync(next, path)
-}
-
 export function writeOstiaLauncher(dir: string): void {
   mkdirSync(dir, { recursive: true, mode: 0o700 })
-  replaceFile(join(dir, OSTIA_LAUNCHER_NAME), ostiaLauncherScript(), 0o700)
+  writeFileAtomic(join(dir, OSTIA_LAUNCHER_NAME), ostiaLauncherScript(), { mode: 0o700 })
 }
 
 export function withLauncherOnPath(

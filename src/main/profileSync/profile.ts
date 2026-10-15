@@ -1,14 +1,5 @@
-import {
-  type Stats,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  renameSync,
-  unlinkSync,
-  writeFileSync,
-} from 'node:fs'
-import { dirname, join } from 'node:path'
+import { type Stats, lstatSync, readFileSync, readdirSync, unlinkSync } from 'node:fs'
+import { join } from 'node:path'
 import { PROGRAM_SETTINGS } from '../../shared/permissions/programSettings'
 import { SPEC_COMMAND_PATTERN, SPEC_FILE_MAX_BYTES } from '../../shared/terminal/completionSpec'
 import { VIEW_FILES_MAX, VIEW_FILE_MAX_BYTES, VIEW_NAME } from '../../shared/views/views'
@@ -259,13 +250,6 @@ export function readTopFile(
   } catch {
     return 'skipped'
   }
-}
-
-export function writeAtomic(path: string, text: string): void {
-  mkdirSync(dirname(path), { recursive: true })
-  const tmp = `${path}.${process.pid}.tmp`
-  writeFileSync(tmp, text, 'utf8')
-  renameSync(tmp, path)
 }
 
 export function removeRegularFile(path: string): void {

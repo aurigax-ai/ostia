@@ -1,8 +1,10 @@
 import {
+  chmodSync,
   existsSync,
   lstatSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -10,8 +12,38 @@ import {
 } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { loadJson, saveJson, storePath } from './jsonStore'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { loadJson, saveJson, saveJsonAsync, storePath } from './jsonStore'
+
+const renamed = vi.hoisted(() => [] as { file: number; dir: number }[])
+
+vi.mock('node:fs', async (importOriginal) => {
+  const fs = await importOriginal<typeof import('node:fs')>()
+  const { dirname } = await import('node:path')
+  return {
+    ...fs,
+    renameSync: (from: string, to: string) => {
+      renamed.push({
+        file: fs.statSync(from).mode & 0o777,
+        dir: fs.statSync(dirname(to)).mode & 0o777,
+      })
+      fs.renameSync(from, to)
+    },
+  }
+})
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const fs = await importOriginal<typeof import('node:fs/promises')>()
+  const { dirname } = await import('node:path')
+  return {
+    ...fs,
+    rename: async (from: string, to: string) => {
+      const [file, dir] = await Promise.all([fs.stat(from), fs.stat(dirname(to))])
+      renamed.push({ file: file.mode & 0o777, dir: dir.mode & 0o777 })
+      await fs.rename(from, to)
+    },
+  }
+})
 
 function unsetEnv(key: string): void {
   delete process.env[key]
@@ -62,6 +94,7 @@ describe('jsonStore', () => {
 
     beforeEach(() => {
       dir = join(tmpdir(), `ostia-jsonstore-test-${process.pid}-${Date.now()}-${Math.random()}`)
+      renamed.length = 0
     })
 
     afterEach(() => {
@@ -81,11 +114,52 @@ describe('jsonStore', () => {
       expect(existsSync(path)).toBe(true)
     })
 
-    it('leaves no .tmp file behind after an atomic write', () => {
+    it('leaves no temp file behind after an atomic write', () => {
       const path = join(dir, 'store.json')
       saveJson(path, { a: 1 })
-      expect(existsSync(path)).toBe(true)
-      expect(existsSync(`${path}.tmp`)).toBe(false)
+      expect(readdirSync(dir)).toEqual(['store.json'])
+    })
+
+    it('removes the temp file when the rename fails', () => {
+      const path = join(dir, 'store.json')
+      mkdirSync(join(path, 'occupied'), { recursive: true })
+      expect(() => saveJson(path, { a: 1 })).toThrow()
+      expect(readdirSync(dir)).toEqual(['store.json'])
+    })
+
+    it('never has a secure store or its new folder wider than 0600/0700 before the rename', () => {
+      saveJson(join(dir, 'secure', 'store.json'), { a: 1 }, { secure: true })
+      expect(renamed).toEqual([{ file: 0o600, dir: 0o700 }])
+    })
+
+    it('tightens an existing secure folder before the store is written', async () => {
+      const folder = join(dir, 'secure')
+      mkdirSync(folder, { recursive: true })
+      chmodSync(folder, 0o755)
+      saveJson(join(folder, 'sync.json'), { a: 1 }, { secure: true })
+      chmodSync(folder, 0o755)
+      await saveJsonAsync(join(folder, 'async.json'), { a: 1 }, { secure: true })
+      expect(renamed).toEqual([
+        { file: 0o600, dir: 0o700 },
+        { file: 0o600, dir: 0o700 },
+      ])
+    })
+
+    it('never has an async secure store or its new folder wider than 0600/0700 before the rename', async () => {
+      await saveJsonAsync(join(dir, 'secure', 'store.json'), { a: 1 }, { secure: true })
+      expect(renamed).toEqual([{ file: 0o600, dir: 0o700 }])
+    })
+
+    it('leaves valid JSON from one of two concurrent writes to the same store', async () => {
+      const path = join(dir, 'store.json')
+      const first = { fill: 'a'.repeat(1 << 20) }
+      const second = { fill: 'b'.repeat(1 << 20) }
+      await Promise.all([
+        saveJsonAsync(path, first, { secure: true }),
+        saveJsonAsync(path, second, { secure: true }),
+      ])
+      expect([first, second]).toContainEqual(JSON.parse(readFileSync(path, 'utf8')))
+      expect(readdirSync(dir)).toEqual(['store.json'])
     })
 
     it('loadJson returns the fallback for a missing path', () => {

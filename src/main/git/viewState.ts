@@ -1,5 +1,6 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 import { dirname } from 'node:path'
+import { writeFileAtomic } from '../platform/atomicWrite'
 import { parseScope } from './scope'
 
 export interface ViewState {
@@ -41,9 +42,7 @@ export class ViewStateStore {
   private save(): void {
     if (!this.file) return
     mkdirSync(dirname(this.file), { recursive: true, mode: 0o700 })
-    const tmp = `${this.file}.${process.pid}.tmp`
-    writeFileSync(tmp, JSON.stringify(this.state, null, 2), { mode: 0o600 })
-    renameSync(tmp, this.file)
+    writeFileAtomic(this.file, JSON.stringify(this.state, null, 2), { mode: 0o600 })
   }
 }
 
