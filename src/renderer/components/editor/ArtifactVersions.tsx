@@ -19,7 +19,6 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { usePaneVisible } from '@/lib/attention/workspaceActivity'
 import { useArtifactListing } from '@/lib/files/artifacts'
 import { csvDelimiter } from '@/lib/files/csvTable'
-import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type ShownVersion, useArtifactVersionsStore } from '@/stores/files/artifactVersionsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
@@ -214,7 +213,6 @@ export function VersionView({
 }): JSX.Element | null {
   const d = useDict()
   const locale = useSettingsStore((s) => s.locale)
-  useSurfaceFocus(paneId, null)
   const shown = useArtifactVersionsStore((s) =>
     s.byPane[paneId]?.path === filePath ? s.byPane[paneId] : undefined,
   )

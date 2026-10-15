@@ -11,6 +11,7 @@ import { useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import {
   focusSurface,
+  focusSurfaceWhenReady,
   mountSurface,
   releaseSurfaces,
   surfaceHost,
@@ -358,6 +359,75 @@ describe('EditorView', () => {
     cleanup()
     releaseSurfaces(new Set())
     slot.remove()
+  })
+
+  function editorInSurface(paneId: string, filePath: string): () => void {
+    const slot = document.createElement('div')
+    document.body.appendChild(slot)
+    mountSurface(paneId, slot)
+    render(<EditorView workspaceId="w1" paneId={paneId} filePath={filePath} />, {
+      container: surfaceHost(paneId),
+    })
+    return () => {
+      cleanup()
+      releaseSurfaces(new Set())
+      slot.remove()
+    }
+  }
+
+  it('gives the keyboard to the CSV table while it covers the source, and to the source once shown', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: 'name,count\napples,3\n',
+    })
+    const done = editorInSurface('p-csv', '/w/fruit.csv')
+    await waitFor(() => expect(fake.state.input).not.toBeNull())
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: 'Show as table' }))
+    await screen.findByText('apples')
+    focusSurface('p-csv')
+    expect(document.activeElement).toBe(screen.getByTestId('csv-table'))
+
+    await user.click(screen.getByRole('button', { name: 'Edit CSV source' }))
+    focusSurface('p-csv')
+    expect(document.activeElement).toBe(fake.state.input)
+    done()
+  })
+
+  it('gives the keyboard to a running page only once its guest is ready, never to the source under it', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: '<p>page</p>',
+    })
+    vi.mocked(window.ostia.preview.open).mockResolvedValue({
+      id: 'preview-1',
+      partition: 'ostia-preview-1',
+      url: 'ostia-preview://preview-1/',
+    })
+    const done = editorInSurface('p-html', '/w/page.html')
+    await waitFor(() => expect(fake.state.input).not.toBeNull())
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Run page in preview' }))
+    const webview = await waitFor(() => {
+      const found = surfaceHost('p-html').querySelector<HTMLElement>('webview')
+      if (!found) throw new Error('no webview yet')
+      return found
+    })
+    webview.tabIndex = 0
+
+    focusSurfaceWhenReady('p-html', () => true)
+    await act(() => new Promise<void>((resolve) => setTimeout(resolve)))
+    expect(document.activeElement).not.toBe(webview)
+    expect(document.activeElement).not.toBe(fake.state.input)
+
+    act(() => {
+      webview.dispatchEvent(new Event('dom-ready'))
+    })
+    await waitFor(() => expect(document.activeElement).toBe(webview))
+    done()
   })
 
   it('the find key opens find in the code editor', async () => {
