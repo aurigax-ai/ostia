@@ -1,11 +1,13 @@
 import { ATTENTION_ALERT } from '@/components/agents/attentionStyles'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { formatBytes } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { langFor } from '@/lib/monaco/language'
 import type { monaco } from '@/lib/monaco/setup'
 import { cn } from '@/lib/utils'
 import { requestClosePane } from '@/lib/workspaces/closeConfirm'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { DIFF_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { parseRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
@@ -14,8 +16,6 @@ import type { MutableRefObject } from 'react'
 import type { DiskBar, ReloadFromDisk } from './editorDiskSync'
 import { remoteVersions, setDiskBase } from './editorModels'
 import type { Blocked } from './useEditorFile'
-
-const MB = 1024 * 1024
 
 function shownPath(filePath: string): string {
   return parseRemotePath(filePath)?.path ?? filePath
@@ -53,6 +53,7 @@ export function EditorAlerts({
   external,
 }: EditorAlertsProps): JSX.Element {
   const d = useDict()
+  const locale = useSettingsStore((s) => s.locale)
   const comparable = (disk: string): boolean =>
     disk.length <= DIFF_TEXT_MAX &&
     (editorRef.current?.getModel()?.getValueLength() ?? 0) <= DIFF_TEXT_MAX
@@ -78,7 +79,7 @@ export function EditorAlerts({
             {blocked.kind === 'binary'
               ? d.editor.binary
               : blocked.kind === 'too-large'
-                ? fmt(d.editor.tooLarge, { size: (blocked.size / MB).toFixed(1) })
+                ? fmt(d.editor.tooLarge, { size: formatBytes(blocked.size, locale) })
                 : d.editor.unreadable}
           </span>
         </div>

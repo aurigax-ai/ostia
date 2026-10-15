@@ -5,27 +5,20 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Textarea } from '@/components/ui/textarea'
+import { useAgoText } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { useNow } from '@/lib/app/useNow'
 import { revealPane } from '@/lib/attention/workspaceActivity'
-import { type PaneWhere, agoText, isLongContext } from '@/lib/sidebar/dashboard'
+import { type PaneWhere, isLongContext } from '@/lib/sidebar/dashboard'
 import { EMPTY_DRAFT, type QuestionDraft, useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { ArrowSquareOutIcon, ChatCircleTextIcon, CheckCircleIcon } from '@phosphor-icons/react'
 import type { PermissionChoice } from '@shared/agents/agentPermissions'
 import type { QuestionRequest } from '@shared/agents/questions'
 import type { Dict } from '@shared/app/dict'
-import { type KeyboardEvent, useEffect, useMemo, useState } from 'react'
+import { type KeyboardEvent, useMemo, useState } from 'react'
 
 const AGO_TICK_MS = 30_000
-
-function useNow(): number {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), AGO_TICK_MS)
-    return () => clearInterval(timer)
-  }, [])
-  return now
-}
 
 function toggled(choices: readonly number[], index: number, on: boolean): number[] {
   const rest = choices.filter((c) => c !== index)
@@ -109,11 +102,8 @@ export function QuestionCard({
   const answer = useQuestionsStore((s) => s.answer)
   const dismiss = useQuestionsStore((s) => s.dismiss)
   const [expanded, setExpanded] = useState(false)
-  const now = useNow()
-  const relative = useMemo(
-    () => new Intl.RelativeTimeFormat(locale, { numeric: 'always', style: 'short' }),
-    [locale],
-  )
+  const now = useNow(AGO_TICK_MS)
+  const ago = useAgoText()
   const clock = useMemo(
     () => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }),
     [locale],
@@ -156,7 +146,7 @@ export function QuestionCard({
           </>
         ) : null}
         <time dateTime={new Date(question.at).toISOString()} className="tabular-nums">
-          {agoText(now - question.at, d.dashboard.justNow, relative)}
+          {ago(now - question.at)}
         </time>
         {question.expiresAt !== undefined ? (
           <span className="tabular-nums">

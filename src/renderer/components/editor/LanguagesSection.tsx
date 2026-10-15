@@ -16,7 +16,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { TIME_24H, formatDate } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type {
@@ -167,10 +169,6 @@ function logLine(d: Dict, entry: LspLogEntry): string {
   }
 }
 
-function logTime(at: number): string {
-  return new Date(at).toLocaleTimeString(undefined, { hour12: false })
-}
-
 function ServerLogDialog({
   server,
   onClose,
@@ -180,6 +178,7 @@ function ServerLogDialog({
 }): JSX.Element {
   const d = useDict()
   const t = d.languageServers
+  const locale = useSettingsStore((s) => s.locale)
   const [log, setLog] = useState<LspLog | null>(null)
   useEffect(() => {
     let live = true
@@ -207,7 +206,9 @@ function ServerLogDialog({
           >
             {(log?.entries ?? []).map((entry, i) => (
               <li key={`${entry.at}-${i}`} className="flex min-w-0 gap-2">
-                <span className="shrink-0 text-fg-muted tabular-nums">{logTime(entry.at)}</span>
+                <span className="shrink-0 text-fg-muted tabular-nums">
+                  {formatDate(entry.at, locale, TIME_24H)}
+                </span>
                 <span
                   className={
                     entry.kind === 'stderr' || entry.kind === 'fetch-output'

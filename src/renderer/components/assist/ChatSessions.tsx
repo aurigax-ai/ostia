@@ -11,6 +11,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
+import { relativeTimeText } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -30,21 +31,7 @@ import {
   TrashIcon,
 } from '@phosphor-icons/react'
 import type { ChatSessionSummary } from '@shared/assist/chatSessions'
-import { type RelativeStep, formatRelative } from '@shared/common/relativeTime'
 import { useEffect, useMemo, useState } from 'react'
-
-const RELATIVE_STEPS: RelativeStep[] = [
-  ['day', 86_400],
-  ['hour', 3_600],
-  ['minute', 60],
-]
-
-export function relativeTime(at: number, now: number, locale: string): string {
-  const seconds = Math.round((at - now) / 1000)
-  const beyondMinute = Math.abs(seconds) >= 60 ? seconds : 0
-  const format = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
-  return formatRelative(beyondMinute, RELATIVE_STEPS, format)
-}
 
 function filterSessions(list: readonly ChatSessionSummary[], query: string): ChatSessionSummary[] {
   const q = query.trim().toLowerCase()
@@ -156,7 +143,7 @@ export function ChatSessions({
                     >
                       <span className="w-full truncate text-fg text-ui-sm">{s.title}</span>
                       <span className="text-fg-muted text-ui-xs">
-                        {relativeTime(s.updatedAt, now, locale)} ·{' '}
+                        {relativeTimeText(s.updatedAt, now, locale)} ·{' '}
                         {s.messageCount === 1
                           ? d.chat.oneMessage
                           : fmt(d.chat.messages, { count: s.messageCount })}

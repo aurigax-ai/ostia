@@ -732,9 +732,7 @@ describe('EditorView', () => {
     })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/huge.log" />)
 
-    expect(
-      await screen.findByText(/too large to open in the editor \(60\.0 MB\)/),
-    ).toBeInTheDocument()
+    expect(await screen.findByText(/too large to open in the editor \(60 MB\)/)).toBeInTheDocument()
     expect(fake.models.size).toBe(0)
   })
 
