@@ -1,5 +1,5 @@
 import { IconButton } from '@/components/common/IconButton'
-import { SelectField } from '@/components/settings/SettingsPanel'
+import { SelectField } from '@/components/settings/SelectField'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,

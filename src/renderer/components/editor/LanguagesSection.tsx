@@ -1,6 +1,6 @@
 import { IconButton } from '@/components/common/IconButton'
 import { useRequirements } from '@/components/settings/RequirementsNote'
-import { SectionHead } from '@/components/settings/SettingsPanel'
+import { SectionHead } from '@/components/settings/SettingsGroup'
 import { Highlight, useSearchGroup } from '@/components/settings/SettingsSearch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-type Store = typeof import('./settingsStore')
+type Store = typeof import('./settingsStore') & typeof import('./settingsParse')
 
 async function storeOn(mac: boolean): Promise<Store> {
   vi.resetModules()
@@ -9,7 +9,7 @@ async function storeOn(mac: boolean): Promise<Store> {
     isMac: mac,
     isLinux: !mac,
   }))
-  const store = await import('./settingsStore')
+  const store = { ...(await import('./settingsStore')), ...(await import('./settingsParse')) }
   vi.doUnmock('@/platform')
   return store
 }

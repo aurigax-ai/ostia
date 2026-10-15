@@ -1,5 +1,5 @@
 import { commands } from '@/commands/registry'
-import { WarningNote } from '@/components/settings/SettingsPanel'
+import { WarningNote } from '@/components/settings/ControlRow'
 import { Button } from '@/components/ui/button'
 import { runningAgentOf } from '@/lib/agents/paneAgent'
 import { resumeClaimEndsAt, resumeConflict } from '@/lib/agents/resumeFolder'

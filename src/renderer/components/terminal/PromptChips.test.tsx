@@ -1,4 +1,5 @@
 import { commands } from '@/commands/registry'
+import { SettingsPanel } from '@/components/settings/SettingsPanel'
 import type { PaneNode } from '@/lib/layout/types'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
@@ -11,7 +12,6 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-libra
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
-import { SettingsPanel } from '../settings/SettingsPanel'
 import { InputEditor } from './InputEditor'
 
 const PANE = 'pane-prompt'

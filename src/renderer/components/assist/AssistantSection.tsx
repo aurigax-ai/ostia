@@ -1,11 +1,7 @@
 import { IconButton } from '@/components/common/IconButton'
 import { ExtensionSettingsForm } from '@/components/extensions/ExtensionSettingsForm'
-import {
-  ControlRow,
-  SectionHead,
-  SettingsGroup,
-  ToggleRow,
-} from '@/components/settings/SettingsPanel'
+import { ControlRow, ToggleRow } from '@/components/settings/ControlRow'
+import { SectionHead, SettingsGroup } from '@/components/settings/SettingsGroup'
 import { Highlight, useSearchGroup } from '@/components/settings/SettingsSearch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

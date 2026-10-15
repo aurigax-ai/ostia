@@ -1,4 +1,5 @@
-import { ControlRow, SelectField, ToggleRow } from '@/components/settings/SettingsPanel'
+import { ControlRow, ToggleRow } from '@/components/settings/ControlRow'
+import { SelectField } from '@/components/settings/SelectField'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { saveSettingsNow, useSettingsStore } from '@/stores/app/settingsStore'
 import { useUpdateStore } from '@/stores/app/updateStore'

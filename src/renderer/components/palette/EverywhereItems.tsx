@@ -1,4 +1,3 @@
-import { settingsSections } from '@/components/settings/SettingsPanel'
 import { CommandGroup, CommandItem } from '@/components/ui/command'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { childPath } from '@/lib/files/fileTree'
@@ -9,6 +8,7 @@ import {
   findWorkspaceLines,
   splitFilePath,
 } from '@/lib/files/workspaceFileSearch'
+import { settingsSections } from '@/lib/settings/settingsSections'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useEffect, useMemo, useState } from 'react'

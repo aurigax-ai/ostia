@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, vi } from 'vitest'
-import { cancelSettingsSave } from '../src/renderer/stores/app/settingsStore'
+import { cancelSettingsSave } from '../src/renderer/stores/app/settingsPersist'
 import { startConsoleGuard, stopConsoleGuard } from './consoleGuard'
 import { installLocalStorage } from './mocks/memoryStorage'
 import { makeOstiaMock } from './mocks/ostia'

@@ -30,15 +30,9 @@ import {
   isCoreChipId,
 } from '@shared/terminal/promptSettings'
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
-import {
-  ControlRow,
-  SectionHead,
-  SelectField,
-  SettingsGroup,
-  SubHead,
-  ToggleRow,
-  WarningNote,
-} from './SettingsPanel'
+import { ControlRow, ToggleRow, WarningNote } from './ControlRow'
+import { SelectField } from './SelectField'
+import { SectionHead, SettingsGroup, SubHead } from './SettingsGroup'
 
 function findTerminal(
   byWorkspace: Record<string, WorkspaceLayout | undefined>,
