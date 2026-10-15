@@ -21,6 +21,7 @@ export function initialTerminalOptions(): TerminalOptions {
     cursorBlink: behavior.cursorBlink,
     scrollback: terminalSettings.scrollbackLines,
     scrollSensitivity: terminalSettings.scrollSpeed,
+    smoothScrollDuration: 0,
     minimumContrastRatio: terminalSettings.minimumContrast,
     macOptionIsMeta: terminalSettings.macOptionIsMeta,
     macOptionClickForcesSelection: true,

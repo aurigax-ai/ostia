@@ -1,3 +1,5 @@
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { Terminal as Xterm } from '@xterm/xterm'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   type GhosttyTerminal,
@@ -8,6 +10,8 @@ import {
   promptMarkData,
   unknownOsc,
 } from './ghosttyTerminal'
+import type { OstiaTerminal } from './ostiaTerminal'
+import { SMOOTH_SCROLL_MS, attachSmoothScroll, createWheelClassifier } from './smoothScroll'
 
 const realGetContext = HTMLCanvasElement.prototype.getContext
 
@@ -25,11 +29,15 @@ function stubContext(canvas: HTMLCanvasElement): unknown {
 let created: GhosttyTerminal | null = null
 
 function open(): GhosttyTerminal {
-  created = createGhosttyTerminal({ fontSize: 13, scrollback: 1000 }, false, {
-    activate: () => {},
-    hover: () => {},
-    leave: () => {},
-  })
+  created = createGhosttyTerminal(
+    { fontSize: 13, scrollback: 1000, smoothScrollDuration: 0 },
+    false,
+    {
+      activate: () => {},
+      hover: () => {},
+      leave: () => {},
+    },
+  )
   created.term.open(document.createElement('div'))
   return created
 }
@@ -156,5 +164,118 @@ describe('Ghostty terminal adapter', () => {
       links = l
     })
     expect(links?.[0]?.range.start).toEqual({ x: 2, y: 4 })
+  })
+
+  function wheel(
+    target: Element,
+    init: WheelEventInit,
+    legacy: { wheelDeltaX?: number; wheelDeltaY?: number } = {},
+  ): void {
+    const e = new WheelEvent('wheel', { bubbles: true, cancelable: true, ...init })
+    Object.defineProperty(e, 'wheelDeltaX', { value: legacy.wheelDeltaX ?? 0 })
+    Object.defineProperty(e, 'wheelDeltaY', { value: legacy.wheelDeltaY ?? 0 })
+    target.dispatchEvent(e)
+  }
+
+  function openInDocument(): { ghostty: OstiaTerminal; host: HTMLElement; target: Element } {
+    created = createGhosttyTerminal(
+      { fontSize: 13, scrollback: 1000, smoothScrollDuration: 0 },
+      false,
+      { activate: () => {}, hover: () => {}, leave: () => {} },
+    )
+    const host = document.createElement('div')
+    document.body.append(host)
+    created.term.open(host)
+    return { ghostty: created.term, host, target: host.querySelector('canvas') ?? host }
+  }
+
+  const notch = { deltaMode: WheelEvent.DOM_DELTA_PIXEL, deltaY: -100 }
+  const notchLegacy = { wheelDeltaY: 120 }
+
+  it('decides the scroll duration before ghostty reads it for the same wheel event', () => {
+    useSettingsStore.getState().setBehavior({ smoothScrolling: true })
+    useSettingsStore.getState().setByPath('appearance.motion', 'full')
+    const { ghostty, host, target } = openInDocument()
+    const seen: number[] = []
+    ghostty.attachCustomWheelEventHandler(() => {
+      seen.push(ghostty.options.smoothScrollDuration ?? -1)
+      return true
+    })
+    const detach = attachSmoothScroll(host, ghostty, false, createWheelClassifier())
+    wheel(target, notch, notchLegacy)
+    for (let i = 0; i < 5; i++) {
+      wheel(target, { deltaMode: WheelEvent.DOM_DELTA_PIXEL, deltaY: -3 }, { wheelDeltaY: 9 })
+    }
+    expect(seen[0]).toBe(SMOOTH_SCROLL_MS)
+    expect(seen.at(-1)).toBe(0)
+    detach()
+    host.remove()
+  })
+
+  it('keeps a running ghostty animation finite when a wheel event it does not scroll on arrives', () => {
+    useSettingsStore.getState().setBehavior({ smoothScrolling: true })
+    useSettingsStore.getState().setByPath('appearance.motion', 'full')
+    const frames: FrameRequestCallback[] = []
+    const raf = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((cb) => frames.push(cb))
+    const { ghostty, host, target } = openInDocument()
+    ghostty.write('line\r\n'.repeat(200))
+    const detach = attachSmoothScroll(host, ghostty, false, createWheelClassifier())
+    wheel(target, notch, notchLegacy)
+    wheel(target, notch, notchLegacy)
+    expect(ghostty.options.smoothScrollDuration).toBe(SMOOTH_SCROLL_MS)
+    for (let i = 0; i < 4; i++) {
+      wheel(
+        target,
+        { deltaMode: WheelEvent.DOM_DELTA_PIXEL, deltaX: 3, deltaY: 0 },
+        { wheelDeltaX: -10 },
+      )
+    }
+    expect(ghostty.options.smoothScrollDuration).toBe(SMOOTH_SCROLL_MS)
+    for (let i = 0; i < 60 && frames.length > 0; i++) frames.shift()?.(performance.now())
+    expect(Number.isFinite(ghostty.buffer.active.viewportY)).toBe(true)
+    expect(ghostty.buffer.active.viewportY).toBeGreaterThan(0)
+    detach()
+    raf.mockRestore()
+    host.remove()
+  })
+
+  it('starts both engines with no scroll animation and gives them the same value per wheel event', () => {
+    const { ghostty, host: ghosttyHost, target } = openInDocument()
+    const xterm = new Xterm({ smoothScrollDuration: 0, allowProposedApi: true })
+    const xtermHost = document.createElement('div')
+    document.body.append(xtermHost)
+    expect(ghostty.options.smoothScrollDuration).toBe(0)
+    expect(xterm.options.smoothScrollDuration).toBe(0)
+    const detachGhostty = attachSmoothScroll(ghosttyHost, ghostty, false, createWheelClassifier())
+    const detachXterm = attachSmoothScroll(xtermHost, xterm, false, createWheelClassifier())
+    const both = (init: WheelEventInit, legacy: { wheelDeltaY: number }): number[] => {
+      wheel(target, init, legacy)
+      wheel(xtermHost, init, legacy)
+      return [ghostty.options.smoothScrollDuration ?? -1, xterm.options.smoothScrollDuration ?? -1]
+    }
+    const trackpad = (dy: number) =>
+      both({ deltaMode: WheelEvent.DOM_DELTA_PIXEL, deltaY: dy }, { wheelDeltaY: -3 * dy })
+
+    useSettingsStore.getState().setBehavior({ smoothScrolling: true })
+    useSettingsStore.getState().setByPath('appearance.motion', 'full')
+    expect(both(notch, notchLegacy)).toEqual([SMOOTH_SCROLL_MS, SMOOTH_SCROLL_MS])
+
+    for (const dy of [45, 52, 61, 52]) trackpad(dy)
+    expect(trackpad(40)).toEqual([0, 0])
+
+    for (let i = 0; i < 5; i++) both(notch, notchLegacy)
+    useSettingsStore.getState().setByPath('appearance.motion', 'reduced')
+    expect(both(notch, notchLegacy)).toEqual([0, 0])
+
+    useSettingsStore.getState().setByPath('appearance.motion', 'full')
+    useSettingsStore.getState().setBehavior({ smoothScrolling: false })
+    expect(both(notch, notchLegacy)).toEqual([0, 0])
+    detachGhostty()
+    detachXterm()
+    xterm.dispose()
+    ghosttyHost.remove()
+    xtermHost.remove()
   })
 })

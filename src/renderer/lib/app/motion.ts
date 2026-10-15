@@ -26,3 +26,8 @@ export function useReducedMotion(): boolean {
   const osReduced = useSyncExternalStore(subscribeToOsMotion, osPrefersReducedMotion)
   return mode === 'reduced' || (mode === 'system' && osReduced)
 }
+
+export function reducedMotionNow(): boolean {
+  const mode = motionMode(useSettingsStore.getState().appearance.motion)
+  return mode === 'reduced' || (mode === 'system' && osPrefersReducedMotion())
+}
