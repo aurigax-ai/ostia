@@ -1168,7 +1168,7 @@ let languageServers: LanguageServers | null = null
 function editorLanguageOf(path: string): string {
   return languageForPath(
     path,
-    (extensionHost?.editorLanguages() ?? []).map((source) => source.language),
+    (extensionHost?.contributions.editorLanguages() ?? []).map((source) => source.language),
   )
 }
 
@@ -1218,7 +1218,7 @@ function createLanguageServers(): LanguageServers {
   return new LanguageServers({
     watchTree: (root, onChange) => languageServerWatches.watch(root, onChange),
     sources: () =>
-      (extensionHost?.languageServers() ?? []).map((source) => {
+      (extensionHost?.contributions.languageServers() ?? []).map((source) => {
         const override = serverOverrides.get(languageServerKey(source.extId, source.server.id))
         return override ? { ...source, override } : source
       }),
@@ -1560,7 +1560,7 @@ function emitPaneEvent<T extends ExtensionEventType>(
 function refreshAgentPlugins(): void {
   try {
     setAgentPlugins(
-      agentPluginContent(extensionHost?.agentPlugins() ?? [], (extId, problem) =>
+      agentPluginContent(extensionHost?.contributions.agentPlugins() ?? [], (extId, problem) =>
         console.error(`[ext:${extId}] ${problem}`),
       ),
     )
@@ -2223,7 +2223,7 @@ function registerMarketplaceIpc(marketplace: Marketplace): void {
     const file = openFileGrants.confine(path)
     if (file === null) return null
     return suggestionFor(file, {
-      servers: () => extensionHost?.languageServers() ?? [],
+      servers: () => extensionHost?.contributions.languageServers() ?? [],
       extensions: () => extensionHost?.list() ?? [],
       listings: () => marketplace.languageListings(),
       dismissed: () => dismissed.list(),
@@ -3474,7 +3474,7 @@ function readLocale(): string | undefined {
 }
 
 const languagePackDeps = {
-  languages: () => extensionHost?.languages() ?? [],
+  languages: () => extensionHost?.contributions.languages() ?? [],
   onError: (extId: string, error: string) => console.warn(`[language pack ${extId}] ${error}`),
 }
 
@@ -4223,7 +4223,7 @@ app.whenReady().then(() => {
   registerLanguageServersIpc({
     servers: languageServers,
     setEnabled: (extId, serverId, enabled) =>
-      extensionHost?.setLanguageServerEnabled(extId, serverId, enabled),
+      extensionHost?.contributions.setLanguageServerEnabled(extId, serverId, enabled),
     setOverride: (key, override) => serverOverrides.choose(key, override),
   })
   const marketplace = new Marketplace({
@@ -4330,13 +4330,13 @@ app.whenReady().then(() => {
     userDir: join(configDir(), 'snippets'),
     roots: () => [homedir(), app.getPath('userData')],
     workDirForWorkspace,
-    extensionSnippets: () => extensionHost?.snippets() ?? [],
+    extensionSnippets: () => extensionHost?.contributions.snippets() ?? [],
   }
   registerSnippetIpc(snippetDeps)
   registerSnippetMethods(snippetDeps)
   registerCompletionIpc({
     userDir: join(configDir(), 'completions'),
-    extensionDirs: () => extensionHost?.completionDirs() ?? [],
+    extensionDirs: () => extensionHost?.contributions.completionDirs() ?? [],
   })
   viewHost = new ViewHost({
     dir: join(configDir(), 'views'),
@@ -4347,11 +4347,11 @@ app.whenReady().then(() => {
   registerViewsIpc(viewHost)
   registerViewMethods({ host: viewHost, execCommand })
   registerIconThemeIpc({
-    themes: () => extensionHost?.iconThemes() ?? [],
+    themes: () => extensionHost?.contributions.iconThemes() ?? [],
     onError: (id, error) => console.warn(`[icon theme ${id}] ${error}`),
   })
   registerKeymapIpc({
-    keymaps: () => extensionHost?.keymaps() ?? [],
+    keymaps: () => extensionHost?.contributions.keymaps() ?? [],
     platform: process.platform,
     onError: (ref, error) => console.warn(`[keymap ${ref}] ${error}`),
     onSkipped: (ref, skipped) =>
@@ -4359,7 +4359,7 @@ app.whenReady().then(() => {
   })
   registerLanguagePackIpc(languagePackDeps)
   registerEditorLanguageIpc({
-    languages: () => extensionHost?.editorLanguages() ?? [],
+    languages: () => extensionHost?.contributions.editorLanguages() ?? [],
     onError: (extId, error) => console.warn(`[editor language ${extId}] ${error}`),
   })
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>

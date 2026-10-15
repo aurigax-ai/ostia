@@ -155,7 +155,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
       socketPath,
     )
     shellIntegrationSpawnOptions('/bin/bash', {})
-    agentDir = setAgentPlugins(agentPluginContent(host.agentPlugins()))
+    agentDir = setAgentPlugins(agentPluginContent(host.contributions.agentPlugins()))
     mkdirSync(bin, { recursive: true })
     writeFileSync(join(bin, 'claude'), FAKE_CLAUDE)
     writeFileSync(join(bin, 'codex'), FAKE_CODEX)
@@ -248,14 +248,14 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
       broadcast: () => {},
       openPanelIn: () => {},
       onChanged: () => {
-        agentDir = setAgentPlugins(agentPluginContent(pending.agentPlugins()))
+        agentDir = setAgentPlugins(agentPluginContent(pending.contributions.agentPlugins()))
       },
       notify,
       requestTimeoutMs: 5000,
       log: () => {},
     })
     serving = pending
-    agentDir = setAgentPlugins(agentPluginContent(pending.agentPlugins()))
+    agentDir = setAgentPlugins(agentPluginContent(pending.contributions.agentPlugins()))
     try {
       const blocked = await inPane('claude')
       expect(blocked.stdout).toContain('skill ostia SKILL.md,reference')
@@ -277,7 +277,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
     } finally {
       pending.stopAll()
       serving = host
-      agentDir = setAgentPlugins(agentPluginContent(host.agentPlugins()))
+      agentDir = setAgentPlugins(agentPluginContent(host.contributions.agentPlugins()))
     }
   }, 60_000)
 

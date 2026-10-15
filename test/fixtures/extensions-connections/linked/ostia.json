@@ -17,7 +17,12 @@
         "title": "HTTP API",
         "fields": {
           "baseUrl": { "title": "Base URL", "type": "string", "required": true },
-          "auth": { "title": "Auth", "type": "enum", "enum": ["none", "bearer"], "default": "bearer" }
+          "auth": {
+            "title": "Auth",
+            "type": "enum",
+            "enum": ["none", "bearer"],
+            "default": "bearer"
+          }
         },
         "secrets": { "secret": { "title": "Token" } }
       }

@@ -284,7 +284,7 @@ describe('the Activity extension records two fake agents and shows them in its p
       socketPath,
     )
     shellIntegrationSpawnOptions('/bin/bash', {})
-    agentDir = setAgentPlugins(agentPluginContent(host.agentPlugins()))
+    agentDir = setAgentPlugins(agentPluginContent(host.contributions.agentPlugins()))
     mkdirSync(bin, { recursive: true })
     for (const agent of ['claude', 'codex']) {
       writeFileSync(join(bin, agent), FAKE_AGENT)

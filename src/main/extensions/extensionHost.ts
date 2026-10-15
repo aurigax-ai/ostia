@@ -3,11 +3,7 @@ import { EventEmitter } from 'node:events'
 import { type FSWatcher, mkdirSync, readdirSync, watch } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import {
-  AGENT_PLUGIN_CAPABILITY,
-  agentSkillId,
-  hookAgentsFor,
-} from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
+import { agentSkillId, hookAgentsFor } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import { appEnv, withoutEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import type { AssistOpenUiRequest } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import {
@@ -56,19 +52,13 @@ import {
   panelPath,
   validSettingValue,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import type { IconThemeContribution } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
-import {
-  LANGUAGE_SERVER_CAPABILITY,
-  languageServerSummary,
-} from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
+import { languageServerSummary } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import {
   FOLDER_CLOSED_EVENT,
   type RemoteCwd,
   type RemoteFilesRequest,
   type RemoteFolder,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import type { Snippet } from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
-import type { AgentPluginSource } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { isInsideDir } from '@aurigax-ai/ostia-extension-sdk/manifest/confinedRead'
 import {
   type ExtensionRoot,
@@ -91,10 +81,9 @@ import {
   RemoteFolders,
   type RemoteFoldersDeps,
 } from '../files/remoteFolders'
-import type { EditorLanguageSource } from '../lsp/editorLanguages'
-import type { LanguageServerSource } from '../lsp/languageServers'
 import { ExtensionAssist } from './extensionAssist'
 import type { ExtensionConnections } from './extensionConnections'
+import { ExtensionContributions } from './extensionContributions'
 import type { ExtensionExec } from './extensionExec'
 import type { ExtensionLaunches } from './extensionLaunches'
 import {
@@ -111,8 +100,6 @@ import {
 } from './extensionRuntime'
 import { ExtensionSlots } from './extensionSlots'
 import { type ExtensionStore, effectiveRecord, grantedCaps, needsApproval } from './extensionStore'
-import type { KeymapSource } from './keymaps'
-import type { LanguageSource } from './languagePacks'
 
 export const MAX_RESTARTS = 3
 const REQUEST_TIMEOUT_MS = 30_000
@@ -307,11 +294,24 @@ export class ExtensionHost {
   readonly assistant: ExtensionAssist
   readonly slots: ExtensionSlots
   readonly runs: ExtensionRuns
+  readonly contributions: ExtensionContributions
 
   constructor(private readonly deps: ExtensionHostDeps) {
     this.changes.setMaxListeners(0)
     for (const ext of this.discover()) this.runtimes.set(ext.manifest.id, newRuntime(ext))
     this.settings = storedSettings(deps.readExtensionSettings?.())
+    this.contributions = new ExtensionContributions({
+      deps,
+      runtimes: this.runtimes,
+      active: (rt) => this.active(rt),
+      pending: (rt) => this.pending(rt),
+      record: (rt) => this.record(rt),
+      granted: (rt) => this.granted(rt),
+      settingValues: (rt) => this.settingValues(rt),
+      eager: (rt) => this.eager(rt),
+      start: (rt) => this.start(rt),
+      changed: (rt) => this.changed(rt),
+    })
     this.runs = new ExtensionRuns({
       deps,
       runtimes: this.runtimes,
@@ -486,119 +486,6 @@ export class ExtensionHost {
   getLocale(identity: PaneIdentity, conn: MessageConnection) {
     this.runtimeOf(identity, conn)
     return { ok: true, locale: this.currentLocale() }
-  }
-
-  snippets(): { extId: string; snippets: Snippet[] }[] {
-    return [...this.runtimes.values()]
-      .filter((rt) => this.active(rt) && rt.ext.manifest.contributes.snippets)
-      .map((rt) => ({
-        extId: rt.ext.manifest.id,
-        snippets: rt.ext.manifest.contributes.snippets ?? [],
-      }))
-  }
-
-  completionDirs(): string[] {
-    return [...this.runtimes.values()]
-      .filter((rt) => this.active(rt) && rt.ext.manifest.contributes.completions)
-      .map((rt) => join(rt.ext.dir, rt.ext.manifest.contributes.completions ?? ''))
-  }
-
-  languages(): LanguageSource[] {
-    return [...this.runtimes.values()]
-      .filter((rt) => this.active(rt))
-      .flatMap((rt) =>
-        (rt.ext.manifest.contributes.languages ?? []).map((language) => ({
-          extId: rt.ext.manifest.id,
-          dir: rt.ext.dir,
-          language,
-        })),
-      )
-  }
-
-  keymaps(): KeymapSource[] {
-    return [...this.runtimes.values()]
-      .filter((rt) => this.active(rt))
-      .flatMap((rt) =>
-        (rt.ext.manifest.contributes.keymaps ?? []).map((keymap) => ({
-          extId: rt.ext.manifest.id,
-          dir: rt.ext.dir,
-          keymap,
-        })),
-      )
-  }
-
-  editorLanguages(): EditorLanguageSource[] {
-    return [...this.runtimes.values()]
-      .filter((rt) => this.active(rt))
-      .flatMap((rt) =>
-        (rt.ext.manifest.contributes.editorLanguages ?? []).map((language) => ({
-          extId: rt.ext.manifest.id,
-          dir: rt.ext.dir,
-          language,
-        })),
-      )
-  }
-
-  private languageServerState(rt: Runtime, serverId: string): LanguageServerSource['state'] {
-    if (this.pending(rt)) return 'pending'
-    const record = this.record(rt)
-    if (!record.enabled) return 'off'
-    if (!this.granted(rt).includes(LANGUAGE_SERVER_CAPABILITY)) return 'pending'
-    return record.serversOff?.includes(serverId) ? 'off' : 'on'
-  }
-
-  languageServers(): LanguageServerSource[] {
-    return [...this.runtimes.values()].flatMap((rt) =>
-      (rt.ext.manifest.contributes.languageServers ?? []).map((server) => ({
-        extId: rt.ext.manifest.id,
-        extName: rt.ext.manifest.name,
-        dir: rt.ext.dir,
-        builtin: rt.ext.builtin,
-        state: this.languageServerState(rt, server.id),
-        server,
-        settingValues: this.settingValues(rt),
-      })),
-    )
-  }
-
-  setLanguageServerEnabled(extId: string, serverId: string, enabled: boolean): void {
-    const rt = this.runtimes.get(extId)
-    if (!rt || this.pending(rt)) return
-    const declared = rt.ext.manifest.contributes.languageServers ?? []
-    if (!declared.some((server) => server.id === serverId)) return
-    const record = this.record(rt)
-    const off = new Set(record.serversOff ?? [])
-    if (enabled) off.delete(serverId)
-    else off.add(serverId)
-    const { serversOff: _previous, ...kept } = record
-    this.deps.store.set(extId, {
-      ...kept,
-      enabled: enabled ? true : record.enabled,
-      approved: record.approved ?? [],
-      ...(off.size > 0 ? { serversOff: [...off] } : {}),
-    })
-    if (enabled && !record.enabled && this.eager(rt)) this.start(rt)
-    this.changed(rt)
-  }
-
-  agentPlugins(): AgentPluginSource[] {
-    return [...this.runtimes.values()]
-      .filter((rt) => this.active(rt) && this.granted(rt).includes(AGENT_PLUGIN_CAPABILITY))
-      .map((rt) => ({
-        extId: rt.ext.manifest.id,
-        dir: rt.ext.dir,
-        skills: rt.ext.manifest.contributes.agentSkills ?? [],
-        hooks: rt.ext.manifest.contributes.agentHooks ?? [],
-      }))
-      .filter((source) => source.skills.length > 0 || source.hooks.length > 0)
-  }
-
-  iconThemes(): { dir: string; theme: IconThemeContribution }[] {
-    return [...this.runtimes.values()]
-      .filter((rt) => this.active(rt))
-      .flatMap((rt) =>
-        (rt.ext.manifest.contributes.iconThemes ?? []).map((theme) => ({ dir: rt.ext.dir, theme })),
-      )
   }
 
   private changed(rt?: Runtime): void {

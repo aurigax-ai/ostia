@@ -130,7 +130,7 @@ describe('loadLanguagePacks', () => {
       notify: vi.fn(),
       log: () => {},
     })
-    const deps = { languages: () => host.languages(), onError: vi.fn() }
+    const deps = { languages: () => host.contributions.languages(), onError: vi.fn() }
     expect(loadLanguagePacks(deps)).toEqual([
       {
         extId: 'langpack-zh-hant',

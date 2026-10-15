@@ -280,14 +280,14 @@ describe('ExtensionHost — snippets', () => {
     writeExt(join(base, 'builtin'), 'ops', { contributes: { snippets: [flow] } })
     writeExt(join(base, 'user'), 'mine', { contributes: { snippets: [flow] } })
     const { host } = makeHost()
-    expect(host.snippets().map((w) => w.extId)).toEqual(['ops'])
-    expect(host.snippets()[0].snippets[0]).toMatchObject({ name: 'Deploy', tags: [] })
+    expect(host.contributions.snippets().map((w) => w.extId)).toEqual(['ops'])
+    expect(host.contributions.snippets()[0].snippets[0]).toMatchObject({ name: 'Deploy', tags: [] })
 
     host.approve('mine')
-    expect(host.snippets().map((w) => w.extId)).toEqual(['ops', 'mine'])
+    expect(host.contributions.snippets().map((w) => w.extId)).toEqual(['ops', 'mine'])
 
     host.setEnabled('ops', false)
-    expect(host.snippets().map((w) => w.extId)).toEqual(['mine'])
+    expect(host.contributions.snippets().map((w) => w.extId)).toEqual(['mine'])
   })
 })
 
@@ -298,9 +298,11 @@ describe('ExtensionHost — completions', () => {
     )
     writeExt(join(base, 'builtin'), 'completions', { contributes: manifest.contributes })
     const { host } = makeHost()
-    expect(host.completionDirs()).toEqual([join(base, 'builtin', 'completions', 'specs')])
+    expect(host.contributions.completionDirs()).toEqual([
+      join(base, 'builtin', 'completions', 'specs'),
+    ])
     host.setEnabled('completions', false)
-    expect(host.completionDirs()).toEqual([])
+    expect(host.contributions.completionDirs()).toEqual([])
   })
 })
 
@@ -339,7 +341,7 @@ describe('ExtensionHost — language servers', () => {
 
   it('lists every declared server with its state, folder and the extension’s setting values', () => {
     const { host } = makeHost({ readExtensionSettings: () => ({ 'lsp-demo': { mode: 'loud' } }) })
-    const sources = host.languageServers()
+    const sources = host.contributions.languageServers()
     expect(sources.map((s) => [s.extId, s.server.id, s.state, s.builtin])).toEqual([
       ['lsp-demo', 'alpha', 'on', true],
       ['lsp-demo', 'beta', 'on', true],
@@ -359,21 +361,25 @@ describe('ExtensionHost — language servers', () => {
   it('switches one server off and on again, stores it, and tells whoever listens', () => {
     const onChanged = vi.fn()
     const { host, deps } = makeHost({ onChanged })
-    host.setLanguageServerEnabled('lsp-demo', 'beta', false)
-    expect(host.languageServers().map((s) => s.state)).toEqual(['on', 'off', 'pending'])
+    host.contributions.setLanguageServerEnabled('lsp-demo', 'beta', false)
+    expect(host.contributions.languageServers().map((s) => s.state)).toEqual([
+      'on',
+      'off',
+      'pending',
+    ])
     expect(deps.store.get('lsp-demo')).toMatchObject({ enabled: true, serversOff: ['beta'] })
     expect(onChanged).toHaveBeenCalledTimes(1)
     host.setEnabled('lsp-demo', false)
     expect(deps.store.get('lsp-demo')).toMatchObject({ enabled: false, serversOff: ['beta'] })
     expect(
-      host
+      host.contributions
         .languageServers()
         .slice(0, 2)
         .map((s) => s.state),
     ).toEqual(['off', 'off'])
-    host.setLanguageServerEnabled('lsp-demo', 'beta', true)
+    host.contributions.setLanguageServerEnabled('lsp-demo', 'beta', true)
     expect(
-      host
+      host.contributions
         .languageServers()
         .slice(0, 2)
         .map((s) => s.state),
@@ -383,20 +389,24 @@ describe('ExtensionHost — language servers', () => {
 
   it('ignores a server it does not know and an extension still waiting for approval', () => {
     const { host, deps } = makeHost()
-    host.setLanguageServerEnabled('lsp-demo', 'gamma', false)
-    host.setLanguageServerEnabled('lsp-user', 'alpha', true)
-    host.setLanguageServerEnabled('missing', 'alpha', true)
+    host.contributions.setLanguageServerEnabled('lsp-demo', 'gamma', false)
+    host.contributions.setLanguageServerEnabled('lsp-user', 'alpha', true)
+    host.contributions.setLanguageServerEnabled('missing', 'alpha', true)
     expect(deps.store.get('lsp-demo')).toBeUndefined()
     expect(deps.store.get('lsp-user')).toBeUndefined()
-    expect(host.languageServers().map((s) => s.state)).toEqual(['on', 'on', 'pending'])
+    expect(host.contributions.languageServers().map((s) => s.state)).toEqual([
+      'on',
+      'on',
+      'pending',
+    ])
   })
 
   it('runs a user extension’s server only after the human approved it with the capability', () => {
     const { host, deps } = makeHost()
     host.approve('lsp-user')
-    expect(host.languageServers()[2].state).toBe('on')
+    expect(host.contributions.languageServers()[2].state).toBe('on')
     deps.store.set('lsp-user', { enabled: true, approved: [] })
-    expect(host.languageServers()[2].state).toBe('pending')
+    expect(host.contributions.languageServers()[2].state).toBe('pending')
   })
 })
 
@@ -431,11 +441,11 @@ describe('ExtensionHost agent plugins', () => {
 
   it('contributes nothing until the human approves the agent-plugin capability and enables it', () => {
     const { host, deps } = makeHost()
-    expect(host.agentPlugins()).toEqual([])
+    expect(host.contributions.agentPlugins()).toEqual([])
     deps.store.set('kit', { enabled: true, approved: ['notify'] })
-    expect(host.agentPlugins()).toEqual([])
+    expect(host.contributions.agentPlugins()).toEqual([])
     host.approve('kit')
-    expect(host.agentPlugins()).toEqual([
+    expect(host.contributions.agentPlugins()).toEqual([
       {
         extId: 'kit',
         dir: join(base, 'user', 'kit'),
@@ -444,7 +454,7 @@ describe('ExtensionHost agent plugins', () => {
       },
     ])
     host.setEnabled('kit', false)
-    expect(host.agentPlugins()).toEqual([])
+    expect(host.contributions.agentPlugins()).toEqual([])
   })
 
   it('tells main to rebuild the agent plugin when an extension is approved or switched', () => {
