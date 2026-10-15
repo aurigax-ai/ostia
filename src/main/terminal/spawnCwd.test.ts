@@ -38,4 +38,10 @@ describe('sandboxCwd', () => {
     expect(sandboxCwd('/home/u', '/w')).toBe('/w')
     expect(sandboxCwd('/wide', '/w')).toBe('/w')
   })
+
+  it('clamps a folder that leaves the workspace through .. to the workspace folder', () => {
+    expect(sandboxCwd('/w/../etc', '/w')).toBe('/w')
+    expect(sandboxCwd('/w/tree/../../home/u', '/w')).toBe('/w')
+    expect(sandboxCwd('/w/tree/..', '/w')).toBe('/w/tree/..')
+  })
 })

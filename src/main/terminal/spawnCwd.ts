@@ -1,6 +1,6 @@
 import { statSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { expandHome } from '../platform/pathGuard'
+import { expandHome, isInsidePath } from '../platform/pathGuard'
 
 export interface SpawnFolder {
   cwd: string
@@ -23,5 +23,5 @@ export function spawnFolder(cwd: string | undefined, home = homedir()): SpawnFol
 
 export function sandboxCwd(cwd: string, workDir: string | undefined): string {
   if (!workDir) return cwd
-  return cwd === workDir || cwd.startsWith(`${workDir}/`) ? cwd : workDir
+  return isInsidePath(workDir, cwd) ? cwd : workDir
 }

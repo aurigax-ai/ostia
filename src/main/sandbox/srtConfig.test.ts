@@ -130,6 +130,18 @@ describe('buildSrtConfig filesystem limits', () => {
     expect(filesystem.allowWrite.some((p) => p.startsWith('/home/u/.cargo'))).toBe(false)
   })
 
+  it('drops a readable or writable entry beneath a hidden folder when its name starts with two dots', () => {
+    const policy = {
+      allowRead: ['~/.cargo/..cache'],
+      allowWrite: ['~/.cargo/..target'],
+      denyRead: ['~/.cargo'],
+      domains: [],
+    }
+    const { filesystem } = buildSrtConfig(policy, guardedPaths, 'linux', 'x64')
+    expect(filesystem.allowRead).not.toContain('/home/u/.cargo/..cache')
+    expect(filesystem.allowWrite).not.toContain('/home/u/.cargo/..target')
+  })
+
   it('stops handing the agent folder to the sandbox once the human hides it', () => {
     const policy = { allowRead: [], domains: [], denyRead: ['~/.claude'] }
     const { filesystem } = buildSrtConfig(policy, guardedPaths, 'linux', 'x64')
