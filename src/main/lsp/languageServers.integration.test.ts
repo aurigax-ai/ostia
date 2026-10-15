@@ -31,13 +31,10 @@ import { TreeWatches } from '../files/fileWatch'
 import { programPath } from '../platform/systemRequirements'
 import { releaseUserAgent } from '../updates/releaseCheck'
 import { loadEditorLanguages } from './editorLanguages'
-import {
-  type LanguageServerSource,
-  LanguageServers,
-  type ManagedServerFiles,
-} from './languageServers'
+import { LanguageServers } from './languageServers'
 import { chooseServerProgram } from './languageServersIpc'
 import { DOWNLOAD_BASE_URL_ENV, ManagedServers, downloadBaseUrl } from './managedServers'
+import type { LanguageServerSource, ManagedServerFiles } from './serverBinaries'
 import { ServerOverrides } from './serverOverrides'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn(), on: vi.fn() } }))

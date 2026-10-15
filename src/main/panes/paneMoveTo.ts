@@ -4,9 +4,16 @@ import { normalizeSplitTabName } from '../../shared/workspaces/splitTabs'
 import type { Reach } from '../approvals/reach'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, getByPaneId } from '../control/idRegistry'
-import { type PaneReachDeps, ensurePaneReach, fail, paneRefs, paneTarget, record } from './paneIo'
 import type { PaneEntry } from './paneList'
 import { type PaneMoveDeps, checkPaneMove } from './paneMove'
+import {
+  type PaneReachDeps,
+  ensurePaneReach,
+  fail,
+  paneRefs,
+  paneTarget,
+  record,
+} from './paneReach'
 
 interface PaneTabPlan {
   members: string[]

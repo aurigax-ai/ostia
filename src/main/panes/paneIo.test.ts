@@ -27,9 +27,8 @@ const { grant, setCaps } = await import('../approvals/capabilityStore')
 const { setCapFilter, setScriptTokenCheck } = await import('../control/controlAuth')
 const { registerControlServer, stopControlServer } = await import('../control/controlServer')
 const { markManager, registerExtension, registerPane } = await import('../control/idRegistry')
-const { inputBytes, keyBytes, paneReach, pasteBytes, registerPaneIoMethods } = await import(
-  './paneIo'
-)
+const { inputBytes, keyBytes, pasteBytes, registerPaneIoMethods } = await import('./paneIo')
+const { paneReach } = await import('./paneReach')
 const { pastedText } = await import('./paneIo')
 const { PaneWaking } = await import('./paneWaking')
 

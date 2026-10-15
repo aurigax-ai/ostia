@@ -17,9 +17,9 @@ vi.mock('../main/approvals/approvals', () => ({ approvals: () => ({ request }) }
 const { postBusMessage, registerBusMethods } = await import('../main/agents/bus')
 const { registerControlServer, stopControlServer } = await import('../main/control/controlServer')
 const { registerPane } = await import('../main/control/idRegistry')
-const { busHookCommand, claudeHookSettings, codexHookCommands } = await import(
-  '../main/terminal/shellIntegration'
-)
+const { busHookCommand } = await import('../main/terminal/agentHookCommands')
+const { claudeHookSettings } = await import('../main/terminal/claudeIntegration')
+const { codexHookCommands } = await import('../main/terminal/codexIntegration')
 
 const cliPath = join(process.cwd(), 'out', 'cli', 'index.js')
 const socketPath = join(dir, 'control.sock')

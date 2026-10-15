@@ -16,10 +16,9 @@ import { registerControlServer, stopControlServer } from '../main/control/contro
 import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
 import { ExtensionHost, registerExtensionMethods } from '../main/extensions/extensionHost'
 import { ExtensionStore } from '../main/extensions/extensionStore'
+import { extensionHookCommand } from '../main/terminal/agentHookCommands'
+import { codexHookKey, codexHookTrustHash } from '../main/terminal/codexIntegration'
 import {
-  codexHookKey,
-  codexHookTrustHash,
-  extensionHookCommand,
   setAgentPlugins,
   shellIntegrationDir,
   shellIntegrationSpawnOptions,

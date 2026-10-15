@@ -14,8 +14,8 @@ vi.mock('../control/controlServer', () => ({
 }))
 
 const { ensureCaps } = await import('../approvals/controlElevation')
-const { SHARED_PROFILE_DETAIL, defaultBrowserPane, registerBrowseMethods, resolveGuest } =
-  await import('./browse')
+const { SHARED_PROFILE_DETAIL, defaultBrowserPane, resolveGuest } = await import('./browseGuests')
+const { registerBrowseMethods } = await import('./browse')
 const { registerPane, removePane } = await import('../control/idRegistry')
 const { ownWorkspaceReach } = await import('../../../test/reach')
 

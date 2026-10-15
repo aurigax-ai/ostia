@@ -27,7 +27,8 @@ import { registerControlMethod } from '../control/controlServer'
 import { getByPaneId } from '../control/idRegistry'
 import { privateTmpDir } from '../platform/privateTmp'
 import type { RedactText } from '../privacy/redactionTargets'
-import { type ConsoleEntry, ownedGuest, resolveGuest } from './browse'
+import { ownedGuest, resolveGuest } from './browseGuests'
+import type { ConsoleEntry } from './browseMethod'
 import { failedRequestsFor } from './guestNetwork'
 
 export interface PickDeps {
