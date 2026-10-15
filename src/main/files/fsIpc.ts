@@ -12,8 +12,8 @@ import type { PaneOutput } from '../terminal/terminalPathLinks'
 import { registerProjectRootIpc } from '../workspaces/projectRoot'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { windowForWorkspace } from '../workspaces/workspaceRegistry'
-import { registerFileDropIpc } from './fileDrops'
 import { FileOps } from './fileOps'
+import { registerFileOpsIpc } from './fileOpsIpc'
 import { FileWatches } from './fileWatch'
 import { readBinaryConfined } from './fsBinary'
 import { readTextConfined, versionConfined, writeText, writeTextConfined } from './fsText'
@@ -76,14 +76,7 @@ export function registerFsIpc({
   registerSearchIpc(ripgrepPath(app.getAppPath(), process.platform, process.arch), allowedRoots)
 
   const fileOps = new FileOps({ roots: allowedRoots, trash: (path) => shell.trashItem(path) })
-  ipcMain.handle('files:create', (_e, dir: unknown, name: unknown, kind: unknown) =>
-    fileOps.create(dir, name, kind),
-  )
-  ipcMain.handle('files:rename', (_e, path: unknown, name: unknown) => fileOps.rename(path, name))
-  ipcMain.handle('files:move', (_e, paths: unknown, dir: unknown) => fileOps.move(paths, dir))
-  ipcMain.handle('files:copy', (_e, paths: unknown, dir: unknown) => fileOps.copy(paths, dir))
-  ipcMain.handle('files:trash', (_e, paths: unknown) => fileOps.trash(paths))
-  registerFileDropIpc({
+  registerFileOpsIpc({
     fileOps,
     windowOfWorkspace: windowForWorkspace,
     sandboxRefusal: (workspaceId, dir) =>

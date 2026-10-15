@@ -1055,7 +1055,7 @@ describe('TerminalView engines', () => {
       { dataTransfer: { setData: vi.fn() } },
     )
     expect(dragged).toBe(false)
-    expect(window.ostia.fileOps.startDrag).toHaveBeenCalledWith('/home/me/notes file.md')
+    expect(window.ostia.fileOps.startDrag).toHaveBeenCalledWith('w1', '/home/me/notes file.md')
     const file = new File([''], 'notes file.md')
     vi.mocked(window.ostia.files.pathForFile).mockReturnValue('/home/me/notes file.md')
     fireEvent.drop(container.querySelector('.terminal-surface') as HTMLElement, {
