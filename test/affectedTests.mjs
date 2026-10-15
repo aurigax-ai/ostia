@@ -87,7 +87,7 @@ const GLOBAL_INPUTS = [
 ]
 
 function isGlobalInput(file) {
-  return GLOBAL_INPUTS.some((pattern) => pattern.test(file)) || E2E_HARNESS.includes(file)
+  return GLOBAL_INPUTS.some((pattern) => pattern.test(file))
 }
 
 function isDataFile(file) {
