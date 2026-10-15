@@ -313,6 +313,7 @@ import { AppTray, isHiddenLaunch, unreadWorkspaces } from './windows/tray'
 import { WindowBroker } from './windows/windowBroker'
 import { registerWindowIpc } from './windows/windowIpc'
 import { createWindowSend } from './windows/windowSend'
+import { createWindowWiring } from './windows/windowWiring'
 import { registerCmuxSessionIpc } from './workspaces/cmuxSession'
 import { registerProjectRootIpc } from './workspaces/projectRoot'
 import { registerSameFolder } from './workspaces/sameFolder'
@@ -817,14 +818,7 @@ const { attachPty } = createPtyAttach({
   telemetry: () => services.telemetry,
 })
 
-const {
-  createWindow,
-  revealWindow,
-  emitFocusChanged,
-  toggleAllWindows,
-  applyGlobalHotkey,
-  revealApp,
-} = createAppWindows({
+const { wireWindow } = createWindowWiring({
   services,
   quit,
   readSettingsFile,
@@ -848,6 +842,15 @@ const {
   browserPanes,
   ptys,
 })
+
+const {
+  createWindow,
+  revealWindow,
+  emitFocusChanged,
+  toggleAllWindows,
+  applyGlobalHotkey,
+  revealApp,
+} = createAppWindows({ wireWindow, services, readSettingsFile, windows })
 
 function configDir(): string {
   return appConfigDir()
