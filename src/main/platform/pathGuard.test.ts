@@ -3,7 +3,7 @@ import { homedir, tmpdir } from 'node:os'
 import { join, sep } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { archiveRoot } from '../../shared/archives/archivePaths'
-import { expandHome, isPathAllowed, resolveSafe } from './pathGuard'
+import { expandHome, isInsidePath, isPathAllowed, resolveSafe } from './pathGuard'
 
 const root = mkdtempSync(join(tmpdir(), 'ostia-guard-'))
 
@@ -23,6 +23,43 @@ describe('expandHome', () => {
   it('leaves paths without a leading ~ untouched', () => {
     expect(expandHome('/etc/passwd')).toBe('/etc/passwd')
     expect(expandHome('relative/x')).toBe('relative/x')
+  })
+})
+
+describe('isInsidePath', () => {
+  it.each([
+    ['/', '/', true],
+    ['/', '/a', true],
+    ['/', '/a/b/c', true],
+    ['/a/b', '/a/b', true],
+    ['/a/b', '/a/b/', true],
+    ['/a/b/', '/a/b', true],
+    ['/a/b', '/a/b/c', true],
+    ['/a/b/', '/a/b/c', true],
+    ['/a/b', '/a/b/c/d.txt', true],
+    ['/a/b', '/a/b//c', true],
+    ['/a/b', '//a/b/c', true],
+    ['/a/b', '/a/b/./c', true],
+    ['/a/b', '/a/b/c/..', true],
+    ['/a/b', '/a/b/..c', true],
+    ['/a/b', '/a/b/...', true],
+    ['/a/b', '/a/bc', false],
+    ['/a/b', '/a/b-c/d', false],
+    ['/a/b', '/a/b.c', false],
+    ['/a/b', '/a', false],
+    ['/a/b', '/', false],
+    ['/a/b', '/a/c', false],
+    ['/a/b', '/a/b/..', false],
+    ['/a/b', '/a/b/../c', false],
+    ['/a/b', '/a/b/../../etc', false],
+    ['/a/b', '/a/b/c/../../bc', false],
+    ['/a/b', 'a/b/c', false],
+    ['a/b', '/a/b/c', false],
+    ['/a/b', 'c', false],
+    ['/a/b', '', false],
+    ['', '/a/b', false],
+  ])('isInsidePath(%j, %j) is %s', (base, path, inside) => {
+    expect(isInsidePath(base, path)).toBe(inside)
   })
 })
 

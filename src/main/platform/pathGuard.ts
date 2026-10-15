@@ -1,5 +1,5 @@
 import { homedir } from 'node:os'
-import { join, resolve, sep } from 'node:path'
+import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { isArchivePath } from '../../shared/archives/archivePaths'
 
@@ -9,10 +9,10 @@ export function expandHome(p: string, home = homedir()): string {
   return p
 }
 
-function isInsideRoot(root: string, target: string): boolean {
-  if (target === root) return true
-  const rootWithSep = root.endsWith(sep) ? root : root + sep
-  return target.startsWith(rootWithSep)
+export function isInsidePath(base: string, path: string): boolean {
+  if (!isAbsolute(base) || !isAbsolute(path)) return false
+  const rel = relative(base, path)
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel))
 }
 
 export function resolveSafe(inputPath: string, roots: string[]): string | null {
@@ -20,7 +20,7 @@ export function resolveSafe(inputPath: string, roots: string[]): string | null {
   const resolved = resolve(expandHome(inputPath))
   for (const root of roots) {
     const resolvedRoot = resolve(expandHome(root))
-    if (isInsideRoot(resolvedRoot, resolved)) return resolved
+    if (isInsidePath(resolvedRoot, resolved)) return resolved
   }
   return null
 }
