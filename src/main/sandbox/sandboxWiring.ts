@@ -1,16 +1,25 @@
 import type { BrowserWindow } from 'electron'
-import { postActionNotification } from '../attention/notify'
-import type { NotifyDeps } from '../attention/notify'
+import { type NotifyDeps, postActionNotification } from '../attention/notify'
 import type { ExtensionHost } from '../extensions/extensionHost'
-import { SANDBOX_FEATURE, installHint, missingRequirements } from '../platform/systemRequirements'
+import { readLocale } from '../platform/settingsFile'
+import {
+  SANDBOX_FEATURE,
+  installHint,
+  missingRequirements,
+  requirementLabel,
+} from '../platform/systemRequirements'
+import { registerSystemRequirementsIpc } from '../platform/systemRequirementsIpc'
+import { loginPathSettled } from '../platform/toolPath'
 import { registerSecretMethods } from '../secrets/register'
 import type { SecretService } from '../secrets/secretService'
 import { deleteGlobalVaultValue, setGlobalVaultValue } from '../secrets/vault'
-import { windowForWorkspace } from '../workspaces/workspaceRegistry'
+import { windowForWorkspace, workDirForWorkspace } from '../workspaces/workspaceRegistry'
 import { registerSandboxMethods } from './controlMethods'
 import type { DomainRequests } from './domainRequests'
+import { registerSandboxIpc } from './ipc'
 import type { PortRequests } from './portRequests'
 import { reportSandboxSpawnFailure } from './spawnFailureNotice'
+import type { ViolationLog } from './violations'
 import type { WorkspaceSandboxes } from './workspaceSandboxes'
 
 interface SandboxWiringDeps {
@@ -75,4 +84,46 @@ export function registerSandboxWiring({
       workspaceId,
       errors,
     )
+}
+
+interface SandboxIpcWiringDeps {
+  workspaceSandboxes: WorkspaceSandboxes
+  domainRequests: DomainRequests
+  portRequests: PortRequests
+  sandboxViolations: ViolationLog
+  services: {
+    extensionHost: ExtensionHost | null
+  }
+}
+
+export function registerSandboxIpcWiring({
+  workspaceSandboxes,
+  domainRequests,
+  portRequests,
+  sandboxViolations,
+  services,
+}: SandboxIpcWiringDeps) {
+  registerSandboxIpc({
+    sandboxes: workspaceSandboxes,
+    ownerWindow: windowForWorkspace,
+    missing: () => missingRequirements(SANDBOX_FEATURE),
+    domains: domainRequests,
+    ports: portRequests,
+    violations: sandboxViolations,
+    refreshAll: () => workspaceSandboxes.refreshAll(),
+  })
+  registerSystemRequirementsIpc({
+    ownerWindow: windowForWorkspace,
+    workDir: (workspaceId) => workDirForWorkspace(workspaceId),
+    locale: readLocale,
+    systemExtensionEnabled: () =>
+      services.extensionHost?.list().some((ext) => ext.id === 'system' && ext.enabled) ?? false,
+    missing: (feature) => missingRequirements(feature),
+    settled: loginPathSettled,
+    label: requirementLabel,
+    invokeInstall: (args, caller) =>
+      services.extensionHost
+        ? services.extensionHost.invoke('system', 'install', args, caller)
+        : Promise.resolve({ ok: false, error: 'extension-unavailable' }),
+  })
 }

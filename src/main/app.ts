@@ -10,8 +10,7 @@ import {
   type RemoteCwd,
   normalizeRemoteCwd,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import { BrowserWindow, ClipboardItem, app, clipboard, ipcMain, shell } from 'electron'
-import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
+import { BrowserWindow, app, ipcMain, shell } from 'electron'
 import { isMacInstall, replacesInApp } from '../shared/app/installMethod'
 import { ChangeSignal } from '../shared/common/actThenConfirm'
 import { externalHref } from '../shared/common/externalLinks'
@@ -38,12 +37,9 @@ import {
   recordCreatedWorkspace,
   scriptTokenScope,
 } from './approvals/scriptTokens'
-import { registerArtifactIpc } from './artifacts/artifactFolders'
-import { registerArtifactHistoryIpc } from './artifacts/artifactHistory'
-import { registerArtifactProducersIpc } from './artifacts/artifactProducers'
 import { createArtifactServices } from './artifacts/artifactServices'
-import { registerPreviewIpc } from './artifacts/htmlPreview'
-import { registerPortableIpc } from './artifacts/portableExport'
+import { registerArtifactViewIpc } from './artifacts/artifactWiring'
+import { startArtifacts } from './artifacts/artifactWiring'
 import { targetOf } from './attention/attention'
 import { registerNotifyWiring } from './attention/notifyWiring'
 import type { ConsoleEntry } from './browser/browseMethod'
@@ -51,7 +47,7 @@ import { registerBrowserGuestIpc } from './browser/browserGuestIpc'
 import { createBrowserGuests } from './browser/browserGuests'
 import { registerBrowserWiring } from './browser/browserWiring'
 import { registerCredentials } from './browser/credentials'
-import { type GuestChords, registerGuestChords } from './browser/guestChords'
+import type { GuestChords } from './browser/guestChords'
 import { createGuestProfiles } from './browser/guestProfiles'
 import { startChat } from './chat/chatWiring'
 import { registerExtensionMcp } from './chat/extensionMcp'
@@ -107,16 +103,9 @@ import { registerPaneMethodsWiring } from './panes/paneMethodsWiring'
 import { PaneWatch } from './panes/paneWait'
 import { PaneWaking } from './panes/paneWaking'
 import type { ProcessRegistry } from './panes/processRegistry'
-import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './platform/discreteGpu'
 import { loadJson, saveJson, storePath } from './platform/jsonStore'
 import { managerSettings, readLocale, readSettingsFile } from './platform/settingsFile'
-import {
-  SANDBOX_FEATURE,
-  missingRequirements,
-  requirementLabel,
-} from './platform/systemRequirements'
-import { registerSystemRequirementsIpc } from './platform/systemRequirementsIpc'
-import { loginPathSettled, resolveLoginPath } from './platform/toolPath'
+import { resolveLoginPath } from './platform/toolPath'
 import { appConfigDir } from './platform/userDirs'
 import type { PortsService } from './ports/service'
 import { registerPrivacyIpc } from './privacy/privacyIpc'
@@ -124,9 +113,9 @@ import { createRedactor } from './privacy/redaction'
 import { createWorkerScan, redactionWorkerScript } from './privacy/redactionScan'
 import type { ProfileSyncHandle } from './profileSync/ipc'
 import { startProfileSyncWiring } from './profileSync/profileSyncWiring'
-import { registerSandboxIpc } from './sandbox/ipc'
 import { createSandboxServices } from './sandbox/sandboxServices'
 import { registerSandboxWiring } from './sandbox/sandboxWiring'
+import { registerSandboxIpcWiring } from './sandbox/sandboxWiring'
 import { createEncryptedStores } from './secrets/encryptedStores'
 import { createSecretServices } from './secrets/secretServices'
 import { writeOstiaLauncher } from './terminal/paneLauncher'
@@ -172,19 +161,18 @@ import { type UpdateRunner, createUpdateRunner } from './updates/updateRun'
 import { installAppMenu } from './windows/appMenu'
 import { registerAppQuit } from './windows/appQuit'
 import { createAppWindows } from './windows/appWindows'
-import { type ClipboardEdits, registerClipboardEdits } from './windows/clipboardEdits'
+import type { ClipboardEdits } from './windows/clipboardEdits'
 import type { GlobalHotkey } from './windows/globalHotkey'
 import { createQuitTrace } from './windows/quitPlan'
 import { createQuitTeardown } from './windows/quitTeardown'
 import { type AppTray, isHiddenLaunch } from './windows/tray'
 import type { WindowBroker } from './windows/windowBroker'
 import { registerWindowIpc } from './windows/windowIpc'
+import { registerWindowInputGuards } from './windows/windowIpc'
 import { createWindowSend } from './windows/windowSend'
 import { startWindows } from './windows/windowStartup'
 import { createWindowWiring } from './windows/windowWiring'
-import { registerCmuxSessionIpc } from './workspaces/cmuxSession'
 import { registerContentIpc } from './workspaces/contentWiring'
-import { registerScratchIpc } from './workspaces/scratchFolders'
 import { createScrollbackPersistence } from './workspaces/scrollbackPersistence'
 import type { ViewHost } from './workspaces/viewHost'
 import { createWorkspaceLifecycle } from './workspaces/workspaceLifecycle'
@@ -917,126 +905,17 @@ app.whenReady().then(() => {
       code: (err as NodeJS.ErrnoException).code ?? null,
     })
   }
-  scratchFolders.sweep()
-  artifactFolders.sweep()
-  artifactHistory.sweep()
-  portableExport.sweep()
-  workspaceSandboxes.sweepTmp()
-  registerScratchIpc(scratchFolders)
-  registerArtifactIpc({
-    folders: artifactFolders,
-    ownsWorkspace: (windowId, workspaceId) => windowForWorkspace(workspaceId) === windowId,
-  })
-  registerCmuxSessionIpc()
-  services.clipboardEdits = registerClipboardEdits({
-    ipc: ipcMain,
-    isAppWindow: (sender) => windows.get(String(sender.id))?.webContents === sender,
-    snapshot: async () => {
-      const items = await clipboard.read()
-      const listed = items.find((item) => item.types.includes('text/uri-list'))
-      return {
-        formats: items.flatMap((item) => item.types),
-        uriList: listed ? await (await listed.getType('text/uri-list')).text() : '',
-      }
-    },
-    mac: process.platform === 'darwin',
-  })
-  services.guestChords = registerGuestChords({
-    ipc: ipcMain,
-    isAppWindow: (sender) => windows.get(String(sender.id))?.webContents === sender,
-    mac: process.platform === 'darwin',
-  })
-  registerWindowIpc({ requestQuit })
-  registerPaneLifecycleIpc({
-    windows,
-    emitPaneEvent,
-    previews,
-    paneAttentionEvents,
-    artifactProducers,
-    openWaits,
-    services,
-    releaseMovingPane,
-    killPty,
-    ptys,
-    closedPanes,
-    hibernatedPanes,
-    browserProfiles,
-    terminalState,
-    paneWaking,
-    paneWatch,
-    scratchFolders,
-    workspaceClosed,
-    keptShells,
-    commandsByWindow,
-    remoteCwdOfPane,
-  })
-  registerBrowserGuestIpc({
-    browserProfiles,
-    browserPanes,
-    instrumentBrowserGuest,
-    consoleBuffers,
-    errorBuffers,
-  })
+  startArtifacts({ ...wiring })
+  registerWindowInputGuards({ ...wiring })
+  registerWindowIpc({ ...wiring })
+  registerPaneLifecycleIpc({ ...wiring })
+  registerBrowserGuestIpc({ ...wiring })
   registerWorkspaceIpc()
-  registerSandboxIpc({
-    sandboxes: workspaceSandboxes,
-    ownerWindow: windowForWorkspace,
-    missing: () => missingRequirements(SANDBOX_FEATURE),
-    domains: domainRequests,
-    ports: portRequests,
-    violations: sandboxViolations,
-    refreshAll: () => workspaceSandboxes.refreshAll(),
-  })
-  registerSystemRequirementsIpc({
-    ownerWindow: windowForWorkspace,
-    workDir: (workspaceId) => workDirForWorkspace(workspaceId),
-    locale: readLocale,
-    systemExtensionEnabled: () =>
-      services.extensionHost?.list().some((ext) => ext.id === 'system' && ext.enabled) ?? false,
-    missing: (feature) => missingRequirements(feature),
-    settled: loginPathSettled,
-    label: requirementLabel,
-    invokeInstall: (args, caller) =>
-      services.extensionHost
-        ? services.extensionHost.invoke('system', 'install', args, caller)
-        : Promise.resolve({ ok: false, error: 'extension-unavailable' }),
-  })
-  ipcMain.handle('system:discrete-gpu', async (): Promise<DiscreteGpuInfo | null> => {
-    if (process.platform !== 'linux') return null
-    const gpu = discreteGpu(await querySwitcherooGpus())
-    return gpu ? { name: gpu.name, inUse: gpuStartPlan(process.env, gpu).kind === 'stay' } : null
-  })
-  registerPtyIpc({
-    attachPty,
-    ptys,
-    terminalState,
-    keptShells,
-    openWaits,
-    agentWork,
-    agentRunning,
-    paneWaking,
-    hibernatePty,
-    killPty,
-    releasePtyFlow,
-    paneActivity,
-    sandboxReadRules,
-    windowOfPane,
-    readSettingsFile,
-  })
+  registerSandboxIpcWiring({ ...wiring })
+  registerPtyIpc({ ...wiring })
   registerFsIpc({ ...wiring })
   registerSelectionIpc(reachesPane, redactor.text)
-  registerPreviewIpc(previews, (png) => {
-    void clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(png)]) })])
-  })
-  registerPortableIpc(portableExport)
-  registerArtifactHistoryIpc({
-    history: artifactHistory,
-    ownsWorkspace: (windowId, workspaceId) => windowForWorkspace(workspaceId) === windowId,
-  })
-  registerArtifactProducersIpc({
-    producers: artifactProducers,
-    ownsWorkspace: (windowId, workspaceId) => windowForWorkspace(workspaceId) === windowId,
-  })
+  registerArtifactViewIpc({ ...wiring })
   registerPrivacyIpc(redactor)
   const approvalCaps = new Map<string, readonly string[]>()
   registerApprovals(revealWindow, settingsChanged, {
@@ -1314,4 +1193,24 @@ const wiring = {
   isScratchPane,
   paneOutput,
   onSettingsWritten,
+  emitPaneEvent,
+  previews,
+  paneAttentionEvents,
+  releaseMovingPane,
+  closedPanes,
+  hibernatedPanes,
+  workspaceClosed,
+  keptShells,
+  commandsByWindow,
+  instrumentBrowserGuest,
+  attachPty,
+  hibernatePty,
+  releasePtyFlow,
+  paneActivity,
+  sandboxReadRules,
+  windowOfPane,
+  readSettingsFile,
+  portableExport,
+  artifactHistory,
+  sandboxViolations,
 }
