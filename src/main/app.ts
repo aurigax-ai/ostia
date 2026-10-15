@@ -348,6 +348,7 @@ import { registerPathCompletionIpc } from './terminal/pathCompletion'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './terminal/promptContext'
 import { CoalescedOutput, PtyFlowControl } from './terminal/ptyFlow'
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './terminal/ptyReaper'
+import type { PaneTitleEntry, PtyEntry } from './terminal/ptyRegistry'
 import { PtySession, type Subscriber, type SubscriberRole } from './terminal/ptySession'
 import { HIBERNATE_SEAM, HISTORY_LINES, RESTORE_SEAM, ScreenMirror } from './terminal/screenMirror'
 import { registerSelectionIpc } from './terminal/selectionReport'
@@ -484,33 +485,6 @@ function loadPty(): typeof import('node-pty') | null {
     }
   }
   return ptyModule ?? null
-}
-
-interface PaneTitleEntry {
-  paneId: string
-  title: string
-}
-
-interface PtyEntry {
-  paneId: string
-  pty: PaneProcess
-  kept: TmuxPane | null
-  keptMeta: KeptMeta | null
-  session: PtySession
-  flow: PtyFlowControl
-  mirror: ScreenMirror
-  subs: Map<string, Electron.WebContents>
-  killTimer: ReturnType<typeof setTimeout> | null
-  spawnPath: string
-  stateFile: string
-  workspaceId: string
-  sandboxed: boolean
-  shell: string
-  sandboxStamp: string | null
-  portBridge: PortBridge | null
-  confinedBy: string | null
-  keepAlive: boolean
-  exitListeners: Set<(code: number) => void>
 }
 
 const windows = new Map<string, BrowserWindow>()
