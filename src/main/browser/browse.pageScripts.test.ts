@@ -8,7 +8,7 @@ vi.mock('electron', () => ({
 vi.mock('../approvals/controlElevation', () => ({ ensureCaps: vi.fn(async () => {}) }))
 vi.mock('../control/controlServer', () => ({ registerTargetableMethod: vi.fn() }))
 
-const { injectPageScripts } = await import('./browse')
+const { injectPageScripts } = await import('./browsePageScripts')
 
 type Call = { method: string; params?: object; sessionId?: string }
 type Reply = (call: Call) => Promise<unknown>

@@ -150,16 +150,14 @@ import {
   registerNotifyIpc,
   registerNotifyMethods,
 } from './attention/notify'
+import { pushConsoleEntry, registerBrowseMethods } from './browser/browse'
+import { clearGuestBrowseState, ownedGuest } from './browser/browseGuests'
+import type { ConsoleEntry } from './browser/browseMethod'
 import {
-  type ConsoleEntry,
   OSTIA_ERROR_PREFIX,
   PAGE_ERROR_CATCHER_JS,
-  clearGuestBrowseState,
   injectPageScripts,
-  ownedGuest,
-  pushConsoleEntry,
-  registerBrowseMethods,
-} from './browser/browse'
+} from './browser/browsePageScripts'
 import { cancelPick, registerPickIpc, registerPickMethods } from './browser/browsePick'
 import { registerRegionIpc } from './browser/browseRegion'
 import { BrowserProfiles } from './browser/browserProfiles'
