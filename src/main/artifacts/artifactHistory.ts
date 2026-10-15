@@ -11,7 +11,7 @@ import {
   statSync,
 } from 'node:fs'
 import { open, writeFile } from 'node:fs/promises'
-import { basename, dirname, extname, isAbsolute, join, normalize, relative, sep } from 'node:path'
+import { basename, dirname, extname, isAbsolute, join } from 'node:path'
 import { ipcMain } from 'electron'
 import {
   type ArtifactRestore,
@@ -21,6 +21,7 @@ import {
 } from '../../shared/artifacts/artifacts'
 import type { PreviewTheme } from '../../shared/artifacts/htmlPreview'
 import { PORTABLE_LIMITS, portableType } from '../../shared/artifacts/portable'
+import { isInsidePath } from '../platform/pathGuard'
 import type { PreviewBuild } from './htmlPreview'
 import { type PreviewSource, readRegularFile } from './previewFiles'
 
@@ -122,7 +123,7 @@ export class ArtifactHistory {
   }
 
   holds(path: string): boolean {
-    return path === this.root || path.startsWith(`${this.root}${sep}`)
+    return isInsidePath(this.root, path)
   }
 
   private nameOf(workspaceId: string, path: string): string | null {
@@ -292,8 +293,8 @@ export class ArtifactHistory {
     const refused: string[] = []
     for (const [rel, body] of sources) {
       const target = join(folder, rel)
-      const inside = relative(folder, normalize(target))
-      const escapes = isAbsolute(rel) || inside === '' || inside.startsWith('..')
+      const escapes =
+        isAbsolute(rel) || isInsidePath(target, folder) || !isInsidePath(folder, target)
       if (!escapes && !rel.includes('\0') && (await writeInside(folder, target, body))) {
         restored.push(rel)
       } else {
@@ -369,7 +370,7 @@ export class ArtifactHistory {
 }
 
 async function writeInside(folder: string, target: string, body: string | Buffer) {
-  for (let dir = dirname(target); dir.startsWith(`${folder}${sep}`); dir = dirname(dir)) {
+  for (let dir = dirname(target); dir !== folder && isInsidePath(folder, dir); dir = dirname(dir)) {
     if (existsSync(dir) && !lstatSync(dir).isDirectory()) return false
   }
   try {

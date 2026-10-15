@@ -1,6 +1,7 @@
 import { relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import picomatch from 'picomatch/posix'
+import { isInsidePath } from '../platform/pathGuard'
 import type { TreeChange, TreeChangeKind } from './fileWatch'
 
 export const WATCHED_FILES_METHOD = 'workspace/didChangeWatchedFiles'
@@ -35,10 +36,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function isInside(path: string, base: string): boolean {
-  return path === base || path.startsWith(base.endsWith('/') ? base : `${base}/`)
-}
-
 function filePath(uri: unknown): string | null {
   if (typeof uri !== 'string') return null
   try {
@@ -69,7 +66,7 @@ function parseWatcher(raw: unknown, root: string): FileWatcher | null {
   if (!isRecord(glob)) return null
   const base = filePath(isRecord(glob.baseUri) ? glob.baseUri.uri : glob.baseUri)
   const matches = matcher(glob.pattern)
-  if (base === null || !matches || !isInside(base, root)) return null
+  if (base === null || !matches || !isInsidePath(root, base)) return null
   return { base, matches, kinds }
 }
 
@@ -89,7 +86,7 @@ export function parseFileWatchers(registerOptions: unknown, root: string): FileW
 function watches(watcher: FileWatcher, change: TreeChange): boolean {
   if ((watcher.kinds & KIND_BIT[change.kind]) === 0) return false
   if (watcher.base === null) return watcher.matches(change.path)
-  if (!isInside(change.path, watcher.base) || change.path === watcher.base) return false
+  if (!isInsidePath(watcher.base, change.path) || change.path === watcher.base) return false
   return watcher.matches(relative(watcher.base, change.path))
 }
 
@@ -101,7 +98,8 @@ export function watchedFileEvents(
   const list = [...watchers]
   const events: FileEvent[] = []
   for (const change of changes) {
-    if (!isInside(change.path, root) || !list.some((watcher) => watches(watcher, change))) continue
+    if (!isInsidePath(root, change.path) || !list.some((watcher) => watches(watcher, change)))
+      continue
     events.push({ uri: pathToFileURL(change.path).href, type: FILE_CHANGE_TYPE[change.kind] })
     if (events.length >= MAX_FILE_EVENTS) break
   }

@@ -10,7 +10,7 @@ import {
   renameSync,
   rmSync,
 } from 'node:fs'
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import {
   EXTENSION_MANIFEST_FILE,
   type ExtensionManifest,
@@ -40,6 +40,7 @@ import {
   type MarketplaceState,
 } from '../../../shared/extensions/marketplace'
 import { loadJson, saveJson } from '../../platform/jsonStore'
+import { isInsidePath } from '../../platform/pathGuard'
 import { missingRequirements, programPath } from '../../platform/systemRequirements'
 
 const MARKETPLACE_MANIFEST_MAX_BYTES = 64 * 1024
@@ -210,7 +211,7 @@ function readCatalog(clone: string): Catalog | string {
       else problems.push(`${path}: ${problem}`)
     }
     const dir = join(clone, path)
-    if (!isRealDirectory(dir) || relative(root, realpathSync(dir)).startsWith('..')) {
+    if (!isRealDirectory(dir) || !isInsidePath(root, realpathSync(dir))) {
       refuse('not a folder in the repository')
       continue
     }

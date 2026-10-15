@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 import { constants } from 'node:fs'
 import { access, lstat, mkdir, readFile, stat } from 'node:fs/promises'
-import { dirname, resolve, sep } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { type EnvSource, readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { type ReadEntry, list as listTar } from 'tar'
@@ -29,6 +29,7 @@ import {
   followAllowed,
   isAllowedHop,
 } from '../platform/checkedDownload'
+import { isInsidePath } from '../platform/pathGuard'
 import { bundleFs } from './bundleFs'
 
 export const UPDATE_ARCHIVE_MAX_BYTES = 1024 * 1024 * 1024
@@ -93,9 +94,6 @@ export function checksumFor(sums: string, asset: string): string | null {
   return null
 }
 
-const isUnder = (path: string, dir: string): boolean =>
-  path === dir || path.startsWith(`${dir}${sep}`)
-
 async function exists(path: string): Promise<boolean> {
   try {
     await lstat(path)
@@ -116,7 +114,7 @@ async function writable(path: string): Promise<boolean> {
 
 export async function canReplaceInstall(appDir: string): Promise<ReplaceAvailability> {
   const parent = dirname(appDir)
-  if (SYSTEM_PARENTS.some((dir) => isUnder(parent, dir)))
+  if (SYSTEM_PARENTS.some((dir) => isInsidePath(dir, parent)))
     return { ok: false, reason: 'system-path' }
   try {
     if ((await lstat(appDir)).isSymbolicLink()) return { ok: false, reason: 'symlink' }

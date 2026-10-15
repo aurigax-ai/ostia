@@ -1,6 +1,7 @@
 import { lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, sep } from 'node:path'
 import { ipcMain } from 'electron'
+import { isInsidePath } from '../platform/pathGuard'
 
 export interface ArtifactProducersDeps {
   file: (workspaceId: string) => string
@@ -50,8 +51,8 @@ export class ArtifactProducers {
   private holds(workspaceId: string, path: string): boolean {
     const folder = this.deps.folderOf(workspaceId)
     if (!folder) return false
-    const inside = relative(folder, path)
-    if (inside === '' || inside.startsWith('..') || inside.split(sep).length > 2) return false
+    if (isInsidePath(path, folder) || !isInsidePath(folder, path)) return false
+    if (relative(folder, path).split(sep).length > 2) return false
     return isRegular(path)
   }
 

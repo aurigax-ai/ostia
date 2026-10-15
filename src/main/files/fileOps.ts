@@ -1,7 +1,7 @@
 import { cpSync, lstatSync, mkdirSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
-import { basename, dirname, extname, join, sep } from 'node:path'
+import { basename, dirname, extname, join } from 'node:path'
 import type { FileOpResult } from '../../shared/files/fileOps'
-import { resolveSafe } from '../platform/pathGuard'
+import { isInsidePath, resolveSafe } from '../platform/pathGuard'
 
 const FILE_OP_MAX_PATHS = 500
 const NAME_MAX_BYTES = 255
@@ -29,10 +29,6 @@ export function nameProblem(name: unknown): boolean {
     name.trim() !== name ||
     Buffer.byteLength(name) > NAME_MAX_BYTES
   )
-}
-
-function isInside(root: string, target: string): boolean {
-  return target === root || target.startsWith(root.endsWith(sep) ? root : root + sep)
 }
 
 function exists(path: string): boolean {
@@ -81,7 +77,7 @@ export class FileOps {
     try {
       const real = realpathSync(safe)
       if (!lstatSync(real).isDirectory()) return null
-      return this.realRoots.some((root) => isInside(root, real)) ? real : null
+      return this.realRoots.some((root) => isInsidePath(root, real)) ? real : null
     } catch {
       return null
     }
@@ -145,7 +141,7 @@ export class FileOps {
     const sources = this.paths(pathsInput)
     const dest = this.folder(destInput)
     if (sources === null || dest === null) return fail('outside')
-    if (sources.some((source) => isInside(source, dest))) return fail('into-itself')
+    if (sources.some((source) => isInsidePath(source, dest))) return fail('into-itself')
     const moves = sources
       .filter((source) => dirname(source) !== dest)
       .map((source) => ({ source, target: join(dest, basename(source)) }))
@@ -166,7 +162,7 @@ export class FileOps {
     const sources = this.paths(pathsInput)
     const dest = this.folder(destInput)
     if (sources === null || dest === null) return fail('outside')
-    if (sources.some((source) => isInside(source, dest))) return fail('into-itself')
+    if (sources.some((source) => isInsidePath(source, dest))) return fail('into-itself')
     const done: string[] = []
     for (const source of sources) {
       const name = basename(source)

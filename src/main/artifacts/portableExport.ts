@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { mkdirSync, readdirSync, realpathSync, rmSync, statSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
-import { basename, dirname, join, sep } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { ipcMain } from 'electron'
 import { type PreviewTheme, normalizePreviewTheme } from '../../shared/artifacts/htmlPreview'
 import {
@@ -19,6 +19,7 @@ import {
   runsScripts,
   wrapPortable,
 } from '../../shared/artifacts/portable'
+import { isInsidePath } from '../platform/pathGuard'
 import type { PortableBuilder } from './portableBuilder'
 import { problemText } from './portableBundle'
 import { readRegularFile } from './previewFiles'
@@ -127,7 +128,7 @@ export class PortableExport {
       } catch {
         real = folder
       }
-      return file === real || file.startsWith(`${real}${sep}`)
+      return isInsidePath(real, file)
     })
   }
 
