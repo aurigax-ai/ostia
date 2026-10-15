@@ -167,8 +167,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PRERELEASE: ${{ contains(github.ref_name, '-') }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/*.tar.gz dist/*.deb dist/*.dmg dist/install.sh dist/SHA256SUMS \
-            --verify-tag --title "$GITHUB_REF_NAME" --notes-file notes.md --prerelease="$PRERELEASE"
+          shopt -s nullglob
+          packages=(dist/*.tar.gz dist/*.deb dist/*.dmg)
+          if [ "${#packages[@]}" -eq 0 ]; then
+            echo "no packages in dist" >&2
+            exit 1
+          fi
+          files=("${packages[@]}" dist/install.sh dist/SHA256SUMS)
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+            gh release edit "$GITHUB_REF_NAME" --notes-file notes.md --prerelease="$PRERELEASE" --draft=false
+          else
+            gh release create "$GITHUB_REF_NAME" "${files[@]}" \
+              --verify-tag --title "$GITHUB_REF_NAME" --notes-file notes.md --prerelease="$PRERELEASE"
+          fi
 
   apt:
     needs: publish
