@@ -1,13 +1,11 @@
 import { resolve } from 'node:path'
 import { defineConfig } from 'vitest/config'
-import { dataUrl } from './scripts/dataUrl.mjs'
 import { activeEntries, announce } from './test/quarantine.mjs'
 
 announce(activeEntries(), 'vitest')
 
 export default defineConfig({
-  plugins: [dataUrl()],
-  assetsInclude: ['**/*.md', '**/*.txt'],
+  assetsInclude: ['**/*.md', '**/*.txt', '**/*.wasm'],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src/renderer'),
