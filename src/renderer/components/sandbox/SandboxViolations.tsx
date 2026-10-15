@@ -1,8 +1,10 @@
 import { SettingsGroup } from '@/components/settings/SettingsGroup'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { TIME_ONLY, formatDate } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { isMac } from '@/platform'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { SandboxViolation } from '@shared/sandbox/sandbox'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -10,6 +12,7 @@ const REFRESH_MS = 3000
 
 export function SandboxViolations({ workspaceId }: { workspaceId: string }): JSX.Element {
   const d = useDict()
+  const locale = useSettingsStore((s) => s.locale)
   const [list, setList] = useState<SandboxViolation[]>([])
   const load = useCallback(
     () => void window.ostia.sandbox.violations(workspaceId).then(setList),
@@ -20,7 +23,6 @@ export function SandboxViolations({ workspaceId }: { workspaceId: string }): JSX
     const timer = setInterval(load, REFRESH_MS)
     return () => clearInterval(timer)
   }, [load])
-  const time = new Intl.DateTimeFormat(undefined, { timeStyle: 'medium' })
   return (
     <SettingsGroup
       title={d.sandbox.violations}
@@ -50,7 +52,10 @@ export function SandboxViolations({ workspaceId }: { workspaceId: string }): JSX
                 <span className="min-w-0 flex-1 truncate font-mono text-fg">{v.target}</span>
                 <span className="shrink-0 text-fg-muted">{reason}</span>
                 <span className="shrink-0 text-fg-muted tabular-nums">
-                  {fmt(d.sandbox.violationCount, { count: v.count, time: time.format(v.last) })}
+                  {fmt(d.sandbox.violationCount, {
+                    count: v.count,
+                    time: formatDate(v.last, locale, TIME_ONLY),
+                  })}
                 </span>
                 {v.allowHost ? (
                   <Button
