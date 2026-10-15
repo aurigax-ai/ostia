@@ -14,7 +14,7 @@ import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { TerminalSession } from './terminalSession'
 
-export interface TerminalPaste {
+interface TerminalPaste {
   pasteConfirmed: (text: string) => void
   pasteFromClipboard: (eventText?: string | null) => void
   holdInput: (data: string) => boolean

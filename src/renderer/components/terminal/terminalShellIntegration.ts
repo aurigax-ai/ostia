@@ -11,7 +11,7 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { wantsDesktopBanner } from '@shared/app/notificationSettings'
 import type { TerminalSession } from './terminalSession'
 
-export interface ShellIntegration {
+interface ShellIntegration {
   anchor: () => LineAnchor
   disposeMarkers: () => void
   dispose: () => void

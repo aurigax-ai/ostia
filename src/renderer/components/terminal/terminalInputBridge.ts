@@ -3,7 +3,7 @@ import { canTypeInto, insertCommand } from '@/lib/terminal/blockActions'
 import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 
-export interface TerminalInputBridge {
+interface TerminalInputBridge {
   submitInput: (text: string) => boolean
   handOffInput: (draft: string, keys: string) => void
   sendShellKeys: (keys: string) => void
