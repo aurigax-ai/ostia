@@ -21,7 +21,6 @@ import {
   LOCALE_CHANGED_EVENT,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
 import {
-  CONNECTIONS_CHANGED_EVENT,
   DIFF_TEXT_MAX,
   EXTENSION_EVENT_TYPES,
   EXTENSION_REDACT_TEXTS_MAX,
@@ -29,8 +28,6 @@ import {
   type ExtensionAgentOffer,
   type ExtensionCaller,
   type ExtensionCommandContribution,
-  type ExtensionConnectionEntry,
-  type ExtensionConnectionResult,
   type ExtensionEventPayloads,
   type ExtensionEventType,
   type ExtensionInfo,
@@ -41,16 +38,10 @@ import {
   type ExtensionPanelContext,
   type ExtensionPanelSource,
   type ExtensionResult,
-  type ExtensionSecretResult,
-  type ExtensionSettingResult,
-  type ExtensionSettingValues,
   type ExtensionStatus,
-  SETTINGS_CHANGED_EVENT,
   type WorkspaceChip,
   commandArgument,
-  effectiveSettingValues,
   panelPath,
-  validSettingValue,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { languageServerSummary } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import {
@@ -82,6 +73,7 @@ import {
   type RemoteFoldersDeps,
 } from '../files/remoteFolders'
 import { ExtensionAssist } from './extensionAssist'
+import { ExtensionConfig } from './extensionConfig'
 import type { ExtensionConnections } from './extensionConnections'
 import { ExtensionContributions } from './extensionContributions'
 import type { ExtensionExec } from './extensionExec'
@@ -130,21 +122,6 @@ function newRuntime(ext: LoadedExtension): Runtime {
     opened: new Set(),
     callerWorkspaces: new Set(),
   }
-}
-
-function storedSettings(raw: unknown): Map<string, ExtensionSettingValues> {
-  const out = new Map<string, ExtensionSettingValues>()
-  if (!isPlainRecord(raw)) return out
-  for (const [extId, values] of Object.entries(raw)) {
-    if (!isPlainRecord(values)) continue
-    const kept: ExtensionSettingValues = {}
-    for (const [key, value] of Object.entries(values)) {
-      if (typeof value === 'string' || typeof value === 'boolean') kept[key] = value
-      else if (typeof value === 'number' && Number.isFinite(value)) kept[key] = value
-    }
-    out.set(extId, kept)
-  }
-  return out
 }
 
 function startsWithWindow(rt: Runtime): boolean {
@@ -284,7 +261,6 @@ export function loopbackOrigin(url: string): string | null {
 
 export class ExtensionHost {
   private runtimes = new Map<string, Runtime>()
-  private settings: Map<string, ExtensionSettingValues>
   private changes = new EventEmitter()
   private watchers: FSWatcher[] = []
   private readonly scheduleRescan = debounce(() => this.rescan(), RESCAN_DEBOUNCE_MS)
@@ -295,11 +271,19 @@ export class ExtensionHost {
   readonly slots: ExtensionSlots
   readonly runs: ExtensionRuns
   readonly contributions: ExtensionContributions
+  readonly config: ExtensionConfig
 
   constructor(private readonly deps: ExtensionHostDeps) {
     this.changes.setMaxListeners(0)
     for (const ext of this.discover()) this.runtimes.set(ext.manifest.id, newRuntime(ext))
-    this.settings = storedSettings(deps.readExtensionSettings?.())
+    this.config = new ExtensionConfig({
+      deps,
+      runtimes: this.runtimes,
+      runtimeOf: (identity, conn) => this.runtimeOf(identity, conn),
+      changed: (rt) => this.changed(rt),
+      list: () => this.list(),
+      reloadAssistSettings: () => this.assistant.reloadAssistSettings(),
+    })
     this.contributions = new ExtensionContributions({
       deps,
       runtimes: this.runtimes,
@@ -307,7 +291,7 @@ export class ExtensionHost {
       pending: (rt) => this.pending(rt),
       record: (rt) => this.record(rt),
       granted: (rt) => this.granted(rt),
-      settingValues: (rt) => this.settingValues(rt),
+      settingValues: (rt) => this.config.settingValues(rt),
       eager: (rt) => this.eager(rt),
       start: (rt) => this.start(rt),
       changed: (rt) => this.changed(rt),
@@ -335,7 +319,7 @@ export class ExtensionHost {
       onDemand: (rt) => this.onDemand(rt),
       eager: (rt) => this.eager(rt),
       start: (rt) => this.start(rt),
-      settingValues: (rt) => this.settingValues(rt),
+      settingValues: (rt) => this.config.settingValues(rt),
     })
     this.announcedLocale = this.currentLocale()
     this.remoteFolders = this.createRemoteFolders()
@@ -426,7 +410,7 @@ export class ExtensionHost {
       paneChips: m.contributes.paneChips,
       workspaceChips: m.contributes.workspaceChips,
       settings: m.contributes.settings,
-      settingValues: this.settingValues(rt),
+      settingValues: this.config.settingValues(rt),
       settingsPage: this.active(rt) ? (m.contributes.settingsPage ?? null) : null,
       assist: m.contributes.assist,
       secrets: m.contributes.secrets,
@@ -449,13 +433,6 @@ export class ExtensionHost {
       })),
       ...(m.contributes.verb ? { verb: m.contributes.verb } : {}),
     }
-  }
-
-  private settingValues(rt: Runtime): ExtensionSettingValues {
-    return effectiveSettingValues(
-      rt.ext.manifest.contributes.settings,
-      this.settings.get(rt.ext.manifest.id),
-    )
   }
 
   list(): ExtensionInfo[] {
@@ -985,57 +962,6 @@ export class ExtensionHost {
     return { ok: true }
   }
 
-  getSettings(identity: PaneIdentity, conn: MessageConnection) {
-    const rt = this.runtimeOf(identity, conn)
-    return { ok: true, values: this.settingValues(rt) }
-  }
-
-  setOwnSetting(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    const p = (params ?? {}) as { key?: unknown; value?: unknown }
-    if (typeof p.key !== 'string') return fail('invalid-params', 'key')
-    const extId = rt.ext.manifest.id
-    const res = this.setSetting(extId, p.key, p.value === undefined ? null : p.value)
-    if (!res.ok) return fail(res.error)
-    this.deps.broadcast('extensions:settings-stored', { extId, stored: res.stored })
-    return { ok: true, values: this.settingValues(rt) }
-  }
-
-  private sendSettings(rt: Runtime): void {
-    if (!rt.conn || rt.ext.manifest.contributes.settings.length === 0) return
-    const payload = { values: this.settingValues(rt) }
-    void rt.conn
-      .sendNotification('ext.event', { type: SETTINGS_CHANGED_EVENT, payload })
-      .catch(() => {})
-  }
-
-  setSetting(extId: string, key: string, value: unknown): ExtensionSettingResult {
-    const rt = this.runtimes.get(extId)
-    if (!rt) return { ok: false, error: 'unknown-extension' }
-    const setting = rt.ext.manifest.contributes.settings.find((s) => s.key === key)
-    if (!setting) return { ok: false, error: 'unknown-setting' }
-    const stored: ExtensionSettingValues = { ...(this.settings.get(extId) ?? {}) }
-    if (value === null) delete stored[key]
-    else if (validSettingValue(setting, value)) stored[key] = value
-    else return { ok: false, error: 'invalid-value' }
-    this.settings.set(extId, stored)
-    this.sendSettings(rt)
-    this.changed(rt)
-    return { ok: true, stored, list: this.list() }
-  }
-
-  reloadSettings(): void {
-    const before = new Map(
-      [...this.runtimes].map(([id, rt]) => [id, JSON.stringify(this.settingValues(rt))]),
-    )
-    this.settings = storedSettings(this.deps.readExtensionSettings?.())
-    for (const [id, rt] of this.runtimes) {
-      if (before.get(id) !== JSON.stringify(this.settingValues(rt))) this.sendSettings(rt)
-    }
-    this.assistant.reloadAssistSettings()
-    this.changed()
-  }
-
   notify(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
     const rt = this.runtimeOf(identity, conn)
     const p = (params ?? {}) as { title?: unknown; body?: unknown; openPanel?: unknown }
@@ -1218,88 +1144,6 @@ export class ExtensionHost {
     return closed ? { ok: true } : fail('unknown-folder')
   }
 
-  getSecret(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    const key = (params as { key?: unknown } | null)?.key
-    const declared = rt.ext.manifest.contributes.secrets.some((s) => s.key === key)
-    if (typeof key !== 'string' || !declared) {
-      return fail('not-contributed', `no secret '${String(key)}' in manifest`)
-    }
-    return { ok: true, value: this.deps.secrets?.get(rt.ext.manifest.id, key) ?? null }
-  }
-
-  setSecret(extId: string, key: string, value: unknown): ExtensionSecretResult {
-    const rt = this.runtimes.get(extId)
-    if (!rt) return { ok: false, error: 'unknown-extension' }
-    if (!rt.ext.manifest.contributes.secrets.some((s) => s.key === key)) {
-      return { ok: false, error: 'unknown-secret' }
-    }
-    if (value !== null && typeof value !== 'string') return { ok: false, error: 'invalid-value' }
-    if (!this.deps.secrets) return { ok: false, error: 'encryption-unavailable' }
-    const res = this.deps.secrets.set(extId, key, value)
-    if (!res.ok) return res
-    if (rt.conn) {
-      const payload = { values: this.settingValues(rt) }
-      void rt.conn
-        .sendNotification('ext.event', { type: SETTINGS_CHANGED_EVENT, payload })
-        .catch(() => {})
-    }
-    this.changed(rt)
-    return { ok: true, list: this.list() }
-  }
-
-  connectionsOf(extId: string): ExtensionConnectionEntry[] {
-    const rt = this.runtimes.get(extId)
-    if (!rt || !this.deps.connections) return []
-    return this.deps.connections.list(extId, rt.ext.manifest.contributes.connections ?? [])
-  }
-
-  saveConnection(extId: string, req: unknown): ExtensionConnectionResult {
-    const rt = this.runtimes.get(extId)
-    if (!rt) return { ok: false, error: 'unknown-extension' }
-    const kinds = rt.ext.manifest.contributes.connections ?? []
-    if (kinds.length === 0) return { ok: false, error: 'not-contributed' }
-    if (!this.deps.connections) return { ok: false, error: 'unavailable' }
-    const res = this.deps.connections.save(extId, kinds, req)
-    if (res.ok) this.connectionsChanged(rt)
-    return res
-  }
-
-  removeConnection(extId: string, name: unknown): ExtensionConnectionResult {
-    const rt = this.runtimes.get(extId)
-    if (!rt) return { ok: false, error: 'unknown-extension' }
-    if (!this.deps.connections) return { ok: false, error: 'unavailable' }
-    const res = this.deps.connections.remove(extId, name)
-    if (res.ok) this.connectionsChanged(rt)
-    return res
-  }
-
-  private connectionsChanged(rt: Runtime): void {
-    if (rt.conn) {
-      void rt.conn
-        .sendNotification('ext.event', { type: CONNECTIONS_CHANGED_EVENT, payload: {} })
-        .catch(() => {})
-    }
-    this.changed(rt)
-  }
-
-  listConnections(identity: PaneIdentity, conn: MessageConnection) {
-    const rt = this.runtimeOf(identity, conn)
-    const kinds = rt.ext.manifest.contributes.connections ?? []
-    return { ok: true, connections: this.deps.connections?.names(rt.ext.manifest.id, kinds) ?? [] }
-  }
-
-  getConnection(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    const kinds = rt.ext.manifest.contributes.connections ?? []
-    const name = (params as { name?: unknown } | null)?.name
-    if (typeof name !== 'string') return fail('invalid-params', 'name must be a string')
-    return {
-      ok: true,
-      connection: this.deps.connections?.value(rt.ext.manifest.id, kinds, name) ?? null,
-    }
-  }
-
   reloadRecords(): void {
     for (const rt of this.runtimes.values()) {
       if (!this.active(rt)) {
@@ -1372,11 +1216,11 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   )
   registerControlMethod(
     'ext.getSettings',
-    forExtension((h, id, conn) => h.getSettings(id, conn)),
+    forExtension((h, id, conn) => h.config.getSettings(id, conn)),
   )
   registerControlMethod(
     'ext.setSetting',
-    forExtension((h, id, conn, p) => h.setOwnSetting(id, conn, p)),
+    forExtension((h, id, conn, p) => h.config.setOwnSetting(id, conn, p)),
   )
 
   registerControlMethod(
@@ -1468,15 +1312,15 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   )
   registerControlMethod(
     'ext.getSecret',
-    forExtension((h, id, conn, p) => h.getSecret(id, conn, p)),
+    forExtension((h, id, conn, p) => h.config.getSecret(id, conn, p)),
   )
   registerControlMethod(
     'ext.connections',
-    forExtension((h, id, conn) => h.listConnections(id, conn)),
+    forExtension((h, id, conn) => h.config.listConnections(id, conn)),
   )
   registerControlMethod(
     'ext.connection',
-    forExtension((h, id, conn, p) => h.getConnection(id, conn, p)),
+    forExtension((h, id, conn, p) => h.config.getConnection(id, conn, p)),
   )
 
   registerControlMethod(

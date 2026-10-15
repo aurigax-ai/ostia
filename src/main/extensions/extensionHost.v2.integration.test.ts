@@ -385,7 +385,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
 
     it('validates a change in main, stores it and tells the running extension', async () => {
       await host.invoke('echo', 'echo', null, caller)
-      const res = host.setSetting('echo', 'level', 'high')
+      const res = host.config.setSetting('echo', 'level', 'high')
       expect(res).toMatchObject({ ok: true, stored: { level: 'high' } })
       const event = await untilAsync(async () => {
         const seen = await host.invoke('echo', 'seen-settings', null, caller)
@@ -396,14 +396,23 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
     })
 
     it('refuses a value of the wrong type or outside the enum and keeps the old one', () => {
-      expect(host.setSetting('echo', 'count', '4')).toEqual({ ok: false, error: 'invalid-value' })
-      expect(host.setSetting('echo', 'level', 'max')).toEqual({ ok: false, error: 'invalid-value' })
-      expect(host.setSetting('echo', 'count', Number.NaN)).toEqual({
+      expect(host.config.setSetting('echo', 'count', '4')).toEqual({
         ok: false,
         error: 'invalid-value',
       })
-      expect(host.setSetting('echo', 'nope', 1)).toEqual({ ok: false, error: 'unknown-setting' })
-      expect(host.setSetting('ghost', 'count', 1)).toEqual({
+      expect(host.config.setSetting('echo', 'level', 'max')).toEqual({
+        ok: false,
+        error: 'invalid-value',
+      })
+      expect(host.config.setSetting('echo', 'count', Number.NaN)).toEqual({
+        ok: false,
+        error: 'invalid-value',
+      })
+      expect(host.config.setSetting('echo', 'nope', 1)).toEqual({
+        ok: false,
+        error: 'unknown-setting',
+      })
+      expect(host.config.setSetting('ghost', 'count', 1)).toEqual({
         ok: false,
         error: 'unknown-extension',
       })
@@ -411,19 +420,19 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
     })
 
     it('resets a key to its default when set to null', () => {
-      const res = host.setSetting('echo', 'level', null)
+      const res = host.config.setSetting('echo', 'level', null)
       expect(res).toMatchObject({ ok: true, stored: {} })
       expect(echo().settingValues.level).toBe('low')
     })
 
     it('reloads stored values from settings.json and ignores ones of the wrong type', async () => {
       stored = { echo: { greeting: 'yo', count: 'many', loud: true } }
-      host.reloadSettings()
+      host.config.reloadSettings()
       expect(echo().settingValues).toEqual({ greeting: 'yo', count: 3, loud: true, level: 'low' })
       const res = await host.invoke('echo', 'settings', null, caller)
       expect(res).toMatchObject({ data: { values: { greeting: 'yo', loud: true } } })
       stored = {}
-      host.reloadSettings()
+      host.config.reloadSettings()
     })
   })
 

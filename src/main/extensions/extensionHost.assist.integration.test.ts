@@ -205,7 +205,7 @@ describe('assist contribution points over a real control socket', () => {
       data: { ok: true, value: null },
     })
     const before = (await host.invoke('oracle', 'events', null, caller)) as { data: number }
-    const res = host.setSecret('oracle', 'apiKey', 'sk-test-123')
+    const res = host.config.setSecret('oracle', 'apiKey', 'sk-test-123')
     expect(res.ok).toBe(true)
     expect(JSON.stringify(saved)).not.toContain('sk-test-123')
     const info = host.list().find((e) => e.id === 'oracle')
@@ -223,12 +223,18 @@ describe('assist contribution points over a real control socket', () => {
   })
 
   it('refuses an undeclared secret key', () => {
-    expect(host.setSecret('oracle', 'other', 'x')).toEqual({ ok: false, error: 'unknown-secret' })
-    expect(host.setSecret('oracle', 'apiKey', 42)).toEqual({ ok: false, error: 'invalid-value' })
+    expect(host.config.setSecret('oracle', 'other', 'x')).toEqual({
+      ok: false,
+      error: 'unknown-secret',
+    })
+    expect(host.config.setSecret('oracle', 'apiKey', 42)).toEqual({
+      ok: false,
+      error: 'invalid-value',
+    })
   })
 
   it('clears a secret', async () => {
-    expect(host.setSecret('oracle', 'apiKey', null).ok).toBe(true)
+    expect(host.config.setSecret('oracle', 'apiKey', null).ok).toBe(true)
     expect(host.list().find((e) => e.id === 'oracle')?.secretsSet).toEqual([])
     expect(await host.invoke('oracle', 'secret', null, caller)).toMatchObject({
       data: { ok: true, value: null },
@@ -250,9 +256,9 @@ describe('assist contribution points over a real control socket', () => {
         keysSet: [],
       },
     ])
-    host.setSetting('oracle', 'chat', false)
+    host.config.setSetting('oracle', 'chat', false)
     expect(host.assistant.assistOverview()[0].features[0].on).toBe(false)
-    host.setSetting('oracle', 'chat', null)
+    host.config.setSetting('oracle', 'chat', null)
   })
 
   it('lists the models an extension reports, normalized, and loads and unloads one', async () => {

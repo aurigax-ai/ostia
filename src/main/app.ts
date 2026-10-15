@@ -2135,12 +2135,12 @@ function registerExtensionIpc(host: ExtensionHost): void {
     if (typeof extId === 'string' && marketplaceInstallIds().includes(extId)) {
       telemetry?.count('extensions', 'setting_change', `${extId}.${String(key)}`)
     }
-    return host.setSetting(String(extId), String(key), value)
+    return host.config.setSetting(String(extId), String(key), value)
   })
   ipcMain.handle('extensions:set-secret', (_e, extId: unknown, key: unknown, value: unknown) =>
-    host.setSecret(String(extId), String(key), value),
+    host.config.setSecret(String(extId), String(key), value),
   )
-  registerConnectionsIpc(() => host)
+  registerConnectionsIpc(() => host?.config ?? null)
   ipcMain.handle(
     'extensions:invoke',
     (
@@ -4260,7 +4260,7 @@ app.whenReady().then(() => {
     readSettings: readSettingsFile,
     broadcast: (channel, payload) => broadcast(channel, payload),
     onSettingsPulled: () => {
-      extensionHost?.reloadSettings()
+      extensionHost?.config.reloadSettings()
       extensionHost?.refreshLocale()
     },
     installedExtensions: () => marketplace.syncedInstalls(),

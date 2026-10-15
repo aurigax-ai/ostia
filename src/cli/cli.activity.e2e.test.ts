@@ -440,14 +440,16 @@ describe('the Activity extension records two fake agents and shows them in its p
       serving.list().find((e) => e.id === 'activity')?.status !== 'running' ? true : undefined,
     )
     const restarted = newHost()
-    const loaded = restarted.getSettings.bind(restarted)
+    const loaded = restarted.config.getSettings.bind(restarted.config)
     const slowSettings = (
       ...args: Parameters<typeof loaded>
     ): Promise<ReturnType<typeof loaded>> => {
       const values = loaded(...args)
       return new Promise((resolve) => setTimeout(() => resolve(values), 500))
     }
-    vi.spyOn(restarted, 'getSettings').mockImplementation(slowSettings as unknown as typeof loaded)
+    vi.spyOn(restarted.config, 'getSettings').mockImplementation(
+      slowSettings as unknown as typeof loaded,
+    )
     serving = restarted
 
     expect(await panel('snapshot')).toMatchObject({ ok: true, data: { showActivity: false } })
