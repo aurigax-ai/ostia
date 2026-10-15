@@ -31,11 +31,14 @@ describe('linuxForegroundCwd', () => {
     expect(await linuxForegroundCwd(100, root)).toBe('/home/u/work/tree')
   })
 
-  it('answers nothing when the group is gone, its folder was removed or the shell is unknown', async () => {
-    expect(await linuxForegroundCwd(100, fakeProc(shellStat(300), {}))).toBeNull()
+  it('answers a removed folder by its path, so resuming shows it missing instead of moving elsewhere', async () => {
     expect(
       await linuxForegroundCwd(100, fakeProc(shellStat(200), { 200: '/home/u/tree (deleted)' })),
-    ).toBeNull()
+    ).toBe('/home/u/tree')
+  })
+
+  it('answers nothing when the group is gone or the shell is unknown', async () => {
+    expect(await linuxForegroundCwd(100, fakeProc(shellStat(300), {}))).toBeNull()
     expect(await linuxForegroundCwd(100, fakeProc(shellStat(-1), {}))).toBeNull()
     expect(await linuxForegroundCwd(999, fakeProc(shellStat(200), {}))).toBeNull()
   })
@@ -52,17 +55,22 @@ describe('darwinForegroundCwd', () => {
   }
 
   it('asks ps for the foreground group and lsof for that process’s folder', async () => {
-    const { run, calls } = tools({ ps: '  200\n', lsof: 'p200\nfcwd\nn/Users/u/work/tree\n' })
+    const { run, calls } = tools({
+      '/bin/ps': '  200\n',
+      '/usr/sbin/lsof': 'p200\nfcwd\nn/Users/u/work/tree\n',
+    })
     expect(await darwinForegroundCwd(100, run)).toBe('/Users/u/work/tree')
     expect(calls).toEqual([
-      ['ps', '-o', 'tpgid=', '-p', '100'],
-      ['lsof', '-a', '-p', '200', '-d', 'cwd', '-Fn'],
+      ['/bin/ps', '-o', 'tpgid=', '-p', '100'],
+      ['/usr/sbin/lsof', '-a', '-p', '200', '-d', 'cwd', '-Fn'],
     ])
   })
 
   it('answers nothing without a foreground group or a folder', async () => {
-    expect(await darwinForegroundCwd(100, tools({ ps: '' }).run)).toBeNull()
-    expect(await darwinForegroundCwd(100, tools({ ps: '0' }).run)).toBeNull()
-    expect(await darwinForegroundCwd(100, tools({ ps: '200', lsof: 'p200\n' }).run)).toBeNull()
+    expect(await darwinForegroundCwd(100, tools({ '/bin/ps': '' }).run)).toBeNull()
+    expect(await darwinForegroundCwd(100, tools({ '/bin/ps': '0' }).run)).toBeNull()
+    expect(
+      await darwinForegroundCwd(100, tools({ '/bin/ps': '200', '/usr/sbin/lsof': 'p200\n' }).run),
+    ).toBeNull()
   })
 })
