@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import {
   chmodSync,
   closeSync,
@@ -11,6 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { chmod, mkdir, open, readdir, rename, rm } from 'node:fs/promises'
+import { hostname } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 
 export interface AtomicWriteOptions {
@@ -18,10 +19,11 @@ export interface AtomicWriteOptions {
   dirMode?: number
 }
 
-const TEMP_NAME = /^(.+)\.(\d+)\.[0-9a-f]{16}\.tmp$/
+const TEMP_NAME = /^(.+)\.([0-9a-f]{8})\.(\d+)\.[0-9a-f]{16}\.tmp$/
+const HOST = createHash('sha256').update(hostname()).digest('hex').slice(0, 8)
 
 function tempPath(path: string): string {
-  return `${path}.${process.pid}.${randomBytes(8).toString('hex')}.tmp`
+  return `${path}.${HOST}.${process.pid}.${randomBytes(8).toString('hex')}.tmp`
 }
 
 function running(pid: number): boolean {
@@ -38,8 +40,8 @@ function staleTemps(path: string, names: string[]): string[] {
   return names
     .filter((name) => {
       const match = TEMP_NAME.exec(name)
-      if (match?.[1] !== base) return false
-      const pid = Number(match[2])
+      if (match?.[1] !== base || match[2] !== HOST) return false
+      const pid = Number(match[3])
       return pid !== process.pid && !running(pid)
     })
     .map((name) => join(dirname(path), name))
