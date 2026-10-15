@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { build } from 'esbuild'
 import { buildExtension } from '../marketplace/build-extension.mjs'
 import { writeFigSpecs } from './completionSpecs.mjs'
+import { GENERATED_PACKS } from './i18nCatalog.mjs'
 import { marketplaceIds } from './marketplace.mjs'
 
 const srcRoot = 'src/extensions'
@@ -36,7 +37,8 @@ for (const id of ids) {
   const out = join(builtinRoot, id)
   await buildExtension(join(srcRoot, id), out, panelBaseCss)
   if (id === 'completions') await writeFigSpecs(join(out, 'specs'))
-  if (id === 'langpack-zh-hant') await writeCatalog('zhHant', join(out, 'zh-Hant.json'))
+  const pack = GENERATED_PACKS[id]
+  if (pack) await writeCatalog(pack.exportName, join(out, pack.file))
 }
 
 console.log(`built ${ids.length} built-in extension(s): ${ids.join(', ')}`)
