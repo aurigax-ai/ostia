@@ -83,6 +83,17 @@ export async function copyInto(workspaceId: string, paths: string[], dir: string
   if (!res.ok) report(workspaceId, res.error)
 }
 
+export async function importInto(
+  workspaceId: string,
+  files: File[],
+  dir: string,
+  move: boolean,
+): Promise<void> {
+  const res = await window.ostia.fileOps.importDropped(files, dir, workspaceId, move)
+  useFileTreeStore.getState().reload([dir])
+  if (!res.ok) report(workspaceId, res.error)
+}
+
 export async function pasteInto(workspaceId: string, dir: string): Promise<void> {
   const { clipboard, setClipboard } = useFileTreeStore.getState()
   if (!clipboard) return

@@ -349,6 +349,8 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       move: vi.fn().mockResolvedValue({ ok: true, paths: [] }),
       copy: vi.fn().mockResolvedValue({ ok: true, paths: [] }),
       trash: vi.fn().mockResolvedValue({ ok: true, paths: [] }),
+      importDropped: vi.fn().mockResolvedValue({ ok: true, paths: [] }),
+      startDrag: vi.fn(),
     },
     marketplace: {
       list: vi.fn().mockResolvedValue({ marketplaces: [], installed: [] }),

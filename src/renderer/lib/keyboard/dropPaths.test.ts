@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { OSTIA_PATH_MIME, acceptsPathDrop, pathsAsInput } from './dropPaths'
+import { acceptsPathDrop, pathsAsInput } from './dropPaths'
 
 describe('dropped paths', () => {
-  it('accepts a tree row or OS files, and nothing else', () => {
-    expect(acceptsPathDrop([OSTIA_PATH_MIME, 'text/plain'])).toBe(true)
+  it('accepts files, a Files tree row included, and nothing else', () => {
     expect(acceptsPathDrop(['Files'])).toBe(true)
     expect(acceptsPathDrop(['text/plain'])).toBe(false)
   })

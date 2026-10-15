@@ -11,7 +11,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { FileOps, copyName, nameProblem } from './fileOps'
+import { FileOps, copyName, nameProblem, numberedName } from './fileOps'
 
 const dirs: string[] = []
 
@@ -187,5 +187,113 @@ describe('FileOps', () => {
     expect(ops.rename(join(root, 'link'), 'renamed').ok).toBe(true)
     expect(await ops.trash([join(root, 'renamed')])).toMatchObject({ ok: true })
     expect(existsSync(outside)).toBe(true)
+  })
+})
+
+describe('numberedName', () => {
+  it('keeps a free name, then numbers it before the extension', () => {
+    const dir = tmp()
+    expect(numberedName(dir, 'a.ts')).toBe('a.ts')
+    writeFileSync(join(dir, 'a.ts'), '')
+    expect(numberedName(dir, 'a.ts')).toBe('a (2).ts')
+    writeFileSync(join(dir, 'a (2).ts'), '')
+    expect(numberedName(dir, 'a.ts')).toBe('a (3).ts')
+    mkdirSync(join(dir, 'docs'))
+    expect(numberedName(dir, 'docs')).toBe('docs (2)')
+  })
+})
+
+describe('FileOps.importInto', () => {
+  it('copies a dropped file from outside the roots into a folder and leaves the source', async () => {
+    const { root, outside, ops } = setup()
+    const source = join(outside, 'report.txt')
+    writeFileSync(source, 'from the desktop')
+    expect(await ops.importInto([source], join(root, 'src'), false)).toEqual({
+      ok: true,
+      paths: [join(root, 'src', 'report.txt')],
+    })
+    expect(readFileSync(join(root, 'src', 'report.txt'), 'utf8')).toBe('from the desktop')
+    expect(existsSync(source)).toBe(true)
+  })
+
+  it('never overwrites: a clash gets a numbered name and the existing file stays', async () => {
+    const { root, outside, ops } = setup()
+    const source = join(outside, 'notes.md')
+    writeFileSync(source, 'dropped')
+    expect(await ops.importInto([source], root, false)).toEqual({
+      ok: true,
+      paths: [join(root, 'notes (2).md')],
+    })
+    expect(readFileSync(join(root, 'notes.md'), 'utf8')).toBe('notes')
+    expect(readFileSync(join(root, 'notes (2).md'), 'utf8')).toBe('dropped')
+  })
+
+  it('moves a dropped folder when asked, numbering a clash', async () => {
+    const { root, outside, ops } = setup()
+    const source = join(outside, 'src')
+    mkdirSync(source)
+    writeFileSync(join(source, 'b.ts'), 'b')
+    expect(await ops.importInto([source], root, true)).toEqual({
+      ok: true,
+      paths: [join(root, 'src (2)')],
+    })
+    expect(existsSync(source)).toBe(false)
+    expect(readFileSync(join(root, 'src (2)', 'b.ts'), 'utf8')).toBe('b')
+    expect(readFileSync(join(root, 'src', 'main.ts'), 'utf8')).toBe('main')
+  })
+
+  it.runIf(existsSync('/dev/shm'))(
+    'moves across file systems by copying and sending the source to the trash',
+    async () => {
+      const { root, ops, trashed } = setup()
+      const shm = mkdtempSync(join('/dev/shm', 'ostia-fileops-'))
+      dirs.push(shm)
+      const source = join(shm, 'far.txt')
+      writeFileSync(source, 'far')
+      expect(await ops.importInto([source], root, true)).toEqual({
+        ok: true,
+        paths: [join(root, 'far.txt')],
+      })
+      expect(readFileSync(join(root, 'far.txt'), 'utf8')).toBe('far')
+      expect(trashed).toEqual([source])
+    },
+  )
+
+  it('refuses a root, a folder into itself, a destination outside the roots and bad input', async () => {
+    const { root, outside, ops } = setup()
+    const source = join(outside, 'a.txt')
+    writeFileSync(source, 'a')
+    expect(await ops.importInto([root], join(root, 'src'), false)).toEqual({
+      ok: false,
+      error: 'outside',
+    })
+    expect(await ops.importInto([outside], outside, false)).toEqual({
+      ok: false,
+      error: 'outside',
+    })
+    expect(await ops.importInto([join(root, 'src')], join(root, 'src'), false)).toEqual({
+      ok: false,
+      error: 'into-itself',
+    })
+    for (const paths of [[], ['a.txt'], [join(outside, 'missing')], 'x', [3]]) {
+      expect(await ops.importInto(paths, root, false)).toEqual({ ok: false, error: 'outside' })
+    }
+    expect(readdirSync(root).sort()).toEqual(['notes.md', 'src'])
+  })
+})
+
+describe('FileOps.draggable', () => {
+  it('hands out a real file or folder inside a root, never a root, a link or a path outside', () => {
+    const { root, outside, ops } = setup()
+    writeFileSync(join(outside, 'secret'), 's')
+    symlinkSync(join(outside, 'secret'), join(root, 'link'))
+    expect(ops.draggable(join(root, 'notes.md'))).toBe(join(root, 'notes.md'))
+    expect(ops.draggable(join(root, 'src'))).toBe(join(root, 'src'))
+    expect(ops.draggable(join(root, 'src', '..', 'notes.md'))).toBe(join(root, 'notes.md'))
+    expect(ops.draggable(root)).toBeNull()
+    expect(ops.draggable(join(root, 'link'))).toBeNull()
+    expect(ops.draggable(join(outside, 'secret'))).toBeNull()
+    expect(ops.draggable(join(root, 'missing'))).toBeNull()
+    expect(ops.draggable(42)).toBeNull()
   })
 })

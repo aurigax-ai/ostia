@@ -1,4 +1,10 @@
-export type FileOpError = 'outside' | 'invalid-name' | 'exists' | 'into-itself' | 'failed'
+export type FileOpError =
+  | 'outside'
+  | 'invalid-name'
+  | 'exists'
+  | 'into-itself'
+  | 'sandboxed'
+  | 'failed'
 
 export type FileOpResult =
   | { ok: true; paths: string[] }
@@ -12,4 +18,11 @@ export interface FileOpsApi {
   move: (paths: string[], dir: string) => Promise<FileOpResult>
   copy: (paths: string[], dir: string) => Promise<FileOpResult>
   trash: (paths: string[]) => Promise<FileOpResult>
+  importDropped: (
+    files: File[],
+    dir: string,
+    workspaceId: string,
+    move: boolean,
+  ) => Promise<FileOpResult>
+  startDrag: (path: string) => void
 }

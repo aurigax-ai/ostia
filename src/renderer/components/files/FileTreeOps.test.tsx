@@ -8,6 +8,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { FilesView } from './FilesView'
+import { importMoves } from './fileTreeRows'
 
 if (!Element.prototype.getAnimations) {
   Element.prototype.getAnimations = () => []
@@ -240,6 +241,108 @@ describe('Files tree operations', () => {
     expect(useFileTreeStore.getState().clipboard).toEqual({
       mode: 'copy',
       paths: [`${CWD}/notes.md`],
+    })
+  })
+
+  describe('OS files dropped on the tree', () => {
+    function dragEvent(type: string, transfer: object, keys: MouseEventInit): MouseEvent {
+      const event = new MouseEvent(type, { bubbles: true, cancelable: true, ...keys })
+      Object.defineProperty(event, 'dataTransfer', { value: transfer })
+      return event
+    }
+
+    function dropFiles(target: HTMLElement, paths: string[], keys: MouseEventInit = {}): File[] {
+      const files = paths.map((path) => new File(['x'], path.slice(path.lastIndexOf('/') + 1)))
+      vi.mocked(window.ostia.files.pathForFile).mockImplementation(
+        (file) => paths[files.indexOf(file)] ?? '',
+      )
+      const transfer = { types: ['Files'], files, dropEffect: 'none', getData: () => '' }
+      fireEvent(target, dragEvent('dragover', transfer, keys))
+      fireEvent(target, dragEvent('drop', transfer, keys))
+      return files
+    }
+
+    it('copies a file from outside into the folder row by default and moves it with Shift', async () => {
+      seed()
+      render(<FilesView />)
+      const src = await screen.findByRole('button', { name: 'src' })
+      const files = dropFiles(src, ['/tmp/report.txt'])
+      expect(window.ostia.fileOps.importDropped).toHaveBeenCalledWith(
+        files,
+        `${CWD}/src`,
+        's1',
+        false,
+      )
+      const moved = dropFiles(src, ['/tmp/report.txt'], { shiftKey: true })
+      expect(window.ostia.fileOps.importDropped).toHaveBeenLastCalledWith(
+        moved,
+        `${CWD}/src`,
+        's1',
+        true,
+      )
+      await waitFor(() => expect(useFileTreeStore.getState().versions[`${CWD}/src`]).toBe(2))
+    })
+
+    it('imports into the tree root when dropped on its empty area', async () => {
+      seed()
+      const { container } = render(<FilesView />)
+      await screen.findByRole('button', { name: 'src' })
+      const tree = container.querySelector<HTMLElement>('.file-tree')
+      if (!tree) throw new Error('no tree')
+      const files = dropFiles(tree, ['/tmp/a.png', '/tmp/b.png'])
+      expect(window.ostia.fileOps.importDropped).toHaveBeenCalledTimes(1)
+      expect(window.ostia.fileOps.importDropped).toHaveBeenCalledWith(files, CWD, 's1', false)
+      await waitFor(() => expect(useFileTreeStore.getState().versions[CWD]).toBe(1))
+    })
+
+    it('keeps a drag between rows of its own tree a move, Ctrl a copy', async () => {
+      seed()
+      render(<FilesView />)
+      const src = await screen.findByRole('button', { name: 'src' })
+      dropFiles(src, [`${CWD}/notes.md`])
+      expect(window.ostia.fileOps.move).toHaveBeenCalledWith([`${CWD}/notes.md`], `${CWD}/src`)
+      dropFiles(src, [`${CWD}/notes.md`], { ctrlKey: true })
+      expect(window.ostia.fileOps.copy).toHaveBeenCalledWith([`${CWD}/notes.md`], `${CWD}/src`)
+      expect(window.ostia.fileOps.importDropped).not.toHaveBeenCalled()
+      await waitFor(() => expect(useFileTreeStore.getState().versions[CWD]).toBe(1))
+      await waitFor(() => expect(useFileTreeStore.getState().versions[`${CWD}/src`]).toBe(2))
+    })
+
+    it('reports the sandbox refusal and changes nothing', async () => {
+      seed()
+      vi.mocked(window.ostia.fileOps.importDropped).mockResolvedValueOnce({
+        ok: false,
+        error: 'sandboxed',
+      })
+      render(<FilesView />)
+      dropFiles(await screen.findByRole('button', { name: 'src' }), ['/tmp/report.txt'])
+      await waitFor(() =>
+        expect(window.ostia.notifications.post).toHaveBeenCalledWith(
+          expect.objectContaining({
+            kind: 'error',
+            title: 'This sandboxed workspace can’t write to this folder.',
+          }),
+        ),
+      )
+    })
+
+    it('moves with Shift on Linux and Windows and with Cmd on macOS', () => {
+      const keys = { altKey: false, ctrlKey: false, metaKey: false, shiftKey: false }
+      expect(importMoves(keys, false)).toBe(false)
+      expect(importMoves({ ...keys, shiftKey: true }, false)).toBe(true)
+      expect(importMoves({ ...keys, metaKey: true }, false)).toBe(false)
+      expect(importMoves(keys, true)).toBe(false)
+      expect(importMoves({ ...keys, metaKey: true }, true)).toBe(true)
+      expect(importMoves({ ...keys, shiftKey: true }, true)).toBe(false)
+    })
+
+    it('starts a native drag of a row from main and no HTML drag', async () => {
+      seed()
+      render(<FilesView />)
+      const row = await screen.findByRole('button', { name: 'notes.md' })
+      const started = fireEvent.dragStart(row, { dataTransfer: { setData: vi.fn() } })
+      expect(started).toBe(false)
+      expect(window.ostia.fileOps.startDrag).toHaveBeenCalledWith(`${CWD}/notes.md`)
     })
   })
 })

@@ -1,5 +1,4 @@
-import { copyInto, moveInto, parentOf } from '@/lib/files/fileTreeActions'
-import { OSTIA_PATH_MIME } from '@/lib/keyboard/dropPaths'
+import { copyInto, importInto, moveInto, parentOf } from '@/lib/files/fileTreeActions'
 import { isMac } from '@/platform'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
 import { type DragEvent, type HTMLAttributes, type KeyboardEvent, useState } from 'react'
@@ -43,17 +42,36 @@ export function startPathDrag(
   fullPath: string,
   tree: TreeContext,
 ): void {
-  if (tree.remote) {
-    e.preventDefault()
-    return
-  }
-  e.dataTransfer.setData(OSTIA_PATH_MIME, fullPath)
-  e.dataTransfer.setData('text/plain', fullPath)
-  e.dataTransfer.effectAllowed = 'copyMove'
+  e.preventDefault()
+  if (!tree.remote) window.ostia.fileOps.startDrag(fullPath)
 }
 
-function isCopyDrop(e: DragEvent<HTMLElement>): boolean {
+type DropModifiers = Pick<DragEvent<HTMLElement>, 'altKey' | 'ctrlKey' | 'metaKey' | 'shiftKey'>
+
+function isCopyDrop(e: DropModifiers): boolean {
   return isMac ? e.altKey : e.ctrlKey
+}
+
+export function importMoves(e: DropModifiers, mac: boolean): boolean {
+  return mac ? e.metaKey : e.shiftKey
+}
+
+function insideRoot(root: string, path: string): boolean {
+  return path === root || path.startsWith(root.endsWith('/') ? root : `${root}/`)
+}
+
+function dropInto(e: DragEvent<HTMLElement>, workspaceId: string, dir: string, root: string): void {
+  const files = [...e.dataTransfer.files]
+  const paths = files.map((file) => window.ostia.files.pathForFile(file))
+  if (paths.length > 0 && paths.every((path) => path && insideRoot(root, path))) {
+    if (isCopyDrop(e)) void copyInto(workspaceId, paths, dir)
+    else {
+      const moving = paths.filter((path) => parentOf(path) !== dir)
+      if (moving.length > 0) void moveInto(workspaceId, moving, dir)
+    }
+    return
+  }
+  void importInto(workspaceId, files, dir, importMoves(e, isMac))
 }
 
 export function useFolderDrop(
@@ -66,20 +84,20 @@ export function useFolderDrop(
   return {
     over,
     onDragOver: (e) => {
-      if (!e.dataTransfer.types.includes(OSTIA_PATH_MIME)) return
+      if (e.defaultPrevented || !e.dataTransfer.types.includes('Files')) {
+        if (over) setOver(false)
+        return
+      }
       e.preventDefault()
-      e.dataTransfer.dropEffect = isCopyDrop(e) ? 'copy' : 'move'
-      setOver(true)
+      e.dataTransfer.dropEffect = 'copy'
+      if (!over) setOver(true)
     },
     onDragLeave: () => setOver(false),
     onDrop: (e) => {
       setOver(false)
-      const source = e.dataTransfer.getData(OSTIA_PATH_MIME)
-      if (!source) return
+      if (e.defaultPrevented || !e.dataTransfer.types.includes('Files')) return
       e.preventDefault()
-      e.stopPropagation()
-      if (isCopyDrop(e)) void copyInto(workspaceId, [source], dir)
-      else if (parentOf(source) !== dir) void moveInto(workspaceId, [source], dir)
+      dropInto(e, workspaceId, dir, tree.root)
     },
   }
 }

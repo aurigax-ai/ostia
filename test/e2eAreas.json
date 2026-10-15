@@ -207,6 +207,7 @@
         "e2e/browser-tab.spec.ts",
         "e2e/browser-width.spec.ts",
         "e2e/detached-send.spec.ts",
+        "e2e/os-file-drop.spec.ts",
         "e2e/preview-send.spec.ts"
       ]
     },
@@ -602,6 +603,8 @@
         "src/renderer/lib/files/fileTree.",
         "src/renderer/lib/files/fileTreeActions.ts",
         "src/renderer/lib/files/fileDrop.ts",
+        "src/main/files/fileDrops.ts",
+        "src/renderer/components/panes/FileDropCover.tsx",
         "src/renderer/lib/keyboard/dropPaths.ts",
         "src/renderer/lib/files/fileKinds.ts",
         "src/renderer/lib/files/openFile.ts",
@@ -614,6 +617,7 @@
       ],
       "specs": [
         "e2e/open-any-file.spec.ts",
+        "e2e/os-file-drop.spec.ts",
         "e2e/palette-focus.spec.ts",
         "e2e/terminal-file-links.spec.ts"
       ]
@@ -960,11 +964,7 @@
         "src/renderer/stores/terminal/blocksStore.ts",
         "src/renderer/stores/terminal/historySearchStore.ts"
       ],
-      "specs": [
-        "e2e/blocks.spec.ts",
-        "e2e/input-editor.spec.ts",
-        "e2e/terminal-basics.spec.ts"
-      ]
+      "specs": ["e2e/blocks.spec.ts", "e2e/input-editor.spec.ts", "e2e/terminal-basics.spec.ts"]
     },
     {
       "name": "tabs and panes",
@@ -1141,11 +1141,7 @@
         "src/renderer/components/settings/DiscreteGpuRow.tsx",
         "src/renderer/components/app/WindowControls.tsx"
       ],
-      "specs": [
-        "e2e/auto-resume.spec.ts",
-        "e2e/quit-confirm.spec.ts",
-        "e2e/tray.spec.ts"
-      ]
+      "specs": ["e2e/auto-resume.spec.ts", "e2e/quit-confirm.spec.ts", "e2e/tray.spec.ts"]
     },
     {
       "name": "command palette",

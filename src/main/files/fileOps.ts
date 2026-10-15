@@ -1,5 +1,5 @@
 import { cpSync, lstatSync, mkdirSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
-import { basename, dirname, extname, join, sep } from 'node:path'
+import { basename, dirname, extname, isAbsolute, join, sep } from 'node:path'
 import type { FileOpResult } from '../../shared/files/fileOps'
 import { resolveSafe } from '../platform/pathGuard'
 
@@ -12,7 +12,9 @@ export interface FileOpsDeps {
   trash: (path: string) => Promise<void>
 }
 
-const fail = (error: Exclude<FileOpResult, { ok: true }>['error']): FileOpResult => ({
+type FileOpFailure = Exclude<FileOpResult, { ok: true }>
+
+const fail = (error: FileOpFailure['error']): FileOpFailure => ({
   ok: false,
   error,
 })
@@ -50,15 +52,45 @@ function sameEntry(a: string, b: string): boolean {
   return first.ino === second.ino && first.dev === second.dev
 }
 
-export function copyName(dir: string, name: string): string | null {
+function splitName(name: string): { stem: string; suffix: string } {
   const ext = extname(name)
-  const stem = ext && ext !== name ? name.slice(0, -ext.length) : name
-  const suffix = ext && ext !== name ? ext : ''
+  return ext && ext !== name
+    ? { stem: name.slice(0, -ext.length), suffix: ext }
+    : { stem: name, suffix: '' }
+}
+
+function everyPath(input: unknown, each: (item: unknown) => string | null): string[] | null {
+  if (!Array.isArray(input) || input.length === 0 || input.length > FILE_OP_MAX_PATHS) return null
+  const out: string[] = []
+  for (const item of input) {
+    const path = each(item)
+    if (path === null) return null
+    out.push(path)
+  }
+  return out
+}
+
+export function copyName(dir: string, name: string): string | null {
+  const { stem, suffix } = splitName(name)
   for (let i = 1; i <= COPY_NAME_TRIES; i++) {
     const candidate = `${stem} copy${i === 1 ? '' : ` ${i}`}${suffix}`
     if (!exists(join(dir, candidate))) return candidate
   }
   return null
+}
+
+export function numberedName(dir: string, name: string): string | null {
+  if (!exists(join(dir, name))) return name
+  const { stem, suffix } = splitName(name)
+  for (let i = 2; i <= COPY_NAME_TRIES; i++) {
+    const candidate = `${stem} (${i})${suffix}`
+    if (!exists(join(dir, candidate))) return candidate
+  }
+  return null
+}
+
+function isCrossDevice(error: unknown): boolean {
+  return (error as NodeJS.ErrnoException | null)?.code === 'EXDEV'
 }
 
 export class FileOps {
@@ -98,16 +130,7 @@ export class FileOps {
   }
 
   private paths(input: unknown): string[] | null {
-    if (!Array.isArray(input) || input.length === 0 || input.length > FILE_OP_MAX_PATHS) {
-      return null
-    }
-    const out: string[] = []
-    for (const item of input) {
-      const path = this.entry(item)
-      if (path === null) return null
-      out.push(path)
-    }
-    return out
+    return everyPath(input, (item) => this.entry(item))
   }
 
   create(dirInput: unknown, name: unknown, kind: unknown): FileOpResult {
@@ -141,11 +164,22 @@ export class FileOps {
     }
   }
 
-  move(pathsInput: unknown, destInput: unknown): FileOpResult {
-    const sources = this.paths(pathsInput)
+  private plan(
+    sources: string[] | null,
+    destInput: unknown,
+  ): { sources: string[]; dest: string } | FileOpFailure {
     const dest = this.folder(destInput)
     if (sources === null || dest === null) return fail('outside')
-    if (sources.some((source) => isInside(source, dest))) return fail('into-itself')
+    if (sources.some((source) => isInside(source, dest))) {
+      return fail('into-itself')
+    }
+    return { sources, dest }
+  }
+
+  move(pathsInput: unknown, destInput: unknown): FileOpResult {
+    const planned = this.plan(this.paths(pathsInput), destInput)
+    if ('ok' in planned) return planned
+    const { sources, dest } = planned
     const moves = sources
       .filter((source) => dirname(source) !== dest)
       .map((source) => ({ source, target: join(dest, basename(source)) }))
@@ -163,10 +197,9 @@ export class FileOps {
   }
 
   copy(pathsInput: unknown, destInput: unknown): FileOpResult {
-    const sources = this.paths(pathsInput)
-    const dest = this.folder(destInput)
-    if (sources === null || dest === null) return fail('outside')
-    if (sources.some((source) => isInside(source, dest))) return fail('into-itself')
+    const planned = this.plan(this.paths(pathsInput), destInput)
+    if ('ok' in planned) return planned
+    const { sources, dest } = planned
     const done: string[] = []
     for (const source of sources) {
       const name = basename(source)
@@ -174,18 +207,71 @@ export class FileOps {
       if (free === null) return { ok: false, error: 'exists', paths: done }
       const target = join(dest, free)
       try {
-        cpSync(source, target, {
-          recursive: true,
-          errorOnExist: true,
-          force: false,
-          verbatimSymlinks: true,
-        })
+        this.copyEntry(source, target)
         done.push(target)
       } catch {
         return { ok: false, error: 'failed', paths: done }
       }
     }
     return { ok: true, paths: done }
+  }
+
+  private dropped(input: unknown): string[] | null {
+    return everyPath(input, (item) => {
+      if (typeof item !== 'string' || !isAbsolute(item) || !exists(item)) return null
+      const real = join(realpathSync(dirname(item)), basename(item))
+      return this.realRoots.includes(real) ? null : real
+    })
+  }
+
+  private copyEntry(source: string, target: string): void {
+    cpSync(source, target, {
+      recursive: true,
+      errorOnExist: true,
+      force: false,
+      verbatimSymlinks: true,
+    })
+  }
+
+  private async moveEntry(source: string, target: string): Promise<void> {
+    try {
+      renameSync(source, target)
+    } catch (error) {
+      if (!isCrossDevice(error)) throw error
+      this.copyEntry(source, target)
+      await this.deps.trash(source)
+    }
+  }
+
+  async importInto(pathsInput: unknown, destInput: unknown, move: boolean): Promise<FileOpResult> {
+    const planned = this.plan(this.dropped(pathsInput), destInput)
+    if ('ok' in planned) return planned
+    const { sources, dest } = planned
+    const done: string[] = []
+    for (const source of sources) {
+      if (move && dirname(source) === dest) {
+        done.push(source)
+        continue
+      }
+      const free = numberedName(dest, basename(source))
+      if (free === null) return { ok: false, error: 'exists', paths: done }
+      const target = join(dest, free)
+      try {
+        if (move) await this.moveEntry(source, target)
+        else this.copyEntry(source, target)
+        done.push(target)
+      } catch {
+        return { ok: false, error: 'failed', paths: done }
+      }
+    }
+    return { ok: true, paths: done }
+  }
+
+  draggable(input: unknown): string | null {
+    const path = this.entry(input)
+    if (path === null) return null
+    const stat = lstatSync(path)
+    return stat.isFile() || stat.isDirectory() ? path : null
   }
 
   async trash(pathsInput: unknown): Promise<FileOpResult> {
