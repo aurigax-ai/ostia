@@ -77,7 +77,7 @@ describe('claudeTrustGate', () => {
     expect(trustFolder()).not.toHaveBeenCalled()
     await trustForClaude('p1')
     expect(await gate).toBe(true)
-    expect(trustFolder()).toHaveBeenCalledWith('p1')
+    expect(trustFolder()).toHaveBeenCalledWith('p1', '/w/repo')
     expect(useFolderTrustStore.getState().byPane).toEqual({})
   })
 

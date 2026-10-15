@@ -44,6 +44,6 @@ describe('FolderTrustNotice', () => {
     render(<FolderTrustNotice paneId="p1" folder="/home/u/Work/repo" />)
     fireEvent.click(screen.getByRole('button', { name: 'Trust for Claude' }))
     expect(await gate).toBe(true)
-    expect(window.ostia.agentSession.trustFolder).toHaveBeenCalledWith('p1')
+    expect(window.ostia.agentSession.trustFolder).toHaveBeenCalledWith('p1', '/home/u/Work/repo')
   })
 })

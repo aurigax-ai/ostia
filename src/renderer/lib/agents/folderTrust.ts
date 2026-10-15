@@ -41,7 +41,8 @@ export async function claudeTrustGate(
 }
 
 export async function trustForClaude(paneId: string): Promise<void> {
-  await window.ostia.agentSession.trustFolder(paneId).catch(() => false)
+  const folder = useFolderTrustStore.getState().byPane[paneId]
+  if (folder) await window.ostia.agentSession.trustFolder(paneId, folder).catch(() => false)
   settle(paneId, true)
 }
 

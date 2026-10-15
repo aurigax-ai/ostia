@@ -912,7 +912,7 @@ interface AgentSessionApi {
   info: (resume: AgentResume) => Promise<AgentSessionInfo | null>
   claimResume: (paneId: string, resume: AgentResume) => Promise<ResumeVerdict>
   folderTrust: (paneId: string) => Promise<FolderTrust>
-  trustFolder: (paneId: string) => Promise<boolean>
+  trustFolder: (paneId: string, folder: string) => Promise<boolean>
 }
 
 interface AppUpdateApi {

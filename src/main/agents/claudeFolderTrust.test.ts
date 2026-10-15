@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import {
   chmodSync,
   lstatSync,
@@ -141,6 +142,21 @@ describe('folderTrust limits', () => {
     writeFileSync(config, `{"projects":{}}${' '.repeat(33 * 1024 * 1024)}`)
     expect(await folderTrust(place(folder('p')))).toEqual({ state: 'unknown' })
   })
+})
+
+describe('reads of agent-writable files', () => {
+  it.skipIf(process.platform === 'win32')(
+    'CFT-C33 never blocks on a FIFO a worktree pointer names, and treats it as no main repository',
+    async () => {
+      const gitDir = folder('elsewhere', 'gitdir')
+      spawnSync('mkfifo', [join(gitDir, 'commondir')])
+      const tree = folder('src', 'wt')
+      writeFileSync(join(tree, '.git'), `gitdir: ${gitDir}\n`)
+      write({ projects: {} })
+      expect(await folderTrust(place(tree))).toEqual({ state: 'ask', folder: tree })
+    },
+    3_000,
+  )
 })
 
 describe('trustFolder', () => {

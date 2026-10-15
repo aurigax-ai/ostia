@@ -1,8 +1,9 @@
-import { lstat, open, readFile, realpath, stat } from 'node:fs/promises'
+import { lstat, realpath, stat } from 'node:fs/promises'
 import { basename, dirname, join, resolve as resolvePath, sep } from 'node:path'
 import { writeFileAtomicAsync } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import { lock } from 'proper-lockfile'
 import type { FolderTrust } from '../../shared/types'
+import { readRegularFile } from '../artifacts/previewFiles'
 
 export interface TrustPlace {
   folder: string
@@ -56,16 +57,9 @@ export async function claudeConfigFile(
   return current
 }
 
-async function readSmall(path: string, max: number): Promise<string | null> {
-  const handle = await open(path, 'r').catch(() => null)
-  if (!handle) return null
-  try {
-    const info = await handle.stat()
-    if (!info.isFile() || info.size > max) return null
-    return await handle.readFile('utf8')
-  } finally {
-    await handle.close()
-  }
+async function readText(path: string, max: number): Promise<string | null> {
+  const read = await readRegularFile(path, max)
+  return read.ok ? read.body.toString('utf8') : null
 }
 
 async function gitRoot(folder: string): Promise<string | null> {
@@ -79,10 +73,10 @@ async function gitRoot(folder: string): Promise<string | null> {
 }
 
 async function canonicalRoot(root: string): Promise<string> {
-  const pointer = await readSmall(join(root, '.git'), GIT_POINTER_MAX)
+  const pointer = await readText(join(root, '.git'), GIT_POINTER_MAX)
   const gitDir = pointer?.match(/^gitdir:\s*(.+)$/m)?.[1]?.trim()
   if (!gitDir) return root
-  const common = await readSmall(join(resolvePath(root, gitDir), 'commondir'), GIT_POINTER_MAX)
+  const common = await readText(join(resolvePath(root, gitDir), 'commondir'), GIT_POINTER_MAX)
   if (!common) return root
   const commonDir = resolvePath(root, gitDir, common.trim())
   return basename(commonDir) === '.git' ? dirname(commonDir) : root
@@ -92,8 +86,8 @@ async function readConfig(path: string): Promise<ReadConfig | null> {
   const target = await realpath(path).catch(() => null)
   if (!target) return null
   const info = await stat(target).catch(() => null)
-  if (!info?.isFile() || info.size > CONFIG_READ_MAX) return null
-  const text = await readFile(target, 'utf8').catch(() => null)
+  if (!info?.isFile()) return null
+  const text = await readText(target, CONFIG_READ_MAX)
   if (text === null) return null
   try {
     const config: unknown = JSON.parse(text)
@@ -150,15 +144,19 @@ export async function folderTrust(place: TrustPlace): Promise<FolderTrust> {
   return resolved.key ? { state: 'ask', folder: resolved.key } : { state: 'unknown' }
 }
 
-export async function trustFolder(place: TrustPlace): Promise<boolean> {
+export async function trustFolder(place: TrustPlace, shown?: string): Promise<boolean> {
   const resolved = await resolve(place)
-  if (!resolved?.key) return false
+  if (!resolved?.key || (shown !== undefined && shown !== resolved.key)) return false
   const path = await claudeConfigFile(place.home, place.configDir, place.customOAuth)
   if (!(await readConfig(path))) return false
+  let compromised = false
   const release = await lock(path, {
     lockfilePath: `${path}.lock`,
     realpath: false,
     retries: LOCK_RETRIES,
+    onCompromised: () => {
+      compromised = true
+    },
   }).catch(() => null)
   if (!release) return false
   try {
@@ -175,6 +173,7 @@ export async function trustFolder(place: TrustPlace): Promise<boolean> {
       },
     }
     const out = `${JSON.stringify(next, null, 2)}${text.endsWith('\n') ? '\n' : ''}`
+    if (compromised) return false
     await writeFileAtomicAsync(target, out, { mode })
     return true
   } finally {

@@ -30,8 +30,8 @@ function pane(paneId: string, workspaceId: string, host = hostname(), windowId =
 
 const ask = (paneId: string, sender = '1') =>
   handlers.get('agent:folder-trust')?.({ sender: { id: Number(sender) } }, paneId)
-const trust = (paneId: string, sender = '1') =>
-  handlers.get('agent:trust-folder')?.({ sender: { id: Number(sender) } }, paneId)
+const trust = (paneId: string, sender = '1', shown = project) =>
+  handlers.get('agent:trust-folder')?.({ sender: { id: Number(sender) } }, paneId, shown)
 
 beforeEach(() => {
   home = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-trust-ipc-')))
@@ -95,6 +95,15 @@ describe('folder trust IPC', () => {
     ).toEqual({
       hasTrustDialogAccepted: true,
     })
+    expect(readFileSync(config, 'utf8')).toBe('{"projects":{}}\n')
+  })
+
+  it('CFT-C34 trusts only the folder the note showed, never one the pane moved to since', async () => {
+    pane('p-ok', 'ws')
+    const other = join(home, 'work', 'other')
+    mkdirSync(other)
+    expect(await trust('p-ok', '1', other)).toBe(false)
+    expect(await handlers.get('agent:trust-folder')?.({ sender: { id: 1 } }, 'p-ok')).toBe(false)
     expect(readFileSync(config, 'utf8')).toBe('{"projects":{}}\n')
   })
 })

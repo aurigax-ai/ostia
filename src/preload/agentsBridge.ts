@@ -24,6 +24,7 @@ export const agentsBridge: Pick<OstiaBridge, 'manager' | 'agentSession'> = {
       ipcRenderer.invoke('agent:claim-resume', paneId, resume) as Promise<ResumeVerdict>,
     folderTrust: (paneId) =>
       ipcRenderer.invoke('agent:folder-trust', paneId) as Promise<FolderTrust>,
-    trustFolder: (paneId) => ipcRenderer.invoke('agent:trust-folder', paneId) as Promise<boolean>,
+    trustFolder: (paneId, folder) =>
+      ipcRenderer.invoke('agent:trust-folder', paneId, folder) as Promise<boolean>,
   },
 }

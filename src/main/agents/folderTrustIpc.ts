@@ -47,8 +47,11 @@ export function registerFolderTrustIpc(deps: FolderTrustIpcDeps): void {
     return (await trustFolder(place)) ? { state: 'trusted' } : verdict
   })
 
-  ipcMain.handle('agent:trust-folder', async (e, paneId: unknown): Promise<boolean> => {
-    const place = placeOf(deps, String(e.sender.id), paneId)
-    return place ? trustFolder(place) : false
-  })
+  ipcMain.handle(
+    'agent:trust-folder',
+    async (e, paneId: unknown, shown: unknown): Promise<boolean> => {
+      const place = placeOf(deps, String(e.sender.id), paneId)
+      return place && typeof shown === 'string' ? trustFolder(place, shown) : false
+    },
+  )
 }
