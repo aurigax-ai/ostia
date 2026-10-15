@@ -57,6 +57,9 @@
       "name": "language servers",
       "paths": [
         "src/main/lsp/languageServers.",
+        "src/main/lsp/serverBinaries.ts",
+        "src/main/lsp/serverSpawn.ts",
+        "src/main/lsp/sessionProtocol.ts",
         "src/main/lsp/languageServersIpc.ts",
         "src/main/lsp/managedServers.ts",
         "src/main/lsp/serverOverrides.ts",

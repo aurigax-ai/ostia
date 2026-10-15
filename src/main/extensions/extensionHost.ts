@@ -186,7 +186,7 @@ import {
   type RemoteFoldersDeps,
 } from '../files/remoteFolders'
 import type { EditorLanguageSource } from '../lsp/editorLanguages'
-import type { LanguageServerSource } from '../lsp/languageServers'
+import type { LanguageServerSource } from '../lsp/serverBinaries'
 import { redactAssistRequest } from '../privacy/redactionTargets'
 import { spawnFolder } from '../terminal/spawnCwd'
 import type { ExtensionConnections } from './extensionConnections'

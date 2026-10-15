@@ -12,7 +12,8 @@ import { sandboxSpawnEnv } from '../sandbox/spawnEnv'
 import { SandboxStore } from '../sandbox/store'
 import { visibleInSandbox } from '../sandbox/visibility'
 import { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
-import { type LanguageServerSource, LanguageServers } from './languageServers'
+import { LanguageServers } from './languageServers'
+import type { LanguageServerSource } from './serverBinaries'
 
 const repoRoot = process.cwd()
 const hostScript = join(repoRoot, 'node_modules/.cache/ostia-test/sandbox-host-lsp.mjs')

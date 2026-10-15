@@ -262,10 +262,11 @@ import { registerGitIpc, registerGitMethods } from './git/register'
 import { GitService } from './git/service'
 import { ViewStateStore } from './git/viewState'
 import { registerEditorLanguageIpc } from './lsp/editorLanguages'
-import { LanguageServers, scrubbedEnv } from './lsp/languageServers'
+import { LanguageServers } from './lsp/languageServers'
 import { registerLanguageServersIpc } from './lsp/languageServersIpc'
 import { ManagedServers, downloadBaseUrl } from './lsp/managedServers'
 import { ServerOverrides } from './lsp/serverOverrides'
+import { scrubbedEnv } from './lsp/serverSpawn'
 import { ManagerService, managerWindowId } from './manager/manager'
 import {
   managerArgv,
