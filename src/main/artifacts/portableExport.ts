@@ -3,6 +3,7 @@ import { mkdirSync, readdirSync, realpathSync, rmSync, statSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import { ipcMain } from 'electron'
+import { escape as escapeHtml } from 'es-toolkit'
 import { type PreviewTheme, normalizePreviewTheme } from '../../shared/artifacts/htmlPreview'
 import {
   PORTABLE_FORMAT,
@@ -42,10 +43,6 @@ export interface PortableExportDeps {
 }
 
 type Made = { ok: true; file: string } | (PortableResult & { ok: false })
-
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
 
 function prettyJson(text: string): string {
   try {

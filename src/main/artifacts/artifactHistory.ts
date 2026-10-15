@@ -13,6 +13,7 @@ import {
 import { open, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, isAbsolute, join } from 'node:path'
 import { ipcMain } from 'electron'
+import { unescape as unescapeHtml } from 'es-toolkit'
 import {
   type ArtifactRestore,
   type ArtifactVersion,
@@ -60,14 +61,6 @@ interface Manifest {
 
 function sha(data: string | Buffer): string {
   return createHash('sha256').update(data).digest('hex')
-}
-
-function unescapeAttribute(text: string): string {
-  return text
-    .replace(/&quot;/g, '"')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
 }
 
 function manifestOf(text: string): Manifest | null {
@@ -276,7 +269,7 @@ export class ArtifactHistory {
     if (start === -1) return null
     const from = start + SRCDOC.length
     const end = text.indexOf('"', from)
-    return end === -1 ? null : unescapeAttribute(text.slice(from, end))
+    return end === -1 ? null : unescapeHtml(text.slice(from, end))
   }
 
   async restore(workspaceId: string, path: string, id: string): Promise<ArtifactRestore | null> {
