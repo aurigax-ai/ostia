@@ -1,3 +1,4 @@
+import type { CollapseChange } from '@/lib/layout/collapse'
 import type { DropZone } from '@/lib/layout/tree'
 import type { Direction, LayoutNode, SurfaceKind } from '@/lib/layout/types'
 import type { DiffContent } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
@@ -33,6 +34,7 @@ export interface LayoutState {
   moveTab: (workspaceId: string, sourceId: string, targetId: string, after: boolean) => void
   joinTab: (workspaceId: string, paneIds: readonly string[], tab: string | null) => string[]
   renameSplitTab: (workspaceId: string, tabId: string, name: string) => void
+  changeCollapse: (workspaceId: string, paneId: string, change: CollapseChange) => void
   setCwd: (workspaceId: string, paneId: string, cwd: string) => void
   setUrl: (workspaceId: string, paneId: string, url: string) => void
   setResume: (workspaceId: string, paneId: string, resume: AgentResume) => void

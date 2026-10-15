@@ -1,6 +1,15 @@
+import { changeCollapse } from '@/lib/layout/collapse'
 import { joinSplitTab, separateFromSplitTab } from '@/lib/layout/tabJoin'
 import { movePane, moveTab } from '@/lib/layout/tabMoves'
-import { findSplitTab, findSplitTabByName, focusIdOf, setSplitTabName } from '@/lib/layout/tree'
+import {
+  findPane,
+  findSplitTab,
+  findSplitTabByName,
+  focusIdOf,
+  setSplitTabName,
+  tabsOfPane,
+} from '@/lib/layout/tree'
+import type { LayoutNode } from '@/lib/layout/types'
 import { forgetAgentSplitTab } from '@/lib/panes/agentSplitTabs'
 import { patch } from '@/lib/panes/layoutPatch'
 import {
@@ -12,9 +21,25 @@ import {
 } from '@/lib/panes/splitTabPlacement'
 import { forgetSplitTabSeeds, seedSplitTab } from '@/lib/panes/splitTabSeeds'
 import { SPLIT_TAB_NAME_MAX, normalizeSplitTabName } from '@shared/workspaces/splitTabs'
-import type { LayoutGet, LayoutSet, LayoutState } from './layoutTypes'
+import type { LayoutGet, LayoutSet, LayoutState, WorkspaceLayout } from './layoutTypes'
 
-type LayoutTabActions = Pick<LayoutState, 'movePane' | 'moveTab' | 'renameSplitTab' | 'joinTab'>
+type LayoutTabActions = Pick<
+  LayoutState,
+  'movePane' | 'moveTab' | 'renameSplitTab' | 'joinTab' | 'changeCollapse'
+>
+
+function collapsedAway(layout: WorkspaceLayout, root: LayoutNode): WorkspaceLayout {
+  if (root === layout.root) return layout
+  const away = (id: string | null) => id !== null && findPane(root, id)?.collapsed === true
+  return {
+    ...layout,
+    root,
+    activePaneId: away(layout.activePaneId)
+      ? (tabsOfPane(root, layout.activePaneId)?.activeId ?? layout.activePaneId)
+      : layout.activePaneId,
+    zoomedPaneId: away(layout.zoomedPaneId) ? null : layout.zoomedPaneId,
+  }
+}
 
 export function createLayoutTabActions(set: LayoutSet, get: LayoutGet): LayoutTabActions {
   return {
@@ -52,6 +77,13 @@ export function createLayoutTabActions(set: LayoutSet, get: LayoutGet): LayoutTa
           patch(s, workspaceId, (l) => ({ ...l, root: setSplitTabName(l.root, tabId, next) })) ?? s,
       )
     },
+
+    changeCollapse: (workspaceId, paneId, change) =>
+      set(
+        (s) =>
+          patch(s, workspaceId, (l) => collapsedAway(l, changeCollapse(l.root, paneId, change))) ??
+          s,
+      ),
 
     joinTab: (workspaceId, ids, tab) => {
       const layout = get().byWorkspace[workspaceId]

@@ -1,3 +1,4 @@
+import { isStrip } from './collapse'
 import type { LayoutNode, PaneNode, SplitNode, TabNode } from './types'
 
 const MIN_PANEL_FRACTION = 0.15
@@ -83,8 +84,12 @@ export function setSizes(root: LayoutNode, splitId: string, sizes: number[]): La
   const recur = (node: LayoutNode): LayoutNode => {
     if (node.type === 'pane') return node
     if (node.type === 'split' && node.id === splitId) {
-      const same = node.sizes.length === sizes.length && node.sizes.every((n, i) => n === sizes[i])
-      return same ? node : { ...node, sizes }
+      const kept = sizes.map((n, i) => {
+        const child = node.children[i]
+        return child && isStrip(child) ? (node.sizes[i] ?? n) : n
+      })
+      const same = node.sizes.length === kept.length && node.sizes.every((n, i) => n === kept[i])
+      return same ? node : { ...node, sizes: kept }
     }
     const children = node.children.map(recur)
     if (children.every((c, i) => c === node.children[i])) return node

@@ -15,17 +15,21 @@ interface AllotmentMount {
 
 const mounts: AllotmentMount[] = []
 
-vi.mock('allotment', () => {
-  function Allotment(props: AllotmentMount & { children?: ReactNode }): JSX.Element {
+vi.mock('allotment', async () => {
+  const { forwardRef } = await import('react')
+  const Allotment = forwardRef(function Allotment(
+    props: AllotmentMount & { children?: ReactNode },
+    _ref,
+  ): JSX.Element {
     const mounted = useRef(false)
     if (!mounted.current) {
       mounted.current = true
       mounts.push({ vertical: props.vertical, defaultSizes: props.defaultSizes })
     }
     return <div className="allotment-fake">{props.children}</div>
-  }
-  Allotment.Pane = ({ children }: { children?: ReactNode }) => <div>{children}</div>
-  return { Allotment }
+  })
+  const Pane = ({ children }: { children?: ReactNode }) => <div>{children}</div>
+  return { Allotment: Object.assign(Allotment, { Pane }) }
 })
 
 let layoutInit: ReturnType<typeof useLayoutStore.getState>

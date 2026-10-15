@@ -57,7 +57,10 @@ describe('startAutoResume with a late prompt', () => {
     vi.useFakeTimers()
     vi.stubGlobal('ostia', {
       pty: { write },
-      agentSession: { claimResume: vi.fn().mockResolvedValue({ ok: true }) },
+      agentSession: {
+        claimResume: vi.fn().mockResolvedValue({ ok: true }),
+        folderTrust: vi.fn().mockResolvedValue({ state: 'trusted' }),
+      },
     })
   })
 

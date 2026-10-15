@@ -185,6 +185,9 @@ export const settingsEn = {
     autoResume: 'Resume agents after a restart',
     autoResumeDesc:
       'An agent session that was running when {product} quit resumes at its pane’s first idle prompt once the pane is visible. Background tabs and other workspaces resume when you open them. Only you can change this.',
+    trustWorkspaceFolders: 'Trust workspace folders for Claude',
+    trustWorkspaceFoldersDesc:
+      'When {product} resumes or starts Claude in a workspace folder, mark that folder trusted in Claude’s own config (~/.claude.json) so Claude doesn’t ask. This trusts the folder for Claude outside {product} too. Never your home folder, scratch or sandboxed workspaces. Turning this off doesn’t remove trust already given.',
     groupReferences: 'References',
     autoSendReferences: 'Send references to agents right away',
     autoSendReferencesDesc:

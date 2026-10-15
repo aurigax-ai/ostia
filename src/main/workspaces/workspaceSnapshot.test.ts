@@ -342,6 +342,39 @@ describe('parseSnapshot', () => {
     })
   })
 
+  it('keeps a collapsed mark only on a pane inside a tab and only when it is true', () => {
+    const pane = (id: string, collapsed: unknown) => ({
+      type: 'pane',
+      id,
+      title: 'zsh',
+      kind: 'terminal',
+      collapsed,
+    })
+    const tabs = {
+      type: 'tabs',
+      id: 'tabs-3',
+      activeId: 'pane-1',
+      children: [
+        pane('pane-1', true),
+        { ...split('pane-2', 'pane-3'), children: [pane('pane-2', true), pane('pane-3', 'yes')] },
+      ],
+    }
+    const root = parseSnapshot(
+      snap({ workspaces: [{ ...snap().workspaces[0], root: tabs as never }] }),
+    )?.workspaces[0].root
+    const inTab = root?.type === 'tabs' ? root.children[1] : null
+    expect(inTab?.type === 'split' && inTab.children[0]).toMatchObject({ collapsed: true })
+    expect(inTab?.type === 'split' && inTab.children[1]).not.toHaveProperty('collapsed')
+    const outside = {
+      ...split('pane-1', 'pane-2'),
+      children: [pane('pane-1', true), pane('pane-2', true)],
+    }
+    const top = parseSnapshot(
+      snap({ workspaces: [{ ...snap().workspaces[0], root: outside as never }] }),
+    )?.workspaces[0].root
+    expect(top?.type === 'split' && top.children[0]).not.toHaveProperty('collapsed')
+  })
+
   it('drops a bad split tab name and repairs the shown pane to the first pane', () => {
     const tabs = {
       type: 'tabs',

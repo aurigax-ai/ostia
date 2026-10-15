@@ -1,4 +1,3 @@
-import { OSTIA_PATH_MIME } from '@/lib/keyboard/dropPaths'
 import { allPanes, resetIds, tabsOfPane } from '@/lib/layout/tree'
 import { PANE_DND } from '@/lib/panes/paneDrag'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
@@ -121,9 +120,9 @@ describe('file drops', () => {
     }
   })
 
-  it('leaves pane drags and file-tree rows to their own handlers', async () => {
+  it('leaves pane drags and text drags to their own handlers', async () => {
     twoPaneWorkspace()
-    for (const types of [[PANE_DND], [OSTIA_PATH_MIME], ['text/plain']]) {
+    for (const types of [[PANE_DND], ['text/plain']]) {
       const over = dragEvent('dragover', types)
       const drop = dragEvent('drop', types, [{ path: '/tmp/a.txt' }])
       document.body.dispatchEvent(over)
