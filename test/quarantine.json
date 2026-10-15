@@ -16,5 +16,11 @@
     "name": "DeckRail edits started from the palette > Rename Workspace from the palette focuses the rail editor and keeps the typed name",
     "issue": 842,
     "until": "2026-11-13"
+  },
+  {
+    "file": "src/cli/cli.activity.e2e.test.ts",
+    "name": "the Activity extension records two fake agents and shows them in its panel (real CLI, real socket) > remembers the toggle and the journal across a restart, and forgets the scratch workspace",
+    "issue": 840,
+    "until": "2026-11-13"
   }
 ]

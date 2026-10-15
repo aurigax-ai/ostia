@@ -298,6 +298,17 @@ describe('extension API version', () => {
     ).toBe(lock.digest)
   })
 
+  it('SCX-C21 locks the workspace.closed event and ext.sandboxDomains in the published contract', () => {
+    const lock = JSON.parse(readFileSync(join(repoRoot, 'sdk/api-lock.json'), 'utf8'))
+    const built = JSON.parse(readFileSync(join(sdkPackage, 'api.json'), 'utf8'))
+    expect(built).toEqual(lock)
+    expect(lock.version).toBe(EXTENSION_API_VERSION)
+    const shared = readFileSync(join(sdkPackage, 'types/shared/extensions.d.ts'), 'utf8')
+    const sdk = readFileSync(join(sdkPackage, 'types/extensions/sdk/index.d.ts'), 'utf8')
+    expect(shared).toContain("'workspace.closed': {")
+    expect(sdk).toContain('sandboxDomains: (workspaceId: string) => Promise<SandboxDomainsResult>')
+  })
+
   it('ships the TypeScript it was built from, unchanged', () => {
     for (const file of [
       'src/extensions/sdk/index.ts',
@@ -383,12 +394,15 @@ describe('the marketplace project, built the way its own repository builds it', 
     expect(res.status).toBe(0)
   }, 60_000)
 
-  it('passes the packaged validate command with every extension built, two of them unlisted', () => {
+  it('passes the packaged validate command with every extension built, the unlisted ones counted apart', () => {
     const res = spawnSync(process.execPath, [sdkCli, 'validate', marketplace], {
       encoding: 'utf8',
     })
+    const listed = JSON.parse(
+      readFileSync(join(repoRoot, 'marketplace', MARKETPLACE_MANIFEST_FILE), 'utf8'),
+    ) as { extensions: string[]; unlisted: unknown[] }
     expect(res.stdout.trim()).toBe(
-      'ok: marketplace "Ostia extensions" with 10 extension(s), 2 unlisted',
+      `ok: marketplace "Ostia extensions" with ${listed.extensions.length} extension(s), ${listed.unlisted.length} unlisted`,
     )
     expect(res.status).toBe(0)
   })
@@ -418,7 +432,17 @@ describe('the marketplace project, built the way its own repository builds it', 
           ['SKILL.md', ...(skill.files ?? [])].map((file) => join(id, skill.path, file)),
       )
     })
-    expect(shipped).toEqual(['trellis/skills/card/SKILL.md'])
+    const declared = readdirSync(built).flatMap((id) => {
+      const manifest = JSON.parse(
+        readFileSync(join(repoRoot, 'src/extensions', id, 'ostia.json'), 'utf8'),
+      )
+      return (manifest.contributes?.agentSkills ?? []).flatMap(
+        (skill: { path: string; files?: string[] }) =>
+          ['SKILL.md', ...(skill.files ?? [])].map((file) => join(id, skill.path, file)),
+      )
+    })
+    expect(shipped).toEqual(declared)
+    expect(shipped).toContain('trellis/skills/card/SKILL.md')
     for (const file of shipped) {
       expect(readFileSync(join(built, file), 'utf8'), file).toBe(
         readFileSync(join(repoRoot, 'src/extensions', file), 'utf8'),

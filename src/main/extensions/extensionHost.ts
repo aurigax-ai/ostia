@@ -219,6 +219,7 @@ interface Runtime {
   offering: boolean
   reached: Set<string>
   opened: Set<string>
+  callerWorkspaces: Set<string>
 }
 
 interface AssistRuntimeReport {
@@ -266,6 +267,7 @@ function newRuntime(ext: LoadedExtension): Runtime {
     offering: false,
     reached: new Set(),
     opened: new Set(),
+    callerWorkspaces: new Set(),
   }
 }
 
@@ -373,6 +375,7 @@ export interface ExtensionHostDeps {
   connections?: ExtensionConnections
   confirm?: (req: ExtensionConfirmRequest) => Promise<boolean>
   isSandboxed?: (workspaceId: string) => boolean
+  sandboxDomains?: (workspaceId: string) => string[] | null
   hostGrants?: {
     offer: (extId: string, command: string) => void
     claim: (extId: string, command: string) => string | null
@@ -1187,6 +1190,7 @@ export class ExtensionHost {
     if (!cmd) return fail('unknown-command', `'${extId}' has no command '${command}'`)
     const missing = cmd.capabilities.find((cap) => !caller.capabilities.includes(cap))
     if (missing) return fail('needs-elevation', missing)
+    if (caller.workspaceId) rt.callerWorkspaces.add(caller.workspaceId)
     try {
       const conn = await this.connected(rt, command)
       const timeoutMs = cmd.interactive
@@ -1270,6 +1274,7 @@ export class ExtensionHost {
     try {
       const conn = await this.connected(rt)
       const caller = this.userCaller(context.workspaceId, { locale: context.locale })
+      if (context.workspaceId) rt.callerWorkspaces.add(context.workspaceId)
       const res = await withTimeout(
         conn.sendRequest<{ url?: unknown }>('ext.panel', path ? { caller, path } : { caller }),
         this.deps.requestTimeoutMs ?? REQUEST_TIMEOUT_MS,
@@ -1305,6 +1310,25 @@ export class ExtensionHost {
     return [...this.runtimes.values()]
       .filter((rt) => rt.ext.manifest.contributes.panel)
       .map((rt) => rt.ext.manifest.id)
+  }
+
+  workspaceClosed(workspaceId: string): void {
+    for (const rt of this.runtimes.values()) rt.callerWorkspaces.delete(workspaceId)
+    this.emitEvent('workspace.closed', { workspaceId })
+  }
+
+  sandboxDomains(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const workspaceId = isPlainRecord(params) ? params.workspaceId : undefined
+    if (typeof workspaceId !== 'string' || !workspaceId) {
+      return fail('invalid-params', 'workspaceId is required')
+    }
+    if (!rt.callerWorkspaces.has(workspaceId)) {
+      return fail('not-reached', 'only a workspace this extension has a caller in')
+    }
+    const domains = this.deps.sandboxDomains?.(workspaceId)
+    if (!domains) return fail('not-sandboxed', 'the workspace is not sandboxed')
+    return { ok: true, domains: [...domains] }
   }
 
   emitEvent<T extends ExtensionEventType>(type: T, payload: ExtensionEventPayloads[T]): void {
@@ -2688,6 +2712,10 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   registerControlMethod(
     'ext.openFolder',
     forExtension((h, id, conn, p) => h.openFolder(id, conn, p)),
+  )
+  registerControlMethod(
+    'ext.sandboxDomains',
+    forExtension((h, id, conn, p) => h.sandboxDomains(id, conn, p)),
   )
   registerControlMethod(
     'ext.closeFolder',

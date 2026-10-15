@@ -14,6 +14,7 @@ const NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/
 interface Manifest {
   id: string
   contributes?: {
+    verb?: string
     commands?: { id: string }[]
     agentSkills?: { name: string; path: string; files?: string[] }[]
   }
@@ -22,6 +23,7 @@ interface Manifest {
 interface SkillUnderTest {
   label: string
   files: readonly BundledSkillFile[]
+  own?: Manifest
 }
 
 function manifests(): Manifest[] {
@@ -47,6 +49,7 @@ function extensionSkills(): SkillUnderTest[] {
       const names = ['SKILL.md', ...(skill.files ?? [])]
       return {
         label: `${manifest.id}/${skill.name}`,
+        own: manifest,
         files: names.map((path) => ({ path, text: readFileSync(join(dir, path), 'utf8') })),
       }
     }),
@@ -138,6 +141,11 @@ describe('bundled agent skills', () => {
 
   it.each(SKILLS)('$label shows only ostia commands that exist', (skill) => {
     const extensions = extensionCommands()
+    if (skill.own) {
+      const own = new Set((skill.own.contributes?.commands ?? []).map((command) => command.id))
+      extensions.set(skill.own.id, own)
+      if (skill.own.contributes?.verb) extensions.set(skill.own.contributes.verb, own)
+    }
     for (const file of skill.files) {
       for (const [noun, verb] of commandsShown(file.text)) {
         const where = `${skill.label} ${file.path}: ostia ${noun} ${verb ?? ''}`
