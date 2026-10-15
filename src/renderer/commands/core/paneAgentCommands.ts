@@ -108,25 +108,28 @@ function registerAgentSessionCommands(): void {
       const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
       const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
       if (pane?.kind !== 'terminal' || !pane.resume) return { resumed: false }
-      const holder =
-        resumeHolder(pane.id, pane.resume)?.title ??
-        (pane.hibernated || pane.resumeFolderMissing
-          ? null
-          : await claimAcrossWindows(pane.id, pane.resume))
-      if (holder !== null) {
-        throw new Error(
-          `${pane.resume.agent} session ${pane.resume.id} is already running in "${holder}"`,
-        )
+      const resume = pane.resume
+      const refuseHeld = async (): Promise<void> => {
+        const holder =
+          resumeHolder(pane.id, resume)?.title ??
+          (pane.hibernated || pane.resumeFolderMissing
+            ? null
+            : await claimAcrossWindows(pane.id, resume))
+        if (holder !== null) {
+          throw new Error(`${resume.agent} session ${resume.id} is already running in "${holder}"`)
+        }
       }
+      await refuseHeld()
       if (pane.hibernated) return { resumed: wakePane(pane.id, undefined, !ctx.target) }
       if (pane.resumeFolderMissing) return { resumed: false }
-      if (!ctx.target && !(await claudeTrustGate(pane.id, pane.resume.agent))) {
-        return { resumed: false }
+      if (!ctx.target) {
+        if (!(await claudeTrustGate(pane.id, resume.agent))) return { resumed: false }
+        await refuseHeld()
       }
-      const resumed = insertCommand(pane.id, resumeCommand(pane.resume), true)
+      const resumed = insertCommand(pane.id, resumeCommand(resume), true)
       if (resumed) {
-        claimResume(pane.id, pane.resume)
-        watchResumeOutcome(pane.id, pane.resume)
+        claimResume(pane.id, resume)
+        watchResumeOutcome(pane.id, resume)
       }
       return { resumed }
     },

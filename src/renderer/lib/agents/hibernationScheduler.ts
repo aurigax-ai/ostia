@@ -81,6 +81,12 @@ export function wakePane(
     return true
   }
   const resume = pane.resume
+  let settled = false
+  const settleOnce = (): void => {
+    if (settled) return
+    settled = true
+    onSettled()
+  }
   window.ostia.pty.reportWaking(paneId, true)
   resumeWhenIdle(
     paneId,
@@ -88,11 +94,12 @@ export function wakePane(
     (held) => {
       if (held) useLayoutStore.getState().setResumePending(workspaceId, paneId, true)
       window.ostia.pty.reportWaking(paneId, false)
-      onSettled()
+      settleOnce()
     },
-    onSettled,
+    settleOnce,
     undefined,
     askTrust,
+    settleOnce,
   )
   return true
 }

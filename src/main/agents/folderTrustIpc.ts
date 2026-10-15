@@ -28,7 +28,13 @@ function placeOf(deps: FolderTrustIpcDeps, senderId: string, paneId: unknown): T
   const workDir = workspaceFolder(workDirForWorkspace(workspaceId), home)
   const report = deps.ptys.get(identity.paneId)?.mirror.cwdReport
   if (!workDir || !report || !isHostNamed(report.host, hostname())) return null
-  return { folder: report.path, workDir, home, configDir: process.env.CLAUDE_CONFIG_DIR }
+  return {
+    folder: report.path,
+    workDir,
+    home,
+    configDir: process.env.CLAUDE_CONFIG_DIR || undefined,
+    customOAuth: Boolean(process.env.CLAUDE_CODE_CUSTOM_OAUTH_URL),
+  }
 }
 
 export function registerFolderTrustIpc(deps: FolderTrustIpcDeps): void {

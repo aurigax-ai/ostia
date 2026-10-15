@@ -1,3 +1,4 @@
+import { resumeAnyway } from '@/lib/agents/folderTrust'
 import * as resumeFolder from '@/lib/agents/resumeFolder'
 import { activeFontZoom, zoomFont } from '@/lib/app/wheelZoom'
 import { registerBrowserHandle } from '@/lib/browser/browserHandles'
@@ -9,6 +10,7 @@ import * as blockActions from '@/lib/terminal/blockActions'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import * as closeConfirm from '@/lib/workspaces/closeConfirm'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useFolderTrustStore } from '@/stores/agents/folderTrustStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
@@ -2262,6 +2264,25 @@ describe('agent resume', () => {
     const r = await commands.execWith(ctx('s1', pane.id), 'agent.resume')
     expect(insert).toHaveBeenCalledWith(pane.id, "'claude' --resume abc", true)
     expect(r).toMatchObject({ ok: true, result: { resumed: true } })
+  })
+
+  it('CFT-C32 checks the session claim again after the human answers the trust note', async () => {
+    const pane = seedPane({ agent: 'claude', id: 'abc' })
+    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
+    vi.mocked(window.ostia.agentSession.folderTrust).mockResolvedValue({
+      state: 'ask',
+      folder: '/w',
+    })
+    vi.mocked(window.ostia.agentSession.claimResume)
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValue({ ok: false, holder: 'other tab' })
+    const run = commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    await vi.waitFor(() => expect(useFolderTrustStore.getState().byPane[pane.id]).toBe('/w'))
+    resumeAnyway(pane.id)
+    const r = await run
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error.message).toMatch(/already running in "other tab"/)
+    expect(insert).not.toHaveBeenCalled()
   })
 
   it('wakes a hibernated pane and resumes at its first idle prompt', async () => {

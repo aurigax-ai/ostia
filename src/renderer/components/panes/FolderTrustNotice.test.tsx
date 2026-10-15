@@ -1,13 +1,17 @@
 import '@testing-library/jest-dom/vitest'
 import { claudeTrustGate } from '@/lib/agents/folderTrust'
 import { useFolderTrustStore } from '@/stores/agents/folderTrustStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FolderTrustNotice } from './ResumeFolderNotice'
 
+const layout = useLayoutStore.getState()
+
 afterEach(() => {
   cleanup()
   useFolderTrustStore.setState({ byPane: {} })
+  useLayoutStore.setState(layout, true)
 })
 
 describe('FolderTrustNotice', () => {
@@ -25,6 +29,15 @@ describe('FolderTrustNotice', () => {
     vi.mocked(window.ostia.agentSession.folderTrust).mockResolvedValueOnce({
       state: 'ask',
       folder: '/home/u/Work/repo',
+    })
+    useLayoutStore.setState({
+      byWorkspace: {
+        w1: {
+          root: { type: 'pane', id: 'p1', title: 'claude', kind: 'terminal' },
+          activePaneId: 'p1',
+          zoomedPaneId: null,
+        },
+      },
     })
     const gate = claudeTrustGate('p1', 'claude')
     await vi.waitFor(() => expect(useFolderTrustStore.getState().byPane.p1).toBeDefined())

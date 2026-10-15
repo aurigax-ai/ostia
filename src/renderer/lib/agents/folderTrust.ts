@@ -1,23 +1,43 @@
+import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
 import { useFolderTrustStore } from '@/stores/agents/folderTrustStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { ResumableAgent } from '@shared/agents/agentResume'
 
-const waiting = new Map<string, (go: boolean) => void>()
+interface Wait {
+  resolve: (go: boolean) => void
+  stop: () => void
+}
+
+const waiting = new Map<string, Wait>()
 
 function settle(paneId: string, go: boolean): void {
   useFolderTrustStore.getState().release(paneId)
-  const resolve = waiting.get(paneId)
+  const wait = waiting.get(paneId)
   waiting.delete(paneId)
-  resolve?.(go)
+  wait?.stop()
+  wait?.resolve(go)
 }
 
-export async function claudeTrustGate(paneId: string, agent: ResumableAgent): Promise<boolean> {
+export async function claudeTrustGate(
+  paneId: string,
+  agent: ResumableAgent,
+  onHold?: () => void,
+): Promise<boolean> {
   if (agent !== 'claude') return true
   const verdict = await window.ostia.agentSession.folderTrust(paneId).catch(() => null)
   if (verdict?.state !== 'ask') return true
-  waiting.get(paneId)?.(false)
+  if (!workspaceOfPane(paneId)) return false
+  settle(paneId, false)
   useFolderTrustStore.getState().hold(paneId, verdict.folder)
-  return new Promise((resolve) => waiting.set(paneId, resolve))
+  const gate = new Promise<boolean>((resolve) => {
+    const stop = useLayoutStore.subscribe(() => {
+      if (!workspaceOfPane(paneId)) settle(paneId, false)
+    })
+    waiting.set(paneId, { resolve, stop })
+  })
+  onHold?.()
+  return gate
 }
 
 export async function trustForClaude(paneId: string): Promise<void> {

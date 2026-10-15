@@ -101,11 +101,14 @@ export function resumeWhenIdle(
   onTyped?: () => void,
   timeoutMs?: number | null,
   askTrust = false,
+  onHold?: () => void,
 ): () => void {
   let heldElsewhere = false
   const allowed = async (): Promise<boolean> => {
     if (resumeFolderMissing(paneId) || resumeHolder(paneId, resume)) return false
-    if (askTrust && !(await claudeTrustGate(paneId, resume.agent))) return false
+    if (askTrust && !(await claudeTrustGate(paneId, resume.agent, onHold))) {
+      return false
+    }
     if (resumeFolderMissing(paneId) || resumeHolder(paneId, resume)) return false
     claimResume(paneId, resume)
     heldElsewhere = (await claimAcrossWindows(paneId, resume)) !== null

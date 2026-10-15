@@ -1,14 +1,18 @@
 import {
+  chmodSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   realpathSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { lock } from 'proper-lockfile'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { claudeConfigFile, folderTrust, trustFolder } from './claudeFolderTrust'
 
@@ -45,9 +49,22 @@ describe('claudeConfigFile', () => {
     expect(await claudeConfigFile(home, dir)).toBe(join(dir, '.claude.json'))
     folder('.claude')
     writeFileSync(join(home, '.claude', '.config.json'), '')
+    writeFileSync(join(home, '.claude.json'), '{}')
     expect(await claudeConfigFile(home)).toBe(join(home, '.claude.json'))
     writeFileSync(join(home, '.claude', '.config.json'), '{}')
     expect(await claudeConfigFile(home)).toBe(join(home, '.claude', '.config.json'))
+  })
+
+  it('CFT-C23 picks an empty writable legacy file only while .claude.json is missing, and the custom OAuth name', async () => {
+    folder('.claude')
+    writeFileSync(join(home, '.claude', '.config.json'), '')
+    expect(await claudeConfigFile(home)).toBe(join(home, '.claude', '.config.json'))
+    writeFileSync(join(home, '.claude', '.config.json'), '', { mode: 0o444 })
+    chmodSync(join(home, '.claude', '.config.json'), 0o444)
+    expect(await claudeConfigFile(home)).toBe(join(home, '.claude.json'))
+    expect(await claudeConfigFile(home, undefined, true)).toBe(
+      join(home, '.claude-custom-oauth.json'),
+    )
   })
 })
 
@@ -97,6 +114,35 @@ describe('folderTrust', () => {
   })
 })
 
+describe('folderTrust limits', () => {
+  it('CFT-C24 treats a worktree as trusted when Claude trusted its main repository', async () => {
+    const main = folder('src', 'main')
+    mkdirSync(join(main, '.git', 'worktrees', 'wt'), { recursive: true })
+    writeFileSync(join(main, '.git', 'worktrees', 'wt', 'commondir'), '../..\n')
+    const tree = folder('src', 'wt')
+    writeFileSync(join(tree, '.git'), `gitdir: ${join(main, '.git', 'worktrees', 'wt')}\n`)
+    write({ projects: { [main]: { hasTrustDialogAccepted: true } } })
+    expect(await folderTrust(place(tree))).toEqual({ state: 'trusted' })
+    write({ projects: {} })
+    expect(await folderTrust(place(tree))).toEqual({ state: 'ask', folder: tree })
+  })
+
+  it('CFT-C25 offers nothing when the workspace folder is /, home or above home', async () => {
+    write({})
+    const dir = folder('p')
+    expect(await folderTrust({ folder: dir, workDir: '/', home })).toEqual({ state: 'unknown' })
+    expect(await folderTrust({ folder: dir, workDir: home, home })).toEqual({ state: 'unknown' })
+    expect(await folderTrust({ folder: dir, workDir: dirname(home), home })).toEqual({
+      state: 'unknown',
+    })
+  })
+
+  it('CFT-C26 never reads a config past the size cap', async () => {
+    writeFileSync(config, `{"projects":{}}${' '.repeat(33 * 1024 * 1024)}`)
+    expect(await folderTrust(place(folder('p')))).toEqual({ state: 'unknown' })
+  })
+})
+
 describe('trustFolder', () => {
   it('CFT-C6 sets only the one key, keeping every other key, the project’s fields and the file mode', async () => {
     const dir = folder('proj')
@@ -128,5 +174,45 @@ describe('trustFolder', () => {
     rmSync(config)
     expect(await trustFolder(place(folder('x')))).toBe(false)
     expect(() => statSync(config)).toThrow()
+  })
+})
+
+describe('trustFolder writes like Claude', () => {
+  it('CFT-C27 writes through a symlinked config to its target and keeps the link', async () => {
+    const dotfiles = folder('dotfiles')
+    const target = join(dotfiles, 'claude.json')
+    writeFileSync(target, '{"projects":{}}\n', { mode: 0o600 })
+    symlinkSync(target, config)
+    const dir = folder('proj')
+    expect(await trustFolder(place(dir))).toBe(true)
+    expect(lstatSync(config).isSymbolicLink()).toBe(true)
+    expect(JSON.parse(readFileSync(target, 'utf8')).projects[dir]).toEqual({
+      hasTrustDialogAccepted: true,
+    })
+  })
+
+  it('CFT-C28 keeps the order of every key it does not touch', async () => {
+    const dir = folder('proj')
+    write({ zeta: 1, projects: { '/b': { z: 1, a: 2 }, [dir]: { y: 1, b: 2 } }, alpha: 2 })
+    expect(await trustFolder(place(dir))).toBe(true)
+    const back = read()
+    expect(Object.keys(back)).toEqual(['zeta', 'projects', 'alpha'])
+    expect(Object.keys(back.projects ?? {})).toEqual(['/b', dir])
+    expect(Object.keys(back.projects?.[dir] ?? {})).toEqual(['y', 'b', 'hasTrustDialogAccepted'])
+  })
+
+  it('CFT-C29 takes the lock Claude takes, and writes nothing while Claude holds it', async () => {
+    const dir = folder('proj')
+    write({ projects: {} })
+    const before = readFileSync(config, 'utf8')
+    const release = await lock(config, { lockfilePath: `${config}.lock`, realpath: false })
+    try {
+      expect(await trustFolder(place(dir))).toBe(false)
+      expect(readFileSync(config, 'utf8')).toBe(before)
+    } finally {
+      await release()
+    }
+    expect(await trustFolder(place(dir))).toBe(true)
+    expect(() => statSync(`${config}.lock`)).toThrow()
   })
 })
