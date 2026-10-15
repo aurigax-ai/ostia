@@ -133,22 +133,6 @@ export function byteSize(text: string): number {
   return new TextEncoder().encode(text).length
 }
 
-export function formatSize(bytes: number, locale?: string): string {
-  if (bytes < 1024) {
-    return new Intl.NumberFormat(locale, {
-      style: 'unit',
-      unit: 'byte',
-      unitDisplay: 'narrow',
-    }).format(bytes)
-  }
-  return new Intl.NumberFormat(locale, {
-    style: 'unit',
-    unit: 'kilobyte',
-    unitDisplay: 'narrow',
-    maximumFractionDigits: 1,
-  }).format(bytes / 1024)
-}
-
 export function idleTerminals(workspaceId: string | null | undefined): TerminalTarget[] {
   return workspaceTerminals(workspaceId, useBlocksStore.getState()).filter((t) => t.idle)
 }

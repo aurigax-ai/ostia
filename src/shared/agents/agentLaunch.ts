@@ -197,9 +197,3 @@ export function capturedArgs(
   if (raw === '') return []
   return resumeFlags(agent, raw.split(AGENT_ARGS_SEPARATOR))
 }
-
-export function shellQuote(value: string): string {
-  return /^[A-Za-z0-9_./:,@%+-][A-Za-z0-9_./:,@%+=-]*$/.test(value)
-    ? value
-    : `'${value.replaceAll("'", `'\\''`)}'`
-}

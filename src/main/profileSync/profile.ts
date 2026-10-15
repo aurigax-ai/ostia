@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { PROGRAM_SETTINGS } from '../../shared/permissions/programSettings'
 import { SPEC_COMMAND_PATTERN, SPEC_FILE_MAX_BYTES } from '../../shared/terminal/completionSpec'
 import { VIEW_FILES_MAX, VIEW_FILE_MAX_BYTES, VIEW_NAME } from '../../shared/views/views'
-import { normalizeMarketplaceUrl } from '../extensions/marketplace'
+import { normalizeMarketplaceUrl } from '../extensions/marketplace/marketplace'
 import { SNIPPET_FILES_MAX, SNIPPET_FILE_MAX_BYTES } from '../workspaces/snippets'
 
 export type JsonObject = Record<string, unknown>

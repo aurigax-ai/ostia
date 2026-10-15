@@ -132,13 +132,16 @@ describe.skipIf(process.platform === 'win32')('runLoginShell', () => {
   }
 
   it('runs the login shell in a session of its own, so it can never take the launching terminal', async () => {
-    const out = await runLoginShell('/bin/sh', ['-c', 'echo $$ $(ps -o sid= -p $$)'], 5000)
-    const [pid, sid] = out.trim().split(/\s+/)
+    const key = process.platform === 'darwin' ? 'pgid' : 'sid'
+    const out = await runLoginShell('/bin/sh', ['-c', `echo $$ $(ps -o ${key}= -p $$)`], 5000)
+    const [pid, leader] = out.trim().split(/\s+/)
     expect(Number(pid)).toBeGreaterThan(0)
-    expect(sid).toBe(pid)
-    expect(Number(sid)).not.toBe(
+    expect(leader).toBe(pid)
+    expect(Number(leader)).not.toBe(
       Number(
-        execFileSync('ps', ['-o', 'sid=', '-p', String(process.pid)], { encoding: 'utf8' }).trim(),
+        execFileSync('ps', ['-o', `${key}=`, '-p', String(process.pid)], {
+          encoding: 'utf8',
+        }).trim(),
       ),
     )
   })

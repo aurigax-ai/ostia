@@ -1,3 +1,4 @@
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 export const BELL_MODES = ['attention', 'sound', 'off'] as const
 
 export type BellMode = (typeof BELL_MODES)[number]
@@ -31,16 +32,15 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
 
 export function parseNotificationSettings(raw: unknown): NotificationSettings {
   const out = { ...DEFAULT_NOTIFICATION_SETTINGS }
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return out
-  const source = raw as Record<string, unknown>
+  if (!isRecord(raw)) return out
   for (const key of Object.keys(out) as (keyof NotificationSettings)[]) {
     if (key === 'command') {
-      if (typeof source.command === 'string') out.command = source.command
+      if (typeof raw.command === 'string') out.command = raw.command
     } else if (key === 'longCommandSeconds') {
-      out.longCommandSeconds = clampLongCommandSeconds(source.longCommandSeconds)
+      out.longCommandSeconds = clampLongCommandSeconds(raw.longCommandSeconds)
     } else if (key === 'bell') {
-      if (BELL_MODES.includes(source.bell as BellMode)) out.bell = source.bell as BellMode
-    } else if (typeof source[key] === 'boolean') out[key] = source[key]
+      if (BELL_MODES.includes(raw.bell as BellMode)) out.bell = raw.bell as BellMode
+    } else if (typeof raw[key] === 'boolean') out[key] = raw[key]
   }
   return out
 }

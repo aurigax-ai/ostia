@@ -11,14 +11,11 @@ import {
   type ExtensionConnectionKind,
   type ExtensionConnectionSecret,
 } from '../contract/extensions'
+import { isRecord } from '../contract/isRecord'
 
 const KEY_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]{0,39}$/
 const DESCRIPTION_MAX = 500
 const ENUM_MAX = 32
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
 
 function hasControl(value: string): boolean {
   for (let i = 0; i < value.length; i++) {

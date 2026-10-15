@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  AGENT_ARGS_SEPARATOR,
-  capturedArgs,
-  looksSecret,
-  resumeFlags,
-  shellQuote,
-} from './agentLaunch'
+import { AGENT_ARGS_SEPARATOR, capturedArgs, looksSecret, resumeFlags } from './agentLaunch'
 
 describe('resumeFlags for claude', () => {
   it('keeps the model, effort and a permission mode that never accepts on its own, in both spellings', () => {
@@ -341,15 +335,5 @@ describe('looksSecret', () => {
     ]) {
       expect(looksSecret(text)).toBe(false)
     }
-  })
-})
-
-describe('shellQuote', () => {
-  it('quotes a value zsh would expand: a leading = or ~, and anything outside plain words', () => {
-    expect(shellQuote('=opus')).toBe("'=opus'")
-    expect(shellQuote('~/notes')).toBe("'~/notes'")
-    expect(shellQuote('a=b')).toBe('a=b')
-    expect(shellQuote('--model=opus')).toBe('--model=opus')
-    expect(shellQuote("it's")).toBe("'it'\\''s'")
   })
 })

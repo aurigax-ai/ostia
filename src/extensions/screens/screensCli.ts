@@ -3,6 +3,7 @@ import { constants, accessSync, statSync } from 'node:fs'
 import { lstat } from 'node:fs/promises'
 import { type Socket, connect } from 'node:net'
 import { delimiter, join } from 'node:path'
+import { runTool } from '@aurigax-ai/ostia-extension-sdk'
 
 export const SCREENS_BIN = 'screens'
 const TOKEN_ENV = 'SCREENS_TOKEN'
@@ -89,47 +90,22 @@ export function isOnPath(name: string, path = process.env.PATH ?? ''): boolean {
   return false
 }
 
-export function runScreens<T>(run: ScreensRun): Promise<ScreensResult<T>> {
-  return new Promise((resolve) => {
-    let stdout = ''
-    let stderr = ''
-    let settled = false
-    const finish = (result: ScreensResult<T>): void => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      resolve(result)
-    }
-    const child = spawn(SCREENS_BIN, [...run.args, '--json'], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: toolEnv(run.token),
-    })
-    const timer = setTimeout(() => {
-      child.kill('SIGKILL')
-      finish({ ok: false, code: 'timeout', message: 'screens did not answer in time' })
-    }, run.timeoutMs ?? DEFAULT_TIMEOUT_MS)
-    child.stdout.on('data', (chunk: Buffer) => {
-      if (stdout.length < MAX_OUTPUT) stdout += chunk.toString('utf8')
-    })
-    child.stderr.on('data', (chunk: Buffer) => {
-      if (stderr.length < MAX_OUTPUT) stderr += chunk.toString('utf8')
-    })
-    child.on('error', (err: NodeJS.ErrnoException) => {
-      finish(
-        err.code === 'ENOENT'
-          ? { ok: false, code: 'not-installed', message: 'screens is not on PATH' }
-          : { ok: false, code: 'backend', message: err.message },
-      )
-    })
-    child.on('close', (exit) => {
-      if (exit !== 0) return finish({ ok: false, ...errorOf(stdout, stderr, exit) })
-      try {
-        finish({ ok: true, value: JSON.parse(stdout) as T })
-      } catch {
-        finish({ ok: false, code: 'backend', message: 'screens printed no JSON' })
-      }
-    })
+export async function runScreens<T>(run: ScreensRun): Promise<ScreensResult<T>> {
+  const result = await runTool(SCREENS_BIN, [...run.args, '--json'], {
+    env: toolEnv(run.token),
+    timeoutMs: run.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    maxOutput: MAX_OUTPUT,
   })
+  if (result.missing) return { ok: false, code: 'not-installed', message: 'screens is not on PATH' }
+  if (result.timedOut) {
+    return { ok: false, code: 'timeout', message: 'screens did not answer in time' }
+  }
+  if (result.code !== 0) return { ok: false, ...errorOf(result.stdout, result.stderr, result.code) }
+  try {
+    return { ok: true, value: JSON.parse(result.stdout) as T }
+  } catch {
+    return { ok: false, code: 'backend', message: 'screens printed no JSON' }
+  }
 }
 
 export interface EventStream {
@@ -181,23 +157,12 @@ export function isOutdated(version: string): boolean {
   return false
 }
 
-export function serviceVersion(): Promise<string | null> {
-  return new Promise((resolve) => {
-    let out = ''
-    const child = spawn(SCREENS_BIN, ['--version'], {
-      stdio: ['ignore', 'pipe', 'ignore'],
-      env: toolEnv(),
-    })
-    const timer = setTimeout(() => child.kill('SIGKILL'), DEFAULT_TIMEOUT_MS)
-    child.stdout.on('data', (chunk: Buffer) => {
-      out += chunk.toString('utf8')
-    })
-    child.on('error', () => resolve(null))
-    child.on('close', (code) => {
-      clearTimeout(timer)
-      resolve(code === 0 && versionParts(out) ? out.trim() : null)
-    })
+export async function serviceVersion(): Promise<string | null> {
+  const result = await runTool(SCREENS_BIN, ['--version'], {
+    env: toolEnv(),
+    timeoutMs: DEFAULT_TIMEOUT_MS,
   })
+  return result.code === 0 && versionParts(result.stdout) ? result.stdout.trim() : null
 }
 
 export function spawnViewer(id: string, viewerToken: string): ChildProcess {

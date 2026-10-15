@@ -1,3 +1,4 @@
+import { isRecord } from './isRecord'
 export const ASSIST_POINTS = ['input', 'command', 'completion', 'terminal', 'chat'] as const
 
 export type AssistPoint = (typeof ASSIST_POINTS)[number]
@@ -467,10 +468,6 @@ export interface AssistApi {
   catalog: () => Promise<AssistCatalog>
   onCatalog: (cb: (catalog: AssistCatalog) => void) => () => void
   setProviderKey: (providerId: string, value: string | null) => Promise<AssistKeyResult>
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
 function clip(v: unknown, max: number): string | null {

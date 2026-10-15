@@ -2,10 +2,9 @@ import { IconButton } from '@/components/common/IconButton'
 import { Item, ItemContent, ItemTitle } from '@/components/ui/item'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { useAgoText } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { openArtifact, useArtifactListing } from '@/lib/files/artifacts'
-import { agoText } from '@/lib/sidebar/dashboard'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import { FilesIcon } from '@phosphor-icons/react'
@@ -38,11 +37,7 @@ export function ArtifactChip({
   const d = useDict()
   const produced = useProduced(workspaceId, paneId)
   const unread = useArtifactsStore((s) => s.unread)
-  const locale = useSettingsStore((s) => s.locale)
-  const relative = useMemo(
-    () => new Intl.RelativeTimeFormat(locale, { numeric: 'always', style: 'short' }),
-    [locale],
-  )
+  const ago = useAgoText()
   const [open, setOpen] = useState(false)
   const listRef = useRef<HTMLUListElement>(null)
   if (produced.length === 0) return null
@@ -112,9 +107,7 @@ export function ArtifactChip({
               {unread[entry.path] ? (
                 <span className="unread-dot" role="img" aria-label={d.artifacts.unread} />
               ) : null}
-              <span className="artifact-meta text-ui-xs">
-                {agoText(Date.now() - entry.modified, d.dashboard.justNow, relative)}
-              </span>
+              <span className="artifact-meta text-ui-xs">{ago(Date.now() - entry.modified)}</span>
             </Item>
           </li>
         )

@@ -1,7 +1,10 @@
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { type AgentResume, parseAgentResume } from '../agents/agentResume'
 import type { WorkspaceGroupColor } from './workspaceGroups'
 
 export const CMUX_SESSION_FILE = 'Library/Application Support/cmux/session-com.cmuxterm.app.json'
+
+export const CMUX_SESSION_MAX_BYTES = 32 * 1024 * 1024
 
 const CMUX_SESSION_VERSION = 1
 
@@ -113,10 +116,6 @@ export interface CmuxImportReport {
   imported: CmuxImportedEntry[]
   skipped: CmuxSkippedEntry[]
   notCarried: CmuxLossEntry[]
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
 function text(v: unknown, max = TEXT_MAX): string | undefined {

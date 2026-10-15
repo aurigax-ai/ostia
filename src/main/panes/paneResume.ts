@@ -17,7 +17,7 @@ export interface PaneResumeDeps {
     fromMain?: boolean,
   ) => Promise<CommandResult>
   foregroundProgram: (paneId: string) => string | null
-  reportedCwd: (paneId: string) => string | null
+  agentCwd: (paneId: string) => Promise<string | null>
   onResume: (identity: PaneIdentity, resume: AgentResume) => void
 }
 
@@ -39,7 +39,7 @@ export function registerPaneResumeMethods(deps: PaneResumeDeps): void {
       const reported = parseAgentResume(params)
       if (!reported) return { ok: false, error: 'invalid-resume' }
       const { cwd: _callerCwd, ...rest } = reported
-      const resume = parseAgentResume({ ...rest, cwd: deps.reportedCwd(ctx.identity.paneId) })
+      const resume = parseAgentResume({ ...rest, cwd: await deps.agentCwd(ctx.identity.paneId) })
       if (!resume) return { ok: false, error: 'invalid-resume' }
       const agent = await paneAgent(deps, ctx.identity)
       if (agent !== null && agent !== resume.agent) return { ok: false, error: 'agent-mismatch' }

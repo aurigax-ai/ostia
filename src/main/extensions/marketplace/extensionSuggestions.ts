@@ -5,9 +5,9 @@ import {
   type ExtensionSuggestion,
   filesLabel,
   suggestedExtension,
-} from '../../shared/extensions/extensionSuggestions'
-import type { LanguageServerSource } from '../lsp/serverBinaries'
-import { loadJson, saveJson } from '../platform/jsonStore'
+} from '../../../shared/extensions/extensionSuggestions'
+import type { LanguageServerSource } from '../../lsp/serverBinaries'
+import { loadJson, saveJson } from '../../platform/jsonStore'
 import type { LanguageListing } from './marketplace'
 
 const MAX_DISMISSED = 500

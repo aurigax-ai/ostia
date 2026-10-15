@@ -60,18 +60,7 @@ export interface Harness {
   secrets: import('../src/main/extensions/extensionHostDeps').ExtensionSecretStore
 }
 
-export async function until<T>(
-  read: () => Promise<T | undefined> | T | undefined,
-  timeoutMs = 15_000,
-): Promise<T> {
-  const start = Date.now()
-  for (;;) {
-    const value = await read()
-    if (value !== undefined) return value
-    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 50))
-  }
-}
+export const POLL = { timeout: 15_000, interval: 50 }
 
 function runCli(args: string[], env: NodeJS.ProcessEnv, stdin = ''): Promise<CliResult> {
   return new Promise((resolve, reject) => {

@@ -8,37 +8,19 @@ import type {
   AssistProviderEntry,
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { ExtensionHost } from './extensionHost'
 import { registerExtensionMethods } from './extensionMethods'
 import { createSecretStore } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
 
+const POLL = { timeout: 8000, interval: 20 }
+
 const plainFixtures = resolve(__dirname, '../../../test/fixtures/extensions-assist')
 const modelFixtures = resolve(__dirname, '../../../test/fixtures/extensions-assist-models')
 
 const caller: ExtensionCaller = { kind: 'user', capabilities: [] }
-
-async function until<T>(read: () => T | undefined, timeoutMs = 8000): Promise<T> {
-  const start = Date.now()
-  for (;;) {
-    const value = read()
-    if (value !== undefined) return value
-    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 20))
-  }
-}
-
-async function eventually<T>(read: () => Promise<T | undefined>, timeoutMs = 8000): Promise<T> {
-  const start = Date.now()
-  for (;;) {
-    const value = await read()
-    if (value !== undefined) return value
-    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 20))
-  }
-}
 
 function provider(patch: Partial<AssistProviderConfig> & { id: string }): AssistProviderConfig {
   return {
@@ -131,7 +113,10 @@ describe('assist routing across providers, models and extensions', () => {
 
   it('gives an extension only its own enabled providers and offers the usable models', async () => {
     host.processes.approve('switchboard')
-    const catalog = await until(() => (lastCatalog()?.models.length ? lastCatalog() : undefined))
+    const catalog = await vi.waitUntil(
+      () => (lastCatalog()?.models.length ? lastCatalog() : undefined),
+      POLL,
+    )
     expect(labels(catalog)).toEqual(['Local/small', 'Local/big'])
     expect(catalog.models[0]).toEqual({
       ref: { extId: 'switchboard', provider: 'local', model: 'small' },
@@ -227,13 +212,15 @@ describe('assist routing across providers, models and extensions', () => {
     const before = (await given()).events
     expect(host.assistant.setAssistProviderKey('hosted', 'sk-hosted-1')).toEqual({ ok: true })
     expect(JSON.stringify(storedKeys)).not.toContain('sk-hosted-1')
-    const entries = await eventually(async () => {
+    const entries = await vi.waitUntil(async () => {
       const now = await given()
       return now.events > before ? now.entries : undefined
-    })
+    }, POLL)
     expect(entries.find((e) => e.id === 'hosted')?.apiKey).toBe('sk-hosted-1')
-    const catalog = await until(() =>
-      lastCatalog()?.models.some((m) => m.ref.provider === 'hosted') ? lastCatalog() : undefined,
+    const catalog = await vi.waitUntil(
+      () =>
+        lastCatalog()?.models.some((m) => m.ref.provider === 'hosted') ? lastCatalog() : undefined,
+      POLL,
     )
     expect(labels(catalog)).toEqual(['Local/small', 'Local/big', 'Hosted/large'])
     const [state] = host.assistant.assistOverview()
@@ -252,8 +239,10 @@ describe('assist routing across providers, models and extensions', () => {
 
   it('offers a plain assist extension next to the providers and routes to it by choice', async () => {
     host.processes.approve('oracle')
-    const catalog = await until(() =>
-      lastCatalog()?.models.some((m) => m.ref.extId === 'oracle') ? lastCatalog() : undefined,
+    const catalog = await vi.waitUntil(
+      () =>
+        lastCatalog()?.models.some((m) => m.ref.extId === 'oracle') ? lastCatalog() : undefined,
+      POLL,
     )
     expect(labels(catalog)).toEqual(['Local/small', 'Local/big', 'Hosted/large', 'Oracle/fake'])
     expect(catalog.chat).toEqual({ extId: 'switchboard', provider: 'local', model: 'big' })
@@ -325,9 +314,11 @@ describe('assist routing across providers, models and extensions', () => {
     }
     host.assistant.reloadAssistSettings()
     expect(JSON.stringify(storedKeys)).not.toContain('hosted')
-    await eventually(async () => ((await given()).entries.length === 1 ? true : undefined))
-    const after = await until(() =>
-      lastCatalog()?.models.every((m) => m.ref.provider !== 'hosted') ? lastCatalog() : undefined,
+    await vi.waitUntil(async () => (await given()).entries.length === 1, POLL)
+    const after = await vi.waitUntil(
+      () =>
+        lastCatalog()?.models.every((m) => m.ref.provider !== 'hosted') ? lastCatalog() : undefined,
+      POLL,
     )
     expect(labels(after)).toEqual(['Local/small', 'Local/big', 'Oracle/Oracle'])
     expect(host.assistant.assistCatalog().fast).toEqual({ extId: 'oracle' })

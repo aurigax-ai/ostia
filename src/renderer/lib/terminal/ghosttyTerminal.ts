@@ -9,7 +9,7 @@ import {
   SearchAddon,
   type SemanticPromptEvent,
 } from '@aurigax-ai/ghostty-web'
-import wasmDataUrl from '@aurigax-ai/ghostty-web/ghostty-vt.wasm?dataurl'
+import wasmDataUrl from '@aurigax-ai/ghostty-web/ghostty-vt.wasm?inline'
 import type { ILinkProvider } from '@xterm/xterm'
 import type {
   OstiaTerminal,

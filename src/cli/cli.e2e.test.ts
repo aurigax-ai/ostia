@@ -702,7 +702,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
 
   describe('resume-token and pane.setResume', () => {
     let foreground: string | null = null
-    let reportedCwd: string | null = null
+    let paneCwd: string | null = null
     let stored: unknown = null
     const fromMain: string[] = []
     beforeAll(() => {
@@ -713,13 +713,13 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
           return fakeDeps.execCommand(target, id, args)
         },
         foregroundProgram: () => foreground,
-        reportedCwd: () => reportedCwd,
+        agentCwd: async () => paneCwd,
         onResume: () => {},
       })
     })
     beforeEach(() => {
       foreground = null
-      reportedCwd = null
+      paneCwd = null
       stored = null
       fromMain.length = 0
     })
@@ -741,7 +741,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     }
 
     it('resume-token stores the folder main saw for the pane, never the hook payload’s, and the flags the agent was started with', async () => {
-      reportedCwd = '/work/pane'
+      paneCwd = '/work/pane'
       const res = await runOstia(
         ['resume-token', 'claude', '-'],
         withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
@@ -758,7 +758,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         },
       ])
 
-      reportedCwd = null
+      paneCwd = null
       const started = ['--model', 'opus', '--session-id', 'old', 'fix it'].join('\u001f')
       const withArgs = await runOstia(
         ['resume-token', 'claude', 'e2e-tok-args'],
@@ -807,7 +807,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
 
     it('stores no escaping flag, no variable and no folder from any caller holding the token', async () => {
       foreground = 'claude'
-      reportedCwd = '/work/pane'
+      paneCwd = '/work/pane'
       expect(
         await setResume({
           agent: 'claude',
@@ -823,7 +823,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         args: { agent: 'claude', id: 'e2e-tok-raw', cwd: '/work/pane', args: ['--model', 'opus'] },
       })
       expect(fromMain).toContain('resume.set')
-      reportedCwd = null
+      paneCwd = null
       expect(await setResume({ agent: 'claude', id: 'e2e-tok-nocwd', cwd: '/tmp' })).toEqual({
         ok: true,
       })

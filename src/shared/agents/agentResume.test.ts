@@ -123,6 +123,12 @@ describe('resumeCommand', () => {
     ).toBe(`codex resume abc -c 'model_reasoning_effort="high"'`)
   })
 
+  it('quotes a flag value that holds an =', () => {
+    expect(resumeCommand({ agent: 'codex', id: 'abc', args: ['-c', 'model_verbosity=low'] })).toBe(
+      "codex resume abc -c 'model_verbosity=low'",
+    )
+  })
+
   it('never replays an escaping flag or any variable, even from a record built by hand', () => {
     expect(
       resumeCommand({

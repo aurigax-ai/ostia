@@ -1,13 +1,11 @@
 import { resolve } from 'node:path'
 import { defineConfig } from 'vitest/config'
-import { dataUrl } from './scripts/dataUrl.mjs'
 import { activeEntries, announce } from './test/quarantine.mjs'
 
 announce(activeEntries(), 'vitest')
 
 export default defineConfig({
-  plugins: [dataUrl()],
-  assetsInclude: ['**/*.md', '**/*.txt'],
+  assetsInclude: ['**/*.md', '**/*.txt', '**/*.wasm'],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src/renderer'),
@@ -53,19 +51,7 @@ export default defineConfig({
             'src/cli/**/*.test.ts',
             'src/extensions/**/*.test.ts',
             'packages/*/src/**/*.test.ts',
-            'test/quarantine.test.ts',
-            'test/e2eImports.test.ts',
-            'test/affectedTests.test.ts',
-            'test/e2eAreas.test.ts',
-            'test/ciMergeQueue.test.ts',
-            'test/mergeQueueVerified.test.ts',
-            'test/mainBuild.test.ts',
-            'test/retry.test.ts',
-            'test/installScript.test.ts',
-            'test/electronHeaders.test.ts',
-            'test/releaseNotes.test.ts',
-            'test/coverageReport.test.ts',
-            'test/heldPort.test.ts',
+            'test/*.test.ts',
           ],
         },
       },

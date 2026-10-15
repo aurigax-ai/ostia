@@ -1,6 +1,6 @@
 import { connect } from 'node:net'
 import { Agent, setGlobalDispatcher } from 'undici'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   FAKE_MCP_SERVER,
   type FakeMcpHttp,
@@ -132,13 +132,7 @@ async function waitFor(host: McpHost, state: string): Promise<McpServerStatus> {
   }
 }
 
-async function until(check: () => boolean): Promise<void> {
-  const deadline = Date.now() + 10_000
-  while (!check()) {
-    if (Date.now() > deadline) throw new Error('timed out')
-    await new Promise((r) => setTimeout(r, 10))
-  }
-}
+const POLL = { timeout: 10_000, interval: 10 }
 
 describe('MCP OAuth sign-in against the fake protected server', () => {
   it('marks a server that answers 401 as needing sign-in without registering or opening anything', async () => {
@@ -265,7 +259,7 @@ describe('MCP OAuth sign-in against the fake protected server', () => {
     const server = await fake()
     const { deps, opened, host } = setup([http(server.url)], { browser: 'system' })
     const pending = signInToMcp(deps, 'remote')
-    await until(() => opened.length === 1)
+    await vi.waitUntil(() => opened.length === 1, POLL)
     const authorization = new URL(opened[0])
     expect(authorization.origin).toBe(server.origin)
     expect(authorization.pathname).toBe('/authorize')
@@ -314,7 +308,7 @@ describe('MCP OAuth sign-in against the fake protected server', () => {
 
     const cancelled = setup([http(server.url)], { browser: 'system' })
     const pending = signInToMcp(cancelled.deps, 'remote')
-    await until(() => cancelled.opened.length === 1)
+    await vi.waitUntil(() => cancelled.opened.length === 1, POLL)
     cancelled.oauth.cancel('remote')
     expect(await pending).toEqual({ ok: false, error: 'cancelled' })
     expect(cancelled.stored()).toEqual({})

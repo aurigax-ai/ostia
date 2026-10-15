@@ -1,4 +1,5 @@
-import { resumeFlags, shellQuote } from './agentLaunch'
+import { quoteArg } from '../terminal/shellQuote'
+import { resumeFlags } from './agentLaunch'
 
 export type ResumableAgent = 'claude' | 'codex'
 
@@ -62,7 +63,7 @@ export function sameResume(a: AgentResume | undefined, b: AgentResume): boolean 
 }
 
 function agentCommandLine(resume: AgentResume, base: string[]): string {
-  return [...base, ...resumeArgs(resume.agent, resume.args).map(shellQuote)].join(' ')
+  return [...base, ...resumeArgs(resume.agent, resume.args).map(quoteArg)].join(' ')
 }
 
 export function resumeCommand(resume: AgentResume): string {

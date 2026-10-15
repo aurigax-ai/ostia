@@ -6,6 +6,7 @@ import {
   hermesSystemPromptTemplate,
 } from '@ai-sdk-tool/parser'
 import { type LanguageModel, generateId, simulateStreamingMiddleware, wrapLanguageModel } from 'ai'
+import { isRecord } from '../contract/isRecord'
 
 type Model = Exclude<LanguageModel, string>
 type ParseArgs = Parameters<TCMProtocol['parseGeneratedText']>[0]
@@ -169,8 +170,8 @@ function jsonCall(code: string, tools: Map<string, FunctionTool>): ParsedCall[] 
     const parsed = JSON.parse(code) as { name?: unknown; arguments?: unknown; parameters?: unknown }
     const input = parsed.arguments ?? parsed.parameters ?? {}
     if (typeof parsed.name !== 'string' || !tools.has(parsed.name)) return null
-    if (typeof input !== 'object' || input === null || Array.isArray(input)) return null
-    return [{ name: parsed.name, input: input as Record<string, unknown> }]
+    if (!isRecord(input)) return null
+    return [{ name: parsed.name, input }]
   } catch {
     return null
   }

@@ -2,7 +2,7 @@
   "id": "activity",
   "name": "Activity",
   "version": "1.0.0",
-  "api": "4.4",
+  "api": "4.5",
   "description": "One panel for what each agent did and what needs you: its latest closing message as a running recap, notes agents leave with ostia activity add, and items that need you with a count in the sidebar until you mark them done. On request it shows the prompt, tool calls and stops of each turn. It keeps everything on this computer, moves old entries to a compressed archive, and never types into a terminal.",
   "category": "tools",
   "capabilities": ["agent-plugin", "read-board"],

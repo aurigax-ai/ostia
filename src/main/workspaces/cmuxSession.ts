@@ -4,11 +4,10 @@ import { isAbsolute, join, relative } from 'node:path'
 import { ipcMain } from 'electron'
 import {
   CMUX_SESSION_FILE,
+  CMUX_SESSION_MAX_BYTES,
   type CmuxSessionRead,
   parseCmuxSession,
 } from '../../shared/workspaces/cmuxSession'
-
-export const CMUX_SESSION_MAX_BYTES = 32 * 1024 * 1024
 
 export function cmuxSessionPath(home: string): string {
   return join(home, CMUX_SESSION_FILE)

@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { isAbsolute, relative } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { parsePatch } from 'diff'
 
 const USAGE = [
   'usage: node scripts/coverageReport.mjs baseline <lcov.info>',
@@ -33,19 +34,12 @@ export function parseLcov(text, root) {
 
 export function changedLines(diff) {
   const files = new Map()
-  let current = null
-  for (const line of diff.split('\n')) {
-    if (line.startsWith('+++ ')) {
-      const path = line.slice(4)
-      current = path.startsWith('b/') ? new Set() : null
-      if (current) files.set(path.slice(2), current)
-      continue
-    }
-    const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(line)
-    if (!hunk || !current) continue
-    const start = Number(hunk[1])
-    const count = hunk[2] === undefined ? 1 : Number(hunk[2])
-    for (let n = start; n < start + count; n++) current.add(n)
+  for (const { newFileName, hunks } of parsePatch(diff)) {
+    if (!newFileName?.startsWith('b/')) continue
+    const lines = new Set()
+    for (const { newStart, newLines } of hunks)
+      for (let n = newStart; n < newStart + newLines; n++) lines.add(n)
+    files.set(newFileName.slice(2), lines)
   }
   return files
 }

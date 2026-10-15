@@ -1,7 +1,7 @@
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { expandNotifyCommand, runNotifyCommand } from './notifyCommand'
 
 const values = { title: 'Build done', body: 'ok; rm -rf /', pane: 'p1' }
@@ -32,10 +32,6 @@ describe('runNotifyCommand', () => {
     for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true })
   })
 
-  async function waitFor(path: string): Promise<void> {
-    for (let i = 0; i < 100 && !existsSync(path); i++) await new Promise((r) => setTimeout(r, 30))
-  }
-
   it('runs the program directly with the expanded argv, so shell metacharacters stay data', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ostia-notify-cmd-'))
     dirs.push(dir)
@@ -48,7 +44,7 @@ describe('runNotifyCommand', () => {
     chmodSync(script, 0o755)
 
     expect(runNotifyCommand(`${script} {title} {body} {pane}`, values)).toBe(true)
-    await waitFor(out)
+    await vi.waitUntil(() => existsSync(out), { timeout: 3000, interval: 30 })
 
     expect(readFileSync(out, 'utf8')).toBe('Build done|ok; rm -rf /|p1')
   })

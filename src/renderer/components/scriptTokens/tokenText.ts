@@ -1,6 +1,6 @@
+import { relativeTimeText } from '@/lib/app/localeFormat'
 import { fmt } from '@/lib/app/useDict'
 import type { Dict } from '@shared/app/dict'
-import { type RelativeStep, formatRelative } from '@shared/common/relativeTime'
 import type { ScriptTokenInfo, ScriptTokenSaveResult } from '@shared/permissions/scriptTokens'
 
 export const ENV = 'OSTIA_TOKEN'
@@ -8,12 +8,6 @@ export const ENV = 'OSTIA_TOKEN'
 export const DAY_MS = 86_400_000
 
 const SOON_DAYS = 7
-
-const RELATIVE_STEPS: RelativeStep[] = [
-  ['day', 86_400],
-  ['hour', 3_600],
-  ['minute', 60],
-]
 
 export const EXAMPLE = 'ostia pane list'
 
@@ -55,9 +49,7 @@ export function expiryText(d: Dict, t: ScriptTokenInfo, now: number): string {
 
 export function lastUsedText(d: Dict, iso: string | null, now: number, locale: string): string {
   if (!iso) return d.scriptTokens.neverUsed
-  const seconds = Math.round((Date.parse(iso) - now) / 1000)
-  const format = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
-  return formatRelative(Math.abs(seconds) >= 60 ? seconds : 0, RELATIVE_STEPS, format)
+  return relativeTimeText(Date.parse(iso), now, locale)
 }
 
 export function sentence(text: string): string {

@@ -1,5 +1,6 @@
 import type { MirrorHandle, MirrorSink } from '../../manager/portal'
 import { type PaneIo, pastedText } from '../../panes/paneIo'
+import type { SubscriberRole } from '../ptySession'
 import type { PtyEntry } from './ptyRegistry'
 
 export function resizePty(entry: PtyEntry | undefined, cols: number, rows: number): void {
@@ -88,5 +89,39 @@ export function createPtyIo({ ptys }: PtyIoDeps) {
     ptys.get(rendererPaneId)?.pty.write(data)
   }
 
-  return { paneIo, releasePtyFlow, hidePtyFlow, attachMirror, ptyResize, ptyWrite }
+  let gwSubSeq = 0
+
+  function attachPhoneObserver(
+    rendererPaneId: string,
+    opts: {
+      sinceCursor?: number
+      role?: 'observer' | 'owner'
+      sendData: (data: string) => void
+    },
+  ): { cursor: number; dropped: boolean; cols: number; rows: number; detach: () => void } | null {
+    const entry = ptys.get(rendererPaneId)
+    if (!entry) return null
+    const id = `gw-${++gwSubSeq}`
+    const role: SubscriberRole = opts.role === 'owner' ? 'owner' : 'observer'
+    const { cursor, dropped } = entry.session.addSubscriber(
+      { id, role, send: (data) => opts.sendData(data) },
+      opts.sinceCursor ?? 0,
+    )
+    return {
+      cursor,
+      dropped,
+      cols: entry.pty.cols,
+      rows: entry.pty.rows,
+      detach: () => entry.session.removeSubscriber(id),
+    }
+  }
+  return {
+    paneIo,
+    releasePtyFlow,
+    hidePtyFlow,
+    attachMirror,
+    ptyResize,
+    ptyWrite,
+    attachPhoneObserver,
+  }
 }

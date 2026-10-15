@@ -1,3 +1,4 @@
+import { isRecord } from './isRecord'
 import { isDangerousSegment } from './protoGuard'
 
 export const EDITOR_LANGUAGE_ID_PATTERN = /^[a-z][a-z0-9+#-]{0,39}$/
@@ -130,10 +131,6 @@ export interface EditorLanguage extends EditorLanguageMapping {
 
 export interface EditorLanguagesApi {
   load: () => Promise<EditorLanguage[]>
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function shortToken(value: unknown): value is string {

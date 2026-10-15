@@ -1,3 +1,4 @@
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { childPath, parseLocatedJson } from '../common/jsonLocated'
 import { bindingsOf, compileTemplate, hasBindings, isIdentifier, parsePath } from './viewBindings'
 
@@ -228,10 +229,6 @@ export function viewNameOf(fileName: string): string | null {
   if (!fileName.endsWith(VIEW_FILE_EXTENSION)) return null
   const name = fileName.slice(0, -VIEW_FILE_EXTENSION.length)
   return VIEW_NAME.test(name) ? name : null
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
 class Checker {

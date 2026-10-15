@@ -116,7 +116,7 @@ export function wrapPortable(document: string, manifest: PortableManifest): stri
     `<script type="application/json" id="${PORTABLE_MANIFEST_ID}">${manifestJson(manifest)}</script>`,
     '</head>',
     '<body>',
-    `<iframe sandbox="${portableSandbox(manifest.type)}" allow="clipboard-write" title="${escapeText(manifest.name).replace(/"/g, '&quot;')}" srcdoc="${escapeAttribute(document)}"></iframe>`,
+    `<iframe sandbox="${portableSandbox(manifest.type)}" allow="clipboard-write" title="${title.replace(/"/g, '&quot;')}" srcdoc="${escapeAttribute(document)}"></iframe>`,
     '</body>',
     '</html>',
     '',

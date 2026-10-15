@@ -7,6 +7,7 @@ import type { AssistPoint } from './assist'
 import type { Capability } from './capabilities'
 import type { EditorLanguageContribution } from './editorLanguages'
 import type { IconThemeContribution, IconThemeInfo } from './iconTheme'
+import { isRecord } from './isRecord'
 import type { KeymapContribution, KeymapInfo } from './keymap'
 import type { LanguageContribution, LanguageInfo } from './languagePack'
 import type { LanguageServerContribution, LanguageServerSummary } from './languageServers'
@@ -118,10 +119,7 @@ export function effectiveSettingValues(
   settings: readonly ExtensionSettingContribution[],
   stored: unknown,
 ): ExtensionSettingValues {
-  const raw =
-    typeof stored === 'object' && stored !== null && !Array.isArray(stored)
-      ? (stored as Record<string, unknown>)
-      : {}
+  const raw = isRecord(stored) ? stored : {}
   const out: ExtensionSettingValues = {}
   for (const setting of settings) {
     const value = Object.hasOwn(raw, setting.key) ? raw[setting.key] : undefined

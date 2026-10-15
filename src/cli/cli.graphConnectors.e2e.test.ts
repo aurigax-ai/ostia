@@ -5,8 +5,8 @@ import {
   FAKE_MCP_SERVER,
   type Harness,
   MCP_SECRET,
+  POLL,
   graphsHarness,
-  until,
 } from '../../test/graphsHarness'
 
 vi.mock('electron', () => ({
@@ -50,10 +50,10 @@ describe('connectors on the built-in graphs extension (real CLI, real socket, fa
     const res = await h.panel('runNow', { name })
     if (!res.ok) throw new Error(JSON.stringify(res))
     const runId = (res.data as { runId: string }).runId
-    const found = await until(() => {
+    const found = await vi.waitUntil(() => {
       const all = lines(runId, name)
       return all.some((l) => l.type === 'run-end') ? all : undefined
-    })
+    }, POLL)
     const last = [...found].reverse().find((l) => l.type === 'state') as
       | { state: Record<string, unknown> }
       | undefined
