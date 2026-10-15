@@ -934,6 +934,20 @@
       ]
     },
     {
+      "name": "terminal history",
+      "paths": [
+        "src/main/terminal/history/",
+        "src/main/terminal/screenSerialize.ts",
+        "src/shared/terminal/scrollbackHistory.ts",
+        "src/renderer/components/terminal/HistoryEdge.tsx",
+        "src/renderer/components/terminal/HistoryView.",
+        "src/renderer/lib/terminal/historyActions.ts",
+        "src/renderer/lib/terminal/historyPages.",
+        "src/renderer/stores/terminal/historyViewStore.ts"
+      ],
+      "specs": ["e2e/terminal-history.spec.ts"]
+    },
+    {
       "name": "shell integration and blocks",
       "paths": [
         "src/main/terminal/shellIntegration.ts",

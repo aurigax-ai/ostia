@@ -8,9 +8,29 @@ export function tailCut(data: string, keepBytes: number): number {
   return cut
 }
 
+export interface RingSlice {
+  data: string
+  cursor: number
+  dropped: boolean
+  startsBefore: number
+}
+
+const COMMAND_START_MARK = '\x1b]133;C'
+
+export function countCommandStarts(data: string, end = data.length): number {
+  let count = 0
+  let at = data.indexOf(COMMAND_START_MARK)
+  while (at !== -1 && at + COMMAND_START_MARK.length <= end) {
+    count++
+    at = data.indexOf(COMMAND_START_MARK, at + COMMAND_START_MARK.length)
+  }
+  return count
+}
+
 export class PtyRingBuffer {
   private buf = ''
   private start = 0
+  private droppedStarts = 0
   private readonly keepBytes: number
 
   constructor(private readonly capBytes = 1_000_000) {
@@ -25,13 +45,19 @@ export class PtyRingBuffer {
     this.buf += data
     if (this.buf.length <= this.capBytes) return
     const cut = tailCut(this.buf, this.keepBytes)
+    this.droppedStarts += countCommandStarts(this.buf, cut)
     this.start += cut
     this.buf = this.buf.slice(cut)
   }
 
-  since(cursor: number): { data: string; cursor: number; dropped: boolean } {
+  since(cursor: number): RingSlice {
     const dropped = cursor < this.start
     const from = Math.max(0, cursor - this.start)
-    return { data: this.buf.slice(from), cursor: this.end, dropped }
+    return {
+      data: this.buf.slice(from),
+      cursor: this.end,
+      dropped,
+      startsBefore: this.droppedStarts + countCommandStarts(this.buf, from),
+    }
   }
 }

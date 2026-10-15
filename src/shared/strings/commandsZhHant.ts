@@ -106,6 +106,7 @@ export const commandsZhHant: typeof commandsEn = {
       'tab.newBrowser': '新增瀏覽器分頁',
       'terminal.toggleInputEditor': '切換輸入編輯器',
       'terminal.clear': '清除終端機畫面',
+      'terminal.showHistory': '顯示較早的輸出',
       'terminal.scrollToTop': '捲到最上面',
       'terminal.scrollToBottom': '捲到最下面',
       'terminal.scrollPageUp': '往上捲一頁',

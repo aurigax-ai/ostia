@@ -120,6 +120,12 @@ import type { SandboxReadPreset } from './sandbox/sandboxPresets'
 import type { SecretEntry, SecretGrant } from './sandbox/secrets'
 import type { SpecCommand } from './terminal/completionSpec'
 import type { PromptSeparator } from './terminal/promptSettings'
+import type {
+  HistoryBlockRange,
+  HistoryPage,
+  HistorySearchOptions,
+  HistorySearchResult,
+} from './terminal/scrollbackHistory'
 import type { ViewsApi } from './views/views'
 import type { CmuxSessionRead } from './workspaces/cmuxSession'
 import type { SplitTabPlacement } from './workspaces/splitTabs'
@@ -232,6 +238,7 @@ export interface PtyAttachResult {
   buffer: string
   cursor: number
   dropped: boolean
+  blockSeqBase?: number
   shell?: string
   sandboxed?: boolean
   sandboxStamp?: string
@@ -305,6 +312,15 @@ interface PtyApi {
   detach: (paneId: string) => void
   hibernate: (paneId: string) => Promise<HibernateOutcome>
   stashed: (paneId: string) => Promise<string | null>
+  historyRead: (paneId: string, from: number, count: number) => Promise<HistoryPage | null>
+  historySearch: (
+    paneId: string,
+    query: string,
+    options: HistorySearchOptions,
+    liveLines: number,
+  ) => Promise<HistorySearchResult | null>
+  historyBlock: (paneId: string, seq: number, command: string) => Promise<HistoryBlockRange | null>
+  blockOutput: (paneId: string, seq: number, command: string) => Promise<string | null>
   keptWaiting: () => Promise<string[]>
   restart: (paneId: string) => Promise<boolean>
   reportAgentRunning: (paneId: string, running: boolean) => void

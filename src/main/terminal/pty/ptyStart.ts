@@ -119,7 +119,7 @@ export function createPtyStart({
 
     pty.onData((d) => feedPty(entry, d))
     pty.onExit(({ exitCode }) => session.exit(exitCode))
-    const { data, cursor, dropped } = session.since(0)
+    const { data, cursor, dropped, startsBefore } = session.since(0)
     session.addLiveSubscriber(mkSub(entry))
     if (folder.missing) telemetry()?.count('terminal', 'spawn_failure', 'cwd-missing')
     return {
@@ -127,6 +127,7 @@ export function createPtyStart({
       buffer: data,
       cursor,
       dropped,
+      blockSeqBase: entry.mirror.blockSeqBase + startsBefore,
       shell: shellName(shell) || undefined,
       sandboxed,
       host,

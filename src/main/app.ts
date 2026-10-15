@@ -13,6 +13,7 @@ import {
 import { BrowserWindow, app, ipcMain, shell } from 'electron'
 import { ChangeSignal } from '../shared/common/actThenConfirm'
 import { externalHref } from '../shared/common/externalLinks'
+import { parseScrollbackHistory } from '../shared/terminal/scrollbackHistory'
 import type { CommandDescriptor, CommandTarget, TerminalStateSnapshot } from '../shared/types'
 import { createAgentOfferRelay } from './agents/agentOfferRelay'
 import { AgentRunningPanes } from './agents/agentRunning'
@@ -97,7 +98,7 @@ import type { ProcessRegistry } from './panes/processRegistry'
 import { storePath } from './platform/jsonStore'
 import { managerSettings, readLocale, readSettingsFile } from './platform/settingsFile'
 import { resolveLoginPath } from './platform/toolPath'
-import { appConfigDir } from './platform/userDirs'
+import { appConfigDir, appDataDir } from './platform/userDirs'
 import type { PortsService } from './ports/service'
 import { registerPrivacyIpc } from './privacy/privacyIpc'
 import { createRedactor } from './privacy/redaction'
@@ -108,6 +109,8 @@ import { createSandboxServices } from './sandbox/sandboxServices'
 import { registerSandboxIpcWiring, registerSandboxWiring } from './sandbox/sandboxWiring'
 import { createEncryptedStores } from './secrets/encryptedStores'
 import { createSecretServices } from './secrets/secretServices'
+import { registerHistoryIpc } from './terminal/history/historyIpc'
+import { HISTORY_DIR, PaneHistories } from './terminal/history/paneHistories'
 import { registerPtyIpc } from './terminal/pty/ptyIpc'
 import type { PtyEntry } from './terminal/pty/ptyRegistry'
 import { createPtyWiring } from './terminal/pty/ptyWiring'
@@ -193,6 +196,7 @@ const services = {
   managerLimiter: null as ManagerLimiter | null,
   portal: null as Portal | null,
   fileWatches: null as FileWatches | null,
+  histories: null as PaneHistories | null,
 }
 
 const {
@@ -681,6 +685,11 @@ function boot(): void {
     openPath: (path) => shell.openPath(path),
   })
   handleQuitSignals()
+  services.histories = new PaneHistories({
+    root: join(appDataDir(), HISTORY_DIR),
+    setting: () => parseScrollbackHistory(readSettingsFile().terminal?.scrollbackHistory),
+    onFailed: (paneId, reason) => services.appLog?.info('history-off', { pane: paneId, reason }),
+  })
   services.restoreOutcome = loadRestoredScrollback()
   services.appLog?.info('scrollback-load', {
     outcome: services.restoreOutcome,
@@ -695,6 +704,7 @@ function boot(): void {
   registerWorkspaceIpc()
   registerSandboxIpcWiring({ ...wiring })
   registerPtyIpc({ ...wiring })
+  registerHistoryIpc({ ...wiring })
   registerFsIpc({ ...wiring })
   registerSelectionIpc(reachesPane, redactor.text)
   registerArtifactViewIpc({ ...wiring })

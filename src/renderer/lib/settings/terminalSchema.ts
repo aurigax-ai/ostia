@@ -10,6 +10,10 @@ import {
   PROMPT_SEPARATORS,
   PROMPT_STYLES,
 } from '@shared/terminal/promptSettings'
+import {
+  SCROLLBACK_HISTORY_MAX_MIB,
+  SCROLLBACK_HISTORY_MIN_MIB,
+} from '@shared/terminal/scrollbackHistory'
 import { SHELL_SETTING_MAX_LENGTH } from '@shared/terminal/terminalShell'
 import { schemeChoice } from './appearanceSchema'
 
@@ -28,7 +32,25 @@ export const terminalSchema = {
       type: 'integer',
       minimum: 1000,
       maximum: 100000,
-      description: 'Lines of history each terminal keeps. Default: 10000.',
+      description:
+        'Lines each terminal keeps in memory; older output moves to history on disk ' +
+        '(scrollbackHistory). Default: 10000.',
+    },
+    scrollbackHistory: {
+      oneOf: [
+        { type: 'string', enum: ['off', 'unlimited'] },
+        {
+          type: 'integer',
+          minimum: SCROLLBACK_HISTORY_MIN_MIB,
+          maximum: SCROLLBACK_HISTORY_MAX_MIB,
+        },
+      ],
+      description:
+        'Output older than the lines in memory, kept per pane on this machine, encrypted with a ' +
+        'key that lives only while the app runs, and removed when the pane closes, the app ' +
+        'quits or the program clears its scrollback. "off": no history on disk. "unlimited": ' +
+        'bounded only by keeping 2 GiB of disk free. A number: MiB per pane. Only you can change ' +
+        'this, in Settings; agents cannot. Default: unlimited.',
     },
     clipboardKeys: {
       type: 'string',

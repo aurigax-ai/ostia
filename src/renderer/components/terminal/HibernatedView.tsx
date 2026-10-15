@@ -2,28 +2,16 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { wakePane } from '@/lib/agents/hibernationScheduler'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { matchChordInTerminal } from '@/lib/keyboard/chords'
-import { smartClipboardAction } from '@/lib/keyboard/clipboardKeys'
 import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import {
   type ReadOnlyTerminal,
-  createReadOnlyTerminal,
+  mountReadOnlyTerminal,
   useReadOnlyTerminalBackground,
   useReadOnlyTerminalFont,
 } from '@/lib/terminal/readOnlyTerminal'
-import { isMac } from '@/platform'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import { MoonIcon, PlayIcon } from '@phosphor-icons/react'
 import type { AgentResume } from '@shared/agents/agentResume'
-import { FitAddon } from '@xterm/addon-fit'
-import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { useEffect, useRef } from 'react'
-
-function wantsCopy(e: KeyboardEvent, hasSelection: boolean): boolean {
-  const clipboardKeys = useSettingsStore.getState().terminal.clipboardKeys
-  if (smartClipboardAction(e, clipboardKeys, hasSelection, isMac) === 'copy') return true
-  return matchChordInTerminal(e, isMac) === 'copy'
-}
 
 export function HibernatedView({
   paneId,
@@ -42,41 +30,16 @@ export function HibernatedView({
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
-    const terminalSettings = useSettingsStore.getState().terminal
-    const term = createReadOnlyTerminal({
-      scrollSensitivity: terminalSettings.scrollSpeed,
-      minimumContrastRatio: terminalSettings.minimumContrast,
-      cursorInactiveStyle: 'none',
-    })
-    const fit = new FitAddon()
-    term.loadAddon(fit)
-    term.loadAddon(new Unicode11Addon())
-    term.unicode.activeVersion = '11'
-    term.attachCustomKeyEventHandler((e) => {
-      if (e.type === 'keydown' && wantsCopy(e, term.hasSelection())) {
-        e.preventDefault()
-        void navigator.clipboard.writeText(term.getSelection())
-      }
-      return false
-    })
-    term.open(host)
+    const { term, dispose } = mountReadOnlyTerminal(host)
     termRef.current = term
-    const refit = (): void => {
-      if (host.offsetWidth === 0 || host.offsetHeight === 0) return
-      fit.fit()
-    }
-    refit()
-    const observer = new ResizeObserver(refit)
-    observer.observe(host)
     let live = true
     void window.ostia.pty.stashed(paneId).then((screen) => {
       if (live && screen) term.write(screen)
     })
     return () => {
       live = false
-      observer.disconnect()
       termRef.current = null
-      term.dispose()
+      dispose()
     }
   }, [paneId])
 

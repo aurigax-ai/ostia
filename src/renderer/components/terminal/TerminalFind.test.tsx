@@ -24,6 +24,9 @@ describe('TerminalFind', () => {
     const onClose = vi.fn()
     render(
       <TerminalFind
+        paneId="p1"
+        liveLines={() => 0}
+        onShowEarlier={vi.fn()}
         search={search as unknown as SearchAddon}
         options={{}}
         stepRef={stepRef}
@@ -50,6 +53,9 @@ describe('TerminalFind', () => {
     const stepRef: FindStepRef = { current: null }
     const { unmount } = render(
       <TerminalFind
+        paneId="p1"
+        liveLines={() => 0}
+        onShowEarlier={vi.fn()}
         search={fakeSearch() as unknown as SearchAddon}
         options={{}}
         stepRef={stepRef}
@@ -59,5 +65,33 @@ describe('TerminalFind', () => {
     expect(stepRef.current).toBeTypeOf('function')
     unmount()
     expect(stepRef.current).toBeNull()
+  })
+
+  it('offers matches in earlier output and opens the newest one', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const matches = [
+      { line: 3, start: 0, end: 2 },
+      { line: 9, start: 4, end: 6 },
+    ]
+    const historySearch = vi.mocked(window.ostia.pty.historySearch)
+    historySearch.mockResolvedValue({ count: 240, matches })
+    const onShowEarlier = vi.fn()
+    render(
+      <TerminalFind
+        paneId="p1"
+        liveLines={() => 42}
+        onShowEarlier={onShowEarlier}
+        search={fakeSearch() as unknown as SearchAddon}
+        options={{}}
+        onClose={() => {}}
+      />,
+    )
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    await user.type(screen.getByRole('textbox', { name: 'Find in terminal' }), 'ab')
+    await act(() => vi.advanceTimersByTimeAsync(200))
+    expect(historySearch).toHaveBeenLastCalledWith('p1', 'ab', {}, 42)
+    await user.click(await screen.findByRole('button', { name: '240 earlier' }))
+    expect(onShowEarlier).toHaveBeenCalledWith({ query: 'ab', options: {}, matches, index: 1 })
+    vi.useRealTimers()
   })
 })

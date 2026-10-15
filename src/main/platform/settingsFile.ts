@@ -12,7 +12,7 @@ export interface SettingsFile {
   manager?: unknown
   assistant?: unknown
   privacy?: unknown
-  terminal?: { shell?: unknown; keepShells?: unknown }
+  terminal?: { shell?: unknown; keepShells?: unknown; scrollbackHistory?: unknown }
   agents?: { hooks?: unknown }
   behavior?: { historySuggestions?: unknown }
 }
