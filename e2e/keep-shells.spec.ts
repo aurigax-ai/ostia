@@ -24,9 +24,15 @@ import {
   runInTerminal,
   shownTerminal,
   typeLine,
-  waitForExit,
 } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import {
+  type ElectronApplication,
+  type Page,
+  _electron as electron,
+  expect,
+  test,
+  waitForExit,
+} from './test'
 
 const KEEP = { ...DOM_RENDERER_SETTINGS, terminal: { keepShells: true } }
 

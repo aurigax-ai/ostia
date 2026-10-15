@@ -1,6 +1,6 @@
 import { escapeRegExp } from 'es-toolkit'
 import { textPainted } from './pixels'
-import { type ElectronApplication, type Locator, type Page, expect } from './test'
+import { type ElectronApplication, type Locator, type Page, expect, waitForExit } from './test'
 
 export const PROMPT = /[❯$%#]/
 
@@ -117,12 +117,6 @@ export function occurrences(text: string, part: string): number {
 export async function waitForPaletteSelection(win: Page, title: string): Promise<void> {
   const option = win.getByRole('option', { name: new RegExp(`^${escapeRegExp(title)}`) }).first()
   await expect(option).toHaveAttribute('aria-selected', 'true', { timeout: 5_000 })
-}
-
-export async function waitForExit(app: ElectronApplication): Promise<void> {
-  const proc = app.process()
-  if (proc.exitCode !== null || proc.signalCode !== null) return
-  await new Promise<void>((resolve) => proc.once('exit', () => resolve()))
 }
 
 export async function askToQuit(app: ElectronApplication): Promise<void> {

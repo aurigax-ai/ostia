@@ -16,8 +16,15 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { withAsar } from './fakeAsar'
-import { openWorkspace, quitApp, runInTerminal, stubExternalOpener, waitForExit } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { openWorkspace, quitApp, runInTerminal, stubExternalOpener } from './helpers'
+import {
+  type ElectronApplication,
+  type Page,
+  _electron as electron,
+  expect,
+  test,
+  waitForExit,
+} from './test'
 
 test.skip(process.platform !== 'darwin', 'app bundles, hdiutil and codesign are macOS only')
 
