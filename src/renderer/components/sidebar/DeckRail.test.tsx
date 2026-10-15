@@ -408,7 +408,7 @@ describe('DeckRail', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Resume agents' }))
     expect(within(rowFor(/alpha/)).queryByRole('img', { name: 'Hibernated' })).toBeNull()
     expect(typed.mock.calls.map(([id, command]) => [id, command])).toEqual([
-      [agent.id, 'claude --resume tok-1'],
+      [agent.id, "'claude' --resume tok-1"],
     ])
   })
 
@@ -503,8 +503,8 @@ describe('DeckRail', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Resume agents' }))
     expect(asleep()).toEqual([])
     expect(typed.mock.calls.map(([id, command]) => [id, command])).toEqual([
-      [api.id, 'claude --resume tok-api'],
-      [web.id, 'claude --resume tok-web'],
+      [api.id, "'claude' --resume tok-api"],
+      [web.id, "'claude' --resume tok-web"],
     ])
 
     act(() => {

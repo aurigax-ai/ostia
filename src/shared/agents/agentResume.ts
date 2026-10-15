@@ -66,25 +66,27 @@ export function sameResume(a: AgentResume | undefined, b: AgentResume): boolean 
   )
 }
 
-function agentCommandLine(resume: AgentResume, base: string[]): string {
+function agentCommandLine(resume: AgentResume, words: string[]): string {
   const env = Object.entries(resume.env ?? {}).map(([name, value]) => `${name}=${quoteArg(value)}`)
-  return [...env, ...base, ...(resume.args ?? []).map(quoteArg)].join(' ')
+  return [...env, `'${resume.agent}'`, ...words, ...(resume.args ?? []).map(quoteArg)].join(' ')
 }
 
 export function resumeCommand(resume: AgentResume): string {
   return agentCommandLine(
     resume,
-    resume.agent === 'claude' ? ['claude', '--resume', resume.id] : ['codex', 'resume', resume.id],
+    resume.agent === 'claude' ? ['--resume', resume.id] : ['resume', resume.id],
   )
 }
 
 export function forkCommand(resume: AgentResume): string {
   return agentCommandLine(
     resume,
-    resume.agent === 'claude'
-      ? ['claude', '--resume', resume.id, '--fork-session']
-      : ['codex', 'fork', resume.id],
+    resume.agent === 'claude' ? ['--resume', resume.id, '--fork-session'] : ['fork', resume.id],
   )
+}
+
+export function newSessionCommand(resume: AgentResume): string {
+  return agentCommandLine(resume, [])
 }
 
 export function resumeFromHookPayload(payload: string): { id: string; cwd?: string } | null {

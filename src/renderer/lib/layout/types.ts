@@ -15,6 +15,11 @@ export type SurfaceKind =
   | 'view'
   | 'manager'
 
+export interface ResumeFailure {
+  resume: AgentResume
+  exitCode: number
+}
+
 export interface PaneNode {
   type: 'pane'
   id: string
@@ -32,6 +37,7 @@ export interface PaneNode {
   resumePending?: true
   spawnDir?: string
   resumeFolderMissing?: string
+  resumeFailed?: ResumeFailure
   locked?: true
   defaultTitle?: true
   titlePinned?: true

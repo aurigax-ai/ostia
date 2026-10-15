@@ -23,6 +23,7 @@ interface PtyStartDeps {
   hibernatedPanes: Set<string>
   trackPty: PtyRegistry['trackPty']
   feedPty: PtyRegistry['feedPty']
+  feedDisplay: PtyRegistry['feedDisplay']
   releaseMergedSandbox: (workspaceId: string, exiting?: PtyEntry) => void
   telemetry: () => Telemetry | null
   appLog: () => AppLog | null
@@ -36,6 +37,7 @@ export function createPtyStart({
   hibernatedPanes,
   trackPty,
   feedPty,
+  feedDisplay,
   releaseMergedSandbox,
   telemetry,
   appLog,
@@ -107,14 +109,16 @@ export function createPtyStart({
     const history = takeRestoredScrollback(paneId)
     if (history) appLog()?.info('scrollback-replay', { pane: paneId, chars: history.length })
     const seam = hibernatedPanes.delete(paneId) ? HIBERNATE_SEAM : RESTORE_SEAM
-    if (history) feedPty(entry, `${history}${seam}`)
-    if (secretNotice) feedPty(entry, secretNotice)
-    if (notKept) feedPty(entry, keepShellsNotice(notKept))
+    if (history) {
+      feedDisplay(entry, `${history}${seam}`)
+      entry.mirror.restore(history)
+    }
+    if (secretNotice) feedDisplay(entry, secretNotice)
+    if (notKept) feedDisplay(entry, keepShellsNotice(notKept))
     if (sandboxed && workspaceSandboxes.claimHomeNotice(workspaceId)) {
       const notice = hiddenHomeNotice()
-      if (notice) feedPty(entry, notice)
+      if (notice) feedDisplay(entry, notice)
     }
-    if (history) entry.mirror.markRestored(history)
 
     pty.onData((d) => feedPty(entry, d))
     pty.onExit(({ exitCode }) => session.exit(exitCode))

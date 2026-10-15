@@ -19,7 +19,8 @@ const PREFIX_WORDS = new Set(['exec', 'env', 'command', 'nohup'])
 export function commandAgent(command: string): ResumableAgent | null {
   for (const word of command.trim().split(/\s+/)) {
     if (!word || ENV_ASSIGNMENT.test(word) || PREFIX_WORDS.has(word)) continue
-    const name = word.slice(word.lastIndexOf('/') + 1)
+    const bare = word.replace(/^'([^']*)'$/, '$1')
+    const name = bare.slice(bare.lastIndexOf('/') + 1)
     return isResumableAgent(name) ? name : null
   }
   return null

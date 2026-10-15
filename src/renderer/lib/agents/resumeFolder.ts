@@ -6,6 +6,7 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { type AgentResume, resumeCommand } from '@shared/agents/agentResume'
 import { runningAgentOf } from './paneAgent'
+import { watchResumeOutcome } from './resumeOutcome'
 
 export const RESUME_CLAIM_MS = 10_000
 
@@ -117,6 +118,7 @@ export function resumeWhenIdle(
     },
     () => {
       claimResume(paneId, resume)
+      watchResumeOutcome(paneId, resume)
       onTyped?.()
     },
   )

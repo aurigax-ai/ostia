@@ -284,11 +284,19 @@ describe('commandLineEnv', () => {
     ).toEqual({ GL_ISSUE: '665#2' })
   })
 
+  it('reads the variables in front of the quoted agent word Ostia types', () => {
+    expect(commandLineEnv('claude', "GL_ISSUE=685 'claude' --resume abc")).toEqual({
+      GL_ISSUE: '685',
+    })
+    expect(commandLineEnv('codex', "'codex' resume abc")).toEqual({})
+    expect(commandLineEnv('claude', "'cla'ude --resume abc")).toBeNull()
+    expect(commandLineEnv('claude', '"claude" --resume abc')).toBeNull()
+  })
+
   it('returns null when the line does not start the agent itself', () => {
     expect(commandLineEnv('claude', 'cd x && GL_ISSUE=1 claude')).toBeNull()
     expect(commandLineEnv('claude', 'GL_ISSUE=1 cc')).toBeNull()
     expect(commandLineEnv('claude', 'GL_ISSUE=1 codex')).toBeNull()
-    expect(commandLineEnv('claude', "'claude'")).toBeNull()
     expect(commandLineEnv('claude', 'A=1; claude')).toBeNull()
     expect(
       commandLineEnv(

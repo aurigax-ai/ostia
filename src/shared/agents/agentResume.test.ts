@@ -1,7 +1,12 @@
+import { spawnSync } from 'node:child_process'
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { commandLineEnv } from './agentLaunch'
 import {
   forkCommand,
+  newSessionCommand,
   parseAgentResume,
   resumeCommand,
   resumeFromHookPayload,
@@ -73,8 +78,8 @@ describe('sameResume', () => {
 
 describe('resumeCommand', () => {
   it('builds each agent’s own resume command', () => {
-    expect(resumeCommand({ agent: 'claude', id: 'abc' })).toBe('claude --resume abc')
-    expect(resumeCommand({ agent: 'codex', id: 'abc' })).toBe('codex resume abc')
+    expect(resumeCommand({ agent: 'claude', id: 'abc' })).toBe("'claude' --resume abc")
+    expect(resumeCommand({ agent: 'codex', id: 'abc' })).toBe("'codex' resume abc")
   })
 
   it('replays the flags after the session and the variables in front, quoted for the shell', () => {
@@ -86,11 +91,11 @@ describe('resumeCommand', () => {
         env: { GL_ISSUE: '685', NOTE: 'two words' },
       }),
     ).toBe(
-      "GL_ISSUE=685 NOTE='two words' claude --resume abc --agent ostia --append-system-prompt 'it'\\''s done'",
+      "GL_ISSUE=685 NOTE='two words' 'claude' --resume abc --agent ostia --append-system-prompt 'it'\\''s done'",
     )
     expect(
       resumeCommand({ agent: 'codex', id: 'abc', args: ['-c', 'model_reasoning_effort="high"'] }),
-    ).toBe(`codex resume abc -c 'model_reasoning_effort="high"'`)
+    ).toBe(`'codex' resume abc -c 'model_reasoning_effort="high"'`)
   })
 
   it('quotes a flag or variable value that holds an =', () => {
@@ -101,7 +106,7 @@ describe('resumeCommand', () => {
         args: ['--model=opus'],
         env: { OPTS: 'a=b' },
       }),
-    ).toBe("OPTS='a=b' claude --resume abc '--model=opus'")
+    ).toBe("OPTS='a=b' 'claude' --resume abc '--model=opus'")
   })
 
   it('resumes in the account the agent was started with', () => {
@@ -114,7 +119,7 @@ describe('resumeCommand', () => {
           env: { CLAUDE_CONFIG_DIR: '/Users/j/.claude-profiles/twai', HOME: '/tmp/h' },
         }) ?? { agent: 'claude', id: 'none' },
       ),
-    ).toBe('CLAUDE_CONFIG_DIR=/Users/j/.claude-profiles/twai claude --resume abc --agent ostia')
+    ).toBe("CLAUDE_CONFIG_DIR=/Users/j/.claude-profiles/twai 'claude' --resume abc --agent ostia")
     expect(
       resumeCommand(
         parseAgentResume({
@@ -123,7 +128,7 @@ describe('resumeCommand', () => {
           env: { CODEX_HOME: '/Users/j/.codex work', PATH: '/tmp' },
         }) ?? { agent: 'codex', id: 'none' },
       ),
-    ).toBe("CODEX_HOME='/Users/j/.codex work' codex resume abc")
+    ).toBe("CODEX_HOME='/Users/j/.codex work' 'codex' resume abc")
   })
 
   it('quotes an account folder with shell characters and drops a relative one', () => {
@@ -135,7 +140,7 @@ describe('resumeCommand', () => {
           env: { CLAUDE_CONFIG_DIR: "/home/j/it's $HOME" },
         }) ?? { agent: 'claude', id: 'none' },
       ),
-    ).toBe(`CLAUDE_CONFIG_DIR='/home/j/it'\\''s $HOME' claude --resume abc`)
+    ).toBe(`CLAUDE_CONFIG_DIR='/home/j/it'\\''s $HOME' 'claude' --resume abc`)
     expect(
       resumeCommand(
         parseAgentResume({ agent: 'codex', id: 'abc', env: { CODEX_HOME: './.codex' } }) ?? {
@@ -143,7 +148,7 @@ describe('resumeCommand', () => {
           id: 'none',
         },
       ),
-    ).toBe('codex resume abc')
+    ).toBe("'codex' resume abc")
   })
 
   it('reads its own variables back from the command it typed', () => {
@@ -156,8 +161,8 @@ describe('resumeCommand', () => {
 
 describe('forkCommand', () => {
   it('builds each agent’s own fork command', () => {
-    expect(forkCommand({ agent: 'claude', id: 'abc' })).toBe('claude --resume abc --fork-session')
-    expect(forkCommand({ agent: 'codex', id: 'abc' })).toBe('codex fork abc')
+    expect(forkCommand({ agent: 'claude', id: 'abc' })).toBe("'claude' --resume abc --fork-session")
+    expect(forkCommand({ agent: 'codex', id: 'abc' })).toBe("'codex' fork abc")
   })
 
   it('carries the saved flags after the session and the saved variables in front', () => {
@@ -170,7 +175,7 @@ describe('forkCommand', () => {
         env: { GL_ISSUE: '685', NOTE: 'two words' },
       }),
     ).toBe(
-      "GL_ISSUE=685 NOTE='two words' claude --resume abc --fork-session --agent ostia --append-system-prompt 'it'\\''s done'",
+      "GL_ISSUE=685 NOTE='two words' 'claude' --resume abc --fork-session --agent ostia --append-system-prompt 'it'\\''s done'",
     )
     expect(
       forkCommand({
@@ -179,7 +184,7 @@ describe('forkCommand', () => {
         args: ['-c', 'model_reasoning_effort="high"'],
         env: { GL_ISSUE: '685' },
       }),
-    ).toBe(`GL_ISSUE=685 codex fork abc -c 'model_reasoning_effort="high"'`)
+    ).toBe(`GL_ISSUE=685 'codex' fork abc -c 'model_reasoning_effort="high"'`)
   })
 
   it('is still read as its agent with its variables, and saves no fork flag for the fork’s own resume', () => {
@@ -227,4 +232,48 @@ describe('resumeFromHookPayload', () => {
     expect(resumeFromHookPayload('{broken')).toBeNull()
     expect(resumeFromHookPayload(JSON.stringify({ session_id: 'a b' }))).toBeNull()
   })
+})
+
+const hasShell = (shell: string) => spawnSync(shell, ['-c', 'true']).status === 0
+
+describe('the line Ostia types for an agent', () => {
+  it('starts a new session of the same agent with its saved flags and variables', () => {
+    expect(newSessionCommand({ agent: 'claude', id: 'abc' })).toBe("'claude'")
+    expect(
+      newSessionCommand({ agent: 'codex', id: 'abc', env: { GL_ISSUE: '685' }, args: ['--oss'] }),
+    ).toBe("GL_ISSUE=685 'codex' --oss")
+  })
+
+  for (const shell of ['bash', 'zsh']) {
+    it.skipIf(!hasShell(shell))(
+      `RSM-C12 skips the human's alias but keeps Ostia's claude function, in ${shell}`,
+      () => {
+        const dir = mkdtempSync(join(tmpdir(), 'ostia-alias-'))
+        try {
+          const agent = join(dir, 'claude')
+          writeFileSync(agent, '#!/bin/sh\necho "REAL $*"\n')
+          chmodSync(agent, 0o755)
+          const run = (line: string) =>
+            spawnSync(
+              shell,
+              [
+                ...(shell === 'bash' ? ['-O', 'expand_aliases'] : ['-f']),
+                '-c',
+                `claude() { echo "WRAPPED $*"; command claude "$@"; }\nalias claude='echo ALIAS'\nalias ccr='claude --resume'\neval "$LINE"\n`,
+              ],
+              { env: { PATH: `${dir}:/usr/bin:/bin`, LINE: line }, encoding: 'utf8' },
+            ).stdout.trim()
+          expect(run('claude --resume abc')).toBe('ALIAS --resume abc')
+          expect(run(resumeCommand({ agent: 'claude', id: 'abc' }))).toBe(
+            'WRAPPED --resume abc\nREAL --resume abc',
+          )
+          expect(run(forkCommand({ agent: 'claude', id: 'abc' }))).toBe(
+            'WRAPPED --resume abc --fork-session\nREAL --resume abc --fork-session',
+          )
+        } finally {
+          rmSync(dir, { recursive: true, force: true })
+        }
+      },
+    )
+  }
 })

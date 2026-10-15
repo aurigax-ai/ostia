@@ -105,7 +105,7 @@ describe('startAutoResume', () => {
     stop = startAutoResume()
     useLayoutStore.setState((s) => ({ byWorkspace: { ...s.byWorkspace } }))
 
-    expect(scheduled()).toEqual([[pane.id, 'claude --resume abc-1']])
+    expect(scheduled()).toEqual([[pane.id, "'claude' --resume abc-1"]])
     expect(pending(pane.id)?.resumePending).toBe(true)
 
     useBlocksStore.setState({ running: { [pane.id]: 'b1' } })
@@ -153,8 +153,8 @@ describe('startAutoResume', () => {
     stop = startAutoResume()
 
     expect(scheduled()).toEqual([
-      [back.id, 'claude --resume abc-1'],
-      [other.id, 'claude --resume abc-1'],
+      [back.id, "'claude' --resume abc-1"],
+      [other.id, "'claude' --resume abc-1"],
     ])
   })
 
@@ -195,7 +195,7 @@ describe('startAutoResume', () => {
 
     resumeOnActivation(pane.id)
     resumeOnActivation(pane.id)
-    expect(scheduled()).toEqual([[pane.id, 'claude --resume abc-1']])
+    expect(scheduled()).toEqual([[pane.id, "'claude' --resume abc-1"]])
 
     useBlocksStore.setState({ running: { [pane.id]: 'b1' } })
     expect(pending(pane.id)?.resumePending).toBeUndefined()
@@ -212,7 +212,7 @@ describe('startAutoResume', () => {
       running: { [holder.id]: 'b1' },
       byPane: {
         [holder.id]: [
-          { id: 'b1', paneId: holder.id, command: 'claude --resume abc-1', startedAt: 0 },
+          { id: 'b1', paneId: holder.id, command: "'claude' --resume abc-1", startedAt: 0 },
         ] as unknown as CommandBlock[],
       },
     })
@@ -294,7 +294,7 @@ describe('startAutoResume', () => {
     stop = startAutoResume()
     resumeOnActivation(pane.id)
     expect(pending(pane.id)?.hibernated).toBeUndefined()
-    expect(scheduled()).toEqual([[pane.id, 'claude --resume abc-1']])
+    expect(scheduled()).toEqual([[pane.id, "'claude' --resume abc-1"]])
   })
 
   it('with auto-resume on, every agent resumes at startup: shown tab, background tab and unopened workspace', () => {
@@ -302,9 +302,9 @@ describe('startAutoResume', () => {
     stop = startAutoResume()
 
     expect(scheduled()).toEqual([
-      ['pane-1', 'claude --resume front-1111'],
-      ['pane-2', 'claude --resume back-2222'],
-      ['pane-3', 'claude --resume other-3333'],
+      ['pane-1', "'claude' --resume front-1111"],
+      ['pane-2', "'claude' --resume back-2222"],
+      ['pane-3', "'claude' --resume other-3333"],
     ])
   })
 
@@ -340,7 +340,7 @@ describe('startAutoResume', () => {
       target,
     } as unknown as Event)
 
-    expect(scheduled()).toEqual([['pane-2', 'claude --resume back-2222']])
+    expect(scheduled()).toEqual([['pane-2', "'claude' --resume back-2222"]])
   })
 
   it('switching to a workspace with a human click outside the pane never wakes its hibernated agent', () => {
@@ -403,7 +403,7 @@ describe('startAutoResume', () => {
     stop = startAutoResume()
     resumeOnActivation(pane.id)
     expect(pending(pane.id)?.spawnDir).toBe('/w/tree')
-    expect(scheduled()).toEqual([[pane.id, 'claude --resume abc-1']])
+    expect(scheduled()).toEqual([[pane.id, "'claude' --resume abc-1"]])
 
     useLayoutStore.getState().settleSpawnDir('w1', pane.id, false)
     const typeable = vi.mocked(runWhenIdle).mock.calls[0][3]

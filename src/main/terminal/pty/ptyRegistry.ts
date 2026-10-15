@@ -103,6 +103,10 @@ export function createPtyRegistry({
     processes()?.feed(entry.paneId, data, entry.session.cursor)
   }
 
+  function feedDisplay(entry: PtyEntry, data: string): void {
+    entry.session.push(data)
+  }
+
   function trackPty(
     paneId: string,
     pty: PaneProcess,
@@ -193,5 +197,5 @@ export function createPtyRegistry({
     return entry
   }
 
-  return { loadPty, feedPty, trackPty }
+  return { loadPty, feedPty, feedDisplay, trackPty }
 }

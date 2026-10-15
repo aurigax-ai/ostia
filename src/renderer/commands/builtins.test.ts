@@ -2043,7 +2043,7 @@ describe('agent.forkConversation', () => {
 
     expect(res).toMatchObject({ ok: true, result: { forked: true } })
     expect(run).toHaveBeenCalledTimes(1)
-    expect(run.mock.calls[0][1]).toBe('claude --resume tok --fork-session')
+    expect(run.mock.calls[0][1]).toBe("'claude' --resume tok --fork-session")
     expect(run.mock.calls[0][0]).not.toBe(agent.id)
     expect(run.mock.calls[0][0]).not.toBe(other.id)
   })
@@ -2180,7 +2180,7 @@ describe('agent resume', () => {
     await commands.execWith(ctx('s1', pane.id), 'agent.resume')
     expect(insert).toHaveBeenCalledWith(
       pane.id,
-      'GL_ISSUE=685 claude --resume abc --agent ostia',
+      "GL_ISSUE=685 'claude' --resume abc --agent ostia",
       true,
     )
   })
@@ -2203,7 +2203,7 @@ describe('agent resume', () => {
     await commands.execWith(ctx('s1', pane.id), 'agent.resume')
     expect(insert).toHaveBeenCalledWith(
       pane.id,
-      "claude --resume abc --agent homelab --name '修 probe'",
+      "'claude' --resume abc --agent homelab --name '修 probe'",
       true,
     )
   })
@@ -2223,7 +2223,7 @@ describe('agent resume', () => {
     const pane = seedPane({ agent: 'claude', id: 'abc' })
     const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
     const r = await commands.execWith(ctx('s1', pane.id), 'agent.resume')
-    expect(insert).toHaveBeenCalledWith(pane.id, 'claude --resume abc', true)
+    expect(insert).toHaveBeenCalledWith(pane.id, "'claude' --resume abc", true)
     expect(r).toMatchObject({ ok: true, result: { resumed: true } })
   })
 
@@ -2239,7 +2239,7 @@ describe('agent resume', () => {
     expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('hibernated')
     expect(whenIdle).toHaveBeenCalledWith(
       pane.id,
-      'codex resume r-9',
+      "'codex' resume r-9",
       undefined,
       expect.any(Function),
       expect.any(Function),
@@ -2287,7 +2287,7 @@ describe('agent resume', () => {
         const press = { key: 'R', ctrlKey: !mac, metaKey: mac, shiftKey: true, altKey: false }
         expect(runAppChord({ ...press, preventDefault: () => {} }, mac)).toBe(true)
         await vi.waitFor(() =>
-          expect(insert).toHaveBeenCalledWith(tab, 'claude --resume ffe55127-cb1f-4efd', true),
+          expect(insert).toHaveBeenCalledWith(tab, "'claude' --resume ffe55127-cb1f-4efd", true),
         )
       }
     } finally {

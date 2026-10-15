@@ -38,6 +38,7 @@ function fromPane(pane: PaneNode, live: ReadonlySet<string>): SnapshotPaneNode {
     resumePending,
     spawnDir: _spawnDir,
     resumeFolderMissing: _missing,
+    resumeFailed: _failed,
     ...rest
   } = pane
   const keepHibernated = hibernated === true && Boolean(rest.resume)

@@ -100,7 +100,7 @@ export function createPtyWiring({
   withKeptProcess,
   keptPaneEnv,
 }: PtyWiringDeps) {
-  const { loadPty, feedPty, trackPty } = createPtyRegistry({
+  const { loadPty, feedPty, feedDisplay, trackPty } = createPtyRegistry({
     ptys,
     movingPanes,
     recoveryHeld,
@@ -174,6 +174,7 @@ export function createPtyWiring({
     portRequests,
     trackPty,
     feedPty,
+    feedDisplay,
     releaseMergedSandbox,
     restoreKeptAttention,
     windows,
@@ -235,6 +236,7 @@ interface PtyAttachWiringDeps {
   portRequests: PortRequests
   trackPty: PtyRegistry['trackPty']
   feedPty: PtyRegistry['feedPty']
+  feedDisplay: PtyRegistry['feedDisplay']
   releaseMergedSandbox: WorkspaceLifecycle['releaseMergedSandbox']
   restoreKeptAttention: (identity: PaneIdentity, saved: SavedAttention) => void
   windows: Map<string, BrowserWindow>
@@ -264,6 +266,7 @@ function createPtyAttachWiring({
   portRequests,
   trackPty,
   feedPty,
+  feedDisplay,
   releaseMergedSandbox,
   restoreKeptAttention,
   windows,
@@ -331,6 +334,7 @@ function createPtyAttachWiring({
     hibernatedPanes,
     trackPty,
     feedPty,
+    feedDisplay,
     releaseMergedSandbox,
     telemetry: () => services.telemetry,
     appLog: () => services.appLog,
