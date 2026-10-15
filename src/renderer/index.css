@@ -586,7 +586,7 @@
 }
 
 .rail-scroll {
-  --scroll-gutter: 6px;
+  --scroll-gutter: calc(var(--spacing) * 1.5);
   flex: 1 1 auto;
   min-height: 0;
 }
