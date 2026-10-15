@@ -19,6 +19,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type {
+  LanguageServerInfo,
+  LanguageServerOverrideProblem,
+  LanguageServerStatus,
+  LspLog,
+  LspLogEntry,
+} from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import {
   ArrowClockwiseIcon,
   DownloadSimpleIcon,
@@ -27,13 +34,6 @@ import {
   WrenchIcon,
 } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
-import type {
-  LanguageServerInfo,
-  LanguageServerOverrideProblem,
-  LanguageServerStatus,
-  LspLog,
-  LspLogEntry,
-} from '@shared/languageServers'
 import { type FormEvent, useEffect, useId, useState } from 'react'
 
 const STATUS_DOT: Record<LanguageServerStatus, string> = {

@@ -1,4 +1,4 @@
-import { appEnv } from '../appEnv'
+import { appEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 
 export interface AgentHooks {
   claude: boolean

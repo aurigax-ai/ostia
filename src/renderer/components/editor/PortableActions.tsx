@@ -5,6 +5,7 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { useArtifactListing } from '@/lib/files/artifacts'
 import { previewTheme } from '@/lib/theme/previewTheme'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { WarningIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import {
@@ -13,7 +14,6 @@ import {
   portableType,
   runsScripts,
 } from '@shared/artifacts/portable'
-import { isRemotePath } from '@shared/remoteFolders'
 import { useEffect, useRef, useState } from 'react'
 import { portableDocument } from './portableDocuments'
 

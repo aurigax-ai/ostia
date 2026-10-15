@@ -1,5 +1,8 @@
+import type {
+  RemoteFilesRequest,
+  RemoteFolder,
+} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { describe, expect, it, vi } from 'vitest'
-import type { RemoteFilesRequest, RemoteFolder } from '../../shared/remoteFolders'
 import { type RemoteFolderConfirm, RemoteFolders } from './remoteFolders'
 
 const EXT = { id: 'shelf', name: 'Shelf' }

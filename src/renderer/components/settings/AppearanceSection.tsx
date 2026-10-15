@@ -16,9 +16,9 @@ import {
   motionMode,
 } from '@/stores/app/settingsModel'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { PRODUCT_PLACEHOLDER } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { PlusIcon } from '@phosphor-icons/react'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/app/zoom'
-import { PRODUCT_PLACEHOLDER } from '@shared/extensions'
 import { useEffect, useState } from 'react'
 import { ControlRow } from './ControlRow'
 import { FontPicker } from './FontPicker'

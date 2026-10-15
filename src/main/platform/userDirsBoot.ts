@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { app } from 'electron'
-import { PRODUCT_NAME } from '../../shared/product'
 
 if (!app.commandLine.hasSwitch('user-data-dir')) {
   const userData = join(app.getPath('appData'), PRODUCT_NAME)

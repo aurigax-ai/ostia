@@ -1,11 +1,14 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import {
+  DEFAULT_CAPABILITIES,
+  MANAGER_CAPABILITIES,
+} from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { type FakeMcpHttp, startFakeMcpHttp } from '../../../test/fixtures/mcp/startHttpServer'
 import type { McpServerSettings } from '../../shared/assist/chatTools'
-import { DEFAULT_CAPABILITIES, MANAGER_CAPABILITIES } from '../../shared/capabilities'
-import type { ExtensionCaller } from '../../shared/extensions'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { ExtensionHost, registerExtensionMethods } from '../extensions/extensionHost'

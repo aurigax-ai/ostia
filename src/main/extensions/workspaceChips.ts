@@ -1,4 +1,4 @@
-import type { WorkspaceChip } from '../../shared/extensions'
+import type { WorkspaceChip } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 
 export function workspaceChipsForWindow(
   chips: readonly WorkspaceChip[],

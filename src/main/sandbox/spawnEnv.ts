@@ -1,4 +1,4 @@
-import { envName } from '../../shared/appEnv'
+import { envName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { ARTIFACTS_ENV, PAD_ENV } from '../../shared/artifacts/artifacts'
 
 const AGENT_SOCKET_VARS = ['SSH_AUTH_SOCK', 'SSH_AGENT_PID', 'GPG_AGENT_INFO']

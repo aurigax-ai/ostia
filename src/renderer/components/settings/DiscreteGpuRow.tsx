@@ -1,13 +1,13 @@
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { InfoIcon } from '@phosphor-icons/react'
 import {
   DISCRETE_GPU_FEATURE,
   type DiscreteGpuInfo,
   rendererDeviceName,
 } from '@shared/app/discreteGpu'
-import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { useEffect, useState } from 'react'
 import { ExperimentalBadge, ToggleRow } from './ControlRow'
 import { RequirementsNoteView, useRequirements } from './RequirementsNote'

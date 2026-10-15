@@ -1,4 +1,4 @@
-import type { EditorLanguage } from '@shared/editorLanguages'
+import type { EditorLanguage } from '@aurigax-ai/ostia-extension-sdk/contract/editorLanguages'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 interface Call {

@@ -1,6 +1,8 @@
 import { realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, sep } from 'node:path'
+import { type EnvSource, readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { app } from 'electron'
 import {
   type InstallMethod,
@@ -8,8 +10,6 @@ import {
   isInstallMethod,
   isMacInstall,
 } from '../../shared/app/installMethod'
-import { type EnvSource, readEnv } from '../../shared/appEnv'
-import { PRODUCT_NAME } from '../../shared/product'
 
 const INSTALL_METHOD_ENV = 'INSTALL_METHOD'
 const INSTALL_APP_DIR_ENV = 'INSTALL_APP_DIR'

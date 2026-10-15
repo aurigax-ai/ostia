@@ -1,5 +1,8 @@
+import type {
+  SnippetListing,
+  SnippetSaveResult,
+} from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
 import { ipcRenderer } from 'electron'
-import type { SnippetListing, SnippetSaveResult } from '../shared/snippets'
 import type {
   AppSnapshot,
   OstiaBridge,

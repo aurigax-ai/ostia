@@ -1,14 +1,17 @@
+import type {
+  ExtensionSidebarItem,
+  WorkspaceChip,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { GIT_SOURCE } from '@aurigax-ai/ostia-extension-sdk/manifest/coreNames'
 import {
   type CoreItems,
   GIT_BRANCH_CHIP,
   GIT_DIFF_STATS_CHIP,
   GIT_SHOW_COMMAND,
-  GIT_SOURCE,
   type GitSettings,
   NO_CORE_ITEMS,
   type RepoStatus,
 } from '../../shared/boards/git'
-import type { ExtensionSidebarItem, WorkspaceChip } from '../../shared/extensions'
 import type { PaneEntry, WorkspaceEntry } from '../panes/paneList'
 import { WatchSets } from '../platform/watchSets'
 import { lineChanges, readStatus, repoRoot } from './repo'

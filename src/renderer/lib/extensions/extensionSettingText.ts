@@ -1,9 +1,9 @@
-import { withProductName } from '@shared/app/dict'
 import type {
   ExtensionInfo,
   ExtensionSecretContribution,
   ExtensionSettingContribution,
-} from '@shared/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { withProductName } from '@shared/app/dict'
 
 function isAcronym(word: string): boolean {
   return word.length > 1 && word === word.toUpperCase() && /[A-Z]/.test(word)

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import {
   type ResolvedSandbox,
   type SandboxFixedPolicy,

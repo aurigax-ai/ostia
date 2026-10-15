@@ -17,9 +17,9 @@ import {
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { Icon as IconComponent } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
-import type { ExtensionInfo } from '@shared/extensions'
 import { type RefObject, useCallback, useEffect, useState } from 'react'
 import { type SearchStore, createSearchStore } from './SettingsSearch'
 

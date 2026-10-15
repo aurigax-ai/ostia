@@ -3,10 +3,10 @@ import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { envName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { InstallMethod } from '../../shared/app/installMethod'
 import type { ReleaseInfo, UpdateChannel } from '../../shared/app/releases'
-import { envName } from '../../shared/appEnv'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
 const sent: Array<[string, unknown]> = []

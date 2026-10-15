@@ -55,7 +55,7 @@ describe('planTests', () => {
       'test/setup.ts',
       'test/mocks/ostia.ts',
       'scripts/build-extensions.mjs',
-      'sdk/docs/EXTENSIONS.md',
+      'packages/extension-sdk/docs/EXTENSIONS.md',
     ]) {
       expect(planTests(['src/renderer/lib/keyboard/keyPresets.ts', file], readers), file).toEqual({
         node: null,
@@ -78,6 +78,7 @@ describe('planTests', () => {
       'src/cli/index.ts',
       'src/extensions/ssh/main.ts',
       'src/shared/app/dict.ts',
+      'packages/extension-sdk/src/client/index.ts',
     ]) {
       expect(planTests([file], readers), file).toEqual({
         node: null,
@@ -199,7 +200,9 @@ describe('e2eImports', () => {
   it('follows a spec through the e2e helpers into the shared code they import', () => {
     const graph = e2eImports()
     expect(graph['e2e/marketplace.spec.ts']).toContain('e2e/helpers.ts')
-    expect(graph['e2e/marketplace.spec.ts']).toContain('src/shared/extensions/marketplace.ts')
+    expect(graph['e2e/marketplace.spec.ts']).toContain(
+      'packages/extension-sdk/src/manifest/marketplaceManifest.ts',
+    )
     expect(Object.keys(graph)).toEqual(e2eSpecs())
   })
 })

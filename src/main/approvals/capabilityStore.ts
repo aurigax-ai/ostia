@@ -1,7 +1,11 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import {
+  ALL_CAPABILITIES,
+  type Capability,
+  DEFAULT_CAPABILITIES,
+} from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { app } from 'electron'
-import { ALL_CAPABILITIES, type Capability, DEFAULT_CAPABILITIES } from '../../shared/capabilities'
 import { ALWAYS_ASK } from '../../shared/permissions/approvals'
 import { type ReachMode, isReachMode, parseReachMode } from '../../shared/permissions/reach'
 

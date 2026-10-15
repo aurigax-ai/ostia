@@ -1,7 +1,3 @@
-import { ipcRenderer, webUtils } from 'electron'
-import type { FileOpResult } from '../shared/files/fileOps'
-import type { OpenFileVerdict } from '../shared/files/openFiles'
-import type { SearchOutcome } from '../shared/files/search'
 import type {
   RemoteFolder,
   RemoteFolderAsk,
@@ -9,7 +5,11 @@ import type {
   RemoteReadResult,
   RemoteStatResult,
   RemoteWriteResult,
-} from '../shared/remoteFolders'
+} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import { ipcRenderer, webUtils } from 'electron'
+import type { FileOpResult } from '../shared/files/fileOps'
+import type { OpenFileVerdict } from '../shared/files/openFiles'
+import type { SearchOutcome } from '../shared/files/search'
 import type {
   ExternalEditorResult,
   FsBinaryResult,

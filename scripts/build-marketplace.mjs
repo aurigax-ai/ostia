@@ -10,6 +10,7 @@ import {
 } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { vendoredPackages } from '../marketplace/build-extension.mjs'
+import { dependencyRange } from './catalog.mjs'
 import { marketplaceIds, marketplaceProject } from './marketplace.mjs'
 
 const out = 'out/marketplace'
@@ -18,7 +19,6 @@ const sdkName = '@aurigax-ai/ostia-extension-sdk'
 const repository = 'https://github.com/aurigax-ai/ostia-extensions'
 const toolFixtures = 'test/fixtures/tools'
 const app = JSON.parse(readFileSync('package.json', 'utf8'))
-const versionOf = (name) => app.dependencies[name] ?? app.devDependencies[name]
 const ids = marketplaceIds()
 const vendored = ids.flatMap((id) => {
   const { packages, closures } = vendoredPackages(join('src/extensions', id))
@@ -78,7 +78,7 @@ writeFileSync(
       },
       devDependencies: {
         [sdkName]: app.version,
-        ...Object.fromEntries(dependencies.map((name) => [name, versionOf(name)])),
+        ...Object.fromEntries(dependencies.map((name) => [name, dependencyRange(name)])),
       },
     },
     null,

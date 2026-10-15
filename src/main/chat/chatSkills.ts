@@ -1,7 +1,7 @@
 import { lstatSync, readFileSync, readdirSync } from 'node:fs'
 import { basename, join } from 'node:path'
+import { CHAT_TOOL_OUTPUT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { parse as parseYaml } from 'yaml'
-import { CHAT_TOOL_OUTPUT_MAX } from '../../shared/assist'
 import {
   SKILLS_MAX,
   SKILL_DESCRIPTION_MAX,

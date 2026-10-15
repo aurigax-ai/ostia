@@ -1,11 +1,11 @@
-import { ipcRenderer } from 'electron'
 import type {
   AssistAvailability,
   AssistCatalog,
   AssistChunk,
   AssistExtensionState,
   AssistOpenUiRequest,
-} from '../shared/assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { ipcRenderer } from 'electron'
 import type {
   ChatExportResult,
   ChatSaveResult,

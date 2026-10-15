@@ -29,8 +29,12 @@ import { patchProvider, withModel, withProvider } from '@/lib/assist/assistProvi
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useAssistStore } from '@/stores/assist/assistStore'
+import type {
+  AssistProviderConfig,
+  AssistProviderKind,
+  AssistProviderState,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { PlusIcon, TrashIcon, XIcon } from '@phosphor-icons/react'
-import type { AssistProviderConfig, AssistProviderKind, AssistProviderState } from '@shared/assist'
 import { useEffect, useState } from 'react'
 
 const CARD = 'rounded-md border-line px-3 py-2'

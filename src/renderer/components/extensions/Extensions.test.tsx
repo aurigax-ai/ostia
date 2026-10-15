@@ -3,7 +3,10 @@ import { DeckRail } from '@/components/sidebar/DeckRail'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ExtensionInfo, ExtensionSidebarItem } from '@shared/extensions'
+import type {
+  ExtensionInfo,
+  ExtensionSidebarItem,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'

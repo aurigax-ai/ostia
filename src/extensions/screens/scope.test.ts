@@ -12,7 +12,7 @@ const ALLOWED = [
   /^test\/fixtures\/tools\/bin\/screens$/,
   /^(marketplace\/)?ostia-marketplace\.json$/,
   /^marketplace\/README\.md$/,
-  /^sdk\/docs\/EXTENSIONS\.md$/,
+  /^packages\/extension-sdk\/docs\/EXTENSIONS\.md$/,
   /^e2e\/screens-panel\.spec\.ts$/,
   /^e2e\/editor-scroll\.bench\.ts$/,
   /^test\/e2eAreas\.json$/,

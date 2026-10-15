@@ -3,7 +3,7 @@ import {
   type ChatContextItem,
   normalizeChatContextItem,
   normalizeModelRef,
-} from '../assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 
 export interface ChatPart {
   type: string

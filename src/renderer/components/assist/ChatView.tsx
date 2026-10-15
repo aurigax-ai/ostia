@@ -110,6 +110,7 @@ import { refreshSkills, useChatToolsStore } from '@/stores/assist/chatToolsStore
 import { useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { useChat } from '@ai-sdk/react'
+import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import {
   ArrowClockwiseIcon,
   ArrowCounterClockwiseIcon,
@@ -131,7 +132,6 @@ import {
   TrashIcon,
   WarningCircleIcon,
 } from '@phosphor-icons/react'
-import type { ChatContextItem } from '@shared/assist'
 import { resolveLinkPath } from '@shared/files/fileLinks'
 import type { UIMessage } from 'ai'
 import {

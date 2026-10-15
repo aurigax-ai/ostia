@@ -4,7 +4,11 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ExtensionInfo, ExtensionSettingResult, PaneChip } from '@shared/extensions'
+import type {
+  ExtensionInfo,
+  ExtensionSettingResult,
+  PaneChip,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'

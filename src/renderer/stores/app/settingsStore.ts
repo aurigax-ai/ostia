@@ -8,8 +8,7 @@ import {
 } from './settingsActions'
 import { DEFAULTS, type Persisted, type SettingsState } from './settingsModel'
 import { applySetting, getByPath, parsePersisted } from './settingsParse'
-import { isOwnWrite } from './settingsPersist'
-import { saveSettings, scheduleSave } from './settingsPersist'
+import { isOwnWrite, saveSettings, scheduleSave } from './settingsPersist'
 
 export function saveSettingsNow(): Promise<void> {
   scheduleSave.cancel()

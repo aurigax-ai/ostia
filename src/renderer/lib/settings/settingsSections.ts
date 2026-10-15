@@ -1,5 +1,6 @@
 import { withProductName } from '@/lib/app/useDict'
 import { platform } from '@/platform'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import {
   ArrowsClockwiseIcon,
   BellIcon,
@@ -32,7 +33,6 @@ import {
   TreeStructureIcon,
 } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
-import type { ExtensionInfo } from '@shared/extensions'
 
 export const SETTINGS_GROUPS = [
   'general',

@@ -1,6 +1,6 @@
 import { useDict } from '@/lib/app/useDict'
 import { fmt } from '@/lib/app/useDict'
-import type { Capability } from '@shared/capabilities'
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import {
   DEFAULT_TOKEN_EXPIRY,
   NEVER_EXPIRES,

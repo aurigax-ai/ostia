@@ -29,7 +29,7 @@ import {
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ExtensionInfo } from '@shared/extensions'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { Fragment, memo, useEffect, useMemo, useRef } from 'react'
 import { ActionsSection } from './ActionsSection'
 import { AppearanceSection } from './AppearanceSection'

@@ -1,12 +1,12 @@
 import { isAbsolute, join } from 'node:path'
-import { shellQuote } from '../../shared/agents/agentLaunch'
-import { type AgentResume, forkCommand, resumeCommand } from '../../shared/agents/agentResume'
-import { MANAGER_AGENT_NAME } from '../../shared/agents/managerSettings'
 import {
   AGENT_OFFER_LABEL_MAX,
   AGENT_OFFER_TEXT_MAX,
   AGENT_PROMPT_MAX,
-} from '../../shared/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { shellQuote } from '../../shared/agents/agentLaunch'
+import { type AgentResume, forkCommand, resumeCommand } from '../../shared/agents/agentResume'
+import { MANAGER_AGENT_NAME } from '../../shared/agents/managerSettings'
 import { ReportLimiter } from '../diagnostics/rendererReports'
 
 export const AGENT_TASKS_PER_MINUTE = 6

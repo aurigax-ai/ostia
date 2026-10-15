@@ -1,5 +1,5 @@
+import type { WorkspaceChip } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { describe, expect, it } from 'vitest'
-import type { WorkspaceChip } from '../../shared/extensions'
 import { firstKnownOwner, workspaceChipsForWindow } from './workspaceChips'
 
 const chip = (workspaceId: string, id: string): WorkspaceChip => ({

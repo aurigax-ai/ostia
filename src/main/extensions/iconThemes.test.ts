@@ -1,10 +1,10 @@
 import { cpSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { IconThemeContribution } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
+import { readConfined } from '@aurigax-ai/ostia-extension-sdk/manifest/confinedRead'
+import { discoverExtensions } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { IconThemeContribution } from '../../shared/iconTheme'
-import { readConfined } from '../platform/confinedRead'
-import { discoverExtensions } from './extensionManifest'
 import {
   ICON_FILE_MAX_BYTES,
   ICON_THEME_MAX_BYTES,

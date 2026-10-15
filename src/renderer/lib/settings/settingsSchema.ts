@@ -1,8 +1,8 @@
 import { bindableIds } from '@/lib/keyboard/chords'
 import { isKeyboardPlatform, keyboardPlatform } from '@/lib/keyboard/keyboardPresets'
 import { platform } from '@/platform'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { DEFAULT_CHORDS } from '@shared/keyboard/defaultChords'
-import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import {
   actionsSchema,
   agentsSchema,

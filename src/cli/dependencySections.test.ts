@@ -6,8 +6,14 @@ import { describe, expect, it } from 'vitest'
 const repoRoot = resolve(__dirname, '../..')
 const manifest = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as {
   dependencies: Record<string, string>
+  devDependencies: Record<string, string>
 }
 const dependencies = Object.keys(manifest.dependencies)
+const workspacePackages = new Set(
+  Object.entries(manifest.devDependencies)
+    .filter(([, version]) => version.startsWith('workspace:'))
+    .map(([name]) => name),
+)
 
 const UNBUNDLED_ROOTS = ['src/main', 'src/preload', 'src/cli', 'src/shared']
 const RUNTIME_PROVIDED = new Set(['electron'])
@@ -67,7 +73,11 @@ describe('dependency sections', () => {
     }
     expect(required).toContain('ws')
     const missing = [...required].filter(
-      (name) => !dependencies.includes(name) && !RUNTIME_PROVIDED.has(name) && !bundled.has(name),
+      (name) =>
+        !dependencies.includes(name) &&
+        !RUNTIME_PROVIDED.has(name) &&
+        !bundled.has(name) &&
+        !workspacePackages.has(name),
     )
     expect(missing).toEqual([])
   })

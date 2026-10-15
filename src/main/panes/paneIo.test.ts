@@ -1,6 +1,7 @@
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { MANAGER_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   type MessageConnection,
@@ -8,7 +9,6 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import { MANAGER_CAPABILITIES } from '../../shared/capabilities'
 import type { ApprovalOutcome } from '../../shared/permissions/approvals'
 import type { CommandResult } from '../../shared/types'
 import type { ApprovalAsk } from '../approvals/approvals'

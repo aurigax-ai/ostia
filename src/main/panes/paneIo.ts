@@ -1,5 +1,5 @@
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
-import type { Capability } from '../../shared/capabilities'
 import {
   ChangeSignal,
   type Subscribe,

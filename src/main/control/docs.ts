@@ -1,4 +1,4 @@
-import type { ExtensionInfo } from '../../shared/extensions'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { CORE_SKILL_FILES, MANAGER_SKILL_FILES, bundledSkillText } from '../agents/bundledSkills'
 import { registerControlMethod } from './controlServer'
 

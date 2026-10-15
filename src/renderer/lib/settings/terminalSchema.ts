@@ -1,9 +1,9 @@
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import {
   BELL_MODES,
   LONG_COMMAND_MAX_SECONDS,
   LONG_COMMAND_MIN_SECONDS,
 } from '@shared/app/notificationSettings'
-import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import {
   CORE_CHIP_IDS,
   MAX_PROMPT_CHIPS,

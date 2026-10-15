@@ -1,6 +1,6 @@
 import { fmt } from '@/lib/app/useDict'
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import type { Dict } from '@shared/app/dict'
-import type { Capability } from '@shared/capabilities'
 import {
   SCRIPT_TOKEN_PRESETS,
   SCRIPT_TOKEN_RUN_CAPS,

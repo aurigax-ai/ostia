@@ -1,6 +1,3 @@
-import { HOUR_MS, realClock } from '@aurigax-ai/wire'
-import { isAgentHookEvent, isHookAgent } from '../../shared/agentPlugins'
-import { readEnv } from '../../shared/appEnv'
 import {
   type CommandHandler,
   type ExtensionEventType,
@@ -14,7 +11,13 @@ import {
   ok,
   parseAgentStop,
   startPanelServer,
-} from '../sdk'
+} from '@aurigax-ai/ostia-extension-sdk'
+import {
+  isAgentHookEvent,
+  isHookAgent,
+} from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
+import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { HOUR_MS, realClock } from '@aurigax-ai/wire'
 import { panelHandlers } from './panelHandlers'
 import { GraphsRunner, type Workspace } from './runner'
 import { TriggerHost } from './triggers'

@@ -1,4 +1,4 @@
-import type { ToolRun } from '../sdk'
+import type { ToolRun } from '@aurigax-ai/ostia-extension-sdk'
 
 const RESOLVE_ERROR_MAX = 240
 

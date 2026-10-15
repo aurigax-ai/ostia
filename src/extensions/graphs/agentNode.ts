@@ -1,3 +1,4 @@
+import type { OstiaExtension, PaneInfo } from '@aurigax-ai/ostia-extension-sdk'
 import {
   type Clock,
   MESSAGE_MAX,
@@ -9,7 +10,6 @@ import {
   type Output,
   TRIGGER_TARGET,
 } from '@aurigax-ai/wire'
-import type { OstiaExtension, PaneInfo } from '../sdk'
 
 export const RATE_RETRY_MS = 60_000
 const LATE_REPORT_MS = 30_000

@@ -1,5 +1,5 @@
 import type { OAuthClientInformation, OAuthTokens } from '@ai-sdk/mcp'
-import { isDangerousSegment } from '../../shared/protoGuard'
+import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import { type SecretStoreDeps, sanitizeSecrets } from '../extensions/extensionSecrets'
 
 export const MCP_OAUTH_KEY = 'oauth:session'

@@ -1,13 +1,13 @@
 import { resolve } from 'node:path'
-import { ipcMain } from 'electron'
 import {
   type EditorLanguage,
   type EditorLanguageContribution,
   GRAMMAR_FILE_MAX_BYTES,
   type MonarchGrammar,
   validateMonarchGrammar,
-} from '../../shared/editorLanguages'
-import { readConfined } from '../platform/confinedRead'
+} from '@aurigax-ai/ostia-extension-sdk/contract/editorLanguages'
+import { readConfined } from '@aurigax-ai/ostia-extension-sdk/manifest/confinedRead'
+import { ipcMain } from 'electron'
 
 export interface EditorLanguageSource {
   extId: string

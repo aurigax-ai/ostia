@@ -1,9 +1,9 @@
-import type { MessageConnection } from 'vscode-jsonrpc/node'
 import {
   AGENT_HOOK_CONTEXT_EVENTS,
   type AgentHookEvent,
   agentHookOutput,
-} from '../../shared/agentPlugins'
+} from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
+import type { MessageConnection } from 'vscode-jsonrpc/node'
 import type { BusDelivery } from '../../shared/agents/busMessages'
 import { parseArgs } from '../common/args'
 import { type ErrResult, describeErrResult, failUsage } from '../common/failure'

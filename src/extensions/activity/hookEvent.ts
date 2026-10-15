@@ -1,5 +1,8 @@
-import type { AgentHookEvent, HookAgent } from '../../shared/agentPlugins'
-import { parseAgentStop } from '../sdk/agentStop'
+import type {
+  AgentHookEvent,
+  HookAgent,
+} from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
+import { parseAgentStop } from '@aurigax-ai/ostia-extension-sdk/contract/agentStop'
 
 const TOOL_KINDS = ['edit', 'command', 'search', 'read', 'subagent', 'web', 'other'] as const
 

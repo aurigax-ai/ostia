@@ -9,7 +9,7 @@ import {
   HIBERNATION_LIVE_MAX,
 } from '@/stores/app/settingsModel'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import type { Capability } from '@shared/capabilities'
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import type { ApprovalMode } from '@shared/permissions/approvals'
 import { REACH_MODES, type ReachMode, parseReachMode } from '@shared/permissions/reach'
 import { capLabel } from './ApprovalCard'

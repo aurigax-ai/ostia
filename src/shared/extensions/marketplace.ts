@@ -1,11 +1,12 @@
-import type { AgentHookEvent } from '../agentPlugins'
-import type { Capability } from '../capabilities'
-import type { ExtensionCategory, ExtensionIcon } from '../extensions'
+import type { AgentHookEvent } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import type {
+  ExtensionCategory,
+  ExtensionIcon,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 
 export const MARKETPLACE_FEATURE = 'marketplace'
-export const MARKETPLACE_MANIFEST_FILE = 'ostia-marketplace.json'
 export const MARKETPLACE_URL_MAX = 2000
-export const MARKETPLACE_CODE_PATTERN = /^[a-z2-7]{26}$/
 
 export type MarketplaceInstallState = 'available' | 'installed' | 'update' | 'replace' | 'conflict'
 

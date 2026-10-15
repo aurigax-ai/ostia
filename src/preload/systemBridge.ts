@@ -1,7 +1,7 @@
+import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { ipcRenderer } from 'electron'
 import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
 import type { RequirementsReport } from '../shared/app/systemRequirements'
-import type { ExtensionResult } from '../shared/extensions'
 import type { OstiaBridge } from '../shared/types'
 
 export const systemBridge: Pick<OstiaBridge, 'system'> = {

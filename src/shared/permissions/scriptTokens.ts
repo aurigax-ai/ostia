@@ -1,4 +1,4 @@
-import type { Capability } from '../capabilities'
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 
 export const SCRIPT_TOKEN_PREFIX = 'ostia_'
 

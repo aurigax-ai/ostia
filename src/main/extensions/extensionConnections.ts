@@ -8,8 +8,8 @@ import {
   type ExtensionConnectionEntry,
   type ExtensionConnectionKind,
   type ExtensionConnectionResult,
-} from '../../shared/extensions'
-import { isDangerousSegment } from '../../shared/protoGuard'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import { loadJson, saveJson } from '../platform/jsonStore'
 import type { ExtensionSecretStore } from './extensionHost'
 

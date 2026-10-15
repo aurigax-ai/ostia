@@ -7,7 +7,7 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { focusSurface } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { DEFAULT_CAPABILITIES } from '@shared/capabilities'
+import { DEFAULT_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 
 const ACTION_COMMAND_PREFIX = 'action.'
 

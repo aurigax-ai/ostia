@@ -1,4 +1,7 @@
-import { COMPLETION_NEIGHBOR_TEXT_MAX, COMPLETION_PREFIX_MAX } from '@shared/assist'
+import {
+  COMPLETION_NEIGHBOR_TEXT_MAX,
+  COMPLETION_PREFIX_MAX,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { describe, expect, it } from 'vitest'
 import { buildCompletionRequest, latestPerEditor } from './inlineAssist'
 

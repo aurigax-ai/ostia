@@ -15,7 +15,11 @@ import {
 import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { CHAT_TOOL_DESCRIPTION_MAX, type ChatToolSpec } from '@shared/assist'
+import {
+  CHAT_TOOL_DESCRIPTION_MAX,
+  type ChatToolSpec,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { parseEdits } from '@shared/assist/chatEdits'
 import {
   BUILTIN_TOOL_ACCESS,
@@ -29,7 +33,6 @@ import {
   mcpToolName,
 } from '@shared/assist/chatTools'
 import { resolveLinkPath } from '@shared/files/fileLinks'
-import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { workspaceTerminal } from './askContext'
 import { idleTerminals, insertInto, runInNewTerminal } from './chatActions'
 import { contentWith, editHunks, hunkCounts, settle } from './chatHunks'

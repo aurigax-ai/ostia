@@ -1,5 +1,5 @@
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { REDACTION_PATTERNS_MAX, REDACTION_PATTERN_MAX } from '@shared/privacy/redaction'
-import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { ACTIONS_MAX, ACTION_ICONS, ACTION_ID, ACTION_PLACES, ACTION_TITLE_MAX } from './actions'
 
 export const assistantSchema = {

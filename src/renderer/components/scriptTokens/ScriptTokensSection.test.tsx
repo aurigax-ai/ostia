@@ -1,11 +1,11 @@
 import '@testing-library/jest-dom/vitest'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import type {
   ScriptTokenInfo,
   ScriptTokenSaveResult,
   ScriptTokenUsage,
   ScriptTokensState,
 } from '@shared/permissions/scriptTokens'
-import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

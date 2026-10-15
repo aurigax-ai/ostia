@@ -1,11 +1,11 @@
-import { ipcRenderer } from 'electron'
-import type { EditorLanguage } from '../shared/editorLanguages'
+import type { EditorLanguage } from '@aurigax-ai/ostia-extension-sdk/contract/editorLanguages'
 import type {
   LanguageServerInfo,
   LanguageServerOverrideResult,
   LspLog,
   LspSessionInfo,
-} from '../shared/languageServers'
+} from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
+import { ipcRenderer } from 'electron'
 import type { OstiaBridge } from '../shared/types'
 
 export const lspBridge: Pick<OstiaBridge, 'lsp' | 'editorLanguages'> = {

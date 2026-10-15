@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { cn } from '@/lib/utils'
-import type { Capability } from '@shared/capabilities'
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import type {
   ScriptTokenInfo,
   ScriptTokenScope,

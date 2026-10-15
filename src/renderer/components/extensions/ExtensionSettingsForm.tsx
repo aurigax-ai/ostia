@@ -8,13 +8,13 @@ import { fmt, useDict, withProductName } from '@/lib/app/useDict'
 import { entryTitle, enumValueTitle } from '@/lib/extensions/extensionSettingText'
 import { cn } from '@/lib/utils'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import type { Dict } from '@shared/app/dict'
 import type {
   ExtensionInfo,
   ExtensionSecretContribution,
   ExtensionSettingContribution,
   ExtensionSettingValue,
-} from '@shared/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { Dict } from '@shared/app/dict'
 import { useEffect, useState } from 'react'
 
 export function ExtensionSettingsForm({

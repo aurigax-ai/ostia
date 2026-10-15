@@ -8,8 +8,8 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { GitBranchIcon } from '@phosphor-icons/react'
-import type { ExtensionInfo } from '@shared/extensions'
 
 function hasToggle(ext: ExtensionInfo): boolean {
   return ext.enabled && ext.panel !== null && ext.assist.length === 0

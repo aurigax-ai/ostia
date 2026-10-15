@@ -1,5 +1,5 @@
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { plainBlock } from '../../shared/agents/questions'
-import type { Capability } from '../../shared/capabilities'
 import type {
   CommandDescriptor,
   CommandResult,

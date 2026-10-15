@@ -1,4 +1,4 @@
-import { PRODUCT_NAME } from '../product'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { VIEW_FILTERS } from './viewBindings'
 import {
   VIEW_ARGS_MAX,

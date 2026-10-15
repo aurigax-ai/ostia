@@ -1,5 +1,5 @@
+import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { describe, expect, it, vi } from 'vitest'
-import type { ExtensionCaller } from '../../shared/extensions'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
 

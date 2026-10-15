@@ -1,4 +1,7 @@
-import { OPEN_TERMINAL_WAIT_MAX_MS, type TerminalWait } from '../../shared/extensions'
+import {
+  OPEN_TERMINAL_WAIT_MAX_MS,
+  type TerminalWait,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import {
   MANAGER_NAMES,

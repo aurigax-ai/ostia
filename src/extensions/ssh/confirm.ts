@@ -1,4 +1,4 @@
-import type { ConfirmRequest } from '../sdk'
+import type { ConfirmRequest } from '@aurigax-ai/ostia-extension-sdk'
 import type { ConnectPlan } from './plan'
 import type { Strings } from './strings'
 import type { SshTarget } from './target'

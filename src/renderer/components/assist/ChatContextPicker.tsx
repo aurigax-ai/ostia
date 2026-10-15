@@ -20,6 +20,7 @@ import { allPanes } from '@/lib/layout/tree'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import {
   AtIcon,
   BrowserIcon,
@@ -31,7 +32,6 @@ import {
   WarningCircleIcon,
   XIcon,
 } from '@phosphor-icons/react'
-import type { ChatContextItem } from '@shared/assist'
 import { useEffect, useMemo, useState } from 'react'
 
 const PREVIEW_MAX = 4000

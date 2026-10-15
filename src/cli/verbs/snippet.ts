@@ -1,5 +1,8 @@
+import type {
+  SnippetEntry,
+  SnippetListing,
+} from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import type { SnippetEntry, SnippetListing } from '../../shared/snippets'
 import { parseArgs } from '../common/args'
 import { failUsage } from '../common/failure'
 

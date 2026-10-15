@@ -40,6 +40,12 @@ import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
 import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import { useOpenWaitsStore } from '@/stores/files/openWaitsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { DIFF_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import {
+  type RemoteFileError,
+  isRemotePath,
+  parseRemotePath,
+} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { CodeIcon, EyeIcon, PaperPlaneTiltIcon, PlayIcon, TableIcon } from '@phosphor-icons/react'
 import {
   PAD_MAX_BYTES,
@@ -49,8 +55,6 @@ import {
   isPadPath,
 } from '@shared/artifacts/artifacts'
 import { isPreviewPath } from '@shared/artifacts/htmlPreview'
-import { DIFF_TEXT_MAX } from '@shared/extensions'
-import { type RemoteFileError, isRemotePath, parseRemotePath } from '@shared/remoteFolders'
 import type { FsTextResult } from '@shared/types'
 import { useEffect, useRef, useState } from 'react'
 import { CsvTable } from './CsvTable'

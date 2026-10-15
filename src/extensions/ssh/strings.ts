@@ -1,5 +1,5 @@
-import { localized } from '../../shared/extensionLocales'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
+import { localized } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 export const CONNECT_USAGE = 'connect [-J <hop>[,<hop>...]] [-p <port>] <[user@]host>'
 export const SHOW_USAGE = 'show <host>'
 export const HELPER_INSTALL_USAGE = 'helper-install [-J <hop>[,<hop>...]] [-p <port>] <[user@]host>'

@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { existsSync, rmSync } from 'node:fs'
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
-import type { Capability } from '../../shared/capabilities'
 import {
   DEFAULT_TOKEN_EXPIRY,
   NEVER_EXPIRES,

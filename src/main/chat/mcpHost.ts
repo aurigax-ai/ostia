@@ -6,7 +6,8 @@ import {
   CHAT_TOOL_DESCRIPTION_MAX,
   CHAT_TOOL_OUTPUT_MAX,
   CHAT_TOOL_SCHEMA_MAX,
-} from '../../shared/assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import {
   MCP_TOOLS_PER_SERVER_MAX,
   type McpAuthState,
@@ -18,7 +19,6 @@ import {
   type McpToolInfo,
   mcpTransportOf,
 } from '../../shared/assist/chatTools'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 
 const MCP_CONNECT_TIMEOUT_MS = 15_000
 const MCP_CALL_TIMEOUT_MS = 120_000

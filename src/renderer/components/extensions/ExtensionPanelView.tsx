@@ -8,8 +8,11 @@ import { panelThemeCss } from '@/lib/theme/panelTheme'
 import { themedTokens, useEffectiveTheme } from '@/lib/theme/theme'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import { GIT_SOURCE } from '@shared/boards/git'
-import type { ExtensionPanelContext, ExtensionPanelSource } from '@shared/extensions'
+import type {
+  ExtensionPanelContext,
+  ExtensionPanelSource,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { GIT_SOURCE } from '@aurigax-ai/ostia-extension-sdk/manifest/coreNames'
 import type { WebviewTag } from 'electron'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 

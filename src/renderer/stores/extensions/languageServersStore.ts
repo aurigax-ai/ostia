@@ -2,7 +2,7 @@ import type {
   LanguageServerInfo,
   LanguageServerOverride,
   LanguageServerOverrideProblem,
-} from '@shared/languageServers'
+} from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import { create } from 'zustand'
 
 interface LanguageServersState {

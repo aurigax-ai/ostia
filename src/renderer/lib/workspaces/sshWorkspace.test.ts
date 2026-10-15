@@ -2,7 +2,7 @@ import { openExtensionTerminal } from '@/commands/extensionBridge'
 import { createPane } from '@/lib/layout/tree'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ExtensionInfo } from '@shared/extensions'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { listSshHosts, openSshWorkspace, sshEnabled } from './sshWorkspace'
 

@@ -11,7 +11,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { sendReference } from '@/lib/agents/sendPick'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useAgentOfferStore } from '@/stores/agents/agentOfferStore'
-import type { ExtensionAgentOffer } from '@shared/extensions'
+import type { ExtensionAgentOffer } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { useState } from 'react'
 import { stateLabel, useAgentTargets, useNoAgentsText } from './PickSendPanel'
 

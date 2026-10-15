@@ -1,5 +1,8 @@
+import type {
+  ExtensionIcon,
+  SidebarKind,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { PortHost } from '../../shared/boards/ports'
-import type { ExtensionIcon, SidebarKind } from '../../shared/extensions'
 import type { PaneEntry } from '../panes/paneList'
 import { type ListeningPort, addOwner, sortedPorts } from './procfs'
 import type { TreeInfo } from './scan'

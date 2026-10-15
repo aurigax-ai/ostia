@@ -1,3 +1,5 @@
+import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { BrowserWindow, app, ipcMain } from 'electron'
 import { releaseVersion } from '../../shared/app/buildInfo'
 import {
@@ -29,8 +31,6 @@ import {
   pickMainChannelRelease,
   tarballAssetName,
 } from '../../shared/app/releases'
-import { readEnv } from '../../shared/appEnv'
-import { PRODUCT_NAME } from '../../shared/product'
 import type { AppLog } from '../diagnostics/appLog'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 import type { InstallReplacer } from './installReplace'

@@ -1,5 +1,5 @@
-import { languageForPath } from '../../shared/editorLanguages'
-import type { ExtensionInfo } from '../../shared/extensions'
+import { languageForPath } from '@aurigax-ai/ostia-extension-sdk/contract/editorLanguages'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import {
   EXTENSION_SUGGESTIONS,
   type ExtensionSuggestion,

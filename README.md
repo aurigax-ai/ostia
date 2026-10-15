@@ -136,6 +136,9 @@ pnpm build && pnpm test:e2e   # Playwright against the built app
 
 Without `pnpm rebuild`, terminals stay disabled and the log says `node-pty unavailable`.
 
+The repository is a pnpm workspace: the app at the root, and the extension SDK
+(`@aurigax-ai/ostia-extension-sdk`) in `packages/extension-sdk`, which the app uses as `workspace:*`.
+
 ## Privacy and telemetry
 
 Ostia sends nothing unless you turn it on. On first start it asks once, with every box unticked,

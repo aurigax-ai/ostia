@@ -1,5 +1,5 @@
+import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { type Dict, fmt } from '@shared/app/dict'
-import type { ChatContextItem } from '@shared/assist'
 import {
   REDACT_TEXTS_MAX,
   REDACT_TEXT_MAX,

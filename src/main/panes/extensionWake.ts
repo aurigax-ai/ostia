@@ -1,4 +1,4 @@
-import { WAKE_WAIT_MAX_MS } from '../../shared/extensions'
+import { WAKE_WAIT_MAX_MS } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { ensureCaps } from '../approvals/controlElevation'
 import { registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'

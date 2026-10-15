@@ -1,4 +1,4 @@
-import type { LanguageServerInfo } from '@shared/languageServers'
+import type { LanguageServerInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 
 export interface BuiltinDefaults {
   readonly modeConfiguration: Record<string, boolean | undefined>

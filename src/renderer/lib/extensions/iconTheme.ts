@@ -1,4 +1,7 @@
-import type { IconAssociations, LoadedIconTheme } from '@shared/iconTheme'
+import type {
+  IconAssociations,
+  LoadedIconTheme,
+} from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
 
 export type IconVariant = 'dark' | 'light' | 'highContrast'
 

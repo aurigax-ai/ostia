@@ -1,4 +1,3 @@
-import type { ExtensionCaller } from '../../shared/extensions'
 import {
   type CommandHandler,
   type ConfirmRequest,
@@ -8,7 +7,8 @@ import {
   cliArgs,
   failure,
   ok,
-} from '../sdk'
+} from '@aurigax-ai/ostia-extension-sdk'
+import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { type HelperChannel, HelperFailure } from './channel'
 import type { HelperConsent } from './consent'
 import type { HelperFolders, Sessions } from './folders'

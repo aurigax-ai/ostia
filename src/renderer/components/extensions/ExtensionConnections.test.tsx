@@ -1,4 +1,7 @@
-import type { ExtensionConnectionEntry, ExtensionInfo } from '@shared/extensions'
+import type {
+  ExtensionConnectionEntry,
+  ExtensionInfo,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'

@@ -1,8 +1,11 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import type {
+  ExtensionCaller,
+  ExtensionEventPayloads,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type { ExtensionCaller, ExtensionEventPayloads } from '../../shared/extensions'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { getByPaneId, registerPane } from '../control/idRegistry'

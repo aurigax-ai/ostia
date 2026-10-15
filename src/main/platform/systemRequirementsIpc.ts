@@ -1,7 +1,10 @@
+import type {
+  ExtensionCaller,
+  ExtensionResult,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { ipcMain } from 'electron'
 import type { MissingRequirement, RequirementsReport } from '../../shared/app/systemRequirements'
-import type { ExtensionCaller, ExtensionResult } from '../../shared/extensions'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import { installHint } from './systemRequirements'
 
 export interface SystemRequirementsIpcDeps {

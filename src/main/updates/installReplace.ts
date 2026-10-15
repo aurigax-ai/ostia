@@ -2,6 +2,8 @@ import { execFile } from 'node:child_process'
 import { constants } from 'node:fs'
 import { access, lstat, mkdir, readFile, stat } from 'node:fs/promises'
 import { dirname, resolve, sep } from 'node:path'
+import { type EnvSource, readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { type ReadEntry, list as listTar } from 'tar'
 import { parseBuildInfo, releaseVersion } from '../../shared/app/buildInfo'
 import {
@@ -18,8 +20,6 @@ import {
   parseVersion,
   tarballAssetName,
 } from '../../shared/app/releases'
-import { type EnvSource, readEnv } from '../../shared/appEnv'
-import { PRODUCT_NAME } from '../../shared/product'
 import {
   DownloadError,
   type DownloadRequest,

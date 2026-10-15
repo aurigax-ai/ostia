@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { lstatSync, realpathSync } from 'node:fs'
 import { isAbsolute, join, relative, sep } from 'node:path'
-import { envName, isAppEnvName } from '../../shared/appEnv'
+import { envName, isAppEnvName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import {
   EXEC_ENV_MAX,
   EXEC_ENV_VALUE_MAX,
@@ -10,7 +10,7 @@ import {
   EXEC_TIMEOUT_MAX_MS,
   TERMINAL_ARG_MAX,
   TERMINAL_COMMAND_MAX_ARGS,
-} from '../../shared/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import { withoutGpuLaunchEnv } from '../platform/discreteGpu'
 import { SandboxUnavailableError } from '../sandbox/workspaceSandboxes'

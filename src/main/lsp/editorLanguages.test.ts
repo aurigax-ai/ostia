@@ -1,11 +1,11 @@
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   type EditorLanguageContribution,
   GRAMMAR_FILE_MAX_BYTES,
-} from '../../shared/editorLanguages'
+} from '@aurigax-ai/ostia-extension-sdk/contract/editorLanguages'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type EditorLanguageSource, loadEditorLanguages, readGrammar } from './editorLanguages'
 
 let root: string

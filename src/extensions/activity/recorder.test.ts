@@ -1,8 +1,8 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ExtensionCaller } from '../../shared/extensions'
 import { JOURNAL_DIR, Journal } from './journal'
 import { Recorder, type RecorderDeps } from './recorder'
 

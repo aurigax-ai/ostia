@@ -23,7 +23,7 @@ import {
   normalizeRemoteWrite,
   parseRemotePath,
   utf8Length,
-} from '../../shared/remoteFolders'
+} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 
 export const REMOTE_REQUEST_TIMEOUT_MS = 30_000
 

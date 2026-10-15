@@ -1,7 +1,7 @@
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { GIT_POLL_SECONDS } from '@shared/boards/git'
 import { PORTS_INTERVAL_SECONDS } from '@shared/boards/ports'
 import { GLOBAL_HOTKEY_MAX_LENGTH } from '@shared/keyboard/globalHotkey'
-import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import {
   BREADCRUMB_STYLES,
   EXCLUDE_MAX,

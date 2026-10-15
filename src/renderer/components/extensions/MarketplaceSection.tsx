@@ -17,9 +17,9 @@ import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
+import { OFFICIAL_MARKETPLACE } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { ArrowsClockwiseIcon, TrashIcon } from '@phosphor-icons/react'
 import { MARKETPLACE_FEATURE, type MarketplaceInfo } from '@shared/extensions/marketplace'
-import { OFFICIAL_MARKETPLACE } from '@shared/product'
 import { useEffect, useState } from 'react'
 
 export function UninstallExtensionButton({

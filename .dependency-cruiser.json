@@ -56,7 +56,7 @@
         "path": "(^|/)index\\.tsx?$",
         "pathNot": [
           "^node_modules/",
-          "^src/extensions/sdk/(assist/)?index\\.ts$"
+          "^packages/extension-sdk/src/(client|assist)/index\\.ts$"
         ]
       }
     },
@@ -111,12 +111,11 @@
       "name": "extensions-use-only-the-sdk-and-shared",
       "severity": "error",
       "from": {
-        "path": "^src/extensions/([^/]+)/",
-        "pathNot": "^src/extensions/sdk/"
+        "path": "^src/extensions/([^/]+)/"
       },
       "to": {
         "path": "^(src|e2e|scripts)/",
-        "pathNot": "^src/(shared|extensions/sdk|extensions/$1)/"
+        "pathNot": "^src/(shared|extensions/$1)/"
       }
     },
     {
@@ -126,14 +125,26 @@
       "to": { "path": "node_modules/@aurigax-ai/wire/" }
     },
     {
-      "name": "sdk-imports-only-shared",
+      "name": "sdk-imports-nothing-from-the-app",
       "severity": "error",
       "from": {
-        "path": "^src/extensions/sdk/"
+        "path": "^packages/extension-sdk/"
       },
       "to": {
-        "path": "^(src|test|e2e|scripts)/",
-        "pathNot": "^src/(shared|extensions/sdk)/"
+        "path": "^(src|test|e2e|scripts)/"
+      }
+    },
+    {
+      "name": "app-imports-the-sdk-by-name",
+      "severity": "error",
+      "from": {
+        "path": "^(src|e2e|test|scripts|marketplace)/"
+      },
+      "to": {
+        "path": "^packages/extension-sdk/",
+        "dependencyTypes": [
+          "local"
+        ]
       }
     },
     {

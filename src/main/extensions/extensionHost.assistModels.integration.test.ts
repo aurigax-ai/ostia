@@ -1,14 +1,14 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type {
   AssistCatalog,
   AssistModelSettings,
   AssistProviderConfig,
   AssistProviderEntry,
-} from '../../shared/assist'
-import type { ExtensionCaller } from '../../shared/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { ExtensionHost, registerExtensionMethods } from './extensionHost'
 import { createSecretStore } from './extensionSecrets'

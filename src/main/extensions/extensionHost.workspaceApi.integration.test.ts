@@ -1,8 +1,8 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { ExtensionCaller } from '../../shared/extensions'
 import type { CommandResult } from '../../shared/types'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))

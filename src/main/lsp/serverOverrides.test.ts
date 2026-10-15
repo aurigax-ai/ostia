@@ -10,8 +10,8 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { LanguageServerInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { LanguageServerInfo } from '../../shared/languageServers'
 import { ServerOverrides } from './serverOverrides'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn(), on: vi.fn() } }))

@@ -23,6 +23,12 @@ import { DEFAULT_WINDOW_TITLE } from '@/lib/settings/windowTitle'
 import type { GroupRule } from '@/lib/sidebar/workspaceGroups'
 import { isMac } from '@/platform'
 import { platform } from '@/platform'
+import {
+  type AssistModelSettings,
+  DEFAULT_ASSIST_MODEL_SETTINGS,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import type { ExtensionSettingValues } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { type AgentHooks, DEFAULT_AGENT_HOOKS } from '@shared/agents/agentHooks'
 import { DEFAULT_MANAGER_SETTINGS, type ManagerSettings } from '@shared/agents/managerSettings'
 import type { Locale } from '@shared/app/dict'
@@ -32,12 +38,9 @@ import {
 } from '@shared/app/notificationSettings'
 import { DEFAULT_UPDATE_CHANNEL, type UpdateChannel } from '@shared/app/releases'
 import { ZOOM_DEFAULT } from '@shared/app/zoom'
-import { type AssistModelSettings, DEFAULT_ASSIST_MODEL_SETTINGS } from '@shared/assist'
 import { type ChatToolSettings, DEFAULT_CHAT_TOOL_SETTINGS } from '@shared/assist/chatTools'
 import { DEFAULT_GIT_SETTINGS, type GitSettings } from '@shared/boards/git'
 import { DEFAULT_PORTS_SETTINGS, type PortsSettings } from '@shared/boards/ports'
-import type { Capability } from '@shared/capabilities'
-import type { ExtensionSettingValues } from '@shared/extensions'
 import type { ChordValue, KeybindingMap } from '@shared/keyboard/chordSpec'
 import {
   type ApprovalMode,

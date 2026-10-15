@@ -1,14 +1,5 @@
 import { isAbsolute, resolve } from 'node:path'
 import {
-  type CommandOutput,
-  connectorCatalog,
-  dryRunCommand,
-  explainCommand,
-  nodesCommand,
-  schemaCommand,
-  validateCommand,
-} from '@aurigax-ai/wire'
-import {
   type CommandHandler,
   type ExtensionCaller,
   type ExtensionResult,
@@ -17,7 +8,16 @@ import {
   failure,
   ok,
   parseFlags,
-} from '../sdk'
+} from '@aurigax-ai/ostia-extension-sdk'
+import {
+  type CommandOutput,
+  connectorCatalog,
+  dryRunCommand,
+  explainCommand,
+  nodesCommand,
+  schemaCommand,
+  validateCommand,
+} from '@aurigax-ai/wire'
 import { NATIVE_CONNECTORS } from './connectorHost'
 import type { GraphsRunner } from './runner'
 

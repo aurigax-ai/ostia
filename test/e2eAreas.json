@@ -42,7 +42,7 @@
         "src/extensions/ssh/",
         "src/main/files/remoteFolderConfirm.ts",
         "src/main/files/remoteFolders.",
-        "src/shared/remoteFolders.ts",
+        "packages/extension-sdk/src/contract/remoteFolders.ts",
         "src/renderer/components/editor/RemoteFileBar.tsx",
         "src/renderer/components/files/RemoteFolderDialog.",
         "src/renderer/lib/files/remoteFileSync.ts",
@@ -62,8 +62,8 @@
         "src/main/lsp/serverOverrides.ts",
         "src/main/lsp/editorLanguages.ts",
         "src/main/extensions/extensionSuggestions.ts",
-        "src/shared/languageServers.ts",
-        "src/shared/editorLanguages.ts",
+        "packages/extension-sdk/src/contract/languageServers.ts",
+        "packages/extension-sdk/src/contract/editorLanguages.ts",
         "src/shared/extensions/extensionSuggestions.ts",
         "src/renderer/lib/lsp/",
         "src/renderer/components/editor/LanguagesSection.tsx",
@@ -194,6 +194,7 @@
       "paths": [
         "src/main/git/",
         "src/shared/boards/git.ts",
+        "packages/extension-sdk/src/manifest/coreNames.ts",
         "src/main/platform/watchSets.ts",
         "src/renderer/components/git/",
         "src/renderer/lib/git/gitView.ts",
@@ -236,21 +237,22 @@
         "src/main/agents/extensionAgents.",
         "src/main/extensions/extensionConfirm.ts",
         "src/main/extensions/extensionHost.",
-        "src/main/extensions/extensionLocales.",
-        "src/main/extensions/extensionManifest.",
+        "packages/extension-sdk/src/manifest/localeCatalogs.",
+        "packages/extension-sdk/src/manifest/extensionManifest.",
         "src/main/extensions/extensionSecrets.",
         "src/main/extensions/extensionStore.",
         "src/main/extensions/extensionSuggestions.",
         "src/main/agents/agentOfferRelay.ts",
-        "src/main/agents/agentSkills.ts",
+        "packages/extension-sdk/src/manifest/agentSkills.ts",
         "src/main/extensions/iconThemes.ts",
-        "src/shared/extensionApi.",
-        "src/shared/extensionLocales.",
-        "src/shared/extensions.",
+        "packages/extension-sdk/src/contract/extensionApi.",
+        "packages/extension-sdk/src/contract/extensionLocales.",
+        "packages/extension-sdk/src/contract/extensions.",
         "src/shared/extensions/extensionSuggestions.",
-        "src/shared/agentPlugins.ts",
-        "src/shared/iconTheme.ts",
-        "src/extensions/sdk/",
+        "packages/extension-sdk/src/contract/agentPlugins.ts",
+        "packages/extension-sdk/src/contract/iconTheme.ts",
+        "packages/extension-sdk/src/client/",
+        "packages/extension-sdk/src/assist/",
         "src/renderer/components/extensions/ExtensionAgentPlugin.tsx",
         "src/renderer/components/extensions/ExtensionApprovalDialog.tsx",
         "src/renderer/components/extensions/ExtensionChips.tsx",
@@ -278,6 +280,7 @@
       "name": "marketplace",
       "paths": [
         "src/main/extensions/marketplace.ts",
+        "packages/extension-sdk/src/manifest/marketplaceManifest.ts",
         "src/shared/extensions/marketplace.ts",
         "src/renderer/components/extensions/BrowseExtensions.tsx",
         "src/renderer/components/extensions/MarketplaceSection.tsx",
@@ -291,8 +294,8 @@
       "paths": [
         "src/main/extensions/languagePacks.ts",
         "src/main/extensions/strings.ts",
-        "src/shared/languagePack.ts",
-        "src/shared/extensionLocales.ts",
+        "packages/extension-sdk/src/contract/languagePack.ts",
+        "packages/extension-sdk/src/contract/extensionLocales.ts",
         "src/renderer/lib/extensions/languagePacks.ts",
         "src/extensions/langpack-zh-hant/"
       ],
@@ -339,7 +342,7 @@
         "src/main/chat/mcpHost.",
         "src/main/chat/mcpOAuth.",
         "src/main/chat/mcpOAuthStore.",
-        "src/shared/assist.ts",
+        "packages/extension-sdk/src/contract/assist.ts",
         "src/shared/assist/",
         "src/renderer/components/assist/ChatActions.test.tsx",
         "src/renderer/components/assist/ChatCheckpointDialog.",
@@ -416,7 +419,7 @@
         "src/main/windows/clipboardEdits.ts",
         "src/main/browser/guestChords.ts",
         "src/main/windows/primarySelection.ts",
-        "src/shared/keymap",
+        "packages/extension-sdk/src/contract/keymap",
         "src/shared/keyboard/keymapFile.",
         "src/renderer/lib/keyboard/keyboardPresets.ts",
         "src/shared/keyboard/chordSpec.ts",
@@ -575,7 +578,7 @@
       "name": "snippets",
       "paths": [
         "src/main/workspaces/snippets.ts",
-        "src/shared/snippets.ts",
+        "packages/extension-sdk/src/contract/snippets.ts",
         "src/renderer/components/palette/SnippetPicker.tsx",
         "src/renderer/components/palette/SaveSnippetDialog.tsx",
         "src/renderer/lib/palette/snippets.ts",
@@ -700,7 +703,7 @@
         "src/main/approvals/capabilityStore.ts",
         "src/main/approvals/controlElevation.ts",
         "src/shared/permissions/approvals.ts",
-        "src/shared/capabilities.ts",
+        "packages/extension-sdk/src/contract/capabilities.ts",
         "src/renderer/components/agents/ApprovalActions.tsx",
         "src/renderer/components/agents/ApprovalCard.",
         "src/renderer/components/agents/ApprovalsInbox.tsx",
@@ -868,11 +871,7 @@
         "src/renderer/stores/terminal/blocksStore.ts",
         "src/renderer/stores/terminal/historySearchStore.ts"
       ],
-      "specs": [
-        "e2e/blocks.spec.ts",
-        "e2e/input-editor.spec.ts",
-        "e2e/terminal-basics.spec.ts"
-      ]
+      "specs": ["e2e/blocks.spec.ts", "e2e/input-editor.spec.ts", "e2e/terminal-basics.spec.ts"]
     },
     {
       "name": "tabs and panes",
@@ -1031,11 +1030,7 @@
         "src/renderer/components/settings/DiscreteGpuRow.tsx",
         "src/renderer/components/app/WindowControls.tsx"
       ],
-      "specs": [
-        "e2e/auto-resume.spec.ts",
-        "e2e/quit-confirm.spec.ts",
-        "e2e/tray.spec.ts"
-      ]
+      "specs": ["e2e/auto-resume.spec.ts", "e2e/quit-confirm.spec.ts", "e2e/tray.spec.ts"]
     },
     {
       "name": "command palette",
@@ -1077,7 +1072,7 @@
       "name": "confinement",
       "paths": [
         "src/main/platform/pathGuard.ts",
-        "src/main/platform/confinedRead.ts",
+        "packages/extension-sdk/src/manifest/confinedRead.ts",
         "src/main/control/controlAuth.ts"
       ],
       "specs": []
