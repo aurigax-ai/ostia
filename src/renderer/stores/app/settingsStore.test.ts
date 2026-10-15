@@ -1,7 +1,8 @@
 import { DEFAULT_TELEMETRY_SETTINGS } from '@shared/privacy/telemetry'
 import { DEFAULT_CONTROLS } from '@shared/sandbox/sandbox'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { parsePersisted, useSettingsStore } from './settingsStore'
+import { parsePersisted } from './settingsParse'
+import { useSettingsStore } from './settingsStore'
 
 const store = () => useSettingsStore.getState()
 

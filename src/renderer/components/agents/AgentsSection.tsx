@@ -7,8 +7,8 @@ import {
   HIBERNATION_IDLE_MAX,
   HIBERNATION_IDLE_MIN,
   HIBERNATION_LIVE_MAX,
-  useSettingsStore,
-} from '@/stores/app/settingsStore'
+} from '@/stores/app/settingsModel'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { Capability } from '@shared/capabilities'
 import type { ApprovalMode } from '@shared/permissions/approvals'
 import { REACH_MODES, type ReachMode, parseReachMode } from '@shared/permissions/reach'

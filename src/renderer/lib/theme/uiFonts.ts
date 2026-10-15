@@ -1,5 +1,5 @@
 import { isMac } from '@/platform'
-import type { SurfaceFont } from '@/stores/app/settingsStore'
+import type { SurfaceFont } from '@/stores/app/settingsModel'
 
 export const UI_FONT_FALLBACK =
   '"Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", "Hiragino Sans", "Noto Sans CJK TC", "Noto Sans TC", sans-serif'

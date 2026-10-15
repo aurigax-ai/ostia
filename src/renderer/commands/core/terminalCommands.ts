@@ -9,7 +9,8 @@ import {
 } from '@/lib/terminal/blockActions'
 import { clearKeepingScrollback } from '@/lib/terminal/clearTerminal'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
-import { type InputMode, useSettingsStore } from '@/stores/app/settingsStore'
+import type { InputMode } from '@/stores/app/settingsModel'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHistorySearchStore } from '@/stores/terminal/historySearchStore'
 

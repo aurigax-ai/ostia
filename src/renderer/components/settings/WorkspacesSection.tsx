@@ -1,11 +1,8 @@
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { useDict } from '@/lib/app/useDict'
-import {
-  NEW_WORKSPACE_PLACEMENTS,
-  type NewWorkspacePlacement,
-  useSettingsStore,
-} from '@/stores/app/settingsStore'
+import { NEW_WORKSPACE_PLACEMENTS, type NewWorkspacePlacement } from '@/stores/app/settingsModel'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { toAccelerator } from '@shared/keyboard/globalHotkey'
 import { useEffect, useState } from 'react'
 import { ControlRow, ToggleRow, WarningNote } from './ControlRow'

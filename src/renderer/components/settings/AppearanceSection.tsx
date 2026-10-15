@@ -14,8 +14,8 @@ import {
   MOTION_MODES,
   type MotionMode,
   motionMode,
-  useSettingsStore,
-} from '@/stores/app/settingsStore'
+} from '@/stores/app/settingsModel'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { PlusIcon } from '@phosphor-icons/react'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/app/zoom'
 import { PRODUCT_PLACEHOLDER } from '@shared/extensions'

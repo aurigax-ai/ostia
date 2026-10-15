@@ -28,8 +28,8 @@ import {
   type CursorStyle,
   INPUT_MODES,
   type InputMode,
-  useSettingsStore,
-} from '@/stores/app/settingsStore'
+} from '@/stores/app/settingsModel'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { CaretRightIcon } from '@phosphor-icons/react'
 import { KEEP_SHELLS_FEATURE, TMUX_MIN_VERSION } from '@shared/terminal/keepShells'

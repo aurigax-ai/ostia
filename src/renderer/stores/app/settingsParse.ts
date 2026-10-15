@@ -1,0 +1,267 @@
+import { parseActions } from '@/lib/settings/actions'
+import { parseBrowserSettings, parseEditorSettings } from '@/lib/settings/browserEditorSettings'
+import { parseFileTreeSettings } from '@/lib/settings/fileTreeSettings'
+import { type KeyboardField, readKeyboard } from '@/lib/settings/keyboardSettings'
+import { parsePaneSettings, parseTerminalSettings } from '@/lib/settings/terminalPaneSettings'
+import { parseWindowTitle } from '@/lib/settings/windowTitle'
+import type { GroupRule } from '@/lib/sidebar/workspaceGroups'
+import { normalizeHex } from '@/lib/theme/color'
+import { parseAgentHooks } from '@shared/agents/agentHooks'
+import { parseManagerSettings } from '@shared/agents/managerSettings'
+import { parseNotificationSettings } from '@shared/app/notificationSettings'
+import { parseUpdateChannel } from '@shared/app/releases'
+import { clampZoom } from '@shared/app/zoom'
+import { parseAssistModelSettings } from '@shared/assist'
+import { parseChatToolSettings } from '@shared/assist/chatTools'
+import { parseGitSettings } from '@shared/boards/git'
+import { parsePortsSettings } from '@shared/boards/ports'
+import type { ExtensionSettingValues } from '@shared/extensions'
+import { parseGlobalHotkey } from '@shared/keyboard/globalHotkey'
+import { parseApprovalSettings } from '@shared/permissions/approvals'
+import { parsePrivacySettings } from '@shared/privacy/redaction'
+import { isDangerousSegment } from '@shared/protoGuard'
+import { parseSandboxGlobals } from '@shared/sandbox/sandbox'
+import { normalizeGroupName } from '@shared/workspaces/workspaceGroups'
+import {
+  type Behavior,
+  CURSOR_STYLES,
+  type CursorStyle,
+  DEFAULTS,
+  DEFAULT_HIBERNATION,
+  DEFAULT_WORKSPACE_SETTINGS,
+  HERE,
+  type HibernationSettings,
+  NEW_WORKSPACE_PLACEMENTS,
+  type NewWorkspacePlacement,
+  type Persisted,
+  type SettingChange,
+  type SettingsState,
+  type SyncSettings,
+  type WorkspaceGroupSettings,
+  type WorkspaceSettings,
+  clampIdleSeconds,
+  clampLineHeight,
+  clampMaxLive,
+  inputMode,
+  isPlainObject,
+  kindOf,
+  mergeFont,
+  motionMode,
+  pickBooleans,
+} from './settingsModel'
+
+export function parseHibernation(raw: unknown): HibernationSettings {
+  if (!isPlainObject(raw)) return DEFAULT_HIBERNATION
+  return {
+    enabled: typeof raw.enabled === 'boolean' ? raw.enabled : DEFAULT_HIBERNATION.enabled,
+    idleSeconds: clampIdleSeconds(raw.idleSeconds ?? DEFAULT_HIBERNATION.idleSeconds),
+    maxLiveTerminals: clampMaxLive(raw.maxLiveTerminals ?? DEFAULT_HIBERNATION.maxLiveTerminals),
+  }
+}
+
+const MAX_GROUP_RULES = 50
+
+function parseWorkspaceGroupSettings(raw: unknown): WorkspaceGroupSettings {
+  const list = isPlainObject(raw) && Array.isArray(raw.byCwd) ? raw.byCwd : []
+  const byCwd: GroupRule[] = []
+  for (const entry of list) {
+    if (byCwd.length >= MAX_GROUP_RULES) break
+    if (!isPlainObject(entry) || typeof entry.pattern !== 'string') continue
+    const pattern = entry.pattern.trim()
+    const group = normalizeGroupName(entry.group)
+    if (pattern && group) byCwd.push({ pattern, group })
+  }
+  return { byCwd }
+}
+
+function parseWorkspaceSettings(raw: unknown): WorkspaceSettings {
+  const base = DEFAULT_WORKSPACE_SETTINGS
+  if (!isPlainObject(raw)) return base
+  const folder = typeof raw.defaultFolder === 'string' ? raw.defaultFolder.trim() : ''
+  return {
+    ...pickBooleans(base, raw),
+    placement: NEW_WORKSPACE_PLACEMENTS.includes(raw.placement as NewWorkspacePlacement)
+      ? (raw.placement as NewWorkspacePlacement)
+      : base.placement,
+    defaultFolder: folder || base.defaultFolder,
+    globalHotkey: parseGlobalHotkey(raw.globalHotkey),
+  }
+}
+
+const DATA_KEYS: readonly string[] = [
+  'locale',
+  'appearance',
+  'behavior',
+  'files',
+  'terminal',
+  'panes',
+  'notifications',
+  'sidebar',
+  'workspaces',
+  'browser',
+  'editor',
+  'agents',
+  'workspaceGroups',
+  'actions',
+]
+
+function parseBehavior(raw: unknown): Behavior {
+  const src = isPlainObject(raw) ? raw : {}
+  const base = pickBooleans(DEFAULTS.behavior, src)
+  return {
+    ...base,
+    cursorStyle: CURSOR_STYLES.includes(src.cursorStyle as CursorStyle)
+      ? (src.cursorStyle as CursorStyle)
+      : DEFAULTS.behavior.cursorStyle,
+    externalEditor:
+      typeof src.externalEditor === 'string'
+        ? src.externalEditor
+        : DEFAULTS.behavior.externalEditor,
+    inputMode: inputMode(src.inputMode),
+    updateChannel: parseUpdateChannel(src.updateChannel),
+  }
+}
+
+function keyboardFrom(p: Partial<Persisted>): Pick<Persisted, KeyboardField | 'keyboardElsewhere'> {
+  const { current, elsewhere } = readKeyboard(p, HERE)
+  return { ...current, keyboardElsewhere: elsewhere }
+}
+
+export function parsePersisted(p: Partial<Persisted>): Persisted {
+  return {
+    locale: p.locale ?? DEFAULTS.locale,
+    appearance: {
+      theme: p.appearance?.theme ?? DEFAULTS.appearance.theme,
+      followSystem:
+        typeof p.appearance?.followSystem === 'boolean'
+          ? p.appearance.followSystem
+          : DEFAULTS.appearance.followSystem,
+      lightTheme: p.appearance?.lightTheme ?? DEFAULTS.appearance.lightTheme,
+      darkTheme: p.appearance?.darkTheme ?? DEFAULTS.appearance.darkTheme,
+      accent: normalizeHex(p.appearance?.accent) ?? '',
+      zoom: clampZoom(p.appearance?.zoom),
+      motion: motionMode(p.appearance?.motion),
+      ui: mergeFont(DEFAULTS.appearance.ui, p.appearance?.ui),
+      terminal: {
+        ...mergeFont(DEFAULTS.appearance.terminal, p.appearance?.terminal),
+        lineHeight: clampLineHeight(
+          Number(p.appearance?.terminal?.lineHeight ?? DEFAULTS.appearance.terminal.lineHeight),
+        ),
+      },
+      editor: mergeFont(DEFAULTS.appearance.editor, p.appearance?.editor),
+      windowTitle: parseWindowTitle(p.appearance?.windowTitle),
+    },
+    behavior: parseBehavior(p.behavior),
+    files: parseFileTreeSettings(p.files),
+    terminal: parseTerminalSettings(p.terminal),
+    panes: parsePaneSettings(p.panes),
+    notifications: parseNotificationSettings(p.notifications),
+    sidebar: pickBooleans(DEFAULTS.sidebar, p.sidebar),
+    workspaces: parseWorkspaceSettings(p.workspaces),
+    browser: parseBrowserSettings(p.browser),
+    editor: parseEditorSettings(p.editor),
+    ...keyboardFrom(p),
+    agents: {
+      hibernation: parseHibernation(p.agents?.hibernation),
+      autoResume: p.agents?.autoResume === true,
+      autoSendReferences: p.agents?.autoSendReferences !== false,
+      hooks: parseAgentHooks(p.agents?.hooks),
+    },
+    assistant: {
+      chatHistory: p.assistant?.chatHistory !== false,
+      ...parseChatToolSettings(p.assistant),
+      ...parseAssistModelSettings(p.assistant),
+    },
+    workspaceGroups: parseWorkspaceGroupSettings(p.workspaceGroups),
+    extensionSettings: extensionSettingsOf(p.extensionSettings),
+    capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
+    manager: parseManagerSettings(p.manager),
+    sync: syncOf(p.sync),
+    approvals: parseApprovalSettings(p.approvals),
+    actions: parseActions(p.actions),
+    trustedActions: Array.isArray(p.trustedActions)
+      ? p.trustedActions.filter((f): f is string => typeof f === 'string')
+      : [],
+    sandbox: p.sandbox === undefined ? undefined : parseSandboxGlobals(p.sandbox),
+    privacy: parsePrivacySettings(p.privacy),
+    git: parseGitSettings(p.git),
+    ports: parsePortsSettings(p.ports),
+  }
+}
+
+export function getByPath(root: unknown, path: string): unknown {
+  return path
+    .split('.')
+    .filter(Boolean)
+    .reduce<unknown>((acc, key) => (isPlainObject(acc) && key in acc ? acc[key] : undefined), root)
+}
+
+function survives(wanted: unknown, parsed: unknown): boolean {
+  if (Array.isArray(wanted)) {
+    return (
+      Array.isArray(parsed) &&
+      parsed.length === wanted.length &&
+      wanted.every((item, i) => survives(item, parsed[i]))
+    )
+  }
+  if (isPlainObject(wanted)) {
+    return isPlainObject(parsed) && Object.keys(wanted).every((k) => survives(wanted[k], parsed[k]))
+  }
+  return JSON.stringify(wanted) === JSON.stringify(parsed)
+}
+
+function dataRoot(s: Persisted): Record<string, unknown> {
+  const root: Record<string, unknown> = Object.create(null)
+  for (const key of DATA_KEYS) root[key] = s[key as keyof Persisted]
+  return root
+}
+
+export function applySetting(s: SettingsState, path: string, value: unknown): SettingChange {
+  const keys = path.split('.').filter(Boolean)
+  if (keys.length === 0) throw new Error('settings path is empty')
+  if (keys.some(isDangerousSegment)) throw new Error(`invalid settings path: ${path}`)
+  if (!DATA_KEYS.includes(keys[0])) {
+    throw new Error(`unknown settings key: ${keys[0]} (expected one of ${DATA_KEYS.join(', ')})`)
+  }
+  if (value === undefined) throw new Error(`cannot set ${path}: value is undefined`)
+  const root = dataRoot(s)
+  let cursor = root
+  for (let i = 0; i < keys.length - 1; i++) {
+    const existing = cursor[keys[i]]
+    if (existing !== undefined && !isPlainObject(existing)) {
+      const at = keys.slice(0, i + 1).join('.')
+      throw new Error(`cannot set ${path}: ${at} is ${kindOf(existing)}, not an object`)
+    }
+    const next: Record<string, unknown> = Object.assign(Object.create(null), existing)
+    cursor[keys[i]] = next
+    cursor = next
+  }
+  const leaf = keys[keys.length - 1]
+  const previous = cursor[leaf]
+  if (previous === undefined) throw new Error(`unknown settings key: ${path}`)
+  if (kindOf(previous) !== kindOf(value)) {
+    throw new Error(`cannot set ${path}: expected ${kindOf(previous)}, got ${kindOf(value)}`)
+  }
+  cursor[leaf] = value
+  const parsed = parsePersisted({ ...s, ...(root as Partial<Persisted>) })
+  const stored = getByPath(parsed, path)
+  if (!survives(value, stored)) {
+    throw new Error(`invalid value for ${path}: ${JSON.stringify(value)}`)
+  }
+  const next = dataRoot(parsed) as Partial<SettingsState>
+  return { path, previous, value: getByPath(parsed, path), next }
+}
+
+const extensionSettingsOf = (v: unknown): Record<string, ExtensionSettingValues> => {
+  if (!isPlainObject(v)) return {}
+  const out: Record<string, ExtensionSettingValues> = {}
+  for (const [extId, values] of Object.entries(v)) {
+    if (!isDangerousSegment(extId) && isPlainObject(values)) {
+      out[extId] = values as ExtensionSettingValues
+    }
+  }
+  return out
+}
+
+const syncOf = (v: unknown): SyncSettings | undefined =>
+  isPlainObject(v) && typeof v.dir === 'string' ? { dir: v.dir } : undefined

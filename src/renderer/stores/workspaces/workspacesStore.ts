@@ -18,7 +18,8 @@ import {
 } from '@/lib/sidebar/workspaceGroups'
 import { namespacedId } from '@/lib/workspaces/idNamespace'
 import { insertIndex } from '@/lib/workspaces/workspaceOrder'
-import { type NewWorkspacePlacement, useSettingsStore } from '@/stores/app/settingsStore'
+import type { NewWorkspacePlacement } from '@/stores/app/settingsModel'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import type {
   AppSnapshot,
   SnapshotWorkspace,
