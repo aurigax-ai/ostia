@@ -6,7 +6,7 @@ import {
   runWorker,
   showViewerMessage,
 } from '@aurigax-ai/ostia-extension-sdk/viewer'
-import { COLUMNS_MAX, type CsvTable, delimiterOf } from './csvShape'
+import { CSV_LIMITS, type CsvTable, delimiterOf } from './csvShape'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
 
@@ -38,7 +38,9 @@ async function main(): Promise<void> {
   }
   const notes = [
     table.rowsCut ? t('rowsCut', { rows: table.rows.length.toLocaleString(doc.locale) }) : '',
-    table.columnsCut ? t('columnsCut', { columns: COLUMNS_MAX.toLocaleString(doc.locale) }) : '',
+    table.columnsCut
+      ? t('columnsCut', { columns: CSV_LIMITS.columns.toLocaleString(doc.locale) })
+      : '',
   ]
   const view = grid({
     label: doc.name,

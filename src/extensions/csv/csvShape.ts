@@ -1,5 +1,6 @@
-export const ROWS_MAX = 100_000
-export const COLUMNS_MAX = 1_000
+export const CSV_LIMITS = { rows: 100_000, columns: 1_000 }
+
+export type CsvLimits = typeof CSV_LIMITS
 
 export interface CsvTable {
   header: string[]

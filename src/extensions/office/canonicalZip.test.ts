@@ -81,7 +81,8 @@ describe('readCanonicalZip', () => {
   }, 120_000)
 
   it('charges the real inflated bytes when they pass the declared size', () => {
-    expect(verdict(zeroBomb(OFFICE_LIMITS.inflatedBytes + MIB))).toBe('unzip-limit')
+    const budget = { ...OFFICE_LIMITS, inflatedBytes: 2 * MIB, entryRatio: 1e9 }
+    expect(verdict(zeroBomb(3 * MIB), budget)).toBe('unzip-limit')
     const lying = rawZip([zeros('xl/a.bin', 8 * MIB, 10)])
     expect(verdict(lying, { ...OFFICE_LIMITS, inflatedBytes: 4 * MIB, entryRatio: 1e9 })).toBe(
       'unzip-limit',

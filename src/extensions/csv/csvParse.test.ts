@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseTable } from './csvParse'
-import { COLUMNS_MAX, ROWS_MAX, delimiterOf } from './csvShape'
+import { delimiterOf } from './csvShape'
 
 describe('parseTable', () => {
   it('reads quoted cells, embedded newlines and ragged rows into a rectangle', () => {
@@ -22,12 +22,13 @@ describe('parseTable', () => {
   })
 
   it('stops at the row and column limits and says so', () => {
-    const wide = Array.from({ length: COLUMNS_MAX + 3 }, (_u, i) => `c${i}`).join(',')
-    const lines = Array.from({ length: ROWS_MAX + 10 }, (_u, i) => String(i))
-    const table = parseTable([wide, ...lines].join('\n'), ',')
-    expect(table.rows).toHaveLength(ROWS_MAX)
-    expect(table.rows[ROWS_MAX - 1][0]).toBe(String(ROWS_MAX - 1))
-    expect(table.header).toHaveLength(COLUMNS_MAX)
+    const limits = { rows: 20, columns: 5 }
+    const wide = Array.from({ length: limits.columns + 3 }, (_u, i) => `c${i}`).join(',')
+    const lines = Array.from({ length: limits.rows + 10 }, (_u, i) => String(i))
+    const table = parseTable([wide, ...lines].join('\n'), ',', limits)
+    expect(table.rows).toHaveLength(limits.rows)
+    expect(table.rows[limits.rows - 1][0]).toBe(String(limits.rows - 1))
+    expect(table.header).toHaveLength(limits.columns)
     expect(table.rowsCut).toBe(true)
     expect(table.columnsCut).toBe(true)
   })

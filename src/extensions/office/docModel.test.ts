@@ -59,7 +59,11 @@ describe('readDocument', () => {
   it('names the problem for a bomb, a password, a large file and a malformed file', async () => {
     const plain = docx({ body: paragraph('x') })
     expect(
-      await readDocument(withEntries(plain, zeros('word/media/b.bin', 129 * MIB)), OFFICE_LIMITS),
+      await readDocument(withEntries(plain, zeros('word/media/b.bin', 3 * MIB)), {
+        ...OFFICE_LIMITS,
+        inflatedBytes: 2 * MIB,
+        entryRatio: 1e9,
+      }),
     ).toEqual({ ok: false, problem: 'unzip-limit' })
     expect(await readDocument(encryptedWorkbook(), OFFICE_LIMITS)).toEqual({
       ok: false,

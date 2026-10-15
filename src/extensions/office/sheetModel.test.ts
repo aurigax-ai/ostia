@@ -151,7 +151,8 @@ describe('readWorkbook', () => {
   })
 
   it('names the problem for a bomb, a large file, a password and a malformed file', () => {
-    expect(readWorkbook(zeroBomb(OFFICE_LIMITS.inflatedBytes + MIB), OFFICE_LIMITS)).toEqual({
+    const budget = { ...OFFICE_LIMITS, inflatedBytes: 2 * MIB, entryRatio: 1e9 }
+    expect(readWorkbook(zeroBomb(3 * MIB), budget)).toEqual({
       ok: false,
       problem: 'unzip-limit',
     })
