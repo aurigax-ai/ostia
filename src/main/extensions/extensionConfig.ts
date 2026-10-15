@@ -12,7 +12,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import type { PaneIdentity } from '../control/idRegistry'
-import type { ExtensionHostDeps } from './extensionHost'
+import type { ExtensionHostDeps } from './extensionHostDeps'
 import { type Runtime, fail, isPlainRecord } from './extensionRuntime'
 
 function storedSettings(raw: unknown): Map<string, ExtensionSettingValues> {

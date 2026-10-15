@@ -57,7 +57,7 @@ export interface Harness {
   stopAll: () => void
   host: import('../src/main/extensions/extensionHost').ExtensionHost
   launches: import('../src/main/extensions/extensionLaunches').ExtensionLaunches | null
-  secrets: import('../src/main/extensions/extensionHost').ExtensionSecretStore
+  secrets: import('../src/main/extensions/extensionHostDeps').ExtensionSecretStore
 }
 
 export async function until<T>(
@@ -349,7 +349,7 @@ export async function graphsHarness(
     command: string,
     args: Record<string, unknown> = {},
   ): Promise<ExtensionResult> => {
-    const source = await host.resolvePanel('graphs', { workspaceId: 'w1', locale: 'en' })
+    const source = await host.panels.resolvePanel('graphs', { workspaceId: 'w1', locale: 'en' })
     if (!source.ok) throw new Error(source.error)
     const url = new URL(source.src)
     const res = await fetch(new URL('/api', url), {

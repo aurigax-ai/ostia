@@ -47,7 +47,7 @@ import {
 import type { PaneIdentity } from '../control/idRegistry'
 import { redactAssistRequest } from '../privacy/redactionTargets'
 import { AssistModelChoices } from './assistModelChoices'
-import type { ExtensionHostDeps } from './extensionHost'
+import type { ExtensionHostDeps } from './extensionHostDeps'
 import {
   type AssistRuntimeReport,
   type Runtime,

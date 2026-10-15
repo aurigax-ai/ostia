@@ -29,7 +29,7 @@ import {
 } from '../agents/extensionAgents'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import { spawnFolder } from '../terminal/spawnCwd'
-import type { ExtensionHostDeps } from './extensionHost'
+import type { ExtensionHostDeps } from './extensionHostDeps'
 import { type Runtime, fail, isPlainRecord } from './extensionRuntime'
 
 function hasControlChar(text: string): boolean {

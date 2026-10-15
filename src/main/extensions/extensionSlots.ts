@@ -21,7 +21,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
-import type { ExtensionHostDeps } from './extensionHost'
+import type { ExtensionHostDeps } from './extensionHostDeps'
 import { type Runtime, fail } from './extensionRuntime'
 
 const MAX_SIDEBAR_ITEMS = 32

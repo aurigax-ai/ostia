@@ -9,7 +9,7 @@ import {
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { RemoteFolders } from '../files/remoteFolders'
-import type { ExtensionHostDeps } from './extensionHost'
+import type { ExtensionHostDeps } from './extensionHostDeps'
 import { type Runtime, fail } from './extensionRuntime'
 
 const DIFF_TITLE_MAX = 200

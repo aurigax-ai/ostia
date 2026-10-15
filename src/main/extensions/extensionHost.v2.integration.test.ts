@@ -473,15 +473,15 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
     })
 
     it('asks the process for the url of a path and keeps it on the reported origin', async () => {
-      const res = await host.resolvePanel('echo', {
+      const res = await host.panels.resolvePanel('echo', {
         workspaceId: 's1',
         locale: 'en',
         path: '/cards/7',
       })
       expect(res).toEqual({ ok: true, src: 'http://127.0.0.1:9/cards/7?workspace=s1' })
-      expect(host.isAllowedPanelUrl('echo', 'http://127.0.0.1:9/cards/8')).toBe(true)
+      expect(host.panels.isAllowedPanelUrl('echo', 'http://127.0.0.1:9/cards/8')).toBe(true)
       expect(
-        await host.resolvePanel('echo', { workspaceId: 's1', locale: 'en', path: 'x' }),
+        await host.panels.resolvePanel('echo', { workspaceId: 's1', locale: 'en', path: 'x' }),
       ).toEqual({ ok: false, error: 'invalid-panel-path' })
     })
   })

@@ -210,10 +210,10 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
   })
 
   it('resolves a url panel from the process and allows only that loopback origin', async () => {
-    const res = await host.resolvePanel('echo', { workspaceId: 's9', locale: 'en' })
+    const res = await host.panels.resolvePanel('echo', { workspaceId: 's9', locale: 'en' })
     expect(res).toEqual({ ok: true, src: 'http://127.0.0.1:9/?workspace=s9' })
-    expect(host.isAllowedPanelUrl('echo', 'http://127.0.0.1:9/other')).toBe(true)
-    expect(host.isAllowedPanelUrl('echo', 'http://127.0.0.1:10/')).toBe(false)
+    expect(host.panels.isAllowedPanelUrl('echo', 'http://127.0.0.1:9/other')).toBe(true)
+    expect(host.panels.isAllowedPanelUrl('echo', 'http://127.0.0.1:10/')).toBe(false)
   })
 
   it('restarts a crashed process and keeps serving commands', async () => {
@@ -269,7 +269,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
 
     expect(await host.invoke('hello', 'open', null, host.userCaller('s1'))).toEqual({ ok: true })
     expect(openPanelIn).toHaveBeenCalledWith({ extId: 'hello', workspaceId: 's1' })
-    const panel = await host.resolvePanel('hello', { workspaceId: 's1', locale: 'en' })
+    const panel = await host.panels.resolvePanel('hello', { workspaceId: 's1', locale: 'en' })
     expect(panel.ok && readFileSync(fileURLToPath(panel.src), 'utf8')).toContain(
       'Hello from a file panel',
     )

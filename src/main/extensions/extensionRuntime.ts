@@ -16,6 +16,8 @@ import type { DiscoveredExtension } from '@aurigax-ai/ostia-extension-sdk/manife
 import type { CancellationToken, MessageConnection } from 'vscode-jsonrpc/node'
 import type { PaneIdentity } from '../control/idRegistry'
 
+export const REQUEST_TIMEOUT_MS = 30_000
+
 type RunState = 'idle' | 'starting' | 'running' | 'crashed'
 
 export interface LoadedExtension extends DiscoveredExtension {

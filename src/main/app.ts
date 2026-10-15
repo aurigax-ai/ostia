@@ -1702,7 +1702,7 @@ function allowHumanPopups(guest: Electron.WebContents): void {
 function hardenExtensionGuest(guest: Electron.WebContents): boolean {
   const host = extensionHost
   if (!host) return false
-  const extId = host
+  const extId = host.panels
     .panelExtensionIds()
     .find((id) => guest.session === session.fromPartition(`${EXTENSION_PARTITION_PREFIX}${id}`))
   if (!extId) return false
@@ -1712,7 +1712,7 @@ function hardenExtensionGuest(guest: Electron.WebContents): boolean {
     return { action: 'deny' }
   })
   const guard = (e: Electron.Event, url: string): void => {
-    if (!host.isAllowedPanelUrl(extId, url)) e.preventDefault()
+    if (!host.panels.isAllowedPanelUrl(extId, url)) e.preventDefault()
   }
   guest.on('will-navigate', guard)
   guest.on('will-redirect', guard)
@@ -1809,7 +1809,7 @@ function wireWindow(win: BrowserWindow): void {
     }
     const extId = extensionOfPartition(params.partition)
     const allowed = extId
-      ? (extensionHost?.isAllowedPanelUrl(extId, params.src) ?? false)
+      ? (extensionHost?.panels.isAllowedPanelUrl(extId, params.src) ?? false)
       : browserProfiles.acceptsAttach(params.partition, String(win.webContents.id))
     if (!allowed) {
       event.preventDefault()
@@ -2164,7 +2164,7 @@ function registerExtensionIpc(host: ExtensionHost): void {
     },
   )
   ipcMain.handle('extensions:panel', (_e, extId: string, context: ExtensionPanelContext) =>
-    host.resolvePanel(String(extId), {
+    host.panels.resolvePanel(String(extId), {
       workspaceId: String(context?.workspaceId ?? ''),
       locale: String(context?.locale ?? 'en'),
       ...(context?.path === undefined ? {} : { path: String(context.path) }),

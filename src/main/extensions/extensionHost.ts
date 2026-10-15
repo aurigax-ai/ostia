@@ -1,8 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { join } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
 import { agentSkillId, hookAgentsFor } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
-import type { AssistOpenUiRequest } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import {
   ALL_CAPABILITIES,
   type Capability,
@@ -16,34 +13,23 @@ import {
   EXTENSION_EVENT_TYPES,
   EXTENSION_REDACT_TEXTS_MAX,
   EXTENSION_REDACT_TEXT_MAX,
-  type ExtensionAgentOffer,
   type ExtensionCaller,
   type ExtensionCommandContribution,
   type ExtensionEventPayloads,
   type ExtensionEventType,
   type ExtensionInfo,
   type ExtensionManifest,
-  type ExtensionOpenDiffRequest,
-  type ExtensionOpenFileRequest,
-  type ExtensionOpenPanelRequest,
-  type ExtensionPanelContext,
-  type ExtensionPanelSource,
   type ExtensionResult,
   type ExtensionStatus,
-  type WorkspaceChip,
   commandArgument,
-  panelPath,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { languageServerSummary } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import {
   FOLDER_CLOSED_EVENT,
-  type RemoteCwd,
   type RemoteFilesRequest,
   type RemoteFolder,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import { isInsideDir } from '@aurigax-ai/ostia-extension-sdk/manifest/confinedRead'
 import {
-  type ExtensionRoot,
   discoverExtensions,
   parseCommand,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
@@ -52,29 +38,19 @@ import {
   manifestIn,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/localeCatalogs'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import type { RedactionResult } from '../../shared/privacy/redaction'
-import type { AgentOfferDelivery, HeldResume } from '../agents/extensionAgents'
 import { hasCap } from '../approvals/capabilityStore'
 import type { PaneIdentity } from '../control/idRegistry'
-import {
-  REMOTE_REQUEST_TIMEOUT_MS,
-  RemoteFolders,
-  type RemoteFoldersDeps,
-} from '../files/remoteFolders'
+import { REMOTE_REQUEST_TIMEOUT_MS, RemoteFolders } from '../files/remoteFolders'
 import { ExtensionAssist } from './extensionAssist'
 import { ExtensionConfig } from './extensionConfig'
-import type { ExtensionConnections } from './extensionConnections'
 import { ExtensionContributions } from './extensionContributions'
-import type { ExtensionExec } from './extensionExec'
-import type { ExtensionLaunches } from './extensionLaunches'
+import type { ExtensionHostDeps } from './extensionHostDeps'
+import { ExtensionPanels } from './extensionPanels'
 import { ExtensionProcesses } from './extensionProcesses'
-import {
-  type ExtensionConfirmRequest,
-  ExtensionRuns,
-  type TerminalOpenRequest,
-} from './extensionRuns'
+import { ExtensionRuns } from './extensionRuns'
 import {
   type LoadedExtension,
+  REQUEST_TIMEOUT_MS,
   type Runtime,
   fail,
   isPlainRecord,
@@ -82,79 +58,9 @@ import {
   withTimeout,
 } from './extensionRuntime'
 import { ExtensionSlots } from './extensionSlots'
-import { type ExtensionStore, effectiveRecord, grantedCaps, needsApproval } from './extensionStore'
+import { effectiveRecord, grantedCaps, needsApproval } from './extensionStore'
 import { ExtensionWindowRequests } from './extensionWindowRequests'
-const REQUEST_TIMEOUT_MS = 30_000
 const INTERACTIVE_TIMEOUT_MS = 10 * 60_000
-const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost'])
-
-export interface ExtensionHostDeps {
-  roots: ExtensionRoot[]
-  store: ExtensionStore
-  launches?: ExtensionLaunches
-  socketPath: () => string
-  nodePath: string
-  dataDir?: string
-  workDirForWorkspace: (workspaceId?: string) => string | undefined
-  cwdForPane?: (paneId: string) => string | undefined
-  locale?: () => string | undefined
-  broadcast: (channel: string, payload: unknown) => void
-  onChanged?: () => void
-  publishWorkspaceChips?: (chips: WorkspaceChip[]) => void
-  openPanelIn: (req: ExtensionOpenPanelRequest) => void
-  openDiffIn?: (req: ExtensionOpenDiffRequest) => void
-  openFileIn?: (req: ExtensionOpenFileRequest) => Promise<ExtensionResult>
-  openTerminalIn?: (req: TerminalOpenRequest) => Promise<string | null>
-  notify: (n: { title: string; body?: string; from: string }) => void
-  restartDelayMs?: number
-  readyTimeoutMs?: number
-  requestTimeoutMs?: number
-  interactiveTimeoutMs?: number
-  log?: (extId: string, line: string) => void
-  onCrashed?: (extId: string, builtin: boolean) => void
-  readExtensionSettings?: () => unknown
-  readAssistSettings?: () => { assistant?: unknown } | null
-  assistKeys?: ExtensionSecretStore
-  redact?: (text: string) => Promise<RedactionResult>
-  assistTimeoutMs?: number
-  openAssistUiIn?: (req: AssistOpenUiRequest) => void
-  assistChatTimeoutMs?: number
-  assistModelsTimeoutMs?: number
-  secrets?: ExtensionSecretStore
-  connections?: ExtensionConnections
-  confirm?: (req: ExtensionConfirmRequest) => Promise<boolean>
-  isSandboxed?: (workspaceId: string) => boolean
-  sandboxDomains?: (workspaceId: string) => string[] | null
-  hostGrants?: {
-    offer: (extId: string, command: string) => void
-    claim: (extId: string, command: string) => string | null
-  }
-  notifyPanel?: (
-    n: { title: string; body?: string; from: string; extId: string; panelPath?: string },
-    openPanel: () => void,
-  ) => void
-  agentArgv?: (name: string) => string[] | null
-  agentNames?: () => string[]
-  offerToAgentIn?: (offer: Omit<ExtensionAgentOffer, 'requestId'>) => Promise<AgentOfferDelivery>
-  focusPaneIn?: (pane: PaneIdentity) => boolean
-  exec?: ExtensionExec
-  resumeOf?: (pane: PaneIdentity) => Promise<HeldResume | null>
-  agentTaskClock?: () => number
-  remoteCwdForPane?: (paneId: string) => RemoteCwd | undefined
-  agentRunning?: (paneId: string) => boolean
-  remoteFolders?: Pick<RemoteFoldersDeps, 'windowOfWorkspace' | 'refusal' | 'confirm'> & {
-    publish: (folders: RemoteFolders) => void
-  }
-}
-export interface ExtensionSecretStore {
-  keys: (extId: string) => string[]
-  get: (extId: string, key: string) => string | null
-  set: (
-    extId: string,
-    key: string,
-    value: string | null,
-  ) => { ok: true } | { ok: false; error: string }
-}
 
 function normalizeResult(raw: unknown): ExtensionResult {
   if (
@@ -188,16 +94,6 @@ function capsOf(externalId: string): Capability[] {
   return ALL_CAPABILITIES.filter((cap) => hasCap(externalId, cap))
 }
 
-export function loopbackOrigin(url: string): string | null {
-  try {
-    const u = new URL(url)
-    if (u.protocol !== 'http:' || !LOOPBACK_HOSTS.has(u.hostname)) return null
-    return u.origin
-  } catch {
-    return null
-  }
-}
-
 export class ExtensionHost {
   private runtimes = new Map<string, Runtime>()
   private changes = new EventEmitter()
@@ -210,6 +106,7 @@ export class ExtensionHost {
   readonly config: ExtensionConfig
   readonly windowRequests: ExtensionWindowRequests
   readonly processes: ExtensionProcesses
+  readonly panels: ExtensionPanels
 
   constructor(private readonly deps: ExtensionHostDeps) {
     this.changes.setMaxListeners(0)
@@ -275,6 +172,13 @@ export class ExtensionHost {
       granted: (rt) => this.granted(rt),
       discover: () => this.discover(),
       log: (extId, line) => this.log(extId, line),
+    })
+    this.panels = new ExtensionPanels({
+      deps,
+      runtimes: this.runtimes,
+      processes: this.processes,
+      active: (rt) => this.active(rt),
+      userCaller: (workspaceId, extra) => this.userCaller(workspaceId, extra),
     })
     this.windowRequests = new ExtensionWindowRequests({
       deps,
@@ -496,74 +400,6 @@ export class ExtensionHost {
   commandCapabilities(extId: string, command: string): Capability[] {
     const rt = this.runtimes.get(extId)
     return rt ? (this.commandsOf(rt).find((c) => c.id === command)?.capabilities ?? []) : []
-  }
-
-  private filePanelUrl(rt: Runtime, entry: string, path: string | null): string | null {
-    if (!path) return pathToFileURL(join(rt.ext.dir, entry)).href
-    const cut = path.search(/[?#]/)
-    const pathname = cut === -1 ? path : path.slice(0, cut)
-    let decoded: string
-    try {
-      decoded = decodeURIComponent(pathname)
-    } catch {
-      return null
-    }
-    const url = pathToFileURL(join(rt.ext.dir, decoded)).href
-    const full = cut === -1 ? url : url + path.slice(cut)
-    return this.isAllowedPanelUrl(rt.ext.manifest.id, full) ? full : null
-  }
-
-  async resolvePanel(extId: string, context: ExtensionPanelContext): Promise<ExtensionPanelSource> {
-    const rt = this.runtimes.get(extId)
-    if (!rt || !this.active(rt)) return { ok: false, error: 'extension-disabled' }
-    const panel = rt.ext.manifest.contributes.panel
-    if (!panel) return { ok: false, error: 'no-panel' }
-    const path = context.path === undefined ? null : panelPath(context.path)
-    if (context.path !== undefined && !path) return { ok: false, error: 'invalid-panel-path' }
-    if (panel.entry !== 'url') {
-      if (rt.ext.manifest.main) this.processes.start(rt)
-      const src = this.filePanelUrl(rt, panel.entry, path)
-      return src ? { ok: true, src } : { ok: false, error: 'panel-url-not-allowed' }
-    }
-    try {
-      const conn = await this.processes.connected(rt)
-      const caller = this.userCaller(context.workspaceId, { locale: context.locale })
-      if (context.workspaceId) rt.callerWorkspaces.add(context.workspaceId)
-      const res = await withTimeout(
-        conn.sendRequest<{ url?: unknown }>('ext.panel', path ? { caller, path } : { caller }),
-        this.deps.requestTimeoutMs ?? REQUEST_TIMEOUT_MS,
-        `${extId} panel`,
-      )
-      const url = typeof res?.url === 'string' ? res.url : ''
-      const origin = loopbackOrigin(url)
-      if (!origin) return { ok: false, error: 'panel-url-not-loopback' }
-      rt.panelOrigins.add(origin)
-      return { ok: true, src: url }
-    } catch (err) {
-      return { ok: false, error: (err as Error).message }
-    }
-  }
-
-  isAllowedPanelUrl(extId: string, url: string): boolean {
-    const rt = this.runtimes.get(extId)
-    const panel = rt?.ext.manifest.contributes.panel
-    if (!rt || !panel || !this.active(rt)) return false
-    if (panel.entry !== 'url') {
-      try {
-        const u = new URL(url)
-        return u.protocol === 'file:' && isInsideDir(rt.ext.dir, fileURLToPath(u))
-      } catch {
-        return false
-      }
-    }
-    const origin = loopbackOrigin(url)
-    return origin !== null && rt.panelOrigins.has(origin)
-  }
-
-  panelExtensionIds(): string[] {
-    return [...this.runtimes.values()]
-      .filter((rt) => rt.ext.manifest.contributes.panel)
-      .map((rt) => rt.ext.manifest.id)
   }
 
   workspaceClosed(workspaceId: string): void {

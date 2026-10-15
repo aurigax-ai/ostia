@@ -251,16 +251,18 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
     host.processes.rescan()
     host.processes.approve('static')
     const context = { workspaceId: 's1', locale: 'en' }
-    expect(await host.resolvePanel('static', context)).toEqual({
+    expect(await host.panels.resolvePanel('static', context)).toEqual({
       ok: true,
       src: pathToFileURL(join(extDir, 'panel.html')).href,
     })
-    expect(await host.resolvePanel('static', { ...context, path: '/card.html?id=4#top' })).toEqual({
+    expect(
+      await host.panels.resolvePanel('static', { ...context, path: '/card.html?id=4#top' }),
+    ).toEqual({
       ok: true,
       src: `${pathToFileURL(join(extDir, 'card.html')).href}?id=4#top`,
     })
     for (const path of ['/../other/x.html', '/%2e%2e/%2e%2e/etc/passwd']) {
-      expect(await host.resolvePanel('static', { ...context, path })).toEqual({
+      expect(await host.panels.resolvePanel('static', { ...context, path })).toEqual({
         ok: false,
         error: 'panel-url-not-allowed',
       })

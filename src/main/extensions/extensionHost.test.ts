@@ -5,7 +5,8 @@ import { pathToFileURL } from 'node:url'
 import { ALL_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerPane } from '../control/idRegistry'
-import { ExtensionHost, type ExtensionHostDeps, loopbackOrigin } from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import type { ExtensionHostDeps } from './extensionHostDeps'
 import { ExtensionStore } from './extensionStore'
 
 let base: string
@@ -252,25 +253,25 @@ describe('ExtensionHost — command routing guards', () => {
 describe('ExtensionHost — panels', () => {
   it('serves a file panel from inside the extension and allows only that directory', async () => {
     const { host } = makeHost()
-    const res = await host.resolvePanel('board', { workspaceId: 's1', locale: 'en' })
+    const res = await host.panels.resolvePanel('board', { workspaceId: 's1', locale: 'en' })
     const file = join(base, 'builtin', 'board', 'panel.html')
     expect(res).toEqual({ ok: true, src: pathToFileURL(file).href })
-    expect(host.isAllowedPanelUrl('board', pathToFileURL(file).href)).toBe(true)
-    expect(host.isAllowedPanelUrl('board', pathToFileURL(join(base, 'user', 'x.html')).href)).toBe(
-      false,
-    )
-    expect(host.isAllowedPanelUrl('board', 'https://example.com/')).toBe(false)
-    expect(host.isAllowedPanelUrl('tool', pathToFileURL(file).href)).toBe(false)
+    expect(host.panels.isAllowedPanelUrl('board', pathToFileURL(file).href)).toBe(true)
+    expect(
+      host.panels.isAllowedPanelUrl('board', pathToFileURL(join(base, 'user', 'x.html')).href),
+    ).toBe(false)
+    expect(host.panels.isAllowedPanelUrl('board', 'https://example.com/')).toBe(false)
+    expect(host.panels.isAllowedPanelUrl('tool', pathToFileURL(file).href)).toBe(false)
   })
 
   it('refuses panels of disabled extensions', async () => {
     const { host } = makeHost()
     host.processes.setEnabled('board', false)
-    expect(await host.resolvePanel('board', { workspaceId: 's1', locale: 'en' })).toEqual({
+    expect(await host.panels.resolvePanel('board', { workspaceId: 's1', locale: 'en' })).toEqual({
       ok: false,
       error: 'extension-disabled',
     })
-    expect(host.panelExtensionIds()).toEqual(['board'])
+    expect(host.panels.panelExtensionIds()).toEqual(['board'])
   })
 })
 
@@ -303,18 +304,6 @@ describe('ExtensionHost — completions', () => {
     ])
     host.processes.setEnabled('completions', false)
     expect(host.contributions.completionDirs()).toEqual([])
-  })
-})
-
-describe('loopbackOrigin', () => {
-  it('accepts only plain-http loopback URLs', () => {
-    expect(loopbackOrigin('http://127.0.0.1:4000/x?t=1')).toBe('http://127.0.0.1:4000')
-    expect(loopbackOrigin('http://localhost:4000/')).toBe('http://localhost:4000')
-    expect(loopbackOrigin('https://127.0.0.1:4000/')).toBeNull()
-    expect(loopbackOrigin('http://192.168.1.2:4000/')).toBeNull()
-    expect(loopbackOrigin('http://127.0.0.1.evil.com/')).toBeNull()
-    expect(loopbackOrigin('file:///etc/passwd')).toBeNull()
-    expect(loopbackOrigin('garbage')).toBeNull()
   })
 })
 

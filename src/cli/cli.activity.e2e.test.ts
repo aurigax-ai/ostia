@@ -184,7 +184,10 @@ describe('the Activity extension records two fake agents and shows them in its p
   }
 
   async function panel(command: string, args: unknown = {}): Promise<ExtensionResult> {
-    const source = await serving.resolvePanel('activity', { workspaceId: 'w1', locale: 'en' })
+    const source = await serving.panels.resolvePanel('activity', {
+      workspaceId: 'w1',
+      locale: 'en',
+    })
     if (!source.ok) throw new Error(source.error)
     const url = new URL(source.src)
     const res = await fetch(new URL('/api', url), {
