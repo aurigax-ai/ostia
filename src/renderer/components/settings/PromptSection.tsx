@@ -1,5 +1,5 @@
 import { IconButton } from '@/components/common/IconButton'
-import { PromptChip, chipIcon, chipName } from '@/components/terminal/PromptChips'
+import { PromptChip, chipIcon, chipName } from '@/components/prompt/PromptChips'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useChipCatalog } from '@/lib/extensions/extensionChips'

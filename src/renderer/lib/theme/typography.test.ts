@@ -22,6 +22,10 @@ const RELATIVE_SCALE_FILES = new Map([
 
 const SETTINGS_FONT_FILES = new Map([
   ['src/renderer/components/terminal/Terminal.tsx', 'passes the terminal font settings to xterm'],
+  [
+    'src/renderer/components/terminal/useTerminalOptions.ts',
+    'passes the terminal font settings to xterm',
+  ],
   ['src/renderer/lib/terminal/ghosttyTerminal.ts', 'passes the terminal font settings to Ghostty'],
   ['src/renderer/lib/terminal/readOnlyTerminal.ts', 'passes the terminal font settings to xterm'],
   [
@@ -34,8 +38,16 @@ const SETTINGS_FONT_FILES = new Map([
   ],
   ['src/renderer/components/editor/DiffView.tsx', 'passes the editor font settings to Monaco'],
   [
-    'src/renderer/components/terminal/InputEditor.tsx',
+    'src/renderer/components/prompt/InputEditor.tsx',
     'draws over xterm cells, so it takes the terminal font, cell height and cell width',
+  ],
+  [
+    'src/renderer/components/prompt/useInputLayout.ts',
+    'draws over xterm cells, so it takes the terminal font, cell height and cell width',
+  ],
+  [
+    'src/renderer/components/prompt/InputEditorMenu.tsx',
+    'lists completions in the terminal font beside the input editor',
   ],
   ['src/renderer/components/settings/ThemeSettings.tsx', 'previews the terminal and editor fonts'],
   ['src/renderer/components/settings/FontPicker.tsx', 'shows each family in its own face'],
