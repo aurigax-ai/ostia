@@ -1,5 +1,6 @@
 import type { Stats } from 'node:fs'
 import { lstat, mkdir, realpath, writeFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
 import { basename, dirname, extname, isAbsolute, join, sep } from 'node:path'
 import type { FileOpResult } from '../../shared/files/fileOps'
 import { resolveSafe } from '../platform/pathGuard'
@@ -7,10 +8,11 @@ import {
   PartialTransferError,
   type TransferEnd,
   copyExclusive,
+  entryUnchanged,
   moveExclusive,
-  trashAnchored,
 } from './exclusiveTransfer'
 import { type FolderAnchor, openAnchor } from './folderAnchor'
+import { homeTrashPlace, mountTopdir, moveToTrash, topdirTrashPlace } from './freedesktopTrash'
 import { type TransferFs, nodeTransferFs } from './transferFs'
 
 const FILE_OP_MAX_PATHS = 500
@@ -23,6 +25,13 @@ export interface FileOpsDeps {
   trash: (path: string) => Promise<void>
   fs?: TransferFs
   platform?: NodeJS.Platform
+  homeTrash?: string
+  uid?: number
+  topdirOf?: (path: string) => Promise<string>
+}
+
+function defaultHomeTrash(): string {
+  return join(process.env.XDG_DATA_HOME || join(homedir(), '.local', 'share'), 'Trash')
 }
 
 type FileOpFailure = Exclude<FileOpResult, { ok: true }>
@@ -294,8 +303,30 @@ export class FileOps {
     const before = await this.fs.lstat(await source.anchor.at(source.name))
     const copied = await this.copyNew(source, dest, pick)
     if (!copied.ok) return copied
-    const trashed = await trashAnchored(this.fs, source, before, this.deps.trash).catch(() => false)
+    const trashed = await this.toTrash(source, before)
     return trashed ? copied : { ok: false, error: 'not-moved', paths: [copied.target] }
+  }
+
+  private async toTrash(source: TransferEnd, expected: Stats): Promise<boolean> {
+    try {
+      if (this.platform !== 'linux') {
+        if (!(await entryUnchanged(this.fs, source, expected))) return false
+        await this.deps.trash(join(source.anchor.path, source.name))
+        return true
+      }
+      const home = this.deps.homeTrash ?? defaultHomeTrash()
+      const uid = this.deps.uid ?? process.getuid?.() ?? 0
+      const place =
+        (await homeTrashPlace(home, expected.dev)) ??
+        (await topdirTrashPlace(
+          await (this.deps.topdirOf ?? mountTopdir)(source.anchor.path),
+          uid,
+          expected.dev,
+        ))
+      return await moveToTrash(this.fs, source, expected, place, new Date())
+    } catch {
+      return false
+    }
   }
 
   private async transferAll(
@@ -384,8 +415,7 @@ export class FileOps {
     for (const source of sources) {
       const trashed = await this.anchored(dirname(source), null, async (anchor) => {
         const end = { anchor, name: basename(source) }
-        const expected = await this.fs.lstat(await anchor.at(end.name))
-        return trashAnchored(this.fs, end, expected, this.deps.trash)
+        return this.toTrash(end, await this.fs.lstat(await anchor.at(end.name)))
       }).catch(() => false)
       if (!trashed) return { ok: false, error: 'failed', paths: done }
       done.push(source)

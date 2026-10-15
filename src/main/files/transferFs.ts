@@ -1,5 +1,15 @@
 import type { Stats } from 'node:fs'
-import { lstat, mkdir, open, readdir, readlink, rename, symlink } from 'node:fs/promises'
+import {
+  lstat,
+  mkdir,
+  open,
+  readdir,
+  readlink,
+  rename,
+  rmdir,
+  symlink,
+  unlink,
+} from 'node:fs/promises'
 
 export interface TransferFs {
   lstat: (path: string) => Promise<Stats>
@@ -9,6 +19,8 @@ export interface TransferFs {
   symlink: (target: string, path: string) => Promise<void>
   open: typeof open
   rename: (from: string, to: string) => Promise<void>
+  rmdir: (path: string) => Promise<void>
+  unlink: (path: string) => Promise<void>
 }
 
 export const nodeTransferFs: TransferFs = {
@@ -19,4 +31,6 @@ export const nodeTransferFs: TransferFs = {
   symlink: (target, path) => symlink(target, path),
   open,
   rename,
+  rmdir: (path) => rmdir(path),
+  unlink,
 }
