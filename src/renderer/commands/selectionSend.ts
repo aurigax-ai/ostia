@@ -1,5 +1,5 @@
 import { openSelectionSend } from '@/lib/agents/selectionSenders'
-import { registerCore } from './core'
+import { registerCore } from './coreCommand'
 
 export const SEND_SELECTION_COMMAND = 'selection.sendToAgent'
 

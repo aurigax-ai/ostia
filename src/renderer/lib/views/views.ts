@@ -1,4 +1,4 @@
-import { registerCore } from '@/commands/core'
+import { registerCore } from '@/commands/coreCommand'
 import { commands, wordedBy } from '@/commands/registry'
 import { fmt } from '@/lib/app/useDict'
 import { runCommandAction } from '@/lib/palette/userActions'

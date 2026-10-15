@@ -1,4 +1,4 @@
-import { registerCore } from '@/commands/core'
+import { registerCore } from '@/commands/coreCommand'
 import { type PaneAgentReport, paneAgentReport } from '@/lib/agents/paneAgent'
 import { allPanes, splitTabOfPane } from '@/lib/layout/tree'
 import type { SurfaceKind } from '@/lib/layout/types'

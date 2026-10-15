@@ -1,4 +1,4 @@
-import { registerCore } from '@/commands/core'
+import { registerCore } from '@/commands/coreCommand'
 import { forkConversation } from '@/lib/agents/forkConversation'
 import {
   type PaneHibernateOutcome,

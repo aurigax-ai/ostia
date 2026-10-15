@@ -5,7 +5,7 @@ import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { useAssistComposerStore } from '@/stores/assist/assistComposerStore'
 import { assistProvider, useAssistStore } from '@/stores/assist/assistStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { registerCore } from './core'
+import { registerCore } from './coreCommand'
 import { commands } from './registry'
 
 export const ASSIST_COMPOSE_COMMAND = 'assist.compose'

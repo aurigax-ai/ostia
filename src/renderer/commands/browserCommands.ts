@@ -1,5 +1,5 @@
 import { type BrowserAction, runBrowserAction } from '@/lib/browser/browserHandles'
-import { type CoreCommandId, registerCore } from './core'
+import { type CoreCommandId, registerCore } from './coreCommand'
 
 const BROWSER_COMMANDS: readonly [CoreCommandId, BrowserAction][] = [
   ['browser.focusAddress', 'focusAddress'],

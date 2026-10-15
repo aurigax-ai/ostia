@@ -1,7 +1,7 @@
 import { chatAvailable } from '@/lib/assist/assistFeatures'
 import { openChatPane } from '@/lib/assist/chatPane'
 import { useAssistStore } from '@/stores/assist/assistStore'
-import { registerCore } from './core'
+import { registerCore } from './coreCommand'
 import { commands } from './registry'
 
 const CHAT_COMMAND_ID = 'assist.chat'

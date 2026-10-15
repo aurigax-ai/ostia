@@ -1,4 +1,4 @@
-import { type CoreCommandId, delegate, registerCore } from '@/commands/core'
+import { type CoreCommandId, delegate, registerCore } from '@/commands/coreCommand'
 import type { CommandContext } from '@/commands/registry'
 import { currentDict } from '@/lib/app/useDict'
 import { focusAdjacentTab, focusPaneInDirection } from '@/lib/attention/workspaceActivity'
