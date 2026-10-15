@@ -4,6 +4,7 @@ import { useArtifactListing } from '@/lib/files/artifacts'
 import { fileViewKind } from '@/lib/files/fileKinds'
 import { type ViewerOption, chooseViewer, viewerOptions } from '@/lib/files/viewerChoice'
 import { findPane } from '@/lib/layout/tree'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useArtifactVersionsStore } from '@/stores/files/artifactVersionsStore'
@@ -76,6 +77,10 @@ export function FileView({
     failed.path === filePath &&
     failed.viewType === chosenViewer.viewType
   const viewer = failedHere ? null : chosenViewer
+  const viewerOnly = Boolean(
+    filePath && !viewer && (versioned || kind === 'image' || kind === 'pdf'),
+  )
+  useSurfaceFocus(viewerOnly ? paneId : undefined, null)
   const onFailed = useCallback(() => {
     if (filePath && chosenViewer) setFailed({ path: filePath, viewType: chosenViewer.viewType })
   }, [filePath, chosenViewer])

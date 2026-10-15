@@ -2,6 +2,7 @@ import { commands } from '@/commands/registry'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription } from '@/components/ui/empty'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useInjectedCss, usePanelThemeCss } from '@/lib/theme/panelThemeInjection'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
@@ -32,6 +33,8 @@ export function ExtensionPanelView({
   const themeCss = usePanelThemeCss()
   const [source, setSource] = useState<ExtensionPanelSource | null>(null)
   const [webview, setWebview] = useState<HTMLElement | null>(null)
+  const readyWebview = useGuestReady(webview)
+  useSurfaceFocus(paneId, () => readyWebview)
   const showing = useRef(false)
   showing.current = source?.ok === true
 

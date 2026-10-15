@@ -85,8 +85,8 @@ describe('resume session conflicts', () => {
     const coordinator = agentPane('Ostia coordinator')
     const bugs = agentPane('Ostia small bugs')
     seed(coordinator, bugs)
-    start(coordinator.id, `claude --resume ${session.id}`)
-    start(bugs.id, `claude --resume ${session.id} --agent research`)
+    start(coordinator.id, `'claude' --resume ${session.id}`)
+    start(bugs.id, `'claude' --resume ${session.id} --agent research`)
 
     expect(resumeConflict(bugs)?.id).toBe(coordinator.id)
     expect(resumeConflict(coordinator)?.id).toBe(bugs.id)
@@ -95,7 +95,7 @@ describe('resume session conflicts', () => {
   it('records the same session again in one pane without a warning', () => {
     const pane = agentPane('Ostia coordinator')
     seed(pane)
-    start(pane.id, `claude --resume ${session.id}`)
+    start(pane.id, `'claude' --resume ${session.id}`)
     useLayoutStore.getState().setResume('w1', pane.id, session)
     useLayoutStore.getState().setResume('w1', pane.id, { ...session, cwd: '/w' })
 
@@ -107,14 +107,14 @@ describe('resume session conflicts', () => {
     const before = agentPane('old tab')
     const after = agentPane('new tab', { resumePending: true })
     seed(before, after)
-    start(before.id, `claude --resume ${session.id}`)
+    start(before.id, `'claude' --resume ${session.id}`)
     end(before.id)
 
     resumeWhenIdle(after.id, session)
     await settle()
-    start(after.id, `claude --resume ${session.id}`)
+    start(after.id, `'claude' --resume ${session.id}`)
 
-    expect(typed).toEqual([[after.id, `claude --resume ${session.id}`]])
+    expect(typed).toEqual([[after.id, `'claude' --resume ${session.id}`]])
     expect(resumeConflict(after)).toBeNull()
     expect(resumeConflict(before)).toBeNull()
   })
@@ -123,7 +123,7 @@ describe('resume session conflicts', () => {
     const coordinator = agentPane('Ostia coordinator')
     const stale = agentPane('Ostia small bugs', { resumePending: true })
     seed(coordinator, stale)
-    start(coordinator.id, `claude --resume ${session.id}`)
+    start(coordinator.id, `'claude' --resume ${session.id}`)
     const gaveUp = vi.fn()
 
     resumeWhenIdle(stale.id, session, gaveUp)
@@ -138,7 +138,7 @@ describe('resume session conflicts', () => {
     const coordinator = agentPane('Ostia coordinator')
     const idle = agentPane('old tab')
     seed(coordinator, idle)
-    start(coordinator.id, `claude --resume ${session.id}`)
+    start(coordinator.id, `'claude' --resume ${session.id}`)
 
     expect(resumeConflict(idle)).toBeNull()
     expect(resumeConflict(coordinator)).toBeNull()
@@ -148,7 +148,7 @@ describe('resume session conflicts', () => {
     const coordinator = agentPane('Ostia coordinator')
     const asleep = agentPane('old tab', { hibernated: true })
     seed(coordinator, asleep)
-    start(coordinator.id, `claude --resume ${session.id}`)
+    start(coordinator.id, `'claude' --resume ${session.id}`)
 
     expect(resumeConflict(asleep)?.id).toBe(coordinator.id)
   })
@@ -165,8 +165,8 @@ describe('resume session conflicts', () => {
     await settle()
 
     expect(typed).toEqual([
-      [first.id, `claude --resume ${session.id}`],
-      [other.id, `claude --resume ${own.id}`],
+      [first.id, `'claude' --resume ${session.id}`],
+      [other.id, `'claude' --resume ${own.id}`],
     ])
     expect(resumeHolder(second.id, session)?.id).toBe(first.id)
   })

@@ -4,6 +4,7 @@ import {
   attachLinkClaim,
   attachLinkModifier,
   linkSpan,
+  pathLinkTarget,
   terminalLinkTarget,
   webLinkTarget,
 } from './linkModifier'
@@ -40,6 +41,44 @@ describe('attachLinkModifier', () => {
     expect(host.classList.contains(LINK_MODIFIER_CLASS)).toBe(true)
     window.dispatchEvent(new Event('blur'))
     expect(host.classList.contains(LINK_MODIFIER_CLASS)).toBe(false)
+  })
+})
+
+describe('pathLinkTarget', () => {
+  const none = { ctrlKey: false, metaKey: false, shiftKey: false, altKey: false }
+  const linux = { mac: false, linkClick: 'app' as const }
+
+  it('opens in Ostia on Ctrl+click, with the default app on Ctrl+Shift+click, and shows the folder with Alt', () => {
+    expect(pathLinkTarget({ ...none, ctrlKey: true }, linux)).toBe('open')
+    expect(pathLinkTarget({ ...none, ctrlKey: true, shiftKey: true }, linux)).toBe('open-system')
+    expect(pathLinkTarget({ ...none, ctrlKey: true, altKey: true }, linux)).toBe('show')
+    expect(pathLinkTarget({ ...none, ctrlKey: true, altKey: true, shiftKey: true }, linux)).toBe(
+      'show-system',
+    )
+  })
+
+  it('does nothing without the link modifier, Alt and Shift included', () => {
+    expect(pathLinkTarget(none, linux)).toBe(null)
+    expect(pathLinkTarget({ ...none, altKey: true }, linux)).toBe(null)
+    expect(pathLinkTarget({ ...none, shiftKey: true, altKey: true }, linux)).toBe(null)
+  })
+
+  it('uses Cmd instead of Ctrl on macOS', () => {
+    const mac = { ...linux, mac: true }
+    expect(pathLinkTarget({ ...none, metaKey: true }, mac)).toBe('open')
+    expect(pathLinkTarget({ ...none, metaKey: true, shiftKey: true }, mac)).toBe('open-system')
+    expect(pathLinkTarget({ ...none, metaKey: true, altKey: true }, mac)).toBe('show')
+    expect(pathLinkTarget({ ...none, ctrlKey: true }, mac)).toBe(null)
+  })
+
+  it('swaps Ostia and the system on both pairs when terminal.linkClick is system', () => {
+    const swapped = { ...linux, linkClick: 'system' as const }
+    expect(pathLinkTarget({ ...none, ctrlKey: true }, swapped)).toBe('open-system')
+    expect(pathLinkTarget({ ...none, ctrlKey: true, shiftKey: true }, swapped)).toBe('open')
+    expect(pathLinkTarget({ ...none, ctrlKey: true, altKey: true }, swapped)).toBe('show-system')
+    expect(pathLinkTarget({ ...none, ctrlKey: true, altKey: true, shiftKey: true }, swapped)).toBe(
+      'show',
+    )
   })
 })
 

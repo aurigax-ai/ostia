@@ -38,15 +38,21 @@ class Failure extends Error {
   }
 }
 
+function lineAt(text: string, at: number): number {
+  let line = 1
+  for (let k = 0; k < at && k < text.length; k++) if (text.charCodeAt(k) === 10) line++
+  return line
+}
+
+function syntaxError(text: string, err: Failure): JsonSyntaxError {
+  const line = lineAt(text, err.at)
+  const lineStart = text.lastIndexOf('\n', err.at - 1) + 1
+  return { message: err.message, line, column: err.at - lineStart + 1 }
+}
+
 export function parseLocatedJson(text: string): LocatedJson | JsonSyntaxError {
   const lines = new Map<string, number>()
   let i = 0
-
-  const lineAt = (at: number): number => {
-    let line = 1
-    for (let k = 0; k < at && k < text.length; k++) if (text.charCodeAt(k) === 10) line++
-    return line
-  }
 
   let cursorLine = 1
   let cursorAt = 0
@@ -184,8 +190,6 @@ export function parseLocatedJson(text: string): LocatedJson | JsonSyntaxError {
     return { value, lines }
   } catch (err) {
     if (!(err instanceof Failure)) throw err
-    const line = lineAt(err.at)
-    const lineStart = text.lastIndexOf('\n', err.at - 1) + 1
-    return { message: err.message, line, column: err.at - lineStart + 1 }
+    return syntaxError(text, err)
   }
 }

@@ -1,6 +1,7 @@
 import { IconButton } from '@/components/common/IconButton'
 import { useDict } from '@/lib/app/useDict'
 import type { ViewerOption } from '@/lib/files/viewerChoice'
+import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useInjectedCss, usePanelThemeCss } from '@/lib/theme/panelThemeInjection'
 import { useOpenWithStore } from '@/stores/files/openWithStore'
 import { ArrowsLeftRightIcon } from '@phosphor-icons/react'
@@ -28,6 +29,8 @@ export function FileViewerFrame({
   const themeCss = usePanelThemeCss()
   const [opened, setOpened] = useState<Extract<ViewerOpenResult, { ok: true }> | null>(null)
   const [webview, setWebview] = useState<HTMLElement | null>(null)
+  const readyWebview = useGuestReady(webview)
+  useSurfaceFocus(paneId, () => readyWebview)
   useInjectedCss(webview, themeCss)
 
   useEffect(() => {

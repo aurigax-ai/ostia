@@ -21,11 +21,17 @@ interface PtyQueriesDeps {
   ptys: Map<string, PtyEntry>
   agentRunning: AgentRunningPanes
   workspaceSandboxes: WorkspaceSandboxes
+  foregroundCwd: (shellPid: number) => Promise<string | null>
 }
 
 export type PtyQueries = ReturnType<typeof createPtyQueries>
 
-export function createPtyQueries({ ptys, agentRunning, workspaceSandboxes }: PtyQueriesDeps) {
+export function createPtyQueries({
+  ptys,
+  agentRunning,
+  workspaceSandboxes,
+  foregroundCwd,
+}: PtyQueriesDeps) {
   function paneActivity(entry: PtyEntry): PaneActivity {
     let program: string | null = null
     try {
@@ -50,6 +56,23 @@ export function createPtyQueries({ ptys, agentRunning, workspaceSandboxes }: Pty
     }
   }
 
+  function foregroundProgram(paneId: string): string | null {
+    const entry = ptys.get(paneId)
+    return entry ? paneActivity(entry).program : null
+  }
+
+  function reportedCwd(entry: PtyEntry): string | null {
+    const report = entry.mirror.cwdReport
+    return report && isHostNamed(report.host, hostname()) ? report.path : null
+  }
+
+  async function agentCwd(paneId: string): Promise<string | null> {
+    const entry = ptys.get(paneId)
+    if (!entry) return null
+    const own = entry.sandboxed || entry.kept ? null : await foregroundCwd(entry.pty.pid)
+    return own ?? reportedCwd(entry)
+  }
+
   function ptyPid(paneId: string): number | undefined {
     return ptys.get(paneId)?.pty.pid
   }
@@ -60,8 +83,8 @@ export function createPtyQueries({ ptys, agentRunning, workspaceSandboxes }: Pty
     const text = await entry.mirror.screenText(HISTORY_LINES)
     const report = entry.mirror.cwdReport
     const remote = report !== null && !isHostNamed(report.host, hostname())
-    return { text, cwd: report?.path ?? null, remote }
+    return { text, cwd: report?.path ?? null, remote, sandboxed: entry.sandboxed }
   }
 
-  return { paneActivity, sandboxReadRules, ptyPid, paneOutput }
+  return { paneActivity, foregroundProgram, agentCwd, sandboxReadRules, ptyPid, paneOutput }
 }

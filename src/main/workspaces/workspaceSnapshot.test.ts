@@ -192,8 +192,9 @@ describe('parseSnapshot', () => {
       }),
     )
     expect(withResume(saved)?.workspaces[0].root).toMatchObject({
-      resume: { agent: 'codex', id: 'abc-1', args: ['-m', 'gpt-5'], env: { GL_ISSUE: '685' } },
+      resume: { agent: 'codex', id: 'abc-1', args: ['-m', 'gpt-5'] },
     })
+    expect(withResume(saved)?.workspaces[0].root).not.toHaveProperty('resume.env')
   })
 
   it('keeps a view pane by name and drops one without a valid view name', () => {
@@ -235,6 +236,28 @@ describe('parseSnapshot', () => {
     expect(
       rootOf({ resume: { agent: 'claude', id: 'abc-1' }, agentRunning: 'yes' }),
     ).not.toHaveProperty('agentRunning')
+  })
+
+  it('RSM-C17 keeps a failed resume token as data, never running and only without a live token', () => {
+    const pane = snap().workspaces[0].root
+    const rootOf = (extra: object) =>
+      parseSnapshot(
+        snap({ workspaces: [{ ...snap().workspaces[0], root: { ...pane, ...extra } as never }] }),
+      )?.workspaces[0].root
+    const failed = { resume: { agent: 'claude', id: 'dead-1' }, exitCode: 1 }
+    expect(rootOf({ resumeFailed: failed, agentRunning: true })).toMatchObject({
+      resumeFailed: failed,
+    })
+    expect(rootOf({ resumeFailed: failed, agentRunning: true })).not.toHaveProperty('agentRunning')
+    expect(
+      rootOf({ resume: { agent: 'claude', id: 'abc-1' }, resumeFailed: failed }),
+    ).not.toHaveProperty('resumeFailed')
+    expect(
+      rootOf({ resumeFailed: { resume: { agent: 'claude', id: '$(id)' }, exitCode: 1 } }),
+    ).not.toHaveProperty('resumeFailed')
+    expect(
+      rootOf({ resumeFailed: { resume: failed.resume, exitCode: 'rm -rf' } }),
+    ).not.toHaveProperty('resumeFailed')
   })
 
   it('keeps a renamed pane pinned only when the mark is true', () => {

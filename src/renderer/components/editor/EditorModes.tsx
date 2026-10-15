@@ -27,6 +27,7 @@ interface EditorModesProps {
   runnable: boolean
   optionViewer?: OptionViewer
   setRunChoice: (choice: { file: string; on: boolean }) => void
+  overlayRef: MutableRefObject<HTMLElement | null>
 }
 
 export function EditorModes({
@@ -45,6 +46,7 @@ export function EditorModes({
   runnable,
   optionViewer,
   setRunChoice,
+  overlayRef,
 }: EditorModesProps): JSX.Element {
   const d = useDict()
   return (
@@ -52,6 +54,7 @@ export function EditorModes({
       {markdown && preview ? (
         <MarkdownPreview
           source={previewText}
+          focusRef={overlayRef}
           onSelectionChange={(sel) => {
             previewSelectionRef.current = sel
           }}
@@ -74,6 +77,7 @@ export function EditorModes({
           paneId={paneId}
           filePath={filePath}
           visible={visible}
+          focusRef={overlayRef}
           onSendErrors={(count, text) =>
             selectionSend.open({ kind: 'preview-error', file: filePath, count, text })
           }

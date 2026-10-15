@@ -43,13 +43,34 @@ export interface WebLinkClickContext {
   linkClick: LinkClick
 }
 
+function opensInSystem(e: { shiftKey: boolean }, linkClick: LinkClick): boolean {
+  return e.shiftKey === (linkClick === 'app')
+}
+
 export function webLinkTarget(e: WebLinkClick, ctx: WebLinkClickContext): WebLinkTarget | null {
-  if (linkModifierHeld(e, ctx.mac)) {
-    return e.shiftKey === (ctx.linkClick === 'app') ? 'system' : 'new-tab'
-  }
+  if (linkModifierHeld(e, ctx.mac)) return opensInSystem(e, ctx.linkClick) ? 'system' : 'new-tab'
   if (e.ctrlKey || e.metaKey || e.shiftKey || e.detail > 1) return null
   if (ctx.hasSelection || ctx.mouseReporting) return null
   return 'same-tab'
+}
+
+export type PathLinkTarget = 'open' | 'open-system' | 'show' | 'show-system'
+
+export interface PathLinkClick {
+  ctrlKey: boolean
+  metaKey: boolean
+  shiftKey: boolean
+  altKey: boolean
+}
+
+export function pathLinkTarget(
+  e: PathLinkClick,
+  ctx: Pick<WebLinkClickContext, 'mac' | 'linkClick'>,
+): PathLinkTarget | null {
+  if (!linkModifierHeld(e, ctx.mac)) return null
+  const system = opensInSystem(e, ctx.linkClick)
+  if (e.altKey) return system ? 'show-system' : 'show'
+  return system ? 'open-system' : 'open'
 }
 
 export type TerminalLinkTarget = WebLinkTarget | 'app'

@@ -6,7 +6,7 @@ import { browserProfileIn, openerOf } from '@/lib/browser/browserProfile'
 import type { FocusDirection } from '@/lib/layout/focusDirection'
 import { type DropZone, findPane, tabIdOf, tabNeighbor } from '@/lib/layout/tree'
 import type { Direction } from '@/lib/layout/types'
-import { focusActivePaneWhenReady } from '@/lib/terminal/focusNewTerminal'
+import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
 import {
   closePaneForAgent,
   requestClosePane,

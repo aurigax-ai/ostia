@@ -1,4 +1,6 @@
 import {
+  clearPaneResumeFailure,
+  failPaneResume,
   followMovedFile,
   hasLockedPane,
   renamePane,
@@ -29,6 +31,8 @@ type LayoutPaneActions = Pick<
   | 'setDefaultTitle'
   | 'setResume'
   | 'setResumePending'
+  | 'failResume'
+  | 'clearResumeFailure'
   | 'setHibernated'
   | 'setSpawnDir'
   | 'settleSpawnDir'
@@ -115,6 +119,26 @@ export function createLayoutPaneActions(set: LayoutSet, get: LayoutGet): LayoutP
         const layout = s.byWorkspace[workspaceId]
         if (!layout) return s
         const root = setPaneResume(layout.root, paneId, resume)
+        return root === layout.root
+          ? s
+          : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+      }),
+
+    failResume: (workspaceId, paneId, resume, exitCode) =>
+      set((s) => {
+        const layout = s.byWorkspace[workspaceId]
+        if (!layout) return s
+        const root = failPaneResume(layout.root, paneId, resume, exitCode)
+        return root === layout.root
+          ? s
+          : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+      }),
+
+    clearResumeFailure: (workspaceId, paneId) =>
+      set((s) => {
+        const layout = s.byWorkspace[workspaceId]
+        if (!layout) return s
+        const root = clearPaneResumeFailure(layout.root, paneId)
         return root === layout.root
           ? s
           : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }

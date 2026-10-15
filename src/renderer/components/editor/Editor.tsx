@@ -4,7 +4,9 @@ import { useReducedMotion } from '@/lib/app/motion'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { usePaneVisible } from '@/lib/attention/workspaceActivity'
 import { useArtifactListing } from '@/lib/files/artifacts'
+import { editorInput } from '@/lib/monaco/editorInput'
 import type { monaco } from '@/lib/monaco/setup'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useOpenWaitsStore } from '@/stores/files/openWaitsStore'
 import {
@@ -98,6 +100,12 @@ export function EditorView({
   const [runChoice, setRunChoice] = useState<{ file: string; on: boolean } | null>(null)
   const chosen = runChoice && runChoice.file === filePath ? runChoice.on : null
   const running = runnable && (chosen ?? inArtifacts)
+  const overlayRef = useRef<HTMLElement | null>(null)
+  const overlayUp = (markdown && preview) || running
+  useSurfaceFocus(
+    paneId,
+    blocked ? null : () => (overlayUp ? overlayRef.current : editorInput(editorRef.current)),
+  )
   const visible = usePaneVisible(paneId)
   const visibleRef = useRef(visible)
   const missedCheckRef = useRef(false)
@@ -207,6 +215,7 @@ export function EditorView({
         running={running}
         runnable={runnable}
         optionViewer={blocked ? undefined : optionViewer}
+        overlayRef={overlayRef}
         setRunChoice={setRunChoice}
       />
       <EditorAlerts

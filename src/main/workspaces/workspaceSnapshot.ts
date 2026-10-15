@@ -2,7 +2,7 @@ import { existsSync, rmSync } from 'node:fs'
 import { VIEW_TYPE_PATTERN } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
 import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import { parseAgentResume } from '../../shared/agents/agentResume'
+import { parseAgentResume, parseResumeFailure } from '../../shared/agents/agentResume'
 import type {
   AppSnapshot,
   PaneDrop,
@@ -131,6 +131,8 @@ function parseNode(
     if (resume) pane.resume = resume
     if (resume && raw.agentRunning === true && raw.hibernated !== true) pane.agentRunning = true
     if (resume && raw.hibernated === true) pane.hibernated = true
+    const failure = resume ? null : parseResumeFailure(raw.resumeFailed)
+    if (failure) pane.resumeFailed = failure
     if (raw.locked === true) pane.locked = true
     if (pane.kind === 'terminal' && raw.defaultTitle === true) pane.defaultTitle = true
     if (raw.titlePinned === true) pane.titlePinned = true

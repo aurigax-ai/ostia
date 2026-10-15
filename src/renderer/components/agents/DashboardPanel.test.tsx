@@ -389,7 +389,7 @@ describe('DashboardPanel', () => {
     expect(row).toHaveTextContent('In another window')
     expect(row).toHaveTextContent('Working')
     await userEvent.setup().click(screen.getByRole('button', { name: 'Open workspace infra' }))
-    expect(window.ostia.windows.focusWorkspace).toHaveBeenCalledWith('w-far', false)
+    expect(window.ostia.windows.focusWorkspace).toHaveBeenCalledWith('w-far', false, true)
   })
 
   it('closes on Escape and from its close button', async () => {

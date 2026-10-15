@@ -2,12 +2,14 @@ import { commands } from '@/commands/registry'
 import { WarningNote } from '@/components/settings/ControlRow'
 import { Button } from '@/components/ui/button'
 import { runningAgentOf } from '@/lib/agents/paneAgent'
+import { dismissResumeFailure, retryResume, startNewSession } from '@/lib/agents/resumeFailure'
 import { resumeClaimEndsAt, resumeConflict } from '@/lib/agents/resumeFolder'
 import { fmt, useDict } from '@/lib/app/useDict'
 import type { PaneNode } from '@/lib/layout/types'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { XIcon } from '@phosphor-icons/react'
+import { ArrowClockwiseIcon, PlusIcon, XIcon } from '@phosphor-icons/react'
+import type { ResumeFailure } from '@shared/agents/agentResume'
 import type { AgentResume } from '@shared/agents/agentResume'
 import { useEffect, useReducer } from 'react'
 
@@ -84,6 +86,50 @@ export function ResumeConflictNotice({ pane }: { pane: PaneNode }): JSX.Element 
           {fmt(both ? d.pane.resumeConflictBoth : d.pane.resumeConflict, {
             agent: pane.resume.agent,
             tab: holder.title,
+          })}
+        </span>
+      </WarningNote>
+    </section>
+  )
+}
+
+export function ResumeFailedNotice({
+  paneId,
+  failure,
+}: {
+  paneId: string
+  failure: ResumeFailure
+}): JSX.Element {
+  const d = useDict()
+  const { resume, exitCode } = failure
+  return (
+    <section
+      aria-label={d.pane.resumeFailedLabel}
+      data-resume-failed=""
+      className="motion-enter absolute right-0 bottom-0 left-0 z-20 border-line border-t bg-surface-1 px-2 pb-1.5"
+    >
+      <WarningNote
+        actions={
+          <>
+            <Button variant="outline" size="xs" onClick={() => retryResume(paneId)}>
+              <ArrowClockwiseIcon data-icon="inline-start" aria-hidden />
+              {d.pane.resumeFailedRetry}
+            </Button>
+            <Button variant="outline" size="xs" onClick={() => startNewSession(paneId)}>
+              <PlusIcon data-icon="inline-start" aria-hidden />
+              {d.pane.resumeFailedNewSession}
+            </Button>
+            <Button variant="ghost" size="xs" onClick={() => dismissResumeFailure(paneId)}>
+              {d.pane.resumeFailedDismiss}
+            </Button>
+          </>
+        }
+      >
+        <span className="[overflow-wrap:anywhere]">
+          {fmt(d.pane.resumeFailed, {
+            agent: d.agentSession[resume.agent],
+            id: resume.id.slice(0, 8),
+            code: exitCode,
           })}
         </span>
       </WarningNote>

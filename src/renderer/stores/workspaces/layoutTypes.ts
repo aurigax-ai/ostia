@@ -37,6 +37,8 @@ export interface LayoutState {
   setUrl: (workspaceId: string, paneId: string, url: string) => void
   setResume: (workspaceId: string, paneId: string, resume: AgentResume) => void
   setResumePending: (workspaceId: string, paneId: string, pending: boolean) => void
+  failResume: (workspaceId: string, paneId: string, resume: AgentResume, exitCode: number) => void
+  clearResumeFailure: (workspaceId: string, paneId: string) => void
   setHibernated: (workspaceId: string, paneId: string, hibernated: boolean) => void
   setSpawnDir: (workspaceId: string, paneId: string, spawnDir: string) => void
   settleSpawnDir: (workspaceId: string, paneId: string, missing: boolean) => void

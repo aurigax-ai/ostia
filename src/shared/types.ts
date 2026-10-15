@@ -24,7 +24,7 @@ import type {
   SnippetListing,
   SnippetSaveResult,
 } from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
-import type { AgentResume, ResumableAgent } from './agents/agentResume'
+import type { AgentResume, ResumableAgent, ResumeFailure } from './agents/agentResume'
 import type { AgentSessionInfo } from './agents/agentSessionInfo'
 import type { HibernateOutcome } from './agents/agentWork'
 import type { QuestionReply, QuestionState } from './agents/questions'
@@ -243,6 +243,7 @@ export interface PtyAttachResult {
   reattached?: boolean
   agentRunning?: boolean
   cwdMissing?: boolean
+  markNonce?: string
 }
 
 interface SystemApi {
@@ -541,6 +542,7 @@ export interface SnapshotPaneNode {
   viewName?: string
   browserProfile?: BrowserProfile
   resume?: AgentResume
+  resumeFailed?: ResumeFailure
   agentRunning?: true
   hibernated?: true
   locked?: true
@@ -752,12 +754,14 @@ interface WindowsApi {
   returnToMain: (workspaces: SnapshotWorkspace[]) => Promise<boolean>
   openWith: (workspaces: SnapshotWorkspace[]) => Promise<boolean>
   report: (workspaces: WindowWorkspaceReport[]) => void
-  focusWorkspace: (workspaceId: string, jumpToUnread: boolean) => void
+  focusWorkspace: (workspaceId: string, jumpToUnread: boolean, takesKeyboard: boolean) => void
   returnWorkspace: (workspaceId: string) => void
   newWorkspace: (request: NewWorkspaceRequest) => void
   onList: (cb: (list: WindowSummary[]) => void) => () => void
   onAdopt: (cb: (workspaces: SnapshotWorkspace[]) => void) => () => void
-  onActivateWorkspace: (cb: (workspaceId: string, jumpToUnread: boolean) => void) => () => void
+  onActivateWorkspace: (
+    cb: (workspaceId: string, jumpToUnread: boolean, takesKeyboard: boolean) => void,
+  ) => () => void
   onReturnRequest: (cb: () => void) => () => void
   originAgents: (workspaceId: string) => Promise<OriginAgents | null>
   onOriginAgentsChanged: (cb: () => void) => () => void
@@ -896,7 +900,8 @@ interface FilesApi {
 interface TerminalLinksApi {
   probe: (paneId: string, path: string) => Promise<FsKind | null>
   admit: (paneId: string, written: string) => Promise<OpenFileVerdict | null>
-  openFolder: (paneId: string, written: string) => Promise<OpenPathResult>
+  openDefault: (paneId: string, written: string) => Promise<OpenPathResult>
+  showInFolder: (paneId: string, written: string) => Promise<OpenPathResult>
 }
 
 export interface ClipboardContents {

@@ -24,6 +24,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event'
 import { createPortal } from 'react-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../../../test/render'
 import { DeckRail } from './DeckRail'
 
 function homeWorkspaceId(): string {
@@ -81,9 +82,9 @@ const signal = (paneId: string, message: string, at: number) =>
   })
 
 describe('sidebar unread mark', () => {
-  it('marks the workspace icon unread without a number and clears it at zero', () => {
+  it('marks the workspace icon unread without a number and clears it at zero', async () => {
     const { workspaceId, a, b } = twoPanes()
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     expect(screen.queryByRole('img', { name: /unread/ })).toBeNull()
 
     signal(a, 'one', 1)
@@ -97,9 +98,9 @@ describe('sidebar unread mark', () => {
     expect(workspaceId).toBeTruthy()
   })
 
-  it('restarts the fast blink only when the unread count grows, never on decrease', () => {
+  it('restarts the fast blink only when the unread count grows, never on decrease', async () => {
     const { a, b } = twoPanes()
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     const icon = () => screen.getByRole('img', { name: /unread/ })
 
     signal(a, 'one', 1)
@@ -113,10 +114,10 @@ describe('sidebar unread mark', () => {
     expect(icon()).toHaveAccessibleName('1 unread')
   })
 
-  it('restarts the waiting dot pulse only when a new waiting signal arrives', () => {
+  it('restarts the waiting dot pulse only when a new waiting signal arrives', async () => {
     const { workspaceId, a } = twoPanes()
     act(() => useWorkspacesStore.getState().setState(workspaceId, 'waiting'))
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     signal(a, 'first', 1)
     const first = screen.getByRole('img', { name: 'Waiting for input' })
 
@@ -127,10 +128,10 @@ describe('sidebar unread mark', () => {
     expect(screen.getByRole('img', { name: 'Waiting for input' })).not.toBe(first)
   })
 
-  it('labels the error state so it is not conveyed by color alone', () => {
+  it('labels the error state so it is not conveyed by color alone', async () => {
     const workspaceId = homeWorkspaceId()
     act(() => useWorkspacesStore.getState().setState(workspaceId, 'error'))
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     expect(screen.getByRole('img', { name: 'Error' })).toHaveClass('error')
   })
 })
@@ -279,7 +280,7 @@ describe('pane tab attention mark', () => {
     const stopSync = startAttentionSync()
     startOffscreen(paneId)
     try {
-      const view = render(
+      const view = await renderSettled(
         <>
           <DeckRail />
           <Pane
@@ -547,7 +548,7 @@ describe('NotificationCenter', () => {
   it('a terminal notification in a background pane marks it unread and Ctrl+Shift+U jumps to it', async () => {
     if (!commands.has('attention.jumpToLatest')) registerBuiltinCommands()
     const { workspaceId, a, b } = twoPanes()
-    const view = render(
+    const view = await renderSettled(
       <TooltipProvider>
         <DeckRail />
         <NotificationCenter />
