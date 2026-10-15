@@ -1,5 +1,6 @@
 import { IconButton } from '@/components/common/IconButton'
-import { SectionHead, WarningNote } from '@/components/settings/SettingsPanel'
+import { WarningNote } from '@/components/settings/ControlRow'
+import { SectionHead } from '@/components/settings/SettingsGroup'
 import { Highlight, useSearchGroup } from '@/components/settings/SettingsSearch'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'

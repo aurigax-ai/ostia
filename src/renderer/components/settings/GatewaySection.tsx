@@ -46,14 +46,9 @@ import type {
 } from '@shared/types'
 import QRCode from 'qrcode'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  ControlRow,
-  SectionHead,
-  SelectField,
-  SubHead,
-  ToggleRow,
-  WarningNote,
-} from './SettingsPanel'
+import { ControlRow, ToggleRow, WarningNote } from './ControlRow'
+import { SelectField } from './SelectField'
+import { SectionHead, SubHead } from './SettingsGroup'
 
 const PAIR_CODE_TTL_S = 120
 

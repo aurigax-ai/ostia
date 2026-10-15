@@ -1,5 +1,5 @@
 import { MenuItem } from '@/components/common/Menu'
-import { WarningNote } from '@/components/settings/SettingsPanel'
+import { WarningNote } from '@/components/settings/ControlRow'
 import {
   AlertDialog,
   AlertDialogAction,

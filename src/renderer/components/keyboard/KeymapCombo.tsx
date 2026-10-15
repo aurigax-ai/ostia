@@ -1,4 +1,4 @@
-import { WarningNote } from '@/components/settings/SettingsPanel'
+import { WarningNote } from '@/components/settings/ControlRow'
 import { useSearchLeaf } from '@/components/settings/SettingsSearch'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'

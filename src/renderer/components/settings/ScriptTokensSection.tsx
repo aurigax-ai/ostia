@@ -58,7 +58,8 @@ import {
   type ScriptTokensState,
 } from '@shared/permissions/scriptTokens'
 import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
-import { SectionHead, SelectField, SettingsGroup } from './SettingsPanel'
+import { SelectField } from './SelectField'
+import { SectionHead, SettingsGroup } from './SettingsGroup'
 
 const ENV = 'OSTIA_TOKEN'
 const DISMISSED_KEY = 'scriptTokens.retiredDismissedAt'

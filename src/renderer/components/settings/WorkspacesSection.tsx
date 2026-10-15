@@ -8,7 +8,8 @@ import {
 } from '@/stores/app/settingsStore'
 import { toAccelerator } from '@shared/keyboard/globalHotkey'
 import { useEffect, useState } from 'react'
-import { ControlRow, SectionHead, SettingsGroup, ToggleRow, WarningNote } from './SettingsPanel'
+import { ControlRow, ToggleRow, WarningNote } from './ControlRow'
+import { SectionHead, SettingsGroup } from './SettingsGroup'
 
 const FOLDER_CHECK_DELAY_MS = 300
 

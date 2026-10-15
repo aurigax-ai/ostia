@@ -17,7 +17,9 @@ import { useAvailableIconThemes } from '@/stores/extensions/iconThemeStore'
 import { PlusIcon, XIcon } from '@phosphor-icons/react'
 import { BUILTIN_ICON_THEME } from '@shared/iconTheme'
 import { type FormEvent, useState } from 'react'
-import { ControlRow, SelectField, SettingsGroup, SubHead, ToggleRow } from './SettingsPanel'
+import { ControlRow, ToggleRow } from './ControlRow'
+import { SelectField } from './SelectField'
+import { SectionHead, SettingsGroup, SubHead } from './SettingsGroup'
 
 function PatternRow({
   label,
@@ -154,7 +156,7 @@ function NestingList(): JSX.Element {
   )
 }
 
-export function FileTreeSettingsGroups(): JSX.Element {
+function FileTreeSettingsGroups(): JSX.Element {
   const d = useDict()
   const files = useSettingsStore((s) => s.files)
   const setFiles = useSettingsStore((s) => s.setFiles)
@@ -258,5 +260,33 @@ export function FileTreeSettingsGroups(): JSX.Element {
         {files.nesting.enabled ? <NestingList /> : null}
       </SettingsGroup>
     </>
+  )
+}
+
+export function FilesSection(): JSX.Element {
+  const d = useDict()
+  return (
+    <section>
+      <SectionHead title={d.settings.files} />
+      <ExternalEditorRow />
+      <FileTreeSettingsGroups />
+    </section>
+  )
+}
+
+function ExternalEditorRow(): JSX.Element {
+  const d = useDict()
+  const value = useSettingsStore((s) => s.behavior.externalEditor)
+  const setBehavior = useSettingsStore((s) => s.setBehavior)
+  return (
+    <ControlRow label={d.settings.externalEditor} desc={d.settings.externalEditorDesc}>
+      <Input
+        value={value}
+        spellCheck={false}
+        aria-label={d.settings.externalEditor}
+        onChange={(e) => setBehavior({ externalEditor: e.target.value })}
+        className="h-7 w-56 font-mono"
+      />
+    </ControlRow>
   )
 }

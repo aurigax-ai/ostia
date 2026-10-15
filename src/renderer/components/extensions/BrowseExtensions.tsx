@@ -1,5 +1,7 @@
 import { TextLink } from '@/components/common/TextLink'
-import { SectionHead, SelectField, WarningNote } from '@/components/settings/SettingsPanel'
+import { WarningNote } from '@/components/settings/ControlRow'
+import { SelectField } from '@/components/settings/SelectField'
+import { SectionHead } from '@/components/settings/SettingsGroup'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'

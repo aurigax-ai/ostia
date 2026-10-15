@@ -4,7 +4,7 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { actionFingerprint } from '@/lib/settings/actions'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { XIcon } from '@phosphor-icons/react'
-import { SectionHead } from './SettingsPanel'
+import { SectionHead } from './SettingsGroup'
 import { actionIcon } from './actionIcons'
 
 export function ActionsSection(): JSX.Element {

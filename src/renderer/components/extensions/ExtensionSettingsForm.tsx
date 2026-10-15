@@ -1,5 +1,6 @@
 import { ExtensionConnections } from '@/components/extensions/ExtensionConnections'
-import { ControlRow, SelectField } from '@/components/settings/SettingsPanel'
+import { ControlRow } from '@/components/settings/ControlRow'
+import { SelectField } from '@/components/settings/SelectField'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'

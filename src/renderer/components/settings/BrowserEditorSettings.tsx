@@ -18,14 +18,9 @@ import {
 } from '@/lib/settings/browserEditorSettings'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useState } from 'react'
-import {
-  ControlRow,
-  SectionHead,
-  SelectField,
-  SettingsGroup,
-  ToggleRow,
-  WarningNote,
-} from './SettingsPanel'
+import { ControlRow, ToggleRow, WarningNote } from './ControlRow'
+import { SelectField } from './SelectField'
+import { SectionHead, SettingsGroup } from './SettingsGroup'
 
 function ZoomField(): JSX.Element {
   const d = useDict()

@@ -1,6 +1,7 @@
 import { IconButton } from '@/components/common/IconButton'
+import { MachineValue, WarningNote } from '@/components/settings/ControlRow'
 import { RequirementsNote } from '@/components/settings/RequirementsNote'
-import { MachineValue, SubHead, WarningNote } from '@/components/settings/SettingsPanel'
+import { SubHead } from '@/components/settings/SettingsGroup'
 import {
   AlertDialog,
   AlertDialogAction,

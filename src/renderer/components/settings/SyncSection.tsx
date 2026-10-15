@@ -5,7 +5,8 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { Dict } from '@shared/app/dict'
 import type { SyncConflict, SyncStatus } from '@shared/types'
 import { useEffect, useMemo, useState } from 'react'
-import { ControlRow, MachineValue, SectionHead, WarningNote } from './SettingsPanel'
+import { ControlRow, MachineValue, WarningNote } from './ControlRow'
+import { SectionHead } from './SettingsGroup'
 import { SyncSecretsSection } from './SyncSecretsSection'
 
 const OFF: SyncStatus = {

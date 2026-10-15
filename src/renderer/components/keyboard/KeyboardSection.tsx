@@ -1,11 +1,8 @@
 import { commands } from '@/commands/registry'
 import { IconButton } from '@/components/common/IconButton'
-import {
-  ControlRow,
-  SectionHead,
-  SelectField,
-  WarningNote,
-} from '@/components/settings/SettingsPanel'
+import { ControlRow, WarningNote } from '@/components/settings/ControlRow'
+import { SelectField } from '@/components/settings/SelectField'
+import { SectionHead } from '@/components/settings/SettingsGroup'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Kbd } from '@/components/ui/kbd'
