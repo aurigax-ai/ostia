@@ -10,7 +10,8 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useViewsStore } from '@/stores/extensions/viewsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
   VIEW_MAX_LIST_ITEMS,
   type ViewInfo,

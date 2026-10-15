@@ -69,12 +69,8 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { useRailEditStore } from '@/stores/workspaces/railEditStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
-import {
-  type Workspace,
-  type WorkspaceKind,
-  type WorkspaceState,
-  useWorkspacesStore,
-} from '@/stores/workspaces/workspacesStore'
+import type { Workspace, WorkspaceKind, WorkspaceState } from '@/stores/workspaces/workspaceTypes'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionSidebarItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import {
   AppWindowIcon,

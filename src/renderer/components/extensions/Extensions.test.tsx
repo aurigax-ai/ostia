@@ -2,7 +2,8 @@ import { commands } from '@/commands/registry'
 import { DeckRail } from '@/components/sidebar/DeckRail'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type {
   ExtensionInfo,
   ExtensionSidebarItem,

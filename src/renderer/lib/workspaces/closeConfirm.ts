@@ -16,7 +16,8 @@ import {
 } from '@/stores/workspaces/closeConfirmStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { isRestorable } from '@/stores/workspaces/persistence'
-import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { PaneActivity, QuitAnswer } from '@shared/types'
 
 export function runningCommandsOf(

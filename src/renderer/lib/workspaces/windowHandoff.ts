@@ -15,11 +15,8 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { isMovable, liveAgentPanes } from '@/stores/workspaces/persistence'
 import { focusSurfaceWhenReady } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
-import {
-  type Workspace,
-  nextWorkspaceId,
-  useWorkspacesStore,
-} from '@/stores/workspaces/workspacesStore'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
+import { nextWorkspaceId, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type {
   AttentionState,
   ScreenPoint,

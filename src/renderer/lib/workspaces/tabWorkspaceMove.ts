@@ -4,11 +4,8 @@ import type { PaneNode } from '@/lib/layout/types'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { focusSurfaceWhenReady } from '@/stores/workspaces/surfaceSlotsStore'
-import {
-  type Workspace,
-  type WorkspaceKind,
-  useWorkspacesStore,
-} from '@/stores/workspaces/workspacesStore'
+import type { Workspace, WorkspaceKind } from '@/stores/workspaces/workspaceTypes'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 
 export type TabMoveRefusal = 'same' | 'unknown' | 'manager' | 'scratch' | 'sandbox'
 
