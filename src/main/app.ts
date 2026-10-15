@@ -2727,6 +2727,11 @@ function registerPtyIpc(): void {
       screen = await pane.snapshot(cols, rows)
     } catch {}
     feedPty(entry, `${RESTORE_SEAM}${screen}`)
+    const keptAgent = agentRunning.stillRunning(paneId, {
+      foreground: await pane.currentCommand().catch(() => ''),
+      shell: meta.shell,
+      sandboxed: sandbox !== undefined,
+    })
     if (meta.process) {
       processes?.adopt(
         {
@@ -2753,6 +2758,7 @@ function registerPtyIpc(): void {
       ...(sandbox?.stamp ? { sandboxStamp: sandbox.stamp } : {}),
       kept: true,
       reattached: true,
+      ...(keptAgent ? { agentRunning: true } : {}),
       cols: pane.cols,
       rows: pane.rows,
     }

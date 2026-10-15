@@ -13,7 +13,7 @@ import { useSelectionSend } from '@/components/agents/SelectionSend'
 import { AssistComposer } from '@/components/assist/AssistComposer'
 import { RiskyPasteDialog } from '@/components/common/RiskyPasteDialog'
 import { currentDict, fmt } from '@/i18n/useDict'
-import { terminalNotification } from '@/lib/agents/paneAgent'
+import { keptAgentReattached, terminalNotification } from '@/lib/agents/paneAgent'
 import { registerSelectionSender } from '@/lib/agents/selectionSenders'
 import { attachWheelZoom } from '@/lib/app/wheelZoom'
 import { tail } from '@/lib/assist/askContext'
@@ -783,8 +783,17 @@ function TerminalSurface({
           ...spawnPromptOption(useSettingsStore.getState()),
         })
         .then((result) => {
-          const { buffer, sandboxed, sandboxStamp, host, shell, kept, reattached, cwdMissing } =
-            result
+          const {
+            buffer,
+            sandboxed,
+            sandboxStamp,
+            host,
+            shell,
+            kept,
+            reattached,
+            agentRunning,
+            cwdMissing,
+          } = result
           if (disposed) return
           if (lastSizeRef.current.cols === 0 && result.cols && result.rows) {
             term.resize(result.cols, result.rows)
@@ -800,11 +809,19 @@ function TerminalSurface({
           if (host) useSandboxStore.getState().noteHost(paneId)
           disposeMarkers()
           useBlocksStore.getState().resetPane(paneId)
+          const reopenKeptAgent = (): void => {
+            if (agentRunning && !disposed) {
+              keptAgentReattached(workspaceIdRef.current, paneId, anchor())
+            }
+          }
           if (buffer) {
             replaying = true
             writeOutput(buffer, () => {
               replaying = false
+              reopenKeptAgent()
             })
+          } else {
+            reopenKeptAgent()
           }
           flushPending()
         })

@@ -4,6 +4,7 @@ import type {
   SnapshotPaneNode,
   SnapshotWorkspace,
 } from '../../shared/types'
+import { type PromptOwner, busyProgram } from '../terminal/localPrompt'
 
 function snapshotWorkspaces(snapshot: AppSnapshot): SnapshotWorkspace[] {
   return [...snapshot.workspaces, ...(snapshot.windows ?? []).flatMap((w) => w.workspaces)]
@@ -58,6 +59,11 @@ export class AgentRunningPanes {
 
   has(paneId: string): boolean {
     return this.panes.has(paneId)
+  }
+
+  stillRunning(paneId: string, owner: PromptOwner): boolean {
+    if (!this.panes.has(paneId)) return false
+    return owner.sandboxed || owner.foreground === '' || busyProgram(owner) !== null
   }
 
   report(paneId: string, running: boolean, attached: boolean): void {
