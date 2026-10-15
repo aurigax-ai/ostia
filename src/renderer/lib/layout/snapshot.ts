@@ -7,14 +7,8 @@ import type {
   SnapshotWorkspace,
   WorkspaceOrigin,
 } from '@shared/types'
-import {
-  TERMINAL_TITLE,
-  adoptIds,
-  findPane,
-  firstPaneId,
-  isRemoteFilePane,
-  withoutPanes,
-} from './tree'
+import { isRemoteFilePane } from './paneFields'
+import { TERMINAL_TITLE, adoptIds, findPane, firstPaneId, withoutPanes } from './tree'
 import type { LayoutNode, PaneNode, SplitNode } from './types'
 
 export interface RestorableWorkspace {

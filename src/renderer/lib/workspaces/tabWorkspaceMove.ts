@@ -1,4 +1,5 @@
-import { allPanes, findPane, findSplitTab, tabIdOf, takeTab } from '@/lib/layout/tree'
+import { takeTab } from '@/lib/layout/tabMoves'
+import { allPanes, findPane, findSplitTab, tabIdOf } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'

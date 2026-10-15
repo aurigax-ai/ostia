@@ -11,7 +11,7 @@ import {
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useChatAvailable } from '@/lib/assist/assistFeatures'
 import { matchChord, runAppChord } from '@/lib/keyboard/chords'
-import { firstPaneOfKind } from '@/lib/layout/tree'
+import { firstPaneOfKind } from '@/lib/layout/paneFields'
 import { isComposingEscape, swallowHeldEscape } from '@/lib/palette/paletteEscape'
 import { paletteFilter } from '@/lib/palette/paletteFilter'
 import { paletteReturnFocus } from '@/lib/palette/paletteFocus'

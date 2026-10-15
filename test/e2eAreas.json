@@ -876,6 +876,9 @@
       "name": "tabs and panes",
       "paths": [
         "src/renderer/lib/layout/tree.ts",
+        "src/renderer/lib/layout/focusDirection.ts",
+        "src/renderer/lib/layout/paneFields.ts",
+        "src/renderer/lib/layout/tabMoves.ts",
         "src/renderer/lib/layout/panelSize.ts",
         "src/renderer/components/panes/TabBody.tsx",
         "src/renderer/components/panes/TabFace.tsx",

@@ -1,11 +1,6 @@
 import { namespacedId } from '@/lib/workspaces/idNamespace'
-import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import { type AgentResume, sameResume } from '@shared/agents/agentResume'
-import { type BrowserProfile, parseBrowserProfile } from '@shared/browser/browserProfile'
-import type { PanePlacement } from '@shared/types'
 import type {
   Direction,
-  DropZone,
   LayoutNode,
   PaneNode,
   SplitNode,
@@ -96,271 +91,12 @@ export function slotKey(node: LayoutNode): string {
   return node.type === 'tabs' ? slotKey(node.children[0]) : node.id
 }
 
-export function equalizeSizes(node: LayoutNode): LayoutNode {
-  if (node.type !== 'split') return node
-  const children = node.children.map(equalizeSizes)
-  const sizes = node.children.map(() => 1)
-  const sameChildren = children.every((c, i) => c === node.children[i])
-  const sameSizes = node.sizes.length === sizes.length && node.sizes.every((n) => n === 1)
-  if (sameChildren && sameSizes) return node
-  return { ...node, children, sizes }
-}
-
 export function allPanes(node: LayoutNode): PaneNode[] {
   if (node.type === 'pane') return [node]
   return node.children.flatMap(allPanes)
 }
 
-function mapPanes(node: LayoutNode, fn: (pane: PaneNode) => PaneNode): LayoutNode {
-  if (node.type === 'pane') return fn(node)
-  if (node.type === 'tabs') {
-    const children = node.children.map((c) => mapPanes(c, fn) as TabNode)
-    return children.every((c, i) => c === node.children[i]) ? node : { ...node, children }
-  }
-  const children = node.children.map((c) => mapPanes(c, fn))
-  return children.every((c, i) => c === node.children[i]) ? node : { ...node, children }
-}
-
-function mapPane(root: LayoutNode, paneId: string, fn: (pane: PaneNode) => PaneNode): LayoutNode {
-  return mapPanes(root, (p) => (p.id === paneId ? fn(p) : p))
-}
-
-export function setResumePending(root: LayoutNode, paneId: string, pending: boolean): LayoutNode {
-  return mapPane(root, paneId, (p) => {
-    if (Boolean(p.resumePending) === pending) return p
-    if (pending) return { ...p, resumePending: true }
-    const { resumePending: _pending, ...rest } = p
-    return rest
-  })
-}
-
-export function setPaneCwd(root: LayoutNode, paneId: string, cwd: string): LayoutNode {
-  return mapPane(root, paneId, (p) => {
-    if (p.resumeFolderMissing === cwd) {
-      const { resumeFolderMissing: _missing, ...rest } = p
-      return { ...rest, cwd }
-    }
-    return p.cwd === cwd ? p : { ...p, cwd }
-  })
-}
-
-export function setPaneSpawnDir(root: LayoutNode, paneId: string, spawnDir: string): LayoutNode {
-  return mapPane(root, paneId, (p) => (p.spawnDir === spawnDir ? p : { ...p, spawnDir }))
-}
-
-export function settleSpawnDir(root: LayoutNode, paneId: string, missing: boolean): LayoutNode {
-  return mapPane(root, paneId, (p) => {
-    if (p.spawnDir === undefined) return p
-    const { spawnDir, ...rest } = p
-    return missing ? { ...rest, resumeFolderMissing: spawnDir } : rest
-  })
-}
-
-export function setPaneUrl(root: LayoutNode, paneId: string, url: string): LayoutNode {
-  return mapPane(root, paneId, (p) => (p.url === url ? p : { ...p, url }))
-}
-
-function named(pane: PaneNode, title: string): PaneNode {
-  const { defaultTitle: _default, ...rest } = pane
-  return { ...rest, title }
-}
-
-export function setPaneTitle(root: LayoutNode, paneId: string, title: string): LayoutNode {
-  return mapPane(root, paneId, (p) =>
-    p.titlePinned || (p.title === title && !p.defaultTitle) ? p : named(p, title),
-  )
-}
-
-export function renamePane(root: LayoutNode, paneId: string, title: string): LayoutNode {
-  const name = title.trim()
-  return mapPane(root, paneId, (p) => {
-    if (name && p.title === name && p.titlePinned) return p
-    if (name) return { ...named(p, name), titlePinned: true }
-    if (!p.titlePinned) return p
-    const { titlePinned: _pinned, ...rest } = p
-    return rest
-  })
-}
-
-function withDefaultTitle(pane: PaneNode, title: string): PaneNode {
-  return pane.defaultTitle && pane.title !== title ? { ...pane, title } : pane
-}
-
-export function setDefaultPaneTitle(root: LayoutNode, paneId: string, title: string): LayoutNode {
-  return mapPane(root, paneId, (p) => withDefaultTitle(p, title))
-}
-
-export function setDefaultPaneTitles(root: LayoutNode, title: string): LayoutNode {
-  return mapPanes(root, (p) => withDefaultTitle(p, title))
-}
-
-export function setPaneResume(root: LayoutNode, paneId: string, resume: AgentResume): LayoutNode {
-  return mapPane(root, paneId, (p) => {
-    if (sameResume(p.resume, resume)) return p
-    const { resumeFolderMissing: _missing, ...rest } = p
-    return { ...rest, resume }
-  })
-}
-
-export function setPaneHibernated(
-  root: LayoutNode,
-  paneId: string,
-  hibernated: boolean,
-): LayoutNode {
-  return mapPane(root, paneId, (p) => {
-    if (Boolean(p.hibernated) === hibernated) return p
-    if (hibernated) return { ...p, hibernated: true }
-    const { hibernated: _hibernated, ...awake } = p
-    return awake.resume?.cwd ? { ...awake, spawnDir: awake.resume.cwd } : awake
-  })
-}
-
-export function setPaneLocked(root: LayoutNode, paneId: string, locked: boolean): LayoutNode {
-  return mapPane(root, paneId, (p) => {
-    if (Boolean(p.locked) === locked) return p
-    if (locked) return { ...p, locked: true }
-    const { locked: _locked, ...open } = p
-    return open
-  })
-}
-
-export function hasLockedPane(root: LayoutNode): boolean {
-  return allPanes(root).some((p) => p.locked === true)
-}
-
-export function firstPaneOfKind(node: LayoutNode, kind: SurfaceKind): PaneNode | null {
-  return allPanes(node).find((p) => p.kind === kind) ?? null
-}
-
-export function setPaneEditor(
-  root: LayoutNode,
-  paneId: string,
-  title: string,
-  filePath: string,
-): LayoutNode {
-  if (isRemotePath(filePath)) {
-    return mapPane(root, paneId, ({ cwd: _local, ...p }) => ({
-      ...p,
-      kind: 'editor',
-      title,
-      filePath,
-    }))
-  }
-  const slash = filePath.lastIndexOf('/')
-  const cwd = slash > 0 ? filePath.slice(0, slash) : '/'
-  return mapPane(root, paneId, (p) => ({ ...named(p, title), kind: 'editor', filePath, cwd }))
-}
-
-function movedPath(path: string, from: string, to: string): string | null {
-  if (path === from) return to
-  return path.startsWith(`${from}/`) ? to + path.slice(from.length) : null
-}
-
-export function followMovedFile(root: LayoutNode, from: string, to: string): LayoutNode {
-  return mapPanes(root, (p) => {
-    if (p.kind !== 'editor' || !p.filePath) return p
-    const next = movedPath(p.filePath, from, to)
-    if (next === null) return p
-    return setPaneEditor(p, p.id, next.slice(next.lastIndexOf('/') + 1), next) as PaneNode
-  })
-}
-
-function titleFromUrl(url: string): string {
-  try {
-    return new URL(url).hostname || url
-  } catch {
-    return url
-  }
-}
-
-export function setPaneBrowser(
-  root: LayoutNode,
-  paneId: string,
-  url: string,
-  profile?: BrowserProfile,
-): LayoutNode {
-  return mapPane(root, paneId, (p) => {
-    const next: PaneNode = { ...named(p, titleFromUrl(url)), kind: 'browser', url }
-    if (profile === undefined) return next
-    const { browserProfile: _previous, ...rest } = next
-    return profile === 'shared' ? { ...rest, browserProfile: 'shared' } : rest
-  })
-}
-
-export function paneBrowserProfile(pane: PaneNode): BrowserProfile {
-  return parseBrowserProfile(pane.browserProfile)
-}
-
-export function browserPaneInUse(
-  node: LayoutNode,
-  activePaneId: string,
-  profile: BrowserProfile,
-): PaneNode | null {
-  const isMatch = (p: PaneNode): boolean =>
-    p.kind === 'browser' && paneBrowserProfile(p) === profile
-  const active = findPane(node, activePaneId)
-  if (active && isMatch(active)) return active
-  return allPanes(node).find(isMatch) ?? null
-}
-
-export function setPaneExtension(
-  root: LayoutNode,
-  paneId: string,
-  extensionId: string,
-  title: string,
-): LayoutNode {
-  return mapPane(root, paneId, (p) => ({
-    ...named(p, title),
-    kind: 'extension',
-    extensionId,
-    cwd: undefined,
-  }))
-}
-
-export function setPaneChat(
-  root: LayoutNode,
-  paneId: string,
-  title: string,
-  sessionId?: string,
-): LayoutNode {
-  return mapPane(root, paneId, (p) => ({
-    type: 'pane',
-    id: p.id,
-    kind: 'chat',
-    title,
-    ...(sessionId ? { chatSessionId: sessionId } : {}),
-  }))
-}
-
-export function setPaneGit(root: LayoutNode, paneId: string, title: string): LayoutNode {
-  return mapPane(root, paneId, (p) => ({ type: 'pane', id: p.id, kind: 'git', title }))
-}
-
-export function setPaneView(
-  root: LayoutNode,
-  paneId: string,
-  viewName: string,
-  title: string,
-): LayoutNode {
-  return mapPane(root, paneId, (p) => ({ type: 'pane', id: p.id, kind: 'view', title, viewName }))
-}
-
-export function setPaneDiff(
-  root: LayoutNode,
-  paneId: string,
-  title: string,
-  cwd?: string,
-): LayoutNode {
-  return mapPane(root, paneId, (p) => ({
-    type: 'pane',
-    id: p.id,
-    kind: 'diff',
-    title,
-    ...(cwd ? { cwd } : {}),
-  }))
-}
-
-function untab(tab: LayoutNode): LayoutNode {
+export function untab(tab: LayoutNode): LayoutNode {
   if (tab.type !== 'split' || tab.name === undefined) return tab
   const { name: _name, ...split } = tab
   return split
@@ -387,10 +123,6 @@ function withoutTabs(tabs: TabsNode, keep: (pane: PaneNode) => boolean): LayoutN
   return { ...tabs, children, activeId: firstPaneId(survivor) }
 }
 
-export function isRemoteFilePane(pane: PaneNode): boolean {
-  return pane.kind === 'editor' && isRemotePath(pane.filePath)
-}
-
 export function withoutPanes(
   root: LayoutNode,
   drop: (pane: PaneNode) => boolean,
@@ -413,14 +145,6 @@ export function withoutPanes(
   return same ? root : { ...root, children, sizes }
 }
 
-export function findExtensionPane(node: LayoutNode, extensionId: string): PaneNode | null {
-  return allPanes(node).find((p) => p.kind === 'extension' && p.extensionId === extensionId) ?? null
-}
-
-export function findViewPane(node: LayoutNode, viewName: string): PaneNode | null {
-  return allPanes(node).find((p) => p.kind === 'view' && p.viewName === viewName) ?? null
-}
-
 export function findPane(node: LayoutNode, id: string): PaneNode | null {
   return allPanes(node).find((p) => p.id === id) ?? null
 }
@@ -439,7 +163,7 @@ export function tabNeighbor(root: LayoutNode, paneId: string, step: 1 | -1): str
   return tabs.children[tabIndex(tabs, paneId) + step]?.id ?? null
 }
 
-function tabIndex(tabs: TabsNode, paneId: string): number {
+export function tabIndex(tabs: TabsNode, paneId: string): number {
   return tabs.children.findIndex((c) => (c.type === 'pane' ? c.id === paneId : findPane(c, paneId)))
 }
 
@@ -478,7 +202,7 @@ export function tabIdOf(root: LayoutNode, paneId: string): string | null {
   return tabOfPane(root, paneId)?.id ?? (findPane(root, paneId) ? paneId : null)
 }
 
-function shownTab(tabs: TabsNode): TabNode {
+export function shownTab(tabs: TabsNode): TabNode {
   return tabs.children[tabIndex(tabs, tabs.activeId)] ?? tabs.children[0]
 }
 
@@ -530,84 +254,13 @@ export function isPaneShown(root: LayoutNode, paneId: string): boolean {
     : findPane(root, paneId) !== null
 }
 
-export type FocusDirection = 'left' | 'right' | 'up' | 'down'
-
-interface SlotRect {
-  paneId: string
-  shownIds: readonly string[]
-  x: number
-  y: number
-  w: number
-  h: number
-}
-
-function slotRects(node: LayoutNode, x: number, y: number, w: number, h: number): SlotRect[] {
-  if (node.type === 'pane') return [{ paneId: node.id, shownIds: [node.id], x, y, w, h }]
-  if (node.type === 'tabs') {
-    const [first, ...rest] = slotRects(shownTab(node), x, y, w, h)
-    const placed = new Set([first, ...rest].flatMap((r) => r.shownIds))
-    const hidden = paneIds(node).filter((id) => !placed.has(id))
-    return [{ ...first, shownIds: [...first.shownIds, ...hidden] }, ...rest]
-  }
-  const total = node.sizes.reduce((a, b) => a + b, 0) || node.children.length
-  const out: SlotRect[] = []
-  let offset = 0
-  node.children.forEach((child, i) => {
-    const share = (node.sizes[i] ?? 1) / total
-    if (node.direction === 'horizontal') {
-      out.push(...slotRects(child, x + offset * w, y, share * w, h))
-    } else {
-      out.push(...slotRects(child, x, y + offset * h, w, share * h))
-    }
-    offset += share
-  })
-  return out
-}
-
-const EDGE_EPSILON = 1e-6
-
-function overlap(a0: number, a1: number, b0: number, b1: number): number {
-  return Math.min(a1, b1) - Math.max(a0, b0)
-}
-
-export function paneInDirection(
-  root: LayoutNode,
-  paneId: string,
-  direction: FocusDirection,
-): string | null {
-  const rects = slotRects(root, 0, 0, 1, 1)
-  const from = rects.find((r) => r.shownIds.includes(paneId))
-  if (!from) return null
-  const horizontal = direction === 'left' || direction === 'right'
-  const candidates = rects.filter((r) => {
-    if (r === from) return false
-    const touches =
-      direction === 'left'
-        ? Math.abs(r.x + r.w - from.x) < EDGE_EPSILON
-        : direction === 'right'
-          ? Math.abs(from.x + from.w - r.x) < EDGE_EPSILON
-          : direction === 'up'
-            ? Math.abs(r.y + r.h - from.y) < EDGE_EPSILON
-            : Math.abs(from.y + from.h - r.y) < EDGE_EPSILON
-    const shared = horizontal
-      ? overlap(r.y, r.y + r.h, from.y, from.y + from.h)
-      : overlap(r.x, r.x + r.w, from.x, from.x + from.w)
-    return touches && shared > EDGE_EPSILON
-  })
-  const center = horizontal ? from.y + from.h / 2 : from.x + from.w / 2
-  const distance = (r: SlotRect): number =>
-    horizontal ? Math.abs(r.y + r.h / 2 - center) : Math.abs(r.x + r.w / 2 - center)
-  const best = candidates.sort((a, b) => distance(a) - distance(b))[0]
-  return best ? best.paneId : null
-}
-
-function slotIdOf(root: LayoutNode, paneId: string): string | null {
+export function slotIdOf(root: LayoutNode, paneId: string): string | null {
   const tabs = tabsOfPane(root, paneId)
   if (tabs) return tabs.id
   return findPane(root, paneId) ? paneId : null
 }
 
-function replaceSlot(
+export function replaceSlot(
   root: LayoutNode,
   slotId: string,
   fn: (slot: PaneNode | TabsNode, parent: SplitNode | null, index: number) => LayoutNode,
@@ -704,7 +357,7 @@ function insertInTab(
   return replaceSlot(root, tabs.id, () => ({ ...tabs, children }))
 }
 
-function placeBeside(
+export function placeBeside(
   root: LayoutNode,
   targetPaneId: string,
   node: LayoutNode,
@@ -818,163 +471,10 @@ export function closePane(root: LayoutNode, targetId: string): LayoutNode {
   return prune(root) ?? root
 }
 
-export function setSizes(root: LayoutNode, splitId: string, sizes: number[]): LayoutNode {
-  const recur = (node: LayoutNode): LayoutNode => {
-    if (node.type === 'pane') return node
-    if (node.type === 'split' && node.id === splitId) return { ...node, sizes }
-    const children = node.children.map(recur)
-    if (children.every((c, i) => c === node.children[i])) return node
-    return node.type === 'tabs'
-      ? { ...node, children: children as TabNode[] }
-      : { ...node, children }
-  }
-  return recur(root)
-}
-
 export function mergeLayouts(target: LayoutNode, source: LayoutNode): LayoutNode {
   return makeSplit('horizontal', [target, source])
 }
 
-function tabSource(root: LayoutNode, id: string): TabNode | null {
+export function tabSource(root: LayoutNode, id: string): TabNode | null {
   return findPane(root, id) ?? findSplitTab(root, id)
-}
-
-export function movePane(
-  root: LayoutNode,
-  sourceId: string,
-  targetId: string,
-  zone: DropZone,
-): LayoutNode {
-  const source = tabSource(root, sourceId)
-  if (!source || !findPane(root, targetId) || findPane(source, targetId)) return root
-  const moving = new Set(paneIds(source))
-  const detached = withoutPanes(root, (p) => moving.has(p.id))
-  if (!detached) return root
-
-  if (zone === 'center') {
-    const tabs = tabsOfPane(root, targetId)
-    if (tabs?.children.some((c) => c.id === sourceId)) return root
-    return addTab(detached, targetId, source)
-  }
-
-  const direction: Direction = zone === 'left' || zone === 'right' ? 'horizontal' : 'vertical'
-  const before = zone === 'left' || zone === 'top'
-  return placeBeside(detached, targetId, untab(source), direction, before)
-}
-
-function parentOf(node: LayoutNode, childId: string): SplitNode | null {
-  if (node.type === 'pane') return null
-  if (node.type === 'split' && node.children.some((c) => c.type !== 'split' && c.id === childId)) {
-    return node
-  }
-  for (const child of node.children) {
-    const found = parentOf(child, childId)
-    if (found) return found
-  }
-  return null
-}
-
-function lastPaneId(node: LayoutNode): string {
-  const panes = allPanes(node)
-  return panes[panes.length - 1].id
-}
-
-export function placementOf(root: LayoutNode, paneId: string): PanePlacement | null {
-  const tabs = tabsOfPane(root, paneId)
-  const tab = tabs ? tabs.children[tabIndex(tabs, paneId)] : null
-  if (tabs && tab?.type === 'pane') {
-    const index = tabs.children.indexOf(tab)
-    const neighbor = tabs.children[index - 1] ?? tabs.children[index + 1]
-    return { paneId: firstPaneId(neighbor), zone: 'center' }
-  }
-  const anchorId = tab ? paneId : slotIdOf(root, paneId)
-  const parent = anchorId ? parentOf(root, anchorId) : null
-  if (!parent) return null
-  const index = parent.children.findIndex((c) => c.type !== 'split' && c.id === anchorId)
-  const horizontal = parent.direction === 'horizontal'
-  const before = parent.children[index - 1]
-  if (before) return { paneId: lastPaneId(before), zone: horizontal ? 'right' : 'bottom' }
-  return { paneId: firstPaneId(parent.children[index + 1]), zone: horizontal ? 'left' : 'top' }
-}
-
-function tabsOfSlot(node: LayoutNode): TabNode[] | null {
-  if (node.type === 'pane') return [node]
-  if (node.type === 'tabs') return node.children
-  return null
-}
-
-export function graftNode(
-  root: LayoutNode | null,
-  node: LayoutNode,
-  beside?: PanePlacement,
-): LayoutNode {
-  if (!root) return node
-  const anchor = beside && findPane(root, beside.paneId) ? beside : null
-  if (!anchor) return makeSplit('horizontal', [root, node])
-  const tabs = anchor.zone === 'center' ? tabsOfSlot(node) : null
-  if (tabs) {
-    let next = root
-    let after = anchor.paneId
-    for (const tab of tabs) {
-      next = addTab(next, after, tab)
-      after = firstPaneId(tab)
-    }
-    return next
-  }
-  const zone = anchor.zone === 'center' ? 'right' : anchor.zone
-  const direction: Direction = zone === 'left' || zone === 'right' ? 'horizontal' : 'vertical'
-  return placeBeside(root, anchor.paneId, node, direction, zone === 'left' || zone === 'top')
-}
-
-export function moveTab(
-  root: LayoutNode,
-  sourceId: string,
-  targetId: string,
-  after: boolean,
-): LayoutNode {
-  const source = tabSource(root, sourceId)
-  const targetPaneId = focusIdOf(root, targetId)
-  if (sourceId === targetId || !source || !targetPaneId || findPane(source, targetPaneId)) {
-    return root
-  }
-  const shownId = focusIdOf(root, sourceId) ?? firstPaneId(source)
-  const sameStack = tabsOfPane(root, targetPaneId)?.children.includes(source) ?? false
-  const moving = new Set(paneIds(source))
-  const base = sameStack ? root : withoutPanes(root, (p) => moving.has(p.id))
-  const slotId = base ? slotIdOf(base, targetPaneId) : null
-  if (!base || !slotId) return root
-  return replaceSlot(base, slotId, (slot) => {
-    const tabs = (slot.type === 'pane' ? [slot] : slot.children).filter((c) => c !== source)
-    const at = tabs.findIndex((c) =>
-      c.type === 'pane' ? c.id === targetPaneId : findPane(c, targetPaneId),
-    )
-    tabs.splice(at + (after ? 1 : 0), 0, source)
-    return slot.type === 'pane'
-      ? tabsOf(shownId, ...tabs)
-      : { ...slot, children: tabs, activeId: shownId }
-  })
-}
-
-export interface TakenTab {
-  tab: TabNode
-  rest: LayoutNode | null
-  successor: string | null
-}
-
-export function takeTab(root: LayoutNode, id: string): TakenTab | null {
-  const tab = tabSource(root, id)
-  if (!tab) return null
-  const moving = new Set(paneIds(tab))
-  const rest = withoutPanes(root, (p) => moving.has(p.id))
-  if (!rest) return { tab, rest, successor: null }
-  const split = tab.type === 'pane' ? splitTabOfPane(root, tab.id) : null
-  const sibling = split ? paneIds(split).find((paneId) => !moving.has(paneId)) : undefined
-  const neighbor =
-    sibling ?? tabNeighbor(root, firstPaneId(tab), -1) ?? tabNeighbor(root, firstPaneId(tab), 1)
-  return { tab, rest, successor: (neighbor && focusIdOf(rest, neighbor)) ?? firstPaneId(rest) }
-}
-
-export function landTab(root: LayoutNode | null, tab: TabNode, anchorId: string): LayoutNode {
-  if (!root) return untab(tab)
-  return addTab(root, findPane(root, anchorId) ? anchorId : firstPaneId(root), tab)
 }

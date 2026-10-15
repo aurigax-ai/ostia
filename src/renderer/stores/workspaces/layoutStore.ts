@@ -1,34 +1,12 @@
 import { currentDict } from '@/lib/app/useDict'
-import { panelKey, sizePanel } from '@/lib/layout/panelSize'
-import { joinSplitTab, separateFromSplitTab } from '@/lib/layout/tabJoin'
 import {
-  type DropZone,
-  addTab,
-  allPanes,
-  backgroundTabAnchor,
   browserPaneInUse,
-  closePane,
-  createPane,
-  createTerminalPane,
-  equalizeSizes,
   findExtensionPane,
-  findPane,
-  findSplitTab,
-  findSplitTabByName,
   findViewPane,
-  firstPaneId,
   firstPaneOfKind,
-  focusIdOf,
   followMovedFile,
-  graftNode,
   hasLockedPane,
-  landTab,
-  mergeLayouts,
-  movePane,
-  moveTab,
-  paneIds,
   renamePane,
-  selectTab,
   setDefaultPaneTitle,
   setDefaultPaneTitles,
   setPaneBrowser,
@@ -46,9 +24,28 @@ import {
   setPaneUrl,
   setPaneView,
   setResumePending,
-  setSizes,
-  setSplitTabName,
   settleSpawnDir,
+} from '@/lib/layout/paneFields'
+import { equalizeSizes, panelKey, setSizes, sizePanel } from '@/lib/layout/panelSize'
+import { joinSplitTab, separateFromSplitTab } from '@/lib/layout/tabJoin'
+import { graftNode, landTab, movePane, moveTab, takeTab } from '@/lib/layout/tabMoves'
+import {
+  type DropZone,
+  addTab,
+  allPanes,
+  backgroundTabAnchor,
+  closePane,
+  createPane,
+  createTerminalPane,
+  findPane,
+  findSplitTab,
+  findSplitTabByName,
+  firstPaneId,
+  focusIdOf,
+  mergeLayouts,
+  paneIds,
+  selectTab,
+  setSplitTabName,
   slotCount,
   slotPaneOfKind,
   splitBeside,
@@ -56,7 +53,6 @@ import {
   splitTabOfPane,
   tabIdOf,
   tabsOfPane,
-  takeTab,
 } from '@/lib/layout/tree'
 import type { Direction, LayoutNode, PaneNode, SurfaceKind } from '@/lib/layout/types'
 import { forgetAgentSplitTab, isAgentSplitTab, markAgentSplitTab } from '@/lib/panes/agentSplitTabs'

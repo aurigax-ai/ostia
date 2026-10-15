@@ -3,13 +3,8 @@ import type { CommandContext } from '@/commands/registry'
 import { currentDict } from '@/lib/app/useDict'
 import { focusAdjacentTab, focusPaneInDirection } from '@/lib/attention/workspaceActivity'
 import { browserProfileIn, openerOf } from '@/lib/browser/browserProfile'
-import {
-  type DropZone,
-  type FocusDirection,
-  findPane,
-  tabIdOf,
-  tabNeighbor,
-} from '@/lib/layout/tree'
+import type { FocusDirection } from '@/lib/layout/focusDirection'
+import { type DropZone, findPane, tabIdOf, tabNeighbor } from '@/lib/layout/tree'
 import type { Direction } from '@/lib/layout/types'
 import { focusActivePaneWhenReady } from '@/lib/terminal/focusNewTerminal'
 import {
