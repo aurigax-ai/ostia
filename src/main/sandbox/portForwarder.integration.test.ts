@@ -4,7 +4,7 @@ import { type AddressInfo, type Server, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'esbuild'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { holdPort } from '../../../test/heldPort'
 import { DEFAULT_CONTROLS } from '../../shared/sandbox/sandbox'
 import { SandboxHost } from './hostClient'
@@ -25,18 +25,7 @@ let host: SandboxHost
 let forwarder: PortForwarder
 const panes: { process: ChildProcess; bridge: PortBridge | null }[] = []
 
-async function until<T>(
-  read: () => T | undefined | Promise<T | undefined>,
-  ms = 15_000,
-): Promise<T> {
-  const start = Date.now()
-  for (;;) {
-    const value = await read()
-    if (value !== undefined) return value
-    if (Date.now() - start > ms) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 100))
-  }
-}
+const POLL = { timeout: 15_000, interval: 100 }
 
 async function get(port: number): Promise<string> {
   const res = await fetch(`http://127.0.0.1:${port}/`)
@@ -103,8 +92,8 @@ beforeAll(async () => {
     panesOf: () => panes.map((pane) => ({ pid: pane.process.pid ?? 0, bridge: pane.bridge })),
     unixSocketsOff: () => false,
   })
-  await until(() => (forwarder.listeners('ws').length === 2 ? true : undefined))
-  await until(() => (panes.every((pane) => pane.bridge?.connected) ? true : undefined))
+  await vi.waitUntil(() => forwarder.listeners('ws').length === 2, POLL)
+  await vi.waitUntil(() => panes.every((pane) => pane.bridge?.connected), POLL)
 }, 60_000)
 
 afterAll(() => {
@@ -173,7 +162,7 @@ describe.skipIf(process.platform !== 'linux')(
       expect(await portFree(INNER_PORT)).toBe(false)
       await forwarder.forget('ws')
       expect(forwarder.exposed('ws')).toEqual([])
-      expect(await until(async () => ((await portFree(INNER_PORT)) ? true : undefined))).toBe(true)
+      await vi.waitUntil(() => portFree(INNER_PORT), POLL)
     })
 
     it('never lists the sandbox runtime proxy bridges as servers', () => {

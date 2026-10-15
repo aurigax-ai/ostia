@@ -2,7 +2,6 @@ import { resolve } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'electron-vite'
-import { dataUrl } from './scripts/dataUrl.mjs'
 
 export default defineConfig({
   main: {
@@ -40,6 +39,7 @@ export default defineConfig({
         input: { index: resolve('src/renderer/index.html') },
       },
     },
-    plugins: [dataUrl(), react(), tailwindcss()],
+    assetsInclude: ['**/*.wasm'],
+    plugins: [react(), tailwindcss()],
   },
 })

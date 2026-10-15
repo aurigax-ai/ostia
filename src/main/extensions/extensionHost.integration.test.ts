@@ -17,6 +17,8 @@ import { registerExtensionMethods } from './extensionMethods'
 import { MAX_RESTARTS } from './extensionProcesses'
 import { ExtensionStore } from './extensionStore'
 
+const POLL = { timeout: 5000, interval: 20 }
+
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions')
 const userFixtures = resolve(__dirname, '../../../test/fixtures/extensions-e2e')
 
@@ -26,16 +28,6 @@ const caller: ExtensionCaller = {
   workspaceId: 's1',
   workDir: '/w/s1',
   capabilities: ['read-board'],
-}
-
-async function until<T>(read: () => T | undefined, timeoutMs = 5000): Promise<T> {
-  const start = Date.now()
-  for (;;) {
-    const value = read()
-    if (value !== undefined) return value
-    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 20))
-  }
 }
 
 describe('ExtensionHost over a real control socket with a fixture extension process', () => {
@@ -58,7 +50,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
   const crash = async (): Promise<unknown> => {
     const before = exits()
     const res = await host.invoke('echo', 'crash', null, caller)
-    await until(() => (exits() > before ? true : undefined))
+    await vi.waitUntil(() => exits() > before, POLL)
     return res
   }
 
@@ -150,7 +142,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
   it('delivers subscribed events as notifications and ignores unsubscribed ones', async () => {
     host.events.emitEvent('pane.closed', { paneId: 'p-closed', workspaceId: 's1' })
     host.events.emitEvent('pane.created', { paneId: 'p-new', workspaceId: 's1' })
-    const item = await until(() => sidebar().find((i) => i.key === 'pane.created'))
+    const item = await vi.waitUntil(() => sidebar().find((i) => i.key === 'pane.created'), POLL)
     expect(item).toEqual({
       extId: 'echo',
       key: 'pane.created',
@@ -246,7 +238,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
     host.processes.setEnabled('echo', true)
     expect((await host.invoke('echo', 'echo', null, caller)).ok).toBe(true)
     host.processes.setEnabled('echo', false)
-    await until(() => (status() === 'disabled' ? true : undefined))
+    await vi.waitUntil(() => status() === 'disabled', POLL)
     expect(await host.invoke('echo', 'echo', null, caller)).toMatchObject({
       ok: false,
       error: 'extension-disabled',
@@ -278,7 +270,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
       ok: true,
       text: 'greeted e2e',
     })
-    const item = await until(() => sidebar().find((i) => i.extId === 'hello'))
+    const item = await vi.waitUntil(() => sidebar().find((i) => i.extId === 'hello'), POLL)
     expect(item).toMatchObject({ key: 'greeting', text: 'hello e2e' })
   })
 })

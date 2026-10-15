@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { type Socket, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 import {
   HostChannelError,
   JsonLines,
@@ -27,13 +27,7 @@ function received(socket: Socket): HostToMain[] {
   return out
 }
 
-async function until(check: () => boolean): Promise<void> {
-  const end = Date.now() + 3000
-  while (!check()) {
-    if (Date.now() > end) throw new Error('timed out')
-    await new Promise((r) => setTimeout(r, 10))
-  }
-}
+const POLL = { timeout: 3000, interval: 10 }
 
 async function channel(onMessage: (m: MainToHost) => void = () => undefined) {
   const path = join(root, `h${n++}.sock`)
@@ -49,15 +43,15 @@ describe('host channel', () => {
     listening.send({ type: 'violations', lines: ['denied write /x'] })
     const first = await connectHostChannel(path)
     const firstGot = received(first)
-    await until(() => firstGot.length === 2)
+    await vi.waitUntil(() => firstGot.length === 2, POLL)
     expect(firstGot).toContainEqual({ type: 'ask', askId: 1, host: 'example.org', port: 443 })
     first.destroy()
     const second = await connectHostChannel(path)
     const secondGot = received(second)
-    await until(() => secondGot.length === 1)
+    await vi.waitUntil(() => secondGot.length === 1, POLL)
     expect(secondGot).toEqual([{ type: 'ask', askId: 1, host: 'example.org', port: 443 }])
     second.write(`${JSON.stringify({ type: 'ask-answer', askId: 1, allow: true })}\n`)
-    await until(() => answers.length === 1)
+    await vi.waitUntil(() => answers.length === 1, POLL)
     second.destroy()
     const third = await connectHostChannel(path)
     const thirdGot = received(third)
@@ -92,7 +86,7 @@ describe('host channel', () => {
     })
     const first = await connectHostChannel(path)
     first.write(`${JSON.stringify({ id: 1, type: 'cleanup' })}\n`)
-    await until(() => respondLater.length === 1)
+    await vi.waitUntil(() => respondLater.length === 1, POLL)
     first.destroy()
     const second = await connectHostChannel(path)
     const secondGot = received(second)
@@ -110,7 +104,7 @@ describe('host channel', () => {
     const got: unknown[] = []
     const lines = new JsonLines((m) => got.push(m))
     socket.on('data', (chunk: Buffer) => lines.push(chunk))
-    await until(() => got.length === 2)
+    await vi.waitUntil(() => got.length === 2, POLL)
     expect(got[0]).toEqual({ type: 'hello', protocol: HOST_PROTOCOL_VERSION })
     socket.destroy()
     listening.close()

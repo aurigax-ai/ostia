@@ -386,9 +386,10 @@ describe('the extension API a graph host needs', () => {
     await new Promise((r) => setTimeout(r, 200))
     expect(questions()?.stateFor('7').pending).toHaveLength(1)
     host.processes.stopAll()
-    for (let i = 0; i < 100 && (questions()?.stateFor('7').pending.length ?? 0) > 0; i++) {
-      await new Promise((r) => setTimeout(r, 50))
-    }
+    await vi.waitUntil(() => (questions()?.stateFor('7').pending.length ?? 0) === 0, {
+      timeout: 5000,
+      interval: 50,
+    })
     expect(questions()?.stateFor('7').pending).toEqual([])
   })
 

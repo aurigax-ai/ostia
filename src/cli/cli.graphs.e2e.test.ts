@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { runCli as headless } from '@aurigax-ai/wire'
 import { WORKED_GRAPHS, workedGraph } from '@aurigax-ai/wire/testing'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { FAKE_TOOL, type Harness, graphsHarness, until } from '../../test/graphsHarness'
+import { FAKE_TOOL, type Harness, POLL, graphsHarness } from '../../test/graphsHarness'
 
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },
@@ -151,10 +151,10 @@ edges:
     ])
     expect(run.code).toBe(0)
     const runId = run.stdout.trim()
-    const lines = await until(() => {
+    const lines = await vi.waitUntil(() => {
       const found = journal(h, runId)
       return found.some((l) => l.type === 'run-end') ? found : undefined
-    })
+    }, POLL)
     expect(lines[0]).toMatchObject({
       type: 'run-start',
       state: { task: 'fix the flaky test' },

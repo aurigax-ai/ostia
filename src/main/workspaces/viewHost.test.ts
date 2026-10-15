@@ -55,15 +55,7 @@ function settleWatcher(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, process.platform === 'darwin' ? 600 : 0))
 }
 
-async function until<T>(read: () => T | undefined, timeoutMs = 5000): Promise<T> {
-  const began = Date.now()
-  for (;;) {
-    const value = read()
-    if (value !== undefined) return value
-    if (Date.now() - began > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 20))
-  }
-}
+const POLL = { timeout: 5000, interval: 20 }
 
 beforeEach(() => {
   base = mkdtempSync(join(tmpdir(), 'ostia-views-'))
@@ -151,11 +143,11 @@ describe('ViewHost', () => {
     start().watch()
     await settleWatcher()
     write('agents.json', VIEW)
-    await until(() => info('agents'))
+    await vi.waitUntil(() => info('agents'), POLL)
     write('agents.json', { ...VIEW, title: 'Renamed' })
-    await until(() => (info('agents')?.title === 'Renamed' ? true : undefined))
+    await vi.waitUntil(() => info('agents')?.title === 'Renamed', POLL)
     rmSync(join(dir, 'agents.json'))
-    await until(() => (info('agents') === undefined ? true : undefined))
+    await vi.waitUntil(() => info('agents') === undefined, POLL)
     expect(changes.length).toBeGreaterThanOrEqual(3)
   })
 
@@ -175,7 +167,7 @@ describe('ViewHost', () => {
     start().watch()
     await settleWatcher()
     write('late.json', VIEW)
-    await until(() => info('late'))
+    await vi.waitUntil(() => info('late'), POLL)
   })
 })
 

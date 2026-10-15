@@ -1,7 +1,7 @@
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { expandTemplate, openInExternalEditor, resolveEditorTemplate } from './externalEditor'
 
 describe('expandTemplate', () => {
@@ -97,7 +97,7 @@ describe('openInExternalEditor', () => {
       line: 4,
     })
     expect(res).toEqual({ ok: true, argv: [script, '-g', `${file}:4`] })
-    for (let i = 0; i < 50 && !existsSync(out); i++) await new Promise((r) => setTimeout(r, 20))
+    await vi.waitUntil(() => existsSync(out), { timeout: 1000, interval: 20 })
     expect(readFileSync(out, 'utf8')).toBe(`-g\n${file}:4\n`)
   })
 
