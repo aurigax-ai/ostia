@@ -11,11 +11,9 @@ import {
   normalizeRemoteCwd,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { BrowserWindow, app, ipcMain, shell } from 'electron'
-import { isMacInstall, replacesInApp } from '../shared/app/installMethod'
 import { ChangeSignal } from '../shared/common/actThenConfirm'
 import { externalHref } from '../shared/common/externalLinks'
 import { bucketCount } from '../shared/privacy/telemetry'
-import { parseKeepShells } from '../shared/terminal/keepShells'
 import type { CommandDescriptor, CommandTarget, TerminalStateSnapshot } from '../shared/types'
 import { createAgentOfferRelay } from './agents/agentOfferRelay'
 import { AgentRunningPanes } from './agents/agentRunning'
@@ -25,11 +23,11 @@ import { ReportedAgentWork } from './agents/agentWork'
 import type { OriginReach } from './agents/originAgents'
 import { createResumeClaimer, registerResumeClaimIpc } from './agents/resumeClaims'
 import { registerToolbeltWiring } from './agents/toolbeltWiring'
-import { approvals, registerApprovals } from './approvals/approvals'
+import { approvals } from './approvals/approvals'
+import { registerApprovalsWiring } from './approvals/approvalsWiring'
 import { createAskHub } from './approvals/asks'
 import { loadReachMode, refreshCapabilitySettings } from './approvals/capabilityStore'
-import { registerPermissionAsk } from './approvals/permissionAsk'
-import { questions, registerExtensionQuestions, registerQuestions } from './approvals/questions'
+import { questions } from './approvals/questions'
 import { type ReachListing, createReach } from './approvals/reach'
 import { createScriptTokenUsage } from './approvals/scriptTokenUsage'
 import {
@@ -46,11 +44,9 @@ import type { ConsoleEntry } from './browser/browseMethod'
 import { registerBrowserGuestIpc } from './browser/browserGuestIpc'
 import { createBrowserGuests } from './browser/browserGuests'
 import { registerBrowserWiring } from './browser/browserWiring'
-import { registerCredentials } from './browser/credentials'
 import type { GuestChords } from './browser/guestChords'
 import { createGuestProfiles } from './browser/guestProfiles'
 import { startChat } from './chat/chatWiring'
-import { registerExtensionMcp } from './chat/extensionMcp'
 import type { McpHost } from './chat/mcpHost'
 import type { McpOAuth } from './chat/mcpOAuth'
 import { createCommandBridge } from './control/commandBridge'
@@ -86,7 +82,6 @@ import type { FileWatches } from './files/fileWatch'
 import { registerFsIpc } from './files/fsIpc'
 import { OpenWaits } from './files/openWaits'
 import { startGateway } from './gateway/gatewayWiring'
-import { phoneCanRespond } from './gateway/server'
 import { createCoreBoards } from './git/coreBoards'
 import type { GitService } from './git/service'
 import { createLanguageServerWiring } from './lsp/languageServerWiring'
@@ -103,7 +98,7 @@ import { registerPaneMethodsWiring } from './panes/paneMethodsWiring'
 import { PaneWatch } from './panes/paneWait'
 import { PaneWaking } from './panes/paneWaking'
 import type { ProcessRegistry } from './panes/processRegistry'
-import { loadJson, saveJson, storePath } from './platform/jsonStore'
+import { storePath } from './platform/jsonStore'
 import { managerSettings, readLocale, readSettingsFile } from './platform/settingsFile'
 import { resolveLoginPath } from './platform/toolPath'
 import { appConfigDir } from './platform/userDirs'
@@ -118,7 +113,6 @@ import { registerSandboxWiring } from './sandbox/sandboxWiring'
 import { registerSandboxIpcWiring } from './sandbox/sandboxWiring'
 import { createEncryptedStores } from './secrets/encryptedStores'
 import { createSecretServices } from './secrets/secretServices'
-import { writeOstiaLauncher } from './terminal/paneLauncher'
 import { createPtyAttach } from './terminal/pty/ptyAttach'
 import { createPtyIo } from './terminal/pty/ptyIo'
 import { registerPtyIpc } from './terminal/pty/ptyIpc'
@@ -136,28 +130,13 @@ import type { SavedAttention } from './tmux/attentionFile'
 import { KeptAttention } from './tmux/keptAttention'
 import { createKeptReattach } from './tmux/keptReattach'
 import { createKeptShellsWiring } from './tmux/keptShellsWiring'
+import { startKeptShells } from './tmux/keptShellsWiring'
 import { createKeptSpawner } from './tmux/keptSpawn'
-import { registerAppUpdate } from './updates/appUpdate'
 import { appVersion, runningBuild } from './updates/appVersion'
-import { installAppDir, installMethod } from './updates/installMethod'
-import {
-  type PendingSweep,
-  canReplaceInstall,
-  createInstallReplacer,
-  releaseDownloadBase,
-  runTar,
-  tarballReplace,
-} from './updates/installReplace'
-import { sweepUpdateLeftovers } from './updates/launchSweep'
-import { canReplaceBundle, macReplace, runCommand, signaturePolicy } from './updates/macReplace'
-import {
-  announceReplace,
-  announceReplaceProgress,
-  announceUpdateRun,
-  readUpdateChannel,
-  registerReleaseCheck,
-} from './updates/releaseCheck'
-import { type UpdateRunner, createUpdateRunner } from './updates/updateRun'
+import type { PendingSweep } from './updates/installReplace'
+import { signaturePolicy } from './updates/macReplace'
+import type { UpdateRunner } from './updates/updateRun'
+import { startUpdates } from './updates/updateWiring'
 import { installAppMenu } from './windows/appMenu'
 import { registerAppQuit } from './windows/appQuit'
 import { createAppWindows } from './windows/appWindows'
@@ -887,24 +866,7 @@ app.whenReady().then(() => {
     outcome: services.restoreOutcome,
     panes: Object.keys(pendingRestoredScrollback()).length,
   })
-  void keptShells
-    .start(parseKeepShells(readSettingsFile().terminal?.keepShells), savedPaneIds())
-    .then(() => {
-      const kept = keptShells.keptHostWorkspaces()
-      for (const workspaceId of kept) {
-        const host = keptShells.keptHost(workspaceId)
-        if (host) workspaceSandboxes.adoptKeptTmp(workspaceId, host.tmpDir)
-      }
-      workspaceSandboxes.sweepKeptTmp(kept)
-    })
-  try {
-    writeOstiaLauncher(paneLauncherDir())
-  } catch (err) {
-    services.appLog?.warn('launcher-write-failed', {
-      launcher: 'pane',
-      code: (err as NodeJS.ErrnoException).code ?? null,
-    })
-  }
+  startKeptShells({ ...wiring })
   startArtifacts({ ...wiring })
   registerWindowInputGuards({ ...wiring })
   registerWindowIpc({ ...wiring })
@@ -917,96 +879,8 @@ app.whenReady().then(() => {
   registerSelectionIpc(reachesPane, redactor.text)
   registerArtifactViewIpc({ ...wiring })
   registerPrivacyIpc(redactor)
-  const approvalCaps = new Map<string, readonly string[]>()
-  registerApprovals(revealWindow, settingsChanged, {
-    opened: (request) => {
-      approvalCaps.set(request.id, request.caps)
-      for (const cap of request.caps) services.telemetry?.count('agents', 'approval_shown', cap)
-      askHub.approvalOpened(request)
-    },
-    settled: (id, outcome) => {
-      const caps = approvalCaps.get(id) ?? []
-      approvalCaps.delete(id)
-      if (outcome !== 'timeout' && outcome !== 'auto') {
-        for (const cap of caps) services.telemetry?.count('agents', 'approval_answered', cap)
-      }
-      askHub.settled(id, outcome)
-    },
-  })
-  registerQuestions({
-    opened: (request) => {
-      services.telemetry?.count('agents', 'question_asked')
-      askHub.questionOpened(request)
-    },
-    settled: (id, outcome) => {
-      if (outcome === 'answered') services.telemetry?.count('agents', 'question_answered')
-      askHub.settled(id, outcome)
-    },
-  })
-  registerExtensionMcp({ mcp: () => services.mcpHost })
-  registerExtensionQuestions({
-    windowOfWorkspace: windowForWorkspace,
-    extensionName: (extId) => services.extensionHost?.displayName(extId) ?? extId,
-  })
-  registerPermissionAsk({ questions, phoneCanAnswer: phoneCanRespond })
-  registerCredentials()
-  registerAppUpdate(() => {
-    quit.restartRequested = true
-    requestQuit()
-  })
-  services.updateRunner = createUpdateRunner({
-    method: installMethod,
-    title: () => mainStrings().native.updateTitle,
-    openTerminal: (req) => openTerminalInWindow(req),
-    hostToken: (command) => {
-      hostPaneGrants.offer(UPDATE_HOST_GRANT_ID, command)
-      return hostPaneGrants.claim(UPDATE_HOST_GRANT_ID, command) ?? ''
-    },
-    onChange: announceUpdateRun,
-  })
-  const sweepFile = storePath('install-replace', 'global')
-  const macInstall = isMacInstall(installMethod())
-  void sweepUpdateLeftovers({
-    pending: loadJson<PendingSweep | null>(sweepFile, null),
-    appDir: installAppDir(),
-    version: appVersion(),
-    macInstall,
-    swept: () => saveJson(sweepFile, null),
-    warn: (event) => services.appLog?.warn(event),
-  })
-  const updateDir = (): string | null =>
-    replacesInApp(installMethod(), readUpdateChannel(readSettingsFile())) ? installAppDir() : null
-  const downloadBase = releaseDownloadBase(app.isPackaged, process.env)
-  services.releaseChecks = registerReleaseCheck({
-    openExternal: openExternalSafe,
-    readSettings: readSettingsFile,
-    log: services.appLog,
-    version: appVersion(),
-    method: installMethod,
-    updateRunner: services.updateRunner,
-    replaceAvailability: async () => {
-      const dir = updateDir()
-      if (!dir) return null
-      return macInstall ? canReplaceBundle(dir) : canReplaceInstall(dir)
-    },
-    replacer: createInstallReplacer({
-      appDir: updateDir,
-      replace: macInstall
-        ? macReplace({
-            base: downloadBase,
-            fetch,
-            run: runCommand,
-            policy: updatePolicy,
-          })
-        : tarballReplace({ base: downloadBase, fetch, tar: runTar }),
-      onState: announceReplace,
-      onProgress: announceReplaceProgress,
-      onReplaced: (pending) => {
-        if (macInstall) quit.stagedUpdate = { pending, sweepFile }
-        else saveJson(sweepFile, pending)
-      },
-    }),
-  })
+  registerApprovalsWiring({ ...wiring })
+  startUpdates({ ...wiring })
   registerAgentTranscriptIpc()
   registerResumeClaimIpc(
     createResumeClaimer(() =>
@@ -1213,4 +1087,11 @@ const wiring = {
   portableExport,
   artifactHistory,
   sandboxViolations,
+  quit,
+  UPDATE_HOST_GRANT_ID,
+  updatePolicy,
+  revealWindow,
+  settingsChanged,
+  savedPaneIds,
+  paneLauncherDir,
 }

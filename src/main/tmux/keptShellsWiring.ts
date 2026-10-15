@@ -6,7 +6,10 @@ import { KEEP_SHELLS_FEATURE, parseKeepShells } from '../../shared/terminal/keep
 import { keptControlSocketPath, listenKeptControlSocket } from '../control/controlServer'
 import type { AppLog } from '../diagnostics/appLog'
 import type { ProcessRegistry } from '../panes/processRegistry'
+import { readSettingsFile } from '../platform/settingsFile'
 import { missingRequirements, programPath } from '../platform/systemRequirements'
+import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
+import { writeOstiaLauncher } from '../terminal/paneLauncher'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import { handoffPaneIds, loadSnapshot } from '../workspaces/workspaceSnapshot'
 import { KeptPlumbing, keptLauncherPaths } from './keptLaunchers'
@@ -135,5 +138,42 @@ export function createKeptShellsWiring({
     paneLauncherDir,
     keptPlumbing,
     keptPaneEnv,
+  }
+}
+
+interface KeptShellsStartDeps {
+  keptShells: KeptShells
+  savedPaneIds: () => Set<string> | null
+  workspaceSandboxes: WorkspaceSandboxes
+  paneLauncherDir: () => string
+  services: {
+    appLog: AppLog | null
+  }
+}
+
+export function startKeptShells({
+  keptShells,
+  savedPaneIds,
+  workspaceSandboxes,
+  paneLauncherDir,
+  services,
+}: KeptShellsStartDeps) {
+  void keptShells
+    .start(parseKeepShells(readSettingsFile().terminal?.keepShells), savedPaneIds())
+    .then(() => {
+      const kept = keptShells.keptHostWorkspaces()
+      for (const workspaceId of kept) {
+        const host = keptShells.keptHost(workspaceId)
+        if (host) workspaceSandboxes.adoptKeptTmp(workspaceId, host.tmpDir)
+      }
+      workspaceSandboxes.sweepKeptTmp(kept)
+    })
+  try {
+    writeOstiaLauncher(paneLauncherDir())
+  } catch (err) {
+    services.appLog?.warn('launcher-write-failed', {
+      launcher: 'pane',
+      code: (err as NodeJS.ErrnoException).code ?? null,
+    })
   }
 }
