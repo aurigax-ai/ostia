@@ -15,7 +15,7 @@ import {
   resolveSandbox,
   sandboxMergeRefusal,
 } from '../../shared/sandbox/sandbox'
-import { isInsidePath } from '../platform/pathGuard'
+import { expandHome, isInsidePath } from '../platform/pathGuard'
 import { socketPathLimit } from '../platform/privateTmp'
 import { processAlive } from '../platform/processAlive'
 import type { PackageBlockReason, PackagePolicy } from '../sandboxPackages/packagePolicy'
@@ -27,7 +27,6 @@ import {
   type SandboxPaths,
   type SrtConfig,
   buildSrtConfig,
-  expandHome,
   fixedPolicy,
   folderProblem,
   protectedFiles,
