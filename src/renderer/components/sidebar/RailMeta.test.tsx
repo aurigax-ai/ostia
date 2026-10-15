@@ -5,9 +5,10 @@ import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionSidebarItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { act, cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../../../test/render'
 import { DeckRail } from './DeckRail'
 
 const ITEM_WIDTH = 40
@@ -79,7 +80,7 @@ describe('workspace row meta lines', () => {
     vi.restoreAllMocks()
   })
 
-  function seed(items: ExtensionSidebarItem[]): void {
+  async function seed(items: ExtensionSidebarItem[]): Promise<void> {
     useWorkspacesStore.setState({
       workspaces: [
         {
@@ -93,12 +94,12 @@ describe('workspace row meta lines', () => {
       ],
       activeWorkspaceId: 's1',
     })
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     act(() => useExtensionsStore.setState({ sidebar: items }))
   }
 
-  it('puts the folder and branch on one line and ports on their own line', () => {
-    seed([branch, port(3000), port(5173)])
+  it('puts the folder and branch on one line and ports on their own line', async () => {
+    await seed([branch, port(3000), port(5173)])
     const location = row().querySelector('.rail-meta.location') as HTMLElement
     const live = row().querySelector('.rail-meta.live') as HTMLElement
     expect(within(location).getByText('~/Personal/goji/avail')).toHaveClass('rail-meta-path')
@@ -108,8 +109,8 @@ describe('workspace row meta lines', () => {
     expect(within(location).queryByText(':3000')).toBeNull()
   })
 
-  it('labels an item with its badge before the text', () => {
-    seed([
+  it('labels an item with its badge before the text', async () => {
+    await seed([
       {
         extId: 'ports',
         key: 'ssh',
@@ -125,20 +126,20 @@ describe('workspace row meta lines', () => {
     expect(within(item).getByText('SSH')).not.toBe(within(item).getByText('192.168.2.25'))
   })
 
-  it('shows no live line without live items', () => {
-    seed([branch])
+  it('shows no live line without live items', async () => {
+    await seed([branch])
     expect(row().querySelector('.rail-meta.location')).not.toBeNull()
     expect(row().querySelector('.rail-meta.live')).toBeNull()
   })
 
-  it('treats an item without a location kind as live', () => {
-    seed([{ ...branch, key: 'cards', text: '4 open', kind: 'live' }])
+  it('treats an item without a location kind as live', async () => {
+    await seed([{ ...branch, key: 'cards', text: '4 open', kind: 'live' }])
     expect(row().querySelector('.rail-meta.live')).toHaveTextContent('4 open')
   })
 
   it('shows the ports that fit plus a +N that lists the rest and opens them', async () => {
     stubLayout()
-    seed([3001, 3002, 3003, 3004, 3005, 3006].map(port))
+    await seed([3001, 3002, 3003, 3004, 3005, 3006].map(port))
     const live = row().querySelector('.rail-meta.live') as HTMLElement
     expect(within(live).getByText(':3001')).toBeInTheDocument()
     expect(within(live).getByText(':3002')).toBeInTheDocument()
@@ -157,14 +158,14 @@ describe('workspace row meta lines', () => {
     })
   })
 
-  it('shortens the folder from the middle to fit beside the branch', () => {
+  it('shortens the folder from the middle to fit beside the branch', async () => {
     stubLayout()
     vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (
       this: HTMLElement,
     ) {
       return this.classList.contains('rail-meta-path') ? (this.textContent?.length ?? 0) * 5 : 0
     })
-    seed([branch])
+    await seed([branch])
     expect(row().querySelector('.rail-meta-path')).toHaveTextContent('~/…/goji/avail')
   })
 })

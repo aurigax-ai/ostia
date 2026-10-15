@@ -1,7 +1,8 @@
 import '@testing-library/jest-dom/vitest'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { act, cleanup, render } from '@testing-library/react'
+import { act, cleanup } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../test/render'
 import { App } from './App'
 
 vi.mock('@/lib/monaco/setup', () => ({ monaco: {} }))
@@ -27,8 +28,8 @@ describe('App theme', () => {
     document.documentElement.removeAttribute('style')
   })
 
-  it('a custom accent color overrides the brand color on the window', () => {
-    render(<App />)
+  it('a custom accent color overrides the brand color on the window', async () => {
+    await renderSettled(<App />)
     const themeBrand = brand()
     expect(themeBrand).not.toBe('#ff8800')
 

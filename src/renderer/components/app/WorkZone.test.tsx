@@ -12,6 +12,7 @@ import type { AppSnapshot } from '@shared/types'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../../../test/render'
 import { WorkZone } from './WorkZone'
 
 vi.mock('@/components/terminal/Terminal', () => ({
@@ -28,8 +29,8 @@ function renderZone(): void {
   )
 }
 
-function renderShell(): void {
-  render(
+async function renderShell(): Promise<void> {
+  await renderSettled(
     <TooltipProvider>
       <DeckRail />
       <WorkZone />
@@ -58,14 +59,14 @@ describe('WorkZone', () => {
     vi.restoreAllMocks()
   })
 
-  function restart(): AppSnapshot | null {
+  async function restart(): Promise<AppSnapshot | null> {
     saveSnapshotNow()
     const saved = vi.mocked(window.ostia.workspace.save).mock.calls.at(-1)?.[0] ?? null
     cleanup()
     useWorkspacesStore.setState(workspacesInit, true)
     useLayoutStore.setState(layoutInit, true)
     useWorkspacesStore.getState().hydrate(saved && JSON.parse(JSON.stringify(saved)))
-    renderShell()
+    await renderShell()
     return saved
   }
 
@@ -209,9 +210,9 @@ describe('WorkZone', () => {
     expect(useWorkspacesStore.getState().workspaces).toEqual([])
   })
 
-  it('boots with no workspaces when there is nothing to restore', () => {
+  it('boots with no workspaces when there is nothing to restore', async () => {
     useWorkspacesStore.getState().hydrate(null)
-    renderShell()
+    await renderShell()
 
     expect(screen.getByRole('heading', { name: 'No workspaces' })).toBeInTheDocument()
     expect(screen.queryByTestId(/^terminal-/)).toBeNull()
@@ -220,11 +221,11 @@ describe('WorkZone', () => {
 
   it('restores zero workspaces after the last workspace was closed', async () => {
     openTerminalWorkspace()
-    renderShell()
+    await renderShell()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Close' }))
     expect(screen.getByRole('heading', { name: 'No workspaces' })).toBeInTheDocument()
 
-    expect(restart()?.workspaces).toEqual([])
+    expect((await restart())?.workspaces).toEqual([])
 
     expect(screen.getByRole('heading', { name: 'No workspaces' })).toBeInTheDocument()
     expect(screen.queryByTestId(/^terminal-/)).toBeNull()
@@ -233,7 +234,7 @@ describe('WorkZone', () => {
 
   it('keeps an emptied, renamed workspace across a restart', async () => {
     openTerminalWorkspace()
-    renderShell()
+    await renderShell()
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Close tab' }))
     expect(screen.queryByTestId(/^terminal-/)).toBeNull()
@@ -245,7 +246,7 @@ describe('WorkZone', () => {
     await user.type(name, 'payments{Enter}')
     expect(screen.getByText('payments')).toHaveClass('tab-title')
 
-    restart()
+    await restart()
 
     expect(screen.getByText('payments')).toHaveClass('tab-title')
     expect(screen.getByRole('button', { name: /New terminal/ })).toBeInTheDocument()

@@ -966,11 +966,7 @@
         "src/renderer/stores/terminal/blocksStore.ts",
         "src/renderer/stores/terminal/historySearchStore.ts"
       ],
-      "specs": [
-        "e2e/blocks.spec.ts",
-        "e2e/input-editor.spec.ts",
-        "e2e/terminal-basics.spec.ts"
-      ]
+      "specs": ["e2e/blocks.spec.ts", "e2e/input-editor.spec.ts", "e2e/terminal-basics.spec.ts"]
     },
     {
       "name": "tabs and panes",
@@ -1047,7 +1043,11 @@
         "src/renderer/lib/workspaces/workspaceSummary.ts",
         "src/renderer/lib/attention/workspaceActivity.ts"
       ],
-      "specs": ["e2e/has-free-styles.spec.ts", "e2e/workspace-groups.spec.ts"]
+      "specs": [
+        "e2e/has-free-styles.spec.ts",
+        "e2e/sidebar-scroll.spec.ts",
+        "e2e/workspace-groups.spec.ts"
+      ]
     },
     {
       "name": "component styles",
@@ -1149,11 +1149,7 @@
         "src/renderer/components/settings/DiscreteGpuRow.tsx",
         "src/renderer/components/app/WindowControls.tsx"
       ],
-      "specs": [
-        "e2e/auto-resume.spec.ts",
-        "e2e/quit-confirm.spec.ts",
-        "e2e/tray.spec.ts"
-      ]
+      "specs": ["e2e/auto-resume.spec.ts", "e2e/quit-confirm.spec.ts", "e2e/tray.spec.ts"]
     },
     {
       "name": "command palette",
