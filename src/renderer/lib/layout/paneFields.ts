@@ -5,7 +5,7 @@ import { type BrowserProfile, parseBrowserProfile } from '@shared/browser/browse
 import { allPanes, findPane } from './tree'
 import type { LayoutNode, PaneNode, SurfaceKind, TabNode } from './types'
 
-function mapPanes(node: LayoutNode, fn: (pane: PaneNode) => PaneNode): LayoutNode {
+export function mapPanes(node: LayoutNode, fn: (pane: PaneNode) => PaneNode): LayoutNode {
   if (node.type === 'pane') return fn(node)
   if (node.type === 'tabs') {
     const children = node.children.map((c) => mapPanes(c, fn) as TabNode)

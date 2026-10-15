@@ -994,6 +994,8 @@
         "src/renderer/components/panes/TabMoveMenuItems.tsx",
         "src/renderer/components/panes/TabRow.",
         "src/renderer/components/panes/SplitTab.tsx",
+        "src/renderer/components/panes/SplitTabBody.tsx",
+        "src/renderer/lib/layout/collapse.ts",
         "src/renderer/components/common/PanelResizer.",
         "src/renderer/components/panes/Pane.",
         "src/renderer/components/panes/PaneActions.tsx",
@@ -1028,6 +1030,7 @@
         "e2e/pane-dnd.spec.ts",
         "e2e/pane-lock.spec.ts",
         "e2e/pane-move-tab.spec.ts",
+        "e2e/split-tab-collapse.spec.ts",
         "e2e/tab-rename.spec.ts",
         "e2e/tab-switch.spec.ts",
         "e2e/workspace-select-focus.spec.ts"
