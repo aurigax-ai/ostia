@@ -1,8 +1,8 @@
 import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
 import { findPane } from '@/lib/layout/tree'
-import type { ResumeFailure } from '@/lib/layout/types'
 import { runWhenIdle } from '@/lib/terminal/blockActions'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import type { ResumeFailure } from '@shared/agents/agentResume'
 import { newSessionCommand } from '@shared/agents/agentResume'
 import { resumeWhenIdle } from './resumeFolder'
 
@@ -24,7 +24,7 @@ export function startNewSession(paneId: string): void {
   const found = failureOf(paneId)
   if (!found) return
   useLayoutStore.getState().clearResumeFailure(found.workspaceId, paneId)
-  runWhenIdle(paneId, newSessionCommand(found.failure.resume))
+  runWhenIdle(paneId, newSessionCommand(found.failure.resume.agent))
 }
 
 export function dismissResumeFailure(paneId: string): void {

@@ -68,6 +68,19 @@ interface PtyRegistryDeps {
 
 export type PtyRegistry = ReturnType<typeof createPtyRegistry>
 
+export function feedDisplay(entry: Pick<PtyEntry, 'session'>, data: string): void {
+  entry.session.push(data)
+}
+
+export function replayRestored(
+  entry: Pick<PtyEntry, 'session' | 'mirror'>,
+  history: string,
+  seam: string,
+): void {
+  feedDisplay(entry, `${history}${seam}`)
+  entry.mirror.restore(history)
+}
+
 export function createPtyRegistry({
   ptys,
   movingPanes,
@@ -101,10 +114,6 @@ export function createPtyRegistry({
     entry.session.push(data)
     entry.mirror.write(data)
     processes()?.feed(entry.paneId, data, entry.session.cursor)
-  }
-
-  function feedDisplay(entry: PtyEntry, data: string): void {
-    entry.session.push(data)
   }
 
   function trackPty(
@@ -197,5 +206,5 @@ export function createPtyRegistry({
     return entry
   }
 
-  return { loadPty, feedPty, feedDisplay, trackPty }
+  return { loadPty, feedPty, trackPty }
 }

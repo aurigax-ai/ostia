@@ -11,6 +11,23 @@ export interface AgentResume {
   env?: Record<string, string>
 }
 
+export interface ResumeFailure {
+  resume: AgentResume
+  exitCode: number
+}
+
+export function parseResumeFailure(raw: unknown): ResumeFailure | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const { resume, exitCode } = raw as Record<string, unknown>
+  const parsed = parseAgentResume(resume)
+  return parsed &&
+    Number.isInteger(exitCode) &&
+    (exitCode as number) > 0 &&
+    (exitCode as number) < 256
+    ? { resume: parsed, exitCode: exitCode as number }
+    : null
+}
+
 export const RESUMABLE_AGENTS: readonly ResumableAgent[] = ['claude', 'codex']
 
 const RESUME_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
@@ -85,8 +102,8 @@ export function forkCommand(resume: AgentResume): string {
   )
 }
 
-export function newSessionCommand(resume: AgentResume): string {
-  return agentCommandLine(resume, [])
+export function newSessionCommand(agent: ResumableAgent): string {
+  return `'${agent}'`
 }
 
 export function resumeFromHookPayload(payload: string): { id: string; cwd?: string } | null {

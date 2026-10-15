@@ -9,7 +9,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 vi.mock('@/lib/terminal/blockActions', () => ({ runWhenIdle: vi.fn(() => vi.fn()) }))
 
 const { runWhenIdle } = await import('@/lib/terminal/blockActions')
-const { resumeStarted } = await import('./resumeOutcome')
+const { RESUME_FAIL_WINDOW_MS, resumeStarted } = await import('./resumeOutcome')
 const { dismissResumeFailure, retryResume, startNewSession } = await import('./resumeFailure')
 const { resumeWhenIdle } = await import('./resumeFolder')
 const { startAutoResume } = await import('./autoResume')
@@ -82,7 +82,7 @@ describe('a typed resume that fails', () => {
     })
   }
 
-  it('RSM-C2 drops the token, keeps the failure for the note, and is not typed or saved again', () => {
+  it('RSM-C2 moves the token into the saved failure, so it is never typed again but survives a restart', () => {
     seed()
     typeResume()
     runBlock(1)
@@ -93,7 +93,7 @@ describe('a typed resume that fails', () => {
 
     const back = saved()
     expect(back?.resume).toBeUndefined()
-    expect(back?.resumeFailed).toBeUndefined()
+    expect(back?.resumeFailed).toEqual({ resume, exitCode: 1 })
     expect(back?.resumePending).toBeUndefined()
 
     vi.mocked(runWhenIdle).mockClear()
@@ -131,6 +131,60 @@ describe('a typed resume that fails', () => {
     seed()
     runBlock(1)
     expect(current()?.resume).toEqual(resume)
+  })
+
+  it('RSM-C13 never watches when that agent’s hooks are off, since no start can be reported', () => {
+    seed()
+    useSettingsStore.setState((s) => ({
+      agents: { ...s.agents, hooks: { ...s.agents.hooks, claude: false } },
+    }))
+    typeResume()
+    runBlock(1)
+    expect(current()?.resume).toEqual(resume)
+    expect(current()?.resumeFailed).toBeUndefined()
+  })
+
+  it('RSM-C14 keeps the token when the agent ends on a signal, such as Ctrl+C', () => {
+    for (const exitCode of [130, 143, 137]) {
+      seed()
+      typeResume()
+      runBlock(exitCode)
+      expect(current()?.resume).toEqual(resume)
+      expect(current()?.resumeFailed).toBeUndefined()
+    }
+  })
+
+  it('RSM-C15 keeps the token when the agent fails only after the short window', () => {
+    vi.useFakeTimers()
+    try {
+      seed()
+      typeResume()
+      const blocks = useBlocksStore.getState()
+      blocks.promptStart('p1', { line: 0 }, '/w')
+      blocks.commandStart('p1', { line: 1 }, `'claude' --resume ${resume.id}`)
+      vi.advanceTimersByTime(RESUME_FAIL_WINDOW_MS + 1)
+      useBlocksStore.getState().commandEnd('p1', { line: 2 }, 1)
+      expect(current()?.resume).toEqual(resume)
+      expect(current()?.resumeFailed).toBeUndefined()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('RSM-C16 still fails a resume that ends within the window, the way a missing session does', () => {
+    vi.useFakeTimers()
+    try {
+      seed()
+      typeResume()
+      const blocks = useBlocksStore.getState()
+      blocks.promptStart('p1', { line: 0 }, '/w')
+      blocks.commandStart('p1', { line: 1 }, `'claude' --resume ${resume.id}`)
+      vi.advanceTimersByTime(RESUME_FAIL_WINDOW_MS - 1_000)
+      useBlocksStore.getState().commandEnd('p1', { line: 2 }, 1)
+      expect(current()?.resumeFailed).toEqual({ resume, exitCode: 1 })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('RSM-C7 tries again with the same token, only on the human’s click', () => {

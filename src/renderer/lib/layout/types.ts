@@ -1,4 +1,4 @@
-import type { AgentResume } from '@shared/agents/agentResume'
+import type { AgentResume, ResumeFailure } from '@shared/agents/agentResume'
 import type { BrowserProfile } from '@shared/browser/browserProfile'
 
 export type Direction = 'horizontal' | 'vertical'
@@ -14,11 +14,6 @@ export type SurfaceKind =
   | 'git'
   | 'view'
   | 'manager'
-
-export interface ResumeFailure {
-  resume: AgentResume
-  exitCode: number
-}
 
 export interface PaneNode {
   type: 'pane'

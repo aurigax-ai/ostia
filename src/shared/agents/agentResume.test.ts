@@ -237,11 +237,9 @@ describe('resumeFromHookPayload', () => {
 const hasShell = (shell: string) => spawnSync(shell, ['-c', 'true']).status === 0
 
 describe('the line Ostia types for an agent', () => {
-  it('starts a new session of the same agent with its saved flags and variables', () => {
-    expect(newSessionCommand({ agent: 'claude', id: 'abc' })).toBe("'claude'")
-    expect(
-      newSessionCommand({ agent: 'codex', id: 'abc', env: { GL_ISSUE: '685' }, args: ['--oss'] }),
-    ).toBe("GL_ISSUE=685 'codex' --oss")
+  it('starts a fresh session of the same agent, never with anything from the token', () => {
+    expect(newSessionCommand('claude')).toBe("'claude'")
+    expect(newSessionCommand('codex')).toBe("'codex'")
   })
 
   for (const shell of ['bash', 'zsh']) {
@@ -276,4 +274,27 @@ describe('the line Ostia types for an agent', () => {
       },
     )
   }
+
+  const fish = 'fish'
+  it.skipIf(!hasShell(fish))("RSM-C12 runs as valid fish and keeps Ostia's claude function", () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ostia-alias-'))
+    try {
+      const agent = join(dir, 'claude')
+      writeFileSync(agent, '#!/bin/sh\necho "REAL $*"\n')
+      chmodSync(agent, 0o755)
+      const line = resumeCommand({ agent: 'claude', id: 'abc', env: { GL_ISSUE: '685' } })
+      const out = spawnSync(
+        fish,
+        [
+          '--no-config',
+          '-c',
+          'function claude; echo "WRAPPED $argv"; command claude $argv; end; eval $LINE',
+        ],
+        { env: { PATH: `${dir}:/usr/bin:/bin`, HOME: dir, LINE: line }, encoding: 'utf8' },
+      ).stdout.trim()
+      expect(out).toBe('WRAPPED --resume abc\nREAL --resume abc')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
 })

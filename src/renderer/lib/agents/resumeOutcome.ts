@@ -1,9 +1,12 @@
 import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { AgentResume } from '@shared/agents/agentResume'
 
-const RESUME_BLOCK_WAIT_MS = 30_000
+const RESUME_START_WAIT_MS = 30_000
+export const RESUME_FAIL_WINDOW_MS = 30_000
+const SIGNAL_EXIT = 128
 
 interface Watch {
   started: boolean
@@ -22,9 +25,15 @@ function failed(paneId: string, resume: AgentResume, exitCode: number): void {
   if (workspaceId) useLayoutStore.getState().failResume(workspaceId, paneId, resume, exitCode)
 }
 
+function isFailure(exitCode: number | null | undefined): exitCode is number {
+  return typeof exitCode === 'number' && exitCode > 0 && exitCode < SIGNAL_EXIT
+}
+
 export function watchResumeOutcome(paneId: string, resume: AgentResume): void {
   watches.get(paneId)?.stop()
+  if (useSettingsStore.getState().agents.hooks[resume.agent] === false) return
   let blockId: string | null = null
+  let timer = setTimeout(() => watch.stop(), RESUME_START_WAIT_MS)
   const check = (): void => {
     const { running, byPane } = useBlocksStore.getState()
     const current = running[paneId]
@@ -32,17 +41,15 @@ export function watchResumeOutcome(paneId: string, resume: AgentResume): void {
       if (current === undefined) return
       blockId = current
       clearTimeout(timer)
+      timer = setTimeout(() => watch.stop(), RESUME_FAIL_WINDOW_MS)
     }
     if (current === blockId) return
     const exitCode = byPane[paneId]?.find((b) => b.id === blockId)?.exitCode
     const { started } = watch
     watch.stop()
-    if (!started && typeof exitCode === 'number' && exitCode !== 0) {
-      failed(paneId, resume, exitCode)
-    }
+    if (!started && isFailure(exitCode)) failed(paneId, resume, exitCode)
   }
   const unsubscribe = useBlocksStore.subscribe(check)
-  const timer = setTimeout(() => watch.stop(), RESUME_BLOCK_WAIT_MS)
   const watch: Watch = {
     started: false,
     stop: () => {
