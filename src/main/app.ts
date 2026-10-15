@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto'
-import { readdirSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { appEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
@@ -32,17 +31,10 @@ import { parsePortsSettings } from '../shared/boards/ports'
 import { ChangeSignal } from '../shared/common/actThenConfirm'
 import { externalHref } from '../shared/common/externalLinks'
 import { EXTENSION_SUGGESTIONS } from '../shared/extensions/extensionSuggestions'
-import { OPEN_FILES_MAX } from '../shared/files/openFiles'
 import { bucketCount } from '../shared/privacy/telemetry'
 import { parseKeepShells } from '../shared/terminal/keepShells'
 import { quoteArgv } from '../shared/terminal/shellQuote'
-import type {
-  CommandDescriptor,
-  CommandTarget,
-  FsEntry,
-  FsKind,
-  TerminalStateSnapshot,
-} from '../shared/types'
+import type { CommandDescriptor, CommandTarget, TerminalStateSnapshot } from '../shared/types'
 import { createAgentOfferRelay } from './agents/agentOfferRelay'
 import { AgentRunningPanes } from './agents/agentRunning'
 import { registerAgentTranscriptIpc } from './agents/agentTranscript'
@@ -115,15 +107,10 @@ import { type Marketplace, marketplaceId, normalizeMarketplaceUrl } from './exte
 import { PaneAttentionEvents } from './extensions/paneAttentionEvents'
 import { createMainStrings } from './extensions/strings'
 import { workspaceChipsForWindow } from './extensions/workspaceChips'
-import { FileOps } from './files/fileOps'
-import { FileWatches } from './files/fileWatch'
-import { readBinaryConfined } from './files/fsBinary'
-import { readTextConfined, versionConfined, writeText, writeTextConfined } from './files/fsText'
-import { registerOpenPathIpc } from './files/openPath'
+import type { FileWatches } from './files/fileWatch'
+import { registerFsIpc } from './files/fsIpc'
 import { OpenWaits } from './files/openWaits'
 import { registerRemoteFolderConfirm } from './files/remoteFolderConfirm'
-import { ripgrepPath } from './files/ripgrep'
-import { registerSearchIpc } from './files/workspaceSearch'
 import { startGateway } from './gateway/gatewayWiring'
 import { phoneCanRespond } from './gateway/server'
 import { GitCommands } from './git/commands'
@@ -151,7 +138,6 @@ import { PaneWaking } from './panes/paneWaking'
 import type { ProcessRegistry } from './panes/processRegistry'
 import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './platform/discreteGpu'
 import { loadJson, saveJson, storePath } from './platform/jsonStore'
-import { resolveSafe } from './platform/pathGuard'
 import { privateTmpDir } from './platform/privateTmp'
 import { readLocale, readSettingsFile } from './platform/settingsFile'
 import {
@@ -191,7 +177,6 @@ import type { SubscriberRole } from './terminal/ptySession'
 import { registerSelectionIpc } from './terminal/selectionReport'
 import { setAgentPlugins } from './terminal/shellIntegration'
 import { spawnFolder } from './terminal/spawnCwd'
-import { TerminalPathLinks, registerTerminalPathLinkIpc } from './terminal/terminalPathLinks'
 import {
   PTY_COLOR_ENV,
   PTY_TERM_NAME,
@@ -240,7 +225,6 @@ import { startWindows } from './windows/windowStartup'
 import { createWindowWiring } from './windows/windowWiring'
 import { registerCmuxSessionIpc } from './workspaces/cmuxSession'
 import { registerContentIpc } from './workspaces/contentWiring'
-import { registerProjectRootIpc } from './workspaces/projectRoot'
 import { registerScratchIpc } from './workspaces/scratchFolders'
 import { createScrollbackPersistence } from './workspaces/scrollbackPersistence'
 import type { ViewHost } from './workspaces/viewHost'
@@ -359,16 +343,6 @@ const {
 
 const { listCommandsFor, getTerminalState, execCommand, openTerminalInWindow } =
   createCommandBridge({ commandsByWindow, terminalState, windows, mainWindow, workspaceWindowId })
-
-function listDir(dir: string): FsEntry[] {
-  try {
-    return readdirSync(dir, { withFileTypes: true })
-      .map((d) => ({ name: d.name, dir: d.isDirectory() }))
-      .sort((a, b) => (a.dir === b.dir ? a.name.localeCompare(b.name) : a.dir ? -1 : 1))
-  } catch {
-    return []
-  }
-}
 
 const hibernatedPanes = new Set<string>()
 const movingPanes = new Set<string>()
@@ -1064,114 +1038,16 @@ function spawnManagerPty(req: {
   return true
 }
 
-const FILE_WATCH_DEBOUNCE_MS = 150
-
-function registerFsIpc(): void {
-  const allowedRoots = fileRoots()
-  const settingsFile = join(app.getPath('userData'), 'settings.json')
-  registerOpenPathIpc(allowedRoots, () => windows.values())
-  registerTerminalPathLinkIpc(
-    new TerminalPathLinks({
-      grants: openFileGrants,
-      home: homedir(),
-      output: (paneId) => paneOutput(paneId),
-      pane: (paneId) => getByPaneId(paneId),
-      isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-      isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
-      openFolder: (path) => shell.openPath(path),
-    }),
-  )
-  registerProjectRootIpc(allowedRoots)
-  registerSearchIpc(ripgrepPath(app.getAppPath(), process.platform, process.arch), allowedRoots)
-
-  const fileOps = new FileOps({ roots: allowedRoots, trash: (path) => shell.trashItem(path) })
-  ipcMain.handle('files:create', (_e, dir: unknown, name: unknown, kind: unknown) =>
-    fileOps.create(dir, name, kind),
-  )
-  ipcMain.handle('files:rename', (_e, path: unknown, name: unknown) => fileOps.rename(path, name))
-  ipcMain.handle('files:move', (_e, paths: unknown, dir: unknown) => fileOps.move(paths, dir))
-  ipcMain.handle('files:copy', (_e, paths: unknown, dir: unknown) => fileOps.copy(paths, dir))
-  ipcMain.handle('files:trash', (_e, paths: unknown) => fileOps.trash(paths))
-
-  ipcMain.handle('fs:list', (_e, dir: string): FsEntry[] => {
-    const safe = resolveSafe(dir, allowedRoots)
-    if (safe === null) return []
-    return listDir(safe)
-  })
-
-  ipcMain.handle('fs:stat', (_e, path: string): FsKind | null => {
-    const safe = openFileGrants.confine(path)
-    if (safe === null) return null
-    try {
-      const stat = statSync(safe)
-      return stat.isFile() ? 'file' : stat.isDirectory() ? 'dir' : null
-    } catch {
-      return null
-    }
-  })
-
-  ipcMain.handle('fs:read', (_e, path: unknown) =>
-    readTextConfined(path, (candidate) => openFileGrants.confine(candidate)),
-  )
-
-  ipcMain.handle('fs:read-binary', (_e, path: unknown) =>
-    readBinaryConfined(path, (candidate) => openFileGrants.confine(candidate)),
-  )
-
-  ipcMain.handle('files:admit-dropped', (_e, paths: unknown, workspaceId: unknown) => {
-    if (!Array.isArray(paths) || paths.length > OPEN_FILES_MAX) return []
-    const remember = typeof workspaceId !== 'string' || !scratchFolders.isScratch(workspaceId)
-    return paths
-      .filter((path): path is string => typeof path === 'string')
-      .map((path) => openFileGrants.admit(path, { sandboxed: false, remember }))
-  })
-
-  services.fileWatches = new FileWatches({
-    confine: (path) => openFileGrants.confine(path),
-    debounceMs: FILE_WATCH_DEBOUNCE_MS,
-    onChange: ({ path, exists, owners }) => {
-      for (const owner of owners) {
-        const win = windows.get(owner)
-        if (win && !win.isDestroyed()) win.webContents.send('fs:changed', { path, exists })
-      }
-    },
-  })
-  ipcMain.handle('fs:watch', (e, path: unknown): boolean =>
-    typeof path === 'string'
-      ? (services.fileWatches?.watch(String(e.sender.id), path) ?? false)
-      : false,
-  )
-  ipcMain.on('fs:unwatch', (e, path: unknown) => {
-    if (typeof path === 'string') services.fileWatches?.unwatch(String(e.sender.id), path)
-  })
-
-  ipcMain.handle('fs:version', (_e, path: unknown) =>
-    versionConfined(path, (candidate) => openFileGrants.confine(candidate)),
-  )
-
-  ipcMain.handle(
-    'fs:write',
-    (e, path: string, content: string): Promise<boolean> =>
-      writeTextConfined(
-        path,
-        (p) => openFileGrants.confine(p),
-        async (safe) => {
-          const save = () => writeText(safe, content)
-          await (services.fileWatches?.write(String(e.sender.id), safe, content, save) ?? save())
-          if (safe === settingsFile) {
-            settingsChanged()
-            services.telemetry?.settingsChanged()
-            refreshCapabilitySettings()
-            services.extensionHost?.refreshLocale()
-            services.extensionHost?.assistant.reloadAssistSettings()
-            services.gitService?.settingsChanged()
-            services.portsService?.settingsChanged()
-            applyGlobalHotkey()
-            services.releaseChecks?.settingsChanged()
-          }
-        },
-      ),
-  )
+function onSettingsWritten(): void {
+  settingsChanged()
+  services.telemetry?.settingsChanged()
+  refreshCapabilitySettings()
+  services.extensionHost?.refreshLocale()
+  services.extensionHost?.assistant.reloadAssistSettings()
+  services.gitService?.settingsChanged()
+  services.portsService?.settingsChanged()
+  applyGlobalHotkey()
+  services.releaseChecks?.settingsChanged()
 }
 
 function openSettingsInFocusedWindow(): void {
@@ -1521,7 +1397,7 @@ app.whenReady().then(() => {
     windowOfPane,
     readSettingsFile,
   })
-  registerFsIpc()
+  registerFsIpc({ ...wiring })
   registerSelectionIpc(reachesPane, redactor.text)
   registerPreviewIpc(previews, (png) => {
     void clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(png)]) })])
@@ -1810,4 +1686,6 @@ const wiring = {
   scanSandboxPorts,
   PORT_SCAN_MS,
   isScratchPane,
+  paneOutput,
+  onSettingsWritten,
 }
