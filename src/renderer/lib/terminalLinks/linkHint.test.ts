@@ -37,7 +37,17 @@ describe('createLinkHint', () => {
     vi.advanceTimersByTime(200)
     hint.hide()
     vi.advanceTimersByTime(1_000)
-    expect(published).toEqual([null])
+    expect(published).toEqual([])
+  })
+
+  it('clears a shown hint once and publishes nothing for a hide with no hint out', () => {
+    const hint = hintAfter400()
+    hint.hide()
+    hint.show(() => 'box')
+    vi.advanceTimersByTime(400)
+    hint.hide()
+    hint.hide()
+    expect(published).toEqual(['box', null])
   })
 
   it('never shows a hint whose pane stopped being visible while its timer was pending', () => {

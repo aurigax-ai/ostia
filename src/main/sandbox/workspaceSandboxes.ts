@@ -14,6 +14,7 @@ import {
   resolveSandbox,
   sandboxMergeRefusal,
 } from '../../shared/sandbox/sandbox'
+import { isInsidePath } from '../platform/pathGuard'
 import { socketPathLimit } from '../platform/privateTmp'
 import { processAlive } from '../platform/processAlive'
 import type { PackageBlockReason, PackagePolicy } from '../sandboxPackages/packagePolicy'
@@ -31,7 +32,6 @@ import {
   protectedFiles,
   protectedPaths,
   realPath,
-  within,
 } from './srtConfig'
 import type { SandboxStore } from './store'
 import type { WriteRefusal } from './violations'
@@ -256,13 +256,13 @@ export class WorkspaceSandboxes {
   }
 
   writeRefusal(workspaceId: string, path: string): WriteRefusal | null {
-    if (KERNEL_MOUNTS.some((mount) => within(path, mount))) return null
+    if (KERNEL_MOUNTS.some((mount) => isInsidePath(mount, path))) return null
     try {
       const { filesystem } = this.config(workspaceId)
       const extra = this.paneWrites.get(this.owner(workspaceId)) ?? []
       const real = realPath(path)
       const under = (list: readonly string[]): boolean =>
-        list.some((entry) => within(path, entry) || within(real, realPath(entry)))
+        list.some((entry) => isInsidePath(entry, path) || isInsidePath(realPath(entry), real))
       if (under(filesystem.denyWrite)) return 'read-only'
       return under([...filesystem.allowWrite, ...extra]) ? null : 'outside'
     } catch {
