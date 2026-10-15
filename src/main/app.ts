@@ -5,7 +5,6 @@ import { homedir, hostname } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { appEnv, readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { MANAGER_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
-import { languageForPath } from '@aurigax-ai/ostia-extension-sdk/contract/editorLanguages'
 import type {
   ExtensionEventPayloads,
   ExtensionEventType,
@@ -13,7 +12,6 @@ import type {
   ExtensionResult,
   WorkspaceChip,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { languageServerKey } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import {
   OFFICIAL_MARKETPLACE,
   PRODUCT_NAME,
@@ -218,7 +216,7 @@ import { createMainStrings } from './extensions/strings'
 import { firstKnownOwner, workspaceChipsForWindow } from './extensions/workspaceChips'
 import { openInExternalEditor } from './files/externalEditor'
 import { FileOps } from './files/fileOps'
-import { FileWatches, TreeWatches } from './files/fileWatch'
+import { FileWatches } from './files/fileWatch'
 import { readBinaryConfined } from './files/fsBinary'
 import { readTextConfined, versionConfined, writeText, writeTextConfined } from './files/fsText'
 import { openFileForExtension, registerOpenFileMethods } from './files/openFileMethods'
@@ -246,11 +244,9 @@ import { registerGitIpc, registerGitMethods } from './git/register'
 import { GitService } from './git/service'
 import { ViewStateStore } from './git/viewState'
 import { registerEditorLanguageIpc } from './lsp/editorLanguages'
-import { LanguageServers } from './lsp/languageServers'
+import { createLanguageServerWiring } from './lsp/languageServerWiring'
+import type { LanguageServers } from './lsp/languageServers'
 import { registerLanguageServersIpc } from './lsp/languageServersIpc'
-import { ManagedServers, downloadBaseUrl } from './lsp/managedServers'
-import { ServerOverrides } from './lsp/serverOverrides'
-import { scrubbedEnv } from './lsp/serverSpawn'
 import { ManagerService, managerWindowId } from './manager/manager'
 import {
   managerArgv,
@@ -301,7 +297,6 @@ import {
   installHint,
   missingRequirements,
   programPath,
-  registerRequirements,
   requirementLabel,
 } from './platform/systemRequirements'
 import { registerSystemRequirementsIpc } from './platform/systemRequirementsIpc'
@@ -400,7 +395,6 @@ import {
   announceUpdateRun,
   readUpdateChannel,
   registerReleaseCheck,
-  releaseUserAgent,
 } from './updates/releaseCheck'
 import { type UpdateRunner, createUpdateRunner } from './updates/updateRun'
 import { installAppMenu } from './windows/appMenu'
@@ -931,70 +925,22 @@ const {
 
 let languageServers: LanguageServers | null = null
 
-function editorLanguageOf(path: string): string {
-  return languageForPath(
-    path,
-    (extensionHost?.contributions.editorLanguages() ?? []).map((source) => source.language),
-  )
-}
-
-const managedServers = new ManagedServers({
-  dir: join(app.getPath('userData'), 'language-servers'),
-  userAgent: releaseUserAgent(app.getVersion()),
-  findProgram: (program) => programPath(program),
-  env: () => scrubbedEnv(process.env),
-  baseUrl: downloadBaseUrl(app.isPackaged, process.env),
+const {
+  editorLanguageOf,
+  managedServers,
+  languageServerWatches,
+  serverOverrides,
+  createLanguageServers,
+} = createLanguageServerWiring({
+  contributions: () => extensionHost?.contributions ?? null,
+  fileRoots,
+  openFileGrants,
+  workspaceSandboxes,
+  sandboxCanRead,
+  windows,
+  broadcast,
+  appLog: () => appLog,
 })
-
-const LANGUAGE_SERVER_WATCH_DEBOUNCE_MS = 300
-const languageServerWatches = new TreeWatches({
-  confine: (dir) => resolveSafe(dir, fileRoots()),
-  debounceMs: LANGUAGE_SERVER_WATCH_DEBOUNCE_MS,
-})
-
-const serverOverrides = new ServerOverrides(
-  join(app.getPath('userData'), 'language-server-programs.json'),
-)
-
-function createLanguageServers(): LanguageServers {
-  return new LanguageServers({
-    watchTree: (root, onChange) => languageServerWatches.watch(root, onChange),
-    sources: () =>
-      (extensionHost?.contributions.languageServers() ?? []).map((source) => {
-        const override = serverOverrides.get(languageServerKey(source.extId, source.server.id))
-        return override ? { ...source, override } : source
-      }),
-    nodePath: process.execPath,
-    env: () => process.env,
-    pane: (paneId) => getByPaneId(paneId),
-    confine: (path) => openFileGrants.confine(path),
-    workDir: (workspaceId) => workDirForWorkspace(workspaceId),
-    roots: fileRoots,
-    sandbox: {
-      owner: (workspaceId) =>
-        workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
-          ? workspaceSandboxes.owner(workspaceId)
-          : null,
-      readable: sandboxCanRead,
-      wrap: (workspaceId, command, extraReads) =>
-        workspaceSandboxes.wrap(workspaceId, command, 'bash', [], extraReads),
-      env: (workspaceId, env) => ({
-        ...sandboxSpawnEnv(env as Record<string, string>),
-        TMPDIR: workspaceSandboxes.tmpDir(workspaceId),
-      }),
-    },
-    findProgram: (program) => programPath(program),
-    languageOf: editorLanguageOf,
-    managed: managedServers,
-    registerRequirements,
-    post: (windowId, channel, ...args) => {
-      const win = windows.get(windowId)
-      if (win && !win.isDestroyed()) win.webContents.send(channel, ...args)
-    },
-    changed: (list) => broadcast('lsp:servers-changed', list),
-    log: (event, fields) => appLog?.info(event, fields),
-  })
-}
 
 let onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null = null
 
