@@ -776,7 +776,7 @@ export function configurationSection(settings: JsonObject, section: unknown): Js
   if (typeof section !== 'string' || section === '') return settings
   let node: JsonValue = settings
   for (const segment of section.split('.')) {
-    if (typeof node !== 'object' || node === null || Array.isArray(node)) return null
+    if (!isRecord(node)) return null
     if (!Object.hasOwn(node, segment)) return null
     node = node[segment]
   }
