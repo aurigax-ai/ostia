@@ -170,6 +170,9 @@ export const settingsEn = {
     wheelZoomMac: 'Cmd+scroll zooms the font',
     wheelZoomDesc:
       'Scrolling over a terminal or the editor with the key held changes its font size. Keyboard zoom keeps working either way.',
+    smoothScrolling: 'Smooth scrolling',
+    smoothScrollingDesc:
+      'Animate scrollback when you scroll with a mouse wheel. Trackpads already scroll smoothly, and reduced motion turns this off.',
     sidebarPath: 'Folder',
     sidebarPathDesc: 'Show the workspace folder under its name.',
     sidebarMessage: 'Latest activity',

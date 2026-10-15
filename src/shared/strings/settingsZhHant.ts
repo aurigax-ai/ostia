@@ -165,6 +165,9 @@ export const settingsZhHant: typeof settingsEn = {
     wheelZoom: 'Ctrl＋滾輪縮放字級',
     wheelZoomMac: 'Cmd＋滾輪縮放字級',
     wheelZoomDesc: '按住這個鍵在終端機或編輯器上捲動時，會改變那裡的字級。用鍵盤縮放不受影響。',
+    smoothScrolling: '平滑捲動',
+    smoothScrollingDesc:
+      '用滑鼠滾輪捲動歷史輸出時加上動畫。觸控板本來就平滑，減少動態效果開啟時一律不加動畫。',
     sidebarPath: '資料夾',
     sidebarPathDesc: '在名稱下方顯示工作區資料夾。',
     sidebarMessage: '最新動態',

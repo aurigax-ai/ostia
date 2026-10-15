@@ -1,3 +1,5 @@
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { Terminal as Xterm } from '@xterm/xterm'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   type GhosttyTerminal,
@@ -8,6 +10,7 @@ import {
   promptMarkData,
   unknownOsc,
 } from './ghosttyTerminal'
+import { attachSmoothScroll } from './smoothScroll'
 
 const realGetContext = HTMLCanvasElement.prototype.getContext
 
@@ -25,11 +28,15 @@ function stubContext(canvas: HTMLCanvasElement): unknown {
 let created: GhosttyTerminal | null = null
 
 function open(): GhosttyTerminal {
-  created = createGhosttyTerminal({ fontSize: 13, scrollback: 1000 }, false, {
-    activate: () => {},
-    hover: () => {},
-    leave: () => {},
-  })
+  created = createGhosttyTerminal(
+    { fontSize: 13, scrollback: 1000, smoothScrollDuration: 0 },
+    false,
+    {
+      activate: () => {},
+      hover: () => {},
+      leave: () => {},
+    },
+  )
   created.term.open(document.createElement('div'))
   return created
 }
@@ -156,5 +163,30 @@ describe('Ghostty terminal adapter', () => {
       links = l
     })
     expect(links?.[0]?.range.start).toEqual({ x: 2, y: 4 })
+  })
+
+  it('starts both engines with no scroll animation and gives them the same value per wheel event', () => {
+    const ghostty = open().term
+    const xterm = new Xterm({ smoothScrollDuration: 0, allowProposedApi: true })
+    expect(ghostty.options.smoothScrollDuration).toBe(0)
+    expect(xterm.options.smoothScrollDuration).toBe(0)
+
+    useSettingsStore.getState().setBehavior({ smoothScrolling: true })
+    useSettingsStore.getState().setByPath('appearance.motion', 'full')
+    const host = document.createElement('div')
+    const detachGhostty = attachSmoothScroll(host, ghostty)
+    const detachXterm = attachSmoothScroll(host, xterm)
+    const wheel = new WheelEvent('wheel', { deltaY: 3, deltaMode: WheelEvent.DOM_DELTA_LINE })
+    host.dispatchEvent(wheel)
+    expect(ghostty.options.smoothScrollDuration).toBeGreaterThan(0)
+    expect(ghostty.options.smoothScrollDuration).toBe(xterm.options.smoothScrollDuration)
+
+    useSettingsStore.getState().setBehavior({ smoothScrolling: false })
+    host.dispatchEvent(wheel)
+    expect(ghostty.options.smoothScrollDuration).toBe(0)
+    expect(xterm.options.smoothScrollDuration).toBe(0)
+    detachGhostty()
+    detachXterm()
+    xterm.dispose()
   })
 })

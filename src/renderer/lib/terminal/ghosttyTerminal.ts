@@ -159,6 +159,7 @@ export function createGhosttyTerminal(
     fontWeight: fontWeightOf(options.fontWeight),
     lineHeight: options.lineHeight,
     scrollSensitivity: options.scrollSensitivity,
+    smoothScrollDuration: options.smoothScrollDuration ?? 0,
     minimumContrastRatio: options.minimumContrastRatio,
     macOptionIsMeta: options.macOptionIsMeta,
     linkHandler: {
@@ -212,6 +213,7 @@ export function createGhosttyTerminal(
     'theme',
     'scrollback',
     'scrollSensitivity',
+    'smoothScrollDuration',
     'minimumContrastRatio',
     'macOptionIsMeta',
   ])

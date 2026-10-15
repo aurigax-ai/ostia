@@ -55,6 +55,7 @@ export interface TerminalOptions {
   cursorBlink?: boolean
   theme?: Xterm['options']['theme']
   scrollSensitivity?: number
+  smoothScrollDuration?: number
   scrollback?: number
   minimumContrastRatio?: number
   macOptionIsMeta?: boolean

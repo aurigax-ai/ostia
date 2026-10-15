@@ -24,6 +24,7 @@ import {
   terminalScreen,
 } from '@/lib/terminal/ostiaTerminal'
 import { TERMINAL_INPUT_SELECTOR } from '@/lib/terminal/ostiaTerminal'
+import { attachSmoothScroll } from '@/lib/terminal/smoothScroll'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { keepDrawing, usePauseWhenHidden } from '@/lib/terminal/usePauseWhenHidden'
 import { type WebglRenderer, createWebglRenderer } from '@/lib/terminal/webglRenderer'
@@ -280,6 +281,7 @@ function startTerminal(deps: StartTerminalDeps): () => void {
   if (created.pause) pauseRef.current = created.pause
   attachWheelReports(term, () => measureCells(host, term)?.height ?? 0, isLinux)
   const detachWheelZoom = attachWheelZoom(host, 'terminal', isMac)
+  const detachSmoothScroll = attachSmoothScroll(host, term)
   const screenElement = terminalScreen(host)
   const detachLinks = links.attach(term, screenElement)
   termRef.current = term
@@ -331,6 +333,7 @@ function startTerminal(deps: StartTerminalDeps): () => void {
     detachSignals()
     unregisterLinks()
     detachWheelZoom()
+    detachSmoothScroll()
     detachLinks()
     unregisterTerminal()
     forgetPaneActivity(paneId)
