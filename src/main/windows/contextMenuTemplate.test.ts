@@ -130,6 +130,24 @@ describe('contextMenuTemplate', () => {
     expect(act.copyImage).toHaveBeenCalledWith(10, 20)
   })
 
+  it('opens a web link in a new tab where the page offers it, never another kind of link', () => {
+    const act = { ...actions(), openLinkInNewTab: vi.fn() }
+    const text = zhHant.native.contextMenu
+    const items = contextMenuTemplate(
+      params({ linkURL: 'https://example.com/a' }),
+      webPage,
+      act,
+      text,
+    )
+    expect(items.map((item) => item.label)).toEqual([text.openLinkInNewTab, text.copyLink])
+    items[0].click?.({} as never, undefined, {} as never)
+    expect(act.openLinkInNewTab).toHaveBeenCalledWith('https://example.com/a')
+    for (const linkURL of ['mailto:a@example.com', 'javascript:alert(1)', 'file:///etc/passwd']) {
+      const other = contextMenuTemplate(params({ linkURL }), webPage, act, en.native.contextMenu)
+      expect(shape(other)).toEqual(['Copy Link Address'])
+    }
+  })
+
   it('labels its items in the language the app shows', () => {
     const items = contextMenuTemplate(params(), webPage, actions(), zhHant.native.contextMenu)
     expect(items.map((item) => item.label)).toEqual([
@@ -173,5 +191,25 @@ describe('contextMenuTemplate', () => {
     expect(popups).toHaveLength(2)
     expect(popups[1].items.map((i) => i.label)).toEqual(['Back', 'Forward', 'Reload'])
     expect(popups[1].options).toEqual({ window: 'host window' })
+  })
+
+  it('right-click on a link offers a new tab only to a page given an opener', () => {
+    popups.length = 0
+    const link = { linkURL: 'https://example.com/a' }
+    const plain = fakeContents('webview', null)
+    attachContextMenu(plain as never, true, () => en.native.contextMenu)
+    plain.rightClick(link)
+    expect(popups[0].items.map((i) => i.label)).toEqual(['Copy Link Address'])
+
+    const openLinkInNewTab = vi.fn()
+    const human = fakeContents('webview', null)
+    attachContextMenu(human as never, true, () => en.native.contextMenu, openLinkInNewTab)
+    human.rightClick(link)
+    expect(popups[1].items.map((i) => i.label)).toEqual([
+      'Open Link in New Tab',
+      'Copy Link Address',
+    ])
+    popups[1].items[0].click?.({} as never, undefined, {} as never)
+    expect(openLinkInNewTab).toHaveBeenCalledWith('https://example.com/a')
   })
 })

@@ -5,6 +5,7 @@ export function attachContextMenu(
   contents: WebContents,
   navigation: boolean,
   text: () => ContextMenuText,
+  openLinkInNewTab?: (url: string) => void,
 ): void {
   contents.on('context-menu', (_e, params) => {
     const history = contents.navigationHistory
@@ -12,6 +13,7 @@ export function attachContextMenu(
       params,
       { navigation, canGoBack: history.canGoBack(), canGoForward: history.canGoForward() },
       {
+        openLinkInNewTab,
         copyLink: (url) => {
           clipboard.writeText(url).catch(() => undefined)
         },

@@ -1,4 +1,10 @@
-import type { BrowserWindow, BrowserWindowConstructorOptions, WebContents } from 'electron'
+import type {
+  BrowserWindow,
+  BrowserWindowConstructorOptions,
+  HandlerDetails,
+  WebContents,
+} from 'electron'
+import { isTabUrl } from '../../shared/browser/linkTabs'
 
 export const POPUP_GESTURE_MS = 5000
 
@@ -56,10 +62,16 @@ function popupWindowOptions(parent: BrowserWindow): BrowserWindowConstructorOpti
   }
 }
 
+function opensAsTab({ url, disposition, postBody }: HandlerDetails): boolean {
+  const tab = disposition === 'foreground-tab' || disposition === 'background-tab'
+  return tab && !postBody && isTabUrl(url)
+}
+
 export interface GuestPopupsDeps {
   isHumanProfile: (guest: WebContents) => boolean
   ownerWindow: (guest: WebContents) => BrowserWindow | null
   prepare: (popup: BrowserWindow, url: string) => void
+  openTab: (opener: WebContents, url: string, background: boolean) => void
   now?: () => number
 }
 
@@ -69,11 +81,15 @@ export function openHumanPopups(guest: WebContents, deps: GuestPopupsDeps): void
   guest.on('input-event', (_event, input) => {
     if (GESTURE_INPUTS.has(input.type)) activityOf(guestId).inputAt = now()
   })
-  guest.setWindowOpenHandler(() => {
+  guest.setWindowOpenHandler((details) => {
     const parent = deps.ownerWindow(guest)
     if (!parent || !deps.isHumanProfile(guest)) return { action: 'deny' }
     if (!humanGestureAllowsPopup(activities.get(guestId), now())) return { action: 'deny' }
     activityOf(guestId).inputAt = undefined
+    if (opensAsTab(details)) {
+      deps.openTab(guest, details.url, details.disposition === 'background-tab')
+      return { action: 'deny' }
+    }
     return { action: 'allow', overrideBrowserWindowOptions: popupWindowOptions(parent) }
   })
   guest.on('did-create-window', (popup, details) => {

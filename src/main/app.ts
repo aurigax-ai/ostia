@@ -330,6 +330,7 @@ const {
   extensionOfPartition,
   browserAgentsOf,
   instrumentBrowserGuest,
+  attachBrowserMenu,
   allowHumanPopups,
   hardenExtensionGuest,
 } = createBrowserGuests({
@@ -511,6 +512,7 @@ const { wireWindow } = createWindowWiring({
   instrumentBrowserGuest,
   fenceBrowserGuest,
   allowHumanPopups,
+  attachBrowserMenu,
   consoleBuffers,
   errorBuffers,
   windows,

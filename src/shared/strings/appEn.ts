@@ -358,6 +358,7 @@ export const appEn = {
       cancel: 'Cancel',
     },
     contextMenu: {
+      openLinkInNewTab: 'Open Link in New Tab',
       copyLink: 'Copy Link Address',
       copyImage: 'Copy Image',
       back: 'Back',

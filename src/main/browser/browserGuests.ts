@@ -10,6 +10,7 @@ import { OSTIA_ERROR_PREFIX, PAGE_ERROR_CATCHER_JS, injectPageScripts } from './
 import { holdFirstLoad } from './guestFirstLoad'
 import { watchGuestNetwork } from './guestNetwork'
 import { openHumanPopups } from './guestPopups'
+import { openGuestTab } from './guestTabs'
 import { type BrowserAgents, followAgentByHost, useBrowserAgents } from './signinUserAgent'
 
 interface BrowserGuestsDeps {
@@ -89,16 +90,27 @@ export function createBrowserGuests({
     followAgentByHost(contents, agents, url)
   }
 
+  function isHumanProfile(guest: Electron.WebContents): boolean {
+    return guest.session === session.fromPartition(SHARED_BROWSER_PARTITION)
+  }
+
+  function attachBrowserMenu(guest: Electron.WebContents): void {
+    const openLinkInNewTab = isHumanProfile(guest)
+      ? (url: string) => openGuestTab(guest, url, true)
+      : undefined
+    attachContextMenu(guest, true, contextMenuText, openLinkInNewTab)
+  }
+
   function allowHumanPopups(guest: Electron.WebContents): void {
     openHumanPopups(guest, {
-      isHumanProfile: (opener) =>
-        opener.session === session.fromPartition(SHARED_BROWSER_PARTITION),
+      isHumanProfile,
       ownerWindow: (opener) => {
         const host = opener.hostWebContents
         const owner = host ? BrowserWindow.fromWebContents(host) : null
         return owner && [...windows.values()].includes(owner) ? owner : null
       },
       prepare: prepareBrowserPopup,
+      openTab: openGuestTab,
     })
   }
 
@@ -126,6 +138,7 @@ export function createBrowserGuests({
     extensionOfPartition,
     browserAgentsOf,
     instrumentBrowserGuest,
+    attachBrowserMenu,
     allowHumanPopups,
     hardenExtensionGuest,
   }

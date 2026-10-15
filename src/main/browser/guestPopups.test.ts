@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import type { BrowserWindow, WebContents } from 'electron'
+import type { BrowserWindow, HandlerDetails, WebContents } from 'electron'
 import { describe, expect, it, vi } from 'vitest'
 import {
   POPUP_GESTURE_MS,
@@ -9,7 +9,26 @@ import {
   popupTitle,
 } from './guestPopups'
 
-type OpenHandler = () => { action: 'allow' | 'deny'; overrideBrowserWindowOptions?: unknown }
+type OpenHandler = (details: HandlerDetails) => {
+  action: 'allow' | 'deny'
+  overrideBrowserWindowOptions?: unknown
+}
+
+const POPUP: HandlerDetails = {
+  url: 'https://accounts.example.com/authorize',
+  frameName: 'signin',
+  features: 'popup,width=420,height=520',
+  disposition: 'new-window',
+  referrer: { url: 'https://site.example/', policy: 'strict-origin-when-cross-origin' },
+}
+
+const link = (disposition: HandlerDetails['disposition'], url = 'https://docs.example.com/') => ({
+  ...POPUP,
+  url,
+  frameName: '_blank',
+  features: '',
+  disposition,
+})
 
 let nextGuestId = 100
 
@@ -24,24 +43,27 @@ function setup(opts: { human?: boolean; owned?: boolean } = {}) {
     },
   }) as unknown as WebContents & EventEmitter
   const prepare = vi.fn()
+  const openTab = vi.fn()
   openHumanPopups(guest, {
     isHumanProfile: () => opts.human ?? true,
     ownerWindow: () => (opts.owned === false ? null : parent),
     prepare,
+    openTab,
     now: () => at,
   })
   return {
     guest,
     parent,
     prepare,
+    openTab,
     input: (type: string) => guest.emit('input-event', {}, { type }),
     agent: () => noteAgentDrive(guest.id, at),
     pass: (ms: number) => {
       at += ms
     },
-    open: () => {
+    open: (details: HandlerDetails = POPUP) => {
       if (!handler) throw new Error('no window open handler')
-      return (handler as OpenHandler)()
+      return (handler as OpenHandler)(details)
     },
   }
 }
@@ -121,6 +143,51 @@ describe('openHumanPopups', () => {
     expect(open().action).toBe('allow')
   })
 
+  it('opens a link meant for a tab as a browser tab beside the pane, never a window', () => {
+    const { guest, input, open, openTab } = setup()
+    input('mouseDown')
+    expect(open(link('foreground-tab'))).toEqual({ action: 'deny' })
+    expect(openTab).toHaveBeenLastCalledWith(guest, 'https://docs.example.com/', false)
+    input('mouseDown')
+    expect(open(link('background-tab', 'http://127.0.0.1:8080/a'))).toEqual({ action: 'deny' })
+    expect(openTab).toHaveBeenLastCalledWith(guest, 'http://127.0.0.1:8080/a', true)
+    expect(open(link('foreground-tab'))).toEqual({ action: 'deny' })
+    expect(openTab).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps a window with features, a non-web address and a form post as a popup', () => {
+    const { input, open, openTab } = setup()
+    for (const details of [
+      POPUP,
+      link('foreground-tab', 'about:blank'),
+      { ...link('foreground-tab'), postBody: { data: [], contentType: 'text/plain' } },
+    ]) {
+      input('mouseDown')
+      expect(open(details).action).toBe('allow')
+    }
+    expect(openTab).not.toHaveBeenCalled()
+  })
+
+  it('opens no tab without the human’s input, from an agent pane or for an agent’s input', () => {
+    const quiet = setup()
+    expect(quiet.open(link('foreground-tab')).action).toBe('deny')
+    quiet.input('mouseDown')
+    quiet.pass(POPUP_GESTURE_MS + 1)
+    expect(quiet.open(link('background-tab')).action).toBe('deny')
+    expect(quiet.openTab).not.toHaveBeenCalled()
+
+    const agentPane = setup({ human: false })
+    agentPane.input('mouseDown')
+    expect(agentPane.open(link('foreground-tab')).action).toBe('deny')
+    expect(agentPane.openTab).not.toHaveBeenCalled()
+
+    const driven = setup()
+    driven.agent()
+    driven.input('mouseDown')
+    expect(driven.open(link('background-tab')).action).toBe('deny')
+    expect(driven.openTab).not.toHaveBeenCalled()
+  })
+
   it('forgets a destroyed guest', () => {
     const { guest, input, open } = setup()
     input('mouseDown')
@@ -144,7 +211,7 @@ describe('openHumanPopups', () => {
     guest.emit('did-create-window', popup, { url: 'https://accounts.example.com/authorize' })
     expect(popup.removeMenu).toHaveBeenCalled()
     expect(popup.setTitle).toHaveBeenLastCalledWith('accounts.example.com')
-    expect((nested as unknown as OpenHandler)()).toEqual({ action: 'deny' })
+    expect((nested as unknown as OpenHandler)(POPUP)).toEqual({ action: 'deny' })
     const event = { preventDefault: vi.fn() }
     popup.emit('page-title-updated', event, 'Your bank')
     expect(event.preventDefault).toHaveBeenCalled()

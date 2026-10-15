@@ -57,6 +57,7 @@ interface WindowWiringDeps {
   instrumentBrowserGuest: BrowserGuests['instrumentBrowserGuest']
   fenceBrowserGuest: GuestProfiles['fenceBrowserGuest']
   allowHumanPopups: BrowserGuests['allowHumanPopups']
+  attachBrowserMenu: BrowserGuests['attachBrowserMenu']
   consoleBuffers: Map<number, ConsoleEntry[]>
   errorBuffers: Map<number, ConsoleEntry[]>
   windows: Map<string, BrowserWindow>
@@ -85,6 +86,7 @@ export function createWindowWiring({
   instrumentBrowserGuest,
   fenceBrowserGuest,
   allowHumanPopups,
+  attachBrowserMenu,
   consoleBuffers,
   errorBuffers,
   windows,
@@ -165,7 +167,7 @@ export function createWindowWiring({
         attachContextMenu(guest, false, contextMenuText)
         return
       }
-      attachContextMenu(guest, true, contextMenuText)
+      attachBrowserMenu(guest)
       const agents = browserAgentsOf(guest.session)
       guest.setUserAgent(agents.rewritten)
       instrumentBrowserGuest(guest, true)

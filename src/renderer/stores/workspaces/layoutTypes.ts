@@ -63,7 +63,7 @@ export interface LayoutState {
     workspaceId: string,
     url: string,
     profile: BrowserProfile,
-    background?: { beside?: string },
+    placement?: { beside?: string; background?: boolean },
   ) => string | null
   openExtensionPanel: (workspaceId: string, extensionId: string, title: string) => string | null
   openGit: (workspaceId: string, title: string) => string | null

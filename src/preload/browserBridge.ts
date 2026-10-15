@@ -6,6 +6,7 @@ import type {
   CredentialSaveResult,
   CredentialSummary,
 } from '../shared/browser/credentials'
+import type { BrowserTabOpen } from '../shared/browser/linkTabs'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/browser/pick'
 import type { RegionCaptureOutcome, RegionCopyResult } from '../shared/browser/regionCapture'
 import type { GuestChordFire } from '../shared/keyboard/guestChords'
@@ -40,6 +41,11 @@ export const browserBridge: Pick<OstiaBridge, 'browser' | 'guestChords' | 'crede
       ipcRenderer.invoke('browser:storage-remove', paneId, removal) as Promise<StorageWriteResult>,
     storageClear: (paneId, kind) =>
       ipcRenderer.invoke('browser:storage-clear', paneId, kind) as Promise<StorageWriteResult>,
+    onOpenTab: (cb) => {
+      const handler = (_e: unknown, open: BrowserTabOpen): void => cb(open)
+      ipcRenderer.on('browser:open-tab', handler)
+      return () => ipcRenderer.removeListener('browser:open-tab', handler)
+    },
   },
   guestChords: {
     set: (signatures) => ipcRenderer.send('guest-chords:set', signatures),
