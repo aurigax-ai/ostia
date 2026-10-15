@@ -134,9 +134,7 @@ import {
   type PaneIdentity,
   getByPaneId,
   markManager,
-  moveToWorkspace,
   registerPane,
-  rehomeWorkspace,
   resolveExternal,
   setPaneIdSalt,
   workspaceHasManager,
@@ -174,7 +172,6 @@ import { registerOpenPathIpc } from './files/openPath'
 import { OpenWaits } from './files/openWaits'
 import { confirmRemoteFolder, registerRemoteFolderConfirm } from './files/remoteFolderConfirm'
 import { ripgrepPath } from './files/ripgrep'
-import { createWorkspaceClosed } from './files/workspaceClosed'
 import { registerSearchIpc } from './files/workspaceSearch'
 import { createBonjourPublisher } from './gateway/announce'
 import {
@@ -214,7 +211,6 @@ import {
   listWorkspaces,
   registerPaneListMethods,
 } from './panes/paneList'
-import { registerPaneMoveIpc } from './panes/paneMove'
 import { registerPaneMoveToMethods } from './panes/paneMoveTo'
 import type { PaneReachDeps } from './panes/paneReach'
 import { registerPaneRenameMethods } from './panes/paneRename'
@@ -325,12 +321,8 @@ import { createScrollbackPersistence } from './workspaces/scrollbackPersistence'
 import { type SnippetDeps, registerSnippetIpc, registerSnippetMethods } from './workspaces/snippets'
 import { ViewHost, ViewStore } from './workspaces/viewHost'
 import { registerViewMethods, registerViewsIpc } from './workspaces/viewsIpc'
-import { registerWorkspaceMergeIpc } from './workspaces/workspaceMerge'
-import {
-  removeWorkspace,
-  windowForWorkspace,
-  workDirForWorkspace,
-} from './workspaces/workspaceRegistry'
+import { createWorkspaceLifecycle } from './workspaces/workspaceLifecycle'
+import { windowForWorkspace, workDirForWorkspace } from './workspaces/workspaceRegistry'
 import {
   type RestoreOutcome,
   loadRestoredScrollback,
@@ -642,6 +634,26 @@ const reach = createReach({
     recordCreatedWorkspace(scriptTokensPath(), tokenId, workspaceId),
 })
 ipcMain.handle('reach:agent-groups', () => reach.agentGroups())
+
+const { workspaceClosed, releaseMergedSandbox, registerWorkspaceIpc } = createWorkspaceLifecycle({
+  openWaits,
+  reach,
+  services,
+  artifactHistory,
+  artifactFolders,
+  scratchFolders,
+  packageRequests,
+  portForwarder,
+  portRequests,
+  domainRequests,
+  workspaceSandboxes,
+  sandboxViolations,
+  workspaceAgents,
+  secretService,
+  ptys,
+  emitPaneEvent,
+  artifactProducers,
+})
 
 function emitPaneEvent<T extends ExtensionEventType>(
   type: T,
@@ -1017,94 +1029,7 @@ function registerMarketplaceIpc(marketplace: Marketplace): void {
   )
 }
 
-const workspaceClosed = createWorkspaceClosed({
-  openWaits,
-  removeWorkspace,
-  forgetReach: (id) => reach.forget(id),
-  closeProcesses: (id) => services.processes?.workspaceClosed(id),
-  clearChips: (id) => services.extensionHost?.slots.clearWorkspaceChips(id),
-  closeRemoteFolders: (id) => services.extensionHost?.remoteFolders?.workspaceClosed(id),
-  tellExtensions: (id) => services.extensionHost?.events.workspaceClosed(id),
-  closeArtifacts: (id) => artifactHistory.close(id, artifactFolders.close(id)),
-  removeScratch: (id) => scratchFolders.remove(id),
-  forgetRequests: forgetWorkspaceRequests,
-  forgetSandbox: forgetSandboxRuntime,
-})
-
-function forgetWorkspaceRequests(workspaceId: string): void {
-  packageRequests.forget(workspaceId)
-  void portForwarder.forget(workspaceId)
-  portRequests.forget(workspaceId)
-  domainRequests.forget(workspaceId)
-}
-
-function forgetSandboxRuntime(workspaceId: string): void {
-  workspaceSandboxes.forget(workspaceId)
-  sandboxViolations.clear(workspaceId)
-  workspaceAgents.stop(workspaceId)
-  secretService.forget(workspaceId)
-}
-
-const mergedSandboxes = new Set<string>()
-
-function releaseMergedSandbox(workspaceId: string, exiting?: PtyEntry): void {
-  if (!mergedSandboxes.has(workspaceId)) return
-  for (const entry of ptys.values()) {
-    if (entry !== exiting && entry.confinedBy === workspaceId) return
-  }
-  mergedSandboxes.delete(workspaceId)
-  forgetSandboxRuntime(workspaceId)
-}
-
-function movePanesToWorkspace(paneIds: string[], sourceId: string, targetId: string): void {
-  for (const paneId of paneIds) openWaits.paneMoved(paneId)
-  for (const identity of moveToWorkspace(paneIds, targetId)) {
-    emitPaneEvent('pane.created', {
-      paneId: identity.externalId,
-      workspaceId: targetId,
-    })
-  }
-  for (const paneId of paneIds) {
-    const entry = ptys.get(paneId)
-    if (entry?.workspaceId === sourceId) entry.workspaceId = targetId
-  }
-}
-
-function mergeWorkspace(sourceId: string, targetId: string): void {
-  for (const identity of rehomeWorkspace(sourceId, targetId)) {
-    emitPaneEvent('pane.created', {
-      paneId: identity.externalId,
-      workspaceId: targetId,
-    })
-  }
-  for (const entry of ptys.values()) {
-    if (entry.workspaceId === sourceId) entry.workspaceId = targetId
-  }
-  workspaceSandboxes.merge(sourceId, targetId)
-  const movedArtifacts = artifactFolders.merge(sourceId, targetId)
-  artifactProducers.merge(sourceId, targetId, movedArtifacts)
-  artifactHistory.merge(sourceId, targetId, movedArtifacts)
-  artifactHistory.close(sourceId, artifactFolders.close(sourceId))
-  removeWorkspace(sourceId)
-  forgetWorkspaceRequests(sourceId)
-  mergedSandboxes.add(sourceId)
-  releaseMergedSandbox(sourceId)
-}
-
-function registerWorkspaceIpc(): void {
-  registerWorkspaceMergeIpc({
-    ownerWindow: windowForWorkspace,
-    hasManager: workspaceHasManager,
-    sandboxRefusal: (sourceId, targetId) => workspaceSandboxes.mergeRefusal(sourceId, targetId),
-    merge: mergeWorkspace,
-  })
-  registerPaneMoveIpc({
-    ownerWindow: windowForWorkspace,
-    paneOf: getByPaneId,
-    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-    isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
-    movePanes: movePanesToWorkspace,
-  })
+function registerSandboxSystemIpc(): void {
   registerSandboxIpc({
     sandboxes: workspaceSandboxes,
     ownerWindow: windowForWorkspace,
@@ -1649,6 +1574,7 @@ app.whenReady().then(() => {
   })
   registerIpc()
   registerWorkspaceIpc()
+  registerSandboxSystemIpc()
   registerPtyIpc({
     attachPty,
     ptys,
