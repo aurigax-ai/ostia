@@ -225,13 +225,14 @@ describe('Ghostty terminal adapter', () => {
     wheel(target, notch, notchLegacy)
     wheel(target, notch, notchLegacy)
     expect(ghostty.options.smoothScrollDuration).toBe(SMOOTH_SCROLL_MS)
-    wheel(
-      target,
-      { deltaMode: WheelEvent.DOM_DELTA_PIXEL, deltaX: 30, deltaY: 0 },
-      {
-        wheelDeltaX: -90,
-      },
-    )
+    for (let i = 0; i < 4; i++) {
+      wheel(
+        target,
+        { deltaMode: WheelEvent.DOM_DELTA_PIXEL, deltaX: 3, deltaY: 0 },
+        { wheelDeltaX: -10 },
+      )
+    }
+    expect(ghostty.options.smoothScrollDuration).toBe(SMOOTH_SCROLL_MS)
     for (let i = 0; i < 60 && frames.length > 0; i++) frames.shift()?.(performance.now())
     expect(Number.isFinite(ghostty.buffer.active.viewportY)).toBe(true)
     expect(ghostty.buffer.active.viewportY).toBeGreaterThan(0)
