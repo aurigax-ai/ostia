@@ -5,7 +5,6 @@ import { connect as connectSocket } from 'node:net'
 import { join } from 'node:path'
 import type { KeptExposure } from '../sandbox/portRequests'
 import { HOST_PROTOCOL_VERSION } from '../sandbox/protocol'
-import { isMarkNonce } from '../terminal/markNonce'
 import {
   type SavedAttention,
   attentionFileFor,
@@ -45,7 +44,6 @@ export interface KeptMeta {
   shell: string
   stateFile: string
   spawnPath: string
-  markNonce?: string
   process?: KeptProcessMeta
   sandbox?: KeptSandboxMeta
 }
@@ -153,7 +151,6 @@ function parseKeptMeta(raw: unknown): KeptMeta | null {
   const sandbox = parseSandbox(r.sandbox)
   return {
     ...(fields as KeptMeta),
-    ...(isMarkNonce(r.markNonce) ? { markNonce: r.markNonce } : {}),
     ...(keptProcess ? { process: keptProcess } : {}),
     ...(sandbox ? { sandbox } : {}),
   }

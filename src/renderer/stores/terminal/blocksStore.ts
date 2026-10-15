@@ -15,7 +15,6 @@ export interface CommandBlock {
   endLine: LineAnchor | null
   endCol: number
   command: string
-  typedCommand?: string
   exitCode: number | null
   cwd: string | null
   startedAt: number
@@ -41,14 +40,13 @@ interface BlocksState {
   markAgent: (paneId: string, agent: ResumableAgent) => void
   promptStart: (paneId: string, line: LineAnchor, cwd: string | null, remote?: boolean) => void
   promptEnd: (paneId: string, line: LineAnchor) => void
-  commandStart: (paneId: string, line: LineAnchor, command?: string, typedCommand?: string) => void
+  commandStart: (paneId: string, line: LineAnchor, command?: string) => void
   commandEnd: (
     paneId: string,
     line: LineAnchor,
     exitCode: number,
     endCol?: number,
     wholeCommand?: string,
-    wholeTypedCommand?: string,
   ) => void
   select: (paneId: string, blockId: string | null) => void
   resetPane: (paneId: string) => void
@@ -119,7 +117,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => ({
     releaseDropped(before, get(), paneId)
   },
 
-  commandStart: (paneId, line, command = '', typedCommand?: string) => {
+  commandStart: (paneId, line, command = '') => {
     const before = get()
     set((s) => {
       const draft = s.drafts[paneId] ?? {
@@ -144,7 +142,6 @@ export const useBlocksStore = create<BlocksState>((set, get) => ({
         endLine: null,
         endCol: 0,
         command,
-        ...(typedCommand === undefined ? {} : { typedCommand }),
         exitCode: null,
         cwd: draft.cwd,
         startedAt: Date.now(),
@@ -163,7 +160,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => ({
     releaseDropped(before, get(), paneId)
   },
 
-  commandEnd: (paneId, line, exitCode, endCol, wholeCommand, wholeTypedCommand) => {
+  commandEnd: (paneId, line, exitCode, endCol, wholeCommand) => {
     const before = get()
     set((s) => {
       const runningId = s.running[paneId]
@@ -173,13 +170,9 @@ export const useBlocksStore = create<BlocksState>((set, get) => ({
       if (idx === -1) return s
       const next = list.slice()
       const firstLines = next[idx].command
-      const typedFirstLines = next[idx].typedCommand
       next[idx] = {
         ...next[idx],
         command: wholeCommand?.startsWith(`${firstLines}\n`) ? wholeCommand : firstLines,
-        ...(typedFirstLines !== undefined && wholeTypedCommand?.startsWith(`${typedFirstLines}\n`)
-          ? { typedCommand: wholeTypedCommand }
-          : {}),
         endLine: line,
         endCol: endCol ?? 0,
         exitCode,

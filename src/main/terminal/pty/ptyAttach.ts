@@ -1,4 +1,3 @@
-import { rmSync } from 'node:fs'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import type { PtyAttachResult, PtySpawnOptions } from '../../../shared/types'
 import { panesOwnedBy } from '../../control/idRegistry'
@@ -11,7 +10,7 @@ import { withPaneToken } from '../terminalType'
 import type { LiveAttach } from './ptyLiveAttach'
 import type { PtyEntry, PtyRegistry } from './ptyRegistry'
 import type { SandboxSpawn } from './ptySandboxSpawn'
-import type { SpawnPlan, SpawnPlanner } from './ptySpawnPlan'
+import type { SpawnPlanner } from './ptySpawnPlan'
 import type { PtyStart } from './ptyStart'
 
 interface PtyAttachDeps {
@@ -29,10 +28,6 @@ interface PtyAttachDeps {
 }
 
 export type PtyAttach = ReturnType<typeof createPtyAttach>
-
-function dropMarkNonce(plan: SpawnPlan): void {
-  if (plan.markNonceFile) rmSync(plan.markNonceFile, { force: true })
-}
 
 export function createPtyAttach({
   ptys,
@@ -96,7 +91,6 @@ export function createPtyAttach({
     }
     if (ptys.has(paneId)) {
       plan.portBridge?.close()
-      dropMarkNonce(plan)
       return attachPty(e, paneId, opts)
     }
     const tokenFile =
@@ -109,7 +103,6 @@ export function createPtyAttach({
       const { notKept, ...keptSpawn } = await spawnKept(paneId, plan)
       if (ptys.has(paneId)) {
         keptSpawn.kept?.kill()
-        dropMarkNonce(plan)
         return attachPty(e, paneId, opts)
       }
       spawned = keptSpawn

@@ -6,16 +6,8 @@ export interface TerminalSession {
   cwd: string | null
   remote: boolean
   promptMarker: TerminalMarker | undefined
-  markNonce: string | null
 }
 
 export function createTerminalSession(cwd: string | null): TerminalSession {
-  return {
-    disposed: false,
-    replaying: false,
-    cwd,
-    remote: false,
-    promptMarker: undefined,
-    markNonce: null,
-  }
+  return { disposed: false, replaying: false, cwd, remote: false, promptMarker: undefined }
 }

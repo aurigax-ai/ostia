@@ -429,61 +429,6 @@ describe('shellIntegrationSpawnOptions', () => {
     })
   })
 
-  describe('command mark nonce', () => {
-    const NONCE = '0123456789abcdef0123456789abcdef'
-
-    it.each(['zsh', 'bash'])(
-      '%s reads the nonce from its file, puts it on its command marks and hides it from programs',
-      (shell) => {
-        const home = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-mark-nonce-')))
-        try {
-          const nonceFile = join(home, 'state.mark')
-          writeFileSync(nonceFile, NONCE, { mode: 0o600 })
-          const { args, env } = shellIntegrationSpawnOptions(
-            shell,
-            { HOME: home },
-            null,
-            null,
-            nonceFile,
-          )
-          expect(env.OSTIA_MARK_NONCE_FILE).toBe(nonceFile)
-          const out = spawnSync(
-            shell,
-            [
-              ...args,
-              '-i',
-              '-c',
-              `__ostia_mark_e 'echo hi'; printf '<%s|%s>' "$(env)" "$(cat '${nonceFile}' 2>&1)"`,
-            ],
-            {
-              cwd: home,
-              env: { PATH: '/usr/bin:/bin', HOME: home, TERM: 'dumb', ...env },
-              encoding: 'utf8',
-            },
-          ).stdout
-          expect(out).toContain(`\x1b]633;E;echo hi;${NONCE}\x1b\\`)
-          const shown = out.slice(out.indexOf('<'))
-          expect(shown).not.toContain(NONCE)
-          expect(shown).not.toContain('OSTIA_MARK_NONCE_FILE')
-          expect(existsSync(nonceFile)).toBe(false)
-        } finally {
-          rmSync(home, { recursive: true, force: true })
-        }
-      },
-    )
-
-    it.each([
-      ['bash', ['--norc'], BASH_INIT],
-      ['zsh', ['-f'], ZSH_INIT],
-    ])('%s sends its command marks without a nonce when it got none', (shell, noRc, init) => {
-      const out = spawnSync(shell, [...noRc, '-c', `source '${init}'; __ostia_mark_e 'echo hi'`], {
-        env: { PATH: '/usr/bin:/bin', HOME: '/home/u' },
-        encoding: 'utf8',
-      }).stdout
-      expect(out).toBe('\x1b]633;E;echo hi\x1b\\')
-    })
-  })
-
   describe('unintegrated shells', () => {
     it.each(['fish', '/usr/bin/fish', 'sh', 'pwsh', 'powershell.exe', 'someunknownshell'])(
       'returns no integration for %s',

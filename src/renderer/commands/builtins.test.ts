@@ -2166,8 +2166,9 @@ describe('agent resume', () => {
 
   it('replays the launch flags but no variable, typed in front of the agent or sent', async () => {
     const pane = seedPane()
-    const line = 'GL_ISSUE=685 GIT_DIR=/tmp/g claude --model opus'
-    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, line, line)
+    useBlocksStore
+      .getState()
+      .commandStart(pane.id, { line: 1 }, 'GL_ISSUE=685 GIT_DIR=/tmp/g claude --model opus')
     await commands.execWith(ctx('s1', pane.id), 'resume.set', {
       agent: 'claude',
       id: 'abc',
@@ -2182,18 +2183,6 @@ describe('agent resume', () => {
       "'claude' --resume abc --model opus --name '修 probe'",
       true,
     )
-  })
-
-  it('replays no variable from a command line the shell integration did not vouch for', async () => {
-    const pane = seedPane()
-    useBlocksStore
-      .getState()
-      .commandStart(pane.id, { line: 1 }, 'GL_ISSUE=685 GH_TOKEN=x claude --agent ostia')
-    await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'claude', id: 'abc' })
-    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
-      resume: { agent: 'claude', id: 'abc' },
-    })
-    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.env')
   })
 
   it('keeps the old command when nothing about the launch is known', async () => {

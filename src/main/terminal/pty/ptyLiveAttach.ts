@@ -74,7 +74,6 @@ export function createLiveAttach({ windows, movingPanes, recoveryHeld }: LiveAtt
       ...(existing.kept ? { kept: true } : {}),
       cols: existing.pty.cols,
       rows: existing.pty.rows,
-      ...(existing.markNonce ? { markNonce: existing.markNonce } : {}),
     }
   }
 

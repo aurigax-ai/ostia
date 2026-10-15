@@ -207,10 +207,8 @@ function createPtyAttach(
           reattached,
           agentRunning,
           cwdMissing,
-          markNonce,
         } = result
         if (session.disposed) return
-        session.markNonce = markNonce ?? null
         if (lastSizeRef.current.cols === 0 && result.cols && result.rows) {
           term.resize(result.cols, result.rows)
           lastSizeRef.current = { cols: result.cols, rows: result.rows }

@@ -242,7 +242,6 @@ export interface PtyAttachResult {
   reattached?: boolean
   agentRunning?: boolean
   cwdMissing?: boolean
-  markNonce?: string
 }
 
 interface SystemApi {
