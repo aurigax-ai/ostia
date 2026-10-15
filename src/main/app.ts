@@ -412,6 +412,84 @@ const terminalState = new Map<string, TerminalStateSnapshot>()
 
 const ptys = new Map<string, PtyEntry>()
 
+interface AppServices {
+  appLog: AppLog | null
+  diagnostics: Diagnostics | null
+  telemetry: Telemetry | null
+  restoreOutcome: RestoreOutcome
+  marketplaceInstallIds: () => string[]
+  processes: ProcessRegistry | null
+  updateRunner: UpdateRunner | null
+  languageServers: LanguageServers | null
+  onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null
+  extensionHost: ExtensionHost | null
+  gitService: GitService | null
+  portsService: PortsService | null
+  viewHost: ViewHost | null
+  mcpHost: McpHost | null
+  mcpOAuth: McpOAuth | null
+  broker: WindowBroker | null
+  profileSync: ProfileSyncHandle | null
+  stopTailnet: (() => Promise<void>) | null
+  stopAnnouncing: (() => void) | null
+  clipboardEdits: ClipboardEdits | null
+  guestChords: GuestChords | null
+  appTray: AppTray | null
+  globalHotkey: GlobalHotkey | null
+  releaseChecks: { settingsChanged: () => void } | null
+  managerService: ManagerService | null
+  managerLimiter: ManagerLimiter | null
+  portal: Portal | null
+  fileWatches: FileWatches | null
+}
+
+interface QuitState {
+  restartRequested: boolean
+  stagedUpdate: { pending: PendingSweep; sweepFile: string } | null
+  quitApproved: boolean
+  scrollbackSavedForQuit: boolean
+  savingScrollbackForQuit: boolean
+}
+
+const quit: QuitState = {
+  restartRequested: false,
+  stagedUpdate: null,
+  quitApproved: false,
+  scrollbackSavedForQuit: false,
+  savingScrollbackForQuit: false,
+}
+
+const services: AppServices = {
+  appLog: null,
+  diagnostics: null,
+  telemetry: null,
+  restoreOutcome: 'none',
+  marketplaceInstallIds: () => [],
+  processes: null,
+  updateRunner: null,
+  languageServers: null,
+  onSandboxSpawnFailure: null,
+  extensionHost: null,
+  gitService: null,
+  portsService: null,
+  viewHost: null,
+  mcpHost: null,
+  mcpOAuth: null,
+  broker: null,
+  profileSync: null,
+  stopTailnet: null,
+  stopAnnouncing: null,
+  clipboardEdits: null,
+  guestChords: null,
+  appTray: null,
+  globalHotkey: null,
+  releaseChecks: null,
+  managerService: null,
+  managerLimiter: null,
+  portal: null,
+  fileWatches: null,
+}
+
 function listDir(dir: string): FsEntry[] {
   try {
     return readdirSync(dir, { withFileTypes: true })
@@ -426,10 +504,6 @@ const hibernatedPanes = new Set<string>()
 const movingPanes = new Set<string>()
 const recoveryHeld = new Set<string>()
 const closedPanes = new Set<string>()
-let appLog: AppLog | null = null
-let diagnostics: Diagnostics | null = null
-let telemetry: Telemetry | null = null
-let restoreOutcome: RestoreOutcome = 'none'
 
 function telemetrySessionFacts(): SessionFacts {
   const settings = readSettingsFile() as {
@@ -438,20 +512,20 @@ function telemetrySessionFacts(): SessionFacts {
   }
   const text = (value: unknown, fallback: string): string =>
     typeof value === 'string' ? value : fallback
-  const installed = marketplaceInstallIds()
+  const installed = services.marketplaceInstallIds()
   const enabled =
-    extensionHost
+    services.extensionHost
       ?.list()
       .filter((ext) => ext.enabled && installed.includes(ext.id))
       .map((ext) => ext.id) ?? []
   let workspaces = 0
   for (const win of windows.values()) {
-    if (!win.isDestroyed()) workspaces += broker?.workspacesOf(win).length ?? 0
+    if (!win.isDestroyed()) workspaces += services.broker?.workspacesOf(win).length ?? 0
   }
   return {
     windows: bucketCount(windows.size),
     workspaces: bucketCount(workspaces),
-    restore: restoreOutcome,
+    restore: services.restoreOutcome,
     inEffect: {
       features: {
         input_mode: text(settings.behavior?.inputMode, 'terminal'),
@@ -468,10 +542,8 @@ function telemetrySessionFacts(): SessionFacts {
 }
 
 const officialMarketplaceId = marketplaceId(normalizeMarketplaceUrl(OFFICIAL_MARKETPLACE) ?? '')
-let marketplaceInstallIds: () => string[] = () => []
 let telemetrySentForQuit = false
 let sendingTelemetryForQuit = false
-let processes: ProcessRegistry | null = null
 
 function openExternalSafe(url: string): boolean {
   const href = externalHref(url, { apps: false })
@@ -493,15 +565,11 @@ const {
 } = createKeptShellsWiring({
   ptys,
   readSettingsFile,
-  processes: () => processes,
-  appLog: () => appLog,
+  processes: () => services.processes,
+  appLog: () => services.appLog,
 })
-
-let restartRequested = false
 let quitAnswer: QuitAnswer | null = null
-let stagedUpdate: { pending: PendingSweep; sweepFile: string } | null = null
 const updatePolicy = signaturePolicy(app.isPackaged, process.env)
-let updateRunner: UpdateRunner | null = null
 const UPDATE_HOST_GRANT_ID = 'core:update'
 
 function confirmQuitOn(): boolean {
@@ -548,8 +616,6 @@ const {
   keptShellsProgram,
 })
 
-let languageServers: LanguageServers | null = null
-
 const {
   editorLanguageOf,
   managedServers,
@@ -557,17 +623,15 @@ const {
   serverOverrides,
   createLanguageServers,
 } = createLanguageServerWiring({
-  contributions: () => extensionHost?.contributions ?? null,
+  contributions: () => services.extensionHost?.contributions ?? null,
   fileRoots,
   openFileGrants,
   workspaceSandboxes,
   sandboxCanRead,
   windows,
   broadcast,
-  appLog: () => appLog,
+  appLog: () => services.appLog,
 })
-
-let onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null = null
 
 const PORT_SCAN_MS = 3000
 
@@ -653,38 +717,31 @@ function fenceBrowserGuest(guest: Electron.WebContents): void {
   guest.on('will-redirect', guard)
 }
 
-let extensionHost: ExtensionHost | null = null
-let gitService: GitService | null = null
-let portsService: PortsService | null = null
-
 function emitPaneEvent<T extends ExtensionEventType>(
   type: T,
   payload: ExtensionEventPayloads[T],
 ): void {
-  extensionHost?.events.emitEvent(type, payload)
-  gitService?.activity(type)
-  portsService?.activity(type)
+  services.extensionHost?.events.emitEvent(type, payload)
+  services.gitService?.activity(type)
+  services.portsService?.activity(type)
 }
 
 function refreshAgentPlugins(): void {
   try {
     setAgentPlugins(
-      agentPluginContent(extensionHost?.contributions.agentPlugins() ?? [], (extId, problem) =>
-        console.error(`[ext:${extId}] ${problem}`),
+      agentPluginContent(
+        services.extensionHost?.contributions.agentPlugins() ?? [],
+        (extId, problem) => console.error(`[ext:${extId}] ${problem}`),
       ),
     )
   } catch (err) {
     console.error(`agent plugins: ${(err as Error).message}`)
   }
 }
-let viewHost: ViewHost | null = null
-let mcpHost: McpHost | null = null
-let mcpOAuth: McpOAuth | null = null
-let broker: WindowBroker | null = null
 const agentChanges = new ChangeSignal()
 const startedAgents = new Set<string>()
 const agentRunning = new AgentRunningPanes(() => {
-  broker?.persist()
+  services.broker?.persist()
   agentChanges.fire()
 })
 const agentWork = new ReportedAgentWork()
@@ -711,8 +768,7 @@ const paneAttentionEvents = new PaneAttentionEvents({
 const paneWaking = new PaneWaking()
 const isWaking = (paneId: string): boolean => paneWaking.has(paneId)
 const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
-  broker?.reaches(senderWindowId, sourcePaneId, targetPaneId) ?? false
-let profileSync: ProfileSyncHandle | null = null
+  services.broker?.reaches(senderWindowId, sourcePaneId, targetPaneId) ?? false
 
 const { loadPty, feedPty, trackPty } = createPtyRegistry({
   ptys,
@@ -724,8 +780,8 @@ const { loadPty, feedPty, trackPty } = createPtyRegistry({
   agentRunning,
   agentWork,
   keptAttention,
-  processes: () => processes,
-  appLog: () => appLog,
+  processes: () => services.processes,
+  appLog: () => services.appLog,
 })
 
 const { killPty, hibernatePty } = createPtyStop({
@@ -738,8 +794,8 @@ const { killPty, hibernatePty } = createPtyStop({
   keptShells,
   agentWork,
   paneWaking,
-  telemetry: () => telemetry,
-  appLog: () => appLog,
+  telemetry: () => services.telemetry,
+  appLog: () => services.appLog,
 })
 
 const { paneActivity, sandboxReadRules, ptyPid, paneOutput } = createPtyQueries({
@@ -766,14 +822,14 @@ const {
   recoveryHeld,
   closedPanes,
   killPty,
-  appLog: () => appLog,
+  appLog: () => services.appLog,
 })
 
 const { spawnSandboxed } = createSandboxSpawn({
   workspaceSandboxes,
   keptShells,
   injectSecrets,
-  onSandboxSpawnFailure: () => onSandboxSpawnFailure,
+  onSandboxSpawnFailure: () => services.onSandboxSpawnFailure,
 })
 
 const { reattachKept } = createKeptReattach({
@@ -788,8 +844,8 @@ const { reattachKept } = createKeptReattach({
   feedPty,
   releaseMergedSandbox,
   restoreKeptAttention,
-  processes: () => processes,
-  appLog: () => appLog,
+  processes: () => services.processes,
+  appLog: () => services.appLog,
 })
 
 const { subscriberFor, attachExisting } = createLiveAttach({ windows, movingPanes, recoveryHeld })
@@ -803,7 +859,7 @@ const { planSpawn } = createSpawnPlanner({
   paneLauncherDir,
   keepShellsOn,
   keptShellsProgram,
-  telemetry: () => telemetry,
+  telemetry: () => services.telemetry,
 })
 
 const { spawnKept } = createKeptSpawner({
@@ -811,7 +867,7 @@ const { spawnKept } = createKeptSpawner({
   keptPlumbing,
   withKeptProcess,
   keptPaneEnv,
-  appLog: () => appLog,
+  appLog: () => services.appLog,
 })
 
 const { startTracked } = createPtyStart({
@@ -821,8 +877,8 @@ const { startTracked } = createPtyStart({
   trackPty,
   feedPty,
   releaseMergedSandbox,
-  telemetry: () => telemetry,
-  appLog: () => appLog,
+  telemetry: () => services.telemetry,
+  appLog: () => services.appLog,
 })
 
 const { attachPty } = createPtyAttach({
@@ -836,7 +892,7 @@ const { attachPty } = createPtyAttach({
   spawnSandboxed,
   spawnKept,
   startTracked,
-  telemetry: () => telemetry,
+  telemetry: () => services.telemetry,
 })
 
 const EXTENSION_PARTITION_PREFIX = 'ostia-ext-'
@@ -854,9 +910,6 @@ function extensionRoots(): ExtensionRoot[] {
     { dir: join(configDir(), 'extensions'), builtin: false },
   ]
 }
-
-let stopTailnet: (() => Promise<void>) | null = null
-let stopAnnouncing: (() => void) | null = null
 
 function broadcast(channel: string, payload: unknown): void {
   for (const win of windows.values()) {
@@ -879,8 +932,6 @@ function browserAgentsOf(target: Electron.Session): BrowserAgents {
 }
 
 const instrumentedGuests = new WeakSet<Electron.WebContents>()
-let clipboardEdits: ClipboardEdits | null = null
-let guestChords: GuestChords | null = null
 
 function instrumentBrowserGuest(gc: Electron.WebContents, attaching = false): void {
   const wcId = gc.id
@@ -933,7 +984,7 @@ function allowHumanPopups(guest: Electron.WebContents): void {
 }
 
 function hardenExtensionGuest(guest: Electron.WebContents): boolean {
-  const host = extensionHost
+  const host = services.extensionHost
   if (!host) return false
   const extId = host.panels
     .panelExtensionIds()
@@ -968,8 +1019,6 @@ function baseWebPreferences(): Electron.WebPreferences {
     webviewTag: true,
   }
 }
-
-let quitApproved = false
 let quitAsking = false
 let quitRequested = false
 
@@ -982,41 +1031,35 @@ let quitSignaled = false
 function handleQuitSignals(): void {
   for (const signal of QUIT_SIGNALS) {
     process.on(signal, () => {
-      appLog?.info('quit-signal', { signal })
+      services.appLog?.info('quit-signal', { signal })
       quitSignaled = true
       app.quit()
     })
   }
 }
 const startedHidden = app.commandLine.hasSwitch('hidden')
-let appTray: AppTray | null = null
-let globalHotkey: GlobalHotkey | null = null
-let releaseChecks: { settingsChanged: () => void } | null = null
-let managerService: ManagerService | null = null
-let managerLimiter: ManagerLimiter | null = null
-let portal: Portal | null = null
 
 function wireWindow(win: BrowserWindow): void {
   win.once('ready-to-show', () => {
-    if (startedHidden && appTray) appTray.hide(win)
+    if (startedHidden && services.appTray) services.appTray.hide(win)
     else win.show()
   })
 
   win.on('close', (event) => {
-    if (quitApproved || broker?.isReturning(win)) return
+    if (quit.quitApproved || services.broker?.isReturning(win)) return
     const action = closeAction({
-      quitApproved,
+      quitApproved: quit.quitApproved,
       closeToTray: readCloseToTray(readSettingsFile()),
       startedHidden,
-      managerLive: managerService?.live != null,
+      managerLive: services.managerService?.live != null,
     })
-    if (action === 'hide' && appTray && !broker?.isDetached(win)) {
+    if (action === 'hide' && services.appTray && !services.broker?.isDetached(win)) {
       event.preventDefault()
-      appTray.hide(win)
+      services.appTray.hide(win)
       return
     }
     event.preventDefault()
-    if (broker?.isDetached(win)) broker.requestReturn(win, true)
+    if (services.broker?.isDetached(win)) services.broker.requestReturn(win, true)
     else requestQuit()
   })
 
@@ -1042,7 +1085,7 @@ function wireWindow(win: BrowserWindow): void {
     }
     const extId = extensionOfPartition(params.partition)
     const allowed = extId
-      ? (extensionHost?.panels.isAllowedPanelUrl(extId, params.src) ?? false)
+      ? (services.extensionHost?.panels.isAllowedPanelUrl(extId, params.src) ?? false)
       : browserProfiles.acceptsAttach(params.partition, String(win.webContents.id))
     if (!allowed) {
       event.preventDefault()
@@ -1057,8 +1100,8 @@ function wireWindow(win: BrowserWindow): void {
     })
   })
   win.webContents.on('did-attach-webview', (_e, guest) => {
-    clipboardEdits?.guardGuest(guest)
-    guestChords?.guardGuest(guest)
+    services.clipboardEdits?.guardGuest(guest)
+    services.guestChords?.guardGuest(guest)
     if (previews.adopt(guest)) return
     if (hardenExtensionGuest(guest)) {
       attachContextMenu(guest, false)
@@ -1081,17 +1124,17 @@ function wireWindow(win: BrowserWindow): void {
 
   const wid = String(win.webContents.id)
   windows.set(wid, win)
-  diagnostics?.watchWindow(win)
+  services.diagnostics?.watchWindow(win)
   win.on('hide', () => hidePtyFlow(wid))
   win.on('minimize', () => hidePtyFlow(wid))
   win.on('closed', () => {
     windows.delete(wid)
-    gitService?.windowGone(wid)
-    portsService?.windowGone(wid)
+    services.gitService?.windowGone(wid)
+    services.portsService?.windowGone(wid)
     releaseWindowPtys(wid)
     previews.windowClosed(wid)
     openWaits.windowGone(wid)
-    fileWatches?.unwatchOwner(wid)
+    services.fileWatches?.unwatchOwner(wid)
     commandsByWindow.delete(wid)
     for (const [paneId, wcId] of browserPanes) {
       if (getByPaneId(paneId)?.windowId === wid) {
@@ -1133,7 +1176,7 @@ function createWindow(slot: string, bounds?: WindowBounds): BrowserWindow {
   })
 
   wireWindow(win)
-  broker?.track(win, slot)
+  services.broker?.track(win, slot)
 
   if (devServerUrl) {
     win.loadURL(devServerUrl)
@@ -1221,29 +1264,29 @@ function registerIpc(): void {
         dropIdentity(identity.externalId)
         approvals()?.forget(identity.externalId)
         questions()?.forget(identity.externalId)
-        updateRunner?.paneClosed(identity.externalId)
+        services.updateRunner?.paneClosed(identity.externalId)
         emitPaneEvent('pane.closed', {
           paneId: identity.externalId,
           workspaceId: event.workspaceId,
         })
       }
-      extensionHost?.slots.clearPaneChips(event.paneId)
+      services.extensionHost?.slots.clearPaneChips(event.paneId)
       releaseMovingPane(event.paneId)
-      if (managerService?.isManagerPane(event.paneId)) killPty(event.paneId, 'closed')
+      if (services.managerService?.isManagerPane(event.paneId)) killPty(event.paneId, 'closed')
       if (ptys.has(event.paneId)) closedPanes.add(event.paneId)
       dropRestoredScrollback(event.paneId)
       hibernatedPanes.delete(event.paneId)
       browserProfiles.forget(event.paneId)
       removePane(event.paneId)
       terminalState.delete(event.paneId)
-      processes?.paneClosed(event.paneId)
+      services.processes?.paneClosed(event.paneId)
       paneWaking.end(event.paneId, 'closed')
       paneWatch.emit(event.paneId, { kind: 'closed' })
     } else if (event.type === 'workspace-added') {
       setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)
       scratchFolders.bind(event.workspaceId, event.workDir, windowId)
-      extensionHost?.slots.publishWorkspaceChips()
-      extensionHost?.remoteFolders?.ownerChanged(event.workspaceId)
+      services.extensionHost?.slots.publishWorkspaceChips()
+      services.extensionHost?.remoteFolders?.ownerChanged(event.workspaceId)
     } else if (event.type === 'workspace-closed') {
       workspaceClosed(event.workspaceId)
     } else if (event.type === 'workspace-activated') {
@@ -1282,7 +1325,11 @@ function registerIpc(): void {
         paneWatch.emit(snapshot.paneId, { kind: 'state' })
         const identity = getByPaneId(snapshot.paneId)
         if (identity) {
-          updateRunner?.paneState(identity.externalId, snapshot.running, snapshot.lastExitCode)
+          services.updateRunner?.paneState(
+            identity.externalId,
+            snapshot.running,
+            snapshot.lastExitCode,
+          )
           emitTerminalExtensionEvents(
             identity.externalId,
             identity.workspaceId,
@@ -1366,8 +1413,8 @@ function registerExtensionIpc(host: ExtensionHost): void {
     workspaceChipsForWindow(host.slots.workspaceChips(), workspaceWindowId, String(e.sender.id)),
   )
   ipcMain.handle('extensions:set-setting', (_e, extId: unknown, key: unknown, value: unknown) => {
-    if (typeof extId === 'string' && marketplaceInstallIds().includes(extId)) {
-      telemetry?.count('extensions', 'setting_change', `${extId}.${String(key)}`)
+    if (typeof extId === 'string' && services.marketplaceInstallIds().includes(extId)) {
+      services.telemetry?.count('extensions', 'setting_change', `${extId}.${String(key)}`)
     }
     return host.config.setSetting(String(extId), String(key), value)
   })
@@ -1457,8 +1504,8 @@ function registerMarketplaceIpc(marketplace: Marketplace): void {
     const file = openFileGrants.confine(path)
     if (file === null) return null
     return suggestionFor(file, {
-      servers: () => extensionHost?.contributions.languageServers() ?? [],
-      extensions: () => extensionHost?.list() ?? [],
+      servers: () => services.extensionHost?.contributions.languageServers() ?? [],
+      extensions: () => services.extensionHost?.list() ?? [],
       listings: () => marketplace.languageListings(),
       dismissed: () => dismissed.list(),
       official: officialMarketplaceId,
@@ -1479,10 +1526,10 @@ const workspaceClosed = createWorkspaceClosed({
   openWaits,
   removeWorkspace,
   forgetReach: (id) => reach.forget(id),
-  closeProcesses: (id) => processes?.workspaceClosed(id),
-  clearChips: (id) => extensionHost?.slots.clearWorkspaceChips(id),
-  closeRemoteFolders: (id) => extensionHost?.remoteFolders?.workspaceClosed(id),
-  tellExtensions: (id) => extensionHost?.events.workspaceClosed(id),
+  closeProcesses: (id) => services.processes?.workspaceClosed(id),
+  clearChips: (id) => services.extensionHost?.slots.clearWorkspaceChips(id),
+  closeRemoteFolders: (id) => services.extensionHost?.remoteFolders?.workspaceClosed(id),
+  tellExtensions: (id) => services.extensionHost?.events.workspaceClosed(id),
   closeArtifacts: (id) => artifactHistory.close(id, artifactFolders.close(id)),
   removeScratch: (id) => scratchFolders.remove(id),
   forgetRequests: forgetWorkspaceRequests,
@@ -1577,13 +1624,13 @@ function registerWorkspaceIpc(): void {
     workDir: (workspaceId) => workDirForWorkspace(workspaceId),
     locale: readLocale,
     systemExtensionEnabled: () =>
-      extensionHost?.list().some((ext) => ext.id === 'system' && ext.enabled) ?? false,
+      services.extensionHost?.list().some((ext) => ext.id === 'system' && ext.enabled) ?? false,
     missing: (feature) => missingRequirements(feature),
     settled: loginPathSettled,
     label: requirementLabel,
     invokeInstall: (args, caller) =>
-      extensionHost
-        ? extensionHost.invoke('system', 'install', args, caller)
+      services.extensionHost
+        ? services.extensionHost.invoke('system', 'install', args, caller)
         : Promise.resolve({ ok: false, error: 'extension-unavailable' }),
   })
   ipcMain.handle('system:discrete-gpu', async (): Promise<DiscreteGpuInfo | null> => {
@@ -1675,7 +1722,6 @@ function spawnManagerPty(req: {
 }
 
 const FILE_WATCH_DEBOUNCE_MS = 150
-let fileWatches: FileWatches | null = null
 
 function registerFsIpc(): void {
   const allowedRoots = fileRoots()
@@ -1737,7 +1783,7 @@ function registerFsIpc(): void {
       .map((path) => openFileGrants.admit(path, { sandboxed: false, remember }))
   })
 
-  fileWatches = new FileWatches({
+  services.fileWatches = new FileWatches({
     confine: (path) => openFileGrants.confine(path),
     debounceMs: FILE_WATCH_DEBOUNCE_MS,
     onChange: ({ path, exists, owners }) => {
@@ -1748,10 +1794,12 @@ function registerFsIpc(): void {
     },
   })
   ipcMain.handle('fs:watch', (e, path: unknown): boolean =>
-    typeof path === 'string' ? (fileWatches?.watch(String(e.sender.id), path) ?? false) : false,
+    typeof path === 'string'
+      ? (services.fileWatches?.watch(String(e.sender.id), path) ?? false)
+      : false,
   )
   ipcMain.on('fs:unwatch', (e, path: unknown) => {
-    if (typeof path === 'string') fileWatches?.unwatch(String(e.sender.id), path)
+    if (typeof path === 'string') services.fileWatches?.unwatch(String(e.sender.id), path)
   })
 
   ipcMain.handle('fs:version', (_e, path: unknown) =>
@@ -1766,17 +1814,17 @@ function registerFsIpc(): void {
         (p) => openFileGrants.confine(p),
         async (safe) => {
           const save = () => writeText(safe, content)
-          await (fileWatches?.write(String(e.sender.id), safe, content, save) ?? save())
+          await (services.fileWatches?.write(String(e.sender.id), safe, content, save) ?? save())
           if (safe === settingsFile) {
             settingsChanged()
-            telemetry?.settingsChanged()
+            services.telemetry?.settingsChanged()
             refreshCapabilitySettings()
-            extensionHost?.refreshLocale()
-            extensionHost?.assistant.reloadAssistSettings()
-            gitService?.settingsChanged()
-            portsService?.settingsChanged()
+            services.extensionHost?.refreshLocale()
+            services.extensionHost?.assistant.reloadAssistSettings()
+            services.gitService?.settingsChanged()
+            services.portsService?.settingsChanged()
             applyGlobalHotkey()
-            releaseChecks?.settingsChanged()
+            services.releaseChecks?.settingsChanged()
           }
         },
       ),
@@ -1798,15 +1846,15 @@ export function getTerminalState(paneId: string): TerminalStateSnapshot | undefi
 }
 
 function primaryWindowId(): string | undefined {
-  return broker?.windowIds()[0] ?? [...windows.keys()][0]
+  return services.broker?.windowIds()[0] ?? [...windows.keys()][0]
 }
 
 function windowIds(): string[] {
-  return broker?.windowIds() ?? [...windows.keys()]
+  return services.broker?.windowIds() ?? [...windows.keys()]
 }
 
 const workspaceWindowId = firstKnownOwner(
-  (workspaceId) => broker?.windowOfWorkspace(workspaceId),
+  (workspaceId) => services.broker?.windowOfWorkspace(workspaceId),
   windowOfWorkspace,
   windowForWorkspace,
 )
@@ -1826,11 +1874,11 @@ function runMenuCommandInFocusedWindow(command: string): void {
 function reloadFocusedWindow(): void {
   const focused = BrowserWindow.getFocusedWindow()
   const win = focused && [...windows.values()].includes(focused) ? focused : mainWindow()
-  if (win && !win.isDestroyed()) diagnostics?.reloadWindow(win.webContents)
+  if (win && !win.isDestroyed()) services.diagnostics?.reloadWindow(win.webContents)
 }
 
 function mainWindow(): BrowserWindow | undefined {
-  return broker?.mainWindow() ?? [...windows.values()][0]
+  return services.broker?.mainWindow() ?? [...windows.values()][0]
 }
 
 let gwSubSeq = 0
@@ -1922,7 +1970,7 @@ function startCoreBoards(): void {
     send: sendToWindow,
     log: (line) => console.error(`[git] ${line}`),
   })
-  gitService = service
+  services.gitService = service
   const commands = new GitCommands({
     settings: () => parseGitSettings(readSettingsFile().git),
     text: () => mainStrings().git,
@@ -1953,7 +2001,7 @@ function startCoreBoards(): void {
     send: sendToWindow,
     log: (line) => console.error(`[ports] ${line}`),
   })
-  portsService = ports
+  services.portsService = ports
   registerPortsMethods(ports)
   registerPortsIpc(ports)
 }
@@ -2013,7 +2061,7 @@ function readLocale(): string | undefined {
 }
 
 const languagePackDeps = {
-  languages: () => extensionHost?.contributions.languages() ?? [],
+  languages: () => services.extensionHost?.contributions.languages() ?? [],
   onError: (extId: string, error: string) => console.warn(`[language pack ${extId}] ${error}`),
 }
 
@@ -2129,7 +2177,7 @@ function managerSettings() {
 
 function revealWindow(windowId: string): void {
   const win = windows.get(windowId)
-  if (win && !win.isDestroyed() && !win.isVisible()) appTray?.showWindows()
+  if (win && !win.isDestroyed() && !win.isVisible()) services.appTray?.showWindows()
 }
 
 async function openWorker(req: {
@@ -2159,9 +2207,9 @@ async function openWorker(req: {
 }
 
 function startPortal(): void {
-  if (!managerService || !portalSupported(process.platform)) return
-  const service = managerService
-  portal = new Portal(portalSocketPath(app.isPackaged), {
+  if (!services.managerService || !portalSupported(process.platform)) return
+  const service = services.managerService
+  services.portal = new Portal(portalSocketPath(app.isPackaged), {
     missing: () => missingRequirements(MANAGER_FEATURE),
     hint: (missing) => installHint(missing),
     judge: (socket) =>
@@ -2176,7 +2224,7 @@ function startPortal(): void {
     manager: service,
     attachMirror,
   })
-  portal
+  services.portal
     .start()
     .then((started) => {
       if (!started) console.warn(`[portal] another ${PRODUCT_DISPLAY_NAME} owns the portal socket`)
@@ -2186,9 +2234,9 @@ function startPortal(): void {
 
 function emitFocusChanged(): void {
   const focused = BrowserWindow.getFocusedWindow() !== null
-  extensionHost?.events.emitEvent('focus.changed', { focused })
-  gitService?.setFocused(focused)
-  portsService?.setFocused(focused)
+  services.extensionHost?.events.emitEvent('focus.changed', { focused })
+  services.gitService?.setFocused(focused)
+  services.portsService?.setFocused(focused)
 }
 
 function showWindow(win: BrowserWindow): void {
@@ -2199,18 +2247,18 @@ function showWindow(win: BrowserWindow): void {
 }
 
 function toggleAllWindows(): void {
-  toggleWindows([...windows.values()], appTray, revealApp)
+  toggleWindows([...windows.values()], services.appTray, revealApp)
 }
 
 function applyGlobalHotkey(): void {
-  const status = globalHotkey?.apply(readSettingsFile().workspaces?.globalHotkey)
+  const status = services.globalHotkey?.apply(readSettingsFile().workspaces?.globalHotkey)
   if (status === 'taken') console.warn('[global hotkey] the chosen shortcut is in use elsewhere')
 }
 
 function revealApp(): void {
   if (windows.size === 0) {
-    createWindow(MAIN_SLOT, broker?.restoredBounds(MAIN_SLOT))
-  } else appTray?.showWindows()
+    createWindow(MAIN_SLOT, services.broker?.restoredBounds(MAIN_SLOT))
+  } else services.appTray?.showWindows()
 }
 
 app.on('second-instance', (_event, argv) => {
@@ -2231,22 +2279,22 @@ app.whenReady().then(() => {
     if (win && [...windows.values()].includes(win)) appMenu.setSpec(spec)
   })
   const logDir = join(app.getPath('userData'), 'logs')
-  appLog = createAppLog(join(logDir, LOG_FILE_NAME))
+  services.appLog = createAppLog(join(logDir, LOG_FILE_NAME))
   void resolveLoginPath().then(({ path, ms }) =>
-    appLog?.info('login-path', { found: path !== null, ms }),
+    services.appLog?.info('login-path', { found: path !== null, ms }),
   )
-  telemetry = registerTelemetry({
+  services.telemetry = registerTelemetry({
     file: join(app.getPath('userData'), TELEMETRY_FILE),
     version: appVersion(),
     stamp: runningBuild()?.telemetry,
     readSettings: readSettingsFile,
     locale: readLocale,
     session: telemetrySessionFacts,
-    log: (event, fields) => appLog?.info(event, fields),
+    log: (event, fields) => services.appLog?.info(event, fields),
   })
-  diagnostics = registerDiagnostics({
-    log: appLog,
-    telemetry,
+  services.diagnostics = registerDiagnostics({
+    log: services.appLog,
+    telemetry: services.telemetry,
     version: appVersion(),
     logDir,
     testHooks: process.env.NODE_ENV === 'test',
@@ -2255,9 +2303,9 @@ app.whenReady().then(() => {
     openPath: (path) => shell.openPath(path),
   })
   handleQuitSignals()
-  restoreOutcome = loadRestoredScrollback()
-  appLog?.info('scrollback-load', {
-    outcome: restoreOutcome,
+  services.restoreOutcome = loadRestoredScrollback()
+  services.appLog?.info('scrollback-load', {
+    outcome: services.restoreOutcome,
     panes: Object.keys(pendingRestoredScrollback()).length,
   })
   void keptShells
@@ -2273,7 +2321,7 @@ app.whenReady().then(() => {
   try {
     writeOstiaLauncher(paneLauncherDir())
   } catch (err) {
-    appLog?.warn('launcher-write-failed', {
+    services.appLog?.warn('launcher-write-failed', {
       launcher: 'pane',
       code: (err as NodeJS.ErrnoException).code ?? null,
     })
@@ -2289,7 +2337,7 @@ app.whenReady().then(() => {
     ownsWorkspace: (windowId, workspaceId) => windowForWorkspace(workspaceId) === windowId,
   })
   registerCmuxSessionIpc()
-  clipboardEdits = registerClipboardEdits({
+  services.clipboardEdits = registerClipboardEdits({
     ipc: ipcMain,
     isAppWindow: (sender) => windows.get(String(sender.id))?.webContents === sender,
     snapshot: async () => {
@@ -2302,7 +2350,7 @@ app.whenReady().then(() => {
     },
     mac: process.platform === 'darwin',
   })
-  guestChords = registerGuestChords({
+  services.guestChords = registerGuestChords({
     ipc: ipcMain,
     isAppWindow: (sender) => windows.get(String(sender.id))?.webContents === sender,
     mac: process.platform === 'darwin',
@@ -2345,40 +2393,40 @@ app.whenReady().then(() => {
   registerApprovals(revealWindow, settingsChanged, {
     opened: (request) => {
       approvalCaps.set(request.id, request.caps)
-      for (const cap of request.caps) telemetry?.count('agents', 'approval_shown', cap)
+      for (const cap of request.caps) services.telemetry?.count('agents', 'approval_shown', cap)
       askHub.approvalOpened(request)
     },
     settled: (id, outcome) => {
       const caps = approvalCaps.get(id) ?? []
       approvalCaps.delete(id)
       if (outcome !== 'timeout' && outcome !== 'auto') {
-        for (const cap of caps) telemetry?.count('agents', 'approval_answered', cap)
+        for (const cap of caps) services.telemetry?.count('agents', 'approval_answered', cap)
       }
       askHub.settled(id, outcome)
     },
   })
   registerQuestions({
     opened: (request) => {
-      telemetry?.count('agents', 'question_asked')
+      services.telemetry?.count('agents', 'question_asked')
       askHub.questionOpened(request)
     },
     settled: (id, outcome) => {
-      if (outcome === 'answered') telemetry?.count('agents', 'question_answered')
+      if (outcome === 'answered') services.telemetry?.count('agents', 'question_answered')
       askHub.settled(id, outcome)
     },
   })
-  registerExtensionMcp({ mcp: () => mcpHost })
+  registerExtensionMcp({ mcp: () => services.mcpHost })
   registerExtensionQuestions({
     windowOfWorkspace: windowForWorkspace,
-    extensionName: (extId) => extensionHost?.displayName(extId) ?? extId,
+    extensionName: (extId) => services.extensionHost?.displayName(extId) ?? extId,
   })
   registerPermissionAsk({ questions, phoneCanAnswer: phoneCanRespond })
   registerCredentials()
   registerAppUpdate(() => {
-    restartRequested = true
+    quit.restartRequested = true
     requestQuit()
   })
-  updateRunner = createUpdateRunner({
+  services.updateRunner = createUpdateRunner({
     method: installMethod,
     title: () => mainStrings().native.updateTitle,
     openTerminal: (req) => openTerminalInWindow(req),
@@ -2396,18 +2444,18 @@ app.whenReady().then(() => {
     version: appVersion(),
     macInstall,
     swept: () => saveJson(sweepFile, null),
-    warn: (event) => appLog?.warn(event),
+    warn: (event) => services.appLog?.warn(event),
   })
   const updateDir = (): string | null =>
     replacesInApp(installMethod(), readUpdateChannel(readSettingsFile())) ? installAppDir() : null
   const downloadBase = releaseDownloadBase(app.isPackaged, process.env)
-  releaseChecks = registerReleaseCheck({
+  services.releaseChecks = registerReleaseCheck({
     openExternal: openExternalSafe,
     readSettings: readSettingsFile,
-    log: appLog,
+    log: services.appLog,
     version: appVersion(),
     method: installMethod,
-    updateRunner,
+    updateRunner: services.updateRunner,
     replaceAvailability: async () => {
       const dir = updateDir()
       if (!dir) return null
@@ -2426,7 +2474,7 @@ app.whenReady().then(() => {
       onState: announceReplace,
       onProgress: announceReplaceProgress,
       onReplaced: (pending) => {
-        if (macInstall) stagedUpdate = { pending, sweepFile }
+        if (macInstall) quit.stagedUpdate = { pending, sweepFile }
         else saveJson(sweepFile, pending)
       },
     }),
@@ -2454,7 +2502,7 @@ app.whenReady().then(() => {
     vaultDelete: deleteGlobalVaultValue,
   })
   if (process.platform === 'linux') setInterval(scanSandboxPorts, PORT_SCAN_MS).unref()
-  onSandboxSpawnFailure = (workspaceId, errors) =>
+  services.onSandboxSpawnFailure = (workspaceId, errors) =>
     reportSandboxSpawnFailure(
       {
         notify: (input, onClick) =>
@@ -2473,7 +2521,8 @@ app.whenReady().then(() => {
           return {
             missing,
             hint: installHint(missing),
-            canInstall: extensionHost?.list().some((x) => x.id === 'system' && x.enabled) ?? false,
+            canInstall:
+              services.extensionHost?.list().some((x) => x.id === 'system' && x.enabled) ?? false,
           }
         },
       },
@@ -2487,11 +2536,11 @@ app.whenReady().then(() => {
   registerPaneResumeMethods({
     execCommand,
     onResume: (identity, resume) => {
-      telemetry?.count('agents', 'resume')
+      services.telemetry?.count('agents', 'resume')
       paneWaking.end(identity.paneId, 'started')
       startedAgents.add(identity.paneId)
       agentChanges.fire()
-      if (identity.manager) managerService?.rememberResume(resume)
+      if (identity.manager) services.managerService?.rememberResume(resume)
     },
   })
   const registry = registerProcessMethods({
@@ -2545,7 +2594,7 @@ app.whenReady().then(() => {
     reach,
     interruptGraceMs: INTERRUPT_GRACE_MS,
   })
-  processes = registry
+  services.processes = registry
   const peekAttention = async (to: PaneIdentity): Promise<PaneAttentionPeek> => {
     const unreported = keptAttention.peek(to.paneId)
     if (unreported) return unreported
@@ -2585,7 +2634,7 @@ app.whenReady().then(() => {
       isResumableAgent(agent) && parseAgentHooks(readSettingsFile().agents?.hooks)[agent],
   })
   registerExtensionWake({
-    openedBy: (caller, paneId) => extensionHost?.openedBy(caller, paneId) ?? false,
+    openedBy: (caller, paneId) => services.extensionHost?.openedBy(caller, paneId) ?? false,
     hibernated: paneHibernated,
     wake: (to) => wakeHibernatedPane(execCommand, to),
     panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
@@ -2619,7 +2668,7 @@ app.whenReady().then(() => {
       return terminalState.get(paneId)?.running === false
     },
   })
-  registerDocsMethods({ extensions: () => extensionHost?.listForAgents() ?? [] })
+  registerDocsMethods({ extensions: () => services.extensionHost?.listForAgents() ?? [] })
   registerVaultMethods({ isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId) })
   registerOpenFileMethods({
     grants: openFileGrants,
@@ -2635,8 +2684,8 @@ app.whenReady().then(() => {
   })
   registerBusMethods({
     inScope: reach.inScope,
-    managerSendAllowed: () => managerLimiter?.busAllowed() ?? true,
-    sent: () => telemetry?.count('agents', 'bus_message'),
+    managerSendAllowed: () => services.managerLimiter?.busAllowed() ?? true,
+    sent: () => services.telemetry?.count('agents', 'bus_message'),
     announce: (from, to, text) => {
       void announceBusMessage(
         {
@@ -2659,17 +2708,19 @@ app.whenReady().then(() => {
     hibernated: paneHibernated,
   })
   const extensionStore = new ExtensionStore(join(app.getPath('userData'), 'extensions.json'))
-  extensionHost = new ExtensionHost({
+  services.extensionHost = new ExtensionHost({
     onChanged: () => {
-      languageServers?.refresh()
+      services.languageServers?.refresh()
       refreshAgentPlugins()
     },
     onCrashed: (extId, builtin) =>
-      telemetry?.error({
+      services.telemetry?.error({
         source: 'extension-crashed',
         name: 'ExtensionCrashed',
         message: 'exited too often',
-        ...(builtin || marketplaceInstallIds().includes(extId) ? { extension: extId } : {}),
+        ...(builtin || services.marketplaceInstallIds().includes(extId)
+          ? { extension: extId }
+          : {}),
       }),
     hostGrants: hostPaneGrants,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
@@ -2768,18 +2819,18 @@ app.whenReady().then(() => {
     },
   })
   refreshAgentPlugins()
-  registerExtensionMethods(() => extensionHost)
-  registerExtensionIpc(extensionHost)
-  registerRemoteFilesIpc(extensionHost)
+  registerExtensionMethods(() => services.extensionHost)
+  registerExtensionIpc(services.extensionHost)
+  registerRemoteFilesIpc(services.extensionHost)
   ipcMain.on(AGENT_OFFER_RESULT_CHANNEL, (e, requestId: unknown, paneId: unknown) =>
     agentOffers.answer(String(e.sender.id), requestId, paneId),
   )
-  languageServers = createLanguageServers()
-  languageServers.refresh()
+  services.languageServers = createLanguageServers()
+  services.languageServers.refresh()
   registerLanguageServersIpc({
-    servers: languageServers,
+    servers: services.languageServers,
     setEnabled: (extId, serverId, enabled) =>
-      extensionHost?.contributions.setLanguageServerEnabled(extId, serverId, enabled),
+      services.extensionHost?.contributions.setLanguageServerEnabled(extId, serverId, enabled),
     setOverride: (key, override) => serverOverrides.choose(key, override),
   })
   const marketplace = new Marketplace({
@@ -2787,7 +2838,7 @@ app.whenReady().then(() => {
     clonesDir: join(app.getPath('userData'), 'marketplaces'),
     extensionsDir: join(configDir(), 'extensions'),
     builtinIds: () =>
-      extensionHost
+      services.extensionHost
         ?.list()
         .filter((ext) => ext.builtin)
         .map((ext) => ext.id) ?? [],
@@ -2800,28 +2851,28 @@ app.whenReady().then(() => {
         for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
       }
     },
-    rescan: () => extensionHost?.processes.rescan(),
+    rescan: () => services.extensionHost?.processes.rescan(),
     locale: readLocale,
     official: OFFICIAL_MARKETPLACE,
   })
   registerMarketplaceIpc(marketplace)
-  marketplaceInstallIds = () =>
+  services.marketplaceInstallIds = () =>
     marketplace
       .syncedInstalls()
       .filter((install) => marketplaceId(install.marketplace) === officialMarketplaceId)
       .map((install) => install.id)
-  profileSync = startProfileSync({
+  services.profileSync = startProfileSync({
     userData: app.getPath('userData'),
     configDir: configDir(),
     readSettings: readSettingsFile,
     broadcast: (channel, payload) => broadcast(channel, payload),
     onSettingsPulled: () => {
-      extensionHost?.config.reloadSettings()
-      extensionHost?.refreshLocale()
+      services.extensionHost?.config.reloadSettings()
+      services.extensionHost?.refreshLocale()
     },
     installedExtensions: () => marketplace.syncedInstalls(),
     builtinIds: () =>
-      extensionHost
+      services.extensionHost
         ?.list()
         .filter((ext) => ext.builtin)
         .map((ext) => ext.id) ?? [],
@@ -2851,8 +2902,8 @@ app.whenReady().then(() => {
     detectSecrets: (text) =>
       redactionScan.scan(text, parsePrivacySettings(readSettingsFile().privacy).redaction.patterns),
   })
-  void profileSync.run()
-  registerAssistIpc(() => extensionHost?.assistant ?? null)
+  void services.profileSync.run()
+  registerAssistIpc(() => services.extensionHost?.assistant ?? null)
   registerChatSessionIpc(
     createChatSessionStore({ dir: join(dirname(storePath('chat', 'global')), 'chat-sessions') }),
     redactor.text,
@@ -2860,25 +2911,25 @@ app.whenReady().then(() => {
   const mcpSecretsPath = storePath('mcp-secrets', 'global')
   const mcpSecrets = encryptedStore(mcpSecretsPath)
   const chatToolSettings = () => parseChatToolSettings(readSettingsFile().assistant)
-  mcpOAuth = new McpOAuth({
+  services.mcpOAuth = new McpOAuth({
     store: createMcpOAuthStore(encryptedFile(mcpSecretsPath)),
     openExternal: openExternalSafe,
     browser: mcpOAuthBrowser(app.isPackaged, process.env),
     pages: () => mainStrings().native.signIn,
-    onChange: () => mcpHost?.notify(),
+    onChange: () => services.mcpHost?.notify(),
   })
-  mcpHost = new McpHost({
+  services.mcpHost = new McpHost({
     servers: () => chatToolSettings().mcpServers,
     secret: (server, key) => mcpSecrets.get(server, key),
     onStatus: (status) => broadcast('chatTools:mcp-status', status),
-    auth: mcpOAuth,
+    auth: services.mcpOAuth,
   })
   registerChatToolsIpc({
     roots: fileRoots,
     settings: chatToolSettings,
-    mcp: mcpHost,
+    mcp: services.mcpHost,
     secrets: mcpSecrets,
-    oauth: mcpOAuth,
+    oauth: services.mcpOAuth,
     grants: new ChatToolGrants(join(app.getPath('userData'), 'chat-tool-grants.json')),
     onGrants: (keys) => broadcast('chatTools:always-grants', keys),
   })
@@ -2886,28 +2937,28 @@ app.whenReady().then(() => {
     userDir: join(configDir(), 'snippets'),
     roots: () => [homedir(), app.getPath('userData')],
     workDirForWorkspace,
-    extensionSnippets: () => extensionHost?.contributions.snippets() ?? [],
+    extensionSnippets: () => services.extensionHost?.contributions.snippets() ?? [],
   }
   registerSnippetIpc(snippetDeps)
   registerSnippetMethods(snippetDeps)
   registerCompletionIpc({
     userDir: join(configDir(), 'completions'),
-    extensionDirs: () => extensionHost?.contributions.completionDirs() ?? [],
+    extensionDirs: () => services.extensionHost?.contributions.completionDirs() ?? [],
   })
-  viewHost = new ViewHost({
+  services.viewHost = new ViewHost({
     dir: join(configDir(), 'views'),
     store: new ViewStore(join(app.getPath('userData'), 'views.json')),
     onChange: (listing) => broadcast('views:changed', listing),
     log: (line) => console.warn(`[views] ${line}`),
   })
-  registerViewsIpc(viewHost)
-  registerViewMethods({ host: viewHost, execCommand })
+  registerViewsIpc(services.viewHost)
+  registerViewMethods({ host: services.viewHost, execCommand })
   registerIconThemeIpc({
-    themes: () => extensionHost?.contributions.iconThemes() ?? [],
+    themes: () => services.extensionHost?.contributions.iconThemes() ?? [],
     onError: (id, error) => console.warn(`[icon theme ${id}] ${error}`),
   })
   registerKeymapIpc({
-    keymaps: () => extensionHost?.contributions.keymaps() ?? [],
+    keymaps: () => services.extensionHost?.contributions.keymaps() ?? [],
     platform: process.platform,
     onError: (ref, error) => console.warn(`[keymap ${ref}] ${error}`),
     onSkipped: (ref, skipped) =>
@@ -2915,11 +2966,11 @@ app.whenReady().then(() => {
   })
   registerLanguagePackIpc(languagePackDeps)
   registerEditorLanguageIpc({
-    languages: () => extensionHost?.contributions.editorLanguages() ?? [],
+    languages: () => services.extensionHost?.contributions.editorLanguages() ?? [],
     onError: (extId, error) => console.warn(`[editor language ${extId}] ${error}`),
   })
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
-    extensionHost?.events.emitEvent('notification', n),
+    services.extensionHost?.events.emitEvent('notification', n),
   )
   registerSameFolder({ workDir: workDirForWorkspace, home: homedir })
   registerPaneListMethods({
@@ -2929,7 +2980,7 @@ app.whenReady().then(() => {
     windowIds,
     waking: isWaking,
     processOf: (paneId) => {
-      const entry = processes?.forPane(paneId)
+      const entry = services.processes?.forPane(paneId)
       return entry ? processStatusOf(entry) : undefined
     },
     reach,
@@ -2944,13 +2995,13 @@ app.whenReady().then(() => {
       onTailnetChange(state)
       broadcast('gateway:tailnet-changed', state)
     },
-    log: (event, fields) => appLog?.info(event, fields),
+    log: (event, fields) => services.appLog?.info(event, fields),
   })
   configureTailnet(tailnet, { openExternal: (url) => void openExternalSafe(url) })
-  stopTailnet = () => tailnet.stop()
+  services.stopTailnet = () => tailnet.stop()
   const publisher = createBonjourPublisher()
   configureAnnouncer(publisher)
-  stopAnnouncing = publisher.unpublish
+  services.stopAnnouncing = publisher.unpublish
   onPairRequestsChanged(() => broadcast('gateway:pair-requests-changed', listPairRequests()))
   registerGatewayIpc()
   configureGatewayControl({
@@ -3066,7 +3117,7 @@ app.whenReady().then(() => {
   writeControlInfo(controlInfoPath(), controlSocketPath(), process.pid)
   keptPlumbing.start(keepShellsOn())
   registerManagerIpc()
-  managerLimiter = registerManagerMethods({
+  services.managerLimiter = registerManagerMethods({
     settings: managerSettings,
     agents: () => managerAgents(managerSettings()),
     io: paneIo,
@@ -3074,7 +3125,7 @@ app.whenReady().then(() => {
     paneAlive: (paneId) => getByPaneId(paneId) !== undefined,
     now: Date.now,
   })
-  managerService = new ManagerService({
+  services.managerService = new ManagerService({
     loadResume: () => loadJson<unknown>(managerResumePath(), null),
     saveResume: (saved) => {
       if (saved) saveJson(managerResumePath(), saved)
@@ -3085,7 +3136,7 @@ app.whenReady().then(() => {
     spawn: spawnManagerPty,
   })
   startPortal()
-  appTray = new AppTray({
+  services.appTray = new AppTray({
     iconPath: appIcon,
     tooltip: PRODUCT_DISPLAY_NAME,
     text: () => mainStrings().native.tray,
@@ -3094,9 +3145,9 @@ app.whenReady().then(() => {
     setBadgeCount: (count) => app.setBadgeCount(count),
   })
   startCoreBoards()
-  globalHotkey = new GlobalHotkey(globalShortcut, toggleAllWindows)
+  services.globalHotkey = new GlobalHotkey(globalShortcut, toggleAllWindows)
   applyGlobalHotkey()
-  broker = new WindowBroker({
+  services.broker = new WindowBroker({
     createWindow,
     holdPtys,
     execCommand,
@@ -3104,13 +3155,13 @@ app.whenReady().then(() => {
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
     reveal: showWindow,
-    onList: (list) => appTray?.setUnread(unreadWorkspaces(list)),
+    onList: (list) => services.appTray?.setUnread(unreadWorkspaces(list)),
   })
-  broker.register()
-  broker.openAll()
-  extensionHost.processes.startEager()
-  extensionHost.processes.watchUserExtensions()
-  viewHost.watch()
+  services.broker.register()
+  services.broker.openAll()
+  services.extensionHost.processes.startEager()
+  services.extensionHost.processes.watchUserExtensions()
+  services.viewHost.watch()
   app.on('browser-window-focus', emitFocusChanged)
   app.on('browser-window-blur', emitFocusChanged)
   setInterval(autosaveScrollback, SCROLLBACK_AUTOSAVE_MS).unref()
@@ -3127,7 +3178,7 @@ const redactScrollback = createScrollbackRedactor(redactor)
 let scrollbackSaves: Promise<void> = Promise.resolve()
 
 function persistScrollback(): Promise<void> {
-  if (broker && !broker.persisting) return scrollbackSaves
+  if (services.broker && !services.broker.persisting) return scrollbackSaves
   let toSave: Record<string, string>
   try {
     const byPane = pendingRestoredScrollback()
@@ -3140,16 +3191,14 @@ function persistScrollback(): Promise<void> {
   scrollbackSaves = scrollbackSaves
     .then(async () => {
       const redacted = await redactScrollback(toSave)
-      if (savingScrollbackForQuit && !scrollbackSavedForQuit) quitTrace.stage('scrollback-redacted')
-      if (broker && !broker.persisting) return
+      if (quit.savingScrollbackForQuit && !quit.scrollbackSavedForQuit)
+        quitTrace.stage('scrollback-redacted')
+      if (services.broker && !services.broker.persisting) return
       await saveScrollback(redacted)
     })
     .catch((err: unknown) => console.error('[workspace] scrollback save failed', err))
   return scrollbackSaves
 }
-
-let scrollbackSavedForQuit = false
-let savingScrollbackForQuit = false
 
 const SCROLLBACK_AUTOSAVE_MS =
   process.env.NODE_ENV === 'test' && Number(readEnv('TEST_SCROLLBACK_AUTOSAVE_MS')) > 0
@@ -3158,7 +3207,7 @@ const SCROLLBACK_AUTOSAVE_MS =
 let lastScrollbackSignature = ''
 
 function autosaveScrollback(): void {
-  if (savingScrollbackForQuit) return
+  if (quit.savingScrollbackForQuit) return
   let signature = ''
   for (const [paneId, entry] of ptys) signature += `${paneId}:${entry.mirror.revision};`
   signature += `pending:${Object.keys(pendingRestoredScrollback()).length}`
@@ -3167,10 +3216,10 @@ function autosaveScrollback(): void {
   void persistScrollback()
 }
 
-const quitTrace = createQuitTrace((event, fields) => appLog?.info(event, fields))
+const quitTrace = createQuitTrace((event, fields) => services.appLog?.info(event, fields))
 
 function exitAtQuitDeadline(): void {
-  appLog?.warn('quit-deadline', {
+  services.appLog?.warn('quit-deadline', {
     stage: quitTrace.current(),
     totalMs: quitTrace.elapsedMs(),
     alive: summarizeKinds(process.getActiveResourcesInfo()),
@@ -3180,7 +3229,7 @@ function exitAtQuitDeadline(): void {
 
 app.on('before-quit', (event) => {
   const plan = planQuit({
-    approved: quitApproved,
+    approved: quit.quitApproved,
     requestedByOstia: quitRequested,
     signaled: quitSignaled,
     platform: process.platform,
@@ -3188,7 +3237,7 @@ app.on('before-quit', (event) => {
   quitRequested = false
   quitTrace.stage(`plan-${plan}`)
   if (plan === 'unattended') {
-    quitApproved = true
+    quit.quitApproved = true
     freezeAll([...windows.values()])
     exitAfterDeadline(exitAtQuitDeadline)
   }
@@ -3198,7 +3247,7 @@ app.on('before-quit', (event) => {
     quitAsking = true
     const all = [...windows.values()]
     const kept = keptOnQuit(
-      restartRequested,
+      quit.restartRequested,
       confirmQuitOn(),
       [...ptys.values()].map((entry) => ({ paneId: entry.paneId, kept: entry.kept !== null })),
     )
@@ -3206,7 +3255,7 @@ app.on('before-quit', (event) => {
       scratchFiles: (workspaceId) => scratchFolders.countFiles(workspaceId),
       kept: kept.kept,
       keptShells: kept.offer,
-      workspacesOf: (win) => broker?.workspacesOf(win) ?? [],
+      workspacesOf: (win) => services.broker?.workspacesOf(win) ?? [],
       processes: () =>
         [...ptys.values()].map((entry) => ({
           paneId: entry.paneId,
@@ -3217,23 +3266,23 @@ app.on('before-quit', (event) => {
     }).then((answer) => {
       quitAsking = false
       if (answer === 'cancel') {
-        restartRequested = false
+        quit.restartRequested = false
         return
       }
       quitAnswer = answer
-      quitApproved = true
+      quit.quitApproved = true
       freezeAll(all)
       app.quit()
     })
     return
   }
-  if (!scrollbackSavedForQuit) {
+  if (!quit.scrollbackSavedForQuit) {
     event.preventDefault()
-    if (savingScrollbackForQuit) return
-    savingScrollbackForQuit = true
+    if (quit.savingScrollbackForQuit) return
+    quit.savingScrollbackForQuit = true
     quitTrace.stage('scrollback')
     void persistScrollback().finally(() => {
-      scrollbackSavedForQuit = true
+      quit.scrollbackSavedForQuit = true
       app.quit()
     })
     return
@@ -3243,20 +3292,20 @@ app.on('before-quit', (event) => {
     if (sendingTelemetryForQuit) return
     sendingTelemetryForQuit = true
     quitTrace.stage('telemetry')
-    void (telemetry?.shutdown() ?? Promise.resolve()).finally(() => {
+    void (services.telemetry?.shutdown() ?? Promise.resolve()).finally(() => {
       telemetrySentForQuit = true
       app.quit()
     })
     return
   }
   quitTrace.stage('teardown-windows')
-  broker?.persist()
-  managerService?.shutdown()
-  appLog?.info('app-quit', { ptys: ptys.size })
-  const keepingShells = keepsShellsOnQuit(restartRequested, quitAnswer)
-  appLog?.info('quit-kept-shells', {
+  services.broker?.persist()
+  services.managerService?.shutdown()
+  services.appLog?.info('app-quit', { ptys: ptys.size })
+  const keepingShells = keepsShellsOnQuit(quit.restartRequested, quitAnswer)
+  services.appLog?.info('quit-kept-shells', {
     keep: keepingShells ? 1 : 0,
-    restart: restartRequested ? 1 : 0,
+    restart: quit.restartRequested ? 1 : 0,
   })
   if (keepingShells) {
     for (const workspaceId of keptHostPanes.keys()) {
@@ -3281,7 +3330,7 @@ app.on('before-quit', (event) => {
   if (keepingShells) keptShells.release()
   else keptShells.quitNow()
   quitTrace.stage('teardown-language-servers')
-  languageServers?.stopAll()
+  services.languageServers?.stopAll()
   languageServerWatches.closeAll()
   quitTrace.stage('teardown-sandboxes')
   if (keepingShells) workspaceSandboxes.releaseAll()
@@ -3296,30 +3345,30 @@ app.on('before-quit', (event) => {
   scratchFolders.removeAll()
   quitTrace.stage('teardown-hosts')
   portForwarder.stopAll()
-  gitService?.stop()
-  portsService?.stop()
-  extensionHost?.processes.stopAll()
-  mcpOAuth?.closeAll()
-  mcpHost?.closeAll()
-  viewHost?.stop()
-  profileSync?.stop()
+  services.gitService?.stop()
+  services.portsService?.stop()
+  services.extensionHost?.processes.stopAll()
+  services.mcpOAuth?.closeAll()
+  services.mcpHost?.closeAll()
+  services.viewHost?.stop()
+  services.profileSync?.stop()
   quitTrace.stage('teardown-network')
   stopControlServer()
   clearControlInfo(controlInfoPath(), controlSocketPath())
-  portal?.stop()
-  void stopTailnet?.()
-  stopAnnouncing?.()
+  services.portal?.stop()
+  void services.stopTailnet?.()
+  services.stopAnnouncing?.()
   void stopGateway()
-  appTray?.remove()
-  globalHotkey?.clear()
-  if (stagedUpdate) {
+  services.appTray?.remove()
+  services.globalHotkey?.clear()
+  if (quit.stagedUpdate) {
     quitTrace.stage('update-swap')
-    const { pending, sweepFile } = stagedUpdate
-    stagedUpdate = null
+    const { pending, sweepFile } = quit.stagedUpdate
+    quit.stagedUpdate = null
     const result = swapStagedBundle(pending.appDir, {
       verify: (staged) => verifyStagedSync(staged, updatePolicy),
     })
-    appLog?.info('update-swap', { version: pending.version, result })
+    services.appLog?.info('update-swap', { version: pending.version, result })
     if (result === 'swapped') saveJson(sweepFile, pending)
   }
   quitTrace.stage('teardown-done')
