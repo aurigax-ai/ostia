@@ -5,6 +5,7 @@ import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { FileTarget, OpenedPane } from '@shared/files/openFiles'
+import { baseName } from './fileTree'
 
 function activeOrNewWorkspaceId(): string | null {
   if (!useWorkspacesStore.getState().activeWorkspaceId) startNewWorkspace()
@@ -78,7 +79,7 @@ export function openFilesQuietly(workspaceId: string, files: FileTarget[], paneI
       requestReveal(file)
       const opened = useLayoutStore.getState().openFileTab(workspaceId, file.path, beside, true)
       if (!opened) continue
-      markOpenedQuietly(opened, file.path.split('/').pop() || file.path)
+      markOpenedQuietly(opened, baseName(file.path))
       beside = opened
     }
   })
@@ -99,7 +100,7 @@ export function openWaitedFiles(
         .getState()
         .openFileTab(workspaceId, file.path, beside, quiet, true)
       if (!pane) continue
-      if (quiet) markOpenedQuietly(pane, file.path.split('/').pop() || file.path)
+      if (quiet) markOpenedQuietly(pane, baseName(file.path))
       opened.push({ path: file.path, paneId: pane })
       beside = pane
     }

@@ -1,4 +1,5 @@
 import type { SearchPdf } from '@shared/files/search'
+import { LRUCache } from 'lru-cache'
 import { childPath } from './fileTree'
 import { openPdf } from './pdf'
 import { PDF_MAX_PAGES, itemLines, pageItems } from './pdfText'
@@ -27,7 +28,7 @@ export interface PdfSearchResults {
   skipped: number
 }
 
-const cache = new Map<string, Promise<string[][] | null>>()
+const cache = new LRUCache<string, Promise<string[][] | null>>({ max: CACHE_MAX })
 
 async function extract(path: string): Promise<string[][] | null> {
   const bytes = await window.ostia.fs.readBinary(path)
@@ -47,10 +48,6 @@ function pdfLines(path: string, pdf: SearchPdf): Promise<string[][] | null> {
   if (cached) return cached
   const lines = extract(path).catch(() => null)
   cache.set(key, lines)
-  if (cache.size > CACHE_MAX) {
-    const oldest = cache.keys().next().value
-    if (oldest !== undefined) cache.delete(oldest)
-  }
   return lines
 }
 

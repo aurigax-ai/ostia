@@ -108,7 +108,7 @@ describe('artifact versions', () => {
       </>,
     )
     await userEvent.click(screen.getByRole('button', { name: /Versions/ }))
-    const rows = await screen.findAllByRole('button', { name: /plan\.md · / })
+    const rows = await screen.findAllByRole('menuitem', { name: /plan\.md · / })
     expect(rows).toHaveLength(4)
     expect(rows[0]).toHaveTextContent('current')
     await userEvent.click(rows[1])
@@ -128,7 +128,7 @@ describe('artifact versions', () => {
     await load(1000)
     await renderSettled(<ArtifactVersionsButton workspaceId="s1" paneId="p1" filePath={FILE} />)
     await userEvent.click(screen.getByRole('button', { name: /Versions/ }))
-    const rows = await screen.findAllByRole('button', { name: /plan\.md · / })
+    const rows = await screen.findAllByRole('menuitem', { name: /plan\.md · / })
     expect(rows[0]).toHaveAccessibleName('plan.md · 2026/10/14\u2009下午12:04:00')
     expect(rows[0]).toHaveTextContent(/2026\/10\/14\s下午12:04:00/)
     expect(rows[0]).toHaveTextContent('400 byte')

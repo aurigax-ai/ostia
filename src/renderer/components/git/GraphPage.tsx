@@ -1,5 +1,6 @@
 import { IconButton } from '@/components/common/IconButton'
 import { useDict } from '@/lib/app/useDict'
+import { useElementSize } from '@/lib/app/useElementSize'
 import type { GraphRow } from '@/lib/git/gitGraph'
 import {
   type GraphEntry,
@@ -251,19 +252,10 @@ function GraphList({
   const ids = useId()
   const locale = useSettingsStore((s) => s.locale)
   const [topRow, setTopRow] = useState(0)
-  const [viewport, setViewport] = useState(0)
+  const { height: viewport } = useElementSize(scroller)
   const count = model.entries.length
   const { first, last } = visibleRange(topRow * ROW_HEIGHT, viewport, count)
   const nearEnd = last >= count - LOAD_MORE_MARGIN
-
-  useEffect(() => {
-    const el = scroller.current
-    if (!el) return
-    const observer = new ResizeObserver(() => setViewport(el.clientHeight))
-    observer.observe(el)
-    setViewport(el.clientHeight)
-    return () => observer.disconnect()
-  }, [scroller])
 
   useEffect(() => {
     if (data.more && !loadingMore && nearEnd) onLoadMore()

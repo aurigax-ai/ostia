@@ -237,7 +237,6 @@ export const filesEn = {
     zoomIn: 'Zoom in',
     zoomOut: 'Zoom out',
     fit: 'Fit to pane',
-    actualSize: 'Actual size',
     zoomLevel: 'Zoom {percent}%',
     previousPage: 'Previous page',
     nextPage: 'Next page',

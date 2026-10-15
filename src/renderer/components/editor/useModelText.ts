@@ -1,4 +1,5 @@
 import type { monaco } from '@/lib/monaco/setup'
+import { debounce } from 'es-toolkit'
 import { useEffect, useState } from 'react'
 
 const PREVIEW_DEBOUNCE_MS = 150
@@ -11,23 +12,23 @@ export function useModelText(
   useEffect(() => {
     if (!enabled || !editor) return
     let content: monaco.IDisposable | undefined
-    let pending: ReturnType<typeof setTimeout> | undefined
+    const readLater = debounce(
+      (model: monaco.editor.ITextModel) => setText(model.getValue()),
+      PREVIEW_DEBOUNCE_MS,
+    )
     const follow = (): void => {
       content?.dispose()
-      clearTimeout(pending)
+      readLater.cancel()
       const model = editor.getModel()
       setText(model?.getValue() ?? '')
-      content = model?.onDidChangeContent(() => {
-        clearTimeout(pending)
-        pending = setTimeout(() => setText(model.getValue()), PREVIEW_DEBOUNCE_MS)
-      })
+      content = model?.onDidChangeContent(() => readLater(model))
     }
     follow()
     const swap = editor.onDidChangeModel(follow)
     return () => {
       swap.dispose()
       content?.dispose()
-      clearTimeout(pending)
+      readLater.cancel()
     }
   }, [editor, enabled])
   return text

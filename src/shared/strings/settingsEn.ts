@@ -107,7 +107,6 @@ export const settingsEn = {
     extensions: 'Extensions',
     extensionsNavList: 'Installed extensions',
     about: 'About',
-    builtin: 'Built-in',
     productTheme: '{product} theme',
     productThemeDesc: 'Colors of the sidebar, tabs, menus and dialogs.',
     terminalColors: 'Terminal colors',

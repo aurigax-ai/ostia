@@ -1,5 +1,6 @@
 import type { MenuItemConstructorOptions } from 'electron'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { en, zhHant } from '../../shared/app/dict'
 
 const installed: unknown[] = []
 const about: unknown[] = []
@@ -28,7 +29,8 @@ function flatten(items: MenuItemConstructorOptions[]): MenuItemConstructorOption
 }
 
 const openSettings = vi.fn()
-const template = () => macAppMenuTemplate({ productName: 'Ostia', openSettings })
+const template = () =>
+  macAppMenuTemplate({ productName: 'Ostia', text: () => en.native.appMenu, openSettings })
 
 describe('macOS application menu', () => {
   beforeEach(() => {
@@ -101,7 +103,10 @@ describe('macOS application menu', () => {
       },
     }
     const withSpec = () =>
-      macAppMenuTemplate({ productName: 'Ostia', openSettings, runCommand }, spec)
+      macAppMenuTemplate(
+        { productName: 'Ostia', text: () => en.native.appMenu, openSettings, runCommand },
+        spec,
+      )
 
     beforeEach(() => runCommand.mockClear())
 
@@ -139,7 +144,12 @@ describe('macOS application menu', () => {
     })
 
     it('rebuilds the installed menu only for a valid spec', () => {
-      const menu = installAppMenu('darwin', { productName: 'Ostia', openSettings, runCommand })
+      const menu = installAppMenu('darwin', {
+        productName: 'Ostia',
+        text: () => en.native.appMenu,
+        openSettings,
+        runCommand,
+      })
       expect(installed).toHaveLength(1)
       expect(menu.setSpec({ file: 'nope' })).toBe(false)
       expect(installed).toHaveLength(1)
@@ -147,9 +157,13 @@ describe('macOS application menu', () => {
       expect(installed).toHaveLength(2)
       expect(menu.setSpec(spec)).toBe(true)
       expect(installed).toHaveLength(2)
-      expect(installAppMenu('linux', { productName: 'Ostia', openSettings }).setSpec(spec)).toBe(
-        false,
-      )
+      expect(
+        installAppMenu('linux', {
+          productName: 'Ostia',
+          text: () => en.native.appMenu,
+          openSettings,
+        }).setSpec(spec),
+      ).toBe(false)
     })
   })
 
@@ -173,7 +187,13 @@ describe('macOS application menu', () => {
     it('sits in the View menu without a shortcut, and runs in main without asking the renderer', () => {
       const runCommand = vi.fn()
       const view = macAppMenuTemplate(
-        { productName: 'Ostia', openSettings, runCommand, reloadWindow },
+        {
+          productName: 'Ostia',
+          text: () => en.native.appMenu,
+          openSettings,
+          runCommand,
+          reloadWindow,
+        },
         viewSpec(),
       ).find((menu) => menu.label === 'View')
       const item = (view?.submenu as MenuItemConstructorOptions[]).find(
@@ -188,7 +208,10 @@ describe('macOS application menu', () => {
 
     it('adds no Reload or Force Reload role and no Cmd+R to the menu', () => {
       const items = flatten(
-        macAppMenuTemplate({ productName: 'Ostia', openSettings, reloadWindow }, viewSpec()),
+        macAppMenuTemplate(
+          { productName: 'Ostia', text: () => en.native.appMenu, openSettings, reloadWindow },
+          viewSpec(),
+        ),
       )
       expect(items.map((i) => i.role)).not.toContain('reload')
       expect(items.map((i) => i.role)).not.toContain('forceReload')
@@ -197,7 +220,12 @@ describe('macOS application menu', () => {
 
     it('is in the Linux View menu too, with no shortcut', () => {
       const item = flatten(
-        linuxAppMenuTemplate({ productName: 'Ostia', openSettings, reloadWindow }),
+        linuxAppMenuTemplate({
+          productName: 'Ostia',
+          text: () => en.native.appMenu,
+          openSettings,
+          reloadWindow,
+        }),
       ).find((i) => i.id === 'command:window.reload')
       expect(item?.label).toBe('Reload Window')
       expect(item?.accelerator).toBeUndefined()
@@ -206,19 +234,37 @@ describe('macOS application menu', () => {
     })
   })
 
+  it('labels its own items in the language the app shows', () => {
+    const items = flatten(
+      macAppMenuTemplate({ productName: 'Ostia', text: () => zhHant.native.appMenu, openSettings }),
+    )
+    const t = zhHant.native.appMenu
+    expect(items.map((item) => item.label).filter(Boolean)).toEqual([
+      'Ostia',
+      t.about.replace('{product}', 'Ostia'),
+      t.settings,
+      t.hide.replace('{product}', 'Ostia'),
+      t.quit.replace('{product}', 'Ostia'),
+      t.file,
+      t.view,
+    ])
+  })
+
   it('installs the menu and the About panel name on macOS only', () => {
-    installAppMenu('darwin', { productName: 'Ostia', openSettings })
+    installAppMenu('darwin', { productName: 'Ostia', text: () => en.native.appMenu, openSettings })
     expect(installed).toHaveLength(1)
     expect(installed[0]).not.toBeNull()
     expect(about).toEqual([{ applicationName: 'Ostia' }])
   })
 
   it('replaces the default Electron menu on Linux and Windows with one that has no reload, quit or zoom', () => {
-    installAppMenu('linux', { productName: 'Ostia', openSettings })
-    installAppMenu('win32', { productName: 'Ostia', openSettings })
+    installAppMenu('linux', { productName: 'Ostia', text: () => en.native.appMenu, openSettings })
+    installAppMenu('win32', { productName: 'Ostia', text: () => en.native.appMenu, openSettings })
     expect(installed).toHaveLength(2)
     expect(about).toEqual([])
-    const roles = flatten(linuxAppMenuTemplate()).flatMap((item) => (item.role ? [item.role] : []))
+    const roles = flatten(
+      linuxAppMenuTemplate({ productName: 'Ostia', text: () => en.native.appMenu, openSettings }),
+    ).flatMap((item) => (item.role ? [item.role] : []))
     expect(roles).toEqual(['togglefullscreen', 'toggleDevTools'])
   })
 })

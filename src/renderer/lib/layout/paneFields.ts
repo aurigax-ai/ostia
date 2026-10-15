@@ -1,3 +1,4 @@
+import { baseName, parentOf } from '@/lib/files/fileTree'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { type AgentResume, sameResume } from '@shared/agents/agentResume'
 import { isArchivePath } from '@shared/archives/archivePaths'
@@ -161,13 +162,11 @@ export function setPaneEditor(
       filePath,
     }))
   }
-  const slash = filePath.lastIndexOf('/')
-  const cwd = slash > 0 ? filePath.slice(0, slash) : '/'
   return mapPane(root, paneId, ({ viewType: _viewType, ...p }) => ({
     ...named(p, title),
     kind: 'editor',
     filePath,
-    cwd,
+    cwd: parentOf(filePath),
   }))
 }
 
@@ -193,7 +192,7 @@ export function followMovedFile(root: LayoutNode, from: string, to: string): Lay
     if (p.kind !== 'editor' || !p.filePath) return p
     const next = movedPath(p.filePath, from, to)
     if (next === null) return p
-    return setPaneEditor(p, p.id, next.slice(next.lastIndexOf('/') + 1), next) as PaneNode
+    return setPaneEditor(p, p.id, baseName(next), next) as PaneNode
   })
 }
 

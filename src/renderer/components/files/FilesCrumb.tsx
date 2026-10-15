@@ -1,13 +1,14 @@
+import { useElementSize } from '@/lib/app/useElementSize'
 import { FOLDED_CRUMB, crumbsOf, fitCrumbs, maxFitLevel } from '@/lib/files/breadcrumb'
 import { homeDir } from '@/lib/files/homeDir'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { CaretRightIcon } from '@phosphor-icons/react'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 export function FilesCrumb({ path }: { path: string }): JSX.Element {
   const style = useSettingsStore((s) => s.files.breadcrumb)
   const lineRef = useRef<HTMLDivElement>(null)
-  const [width, setWidth] = useState(0)
+  const { width } = useElementSize(lineRef)
   const crumbs = useMemo(() => crumbsOf(path, homeDir()), [path])
   const start = style === 'short' ? 1 : 0
   const max = style === 'full' ? 0 : maxFitLevel(crumbs)
@@ -15,14 +16,6 @@ export function FilesCrumb({ path }: { path: string }): JSX.Element {
   const [fit, setFit] = useState({ key: fitKey, level: start })
   const level = fit.key === fitKey ? fit.level : start
   const shown = fitCrumbs(crumbs, level)
-
-  useEffect(() => {
-    const line = lineRef.current
-    if (!line) return
-    const observer = new ResizeObserver(() => setWidth(line.clientWidth))
-    observer.observe(line)
-    return () => observer.disconnect()
-  }, [])
 
   useLayoutEffect(() => {
     const line = lineRef.current

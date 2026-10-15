@@ -105,7 +105,6 @@ export const settingsZhHant: typeof settingsEn = {
     extensions: '擴充功能',
     extensionsNavList: '已安裝的擴充功能',
     about: '關於',
-    builtin: '內建',
     productTheme: '{product} 主題',
     productThemeDesc: '側邊欄、分頁、選單與對話框的配色。',
     terminalColors: '終端機配色',
@@ -304,7 +303,7 @@ export const settingsZhHant: typeof settingsEn = {
     discreteGpuRestart: '重新啟動',
     copyVersion: '複製版本',
     copied: '已複製',
-    copyright: 'Copyright {year} {name}',
+    copyright: '版權所有 {year} {name}',
     openFile: '開啟設定檔',
     cursorStyle: '游標樣式',
     styleBlock: '方塊',
@@ -315,7 +314,7 @@ export const settingsZhHant: typeof settingsEn = {
     restoreWorkspace: '啟動時還原工作區',
     restoreWorkspaceDesc:
       '下次啟動 {product} 時重新開啟工作區、面板與終端機捲動紀錄。Shell 一律重新啟動。',
-    shell: 'Shell',
+    shell: '殼層程式',
     shellDesc:
       '新終端機執行的程式及其引數，例如 /usr/bin/fish。留空則使用登入 shell。指令區塊與輸入編輯器需要 zsh 或 bash。',
     keepShells: '重新啟動時保留 shell',

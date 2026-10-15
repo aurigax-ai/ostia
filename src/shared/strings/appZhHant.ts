@@ -118,13 +118,13 @@ export const appZhHant: typeof appEn = {
       '啟動後向 GitHub 查詢一次，之後每小時查詢一次是否有新版本。更新一律由你自己點選，並依照你安裝的方式進行。',
     channel: '更新管道',
     channelStable: '穩定版',
-    channelBeta: 'Beta',
-    channelMain: 'Main',
+    channelBeta: '測試版',
+    channelMain: '每日建置版',
     channelDesc:
-      '穩定版只提供正式發行版本。Beta 另外提供候選版本。Main 另外提供 main 分支的每日建置與候選版本。有更新的正式版本時，每個管道都會提供。',
+      '穩定版只提供正式發行版本。測試版另外提供候選版本。每日建置版另外提供 main 分支的每日建置與候選版本。有更新的正式版本時，每個管道都會提供。',
     channelStableOnly:
-      'Beta 與 Main 建置只以 Linux tarball 提供。透過 apt 安裝的版本維持在穩定版。',
-    beta: '接收 Beta 版更新',
+      '測試版與每日建置版只以 Linux tarball 提供。透過 apt 安裝的版本維持在穩定版。',
+    beta: '接收測試版更新',
     betaDesc:
       '另外提供候選版本，並從這裡安裝。Beta 版可能比較不穩定。關閉後會停在目前的 Beta 版，等正式版追上再更新，不會降版。',
     betaStays: '目前是 Beta 版 {version}。會停在這一版，等正式版追上再更新，不會降版。',
@@ -344,6 +344,27 @@ export const appZhHant: typeof appEn = {
       detailOther: '這台電腦沒有 {product} 能用的系統驗證，所以改在這裡確認。',
       confirm: '允許',
       cancel: '取消',
+    },
+    contextMenu: {
+      copyLink: '複製連結網址',
+      copyImage: '複製圖片',
+      back: '上一頁',
+      forward: '下一頁',
+      reload: '重新載入',
+    },
+    appMenu: {
+      about: '關於 {product}',
+      settings: '設定…',
+      hide: '隱藏 {product}',
+      quit: '結束 {product}',
+      file: '檔案',
+      view: '檢視',
+      reloadWindow: '重新載入視窗',
+    },
+    extensionConfirm: { ok: '確定', cancel: '取消' },
+    sandboxSoftware: {
+      title: '沙箱需要安裝軟體',
+      body: '請安裝 {packages}，才能啟動這個沙箱工作區的終端機。',
     },
   },
 }
