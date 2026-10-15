@@ -1,7 +1,7 @@
 import { existsSync, rmSync } from 'node:fs'
 import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import { parseAgentResume } from '../../shared/agents/agentResume'
+import { parseResumeFailure, parseStoredResume } from '../../shared/agents/agentResume'
 import type {
   AppSnapshot,
   PaneDrop,
@@ -119,10 +119,12 @@ function parseNode(
     if (typeof raw.viewName === 'string' && VIEW_NAME.test(raw.viewName)) {
       pane.viewName = raw.viewName
     }
-    const resume = parseAgentResume(raw.resume)
+    const resume = parseStoredResume(raw.resume)
     if (resume) pane.resume = resume
     if (resume && raw.agentRunning === true && raw.hibernated !== true) pane.agentRunning = true
     if (resume && raw.hibernated === true) pane.hibernated = true
+    const failure = resume ? null : parseResumeFailure(raw.resumeFailed)
+    if (failure) pane.resumeFailed = failure
     if (raw.locked === true) pane.locked = true
     if (pane.kind === 'terminal' && raw.defaultTitle === true) pane.defaultTitle = true
     if (raw.titlePinned === true) pane.titlePinned = true

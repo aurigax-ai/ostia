@@ -1,3 +1,4 @@
+import { baseName } from '@/lib/files/fileTree'
 import { setPaneEditor } from '@/lib/layout/paneFields'
 import {
   addTab,
@@ -18,7 +19,7 @@ type LayoutFileActions = Pick<LayoutState, 'openFile' | 'openFileTab' | 'openFil
 export function createLayoutFileActions(set: LayoutSet, get: LayoutGet): LayoutFileActions {
   return {
     openFile: (workspaceId, path) => {
-      const title = path.split('/').pop() || path
+      const title = baseName(path)
       if (seedLayout(set, get, workspaceId, (p) => setPaneEditor(p, p.id, title, path))) return
       let createdPaneId: string | null = null
       set((s) => {
@@ -67,7 +68,7 @@ export function createLayoutFileActions(set: LayoutSet, get: LayoutGet): LayoutF
     },
 
     openFileTab: (workspaceId, path, paneId, background = false, fresh = false) => {
-      const title = path.split('/').pop() || path
+      const title = baseName(path)
       const seeded = seedLayout(set, get, workspaceId, (p) => setPaneEditor(p, p.id, title, path))
       if (seeded) return seeded
       let createdPaneId: string | null = null
@@ -96,7 +97,7 @@ export function createLayoutFileActions(set: LayoutSet, get: LayoutGet): LayoutF
     },
 
     openFileBeside: (workspaceId, path) => {
-      const title = path.split('/').pop() || path
+      const title = baseName(path)
       if (seedLayout(set, get, workspaceId, (p) => setPaneEditor(p, p.id, title, path))) return
       let createdPaneId: string | null = null
       set((s) => {

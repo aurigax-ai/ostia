@@ -32,6 +32,27 @@ describe('wordDiff', () => {
     ])
   })
 
+  it('leaves the spaces inside an added run unmarked', () => {
+    expect(wordDiff('hello world', 'hello brave new world')).toEqual([
+      { at: 0, text: 'hello ', changed: false },
+      { at: 6, text: 'brave', changed: true },
+      { at: 11, text: ' ', changed: false },
+      { at: 12, text: 'new', changed: true },
+      { at: 15, text: ' world', changed: false },
+    ])
+    expect(
+      wordDiff('a b c', 'a x y c')
+        .filter((p) => p.changed)
+        .map((p) => p.text),
+    ).toEqual(['x', 'y'])
+  })
+
+  it('marks a single fix inside a long text', () => {
+    const tail = ' word'.repeat(700)
+    const parts = wordDiff(`teh${tail}`, `the${tail}`)
+    expect(parts.filter((p) => p.changed).map((p) => p.text)).toEqual(['the'])
+  })
+
   it('keeps offsets into the corrected text', () => {
     expect(wordDiff('a b', 'a c')).toEqual([
       { at: 0, text: 'a ', changed: false },

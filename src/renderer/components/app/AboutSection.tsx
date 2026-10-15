@@ -1,5 +1,6 @@
 import { IconButton } from '@/components/common/IconButton'
 import { Button } from '@/components/ui/button'
+import { useCopied } from '@/lib/app/useCopied'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { platform } from '@/platform'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
@@ -18,18 +19,13 @@ const PLATFORM_NAMES: Record<Platform, string> = {
 export function AboutSection(): JSX.Element {
   const d = useDict()
   const [info, setInfo] = useState<AppInfo | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [copied, markCopied] = useCopied()
   useEffect(() => {
     window.ostia
       .info()
       .then(setInfo)
       .catch(() => setInfo(null))
   }, [])
-  useEffect(() => {
-    if (!copied) return
-    const timer = setTimeout(() => setCopied(false), 1500)
-    return () => clearTimeout(timer)
-  }, [copied])
   const name = info?.name ?? PRODUCT_DISPLAY_NAME
   const version = info ? `v${info.version}` : '…'
   return (
@@ -46,7 +42,7 @@ export function AboutSection(): JSX.Element {
           label={copied ? d.settings.copied : d.settings.copyVersion}
           disabled={!info}
           onClick={() => {
-            void navigator.clipboard.writeText(version).then(() => setCopied(true))
+            void navigator.clipboard.writeText(version).then(markCopied)
           }}
         />
       </div>

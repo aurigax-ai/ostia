@@ -1,3 +1,4 @@
+import { baseName, parentOf } from '@/lib/files/fileTree'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { type AgentResume, sameResume } from '@shared/agents/agentResume'
 import { type BrowserProfile, parseBrowserProfile } from '@shared/browser/browserProfile'
@@ -89,9 +90,30 @@ export function setDefaultPaneTitles(root: LayoutNode, title: string): LayoutNod
 
 export function setPaneResume(root: LayoutNode, paneId: string, resume: AgentResume): LayoutNode {
   return mapPane(root, paneId, (p) => {
-    if (sameResume(p.resume, resume)) return p
-    const { resumeFolderMissing: _missing, ...rest } = p
+    if (sameResume(p.resume, resume) && !p.resumeFailed) return p
+    const { resumeFolderMissing: _missing, resumeFailed: _failed, ...rest } = p
     return { ...rest, resume }
+  })
+}
+
+export function failPaneResume(
+  root: LayoutNode,
+  paneId: string,
+  resume: AgentResume,
+  exitCode: number,
+): LayoutNode {
+  return mapPane(root, paneId, (p) => {
+    if (p.resume?.agent !== resume.agent || p.resume.id !== resume.id) return p
+    const { resume: failed, resumePending: _pending, ...rest } = p
+    return { ...rest, resumeFailed: { resume: failed, exitCode } }
+  })
+}
+
+export function clearPaneResumeFailure(root: LayoutNode, paneId: string): LayoutNode {
+  return mapPane(root, paneId, (p) => {
+    if (!p.resumeFailed) return p
+    const { resumeFailed: _failed, ...rest } = p
+    return rest
   })
 }
 
@@ -139,9 +161,12 @@ export function setPaneEditor(
       filePath,
     }))
   }
-  const slash = filePath.lastIndexOf('/')
-  const cwd = slash > 0 ? filePath.slice(0, slash) : '/'
-  return mapPane(root, paneId, (p) => ({ ...named(p, title), kind: 'editor', filePath, cwd }))
+  return mapPane(root, paneId, (p) => ({
+    ...named(p, title),
+    kind: 'editor',
+    filePath,
+    cwd: parentOf(filePath),
+  }))
 }
 
 function movedPath(path: string, from: string, to: string): string | null {
@@ -154,7 +179,7 @@ export function followMovedFile(root: LayoutNode, from: string, to: string): Lay
     if (p.kind !== 'editor' || !p.filePath) return p
     const next = movedPath(p.filePath, from, to)
     if (next === null) return p
-    return setPaneEditor(p, p.id, next.slice(next.lastIndexOf('/') + 1), next) as PaneNode
+    return setPaneEditor(p, p.id, baseName(next), next) as PaneNode
   })
 }
 

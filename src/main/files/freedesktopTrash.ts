@@ -83,7 +83,7 @@ export async function homeTrashPlace(home: string, itemDev: number): Promise<Tra
   return (await lstat(root)).dev === itemDev ? { root, topdir: null } : null
 }
 
-export async function systemAllowsTrash(topdir: string): Promise<boolean> {
+async function systemAllowsTrash(topdir: string): Promise<boolean> {
   return mountAllowsTrash(await readFile('/proc/self/mountinfo', 'utf8'), topdir)
 }
 

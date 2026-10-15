@@ -4,8 +4,8 @@ import { revealPane } from '@/lib/attention/workspaceActivity'
 import { allPanes } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
 import { symbolOf } from '@/lib/palette/paletteModes'
+import { selectWorkspace } from '@/lib/workspaces/selectWorkspace'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/workspaces/windowWorkspaces'
-import { useUIStore } from '@/stores/app/uiStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
@@ -54,8 +54,7 @@ export function WorkspaceItems({
             key={w.id}
             value={`${symbol} ${name} ${w.workDir} ${w.id}`}
             onSelect={() => {
-              useUIStore.getState().showWorkspaces()
-              useWorkspacesStore.getState().setActive(w.id)
+              selectWorkspace(w.id)
               onDone()
             }}
           >
@@ -68,7 +67,7 @@ export function WorkspaceItems({
           key={w.id}
           value={`${symbol} ${w.name} ${w.workDir} ${w.id}`}
           onSelect={() => {
-            window.ostia.windows.focusWorkspace(w.id, false)
+            window.ostia.windows.focusWorkspace(w.id, false, true)
             onDone()
           }}
         >

@@ -150,7 +150,6 @@ export function runWhenIdle(
 }
 
 export function rerunBlock(paneId: string, blockId?: string): boolean {
-  const block = findBlock(paneId, blockId)
-  if (!block) return false
-  return insertCommand(paneId, block.command, true)
+  const typed = findBlock(paneId, blockId)?.typedCommand
+  return typed ? insertCommand(paneId, typed, true) : false
 }

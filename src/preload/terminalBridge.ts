@@ -68,8 +68,14 @@ export const terminalBridge: Pick<
         paneId,
         written,
       ) as Promise<OpenFileVerdict | null>,
-    openFolder: (paneId, written) =>
-      ipcRenderer.invoke('terminal-links:open-folder', paneId, written) as Promise<OpenPathResult>,
+    openDefault: (paneId, written) =>
+      ipcRenderer.invoke('terminal-links:open-default', paneId, written) as Promise<OpenPathResult>,
+    showInFolder: (paneId, written) =>
+      ipcRenderer.invoke(
+        'terminal-links:show-in-folder',
+        paneId,
+        written,
+      ) as Promise<OpenPathResult>,
   },
   selection: {
     send: (req) => ipcRenderer.invoke('selection:send', req) as Promise<SelectionSendResult>,

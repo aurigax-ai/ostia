@@ -29,7 +29,7 @@ import {
 import { FileDropCover } from './FileDropCover'
 import { PaneRenameField } from './PaneRenameField'
 import { PaneTabMenu } from './PaneTabMenu'
-import { ResumeConflictNotice } from './ResumeFolderNotice'
+import { ResumeConflictNotice, ResumeFailedNotice } from './ResumeFolderNotice'
 import { TabBody } from './TabBody'
 import { TabFace, usePaneMark, usePaneTitle } from './TabFace'
 import { TabHint } from './TabHint'
@@ -341,6 +341,8 @@ function SplitCell({ pane, ctx }: { pane: PaneNode; ctx: CellContext }): JSX.Ele
         <ApprovalCard request={approval} paneTitle={pane.title} />
       ) : question ? (
         <QuestionNotice question={question} />
+      ) : ctx.shown && pane.resumeFailed ? (
+        <ResumeFailedNotice paneId={pane.id} failure={pane.resumeFailed} />
       ) : ctx.shown && pane.resume ? (
         <ResumeConflictNotice pane={pane} />
       ) : null}

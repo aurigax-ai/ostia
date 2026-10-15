@@ -25,10 +25,12 @@ import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import type { AppQuit } from './appQuit'
 import type { ClipboardEdits } from './clipboardEdits'
 import { attachContextMenu } from './contextMenu'
+import type { ContextMenuText } from './contextMenuTemplate'
 import { type AppTray, closeAction, readCloseToTray } from './tray'
 import type { WindowBroker } from './windowBroker'
 
 interface WindowWiringDeps {
+  contextMenuText: () => ContextMenuText
   services: {
     appTray: AppTray | null
     broker: WindowBroker | null
@@ -69,6 +71,7 @@ interface WindowWiringDeps {
 export type WindowWiring = ReturnType<typeof createWindowWiring>
 
 export function createWindowWiring({
+  contextMenuText,
   services,
   quit,
   readSettingsFile,
@@ -127,7 +130,7 @@ export function createWindowWiring({
       return { action: 'deny' }
     })
 
-    attachContextMenu(win.webContents, false)
+    attachContextMenu(win.webContents, false, contextMenuText)
 
     win.webContents.on('will-attach-webview', (event, webPreferences, params) => {
       if (isPreviewPartition(params.partition)) {
@@ -160,10 +163,10 @@ export function createWindowWiring({
       services.guestChords?.guardGuest(guest)
       if (previews.adopt(guest)) return
       if (hardenExtensionGuest(guest)) {
-        attachContextMenu(guest, false)
+        attachContextMenu(guest, false, contextMenuText)
         return
       }
-      attachContextMenu(guest, true)
+      attachContextMenu(guest, true, contextMenuText)
       const agents = browserAgentsOf(guest.session)
       guest.setUserAgent(agents.rewritten)
       instrumentBrowserGuest(guest, true)

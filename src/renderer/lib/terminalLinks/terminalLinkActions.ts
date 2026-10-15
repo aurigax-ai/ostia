@@ -1,3 +1,4 @@
+import { currentDict, fmt } from '@/lib/app/useDict'
 import { refusalText } from '@/lib/files/fileDrop'
 import { pathInTree } from '@/lib/files/fileTree'
 import { homeDir } from '@/lib/files/homeDir'
@@ -6,6 +7,8 @@ import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { OpenPathResult } from '@shared/types'
+import type { PathLinkTarget } from './linkModifier'
 import type { FileLinkAction, FileLinkTarget } from './terminalFileLinks'
 
 export interface LinkPane {
@@ -40,22 +43,48 @@ async function admitAndOpen(pane: LinkPane, target: FileLinkTarget): Promise<voi
   else reportFileProblem(pane.workspaceId, refusalText(verdict))
 }
 
+function reportOpenProblem(pane: LinkPane, res: OpenPathResult, path: string): void {
+  if (res.ok) return
+  const d = currentDict()
+  reportFileProblem(
+    pane.workspaceId,
+    res.error === 'program' ? d.terminalLinks.refusedProgram : fmt(d.fileMenu.openFailed, { path }),
+  )
+}
+
+function showInFiles(pane: LinkPane, path: string): void {
+  const root = filesRoot(pane)
+  const shown = pathInTree(path, root, homeDir())
+  if (shown === null) return
+  useFileTreeStore.getState().reveal(root, shown)
+  useUIStore.getState().showFiles()
+}
+
+function openWithSystem(pane: LinkPane, target: FileLinkTarget): void {
+  void window.ostia.terminalLinks
+    .openDefault(pane.paneId, target.written)
+    .then((res) => reportOpenProblem(pane, res, target.written))
+}
+
+function openInOstia(pane: LinkPane, action: FileLinkAction, target: FileLinkTarget): void {
+  if (action === 'open-file') openFileAt(target.path, target.line, target.column)
+  else if (action === 'admit-file') void admitAndOpen(pane, target)
+  else if (action === 'open-folder') openWithSystem(pane, target)
+  else showInFiles(pane, target.path)
+}
+
 export function activateFileLink(
   pane: LinkPane,
+  how: PathLinkTarget,
   action: FileLinkAction,
   target: FileLinkTarget,
 ): void {
-  if (action === 'open-file') {
-    openFileAt(target.path, target.line, target.column)
-  } else if (action === 'admit-file') {
-    void admitAndOpen(pane, target)
-  } else if (action === 'open-folder') {
-    void window.ostia.terminalLinks.openFolder(pane.paneId, target.written)
-  } else {
-    const root = filesRoot(pane)
-    const shown = pathInTree(target.path, root, homeDir())
-    if (shown === null) return
-    useFileTreeStore.getState().reveal(root, shown)
-    useUIStore.getState().showFiles()
+  if (how === 'open') openInOstia(pane, action, target)
+  else if (how === 'show') showInFiles(pane, target.path)
+  else if (how === 'open-system') openWithSystem(pane, target)
+  else {
+    void window.ostia.terminalLinks
+      .showInFolder(pane.paneId, target.written)
+      .then((res) => reportOpenProblem(pane, res, target.written))
   }
 }

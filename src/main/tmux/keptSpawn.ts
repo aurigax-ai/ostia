@@ -38,6 +38,7 @@ export function createKeptSpawner({
       cols,
       rows,
       stateFile,
+      markNonce,
       env,
       sandboxStamp,
       resizePipe,
@@ -57,6 +58,7 @@ export function createKeptSpawner({
       shell,
       stateFile,
       spawnPath: env.PATH ?? '',
+      ...(markNonce ? { markNonce } : {}),
       ...(sandboxed
         ? { sandbox: { stamp: sandboxStamp, bridgeId: portBridge?.id ?? null, resizePipe } }
         : {}),

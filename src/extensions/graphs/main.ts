@@ -3,21 +3,16 @@ import {
   type ExtensionEventType,
   type ExtensionResult,
   type ExtensionSettingValues,
-  cliArgs,
   connect,
   createTranslator,
   failure,
   numberSetting,
   ok,
-  parseAgentStop,
   startPanelServer,
 } from '@aurigax-ai/ostia-extension-sdk'
-import {
-  isAgentHookEvent,
-  isHookAgent,
-} from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { HOUR_MS, realClock } from '@aurigax-ai/wire'
+import { createPaneSignals } from './paneSignals'
 import { panelHandlers } from './panelHandlers'
 import { GraphsRunner, type Workspace } from './runner'
 import { TriggerHost } from './triggers'
@@ -151,10 +146,7 @@ async function main(): Promise<void> {
   const panel = await panelStarting
   panelChanged = () => panel.changed()
 
-  const agentWaiting = async (pane: string, workspaceId: string): Promise<void> => {
-    const info = (await ext.listPanes().catch(() => [])).find((p) => p.paneId === pane)
-    triggers.agent(workspaceId, pane, 'waiting', info?.agent)
-  }
+  const signals = createPaneSignals({ ext, runner, triggers, refresh })
 
   const commands: Record<string, CommandHandler> = {
     ...graphVerbs(runner, refresh, ext),
@@ -162,47 +154,10 @@ async function main(): Promise<void> {
       await ext.openPanel(caller.workspaceId)
       return ok()
     },
-    'on-stop': async (args, caller) => {
-      const parsed = cliArgs(args)
-      const [agent, event] = parsed?.argv ?? []
-      if (!parsed?.stdin || caller.kind !== 'pane' || !caller.paneId) return ok()
-      if (caller.agentRunning !== true) return ok()
-      if (!isHookAgent(agent) || !isAgentHookEvent(event) || event !== 'Stop') return ok()
-      const stop = parseAgentStop(agent, parsed.stdin)
-      if (!stop) return ok()
-      await runner.stopped({
-        pane: caller.paneId,
-        session: stop.sessionId,
-        backgroundWork: stop.backgroundWork,
-        ...(stop.message !== undefined ? { message: stop.message } : {}),
-      })
-      if (caller.workspaceId) triggers.agent(caller.workspaceId, caller.paneId, 'stopped', agent)
-      return ok()
-    },
+    'on-stop': signals.onStop,
   }
   await ext.registerCommands(commands)
-  await ext.subscribe(EVENTS, (type, payload) => {
-    const event = payload as {
-      paneId?: string
-      workspaceId?: string
-      exitCode?: number
-      state?: string
-      remote?: boolean
-    }
-    const pane = event.paneId
-    if (type === 'pane.attention') {
-      if (pane && event.workspaceId && event.state === 'waiting')
-        void agentWaiting(pane, event.workspaceId)
-      return
-    }
-    if (type === 'pane.closed' && pane) void runner.stopped({ pane, closed: true })
-    else if (type === 'command.finished' && pane) {
-      void runner.stopped({ pane, exited: true })
-      if (event.workspaceId)
-        triggers.commandFinished({ ...event, paneId: pane, workspaceId: event.workspaceId })
-    }
-    void refresh()
-  })
+  await ext.subscribe(EVENTS, signals.onEvent)
   await refresh()
   await keepStarting()
 }

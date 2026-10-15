@@ -85,8 +85,8 @@ describe('ArtifactChip', () => {
     await renderSettled(<ArtifactChip workspaceId="s1" paneId="p1" />)
     expect(screen.getByTestId('artifact-chip-count')).toHaveTextContent('3')
     await userEvent.click(screen.getByRole('button', { name: /Artifacts from this pane/ }))
-    const list = await screen.findByRole('list', { name: 'Artifacts from this pane' })
-    const rows = within(list).getAllByRole('button')
+    const menu = await screen.findByRole('menu')
+    const rows = within(menu).getAllByRole('menuitem')
     expect(rows.map((row) => row.textContent)).toEqual([
       expect.stringContaining('c.md'),
       expect.stringContaining('b.md'),
@@ -97,7 +97,7 @@ describe('ArtifactChip', () => {
     await userEvent.click(rows[2])
     expect(useLayoutStore.getState().openFile).toHaveBeenCalledWith('s1', `${DIR}/a.md`)
     await userEvent.click(screen.getByRole('button', { name: /Artifacts from this pane/ }))
-    await userEvent.click(await screen.findByRole('button', { name: 'All artifacts' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'All artifacts' }))
     expect(useUIStore.getState().filesOpen).toBe(true)
   })
 
@@ -111,31 +111,26 @@ describe('ArtifactChip', () => {
     expect(none.container).toBeEmptyDOMElement()
   })
 
-  it('PRT-C62 works from the keyboard: Enter opens, arrows move, Enter opens a row, Escape closes', async () => {
+  it('PRT-C62 works from the keyboard: Enter opens on the first row, arrows move, Enter opens a row, Escape closes', async () => {
     produced({ 'b.md': 'p1', 'a.md': 'p1' })
     await load(listing('b.md', 'a.md'))
     await renderSettled(<ArtifactChip workspaceId="s1" paneId="p1" />)
     act(() => screen.getByRole('button', { name: /Artifacts from this pane/ }).focus())
     await userEvent.keyboard('{Enter}')
-    const list = await screen.findByRole('list', { name: 'Artifacts from this pane' })
-    const rows = within(list).getAllByRole('button')
-    await userEvent.keyboard('{ArrowDown}')
+    const menu = await screen.findByRole('menu')
+    const rows = within(menu).getAllByRole('menuitem')
     expect(rows[0]).toHaveFocus()
     await userEvent.keyboard('{ArrowDown}')
     expect(rows[1]).toHaveFocus()
     await userEvent.keyboard('{Enter}')
     expect(useLayoutStore.getState().openFile).toHaveBeenCalledWith('s1', `${DIR}/a.md`)
     await userEvent.click(screen.getByRole('button', { name: /Artifacts from this pane/ }))
-    await screen.findByRole('list', { name: 'Artifacts from this pane' })
+    await screen.findByRole('menu')
     const reached = vi.fn()
     document.addEventListener('keydown', reached)
     await userEvent.keyboard('{Escape}')
     document.removeEventListener('keydown', reached)
-    await waitFor(() =>
-      expect(
-        screen.queryByRole('list', { name: 'Artifacts from this pane' }),
-      ).not.toBeInTheDocument(),
-    )
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
     expect(reached).not.toHaveBeenCalled()
   })
 

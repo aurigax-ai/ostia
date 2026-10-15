@@ -1,4 +1,5 @@
-import { copyInto, importInto, moveInto, parentOf } from '@/lib/files/fileTreeActions'
+import { parentOf } from '@/lib/files/fileTree'
+import { copyInto, importInto, moveInto } from '@/lib/files/fileTreeActions'
 import { isMac } from '@/platform'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
 import { type DragEvent, type HTMLAttributes, type KeyboardEvent, useState } from 'react'

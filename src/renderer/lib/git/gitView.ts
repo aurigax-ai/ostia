@@ -45,13 +45,6 @@ export function failureText(failure: GitFailure): string {
   return failure.message ?? failure.error
 }
 
-export function splitPath(path: string): { name: string; dir: string } {
-  const slash = path.lastIndexOf('/')
-  return slash < 0
-    ? { name: path, dir: '' }
-    : { name: path.slice(slash + 1), dir: path.slice(0, slash) }
-}
-
 export function leaves<T>(node: TreeNode<T>): T[] {
   return node.kind === 'file' ? [node.item] : node.children.flatMap(leaves)
 }

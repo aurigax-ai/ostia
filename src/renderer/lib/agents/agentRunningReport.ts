@@ -18,7 +18,13 @@ export function startAgentRunningReport(): () => void {
   const sweep = (): void => {
     for (const layout of Object.values(useLayoutStore.getState().byWorkspace)) {
       for (const pane of layout ? allPanes(layout.root) : []) {
-        if (!pane.resume) continue
+        if (!pane.resume) {
+          if (pane.resumeFailed && reported.get(pane.id) !== false) {
+            reported.set(pane.id, false)
+            window.ostia.pty.reportAgentRunning(pane.id, false)
+          }
+          continue
+        }
         const running = paneAgentRunning(pane.id, pane.resume.agent)
         if (running === null) reported.delete(pane.id)
         if (running === null || reported.get(pane.id) === running) continue

@@ -13,14 +13,29 @@ import { _electron as electron, expect, test } from './test'
 
 test.describe.configure({ timeout: 90_000 })
 
-async function hibernatedAgentIn(tree: string, token: string) {
+async function hibernatedAgentIn(
+  tree: string,
+  token: string,
+  start: (home: string) => string[],
+  shell?: string,
+) {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(tree, { recursive: true })
   mkdirSync(home, { recursive: true })
+  const payload = JSON.stringify({ session_id: token, cwd: home })
   const bin = fakeAgentBin(
     dataHome,
-    '#!/bin/sh\necho "fake agent up: $* in $(pwd)"\nexec sleep 600\n',
+    [
+      '#!/bin/sh',
+      'case "$*" in',
+      '  *--resume*) ;;',
+      `  *) echo '${payload}' | ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude - >/dev/null 2>&1 ;;`,
+      'esac',
+      'echo "fake agent up: $* in $(pwd)"',
+      'exec sleep 600',
+      '',
+    ].join('\n'),
   )
   seedSettings(dataHome, {
     ...DOM_RENDERER_SETTINGS,
@@ -29,21 +44,17 @@ async function hibernatedAgentIn(tree: string, token: string) {
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({
     ...launch,
-    env: { ...launch.env, HOME: home, PATH: `${bin}:${launch.env.PATH ?? ''}` },
+    env: {
+      ...launch.env,
+      HOME: home,
+      PATH: `${bin}:${launch.env.PATH ?? ''}`,
+      ...(shell ? { SHELL: shell } : {}),
+    },
   })
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
   await openWorkspace(win)
-  const payload = JSON.stringify({ session_id: token, cwd: tree })
-  await runInTerminal(
-    win,
-    `echo '${payload}' | ostia resume-token claude - && echo token-$((6*7))`,
-    shownTerminal(win),
-  )
-  await expect(win.locator('.xterm-rows').first()).toContainText('token-42', {
-    timeout: 15_000,
-  })
-  await runInTerminal(win, 'claude', shownTerminal(win))
+  for (const line of start(home)) await runInTerminal(win, line, shownTerminal(win))
   await expect(win.locator('.xterm-rows').first()).toContainText('fake agent up:', {
     timeout: 15_000,
   })
@@ -60,7 +71,10 @@ async function hibernatedAgentIn(tree: string, token: string) {
 test('waking an agent whose folder was removed shows a notice and runs nothing', async () => {
   const root = freshDataHome()
   const tree = join(root, 'work', 'tree')
-  const { app, win, sleeping } = await hibernatedAgentIn(tree, 'e2e-tok-gone')
+  const { app, win, sleeping } = await hibernatedAgentIn(tree, 'e2e-tok-gone', () => [
+    `cd '${tree}'`,
+    'claude',
+  ])
   try {
     renameSync(tree, join(root, 'work', 'tree-moved'))
     await sleeping.click()
@@ -71,6 +85,27 @@ test('waking an agent whose folder was removed shows a notice and runs nothing',
     await expect(rows).toContainText(PROMPT, { timeout: 15_000 })
     await win.waitForTimeout(2_000)
     await expect(rows).not.toContainText('--resume e2e-tok-gone')
+  } finally {
+    await app.close()
+  }
+})
+
+test('an agent started with a cd on the same line resumes in the folder it ran in, also in bash, which reports the folder only at its prompt', async () => {
+  const root = freshDataHome()
+  const tree = join(root, 'work', 'tree')
+  const { app, win, sleeping } = await hibernatedAgentIn(
+    tree,
+    'e2e-tok-cd',
+    (home) => [`cd '${home}' && echo at-$((6*7))`, `cd '${tree}' && claude`],
+    '/bin/bash',
+  )
+  try {
+    await sleeping.click()
+    await shownTerminal(win).click()
+    await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(
+      `--resume e2e-tok-cd in ${tree}`,
+      { timeout: 20_000 },
+    )
   } finally {
     await app.close()
   }

@@ -188,7 +188,7 @@ function NameExpiryFields({ form }: { form: TokenForm }): JSX.Element {
             maxLength={60}
             autoComplete="off"
             spellCheck={false}
-            placeholder="ostia-ceo"
+            placeholder="deploy-bot"
             aria-invalid={name !== '' && !NAME_PATTERN.test(trimmed)}
             onChange={(e) => setName(e.target.value)}
             className="h-7 text-ui-sm"

@@ -1,6 +1,11 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useDict } from '@/lib/app/useDict'
-import { type LinkKind, webLinkTarget } from '@/lib/terminalLinks/linkModifier'
+import {
+  type LinkKind,
+  type PathLinkTarget,
+  pathLinkTarget,
+  webLinkTarget,
+} from '@/lib/terminalLinks/linkModifier'
 import type { FileLinkAction } from '@/lib/terminalLinks/terminalFileLinks'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -15,9 +20,26 @@ const FILE_ACTION_TEXT: Record<FileLinkAction, (d: Dict) => string> = {
   'open-folder': (d) => d.terminalLinks.openFolder,
 }
 
+const FOLDER_ACTIONS: ReadonlySet<FileLinkAction> = new Set(['reveal-folder', 'open-folder'])
+
+const PATH_CLICKS = [
+  { shift: false, alt: false },
+  { shift: true, alt: false },
+  { shift: false, alt: true },
+  { shift: true, alt: true },
+] as const
+
+function pathTargetText(d: Dict, action: FileLinkAction, how: PathLinkTarget): string {
+  if (how === 'open') return FILE_ACTION_TEXT[action](d)
+  if (how === 'show') return d.terminalLinks.showInFiles
+  if (how === 'show-system') return d.terminalLinks.showInFileManager
+  return FOLDER_ACTIONS.has(action) ? d.terminalLinks.openFolder : d.terminalLinks.openDefault
+}
+
 export interface LinkHintBox {
   kind: LinkKind
   url?: string
+  offers?: PathLinkTarget[]
   plainClick: boolean
   left: number
   top: number
@@ -29,8 +51,8 @@ export function TerminalLinkHint({ hint }: { hint: LinkHintBox | null }): JSX.El
   const d = useDict()
   const linkClick = useSettingsStore((s) => s.terminal.linkClick)
   if (!hint) return null
-  const click = (shift: boolean): string =>
-    chordText({ ctrl: !isMac, meta: isMac, shift, alt: false, key: d.terminalLinks.click }, isMac)
+  const click = (shift: boolean, alt = false): string =>
+    chordText({ ctrl: !isMac, meta: isMac, shift, alt, key: d.terminalLinks.click }, isMac)
   const opens = (shift: boolean): string =>
     webLinkTarget(
       { ctrlKey: !isMac, metaKey: isMac, shiftKey: shift, detail: 1 },
@@ -38,9 +60,19 @@ export function TerminalLinkHint({ hint }: { hint: LinkHintBox | null }): JSX.El
     ) === 'system'
       ? d.terminalLinks.openSystem
       : d.terminalLinks.openNewTab
+  const pathRows = (action: FileLinkAction, offers: PathLinkTarget[]): [string, string][] =>
+    PATH_CLICKS.flatMap(({ shift, alt }) => {
+      const how = pathLinkTarget(
+        { ctrlKey: !isMac, metaKey: isMac, shiftKey: shift, altKey: alt },
+        { mac: isMac, linkClick },
+      )
+      return how && offers.includes(how)
+        ? [[click(shift, alt), pathTargetText(d, action, how)] as [string, string]]
+        : []
+    })
   const rows: [string, string][] =
     hint.kind !== 'web'
-      ? [[click(false), FILE_ACTION_TEXT[hint.kind](d)]]
+      ? pathRows(hint.kind, hint.offers ?? ['open'])
       : hint.url && linkKind(hint.url) === 'external'
         ? [[hint.plainClick ? d.terminalLinks.click : click(false), d.terminalLinks.openApp]]
         : [
