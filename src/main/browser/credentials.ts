@@ -40,10 +40,13 @@ const USER_COLUMNS = ['username', 'login_username', 'login', 'user']
 const PASSWORD_COLUMNS = ['password', 'login_password']
 
 export function passwordRowsFromCsv(text: string): CredentialInput[] | null {
-  const [header, ...rows] = Papa.parse<string[]>(text, {
+  const parsed = Papa.parse<string[]>(text.replace(/\r\n?/g, '\n'), {
     delimiter: ',',
+    newline: '\n',
     skipEmptyLines: 'greedy',
-  }).data
+  })
+  if (parsed.errors.length > 0) return null
+  const [header, ...rows] = parsed.data
   if (!header) return null
   const names = header.map((h) => h.trim().toLowerCase())
   const col = (options: string[]) => names.findIndex((n) => options.includes(n))

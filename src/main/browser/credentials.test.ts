@@ -125,6 +125,25 @@ describe('passwordRowsFromCsv', () => {
     ])
   })
 
+  it('reads rows the same whatever mix of line endings the file has', () => {
+    const rows = [
+      { origin: 'https://a.test', username: 'me', password: 'pw' },
+      { origin: 'https://b.test', username: 'you', password: 'pw2' },
+    ]
+    const lines = ['url,username,password', 'https://a.test,me,pw', 'https://b.test,you,pw2']
+    expect(passwordRowsFromCsv(`${lines[0]}\r\n${lines[1]}\n${lines[2]}\n`)).toEqual(rows)
+    expect(passwordRowsFromCsv(`${lines[0]}\n${lines[1]}\r\n${lines[2]}\n`)).toEqual(rows)
+    expect(passwordRowsFromCsv(`${lines[0]}\r${lines[1]}\r${lines[2]}`)).toEqual(rows)
+  })
+
+  it('returns null for a file with a stray quote instead of guessing the passwords', () => {
+    expect(
+      passwordRowsFromCsv(
+        'url,username,password\nhttps://a.test,me,"pw"x\nhttps://b.test,you,pw2\n',
+      ),
+    ).toBeNull()
+  })
+
   it('returns null when there is no url or password column', () => {
     expect(passwordRowsFromCsv('name,note\na,b\n')).toBeNull()
     expect(passwordRowsFromCsv('')).toBeNull()
