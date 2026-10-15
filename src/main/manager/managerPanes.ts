@@ -2,36 +2,31 @@ import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/p
 import { type BrowserWindow, app, ipcMain } from 'electron'
 import { MANAGER_FEATURE } from '../../shared/agents/managerSettings'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
-import type { CommandTarget } from '../../shared/types'
-import type { CommandResult } from '../../shared/types'
 import type { Reach } from '../approvals/reach'
-import type { ProcessTabRequest } from '../panes/processLaunch'
+import type { CommandBridge } from '../control/commandBridge'
 import { installHint, missingRequirements } from '../platform/systemRequirements'
+import type { PtyIo } from '../terminal/pty/ptyIo'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
+import type { WindowSend } from '../windows/windowSend'
 import { type ManagerService, managerWindowId } from './manager'
 import { Portal, portalSocketPath, portalSupported } from './portal'
-import type { MirrorHandle } from './portal'
-import type { MirrorSink } from './portal'
 import { callerVerdict, procFs, ttysOf } from './portalCaller'
 
 interface ManagerPanesDeps {
-  primaryWindowId: () => string | undefined
+  primaryWindowId: WindowSend['primaryWindowId']
   windows: Map<string, BrowserWindow>
   reach: Reach
-  execCommand: (
-    target: CommandTarget,
-    id: string,
-    args?: unknown,
-    fromMain?: boolean,
-  ) => Promise<CommandResult>
-  openTerminalInWindow: (req: ProcessTabRequest) => Promise<string | null>
+  execCommand: CommandBridge['execCommand']
+  openTerminalInWindow: CommandBridge['openTerminalInWindow']
   services: {
     managerService: ManagerService | null
     portal: Portal | null
   }
   ptys: Map<string, PtyEntry>
-  attachMirror: (paneId: string, sink: MirrorSink) => MirrorHandle | null
+  attachMirror: PtyIo['attachMirror']
 }
+
+export type ManagerPanes = ReturnType<typeof createManagerPanes>
 
 export function createManagerPanes({
   primaryWindowId,

@@ -1,8 +1,7 @@
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { app } from 'electron'
-import type { CommandTarget } from '../../shared/types'
-import type { CommandResult } from '../../shared/types'
+import type { CommandBridge } from '../control/commandBridge'
 import { platformEvents } from '../control/events'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import { registerIconThemeIpc } from '../extensions/iconThemes'
@@ -11,6 +10,7 @@ import { registerLanguagePackIpc } from '../extensions/languagePacks'
 import type { LanguageSource } from '../extensions/languagePacks'
 import { registerEditorLanguageIpc } from '../lsp/editorLanguages'
 import { registerCompletionIpc } from '../terminal/completionSpecs'
+import type { WindowSend } from '../windows/windowSend'
 import { registerSameFolder } from './sameFolder'
 import { type SnippetDeps, registerSnippetIpc, registerSnippetMethods } from './snippets'
 import { ViewHost, ViewStore } from './viewHost'
@@ -23,13 +23,8 @@ interface ContentIpcDeps {
     extensionHost: ExtensionHost | null
     viewHost: ViewHost | null
   }
-  broadcast: (channel: string, payload: unknown) => void
-  execCommand: (
-    target: CommandTarget,
-    id: string,
-    args?: unknown,
-    fromMain?: boolean,
-  ) => Promise<CommandResult>
+  broadcast: WindowSend['broadcast']
+  execCommand: CommandBridge['execCommand']
   languagePackDeps: {
     languages: () => LanguageSource[]
     onError: (extId: string, error: string) => void

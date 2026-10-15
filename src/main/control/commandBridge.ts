@@ -6,17 +6,18 @@ import type {
   TerminalStateSnapshot,
 } from '../../shared/types'
 import type { ProcessTabRequest } from '../panes/processLaunch'
+import type { WindowSend } from '../windows/windowSend'
 import { registerPane } from './idRegistry'
-
-import type { OwnerLookup } from '../extensions/workspaceChips'
 
 interface CommandBridgeDeps {
   commandsByWindow: Map<string, CommandDescriptor[]>
   terminalState: Map<string, TerminalStateSnapshot>
   windows: Map<string, BrowserWindow>
-  mainWindow: () => BrowserWindow | undefined
-  workspaceWindowId: OwnerLookup
+  mainWindow: WindowSend['mainWindow']
+  workspaceWindowId: WindowSend['workspaceWindowId']
 }
+
+export type CommandBridge = ReturnType<typeof createCommandBridge>
 
 export function createCommandBridge({
   commandsByWindow,

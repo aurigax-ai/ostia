@@ -2,17 +2,20 @@ import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/p
 import { type BrowserWindow, app, globalShortcut } from 'electron'
 import appIcon from '../../../resources/icon.png?asset'
 import type { Dict } from '../../shared/app/dict'
-import type { CommandTarget } from '../../shared/types'
-import type { WindowBounds } from '../../shared/types'
-import type { CommandResult } from '../../shared/types'
 import type { AgentRunningPanes } from '../agents/agentRunning'
+import type { CommandBridge } from '../control/commandBridge'
 import type { ExtensionHost } from '../extensions/extensionHost'
+import type { CoreBoards } from '../git/coreBoards'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
+import type { ScrollbackPersistence } from '../workspaces/scrollbackPersistence'
 import type { ViewHost } from '../workspaces/viewHost'
+import type { AppQuit } from './appQuit'
+import type { AppWindows } from './appWindows'
 import { GlobalHotkey } from './globalHotkey'
 import { AppTray, unreadWorkspaces } from './tray'
 import { WindowBroker } from './windowBroker'
+import type { WindowSend } from './windowSend'
 
 interface WindowStartupDeps {
   extensionHost: ExtensionHost
@@ -24,26 +27,21 @@ interface WindowStartupDeps {
   }
   mainStrings: () => Dict
   windows: Map<string, BrowserWindow>
-  requestQuit: () => void
-  startCoreBoards: () => void
-  toggleAllWindows: () => void
-  applyGlobalHotkey: () => void
-  createWindow: (slot: string, bounds?: WindowBounds) => BrowserWindow
+  requestQuit: AppQuit['requestQuit']
+  startCoreBoards: CoreBoards['startCoreBoards']
+  toggleAllWindows: AppWindows['toggleAllWindows']
+  applyGlobalHotkey: AppWindows['applyGlobalHotkey']
+  createWindow: AppWindows['createWindow']
   holdPtys: (paneIds: readonly string[]) => void
-  execCommand: (
-    target: CommandTarget,
-    id: string,
-    args?: unknown,
-    fromMain?: boolean,
-  ) => Promise<CommandResult>
+  execCommand: CommandBridge['execCommand']
   agentRunning: AgentRunningPanes
   workspaceSandboxes: WorkspaceSandboxes
   scratchFolders: ScratchFolders
-  showWindow: (win: BrowserWindow) => void
-  emitFocusChanged: () => void
-  autosaveScrollback: () => void
-  SCROLLBACK_AUTOSAVE_MS: number
-  revealApp: () => void
+  showWindow: WindowSend['showWindow']
+  emitFocusChanged: AppWindows['emitFocusChanged']
+  autosaveScrollback: ScrollbackPersistence['autosaveScrollback']
+  SCROLLBACK_AUTOSAVE_MS: ScrollbackPersistence['SCROLLBACK_AUTOSAVE_MS']
+  revealApp: AppWindows['revealApp']
 }
 
 export function startWindows({

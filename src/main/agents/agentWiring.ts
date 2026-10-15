@@ -6,41 +6,36 @@ import { managerAgents } from '../../shared/agents/managerSettings'
 import type { ManagerSettings } from '../../shared/agents/managerSettings'
 import type { ChangeSignal } from '../../shared/common/actThenConfirm'
 import type { CommandTarget, TerminalStateSnapshot } from '../../shared/types'
-import type { CommandResult } from '../../shared/types'
 import type { Reach } from '../approvals/reach'
 import { registerAttentionMethods, targetOf } from '../attention/attention'
+import type { CommandBridge } from '../control/commandBridge'
 import { getByPaneId } from '../control/idRegistry'
 import type { Telemetry } from '../diagnostics/telemetry'
-import type { OwnerLookup } from '../extensions/workspaceChips'
 import type { ManagerService } from '../manager/manager'
-import type { PaneIo } from '../panes/paneIo'
 import { registerPaneRenameMethods } from '../panes/paneRename'
 import { registerPaneResumeMethods } from '../panes/paneResume'
 import type { PaneWatch } from '../panes/paneWait'
 import type { PaneWaking } from '../panes/paneWaking'
-import type { ProcessTabRequest } from '../panes/processLaunch'
 import { INTERRUPT_GRACE_MS, registerProcessMethods } from '../panes/processManager'
 import type { ProcessRegistry } from '../panes/processRegistry'
 import { readSettingsFile } from '../platform/settingsFile'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
+import type { PtyIo } from '../terminal/pty/ptyIo'
 import type { PaneTitleEntry, PtyEntry } from '../terminal/pty/ptyRegistry'
 import type { ReapReason } from '../terminal/ptyReaper'
 import type { KeptAttention } from '../tmux/keptAttention'
+import type { KeptShellsWiring } from '../tmux/keptShellsWiring'
+import type { WindowSend } from '../windows/windowSend'
 import type { AgentRunningPanes } from './agentRunning'
 import { type ReportedAgentWork, registerAgentWorkMethods } from './agentWork'
 import { tellPane } from './bus'
 
 interface AgentWiringDeps {
-  execCommand: (
-    target: CommandTarget,
-    id: string,
-    args?: unknown,
-    fromMain?: boolean,
-  ) => Promise<CommandResult>
+  execCommand: CommandBridge['execCommand']
   keptAttention: KeptAttention
   agentWork: ReportedAgentWork
   reach: Reach
-  workspaceWindowId: OwnerLookup
+  workspaceWindowId: WindowSend['workspaceWindowId']
   services: {
     managerService: ManagerService | null
     processes: ProcessRegistry | null
@@ -49,11 +44,11 @@ interface AgentWiringDeps {
   paneWaking: PaneWaking
   startedAgents: Set<string>
   agentChanges: ChangeSignal
-  openTerminalInWindow: (req: ProcessTabRequest) => Promise<string | null>
-  syncKeptMeta: (paneId: string) => void
+  openTerminalInWindow: CommandBridge['openTerminalInWindow']
+  syncKeptMeta: KeptShellsWiring['syncKeptMeta']
   paneWatch: PaneWatch
   ptys: Map<string, PtyEntry>
-  paneIo: PaneIo
+  paneIo: PtyIo['paneIo']
   workspaceSandboxes: WorkspaceSandboxes
   killPty: (paneId: string, reason: ReapReason) => void
   windows: Map<string, BrowserWindow>
@@ -62,6 +57,8 @@ interface AgentWiringDeps {
   agentRunning: AgentRunningPanes
   workspaceCommandTarget: (workspaceId: string) => CommandTarget
 }
+
+export type AgentWiring = ReturnType<typeof registerAgentWiring>
 
 export function registerAgentWiring({
   execCommand,

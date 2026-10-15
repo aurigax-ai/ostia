@@ -1,20 +1,16 @@
 import type { BrowserWindow } from 'electron'
-import type { CommandTarget } from '../../shared/types'
-import type { CommandResult } from '../../shared/types'
+import type { CommandBridge } from '../control/commandBridge'
 import type { Redactor } from '../privacy/redaction'
 import { registerNotifyIpc, registerNotifyMethods } from './notify'
 
 interface NotifyWiringDeps {
-  execCommand: (
-    target: CommandTarget,
-    id: string,
-    args?: unknown,
-    fromMain?: boolean,
-  ) => Promise<CommandResult>
+  execCommand: CommandBridge['execCommand']
   isScratchPane: (paneId: string) => boolean
   windows: Map<string, BrowserWindow>
   redactor: Redactor
 }
+
+export type NotifyWiring = ReturnType<typeof registerNotifyWiring>
 
 export function registerNotifyWiring({
   execCommand,

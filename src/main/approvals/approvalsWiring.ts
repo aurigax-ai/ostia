@@ -4,6 +4,8 @@ import type { McpHost } from '../chat/mcpHost'
 import type { Telemetry } from '../diagnostics/telemetry'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import { phoneCanRespond } from '../gateway/server'
+import type { AppWindows } from '../windows/appWindows'
+import type { WindowSend } from '../windows/windowSend'
 import { windowForWorkspace } from '../workspaces/workspaceRegistry'
 import { registerApprovals } from './approvals'
 import type { AskHub } from './asks'
@@ -11,8 +13,8 @@ import { registerPermissionAsk } from './permissionAsk'
 import { questions, registerExtensionQuestions, registerQuestions } from './questions'
 
 interface ApprovalsWiringDeps {
-  revealWindow: (windowId: string) => void
-  settingsChanged: () => void
+  revealWindow: AppWindows['revealWindow']
+  settingsChanged: WindowSend['settingsChanged']
   services: {
     extensionHost: ExtensionHost | null
     mcpHost: McpHost | null

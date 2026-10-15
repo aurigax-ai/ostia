@@ -10,7 +10,7 @@ import { dropIdentity } from '../approvals/capabilityStore'
 import { questions } from '../approvals/questions'
 import type { ArtifactProducers } from '../artifacts/artifactProducers'
 import type { PreviewHost } from '../artifacts/htmlPreview'
-import type { BrowserProfiles } from '../browser/browserProfiles'
+import type { GuestProfiles } from '../browser/guestProfiles'
 import { emitPlatformEvent, emitSessionState } from '../control/events'
 import { getByPaneId, registerPane, removePane } from '../control/idRegistry'
 import type { ExtensionHost } from '../extensions/extensionHost'
@@ -20,9 +20,10 @@ import type { ManagerService } from '../manager/manager'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import type { ReapReason } from '../terminal/ptyReaper'
 import { isKeptAttentionState } from '../tmux/attentionFile'
-import type { KeptShells } from '../tmux/keptShells'
+import type { KeptShellsWiring } from '../tmux/keptShellsWiring'
 import type { UpdateRunner } from '../updates/updateRun'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
+import type { WorkspaceLifecycle } from '../workspaces/workspaceLifecycle'
 import { setWorkspaceWorkDir } from '../workspaces/workspaceRegistry'
 import { dropRestoredScrollback } from '../workspaces/workspaceSnapshot'
 import type { PaneWatch } from './paneWait'
@@ -47,13 +48,13 @@ interface PaneLifecycleIpcDeps {
   ptys: Map<string, PtyEntry>
   closedPanes: Set<string>
   hibernatedPanes: Set<string>
-  browserProfiles: BrowserProfiles
+  browserProfiles: GuestProfiles['browserProfiles']
   terminalState: Map<string, TerminalStateSnapshot>
   paneWaking: PaneWaking
   paneWatch: PaneWatch
   scratchFolders: ScratchFolders
-  workspaceClosed: (workspaceId: string) => void
-  keptShells: KeptShells
+  workspaceClosed: WorkspaceLifecycle['workspaceClosed']
+  keptShells: KeptShellsWiring['keptShells']
   commandsByWindow: Map<string, CommandDescriptor[]>
   remoteCwdOfPane: (paneId: string) => RemoteCwd | undefined
 }

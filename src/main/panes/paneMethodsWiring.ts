@@ -2,45 +2,41 @@ import { parseAgentHooks } from '../../shared/agents/agentHooks'
 import { isResumableAgent } from '../../shared/agents/agentResume'
 import type { ManagerSettings } from '../../shared/agents/managerSettings'
 import type { CommandTarget, TerminalStateSnapshot } from '../../shared/types'
-import type { CommandResult } from '../../shared/types'
+import type { AgentWiring } from '../agents/agentWiring'
 import type { Reach } from '../approvals/reach'
 import { targetOf } from '../attention/attention'
+import type { CommandBridge } from '../control/commandBridge'
 import { type PaneIdentity, getByPaneId } from '../control/idRegistry'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import { readSettingsFile } from '../platform/settingsFile'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
+import type { PtyIo } from '../terminal/pty/ptyIo'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import type { KeptAttention } from '../tmux/keptAttention'
+import type { WindowSend } from '../windows/windowSend'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { windowForWorkspace } from '../workspaces/workspaceRegistry'
 import { registerExtensionWake } from './extensionWake'
 import { type PaneAttentionPeek, registerPaneIoMethods } from './paneIo'
-import type { PaneIo } from './paneIo'
 import { listPanes } from './paneList'
 import { registerPaneMoveToMethods } from './paneMoveTo'
 import type { PaneReachDeps } from './paneReach'
 import { type PaneWatch, registerPaneWaitMethods } from './paneWait'
 import { wakeHibernatedPane } from './paneWake'
 import type { PaneWaking } from './paneWaking'
-import type { ProcessRegistry } from './processRegistry'
 
 interface PaneMethodsWiringDeps {
   keptAttention: KeptAttention
-  execCommand: (
-    target: CommandTarget,
-    id: string,
-    args?: unknown,
-    fromMain?: boolean,
-  ) => Promise<CommandResult>
-  registry: ProcessRegistry
+  execCommand: CommandBridge['execCommand']
+  registry: AgentWiring['registry']
   reach: Reach
   workspaceSandboxes: WorkspaceSandboxes
   ptys: Map<string, PtyEntry>
-  paneIo: PaneIo
-  getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
+  paneIo: PtyIo['paneIo']
+  getTerminalState: CommandBridge['getTerminalState']
   managerSettings: () => ManagerSettings
   ptyPid: (paneId: string) => number | undefined
-  windowIds: () => string[]
+  windowIds: WindowSend['windowIds']
   isWaking: (paneId: string) => boolean
   paneWaking: PaneWaking
   services: {
@@ -51,6 +47,8 @@ interface PaneMethodsWiringDeps {
   paneWatch: PaneWatch
   terminalState: Map<string, TerminalStateSnapshot>
 }
+
+export type PaneMethodsWiring = ReturnType<typeof registerPaneMethodsWiring>
 
 export function registerPaneMethodsWiring({
   keptAttention,

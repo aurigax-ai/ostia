@@ -17,6 +17,8 @@ interface MarketplaceIpcDeps {
   editorLanguageOf: (path: string) => string
 }
 
+export type MarketplaceIpc = ReturnType<typeof createMarketplaceIpc>
+
 export function createMarketplaceIpc({
   openFileGrants,
   services,

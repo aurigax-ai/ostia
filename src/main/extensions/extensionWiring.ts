@@ -3,7 +3,6 @@ import { join } from 'node:path'
 import type {
   ExtensionPanelContext,
   ExtensionResult,
-  WorkspaceChip,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { RemoteCwd } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { agentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
@@ -11,12 +10,14 @@ import type { ExtensionRoot } from '@aurigax-ai/ostia-extension-sdk/manifest/ext
 import { type BrowserWindow, app, ipcMain } from 'electron'
 import { parseAgentResume } from '../../shared/agents/agentResume'
 import { type ManagerSettings, managerAgents } from '../../shared/agents/managerSettings'
-import type { CommandResult, CommandTarget, TerminalStateSnapshot } from '../../shared/types'
+import type { TerminalStateSnapshot } from '../../shared/types'
 import { AGENT_OFFER_RESULT_CHANNEL, type AgentOfferRelay } from '../agents/agentOfferRelay'
 import type { AgentRunningPanes } from '../agents/agentRunning'
 import type { HeldResume } from '../agents/extensionAgents'
 import { targetOf } from '../attention/attention'
-import { type NotifyDeps, postNotification, postPanelNotification } from '../attention/notify'
+import { postNotification, postPanelNotification } from '../attention/notify'
+import type { NotifyWiring } from '../attention/notifyWiring'
+import type { CommandBridge } from '../control/commandBridge'
 import { controlSocketPath } from '../control/controlServer'
 import { type PaneIdentity, getByPaneId } from '../control/idRegistry'
 import type { Telemetry } from '../diagnostics/telemetry'
@@ -28,7 +29,6 @@ import type { LanguageServers } from '../lsp/languageServers'
 import { registerLanguageServersIpc } from '../lsp/languageServersIpc'
 import type { ServerOverrides } from '../lsp/serverOverrides'
 import { listPanes } from '../panes/paneList'
-import type { ProcessTabRequest } from '../panes/processLaunch'
 import { expandHome } from '../platform/pathGuard'
 import { readLocale, readSettingsFile, readSettingsFileOrNull } from '../platform/settingsFile'
 import type { Redactor } from '../privacy/redaction'
@@ -36,6 +36,7 @@ import type { HostPaneGrants } from '../sandbox/hostPanes'
 import { sandboxSpawnEnv } from '../sandbox/spawnEnv'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import { setAgentPlugins } from '../terminal/shellIntegration'
+import type { WindowSend } from '../windows/windowSend'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { windowForWorkspace, workDirForWorkspace } from '../workspaces/workspaceRegistry'
 import { registerConnectionsIpc } from './connectionsIpc'
@@ -47,23 +48,18 @@ import type { ExtensionHostDeps, ExtensionSecretStore } from './extensionHostDep
 import { ExtensionLaunches } from './extensionLaunches'
 import { registerExtensionMethods } from './extensionMethods'
 import { ExtensionStore } from './extensionStore'
-import { type OwnerLookup, workspaceChipsForWindow } from './workspaceChips'
+import { workspaceChipsForWindow } from './workspaceChips'
 
 interface ExtensionHostPartsDeps {
-  workspaceWindowId: OwnerLookup
+  workspaceWindowId: WindowSend['workspaceWindowId']
   scratchFolders: ScratchFolders
   workspaceSandboxes: WorkspaceSandboxes
   windows: Map<string, BrowserWindow>
-  publishRemoteFolders: (folders: RemoteFolders) => void
-  execCommand: (
-    target: CommandTarget,
-    id: string,
-    args?: unknown,
-    fromMain?: boolean,
-  ) => Promise<CommandResult>
-  getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
+  publishRemoteFolders: WindowSend['publishRemoteFolders']
+  execCommand: CommandBridge['execCommand']
+  getTerminalState: CommandBridge['getTerminalState']
   ptyPid: (paneId: string) => number | undefined
-  windowIds: () => string[]
+  windowIds: WindowSend['windowIds']
   isWaking: (paneId: string) => boolean
 }
 
@@ -160,27 +156,18 @@ interface ExtensionHostStartDeps {
   assistKeyStore: () => ExtensionSecretStore
   extensionSecretStore: () => ExtensionSecretStore
   extensionConnections: () => ExtensionConnections
-  sendToWorkspaceWindow: (
-    workspaceId: string | undefined,
-    channel: string,
-    payload: unknown,
-  ) => void
-  broadcast: (channel: string, payload: unknown) => void
-  publishWorkspaceChips: (chips: WorkspaceChip[]) => void
+  sendToWorkspaceWindow: WindowSend['sendToWorkspaceWindow']
+  broadcast: WindowSend['broadcast']
+  publishWorkspaceChips: WindowSend['publishWorkspaceChips']
   openFileGrants: OpenFileGrants
-  workspaceWindowId: OwnerLookup
-  execCommand: (
-    target: CommandTarget,
-    id: string,
-    args?: unknown,
-    fromMain?: boolean,
-  ) => Promise<CommandResult>
-  openTerminalInWindow: (req: ProcessTabRequest) => Promise<string | null>
-  notifyDeps: NotifyDeps
+  workspaceWindowId: WindowSend['workspaceWindowId']
+  execCommand: CommandBridge['execCommand']
+  openTerminalInWindow: CommandBridge['openTerminalInWindow']
+  notifyDeps: NotifyWiring['notifyDeps']
   windows: Map<string, BrowserWindow>
   managerSettings: () => ManagerSettings
   agentOffers: AgentOfferRelay
-  focusPaneInWindow: (pane: PaneIdentity) => boolean
+  focusPaneInWindow: WindowSend['focusPaneInWindow']
   extensionExec: ExtensionExec
   resumeOfPane: ((pane: PaneIdentity) => Promise<HeldResume | null>) | undefined
   registerExtensionIpc: (host: ExtensionHost) => void
@@ -308,10 +295,11 @@ interface ExtensionIpcDeps {
     telemetry: Telemetry | null
   }
   configDir: () => string
-  workspaceWindowId: OwnerLookup
+  workspaceWindowId: WindowSend['workspaceWindowId']
   terminalState: Map<string, TerminalStateSnapshot>
   remoteCwdOfPane: (paneId: string) => RemoteCwd | undefined
 }
+
 
 export function createExtensionIpc({
   services,

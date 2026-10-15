@@ -2,12 +2,11 @@ import { hostname } from 'node:os'
 import { join } from 'node:path'
 import { app } from 'electron'
 import { OPEN_FILES_COMMAND } from '../../shared/files/openFiles'
-import type { CommandDescriptor, CommandTarget, TerminalStateSnapshot } from '../../shared/types'
-import type { CommandResult } from '../../shared/types'
 import type { AgentRunningPanes } from '../agents/agentRunning'
 import type { AskHub } from '../approvals/asks'
 import type { Reach } from '../approvals/reach'
 import type { ArtifactFolders } from '../artifacts/artifactFolders'
+import type { CommandBridge } from '../control/commandBridge'
 import type { AppLog } from '../diagnostics/appLog'
 import {
   listPanes,
@@ -18,7 +17,9 @@ import {
 import { processStatusOf } from '../panes/processManager'
 import type { ProcessRegistry } from '../panes/processRegistry'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
+import type { PtyIo } from '../terminal/pty/ptyIo'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
+import type { WindowSend } from '../windows/windowSend'
 import { windowForWorkspace } from '../workspaces/workspaceRegistry'
 import { createBonjourPublisher } from './announce'
 import {
@@ -34,15 +35,10 @@ import { createTailnet, tailnetNodeName, tsnetHelperPath } from './tailnet'
 import type { PhoneFileScope } from './workspaceFiles'
 
 interface GatewayStartDeps {
-  execCommand: (
-    target: CommandTarget,
-    id: string,
-    args?: unknown,
-    fromMain?: boolean,
-  ) => Promise<CommandResult>
-  getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
+  execCommand: CommandBridge['execCommand']
+  getTerminalState: CommandBridge['getTerminalState']
   ptyPid: (paneId: string) => number | undefined
-  windowIds: () => string[]
+  windowIds: WindowSend['windowIds']
   isWaking: (paneId: string) => boolean
   services: {
     appLog: AppLog | null
@@ -52,18 +48,15 @@ interface GatewayStartDeps {
   }
   reach: Reach
   workspaceSandboxes: WorkspaceSandboxes
-  broadcast: (channel: string, payload: unknown) => void
+  broadcast: WindowSend['broadcast']
   openExternalSafe: (url: string) => boolean
-  listCommandsFor: (windowId: string) => CommandDescriptor[]
+  listCommandsFor: CommandBridge['listCommandsFor']
   phoneFileScope: (workspaceId: string) => PhoneFileScope
   artifactFolders: ArtifactFolders
-  primaryWindowId: () => string | undefined
-  attachPhoneObserver: (
-    rendererPaneId: string,
-    opts: { sinceCursor?: number; role?: 'observer' | 'owner'; sendData: (data: string) => void },
-  ) => { cursor: number; dropped: boolean; cols: number; rows: number; detach: () => void } | null
-  ptyResize: (rendererPaneId: string, cols: number, rows: number) => void
-  ptyWrite: (rendererPaneId: string, data: string) => void
+  primaryWindowId: WindowSend['primaryWindowId']
+  attachPhoneObserver: PtyIo['attachPhoneObserver']
+  ptyResize: PtyIo['ptyResize']
+  ptyWrite: PtyIo['ptyWrite']
   askHub: AskHub
   agentRunning: AgentRunningPanes
   ptys: Map<string, PtyEntry>

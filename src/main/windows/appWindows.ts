@@ -11,9 +11,10 @@ import { type GlobalHotkey, toggleWindows } from './globalHotkey'
 import type { AppTray } from './tray'
 import { MAIN_SLOT } from './windowBook'
 import type { WindowBroker } from './windowBroker'
+import type { WindowWiring } from './windowWiring'
 
 interface AppWindowsDeps {
-  wireWindow: (win: BrowserWindow) => void
+  wireWindow: WindowWiring['wireWindow']
   services: {
     appTray: AppTray | null
     broker: WindowBroker | null
@@ -25,6 +26,8 @@ interface AppWindowsDeps {
   readSettingsFile: () => SettingsFile
   windows: Map<string, BrowserWindow>
 }
+
+export type AppWindows = ReturnType<typeof createAppWindows>
 
 export function createAppWindows({
   wireWindow,

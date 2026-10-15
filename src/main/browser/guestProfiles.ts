@@ -12,6 +12,8 @@ interface GuestProfilesDeps {
   browserPanes: Map<string, number>
 }
 
+export type GuestProfiles = ReturnType<typeof createGuestProfiles>
+
 export function createGuestProfiles({
   scratchFolders,
   workspaceSandboxes,

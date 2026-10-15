@@ -20,6 +20,8 @@ interface ScrollbackPersistenceDeps {
   quitTrace: QuitTrace
 }
 
+export type ScrollbackPersistence = ReturnType<typeof createScrollbackPersistence>
+
 export function createScrollbackPersistence({
   redactor,
   services,

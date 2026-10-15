@@ -1,8 +1,6 @@
 import type { BrowserWindow } from 'electron'
 import { fmt } from '../../shared/app/dict'
 import type { Dict } from '../../shared/app/dict'
-import type { CommandDescriptor, CommandTarget, TerminalStateSnapshot } from '../../shared/types'
-import type { CommandResult } from '../../shared/types'
 import type { ReachListing } from '../approvals/reach'
 import type { Reach } from '../approvals/reach'
 import { registerScriptTokenIpc } from '../approvals/scriptTokenIpc'
@@ -15,12 +13,13 @@ import {
 } from '../approvals/scriptTokens'
 import { electronPresenceDeps, verifyUserPresence } from '../approvals/userPresence'
 import { postNotification } from '../attention/notify'
-import type { NotifyDeps } from '../attention/notify'
-import type { OwnerLookup } from '../extensions/workspaceChips'
+import type { NotifyWiring } from '../attention/notifyWiring'
 import { listPanes } from '../panes/paneList'
 import { storePath } from '../platform/jsonStore'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
-import type { KeptPlumbing } from '../tmux/keptLaunchers'
+import type { KeptShellsWiring } from '../tmux/keptShellsWiring'
+import type { WindowSend } from '../windows/windowSend'
+import type { CommandBridge } from './commandBridge'
 import { setScriptTokenCheck } from './controlAuth'
 import { controlInfoPath, writeControlInfo } from './controlDiscovery'
 import { controlSocketPath, registerControlServer } from './controlServer'
@@ -28,29 +27,24 @@ import { controlSocketPath, registerControlServer } from './controlServer'
 interface ControlStartDeps {
   retiredScriptTokensPath: () => string
   mainStrings: () => Dict
-  notifyDeps: NotifyDeps
+  notifyDeps: NotifyWiring['notifyDeps']
   scriptTokensPath: () => string
   workspaceListing: () => Promise<ReachListing>
-  broadcast: (channel: string, payload: unknown) => void
+  broadcast: WindowSend['broadcast']
   windows: Map<string, BrowserWindow>
   scriptTokenUsage: ScriptTokenUsageLog
-  execCommand: (
-    target: CommandTarget,
-    id: string,
-    args?: unknown,
-    fromMain?: boolean,
-  ) => Promise<CommandResult>
-  getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
+  execCommand: CommandBridge['execCommand']
+  getTerminalState: CommandBridge['getTerminalState']
   ptyPid: (paneId: string) => number | undefined
-  windowIds: () => string[]
+  windowIds: WindowSend['windowIds']
   isWaking: (paneId: string) => boolean
-  listCommandsFor: (windowId: string) => CommandDescriptor[]
+  listCommandsFor: CommandBridge['listCommandsFor']
   workspaceSandboxes: WorkspaceSandboxes
-  workspaceWindowId: OwnerLookup
-  primaryWindowId: () => string | undefined
+  workspaceWindowId: WindowSend['workspaceWindowId']
+  primaryWindowId: WindowSend['primaryWindowId']
   reach: Reach
-  keptPlumbing: KeptPlumbing
-  keepShellsOn: () => boolean
+  keptPlumbing: KeptShellsWiring['keptPlumbing']
+  keepShellsOn: KeptShellsWiring['keepShellsOn']
 }
 
 export function startControlServer({

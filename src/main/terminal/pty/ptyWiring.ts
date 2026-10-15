@@ -7,28 +7,26 @@ import type { PaneIdentity } from '../../control/idRegistry'
 import type { AppLog } from '../../diagnostics/appLog'
 import type { Telemetry } from '../../diagnostics/telemetry'
 import type { OpenWaits } from '../../files/openWaits'
-import type { PaneProcess } from '../../panes/paneProcess'
 import type { PaneWaking } from '../../panes/paneWaking'
 import type { ProcessRegistry } from '../../panes/processRegistry'
 import { readSettingsFile } from '../../platform/settingsFile'
 import type { HostPaneGrants } from '../../sandbox/hostPanes'
-import type { PortBridge } from '../../sandbox/portBridge'
 import type { PortRequests } from '../../sandbox/portRequests'
 import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'
 import type { SavedAttention } from '../../tmux/attentionFile'
 import type { KeptAttention } from '../../tmux/keptAttention'
-import type { KeptPlumbing } from '../../tmux/keptLaunchers'
 import { createKeptReattach } from '../../tmux/keptReattach'
-import type { KeptMeta, KeptProgram, KeptShells } from '../../tmux/keptShells'
+import type { KeptShellsWiring } from '../../tmux/keptShellsWiring'
 import { createKeptSpawner } from '../../tmux/keptSpawn'
-import type { TmuxPane } from '../../tmux/tmuxServer'
 import type { ScratchFolders } from '../../workspaces/scratchFolders'
+import type { WorkspaceLifecycle } from '../../workspaces/workspaceLifecycle'
 import { createPtyAttach } from './ptyAttach'
 import { createPtyIo } from './ptyIo'
 import { createLiveAttach } from './ptyLiveAttach'
 import { createPtyQueries } from './ptyQueries'
 import { createPtyRecovery } from './ptyRecovery'
 import { type PtyEntry, createPtyRegistry } from './ptyRegistry'
+import type { PtyRegistry } from './ptyRegistry'
 import { createSandboxSpawn } from './ptySandboxSpawn'
 import { createSpawnPlanner } from './ptySpawnPlan'
 import { createPtyStart } from './ptyStart'
@@ -52,24 +50,25 @@ interface PtyWiringDeps {
   hibernatedPanes: Set<string>
   startedAgents: Set<string>
   terminalState: Map<string, TerminalStateSnapshot>
-  keptShells: KeptShells
+  keptShells: KeptShellsWiring['keptShells']
   paneWaking: PaneWaking
   workspaceSandboxes: WorkspaceSandboxes
   injectSecrets: (workspaceId: string) => Promise<{ env: Record<string, string>; notice: string }>
-  keptPlumbing: KeptPlumbing
+  keptPlumbing: KeptShellsWiring['keptPlumbing']
   portRequests: PortRequests
-  releaseMergedSandbox: (workspaceId: string, exiting?: PtyEntry) => void
+  releaseMergedSandbox: WorkspaceLifecycle['releaseMergedSandbox']
   restoreKeptAttention: (identity: PaneIdentity, saved: SavedAttention) => void
   windows: Map<string, BrowserWindow>
   scratchFolders: ScratchFolders
   artifactFolders: ArtifactFolders
   hostPaneGrants: HostPaneGrants
-  paneLauncherDir: () => string
-  keepShellsOn: () => boolean
-  keptShellsProgram: () => KeptProgram | null
-  withKeptProcess: (meta: KeptMeta) => KeptMeta
-  keptPaneEnv: (env: NodeJS.ProcessEnv) => Record<string, string>
+  paneLauncherDir: KeptShellsWiring['paneLauncherDir']
+  keepShellsOn: KeptShellsWiring['keepShellsOn']
+  keptShellsProgram: KeptShellsWiring['keptShellsProgram']
+  withKeptProcess: KeptShellsWiring['withKeptProcess']
+  keptPaneEnv: KeptShellsWiring['keptPaneEnv']
 }
+
 
 export function createPtyWiring({
   ptys,
@@ -222,7 +221,7 @@ export function createPtyWiring({
 
 interface PtyAttachWiringDeps {
   workspaceSandboxes: WorkspaceSandboxes
-  keptShells: KeptShells
+  keptShells: KeptShellsWiring['keptShells']
   injectSecrets: (workspaceId: string) => Promise<{ env: Record<string, string>; notice: string }>
   services: {
     appLog: AppLog | null
@@ -230,32 +229,14 @@ interface PtyAttachWiringDeps {
     processes: ProcessRegistry | null
     telemetry: Telemetry | null
   }
-  keptPlumbing: KeptPlumbing
+  keptPlumbing: KeptShellsWiring['keptPlumbing']
   keptAttention: KeptAttention
   agentRunning: AgentRunningPanes
   hibernatedPanes: Set<string>
   portRequests: PortRequests
-  trackPty: (
-    paneId: string,
-    pty: PaneProcess,
-    opts: {
-      cols: number
-      rows: number
-      subs: Map<string, Electron.WebContents>
-      spawnPath: string
-      stateFile: string
-      keepAlive: boolean
-      workspaceId?: string
-      sandboxed?: boolean
-      shell?: string
-      sandboxStamp?: string | null
-      portBridge?: PortBridge | null
-      kept?: TmuxPane | null
-      keptMeta?: KeptMeta | null
-    },
-  ) => PtyEntry
-  feedPty: (entry: PtyEntry, data: string) => void
-  releaseMergedSandbox: (workspaceId: string, exiting?: PtyEntry) => void
+  trackPty: PtyRegistry['trackPty']
+  feedPty: PtyRegistry['feedPty']
+  releaseMergedSandbox: WorkspaceLifecycle['releaseMergedSandbox']
   restoreKeptAttention: (identity: PaneIdentity, saved: SavedAttention) => void
   windows: Map<string, BrowserWindow>
   movingPanes: Set<string>
@@ -263,13 +244,13 @@ interface PtyAttachWiringDeps {
   scratchFolders: ScratchFolders
   artifactFolders: ArtifactFolders
   hostPaneGrants: HostPaneGrants
-  paneLauncherDir: () => string
-  keepShellsOn: () => boolean
-  keptShellsProgram: () => KeptProgram | null
-  withKeptProcess: (meta: KeptMeta) => KeptMeta
-  keptPaneEnv: (env: NodeJS.ProcessEnv) => Record<string, string>
+  paneLauncherDir: KeptShellsWiring['paneLauncherDir']
+  keepShellsOn: KeptShellsWiring['keepShellsOn']
+  keptShellsProgram: KeptShellsWiring['keptShellsProgram']
+  withKeptProcess: KeptShellsWiring['withKeptProcess']
+  keptPaneEnv: KeptShellsWiring['keptPaneEnv']
   ptys: Map<string, PtyEntry>
-  loadPty: () => typeof import('node-pty') | null
+  loadPty: PtyRegistry['loadPty']
 }
 
 function createPtyAttachWiring({

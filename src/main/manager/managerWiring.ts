@@ -1,40 +1,27 @@
 import { rmSync } from 'node:fs'
-import type { AgentResume } from '../../shared/agents/agentResume'
 import { managerAgents } from '../../shared/agents/managerSettings'
 import type { ManagerSettings } from '../../shared/agents/managerSettings'
 import { getByPaneId } from '../control/idRegistry'
-import type { PaneIo } from '../panes/paneIo'
 import { loadJson, saveJson } from '../platform/jsonStore'
+import type { PtyIo } from '../terminal/pty/ptyIo'
 import { ManagerService } from './manager'
 import { type ManagerLimiter, registerManagerMethods } from './managerMethods'
+import type { ManagerPanes } from './managerPanes'
+import type { ManagerPty } from './managerPty'
 
 interface ManagerStartDeps {
-  registerManagerIpc: () => void
+  registerManagerIpc: ManagerPanes['registerManagerIpc']
   services: {
     managerLimiter: ManagerLimiter | null
     managerService: ManagerService | null
   }
   managerSettings: () => ManagerSettings
-  paneIo: PaneIo
-  openWorker: (req: {
-    argv: string[]
-    cwd?: string
-    workspaceId?: string
-    name?: string
-  }) => Promise<string | null>
+  paneIo: PtyIo['paneIo']
+  openWorker: ManagerPanes['openWorker']
   managerResumePath: () => string
-  createManagerPane: (req: { agent: string; cwd: string }) => Promise<string | null>
-  spawnManagerPty: (req: {
-    paneId: string
-    argv: string[]
-    cwd: string
-    cols: number
-    rows: number
-    path?: string
-    resume: AgentResume | null
-    onExit: () => void
-  }) => boolean
-  startPortal: () => void
+  createManagerPane: ManagerPanes['createManagerPane']
+  spawnManagerPty: ManagerPty['spawnManagerPty']
+  startPortal: ManagerPanes['startPortal']
 }
 
 export function startManager({

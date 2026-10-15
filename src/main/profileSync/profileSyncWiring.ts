@@ -8,6 +8,7 @@ import type { Marketplace } from '../extensions/marketplace/marketplace'
 import { storePath } from '../platform/jsonStore'
 import { readSettingsFile } from '../platform/settingsFile'
 import type { WorkerScan } from '../privacy/redactionScan'
+import type { WindowSend } from '../windows/windowSend'
 import { type ProfileSyncHandle, startProfileSync } from './ipc'
 import { flatSource, groupedSource, loginsSource } from './secrets'
 
@@ -17,7 +18,7 @@ interface ProfileSyncStartDeps {
     profileSync: ProfileSyncHandle | null
   }
   configDir: () => string
-  broadcast: (channel: string, payload: unknown) => void
+  broadcast: WindowSend['broadcast']
   marketplace: Marketplace
   encryptedFile: (path: string) => SecretStoreDeps
   redactionScan: WorkerScan

@@ -21,6 +21,8 @@ interface BrowserGuestsDeps {
   openExternalSafe: (url: string) => boolean
 }
 
+export type BrowserGuests = ReturnType<typeof createBrowserGuests>
+
 export function createBrowserGuests({
   consoleBuffers,
   errorBuffers,

@@ -23,7 +23,7 @@ import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { WorkspaceAgents } from '../secrets/workspaceAgents'
 import { type PtyEntry, removeStateFile } from '../terminal/pty/ptyRegistry'
 import type { KeptHostMeta } from '../tmux/keptShells'
-import type { KeptShells } from '../tmux/keptShells'
+import type { KeptShellsWiring } from '../tmux/keptShellsWiring'
 import type { TmuxPane } from '../tmux/tmuxServer'
 import type { PendingSweep } from '../updates/installReplace'
 import { swapStagedBundle, verifyStagedSync } from '../updates/macReplace'
@@ -64,7 +64,7 @@ interface QuitTeardownDeps {
   keptHostPanes: Map<string, { pane: TmuxPane; meta: KeptHostMeta }>
   syncKeptExposed: (workspaceId: string, listening?: readonly SandboxListener[]) => void
   portForwarder: PortForwarder
-  keptShells: KeptShells
+  keptShells: KeptShellsWiring['keptShells']
   languageServerWatches: TreeWatches
   workspaceSandboxes: WorkspaceSandboxes
   workspaceAgents: WorkspaceAgents
@@ -74,6 +74,8 @@ interface QuitTeardownDeps {
   previews: PreviewHost
   updatePolicy: SignaturePolicy
 }
+
+export type QuitTeardown = ReturnType<typeof createQuitTeardown>
 
 export function createQuitTeardown({
   quitTrace,

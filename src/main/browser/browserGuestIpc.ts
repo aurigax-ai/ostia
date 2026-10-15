@@ -4,13 +4,14 @@ import { getByPaneId } from '../control/idRegistry'
 import { clearGuestBrowseState } from './browseGuests'
 import type { ConsoleEntry } from './browseMethod'
 import { cancelPick } from './browsePick'
-import type { BrowserProfiles } from './browserProfiles'
+import type { BrowserGuests } from './browserGuests'
 import { clearGuestNetwork } from './guestNetwork'
+import type { GuestProfiles } from './guestProfiles'
 
 interface BrowserGuestIpcDeps {
-  browserProfiles: BrowserProfiles
+  browserProfiles: GuestProfiles['browserProfiles']
   browserPanes: Map<string, number>
-  instrumentBrowserGuest: (gc: Electron.WebContents, attaching?: boolean) => void
+  instrumentBrowserGuest: BrowserGuests['instrumentBrowserGuest']
   consoleBuffers: Map<number, ConsoleEntry[]>
   errorBuffers: Map<number, ConsoleEntry[]>
 }

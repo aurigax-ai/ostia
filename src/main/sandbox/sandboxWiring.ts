@@ -1,5 +1,6 @@
 import type { BrowserWindow } from 'electron'
-import { type NotifyDeps, postActionNotification } from '../attention/notify'
+import { postActionNotification } from '../attention/notify'
+import type { NotifyWiring } from '../attention/notifyWiring'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import { readLocale } from '../platform/settingsFile'
 import {
@@ -33,7 +34,7 @@ interface SandboxWiringDeps {
     extensionHost: ExtensionHost | null
     onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null
   }
-  notifyDeps: NotifyDeps
+  notifyDeps: NotifyWiring['notifyDeps']
   windows: Map<string, BrowserWindow>
 }
 

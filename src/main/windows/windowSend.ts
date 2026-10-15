@@ -13,6 +13,8 @@ interface WindowSendDeps {
   }
 }
 
+export type WindowSend = ReturnType<typeof createWindowSend>
+
 export function createWindowSend({ windows, services }: WindowSendDeps) {
   function broadcast(channel: string, payload: unknown): void {
     for (const win of windows.values()) {

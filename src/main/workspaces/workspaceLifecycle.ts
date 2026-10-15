@@ -53,6 +53,8 @@ interface WorkspaceLifecycleDeps {
   artifactProducers: ArtifactProducers
 }
 
+export type WorkspaceLifecycle = ReturnType<typeof createWorkspaceLifecycle>
+
 export function createWorkspaceLifecycle({
   openWaits,
   reach,

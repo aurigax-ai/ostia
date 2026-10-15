@@ -8,6 +8,7 @@ import type { SecretStoreDeps } from '../extensions/extensionSecrets'
 import { storePath } from '../platform/jsonStore'
 import { readSettingsFile } from '../platform/settingsFile'
 import type { Redactor } from '../privacy/redaction'
+import type { WindowSend } from '../windows/windowSend'
 import { registerAssistIpc } from './assistIpc'
 import { createChatSessionStore } from './chatSessions'
 import { registerChatSessionIpc } from './chatSessionsIpc'
@@ -28,7 +29,7 @@ interface ChatStartDeps {
   encryptedFile: (path: string) => SecretStoreDeps
   openExternalSafe: (url: string) => boolean
   mainStrings: () => Dict
-  broadcast: (channel: string, payload: unknown) => void
+  broadcast: WindowSend['broadcast']
   fileRoots: () => string[]
 }
 

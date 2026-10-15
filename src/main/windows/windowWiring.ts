@@ -6,11 +6,11 @@ import { hardenPreviewAttach } from '../artifacts/htmlPreview'
 import type { PreviewHost } from '../artifacts/htmlPreview'
 import { clearGuestBrowseState } from '../browser/browseGuests'
 import type { ConsoleEntry } from '../browser/browseMethod'
-import type { BrowserProfiles } from '../browser/browserProfiles'
+import type { BrowserGuests } from '../browser/browserGuests'
 import type { GuestChords } from '../browser/guestChords'
 import { forgetGuestNetwork } from '../browser/guestNetwork'
+import type { GuestProfiles } from '../browser/guestProfiles'
 import { followAgentByHost } from '../browser/signinUserAgent'
-import type { BrowserAgents } from '../browser/signinUserAgent'
 import { getByPaneId, removeWindow } from '../control/idRegistry'
 import type { Diagnostics } from '../diagnostics/diagnostics'
 import type { ExtensionHost } from '../extensions/extensionHost'
@@ -20,7 +20,9 @@ import type { GitService } from '../git/service'
 import type { ManagerService } from '../manager/manager'
 import type { SettingsFile } from '../platform/settingsFile'
 import type { PortsService } from '../ports/service'
+import type { PtyIo } from '../terminal/pty/ptyIo'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
+import type { AppQuit } from './appQuit'
 import type { ClipboardEdits } from './clipboardEdits'
 import { attachContextMenu } from './contextMenu'
 import { type AppTray, closeAction, readCloseToTray } from './tray'
@@ -43,26 +45,28 @@ interface WindowWiringDeps {
     quitApproved: boolean
   }
   readSettingsFile: () => SettingsFile
-  requestQuit: () => void
+  requestQuit: AppQuit['requestQuit']
   openExternalSafe: (url: string) => boolean
   previews: PreviewHost
-  extensionOfPartition: (partition: string | undefined) => string | null
-  browserProfiles: BrowserProfiles
-  hardenExtensionGuest: (guest: Electron.WebContents) => boolean
-  browserAgentsOf: (target: Electron.Session) => BrowserAgents
-  instrumentBrowserGuest: (gc: Electron.WebContents, attaching?: boolean) => void
-  fenceBrowserGuest: (guest: Electron.WebContents) => void
-  allowHumanPopups: (guest: Electron.WebContents) => void
+  extensionOfPartition: BrowserGuests['extensionOfPartition']
+  browserProfiles: GuestProfiles['browserProfiles']
+  hardenExtensionGuest: BrowserGuests['hardenExtensionGuest']
+  browserAgentsOf: BrowserGuests['browserAgentsOf']
+  instrumentBrowserGuest: BrowserGuests['instrumentBrowserGuest']
+  fenceBrowserGuest: GuestProfiles['fenceBrowserGuest']
+  allowHumanPopups: BrowserGuests['allowHumanPopups']
   consoleBuffers: Map<number, ConsoleEntry[]>
   errorBuffers: Map<number, ConsoleEntry[]>
   windows: Map<string, BrowserWindow>
-  hidePtyFlow: (wid: string) => void
+  hidePtyFlow: PtyIo['hidePtyFlow']
   releaseWindowPtys: (windowId: string) => void
   openWaits: OpenWaits
   commandsByWindow: Map<string, CommandDescriptor[]>
   browserPanes: Map<string, number>
   ptys: Map<string, PtyEntry>
 }
+
+export type WindowWiring = ReturnType<typeof createWindowWiring>
 
 export function createWindowWiring({
   services,

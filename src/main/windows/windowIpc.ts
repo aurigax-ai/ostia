@@ -10,12 +10,13 @@ import { type GuestChords, registerGuestChords } from '../browser/guestChords'
 import { openInExternalEditor } from '../files/externalEditor'
 import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from '../platform/discreteGpu'
 import { appVersion } from '../updates/appVersion'
+import type { AppQuit } from './appQuit'
 import { type ClipboardEdits, registerClipboardEdits } from './clipboardEdits'
 import { registerCloseGuard } from './closeGuard'
 import { acceptsPrimarySelection } from './primarySelection'
 
 interface WindowIpcDeps {
-  requestQuit: () => void
+  requestQuit: AppQuit['requestQuit']
 }
 
 export function registerWindowIpc({ requestQuit }: WindowIpcDeps) {

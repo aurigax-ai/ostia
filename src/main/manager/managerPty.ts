@@ -11,8 +11,7 @@ import { controlSocketPath } from '../control/controlServer'
 import { getByPaneId, markManager, registerPane } from '../control/idRegistry'
 import { privateTmpDir } from '../platform/privateTmp'
 import { managerSettings } from '../platform/settingsFile'
-import type { PortBridge } from '../sandbox/portBridge'
-import type { PtyEntry } from '../terminal/pty/ptyRegistry'
+import type { PtyRegistry } from '../terminal/pty/ptyRegistry'
 import { spawnFolder } from '../terminal/spawnCwd'
 import {
   PTY_COLOR_ENV,
@@ -21,36 +20,17 @@ import {
   ptyIdentityEnv,
   ptyLocaleEnv,
 } from '../terminal/terminalType'
-import type { KeptMeta } from '../tmux/keptShells'
-import type { TmuxPane } from '../tmux/tmuxServer'
+import type { WindowSend } from '../windows/windowSend'
 import { managerArgv, writeManagerClaudePlugin, writeManagerCodexContext } from './managerAgent'
 
-import type { PaneProcess } from '../panes/paneProcess'
-
 interface ManagerPtyDeps {
-  loadPty: () => typeof import('node-pty') | null
-  primaryWindowId: () => string | undefined
-  trackPty: (
-    paneId: string,
-    pty: PaneProcess,
-    opts: {
-      cols: number
-      rows: number
-      subs: Map<string, Electron.WebContents>
-      spawnPath: string
-      stateFile: string
-      keepAlive: boolean
-      workspaceId?: string
-      sandboxed?: boolean
-      shell?: string
-      sandboxStamp?: string | null
-      portBridge?: PortBridge | null
-      kept?: TmuxPane | null
-      keptMeta?: KeptMeta | null
-    },
-  ) => PtyEntry
-  feedPty: (entry: PtyEntry, data: string) => void
+  loadPty: PtyRegistry['loadPty']
+  primaryWindowId: WindowSend['primaryWindowId']
+  trackPty: PtyRegistry['trackPty']
+  feedPty: PtyRegistry['feedPty']
 }
+
+export type ManagerPty = ReturnType<typeof createManagerPty>
 
 export function createManagerPty({ loadPty, primaryWindowId, trackPty, feedPty }: ManagerPtyDeps) {
   function paneEnv(paneId: string, windowId: string, cwd: string): Record<string, string> {

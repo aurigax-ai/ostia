@@ -9,6 +9,7 @@ import type { ExtensionHost } from '../extensionHost'
 import type { ExtensionSecretStore } from '../extensionHostDeps'
 import type { ExtensionStore } from '../extensionStore'
 import { Marketplace, marketplaceId } from './marketplace'
+import type { MarketplaceIpc } from './marketplaceIpc'
 
 interface MarketplaceStartDeps {
   configDir: () => string
@@ -22,7 +23,7 @@ interface MarketplaceStartDeps {
   extensionConnections: () => ExtensionConnections
   extensionSecretStore: () => ExtensionSecretStore
   assistKeyStore: () => ExtensionSecretStore
-  registerMarketplaceIpc: (marketplace: Marketplace) => void
+  registerMarketplaceIpc: MarketplaceIpc['registerMarketplaceIpc']
   officialMarketplaceId: string
 }
 

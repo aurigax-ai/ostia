@@ -1,11 +1,12 @@
 import { app } from 'electron'
 import type { Dict } from '../../shared/app/dict'
 import { isMacInstall, replacesInApp } from '../../shared/app/installMethod'
+import type { CommandBridge } from '../control/commandBridge'
 import type { AppLog } from '../diagnostics/appLog'
-import type { ProcessTabRequest } from '../panes/processLaunch'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 import { readSettingsFile } from '../platform/settingsFile'
 import type { HostPaneGrants } from '../sandbox/hostPanes'
+import type { AppQuit } from '../windows/appQuit'
 import { registerAppUpdate } from './appUpdate'
 import { appVersion } from './appVersion'
 import { installAppDir, installMethod } from './installMethod'
@@ -34,14 +35,14 @@ interface UpdateStartDeps {
     restartRequested: boolean
     stagedUpdate: { pending: PendingSweep; sweepFile: string } | null
   }
-  requestQuit: () => void
+  requestQuit: AppQuit['requestQuit']
   services: {
     appLog: AppLog | null
     releaseChecks: { settingsChanged: () => void } | null
     updateRunner: UpdateRunner | null
   }
   mainStrings: () => Dict
-  openTerminalInWindow: (req: ProcessTabRequest) => Promise<string | null>
+  openTerminalInWindow: CommandBridge['openTerminalInWindow']
   hostPaneGrants: HostPaneGrants
   UPDATE_HOST_GRANT_ID: string
   openExternalSafe: (url: string) => boolean

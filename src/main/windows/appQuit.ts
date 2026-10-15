@@ -8,15 +8,17 @@ import type { Telemetry } from '../diagnostics/telemetry'
 import type { SettingsFile } from '../platform/settingsFile'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
+import type { ScrollbackPersistence } from '../workspaces/scrollbackPersistence'
 import { confirmQuit, freezeAll } from './closeGuard'
 import { QUIT_SIGNALS, exitAfterDeadline, keptOnQuit, planQuit, summarizeKinds } from './quitPlan'
 import type { QuitTrace } from './quitPlan'
 import { nativeQuitConfirm } from './quitPrompt'
-import type { createQuitTeardown } from './quitTeardown'
+import type { QuitTeardown } from './quitTeardown'
 import type { WindowBroker } from './windowBroker'
+import type { WindowSend } from './windowSend'
 
 interface AppQuitDeps {
-  teardown: ReturnType<typeof createQuitTeardown>['teardown']
+  teardown: QuitTeardown['teardown']
   readSettingsFile: () => SettingsFile
   services: {
     appLog: AppLog | null
@@ -32,13 +34,15 @@ interface AppQuitDeps {
   }
   windows: Map<string, BrowserWindow>
   ptys: Map<string, PtyEntry>
-  mainWindow: () => BrowserWindow | undefined
+  mainWindow: WindowSend['mainWindow']
   scratchFolders: ScratchFolders
   paneActivity: (entry: PtyEntry) => PaneActivity
   mainStrings: () => Dict
-  persistScrollback: () => Promise<void>
+  persistScrollback: ScrollbackPersistence['persistScrollback']
   scriptTokenUsage: ScriptTokenUsageLog
 }
+
+export type AppQuit = ReturnType<typeof registerAppQuit>
 
 export function registerAppQuit({
   teardown,

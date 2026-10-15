@@ -3,14 +3,14 @@ import { type BrowserWindow, app } from 'electron'
 import type { Dict } from '../../shared/app/dict'
 import { parseGitSettings } from '../../shared/boards/git'
 import { parsePortsSettings } from '../../shared/boards/ports'
-import type { CommandTarget, TerminalStateSnapshot } from '../../shared/types'
-import type { CommandResult } from '../../shared/types'
+import type { TerminalStateSnapshot } from '../../shared/types'
+import type { CommandBridge } from '../control/commandBridge'
 import { resolveExternal } from '../control/idRegistry'
-import type { OwnerLookup } from '../extensions/workspaceChips'
 import { listPanes, listWorkspaces } from '../panes/paneList'
 import { readSettingsFile } from '../platform/settingsFile'
 import { registerPortsIpc, registerPortsMethods } from '../ports/register'
 import { PortsService } from '../ports/service'
+import type { WindowSend } from '../windows/windowSend'
 import { workDirForWorkspace } from '../workspaces/workspaceRegistry'
 import { GitCommands } from './commands'
 import { confirmDiscard } from './confirmDiscard'
@@ -19,31 +19,24 @@ import { GitService } from './service'
 import { ViewStateStore } from './viewState'
 
 interface CoreBoardsDeps {
-  execCommand: (
-    target: CommandTarget,
-    id: string,
-    args?: unknown,
-    fromMain?: boolean,
-  ) => Promise<CommandResult>
-  getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
+  execCommand: CommandBridge['execCommand']
+  getTerminalState: CommandBridge['getTerminalState']
   ptyPid: (paneId: string) => number | undefined
-  windowIds: () => string[]
+  windowIds: WindowSend['windowIds']
   isWaking: (paneId: string) => boolean
-  sendToWindow: (windowId: string, channel: string, payload: unknown) => void
+  sendToWindow: WindowSend['sendToWindow']
   services: {
     gitService: GitService | null
     portsService: PortsService | null
   }
   mainStrings: () => Dict
-  sendToWorkspaceWindow: (
-    workspaceId: string | undefined,
-    channel: string,
-    payload: unknown,
-  ) => void
+  sendToWorkspaceWindow: WindowSend['sendToWorkspaceWindow']
   windows: Map<string, BrowserWindow>
   terminalState: Map<string, TerminalStateSnapshot>
-  workspaceWindowId: OwnerLookup
+  workspaceWindowId: WindowSend['workspaceWindowId']
 }
+
+export type CoreBoards = ReturnType<typeof createCoreBoards>
 
 export function createCoreBoards({
   execCommand,

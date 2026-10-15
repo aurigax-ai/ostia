@@ -23,6 +23,8 @@ interface KeptShellsWiringDeps {
   appLog: () => AppLog | null
 }
 
+export type KeptShellsWiring = ReturnType<typeof createKeptShellsWiring>
+
 export function createKeptShellsWiring({
   ptys,
   readSettingsFile,
