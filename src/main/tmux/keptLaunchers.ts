@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import { quoteArg } from '../../shared/terminal/shellQuote'
-import { writeFileAtomic } from '../platform/atomicWrite'
 
 export interface KeptLauncherPaths {
   node: string

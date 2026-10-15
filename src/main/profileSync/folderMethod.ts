@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { writeFileAtomic } from '../platform/atomicWrite'
+import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import { type SyncMethod, type SyncSnapshot, SyncTargetError, type WriteResult } from './engine'
 import {
   SECRETS_FILE,

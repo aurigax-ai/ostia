@@ -1,7 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import {
+  type AtomicWriteOptions,
+  writeFileAtomic,
+  writeFileAtomicAsync,
+} from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
-import { type AtomicWriteOptions, writeFileAtomic, writeFileAtomicAsync } from './atomicWrite'
 import { appDataDir } from './userDirs'
 
 export type StoreScope = 'project' | 'global'

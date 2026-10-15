@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import { shellEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
-import { writeFileAtomic } from '../platform/atomicWrite'
 
 export const OSTIA_LAUNCHER_NAME = 'ostia'
 

@@ -1,9 +1,11 @@
 import {
+  chmodSync,
   copyFileSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   renameSync,
+  rmSync,
   statSync,
   symlinkSync,
   writeFileSync,
@@ -12,6 +14,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { FakeClock, settle } from '@aurigax-ai/wire/testing'
 import { describe, expect, it } from 'vitest'
+import { scheduleMemory } from './enabled'
 import { fakeExt } from './fakeExt'
 import { GraphsRunner } from './runner'
 
@@ -104,5 +107,22 @@ describe('enabling a graph', () => {
     const run = runner.engine.run(res.runId)
     expect(JSON.stringify(run?.state.graph)).not.toContain('ignore me')
     expect(Object.keys(run?.state.graph ?? {})).not.toContain('ui')
+  })
+})
+
+describe('scheduleMemory', () => {
+  it('tightens its data folder and never writes through a link beside the file', () => {
+    const data = mkdtempSync(join(tmpdir(), 'graphs-memory-'))
+    chmodSync(data, 0o755)
+    const path = join(data, 'schedules.json')
+    const outside = join(data, 'target')
+    writeFileSync(outside, 'untouched')
+    symlinkSync(outside, `${path}.tmp`)
+    scheduleMemory(path).mark('nightly', 5)
+    expect(statSync(data).mode & 0o777).toBe(0o700)
+    expect(statSync(path).mode & 0o777).toBe(0o600)
+    expect(readFileSync(outside, 'utf8')).toBe('untouched')
+    expect(scheduleMemory(path).last('nightly')).toBe(5)
+    rmSync(data, { recursive: true, force: true })
   })
 })

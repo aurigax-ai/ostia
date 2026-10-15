@@ -1,10 +1,10 @@
 import { createHmac } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import type { SecretReveal, SecretSyncStatus } from '../../shared/types'
 import type { CredentialStore } from '../browser/credentials'
 import { type SecretStoreDeps, sanitizeSecrets } from '../extensions/extensionSecrets'
-import { writeFileAtomic } from '../platform/atomicWrite'
 import { BASE_DIR } from './engine'
 import { mergeMaps } from './merge'
 import { isObject } from './profile'
@@ -168,7 +168,7 @@ export class SecretSync {
   }
 
   private save(state: LocalState): void {
-    writeFileAtomic(this.statePath(), `${JSON.stringify(state)}\n`)
+    writeFileAtomic(this.statePath(), `${JSON.stringify(state)}\n`, { mode: 0o600 })
   }
 
   private dataKey(state: LocalState): Buffer | null {
@@ -462,7 +462,7 @@ export class SecretSync {
           keyId: header.keyId,
           entries: Object.fromEntries(merge.merged),
         })
-        writeFileAtomic(this.basePath(), this.deps.protect.encrypt(body))
+        writeFileAtomic(this.basePath(), this.deps.protect.encrypt(body), { mode: 0o600 })
       },
       status: { state: 'unlocked', logins: state.logins },
       conflicts: conflicts.map(({ id, key, winner, localAt, remoteAt }) => ({

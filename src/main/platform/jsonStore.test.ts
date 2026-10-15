@@ -15,18 +15,26 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadJson, saveJson, saveJsonAsync, storePath } from './jsonStore'
 
-const renamed = vi.hoisted(() => [] as { file: number; dir: number }[])
+const written = vi.hoisted(() => [] as string[])
 
 vi.mock('node:fs', async (importOriginal) => {
   const fs = await importOriginal<typeof import('node:fs')>()
   const { dirname } = await import('node:path')
+  const modes = (file: string) =>
+    [file, dirname(file)].map((p) => (fs.statSync(p).mode & 0o777).toString(8)).join(' ')
   return {
     ...fs,
+    openSync: (...args: Parameters<typeof fs.openSync>) => {
+      const fd = fs.openSync(...args)
+      written.push(`open ${modes(String(args[0]))}`)
+      return fd
+    },
+    fsyncSync: (fd: number) => {
+      written.push('fsync')
+      fs.fsyncSync(fd)
+    },
     renameSync: (from: string, to: string) => {
-      renamed.push({
-        file: fs.statSync(from).mode & 0o777,
-        dir: fs.statSync(dirname(to)).mode & 0o777,
-      })
+      written.push(`rename ${modes(from)}`)
       fs.renameSync(from, to)
     },
   }
@@ -35,15 +43,30 @@ vi.mock('node:fs', async (importOriginal) => {
 vi.mock('node:fs/promises', async (importOriginal) => {
   const fs = await importOriginal<typeof import('node:fs/promises')>()
   const { dirname } = await import('node:path')
+  const modes = async (file: string) => {
+    const stats = await Promise.all([fs.stat(file), fs.stat(dirname(file))])
+    return stats.map((st) => (st.mode & 0o777).toString(8)).join(' ')
+  }
   return {
     ...fs,
+    open: async (...args: Parameters<typeof fs.open>) => {
+      const handle = await fs.open(...args)
+      written.push(`open ${await modes(String(args[0]))}`)
+      const sync = handle.sync.bind(handle)
+      handle.sync = () => {
+        written.push('fsync')
+        return sync()
+      }
+      return handle
+    },
     rename: async (from: string, to: string) => {
-      const [file, dir] = await Promise.all([fs.stat(from), fs.stat(dirname(to))])
-      renamed.push({ file: file.mode & 0o777, dir: dir.mode & 0o777 })
+      written.push(`rename ${await modes(from)}`)
       await fs.rename(from, to)
     },
   }
 })
+
+const SECURE_WRITE = ['open 600 700', 'fsync', 'rename 600 700']
 
 function unsetEnv(key: string): void {
   delete process.env[key]
@@ -94,7 +117,7 @@ describe('jsonStore', () => {
 
     beforeEach(() => {
       dir = join(tmpdir(), `ostia-jsonstore-test-${process.pid}-${Date.now()}-${Math.random()}`)
-      renamed.length = 0
+      written.length = 0
     })
 
     afterEach(() => {
@@ -127,9 +150,9 @@ describe('jsonStore', () => {
       expect(readdirSync(dir)).toEqual(['store.json'])
     })
 
-    it('never has a secure store or its new folder wider than 0600/0700 before the rename', () => {
+    it('never has a secure store or its new folder wider than 0600/0700 while it is written', () => {
       saveJson(join(dir, 'secure', 'store.json'), { a: 1 }, { secure: true })
-      expect(renamed).toEqual([{ file: 0o600, dir: 0o700 }])
+      expect(written).toEqual(SECURE_WRITE)
     })
 
     it('tightens an existing secure folder before the store is written', async () => {
@@ -139,15 +162,12 @@ describe('jsonStore', () => {
       saveJson(join(folder, 'sync.json'), { a: 1 }, { secure: true })
       chmodSync(folder, 0o755)
       await saveJsonAsync(join(folder, 'async.json'), { a: 1 }, { secure: true })
-      expect(renamed).toEqual([
-        { file: 0o600, dir: 0o700 },
-        { file: 0o600, dir: 0o700 },
-      ])
+      expect(written).toEqual([...SECURE_WRITE, ...SECURE_WRITE])
     })
 
-    it('never has an async secure store or its new folder wider than 0600/0700 before the rename', async () => {
+    it('never has an async secure store or its new folder wider than 0600/0700 while it is written', async () => {
       await saveJsonAsync(join(dir, 'secure', 'store.json'), { a: 1 }, { secure: true })
-      expect(renamed).toEqual([{ file: 0o600, dir: 0o700 }])
+      expect(written).toEqual(SECURE_WRITE)
     })
 
     it('leaves valid JSON from one of two concurrent writes to the same store', async () => {

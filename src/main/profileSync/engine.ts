@@ -1,8 +1,8 @@
 import { readFileSync, utimesSync } from 'node:fs'
 import { join } from 'node:path'
+import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import type { SecretSpan } from '../../shared/privacy/redaction'
 import type { SecretSyncStatus, SyncConflict, SyncOffer, SyncStatus } from '../../shared/types'
-import { writeFileAtomic } from '../platform/atomicWrite'
 import {
   canonicalJson,
   flatten,

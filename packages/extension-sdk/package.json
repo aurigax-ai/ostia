@@ -9,6 +9,7 @@
     "./assist": "./src/assist/index.ts",
     "./panel": "./src/client/panel.ts",
     "./splitter": "./src/client/splitter.ts",
+    "./atomicWrite": "./src/client/atomicWrite.ts",
     "./panel.css": "./src/client/panel.css",
     "./contract/*": "./src/contract/*.ts",
     "./manifest/*": "./src/manifest/*.ts",

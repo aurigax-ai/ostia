@@ -366,6 +366,19 @@ describe('secret sync', () => {
     expect([...(await bundleEntries(target, PASSWORD)).keys()].join()).not.toContain('B_ONLY')
   })
 
+  it('keeps the secret sync state and its merge base readable only by the owner', async () => {
+    const a = machine(temp())
+    await setUp(a)
+    a.vault.data.set('GITHUB_TOKEN', entry(FAKE.githubClassic))
+    await a.sync.run()
+    for (const path of [
+      join(a.userData, 'secret-sync.json'),
+      join(a.userData, 'sync-base', 'secrets.bin'),
+    ]) {
+      expect(statSync(path).mode & 0o777).toBe(0o600)
+    }
+  })
+
   it('PSY-C41 never writes the master password anywhere', async () => {
     const target = temp()
     const a = machine(target)

@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import {
   CHAT_SESSIONS_MAX,
   CHAT_SESSION_ID_PATTERN,
@@ -13,7 +14,6 @@ import {
   normalizeChatSession,
   toolCallIdsOf,
 } from '../../shared/assist/chatSessions'
-import { writeFileAtomic } from '../platform/atomicWrite'
 
 export interface ChatSessionStoreOptions {
   dir: string

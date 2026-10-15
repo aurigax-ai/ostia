@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { writeFileAtomic } from '../platform/atomicWrite'
+import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import { parseScope } from './scope'
 
 export interface ViewState {
