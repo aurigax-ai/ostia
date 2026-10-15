@@ -121,6 +121,7 @@ import { registerConnectionsIpc } from './extensions/connectionsIpc'
 import { confirmForExtension } from './extensions/extensionConfirm'
 import { ExtensionExec } from './extensions/extensionExec'
 import { ExtensionHost } from './extensions/extensionHost'
+import type { ExtensionHostDeps } from './extensions/extensionHostDeps'
 import { ExtensionLaunches } from './extensions/extensionLaunches'
 import { registerExtensionMethods } from './extensions/extensionMethods'
 import { ExtensionStore } from './extensions/extensionStore'
@@ -1876,6 +1877,60 @@ app.whenReady().then(() => {
     hibernated: paneHibernated,
   })
   const extensionStore = new ExtensionStore(join(app.getPath('userData'), 'extensions.json'))
+  const extensionRemoteFolders: ExtensionHostDeps['remoteFolders'] = {
+    windowOfWorkspace: workspaceWindowId,
+    refusal: (workspaceId) =>
+      scratchFolders.isScratch(workspaceId)
+        ? 'scratch'
+        : workspaceSandboxes.isEnabled(workspaceId)
+          ? 'sandboxed'
+          : null,
+    confirm: (req) =>
+      confirmRemoteFolder(windows.get(workspaceWindowId(req.workspaceId) ?? ''), {
+        extName: req.extName,
+        host: req.host,
+        path: req.path,
+      }),
+    publish: publishRemoteFolders,
+  }
+  const extensionExec = new ExtensionExec({
+    workspace: (workspaceId) => {
+      if (!windowForWorkspace(workspaceId)) return null
+      const sandboxed = workspaceSandboxes.isEnabled(workspaceId)
+      const workDir = sandboxed
+        ? workspaceSandboxes.workDir(workspaceId)
+        : workDirForWorkspace(workspaceId)
+      return {
+        workDir: expandHome(workDir ?? homedir(), homedir()),
+        scratch: scratchFolders.isScratch(workspaceId),
+        sandboxed,
+      }
+    },
+    wrap: (workspaceId, command, extraReads) =>
+      workspaceSandboxes.wrap(workspaceId, command, 'bash', [], extraReads),
+    sandboxEnv: (workspaceId, env) => ({
+      ...sandboxSpawnEnv(env),
+      TMPDIR: workspaceSandboxes.tmpDir(workspaceId),
+    }),
+    dataDir: (extId) => join(app.getPath('userData'), 'extension-data', extId),
+    baseEnv: () => process.env,
+  })
+  const resumeOfPane: ExtensionHostDeps['resumeOf'] = async (pane) => {
+    const res = await execCommand(targetOf(pane), 'pane.resumeToken')
+    const resume = res.ok ? parseAgentResume((res.result as { resume?: unknown })?.resume) : null
+    if (!resume) return null
+    const panes = await listPanes({
+      execCommand,
+      getTerminalState,
+      ptyPid,
+      windowIds,
+      waking: isWaking,
+    })
+    const held = panes.some(
+      (p) => p.agentSessionId === resume.id && p.agent === resume.agent && !p.hibernated,
+    )
+    return { resume, held }
+  }
   services.extensionHost = new ExtensionHost({
     onChanged: () => {
       services.languageServers?.refresh()
@@ -1905,23 +1960,8 @@ app.whenReady().then(() => {
     workDirForWorkspace,
     cwdForPane: (paneId) => terminalState.get(paneId)?.cwd,
     remoteCwdForPane: remoteCwdOfPane,
+    remoteFolders: extensionRemoteFolders,
     agentRunning: (paneId) => agentRunning.has(paneId),
-    remoteFolders: {
-      windowOfWorkspace: workspaceWindowId,
-      refusal: (workspaceId) =>
-        scratchFolders.isScratch(workspaceId)
-          ? 'scratch'
-          : workspaceSandboxes.isEnabled(workspaceId)
-            ? 'sandboxed'
-            : null,
-      confirm: (req) =>
-        confirmRemoteFolder(windows.get(workspaceWindowId(req.workspaceId) ?? ''), {
-          extName: req.extName,
-          host: req.host,
-          path: req.path,
-        }),
-      publish: publishRemoteFolders,
-    },
     locale: readLocale,
     readExtensionSettings: () => readSettingsFile().extensionSettings,
     readAssistSettings: readSettingsFileOrNull,
@@ -1947,44 +1987,8 @@ app.whenReady().then(() => {
     agentNames: () => Object.keys(managerAgents(managerSettings())),
     offerToAgentIn: (offer) => agentOffers.offer(offer),
     focusPaneIn: focusPaneInWindow,
-    exec: new ExtensionExec({
-      workspace: (workspaceId) => {
-        if (!windowForWorkspace(workspaceId)) return null
-        const sandboxed = workspaceSandboxes.isEnabled(workspaceId)
-        const workDir = sandboxed
-          ? workspaceSandboxes.workDir(workspaceId)
-          : workDirForWorkspace(workspaceId)
-        return {
-          workDir: expandHome(workDir ?? homedir(), homedir()),
-          scratch: scratchFolders.isScratch(workspaceId),
-          sandboxed,
-        }
-      },
-      wrap: (workspaceId, command, extraReads) =>
-        workspaceSandboxes.wrap(workspaceId, command, 'bash', [], extraReads),
-      sandboxEnv: (workspaceId, env) => ({
-        ...sandboxSpawnEnv(env),
-        TMPDIR: workspaceSandboxes.tmpDir(workspaceId),
-      }),
-      dataDir: (extId) => join(app.getPath('userData'), 'extension-data', extId),
-      baseEnv: () => process.env,
-    }),
-    resumeOf: async (pane) => {
-      const res = await execCommand(targetOf(pane), 'pane.resumeToken')
-      const resume = res.ok ? parseAgentResume((res.result as { resume?: unknown })?.resume) : null
-      if (!resume) return null
-      const panes = await listPanes({
-        execCommand,
-        getTerminalState,
-        ptyPid,
-        windowIds,
-        waking: isWaking,
-      })
-      const held = panes.some(
-        (p) => p.agentSessionId === resume.id && p.agent === resume.agent && !p.hibernated,
-      )
-      return { resume, held }
-    },
+    exec: extensionExec,
+    resumeOf: resumeOfPane,
   })
   refreshAgentPlugins()
   registerExtensionMethods(() => services.extensionHost)
