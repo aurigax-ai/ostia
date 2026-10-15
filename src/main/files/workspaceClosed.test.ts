@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
+import { type Mock, describe, expect, it, vi } from 'vitest'
 import { OpenWaits } from './openWaits'
 import { type WorkspaceClosedDeps, createWorkspaceClosed } from './workspaceClosed'
 
 type Step = Exclude<keyof WorkspaceClosedDeps, 'openWaits'>
+type StepFn = WorkspaceClosedDeps[Step]
 
 const STEPS: Step[] = [
   'removeWorkspace',
@@ -18,9 +19,9 @@ const STEPS: Step[] = [
 
 function setup() {
   const openWaits = new OpenWaits()
-  const steps = Object.fromEntries(STEPS.map((name) => [name, vi.fn()])) as Record<
+  const steps = Object.fromEntries(STEPS.map((name) => [name, vi.fn<StepFn>()])) as Record<
     Step,
-    ReturnType<typeof vi.fn>
+    Mock<StepFn>
   >
   return { openWaits, steps, closed: createWorkspaceClosed({ openWaits, ...steps }) }
 }

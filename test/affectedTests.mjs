@@ -31,7 +31,6 @@ export const E2E_HARNESS = [
 const UNIT_ONLY_FILES = [
   'biome.json',
   'vitest.config.mts',
-  'vitest.workspace.mts',
   'scripts/affectedTests.mjs',
   'scripts/comments.mjs',
   'scripts/mergeQueueVerified.mjs',
