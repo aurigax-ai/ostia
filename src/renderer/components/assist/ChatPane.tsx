@@ -1,7 +1,8 @@
 import { useDict } from '@/lib/app/useDict'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { chatKey, useChatStore } from '@/stores/assist/chatStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { ChatView } from './ChatView'
 
 export function ChatPane({
@@ -14,6 +15,8 @@ export function ChatPane({
   sessionId?: string
 }): JSX.Element {
   const d = useDict()
+  const composerRef = useRef<HTMLElement | null>(null)
+  useSurfaceFocus(paneId, () => composerRef.current)
   const current = useChatStore((s) => s.current[chatKey(workspaceId)])
   const title =
     useChatStore((s) => (current ? s.meta[current]?.title : undefined)) || d.chat.paneTitle
@@ -27,6 +30,7 @@ export function ChatPane({
       <ChatView
         workspaceId={workspaceId}
         variant="pane"
+        focusRef={composerRef}
         {...(sessionId ? { preferSessionId: sessionId } : {})}
       />
     </div>

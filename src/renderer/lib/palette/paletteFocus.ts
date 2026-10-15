@@ -28,5 +28,6 @@ export function paletteReturnFocus(): HTMLElement | boolean {
   const target = focusBeforePalette
   focusBeforePalette = null
   if (!target?.isConnected) return true
+  if (target.closest('[inert], [data-hidden]')) return false
   return focusMovedAway(target) ? false : target
 }

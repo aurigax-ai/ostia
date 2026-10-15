@@ -79,7 +79,7 @@ describe('AgentForkButton', () => {
     expect(run).toHaveBeenCalledTimes(1)
     expect(run.mock.calls[0].slice(0, 2)).toEqual([
       fork?.id,
-      'claude --resume abc-123 --fork-session --model opus',
+      "'claude' --resume abc-123 --fork-session --model opus",
     ])
     expect(insert).not.toHaveBeenCalled()
     expect(findPane(useLayoutStore.getState().byWorkspace.s1.root, pane.id)).toEqual(pane)
@@ -94,7 +94,7 @@ describe('AgentForkButton', () => {
 
     fireEvent.click(screen.getByRole('button', { name: FORK }))
 
-    expect(run.mock.calls[0][1]).toBe('codex fork tok')
+    expect(run.mock.calls[0][1]).toBe("'codex' fork tok")
   })
 
   it('forks a hibernated agent without waking it', () => {
@@ -109,7 +109,7 @@ describe('AgentForkButton', () => {
 
     fireEvent.click(screen.getByRole('button', { name: FORK }))
 
-    expect(run.mock.calls[0][1]).toBe('claude --resume tok --fork-session')
+    expect(run.mock.calls[0][1]).toBe("'claude' --resume tok --fork-session")
     expect(findPane(useLayoutStore.getState().byWorkspace.s1.root, pane.id)).toEqual(pane)
   })
 

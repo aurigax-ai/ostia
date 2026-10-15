@@ -6,7 +6,7 @@ import { type Locator, type Page, _electron as electron, expect, test } from './
 test.describe.configure({ timeout: 150_000 })
 
 const MARK = 'group-agent-507'
-const RESUME_LINE = 'claude --resume e2e-group'
+const RESUME_LINE = "'claude' --resume e2e-group"
 
 const AGENT = [
   '#!/bin/sh',

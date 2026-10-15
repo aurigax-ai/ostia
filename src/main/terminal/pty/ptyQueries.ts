@@ -83,7 +83,7 @@ export function createPtyQueries({
     const text = await entry.mirror.screenText(HISTORY_LINES)
     const report = entry.mirror.cwdReport
     const remote = report !== null && !isHostNamed(report.host, hostname())
-    return { text, cwd: report?.path ?? null, remote }
+    return { text, cwd: report?.path ?? null, remote, sandboxed: entry.sandboxed }
   }
 
   return { paneActivity, foregroundProgram, agentCwd, sandboxReadRules, ptyPid, paneOutput }

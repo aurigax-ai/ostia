@@ -12,6 +12,7 @@ import {
   paneResumeHolder,
   resumeHolder,
 } from '@/lib/agents/resumeFolder'
+import { resumeStarted, watchResumeOutcome } from '@/lib/agents/resumeOutcome'
 import { postAgentNotification } from '@/lib/attention/agentNotification'
 import { announceBusMessage } from '@/lib/attention/busNotice'
 import {
@@ -93,6 +94,7 @@ function registerAgentSessionCommands(): void {
       if (!resume) throw new Error('invalid resume')
       useLayoutStore.getState().setResume(ctx.activeWorkspaceId, ctx.activePaneId, resume)
       useBlocksStore.getState().markAgent(ctx.activePaneId, resume.agent)
+      resumeStarted(ctx.activePaneId)
     },
   })
 
@@ -118,7 +120,10 @@ function registerAgentSessionCommands(): void {
       if (pane.hibernated) return { resumed: wakePane(pane.id) }
       if (pane.resumeFolderMissing) return { resumed: false }
       const resumed = insertCommand(pane.id, resumeCommand(pane.resume), true)
-      if (resumed) claimResume(pane.id, pane.resume)
+      if (resumed) {
+        claimResume(pane.id, pane.resume)
+        watchResumeOutcome(pane.id, pane.resume)
+      }
       return { resumed }
     },
   })

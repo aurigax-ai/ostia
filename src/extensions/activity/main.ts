@@ -8,23 +8,21 @@ import {
   connect,
   createTranslator,
   failure,
-  namedArgs,
   numberSetting,
   ok,
   startPanelServer,
 } from '@aurigax-ai/ostia-extension-sdk'
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
-import { isRecordId } from './hookEvent'
 import { ARCHIVE_DAYS, DAY_MS, Journal, RETENTION_DAYS, type Retention } from './journal'
+import { createNeedsYou } from './needsYou'
+import { SHOW_ACTIVITY, activityPanelCommands } from './panelCommands'
 import { Recorder } from './recorder'
 import { activityVerbs } from './verbs'
-import { type OpenPane, type OpenWorkspace, panelModel } from './view'
+import type { OpenWorkspace } from './view'
 
 const PANEL_FILES = ['panel.html', 'panel.js', 'panel.css', 'base.css']
-const SHOW_ACTIVITY = 'showActivity'
 const EVENTS: ExtensionEventType[] = ['pane.closed']
 const PRUNE_EVERY_MS = 60 * 60 * 1000
-const SIDEBAR_KEY = 'needs-you'
 
 function retentionOf(values: ExtensionSettingValues): Retention {
   const liveDays = numberSetting(values, 'retentionDays', RETENTION_DAYS, { min: 1, max: 365 })
@@ -48,17 +46,6 @@ function listedWorkspaces(raw: unknown): ListedWorkspace[] {
         typeof w?.kind === 'string',
     )
     .map((w) => ({ workspaceId: w.workspaceId, name: w.name, kind: w.kind }))
-}
-
-function listedPanes(raw: unknown): OpenPane[] {
-  if (!Array.isArray(raw)) return []
-  return raw
-    .filter((p): p is OpenPane => typeof p?.paneId === 'string')
-    .map((p) =>
-      typeof p.agentState === 'string'
-        ? { paneId: p.paneId, agentState: p.agentState }
-        : { paneId: p.paneId },
-    )
 }
 
 async function main(): Promise<void> {
@@ -87,40 +74,15 @@ async function main(): Promise<void> {
   })
   const journal = new Journal({ dir: readEnv('EXTENSION_DATA') ?? null, now: Date.now })
   const translate = createTranslator()
-  let locale = 'en'
+  const state = { locale: 'en', showActivity: false }
   let panelChanged = (): void => {}
-  let showActivity = false
   const settingsLoaded = ext.getSettings().then((values) => {
-    showActivity = booleanSetting(values, SHOW_ACTIVITY, false)
+    state.showActivity = booleanSetting(values, SHOW_ACTIVITY, false)
     journal.setRetention(retentionOf(values))
   })
   await settingsLoaded
   journal.load()
-  const counted = new Set<string>()
-  let startsWithWindow: boolean | null = null
-  const showNeedsYou = async (): Promise<void> => {
-    const open = journal.workspaceIds().filter((id) => journal.openNeedsYou(id).length > 0)
-    for (const workspaceId of new Set([...counted, ...open])) {
-      const count = journal.openNeedsYou(workspaceId).length
-      if (count === 0) counted.delete(workspaceId)
-      else counted.add(workspaceId)
-      await ext
-        .setSidebarItem({
-          key: SIDEBAR_KEY,
-          workspaceId,
-          text: count > 0 ? translate(locale)('sidebar.needsYou', { count }) : '',
-          badge: String(count),
-          icon: 'alert',
-          tone: 'warn',
-        })
-        .catch(() => {})
-    }
-    const keep = open.length > 0
-    if (keep !== startsWithWindow) {
-      startsWithWindow = keep
-      await ext.startWithWindow(keep).catch(() => {})
-    }
-  }
+  const showNeedsYou = createNeedsYou({ ext, journal, translate, state })
   const changed = (): void => {
     panelChanged()
     void showNeedsYou()
@@ -152,50 +114,10 @@ async function main(): Promise<void> {
     changed,
   })
 
-  const snapshot = async (): Promise<ExtensionResult> => {
-    await settingsLoaded
-    const open = await refreshWorkspaces()
-    if (!open) return failure('unavailable')
-    let panes: OpenPane[]
-    try {
-      panes = listedPanes(await ext.listPanes())
-    } catch {
-      return failure('unavailable')
-    }
-    return ok(
-      undefined,
-      panelModel({
-        showActivity,
-        workspaces: open,
-        panes,
-        events: (workspaceId) => journal.events(workspaceId),
-      }),
-    )
-  }
-
-  Object.assign(panelHandlers, {
-    snapshot,
-    setShowActivity: async (args: unknown) => {
-      const value = namedArgs(args).value
-      if (typeof value !== 'boolean') return failure('invalid-args')
-      await settingsLoaded
-      const stored = await ext.setSetting(SHOW_ACTIVITY, value)
-      if (stored.ok) showActivity = value
-      return stored
-    },
-    focus: async (args: unknown) => {
-      const paneId = namedArgs(args).paneId
-      return typeof paneId === 'string' ? ext.focusPane(paneId) : failure('invalid-args')
-    },
-    done: async (args: unknown) => {
-      const { workspaceId, id } = namedArgs(args)
-      if (typeof workspaceId !== 'string' || !isRecordId(id)) return failure('invalid-args')
-      const done = journal.markDone(workspaceId, id, Date.now())
-      if (!done) return failure('unknown-entry')
-      changed()
-      return ok()
-    },
-  })
+  Object.assign(
+    panelHandlers,
+    activityPanelCommands({ ext, journal, state, settingsLoaded, refreshWorkspaces, changed }),
+  )
   handlersAssigned()
 
   await settingsLoaded
@@ -203,14 +125,14 @@ async function main(): Promise<void> {
   panelChanged = () => panel.changed()
 
   ext.onSettingsChanged((values) => {
-    showActivity = booleanSetting(values, SHOW_ACTIVITY, false)
+    state.showActivity = booleanSetting(values, SHOW_ACTIVITY, false)
     journal.setRetention(retentionOf(values))
     journal.prune()
     changed()
   })
-  locale = await ext.getLocale()
+  state.locale = await ext.getLocale()
   ext.onLocaleChanged((next) => {
-    locale = next
+    state.locale = next
     void showNeedsYou()
   })
 

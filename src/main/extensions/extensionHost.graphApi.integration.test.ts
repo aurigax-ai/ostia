@@ -120,7 +120,7 @@ describe('the extension API a graph host needs', () => {
           return { woke: false, conflict: 'other tab' }
         }
         hibernated.delete(pane.paneId)
-        typed.push(`${pane.paneId}: claude --resume s1`)
+        typed.push(`${pane.paneId}: 'claude' --resume s1`)
         return { woke: true }
       },
       panes: async () => [],
@@ -206,7 +206,7 @@ describe('the extension API a graph host needs', () => {
     await new Promise((r) => setTimeout(r, 200))
     waking.end(sleeper.paneId, 'started')
     expect(await reply).toEqual({ ok: true, outcome: 'started' })
-    expect(typed).toEqual([`${sleeper.paneId}: claude --resume s1`])
+    expect(typed).toEqual([`${sleeper.paneId}: 'claude' --resume s1`])
   })
 
   it('GRF-C117 ext.wakePane refuses an awake pane, a session held elsewhere and the manager, and ignores text', async () => {
@@ -281,7 +281,7 @@ describe('the extension API a graph host needs', () => {
       }),
     ).toMatchObject({ ok: true })
     expect(openTerminalIn.mock.calls[0][0]).toMatchObject({
-      command: `claude --resume s1 --fork-session 'fix it'\\''s tests'`,
+      command: `'claude' --resume s1 --fork-session 'fix it'\\''s tests'`,
       cwd: dir,
       backgroundTab: true,
     })
@@ -291,7 +291,9 @@ describe('the extension API a graph host needs', () => {
       continueFrom: started.externalId,
       prompt: 'again',
     })
-    expect(openTerminalIn.mock.calls[1][0]).toMatchObject({ command: 'claude --resume s1 again' })
+    expect(openTerminalIn.mock.calls[1][0]).toMatchObject({
+      command: "'claude' --resume s1 again",
+    })
   })
 
   it('GRF-C184 continueFrom refuses an unreached pane, no session and a missing folder, and ignores args', async () => {
@@ -339,7 +341,7 @@ describe('the extension API a graph host needs', () => {
       args: ['--dangerously-skip-permissions'],
       command: 'rm -rf ~',
     })
-    expect(openTerminalIn.mock.calls.map((c) => c[0].command)).toEqual(['claude --resume s1 p'])
+    expect(openTerminalIn.mock.calls.map((c) => c[0].command)).toEqual(["'claude' --resume s1 p"])
   })
 
   it('GRF-C120 ext.ask puts a question in the workspace window labelled with the extension and returns the pick', async () => {

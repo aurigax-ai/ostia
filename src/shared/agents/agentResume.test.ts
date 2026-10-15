@@ -1,7 +1,12 @@
+import { spawnSync } from 'node:child_process'
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   type AgentResume,
   forkCommand,
+  newSessionCommand,
   parseAgentResume,
   resumeCommand,
   resumeFromHookPayload,
@@ -106,8 +111,8 @@ describe('sameResume', () => {
 
 describe('resumeCommand', () => {
   it('builds each agent’s own resume command', () => {
-    expect(resumeCommand({ agent: 'claude', id: 'abc' })).toBe('claude --resume abc')
-    expect(resumeCommand({ agent: 'codex', id: 'abc' })).toBe('codex resume abc')
+    expect(resumeCommand({ agent: 'claude', id: 'abc' })).toBe("'claude' --resume abc")
+    expect(resumeCommand({ agent: 'codex', id: 'abc' })).toBe("'codex' resume abc")
   })
 
   it('replays the flags after the session, quoted for the shell', () => {
@@ -117,15 +122,15 @@ describe('resumeCommand', () => {
         id: 'abc',
         args: ['--model', 'opus', '--append-system-prompt', "it's done"],
       }),
-    ).toBe("claude --resume abc --model opus --append-system-prompt 'it'\\''s done'")
+    ).toBe("'claude' --resume abc --model opus --append-system-prompt 'it'\\''s done'")
     expect(
       resumeCommand({ agent: 'codex', id: 'abc', args: ['-c', 'model_reasoning_effort="high"'] }),
-    ).toBe(`codex resume abc -c 'model_reasoning_effort="high"'`)
+    ).toBe(`'codex' resume abc -c 'model_reasoning_effort="high"'`)
   })
 
   it('quotes a flag value that holds an =', () => {
     expect(resumeCommand({ agent: 'codex', id: 'abc', args: ['-c', 'model_verbosity=low'] })).toBe(
-      "codex resume abc -c 'model_verbosity=low'",
+      "'codex' resume abc -c 'model_verbosity=low'",
     )
   })
 
@@ -137,7 +142,7 @@ describe('resumeCommand', () => {
         args: ['--yolo', '-s', 'danger-full-access', '-c', 'notify=["sh"]', '-m', 'gpt-5'],
         env: { CODEX_HOME: '/tmp/x', GIT_DIR: '/tmp/g', OPENAI_BASE_URL: 'http://127.0.0.1:9' },
       } as AgentResume),
-    ).toBe('codex resume abc -m gpt-5')
+    ).toBe("'codex' resume abc -m gpt-5")
     expect(
       forkCommand({
         agent: 'claude',
@@ -145,14 +150,14 @@ describe('resumeCommand', () => {
         args: ['--dangerously-skip-permissions', '--agent', 'x', '--model', 'opus'],
         env: { GL_ISSUE: '687' },
       } as AgentResume),
-    ).toBe('claude --resume abc --fork-session --model opus')
+    ).toBe("'claude' --resume abc --fork-session --model opus")
   })
 })
 
 describe('forkCommand', () => {
   it('builds each agent’s own fork command', () => {
-    expect(forkCommand({ agent: 'claude', id: 'abc' })).toBe('claude --resume abc --fork-session')
-    expect(forkCommand({ agent: 'codex', id: 'abc' })).toBe('codex fork abc')
+    expect(forkCommand({ agent: 'claude', id: 'abc' })).toBe("'claude' --resume abc --fork-session")
+    expect(forkCommand({ agent: 'codex', id: 'abc' })).toBe("'codex' fork abc")
   })
 
   it('carries the saved flags after the session', () => {
@@ -163,10 +168,12 @@ describe('forkCommand', () => {
         cwd: '/home/u/proj',
         args: ['--model', 'opus', '--append-system-prompt', "it's done"],
       }),
-    ).toBe("claude --resume abc --fork-session --model opus --append-system-prompt 'it'\\''s done'")
+    ).toBe(
+      "'claude' --resume abc --fork-session --model opus --append-system-prompt 'it'\\''s done'",
+    )
     expect(
       forkCommand({ agent: 'codex', id: 'abc', args: ['-c', 'model_reasoning_effort="high"'] }),
-    ).toBe(`codex fork abc -c 'model_reasoning_effort="high"'`)
+    ).toBe(`'codex' fork abc -c 'model_reasoning_effort="high"'`)
   })
 
   it('saves no fork flag for the fork’s own resume', () => {
@@ -205,5 +212,70 @@ describe('resumeFromHookPayload', () => {
     expect(resumeFromHookPayload('not an id')).toBeNull()
     expect(resumeFromHookPayload('{broken')).toBeNull()
     expect(resumeFromHookPayload(JSON.stringify({ session_id: 'a b' }))).toBeNull()
+  })
+})
+
+const hasShell = (shell: string) => spawnSync(shell, ['-c', 'true']).status === 0
+
+describe('the line Ostia types for an agent', () => {
+  it('starts a fresh session of the same agent, never with anything from the token', () => {
+    expect(newSessionCommand('claude')).toBe("'claude'")
+    expect(newSessionCommand('codex')).toBe("'codex'")
+  })
+
+  for (const shell of ['bash', 'zsh']) {
+    it.skipIf(!hasShell(shell))(
+      `RSM-C12 skips the human's alias but keeps Ostia's claude function, in ${shell}`,
+      () => {
+        const dir = mkdtempSync(join(tmpdir(), 'ostia-alias-'))
+        try {
+          const agent = join(dir, 'claude')
+          writeFileSync(agent, '#!/bin/sh\necho "REAL $*"\n')
+          chmodSync(agent, 0o755)
+          const run = (line: string) =>
+            spawnSync(
+              shell,
+              [
+                ...(shell === 'bash' ? ['-O', 'expand_aliases'] : ['-f']),
+                '-c',
+                `claude() { echo "WRAPPED $*"; command claude "$@"; }\nalias claude='echo ALIAS'\nalias ccr='claude --resume'\neval "$LINE"\n`,
+              ],
+              { env: { PATH: `${dir}:/usr/bin:/bin`, LINE: line }, encoding: 'utf8' },
+            ).stdout.trim()
+          expect(run('claude --resume abc')).toBe('ALIAS --resume abc')
+          expect(run(resumeCommand({ agent: 'claude', id: 'abc' }))).toBe(
+            'WRAPPED --resume abc\nREAL --resume abc',
+          )
+          expect(run(forkCommand({ agent: 'claude', id: 'abc' }))).toBe(
+            'WRAPPED --resume abc --fork-session\nREAL --resume abc --fork-session',
+          )
+        } finally {
+          rmSync(dir, { recursive: true, force: true })
+        }
+      },
+    )
+  }
+
+  const fish = 'fish'
+  it.skipIf(!hasShell(fish))("RSM-C12 runs as valid fish and keeps Ostia's claude function", () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ostia-alias-'))
+    try {
+      const agent = join(dir, 'claude')
+      writeFileSync(agent, '#!/bin/sh\necho "REAL $*"\n')
+      chmodSync(agent, 0o755)
+      const line = resumeCommand({ agent: 'claude', id: 'abc', args: ['--model', 'opus'] })
+      const out = spawnSync(
+        fish,
+        [
+          '--no-config',
+          '-c',
+          'function claude; echo "WRAPPED $argv"; command claude $argv; end; eval $LINE',
+        ],
+        { env: { PATH: `${dir}:/usr/bin:/bin`, HOME: dir, LINE: line }, encoding: 'utf8' },
+      ).stdout.trim()
+      expect(out).toBe('WRAPPED --resume abc --model opus\nREAL --resume abc --model opus')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

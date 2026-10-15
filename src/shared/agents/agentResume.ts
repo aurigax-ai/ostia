@@ -10,6 +10,23 @@ export interface AgentResume {
   args?: string[]
 }
 
+export interface ResumeFailure {
+  resume: AgentResume
+  exitCode: number
+}
+
+export function parseResumeFailure(raw: unknown): ResumeFailure | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const { resume, exitCode } = raw as Record<string, unknown>
+  const parsed = parseAgentResume(resume)
+  return parsed &&
+    Number.isInteger(exitCode) &&
+    (exitCode as number) > 0 &&
+    (exitCode as number) < 256
+    ? { resume: parsed, exitCode: exitCode as number }
+    : null
+}
+
 export const RESUMABLE_AGENTS: readonly ResumableAgent[] = ['claude', 'codex']
 
 const RESUME_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
@@ -62,24 +79,30 @@ export function sameResume(a: AgentResume | undefined, b: AgentResume): boolean 
   )
 }
 
-function agentCommandLine(resume: AgentResume, base: string[]): string {
-  return [...base, ...resumeArgs(resume.agent, resume.args).map(quoteArg)].join(' ')
+function agentCommandLine(resume: AgentResume, words: string[]): string {
+  return [
+    `'${resume.agent}'`,
+    ...words,
+    ...resumeArgs(resume.agent, resume.args).map(quoteArg),
+  ].join(' ')
 }
 
 export function resumeCommand(resume: AgentResume): string {
   return agentCommandLine(
     resume,
-    resume.agent === 'claude' ? ['claude', '--resume', resume.id] : ['codex', 'resume', resume.id],
+    resume.agent === 'claude' ? ['--resume', resume.id] : ['resume', resume.id],
   )
 }
 
 export function forkCommand(resume: AgentResume): string {
   return agentCommandLine(
     resume,
-    resume.agent === 'claude'
-      ? ['claude', '--resume', resume.id, '--fork-session']
-      : ['codex', 'fork', resume.id],
+    resume.agent === 'claude' ? ['--resume', resume.id, '--fork-session'] : ['fork', resume.id],
   )
+}
+
+export function newSessionCommand(agent: ResumableAgent): string {
+  return `'${agent}'`
 }
 
 export function resumeFromHookPayload(payload: string): string | null {

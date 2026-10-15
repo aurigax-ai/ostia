@@ -27,7 +27,7 @@ function resumedLog(dataHome: string): string {
   return join(dataHome, 'resumed.log')
 }
 
-function fakeResumableClaude(dataHome: string, session = RESUME_ID): string {
+function fakeResumableClaude(dataHome: string, session = RESUME_ID, failResume = false): string {
   const bin = join(dataHome, 'bin')
   mkdirSync(bin, { recursive: true })
   const claude = join(bin, 'claude')
@@ -36,7 +36,9 @@ function fakeResumableClaude(dataHome: string, session = RESUME_ID): string {
     [
       '#!/bin/sh',
       'case "$*" in',
-      `  *--resume*) echo "fake-agent-resumed $* GL=\${GL_ISSUE-none} TOK=\${API_TOKEN-none} END" | tee -a '${resumedLog(dataHome)}' ;;`,
+      failResume
+        ? `  *--resume*) echo "No conversation found with session ID: $2" | tee -a '${resumedLog(dataHome)}'; exit 1 ;;`
+        : `  *--resume*) echo "fake-agent-resumed $* GL=\${GL_ISSUE-none} TOK=\${API_TOKEN-none} END" | tee -a '${resumedLog(dataHome)}' ;;`,
       `  *) ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude ${session} >/dev/null 2>&1`,
       '     echo fake-agent-ready ;;',
       'esac',
@@ -51,8 +53,9 @@ function fakeResumableClaude(dataHome: string, session = RESUME_ID): string {
 async function launchAgentApp(
   dataHome: string,
   session?: string,
+  failResume = false,
 ): Promise<{ app: ElectronApplication; win: Page }> {
-  const bin = fakeResumableClaude(dataHome, session)
+  const bin = fakeResumableClaude(dataHome, session, failResume)
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({
     ...launch,
@@ -128,6 +131,43 @@ test(
     await expectAutoResumed(dataHome)
   },
 )
+
+test('a resume that fails shows one note, is never typed again, and three restarts leave one divider', async () => {
+  test.setTimeout(240_000)
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, AUTO_RESUME_SETTINGS)
+  const typedLine = `'claude' --resume ${RESUME_ID}`
+  const resumes = () =>
+    existsSync(resumedLog(dataHome))
+      ? readFileSync(resumedLog(dataHome), 'utf8').split('No conversation found').length - 1
+      : 0
+  const first = await launchAgentApp(dataHome, RESUME_ID, true)
+  await startResumableAgent(dataHome, first.win)
+  await quitAndWait(first.app, first.win)
+
+  for (let restart = 1; restart <= 3; restart++) {
+    const { app, win } = await launchAgentApp(dataHome, RESUME_ID, true)
+    try {
+      const rows = win.locator(SHOWN_ROWS)
+      if (restart === 1) {
+        await expect(win.getByRole('region', { name: 'Agent resume failed' })).toContainText(
+          'it exited with code 1',
+          { timeout: 20_000 },
+        )
+      }
+      await expect(rows).toContainText('workspace restored', { timeout: 20_000 })
+      await expect(rows).toContainText(PROMPT, { timeout: 15_000 })
+      await win.waitForTimeout(2_000)
+      expect(resumes()).toBe(1)
+      const text = await rows.innerText()
+      expect(text.split('workspace restored').length - 1).toBe(1)
+      expect(text.split(typedLine).length - 1).toBe(1)
+      expect(agentRunningSaved(dataHome)).toBe(false)
+    } finally {
+      await quitAndWait(app, win)
+    }
+  }
+})
 
 const SESSION_PER_PANE = 'e2e-pane-$OSTIA_PANE_ID'
 const SLOW_SHELL_SECONDS = 34

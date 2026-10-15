@@ -15,7 +15,7 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { PaneActions } from './PaneActions'
 import { PaneTab } from './PaneTab'
-import { ResumeConflictNotice, ResumeFolderNotice } from './ResumeFolderNotice'
+import { ResumeConflictNotice, ResumeFailedNotice, ResumeFolderNotice } from './ResumeFolderNotice'
 import { SplitTabBody, SplitTabPill } from './SplitTab'
 import { TabBody } from './TabBody'
 import { TabRow } from './TabRow'
@@ -140,6 +140,8 @@ export function Pane({
           <ApprovalCard request={approval} paneTitle={shown.title} />
         ) : question ? (
           <QuestionNotice question={question} />
+        ) : shown.resumeFailed ? (
+          <ResumeFailedNotice paneId={shown.id} failure={shown.resumeFailed} />
         ) : shown.resumeFolderMissing && shown.resume ? (
           <ResumeFolderNotice
             paneId={shown.id}
