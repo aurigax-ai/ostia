@@ -62,7 +62,7 @@ export function parseCorrection(raw: string, original: string): string | null {
   if (!body || body === core) return null
   if (body.length > core.length * 1.5 + 10 || body.length < core.length * 0.5) return null
   const lead = /^\s*/.exec(original)?.[0] ?? ''
-  const trail = /\s*$/.exec(original)?.[0] ?? ''
+  const trail = original.slice(original.trimEnd().length)
   return `${lead}${body}${trail}`
 }
 
@@ -337,7 +337,7 @@ function closesMoreThanOpens(text: string, closer: string): boolean {
 function dropSuffixOverlap(text: string, suffix: string): string {
   const head = suffix.replace(/^\s+/, '')
   if (!head) return text
-  const trimmed = text.replace(/\s+$/, '')
+  const trimmed = text.trimEnd()
   for (let n = Math.min(trimmed.length, head.length); n > 0; n--) {
     const tail = trimmed.slice(trimmed.length - n)
     if (head.startsWith(tail) && /^\S/.test(tail) && closesMoreThanOpens(trimmed, tail[0])) {
@@ -357,7 +357,7 @@ export function cleanCompletion(raw: string, prefix: string, suffix: string): st
   text = dropEchoAndIndent(text, prefix)
   text = dropSuffixLines(text, suffix)
   text = dropSuffixOverlap(text, suffix)
-  text = dropUnopenedClosers(text.replace(/\s+$/, ''), prefix)
+  text = dropUnopenedClosers(text.trimEnd(), prefix)
   return text.slice(0, COMPLETION_TEXT_MAX)
 }
 
@@ -366,7 +366,7 @@ function dropUnopenedClosers(text: string, prefix: string): string {
   for (const closer of [')', ']']) {
     let extra = 0
     while (out.endsWith(closer) && closesMoreThanOpens(prefix + out, closer) && extra < 8) {
-      out = out.slice(0, -1).replace(/\s+$/, '')
+      out = out.slice(0, -1).trimEnd()
       extra++
     }
   }
@@ -413,7 +413,7 @@ export function cleanTerminal(raw: string, line: string): string {
   const body = raw.trim().startsWith('```') ? stripFences(raw) : raw.replace(/^\s*\n/, '')
   const full = unquote((body.split(/\r?\n/)[0] ?? '').trim()).replace(/^\$\s+/, '')
   if (!full.startsWith(line.trimStart())) return ''
-  const rest = full.slice(line.trimStart().length).replace(/\s+$/, '')
+  const rest = full.slice(line.trimStart().length).trimEnd()
   return rest.trim() ? rest.slice(0, TERMINAL_COMPLETION_MAX) : ''
 }
 
