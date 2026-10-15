@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
+import { readdirSync, rmSync, statSync } from 'node:fs'
 import { homedir, hostname } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { appEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
@@ -227,6 +227,7 @@ import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './platform/discr
 import { loadJson, saveJson, storePath } from './platform/jsonStore'
 import { expandHome, resolveSafe } from './platform/pathGuard'
 import { privateTmpDir } from './platform/privateTmp'
+import { readLocale, readSettingsFile, readSettingsFileOrNull } from './platform/settingsFile'
 import {
   SANDBOX_FEATURE,
   installHint,
@@ -1421,42 +1422,6 @@ const {
   encryptedFile,
   encryptedStore,
 } = createEncryptedStores()
-
-function readSettingsFileOrNull(): { assistant?: unknown } | null {
-  try {
-    const parsed: unknown = JSON.parse(
-      readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'),
-    )
-    return typeof parsed === 'object' && parsed !== null ? parsed : null
-  } catch (err) {
-    return (err as NodeJS.ErrnoException).code === 'ENOENT' ? {} : null
-  }
-}
-
-function readSettingsFile(): {
-  locale?: unknown
-  extensionSettings?: unknown
-  git?: unknown
-  ports?: unknown
-  workspaces?: { globalHotkey?: unknown; confirmQuit?: unknown }
-  manager?: unknown
-  assistant?: unknown
-  privacy?: unknown
-  terminal?: { shell?: unknown; keepShells?: unknown }
-  agents?: { hooks?: unknown }
-  behavior?: { historySuggestions?: unknown }
-} {
-  try {
-    return JSON.parse(readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'))
-  } catch {
-    return {}
-  }
-}
-
-function readLocale(): string | undefined {
-  const locale = readSettingsFile().locale
-  return typeof locale === 'string' ? locale : undefined
-}
 
 const languagePackDeps = {
   languages: () => services.extensionHost?.contributions.languages() ?? [],

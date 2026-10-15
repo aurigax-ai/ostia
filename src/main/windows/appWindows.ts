@@ -5,6 +5,7 @@ import appIcon from '../../../resources/icon.png?asset'
 import type { WindowBounds } from '../../shared/types'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import type { GitService } from '../git/service'
+import type { SettingsFile } from '../platform/settingsFile'
 import type { PortsService } from '../ports/service'
 import { type GlobalHotkey, toggleWindows } from './globalHotkey'
 import type { AppTray } from './tray'
@@ -21,19 +22,7 @@ interface AppWindowsDeps {
     globalHotkey: GlobalHotkey | null
     portsService: PortsService | null
   }
-  readSettingsFile: () => {
-    locale?: unknown
-    extensionSettings?: unknown
-    git?: unknown
-    ports?: unknown
-    workspaces?: { globalHotkey?: unknown; confirmQuit?: unknown }
-    manager?: unknown
-    assistant?: unknown
-    privacy?: unknown
-    terminal?: { shell?: unknown; keepShells?: unknown }
-    agents?: { hooks?: unknown }
-    behavior?: { historySuggestions?: unknown }
-  }
+  readSettingsFile: () => SettingsFile
   windows: Map<string, BrowserWindow>
 }
 

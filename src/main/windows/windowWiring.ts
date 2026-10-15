@@ -18,6 +18,7 @@ import type { FileWatches } from '../files/fileWatch'
 import type { OpenWaits } from '../files/openWaits'
 import type { GitService } from '../git/service'
 import type { ManagerService } from '../manager/manager'
+import type { SettingsFile } from '../platform/settingsFile'
 import type { PortsService } from '../ports/service'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import type { ClipboardEdits } from './clipboardEdits'
@@ -41,19 +42,7 @@ interface WindowWiringDeps {
   quit: {
     quitApproved: boolean
   }
-  readSettingsFile: () => {
-    locale?: unknown
-    extensionSettings?: unknown
-    git?: unknown
-    ports?: unknown
-    workspaces?: { globalHotkey?: unknown; confirmQuit?: unknown }
-    manager?: unknown
-    assistant?: unknown
-    privacy?: unknown
-    terminal?: { shell?: unknown; keepShells?: unknown }
-    agents?: { hooks?: unknown }
-    behavior?: { historySuggestions?: unknown }
-  }
+  readSettingsFile: () => SettingsFile
   requestQuit: () => void
   openExternalSafe: (url: string) => boolean
   previews: PreviewHost

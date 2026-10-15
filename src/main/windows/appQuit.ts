@@ -20,6 +20,7 @@ import type { LanguageServers } from '../lsp/languageServers'
 import type { ManagerService } from '../manager/manager'
 import type { Portal } from '../manager/portal'
 import { saveJson } from '../platform/jsonStore'
+import type { SettingsFile } from '../platform/settingsFile'
 import type { PortsService } from '../ports/service'
 import type { ProfileSyncHandle } from '../profileSync/ipc'
 import type { PortForwarder } from '../sandbox/portForwarder'
@@ -51,19 +52,7 @@ import type { AppTray } from './tray'
 import type { WindowBroker } from './windowBroker'
 
 interface AppQuitDeps {
-  readSettingsFile: () => {
-    locale?: unknown
-    extensionSettings?: unknown
-    git?: unknown
-    ports?: unknown
-    workspaces?: { globalHotkey?: unknown; confirmQuit?: unknown }
-    manager?: unknown
-    assistant?: unknown
-    privacy?: unknown
-    terminal?: { shell?: unknown; keepShells?: unknown }
-    agents?: { hooks?: unknown }
-    behavior?: { historySuggestions?: unknown }
-  }
+  readSettingsFile: () => SettingsFile
   services: {
     appLog: AppLog | null
     appTray: AppTray | null
