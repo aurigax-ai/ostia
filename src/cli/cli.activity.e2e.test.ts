@@ -431,6 +431,25 @@ describe('the Activity extension records two fake agents and shows them in its p
     expect((await snapshot()).showActivity).toBe(false)
   }, 60_000)
 
+  it('answers the panel’s snapshot right after a restart while the extension still loads its settings', async () => {
+    serving.stopAll()
+    await until(async () =>
+      serving.list().find((e) => e.id === 'activity')?.status !== 'running' ? true : undefined,
+    )
+    const restarted = newHost()
+    const loaded = restarted.getSettings.bind(restarted)
+    const slowSettings = (
+      ...args: Parameters<typeof loaded>
+    ): Promise<ReturnType<typeof loaded>> => {
+      const values = loaded(...args)
+      return new Promise((resolve) => setTimeout(() => resolve(values), 500))
+    }
+    vi.spyOn(restarted, 'getSettings').mockImplementation(slowSettings as unknown as typeof loaded)
+    serving = restarted
+
+    expect(await panel('snapshot')).toMatchObject({ ok: true, data: { showActivity: false } })
+  }, 60_000)
+
   it('lets an agent add a needs-you item, read it back, count it in the sidebar, and the human mark it done', async () => {
     const bashInit = join(shellIntegrationDir(), 'init.bash')
     const ostia = (identity: PaneIdentity, command: string): Promise<RunResult> =>

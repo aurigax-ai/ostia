@@ -72,12 +72,19 @@ async function main(): Promise<void> {
       return handler ? handler(args) : failure('unknown-command', command)
     },
   })
-  ext.onPanel(async (caller) => ({
-    url: (await panelStarting).url({
-      workspaceId: caller.workspaceId ?? '',
-      locale: caller.locale ?? '',
-    }),
-  }))
+  let handlersAssigned = (): void => {}
+  const handlersReady = new Promise<void>((resolve) => {
+    handlersAssigned = resolve
+  })
+  ext.onPanel(async (caller) => {
+    await handlersReady
+    return {
+      url: (await panelStarting).url({
+        workspaceId: caller.workspaceId ?? '',
+        locale: caller.locale ?? '',
+      }),
+    }
+  })
   const journal = new Journal({ dir: readEnv('EXTENSION_DATA') ?? null, now: Date.now })
   const translate = createTranslator()
   let locale = 'en'
@@ -189,6 +196,7 @@ async function main(): Promise<void> {
       return ok()
     },
   })
+  handlersAssigned()
 
   await settingsLoaded
   const panel = await panelStarting
