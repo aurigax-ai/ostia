@@ -17,6 +17,8 @@ for (const dir of [
   join(workDir, '.git'),
   dataDir,
   agentDir,
+  join(dataDir, '..cache'),
+  join(runtimeDir, '..sock'),
 ]) {
   mkdirSync(dir, { recursive: true })
 }
@@ -81,6 +83,17 @@ describe('checkSandboxPath', () => {
       expect(checkSandboxPath(kind, runtimeDir, env)).toEqual({ ok: false, reason: 'protected' })
       expect(checkSandboxPath(kind, agentDir, env)).toEqual({ ok: false, reason: 'protected' })
     }
+  })
+
+  it('refuses a folder inside a closed folder whose name starts with two dots', () => {
+    expect(checkSandboxPath('allowWrite', join(dataDir, '..cache'), env)).toEqual({
+      ok: false,
+      reason: 'ostia-data',
+    })
+    expect(checkSandboxPath('allowRead', join(runtimeDir, '..sock'), env)).toEqual({
+      ok: false,
+      reason: 'protected',
+    })
   })
 
   it('follows a symlink before deciding, so a link into a closed folder is refused too', () => {

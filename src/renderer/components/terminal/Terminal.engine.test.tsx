@@ -132,20 +132,6 @@ const shownUrl = (): string | undefined => {
   return allPanes(layout.root).find((pane) => pane.id === layout.activePaneId)?.url
 }
 
-function dataTransfer(): DataTransfer {
-  const data = new Map<string, string>()
-  return {
-    get types() {
-      return [...data.keys()]
-    },
-    files: [],
-    dropEffect: 'none',
-    effectAllowed: 'all',
-    setData: (type: string, value: string) => data.set(type, value),
-    getData: (type: string) => data.get(type) ?? '',
-  } as unknown as DataTransfer
-}
-
 describe('TerminalView engines', () => {
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
   let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
@@ -1032,7 +1018,7 @@ describe('TerminalView engines', () => {
     expect(hint()).toBeNull()
   })
 
-  it('dragging a file from the Files panel types its quoted path at the terminal prompt', async () => {
+  it('a Files row starts a native file drag, and that file dropped on the terminal types its quoted path', async () => {
     useWorkspacesStore.setState({
       workspaces: [{ id: 'w1', name: 'me', kind: 'terminal', workDir: '/home/me', state: 'idle' }],
       activeWorkspaceId: 'w1',
@@ -1045,13 +1031,16 @@ describe('TerminalView engines', () => {
         <TerminalView workspaceId="w1" paneId="p1" />
       </>,
     )
-    const transfer = dataTransfer()
-
-    fireEvent.dragStart(await screen.findByRole('button', { name: 'notes file.md' }), {
-      dataTransfer: transfer,
-    })
+    const dragged = fireEvent.dragStart(
+      await screen.findByRole('button', { name: 'notes file.md' }),
+      { dataTransfer: { setData: vi.fn() } },
+    )
+    expect(dragged).toBe(false)
+    expect(window.ostia.fileOps.startDrag).toHaveBeenCalledWith('/home/me/notes file.md')
+    const file = new File([''], 'notes file.md')
+    vi.mocked(window.ostia.files.pathForFile).mockReturnValue('/home/me/notes file.md')
     fireEvent.drop(container.querySelector('.terminal-surface') as HTMLElement, {
-      dataTransfer: transfer,
+      dataTransfer: { types: ['Files'], files: [file], getData: () => '' },
     })
 
     expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', "'/home/me/notes file.md' ")
