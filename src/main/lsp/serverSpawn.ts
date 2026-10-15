@@ -1,6 +1,7 @@
 import { type ChildProcessWithoutNullStreams, spawn as spawnProcess } from 'node:child_process'
 import { existsSync, realpathSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { isAppEnvName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import {
   LSP_LOG_LINE_MAX,
@@ -61,10 +62,6 @@ export function sourceSignature(source: LanguageServerSource): string {
     source.server.initializationOptions ?? {},
     source.override ?? null,
   ])
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 export function scrubbedEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {

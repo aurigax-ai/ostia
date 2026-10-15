@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import {
   type ResolvedSandbox,
@@ -78,7 +79,7 @@ async function waitForChannel(path: string): Promise<void> {
   const end = Date.now() + CHANNEL_WAIT_MS
   while (!existsSync(path)) {
     if (Date.now() > end) throw new SandboxHostError('the sandbox host did not start listening')
-    await new Promise((resolve) => setTimeout(resolve, CHANNEL_POLL_MS))
+    await sleep(CHANNEL_POLL_MS)
   }
 }
 

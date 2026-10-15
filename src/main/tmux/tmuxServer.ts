@@ -1,6 +1,7 @@
 import { type ChildProcessWithoutNullStreams, type StdioOptions, spawn } from 'node:child_process'
 import { closeSync, lstatSync, mkdirSync, openSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { processAlive } from '../platform/processAlive'
 import { type ControlEvent, ControlModeParser } from './controlMode'
 import { SCREEN_INFO_FORMAT, screenReplay } from './screenReplay'
@@ -69,7 +70,7 @@ async function processGone(pid: number, ms: number): Promise<void> {
   if (pid <= 0) return
   const end = Date.now() + ms
   while (processAlive(pid) && Date.now() < end) {
-    await new Promise((resolve) => setTimeout(resolve, SERVER_EXIT_POLL_MS))
+    await sleep(SERVER_EXIT_POLL_MS)
   }
 }
 const RUN_DRAIN_MS = 200
@@ -365,7 +366,7 @@ export class TmuxServer {
 
   private async reapedExit(pane: TmuxPane): Promise<void> {
     for (let tries = 0; tries < EXIT_POLL_TRIES; tries++) {
-      await new Promise((resolve) => setTimeout(resolve, EXIT_POLL_MS))
+      await sleep(EXIT_POLL_MS)
       if (this.closed || pane.hasExited) return
       this.nudgeReaper()
       const lines = await this.command(
