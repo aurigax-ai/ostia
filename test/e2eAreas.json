@@ -840,6 +840,10 @@
       "name": "shell integration and blocks",
       "paths": [
         "src/main/terminal/shellIntegration.ts",
+        "src/main/terminal/agentHookCommands.ts",
+        "src/main/terminal/claudeIntegration.ts",
+        "src/main/terminal/codexIntegration.ts",
+        "src/main/terminal/agentPlugin.ts",
         "src/main/terminal/terminalType.ts",
         "src/main/terminal/shellCommands.ts",
         "src/main/terminal/shellExit.ts",

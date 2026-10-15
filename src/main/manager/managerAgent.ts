@@ -11,11 +11,8 @@ import { basename, join } from 'node:path'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import type { AgentResume, ResumableAgent } from '../../shared/agents/agentResume'
 import { MANAGER_SKILL_FILES, writeBundledSkill } from '../agents/bundledSkills'
-import {
-  CLAUDE_PLUGIN_MANIFEST,
-  claudeHookSettings,
-  codexHookArgs,
-} from '../terminal/shellIntegration'
+import { CLAUDE_PLUGIN_MANIFEST, claudeHookSettings } from '../terminal/claudeIntegration'
+import { codexHookArgs } from '../terminal/codexIntegration'
 
 export const MANAGER_SKILL_NAME = `${PRODUCT_NAME}-manager`
 
