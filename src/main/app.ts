@@ -108,24 +108,14 @@ import { registerSandboxWiring } from './sandbox/sandboxWiring'
 import { registerSandboxIpcWiring } from './sandbox/sandboxWiring'
 import { createEncryptedStores } from './secrets/encryptedStores'
 import { createSecretServices } from './secrets/secretServices'
-import { createPtyAttach } from './terminal/pty/ptyAttach'
-import { createPtyIo } from './terminal/pty/ptyIo'
 import { registerPtyIpc } from './terminal/pty/ptyIpc'
-import { createLiveAttach } from './terminal/pty/ptyLiveAttach'
-import { createPtyQueries } from './terminal/pty/ptyQueries'
-import { createPtyRecovery } from './terminal/pty/ptyRecovery'
-import { type PtyEntry, createPtyRegistry } from './terminal/pty/ptyRegistry'
-import { createSandboxSpawn } from './terminal/pty/ptySandboxSpawn'
-import { createSpawnPlanner } from './terminal/pty/ptySpawnPlan'
-import { createPtyStart } from './terminal/pty/ptyStart'
-import { createPtyStop } from './terminal/pty/ptyStop'
+import type { PtyEntry } from './terminal/pty/ptyRegistry'
+import { createPtyWiring } from './terminal/pty/ptyWiring'
 import { registerSelectionIpc } from './terminal/selectionReport'
 import type { SavedAttention } from './tmux/attentionFile'
 import { KeptAttention } from './tmux/keptAttention'
-import { createKeptReattach } from './tmux/keptReattach'
 import { createKeptShellsWiring } from './tmux/keptShellsWiring'
 import { startKeptShells } from './tmux/keptShellsWiring'
-import { createKeptSpawner } from './tmux/keptSpawn'
 import { appVersion, runningBuild } from './updates/appVersion'
 import type { PendingSweep } from './updates/installReplace'
 import { signaturePolicy } from './updates/macReplace'
@@ -446,41 +436,16 @@ const isWaking = (paneId: string): boolean => paneWaking.has(paneId)
 const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
   services.broker?.reaches(senderWindowId, sourcePaneId, targetPaneId) ?? false
 
-const { loadPty, feedPty, trackPty } = createPtyRegistry({
-  ptys,
-  movingPanes,
-  recoveryHeld,
-  closedPanes,
-  scheduleReap: (paneId, entry) => scheduleReap(paneId, entry),
-  openWaits,
-  agentRunning,
-  agentWork,
-  keptAttention,
-  processes: () => services.processes,
-  appLog: () => services.appLog,
-})
-
-const { killPty, hibernatePty } = createPtyStop({
-  ptys,
-  recoveryHeld,
-  closedPanes,
-  hibernatedPanes,
-  startedAgents,
-  terminalState,
-  keptShells,
-  agentWork,
-  paneWaking,
-  telemetry: () => services.telemetry,
-  appLog: () => services.appLog,
-})
-
-const { paneActivity, sandboxReadRules, ptyPid, paneOutput } = createPtyQueries({
-  ptys,
-  agentRunning,
-  workspaceSandboxes,
-})
-
 const {
+  loadPty,
+  feedPty,
+  trackPty,
+  killPty,
+  hibernatePty,
+  paneActivity,
+  sandboxReadRules,
+  ptyPid,
+  paneOutput,
   paneIo,
   releasePtyFlow,
   hidePtyFlow,
@@ -488,95 +453,43 @@ const {
   ptyResize,
   ptyWrite,
   attachPhoneObserver,
-} = createPtyIo({
-  ptys,
-})
-
-const {
   windowOfPane,
-  scheduleReap,
   startRecovery,
   finishRecovery,
   releaseWindowPtys,
   holdPtys,
   releaseMovingPane,
-} = createPtyRecovery({
+  attachPty,
+} = createPtyWiring({
   ptys,
   movingPanes,
   recoveryHeld,
   closedPanes,
-  killPty,
-  appLog: () => services.appLog,
-})
-
-const { spawnSandboxed } = createSandboxSpawn({
-  workspaceSandboxes,
-  keptShells,
-  injectSecrets,
-  onSandboxSpawnFailure: () => services.onSandboxSpawnFailure,
-})
-
-const { reattachKept } = createKeptReattach({
-  workspaceSandboxes,
-  keptShells,
-  keptPlumbing,
-  keptAttention,
+  openWaits,
   agentRunning,
+  agentWork,
+  keptAttention,
+  services,
   hibernatedPanes,
+  startedAgents,
+  terminalState,
+  keptShells,
+  paneWaking,
+  workspaceSandboxes,
+  injectSecrets,
+  keptPlumbing,
   portRequests,
-  trackPty,
-  feedPty,
   releaseMergedSandbox,
   restoreKeptAttention,
-  processes: () => services.processes,
-  appLog: () => services.appLog,
-})
-
-const { subscriberFor, attachExisting } = createLiveAttach({ windows, movingPanes, recoveryHeld })
-
-const { planSpawn } = createSpawnPlanner({
+  windows,
   scratchFolders,
   artifactFolders,
   hostPaneGrants,
-  workspaceSandboxes,
-  readSettingsFile,
   paneLauncherDir,
   keepShellsOn,
   keptShellsProgram,
-  telemetry: () => services.telemetry,
-})
-
-const { spawnKept } = createKeptSpawner({
-  keptShells,
-  keptPlumbing,
   withKeptProcess,
   keptPaneEnv,
-  appLog: () => services.appLog,
-})
-
-const { startTracked } = createPtyStart({
-  keptShells,
-  workspaceSandboxes,
-  hibernatedPanes,
-  trackPty,
-  feedPty,
-  releaseMergedSandbox,
-  telemetry: () => services.telemetry,
-  appLog: () => services.appLog,
-})
-
-const { attachPty } = createPtyAttach({
-  ptys,
-  keptShells,
-  loadPty,
-  subscriberFor,
-  attachExisting,
-  reattachKept,
-  planSpawn,
-  spawnSandboxed,
-  spawnKept,
-  startTracked,
-  telemetry: () => services.telemetry,
 })
 
 const { spawnManagerPty } = createManagerPty({ loadPty, primaryWindowId, trackPty, feedPty })
