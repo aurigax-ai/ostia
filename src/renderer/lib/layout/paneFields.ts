@@ -1,7 +1,9 @@
 import { baseName, parentOf } from '@/lib/files/fileTree'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { type AgentResume, sameResume } from '@shared/agents/agentResume'
+import type { BrowserDevice } from '@shared/browser/browserDevice'
 import { type BrowserProfile, parseBrowserProfile } from '@shared/browser/browserProfile'
+import { isEqual } from 'es-toolkit'
 import { allPanes, findPane } from './tree'
 import type { LayoutNode, PaneNode, SurfaceKind, TabNode } from './types'
 
@@ -202,6 +204,19 @@ export function setPaneBrowser(
     if (profile === undefined) return next
     const { browserProfile: _previous, ...rest } = next
     return profile === 'shared' ? { ...rest, browserProfile: 'shared' } : rest
+  })
+}
+
+export function setPaneBrowserDevice(
+  root: LayoutNode,
+  paneId: string,
+  device: BrowserDevice | null,
+): LayoutNode {
+  return mapPane(root, paneId, (p) => {
+    if (p.kind !== 'browser') return p
+    const { browserDevice: previous, ...rest } = p
+    if (!device) return previous ? rest : p
+    return previous && isEqual(previous, device) ? p : { ...rest, browserDevice: device }
   })
 }
 

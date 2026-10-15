@@ -23,6 +23,11 @@ export interface UserAgentMetadata {
   wow64: boolean
 }
 
+export interface DeviceAgent {
+  userAgent: string
+  metadata: UserAgentMetadata
+}
+
 export interface BrowserAgents {
   electron: string
   rewritten: string
@@ -111,7 +116,7 @@ export interface AgentSession {
   webRequest: {
     onBeforeSendHeaders(
       listener: (
-        details: { url: string; requestHeaders: RequestHeaders },
+        details: { url: string; webContentsId?: number; requestHeaders: RequestHeaders },
         callback: (response: { requestHeaders: RequestHeaders }) => void,
       ) => void,
     ): void
@@ -119,6 +124,18 @@ export interface AgentSession {
 }
 
 const sessionAgents = new WeakMap<AgentSession, BrowserAgents>()
+const deviceAgents = new Map<number, DeviceAgent>()
+const followers = new Map<number, () => void>()
+
+export function setDeviceAgent(guestId: number, agent: DeviceAgent | null): void {
+  if (agent) deviceAgents.set(guestId, agent)
+  else deviceAgents.delete(guestId)
+  followers.get(guestId)?.()
+}
+
+function deviceAgentOf(guestId: number | undefined): DeviceAgent | undefined {
+  return guestId === undefined ? undefined : deviceAgents.get(guestId)
+}
 
 export function useBrowserAgents(
   session: AgentSession,
@@ -135,7 +152,8 @@ export function useBrowserAgents(
     for (const [name, value] of Object.entries(details.requestHeaders)) {
       if (name.toLowerCase() !== 'user-agent') requestHeaders[name] = value
     }
-    requestHeaders['User-Agent'] = agentFor(details.url, agents)
+    requestHeaders['User-Agent'] =
+      deviceAgentOf(details.webContentsId)?.userAgent ?? agentFor(details.url, agents)
     callback({ requestHeaders })
   })
   return agents
@@ -148,6 +166,7 @@ interface NavigationDetails {
 }
 
 export interface AgentGuest {
+  id: number
   debugger: {
     isAttached(): boolean
     sendCommand(method: string, params?: object): Promise<unknown>
@@ -156,6 +175,7 @@ export interface AgentGuest {
     event: 'did-start-navigation' | 'did-redirect-navigation',
     listener: (details: NavigationDetails) => void,
   ): unknown
+  on(event: 'destroyed', listener: () => void): unknown
 }
 
 const followedGuests = new WeakSet<AgentGuest>()
@@ -167,26 +187,36 @@ export function followAgentByHost(
 ): void {
   if (followedGuests.has(guest) || !guest.debugger.isAttached()) return
   followedGuests.add(guest)
-  const override = (userAgent: string): void => {
+  const guestId = guest.id
+  const override = (userAgent: string, userAgentMetadata: UserAgentMetadata): void => {
     void guest.debugger
-      .sendCommand('Emulation.setUserAgentOverride', {
-        userAgent,
-        userAgentMetadata: agents.metadata,
-      })
+      .sendCommand('Emulation.setUserAgentOverride', { userAgent, userAgentMetadata })
       .catch(() => {})
   }
-  let current = startUrl === undefined ? agents.rewritten : agentFor(startUrl, agents)
-  override(current)
-  const follow = (url: string): void => {
-    const next = agentFor(url, agents)
+  let url = startUrl
+  let current: string | DeviceAgent | null = null
+  const apply = (): void => {
+    const next =
+      deviceAgents.get(guestId) ?? (url === undefined ? agents.rewritten : agentFor(url, agents))
     if (next === current) return
     current = next
-    override(next)
+    if (typeof next === 'string') override(next, agents.metadata)
+    else override(next.userAgent, next.metadata)
   }
+  const follow = (next: string): void => {
+    url = next
+    apply()
+  }
+  followers.set(guestId, apply)
+  apply()
   guest.on('did-start-navigation', (details) => {
     if (details.isMainFrame && !details.isSameDocument) follow(details.url)
   })
   guest.on('did-redirect-navigation', (details) => {
     if (details.isMainFrame) follow(details.url)
+  })
+  guest.on('destroyed', () => {
+    followers.delete(guestId)
+    deviceAgents.delete(guestId)
   })
 }

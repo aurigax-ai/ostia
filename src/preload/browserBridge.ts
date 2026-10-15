@@ -32,6 +32,9 @@ export const browserBridge: Pick<OstiaBridge, 'browser' | 'guestChords' | 'crede
     regionSend: (req) => ipcRenderer.invoke('browser:region-send', req) as Promise<PickSendResult>,
     regionCopy: (paneId, captureId) =>
       ipcRenderer.invoke('browser:region-copy', paneId, captureId) as Promise<RegionCopyResult>,
+    setDevice: (paneId, device) =>
+      ipcRenderer.invoke('browser:set-device', paneId, device) as Promise<boolean>,
+    deviceTouch: (paneId, input) => ipcRenderer.send('browser:device-touch', paneId, input),
     storageRead: (paneId) =>
       ipcRenderer.invoke('browser:storage-read', paneId) as Promise<BrowserStorageRead>,
     storageSet: (paneId, edit) =>

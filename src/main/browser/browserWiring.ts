@@ -13,6 +13,7 @@ import { registerPickIpc, registerPickMethods } from './browsePick'
 import { registerRegionIpc } from './browseRegion'
 import type { BrowserGuests } from './browserGuests'
 import { registerBrowserStorageIpc } from './browserStorage'
+import { registerDeviceIpc } from './guestDevice'
 import type { GuestProfiles } from './guestProfiles'
 import { registerLoginFill } from './loginFill'
 
@@ -44,7 +45,7 @@ export function registerBrowserWiring({
   redactor,
 }: BrowserWiringDeps) {
   const sharedBrowser = session.fromPartition(SHARED_BROWSER_PARTITION)
-  browserAgentsOf(sharedBrowser)
+  const sharedAgents = browserAgentsOf(sharedBrowser)
   const isSharedPane = (paneId: string): boolean => browserProfiles.isShared(paneId)
   registerBrowseMethods({
     allowNavigation: (workspaceId, url) => browserFence.check(workspaceId, url),
@@ -63,6 +64,7 @@ export function registerBrowserWiring({
     redactor.text,
   )
   registerRegionIpc(browserPanes, reachesPane, redactor.text)
+  registerDeviceIpc(browserPanes, sharedAgents.metadata)
   registerBrowserStorageIpc((paneId, senderWindowId) =>
     ownedGuest(browserPanes, paneId, senderWindowId),
   )

@@ -221,6 +221,8 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       regionCapture: vi.fn().mockResolvedValue({ ok: false, error: 'browser-not-ready' }),
       regionSend: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       regionCopy: vi.fn().mockResolvedValue({ ok: true }),
+      setDevice: vi.fn().mockResolvedValue(true),
+      deviceTouch: vi.fn(),
       storageRead: vi.fn().mockResolvedValue({ ok: false, error: 'browser-not-ready' }),
       storageSet: vi.fn().mockResolvedValue({ ok: true }),
       storageRemove: vi.fn().mockResolvedValue({ ok: true }),
