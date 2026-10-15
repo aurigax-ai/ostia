@@ -6,7 +6,7 @@ import { type ElectronApplication, type Page, _electron as electron, expect, tes
 
 const ROW = 60
 
-const LINKS = ['blank', 'modifier', 'middle', 'menu', 'popup'] as const
+const LINKS = ['blank', 'modifier', 'middle', 'menu', 'popup', 'script'] as const
 
 type Link = (typeof LINKS)[number]
 
@@ -19,22 +19,34 @@ const SITE = `<!doctype html><title>site</title>
 <a href="/middle" style="top: ${rowOf('middle') - 25}px">middle</a>
 <a href="/menu" style="top: ${rowOf('menu') - 25}px">menu</a>
 <button id="popup" style="top: ${rowOf('popup') - 25}px">popup</button>
+<button id="script" style="top: ${rowOf('script') - 25}px">script</button>
 <script>
 document.getElementById('popup').addEventListener('click', () => {
   window.open('/authorize', 'signin', 'popup,width=420,height=520')
 })
+document.getElementById('script').addEventListener('click', () => {
+  window.__opened = window.open('/opener')
+})
+addEventListener('message', (event) => { document.title = 'heard ' + event.data })
 </script>`
 
-function serve(): Promise<{ server: Server; site: string }> {
+const OPENER_PAGE = `<!doctype html><title>opener</title>
+<script>if (window.opener) window.opener.postMessage('from-opened', '*')</script>`
+
+function serve(): Promise<{ server: Server; site: string; referrers: Map<string, string> }> {
+  const referrers = new Map<string, string>()
   const server = createServer((req, res) => {
     const path = req.url ?? '/'
+    referrers.set(path, req.headers.referer ?? '')
     res.setHeader('content-type', 'text/html')
-    res.end(path === '/' ? SITE : `<!doctype html><title>${path.slice(1)}</title>`)
+    if (path === '/') res.end(SITE)
+    else if (path === '/opener') res.end(OPENER_PAGE)
+    else res.end(`<!doctype html><title>${path.slice(1)}</title>`)
   })
   return new Promise((ok) =>
     server.listen(0, '127.0.0.1', () => {
       const { port } = server.address() as AddressInfo
-      ok({ server, site: `http://127.0.0.1:${port}` })
+      ok({ server, site: `http://127.0.0.1:${port}`, referrers })
     }),
   )
 }
@@ -59,6 +71,23 @@ function humanGuestUrls(app: ElectronApplication): Promise<string[]> {
       )
       .map((wc) => wc.getURL()),
   )
+}
+
+function siteTitle(app: ElectronApplication, siteUrl: string): Promise<string> {
+  return app.evaluate(({ webContents }, at) => {
+    const guest = webContents
+      .getAllWebContents()
+      .find((wc) => wc.getType() === 'webview' && wc.getURL() === at)
+    return guest?.getTitle() ?? ''
+  }, siteUrl)
+}
+
+function closeWindowAt(app: ElectronApplication, url: string): Promise<void> {
+  return app.evaluate(({ BrowserWindow }, at) => {
+    for (const popup of BrowserWindow.getAllWindows()) {
+      if (popup.webContents.getURL() === at) popup.close()
+    }
+  }, url)
 }
 
 function windowCount(app: ElectronApplication): Promise<number> {
@@ -105,9 +134,9 @@ function chooseFromMenu(app: ElectronApplication, label: string): Promise<string
   }, label)
 }
 
-test('the human’s link clicks and Open Link in New Tab open browser tabs; a window with features stays a popup', async () => {
+test('the human’s link clicks and Open Link in New Tab open browser tabs with the page’s referrer; script windows stay popups with their opener', async () => {
   test.setTimeout(180_000)
-  const { server, site } = await serve()
+  const { server, site, referrers } = await serve()
   const siteUrl = `${site}/`
   const app = await electron.launch(isolatedLaunch(freshDataHome()))
   try {
@@ -141,11 +170,14 @@ test('the human’s link clicks and Open Link in New Tab open browser tabs; a wi
     await press(app, siteUrl, 'popup', 'left')
     await expect.poll(() => windowCount(app), { timeout: 15_000 }).toBe(2)
     expect(await addresses(win)).not.toContain(`${site}/authorize`)
-    await app.evaluate(({ BrowserWindow }, at) => {
-      for (const popup of BrowserWindow.getAllWindows()) {
-        if (popup.webContents.getURL() === at) popup.close()
-      }
-    }, `${site}/authorize`)
+    await closeWindowAt(app, `${site}/authorize`)
+    await expect.poll(() => windowCount(app), { timeout: 15_000 }).toBe(1)
+
+    await press(app, siteUrl, 'script', 'left')
+    await expect.poll(() => siteTitle(app, siteUrl), { timeout: 15_000 }).toBe('heard from-opened')
+    expect(await windowCount(app)).toBe(2)
+    expect(await addresses(win)).not.toContain(`${site}/opener`)
+    await closeWindowAt(app, `${site}/opener`)
     await expect.poll(() => windowCount(app), { timeout: 15_000 }).toBe(1)
 
     await press(app, siteUrl, 'blank', 'left')
@@ -153,6 +185,9 @@ test('the human’s link clicks and Open Link in New Tab open browser tabs; a wi
     await expect.poll(() => humanGuestUrls(app), { timeout: 15_000 }).toContain(`${site}/blank`)
     expect(await windowCount(app)).toBe(1)
     expect(await humanGuestUrls(app)).toContain(siteUrl)
+    for (const path of ['/middle', '/modifier', '/menu', '/blank']) {
+      expect(referrers.get(path)).toBe(siteUrl)
+    }
   } finally {
     await quitApp(app)
     server.close()

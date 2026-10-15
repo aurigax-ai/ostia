@@ -35,6 +35,9 @@ const params = (over: Partial<ContextParams> = {}): ContextParams => ({
   linkURL: '',
   mediaType: 'none',
   hasImageContents: false,
+  referrerPolicy: { url: '', policy: 'strict-origin-when-cross-origin' },
+  frameURL: '',
+  pageURL: 'https://site.example/',
   x: 10,
   y: 20,
   ...over,
@@ -141,7 +144,25 @@ describe('contextMenuTemplate', () => {
     )
     expect(items.map((item) => item.label)).toEqual([text.openLinkInNewTab, text.copyLink])
     items[0].click?.({} as never, undefined, {} as never)
-    expect(act.openLinkInNewTab).toHaveBeenCalledWith('https://example.com/a')
+    expect(act.openLinkInNewTab).toHaveBeenCalledWith('https://example.com/a', {
+      url: 'https://site.example/',
+      policy: 'strict-origin-when-cross-origin',
+    })
+    const inFrame = contextMenuTemplate(
+      params({
+        linkURL: 'https://example.com/b',
+        frameURL: 'https://frame.example/embed',
+        referrerPolicy: { url: '', policy: 'same-origin' },
+      }),
+      webPage,
+      act,
+      text,
+    )
+    inFrame[0].click?.({} as never, undefined, {} as never)
+    expect(act.openLinkInNewTab).toHaveBeenLastCalledWith('https://example.com/b', {
+      url: 'https://frame.example/embed',
+      policy: 'same-origin',
+    })
     for (const linkURL of ['mailto:a@example.com', 'javascript:alert(1)', 'file:///etc/passwd']) {
       const other = contextMenuTemplate(params({ linkURL }), webPage, act, en.native.contextMenu)
       expect(shape(other)).toEqual(['Copy Link Address'])
@@ -210,6 +231,9 @@ describe('contextMenuTemplate', () => {
       'Copy Link Address',
     ])
     popups[1].items[0].click?.({} as never, undefined, {} as never)
-    expect(openLinkInNewTab).toHaveBeenCalledWith('https://example.com/a')
+    expect(openLinkInNewTab).toHaveBeenCalledWith('https://example.com/a', {
+      url: 'https://site.example/',
+      policy: 'strict-origin-when-cross-origin',
+    })
   })
 })

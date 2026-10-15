@@ -1,11 +1,15 @@
 import { BrowserWindow, Menu, type WebContents, clipboard } from 'electron'
-import { type ContextMenuText, contextMenuTemplate } from './contextMenuTemplate'
+import {
+  type ContextActions,
+  type ContextMenuText,
+  contextMenuTemplate,
+} from './contextMenuTemplate'
 
 export function attachContextMenu(
   contents: WebContents,
   navigation: boolean,
   text: () => ContextMenuText,
-  openLinkInNewTab?: (url: string) => void,
+  openLinkInNewTab?: ContextActions['openLinkInNewTab'],
 ): void {
   contents.on('context-menu', (_e, params) => {
     const history = contents.navigationHistory

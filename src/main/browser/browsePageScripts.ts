@@ -28,9 +28,11 @@ const IFRAME_AUTO_ATTACH = {
 
 const followedDebuggers = new WeakSet<PageScriptDebugger>()
 
+export type PageScript = string | { source: string; worldName: string }
+
 export function injectPageScripts(
   guest: { debugger: PageScriptDebugger },
-  sources: readonly string[],
+  scripts: readonly PageScript[],
 ): Promise<void> {
   const dbg = guest.debugger
   const send = (method: string, params: object, sessionId?: string): Promise<unknown> => {
@@ -46,8 +48,12 @@ export function injectPageScripts(
   }
   const prepare = (sessionId?: string): Promise<void> => {
     void send('Page.enable', {}, sessionId)
-    const registered = sources.map((source) =>
-      send('Page.addScriptToEvaluateOnNewDocument', { source, runImmediately: true }, sessionId),
+    const registered = scripts.map((script) =>
+      send(
+        'Page.addScriptToEvaluateOnNewDocument',
+        { ...(typeof script === 'string' ? { source: script } : script), runImmediately: true },
+        sessionId,
+      ),
     )
     void send('Target.setAutoAttach', IFRAME_AUTO_ATTACH, sessionId)
     return Promise.all(registered).then(() => {})
