@@ -491,6 +491,14 @@ export class TmuxPane {
     this.server.send(`set -w -t ${this.windowId} ${META_OPTION} ${tmuxQuote(encodeMeta(meta))}`)
   }
 
+  async currentCommand(): Promise<string> {
+    const [command = ''] = await this.server.command(
+      `display-message -p -t ${this.paneId} "#{pane_current_command}"`,
+    )
+    this.foreground = command
+    return command
+  }
+
   async snapshot(cols: number, rows: number): Promise<string> {
     this.held = []
     if (cols > 0 && rows > 0 && (cols !== this.cols || rows !== this.rows)) {

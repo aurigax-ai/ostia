@@ -1,7 +1,9 @@
+import { findPane } from '@/layout/tree'
 import type { AttentionEvent } from '@/lib/attention/attention'
 import { isIdlePrompt } from '@/lib/terminal/blocks'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
-import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { type AgentResume, type ResumableAgent, isResumableAgent } from '@shared/agents/agentResume'
 import type { AttentionState } from '@shared/types'
 import { commandAgent } from './hibernation'
@@ -17,6 +19,14 @@ export function runningAgentOf(paneId: string): ResumableAgent | null {
   if (named) return named
   const marked = agentBlocks[paneId]
   return marked?.blockId === blockId ? marked.agent : null
+}
+
+export function keptAgentReattached(workspaceId: string, paneId: string, start: LineAnchor): void {
+  const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+  const resume = layout ? findPane(layout.root, paneId)?.resume : undefined
+  const blocks = useBlocksStore.getState()
+  blocks.commandStart(paneId, start)
+  if (resume) blocks.markAgent(paneId, resume.agent)
 }
 
 const AGENT_STATES: ReadonlySet<AttentionState> = new Set(['working', 'waiting', 'done'])

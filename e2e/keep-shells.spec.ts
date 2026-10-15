@@ -337,6 +337,41 @@ test('KSH-C36 an agent still running after a restart stays marked and is never r
   }
 })
 
+test('KSH-C103 pane list names the agent of a kept pane after a restart', async () => {
+  const bin = fakeAgentBin(
+    dataHome,
+    [
+      '#!/bin/sh',
+      'ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude e2e-kept-list >/dev/null 2>&1',
+      'echo fake-agent-ready',
+      'exec cat',
+      '',
+    ].join('\n'),
+  )
+  const listAgents = `ostia pane list | tr -d ' \\n' | grep -o '"agent":"[a-z]*"' | sed 's/^/listed-/'`
+  const first = await launch(dataHome, pathWith(bin))
+  await openWorkspace(first.win)
+  await runInTerminal(first.win, 'claude')
+  await expect(screen(first.win)).toContainText('fake-agent-ready', { timeout: 15_000 })
+  await expect
+    .poll(() => savedPanes().some((p) => p.agentRunning === true), { timeout: 15_000 })
+    .toBe(true)
+  await restartApp(first.app, first.win)
+
+  const second = await launch(dataHome, pathWith(bin))
+  try {
+    const { win } = second
+    await expect(screen(win)).toContainText('fake-agent-ready', { timeout: 15_000 })
+    await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
+    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
+    await expect(screen(win, 1)).toContainText(PROMPT, { timeout: 15_000 })
+    await runInTerminal(win, listAgents, win.locator('.xterm').nth(1))
+    await expect(screen(win, 1)).toContainText('listed-"agent":"claude"', { timeout: 15_000 })
+  } finally {
+    await quitApp(second.app)
+  }
+})
+
 test('KSH-C87 the state an agent last reported is shown again after a restart', async () => {
   const cli = 'ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI"'
   const bin = fakeAgentBin(

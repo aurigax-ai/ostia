@@ -232,6 +232,7 @@ export interface PtyAttachResult {
   rows?: number
   kept?: boolean
   reattached?: boolean
+  agentRunning?: boolean
   cwdMissing?: boolean
 }
 

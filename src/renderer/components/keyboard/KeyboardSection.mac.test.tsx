@@ -11,10 +11,10 @@ vi.mock('@/platform', () => ({ platform: 'darwin', isMac: true, isLinux: false }
 
 const initialSettings = useSettingsStore.getState()
 
-const editButtons = (): string[] => {
-  const buttons = screen.getAllByRole('button', { name: /^Edit / })
-  return buttons.map((b) => b.getAttribute('aria-label') ?? '').sort()
-}
+const editButtons = (): string[] =>
+  [...document.querySelectorAll('button[aria-label^="Edit "]')]
+    .map((b) => b.getAttribute('aria-label') ?? '')
+    .sort()
 
 const applied = (layer: string): string =>
   within(screen.getByRole('group', { name: layer }))
@@ -27,7 +27,9 @@ const applyPreset = async (layer: string, name: string): Promise<void> => {
   await userEvent.click(
     within(screen.getByRole('group', { name: layer })).getByRole('button', { name }),
   )
-  await userEvent.click(await screen.findByRole('button', { name: `Apply ${name}` }))
+  const combo = document.querySelector<HTMLElement>('[data-slot="keymap-combo"]')
+  if (!combo) throw new Error('no keymap combo')
+  await userEvent.click(await within(combo).findByRole('button', { name: `Apply ${name}` }))
 }
 
 const row = (name: RegExp): HTMLElement => {

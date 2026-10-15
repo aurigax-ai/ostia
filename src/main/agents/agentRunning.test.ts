@@ -102,6 +102,17 @@ describe('AgentRunningPanes', () => {
     expect(runningIds(book.mark(snapshot([pane('a')])))).toEqual([])
   })
 
+  it('KSH-C103 says a kept agent still runs at reattach only while its shell is not in the foreground', () => {
+    const book = new AgentRunningPanes(() => {})
+    book.seed(snapshot([pane('a', { agentRunning: true }), pane('b')]))
+    const owner = { shell: '/bin/bash', sandboxed: false }
+    expect(book.stillRunning('a', { ...owner, foreground: 'claude' })).toBe(true)
+    expect(book.stillRunning('a', { ...owner, foreground: 'bash' })).toBe(false)
+    expect(book.stillRunning('a', { ...owner, foreground: '' })).toBe(true)
+    expect(book.stillRunning('a', { ...owner, foreground: 'bwrap', sandboxed: true })).toBe(true)
+    expect(book.stillRunning('b', { ...owner, foreground: 'claude' })).toBe(false)
+  })
+
   it('clears the mark when the shell itself ended', () => {
     const book = new AgentRunningPanes(() => {})
     book.report('a', true, true)

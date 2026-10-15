@@ -1,9 +1,8 @@
 import '@testing-library/jest-dom/vitest'
-import { CSV_ROWS_MAX } from '@/lib/files/csvTable'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { renderSettled } from '../../../../test/render'
-import { CsvTable } from './CsvTable'
+import { CsvTable, CsvTableView } from './CsvTable'
 
 afterEach(cleanup)
 
@@ -36,13 +35,12 @@ describe('CsvTable', () => {
   })
 
   it('says so when it shows only the first 5,000 rows', async () => {
-    const lines = Array.from({ length: CSV_ROWS_MAX + 10 }, (_u, i) => `${i}`)
-    await renderSettled(<CsvTable source={['n', ...lines].join('\n')} delimiter="," />)
-    await waitFor(() =>
-      expect(screen.getByTestId('csv-table-note')).toHaveTextContent(
-        'Showing the first 5,000 rows.',
-      ),
+    await renderSettled(
+      <CsvTableView
+        table={{ header: ['n'], rows: [['0'], ['1']], more: true, columnsCut: false }}
+      />,
     )
-    expect(screen.getAllByRole('row')).toHaveLength(CSV_ROWS_MAX + 1)
+    expect(screen.getByTestId('csv-table-note')).toHaveTextContent('Showing the first 5,000 rows.')
+    expect(screen.getAllByRole('row')).toHaveLength(3)
   })
 })
