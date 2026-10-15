@@ -244,6 +244,7 @@ describe('close confirmation', () => {
     useBlocksStore.setState((s) => ({
       running: { ...s.running, p2: 'b2' },
       byPane: { ...s.byPane, p2: [{ id: 'b2', paneId: 'p2', command: 'claude' } as CommandBlock] },
+      agentBlocks: { ...s.agentBlocks, p2: { blockId: 'b2', agent: 'claude' } },
     }))
     const groups = quitGroups()
     expect(groups.map((g) => [g.commands, g.agents])).toEqual([

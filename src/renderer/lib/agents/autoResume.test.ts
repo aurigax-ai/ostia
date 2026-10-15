@@ -215,6 +215,7 @@ describe('startAutoResume', () => {
           { id: 'b1', paneId: holder.id, command: "'claude' --resume abc-1", startedAt: 0 },
         ] as unknown as CommandBlock[],
       },
+      agentBlocks: { [holder.id]: { blockId: 'b1', agent: 'claude' } },
     })
     stop = startAutoResume()
 
@@ -242,6 +243,7 @@ describe('startAutoResume', () => {
           { id: 'b1', paneId: holder.id, command: 'claude', startedAt: 0 },
         ] as unknown as CommandBlock[],
       },
+      agentBlocks: { [holder.id]: { blockId: 'b1', agent: 'claude' } },
     })
     stop = startAutoResume()
 

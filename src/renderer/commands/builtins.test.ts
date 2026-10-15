@@ -2035,7 +2035,9 @@ describe('agent.forkConversation', () => {
       },
     })
     useBlocksStore.getState().commandStart(agent.id, { line: 1 }, 'claude')
+    useBlocksStore.getState().markAgent(agent.id, 'claude')
     useBlocksStore.getState().commandStart(other.id, { line: 1 }, 'claude')
+    useBlocksStore.getState().markAgent(other.id, 'claude')
     const run = vi.spyOn(blockActions, 'runWhenIdle').mockReturnValue(() => {})
 
     const res = await commands.execWith(ctx('s1', agent.id), 'agent.forkConversation', {
@@ -2210,6 +2212,7 @@ describe('agent resume', () => {
   it('stores no flag that skips permissions or leaves the sandbox', async () => {
     const pane = seedPane()
     useBlocksStore.getState().commandStart(pane.id, { line: 1 }, 'claude --model opus')
+    useBlocksStore.getState().markAgent(pane.id, 'claude')
     await commands.execWith(ctx('s1', pane.id), 'resume.set', {
       agent: 'claude',
       id: 'abc',
@@ -2636,6 +2639,7 @@ describe('agent notifications', () => {
     const blocks = useBlocksStore.getState()
     blocks.promptStart(pane.id, { line: 0 }, null)
     blocks.commandStart(pane.id, { line: 1 }, 'claude')
+    blocks.markAgent(pane.id, 'claude')
     blocks.commandEnd(pane.id, { line: 2 }, 0)
     blocks.promptStart(pane.id, { line: 3 }, null)
     for (const state of ['waiting', 'working'] as const) {
@@ -2650,6 +2654,7 @@ describe('agent notifications', () => {
     const blocks = useBlocksStore.getState()
     blocks.promptStart(pane.id, { line: 0 }, null)
     blocks.commandStart(pane.id, { line: 1 }, 'claude')
+    blocks.markAgent(pane.id, 'claude')
     await commands.execWith(ctx('s1', pane.id), 'attention.set', { state: 'waiting' })
     expect(useAttentionStore.getState().byPane[pane.id]?.state).toBe('waiting')
   })
@@ -2679,6 +2684,7 @@ describe('agent notifications', () => {
     const blocks = useBlocksStore.getState()
     blocks.promptStart(pane.id, { line: 0 }, null)
     blocks.commandStart(pane.id, { line: 1 }, 'claude')
+    blocks.markAgent(pane.id, 'claude')
     await commands.execWith(ctx('s1', pane.id), 'attention.set', { state: 'working' })
     await commands.execWith(ctx('s1', pane.id), 'attention.message', { from: '', text: 'ping' })
     expect(useAttentionStore.getState().byPane[pane.id]).toMatchObject({
@@ -2693,6 +2699,7 @@ describe('agent notifications', () => {
     const blocks = useBlocksStore.getState()
     blocks.promptStart(pane.id, { line: 0 }, null)
     blocks.commandStart(pane.id, { line: 1 }, 'claude')
+    blocks.markAgent(pane.id, 'claude')
     await commands.execWith(ctx('s1', pane.id), 'attention.set', {
       state: 'waiting',
       message: 'Allow Bash?',

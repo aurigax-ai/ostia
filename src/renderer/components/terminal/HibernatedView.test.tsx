@@ -244,6 +244,7 @@ describe('hibernated terminal pane', () => {
     const blocks = useBlocksStore.getState()
     blocks.promptStart('live', { line: 0 }, null)
     blocks.commandStart('live', { line: 1 }, "'claude' --resume tok-1")
+    blocks.markAgent('live', 'claude')
     const typed = vi.spyOn(blockActions, 'runWhenIdle')
     render(<Pane tabs={[live, sleeping]} shownId="h1" activePaneId="h1" workspaceId="s1" />)
     render(<SurfacePool />)
@@ -278,6 +279,7 @@ describe('hibernated terminal pane', () => {
     for (const id of ['here', 'there']) {
       blocks.promptStart(id, { line: 0 }, null)
       blocks.commandStart(id, { line: 1 }, "'claude' --resume tok-2")
+      blocks.markAgent(id, 'claude')
     }
     render(<Pane tabs={[here, there]} shownId="here" activePaneId="here" workspaceId="s1" />)
     const notice = screen.getByRole('region', { name: 'Agent session open twice' })

@@ -73,10 +73,17 @@ const terminal = (id: string, resume = true): PaneNode => ({
   ...(resume ? { resume: { agent: 'claude' as const, id: `tok-${id}` } } : {}),
 })
 
+function hookAgent(command: string): 'claude' | 'codex' | null {
+  const program = command.split(' ')[0]?.replaceAll("'", '')
+  return program === 'claude' || program === 'codex' ? program : null
+}
+
 function run(paneId: string, command: string): void {
   const blocks = useBlocksStore.getState()
   blocks.promptStart(paneId, { line: 0 }, null)
   blocks.commandStart(paneId, { line: 1 }, command)
+  const agent = hookAgent(command)
+  if (agent) useBlocksStore.getState().markAgent(paneId, agent)
 }
 
 function seed(maxLiveTerminals: number): void {

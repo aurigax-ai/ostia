@@ -148,6 +148,7 @@ describe('PaneTabMenu close others and hibernation', () => {
     const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
     useBlocksStore.getState().promptStart('b', { line: 0 }, null)
     useBlocksStore.getState().commandStart('b', { line: 1 }, 'claude')
+    useBlocksStore.getState().markAgent('b', 'claude')
     openMenu(agentTab, [shell, agentTab])
     await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'Hibernate tab' }))
     expect(exec).toHaveBeenCalledWith('pane.hibernate', { paneId: 'b' })

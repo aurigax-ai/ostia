@@ -82,6 +82,7 @@ describe('split tab session warning', () => {
           { id: 'run-a', paneId: a.id, command: 'claude --resume sess-split', startedAt: 0 },
         ] as unknown as CommandBlock[],
       },
+      agentBlocks: { [a.id]: { blockId: 'run-a', agent: 'claude' } },
     })
     const { container } = renderStack(root, b.id)
     const cell = container.querySelector(`[data-cell-id="${b.id}"]`) as HTMLElement
