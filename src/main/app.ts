@@ -19,6 +19,7 @@ import { AgentRunningPanes } from './agents/agentRunning'
 import { registerAgentTranscriptIpc } from './agents/agentTranscript'
 import { registerAgentWiring } from './agents/agentWiring'
 import { ReportedAgentWork } from './agents/agentWork'
+import { registerFolderTrustIpc } from './agents/folderTrustIpc'
 import type { OriginReach } from './agents/originAgents'
 import { createResumeClaimer, registerResumeClaimIpc } from './agents/resumeClaims'
 import { registerToolbeltWiring } from './agents/toolbeltWiring'
@@ -713,6 +714,7 @@ function boot(): void {
       listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
     ),
   )
+  registerFolderTrustIpc({ ...wiring, readSettingsFile })
   const { notifyDeps } = registerNotifyWiring({ ...wiring })
   registerSandboxWiring({ ...wiring, notifyDeps })
   const { registry } = registerAgentWiring({ ...wiring })

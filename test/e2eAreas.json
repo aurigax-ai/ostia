@@ -678,10 +678,14 @@
         "src/renderer/components/agents/AgentForkButton.tsx",
         "src/renderer/components/terminal/HibernatedView.tsx",
         "src/renderer/components/sidebar/HibernateSkippedDialog.tsx",
-        "src/renderer/components/panes/ResumeFolderNotice.tsx"
+        "src/renderer/components/panes/ResumeFolderNotice.tsx",
+        "src/main/agents/claudeFolderTrust.ts",
+        "src/main/agents/folderTrustIpc.ts",
+        "src/renderer/lib/agents/folderTrust.ts"
       ],
       "specs": [
         "e2e/auto-resume.spec.ts",
+        "e2e/claude-folder-trust.spec.ts",
         "e2e/hibernate-background-work.spec.ts",
         "e2e/hibernate-group.spec.ts",
         "e2e/ports-hibernation.spec.ts",
