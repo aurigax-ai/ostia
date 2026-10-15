@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   AGENT_ARGS_SEPARATOR,
   capturedArgs,
+  carriedFlags,
   commandLineEnv,
   looksSecret,
   resumeFlags,
   safeEnv,
   shellQuote,
+  typedCommandFlags,
 } from './agentLaunch'
 
 describe('resumeFlags for claude', () => {
@@ -239,6 +241,99 @@ describe('resumeFlags for codex', () => {
   })
 })
 
+const CLAUDE_ESCAPES = [
+  '--dangerously-skip-permissions',
+  '--allow-dangerously-skip-permissions',
+  '--permission-mode',
+  'bypassPermissions',
+  '--permission-mode=bypassPermissions',
+  '--settings',
+  '/tmp/s.json',
+  '--mcp-config=/tmp/m.json',
+  '--plugin-dir',
+  '/tmp/p',
+  '--agents',
+  '/tmp/a.json',
+  '--add-dir=/',
+  '--allowedTools=Bash',
+  '--setting-sources',
+  'user',
+  '--debug-file',
+  '/home/j/.bashrc',
+]
+
+const CODEX_ESCAPES = [
+  '--dangerously-bypass-approvals-and-sandbox',
+  '--yolo',
+  '-s',
+  'danger-full-access',
+  '--sandbox=danger-full-access',
+  '-a',
+  'never',
+  '-c',
+  'sandbox_mode="danger-full-access"',
+  '-c',
+  'notify=["sh","-c","id"]',
+  '--config=mcp_servers.x.command="sh"',
+  '-c',
+  'environment_name="x"',
+  '--add-dir',
+  '/',
+  '-p',
+  'yolo',
+  '--enable',
+  'computer_use',
+  '--disable',
+  'guardian_approval',
+  '--approve-for-me',
+  '--dangerously-bypass-hook-trust',
+  '--remote',
+  'ws://h:1',
+]
+
+describe('carriedFlags', () => {
+  it('drops every claude flag that skips permissions or loads settings, plugins or tools', () => {
+    expect(
+      carriedFlags('claude', [
+        ...CLAUDE_ESCAPES,
+        '--model',
+        'opus',
+        '--permission-mode',
+        'plan',
+        '--agent',
+        'ostia',
+      ]),
+    ).toEqual(['--model', 'opus', '--permission-mode', 'plan', '--agent', 'ostia'])
+  })
+
+  it('drops every codex flag that leaves the sandbox, its approvals or loads config', () => {
+    expect(
+      carriedFlags('codex', [
+        ...CODEX_ESCAPES,
+        '-m',
+        'gpt-5',
+        '-s',
+        'workspace-write',
+        '-a',
+        'on-request',
+        '-c',
+        'model_reasoning_effort="high"',
+        '--search',
+      ]),
+    ).toEqual([
+      '-m',
+      'gpt-5',
+      '-s',
+      'workspace-write',
+      '-a',
+      'on-request',
+      '-c',
+      'model_reasoning_effort="high"',
+      '--search',
+    ])
+  })
+})
+
 describe('capturedArgs', () => {
   it('reads the arguments the shell function recorded for that agent only', () => {
     const env = {
@@ -248,6 +343,55 @@ describe('capturedArgs', () => {
     expect(capturedArgs('codex', env)).toBeNull()
     expect(capturedArgs('claude', { OSTIA_CLAUDE_ARGS: '' })).toEqual([])
     expect(capturedArgs('claude', {})).toBeNull()
+  })
+
+  it('never reports a flag that leaves the sandbox or skips approvals', () => {
+    expect(
+      capturedArgs('codex', {
+        OSTIA_CODEX_ARGS: [...CODEX_ESCAPES, '-m', 'gpt-5'].join(AGENT_ARGS_SEPARATOR),
+      }),
+    ).toEqual(['-m', 'gpt-5'])
+    expect(
+      capturedArgs('claude', {
+        OSTIA_CLAUDE_ARGS: [...CLAUDE_ESCAPES, '--model', 'opus'].join(AGENT_ARGS_SEPARATOR),
+      }),
+    ).toEqual(['--model', 'opus'])
+  })
+})
+
+describe('typedCommandFlags', () => {
+  it('reads the escaping flags the human typed after the agent', () => {
+    expect(
+      typedCommandFlags('claude', 'claude --model opus --dangerously-skip-permissions hello'),
+    ).toEqual(['--dangerously-skip-permissions'])
+    expect(
+      typedCommandFlags('codex', 'GL_ISSUE=1 codex --sandbox danger-full-access -a never'),
+    ).toEqual(['--sandbox', 'danger-full-access', '-a', 'never'])
+    expect(typedCommandFlags('codex', 'codex resume 0199aa --yolo')).toEqual(['--yolo'])
+    expect(typedCommandFlags('claude', 'claude --agent x')).toEqual([])
+  })
+
+  it('finds the agent after other commands and stops at the next operator', () => {
+    expect(
+      typedCommandFlags(
+        'claude',
+        `cd '/w' && (true) && claude --agent personal --dangerously-skip-permissions -n "整理帳單"`,
+      ),
+    ).toEqual(['--dangerously-skip-permissions'])
+    expect(
+      typedCommandFlags(
+        'claude',
+        'codex --yolo; claude --model opus && echo --dangerously-skip-permissions',
+      ),
+    ).toEqual([])
+  })
+
+  it('reads nothing when the agent is not the command or a value is not literal', () => {
+    expect(typedCommandFlags('claude', 'echo claude --dangerously-skip-permissions')).toBeNull()
+    expect(typedCommandFlags('codex', 'my-agent-script --yolo')).toBeNull()
+    expect(typedCommandFlags('claude', "'claude' --dangerously-skip-permissions")).toBeNull()
+    expect(typedCommandFlags('codex', 'codex -s "$MODE" -c "$CFG"')).toEqual([])
+    expect(typedCommandFlags('codex', 'codex "--yolo')).toBeNull()
   })
 })
 

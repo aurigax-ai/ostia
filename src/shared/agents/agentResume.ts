@@ -1,4 +1,4 @@
-import { resumeFlags, safeEnv, shellQuote } from './agentLaunch'
+import { carriedFlags, resumeFlags, safeEnv, shellQuote } from './agentLaunch'
 
 export type ResumableAgent = 'claude' | 'codex'
 
@@ -53,6 +53,14 @@ export function parseAgentResume(raw: unknown): AgentResume | null {
   const vars = safeEnv(env)
   if (Object.keys(vars).length > 0) resume.env = vars
   return resume
+}
+
+export function parseReportedResume(raw: unknown): AgentResume | null {
+  const resume = parseAgentResume(raw)
+  if (!resume) return null
+  const { args, env: _env, ...rest } = resume
+  const carried = carriedFlags(resume.agent, args ?? [])
+  return carried.length > 0 ? { ...rest, args: carried } : rest
 }
 
 export function sameResume(a: AgentResume | undefined, b: AgentResume): boolean {

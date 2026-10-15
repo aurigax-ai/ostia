@@ -2219,6 +2219,75 @@ describe('agent resume', () => {
     expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.args')
   })
 
+  it('stores no sandbox-escaping flag or variable the pane never typed', async () => {
+    const pane = seedPane()
+    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, 'codex -m gpt-5')
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'codex',
+      id: 'abc',
+      args: ['--dangerously-bypass-approvals-and-sandbox', '-c', 'notify=["sh"]', '-m', 'gpt-5'],
+      env: { CODEX_HOME: '/tmp/x' },
+    })
+    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
+    await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    expect(insert).toHaveBeenCalledWith(pane.id, 'codex resume abc -m gpt-5', true)
+  })
+
+  it('stores no escaping flag when nothing about the launch is known', async () => {
+    const pane = seedPane()
+    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, 'my-agent-script')
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'claude',
+      id: 'abc',
+      args: ['--dangerously-skip-permissions', '--permission-mode', 'bypassPermissions'],
+    })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.args')
+  })
+
+  it('keeps an escaping flag the human typed, and keeps it across the next resume', async () => {
+    const pane = seedPane()
+    useBlocksStore
+      .getState()
+      .commandStart(
+        pane.id,
+        { line: 1 },
+        `cd '/w' && claude --agent x --dangerously-skip-permissions`,
+      )
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'claude',
+      id: 'abc',
+      args: ['--agent', 'x', '--dangerously-skip-permissions'],
+    })
+    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
+    await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    const resumed = 'claude --resume abc --agent x --dangerously-skip-permissions'
+    expect(insert).toHaveBeenCalledWith(pane.id, resumed, true)
+
+    useBlocksStore.getState().commandStart(pane.id, { line: 2 }, resumed)
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'claude',
+      id: 'abc',
+      args: ['--agent', 'x', '--dangerously-skip-permissions'],
+    })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+      resume: { args: ['--agent', 'x', '--dangerously-skip-permissions'] },
+    })
+  })
+
+  it('a codex pane cannot store a claude resume that skips permissions', async () => {
+    const pane = seedPane()
+    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, 'codex --yolo')
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'claude',
+      id: 'abc',
+      args: ['--dangerously-skip-permissions'],
+    })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+      resume: { agent: 'claude', id: 'abc' },
+    })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.args')
+  })
+
   it('runs the agent’s resume command in the pane', async () => {
     const pane = seedPane({ agent: 'claude', id: 'abc' })
     const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)

@@ -3,6 +3,7 @@ import { commandLineEnv } from './agentLaunch'
 import {
   forkCommand,
   parseAgentResume,
+  parseReportedResume,
   resumeCommand,
   resumeFromHookPayload,
   sameResume,
@@ -58,6 +59,38 @@ describe('parseAgentResume with the launch flags and environment', () => {
         id: 'abc',
       })
     }
+  })
+})
+
+describe('parseReportedResume', () => {
+  it('keeps the carried flags and drops escaping flags and every variable', () => {
+    const reported = parseReportedResume({
+      agent: 'codex',
+      id: 'abc',
+      cwd: '/w',
+      args: [
+        '--dangerously-bypass-approvals-and-sandbox',
+        '-s',
+        'danger-full-access',
+        '-m',
+        'gpt-5',
+      ],
+      env: { CODEX_HOME: '/tmp/x', GL_ISSUE: '687' },
+    })
+    expect(reported).toEqual({ agent: 'codex', id: 'abc', cwd: '/w', args: ['-m', 'gpt-5'] })
+    expect(resumeCommand(reported ?? { agent: 'codex', id: 'none' })).toBe(
+      'codex resume abc -m gpt-5',
+    )
+  })
+
+  it('stores no permission bypass when a caller switches the agent', () => {
+    expect(
+      parseReportedResume({ agent: 'claude', id: 'abc', args: ['--dangerously-skip-permissions'] }),
+    ).toEqual({ agent: 'claude', id: 'abc' })
+  })
+
+  it('rejects what parseAgentResume rejects', () => {
+    expect(parseReportedResume({ agent: 'bash', id: 'abc' })).toBeNull()
   })
 })
 

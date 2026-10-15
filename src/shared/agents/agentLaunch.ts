@@ -90,6 +90,94 @@ const CODEX_FLAGS: Record<string, Arity> = {
   '--yolo': 'none',
 }
 
+type Carry = true | ReadonlySet<string> | ((value: string) => boolean)
+
+const CLAUDE_PERMISSION_MODES = new Set([
+  'acceptEdits',
+  'auto',
+  'default',
+  'dontAsk',
+  'manual',
+  'plan',
+])
+
+const CLAUDE_CARRY: Record<string, Carry> = {
+  '--agent': true,
+  '--append-system-prompt': true,
+  '--append-system-prompt-file': true,
+  '--autocompact': true,
+  '--ax-screen-reader': true,
+  '--bare': true,
+  '--betas': true,
+  '--brief': true,
+  '--chrome': true,
+  '--debug': true,
+  '--disable-slash-commands': true,
+  '--disallowed-tools': true,
+  '--disallowedTools': true,
+  '--effort': true,
+  '--exclude-dynamic-system-prompt-sections': true,
+  '--fallback-model': true,
+  '--ide': true,
+  '--model': true,
+  '--name': true,
+  '--no-chrome': true,
+  '--permission-mode': CLAUDE_PERMISSION_MODES,
+  '--remote-control': true,
+  '--remote-control-session-name-prefix': true,
+  '--restricted': true,
+  '--safe-mode': true,
+  '--strict-mcp-config': true,
+  '--system-prompt': true,
+  '--system-prompt-file': true,
+  '--system-prompt-snapshot': true,
+  '--tools': true,
+  '--verbose': true,
+}
+
+const CODEX_SANDBOXES = new Set(['read-only', 'workspace-write'])
+const CODEX_APPROVALS = new Set(['untrusted', 'on-failure', 'on-request'])
+const CODEX_CONFIG_KEYS = new Set([
+  'model',
+  'model_reasoning_effort',
+  'model_reasoning_summary',
+  'model_verbosity',
+  'service_tier',
+])
+
+function isCarriedCodexConfig(value: string): boolean {
+  const eq = value.indexOf('=')
+  return eq > 0 && CODEX_CONFIG_KEYS.has(value.slice(0, eq).trim())
+}
+
+const CODEX_CARRY: Record<string, Carry> = {
+  '-a': CODEX_APPROVALS,
+  '--ask-for-approval': CODEX_APPROVALS,
+  '-c': isCarriedCodexConfig,
+  '--config': isCarriedCodexConfig,
+  '--local-provider': true,
+  '-m': true,
+  '--model': true,
+  '--no-alt-screen': true,
+  '--oss': true,
+  '-s': CODEX_SANDBOXES,
+  '--sandbox': CODEX_SANDBOXES,
+  '--search': true,
+  '--strict-config': true,
+}
+
+const AGENT_CARRY: Record<ResumableAgent, Record<string, Carry>> = {
+  claude: CLAUDE_CARRY,
+  codex: CODEX_CARRY,
+}
+
+function isCarried(agent: ResumableAgent, name: string, values: readonly string[]): boolean {
+  const carry = Object.hasOwn(AGENT_CARRY[agent], name) ? AGENT_CARRY[agent][name] : undefined
+  if (carry === undefined) return false
+  if (carry === true) return true
+  return values.every((value) => (typeof carry === 'function' ? carry(value) : carry.has(value)))
+}
+
 const ALIASES: Record<ResumableAgent, Record<string, string>> = {
   claude: { '-d': '--debug', '-n': '--name' },
   codex: {},
@@ -170,7 +258,11 @@ function splitFlag(agent: ResumableAgent, arg: string): [string, string | undefi
   return [arg.length === 2 ? name : arg, undefined]
 }
 
-export function resumeFlags(agent: ResumableAgent, argv: readonly string[]): string[] {
+function flagGroups(
+  agent: ResumableAgent,
+  argv: readonly string[],
+  keep: (name: string, values: string[]) => boolean,
+): string[] {
   const flags = AGENT_FLAGS[agent]
   const out: string[] = []
   let total = 0
@@ -202,6 +294,7 @@ export function resumeFlags(agent: ResumableAgent, argv: readonly string[]): str
     if (CONFIG_FLAGS[agent].has(name) && !values.every((value) => isSafeConfig(agent, value))) {
       continue
     }
+    if (!keep(name, values)) continue
     const group =
       arity === 'one' ? [name, ...values] : [values.length ? `${name}=${values[0]}` : name]
     const size = group.reduce((sum, part) => sum + part.length, 0)
@@ -212,6 +305,18 @@ export function resumeFlags(agent: ResumableAgent, argv: readonly string[]): str
   return out
 }
 
+export function resumeFlags(agent: ResumableAgent, argv: readonly string[]): string[] {
+  return flagGroups(agent, argv, () => true)
+}
+
+export function carriedFlags(agent: ResumableAgent, argv: readonly string[]): string[] {
+  return flagGroups(agent, argv, (name, values) => isCarried(agent, name, values))
+}
+
+function typedOnlyFlags(agent: ResumableAgent, argv: readonly string[]): string[] {
+  return flagGroups(agent, argv, (name, values) => !isCarried(agent, name, values))
+}
+
 export function capturedArgs(
   agent: ResumableAgent,
   env: Record<string, string | undefined>,
@@ -219,7 +324,7 @@ export function capturedArgs(
   const raw = env[envName(AGENT_ARGS_ENV[agent])]
   if (raw === undefined) return null
   if (raw === '') return []
-  return resumeFlags(agent, raw.split(AGENT_ARGS_SEPARATOR))
+  return carriedFlags(agent, raw.split(AGENT_ARGS_SEPARATOR))
 }
 
 export function safeEnv(raw: unknown): Record<string, string> {
@@ -308,6 +413,39 @@ export function commandLineEnv(agent: ResumableAgent, line: string): Record<stri
 }
 
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/
+
+const UNREADABLE_WORD = '\u0000'
+
+export function typedCommandFlags(agent: ResumableAgent, line: string): string[] | null {
+  if (line.length > MAX_COMMAND_LINE) return null
+  let words: string[] | null = null
+  let commandStart = true
+  let i = 0
+  while (i < line.length) {
+    if (line[i] === ' ' || line[i] === '\t') {
+      i++
+      continue
+    }
+    if (OPERATORS.has(line[i])) {
+      if (words) break
+      commandStart = true
+      i++
+      continue
+    }
+    const start = i
+    const read = readWord(line, i)
+    if (!read) return null
+    i = read.end
+    const { word } = read
+    if (words) {
+      words.push(word.safe ? word.text : UNREADABLE_WORD)
+    } else if (commandStart && !ASSIGNMENT.test(line.slice(start, i))) {
+      commandStart = false
+      if (word.plain && word.text === agent) words = []
+    }
+  }
+  return words ? typedOnlyFlags(agent, words) : null
+}
 
 export function shellQuote(value: string): string {
   return /^[A-Za-z0-9_./:,@%+-][A-Za-z0-9_./:,@%+=-]*$/.test(value)

@@ -1,4 +1,4 @@
-import { type AgentResume, parseAgentResume } from '../../shared/agents/agentResume'
+import { type AgentResume, parseReportedResume } from '../../shared/agents/agentResume'
 import type { CommandResult, CommandTarget } from '../../shared/types'
 import { targetOf } from '../attention/attention'
 import { registerControlMethod } from '../control/controlServer'
@@ -13,7 +13,7 @@ export function registerPaneResumeMethods(deps: PaneResumeDeps): void {
   registerControlMethod('pane.setResume', {
     cap: 'drive-self',
     handler: async (params: unknown, ctx) => {
-      const resume = parseAgentResume(params)
+      const resume = parseReportedResume(params)
       if (!resume) return { ok: false, error: 'invalid-resume' }
       deps.onResume(ctx.identity, resume)
       const res = await deps.execCommand(targetOf(ctx.identity), 'resume.set', resume)
