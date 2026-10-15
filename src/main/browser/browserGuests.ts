@@ -3,6 +3,7 @@ import { SHARED_BROWSER_PARTITION } from '../../shared/browser/browserProfile'
 import { PASSKEY_GUARD_JS } from '../../shared/browser/passkeyGuard'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import { attachContextMenu } from '../windows/contextMenu'
+import type { ContextMenuText } from '../windows/contextMenuTemplate'
 import { pushConsoleEntry } from './browse'
 import type { ConsoleEntry } from './browseMethod'
 import { OSTIA_ERROR_PREFIX, PAGE_ERROR_CATCHER_JS, injectPageScripts } from './browsePageScripts'
@@ -12,6 +13,7 @@ import { openHumanPopups } from './guestPopups'
 import { type BrowserAgents, followAgentByHost, useBrowserAgents } from './signinUserAgent'
 
 interface BrowserGuestsDeps {
+  contextMenuText: () => ContextMenuText
   consoleBuffers: Map<number, ConsoleEntry[]>
   errorBuffers: Map<number, ConsoleEntry[]>
   windows: Map<string, BrowserWindow>
@@ -24,6 +26,7 @@ interface BrowserGuestsDeps {
 export type BrowserGuests = ReturnType<typeof createBrowserGuests>
 
 export function createBrowserGuests({
+  contextMenuText,
   consoleBuffers,
   errorBuffers,
   windows,
@@ -77,7 +80,7 @@ export function createBrowserGuests({
 
   function prepareBrowserPopup(popup: BrowserWindow, url: string): void {
     const contents = popup.webContents
-    attachContextMenu(contents, true)
+    attachContextMenu(contents, true, contextMenuText)
     const agents = browserAgentsOf(contents.session)
     contents.setUserAgent(agents.rewritten)
     try {

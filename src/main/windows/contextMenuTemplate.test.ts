@@ -1,5 +1,6 @@
 import type { MenuItemConstructorOptions } from 'electron'
 import { describe, expect, it, vi } from 'vitest'
+import { en, zhHant } from '../../shared/app/dict'
 import { type ContextParams, contextMenuTemplate } from './contextMenuTemplate'
 
 const popups: { items: MenuItemConstructorOptions[]; options: unknown }[] = []
@@ -76,7 +77,12 @@ function fakeContents(type: string, window: unknown) {
 
 describe('contextMenuTemplate', () => {
   it('offers edit actions in a text field, enabled by what the field can do', () => {
-    const items = contextMenuTemplate(params({ isEditable: true }), appPage, actions())
+    const items = contextMenuTemplate(
+      params({ isEditable: true }),
+      appPage,
+      actions(),
+      en.native.contextMenu,
+    )
     expect(shape(items)).toEqual([
       'undo (off)',
       'redo (off)',
@@ -90,9 +96,23 @@ describe('contextMenuTemplate', () => {
 
   it('offers Copy for selected text outside a field, and nothing on a blank part of the app', () => {
     expect(
-      shape(contextMenuTemplate(params({ selectionText: 'hello' }), appPage, actions())),
+      shape(
+        contextMenuTemplate(
+          params({ selectionText: 'hello' }),
+          appPage,
+          actions(),
+          en.native.contextMenu,
+        ),
+      ),
     ).toEqual(['copy'])
-    expect(contextMenuTemplate(params({ selectionText: '  ' }), appPage, actions())).toEqual([])
+    expect(
+      contextMenuTemplate(
+        params({ selectionText: '  ' }),
+        appPage,
+        actions(),
+        en.native.contextMenu,
+      ),
+    ).toEqual([])
   })
 
   it('copies a link address and an image', () => {
@@ -101,6 +121,7 @@ describe('contextMenuTemplate', () => {
       params({ linkURL: 'https://example.com/a', mediaType: 'image', hasImageContents: true }),
       webPage,
       act,
+      en.native.contextMenu,
     )
     expect(shape(items)).toEqual(['Copy Link Address', '-', 'Copy Image'])
     items[0].click?.({} as never, undefined, {} as never)
@@ -109,26 +130,37 @@ describe('contextMenuTemplate', () => {
     expect(act.copyImage).toHaveBeenCalledWith(10, 20)
   })
 
+  it('labels its items in the language the app shows', () => {
+    const items = contextMenuTemplate(params(), webPage, actions(), zhHant.native.contextMenu)
+    expect(items.map((item) => item.label)).toEqual([
+      zhHant.native.contextMenu.back,
+      zhHant.native.contextMenu.forward,
+      zhHant.native.contextMenu.reload,
+    ])
+  })
+
   it('offers Back, Forward and Reload on a blank part of a web page only', () => {
     const act = actions()
-    const items = contextMenuTemplate(params(), webPage, act)
+    const items = contextMenuTemplate(params(), webPage, act, en.native.contextMenu)
     expect(shape(items)).toEqual(['Back', 'Forward (off)', 'Reload'])
     items[0].click?.({} as never, undefined, {} as never)
     items[2].click?.({} as never, undefined, {} as never)
     expect(act.back).toHaveBeenCalled()
     expect(act.reload).toHaveBeenCalled()
-    expect(shape(contextMenuTemplate(params({ isEditable: true }), webPage, act))).not.toContain(
-      'Reload',
-    )
-    expect(shape(contextMenuTemplate(params({ selectionText: 'x' }), webPage, act))).toEqual([
-      'copy',
-    ])
+    expect(
+      shape(contextMenuTemplate(params({ isEditable: true }), webPage, act, en.native.contextMenu)),
+    ).not.toContain('Reload')
+    expect(
+      shape(
+        contextMenuTemplate(params({ selectionText: 'x' }), webPage, act, en.native.contextMenu),
+      ),
+    ).toEqual(['copy'])
   })
 
   it('right-click in a text field and on a web page shows the native menu', () => {
     popups.length = 0
     const app = fakeContents('window', 'app window')
-    attachContextMenu(app as never, false)
+    attachContextMenu(app as never, false, () => en.native.contextMenu)
     app.rightClick({ isEditable: true, editFlags: { ...flags, canCopy: true } })
     expect(popups.at(-1)?.items.map((i) => i.role)).toEqual(
       expect.arrayContaining(['cut', 'copy', 'paste', 'selectAll']),
@@ -136,7 +168,7 @@ describe('contextMenuTemplate', () => {
     expect(popups.at(-1)?.options).toEqual({ window: 'app window' })
 
     const page = fakeContents('webview', null)
-    attachContextMenu(page as never, true)
+    attachContextMenu(page as never, true, () => en.native.contextMenu)
     page.rightClick({})
     expect(popups).toHaveLength(2)
     expect(popups[1].items.map((i) => i.label)).toEqual(['Back', 'Forward', 'Reload'])

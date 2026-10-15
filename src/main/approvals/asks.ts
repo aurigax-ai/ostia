@@ -1,5 +1,6 @@
 import type { PermissionAgent } from '../../shared/agents/agentPermissions'
 import type { QuestionRequest } from '../../shared/agents/questions'
+import type { Dict } from '../../shared/app/dict'
 import {
   ALWAYS_ASK,
   type ApprovalAnswer,
@@ -40,7 +41,10 @@ export interface AskResolved {
 
 export type AskAnswerResult = 'ok' | 'unknown-ask' | 'invalid-answer'
 
+type ApprovalText = Dict['approvals']
+
 export interface AskHubDeps {
+  text: () => ApprovalText
   questions: () => Questions | null
   approvals: () => Approvals | null
   identity: (paneId: string) => PaneIdentity | undefined
@@ -56,19 +60,33 @@ export interface AskHub {
   settled: (askId: string, outcome: string) => void
 }
 
-const PERMISSION_LABELS: Record<string, AskChoice> = {
-  once: { id: 'once', label: 'Allow once', tone: 'primary' },
-  always: { id: 'always', label: 'Always allow', tone: 'neutral' },
-  deny: { id: 'deny', label: 'Deny', tone: 'danger' },
+const PERMISSION_ANSWERS: readonly ApprovalAnswer[] = ['once', 'always', 'deny']
+
+const ANSWER_TONES: Record<ApprovalAnswer, AskTone> = {
+  once: 'primary',
+  session: 'neutral',
+  always: 'neutral',
+  workspace: 'neutral',
+  deny: 'danger',
 }
 
-const APPROVAL_LABELS: Record<ApprovalAnswer, AskChoice> = {
-  once: { id: 'once', label: 'Allow once', tone: 'primary' },
-  session: { id: 'session', label: 'Allow for this pane', tone: 'neutral' },
-  always: { id: 'always', label: 'Always allow', tone: 'neutral' },
-  workspace: { id: 'workspace', label: 'Allow for this workspace', tone: 'neutral' },
-  deny: { id: 'deny', label: 'Deny', tone: 'danger' },
+function answerLabel(answer: ApprovalAnswer, text: ApprovalText): string {
+  const labels: Record<ApprovalAnswer, string> = {
+    once: text.allowOnce,
+    session: text.allowSession,
+    always: text.allowAlways,
+    workspace: text.allowWorkspace,
+    deny: text.deny,
+  }
+  return labels[answer]
 }
+
+function answerChoice(answer: ApprovalAnswer, text: ApprovalText): AskChoice {
+  return { id: answer, label: answerLabel(answer, text), tone: ANSWER_TONES[answer] }
+}
+
+const isPermissionAnswer = (id: string): id is ApprovalAnswer =>
+  (PERMISSION_ANSWERS as readonly string[]).includes(id)
 
 function isPhoneApproval(request: ApprovalRequest): boolean {
   return (
@@ -80,6 +98,7 @@ function isPhoneApproval(request: ApprovalRequest): boolean {
 function questionAsk(
   request: QuestionRequest,
   at: { workspaceId: string; externalId: string },
+  text: ApprovalText,
 ): Ask {
   const base = {
     askId: request.id,
@@ -94,10 +113,7 @@ function questionAsk(
       ...base,
       kind: 'permission',
       agent: request.permission.agent,
-      choices: request.choices.flatMap((id) => {
-        const choice = PERMISSION_LABELS[id]
-        return choice ? [choice] : []
-      }),
+      choices: request.choices.filter(isPermissionAnswer).map((id) => answerChoice(id, text)),
       allowText: false,
     }
   }
@@ -113,7 +129,7 @@ function questionAsk(
   }
 }
 
-function approvalAsk(request: ApprovalRequest, identity: PaneIdentity): Ask {
+function approvalAsk(request: ApprovalRequest, identity: PaneIdentity, text: ApprovalText): Ask {
   return {
     askId: request.id,
     sessionId: identity.workspaceId,
@@ -121,7 +137,7 @@ function approvalAsk(request: ApprovalRequest, identity: PaneIdentity): Ask {
     kind: 'approval',
     title: request.action,
     ...(request.detail ? { detail: request.detail } : {}),
-    choices: offeredAnswers(request).map((answer) => APPROVAL_LABELS[answer]),
+    choices: offeredAnswers(request).map((answer) => answerChoice(answer, text)),
     allowText: false,
     since: request.at,
   }
@@ -139,15 +155,19 @@ export function createAskHub(deps: AskHubDeps): AskHub {
 
   const fromQuestion = (request: QuestionRequest): Ask | null => {
     if (request.source)
-      return questionAsk(request, { workspaceId: request.source.workspaceId, externalId: '' })
+      return questionAsk(
+        request,
+        { workspaceId: request.source.workspaceId, externalId: '' },
+        deps.text(),
+      )
     const identity = deps.identity(request.paneId)
-    return identity ? questionAsk(request, identity) : null
+    return identity ? questionAsk(request, identity, deps.text()) : null
   }
 
   const fromApproval = (request: ApprovalRequest): Ask | null => {
     if (!isPhoneApproval(request)) return null
     const identity = deps.identity(request.paneId)
-    return identity ? approvalAsk(request, identity) : null
+    return identity ? approvalAsk(request, identity, deps.text()) : null
   }
 
   const list = (): Ask[] => {
