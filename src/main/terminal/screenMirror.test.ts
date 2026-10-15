@@ -165,7 +165,7 @@ describe('ScreenMirror', () => {
     mirror.dispose()
   })
 
-  it('moves its revision on parsed output, a resize and a restore mark, never on a read', async () => {
+  it('moves its revision on parsed output, a resize and a restore, never on a read', async () => {
     const mirror = await mirrored('out\r\n', 80, 10)
     const seen = [mirror.revision]
     mirror.serialize()
@@ -173,7 +173,7 @@ describe('ScreenMirror', () => {
     mirror.resize(40, 10)
     await mirror.flush()
     seen.push(mirror.revision)
-    mirror.markRestored('old')
+    mirror.restore('old')
     await mirror.flush()
     seen.push(mirror.revision)
     mirror.dispose()
@@ -224,10 +224,9 @@ describe('ScreenMirror.bracketedPaste', () => {
   })
 })
 
-async function restoredRun(history: string, seam: string, after: string): Promise<string> {
+async function restoredRun(history: string, after: string): Promise<string> {
   const mirror = new ScreenMirror(WIDE, 30)
-  mirror.write(`${history}${seam}`)
-  mirror.markRestored(history)
+  mirror.restore(history)
   mirror.write(after)
   await mirror.flush()
   const saved = mirror.serialize()
@@ -235,54 +234,70 @@ async function restoredRun(history: string, seam: string, after: string): Promis
   return saved
 }
 
-const seams = (text: string, seam: string) => text.split(seam.slice(seam.indexOf('──'))).length - 1
+const seams = (text: string) => text.split(/workspace restored|woke from hibernation/).length - 1
+const shown = (saved: string, seam: string) => `${saved}${seam}`
 const freshPrompt = (clock: string) => `${precmd(null)}${promptLines(clock)}`
-const ranCommand = (clock: string) =>
-  `${freshPrompt(clock)}ls\r\n${mark('C')}LS-OUT\r\n${precmd(0)}${promptLines(clock)}`
+const ranCommand = (clock: string, command = 'ls', output = 'LS-OUT') =>
+  `${freshPrompt(clock)}${command}\r\n${mark('C')}${output}\r\n${precmd(0)}${promptLines(clock)}`
 
 describe('ScreenMirror restored history', () => {
   it('saves the restored history unchanged while no command ran, restart after restart', async () => {
     const history = await serialized(zshSession())
-    const first = await restoredRun(history, RESTORE_SEAM, freshPrompt('13:00:00'))
-    const second = await restoredRun(first, RESTORE_SEAM, freshPrompt('13:05:00'))
+    const first = await restoredRun(history, freshPrompt('13:00:00'))
+    const second = await restoredRun(first, freshPrompt('13:05:00'))
     expect(first).toBe(history)
     expect(second).toBe(history)
-    expect(seams(second, RESTORE_SEAM)).toBe(0)
+    expect(seams(second)).toBe(0)
   })
 
-  it('keeps one seam before the output of a command run after the restore', async () => {
+  it('saves no seam, so a command after the restore follows the earlier output directly', async () => {
     const history = await serialized(zshSession())
-    const used = await restoredRun(history, RESTORE_SEAM, ranCommand('13:00:00'))
-    const idle = await restoredRun(used, RESTORE_SEAM, freshPrompt('13:05:00'))
+    const used = await restoredRun(history, ranCommand('13:00:00'))
+    const idle = await restoredRun(used, freshPrompt('13:05:00'))
     expect(idle).toBe(used)
-    expect(seams(idle, RESTORE_SEAM)).toBe(1)
+    expect(seams(idle)).toBe(0)
     const lines = await screenText(idle, WIDE)
-    const seamLine = lines.findIndex((l) => l.includes('workspace restored'))
-    expect(seamLine).toBeGreaterThan(lines.findIndex((l) => l === 'MARKER-OUT'))
-    expect(lines.findIndex((l) => l === 'LS-OUT')).toBeGreaterThan(seamLine)
+    expect(lines.findIndex((l) => l === 'LS-OUT')).toBeGreaterThan(
+      lines.findIndex((l) => l === 'MARKER-OUT'),
+    )
+  })
+
+  it('RSM-C1 shows one seam and each command once after three restarts that each ran a command', async () => {
+    let saved = await serialized(zshSession())
+    const commands = ["'claude' --resume dead-1", 'ls', 'pwd']
+    for (const [i, command] of commands.entries()) {
+      saved = await restoredRun(saved, ranCommand(`13:0${i}:00`, command, `OUT-${i}`))
+    }
+    const lines = await screenText(shown(saved, RESTORE_SEAM), WIDE)
+    expect(seams(lines.join('\n'))).toBe(1)
+    for (const command of commands) {
+      expect(lines.filter((l) => l.endsWith(command))).toHaveLength(1)
+    }
   })
 
   it('saves the restored history unchanged when the shell prints before its first prompt', async () => {
     const history = await serialized(zshSession())
     const greeting = 'To run a command as administrator, use "sudo <command>".\r\n'
-    const first = await restoredRun(history, RESTORE_SEAM, `${greeting}${freshPrompt('13:00:00')}`)
-    const second = await restoredRun(first, RESTORE_SEAM, `${greeting}${freshPrompt('13:05:00')}`)
+    const first = await restoredRun(history, `${greeting}${freshPrompt('13:00:00')}`)
+    const second = await restoredRun(first, `${greeting}${freshPrompt('13:05:00')}`)
     expect(first).toBe(history)
     expect(second).toBe(history)
   })
 
-  it('does the same for a pane woken from hibernation', async () => {
+  it('does the same for a pane woken from hibernation, and shows one wake seam', async () => {
     const history = await serialized(zshSession())
-    const asleep = await restoredRun(history, HIBERNATE_SEAM, freshPrompt('13:00:00'))
+    const asleep = await restoredRun(history, freshPrompt('13:00:00'))
     expect(asleep).toBe(history)
-    const used = await restoredRun(asleep, HIBERNATE_SEAM, ranCommand('13:05:00'))
-    expect(seams(used, HIBERNATE_SEAM)).toBe(1)
+    const used = await restoredRun(asleep, ranCommand('13:05:00'))
+    const again = await restoredRun(used, ranCommand('13:10:00'))
+    expect(seams(again)).toBe(0)
+    expect(seams((await screenText(shown(again, HIBERNATE_SEAM), WIDE)).join('\n'))).toBe(1)
   })
 
-  it('saves the whole screen once a shell without marks prints past the seam', async () => {
-    const saved = await restoredRun('old', RESTORE_SEAM, 'new output\r\n$ ')
+  it('saves the whole screen once a shell without marks prints past the restore', async () => {
+    const saved = await restoredRun('old', 'new output\r\n$ ')
     const lines = await screenText(saved, WIDE)
-    expect(lines).toEqual(['old', '── workspace restored ──', 'new output', '$'])
+    expect(lines).toEqual(['old', 'new output', '$'])
   })
 })
 

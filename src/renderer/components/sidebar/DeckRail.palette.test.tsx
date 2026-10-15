@@ -5,9 +5,10 @@ import { CommandPalette } from '@/components/palette/CommandPalette'
 import { useUIStore } from '@/stores/app/uiStore'
 import { startRailEditSync, useRailEditStore } from '@/stores/workspaces/railEditStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { renderSettled } from '../../../../test/render'
 import { DeckRail } from './DeckRail'
 
 const PALETTE_COMMANDS = new Set(['workspace.rename', 'workspace.describe'])
@@ -72,7 +73,7 @@ describe('DeckRail edits started from the palette', () => {
   }
 
   it('Rename Workspace from the palette focuses the rail editor and keeps the typed name', async () => {
-    render(
+    await renderSettled(
       <>
         <DeckRail />
         <CommandPalette />

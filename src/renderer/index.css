@@ -264,6 +264,27 @@
   background-clip: padding-box;
 }
 
+.scroll-quiet {
+  --scroll-gutter: calc(var(--spacing) * 2.5);
+}
+
+.scroll-quiet > [data-slot="scroll-area-viewport"] {
+  @apply scroll-fade;
+  padding-inline-end: var(--scroll-gutter);
+}
+
+.scroll-quiet > [data-slot="scroll-area-scrollbar"] {
+  width: var(--scroll-gutter);
+  border-width: 0;
+  opacity: 0;
+  transition: opacity var(--motion-base-exit) var(--ease-in);
+}
+
+.scroll-quiet > [data-slot="scroll-area-scrollbar"][data-scrolling] {
+  opacity: 1;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
 .app {
   position: relative;
   display: grid;
@@ -564,10 +585,14 @@
   text-transform: none;
 }
 
-.workspaces {
+.rail-scroll {
+  --scroll-gutter: calc(var(--spacing) * 1.5);
   flex: 1 1 auto;
-  overflow-y: auto;
-  padding: 4px 6px;
+  min-height: 0;
+}
+
+.workspaces {
+  padding: 4px 0 4px 6px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -2110,25 +2135,6 @@
   gap: 6px;
   min-width: 0;
   margin-right: 4px;
-}
-
-.artifact-chip-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 240px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.artifact-chip-icon {
-  display: inline-flex;
-  flex-shrink: 0;
-}
-
-.artifact-chip-scroll {
-  max-height: 320px;
 }
 
 .version-view {

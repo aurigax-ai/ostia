@@ -1,3 +1,4 @@
+import { DropdownMenu, MenuItem } from '@/components/common/Menu'
 import { Alert } from '@/components/ui/alert'
 import {
   AlertDialog,
@@ -11,14 +12,12 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Item, ItemContent, ItemTitle } from '@/components/ui/item'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatBytes, formatDate } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { usePaneVisible } from '@/lib/attention/workspaceActivity'
 import { useArtifactListing } from '@/lib/files/artifacts'
 import { csvDelimiter } from '@/lib/files/csvTable'
+import { baseName } from '@/lib/files/fileTree'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type ShownVersion, useArtifactVersionsStore } from '@/stores/files/artifactVersionsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
@@ -30,12 +29,6 @@ import { HtmlPreview } from './HtmlPreview'
 import { ImageViewer } from './ImageViewer'
 import { MarkdownPreview } from './MarkdownPreview'
 import { PdfViewer } from './PdfViewer'
-
-const SCROLL_FROM = 8
-
-function baseName(path: string): string {
-  return path.split('/').pop() ?? path
-}
 
 function useTopArtifact(workspaceId: string, filePath: string): boolean {
   const listing = useArtifactListing(workspaceId)
@@ -83,72 +76,47 @@ export function ArtifactVersionsButton({
   const locale = useSettingsStore((s) => s.locale)
   const top = useTopArtifact(workspaceId, filePath)
   const versions = useVersions(workspaceId, filePath, top)
-  const [open, setOpen] = useState(false)
   if (!top || versions.length === 0) return null
   const name = baseName(filePath)
-  const rows = (
-    <ul className="artifact-chip-list" aria-label={d.portable.versions}>
-      {versions.map((version) => (
-        <li key={version.id}>
-          <Item
-            size="xs"
-            className="w-full text-left"
-            render={
-              <button
-                type="button"
-                aria-label={fmt(d.portable.versionRow, {
-                  name,
-                  time: formatDate(version.time, locale),
-                })}
-                onClick={() => {
-                  setOpen(false)
-                  if (version.current) useArtifactVersionsStore.getState().back(paneId)
-                  else
-                    void useArtifactVersionsStore
-                      .getState()
-                      .show(workspaceId, paneId, filePath, version)
-                }}
-              />
-            }
-          >
-            <ItemContent>
-              <ItemTitle className="text-ui-sm">{formatDate(version.time, locale)}</ItemTitle>
-            </ItemContent>
-            <span className="artifact-meta text-ui-xs">{formatBytes(version.size, locale)}</span>
-            {version.current ? (
-              <Badge variant="outline" className="text-ui-xs">
-                {d.portable.current}
-              </Badge>
-            ) : null}
-          </Item>
-        </li>
-      ))}
-    </ul>
-  )
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <Button
-            variant="outline"
-            size="xs"
-            aria-label={fmt(d.portable.versionCount, { count: versions.length })}
-          >
-            {d.portable.versions}
-            <Badge variant="secondary" className="text-ui-xs">
-              {versions.length}
-            </Badge>
-          </Button>
-        }
-      />
-      <PopoverContent align="end" className="pane-chip-popover">
-        {versions.length > SCROLL_FROM ? (
-          <ScrollArea className="artifact-chip-scroll">{rows}</ScrollArea>
-        ) : (
-          rows
-        )}
-      </PopoverContent>
-    </Popover>
+    <DropdownMenu
+      trigger={
+        <Button
+          variant="outline"
+          size="xs"
+          aria-label={fmt(d.portable.versionCount, { count: versions.length })}
+        >
+          {d.portable.versions}
+          <Badge variant="secondary" className="text-ui-xs">
+            {versions.length}
+          </Badge>
+        </Button>
+      }
+    >
+      {versions.map((version) => (
+        <MenuItem
+          key={version.id}
+          aria-label={fmt(d.portable.versionRow, { name, time: formatDate(version.time, locale) })}
+          hint={
+            <>
+              {formatBytes(version.size, locale)}
+              {version.current ? (
+                <Badge variant="outline" className="text-ui-xs">
+                  {d.portable.current}
+                </Badge>
+              ) : null}
+            </>
+          }
+          onClick={() => {
+            if (version.current) useArtifactVersionsStore.getState().back(paneId)
+            else
+              void useArtifactVersionsStore.getState().show(workspaceId, paneId, filePath, version)
+          }}
+        >
+          {formatDate(version.time, locale)}
+        </MenuItem>
+      ))}
+    </DropdownMenu>
   )
 }
 

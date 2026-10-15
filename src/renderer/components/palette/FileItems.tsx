@@ -1,12 +1,11 @@
 import { CommandGroup, CommandItem } from '@/components/ui/command'
 import { useDict } from '@/lib/app/useDict'
-import { childPath } from '@/lib/files/fileTree'
+import { childPath, splitPath } from '@/lib/files/fileTree'
 import { openFileAt } from '@/lib/files/openFile'
 import {
   FILE_SEARCH_DELAY_MS,
   type WorkspaceFileResult,
   findWorkspaceFiles,
-  splitFilePath,
   splitFilePosition,
 } from '@/lib/files/workspaceFileSearch'
 import { symbolOf } from '@/lib/palette/paletteModes'
@@ -65,7 +64,7 @@ export function FileItems({
   return (
     <CommandGroup heading={d.palette.modes.files} className={GROUP_CLASS} forceMount>
       {result.hits.map((hit) => {
-        const { name, dir } = splitFilePath(hit.path)
+        const { name, dir } = splitPath(hit.path)
         return (
           <CommandItem
             key={hit.path}

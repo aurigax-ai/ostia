@@ -1,7 +1,7 @@
 import { registerCore } from '@/commands/coreCommand'
 import { hibernateWorkspaces, resumeWorkspaces } from '@/lib/agents/hibernationScheduler'
 import { currentDict } from '@/lib/app/useDict'
-import { goToWorkspace, markWorkspaceRead, stepWorkspace } from '@/lib/attention/workspaceActivity'
+import { markWorkspaceRead } from '@/lib/attention/workspaceActivity'
 import { openArtifact, openPad } from '@/lib/files/artifacts'
 import { callerHasFocus } from '@/lib/panes/callerFocus'
 import { groupMates } from '@/lib/sidebar/groupPeers'
@@ -13,6 +13,7 @@ import {
 import { runCmuxImport } from '@/lib/workspaces/cmuxImport'
 import { mergeRefusalText } from '@/lib/workspaces/mergeRefusalText'
 import { startNewWorkspace, startScratchWorkspace } from '@/lib/workspaces/newWorkspace'
+import { goToWorkspace, stepWorkspace } from '@/lib/workspaces/selectWorkspace'
 import { loadMergeTargets, requestMergeWorkspace } from '@/lib/workspaces/workspaceMerge'
 import {
   anchorToFocusedPane,
@@ -261,21 +262,21 @@ function registerSwitchAndCreateCommands(): void {
     category: 'workspace',
     hidden: true,
     target: 'none',
-    run: ({ index }) => ({ switched: goToWorkspace(index) }),
+    run: ({ index }, ctx) => ({ switched: goToWorkspace(index, ctx.origin !== 'remote') }),
   })
 
   registerCore<undefined, { switched: boolean }>({
     id: 'workspace.next',
     category: 'workspace',
     target: 'none',
-    run: () => ({ switched: stepWorkspace(1) }),
+    run: (_args, ctx) => ({ switched: stepWorkspace(1, ctx.origin !== 'remote') }),
   })
 
   registerCore<undefined, { switched: boolean }>({
     id: 'workspace.previous',
     category: 'workspace',
     target: 'none',
-    run: () => ({ switched: stepWorkspace(-1) }),
+    run: (_args, ctx) => ({ switched: stepWorkspace(-1, ctx.origin !== 'remote') }),
   })
 
   registerCore<

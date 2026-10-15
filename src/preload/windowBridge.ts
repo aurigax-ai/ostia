@@ -56,8 +56,8 @@ export const windowBridge: Pick<
     openWith: (workspaces) =>
       ipcRenderer.invoke('windows:open-with', workspaces) as Promise<boolean>,
     report: (workspaces) => ipcRenderer.send('windows:report', workspaces),
-    focusWorkspace: (workspaceId, jumpToUnread) =>
-      ipcRenderer.send('windows:focus-workspace', workspaceId, jumpToUnread),
+    focusWorkspace: (workspaceId, jumpToUnread, takesKeyboard) =>
+      ipcRenderer.send('windows:focus-workspace', workspaceId, jumpToUnread, takesKeyboard),
     returnWorkspace: (workspaceId) => ipcRenderer.send('windows:return-workspace', workspaceId),
     newWorkspace: (request) => ipcRenderer.send('windows:new-workspace', request),
     onList: (cb) => listen('windows:list', cb),

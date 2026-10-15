@@ -6,13 +6,14 @@ import {
   wakePane,
 } from '@/lib/agents/hibernationScheduler'
 import { isStaleAgentReport } from '@/lib/agents/paneAgent'
-import { withCommandLineEnv } from '@/lib/agents/resumeEnv'
 import {
   claimAcrossWindows,
   claimResume,
   paneResumeHolder,
   resumeHolder,
 } from '@/lib/agents/resumeFolder'
+import { resumeStarted, watchResumeOutcome } from '@/lib/agents/resumeOutcome'
+import { withTypedLaunch } from '@/lib/agents/resumeTyped'
 import { postAgentNotification } from '@/lib/attention/agentNotification'
 import { announceBusMessage } from '@/lib/attention/busNotice'
 import {
@@ -86,13 +87,21 @@ function registerAgentSessionCommands(): void {
     id: 'resume.set',
     category: 'pane',
     hidden: true,
+    local: true,
     capabilities: ['drive-self'],
     run: (raw, ctx) => {
       if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
-      const resume = withCommandLineEnv(parseAgentResume(raw), ctx.activePaneId)
+      const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
+      const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
+      const resume = withTypedLaunch(
+        parseAgentResume(raw),
+        ctx.activePaneId,
+        pane?.kind === 'terminal' ? pane.resume : undefined,
+      )
       if (!resume) throw new Error('invalid resume')
       useLayoutStore.getState().setResume(ctx.activeWorkspaceId, ctx.activePaneId, resume)
       useBlocksStore.getState().markAgent(ctx.activePaneId, resume.agent)
+      resumeStarted(ctx.activePaneId)
     },
   })
 
@@ -118,7 +127,10 @@ function registerAgentSessionCommands(): void {
       if (pane.hibernated) return { resumed: wakePane(pane.id) }
       if (pane.resumeFolderMissing) return { resumed: false }
       const resumed = insertCommand(pane.id, resumeCommand(pane.resume), true)
-      if (resumed) claimResume(pane.id, pane.resume)
+      if (resumed) {
+        claimResume(pane.id, pane.resume)
+        watchResumeOutcome(pane.id, pane.resume)
+      }
       return { resumed }
     },
   })
@@ -155,7 +167,9 @@ function registerAgentSessionCommands(): void {
       if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
       const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
       const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
-      return { resume: pane?.kind === 'terminal' && pane.resume ? pane.resume : null }
+      if (pane?.kind !== 'terminal' || !pane.resume) return { resume: null }
+      const { typed: _typed, ...resume } = pane.resume
+      return { resume }
     },
   })
 

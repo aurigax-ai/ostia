@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { baseName } from '@/lib/files/fileTree'
 import { type QuitLosses, keptAgents, quitLosses } from '@/lib/workspaces/closeConfirm'
 import {
   type CloseConfirmKind,
@@ -131,7 +132,7 @@ export function CloseConfirmDialog(): JSX.Element {
                   <li key={file} className="flex min-w-0 items-center gap-2 text-fg-muted">
                     <FileDashedIcon size={14} className="shrink-0" aria-hidden />
                     <span className="truncate text-fg text-ui-sm">
-                      {fmt(d.closeConfirm.unsaved, { file: file.split('/').pop() || file })}
+                      {fmt(d.closeConfirm.unsaved, { file: baseName(file) })}
                     </span>
                   </li>
                 ))}

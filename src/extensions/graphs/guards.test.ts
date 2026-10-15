@@ -113,7 +113,12 @@ describe('what the graphs extension may do', () => {
     for (const file of core.filter((f) => f.includes('/renderer/commands/'))) {
       expect(read(file)).not.toMatch(/id: 'graphs?\./)
     }
-    const dict = read(join(REPO, 'src/shared/app/dict.ts'))
+    const dict = [
+      join(REPO, 'src/shared/app/dict.ts'),
+      ...sources(join(REPO, 'src/shared/strings')),
+    ]
+      .map(read)
+      .join('\n')
     expect(dict).not.toMatch(/^\s{4}graphs?: \{/m)
     const owned = core.filter(
       (f) =>

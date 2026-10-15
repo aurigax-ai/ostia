@@ -25,13 +25,13 @@ import {
   cleanup,
   createEvent,
   fireEvent,
-  render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../../../test/render'
 import { DeckRail } from './DeckRail'
 import { HibernateSkippedDialog } from './HibernateSkippedDialog'
 
@@ -114,7 +114,7 @@ describe('DeckRail', () => {
     vi.restoreAllMocks()
   })
 
-  it('marks a scratch workspace row with a Scratch badge, and no other row', () => {
+  it('marks a scratch workspace row with a Scratch badge, and no other row', async () => {
     seedWorkspaces()
     useWorkspacesStore.setState((st) => ({
       workspaces: [
@@ -129,14 +129,14 @@ describe('DeckRail', () => {
         },
       ],
     }))
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     expect(within(rowFor(/Scratch 2/)).getByText('Scratch')).toHaveClass('scratch-badge')
     expect(within(rowFor(/beta/)).queryByText('Scratch')).toBeNull()
   })
 
-  it('wraps long workspace titles only when the setting is on', () => {
+  it('wraps long workspace titles only when the setting is on', async () => {
     seedWorkspaces()
-    const { rerender } = render(<DeckRail />)
+    const { rerender } = await renderSettled(<DeckRail />)
     expect(screen.getByText('alpha')).not.toHaveClass('wrap')
 
     act(() => useSettingsStore.getState().setWorkspaces({ wrapTitles: true }))
@@ -144,14 +144,14 @@ describe('DeckRail', () => {
     expect(screen.getByText('alpha')).toHaveClass('wrap')
   })
 
-  it('shows or hides each row detail by the sidebar settings', () => {
+  it('shows or hides each row detail by the sidebar settings', async () => {
     seedWorkspaces()
     useWorkspacesStore.setState((st) => ({
       workspaces: st.workspaces.map((w) =>
         w.id === 's1' ? { ...w, description: 'fix login' } : w,
       ),
     }))
-    const { rerender } = render(<DeckRail />)
+    const { rerender } = await renderSettled(<DeckRail />)
     expect(screen.getByText('/home/alpha')).toBeInTheDocument()
     expect(screen.getByText('fix login')).toBeInTheDocument()
 
@@ -162,7 +162,7 @@ describe('DeckRail', () => {
     expect(rowFor(/alpha/).querySelector('.rail-meta')).toBeNull()
   })
 
-  it('a pane moved to a new window rejoins its workspace when it comes back', () => {
+  it('a pane moved to a new window rejoins its workspace when it comes back', async () => {
     seedWorkspaces()
     useWindowsStore.getState().setInfo('1', false)
     const moved = {
@@ -177,7 +177,7 @@ describe('DeckRail', () => {
       { windowId: '1', detached: false, workspaces: [] },
       { windowId: '2', detached: true, workspaces: [moved] },
     ])
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
 
     expect(screen.getAllByLabelText('In another window')).toHaveLength(1)
     expect(screen.getByRole('button', { name: /api/ })).toBeInTheDocument()
@@ -191,7 +191,7 @@ describe('DeckRail', () => {
     expect(screen.queryByRole('button', { name: /api/ })).toBeNull()
   })
 
-  it('collapses each row to its icon with no close button or details', () => {
+  it('collapses each row to its icon with no close button or details', async () => {
     seedWorkspaces()
     useWorkspacesStore.setState((st) => ({
       workspaces: st.workspaces.map((w) =>
@@ -199,7 +199,7 @@ describe('DeckRail', () => {
       ),
     }))
     useUIStore.setState({ railCollapsed: true })
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
 
     expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
     expect(screen.queryByText('fix login')).toBeNull()
@@ -210,14 +210,14 @@ describe('DeckRail', () => {
     expect(screen.getByRole('button', { name: 'beta' })).toBeInTheDocument()
   })
 
-  it('shows the unread count in the row’s leading slot, before the title', () => {
+  it('shows the unread count in the row’s leading slot, before the title', async () => {
     seedWorkspaces()
     const pane = createPane('terminal')
     useLayoutStore.setState({
       byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
     })
     useAttentionStore.setState({ byPane: { [pane.id]: { state: 'done', unread: true, at: 1 } } })
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     const badge = within(rowFor(/alpha/)).getByRole('img', { name: '1 unread' })
     expect(badge.closest('.tab-lead-wrap')).not.toBeNull()
     expect(
@@ -226,13 +226,13 @@ describe('DeckRail', () => {
     expect(within(rowFor(/beta/)).queryByRole('img', { name: /unread/ })).toBeNull()
   })
 
-  it('marks a workspace that holds a locked tab and offers no close button for it', () => {
+  it('marks a workspace that holds a locked tab and offers no close button for it', async () => {
     seedWorkspaces()
     const kept = { ...createPane('terminal'), locked: true as const }
     useLayoutStore.setState({
       byWorkspace: { s1: { root: kept, activePaneId: kept.id, zoomedPaneId: null } },
     })
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     expect(
       within(rowFor(/alpha/)).getByRole('img', { name: /Holds a locked tab/ }),
     ).toBeInTheDocument()
@@ -248,7 +248,7 @@ describe('DeckRail', () => {
       domains: [],
       controls: {},
     }))
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     expect(await within(rowFor(/alpha/)).findByRole('img', { name: 'Sandboxed' })).toBeVisible()
     expect(within(rowFor(/beta/)).queryByRole('img', { name: 'Sandboxed' })).toBeNull()
   })
@@ -268,7 +268,7 @@ describe('DeckRail', () => {
     })
     useSandboxStore.getState().notePane('pa', false)
     const user = userEvent.setup()
-    render(
+    await renderSettled(
       <>
         <DeckRail />
         <SandboxFolderDialog />
@@ -291,15 +291,15 @@ describe('DeckRail', () => {
     )
   })
 
-  it('keeps the close button on expanded rows', () => {
+  it('keeps the close button on expanded rows', async () => {
     seedWorkspaces()
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     expect(within(rowFor(/alpha/)).getByRole('button', { name: 'Close' })).toBeInTheDocument()
   })
 
-  it('renders one row per workspace and marks the active one', () => {
+  it('renders one row per workspace and marks the active one', async () => {
     seedWorkspaces()
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
 
     expect(screen.getByRole('button', { name: /alpha/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /beta/ })).toBeInTheDocument()
@@ -315,7 +315,7 @@ describe('DeckRail', () => {
       .mockImplementation(() => {})
     const showWorkspaces = vi.spyOn(useUIStore.getState(), 'showWorkspaces')
 
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     await userEvent.setup().click(screen.getByRole('button', { name: /beta/ }))
 
     expect(setActive).toHaveBeenCalledWith('s2')
@@ -328,15 +328,15 @@ describe('DeckRail', () => {
       .spyOn(useWorkspacesStore.getState(), 'closeWorkspace')
       .mockImplementation(() => {})
 
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     await userEvent.setup().click(within(rowFor(/beta/)).getByRole('button', { name: 'Close' }))
 
     expect(closeWorkspace).toHaveBeenCalledWith('s2')
   })
 
-  it('drives the status dot from the workspace state (working vs idle)', () => {
+  it('drives the status dot from the workspace state (working vs idle)', async () => {
     seedWorkspaces()
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
 
     const workingDot = screen.getByRole('img', { name: 'Working' })
     const idleDot = screen.getByRole('img', { name: 'Idle' })
@@ -347,7 +347,7 @@ describe('DeckRail', () => {
     expect(idleDot).not.toHaveClass('working')
   })
 
-  it('shows the moon only when every terminal of the workspace is hibernated', () => {
+  it('shows the moon only when every terminal of the workspace is hibernated', async () => {
     seedWorkspaces()
     const asleep = { ...createPane('terminal'), hibernated: true as const }
     const alsoAsleep = { ...createPane('terminal'), hibernated: true as const }
@@ -356,11 +356,11 @@ describe('DeckRail', () => {
     useLayoutStore.setState({
       byWorkspace: { s1: { root, activePaneId: asleep.id, zoomedPaneId: null } },
     })
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     expect(within(rowFor(/alpha/)).getByRole('img', { name: 'Hibernated' })).toBeInTheDocument()
   })
 
-  it('keeps the kind icon when one hibernated tab sits among running terminals', () => {
+  it('keeps the kind icon when one hibernated tab sits among running terminals', async () => {
     seedWorkspaces()
     const asleep = { ...createPane('terminal'), hibernated: true as const }
     const running = createPane('terminal')
@@ -368,7 +368,7 @@ describe('DeckRail', () => {
     useLayoutStore.setState({
       byWorkspace: { s1: { root, activePaneId: running.id, zoomedPaneId: null } },
     })
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     expect(within(rowFor(/alpha/)).queryByRole('img', { name: 'Hibernated' })).toBeNull()
   })
 
@@ -388,7 +388,7 @@ describe('DeckRail', () => {
     const blocks = useBlocksStore.getState()
     blocks.promptStart(agent.id, { line: 0 }, null)
     blocks.commandStart(agent.id, { line: 1 }, 'claude')
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     const user = userEvent.setup()
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /beta/ }))
@@ -408,7 +408,7 @@ describe('DeckRail', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Resume agents' }))
     expect(within(rowFor(/alpha/)).queryByRole('img', { name: 'Hibernated' })).toBeNull()
     expect(typed.mock.calls.map(([id, command]) => [id, command])).toEqual([
-      [agent.id, 'claude --resume tok-1'],
+      [agent.id, "'claude' --resume tok-1"],
     ])
   })
 
@@ -425,7 +425,7 @@ describe('DeckRail', () => {
     blocks.promptStart(agent.id, { line: 0 }, null)
     blocks.commandStart(agent.id, { line: 1 }, 'claude')
     vi.mocked(window.ostia.pty.hibernate).mockResolvedValueOnce('subagent')
-    render(
+    await renderSettled(
       <>
         <DeckRail />
         <HibernateSkippedDialog />
@@ -475,7 +475,7 @@ describe('DeckRail', () => {
     }
     blocks.promptStart(shell.id, { line: 0 }, null)
     vi.mocked(window.ostia.pty.hibernate).mockClear()
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     const user = userEvent.setup()
     const header = screen.getByRole('button', { name: /backend/ })
     const asleep = (): string[] =>
@@ -503,8 +503,8 @@ describe('DeckRail', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Resume agents' }))
     expect(asleep()).toEqual([])
     expect(typed.mock.calls.map(([id, command]) => [id, command])).toEqual([
-      [api.id, 'claude --resume tok-api'],
-      [web.id, 'claude --resume tok-web'],
+      [api.id, "'claude' --resume tok-api"],
+      [web.id, "'claude' --resume tok-web"],
     ])
 
     act(() => {
@@ -532,7 +532,7 @@ describe('DeckRail', () => {
       ],
       activeWorkspaceId: 's1',
     })
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     const row = (name: RegExp) => rowFor(name).closest('.rail-row') as HTMLElement
     const target = row(/beta/)
     vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 100, 200, 40))
@@ -564,7 +564,7 @@ describe('DeckRail', () => {
       ],
       activeWorkspaceId: 's1',
     })
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     const target = rowFor(/beta/).closest('.rail-row') as HTMLElement
     vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 100, 200, 40))
     const dataTransfer = { types: ['application/x-ostia-workspace'], setData: vi.fn() }
@@ -579,15 +579,15 @@ describe('DeckRail', () => {
     expect(useWorkspacesStore.getState().workspaces.map((w) => w.id)).toEqual(['s2', 's1'])
   })
 
-  it('gives interactive controls accessible names (a11y)', () => {
+  it('gives interactive controls accessible names (a11y)', async () => {
     seedWorkspaces()
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
 
     expect(screen.getByRole('button', { name: /alpha/ }).tagName).toBe('BUTTON')
     expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(2)
   })
 
-  it('the rail edge drags wider, shows more of the folder, survives a restart and resets', () => {
+  it('the rail edge drags wider, shows more of the folder, survives a restart and resets', async () => {
     const deepDir = '~/alpha-projects/beta-clients/gamma-service/delta-api'
     useWorkspacesStore.setState({
       workspaces: [
@@ -632,7 +632,7 @@ describe('DeckRail', () => {
         for (const cb of observed) cb()
       })
 
-    const first = render(<DeckRail />)
+    const first = await renderSettled(<DeckRail />)
     relayout()
     const path = (): HTMLElement => rowFor(/deep/).querySelector('.rail-meta-path') as HTMLElement
     expect(railWidth()).toBe(240)
@@ -649,16 +649,16 @@ describe('DeckRail', () => {
     first.unmount()
 
     document.documentElement.style.removeProperty('--rail-w')
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     expect(railWidth()).toBe(440)
     fireEvent.doubleClick(resizeHandle())
     expect(railWidth()).toBe(240)
   })
 
-  it('dragging the rail far left collapses it and hides the handle; toggling restores the width', () => {
+  it('dragging the rail far left collapses it and hides the handle; toggling restores the width', async () => {
     seedWorkspaces()
     HTMLElement.prototype.setPointerCapture = () => {}
-    const { container } = render(<DeckRail />)
+    const { container } = await renderSettled(<DeckRail />)
     const rail = container.querySelector('.deck-rail') as HTMLElement
     dragRailEdge(60)
     expect(resizeHandle()).toHaveAttribute('aria-valuenow', '300')
@@ -690,9 +690,9 @@ describe('DeckRail', () => {
         activeWorkspaceId: 's1',
       })
 
-    it('shows the description with a working link outside the row button', () => {
+    it('shows the description with a working link outside the row button', async () => {
       seedRows()
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
       const link = screen.getByRole('link', { name: '#512' })
       expect(link).toHaveAttribute('href', 'https://github.com/o/r/pull/512')
       expect(link).toHaveAttribute('target', '_blank')
@@ -702,7 +702,7 @@ describe('DeckRail', () => {
 
     it('pins a workspace to the top from its menu', async () => {
       seedRows()
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
       fireEvent.contextMenu(screen.getByRole('button', { name: /web/ }))
       await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'Pin to top' }))
       const [first] = useWorkspacesStore.getState().workspaces
@@ -712,7 +712,7 @@ describe('DeckRail', () => {
 
     it('edits a description from the menu', async () => {
       seedRows()
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
       fireEvent.contextMenu(screen.getByRole('button', { name: /web/ }))
       const user = userEvent.setup()
       await user.click(await screen.findByRole('menuitem', { name: 'Add description' }))
@@ -723,9 +723,9 @@ describe('DeckRail', () => {
       expect(useWorkspacesStore.getState().workspaces[1].description).toBe('deploy')
     })
 
-    it('shows each row’s shortcut digit only while hints are on', () => {
+    it('shows each row’s shortcut digit only while hints are on', async () => {
       seedRows()
-      const { rerender } = render(<DeckRail />)
+      const { rerender } = await renderSettled(<DeckRail />)
       expect(screen.queryByText('2')).toBeNull()
       act(() => useUIStore.setState({ digitHints: true }))
       rerender(<DeckRail />)
@@ -784,9 +784,9 @@ describe('DeckRail', () => {
 
     const rowTrigger = (name: RegExp) => rowFor(name).closest('.rail-row') as HTMLElement
 
-    it('shows a header with the name and member count and indents its members', () => {
+    it('shows a header with the name and member count and indents its members', async () => {
       seedGroups()
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
       expect(header()).toHaveAttribute('aria-expanded', 'true')
       expect(within(header()).getByLabelText('Members: 2')).toHaveTextContent('2')
       const group = header().closest('.rail-group') as HTMLElement
@@ -809,7 +809,7 @@ describe('DeckRail', () => {
         },
       })
       useAttentionStore.setState({ byPane: { p2: { state: 'waiting', unread: true, at: 1 } } })
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
 
       await userEvent.setup().click(header())
 
@@ -822,7 +822,7 @@ describe('DeckRail', () => {
 
     it('adds a workspace to the group from the header button', async () => {
       seedGroups()
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
       const group = header().closest('.rail-group') as HTMLElement
 
       await userEvent
@@ -843,7 +843,7 @@ describe('DeckRail', () => {
         ]),
       })
       useSettingsStore.setState({ locale: 'zh-Hant' })
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
 
       expect(screen.getByRole('button', { name: '在群組中新增工作區' })).toBeInTheDocument()
       fireEvent.contextMenu(header())
@@ -855,7 +855,7 @@ describe('DeckRail', () => {
     it('adds a workspace to a collapsed group from the header menu and expands it', async () => {
       seedGroups()
       useWorkspacesStore.getState().setGroupCollapsed('g90', true)
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
 
       fireEvent.contextMenu(header())
       await userEvent
@@ -879,7 +879,7 @@ describe('DeckRail', () => {
 
     it('moves a workspace to a new group from its menu and names it right away', async () => {
       seedGroups()
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
       fireEvent.contextMenu(screen.getByRole('button', { name: /solo/ }))
       const user = userEvent.setup()
       await user.click(await screen.findByRole('menuitem', { name: 'Move to new group' }))
@@ -896,7 +896,7 @@ describe('DeckRail', () => {
     it('moves a workspace into another group from its menu and drops the group it emptied', async () => {
       seedGroups()
       useWorkspacesStore.getState().createGroup('s1', 'tools')
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
       fireEvent.contextMenu(screen.getByRole('button', { name: /solo/ }))
       const user = userEvent.setup()
       const trigger = await screen.findByRole('menuitem', { name: 'Move to group' })
@@ -911,7 +911,7 @@ describe('DeckRail', () => {
 
     it('renames a group on double-click', async () => {
       seedGroups()
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
       const user = userEvent.setup()
       await user.dblClick(header())
       const name = screen.getByRole('textbox', { name: 'Group name' })
@@ -939,7 +939,7 @@ describe('DeckRail', () => {
 
       it('workspace.rename opens the inline name editor on the active workspace', async () => {
         seedGroups()
-        render(<DeckRail />)
+        await renderSettled(<DeckRail />)
         await runCommand('workspace.rename', 's1')
         const input = screen.getByRole('textbox', { name: 'Workspace name' })
         expect(input).toHaveValue('solo')
@@ -953,7 +953,7 @@ describe('DeckRail', () => {
 
       it('workspace.describe opens the inline description editor', async () => {
         seedGroups()
-        render(<DeckRail />)
+        await renderSettled(<DeckRail />)
         await runCommand('workspace.describe', 's2')
         const input = screen.getByRole('textbox', { name: 'Workspace description' })
         await userEvent.setup().type(input, 'PR 7{Enter}')
@@ -962,7 +962,7 @@ describe('DeckRail', () => {
 
       it('workspace.renameGroup opens the group editor for the active workspace group', async () => {
         seedGroups()
-        render(<DeckRail />)
+        await renderSettled(<DeckRail />)
         await runCommand('workspace.renameGroup', 's3')
         const input = screen.getByRole('textbox', { name: 'Group name' })
         expect(input).toHaveValue('backend')
@@ -974,7 +974,7 @@ describe('DeckRail', () => {
 
       it('workspace.renameGroup refuses a workspace that is in no group', async () => {
         seedGroups()
-        render(<DeckRail />)
+        await renderSettled(<DeckRail />)
         const res = await runCommand('workspace.renameGroup', 's1')
         expect(res).toMatchObject({ ok: false })
         expect(screen.queryByRole('textbox')).toBeNull()
@@ -982,7 +982,7 @@ describe('DeckRail', () => {
 
       it('workspace.renameGroup with a name renames directly, as the CLI does', async () => {
         seedGroups()
-        render(<DeckRail />)
+        await renderSettled(<DeckRail />)
         await runCommand('workspace.renameGroup', 's2', { name: 'svc' })
         expect(useWorkspacesStore.getState().groups[0].name).toBe('svc')
         expect(screen.queryByRole('textbox')).toBeNull()
@@ -991,7 +991,7 @@ describe('DeckRail', () => {
       it('workspace.rename expands a collapsed group and focuses the member’s editor', async () => {
         seedGroups()
         useWorkspacesStore.getState().setGroupCollapsed('g90', true)
-        render(<DeckRail />)
+        await renderSettled(<DeckRail />)
         expect(screen.queryByRole('button', { name: /api/ })).toBeNull()
         await runCommand('workspace.rename', 's2')
         expect(useWorkspacesStore.getState().groups[0].collapsed).toBeFalsy()
@@ -1004,7 +1004,7 @@ describe('DeckRail', () => {
 
       it('drops the edit when its row is hidden, so expanding the group later opens nothing', async () => {
         seedGroups()
-        render(<DeckRail />)
+        await renderSettled(<DeckRail />)
         await runCommand('workspace.rename', 's2')
         expect(screen.getByRole('textbox', { name: 'Workspace name' })).toBeInTheDocument()
         act(() => useWorkspacesStore.getState().setGroupCollapsed('g90', true))
@@ -1017,7 +1017,7 @@ describe('DeckRail', () => {
       it('drops the edit when the active workspace changes or the workspace is closed', async () => {
         seedGroups()
         useWorkspacesStore.setState({ activeWorkspaceId: 's2' })
-        render(<DeckRail />)
+        await renderSettled(<DeckRail />)
         await runCommand('workspace.describe', 's2')
         expect(screen.getByRole('textbox')).toBeInTheDocument()
         act(() => useWorkspacesStore.getState().setActive('s1'))
@@ -1031,7 +1031,7 @@ describe('DeckRail', () => {
       it('expands an icon-only rail for the edit and collapses it again afterwards', async () => {
         seedGroups()
         useUIStore.setState({ railCollapsed: true })
-        render(<DeckRail />)
+        await renderSettled(<DeckRail />)
         await runCommand('workspace.rename', 's1')
         expect(useUIStore.getState().railCollapsed).toBe(false)
         const input = screen.getByRole('textbox', { name: 'Workspace name' })
@@ -1060,7 +1060,7 @@ describe('DeckRail', () => {
         seedGroups()
         useWorkspacesStore.getState().rename('s1', 'named')
         useWorkspacesStore.getState().describe('s1', 'notes')
-        render(<DeckRail />)
+        await renderSettled(<DeckRail />)
         const remote = { activeWorkspaceId: 's1', activePaneId: null, origin: 'remote' as const }
         await act(() => commands.execWith(remote, 'workspace.rename', undefined))
         await act(() => commands.execWith(remote, 'workspace.describe', {}))
@@ -1073,7 +1073,7 @@ describe('DeckRail', () => {
 
       it('workspace.rename with a name still renames without opening an editor', async () => {
         seedGroups()
-        render(<DeckRail />)
+        await renderSettled(<DeckRail />)
         await runCommand('workspace.rename', 's1', { name: 'cli' })
         expect(useWorkspacesStore.getState().workspaces[0].customName).toBe('cli')
         expect(screen.queryByRole('textbox')).toBeNull()
@@ -1082,7 +1082,7 @@ describe('DeckRail', () => {
 
     it('deletes a group from its menu and keeps every member', async () => {
       seedGroups()
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
       fireEvent.contextMenu(header())
       await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'Delete group' }))
       const { groups, workspaces } = useWorkspacesStore.getState()
@@ -1097,7 +1097,7 @@ describe('DeckRail', () => {
 
     it('removes a workspace from its group from the row menu', async () => {
       seedGroups()
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
       fireEvent.contextMenu(screen.getByRole('button', { name: /api/ }))
       await userEvent
         .setup()
@@ -1110,9 +1110,9 @@ describe('DeckRail', () => {
       ])
     })
 
-    it('drags a member out of its group onto an ungrouped row', () => {
+    it('drags a member out of its group onto an ungrouped row', async () => {
       seedGroups()
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
       drag(rowTrigger(/web/), rowTrigger(/solo/), WORKSPACE_DND, -1)
       const { workspaces } = useWorkspacesStore.getState()
       expect(workspaces.map((w) => [w.id, w.groupId])).toEqual([
@@ -1122,9 +1122,9 @@ describe('DeckRail', () => {
       ])
     })
 
-    it('drags an ungrouped workspace into a group through its header', () => {
+    it('drags an ungrouped workspace into a group through its header', async () => {
       seedGroups()
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
       const head = header().closest('.rail-group-head') as HTMLElement
       drag(rowTrigger(/solo/), head, WORKSPACE_DND, 1)
       const { workspaces } = useWorkspacesStore.getState()
@@ -1135,9 +1135,9 @@ describe('DeckRail', () => {
       ])
     })
 
-    it('drags a whole group above another row', () => {
+    it('drags a whole group above another row', async () => {
       seedGroups()
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
       const head = header().closest('.rail-group-head') as HTMLElement
       drag(head, rowTrigger(/solo/), GROUP_DND, -1)
       expect(useWorkspacesStore.getState().workspaces.map((w) => w.id)).toEqual(['s2', 's3', 's1'])

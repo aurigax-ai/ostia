@@ -14,6 +14,7 @@ import { emptyWorkspaceSandbox } from '@shared/sandbox/sandbox'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../../../test/render'
 import { DeckRail } from './DeckRail'
 import { MergeConfirmDialog } from './MergeConfirmDialog'
 
@@ -90,7 +91,7 @@ describe('merging workspaces', () => {
   describe('row menu', () => {
     it('offers Merge into <name> for the one workspace in the same folder', async () => {
       seed(['api', 'web'])
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
       fireEvent.contextMenu(screen.getByRole('button', { name: /api/ }))
 
       const item = await screen.findByRole('menuitem', { name: 'Merge into web' })
@@ -106,7 +107,7 @@ describe('merging workspaces', () => {
 
     it('lists several targets in a submenu', async () => {
       seed(['api', 'web', 'docs'])
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
       fireEvent.contextMenu(screen.getByRole('button', { name: /api/ }))
       const user = userEvent.setup()
 
@@ -121,7 +122,7 @@ describe('merging workspaces', () => {
       vi.mocked(window.ostia.sandbox.get).mockImplementation(async (id) =>
         id === 'web' ? { ...emptyWorkspaceSandbox(), enabled: true } : null,
       )
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
       fireEvent.contextMenu(screen.getByRole('button', { name: /api/ }))
 
       const item = await screen.findByRole('menuitem', { name: /Merge into web/ })
@@ -131,7 +132,7 @@ describe('merging workspaces', () => {
 
     it('has no merge entry when no other workspace shares the folder', async () => {
       seed(['api'])
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
       fireEvent.contextMenu(screen.getByRole('button', { name: /api/ }))
 
       const menu = await screen.findByRole('menu')
@@ -226,7 +227,7 @@ describe('merging workspaces', () => {
       running: { 'api-p': 'b1' },
       byPane: { 'api-p': [{ id: 'b1', paneId: 'api-p', command: 'tail -f log' } as CommandBlock] },
     })
-    render(
+    await renderSettled(
       <>
         <DeckRail />
         <MergeConfirmDialog />
@@ -245,7 +246,7 @@ describe('merging workspaces', () => {
       running: { 'web-p': 'b1' },
       byPane: { 'web-p': [{ id: 'b1', paneId: 'web-p', command: loop } as CommandBlock] },
     })
-    render(
+    await renderSettled(
       <>
         <DeckRail />
         <MergeConfirmDialog />

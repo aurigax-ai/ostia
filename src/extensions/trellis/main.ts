@@ -18,15 +18,8 @@ import { type AgentLauncher, initHere, panelHandlers } from './panelApi'
 import { sessionContext } from './prompt'
 import { TrellisService, type WorkspaceRef } from './service'
 import { AgentTasks } from './tasks'
-import {
-  BOARD_PATH,
-  HUMAN_ACTOR,
-  TRELLIS_IDENTITY,
-  VAULT_PATH,
-  cardPath,
-  cardRef,
-  panelTarget,
-} from './trellis'
+import { HUMAN_ACTOR, TRELLIS_IDENTITY } from './trellis'
+import { BOARD_PATH, VAULT_PATH, cardPath, cardRef, panelTarget } from './validate'
 
 const REFRESH_SECONDS = { min: 10, max: 3600 }
 const EVENTS: ExtensionEventType[] = ['pane.created', 'pane.closed', 'cwd.changed']

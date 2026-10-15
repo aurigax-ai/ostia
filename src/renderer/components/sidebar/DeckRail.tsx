@@ -1,4 +1,5 @@
 import { PanelResizer } from '@/components/common/PanelResizer'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { ViewsRail } from '@/components/views/ViewsRail'
 import { useDict } from '@/lib/app/useDict'
 import { RAIL_WIDTH } from '@/lib/panes/panelWidth'
@@ -138,56 +139,60 @@ function WorkspacesView(): JSX.Element {
 
   return (
     <>
-      <div className="workspaces">
-        {settingsTabOpen ? (
-          <RailTab
-            active={settingsActive}
-            onSelect={() => openSettings()}
-            onClose={closeSettings}
-            closeLabel={d.rail.close}
-            icon={<GearSixIcon size={16} className="tab-lead" />}
-            title={d.topbar.settings}
-          />
-        ) : null}
+      <ScrollArea className="scroll-quiet rail-scroll">
+        <div className="workspaces">
+          {settingsTabOpen ? (
+            <RailTab
+              active={settingsActive}
+              onSelect={() => openSettings()}
+              onClose={closeSettings}
+              closeLabel={d.rail.close}
+              icon={<GearSixIcon size={16} className="tab-lead" />}
+              title={d.topbar.settings}
+            />
+          ) : null}
 
-        {toBlocks({ workspaces, groups }).map((block) =>
-          block.group ? (
-            <GroupBlock
-              key={block.group.id}
-              group={block.group}
-              members={block.workspaces}
-              containsActive={!covered && block.workspaces.some((w) => w.id === activeId)}
-              drop={target?.kind === 'group' && target.id === block.group.id ? target.place : null}
-              drag={handlers}
-              renaming={renamingGroup === block.group.id}
-              onRenaming={(on) => setRenamingGroup(on ? (block.group?.id ?? null) : null)}
-            >
-              {block.workspaces.map(row)}
-            </GroupBlock>
-          ) : (
-            block.workspaces.map(row)
-          ),
-        )}
+          {toBlocks({ workspaces, groups }).map((block) =>
+            block.group ? (
+              <GroupBlock
+                key={block.group.id}
+                group={block.group}
+                members={block.workspaces}
+                containsActive={!covered && block.workspaces.some((w) => w.id === activeId)}
+                drop={
+                  target?.kind === 'group' && target.id === block.group.id ? target.place : null
+                }
+                drag={handlers}
+                renaming={renamingGroup === block.group.id}
+                onRenaming={(on) => setRenamingGroup(on ? (block.group?.id ?? null) : null)}
+              >
+                {block.workspaces.map(row)}
+              </GroupBlock>
+            ) : (
+              block.workspaces.map(row)
+            ),
+          )}
 
-        <RemoteWorkspaces offset={workspaces.length} />
+          <RemoteWorkspaces offset={workspaces.length} />
 
-        {drag ? (
-          <div
-            className="rail-drop-end"
-            data-drop={target?.kind === 'end' ? 'before' : undefined}
-            onDragOver={(e) => {
-              if (!isRailDrag(e)) return
-              e.preventDefault()
-              handlers.over({ kind: 'end' })
-            }}
-            onDrop={(e) => {
-              if (!isRailDrag(e)) return
-              e.preventDefault()
-              handlers.drop()
-            }}
-          />
-        ) : null}
-      </div>
+          {drag ? (
+            <div
+              className="rail-drop-end"
+              data-drop={target?.kind === 'end' ? 'before' : undefined}
+              onDragOver={(e) => {
+                if (!isRailDrag(e)) return
+                e.preventDefault()
+                handlers.over({ kind: 'end' })
+              }}
+              onDrop={(e) => {
+                if (!isRailDrag(e)) return
+                e.preventDefault()
+                handlers.drop()
+              }}
+            />
+          ) : null}
+        </div>
+      </ScrollArea>
 
       <ViewsRail />
       <SidebarFooter />

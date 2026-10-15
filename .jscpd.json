@@ -1,7 +1,7 @@
 {
   "path": ["src", "packages"],
   "format": ["typescript", "tsx"],
-  "ignore": ["**/*.test.ts", "**/*.test.tsx", "src/renderer/components/ui/**", "src/shared/app/dict.ts"],
+  "ignore": ["**/*.test.ts", "**/*.test.tsx", "src/renderer/components/ui/**", "src/shared/strings/**"],
   "reporters": ["console"],
   "gitignore": true,
   "threshold": 0.6

@@ -6,6 +6,7 @@ import { hasLockedPane } from '@/lib/layout/paneFields'
 import { beginDrag, endWorkspaceDrag, isPaneDrag } from '@/lib/panes/paneDrag'
 import { type RowDropZone, rowDropZone } from '@/lib/sidebar/railDropZone'
 import { requestCloseWorkspace } from '@/lib/workspaces/closeConfirm'
+import { selectWorkspace } from '@/lib/workspaces/selectWorkspace'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
@@ -68,10 +69,7 @@ export function WorkspaceRow({
   useEffect(() => {
     void useSandboxStore.getState().load(w.id)
   }, [w.id])
-  const select = (): void => {
-    useUIStore.getState().showWorkspaces()
-    store().setActive(w.id)
-  }
+  const select = (): void => selectWorkspace(w.id)
   const editor =
     editing === null ? undefined : (
       <RenameInput

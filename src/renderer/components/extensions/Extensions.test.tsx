@@ -379,7 +379,7 @@ describe('Extensions UI', () => {
   })
 
   describe('sidebar items', () => {
-    it('renders per-workspace items on the workspace row and global ones in the footer', () => {
+    it('renders per-workspace items on the workspace row and global ones in the footer', async () => {
       const workspaces: Workspace[] = [
         { id: 's1', name: 'alpha', kind: 'terminal', workDir: '/a', state: 'idle' },
         { id: 's2', name: 'beta', kind: 'terminal', workDir: '/b', state: 'idle' },
@@ -397,7 +397,7 @@ describe('Extensions UI', () => {
         },
         { extId: 'ports', key: 'default', text: ':3000', tone: 'ok', kind: 'live' },
       ]
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
       act(() => useExtensionsStore.setState({ sidebar: items }))
 
       const row = (name: RegExp) =>

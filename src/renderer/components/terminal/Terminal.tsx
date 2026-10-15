@@ -13,6 +13,7 @@ import { attachWheelZoom } from '@/lib/app/wheelZoom'
 import { forgetPaneActivity } from '@/lib/attention/paneActivity'
 import { usePaneVisible } from '@/lib/attention/workspaceActivity'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '@/lib/keyboard/dropPaths'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { measureCells } from '@/lib/prompt/usePromptGeometry'
 import { ghosttyModule, loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import {
@@ -22,6 +23,7 @@ import {
   type TerminalSearch,
   terminalScreen,
 } from '@/lib/terminal/ostiaTerminal'
+import { TERMINAL_INPUT_SELECTOR } from '@/lib/terminal/ostiaTerminal'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { keepDrawing, usePauseWhenHidden } from '@/lib/terminal/usePauseWhenHidden'
 import { type WebglRenderer, createWebglRenderer } from '@/lib/terminal/webglRenderer'
@@ -103,6 +105,13 @@ function TerminalSurface({
   const findStepRef = useRef<((by: number) => void) | null>(null)
   const [alternateScreen, setAlternateScreen] = useState(false)
   const shown = usePaneVisible(paneId)
+  useSurfaceFocus(
+    paneId,
+    () =>
+      surfaceRef.current?.querySelector<HTMLElement>('.input-editor:not([hidden]) textarea') ??
+      hostRef.current?.querySelector<HTMLElement>(TERMINAL_INPUT_SELECTOR) ??
+      null,
+  )
   const dismissLinkHintRef = useRef<() => void>(() => {})
   useEffect(() => {
     if (!shown) dismissLinkHintRef.current()

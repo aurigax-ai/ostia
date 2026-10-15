@@ -1,7 +1,8 @@
 import { text } from 'node:stream/consumers'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { failureHint } from '../common/failure'
-import { type BrowseCall, extractGlobals, parseBrowseCommand, splitCommandLine } from './browseArgs'
+import { extractGlobals, parseBrowseCommand, splitCommandLine } from './browseArgs'
+import type { BrowseCall } from './browseFlags'
 
 export interface BrowseResponse {
   success: boolean

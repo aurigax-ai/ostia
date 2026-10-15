@@ -34,6 +34,9 @@ export function BlockMenu({
   const d = useDict()
   const idle = useBlocksStore((s) => isIdlePrompt(s, paneId))
   const command = useBlocksStore((s) => s.byPane[paneId]?.find((b) => b.id === blockId)?.command)
+  const typedCommand = useBlocksStore(
+    (s) => s.byPane[paneId]?.find((b) => b.id === blockId)?.typedCommand,
+  )
   const failed = useBlocksStore((s) => {
     const block = s.byPane[paneId]?.find((b) => b.id === blockId)
     return Boolean(block?.endLine && block.exitCode !== null && block.exitCode !== 0)
@@ -106,7 +109,7 @@ export function BlockMenu({
         <ContextMenuSeparator />
         <MenuItem
           icon={ArrowClockwiseIcon}
-          disabled={!idle || !command}
+          disabled={!idle || !typedCommand}
           onClick={() => rerunBlock(paneId, blockId)}
         >
           {d.blocks.rerun}

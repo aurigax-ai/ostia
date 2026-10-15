@@ -1,3 +1,4 @@
+import { debounce } from 'es-toolkit'
 import type { OstiaTerminal as Terminal } from './ostiaTerminal'
 
 export const PRIMARY_WRITE_DELAY_MS = 150
@@ -14,20 +15,16 @@ export function installPrimarySelection(
   term: Pick<Terminal, 'onSelectionChange' | 'hasSelection' | 'getSelection'>,
   opts: PrimarySelectionOptions,
 ): () => void {
-  let timer: ReturnType<typeof setTimeout> | null = null
-  const selection = term.onSelectionChange(() => {
-    if (timer) clearTimeout(timer)
-    timer = setTimeout(() => {
-      timer = null
-      if (opts.enabled() && term.hasSelection()) opts.writePrimary(term.getSelection())
-    }, PRIMARY_WRITE_DELAY_MS)
-  })
+  const writeSelection = debounce(() => {
+    if (opts.enabled() && term.hasSelection()) opts.writePrimary(term.getSelection())
+  }, PRIMARY_WRITE_DELAY_MS)
+  const selection = term.onSelectionChange(writeSelection)
   const blockMiddlePaste = (e: MouseEvent): void => {
     if (e.button === MIDDLE_BUTTON && !opts.enabled()) e.preventDefault()
   }
   host.addEventListener('mouseup', blockMiddlePaste, true)
   return () => {
-    if (timer) clearTimeout(timer)
+    writeSelection.cancel()
     selection.dispose()
     host.removeEventListener('mouseup', blockMiddlePaste, true)
   }
