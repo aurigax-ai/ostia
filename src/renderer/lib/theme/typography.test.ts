@@ -24,7 +24,14 @@ const SETTINGS_FONT_FILES = new Map([
   ['src/renderer/components/terminal/Terminal.tsx', 'passes the terminal font settings to xterm'],
   ['src/renderer/lib/terminal/ghosttyTerminal.ts', 'passes the terminal font settings to Ghostty'],
   ['src/renderer/lib/terminal/readOnlyTerminal.ts', 'passes the terminal font settings to xterm'],
-  ['src/renderer/components/editor/Editor.tsx', 'passes the editor font settings to Monaco'],
+  [
+    'src/renderer/components/editor/useMonacoEditor.ts',
+    'passes the editor font settings to Monaco',
+  ],
+  [
+    'src/renderer/components/editor/useEditorOptions.ts',
+    'passes the editor font settings to Monaco',
+  ],
   ['src/renderer/components/editor/DiffView.tsx', 'passes the editor font settings to Monaco'],
   [
     'src/renderer/components/terminal/InputEditor.tsx',
