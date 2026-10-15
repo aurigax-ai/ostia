@@ -1,4 +1,4 @@
-import { paneIds, shownTab } from './tree'
+import { findPane, paneIds, shownTab } from './tree'
 import type { LayoutNode } from './types'
 
 export type FocusDirection = 'left' | 'right' | 'up' | 'down'
@@ -70,4 +70,20 @@ export function paneInDirection(
     horizontal ? Math.abs(r.y + r.h / 2 - center) : Math.abs(r.x + r.w / 2 - center)
   const best = candidates.sort((a, b) => distance(a) - distance(b))[0]
   return best ? best.paneId : null
+}
+
+function topLeftShownPane(node: LayoutNode): string {
+  if (node.type === 'pane') return node.id
+  return topLeftShownPane(node.type === 'tabs' ? shownTab(node) : node.children[0])
+}
+
+export function keyboardPaneId(layout: {
+  root: LayoutNode
+  activePaneId: string
+  zoomedPaneId: string | null
+}): string {
+  const { root, activePaneId, zoomedPaneId } = layout
+  if (zoomedPaneId && findPane(root, zoomedPaneId)) return zoomedPaneId
+  if (findPane(root, activePaneId)) return activePaneId
+  return topLeftShownPane(root)
 }

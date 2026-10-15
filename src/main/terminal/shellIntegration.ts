@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { appEnv, shellEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { appEnv, envName, shellEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import {
   type AgentPluginContent,
@@ -17,6 +17,17 @@ import { codexWrapper } from './codexIntegration'
 export const INTEGRATION_DIR = privateTmpDir(`${PRODUCT_NAME}-shell-integration`)
 
 const SHELL_STATE_FILE = shellEnv('SHELL_STATE')
+
+const MARK_NONCE_FILE = envName('MARK_NONCE_FILE')
+
+const READ_MARK_NONCE = [
+  `if [ -n "$${MARK_NONCE_FILE}" ]; then`,
+  `  { IFS= read -r __ostia_nonce < "$${MARK_NONCE_FILE}"; } 2>/dev/null`,
+  `  { : >| "$${MARK_NONCE_FILE}"; } 2>/dev/null`,
+  `  command rm -f "$${MARK_NONCE_FILE}" 2>/dev/null`,
+  'fi',
+  `unset ${MARK_NONCE_FILE}`,
+]
 
 const BASH_B_MARK = String.raw`\[\e]133;B\e\\\]`
 
@@ -39,7 +50,7 @@ __ostia_mark_e() {
   s=\${s//;/\\\\x3b}
   s=\${s//$'\\n'/\\\\x0a}
   s=\${s//[[:cntrl:]]/}
-  print -rn -- $'\\e]633;E;'"$s"$'\\e\\\\'
+  print -rn -- $'\\e]633;E;'"$s\${__ostia_nonce:+;$__ostia_nonce}"$'\\e\\\\'
 }
 
 typeset -g __ostia_b_mark=$'%{\\e]133;B\\e\\\\%}'
@@ -153,7 +164,7 @@ __ostia_mark_e() {
   s=\${s//;/\\\\x3b}
   s=\${s//$'\\n'/\\\\x0a}
   s=\${s//[[:cntrl:]]/}
-  printf '\\e]633;E;%s\\e\\\\' "$s"
+  printf '\\e]633;E;%s%s\\e\\\\' "$s" "\${__ostia_nonce:+;$__ostia_nonce}"
 }
 
 __ostia_preexec() {
@@ -320,6 +331,7 @@ export function shellIntegrationFiles(dir: string): ShellIntegrationFiles {
     '.zshenv': [
       '# Ostia shell integration (generated). Load the real .zshenv; ZDOTDIR is restored to',
       '# OSTIA_ZDOTDIR_ORIG at the end of .zshrc below, once our hooks are installed.',
+      ...READ_MARK_NONCE,
       '[ -n "$OSTIA_ZDOTDIR_ORIG" ] && [ -f "$OSTIA_ZDOTDIR_ORIG/.zshenv" ] && source "$OSTIA_ZDOTDIR_ORIG/.zshenv"',
       '# If the real .zshenv redirected ZDOTDIR, remember its target as the effective dotdir',
       '# and reclaim ZDOTDIR so zsh still reads OUR .zshrc next (else integration is bypassed).',
@@ -340,6 +352,7 @@ export function shellIntegrationFiles(dir: string): ShellIntegrationFiles {
     ].join('\n'),
     bashrc: [
       '# Ostia shell integration (generated). Load the real ~/.bashrc, then add our hooks.',
+      ...READ_MARK_NONCE,
       '[ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc"',
       `source "${bashInit}"`,
       '',
@@ -417,11 +430,21 @@ function historyEnv(histFile: string | null): Record<string, string> {
   return histFile ? { OSTIA_HISTFILE: histFile } : {}
 }
 
+function markNonceEnv(markNonceFile: string | null): Record<string, string> {
+  return markNonceFile ? { [MARK_NONCE_FILE]: markNonceFile } : {}
+}
+
+export function sendsMarkNonce(shellPath: string): boolean {
+  const name = basename(shellPath).toLowerCase()
+  return name === 'zsh' || name === 'bash'
+}
+
 export function shellIntegrationSpawnOptions(
   shellPath: string,
   baseEnv: NodeJS.ProcessEnv,
   ostiaPrompt: OstiaPromptOption | null = null,
   histFile: string | null = null,
+  markNonceFile: string | null = null,
 ): { args: string[]; env: Record<string, string> } {
   const name = basename(shellPath).toLowerCase()
 
@@ -435,6 +458,7 @@ export function shellIntegrationSpawnOptions(
         ...appEnv({ AGENT_DIR: currentAgentDir() }),
         ...promptEnv(ostiaPrompt),
         ...historyEnv(histFile),
+        ...markNonceEnv(markNonceFile),
       },
     }
   }
@@ -447,6 +471,7 @@ export function shellIntegrationSpawnOptions(
         ...appEnv({ AGENT_DIR: currentAgentDir() }),
         ...promptEnv(ostiaPrompt),
         ...historyEnv(histFile),
+        ...markNonceEnv(markNonceFile),
       },
     }
   }

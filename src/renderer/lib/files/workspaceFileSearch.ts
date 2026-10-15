@@ -26,13 +26,6 @@ export async function findWorkspaceFiles(
   return { status: outcome.error === 'cancelled' ? 'cancelled' : 'failed' }
 }
 
-export function splitFilePath(path: string): { name: string; dir: string } {
-  const slash = path.lastIndexOf('/')
-  return slash < 0
-    ? { name: path, dir: '' }
-    : { name: path.slice(slash + 1), dir: path.slice(0, slash) }
-}
-
 export interface FilePosition {
   name: string
   line?: number

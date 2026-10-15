@@ -3,6 +3,7 @@ import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { formatBytes } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { baseName } from '@/lib/files/fileTree'
 import { langFor } from '@/lib/monaco/language'
 import type { monaco } from '@/lib/monaco/setup'
 import { cn } from '@/lib/utils'
@@ -63,7 +64,7 @@ export function EditorAlerts({
     const file = pathRef.current
     if (!model || !file) return
     useLayoutStore.getState().openDiff(workspaceId, {
-      title: fmt(d.editor.diskCompareTitle, { name: file.split('/').pop() ?? file }),
+      title: fmt(d.editor.diskCompareTitle, { name: baseName(file) }),
       original: disk,
       modified: model.getValue(),
       language: langFor(file),

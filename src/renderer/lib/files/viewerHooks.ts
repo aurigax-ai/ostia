@@ -42,24 +42,6 @@ export function useFileBytes(path: string | undefined): FileBytes {
   return bytes
 }
 
-export function useElementSize(ref: RefObject<HTMLElement>): Size {
-  const [size, setSize] = useState<Size>({ width: 0, height: 0 })
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const measure = (): void => {
-      const width = el.clientWidth
-      const height = el.clientHeight
-      setSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }))
-    }
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [ref])
-  return size
-}
-
 export interface RegionDrag {
   region: Region | null
   enabled: boolean

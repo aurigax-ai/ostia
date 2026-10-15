@@ -66,7 +66,8 @@ export function registerFsIpc({
       pane: (paneId) => getByPaneId(paneId),
       isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
       isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
-      openFolder: (path) => shell.openPath(path),
+      openPath: (path) => shell.openPath(path),
+      showInFolder: (path) => shell.showItemInFolder(path),
     }),
   )
   registerProjectRootIpc(allowedRoots)

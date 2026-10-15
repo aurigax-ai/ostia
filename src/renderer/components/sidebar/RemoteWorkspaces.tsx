@@ -36,7 +36,7 @@ function RemoteWorkspaceRow({
 }): JSX.Element {
   const d = useDict()
   const digitHints = useUIStore((s) => s.digitHints)
-  const show = (): void => window.ostia.windows.focusWorkspace(w.id, false)
+  const show = (): void => window.ostia.windows.focusWorkspace(w.id, false, true)
   return (
     <ContextMenu>
       <ContextMenuTrigger className="rail-row remote">

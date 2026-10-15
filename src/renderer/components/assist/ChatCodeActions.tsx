@@ -11,6 +11,7 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { useCopied } from '@/lib/app/useCopied'
 import { fmt, useDict } from '@/lib/app/useDict'
 import {
   type TerminalTarget,
@@ -35,7 +36,7 @@ import {
   PlayIcon,
   TerminalWindowIcon,
 } from '@phosphor-icons/react'
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 
 export type ChatActionNotice =
   | 'inserted'
@@ -55,16 +56,6 @@ export interface CodeActionsProps {
   workspaceId: string | null
   onNotice: (notice: ChatActionNotice) => void
   onInserted?: () => void
-}
-
-export function useCopied(): [boolean, () => void] {
-  const [copied, setCopied] = useState(false)
-  useEffect(() => {
-    if (!copied) return
-    const timer = setTimeout(() => setCopied(false), 1500)
-    return () => clearTimeout(timer)
-  }, [copied])
-  return [copied, () => setCopied(true)]
 }
 
 function CopyCodeButton({ code }: { code: string }): JSX.Element {

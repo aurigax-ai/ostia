@@ -20,7 +20,8 @@ import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'
 import { TMUX_MISSING } from '../../tmux/keepShellsBanner'
 import type { KeptProgram } from '../../tmux/keptShells'
 import type { ScratchFolders } from '../../workspaces/scratchFolders'
-import { shellIntegrationSpawnOptions } from '../shellIntegration'
+import { markNonceFileFor, writeMarkNonce } from '../markNonce'
+import { sendsMarkNonce, shellIntegrationSpawnOptions } from '../shellIntegration'
 import { spawnFolder } from '../spawnCwd'
 import type { SpawnFolder } from '../spawnCwd'
 import { paneShellEnv } from '../terminalType'
@@ -32,6 +33,8 @@ export interface SpawnPlan {
   cols: number
   rows: number
   stateFile: string
+  markNonce: string | null
+  markNonceFile: string | null
   env: Record<string, string>
   secretNotice: string
   sandboxStamp: string | null
@@ -100,15 +103,18 @@ export function createSpawnPlanner({
     }
     const identity = registerPane({ windowId: subId, workspaceId: resolved.workspaceId, paneId })
     const workspaceId = identity.workspaceId
+    const stateFile = join(privateTmpDir(`${PRODUCT_NAME}-shell-state`), randomUUID())
+    const markNonceFile = sendsMarkNonce(shell) ? markNonceFileFor(stateFile) : null
+    const markNonce = markNonceFile ? writeMarkNonce(markNonceFile) : null
     const integration = shellIntegrationSpawnOptions(
       shell,
       process.env,
       opts.ostiaPrompt ?? null,
       scratchFolders.historyFile(workspaceId),
+      markNonceFile,
     )
     const cols = opts.cols || 80
     const rows = opts.rows || 24
-    const stateFile = join(privateTmpDir(`${PRODUCT_NAME}-shell-state`), randomUUID())
     const env = paneShellEnv({
       version: app.getVersion(),
       locale: app.getLocale(),
@@ -139,6 +145,8 @@ export function createSpawnPlanner({
       cols,
       rows,
       stateFile,
+      markNonce,
+      markNonceFile,
       env,
       secretNotice: '',
       sandboxStamp: null,

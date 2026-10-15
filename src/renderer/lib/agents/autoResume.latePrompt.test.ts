@@ -85,7 +85,7 @@ describe('startAutoResume with a late prompt', () => {
     promptArrives(background.id)
     await vi.advanceTimersByTimeAsync(0)
 
-    expect(paste).toHaveBeenCalledWith('claude --resume late-1')
+    expect(paste).toHaveBeenCalledWith("'claude' --resume late-1")
     expect(write).toHaveBeenCalledWith(background.id, '\r')
   })
 

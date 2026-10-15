@@ -26,10 +26,12 @@ import {
   type Capability,
   DEFAULT_CAPABILITIES,
 } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import type { AgentResume } from '@shared/agents/agentResume'
 import { SCRIPT_CAPABILITIES } from '@shared/permissions/scriptTokens'
 import { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { SCRIPT_COMMANDS } from '../../main/control/commandArgs'
+import { wireCommandBridge } from './bridge'
 import { registerBuiltinCommands } from './builtins'
 import { type CommandContext, commands } from './registry'
 
@@ -2043,7 +2045,7 @@ describe('agent.forkConversation', () => {
 
     expect(res).toMatchObject({ ok: true, result: { forked: true } })
     expect(run).toHaveBeenCalledTimes(1)
-    expect(run.mock.calls[0][1]).toBe('claude --resume tok --fork-session')
+    expect(run.mock.calls[0][1]).toBe("'claude' --resume tok --fork-session")
     expect(run.mock.calls[0][0]).not.toBe(agent.id)
     expect(run.mock.calls[0][0]).not.toBe(other.id)
   })
@@ -2147,7 +2149,7 @@ describe('tab sleep notices', () => {
 })
 
 describe('agent resume', () => {
-  function seedPane(resume?: { agent: 'claude' | 'codex'; id: string }) {
+  function seedPane(resume?: AgentResume) {
     const pane = { ...createPane('terminal'), ...(resume ? { resume } : {}) }
     useLayoutStore.setState({
       byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
@@ -2163,67 +2165,169 @@ describe('agent resume', () => {
     })
   })
 
-  it('keeps the launch flags and the variables typed in front of the agent, then replays them', async () => {
+  it('replays the variables typed in front of the agent, never the ones a caller sent', async () => {
     const pane = seedPane()
-    useBlocksStore
-      .getState()
-      .commandStart(pane.id, { line: 1 }, 'GL_ISSUE=685 GH_TOKEN=x claude --agent ostia')
+    const line = 'GL_ISSUE=685 GIT_DIR=/tmp/g GH_TOKEN=x claude --model opus'
+    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, line, line)
     await commands.execWith(ctx('s1', pane.id), 'resume.set', {
       agent: 'claude',
       id: 'abc',
-      args: ['--agent', 'ostia', '--session-id', 'old'],
+      args: ['--model', 'opus', '--session-id', 'old', '-n', '修 probe'],
+      env: { ANTHROPIC_BASE_URL: 'http://127.0.0.1:9', HTTPS_PROXY: 'http://127.0.0.1:9' },
     })
-    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
-      resume: { agent: 'claude', id: 'abc', args: ['--agent', 'ostia'], env: { GL_ISSUE: '685' } },
-    })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.env')
     const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
     await commands.execWith(ctx('s1', pane.id), 'agent.resume')
     expect(insert).toHaveBeenCalledWith(
       pane.id,
-      'GL_ISSUE=685 claude --resume abc --agent ostia',
+      "GL_ISSUE=685 'claude' --resume abc --model opus --name '修 probe'",
       true,
     )
   })
 
-  it('keeps the flags but no variables when the line starts with something else', async () => {
+  it('resumes a line the human typed with its variables, agent and permission bypass, resume after resume', async () => {
+    const pane = seedPane()
+    const line =
+      "cd '/w' && CLAUDE_CONFIG_DIR=/p GL_ISSUE=x claude --agent a -n 'name' --model M --effort E --dangerously-skip-permissions"
+    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, line, line)
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'claude',
+      id: 'abc',
+      args: ['--agent', 'a', '-n', 'name', '--model', 'M', '--effort', 'E'],
+    })
+    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
+    await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    const resumed =
+      "CLAUDE_CONFIG_DIR=/p GL_ISSUE=x 'claude' --resume abc --name name --model M --effort E --agent a --dangerously-skip-permissions"
+    expect(insert).toHaveBeenLastCalledWith(pane.id, resumed, true)
+
+    useBlocksStore.getState().commandEnd(pane.id, { line: 2 }, 0)
+    useBlocksStore.getState().commandStart(pane.id, { line: 3 }, resumed, resumed)
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'claude',
+      id: 'def',
+      args: ['--resume', 'abc', '--name', 'name', '--model', 'M', '--effort', 'E'],
+    })
+    await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    expect(insert).toHaveBeenLastCalledWith(pane.id, resumed.replace('abc', 'def'), true)
+  })
+
+  it('resumes codex with what the human typed, and never puts a claude line on a codex record', async () => {
+    const pane = seedPane()
+    const line = 'CODEX_HOME=/c codex --yolo -m gpt-5'
+    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, line, line)
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'codex',
+      id: 'r-9',
+      args: ['--yolo', '-m', 'gpt-5'],
+    })
+    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
+    await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    expect(insert).toHaveBeenLastCalledWith(
+      pane.id,
+      "CODEX_HOME=/c 'codex' resume r-9 -m gpt-5 --yolo",
+      true,
+    )
+
+    const claudeLine = 'CLAUDE_CONFIG_DIR=/p claude --dangerously-skip-permissions'
+    useBlocksStore.getState().commandStart(pane.id, { line: 5 }, claudeLine, claudeLine)
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'codex', id: 'r-10' })
+    await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    expect(insert).toHaveBeenLastCalledWith(pane.id, "'codex' resume r-10", true)
+  })
+
+  it('adds nothing a caller sends or a line the shell integration did not vouch for', async () => {
     const pane = seedPane()
     useBlocksStore
       .getState()
       .commandStart(
         pane.id,
         { line: 1 },
-        `GL_ISSUE=1 true && (ostia workspace group 'Home' || true) && claude --agent homelab -n "修 probe"`,
+        'GL_ISSUE=685 claude --agent ostia --dangerously-skip-permissions',
       )
     await commands.execWith(ctx('s1', pane.id), 'resume.set', {
       agent: 'claude',
       id: 'abc',
-      args: ['--agent', 'homelab', '-n', '修 probe'],
+      args: ['--agent', 'ostia', '--dangerously-skip-permissions', '--model', 'opus'],
+      env: { GL_ISSUE: '685' },
+      typed: { args: ['--dangerously-skip-permissions'], env: { CLAUDE_CONFIG_DIR: '/p' } },
+    })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+      resume: { agent: 'claude', id: 'abc', args: ['--model', 'opus'] },
+    })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.typed')
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.env')
+  })
+
+  it('keeps what was typed when the same session reports again without a typed line, and only then', async () => {
+    const typed = { args: ['--dangerously-skip-permissions'], env: { GL_ISSUE: '1' } }
+    const pane = seedPane({ agent: 'claude', id: 'abc', typed })
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'claude', id: 'abc' })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({ resume: { typed } })
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'claude', id: 'other' })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.typed')
+  })
+
+  it('drops what was typed once the human starts the session again with a plain line', async () => {
+    const pane = seedPane({
+      agent: 'claude',
+      id: 'abc',
+      typed: { args: ['--dangerously-skip-permissions'] },
+    })
+    const line = 'claude --resume abc'
+    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, line, line)
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'claude', id: 'abc' })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.typed')
+  })
+
+  it('never shows what was typed to a caller reading the pane’s session', async () => {
+    const pane = seedPane({
+      agent: 'claude',
+      id: 'abc',
+      typed: { env: { CLAUDE_CONFIG_DIR: '/p' } },
+    })
+    const r = await commands.execWith(ctx('s1', pane.id), 'pane.resumeToken')
+    expect(r).toMatchObject({ ok: true, result: { resume: { agent: 'claude', id: 'abc' } } })
+    expect(r).not.toHaveProperty('result.resume.typed')
+  })
+
+  it('stores no flag that skips permissions or leaves the sandbox', async () => {
+    const pane = seedPane()
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'claude',
+      id: 'abc',
+      args: ['--dangerously-skip-permissions', '--settings', '/tmp/s.json', '--model', 'opus'],
     })
     const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
     await commands.execWith(ctx('s1', pane.id), 'agent.resume')
-    expect(insert).toHaveBeenCalledWith(
-      pane.id,
-      "claude --resume abc --agent homelab --name '修 probe'",
-      true,
-    )
+    expect(insert).toHaveBeenCalledWith(pane.id, "'claude' --resume abc --model opus", true)
   })
 
-  it('keeps the old command when nothing about the launch is known', async () => {
+  it('stores a resume token only when main asks, never from a raw command call', async () => {
     const pane = seedPane()
-    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, 'my-agent-script')
-    await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'codex', id: 'abc' })
-    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
-      resume: { agent: 'codex', id: 'abc' },
+    wireCommandBridge()
+    const invoke = vi.mocked(window.ostia.commands.onInvoke).mock.calls.at(-1)?.[0]
+    const target = { workspaceId: 's1', paneId: pane.id }
+    const raw = await invoke?.({ id: 'resume.set', args: { agent: 'claude', id: 'abc' }, target })
+    expect(raw).toMatchObject({ ok: false, error: { code: 'unknown-command' } })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume')
+    const fromMain = await invoke?.({
+      id: 'resume.set',
+      args: { agent: 'claude', id: 'abc' },
+      target,
+      fromMain: true,
     })
-    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.env')
-    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.args')
+    expect(fromMain).toMatchObject({ ok: true })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+      resume: { agent: 'claude', id: 'abc' },
+    })
   })
 
   it('runs the agent’s resume command in the pane', async () => {
     const pane = seedPane({ agent: 'claude', id: 'abc' })
     const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
     const r = await commands.execWith(ctx('s1', pane.id), 'agent.resume')
-    expect(insert).toHaveBeenCalledWith(pane.id, 'claude --resume abc', true)
+    expect(insert).toHaveBeenCalledWith(pane.id, "'claude' --resume abc", true)
     expect(r).toMatchObject({ ok: true, result: { resumed: true } })
   })
 
@@ -2239,7 +2343,7 @@ describe('agent resume', () => {
     expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('hibernated')
     expect(whenIdle).toHaveBeenCalledWith(
       pane.id,
-      'codex resume r-9',
+      "'codex' resume r-9",
       undefined,
       expect.any(Function),
       expect.any(Function),
@@ -2287,7 +2391,7 @@ describe('agent resume', () => {
         const press = { key: 'R', ctrlKey: !mac, metaKey: mac, shiftKey: true, altKey: false }
         expect(runAppChord({ ...press, preventDefault: () => {} }, mac)).toBe(true)
         await vi.waitFor(() =>
-          expect(insert).toHaveBeenCalledWith(tab, 'claude --resume ffe55127-cb1f-4efd', true),
+          expect(insert).toHaveBeenCalledWith(tab, "'claude' --resume ffe55127-cb1f-4efd", true),
         )
       }
     } finally {

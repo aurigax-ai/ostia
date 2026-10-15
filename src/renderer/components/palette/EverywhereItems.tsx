@@ -1,12 +1,11 @@
 import { CommandGroup, CommandItem } from '@/components/ui/command'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { childPath } from '@/lib/files/fileTree'
+import { childPath, splitPath } from '@/lib/files/fileTree'
 import { openFileAt } from '@/lib/files/openFile'
 import {
   LINE_SEARCH_DELAY_MS,
   type WorkspaceLineResult,
   findWorkspaceLines,
-  splitFilePath,
 } from '@/lib/files/workspaceFileSearch'
 import { settingsSections } from '@/lib/settings/settingsSections'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -60,12 +59,7 @@ export function LineItems({
             onDone()
           }}
         >
-          <ItemRow
-            name={`${splitFilePath(hit.path).name}:${hit.line}`}
-            nameMono
-            meta={hit.text}
-            mono
-          />
+          <ItemRow name={`${splitPath(hit.path).name}:${hit.line}`} nameMono meta={hit.text} mono />
         </CommandItem>
       ))}
     </CommandGroup>
