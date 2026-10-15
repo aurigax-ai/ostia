@@ -4,8 +4,9 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { act, cleanup, fireEvent, render } from '@testing-library/react'
+import { act, cleanup, fireEvent } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../../../test/render'
 import { DeckRail } from './DeckRail'
 
 function seedWorkspaces(): void {
@@ -45,9 +46,9 @@ describe('DeckRail toggle motion', () => {
     document.documentElement.removeAttribute('data-rail-resizing')
   })
 
-  it('keeps the full width while sliding out, and narrows once when the slide ends', () => {
+  it('keeps the full width while sliding out, and narrows once when the slide ends', async () => {
     seedWorkspaces()
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
 
     setCollapsed(true)
     expect(rail()).not.toHaveClass('collapsed')
@@ -63,10 +64,10 @@ describe('DeckRail toggle motion', () => {
     expect(rail()).not.toHaveAttribute('data-rail-motion')
   })
 
-  it('widens once at the start and slides in over it', () => {
+  it('widens once at the start and slides in over it', async () => {
     seedWorkspaces()
     useUIStore.setState({ railCollapsed: true })
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     expect(rail()).toHaveClass('collapsed')
 
     setCollapsed(false)
@@ -78,9 +79,9 @@ describe('DeckRail toggle motion', () => {
     expect(rail()).not.toHaveClass('collapsed')
   })
 
-  it('reopens mid-slide without ever narrowing', () => {
+  it('reopens mid-slide without ever narrowing', async () => {
     seedWorkspaces()
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
 
     setCollapsed(true)
     setCollapsed(false)
@@ -92,7 +93,7 @@ describe('DeckRail toggle motion', () => {
     expect(rail()).not.toHaveAttribute('data-rail-motion')
   })
 
-  it('turns around from where the slide is instead of restarting it', () => {
+  it('turns around from where the slide is instead of restarting it', async () => {
     const fake = (animationName: string) => ({
       animationName,
       currentTime: 60 as number | null,
@@ -106,7 +107,7 @@ describe('DeckRail toggle motion', () => {
     })
     try {
       seedWorkspaces()
-      render(<DeckRail />)
+      await renderSettled(<DeckRail />)
 
       setCollapsed(true)
       expect(rail()).toHaveAttribute('data-rail-motion', 'closing')
@@ -119,10 +120,10 @@ describe('DeckRail toggle motion', () => {
     }
   })
 
-  it('settles on its own when the animation never reports an end', () => {
+  it('settles on its own when the animation never reports an end', async () => {
     vi.useFakeTimers()
     seedWorkspaces()
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
 
     setCollapsed(true)
     expect(rail()).not.toHaveClass('collapsed')
@@ -131,10 +132,10 @@ describe('DeckRail toggle motion', () => {
     expect(rail()).not.toHaveAttribute('data-rail-motion')
   })
 
-  it('jumps straight to the new width with no animation when motion is reduced', () => {
+  it('jumps straight to the new width with no animation when motion is reduced', async () => {
     seedWorkspaces()
     act(() => useSettingsStore.getState().setMotion('reduced'))
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
 
     setCollapsed(true)
     expect(rail()).toHaveClass('collapsed')
@@ -145,7 +146,7 @@ describe('DeckRail toggle motion', () => {
     expect(rail()).not.toHaveAttribute('data-rail-motion')
   })
 
-  it('jumps straight to the new width when the OS asks for reduced motion', () => {
+  it('jumps straight to the new width when the OS asks for reduced motion', async () => {
     vi.spyOn(window, 'matchMedia').mockImplementation(
       (query: string) =>
         ({
@@ -156,7 +157,7 @@ describe('DeckRail toggle motion', () => {
         }) as unknown as MediaQueryList,
     )
     seedWorkspaces()
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
 
     setCollapsed(true)
     expect(rail()).toHaveClass('collapsed')
@@ -164,9 +165,9 @@ describe('DeckRail toggle motion', () => {
     vi.restoreAllMocks()
   })
 
-  it('does not animate a collapse that happens while dragging the edge', () => {
+  it('does not animate a collapse that happens while dragging the edge', async () => {
     seedWorkspaces()
-    render(<DeckRail />)
+    await renderSettled(<DeckRail />)
     document.documentElement.setAttribute('data-rail-resizing', '')
 
     setCollapsed(true)
