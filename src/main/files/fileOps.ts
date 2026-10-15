@@ -8,7 +8,7 @@ import {
   type TransferEnd,
   copyExclusive,
   moveExclusive,
-  sourceUnchanged,
+  trashAnchored,
 } from './exclusiveTransfer'
 import { type FolderAnchor, openAnchor } from './folderAnchor'
 import { type TransferFs, nodeTransferFs } from './transferFs'
@@ -167,7 +167,7 @@ export class FileOps {
     try {
       return await run(anchor)
     } finally {
-      await anchor.close()
+      await anchor.close().catch(() => {})
     }
   }
 
@@ -294,14 +294,8 @@ export class FileOps {
     const before = await this.fs.lstat(await source.anchor.at(source.name))
     const copied = await this.copyNew(source, dest, pick)
     if (!copied.ok) return copied
-    const notMoved: Transfer = { ok: false, error: 'not-moved', paths: [copied.target] }
-    if (!(await sourceUnchanged(this.fs, source, before))) return notMoved
-    try {
-      await this.deps.trash(join(source.anchor.path, source.name))
-      return copied
-    } catch {
-      return notMoved
-    }
+    const trashed = await trashAnchored(this.fs, source, before, this.deps.trash).catch(() => false)
+    return trashed ? copied : { ok: false, error: 'not-moved', paths: [copied.target] }
   }
 
   private async transferAll(
@@ -388,12 +382,13 @@ export class FileOps {
     if (sources === null) return fail('outside')
     const done: string[] = []
     for (const source of sources) {
-      try {
-        await this.deps.trash(source)
-        done.push(source)
-      } catch {
-        return { ok: false, error: 'failed', paths: done }
-      }
+      const trashed = await this.anchored(dirname(source), null, async (anchor) => {
+        const end = { anchor, name: basename(source) }
+        const expected = await this.fs.lstat(await anchor.at(end.name))
+        return trashAnchored(this.fs, end, expected, this.deps.trash)
+      }).catch(() => false)
+      if (!trashed) return { ok: false, error: 'failed', paths: done }
+      done.push(source)
     }
     return { ok: true, paths: done }
   }

@@ -14,7 +14,7 @@ import {
 } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
-import { basename, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { copyExclusive, moveExclusive } from './exclusiveTransfer'
 import { FileOps, copyName, nameProblem, numberedName } from './fileOps'
@@ -59,6 +59,13 @@ function setup(): { root: string; outside: string; ops: FileOps; trashed: string
   writeFileSync(join(root, 'src', 'main.ts'), 'main')
   writeFileSync(join(root, 'notes.md'), 'notes')
   return { root, outside, ops, trashed }
+}
+
+function hiddenAs(path: string): unknown {
+  const escaped = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return expect.stringMatching(
+    new RegExp(`^${escaped(dirname(path))}/\\.${escaped(basename(path))}\\.ostia-[0-9a-f]{16}$`),
+  )
 }
 
 describe('nameProblem', () => {
@@ -165,7 +172,7 @@ describe('FileOps', () => {
       ok: true,
       paths: [join(root, 'notes.md'), join(root, 'src')],
     })
-    expect(trashed).toEqual([join(root, 'notes.md'), join(root, 'src')])
+    expect(trashed).toEqual([hiddenAs(join(root, 'notes.md')), hiddenAs(join(root, 'src'))])
     expect(await ops.trash([root])).toEqual({ ok: false, error: 'outside' })
     expect(existsSync(root)).toBe(true)
   })
@@ -269,7 +276,7 @@ describe('FileOps.importInto', () => {
         paths: [join(root, 'far.txt')],
       })
       expect(readFileSync(join(root, 'far.txt'), 'utf8')).toBe('far')
-      expect(trashed).toEqual([source])
+      expect(trashed).toEqual([hiddenAs(source)])
     },
   )
 
@@ -546,6 +553,115 @@ describe('exclusive transfers', () => {
     },
   )
 
+  it.runIf(linux && existsSync('/dev/shm'))(
+    'never trashes outside when the moved source folder is swapped for a link during the trash',
+    async () => {
+      const outside = tmp()
+      writeFileSync(join(outside, 'notes.txt'), 'outside')
+      const shm = mkdtempSync(join('/dev/shm', 'ostia-fileops-'))
+      dirs.push(shm)
+      const far = join(shm, 'far')
+      mkdirSync(far)
+      writeFileSync(join(far, 'notes.txt'), 'agent')
+      const root = tmp()
+      const ops = new FileOps({
+        roots: [root],
+        trash: async (path) => {
+          swapForLink(far, outside)()
+          rmSync(path, { recursive: true })
+        },
+      })
+      expect(await ops.importInto([join(far, 'notes.txt')], root, true)).toEqual({
+        ok: false,
+        error: 'not-moved',
+        paths: [join(root, 'notes.txt')],
+      })
+      expect(readFileSync(join(outside, 'notes.txt'), 'utf8')).toBe('outside')
+      expect(readFileSync(join(`${far}-real`, 'notes.txt'), 'utf8')).toBe('agent')
+    },
+  )
+
+  it.runIf(linux)(
+    'never trashes outside when the folder of an entry being trashed is swapped for a link',
+    async () => {
+      const root = tmp()
+      const outside = tmp()
+      mkdirSync(join(root, 'sub'))
+      writeFileSync(join(root, 'sub', 'notes.md'), 'mine')
+      writeFileSync(join(outside, 'notes.md'), 'outside')
+      const ops = new FileOps({
+        roots: [root],
+        trash: async (path) => {
+          swapForLink(join(root, 'sub'), outside)()
+          rmSync(path, { recursive: true })
+        },
+      })
+      expect(await ops.trash([join(root, 'sub', 'notes.md')])).toEqual({
+        ok: false,
+        error: 'failed',
+        paths: [],
+      })
+      expect(readFileSync(join(outside, 'notes.md'), 'utf8')).toBe('outside')
+      expect(readFileSync(join(root, 'sub-real', 'notes.md'), 'utf8')).toBe('mine')
+    },
+  )
+
+  it.runIf(linux)(
+    'refuses a source whose folder was swapped for a link before it was anchored',
+    async () => {
+      let swap = (): void => {}
+      const c = swapCase(hookedFs('open', 'keys', 'before', () => swap()))
+      mkdirSync(join(c.far, 'keys'))
+      writeFileSync(join(c.far, 'keys', 'id'), 'agent')
+      writeFileSync(join(c.outside, 'id'), 'secret')
+      swap = swapForLink(join(c.far, 'keys'), c.outside)
+      expect(await c.ops.importInto([join(c.far, 'keys', 'id')], c.drop, false)).toMatchObject({
+        ok: false,
+        error: 'failed',
+      })
+      expect(readdirSync(c.drop)).toEqual([])
+    },
+  )
+
+  it.runIf(linux)(
+    'refuses a source reached through a folder higher up that was swapped for a link',
+    async () => {
+      let swap = (): void => {}
+      const c = swapCase(hookedFs('open', 'b', 'before', () => swap()))
+      mkdirSync(join(c.far, 'a', 'b'), { recursive: true })
+      writeFileSync(join(c.far, 'a', 'b', 'id'), 'agent')
+      mkdirSync(join(c.outside, 'a', 'b'), { recursive: true })
+      writeFileSync(join(c.outside, 'a', 'b', 'id'), 'secret')
+      swap = swapForLink(join(c.far, 'a'), join(c.outside, 'a'))
+      expect(await c.ops.importInto([join(c.far, 'a', 'b', 'id')], c.drop, false)).toMatchObject({
+        ok: false,
+        error: 'failed',
+      })
+      expect(readdirSync(c.drop)).toEqual([])
+    },
+  )
+
+  it.runIf(linux)('refuses every transfer when /proc cannot vouch for a folder', async () => {
+    const c = swapCase({
+      ...nodeTransferFs,
+      readlink: async (path) => {
+        if (path.startsWith('/proc/')) throw Object.assign(new Error('no proc'), { code: 'ENOENT' })
+        return nodeTransferFs.readlink(path)
+      },
+    })
+    writeFileSync(join(c.far, 'a.txt'), 'a')
+    expect(await c.ops.importInto([join(c.far, 'a.txt')], c.drop, false)).toMatchObject({
+      ok: false,
+      error: 'failed',
+    })
+    expect(await c.ops.importInto([join(c.far, 'a.txt')], c.drop, true)).toMatchObject({
+      ok: false,
+      error: 'failed',
+    })
+    expect(readdirSync(c.drop)).toEqual([])
+    expect(existsSync(join(c.far, 'a.txt'))).toBe(true)
+  })
+
   it('never takes a name that appeared after it was picked', async () => {
     const dir = tmp()
     writeFileSync(join(dir, 'file'), 'new')
@@ -622,7 +738,7 @@ describe('exclusive transfers', () => {
       paths: [join(root, 'docs', 'src')],
     })
     expect(readFileSync(join(root, 'docs', 'src', 'a.ts'), 'utf8')).toBe('a')
-    expect(trashed).toEqual([join(root, 'src')])
+    expect(trashed).toEqual([hiddenAs(join(root, 'src'))])
   })
 
   it('keeps main responsive while a large folder copies', async () => {

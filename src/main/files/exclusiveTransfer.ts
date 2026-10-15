@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import { constants, type Stats } from 'node:fs'
 import { join } from 'node:path'
 import type { FolderAnchor } from './folderAnchor'
@@ -36,6 +37,12 @@ function sameEntry(a: Stats, b: Stats): boolean {
 
 function pathOf(end: TransferEnd): string {
   return join(end.anchor.path, end.name)
+}
+
+async function closeAll(handles: { close: () => Promise<void> }[]): Promise<void> {
+  const results = await Promise.allSettled(handles.map((handle) => handle.close()))
+  const failed = results.find((result) => result.status === 'rejected')
+  if (failed) throw failed.reason
 }
 
 async function claimed(create: () => Promise<unknown>): Promise<boolean> {
@@ -78,8 +85,7 @@ async function claimFile(
             }
           }
         } finally {
-          await output.close()
-          await input.close()
+          await closeAll([output, input])
         }
       },
     }
@@ -182,12 +188,53 @@ export async function moveExclusive(
   }
 }
 
-export async function sourceUnchanged(
+const HIDDEN_RANDOM_BYTES = 8
+const HIDDEN_NAME_MAX_BYTES = 200
+
+function hiddenName(name: string): string {
+  const random = randomBytes(HIDDEN_RANDOM_BYTES).toString('hex')
+  return Buffer.byteLength(name) > HIDDEN_NAME_MAX_BYTES
+    ? `.ostia-trash-${random}`
+    : `.${name}.ostia-${random}`
+}
+
+async function entryStat(fs: TransferFs, end: TransferEnd): Promise<Stats | null> {
+  return fs.lstat(await end.anchor.at(end.name)).catch(() => null)
+}
+
+async function isUnchanged(fs: TransferFs, end: TransferEnd, expected: Stats): Promise<boolean> {
+  if (!(await end.anchor.stillAt())) return false
+  const now = await entryStat(fs, end)
+  return now !== null && sameEntry(expected, now)
+}
+
+async function putBack(fs: TransferFs, hidden: TransferEnd, original: TransferEnd): Promise<void> {
+  if ((await entryStat(fs, original)) !== null) return
+  await fs
+    .rename(await hidden.anchor.at(hidden.name), await original.anchor.at(original.name))
+    .catch(() => {})
+}
+
+export async function trashAnchored(
   fs: TransferFs,
   source: TransferEnd,
   expected: Stats,
+  trash: (path: string) => Promise<void>,
 ): Promise<boolean> {
-  if (!(await source.anchor.stillAt())) return false
-  const now = await fs.lstat(await source.anchor.at(source.name)).catch(() => null)
-  return now !== null && sameEntry(expected, now)
+  if (!(await isUnchanged(fs, source, expected))) return false
+  const hidden = { anchor: source.anchor, name: hiddenName(source.name) }
+  await fs.rename(await source.anchor.at(source.name), await hidden.anchor.at(hidden.name))
+  if (!(await isUnchanged(fs, hidden, expected))) {
+    await putBack(fs, hidden, source)
+    return false
+  }
+  try {
+    await trash(pathOf(hidden))
+  } catch {
+    await putBack(fs, hidden, source)
+    return false
+  }
+  if ((await entryStat(fs, hidden)) === null) return true
+  await putBack(fs, hidden, source)
+  return false
 }
