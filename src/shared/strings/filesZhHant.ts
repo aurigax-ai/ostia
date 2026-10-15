@@ -225,7 +225,6 @@ export const filesZhHant: typeof filesEn = {
     zoomIn: '放大',
     zoomOut: '縮小',
     fit: '符合窗格大小',
-    actualSize: '實際大小',
     zoomLevel: '縮放 {percent}%',
     previousPage: '上一頁',
     nextPage: '下一頁',

@@ -109,7 +109,7 @@ function EditHunks({
   return (
     <div className="flex flex-col gap-1">
       <div
-        aria-label="diff"
+        aria-label={t.changes}
         className="flex max-h-72 flex-col gap-1 overflow-auto rounded-sm bg-bg-sunken p-2 font-mono text-ui-xs"
       >
         {shown.map((hunk) => {

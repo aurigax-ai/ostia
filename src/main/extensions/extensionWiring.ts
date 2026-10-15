@@ -10,6 +10,7 @@ import type { ExtensionRoot } from '@aurigax-ai/ostia-extension-sdk/manifest/ext
 import { type BrowserWindow, app, ipcMain } from 'electron'
 import { parseAgentResume } from '../../shared/agents/agentResume'
 import { type ManagerSettings, managerAgents } from '../../shared/agents/managerSettings'
+import type { Dict } from '../../shared/app/dict'
 import type { TerminalStateSnapshot } from '../../shared/types'
 import { AGENT_OFFER_RESULT_CHANNEL, type AgentOfferRelay } from '../agents/agentOfferRelay'
 import type { AgentRunningPanes } from '../agents/agentRunning'
@@ -134,6 +135,7 @@ export function extensionHostParts({
 }
 
 interface ExtensionHostStartDeps {
+  mainStrings: () => Dict
   services: {
     languageServers: LanguageServers | null
     extensionHost: ExtensionHost | null
@@ -177,6 +179,7 @@ interface ExtensionHostStartDeps {
 }
 
 export function startExtensionHost({
+  mainStrings,
   services,
   refreshAgentPlugins,
   hostPaneGrants,
@@ -260,7 +263,8 @@ export function startExtensionHost({
       ),
     openTerminalIn: openTerminalInWindow,
     notify: (n) => postNotification(notifyDeps, n),
-    confirm: (req) => confirmForExtension(req, windows.values()),
+    confirm: (req) =>
+      confirmForExtension(req, windows.values(), mainStrings().native.extensionConfirm),
     notifyPanel: (n, open) => postPanelNotification(notifyDeps, n, open),
     agentArgv: (name) => managerAgents(managerSettings())[name] ?? null,
     agentNames: () => Object.keys(managerAgents(managerSettings())),

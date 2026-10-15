@@ -12,6 +12,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { en, zhHant } from '../../shared/app/dict'
 import type { CommandDescriptor, CommandResult } from '../../shared/types'
 import { registerPane } from '../control/idRegistry'
 import {
@@ -769,7 +770,7 @@ describe('dispatchGatewayMethod — fs.list / fs.read', () => {
 describe('dispatchGatewayMethod — asks and agent replies', () => {
   const RESPOND = ['read', 'notify', 'respond']
 
-  function setup() {
+  function setup(text = en.approvals) {
     const pane = registerPane({ windowId: '7', workspaceId: 'ws-asks', paneId: 'p-asks' })
     const created: unknown[] = []
     const resolved: unknown[] = []
@@ -792,6 +793,7 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
       settled: (id, outcome) => hub.settled(id, outcome),
     })
     const hub = createAskHub({
+      text: () => text,
       questions: () => questions,
       approvals: () => approvals,
       identity: (paneId) => (paneId === 'p-asks' ? pane : undefined),
@@ -892,6 +894,24 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
       },
     ])
     expect(t.created).toHaveLength(3)
+  })
+
+  it('ask.list labels the answers in the language the app shows', async () => {
+    const t = setup(zhHant.approvals)
+    void t.approval()
+    void t.permission()
+    const labels = (await t.list()).map((ask) =>
+      (ask.choices as { label: string }[]).map((choice) => choice.label),
+    )
+    expect(labels).toEqual([
+      [zhHant.approvals.allowOnce, zhHant.approvals.allowAlways, zhHant.approvals.deny],
+      [
+        zhHant.approvals.allowOnce,
+        zhHant.approvals.allowSession,
+        zhHant.approvals.allowAlways,
+        zhHant.approvals.deny,
+      ],
+    ])
   })
 
   it('ask.answer routes a question’s choice and text to questions.answer', async () => {
@@ -1018,6 +1038,7 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
         opened: (request) => t.hub.approvalOpened(request),
       })
       const hub = createAskHub({
+        text: () => en.approvals,
         questions: () => null,
         approvals: () => approvals,
         identity: () => t.pane,
