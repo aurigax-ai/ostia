@@ -55,6 +55,16 @@ describe('buildSnapshot', () => {
     expect(restored.activePaneId).toBe(c.id)
   })
 
+  it('round-trips a collapsed pane of a split tab and expands one no tab holds any more', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const tab = splitOf('horizontal', b, { ...c, collapsed: true as const })
+    const root = tabsOf(b.id, a, tab)
+    expect(restoreSnapshot(build(root, b.id)).layouts.s1.root).toEqual(root)
+    const loose = splitOf('horizontal', a, { ...c, collapsed: true as const })
+    const restored = restoreSnapshot(build(loose, a.id)).layouts.s1.root
+    expect(restored.type === 'split' && restored.children[1]).not.toHaveProperty('collapsed')
+  })
+
   it('carries an editor’s file path and a browser’s url', () => {
     const editor: LayoutNode = {
       type: 'pane',

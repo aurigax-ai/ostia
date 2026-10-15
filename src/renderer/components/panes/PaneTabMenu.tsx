@@ -9,8 +9,9 @@ import { hibernatableAgentPanes } from '@/lib/agents/hibernationScheduler'
 import { useDict } from '@/lib/app/useDict'
 import { viewerOptions } from '@/lib/files/viewerChoice'
 import { useChordLabel } from '@/lib/keyboard/chords'
-import { splitTabOfPane } from '@/lib/layout/tree'
-import type { PaneNode } from '@/lib/layout/types'
+import { canCollapse } from '@/lib/layout/collapse'
+import { allPanes, splitTabOfPane } from '@/lib/layout/tree'
+import type { PaneNode, SplitNode } from '@/lib/layout/types'
 import { runUserAction } from '@/lib/palette/userActions'
 import { actionsFor } from '@/lib/settings/actions'
 import { closableOtherTabPanes } from '@/lib/workspaces/closeConfirm'
@@ -24,8 +25,12 @@ import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFol
 import {
   AppWindowIcon,
   ArrowsInIcon,
+  ArrowsInLineHorizontalIcon,
+  ArrowsInSimpleIcon,
   ArrowsLeftRightIcon,
   ArrowsOutIcon,
+  ArrowsOutLineHorizontalIcon,
+  ArrowsOutSimpleIcon,
   GitForkIcon,
   LockSimpleIcon,
   LockSimpleOpenIcon,
@@ -36,6 +41,23 @@ import {
 } from '@phosphor-icons/react'
 import type { ReactElement } from 'react'
 import { TabMoveMenuItems } from './TabMoveMenuItems'
+
+interface CollapseOffers {
+  self: boolean
+  others: boolean
+  all: boolean
+}
+
+const NO_COLLAPSE: CollapseOffers = { self: false, others: false, all: false }
+
+function collapseOffers(tab: SplitNode, pane: PaneNode): CollapseOffers {
+  const others = allPanes(tab).filter((p) => p.id !== pane.id)
+  return {
+    self: canCollapse(tab, pane.id),
+    others: others.some((p) => !p.collapsed),
+    all: pane.collapsed === true || others.some((p) => p.collapsed),
+  }
+}
 
 export function PaneTabMenu({
   pane,
@@ -69,10 +91,13 @@ export function PaneTabMenu({
       ? closableOtherTabPanes(workspaceId, pane.id).length
       : 0,
   )
-  const splitTabId = useLayoutStore((s) => {
+  const splitTab = useLayoutStore((s) => {
     const layout = workspaceId ? s.byWorkspace[workspaceId] : undefined
-    return layout ? (splitTabOfPane(layout.root, pane.id)?.id ?? null) : null
+    return layout ? splitTabOfPane(layout.root, pane.id) : null
   })
+  const splitTabId = splitTab?.id ?? null
+  const collapse = splitTab ? collapseOffers(splitTab, pane) : NO_COLLAPSE
+  const collapseKeys = useChordLabel('pane.collapse', isMac)
   const agentTab = pane.kind === 'terminal' && pane.resume !== undefined
   const renamable = workspaceId !== null
   if (
@@ -139,6 +164,39 @@ export function PaneTabMenu({
             onClick={() => void commands.exec('pane.zoom', { paneId: pane.id })}
           >
             {zoom === 'zoomed' ? d.pane.unzoom : d.pane.zoom}
+          </MenuItem>
+        ) : null}
+        {collapse.self ? (
+          <MenuItem
+            icon={ArrowsInLineHorizontalIcon}
+            hint={collapseKeys}
+            onClick={() => void commands.exec('pane.collapse', { paneId: pane.id })}
+          >
+            {d.pane.collapsePane}
+          </MenuItem>
+        ) : null}
+        {pane.collapsed ? (
+          <MenuItem
+            icon={ArrowsOutLineHorizontalIcon}
+            onClick={() => void commands.exec('pane.focus', { paneId: pane.id })}
+          >
+            {d.pane.expandPane}
+          </MenuItem>
+        ) : null}
+        {collapse.others ? (
+          <MenuItem
+            icon={ArrowsInSimpleIcon}
+            onClick={() => void commands.exec('pane.collapseOthers', { paneId: pane.id })}
+          >
+            {d.pane.collapseOtherPanes}
+          </MenuItem>
+        ) : null}
+        {collapse.all ? (
+          <MenuItem
+            icon={ArrowsOutSimpleIcon}
+            onClick={() => void commands.exec('pane.expandAll', { paneId: pane.id })}
+          >
+            {d.pane.expandAllPanes}
           </MenuItem>
         ) : null}
         {lockable ? (

@@ -1,9 +1,15 @@
-import { readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace, openedExternally, stubExternalOpener } from './helpers'
+import {
+  PROMPT,
+  newTerminalWorkspace,
+  openWorkspace,
+  openedExternally,
+  stubExternalOpener,
+} from './helpers'
 import { clickWith, hoverPoint, linkPoint } from './terminalLinks'
 import { type Page, _electron as electron, expect, test } from './test'
 
@@ -21,6 +27,98 @@ async function listen(
 
 const addresses = (win: Page) => win.locator('.browser-address')
 const shownAddress = (win: Page) => win.locator('.pane-slot:not([data-hidden]) .browser-address')
+const linkHint = (win: Page) => win.locator('[data-slot="tooltip-content"]')
+
+function seedBrowserAboveTerminal(dataHome: string): void {
+  mkdirSync(join(dataHome, 'ostia'), { recursive: true })
+  writeFileSync(
+    join(dataHome, 'ostia', 'workspaces.json'),
+    JSON.stringify({
+      v: 1,
+      savedAt: new Date().toISOString(),
+      activeWorkspaceId: 's1',
+      groups: [],
+      workspaces: [
+        {
+          id: 's1',
+          name: 'links',
+          kind: 'terminal',
+          workDir: dataHome,
+          root: {
+            type: 'split',
+            id: 'split-1',
+            direction: 'vertical',
+            sizes: [50, 50],
+            children: [
+              {
+                type: 'pane',
+                id: 'pane-web',
+                title: 'blank',
+                kind: 'browser',
+                url: 'about:blank',
+                browserProfile: 'shared',
+              },
+              { type: 'pane', id: 'pane-term', title: 'shell', kind: 'terminal', cwd: dataHome },
+            ],
+          },
+          activePaneId: 'pane-term',
+        },
+      ],
+    }),
+  )
+}
+
+async function printLink(win: Page, url: string): Promise<void> {
+  await win.locator('.xterm').filter({ visible: true }).first().click()
+  await win.keyboard.type(`clear; printf '%s\\n' '${url}'`)
+  await win.keyboard.press('Enter')
+}
+
+test('the link hint goes away when a Ctrl+click opens a browser tab in front and on a workspace switch', async () => {
+  test.setTimeout(90_000)
+  const server = await listen(() => {})
+  const dataHome = freshDataHome()
+  seedBrowserAboveTerminal(dataHome)
+  const app = await electron.launch(isolatedLaunch(dataHome))
+  try {
+    const win = await app.firstWindow()
+    await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(PROMPT, {
+      timeout: 15_000,
+    })
+    await expect(win.locator('webview')).toHaveCount(1, { timeout: 15_000 })
+    const url = `http://127.0.0.1:${server.port}/front`
+    await printLink(win, url)
+    const link = await linkPoint(win, /^http:\/\/127\.0\.0\.1:\d+\/front\s*$/, 'front')
+
+    await hoverPoint(win, link)
+    await expect(linkHint(win)).toContainText(url, { timeout: 5_000 })
+    await clickWith(win, link, ['Control'])
+    await expect(win.locator('webview')).toHaveCount(2, { timeout: 15_000 })
+    await win.waitForTimeout(800)
+    await expect(linkHint(win)).toHaveCount(0)
+
+    await win.mouse.move(link.x, link.y + 60)
+    await win.mouse.move(link.x, link.y, { steps: 2 })
+    await clickWith(win, link, ['Control'])
+    await expect(win.locator('webview')).toHaveCount(3, { timeout: 15_000 })
+    await win.waitForTimeout(800)
+    await expect(linkHint(win)).toHaveCount(0)
+
+    await newTerminalWorkspace(win)
+    const other = `http://127.0.0.1:${server.port}/other`
+    await printLink(win, other)
+    const second = await linkPoint(win, /^http:\/\/127\.0\.0\.1:\d+\/other\s*$/, 'other')
+    await hoverPoint(win, second)
+    await expect(linkHint(win)).toContainText(other, { timeout: 5_000 })
+    await win.keyboard.press('Control+1')
+    await expect(win.locator('.pane-slot:not([data-hidden]) webview')).toHaveCount(1)
+    await win.waitForTimeout(800)
+    await expect(linkHint(win)).toHaveCount(0)
+  } finally {
+    await app.close()
+    server.close()
+  }
+})
 
 test('a hyperlink in a mouse-reporting program leaves plain clicks to the program and opens on Ctrl', async () => {
   test.setTimeout(60_000)

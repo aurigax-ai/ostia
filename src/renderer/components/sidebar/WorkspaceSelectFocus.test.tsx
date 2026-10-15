@@ -22,12 +22,16 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { renderSettled } from '../../../../test/render'
 import { DeckRail } from './DeckRail'
 
-vi.mock('allotment', () => {
-  function Allotment({ children }: { children?: ReactNode }): JSX.Element {
+vi.mock('allotment', async () => {
+  const { forwardRef } = await import('react')
+  const Allotment = forwardRef(function Allotment(
+    { children }: { children?: ReactNode },
+    _ref,
+  ): JSX.Element {
     return <div>{children}</div>
-  }
-  Allotment.Pane = ({ children }: { children?: ReactNode }) => <div>{children}</div>
-  return { Allotment }
+  })
+  const Pane = ({ children }: { children?: ReactNode }) => <div>{children}</div>
+  return { Allotment: Object.assign(Allotment, { Pane }) }
 })
 vi.mock('@/components/panes/SurfacePool', () => ({ SurfacePool: () => null }))
 vi.mock('@/components/settings/SettingsPanel', () => ({ SettingsPanel: () => null }))

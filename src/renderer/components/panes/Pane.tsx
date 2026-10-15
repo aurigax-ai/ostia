@@ -23,7 +23,8 @@ import {
   ResumeFailedNotice,
   ResumeFolderNotice,
 } from './ResumeFolderNotice'
-import { SplitTabBody, SplitTabPill } from './SplitTab'
+import { SplitTabPill } from './SplitTab'
+import { SplitTabBody } from './SplitTabBody'
 import { TabBody } from './TabBody'
 import { TabRow } from './TabRow'
 import { paneDropHandlers } from './paneDropHandlers'
