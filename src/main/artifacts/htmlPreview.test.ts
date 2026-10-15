@@ -547,9 +547,17 @@ describe('PreviewHost', () => {
     const guest = r.attach(opened)
     const serve = r.sessionOf(opened).serve as (request: Request) => Promise<Response>
     await serve(new Request(opened.url))
-    await armed(watcherOf(join(folder, 'assets')), join(folder, 'assets'))
+    const assets = watcherOf(join(folder, 'assets'))
+    await armed(watcherOf(folder), folder)
+    await armed(assets, join(folder, 'assets'))
     await new Promise((settled) => setTimeout(settled, PREVIEW_LIMITS.reloadDebounceMs + 100))
     const before = guest.reloads
+    const names: string[] = []
+    assets.on('change', (_kind, name) => names.push(String(name)))
+    writeFileSync(join(folder, 'assets', 'unrelated.txt'), 'x')
+    await vi.waitFor(() => expect(names).toContain('unrelated.txt'), { timeout: 3000 })
+    await new Promise((settled) => setTimeout(settled, PREVIEW_LIMITS.reloadDebounceMs + 100))
+    expect(guest.reloads).toBe(before)
     writeFileSync(chart, 'export default () => 1')
     await vi.waitFor(() => expect(guest.reloads).toBe(before + 1), { timeout: 3000 })
   })
