@@ -1,3 +1,4 @@
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { SECRET_GRANT_MODES, type SecretGrant, type SecretGrantMode } from './secrets'
 
 export interface SandboxControls {
@@ -327,13 +328,12 @@ function parseControls(value: unknown): Partial<SandboxControls> | null {
 
 export function parseSwitches(value: unknown): Partial<SandboxSwitches> | null {
   if (value === undefined) return {}
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
-  const raw = value as Record<string, unknown>
+  if (!isRecord(value)) return null
   const out: Partial<SandboxSwitches> = {}
   for (const key of SANDBOX_SWITCHES) {
-    if (raw[key] === undefined) continue
-    if (typeof raw[key] !== 'boolean') return null
-    out[key] = raw[key]
+    if (value[key] === undefined) continue
+    if (typeof value[key] !== 'boolean') return null
+    out[key] = value[key]
   }
   return out
 }

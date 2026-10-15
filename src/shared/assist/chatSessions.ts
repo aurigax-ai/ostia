@@ -4,6 +4,7 @@ import {
   normalizeChatContextItem,
   normalizeModelRef,
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 
 export interface ChatPart {
   type: string
@@ -94,10 +95,6 @@ const TEXT_MAX = 100_000
 const PART_JSON_MAX = 64 * 1024
 const PART_TYPE_PATTERN = /^[a-z][a-z0-9-]{0,63}$/
 const SHORT_MAX = 200
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
 
 function finite(v: unknown): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null

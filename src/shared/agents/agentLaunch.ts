@@ -1,4 +1,5 @@
 import { envName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { ResumableAgent } from './agentResume'
 
 type Arity = 'none' | 'one' | 'optional' | 'many'
@@ -223,9 +224,9 @@ export function capturedArgs(
 }
 
 export function safeEnv(raw: unknown): Record<string, string> {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {}
+  if (!isRecord(raw)) return {}
   const out: Record<string, string> = {}
-  for (const [name, value] of Object.entries(raw as Record<string, unknown>)) {
+  for (const [name, value] of Object.entries(raw)) {
     if (Object.keys(out).length >= MAX_ENV) break
     if (!ENV_NAME.test(name) || SECRET_NAME.test(name) || CODE_LOADING_ENV.test(name)) continue
     if (name.startsWith(envName(''))) continue
@@ -308,9 +309,3 @@ export function commandLineEnv(agent: ResumableAgent, line: string): Record<stri
 }
 
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/
-
-export function shellQuote(value: string): string {
-  return /^[A-Za-z0-9_./:,@%+-][A-Za-z0-9_./:,@%+=-]*$/.test(value)
-    ? value
-    : `'${value.replaceAll("'", `'\\''`)}'`
-}

@@ -1,3 +1,4 @@
+import { isRecord } from '../contract/isRecord'
 export const PANEL_SIZES_PATH = '/sizes'
 export const SPLIT_KEY_STEP = 16
 export const SPLIT_PAGE_STEP = 64
@@ -45,7 +46,7 @@ export function isFraction(value: unknown): value is number {
 }
 
 export function parsePanelSizes(raw: unknown): Record<string, number> {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {}
+  if (!isRecord(raw)) return {}
   const entries = Object.entries(raw).filter(
     ([key, value]) => PANEL_SIZE_KEY.test(key) && isFraction(value),
   )

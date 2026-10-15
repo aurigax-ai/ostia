@@ -3,6 +3,7 @@ import type {
   PaneChip,
   WorkspaceChip,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 
 export const GIT_BRANCH_CHIP = 'branch'
 export const GIT_DIFF_STATS_CHIP = 'diff-stats'
@@ -133,10 +134,6 @@ export const DEFAULT_GIT_SETTINGS: GitSettings = {
   showDiffStats: true,
   graphScope: 'current',
   changesView: 'list',
-}
-
-function isRecord(raw: unknown): raw is Record<string, unknown> {
-  return typeof raw === 'object' && raw !== null && !Array.isArray(raw)
 }
 
 export function clampedNumber(

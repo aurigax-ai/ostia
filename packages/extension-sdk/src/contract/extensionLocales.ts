@@ -1,3 +1,4 @@
+import { isRecord } from './isRecord'
 import { isDangerousSegment } from './protoGuard'
 
 export const EXTENSION_LOCALES_DIR = 'locales'
@@ -75,7 +76,7 @@ export function parseMessages(raw: unknown): ParsedMessages {
   const messages: LocaleStrings = Object.create(null)
   const problems: string[] = []
   if (raw === undefined) return { messages, problems }
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+  if (!isRecord(raw)) {
     return { messages, problems: ['messages must be an object of strings'] }
   }
   const entries = Object.entries(raw)

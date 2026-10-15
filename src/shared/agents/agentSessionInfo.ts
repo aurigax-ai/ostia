@@ -1,3 +1,4 @@
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 export interface AgentSessionInfo {
   title: string | null
   model: string | null
@@ -26,7 +27,6 @@ const FIELD_MAX = 200
 
 type Json = Record<string, unknown>
 
-const isRecord = (v: unknown): v is Json => typeof v === 'object' && v !== null && !Array.isArray(v)
 const text = (v: unknown): string | null =>
   typeof v === 'string' && v.trim() ? v.trim().slice(0, FIELD_MAX) : null
 const count = (v: unknown): number | null =>
