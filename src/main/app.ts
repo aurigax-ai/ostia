@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir, hostname } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { appEnv, readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
@@ -65,7 +65,6 @@ import { OPEN_FILES_COMMAND, OPEN_FILES_MAX } from '../shared/files/openFiles'
 import { desktopsOf } from '../shared/keyboard/desktopChords'
 import { parsePrivacySettings } from '../shared/privacy/redaction'
 import { bucketCount } from '../shared/privacy/telemetry'
-import { parseSandboxGlobals } from '../shared/sandbox/sandbox'
 import { KEEP_SHELLS_FEATURE, parseKeepShells } from '../shared/terminal/keepShells'
 import { isHostNamed } from '../shared/terminal/osc7'
 import { quoteArgv } from '../shared/terminal/shellQuote'
@@ -241,7 +240,6 @@ import {
 import { listPairRequests, onPairRequestsChanged } from './gateway/pairRequests'
 import { configureGatewayControl, phoneCanRespond, stopGateway } from './gateway/server'
 import { createTailnet, tailnetNodeName, tsnetHelperPath } from './gateway/tailnet'
-import type { PhoneFileScope } from './gateway/workspaceFiles'
 import { GitCommands } from './git/commands'
 import { confirmDiscard } from './git/confirmDiscard'
 import { registerGitIpc, registerGitMethods } from './git/register'
@@ -308,7 +306,7 @@ import {
 } from './platform/systemRequirements'
 import { registerSystemRequirementsIpc } from './platform/systemRequirementsIpc'
 import { loginPathSettled, resolveLoginPath } from './platform/toolPath'
-import { OLD_PRODUCT_NAME, appConfigDir, configHome, dataHome } from './platform/userDirs'
+import { appConfigDir } from './platform/userDirs'
 import { registerPortsIpc, registerPortsMethods } from './ports/register'
 import { PortsService } from './ports/service'
 import { registerPrivacyIpc } from './privacy/privacyIpc'
@@ -319,24 +317,16 @@ import { flatSource, groupedSource, loginsSource } from './profileSync/secrets'
 import { attachWorkspace } from './sandbox/attachWorkspace'
 import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
-import { DomainRequests } from './sandbox/domainRequests'
-import { HostPaneGrants } from './sandbox/hostPanes'
 import { registerSandboxIpc } from './sandbox/ipc'
 import { PortBridge, bridgesPorts } from './sandbox/portBridge'
-import { PortForwarder, type SandboxListener, type SandboxPane } from './sandbox/portForwarder'
-import { PortRequests } from './sandbox/portRequests'
-import { HOST_PROTOCOL_VERSION } from './sandbox/protocol'
 import { relayForced, sandboxedShellCommand, wrapForTerminal } from './sandbox/ptyWrap'
+import { createSandboxServices } from './sandbox/sandboxServices'
 import { hiddenHomeNotice, sandboxFailureBanner } from './sandbox/spawnBanner'
 import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
-import { type SandboxBasePaths, reachableContainerSockets, srtVendorDir } from './sandbox/srtConfig'
-import { SandboxStore } from './sandbox/store'
-import { ViolationLog, recordViolations } from './sandbox/violations'
-import { type SandboxReadRules, visibleInSandbox } from './sandbox/visibility'
-import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
+import type { SandboxReadRules } from './sandbox/visibility'
+import { SandboxUnavailableError } from './sandbox/workspaceSandboxes'
 import { packageCooldownEnv } from './sandboxPackages/packageEnv'
-import { PackageRequests } from './sandboxPackages/packageRequests'
 import { createEncryptedStores } from './secrets/encryptedStores'
 import { registerSecretMethods } from './secrets/register'
 import { createSecretServices } from './secrets/secretServices'
@@ -355,11 +345,7 @@ import { registerSelectionIpc } from './terminal/selectionReport'
 import { ExecutableIndex, readShellState, registerCommandNamesIpc } from './terminal/shellCommands'
 import { closesPaneOnExit } from './terminal/shellExit'
 import { ShellHistoryFiles, registerShellHistoryIpc } from './terminal/shellHistory'
-import {
-  INTEGRATION_DIR,
-  setAgentPlugins,
-  shellIntegrationSpawnOptions,
-} from './terminal/shellIntegration'
+import { setAgentPlugins, shellIntegrationSpawnOptions } from './terminal/shellIntegration'
 import { sandboxCwd, spawnFolder } from './terminal/spawnCwd'
 import {
   type PaneOutput,
@@ -379,15 +365,13 @@ import { type SavedAttention, isKeptAttentionState } from './tmux/attentionFile'
 import { SANDBOX_NOT_KEPT, TMUX_MISSING, keepShellsNotice } from './tmux/keepShellsBanner'
 import { KeptAttention } from './tmux/keptAttention'
 import { KeptPlumbing, keptLauncherPaths } from './tmux/keptLaunchers'
-import { keptHostChannel, keptShellsDir, keptShellsName } from './tmux/keptPaths'
+import { keptShellsDir, keptShellsName } from './tmux/keptPaths'
 import {
-  type KeptHostMeta,
   type KeptMeta,
   type KeptProcessMeta,
   type KeptProgram,
   type KeptShell,
   KeptShells,
-  SANDBOX_HOST_KIND,
 } from './tmux/keptShells'
 import type { TmuxPane } from './tmux/tmuxServer'
 import { registerAppUpdate } from './updates/appUpdate'
@@ -922,103 +906,28 @@ const openWaits = new OpenWaits((windowId, paneIds) =>
   windows.get(windowId)?.webContents.send('open-waits:ended', paneIds),
 )
 
-const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
-  store: new SandboxStore(join(app.getPath('userData'), 'sandbox.json')),
-  globals: () => parseSandboxGlobals((readSettingsFile() as { sandbox?: unknown }).sandbox),
-  basePaths: () => {
-    const base: SandboxBasePaths = {
-      home: homedir(),
-      dataDirs: [
-        app.getPath('userData'),
-        dirname(storePath('workspaces', 'global')),
-        ...[
-          join(app.getPath('appData'), OLD_PRODUCT_NAME),
-          join(configHome(), OLD_PRODUCT_NAME),
-          join(dataHome(), OLD_PRODUCT_NAME),
-        ].filter((dir) => existsSync(dir)),
-      ],
-      runtimeDir: process.env.XDG_RUNTIME_DIR,
-      agentSockets: process.env.SSH_AUTH_SOCK ? [process.env.SSH_AUTH_SOCK] : [],
-      containerSockets: reachableContainerSockets(),
-      socketPath: controlSocketPath(),
-      srtVendorDir: srtVendorDir(app.getAppPath()),
-      runtimeReads: [
-        INTEGRATION_DIR,
-        privateTmpDir(`${PRODUCT_NAME}-shell-state`),
-        app.getAppPath(),
-        dirname(process.execPath),
-        paneLauncherDir(),
-      ],
-    }
-    return keepShellsOn()
-      ? { ...base, keptSocketPath: keptControlSocketPath(app.getPath('userData')) }
-      : base
-  },
-  workDir: (workspaceId) => workDirForWorkspace(workspaceId),
-  tmpRoot: privateTmpDir(`${PRODUCT_NAME}-sbx`),
-  nodePath: process.execPath,
-  hostScript: join(app.getAppPath(), 'out/sandbox/host.mjs'),
-  onAsk: (workspaceId, host, port) =>
-    domainRequests.onBlocked(workspaceSandboxes.owner(workspaceId), host, port),
-  onPackageBlocked: (workspaceId, pkg, reason) =>
-    packageRequests.blocked(workspaceSandboxes.owner(workspaceId), pkg, reason),
-  onViolations: (workspaceId, lines) =>
-    recordViolations(
-      sandboxViolations,
-      (path) => workspaceSandboxes.writeRefusal(workspaceId, path),
-      workspaceSandboxes.owner(workspaceId),
-      lines,
-    ),
-  kept: {
-    enabled: () => keepShellsOn() && keptShellsProgram() !== null,
-    tmpRoot: join(
-      privateTmpDir(`${PRODUCT_NAME}-sbx`),
-      `kept-${keptShellsName(app.getPath('userData'))}`,
-    ),
-    channel: (workspaceId) => keptHostChannel(app.getPath('userData'), workspaceId),
-    claim: (workspaceId) => {
-      const claimed = keptShells.claimHost(workspaceId)
-      if (!claimed) return undefined
-      keptHostPanes.set(workspaceId, claimed)
-      return { channel: claimed.meta.channel, tmpDir: claimed.meta.tmpDir }
-    },
-    spawn: async (workspaceId, spec) => {
-      const meta: KeptHostMeta = {
-        kind: SANDBOX_HOST_KIND,
-        workspaceId,
-        channel: spec.channel,
-        tmpDir: spec.tmpDir,
-        protocol: HOST_PROTOCOL_VERSION,
-        exposed: [],
-      }
-      const pane = await keptShells.spawnHost({
-        file: spec.file,
-        args: spec.args,
-        cwd: spec.tmpDir,
-        env: spec.env,
-        meta,
-      })
-      keptHostPanes.set(workspaceId, { pane, meta })
-    },
-    stop: (workspaceId) => {
-      keptHostPanes.get(workspaceId)?.pane.kill()
-      keptHostPanes.delete(workspaceId)
-    },
-  },
+const {
+  workspaceSandboxes,
+  keptHostPanes,
+  syncKeptExposed,
+  sandboxViolations,
+  sandboxCanRead,
+  phoneFileScope,
+  paneForWorkspace,
+  domainRequests,
+  portForwarder,
+  packageRequests,
+  portRequests,
+  hostPaneGrants,
+  scanSandboxPorts,
+} = createSandboxServices({
+  ptys,
+  keptShells,
+  readSettingsFile,
+  paneLauncherDir,
+  keepShellsOn,
+  keptShellsProgram,
 })
-
-const keptHostPanes = new Map<string, { pane: TmuxPane; meta: KeptHostMeta }>()
-
-function syncKeptExposed(workspaceId: string, listening?: readonly SandboxListener[]): void {
-  const host = keptHostPanes.get(workspaceId)
-  if (!host) return
-  const exposed = portRequests.exposures(workspaceId, listening)
-  if (JSON.stringify(exposed) === JSON.stringify(host.meta.exposed)) return
-  host.meta = { ...host.meta, exposed }
-  host.pane.setMeta(host.meta)
-}
-
-const sandboxViolations = new ViolationLog()
 
 let languageServers: LanguageServers | null = null
 
@@ -1036,30 +945,6 @@ const managedServers = new ManagedServers({
   env: () => scrubbedEnv(process.env),
   baseUrl: downloadBaseUrl(app.isPackaged, process.env),
 })
-
-function sandboxCanRead(workspaceId: string, path: string): boolean {
-  try {
-    const { denyRead, allowRead } = workspaceSandboxes.config(workspaceId).filesystem
-    return visibleInSandbox(path, { denyRead, allowRead })
-  } catch {
-    return false
-  }
-}
-
-function phoneReadRules(workspaceId: string): SandboxReadRules {
-  if (!workspaceSandboxes.isEnabled(workspaceId)) return { denyRead: [], allowRead: [] }
-  try {
-    const { denyRead, allowRead } = workspaceSandboxes.config(workspaceId).filesystem
-    return { denyRead, allowRead }
-  } catch {
-    return { denyRead: ['/'], allowRead: [] }
-  }
-}
-
-function phoneFileScope(workspaceId: string): PhoneFileScope {
-  const { home, dataDirs } = workspaceSandboxes.pathEnv()
-  return { home, dataDirs, rules: phoneReadRules(workspaceId) }
-}
 
 const LANGUAGE_SERVER_WATCH_DEBOUNCE_MS = 300
 const languageServerWatches = new TreeWatches({
@@ -1111,126 +996,9 @@ function createLanguageServers(): LanguageServers {
   })
 }
 
-function paneForWorkspace(workspaceId: string): string | undefined {
-  for (const [paneId, entry] of ptys) {
-    if (entry.workspaceId === workspaceId && entry.sandboxed) return paneId
-  }
-  return undefined
-}
-
-const domainRequests: DomainRequests = new DomainRequests({
-  isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-  blockedDomains: (workspaceId) => workspaceSandboxes.resolved(workspaceId).deniedDomains,
-  ask: async ({ workspaceId, paneId, host, origin }) => {
-    const pane = paneId ? getByPaneId(paneId) : undefined
-    const identity = pane ?? getByPaneId(paneForWorkspace(workspaceId) ?? '')
-    const queue = approvals()
-    if (!identity || !queue) return 'deny'
-    return queue.request({
-      externalId: identity.externalId,
-      windowId: identity.windowId,
-      paneId: identity.paneId,
-      workspaceId,
-      caps: [],
-      kind: 'sandbox-domain',
-      subject: host,
-      action: origin === 'agent' ? `ostia sandbox request-domain ${host}` : `connect to ${host}`,
-      detail: '',
-    })
-  },
-  allowWorkspace: (workspaceId, domain) => {
-    workspaceSandboxes.update(workspaceId, (current) => ({
-      ...current,
-      domains: current.domains.includes(domain) ? current.domains : [...current.domains, domain],
-    }))
-  },
-  allowUntilRestart: (workspaceId, domain) =>
-    workspaceSandboxes.allowUntilRestart(workspaceId, domain),
-  now: Date.now,
-})
-
 let onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null = null
 
-function sandboxedPanes(workspaceId: string): SandboxPane[] {
-  const panes: SandboxPane[] = []
-  for (const entry of ptys.values()) {
-    if (entry.workspaceId === workspaceId && entry.sandboxed) {
-      panes.push({ pid: entry.pty.pid, bridge: entry.portBridge })
-    }
-  }
-  return panes
-}
-
-const portForwarder = new PortForwarder({
-  onChange: (workspaceId) => syncKeptExposed(workspaceId),
-  panesOf: sandboxedPanes,
-  unixSocketsOff: (workspaceId) => !workspaceSandboxes.resolved(workspaceId).switches.unixSockets,
-})
-
-const PACKAGE_BATCH_MS = 600
-
-const packageRequests: PackageRequests = new PackageRequests({
-  batchMs: PACKAGE_BATCH_MS,
-  ask: async ({ workspaceId, kind, packages }) => {
-    const identity = getByPaneId(paneForWorkspace(workspaceId) ?? '')
-    const queue = approvals()
-    if (!identity || !queue) return 'deny'
-    const names = packages.map((p) => `${p.ref.name}@${p.ref.version}`)
-    return queue.request({
-      externalId: identity.externalId,
-      windowId: identity.windowId,
-      paneId: identity.paneId,
-      workspaceId,
-      caps: [],
-      kind,
-      subject: names.join(', '),
-      action: `install ${names.length} package${names.length === 1 ? '' : 's'}`,
-      detail: packages
-        .map((p) => `${p.ref.ecosystem} ${p.ref.name}@${p.ref.version}: ${p.reason}`)
-        .join('\n'),
-    })
-  },
-  allowWorkspace: (workspaceId, key) => workspaceSandboxes.allowPackage(workspaceId, key, true),
-  allowUntilRestart: (workspaceId, key) => workspaceSandboxes.allowPackage(workspaceId, key, false),
-})
-
-const portRequests: PortRequests = new PortRequests({
-  platform: process.platform,
-  isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-  policy: (workspaceId) => workspaceSandboxes.resolved(workspaceId).portsPolicy,
-  ask: async ({ workspaceId, paneId, port, process: owner, origin }) => {
-    const pane = paneId ? getByPaneId(paneId) : undefined
-    const identity = pane ?? getByPaneId(paneForWorkspace(workspaceId) ?? '')
-    const queue = approvals()
-    if (!identity || !queue) return 'deny'
-    return queue.request({
-      externalId: identity.externalId,
-      windowId: identity.windowId,
-      paneId: identity.paneId,
-      workspaceId,
-      caps: [],
-      kind: 'sandbox-port',
-      subject: String(port),
-      action:
-        origin === 'agent' ? `ostia sandbox expose ${port}` : `a server started on port ${port}`,
-      detail: owner ?? '',
-    })
-  },
-  forwarder: portForwarder,
-})
-
 const PORT_SCAN_MS = 3000
-
-const HOST_GRANT_TTL_MS = 120_000
-const hostPaneGrants = new HostPaneGrants({ now: Date.now, ttlMs: HOST_GRANT_TTL_MS })
-
-function scanSandboxPorts(): void {
-  const workspaces = new Set<string>()
-  for (const entry of ptys.values()) if (entry.sandboxed) workspaces.add(entry.workspaceId)
-  for (const workspaceId of workspaces) {
-    void portRequests.scan(workspaceId).then(() => syncKeptExposed(workspaceId))
-  }
-}
 
 const { secretService, workspaceAgents, injectSecrets } = createSecretServices({
   workspaceSandboxes,
