@@ -65,7 +65,6 @@ import { quoteArgv } from '../shared/terminal/shellQuote'
 import type {
   AppInfo,
   CommandDescriptor,
-  CommandResult,
   CommandTarget,
   ExternalEditorRequest,
   FsEntry,
@@ -148,6 +147,7 @@ import { registerExtensionMcp } from './chat/extensionMcp'
 import { McpHost } from './chat/mcpHost'
 import { McpOAuth, mcpOAuthBrowser } from './chat/mcpOAuth'
 import { createMcpOAuthStore } from './chat/mcpOAuthStore'
+import { createCommandBridge } from './control/commandBridge'
 import { setCapFilter, setScriptTokenCheck } from './control/controlAuth'
 import { clearControlInfo, controlInfoPath, writeControlInfo } from './control/controlDiscovery'
 import {
@@ -251,7 +251,6 @@ import { registerPaneResumeMethods } from './panes/paneResume'
 import { PaneWatch, registerPaneWaitMethods } from './panes/paneWait'
 import { wakeHibernatedPane } from './panes/paneWake'
 import { PaneWaking } from './panes/paneWaking'
-import type { ProcessTabRequest } from './panes/processLaunch'
 import { INTERRUPT_GRACE_MS, processStatusOf, registerProcessMethods } from './panes/processManager'
 import type { ProcessRegistry } from './panes/processRegistry'
 import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './platform/discreteGpu'
@@ -502,6 +501,9 @@ const {
   mainWindow,
   sendToWindow,
 } = createWindowSend({ windows, services })
+
+const { listCommandsFor, getTerminalState, execCommand, openTerminalInWindow } =
+  createCommandBridge({ commandsByWindow, terminalState, windows, mainWindow, workspaceWindowId })
 
 function listDir(dir: string): FsEntry[] {
   try {
@@ -1831,14 +1833,6 @@ function registerFsIpc(): void {
   )
 }
 
-export function listCommandsFor(windowId: string): CommandDescriptor[] {
-  return commandsByWindow.get(windowId) ?? []
-}
-
-export function getTerminalState(paneId: string): TerminalStateSnapshot | undefined {
-  return terminalState.get(paneId)
-}
-
 function openSettingsInFocusedWindow(): void {
   const focused = BrowserWindow.getFocusedWindow()
   const entry = [...windows].find(([, win]) => win === focused)
@@ -1882,43 +1876,6 @@ export function attachPhoneObserver(
     rows: entry.pty.rows,
     detach: () => entry.session.removeSubscriber(id),
   }
-}
-
-let reqSeq = 0
-
-export function execCommand(
-  target: CommandTarget,
-  id: string,
-  args?: unknown,
-  fromMain = false,
-): Promise<CommandResult> {
-  const win = target.windowId ? windows.get(target.windowId) : mainWindow()
-  if (!win || win.isDestroyed()) {
-    return Promise.resolve({
-      ok: false,
-      error: { code: 'command-failed', message: 'target window not available' },
-    })
-  }
-  const reqId = `cmd-${++reqSeq}`
-  return new Promise((resolve) => {
-    const onResult = (_e: Electron.IpcMainEvent, rid: string, result: CommandResult): void => {
-      if (rid !== reqId) return
-      clearTimeout(timer)
-      ipcMain.removeListener('command:result', onResult)
-      resolve(result)
-    }
-    ipcMain.on('command:result', onResult)
-    win.webContents.send('command:invoke', reqId, {
-      id,
-      args,
-      target,
-      ...(fromMain ? { fromMain: true } : {}),
-    })
-    const timer = setTimeout(() => {
-      ipcMain.removeListener('command:result', onResult)
-      resolve({ ok: false, error: { code: 'command-failed', message: 'command timed out' } })
-    }, 5000)
-  })
 }
 
 function startCoreBoards(): void {
@@ -2028,37 +1985,6 @@ const agentOffers = createAgentOfferRelay({
   },
   externalIdOf: (paneId) => getByPaneId(paneId)?.externalId,
 })
-
-const OPEN_TERMINAL_TIMEOUT_MS = 5000
-let openTerminalSeq = 0
-
-function openTerminalInWindow(req: ProcessTabRequest): Promise<string | null> {
-  const { windowId: requestedWindow, ...payload } = req
-  const windowId =
-    requestedWindow ?? (req.workspaceId ? workspaceWindowId(req.workspaceId) : undefined)
-  const win = (windowId ? windows.get(windowId) : undefined) ?? mainWindow()
-  if (!win || win.isDestroyed()) return Promise.resolve(null)
-  const wid = String(win.webContents.id)
-  const requestId = `term-${++openTerminalSeq}`
-  return new Promise((resolve) => {
-    const finish = (paneId: string | null): void => {
-      clearTimeout(timer)
-      ipcMain.removeListener('extensions:open-terminal-result', onResult)
-      resolve(paneId)
-    }
-    const onResult = (e: Electron.IpcMainEvent, rid: unknown, paneId: unknown): void => {
-      if (rid !== requestId || String(e.sender.id) !== wid) return
-      finish(
-        typeof paneId === 'string' && paneId
-          ? registerPane({ windowId: wid, workspaceId: req.workspaceId ?? '', paneId }).externalId
-          : null,
-      )
-    }
-    const timer = setTimeout(() => finish(null), OPEN_TERMINAL_TIMEOUT_MS)
-    ipcMain.on('extensions:open-terminal-result', onResult)
-    win.webContents.send('extensions:open-terminal', { ...payload, requestId })
-  })
-}
 
 const MANAGER_READY_TIMEOUT_MS = 20_000
 const MANAGER_OPEN_TIMEOUT_MS = 5000
