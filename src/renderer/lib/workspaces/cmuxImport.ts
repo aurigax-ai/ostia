@@ -1,3 +1,4 @@
+import { formatBytes } from '@/lib/app/localeFormat'
 import { type RestorableWorkspace, workspaceHandoff } from '@/lib/layout/snapshot'
 import {
   TERMINAL_TITLE,
@@ -19,17 +20,18 @@ import {
   useWorkspacesStore,
 } from '@/stores/workspaces/workspacesStore'
 import type { SnapshotWorkspace } from '@shared/types'
-import type {
-  CmuxImportReport,
-  CmuxLayout,
-  CmuxLoss,
-  CmuxLossEntry,
-  CmuxPaneLayout,
-  CmuxSession,
-  CmuxSessionError,
-  CmuxSkippedEntry,
-  CmuxSurface,
-  CmuxWorkspace,
+import {
+  CMUX_SESSION_MAX_BYTES,
+  type CmuxImportReport,
+  type CmuxLayout,
+  type CmuxLoss,
+  type CmuxLossEntry,
+  type CmuxPaneLayout,
+  type CmuxSession,
+  type CmuxSessionError,
+  type CmuxSkippedEntry,
+  type CmuxSurface,
+  type CmuxWorkspace,
 } from '@shared/workspaces/cmuxSession'
 import type { WorkspaceGroupColor } from '@shared/workspaces/workspaceGroups'
 import { MAX_LAYOUT_DEPTH, MAX_PANES, MAX_WORKSPACES } from '@shared/workspaces/workspaceLimits'
@@ -79,7 +81,7 @@ const ERROR_TEXT: Record<CmuxSessionError, string> = {
   'outside-home': 'the session file must be inside your home folder',
   'not-found': 'no cmux session file there',
   unreadable: 'the cmux session file could not be read',
-  'too-large': 'the cmux session file is larger than 32 MB',
+  'too-large': `the cmux session file is larger than ${formatBytes(CMUX_SESSION_MAX_BYTES, 'en')}`,
   invalid: 'not a cmux session file',
   'unsupported-version':
     'the cmux session file was saved by a cmux version this import cannot read',

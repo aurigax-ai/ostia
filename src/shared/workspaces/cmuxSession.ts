@@ -4,6 +4,8 @@ import type { WorkspaceGroupColor } from './workspaceGroups'
 
 export const CMUX_SESSION_FILE = 'Library/Application Support/cmux/session-com.cmuxterm.app.json'
 
+export const CMUX_SESSION_MAX_BYTES = 32 * 1024 * 1024
+
 const CMUX_SESSION_VERSION = 1
 
 const TEXT_MAX = 256

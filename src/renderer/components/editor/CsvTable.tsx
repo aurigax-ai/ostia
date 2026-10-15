@@ -1,5 +1,6 @@
 import { fmt, useDict } from '@/lib/app/useDict'
 import { CSV_COLUMNS_MAX, CSV_ROWS_MAX, type CsvTableData, parseCsv } from '@/lib/files/csvTable'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useEffect, useState } from 'react'
 
 export function CsvTable({
@@ -24,12 +25,15 @@ export function CsvTable({
 
 export function CsvTableView({ table }: { table: CsvTableData }): JSX.Element {
   const d = useDict()
+  const locale = useSettingsStore((s) => s.locale)
   return (
     // biome-ignore lint/a11y/noNoninteractiveTabindex: the table scrolls with the keyboard
     <div className="csv-table" data-testid="csv-table" tabIndex={0}>
       {table.more || table.columnsCut ? (
         <p className="csv-table-note" data-testid="csv-table-note">
-          {table.more ? fmt(d.viewer.csvRowsCut, { rows: CSV_ROWS_MAX.toLocaleString('en') }) : ''}
+          {table.more
+            ? fmt(d.viewer.csvRowsCut, { rows: CSV_ROWS_MAX.toLocaleString(locale) })
+            : ''}
           {table.more && table.columnsCut ? ' ' : ''}
           {table.columnsCut ? fmt(d.viewer.csvColumnsCut, { columns: CSV_COLUMNS_MAX }) : ''}
         </p>
