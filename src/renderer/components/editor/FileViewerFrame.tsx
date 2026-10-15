@@ -1,37 +1,55 @@
 import { IconButton } from '@/components/common/IconButton'
+import { Button } from '@/components/ui/button'
 import { useDict } from '@/lib/app/useDict'
 import type { ViewerOption } from '@/lib/files/viewerChoice'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useInjectedCss, usePanelThemeCss } from '@/lib/theme/panelThemeInjection'
 import { useOpenWithStore } from '@/stores/files/openWithStore'
 import { ArrowsLeftRightIcon } from '@phosphor-icons/react'
-import type { ViewerOpenResult } from '@shared/types'
+import type { ViewerOpenResult, ViewerStopReason } from '@shared/types'
 import { useEffect, useState } from 'react'
 import { ViewerMessage } from './ViewerChrome'
 
 const ABORTED = -3
 
-export function FileViewerFrame({
-  workspaceId,
-  paneId,
-  filePath,
-  viewer,
-  onFailed,
-}: {
+interface FrameProps {
   workspaceId: string
   paneId: string
   filePath: string
   viewer: ViewerOption
   onFailed: () => void
-}): JSX.Element {
+}
+
+export function FileViewerFrame(props: FrameProps): JSX.Element {
+  const [attempt, setAttempt] = useState(0)
+  return <ViewerFrame key={attempt} {...props} onReload={() => setAttempt((n) => n + 1)} />
+}
+
+function ViewerFrame({
+  workspaceId,
+  paneId,
+  filePath,
+  viewer,
+  onFailed,
+  onReload,
+}: FrameProps & { onReload: () => void }): JSX.Element {
   const d = useDict()
   const openWith = useOpenWithStore((s) => s.open)
   const themeCss = usePanelThemeCss()
   const [opened, setOpened] = useState<Extract<ViewerOpenResult, { ok: true }> | null>(null)
   const [webview, setWebview] = useState<HTMLElement | null>(null)
+  const [stopped, setStopped] = useState<ViewerStopReason | 'crashed' | null>(null)
   const readyWebview = useGuestReady(webview)
   useSurfaceFocus(paneId, () => readyWebview)
   useInjectedCss(webview, themeCss)
+
+  useEffect(
+    () =>
+      window.ostia.viewers.onStopped((event) => {
+        if (event.paneId === paneId) setStopped(event.reason)
+      }),
+    [paneId],
+  )
 
   useEffect(() => {
     let alive = true
@@ -61,11 +79,12 @@ export function FileViewerFrame({
       const failed = e as unknown as { errorCode: number; isMainFrame: boolean }
       if (failed.isMainFrame && failed.errorCode !== ABORTED) onFailed()
     }
+    const onGone = (): void => setStopped((reason) => reason ?? 'crashed')
     el.addEventListener('did-fail-load', onFail)
-    el.addEventListener('render-process-gone', onFailed)
+    el.addEventListener('render-process-gone', onGone)
     return () => {
       el.removeEventListener('did-fail-load', onFail)
-      el.removeEventListener('render-process-gone', onFailed)
+      el.removeEventListener('render-process-gone', onGone)
     }
   }, [webview, onFailed])
 
@@ -83,7 +102,14 @@ export function FileViewerFrame({
         />
       </div>
       <div className="viewer-body">
-        {opened ? (
+        {stopped ? (
+          <div className="preview-stopped" data-testid="viewer-stopped">
+            <span>{d.viewer.stopped[stopped]}</span>
+            <Button variant="outline" size="xs" onClick={onReload}>
+              {d.viewer.reload}
+            </Button>
+          </div>
+        ) : opened ? (
           <webview
             ref={setWebview}
             className="extension-webview"

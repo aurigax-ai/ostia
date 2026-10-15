@@ -18,13 +18,22 @@ import { loadEsbuild } from './esbuildService'
 import { PreviewHost, type PreviewSession } from './htmlPreview'
 import { PortableBuilder } from './portableBuilder'
 import { PortableExport } from './portableExport'
+import type { PublishedTables } from './portableTables'
+import { appProcessUse } from './processUse'
 
 interface ArtifactServicesDeps {
   windows: Map<string, BrowserWindow>
   workspaceSandboxes: () => WorkspaceSandboxes
+  viewerMatches: (name: string) => boolean
+  publishedTables: (windowId: string, path: string) => PublishedTables
 }
 
-export function createArtifactServices({ windows, workspaceSandboxes }: ArtifactServicesDeps) {
+export function createArtifactServices({
+  windows,
+  workspaceSandboxes,
+  viewerMatches,
+  publishedTables,
+}: ArtifactServicesDeps) {
   const scratchFolders = new ScratchFolders(privateTmpDir(`${PRODUCT_NAME}-scratch`))
 
   const artifactFolders = new ArtifactFolders(
@@ -71,12 +80,7 @@ export function createArtifactServices({ windows, workspaceSandboxes }: Artifact
     servesFolder: (dir) => artifactFolders.holds(dir),
     ownsPane: (windowId, paneId) => getByPaneId(paneId)?.windowId === windowId,
     send: (windowId, event) => windows.get(windowId)?.webContents.send('preview:event', event),
-    processes: () =>
-      app.getAppMetrics().map((metric) => ({
-        pid: metric.pid,
-        memoryBytes: metric.memory.workingSetSize * 1024,
-        cpuPercent: metric.cpu.percentCPUUsage,
-      })),
+    processes: appProcessUse,
     build: (source, theme) =>
       previewBuild(artifactHistory, (s, t) => portableBuilder.preview(s, t))(source, theme),
     hostZoom: (windowId) => windows.get(windowId)?.webContents.getZoomFactor() ?? 1,
@@ -108,12 +112,14 @@ export function createArtifactServices({ windows, workspaceSandboxes }: Artifact
     downloads: () => app.getPath('downloads'),
     writeClipboard: (text) => clipboard.writeText(text),
     version: app.getVersion(),
+    publishedTables,
   })
 
   const artifactHistory: ArtifactHistory = new ArtifactHistory({
     root: artifactFolders.root,
     folderOf: (workspaceId) => artifactFolders.dirOf(workspaceId),
     isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
+    viewerMatches,
     make: (workspaceId, file) =>
       portableExport.fileFor(file, previews.themeOf(windowForWorkspace(workspaceId))),
   })

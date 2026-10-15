@@ -10,6 +10,7 @@ import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useArtifactVersionsStore } from '@/stores/files/artifactVersionsStore'
 import { useOpenWithStore } from '@/stores/files/openWithStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { OWN_VIEW } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { WarningIcon } from '@phosphor-icons/react'
 import { isInside } from '@shared/artifacts/artifacts'
@@ -152,7 +153,7 @@ export function FileView({
           paneId={paneId}
           filePath={filePath}
           options={options}
-          current={viewer?.viewType ?? 'default'}
+          current={viewer?.viewType ?? OWN_VIEW}
           ownLabel={kind === 'text' ? d.viewer.ownText : d.viewer.ownView}
         />
       ) : null}

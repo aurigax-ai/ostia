@@ -110,6 +110,16 @@ export class ExtensionPanels {
     return { dir: rt.ext.dir, entry: viewer.entry }
   }
 
+  hasFileViewer(path: string): boolean {
+    return [...this.host.runtimes.values()].some(
+      (rt) =>
+        this.host.active(rt) &&
+        (rt.ext.manifest.contributes.fileViewers ?? []).some((viewer) =>
+          viewerMatches(path, viewer),
+        ),
+    )
+  }
+
   panelExtensionIds(): string[] {
     return [...this.host.runtimes.values()]
       .filter((rt) => rt.ext.manifest.contributes.panel)

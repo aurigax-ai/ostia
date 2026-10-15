@@ -1,7 +1,6 @@
 import * as XLSX from 'xlsx'
-import { type EntrySink, checkOfficeContainer } from './canonicalZip'
 import { GuardStop, type OfficeLimits, type OfficeProblem } from './officeLimits'
-import { type CellBudget, hyperlinkScan, odsRepeatScan } from './xmlScans'
+import { officePackage } from './officePackage'
 
 export type DateParts = 'date' | 'time' | 'both'
 
@@ -32,20 +31,6 @@ export interface Workbook {
 }
 
 export type WorkbookResult = { ok: true; book: Workbook } | { ok: false; problem: OfficeProblem }
-
-const SHEET_PART = /^xl\/worksheets\/[^/]+\.xml$/i
-const ODS_CONTENT = 'content.xml'
-
-function scansFor(extension: string, budget: CellBudget): (name: string) => EntrySink | null {
-  if (extension === 'ods') {
-    return (name) => (name === ODS_CONTENT ? odsRepeatScan(budget) : null)
-  }
-  return (name) => (SHEET_PART.test(name) ? hyperlinkScan(budget) : null)
-}
-
-function precheck(bytes: Uint8Array, extension: string, limits: OfficeLimits): void {
-  checkOfficeContainer(bytes, limits, scansFor(extension, { left: limits.cells }))
-}
 
 function dateParts(format: string): DateParts | null {
   if (/\[[hms]+\]/i.test(format)) return null
@@ -171,14 +156,9 @@ function readBook(bytes: Uint8Array, limits: OfficeLimits): Workbook {
   }
 }
 
-export function readWorkbook(
-  bytes: Uint8Array,
-  extension: string,
-  limits: OfficeLimits,
-): WorkbookResult {
+export function readWorkbook(bytes: Uint8Array, limits: OfficeLimits): WorkbookResult {
   try {
-    precheck(bytes, extension, limits)
-    return { ok: true, book: readBook(bytes, limits) }
+    return { ok: true, book: readBook(officePackage(bytes, 'sheet', limits), limits) }
   } catch (error) {
     return { ok: false, problem: error instanceof GuardStop ? error.problem : 'failed' }
   }

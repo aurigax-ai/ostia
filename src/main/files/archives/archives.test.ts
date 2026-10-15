@@ -49,8 +49,8 @@ describe('Archives', () => {
         { name: 'deep', dir: true },
         { name: 'readme.txt', dir: false },
       ])
-      expect(await archives.stat(`${root}/docs`)).toBe('dir')
-      expect(await archives.stat(`${root}/top.csv`)).toBe('file')
+      expect(await archives.kind(`${root}/docs`)).toBe('dir')
+      expect(await archives.kind(`${root}/top.csv`)).toBe('file')
       expect(await text(`${root}/docs/deep/note.md`)).toBe('# note')
     }
     expect(readdirSync(dir).sort()).toEqual(['bundle.tar.gz', 'bundle.zip'])

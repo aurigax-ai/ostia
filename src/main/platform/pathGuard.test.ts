@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join, sep } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
+import { archiveRoot } from '../../shared/archives/archivePaths'
 import { expandHome, isPathAllowed, resolveSafe } from './pathGuard'
 
 const root = mkdtempSync(join(tmpdir(), 'ostia-guard-'))
@@ -29,6 +30,12 @@ describe('resolveSafe — rejections', () => {
   it('rejects a remote file address, which is never a local path', () => {
     expect(resolveSafe('remote://abcdef012345/etc/passwd', [process.cwd(), '/'])).toBeNull()
     expect(isPathAllowed('remote://abcdef012345/srv/app', ['/'])).toBe(false)
+  })
+
+  it('rejects an archive path, which resolves against the working folder as a plain path', () => {
+    const entry = `${archiveRoot('/etc/archive.zip')}/passwd`
+    expect(resolveSafe(entry, [process.cwd(), '/'])).toBeNull()
+    expect(isPathAllowed(entry, ['/'])).toBe(false)
   })
 
   it('rejects an absolute path outside every root (/etc/passwd)', () => {

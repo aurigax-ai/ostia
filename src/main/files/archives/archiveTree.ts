@@ -34,10 +34,10 @@ export interface ArchiveTree {
 }
 
 function shownText(text: string, limit: number): string {
-  const escaped = text.replace(
-    /\p{Cc}/gu,
-    (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`,
-  )
+  const escaped = text.replace(/[\p{Cc}\p{Cf}\p{Cs}]/gu, (c) => {
+    const code = c.codePointAt(0) ?? 0
+    return code > 0xffff ? `\\u{${code.toString(16)}}` : `\\u${code.toString(16).padStart(4, '0')}`
+  })
   return escaped.length > limit ? `${escaped.slice(0, limit)}…` : escaped
 }
 

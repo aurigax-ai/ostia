@@ -1,6 +1,5 @@
-import { closeSync } from 'node:fs'
 import { type Entry, type ZipFile, fromFdPromise, getFileNameLowLevel } from 'yauzl'
-import { type EntryRead, collect, openRegular } from './archiveFile'
+import { type EntryRead, closeFd, collect, openRegular } from './archiveFile'
 import type { ArchiveLimits, RawEntry } from './archiveTree'
 
 const FILE_TYPE = 0o170000
@@ -12,7 +11,7 @@ async function openZip(path: string): Promise<ZipFile | null> {
   try {
     return await fromFdPromise(fd, { decodeStrings: false, autoClose: true })
   } catch {
-    closeSync(fd)
+    closeFd(fd)
     return null
   }
 }

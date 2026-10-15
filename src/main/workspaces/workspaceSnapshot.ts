@@ -1,5 +1,5 @@
 import { existsSync, rmSync } from 'node:fs'
-import { VIEW_TYPE_PATTERN } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+import { isViewType } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
 import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { parseAgentResume, parseResumeFailure } from '../../shared/agents/agentResume'
@@ -113,11 +113,7 @@ function parseNode(
     if (typeof raw.filePath !== 'string' || !isRemotePath(raw.filePath)) {
       copyOptionalString(raw, pane, 'filePath')
     }
-    if (
-      pane.kind === 'editor' &&
-      typeof raw.viewType === 'string' &&
-      VIEW_TYPE_PATTERN.test(raw.viewType)
-    ) {
+    if (pane.kind === 'editor' && typeof raw.viewType === 'string' && isViewType(raw.viewType)) {
       pane.viewType = raw.viewType
     }
     copyOptionalString(raw, pane, 'url')

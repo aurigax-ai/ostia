@@ -1,43 +1,77 @@
-import type { EntrySink } from './canonicalZip'
 import { GuardStop } from './officeLimits'
 
-const TAG_MAX = 1024 * 1024
-const HYPERLINK = /<(?:\w+:)?hyperlink [^<>]*>/g
-const REF = /(?:^|\s)(?:\w+:)?ref\s*=\s*(?:"([^"]*)"|'([^']*)')/
-const ODS_TAG = /<(\/?)(?:[\w.-]+:)?(table-row|table-cell|行|数据)(?=[\s/>])([^<>]*?)(\/?)>/g
-const ROWS_REPEATED = /(?:^|\s)(?:[\w.-]+:)?number-rows-repeated\s*=\s*(?:"([^"]*)"|'([^']*)')/
-const COLUMNS_REPEATED =
-  /(?:^|\s)(?:[\w.-]+:)?number-columns-repeated\s*=\s*(?:"([^"]*)"|'([^']*)')/
-const STRING_TYPE = /(?:^|\s)(?:[\w.-]+:)?(?:value-type|数据类型)\s*=\s*(?:"string"|'string')/
+const SHEETJS_ATTRIBUTE = /\s([^"\s?>/]+)\s*=\s*((?:")([^"]*)(?:")|(?:')([^']*)(?:')|([^'">\s]+))/g
+const SHEETJS_HYPERLINK = /<(?:\w+:)?hyperlink [^<>]*>/gm
+const SHEETJS_XLML_TAG =
+  /<([/]?)([^\s?><!/:"]*:|)([^\s?<>:/"]+)(?:\s+[^<>=?"'\s]+="[^"]*?")*\s*[/]?>/gm
 
-export interface CellBudget {
+export interface Budget {
   left: number
 }
 
-function spend(budget: CellBudget, cells: number): void {
-  budget.left -= cells
-  if (!(budget.left >= 0)) throw new GuardStop('cells-limit')
+export function spend(
+  budget: Budget,
+  amount: number,
+  problem: 'cells-limit' | 'nodes-limit',
+): void {
+  budget.left -= amount
+  if (!(budget.left >= 0)) throw new GuardStop(problem)
 }
 
-function attribute(tag: string, pattern: RegExp): string | null {
-  const match = pattern.exec(tag)
-  return match ? (match[1] ?? match[2] ?? '') : null
-}
-
-function tagSink(onText: (text: string) => string): EntrySink {
-  const decoder = new TextDecoder()
-  let carry = ''
-  return (chunk, final) => {
-    const text = carry + decoder.decode(chunk, { stream: !final })
-    const rest = onText(text)
-    if (rest.length > TAG_MAX) throw new GuardStop('failed')
-    carry = final ? '' : rest
+export function sheetjsTagAttributes(tag: string): Record<string, string> {
+  const z: Record<string, string> = {}
+  let eq = 0
+  for (; eq !== tag.length; ++eq) {
+    const c = tag.charCodeAt(eq)
+    if (c === 32 || c === 10 || c === 13) break
   }
+  if (eq === tag.length) return z
+  for (const match of tag.match(SHEETJS_ATTRIBUTE) ?? []) {
+    const cc = match.slice(1)
+    let c = 0
+    for (; c !== cc.length; ++c) if (cc.charCodeAt(c) === 61) break
+    let q = cc.slice(0, c).trim()
+    while (cc.charCodeAt(c + 1) === 32) ++c
+    const quote = cc.charCodeAt(c + 1)
+    const quoted = quote === 34 || quote === 39 ? 1 : 0
+    const v = cc.slice(c + 1 + quoted, cc.length - quoted)
+    let j = 0
+    for (; j !== q.length; ++j) if (q.charCodeAt(j) === 58) break
+    if (j === q.length) {
+      if (q.indexOf('_') > 0) q = q.slice(0, q.indexOf('_'))
+      z[q] = v
+      z[q.toLowerCase()] = v
+    } else {
+      const k = (j === 5 && q.slice(0, 5) === 'xmlns' ? 'xmlns' : '') + q.slice(j + 1)
+      if (z[k] && q.slice(j - 3, j) === 'ext') continue
+      z[k] = v
+      z[k.toLowerCase()] = v
+    }
+  }
+  return z
 }
 
-function afterLastTag(text: string): string {
-  const open = text.lastIndexOf('<')
-  return open > text.lastIndexOf('>') ? text.slice(open) : ''
+function removeBetween(text: string, open: string, close: string): string {
+  const out: string[] = []
+  let last = 0
+  let si = text.indexOf(open)
+  if (si === -1) return text
+  while (si > -1) {
+    out.push(text.slice(last, si))
+    const ei = text.indexOf(close, si + open.length)
+    if (ei === -1) break
+    last = ei + close.length
+    si = text.indexOf(open, last)
+    if (si === -1) out.push(text.slice(last))
+  }
+  return out.join('')
+}
+
+function removeDoctype(text: string): string {
+  const si = text.slice(0, 1024).indexOf('<!DOCTYPE')
+  if (si === -1) return text
+  const m = text.match(/<[\w]/)
+  return m?.index === undefined ? text : text.slice(0, si) + text.slice(m.index)
 }
 
 export function decodeRangeArea(range: string): number {
@@ -63,35 +97,53 @@ export function decodeRangeArea(range: string): number {
   return rows > 0 && columns > 0 ? rows * columns : 0
 }
 
-export function hyperlinkScan(budget: CellBudget): EntrySink {
-  return tagSink((text) => {
-    for (const match of text.matchAll(HYPERLINK)) {
-      const ref = attribute(match[0], REF)
-      if (ref) spend(budget, decodeRangeArea(ref))
-    }
-    return afterLastTag(text)
-  })
+export function hyperlinkCells(text: string): number {
+  let cells = 0
+  for (const [tag] of text.matchAll(SHEETJS_HYPERLINK)) {
+    const ref = sheetjsTagAttributes(tag).ref
+    if (ref) cells += decodeRangeArea(ref)
+  }
+  return cells
 }
 
-export function odsRepeatScan(budget: CellBudget): EntrySink {
+function repeat(value: string | undefined): number {
+  const columns = Number.parseInt(value || '1', 10)
+  return Number.isNaN(columns) ? 1 : Math.max(1, columns)
+}
+
+export function odsCells(text: string): number {
+  const content = removeDoctype(removeBetween(text, '<!--', '-->'))
+  let cells = 0
   let rowsRepeated = 1
-  return tagSink((text) => {
-    for (const match of text.matchAll(ODS_TAG)) {
-      const [, closing, name, attributes, selfClosing] = match
-      const row = name === 'table-row' || name === '行'
-      if (row) {
-        if (closing) rowsRepeated = 1
-        else rowsRepeated = Number(attribute(attributes, ROWS_REPEATED) ?? '1') || 1
-        continue
+  let cellTag: Record<string, string> = {}
+  SHEETJS_XLML_TAG.lastIndex = 0
+  for (let match = SHEETJS_XLML_TAG.exec(content); match; match = SHEETJS_XLML_TAG.exec(content)) {
+    const [tag, closing, , rawName] = match
+    const name = rawName.replace(/_[\s\S]*$/, '')
+    if (name === 'table-row' || name === '行') {
+      if (closing === '/') rowsRepeated = 1
+      else rowsRepeated = Math.max(1, +sheetjsTagAttributes(tag)['number-rows-repeated'] || 1)
+    } else if (name === 'covered-table-cell') {
+      if (closing !== '/') cellTag = sheetjsTagAttributes(tag)
+    } else if (name === 'table-cell' || name === '数据') {
+      if (tag.charAt(tag.length - 2) === '/') {
+        cellTag = sheetjsTagAttributes(tag)
+        cells += 1
+      } else if (closing !== '/') {
+        cellTag = sheetjsTagAttributes(tag)
+      } else {
+        cells += rowsRepeated * repeat(cellTag['number-columns-repeated'])
       }
-      if (closing) continue
-      if (selfClosing) {
-        if (STRING_TYPE.test(attributes)) spend(budget, 1)
-        continue
-      }
-      const columns = Number.parseInt(attribute(attributes, COLUMNS_REPEATED) ?? '1', 10)
-      spend(budget, Math.max(1, rowsRepeated) * Math.max(1, Number.isNaN(columns) ? 1 : columns))
     }
-    return afterLastTag(text)
-  })
+  }
+  return cells
+}
+
+export function elementCount(text: string): number {
+  let count = 0
+  for (let at = text.indexOf('<'); at !== -1; at = text.indexOf('<', at + 1)) {
+    const next = text.charCodeAt(at + 1)
+    if (next !== 47 && next !== 63 && next !== 33) count++
+  }
+  return count
 }

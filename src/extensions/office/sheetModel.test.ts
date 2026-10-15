@@ -14,12 +14,8 @@ import { type Workbook, readWorkbook } from './sheetModel'
 
 const MIB = 1024 * 1024
 
-function bookOf(
-  bytes: Uint8Array,
-  extension = 'xlsx',
-  limits: OfficeLimits = OFFICE_LIMITS,
-): Workbook {
-  const result = readWorkbook(bytes, extension, limits)
+function bookOf(bytes: Uint8Array, limits: OfficeLimits = OFFICE_LIMITS): Workbook {
+  const result = readWorkbook(bytes, limits)
   if (!result.ok) throw new Error(`not read: ${result.problem}`)
   return result.book
 }
@@ -63,16 +59,17 @@ describe('readWorkbook', () => {
     ]
     const expected = bookOf(workbook({ S: rows })).sheets[0].rows
     for (const type of ['xlsm', 'ods'] as const) {
-      expect(bookOf(workbook({ S: rows }, type), type).sheets[0].rows, type).toEqual(expected)
+      expect(bookOf(workbook({ S: rows }, type)).sheets[0].rows, type).toEqual(expected)
     }
   })
 
   it('refuses the formats it does not read: xls, xlsb and HTML saved as xls', () => {
     const rows = [['a', 1]]
     const failed = { ok: false, problem: 'failed' }
-    expect(readWorkbook(workbook({ S: rows }, 'biff8'), 'xls', OFFICE_LIMITS)).toEqual(failed)
+    expect(readWorkbook(workbook({ S: rows }, 'biff8'), OFFICE_LIMITS)).toEqual(failed)
+    expect(readWorkbook(workbook({ S: rows }, 'xlsb'), OFFICE_LIMITS)).toEqual(failed)
     const html = new TextEncoder().encode('<table><tr><td>a</td></tr></table>')
-    expect(readWorkbook(html, 'xls', OFFICE_LIMITS)).toEqual(failed)
+    expect(readWorkbook(html, OFFICE_LIMITS)).toEqual(failed)
   })
 
   it('cuts a huge sheet to the row and column limits and says so', () => {
@@ -80,7 +77,7 @@ describe('readWorkbook', () => {
       Array.from({ length: 12 }, (_u, c) => r * c),
     )
     const limits = { ...OFFICE_LIMITS, rows: 100, columns: 10 }
-    const [sheet] = bookOf(workbook({ Big: rows }), 'xlsx', limits).sheets
+    const [sheet] = bookOf(workbook({ Big: rows }), limits).sheets
     expect(sheet.rowCount).toBe(100)
     expect(sheet.rows).toHaveLength(100)
     expect(sheet.rowsCut).toBe(true)
@@ -99,7 +96,7 @@ describe('readWorkbook', () => {
 
   it('leaves later sheets out once the workbook passes the cell limit', () => {
     const block = Array.from({ length: 20 }, () => [1, 2, 3, 4, 5])
-    const book = bookOf(workbook({ A: block, B: block, C: block }), 'xlsx', {
+    const book = bookOf(workbook({ A: block, B: block, C: block }), {
       ...OFFICE_LIMITS,
       cells: 150,
     })
@@ -136,7 +133,7 @@ describe('readWorkbook', () => {
     const project = XLSX.CFB.read(withMacros.vbaraw, { type: 'array' })
     const module = XLSX.CFB.find(project, 'Module1')
     expect(new TextDecoder().decode(module.content)).toContain(MACRO_MARKER)
-    const result = readWorkbook(bytes, 'xlsm', OFFICE_LIMITS)
+    const result = readWorkbook(bytes, OFFICE_LIMITS)
     expect(result.ok && result.book.sheets[0].rows).toEqual([['macro book', 42]])
     expect(JSON.stringify(result)).not.toContain(MACRO_MARKER)
   })
@@ -154,25 +151,26 @@ describe('readWorkbook', () => {
   })
 
   it('names the problem for a bomb, a large file, a password and a malformed file', () => {
-    expect(
-      readWorkbook(zeroBomb(OFFICE_LIMITS.inflatedBytes + MIB), 'xlsx', OFFICE_LIMITS),
-    ).toEqual({ ok: false, problem: 'unzip-limit' })
+    expect(readWorkbook(zeroBomb(OFFICE_LIMITS.inflatedBytes + MIB), OFFICE_LIMITS)).toEqual({
+      ok: false,
+      problem: 'unzip-limit',
+    })
     const small = workbook({ S: [['x']] })
-    expect(readWorkbook(small, 'xlsx', { ...OFFICE_LIMITS, fileBytes: 100 })).toEqual({
+    expect(readWorkbook(small, { ...OFFICE_LIMITS, fileBytes: 100 })).toEqual({
       ok: false,
       problem: 'too-large',
     })
-    expect(readWorkbook(encryptedWorkbook(), 'xlsx', OFFICE_LIMITS)).toEqual({
+    expect(readWorkbook(encryptedWorkbook(), OFFICE_LIMITS)).toEqual({
       ok: false,
       problem: 'encrypted',
     })
     const failed = { ok: false, problem: 'failed' }
-    expect(
-      readWorkbook(new TextEncoder().encode('name,count\nx,1\n'), 'xlsx', OFFICE_LIMITS),
-    ).toEqual(failed)
-    expect(readWorkbook(small.subarray(0, small.length / 2), 'xlsx', OFFICE_LIMITS)).toEqual(failed)
+    expect(readWorkbook(new TextEncoder().encode('name,count\nx,1\n'), OFFICE_LIMITS)).toEqual(
+      failed,
+    )
+    expect(readWorkbook(small.subarray(0, small.length / 2), OFFICE_LIMITS)).toEqual(failed)
     const notABook = workbook({ S: [['x']] }).slice()
     notABook.fill(0x20, 40, notABook.length - 200)
-    expect(readWorkbook(notABook, 'xlsx', OFFICE_LIMITS)).toEqual(failed)
+    expect(readWorkbook(notABook, OFFICE_LIMITS)).toEqual(failed)
   })
 })

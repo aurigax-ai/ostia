@@ -119,7 +119,7 @@
       }
     },
     {
-      "name": "only-office-imports-sheetjs",
+      "name": "only-office-imports-its-parsers",
       "severity": "error",
       "from": { "pathNot": "^src/extensions/office/|^test/" },
       "to": { "path": "node_modules/(xlsx|mammoth|dompurify)/" }

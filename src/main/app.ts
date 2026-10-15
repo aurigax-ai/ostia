@@ -75,6 +75,7 @@ import { startMarketplace } from './extensions/marketplace/marketplaceWiring'
 import { PaneAttentionEvents } from './extensions/paneAttentionEvents'
 import { createMainStrings } from './extensions/strings'
 import { Archives } from './files/archives/archives'
+import { FileSources, localSource } from './files/fileSources'
 import type { FileWatches } from './files/fileWatch'
 import { registerFsIpc } from './files/fsIpc'
 import { OpenWaits } from './files/openWaits'
@@ -268,10 +269,18 @@ const {
   artifactProducers,
   artifactsChanged,
   isScratchPane,
-} = createArtifactServices({ windows, workspaceSandboxes: () => workspaceSandboxes })
+} = createArtifactServices({
+  windows,
+  workspaceSandboxes: () => workspaceSandboxes,
+  viewerMatches: (name) => services.extensionHost?.panels.hasFileViewer(name) ?? false,
+  publishedTables: (windowId, path) => viewers.portable(windowId, path),
+})
 
-const archives = new Archives((path) => openFileGrants.confine(path))
-const viewers = createViewerHost({ openFileGrants, archives, services, readLocale })
+const fileSources = new FileSources(
+  localSource(fileRoots, (path) => openFileGrants.confine(path)),
+  [new Archives((path) => openFileGrants.confine(path))],
+)
+const viewers = createViewerHost({ windows, sources: fileSources, services, readLocale })
 
 const openWaits = new OpenWaits((windowId, paneIds) =>
   windows.get(windowId)?.webContents.send('open-waits:ended', paneIds),
@@ -795,7 +804,7 @@ const { requestQuit, handleQuitSignals } = registerAppQuit({
 const wiring = {
   services,
   viewers,
-  archives,
+  sources: fileSources,
   mainStrings,
   windows,
   requestQuit,

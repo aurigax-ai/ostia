@@ -18,7 +18,6 @@ import { formatBytes, formatDate } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { usePaneVisible } from '@/lib/attention/workspaceActivity'
 import { useArtifactListing } from '@/lib/files/artifacts'
-import { csvDelimiter } from '@/lib/files/csvTable'
 import { viewerOptions } from '@/lib/files/viewerChoice'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
@@ -27,7 +26,6 @@ import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { ArtifactVersion } from '@shared/artifacts/artifacts'
 import { useEffect, useState } from 'react'
-import { CsvTable } from './CsvTable'
 import { FileViewerFrame } from './FileViewerFrame'
 import { HtmlPreview } from './HtmlPreview'
 import { ImageViewer } from './ImageViewer'
@@ -172,8 +170,8 @@ function VersionBody({
   const extensions = useExtensionsStore((s) => s.list)
   const { content } = shown
   const source = content.sources[baseName(filePath)] ?? ''
-  const viewer =
-    viewerOptions(filePath, extensions).find((option) => option.priority === 'default') ?? null
+  const options = viewerOptions(filePath, extensions)
+  const viewer = options.find((option) => option.priority === 'default') ?? options[0] ?? null
   if (content.type === 'component' || content.type === 'page') {
     return (
       <HtmlPreview
@@ -186,7 +184,6 @@ function VersionBody({
     )
   }
   if (content.type === 'markdown') return <MarkdownPreview source={source} />
-  if (content.type === 'csv') return <CsvTable source={source} delimiter={csvDelimiter(filePath)} />
   if (content.type === 'pdf') {
     return (
       <PdfViewer

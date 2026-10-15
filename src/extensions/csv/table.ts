@@ -1,9 +1,10 @@
-import { translatorFor } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
+import { PORTABLE_TABLE_ROWS_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
 import { grid } from '@aurigax-ai/ostia-extension-sdk/grid'
 import {
-  ViewerDocumentError,
-  openViewerDocument,
+  loadViewerBytes,
+  publishPortable,
   runWorker,
+  showViewerMessage,
 } from '@aurigax-ai/ostia-extension-sdk/viewer'
 import { COLUMNS_MAX, type CsvTable, delimiterOf } from './csvShape'
 import en from './locales/en.json'
@@ -13,49 +14,26 @@ const PARSE_MS = 20_000
 
 const root = document.getElementById('root') as HTMLElement
 
-function message(text: string): void {
-  const el = document.createElement('div')
-  el.className = 'message'
-  el.textContent = text
-  root.replaceChildren(el)
-}
-
 async function main(): Promise<void> {
-  const doc = await openViewerDocument().catch(() => null)
-  const t = translatorFor({ en: en.messages, 'zh-Hant': zhHant.messages }, doc?.locale ?? 'en')
-  if (!doc) {
-    message(t('unreadable'))
-    return
-  }
-  doc.onDidChange(() => location.reload())
-  message(t('loading'))
-  let bytes: Uint8Array
-  try {
-    bytes = await doc.bytes()
-  } catch (error) {
-    const problem = error instanceof ViewerDocumentError ? error.problem : 'unreadable'
-    const size = new Intl.NumberFormat(doc.locale, {
-      style: 'unit',
-      unit: 'megabyte',
-      maximumFractionDigits: 1,
-    }).format((error instanceof ViewerDocumentError ? (error.size ?? 0) : 0) / 1e6)
-    message(problem === 'too-large' ? t('tooLarge', { size }) : t(problem))
-    return
-  }
-  const copy = bytes.slice()
+  const loaded = await loadViewerBytes({
+    root,
+    catalogs: { en: en.messages, 'zh-Hant': zhHant.messages },
+  })
+  if (!loaded) return
+  const { doc, t, bytes } = loaded
   const parsed = await runWorker<{ ok: boolean; table?: CsvTable }>(
     'csv.worker.js',
-    { bytes: copy.buffer, delimiter: delimiterOf(doc.name) },
-    [copy.buffer],
+    { bytes, delimiter: delimiterOf(doc.name) },
+    [bytes],
     PARSE_MS,
   )
   if (!parsed.ok || !parsed.value.ok || !parsed.value.table) {
-    message(t(parsed.ok ? 'failed' : parsed.problem))
+    showViewerMessage(root, t(parsed.ok ? 'failed' : parsed.problem))
     return
   }
   const { table } = parsed.value
   if (table.header.length === 0) {
-    message(t('empty'))
+    showViewerMessage(root, t('empty'))
     return
   }
   const notes = [
@@ -70,6 +48,15 @@ async function main(): Promise<void> {
     notes,
   })
   root.replaceChildren(view.element)
+  void publishPortable({
+    tables: [
+      {
+        name: doc.name,
+        columns: table.header,
+        rows: table.rows.slice(0, PORTABLE_TABLE_ROWS_MAX),
+      },
+    ],
+  })
 }
 
 void main()

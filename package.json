@@ -94,7 +94,7 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.3",
     "@types/culori": "^4.0.1",
-    "@types/jsdom": "^30.0.0",
+    "@types/jsdom": "^28.0.3",
     "@types/node": "catalog:",
     "@types/papaparse": "^5.5.2",
     "@types/picomatch": "^4.0.3",

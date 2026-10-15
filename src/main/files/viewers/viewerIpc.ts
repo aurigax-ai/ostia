@@ -1,61 +1,43 @@
-import { statSync } from 'node:fs'
 import { join } from 'node:path'
 import { readConfined } from '@aurigax-ai/ostia-extension-sdk/manifest/confinedRead'
-import { ipcMain, session } from 'electron'
-import { isArchivePath, parseArchivePath } from '../../../shared/archives/archivePaths'
-import { readRegularFile } from '../../artifacts/previewFiles'
+import { type BrowserWindow, ipcMain, session } from 'electron'
+import { appProcessUse } from '../../artifacts/processUse'
 import { getByPaneId } from '../../control/idRegistry'
 import type { ExtensionHost } from '../../extensions/extensionHost'
-import type { Archives } from '../archives/archives'
+import type { FileSources } from '../fileSources'
 import type { FileWatches } from '../fileWatch'
 import { FS_BINARY_MAX } from '../fsBinary'
-import type { OpenFileGrants } from '../openFileGrants'
 import { ViewerHost, type ViewerRead } from './viewerHost'
 import type { ViewerSession } from './viewerSessions'
+import { ViewerWatch } from './viewerWatch'
 
 const EXTENSION_FILE_MAX = 32 * 1024 * 1024
 
 interface ViewerWiringDeps {
-  openFileGrants: OpenFileGrants
-  archives: Archives
+  windows: Map<string, BrowserWindow>
+  sources: FileSources
   services: { extensionHost: ExtensionHost | null; fileWatches: FileWatches | null }
   readLocale: () => string | undefined
 }
 
 export function createViewerHost({
-  openFileGrants,
-  archives,
+  windows,
+  sources,
   services,
   readLocale,
 }: ViewerWiringDeps): ViewerHost {
   return new ViewerHost({
     sessionOf: (partition) => session.fromPartition(partition) as unknown as ViewerSession,
-    confine: (path) => {
-      if (!isArchivePath(path)) return openFileGrants.confine(path)
-      const parsed = parseArchivePath(path)
-      return parsed && openFileGrants.confine(parsed.archive) ? path : null
-    },
+    confine: (path) => sources.of(path).confine(path),
     ownsPane: (windowId, paneId) => getByPaneId(paneId)?.windowId === windowId,
     viewer: (extId, viewType, path) =>
       services.extensionHost?.panels.fileViewerSource(extId, viewType, path) ?? null,
     readDocument: async (path): Promise<ViewerRead> => {
-      if (isArchivePath(path)) {
-        const entry = await archives.read(path, FS_BINARY_MAX)
-        if (entry.ok) return { ok: true, body: entry.data }
-        return { ok: false, status: entry.problem === 'too-large' ? 413 : 410 }
-      }
-      const read = await readRegularFile(path, FS_BINARY_MAX)
-      return read.ok ? { ok: true, body: read.body } : { ok: false, status: read.status }
+      const read = await sources.of(path).readBinary(path, FS_BINARY_MAX)
+      if (read.ok) return { ok: true, body: Buffer.from(read.data) }
+      return { ok: false, status: read.error === 'too-large' ? 413 : 410 }
     },
-    statDocument: async (path) => {
-      if (isArchivePath(path)) return archives.size(path)
-      try {
-        const stat = statSync(path)
-        return stat.isFile() ? { size: stat.size, modified: stat.mtimeMs } : null
-      } catch {
-        return null
-      }
-    },
+    statDocument: (path) => sources.of(path).describe(path),
     readExtensionFile: (dir, path) => {
       const read = readConfined(dir, join(dir, path), EXTENSION_FILE_MAX)
       return read.ok ? read.data : null
@@ -65,6 +47,8 @@ export function createViewerHost({
     },
     unwatch: (owner, path) => services.fileWatches?.unwatch(owner, path),
     locale: () => readLocale() ?? 'en',
+    guests: new ViewerWatch({ processes: appProcessUse }),
+    stopped: (windowId, event) => windows.get(windowId)?.webContents.send('viewers:stopped', event),
   })
 }
 
@@ -75,7 +59,4 @@ export function registerViewerIpc({ viewers }: { viewers: ViewerHost }): void {
   ipcMain.on('viewers:close', (e, paneId: unknown) => {
     if (typeof paneId === 'string') viewers.close(String(e.sender.id), paneId)
   })
-  ipcMain.handle('viewers:portable', (e, path: unknown) =>
-    typeof path === 'string' ? viewers.portable(String(e.sender.id), path) : null,
-  )
 }

@@ -77,6 +77,8 @@ afterEach(() => {
   useOpenWithStore.setState({ paneId: null })
   vi.mocked(window.ostia.viewers.open).mockReset()
   vi.mocked(window.ostia.viewers.close).mockReset()
+  vi.mocked(window.ostia.viewers.onStopped).mockReset()
+  vi.mocked(window.ostia.viewers.onStopped).mockImplementation(() => () => {})
 })
 
 describe('FileView', () => {
@@ -100,6 +102,35 @@ describe('FileView', () => {
     expect(webview).toHaveAttribute('partition', 'ostia-viewer-office')
     view.unmount()
     expect(window.ostia.viewers.close).toHaveBeenCalledWith('p1')
+  })
+
+  it('says why main stopped the viewer, or that its process ended, and reloads it on click', async () => {
+    let stopped: ((event: { paneId: string; reason: 'memory' | 'unresponsive' }) => void) | null =
+      null
+    vi.mocked(window.ostia.viewers.onStopped).mockImplementation((cb) => {
+      stopped = cb
+      return () => {}
+    })
+    seed([OFFICE])
+    show()
+    const frame = await screen.findByTestId('file-viewer')
+    const webview = await waitFor(() => {
+      const found = frame.querySelector('webview')
+      if (!found) throw new Error('no webview')
+      return found
+    })
+    act(() => {
+      webview.dispatchEvent(new Event('render-process-gone'))
+    })
+    expect(screen.getByTestId('viewer-stopped')).toHaveTextContent('this viewer’s process ended')
+    act(() => stopped?.({ paneId: 'p1', reason: 'memory' }))
+    expect(screen.getByTestId('viewer-stopped')).toHaveTextContent('more than 1 GiB of memory')
+    act(() => stopped?.({ paneId: 'other', reason: 'unresponsive' }))
+    expect(screen.getByTestId('viewer-stopped')).toHaveTextContent('more than 1 GiB of memory')
+    expect(screen.queryByTestId('editor-view')).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Reload' }))
+    await waitFor(() => expect(window.ostia.viewers.open).toHaveBeenCalledTimes(2))
+    expect(screen.queryByTestId('viewer-stopped')).toBeNull()
   })
 
   it('shows the source when no viewer matches or the extension is disabled', () => {

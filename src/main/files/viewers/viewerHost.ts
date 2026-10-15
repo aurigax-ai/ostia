@@ -15,7 +15,7 @@ import {
   type ViewerDocumentMeta,
   type ViewerPortableTables,
 } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
-import type { ViewerOpenRequest, ViewerOpenResult } from '../../../shared/types'
+import type { ViewerOpenRequest, ViewerOpenResult, ViewerStopped } from '../../../shared/types'
 import {
   type ViewerSession,
   contentTypeOf,
@@ -24,6 +24,7 @@ import {
   viewerHeaders,
   viewerPartition,
 } from './viewerSessions'
+import type { ViewerWatch, WatchedGuest } from './viewerWatch'
 
 interface ViewerSource {
   dir: string
@@ -37,7 +38,7 @@ interface ViewerStat {
   modified: number
 }
 
-export interface ViewerGuest {
+export interface ViewerGuest extends WatchedGuest {
   session: unknown
   setWindowOpenHandler: (handler: () => { action: 'deny' }) => void
   setWebRTCIPHandlingPolicy: (policy: 'disable_non_proxied_udp') => void
@@ -56,6 +57,8 @@ export interface ViewerHostDeps {
   watch: (owner: string, path: string) => void
   unwatch: (owner: string, path: string) => void
   locale: () => string
+  guests: ViewerWatch
+  stopped: (windowId: string, event: ViewerStopped) => void
   token?: () => string
 }
 
@@ -68,7 +71,7 @@ interface Live {
   path: string
   source: ViewerSource
   streams: Set<ReadableStreamDefaultController<Uint8Array>>
-  portable: ViewerPortableTables | null
+  portable: ViewerPortableTables | 'too-large' | null
 }
 
 const OWNER_PREFIX = 'viewer:'
@@ -101,6 +104,13 @@ function portableTables(raw: unknown): ViewerPortableTables | null {
 
 export function viewerOwner(token: string): string {
   return `${OWNER_PREFIX}${token}`
+}
+
+interface NavigationSource {
+  on: (
+    event: 'did-start-navigation',
+    listener: (event: unknown, url: string, isInPlace: boolean, isMainFrame: boolean) => void,
+  ) => unknown
 }
 
 export class ViewerHost {
@@ -161,7 +171,13 @@ export class ViewerHost {
     }
   }
 
-  windowClosed(windowId: string): void {
+  followReloads(contents: NavigationSource, windowId: string): void {
+    contents.on('did-start-navigation', (_event, _url, isInPlace, isMainFrame) => {
+      if (isMainFrame && !isInPlace) this.forgetWindow(windowId)
+    })
+  }
+
+  forgetWindow(windowId: string): void {
     for (const live of [...this.byToken.values()]) {
       if (live.windowId === windowId) this.end(live)
     }
@@ -169,6 +185,7 @@ export class ViewerHost {
 
   private end(live: Live): void {
     this.byToken.delete(live.token)
+    this.deps.guests.unwatch(live.token)
     this.deps.unwatch(viewerOwner(live.token), live.path)
     for (const stream of live.streams) {
       try {
@@ -192,7 +209,7 @@ export class ViewerHost {
     }
   }
 
-  portable(windowId: string, path: string): ViewerPortableTables | null {
+  portable(windowId: string, path: string): ViewerPortableTables | 'too-large' | null {
     const confined = this.deps.confine(path)
     if (!confined) return null
     for (const live of this.byToken.values()) {
@@ -220,7 +237,28 @@ export class ViewerHost {
     guest.setWebRTCIPHandlingPolicy('disable_non_proxied_udp')
     guest.on('will-navigate', (event: { preventDefault: () => void }) => event.preventDefault())
     guest.on('will-redirect', (event: { preventDefault: () => void }) => event.preventDefault())
+    let token: string | null = null
+    guest.on('did-navigate', (_event: unknown, url: string) => {
+      const live = typeof url === 'string' ? this.liveOf(url) : null
+      if (token) this.deps.guests.unwatch(token)
+      token = live?.token ?? null
+      if (live) this.watchGuest(live, guest)
+    })
+    guest.on('unresponsive', () => {
+      if (token) this.deps.guests.unresponsive(token)
+    })
+    guest.on('render-process-gone', () => {
+      if (token) this.deps.guests.unwatch(token)
+    })
     return true
+  }
+
+  private watchGuest(live: Live, guest: ViewerGuest): void {
+    this.deps.guests.watch(live.token, guest, (reason) => {
+      if (this.byToken.get(live.token) !== live) return
+      this.deps.stopped(live.windowId, { paneId: live.paneId, reason })
+      this.end(live)
+    })
   }
 
   private liveOf(url: string): Live | null {
@@ -296,9 +334,11 @@ export class ViewerHost {
 
   private async receivePortable(live: Live, request: Request): Promise<Response> {
     const length = Number(request.headers.get('content-length') ?? '0')
-    if (length > PORTABLE_TABLES_BYTES_MAX) return new Response(null, { status: 413 })
-    const text = await request.text().catch(() => '')
-    if (text.length > PORTABLE_TABLES_BYTES_MAX) return new Response(null, { status: 413 })
+    const text = length > PORTABLE_TABLES_BYTES_MAX ? '' : await request.text().catch(() => '')
+    if (length > PORTABLE_TABLES_BYTES_MAX || text.length > PORTABLE_TABLES_BYTES_MAX) {
+      live.portable = 'too-large'
+      return new Response(null, { status: 413 })
+    }
     let parsed: unknown
     try {
       parsed = JSON.parse(text)

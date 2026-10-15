@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto'
-import { lstatSync, mkdirSync, readdirSync, realpathSync, rmSync, statSync } from 'node:fs'
-import { writeFile } from 'node:fs/promises'
+import { mkdirSync, readdirSync, realpathSync, rmSync, statSync } from 'node:fs'
+import { lstat, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, sep } from 'node:path'
+import type { ViewerPortableTables } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
 import { ipcMain } from 'electron'
 import { type PreviewTheme, normalizePreviewTheme } from '../../shared/artifacts/htmlPreview'
 import {
@@ -21,6 +22,7 @@ import {
 } from '../../shared/artifacts/portable'
 import type { PortableBuilder } from './portableBuilder'
 import { problemText } from './portableBundle'
+import { type PublishedTables, tablesDocument } from './portableTables'
 import { readRegularFile } from './previewFiles'
 
 const SWEEP_AGE_MS = 24 * 60 * 60 * 1000
@@ -37,6 +39,7 @@ export interface PortableExportDeps {
   downloads: () => string
   writeClipboard: (text: string) => void
   version: string
+  publishedTables: (windowId: string, path: string) => PublishedTables
   now?: () => number
 }
 
@@ -98,9 +101,13 @@ export class PortableExport {
     if (!this.deps.ownsWorkspace(windowId, request.workspaceId)) {
       return { ok: false, reason: 'not-allowed' }
     }
-    const type = portableType(request.path)
-    const confined = type ? this.deps.confine(request.path) : null
-    if (!type || !confined) return { ok: false, reason: 'not-allowed' }
+    const known = portableType(request.path)
+    const published = known ? null : this.deps.publishedTables(windowId, request.path)
+    if (!known && published === null) return { ok: false, reason: 'no-tables' }
+    if (published === 'too-large') return { ok: false, reason: 'too-large' }
+    const type = known ?? 'tables'
+    const confined = this.deps.confine(request.path)
+    if (!confined) return { ok: false, reason: 'not-allowed' }
     let file: string
     try {
       file = realpathSync(confined)
@@ -110,7 +117,9 @@ export class PortableExport {
     if (runsScripts(type) && this.insideSandbox(file)) {
       return { ok: false, reason: 'sandboxed' }
     }
-    const made = await this.make(file, type, request)
+    const made = published
+      ? await this.tables(file, published, request)
+      : await this.make(file, type, request)
     if (!made.ok) return made
     if (action === 'copy') {
       this.deps.writeClipboard(made.file)
@@ -145,7 +154,6 @@ export class PortableExport {
       if (built.ok) return { ok: true, file: built.file }
       return { ok: false, reason: 'not-built', message: built.problems.map(problemText).join('\n') }
     }
-    if (type === 'sheet') return this.sheet(file, request)
     const read = await readRegularFile(file, PORTABLE_LIMITS.sourceFileBytes)
     if (!read.ok) return { ok: false, reason: read.status === 413 ? 'too-large' : 'not-allowed' }
     const text = read.body.toString('utf8')
@@ -153,14 +161,17 @@ export class PortableExport {
     return this.wrap(file, type, page, request, { [basename(file)]: text })
   }
 
-  private sheet(file: string, request: PortableRequest): Made {
-    let regular = false
-    try {
-      regular = lstatSync(file).isFile()
-    } catch {}
+  private async tables(
+    file: string,
+    published: ViewerPortableTables,
+    request: PortableRequest,
+  ): Promise<Made> {
+    const regular = await lstat(file).then(
+      (stat) => stat.isFile(),
+      () => false,
+    )
     if (!regular) return { ok: false, reason: 'not-allowed' }
-    if (!request.document) return { ok: false, reason: 'not-built' }
-    return this.wrap(file, 'sheet', request.document, request, {})
+    return this.wrap(file, 'tables', tablesDocument(published), request, {})
   }
 
   private wrap(

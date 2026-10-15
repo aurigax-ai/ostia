@@ -24,7 +24,7 @@ export const PORTABLE_LIMITS = {
   buildMs: 10_000,
 } as const
 
-export type PortableType = 'component' | 'page' | 'markdown' | 'svg' | 'csv' | 'json' | 'sheet'
+export type PortableType = 'component' | 'page' | 'markdown' | 'svg' | 'json' | 'tables'
 export type PortableMode = 'development' | 'production'
 export type PortableAction = 'open' | 'save' | 'copy'
 
@@ -36,12 +36,7 @@ const TYPE_BY_EXTENSION: Readonly<Record<string, PortableType>> = {
   md: 'markdown',
   markdown: 'markdown',
   svg: 'svg',
-  csv: 'csv',
-  tsv: 'csv',
   json: 'json',
-  xlsx: 'sheet',
-  xlsm: 'sheet',
-  ods: 'sheet',
 }
 
 export function portableType(path: string | undefined): PortableType | null {
@@ -85,7 +80,14 @@ export type PortableResult =
   | { ok: true }
   | {
       ok: false
-      reason: 'cancelled' | 'failed' | 'sandboxed' | 'not-allowed' | 'too-large' | 'not-built'
+      reason:
+        | 'cancelled'
+        | 'failed'
+        | 'sandboxed'
+        | 'not-allowed'
+        | 'too-large'
+        | 'not-built'
+        | 'no-tables'
       message?: string
     }
 

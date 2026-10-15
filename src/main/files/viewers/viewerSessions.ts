@@ -1,5 +1,5 @@
 import { VIEWER_SCHEME } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
-import type { PreviewSession } from '../../artifacts/htmlPreview'
+import { type PreviewSession, lockDownSession } from '../../artifacts/htmlPreview'
 
 const VIEWER_PARTITION_PREFIX = 'ostia-viewer-'
 
@@ -16,8 +16,6 @@ export const VIEWER_PAGE_CSP = [
   "frame-src 'none'",
   "object-src 'none'",
 ].join('; ')
-
-const DEAD_PROXY = { proxyRules: 'http://127.0.0.1:9', proxyBypassRules: '<-loopback>' }
 
 export type ViewerSession = Pick<
   PreviewSession,
@@ -51,10 +49,7 @@ export function hardenViewerSession(
   session.webRequest.onBeforeRequest((details, callback) =>
     callback({ cancel: !allowsViewerRequest(details.url) }),
   )
-  void session.setProxy(DEAD_PROXY).catch(() => {})
-  session.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
-  session.setPermissionCheckHandler(() => false)
-  session.on('will-download', (event) => event.preventDefault())
+  lockDownSession(session, () => false)
 }
 
 const CONTENT_TYPES: Readonly<Record<string, string>> = {

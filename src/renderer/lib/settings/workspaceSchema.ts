@@ -1,4 +1,7 @@
-import { VIEW_TYPE_PATTERN } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+import {
+  FILE_VIEWER_TYPE_PATTERN,
+  OWN_VIEW,
+} from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { GIT_POLL_SECONDS } from '@shared/boards/git'
 import { PORTS_INTERVAL_SECONDS } from '@shared/boards/ports'
@@ -89,7 +92,9 @@ export const filesSchema = {
     viewerAssociations: {
       type: 'object',
       maxProperties: VIEWER_ASSOCIATIONS_MAX,
-      additionalProperties: { type: 'string', pattern: VIEW_TYPE_PATTERN.source },
+      additionalProperties: {
+        anyOf: [{ const: OWN_VIEW }, { type: 'string', pattern: FILE_VIEWER_TYPE_PATTERN.source }],
+      },
       description:
         "Which viewer opens a file, like VS Code's workbench.editorAssociations: a file " +
         'name pattern ("*.xlsx" or an exact name) → a viewer\'s viewType ("office.spreadsheet") ' +

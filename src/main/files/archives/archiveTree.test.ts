@@ -9,6 +9,10 @@ describe('archiveTree', () => {
   it('splits names into literal segments, escaping control characters and capping depth', () => {
     expect(segmentsOf('/a//./b/../c', ARCHIVE_LIMITS)).toEqual(['a', 'b', '..', 'c'])
     expect(segmentsOf('tab\there', ARCHIVE_LIMITS)).toEqual(['tab\\u0009here'])
+    expect(segmentsOf('invoice\u202Efdp.exe', ARCHIVE_LIMITS)).toEqual(['invoice\\u202efdp.exe'])
+    expect(segmentsOf('a\u200Fb\u{E0041}c\uD800d', ARCHIVE_LIMITS)).toEqual([
+      'a\\u200fb\\u{e0041}c\\ud800d',
+    ])
     const deep = Array.from({ length: 40 }, (_unused, i) => `d${i}`).join('/')
     const parts = segmentsOf(deep, ARCHIVE_LIMITS)
     expect(parts).toHaveLength(ARCHIVE_LIMITS.depth)

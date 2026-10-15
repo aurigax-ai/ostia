@@ -1,20 +1,10 @@
+import { serveWorker } from '@aurigax-ai/ostia-extension-sdk/viewer'
 import { parseTable } from './csvParse'
 
-interface ParseRequest {
-  bytes: ArrayBuffer
-  delimiter: string
-}
-
-const scope = self as unknown as {
-  onmessage: ((event: MessageEvent<ParseRequest>) => void) | null
-  postMessage: (message: unknown) => void
-}
-
-scope.onmessage = (event) => {
+serveWorker<{ bytes: ArrayBuffer; delimiter: string }>(({ bytes, delimiter }) => {
   try {
-    const text = new TextDecoder().decode(event.data.bytes)
-    scope.postMessage({ ok: true, table: parseTable(text, event.data.delimiter) })
+    return { ok: true, table: parseTable(new TextDecoder().decode(bytes), delimiter) }
   } catch {
-    scope.postMessage({ ok: false })
+    return { ok: false }
   }
-}
+})

@@ -12,6 +12,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { archiveRoot } from '../../shared/archives/archivePaths'
 import { OpenFileGrants } from './openFileGrants'
 
 const HUMAN = { sandboxed: false, remember: true }
@@ -57,6 +58,11 @@ describe('OpenFileGrants.admit', () => {
     expect(g.confine(file)).toBe(file)
     expect(g.confine(join(outside, 'other.log'))).toBeNull()
     expect(g.confine(outside)).toBeNull()
+  })
+
+  it('never confines an archive path, even with the working folder as a root', () => {
+    const cwdRoot = new OpenFileGrants({ roots: () => [process.cwd()], file: store })
+    expect(cwdRoot.confine(`${archiveRoot('/etc/archive.zip')}/passwd`)).toBeNull()
   })
 
   it('passes a file inside a root through without granting or resolving it', () => {

@@ -1,6 +1,8 @@
 import '@testing-library/jest-dom/vitest'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { PortableResult } from '@shared/artifacts/portable'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -11,6 +13,21 @@ import { portableDocument } from './portableDocuments'
 
 const DIR = '/data/artifacts/s1'
 
+const SHEETS = {
+  id: 'office',
+  name: 'Office',
+  builtin: true,
+  enabled: true,
+  fileViewers: [
+    {
+      viewType: 'office.spreadsheet',
+      displayName: 'Spreadsheet',
+      selector: [{ filenamePattern: '*.xlsx' }],
+      priority: 'default',
+    },
+  ],
+} as unknown as ExtensionInfo
+
 function actions(path: string): JSX.Element {
   return <PortableActions workspaceId="s1" filePath={`${DIR}/${path}`} />
 }
@@ -18,10 +35,12 @@ function actions(path: string): JSX.Element {
 describe('PortableActions', () => {
   let sandboxInit: ReturnType<typeof useSandboxStore.getState>
   let artifactsInit: ReturnType<typeof useArtifactsStore.getState>
+  let extensionsInit: ReturnType<typeof useExtensionsStore.getState>
 
   beforeAll(() => {
     sandboxInit = useSandboxStore.getState()
     artifactsInit = useArtifactsStore.getState()
+    extensionsInit = useExtensionsStore.getState()
   })
 
   beforeEach(() => {
@@ -39,10 +58,11 @@ describe('PortableActions', () => {
     cleanup()
     useSandboxStore.setState(sandboxInit, true)
     useArtifactsStore.setState(artifactsInit, true)
+    useExtensionsStore.setState(extensionsInit, true)
   })
 
   it('PRT-C37 puts one Open in Browser split button on each type with a portable form, none on a PNG', async () => {
-    for (const path of ['chart.tsx', 'page.html', 'plan.md', 'logo.svg', 'rows.csv', 'data.json']) {
+    for (const path of ['chart.tsx', 'page.html', 'plan.md', 'logo.svg', 'data.json']) {
       const view = await renderSettled(actions(path))
       const groups = screen.getAllByRole('group', { name: 'Portable file' })
       expect(groups, path).toHaveLength(1)
@@ -103,24 +123,24 @@ describe('PortableActions', () => {
     )
   })
 
-  it('makes a spreadsheet portable from the tables its open viewer published, and says to open it first', async () => {
-    vi.mocked(window.ostia.viewers.portable).mockResolvedValueOnce(null)
+  it('offers a file a viewer opens, and says to open it first when its viewer published nothing', async () => {
+    const none = await renderSettled(actions('sales.xlsx'))
+    expect(none.container).toBeEmptyDOMElement()
+    none.unmount()
+    useExtensionsStore.setState({ list: [SHEETS] })
+    vi.mocked(window.ostia.artifacts.portable).mockResolvedValueOnce({
+      ok: false,
+      reason: 'no-tables',
+    })
     await renderSettled(actions('sales.xlsx'))
     await userEvent.click(screen.getByRole('button', { name: 'Open in Browser' }))
     expect(await screen.findByTestId('portable-problem')).toHaveTextContent(
       'Open this file in its viewer first to make its portable copy.',
     )
-    expect(window.ostia.artifacts.portable).not.toHaveBeenCalled()
-    vi.mocked(window.ostia.viewers.portable).mockResolvedValueOnce({
-      tables: [{ name: 'Sales', columns: ['A', 'B'], rows: [['<b>North</b>', '12.50%']] }],
-    })
-    await userEvent.click(screen.getByRole('button', { name: 'Open in Browser' }))
-    await waitFor(() => expect(window.ostia.artifacts.portable).toHaveBeenCalledTimes(1))
-    expect(window.ostia.viewers.portable).toHaveBeenLastCalledWith(`${DIR}/sales.xlsx`)
     const request = vi.mocked(window.ostia.artifacts.portable).mock.calls[0][1]
-    expect(request.document?.body).toContain('<h2 class="portable-sheet-name">Sales</h2>')
-    expect(request.document?.body).toContain('&lt;b&gt;North&lt;/b&gt;')
-    expect(request.document?.body).toContain('12.50%')
+    expect(request.path).toBe(`${DIR}/sales.xlsx`)
+    expect(request.document).toBeUndefined()
+    expect(window.ostia.fs.read).not.toHaveBeenCalled()
   })
 
   it('PRT-C40 shows the build error when a component does not build', async () => {

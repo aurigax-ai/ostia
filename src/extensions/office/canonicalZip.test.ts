@@ -9,7 +9,7 @@ import {
   zeroBomb,
   zeros,
 } from '../../../test/fixtures/office/workbooks'
-import { checkCanonicalZip, isZip } from './canonicalZip'
+import { isZip, readCanonicalZip } from './canonicalZip'
 import { GuardStop, OFFICE_LIMITS, type OfficeLimits, type OfficeProblem } from './officeLimits'
 
 const MIB = 1024 * 1024
@@ -17,7 +17,7 @@ const SMALL: OfficeLimits = { ...OFFICE_LIMITS, inflatedBytes: 32 * MIB }
 
 function verdict(bytes: Uint8Array, limits: OfficeLimits = OFFICE_LIMITS): OfficeProblem | 'ok' {
   try {
-    checkCanonicalZip(bytes, limits)
+    readCanonicalZip(bytes, limits)
     return 'ok'
   } catch (error) {
     if (error instanceof GuardStop) return error.problem
@@ -54,7 +54,7 @@ const BOOK = workbook({ Data: [['a', 1]] })
 const EOCD = 0x06054b50
 const CENTRAL = 0x02014b50
 
-describe('checkCanonicalZip', () => {
+describe('readCanonicalZip', () => {
   it('passes a workbook SheetJS wrote', () => {
     expect(isZip(BOOK)).toBe(true)
     expect(verdict(BOOK)).toBe('ok')

@@ -1,17 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import { probeSheetJS } from '../../../test/fixtures/office/sheetjsProbe'
-import { hyperlinkRange, odsRepeats } from '../../../test/fixtures/office/workbooks'
-import { OFFICE_LIMITS } from './officeLimits'
-import { readWorkbook } from './sheetModel'
-import { type CellBudget, decodeRangeArea, hyperlinkScan, odsRepeatScan } from './xmlScans'
+import {
+  decodeRangeArea,
+  elementCount,
+  hyperlinkCells,
+  odsCells,
+  sheetjsTagAttributes,
+} from './xmlScans'
 
-const SMALL = { ...OFFICE_LIMITS, cells: 100_000 }
+const ROW = 'table:table-row'
+const CELL = 'table:table-cell'
 
-function feed(scan: ReturnType<typeof hyperlinkScan>, text: string, size = 7): void {
-  const bytes = new TextEncoder().encode(text)
-  for (let at = 0; at < bytes.length; at += size) {
-    scan(bytes.subarray(at, at + size), at + size >= bytes.length)
-  }
+function row(attributes: string, cells: string): string {
+  return `<${ROW} ${attributes}>${cells}</${ROW}>`
+}
+
+function cell(attributes: string): string {
+  return `<${CELL} ${attributes} office:value-type="string"><text:p>x</text:p></${CELL}>`
 }
 
 describe('decodeRangeArea', () => {
@@ -24,56 +28,70 @@ describe('decodeRangeArea', () => {
   })
 })
 
-describe('hyperlinkScan', () => {
-  it('charges each hyperlink range, also across chunk boundaries', () => {
-    const budget: CellBudget = { left: 100 }
-    feed(
-      hyperlinkScan(budget),
-      '<sheetData/><hyperlinks><hyperlink ref="A1:B5" r:id="rId1"/><x:hyperlink r:id="r2" ref="C1"/></hyperlinks>',
-    )
-    expect(budget.left).toBe(89)
-    expect(() => feed(hyperlinkScan({ left: 100 }), '<hyperlink ref="A1:J11"/>')).toThrow(
-      'cells-limit',
-    )
+describe('sheetjsTagAttributes', () => {
+  it('keeps the last of a repeated attribute, as SheetJS parsexmltag does', () => {
+    expect(sheetjsTagAttributes('<c ref="A1" ref="A1:Z9"/>').ref).toBe('A1:Z9')
   })
 
-  it('refuses a small xlsx whose hyperlink range SheetJS fills with cells (new in this review)', () => {
-    const bytes = hyperlinkRange('A1:J30000')
-    expect(bytes.length).toBeLessThan(8 * 1024)
-    expect(readWorkbook(bytes, 'xlsx', SMALL)).toEqual({ ok: false, problem: 'cells-limit' })
-    expect(probeSheetJS(bytes).cells).toBeGreaterThanOrEqual(300_000)
-    expect(readWorkbook(hyperlinkRange('A1:XFD1048576'), 'xlsx', OFFICE_LIMITS)).toEqual({
-      ok: false,
-      problem: 'cells-limit',
-    })
-  }, 120_000)
+  it('cuts an unprefixed name at an underscore and also stores it lower-cased', () => {
+    const tag = sheetjsTagAttributes('<r number-rows-repeated_x="9" REF="B2"/>')
+    expect(tag['number-rows-repeated']).toBe('9')
+    expect(tag.ref).toBe('B2')
+  })
+
+  it('drops the prefix, but an ext attribute never replaces one already set', () => {
+    const tag = sheetjsTagAttributes('<c table:value="1" calcext:value="2" x:other="3"/>')
+    expect(tag.value).toBe('1')
+    expect(tag.other).toBe('3')
+  })
 })
 
-describe('odsRepeatScan', () => {
-  it('charges repeated rows times repeated columns of cells with content', () => {
-    const budget: CellBudget = { left: 1_000 }
-    feed(
-      odsRepeatScan(budget),
-      [
-        '<table:table-row table:number-rows-repeated="10">',
-        '<table:table-cell table:number-columns-repeated="20"><text:p>1</text:p></table:table-cell>',
-        '<table:table-cell table:number-columns-repeated="999"/>',
-        '</table:table-row>',
-        '<table:table-row table:number-rows-repeated="1048000"><table:table-cell table:number-columns-repeated="1024"/></table:table-row>',
-        '<table:table-row><table:table-cell office:value-type="string" table:string-value="x"/></table:table-row>',
-      ].join(''),
-    )
-    expect(budget.left).toBe(1_000 - 200 - 1)
+describe('hyperlinkCells', () => {
+  it('charges every hyperlink range in a part, by its last ref', () => {
+    expect(
+      hyperlinkCells(
+        '<hyperlinks><hyperlink ref="A1:B5" r:id="rId1"/><x:hyperlink r:id="r2" ref="C1"/><hyperlink ref="A1" ref="A1:J10"/></hyperlinks>',
+      ),
+    ).toBe(10 + 1 + 100)
+  })
+})
+
+describe('odsCells', () => {
+  it('charges repeated rows times repeated columns where SheetJS makes cells', () => {
+    const text = [
+      row('table:number-rows-repeated="10"', cell('table:number-columns-repeated="20"')),
+      row(
+        'table:number-rows-repeated="1048000"',
+        `<${CELL} table:number-columns-repeated="1024"/>`,
+      ),
+      row('', `<${CELL} office:value-type="string" table:string-value="x"/>`),
+    ].join('')
+    expect(odsCells(text)).toBe(10 * 20 + 1 + 1)
   })
 
-  it('refuses a small ods whose repeats SheetJS expands into cells (#894 review MEDIUM 3)', () => {
-    const bytes = odsRepeats(300, 1_000)
-    expect(bytes.length).toBeLessThan(4 * 1024)
-    expect(readWorkbook(bytes, 'ods', SMALL)).toEqual({ ok: false, problem: 'cells-limit' })
-    expect(probeSheetJS(bytes).cells).toBeGreaterThanOrEqual(300_000)
-    expect(readWorkbook(odsRepeats(1_000_000, 16_384), 'ods', OFFICE_LIMITS)).toEqual({
-      ok: false,
-      problem: 'cells-limit',
-    })
-  }, 120_000)
+  it('reads repeats SheetJS reads: a repeated attribute, an underscore name, a quoted >, an upper-case name', () => {
+    expect(
+      odsCells(row('table:number-rows-repeated="1" table:number-rows-repeated="300"', cell(''))),
+    ).toBe(300)
+    expect(
+      odsCells(row('number-rows-repeated_x="300"', cell('number-columns-repeated_x="4"'))),
+    ).toBe(1200)
+    expect(odsCells(row('foo=">" table:number-rows-repeated="300"', cell('foo=">"')))).toBe(300)
+    expect(odsCells(row('table:NUMBER-ROWS-REPEATED="300"', cell('')))).toBe(300)
+  })
+
+  it('charges a closing cell tag with the last cell tag, as SheetJS does for stray closes', () => {
+    const text = `<${ROW} table:number-rows-repeated="100">${cell('table:number-columns-repeated="10"')}</${CELL}></${CELL}></${ROW}>`
+    expect(odsCells(text)).toBe(3 * 1000)
+  })
+
+  it('skips comments and a doctype the way SheetJS does', () => {
+    expect(odsCells(`<!-- ${row('table:number-rows-repeated="999"', cell(''))} -->`)).toBe(0)
+  })
+})
+
+describe('elementCount', () => {
+  it('counts start tags only', () => {
+    expect(elementCount('<?xml version="1.0"?><!-- c --><a><b/><c>t</c></a>')).toBe(3)
+  })
 })

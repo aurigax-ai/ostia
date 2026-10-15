@@ -41,9 +41,9 @@ import {
   FILENAME_PATTERN_PATTERN,
   FILE_VIEWERS_MAX,
   FILE_VIEWER_DISPLAY_NAME_MAX,
-  FILE_VIEWER_NAME_PATTERN,
   FILE_VIEWER_PRIORITIES,
   FILE_VIEWER_SELECTORS_MAX,
+  FILE_VIEWER_TYPE_PATTERN,
 } from '../contract/fileViewers'
 import { ICON_THEME_ID_PATTERN } from '../contract/iconTheme'
 import { KEYMAP_LABEL_MAX, KEYMAP_PLATFORMS } from '../contract/keymap'
@@ -246,10 +246,6 @@ const languageServer = z.looseObject({
 })
 
 const shortPair = z.tuple([z.string().min(1).max(10), z.string().min(1).max(10)])
-
-const FILE_VIEWER_TYPE_PATTERN = new RegExp(
-  `^[a-z0-9][a-z0-9-]*\\.${FILE_VIEWER_NAME_PATTERN.source.slice(1, -1)}$`,
-)
 
 const editorLanguage = z.looseObject({
   id: z

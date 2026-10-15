@@ -12,7 +12,7 @@ export const FILENAME_PATTERN_PATTERN =
 
 export const VIEWER_SCHEME = 'ostia-viewer'
 export const OWN_VIEW = 'default'
-export const VIEW_TYPE_PATTERN = /^(?:default|[a-z0-9][a-z0-9-]*\.[a-z][a-z0-9-]{0,39})$/
+export const FILE_VIEWER_TYPE_PATTERN = /^[a-z0-9][a-z0-9-]*\.[a-z][a-z0-9-]{0,39}$/
 export const VIEWER_DOCUMENT_PATH = '/~document'
 export const VIEWER_META_PATH = '/~meta'
 export const VIEWER_EVENTS_PATH = '/~events'
@@ -54,6 +54,10 @@ export interface PortableTable {
 
 export interface ViewerPortableTables {
   tables: PortableTable[]
+}
+
+export function isViewType(value: string): boolean {
+  return value === OWN_VIEW || FILE_VIEWER_TYPE_PATTERN.test(value)
 }
 
 function isPriority(value: unknown): value is FileViewerPriority {

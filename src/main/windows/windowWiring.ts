@@ -200,6 +200,7 @@ export function createWindowWiring({
     const wid = String(win.webContents.id)
     windows.set(wid, win)
     services.diagnostics?.watchWindow(win)
+    viewers.followReloads(win.webContents, wid)
     win.on('hide', () => hidePtyFlow(wid))
     win.on('minimize', () => hidePtyFlow(wid))
     win.on('closed', () => {
@@ -208,7 +209,7 @@ export function createWindowWiring({
       services.portsService?.windowGone(wid)
       releaseWindowPtys(wid)
       previews.windowClosed(wid)
-      viewers.windowClosed(wid)
+      viewers.forgetWindow(wid)
       openWaits.windowGone(wid)
       services.fileWatches?.unwatchOwner(wid)
       commandsByWindow.delete(wid)

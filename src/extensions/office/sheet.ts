@@ -1,51 +1,20 @@
-import { translatorFor } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
-import type { PortableTable } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+import type { Translate } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
+import {
+  PORTABLE_TABLE_ROWS_MAX,
+  type PortableTable,
+} from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
 import { type Grid, columnName, grid } from '@aurigax-ai/ostia-extension-sdk/grid'
 import {
-  ViewerDocumentError,
-  openViewerDocument,
   publishPortable,
   runWorker,
+  showViewerMessage,
 } from '@aurigax-ai/ostia-extension-sdk/viewer'
 import { cellText } from './cellText'
-import en from './locales/en.json'
-import zhHant from './locales/zh-Hant.json'
-import { OFFICE_LIMITS, type OfficeProblem } from './officeLimits'
+import { OFFICE_LIMITS, officeProblemText } from './officeLimits'
+import { loadOfficeBytes } from './officePage'
 import type { SheetData, Workbook, WorkbookResult } from './sheetModel'
 
-const PORTABLE_ROWS = 5_000
 const root = document.getElementById('root') as HTMLElement
-
-type Translate = (key: string, vars?: Record<string, string | number>) => string
-
-function show(...children: Node[]): void {
-  root.replaceChildren(...children)
-}
-
-function message(text: string): HTMLElement {
-  const el = document.createElement('div')
-  el.className = 'message'
-  el.textContent = text
-  return el
-}
-
-function megabytes(bytes: number, locale: string): string {
-  return new Intl.NumberFormat(locale, {
-    style: 'unit',
-    unit: 'megabyte',
-    maximumFractionDigits: 1,
-  }).format(bytes / 1e6)
-}
-
-function problemText(t: Translate, problem: OfficeProblem, locale: string): string {
-  return t(problem, {
-    limit: megabytes(
-      problem === 'too-large' ? OFFICE_LIMITS.fileBytes : OFFICE_LIMITS.inflatedBytes,
-      locale,
-    ),
-    cells: OFFICE_LIMITS.cells.toLocaleString(locale),
-  })
-}
 
 function notesOf(t: Translate, book: Workbook, sheet: SheetData, locale: string): string[] {
   return [
@@ -63,7 +32,7 @@ function portableOf(
   text: (sheet: SheetData, row: number, column: number) => string,
 ) {
   const tables: PortableTable[] = book.sheets.map((sheet) => {
-    const rows = Math.min(sheet.rowCount, PORTABLE_ROWS)
+    const rows = Math.min(sheet.rowCount, PORTABLE_TABLE_ROWS_MAX)
     const columns = Array.from({ length: sheet.columnCount }, (_u, c) => columnName(c))
     return {
       name: sheet.name,
@@ -91,7 +60,10 @@ function render(book: Workbook, t: Translate, locale: string): void {
     }
     if (sheet.columnCount === 0) {
       current = null
-      show(message([t('empty'), ...notesOf(t, book, sheet, locale)].filter(Boolean).join(' ')))
+      showViewerMessage(
+        root,
+        [t('empty'), ...notesOf(t, book, sheet, locale)].filter(Boolean).join(' '),
+      )
     } else {
       current = grid({
         label: sheet.name,
@@ -101,7 +73,7 @@ function render(book: Workbook, t: Translate, locale: string): void {
         rowLabels: true,
         notes: notesOf(t, book, sheet, locale),
       })
-      show(current.element)
+      root.replaceChildren(current.element)
     }
   }
   for (const [index, sheet] of book.sheets.entries()) {
@@ -118,48 +90,35 @@ function render(book: Workbook, t: Translate, locale: string): void {
 }
 
 async function main(): Promise<void> {
-  const doc = await openViewerDocument().catch(() => null)
-  const locale = doc?.locale ?? 'en'
-  const t: Translate = translatorFor({ en: en.messages, 'zh-Hant': zhHant.messages }, locale)
-  if (!doc) {
-    show(message(t('unreadable')))
+  const loaded = await loadOfficeBytes(root)
+  if (!loaded) return
+  const { doc, t, bytes } = loaded
+  const say = (text: string): void => {
+    showViewerMessage(root, text)
+  }
+  if (bytes.byteLength > OFFICE_LIMITS.fileBytes) {
+    say(officeProblemText(t, 'too-large', doc.locale))
     return
   }
-  doc.onDidChange(() => location.reload())
-  show(message(t('loading')))
-  let bytes: Uint8Array
-  try {
-    bytes = await doc.bytes()
-  } catch (error) {
-    const problem = error instanceof ViewerDocumentError ? error.problem : 'unreadable'
-    show(message(problem === 'too-large' ? problemText(t, 'too-large', locale) : t(problem)))
-    return
-  }
-  if (bytes.length > OFFICE_LIMITS.fileBytes) {
-    show(message(problemText(t, 'too-large', locale)))
-    return
-  }
-  const extension = doc.name.slice(doc.name.lastIndexOf('.') + 1).toLowerCase()
-  const copy = bytes.slice()
   const outcome = await runWorker<WorkbookResult>(
     'sheet.worker.js',
-    { bytes: copy.buffer, extension },
-    [copy.buffer],
+    { bytes },
+    [bytes],
     OFFICE_LIMITS.parseMs,
   )
   if (!outcome.ok) {
-    show(message(problemText(t, outcome.problem, locale)))
+    say(officeProblemText(t, outcome.problem, doc.locale))
     return
   }
   if (!outcome.value.ok) {
-    show(message(problemText(t, outcome.value.problem, locale)))
+    say(officeProblemText(t, outcome.value.problem, doc.locale))
     return
   }
   if (outcome.value.book.sheets.length === 0) {
-    show(message(t('empty')))
+    say(t('empty'))
     return
   }
-  render(outcome.value.book, t, locale)
+  render(outcome.value.book, t, doc.locale)
 }
 
 void main()

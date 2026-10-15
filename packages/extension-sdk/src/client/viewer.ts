@@ -1,3 +1,4 @@
+import { type LocaleCatalogs, type Translate, translatorFor } from '../contract/extensionLocales'
 import {
   VIEWER_CHANGED_EVENT,
   VIEWER_DOCUMENT_PATH,
@@ -85,4 +86,65 @@ export function runWorker<T>(
     worker.onerror = () => finish({ ok: false, problem: 'failed' })
     worker.postMessage(message, transfer)
   })
+}
+
+export function showViewerMessage(root: HTMLElement, text: string): HTMLElement {
+  const el = document.createElement('div')
+  el.className = 'ostia-viewer-message'
+  el.textContent = text
+  root.replaceChildren(el)
+  return el
+}
+
+export function formatMegabytes(bytes: number, locale: string): string {
+  return new Intl.NumberFormat(locale, {
+    style: 'unit',
+    unit: 'megabyte',
+    maximumFractionDigits: 1,
+  }).format(bytes / 1e6)
+}
+
+export interface LoadedViewerBytes {
+  doc: ViewerDocument
+  t: Translate
+  bytes: ArrayBuffer
+}
+
+export async function loadViewerBytes(options: {
+  root: HTMLElement
+  catalogs: LocaleCatalogs
+  tooLarge?: (t: Translate, size: number, locale: string) => string
+}): Promise<LoadedViewerBytes | null> {
+  const { root, catalogs } = options
+  const doc = await openViewerDocument().catch(() => null)
+  const t = translatorFor(catalogs, doc?.locale ?? 'en')
+  if (!doc) {
+    showViewerMessage(root, t('unreadable'))
+    return null
+  }
+  doc.onDidChange(() => location.reload())
+  showViewerMessage(root, t('loading'))
+  try {
+    const bytes = await doc.bytes()
+    return { doc, t, bytes: bytes.slice().buffer }
+  } catch (error) {
+    const problem = error instanceof ViewerDocumentError ? error.problem : 'unreadable'
+    const size = error instanceof ViewerDocumentError ? (error.size ?? 0) : 0
+    const tooLarge =
+      options.tooLarge ??
+      ((tr: Translate, bytes: number, locale: string) =>
+        tr('tooLarge', { size: formatMegabytes(bytes, locale) }))
+    showViewerMessage(root, problem === 'too-large' ? tooLarge(t, size, doc.locale) : t(problem))
+    return null
+  }
+}
+
+export function serveWorker<Request>(handle: (request: Request) => unknown): void {
+  const scope = self as unknown as {
+    onmessage: ((event: MessageEvent<Request>) => void) | null
+    postMessage: (message: unknown) => void
+  }
+  scope.onmessage = (event) => {
+    void Promise.resolve(handle(event.data)).then((reply) => scope.postMessage(reply))
+  }
 }

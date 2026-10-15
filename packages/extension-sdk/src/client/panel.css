@@ -97,7 +97,8 @@ button.primary {
 
 button:focus-visible,
 input:focus-visible,
-textarea:focus-visible {
+textarea:focus-visible,
+.ostia-grid-scroll:focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: -1px;
 }
@@ -278,6 +279,18 @@ input[type="radio"]:focus-visible {
   user-select: none !important;
 }
 
+.ostia-viewer-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 16px;
+  color: var(--fg-muted);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+  text-align: center;
+}
+
 .ostia-grid {
   display: flex;
   flex-direction: column;
@@ -301,7 +314,6 @@ input[type="radio"]:focus-visible {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  outline: none;
 }
 
 .ostia-grid-canvas {

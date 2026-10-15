@@ -1,6 +1,6 @@
 import mammoth from 'mammoth'
-import { checkOfficeContainer } from './canonicalZip'
 import { GuardStop, type OfficeLimits, type OfficeProblem } from './officeLimits'
+import { officePackage } from './officePackage'
 
 const IMAGES_MAX_BYTES = 20 * 1024 * 1024
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
@@ -14,7 +14,7 @@ export async function readDocument(
   limits: OfficeLimits,
 ): Promise<DocumentResult> {
   try {
-    checkOfficeContainer(bytes, limits)
+    const packed = officePackage(bytes, 'document', limits)
     let imageBytes = 0
     let imagesDropped = 0
     const convertImage = mammoth.images.imgElement(async (image) => {
@@ -30,8 +30,7 @@ export async function readDocument(
       }
       return { src: `data:${image.contentType};base64,${data}` }
     })
-    const copy = bytes.slice()
-    const input = { arrayBuffer: copy.buffer, buffer: copy }
+    const input = { arrayBuffer: packed.buffer, buffer: packed }
     const result = await mammoth.convertToHtml(input as unknown as { arrayBuffer: ArrayBuffer }, {
       convertImage,
       externalFileAccess: false,

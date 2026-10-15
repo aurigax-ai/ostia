@@ -1,6 +1,9 @@
+import { EventEmitter } from 'node:events'
+import { PORTABLE_TABLES_BYTES_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
 import { describe, expect, it, vi } from 'vitest'
-import { ViewerHost, type ViewerHostDeps, viewerOwner } from './viewerHost'
+import { type ViewerGuest, ViewerHost, type ViewerHostDeps, viewerOwner } from './viewerHost'
 import { VIEWER_PAGE_CSP, type ViewerSession } from './viewerSessions'
+import { VIEWER_LIMITS, ViewerWatch } from './viewerWatch'
 
 interface FakeSession extends ViewerSession {
   handler: ((request: Request) => Promise<Response>) | null
@@ -40,6 +43,8 @@ function setup(overrides: Partial<ViewerHostDeps> = {}) {
   const sessions = new Map<string, FakeSession>()
   const watched: string[] = []
   const unwatched: string[] = []
+  const stopped: unknown[] = []
+  const memory = { bytes: 0 }
   let tokens = 0
   let enabled = true
   const deps: ViewerHostDeps = {
@@ -65,6 +70,12 @@ function setup(overrides: Partial<ViewerHostDeps> = {}) {
       unwatched.push(`${owner} ${path}`)
     },
     locale: () => 'zh-Hant',
+    guests: new ViewerWatch({
+      processes: () => [{ pid: 9, memoryBytes: memory.bytes, cpuPercent: 0 }],
+    }),
+    stopped: (windowId, event) => {
+      stopped.push({ windowId, ...event })
+    },
     token: () => `t${++tokens}`,
     ...overrides,
   }
@@ -72,7 +83,7 @@ function setup(overrides: Partial<ViewerHostDeps> = {}) {
   const disable = (): void => {
     enabled = false
   }
-  return { host, sessions, watched, unwatched, disable }
+  return { host, deps, sessions, watched, unwatched, stopped, memory, disable }
 }
 
 const OPEN = { workspaceId: 'ws', paneId: 'p1', path: FILE, viewType: 'office.spreadsheet' }
@@ -169,8 +180,47 @@ describe('ViewerHost', () => {
     host.changed('w1')
     const { value } = await reader.read()
     expect(new TextDecoder().decode(value)).toBe('event: changed\ndata: 1\n\n')
-    host.windowClosed('w1')
+    host.forgetWindow('w1')
     expect((await reader.read()).done).toBe(true)
+  })
+
+  it('stops the viewer of a guest past its memory limit, tells its window and ends its token', () => {
+    const { host, deps, sessions, stopped, memory, unwatched } = setup()
+    const opened = host.open('w1', OPEN)
+    if (!opened.ok) throw new Error('not opened')
+    const guest = Object.assign(new EventEmitter(), {
+      session: sessions.get('ostia-viewer-office'),
+      crashed: 0,
+      setWindowOpenHandler: () => {},
+      setWebRTCIPHandlingPolicy: () => {},
+      isDestroyed: () => false,
+      getOSProcessId: () => 9,
+      executeJavaScript: () => Promise.resolve(0),
+      forcefullyCrashRenderer: () => {
+        guest.crashed++
+      },
+    })
+    expect(host.adopt(guest as unknown as ViewerGuest)).toBe(true)
+    guest.emit('did-navigate', {}, opened.src)
+    memory.bytes = VIEWER_LIMITS.memoryBytes + 1
+    deps.guests.measure()
+    deps.guests.tick()
+    deps.guests.dispose()
+    expect(guest.crashed).toBe(1)
+    expect(stopped).toEqual([{ windowId: 'w1', paneId: 'p1', reason: 'memory' }])
+    expect(unwatched).toEqual([`${viewerOwner('t1')} ${FILE}`])
+  })
+
+  it('ends the viewers of a window when its page reloads, not on an in-page navigation', () => {
+    const { host, unwatched } = setup()
+    const contents = new EventEmitter()
+    host.followReloads(contents, 'w1')
+    host.open('w1', OPEN)
+    contents.emit('did-start-navigation', {}, 'app://index.html#x', true, true)
+    contents.emit('did-start-navigation', {}, 'https://frame', false, false)
+    expect(unwatched).toEqual([])
+    contents.emit('did-start-navigation', {}, 'app://index.html', false, true)
+    expect(unwatched).toHaveLength(1)
   })
 
   it('keeps only well-formed text tables a page publishes for the portable file', async () => {
@@ -187,6 +237,11 @@ describe('ViewerHost', () => {
     expect(host.portable('w1', FILE)).toEqual(tables)
     expect(host.portable('w2', FILE)).toBeNull()
     expect(host.portable('w1', '/home/u/other.xlsx')).toBeNull()
+    const oversize = {
+      tables: [{ name: 'S', columns: ['A'], rows: [['x'.repeat(PORTABLE_TABLES_BYTES_MAX)]] }],
+    }
+    expect((await post(oversize)).status).toBe(413)
+    expect(host.portable('w1', FILE)).toBe('too-large')
   })
 
   it('lets only the exact page of the owner window attach in the viewer partition', () => {

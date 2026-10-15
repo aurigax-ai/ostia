@@ -2777,50 +2777,6 @@ button.prompt-chip:hover {
   background: color-mix(in srgb, var(--attn) 10%, var(--surface-1));
 }
 
-.csv-table {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  overflow: auto;
-  padding: 8px 12px 24px;
-  background: var(--surface-1);
-  font-size: var(--text-ui-sm);
-  line-height: var(--text-ui-sm--line-height);
-}
-
-.csv-table:focus {
-  outline: none;
-}
-
-.csv-table table {
-  border-collapse: collapse;
-}
-
-.csv-table th,
-.csv-table td {
-  max-width: 480px;
-  padding: 3px 10px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-code);
-}
-
-.csv-table th {
-  position: sticky;
-  top: -8px;
-  background: var(--surface-2);
-  color: var(--fg);
-  font-weight: var(--font-weight-medium);
-}
-
-.csv-table-note {
-  margin: 0 0 8px;
-  color: var(--fg-muted);
-}
-
 .mermaid-diagram {
   display: block;
   max-width: 100%;
@@ -4441,19 +4397,6 @@ button.prompt-chip:hover {
   color: var(--warn-fg);
   font-size: var(--text-ui-sm);
   line-height: var(--text-ui-sm--line-height);
-}
-
-.portable-sheets .csv-table {
-  position: static;
-  max-height: none;
-}
-
-.portable-sheet-name {
-  margin: 16px 12px 4px;
-  color: var(--fg);
-  font-size: var(--text-ui-base);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--text-ui-base--line-height);
 }
 
 .file-lock {

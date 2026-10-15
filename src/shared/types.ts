@@ -6,7 +6,6 @@ import type {
   ExtensionResult,
   ExtensionsApi,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import type { ViewerPortableTables } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
 import type { IconThemesApi } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
 import type { LanguagePacksApi } from '@aurigax-ai/ostia-extension-sdk/contract/languagePack'
 import type { LspApi } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
@@ -359,10 +358,17 @@ export type ViewerOpenResult =
   | { ok: true; src: string; partition: string }
   | { ok: false; error: 'denied' | 'unknown-viewer' }
 
+export type ViewerStopReason = 'memory' | 'unresponsive'
+
+export interface ViewerStopped {
+  paneId: string
+  reason: ViewerStopReason
+}
+
 interface ViewersApi {
   open: (request: ViewerOpenRequest) => Promise<ViewerOpenResult>
   close: (paneId: string) => void
-  portable: (path: string) => Promise<ViewerPortableTables | null>
+  onStopped: (cb: (event: ViewerStopped) => void) => () => void
 }
 
 interface FsApi {

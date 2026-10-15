@@ -1,7 +1,10 @@
 import { Inflate } from 'fflate'
 import { GuardStop, type OfficeLimits } from './officeLimits'
 
-export type EntrySink = (chunk: Uint8Array, final: boolean) => void
+export interface ZipFile {
+  name: string
+  data: Uint8Array
+}
 
 const END_OF_DIRECTORY = 0x06054b50
 const ZIP64_LOCATOR = 0x07064b50
@@ -13,7 +16,7 @@ const DATA_DESCRIPTOR = 0x0008
 const MAX_32 = 0xffffffff
 const MAX_16 = 0xffff
 const TAIL_BYTES = 65_557
-const CHUNK_BYTES = 16 * 1024
+const CHUNK_BYTES = 64 * 1024
 
 function u16(bytes: Uint8Array, at: number): number {
   return at + 2 <= bytes.length ? bytes[at] | (bytes[at + 1] << 8) : -1
@@ -128,20 +131,29 @@ function charge(budget: Budget, bytes: number): void {
   if (budget.left < 0) throw new GuardStop('unzip-limit')
 }
 
+function joined(chunks: Uint8Array[], length: number): Uint8Array {
+  const out = new Uint8Array(length)
+  let at = 0
+  for (const chunk of chunks) {
+    out.set(chunk, at)
+    at += chunk.length
+  }
+  return out
+}
+
 function inflateEntry(
   bytes: Uint8Array,
   entry: Entry,
   budget: Budget,
   limits: OfficeLimits,
-  sink: EntrySink | null,
-): void {
+): Uint8Array {
   charge(budget, entry.declared)
   if (entry.method === 0) {
     charge(budget, Math.max(0, entry.storedBytes - entry.declared))
-    sink?.(bytes.subarray(entry.start, entry.start + entry.storedBytes), true)
-    return
+    return bytes.slice(entry.start, entry.start + entry.storedBytes)
   }
   if (entry.method !== 8) fail()
+  const chunks: Uint8Array[] = []
   let produced = 0
   let pushed = 0
   let done = false
@@ -152,7 +164,7 @@ function inflateEntry(
     if (produced > limits.ratioFloorBytes && produced > pushed * limits.entryRatio) {
       throw new GuardStop('unzip-limit')
     }
-    sink?.(chunk, final)
+    chunks.push(chunk)
     if (final) done = true
   })
   for (let at = entry.start; at < bytes.length && !done; at += CHUNK_BYTES) {
@@ -161,23 +173,22 @@ function inflateEntry(
     inflate.push(bytes.subarray(at, end), end === bytes.length)
   }
   if (!done) fail()
+  return joined(chunks, produced)
 }
 
-export function checkCanonicalZip(
-  bytes: Uint8Array,
-  limits: OfficeLimits,
-  sinkFor: (name: string) => EntrySink | null = () => null,
-): void {
+export function readCanonicalZip(bytes: Uint8Array, limits: OfficeLimits): ZipFile[] {
   const decoder = new TextDecoder()
   const { count, offset, end } = readEnd(bytes, limits)
   const budget: Budget = { left: limits.inflatedBytes }
+  const files: ZipFile[] = []
   let at = offset
   for (let i = 0; i < count; i++) {
     const [entry, next] = readEntry(bytes, at, decoder)
-    inflateEntry(bytes, entry, budget, limits, sinkFor(entry.name))
+    files.push({ name: entry.name, data: inflateEntry(bytes, entry, budget, limits) })
     at = next
   }
   if (at !== end) fail()
+  return files
 }
 
 const COMPOUND_FILE = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]
@@ -197,15 +208,11 @@ function holdsUtf16(bytes: Uint8Array, ascii: Uint8Array): boolean {
   return false
 }
 
-export function checkOfficeContainer(
-  bytes: Uint8Array,
-  limits: OfficeLimits,
-  sinkFor?: (name: string) => EntrySink | null,
-): void {
+export function readOfficeContainer(bytes: Uint8Array, limits: OfficeLimits): ZipFile[] {
   if (bytes.length > limits.fileBytes) throw new GuardStop('too-large')
   if (isCompoundFile(bytes)) {
     throw new GuardStop(holdsUtf16(bytes, ENCRYPTED_PACKAGE) ? 'encrypted' : 'failed')
   }
   if (!isZip(bytes)) throw new GuardStop('failed')
-  checkCanonicalZip(bytes, limits, sinkFor)
+  return readCanonicalZip(bytes, limits)
 }

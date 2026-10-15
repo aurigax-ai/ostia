@@ -1,6 +1,6 @@
 import {
   FILENAME_PATTERN_PATTERN,
-  VIEW_TYPE_PATTERN,
+  isViewType,
 } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
 import {
   BUILTIN_ICON_THEME,
@@ -101,11 +101,7 @@ function parseViewerAssociations(raw: unknown): Record<string, string> {
   const out: Record<string, string> = {}
   for (const [key, value] of Object.entries(raw)) {
     if (Object.keys(out).length >= VIEWER_ASSOCIATIONS_MAX) break
-    if (
-      FILENAME_PATTERN_PATTERN.test(key) &&
-      typeof value === 'string' &&
-      VIEW_TYPE_PATTERN.test(value)
-    ) {
+    if (FILENAME_PATTERN_PATTERN.test(key) && typeof value === 'string' && isViewType(value)) {
       out[key] = value
     }
   }

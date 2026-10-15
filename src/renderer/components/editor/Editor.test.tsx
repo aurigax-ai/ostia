@@ -383,7 +383,6 @@ describe('EditorView', () => {
     })
     const done = editorInSurface('p-csv', '/w/fruit.csv')
     await waitFor(() => expect(fake.state.input).not.toBeNull())
-    expect(screen.queryByTestId('csv-table')).toBeNull()
     focusSurface('p-csv')
     expect(document.activeElement).toBe(fake.state.input)
     done()

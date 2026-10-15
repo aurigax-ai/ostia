@@ -1,4 +1,4 @@
-import { constants, closeSync, fstatSync, openSync } from 'node:fs'
+import { constants, close, fstat, open } from 'node:fs'
 import type { ArchiveEntryProblem } from '../../../shared/types'
 
 const READ_FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
@@ -7,18 +7,27 @@ export type EntryRead =
   | { ok: true; data: Buffer }
   | { ok: false; problem: ArchiveEntryProblem | 'too-large' | 'unreadable'; size?: number }
 
-export async function openRegular(path: string): Promise<number | null> {
-  let fd: number
-  try {
-    fd = openSync(path, READ_FLAGS)
-  } catch {
-    return null
-  }
-  try {
-    if (fstatSync(fd).isFile()) return fd
-  } catch {}
-  closeSync(fd)
-  return null
+export function closeFd(fd: number): void {
+  close(fd, () => {})
+}
+
+export function openRegular(path: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    open(path, READ_FLAGS, (openError, fd) => {
+      if (openError) {
+        resolve(null)
+        return
+      }
+      fstat(fd, (statError, stat) => {
+        if (!statError && stat.isFile()) {
+          resolve(fd)
+          return
+        }
+        closeFd(fd)
+        resolve(null)
+      })
+    })
+  })
 }
 
 interface ByteSource {
