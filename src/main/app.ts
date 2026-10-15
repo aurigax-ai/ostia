@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir, hostname } from 'node:os'
@@ -63,7 +62,7 @@ import { OPEN_FILES_COMMAND, OPEN_FILES_MAX } from '../shared/files/openFiles'
 import { desktopsOf } from '../shared/keyboard/desktopChords'
 import { parsePrivacySettings } from '../shared/privacy/redaction'
 import { bucketCount } from '../shared/privacy/telemetry'
-import { KEEP_SHELLS_FEATURE, parseKeepShells } from '../shared/terminal/keepShells'
+import { parseKeepShells } from '../shared/terminal/keepShells'
 import { isHostNamed } from '../shared/terminal/osc7'
 import { quoteArgv } from '../shared/terminal/shellQuote'
 import { shellArgv, shellName } from '../shared/terminal/terminalShell'
@@ -167,8 +166,6 @@ import { setCapFilter, setScriptTokenCheck } from './control/controlAuth'
 import { clearControlInfo, controlInfoPath, writeControlInfo } from './control/controlDiscovery'
 import {
   controlSocketPath,
-  keptControlSocketPath,
-  listenKeptControlSocket,
   registerControlServer,
   stopControlServer,
 } from './control/controlServer'
@@ -296,7 +293,6 @@ import {
   SANDBOX_FEATURE,
   installHint,
   missingRequirements,
-  programPath,
   requirementLabel,
 } from './platform/systemRequirements'
 import { registerSystemRequirementsIpc } from './platform/systemRequirementsIpc'
@@ -359,15 +355,8 @@ import {
 import { type SavedAttention, isKeptAttentionState } from './tmux/attentionFile'
 import { SANDBOX_NOT_KEPT, TMUX_MISSING, keepShellsNotice } from './tmux/keepShellsBanner'
 import { KeptAttention } from './tmux/keptAttention'
-import { KeptPlumbing, keptLauncherPaths } from './tmux/keptLaunchers'
-import { keptShellsDir, keptShellsName } from './tmux/keptPaths'
-import {
-  type KeptMeta,
-  type KeptProcessMeta,
-  type KeptProgram,
-  type KeptShell,
-  KeptShells,
-} from './tmux/keptShells'
+import type { KeptMeta, KeptShell } from './tmux/keptShells'
+import { createKeptShellsWiring } from './tmux/keptShellsWiring'
 import type { TmuxPane } from './tmux/tmuxServer'
 import { registerAppUpdate } from './updates/appUpdate'
 import { appVersion, runningBuild } from './updates/appVersion'
@@ -439,9 +428,7 @@ import {
 import {
   type RestoreOutcome,
   dropRestoredScrollback,
-  handoffPaneIds,
   loadRestoredScrollback,
-  loadSnapshot,
   pendingRestoredScrollback,
   saveScrollback,
   scrollbackToSave,
@@ -670,13 +657,23 @@ function openExternalSafe(url: string): boolean {
   return true
 }
 
-const keptShells = new KeptShells({
-  dir: keptShellsDir(app.getPath('userData')),
-  name: keptShellsName(app.getPath('userData')),
-  program: keptShellsProgram,
-  log: (event, fields) => appLog?.info(event, fields),
+const {
+  keptShells,
+  keepShellsOn,
+  keptShellsProgram,
+  savedPaneIds,
+  withKeptProcess,
+  syncKeptMeta,
+  paneLauncherDir,
+  keptPlumbing,
+  keptPaneEnv,
+} = createKeptShellsWiring({
+  ptys,
+  readSettingsFile,
+  processes: () => processes,
+  appLog: () => appLog,
 })
-let tmuxTerminal: string | null = null
+
 let restartRequested = false
 let quitAnswer: QuitAnswer | null = null
 let stagedUpdate: { pending: PendingSweep; sweepFile: string } | null = null
@@ -686,97 +683,6 @@ const UPDATE_HOST_GRANT_ID = 'core:update'
 
 function confirmQuitOn(): boolean {
   return readSettingsFile().workspaces?.confirmQuit !== false
-}
-
-function keepShellsOn(): boolean {
-  return parseKeepShells(readSettingsFile().terminal?.keepShells)
-}
-
-function keptShellsProgram(): KeptProgram | null {
-  if (missingRequirements(KEEP_SHELLS_FEATURE).length > 0) return null
-  const tmux = programPath('tmux')
-  if (!tmux) return null
-  return { tmux, defaultTerminal: tmuxDefaultTerminal(), env: process.env }
-}
-
-function tmuxDefaultTerminal(): string {
-  if (tmuxTerminal === null) {
-    try {
-      execFileSync('infocmp', ['tmux-256color'], { stdio: 'ignore', timeout: 2000 })
-      tmuxTerminal = 'tmux-256color'
-    } catch {
-      tmuxTerminal = 'screen-256color'
-    }
-  }
-  return tmuxTerminal
-}
-
-function savedPaneIds(): Set<string> | null {
-  const snapshot = loadSnapshot()
-  if (!snapshot) return null
-  const ids = new Set<string>()
-  const workspaces = [
-    ...snapshot.workspaces,
-    ...(snapshot.windows ?? []).flatMap((w) => w.workspaces),
-  ]
-  for (const workspace of workspaces) for (const id of handoffPaneIds(workspace)) ids.add(id)
-  return ids
-}
-
-function keptProcessOf(paneId: string): KeptProcessMeta | undefined {
-  const entry = processes?.forPane(paneId)
-  if (!entry || entry.status === 'closed') return undefined
-  return {
-    name: entry.name,
-    cmd: entry.cmd,
-    ownerPaneId: entry.ownerPaneId,
-    startedAt: entry.startedAt,
-    status: entry.status,
-    ...(entry.cwd ? { cwd: entry.cwd } : {}),
-    ...(entry.exitCode !== undefined ? { exitCode: entry.exitCode } : {}),
-  }
-}
-
-function withKeptProcess(meta: KeptMeta): KeptMeta {
-  const { process: _old, ...base } = meta
-  const current = keptProcessOf(meta.paneId)
-  return current ? { ...base, process: current } : base
-}
-
-function syncKeptMeta(paneId: string): void {
-  const entry = ptys.get(paneId)
-  if (!entry?.kept || !entry.keptMeta) return
-  entry.keptMeta = withKeptProcess(entry.keptMeta)
-  entry.kept.setMeta(entry.keptMeta)
-}
-
-function paneLauncherDir(): string {
-  return join(app.getPath('userData'), 'bin')
-}
-
-const keptPlumbing = new KeptPlumbing({
-  launcherDir: paneLauncherDir(),
-  execPath: process.execPath,
-  appPath: app.getAppPath(),
-  listen: () => listenKeptControlSocket(keptControlSocketPath(app.getPath('userData'))),
-  warn: (code) => appLog?.warn('launcher-write-failed', { launcher: 'kept', code }),
-})
-
-function keptPaneEnv(env: NodeJS.ProcessEnv): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const [key, value] of Object.entries(env)) {
-    if (value === undefined || key === 'TERM') continue
-    out[key] = value
-  }
-  const launchers = keptLauncherPaths(paneLauncherDir())
-  return Object.assign(
-    out,
-    appEnv({
-      SOCKET: keptControlSocketPath(app.getPath('userData')),
-      CLI: launchers.cli,
-      NODE: launchers.node,
-    }),
-  )
 }
 
 function killPty(paneId: string, reason: ReapReason): void {
