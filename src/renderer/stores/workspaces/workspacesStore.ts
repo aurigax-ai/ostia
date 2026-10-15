@@ -29,7 +29,8 @@ import type {
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaces/workspaceGroups'
 import { normalizeDescription } from '@shared/workspaces/workspaceText'
 import { create } from 'zustand'
-import { setWorkspaceLookup, useLayoutStore } from './layoutStore'
+import { useLayoutStore } from './layoutStore'
+import { setWorkspaceLookup } from './workspaceLookup'
 
 export type WorkspaceState = WorkspaceLiveState
 

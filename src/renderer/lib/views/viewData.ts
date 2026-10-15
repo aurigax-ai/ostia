@@ -1,6 +1,6 @@
 import { EMPTY_ATTENTION, type PaneAttention, unreadCount } from '@/lib/attention/attention'
 import { allPanes } from '@/lib/layout/tree'
-import type { WorkspaceLayout } from '@/stores/workspaces/layoutStore'
+import type { WorkspaceLayout } from '@/stores/workspaces/layoutTypes'
 import type { Workspace } from '@/stores/workspaces/workspacesStore'
 import type {
   ExtensionSidebarItem,
