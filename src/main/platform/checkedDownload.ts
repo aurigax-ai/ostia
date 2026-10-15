@@ -60,8 +60,25 @@ export async function followAllowed(request: DownloadRequest): Promise<Response>
   }
 }
 
-export function bodyOf(response: Response): Readable {
+function bodyOf(response: Response): Readable {
   return Readable.fromWeb(response.body as Parameters<typeof Readable.fromWeb>[0])
+}
+
+export async function readCapped(response: Response, maxBytes: number): Promise<string | null> {
+  const reader = response.body?.getReader()
+  if (!reader) return null
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) return Buffer.concat(chunks).toString('utf8')
+    size += value.byteLength
+    if (size > maxBytes) {
+      await reader.cancel()
+      return null
+    }
+    chunks.push(value)
+  }
 }
 
 export async function downloadChecked(
