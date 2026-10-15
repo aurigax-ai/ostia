@@ -70,7 +70,7 @@ export function excludeMatcher(patterns: readonly string[]): ExcludeMatcher {
   }
 }
 
-const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+export const nameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
 function typeKey(entry: FsEntry): string {
   if (entry.dir) return ''
@@ -86,10 +86,10 @@ export function sortEntries(
   return [...entries].sort((a, b) => {
     if (order === 'foldersFirst' && a.dir !== b.dir) return a.dir ? -1 : 1
     if (by === 'type') {
-      const byType = collator.compare(typeKey(a), typeKey(b))
+      const byType = nameCollator.compare(typeKey(a), typeKey(b))
       if (byType !== 0) return byType
     }
-    return collator.compare(a.name, b.name) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
+    return nameCollator.compare(a.name, b.name) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
   })
 }
 
