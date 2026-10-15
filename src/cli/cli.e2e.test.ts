@@ -702,6 +702,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
 
   describe('resume-token and pane.setResume', () => {
     let foreground: string | null = null
+    let reportedCwd: string | null = null
     let stored: unknown = null
     const fromMain: string[] = []
     beforeAll(() => {
@@ -712,11 +713,13 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
           return fakeDeps.execCommand(target, id, args)
         },
         foregroundProgram: () => foreground,
+        reportedCwd: () => reportedCwd,
         onResume: () => {},
       })
     })
     beforeEach(() => {
       foreground = null
+      reportedCwd = null
       stored = null
       fromMain.length = 0
     })
@@ -737,7 +740,8 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       }
     }
 
-    it('resume-token keeps the folder from the hook payload and the flags the agent was started with', async () => {
+    it('resume-token stores the folder main saw for the pane, never the hook payload’s, and the flags the agent was started with', async () => {
+      reportedCwd = '/work/pane'
       const res = await runOstia(
         ['resume-token', 'claude', '-'],
         withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
@@ -750,11 +754,12 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         {
           target: { windowId: 'w1', workspaceId: 's1', paneId: 'pE2E' },
           id: 'resume.set',
-          args: { agent: 'claude', id: 'e2e-tok-here', cwd: '/work/tree' },
+          args: { agent: 'claude', id: 'e2e-tok-here', cwd: '/work/pane' },
         },
       ])
 
-      const started = ['--agent', 'ostia', '--session-id', 'old', 'fix it'].join('\u001f')
+      reportedCwd = null
+      const started = ['--model', 'opus', '--session-id', 'old', 'fix it'].join('\u001f')
       const withArgs = await runOstia(
         ['resume-token', 'claude', 'e2e-tok-args'],
         withEnv({
@@ -767,7 +772,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       expect(execCalls.at(-1)).toEqual({
         target: { windowId: 'w1', workspaceId: 's1', paneId: 'pE2E' },
         id: 'resume.set',
-        args: { agent: 'claude', id: 'e2e-tok-args', args: ['--agent', 'ostia'] },
+        args: { agent: 'claude', id: 'e2e-tok-args', args: ['--model', 'opus'] },
       })
     })
 
@@ -800,26 +805,29 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       })
     })
 
-    it('stores no escaping flag or agent config variable from any caller holding the token', async () => {
+    it('stores no escaping flag, no variable and no folder from any caller holding the token', async () => {
       foreground = 'claude'
+      reportedCwd = '/work/pane'
       expect(
         await setResume({
           agent: 'claude',
           id: 'e2e-tok-raw',
-          args: ['--dangerously-skip-permissions', '--settings', '/tmp/s.json', '--model', 'opus'],
-          env: { CLAUDE_CONFIG_DIR: '/tmp/c', GL_ISSUE: '687' },
+          cwd: process.env.HOME ?? '/root',
+          args: ['--dangerously-skip-permissions', '--agent', 'x', '--model', 'opus'],
+          env: { GIT_DIR: '/tmp/g', OPENAI_BASE_URL: 'http://127.0.0.1:9', GL_ISSUE: '687' },
         }),
       ).toEqual({ ok: true })
-      expect(execCalls.at(-1)).toMatchObject({
+      expect(execCalls.at(-1)).toEqual({
+        target: { windowId: 'w1', workspaceId: 's1', paneId: 'pE2E' },
         id: 'resume.set',
-        args: {
-          agent: 'claude',
-          id: 'e2e-tok-raw',
-          args: ['--model', 'opus'],
-          env: { GL_ISSUE: '687' },
-        },
+        args: { agent: 'claude', id: 'e2e-tok-raw', cwd: '/work/pane', args: ['--model', 'opus'] },
       })
       expect(fromMain).toContain('resume.set')
+      reportedCwd = null
+      expect(await setResume({ agent: 'claude', id: 'e2e-tok-nocwd', cwd: '/tmp' })).toEqual({
+        ok: true,
+      })
+      expect(execCalls.at(-1)?.args).toEqual({ agent: 'claude', id: 'e2e-tok-nocwd' })
     })
 
     it('refuses an agent other than the one running in the pane', async () => {

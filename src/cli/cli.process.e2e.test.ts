@@ -213,6 +213,7 @@ registerPaneIoMethods({
 registerPaneResumeMethods({
   execCommand: async () => ({ ok: true }) as CommandResult,
   foregroundProgram: () => null,
+  reportedCwd: () => null,
   onResume: (identity) => waking.end(identity.paneId, 'started'),
 })
 

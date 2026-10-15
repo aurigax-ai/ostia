@@ -55,6 +55,11 @@ export function createPtyQueries({ ptys, agentRunning, workspaceSandboxes }: Pty
     return entry ? paneActivity(entry).program : null
   }
 
+  function reportedCwd(paneId: string): string | null {
+    const report = ptys.get(paneId)?.mirror.cwdReport
+    return report && isHostNamed(report.host, hostname()) ? report.path : null
+  }
+
   function ptyPid(paneId: string): number | undefined {
     return ptys.get(paneId)?.pty.pid
   }
@@ -68,5 +73,5 @@ export function createPtyQueries({ ptys, agentRunning, workspaceSandboxes }: Pty
     return { text, cwd: report?.path ?? null, remote }
   }
 
-  return { paneActivity, foregroundProgram, sandboxReadRules, ptyPid, paneOutput }
+  return { paneActivity, foregroundProgram, reportedCwd, sandboxReadRules, ptyPid, paneOutput }
 }

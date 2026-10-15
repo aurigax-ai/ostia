@@ -2,35 +2,22 @@ import { describe, expect, it } from 'vitest'
 import {
   AGENT_ARGS_SEPARATOR,
   capturedArgs,
-  commandLineEnv,
   looksSecret,
   resumeFlags,
-  safeEnv,
   shellQuote,
 } from './agentLaunch'
 
 describe('resumeFlags for claude', () => {
-  it('keeps the agent, model, effort and permission mode in both spellings', () => {
+  it('keeps the model, effort and a permission mode that never accepts on its own, in both spellings', () => {
     expect(
-      resumeFlags('claude', [
-        '--agent',
-        'ostia',
-        '--model=opus',
-        '--effort',
-        'high',
+      resumeFlags('claude', ['--model=opus', '--effort', 'high', '--permission-mode', 'plan']),
+    ).toEqual(['--model', 'opus', '--effort', 'high', '--permission-mode', 'plan'])
+    for (const mode of ['manual', 'dontAsk', 'plan']) {
+      expect(resumeFlags('claude', ['--permission-mode', mode])).toEqual([
         '--permission-mode',
-        'acceptEdits',
-      ]),
-    ).toEqual([
-      '--agent',
-      'ostia',
-      '--model',
-      'opus',
-      '--effort',
-      'high',
-      '--permission-mode',
-      'acceptEdits',
-    ])
+        mode,
+      ])
+    }
   })
 
   it('keeps the shape a coordinator starts a line with', () => {
@@ -42,7 +29,7 @@ describe('resumeFlags for claude', () => {
         'Slack 推播上線',
         '--dangerously-skip-permissions',
       ]),
-    ).toEqual(['--agent', 'twai-yushan', '--name', 'Slack 推播上線'])
+    ).toEqual(['--name', 'Slack 推播上線'])
     expect(resumeFlags('claude', ['--name=修 probe'])).toEqual(['--name', '修 probe'])
   })
 
@@ -124,10 +111,20 @@ describe('resumeFlags for claude', () => {
         'a\u001bb',
         '--system-prompt',
         'x'.repeat(2049),
-        '--agent',
-        'ostia',
+        '--model',
+        'opus',
       ]),
-    ).toEqual(['--agent', 'ostia'])
+    ).toEqual(['--model', 'opus'])
+  })
+
+  it('refuses a value that starts with a dash, so a dropped flag never becomes the value', () => {
+    expect(
+      resumeFlags('claude', ['--model', '--dangerously-skip-permissions', '--name=-x', '-n', 'ok']),
+    ).toEqual(['--name', 'ok'])
+    expect(resumeFlags('codex', ['-m', '--yolo', '-c', '-model="x"', '-m', 'gpt-5'])).toEqual([
+      '-m',
+      'gpt-5',
+    ])
   })
 
   it('drops a value flag that has no value and a boolean flag given one', () => {
@@ -135,10 +132,10 @@ describe('resumeFlags for claude', () => {
   })
 
   it('keeps whole flags only, up to the size limit', () => {
-    const many = Array.from({ length: 40 }, () => ['--agent', 'a']).flat()
+    const many = Array.from({ length: 40 }, () => ['--model', 'a']).flat()
     const out = resumeFlags('claude', many)
     expect(out.length).toBe(64)
-    expect(out.at(-2)).toBe('--agent')
+    expect(out.at(-2)).toBe('--model')
   })
 })
 
@@ -212,6 +209,10 @@ describe('resumeFlags for codex', () => {
 })
 
 const CLAUDE_ESCAPES = [
+  '--agent',
+  'ostia',
+  '--permission-mode',
+  'acceptEdits',
   '--dangerously-skip-permissions',
   '--allow-dangerously-skip-permissions',
   '--permission-mode',
@@ -297,9 +298,9 @@ describe('resumeFlags never carries a way out of the sandbox or the approvals', 
 describe('capturedArgs', () => {
   it('reads the arguments the shell function recorded for that agent only', () => {
     const env = {
-      OSTIA_CLAUDE_ARGS: ['--agent', 'two words', 'say hi'].join(AGENT_ARGS_SEPARATOR),
+      OSTIA_CLAUDE_ARGS: ['--name', 'two words', 'say hi'].join(AGENT_ARGS_SEPARATOR),
     }
-    expect(capturedArgs('claude', env)).toEqual(['--agent', 'two words'])
+    expect(capturedArgs('claude', env)).toEqual(['--name', 'two words'])
     expect(capturedArgs('codex', env)).toBeNull()
     expect(capturedArgs('claude', { OSTIA_CLAUDE_ARGS: '' })).toEqual([])
     expect(capturedArgs('claude', {})).toBeNull()
@@ -316,130 +317,6 @@ describe('capturedArgs', () => {
         OSTIA_CLAUDE_ARGS: [...CLAUDE_ESCAPES, '--model', 'opus'].join(AGENT_ARGS_SEPARATOR),
       }),
     ).toEqual(['--model', 'opus'])
-  })
-})
-
-describe('commandLineEnv', () => {
-  it('reads the variables assigned in front of the agent', () => {
-    expect(commandLineEnv('claude', 'GL_ISSUE=685 MODE="fast mode" claude --agent x')).toEqual({
-      GL_ISSUE: '685',
-      MODE: 'fast mode',
-    })
-    expect(commandLineEnv('codex', "  NOTE='it'\\''s' codex")).toEqual({ NOTE: "it's" })
-    expect(commandLineEnv('claude', 'GL_ISSUE=tracker#1 claude "hello"')).toEqual({
-      GL_ISSUE: 'tracker#1',
-    })
-    expect(commandLineEnv('claude', 'claude')).toEqual({})
-  })
-
-  it('drops a config directory typed in front of the agent and keeps the rest', () => {
-    expect(
-      commandLineEnv(
-        'claude',
-        `CLAUDE_CONFIG_DIR='/Users/j/.claude-profiles/twai' GL_ISSUE='665#2' claude --agent research`,
-      ),
-    ).toEqual({ GL_ISSUE: '665#2' })
-    expect(commandLineEnv('codex', 'CODEX_HOME=/tmp/x HOME=/tmp/h codex')).toEqual({})
-  })
-
-  it('reads a single-quoted value with a hash, as process run passes it', () => {
-    expect(
-      commandLineEnv(
-        'claude',
-        `GL_ISSUE='665#2' claude --agent twai-yushan -n "Slack 推播上線" --dangerously-skip-permissions`,
-      ),
-    ).toEqual({ GL_ISSUE: '665#2' })
-  })
-
-  it('returns null when the line does not start the agent itself', () => {
-    expect(commandLineEnv('claude', 'cd x && GL_ISSUE=1 claude')).toBeNull()
-    expect(commandLineEnv('claude', 'GL_ISSUE=1 cc')).toBeNull()
-    expect(commandLineEnv('claude', 'GL_ISSUE=1 codex')).toBeNull()
-    expect(commandLineEnv('claude', "'claude'")).toBeNull()
-    expect(commandLineEnv('claude', 'A=1; claude')).toBeNull()
-    expect(
-      commandLineEnv(
-        'claude',
-        `(ostia workspace group 'Home' >/dev/null 2>&1 || true) && claude --agent homelab -n "修 probe"`,
-      ),
-    ).toBeNull()
-    expect(
-      commandLineEnv('claude', `cd '/w' && (true) && claude --agent personal -n "整理帳單"`),
-    ).toBeNull()
-    expect(commandLineEnv('claude', 'A="open claude')).toBeNull()
-    expect(commandLineEnv('claude', '')).toBeNull()
-  })
-
-  it('skips a value that starts with an unquoted tilde, which the shell expands', () => {
-    expect(commandLineEnv('claude', `A=~/x B='~/y' claude`)).toEqual({ B: '~/y' })
-  })
-
-  it('skips values that expand at run time', () => {
-    expect(
-      commandLineEnv('claude', 'A=$HOME B="$(id)" C=`id` D=*.ts E=ok claude --model opus'),
-    ).toEqual({ E: 'ok' })
-  })
-
-  it('never keeps a secret', () => {
-    expect(
-      commandLineEnv(
-        'claude',
-        `ANTHROPIC_API_KEY=s${'k'}-ant-${'ab12'.repeat(5)} GH_TOKEN=x DB=postgres://u:${'pw'}@h/db OK=1 claude`,
-      ),
-    ).toEqual({ OK: '1' })
-  })
-})
-
-describe('safeEnv', () => {
-  it('keeps plain variables and drops secret names, Ostia variables and bad values', () => {
-    expect(
-      safeEnv({
-        GL_ISSUE: '685',
-        MY_PASSWORD: 'x',
-        DB_PASS: 'x',
-        MYSQL_PWD: 'x',
-        SIM_PIN: '1',
-        DB_PW: 'x',
-        NODE_OPTIONS: '--require /tmp/x.js',
-        DYLD_INSERT_LIBRARIES: '/tmp/x.dylib',
-        LD_PRELOAD: '/tmp/x.so',
-        BASH_ENV: '/tmp/x',
-        PATH: '/tmp',
-        SPINNER: 'dots',
-        HOME: '/tmp/h',
-        XDG_CONFIG_HOME: '/tmp/x',
-        XDG_DATA_HOME: '/tmp/x',
-        JAVA_TOOL_OPTIONS: '-javaagent:/tmp/a.jar',
-        GIT_CONFIG_GLOBAL: '/tmp/g',
-        GIT_CONFIG_COUNT: '1',
-        EDITOR: '/tmp/e',
-        VISUAL: '/tmp/e',
-        PAGER: '/tmp/p',
-        AWS_SECRET_ACCESS_KEY: 'x',
-        OSTIA_SOCKET: '/tmp/s',
-        'BAD-NAME': '1',
-        LONG: 'x'.repeat(1025),
-        CTRL: 'a\nb',
-        NUM: 5,
-      }),
-    ).toEqual({ GL_ISSUE: '685', SPINNER: 'dots' })
-    expect(safeEnv(['A'])).toEqual({})
-    expect(safeEnv(null)).toEqual({})
-  })
-
-  it('drops every variable the agents read their config, sandbox or shell from', () => {
-    expect(
-      safeEnv({
-        CLAUDE_CONFIG_DIR: '/Users/j/.claude-profiles/twai',
-        CODEX_HOME: '/tmp/x',
-        CODEX_SQLITE_HOME: '/tmp/x',
-        CLAUDE_CODE_SHELL_PREFIX: '/tmp/x.sh',
-        CLAUDE_ENV_FILE: '/tmp/x.sh',
-        CLAUDE_CODE_USE_BEDROCK: '1',
-        CODEX_SANDBOX: 'seatbelt',
-        GL_ISSUE: '687',
-      }),
-    ).toEqual({ GL_ISSUE: '687' })
   })
 })
 

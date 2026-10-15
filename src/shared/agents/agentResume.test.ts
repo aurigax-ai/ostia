@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { commandLineEnv } from './agentLaunch'
 import {
+  type AgentResume,
   forkCommand,
   parseAgentResume,
   resumeCommand,
@@ -39,16 +39,23 @@ describe('parseAgentResume', () => {
   })
 })
 
-describe('parseAgentResume with the launch flags and environment', () => {
-  it('keeps the flags it can replay and the safe variables', () => {
+describe('parseAgentResume with the launch flags', () => {
+  it('keeps the flags it can replay and no variable at all', () => {
     expect(
       parseAgentResume({
         agent: 'claude',
         id: 'abc',
-        args: ['--agent', 'ostia', '--resume', 'old', 'prompt'],
-        env: { GL_ISSUE: '685', GH_TOKEN: 'x' },
+        args: ['--model', 'opus', '--resume', 'old', 'prompt'],
+        env: {
+          GL_ISSUE: '685',
+          GIT_DIR: '/tmp/g',
+          ANTHROPIC_BASE_URL: 'http://127.0.0.1:9',
+          HTTPS_PROXY: 'http://127.0.0.1:9',
+          SHELL: '/tmp/sh',
+          BROWSER: '/tmp/b',
+        },
       }),
-    ).toEqual({ agent: 'claude', id: 'abc', args: ['--agent', 'ostia'], env: { GL_ISSUE: '685' } })
+    ).toEqual({ agent: 'claude', id: 'abc', args: ['--model', 'opus'] })
   })
 
   it('drops args that are not a list of strings and leaves empty ones out', () => {
@@ -89,11 +96,10 @@ describe('parseAgentResume with an escaping flag', () => {
 })
 
 describe('sameResume', () => {
-  it('compares the flags and the environment too', () => {
+  it('compares the flags too', () => {
     const base = { agent: 'claude' as const, id: 'abc', args: ['--model', 'opus'] }
     expect(sameResume(base, { ...base, args: ['--model', 'opus'] })).toBe(true)
     expect(sameResume(base, { ...base, args: ['--model', 'sonnet'] })).toBe(false)
-    expect(sameResume(base, { ...base, env: { A: '1' } })).toBe(false)
     expect(sameResume(undefined, base)).toBe(false)
   })
 })
@@ -104,46 +110,36 @@ describe('resumeCommand', () => {
     expect(resumeCommand({ agent: 'codex', id: 'abc' })).toBe('codex resume abc')
   })
 
-  it('replays the flags after the session and the variables in front, quoted for the shell', () => {
+  it('replays the flags after the session, quoted for the shell', () => {
     expect(
       resumeCommand({
         agent: 'claude',
         id: 'abc',
-        args: ['--agent', 'ostia', '--append-system-prompt', "it's done"],
-        env: { GL_ISSUE: '685', NOTE: 'two words' },
+        args: ['--model', 'opus', '--append-system-prompt', "it's done"],
       }),
-    ).toBe(
-      "GL_ISSUE=685 NOTE='two words' claude --resume abc --agent ostia --append-system-prompt 'it'\\''s done'",
-    )
+    ).toBe("claude --resume abc --model opus --append-system-prompt 'it'\\''s done'")
     expect(
       resumeCommand({ agent: 'codex', id: 'abc', args: ['-c', 'model_reasoning_effort="high"'] }),
     ).toBe(`codex resume abc -c 'model_reasoning_effort="high"'`)
   })
 
-  it('never replays an escaping flag or an agent config variable, even from a record built by hand', () => {
+  it('never replays an escaping flag or any variable, even from a record built by hand', () => {
     expect(
       resumeCommand({
         agent: 'codex',
         id: 'abc',
         args: ['--yolo', '-s', 'danger-full-access', '-c', 'notify=["sh"]', '-m', 'gpt-5'],
-        env: { CODEX_HOME: '/tmp/x', GL_ISSUE: '687' },
-      }),
-    ).toBe('GL_ISSUE=687 codex resume abc -m gpt-5')
+        env: { CODEX_HOME: '/tmp/x', GIT_DIR: '/tmp/g', OPENAI_BASE_URL: 'http://127.0.0.1:9' },
+      } as AgentResume),
+    ).toBe('codex resume abc -m gpt-5')
     expect(
       forkCommand({
         agent: 'claude',
         id: 'abc',
-        args: ['--dangerously-skip-permissions', '--settings', '/tmp/s.json', '--model', 'opus'],
-        env: { CLAUDE_CONFIG_DIR: '/tmp/c' },
-      }),
+        args: ['--dangerously-skip-permissions', '--agent', 'x', '--model', 'opus'],
+        env: { GL_ISSUE: '687' },
+      } as AgentResume),
     ).toBe('claude --resume abc --fork-session --model opus')
-  })
-
-  it('reads its own variables back from the command it typed', () => {
-    const env = { GL_ISSUE: '685', NOTE: "it's two words" }
-    for (const agent of ['claude', 'codex'] as const) {
-      expect(commandLineEnv(agent, resumeCommand({ agent, id: 'abc', env, args: [] }))).toEqual(env)
-    }
   })
 })
 
@@ -153,33 +149,23 @@ describe('forkCommand', () => {
     expect(forkCommand({ agent: 'codex', id: 'abc' })).toBe('codex fork abc')
   })
 
-  it('carries the saved flags after the session and the saved variables in front', () => {
+  it('carries the saved flags after the session', () => {
     expect(
       forkCommand({
         agent: 'claude',
         id: 'abc',
         cwd: '/home/u/proj',
-        args: ['--agent', 'ostia', '--append-system-prompt', "it's done"],
-        env: { GL_ISSUE: '685', NOTE: 'two words' },
+        args: ['--model', 'opus', '--append-system-prompt', "it's done"],
       }),
-    ).toBe(
-      "GL_ISSUE=685 NOTE='two words' claude --resume abc --fork-session --agent ostia --append-system-prompt 'it'\\''s done'",
-    )
+    ).toBe("claude --resume abc --fork-session --model opus --append-system-prompt 'it'\\''s done'")
     expect(
-      forkCommand({
-        agent: 'codex',
-        id: 'abc',
-        args: ['-c', 'model_reasoning_effort="high"'],
-        env: { GL_ISSUE: '685' },
-      }),
-    ).toBe(`GL_ISSUE=685 codex fork abc -c 'model_reasoning_effort="high"'`)
+      forkCommand({ agent: 'codex', id: 'abc', args: ['-c', 'model_reasoning_effort="high"'] }),
+    ).toBe(`codex fork abc -c 'model_reasoning_effort="high"'`)
   })
 
-  it('is still read as its agent with its variables, and saves no fork flag for the fork’s own resume', () => {
-    const env = { GL_ISSUE: '685' }
+  it('saves no fork flag for the fork’s own resume', () => {
     for (const agent of ['claude', 'codex'] as const) {
-      const line = forkCommand({ agent, id: 'abc', env })
-      expect(commandLineEnv(agent, line)).toEqual(env)
+      const line = forkCommand({ agent, id: 'abc' })
       expect(parseAgentResume({ agent, id: 'new', args: line.split(' ').slice(2) })).toEqual({
         agent,
         id: 'new',
@@ -191,7 +177,7 @@ describe('forkCommand', () => {
 describe('resumeFromHookPayload', () => {
   it('reads session_id from a Claude Code hook event', () => {
     const event = JSON.stringify({ session_id: 'ffe55127-cb1f', hook_event_name: 'SessionStart' })
-    expect(resumeFromHookPayload(event)).toEqual({ id: 'ffe55127-cb1f' })
+    expect(resumeFromHookPayload(event)).toBe('ffe55127-cb1f')
   })
 
   it('reads session_id from a Codex SessionStart hook event', () => {
@@ -200,22 +186,16 @@ describe('resumeFromHookPayload', () => {
       hook_event_name: 'SessionStart',
       source: 'resume',
     })
-    expect(resumeFromHookPayload(event)).toEqual({ id: '01a0f04c-15fd-7b22-8538-ca8250a46988' })
+    expect(resumeFromHookPayload(event)).toBe('01a0f04c-15fd-7b22-8538-ca8250a46988')
   })
 
-  it('keeps the folder the session belongs to from the event’s cwd', () => {
-    const event = JSON.stringify({
-      session_id: 'ffe55127-cb1f',
-      hook_event_name: 'SessionStart',
-      cwd: '/home/u/work/tree',
-    })
-    expect(resumeFromHookPayload(event)).toEqual({ id: 'ffe55127-cb1f', cwd: '/home/u/work/tree' })
-    const relative = JSON.stringify({ session_id: 'ffe55127-cb1f', cwd: 'tree' })
-    expect(resumeFromHookPayload(relative)).toEqual({ id: 'ffe55127-cb1f' })
+  it('reads only the session, never the event’s folder', () => {
+    const event = JSON.stringify({ session_id: 'ffe55127-cb1f', cwd: '/home/u' })
+    expect(resumeFromHookPayload(event)).toBe('ffe55127-cb1f')
   })
 
   it('takes a bare id and refuses anything else', () => {
-    expect(resumeFromHookPayload('abc-123\n')).toEqual({ id: 'abc-123' })
+    expect(resumeFromHookPayload('abc-123\n')).toBe('abc-123')
     expect(resumeFromHookPayload('not an id')).toBeNull()
     expect(resumeFromHookPayload('{broken')).toBeNull()
     expect(resumeFromHookPayload(JSON.stringify({ session_id: 'a b' }))).toBeNull()

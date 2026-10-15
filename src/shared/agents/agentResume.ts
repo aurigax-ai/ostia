@@ -1,4 +1,4 @@
-import { resumeFlags, safeEnv, shellQuote } from './agentLaunch'
+import { resumeFlags, shellQuote } from './agentLaunch'
 
 export type ResumableAgent = 'claude' | 'codex'
 
@@ -7,7 +7,6 @@ export interface AgentResume {
   id: string
   cwd?: string
   args?: string[]
-  env?: Record<string, string>
 }
 
 export const RESUMABLE_AGENTS: readonly ResumableAgent[] = ['claude', 'codex']
@@ -44,14 +43,12 @@ function resumeArgs(agent: ResumableAgent, raw: unknown): string[] {
 
 export function parseAgentResume(raw: unknown): AgentResume | null {
   if (typeof raw !== 'object' || raw === null) return null
-  const { agent, id, cwd, args, env } = raw as Record<string, unknown>
+  const { agent, id, cwd, args } = raw as Record<string, unknown>
   if (!isResumableAgent(agent) || typeof id !== 'string' || !RESUME_ID.test(id)) return null
   const resume: AgentResume = { agent, id }
   if (isResumeCwd(cwd)) resume.cwd = cwd
   const flags = resumeArgs(agent, args)
   if (flags.length > 0) resume.args = flags
-  const vars = safeEnv(env)
-  if (Object.keys(vars).length > 0) resume.env = vars
   return resume
 }
 
@@ -60,16 +57,12 @@ export function sameResume(a: AgentResume | undefined, b: AgentResume): boolean 
     a?.agent === b.agent &&
     a.id === b.id &&
     a.cwd === b.cwd &&
-    JSON.stringify(a.args ?? []) === JSON.stringify(b.args ?? []) &&
-    JSON.stringify(a.env ?? {}) === JSON.stringify(b.env ?? {})
+    JSON.stringify(a.args ?? []) === JSON.stringify(b.args ?? [])
   )
 }
 
 function agentCommandLine(resume: AgentResume, base: string[]): string {
-  const env = Object.entries(safeEnv(resume.env)).map(
-    ([name, value]) => `${name}=${shellQuote(value)}`,
-  )
-  return [...env, ...base, ...resumeArgs(resume.agent, resume.args).map(shellQuote)].join(' ')
+  return [...base, ...resumeArgs(resume.agent, resume.args).map(shellQuote)].join(' ')
 }
 
 export function resumeCommand(resume: AgentResume): string {
@@ -88,14 +81,12 @@ export function forkCommand(resume: AgentResume): string {
   )
 }
 
-export function resumeFromHookPayload(payload: string): { id: string; cwd?: string } | null {
+export function resumeFromHookPayload(payload: string): string | null {
   const text = payload.trim()
-  if (!text.startsWith('{')) return RESUME_ID.test(text) ? { id: text } : null
+  if (!text.startsWith('{')) return RESUME_ID.test(text) ? text : null
   try {
-    const json = JSON.parse(text) as Record<string, unknown>
-    const id = json.session_id
-    if (typeof id !== 'string' || !RESUME_ID.test(id)) return null
-    return isResumeCwd(json.cwd) ? { id, cwd: json.cwd } : { id }
+    const id = (JSON.parse(text) as Record<string, unknown>).session_id
+    return typeof id === 'string' && RESUME_ID.test(id) ? id : null
   } catch {
     return null
   }

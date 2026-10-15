@@ -192,8 +192,9 @@ describe('parseSnapshot', () => {
       }),
     )
     expect(withResume(saved)?.workspaces[0].root).toMatchObject({
-      resume: { agent: 'codex', id: 'abc-1', args: ['-m', 'gpt-5'], env: { GL_ISSUE: '685' } },
+      resume: { agent: 'codex', id: 'abc-1', args: ['-m', 'gpt-5'] },
     })
+    expect(withResume(saved)?.workspaces[0].root).not.toHaveProperty('resume.env')
   })
 
   it('keeps a view pane by name and drops one without a valid view name', () => {

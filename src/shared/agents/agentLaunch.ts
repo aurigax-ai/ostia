@@ -13,12 +13,8 @@ export const AGENT_ARGS_SEPARATOR = '\u001f'
 const MAX_ARGS = 64
 const MAX_ARG_LENGTH = 2048
 const MAX_ARGS_LENGTH = 8192
-const MAX_ENV = 32
-const MAX_ENV_VALUE = 1024
-const MAX_COMMAND_LINE = 16384
 
 const CLAUDE_FLAGS: Record<string, Arity> = {
-  '--agent': 'one',
   '--append-system-prompt': 'one',
   '--autocompact': 'one',
   '--ax-screen-reader': 'none',
@@ -64,7 +60,7 @@ const CODEX_FLAGS: Record<string, Arity> = {
   '--strict-config': 'none',
 }
 
-const CLAUDE_PERMISSION_MODES = new Set(['acceptEdits', 'default', 'dontAsk', 'manual', 'plan'])
+const CLAUDE_PERMISSION_MODES = new Set(['dontAsk', 'manual', 'plan'])
 const CODEX_SANDBOXES = new Set(['read-only', 'workspace-write'])
 const CODEX_APPROVALS = new Set(['untrusted', 'on-failure', 'on-request'])
 const CODEX_CONFIG_KEYS = new Set([
@@ -102,12 +98,6 @@ const AGENT_FLAGS: Record<ResumableAgent, Record<string, Arity>> = {
   codex: CODEX_FLAGS,
 }
 
-const SECRET_NAME =
-  /KEY|TOKEN|SECRET|PASS|PWD|CREDENTIAL|AUTH|COOKIE|SESSION|PRIVATE|CERT|(^|[_.])(PIN|PW)($|[_.])/i
-
-const CODE_LOADING_ENV =
-  /^(LD_|DYLD_|XDG_|GIT_CONFIG_|CLAUDE_|CODEX_)|^(NODE_OPTIONS|NODE_PATH|BASH_ENV|ENV|PATH|HOME|PROMPT_COMMAND|ZDOTDIR|SHELLOPTS|BASHOPTS|PYTHONPATH|PYTHONSTARTUP|PERL5OPT|PERL5LIB|RUBYOPT|JAVA_TOOL_OPTIONS|GIT_SSH_COMMAND|GIT_EXEC_PATH|GIT_CONFIG|EDITOR|VISUAL|PAGER)$/
-
 const SECRET_TEXT = [
   /sk-[A-Za-z0-9_-]{16,}/,
   /gh[opsur]_[A-Za-z0-9]{20,}/,
@@ -122,8 +112,6 @@ const SECRET_TEXT = [
   /api[_-]?key|token|secret|passw|credential|authorization|bearer/i,
   /[A-Za-z0-9_+=-]{40,}/,
 ]
-
-const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/
 
 function hasControlCharacter(text: string): boolean {
   for (const ch of text) {
@@ -185,7 +173,9 @@ export function resumeFlags(agent: ResumableAgent, argv: readonly string[]): str
     } else {
       continue
     }
-    if (values.some((value) => !isSafeValue(value, MAX_ARG_LENGTH))) continue
+    if (values.some((value) => value.startsWith('-') || !isSafeValue(value, MAX_ARG_LENGTH))) {
+      continue
+    }
     const allowed = ALLOWED_VALUES[agent][name]
     if (allowed && !values.every(allowed)) continue
     const group =
@@ -207,92 +197,6 @@ export function capturedArgs(
   if (raw === '') return []
   return resumeFlags(agent, raw.split(AGENT_ARGS_SEPARATOR))
 }
-
-export function safeEnv(raw: unknown): Record<string, string> {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {}
-  const out: Record<string, string> = {}
-  for (const [name, value] of Object.entries(raw as Record<string, unknown>)) {
-    if (Object.keys(out).length >= MAX_ENV) break
-    if (!ENV_NAME.test(name) || SECRET_NAME.test(name) || CODE_LOADING_ENV.test(name)) continue
-    if (name.startsWith(envName(''))) continue
-    if (typeof value !== 'string' || !isSafeValue(value, MAX_ENV_VALUE)) continue
-    out[name] = value
-  }
-  return out
-}
-
-const OPERATORS = new Set([';', '&', '|', '<', '>', '(', ')', '\n'])
-const UNQUOTED_SAFE = /^[A-Za-z0-9_./:,@%+=#-]$/
-
-interface Word {
-  text: string
-  plain: boolean
-  safe: boolean
-}
-
-function readWord(line: string, start: number): { word: Word; end: number } | null {
-  let i = start
-  let text = ''
-  let plain = true
-  let safe = true
-  while (i < line.length) {
-    const ch = line[i]
-    if (ch === ' ' || ch === '\t' || OPERATORS.has(ch)) break
-    if (ch === "'") {
-      const close = line.indexOf("'", i + 1)
-      if (close < 0) return null
-      text += line.slice(i + 1, close)
-      plain = false
-      i = close + 1
-    } else if (ch === '"') {
-      let j = i + 1
-      while (j < line.length && line[j] !== '"') {
-        if (line[j] === '\\') j++
-        j++
-      }
-      if (j >= line.length) return null
-      const inner = line.slice(i + 1, j)
-      if (/[$`\\]/.test(inner)) safe = false
-      text += inner
-      plain = false
-      i = j + 1
-    } else if (ch === '\\') {
-      if (i + 1 >= line.length) return null
-      text += line[i + 1]
-      plain = false
-      i += 2
-    } else {
-      if (!UNQUOTED_SAFE.test(ch)) safe = false
-      text += ch
-      i++
-    }
-  }
-  return { word: { text, plain, safe }, end: i }
-}
-
-export function commandLineEnv(agent: ResumableAgent, line: string): Record<string, string> | null {
-  if (line.length > MAX_COMMAND_LINE) return null
-  const assigned: Record<string, string> = {}
-  let i = 0
-  for (;;) {
-    while (line[i] === ' ' || line[i] === '\t') i++
-    if (i >= line.length || OPERATORS.has(line[i])) return null
-    const start = i
-    const read = readWord(line, i)
-    if (!read) return null
-    i = read.end
-    const { word } = read
-    if (ASSIGNMENT.test(line.slice(start, i))) {
-      const eq = word.text.indexOf('=')
-      if (word.safe) assigned[word.text.slice(0, eq)] = word.text.slice(eq + 1)
-      continue
-    }
-    if (!word.plain || word.text !== agent) return null
-    return safeEnv(assigned)
-  }
-}
-
-const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/
 
 export function shellQuote(value: string): string {
   return /^[A-Za-z0-9_./:,@%+-][A-Za-z0-9_./:,@%+=-]*$/.test(value)
