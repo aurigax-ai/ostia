@@ -1,5 +1,6 @@
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { type AgentResume, sameResume } from '@shared/agents/agentResume'
+import { isArchivePath } from '@shared/archives/archivePaths'
 import { type BrowserProfile, parseBrowserProfile } from '@shared/browser/browserProfile'
 import { allPanes, findPane } from './tree'
 import type { LayoutNode, PaneNode, SurfaceKind, TabNode } from './types'
@@ -131,7 +132,7 @@ export function setPaneEditor(
   title: string,
   filePath: string,
 ): LayoutNode {
-  if (isRemotePath(filePath)) {
+  if (isRemotePath(filePath) || isArchivePath(filePath)) {
     return mapPane(root, paneId, ({ cwd: _local, viewType: _viewType, ...p }) => ({
       ...p,
       kind: 'editor',

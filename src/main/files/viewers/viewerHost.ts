@@ -25,14 +25,14 @@ import {
   viewerPartition,
 } from './viewerSessions'
 
-export interface ViewerSource {
+interface ViewerSource {
   dir: string
   entry: string
 }
 
 export type ViewerRead = { ok: true; body: Buffer } | { ok: false; status: number }
 
-export interface ViewerStat {
+interface ViewerStat {
   size: number
   modified: number
 }
@@ -51,7 +51,7 @@ export interface ViewerHostDeps {
   ownsPane: (windowId: string, paneId: string) => boolean
   viewer: (extId: string, viewType: string, path: string) => ViewerSource | null
   readDocument: (path: string) => Promise<ViewerRead>
-  statDocument: (path: string) => ViewerStat | null
+  statDocument: (path: string) => Promise<ViewerStat | null>
   readExtensionFile: (dir: string, path: string) => Buffer | null
   watch: (owner: string, path: string) => void
   unwatch: (owner: string, path: string) => void
@@ -250,8 +250,8 @@ export class ViewerHost {
     return this.extensionFile(live, pathname)
   }
 
-  private meta(live: Live): Response {
-    const stat = this.deps.statDocument(live.path)
+  private async meta(live: Live): Promise<Response> {
+    const stat = await this.deps.statDocument(live.path)
     if (!stat) return new Response(null, { status: 404, headers: viewerHeaders('text/plain') })
     const meta: ViewerDocumentMeta = {
       name: live.path.slice(live.path.lastIndexOf('/') + 1),
@@ -272,7 +272,7 @@ export class ViewerHost {
         headers: viewerHeaders('application/octet-stream'),
       })
     }
-    const size = this.deps.statDocument(live.path)?.size
+    const size = (await this.deps.statDocument(live.path))?.size
     return new Response(null, {
       status: read.status,
       headers: viewerHeaders('text/plain', size ? { 'x-ostia-size': String(size) } : {}),

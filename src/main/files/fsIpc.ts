@@ -2,6 +2,7 @@ import { readdirSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { type BrowserWindow, app, ipcMain, shell } from 'electron'
+import { isArchiveName, isArchivePath } from '../../shared/archives/archivePaths'
 import { OPEN_FILES_MAX } from '../../shared/files/openFiles'
 import type { FsEntry, FsKind } from '../../shared/types'
 import { getByPaneId } from '../control/idRegistry'
@@ -11,9 +12,10 @@ import { TerminalPathLinks, registerTerminalPathLinkIpc } from '../terminal/term
 import type { PaneOutput } from '../terminal/terminalPathLinks'
 import { registerProjectRootIpc } from '../workspaces/projectRoot'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
+import type { Archives } from './archives/archives'
 import { FileOps } from './fileOps'
 import { FileWatches } from './fileWatch'
-import { readBinaryConfined } from './fsBinary'
+import { FS_BINARY_MAX, readBinaryConfined } from './fsBinary'
 import { readTextConfined, versionConfined, writeText, writeTextConfined } from './fsText'
 import type { OpenFileGrants } from './openFileGrants'
 import { registerOpenPathIpc } from './openPath'
@@ -32,12 +34,17 @@ interface FsIpcDeps {
   }
   onSettingsWritten: () => void
   viewers: { changed: (owner: string) => void }
+  archives: Archives
 }
 
 function listDir(dir: string): FsEntry[] {
   try {
     return readdirSync(dir, { withFileTypes: true })
-      .map((d) => ({ name: d.name, dir: d.isDirectory() }))
+      .map((d) =>
+        d.isFile() && isArchiveName(d.name)
+          ? { name: d.name, dir: false, archive: true as const }
+          : { name: d.name, dir: d.isDirectory() },
+      )
       .sort((a, b) => (a.dir === b.dir ? a.name.localeCompare(b.name) : a.dir ? -1 : 1))
   } catch {
     return []
@@ -56,6 +63,7 @@ export function registerFsIpc({
   services,
   onSettingsWritten,
   viewers,
+  archives,
 }: FsIpcDeps): void {
   const allowedRoots = fileRoots()
   const settingsFile = join(app.getPath('userData'), 'settings.json')
@@ -83,13 +91,15 @@ export function registerFsIpc({
   ipcMain.handle('files:copy', (_e, paths: unknown, dir: unknown) => fileOps.copy(paths, dir))
   ipcMain.handle('files:trash', (_e, paths: unknown) => fileOps.trash(paths))
 
-  ipcMain.handle('fs:list', (_e, dir: string): FsEntry[] => {
+  ipcMain.handle('fs:list', (_e, dir: string): FsEntry[] | Promise<FsEntry[]> => {
+    if (isArchivePath(dir)) return archives.list(dir)
     const safe = resolveSafe(dir, allowedRoots)
     if (safe === null) return []
     return listDir(safe)
   })
 
-  ipcMain.handle('fs:stat', (_e, path: string): FsKind | null => {
+  ipcMain.handle('fs:stat', (_e, path: string): FsKind | null | Promise<FsKind | null> => {
+    if (isArchivePath(path)) return archives.stat(path)
     const safe = openFileGrants.confine(path)
     if (safe === null) return null
     try {
@@ -101,11 +111,15 @@ export function registerFsIpc({
   })
 
   ipcMain.handle('fs:read', (_e, path: unknown) =>
-    readTextConfined(path, (candidate) => openFileGrants.confine(candidate)),
+    isArchivePath(path as string)
+      ? archives.readText(path as string, FS_BINARY_MAX)
+      : readTextConfined(path, (candidate) => openFileGrants.confine(candidate)),
   )
 
   ipcMain.handle('fs:read-binary', (_e, path: unknown) =>
-    readBinaryConfined(path, (candidate) => openFileGrants.confine(candidate)),
+    isArchivePath(path as string)
+      ? archives.readBinary(path as string, FS_BINARY_MAX)
+      : readBinaryConfined(path, (candidate) => openFileGrants.confine(candidate)),
   )
 
   ipcMain.handle('files:admit-dropped', (_e, paths: unknown, workspaceId: unknown) => {
@@ -128,7 +142,7 @@ export function registerFsIpc({
     },
   })
   ipcMain.handle('fs:watch', (e, path: unknown): boolean =>
-    typeof path === 'string'
+    typeof path === 'string' && !isArchivePath(path)
       ? (services.fileWatches?.watch(String(e.sender.id), path) ?? false)
       : false,
   )
@@ -137,7 +151,9 @@ export function registerFsIpc({
   })
 
   ipcMain.handle('fs:version', (_e, path: unknown) =>
-    versionConfined(path, (candidate) => openFileGrants.confine(candidate)),
+    isArchivePath(path as string)
+      ? archives.version(path as string)
+      : versionConfined(path, (candidate) => openFileGrants.confine(candidate)),
   )
 
   ipcMain.handle(

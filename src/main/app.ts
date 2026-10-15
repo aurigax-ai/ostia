@@ -74,6 +74,7 @@ import { createMarketplaceIpc } from './extensions/marketplace/marketplaceIpc'
 import { startMarketplace } from './extensions/marketplace/marketplaceWiring'
 import { PaneAttentionEvents } from './extensions/paneAttentionEvents'
 import { createMainStrings } from './extensions/strings'
+import { Archives } from './files/archives/archives'
 import type { FileWatches } from './files/fileWatch'
 import { registerFsIpc } from './files/fsIpc'
 import { OpenWaits } from './files/openWaits'
@@ -269,7 +270,8 @@ const {
   isScratchPane,
 } = createArtifactServices({ windows, workspaceSandboxes: () => workspaceSandboxes })
 
-const viewers = createViewerHost({ openFileGrants, services, readLocale })
+const archives = new Archives((path) => openFileGrants.confine(path))
+const viewers = createViewerHost({ openFileGrants, archives, services, readLocale })
 
 const openWaits = new OpenWaits((windowId, paneIds) =>
   windows.get(windowId)?.webContents.send('open-waits:ended', paneIds),
@@ -791,6 +793,7 @@ const { requestQuit, handleQuitSignals } = registerAppQuit({
 const wiring = {
   services,
   viewers,
+  archives,
   mainStrings,
   windows,
   requestQuit,

@@ -61,7 +61,7 @@ function named(viewType: string, options: readonly ViewerOption[]): ViewerChoice
   return viewer ? { viewer, unavailable: false } : { viewer: null, unavailable: true }
 }
 
-export function associationFor(
+function associationFor(
   path: string,
   associations: Readonly<Record<string, string>>,
 ): string | null {

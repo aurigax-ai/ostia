@@ -1,6 +1,6 @@
 import DOMPurify from 'dompurify'
 
-export const DOCUMENT_TAGS = [
+const DOCUMENT_TAGS = [
   'p',
   'h1',
   'h2',

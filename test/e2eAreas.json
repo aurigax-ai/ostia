@@ -113,10 +113,24 @@
         "src/renderer/lib/settings/browserEditorSettings.ts",
         "src/main/files/fsText.ts",
         "src/main/files/fsBinary.ts",
-        "src/main/files/watchedFiles.ts"
+        "src/main/files/watchedFiles.ts",
+        "src/main/files/viewers/",
+        "src/renderer/components/editor/FileViewerFrame.tsx",
+        "src/renderer/components/editor/OpenWithDialog.tsx",
+        "src/renderer/lib/files/viewerChoice.ts",
+        "src/renderer/stores/files/openWithStore.ts",
+        "src/renderer/lib/theme/panelThemeInjection.ts",
+        "src/extensions/office/",
+        "src/extensions/csv/",
+        "test/fixtures/office/",
+        "packages/extension-sdk/src/client/viewer.ts",
+        "packages/extension-sdk/src/client/grid.ts",
+        "packages/extension-sdk/src/client/gridLayout.ts",
+        "packages/extension-sdk/src/contract/fileViewers.ts"
       ],
       "specs": [
         "e2e/markdown-preview.spec.ts",
+        "e2e/office-viewer.spec.ts",
         "e2e/open-any-file.spec.ts",
         "e2e/preview-send.spec.ts"
       ]
@@ -610,9 +624,14 @@
         "src/renderer/lib/terminalLinks/terminalFileLinks.ts",
         "src/renderer/lib/terminalLinks/terminalLinkActions.ts",
         "src/renderer/stores/files/fileTreeStore.ts",
-        "src/renderer/lib/settings/fileTreeSettings.ts"
+        "src/renderer/lib/settings/fileTreeSettings.ts",
+        "src/main/files/archives/",
+        "src/shared/archives/",
+        "test/fixtures/archives/",
+        "src/renderer/lib/files/archiveProblems.ts"
       ],
       "specs": [
+        "e2e/archive-browsing.spec.ts",
         "e2e/open-any-file.spec.ts",
         "e2e/palette-focus.spec.ts",
         "e2e/terminal-file-links.spec.ts"

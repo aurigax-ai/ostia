@@ -2,7 +2,7 @@ import mammoth from 'mammoth'
 import { checkOfficeContainer } from './canonicalZip'
 import { GuardStop, type OfficeLimits, type OfficeProblem } from './officeLimits'
 
-export const IMAGES_MAX_BYTES = 20 * 1024 * 1024
+const IMAGES_MAX_BYTES = 20 * 1024 * 1024
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
 
 export type DocumentResult =

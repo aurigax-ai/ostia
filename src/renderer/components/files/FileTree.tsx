@@ -5,7 +5,8 @@ import { type CompactChain, childPath, compactChain } from '@/lib/files/fileTree
 import { openFileInWorkspace } from '@/lib/files/openFile'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
 import type { RemoteFileError } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import { CaretRightIcon } from '@phosphor-icons/react'
+import { CaretRightIcon, LockSimpleIcon } from '@phosphor-icons/react'
+import { archiveRoot, isArchivePath } from '@shared/archives/archivePaths'
 import type { FsEntry } from '@shared/types'
 import { useEffect, useRef, useState } from 'react'
 import { FileMenu } from './FileMenu'
@@ -106,7 +107,7 @@ function Listing({
     <>
       {creating}
       {items.map(({ entry, nested }) =>
-        entry.dir ? (
+        entry.dir || entry.archive ? (
           <DirRow key={entry.name} entry={entry} path={path} depth={depth} tree={tree} />
         ) : (
           <FileRow
@@ -211,7 +212,10 @@ function DirRow({
   tree: TreeContext
 }): JSX.Element {
   const [open, setOpen] = useState(false)
-  const fullPath = childPath(path, entry.name)
+  const filePath = childPath(path, entry.name)
+  const fullPath = entry.archive ? archiveRoot(filePath) : filePath
+  const inside = isArchivePath(filePath)
+  const fixed = tree.remote || inside || Boolean(entry.archive)
   const rowRef = useRef<HTMLButtonElement>(null)
   const { activeFile, reveal } = tree.focus
   const holdsActive =
@@ -234,7 +238,7 @@ function DirRow({
   const names = chain ? [entry.name, ...chain.names] : [entry.name]
   const last = names[names.length - 1]
   const excluded = tree.settings.showExcluded && tree.isExcluded(fullPath, tree.root)
-  const menuPath = chain?.path ?? fullPath
+  const menuPath = entry.archive ? filePath : (chain?.path ?? fullPath)
   const { renaming, cut } = useRowEdit(menuPath)
   const { over, ...drop } = useFolderDrop(menuPath, tree)
   const creatingHere = useFileTreeStore(
@@ -259,17 +263,23 @@ function DirRow({
       className={`${rowClass(false, excluded, cut)}${over ? ' drop-target' : ''}`}
       aria-expanded={open}
       style={{ paddingLeft: 8 + depth * 13 }}
-      draggable={!tree.remote}
+      draggable={!tree.remote && !inside}
       onDragStart={(e) => startPathDrag(e, menuPath, tree)}
-      {...drop}
+      {...(fixed ? {} : drop)}
       onClick={() => setOpen((o) => !o)}
       onKeyDown={(e) => {
-        if (!tree.remote && treeRowKey(e, tree.focus.workspaceId, menuPath, true)) return
+        if (
+          !tree.remote &&
+          !inside &&
+          treeRowKey(e, tree.focus.workspaceId, menuPath, !entry.archive)
+        ) {
+          return
+        }
         expandKey(e, setOpen)
       }}
     >
       <CaretRightIcon size={12} className={`file-twisty${open ? ' open' : ''}`} />
-      <RowIcon entry={{ name: last, dir: true }} open={open} tree={tree} />
+      <RowIcon entry={entry.archive ? entry : { name: last, dir: true }} open={open} tree={tree} />
       <span className="file-name">
         {names.map((name, i) => (
           <span key={names.slice(0, i + 1).join('/')}>
@@ -283,7 +293,11 @@ function DirRow({
 
   return (
     <>
-      {renaming ? row : <RowShell row={row} fullPath={menuPath} dir tree={tree} />}
+      {renaming || inside ? (
+        row
+      ) : (
+        <RowShell row={row} fullPath={menuPath} dir={!entry.archive} tree={tree} />
+      )}
       {open && chain ? (
         <Listing entries={chain.entries} path={chain.path} depth={depth + 1} tree={tree} />
       ) : null}
@@ -305,6 +319,7 @@ function FileRow({
   depth: number
   tree: TreeContext
 }): JSX.Element {
+  const d = useDict()
   const rowRef = useRef<HTMLButtonElement>(null)
   const fullPath = childPath(path, entry.name)
   const activeFile = tree.focus.activeFile
@@ -313,6 +328,7 @@ function FileRow({
   const [open, setOpen] = useState(false)
   const excluded = tree.settings.showExcluded && tree.isExcluded(fullPath, tree.root)
   const parent = nested.length > 0
+  const inside = isArchivePath(fullPath)
   const { renaming, cut } = useRowEdit(fullPath)
 
   useEffect(() => {
@@ -334,7 +350,7 @@ function FileRow({
     <button
       ref={rowRef}
       type="button"
-      draggable={!tree.remote}
+      draggable={!tree.remote && !inside}
       onDragStart={(e) => startPathDrag(e, fullPath, tree)}
       className={rowClass(active, excluded, cut)}
       aria-current={active ? 'true' : undefined}
@@ -345,7 +361,9 @@ function FileRow({
         else openFileInWorkspace(fullPath)
       }}
       onKeyDown={(e) => {
-        if (!tree.remote && treeRowKey(e, tree.focus.workspaceId, fullPath, false)) return
+        if (!tree.remote && !inside && treeRowKey(e, tree.focus.workspaceId, fullPath, false)) {
+          return
+        }
         if (parent) expandKey(e, setOpen)
       }}
     >
@@ -355,13 +373,22 @@ function FileRow({
         <span className="file-twisty-spacer" />
       )}
       <RowIcon entry={entry} open={false} tree={tree} />
-      <span className="file-name">{entry.name}</span>
+      <span className="file-name">
+        {entry.link === undefined ? entry.name : `${entry.name} → ${entry.link}`}
+      </span>
+      {entry.encrypted ? (
+        <LockSimpleIcon size={12} className="file-lock" aria-label={d.editor.encryptedEntry} />
+      ) : null}
     </button>
   )
 
   return (
     <>
-      {renaming ? row : <RowShell row={row} fullPath={fullPath} dir={false} tree={tree} />}
+      {renaming || inside ? (
+        row
+      ) : (
+        <RowShell row={row} fullPath={fullPath} dir={false} tree={tree} />
+      )}
       {parent && open
         ? nested.map((child) => (
             <FileRow

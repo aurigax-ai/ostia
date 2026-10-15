@@ -56,7 +56,7 @@ function setup(overrides: Partial<ViewerHostDeps> = {}) {
         : null,
     readDocument: async (path) =>
       path === FILE ? { ok: true, body: BYTES } : { ok: false, status: 413 },
-    statDocument: (path) => (path.startsWith('/home/u/') ? { size: 4, modified: 7 } : null),
+    statDocument: async (path) => (path.startsWith('/home/u/') ? { size: 4, modified: 7 } : null),
     readExtensionFile: (_dir, path) => (path === 'sheet.html' ? Buffer.from('<html>') : null),
     watch: (owner, path) => {
       watched.push(`${owner} ${path}`)

@@ -1,7 +1,7 @@
 import { VIEWER_SCHEME } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
 import type { PreviewSession } from '../../artifacts/htmlPreview'
 
-export const VIEWER_PARTITION_PREFIX = 'ostia-viewer-'
+const VIEWER_PARTITION_PREFIX = 'ostia-viewer-'
 
 export const VIEWER_PAGE_CSP = [
   "default-src 'none'",
@@ -39,7 +39,7 @@ export function extensionOfViewerPartition(partition: string | undefined): strin
     : null
 }
 
-export function allowsViewerRequest(url: string): boolean {
+function allowsViewerRequest(url: string): boolean {
   return url.startsWith(`${VIEWER_SCHEME}://`) || url.startsWith('data:') || url.startsWith('blob:')
 }
 

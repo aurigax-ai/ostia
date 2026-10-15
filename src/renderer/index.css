@@ -4430,3 +4430,9 @@ button.prompt-chip:hover {
   font-weight: var(--font-weight-semibold);
   line-height: var(--text-ui-base--line-height);
 }
+
+.file-lock {
+  flex: none;
+  margin-left: 4px;
+  color: var(--fg-muted);
+}

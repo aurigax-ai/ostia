@@ -342,6 +342,9 @@ export interface ShellHistoryEntry {
 export interface FsEntry {
   name: string
   dir: boolean
+  archive?: true
+  link?: string
+  encrypted?: true
 }
 
 export interface ViewerOpenRequest {
@@ -384,15 +387,19 @@ interface RemoteFilesApi {
   write: (path: string, content: string, baseVersion: string) => Promise<RemoteWriteResult>
 }
 
+export type ArchiveEntryProblem = 'encrypted' | 'link' | 'unzip-limit' | 'gone'
+
 export type FsBinaryResult =
   | { ok: true; data: Uint8Array }
   | { ok: false; error: 'denied' | 'unreadable' }
   | { ok: false; error: 'too-large'; size: number }
+  | { ok: false; error: 'archive'; reason: ArchiveEntryProblem }
 
 export type FsTextResult =
   | { ok: true; text: string; version: string }
   | { ok: false; error: 'missing' | 'denied' | 'unreadable' | 'binary' }
   | { ok: false; error: 'too-large'; size: number }
+  | { ok: false; error: 'archive'; reason: ArchiveEntryProblem }
 
 export type FsKind = 'file' | 'dir'
 

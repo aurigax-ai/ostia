@@ -2,9 +2,11 @@ import { statSync } from 'node:fs'
 import { join } from 'node:path'
 import { readConfined } from '@aurigax-ai/ostia-extension-sdk/manifest/confinedRead'
 import { ipcMain, session } from 'electron'
+import { isArchivePath, parseArchivePath } from '../../../shared/archives/archivePaths'
 import { readRegularFile } from '../../artifacts/previewFiles'
 import { getByPaneId } from '../../control/idRegistry'
 import type { ExtensionHost } from '../../extensions/extensionHost'
+import type { Archives } from '../archives/archives'
 import type { FileWatches } from '../fileWatch'
 import { FS_BINARY_MAX } from '../fsBinary'
 import type { OpenFileGrants } from '../openFileGrants'
@@ -15,26 +17,38 @@ const EXTENSION_FILE_MAX = 32 * 1024 * 1024
 
 interface ViewerWiringDeps {
   openFileGrants: OpenFileGrants
+  archives: Archives
   services: { extensionHost: ExtensionHost | null; fileWatches: FileWatches | null }
   readLocale: () => string | undefined
 }
 
 export function createViewerHost({
   openFileGrants,
+  archives,
   services,
   readLocale,
 }: ViewerWiringDeps): ViewerHost {
   return new ViewerHost({
     sessionOf: (partition) => session.fromPartition(partition) as unknown as ViewerSession,
-    confine: (path) => openFileGrants.confine(path),
+    confine: (path) => {
+      if (!isArchivePath(path)) return openFileGrants.confine(path)
+      const parsed = parseArchivePath(path)
+      return parsed && openFileGrants.confine(parsed.archive) ? path : null
+    },
     ownsPane: (windowId, paneId) => getByPaneId(paneId)?.windowId === windowId,
     viewer: (extId, viewType, path) =>
       services.extensionHost?.panels.fileViewerSource(extId, viewType, path) ?? null,
     readDocument: async (path): Promise<ViewerRead> => {
+      if (isArchivePath(path)) {
+        const entry = await archives.read(path, FS_BINARY_MAX)
+        if (entry.ok) return { ok: true, body: entry.data }
+        return { ok: false, status: entry.problem === 'too-large' ? 413 : 410 }
+      }
       const read = await readRegularFile(path, FS_BINARY_MAX)
       return read.ok ? { ok: true, body: read.body } : { ok: false, status: read.status }
     },
-    statDocument: (path) => {
+    statDocument: async (path) => {
+      if (isArchivePath(path)) return archives.size(path)
       try {
         const stat = statSync(path)
         return stat.isFile() ? { size: stat.size, modified: stat.mtimeMs } : null

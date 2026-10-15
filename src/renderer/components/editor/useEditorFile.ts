@@ -8,7 +8,7 @@ import {
   type RemoteFileError,
   isRemotePath,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import type { FsTextResult } from '@shared/types'
+import type { ArchiveEntryProblem, FsTextResult } from '@shared/types'
 import { type MutableRefObject, useEffect } from 'react'
 import type { DiskBar } from './editorDiskSync'
 import {
@@ -26,6 +26,7 @@ export type Blocked =
   | { kind: 'binary' }
   | { kind: 'too-large'; size: number }
   | { kind: 'unreadable' }
+  | { kind: 'archive'; reason: ArchiveEntryProblem }
 
 interface Loaded {
   content: string | null
@@ -37,6 +38,7 @@ interface Loaded {
 function blockedBy(res: Exclude<FsTextResult, { ok: true }>): Blocked {
   if (res.error === 'binary') return { kind: 'binary' }
   if (res.error === 'too-large') return { kind: 'too-large', size: res.size }
+  if (res.error === 'archive') return { kind: 'archive', reason: res.reason }
   return { kind: 'unreadable' }
 }
 

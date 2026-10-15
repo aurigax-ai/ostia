@@ -11,9 +11,10 @@ import {
   type RemoteFileError,
   isRemotePath,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import { isArchivePath } from '@shared/archives/archivePaths'
 import { isInside, isPadPath } from '@shared/artifacts/artifacts'
 import { isPreviewPath } from '@shared/artifacts/htmlPreview'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { EditorAlerts } from './EditorAlerts'
 import { EditorModes, type OptionViewer } from './EditorModes'
 import { LanguageNotice, LargeFileNotice } from './LanguageNotice'
@@ -71,6 +72,7 @@ export function EditorView({
   const [large, setLarge] = useState(false)
   const [remoteProblem, setRemoteProblem] = useState<RemoteFileError | null>(null)
   const remote = isRemotePath(filePath)
+  const archived = isArchivePath(filePath)
   const [unsavedPath, setUnsavedPath] = useState<string | null>(null)
   const [diskBar, setDiskBar] = useState<DiskBar | null>(null)
   const diskBarRef = useRef<DiskBar | null>(null)
@@ -133,6 +135,10 @@ export function EditorView({
     visibleRef,
     releaseShownRef,
   })
+
+  useEffect(() => {
+    liveEditor?.updateOptions({ readOnly: archived })
+  }, [liveEditor, archived])
   useEditorActions({
     d,
     editorRef,
