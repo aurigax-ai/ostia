@@ -9,8 +9,8 @@ import {
   rendererDeviceName,
 } from '@shared/app/discreteGpu'
 import { useEffect, useState } from 'react'
+import { ExperimentalBadge, ToggleRow } from './ControlRow'
 import { RequirementsNoteView, useRequirements } from './RequirementsNote'
-import { ExperimentalBadge, ToggleRow } from './SettingsPanel'
 
 function drawingGpu(): string | null {
   const gl = document.createElement('canvas').getContext('webgl')

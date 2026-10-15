@@ -22,14 +22,8 @@ import {
 } from '@shared/privacy/redaction'
 import { TELEMETRY_CATEGORIES, type TelemetryCategory } from '@shared/privacy/telemetry'
 import { useEffect, useState } from 'react'
-import {
-  ControlRow,
-  MachineValue,
-  SectionHead,
-  SettingsGroup,
-  ToggleRow,
-  WarningNote,
-} from './SettingsPanel'
+import { ControlRow, MachineValue, ToggleRow, WarningNote } from './ControlRow'
+import { SectionHead, SettingsGroup } from './SettingsGroup'
 import { CategoryDetails } from './TelemetryConsentDialog'
 import { TelemetryReportsDialog } from './TelemetryReportsDialog'
 

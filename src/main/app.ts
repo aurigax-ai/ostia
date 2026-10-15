@@ -218,8 +218,9 @@ import { registerConnectionsIpc } from './extensions/connectionsIpc'
 import { confirmForExtension } from './extensions/extensionConfirm'
 import { ExtensionConnections } from './extensions/extensionConnections'
 import { ExtensionExec } from './extensions/extensionExec'
-import { ExtensionHost, registerExtensionMethods } from './extensions/extensionHost'
+import { ExtensionHost } from './extensions/extensionHost'
 import { ExtensionLaunches } from './extensions/extensionLaunches'
+import { registerExtensionMethods } from './extensions/extensionMethods'
 import { type SecretStoreDeps, createSecretStore } from './extensions/extensionSecrets'
 import { ExtensionStore } from './extensions/extensionStore'
 import { DismissedSuggestions, suggestionFor } from './extensions/extensionSuggestions'
@@ -1163,7 +1164,7 @@ let languageServers: LanguageServers | null = null
 function editorLanguageOf(path: string): string {
   return languageForPath(
     path,
-    (extensionHost?.editorLanguages() ?? []).map((source) => source.language),
+    (extensionHost?.contributions.editorLanguages() ?? []).map((source) => source.language),
   )
 }
 
@@ -1213,7 +1214,7 @@ function createLanguageServers(): LanguageServers {
   return new LanguageServers({
     watchTree: (root, onChange) => languageServerWatches.watch(root, onChange),
     sources: () =>
-      (extensionHost?.languageServers() ?? []).map((source) => {
+      (extensionHost?.contributions.languageServers() ?? []).map((source) => {
         const override = serverOverrides.get(languageServerKey(source.extId, source.server.id))
         return override ? { ...source, override } : source
       }),
@@ -1547,7 +1548,7 @@ function emitPaneEvent<T extends ExtensionEventType>(
   type: T,
   payload: ExtensionEventPayloads[T],
 ): void {
-  extensionHost?.emitEvent(type, payload)
+  extensionHost?.events.emitEvent(type, payload)
   gitService?.activity(type)
   portsService?.activity(type)
 }
@@ -1555,7 +1556,7 @@ function emitPaneEvent<T extends ExtensionEventType>(
 function refreshAgentPlugins(): void {
   try {
     setAgentPlugins(
-      agentPluginContent(extensionHost?.agentPlugins() ?? [], (extId, problem) =>
+      agentPluginContent(extensionHost?.contributions.agentPlugins() ?? [], (extId, problem) =>
         console.error(`[ext:${extId}] ${problem}`),
       ),
     )
@@ -1696,7 +1697,7 @@ function allowHumanPopups(guest: Electron.WebContents): void {
 function hardenExtensionGuest(guest: Electron.WebContents): boolean {
   const host = extensionHost
   if (!host) return false
-  const extId = host
+  const extId = host.panels
     .panelExtensionIds()
     .find((id) => guest.session === session.fromPartition(`${EXTENSION_PARTITION_PREFIX}${id}`))
   if (!extId) return false
@@ -1706,7 +1707,7 @@ function hardenExtensionGuest(guest: Electron.WebContents): boolean {
     return { action: 'deny' }
   })
   const guard = (e: Electron.Event, url: string): void => {
-    if (!host.isAllowedPanelUrl(extId, url)) e.preventDefault()
+    if (!host.panels.isAllowedPanelUrl(extId, url)) e.preventDefault()
   }
   guest.on('will-navigate', guard)
   guest.on('will-redirect', guard)
@@ -1803,7 +1804,7 @@ function wireWindow(win: BrowserWindow): void {
     }
     const extId = extensionOfPartition(params.partition)
     const allowed = extId
-      ? (extensionHost?.isAllowedPanelUrl(extId, params.src) ?? false)
+      ? (extensionHost?.panels.isAllowedPanelUrl(extId, params.src) ?? false)
       : browserProfiles.acceptsAttach(params.partition, String(win.webContents.id))
     if (!allowed) {
       event.preventDefault()
@@ -1988,7 +1989,7 @@ function registerIpc(): void {
           workspaceId: event.workspaceId,
         })
       }
-      extensionHost?.clearPaneChips(event.paneId)
+      extensionHost?.slots.clearPaneChips(event.paneId)
       releaseMovingPane(event.paneId)
       if (managerService?.isManagerPane(event.paneId)) killPty(event.paneId, 'closed')
       if (ptys.has(event.paneId)) closedPanes.add(event.paneId)
@@ -2003,7 +2004,7 @@ function registerIpc(): void {
     } else if (event.type === 'workspace-added') {
       setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)
       scratchFolders.bind(event.workspaceId, event.workDir, windowId)
-      extensionHost?.publishWorkspaceChips()
+      extensionHost?.slots.publishWorkspaceChips()
       extensionHost?.remoteFolders?.ownerChanged(event.workspaceId)
     } else if (event.type === 'workspace-closed') {
       workspaceClosed(event.workspaceId)
@@ -2118,24 +2119,24 @@ function emitTerminalExtensionEvents(
 function registerExtensionIpc(host: ExtensionHost): void {
   ipcMain.handle('extensions:list', () => host.list())
   ipcMain.handle('extensions:set-enabled', (_e, extId: string, enabled: boolean) =>
-    host.setEnabled(String(extId), enabled === true),
+    host.processes.setEnabled(String(extId), enabled === true),
   )
-  ipcMain.handle('extensions:approve', (_e, extId: string) => host.approve(String(extId)))
-  ipcMain.handle('extensions:sidebar', () => host.sidebarItems())
-  ipcMain.handle('extensions:chips', () => host.paneChips())
+  ipcMain.handle('extensions:approve', (_e, extId: string) => host.processes.approve(String(extId)))
+  ipcMain.handle('extensions:sidebar', () => host.slots.sidebarItems())
+  ipcMain.handle('extensions:chips', () => host.slots.paneChips())
   ipcMain.handle('extensions:workspace-chips', (e) =>
-    workspaceChipsForWindow(host.workspaceChips(), workspaceWindowId, String(e.sender.id)),
+    workspaceChipsForWindow(host.slots.workspaceChips(), workspaceWindowId, String(e.sender.id)),
   )
   ipcMain.handle('extensions:set-setting', (_e, extId: unknown, key: unknown, value: unknown) => {
     if (typeof extId === 'string' && marketplaceInstallIds().includes(extId)) {
       telemetry?.count('extensions', 'setting_change', `${extId}.${String(key)}`)
     }
-    return host.setSetting(String(extId), String(key), value)
+    return host.config.setSetting(String(extId), String(key), value)
   })
   ipcMain.handle('extensions:set-secret', (_e, extId: unknown, key: unknown, value: unknown) =>
-    host.setSecret(String(extId), String(key), value),
+    host.config.setSecret(String(extId), String(key), value),
   )
-  registerConnectionsIpc(() => host)
+  registerConnectionsIpc(() => host?.config ?? null)
   ipcMain.handle(
     'extensions:invoke',
     (
@@ -2158,7 +2159,7 @@ function registerExtensionIpc(host: ExtensionHost): void {
     },
   )
   ipcMain.handle('extensions:panel', (_e, extId: string, context: ExtensionPanelContext) =>
-    host.resolvePanel(String(extId), {
+    host.panels.resolvePanel(String(extId), {
       workspaceId: String(context?.workspaceId ?? ''),
       locale: String(context?.locale ?? 'en'),
       ...(context?.path === undefined ? {} : { path: String(context.path) }),
@@ -2218,7 +2219,7 @@ function registerMarketplaceIpc(marketplace: Marketplace): void {
     const file = openFileGrants.confine(path)
     if (file === null) return null
     return suggestionFor(file, {
-      servers: () => extensionHost?.languageServers() ?? [],
+      servers: () => extensionHost?.contributions.languageServers() ?? [],
       extensions: () => extensionHost?.list() ?? [],
       listings: () => marketplace.languageListings(),
       dismissed: () => dismissed.list(),
@@ -2241,9 +2242,9 @@ const workspaceClosed = createWorkspaceClosed({
   removeWorkspace,
   forgetReach: (id) => reach.forget(id),
   closeProcesses: (id) => processes?.workspaceClosed(id),
-  clearChips: (id) => extensionHost?.clearWorkspaceChips(id),
+  clearChips: (id) => extensionHost?.slots.clearWorkspaceChips(id),
   closeRemoteFolders: (id) => extensionHost?.remoteFolders?.workspaceClosed(id),
-  tellExtensions: (id) => extensionHost?.workspaceClosed(id),
+  tellExtensions: (id) => extensionHost?.events.workspaceClosed(id),
   closeArtifacts: (id) => artifactHistory.close(id, artifactFolders.close(id)),
   removeScratch: (id) => scratchFolders.remove(id),
   forgetRequests: forgetWorkspaceRequests,
@@ -3196,7 +3197,7 @@ function registerFsIpc(): void {
             telemetry?.settingsChanged()
             refreshCapabilitySettings()
             extensionHost?.refreshLocale()
-            extensionHost?.reloadAssistSettings()
+            extensionHost?.assistant.reloadAssistSettings()
             gitService?.settingsChanged()
             portsService?.settingsChanged()
             applyGlobalHotkey()
@@ -3469,7 +3470,7 @@ function readLocale(): string | undefined {
 }
 
 const languagePackDeps = {
-  languages: () => extensionHost?.languages() ?? [],
+  languages: () => extensionHost?.contributions.languages() ?? [],
   onError: (extId: string, error: string) => console.warn(`[language pack ${extId}] ${error}`),
 }
 
@@ -3642,7 +3643,7 @@ function startPortal(): void {
 
 function emitFocusChanged(): void {
   const focused = BrowserWindow.getFocusedWindow() !== null
-  extensionHost?.emitEvent('focus.changed', { focused })
+  extensionHost?.events.emitEvent('focus.changed', { focused })
   gitService?.setFocused(focused)
   portsService?.setFocused(focused)
 }
@@ -4218,7 +4219,7 @@ app.whenReady().then(() => {
   registerLanguageServersIpc({
     servers: languageServers,
     setEnabled: (extId, serverId, enabled) =>
-      extensionHost?.setLanguageServerEnabled(extId, serverId, enabled),
+      extensionHost?.contributions.setLanguageServerEnabled(extId, serverId, enabled),
     setOverride: (key, override) => serverOverrides.choose(key, override),
   })
   const marketplace = new Marketplace({
@@ -4239,7 +4240,7 @@ app.whenReady().then(() => {
         for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
       }
     },
-    rescan: () => extensionHost?.rescan(),
+    rescan: () => extensionHost?.processes.rescan(),
     locale: readLocale,
     official: OFFICIAL_MARKETPLACE,
   })
@@ -4255,7 +4256,7 @@ app.whenReady().then(() => {
     readSettings: readSettingsFile,
     broadcast: (channel, payload) => broadcast(channel, payload),
     onSettingsPulled: () => {
-      extensionHost?.reloadSettings()
+      extensionHost?.config.reloadSettings()
       extensionHost?.refreshLocale()
     },
     installedExtensions: () => marketplace.syncedInstalls(),
@@ -4291,7 +4292,7 @@ app.whenReady().then(() => {
       redactionScan.scan(text, parsePrivacySettings(readSettingsFile().privacy).redaction.patterns),
   })
   void profileSync.run()
-  registerAssistIpc(() => extensionHost)
+  registerAssistIpc(() => extensionHost?.assistant ?? null)
   registerChatSessionIpc(
     createChatSessionStore({ dir: join(dirname(storePath('chat', 'global')), 'chat-sessions') }),
     redactor.text,
@@ -4325,13 +4326,13 @@ app.whenReady().then(() => {
     userDir: join(configDir(), 'snippets'),
     roots: () => [homedir(), app.getPath('userData')],
     workDirForWorkspace,
-    extensionSnippets: () => extensionHost?.snippets() ?? [],
+    extensionSnippets: () => extensionHost?.contributions.snippets() ?? [],
   }
   registerSnippetIpc(snippetDeps)
   registerSnippetMethods(snippetDeps)
   registerCompletionIpc({
     userDir: join(configDir(), 'completions'),
-    extensionDirs: () => extensionHost?.completionDirs() ?? [],
+    extensionDirs: () => extensionHost?.contributions.completionDirs() ?? [],
   })
   viewHost = new ViewHost({
     dir: join(configDir(), 'views'),
@@ -4342,11 +4343,11 @@ app.whenReady().then(() => {
   registerViewsIpc(viewHost)
   registerViewMethods({ host: viewHost, execCommand })
   registerIconThemeIpc({
-    themes: () => extensionHost?.iconThemes() ?? [],
+    themes: () => extensionHost?.contributions.iconThemes() ?? [],
     onError: (id, error) => console.warn(`[icon theme ${id}] ${error}`),
   })
   registerKeymapIpc({
-    keymaps: () => extensionHost?.keymaps() ?? [],
+    keymaps: () => extensionHost?.contributions.keymaps() ?? [],
     platform: process.platform,
     onError: (ref, error) => console.warn(`[keymap ${ref}] ${error}`),
     onSkipped: (ref, skipped) =>
@@ -4354,11 +4355,11 @@ app.whenReady().then(() => {
   })
   registerLanguagePackIpc(languagePackDeps)
   registerEditorLanguageIpc({
-    languages: () => extensionHost?.editorLanguages() ?? [],
+    languages: () => extensionHost?.contributions.editorLanguages() ?? [],
     onError: (extId, error) => console.warn(`[editor language ${extId}] ${error}`),
   })
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
-    extensionHost?.emitEvent('notification', n),
+    extensionHost?.events.emitEvent('notification', n),
   )
   registerSameFolder({ workDir: workDirForWorkspace, home: homedir })
   registerPaneListMethods({
@@ -4547,8 +4548,8 @@ app.whenReady().then(() => {
   })
   broker.register()
   broker.openAll()
-  extensionHost.startEager()
-  extensionHost.watchUserExtensions()
+  extensionHost.processes.startEager()
+  extensionHost.processes.watchUserExtensions()
   viewHost.watch()
   app.on('browser-window-focus', emitFocusChanged)
   app.on('browser-window-blur', emitFocusChanged)
@@ -4737,7 +4738,7 @@ app.on('before-quit', (event) => {
   portForwarder.stopAll()
   gitService?.stop()
   portsService?.stop()
-  extensionHost?.stopAll()
+  extensionHost?.processes.stopAll()
   mcpOAuth?.closeAll()
   mcpHost?.closeAll()
   viewHost?.stop()

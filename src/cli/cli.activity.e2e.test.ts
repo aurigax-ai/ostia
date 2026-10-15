@@ -23,7 +23,8 @@ import { FAKE } from '../../test/fixtures/secrets/samples'
 import type { PanelModel } from '../extensions/activity/view'
 import { registerControlServer, stopControlServer } from '../main/control/controlServer'
 import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
-import { ExtensionHost, registerExtensionMethods } from '../main/extensions/extensionHost'
+import { ExtensionHost } from '../main/extensions/extensionHost'
+import { registerExtensionMethods } from '../main/extensions/extensionMethods'
 import { ExtensionStore } from '../main/extensions/extensionStore'
 import { registerPaneListMethods } from '../main/panes/paneList'
 import { createRedactor } from '../main/privacy/redaction'
@@ -183,7 +184,10 @@ describe('the Activity extension records two fake agents and shows them in its p
   }
 
   async function panel(command: string, args: unknown = {}): Promise<ExtensionResult> {
-    const source = await serving.resolvePanel('activity', { workspaceId: 'w1', locale: 'en' })
+    const source = await serving.panels.resolvePanel('activity', {
+      workspaceId: 'w1',
+      locale: 'en',
+    })
     if (!source.ok) throw new Error(source.error)
     const url = new URL(source.src)
     const res = await fetch(new URL('/api', url), {
@@ -284,7 +288,7 @@ describe('the Activity extension records two fake agents and shows them in its p
       socketPath,
     )
     shellIntegrationSpawnOptions('/bin/bash', {})
-    agentDir = setAgentPlugins(agentPluginContent(host.agentPlugins()))
+    agentDir = setAgentPlugins(agentPluginContent(host.contributions.agentPlugins()))
     mkdirSync(bin, { recursive: true })
     for (const agent of ['claude', 'codex']) {
       writeFileSync(join(bin, agent), FAKE_AGENT)
@@ -293,7 +297,7 @@ describe('the Activity extension records two fake agents and shows them in its p
   }, 120_000)
 
   afterAll(() => {
-    serving.stopAll()
+    serving.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
@@ -418,7 +422,7 @@ describe('the Activity extension records two fake agents and shows them in its p
     expect((await snapshot()).showActivity).toBe(true)
     expect(storedSettings).toEqual({ activity: { showActivity: true } })
 
-    host.stopAll()
+    host.processes.stopAll()
     await until(async () =>
       host.list().find((e) => e.id === 'activity')?.status !== 'running' ? true : undefined,
     )
@@ -435,19 +439,21 @@ describe('the Activity extension records two fake agents and shows them in its p
   }, 60_000)
 
   it('answers the panel’s snapshot right after a restart while the extension still loads its settings', async () => {
-    serving.stopAll()
+    serving.processes.stopAll()
     await until(async () =>
       serving.list().find((e) => e.id === 'activity')?.status !== 'running' ? true : undefined,
     )
     const restarted = newHost()
-    const loaded = restarted.getSettings.bind(restarted)
+    const loaded = restarted.config.getSettings.bind(restarted.config)
     const slowSettings = (
       ...args: Parameters<typeof loaded>
     ): Promise<ReturnType<typeof loaded>> => {
       const values = loaded(...args)
       return new Promise((resolve) => setTimeout(() => resolve(values), 500))
     }
-    vi.spyOn(restarted, 'getSettings').mockImplementation(slowSettings as unknown as typeof loaded)
+    vi.spyOn(restarted.config, 'getSettings').mockImplementation(
+      slowSettings as unknown as typeof loaded,
+    )
     serving = restarted
 
     expect(await panel('snapshot')).toMatchObject({ ok: true, data: { showActivity: false } })
@@ -458,7 +464,8 @@ describe('the Activity extension records two fake agents and shows them in its p
     const ostia = (identity: PaneIdentity, command: string): Promise<RunResult> =>
       run('bash', ['--norc', '-c', `source '${bashInit}'; ${command}`], paneEnv(identity, []))
     const openCount = (): string | undefined =>
-      serving.sidebarItems().find((i) => i.extId === 'activity' && i.workspaceId === 'w1')?.badge
+      serving.slots.sidebarItems().find((i) => i.extId === 'activity' && i.workspaceId === 'w1')
+        ?.badge
 
     const added = await ostia(
       claudePane,

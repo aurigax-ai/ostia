@@ -1,14 +1,12 @@
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { useDict } from '@/lib/app/useDict'
-import {
-  NEW_WORKSPACE_PLACEMENTS,
-  type NewWorkspacePlacement,
-  useSettingsStore,
-} from '@/stores/app/settingsStore'
+import { NEW_WORKSPACE_PLACEMENTS, type NewWorkspacePlacement } from '@/stores/app/settingsModel'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { toAccelerator } from '@shared/keyboard/globalHotkey'
 import { useEffect, useState } from 'react'
-import { ControlRow, SectionHead, SettingsGroup, ToggleRow, WarningNote } from './SettingsPanel'
+import { ControlRow, ToggleRow, WarningNote } from './ControlRow'
+import { SectionHead, SettingsGroup } from './SettingsGroup'
 
 const FOLDER_CHECK_DELAY_MS = 300
 

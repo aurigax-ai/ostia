@@ -1,4 +1,5 @@
-import { ControlRow, SectionHead, SettingsGroup } from '@/components/settings/SettingsPanel'
+import { ControlRow } from '@/components/settings/ControlRow'
+import { SectionHead, SettingsGroup } from '@/components/settings/SettingsGroup'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { useDict } from '@/lib/app/useDict'

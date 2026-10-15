@@ -1,6 +1,6 @@
 import { isAssistExtension } from '@/components/assist/AssistantSection'
 import { TextLink } from '@/components/common/TextLink'
-import { WarningNote } from '@/components/settings/SettingsPanel'
+import { WarningNote } from '@/components/settings/ControlRow'
 import { SearchGroup } from '@/components/settings/SettingsSearch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

@@ -1,5 +1,5 @@
 import type { DragSource, DropTarget, WorkspaceGroup } from '@/lib/sidebar/workspaceGroups'
-import type { NewWorkspacePlacement } from '@/stores/app/settingsStore'
+import type { NewWorkspacePlacement } from '@/stores/app/settingsModel'
 import type {
   AppSnapshot,
   SnapshotWorkspace,

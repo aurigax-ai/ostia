@@ -1,6 +1,7 @@
 import { IconButton } from '@/components/common/IconButton'
 import { DropdownMenu, MenuItem } from '@/components/common/Menu'
-import { ControlRow, SettingsGroup } from '@/components/settings/SettingsPanel'
+import { ControlRow } from '@/components/settings/ControlRow'
+import { SettingsGroup } from '@/components/settings/SettingsGroup'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {

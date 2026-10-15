@@ -11,7 +11,8 @@ const dataHome = mkdtempSync(join(tmpdir(), 'ostia-workspace-api-'))
 process.env.XDG_DATA_HOME = dataHome
 
 const { registerControlServer, stopControlServer } = await import('../control/controlServer')
-const { ExtensionHost, registerExtensionMethods } = await import('./extensionHost')
+const { ExtensionHost } = await import('./extensionHost')
+const { registerExtensionMethods } = await import('./extensionMethods')
 const { ExtensionStore } = await import('./extensionStore')
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions-workspace-api')
@@ -69,7 +70,7 @@ describe('workspace events and sandbox domains for extensions', () => {
   })
 
   afterAll(async () => {
-    host?.stopAll()
+    host?.processes.stopAll()
     await stopControlServer()
     rmSync(dir, { recursive: true, force: true })
     rmSync(dataHome, { recursive: true, force: true })
@@ -78,7 +79,7 @@ describe('workspace events and sandbox domains for extensions', () => {
   it('tells only subscribed extensions that a workspace closed', async () => {
     await events('watcher')
     await events('quiet')
-    host.workspaceClosed('w-closing')
+    host.events.workspaceClosed('w-closing')
     await vi.waitFor(async () =>
       expect(await events('watcher')).toContainEqual({
         type: 'workspace.closed',
@@ -111,7 +112,7 @@ describe('workspace events and sandbox domains for extensions', () => {
 
   it('forgets the caller when its workspace closes', async () => {
     await call('quiet', 'sandboxed', 'ext.sandboxDomains', { workspaceId: 'sandboxed' })
-    host.workspaceClosed('sandboxed')
+    host.events.workspaceClosed('sandboxed')
     const res = await call('quiet', 'other', 'ext.sandboxDomains', { workspaceId: 'sandboxed' })
     expect(res).toMatchObject({ ok: false, error: 'not-reached' })
   })

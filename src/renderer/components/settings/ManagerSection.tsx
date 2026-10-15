@@ -17,8 +17,9 @@ import {
 import { splitArgs } from '@shared/terminal/argv'
 import { quoteArgv } from '@shared/terminal/shellQuote'
 import { useEffect, useState } from 'react'
+import { NumberRow, ToggleRow, WarningNote } from './ControlRow'
 import { RequirementsNote } from './RequirementsNote'
-import { NumberRow, SectionHead, SettingsGroup, ToggleRow, WarningNote } from './SettingsPanel'
+import { SectionHead, SettingsGroup } from './SettingsGroup'
 
 function parseCommand(line: string): string[] | null {
   const argv = splitArgs(line)

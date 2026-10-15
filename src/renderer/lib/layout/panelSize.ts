@@ -82,7 +82,10 @@ export function equalizeSizes(node: LayoutNode): LayoutNode {
 export function setSizes(root: LayoutNode, splitId: string, sizes: number[]): LayoutNode {
   const recur = (node: LayoutNode): LayoutNode => {
     if (node.type === 'pane') return node
-    if (node.type === 'split' && node.id === splitId) return { ...node, sizes }
+    if (node.type === 'split' && node.id === splitId) {
+      const same = node.sizes.length === sizes.length && node.sizes.every((n, i) => n === sizes[i])
+      return same ? node : { ...node, sizes }
+    }
     const children = node.children.map(recur)
     if (children.every((c, i) => c === node.children[i])) return node
     return node.type === 'tabs'

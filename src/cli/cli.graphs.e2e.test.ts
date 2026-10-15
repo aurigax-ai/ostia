@@ -265,7 +265,7 @@ edges:
   })
 
   it('GRF-C83 the panel API refuses a request without its secret', async () => {
-    const source = await h.host.resolvePanel('graphs', { workspaceId: 'w1', locale: 'en' })
+    const source = await h.host.panels.resolvePanel('graphs', { workspaceId: 'w1', locale: 'en' })
     if (!source.ok) throw new Error(source.error)
     const res = await fetch(new URL('/api', source.src), {
       method: 'POST',

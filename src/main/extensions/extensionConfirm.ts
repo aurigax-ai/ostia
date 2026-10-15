@@ -1,5 +1,5 @@
 import { type BrowserWindow, dialog } from 'electron'
-import type { ExtensionConfirmRequest } from './extensionHost'
+import type { ExtensionConfirmRequest } from './extensionRuns'
 
 export async function confirmForExtension(
   req: ExtensionConfirmRequest,

@@ -11,7 +11,8 @@ import { type FakeMcpHttp, startFakeMcpHttp } from '../../../test/fixtures/mcp/s
 import type { McpServerSettings } from '../../shared/assist/chatTools'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
-import { ExtensionHost, registerExtensionMethods } from '../extensions/extensionHost'
+import { ExtensionHost } from '../extensions/extensionHost'
+import { registerExtensionMethods } from '../extensions/extensionMethods'
 import { ExtensionStore } from '../extensions/extensionStore'
 import { registerExtensionMcp } from './extensionMcp'
 import { McpHost } from './mcpHost'
@@ -103,7 +104,7 @@ describe('ext.mcpCall and ext.mcpServers', () => {
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     mcp.closeAll()
     web.close()
     stopControlServer()
@@ -116,7 +117,7 @@ describe('ext.mcpCall and ext.mcpServers', () => {
         .rpcError,
     ).toContain('needs-elevation: mcp')
     expect(host.list().find((e) => e.id === 'reacher')?.unapproved).toEqual(['mcp'])
-    host.approve('reacher')
+    host.processes.approve('reacher')
     expect(host.list().find((e) => e.id === 'reacher')?.unapproved).toEqual([])
   })
 

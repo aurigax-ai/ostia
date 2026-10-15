@@ -5,11 +5,9 @@ import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/e
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
-import {
-  type ExtensionConfirmRequest,
-  ExtensionHost,
-  registerExtensionMethods,
-} from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
+import type { ExtensionConfirmRequest } from './extensionRuns'
 import { ExtensionStore } from './extensionStore'
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions-api')
@@ -62,7 +60,7 @@ describe('ExtensionHost confirm and panel notifications', () => {
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
@@ -120,7 +118,7 @@ describe('ExtensionHost confirm and panel notifications', () => {
     await host.invoke('asker', 'notify-panel', null, caller)
     expect(host.list()[0].status).toBe('running')
     store.set('asker', { enabled: false, approved: ['notify'] })
-    host.reloadRecords()
+    host.processes.reloadRecords()
     const start = Date.now()
     while (host.list()[0].status !== 'disabled' && Date.now() - start < 3000) {
       await new Promise((r) => setTimeout(r, 20))

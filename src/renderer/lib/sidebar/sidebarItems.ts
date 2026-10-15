@@ -1,5 +1,5 @@
 import { openBrowserAs } from '@/lib/browser/browserProfile'
-import type { SidebarSettings } from '@/stores/app/settingsStore'
+import type { SidebarSettings } from '@/stores/app/settingsModel'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionSidebarItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'

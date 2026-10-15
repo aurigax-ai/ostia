@@ -11,7 +11,7 @@ import {
 import type { Reach } from '../approvals/reach'
 import type { ControlMethodContext } from '../control/controlServer'
 import { resolveExternal } from '../control/idRegistry'
-import type { TerminalOpenRequest } from '../extensions/extensionHost'
+import type { TerminalOpenRequest } from '../extensions/extensionRuns'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 import type { ProcessEntry, ProcessRegistry } from './processRegistry'
 import {

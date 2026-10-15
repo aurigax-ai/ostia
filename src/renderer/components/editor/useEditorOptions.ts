@@ -1,7 +1,7 @@
 import type { monaco } from '@/lib/monaco/setup'
 import type { EditorSettings } from '@/lib/settings/browserEditorSettings'
 import { codeFontStack } from '@/lib/theme/uiFonts'
-import type { SurfaceFont } from '@/stores/app/settingsStore'
+import type { SurfaceFont } from '@/stores/app/settingsModel'
 import { exceedsPad } from '@shared/artifacts/artifacts'
 import { type Dispatch, type MutableRefObject, type SetStateAction, useEffect } from 'react'
 

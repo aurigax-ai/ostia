@@ -6,7 +6,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { ExtensionConnections } from './extensionConnections'
-import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
 import { type SecretStoreDeps, createSecretStore } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
 
@@ -74,7 +75,7 @@ describe('an extension reads its own connections, by name, from main', () => {
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
@@ -83,14 +84,14 @@ describe('an extension reads its own connections, by name, from main', () => {
     const info = host.list().find((e) => e.id === 'linked')
     expect(info?.connectionKinds.map((k) => k.kind)).toEqual(['http'])
     expect(
-      host.saveConnection('linked', {
+      host.config.saveConnection('linked', {
         name: 'api',
         kind: 'http',
         fields: { baseUrl: 'https://api.example.test' },
         secrets: { secret: TOKEN },
       }),
     ).toEqual({ ok: true })
-    expect(host.connectionsOf('linked')).toEqual([
+    expect(host.config.connectionsOf('linked')).toEqual([
       {
         name: 'api',
         kind: 'http',
@@ -128,7 +129,7 @@ describe('an extension reads its own connections, by name, from main', () => {
   })
 
   it('tells the extension when the human changed its connections', async () => {
-    expect(host.removeConnection('linked', 'api')).toEqual({ ok: true })
+    expect(host.config.removeConnection('linked', 'api')).toEqual({ ok: true })
     await until(async () => {
       const res = await host.invoke('linked', 'events', null, caller)
       return res.ok && Array.isArray(res.data) && res.data.includes('connections.changed')
@@ -137,7 +138,9 @@ describe('an extension reads its own connections, by name, from main', () => {
       ok: true,
       connection: null,
     })
-    expect(host.saveConnection('nope', { name: 'x', kind: 'http', fields: {} })).toMatchObject({
+    expect(
+      host.config.saveConnection('nope', { name: 'x', kind: 'http', fields: {} }),
+    ).toMatchObject({
       ok: false,
       error: 'unknown-extension',
     })

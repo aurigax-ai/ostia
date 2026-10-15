@@ -1,4 +1,5 @@
-import { ControlRow, SettingsGroup, SubHead } from '@/components/settings/SettingsPanel'
+import { ControlRow } from '@/components/settings/ControlRow'
+import { SettingsGroup, SubHead } from '@/components/settings/SettingsGroup'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'

@@ -15,7 +15,7 @@ import { CopyIcon, TrashIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import type { CredentialImportResult, CredentialSummary } from '@shared/browser/credentials'
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
-import { SectionHead, SettingsGroup } from './SettingsPanel'
+import { SectionHead, SettingsGroup } from './SettingsGroup'
 
 function importMessage(d: Dict, res: CredentialImportResult): string | null {
   if (res.ok)

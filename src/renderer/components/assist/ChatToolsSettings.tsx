@@ -1,6 +1,7 @@
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
-import { ControlRow, SettingsGroup, WarningNote } from '@/components/settings/SettingsPanel'
+import { ControlRow, WarningNote } from '@/components/settings/ControlRow'
+import { SettingsGroup } from '@/components/settings/SettingsGroup'
 import { Highlight, useSearchGroup } from '@/components/settings/SettingsSearch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

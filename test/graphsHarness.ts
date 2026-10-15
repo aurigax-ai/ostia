@@ -57,7 +57,7 @@ export interface Harness {
   stopAll: () => void
   host: import('../src/main/extensions/extensionHost').ExtensionHost
   launches: import('../src/main/extensions/extensionLaunches').ExtensionLaunches | null
-  secrets: import('../src/main/extensions/extensionHost').ExtensionSecretStore
+  secrets: import('../src/main/extensions/extensionHostDeps').ExtensionSecretStore
 }
 
 export async function until<T>(
@@ -101,9 +101,8 @@ export async function graphsHarness(
 ): Promise<Harness> {
   const { registerControlServer } = await import('../src/main/control/controlServer')
   const { registerPane, markManager, getByPaneId } = await import('../src/main/control/idRegistry')
-  const { ExtensionHost, registerExtensionMethods } = await import(
-    '../src/main/extensions/extensionHost'
-  )
+  const { ExtensionHost } = await import('../src/main/extensions/extensionHost')
+  const { registerExtensionMethods } = await import('../src/main/extensions/extensionMethods')
   const { ExtensionStore } = await import('../src/main/extensions/extensionStore')
   const { ExtensionExec } = await import('../src/main/extensions/extensionExec')
   const { registerPaneListMethods } = await import('../src/main/panes/paneList')
@@ -279,7 +278,7 @@ export async function graphsHarness(
       })
     : null
   registerExtensionMcp({ mcp: () => mcp })
-  if (opts.mcp) host.approve('graphs')
+  if (opts.mcp) host.processes.approve('graphs')
   registerBusMethods({
     managerSendAllowed: () => true,
     announce: () => {},
@@ -350,7 +349,7 @@ export async function graphsHarness(
     command: string,
     args: Record<string, unknown> = {},
   ): Promise<ExtensionResult> => {
-    const source = await host.resolvePanel('graphs', { workspaceId: 'w1', locale: 'en' })
+    const source = await host.panels.resolvePanel('graphs', { workspaceId: 'w1', locale: 'en' })
     if (!source.ok) throw new Error(source.error)
     const url = new URL(source.src)
     const res = await fetch(new URL('/api', url), {
@@ -408,7 +407,7 @@ export async function graphsHarness(
       ),
     secrets: secretStore,
     stopAll: () => {
-      host.stopAll()
+      host.processes.stopAll()
       mcp?.closeAll()
       rmSync(dir, { recursive: true, force: true })
     },
