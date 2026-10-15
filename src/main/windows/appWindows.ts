@@ -1,0 +1,312 @@
+import { join } from 'node:path'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
+import { BrowserWindow, app, nativeTheme } from 'electron'
+import appIcon from '../../../resources/icon.png?asset'
+import { isPreviewPartition } from '../../shared/artifacts/htmlPreview'
+import { SHARED_BROWSER_PARTITION } from '../../shared/browser/browserProfile'
+import type { CommandDescriptor, WindowBounds } from '../../shared/types'
+import { hardenPreviewAttach } from '../artifacts/htmlPreview'
+import type { PreviewHost } from '../artifacts/htmlPreview'
+import { clearGuestBrowseState } from '../browser/browseGuests'
+import type { ConsoleEntry } from '../browser/browseMethod'
+import type { BrowserProfiles } from '../browser/browserProfiles'
+import type { GuestChords } from '../browser/guestChords'
+import { forgetGuestNetwork } from '../browser/guestNetwork'
+import { followAgentByHost } from '../browser/signinUserAgent'
+import type { BrowserAgents } from '../browser/signinUserAgent'
+import { getByPaneId, removeWindow } from '../control/idRegistry'
+import type { Diagnostics } from '../diagnostics/diagnostics'
+import type { ExtensionHost } from '../extensions/extensionHost'
+import type { FileWatches } from '../files/fileWatch'
+import type { OpenWaits } from '../files/openWaits'
+import type { GitService } from '../git/service'
+import type { ManagerService } from '../manager/manager'
+import type { PortsService } from '../ports/service'
+import type { PtyEntry } from '../terminal/pty/ptyRegistry'
+import type { ClipboardEdits } from './clipboardEdits'
+import { attachContextMenu } from './contextMenu'
+import { type GlobalHotkey, toggleWindows } from './globalHotkey'
+import { type AppTray, closeAction, readCloseToTray } from './tray'
+import { MAIN_SLOT } from './windowBook'
+import type { WindowBroker } from './windowBroker'
+
+interface AppWindowsDeps {
+  services: {
+    appTray: AppTray | null
+    broker: WindowBroker | null
+    clipboardEdits: ClipboardEdits | null
+    diagnostics: Diagnostics | null
+    extensionHost: ExtensionHost | null
+    fileWatches: FileWatches | null
+    gitService: GitService | null
+    globalHotkey: GlobalHotkey | null
+    guestChords: GuestChords | null
+    managerService: ManagerService | null
+    portsService: PortsService | null
+  }
+  quit: {
+    quitApproved: boolean
+  }
+  readSettingsFile: () => {
+    locale?: unknown
+    extensionSettings?: unknown
+    git?: unknown
+    ports?: unknown
+    workspaces?: { globalHotkey?: unknown; confirmQuit?: unknown }
+    manager?: unknown
+    assistant?: unknown
+    privacy?: unknown
+    terminal?: { shell?: unknown; keepShells?: unknown }
+    agents?: { hooks?: unknown }
+    behavior?: { historySuggestions?: unknown }
+  }
+  requestQuit: () => void
+  openExternalSafe: (url: string) => boolean
+  previews: PreviewHost
+  extensionOfPartition: (partition: string | undefined) => string | null
+  browserProfiles: BrowserProfiles
+  hardenExtensionGuest: (guest: Electron.WebContents) => boolean
+  browserAgentsOf: (target: Electron.Session) => BrowserAgents
+  instrumentBrowserGuest: (gc: Electron.WebContents, attaching?: boolean) => void
+  fenceBrowserGuest: (guest: Electron.WebContents) => void
+  allowHumanPopups: (guest: Electron.WebContents) => void
+  consoleBuffers: Map<number, ConsoleEntry[]>
+  errorBuffers: Map<number, ConsoleEntry[]>
+  windows: Map<string, BrowserWindow>
+  hidePtyFlow: (wid: string) => void
+  releaseWindowPtys: (windowId: string) => void
+  openWaits: OpenWaits
+  commandsByWindow: Map<string, CommandDescriptor[]>
+  browserPanes: Map<string, number>
+  ptys: Map<string, PtyEntry>
+}
+
+export function createAppWindows({
+  services,
+  quit,
+  readSettingsFile,
+  requestQuit,
+  openExternalSafe,
+  previews,
+  extensionOfPartition,
+  browserProfiles,
+  hardenExtensionGuest,
+  browserAgentsOf,
+  instrumentBrowserGuest,
+  fenceBrowserGuest,
+  allowHumanPopups,
+  consoleBuffers,
+  errorBuffers,
+  windows,
+  hidePtyFlow,
+  releaseWindowPtys,
+  openWaits,
+  commandsByWindow,
+  browserPanes,
+  ptys,
+}: AppWindowsDeps) {
+  const devServerUrl = process.env.ELECTRON_RENDERER_URL
+
+  function frameOptions(): Electron.BrowserWindowConstructorOptions {
+    if (process.platform === 'darwin') {
+      return { titleBarStyle: 'hidden', trafficLightPosition: { x: 14, y: 11 } }
+    }
+    return { frame: false }
+  }
+
+  function baseWebPreferences(): Electron.WebPreferences {
+    return {
+      preload: join(app.getAppPath(), 'out/preload/index.js'),
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+      webviewTag: true,
+    }
+  }
+  const startedHidden = app.commandLine.hasSwitch('hidden')
+
+  function wireWindow(win: BrowserWindow): void {
+    win.once('ready-to-show', () => {
+      if (startedHidden && services.appTray) services.appTray.hide(win)
+      else win.show()
+    })
+
+    win.on('close', (event) => {
+      if (quit.quitApproved || services.broker?.isReturning(win)) return
+      const action = closeAction({
+        quitApproved: quit.quitApproved,
+        closeToTray: readCloseToTray(readSettingsFile()),
+        startedHidden,
+        managerLive: services.managerService?.live != null,
+      })
+      if (action === 'hide' && services.appTray && !services.broker?.isDetached(win)) {
+        event.preventDefault()
+        services.appTray.hide(win)
+        return
+      }
+      event.preventDefault()
+      if (services.broker?.isDetached(win)) services.broker.requestReturn(win, true)
+      else requestQuit()
+    })
+
+    const emitMaximized = (): void => win.webContents.send('window:maximized', win.isMaximized())
+    win.on('maximize', emitMaximized)
+    win.on('unmaximize', emitMaximized)
+
+    win.webContents.setWindowOpenHandler(({ url }) => {
+      openExternalSafe(url)
+      return { action: 'deny' }
+    })
+
+    attachContextMenu(win.webContents, false)
+
+    win.webContents.on('will-attach-webview', (event, webPreferences, params) => {
+      if (isPreviewPartition(params.partition)) {
+        if (previews.acceptsAttach(params.partition, params.src, String(win.webContents.id))) {
+          hardenPreviewAttach(webPreferences, params)
+        } else {
+          event.preventDefault()
+        }
+        return
+      }
+      const extId = extensionOfPartition(params.partition)
+      const allowed = extId
+        ? (services.extensionHost?.panels.isAllowedPanelUrl(extId, params.src) ?? false)
+        : browserProfiles.acceptsAttach(params.partition, String(win.webContents.id))
+      if (!allowed) {
+        event.preventDefault()
+        return
+      }
+      webPreferences.preload = undefined
+      webPreferences.nodeIntegration = false
+      webPreferences.contextIsolation = true
+      webPreferences.sandbox = true
+      Object.assign(webPreferences, {
+        disablePopups: params.partition !== SHARED_BROWSER_PARTITION,
+      })
+    })
+    win.webContents.on('did-attach-webview', (_e, guest) => {
+      services.clipboardEdits?.guardGuest(guest)
+      services.guestChords?.guardGuest(guest)
+      if (previews.adopt(guest)) return
+      if (hardenExtensionGuest(guest)) {
+        attachContextMenu(guest, false)
+        return
+      }
+      attachContextMenu(guest, true)
+      const agents = browserAgentsOf(guest.session)
+      guest.setUserAgent(agents.rewritten)
+      instrumentBrowserGuest(guest, true)
+      followAgentByHost(guest, agents)
+      fenceBrowserGuest(guest)
+      allowHumanPopups(guest)
+      const wcId = guest.id
+      guest.once('destroyed', () => {
+        consoleBuffers.delete(wcId)
+        errorBuffers.delete(wcId)
+        forgetGuestNetwork(wcId)
+      })
+    })
+
+    const wid = String(win.webContents.id)
+    windows.set(wid, win)
+    services.diagnostics?.watchWindow(win)
+    win.on('hide', () => hidePtyFlow(wid))
+    win.on('minimize', () => hidePtyFlow(wid))
+    win.on('closed', () => {
+      windows.delete(wid)
+      services.gitService?.windowGone(wid)
+      services.portsService?.windowGone(wid)
+      releaseWindowPtys(wid)
+      previews.windowClosed(wid)
+      openWaits.windowGone(wid)
+      services.fileWatches?.unwatchOwner(wid)
+      commandsByWindow.delete(wid)
+      for (const [paneId, wcId] of browserPanes) {
+        if (getByPaneId(paneId)?.windowId === wid) {
+          browserPanes.delete(paneId)
+          consoleBuffers.delete(wcId)
+          errorBuffers.delete(wcId)
+          clearGuestBrowseState(wcId)
+          forgetGuestNetwork(wcId)
+        }
+      }
+      removeWindow(wid)
+      for (const entry of ptys.values()) {
+        if (entry.subs.has(wid)) {
+          entry.subs.delete(wid)
+          entry.session.removeSubscriber(wid)
+        }
+      }
+    })
+  }
+
+  function initialBackground(): string {
+    const follow = (readSettingsFile() as { appearance?: { followSystem?: unknown } }).appearance
+      ?.followSystem
+    return follow !== false && !nativeTheme.shouldUseDarkColors ? '#fbfcfd' : '#1d2022'
+  }
+
+  function createWindow(slot: string, bounds?: WindowBounds): BrowserWindow {
+    const win = new BrowserWindow({
+      ...(bounds ?? { width: 1280, height: 800 }),
+      minWidth: 720,
+      minHeight: 480,
+      backgroundColor: initialBackground(),
+      show: false,
+      autoHideMenuBar: true,
+      title: PRODUCT_DISPLAY_NAME,
+      icon: appIcon,
+      ...frameOptions(),
+      webPreferences: baseWebPreferences(),
+    })
+
+    wireWindow(win)
+    services.broker?.track(win, slot)
+
+    if (devServerUrl) {
+      win.loadURL(devServerUrl)
+      if (slot === MAIN_SLOT) win.webContents.openDevTools({ mode: 'detach' })
+    } else {
+      win.loadFile(join(app.getAppPath(), 'out/renderer/index.html'))
+    }
+
+    return win
+  }
+
+  function revealWindow(windowId: string): void {
+    const win = windows.get(windowId)
+    if (win && !win.isDestroyed() && !win.isVisible()) services.appTray?.showWindows()
+  }
+
+  function emitFocusChanged(): void {
+    const focused = BrowserWindow.getFocusedWindow() !== null
+    services.extensionHost?.events.emitEvent('focus.changed', { focused })
+    services.gitService?.setFocused(focused)
+    services.portsService?.setFocused(focused)
+  }
+
+  function toggleAllWindows(): void {
+    toggleWindows([...windows.values()], services.appTray, revealApp)
+  }
+
+  function applyGlobalHotkey(): void {
+    const status = services.globalHotkey?.apply(readSettingsFile().workspaces?.globalHotkey)
+    if (status === 'taken') console.warn('[global hotkey] the chosen shortcut is in use elsewhere')
+  }
+
+  function revealApp(): void {
+    if (windows.size === 0) {
+      createWindow(MAIN_SLOT, services.broker?.restoredBounds(MAIN_SLOT))
+    } else services.appTray?.showWindows()
+  }
+
+  return {
+    createWindow,
+    revealWindow,
+    emitFocusChanged,
+    toggleAllWindows,
+    applyGlobalHotkey,
+    revealApp,
+  }
+}

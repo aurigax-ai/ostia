@@ -28,7 +28,6 @@ import {
   clipboard,
   globalShortcut,
   ipcMain,
-  nativeTheme,
   safeStorage,
   session,
   shell,
@@ -45,7 +44,6 @@ import {
 import { fmt } from '../shared/app/dict'
 import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
 import { isMacInstall, replacesInApp } from '../shared/app/installMethod'
-import { isPreviewPartition } from '../shared/artifacts/htmlPreview'
 import { parseChatToolSettings } from '../shared/assist/chatTools'
 import { parseGitSettings } from '../shared/boards/git'
 import { parsePortsSettings } from '../shared/boards/ports'
@@ -65,7 +63,6 @@ import type {
   FsKind,
   QuitAnswer,
   TerminalStateSnapshot,
-  WindowBounds,
 } from '../shared/types'
 import { AGENT_OFFER_RESULT_CHANNEL, createAgentOfferRelay } from './agents/agentOfferRelay'
 import { AgentRunningPanes } from './agents/agentRunning'
@@ -96,7 +93,7 @@ import { registerArtifactIpc } from './artifacts/artifactFolders'
 import { registerArtifactHistoryIpc } from './artifacts/artifactHistory'
 import { registerArtifactProducersIpc } from './artifacts/artifactProducers'
 import { createArtifactServices } from './artifacts/artifactServices'
-import { hardenPreviewAttach, registerPreviewIpc } from './artifacts/htmlPreview'
+import { registerPreviewIpc } from './artifacts/htmlPreview'
 import { registerPortableIpc } from './artifacts/portableExport'
 import { registerAttentionMethods, targetOf } from './attention/attention'
 import { announceBusMessage } from './attention/busNotice'
@@ -108,7 +105,7 @@ import {
   registerNotifyMethods,
 } from './attention/notify'
 import { registerBrowseMethods } from './browser/browse'
-import { clearGuestBrowseState, ownedGuest } from './browser/browseGuests'
+import { ownedGuest } from './browser/browseGuests'
 import type { ConsoleEntry } from './browser/browseMethod'
 import { registerPickIpc, registerPickMethods } from './browser/browsePick'
 import { registerRegionIpc } from './browser/browseRegion'
@@ -117,9 +114,7 @@ import { createBrowserGuests } from './browser/browserGuests'
 import { registerBrowserStorageIpc } from './browser/browserStorage'
 import { credentials, registerCredentials } from './browser/credentials'
 import { type GuestChords, registerGuestChords } from './browser/guestChords'
-import { forgetGuestNetwork } from './browser/guestNetwork'
 import { registerLoginFill } from './browser/loginFill'
-import { followAgentByHost } from './browser/signinUserAgent'
 import { registerAssistIpc } from './chat/assistIpc'
 import { createChatSessionStore } from './chat/chatSessions'
 import { registerChatSessionIpc } from './chat/chatSessionsIpc'
@@ -146,7 +141,6 @@ import {
   moveToWorkspace,
   registerPane,
   rehomeWorkspace,
-  removeWindow,
   resolveExternal,
   setPaneIdSalt,
   workspaceHasManager,
@@ -327,10 +321,10 @@ import {
 } from './updates/releaseCheck'
 import { type UpdateRunner, createUpdateRunner } from './updates/updateRun'
 import { installAppMenu } from './windows/appMenu'
+import { createAppWindows } from './windows/appWindows'
 import { type ClipboardEdits, registerClipboardEdits } from './windows/clipboardEdits'
 import { confirmQuit, freezeAll } from './windows/closeGuard'
-import { attachContextMenu } from './windows/contextMenu'
-import { GlobalHotkey, toggleWindows } from './windows/globalHotkey'
+import { GlobalHotkey } from './windows/globalHotkey'
 import {
   QUIT_SIGNALS,
   createQuitTrace,
@@ -341,14 +335,7 @@ import {
   summarizeKinds,
 } from './windows/quitPlan'
 import { nativeQuitConfirm } from './windows/quitPrompt'
-import {
-  AppTray,
-  closeAction,
-  isHiddenLaunch,
-  readCloseToTray,
-  unreadWorkspaces,
-} from './windows/tray'
-import { MAIN_SLOT } from './windows/windowBook'
+import { AppTray, isHiddenLaunch, unreadWorkspaces } from './windows/tray'
 import { WindowBroker } from './windows/windowBroker'
 import { registerWindowIpc } from './windows/windowIpc'
 import { createWindowSend } from './windows/windowSend'
@@ -372,8 +359,6 @@ import {
   saveScrollback,
   scrollbackToSave,
 } from './workspaces/workspaceSnapshot'
-
-const devServerUrl = process.env.ELECTRON_RENDERER_URL
 
 const windows = new Map<string, BrowserWindow>()
 const commandsByWindow = new Map<string, CommandDescriptor[]>()
@@ -866,6 +851,38 @@ const { attachPty } = createPtyAttach({
   telemetry: () => services.telemetry,
 })
 
+const {
+  createWindow,
+  revealWindow,
+  emitFocusChanged,
+  toggleAllWindows,
+  applyGlobalHotkey,
+  revealApp,
+} = createAppWindows({
+  services,
+  quit,
+  readSettingsFile,
+  requestQuit,
+  openExternalSafe,
+  previews,
+  extensionOfPartition,
+  browserProfiles,
+  hardenExtensionGuest,
+  browserAgentsOf,
+  instrumentBrowserGuest,
+  fenceBrowserGuest,
+  allowHumanPopups,
+  consoleBuffers,
+  errorBuffers,
+  windows,
+  hidePtyFlow,
+  releaseWindowPtys,
+  openWaits,
+  commandsByWindow,
+  browserPanes,
+  ptys,
+})
+
 function configDir(): string {
   return appConfigDir()
 }
@@ -878,23 +895,6 @@ function extensionRoots(): ExtensionRoot[] {
     { dir: builtinDir, builtin: true },
     { dir: join(configDir(), 'extensions'), builtin: false },
   ]
-}
-
-function frameOptions(): Electron.BrowserWindowConstructorOptions {
-  if (process.platform === 'darwin') {
-    return { titleBarStyle: 'hidden', trafficLightPosition: { x: 14, y: 11 } }
-  }
-  return { frame: false }
-}
-
-function baseWebPreferences(): Electron.WebPreferences {
-  return {
-    preload: join(app.getAppPath(), 'out/preload/index.js'),
-    contextIsolation: true,
-    sandbox: true,
-    nodeIntegration: false,
-    webviewTag: true,
-  }
 }
 let quitAsking = false
 let quitRequested = false
@@ -913,156 +913,6 @@ function handleQuitSignals(): void {
       app.quit()
     })
   }
-}
-const startedHidden = app.commandLine.hasSwitch('hidden')
-
-function wireWindow(win: BrowserWindow): void {
-  win.once('ready-to-show', () => {
-    if (startedHidden && services.appTray) services.appTray.hide(win)
-    else win.show()
-  })
-
-  win.on('close', (event) => {
-    if (quit.quitApproved || services.broker?.isReturning(win)) return
-    const action = closeAction({
-      quitApproved: quit.quitApproved,
-      closeToTray: readCloseToTray(readSettingsFile()),
-      startedHidden,
-      managerLive: services.managerService?.live != null,
-    })
-    if (action === 'hide' && services.appTray && !services.broker?.isDetached(win)) {
-      event.preventDefault()
-      services.appTray.hide(win)
-      return
-    }
-    event.preventDefault()
-    if (services.broker?.isDetached(win)) services.broker.requestReturn(win, true)
-    else requestQuit()
-  })
-
-  const emitMaximized = (): void => win.webContents.send('window:maximized', win.isMaximized())
-  win.on('maximize', emitMaximized)
-  win.on('unmaximize', emitMaximized)
-
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    openExternalSafe(url)
-    return { action: 'deny' }
-  })
-
-  attachContextMenu(win.webContents, false)
-
-  win.webContents.on('will-attach-webview', (event, webPreferences, params) => {
-    if (isPreviewPartition(params.partition)) {
-      if (previews.acceptsAttach(params.partition, params.src, String(win.webContents.id))) {
-        hardenPreviewAttach(webPreferences, params)
-      } else {
-        event.preventDefault()
-      }
-      return
-    }
-    const extId = extensionOfPartition(params.partition)
-    const allowed = extId
-      ? (services.extensionHost?.panels.isAllowedPanelUrl(extId, params.src) ?? false)
-      : browserProfiles.acceptsAttach(params.partition, String(win.webContents.id))
-    if (!allowed) {
-      event.preventDefault()
-      return
-    }
-    webPreferences.preload = undefined
-    webPreferences.nodeIntegration = false
-    webPreferences.contextIsolation = true
-    webPreferences.sandbox = true
-    Object.assign(webPreferences, {
-      disablePopups: params.partition !== SHARED_BROWSER_PARTITION,
-    })
-  })
-  win.webContents.on('did-attach-webview', (_e, guest) => {
-    services.clipboardEdits?.guardGuest(guest)
-    services.guestChords?.guardGuest(guest)
-    if (previews.adopt(guest)) return
-    if (hardenExtensionGuest(guest)) {
-      attachContextMenu(guest, false)
-      return
-    }
-    attachContextMenu(guest, true)
-    const agents = browserAgentsOf(guest.session)
-    guest.setUserAgent(agents.rewritten)
-    instrumentBrowserGuest(guest, true)
-    followAgentByHost(guest, agents)
-    fenceBrowserGuest(guest)
-    allowHumanPopups(guest)
-    const wcId = guest.id
-    guest.once('destroyed', () => {
-      consoleBuffers.delete(wcId)
-      errorBuffers.delete(wcId)
-      forgetGuestNetwork(wcId)
-    })
-  })
-
-  const wid = String(win.webContents.id)
-  windows.set(wid, win)
-  services.diagnostics?.watchWindow(win)
-  win.on('hide', () => hidePtyFlow(wid))
-  win.on('minimize', () => hidePtyFlow(wid))
-  win.on('closed', () => {
-    windows.delete(wid)
-    services.gitService?.windowGone(wid)
-    services.portsService?.windowGone(wid)
-    releaseWindowPtys(wid)
-    previews.windowClosed(wid)
-    openWaits.windowGone(wid)
-    services.fileWatches?.unwatchOwner(wid)
-    commandsByWindow.delete(wid)
-    for (const [paneId, wcId] of browserPanes) {
-      if (getByPaneId(paneId)?.windowId === wid) {
-        browserPanes.delete(paneId)
-        consoleBuffers.delete(wcId)
-        errorBuffers.delete(wcId)
-        clearGuestBrowseState(wcId)
-        forgetGuestNetwork(wcId)
-      }
-    }
-    removeWindow(wid)
-    for (const entry of ptys.values()) {
-      if (entry.subs.has(wid)) {
-        entry.subs.delete(wid)
-        entry.session.removeSubscriber(wid)
-      }
-    }
-  })
-}
-
-function initialBackground(): string {
-  const follow = (readSettingsFile() as { appearance?: { followSystem?: unknown } }).appearance
-    ?.followSystem
-  return follow !== false && !nativeTheme.shouldUseDarkColors ? '#fbfcfd' : '#1d2022'
-}
-
-function createWindow(slot: string, bounds?: WindowBounds): BrowserWindow {
-  const win = new BrowserWindow({
-    ...(bounds ?? { width: 1280, height: 800 }),
-    minWidth: 720,
-    minHeight: 480,
-    backgroundColor: initialBackground(),
-    show: false,
-    autoHideMenuBar: true,
-    title: PRODUCT_DISPLAY_NAME,
-    icon: appIcon,
-    ...frameOptions(),
-    webPreferences: baseWebPreferences(),
-  })
-
-  wireWindow(win)
-  services.broker?.track(win, slot)
-
-  if (devServerUrl) {
-    win.loadURL(devServerUrl)
-    if (slot === MAIN_SLOT) win.webContents.openDevTools({ mode: 'detach' })
-  } else {
-    win.loadFile(join(app.getAppPath(), 'out/renderer/index.html'))
-  }
-
-  return win
 }
 
 function registerIpc(): void {
@@ -1733,11 +1583,6 @@ function managerSettings() {
   return parseManagerSettings(readSettingsFile().manager)
 }
 
-function revealWindow(windowId: string): void {
-  const win = windows.get(windowId)
-  if (win && !win.isDestroyed() && !win.isVisible()) services.appTray?.showWindows()
-}
-
 async function openWorker(req: {
   argv: string[]
   cwd?: string
@@ -1788,28 +1633,6 @@ function startPortal(): void {
       if (!started) console.warn(`[portal] another ${PRODUCT_DISPLAY_NAME} owns the portal socket`)
     })
     .catch((err) => console.error('[portal] failed to start', err))
-}
-
-function emitFocusChanged(): void {
-  const focused = BrowserWindow.getFocusedWindow() !== null
-  services.extensionHost?.events.emitEvent('focus.changed', { focused })
-  services.gitService?.setFocused(focused)
-  services.portsService?.setFocused(focused)
-}
-
-function toggleAllWindows(): void {
-  toggleWindows([...windows.values()], services.appTray, revealApp)
-}
-
-function applyGlobalHotkey(): void {
-  const status = services.globalHotkey?.apply(readSettingsFile().workspaces?.globalHotkey)
-  if (status === 'taken') console.warn('[global hotkey] the chosen shortcut is in use elsewhere')
-}
-
-function revealApp(): void {
-  if (windows.size === 0) {
-    createWindow(MAIN_SLOT, services.broker?.restoredBounds(MAIN_SLOT))
-  } else services.appTray?.showWindows()
 }
 
 app.on('second-instance', (_event, argv) => {
