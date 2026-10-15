@@ -22,9 +22,19 @@ function segmentById(win: Page, id: string): Locator {
   return win.locator(`.split-tab-segment[data-segment-id="${id}"]`)
 }
 
-async function sizes(target: Locator): Promise<[number, number][]> {
-  const text = (await target.textContent()) ?? ''
-  return [...text.matchAll(/size (\d+) (\d+)/g)].map((m) => [Number(m[1]), Number(m[2])])
+async function sizes(target: Locator, label = 'size'): Promise<[number, number][]> {
+  const lines = await target.locator(':scope > div').allInnerTexts()
+  const pattern = new RegExp(`^${label} (\\d+) (\\d+)\\s*$`)
+  return lines.flatMap((line) => {
+    const m = pattern.exec(line)
+    return m ? [[Number(m[1]), Number(m[2])] as [number, number]] : []
+  })
+}
+
+async function settled(target: Locator): Promise<[number, number] | null> {
+  const last = (await sizes(target)).at(-1)
+  const drawn = await target.locator(':scope > div').count()
+  return last && last[0] === drawn ? last : null
 }
 
 async function dropOnCellEdge(win: Page, tabId: string, cellId: string): Promise<void> {
@@ -144,7 +154,7 @@ test('collapsed panes of a split tab keep running as strips, expand on focus and
 
 test('a collapsed terminal keeps its size, never 0x0, and refits to its cell on expand', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'ostia-collapse-size-'))
-  const [first, second] = [join(dir, 'first'), join(dir, 'second')]
+  const [trigger, done] = [join(dir, 'trigger'), join(dir, 'done')]
   const app = await electron.launch(isolatedLaunch())
   try {
     const win = await app.firstWindow()
@@ -152,11 +162,10 @@ test('a collapsed terminal keeps its size, never 0x0, and refits to its cell on 
     await openWorkspace(win)
     await win.locator('.xterm').first().click()
 
-    const size = 'echo size $(stty size)'
-    const until = (file: string) => `while [ ! -e ${file} ]; do sleep 0.2; done`
+    const whileCollapsed = `if [ -e ${trigger} ] && [ ! -e ${done} ]; then echo csize $(stty size); touch ${done}; ostia state done collapsed; fi`
     await typeLine(
       win,
-      `ostia process run "${size}; ${until(first)}; ${size}; ostia state done collapsed; ${until(second)}; while :; do ${size}; sleep 0.3; done" --name w1 --tab sizes`,
+      `ostia process run 'last=; while :; do ${whileCollapsed}; now=$(stty size); if [ "$now" != "$last" ]; then echo size $now; last=$now; fi; sleep 0.3; done' --name w1 --tab sizes`,
     )
     await typeLine(win, 'ostia process run "sleep 600" --name w2 --tab sizes')
     await typeLine(win, 'ostia process run "sleep 600" --name w3 --tab sizes')
@@ -165,28 +174,24 @@ test('a collapsed terminal keeps its size, never 0x0, and refits to its cell on 
     const w2 = (await segment(win, 'w2').getAttribute('data-segment-id')) ?? ''
     await segment(win, 'w1').locator('.split-tab-segment-main').click()
     const rows = cell(win, w1).locator('.xterm-rows')
-    await expect.poll(() => sizes(rows).then((s) => s.length)).toBe(1)
-    const [before] = await sizes(rows)
+    await expect.poll(() => settled(rows), { timeout: 15_000 }).not.toBeNull()
+    const before = (await settled(rows)) ?? [0, 0]
     expect(before[0]).toBeGreaterThan(0)
     expect(before[1]).toBeGreaterThan(0)
 
     await segmentById(win, w1).locator('.pane-tab-collapse').click()
     await segmentById(win, w2).locator('.pane-tab-collapse').click()
     await expect(win.locator('.pane-strip')).toHaveCount(2)
-    writeFileSync(first, '')
+    writeFileSync(trigger, '')
     await expect(strip(win, w1)).toHaveAttribute('data-attention', 'done', { timeout: 15_000 })
 
     await strip(win, w1).getByRole('button', { name: 'Expand w1' }).click()
     await expect(strip(win, w1)).toHaveCount(0)
-    expect((await sizes(rows))[1]).toEqual(before)
-
-    writeFileSync(second, '')
+    await expect.poll(() => sizes(rows, 'csize')).toEqual([before])
     await expect
-      .poll(async () => (await sizes(rows)).at(-1)?.[1] ?? 0, { timeout: 15_000 })
+      .poll(async () => (await settled(rows))?.[1] ?? 0, { timeout: 15_000 })
       .toBeGreaterThan(before[1])
-    const after = (await sizes(rows)).at(-1) ?? [0, 0]
-    expect(after[0]).toBeGreaterThan(0)
-    await expect(rows.locator(':scope > div')).toHaveCount(after[0])
+    expect((await settled(rows))?.[0]).toBe(before[0])
   } finally {
     await app.close().catch(() => {})
     rmSync(dir, { recursive: true, force: true })
@@ -232,13 +237,28 @@ test('a browser and an editor in a split tab survive a collapse and an expand wi
     await expect(cell(win, editor)).toBeVisible()
     await expect(cell(win, browser)).toBeVisible()
 
+    const guest = (script: string) =>
+      win.evaluate(
+        (code) =>
+          (
+            document.querySelector('webview') as HTMLElement & {
+              executeJavaScript(code: string): Promise<unknown>
+            }
+          )
+            .executeJavaScript(code)
+            .catch(() => null),
+        script,
+      )
+    await expect
+      .poll(() =>
+        win.evaluate(() =>
+          (document.querySelector('webview') as HTMLElement & { isLoading(): boolean }).isLoading(),
+        ),
+      )
+      .toBe(false)
+    await expect.poll(() => guest('window.__kept = "kept"')).toBe('kept')
     await win.evaluate(() => {
-      const view = document.querySelector('webview') as HTMLElement & { loads?: number }
-      view.dataset.collapseMark = 'kept'
-      view.loads = 0
-      view.addEventListener('did-start-loading', () => {
-        view.loads = (view.loads ?? 0) + 1
-      })
+      ;(document.querySelector('webview') as HTMLElement).dataset.collapseMark = 'kept'
       ;(document.querySelector('.monaco-editor') as HTMLElement).dataset.collapseMark = 'kept'
     })
 
@@ -254,11 +274,7 @@ test('a browser and an editor in a split tab survive a collapse and an expand wi
     await expect(
       cell(win, editor).locator('.monaco-editor[data-collapse-mark="kept"]'),
     ).toContainText('kept-through-collapse')
-    expect(
-      await win.evaluate(
-        () => (document.querySelector('webview') as HTMLElement & { loads?: number }).loads,
-      ),
-    ).toBe(0)
+    expect(await guest('window.__kept')).toBe('kept')
   } finally {
     await app.close().catch(() => {})
     rmSync(dir, { recursive: true, force: true })

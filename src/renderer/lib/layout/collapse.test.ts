@@ -167,6 +167,14 @@ describe('strip sizes', () => {
     ])
   })
 
+  it('gives a pane that just expanded its stored size back and shrinks the others', () => {
+    expect(stripSizes([365, 704], [false, false], 730, [true, false])).toEqual([365, 365])
+    expect(stripSizes([900, 704], [false, false], 730, [true, false])).toEqual([
+      (900 / 1604) * 730,
+      (704 / 1604) * 730,
+    ])
+  })
+
   it('keeps the stored sizes when no total is known', () => {
     expect(stripSizes([300, 500, 100], [false, true, false])).toEqual([300, STRIP_SIZE, 100])
   })

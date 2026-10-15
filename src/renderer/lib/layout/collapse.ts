@@ -155,9 +155,20 @@ export function stripSizes(
   sizes: readonly number[],
   strips: readonly boolean[],
   total?: number,
+  opened: readonly boolean[] = [],
 ): number[] {
-  const open = sizes.reduce((sum, n, i) => (strips[i] ? sum : sum + n), 0)
+  const sum = (keep: (i: number) => boolean) =>
+    sizes.reduce((acc, n, i) => (keep(i) ? acc + n : acc), 0)
   const stripped = STRIP_SIZE * strips.filter(Boolean).length
-  const room = Math.max(0, (total ?? open + stripped) - stripped)
-  return sizes.map((n, i) => (strips[i] ? STRIP_SIZE : open > 0 ? (n / open) * room : 0))
+  const room = Math.max(0, (total ?? sum((i) => !strips[i]) + stripped) - stripped)
+  const back = sum((i) => !strips[i] && opened[i] === true)
+  const rest = sum((i) => !strips[i] && opened[i] !== true)
+  const restored = back < room && rest > 0
+  const share = restored ? room - back : room
+  const pool = restored ? rest : back + rest
+  return sizes.map((n, i) => {
+    if (strips[i]) return STRIP_SIZE
+    if (restored && opened[i]) return n
+    return pool > 0 ? (n / pool) * share : 0
+  })
 }
