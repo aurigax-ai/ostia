@@ -32,7 +32,6 @@ import {
   safeStorage,
   session,
   shell,
-  webContents,
 } from 'electron'
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
@@ -50,8 +49,7 @@ import { isPreviewPartition } from '../shared/artifacts/htmlPreview'
 import { parseChatToolSettings } from '../shared/assist/chatTools'
 import { parseGitSettings } from '../shared/boards/git'
 import { parsePortsSettings } from '../shared/boards/ports'
-import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browser/browserProfile'
-import { PASSKEY_GUARD_JS } from '../shared/browser/passkeyGuard'
+import { SHARED_BROWSER_PARTITION } from '../shared/browser/browserProfile'
 import { ChangeSignal } from '../shared/common/actThenConfirm'
 import { externalHref } from '../shared/common/externalLinks'
 import { EXTENSION_SUGGESTIONS } from '../shared/extensions/extensionSuggestions'
@@ -109,25 +107,19 @@ import {
   registerNotifyIpc,
   registerNotifyMethods,
 } from './attention/notify'
-import { pushConsoleEntry, registerBrowseMethods } from './browser/browse'
+import { registerBrowseMethods } from './browser/browse'
 import { clearGuestBrowseState, ownedGuest } from './browser/browseGuests'
 import type { ConsoleEntry } from './browser/browseMethod'
-import {
-  OSTIA_ERROR_PREFIX,
-  PAGE_ERROR_CATCHER_JS,
-  injectPageScripts,
-} from './browser/browsePageScripts'
-import { cancelPick, registerPickIpc, registerPickMethods } from './browser/browsePick'
+import { registerPickIpc, registerPickMethods } from './browser/browsePick'
 import { registerRegionIpc } from './browser/browseRegion'
-import { BrowserProfiles } from './browser/browserProfiles'
+import { registerBrowserGuestIpc } from './browser/browserGuestIpc'
+import { createBrowserGuests } from './browser/browserGuests'
 import { registerBrowserStorageIpc } from './browser/browserStorage'
 import { credentials, registerCredentials } from './browser/credentials'
 import { type GuestChords, registerGuestChords } from './browser/guestChords'
-import { holdFirstLoad } from './browser/guestFirstLoad'
-import { clearGuestNetwork, forgetGuestNetwork, watchGuestNetwork } from './browser/guestNetwork'
-import { openHumanPopups } from './browser/guestPopups'
+import { forgetGuestNetwork } from './browser/guestNetwork'
 import { registerLoginFill } from './browser/loginFill'
-import { type BrowserAgents, followAgentByHost, useBrowserAgents } from './browser/signinUserAgent'
+import { followAgentByHost } from './browser/signinUserAgent'
 import { registerAssistIpc } from './chat/assistIpc'
 import { createChatSessionStore } from './chat/chatSessions'
 import { registerChatSessionIpc } from './chat/chatSessionsIpc'
@@ -262,7 +254,6 @@ import { createRedactor, createScrollbackRedactor } from './privacy/redaction'
 import { createWorkerScan, redactionWorkerScript } from './privacy/redactionScan'
 import { type ProfileSyncHandle, startProfileSync } from './profileSync/ipc'
 import { flatSource, groupedSource, loginsSource } from './profileSync/secrets'
-import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
 import { registerSandboxIpc } from './sandbox/ipc'
 import { createSandboxServices } from './sandbox/sandboxServices'
@@ -642,27 +633,25 @@ const { secretService, workspaceAgents, injectSecrets } = createSecretServices({
   paneForWorkspace,
 })
 
-const browserProfiles = new BrowserProfiles({
-  ownerOf: (paneId) => {
-    const identity = getByPaneId(paneId)
-    return identity ? { windowId: identity.windowId, workspaceId: identity.workspaceId } : null
-  },
-  isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
-  isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-})
-
-const browserFence = new BrowserFence({
-  policy: (workspaceId) => {
-    if (!workspaceId || !workspaceSandboxes.isEnabled(workspaceId)) return null
-    const resolved = workspaceSandboxes.resolved(workspaceId)
-    return {
-      browser: resolved.controls.browser,
-      domains: resolved.domains,
-      denied: resolved.deniedDomains,
-    }
-  },
-  requestDomain: async (workspaceId, host) =>
-    (await domainRequests.request(workspaceId, '', host)).ok,
+const {
+  browserProfiles,
+  browserFence,
+  fenceBrowserGuest,
+  extensionOfPartition,
+  browserAgentsOf,
+  instrumentBrowserGuest,
+  allowHumanPopups,
+  hardenExtensionGuest,
+} = createBrowserGuests({
+  scratchFolders,
+  workspaceSandboxes,
+  domainRequests,
+  browserPanes,
+  consoleBuffers,
+  errorBuffers,
+  windows,
+  services,
+  openExternalSafe,
 })
 
 setCapFilter((conn, cap) => {
@@ -698,26 +687,6 @@ const reach = createReach({
     recordCreatedWorkspace(scriptTokensPath(), tokenId, workspaceId),
 })
 ipcMain.handle('reach:agent-groups', () => reach.agentGroups())
-
-function workspaceOfGuest(guest: Electron.WebContents): string | undefined {
-  for (const [paneId, wcId] of browserPanes) {
-    if (wcId === guest.id) return getByPaneId(paneId)?.workspaceId
-  }
-  return undefined
-}
-
-function fenceBrowserGuest(guest: Electron.WebContents): void {
-  const guard = (e: Electron.Event, url: string): void => {
-    const workspaceId = workspaceOfGuest(guest)
-    if (!workspaceId || browserFence.allowedNow(workspaceId, url)) return
-    e.preventDefault()
-    void browserFence.check(workspaceId, url).then((ok) => {
-      if (ok && !guest.isDestroyed()) void guest.loadURL(url).catch(() => {})
-    })
-  }
-  guest.on('will-navigate', guard)
-  guest.on('will-redirect', guard)
-}
 
 function emitPaneEvent<T extends ExtensionEventType>(
   type: T,
@@ -897,8 +866,6 @@ const { attachPty } = createPtyAttach({
   telemetry: () => services.telemetry,
 })
 
-const EXTENSION_PARTITION_PREFIX = 'ostia-ext-'
-
 function configDir(): string {
   return appConfigDir()
 }
@@ -911,92 +878,6 @@ function extensionRoots(): ExtensionRoot[] {
     { dir: builtinDir, builtin: true },
     { dir: join(configDir(), 'extensions'), builtin: false },
   ]
-}
-
-function extensionOfPartition(partition: string | undefined): string | null {
-  if (!partition?.startsWith(EXTENSION_PARTITION_PREFIX)) return null
-  return partition.slice(EXTENSION_PARTITION_PREFIX.length)
-}
-
-function browserAgentsOf(target: Electron.Session): BrowserAgents {
-  return useBrowserAgents(target, app.getName(), {
-    chromeVersion: process.versions.chrome,
-    platform: process.platform,
-    systemVersion: process.getSystemVersion(),
-    arch: process.arch,
-  })
-}
-
-const instrumentedGuests = new WeakSet<Electron.WebContents>()
-
-function instrumentBrowserGuest(gc: Electron.WebContents, attaching = false): void {
-  const wcId = gc.id
-  if (!instrumentedGuests.has(gc)) {
-    instrumentedGuests.add(gc)
-    gc.on('console-message', (event) => {
-      const entry: ConsoleEntry = {
-        level: event.level,
-        text: event.message,
-        ts: Date.now(),
-      }
-      pushConsoleEntry(consoleBuffers, wcId, entry)
-      if (entry.level === 'error' || event.message.startsWith(OSTIA_ERROR_PREFIX)) {
-        pushConsoleEntry(errorBuffers, wcId, entry)
-      }
-    })
-  }
-  if (!gc.debugger.isAttached()) {
-    let registered: Promise<unknown> = Promise.resolve()
-    try {
-      gc.debugger.attach('1.3')
-      registered = injectPageScripts(gc, [PAGE_ERROR_CATCHER_JS, PASSKEY_GUARD_JS])
-    } catch {}
-    if (attaching) void holdFirstLoad(gc, registered)
-  }
-  watchGuestNetwork(gc)
-}
-
-function prepareBrowserPopup(popup: BrowserWindow, url: string): void {
-  const contents = popup.webContents
-  attachContextMenu(contents, true)
-  const agents = browserAgentsOf(contents.session)
-  contents.setUserAgent(agents.rewritten)
-  try {
-    contents.debugger.attach('1.3')
-  } catch {}
-  followAgentByHost(contents, agents, url)
-}
-
-function allowHumanPopups(guest: Electron.WebContents): void {
-  openHumanPopups(guest, {
-    isHumanProfile: (opener) => opener.session === session.fromPartition(SHARED_BROWSER_PARTITION),
-    ownerWindow: (opener) => {
-      const host = opener.hostWebContents
-      const owner = host ? BrowserWindow.fromWebContents(host) : null
-      return owner && [...windows.values()].includes(owner) ? owner : null
-    },
-    prepare: prepareBrowserPopup,
-  })
-}
-
-function hardenExtensionGuest(guest: Electron.WebContents): boolean {
-  const host = services.extensionHost
-  if (!host) return false
-  const extId = host.panels
-    .panelExtensionIds()
-    .find((id) => guest.session === session.fromPartition(`${EXTENSION_PARTITION_PREFIX}${id}`))
-  if (!extId) return false
-  guest.session.setPermissionRequestHandler((_wc, _perm, cb) => cb(false))
-  guest.setWindowOpenHandler(({ url }) => {
-    openExternalSafe(url)
-    return { action: 'deny' }
-  })
-  const guard = (e: Electron.Event, url: string): void => {
-    if (!host.panels.isAllowedPanelUrl(extId, url)) e.preventDefault()
-  }
-  guest.on('will-navigate', guard)
-  guest.on('will-redirect', guard)
-  return true
 }
 
 function frameOptions(): Electron.BrowserWindowConstructorOptions {
@@ -1209,32 +1090,12 @@ function registerIpc(): void {
     commandsByWindow,
     remoteCwdOfPane,
   })
-
-  ipcMain.handle('browser:claim-profile', (e, paneId: unknown, profile: unknown) =>
-    browserProfiles.claim(paneId, String(e.sender.id), profile),
-  )
-  ipcMain.on('browser:register', (e, paneId: string, webContentsId: number) => {
-    const wid = String(e.sender.id)
-    if (getByPaneId(paneId)?.windowId !== wid) return
-    const gc = webContents.fromId(webContentsId)
-    if (!gc || gc.getType() !== 'webview' || gc.hostWebContents?.id !== e.sender.id) return
-    const expected = browserPartition(browserProfiles.profileOf(paneId), paneId)
-    if (gc.session !== session.fromPartition(expected)) return
-    browserPanes.set(paneId, webContentsId)
-    instrumentBrowserGuest(gc)
-  })
-  ipcMain.on('browser:unregister', (e, paneId: string) => {
-    const owner = getByPaneId(paneId)?.windowId
-    if (owner && owner !== String(e.sender.id)) return
-    cancelPick(paneId)
-    const wcId = browserPanes.get(paneId)
-    browserPanes.delete(paneId)
-    if (wcId !== undefined) {
-      consoleBuffers.delete(wcId)
-      errorBuffers.delete(wcId)
-      clearGuestBrowseState(wcId)
-      clearGuestNetwork(wcId)
-    }
+  registerBrowserGuestIpc({
+    browserProfiles,
+    browserPanes,
+    instrumentBrowserGuest,
+    consoleBuffers,
+    errorBuffers,
   })
 }
 
