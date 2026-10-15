@@ -5,7 +5,9 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { usePaneVisible } from '@/lib/attention/workspaceActivity'
 import { useArtifactListing } from '@/lib/files/artifacts'
 import { isCsvPath } from '@/lib/files/csvTable'
+import { editorInput } from '@/lib/monaco/editorInput'
 import type { monaco } from '@/lib/monaco/setup'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useOpenWaitsStore } from '@/stores/files/openWaitsStore'
 import {
@@ -98,6 +100,12 @@ export function EditorView({
   const tabled = tabular && (chosen ?? inArtifacts)
   const tableText = useModelText(liveEditor, tabled)
   const running = runnable && (chosen ?? inArtifacts)
+  const overlayRef = useRef<HTMLElement | null>(null)
+  const overlayUp = (markdown && preview) || running || tabled
+  useSurfaceFocus(
+    paneId,
+    blocked ? null : () => (overlayUp ? overlayRef.current : editorInput(editorRef.current)),
+  )
   const visible = usePaneVisible(paneId)
   const visibleRef = useRef(visible)
   const missedCheckRef = useRef(false)
@@ -206,6 +214,7 @@ export function EditorView({
         tabular={tabular}
         tableText={tableText}
         setRunChoice={setRunChoice}
+        overlayRef={overlayRef}
       />
       <EditorAlerts
         workspaceId={workspaceId}

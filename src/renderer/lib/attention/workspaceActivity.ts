@@ -1,6 +1,6 @@
 import { type FocusDirection, paneInDirection } from '@/lib/layout/focusDirection'
 import { adjacentTab, findPane, isPaneShown, paneIds } from '@/lib/layout/tree'
-import { globalWorkspaceOrder, latestRemoteUnread } from '@/lib/workspaces/windowWorkspaces'
+import { latestRemoteUnread } from '@/lib/workspaces/windowWorkspaces'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { coversWorkspaces, useUIStore } from '@/stores/app/uiStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
@@ -115,34 +115,6 @@ export function markWorkspaceRead(workspaceId: string): void {
   }
 }
 
-export function goToWorkspace(index: number): boolean {
-  const { windowId, list } = useWindowsStore.getState()
-  const local = useWorkspacesStore.getState().workspaces.map((w) => w.id)
-  const target = globalWorkspaceOrder(list, windowId, local)[index]
-  if (!target) return false
-  if (target.windowId !== windowId && target.windowId !== null) {
-    window.ostia.windows.focusWorkspace(target.id, false)
-    return true
-  }
-  useUIStore.getState().showWorkspaces()
-  useWorkspacesStore.getState().setActive(target.id)
-  return true
-}
-
-export function stepWorkspace(step: 1 | -1): boolean {
-  const { windowId, list } = useWindowsStore.getState()
-  const workspaces = useWorkspacesStore.getState()
-  const order = globalWorkspaceOrder(
-    list,
-    windowId,
-    workspaces.workspaces.map((w) => w.id),
-  )
-  if (order.length === 0) return false
-  const current = order.findIndex((w) => w.id === workspaces.activeWorkspaceId)
-  const next = current === -1 ? 0 : (current + step + order.length) % order.length
-  return next === current ? false : goToWorkspace(next)
-}
-
 export function focusPaneInDirection(
   workspaceId: string,
   paneId: string,
@@ -198,7 +170,7 @@ export function jumpToLatestUnread(): string | null {
   const { windowId, list } = useWindowsStore.getState()
   const remote = latestRemoteUnread(list, windowId, target ? byPane[target].at : 0)
   if (remote) {
-    window.ostia.windows.focusWorkspace(remote.id, true)
+    window.ostia.windows.focusWorkspace(remote.id, true, false)
     return null
   }
   if (!target) return null

@@ -185,12 +185,14 @@ describe('hibernateIdleAgents', () => {
 
   it('an idle hidden agent hibernates and resumes when the human opens its tab', async () => {
     vi.useFakeTimers({ now: NOW })
-    const inputListeners = new Map<string, EventListener>()
+    const inputListeners = new Map<string, EventListener[]>()
     const addListener = window.addEventListener.bind(window)
     const listening = vi
       .spyOn(window, 'addEventListener')
       .mockImplementation((type, listener, options) => {
-        if (typeof listener === 'function') inputListeners.set(type, listener)
+        if (typeof listener === 'function') {
+          inputListeners.set(type, [...(inputListeners.get(type) ?? []), listener])
+        }
         addListener(type, listener, options)
       })
     stops.push(() => listening.mockRestore())
@@ -230,12 +232,8 @@ describe('hibernateIdleAgents', () => {
     await commands.exec('pane.focus', { paneId: 'idle-claude' })
     expect(hibernated('idle-claude')).toBe(true)
     const target = document.getElementById('body')
-    inputListeners.get('pointerdown')?.({
-      type: 'pointerdown',
-      isTrusted: true,
-      button: 0,
-      target,
-    } as unknown as Event)
+    const press = { type: 'pointerdown', isTrusted: true, button: 0, target } as unknown as Event
+    for (const listener of inputListeners.get('pointerdown') ?? []) listener(press)
 
     expect(hibernated('idle-claude')).toBe(false)
     expect(typed.mock.calls.map(([id, command]) => [id, command])).toEqual([

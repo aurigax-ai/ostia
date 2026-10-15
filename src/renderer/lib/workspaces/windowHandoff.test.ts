@@ -1,4 +1,4 @@
-import { goToWorkspace, jumpToLatestUnread } from '@/lib/attention/workspaceActivity'
+import { jumpToLatestUnread } from '@/lib/attention/workspaceActivity'
 import { createPane, paneIds as paneIdsOf, resetIds, splitPane } from '@/lib/layout/tree'
 import { beginDrag, endPaneDrag } from '@/lib/panes/paneDrag'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
@@ -12,6 +12,7 @@ import { resetWorkspaceIds, useWorkspacesStore } from '@/stores/workspaces/works
 import type { LifecycleEvent, SnapshotWorkspace, WindowSummary } from '@shared/types'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { setIdNamespace } from './idNamespace'
+import { goToWorkspace } from './selectWorkspace'
 import {
   activateWorkspace,
   adoptWorkspaces,
@@ -451,9 +452,9 @@ describe('cross-window navigation', () => {
     useWindowsStore.getState().setInfo('1', false)
     useWindowsStore.getState().setList(list(0))
 
-    expect(goToWorkspace(1)).toBe(true)
+    expect(goToWorkspace(1, true)).toBe(true)
 
-    expect(window.ostia.windows.focusWorkspace).toHaveBeenCalledWith('w-remote', false)
+    expect(window.ostia.windows.focusWorkspace).toHaveBeenCalledWith('w-remote', false, true)
   })
 
   it('jump to latest unread goes to another window when its unread is newer', () => {
@@ -462,7 +463,7 @@ describe('cross-window navigation', () => {
 
     expect(jumpToLatestUnread()).toBeNull()
 
-    expect(window.ostia.windows.focusWorkspace).toHaveBeenCalledWith('w-remote', true)
+    expect(window.ostia.windows.focusWorkspace).toHaveBeenCalledWith('w-remote', true, false)
   })
 
   it('activating a workspace from main selects it here', () => {
@@ -470,7 +471,7 @@ describe('cross-window navigation', () => {
     useWorkspacesStore.getState().addWorkspace('/b')
     const first = useWorkspacesStore.getState().workspaces[0].id
 
-    activateWorkspace(first, false)
+    activateWorkspace(first, false, false)
 
     expect(useWorkspacesStore.getState().activeWorkspaceId).toBe(first)
   })

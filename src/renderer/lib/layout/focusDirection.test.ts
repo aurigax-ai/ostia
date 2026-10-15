@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { paneInDirection } from './focusDirection'
+import { keyboardPaneId, paneInDirection } from './focusDirection'
 import { allPanes, createPane, resetIds, splitOf, tabsOf } from './tree'
 import type { LayoutNode } from './types'
 
@@ -48,5 +48,50 @@ describe('paneInDirection', () => {
     const root = splitOf('horizontal', a, tabsOf(t2.id, t1, t2))
     expect(paneInDirection(root, a.id, 'right')).toBe(t2.id)
     expect(paneInDirection(root, t1.id, 'left')).toBe(a.id)
+  })
+})
+
+describe('keyboardPaneId', () => {
+  const at = (root: LayoutNode, activePaneId: string, zoomedPaneId: string | null = null) =>
+    keyboardPaneId({ root, activePaneId, zoomedPaneId })
+
+  it('is the active pane while the layout holds it', () => {
+    const left = createPane()
+    const right = createPane()
+    expect(at(splitOf('horizontal', left, right), right.id)).toBe(right.id)
+  })
+
+  it('is the last active pane of a split tab', () => {
+    const solo = createPane()
+    const a = createPane()
+    const b = createPane()
+    const root = tabsOf(b.id, solo, splitOf('vertical', a, b))
+    expect(at(root, b.id)).toBe(b.id)
+  })
+
+  it('falls back to the top-left pane of the shown tab when the active pane is gone', () => {
+    const solo = createPane()
+    const topLeft = createPane()
+    const topRight = createPane()
+    const bottom = createPane()
+    const splitTab = splitOf('vertical', splitOf('horizontal', topLeft, topRight), bottom)
+    const shown = tabsOf(bottom.id, solo, splitTab)
+    expect(at(shown, 'gone')).toBe(topLeft.id)
+    const soloShown = tabsOf(solo.id, solo, splitTab)
+    expect(at(soloShown, 'gone')).toBe(solo.id)
+  })
+
+  it('reads the top-left slot first when the root is split into slots', () => {
+    const a = createPane()
+    const b = createPane()
+    const c = createPane()
+    const root = splitOf('horizontal', tabsOf(b.id, a, b), c)
+    expect(at(root, 'gone')).toBe(b.id)
+  })
+
+  it('is the zoomed pane while one is zoomed', () => {
+    const left = createPane()
+    const right = createPane()
+    expect(at(splitOf('horizontal', left, right), left.id, right.id)).toBe(right.id)
   })
 })

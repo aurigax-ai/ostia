@@ -726,12 +726,14 @@ interface WindowsApi {
   returnToMain: (workspaces: SnapshotWorkspace[]) => Promise<boolean>
   openWith: (workspaces: SnapshotWorkspace[]) => Promise<boolean>
   report: (workspaces: WindowWorkspaceReport[]) => void
-  focusWorkspace: (workspaceId: string, jumpToUnread: boolean) => void
+  focusWorkspace: (workspaceId: string, jumpToUnread: boolean, takesKeyboard: boolean) => void
   returnWorkspace: (workspaceId: string) => void
   newWorkspace: (request: NewWorkspaceRequest) => void
   onList: (cb: (list: WindowSummary[]) => void) => () => void
   onAdopt: (cb: (workspaces: SnapshotWorkspace[]) => void) => () => void
-  onActivateWorkspace: (cb: (workspaceId: string, jumpToUnread: boolean) => void) => () => void
+  onActivateWorkspace: (
+    cb: (workspaceId: string, jumpToUnread: boolean, takesKeyboard: boolean) => void,
+  ) => () => void
   onReturnRequest: (cb: () => void) => () => void
   originAgents: (workspaceId: string) => Promise<OriginAgents | null>
   onOriginAgentsChanged: (cb: () => void) => () => void
