@@ -79,7 +79,7 @@ describe('workspace events and sandbox domains for extensions', () => {
   it('tells only subscribed extensions that a workspace closed', async () => {
     await events('watcher')
     await events('quiet')
-    host.workspaceClosed('w-closing')
+    host.events.workspaceClosed('w-closing')
     await vi.waitFor(async () =>
       expect(await events('watcher')).toContainEqual({
         type: 'workspace.closed',
@@ -112,7 +112,7 @@ describe('workspace events and sandbox domains for extensions', () => {
 
   it('forgets the caller when its workspace closes', async () => {
     await call('quiet', 'sandboxed', 'ext.sandboxDomains', { workspaceId: 'sandboxed' })
-    host.workspaceClosed('sandboxed')
+    host.events.workspaceClosed('sandboxed')
     const res = await call('quiet', 'other', 'ext.sandboxDomains', { workspaceId: 'sandboxed' })
     expect(res).toMatchObject({ ok: false, error: 'not-reached' })
   })

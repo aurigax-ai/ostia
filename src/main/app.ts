@@ -1553,7 +1553,7 @@ function emitPaneEvent<T extends ExtensionEventType>(
   type: T,
   payload: ExtensionEventPayloads[T],
 ): void {
-  extensionHost?.emitEvent(type, payload)
+  extensionHost?.events.emitEvent(type, payload)
   gitService?.activity(type)
   portsService?.activity(type)
 }
@@ -2249,7 +2249,7 @@ const workspaceClosed = createWorkspaceClosed({
   closeProcesses: (id) => processes?.workspaceClosed(id),
   clearChips: (id) => extensionHost?.slots.clearWorkspaceChips(id),
   closeRemoteFolders: (id) => extensionHost?.remoteFolders?.workspaceClosed(id),
-  tellExtensions: (id) => extensionHost?.workspaceClosed(id),
+  tellExtensions: (id) => extensionHost?.events.workspaceClosed(id),
   closeArtifacts: (id) => artifactHistory.close(id, artifactFolders.close(id)),
   removeScratch: (id) => scratchFolders.remove(id),
   forgetRequests: forgetWorkspaceRequests,
@@ -3648,7 +3648,7 @@ function startPortal(): void {
 
 function emitFocusChanged(): void {
   const focused = BrowserWindow.getFocusedWindow() !== null
-  extensionHost?.emitEvent('focus.changed', { focused })
+  extensionHost?.events.emitEvent('focus.changed', { focused })
   gitService?.setFocused(focused)
   portsService?.setFocused(focused)
 }
@@ -4364,7 +4364,7 @@ app.whenReady().then(() => {
     onError: (extId, error) => console.warn(`[editor language ${extId}] ${error}`),
   })
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
-    extensionHost?.emitEvent('notification', n),
+    extensionHost?.events.emitEvent('notification', n),
   )
   registerSameFolder({ workDir: workDirForWorkspace, home: homedir })
   registerPaneListMethods({

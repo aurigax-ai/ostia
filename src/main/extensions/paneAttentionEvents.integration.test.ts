@@ -62,7 +62,7 @@ describe('the pane.attention event', () => {
     events = new PaneAttentionEvents({
       identity: getByPaneId,
       emit: (payload: ExtensionEventPayloads['pane.attention']) =>
-        host.emitEvent('pane.attention', payload),
+        host.events.emitEvent('pane.attention', payload),
     })
     registerExtensionMethods(() => host)
     registerControlServer(

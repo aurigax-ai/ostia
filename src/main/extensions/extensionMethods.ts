@@ -36,15 +36,15 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
 function registerHostMethods(host: () => ExtensionHost | null, forExtension: ForExtension): void {
   registerControlMethod(
     'ext.registerCommands',
-    forExtension((h, id, conn, p) => h.registerCommands(id, conn, p)),
+    forExtension((h, id, conn, p) => h.events.registerCommands(id, conn, p)),
   )
   registerControlMethod(
     'ext.subscribe',
-    forExtension((h, id, conn, p) => h.subscribe(id, conn, p)),
+    forExtension((h, id, conn, p) => h.events.subscribe(id, conn, p)),
   )
   registerControlMethod(
     'ext.startWithWindow',
-    forExtension((h, id, conn, p) => h.startWithWindow(id, conn, p)),
+    forExtension((h, id, conn, p) => h.events.startWithWindow(id, conn, p)),
   )
   registerControlMethod('ext.list', {
     handler: () => host()?.listForAgents() ?? [],

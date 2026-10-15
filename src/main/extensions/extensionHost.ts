@@ -10,13 +10,10 @@ import {
   LOCALE_CHANGED_EVENT,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
 import {
-  EXTENSION_EVENT_TYPES,
   EXTENSION_REDACT_TEXTS_MAX,
   EXTENSION_REDACT_TEXT_MAX,
   type ExtensionCaller,
   type ExtensionCommandContribution,
-  type ExtensionEventPayloads,
-  type ExtensionEventType,
   type ExtensionInfo,
   type ExtensionManifest,
   type ExtensionResult,
@@ -29,10 +26,7 @@ import {
   type RemoteFilesRequest,
   type RemoteFolder,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import {
-  discoverExtensions,
-  parseCommand,
-} from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
+import { discoverExtensions } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import {
   loadLocaleCatalogs,
   manifestIn,
@@ -44,6 +38,7 @@ import { REMOTE_REQUEST_TIMEOUT_MS, RemoteFolders } from '../files/remoteFolders
 import { ExtensionAssist } from './extensionAssist'
 import { ExtensionConfig } from './extensionConfig'
 import { ExtensionContributions } from './extensionContributions'
+import { ExtensionEvents } from './extensionEvents'
 import type { ExtensionHostDeps } from './extensionHostDeps'
 import { ExtensionPanels } from './extensionPanels'
 import { ExtensionProcesses } from './extensionProcesses'
@@ -107,6 +102,7 @@ export class ExtensionHost {
   readonly windowRequests: ExtensionWindowRequests
   readonly processes: ExtensionProcesses
   readonly panels: ExtensionPanels
+  readonly events: ExtensionEvents
 
   constructor(private readonly deps: ExtensionHostDeps) {
     this.changes.setMaxListeners(0)
@@ -179,6 +175,13 @@ export class ExtensionHost {
       processes: this.processes,
       active: (rt) => this.active(rt),
       userCaller: (workspaceId, extra) => this.userCaller(workspaceId, extra),
+    })
+    this.events = new ExtensionEvents({
+      deps,
+      runtimes: this.runtimes,
+      runs: this.runs,
+      runtimeOf: (identity, conn) => this.runtimeOf(identity, conn),
+      changed: (rt) => this.changed(rt),
     })
     this.windowRequests = new ExtensionWindowRequests({
       deps,
@@ -402,11 +405,6 @@ export class ExtensionHost {
     return rt ? (this.commandsOf(rt).find((c) => c.id === command)?.capabilities ?? []) : []
   }
 
-  workspaceClosed(workspaceId: string): void {
-    for (const rt of this.runtimes.values()) rt.callerWorkspaces.delete(workspaceId)
-    this.emitEvent('workspace.closed', { workspaceId })
-  }
-
   sandboxDomains(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
     const rt = this.runtimeOf(identity, conn)
     const workspaceId = isPlainRecord(params) ? params.workspaceId : undefined
@@ -421,15 +419,6 @@ export class ExtensionHost {
     return { ok: true, domains: [...domains] }
   }
 
-  emitEvent<T extends ExtensionEventType>(type: T, payload: ExtensionEventPayloads[T]): void {
-    this.runs.settleTerminalWait(type, payload)
-    for (const rt of this.runtimes.values()) {
-      if (rt.conn && rt.subscriptions.has(type)) {
-        void rt.conn.sendNotification('ext.event', { type, payload }).catch(() => {})
-      }
-    }
-  }
-
   private runtimeOf(identity: PaneIdentity, conn: MessageConnection): Runtime {
     const rt = identity.extId ? this.runtimes.get(identity.extId) : undefined
     if (!rt || rt.identity?.externalId !== identity.externalId) throw new Error('stale extension')
@@ -439,50 +428,6 @@ export class ExtensionHost {
       this.changed(rt)
     }
     return rt
-  }
-
-  registerCommands(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    const raw = (params as { commands?: unknown })?.commands
-    if (!Array.isArray(raw)) return fail('invalid-params', 'commands must be an array')
-    const declared = rt.ext.manifest.contributes.commands
-    for (const [i, entry] of raw.entries()) {
-      const id = typeof entry === 'string' ? entry : (entry as { id?: unknown })?.id
-      const known = declared.find((c) => c.id === id)
-      if (known) {
-        rt.ready.set(known.id, known)
-        continue
-      }
-      if (typeof entry === 'string') return fail('undeclared-command', `'${entry}' needs a title`)
-      const parsed = parseCommand(entry, i)
-      if (typeof parsed === 'string') return fail('invalid-command', parsed)
-      rt.ready.set(parsed.id, parsed)
-    }
-    this.changed(rt)
-    return { ok: true, commands: [...rt.ready.keys()] }
-  }
-
-  subscribe(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    const events = (params as { events?: unknown })?.events
-    if (!Array.isArray(events)) return fail('invalid-params', 'events must be an array')
-    for (const type of events) {
-      if (!EXTENSION_EVENT_TYPES.includes(type as ExtensionEventType)) {
-        return fail('unknown-event', String(type))
-      }
-      const cap: Capability = type === 'notification' ? 'notify' : 'read-board'
-      if (!hasCap(identity.externalId, cap)) return fail('needs-elevation', cap)
-    }
-    for (const type of events) rt.subscriptions.add(type as ExtensionEventType)
-    return { ok: true, events: [...rt.subscriptions] }
-  }
-
-  startWithWindow(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    const on = (params as { on?: unknown } | null)?.on
-    if (typeof on !== 'boolean') return fail('invalid-params', 'on must be a boolean')
-    this.deps.launches?.set(rt.ext.manifest.id, on)
-    return { ok: true }
   }
 
   openedBy(identity: PaneIdentity, paneId: string): boolean {

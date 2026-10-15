@@ -148,8 +148,8 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
   })
 
   it('delivers subscribed events as notifications and ignores unsubscribed ones', async () => {
-    host.emitEvent('pane.closed', { paneId: 'p-closed', workspaceId: 's1' })
-    host.emitEvent('pane.created', { paneId: 'p-new', workspaceId: 's1' })
+    host.events.emitEvent('pane.closed', { paneId: 'p-closed', workspaceId: 's1' })
+    host.events.emitEvent('pane.created', { paneId: 'p-new', workspaceId: 's1' })
     const item = await until(() => sidebar().find((i) => i.key === 'pane.created'))
     expect(item).toEqual({
       extId: 'echo',
