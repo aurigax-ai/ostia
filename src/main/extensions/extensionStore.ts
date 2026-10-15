@@ -3,6 +3,7 @@ import {
   BUILTIN_CAPABILITIES,
   type Capability,
 } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { loadJson, saveJson } from '../platform/jsonStore'
 
 export interface ExtensionRecord {
@@ -38,9 +39,9 @@ export function needsApproval(builtin: boolean, record: ExtensionRecord | undefi
 }
 
 function sanitize(raw: unknown): ExtensionRecords {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {}
+  if (!isRecord(raw)) return {}
   const out: ExtensionRecords = {}
-  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+  for (const [id, value] of Object.entries(raw)) {
     if (typeof value !== 'object' || value === null) continue
     const v = value as { enabled?: unknown; approved?: unknown; serversOff?: unknown }
     const approved = Array.isArray(v.approved)

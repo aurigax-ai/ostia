@@ -7,6 +7,7 @@ import {
   CHAT_TOOL_OUTPUT_MAX,
   CHAT_TOOL_SCHEMA_MAX,
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import {
   MCP_TOOLS_PER_SERVER_MAX,
@@ -71,10 +72,6 @@ type ToolCall = { ok: true; raw: unknown } | { ok: false; error: string }
 function errorText(err: unknown): string {
   const text = err instanceof Error ? err.message : String(err)
   return text.replace(/\s+/g, ' ').trim().slice(0, ERROR_MAX) || 'failed'
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
 function toolInfo(raw: unknown): McpToolInfo | null {

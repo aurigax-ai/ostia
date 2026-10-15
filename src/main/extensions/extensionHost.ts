@@ -20,6 +20,7 @@ import {
   type ExtensionStatus,
   commandArgument,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { languageServerSummary } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import {
   FOLDER_CLOSED_EVENT,
@@ -48,7 +49,6 @@ import {
   REQUEST_TIMEOUT_MS,
   type Runtime,
   fail,
-  isPlainRecord,
   newRuntime,
   withTimeout,
 } from './extensionRuntime'
@@ -407,7 +407,7 @@ export class ExtensionHost {
 
   sandboxDomains(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
     const rt = this.runtimeOf(identity, conn)
-    const workspaceId = isPlainRecord(params) ? params.workspaceId : undefined
+    const workspaceId = isRecord(params) ? params.workspaceId : undefined
     if (typeof workspaceId !== 'string' || !workspaceId) {
       return fail('invalid-params', 'workspaceId is required')
     }
@@ -438,7 +438,7 @@ export class ExtensionHost {
 
   async redactTexts(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
     this.runtimeOf(identity, conn)
-    const texts = isPlainRecord(params) ? params.texts : undefined
+    const texts = isRecord(params) ? params.texts : undefined
     if (
       !Array.isArray(texts) ||
       texts.length > EXTENSION_REDACT_TEXTS_MAX ||

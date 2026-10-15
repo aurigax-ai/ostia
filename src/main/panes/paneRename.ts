@@ -6,6 +6,7 @@ import type { Reach } from '../approvals/reach'
 import { targetOf } from '../attention/attention'
 import { registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
+import { record } from './paneReach'
 
 const NAME_MAX = 200
 
@@ -17,12 +18,6 @@ export interface PaneRenameDeps {
 
 function fail(message: string): ResponseError<void> {
   return new ResponseError(ErrorCodes.InvalidRequest, message)
-}
-
-function record(raw: unknown): Record<string, unknown> {
-  return typeof raw === 'object' && raw !== null && !Array.isArray(raw)
-    ? (raw as Record<string, unknown>)
-    : {}
 }
 
 function hasControlCharacter(text: string): boolean {

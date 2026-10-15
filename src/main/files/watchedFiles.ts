@@ -1,5 +1,6 @@
 import { relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import picomatch from 'picomatch/posix'
 import { isInsidePath } from '../platform/pathGuard'
 import type { TreeChange, TreeChangeKind } from './fileWatch'
@@ -30,10 +31,6 @@ export interface FileWatcher {
 export interface FileEvent {
   uri: string
   type: number
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function filePath(uri: unknown): string | null {

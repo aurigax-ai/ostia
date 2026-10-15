@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import {
   type WorkspaceSandbox,
   emptyWorkspaceSandbox,
@@ -22,7 +23,7 @@ export class SandboxStore {
     if (!existsSync(this.path)) return
     try {
       const raw = JSON.parse(readFileSync(this.path, 'utf8')) as unknown
-      if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) throw new Error('shape')
+      if (!isRecord(raw)) throw new Error('shape')
       for (const [id, value] of Object.entries(raw)) {
         const parsed = parseWorkspaceSandbox(value)
         if (!parsed) throw new Error(`entry ${id}`)

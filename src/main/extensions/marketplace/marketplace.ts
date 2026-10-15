@@ -15,6 +15,7 @@ import {
   EXTENSION_MANIFEST_FILE,
   type ExtensionManifest,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import {
   EXTENSION_ID_PATTERN,
   readManifest,
@@ -96,7 +97,7 @@ function sanitizeRecords(raw: unknown): Records {
       }
     }
   }
-  if (typeof installs === 'object' && installs !== null && !Array.isArray(installs)) {
+  if (isRecord(installs)) {
     for (const [extId, source] of Object.entries(installs)) {
       if (EXTENSION_ID_PATTERN.test(extId) && typeof source === 'string') {
         records.installs[extId] = source
