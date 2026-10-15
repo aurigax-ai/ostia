@@ -26,8 +26,6 @@ import type { AgentResume } from '../shared/agents/agentResume'
 import { MANAGER_FEATURE, parseManagerSettings } from '../shared/agents/managerSettings'
 import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
 import { isMacInstall, replacesInApp } from '../shared/app/installMethod'
-import { parseGitSettings } from '../shared/boards/git'
-import { parsePortsSettings } from '../shared/boards/ports'
 import { ChangeSignal } from '../shared/common/actThenConfirm'
 import { externalHref } from '../shared/common/externalLinks'
 import { EXTENSION_SUGGESTIONS } from '../shared/extensions/extensionSuggestions'
@@ -113,11 +111,8 @@ import { OpenWaits } from './files/openWaits'
 import { registerRemoteFolderConfirm } from './files/remoteFolderConfirm'
 import { startGateway } from './gateway/gatewayWiring'
 import { phoneCanRespond } from './gateway/server'
-import { GitCommands } from './git/commands'
-import { confirmDiscard } from './git/confirmDiscard'
-import { registerGitIpc, registerGitMethods } from './git/register'
-import { GitService } from './git/service'
-import { ViewStateStore } from './git/viewState'
+import { createCoreBoards } from './git/coreBoards'
+import type { GitService } from './git/service'
 import { createLanguageServerWiring } from './lsp/languageServerWiring'
 import type { LanguageServers } from './lsp/languageServers'
 import { type ManagerService, managerWindowId } from './manager/manager'
@@ -149,8 +144,7 @@ import {
 import { registerSystemRequirementsIpc } from './platform/systemRequirementsIpc'
 import { loginPathSettled, resolveLoginPath } from './platform/toolPath'
 import { appConfigDir } from './platform/userDirs'
-import { registerPortsIpc, registerPortsMethods } from './ports/register'
-import { PortsService } from './ports/service'
+import type { PortsService } from './ports/service'
 import { registerPrivacyIpc } from './privacy/privacyIpc'
 import { createRedactor } from './privacy/redaction'
 import { createWorkerScan, redactionWorkerScript } from './privacy/redactionScan'
@@ -1095,52 +1089,6 @@ export function attachPhoneObserver(
   }
 }
 
-function startCoreBoards(): void {
-  const panes = () =>
-    listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking })
-  const service = new GitService({
-    settings: () => parseGitSettings(readSettingsFile().git),
-    listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
-    listPanes: panes,
-    send: sendToWindow,
-    log: (line) => console.error(`[git] ${line}`),
-  })
-  services.gitService = service
-  const commands = new GitCommands({
-    settings: () => parseGitSettings(readSettingsFile().git),
-    text: () => mainStrings().git,
-    cwdOf: (workspaceId) => service.cwdOf(workspaceId),
-    views: new ViewStateStore(join(app.getPath('userData'), 'git-view.json')),
-    openDiff: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-diff', req),
-    confirmDiscard: (prompt) => confirmDiscard(prompt, windows.values()),
-    touched: () => service.touched(),
-  })
-  registerGitMethods({
-    commands,
-    callerOf: (identity) => ({
-      workspaceId: identity.workspaceId,
-      workDir: workDirForWorkspace(identity.workspaceId),
-      cwd: terminalState.get(identity.paneId)?.cwd,
-    }),
-  })
-  registerGitIpc({
-    commands,
-    service,
-    ownerWindow: workspaceWindowId,
-    workDirOf: workDirForWorkspace,
-  })
-  const ports = new PortsService({
-    settings: () => parsePortsSettings(readSettingsFile().ports),
-    listPanes: panes,
-    rendererPaneId: (externalId) => resolveExternal(externalId)?.paneId,
-    send: sendToWindow,
-    log: (line) => console.error(`[ports] ${line}`),
-  })
-  services.portsService = ports
-  registerPortsMethods(ports)
-  registerPortsIpc(ports)
-}
-
 const {
   extensionConnections,
   extensionSecretStore,
@@ -1155,6 +1103,21 @@ const languagePackDeps = {
 }
 
 const mainStrings = createMainStrings({ ...languagePackDeps, locale: readLocale })
+
+const { startCoreBoards } = createCoreBoards({
+  execCommand,
+  getTerminalState,
+  ptyPid,
+  windowIds,
+  isWaking,
+  sendToWindow,
+  services,
+  mainStrings,
+  sendToWorkspaceWindow,
+  windows,
+  terminalState,
+  workspaceWindowId,
+})
 
 const agentOffers = createAgentOfferRelay({
   windowOf: (workspaceId) => workspaceWindowId(workspaceId),
