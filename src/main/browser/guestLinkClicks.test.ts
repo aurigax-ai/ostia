@@ -8,9 +8,15 @@ class FakeElement {
   }
 }
 
+interface ClickEvent {
+  target: unknown
+  isTrusted: boolean
+  button: number
+}
+
 function runScript() {
   const logged: string[] = []
-  let onClick: ((event: { target: unknown }) => void) | null = null
+  let onClick: ((event: ClickEvent) => void) | null = null
   let capture = false
   const source =
     typeof LINK_CLICK_SCRIPT === 'string' ? LINK_CLICK_SCRIPT : LINK_CLICK_SCRIPT.source
@@ -22,7 +28,8 @@ function runScript() {
     FakeElement,
     { debug: (message: string) => logged.push(message) },
   )
-  const click = (target: unknown): void => onClick?.({ target })
+  const click = (target: unknown, event: Partial<ClickEvent> = {}): void =>
+    onClick?.({ target, isTrusted: true, button: 0, ...event })
   return { logged, click, capture: () => capture }
 }
 
@@ -37,6 +44,15 @@ describe('LINK_CLICK_SCRIPT', () => {
     expect(capture()).toBe(true)
     expect(logged).toHaveLength(1)
     expect(clickedLinkOf(logged[0])).toBe('https://docs.example.com/a')
+  })
+
+  it('reports nothing for a click the page made itself or another button', () => {
+    const { logged, click } = runScript()
+    const link = new FakeElement({ href: 'https://docs.example.com/a' })
+    click(link, { isTrusted: false })
+    click(link, { button: 1 })
+    click(link, { button: 2 })
+    expect(logged).toEqual([])
   })
 
   it('reports nothing for a click outside a link or on a non-element', () => {
