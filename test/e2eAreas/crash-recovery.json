@@ -1,0 +1,15 @@
+{
+  "name": "crash recovery",
+  "paths": [
+    "src/main/diagnostics/diagnostics.ts",
+    "src/main/diagnostics/rendererReports.ts",
+    "src/main/diagnostics/testCrashDumps.ts",
+    "src/renderer/components/app/AppErrorBoundary.tsx",
+    "src/renderer/components/panes/SurfaceErrorBoundary.tsx",
+    "src/renderer/lib/app/errorReporting.ts"
+  ],
+  "specs": [
+    "e2e/crash-dumps.spec.ts",
+    "e2e/crash-recovery.spec.ts"
+  ]
+}

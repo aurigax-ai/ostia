@@ -1,0 +1,27 @@
+{
+  "name": "app shell",
+  "paths": [
+    "src/main/platform/discreteGpu.ts",
+    "src/main/windows/appMenu.ts",
+    "src/main/windows/appQuit.ts",
+    "src/main/windows/closeGuard.ts",
+    "src/main/windows/contextMenu.ts",
+    "src/main/windows/contextMenuTemplate.",
+    "src/main/windows/globalHotkey.ts",
+    "src/main/windows/quitPlan.",
+    "src/main/windows/quitPrompt.",
+    "src/main/windows/quitTeardown.ts",
+    "src/main/windows/tray.ts",
+    "src/renderer/components/app/WindowControls.tsx",
+    "src/renderer/components/settings/DiscreteGpuRow.tsx",
+    "src/renderer/lib/app/appMenu.ts",
+    "src/shared/app/appMenu.ts",
+    "src/shared/app/discreteGpu.ts",
+    "src/shared/keyboard/globalHotkey.ts"
+  ],
+  "specs": [
+    "e2e/auto-resume.spec.ts",
+    "e2e/quit-confirm.spec.ts",
+    "e2e/tray.spec.ts"
+  ]
+}

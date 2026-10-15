@@ -146,8 +146,15 @@ export function planE2e(changed, map, imports, quarantined = []) {
   return [...specs].filter((entry) => entry === specOf(entry) || !specs.has(specOf(entry))).sort()
 }
 
-function loadE2eMap() {
-  return JSON.parse(readFileSync(join(ROOT, 'test/e2eAreas.json'), 'utf8'))
+const AREAS_DIR = 'test/e2eAreas'
+
+export function loadE2eMap() {
+  const names = readdirSync(join(ROOT, AREAS_DIR))
+    .filter((name) => name.endsWith('.json'))
+    .sort()
+  return {
+    areas: names.map((name) => JSON.parse(readFileSync(join(ROOT, AREAS_DIR, name), 'utf8'))),
+  }
 }
 
 export function e2eSpecs() {
