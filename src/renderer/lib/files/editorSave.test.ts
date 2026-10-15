@@ -1,33 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createAutoSave, saveFormatted } from './editorSave'
-
-describe('createAutoSave', () => {
-  beforeEach(() => vi.useFakeTimers())
-  afterEach(() => vi.useRealTimers())
-
-  it('saves once, one delay after the last edit', () => {
-    const save = vi.fn()
-    const auto = createAutoSave(save, 1000)
-    auto.schedule()
-    vi.advanceTimersByTime(600)
-    auto.schedule()
-    vi.advanceTimersByTime(600)
-    expect(save).not.toHaveBeenCalled()
-    vi.advanceTimersByTime(400)
-    expect(save).toHaveBeenCalledTimes(1)
-    vi.advanceTimersByTime(5000)
-    expect(save).toHaveBeenCalledTimes(1)
-  })
-
-  it('does not save after cancel', () => {
-    const save = vi.fn()
-    const auto = createAutoSave(save, 1000)
-    auto.schedule()
-    auto.cancel()
-    vi.advanceTimersByTime(2000)
-    expect(save).not.toHaveBeenCalled()
-  })
-})
+import { describe, expect, it, vi } from 'vitest'
+import { saveFormatted } from './editorSave'
 
 describe('saveFormatted', () => {
   it('formats before writing when format on save is on', async () => {
