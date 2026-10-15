@@ -116,7 +116,7 @@ describe('chat tool grant IPC', () => {
       'main/app.ts',
       'main/chat/chatToolGrants.ts',
       'main/chat/chatToolsIpc.ts',
-      'preload/index.ts',
+      'preload/assistBridge.ts',
     ])
   })
 })

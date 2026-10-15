@@ -1,8 +1,4 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import {
-  WORKSPACE_GROUP_COLORS,
-  isWorkspaceGroupColor,
-} from '../../shared/workspaces/workspaceGroups'
 import { FlagError, parseArgs } from '../common/args'
 import { resolveWorkspaceRef } from '../common/crossWorkspace'
 import { usageOf } from '../common/usageTable'
@@ -261,68 +257,6 @@ export function parsePaneArgs(argv: string[]): PaneCall {
     return { method: 'pane.rename', params: { pane, title } }
   }
   throw new Error(USAGE)
-}
-
-export function parseWorkspaceRenameArgs(argv: string[]): { workspace?: string; name: string } {
-  const { positional, values, booleans } = parseArgs(argv, {
-    values: { workspace: '--workspace' },
-    booleans: { clear: '--clear' },
-    unknown: 'keep',
-  })
-  const name = positional.join(' ').trim()
-  if (booleans.clear === Boolean(name)) {
-    throw new Error('usage: ostia workspace rename [--workspace <id>] <name…> | --clear')
-  }
-  return { ...(values.workspace ? { workspace: values.workspace } : {}), name }
-}
-
-export function parseWorkspaceGroupArgs(
-  argv: string[],
-  withName: boolean,
-): { workspace?: string; name: string } {
-  const { positional, values } = parseArgs(argv, {
-    values: { workspace: '--workspace' },
-    unknown: 'keep',
-  })
-  const name = positional.join(' ').trim()
-  if (withName ? !name : name) {
-    throw new Error(
-      withName
-        ? 'missing <name> (usage: ostia workspace group [--workspace <id>] <name>)'
-        : 'usage: ostia workspace ungroup [--workspace <id>]',
-    )
-  }
-  return { ...(values.workspace ? { workspace: values.workspace } : {}), name }
-}
-
-export function parseGroupColorArgs(argv: string[]): { group: string; color: string | null } {
-  const usage = `usage: ostia workspace group-color <group> <${WORKSPACE_GROUP_COLORS.join('|')}> | <group> --clear`
-  const { positional, booleans } = parseArgs(argv, {
-    booleans: { clear: '--clear' },
-    unknown: 'keep',
-  })
-  if (booleans.clear) {
-    if (positional.length === 0) throw new Error(usage)
-    return { group: positional.join(' ').trim(), color: null }
-  }
-  const color = positional.at(-1)
-  const group = positional.slice(0, -1).join(' ').trim()
-  if (!group || !isWorkspaceGroupColor(color)) throw new Error(usage)
-  return { group, color }
-}
-
-export function parseGroupRenameArgs(argv: string[]): { group: string; name: string } {
-  const usage = 'usage: ostia workspace group-rename <group> <name>'
-  const { positional } = parseArgs(argv, { unknown: 'keep' })
-  const [group, name, ...extra] = positional.map((word) => word.trim())
-  if (!group || !name || extra.length > 0) throw new Error(usage)
-  return { group, name }
-}
-
-export function parseGroupDeleteArgs(argv: string[]): { group: string } {
-  const [group, ...extra] = argv.map((word) => word.trim())
-  if (!group || extra.length > 0) throw new Error('usage: ostia workspace group-delete <group>')
-  return { group }
 }
 
 export async function runPaneVerb(
