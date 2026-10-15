@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { type FSWatcher, mkdirSync, readdirSync, watch } from 'node:fs'
-import { isAbsolute, join } from 'node:path'
+import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { agentSkillId, hookAgentsFor } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import { appEnv, withoutEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
@@ -21,7 +21,6 @@ import {
   LOCALE_CHANGED_EVENT,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
 import {
-  DIFF_TEXT_MAX,
   EXTENSION_EVENT_TYPES,
   EXTENSION_REDACT_TEXTS_MAX,
   EXTENSION_REDACT_TEXT_MAX,
@@ -92,12 +91,11 @@ import {
 } from './extensionRuntime'
 import { ExtensionSlots } from './extensionSlots'
 import { type ExtensionStore, effectiveRecord, grantedCaps, needsApproval } from './extensionStore'
+import { ExtensionWindowRequests } from './extensionWindowRequests'
 
 export const MAX_RESTARTS = 3
 const REQUEST_TIMEOUT_MS = 30_000
 const INTERACTIVE_TIMEOUT_MS = 10 * 60_000
-const DIFF_TITLE_MAX = 200
-const DIFF_LANGUAGE_MAX = 40
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost'])
 const RESCAN_DEBOUNCE_MS = 250
 
@@ -213,10 +211,6 @@ export interface ExtensionSecretStore {
   ) => { ok: true } | { ok: false; error: string }
 }
 
-function filePosition(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined
-}
-
 function normalizeResult(raw: unknown): ExtensionResult {
   if (
     typeof raw === 'object' &&
@@ -272,6 +266,7 @@ export class ExtensionHost {
   readonly runs: ExtensionRuns
   readonly contributions: ExtensionContributions
   readonly config: ExtensionConfig
+  readonly windowRequests: ExtensionWindowRequests
 
   constructor(private readonly deps: ExtensionHostDeps) {
     this.changes.setMaxListeners(0)
@@ -323,6 +318,12 @@ export class ExtensionHost {
     })
     this.announcedLocale = this.currentLocale()
     this.remoteFolders = this.createRemoteFolders()
+    this.windowRequests = new ExtensionWindowRequests({
+      deps,
+      remoteFolders: this.remoteFolders,
+      runtimeOf: (identity, conn) => this.runtimeOf(identity, conn),
+      shownName: (rt) => this.shownName(rt),
+    })
   }
 
   private discover(): LoadedExtension[] {
@@ -962,98 +963,6 @@ export class ExtensionHost {
     return { ok: true }
   }
 
-  notify(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    const p = (params ?? {}) as { title?: unknown; body?: unknown; openPanel?: unknown }
-    const title = typeof p.title === 'string' ? p.title.trim().slice(0, 256) : ''
-    if (!title) return fail('missing-title')
-    const body = typeof p.body === 'string' && p.body.trim() ? p.body.slice(0, 1024) : undefined
-    const path = typeof p.openPanel === 'string' ? panelPath(p.openPanel) : null
-    if (typeof p.openPanel === 'string' && !path) {
-      return fail('invalid-params', "openPanel must be true or a path starting with '/'")
-    }
-    const from = `extension:${rt.ext.manifest.id}`
-    const wantsPanel = p.openPanel === true || path !== null
-    if (wantsPanel && rt.ext.manifest.contributes.panel && this.deps.notifyPanel) {
-      const req: ExtensionOpenPanelRequest = { extId: rt.ext.manifest.id }
-      if (path) req.path = path
-      const n = path
-        ? { title, body, from, extId: req.extId, panelPath: path }
-        : { title, body, from, extId: req.extId }
-      this.deps.notifyPanel(n, () => this.deps.openPanelIn(req))
-    } else {
-      this.deps.notify({ title, body, from })
-    }
-    return { ok: true }
-  }
-
-  openPanel(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    if (!rt.ext.manifest.contributes.panel) return fail('not-contributed', 'no panel in manifest')
-    const p = (params ?? {}) as { workspaceId?: unknown; path?: unknown }
-    const req: ExtensionOpenPanelRequest = { extId: rt.ext.manifest.id }
-    if (typeof p.workspaceId === 'string' && p.workspaceId) req.workspaceId = p.workspaceId
-    if (p.path !== undefined) {
-      const path = panelPath(p.path)
-      if (!path) return fail('invalid-params', "path must start with '/'")
-      req.path = path
-    }
-    this.deps.openPanelIn(req)
-    return { ok: true }
-  }
-
-  openDiff(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    const p = (params ?? {}) as Record<string, unknown>
-    const title = typeof p.title === 'string' ? p.title.trim().slice(0, DIFF_TITLE_MAX) : ''
-    if (!title) return fail('missing-title')
-    if (typeof p.original !== 'string' || typeof p.modified !== 'string') {
-      return fail('invalid-params', 'original and modified must be strings')
-    }
-    if (p.original.length > DIFF_TEXT_MAX || p.modified.length > DIFF_TEXT_MAX) {
-      return fail('too-large', `each side is limited to ${DIFF_TEXT_MAX} characters`)
-    }
-    if (p.path !== undefined && (typeof p.path !== 'string' || !isAbsolute(p.path))) {
-      return fail('invalid-params', 'path must be absolute')
-    }
-    const req: ExtensionOpenDiffRequest = {
-      extId: rt.ext.manifest.id,
-      title,
-      original: p.original,
-      modified: p.modified,
-    }
-    if (typeof p.language === 'string' && p.language) {
-      req.language = p.language.slice(0, DIFF_LANGUAGE_MAX)
-    }
-    if (typeof p.path === 'string') req.path = p.path
-    if (typeof p.workspaceId === 'string' && p.workspaceId) req.workspaceId = p.workspaceId
-    if (!this.deps.openDiffIn) return fail('no-window')
-    this.deps.openDiffIn(req)
-    return { ok: true }
-  }
-
-  async openFile(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    const p = (params ?? {}) as Record<string, unknown>
-    if (typeof p.workspaceId !== 'string' || !p.workspaceId) return fail('missing-workspace')
-    if (typeof p.path !== 'string' || !isAbsolute(p.path)) {
-      return fail('invalid-params', 'path must be absolute')
-    }
-    const req: ExtensionOpenFileRequest = {
-      extId: rt.ext.manifest.id,
-      workspaceId: p.workspaceId,
-      path: p.path,
-    }
-    const line = filePosition(p.line)
-    if (line) {
-      req.line = line
-      const column = filePosition(p.column)
-      if (column) req.column = column
-    }
-    if (!this.deps.openFileIn) return fail('no-window')
-    return this.deps.openFileIn(req)
-  }
-
   openedBy(identity: PaneIdentity, paneId: string): boolean {
     const extId = identity.kind === 'extension' ? identity.extId : undefined
     const rt = extId ? this.runtimes.get(extId) : undefined
@@ -1131,19 +1040,6 @@ export class ExtensionHost {
       .catch(() => {})
   }
 
-  async openFolder(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    if (!this.remoteFolders) return fail('no-window')
-    return this.remoteFolders.open({ id: rt.ext.manifest.id, name: this.shownName(rt) }, params)
-  }
-
-  closeFolder(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    const folderId = (params as { folderId?: unknown } | null)?.folderId
-    const closed = this.remoteFolders?.closeByExtension(rt.ext.manifest.id, folderId) ?? false
-    return closed ? { ok: true } : fail('unknown-folder')
-  }
-
   reloadRecords(): void {
     for (const rt of this.runtimes.values()) {
       if (!this.active(rt)) {
@@ -1191,12 +1087,12 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
     forExtension((h, id, conn, p) => h.slots.setSidebarItem(id, conn, p)),
   )
   registerControlMethod('ext.notify', {
-    ...forExtension((h, id, conn, p) => h.notify(id, conn, p)),
+    ...forExtension((h, id, conn, p) => h.windowRequests.notify(id, conn, p)),
     cap: 'notify',
   })
   registerControlMethod(
     'ext.openPanel',
-    forExtension((h, id, conn, p) => h.openPanel(id, conn, p)),
+    forExtension((h, id, conn, p) => h.windowRequests.openPanel(id, conn, p)),
   )
   registerControlMethod(
     'ext.setPaneChip',
@@ -1225,12 +1121,12 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
 
   registerControlMethod(
     'ext.openDiff',
-    forExtension((h, id, conn, p) => h.openDiff(id, conn, p)),
+    forExtension((h, id, conn, p) => h.windowRequests.openDiff(id, conn, p)),
   )
 
   registerControlMethod(
     'ext.openFile',
-    forExtension((h, id, conn, p) => h.openFile(id, conn, p)),
+    forExtension((h, id, conn, p) => h.windowRequests.openFile(id, conn, p)),
   )
 
   registerControlMethod('ext.openTerminal', {
@@ -1329,7 +1225,7 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   )
   registerControlMethod(
     'ext.openFolder',
-    forExtension((h, id, conn, p) => h.openFolder(id, conn, p)),
+    forExtension((h, id, conn, p) => h.windowRequests.openFolder(id, conn, p)),
   )
   registerControlMethod(
     'ext.sandboxDomains',
@@ -1337,6 +1233,6 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   )
   registerControlMethod(
     'ext.closeFolder',
-    forExtension((h, id, conn, p) => h.closeFolder(id, conn, p)),
+    forExtension((h, id, conn, p) => h.windowRequests.closeFolder(id, conn, p)),
   )
 }
