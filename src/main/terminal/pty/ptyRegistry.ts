@@ -9,6 +9,7 @@ import type { PortBridge } from '../../sandbox/portBridge'
 import type { KeptAttention } from '../../tmux/keptAttention'
 import type { KeptMeta } from '../../tmux/keptShells'
 import type { TmuxPane } from '../../tmux/tmuxServer'
+import { markNonceFileFor } from '../markNonce'
 import { PtyFlowControl } from '../ptyFlow'
 import { PtySession } from '../ptySession'
 import { ScreenMirror } from '../screenMirror'
@@ -31,6 +32,7 @@ export interface PtyEntry {
   killTimer: ReturnType<typeof setTimeout> | null
   spawnPath: string
   stateFile: string
+  markNonce: string | null
   workspaceId: string
   sandboxed: boolean
   shell: string
@@ -43,6 +45,7 @@ export interface PtyEntry {
 
 export function removeStateFile(entry: PtyEntry): void {
   rmSync(entry.stateFile, { force: true })
+  rmSync(markNonceFileFor(entry.stateFile), { force: true })
 }
 
 function pausePty(entry: PtyEntry, paused: boolean): void {
@@ -125,6 +128,7 @@ export function createPtyRegistry({
       subs: Map<string, Electron.WebContents>
       spawnPath: string
       stateFile: string
+      markNonce?: string | null
       keepAlive: boolean
       workspaceId?: string
       sandboxed?: boolean
@@ -191,6 +195,7 @@ export function createPtyRegistry({
       killTimer: null,
       spawnPath: opts.spawnPath,
       stateFile: opts.stateFile,
+      markNonce: opts.markNonce ?? null,
       keepAlive: opts.keepAlive,
       exitListeners: new Set(),
       workspaceId: opts.workspaceId ?? '',

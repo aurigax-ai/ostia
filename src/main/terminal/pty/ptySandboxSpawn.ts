@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { writeFileSync } from 'node:fs'
+import { rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app } from 'electron'
 import { quoteArgv } from '../../../shared/terminal/shellQuote'
@@ -36,7 +36,8 @@ export function createSandboxSpawn({
     paneId: string,
     plan: SpawnPlan,
   ): Promise<SpawnPlan | PtyAttachResult> {
-    const { identity, workspaceId, shell, stateFile, wantsKeep } = plan
+    const { identity, workspaceId, shell, stateFile, markNonceFile, wantsKeep } = plan
+    const markFiles = markNonceFile ? [markNonceFile] : []
     let {
       secretNotice,
       resizePipe,
@@ -76,8 +77,10 @@ export function createSandboxSpawn({
           portBridge?.command ?? null,
         ),
         'bash',
-        tokenFile ? [stateFile, keptShells.attentionFile(paneId)] : [stateFile],
-        tokenFile ? [tokenFile, keptShells.attentionFile(paneId)] : [],
+        tokenFile
+          ? [stateFile, keptShells.attentionFile(paneId), ...markFiles]
+          : [stateFile, ...markFiles],
+        tokenFile ? [tokenFile, keptShells.attentionFile(paneId), ...markFiles] : markFiles,
       )
       sandboxStamp = workspaceSandboxes.wrapStamp(workspaceId)
       file = '/bin/sh'
@@ -108,6 +111,7 @@ export function createSandboxSpawn({
     } catch (err) {
       portBridge?.close()
       if (tokenFile) keptShells.removeToken(paneId)
+      if (markNonceFile) rmSync(markNonceFile, { force: true })
       const missing = err instanceof SandboxUnavailableError ? err.missing : []
       onSandboxSpawnFailure()?.(workspaceId, missing)
       return {

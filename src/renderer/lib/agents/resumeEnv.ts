@@ -5,7 +5,7 @@ import type { AgentResume } from '@shared/agents/agentResume'
 function runningCommand(paneId: string): string | undefined {
   const { running, byPane } = useBlocksStore.getState()
   const blockId = running[paneId]
-  return blockId ? byPane[paneId]?.find((block) => block.id === blockId)?.command : undefined
+  return blockId ? byPane[paneId]?.find((block) => block.id === blockId)?.typedCommand : undefined
 }
 
 export function withCommandLineEnv(resume: AgentResume | null, paneId: string): AgentResume | null {
