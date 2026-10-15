@@ -55,21 +55,6 @@ export function isLongContext(text: string): boolean {
   return text.length > CONTEXT_FOLD_CHARS || text.split('\n').length > CONTEXT_FOLD_LINES
 }
 
-const MINUTE = 60_000
-const HOUR = 60 * MINUTE
-const DAY = 24 * HOUR
-
-export function agoText(
-  elapsedMs: number,
-  justNow: string,
-  format: Pick<Intl.RelativeTimeFormat, 'format'>,
-): string {
-  if (elapsedMs < MINUTE) return justNow
-  if (elapsedMs < HOUR) return format.format(-Math.floor(elapsedMs / MINUTE), 'minute')
-  if (elapsedMs < DAY) return format.format(-Math.floor(elapsedMs / HOUR), 'hour')
-  return format.format(-Math.floor(elapsedMs / DAY), 'day')
-}
-
 export interface PaneWhere {
   workspaceId: string
   workspace: string

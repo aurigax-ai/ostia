@@ -1,7 +1,9 @@
 import { IconButton } from '@/components/common/IconButton'
+import { formatBytes } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { stepZoom, zoomPercent } from '@/lib/browser/regionSelect'
 import type { FileBytes } from '@/lib/files/viewerHooks'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   ArrowsInIcon,
   MagnifyingGlassMinusIcon,
@@ -57,14 +59,13 @@ export function ViewerMessage({ children }: { children: ReactNode }): JSX.Elemen
   )
 }
 
-const MB = 1024 * 1024
-
 export function useBytesProblem(bytes: FileBytes): string | null {
   const d = useDict()
+  const locale = useSettingsStore((s) => s.locale)
   if ('status' in bytes) return d.viewer.loading
   if (bytes.ok) return null
   if (bytes.error === 'too-large') {
-    return fmt(d.viewer.tooLarge, { size: (bytes.size / MB).toFixed(1) })
+    return fmt(d.viewer.tooLarge, { size: formatBytes(bytes.size, locale) })
   }
   return d.viewer.unreadable
 }

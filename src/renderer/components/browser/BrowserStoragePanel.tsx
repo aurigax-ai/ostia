@@ -23,6 +23,7 @@ import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { cookieRowKey, filterCookies, filterEntries, formatExpiry } from '@/lib/browser/storageRows'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   ArrowClockwiseIcon,
   CheckIcon,
@@ -79,6 +80,7 @@ export function BrowserStoragePanel({
 }): JSX.Element {
   const d = useDict()
   const t = d.browserStorage
+  const locale = useSettingsStore((s) => s.locale)
   const [kind, setKind] = useState<StorageKind>('cookies')
   const [snapshot, setSnapshot] = useState<BrowserStorageSnapshot | null>(null)
   const [readError, setReadError] = useState<string | null>(null)
@@ -205,7 +207,7 @@ export function BrowserStoragePanel({
                   <TableCell className="font-mono">{c.domain}</TableCell>
                   <TableCell className="font-mono">{c.path}</TableCell>
                   <TableCell className="tabular-nums">
-                    {formatExpiry(c.expires, t.sessionExpiry)}
+                    {formatExpiry(c.expires, t.sessionExpiry, locale)}
                   </TableCell>
                   <TableCell>
                     <Flag on={c.httpOnly} label={t.yes} />

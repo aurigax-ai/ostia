@@ -14,10 +14,12 @@ import { Button } from '@/components/ui/button'
 import { Item, ItemContent, ItemTitle } from '@/components/ui/item'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { formatBytes, formatDate } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { usePaneVisible } from '@/lib/attention/workspaceActivity'
-import { sizeText, useArtifactListing } from '@/lib/files/artifacts'
+import { useArtifactListing } from '@/lib/files/artifacts'
 import { csvDelimiter } from '@/lib/files/csvTable'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type ShownVersion, useArtifactVersionsStore } from '@/stores/files/artifactVersionsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -33,10 +35,6 @@ const SCROLL_FROM = 8
 
 function baseName(path: string): string {
   return path.split('/').pop() ?? path
-}
-
-function timeText(time: number): string {
-  return new Date(time).toLocaleString()
 }
 
 function useTopArtifact(workspaceId: string, filePath: string): boolean {
@@ -82,6 +80,7 @@ export function ArtifactVersionsButton({
   filePath: string
 }): JSX.Element | null {
   const d = useDict()
+  const locale = useSettingsStore((s) => s.locale)
   const top = useTopArtifact(workspaceId, filePath)
   const versions = useVersions(workspaceId, filePath, top)
   const [open, setOpen] = useState(false)
@@ -97,7 +96,10 @@ export function ArtifactVersionsButton({
             render={
               <button
                 type="button"
-                aria-label={fmt(d.portable.versionRow, { name, time: timeText(version.time) })}
+                aria-label={fmt(d.portable.versionRow, {
+                  name,
+                  time: formatDate(version.time, locale),
+                })}
                 onClick={() => {
                   setOpen(false)
                   if (version.current) useArtifactVersionsStore.getState().back(paneId)
@@ -110,9 +112,9 @@ export function ArtifactVersionsButton({
             }
           >
             <ItemContent>
-              <ItemTitle className="text-ui-sm">{timeText(version.time)}</ItemTitle>
+              <ItemTitle className="text-ui-sm">{formatDate(version.time, locale)}</ItemTitle>
             </ItemContent>
-            <span className="artifact-meta text-ui-xs">{sizeText(version.size)}</span>
+            <span className="artifact-meta text-ui-xs">{formatBytes(version.size, locale)}</span>
             {version.current ? (
               <Badge variant="outline" className="text-ui-xs">
                 {d.portable.current}
@@ -210,6 +212,7 @@ export function VersionView({
   filePath: string
 }): JSX.Element | null {
   const d = useDict()
+  const locale = useSettingsStore((s) => s.locale)
   const shown = useArtifactVersionsStore((s) =>
     s.byPane[paneId]?.path === filePath ? s.byPane[paneId] : undefined,
   )
@@ -226,7 +229,7 @@ export function VersionView({
   }, [shown, modified, paneId])
 
   if (!shown) return null
-  const time = timeText(shown.version.time)
+  const time = formatDate(shown.version.time, locale)
   const back = (): void => useArtifactVersionsStore.getState().back(paneId)
   const compare = async (): Promise<void> => {
     const now = await window.ostia.fs.read(filePath)

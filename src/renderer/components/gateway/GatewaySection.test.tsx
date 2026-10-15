@@ -45,6 +45,14 @@ describe('GatewaySection', () => {
     expect(window.ostia.gateway.setCap).toHaveBeenLastCalledWith('dev_1', 'input', false)
   })
 
+  it('says the paired date is unknown when the device record has no readable date', async () => {
+    vi.mocked(window.ostia.gateway.devices).mockResolvedValue({
+      devices: [{ ...device(caps), createdAt: 'not a date' }],
+    })
+    render(<GatewaySection />)
+    expect(await screen.findByText('Paired Unknown date')).toBeInTheDocument()
+  })
+
   it('grants answering agents on its own switch, apart from typing and commands', async () => {
     const user = userEvent.setup()
     render(<GatewaySection />)

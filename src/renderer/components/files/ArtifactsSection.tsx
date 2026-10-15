@@ -6,26 +6,18 @@ import {
   usePortableFile,
 } from '@/components/editor/PortableActions'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
+import { formatBytes, useAgoText } from '@/lib/app/localeFormat'
 import { useDict } from '@/lib/app/useDict'
-import { openArtifact, openPad, opensInOstia, sizeText } from '@/lib/files/artifacts'
-import { agoText } from '@/lib/sidebar/dashboard'
+import { useNow } from '@/lib/app/useNow'
+import { openArtifact, openPad, opensInOstia } from '@/lib/files/artifacts'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import { CaretRightIcon, FolderOpenIcon, NotePencilIcon } from '@phosphor-icons/react'
 import type { ArtifactEntry } from '@shared/artifacts/artifacts'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { fileIcon } from './fileIcon'
 
 const AGE_TICK_MS = 30_000
-
-function useNow(): number {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), AGE_TICK_MS)
-    return () => clearInterval(timer)
-  }, [])
-  return now
-}
 
 function ArtifactRow({
   workspaceId,
@@ -37,6 +29,7 @@ function ArtifactRow({
   age: string
 }): JSX.Element {
   const d = useDict()
+  const locale = useSettingsStore((s) => s.locale)
   const unread = useArtifactsStore((s) => s.unread[entry.path] === true)
   const { Icon, color } = fileIcon({ name: entry.name, dir: false }, false)
   const portable = usePortableFile(workspaceId, entry.path)
@@ -51,7 +44,9 @@ function ArtifactRow({
       <Icon size={16} className="file-icon" style={{ color }} />
       <span className="file-name">{entry.name}</span>
       {unread ? <span className="unread-dot" role="img" aria-label={d.artifacts.unread} /> : null}
-      <span className="artifact-meta">{opensInOstia(entry) ? age : sizeText(entry.size)}</span>
+      <span className="artifact-meta">
+        {opensInOstia(entry) ? age : formatBytes(entry.size, locale)}
+      </span>
     </button>
   )
   if (!portable.shown) return row
@@ -88,14 +83,10 @@ function PadRow({ workspaceId, path }: { workspaceId: string; path?: string }): 
 
 export function ArtifactsSection({ workspaceId }: { workspaceId: string | null }): JSX.Element {
   const d = useDict()
-  const locale = useSettingsStore((s) => s.locale)
   const [open, setOpen] = useState(true)
   const listing = useArtifactsStore((s) => (workspaceId ? s.byWorkspace[workspaceId] : undefined))
-  const now = useNow()
-  const relative = useMemo(
-    () => new Intl.RelativeTimeFormat(locale, { numeric: 'always', style: 'short' }),
-    [locale],
-  )
+  const now = useNow(AGE_TICK_MS)
+  const ago = useAgoText()
 
   useEffect(() => {
     if (workspaceId) void useArtifactsStore.getState().refresh(workspaceId)
@@ -129,7 +120,7 @@ export function ArtifactsSection({ workspaceId }: { workspaceId: string | null }
               key={entry.path}
               workspaceId={workspaceId}
               entry={entry}
-              age={agoText(now - entry.modified, d.dashboard.justNow, relative)}
+              age={ago(now - entry.modified)}
             />
           ))}
         </div>

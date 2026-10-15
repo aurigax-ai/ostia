@@ -5,6 +5,9 @@ import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/p
 export type Locale = string
 
 export const en = {
+  formats: {
+    unknownDate: 'Unknown date',
+  },
   commands: {
     categories: {
       pane: 'Pane',
@@ -829,7 +832,7 @@ export const en = {
   },
   editor: {
     binary: 'Binary file, not opened in the editor',
-    tooLarge: 'This file is too large to open in the editor ({size} MB).',
+    tooLarge: 'This file is too large to open in the editor ({size}).',
     unreadable: 'Could not read this file, so it is not opened in the editor.',
     saveError: 'Could not save {path}',
     diskChanged: 'Changed on disk. Your unsaved edits are kept.',
@@ -1671,7 +1674,7 @@ export const en = {
     clearRegion: 'Clear region',
     regionHint: 'Drag across the page to select a region.',
     loading: 'Loading…',
-    tooLarge: 'This file is too large to preview ({size} MB).',
+    tooLarge: 'This file is too large to preview ({size}).',
     unreadable: 'Could not read this file.',
     imageFailed: 'Could not display this image.',
     pdfFailed: 'Could not open this PDF.',
@@ -2365,7 +2368,7 @@ export const en = {
       'outside-home': '{path} is outside your home folder.',
       'not-found': 'No cmux session at {path}. Open cmux once so it saves one, or pass the file.',
       unreadable: '{path} could not be read.',
-      'too-large': '{path} is larger than 32 MB.',
+      'too-large': '{path} is larger than {size}.',
       invalid: '{path} is not a cmux session file.',
       'unsupported-version': '{path} was saved by a cmux version this import cannot read.',
     },
@@ -3702,6 +3705,9 @@ export const en = {
 export type Dict = typeof en
 
 export const zhHant: Dict = {
+  formats: {
+    unknownDate: '日期不明',
+  },
   commands: {
     categories: {
       pane: '窗格',
@@ -4518,7 +4524,7 @@ export const zhHant: Dict = {
     preview: '預覽 Markdown',
     editSource: '編輯 Markdown 原始碼',
     binary: '二進位檔案，未在編輯器中開啟',
-    tooLarge: '檔案太大，無法在編輯器中開啟（{size} MB）。',
+    tooLarge: '檔案太大，無法在編輯器中開啟（{size}）。',
     unreadable: '無法讀取此檔案，因此未在編輯器中開啟。',
     saveError: '無法儲存 {path}',
     diskChanged: '檔案在磁碟上已變更。你未儲存的編輯會保留。',
@@ -5319,7 +5325,7 @@ export const zhHant: Dict = {
     clearRegion: '清除選取區域',
     regionHint: '在頁面上拖曳以選取區域。',
     loading: '載入中…',
-    tooLarge: '檔案太大，無法預覽（{size} MB）。',
+    tooLarge: '檔案太大，無法預覽（{size}）。',
     unreadable: '無法讀取此檔案。',
     imageFailed: '無法顯示此圖片。',
     pdfFailed: '無法開啟此 PDF。',
@@ -5992,7 +5998,7 @@ export const zhHant: Dict = {
       'outside-home': '{path} 不在您的家目錄裡。',
       'not-found': '{path} 沒有 cmux 工作階段。請先開一次 cmux 讓它存檔，或指定檔案。',
       unreadable: '無法讀取 {path}。',
-      'too-large': '{path} 超過 32 MB。',
+      'too-large': '{path} 超過 {size}。',
       invalid: '{path} 不是 cmux 的工作階段檔。',
       'unsupported-version': '{path} 是由這個匯入功能讀不懂的 cmux 版本存的。',
     },
