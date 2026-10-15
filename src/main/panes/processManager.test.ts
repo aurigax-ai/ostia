@@ -25,13 +25,9 @@ import {
 } from '../control/idRegistry'
 import { attachWorkspace } from '../sandbox/attachWorkspace'
 import { PtyRingBuffer } from '../terminal/ptyRingBuffer'
-import {
-  type ProcessInfo,
-  type ProcessOutput,
-  ProcessRegistry,
-  type ProcessTabRequest,
-  registerProcessMethods,
-} from './processManager'
+import type { ProcessTabRequest } from './processLaunch'
+import { registerProcessMethods } from './processManager'
+import { type ProcessInfo, type ProcessOutput, ProcessRegistry } from './processRegistry'
 
 const PROMPT = '\x1b]133;A\x1b\\user@host % \x1b]133;B\x1b\\'
 const C = '\x1b]133;C\x1b\\'

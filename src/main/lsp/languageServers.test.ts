@@ -11,15 +11,9 @@ import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vite
 import { type MessageConnection, createMessageConnection } from 'vscode-jsonrpc'
 import { StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node'
 import type { Requirement } from '../platform/systemRequirements'
-import {
-  type LanguageServerSource,
-  LanguageServers,
-  type LanguageServersDeps,
-  type SpawnServer,
-  confinedScript,
-  findServerRoot,
-  scrubbedEnv,
-} from './languageServers'
+import { LanguageServers, type LanguageServersDeps } from './languageServers'
+import type { LanguageServerSource } from './serverBinaries'
+import { type SpawnServer, confinedScript, findServerRoot, scrubbedEnv } from './serverSpawn'
 
 class FakeChild extends EventEmitter {
   stdin = new PassThrough()

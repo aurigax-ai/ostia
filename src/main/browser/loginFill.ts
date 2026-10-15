@@ -5,7 +5,7 @@ import { fillScript, readScript } from '../../shared/browser/loginScripts'
 import { ensureCaps } from '../approvals/controlElevation'
 import type { Reach } from '../approvals/reach'
 import { registerControlMethod } from '../control/controlServer'
-import { resolveGuest } from './browse'
+import { resolveGuest } from './browseGuests'
 import { credentials } from './credentials'
 
 const LOGIN_WORLD_ID = 1026

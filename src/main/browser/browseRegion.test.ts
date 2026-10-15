@@ -11,14 +11,14 @@ vi.mock('electron', () => ({
     constructor(readonly items: Record<string, Blob>) {}
   },
 }))
-vi.mock('./browse', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./browse')>()),
+vi.mock('./browseGuests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./browseGuests')>()),
   ownedGuest: vi.fn(),
 }))
 vi.mock('../agents/bus', () => ({ postBusMessage: vi.fn(() => 'msg-1') }))
 
 const { clipboard, ipcMain } = await import('electron')
-const { ownedGuest } = await import('./browse')
+const { ownedGuest } = await import('./browseGuests')
 const { postBusMessage } = await import('../agents/bus')
 const { captureRegion, copyRegionImage, registerRegionIpc, writeRegionReport } = await import(
   './browseRegion'

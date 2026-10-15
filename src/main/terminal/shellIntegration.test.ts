@@ -14,26 +14,24 @@ import { join } from 'node:path'
 import type { AgentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { CORE_SKILL_FILES } from '../agents/bundledSkills'
-import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
-import { type ShellState, parseShellState } from './shellCommands'
+import { busHookCommand, extensionHookCommand, permissionHookCommand } from './agentHookCommands'
+import { writeAgentPlugin } from './agentPlugin'
+import { CLAUDE_PLUGIN_MANIFEST, claudeHookSettings, claudeWrapper } from './claudeIntegration'
 import {
-  CLAUDE_PLUGIN_MANIFEST,
   type CodexHookEvent,
-  busHookCommand,
-  claudeHookSettings,
-  claudeWrapper,
   codexHookArgs,
   codexHookCommands,
   codexHookKey,
   codexHookTrustHash,
   codexWrapper,
-  extensionHookCommand,
-  permissionHookCommand,
+  writeCodexIntegration,
+} from './codexIntegration'
+import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
+import { type ShellState, parseShellState } from './shellCommands'
+import {
   shellIntegrationDir,
   shellIntegrationFiles,
   shellIntegrationSpawnOptions,
-  writeAgentPlugin,
-  writeCodexIntegration,
   writeShellIntegration,
 } from './shellIntegration'
 

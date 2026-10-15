@@ -7,7 +7,7 @@ import {
   mismatch,
   pollEvery,
 } from '../../shared/common/actThenConfirm'
-import type { ProcessEntry, ProcessRegistry, StartOutcome } from './processManager'
+import type { ProcessEntry, ProcessRegistry, StartOutcome } from './processRegistry'
 
 export interface StartTiming {
   settleMs: number

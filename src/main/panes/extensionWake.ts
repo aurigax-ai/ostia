@@ -2,7 +2,8 @@ import { WAKE_WAIT_MAX_MS } from '@aurigax-ai/ostia-extension-sdk/contract/exten
 import { ensureCaps } from '../approvals/controlElevation'
 import { registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
-import { type PaneIoDeps, checkSessions, notHibernated, sessionConflict } from './paneIo'
+import type { PaneIoDeps } from './paneIo'
+import { checkSessions, notHibernated, sessionConflict } from './paneWakeMethods'
 
 export type ExtensionWakeDeps = Pick<PaneIoDeps, 'hibernated' | 'wake' | 'panes' | 'waking'> & {
   openedBy: (caller: PaneIdentity, paneId: string) => boolean
