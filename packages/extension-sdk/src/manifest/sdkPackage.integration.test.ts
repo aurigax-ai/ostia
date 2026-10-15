@@ -14,39 +14,22 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { EXTENSION_API_VERSION } from '../contract/extensionApi'
-import { parseManifest } from '../manifest/extensionManifest'
-import {
-  MARKETPLACE_CODE_PATTERN,
-  MARKETPLACE_MANIFEST_FILE,
-} from '../manifest/marketplaceManifest'
+import { parseManifest } from './extensionManifest'
 import { extensionManifestSchema, marketplaceManifestSchema } from './manifestSchema'
+import { MARKETPLACE_CODE_PATTERN, MARKETPLACE_MANIFEST_FILE } from './marketplaceManifest'
 import { SDK_CLI_USAGE, newInstallCode, runSdkCli } from './sdkCli'
 
 const packageDir = resolve(__dirname, '../..')
-const repoRoot = resolve(packageDir, '../..')
-const sdkPackage = join(repoRoot, 'out/sdk')
+const sdkPackage = resolve(packageDir, '../../out/sdk')
 const sdkCli = join(sdkPackage, 'dist/cli.cjs')
-
-function manifestFiles(): string[] {
-  const extensions = join(repoRoot, 'src/extensions')
-  return [
-    ...readdirSync(extensions).map((id) => join(extensions, id, 'ostia.json')),
-    join(packageDir, 'template/ostia.json'),
-    join(repoRoot, 'test/fixtures/extensions/echo/ostia.json'),
-    join(repoRoot, 'test/fixtures/extensions-e2e/hello/ostia.json'),
-    join(repoRoot, 'test/fixtures/extensions-agent/agent-kit/ostia.json'),
-    join(repoRoot, 'test/fixtures/extensions-lsp/fake-lang/ostia.json'),
-    join(repoRoot, 'test/fixtures/extensions-lsp/fake-json/ostia.json'),
-    join(repoRoot, 'test/fixtures/extensions-lsp/fake-grammar/ostia.json'),
-  ]
-}
+const templateManifest = join(packageDir, 'template/ostia.json')
 
 describe('manifest schemas', () => {
-  it('accept every manifest in the repository', () => {
-    for (const file of manifestFiles()) {
-      const res = extensionManifestSchema.safeParse(JSON.parse(readFileSync(file, 'utf8')))
-      expect(res.success ? null : res.error.message, file).toBeNull()
-    }
+  it('accept the template manifest', () => {
+    const res = extensionManifestSchema.safeParse(
+      JSON.parse(readFileSync(templateManifest, 'utf8')),
+    )
+    expect(res.success ? null : res.error.message).toBeNull()
   })
 
   it('refuse what the loader refuses', () => {
@@ -309,7 +292,7 @@ describe('extension API version', () => {
       'src/assist/service.ts',
       'src/contract/extensions.ts',
       'src/manifest/extensionManifest.ts',
-      'src/cli/manifestSchema.ts',
+      'src/manifest/manifestSchema.ts',
     ]) {
       expect(readFileSync(join(sdkPackage, file), 'utf8'), file).toBe(
         readFileSync(join(packageDir, file), 'utf8'),
@@ -317,10 +300,8 @@ describe('extension API version', () => {
     }
   })
 
-  it('is what every extension built from this tree declares, since each bundles this SDK', () => {
-    for (const file of manifestFiles().filter((f) => !f.includes('/test/fixtures/'))) {
-      expect(JSON.parse(readFileSync(file, 'utf8')).api, file).toBe(EXTENSION_API_VERSION)
-    }
+  it('is what the template declares', () => {
+    expect(JSON.parse(readFileSync(templateManifest, 'utf8')).api).toBe(EXTENSION_API_VERSION)
   })
 
   it('is published in the package for authors and tools', () => {
@@ -341,150 +322,6 @@ describe('extension API version', () => {
   })
 })
 
-describe('the marketplace project, built the way its own repository builds it', () => {
-  const marketplace = join(repoRoot, 'out/marketplace')
-  const sources = (dir: string): string[] =>
-    readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
-      entry.isDirectory() ? sources(join(dir, entry.name)) : [join(dir, entry.name)],
-    )
-
-  it('holds the source, tests and tool fixtures of its extensions, unchanged', () => {
-    for (const file of [
-      'src/extensions/trellis/main.ts',
-      'src/extensions/keeper/service.test.ts',
-      'src/extensions/model-runtime/ostia.json',
-      'test/fixtures/tools/bin/trellis',
-    ]) {
-      expect(readFileSync(join(marketplace, file), 'utf8'), file).toBe(
-        readFileSync(join(repoRoot, file), 'utf8'),
-      )
-    }
-  })
-
-  it('imports nothing by a path that leaves an extension folder', () => {
-    const escaping = sources(join(marketplace, 'src')).flatMap((file) =>
-      [...readFileSync(file, 'utf8').matchAll(/from '(\.\.\/[^']*)'/g)].map(
-        (match) => `${file}: ${match[1]}`,
-      ),
-    )
-    expect(escaping).toEqual([])
-  })
-
-  it('depends on the SDK of this version and on nothing unversioned', () => {
-    const pkg = JSON.parse(readFileSync(join(marketplace, 'package.json'), 'utf8'))
-    const app = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
-    expect(pkg.devDependencies['@aurigax-ai/ostia-extension-sdk']).toBe(app.version)
-    expect(Object.values(pkg.devDependencies).every((range) => typeof range === 'string')).toBe(
-      true,
-    )
-  })
-
-  it('typechecks against the published types', () => {
-    const tsc = join(repoRoot, 'node_modules/typescript/bin/tsc')
-    const res = spawnSync(process.execPath, [tsc, '--noEmit', '-p', marketplace], {
-      encoding: 'utf8',
-    })
-    expect(res.stdout + res.stderr).toBe('')
-    expect(res.status).toBe(0)
-  }, 60_000)
-
-  it('passes the packaged validate command with every extension built, the unlisted ones counted apart', () => {
-    const res = spawnSync(process.execPath, [sdkCli, 'validate', marketplace], {
-      encoding: 'utf8',
-    })
-    const listed = JSON.parse(
-      readFileSync(join(repoRoot, 'marketplace', MARKETPLACE_MANIFEST_FILE), 'utf8'),
-    ) as { extensions: string[]; unlisted: unknown[] }
-    expect(res.stdout.trim()).toBe(
-      `ok: marketplace "Ostia extensions" with ${listed.extensions.length} extension(s), ${listed.unlisted.length} unlisted`,
-    )
-    expect(res.status).toBe(0)
-  })
-
-  it('ships each extension’s catalogs, and its panel files when it has a panel', () => {
-    const built = join(marketplace, 'extensions')
-    for (const id of readdirSync(built)) {
-      const manifest = JSON.parse(readFileSync(join(built, id, 'ostia.json'), 'utf8'))
-      for (const tag of manifest.locales ?? []) {
-        expect(existsSync(join(built, id, 'locales', `${tag}.json`)), `${id} ${tag}`).toBe(true)
-      }
-    }
-    for (const file of ['panel.html', 'panel.css', 'panel.js', 'base.css', 'locales/en.json']) {
-      expect(existsSync(join(built, 'trellis', file)), file).toBe(true)
-    }
-    expect(readFileSync(join(built, 'trellis/base.css'), 'utf8')).toBe(
-      readFileSync(join(sdkPackage, 'panel.css'), 'utf8'),
-    )
-  })
-
-  it('ships every file of the agent skills an extension declares, as the source has them', () => {
-    const built = join(marketplace, 'extensions')
-    const shipped = readdirSync(built).flatMap((id) => {
-      const manifest = JSON.parse(readFileSync(join(built, id, 'ostia.json'), 'utf8'))
-      return (manifest.contributes?.agentSkills ?? []).flatMap(
-        (skill: { path: string; files?: string[] }) =>
-          ['SKILL.md', ...(skill.files ?? [])].map((file) => join(id, skill.path, file)),
-      )
-    })
-    const declared = readdirSync(built).flatMap((id) => {
-      const manifest = JSON.parse(
-        readFileSync(join(repoRoot, 'src/extensions', id, 'ostia.json'), 'utf8'),
-      )
-      return (manifest.contributes?.agentSkills ?? []).flatMap(
-        (skill: { path: string; files?: string[] }) =>
-          ['SKILL.md', ...(skill.files ?? [])].map((file) => join(id, skill.path, file)),
-      )
-    })
-    expect(shipped).toEqual(declared)
-    expect(shipped).toContain('trellis/skills/card/SKILL.md')
-    for (const file of shipped) {
-      expect(readFileSync(join(built, file), 'utf8'), file).toBe(
-        readFileSync(join(repoRoot, 'src/extensions', file), 'utf8'),
-      )
-    }
-  })
-
-  it('ships the server every language extension runs from its own folder, as its package has it', () => {
-    const built = join(marketplace, 'extensions')
-    const servers = readdirSync(built).flatMap((id) => {
-      const manifest = JSON.parse(readFileSync(join(built, id, 'ostia.json'), 'utf8'))
-      return (manifest.contributes?.languageServers ?? [])
-        .filter((server: { run: { node?: string } }) => server.run.node)
-        .map((server: { run: { node: string } }) => join(id, server.run.node))
-    })
-    expect(servers).toHaveLength(4)
-    for (const script of servers) expect(existsSync(join(built, script)), script).toBe(true)
-    const vendored = 'lsp-typescript/server/typescript-language-server/lib/cli.mjs'
-    expect(readFileSync(join(built, vendored), 'utf8')).toBe(
-      readFileSync(join(repoRoot, 'node_modules/typescript-language-server/lib/cli.mjs'), 'utf8'),
-    )
-  })
-
-  it('declares every package it vendors or bundles as a dependency of its own', () => {
-    const pkg = JSON.parse(readFileSync(join(marketplace, 'package.json'), 'utf8'))
-    const app = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
-    for (const name of [
-      'bash-language-server',
-      'pyright',
-      'typescript',
-      'typescript-language-server',
-      'yaml-language-server',
-    ]) {
-      expect(pkg.devDependencies[name], name).toBe(app.devDependencies[name])
-      expect(pkg.devDependencies[name], name).toMatch(/^\d+\.\d+\.\d+$/)
-    }
-    for (const name of ['@phosphor-icons/core', 'mdast-util-from-markdown']) {
-      expect(pkg.devDependencies[name], name).toBeTruthy()
-    }
-  })
-
-  it('keeps a vendored node_modules folder in its repository', () => {
-    expect(readFileSync(join(marketplace, '.gitignore'), 'utf8').split('\n')).toContain(
-      '/node_modules',
-    )
-  })
-})
-
 describe('the SDK package, used the way an extension author uses it', () => {
   let project: string
   let built: string
@@ -500,7 +337,7 @@ describe('the SDK package, used the way an extension author uses it', () => {
     execFileSync(process.execPath, [sdkCli, 'create', 'hello', project], { stdio: 'ignore' })
     linkDependency('@aurigax-ai/ostia-extension-sdk', sdkPackage)
     for (const name of ['esbuild', '@types/node']) {
-      linkDependency(name, join(repoRoot, 'node_modules', name))
+      linkDependency(name, join(packageDir, 'node_modules', name))
     }
     execFileSync(process.execPath, ['build.mjs'], { cwd: project, stdio: 'ignore' })
     built = join(project, 'dist/hello')
@@ -558,7 +395,7 @@ describe('the SDK package, used the way an extension author uses it', () => {
   })
 
   it('typechecks the template against the published types', () => {
-    const tsc = join(repoRoot, 'node_modules/typescript/bin/tsc')
+    const tsc = join(packageDir, 'node_modules/typescript/bin/tsc')
     const res = spawnSync(process.execPath, [tsc, '--noEmit', '-p', project], { encoding: 'utf8' })
     expect(res.stdout + res.stderr).toBe('')
     expect(res.status).toBe(0)

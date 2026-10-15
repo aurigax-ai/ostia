@@ -138,10 +138,10 @@
       "name": "app-imports-the-sdk-by-name",
       "severity": "error",
       "from": {
-        "path": "^(src|e2e|test)/"
+        "path": "^(src|e2e|test|scripts|marketplace)/"
       },
       "to": {
-        "path": "^packages/extension-sdk/src/",
+        "path": "^packages/extension-sdk/",
         "dependencyTypes": [
           "local"
         ]

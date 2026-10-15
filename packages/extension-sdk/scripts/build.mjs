@@ -3,6 +3,7 @@ import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { build } from 'esbuild'
+import { parse } from 'yaml'
 import { apiVersion, contractDigest, packageDir } from './api-contract.mjs'
 
 const repoRoot = resolve(packageDir, '../..')
@@ -10,6 +11,14 @@ const out = join(repoRoot, 'out/sdk')
 const repository = 'https://github.com/aurigax-ai/ostia'
 const source = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'))
 const { version } = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
+const { catalog } = parse(readFileSync(join(repoRoot, 'pnpm-workspace.yaml'), 'utf8'))
+const ranges = (dependencies) =>
+  Object.fromEntries(
+    Object.entries(dependencies).map(([name, range]) => [
+      name,
+      range === 'catalog:' ? catalog[name] : range,
+    ]),
+  )
 const bundleOptions = {
   absWorkingDir: packageDir,
   metafile: true,
@@ -38,7 +47,7 @@ const library = await build({
 
 const cli = await build({
   ...bundleOptions,
-  entryPoints: ['src/cli/sdkCliEntry.ts'],
+  entryPoints: ['src/manifest/sdkCliEntry.ts'],
   outfile: join(out, 'dist/cli.cjs'),
   platform: 'node',
   format: 'cjs',
@@ -54,7 +63,7 @@ execFileSync('pnpm', ['exec', 'tsc', '-p', 'tsconfig.types.json'], {
 const schemaModule = join(out, 'schema-build.mjs')
 const schema = await build({
   ...bundleOptions,
-  entryPoints: ['src/cli/manifestSchema.ts'],
+  entryPoints: ['src/manifest/manifestSchema.ts'],
   outfile: schemaModule,
   platform: 'node',
   format: 'esm',
@@ -113,8 +122,8 @@ writeJson('package.json', {
     './api.json': './api.json',
     './package.json': './package.json',
   },
-  dependencies: source.dependencies,
-  peerDependencies: source.peerDependencies,
+  dependencies: ranges(source.dependencies),
+  peerDependencies: ranges(source.peerDependencies),
   peerDependenciesMeta: source.peerDependenciesMeta,
 })
 

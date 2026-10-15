@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { extensionManifestSchema } from '../cli/manifestSchema'
 import { discoverExtensions, parseManifest } from './extensionManifest'
+import { extensionManifestSchema } from './manifestSchema'
 
 function manifest(id: string, verb?: string): Record<string, unknown> {
   return {

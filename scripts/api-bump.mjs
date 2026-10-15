@@ -6,7 +6,7 @@ import {
   readLock,
   writeApiVersion,
   writeLock,
-} from '../packages/extension-sdk/scripts/api-contract.mjs'
+} from '@aurigax-ai/ostia-extension-sdk/api-contract'
 
 function inTreeManifests() {
   const extensions = readdirSync('src/extensions', { withFileTypes: true })

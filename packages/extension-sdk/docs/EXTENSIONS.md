@@ -1184,8 +1184,8 @@ panel follows Ostia's motion rules and its reduced-motion setting.
 elements with a draggable divider between them, so the human sets how tall each part is:
 
 ```ts
-import { splitter } from '../sdk/splitter'
-import { loadPanelSizes } from '../sdk/panel'
+import { splitter } from '@aurigax-ai/ostia-extension-sdk/splitter'
+import { loadPanelSizes } from '@aurigax-ai/ostia-extension-sdk/panel'
 
 await loadPanelSizes()
 const body = splitter({
@@ -1252,7 +1252,7 @@ newer; an extension that declares `1.0` keeps loading in every `1.x`.
 
 For people changing Ostia: `packages/extension-sdk/api-lock.json` holds the version and a digest of the
 published contract (the SDK's type declarations and the two manifest schemas). A change to any of
-them fails `packages/extension-sdk/src/cli/sdkPackage.integration.test.ts` until you run `pnpm api:bump minor` (or
+them fails `packages/extension-sdk/src/manifest/sdkPackage.integration.test.ts` until you run `pnpm api:bump minor` (or
 `major`), which raises `EXTENSION_API_VERSION` and rewrites the lock in one step. There is no way
 to refresh the digest without bumping.
 
@@ -1277,7 +1277,7 @@ pnpm add -D @aurigax-ai/ostia-extension-sdk
 
 It is generated from this repository by `pnpm build:sdk` (`packages/extension-sdk/scripts/build.mjs`) and published
 to npm by `release.yml` on every `v*` tag; its version is the app's version. The JSON
-Schemas come from `packages/extension-sdk/src/cli/manifestSchema.ts`; the loader (`parseManifest`) stays the authority,
+Schemas come from `packages/extension-sdk/src/manifest/manifestSchema.ts`; the loader (`parseManifest`) stays the authority,
 and `validate` runs that loader.
 
 ## Example: a minimal extension

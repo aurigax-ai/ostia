@@ -64,8 +64,8 @@ import {
   SERVER_ARG_MAX,
   SERVER_NAME_MAX,
 } from '../contract/languageServers'
-import { isCoreSource } from '../manifest/coreNames'
-import { verbProblem } from '../manifest/coreNames'
+import { isCoreSource } from './coreNames'
+import { verbProblem } from './coreNames'
 import {
   COMMAND_ID_PATTERN,
   EXTENSION_ID_PATTERN,
@@ -80,13 +80,13 @@ import {
   MAX_SNIPPETS,
   MAX_TEXT,
   SETTING_KEY_PATTERN,
-} from '../manifest/extensionManifest'
+} from './extensionManifest'
 import {
   MARKETPLACE_CODE_PATTERN,
   MARKETPLACE_DESCRIPTION_MAX,
   MARKETPLACE_MAX_EXTENSIONS,
   MARKETPLACE_NAME_MAX,
-} from '../manifest/marketplaceManifest'
+} from './marketplaceManifest'
 
 const VERSION_MAX = 40
 

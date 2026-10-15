@@ -11,14 +11,14 @@ import {
 import { join, normalize, relative, resolve } from 'node:path'
 import { EXTENSION_MANIFEST_FILE, type ExtensionManifest } from '../contract/extensions'
 import { PRODUCT_NAME } from '../contract/product'
-import { agentSkillProblems } from '../manifest/agentSkills'
-import { EXTENSION_ID_PATTERN, readManifest } from '../manifest/extensionManifest'
-import { localeProblems } from '../manifest/localeCatalogs'
+import { agentSkillProblems } from './agentSkills'
+import { EXTENSION_ID_PATTERN, readManifest } from './extensionManifest'
+import { localeProblems } from './localeCatalogs'
 import {
   MARKETPLACE_MANIFEST_FILE,
   parseMarketplaceManifest,
   planCopy,
-} from '../manifest/marketplaceManifest'
+} from './marketplaceManifest'
 
 export interface SdkCliResult {
   code: number

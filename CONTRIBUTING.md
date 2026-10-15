@@ -18,7 +18,7 @@ Conventions for people and coding agents (Claude Code, Codex) working in this re
 
 ## Layout
 
-A pnpm workspace with no build orchestrator. The app is the root package. `packages/extension-sdk` is `@aurigax-ai/ostia-extension-sdk`: the extension client library (`src/client`), the assistant engine (`src/assist`), the contract modules shared with the app (`src/contract`), the manifest loader (`src/manifest`) and the `ostia-extension` command (`src/cli`), with its docs, template, build script and API lock. The app depends on it as `workspace:*` and imports it only by package name; the package imports nothing from the app (`pnpm quality` checks both). Every tsconfig extends `tsconfig.base.json`. `pnpm build:sdk` builds the published package into `out/sdk`, and only `release.yml` publishes it, on every `v*` tag.
+A pnpm workspace with no build orchestrator. The app is the root package. `packages/extension-sdk` is `@aurigax-ai/ostia-extension-sdk`: the extension client library (`src/client`), the assistant engine (`src/assist`), the contract modules shared with the app (`src/contract`), and the manifest loader with the `ostia-extension` command that runs it (`src/manifest`), with its docs, template, build script and API lock. The app depends on it as `workspace:*` and imports it only by package name; the package imports nothing from the app (`pnpm quality` checks both). Ranges the app and the package share live once, in the `catalog` of `pnpm-workspace.yaml`. Every tsconfig extends `tsconfig.base.json`. `pnpm build:sdk` builds the published package into `out/sdk`, and only `release.yml` publishes it, on every `v*` tag.
 
 ## Supported platforms
 

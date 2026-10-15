@@ -37,13 +37,23 @@
     "packages/extension-sdk": {
       "entry": [
         "src/client/{index,panel,splitter}.ts",
-        "src/cli/{sdkCliEntry,manifestSchema}.ts",
+        "src/manifest/{sdkCliEntry,manifestSchema}.ts",
         "src/contract/*.ts"
       ],
       "project": [
         "src/**/*.ts",
         "scripts/*.mjs"
-      ]
+      ],
+      "includeEntryExports": true,
+      "ignoreIssues": {
+        "src/{client,assist,contract}/*.ts": [
+          "exports",
+          "types"
+        ],
+        "src/manifest/manifestSchema.ts": [
+          "exports"
+        ]
+      }
     }
   },
   "ignoreBinaries": [

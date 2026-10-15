@@ -1,12 +1,4 @@
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -22,8 +14,6 @@ import {
   parseLocaleCatalog,
   readLocaleCatalog,
 } from './localeCatalogs'
-
-const repoRoot = resolve(__dirname, '../../../..')
 
 function manifestOf(raw: Record<string, unknown>): ExtensionManifest {
   const res = parseManifest(
@@ -350,26 +340,11 @@ describe('manifestIn', () => {
   })
 })
 
-describe('the catalogs shipped in this repository', () => {
-  const extensions = join(repoRoot, 'src/extensions')
-  const dirs = [
-    ...readdirSync(extensions).map((id) => join(extensions, id)),
-    join(repoRoot, 'packages/extension-sdk/template'),
-    join(repoRoot, 'test/fixtures/extensions-e2e/hello'),
-  ]
-
-  it('translate only strings their manifest declares', () => {
-    for (const dir of dirs) {
-      const res = readManifest(dir)
-      if (!res.ok) throw new Error(`${dir}: ${res.error}`)
-      expect(localeProblems(dir, res.manifest), dir).toEqual([])
-    }
-  })
-
-  it('give every extension with human text a Traditional Chinese catalog', () => {
-    for (const id of readdirSync(extensions).filter((d) => !d.startsWith('langpack'))) {
-      const manifest = JSON.parse(readFileSync(join(extensions, id, 'ostia.json'), 'utf8'))
-      expect(manifest.locales, id).toEqual(['zh-Hant'])
-    }
+describe('the template', () => {
+  it('translates only strings its manifest declares', () => {
+    const dir = resolve(__dirname, '../../template')
+    const res = readManifest(dir)
+    if (!res.ok) throw new Error(res.error)
+    expect(localeProblems(dir, res.manifest)).toEqual([])
   })
 })

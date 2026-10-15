@@ -11,16 +11,17 @@
     "./splitter": "./src/client/splitter.ts",
     "./panel.css": "./src/client/panel.css",
     "./contract/*": "./src/contract/*.ts",
-    "./manifest/*": "./src/manifest/*.ts"
+    "./manifest/*": "./src/manifest/*.ts",
+    "./api-contract": "./scripts/api-contract.mjs"
   },
   "dependencies": {
-    "vscode-jsonrpc": "^9.0.1"
+    "vscode-jsonrpc": "catalog:"
   },
   "peerDependencies": {
-    "@ai-sdk-tool/parser": "^5.1.6",
-    "ai": "^7.0.122",
-    "undici": "^6.29.0",
-    "zod": "^4.6.5"
+    "@ai-sdk-tool/parser": "catalog:",
+    "ai": "catalog:",
+    "undici": "catalog:",
+    "zod": "catalog:"
   },
   "peerDependenciesMeta": {
     "@ai-sdk-tool/parser": { "optional": true },
@@ -29,13 +30,14 @@
     "zod": { "optional": true }
   },
   "devDependencies": {
-    "@ai-sdk-tool/parser": "^5.1.6",
-    "@types/node": "^24.19.1",
-    "ai": "^7.0.122",
-    "esbuild": "^0.28.2",
-    "typescript": "5.9.3",
-    "undici": "^6.29.0",
-    "vitest": "^5.0.4",
-    "zod": "^4.6.5"
+    "@ai-sdk-tool/parser": "catalog:",
+    "@types/node": "catalog:",
+    "ai": "catalog:",
+    "esbuild": "catalog:",
+    "typescript": "catalog:",
+    "undici": "catalog:",
+    "vitest": "catalog:",
+    "yaml": "catalog:",
+    "zod": "catalog:"
   }
 }

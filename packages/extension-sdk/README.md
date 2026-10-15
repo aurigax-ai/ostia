@@ -85,8 +85,8 @@ Extensions → Marketplaces. See "Marketplaces" in [docs/EXTENSIONS.md](docs/EXT
 `dist/` is what you import: the SDK bundled into a few plain, unminified JavaScript files.
 `src/` holds the TypeScript it was built from, at the same paths as in `packages/extension-sdk` of
 the Ostia repository (`src/client` is the library, `src/assist` the assistant engine, `src/contract`
-the contract types, `src/cli` the `ostia-extension` command and `src/manifest` the manifest loader it
-runs). It is there to read. The SDK is developed
+the contract types, `src/manifest` the manifest loader and the `ostia-extension` command that runs
+it). It is there to read. The SDK is developed
 in [the Ostia repository](https://github.com/aurigax-ai/ostia) and published from it on every release,
 so the SDK and the app cannot drift apart. Report problems in that repository's issues.
 

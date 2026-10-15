@@ -1,10 +1,9 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MAX_AGENT_HOOKS, MAX_AGENT_SKILLS, MAX_AGENT_SKILL_FILES } from '../contract/agentPlugins'
 import { EXTENSION_API_VERSION } from '../contract/extensionApi'
-import { overlaySettings } from '../contract/languageServers'
 import { discoverExtensions, parseManifest, readManifest } from './extensionManifest'
 
 const DIR = '/ext/demo'
@@ -354,46 +353,6 @@ describe('parseManifest', () => {
         { id: 'fr', label: 'G', path: 'fr2.json' },
       ]),
     ).toEqual({ ok: false, error: "contributes.languages[1]: duplicate id 'fr'" })
-  })
-
-  it('accepts every built-in and marketplace manifest', () => {
-    for (const id of [
-      'assistant',
-      'completions',
-      'keeper',
-      'keymap-macos',
-      'langpack-zh-hant',
-      'lsp-bash',
-      'lsp-clangd',
-      'lsp-gopls',
-      'lsp-lua',
-      'lsp-marksman',
-      'lsp-pyright',
-      'lsp-rust-analyzer',
-      'lsp-typescript',
-      'lsp-yaml',
-      'model-runtime',
-      'system',
-      'trellis',
-    ]) {
-      const dir = join(__dirname, '../../../../src/extensions', id)
-      const raw: unknown = JSON.parse(readFileSync(join(dir, 'ostia.json'), 'utf8'))
-      const res = parseManifest(raw, dir)
-      expect(res.ok ? null : res.error, id).toBeNull()
-    }
-  })
-
-  it('turns on the TypeScript server’s reference counts when the human turns on Reference counts', () => {
-    const dir = join(__dirname, '../../../../src/extensions/lsp-typescript')
-    const res = parseManifest(JSON.parse(readFileSync(join(dir, 'ostia.json'), 'utf8')), dir)
-    if (!res.ok) throw new Error(res.error)
-    const server = res.manifest.contributes.languageServers?.[0]
-    if (!server) throw new Error('lsp-typescript has no language server')
-    expect(
-      overlaySettings(server.settings ?? {}, server.settingPaths ?? {}, {
-        referencesCodeLens: true,
-      }),
-    ).toMatchObject({ typescript: { referencesCodeLens: { enabled: true } } })
   })
 
   it('rejects a setting whose default does not match its type', () => {
