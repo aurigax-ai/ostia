@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/button'
 import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { openBrowserAs } from '@/lib/browser/browserProfile'
+import { useGuestReady } from '@/lib/panes/paneFocus'
 import { previewTheme } from '@/lib/theme/previewTheme'
 import { useEffectiveThemeId } from '@/lib/theme/theme'
 import { cn } from '@/lib/utils'
+import { retryPendingFocus } from '@/stores/workspaces/surfaceSlotsStore'
 import { CaretDownIcon, CaretRightIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
 import {
   type PreviewError,
@@ -60,6 +62,16 @@ export function HtmlPreview({
   const [vitals, setVitals] = useState({ responding: true, busy: false })
   const [link, setLink] = useState<string | null>(null)
   const [picking, setPicking] = useState<RegionAction | null>(null)
+  const [webview, setWebview] = useState<HTMLElement | null>(null)
+  const readyWebview = useGuestReady(webview)
+  useEffect(() => {
+    if (!focusRef) return
+    focusRef.current = readyWebview
+    retryPendingFocus()
+    return () => {
+      focusRef.current = null
+    }
+  }, [focusRef, readyWebview])
   const openedRef = useRef<PreviewOpened | null>(null)
   openedRef.current = opened
   const visibleRef = useRef(visible)
@@ -264,9 +276,7 @@ export function HtmlPreview({
           {onSendRegion ? <PreviewRegionTools onPick={setPicking} /> : null}
           <webview
             key={opened.url}
-            ref={(el) => {
-              if (focusRef) focusRef.current = el
-            }}
+            ref={setWebview}
             className="preview-webview"
             src={opened.url}
             partition={opened.partition}

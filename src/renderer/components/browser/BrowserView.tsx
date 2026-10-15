@@ -1,7 +1,7 @@
 import { useDict } from '@/lib/app/useDict'
-import { useSurfaceFocus } from '@/lib/panes/paneFocus'
+import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { type BrowserProfile, browserPartition } from '@shared/browser/browserProfile'
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { BrowserCaptureBar } from './BrowserCaptureBar'
 import { BrowserFind, type FindResult } from './BrowserFind'
 import { BrowserLoadError } from './BrowserLoadError'
@@ -54,7 +54,16 @@ export function BrowserView({
     navigate,
     onAddressKeyDown,
   } = useBrowserNavigation({ url })
-  useSurfaceFocus(paneId, () => webviewRef.current)
+  const [webview, setWebview] = useState<HTMLElement | null>(null)
+  const readyWebview = useGuestReady(webview)
+  const attachWebview = useCallback(
+    (el: HTMLElement | null) => {
+      webviewRef.current = el
+      setWebview(el)
+    },
+    [webviewRef],
+  )
+  useSurfaceFocus(paneId, () => readyWebview)
   const [storageOpen, setStorageOpen] = useState(false)
   const [findFocus, setFindFocus] = useState(-1)
   const [findResult, setFindResult] = useState<FindResult | null>(null)
@@ -151,9 +160,7 @@ export function BrowserView({
         {partition ? (
           <webview
             key={partition}
-            ref={(el) => {
-              webviewRef.current = el
-            }}
+            ref={attachWebview}
             className="browser-webview"
             src={src}
             partition={partition}

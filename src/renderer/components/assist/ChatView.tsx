@@ -12,6 +12,7 @@ import {
   useChatStore,
 } from '@/stores/assist/chatStore'
 import { useChatToolsStore } from '@/stores/assist/chatToolsStore'
+import { retryPendingFocus } from '@/stores/workspaces/surfaceSlotsStore'
 import { useChat } from '@ai-sdk/react'
 import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import type { UIMessage } from 'ai'
@@ -89,6 +90,7 @@ function ChatSession({
   useEffect(() => {
     if (!focusRef) return
     focusRef.current = areaRef.current
+    retryPendingFocus()
     return () => {
       focusRef.current = null
     }

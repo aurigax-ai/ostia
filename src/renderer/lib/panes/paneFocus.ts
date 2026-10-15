@@ -1,8 +1,12 @@
 import { isPaneVisible } from '@/lib/attention/workspaceActivity'
 import { keyboardPaneId } from '@/lib/layout/focusDirection'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { focusSurfaceWhenReady, setFocusTarget } from '@/stores/workspaces/surfaceSlotsStore'
-import { useEffect, useRef } from 'react'
+import {
+  focusSurfaceWhenReady,
+  retryPendingFocus,
+  setFocusTarget,
+} from '@/stores/workspaces/surfaceSlotsStore'
+import { useEffect, useRef, useState } from 'react'
 
 export function focusPaneWhenReady(paneId: string): void {
   focusSurfaceWhenReady(paneId, () => isPaneVisible(paneId))
@@ -24,4 +28,19 @@ export function useSurfaceFocus(
     if (!paneId) return
     return setFocusTarget(paneId, takesKeyboard ? () => targetRef.current?.() ?? null : null)
   }, [paneId, takesKeyboard])
+}
+
+export function useGuestReady(webview: HTMLElement | null): HTMLElement | null {
+  const [ready, setReady] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    if (!webview) return
+    const onReady = (): void => setReady(webview)
+    webview.addEventListener('dom-ready', onReady)
+    return () => webview.removeEventListener('dom-ready', onReady)
+  }, [webview])
+  const shown = ready !== null && ready === webview ? ready : null
+  useEffect(() => {
+    if (shown) retryPendingFocus()
+  }, [shown])
+  return shown
 }

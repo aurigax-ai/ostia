@@ -45,10 +45,14 @@ let recheck: (() => void) | null = null
 export function setFocusTarget(paneId: string, target: FocusTarget | null): () => void {
   const entry: FocusEntry = { target }
   focusEntries.set(paneId, entry)
-  recheck?.()
+  retryPendingFocus()
   return () => {
     if (focusEntries.get(paneId) === entry) focusEntries.delete(paneId)
   }
+}
+
+export function retryPendingFocus(): void {
+  recheck?.()
 }
 
 function focusTarget(paneId: string): HTMLElement | null {
