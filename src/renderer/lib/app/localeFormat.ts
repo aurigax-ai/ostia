@@ -3,7 +3,7 @@ import { type RelativeStep, formatRelative } from '@shared/common/relativeTime'
 import { useMemo } from 'react'
 import { currentDict, useDict } from './useDict'
 
-const DATE_TIME: Intl.DateTimeFormatOptions = {
+export const DATE_TIME: Intl.DateTimeFormatOptions = {
   year: 'numeric',
   month: 'numeric',
   day: 'numeric',
@@ -36,6 +36,26 @@ export function formatDate(
     return currentDict().formats.unknownDate
   }
   return new Intl.DateTimeFormat(locale, options).format(at)
+}
+
+const numberFormats = new WeakMap<Intl.NumberFormatOptions, Map<string, Intl.NumberFormat>>()
+
+export function formatNumber(
+  value: number,
+  locale: string,
+  options: Intl.NumberFormatOptions,
+): string {
+  let byLocale = numberFormats.get(options)
+  if (!byLocale) {
+    byLocale = new Map()
+    numberFormats.set(options, byLocale)
+  }
+  let format = byLocale.get(locale)
+  if (!format) {
+    format = new Intl.NumberFormat(locale, options)
+    byLocale.set(locale, format)
+  }
+  return format.format(value)
 }
 
 const BYTE_UNITS = ['byte', 'kilobyte', 'megabyte', 'gigabyte', 'terabyte'] as const

@@ -29,7 +29,7 @@ describe('csvTable', () => {
     expect(table.rows).toEqual([['1', '2, still b']])
   })
 
-  it('shows the first 5,000 rows and 100 columns and says there are more', async () => {
+  it('shows the first 100,000 rows and 100 columns and says there are more', async () => {
     const wide = Array.from({ length: CSV_COLUMNS_MAX + 5 }, (_u, i) => `c${i}`).join(',')
     const lines = Array.from({ length: CSV_ROWS_MAX + 50 }, (_u, i) => `${i},x`)
     const table = await parseCsv([wide, ...lines].join('\n'), ',')
@@ -38,6 +38,12 @@ describe('csvTable', () => {
     expect(table.header).toHaveLength(CSV_COLUMNS_MAX)
     expect(table.more).toBe(true)
     expect(table.columnsCut).toBe(true)
+  })
+
+  it('takes a smaller row limit for the portable file', async () => {
+    const table = await parseCsv(['n', '1', '2', '3'].join('\n'), ',', 2)
+    expect(table.rows).toEqual([['1'], ['2']])
+    expect(table.more).toBe(true)
   })
 
   it('gives an empty table for empty text', async () => {

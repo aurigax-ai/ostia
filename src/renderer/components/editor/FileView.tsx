@@ -5,6 +5,7 @@ import { VersionView } from './ArtifactVersions'
 import { EditorView } from './Editor'
 import { ImageViewer } from './ImageViewer'
 import { PdfViewer } from './PdfViewer'
+import { SheetViewer } from './SheetViewer'
 
 export function FileView({
   workspaceId,
@@ -32,5 +33,6 @@ export function FileView({
       <PdfViewer key={filePath} workspaceId={workspaceId} paneId={paneId} filePath={filePath} />
     )
   }
+  if (filePath && kind === 'spreadsheet') return <SheetViewer key={filePath} filePath={filePath} />
   return <EditorView workspaceId={workspaceId} paneId={paneId} filePath={filePath} />
 }

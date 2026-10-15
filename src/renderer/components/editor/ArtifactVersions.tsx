@@ -19,6 +19,7 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { usePaneVisible } from '@/lib/attention/workspaceActivity'
 import { useArtifactListing } from '@/lib/files/artifacts'
 import { csvDelimiter } from '@/lib/files/csvTable'
+import { fileViewKind } from '@/lib/files/fileKinds'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type ShownVersion, useArtifactVersionsStore } from '@/stores/files/artifactVersionsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
@@ -30,6 +31,7 @@ import { HtmlPreview } from './HtmlPreview'
 import { ImageViewer } from './ImageViewer'
 import { MarkdownPreview } from './MarkdownPreview'
 import { PdfViewer } from './PdfViewer'
+import { SheetViewer } from './SheetViewer'
 
 const SCROLL_FROM = 8
 
@@ -188,6 +190,9 @@ function VersionBody({
         filePath={content.file}
       />
     )
+  }
+  if (fileViewKind(filePath) === 'spreadsheet') {
+    return <SheetViewer key={content.file} filePath={content.file} />
   }
   if (content.type === 'svg' || Object.keys(content.sources).length === 0) {
     return (

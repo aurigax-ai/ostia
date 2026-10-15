@@ -113,10 +113,16 @@
         "src/renderer/lib/settings/browserEditorSettings.ts",
         "src/main/files/fsText.ts",
         "src/main/files/fsBinary.ts",
-        "src/main/files/watchedFiles.ts"
+        "src/main/files/watchedFiles.ts",
+        "src/renderer/components/editor/SheetViewer.tsx",
+        "src/renderer/components/editor/DataGrid.tsx",
+        "src/renderer/lib/office/",
+        "src/renderer/lib/files/gridColumns.ts",
+        "test/fixtures/office/"
       ],
       "specs": [
         "e2e/markdown-preview.spec.ts",
+        "e2e/office-viewer.spec.ts",
         "e2e/open-any-file.spec.ts",
         "e2e/preview-send.spec.ts"
       ]
@@ -1239,6 +1245,8 @@
         "src/renderer/components/editor/CsvTable.tsx",
         "src/renderer/components/editor/MermaidDiagram.tsx",
         "src/renderer/lib/files/csvTable.ts",
+        "src/renderer/components/editor/DataGrid.tsx",
+        "src/renderer/lib/files/gridColumns.ts",
         "src/renderer/lib/files/mermaidImage.ts",
         "src/main/files/openWaits.ts",
         "src/main/files/openFileMethods.ts",

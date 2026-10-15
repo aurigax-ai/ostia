@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
 import { CsvTable, CsvTableView } from './CsvTable'
 
@@ -34,13 +34,35 @@ describe('CsvTable', () => {
     expect(table).toHaveTextContent('=HYPERLINK("http://x")')
   })
 
-  it('says so when it shows only the first 5,000 rows', async () => {
+  it('says so when it shows only the first rows', async () => {
     await renderSettled(
       <CsvTableView
         table={{ header: ['n'], rows: [['0'], ['1']], more: true, columnsCut: false }}
       />,
     )
-    expect(screen.getByTestId('csv-table-note')).toHaveTextContent('Showing the first 5,000 rows.')
+    expect(screen.getByTestId('csv-table-note')).toHaveTextContent('Showing the first 2 rows.')
     expect(screen.getAllByRole('row')).toHaveLength(3)
+  })
+
+  it('keeps only the rows in view in the DOM for a long table, and all of them when static', async () => {
+    const rows = Array.from({ length: 5_000 }, (_unused, i) => [String(i)])
+    const table = { header: ['n'], rows, more: false, columnsCut: false }
+    const height = vi
+      .spyOn(HTMLElement.prototype, 'offsetHeight', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.classList.contains('csv-table') ? 600 : 0
+      })
+    await renderSettled(<CsvTableView table={table} />)
+    const shown = await waitFor(() => {
+      const cells = screen.getAllByRole('cell')
+      expect(cells.length).toBeGreaterThan(0)
+      return cells
+    })
+    expect(shown[0]).toHaveTextContent('0')
+    expect(shown.length).toBeLessThan(200)
+    height.mockRestore()
+    cleanup()
+    await renderSettled(<CsvTableView table={table} windowed={false} />)
+    expect(screen.getAllByRole('cell')).toHaveLength(5_000)
   })
 })

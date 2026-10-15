@@ -11,6 +11,10 @@ describe('fileViewKind', () => {
   it('opens PDFs in the PDF viewer and everything else as text', () => {
     expect(fileViewKind('/w/paper.PDF')).toBe('pdf')
     expect(fileViewKind('/w/a.ts')).toBe('text')
+    for (const ext of ['xlsx', 'XLSM', 'xlsb', 'xls', 'ods']) {
+      expect(fileViewKind(`/w/book.${ext}`)).toBe('spreadsheet')
+    }
+    expect(fileViewKind('/w/book.xlsx.txt')).toBe('text')
     expect(fileViewKind('/w/png')).toBe('text')
     expect(fileViewKind(undefined)).toBe('text')
   })

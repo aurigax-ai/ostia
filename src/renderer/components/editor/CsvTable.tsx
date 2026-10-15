@@ -1,7 +1,8 @@
 import { fmt, useDict } from '@/lib/app/useDict'
-import { CSV_COLUMNS_MAX, CSV_ROWS_MAX, type CsvTableData, parseCsv } from '@/lib/files/csvTable'
+import { CSV_COLUMNS_MAX, type CsvTableData, parseCsv } from '@/lib/files/csvTable'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { DataGrid, type GridSource } from './DataGrid'
 
 export function CsvTable({
   source,
@@ -23,44 +24,23 @@ export function CsvTable({
   return <CsvTableView table={table} />
 }
 
-export function CsvTableView({ table }: { table: CsvTableData }): JSX.Element {
+export function CsvTableView({
+  table,
+  windowed = true,
+}: { table: CsvTableData; windowed?: boolean }): JSX.Element {
   const d = useDict()
   const locale = useSettingsStore((s) => s.locale)
-  return (
-    // biome-ignore lint/a11y/noNoninteractiveTabindex: the table scrolls with the keyboard
-    <div className="csv-table" data-testid="csv-table" tabIndex={0}>
-      {table.more || table.columnsCut ? (
-        <p className="csv-table-note" data-testid="csv-table-note">
-          {table.more
-            ? fmt(d.viewer.csvRowsCut, { rows: CSV_ROWS_MAX.toLocaleString(locale) })
-            : ''}
-          {table.more && table.columnsCut ? ' ' : ''}
-          {table.columnsCut ? fmt(d.viewer.csvColumnsCut, { columns: CSV_COLUMNS_MAX }) : ''}
-        </p>
-      ) : null}
-      <table>
-        <thead>
-          <tr>
-            {table.header.map((cell, column) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: cells have no identity but their position
-              <th key={column} scope="col">
-                {cell}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {table.rows.map((row, line) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: rows have no identity but their position
-            <tr key={line}>
-              {row.map((cell, column) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: cells have no identity but their position
-                <td key={column}>{cell}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+  const source = useMemo<GridSource>(
+    () => ({
+      header: table.header,
+      rowCount: table.rows.length,
+      cell: (row, column) => table.rows[row][column],
+    }),
+    [table],
   )
+  const notes = [
+    table.more ? fmt(d.viewer.csvRowsCut, { rows: table.rows.length.toLocaleString(locale) }) : '',
+    table.columnsCut ? fmt(d.viewer.csvColumnsCut, { columns: CSV_COLUMNS_MAX }) : '',
+  ].filter(Boolean)
+  return <DataGrid source={source} notes={notes} windowed={windowed} testId="csv-table" />
 }

@@ -89,6 +89,7 @@
     "@secretlint/core": "^13.0.6",
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.6",
     "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/react-virtual": "^3.14.19",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -124,6 +125,7 @@
     "electron": "^44.5.1",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
+    "fflate": "^0.8.3",
     "jscpd": "^5.4.1",
     "jsdom": "^29.1.1",
     "knip": "^6.41.0",
@@ -152,6 +154,7 @@
     "vite": "^7.3.7",
     "vitest": "catalog:",
     "vscode-languageserver-protocol": "^3.18.2",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "yaml-language-server": "1.24.0",
     "zustand": "^4.5.7"
   },

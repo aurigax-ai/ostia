@@ -2768,7 +2768,10 @@ button.prompt-chip:hover {
 }
 
 .csv-table table {
+  width: max-content;
   border-collapse: collapse;
+  table-layout: fixed;
+  font-family: var(--font-code);
 }
 
 .csv-table th,
@@ -2783,12 +2786,45 @@ button.prompt-chip:hover {
   font-family: var(--font-code);
 }
 
-.csv-table th {
+.csv-table thead th,
+.csv-table-corner {
   position: sticky;
   top: -8px;
+  z-index: 2;
   background: var(--surface-2);
   color: var(--fg);
   font-weight: var(--font-weight-medium);
+}
+
+.csv-table tbody th {
+  position: sticky;
+  left: -12px;
+  z-index: 1;
+  background: var(--surface-2);
+  color: var(--fg-muted);
+  font-weight: var(--font-weight-normal);
+  text-align: right;
+}
+
+.csv-table-corner {
+  left: -12px;
+  z-index: 3;
+  border: 1px solid var(--line);
+}
+
+.sheet-body {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.sheet-tabs {
+  flex: none;
+  overflow-x: auto;
+  padding: 2px 6px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
 }
 
 .csv-table-note {

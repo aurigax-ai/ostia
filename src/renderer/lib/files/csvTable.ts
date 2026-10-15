@@ -1,4 +1,4 @@
-export const CSV_ROWS_MAX = 5_000
+export const CSV_ROWS_MAX = 100_000
 export const CSV_COLUMNS_MAX = 100
 
 export interface CsvTableData {
@@ -16,12 +16,16 @@ export function csvDelimiter(path: string): string {
   return /\.tsv$/i.test(path) ? '\t' : ','
 }
 
-export async function parseCsv(text: string, delimiter: string): Promise<CsvTableData> {
+export async function parseCsv(
+  text: string,
+  delimiter: string,
+  rowsMax: number = CSV_ROWS_MAX,
+): Promise<CsvTableData> {
   const { default: Papa } = await import('papaparse')
   const parsed = Papa.parse<string[]>(text, {
     delimiter,
     skipEmptyLines: 'greedy',
-    preview: CSV_ROWS_MAX + 2,
+    preview: rowsMax + 2,
   })
   const all = parsed.data.filter((row) => Array.isArray(row))
   const [first = [], ...body] = all
@@ -33,8 +37,8 @@ export async function parseCsv(text: string, delimiter: string): Promise<CsvTabl
     Array.from({ length: width }, (_unused, i) => String(row[i] ?? ''))
   return {
     header: fit(first),
-    rows: body.slice(0, CSV_ROWS_MAX).map(fit),
-    more: body.length > CSV_ROWS_MAX,
+    rows: body.slice(0, rowsMax).map(fit),
+    more: body.length > rowsMax,
     columnsCut: all.some((row) => row.length > CSV_COLUMNS_MAX),
   }
 }

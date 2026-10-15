@@ -8,6 +8,7 @@ import { MARKDOWN_REMARK, markdownComponents } from './MarkdownPreview'
 
 const MARKDOWN_STYLES = /\.typeset|\.markdown-preview|\.mermaid-diagram/
 const CSV_STYLES = /\.csv-table/
+const PORTABLE_CSV_ROWS = 5_000
 
 function base64(text: string): string {
   const bytes = new TextEncoder().encode(text)
@@ -75,8 +76,8 @@ async function markdownDocument(source: string, dark: boolean): Promise<Portable
 }
 
 async function csvDocument(source: string, delimiter: string): Promise<PortableDocument> {
-  const table = await parseCsv(source, delimiter)
-  const body = await render(<CsvTableView table={table} />)
+  const table = await parseCsv(source, delimiter, PORTABLE_CSV_ROWS)
+  const body = await render(<CsvTableView table={table} windowed={false} />)
   return { body, css: stylesMatching(CSV_STYLES) }
 }
 
