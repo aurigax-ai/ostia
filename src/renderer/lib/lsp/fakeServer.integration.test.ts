@@ -11,7 +11,8 @@ const fake = createFakeMonaco()
 vi.mock('@/lib/monaco/setup', () => ({ monaco: fake.monaco }))
 vi.mock('vscode-jsonrpc/browser', async () => await import('vscode-jsonrpc/node'))
 
-const { APPLY_CODE_ACTION_COMMAND, registerProviders } = await import('./providers')
+const { APPLY_CODE_ACTION_COMMAND } = await import('./codeActions')
+const { registerProviders } = await import('./providers')
 const { LspSession } = await import('./session')
 
 const FAKE_SERVER = resolve(__dirname, '../../../../test/fixtures/lsp/fake-server.mjs')

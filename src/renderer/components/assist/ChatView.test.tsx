@@ -19,7 +19,8 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
 import { ChatPane } from './ChatPane'
-import { ChatView, REDACTION_PREVIEW_MS, hasVisibleContent } from './ChatView'
+import { ChatView, hasVisibleContent } from './ChatView'
+import { REDACTION_PREVIEW_MS } from './useChatAsk'
 
 vi.mock('@/lib/theme/colorize', () => ({ colorizeCode: async () => null }))
 
