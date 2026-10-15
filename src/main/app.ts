@@ -1993,7 +1993,7 @@ function registerIpc(): void {
           workspaceId: event.workspaceId,
         })
       }
-      extensionHost?.clearPaneChips(event.paneId)
+      extensionHost?.slots.clearPaneChips(event.paneId)
       releaseMovingPane(event.paneId)
       if (managerService?.isManagerPane(event.paneId)) killPty(event.paneId, 'closed')
       if (ptys.has(event.paneId)) closedPanes.add(event.paneId)
@@ -2008,7 +2008,7 @@ function registerIpc(): void {
     } else if (event.type === 'workspace-added') {
       setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)
       scratchFolders.bind(event.workspaceId, event.workDir, windowId)
-      extensionHost?.publishWorkspaceChips()
+      extensionHost?.slots.publishWorkspaceChips()
       extensionHost?.remoteFolders?.ownerChanged(event.workspaceId)
     } else if (event.type === 'workspace-closed') {
       workspaceClosed(event.workspaceId)
@@ -2126,10 +2126,10 @@ function registerExtensionIpc(host: ExtensionHost): void {
     host.setEnabled(String(extId), enabled === true),
   )
   ipcMain.handle('extensions:approve', (_e, extId: string) => host.approve(String(extId)))
-  ipcMain.handle('extensions:sidebar', () => host.sidebarItems())
-  ipcMain.handle('extensions:chips', () => host.paneChips())
+  ipcMain.handle('extensions:sidebar', () => host.slots.sidebarItems())
+  ipcMain.handle('extensions:chips', () => host.slots.paneChips())
   ipcMain.handle('extensions:workspace-chips', (e) =>
-    workspaceChipsForWindow(host.workspaceChips(), workspaceWindowId, String(e.sender.id)),
+    workspaceChipsForWindow(host.slots.workspaceChips(), workspaceWindowId, String(e.sender.id)),
   )
   ipcMain.handle('extensions:set-setting', (_e, extId: unknown, key: unknown, value: unknown) => {
     if (typeof extId === 'string' && marketplaceInstallIds().includes(extId)) {
@@ -2246,7 +2246,7 @@ const workspaceClosed = createWorkspaceClosed({
   removeWorkspace,
   forgetReach: (id) => reach.forget(id),
   closeProcesses: (id) => processes?.workspaceClosed(id),
-  clearChips: (id) => extensionHost?.clearWorkspaceChips(id),
+  clearChips: (id) => extensionHost?.slots.clearWorkspaceChips(id),
   closeRemoteFolders: (id) => extensionHost?.remoteFolders?.workspaceClosed(id),
   tellExtensions: (id) => extensionHost?.workspaceClosed(id),
   closeArtifacts: (id) => artifactHistory.close(id, artifactFolders.close(id)),

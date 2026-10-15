@@ -192,12 +192,14 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
     host.approve('chipper')
     const chip = { paneId: pane.externalId, id: 'status', text: 'hello chip' }
     expect(await host.invoke('chipper', 'chip', chip, caller)).toEqual({ ok: true })
-    expect(host.paneChips()).toMatchObject([{ extId: 'chipper', paneId: 'p1', text: 'hello chip' }])
+    expect(host.slots.paneChips()).toMatchObject([
+      { extId: 'chipper', paneId: 'p1', text: 'hello chip' },
+    ])
 
     writeFileSync(join(extDir, 'ostia.json'), '{ "broken": ')
     host.rescan()
     expect(info('chipper')).toBeUndefined()
-    expect(host.paneChips()).toEqual([])
+    expect(host.slots.paneChips()).toEqual([])
     expect(chipBroadcasts.at(-1)).toEqual([])
     expect(await host.invoke('chipper', 'chip', chip, caller)).toMatchObject({
       ok: false,

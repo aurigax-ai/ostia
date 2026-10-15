@@ -133,7 +133,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
       expect(res).toEqual({ ok: true })
       const chip = { extId: 'echo', id: 'status', paneId: 'p1', text: 'main', tone: 'ok' }
       expect(chipBroadcast()).toEqual([{ ...chip, tooltip: 'branch', command: 'echo' }])
-      expect(host.paneChips()).toEqual(chipBroadcast())
+      expect(host.slots.paneChips()).toEqual(chipBroadcast())
       expect(echo().paneChips).toEqual([{ id: 'status', title: 'Echo status' }])
     })
 
@@ -150,7 +150,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
         { paneId: pane.externalId, id: 'status', text: 'b' },
         caller,
       )
-      expect(host.paneChips()).toEqual([
+      expect(host.slots.paneChips()).toEqual([
         { extId: 'echo', id: 'status', paneId: 'p1', text: 'b', tone: 'neutral' },
       ])
     })
@@ -185,7 +185,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
       expect(notPane).toMatchObject({ ok: false, error: 'unknown-pane' })
       expect(unknown).toMatchObject({ ok: false, error: 'unknown-pane' })
       expect(hidden).toMatchObject({ ok: false, error: 'invalid-params' })
-      expect(host.paneChips().some((c) => c.paneId === 'p2')).toBe(false)
+      expect(host.slots.paneChips().some((c) => c.paneId === 'p2')).toBe(false)
     })
 
     it('clears a chip on request and when its pane closes', async () => {
@@ -195,10 +195,10 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
         { paneId: other.externalId, id: 'status', text: 'x' },
         caller,
       )
-      expect(host.paneChips().map((c) => c.paneId)).toEqual(['p1', 'p2'])
+      expect(host.slots.paneChips().map((c) => c.paneId)).toEqual(['p1', 'p2'])
       await host.invoke('echo', 'unchip', { paneId: pane.externalId, id: 'status' }, caller)
       expect(chipBroadcast().map((c) => c.paneId)).toEqual(['p2'])
-      host.clearPaneChips('p2')
+      host.slots.clearPaneChips('p2')
       expect(chipBroadcast()).toEqual([])
     })
 
@@ -209,7 +209,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
         { paneId: pane.externalId, id: 'status', text: 'x' },
         caller,
       )
-      expect(host.paneChips()).toHaveLength(1)
+      expect(host.slots.paneChips()).toHaveLength(1)
       host.setEnabled('echo', false)
       expect(chipBroadcast()).toEqual([])
       host.setEnabled('echo', true)
@@ -224,7 +224,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
         caller,
       )
       expect(res).toEqual({ ok: true })
-      expect(host.paneChips()).toEqual([
+      expect(host.slots.paneChips()).toEqual([
         {
           extId: 'echo',
           id: 'status',
@@ -248,7 +248,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
       )
       expect(file).toMatchObject({ ok: false, error: 'invalid-params' })
       expect(both).toMatchObject({ ok: false, error: 'invalid-params' })
-      expect(host.paneChips()[0]?.text).toBe(':3000')
+      expect(host.slots.paneChips()[0]?.text).toBe(':3000')
       await host.invoke('echo', 'unchip', { paneId: pane.externalId, id: 'status' }, caller)
     })
   })
@@ -272,7 +272,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
         command: 'echo',
       }
       expect(lastWorkspaceChips()).toEqual([chip])
-      expect(host.workspaceChips()).toEqual([chip])
+      expect(host.slots.workspaceChips()).toEqual([chip])
       expect(echo().workspaceChips).toEqual([{ id: 'repo', title: 'Echo repo' }])
       await call('ext.clearWorkspaceChip', { workspaceId: 's1', id: 'repo' })
       expect(lastWorkspaceChips()).toEqual([])
@@ -290,7 +290,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
       await refused({ url: 'file:///etc/passwd' }, 'invalid-params')
       await refused({ icon: 'rocket' }, 'invalid-params')
       await refused({ command: 'probe' }, 'invalid-params')
-      expect(host.workspaceChips()).toEqual([])
+      expect(host.slots.workspaceChips()).toEqual([])
     })
 
     it('clears a workspace chip when its workspace closes or the extension stops', async () => {
@@ -298,8 +298,8 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
       openWorkspaces.add('s2')
       await setChip({})
       await setChip({ workspaceId: 's2', text: 'dev' })
-      expect(host.workspaceChips().map((c) => c.workspaceId)).toEqual(['s1', 's2'])
-      host.clearWorkspaceChips('s1')
+      expect(host.slots.workspaceChips().map((c) => c.workspaceId)).toEqual(['s1', 's2'])
+      host.slots.clearWorkspaceChips('s1')
       expect(lastWorkspaceChips().map((c) => c.workspaceId)).toEqual(['s2'])
       host.setEnabled('echo', false)
       expect(lastWorkspaceChips()).toEqual([])
@@ -323,7 +323,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
         caller,
       )
       expect(res).toEqual({ ok: true })
-      expect(host.paneChips()[0]).toMatchObject({
+      expect(host.slots.paneChips()[0]).toMatchObject({
         icon: 'plugs',
         text: '2',
         items: [{ text: ':3000', url: 'http://localhost:3000/' }, { text: 'idle' }],
@@ -351,7 +351,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
       ]) {
         expect(await set(extra)).toMatchObject({ ok: false, error: 'invalid-params' })
       }
-      expect(host.paneChips()).toEqual([])
+      expect(host.slots.paneChips()).toEqual([])
     })
   })
 
