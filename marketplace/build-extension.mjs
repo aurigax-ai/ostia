@@ -1,4 +1,12 @@
-import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, realpathSync } from 'node:fs'
+import {
+  copyFileSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+} from 'node:fs'
 import { dirname, join, resolve, sep } from 'node:path'
 import { build } from 'esbuild'
 
@@ -63,14 +71,47 @@ function copyVendoredPackages(src, out) {
   }
 }
 
-function copyAgentSkills(src, out) {
+function readSourceManifest(src) {
   const file = manifestFiles.find((name) => existsSync(join(src, name))) ?? manifestFiles[0]
-  const manifest = JSON.parse(readFileSync(join(src, file), 'utf8'))
+  return JSON.parse(readFileSync(join(src, file), 'utf8'))
+}
+
+function copyAgentSkills(src, out) {
+  const manifest = readSourceManifest(src)
   for (const skill of manifest.contributes?.agentSkills ?? []) {
     mkdirSync(join(out, skill.path), { recursive: true })
     for (const file of [skillEntry, ...(skill.files ?? [])]) {
       copyFileSync(join(src, skill.path, file), join(out, skill.path, file))
     }
+  }
+}
+
+function browserBundle(entry, outfile) {
+  return build({
+    entryPoints: [entry],
+    outfile,
+    bundle: true,
+    platform: 'browser',
+    format: 'iife',
+    target: 'chrome120',
+    loader: { '.svg': 'text' },
+    logLevel: 'warning',
+  })
+}
+
+async function buildFileViewers(src, out, panelBaseCss) {
+  const viewers = readSourceManifest(src).contributes?.fileViewers ?? []
+  if (viewers.length === 0) return
+  copyFileSync(panelBaseCss, join(out, 'base.css'))
+  for (const { entry } of viewers) {
+    copyFileSync(join(src, entry), join(out, entry))
+    const script = entry.replace(/\.html$/, '.ts')
+    if (existsSync(join(src, script))) {
+      await browserBundle(join(src, script), join(out, script.replace(/\.ts$/, '.js')))
+    }
+  }
+  for (const name of readdirSync(src).filter((file) => file.endsWith('.worker.ts'))) {
+    await browserBundle(join(src, name), join(out, name.replace(/\.ts$/, '.js')))
   }
 }
 
@@ -84,6 +125,7 @@ export async function buildExtension(src, out, panelBaseCss) {
   }
   copyVendoredPackages(src, out)
   copyAgentSkills(src, out)
+  await buildFileViewers(src, out, panelBaseCss)
   if (existsSync(join(src, 'panel.html'))) copyFileSync(panelBaseCss, join(out, 'base.css'))
   if (existsSync(join(src, 'main.ts'))) {
     await build({
@@ -97,15 +139,6 @@ export async function buildExtension(src, out, panelBaseCss) {
     })
   }
   if (existsSync(join(src, 'panel.ts'))) {
-    await build({
-      entryPoints: [join(src, 'panel.ts')],
-      outfile: join(out, 'panel.js'),
-      bundle: true,
-      platform: 'browser',
-      format: 'iife',
-      target: 'chrome120',
-      loader: { '.svg': 'text' },
-      logLevel: 'warning',
-    })
+    await browserBundle(join(src, 'panel.ts'), join(out, 'panel.js'))
   }
 }

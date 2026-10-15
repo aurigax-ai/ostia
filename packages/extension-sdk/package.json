@@ -9,6 +9,8 @@
     "./assist": "./src/assist/index.ts",
     "./panel": "./src/client/panel.ts",
     "./splitter": "./src/client/splitter.ts",
+    "./viewer": "./src/client/viewer.ts",
+    "./grid": "./src/client/grid.ts",
     "./atomicWrite": "./src/client/atomicWrite.ts",
     "./panel.css": "./src/client/panel.css",
     "./contract/*": "./src/contract/*.ts",
@@ -16,6 +18,7 @@
     "./api-contract": "./scripts/api-contract.mjs"
   },
   "dependencies": {
+    "@tanstack/virtual-core": "^3.19.4",
     "vscode-jsonrpc": "catalog:"
   },
   "peerDependencies": {

@@ -16,6 +16,7 @@ import {
   type ExtensionConnectionKind,
   type ExtensionManifest,
 } from '../contract/extensions'
+import { FILE_VIEWER_DISPLAY_NAME_MAX } from '../contract/fileViewers'
 import { isRecord } from '../contract/isRecord'
 import { readConfined } from './confinedRead'
 import { MAX_DESCRIPTION, MAX_TEXT, hasControlCharacter } from './extensionManifest'
@@ -44,6 +45,9 @@ export function manifestSlots(manifest: ExtensionManifest): Map<string, number> 
     }
   }
   if (c.panel) slots.set('panel.title', MAX_TEXT)
+  for (const viewer of c.fileViewers ?? []) {
+    slots.set(`fileViewers.${viewer.viewType}.displayName`, FILE_VIEWER_DISPLAY_NAME_MAX)
+  }
   if (c.settingsPage) slots.set('settingsPage.title', EXTENSION_SETTING_TITLE_MAX)
   for (const chip of c.paneChips) slots.set(`paneChips.${chip.id}.title`, MAX_TEXT)
   for (const chip of c.workspaceChips) slots.set(`workspaceChips.${chip.id}.title`, MAX_TEXT)
@@ -253,6 +257,14 @@ export function localizeManifest(
         description: t(`secrets.${secret.key}.description`, secret.description),
       })),
       ...(c.connections ? { connections: c.connections.map((kind) => localizeKind(kind, t)) } : {}),
+      ...(c.fileViewers
+        ? {
+            fileViewers: c.fileViewers.map((viewer) => ({
+              ...viewer,
+              displayName: t(`fileViewers.${viewer.viewType}.displayName`, viewer.displayName),
+            })),
+          }
+        : {}),
     },
   }
 }

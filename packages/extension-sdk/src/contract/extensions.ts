@@ -6,6 +6,7 @@ import type {
 import type { AssistPoint } from './assist'
 import type { Capability } from './capabilities'
 import type { EditorLanguageContribution } from './editorLanguages'
+import type { FileViewerContribution, FileViewerInfo } from './fileViewers'
 import type { IconThemeContribution, IconThemeInfo } from './iconTheme'
 import { isRecord } from './isRecord'
 import type { KeymapContribution, KeymapInfo } from './keymap'
@@ -243,6 +244,7 @@ export interface ExtensionManifest {
     keymaps?: KeymapContribution[]
     languageServers?: LanguageServerContribution[]
     editorLanguages?: EditorLanguageContribution[]
+    fileViewers?: FileViewerContribution[]
     agentSkills?: AgentSkillContribution[]
     agentHooks?: AgentHookContribution[]
     verb?: string
@@ -285,6 +287,7 @@ export interface ExtensionInfo {
   languages: LanguageInfo[]
   keymaps: KeymapInfo[]
   languageServers: LanguageServerSummary[]
+  fileViewers: FileViewerInfo[]
   agentSkills: string[]
   agentHooks: AgentHookSummary[]
 }

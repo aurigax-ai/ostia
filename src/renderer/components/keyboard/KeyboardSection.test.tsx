@@ -53,6 +53,7 @@ const keymapExtension: ExtensionInfo = {
     { id: 'mac', label: 'Mac only', platform: 'darwin' },
   ],
   languageServers: [],
+  fileViewers: [],
   agentSkills: [],
   agentHooks: [],
 }

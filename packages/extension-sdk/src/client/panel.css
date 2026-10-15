@@ -277,3 +277,98 @@ input[type="radio"]:focus-visible {
   cursor: row-resize !important;
   user-select: none !important;
 }
+
+.ostia-grid {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  background: var(--surface-1);
+}
+
+.ostia-grid-note {
+  flex: none;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--fg-muted);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+}
+
+.ostia-grid-scroll {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  outline: none;
+}
+
+.ostia-grid-canvas {
+  position: relative;
+  font-family: var(--font-code);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+}
+
+.ostia-grid-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.ostia-grid-corner {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  box-sizing: border-box;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.ostia-grid-body {
+  position: relative;
+}
+
+.ostia-grid-labels {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  height: 100%;
+  background: var(--surface-2);
+}
+
+.ostia-grid-cells {
+  position: absolute;
+  inset: 0;
+}
+
+.ostia-grid-cell {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 3px 8px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  color: var(--fg);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ostia-grid-column {
+  background: var(--surface-2);
+  font-weight: var(--font-weight-medium);
+}
+
+.ostia-grid-label {
+  color: var(--fg-muted);
+  text-align: right;
+}
+
+.ostia-grid-probe {
+  position: absolute;
+  visibility: hidden;
+}
