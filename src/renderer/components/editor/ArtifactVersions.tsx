@@ -19,6 +19,7 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { usePaneVisible } from '@/lib/attention/workspaceActivity'
 import { useArtifactListing } from '@/lib/files/artifacts'
 import { csvDelimiter } from '@/lib/files/csvTable'
+import { baseName } from '@/lib/files/fileTree'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type ShownVersion, useArtifactVersionsStore } from '@/stores/files/artifactVersionsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
@@ -32,10 +33,6 @@ import { MarkdownPreview } from './MarkdownPreview'
 import { PdfViewer } from './PdfViewer'
 
 const SCROLL_FROM = 8
-
-function baseName(path: string): string {
-  return path.split('/').pop() ?? path
-}
 
 function useTopArtifact(workspaceId: string, filePath: string): boolean {
   const listing = useArtifactListing(workspaceId)
