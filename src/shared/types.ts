@@ -6,6 +6,7 @@ import type {
   ExtensionResult,
   ExtensionsApi,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ViewerPortableTables } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
 import type { IconThemesApi } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
 import type { LanguagePacksApi } from '@aurigax-ai/ostia-extension-sdk/contract/languagePack'
 import type { LspApi } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
@@ -343,6 +344,23 @@ export interface FsEntry {
   dir: boolean
 }
 
+export interface ViewerOpenRequest {
+  workspaceId: string
+  paneId: string
+  path: string
+  viewType: string
+}
+
+export type ViewerOpenResult =
+  | { ok: true; src: string; partition: string }
+  | { ok: false; error: 'denied' | 'unknown-viewer' }
+
+interface ViewersApi {
+  open: (request: ViewerOpenRequest) => Promise<ViewerOpenResult>
+  close: (paneId: string) => void
+  portable: (paneId: string) => Promise<ViewerPortableTables | null>
+}
+
 interface FsApi {
   list: (path: string) => Promise<FsEntry[]>
   read: (path: string) => Promise<FsTextResult>
@@ -509,6 +527,7 @@ export interface SnapshotPaneNode {
   kind: SnapshotSurfaceKind
   cwd?: string
   filePath?: string
+  viewType?: string
   url?: string
   extensionId?: string
   chatSessionId?: string
@@ -1105,6 +1124,7 @@ export interface OstiaBridge {
   pty: PtyApi
   manager: ManagerApi
   fs: FsApi
+  viewers: ViewersApi
   search: SearchApi
   remoteFiles: RemoteFilesApi
   lsp: LspApi

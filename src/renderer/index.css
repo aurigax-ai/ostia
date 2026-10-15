@@ -4402,3 +4402,18 @@ button.prompt-chip:hover {
     opacity: 1;
   }
 }
+
+.viewer-fallback {
+  position: absolute;
+  bottom: 8px;
+  left: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  margin: 0;
+  color: var(--warn-fg);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+}

@@ -31,6 +31,7 @@ interface FsIpcDeps {
     fileWatches: FileWatches | null
   }
   onSettingsWritten: () => void
+  viewers: { changed: (owner: string) => void }
 }
 
 function listDir(dir: string): FsEntry[] {
@@ -54,6 +55,7 @@ export function registerFsIpc({
   scratchFolders,
   services,
   onSettingsWritten,
+  viewers,
 }: FsIpcDeps): void {
   const allowedRoots = fileRoots()
   const settingsFile = join(app.getPath('userData'), 'settings.json')
@@ -119,6 +121,7 @@ export function registerFsIpc({
     debounceMs: FILE_WATCH_DEBOUNCE_MS,
     onChange: ({ path, exists, owners }) => {
       for (const owner of owners) {
+        viewers.changed(owner)
         const win = windows.get(owner)
         if (win && !win.isDestroyed()) win.webContents.send('fs:changed', { path, exists })
       }

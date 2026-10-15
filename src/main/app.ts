@@ -77,6 +77,7 @@ import { createMainStrings } from './extensions/strings'
 import type { FileWatches } from './files/fileWatch'
 import { registerFsIpc } from './files/fsIpc'
 import { OpenWaits } from './files/openWaits'
+import { createViewerHost, registerViewerIpc } from './files/viewers/viewerIpc'
 import { startGateway } from './gateway/gatewayWiring'
 import { createCoreBoards } from './git/coreBoards'
 import type { GitService } from './git/service'
@@ -267,6 +268,8 @@ const {
   artifactsChanged,
   isScratchPane,
 } = createArtifactServices({ windows, workspaceSandboxes: () => workspaceSandboxes })
+
+const viewers = createViewerHost({ openFileGrants, services, readLocale })
 
 const openWaits = new OpenWaits((windowId, paneIds) =>
   windows.get(windowId)?.webContents.send('open-waits:ended', paneIds),
@@ -499,6 +502,7 @@ const { wireWindow } = createWindowWiring({
   requestQuit: () => requestQuit(),
   openExternalSafe,
   previews,
+  viewers,
   extensionOfPartition,
   browserProfiles,
   hardenExtensionGuest,
@@ -696,6 +700,7 @@ function boot(): void {
   registerSandboxIpcWiring({ ...wiring })
   registerPtyIpc({ ...wiring })
   registerFsIpc({ ...wiring })
+  registerViewerIpc({ ...wiring })
   registerSelectionIpc(reachesPane, redactor.text)
   registerArtifactViewIpc({ ...wiring })
   registerPrivacyIpc(redactor)
@@ -785,6 +790,7 @@ const { requestQuit, handleQuitSignals } = registerAppQuit({
 
 const wiring = {
   services,
+  viewers,
   mainStrings,
   windows,
   requestQuit,

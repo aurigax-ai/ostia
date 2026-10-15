@@ -43,6 +43,7 @@ export interface LayoutState {
   setLocked: (workspaceId: string, paneId: string, locked: boolean) => void
   isLocked: (workspaceId: string, paneId?: string) => boolean
   setTitle: (workspaceId: string, paneId: string, title: string) => void
+  setViewType: (workspaceId: string, paneId: string, viewType: string | null) => void
   followMovedFile: (from: string, to: string) => void
   rename: (workspaceId: string, paneId: string, title: string) => void
   setDefaultTitle: (workspaceId: string, paneId: string, title: string) => void

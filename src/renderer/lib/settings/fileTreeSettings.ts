@@ -1,4 +1,8 @@
 import {
+  FILENAME_PATTERN_PATTERN,
+  VIEW_TYPE_PATTERN,
+} from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+import {
   BUILTIN_ICON_THEME,
   ICON_THEME_ID_PATTERN,
 } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
@@ -26,6 +30,7 @@ export interface FileTreeSettings {
   sortBy: FileSortBy
   breadcrumb: BreadcrumbStyle
   iconTheme: string
+  viewerAssociations: Record<string, string>
 }
 
 export const DOTFILES_PATTERN = '**/.*'
@@ -33,6 +38,7 @@ export const DOTFILES_PATTERN = '**/.*'
 export const EXCLUDE_MAX = 200
 export const PATTERN_MAX_LENGTH = 500
 export const NESTING_MAX = 100
+export const VIEWER_ASSOCIATIONS_MAX = 100
 
 export const DEFAULT_NESTING_PATTERNS: Record<string, string> = {
   'package.json':
@@ -58,6 +64,7 @@ export const DEFAULT_FILE_TREE_SETTINGS: FileTreeSettings = {
   sortBy: 'name',
   breadcrumb: 'auto',
   iconTheme: BUILTIN_ICON_THEME,
+  viewerAssociations: {},
 }
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
@@ -89,6 +96,22 @@ function parseNestingPatterns(raw: unknown): Record<string, string> {
   return out
 }
 
+function parseViewerAssociations(raw: unknown): Record<string, string> {
+  if (!isPlainObject(raw)) return {}
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(raw)) {
+    if (Object.keys(out).length >= VIEWER_ASSOCIATIONS_MAX) break
+    if (
+      FILENAME_PATTERN_PATTERN.test(key) &&
+      typeof value === 'string' &&
+      VIEW_TYPE_PATTERN.test(value)
+    ) {
+      out[key] = value
+    }
+  }
+  return out
+}
+
 export function parseFileTreeSettings(raw: unknown): FileTreeSettings {
   const base = DEFAULT_FILE_TREE_SETTINGS
   if (!isPlainObject(raw)) return base
@@ -116,5 +139,6 @@ export function parseFileTreeSettings(raw: unknown): FileTreeSettings {
       typeof raw.iconTheme === 'string' && ICON_THEME_ID_PATTERN.test(raw.iconTheme)
         ? raw.iconTheme
         : base.iconTheme,
+    viewerAssociations: parseViewerAssociations(raw.viewerAssociations),
   }
 }

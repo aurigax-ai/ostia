@@ -10,6 +10,7 @@ import { waitOnPanes } from '@/lib/files/openWaits'
 import { revealFolder } from '@/lib/files/revealFolder'
 import { callerHasFocus, openKeepingFocus, opensQuietly } from '@/lib/panes/callerFocus'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useOpenWithStore } from '@/stores/files/openWithStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import {
   OPEN_DIFF_COMMAND,
@@ -20,6 +21,16 @@ import {
 } from '@shared/files/openFiles'
 
 export function registerFileOpenCommands(): void {
+  registerCore<{ paneId?: string } | undefined>({
+    id: 'file.openWith',
+    category: 'editor',
+    local: true,
+    run: (args, ctx) => {
+      const paneId = args?.paneId ?? ctx.activePaneId
+      if (paneId) useOpenWithStore.getState().open(paneId)
+    },
+  })
+
   registerCore<{ path: string }>({
     id: 'editor.open',
     hidden: true,

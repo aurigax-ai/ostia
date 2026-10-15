@@ -1,3 +1,4 @@
+import type { ViewerPortableTables } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
 import type {
   RemoteFolder,
   RemoteFolderAsk,
@@ -18,6 +19,7 @@ import type {
   FsTextResult,
   OpenPathResult,
   OstiaBridge,
+  ViewerOpenResult,
   WorkspaceProject,
 } from '../shared/types'
 
@@ -25,6 +27,7 @@ export const filesBridge: Pick<
   OstiaBridge,
   | 'search'
   | 'fs'
+  | 'viewers'
   | 'remoteFiles'
   | 'openWaits'
   | 'files'
@@ -34,6 +37,12 @@ export const filesBridge: Pick<
 > = {
   search: {
     run: (req) => ipcRenderer.invoke('search:run', req) as Promise<SearchOutcome>,
+  },
+  viewers: {
+    open: (request) => ipcRenderer.invoke('viewers:open', request) as Promise<ViewerOpenResult>,
+    close: (paneId) => ipcRenderer.send('viewers:close', paneId),
+    portable: (paneId) =>
+      ipcRenderer.invoke('viewers:portable', paneId) as Promise<ViewerPortableTables | null>,
   },
   fs: {
     list: (path) => ipcRenderer.invoke('fs:list', path) as Promise<FsEntry[]>,

@@ -6,6 +6,7 @@ import { app, dialog } from 'electron'
 import { parseDiscreteGpu } from '../shared/app/discreteGpu'
 import { registerPreviewScheme } from './artifacts/previewScheme'
 import { keepTestCrashDumps } from './diagnostics/testCrashDumps'
+import { VIEWER_SCHEME_PRIVILEGES } from './files/viewers/viewerScheme'
 import { discreteGpu, gpuStartPlan, readSwitcherooGpus } from './platform/discreteGpu'
 import { offerOldDirsMove } from './platform/oldDirsPrompt'
 import {
@@ -52,7 +53,7 @@ function relaunchedOnDiscreteGpu(): boolean {
 
 async function start(): Promise<void> {
   if (relaunchedOnDiscreteGpu()) return
-  registerPreviewScheme()
+  registerPreviewScheme([VIEWER_SCHEME_PRIVILEGES])
   await app.whenReady()
   const preset = presetAnswer()
   const folders = savedWorkspaceFolders([

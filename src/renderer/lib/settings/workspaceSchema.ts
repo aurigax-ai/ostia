@@ -1,3 +1,4 @@
+import { VIEW_TYPE_PATTERN } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { GIT_POLL_SECONDS } from '@shared/boards/git'
 import { PORTS_INTERVAL_SECONDS } from '@shared/boards/ports'
@@ -9,6 +10,7 @@ import {
   FILE_SORT_ORDERS,
   NESTING_MAX,
   PATTERN_MAX_LENGTH,
+  VIEWER_ASSOCIATIONS_MAX,
 } from './fileTreeSettings'
 
 export const filesSchema = {
@@ -83,6 +85,15 @@ export const filesSchema = {
         'The Files header path, on one line. auto shortens folder names to their first ' +
         'letter and then folds the leading ones into … only when the path does not fit; ' +
         'full never shortens and scrolls; short always shortens. Default: auto.',
+    },
+    viewerAssociations: {
+      type: 'object',
+      maxProperties: VIEWER_ASSOCIATIONS_MAX,
+      additionalProperties: { type: 'string', pattern: VIEW_TYPE_PATTERN.source },
+      description:
+        "Which viewer opens a file, like VS Code's workbench.editorAssociations: a file " +
+        'name pattern ("*.xlsx" or an exact name) → a viewer\'s viewType ("office.spreadsheet") ' +
+        'or "default" for the built-in view. Open With → "Always use for …" sets it.',
     },
     iconTheme: {
       type: 'string',

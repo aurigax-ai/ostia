@@ -81,6 +81,11 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     search: {
       run: vi.fn().mockResolvedValue({ ok: false, error: 'failed', message: '' }),
     },
+    viewers: {
+      open: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-viewer' }),
+      close: vi.fn(),
+      portable: vi.fn().mockResolvedValue(null),
+    },
     fs: {
       list: vi.fn().mockResolvedValue([]),
       read: vi.fn().mockResolvedValue({ ok: false, error: 'missing' }),

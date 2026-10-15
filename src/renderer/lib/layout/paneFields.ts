@@ -132,7 +132,7 @@ export function setPaneEditor(
   filePath: string,
 ): LayoutNode {
   if (isRemotePath(filePath)) {
-    return mapPane(root, paneId, ({ cwd: _local, ...p }) => ({
+    return mapPane(root, paneId, ({ cwd: _local, viewType: _viewType, ...p }) => ({
       ...p,
       kind: 'editor',
       title,
@@ -141,7 +141,24 @@ export function setPaneEditor(
   }
   const slash = filePath.lastIndexOf('/')
   const cwd = slash > 0 ? filePath.slice(0, slash) : '/'
-  return mapPane(root, paneId, (p) => ({ ...named(p, title), kind: 'editor', filePath, cwd }))
+  return mapPane(root, paneId, ({ viewType: _viewType, ...p }) => ({
+    ...named(p, title),
+    kind: 'editor',
+    filePath,
+    cwd,
+  }))
+}
+
+export function setPaneViewType(
+  root: LayoutNode,
+  paneId: string,
+  viewType: string | null,
+): LayoutNode {
+  return mapPane(root, paneId, (p) => {
+    if ((p.viewType ?? null) === viewType) return p
+    const { viewType: _previous, ...rest } = p
+    return viewType === null ? rest : { ...rest, viewType }
+  })
 }
 
 function movedPath(path: string, from: string, to: string): string | null {

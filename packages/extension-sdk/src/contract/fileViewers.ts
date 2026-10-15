@@ -11,6 +11,8 @@ export const FILENAME_PATTERN_PATTERN =
   /^(?:\*\.[A-Za-z0-9][A-Za-z0-9._-]{0,31}|[A-Za-z0-9._-][A-Za-z0-9._ -]{0,126}[A-Za-z0-9._-]?)$/
 
 export const VIEWER_SCHEME = 'ostia-viewer'
+export const OWN_VIEW = 'default'
+export const VIEW_TYPE_PATTERN = /^(?:default|[a-z0-9][a-z0-9-]*\.[a-z][a-z0-9-]{0,39})$/
 export const VIEWER_DOCUMENT_PATH = '/~document'
 export const VIEWER_META_PATH = '/~meta'
 export const VIEWER_EVENTS_PATH = '/~events'
