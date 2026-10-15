@@ -211,6 +211,7 @@
         "e2e/browser-tab.spec.ts",
         "e2e/browser-width.spec.ts",
         "e2e/detached-send.spec.ts",
+        "e2e/os-file-drop.spec.ts",
         "e2e/preview-send.spec.ts"
       ]
     },
@@ -606,6 +607,12 @@
         "src/renderer/lib/files/fileTree.",
         "src/renderer/lib/files/fileTreeActions.ts",
         "src/renderer/lib/files/fileDrop.ts",
+        "src/main/files/fileDrops.ts",
+        "src/main/files/exclusiveTransfer.ts",
+        "src/main/files/folderAnchor.ts",
+        "src/main/files/freedesktopTrash.ts",
+        "src/main/files/transferFs.ts",
+        "src/renderer/components/panes/FileDropCover.tsx",
         "src/renderer/lib/keyboard/dropPaths.ts",
         "src/renderer/lib/files/fileKinds.ts",
         "src/renderer/lib/files/openFile.ts",
@@ -618,6 +625,7 @@
       ],
       "specs": [
         "e2e/open-any-file.spec.ts",
+        "e2e/os-file-drop.spec.ts",
         "e2e/palette-focus.spec.ts",
         "e2e/terminal-file-links.spec.ts",
         "e2e/terminal-path-link-actions.spec.ts"

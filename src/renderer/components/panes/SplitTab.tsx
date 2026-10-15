@@ -27,6 +27,7 @@ import {
   useLayoutEffect,
   useRef,
 } from 'react'
+import { FileDropCover } from './FileDropCover'
 import { PaneRenameField } from './PaneRenameField'
 import { PaneTabMenu } from './PaneTabMenu'
 import { FolderTrustNotice, ResumeConflictNotice, ResumeFailedNotice } from './ResumeFolderNotice'
@@ -349,6 +350,7 @@ function SplitCell({ pane, ctx }: { pane: PaneNode; ctx: CellContext }): JSX.Ele
       ) : ctx.shown && pane.resume ? (
         <ResumeConflictNotice pane={pane} />
       ) : null}
+      <FileDropCover kind={pane.kind} workspaceId={ctx.workspaceId} />
       {dragging ? (
         <div
           className="pane-cell-drop-layer"

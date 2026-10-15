@@ -14,6 +14,7 @@ import { useFolderTrustStore } from '@/stores/agents/folderTrustStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
+import { FileDropCover } from './FileDropCover'
 import { PaneActions } from './PaneActions'
 import { PaneTab } from './PaneTab'
 import {
@@ -162,7 +163,9 @@ export function Pane({
         ) : null}
       </div>
 
-      {shown.kind === 'terminal' ? null : <div className="pane-file-drop" />}
+      {shownTab.type === 'pane' ? (
+        <FileDropCover kind={shown.kind} workspaceId={workspaceId} />
+      ) : null}
       {dragging && shownTab.type === 'pane' ? (
         <div
           className="pane-drop-layer"
