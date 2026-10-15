@@ -1345,8 +1345,9 @@ palette.
 
 The `trellis` and `keeper` extensions (in the marketplace) are the reference for this. The pattern:
 
-- Run the tool with `runTool(bin, args, {cwd, timeoutMs})` from the SDK: no shell, stdin
-  closed, a timeout, and `missing: true` when the binary isn't on `PATH`. Parse its `--json`
+- Run the tool with `runTool(bin, args, {cwd, timeoutMs, env})` from the SDK: no shell, stdin
+  closed, a timeout, the extension's environment unless `env` replaces it, and `missing: true`
+  when the binary isn't on `PATH`. Parse its `--json`
   output in a pure module and unit-test that against captured real output.
 - Missing tool or stopped daemon: set no sidebar items, return `{ok: false, error, message}`
   from commands with what to install or start, and have your panel handler return a static

@@ -12,6 +12,7 @@ export interface ToolRunOptions {
   cwd?: string
   timeoutMs?: number
   maxOutput?: number
+  env?: NodeJS.ProcessEnv
 }
 
 const DEFAULT_TIMEOUT_MS = 15_000
@@ -33,7 +34,7 @@ export function runTool(bin: string, args: string[], opts: ToolRunOptions = {}):
     const child = spawn(bin, args, {
       cwd: opts.cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: process.env,
+      env: opts.env ?? process.env,
     })
     const timer = setTimeout(() => {
       timedOut = true
