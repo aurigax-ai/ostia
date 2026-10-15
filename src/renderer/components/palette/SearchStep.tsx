@@ -12,9 +12,9 @@ import type { ArgumentCommand } from './ArgumentStep'
 import { CommandItems } from './CommandItems'
 import { FilesTextItem, LineItems, SettingsItems } from './EverywhereItems'
 import { FileItems } from './FileItems'
-import { GROUP_CLASS, LIST_CLASS } from './PaletteItemRow'
 import { type Places, TabItems, WorkspaceItems } from './PlaceItems'
 import { SymbolItems } from './SymbolItems'
+import { GROUP_CLASS, LIST_CLASS } from './paletteClasses'
 
 function HelpItems({
   onPick,

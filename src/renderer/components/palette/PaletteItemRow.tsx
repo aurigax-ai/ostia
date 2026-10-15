@@ -1,12 +1,7 @@
 import { Kbd } from '@/components/ui/kbd'
 import { cn } from '@/lib/utils'
 
-export const LIST_CLASS = 'max-h-[min(27rem,calc(88vh-5rem))]'
-
 const SECONDARY_CLASS = 'min-w-0 truncate text-fg-muted text-ui-xs'
-
-export const GROUP_CLASS =
-  '**:[[cmdk-group-heading]]:pt-3 **:[[cmdk-group-heading]]:pb-1.5 **:[[cmdk-group-heading]]:text-ui-base **:[[cmdk-group-heading]]:font-semibold'
 
 export function ItemRow({
   name,

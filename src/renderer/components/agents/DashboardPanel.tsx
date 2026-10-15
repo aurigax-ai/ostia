@@ -26,11 +26,8 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
-import {
-  type Workspace,
-  type WorkspaceState,
-  useWorkspacesStore,
-} from '@/stores/workspaces/workspacesStore'
+import type { Workspace, WorkspaceState } from '@/stores/workspaces/workspaceTypes'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { AppWindowIcon, ArrowSquareOutIcon, ChatTextIcon, XIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import { useEffect, useMemo, useRef, useState } from 'react'

@@ -1,4 +1,17 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { paneInDirection } from './focusDirection'
+import {
+  setDefaultPaneTitle,
+  setDefaultPaneTitles,
+  setPaneBrowser,
+  setPaneCwd,
+  setPaneEditor,
+  setPaneExtension,
+  setPaneLocked,
+  setPaneTitle,
+} from './paneFields'
+import { setSizes } from './panelSize'
+import { graftNode, movePane, moveTab, placementOf } from './tabMoves'
 import {
   addTab,
   adjacentTab,
@@ -8,41 +21,17 @@ import {
   closePane,
   createPane,
   createTerminalPane,
-  findExtensionPane,
   findPane,
   findSplitTab,
   findSplitTabByName,
   firstPaneId,
-  firstPaneOfKind,
   focusIdOf,
-  followMovedFile,
-  graftNode,
-  hasLockedPane,
   isPaneShown,
   mergeLayouts,
-  movePane,
-  moveTab,
   paneIds,
-  paneInDirection,
-  placementOf,
-  renamePane,
   resetIds,
   selectTab,
-  setDefaultPaneTitle,
-  setDefaultPaneTitles,
-  setPaneBrowser,
-  setPaneCwd,
-  setPaneDiff,
-  setPaneEditor,
-  setPaneExtension,
-  setPaneHibernated,
-  setPaneLocked,
-  setPaneSpawnDir,
-  setPaneTitle,
-  setPaneUrl,
-  setSizes,
   setSplitTabName,
-  settleSpawnDir,
   slotKey,
   splitBeside,
   splitOf,
@@ -57,8 +46,6 @@ import {
 import type { LayoutNode } from './types'
 
 beforeEach(() => resetIds())
-
-const idOf = (n: LayoutNode): string => (n.type === 'pane' ? n.id : 'split')
 
 describe('splitPane', () => {
   it('wraps a lone root pane into a split with two panes', () => {
@@ -169,49 +156,6 @@ describe('mergeLayouts', () => {
   })
 })
 
-describe('movePane', () => {
-  it('is a no-op when dropping a pane on itself', () => {
-    const root = createPane()
-    const split = splitPane(root, root.id, 'horizontal').root
-    const id = firstPaneId(split)
-    expect(movePane(split, id, id, 'right')).toBe(split)
-  })
-
-  it('re-splits along the dropped edge (horizontal → vertical)', () => {
-    const root = createPane()
-    const { root: split, newPaneId } = splitPane(root, root.id, 'horizontal')
-    const firstId = firstPaneId(split)
-    const moved = movePane(split, newPaneId as string, firstId, 'bottom')
-    expect(moved.type).toBe('split')
-    if (moved.type === 'split') {
-      expect(moved.direction).toBe('vertical')
-      expect(moved.children.map((c) => (c.type === 'pane' ? c.id : 'split'))).toEqual([
-        firstId,
-        newPaneId,
-      ])
-    }
-    expect(paneIds(moved)).toHaveLength(2)
-  })
-
-  it('merges the source into the target’s tabs on a center drop', () => {
-    const root = createPane()
-    const { root: split, newPaneId } = splitPane(root, root.id, 'horizontal')
-    const firstId = firstPaneId(split)
-    const moved = movePane(split, firstId, newPaneId as string, 'center')
-    expect(moved).toMatchObject({ type: 'tabs', activeId: firstId })
-    expect(paneIds(moved)).toEqual([newPaneId, firstId])
-  })
-
-  it('keeps every pane when relocating within a 3-pane tree', () => {
-    const root = createPane()
-    const a = splitPane(root, root.id, 'horizontal').root
-    const { root: b } = splitPane(a, firstPaneId(a), 'vertical')
-    const ids = paneIds(b)
-    const moved = movePane(b, ids[2], ids[0], 'right')
-    expect(paneIds(moved).sort()).toEqual([...ids].sort())
-  })
-})
-
 describe('splitOf', () => {
   it('builds a split with the given direction, children, and unit sizes', () => {
     const a = createPane()
@@ -242,113 +186,6 @@ describe('slotKey', () => {
   })
 })
 
-describe('setPaneCwd', () => {
-  it('sets cwd on the matching leaf, leaving siblings untouched', () => {
-    const a = createPane()
-    const b = createPane()
-    const root = splitOf('horizontal', a, b)
-    const next = setPaneCwd(root, b.id, '/work/api')
-    expect(findPane(next, b.id)?.cwd).toBe('/work/api')
-    expect(findPane(next, a.id)?.cwd).toBeUndefined()
-  })
-
-  it('sets cwd when the root pane itself matches', () => {
-    const root = createPane()
-    const next = setPaneCwd(root, root.id, '/home')
-    expect(next).not.toBe(root)
-    expect(findPane(next, root.id)?.cwd).toBe('/home')
-  })
-
-  it('returns the same lone root pane when the id does not match', () => {
-    const root = createPane()
-    expect(setPaneCwd(root, 'ghost', '/x')).toBe(root)
-  })
-
-  it('returns the identical tree when the cwd is unchanged', () => {
-    const a = createPane('terminal', undefined, '/work')
-    const b = createPane('terminal', undefined, '/home')
-    const root = splitOf('horizontal', a, splitOf('vertical', b, createPane()))
-    expect(setPaneCwd(root, b.id, '/home')).toBe(root)
-  })
-
-  it('keeps untouched subtrees referentially identical when one cwd changes', () => {
-    const a = createPane()
-    const inner = splitOf('vertical', createPane(), createPane())
-    const root = splitOf('horizontal', a, inner)
-    const next = setPaneCwd(root, a.id, '/x')
-    expect(next).not.toBe(root)
-    expect(next.type === 'split' && next.children[1]).toBe(inner)
-  })
-})
-
-describe('renamePane', () => {
-  it('pins the new title so program titles no longer replace it', () => {
-    const pane = { ...createPane('terminal'), defaultTitle: true as const }
-    const root = splitOf('horizontal', createPane(), pane)
-    const renamed = renamePane(root, pane.id, '  W9 控制面補齊 ')
-    expect(findPane(renamed, pane.id)).toMatchObject({
-      title: 'W9 控制面補齊',
-      titlePinned: true,
-    })
-    expect(findPane(renamed, pane.id)).not.toHaveProperty('defaultTitle')
-    const after = setPaneTitle(renamed, pane.id, 'vim README.md')
-    expect(after).toBe(renamed)
-  })
-
-  it('unpins on an empty title and keeps the current one until a program sets another', () => {
-    const pane = createPane('terminal')
-    const root = renamePane(splitOf('horizontal', createPane(), pane), pane.id, 'worker')
-    const cleared = renamePane(root, pane.id, '')
-    expect(findPane(cleared, pane.id)).not.toHaveProperty('titlePinned')
-    expect(findPane(cleared, pane.id)?.title).toBe('worker')
-    expect(findPane(setPaneTitle(cleared, pane.id, 'htop'), pane.id)?.title).toBe('htop')
-  })
-
-  it('returns the identical tree when nothing changes', () => {
-    const pane = createPane('terminal')
-    const root = renamePane(splitOf('horizontal', createPane(), pane), pane.id, 'worker')
-    expect(renamePane(root, pane.id, 'worker')).toBe(root)
-    const plain = splitOf('horizontal', createPane(), createPane())
-    expect(renamePane(plain, 'missing', '')).toBe(plain)
-  })
-})
-
-describe('setPaneUrl', () => {
-  it('updates the url of the matching pane and keeps its title', () => {
-    const pane = createPane('browser', 'example.com')
-    const root = splitOf('horizontal', createPane(), pane)
-    const next = setPaneUrl(root, pane.id, 'https://example.com/next')
-    expect(findPane(next, pane.id)?.url).toBe('https://example.com/next')
-    expect(findPane(next, pane.id)?.title).toBe('example.com')
-  })
-
-  it('returns the identical tree when the url is unchanged', () => {
-    const pane = { ...createPane('browser'), url: 'https://a.test/' }
-    const root = splitOf('horizontal', createPane(), pane)
-    expect(setPaneUrl(root, pane.id, 'https://a.test/')).toBe(root)
-  })
-})
-
-describe('firstPaneOfKind', () => {
-  it('returns the first pane of the kind in tree order, descending into splits', () => {
-    const t1 = createPane('terminal')
-    const e1 = createPane('editor')
-    const e2 = createPane('editor')
-    const root = splitOf('horizontal', t1, splitOf('vertical', e1, e2))
-    expect(firstPaneOfKind(root, 'editor')).toBe(e1)
-  })
-
-  it('returns the root pane when it matches the kind', () => {
-    const root = createPane('agent')
-    expect(firstPaneOfKind(root, 'agent')).toBe(root)
-  })
-
-  it('returns null when no pane has the kind', () => {
-    const root = splitOf('horizontal', createPane('terminal'), createPane('terminal'))
-    expect(firstPaneOfKind(root, 'browser')).toBeNull()
-  })
-})
-
 describe('allPanes', () => {
   it('returns just the root when it is a lone pane', () => {
     const root = createPane('terminal')
@@ -374,114 +211,6 @@ describe('allPanes', () => {
   })
 })
 
-describe('setPaneEditor', () => {
-  it('turns the matching pane into an editor and derives cwd from the file dir', () => {
-    const a = createPane('terminal')
-    const b = createPane('terminal')
-    const root = splitOf('horizontal', a, b)
-    const next = setPaneEditor(root, b.id, 'main.ts', '/src/app/main.ts')
-    const pane = findPane(next, b.id)
-    expect(pane?.kind).toBe('editor')
-    expect(pane?.title).toBe('main.ts')
-    expect(pane?.filePath).toBe('/src/app/main.ts')
-    expect(pane?.cwd).toBe('/src/app')
-    expect(findPane(next, a.id)?.kind).toBe('terminal')
-  })
-
-  it('gives a remote file no folder, so it never moves the local tree or workspace', () => {
-    const term = createPane('terminal', 'zsh', '/home/u/proj')
-    const next = setPaneEditor(term, term.id, 'app.conf', 'remote://abcdef012345/srv/app/app.conf')
-    const pane = findPane(next, term.id)
-    expect(pane?.kind).toBe('editor')
-    expect(pane?.filePath).toBe('remote://abcdef012345/srv/app/app.conf')
-    expect(pane && 'cwd' in pane).toBe(false)
-  })
-
-  it('falls back to root cwd for a file at the filesystem root', () => {
-    const root = createPane('terminal')
-    const next = setPaneEditor(root, root.id, 'notes.txt', '/notes.txt')
-    const pane = findPane(next, root.id)
-    expect(pane?.kind).toBe('editor')
-    expect(pane?.cwd).toBe('/')
-  })
-
-  it('falls back to root cwd for a bare file name with no slash', () => {
-    const root = createPane('terminal')
-    const pane = findPane(setPaneEditor(root, root.id, 'notes.txt', 'notes.txt'), root.id)
-    expect(pane?.cwd).toBe('/')
-  })
-
-  it('leaves a non-matching lone pane unchanged', () => {
-    const root = createPane('terminal')
-    expect(setPaneEditor(root, 'ghost', 't', '/a/t.ts')).toBe(root)
-  })
-})
-
-describe('setPaneBrowser', () => {
-  it('turns the matching pane into a browser and derives the title from the URL host', () => {
-    const a = createPane('terminal')
-    const b = createPane('terminal')
-    const root = splitOf('horizontal', a, b)
-    const next = setPaneBrowser(root, b.id, 'https://example.com/path?q=1')
-    const pane = findPane(next, b.id)
-    expect(pane?.kind).toBe('browser')
-    expect(pane?.url).toBe('https://example.com/path?q=1')
-    expect(pane?.title).toBe('example.com')
-    expect(findPane(next, a.id)?.kind).toBe('terminal')
-  })
-
-  it('falls back to the raw string as the title when the URL is unparseable', () => {
-    const root = createPane('terminal')
-    const next = setPaneBrowser(root, root.id, 'about:blank')
-    const pane = findPane(next, root.id)
-    expect(pane?.kind).toBe('browser')
-    expect(pane?.url).toBe('about:blank')
-    expect(pane?.title).toBe('about:blank')
-  })
-
-  it('leaves a non-matching lone pane unchanged', () => {
-    const root = createPane('terminal')
-    expect(setPaneBrowser(root, 'ghost', 'https://example.com')).toBe(root)
-  })
-})
-
-describe('setPaneExtension', () => {
-  it('turns the matching pane into an extension panel with the given id and title', () => {
-    const a = createPane('terminal')
-    const b = createPane('terminal', undefined, '/w')
-    const root = splitOf('horizontal', a, b)
-    const next = setPaneExtension(root, b.id, 'demo', 'Board')
-    const pane = findPane(next, b.id)
-    expect(pane?.kind).toBe('extension')
-    expect(pane?.extensionId).toBe('demo')
-    expect(pane?.title).toBe('Board')
-    expect(pane?.cwd).toBeUndefined()
-    expect(findPane(next, a.id)?.kind).toBe('terminal')
-  })
-
-  it('returns the same tree when no pane matches', () => {
-    const root = splitOf('horizontal', createPane('terminal'), createPane('terminal'))
-    expect(setPaneExtension(root, 'ghost', 'notes', 'Notes')).toBe(root)
-  })
-})
-
-describe('setPaneDiff', () => {
-  it('turns the pane into a diff surface, dropping fields of its previous surface', () => {
-    const editor = { ...createPane('editor', 'a.ts', '/p'), filePath: '/p/a.ts' }
-    const other = createPane()
-    const root = splitOf('horizontal', editor, other)
-    const next = setPaneDiff(root, editor.id, 'a.ts (diff)', '/repo')
-    expect(findPane(next, editor.id)).toEqual({
-      type: 'pane',
-      id: editor.id,
-      kind: 'diff',
-      title: 'a.ts (diff)',
-      cwd: '/repo',
-    })
-    expect(next.type === 'split' && next.children[1]).toBe(other)
-  })
-})
-
 describe('withoutPanes', () => {
   it('removes every pane of the kind and collapses single-child splits', () => {
     const a = createPane()
@@ -502,54 +231,6 @@ describe('withoutPanes', () => {
     const b = createPane()
     const root = { ...splitOf('horizontal', a, createPane('diff'), b), sizes: [2, 1, 3] }
     expect(withoutPanes(root, (pane) => pane.kind === 'diff')).toMatchObject({ sizes: [2, 3] })
-  })
-})
-
-describe('findExtensionPane', () => {
-  it('finds the panel pane of one extension and ignores other extensions', () => {
-    const a = createPane('terminal')
-    const b = createPane('terminal')
-    const c = createPane('terminal')
-    let root: LayoutNode = splitOf('horizontal', a, splitOf('vertical', b, c))
-    root = setPaneExtension(root, b.id, 'notes', 'Notes')
-    root = setPaneExtension(root, c.id, 'demo', 'Board')
-    expect(findExtensionPane(root, 'demo')?.id).toBe(c.id)
-    expect(findExtensionPane(root, 'git')).toBeNull()
-  })
-})
-
-describe('setSizes', () => {
-  it('replaces the sizes of a nested split addressed by id', () => {
-    const a = createPane()
-    const b = createPane()
-    const inner = splitOf('vertical', a, b)
-    const root = splitOf('horizontal', createPane(), inner)
-    const next = setSizes(root, inner.id, [0.3, 0.7])
-    expect(next.type).toBe('split')
-    if (next.type === 'split') {
-      const innerNext = next.children[1]
-      expect(innerNext.type).toBe('split')
-      if (innerNext.type === 'split') expect(innerNext.sizes).toEqual([0.3, 0.7])
-    }
-  })
-
-  it('updates the root split when its own id matches', () => {
-    const root = splitOf('horizontal', createPane(), createPane())
-    const next = setSizes(root, root.id, [2, 5])
-    expect(next.type).toBe('split')
-    if (next.type === 'split') expect(next.sizes).toEqual([2, 5])
-  })
-
-  it('leaves sizes unchanged when no split id matches', () => {
-    const root = splitOf('horizontal', createPane(), createPane())
-    const next = setSizes(root, 'ghost', [9, 9])
-    expect(next.type).toBe('split')
-    if (next.type === 'split') expect(next.sizes).toEqual([1, 1])
-  })
-
-  it('returns a lone root pane unchanged', () => {
-    const root = createPane()
-    expect(setSizes(root, 'any', [1])).toBe(root)
   })
 })
 
@@ -584,109 +265,6 @@ describe('splitPane (deeper trees)', () => {
     expect(newPaneId).toBeNull()
     expect(paneIds(next)).toEqual(paneIds(root))
     expect(paneIds(next)).toHaveLength(3)
-  })
-})
-
-describe('movePane (edge zones on wider trees)', () => {
-  it('re-inserts as a same-axis sibling after the target (right onto a row)', () => {
-    const a = createPane()
-    const b = createPane()
-    const c = createPane()
-    const root = splitOf('horizontal', a, b, c)
-    const moved = movePane(root, c.id, a.id, 'right')
-    expect(moved.type).toBe('split')
-    if (moved.type === 'split') {
-      expect(moved.direction).toBe('horizontal')
-      expect(moved.children.map(idOf)).toEqual([a.id, c.id, b.id])
-      expect(moved.children).toHaveLength(3)
-      expect(moved.sizes).toHaveLength(3)
-    }
-    expect(paneIds(moved)).toHaveLength(3)
-  })
-
-  it('re-inserts as a same-axis sibling before the target (left onto a row)', () => {
-    const a = createPane()
-    const b = createPane()
-    const c = createPane()
-    const root = splitOf('horizontal', a, b, c)
-    const moved = movePane(root, c.id, b.id, 'left')
-    expect(moved.type).toBe('split')
-    if (moved.type === 'split') expect(moved.children.map(idOf)).toEqual([a.id, c.id, b.id])
-  })
-
-  it('re-splits the target on a cross axis, placing the source before it (top drop)', () => {
-    const a = createPane()
-    const b = createPane()
-    const c = createPane()
-    const root = splitOf('horizontal', a, b, c)
-    const moved = movePane(root, c.id, a.id, 'top')
-    expect(moved.type).toBe('split')
-    if (moved.type === 'split') {
-      const first = moved.children[0]
-      expect(first.type).toBe('split')
-      if (first.type === 'split') {
-        expect(first.direction).toBe('vertical')
-        expect(first.children.map(idOf)).toEqual([c.id, a.id])
-      }
-    }
-    expect(paneIds(moved).sort()).toEqual([a.id, b.id, c.id].sort())
-  })
-
-  it('descends into a nested subtree to reach a deeply-nested target (right drop)', () => {
-    const a = createPane()
-    const b = createPane()
-    const c = createPane()
-    const d = createPane()
-    const root = splitOf('horizontal', splitOf('vertical', a, b), splitOf('vertical', c, d))
-    const moved = movePane(root, a.id, c.id, 'right')
-    expect(paneIds(moved).sort()).toEqual([a.id, b.id, c.id, d.id].sort())
-    expect(moved.type).toBe('split')
-    if (moved.type === 'split') {
-      expect(moved.children.map(idOf)).toEqual([b.id, 'split'])
-      const rhs = moved.children[1]
-      if (rhs.type === 'split') {
-        const nested = rhs.children[0]
-        expect(nested.type).toBe('split')
-        if (nested.type === 'split') expect(nested.children.map(idOf)).toEqual([c.id, a.id])
-      }
-    }
-  })
-
-  it('merges into the target’s tabs on a center drop while leaving a third pane in place', () => {
-    const a = createPane()
-    const b = createPane()
-    const c = createPane()
-    const root = splitOf('horizontal', a, b, c)
-    const moved = movePane(root, a.id, c.id, 'center')
-    expect(moved.type).toBe('split')
-    if (moved.type === 'split') {
-      expect(moved.children.map((n) => n.type)).toEqual(['pane', 'tabs'])
-      expect(moved.children[1]).toMatchObject({ activeId: a.id })
-    }
-    expect(paneIds(moved)).toEqual([b.id, c.id, a.id])
-  })
-
-  it('collapses a 2-pane split and re-inserts the source before the target (left drop)', () => {
-    const a = createPane()
-    const b = createPane()
-    const root = splitOf('horizontal', a, b)
-    const moved = movePane(root, b.id, a.id, 'left')
-    expect(moved.type).toBe('split')
-    if (moved.type === 'split') {
-      expect(moved.direction).toBe('horizontal')
-      expect(moved.children.map(idOf)).toEqual([b.id, a.id])
-    }
-    expect(paneIds(moved)).toHaveLength(2)
-  })
-
-  it('is a no-op when the source pane id is unknown', () => {
-    const root = splitOf('horizontal', createPane(), createPane())
-    expect(movePane(root, 'ghost', firstPaneId(root), 'right')).toBe(root)
-  })
-
-  it('is a no-op when the target pane id is unknown', () => {
-    const root = splitOf('horizontal', createPane(), createPane())
-    expect(movePane(root, firstPaneId(root), 'ghost', 'left')).toBe(root)
   })
 })
 
@@ -908,212 +486,6 @@ describe('tabs', () => {
   })
 })
 
-describe('setPaneLocked', () => {
-  it('marks and clears a pane, returning the same tree when nothing changes', () => {
-    const a = createPane()
-    const b = createPane()
-    const root = tabsOf(a.id, a, b)
-    expect(hasLockedPane(root)).toBe(false)
-    const locked = setPaneLocked(root, b.id, true)
-    expect(findPane(locked, b.id)).toMatchObject({ locked: true })
-    expect(hasLockedPane(locked)).toBe(true)
-    expect(setPaneLocked(locked, b.id, true)).toBe(locked)
-    const open = setPaneLocked(locked, b.id, false)
-    expect(findPane(open, b.id)).not.toHaveProperty('locked')
-    expect(hasLockedPane(open)).toBe(false)
-  })
-})
-
-describe('setPaneHibernated', () => {
-  it('marks and clears a pane, returning the same tree when nothing changes', () => {
-    const root = createPane()
-    const asleep = setPaneHibernated(root, root.id, true)
-    expect(asleep).toMatchObject({ hibernated: true })
-    expect(setPaneHibernated(asleep, root.id, true)).toBe(asleep)
-    const awake = setPaneHibernated(asleep, root.id, false)
-    expect(awake).not.toHaveProperty('hibernated')
-    expect(setPaneHibernated(awake, root.id, false)).toBe(awake)
-  })
-
-  it('wakes a pane whose token names a folder with the next shell starting there', () => {
-    const root = {
-      ...createPane(),
-      cwd: '/w',
-      resume: { agent: 'claude' as const, id: 'a', cwd: '/w/t' },
-    }
-    const awake = setPaneHibernated(setPaneHibernated(root, root.id, true), root.id, false)
-    expect(awake).toMatchObject({ cwd: '/w', spawnDir: '/w/t' })
-  })
-})
-
-describe('settleSpawnDir', () => {
-  it('starts a pane in a given folder, the same object when it already is', () => {
-    const root = createPane()
-    const placed = setPaneSpawnDir(root, root.id, '/w/t')
-    expect(placed).toMatchObject({ spawnDir: '/w/t' })
-    expect(setPaneSpawnDir(placed, root.id, '/w/t')).toBe(placed)
-  })
-
-  it('drops the spawn folder once the shell started, keeping it as missing only when it was gone', () => {
-    const root = { ...createPane(), spawnDir: '/w/t' }
-    expect(settleSpawnDir(root, root.id, false)).not.toHaveProperty('spawnDir')
-    const gone = settleSpawnDir(root, root.id, true)
-    expect(gone).not.toHaveProperty('spawnDir')
-    expect(gone).toMatchObject({ resumeFolderMissing: '/w/t' })
-    expect(settleSpawnDir(gone, root.id, true)).toBe(gone)
-  })
-
-  it('clears the missing folder when the shell reports that folder again', () => {
-    const root = { ...createPane(), resumeFolderMissing: '/w/t' }
-    expect(setPaneCwd(root, root.id, '/home')).toMatchObject({ resumeFolderMissing: '/w/t' })
-    expect(setPaneCwd(root, root.id, '/w/t')).not.toHaveProperty('resumeFolderMissing')
-  })
-})
-
-describe('placementOf', () => {
-  it('remembers the tab before a tab that leaves a stack', () => {
-    const [a, b, c] = [createPane(), createPane(), createPane()]
-    expect(placementOf(tabsOf(b.id, a, b, c), b.id)).toEqual({ paneId: a.id, zone: 'center' })
-    expect(placementOf(tabsOf(a.id, a, b), a.id)).toEqual({ paneId: b.id, zone: 'center' })
-  })
-
-  it('remembers the neighbor and side of a pane in a split', () => {
-    const [a, b, c] = [createPane(), createPane(), createPane()]
-    const row = splitOf('horizontal', a, b)
-    expect(placementOf(row, b.id)).toEqual({ paneId: a.id, zone: 'right' })
-    expect(placementOf(row, a.id)).toEqual({ paneId: b.id, zone: 'left' })
-    const column = splitOf('vertical', splitOf('horizontal', a, b), c)
-    expect(placementOf(column, c.id)).toEqual({ paneId: b.id, zone: 'bottom' })
-  })
-
-  it('has no placement for a lone pane', () => {
-    const a = createPane()
-    expect(placementOf(a, a.id)).toBeNull()
-  })
-})
-
-describe('graftNode', () => {
-  it('puts a returning pane back as a tab next to its old neighbor', () => {
-    const [a, b, c] = [createPane(), createPane(), createPane()]
-    const root = graftNode(splitOf('horizontal', a, b), c, { paneId: a.id, zone: 'center' })
-    expect(tabsOfPane(root, c.id)?.children.map((p) => p.id)).toEqual([a.id, c.id])
-    expect(paneIds(root)).toEqual([a.id, c.id, b.id])
-  })
-
-  it('puts every tab of a returning stack next to the anchor', () => {
-    const [a, b, c] = [createPane(), createPane(), createPane()]
-    const root = graftNode(a, tabsOf(b.id, b, c), { paneId: a.id, zone: 'center' })
-    expect(root).toMatchObject({ type: 'tabs' })
-    expect(paneIds(root)).toEqual([a.id, b.id, c.id])
-  })
-
-  it('splits beside the anchor on the remembered side', () => {
-    const [a, b, c] = [createPane(), createPane(), createPane()]
-    const root = graftNode(splitOf('vertical', a, b), c, { paneId: a.id, zone: 'left' })
-    expect(root.type === 'split' && root.children[0]).toMatchObject({
-      type: 'split',
-      direction: 'horizontal',
-    })
-    expect(paneIds(root)).toEqual([c.id, a.id, b.id])
-  })
-
-  it('splits a returning split beside the anchor instead of flattening it into tabs', () => {
-    const [a, b, c] = [createPane(), createPane(), createPane()]
-    const root = graftNode(a, splitOf('vertical', b, c), { paneId: a.id, zone: 'center' })
-    expect(root).toMatchObject({ type: 'split', direction: 'horizontal' })
-    expect(paneIds(root)).toEqual([a.id, b.id, c.id])
-  })
-
-  it('adds a new split on the right when the anchor is gone', () => {
-    const [a, b, c] = [createPane(), createPane(), createPane()]
-    const root = graftNode(a, b, { paneId: c.id, zone: 'center' })
-    expect(root).toMatchObject({ type: 'split', direction: 'horizontal' })
-    expect(paneIds(root)).toEqual([a.id, b.id])
-  })
-
-  it('becomes the whole layout of a workspace with no panes', () => {
-    const a = createPane()
-    expect(graftNode(null, a)).toBe(a)
-  })
-})
-
-describe('moveTab', () => {
-  it('reorders tabs inside one stack and keeps the stack', () => {
-    const [a, b, c] = [createPane(), createPane(), createPane()]
-    const stack = tabsOf(a.id, a, b, c)
-    const root = moveTab(stack, a.id, c.id, true)
-    expect(root).toMatchObject({ type: 'tabs', id: stack.id, activeId: a.id })
-    expect(paneIds(root)).toEqual([b.id, c.id, a.id])
-  })
-
-  it('moves a pane from a split into another stack before the hovered tab', () => {
-    const [a, b, c] = [createPane(), createPane(), createPane()]
-    const root = moveTab(splitOf('horizontal', a, tabsOf(b.id, b, c)), a.id, c.id, false)
-    expect(root).toMatchObject({ type: 'tabs', activeId: a.id })
-    expect(paneIds(root)).toEqual([b.id, a.id, c.id])
-  })
-
-  it('turns a lone target pane into a stack', () => {
-    const [a, b] = [createPane(), createPane()]
-    const root = moveTab(splitOf('vertical', a, b), b.id, a.id, true)
-    expect(root).toMatchObject({ type: 'tabs' })
-    expect(paneIds(root)).toEqual([a.id, b.id])
-  })
-
-  it('returns the same tree for an unknown pane or a drop on itself', () => {
-    const [a, b] = [createPane(), createPane()]
-    const root = splitOf('horizontal', a, b)
-    expect(moveTab(root, a.id, a.id, true)).toBe(root)
-    expect(moveTab(root, 'nope', b.id, true)).toBe(root)
-  })
-})
-
-describe('paneInDirection', () => {
-  const grid = (): LayoutNode => {
-    const left = createPane('terminal', 'left')
-    const topRight = createPane('terminal', 'top-right')
-    const bottomRight = createPane('terminal', 'bottom-right')
-    return splitOf('horizontal', left, splitOf('vertical', topRight, bottomRight))
-  }
-
-  it('returns the pane that shares the edge in the asked direction', () => {
-    const root = grid()
-    const [left, topRight, bottomRight] = allPanes(root).map((p) => p.id)
-    expect(paneInDirection(root, left, 'right')).toBe(topRight)
-    expect(paneInDirection(root, topRight, 'down')).toBe(bottomRight)
-    expect(paneInDirection(root, bottomRight, 'up')).toBe(topRight)
-    expect(paneInDirection(root, bottomRight, 'left')).toBe(left)
-  })
-
-  it('returns null at the outer edge and for a lone pane', () => {
-    const root = grid()
-    const [left, topRight] = allPanes(root).map((p) => p.id)
-    expect(paneInDirection(root, left, 'left')).toBeNull()
-    expect(paneInDirection(root, topRight, 'up')).toBeNull()
-    const lone = createPane()
-    expect(paneInDirection(lone, lone.id, 'right')).toBeNull()
-  })
-
-  it('follows split sizes and picks the neighbour nearest the middle of the pane', () => {
-    const a = createPane()
-    const b = createPane()
-    const c = createPane()
-    const d = createPane()
-    const right = { ...splitOf('vertical', b, c, d), sizes: [2, 1, 1] }
-    const root = splitOf('horizontal', a, right)
-    expect(paneInDirection(root, a.id, 'right')).toBe(c.id)
-  })
-
-  it('moves to the shown tab of a tab stack and from any tab of one', () => {
-    const a = createPane()
-    const t1 = createPane()
-    const t2 = createPane()
-    const root = splitOf('horizontal', a, tabsOf(t2.id, t1, t2))
-    expect(paneInDirection(root, a.id, 'right')).toBe(t2.id)
-    expect(paneInDirection(root, t1.id, 'left')).toBe(a.id)
-  })
-})
-
 describe('terminal default title', () => {
   it('marks a terminal created without a title as holding its default title', () => {
     expect(createPane()).toMatchObject({ kind: 'terminal', title: 'Terminal', defaultTitle: true })
@@ -1211,28 +583,6 @@ describe('adjacentTab', () => {
     const b = createPane()
     expect(adjacentTab(a, a.id, 1)).toBeNull()
     expect(adjacentTab(splitOf('vertical', a, b), a.id, -1)).toBeNull()
-  })
-})
-
-describe('followMovedFile', () => {
-  it('points editors at a renamed file and at files under a moved folder', () => {
-    const file = { ...createPane('editor'), filePath: '/p/notes.md', title: 'notes.md' }
-    const nested = { ...createPane('editor'), filePath: '/p/src/main.ts', title: 'main.ts' }
-    const other = { ...createPane('editor'), filePath: '/p/srcx/a.ts', title: 'a.ts' }
-    const root = splitOf('horizontal', file, splitOf('vertical', nested, other))
-
-    const renamed = followMovedFile(root, '/p/notes.md', '/p/readme.md')
-    expect(JSON.stringify(renamed)).toContain('"filePath":"/p/readme.md"')
-    expect(JSON.stringify(renamed)).toContain('"title":"readme.md"')
-
-    const moved = followMovedFile(root, '/p/src', '/p/lib')
-    expect(JSON.stringify(moved)).toContain('"filePath":"/p/lib/main.ts"')
-    expect(JSON.stringify(moved)).toContain('"filePath":"/p/srcx/a.ts"')
-  })
-
-  it('returns the same tree when no editor shows the moved path', () => {
-    const root = splitOf('horizontal', createPane(), createPane())
-    expect(followMovedFile(root, '/p/a', '/p/b')).toBe(root)
   })
 })
 

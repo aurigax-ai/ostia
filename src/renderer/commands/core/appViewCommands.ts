@@ -1,4 +1,4 @@
-import { registerCore } from '@/commands/core'
+import { registerCore } from '@/commands/coreCommand'
 import { resetZoom } from '@/lib/app/wheelZoom'
 import {
   FILES_PREFIX,

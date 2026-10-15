@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { fitCount, shortenPath } from '@/lib/sidebar/railMeta'
-import { openSidebarUrl } from '@/lib/sidebar/sidebarItems'
+import { openSidebarUrl, visibleSidebarItems } from '@/lib/sidebar/sidebarItems'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type { ExtensionSidebarItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { useLayoutEffect, useRef, useState } from 'react'
@@ -29,7 +30,7 @@ function columnGap(el: HTMLElement): number {
   return Number.parseFloat(getComputedStyle(el).columnGap) || 0
 }
 
-export function SidebarItem({
+function SidebarItem({
   item,
   workspaceId,
 }: {
@@ -204,6 +205,33 @@ export function LiveLine({
           </PopoverContent>
         </Popover>
       ) : null}
+    </div>
+  )
+}
+
+export function useSidebarItems(workspaceId: string | undefined): ExtensionSidebarItem[] {
+  const all = useExtensionsStore((s) => s.sidebar)
+  const showSSH = useSettingsStore((s) => s.sidebar.showSSH)
+  return visibleSidebarItems(all, workspaceId, { showSSH })
+}
+
+function FooterItems(): JSX.Element {
+  const items = useSidebarItems(undefined)
+  return (
+    <>
+      {items.map((item) => (
+        <SidebarItem key={`${item.extId}:${item.key}`} item={item} />
+      ))}
+    </>
+  )
+}
+
+export function SidebarFooter(): JSX.Element | null {
+  const hasGlobal = useExtensionsStore((s) => s.sidebar.some((i) => i.workspaceId === undefined))
+  if (!hasGlobal) return null
+  return (
+    <div className="rail-ext-footer">
+      <FooterItems />
     </div>
   )
 }

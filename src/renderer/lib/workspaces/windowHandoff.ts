@@ -4,7 +4,8 @@ import { receiveReference } from '@/lib/agents/sendPick'
 import { jumpToLatestUnreadIn, revealPane } from '@/lib/attention/workspaceActivity'
 import type { RestorableWorkspace } from '@/lib/layout/snapshot'
 import { restoreSnapshot, workspaceHandoff } from '@/lib/layout/snapshot'
-import { allPanes, findPane, paneIds, placementOf } from '@/lib/layout/tree'
+import { placementOf } from '@/lib/layout/tabMoves'
+import { allPanes, findPane, paneIds } from '@/lib/layout/tree'
 import type { LayoutNode, PaneNode } from '@/lib/layout/types'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
@@ -14,11 +15,8 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { isMovable, liveAgentPanes } from '@/stores/workspaces/persistence'
 import { focusSurfaceWhenReady } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
-import {
-  type Workspace,
-  nextWorkspaceId,
-  useWorkspacesStore,
-} from '@/stores/workspaces/workspacesStore'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
+import { nextWorkspaceId, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type {
   AttentionState,
   ScreenPoint,

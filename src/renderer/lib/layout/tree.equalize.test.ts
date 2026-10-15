@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createPane, equalizeSizes, resetIds, slotCount, splitOf, tabsOf } from './tree'
+import { equalizeSizes } from './panelSize'
+import { createPane, resetIds, slotCount, splitOf, tabsOf } from './tree'
 import type { SplitNode } from './types'
 
 beforeEach(() => resetIds())

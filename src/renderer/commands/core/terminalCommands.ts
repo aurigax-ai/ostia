@@ -1,4 +1,4 @@
-import { type CoreCommandId, registerCore } from '@/commands/core'
+import { type CoreCommandId, registerCore } from '@/commands/coreCommand'
 import { openSnippetPicker } from '@/lib/palette/snippets'
 import {
   type BlockPart,
