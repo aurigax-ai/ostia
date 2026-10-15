@@ -14,6 +14,7 @@ interface FakeScreen {
   owner: string
   agentToken: string
   viewerToken: string
+  log?: { time: string; verb: string }[]
 }
 
 export interface FakeScreens {

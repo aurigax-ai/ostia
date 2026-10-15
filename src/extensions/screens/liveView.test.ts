@@ -240,10 +240,12 @@ describe('the live view in the Screens panel', () => {
       ((await api(base, 'state')).data?.screens as { agentDriving: boolean }[])[0].agentDriving
     expect(await driving()).toBe(false)
     await verbs.click({ argv: ['1', '1'] }, agent('A'))
+    const actedAt = Date.parse(fake.screens()[0].log?.at(-1)?.time ?? '')
+    now = actedAt
     expect(await driving()).toBe(true)
-    now += AGENT_WINDOW_MS - 1000
+    now = actedAt + AGENT_WINDOW_MS - 1000
     expect(await driving()).toBe(true)
-    now += 2000
+    now = actedAt + AGENT_WINDOW_MS + 1000
     expect(await driving()).toBe(false)
     now = Date.now()
     await verbs.click({ argv: ['1', '1'] }, agent('A'))
