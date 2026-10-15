@@ -904,9 +904,16 @@ interface OpenPathApi {
 
 export type ResumeVerdict = { ok: true } | { ok: false; holder: string }
 
+export type FolderTrust =
+  | { state: 'trusted' }
+  | { state: 'ask'; folder: string }
+  | { state: 'unknown' }
+
 interface AgentSessionApi {
   info: (resume: AgentResume) => Promise<AgentSessionInfo | null>
   claimResume: (paneId: string, resume: AgentResume) => Promise<ResumeVerdict>
+  folderTrust: (paneId: string) => Promise<FolderTrust>
+  trustFolder: (paneId: string, folder: string) => Promise<boolean>
 }
 
 interface AppUpdateApi {

@@ -1485,6 +1485,10 @@
   box-shadow: none;
 }
 
+.file-tree.drop-target {
+  background: var(--surface-2);
+}
+
 .file-row.drop-target {
   background: var(--surface-2);
   outline: 1px solid var(--line-strong);
@@ -3151,6 +3155,10 @@ button.prompt-chip:hover {
 
 :root[data-file-drag] .pane-file-drop {
   display: block;
+}
+
+.pane-cell > .pane-file-drop {
+  top: 0;
 }
 
 .pane-header.drop-tab {

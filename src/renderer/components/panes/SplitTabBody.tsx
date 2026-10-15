@@ -10,14 +10,16 @@ import { PANE_DND, dropPaneOn, isPaneDrag } from '@/lib/panes/paneDrag'
 import { cn } from '@/lib/utils'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useFolderTrustStore } from '@/stores/agents/folderTrustStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { Allotment, type AllotmentHandle } from 'allotment'
 import { type DragEvent, useLayoutEffect, useRef } from 'react'
+import { FileDropCover } from './FileDropCover'
 import { PaneTabMenu } from './PaneTabMenu'
-import { ResumeConflictNotice, ResumeFailedNotice } from './ResumeFolderNotice'
+import { FolderTrustNotice, ResumeConflictNotice, ResumeFailedNotice } from './ResumeFolderNotice'
 import { focusPane } from './SplitTab'
 import { TabBody } from './TabBody'
 import { TabFace, usePaneMark, usePaneTitle } from './TabFace'
@@ -40,6 +42,7 @@ function SplitCell({ pane, ctx }: { pane: PaneNode; ctx: CellContext }): JSX.Ele
   const question = useQuestionsStore((s) =>
     ctx.shown ? s.pending.find((q) => q.paneId === pane.id) : undefined,
   )
+  const trustFolder = useFolderTrustStore((s) => (ctx.shown ? s.byPane[pane.id] : undefined))
   const dimInactive = useSettingsStore((s) => s.panes.dimInactive)
   const focused = pane.id === ctx.focusedId
 
@@ -89,11 +92,14 @@ function SplitCell({ pane, ctx }: { pane: PaneNode; ctx: CellContext }): JSX.Ele
         <ApprovalCard request={approval} paneTitle={pane.title} />
       ) : question ? (
         <QuestionNotice question={question} />
+      ) : trustFolder ? (
+        <FolderTrustNotice paneId={pane.id} folder={trustFolder} />
       ) : ctx.shown && pane.resumeFailed ? (
         <ResumeFailedNotice paneId={pane.id} failure={pane.resumeFailed} />
       ) : ctx.shown && pane.resume ? (
         <ResumeConflictNotice pane={pane} />
       ) : null}
+      <FileDropCover kind={pane.kind} workspaceId={ctx.workspaceId} />
       {dragging ? (
         <div
           className="pane-cell-drop-layer"

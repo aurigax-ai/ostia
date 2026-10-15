@@ -6,6 +6,7 @@ import {
   retryPendingFocus,
   setFocusTarget,
 } from '@/stores/workspaces/surfaceSlotsStore'
+import type { WebviewTag } from 'electron'
 import { useEffect, useRef, useState } from 'react'
 
 export function focusPaneWhenReady(paneId: string): void {
@@ -30,12 +31,22 @@ export function useSurfaceFocus(
   }, [paneId, takesKeyboard])
 }
 
+function guestReached(webview: HTMLElement): boolean {
+  try {
+    ;(webview as unknown as WebviewTag).getWebContentsId()
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function useGuestReady(webview: HTMLElement | null): HTMLElement | null {
   const [ready, setReady] = useState<HTMLElement | null>(null)
   useEffect(() => {
     if (!webview) return
     const onReady = (): void => setReady(webview)
     webview.addEventListener('dom-ready', onReady)
+    if (guestReached(webview)) onReady()
     return () => webview.removeEventListener('dom-ready', onReady)
   }, [webview])
   const shown = ready !== null && ready === webview ? ready : null
