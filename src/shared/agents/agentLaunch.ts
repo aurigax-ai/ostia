@@ -303,7 +303,8 @@ export function commandLineEnv(agent: ResumableAgent, line: string): Record<stri
       if (word.safe) assigned[word.text.slice(0, eq)] = word.text.slice(eq + 1)
       continue
     }
-    if (!word.plain || word.text !== agent) return null
+    const raw = line.slice(start, i)
+    if (raw !== agent && raw !== `'${agent}'`) return null
     return safeEnv(assigned)
   }
 }

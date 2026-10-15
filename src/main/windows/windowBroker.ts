@@ -503,12 +503,12 @@ export class WindowBroker {
     }
   }
 
-  private focusWorkspace(workspaceId: string, jumpToUnread: boolean): void {
+  private focusWorkspace(workspaceId: string, jumpToUnread: boolean, takesKeyboard: boolean): void {
     const windowId = this.windowOfWorkspace(workspaceId)
     const win = windowId ? this.windows.get(windowId) : undefined
     if (!win || win.isDestroyed()) return
     this.deps.reveal(win)
-    win.webContents.send('windows:activate-workspace', workspaceId, jumpToUnread)
+    win.webContents.send('windows:activate-workspace', workspaceId, jumpToUnread, takesKeyboard)
   }
 
   private newWorkspaceInMain(raw: unknown): void {
@@ -612,9 +612,13 @@ export class WindowBroker {
       this.references.answer(String(e.sender.id), requestId, inserted)
     })
 
-    ipcMain.on('windows:focus-workspace', (_e, workspaceId: unknown, jumpToUnread: unknown) => {
-      if (typeof workspaceId === 'string') this.focusWorkspace(workspaceId, jumpToUnread === true)
-    })
+    ipcMain.on(
+      'windows:focus-workspace',
+      (_e, workspaceId: unknown, jumpToUnread: unknown, takesKeyboard: unknown) => {
+        if (typeof workspaceId !== 'string') return
+        this.focusWorkspace(workspaceId, jumpToUnread === true, takesKeyboard === true)
+      },
+    )
 
     ipcMain.on('windows:return-workspace', (_e, workspaceId: unknown) => {
       if (typeof workspaceId !== 'string') return

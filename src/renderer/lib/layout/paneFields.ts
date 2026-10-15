@@ -89,9 +89,30 @@ export function setDefaultPaneTitles(root: LayoutNode, title: string): LayoutNod
 
 export function setPaneResume(root: LayoutNode, paneId: string, resume: AgentResume): LayoutNode {
   return mapPane(root, paneId, (p) => {
-    if (sameResume(p.resume, resume)) return p
-    const { resumeFolderMissing: _missing, ...rest } = p
+    if (sameResume(p.resume, resume) && !p.resumeFailed) return p
+    const { resumeFolderMissing: _missing, resumeFailed: _failed, ...rest } = p
     return { ...rest, resume }
+  })
+}
+
+export function failPaneResume(
+  root: LayoutNode,
+  paneId: string,
+  resume: AgentResume,
+  exitCode: number,
+): LayoutNode {
+  return mapPane(root, paneId, (p) => {
+    if (p.resume?.agent !== resume.agent || p.resume.id !== resume.id) return p
+    const { resume: failed, resumePending: _pending, ...rest } = p
+    return { ...rest, resumeFailed: { resume: failed, exitCode } }
+  })
+}
+
+export function clearPaneResumeFailure(root: LayoutNode, paneId: string): LayoutNode {
+  return mapPane(root, paneId, (p) => {
+    if (!p.resumeFailed) return p
+    const { resumeFailed: _failed, ...rest } = p
+    return rest
   })
 }
 

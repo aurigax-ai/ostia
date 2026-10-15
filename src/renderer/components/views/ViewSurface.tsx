@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty'
 import { useDict } from '@/lib/app/useDict'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useViewsStore } from '@/stores/extensions/viewsStore'
 import { DeclarativeView } from './DeclarativeView'
@@ -15,6 +16,7 @@ export function ViewSurface({
   viewName: string
 }): JSX.Element {
   const d = useDict()
+  useSurfaceFocus(paneId, null)
   const view = useViewsStore((s) => s.views.find((v) => v.name === viewName))
   const openSettings = useUIStore((s) => s.openSettings)
   const doc = view?.status === 'enabled' && view.doc?.placement === 'panel' ? view.doc : null

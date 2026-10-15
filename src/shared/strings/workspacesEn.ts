@@ -133,6 +133,12 @@ export const workspacesEn = {
       'This {agent} session is running here and in the tab “{tab}” at the same time. Both copies write to the same transcript. Close one of the two tabs.',
     resumeConflict:
       'This {agent} session is also running in the tab “{tab}”. Both copies write to the same transcript, so it is not resumed here. Close one of the two tabs.',
+    resumeFailedLabel: 'Agent resume failed',
+    resumeFailed:
+      'Couldn’t resume {agent} session {id}: it exited with code {code}. It won’t be typed again.',
+    resumeFailedRetry: 'Try again',
+    resumeFailedNewSession: 'Start new session',
+    resumeFailedDismiss: 'Dismiss',
   },
   topbar: {
     toggleSidebar: 'Toggle sidebar',

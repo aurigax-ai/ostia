@@ -237,6 +237,28 @@ describe('parseSnapshot', () => {
     ).not.toHaveProperty('agentRunning')
   })
 
+  it('RSM-C17 keeps a failed resume token as data, never running and only without a live token', () => {
+    const pane = snap().workspaces[0].root
+    const rootOf = (extra: object) =>
+      parseSnapshot(
+        snap({ workspaces: [{ ...snap().workspaces[0], root: { ...pane, ...extra } as never }] }),
+      )?.workspaces[0].root
+    const failed = { resume: { agent: 'claude', id: 'dead-1' }, exitCode: 1 }
+    expect(rootOf({ resumeFailed: failed, agentRunning: true })).toMatchObject({
+      resumeFailed: failed,
+    })
+    expect(rootOf({ resumeFailed: failed, agentRunning: true })).not.toHaveProperty('agentRunning')
+    expect(
+      rootOf({ resume: { agent: 'claude', id: 'abc-1' }, resumeFailed: failed }),
+    ).not.toHaveProperty('resumeFailed')
+    expect(
+      rootOf({ resumeFailed: { resume: { agent: 'claude', id: '$(id)' }, exitCode: 1 } }),
+    ).not.toHaveProperty('resumeFailed')
+    expect(
+      rootOf({ resumeFailed: { resume: failed.resume, exitCode: 'rm -rf' } }),
+    ).not.toHaveProperty('resumeFailed')
+  })
+
   it('keeps a renamed pane pinned only when the mark is true', () => {
     const pane = snap().workspaces[0].root
     const rootOf = (extra: object) =>

@@ -73,7 +73,7 @@ describe('AgentSessionButton', () => {
     fireEvent.click(screen.getByRole('button', { name: /Claude Code session/ }))
     fireEvent.click(await screen.findByRole('button', { name: 'Copy resume command' }))
     expect(writeText).toHaveBeenCalledWith(
-      'claude --resume abc-123 --model opus --permission-mode plan',
+      "'claude' --resume abc-123 --model opus --permission-mode plan",
     )
   })
 

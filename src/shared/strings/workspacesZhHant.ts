@@ -135,6 +135,11 @@ export const workspacesZhHant: typeof workspacesEn = {
       '這個 {agent} session 同時在這裡和「{tab}」分頁執行，兩份會寫進同一份對話記錄。請關閉其中一個分頁。',
     resumeConflict:
       '這個 {agent} session 也在「{tab}」分頁執行，兩份會寫進同一份對話記錄，所以不會在這裡接回。請關閉其中一個分頁。',
+    resumeFailedLabel: '代理程式接回失敗',
+    resumeFailed: '無法接回 {agent} session {id}：它以代碼 {code} 結束，不會再自動輸入。',
+    resumeFailedRetry: '再試一次',
+    resumeFailedNewSession: '開始新的 session',
+    resumeFailedDismiss: '關閉',
   },
   topbar: {
     toggleSidebar: '切換側邊欄',

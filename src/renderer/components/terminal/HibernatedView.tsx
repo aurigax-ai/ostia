@@ -4,6 +4,7 @@ import { wakePane } from '@/lib/agents/hibernationScheduler'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { matchChordInTerminal } from '@/lib/keyboard/chords'
 import { smartClipboardAction } from '@/lib/keyboard/clipboardKeys'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import {
   type ReadOnlyTerminal,
   createReadOnlyTerminal,
@@ -36,6 +37,7 @@ export function HibernatedView({
   const termRef = useRef<ReadOnlyTerminal | null>(null)
   const background = useReadOnlyTerminalBackground(termRef)
   useReadOnlyTerminalFont(termRef)
+  useSurfaceFocus(paneId, () => termRef.current?.textarea ?? null)
 
   useEffect(() => {
     const host = hostRef.current

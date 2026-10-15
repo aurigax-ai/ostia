@@ -12,10 +12,11 @@ import {
   useChatStore,
 } from '@/stores/assist/chatStore'
 import { useChatToolsStore } from '@/stores/assist/chatToolsStore'
+import { retryPendingFocus } from '@/stores/workspaces/surfaceSlotsStore'
 import { useChat } from '@ai-sdk/react'
 import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import type { UIMessage } from 'ai'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { type MutableRefObject, useEffect, useMemo, useRef, useState } from 'react'
 import { ChatCheckpointDialog } from './ChatCheckpointDialog'
 import { ChatClearDialog } from './ChatClearDialog'
 import type { ChatActionNotice } from './ChatCodeActions'
@@ -38,6 +39,7 @@ export interface ChatViewProps {
   seed?: string
   onBack?: () => void
   onInserted?: () => void
+  focusRef?: MutableRefObject<HTMLElement | null>
 }
 
 export function ChatView(props: ChatViewProps): JSX.Element | null {
@@ -63,6 +65,7 @@ function ChatSession({
   seed = '',
   onBack,
   onInserted,
+  focusRef,
 }: ChatViewProps & { sessionId: string }): JSX.Element {
   const d = useDict()
   const key = chatKey(workspaceId)
@@ -84,6 +87,14 @@ function ChatSession({
   const labels = d.ask.context
   const chatContext = useChatContext({ workspaceId, labels })
   const areaRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    if (!focusRef) return
+    focusRef.current = areaRef.current
+    retryPendingFocus()
+    return () => {
+      focusRef.current = null
+    }
+  }, [focusRef])
   const rootRef = useRef<HTMLDivElement>(null)
   const busy = status === 'submitted' || status === 'streaming'
   const [sessionsOpen, setSessionsOpen] = useState(false)

@@ -1,4 +1,5 @@
-import { type CardThread, loopbackHttpUrl, parseCardThread } from './trellis'
+import { loopbackHttpUrl, parseCardThread } from './parsers'
+import type { CardThread } from './trellis'
 
 export interface DaemonApi {
   origin: string

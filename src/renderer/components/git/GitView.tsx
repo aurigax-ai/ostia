@@ -22,6 +22,7 @@ import { ChangesPage } from './ChangesPage'
 import { GitEmpty } from './GitEmpty'
 import { GraphPage } from './GraphPage'
 import './git.css'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 
 type Loaded =
   | { page: 'changes'; data: GitChangesData }
@@ -61,6 +62,7 @@ export function GitView({
   paneId,
 }: { workspaceId: string; paneId: string }): JSX.Element {
   const t = useDict().git
+  useSurfaceFocus(paneId, null)
   const nav = useGitViewStore((s) => s.nav[paneId])
   const [page, setPage] = useState<GitPage>(nav?.page ?? 'changes')
   const [blameFile, setBlameFile] = useState(nav?.file ?? '')
