@@ -407,6 +407,10 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
+function responseMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'bad request'
+}
+
 export async function connect(): Promise<OstiaExtension> {
   const socketPath = readEnv('SOCKET')
   const token = readEnv('TOKEN')
@@ -952,7 +956,7 @@ export async function startPanelServer(opts: {
           res,
           400,
           'application/json',
-          JSON.stringify(failure('bad-request', errorMessage(err))),
+          JSON.stringify(failure('bad-request', responseMessage(err))),
         )
       }
     }
@@ -972,7 +976,7 @@ export async function startPanelServer(opts: {
           res,
           400,
           'application/json',
-          JSON.stringify(failure('bad-request', errorMessage(err))),
+          JSON.stringify(failure('bad-request', responseMessage(err))),
         )
       }
     }
