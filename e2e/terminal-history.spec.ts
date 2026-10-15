@@ -121,11 +121,19 @@ test('clear, closing the pane and quitting leave no history behind', async () =>
     await flood(win, '.xterm-screen')
     await expect.poll(() => historyFiles(dataHome).length, { timeout: 15_000 }).toBeGreaterThan(0)
     await runCommand(win, 'Scroll to Top')
-    await win.locator('.xterm-screen').first().hover()
-    await win.mouse.wheel(0, -100)
     await expect(win.locator('.history-edge')).toBeVisible()
     await win.locator('.history-edge').getByRole('button', { name: 'Show' }).click()
     await expect(win.locator('.history-view')).toBeVisible()
+    await win.getByRole('button', { name: 'Back to live' }).click()
+    await runCommand(win, 'Scroll to Top')
+    await expect(win.locator('.history-edge')).toBeVisible()
+    await win.locator('.xterm-screen').first().hover()
+    await expect
+      .poll(async () => {
+        await win.mouse.wheel(0, -100)
+        return win.locator('.history-view').count()
+      })
+      .toBe(1)
     await win.getByRole('button', { name: 'Back to live' }).click()
 
     await win.keyboard.press(chords.splitRight)
