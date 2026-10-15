@@ -52,6 +52,7 @@ const DIFF = [
   '--- a/scripts/c.mjs',
   '+++ b/scripts/c.mjs',
   '@@ -1 +1 @@',
+  '-old',
   '+text',
   '',
 ].join('\n')
@@ -83,6 +84,23 @@ describe('coverageReport', () => {
     const changed = changedLines(DIFF)
     expect([...(changed.get('src/main/a.ts') ?? [])]).toEqual([2, 3, 4, 7])
     expect(changed.has('src/shared/gone.ts')).toBe(false)
+  })
+
+  it('reads an added line that starts with ++ as a line of the file, not as the next file header', () => {
+    const diff = [
+      'diff --git a/src/main/a.ts b/src/main/a.ts',
+      '--- a/src/main/a.ts',
+      '+++ b/src/main/a.ts',
+      '@@ -0,0 +1,2 @@',
+      '+++ b/src/main/other.ts',
+      '+x',
+      '@@ -5,0 +8 @@',
+      '+y',
+      '',
+    ].join('\n')
+    const changed = changedLines(diff)
+    expect([...changed.keys()]).toEqual(['src/main/a.ts'])
+    expect([...(changed.get('src/main/a.ts') ?? [])]).toEqual([1, 2, 8])
   })
 
   it('counts only changed lines in src/ that a test can run', () => {

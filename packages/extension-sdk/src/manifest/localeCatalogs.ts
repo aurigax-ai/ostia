@@ -16,6 +16,7 @@ import {
   type ExtensionConnectionKind,
   type ExtensionManifest,
 } from '../contract/extensions'
+import { isRecord } from '../contract/isRecord'
 import { readConfined } from './confinedRead'
 import { MAX_DESCRIPTION, MAX_TEXT, hasControlCharacter } from './extensionManifest'
 
@@ -30,10 +31,6 @@ export type LocaleCatalogResult =
   | { ok: false; error: string }
 
 const CATALOG_SECTIONS = ['manifest', 'messages']
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
 
 export function manifestSlots(manifest: ExtensionManifest): Map<string, number> {
   const slots = new Map<string, number>([['name', MAX_TEXT]])

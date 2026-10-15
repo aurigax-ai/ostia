@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { type Harness, graphsHarness, until } from '../../test/graphsHarness'
+import { type Harness, POLL, graphsHarness } from '../../test/graphsHarness'
 
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },
@@ -33,14 +33,16 @@ edges: []
     expect(h.launches?.has('graphs')).toBe(false)
 
     expect((await h.panel('runNow', { name: 'held' })).ok).toBe(true)
-    const shown = await until(() =>
-      questions()
-        ?.stateFor('7')
-        .pending.find((q) => q.question === 'Still waiting after the restart?'),
+    const shown = await vi.waitUntil(
+      () =>
+        questions()
+          ?.stateFor('7')
+          .pending.find((q) => q.question === 'Still waiting after the restart?'),
+      POLL,
     )
-    await until(() => (h.launches?.has('graphs') ? true : undefined))
+    await vi.waitUntil(() => h.launches?.has('graphs'), POLL)
 
     questions()?.answer('7', shown.id, { choices: [0], text: '' })
-    await until(() => (h.launches?.has('graphs') ? undefined : true))
+    await vi.waitUntil(() => !h.launches?.has('graphs'), POLL)
   })
 })

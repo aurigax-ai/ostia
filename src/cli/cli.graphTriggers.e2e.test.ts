@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { type Harness, graphsHarness, until } from '../../test/graphsHarness'
+import { type Harness, POLL, graphsHarness } from '../../test/graphsHarness'
 
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },
@@ -62,7 +62,10 @@ edges: []
     await settleFor(200)
     writeFileSync(join(h.workDir, 'src/a/b.ts'), '2')
     writeFileSync(join(h.workDir, 'README.md'), 'r')
-    const [runId] = await until(() => (runIds('onsave').length > 0 ? runIds('onsave') : undefined))
+    const [runId] = await vi.waitUntil(
+      () => (runIds('onsave').length > 0 ? runIds('onsave') : undefined),
+      POLL,
+    )
     await settleFor(1500)
     expect(runIds('onsave')).toHaveLength(1)
     expect(triggerOf('onsave', runId as string)).toEqual({ kind: 'files', paths: ['src/a/b.ts'] })
@@ -84,11 +87,9 @@ edges: []
     const started = await h.panel('runNow', { name: 'restart' })
     expect(started.ok).toBe(true)
     const runId = (started.data as { runId: string }).runId
-    const pane = await until(() => h.opened[h.opened.length - 1])
+    const pane = await vi.waitUntil(() => h.opened[h.opened.length - 1], POLL)
     expect((await h.stop(pane, {})).code).toBe(0)
-    await until(() =>
-      lines('restart', runId).some((l) => l.type === 'run-end') ? true : undefined,
-    )
+    await vi.waitUntil(() => lines('restart', runId).some((l) => l.type === 'run-end'), POLL)
     await settleFor(500)
     expect(runIds('restart')).toEqual([runId])
     expect((await h.stop(h.remotePane, {})).code).toBe(0)
@@ -96,7 +97,7 @@ edges: []
     expect(runIds('restart')).toEqual([runId])
     h.human.agent = 'claude'
     expect((await h.stop(h.human, {})).code).toBe(0)
-    await until(() => (runIds('restart').length === 2 ? true : undefined))
+    await vi.waitUntil(() => runIds('restart').length === 2, POLL)
     const second = runIds('restart').find((id) => id !== runId) as string
     expect(triggerOf('restart', second)).toMatchObject({
       kind: 'agent',
@@ -120,13 +121,13 @@ nodes:
 edges: []
 `,
     )
-    const listed = await until(async () => {
+    const listed = await vi.waitUntil(async () => {
       const res = await h.panel('list')
       const row = (res.data as { graphs: { name: string; filesRefused?: boolean }[] }).graphs.find(
         (g) => g.name === 'huge',
       )
       return row?.filesRefused ? row : undefined
-    })
+    }, POLL)
     expect(listed.filesRefused).toBe(true)
     writeFileSync(join(h.workDir, 'src/a/c.ts'), '1')
     await settleFor(1500)
@@ -144,7 +145,7 @@ edges: []
       workspaceId: 'w1',
       exitCode: 0,
     })
-    await until(() => (runIds('huge').length === 1 ? true : undefined))
+    await vi.waitUntil(() => runIds('huge').length === 1, POLL)
     expect(triggerOf('huge', runIds('huge')[0] as string)).toMatchObject({
       kind: 'command',
       exit: 0,

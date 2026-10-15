@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 
 export const CONSENT_FILE = 'helper-hosts.json'
 export const CONSENT_HOSTS_MAX = 500
@@ -34,7 +35,7 @@ export function parseConsent(text: string): Map<string, HostRecord> {
     return hosts
   }
   const listed = (raw as { hosts?: unknown } | null)?.hosts
-  if (typeof listed !== 'object' || listed === null || Array.isArray(listed)) return hosts
+  if (!isRecord(listed)) return hosts
   for (const [key, value] of Object.entries(listed)) {
     if (hosts.size >= CONSENT_HOSTS_MAX) break
     const record = HOST_KEY_PATTERN.test(key) ? hostRecord(value) : null

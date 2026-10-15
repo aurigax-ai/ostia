@@ -8,15 +8,15 @@ import {
   seedSettings,
   testHome,
 } from './dataHome'
+import { PROMPT, addTab, newTerminalWorkspace, openWorkspace, shownTerminal } from './helpers'
 import {
-  PROMPT,
-  addTab,
-  newTerminalWorkspace,
-  openWorkspace,
-  shownTerminal,
+  type ElectronApplication,
+  type Page,
+  _electron as electron,
+  expect,
+  test,
   waitForExit,
-} from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+} from './test'
 
 test.describe.configure({ timeout: 90_000 })
 

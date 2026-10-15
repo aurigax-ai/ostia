@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { ExtensionHost } from './extensionHost'
@@ -10,16 +10,10 @@ import { ExtensionLaunches } from './extensionLaunches'
 import { registerExtensionMethods } from './extensionMethods'
 import { ExtensionStore } from './extensionStore'
 
+const POLL = { timeout: 8000, interval: 20 }
+
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions-launch')
 const caller: ExtensionCaller = { kind: 'user', workspaceId: 'w1', capabilities: [] }
-
-async function until(check: () => boolean, timeoutMs = 8000): Promise<void> {
-  const start = Date.now()
-  while (!check()) {
-    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 20))
-  }
-}
 
 describe('a built-in with sidebar items only starts with the window only after it asked to', () => {
   let dir: string
@@ -97,7 +91,7 @@ describe('a built-in with sidebar items only starts with the window only after i
     h.processes.stopAll()
 
     h = launch()
-    await until(() => h.processes.isRunning('tally'))
+    await vi.waitUntil(() => h.processes.isRunning('tally'), POLL)
     expect(await ask(h, false)).toEqual({ ok: true })
     h.processes.stopAll()
 
@@ -109,6 +103,6 @@ describe('a built-in with sidebar items only starts with the window only after i
   it('leaves a non-built-in with sidebar items starting with the window', async () => {
     const h = launch(false)
     h.processes.approve('tally')
-    await until(() => h.processes.isRunning('tally'))
+    await vi.waitUntil(() => h.processes.isRunning('tally'), POLL)
   })
 })

@@ -1,4 +1,5 @@
 import { AGENT_HOOK_INPUT_MAX, type HookAgent } from './agentPlugins'
+import { isRecord } from './isRecord'
 
 export interface AgentStop {
   sessionId: string
@@ -8,10 +9,6 @@ export interface AgentStop {
 }
 
 const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 function idOf(value: unknown): string | undefined {
   return typeof value === 'string' && ID_PATTERN.test(value) ? value : undefined

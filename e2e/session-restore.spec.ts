@@ -2,7 +2,14 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'n
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { askToQuit, newTerminalWorkspace, openWorkspace, runInTerminal } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import {
+  type ElectronApplication,
+  type Page,
+  _electron as electron,
+  exitedWithin,
+  expect,
+  test,
+} from './test'
 
 const WORKSPACES = 5
 const EXIT_TIMEOUT_MS = 15_000
@@ -52,18 +59,6 @@ async function launchApp(dataHome: string): Promise<Launched> {
   }
 }
 
-function exited(app: ElectronApplication): Promise<boolean> {
-  const proc = app.process()
-  if (proc.exitCode !== null || proc.signalCode !== null) return Promise.resolve(true)
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(false), EXIT_TIMEOUT_MS)
-    proc.once('exit', () => {
-      clearTimeout(timer)
-      resolve(true)
-    })
-  })
-}
-
 async function confirmQuitIfAsked(win: Page, done: Promise<boolean>): Promise<void> {
   const dialog = win.getByRole('dialog')
   const asked = await Promise.race([
@@ -82,7 +77,7 @@ async function confirmQuitIfAsked(win: Page, done: Promise<boolean>): Promise<vo
 }
 
 async function stopApp({ app, win }: Launched, how: 'quit' | NodeJS.Signals): Promise<void> {
-  const done = exited(app)
+  const done = exitedWithin(app.process(), EXIT_TIMEOUT_MS)
   if (how === 'quit') {
     await askToQuit(app)
     await confirmQuitIfAsked(win, done)

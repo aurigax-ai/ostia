@@ -38,9 +38,9 @@ import {
   type MarketplaceInstallState,
   type MarketplaceResult,
   type MarketplaceState,
-} from '../../shared/extensions/marketplace'
-import { loadJson, saveJson } from '../platform/jsonStore'
-import { missingRequirements, programPath } from '../platform/systemRequirements'
+} from '../../../shared/extensions/marketplace'
+import { loadJson, saveJson } from '../../platform/jsonStore'
+import { missingRequirements, programPath } from '../../platform/systemRequirements'
 
 const MARKETPLACE_MANIFEST_MAX_BYTES = 64 * 1024
 const GIT_TIMEOUT_MS = 120_000

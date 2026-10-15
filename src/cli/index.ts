@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { once } from 'node:events'
 import { type Socket, createConnection } from 'node:net'
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import {
@@ -43,15 +44,10 @@ import { runVaultVerb } from './verbs/vault'
 import { isOfflineViewVerb, runOfflineViewVerb, runViewVerb } from './verbs/view'
 import { runWorkspaceVerb, workspaceFolderIn } from './verbs/workspace'
 
-function connectSocket(socketPath: string): Promise<Socket> {
-  return new Promise((resolveSocket, reject) => {
-    const socket = createConnection(socketPath)
-    socket.once('connect', () => {
-      socket.removeListener('error', reject)
-      resolveSocket(socket)
-    })
-    socket.once('error', reject)
-  })
+async function connectSocket(socketPath: string): Promise<Socket> {
+  const socket = createConnection(socketPath)
+  await once(socket, 'connect')
+  return socket
 }
 
 type Runner = (conn: MessageConnection) => Promise<void>

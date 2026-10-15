@@ -1,10 +1,12 @@
 import { mkdirSync, mkdtempSync, readFileSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { running } from '../../../test/tmux'
 import { SandboxUnavailableError } from '../sandbox/workspaceSandboxes'
 import { EXEC_CONCURRENT_MAX, type ExecDeps, ExtensionExec } from './extensionExec'
+
+const POLL = { timeout: 6000, interval: 50 }
 
 const FAKE_TOOL = resolve(__dirname, '../../../test/fixtures/tools/bin/fake-tool')
 
@@ -55,14 +57,6 @@ function envLines(stdout: string): Record<string, string> {
       .split('\n')
       .map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]),
   )
-}
-
-async function until(check: () => boolean, ms = 6000): Promise<void> {
-  const end = Date.now() + ms
-  while (!check()) {
-    if (Date.now() > end) throw new Error('timed out')
-    await new Promise((r) => setTimeout(r, 50))
-  }
 }
 
 describe('ext.exec', () => {
@@ -123,13 +117,13 @@ describe('ext.exec', () => {
     const { exec, data } = setup({ w1: { workDir: tmpdir() } })
     track(exec)
     const pids = async (file: string): Promise<number[]> => {
-      await until(() => {
+      await vi.waitUntil(() => {
         try {
           return readFileSync(file, 'utf8').includes(' ')
         } catch {
           return false
         }
-      })
+      }, POLL)
       return readFileSync(file, 'utf8').trim().split(' ').map(Number)
     }
     const sleeper = (name: string, timeoutMs = 60_000, signal?: AbortSignal) =>
@@ -144,18 +138,18 @@ describe('ext.exec', () => {
     const a = await pids(join(data, 'a'))
     abort.abort()
     await cancelled
-    await until(() => a.every((pid) => !running(pid)))
+    await vi.waitUntil(() => a.every((pid) => !running(pid)), POLL)
 
     const timedOut = sleeper('b', 500)
     const b = await pids(join(data, 'b'))
     expect(await timedOut).toMatchObject({ ok: true, timedOut: true, exitCode: -1 })
-    await until(() => b.every((pid) => !running(pid)))
+    await vi.waitUntil(() => b.every((pid) => !running(pid)), POLL)
 
     const gone = sleeper('c')
     const c = await pids(join(data, 'c'))
     exec.stopFor('graphs')
     await gone
-    await until(() => c.every((pid) => !running(pid)))
+    await vi.waitUntil(() => c.every((pid) => !running(pid)), POLL)
 
     const many = Array.from({ length: EXEC_CONCURRENT_MAX }, (_, i) => sleeper(`m${i}`))
     expect(exec.active('graphs')).toBe(EXEC_CONCURRENT_MAX)

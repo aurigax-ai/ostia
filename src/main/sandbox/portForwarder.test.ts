@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { type Server, type Socket, connect, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { holdPort } from '../../../test/heldPort'
 import { PortBridge, controlSocketName, dataSocketName } from './portBridge'
 import { PortForwarder, type SandboxListener, type SandboxPane } from './portForwarder'
@@ -23,15 +23,7 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-async function until<T>(read: () => T | undefined | Promise<T | undefined>, ms = 5000): Promise<T> {
-  const start = Date.now()
-  for (;;) {
-    const value = await read()
-    if (value !== undefined) return value
-    if (Date.now() - start > ms) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 10))
-  }
-}
+const POLL = { timeout: 5000, interval: 10 }
 
 function idOf(bridge: PortBridge): string {
   return /UNIX-CONNECT:ports-([0-9a-f]+)\.sock /.exec(bridge.command)?.[1] ?? ''
@@ -80,7 +72,7 @@ async function sandboxPane(pid: number, name: string): Promise<FakePane> {
       )
     }
   })
-  await until(() => (bridge.connected ? true : undefined))
+  await vi.waitUntil(() => bridge.connected, POLL)
   return { pid, bridge, asked }
 }
 
@@ -206,7 +198,7 @@ describe.skipIf(process.platform !== 'linux')('PortForwarder', () => {
     if (!bridge) throw new Error('the bridge did not open')
     opened.push(bridge)
     await dial(join(dir, controlSocketName(idOf(bridge))))
-    await until(() => (bridge.connected ? true : undefined))
+    await vi.waitUntil(() => bridge.connected, POLL)
     const forwarder = setup([{ pid: 11, bridge }], { 11: [{ port, process: 'node' }] })
     await forwarder.expose('ws', port)
     const held = await dial(port)
@@ -215,7 +207,7 @@ describe.skipIf(process.platform !== 'linux')('PortForwarder', () => {
       closed = true
     })
     await forwarder.unexpose('ws', port)
-    await until(() => (closed ? true : undefined))
-    expect(await until(async () => ((await portFree(port)) ? true : undefined))).toBe(true)
+    await vi.waitUntil(() => closed, POLL)
+    await vi.waitUntil(() => portFree(port), POLL)
   })
 })

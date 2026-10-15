@@ -39,6 +39,7 @@ import {
   validSettingValue,
 } from '../contract/extensions'
 import { ICON_THEME_ID_PATTERN, type IconThemeContribution } from '../contract/iconTheme'
+import { isRecord } from '../contract/isRecord'
 import {
   KEYMAP_LABEL_MAX,
   KEYMAP_PLATFORMS,
@@ -82,10 +83,6 @@ export interface DiscoveredExtension {
 export interface ExtensionRoot {
   dir: string
   builtin: boolean
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
 function text(v: unknown, max = MAX_TEXT): string | null {

@@ -1,3 +1,4 @@
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 export const MANAGER_FEATURE = 'manager'
 
 export const MANAGER_AGENT_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
@@ -43,9 +44,6 @@ export const DEFAULT_MANAGER_SETTINGS: ManagerSettings = {
   limits: DEFAULT_MANAGER_LIMITS,
 }
 
-const isObject = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v)
-
 export function isManagerArgv(value: unknown): value is string[] {
   return (
     Array.isArray(value) &&
@@ -74,9 +72,9 @@ function clampLimit(key: keyof ManagerLimits, value: unknown): number {
 }
 
 export function parseManagerSettings(raw: unknown): ManagerSettings {
-  if (!isObject(raw)) return DEFAULT_MANAGER_SETTINGS
+  if (!isRecord(raw)) return DEFAULT_MANAGER_SETTINGS
   const agents: Record<string, string[]> = {}
-  if (isObject(raw.agents)) {
+  if (isRecord(raw.agents)) {
     for (const [name, argv] of Object.entries(raw.agents)) {
       if (MANAGER_AGENT_NAME.test(name) && isManagerArgv(argv)) agents[name] = [...argv]
     }
@@ -84,7 +82,7 @@ export function parseManagerSettings(raw: unknown): ManagerSettings {
   const skills = Array.isArray(raw.skills)
     ? [...new Set(raw.skills.filter(isSkillPath))].slice(0, MANAGER_MAX_SKILLS)
     : []
-  const limitsRaw = isObject(raw.limits) ? raw.limits : {}
+  const limitsRaw = isRecord(raw.limits) ? raw.limits : {}
   return {
     agents,
     skills,

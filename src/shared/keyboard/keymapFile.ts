@@ -1,3 +1,4 @@
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import {
   CHORDS_PER_COMMAND_MAX,
@@ -33,10 +34,6 @@ export interface KeymapsApi {
 export type KeymapBindingsResult =
   | { ok: true; bindings: KeybindingMap; skipped: KeymapSkip[] }
   | { ok: false; error: string }
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
 
 function shown(value: unknown): string {
   const text = typeof value === 'string' ? value : JSON.stringify(value)

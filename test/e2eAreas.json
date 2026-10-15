@@ -64,7 +64,7 @@
         "src/main/lsp/managedServers.ts",
         "src/main/lsp/serverOverrides.ts",
         "src/main/lsp/editorLanguages.ts",
-        "src/main/extensions/extensionSuggestions.ts",
+        "src/main/extensions/marketplace/extensionSuggestions.ts",
         "packages/extension-sdk/src/contract/languageServers.ts",
         "packages/extension-sdk/src/contract/editorLanguages.ts",
         "src/shared/extensions/extensionSuggestions.ts",
@@ -124,6 +124,8 @@
     {
       "name": "browser",
       "paths": [
+        "src/main/browser/browserGuests.ts",
+        "src/main/browser/guestProfiles.ts",
         "src/main/browser/browse.",
         "src/main/browser/browseMethod.ts",
         "src/main/browser/browseGuests.ts",
@@ -285,7 +287,7 @@
         "packages/extension-sdk/src/manifest/extensionManifest.",
         "src/main/extensions/extensionSecrets.",
         "src/main/extensions/extensionStore.",
-        "src/main/extensions/extensionSuggestions.",
+        "src/main/extensions/marketplace/extensionSuggestions.",
         "src/main/agents/agentOfferRelay.ts",
         "packages/extension-sdk/src/manifest/agentSkills.ts",
         "src/main/extensions/iconThemes.ts",
@@ -323,7 +325,7 @@
     {
       "name": "marketplace",
       "paths": [
-        "src/main/extensions/marketplace.ts",
+        "src/main/extensions/marketplace/marketplace.ts",
         "packages/extension-sdk/src/manifest/marketplaceManifest.ts",
         "src/shared/extensions/marketplace.ts",
         "src/renderer/components/extensions/BrowseExtensions.tsx",
@@ -517,6 +519,9 @@
     {
       "name": "manager",
       "paths": [
+        "src/main/manager/managerPanes.ts",
+        "src/main/manager/managerPty.ts",
+        "src/main/manager/managerWiring.ts",
         "src/main/manager/manager.",
         "src/main/manager/managerAgent.",
         "src/main/manager/managerMethods.",
@@ -795,6 +800,8 @@
     {
       "name": "windows",
       "paths": [
+        "src/main/windows/windowWiring.ts",
+        "src/main/windows/appWindows.ts",
         "src/main/windows/windowBook.",
         "src/main/windows/windowBroker.ts",
         "src/main/panes/paneMove.ts",
@@ -842,6 +849,7 @@
     {
       "name": "restore and user folders",
       "paths": [
+        "src/main/workspaces/scrollbackPersistence.ts",
         "src/main/workspaces/workspaceSnapshot.ts",
         "src/main/terminal/screenMirror.ts",
         "src/main/platform/userDirs.",
@@ -1117,6 +1125,8 @@
     {
       "name": "app shell",
       "paths": [
+        "src/main/windows/appQuit.ts",
+        "src/main/windows/quitTeardown.ts",
         "src/main/windows/tray.ts",
         "src/main/windows/globalHotkey.ts",
         "src/main/windows/appMenu.ts",

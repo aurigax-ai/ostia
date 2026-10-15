@@ -71,14 +71,6 @@ const ZH_HANT = {
   },
 }
 
-async function until(check: () => Promise<boolean>, timeoutMs = 5000): Promise<void> {
-  const start = Date.now()
-  while (!(await check())) {
-    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 20))
-  }
-}
-
 describe('ExtensionHost resolves manifest strings for the language', () => {
   let dir: string
   let root: string
@@ -244,10 +236,13 @@ describe('ExtensionHost resolves manifest strings for the language', () => {
     })
     locale = 'en'
     host.refreshLocale()
-    await until(async () => {
-      const res = await host.invoke('greeter', 'announced', null, caller)
-      return res.ok && (res.data as { announced: unknown }).announced === 'en'
-    })
+    await vi.waitUntil(
+      async () => {
+        const res = await host.invoke('greeter', 'announced', null, caller)
+        return res.ok && (res.data as { announced: unknown }).announced === 'en'
+      },
+      { timeout: 5000, interval: 20 },
+    )
     locale = undefined
     expect(await host.invoke('greeter', 'locale', null, caller)).toMatchObject({
       data: { locale: 'en' },

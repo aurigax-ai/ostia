@@ -1,3 +1,4 @@
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 export type PromptStyle = 'shell' | 'ostia'
 
 export const PROMPT_STYLES: readonly PromptStyle[] = ['shell', 'ostia']
@@ -72,20 +73,17 @@ export function parsePromptChips(raw: unknown): string[] {
 }
 
 export function parsePromptSettings(raw: unknown): PromptSettings {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+  if (!isRecord(raw)) {
     return { ...DEFAULT_PROMPT_SETTINGS, chips: [...DEFAULT_PROMPT_CHIPS] }
   }
-  const source = raw as Record<string, unknown>
-  const style = source.style
+  const style = raw.style
   return {
     style: PROMPT_STYLES.includes(style as PromptStyle)
       ? (style as PromptStyle)
       : DEFAULT_PROMPT_SETTINGS.style,
-    chips: parsePromptChips(source.chips),
-    sameLine: typeof source.sameLine === 'boolean' ? source.sameLine : false,
-    separator: isPromptSeparator(source.separator)
-      ? source.separator
-      : DEFAULT_PROMPT_SETTINGS.separator,
+    chips: parsePromptChips(raw.chips),
+    sameLine: typeof raw.sameLine === 'boolean' ? raw.sameLine : false,
+    separator: isPromptSeparator(raw.separator) ? raw.separator : DEFAULT_PROMPT_SETTINGS.separator,
   }
 }
 

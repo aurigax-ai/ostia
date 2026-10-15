@@ -3,7 +3,7 @@ import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { type Harness, graphsHarness, until } from '../../test/graphsHarness'
+import { type Harness, POLL, graphsHarness } from '../../test/graphsHarness'
 
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },
@@ -89,7 +89,7 @@ edges: []
       const res = await h.panel('runNow', { name })
       expect(res.ok, JSON.stringify(res)).toBe(true)
       const runId = (res.data as { runId: string }).runId
-      await until(() => (lines(runId, name).some((l) => l.type === 'run-end') ? true : undefined))
+      await vi.waitUntil(() => lines(runId, name).some((l) => l.type === 'run-end'), POLL)
       const view = await h.panel('run', { runId })
       const show = await h.cli(h.human, ['graph', 'show', runId])
       const texts = [

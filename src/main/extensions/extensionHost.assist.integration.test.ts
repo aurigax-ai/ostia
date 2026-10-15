@@ -6,7 +6,7 @@ import type {
   AssistOpenUiRequest,
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { CancellationTokenSource } from 'vscode-jsonrpc/node'
 import { FAKE } from '../../../test/fixtures/secrets/samples'
 import { testScan } from '../../../test/redactionScan'
@@ -20,16 +20,6 @@ import { ExtensionStore } from './extensionStore'
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions-assist')
 
 const caller: ExtensionCaller = { kind: 'user', capabilities: [] }
-
-async function until<T>(read: () => T | undefined, timeoutMs = 8000): Promise<T> {
-  const start = Date.now()
-  for (;;) {
-    const value = read()
-    if (value !== undefined) return value
-    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 20))
-  }
-}
 
 describe('assist contribution points over a real control socket', () => {
   let dir: string
@@ -102,8 +92,9 @@ describe('assist contribution points over a real control socket', () => {
 
   it('starts with the window once approved and lists only ready, contributed points', async () => {
     host.processes.approve('oracle')
-    const availability = await until(() =>
-      lastAvailability().chat ? lastAvailability() : undefined,
+    const availability = await vi.waitUntil(
+      () => (lastAvailability().chat ? lastAvailability() : undefined),
+      { timeout: 8000, interval: 20 },
     )
     expect(availability).toEqual({
       chat: { extId: 'oracle', name: 'Oracle', label: 'fake · big', ref: { extId: 'oracle' } },

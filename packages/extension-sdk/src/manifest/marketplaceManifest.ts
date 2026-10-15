@@ -1,5 +1,6 @@
 import { lstatSync, readdirSync } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
+import { isRecord } from '../contract/isRecord'
 import { isInsideDir } from './confinedRead'
 
 export const MARKETPLACE_MANIFEST_FILE = 'ostia-marketplace.json'
@@ -50,10 +51,10 @@ function parseUnlisted(raw: unknown, listed: string[]): UnlistedEntry[] | string
 }
 
 export function parseMarketplaceManifest(raw: unknown): MarketplaceManifest | string {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+  if (!isRecord(raw)) {
     return 'the marketplace file must be a JSON object'
   }
-  const { name, description, extensions, unlisted } = raw as Record<string, unknown>
+  const { name, description, extensions, unlisted } = raw
   if (typeof name !== 'string' || !name.trim() || name.length > MARKETPLACE_NAME_MAX) {
     return `name must be 1-${MARKETPLACE_NAME_MAX} characters`
   }

@@ -1,4 +1,5 @@
 import type { ChildProcess } from 'node:child_process'
+import { once } from 'node:events'
 import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import {
@@ -34,10 +35,10 @@ async function stopTrace(app: ElectronApplication): Promise<void> {
   }
 }
 
-function processExit(app: ElectronApplication): Promise<void> {
-  const child = app.process()
-  if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve()
-  return new Promise((resolve) => child.once('exit', () => resolve()))
+export async function waitForExit(app: ElectronApplication): Promise<void> {
+  const proc = app.process()
+  if (hasExited(proc)) return
+  await new Promise<void>((resolve) => proc.once('exit', () => resolve()))
 }
 
 const CLOSE_DEADLINE_MS = 20_000
@@ -99,17 +100,12 @@ function hasExited(child: ChildProcess): boolean {
 
 const EXIT_SETTLE_MS = 2000
 
-async function exitedSoon(child: ChildProcess): Promise<boolean> {
+export async function exitedWithin(child: ChildProcess, ms: number): Promise<boolean> {
   if (hasExited(child)) return true
-  let timer: ReturnType<typeof setTimeout> | undefined
-  const exited = await Promise.race([
-    new Promise<boolean>((resolve) => child.once('exit', () => resolve(true))),
-    new Promise<boolean>((resolve) => {
-      timer = setTimeout(() => resolve(false), EXIT_SETTLE_MS)
-    }),
-  ])
-  clearTimeout(timer)
-  return exited
+  return once(child, 'exit', { signal: AbortSignal.timeout(ms) }).then(
+    () => true,
+    () => false,
+  )
 }
 
 function processTree(root: number): string {
@@ -197,7 +193,7 @@ export const _electron: Electron = {
     }
     const close = app.close.bind(app)
     app.close = async () => {
-      const exited = processExit(app)
+      const exited = waitForExit(app)
       await stopTrace(app)
       await closeWithin(entry, close, exited)
     }
@@ -226,7 +222,7 @@ async function warmUp(): Promise<void> {
   } catch (error) {
     console.log(`e2e warm-up: gave up after ${Date.now() - started} ms: ${error}`)
   } finally {
-    const exited = processExit(app)
+    const exited = waitForExit(app)
     await Promise.race([
       app.close().then(() => exited),
       new Promise((resolve) => setTimeout(resolve, CLOSE_DEADLINE_MS)),
@@ -251,7 +247,7 @@ export const test = base.extend<{ appTraces: undefined }, { warmApp: undefined }
       await Promise.all([...recording.keys()].map(stopTrace))
       const failed = testInfo.status !== testInfo.expectedStatus
       for (const entry of launched.values()) {
-        if (!entry.reported && !(await exitedSoon(entry.child)))
+        if (!entry.reported && !(await exitedWithin(entry.child, EXIT_SETTLE_MS)))
           await reportStuck(entry, 'when the test ended')
         if (!failed) continue
         const dumps = crashDumpsIn(entry.crashDumps)
