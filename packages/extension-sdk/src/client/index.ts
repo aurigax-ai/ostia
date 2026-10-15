@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import { once } from 'node:events'
 import { readFileSync } from 'node:fs'
 import { type IncomingMessage, type ServerResponse, createServer } from 'node:http'
 import { createConnection } from 'node:net'
@@ -414,10 +415,7 @@ export async function connect(): Promise<OstiaExtension> {
   const incompatible = provided ? apiProblem(EXTENSION_API_VERSION, provided) : null
   if (incompatible) throw new Error(`this extension ${incompatible}`)
   const socket = createConnection(socketPath)
-  await new Promise<void>((resolve, reject) => {
-    socket.once('connect', resolve)
-    socket.once('error', reject)
-  })
+  await once(socket, 'connect')
   const conn: MessageConnection = createMessageConnection(
     new StreamMessageReader(socket),
     new StreamMessageWriter(socket),

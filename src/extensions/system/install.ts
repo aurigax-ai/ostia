@@ -1,3 +1,4 @@
+import { parseFlags } from '@aurigax-ai/ostia-extension-sdk'
 import {
   OPEN_TERMINAL_WAIT_MAX_MS,
   type TerminalWait,
@@ -46,20 +47,11 @@ export type PlanResult =
   | { ok: false; error: string; message: string }
 
 export function parseInstallArgs(argv: string[]): InstallRequest {
-  const packages: string[] = []
-  const request: InstallRequest = { packages }
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i]
-    if (arg === '--wait') {
-      request.wait = true
-    } else if ((arg === '--manager' || arg === '--reason') && i + 1 < argv.length) {
-      const value = argv[++i]
-      if (arg === '--manager') request.manager = value
-      else request.reason = value
-    } else {
-      packages.push(arg)
-    }
-  }
+  const { flags, bools, rest } = parseFlags(argv, ['manager', 'reason'], ['wait'])
+  const request: InstallRequest = { packages: rest }
+  if (flags.manager !== undefined) request.manager = flags.manager
+  if (flags.reason !== undefined) request.reason = flags.reason
+  if (bools.has('wait')) request.wait = true
   return request
 }
 

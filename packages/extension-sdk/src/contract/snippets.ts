@@ -1,3 +1,4 @@
+import { isRecord } from './isRecord'
 export interface SnippetArgument {
   name: string
   description?: string
@@ -108,10 +109,6 @@ export function renderSnippet(command: string, values: Readonly<Record<string, s
 
 export function defaultValues(snippet: Snippet): Record<string, string> {
   return Object.fromEntries(snippetArguments(snippet).map((a) => [a.name, a.defaultValue ?? '']))
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
 function optionalText(v: unknown, max: number, field: string): string | undefined | Error {
