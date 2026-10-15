@@ -54,19 +54,19 @@ test('the hover hint names every path link action, and the modifier clicks open 
     await expect(hint).toContainText('Ctrl+Shift+Alt+Click Show in the file manager')
 
     await clickWith(win, target, ['Control', 'Shift'])
-    await expect
-      .poll(async () => (await systemCalls(app)).opened, { timeout: 10_000 })
-      .toEqual([report])
+    await expect.poll(async () => (await systemCalls(app)).opened, { timeout: 10_000 }).toEqual([
+      report,
+    ])
 
     await clickWith(win, target, ['Control', 'Shift', 'Alt'])
-    await expect
-      .poll(async () => (await systemCalls(app)).shown, { timeout: 10_000 })
-      .toEqual([report])
+    await expect.poll(async () => (await systemCalls(app)).shown, { timeout: 10_000 }).toEqual([
+      report,
+    ])
 
     await clickWith(win, target, ['Control', 'Alt'])
-    await expect(
-      win.locator('.file-tree').getByRole('button', { name: 'report.xlsx' }),
-    ).toBeVisible({ timeout: 10_000 })
+    await expect(win.locator('.file-tree').getByRole('button', { name: 'report.xlsx' })).toBeVisible(
+      { timeout: 10_000 },
+    )
     await expect(win.locator('.monaco-editor')).toHaveCount(0)
     expect((await systemCalls(app)).opened).toEqual([report])
   } finally {

@@ -47,16 +47,16 @@ test('settings rows keep a readable text column beside or above a wide control',
       await app.evaluate(({ BrowserWindow }, w) => {
         BrowserWindow.getAllWindows()[0]?.setSize(w, 800)
       }, width)
-      await expect.poll(() => win.evaluate(() => window.innerWidth)).toBeLessThanOrEqual(width)
+      await expect
+        .poll(() => win.evaluate(() => window.innerWidth))
+        .toBeLessThanOrEqual(width)
       for (const { section, label } of ROWS) {
         const { text, row } = await measure(win, section, label)
-        console.log(
-          `ROW width=${width} ${label}: text ${Math.round(text)}px of ${Math.round(row)}px`,
-        )
+        console.log(`ROW width=${width} ${label}: text ${Math.round(text)}px of ${Math.round(row)}px`)
         expect.soft(row, `${label} row inside the window`).toBeLessThanOrEqual(width)
-        expect
-          .soft(text, `${label} at a ${width}px window`)
-          .toBeGreaterThanOrEqual(Math.min(MIN_TEXT_WIDTH, row) - 0.5)
+        expect.soft(text, `${label} at a ${width}px window`).toBeGreaterThanOrEqual(
+          Math.min(MIN_TEXT_WIDTH, row) - 0.5,
+        )
       }
     }
   } finally {
