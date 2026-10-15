@@ -16,10 +16,8 @@ import { type DaemonApi, daemonApi, readThread } from './daemon'
 import { reviewColumn, taskLabel, taskLine, taskPrompt } from './prompt'
 import type { TrellisService } from './service'
 import type { AgentTasks } from './tasks'
+import { type CardDetail, HUMAN_ACTOR, type TrellisError, projectOfRef } from './trellis'
 import {
-  type CardDetail,
-  HUMAN_ACTOR,
-  type TrellisError,
   boardSlug,
   cardRef,
   cardTitle,
@@ -28,8 +26,7 @@ import {
   longText,
   priority,
   projectKey,
-  projectOfRef,
-} from './trellis'
+} from './validate'
 
 export interface AgentLauncher {
   list: () => Promise<string[]>
