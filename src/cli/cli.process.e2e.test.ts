@@ -238,13 +238,19 @@ let seq = 0
 let home = ''
 const liveChildren = new Set<ReturnType<typeof spawn>>()
 
-function ostia(args: string[], cwd = home, token = agent.token): Promise<RunResult> {
+function ostia(
+  args: string[],
+  cwd = home,
+  token = agent.token,
+  input?: string,
+): Promise<RunResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [cliPath, ...args], {
       cwd,
       env: { ...process.env, OSTIA_SOCKET: socketPath, OSTIA_TOKEN: token },
     })
     liveChildren.add(child)
+    child.stdin?.end(input ?? '')
     let stdout = ''
     let stderr = ''
     child.stdout?.on('data', (chunk: Buffer) => {
@@ -336,6 +342,37 @@ describe('ostia process (the real CLI against a live control server)', () => {
     const res = await ostia(['agent', 'run', 'claude', '--split-tab', 'workers', 'fix it'])
     expect(res.code).toBe(1)
     expect(res.stderr).toContain('unknown flag --split-tab')
+    expect(opened).toEqual([])
+  })
+
+  it('agent run: --model reaches the agent as argv, with the prompt read from stdin', async () => {
+    const spaced = await ostia(
+      ['agent', 'run', 'claude', '--name', 'W', '--model', 'sonnet', '-'],
+      home,
+      agent.token,
+      'the brief; $(not run)',
+    )
+    expect(spaced.stderr).toBe('')
+    expect(opened.at(-1)?.command).toBe("claude --model sonnet 'the brief; $(not run)'")
+
+    const joined = await ostia(
+      ['agent', 'run', 'claude', '--model=sonnet', '-'],
+      home,
+      agent.token,
+      'second brief',
+    )
+    expect(joined.stderr).toBe('')
+    expect(opened.at(-1)?.command).toBe("claude --model sonnet 'second brief'")
+  })
+
+  it('agent run: refuses an unknown flag or a model outside the allow-list with the usage, starting nothing', async () => {
+    const bogus = await ostia(['agent', 'run', 'claude', '--bogus', 'x', 'fix it'])
+    expect(bogus.code).toBe(1)
+    expect(bogus.stderr).toContain('unknown flag --bogus')
+    expect(bogus.stderr).toContain('ostia agent run <agent>')
+
+    const dashed = await ostia(['agent', 'run', 'claude', '--model', '--yolo', 'fix it'])
+    expect(dashed.code).toBe(1)
     expect(opened).toEqual([])
   })
 
