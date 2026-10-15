@@ -14,5 +14,6 @@ export const PROGRAM_SETTINGS: readonly { group: ProgramSettingGroup; field: str
   { group: 'terminal', field: 'shell' },
   { group: 'terminal', field: 'osc52Write' },
   { group: 'terminal', field: 'keepShells' },
+  { group: 'terminal', field: 'scrollbackHistory' },
   { group: 'workspaces', field: 'globalHotkey' },
 ]

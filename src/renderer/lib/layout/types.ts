@@ -1,4 +1,5 @@
 import type { AgentResume, ResumeFailure } from '@shared/agents/agentResume'
+import type { BrowserDevice } from '@shared/browser/browserDevice'
 import type { BrowserProfile } from '@shared/browser/browserProfile'
 
 export type Direction = 'horizontal' | 'vertical'
@@ -28,6 +29,7 @@ export interface PaneNode {
   chatSessionId?: string
   viewName?: string
   browserProfile?: BrowserProfile
+  browserDevice?: BrowserDevice
   resume?: AgentResume
   hibernated?: true
   resumePending?: true

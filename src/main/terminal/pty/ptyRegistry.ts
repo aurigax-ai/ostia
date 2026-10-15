@@ -9,6 +9,7 @@ import type { PortBridge } from '../../sandbox/portBridge'
 import type { KeptAttention } from '../../tmux/keptAttention'
 import type { KeptMeta } from '../../tmux/keptShells'
 import type { TmuxPane } from '../../tmux/tmuxServer'
+import type { PaneHistories } from '../history/paneHistories'
 import { markNonceFileFor } from '../markNonce'
 import { PtyFlowControl } from '../ptyFlow'
 import { PtySession } from '../ptySession'
@@ -67,6 +68,7 @@ interface PtyRegistryDeps {
   keptAttention: KeptAttention
   processes: () => ProcessRegistry | null
   appLog: () => AppLog | null
+  histories: () => PaneHistories | null
 }
 
 export type PtyRegistry = ReturnType<typeof createPtyRegistry>
@@ -96,6 +98,7 @@ export function createPtyRegistry({
   keptAttention,
   processes,
   appLog,
+  histories,
 }: PtyRegistryDeps) {
   let ptyModule: typeof import('node-pty') | null | undefined
 
@@ -190,7 +193,7 @@ export function createPtyRegistry({
         pause: () => pausePty(entry, true),
         resume: () => pausePty(entry, false),
       }),
-      mirror: new ScreenMirror(opts.cols, opts.rows),
+      mirror: new ScreenMirror(opts.cols, opts.rows, histories()?.forPane(paneId) ?? null),
       subs: opts.subs,
       killTimer: null,
       spawnPath: opts.spawnPath,

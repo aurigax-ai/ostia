@@ -1,9 +1,12 @@
 import { FindBar, type FindStepRef } from '@/components/common/FindBar'
-import { useDict } from '@/lib/app/useDict'
+import { TextLink } from '@/components/common/TextLink'
+import { fmt, useDict } from '@/lib/app/useDict'
 import type { TerminalSearch } from '@/lib/terminal/ostiaTerminal'
+import type { HistoryFind } from '@/stores/terminal/historyViewStore'
+import type { HistorySearchResult } from '@shared/terminal/scrollbackHistory'
 import type { ISearchOptions } from '@xterm/addon-search'
 import type { ITheme } from '@xterm/xterm'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export function findOptions(palette: ITheme): ISearchOptions {
   const match = palette.brightBlack ?? '#5c6266'
@@ -19,20 +22,56 @@ export function findOptions(palette: ITheme): ISearchOptions {
   }
 }
 
+const EARLIER_SEARCH_DELAY_MS = 150
+
+function useEarlierMatches(
+  paneId: string,
+  query: string,
+  liveLines: () => number,
+): HistorySearchResult | null {
+  const [earlier, setEarlier] = useState<HistorySearchResult | null>(null)
+  const liveLinesRef = useRef(liveLines)
+  liveLinesRef.current = liveLines
+  useEffect(() => {
+    setEarlier(null)
+    if (!query) return
+    let live = true
+    const timer = setTimeout(() => {
+      void window.ostia.pty
+        .historySearch(paneId, query, {}, liveLinesRef.current())
+        .then((result) => {
+          if (live) setEarlier(result)
+        })
+    }, EARLIER_SEARCH_DELAY_MS)
+    return () => {
+      live = false
+      clearTimeout(timer)
+    }
+  }, [paneId, query])
+  return earlier
+}
+
 export function TerminalFind({
+  paneId,
   search,
   options,
   stepRef,
+  liveLines,
+  onShowEarlier,
   onClose,
 }: {
+  paneId: string
   search: TerminalSearch
   options: ISearchOptions
   stepRef?: FindStepRef
+  liveLines: () => number
+  onShowEarlier: (find: HistoryFind) => void
   onClose: () => void
 }): JSX.Element {
   const d = useDict()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<{ index: number; count: number } | null>(null)
+  const earlier = useEarlierMatches(paneId, query, liveLines)
 
   useEffect(() => {
     const sub = search.onDidChangeResults((r) =>
@@ -77,6 +116,25 @@ export function TerminalFind({
       onStep={step}
       onClose={onClose}
       stepRef={stepRef}
+      extra={
+        earlier && earlier.count > 0 ? (
+          <TextLink
+            size="xs"
+            className="text-ui-xs tabular-nums"
+            title={d.find.earlierHint}
+            onClick={() =>
+              onShowEarlier({
+                query,
+                options: {},
+                matches: earlier.matches,
+                index: earlier.matches.length - 1,
+              })
+            }
+          >
+            {fmt(d.find.earlier, { count: earlier.count.toLocaleString() })}
+          </TextLink>
+        ) : null
+      }
     />
   )
 }

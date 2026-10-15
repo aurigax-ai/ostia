@@ -86,6 +86,7 @@ function Listing({
   const creating =
     edit?.kind === 'create' && edit.dir === path && !tree.remote ? (
       <NameInputRow
+        workspaceId={tree.focus.workspaceId}
         key={`${edit.entry}:${path}`}
         edit={edit}
         depth={depth}
@@ -251,6 +252,7 @@ function DirRow({
 
   const row = renaming ? (
     <NameInputRow
+      workspaceId={tree.focus.workspaceId}
       edit={{ kind: 'rename', path: menuPath }}
       depth={depth}
       dir
@@ -341,6 +343,7 @@ function FileRow({
 
   const row = renaming ? (
     <NameInputRow
+      workspaceId={tree.focus.workspaceId}
       edit={{ kind: 'rename', path: fullPath }}
       depth={depth}
       dir={false}

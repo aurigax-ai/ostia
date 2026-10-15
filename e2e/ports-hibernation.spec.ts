@@ -78,7 +78,10 @@ test('a hibernated agent is still hibernated after a restart and wakes when the 
   const dataHome = freshDataHome()
   const bin = join(dataHome, 'bin')
   mkdirSync(bin, { recursive: true })
-  writeFileSync(join(bin, 'claude'), '#!/bin/sh\necho "fake agent up: $*"\nexec sleep 600\n')
+  writeFileSync(
+    join(bin, 'claude'),
+    '#!/bin/sh\nELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude e2e-tok-2 >/dev/null 2>&1\necho "fake agent up: $*"\nexec sleep 600\n',
+  )
   chmodSync(join(bin, 'claude'), 0o755)
   seedSettings(dataHome, {
     ...DOM_RENDERER_SETTINGS,

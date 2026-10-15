@@ -15,10 +15,17 @@ const pane: PaneNode = {
   resume: { agent: 'claude', id: 'tok-1' },
 }
 
+function hookAgent(command: string): 'claude' | 'codex' | null {
+  const program = command.split(' ')[0]?.replaceAll("'", '')
+  return program === 'claude' || program === 'codex' ? program : null
+}
+
 function run(command: string): void {
   const blocks = useBlocksStore.getState()
   blocks.promptStart('p1', { line: 0 }, null)
   blocks.commandStart('p1', { line: 1 }, command)
+  const agent = hookAgent(command)
+  if (agent) useBlocksStore.getState().markAgent('p1', agent)
 }
 
 function end(): void {
@@ -50,11 +57,14 @@ describe('startAgentRunningReport', () => {
     stop = startAgentRunningReport()
   }
 
-  it('reports the agent running once when its command starts', () => {
+  it('reports the agent running once its own hook marks the command, not before', () => {
     start()
     run('claude')
     useLayoutStore.getState().focusPane('w1', 'p1')
-    expect(reports()).toEqual([['p1', true]])
+    expect(reports()).toEqual([
+      ['p1', false],
+      ['p1', true],
+    ])
   })
 
   it('reports the agent stopped when its command ends while the pane lives', () => {
@@ -62,6 +72,7 @@ describe('startAgentRunningReport', () => {
     run('claude')
     end()
     expect(reports()).toEqual([
+      ['p1', false],
       ['p1', true],
       ['p1', false],
     ])
@@ -72,7 +83,10 @@ describe('startAgentRunningReport', () => {
     run('claude')
     useBlocksStore.getState().dropPane('p1')
     useBlocksStore.getState().resetPane('p1')
-    expect(reports()).toEqual([['p1', true]])
+    expect(reports()).toEqual([
+      ['p1', false],
+      ['p1', true],
+    ])
   })
 
   it('reports a stop when the human runs another command in a restored pane', () => {
@@ -87,7 +101,9 @@ describe('startAgentRunningReport', () => {
     useBlocksStore.getState().resetPane('p1')
     run('claude --resume tok-1')
     expect(reports()).toEqual([
+      ['p1', false],
       ['p1', true],
+      ['p1', false],
       ['p1', true],
     ])
   })

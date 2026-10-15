@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PtyRingBuffer } from './ptyRingBuffer'
+import { PtyRingBuffer, countCommandStarts } from './ptyRingBuffer'
 
 describe('PtyRingBuffer', () => {
   it('replays everything from cursor 0 and reports the end position', () => {
@@ -7,7 +7,12 @@ describe('PtyRingBuffer', () => {
     rb.push('hello ')
     rb.push('world')
     expect(rb.end).toBe(11)
-    expect(rb.since(0)).toEqual({ data: 'hello world', cursor: 11, dropped: false })
+    expect(rb.since(0)).toEqual({
+      data: 'hello world',
+      cursor: 11,
+      dropped: false,
+      startsBefore: 0,
+    })
   })
 
   it('returns only new bytes since a cursor', () => {
@@ -15,7 +20,7 @@ describe('PtyRingBuffer', () => {
     rb.push('abc')
     const a = rb.since(0)
     rb.push('def')
-    expect(rb.since(a.cursor)).toEqual({ data: 'def', cursor: 6, dropped: false })
+    expect(rb.since(a.cursor)).toEqual({ data: 'def', cursor: 6, dropped: false, startsBefore: 0 })
   })
 
   it('trims at a newline boundary when over cap, marking dropped for stale cursors', () => {
@@ -51,5 +56,25 @@ describe('PtyRingBuffer', () => {
       rb.push(`line ${i}\r\n`)
       expect(rb.since(0).data.length).toBeLessThanOrEqual(64)
     }
+  })
+})
+
+describe('command starts before a replay', () => {
+  const start = '\x1b]133;C\x07'
+
+  it('counts the marks trimmed away and the ones before the cursor', () => {
+    const rb = new PtyRingBuffer(40)
+    rb.push(`${start}one\n${start}two\n`)
+    rb.push(`${'x'.repeat(30)}\n${start}three\n`)
+    const all = rb.since(0)
+    expect(all.dropped).toBe(true)
+    expect(all.startsBefore + countCommandStarts(all.data)).toBe(3)
+    const later = rb.since(all.cursor - 'three\n'.length)
+    expect(later.startsBefore).toBe(3)
+  })
+
+  it('counts a mark only when the whole mark lies before the end', () => {
+    expect(countCommandStarts(`a${start}b`, 3)).toBe(0)
+    expect(countCommandStarts(`a${start}b`)).toBe(1)
   })
 })

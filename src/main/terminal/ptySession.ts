@@ -1,4 +1,4 @@
-import { PtyRingBuffer } from './ptyRingBuffer'
+import { PtyRingBuffer, type RingSlice } from './ptyRingBuffer'
 
 export type SubscriberRole = 'owner' | 'observer'
 export interface Subscriber {
@@ -43,7 +43,7 @@ export class PtySession {
     return { cursor, dropped }
   }
 
-  since(sinceCursor = 0): { data: string; cursor: number; dropped: boolean } {
+  since(sinceCursor = 0): RingSlice {
     return this.ring.since(sinceCursor)
   }
 

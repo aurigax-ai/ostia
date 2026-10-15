@@ -16,16 +16,21 @@ export type FileOpResult =
 export type NewEntryKind = 'file' | 'folder'
 
 export interface FileOpsApi {
-  create: (dir: string, name: string, kind: NewEntryKind) => Promise<FileOpResult>
-  rename: (path: string, name: string) => Promise<FileOpResult>
-  move: (paths: string[], dir: string) => Promise<FileOpResult>
-  copy: (paths: string[], dir: string) => Promise<FileOpResult>
-  trash: (paths: string[]) => Promise<FileOpResult>
+  create: (
+    workspaceId: string,
+    dir: string,
+    name: string,
+    kind: NewEntryKind,
+  ) => Promise<FileOpResult>
+  rename: (workspaceId: string, path: string, name: string) => Promise<FileOpResult>
+  move: (workspaceId: string, paths: string[], dir: string) => Promise<FileOpResult>
+  copy: (workspaceId: string, paths: string[], dir: string) => Promise<FileOpResult>
+  trash: (workspaceId: string, paths: string[]) => Promise<FileOpResult>
   importDropped: (
     files: File[],
     dir: string,
     workspaceId: string,
     move: boolean,
   ) => Promise<FileOpResult>
-  startDrag: (path: string) => void
+  startDrag: (workspaceId: string, path: string) => void
 }

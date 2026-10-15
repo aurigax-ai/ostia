@@ -101,6 +101,10 @@ test('a file dropped from the system onto a web page in a browser pane reaches t
   }
 })
 
+function contentOf(path: string): string | null {
+  return existsSync(path) ? readFileSync(path, 'utf8') : null
+}
+
 test('a file dropped from the system onto a Files folder is copied in, never over an existing one, and Shift moves it', async () => {
   const dataHome = freshDataHome()
   const launch = isolatedLaunch(dataHome)
@@ -120,19 +124,17 @@ test('a file dropped from the system onto a Files folder is copied in, never ove
     await expect(row).toBeVisible({ timeout: 15_000 })
 
     await dropFiles(win, [report], await centerOf(row))
-    await expect.poll(() => existsSync(join(folder, 'report.txt'))).toBe(true)
-    expect(readFileSync(join(folder, 'report.txt'), 'utf8')).toBe('first\n')
+    await expect.poll(() => contentOf(join(folder, 'report.txt'))).toBe('first\n')
     expect(readFileSync(report, 'utf8')).toBe('first\n')
 
     writeFileSync(report, 'second\n')
     await dropFiles(win, [report], await centerOf(row))
-    await expect.poll(() => existsSync(join(folder, 'report (2).txt'))).toBe(true)
-    expect(readFileSync(join(folder, 'report (2).txt'), 'utf8')).toBe('second\n')
-    expect(readFileSync(join(folder, 'report.txt'), 'utf8')).toBe('first\n')
+    await expect.poll(() => contentOf(join(folder, 'report (2).txt'))).toBe('second\n')
+    expect(contentOf(join(folder, 'report.txt'))).toBe('first\n')
 
     await dropFiles(win, [report], await centerOf(row), SHIFT)
     await expect.poll(() => existsSync(report)).toBe(false)
-    expect(readFileSync(join(folder, 'report (3).txt'), 'utf8')).toBe('second\n')
+    await expect.poll(() => contentOf(join(folder, 'report (3).txt'))).toBe('second\n')
 
     await row.click()
     await expect(win.locator('.file-row').filter({ hasText: 'report (3).txt' })).toBeVisible()

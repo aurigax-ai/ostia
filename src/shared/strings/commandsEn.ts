@@ -108,6 +108,7 @@ export const commandsEn = {
       'tab.newBrowser': 'New Browser Tab',
       'terminal.toggleInputEditor': 'Toggle Input Editor',
       'terminal.clear': 'Clear Terminal',
+      'terminal.showHistory': 'Show Earlier Output',
       'terminal.scrollToTop': 'Scroll to Top',
       'terminal.scrollToBottom': 'Scroll to Bottom',
       'terminal.scrollPageUp': 'Scroll Up One Page',

@@ -115,12 +115,16 @@ export const filesBridge: Pick<
       ipcRenderer.invoke('workspace:project', dir, exact) as Promise<WorkspaceProject | null>,
   },
   fileOps: {
-    create: (dir, name, kind) =>
-      ipcRenderer.invoke('files:create', dir, name, kind) as Promise<FileOpResult>,
-    rename: (path, name) => ipcRenderer.invoke('files:rename', path, name) as Promise<FileOpResult>,
-    move: (paths, dir) => ipcRenderer.invoke('files:move', paths, dir) as Promise<FileOpResult>,
-    copy: (paths, dir) => ipcRenderer.invoke('files:copy', paths, dir) as Promise<FileOpResult>,
-    trash: (paths) => ipcRenderer.invoke('files:trash', paths) as Promise<FileOpResult>,
+    create: (workspaceId, dir, name, kind) =>
+      ipcRenderer.invoke('files:create', workspaceId, dir, name, kind) as Promise<FileOpResult>,
+    rename: (workspaceId, path, name) =>
+      ipcRenderer.invoke('files:rename', workspaceId, path, name) as Promise<FileOpResult>,
+    move: (workspaceId, paths, dir) =>
+      ipcRenderer.invoke('files:move', workspaceId, paths, dir) as Promise<FileOpResult>,
+    copy: (workspaceId, paths, dir) =>
+      ipcRenderer.invoke('files:copy', workspaceId, paths, dir) as Promise<FileOpResult>,
+    trash: (workspaceId, paths) =>
+      ipcRenderer.invoke('files:trash', workspaceId, paths) as Promise<FileOpResult>,
     importDropped: (files, dir, workspaceId, move) =>
       ipcRenderer.invoke(
         'files:import',
@@ -129,7 +133,7 @@ export const filesBridge: Pick<
         workspaceId,
         move,
       ) as Promise<FileOpResult>,
-    startDrag: (path) => ipcRenderer.send('files:start-drag', path),
+    startDrag: (workspaceId, path) => ipcRenderer.send('files:start-drag', workspaceId, path),
   },
   externalEditor: {
     open: (req) => ipcRenderer.invoke('editor:open-external', req) as Promise<ExternalEditorResult>,

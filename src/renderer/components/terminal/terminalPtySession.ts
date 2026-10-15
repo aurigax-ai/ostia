@@ -225,6 +225,7 @@ function createPtyAttach(
         if (host) useSandboxStore.getState().noteHost(paneId)
         disposeMarkers()
         useBlocksStore.getState().resetPane(paneId)
+        session.blockSeq = result.blockSeqBase ?? 0
         const reopenKeptAgent = (): void => {
           if (agentRunning && !session.disposed) {
             keptAgentReattached(workspaceIdRef.current, paneId, anchor())
