@@ -13,7 +13,8 @@ import { registerAttentionMethods } from '../attention/attention'
 import { registerBrowseMethods } from '../browser/browse'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { registerExtension, registerPane } from '../control/idRegistry'
-import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
 import { ExtensionStore } from './extensionStore'
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions')

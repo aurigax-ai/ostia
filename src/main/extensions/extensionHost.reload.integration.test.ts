@@ -7,7 +7,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { registerPane } from '../control/idRegistry'
-import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
 import { ExtensionStore } from './extensionStore'
 
 const caller: ExtensionCaller = { kind: 'user', workspaceId: 's1', capabilities: [] }

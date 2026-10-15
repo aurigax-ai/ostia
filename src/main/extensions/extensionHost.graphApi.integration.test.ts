@@ -36,7 +36,8 @@ const { registerControlServer, stopControlServer } = await import('../control/co
 const { markManager, registerPane } = await import('../control/idRegistry')
 const { PaneWaking } = await import('../panes/paneWaking')
 const { registerExtensionWake } = await import('../panes/extensionWake')
-const { ExtensionHost, registerExtensionMethods } = await import('./extensionHost')
+const { ExtensionHost } = await import('./extensionHost')
+const { registerExtensionMethods } = await import('./extensionMethods')
 const { ExtensionStore } = await import('./extensionStore')
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions-graphs')

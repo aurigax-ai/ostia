@@ -8,7 +8,8 @@ import type {
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
-import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
 import type { ExtensionConfirmRequest } from './extensionRuns'
 import { ExtensionStore } from './extensionStore'
 

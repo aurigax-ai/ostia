@@ -17,7 +17,8 @@ import {
 } from '../agents/extensionAgents'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { type PaneIdentity, registerPane, removePane } from '../control/idRegistry'
-import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
 import type { TerminalOpenRequest } from './extensionRuns'
 import { ExtensionStore } from './extensionStore'
 

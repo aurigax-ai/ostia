@@ -10,7 +10,8 @@ import type {
 import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
-import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
 import { createSecretStore } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
 

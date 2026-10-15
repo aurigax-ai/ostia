@@ -5,8 +5,9 @@ import type { AssistModelSettings } from '@aurigax-ai/ostia-extension-sdk/contra
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
-import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost } from './extensionHost'
 import { ExtensionLaunches } from './extensionLaunches'
+import { registerExtensionMethods } from './extensionMethods'
 import { ExtensionStore } from './extensionStore'
 
 const echoFixtures = resolve(__dirname, '../../../test/fixtures/extensions')

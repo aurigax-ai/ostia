@@ -12,7 +12,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { registerPaneListMethods } from '../panes/paneList'
-import { ExtensionHost, MAX_RESTARTS, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost, MAX_RESTARTS } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
 import { ExtensionStore } from './extensionStore'
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions')

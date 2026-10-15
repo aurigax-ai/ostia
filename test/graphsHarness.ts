@@ -101,9 +101,8 @@ export async function graphsHarness(
 ): Promise<Harness> {
   const { registerControlServer } = await import('../src/main/control/controlServer')
   const { registerPane, markManager, getByPaneId } = await import('../src/main/control/idRegistry')
-  const { ExtensionHost, registerExtensionMethods } = await import(
-    '../src/main/extensions/extensionHost'
-  )
+  const { ExtensionHost } = await import('../src/main/extensions/extensionHost')
+  const { registerExtensionMethods } = await import('../src/main/extensions/extensionMethods')
   const { ExtensionStore } = await import('../src/main/extensions/extensionStore')
   const { ExtensionExec } = await import('../src/main/extensions/extensionExec')
   const { registerPaneListMethods } = await import('../src/main/panes/paneList')

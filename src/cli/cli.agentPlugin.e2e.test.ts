@@ -14,7 +14,8 @@ import { agentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/age
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerControlServer, stopControlServer } from '../main/control/controlServer'
 import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
-import { ExtensionHost, registerExtensionMethods } from '../main/extensions/extensionHost'
+import { ExtensionHost } from '../main/extensions/extensionHost'
+import { registerExtensionMethods } from '../main/extensions/extensionMethods'
 import { ExtensionStore } from '../main/extensions/extensionStore'
 import {
   codexHookKey,

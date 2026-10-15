@@ -11,7 +11,8 @@ const dataHome = mkdtempSync(join(tmpdir(), 'ostia-workspace-api-'))
 process.env.XDG_DATA_HOME = dataHome
 
 const { registerControlServer, stopControlServer } = await import('../control/controlServer')
-const { ExtensionHost, registerExtensionMethods } = await import('./extensionHost')
+const { ExtensionHost } = await import('./extensionHost')
+const { registerExtensionMethods } = await import('./extensionMethods')
 const { ExtensionStore } = await import('./extensionStore')
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions-workspace-api')
