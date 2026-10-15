@@ -327,24 +327,37 @@ describe('createFileLinkProvider outside home and folders', () => {
 
 describe('pathLinkOffers', () => {
   it('offers the default app and the file manager unless the workspace is sandboxed or scratch', () => {
-    expect(pathLinkOffers({ confined: 'file', confinedOnly: false }, false)).toEqual([
+    expect(pathLinkOffers('open-file', { confined: 'file', confinedOnly: false }, false)).toEqual([
       'open',
       'open-system',
       'show-system',
     ])
-    expect(pathLinkOffers({ confined: 'file', confinedOnly: true }, true)).toEqual(['open', 'show'])
+    expect(pathLinkOffers('open-file', { confined: 'file', confinedOnly: true }, true)).toEqual([
+      'open',
+      'show',
+    ])
   })
 
   it('offers Show in Files only for a path inside the Files tree, never as a fallback', () => {
-    expect(pathLinkOffers({ confined: 'file', confinedOnly: false }, true)).toEqual([
+    expect(pathLinkOffers('open-file', { confined: 'file', confinedOnly: false }, true)).toEqual([
       'open',
       'open-system',
       'show',
       'show-system',
     ])
-    expect(pathLinkOffers({ confined: null, confinedOnly: false }, true)).toEqual([
+    expect(pathLinkOffers('admit-file', { confined: null, confinedOnly: false }, true)).toEqual([
       'open',
       'open-system',
+      'show-system',
+    ])
+  })
+
+  it('never offers a second chord for what a folder link already does', () => {
+    expect(pathLinkOffers('reveal-folder', { confined: 'dir', confinedOnly: false }, true)).toEqual(
+      ['open', 'open-system', 'show-system'],
+    )
+    expect(pathLinkOffers('open-folder', { confined: null, confinedOnly: false }, false)).toEqual([
+      'open',
       'show-system',
     ])
   })

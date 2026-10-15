@@ -815,7 +815,8 @@ describe('TerminalView engines', () => {
         const inside = await linkOn(1)
         hover(inside)
         await waitFor(() => expect(hint()).toHaveTextContent('Ctrl+Click Show the folder in Files'))
-        expect(hint()).toHaveTextContent('Ctrl+Alt+Click Show in Files')
+        expect(hint()).not.toHaveTextContent('Show in Files')
+        expect(hint()).toHaveTextContent('Ctrl+Shift+Click Open the folder in the file manager')
         expect(hint()).toHaveTextContent('Ctrl+Shift+Alt+Click Show in the file manager')
         ctrlClick(inside)
         expect(useFileTreeStore.getState().revealed).toEqual({
@@ -830,6 +831,7 @@ describe('TerminalView engines', () => {
         await waitFor(() =>
           expect(hint()).toHaveTextContent('Ctrl+Click Open the folder in the file manager'),
         )
+        expect(hint()).not.toHaveTextContent('Ctrl+Shift+Click')
         act(() => folder.activate({ ctrlKey: false, isTrusted: true } as MouseEvent, folder.text))
         expect(window.ostia.terminalLinks.openDefault).not.toHaveBeenCalled()
         ctrlClick(folder)

@@ -1,4 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
+import { chmodSync, mkdtempSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const openExternal = vi.fn(async (_url: string) => {})
 const owners = vi.hoisted(() => new Map<unknown, unknown>())
@@ -8,7 +11,7 @@ vi.mock('electron', () => ({
   BrowserWindow: { fromWebContents: (wc: unknown) => owners.get(wc) ?? null },
 }))
 
-const { isProgram, openLink } = await import('./openPath')
+const { isProgram, openLink, openUnlessProgram } = await import('./openPath')
 
 describe('isProgram', () => {
   it('treats launchers, scripts and executable files as programs', () => {
@@ -18,10 +21,65 @@ describe('isProgram', () => {
     expect(isProgram('/h/Setup.EXE', 0o644, true)).toBe(true)
   })
 
+  it('treats Windows and macOS launchers as programs, since there the extension is the only guard', () => {
+    for (const name of ['a.ps1', 'a.VBS', 'a.hta', 'a.lnk', 'a.url', 'a.reg', 'a.pyw']) {
+      expect(isProgram(`/h/${name}`, 0o644, true)).toBe(true)
+    }
+    for (const name of ['a.fileloc', 'a.webloc', 'a.terminal', 'a.tool', 'a.pkg', 'a.workflow']) {
+      expect(isProgram(`/h/${name}`, 0o644, true)).toBe(true)
+    }
+  })
+
   it('lets documents and folders through', () => {
     expect(isProgram('/h/notes.md', 0o644, true)).toBe(false)
     expect(isProgram('/h/report.pdf', 0o600, true)).toBe(false)
     expect(isProgram('/h/folder', 0o755, false)).toBe(false)
+  })
+})
+
+describe('openUnlessProgram', () => {
+  let dir: string
+  const openPath = vi.fn(async (_path: string) => '')
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'ostia-open-path-'))
+    openPath.mockClear()
+  })
+  afterEach(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('opens a document and refuses one whose first bytes are a program, for the file menu too', async () => {
+    const doc = join(dir, 'report.csv')
+    writeFileSync(doc, 'a,b\n1,2\n')
+    expect(await openUnlessProgram(doc, statSync(doc), openPath)).toEqual({ ok: true })
+    const script = join(dir, 'report2.csv')
+    writeFileSync(script, '#!/usr/bin/env python3\n')
+    expect(await openUnlessProgram(script, statSync(script), openPath)).toEqual({
+      ok: false,
+      error: 'program',
+    })
+    expect(openPath).toHaveBeenCalledTimes(1)
+  })
+
+  it('refuses a file replaced or made executable between the check and the open', async () => {
+    const doc = join(dir, 'report.csv')
+    writeFileSync(doc, 'a,b\n')
+    const checked = statSync(doc)
+    const swap = join(dir, 'swap.csv')
+    writeFileSync(swap, 'c,d\n')
+    renameSync(swap, doc)
+    expect(await openUnlessProgram(doc, checked, openPath)).toEqual({
+      ok: false,
+      error: 'not-found',
+    })
+
+    const other = join(dir, 'other.csv')
+    writeFileSync(other, 'e,f\n', { mode: 0o644 })
+    const before = statSync(other)
+    chmodSync(other, 0o600)
+    expect(await openUnlessProgram(other, before, openPath)).toEqual({
+      ok: false,
+      error: 'not-found',
+    })
+    expect(openPath).not.toHaveBeenCalled()
   })
 })
 

@@ -23,10 +23,19 @@ let base: string
 let home: string
 let outside: string
 
-const printed: Record<string, { text: string; cwd: string | null; remote: boolean } | null> = {}
+const printed: Record<
+  string,
+  { text: string; cwd: string | null; remote: boolean; sandboxed: boolean } | null
+> = {}
 
-function print(paneId: string, text: string, cwd: string | null = null, remote = false): void {
-  printed[paneId] = { text, cwd, remote }
+function print(
+  paneId: string,
+  text: string,
+  cwd: string | null = null,
+  remote = false,
+  sandboxed = false,
+): void {
+  printed[paneId] = { text, cwd, remote, sandboxed }
 }
 
 function setup(workspace: { sandboxed?: boolean; scratch?: boolean } = {}) {
@@ -204,21 +213,51 @@ describe('TerminalPathLinks.openDefault', () => {
     expect(openPath).not.toHaveBeenCalled()
   })
 
-  it('refuses a program or script instead of launching it', async () => {
+  it('refuses a program, script or launcher instead of launching it', async () => {
     const { links, openPath } = setup()
     writeFileSync(join(outside, 'build.sh'), 'echo hi')
     writeFileSync(join(outside, 'tool'), 'bin', { mode: 0o755 })
-    print(
-      'p1',
-      `${join(outside, 'build.sh')} ${join(outside, 'tool')} ${join(outside, 'Tool.app')}`,
+    writeFileSync(join(outside, 'setup.ps1'), 'Write-Host hi')
+    writeFileSync(join(outside, 'site.fileloc'), '<plist/>')
+    writeFileSync(join(outside, 'payload'), Buffer.from([0x7f, 0x45, 0x4c, 0x46, 2, 1, 1, 0]))
+    writeFileSync(join(outside, 'notes.txt'), '#!/bin/sh\nrm -rf ~\n')
+    writeFileSync(join(outside, 'win.dat'), Buffer.from([0x4d, 0x5a, 0x90, 0, 3, 0]))
+    writeFileSync(join(outside, 'mac.bin'), Buffer.from([0xcf, 0xfa, 0xed, 0xfe, 7, 0]))
+    writeFileSync(
+      join(outside, 'launcher.txt'),
+      '# made by a tool\n\n[Desktop Entry]\nType=Application\nExec=sh\n',
     )
-    for (const name of ['build.sh', 'tool', 'Tool.app']) {
+    symlinkSync(join(outside, 'tool'), join(outside, 'tool-link.pdf'))
+    const names = [
+      'build.sh',
+      'tool',
+      'Tool.app',
+      'setup.ps1',
+      'site.fileloc',
+      'payload',
+      'notes.txt',
+      'win.dat',
+      'mac.bin',
+      'launcher.txt',
+      'tool-link.pdf',
+    ]
+    print('p1', names.map((name) => join(outside, name)).join(' '))
+    for (const name of names) {
       expect(await links.openDefault(WINDOW, 'p1', join(outside, name))).toEqual({
         ok: false,
         error: 'program',
       })
     }
     expect(openPath).not.toHaveBeenCalled()
+  })
+
+  it('opens a document whose text only mentions a launcher or a shebang', async () => {
+    const { links, openPath } = setup()
+    const note = join(outside, 'howto.md')
+    writeFileSync(note, 'Start a script with #!/bin/sh and a [Desktop Entry] header.\n')
+    print('p1', `wrote ${note}`)
+    expect(await links.openDefault(WINDOW, 'p1', note)).toEqual({ ok: true })
+    expect(openPath).toHaveBeenCalledWith(note)
   })
 
   it('answers failed when the system has no app for the file', async () => {
@@ -246,6 +285,22 @@ describe('TerminalPathLinks.openDefault', () => {
   })
 })
 
+describe('TerminalPathLinks in a pane still sandboxed', () => {
+  it('opens, shows and grants nothing while the pane itself runs sandboxed', async () => {
+    const { links, grants, openPath, showInFolder } = setup()
+    const file = join(outside, 'shots', 'a.png')
+    print('p1', `saved ${file}`, null, false, true)
+    const refused = { ok: false, error: 'not-found' }
+    expect(await links.probe(WINDOW, 'p1', file)).toBeNull()
+    expect(await links.admit(WINDOW, 'p1', file)).toBeNull()
+    expect(await links.openDefault(WINDOW, 'p1', file)).toEqual(refused)
+    expect(await links.showInFolder(WINDOW, 'p1', file)).toEqual(refused)
+    expect(grants.confine(file)).toBeNull()
+    expect(openPath).not.toHaveBeenCalled()
+    expect(showInFolder).not.toHaveBeenCalled()
+  })
+})
+
 describe('TerminalPathLinks.showInFolder', () => {
   it('shows a printed file or folder in its folder by its real path, a program included', async () => {
     const { links, showInFolder, openPath } = setup()
@@ -254,6 +309,17 @@ describe('TerminalPathLinks.showInFolder', () => {
     expect(await links.showInFolder(WINDOW, 'p1', join(outside, 'Tool.app'))).toEqual({ ok: true })
     expect(showInFolder).toHaveBeenLastCalledWith(join(outside, 'Tool.app'))
     expect(openPath).not.toHaveBeenCalled()
+  })
+
+  it('shows nothing the pane never printed, nor what only another pane printed', async () => {
+    const { links, showInFolder } = setup()
+    const secret = join(outside, 'secret.txt')
+    writeFileSync(secret, 'x')
+    const refused = { ok: false, error: 'not-found' }
+    expect(await links.showInFolder(WINDOW, 'p1', secret)).toEqual(refused)
+    print('p2', `made ${secret}`)
+    expect(await links.showInFolder(WINDOW, 'p1', secret)).toEqual(refused)
+    expect(showInFolder).not.toHaveBeenCalled()
   })
 
   it('shows nothing that is gone or not a file or folder', async () => {

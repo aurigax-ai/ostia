@@ -1,3 +1,4 @@
+import type { Stats } from 'node:fs'
 import { realpath, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { ipcMain } from 'electron'
@@ -6,7 +7,7 @@ import { findFileLinks, resolveLinkPath } from '../../shared/files/fileLinks'
 import type { OpenFileVerdict } from '../../shared/files/openFiles'
 import type { FsKind, OpenPathResult } from '../../shared/types'
 import type { OpenFileGrants } from '../files/openFileGrants'
-import { isProgram } from '../files/openPath'
+import { openUnlessProgram } from '../files/openPath'
 
 const PROBE_TTL_MS = 5_000
 const PROBE_CACHE_MAX = 500
@@ -24,6 +25,7 @@ export interface PaneOutput {
   text: string
   cwd: string | null
   remote: boolean
+  sandboxed: boolean
 }
 
 export interface TerminalPathLinksDeps {
@@ -40,7 +42,7 @@ export interface TerminalPathLinksDeps {
 interface Located {
   real: string
   kind: FsKind | null
-  mode: number
+  info: Stats
 }
 
 async function locate(path: string): Promise<Located | null> {
@@ -48,7 +50,7 @@ async function locate(path: string): Promise<Located | null> {
     const real = await realpath(path)
     const found = await stat(real)
     const kind = found.isFile() ? 'file' : found.isDirectory() ? 'dir' : null
-    return { real, kind, mode: found.mode }
+    return { real, kind, info: found }
   } catch {
     return null
   }
@@ -95,11 +97,7 @@ export class TerminalPathLinks {
   async openDefault(sender: LinkSender, paneId: unknown, raw: unknown): Promise<OpenPathResult> {
     const found = await this.printedTarget(sender, paneId, raw)
     if (!found) return { ok: false, error: 'not-found' }
-    if (isProgram(found.real, found.mode, found.kind === 'file')) {
-      return { ok: false, error: 'program' }
-    }
-    const error = await this.deps.openPath(found.real)
-    return error ? { ok: false, error: 'failed' } : { ok: true }
+    return openUnlessProgram(found.real, found.info, this.deps.openPath)
   }
 
   async showInFolder(sender: LinkSender, paneId: unknown, raw: unknown): Promise<OpenPathResult> {
@@ -127,7 +125,7 @@ export class TerminalPathLinks {
     const written = pathText(raw)
     if (!written || typeof paneId !== 'string' || !this.allows(sender, paneId)) return null
     const output = await this.deps.output(paneId)
-    if (!output || output.remote) return null
+    if (!output || output.remote || output.sandboxed) return null
     if (!findFileLinks(output.text).some((link) => link.path === written)) return null
     const anchored = written.startsWith('/') || underHome(written)
     if (!anchored && output.cwd === null) return null

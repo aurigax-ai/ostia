@@ -104,11 +104,11 @@ describe('TerminalLinkHint', () => {
   })
 
   it('lists only what the link offers, and names a folder the file manager opens', async () => {
-    show({ ...box, kind: 'open-folder', offers: ['open', 'open-system'], plainClick: true })
-    expect(await screen.findAllByText('Open the folder in the file manager')).toHaveLength(2)
+    show({ ...box, kind: 'open-folder', offers: ['open', 'show-system'], plainClick: true })
+    expect(await screen.findByText('Open the folder in the file manager')).toBeInTheDocument()
     expect(choices()).toEqual([
       `${click} Open the folder in the file manager`,
-      `${shiftClick} Open the folder in the file manager`,
+      `${optionShiftClick} Show in the file manager`,
     ])
     cleanup()
 

@@ -57,12 +57,13 @@ function needsHumanClick(how: PathLinkTarget, action: FileLinkAction): boolean {
 }
 
 export function pathLinkOffers(
+  action: FileLinkAction,
   facts: Pick<FileLinkFacts, 'confined' | 'confinedOnly'>,
   inTree: boolean,
 ): PathLinkTarget[] {
   const offers: PathLinkTarget[] = ['open']
-  if (!facts.confinedOnly) offers.push('open-system')
-  if (facts.confined && inTree) offers.push('show')
+  if (!facts.confinedOnly && action !== 'open-folder') offers.push('open-system')
+  if (facts.confined && inTree && action !== 'reveal-folder') offers.push('show')
   if (!facts.confinedOnly) offers.push('show-system')
   return offers
 }
@@ -140,6 +141,7 @@ export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): ILin
           })
           if (!action) return null
           const offers = pathLinkOffers(
+            action,
             { confined: kinds.confined, confinedOnly },
             kinds.confined !== null && deps.revealable(path),
           )
