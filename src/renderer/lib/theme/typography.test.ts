@@ -22,6 +22,7 @@ const RELATIVE_SCALE_FILES = new Map([
 
 const SETTINGS_FONT_FILES = new Map([
   ['src/renderer/components/terminal/Terminal.tsx', 'passes the terminal font settings to xterm'],
+  ['src/renderer/components/terminal/useTerminalOptions.ts', 'passes the terminal font settings to xterm'],
   ['src/renderer/lib/terminal/ghosttyTerminal.ts', 'passes the terminal font settings to Ghostty'],
   ['src/renderer/lib/terminal/readOnlyTerminal.ts', 'passes the terminal font settings to xterm'],
   [
