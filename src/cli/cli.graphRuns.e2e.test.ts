@@ -549,8 +549,8 @@ edges:
       expect(first?.command).toBe(`claude 'Implement ${name}.'`)
       expect(second?.command).toBe(
         exited
-          ? `claude --resume sess-${name} 'Fix the '\\''flaky'\\'' test'`
-          : `claude --resume sess-${name} --fork-session 'Fix the '\\''flaky'\\'' test'`,
+          ? `'claude' --resume sess-${name} 'Fix the '\\''flaky'\\'' test'`
+          : `'claude' --resume sess-${name} --fork-session 'Fix the '\\''flaky'\\'' test'`,
       )
       expect(second?.cwd).toBe(h.workDir)
     }

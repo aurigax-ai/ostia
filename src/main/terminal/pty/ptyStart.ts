@@ -14,7 +14,7 @@ import { takeRestoredScrollback } from '../../workspaces/workspaceSnapshot'
 import type { Subscriber } from '../ptySession'
 import { HIBERNATE_SEAM, RESTORE_SEAM } from '../screenMirror'
 import { PTY_TERM_NAME } from '../terminalType'
-import type { PtyEntry, PtyRegistry } from './ptyRegistry'
+import { type PtyEntry, type PtyRegistry, feedDisplay, replayRestored } from './ptyRegistry'
 import type { SpawnPlan } from './ptySpawnPlan'
 
 interface PtyStartDeps {
@@ -107,14 +107,13 @@ export function createPtyStart({
     const history = takeRestoredScrollback(paneId)
     if (history) appLog()?.info('scrollback-replay', { pane: paneId, chars: history.length })
     const seam = hibernatedPanes.delete(paneId) ? HIBERNATE_SEAM : RESTORE_SEAM
-    if (history) feedPty(entry, `${history}${seam}`)
-    if (secretNotice) feedPty(entry, secretNotice)
-    if (notKept) feedPty(entry, keepShellsNotice(notKept))
+    if (history) replayRestored(entry, history, seam)
+    if (secretNotice) feedDisplay(entry, secretNotice)
+    if (notKept) feedDisplay(entry, keepShellsNotice(notKept))
     if (sandboxed && workspaceSandboxes.claimHomeNotice(workspaceId)) {
       const notice = hiddenHomeNotice()
-      if (notice) feedPty(entry, notice)
+      if (notice) feedDisplay(entry, notice)
     }
-    if (history) entry.mirror.markRestored(history)
 
     pty.onData((d) => feedPty(entry, d))
     pty.onExit(({ exitCode }) => session.exit(exitCode))

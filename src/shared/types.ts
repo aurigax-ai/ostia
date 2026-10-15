@@ -23,7 +23,7 @@ import type {
   SnippetListing,
   SnippetSaveResult,
 } from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
-import type { AgentResume, ResumableAgent } from './agents/agentResume'
+import type { AgentResume, ResumableAgent, ResumeFailure } from './agents/agentResume'
 import type { AgentSessionInfo } from './agents/agentSessionInfo'
 import type { HibernateOutcome } from './agents/agentWork'
 import type { QuestionReply, QuestionState } from './agents/questions'
@@ -515,6 +515,7 @@ export interface SnapshotPaneNode {
   viewName?: string
   browserProfile?: BrowserProfile
   resume?: AgentResume
+  resumeFailed?: ResumeFailure
   agentRunning?: true
   hibernated?: true
   locked?: true

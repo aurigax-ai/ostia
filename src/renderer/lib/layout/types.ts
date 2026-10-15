@@ -1,4 +1,4 @@
-import type { AgentResume } from '@shared/agents/agentResume'
+import type { AgentResume, ResumeFailure } from '@shared/agents/agentResume'
 import type { BrowserProfile } from '@shared/browser/browserProfile'
 
 export type Direction = 'horizontal' | 'vertical'
@@ -32,6 +32,7 @@ export interface PaneNode {
   resumePending?: true
   spawnDir?: string
   resumeFolderMissing?: string
+  resumeFailed?: ResumeFailure
   locked?: true
   defaultTitle?: true
   titlePinned?: true

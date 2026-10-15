@@ -123,7 +123,7 @@ function seed(maxLiveTerminals: number): void {
   markPaneActivity('fresh-claude', NOW - 1000)
   run('shown', 'claude')
   run('idle-claude', 'claude')
-  run('fresh-claude', 'claude --resume tok-fresh-claude')
+  run('fresh-claude', "'claude' --resume tok-fresh-claude")
   run('no-token', 'claude')
   run('npm', 'npm test')
   useBlocksStore.getState().promptStart('at-prompt', { line: 0 }, null)
@@ -237,7 +237,7 @@ describe('hibernateIdleAgents', () => {
 
     expect(hibernated('idle-claude')).toBe(false)
     expect(typed.mock.calls.map(([id, command]) => [id, command])).toEqual([
-      ['idle-claude', 'claude --resume e2e-tok-1'],
+      ['idle-claude', "'claude' --resume e2e-tok-1"],
     ])
   })
 })
@@ -419,9 +419,9 @@ describe('hibernating and resuming agents in bulk', () => {
     expect(resumeWorkspaces(['g1', 'g2'])).toEqual(GROUP_AGENTS)
     expect(WAKE_WAVE_SIZE).toBe(3)
     expect(typed.mock.calls.map(([id, command]) => [id, command])).toEqual([
-      ['a1', 'claude --resume tok-a1'],
-      ['a2', 'claude --resume tok-a2'],
-      ['a3', 'claude --resume tok-a3'],
+      ['a1', "'claude' --resume tok-a1"],
+      ['a2', "'claude' --resume tok-a2"],
+      ['a3', "'claude' --resume tok-a3"],
     ])
     expect(GROUP_AGENTS.map(hibernated)).toEqual([false, false, false, true, true])
 
@@ -432,7 +432,7 @@ describe('hibernating and resuming agents in bulk', () => {
     heldResumes.shift()?.gaveUp()
     expect(typed.mock.calls.map(([id, command]) => [id, command])[4]).toEqual([
       'a5',
-      'claude --resume tok-a5',
+      "'claude' --resume tok-a5",
     ])
     expect(typed).toHaveBeenCalledTimes(5)
     expect(GROUP_AGENTS.some(hibernated)).toBe(false)
@@ -548,7 +548,7 @@ describe('the pane.wake command an agent reaches through main', () => {
     expect(typed).toHaveBeenCalledTimes(1)
     expect(typed).toHaveBeenCalledWith(
       'idle-claude',
-      'claude --resume tok-idle-claude',
+      "'claude' --resume tok-idle-claude",
       undefined,
       expect.any(Function),
       expect.any(Function),
@@ -601,7 +601,7 @@ describe('the pane.wake command an agent reaches through main', () => {
     seed(10)
     await hibernateWorkspaces(['s2'])
     useLayoutStore.getState().setResume('s1', 'shown', { agent: 'claude', id: 'tok-idle-claude' })
-    run('shown', 'claude --resume tok-idle-claude')
+    run('shown', "'claude' --resume tok-idle-claude")
     const typed = vi.spyOn(blockActions, 'runWhenIdle').mockImplementation(() => () => {})
 
     expect(await commands.execWith(target('idle-claude'), 'pane.wake')).toEqual({
