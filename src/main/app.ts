@@ -310,6 +310,7 @@ import { createAppWindows } from './windows/appWindows'
 import { type ClipboardEdits, registerClipboardEdits } from './windows/clipboardEdits'
 import { GlobalHotkey } from './windows/globalHotkey'
 import { createQuitTrace } from './windows/quitPlan'
+import { createQuitTeardown } from './windows/quitTeardown'
 import { AppTray, isHiddenLaunch, unreadWorkspaces } from './windows/tray'
 import { WindowBroker } from './windows/windowBroker'
 import { registerWindowIpc } from './windows/windowIpc'
@@ -2470,7 +2471,27 @@ const quitTrace = createQuitTrace((event, fields) => services.appLog?.info(event
 const { persistScrollback, SCROLLBACK_AUTOSAVE_MS, autosaveScrollback } =
   createScrollbackPersistence({ redactor, services, ptys, isScratchPane, quit, quitTrace })
 
+const { teardown } = createQuitTeardown({
+  quitTrace,
+  services,
+  ptys,
+  quit,
+  keptHostPanes,
+  syncKeptExposed,
+  portForwarder,
+  keptShells,
+  languageServerWatches,
+  workspaceSandboxes,
+  workspaceAgents,
+  scratchFolders,
+  artifactFolders,
+  artifactHistory,
+  previews,
+  updatePolicy,
+})
+
 const { requestQuit, handleQuitSignals } = registerAppQuit({
+  teardown,
   readSettingsFile,
   services,
   quitTrace,
@@ -2482,16 +2503,5 @@ const { requestQuit, handleQuitSignals } = registerAppQuit({
   paneActivity,
   mainStrings,
   persistScrollback,
-  keptHostPanes,
-  syncKeptExposed,
-  portForwarder,
-  keptShells,
-  languageServerWatches,
-  workspaceSandboxes,
-  workspaceAgents,
-  artifactFolders,
-  artifactHistory,
-  previews,
-  updatePolicy,
   scriptTokenUsage,
 })
