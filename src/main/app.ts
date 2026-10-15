@@ -23,7 +23,7 @@ import type { ExtensionRoot } from '@aurigax-ai/ostia-extension-sdk/manifest/ext
 import { BrowserWindow, ClipboardItem, app, clipboard, ipcMain, shell } from 'electron'
 import type { IPty } from 'node-pty'
 import type { AgentResume } from '../shared/agents/agentResume'
-import { MANAGER_FEATURE, parseManagerSettings } from '../shared/agents/managerSettings'
+import { MANAGER_FEATURE } from '../shared/agents/managerSettings'
 import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
 import { isMacInstall, replacesInApp } from '../shared/app/installMethod'
 import { ChangeSignal } from '../shared/common/actThenConfirm'
@@ -134,7 +134,7 @@ import type { ProcessRegistry } from './panes/processRegistry'
 import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './platform/discreteGpu'
 import { loadJson, saveJson, storePath } from './platform/jsonStore'
 import { privateTmpDir } from './platform/privateTmp'
-import { readLocale, readSettingsFile } from './platform/settingsFile'
+import { managerSettings, readLocale, readSettingsFile } from './platform/settingsFile'
 import {
   SANDBOX_FEATURE,
   installHint,
@@ -1182,10 +1182,6 @@ async function createManagerPane(req: { agent: string; cwd: string }): Promise<s
     ipcMain.on('manager:open-result', onResult)
     win.webContents.send('manager:open', requestId, req)
   })
-}
-
-function managerSettings() {
-  return parseManagerSettings(readSettingsFile().manager)
 }
 
 async function openWorker(req: {

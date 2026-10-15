@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app } from 'electron'
+import { parseManagerSettings } from '../../shared/agents/managerSettings'
 
 export interface SettingsFile {
   locale?: unknown
@@ -38,4 +39,8 @@ export function readSettingsFile(): SettingsFile {
 export function readLocale(): string | undefined {
   const locale = readSettingsFile().locale
   return typeof locale === 'string' ? locale : undefined
+}
+
+export function managerSettings() {
+  return parseManagerSettings(readSettingsFile().manager)
 }
