@@ -8,8 +8,9 @@ import type {
   SymbolInformation,
   WorkspaceSymbol,
 } from 'vscode-languageserver-protocol'
+import { refreshCodeLenses } from './codeLens'
 import { normalizeUri, toMarkers } from './converters'
-import { refreshCodeLenses, registerProviders } from './providers'
+import { registerProviders } from './providers'
 import { WORKSPACE_SYMBOL_METHOD } from './registrations'
 import { LspSession } from './session'
 import { IpcReader, IpcWriter } from './transport'
