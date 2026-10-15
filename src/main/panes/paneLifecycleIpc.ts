@@ -17,6 +17,7 @@ import type { ExtensionHost } from '../extensions/extensionHost'
 import type { PaneAttentionEvents } from '../extensions/paneAttentionEvents'
 import type { OpenWaits } from '../files/openWaits'
 import type { ManagerService } from '../manager/manager'
+import type { PaneHistories } from '../terminal/history/paneHistories'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import type { ReapReason } from '../terminal/ptyReaper'
 import { isKeptAttentionState } from '../tmux/attentionFile'
@@ -42,6 +43,7 @@ interface PaneLifecycleIpcDeps {
     managerService: ManagerService | null
     processes: ProcessRegistry | null
     updateRunner: UpdateRunner | null
+    histories: PaneHistories | null
   }
   releaseMovingPane: (paneId: string) => void
   killPty: (paneId: string, reason: ReapReason) => void
@@ -117,6 +119,7 @@ export function registerPaneLifecycleIpc({
       if (services.managerService?.isManagerPane(event.paneId)) killPty(event.paneId, 'closed')
       if (ptys.has(event.paneId)) closedPanes.add(event.paneId)
       dropRestoredScrollback(event.paneId)
+      services.histories?.drop(event.paneId)
       hibernatedPanes.delete(event.paneId)
       browserProfiles.forget(event.paneId)
       removePane(event.paneId)

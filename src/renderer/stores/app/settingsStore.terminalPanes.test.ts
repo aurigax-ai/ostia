@@ -24,6 +24,7 @@ describe('settingsStore terminal and pane settings', () => {
     expect(store().terminal).toEqual({
       scrollSpeed: 1,
       scrollbackLines: 10000,
+      scrollbackHistory: 'unlimited',
       warnOnRiskyPaste: true,
       minimumContrast: 1,
       clipboardKeys: 'shift',
@@ -69,6 +70,7 @@ describe('settingsStore terminal and pane settings', () => {
     expect(store().terminal).toEqual({
       scrollSpeed: 5,
       scrollbackLines: 1000,
+      scrollbackHistory: 'unlimited',
       minimumContrast: 1,
       warnOnRiskyPaste: true,
       prompt: { style: 'ostia', chips: ['cwd', 'git.branch'], sameLine: false, separator: 'none' },

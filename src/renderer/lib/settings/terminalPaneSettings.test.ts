@@ -55,12 +55,14 @@ describe('parseTerminalSettings', () => {
       parseTerminalSettings({
         scrollSpeed: 99,
         scrollbackLines: 3,
+        scrollbackHistory: 8,
         minimumContrast: 'x',
         warnOnRiskyPaste: 'no',
       }),
     ).toEqual({
       scrollSpeed: 5,
       scrollbackLines: 1000,
+      scrollbackHistory: 64,
       minimumContrast: 1,
       warnOnRiskyPaste: true,
       prompt: DEFAULT_TERMINAL_SETTINGS.prompt,
@@ -74,6 +76,13 @@ describe('parseTerminalSettings', () => {
       macOptionIsMeta: false,
       renderer: 'xterm',
     })
+  })
+
+  it('keeps history on disk off, unlimited or a whole number of MiB', () => {
+    expect(parseTerminalSettings({}).scrollbackHistory).toBe('unlimited')
+    expect(parseTerminalSettings({ scrollbackHistory: 'off' }).scrollbackHistory).toBe('off')
+    expect(parseTerminalSettings({ scrollbackHistory: 2048.4 }).scrollbackHistory).toBe(2048)
+    expect(parseTerminalSettings({ scrollbackHistory: 'all' }).scrollbackHistory).toBe('unlimited')
   })
 
   it('keeps a known terminal renderer and falls back to xterm for anything else', () => {

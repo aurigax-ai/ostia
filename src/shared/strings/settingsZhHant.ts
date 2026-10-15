@@ -256,7 +256,15 @@ export const settingsZhHant: typeof settingsEn = {
     scrollSpeed: '捲動速度',
     scrollSpeedDesc: '終端機滾輪捲動倍率，0.5 至 5。',
     scrollbackLines: '捲動緩衝行數',
-    scrollbackLinesDesc: '每個終端機保留的歷史行數，1,000 至 100,000。套用於已開啟的終端機。',
+    scrollbackLinesDesc:
+      '每個終端機保留在記憶體中的行數，1,000 至 100,000。較早的輸出會移到磁碟上的歷史。套用於已開啟的終端機。',
+    scrollbackHistory: '磁碟上的歷史',
+    scrollbackHistoryDesc:
+      '比記憶體中的行數更早的輸出會加密保存在這台電腦上，直到窗格關閉或應用程式結束。清除畫面會一併清空。',
+    scrollbackHistoryOff: '關閉',
+    scrollbackHistoryUnlimited: '不限',
+    scrollbackHistoryLimit: '上限',
+    scrollbackHistoryMib: 'MiB／每個窗格',
     groupPaste: '貼上',
     clipboardKeys: '複製與貼上按鍵',
     clipboardKeysDesc:

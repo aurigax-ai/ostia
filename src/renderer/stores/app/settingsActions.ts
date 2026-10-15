@@ -17,6 +17,7 @@ import { parsePortsSettings } from '@shared/boards/ports'
 import { parseRedactionSettings } from '@shared/privacy/redaction'
 import { parseTelemetrySettings } from '@shared/privacy/telemetry'
 import { parsePromptSettings } from '@shared/terminal/promptSettings'
+import { parseScrollbackHistory } from '@shared/terminal/scrollbackHistory'
 import type { StoreApi } from 'zustand'
 import { type SettingsState, clampLineHeight, withBaseSize } from './settingsModel'
 import { parseHibernation } from './settingsParse'
@@ -130,6 +131,9 @@ export function createTerminalActions(
           ...patch,
           scrollSpeed: clampScrollSpeed(patch.scrollSpeed ?? s.terminal.scrollSpeed),
           scrollbackLines: clampScrollback(patch.scrollbackLines ?? s.terminal.scrollbackLines),
+          scrollbackHistory: parseScrollbackHistory(
+            patch.scrollbackHistory ?? s.terminal.scrollbackHistory,
+          ),
           minimumContrast: clampContrast(patch.minimumContrast ?? s.terminal.minimumContrast),
           prompt: parsePromptSettings(patch.prompt ?? s.terminal.prompt),
         },
