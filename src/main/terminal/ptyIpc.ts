@@ -1,0 +1,227 @@
+import { app, ipcMain } from 'electron'
+import type { HibernateOutcome } from '../../shared/agents/agentWork'
+import type {
+  PaneActivity,
+  PromptContext,
+  PromptContextRequest,
+  PtyAttachResult,
+  PtySpawnOptions,
+  TerminalStateSnapshot,
+} from '../../shared/types'
+import type { AgentRunningPanes } from '../agents/agentRunning'
+import { type ReportedAgentWork, backgroundWork, readProcessTable } from '../agents/agentWork'
+import { getByPaneId } from '../control/idRegistry'
+import type { OpenWaits } from '../files/openWaits'
+import type { PaneWaking } from '../panes/paneWaking'
+import type { KeptShells } from '../tmux/keptShells'
+import { stashedScreen } from '../workspaces/workspaceSnapshot'
+import { registerPathCompletionIpc } from './pathCompletion'
+import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
+import type { PtyAttach } from './ptyAttach'
+import type { PtyEntry, PtyRegistry } from './ptyRegistry'
+import { ExecutableIndex, readShellState, registerCommandNamesIpc } from './shellCommands'
+import { ShellHistoryFiles, registerShellHistoryIpc } from './shellHistory'
+
+interface PtyIpcDeps {
+  attachPty: PtyAttach['attachPty']
+  ptys: Map<string, PtyEntry>
+  terminalState: Map<string, TerminalStateSnapshot>
+  keptShells: KeptShells
+  openWaits: OpenWaits
+  agentWork: ReportedAgentWork
+  agentRunning: AgentRunningPanes
+  paneWaking: PaneWaking
+  hibernatePty: PtyRegistry['hibernatePty']
+  killPty: PtyRegistry['killPty']
+  releasePtyFlow: PtyRegistry['releasePtyFlow']
+  paneActivity: PtyRegistry['paneActivity']
+  holdsLocalPrompt: PtyRegistry['holdsLocalPrompt']
+  sandboxReadRules: PtyRegistry['sandboxReadRules']
+  resizePty: PtyRegistry['resizePty']
+  windowOfPane: (paneId: string) => string | undefined
+  readSettingsFile: () => { behavior?: { historySuggestions?: unknown } }
+}
+
+export function registerPtyIpc(deps: PtyIpcDeps): void {
+  registerPtyLifecycleIpc(deps)
+  registerPtyControlIpc(deps)
+  registerPtyQueryIpc(deps)
+}
+
+function registerPtyLifecycleIpc({
+  attachPty,
+  ptys,
+  keptShells,
+  agentWork,
+  hibernatePty,
+  killPty,
+  windowOfPane,
+}: PtyIpcDeps): void {
+  const attaching = new Map<string, Promise<PtyAttachResult>>()
+  ipcMain.handle('pty:attach', async (e, paneId: string, opts: PtySpawnOptions) => {
+    const previous = attaching.get(paneId)
+    if (previous) await previous.catch(() => undefined)
+    const pending = attachPty(e, paneId, opts)
+    attaching.set(paneId, pending)
+    try {
+      return await pending
+    } finally {
+      if (attaching.get(paneId) === pending) attaching.delete(paneId)
+    }
+  })
+
+  ipcMain.on('pty:detach', (e, paneId: string) => {
+    const entry = ptys.get(paneId)
+    if (!entry) return
+    const subId = String(e.sender.id)
+    entry.subs.delete(subId)
+    entry.session.removeSubscriber(subId)
+  })
+
+  ipcMain.handle('pty:hibernate', async (_e, raw: string): Promise<HibernateOutcome> => {
+    const paneId = String(raw)
+    const entry = ptys.get(paneId)
+    if (!entry) return 'no-terminal'
+    const busy = backgroundWork(agentWork.reason(paneId), await readProcessTable(), entry.pty.pid)
+    if (busy) return busy
+    return ptys.get(paneId) === entry && hibernatePty(paneId) ? 'hibernated' : 'no-terminal'
+  })
+
+  ipcMain.handle('pty:kept-waiting', async (): Promise<string[]> => {
+    await keptShells.ready
+    return keptShells.waitingPaneIds()
+  })
+
+  ipcMain.handle('pty:stashed', (e, paneId: string): string | null =>
+    stashedScreen(String(paneId), String(e.sender.id), windowOfPane(String(paneId))),
+  )
+
+  ipcMain.handle('pty:restart', (e, paneId: string): boolean => {
+    const entry = ptys.get(String(paneId))
+    if (!entry?.subs.has(String(e.sender.id))) return false
+    killPty(String(paneId), 'restart')
+    return true
+  })
+}
+
+function registerPtyControlIpc({
+  ptys,
+  openWaits,
+  agentRunning,
+  paneWaking,
+  releasePtyFlow,
+  resizePty,
+}: PtyIpcDeps): void {
+  ipcMain.on('pty:agent-running', (e, paneId: unknown, running: unknown) => {
+    if (typeof paneId !== 'string' || typeof running !== 'boolean') return
+    const attached = ptys.get(paneId)?.subs.has(String(e.sender.id)) === true
+    agentRunning.report(paneId, running, attached)
+  })
+
+  ipcMain.on('pty:ack', (e, paneId: unknown, chars: unknown) => {
+    if (typeof paneId !== 'string' || typeof chars !== 'number') return
+    ptys.get(paneId)?.flow.ack(String(e.sender.id), chars)
+  })
+  app.on('render-process-gone', (_e, contents) => {
+    releasePtyFlow(String(contents.id))
+    openWaits.windowGone(String(contents.id))
+  })
+
+  ipcMain.on('pty:waking', (e, paneId: unknown, waking: unknown) => {
+    if (typeof paneId !== 'string' || typeof waking !== 'boolean') return
+    if (getByPaneId(paneId)?.windowId !== String(e.sender.id)) return
+    if (waking) paneWaking.start(paneId)
+    else paneWaking.end(paneId, 'failed')
+  })
+
+  ipcMain.on('pty:write', (e, paneId: string, data: string) => {
+    const entry = ptys.get(paneId)
+    if (entry?.session.canWrite(String(e.sender.id))) entry.pty.write(data)
+  })
+  ipcMain.on('pty:resize', (_e, paneId: string, cols: number, rows: number) => {
+    const entry = ptys.get(paneId)
+    if (!entry?.keepAlive) resizePty(entry, cols, rows)
+  })
+}
+
+function registerPtyQueryIpc({
+  ptys,
+  terminalState,
+  paneActivity,
+  holdsLocalPrompt,
+  sandboxReadRules,
+  readSettingsFile,
+}: PtyIpcDeps): void {
+  const executables = new ExecutableIndex()
+  const promptSources = { node: new NodeVersionResolver(), kube: new KubeContextReader() }
+  const shellHistoryFiles = new ShellHistoryFiles()
+  ipcMain.handle('pty:foreground', (e, paneId: string): string | null => {
+    const entry = ptys.get(paneId)
+    if (!entry?.subs.has(String(e.sender.id))) return null
+    try {
+      const name = entry.pty.process
+      return typeof name === 'string' && name ? (name.split('/').pop() ?? null) : null
+    } catch {
+      return null
+    }
+  })
+  ipcMain.handle('pty:activity', (e, paneId: string): PaneActivity | null => {
+    const entry = ptys.get(String(paneId))
+    if (!entry?.subs.has(String(e.sender.id))) return null
+    return paneActivity(entry)
+  })
+  registerCommandNamesIpc(executables, (paneId) => {
+    const entry = ptys.get(paneId)
+    if (!entry) return null
+    return {
+      owners: entry.subs,
+      localPrompt: holdsLocalPrompt(entry),
+      stateFile: entry.stateFile,
+      spawnPath: entry.spawnPath,
+      rules: sandboxReadRules(entry),
+    }
+  })
+  registerShellHistoryIpc({
+    enabled: () => readSettingsFile().behavior?.historySuggestions !== false,
+    files: shellHistoryFiles,
+    pane: (paneId) => {
+      const entry = ptys.get(paneId)
+      if (!entry) return null
+      return {
+        owners: entry.subs,
+        localPrompt: holdsLocalPrompt(entry),
+        shell: entry.shell,
+        stateFile: entry.stateFile,
+        rules: sandboxReadRules(entry),
+      }
+    },
+  })
+  ipcMain.handle('pty:local-prompt', (e, paneId: string): boolean => {
+    const entry = ptys.get(paneId)
+    return entry?.subs.has(String(e.sender.id)) === true && holdsLocalPrompt(entry)
+  })
+  registerPathCompletionIpc((paneId) => {
+    const entry = ptys.get(paneId)
+    if (!entry) return null
+    return {
+      owners: entry.subs,
+      localPrompt: holdsLocalPrompt(entry),
+      rules: sandboxReadRules(entry),
+    }
+  })
+  ipcMain.handle(
+    'pty:prompt-context',
+    async (e, paneId: string, want: PromptContextRequest): Promise<PromptContext | null> => {
+      const entry = ptys.get(paneId)
+      if (!entry?.subs.has(String(e.sender.id))) return null
+      const state = await readShellState(entry.stateFile)
+      return promptContext(
+        state,
+        entry.spawnPath,
+        terminalState.get(paneId)?.cwd,
+        { node: want?.node === true, kube: want?.kube === true },
+        promptSources,
+      )
+    },
+  )
+}

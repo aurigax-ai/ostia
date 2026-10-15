@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { homedir, hostname } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { appEnv, readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
@@ -39,7 +39,6 @@ import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
 import { parseAgentHooks } from '../shared/agents/agentHooks'
 import { type AgentResume, isResumableAgent, parseAgentResume } from '../shared/agents/agentResume'
-import type { HibernateOutcome } from '../shared/agents/agentWork'
 import {
   MANAGER_FEATURE,
   managerAgents,
@@ -64,7 +63,6 @@ import { parsePrivacySettings } from '../shared/privacy/redaction'
 import { bucketCount } from '../shared/privacy/telemetry'
 import { parseKeepShells } from '../shared/terminal/keepShells'
 import { quoteArgv } from '../shared/terminal/shellQuote'
-import { shellArgv, shellName } from '../shared/terminal/terminalShell'
 import type {
   AppInfo,
   CommandDescriptor,
@@ -74,11 +72,6 @@ import type {
   FsEntry,
   FsKind,
   LifecycleEvent,
-  PaneActivity,
-  PromptContext,
-  PromptContextRequest,
-  PtyAttachResult,
-  PtySpawnOptions,
   QuitAnswer,
   TerminalStateSnapshot,
   WindowBounds,
@@ -86,12 +79,7 @@ import type {
 import { AGENT_OFFER_RESULT_CHANNEL, createAgentOfferRelay } from './agents/agentOfferRelay'
 import { AgentRunningPanes } from './agents/agentRunning'
 import { registerAgentTranscriptIpc } from './agents/agentTranscript'
-import {
-  ReportedAgentWork,
-  backgroundWork,
-  readProcessTable,
-  registerAgentWorkMethods,
-} from './agents/agentWork'
+import { ReportedAgentWork, registerAgentWorkMethods } from './agents/agentWork'
 import { registerBusMethods, tellPane } from './agents/bus'
 import type { OriginReach } from './agents/originAgents'
 import { createResumeClaimer, registerResumeClaimIpc } from './agents/resumeClaims'
@@ -172,11 +160,9 @@ import { registerDocsMethods } from './control/docs'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './control/events'
 import {
   type PaneIdentity,
-  adoptPane,
   getByPaneId,
   markManager,
   moveToWorkspace,
-  panesOwnedBy,
   registerPane,
   rehomeWorkspace,
   removePane,
@@ -262,7 +248,6 @@ import {
 } from './panes/paneList'
 import { registerPaneMoveIpc } from './panes/paneMove'
 import { registerPaneMoveToMethods } from './panes/paneMoveTo'
-import type { PaneProcess } from './panes/paneProcess'
 import type { PaneReachDeps } from './panes/paneReach'
 import { registerPaneRenameMethods } from './panes/paneRename'
 import { registerPaneResumeMethods } from './panes/paneResume'
@@ -276,7 +261,6 @@ import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './platform/discr
 import { loadJson, saveJson, storePath } from './platform/jsonStore'
 import { expandHome, resolveSafe } from './platform/pathGuard'
 import { privateTmpDir } from './platform/privateTmp'
-import { needsPtyRelay } from './platform/ptyRelay'
 import {
   SANDBOX_FEATURE,
   installHint,
@@ -293,52 +277,39 @@ import { createRedactor, createScrollbackRedactor } from './privacy/redaction'
 import { createWorkerScan, redactionWorkerScript } from './privacy/redactionScan'
 import { type ProfileSyncHandle, startProfileSync } from './profileSync/ipc'
 import { flatSource, groupedSource, loginsSource } from './profileSync/secrets'
-import { attachWorkspace } from './sandbox/attachWorkspace'
 import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
 import { registerSandboxIpc } from './sandbox/ipc'
-import { PortBridge, bridgesPorts } from './sandbox/portBridge'
-import { relayForced, sandboxedShellCommand, wrapForTerminal } from './sandbox/ptyWrap'
 import { createSandboxServices } from './sandbox/sandboxServices'
-import { hiddenHomeNotice, sandboxFailureBanner } from './sandbox/spawnBanner'
 import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
-import { SandboxUnavailableError } from './sandbox/workspaceSandboxes'
-import { packageCooldownEnv } from './sandboxPackages/packageEnv'
 import { createEncryptedStores } from './secrets/encryptedStores'
 import { registerSecretMethods } from './secrets/register'
 import { createSecretServices } from './secrets/secretServices'
 import { deleteGlobalVaultValue, registerVaultMethods, setGlobalVaultValue } from './secrets/vault'
 import { registerCompletionIpc } from './terminal/completionSpecs'
 import { writeOstiaLauncher } from './terminal/paneLauncher'
-import { registerPathCompletionIpc } from './terminal/pathCompletion'
-import { KubeContextReader, NodeVersionResolver, promptContext } from './terminal/promptContext'
-import { CoalescedOutput } from './terminal/ptyFlow'
+import { createPtyAttach } from './terminal/ptyAttach'
+import { registerPtyIpc } from './terminal/ptyIpc'
 import { createPtyRecovery } from './terminal/ptyRecovery'
 import { type PaneTitleEntry, type PtyEntry, createPtyRegistry } from './terminal/ptyRegistry'
-import type { Subscriber, SubscriberRole } from './terminal/ptySession'
-import { HIBERNATE_SEAM, RESTORE_SEAM } from './terminal/screenMirror'
+import { createSandboxSpawn } from './terminal/ptySandboxSpawn'
+import type { SubscriberRole } from './terminal/ptySession'
 import { registerSelectionIpc } from './terminal/selectionReport'
-import { ExecutableIndex, readShellState, registerCommandNamesIpc } from './terminal/shellCommands'
-import { ShellHistoryFiles, registerShellHistoryIpc } from './terminal/shellHistory'
-import { setAgentPlugins, shellIntegrationSpawnOptions } from './terminal/shellIntegration'
-import { sandboxCwd, spawnFolder } from './terminal/spawnCwd'
+import { setAgentPlugins } from './terminal/shellIntegration'
+import { spawnFolder } from './terminal/spawnCwd'
 import { TerminalPathLinks, registerTerminalPathLinkIpc } from './terminal/terminalPathLinks'
 import {
   PTY_COLOR_ENV,
   PTY_TERM_NAME,
-  paneShellEnv,
   ptyHyperlinkEnv,
   ptyIdentityEnv,
   ptyLocaleEnv,
-  withPaneToken,
 } from './terminal/terminalType'
 import { type SavedAttention, isKeptAttentionState } from './tmux/attentionFile'
-import { SANDBOX_NOT_KEPT, TMUX_MISSING, keepShellsNotice } from './tmux/keepShellsBanner'
 import { KeptAttention } from './tmux/keptAttention'
-import type { KeptMeta, KeptShell } from './tmux/keptShells'
+import { createKeptReattach } from './tmux/keptReattach'
 import { createKeptShellsWiring } from './tmux/keptShellsWiring'
-import type { TmuxPane } from './tmux/tmuxServer'
 import { registerAppUpdate } from './updates/appUpdate'
 import { appVersion, runningBuild } from './updates/appVersion'
 import { installAppDir, installMethod } from './updates/installMethod'
@@ -413,8 +384,6 @@ import {
   pendingRestoredScrollback,
   saveScrollback,
   scrollbackToSave,
-  stashedScreen,
-  takeRestoredScrollback,
 } from './workspaces/workspaceSnapshot'
 
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
@@ -430,9 +399,6 @@ const errorBuffers = new Map<number, ConsoleEntry[]>()
 const terminalState = new Map<string, TerminalStateSnapshot>()
 
 const ptys = new Map<string, PtyEntry>()
-const executables = new ExecutableIndex()
-const promptSources = { node: new NodeVersionResolver(), kube: new KubeContextReader() }
-const shellHistoryFiles = new ShellHistoryFiles()
 
 function listDir(dir: string): FsEntry[] {
   try {
@@ -443,8 +409,6 @@ function listDir(dir: string): FsEntry[] {
     return []
   }
 }
-
-const SANDBOX_LOST_WHILE_AWAY = `its sandbox ended while ${PRODUCT_DISPLAY_NAME} was closed`
 
 const hibernatedPanes = new Set<string>()
 const movingPanes = new Set<string>()
@@ -491,10 +455,6 @@ function telemetrySessionFacts(): SessionFacts {
   }
 }
 
-function shellFamily(shell: string): string {
-  const name = basename(shell).toLowerCase()
-  return name === 'zsh' || name === 'bash' || name === 'fish' ? name : 'other'
-}
 const officialMarketplaceId = marketplaceId(normalizeMarketplaceUrl(OFFICIAL_MARKETPLACE) ?? '')
 let marketplaceInstallIds: () => string[] = () => []
 let telemetrySentForQuit = false
@@ -534,11 +494,6 @@ const UPDATE_HOST_GRANT_ID = 'core:update'
 
 function confirmQuitOn(): boolean {
   return readSettingsFile().workspaces?.confirmQuit !== false
-}
-
-function windowShown(wid: string): boolean {
-  const win = windows.get(wid)
-  return win !== undefined && !win.isDestroyed() && win.isVisible() && !win.isMinimized()
 }
 
 const {
@@ -801,6 +756,57 @@ const {
   recoveryHeld,
   closedPanes,
   killPty,
+  appLog: () => appLog,
+})
+
+const { spawnSandboxed } = createSandboxSpawn({
+  workspaceSandboxes,
+  keptShells,
+  injectSecrets,
+  onSandboxSpawnFailure: () => onSandboxSpawnFailure,
+})
+
+const { reattachKept } = createKeptReattach({
+  workspaceSandboxes,
+  keptShells,
+  keptPlumbing,
+  keptAttention,
+  agentRunning,
+  hibernatedPanes,
+  portRequests,
+  trackPty,
+  feedPty,
+  releaseMergedSandbox,
+  restoreKeptAttention,
+  processes: () => processes,
+  appLog: () => appLog,
+})
+
+const { attachPty } = createPtyAttach({
+  ptys,
+  windows,
+  movingPanes,
+  recoveryHeld,
+  hibernatedPanes,
+  keptShells,
+  keptPlumbing,
+  scratchFolders,
+  artifactFolders,
+  hostPaneGrants,
+  workspaceSandboxes,
+  readSettingsFile,
+  paneLauncherDir,
+  keepShellsOn,
+  keptShellsProgram,
+  withKeptProcess,
+  keptPaneEnv,
+  loadPty,
+  trackPty,
+  feedPty,
+  releaseMergedSandbox,
+  reattachKept,
+  spawnSandboxed,
+  telemetry: () => telemetry,
   appLog: () => appLog,
 })
 
@@ -1514,7 +1520,7 @@ function mergeWorkspace(sourceId: string, targetId: string): void {
   releaseMergedSandbox(sourceId)
 }
 
-function registerPtyIpc(): void {
+function registerWorkspaceIpc(): void {
   registerWorkspaceMergeIpc({
     ownerWindow: windowForWorkspace,
     hasManager: workspaceHasManager,
@@ -1555,549 +1561,6 @@ function registerPtyIpc(): void {
     if (process.platform !== 'linux') return null
     const gpu = discreteGpu(await querySwitcherooGpus())
     return gpu ? { name: gpu.name, inUse: gpuStartPlan(process.env, gpu).kind === 'stay' } : null
-  })
-  const attaching = new Map<string, Promise<PtyAttachResult>>()
-  ipcMain.handle('pty:attach', async (e, paneId: string, opts: PtySpawnOptions) => {
-    const previous = attaching.get(paneId)
-    if (previous) await previous.catch(() => undefined)
-    const pending = attachPty(e, paneId, opts)
-    attaching.set(paneId, pending)
-    try {
-      return await pending
-    } finally {
-      if (attaching.get(paneId) === pending) attaching.delete(paneId)
-    }
-  })
-
-  async function attachPty(
-    e: Electron.IpcMainInvokeEvent,
-    paneId: string,
-    opts: PtySpawnOptions,
-  ): Promise<PtyAttachResult> {
-    const subId = String(e.sender.id)
-    if (!panesOwnedBy([paneId], subId)) {
-      return { created: false, buffer: '', cursor: 0, dropped: false }
-    }
-    const mkSub = (entry: PtyEntry): Subscriber => {
-      const role: SubscriberRole = opts.role === 'observer' ? 'observer' : 'owner'
-      const lane = role === 'owner' ? entry.flow.open(subId, () => windowShown(subId)) : null
-      const output = new CoalescedOutput((data) => {
-        if (e.sender.isDestroyed()) return
-        e.sender.send(`pty:data:${paneId}`, data)
-        lane?.sent(data.length)
-      })
-      return {
-        id: subId,
-        role,
-        send: (data) => output.push(data),
-        flush: () => output.flush(),
-        close: () => {
-          output.close()
-          lane?.close()
-        },
-      }
-    }
-
-    const existing = ptys.get(paneId)
-    if (existing) {
-      if (existing.killTimer) {
-        clearTimeout(existing.killTimer)
-        existing.killTimer = null
-      }
-      movingPanes.delete(paneId)
-      recoveryHeld.delete(paneId)
-      existing.subs.set(subId, e.sender)
-      existing.session.addLiveSubscriber(mkSub(existing))
-      const { data, cursor, dropped } = existing.session.since(opts.sinceCursor ?? 0)
-      return {
-        created: false,
-        buffer: data,
-        cursor,
-        dropped,
-        shell: shellName(existing.shell) || undefined,
-        sandboxed: existing.sandboxed,
-        ...(existing.sandboxStamp ? { sandboxStamp: existing.sandboxStamp } : {}),
-        ...(existing.kept ? { kept: true } : {}),
-        cols: existing.pty.cols,
-        rows: existing.pty.rows,
-      }
-    }
-    await keptShells.ready
-    const keptShell = keptShells.claim(paneId)
-    if (keptShell) return reattachKept(e, paneId, opts, keptShell, mkSub)
-    if (keptShells.takeSandboxLost(paneId)) {
-      return {
-        created: false,
-        buffer: sandboxFailureBanner(SANDBOX_LOST_WHILE_AWAY, []),
-        cursor: 0,
-        dropped: false,
-        sandboxed: true,
-      }
-    }
-    if (opts.attachOnly) return { created: false, buffer: '', cursor: 0, dropped: false }
-
-    const mod = loadPty()
-    if (!mod) {
-      telemetry?.count('terminal', 'spawn_failure', 'node-pty-unavailable')
-      return {
-        created: false,
-        buffer: '\r\n\x1b[38;2;239;89;111m node-pty unavailable — run: pnpm rebuild\x1b[0m\r\n',
-        cursor: 0,
-        dropped: false,
-      }
-    }
-    const settings = readSettingsFile()
-    const [shell, ...shellArgs] = shellArgv(
-      settings.terminal?.shell,
-      process.env.SHELL ?? (process.platform === 'win32' ? 'powershell.exe' : 'bash'),
-    )
-    telemetry?.count('terminal', 'shell', shellFamily(shell))
-    const resolved = attachWorkspace(getByPaneId(paneId)?.workspaceId, opts.workspaceId ?? '')
-    if (!resolved.ok) {
-      return {
-        created: false,
-        buffer: sandboxFailureBanner('the pane belongs to another workspace', []),
-        cursor: 0,
-        dropped: false,
-      }
-    }
-    const identity = registerPane({ windowId: subId, workspaceId: resolved.workspaceId, paneId })
-    const workspaceId = identity.workspaceId
-    const integration = shellIntegrationSpawnOptions(
-      shell,
-      process.env,
-      opts.ostiaPrompt ?? null,
-      scratchFolders.historyFile(workspaceId),
-    )
-    const cols = opts.cols || 80
-    const rows = opts.rows || 24
-    const stateFile = join(privateTmpDir(`${PRODUCT_NAME}-shell-state`), randomUUID())
-    let env = paneShellEnv({
-      version: app.getVersion(),
-      locale: app.getLocale(),
-      parent: process.env,
-      integration: integration.env,
-      pane: appEnv({
-        PANE_ID: identity.externalId,
-        START_DIR: opts.cwd ?? '',
-        SOCKET: controlSocketPath(),
-        CLI: join(app.getAppPath(), 'out/cli/index.js'),
-        NODE: process.execPath,
-        SHELL_STATE: stateFile,
-      }),
-      agentHooks: settings.agents?.hooks,
-      artifactsDir: workspaceId ? artifactFolders.ensure(workspaceId) : null,
-      launcherDir: paneLauncherDir(),
-    })
-    let secretNotice = ''
-    let sandboxStamp: string | null = null
-    let resizePipe: string | null = null
-    let portBridge: PortBridge | null = null
-    let file = shell
-    let args = [...integration.args, ...shellArgs]
-    const folder = spawnFolder(opts.cwd)
-    let cwd = folder.cwd
-    const host = opts.hostToken ? hostPaneGrants.consume(opts.hostToken) : false
-    const sandboxed = !host && workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
-    const wantsKeep = keepShellsOn() && !host
-    if (wantsKeep && !keptShellsProgram()) await loginPathSettled()
-    let notKept = wantsKeep && !keptShellsProgram() ? TMUX_MISSING : ''
-    let tokenFile: string | null = null
-    if (sandboxed) {
-      try {
-        writeFileSync(stateFile, '', { mode: 0o600 })
-        const secrets = await injectSecrets(workspaceId)
-        secretNotice = secrets.notice
-        resizePipe = needsPtyRelay(relayForced(app.isPackaged, process.env))
-          ? join(workspaceSandboxes.tmpDir(workspaceId), `resize-${randomUUID()}`)
-          : null
-        portBridge = bridgesPorts(
-          process.platform,
-          workspaceSandboxes.resolved(workspaceId).switches.unixSockets,
-        )
-          ? await PortBridge.open(workspaceSandboxes.tmpDir(workspaceId))
-          : null
-        if (wantsKeep && !notKept) {
-          await workspaceSandboxes.connect(workspaceId)
-          if (!workspaceSandboxes.isKept(workspaceId)) notKept = SANDBOX_NOT_KEPT
-        }
-        if (wantsKeep && !notKept) tokenFile = keptShells.writeToken(paneId, identity.token)
-        const wrapped = await workspaceSandboxes.wrap(
-          workspaceId,
-          sandboxedShellCommand(
-            quoteArgv([shell, ...args]),
-            env.SHELL,
-            resizePipe,
-            portBridge?.command ?? null,
-          ),
-          'bash',
-          tokenFile ? [stateFile, keptShells.attentionFile(paneId)] : [stateFile],
-          tokenFile ? [tokenFile, keptShells.attentionFile(paneId)] : [],
-        )
-        sandboxStamp = workspaceSandboxes.wrapStamp(workspaceId)
-        file = '/bin/sh'
-        args = ['-c', wrapForTerminal(wrapped, resizePipe)]
-        env = {
-          ...sandboxSpawnEnv(env),
-          ...packageCooldownEnv(
-            workspaceSandboxes.packagePolicy(workspaceId).cooldownDays,
-            Date.now(),
-          ),
-          ...secrets.env,
-        }
-        env.TMPDIR = workspaceSandboxes.tmpDir(workspaceId)
-        cwd = sandboxCwd(cwd, workspaceSandboxes.workDir(workspaceId))
-      } catch (err) {
-        portBridge?.close()
-        if (tokenFile) keptShells.removeToken(paneId)
-        const missing = err instanceof SandboxUnavailableError ? err.missing : []
-        onSandboxSpawnFailure?.(workspaceId, missing)
-        return {
-          created: false,
-          buffer: sandboxFailureBanner(err instanceof Error ? err.message : String(err), missing),
-          cursor: 0,
-          dropped: false,
-          sandboxed: true,
-        }
-      }
-    }
-    if (ptys.has(paneId)) {
-      portBridge?.close()
-      return attachPty(e, paneId, opts)
-    }
-    if (wantsKeep && !notKept && !tokenFile) {
-      tokenFile = keptShells.writeToken(paneId, identity.token)
-    }
-    env = withPaneToken(env, identity.token, tokenFile)
-    let kept: TmuxPane | null = null
-    let keptMeta: KeptMeta | null = null
-    if (wantsKeep && !notKept) {
-      keptPlumbing.ensure()
-      keptMeta = withKeptProcess({
-        paneId,
-        externalId: identity.externalId,
-        workspaceId,
-        shell,
-        stateFile,
-        spawnPath: env.PATH ?? '',
-        ...(sandboxed
-          ? { sandbox: { stamp: sandboxStamp, bridgeId: portBridge?.id ?? null, resizePipe } }
-          : {}),
-      })
-      try {
-        kept = await keptShells.spawn({
-          file,
-          args,
-          cwd,
-          env: keptPaneEnv(env),
-          cols,
-          rows,
-          meta: keptMeta,
-        })
-      } catch (err) {
-        notKept = err instanceof Error ? err.message : String(err)
-        keptMeta = null
-        appLog?.info('kept-spawn-failed', { pane: paneId, reason: notKept })
-      }
-      if (ptys.has(paneId)) {
-        kept?.kill()
-        return attachPty(e, paneId, opts)
-      }
-    }
-    const pty: PaneProcess =
-      kept ??
-      mod.spawn(file, args, {
-        name: PTY_TERM_NAME,
-        cols,
-        rows,
-        cwd,
-        env,
-      })
-    const entry = trackPty(paneId, pty, {
-      kept,
-      keptMeta,
-      cols,
-      rows,
-      subs: new Map([[subId, e.sender]]),
-      spawnPath: env.PATH ?? '',
-      stateFile,
-      keepAlive: false,
-      workspaceId,
-      sandboxed,
-      shell,
-      sandboxStamp,
-      portBridge,
-    })
-    const { session } = entry
-    if (tokenFile) entry.exitListeners.add(() => keptShells.removeToken(paneId))
-    if (sandboxed) {
-      entry.exitListeners.add(() => {
-        if (resizePipe) rmSync(resizePipe, { force: true })
-        portBridge?.close()
-        void workspaceSandboxes.cleanup(workspaceId)
-        releaseMergedSandbox(workspaceId, entry)
-      })
-    }
-
-    const history = takeRestoredScrollback(paneId)
-    if (history) appLog?.info('scrollback-replay', { pane: paneId, chars: history.length })
-    const seam = hibernatedPanes.delete(paneId) ? HIBERNATE_SEAM : RESTORE_SEAM
-    if (history) feedPty(entry, `${history}${seam}`)
-    if (secretNotice) feedPty(entry, secretNotice)
-    if (notKept) feedPty(entry, keepShellsNotice(notKept))
-    if (sandboxed && workspaceSandboxes.claimHomeNotice(workspaceId)) {
-      const notice = hiddenHomeNotice()
-      if (notice) feedPty(entry, notice)
-    }
-    if (history) entry.mirror.markRestored(history)
-
-    pty.onData((d) => feedPty(entry, d))
-    pty.onExit(({ exitCode }) => session.exit(exitCode))
-    const { data, cursor, dropped } = session.since(0)
-    session.addLiveSubscriber(mkSub(entry))
-    if (folder.missing) telemetry?.count('terminal', 'spawn_failure', 'cwd-missing')
-    return {
-      created: true,
-      buffer: data,
-      cursor,
-      dropped,
-      shell: shellName(shell) || undefined,
-      sandboxed,
-      host,
-      ...(sandboxStamp ? { sandboxStamp } : {}),
-      ...(kept ? { kept: true } : {}),
-      ...(folder.missing ? { cwdMissing: true } : {}),
-    }
-  }
-
-  async function reattachKept(
-    e: Electron.IpcMainInvokeEvent,
-    paneId: string,
-    opts: PtySpawnOptions,
-    kept: KeptShell,
-    mkSub: (entry: PtyEntry) => Subscriber,
-  ): Promise<PtyAttachResult> {
-    const subId = String(e.sender.id)
-    const { pane, meta } = kept
-    const identity = adoptPane({ windowId: subId, workspaceId: meta.workspaceId, paneId })
-    if (identity.externalId !== meta.externalId) {
-      appLog?.info('kept-pane-id-changed', { pane: paneId })
-    }
-    keptPlumbing.ensure()
-    const savedAttention = keptShells.savedAttention(paneId)
-    keptShells.writeToken(paneId, identity.token)
-    keptAttention.reattached(paneId, agentRunning.has(paneId))
-    takeRestoredScrollback(paneId)
-    hibernatedPanes.delete(paneId)
-    const cols = opts.cols || pane.cols
-    const rows = opts.rows || pane.rows
-    const sandbox = meta.sandbox
-    const workspaceId = meta.workspaceId
-    const keptHost = sandbox ? keptShells.keptHost(workspaceId) : undefined
-    if (keptHost) workspaceSandboxes.adoptKeptTmp(workspaceId, keptHost.tmpDir)
-    const portBridge = sandbox?.bridgeId
-      ? await PortBridge.open(workspaceSandboxes.tmpDir(workspaceId), undefined, sandbox.bridgeId)
-      : null
-    const entry = trackPty(paneId, pane, {
-      kept: pane,
-      keptMeta: meta,
-      cols,
-      rows,
-      subs: new Map([[subId, e.sender]]),
-      spawnPath: meta.spawnPath,
-      stateFile: meta.stateFile,
-      keepAlive: false,
-      workspaceId,
-      shell: meta.shell,
-      sandboxed: sandbox !== undefined,
-      sandboxStamp: sandbox?.stamp ?? null,
-      portBridge,
-    })
-    if (sandbox) {
-      entry.exitListeners.add(() => {
-        if (sandbox.resizePipe) rmSync(sandbox.resizePipe, { force: true })
-        portBridge?.close()
-        void workspaceSandboxes.cleanup(workspaceId)
-        releaseMergedSandbox(workspaceId, entry)
-      })
-      portRequests.keep(workspaceId, keptHost?.exposed ?? [])
-      void workspaceSandboxes.connect(workspaceId).catch(() => undefined)
-    }
-    pane.onData((d) => feedPty(entry, d))
-    pane.onExit(({ exitCode }) => entry.session.exit(exitCode))
-    let screen = ''
-    try {
-      screen = await pane.snapshot(cols, rows)
-    } catch {}
-    feedPty(entry, `${RESTORE_SEAM}${screen}`)
-    const keptAgent = agentRunning.stillRunning(paneId, {
-      foreground: await pane.currentCommand().catch(() => ''),
-      shell: meta.shell,
-      sandboxed: sandbox !== undefined,
-    })
-    if (meta.process) {
-      processes?.adopt(
-        {
-          ...meta.process,
-          cwd: meta.process.cwd,
-          workspaceId: meta.workspaceId,
-          paneId,
-          externalPaneId: identity.externalId,
-        },
-        entry.session.cursor,
-      )
-    }
-    pane.live()
-    const { data, cursor, dropped } = entry.session.since(0)
-    entry.session.addLiveSubscriber(mkSub(entry))
-    if (savedAttention) restoreKeptAttention(identity, savedAttention)
-    return {
-      created: false,
-      buffer: data,
-      cursor,
-      dropped,
-      shell: shellName(meta.shell) || undefined,
-      sandboxed: sandbox !== undefined,
-      ...(sandbox?.stamp ? { sandboxStamp: sandbox.stamp } : {}),
-      kept: true,
-      reattached: true,
-      ...(keptAgent ? { agentRunning: true } : {}),
-      cols: pane.cols,
-      rows: pane.rows,
-    }
-  }
-
-  ipcMain.on('pty:detach', (e, paneId: string) => {
-    const entry = ptys.get(paneId)
-    if (!entry) return
-    const subId = String(e.sender.id)
-    entry.subs.delete(subId)
-    entry.session.removeSubscriber(subId)
-  })
-
-  ipcMain.handle('pty:hibernate', async (_e, raw: string): Promise<HibernateOutcome> => {
-    const paneId = String(raw)
-    const entry = ptys.get(paneId)
-    if (!entry) return 'no-terminal'
-    const busy = backgroundWork(agentWork.reason(paneId), await readProcessTable(), entry.pty.pid)
-    if (busy) return busy
-    return ptys.get(paneId) === entry && hibernatePty(paneId) ? 'hibernated' : 'no-terminal'
-  })
-
-  ipcMain.handle('pty:kept-waiting', async (): Promise<string[]> => {
-    await keptShells.ready
-    return keptShells.waitingPaneIds()
-  })
-
-  ipcMain.handle('pty:stashed', (e, paneId: string): string | null =>
-    stashedScreen(String(paneId), String(e.sender.id), windowOfPane(String(paneId))),
-  )
-
-  ipcMain.handle('pty:restart', (e, paneId: string): boolean => {
-    const entry = ptys.get(String(paneId))
-    if (!entry?.subs.has(String(e.sender.id))) return false
-    killPty(String(paneId), 'restart')
-    return true
-  })
-
-  ipcMain.on('pty:agent-running', (e, paneId: unknown, running: unknown) => {
-    if (typeof paneId !== 'string' || typeof running !== 'boolean') return
-    const attached = ptys.get(paneId)?.subs.has(String(e.sender.id)) === true
-    agentRunning.report(paneId, running, attached)
-  })
-
-  ipcMain.on('pty:ack', (e, paneId: unknown, chars: unknown) => {
-    if (typeof paneId !== 'string' || typeof chars !== 'number') return
-    ptys.get(paneId)?.flow.ack(String(e.sender.id), chars)
-  })
-  app.on('render-process-gone', (_e, contents) => {
-    releasePtyFlow(String(contents.id))
-    openWaits.windowGone(String(contents.id))
-  })
-
-  ipcMain.on('pty:waking', (e, paneId: unknown, waking: unknown) => {
-    if (typeof paneId !== 'string' || typeof waking !== 'boolean') return
-    if (getByPaneId(paneId)?.windowId !== String(e.sender.id)) return
-    if (waking) paneWaking.start(paneId)
-    else paneWaking.end(paneId, 'failed')
-  })
-
-  ipcMain.on('pty:write', (e, paneId: string, data: string) => {
-    const entry = ptys.get(paneId)
-    if (entry?.session.canWrite(String(e.sender.id))) entry.pty.write(data)
-  })
-  ipcMain.handle('pty:foreground', (e, paneId: string): string | null => {
-    const entry = ptys.get(paneId)
-    if (!entry?.subs.has(String(e.sender.id))) return null
-    try {
-      const name = entry.pty.process
-      return typeof name === 'string' && name ? (name.split('/').pop() ?? null) : null
-    } catch {
-      return null
-    }
-  })
-  ipcMain.handle('pty:activity', (e, paneId: string): PaneActivity | null => {
-    const entry = ptys.get(String(paneId))
-    if (!entry?.subs.has(String(e.sender.id))) return null
-    return paneActivity(entry)
-  })
-  registerCommandNamesIpc(executables, (paneId) => {
-    const entry = ptys.get(paneId)
-    if (!entry) return null
-    return {
-      owners: entry.subs,
-      localPrompt: holdsLocalPrompt(entry),
-      stateFile: entry.stateFile,
-      spawnPath: entry.spawnPath,
-      rules: sandboxReadRules(entry),
-    }
-  })
-  registerShellHistoryIpc({
-    enabled: () => readSettingsFile().behavior?.historySuggestions !== false,
-    files: shellHistoryFiles,
-    pane: (paneId) => {
-      const entry = ptys.get(paneId)
-      if (!entry) return null
-      return {
-        owners: entry.subs,
-        localPrompt: holdsLocalPrompt(entry),
-        shell: entry.shell,
-        stateFile: entry.stateFile,
-        rules: sandboxReadRules(entry),
-      }
-    },
-  })
-  ipcMain.handle('pty:local-prompt', (e, paneId: string): boolean => {
-    const entry = ptys.get(paneId)
-    return entry?.subs.has(String(e.sender.id)) === true && holdsLocalPrompt(entry)
-  })
-  registerPathCompletionIpc((paneId) => {
-    const entry = ptys.get(paneId)
-    if (!entry) return null
-    return {
-      owners: entry.subs,
-      localPrompt: holdsLocalPrompt(entry),
-      rules: sandboxReadRules(entry),
-    }
-  })
-  ipcMain.handle(
-    'pty:prompt-context',
-    async (e, paneId: string, want: PromptContextRequest): Promise<PromptContext | null> => {
-      const entry = ptys.get(paneId)
-      if (!entry?.subs.has(String(e.sender.id))) return null
-      const state = await readShellState(entry.stateFile)
-      return promptContext(
-        state,
-        entry.spawnPath,
-        terminalState.get(paneId)?.cwd,
-        { node: want?.node === true, kube: want?.kube === true },
-        promptSources,
-      )
-    },
-  )
-  ipcMain.on('pty:resize', (_e, paneId: string, cols: number, rows: number) => {
-    const entry = ptys.get(paneId)
-    if (!entry?.keepAlive) resizePty(entry, cols, rows)
   })
 }
 
@@ -2816,7 +2279,26 @@ app.whenReady().then(() => {
     mac: process.platform === 'darwin',
   })
   registerIpc()
-  registerPtyIpc()
+  registerWorkspaceIpc()
+  registerPtyIpc({
+    attachPty,
+    ptys,
+    terminalState,
+    keptShells,
+    openWaits,
+    agentWork,
+    agentRunning,
+    paneWaking,
+    hibernatePty,
+    killPty,
+    releasePtyFlow,
+    paneActivity,
+    holdsLocalPrompt,
+    sandboxReadRules,
+    resizePty,
+    windowOfPane,
+    readSettingsFile,
+  })
   registerFsIpc()
   registerSelectionIpc(reachesPane, redactor.text)
   registerPreviewIpc(previews, (png) => {

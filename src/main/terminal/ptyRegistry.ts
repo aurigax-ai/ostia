@@ -77,6 +77,8 @@ interface PtyRegistryDeps {
   appLog: () => AppLog | null
 }
 
+export type PtyRegistry = ReturnType<typeof createPtyRegistry>
+
 export function createPtyRegistry({
   ptys,
   movingPanes,
