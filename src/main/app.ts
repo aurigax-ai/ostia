@@ -716,73 +716,8 @@ function configDir(): string {
   return appConfigDir()
 }
 
-function registerIpc(): void {
-  registerWindowIpc({ requestQuit })
-  registerPaneLifecycleIpc({
-    windows,
-    emitPaneEvent,
-    previews,
-    paneAttentionEvents,
-    artifactProducers,
-    openWaits,
-    services,
-    releaseMovingPane,
-    killPty,
-    ptys,
-    closedPanes,
-    hibernatedPanes,
-    browserProfiles,
-    terminalState,
-    paneWaking,
-    paneWatch,
-    scratchFolders,
-    workspaceClosed,
-    keptShells,
-    commandsByWindow,
-    remoteCwdOfPane,
-  })
-  registerBrowserGuestIpc({
-    browserProfiles,
-    browserPanes,
-    instrumentBrowserGuest,
-    consoleBuffers,
-    errorBuffers,
-  })
-}
-
 function remoteCwdOfPane(paneId: string): RemoteCwd | undefined {
   return normalizeRemoteCwd(terminalState.get(paneId)?.remote) ?? undefined
-}
-
-function registerSandboxSystemIpc(): void {
-  registerSandboxIpc({
-    sandboxes: workspaceSandboxes,
-    ownerWindow: windowForWorkspace,
-    missing: () => missingRequirements(SANDBOX_FEATURE),
-    domains: domainRequests,
-    ports: portRequests,
-    violations: sandboxViolations,
-    refreshAll: () => workspaceSandboxes.refreshAll(),
-  })
-  registerSystemRequirementsIpc({
-    ownerWindow: windowForWorkspace,
-    workDir: (workspaceId) => workDirForWorkspace(workspaceId),
-    locale: readLocale,
-    systemExtensionEnabled: () =>
-      services.extensionHost?.list().some((ext) => ext.id === 'system' && ext.enabled) ?? false,
-    missing: (feature) => missingRequirements(feature),
-    settled: loginPathSettled,
-    label: requirementLabel,
-    invokeInstall: (args, caller) =>
-      services.extensionHost
-        ? services.extensionHost.invoke('system', 'install', args, caller)
-        : Promise.resolve({ ok: false, error: 'extension-unavailable' }),
-  })
-  ipcMain.handle('system:discrete-gpu', async (): Promise<DiscreteGpuInfo | null> => {
-    if (process.platform !== 'linux') return null
-    const gpu = discreteGpu(await querySwitcherooGpus())
-    return gpu ? { name: gpu.name, inUse: gpuStartPlan(process.env, gpu).kind === 'stay' } : null
-  })
 }
 
 const managerResumePath = (): string => storePath('manager-resume', 'global')
@@ -1011,9 +946,66 @@ app.whenReady().then(() => {
     isAppWindow: (sender) => windows.get(String(sender.id))?.webContents === sender,
     mac: process.platform === 'darwin',
   })
-  registerIpc()
+  registerWindowIpc({ requestQuit })
+  registerPaneLifecycleIpc({
+    windows,
+    emitPaneEvent,
+    previews,
+    paneAttentionEvents,
+    artifactProducers,
+    openWaits,
+    services,
+    releaseMovingPane,
+    killPty,
+    ptys,
+    closedPanes,
+    hibernatedPanes,
+    browserProfiles,
+    terminalState,
+    paneWaking,
+    paneWatch,
+    scratchFolders,
+    workspaceClosed,
+    keptShells,
+    commandsByWindow,
+    remoteCwdOfPane,
+  })
+  registerBrowserGuestIpc({
+    browserProfiles,
+    browserPanes,
+    instrumentBrowserGuest,
+    consoleBuffers,
+    errorBuffers,
+  })
   registerWorkspaceIpc()
-  registerSandboxSystemIpc()
+  registerSandboxIpc({
+    sandboxes: workspaceSandboxes,
+    ownerWindow: windowForWorkspace,
+    missing: () => missingRequirements(SANDBOX_FEATURE),
+    domains: domainRequests,
+    ports: portRequests,
+    violations: sandboxViolations,
+    refreshAll: () => workspaceSandboxes.refreshAll(),
+  })
+  registerSystemRequirementsIpc({
+    ownerWindow: windowForWorkspace,
+    workDir: (workspaceId) => workDirForWorkspace(workspaceId),
+    locale: readLocale,
+    systemExtensionEnabled: () =>
+      services.extensionHost?.list().some((ext) => ext.id === 'system' && ext.enabled) ?? false,
+    missing: (feature) => missingRequirements(feature),
+    settled: loginPathSettled,
+    label: requirementLabel,
+    invokeInstall: (args, caller) =>
+      services.extensionHost
+        ? services.extensionHost.invoke('system', 'install', args, caller)
+        : Promise.resolve({ ok: false, error: 'extension-unavailable' }),
+  })
+  ipcMain.handle('system:discrete-gpu', async (): Promise<DiscreteGpuInfo | null> => {
+    if (process.platform !== 'linux') return null
+    const gpu = discreteGpu(await querySwitcherooGpus())
+    return gpu ? { name: gpu.name, inUse: gpuStartPlan(process.env, gpu).kind === 'stay' } : null
+  })
   registerPtyIpc({
     attachPty,
     ptys,
