@@ -64,9 +64,11 @@ function bodyOf(response: Response): Readable {
   return Readable.fromWeb(response.body as Parameters<typeof Readable.fromWeb>[0])
 }
 
-export async function readCapped(response: Response, maxBytes: number): Promise<string | null> {
-  const reader = response.body?.getReader()
-  if (!reader) return null
+export async function readCapped(
+  body: ReadableStream<Uint8Array>,
+  maxBytes: number,
+): Promise<string | null> {
+  const reader = body.getReader()
   const chunks: Uint8Array[] = []
   let size = 0
   for (;;) {

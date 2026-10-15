@@ -135,7 +135,8 @@ export async function fetchLatestRelease(opts: {
       return { kind: 'error', error: 'rate-limited' }
     }
     if (response.status !== 200) return { kind: 'error', error: 'unavailable' }
-    return readRelease(await readCapped(response, RELEASE_RESPONSE_MAX_BYTES), query.parse)
+    if (!response.body) return { kind: 'error', error: 'unavailable' }
+    return readRelease(await readCapped(response.body, RELEASE_RESPONSE_MAX_BYTES), query.parse)
   } catch {
     return { kind: 'error', error: 'offline' }
   }

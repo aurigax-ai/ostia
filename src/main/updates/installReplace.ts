@@ -227,7 +227,8 @@ export async function fetchText(
   let text: string | null
   try {
     const response = await followAllowed(releaseRequest(fetchImpl, url, base, signal))
-    text = await readCapped(response, maxBytes)
+    if (!response.body) throw new ReplaceError('offline')
+    text = await readCapped(response.body, maxBytes)
   } catch (err) {
     throw replaceFailure(err)
   }
