@@ -14,6 +14,22 @@ export function relativeToRoot(path: string, root: string): string | null {
   return path.startsWith(base) ? path.slice(base.length) : null
 }
 
+export function baseName(path: string): string {
+  return path.slice(path.lastIndexOf('/') + 1) || path
+}
+
+export function parentOf(path: string): string {
+  const slash = path.lastIndexOf('/')
+  return slash > 0 ? path.slice(0, slash) : '/'
+}
+
+export function splitPath(path: string): { name: string; dir: string } {
+  const slash = path.lastIndexOf('/')
+  return slash < 0
+    ? { name: path, dir: '' }
+    : { name: path.slice(slash + 1), dir: path.slice(0, slash) }
+}
+
 function expandHome(path: string, home: string | null): string {
   if (!home || (path !== '~' && !path.startsWith('~/'))) return path
   return `${home}${path.slice(1)}`

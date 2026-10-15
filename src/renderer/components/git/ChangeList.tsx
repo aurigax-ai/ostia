@@ -1,7 +1,8 @@
 import { IconButton } from '@/components/common/IconButton'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { splitPath } from '@/lib/files/fileTree'
 import { type TreeNode, buildFileTree } from '@/lib/git/gitFileTree'
-import { AREA_ORDER, leaves, rowIndent, splitPath } from '@/lib/git/gitView'
+import { AREA_ORDER, leaves, rowIndent } from '@/lib/git/gitView'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   ArrowCounterClockwiseIcon,
