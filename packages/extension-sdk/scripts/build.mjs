@@ -10,13 +10,18 @@ const out = join(repoRoot, 'out/sdk')
 const repository = 'https://github.com/aurigax-ai/ostia'
 const source = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'))
 const { version } = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
-const shared = { absWorkingDir: packageDir, metafile: true, bundle: true, logLevel: 'warning' }
+const bundleOptions = {
+  absWorkingDir: packageDir,
+  metafile: true,
+  bundle: true,
+  logLevel: 'warning',
+}
 
 rmSync(out, { recursive: true, force: true })
 mkdirSync(join(out, 'schemas'), { recursive: true })
 
 const library = await build({
-  ...shared,
+  ...bundleOptions,
   entryPoints: {
     index: 'src/client/index.ts',
     assist: 'src/assist/index.ts',
@@ -32,7 +37,7 @@ const library = await build({
 })
 
 const cli = await build({
-  ...shared,
+  ...bundleOptions,
   entryPoints: ['src/cli/sdkCliEntry.ts'],
   outfile: join(out, 'dist/cli.cjs'),
   platform: 'node',
@@ -48,7 +53,7 @@ execFileSync('pnpm', ['exec', 'tsc', '-p', 'tsconfig.types.json'], {
 
 const schemaModule = join(out, 'schema-build.mjs')
 const schema = await build({
-  ...shared,
+  ...bundleOptions,
   entryPoints: ['src/cli/manifestSchema.ts'],
   outfile: schemaModule,
   platform: 'node',
