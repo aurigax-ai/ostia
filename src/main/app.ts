@@ -1,11 +1,9 @@
-import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { homedir, hostname } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { appEnv, readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { MANAGER_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
-import { languageForPath } from '@aurigax-ai/ostia-extension-sdk/contract/editorLanguages'
 import type {
   ExtensionEventPayloads,
   ExtensionEventType,
@@ -13,7 +11,6 @@ import type {
   ExtensionResult,
   WorkspaceChip,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { languageServerKey } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import {
   OFFICIAL_MARKETPLACE,
   PRODUCT_NAME,
@@ -30,7 +27,6 @@ import {
   ClipboardItem,
   app,
   clipboard,
-  dialog,
   globalShortcut,
   ipcMain,
   nativeTheme,
@@ -43,7 +39,6 @@ import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
 import { parseAgentHooks } from '../shared/agents/agentHooks'
 import { type AgentResume, isResumableAgent, parseAgentResume } from '../shared/agents/agentResume'
-import type { HibernateOutcome } from '../shared/agents/agentWork'
 import {
   MANAGER_FEATURE,
   managerAgents,
@@ -53,7 +48,6 @@ import { fmt } from '../shared/app/dict'
 import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
 import { isMacInstall, replacesInApp } from '../shared/app/installMethod'
 import { clampZoom, zoomFactor } from '../shared/app/zoom'
-import { ARTIFACT_LIST_MAX } from '../shared/artifacts/artifacts'
 import { isPreviewPartition } from '../shared/artifacts/htmlPreview'
 import { parseChatToolSettings } from '../shared/assist/chatTools'
 import { parseGitSettings } from '../shared/boards/git'
@@ -67,11 +61,8 @@ import { OPEN_FILES_COMMAND, OPEN_FILES_MAX } from '../shared/files/openFiles'
 import { desktopsOf } from '../shared/keyboard/desktopChords'
 import { parsePrivacySettings } from '../shared/privacy/redaction'
 import { bucketCount } from '../shared/privacy/telemetry'
-import { parseSandboxGlobals } from '../shared/sandbox/sandbox'
-import { KEEP_SHELLS_FEATURE, parseKeepShells } from '../shared/terminal/keepShells'
-import { isHostNamed } from '../shared/terminal/osc7'
+import { parseKeepShells } from '../shared/terminal/keepShells'
 import { quoteArgv } from '../shared/terminal/shellQuote'
-import { shellArgv, shellName } from '../shared/terminal/terminalShell'
 import type {
   AppInfo,
   CommandDescriptor,
@@ -81,11 +72,6 @@ import type {
   FsEntry,
   FsKind,
   LifecycleEvent,
-  PaneActivity,
-  PromptContext,
-  PromptContextRequest,
-  PtyAttachResult,
-  PtySpawnOptions,
   QuitAnswer,
   TerminalStateSnapshot,
   WindowBounds,
@@ -93,12 +79,7 @@ import type {
 import { AGENT_OFFER_RESULT_CHANNEL, createAgentOfferRelay } from './agents/agentOfferRelay'
 import { AgentRunningPanes } from './agents/agentRunning'
 import { registerAgentTranscriptIpc } from './agents/agentTranscript'
-import {
-  ReportedAgentWork,
-  backgroundWork,
-  readProcessTable,
-  registerAgentWorkMethods,
-} from './agents/agentWork'
+import { ReportedAgentWork, registerAgentWorkMethods } from './agents/agentWork'
 import { registerBusMethods, tellPane } from './agents/bus'
 import type { OriginReach } from './agents/originAgents'
 import { createResumeClaimer, registerResumeClaimIpc } from './agents/resumeClaims'
@@ -125,22 +106,12 @@ import {
   setUserPresenceCheck,
 } from './approvals/scriptTokens'
 import { electronPresenceDeps, verifyUserPresence } from './approvals/userPresence'
-import { ArtifactFolders, registerArtifactIpc } from './artifacts/artifactFolders'
-import {
-  ArtifactHistory,
-  previewBuild,
-  registerArtifactHistoryIpc,
-} from './artifacts/artifactHistory'
-import { ArtifactProducers, registerArtifactProducersIpc } from './artifacts/artifactProducers'
-import { loadEsbuild } from './artifacts/esbuildService'
-import {
-  PreviewHost,
-  type PreviewSession,
-  hardenPreviewAttach,
-  registerPreviewIpc,
-} from './artifacts/htmlPreview'
-import { PortableBuilder } from './artifacts/portableBuilder'
-import { PortableExport, registerPortableIpc } from './artifacts/portableExport'
+import { registerArtifactIpc } from './artifacts/artifactFolders'
+import { registerArtifactHistoryIpc } from './artifacts/artifactHistory'
+import { registerArtifactProducersIpc } from './artifacts/artifactProducers'
+import { createArtifactServices } from './artifacts/artifactServices'
+import { hardenPreviewAttach, registerPreviewIpc } from './artifacts/htmlPreview'
+import { registerPortableIpc } from './artifacts/portableExport'
 import { registerAttentionMethods, targetOf } from './attention/attention'
 import { announceBusMessage } from './attention/busNotice'
 import {
@@ -182,8 +153,6 @@ import { setCapFilter, setScriptTokenCheck } from './control/controlAuth'
 import { clearControlInfo, controlInfoPath, writeControlInfo } from './control/controlDiscovery'
 import {
   controlSocketPath,
-  keptControlSocketPath,
-  listenKeptControlSocket,
   registerControlServer,
   stopControlServer,
 } from './control/controlServer'
@@ -191,11 +160,9 @@ import { registerDocsMethods } from './control/docs'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './control/events'
 import {
   type PaneIdentity,
-  adoptPane,
   getByPaneId,
   markManager,
   moveToWorkspace,
-  panesOwnedBy,
   registerPane,
   rehomeWorkspace,
   removePane,
@@ -216,12 +183,10 @@ import {
 } from './diagnostics/telemetry'
 import { registerConnectionsIpc } from './extensions/connectionsIpc'
 import { confirmForExtension } from './extensions/extensionConfirm'
-import { ExtensionConnections } from './extensions/extensionConnections'
 import { ExtensionExec } from './extensions/extensionExec'
 import { ExtensionHost } from './extensions/extensionHost'
 import { ExtensionLaunches } from './extensions/extensionLaunches'
 import { registerExtensionMethods } from './extensions/extensionMethods'
-import { type SecretStoreDeps, createSecretStore } from './extensions/extensionSecrets'
 import { ExtensionStore } from './extensions/extensionStore'
 import { DismissedSuggestions, suggestionFor } from './extensions/extensionSuggestions'
 import { registerIconThemeIpc } from './extensions/iconThemes'
@@ -233,10 +198,9 @@ import { createMainStrings } from './extensions/strings'
 import { firstKnownOwner, workspaceChipsForWindow } from './extensions/workspaceChips'
 import { openInExternalEditor } from './files/externalEditor'
 import { FileOps } from './files/fileOps'
-import { FileWatches, TreeWatches } from './files/fileWatch'
+import { FileWatches } from './files/fileWatch'
 import { readBinaryConfined } from './files/fsBinary'
 import { readTextConfined, versionConfined, writeText, writeTextConfined } from './files/fsText'
-import { OpenFileGrants } from './files/openFileGrants'
 import { openFileForExtension, registerOpenFileMethods } from './files/openFileMethods'
 import { registerOpenPathIpc } from './files/openPath'
 import { OpenWaits } from './files/openWaits'
@@ -256,18 +220,15 @@ import {
 import { listPairRequests, onPairRequestsChanged } from './gateway/pairRequests'
 import { configureGatewayControl, phoneCanRespond, stopGateway } from './gateway/server'
 import { createTailnet, tailnetNodeName, tsnetHelperPath } from './gateway/tailnet'
-import type { PhoneFileScope } from './gateway/workspaceFiles'
 import { GitCommands } from './git/commands'
 import { confirmDiscard } from './git/confirmDiscard'
 import { registerGitIpc, registerGitMethods } from './git/register'
 import { GitService } from './git/service'
 import { ViewStateStore } from './git/viewState'
 import { registerEditorLanguageIpc } from './lsp/editorLanguages'
-import { LanguageServers } from './lsp/languageServers'
+import { createLanguageServerWiring } from './lsp/languageServerWiring'
+import type { LanguageServers } from './lsp/languageServers'
 import { registerLanguageServersIpc } from './lsp/languageServersIpc'
-import { ManagedServers, downloadBaseUrl } from './lsp/managedServers'
-import { ServerOverrides } from './lsp/serverOverrides'
-import { scrubbedEnv } from './lsp/serverSpawn'
 import { ManagerService, managerWindowId } from './manager/manager'
 import {
   managerArgv,
@@ -275,21 +236,10 @@ import {
   writeManagerCodexContext,
 } from './manager/managerAgent'
 import { type ManagerLimiter, registerManagerMethods } from './manager/managerMethods'
-import {
-  type MirrorHandle,
-  type MirrorSink,
-  Portal,
-  portalSocketPath,
-  portalSupported,
-} from './manager/portal'
+import { Portal, portalSocketPath, portalSupported } from './manager/portal'
 import { callerVerdict, procFs, ttysOf } from './manager/portalCaller'
 import { registerExtensionWake } from './panes/extensionWake'
-import {
-  type PaneAttentionPeek,
-  type PaneIo,
-  pastedText,
-  registerPaneIoMethods,
-} from './panes/paneIo'
+import { type PaneAttentionPeek, registerPaneIoMethods } from './panes/paneIo'
 import {
   listPanes,
   listWorkspaceGroups,
@@ -298,7 +248,6 @@ import {
 } from './panes/paneList'
 import { registerPaneMoveIpc } from './panes/paneMove'
 import { registerPaneMoveToMethods } from './panes/paneMoveTo'
-import type { PaneProcess } from './panes/paneProcess'
 import type { PaneReachDeps } from './panes/paneReach'
 import { registerPaneRenameMethods } from './panes/paneRename'
 import { registerPaneResumeMethods } from './panes/paneResume'
@@ -312,24 +261,15 @@ import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './platform/discr
 import { loadJson, saveJson, storePath } from './platform/jsonStore'
 import { expandHome, resolveSafe } from './platform/pathGuard'
 import { privateTmpDir } from './platform/privateTmp'
-import { needsPtyRelay } from './platform/ptyRelay'
 import {
   SANDBOX_FEATURE,
   installHint,
   missingRequirements,
-  programPath,
-  registerRequirements,
   requirementLabel,
 } from './platform/systemRequirements'
 import { registerSystemRequirementsIpc } from './platform/systemRequirementsIpc'
 import { loginPathSettled, resolveLoginPath } from './platform/toolPath'
-import {
-  OLD_PRODUCT_NAME,
-  appConfigDir,
-  appDataDir,
-  configHome,
-  dataHome,
-} from './platform/userDirs'
+import { appConfigDir } from './platform/userDirs'
 import { registerPortsIpc, registerPortsMethods } from './ports/register'
 import { PortsService } from './ports/service'
 import { registerPrivacyIpc } from './privacy/privacyIpc'
@@ -337,86 +277,51 @@ import { createRedactor, createScrollbackRedactor } from './privacy/redaction'
 import { createWorkerScan, redactionWorkerScript } from './privacy/redactionScan'
 import { type ProfileSyncHandle, startProfileSync } from './profileSync/ipc'
 import { flatSource, groupedSource, loginsSource } from './profileSync/secrets'
-import { attachWorkspace } from './sandbox/attachWorkspace'
 import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
-import { DomainRequests } from './sandbox/domainRequests'
-import { HostPaneGrants } from './sandbox/hostPanes'
 import { registerSandboxIpc } from './sandbox/ipc'
-import { PortBridge, bridgesPorts } from './sandbox/portBridge'
-import { PortForwarder, type SandboxListener, type SandboxPane } from './sandbox/portForwarder'
-import { PortRequests } from './sandbox/portRequests'
-import { HOST_PROTOCOL_VERSION } from './sandbox/protocol'
-import { relayForced, sandboxedShellCommand, wrapForTerminal } from './sandbox/ptyWrap'
-import { hiddenHomeNotice, sandboxFailureBanner } from './sandbox/spawnBanner'
+import { createSandboxServices } from './sandbox/sandboxServices'
 import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
-import { type SandboxBasePaths, reachableContainerSockets, srtVendorDir } from './sandbox/srtConfig'
-import { SandboxStore } from './sandbox/store'
-import { ViolationLog, recordViolations } from './sandbox/violations'
-import { type SandboxReadRules, visibleInSandbox } from './sandbox/visibility'
-import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
-import { packageCooldownEnv } from './sandboxPackages/packageEnv'
-import { PackageRequests } from './sandboxPackages/packageRequests'
+import { createEncryptedStores } from './secrets/encryptedStores'
 import { registerSecretMethods } from './secrets/register'
-import { prepareSecrets } from './secrets/secretInjection'
-import { SecretService } from './secrets/secretService'
-import {
-  deleteGlobalVaultValue,
-  registerVaultMethods,
-  setGlobalVaultValue,
-  vaultKeys,
-  vaultValue,
-} from './secrets/vault'
-import { WorkspaceAgents } from './secrets/workspaceAgents'
+import { createSecretServices } from './secrets/secretServices'
+import { deleteGlobalVaultValue, registerVaultMethods, setGlobalVaultValue } from './secrets/vault'
 import { registerCompletionIpc } from './terminal/completionSpecs'
-import { atLocalPrompt, busyProgram } from './terminal/localPrompt'
 import { writeOstiaLauncher } from './terminal/paneLauncher'
-import { registerPathCompletionIpc } from './terminal/pathCompletion'
-import { KubeContextReader, NodeVersionResolver, promptContext } from './terminal/promptContext'
-import { CoalescedOutput, PtyFlowControl } from './terminal/ptyFlow'
-import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './terminal/ptyReaper'
-import { PtySession, type Subscriber, type SubscriberRole } from './terminal/ptySession'
-import { HIBERNATE_SEAM, HISTORY_LINES, RESTORE_SEAM, ScreenMirror } from './terminal/screenMirror'
+import { createPtyAttach } from './terminal/pty/ptyAttach'
+import { createPtyIo } from './terminal/pty/ptyIo'
+import { registerPtyIpc } from './terminal/pty/ptyIpc'
+import { createLiveAttach } from './terminal/pty/ptyLiveAttach'
+import { createPtyQueries } from './terminal/pty/ptyQueries'
+import { createPtyRecovery } from './terminal/pty/ptyRecovery'
+import {
+  type PaneTitleEntry,
+  type PtyEntry,
+  createPtyRegistry,
+  removeStateFile,
+} from './terminal/pty/ptyRegistry'
+import { createSandboxSpawn } from './terminal/pty/ptySandboxSpawn'
+import { createSpawnPlanner } from './terminal/pty/ptySpawnPlan'
+import { createPtyStart } from './terminal/pty/ptyStart'
+import { createPtyStop } from './terminal/pty/ptyStop'
+import type { SubscriberRole } from './terminal/ptySession'
 import { registerSelectionIpc } from './terminal/selectionReport'
-import { ExecutableIndex, readShellState, registerCommandNamesIpc } from './terminal/shellCommands'
-import { closesPaneOnExit } from './terminal/shellExit'
-import { ShellHistoryFiles, registerShellHistoryIpc } from './terminal/shellHistory'
-import {
-  INTEGRATION_DIR,
-  setAgentPlugins,
-  shellIntegrationSpawnOptions,
-} from './terminal/shellIntegration'
-import { sandboxCwd, spawnFolder } from './terminal/spawnCwd'
-import {
-  type PaneOutput,
-  TerminalPathLinks,
-  registerTerminalPathLinkIpc,
-} from './terminal/terminalPathLinks'
+import { setAgentPlugins } from './terminal/shellIntegration'
+import { spawnFolder } from './terminal/spawnCwd'
+import { TerminalPathLinks, registerTerminalPathLinkIpc } from './terminal/terminalPathLinks'
 import {
   PTY_COLOR_ENV,
   PTY_TERM_NAME,
-  paneShellEnv,
   ptyHyperlinkEnv,
   ptyIdentityEnv,
   ptyLocaleEnv,
-  withPaneToken,
 } from './terminal/terminalType'
 import { type SavedAttention, isKeptAttentionState } from './tmux/attentionFile'
-import { SANDBOX_NOT_KEPT, TMUX_MISSING, keepShellsNotice } from './tmux/keepShellsBanner'
 import { KeptAttention } from './tmux/keptAttention'
-import { KeptPlumbing, keptLauncherPaths } from './tmux/keptLaunchers'
-import { keptHostChannel, keptShellsDir, keptShellsName } from './tmux/keptPaths'
-import {
-  type KeptHostMeta,
-  type KeptMeta,
-  type KeptProcessMeta,
-  type KeptProgram,
-  type KeptShell,
-  KeptShells,
-  SANDBOX_HOST_KIND,
-} from './tmux/keptShells'
-import type { TmuxPane } from './tmux/tmuxServer'
+import { createKeptReattach } from './tmux/keptReattach'
+import { createKeptShellsWiring } from './tmux/keptShellsWiring'
+import { createKeptSpawner } from './tmux/keptSpawn'
 import { registerAppUpdate } from './updates/appUpdate'
 import { appVersion, runningBuild } from './updates/appVersion'
 import { installAppDir, installMethod } from './updates/installMethod'
@@ -443,7 +348,6 @@ import {
   announceUpdateRun,
   readUpdateChannel,
   registerReleaseCheck,
-  releaseUserAgent,
 } from './updates/releaseCheck'
 import { type UpdateRunner, createUpdateRunner } from './updates/updateRun'
 import { installAppMenu } from './windows/appMenu'
@@ -474,13 +378,12 @@ import { WindowBroker } from './windows/windowBroker'
 import { registerCmuxSessionIpc } from './workspaces/cmuxSession'
 import { registerProjectRootIpc } from './workspaces/projectRoot'
 import { registerSameFolder } from './workspaces/sameFolder'
-import { ScratchFolders, registerScratchIpc } from './workspaces/scratchFolders'
+import { registerScratchIpc } from './workspaces/scratchFolders'
 import { type SnippetDeps, registerSnippetIpc, registerSnippetMethods } from './workspaces/snippets'
 import { ViewHost, ViewStore } from './workspaces/viewHost'
 import { registerViewMethods, registerViewsIpc } from './workspaces/viewsIpc'
 import { registerWorkspaceMergeIpc } from './workspaces/workspaceMerge'
 import {
-  knownWorkspaces,
   removeWorkspace,
   setWorkspaceWorkDir,
   windowForWorkspace,
@@ -489,64 +392,25 @@ import {
 import {
   type RestoreOutcome,
   dropRestoredScrollback,
-  handoffPaneIds,
   loadRestoredScrollback,
-  loadSnapshot,
   pendingRestoredScrollback,
   saveScrollback,
   scrollbackToSave,
-  stashScrollback,
-  stashedScreen,
-  takeRestoredScrollback,
 } from './workspaces/workspaceSnapshot'
 
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
 
-let ptyModule: typeof import('node-pty') | null | undefined
-function loadPty(): typeof import('node-pty') | null {
-  if (ptyModule === undefined) {
-    try {
-      ptyModule = require('node-pty')
-    } catch (err) {
-      console.error('[pty] node-pty unavailable — terminals disabled. Run: npm run rebuild', err)
-      ptyModule = null
-    }
-  }
-  return ptyModule ?? null
-}
+const windows = new Map<string, BrowserWindow>()
+const commandsByWindow = new Map<string, CommandDescriptor[]>()
 
-interface PaneTitleEntry {
-  paneId: string
-  title: string
-}
+const browserPanes = new Map<string, number>()
 
-interface PtyEntry {
-  paneId: string
-  pty: PaneProcess
-  kept: TmuxPane | null
-  keptMeta: KeptMeta | null
-  session: PtySession
-  flow: PtyFlowControl
-  mirror: ScreenMirror
-  subs: Map<string, Electron.WebContents>
-  killTimer: ReturnType<typeof setTimeout> | null
-  spawnPath: string
-  stateFile: string
-  workspaceId: string
-  sandboxed: boolean
-  shell: string
-  sandboxStamp: string | null
-  portBridge: PortBridge | null
-  confinedBy: string | null
-  keepAlive: boolean
-  exitListeners: Set<(code: number) => void>
-}
+const consoleBuffers = new Map<number, ConsoleEntry[]>()
+const errorBuffers = new Map<number, ConsoleEntry[]>()
+
+const terminalState = new Map<string, TerminalStateSnapshot>()
 
 const ptys = new Map<string, PtyEntry>()
-const PTY_BUFFER_CAP = 1_000_000
-const executables = new ExecutableIndex()
-const promptSources = { node: new NodeVersionResolver(), kube: new KubeContextReader() }
-const shellHistoryFiles = new ShellHistoryFiles()
 
 function listDir(dir: string): FsEntry[] {
   try {
@@ -558,48 +422,8 @@ function listDir(dir: string): FsEntry[] {
   }
 }
 
-function holdsLocalPrompt(entry: PtyEntry): boolean {
-  return atLocalPrompt({
-    foreground: entry.pty.process,
-    shell: entry.shell,
-    sandboxed: entry.sandboxed,
-  })
-}
-
-function paneActivity(entry: PtyEntry): PaneActivity {
-  let program: string | null = null
-  try {
-    program = busyProgram({
-      foreground: entry.pty.process,
-      shell: entry.shell,
-      sandboxed: entry.sandboxed,
-    })
-  } catch {
-    program = null
-  }
-  return { program, agentRunning: agentRunning.has(entry.paneId) }
-}
-
-function sandboxReadRules(entry: PtyEntry): SandboxReadRules | null {
-  if (!entry.sandboxed) return null
-  try {
-    const { denyRead, allowRead } = workspaceSandboxes.config(entry.workspaceId).filesystem
-    return { denyRead, allowRead }
-  } catch {
-    return { denyRead: ['/'], allowRead: [] }
-  }
-}
-
-function removeStateFile(entry: PtyEntry): void {
-  rmSync(entry.stateFile, { force: true })
-}
-
-const SANDBOX_LOST_WHILE_AWAY = `its sandbox ended while ${PRODUCT_DISPLAY_NAME} was closed`
-
 const hibernatedPanes = new Set<string>()
 const movingPanes = new Set<string>()
-
-const recovery = new RecoveryBook()
 const recoveryHeld = new Set<string>()
 const closedPanes = new Set<string>()
 let appLog: AppLog | null = null
@@ -643,92 +467,11 @@ function telemetrySessionFacts(): SessionFacts {
   }
 }
 
-function shellFamily(shell: string): string {
-  const name = basename(shell).toLowerCase()
-  return name === 'zsh' || name === 'bash' || name === 'fish' ? name : 'other'
-}
 const officialMarketplaceId = marketplaceId(normalizeMarketplaceUrl(OFFICIAL_MARKETPLACE) ?? '')
 let marketplaceInstallIds: () => string[] = () => []
 let telemetrySentForQuit = false
 let sendingTelemetryForQuit = false
 let processes: ProcessRegistry | null = null
-
-function windowOfPane(paneId: string): string | undefined {
-  return getByPaneId(paneId)?.windowId
-}
-
-function scheduleReap(paneId: string, entry: PtyEntry): void {
-  if (entry.killTimer) clearTimeout(entry.killTimer)
-  entry.killTimer = setTimeout(
-    () => reapIfOrphaned(paneId, entry),
-    recovery.graceFor(windowOfPane(paneId)),
-  )
-}
-
-function reapIfOrphaned(paneId: string, entry: PtyEntry): void {
-  entry.killTimer = null
-  const verdict = orphanVerdict({
-    current: ptys.get(paneId) === entry,
-    owners: entry.session.ownerCount,
-    moving: movingPanes.has(paneId) || entry.keepAlive,
-    held: recoveryHeld.has(paneId),
-    recovering: recovery.isRecovering(windowOfPane(paneId)),
-  })
-  if (verdict === 'wait') scheduleReap(paneId, entry)
-  else if (verdict === 'reap') killPty(paneId, closedPanes.has(paneId) ? 'closed' : 'grace-expired')
-}
-
-function startRecovery(windowId: string, reason: string): void {
-  recovery.start(windowId)
-  appLog?.info('window-recovering', { window: windowId, reason })
-  for (const [paneId, entry] of ptys) {
-    if (entry.killTimer && windowOfPane(paneId) === windowId) scheduleReap(paneId, entry)
-  }
-}
-
-function finishRecovery(windowId: string, livePaneIds: Set<string>): void {
-  if (!recovery.end(windowId)) return
-  const windowPtys = [...ptys]
-    .filter(([paneId, entry]) => !entry.keepAlive && windowOfPane(paneId) === windowId)
-    .map(([paneId, entry]) => ({ paneId, owners: entry.session.ownerCount }))
-  const { hold, reap } = planRecovery(windowPtys, livePaneIds)
-  for (const paneId of hold) {
-    const entry = ptys.get(paneId)
-    if (entry?.killTimer) clearTimeout(entry.killTimer)
-    if (entry) entry.killTimer = null
-    recoveryHeld.add(paneId)
-  }
-  for (const paneId of reap) killPty(paneId, 'closed')
-  appLog?.info('window-recovered', { window: windowId, held: hold.length, reaped: reap.length })
-}
-
-function releaseWindowPtys(windowId: string): void {
-  recovery.end(windowId)
-  for (const paneId of [...recoveryHeld]) {
-    if (windowOfPane(paneId) !== windowId) continue
-    recoveryHeld.delete(paneId)
-    const entry = ptys.get(paneId)
-    if (entry && entry.session.ownerCount === 0) scheduleReap(paneId, entry)
-  }
-}
-
-function holdPtys(paneIds: readonly string[]): void {
-  for (const paneId of paneIds) {
-    const entry = ptys.get(paneId)
-    if (!entry) continue
-    movingPanes.add(paneId)
-    if (entry.killTimer) {
-      clearTimeout(entry.killTimer)
-      entry.killTimer = null
-    }
-  }
-}
-
-function releaseMovingPane(paneId: string): void {
-  if (!movingPanes.delete(paneId)) return
-  const entry = ptys.get(paneId)
-  if (entry && entry.session.ownerCount === 0) killPty(paneId, 'closed')
-}
 
 function openExternalSafe(url: string): boolean {
   const href = externalHref(url, { apps: false })
@@ -737,13 +480,23 @@ function openExternalSafe(url: string): boolean {
   return true
 }
 
-const keptShells = new KeptShells({
-  dir: keptShellsDir(app.getPath('userData')),
-  name: keptShellsName(app.getPath('userData')),
-  program: keptShellsProgram,
-  log: (event, fields) => appLog?.info(event, fields),
+const {
+  keptShells,
+  keepShellsOn,
+  keptShellsProgram,
+  savedPaneIds,
+  withKeptProcess,
+  syncKeptMeta,
+  paneLauncherDir,
+  keptPlumbing,
+  keptPaneEnv,
+} = createKeptShellsWiring({
+  ptys,
+  readSettingsFile,
+  processes: () => processes,
+  appLog: () => appLog,
 })
-let tmuxTerminal: string | null = null
+
 let restartRequested = false
 let quitAnswer: QuitAnswer | null = null
 let stagedUpdate: { pending: PendingSweep; sweepFile: string } | null = null
@@ -755,703 +508,73 @@ function confirmQuitOn(): boolean {
   return readSettingsFile().workspaces?.confirmQuit !== false
 }
 
-function keepShellsOn(): boolean {
-  return parseKeepShells(readSettingsFile().terminal?.keepShells)
-}
-
-function keptShellsProgram(): KeptProgram | null {
-  if (missingRequirements(KEEP_SHELLS_FEATURE).length > 0) return null
-  const tmux = programPath('tmux')
-  if (!tmux) return null
-  return { tmux, defaultTerminal: tmuxDefaultTerminal(), env: process.env }
-}
-
-function tmuxDefaultTerminal(): string {
-  if (tmuxTerminal === null) {
-    try {
-      execFileSync('infocmp', ['tmux-256color'], { stdio: 'ignore', timeout: 2000 })
-      tmuxTerminal = 'tmux-256color'
-    } catch {
-      tmuxTerminal = 'screen-256color'
-    }
-  }
-  return tmuxTerminal
-}
-
-function savedPaneIds(): Set<string> | null {
-  const snapshot = loadSnapshot()
-  if (!snapshot) return null
-  const ids = new Set<string>()
-  const workspaces = [
-    ...snapshot.workspaces,
-    ...(snapshot.windows ?? []).flatMap((w) => w.workspaces),
-  ]
-  for (const workspace of workspaces) for (const id of handoffPaneIds(workspace)) ids.add(id)
-  return ids
-}
-
-function keptProcessOf(paneId: string): KeptProcessMeta | undefined {
-  const entry = processes?.forPane(paneId)
-  if (!entry || entry.status === 'closed') return undefined
-  return {
-    name: entry.name,
-    cmd: entry.cmd,
-    ownerPaneId: entry.ownerPaneId,
-    startedAt: entry.startedAt,
-    status: entry.status,
-    ...(entry.cwd ? { cwd: entry.cwd } : {}),
-    ...(entry.exitCode !== undefined ? { exitCode: entry.exitCode } : {}),
-  }
-}
-
-function withKeptProcess(meta: KeptMeta): KeptMeta {
-  const { process: _old, ...base } = meta
-  const current = keptProcessOf(meta.paneId)
-  return current ? { ...base, process: current } : base
-}
-
-function syncKeptMeta(paneId: string): void {
-  const entry = ptys.get(paneId)
-  if (!entry?.kept || !entry.keptMeta) return
-  entry.keptMeta = withKeptProcess(entry.keptMeta)
-  entry.kept.setMeta(entry.keptMeta)
-}
-
-function paneLauncherDir(): string {
-  return join(app.getPath('userData'), 'bin')
-}
-
-const keptPlumbing = new KeptPlumbing({
-  launcherDir: paneLauncherDir(),
-  execPath: process.execPath,
-  appPath: app.getAppPath(),
-  listen: () => listenKeptControlSocket(keptControlSocketPath(app.getPath('userData'))),
-  warn: (code) => appLog?.warn('launcher-write-failed', { launcher: 'kept', code }),
-})
-
-function keptPaneEnv(env: NodeJS.ProcessEnv): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const [key, value] of Object.entries(env)) {
-    if (value === undefined || key === 'TERM') continue
-    out[key] = value
-  }
-  const launchers = keptLauncherPaths(paneLauncherDir())
-  return Object.assign(
-    out,
-    appEnv({
-      SOCKET: keptControlSocketPath(app.getPath('userData')),
-      CLI: launchers.cli,
-      NODE: launchers.node,
-    }),
-  )
-}
-
-function killPty(paneId: string, reason: ReapReason): void {
-  const entry = ptys.get(paneId)
-  if (!entry) return
-  appLog?.info('pty-reap', { pane: paneId, reason })
-  recoveryHeld.delete(paneId)
-  closedPanes.delete(paneId)
-  startedAgents.delete(paneId)
-  if (entry.killTimer) clearTimeout(entry.killTimer)
-  try {
-    entry.pty.kill()
-  } catch {}
-  entry.flow.dispose()
-  entry.mirror.dispose()
-  removeStateFile(entry)
-  keptShells.removeToken(paneId)
-  ptys.delete(paneId)
-  agentWork.clear(paneId)
-}
-
-function hibernatePty(paneId: string): boolean {
-  const entry = ptys.get(paneId)
-  if (!entry) return false
-  telemetry?.count('agents', 'hibernation')
-  stashScrollback(paneId, entry.mirror.serialize())
-  hibernatedPanes.add(paneId)
-  paneWaking.end(paneId, 'failed')
-  entry.subs.clear()
-  killPty(paneId, 'hibernated')
-  terminalState.delete(paneId)
-  return true
-}
-
-function ptyPid(paneId: string): number | undefined {
-  return ptys.get(paneId)?.pty.pid
-}
-
-async function paneOutput(paneId: string): Promise<PaneOutput | null> {
-  const entry = ptys.get(paneId)
-  if (!entry) return null
-  const text = await entry.mirror.screenText(HISTORY_LINES)
-  const report = entry.mirror.cwdReport
-  const remote = report !== null && !isHostNamed(report.host, hostname())
-  return { text, cwd: report?.path ?? null, remote }
-}
-
-function feedPty(entry: PtyEntry, data: string): void {
-  entry.session.push(data)
-  entry.mirror.write(data)
-  processes?.feed(entry.paneId, data, entry.session.cursor)
-}
-
-const paneIo: PaneIo = {
-  read: async (paneId, lines) => {
-    const entry = ptys.get(paneId)
-    return entry ? entry.mirror.screenText(lines) : null
-  },
-  write: (paneId, data) => {
-    const entry = ptys.get(paneId)
-    if (!entry) return false
-    const pasted = entry.kept ? pastedText(data) : null
-    if (entry.kept && pasted !== null) entry.kept.paste(pasted)
-    else entry.pty.write(data)
-    return true
-  },
-  bracketedPaste: (paneId) => {
-    const entry = ptys.get(paneId)
-    if (!entry) return false
-    return entry.kept !== null || entry.mirror.bracketedPaste
-  },
-  outputCursor: (paneId) => ptys.get(paneId)?.session.cursor,
-}
-
-function pausePty(entry: PtyEntry, paused: boolean): void {
-  try {
-    if (paused) entry.pty.pause?.()
-    else entry.pty.resume?.()
-  } catch {}
-}
-
-function releasePtyFlow(subId: string): void {
-  for (const entry of ptys.values()) entry.flow.release(subId)
-}
-
-function windowShown(wid: string): boolean {
-  const win = windows.get(wid)
-  return win !== undefined && !win.isDestroyed() && win.isVisible() && !win.isMinimized()
-}
-
-function hidePtyFlow(wid: string): void {
-  for (const entry of ptys.values()) entry.flow.hidden(wid)
-}
-
-function resizePty(entry: PtyEntry | undefined, cols: number, rows: number): void {
-  if (!entry) return
-  const c = cols || 80
-  const r = rows || 24
-  try {
-    entry.pty.resize(c, r)
-  } catch {
-    return
-  }
-  entry.mirror.resize(c, r)
-}
-
-const scratchFolders = new ScratchFolders(privateTmpDir(`${PRODUCT_NAME}-scratch`))
-
-const artifactFolders = new ArtifactFolders(
-  {
-    root: join(appDataDir(), 'artifacts'),
-    scratchDirOf: (workspaceId) => scratchFolders.dirOf(workspaceId),
-    scratchDirs: () => scratchFolders.dirs(),
-  },
-  (workspaceId, changes) => {
-    const windowId = windowForWorkspace(workspaceId)
-    if (windowId) windows.get(windowId)?.webContents.send('artifacts:changed', workspaceId)
-    const dir = artifactFolders.dirOf(workspaceId)
-    for (const { path, change } of changes.slice(0, ARTIFACT_LIST_MAX)) {
-      emitPlatformEvent('artifact.changed', { sessionId: workspaceId, path, change })
-      if (dir && change !== 'removed') artifactHistory.changed(workspaceId, join(dir, path))
-    }
-  },
-)
-
-function fileRoots(): string[] {
-  return [homedir(), app.getPath('userData'), scratchFolders.root, artifactFolders.root]
-}
-
-const openFileGrants = new OpenFileGrants({
-  roots: fileRoots,
-  file: join(app.getPath('userData'), 'opened-files.json'),
-})
-
-function artifactRuntimeDir(): string {
-  return app.isPackaged
-    ? join(process.resourcesPath, 'artifact-runtime')
-    : join(app.getAppPath(), 'out', 'artifact-runtime')
-}
-
-const portableBuilder = new PortableBuilder({
-  load: () => loadEsbuild(app.isPackaged),
-  runtimeDir: artifactRuntimeDir,
-  version: app.getVersion(),
-})
+const {
+  scratchFolders,
+  artifactFolders,
+  fileRoots,
+  openFileGrants,
+  previews,
+  portableExport,
+  artifactHistory,
+  artifactProducers,
+  artifactsChanged,
+  isScratchPane,
+} = createArtifactServices({ windows, workspaceSandboxes: () => workspaceSandboxes })
 
 const openWaits = new OpenWaits((windowId, paneIds) =>
   windows.get(windowId)?.webContents.send('open-waits:ended', paneIds),
 )
 
-const previews: PreviewHost = new PreviewHost({
-  sessionOf: (partition) => session.fromPartition(partition) as unknown as PreviewSession,
-  confine: (path) => openFileGrants.confine(path),
-  servesFolder: (dir) => artifactFolders.holds(dir),
-  ownsPane: (windowId, paneId) => getByPaneId(paneId)?.windowId === windowId,
-  send: (windowId, event) => windows.get(windowId)?.webContents.send('preview:event', event),
-  processes: () =>
-    app.getAppMetrics().map((metric) => ({
-      pid: metric.pid,
-      memoryBytes: metric.memory.workingSetSize * 1024,
-      cpuPercent: metric.cpu.percentCPUUsage,
-    })),
-  build: (source, theme) =>
-    previewBuild(artifactHistory, (s, t) => portableBuilder.preview(s, t))(source, theme),
-  hostZoom: (windowId) => windows.get(windowId)?.webContents.getZoomFactor() ?? 1,
+const {
+  workspaceSandboxes,
+  keptHostPanes,
+  syncKeptExposed,
+  sandboxViolations,
+  sandboxCanRead,
+  phoneFileScope,
+  paneForWorkspace,
+  domainRequests,
+  portForwarder,
+  packageRequests,
+  portRequests,
+  hostPaneGrants,
+  scanSandboxPorts,
+} = createSandboxServices({
+  ptys,
+  keptShells,
+  readSettingsFile,
+  paneLauncherDir,
+  keepShellsOn,
+  keptShellsProgram,
 })
-
-const portableExport = new PortableExport({
-  builder: portableBuilder,
-  confine: (path) => openFileGrants.confine(path),
-  servesFolder: (dir) => artifactFolders.holds(dir),
-  ownsWorkspace: (windowId, workspaceId) => windowForWorkspace(workspaceId) === windowId,
-  sandboxedFolders: () =>
-    knownWorkspaces()
-      .filter((workspaceId) => workspaceSandboxes.isEnabled(workspaceId))
-      .flatMap((workspaceId) =>
-        [workspaceSandboxes.workDir(workspaceId), artifactFolders.dirOf(workspaceId)].filter(
-          (folder): folder is string => typeof folder === 'string',
-        ),
-      ),
-  tmpDir: () => privateTmpDir(`${PRODUCT_NAME}-portable`),
-  openPath: (path) => shell.openPath(path),
-  saveDialog: async (windowId, defaultPath) => {
-    const owner = windows.get(windowId)
-    const options = { defaultPath, filters: [{ name: 'HTML', extensions: ['html'] }] }
-    const picked = owner
-      ? await dialog.showSaveDialog(owner, options)
-      : await dialog.showSaveDialog(options)
-    return picked.canceled || !picked.filePath ? null : picked.filePath
-  },
-  downloads: () => app.getPath('downloads'),
-  writeClipboard: (text) => clipboard.writeText(text),
-  version: app.getVersion(),
-})
-
-const artifactHistory: ArtifactHistory = new ArtifactHistory({
-  root: artifactFolders.root,
-  folderOf: (workspaceId) => artifactFolders.dirOf(workspaceId),
-  isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
-  make: (workspaceId, file) =>
-    portableExport.fileFor(file, previews.themeOf(windowForWorkspace(workspaceId))),
-})
-
-const artifactProducers = new ArtifactProducers({
-  file: (workspaceId) => join(artifactHistory.dirOf(workspaceId), 'producers.json'),
-  folderOf: (workspaceId) => artifactFolders.dirOf(workspaceId),
-})
-
-function artifactsChanged(workspaceId: string): void {
-  const windowId = windowForWorkspace(workspaceId)
-  if (windowId) windows.get(windowId)?.webContents.send('artifacts:changed', workspaceId)
-}
-
-function isScratchPane(paneId: string): boolean {
-  return scratchFolders.isScratch(getByPaneId(paneId)?.workspaceId)
-}
-
-const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
-  store: new SandboxStore(join(app.getPath('userData'), 'sandbox.json')),
-  globals: () => parseSandboxGlobals((readSettingsFile() as { sandbox?: unknown }).sandbox),
-  basePaths: () => {
-    const base: SandboxBasePaths = {
-      home: homedir(),
-      dataDirs: [
-        app.getPath('userData'),
-        dirname(storePath('workspaces', 'global')),
-        ...[
-          join(app.getPath('appData'), OLD_PRODUCT_NAME),
-          join(configHome(), OLD_PRODUCT_NAME),
-          join(dataHome(), OLD_PRODUCT_NAME),
-        ].filter((dir) => existsSync(dir)),
-      ],
-      runtimeDir: process.env.XDG_RUNTIME_DIR,
-      agentSockets: process.env.SSH_AUTH_SOCK ? [process.env.SSH_AUTH_SOCK] : [],
-      containerSockets: reachableContainerSockets(),
-      socketPath: controlSocketPath(),
-      srtVendorDir: srtVendorDir(app.getAppPath()),
-      runtimeReads: [
-        INTEGRATION_DIR,
-        privateTmpDir(`${PRODUCT_NAME}-shell-state`),
-        app.getAppPath(),
-        dirname(process.execPath),
-        paneLauncherDir(),
-      ],
-    }
-    return keepShellsOn()
-      ? { ...base, keptSocketPath: keptControlSocketPath(app.getPath('userData')) }
-      : base
-  },
-  workDir: (workspaceId) => workDirForWorkspace(workspaceId),
-  tmpRoot: privateTmpDir(`${PRODUCT_NAME}-sbx`),
-  nodePath: process.execPath,
-  hostScript: join(app.getAppPath(), 'out/sandbox/host.mjs'),
-  onAsk: (workspaceId, host, port) =>
-    domainRequests.onBlocked(workspaceSandboxes.owner(workspaceId), host, port),
-  onPackageBlocked: (workspaceId, pkg, reason) =>
-    packageRequests.blocked(workspaceSandboxes.owner(workspaceId), pkg, reason),
-  onViolations: (workspaceId, lines) =>
-    recordViolations(
-      sandboxViolations,
-      (path) => workspaceSandboxes.writeRefusal(workspaceId, path),
-      workspaceSandboxes.owner(workspaceId),
-      lines,
-    ),
-  kept: {
-    enabled: () => keepShellsOn() && keptShellsProgram() !== null,
-    tmpRoot: join(
-      privateTmpDir(`${PRODUCT_NAME}-sbx`),
-      `kept-${keptShellsName(app.getPath('userData'))}`,
-    ),
-    channel: (workspaceId) => keptHostChannel(app.getPath('userData'), workspaceId),
-    claim: (workspaceId) => {
-      const claimed = keptShells.claimHost(workspaceId)
-      if (!claimed) return undefined
-      keptHostPanes.set(workspaceId, claimed)
-      return { channel: claimed.meta.channel, tmpDir: claimed.meta.tmpDir }
-    },
-    spawn: async (workspaceId, spec) => {
-      const meta: KeptHostMeta = {
-        kind: SANDBOX_HOST_KIND,
-        workspaceId,
-        channel: spec.channel,
-        tmpDir: spec.tmpDir,
-        protocol: HOST_PROTOCOL_VERSION,
-        exposed: [],
-      }
-      const pane = await keptShells.spawnHost({
-        file: spec.file,
-        args: spec.args,
-        cwd: spec.tmpDir,
-        env: spec.env,
-        meta,
-      })
-      keptHostPanes.set(workspaceId, { pane, meta })
-    },
-    stop: (workspaceId) => {
-      keptHostPanes.get(workspaceId)?.pane.kill()
-      keptHostPanes.delete(workspaceId)
-    },
-  },
-})
-
-const keptHostPanes = new Map<string, { pane: TmuxPane; meta: KeptHostMeta }>()
-
-function syncKeptExposed(workspaceId: string, listening?: readonly SandboxListener[]): void {
-  const host = keptHostPanes.get(workspaceId)
-  if (!host) return
-  const exposed = portRequests.exposures(workspaceId, listening)
-  if (JSON.stringify(exposed) === JSON.stringify(host.meta.exposed)) return
-  host.meta = { ...host.meta, exposed }
-  host.pane.setMeta(host.meta)
-}
-
-const sandboxViolations = new ViolationLog()
 
 let languageServers: LanguageServers | null = null
 
-function editorLanguageOf(path: string): string {
-  return languageForPath(
-    path,
-    (extensionHost?.contributions.editorLanguages() ?? []).map((source) => source.language),
-  )
-}
-
-const managedServers = new ManagedServers({
-  dir: join(app.getPath('userData'), 'language-servers'),
-  userAgent: releaseUserAgent(app.getVersion()),
-  findProgram: (program) => programPath(program),
-  env: () => scrubbedEnv(process.env),
-  baseUrl: downloadBaseUrl(app.isPackaged, process.env),
-})
-
-function sandboxCanRead(workspaceId: string, path: string): boolean {
-  try {
-    const { denyRead, allowRead } = workspaceSandboxes.config(workspaceId).filesystem
-    return visibleInSandbox(path, { denyRead, allowRead })
-  } catch {
-    return false
-  }
-}
-
-function phoneReadRules(workspaceId: string): SandboxReadRules {
-  if (!workspaceSandboxes.isEnabled(workspaceId)) return { denyRead: [], allowRead: [] }
-  try {
-    const { denyRead, allowRead } = workspaceSandboxes.config(workspaceId).filesystem
-    return { denyRead, allowRead }
-  } catch {
-    return { denyRead: ['/'], allowRead: [] }
-  }
-}
-
-function phoneFileScope(workspaceId: string): PhoneFileScope {
-  const { home, dataDirs } = workspaceSandboxes.pathEnv()
-  return { home, dataDirs, rules: phoneReadRules(workspaceId) }
-}
-
-const LANGUAGE_SERVER_WATCH_DEBOUNCE_MS = 300
-const languageServerWatches = new TreeWatches({
-  confine: (dir) => resolveSafe(dir, fileRoots()),
-  debounceMs: LANGUAGE_SERVER_WATCH_DEBOUNCE_MS,
-})
-
-const serverOverrides = new ServerOverrides(
-  join(app.getPath('userData'), 'language-server-programs.json'),
-)
-
-function createLanguageServers(): LanguageServers {
-  return new LanguageServers({
-    watchTree: (root, onChange) => languageServerWatches.watch(root, onChange),
-    sources: () =>
-      (extensionHost?.contributions.languageServers() ?? []).map((source) => {
-        const override = serverOverrides.get(languageServerKey(source.extId, source.server.id))
-        return override ? { ...source, override } : source
-      }),
-    nodePath: process.execPath,
-    env: () => process.env,
-    pane: (paneId) => getByPaneId(paneId),
-    confine: (path) => openFileGrants.confine(path),
-    workDir: (workspaceId) => workDirForWorkspace(workspaceId),
-    roots: fileRoots,
-    sandbox: {
-      owner: (workspaceId) =>
-        workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
-          ? workspaceSandboxes.owner(workspaceId)
-          : null,
-      readable: sandboxCanRead,
-      wrap: (workspaceId, command, extraReads) =>
-        workspaceSandboxes.wrap(workspaceId, command, 'bash', [], extraReads),
-      env: (workspaceId, env) => ({
-        ...sandboxSpawnEnv(env as Record<string, string>),
-        TMPDIR: workspaceSandboxes.tmpDir(workspaceId),
-      }),
-    },
-    findProgram: (program) => programPath(program),
-    languageOf: editorLanguageOf,
-    managed: managedServers,
-    registerRequirements,
-    post: (windowId, channel, ...args) => {
-      const win = windows.get(windowId)
-      if (win && !win.isDestroyed()) win.webContents.send(channel, ...args)
-    },
-    changed: (list) => broadcast('lsp:servers-changed', list),
-    log: (event, fields) => appLog?.info(event, fields),
-  })
-}
-
-function paneForWorkspace(workspaceId: string): string | undefined {
-  for (const [paneId, entry] of ptys) {
-    if (entry.workspaceId === workspaceId && entry.sandboxed) return paneId
-  }
-  return undefined
-}
-
-const domainRequests: DomainRequests = new DomainRequests({
-  isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-  blockedDomains: (workspaceId) => workspaceSandboxes.resolved(workspaceId).deniedDomains,
-  ask: async ({ workspaceId, paneId, host, origin }) => {
-    const pane = paneId ? getByPaneId(paneId) : undefined
-    const identity = pane ?? getByPaneId(paneForWorkspace(workspaceId) ?? '')
-    const queue = approvals()
-    if (!identity || !queue) return 'deny'
-    return queue.request({
-      externalId: identity.externalId,
-      windowId: identity.windowId,
-      paneId: identity.paneId,
-      workspaceId,
-      caps: [],
-      kind: 'sandbox-domain',
-      subject: host,
-      action: origin === 'agent' ? `ostia sandbox request-domain ${host}` : `connect to ${host}`,
-      detail: '',
-    })
-  },
-  allowWorkspace: (workspaceId, domain) => {
-    workspaceSandboxes.update(workspaceId, (current) => ({
-      ...current,
-      domains: current.domains.includes(domain) ? current.domains : [...current.domains, domain],
-    }))
-  },
-  allowUntilRestart: (workspaceId, domain) =>
-    workspaceSandboxes.allowUntilRestart(workspaceId, domain),
-  now: Date.now,
+const {
+  editorLanguageOf,
+  managedServers,
+  languageServerWatches,
+  serverOverrides,
+  createLanguageServers,
+} = createLanguageServerWiring({
+  contributions: () => extensionHost?.contributions ?? null,
+  fileRoots,
+  openFileGrants,
+  workspaceSandboxes,
+  sandboxCanRead,
+  windows,
+  broadcast,
+  appLog: () => appLog,
 })
 
 let onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null = null
 
-function sandboxedPanes(workspaceId: string): SandboxPane[] {
-  const panes: SandboxPane[] = []
-  for (const entry of ptys.values()) {
-    if (entry.workspaceId === workspaceId && entry.sandboxed) {
-      panes.push({ pid: entry.pty.pid, bridge: entry.portBridge })
-    }
-  }
-  return panes
-}
-
-const portForwarder = new PortForwarder({
-  onChange: (workspaceId) => syncKeptExposed(workspaceId),
-  panesOf: sandboxedPanes,
-  unixSocketsOff: (workspaceId) => !workspaceSandboxes.resolved(workspaceId).switches.unixSockets,
-})
-
-const PACKAGE_BATCH_MS = 600
-
-const packageRequests: PackageRequests = new PackageRequests({
-  batchMs: PACKAGE_BATCH_MS,
-  ask: async ({ workspaceId, kind, packages }) => {
-    const identity = getByPaneId(paneForWorkspace(workspaceId) ?? '')
-    const queue = approvals()
-    if (!identity || !queue) return 'deny'
-    const names = packages.map((p) => `${p.ref.name}@${p.ref.version}`)
-    return queue.request({
-      externalId: identity.externalId,
-      windowId: identity.windowId,
-      paneId: identity.paneId,
-      workspaceId,
-      caps: [],
-      kind,
-      subject: names.join(', '),
-      action: `install ${names.length} package${names.length === 1 ? '' : 's'}`,
-      detail: packages
-        .map((p) => `${p.ref.ecosystem} ${p.ref.name}@${p.ref.version}: ${p.reason}`)
-        .join('\n'),
-    })
-  },
-  allowWorkspace: (workspaceId, key) => workspaceSandboxes.allowPackage(workspaceId, key, true),
-  allowUntilRestart: (workspaceId, key) => workspaceSandboxes.allowPackage(workspaceId, key, false),
-})
-
-const portRequests: PortRequests = new PortRequests({
-  platform: process.platform,
-  isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-  policy: (workspaceId) => workspaceSandboxes.resolved(workspaceId).portsPolicy,
-  ask: async ({ workspaceId, paneId, port, process: owner, origin }) => {
-    const pane = paneId ? getByPaneId(paneId) : undefined
-    const identity = pane ?? getByPaneId(paneForWorkspace(workspaceId) ?? '')
-    const queue = approvals()
-    if (!identity || !queue) return 'deny'
-    return queue.request({
-      externalId: identity.externalId,
-      windowId: identity.windowId,
-      paneId: identity.paneId,
-      workspaceId,
-      caps: [],
-      kind: 'sandbox-port',
-      subject: String(port),
-      action:
-        origin === 'agent' ? `ostia sandbox expose ${port}` : `a server started on port ${port}`,
-      detail: owner ?? '',
-    })
-  },
-  forwarder: portForwarder,
-})
-
 const PORT_SCAN_MS = 3000
 
-const HOST_GRANT_TTL_MS = 120_000
-const hostPaneGrants = new HostPaneGrants({ now: Date.now, ttlMs: HOST_GRANT_TTL_MS })
-
-function scanSandboxPorts(): void {
-  const workspaces = new Set<string>()
-  for (const entry of ptys.values()) if (entry.sandboxed) workspaces.add(entry.workspaceId)
-  for (const workspaceId of workspaces) {
-    void portRequests.scan(workspaceId).then(() => syncKeptExposed(workspaceId))
-  }
-}
-
-const GH_TOKEN_TTL_MS = 60_000
-let ghTokenCache: { at: number; value: string | null } | null = null
-
-function ghToken(): string | null {
-  if (ghTokenCache && Date.now() - ghTokenCache.at < GH_TOKEN_TTL_MS) return ghTokenCache.value
-  let value: string | null = null
-  const gh = programPath('gh')
-  if (gh) {
-    try {
-      value =
-        execFileSync(gh, ['auth', 'token'], { encoding: 'utf8', timeout: 3000 }).trim() || null
-    } catch {
-      value = null
-    }
-  }
-  ghTokenCache = { at: Date.now(), value }
-  return value
-}
-
-const secretService: SecretService = new SecretService({
-  home: homedir,
-  env: () => process.env,
-  ghToken,
-  vault: {
-    list: (workspaceId) => [
-      ...vaultKeys('global', workspaceId).map((key) => ({ key, scope: 'global' as const })),
-      ...vaultKeys('project', workspaceId).map((key) => ({ key, scope: 'project' as const })),
-    ],
-    get: (key, scope, workspaceId) => vaultValue(key, scope, workspaceId),
-  },
-  grantedIds: (workspaceId) =>
-    (workspaceSandboxes.settings(workspaceId).secrets ?? []).map((g) => g.id),
-  ask: async ({ workspaceId, paneId, name, reason }) => {
-    const identity = getByPaneId(paneId) ?? getByPaneId(paneForWorkspace(workspaceId) ?? '')
-    const queue = approvals()
-    if (!identity || !queue) return 'deny'
-    return queue.request({
-      externalId: identity.externalId,
-      windowId: identity.windowId,
-      paneId: identity.paneId,
-      workspaceId,
-      caps: [],
-      kind: 'secret',
-      subject: name,
-      action: `ostia secret get ${name}`,
-      detail: reason,
-    })
-  },
+const { secretService, workspaceAgents, injectSecrets } = createSecretServices({
+  workspaceSandboxes,
+  paneForWorkspace,
 })
-
-const workspaceAgents = new WorkspaceAgents()
-
-async function injectSecrets(
-  workspaceId: string,
-): Promise<{ env: Record<string, string>; notice: string }> {
-  const grants = workspaceSandboxes.settings(workspaceId).secrets ?? []
-  if (grants.length === 0) return { env: {}, notice: '' }
-  const dir = join(workspaceSandboxes.tmpDir(workspaceId), 'secrets')
-  const prepared = prepareSecrets({
-    grants,
-    list: secretService.list(workspaceId),
-    value: (id) => secretService.value(workspaceId, id),
-    dir,
-  })
-  const env = { ...prepared.env }
-  try {
-    const socket = await workspaceAgents.ensure(
-      workspaceId,
-      workspaceSandboxes.sshAgentSocket(workspaceId),
-      prepared.sshKeys,
-    )
-    if (socket) env.SSH_AUTH_SOCK = socket
-  } catch {
-    prepared.missing.push('ssh-agent')
-  }
-  const notice =
-    prepared.missing.length > 0
-      ? `\x1b[33m Granted secrets not found: ${prepared.missing.join(', ')}\x1b[0m\r\n`
-      : ''
-  return { env, notice }
-}
 
 const browserProfiles = new BrowserProfiles({
   ownerOf: (paneId) => {
@@ -1530,16 +653,6 @@ function fenceBrowserGuest(guest: Electron.WebContents): void {
   guest.on('will-redirect', guard)
 }
 
-const windows = new Map<string, BrowserWindow>()
-const commandsByWindow = new Map<string, CommandDescriptor[]>()
-
-const browserPanes = new Map<string, number>()
-
-const consoleBuffers = new Map<number, ConsoleEntry[]>()
-const errorBuffers = new Map<number, ConsoleEntry[]>()
-
-const terminalState = new Map<string, TerminalStateSnapshot>()
-
 let extensionHost: ExtensionHost | null = null
 let gitService: GitService | null = null
 let portsService: PortsService | null = null
@@ -1600,6 +713,131 @@ const isWaking = (paneId: string): boolean => paneWaking.has(paneId)
 const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
   broker?.reaches(senderWindowId, sourcePaneId, targetPaneId) ?? false
 let profileSync: ProfileSyncHandle | null = null
+
+const { loadPty, feedPty, trackPty } = createPtyRegistry({
+  ptys,
+  movingPanes,
+  recoveryHeld,
+  closedPanes,
+  scheduleReap: (paneId, entry) => scheduleReap(paneId, entry),
+  openWaits,
+  agentRunning,
+  agentWork,
+  keptAttention,
+  processes: () => processes,
+  appLog: () => appLog,
+})
+
+const { killPty, hibernatePty } = createPtyStop({
+  ptys,
+  recoveryHeld,
+  closedPanes,
+  hibernatedPanes,
+  startedAgents,
+  terminalState,
+  keptShells,
+  agentWork,
+  paneWaking,
+  telemetry: () => telemetry,
+  appLog: () => appLog,
+})
+
+const { paneActivity, sandboxReadRules, ptyPid, paneOutput } = createPtyQueries({
+  ptys,
+  agentRunning,
+  workspaceSandboxes,
+})
+
+const { paneIo, releasePtyFlow, hidePtyFlow, attachMirror, ptyResize, ptyWrite } = createPtyIo({
+  ptys,
+})
+
+const {
+  windowOfPane,
+  scheduleReap,
+  startRecovery,
+  finishRecovery,
+  releaseWindowPtys,
+  holdPtys,
+  releaseMovingPane,
+} = createPtyRecovery({
+  ptys,
+  movingPanes,
+  recoveryHeld,
+  closedPanes,
+  killPty,
+  appLog: () => appLog,
+})
+
+const { spawnSandboxed } = createSandboxSpawn({
+  workspaceSandboxes,
+  keptShells,
+  injectSecrets,
+  onSandboxSpawnFailure: () => onSandboxSpawnFailure,
+})
+
+const { reattachKept } = createKeptReattach({
+  workspaceSandboxes,
+  keptShells,
+  keptPlumbing,
+  keptAttention,
+  agentRunning,
+  hibernatedPanes,
+  portRequests,
+  trackPty,
+  feedPty,
+  releaseMergedSandbox,
+  restoreKeptAttention,
+  processes: () => processes,
+  appLog: () => appLog,
+})
+
+const { subscriberFor, attachExisting } = createLiveAttach({ windows, movingPanes, recoveryHeld })
+
+const { planSpawn } = createSpawnPlanner({
+  scratchFolders,
+  artifactFolders,
+  hostPaneGrants,
+  workspaceSandboxes,
+  readSettingsFile,
+  paneLauncherDir,
+  keepShellsOn,
+  keptShellsProgram,
+  telemetry: () => telemetry,
+})
+
+const { spawnKept } = createKeptSpawner({
+  keptShells,
+  keptPlumbing,
+  withKeptProcess,
+  keptPaneEnv,
+  appLog: () => appLog,
+})
+
+const { startTracked } = createPtyStart({
+  keptShells,
+  workspaceSandboxes,
+  hibernatedPanes,
+  trackPty,
+  feedPty,
+  releaseMergedSandbox,
+  telemetry: () => telemetry,
+  appLog: () => appLog,
+})
+
+const { attachPty } = createPtyAttach({
+  ptys,
+  keptShells,
+  loadPty,
+  subscriberFor,
+  attachExisting,
+  reattachKept,
+  planSpawn,
+  spawnSandboxed,
+  spawnKept,
+  startTracked,
+  telemetry: () => telemetry,
+})
 
 const EXTENSION_PARTITION_PREFIX = 'ostia-ext-'
 
@@ -2311,7 +1549,7 @@ function mergeWorkspace(sourceId: string, targetId: string): void {
   releaseMergedSandbox(sourceId)
 }
 
-function registerPtyIpc(): void {
+function registerWorkspaceIpc(): void {
   registerWorkspaceMergeIpc({
     ownerWindow: windowForWorkspace,
     hasManager: workspaceHasManager,
@@ -2353,639 +1591,6 @@ function registerPtyIpc(): void {
     const gpu = discreteGpu(await querySwitcherooGpus())
     return gpu ? { name: gpu.name, inUse: gpuStartPlan(process.env, gpu).kind === 'stay' } : null
   })
-  const attaching = new Map<string, Promise<PtyAttachResult>>()
-  ipcMain.handle('pty:attach', async (e, paneId: string, opts: PtySpawnOptions) => {
-    const previous = attaching.get(paneId)
-    if (previous) await previous.catch(() => undefined)
-    const pending = attachPty(e, paneId, opts)
-    attaching.set(paneId, pending)
-    try {
-      return await pending
-    } finally {
-      if (attaching.get(paneId) === pending) attaching.delete(paneId)
-    }
-  })
-
-  async function attachPty(
-    e: Electron.IpcMainInvokeEvent,
-    paneId: string,
-    opts: PtySpawnOptions,
-  ): Promise<PtyAttachResult> {
-    const subId = String(e.sender.id)
-    if (!panesOwnedBy([paneId], subId)) {
-      return { created: false, buffer: '', cursor: 0, dropped: false }
-    }
-    const mkSub = (entry: PtyEntry): Subscriber => {
-      const role: SubscriberRole = opts.role === 'observer' ? 'observer' : 'owner'
-      const lane = role === 'owner' ? entry.flow.open(subId, () => windowShown(subId)) : null
-      const output = new CoalescedOutput((data) => {
-        if (e.sender.isDestroyed()) return
-        e.sender.send(`pty:data:${paneId}`, data)
-        lane?.sent(data.length)
-      })
-      return {
-        id: subId,
-        role,
-        send: (data) => output.push(data),
-        flush: () => output.flush(),
-        close: () => {
-          output.close()
-          lane?.close()
-        },
-      }
-    }
-
-    const existing = ptys.get(paneId)
-    if (existing) {
-      if (existing.killTimer) {
-        clearTimeout(existing.killTimer)
-        existing.killTimer = null
-      }
-      movingPanes.delete(paneId)
-      recoveryHeld.delete(paneId)
-      existing.subs.set(subId, e.sender)
-      existing.session.addLiveSubscriber(mkSub(existing))
-      const { data, cursor, dropped } = existing.session.since(opts.sinceCursor ?? 0)
-      return {
-        created: false,
-        buffer: data,
-        cursor,
-        dropped,
-        shell: shellName(existing.shell) || undefined,
-        sandboxed: existing.sandboxed,
-        ...(existing.sandboxStamp ? { sandboxStamp: existing.sandboxStamp } : {}),
-        ...(existing.kept ? { kept: true } : {}),
-        cols: existing.pty.cols,
-        rows: existing.pty.rows,
-      }
-    }
-    await keptShells.ready
-    const keptShell = keptShells.claim(paneId)
-    if (keptShell) return reattachKept(e, paneId, opts, keptShell, mkSub)
-    if (keptShells.takeSandboxLost(paneId)) {
-      return {
-        created: false,
-        buffer: sandboxFailureBanner(SANDBOX_LOST_WHILE_AWAY, []),
-        cursor: 0,
-        dropped: false,
-        sandboxed: true,
-      }
-    }
-    if (opts.attachOnly) return { created: false, buffer: '', cursor: 0, dropped: false }
-
-    const mod = loadPty()
-    if (!mod) {
-      telemetry?.count('terminal', 'spawn_failure', 'node-pty-unavailable')
-      return {
-        created: false,
-        buffer: '\r\n\x1b[38;2;239;89;111m node-pty unavailable — run: pnpm rebuild\x1b[0m\r\n',
-        cursor: 0,
-        dropped: false,
-      }
-    }
-    const settings = readSettingsFile()
-    const [shell, ...shellArgs] = shellArgv(
-      settings.terminal?.shell,
-      process.env.SHELL ?? (process.platform === 'win32' ? 'powershell.exe' : 'bash'),
-    )
-    telemetry?.count('terminal', 'shell', shellFamily(shell))
-    const resolved = attachWorkspace(getByPaneId(paneId)?.workspaceId, opts.workspaceId ?? '')
-    if (!resolved.ok) {
-      return {
-        created: false,
-        buffer: sandboxFailureBanner('the pane belongs to another workspace', []),
-        cursor: 0,
-        dropped: false,
-      }
-    }
-    const identity = registerPane({ windowId: subId, workspaceId: resolved.workspaceId, paneId })
-    const workspaceId = identity.workspaceId
-    const integration = shellIntegrationSpawnOptions(
-      shell,
-      process.env,
-      opts.ostiaPrompt ?? null,
-      scratchFolders.historyFile(workspaceId),
-    )
-    const cols = opts.cols || 80
-    const rows = opts.rows || 24
-    const stateFile = join(privateTmpDir(`${PRODUCT_NAME}-shell-state`), randomUUID())
-    let env = paneShellEnv({
-      version: app.getVersion(),
-      locale: app.getLocale(),
-      parent: process.env,
-      integration: integration.env,
-      pane: appEnv({
-        PANE_ID: identity.externalId,
-        START_DIR: opts.cwd ?? '',
-        SOCKET: controlSocketPath(),
-        CLI: join(app.getAppPath(), 'out/cli/index.js'),
-        NODE: process.execPath,
-        SHELL_STATE: stateFile,
-      }),
-      agentHooks: settings.agents?.hooks,
-      artifactsDir: workspaceId ? artifactFolders.ensure(workspaceId) : null,
-      launcherDir: paneLauncherDir(),
-    })
-    let secretNotice = ''
-    let sandboxStamp: string | null = null
-    let resizePipe: string | null = null
-    let portBridge: PortBridge | null = null
-    let file = shell
-    let args = [...integration.args, ...shellArgs]
-    const folder = spawnFolder(opts.cwd)
-    let cwd = folder.cwd
-    const host = opts.hostToken ? hostPaneGrants.consume(opts.hostToken) : false
-    const sandboxed = !host && workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
-    const wantsKeep = keepShellsOn() && !host
-    if (wantsKeep && !keptShellsProgram()) await loginPathSettled()
-    let notKept = wantsKeep && !keptShellsProgram() ? TMUX_MISSING : ''
-    let tokenFile: string | null = null
-    if (sandboxed) {
-      try {
-        writeFileSync(stateFile, '', { mode: 0o600 })
-        const secrets = await injectSecrets(workspaceId)
-        secretNotice = secrets.notice
-        resizePipe = needsPtyRelay(relayForced(app.isPackaged, process.env))
-          ? join(workspaceSandboxes.tmpDir(workspaceId), `resize-${randomUUID()}`)
-          : null
-        portBridge = bridgesPorts(
-          process.platform,
-          workspaceSandboxes.resolved(workspaceId).switches.unixSockets,
-        )
-          ? await PortBridge.open(workspaceSandboxes.tmpDir(workspaceId))
-          : null
-        if (wantsKeep && !notKept) {
-          await workspaceSandboxes.connect(workspaceId)
-          if (!workspaceSandboxes.isKept(workspaceId)) notKept = SANDBOX_NOT_KEPT
-        }
-        if (wantsKeep && !notKept) tokenFile = keptShells.writeToken(paneId, identity.token)
-        const wrapped = await workspaceSandboxes.wrap(
-          workspaceId,
-          sandboxedShellCommand(
-            quoteArgv([shell, ...args]),
-            env.SHELL,
-            resizePipe,
-            portBridge?.command ?? null,
-          ),
-          'bash',
-          tokenFile ? [stateFile, keptShells.attentionFile(paneId)] : [stateFile],
-          tokenFile ? [tokenFile, keptShells.attentionFile(paneId)] : [],
-        )
-        sandboxStamp = workspaceSandboxes.wrapStamp(workspaceId)
-        file = '/bin/sh'
-        args = ['-c', wrapForTerminal(wrapped, resizePipe)]
-        env = {
-          ...sandboxSpawnEnv(env),
-          ...packageCooldownEnv(
-            workspaceSandboxes.packagePolicy(workspaceId).cooldownDays,
-            Date.now(),
-          ),
-          ...secrets.env,
-        }
-        env.TMPDIR = workspaceSandboxes.tmpDir(workspaceId)
-        cwd = sandboxCwd(cwd, workspaceSandboxes.workDir(workspaceId))
-      } catch (err) {
-        portBridge?.close()
-        if (tokenFile) keptShells.removeToken(paneId)
-        const missing = err instanceof SandboxUnavailableError ? err.missing : []
-        onSandboxSpawnFailure?.(workspaceId, missing)
-        return {
-          created: false,
-          buffer: sandboxFailureBanner(err instanceof Error ? err.message : String(err), missing),
-          cursor: 0,
-          dropped: false,
-          sandboxed: true,
-        }
-      }
-    }
-    if (ptys.has(paneId)) {
-      portBridge?.close()
-      return attachPty(e, paneId, opts)
-    }
-    if (wantsKeep && !notKept && !tokenFile) {
-      tokenFile = keptShells.writeToken(paneId, identity.token)
-    }
-    env = withPaneToken(env, identity.token, tokenFile)
-    let kept: TmuxPane | null = null
-    let keptMeta: KeptMeta | null = null
-    if (wantsKeep && !notKept) {
-      keptPlumbing.ensure()
-      keptMeta = withKeptProcess({
-        paneId,
-        externalId: identity.externalId,
-        workspaceId,
-        shell,
-        stateFile,
-        spawnPath: env.PATH ?? '',
-        ...(sandboxed
-          ? { sandbox: { stamp: sandboxStamp, bridgeId: portBridge?.id ?? null, resizePipe } }
-          : {}),
-      })
-      try {
-        kept = await keptShells.spawn({
-          file,
-          args,
-          cwd,
-          env: keptPaneEnv(env),
-          cols,
-          rows,
-          meta: keptMeta,
-        })
-      } catch (err) {
-        notKept = err instanceof Error ? err.message : String(err)
-        keptMeta = null
-        appLog?.info('kept-spawn-failed', { pane: paneId, reason: notKept })
-      }
-      if (ptys.has(paneId)) {
-        kept?.kill()
-        return attachPty(e, paneId, opts)
-      }
-    }
-    const pty: PaneProcess =
-      kept ??
-      mod.spawn(file, args, {
-        name: PTY_TERM_NAME,
-        cols,
-        rows,
-        cwd,
-        env,
-      })
-    const entry = trackPty(paneId, pty, {
-      kept,
-      keptMeta,
-      cols,
-      rows,
-      subs: new Map([[subId, e.sender]]),
-      spawnPath: env.PATH ?? '',
-      stateFile,
-      keepAlive: false,
-      workspaceId,
-      sandboxed,
-      shell,
-      sandboxStamp,
-      portBridge,
-    })
-    const { session } = entry
-    if (tokenFile) entry.exitListeners.add(() => keptShells.removeToken(paneId))
-    if (sandboxed) {
-      entry.exitListeners.add(() => {
-        if (resizePipe) rmSync(resizePipe, { force: true })
-        portBridge?.close()
-        void workspaceSandboxes.cleanup(workspaceId)
-        releaseMergedSandbox(workspaceId, entry)
-      })
-    }
-
-    const history = takeRestoredScrollback(paneId)
-    if (history) appLog?.info('scrollback-replay', { pane: paneId, chars: history.length })
-    const seam = hibernatedPanes.delete(paneId) ? HIBERNATE_SEAM : RESTORE_SEAM
-    if (history) feedPty(entry, `${history}${seam}`)
-    if (secretNotice) feedPty(entry, secretNotice)
-    if (notKept) feedPty(entry, keepShellsNotice(notKept))
-    if (sandboxed && workspaceSandboxes.claimHomeNotice(workspaceId)) {
-      const notice = hiddenHomeNotice()
-      if (notice) feedPty(entry, notice)
-    }
-    if (history) entry.mirror.markRestored(history)
-
-    pty.onData((d) => feedPty(entry, d))
-    pty.onExit(({ exitCode }) => session.exit(exitCode))
-    const { data, cursor, dropped } = session.since(0)
-    session.addLiveSubscriber(mkSub(entry))
-    if (folder.missing) telemetry?.count('terminal', 'spawn_failure', 'cwd-missing')
-    return {
-      created: true,
-      buffer: data,
-      cursor,
-      dropped,
-      shell: shellName(shell) || undefined,
-      sandboxed,
-      host,
-      ...(sandboxStamp ? { sandboxStamp } : {}),
-      ...(kept ? { kept: true } : {}),
-      ...(folder.missing ? { cwdMissing: true } : {}),
-    }
-  }
-
-  async function reattachKept(
-    e: Electron.IpcMainInvokeEvent,
-    paneId: string,
-    opts: PtySpawnOptions,
-    kept: KeptShell,
-    mkSub: (entry: PtyEntry) => Subscriber,
-  ): Promise<PtyAttachResult> {
-    const subId = String(e.sender.id)
-    const { pane, meta } = kept
-    const identity = adoptPane({ windowId: subId, workspaceId: meta.workspaceId, paneId })
-    if (identity.externalId !== meta.externalId) {
-      appLog?.info('kept-pane-id-changed', { pane: paneId })
-    }
-    keptPlumbing.ensure()
-    const savedAttention = keptShells.savedAttention(paneId)
-    keptShells.writeToken(paneId, identity.token)
-    keptAttention.reattached(paneId, agentRunning.has(paneId))
-    takeRestoredScrollback(paneId)
-    hibernatedPanes.delete(paneId)
-    const cols = opts.cols || pane.cols
-    const rows = opts.rows || pane.rows
-    const sandbox = meta.sandbox
-    const workspaceId = meta.workspaceId
-    const keptHost = sandbox ? keptShells.keptHost(workspaceId) : undefined
-    if (keptHost) workspaceSandboxes.adoptKeptTmp(workspaceId, keptHost.tmpDir)
-    const portBridge = sandbox?.bridgeId
-      ? await PortBridge.open(workspaceSandboxes.tmpDir(workspaceId), undefined, sandbox.bridgeId)
-      : null
-    const entry = trackPty(paneId, pane, {
-      kept: pane,
-      keptMeta: meta,
-      cols,
-      rows,
-      subs: new Map([[subId, e.sender]]),
-      spawnPath: meta.spawnPath,
-      stateFile: meta.stateFile,
-      keepAlive: false,
-      workspaceId,
-      shell: meta.shell,
-      sandboxed: sandbox !== undefined,
-      sandboxStamp: sandbox?.stamp ?? null,
-      portBridge,
-    })
-    if (sandbox) {
-      entry.exitListeners.add(() => {
-        if (sandbox.resizePipe) rmSync(sandbox.resizePipe, { force: true })
-        portBridge?.close()
-        void workspaceSandboxes.cleanup(workspaceId)
-        releaseMergedSandbox(workspaceId, entry)
-      })
-      portRequests.keep(workspaceId, keptHost?.exposed ?? [])
-      void workspaceSandboxes.connect(workspaceId).catch(() => undefined)
-    }
-    pane.onData((d) => feedPty(entry, d))
-    pane.onExit(({ exitCode }) => entry.session.exit(exitCode))
-    let screen = ''
-    try {
-      screen = await pane.snapshot(cols, rows)
-    } catch {}
-    feedPty(entry, `${RESTORE_SEAM}${screen}`)
-    const keptAgent = agentRunning.stillRunning(paneId, {
-      foreground: await pane.currentCommand().catch(() => ''),
-      shell: meta.shell,
-      sandboxed: sandbox !== undefined,
-    })
-    if (meta.process) {
-      processes?.adopt(
-        {
-          ...meta.process,
-          cwd: meta.process.cwd,
-          workspaceId: meta.workspaceId,
-          paneId,
-          externalPaneId: identity.externalId,
-        },
-        entry.session.cursor,
-      )
-    }
-    pane.live()
-    const { data, cursor, dropped } = entry.session.since(0)
-    entry.session.addLiveSubscriber(mkSub(entry))
-    if (savedAttention) restoreKeptAttention(identity, savedAttention)
-    return {
-      created: false,
-      buffer: data,
-      cursor,
-      dropped,
-      shell: shellName(meta.shell) || undefined,
-      sandboxed: sandbox !== undefined,
-      ...(sandbox?.stamp ? { sandboxStamp: sandbox.stamp } : {}),
-      kept: true,
-      reattached: true,
-      ...(keptAgent ? { agentRunning: true } : {}),
-      cols: pane.cols,
-      rows: pane.rows,
-    }
-  }
-
-  ipcMain.on('pty:detach', (e, paneId: string) => {
-    const entry = ptys.get(paneId)
-    if (!entry) return
-    const subId = String(e.sender.id)
-    entry.subs.delete(subId)
-    entry.session.removeSubscriber(subId)
-  })
-
-  ipcMain.handle('pty:hibernate', async (_e, raw: string): Promise<HibernateOutcome> => {
-    const paneId = String(raw)
-    const entry = ptys.get(paneId)
-    if (!entry) return 'no-terminal'
-    const busy = backgroundWork(agentWork.reason(paneId), await readProcessTable(), entry.pty.pid)
-    if (busy) return busy
-    return ptys.get(paneId) === entry && hibernatePty(paneId) ? 'hibernated' : 'no-terminal'
-  })
-
-  ipcMain.handle('pty:kept-waiting', async (): Promise<string[]> => {
-    await keptShells.ready
-    return keptShells.waitingPaneIds()
-  })
-
-  ipcMain.handle('pty:stashed', (e, paneId: string): string | null =>
-    stashedScreen(String(paneId), String(e.sender.id), windowOfPane(String(paneId))),
-  )
-
-  ipcMain.handle('pty:restart', (e, paneId: string): boolean => {
-    const entry = ptys.get(String(paneId))
-    if (!entry?.subs.has(String(e.sender.id))) return false
-    killPty(String(paneId), 'restart')
-    return true
-  })
-
-  ipcMain.on('pty:agent-running', (e, paneId: unknown, running: unknown) => {
-    if (typeof paneId !== 'string' || typeof running !== 'boolean') return
-    const attached = ptys.get(paneId)?.subs.has(String(e.sender.id)) === true
-    agentRunning.report(paneId, running, attached)
-  })
-
-  ipcMain.on('pty:ack', (e, paneId: unknown, chars: unknown) => {
-    if (typeof paneId !== 'string' || typeof chars !== 'number') return
-    ptys.get(paneId)?.flow.ack(String(e.sender.id), chars)
-  })
-  app.on('render-process-gone', (_e, contents) => {
-    releasePtyFlow(String(contents.id))
-    openWaits.windowGone(String(contents.id))
-  })
-
-  ipcMain.on('pty:waking', (e, paneId: unknown, waking: unknown) => {
-    if (typeof paneId !== 'string' || typeof waking !== 'boolean') return
-    if (getByPaneId(paneId)?.windowId !== String(e.sender.id)) return
-    if (waking) paneWaking.start(paneId)
-    else paneWaking.end(paneId, 'failed')
-  })
-
-  ipcMain.on('pty:write', (e, paneId: string, data: string) => {
-    const entry = ptys.get(paneId)
-    if (entry?.session.canWrite(String(e.sender.id))) entry.pty.write(data)
-  })
-  ipcMain.handle('pty:foreground', (e, paneId: string): string | null => {
-    const entry = ptys.get(paneId)
-    if (!entry?.subs.has(String(e.sender.id))) return null
-    try {
-      const name = entry.pty.process
-      return typeof name === 'string' && name ? (name.split('/').pop() ?? null) : null
-    } catch {
-      return null
-    }
-  })
-  ipcMain.handle('pty:activity', (e, paneId: string): PaneActivity | null => {
-    const entry = ptys.get(String(paneId))
-    if (!entry?.subs.has(String(e.sender.id))) return null
-    return paneActivity(entry)
-  })
-  registerCommandNamesIpc(executables, (paneId) => {
-    const entry = ptys.get(paneId)
-    if (!entry) return null
-    return {
-      owners: entry.subs,
-      localPrompt: holdsLocalPrompt(entry),
-      stateFile: entry.stateFile,
-      spawnPath: entry.spawnPath,
-      rules: sandboxReadRules(entry),
-    }
-  })
-  registerShellHistoryIpc({
-    enabled: () => readSettingsFile().behavior?.historySuggestions !== false,
-    files: shellHistoryFiles,
-    pane: (paneId) => {
-      const entry = ptys.get(paneId)
-      if (!entry) return null
-      return {
-        owners: entry.subs,
-        localPrompt: holdsLocalPrompt(entry),
-        shell: entry.shell,
-        stateFile: entry.stateFile,
-        rules: sandboxReadRules(entry),
-      }
-    },
-  })
-  ipcMain.handle('pty:local-prompt', (e, paneId: string): boolean => {
-    const entry = ptys.get(paneId)
-    return entry?.subs.has(String(e.sender.id)) === true && holdsLocalPrompt(entry)
-  })
-  registerPathCompletionIpc((paneId) => {
-    const entry = ptys.get(paneId)
-    if (!entry) return null
-    return {
-      owners: entry.subs,
-      localPrompt: holdsLocalPrompt(entry),
-      rules: sandboxReadRules(entry),
-    }
-  })
-  ipcMain.handle(
-    'pty:prompt-context',
-    async (e, paneId: string, want: PromptContextRequest): Promise<PromptContext | null> => {
-      const entry = ptys.get(paneId)
-      if (!entry?.subs.has(String(e.sender.id))) return null
-      const state = await readShellState(entry.stateFile)
-      return promptContext(
-        state,
-        entry.spawnPath,
-        terminalState.get(paneId)?.cwd,
-        { node: want?.node === true, kube: want?.kube === true },
-        promptSources,
-      )
-    },
-  )
-  ipcMain.on('pty:resize', (_e, paneId: string, cols: number, rows: number) => {
-    const entry = ptys.get(paneId)
-    if (!entry?.keepAlive) resizePty(entry, cols, rows)
-  })
-}
-
-function trackPty(
-  paneId: string,
-  pty: PaneProcess,
-  opts: {
-    cols: number
-    rows: number
-    subs: Map<string, Electron.WebContents>
-    spawnPath: string
-    stateFile: string
-    keepAlive: boolean
-    workspaceId?: string
-    sandboxed?: boolean
-    shell?: string
-    sandboxStamp?: string | null
-    portBridge?: PortBridge | null
-    kept?: TmuxPane | null
-    keptMeta?: KeptMeta | null
-  },
-): PtyEntry {
-  const spawnedAt = Date.now()
-  const session = new PtySession({
-    capBytes: PTY_BUFFER_CAP,
-    onNoOwners: () => {
-      if (
-        ptys.get(paneId) !== entry ||
-        entry.killTimer ||
-        entry.keepAlive ||
-        movingPanes.has(paneId)
-      ) {
-        return
-      }
-      scheduleReap(paneId, entry)
-    },
-    onExit: (code) => {
-      appLog?.info('pty-exit', { pane: paneId, code })
-      if (entry.killTimer) clearTimeout(entry.killTimer)
-      entry.killTimer = null
-      const closes = closesPaneOnExit({
-        ownExit: ptys.get(paneId) === entry,
-        code,
-        livedMs: Date.now() - spawnedAt,
-      })
-      for (const wc of entry.subs.values()) {
-        if (!wc.isDestroyed()) wc.send(`pty:exit:${paneId}`, code, closes)
-      }
-      for (const listener of entry.exitListeners) listener(code)
-      processes?.shellEnded(paneId, (from) => session.since(from))
-      entry.flow.dispose()
-      entry.mirror.dispose()
-      removeStateFile(entry)
-      if (ptys.get(paneId) === entry) {
-        ptys.delete(paneId)
-        openWaits.callerExited(paneId)
-        movingPanes.delete(paneId)
-        agentRunning.shellEnded(paneId)
-        agentWork.clear(paneId)
-        keptAttention.reported(paneId)
-        recoveryHeld.delete(paneId)
-        closedPanes.delete(paneId)
-      }
-    },
-  })
-  const entry: PtyEntry = {
-    paneId,
-    pty,
-    session,
-    flow: new PtyFlowControl({
-      pause: () => pausePty(entry, true),
-      resume: () => pausePty(entry, false),
-    }),
-    mirror: new ScreenMirror(opts.cols, opts.rows),
-    subs: opts.subs,
-    killTimer: null,
-    spawnPath: opts.spawnPath,
-    stateFile: opts.stateFile,
-    keepAlive: opts.keepAlive,
-    exitListeners: new Set(),
-    workspaceId: opts.workspaceId ?? '',
-    sandboxed: opts.sandboxed ?? false,
-    shell: opts.shell ?? '',
-    sandboxStamp: opts.sandboxStamp ?? null,
-    portBridge: opts.portBridge ?? null,
-    confinedBy: opts.sandboxed ? (opts.workspaceId ?? '') : null,
-    kept: opts.kept ?? null,
-    keptMeta: opts.keptMeta ?? null,
-  }
-  ptys.set(paneId, entry)
-  return entry
 }
 
 function paneEnv(paneId: string, windowId: string, cwd: string): Record<string, string> {
@@ -3067,36 +1672,6 @@ function spawnManagerPty(req: {
   pty.onData((d) => feedPty(entry, d))
   pty.onExit(({ exitCode }) => entry.session.exit(exitCode))
   return true
-}
-
-const MIRROR_SUBSCRIBER = 'portal-mirror'
-
-function attachMirror(paneId: string, sink: MirrorSink): MirrorHandle | null {
-  const entry = ptys.get(paneId)
-  if (!entry) return null
-  const onExit = (code: number): void => sink.exit(code)
-  entry.exitListeners.add(onExit)
-  entry.session.addSubscriber(
-    { id: MIRROR_SUBSCRIBER, role: 'owner', send: (data) => sink.data(data) },
-    0,
-  )
-  return {
-    write: (data) => {
-      if (ptys.get(paneId) === entry) entry.pty.write(data)
-    },
-    resize: (cols, rows) => {
-      if (ptys.get(paneId) !== entry) return
-      if (entry.pty.cols === cols && entry.pty.rows === rows) return
-      resizePty(entry, cols, rows)
-      for (const wc of entry.subs.values()) {
-        if (!wc.isDestroyed()) wc.send(`pty:size:${paneId}`, cols, rows)
-      }
-    },
-    detach: () => {
-      entry.exitListeners.delete(onExit)
-      entry.session.removeSubscriber(MIRROR_SUBSCRIBER)
-    },
-  }
 }
 
 const FILE_WATCH_DEBOUNCE_MS = 150
@@ -3285,14 +1860,6 @@ export function attachPhoneObserver(
   }
 }
 
-export function ptyResize(rendererPaneId: string, cols: number, rows: number): void {
-  resizePty(ptys.get(rendererPaneId), cols, rows)
-}
-
-export function ptyWrite(rendererPaneId: string, data: string): void {
-  ptys.get(rendererPaneId)?.pty.write(data)
-}
-
 let reqSeq = 0
 
 export function execCommand(
@@ -3401,37 +1968,13 @@ function sendToWorkspaceWindow(
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
 }
 
-let connectionsStore: ExtensionConnections | null = null
-
-function extensionConnections(): ExtensionConnections {
-  connectionsStore ??= new ExtensionConnections(
-    join(app.getPath('userData'), 'extension-connections.json'),
-    () => extensionSecretStore(),
-  )
-  return connectionsStore
-}
-
-function extensionSecretStore() {
-  return encryptedStore(storePath('extension-secrets', 'global'))
-}
-
-function assistKeyStore() {
-  return encryptedStore(storePath('assist-keys', 'global'))
-}
-
-function encryptedFile(path: string): SecretStoreDeps {
-  return {
-    load: () => loadJson<unknown>(path, {}),
-    save: (data) => saveJson(path, data, { secure: true }),
-    canEncrypt: () => safeStorage.isEncryptionAvailable(),
-    encrypt: (plain) => safeStorage.encryptString(plain).toString('base64'),
-    decrypt: (secret) => safeStorage.decryptString(Buffer.from(secret, 'base64')),
-  }
-}
-
-function encryptedStore(path: string) {
-  return createSecretStore(encryptedFile(path))
-}
+const {
+  extensionConnections,
+  extensionSecretStore,
+  assistKeyStore,
+  encryptedFile,
+  encryptedStore,
+} = createEncryptedStores()
 
 function readSettingsFileOrNull(): { assistant?: unknown } | null {
   try {
@@ -3765,7 +2308,24 @@ app.whenReady().then(() => {
     mac: process.platform === 'darwin',
   })
   registerIpc()
-  registerPtyIpc()
+  registerWorkspaceIpc()
+  registerPtyIpc({
+    attachPty,
+    ptys,
+    terminalState,
+    keptShells,
+    openWaits,
+    agentWork,
+    agentRunning,
+    paneWaking,
+    hibernatePty,
+    killPty,
+    releasePtyFlow,
+    paneActivity,
+    sandboxReadRules,
+    windowOfPane,
+    readSettingsFile,
+  })
   registerFsIpc()
   registerSelectionIpc(reachesPane, redactor.text)
   registerPreviewIpc(previews, (png) => {
