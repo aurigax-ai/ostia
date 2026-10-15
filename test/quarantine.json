@@ -1,1 +1,20 @@
-[]
+[
+  {
+    "file": "src/renderer/components/keyboard/KeyboardSection.mac.test.tsx",
+    "name": "KeyboardSection on macOS > lists the default terminal keys and switches to Natural Text Editing",
+    "issue": 842,
+    "until": "2026-11-13"
+  },
+  {
+    "file": "src/renderer/components/editor/CsvTable.test.tsx",
+    "name": "CsvTable > says so when it shows only the first 5,000 rows",
+    "issue": 842,
+    "until": "2026-11-13"
+  },
+  {
+    "file": "src/renderer/components/rail/DeckRail.palette.test.tsx",
+    "name": "DeckRail edits started from the palette > Rename Workspace from the palette focuses the rail editor and keeps the typed name",
+    "issue": 842,
+    "until": "2026-11-13"
+  }
+]
