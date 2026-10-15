@@ -8,9 +8,11 @@ import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/workspaces/windo
 import { useUIStore } from '@/stores/app/uiStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
-import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { AppWindowIcon } from '@phosphor-icons/react'
-import { GROUP_CLASS, ItemRow } from './PaletteItemRow'
+import { ItemRow } from './PaletteItemRow'
+import { GROUP_CLASS } from './paletteClasses'
 
 export interface Places {
   workspaces: Workspace[]

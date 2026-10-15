@@ -4,7 +4,7 @@ import {
   moveWorkspaceToNewWindow,
   returnToMainWindow,
 } from '@/lib/workspaces/windowHandoff'
-import { registerCore } from './core'
+import { registerCore } from './coreCommand'
 
 export function registerWindowCommands(detached: boolean): void {
   registerCore({

@@ -1,4 +1,4 @@
-import { registerCore } from '@/commands/core'
+import { registerCore } from '@/commands/coreCommand'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import { type RailEdit, revealRailEdit } from '@/stores/workspaces/railEditStore'

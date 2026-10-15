@@ -10,7 +10,8 @@ import {
 import { symbolOf } from '@/lib/palette/paletteModes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { useEffect, useState } from 'react'
-import { GROUP_CLASS, ItemRow } from './PaletteItemRow'
+import { ItemRow } from './PaletteItemRow'
+import { GROUP_CLASS } from './paletteClasses'
 
 export function SymbolItems({
   query,

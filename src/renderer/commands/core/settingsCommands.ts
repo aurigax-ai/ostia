@@ -1,4 +1,4 @@
-import { registerCore } from '@/commands/core'
+import { registerCore } from '@/commands/coreCommand'
 import { setKeybindingSetting } from '@/lib/keyboard/chords'
 import { keymapSettingValue, terminalKeymapSettingValue } from '@/lib/settings/keymapSetting'
 import { settingsSchemaAt } from '@/lib/settings/settingsSchema'

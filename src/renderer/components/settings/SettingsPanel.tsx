@@ -71,7 +71,8 @@ import {
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
-import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import {
   type ExtensionInfo,

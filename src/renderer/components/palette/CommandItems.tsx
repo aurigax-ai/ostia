@@ -6,7 +6,8 @@ import { chordLabel, useBindings } from '@/lib/keyboard/chords'
 import { symbolOf } from '@/lib/palette/paletteModes'
 import { isMac } from '@/platform'
 import { type ArgumentCommand, runFromPalette } from './ArgumentStep'
-import { GROUP_CLASS, ItemRow } from './PaletteItemRow'
+import { ItemRow } from './PaletteItemRow'
+import { GROUP_CLASS } from './paletteClasses'
 
 type RegisteredCommand = ReturnType<typeof commands.list>[number]
 

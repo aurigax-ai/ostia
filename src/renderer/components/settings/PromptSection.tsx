@@ -9,7 +9,8 @@ import { addChip, contributedChipId, moveChip, removeChip } from '@/lib/prompt/p
 import { usePromptChips } from '@/lib/prompt/usePromptChips'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
-import { type WorkspaceLayout, useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import type { WorkspaceLayout } from '@/stores/workspaces/layoutTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
   ArrowDownIcon,

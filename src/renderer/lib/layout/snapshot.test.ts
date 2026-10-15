@@ -1,17 +1,8 @@
 import type { AppSnapshot } from '@shared/types'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { setDefaultPaneTitle, setPaneView } from './paneFields'
 import { buildSnapshot, restoreSnapshot } from './snapshot'
-import {
-  createPane,
-  resetIds,
-  setDefaultPaneTitle,
-  setPaneView,
-  setSplitTabName,
-  splitOf,
-  splitPane,
-  tabIdOf,
-  tabsOf,
-} from './tree'
+import { createPane, resetIds, setSplitTabName, splitOf, splitPane, tabIdOf, tabsOf } from './tree'
 import type { LayoutNode } from './types'
 
 beforeEach(() => resetIds())

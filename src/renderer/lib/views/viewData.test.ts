@@ -1,5 +1,5 @@
 import type { LayoutNode } from '@/lib/layout/types'
-import type { Workspace } from '@/stores/workspaces/workspacesStore'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import type {
   ExtensionSidebarItem,
   WorkspaceChip,

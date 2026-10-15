@@ -1,4 +1,4 @@
-import { registerCore } from '@/commands/core'
+import { registerCore } from '@/commands/coreCommand'
 import { hibernateWorkspaces, resumeWorkspaces } from '@/lib/agents/hibernationScheduler'
 import { currentDict } from '@/lib/app/useDict'
 import { goToWorkspace, markWorkspaceRead, stepWorkspace } from '@/lib/attention/workspaceActivity'

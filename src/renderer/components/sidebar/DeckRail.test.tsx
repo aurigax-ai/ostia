@@ -17,7 +17,8 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useMergeConfirmStore } from '@/stores/workspaces/mergeConfirmStore'
 import { startRailEditSync, useRailEditStore } from '@/stores/workspaces/railEditStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
-import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { zhHant } from '@shared/app/dict'
 import {
   act,

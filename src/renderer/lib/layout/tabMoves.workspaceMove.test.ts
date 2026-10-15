@@ -1,15 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { landTab, takeTab } from './tabMoves'
 import {
   createPane,
   findPane,
-  landTab,
   paneIds,
   resetIds,
   splitOf,
   splitPane,
   splitTabOfPane,
   tabsOf,
-  takeTab,
 } from './tree'
 import type { LayoutNode } from './types'
 

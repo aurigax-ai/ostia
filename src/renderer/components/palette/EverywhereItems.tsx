@@ -12,7 +12,8 @@ import {
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useEffect, useMemo, useState } from 'react'
-import { GROUP_CLASS, ItemRow } from './PaletteItemRow'
+import { ItemRow } from './PaletteItemRow'
+import { GROUP_CLASS } from './paletteClasses'
 
 const SETTINGS_SYMBOL = '§'
 const FILES_TEXT_SYMBOL = '¶'

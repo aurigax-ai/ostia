@@ -12,7 +12,8 @@ import {
 import { symbolOf } from '@/lib/palette/paletteModes'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useEffect, useState } from 'react'
-import { GROUP_CLASS, ItemRow } from './PaletteItemRow'
+import { ItemRow } from './PaletteItemRow'
+import { GROUP_CLASS } from './paletteClasses'
 
 export function FileItems({
   query,
