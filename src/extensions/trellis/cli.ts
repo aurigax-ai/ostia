@@ -3,15 +3,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type ToolRun, runTool } from '@aurigax-ai/ostia-extension-sdk'
 import {
-  type BoardInfo,
-  type CardDetail,
-  type ProjectInfo,
-  type TrellisBoard,
-  type TrellisCard,
-  type TrellisDaemonStatus,
-  type TrellisError,
-  type VaultEntry,
-  type VaultEntrySummary,
   parseBoard,
   parseBoards,
   parseCard,
@@ -22,6 +13,17 @@ import {
   parseProjects,
   parseVaultEntry,
   parseVaultList,
+} from './parsers'
+import type {
+  BoardInfo,
+  CardDetail,
+  ProjectInfo,
+  TrellisBoard,
+  TrellisCard,
+  TrellisDaemonStatus,
+  TrellisError,
+  VaultEntry,
+  VaultEntrySummary,
 } from './trellis'
 
 export type CliResult<T> = { ok: true; value: T } | { ok: false; error: TrellisError }

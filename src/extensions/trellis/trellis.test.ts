@@ -3,17 +3,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
-  boardSlug,
-  cardPath,
-  cardRef,
-  cardTitle,
-  columnName,
-  countBoard,
-  entrySlug,
-  findProject,
-  longText,
-  needsUser,
-  panelTarget,
   parseBoard,
   parseBoards,
   parseCard,
@@ -22,15 +11,24 @@ import {
   parseDaemonStatus,
   parseError,
   parseEventLine,
-  parseMarker,
   parseObjectOutput,
   parseProjects,
   parseVaultEntry,
   parseVaultList,
+} from './parsers'
+import { countBoard, findProject, needsUser, parseMarker, projectOfRef } from './trellis'
+import {
+  boardSlug,
+  cardPath,
+  cardRef,
+  cardTitle,
+  columnName,
+  entrySlug,
+  longText,
+  panelTarget,
   priority,
   projectKey,
-  projectOfRef,
-} from './trellis'
+} from './validate'
 
 const fixture = (name: string): string =>
   readFileSync(join(__dirname, '../../../test/fixtures/tools/trellis', name), 'utf8')
