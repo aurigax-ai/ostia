@@ -268,6 +268,19 @@
         "src/main/agents/extensionAgents.",
         "src/main/extensions/extensionConfirm.ts",
         "src/main/extensions/extensionHost.",
+        "src/main/extensions/assistModelChoices.ts",
+        "src/main/extensions/extensionAssist.",
+        "src/main/extensions/extensionConfig.ts",
+        "src/main/extensions/extensionContributions.ts",
+        "src/main/extensions/extensionEvents.ts",
+        "src/main/extensions/extensionHostDeps.ts",
+        "src/main/extensions/extensionMethods.ts",
+        "src/main/extensions/extensionPanels.",
+        "src/main/extensions/extensionProcesses.ts",
+        "src/main/extensions/extensionRuns.ts",
+        "src/main/extensions/extensionRuntime.ts",
+        "src/main/extensions/extensionSlots.ts",
+        "src/main/extensions/extensionWindowRequests.ts",
         "packages/extension-sdk/src/manifest/localeCatalogs.",
         "packages/extension-sdk/src/manifest/extensionManifest.",
         "src/main/extensions/extensionSecrets.",
@@ -925,7 +938,11 @@
         "src/renderer/stores/terminal/blocksStore.ts",
         "src/renderer/stores/terminal/historySearchStore.ts"
       ],
-      "specs": ["e2e/blocks.spec.ts", "e2e/input-editor.spec.ts", "e2e/terminal-basics.spec.ts"]
+      "specs": [
+        "e2e/blocks.spec.ts",
+        "e2e/input-editor.spec.ts",
+        "e2e/terminal-basics.spec.ts"
+      ]
     },
     {
       "name": "tabs and panes",
@@ -1081,7 +1098,11 @@
         "src/renderer/components/settings/DiscreteGpuRow.tsx",
         "src/renderer/components/app/WindowControls.tsx"
       ],
-      "specs": ["e2e/auto-resume.spec.ts", "e2e/quit-confirm.spec.ts", "e2e/tray.spec.ts"]
+      "specs": [
+        "e2e/auto-resume.spec.ts",
+        "e2e/quit-confirm.spec.ts",
+        "e2e/tray.spec.ts"
+      ]
     },
     {
       "name": "command palette",
