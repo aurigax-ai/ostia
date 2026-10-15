@@ -69,7 +69,6 @@ interface PtyWiringDeps {
   keptPaneEnv: KeptShellsWiring['keptPaneEnv']
 }
 
-
 export function createPtyWiring({
   ptys,
   movingPanes,

@@ -300,7 +300,6 @@ interface ExtensionIpcDeps {
   remoteCwdOfPane: (paneId: string) => RemoteCwd | undefined
 }
 
-
 export function createExtensionIpc({
   services,
   configDir,
