@@ -119,7 +119,6 @@ import { createSandboxSpawn } from './terminal/pty/ptySandboxSpawn'
 import { createSpawnPlanner } from './terminal/pty/ptySpawnPlan'
 import { createPtyStart } from './terminal/pty/ptyStart'
 import { createPtyStop } from './terminal/pty/ptyStop'
-import type { SubscriberRole } from './terminal/ptySession'
 import { registerSelectionIpc } from './terminal/selectionReport'
 import type { SavedAttention } from './tmux/attentionFile'
 import { KeptAttention } from './tmux/keptAttention'
@@ -169,82 +168,43 @@ const terminalState = new Map<string, TerminalStateSnapshot>()
 
 const ptys = new Map<string, PtyEntry>()
 
-interface AppServices {
-  appLog: AppLog | null
-  diagnostics: Diagnostics | null
-  telemetry: Telemetry | null
-  restoreOutcome: RestoreOutcome
-  marketplaceInstallIds: () => string[]
-  processes: ProcessRegistry | null
-  updateRunner: UpdateRunner | null
-  languageServers: LanguageServers | null
-  onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null
-  extensionHost: ExtensionHost | null
-  gitService: GitService | null
-  portsService: PortsService | null
-  viewHost: ViewHost | null
-  mcpHost: McpHost | null
-  mcpOAuth: McpOAuth | null
-  broker: WindowBroker | null
-  profileSync: ProfileSyncHandle | null
-  stopTailnet: (() => Promise<void>) | null
-  stopAnnouncing: (() => void) | null
-  clipboardEdits: ClipboardEdits | null
-  guestChords: GuestChords | null
-  appTray: AppTray | null
-  globalHotkey: GlobalHotkey | null
-  releaseChecks: { settingsChanged: () => void } | null
-  managerService: ManagerService | null
-  managerLimiter: ManagerLimiter | null
-  portal: Portal | null
-  fileWatches: FileWatches | null
-}
-
-interface QuitState {
-  restartRequested: boolean
-  stagedUpdate: { pending: PendingSweep; sweepFile: string } | null
-  quitApproved: boolean
-  scrollbackSavedForQuit: boolean
-  savingScrollbackForQuit: boolean
-}
-
-const quit: QuitState = {
+const quit = {
   restartRequested: false,
-  stagedUpdate: null,
+  stagedUpdate: null as { pending: PendingSweep; sweepFile: string } | null,
   quitApproved: false,
   scrollbackSavedForQuit: false,
   savingScrollbackForQuit: false,
 }
 
-const services: AppServices = {
-  appLog: null,
-  diagnostics: null,
-  telemetry: null,
-  restoreOutcome: 'none',
-  marketplaceInstallIds: () => [],
-  processes: null,
-  updateRunner: null,
-  languageServers: null,
-  onSandboxSpawnFailure: null,
-  extensionHost: null,
-  gitService: null,
-  portsService: null,
-  viewHost: null,
-  mcpHost: null,
-  mcpOAuth: null,
-  broker: null,
-  profileSync: null,
-  stopTailnet: null,
-  stopAnnouncing: null,
-  clipboardEdits: null,
-  guestChords: null,
-  appTray: null,
-  globalHotkey: null,
-  releaseChecks: null,
-  managerService: null,
-  managerLimiter: null,
-  portal: null,
-  fileWatches: null,
+const services = {
+  appLog: null as AppLog | null,
+  diagnostics: null as Diagnostics | null,
+  telemetry: null as Telemetry | null,
+  restoreOutcome: 'none' as RestoreOutcome,
+  marketplaceInstallIds: (): string[] => [],
+  processes: null as ProcessRegistry | null,
+  updateRunner: null as UpdateRunner | null,
+  languageServers: null as LanguageServers | null,
+  onSandboxSpawnFailure: null as ((workspaceId: string, errors: string[]) => void) | null,
+  extensionHost: null as ExtensionHost | null,
+  gitService: null as GitService | null,
+  portsService: null as PortsService | null,
+  viewHost: null as ViewHost | null,
+  mcpHost: null as McpHost | null,
+  mcpOAuth: null as McpOAuth | null,
+  broker: null as WindowBroker | null,
+  profileSync: null as ProfileSyncHandle | null,
+  stopTailnet: null as (() => Promise<void>) | null,
+  stopAnnouncing: null as (() => void) | null,
+  clipboardEdits: null as ClipboardEdits | null,
+  guestChords: null as GuestChords | null,
+  appTray: null as AppTray | null,
+  globalHotkey: null as GlobalHotkey | null,
+  releaseChecks: null as { settingsChanged: () => void } | null,
+  managerService: null as ManagerService | null,
+  managerLimiter: null as ManagerLimiter | null,
+  portal: null as Portal | null,
+  fileWatches: null as FileWatches | null,
 }
 
 const {
@@ -520,7 +480,15 @@ const { paneActivity, sandboxReadRules, ptyPid, paneOutput } = createPtyQueries(
   workspaceSandboxes,
 })
 
-const { paneIo, releasePtyFlow, hidePtyFlow, attachMirror, ptyResize, ptyWrite } = createPtyIo({
+const {
+  paneIo,
+  releasePtyFlow,
+  hidePtyFlow,
+  attachMirror,
+  ptyResize,
+  ptyWrite,
+  attachPhoneObserver,
+} = createPtyIo({
   ptys,
 })
 
@@ -690,33 +658,6 @@ function reloadFocusedWindow(): void {
   const focused = BrowserWindow.getFocusedWindow()
   const win = focused && [...windows.values()].includes(focused) ? focused : mainWindow()
   if (win && !win.isDestroyed()) services.diagnostics?.reloadWindow(win.webContents)
-}
-
-let gwSubSeq = 0
-
-export function attachPhoneObserver(
-  rendererPaneId: string,
-  opts: {
-    sinceCursor?: number
-    role?: 'observer' | 'owner'
-    sendData: (data: string) => void
-  },
-): { cursor: number; dropped: boolean; cols: number; rows: number; detach: () => void } | null {
-  const entry = ptys.get(rendererPaneId)
-  if (!entry) return null
-  const id = `gw-${++gwSubSeq}`
-  const role: SubscriberRole = opts.role === 'owner' ? 'owner' : 'observer'
-  const { cursor, dropped } = entry.session.addSubscriber(
-    { id, role, send: (data) => opts.sendData(data) },
-    opts.sinceCursor ?? 0,
-  )
-  return {
-    cursor,
-    dropped,
-    cols: entry.pty.cols,
-    rows: entry.pty.rows,
-    detach: () => entry.session.removeSubscriber(id),
-  }
 }
 
 const {
