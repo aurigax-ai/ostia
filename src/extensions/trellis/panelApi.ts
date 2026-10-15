@@ -71,7 +71,7 @@ function invalid(field: string): ExtensionResult {
   return failure('invalid-args', field)
 }
 
-export function panelHandlers(deps: PanelDeps): Record<string, CommandHandler> {
+function handlerKit(deps: PanelDeps) {
   const { service } = deps
   const cli = service.cli
   let daemon: { api: DaemonApi | null; at: number } | null = null
@@ -130,6 +130,13 @@ export function panelHandlers(deps: PanelDeps): Record<string, CommandHandler> {
     return { ref, board, workspaceId: caller.workspaceId }
   }
 
+  return { deps, service, cli, currentDaemon, wrote, refArg, taskCard, track, taskArgs }
+}
+
+type HandlerKit = ReturnType<typeof handlerKit>
+
+function boardHandlers(kit: HandlerKit): Record<string, CommandHandler> {
+  const { deps, service, cli, currentDaemon, refArg } = kit
   return {
     context: async (_args, caller) => {
       if (!(await cli.isInstalled())) {
@@ -170,6 +177,12 @@ export function panelHandlers(deps: PanelDeps): Record<string, CommandHandler> {
       const thread = api && board ? await readThread(api, project, board, ref) : null
       return ok(undefined, { card: detail.value, thread })
     },
+  }
+}
+
+function writeHandlers(kit: HandlerKit): Record<string, CommandHandler> {
+  const { cli, wrote, refArg } = kit
+  return {
     move: async (args) => {
       const ref = refArg(args)
       const column = columnName(namedArgs(args).column)
@@ -223,6 +236,12 @@ export function panelHandlers(deps: PanelDeps): Record<string, CommandHandler> {
       })
       return wrote(res, (card) => ({ card }))
     },
+  }
+}
+
+function vaultHandlers(kit: HandlerKit): Record<string, CommandHandler> {
+  const { cli } = kit
+  return {
     vault: async (args) => {
       const project = projectKey(namedArgs(args).project)
       if (!project) return invalid('project')
@@ -236,7 +255,12 @@ export function panelHandlers(deps: PanelDeps): Record<string, CommandHandler> {
       if (!slug) return invalid('slug')
       return result(await cli.vaultEntry(project, slug), (entry) => ({ entry }))
     },
-    init: async (_args, caller) => initHere(deps, caller),
+  }
+}
+
+function agentHandlers(kit: HandlerKit): Record<string, CommandHandler> {
+  const { deps, service, refArg, taskCard, track, taskArgs } = kit
+  return {
     agents: async () => ok(undefined, { agents: await deps.agents.list() }),
     tasks: async () =>
       ok(undefined, {
@@ -287,6 +311,17 @@ export function panelHandlers(deps: PanelDeps): Record<string, CommandHandler> {
       service.changed()
       return failure('pane-closed', t('task.gone'))
     },
+  }
+}
+
+export function panelHandlers(deps: PanelDeps): Record<string, CommandHandler> {
+  const kit = handlerKit(deps)
+  return {
+    ...boardHandlers(kit),
+    ...writeHandlers(kit),
+    ...vaultHandlers(kit),
+    init: async (_args, caller) => initHere(deps, caller),
+    ...agentHandlers(kit),
   }
 }
 
