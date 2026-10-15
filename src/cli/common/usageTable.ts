@@ -130,7 +130,7 @@ export const USAGE_TABLE: readonly NounUsage[] = [
     verbs: [
       {
         verb: 'run',
-        args: `<agent> [--name N] [--cwd DIR] ${WORKSPACE_FLAG} [--tab <name>] <prompt|->`,
+        args: `<agent> [--name N] [--model M] [--cwd DIR] ${WORKSPACE_FLAG} [--tab <name>] <prompt|->`,
         about: 'start claude, codex or an agent the human configured with that prompt',
       },
     ],

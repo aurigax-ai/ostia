@@ -566,7 +566,10 @@ test('KSH-C38 waking a hibernated agent with the setting on starts a fresh windo
     ...KEEP,
     agents: { hibernation: HIBERNATE_FAST },
   })
-  const bin = fakeAgentBin(dataHome, '#!/bin/sh\necho "fake agent up: $*"\nexec sleep 600\n')
+  const bin = fakeAgentBin(
+    dataHome,
+    '#!/bin/sh\nELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude e2e-kept-tok >/dev/null 2>&1\necho "fake agent up: $*"\nexec sleep 600\n',
+  )
   const { app, win } = await launch(dataHome, pathWith(bin))
   try {
     await openWorkspace(win)

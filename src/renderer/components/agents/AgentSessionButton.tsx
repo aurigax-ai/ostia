@@ -3,7 +3,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { type AgentSession, agentSession } from '@/lib/agents/agentSession'
-import { commandAgent } from '@/lib/agents/hibernation'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useNow } from '@/lib/app/useNow'
 import type { PaneNode } from '@/lib/layout/types'
@@ -70,12 +69,7 @@ export function usePaneAgentSession(pane: PaneNode): AgentSession | null {
     const marked = s.agentBlocks[pane.id]
     return marked?.blockId === blockId ? marked.agent : null
   })
-  return agentSession(
-    pane,
-    running,
-    attention,
-    running ? (commandAgent(running.command) ?? agent) : null,
-  )
+  return agentSession(pane, running, attention, running ? agent : null)
 }
 
 export function AgentSessionButton({ pane }: { pane: PaneNode }): JSX.Element | null {

@@ -21,6 +21,7 @@ import type { KeptShellsWiring } from '../../tmux/keptShellsWiring'
 import { createKeptSpawner } from '../../tmux/keptSpawn'
 import type { ScratchFolders } from '../../workspaces/scratchFolders'
 import type { WorkspaceLifecycle } from '../../workspaces/workspaceLifecycle'
+import type { PaneHistories } from '../history/paneHistories'
 import { createPtyAttach } from './ptyAttach'
 import { createPtyIo } from './ptyIo'
 import { createLiveAttach } from './ptyLiveAttach'
@@ -47,6 +48,7 @@ interface PtyWiringDeps {
     onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null
     processes: ProcessRegistry | null
     telemetry: Telemetry | null
+    histories: PaneHistories | null
   }
   hibernatedPanes: Set<string>
   startedAgents: Set<string>
@@ -113,6 +115,7 @@ export function createPtyWiring({
     keptAttention,
     processes: () => services.processes,
     appLog: () => services.appLog,
+    histories: () => services.histories,
   })
 
   const { killPty, hibernatePty } = createPtyStop({

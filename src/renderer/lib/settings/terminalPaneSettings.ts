@@ -4,11 +4,17 @@ import {
   type PromptSettings,
   parsePromptSettings,
 } from '@shared/terminal/promptSettings'
+import {
+  DEFAULT_SCROLLBACK_HISTORY,
+  type ScrollbackHistory,
+  parseScrollbackHistory,
+} from '@shared/terminal/scrollbackHistory'
 import { parseShellSetting } from '@shared/terminal/terminalShell'
 
 export interface TerminalSettings {
   scrollSpeed: number
   scrollbackLines: number
+  scrollbackHistory: ScrollbackHistory
   warnOnRiskyPaste: boolean
   minimumContrast: number
   prompt: PromptSettings
@@ -49,6 +55,7 @@ export const CONTRAST_MAX = 21
 export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
   scrollSpeed: 1,
   scrollbackLines: 10000,
+  scrollbackHistory: DEFAULT_SCROLLBACK_HISTORY,
   warnOnRiskyPaste: true,
   minimumContrast: 1,
   prompt: DEFAULT_PROMPT_SETTINGS,
@@ -103,6 +110,7 @@ export function parseTerminalSettings(raw: unknown): TerminalSettings {
     ...pickBooleans(DEFAULT_TERMINAL_SETTINGS, source),
     scrollSpeed: clampScrollSpeed(source.scrollSpeed),
     scrollbackLines: clampScrollback(source.scrollbackLines),
+    scrollbackHistory: parseScrollbackHistory(source.scrollbackHistory),
     minimumContrast: clampContrast(source.minimumContrast),
     prompt: parsePromptSettings(source.prompt),
     clipboardKeys: CLIPBOARD_KEYS.includes(source.clipboardKeys as ClipboardKeys)

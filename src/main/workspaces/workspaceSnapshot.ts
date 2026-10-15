@@ -3,6 +3,7 @@ import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { parseResumeFailure, parseStoredResume } from '../../shared/agents/agentResume'
+import { parseBrowserDevice } from '../../shared/browser/browserDevice'
 import type {
   AppSnapshot,
   PaneDrop,
@@ -113,6 +114,8 @@ function parseNode(
     copyOptionalString(raw, pane, 'extensionId')
     if (pane.kind === 'chat') copyOptionalString(raw, pane, 'chatSessionId')
     if (pane.kind === 'browser' && raw.browserProfile === 'shared') pane.browserProfile = 'shared'
+    const device = pane.kind === 'browser' ? parseBrowserDevice(raw.browserDevice) : undefined
+    if (device) pane.browserDevice = device
     if (typeof raw.viewName === 'string' && VIEW_NAME.test(raw.viewName)) {
       pane.viewName = raw.viewName
     }

@@ -1,15 +1,11 @@
-import {
-  type IBuffer,
-  type IBufferCell,
-  type IBufferLine,
-  type IMarker,
-  Terminal,
-} from '@xterm/headless'
+import { type IBufferLine, type IMarker, Terminal } from '@xterm/headless'
 import { type CwdReport, parseOsc7 } from '../../shared/terminal/osc7'
+import { HistorySpill } from './history/historySpill'
+import type { PaneHistory } from './history/paneHistory'
+import { serializeLines } from './screenSerialize'
 
 const MIRROR_SCROLLBACK = 2000
 export const HISTORY_LINES = 1000
-const SGR_RESET = '\x1b[0m'
 const PROMPT_START = 'A'
 const COMMAND_START = 'C'
 export const RESTORE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── workspace restored ──\x1b[0m\r\n'
@@ -17,72 +13,6 @@ export const HIBERNATE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── woke from hiberna
 
 function isBlank(line: IBufferLine | undefined): boolean {
   return !line || line.translateToString(true).trim() === ''
-}
-
-function colorParams(cell: IBufferCell, fg: boolean): number[] {
-  const rgb = fg ? cell.isFgRGB() : cell.isBgRGB()
-  const palette = fg ? cell.isFgPalette() : cell.isBgPalette()
-  const color = fg ? cell.getFgColor() : cell.getBgColor()
-  if (rgb) return [fg ? 38 : 48, 2, (color >> 16) & 255, (color >> 8) & 255, color & 255]
-  if (!palette) return []
-  if (color < 8) return [(fg ? 30 : 40) + color]
-  if (color < 16) return [(fg ? 90 : 100) + color - 8]
-  return [fg ? 38 : 48, 5, color]
-}
-
-function cellStyle(cell: IBufferCell): string {
-  if (cell.isAttributeDefault()) return ''
-  const params = [0]
-  if (cell.isBold()) params.push(1)
-  if (cell.isDim()) params.push(2)
-  if (cell.isItalic()) params.push(3)
-  if (cell.isUnderline()) params.push(4)
-  if (cell.isBlink()) params.push(5)
-  if (cell.isInverse()) params.push(7)
-  if (cell.isInvisible()) params.push(8)
-  if (cell.isStrikethrough()) params.push(9)
-  if (cell.isOverline()) params.push(53)
-  params.push(...colorParams(cell, true), ...colorParams(cell, false))
-  return `\x1b[${params.join(';')}m`
-}
-
-function isEmptyCell(cell: IBufferCell): boolean {
-  const chars = cell.getChars()
-  return (chars === '' || chars === ' ') && cell.isBgDefault() && !cell.isInverse()
-}
-
-function contentEnd(line: IBufferLine, cell: IBufferCell): number {
-  for (let x = line.length - 1; x >= 0; x--) {
-    if (line.getCell(x, cell) && !isEmptyCell(cell)) return x + 1
-  }
-  return 0
-}
-
-function serializeLines(buffer: IBuffer, start: number, end: number): string {
-  const cell = buffer.getNullCell()
-  let out = ''
-  let style = ''
-  for (let y = start; y <= end; y++) {
-    const line = buffer.getLine(y)
-    if (!line) continue
-    if (y > start && !line.isWrapped) {
-      if (style) out += SGR_RESET
-      style = ''
-      out += '\r\n'
-    }
-    const continues = y < end && buffer.getLine(y + 1)?.isWrapped === true
-    const stop = continues ? line.length : contentEnd(line, cell)
-    for (let x = 0; x < stop; x++) {
-      if (!line.getCell(x, cell) || cell.getWidth() === 0) continue
-      const next = cellStyle(cell)
-      if (next !== style) {
-        out += next || SGR_RESET
-        style = next
-      }
-      out += cell.getChars() || ' '
-    }
-  }
-  return style ? `${out}${SGR_RESET}` : out
 }
 
 export class ScreenMirror {
@@ -96,8 +26,11 @@ export class ScreenMirror {
   private changes = 0
   private serialized: { at: number; text: string } | undefined
   private reportedCwd: CwdReport | null = null
+  private readonly spill: HistorySpill | null
+  readonly blockSeqBase: number
+  private readonly continuesHistory: boolean
 
-  constructor(cols: number, rows: number) {
+  constructor(cols: number, rows: number, paneHistory: PaneHistory | null = null) {
     this.targetCols = Math.max(1, cols)
     this.targetRows = Math.max(1, rows)
     this.term = new Terminal({
@@ -115,6 +48,9 @@ export class ScreenMirror {
       return false
     })
     this.term.onWriteParsed(() => this.changes++)
+    this.blockSeqBase = paneHistory?.seqOffset ?? 0
+    this.continuesHistory = (paneHistory?.end ?? 0) > (paneHistory?.first ?? 0)
+    this.spill = paneHistory ? new HistorySpill(this.term, paneHistory) : null
   }
 
   get cwdReport(): CwdReport | null {
@@ -158,12 +94,28 @@ export class ScreenMirror {
 
   restore(history: string): void {
     if (this.disposed || !history) return
+    if (this.continuesHistory) this.spill?.hold()
     this.term.write(`${history}\r\n`, () => {
       if (this.disposed) return
       this.clearUntouched()
       const seamEnd = this.term.registerMarker(0)
-      if (seamEnd) this.untouched = { history, seamEnd, prompted: false }
+      if (seamEnd) {
+        this.spill?.resumeAt(seamEnd)
+        this.untouched = { history, seamEnd, prompted: false }
+      }
     })
+  }
+
+  async pendingBlockEnd(
+    seq: number,
+  ): Promise<{ line: number; endCol: number; exitCode: number } | null> {
+    await this.flush()
+    return this.disposed ? null : (this.spill?.pendingEnd(seq) ?? null)
+  }
+
+  async historyTail(): Promise<string[]> {
+    await this.flush()
+    return this.disposed ? [] : (this.spill?.tail() ?? [])
   }
 
   serialize(): string {
@@ -211,6 +163,8 @@ export class ScreenMirror {
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
+    this.spill?.finish()
+    this.spill?.dispose()
     this.clearPromptStart()
     this.clearUntouched()
     this.term.dispose()

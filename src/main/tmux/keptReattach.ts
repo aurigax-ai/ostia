@@ -131,7 +131,7 @@ export function createKeptReattach({
       )
     }
     pane.live()
-    const { data, cursor, dropped } = entry.session.since(0)
+    const { data, cursor, dropped, startsBefore } = entry.session.since(0)
     entry.session.addLiveSubscriber(mkSub(entry))
     if (savedAttention) restoreKeptAttention(identity, savedAttention)
     return {
@@ -139,6 +139,7 @@ export function createKeptReattach({
       buffer: data,
       cursor,
       dropped,
+      blockSeqBase: entry.mirror.blockSeqBase + startsBefore,
       shell: shellName(meta.shell) || undefined,
       sandboxed: sandbox !== undefined,
       ...(sandbox?.stamp ? { sandboxStamp: sandbox.stamp } : {}),

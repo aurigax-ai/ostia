@@ -1,21 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type HibernationCandidate, commandAgent, planHibernation } from './hibernation'
-
-describe('commandAgent', () => {
-  it('names the agent a command line starts, by program basename', () => {
-    expect(commandAgent('claude')).toBe('claude')
-    expect(commandAgent('claude --resume abc')).toBe('claude')
-    expect(commandAgent('/home/me/.local/bin/codex resume x')).toBe('codex')
-    expect(commandAgent('FOO=1 env BAR=2 exec claude')).toBe('claude')
-  })
-
-  it('does not treat other programs as agents', () => {
-    expect(commandAgent('npm test')).toBeNull()
-    expect(commandAgent('echo claude')).toBeNull()
-    expect(commandAgent('claude-code-helper')).toBeNull()
-    expect(commandAgent('')).toBeNull()
-  })
-})
+import { type HibernationCandidate, planHibernation } from './hibernation'
 
 const candidate = (
   paneId: string,

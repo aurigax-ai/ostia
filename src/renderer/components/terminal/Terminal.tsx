@@ -16,6 +16,7 @@ import { acceptsPathDrop, droppedPaths, pathsAsInput } from '@/lib/keyboard/drop
 import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { measureCells } from '@/lib/prompt/usePromptGeometry'
 import { ghosttyModule, loadGhostty } from '@/lib/terminal/ghosttyEngine'
+import { liveLogicalLines } from '@/lib/terminal/historyActions'
 import {
   type OstiaTerminal,
   type PauseTerminal,
@@ -34,8 +35,11 @@ import { terminalFontStack } from '@/lib/theme/uiFonts'
 import { isLinux, isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useHistoryViewStore } from '@/stores/terminal/historyViewStore'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Blocks } from './Blocks'
+import { HistoryEdge } from './HistoryEdge'
+import { HistoryView } from './HistoryView'
 import { TerminalFind, findOptions } from './TerminalFind'
 import { type LinkHintBox, TerminalLinkHint } from './TerminalLinkHint'
 import { TerminalMenu } from './TerminalMenu'
@@ -146,7 +150,9 @@ function TerminalSurface({
     })
   }, [paneId, engine])
 
-  usePauseWhenHidden(pauseRef, shown, paneId, engine)
+  const historyTarget = useHistoryViewStore((s) => s.open[paneId])
+  useEffect(() => () => useHistoryViewStore.getState().close(paneId), [paneId])
+  usePauseWhenHidden(pauseRef, shown && !historyTarget, paneId, engine)
   useTerminalOptions({ termRef, syncSizeRef, font, palette })
   const input = terminalInputBridge({ paneId, termRef, setSuppressedPrompt })
 
@@ -207,11 +213,29 @@ function TerminalSurface({
         />
         <AssistComposer paneId={paneId} cwd={cwd} termRef={termRef} />
         <TerminalLinkHint hint={shown ? linkHint : null} />
+        {historyTarget ? (
+          <HistoryView
+            paneId={paneId}
+            target={historyTarget}
+            onClose={() => {
+              useHistoryViewStore.getState().close(paneId)
+              termRef.current?.focus()
+            }}
+          />
+        ) : (
+          <HistoryEdge paneId={paneId} termRef={termRef} hostRef={hostRef} shown={shown} />
+        )}
         {findOpen && search && (
           <TerminalFind
+            paneId={paneId}
             search={search}
             options={searchOptions}
             stepRef={findStepRef}
+            liveLines={() => (termRef.current ? liveLogicalLines(termRef.current) : 0)}
+            onShowEarlier={(find) => {
+              setFindOpen(false)
+              useHistoryViewStore.getState().show(paneId, { kind: 'match', find })
+            }}
             onClose={() => {
               setFindOpen(false)
               termRef.current?.focus()

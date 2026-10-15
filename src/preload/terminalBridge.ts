@@ -4,6 +4,11 @@ import type { SelectionSendResult } from '../shared/browser/selection'
 import type { OpenFileVerdict } from '../shared/files/openFiles'
 import type { SpecCommand } from '../shared/terminal/completionSpec'
 import type {
+  HistoryBlockRange,
+  HistoryPage,
+  HistorySearchResult,
+} from '../shared/terminal/scrollbackHistory'
+import type {
   FsKind,
   OpenPathResult,
   OstiaBridge,
@@ -23,6 +28,25 @@ export const terminalBridge: Pick<
     detach: (paneId) => ipcRenderer.send('pty:detach', paneId),
     hibernate: (paneId) => ipcRenderer.invoke('pty:hibernate', paneId) as Promise<HibernateOutcome>,
     stashed: (paneId) => ipcRenderer.invoke('pty:stashed', paneId) as Promise<string | null>,
+    historyRead: (paneId, from, count) =>
+      ipcRenderer.invoke('pty:history-read', paneId, from, count) as Promise<HistoryPage | null>,
+    historySearch: (paneId, query, options, liveLines) =>
+      ipcRenderer.invoke(
+        'pty:history-search',
+        paneId,
+        query,
+        options,
+        liveLines,
+      ) as Promise<HistorySearchResult | null>,
+    historyBlock: (paneId, seq, command) =>
+      ipcRenderer.invoke(
+        'pty:history-block',
+        paneId,
+        seq,
+        command,
+      ) as Promise<HistoryBlockRange | null>,
+    blockOutput: (paneId, seq, command) =>
+      ipcRenderer.invoke('pty:block-output', paneId, seq, command) as Promise<string | null>,
     keptWaiting: () => ipcRenderer.invoke('pty:kept-waiting') as Promise<string[]>,
     restart: (paneId) => ipcRenderer.invoke('pty:restart', paneId) as Promise<boolean>,
     reportAgentRunning: (paneId, running) => ipcRenderer.send('pty:agent-running', paneId, running),

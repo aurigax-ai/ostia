@@ -1,8 +1,11 @@
-import { resolve } from 'node:path'
+import { existsSync, readdirSync, statSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+import type { OstiaBridge } from '../src/shared/types'
+import { chords } from './chords'
 import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
 import { BENCH_ENGINES } from './ghostty'
-import { openWorkspace } from './helpers'
+import { openWorkspace, waitForPaletteSelection } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const BUSY_AGENT = resolve(__dirname, '../test/fixtures/agents/busy-agent.mjs')
@@ -66,7 +69,7 @@ for (const engine of BENCH_ENGINES) {
   }
 
   test(`bench ${engine.name} bulk output`, async () => {
-    test.setTimeout(120_000)
+    test.setTimeout(180_000)
     const dataHome = freshDataHome()
     seedSettings(dataHome, { ...engine.settings, workspaces: { confirmQuit: false } })
     const launch = isolatedLaunch(dataHome)
@@ -100,6 +103,9 @@ for (const engine of BENCH_ENGINES) {
       const ms = Math.round(doneAt - startAt)
       console.log(
         `BENCH ${engine.name} bulk ${JSON.stringify({ ms, mainMaxLagMs: Math.round(main.maxLag), mainLagOver16: main.over16, pageMaxLagMs: Math.round(page.maxLag), fps: Math.round((page.frames * 1000) / ms), longTaskMs: Math.round(page.longMs) })}`,
+      )
+      console.log(
+        `BENCH ${engine.name} history ${JSON.stringify(await measureHistory(win, dataHome))}`,
       )
     } finally {
       await app.close()
@@ -245,6 +251,55 @@ for (const engine of BENCH_ENGINES) {
 }
 
 type Metrics = Record<string, number>
+
+function folderBytes(dir: string): number {
+  if (!existsSync(dir)) return 0
+  let total = 0
+  for (const entry of readdirSync(dir, { withFileTypes: true, recursive: true })) {
+    if (entry.isFile()) total += statSync(join(entry.parentPath, entry.name)).size
+  }
+  return total
+}
+
+async function measureHistory(win: Page, dataHome: string): Promise<Metrics> {
+  const paneId =
+    (await win.locator('.pane[data-pane-id]').first().getAttribute('data-pane-id')) ?? ''
+  const stats = await win.evaluate(async (pane) => {
+    const { pty } = (window as unknown as { ostia: OstiaBridge }).ostia
+    const info = await pty.historyRead(pane, 0, 0)
+    const started = performance.now()
+    const all = await pty.historySearch(pane, 'bulk output', {}, 0)
+    const searchMs = performance.now() - started
+    const gaps = await pty.historySearch(pane, 'earlier lines not kept', {}, 0)
+    return {
+      lines: info ? info.end - info.first : -1,
+      searchMs: Math.round(searchMs),
+      matches: all?.count ?? -1,
+      gaps: gaps?.count ?? -1,
+    }
+  }, paneId)
+  const diskBytes = folderBytes(join(dataHome, 'ostia', 'scrollback'))
+  const rows = win.locator('.history-screen .xterm-rows')
+  await win.keyboard.press(chords.palette)
+  await win.locator('[data-slot="command-input"]').fill('Show Earlier Output')
+  await waitForPaletteSelection(win, 'Show Earlier Output')
+  const openAt = Date.now()
+  await win.keyboard.press('Enter')
+  await expect(rows).toContainText('bulk output', { timeout: 30_000 })
+  const openMs = Date.now() - openAt
+  const pageAt = Date.now()
+  await win.getByRole('button', { name: 'Oldest' }).click()
+  await expect(rows).toContainText(/line 1 of the bulk/, { timeout: 30_000 })
+  const pageMs = Date.now() - pageAt
+  await win.getByRole('button', { name: 'Back to live' }).click()
+  return {
+    ...stats,
+    diskBytes,
+    bytesPerLine: +(diskBytes / Math.max(1, stats.lines)).toFixed(1),
+    openMs,
+    pageMs,
+  }
+}
 
 function MAIN_PROBE(): void {
   const p = { maxLag: 0, over16: 0 }

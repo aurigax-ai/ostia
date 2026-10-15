@@ -51,14 +51,21 @@ function seed(...panes: PaneNode[]): void {
   })
 }
 
+function hookAgent(command: string): 'claude' | 'codex' | null {
+  const program = command.split(' ')[0]?.replaceAll("'", '')
+  return program === 'claude' || program === 'codex' ? program : null
+}
+
 function start(paneId: string, command: string): void {
   const id = `${paneId}-b`
+  const agent = hookAgent(command)
   useBlocksStore.setState((s) => ({
     running: { ...s.running, [paneId]: id },
     byPane: {
       ...s.byPane,
       [paneId]: [{ id, paneId, command, startedAt: 0 } as unknown as CommandBlock],
     },
+    ...(agent ? { agentBlocks: { ...s.agentBlocks, [paneId]: { blockId: id, agent } } } : {}),
   }))
 }
 

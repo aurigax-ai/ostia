@@ -1,9 +1,10 @@
 import { resolve as resolvePath } from 'node:path'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import { parseArgs } from '../common/args'
+import { FlagError, parseArgs } from '../common/args'
 import { resolveWorkspaceRef } from '../common/crossWorkspace'
 import { type ErrResult, describeErrResult, fail, failUsage, isErrResult } from '../common/failure'
 import { readAllStdin } from '../common/stdinText'
+import { usageOf } from '../common/usageTable'
 
 interface ProcInfo {
   id: string
@@ -42,10 +43,27 @@ function printStart(verb: string, res: StartAnswer): void {
   fail(`ostia ${verb}: ${res.name} (${res.paneId}) ${res.status}: ${res.reason ?? ''}`)
 }
 
-export async function runAgentVerb(conn: MessageConnection): Promise<void> {
-  const { values: flags, positional } = parseArgs(process.argv.slice(4), {
-    values: { name: '--name', cwd: '--cwd', workspace: '--workspace', tab: '--tab' },
+function parseAgentArgs(argv: readonly string[]) {
+  return parseArgs(argv, {
+    values: {
+      name: '--name',
+      cwd: '--cwd',
+      workspace: '--workspace',
+      tab: '--tab',
+      model: '--model',
+    },
   })
+}
+
+export async function runAgentVerb(conn: MessageConnection): Promise<void> {
+  let parsed: ReturnType<typeof parseAgentArgs>
+  try {
+    parsed = parseAgentArgs(process.argv.slice(4))
+  } catch (err) {
+    if (err instanceof FlagError) throw new Error(`${err.message}\n${usageOf('agent')}`)
+    throw err
+  }
+  const { values: flags, positional } = parsed
   const [agent, given] = positional
   if (process.argv[3] !== 'run' || !agent || given === undefined) return failUsage('agent')
   const prompt = given === '-' ? await readAllStdin() : given
@@ -53,6 +71,7 @@ export async function runAgentVerb(conn: MessageConnection): Promise<void> {
     agent,
     prompt,
     name: flags.name,
+    ...(flags.model !== undefined ? { model: flags.model } : {}),
     ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}),
     ...(flags.workspace ? { workspace: await resolveWorkspaceRef(conn, flags.workspace) } : {}),
     ...(flags.tab !== undefined ? { tab: flags.tab } : {}),

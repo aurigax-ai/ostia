@@ -5,6 +5,7 @@ import {
   hasLockedPane,
   renamePane,
   setDefaultPaneTitle,
+  setPaneBrowserDevice,
   setPaneCwd,
   setPaneHibernated,
   setPaneLocked,
@@ -23,6 +24,7 @@ type LayoutPaneActions = Pick<
   LayoutState,
   | 'setCwd'
   | 'setUrl'
+  | 'setBrowserDevice'
   | 'followMovedFile'
   | 'setTitle'
   | 'rename'
@@ -55,6 +57,16 @@ export function createLayoutPaneActions(set: LayoutSet, get: LayoutGet): LayoutP
         const layout = s.byWorkspace[workspaceId]
         if (!layout) return s
         const root = setPaneUrl(layout.root, paneId, url)
+        return root === layout.root
+          ? s
+          : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+      }),
+
+    setBrowserDevice: (workspaceId, paneId, device) =>
+      set((s) => {
+        const layout = s.byWorkspace[workspaceId]
+        if (!layout) return s
+        const root = setPaneBrowserDevice(layout.root, paneId, device)
         return root === layout.root
           ? s
           : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }

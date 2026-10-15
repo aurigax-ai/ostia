@@ -12,6 +12,7 @@ import { join, resolve } from 'node:path'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
+import { REPORT_SESSION } from './fakeAgent'
 import { occurrences, waitForPaletteSelection } from './helpers'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
@@ -40,6 +41,7 @@ function fakeClaude(dataHome: string, promptFile: string, skillFile: string): st
       'for arg; do [ "$prev" = --plugin-dir ] && plugin=$arg; prev=$arg; last=$arg; done',
       `head -n 2 "$plugin/skills/trellis-card/SKILL.md" > '${skillFile}'`,
       `printf '%s' "$last" > '${promptFile}'`,
+      REPORT_SESSION,
       'echo fake-agent-ready',
       'exec cat',
       '',

@@ -33,6 +33,10 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { CaretRightIcon } from '@phosphor-icons/react'
 import { KEEP_SHELLS_FEATURE, TMUX_MIN_VERSION } from '@shared/terminal/keepShells'
+import {
+  SCROLLBACK_HISTORY_MAX_MIB,
+  SCROLLBACK_HISTORY_MIN_MIB,
+} from '@shared/terminal/scrollbackHistory'
 import { useEffect, useState } from 'react'
 
 export function TerminalSection(): JSX.Element {
@@ -205,6 +209,7 @@ function TerminalScrollingGroup(): JSX.Element {
         step={1000}
         onCommit={(v) => setTerminal({ scrollbackLines: v })}
       />
+      <HistoryOnDiskRow />
     </SettingsGroup>
   )
 }
@@ -354,6 +359,62 @@ function TerminalSessionGroup(): JSX.Element {
         requirements={keepShellsRequirements}
       />
     </SettingsGroup>
+  )
+}
+
+const HISTORY_LIMIT_DEFAULT_MIB = 1024
+
+function HistoryOnDiskRow(): JSX.Element {
+  const d = useDict()
+  const value = useSettingsStore((s) => s.terminal.scrollbackHistory)
+  const setTerminal = useSettingsStore((s) => s.setTerminal)
+  const mode = typeof value === 'number' ? 'limit' : value
+  const [draft, setDraft] = useState(typeof value === 'number' ? String(value) : '')
+  useEffect(() => setDraft(typeof value === 'number' ? String(value) : ''), [value])
+  return (
+    <ControlRow label={d.settings.scrollbackHistory} desc={d.settings.scrollbackHistoryDesc}>
+      <div className="flex items-center gap-2">
+        <SelectField
+          value={mode}
+          onChange={(v) =>
+            setTerminal({
+              scrollbackHistory:
+                v === 'limit' ? HISTORY_LIMIT_DEFAULT_MIB : (v as 'off' | 'unlimited'),
+            })
+          }
+          label={d.settings.scrollbackHistory}
+          options={[
+            { value: 'unlimited', label: d.settings.scrollbackHistoryUnlimited },
+            { value: 'limit', label: d.settings.scrollbackHistoryLimit },
+            { value: 'off', label: d.settings.scrollbackHistoryOff },
+          ]}
+        />
+        {typeof value === 'number' ? (
+          <Input
+            type="number"
+            min={SCROLLBACK_HISTORY_MIN_MIB}
+            max={SCROLLBACK_HISTORY_MAX_MIB}
+            step={256}
+            value={draft}
+            aria-label={d.settings.scrollbackHistoryMib}
+            title={d.settings.scrollbackHistoryMib}
+            onChange={(e) => {
+              setDraft(e.target.value)
+              const n = Number(e.target.value)
+              if (
+                Number.isFinite(n) &&
+                n >= SCROLLBACK_HISTORY_MIN_MIB &&
+                n <= SCROLLBACK_HISTORY_MAX_MIB
+              ) {
+                setTerminal({ scrollbackHistory: n })
+              }
+            }}
+            onBlur={() => setDraft(String(value))}
+            className="h-7 w-24 font-mono"
+          />
+        ) : null}
+      </div>
+    </ControlRow>
   )
 }
 

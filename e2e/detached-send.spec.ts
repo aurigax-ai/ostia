@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
+import { REPORT_SESSION, fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
@@ -14,8 +14,7 @@ const PAGE = `<!doctype html>
   <button data-testid="broken-button" style="margin:40px;width:160px;height:40px">Checkout</button>
 </body></html>`
 
-const LINE_AGENT =
-  '#!/bin/sh\necho fake-agent-ready\nwhile IFS= read -r line; do echo "agent-read: $line"; done\n'
+const LINE_AGENT = `#!/bin/sh\n${REPORT_SESSION}\necho fake-agent-ready\nwhile IFS= read -r line; do echo "agent-read: $line"; done\n`
 
 test('a browser pane moved to its own window sends a picked element to the agent it left behind', async () => {
   test.setTimeout(150_000)

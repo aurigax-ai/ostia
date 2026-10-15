@@ -17,6 +17,7 @@ import { useDiffStore } from '@/stores/files/diffStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { releaseSurfaces, surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import type { AgentResume } from '@shared/agents/agentResume'
+import type { BrowserDevice } from '@shared/browser/browserDevice'
 import type { BrowserProfile } from '@shared/browser/browserProfile'
 import { useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
@@ -33,6 +34,7 @@ interface SurfaceRef {
   chatSessionId?: string
   viewName?: string
   browserProfile: BrowserProfile
+  browserDevice?: BrowserDevice
   hibernated?: true
   resume?: AgentResume
 }
@@ -61,6 +63,7 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
         chatSessionId: pane.chatSessionId,
         viewName: pane.viewName,
         browserProfile: paneBrowserProfile(pane),
+        browserDevice: pane.browserDevice,
         hibernated: pane.hibernated,
         resume: pane.resume,
       })
@@ -128,6 +131,7 @@ function Surface({
       paneId={s.paneId}
       url={s.url}
       profile={s.browserProfile}
+      device={s.browserDevice}
     />
   ) : s.kind === 'extension' && s.extensionId ? (
     <ExtensionPanelView extId={s.extensionId} workspaceId={s.workspaceId} paneId={s.paneId} />

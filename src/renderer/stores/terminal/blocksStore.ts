@@ -20,6 +20,7 @@ export interface CommandBlock {
   cwd: string | null
   startedAt: number
   endedAt: number | null
+  seq?: number
 }
 
 const MAX_BLOCKS_PER_PANE = 200
@@ -41,7 +42,13 @@ interface BlocksState {
   markAgent: (paneId: string, agent: ResumableAgent) => void
   promptStart: (paneId: string, line: LineAnchor, cwd: string | null, remote?: boolean) => void
   promptEnd: (paneId: string, line: LineAnchor) => void
-  commandStart: (paneId: string, line: LineAnchor, command?: string, typedCommand?: string) => void
+  commandStart: (
+    paneId: string,
+    line: LineAnchor,
+    command?: string,
+    typedCommand?: string,
+    seq?: number,
+  ) => void
   commandEnd: (
     paneId: string,
     line: LineAnchor,
@@ -119,7 +126,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => ({
     releaseDropped(before, get(), paneId)
   },
 
-  commandStart: (paneId, line, command = '', typedCommand?: string) => {
+  commandStart: (paneId, line, command = '', typedCommand?: string, seq?: number) => {
     const before = get()
     set((s) => {
       const draft = s.drafts[paneId] ?? {
@@ -149,6 +156,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => ({
         cwd: draft.cwd,
         startedAt: Date.now(),
         endedAt: null,
+        ...(seq === undefined ? {} : { seq }),
       }
       const list = [...prev, block].slice(-MAX_BLOCKS_PER_PANE)
       const selectedId = s.selected[paneId]
