@@ -5,10 +5,12 @@ import type { OstiaTerminal, WebLinkHandler } from '@/lib/terminal/ostiaTerminal
 import { createLinkHint } from '@/lib/terminalLinks/linkHint'
 import {
   type LinkKind,
+  type PathLinkTarget,
   attachLinkClaim,
   attachLinkModifier,
   linkModifierHeld,
   linkSpan,
+  pathLinkTarget,
   terminalLinkTarget,
 } from '@/lib/terminalLinks/linkModifier'
 import { createAppLinkProvider, hintedLinkHandler } from '@/lib/terminalLinks/terminalAppLinks'
@@ -30,7 +32,12 @@ const LINK_HINT_DELAY_MS = 400
 export interface TerminalLinks {
   webLinks: WebLinkHandler
   openWebLink: (e: MouseEvent, uri: string) => void
-  showLinkHint: (kind: LinkKind, range: IBufferRange, url?: string) => void
+  showLinkHint: (
+    kind: LinkKind,
+    range: IBufferRange,
+    url?: string,
+    offers?: PathLinkTarget[],
+  ) => void
   hideLinkHint: () => void
   dismissHint: () => void
   attach: (term: OstiaTerminal, screenElement: HTMLElement | null) => () => void
@@ -57,7 +64,12 @@ export function createTerminalLinks({
     () => isPaneVisible(paneId),
     setLinkHint,
   )
-  const showLinkHint = (kind: LinkKind, range: IBufferRange, url?: string): void => {
+  const showLinkHint = (
+    kind: LinkKind,
+    range: IBufferRange,
+    url?: string,
+    offers?: PathLinkTarget[],
+  ): void => {
     hoveredLink = true
     hint.show(() => {
       const cells = measureCells(host, term)
@@ -66,6 +78,7 @@ export function createTerminalLinks({
       return {
         kind,
         url,
+        offers,
         plainClick: term.modes.mouseTrackingMode === 'none',
         left: cells.left + span.start * cells.width,
         top: cells.top + span.row * cells.height,
@@ -129,9 +142,13 @@ export function createTerminalLinks({
         revealable: (path) => linkRevealable(linkPane(), path),
         stat: (path) => window.ostia.fs.stat(path),
         probe: (path) => window.ostia.terminalLinks.probe(paneId, path),
-        activate: (action, target) => activateFileLink(linkPane(), action, target),
-        modifierHeld: (e) => linkModifierHeld(e, isMac),
-        hover: (range, action) => showLinkHint(action, range),
+        activate: (how, action, target) => activateFileLink(linkPane(), how, action, target),
+        target: (e) =>
+          pathLinkTarget(e, {
+            mac: isMac,
+            linkClick: useSettingsStore.getState().terminal.linkClick,
+          }),
+        hover: (range, action, offers) => showLinkHint(action, range, undefined, offers),
         leave: hideLinkHint,
       }),
     )

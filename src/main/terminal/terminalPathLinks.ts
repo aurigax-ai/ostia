@@ -33,7 +33,8 @@ export interface TerminalPathLinksDeps {
   pane: (paneId: string) => { windowId: string; workspaceId: string } | undefined
   isSandboxed: (workspaceId: string) => boolean
   isScratch: (workspaceId: string) => boolean
-  openFolder: (path: string) => Promise<string>
+  openPath: (path: string) => Promise<string>
+  showInFolder: (path: string) => void
 }
 
 interface Located {
@@ -91,14 +92,31 @@ export class TerminalPathLinks {
     return this.deps.grants.admit(path, { sandboxed: false, remember: true })
   }
 
-  async openFolder(sender: LinkSender, paneId: unknown, raw: unknown): Promise<OpenPathResult> {
-    const path = await this.printedPath(sender, paneId, raw)
-    if (!path) return { ok: false, error: 'not-found' }
-    const found = await locate(path)
-    if (found?.kind !== 'dir') return { ok: false, error: 'not-found' }
-    if (isProgram(found.real, found.mode, false)) return { ok: false, error: 'program' }
-    const error = await this.deps.openFolder(found.real)
+  async openDefault(sender: LinkSender, paneId: unknown, raw: unknown): Promise<OpenPathResult> {
+    const found = await this.printedTarget(sender, paneId, raw)
+    if (!found) return { ok: false, error: 'not-found' }
+    if (isProgram(found.real, found.mode, found.kind === 'file')) {
+      return { ok: false, error: 'program' }
+    }
+    const error = await this.deps.openPath(found.real)
     return error ? { ok: false, error: 'failed' } : { ok: true }
+  }
+
+  async showInFolder(sender: LinkSender, paneId: unknown, raw: unknown): Promise<OpenPathResult> {
+    const found = await this.printedTarget(sender, paneId, raw)
+    if (!found) return { ok: false, error: 'not-found' }
+    this.deps.showInFolder(found.real)
+    return { ok: true }
+  }
+
+  private async printedTarget(
+    sender: LinkSender,
+    paneId: unknown,
+    raw: unknown,
+  ): Promise<Located | null> {
+    const path = await this.printedPath(sender, paneId, raw)
+    const found = path ? await locate(path) : null
+    return found?.kind ? found : null
   }
 
   private async printedPath(
@@ -139,7 +157,10 @@ export function registerTerminalPathLinkIpc(links: TerminalPathLinks): void {
   ipcMain.handle('terminal-links:admit', (e, paneId: unknown, path: unknown) =>
     links.admit(e.sender, paneId, path),
   )
-  ipcMain.handle('terminal-links:open-folder', (e, paneId: unknown, path: unknown) =>
-    links.openFolder(e.sender, paneId, path),
+  ipcMain.handle('terminal-links:open-default', (e, paneId: unknown, path: unknown) =>
+    links.openDefault(e.sender, paneId, path),
+  )
+  ipcMain.handle('terminal-links:show-in-folder', (e, paneId: unknown, path: unknown) =>
+    links.showInFolder(e.sender, paneId, path),
   )
 }

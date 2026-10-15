@@ -747,7 +747,7 @@ describe('TerminalView engines', () => {
   }
 
   for (const engine of ['xterm', 'Ghostty']) {
-    it(`${engine}: Ctrl+click reveals a folder in Files, opens an outside folder in the file manager and opens an outside file`, async () => {
+    it(`${engine}: Ctrl+click reveals a folder in Files, opens an outside folder in the file manager and opens an outside file; Ctrl+Shift and Ctrl+Shift+Alt hand it to the system, never a program`, async () => {
       const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
       onTestFinished(() => fitted.mockRestore())
       useFileTreeStore.setState({ revealed: null })
@@ -779,7 +779,8 @@ describe('TerminalView engines', () => {
         ok: true,
         path: '/out/shots/report.txt',
       })
-      vi.mocked(window.ostia.terminalLinks.openFolder).mockResolvedValue({ ok: true })
+      vi.mocked(window.ostia.terminalLinks.openDefault).mockResolvedValue({ ok: true })
+      vi.mocked(window.ostia.terminalLinks.showInFolder).mockResolvedValue({ ok: true })
       const openFile = vi.spyOn(useLayoutStore.getState(), 'openFile')
       const rect = vi
         .spyOn(Element.prototype, 'getBoundingClientRect')
@@ -805,20 +806,24 @@ describe('TerminalView engines', () => {
         const hover = (link: ILink): void => {
           act(() => link.hover?.(new MouseEvent('mousemove'), link.text))
         }
-        const ctrlClick = (link: ILink): void => {
-          act(() => link.activate({ ctrlKey: true, isTrusted: true } as MouseEvent, link.text))
+        const ctrlClick = (link: ILink, keys: Partial<MouseEvent> = {}): void => {
+          act(() =>
+            link.activate({ ctrlKey: true, isTrusted: true, ...keys } as MouseEvent, link.text),
+          )
         }
 
         const inside = await linkOn(1)
         hover(inside)
         await waitFor(() => expect(hint()).toHaveTextContent('Ctrl+Click Show the folder in Files'))
+        expect(hint()).toHaveTextContent('Ctrl+Alt+Click Show in Files')
+        expect(hint()).toHaveTextContent('Ctrl+Shift+Alt+Click Show in the file manager')
         ctrlClick(inside)
         expect(useFileTreeStore.getState().revealed).toEqual({
           root: '/home/me',
           path: '/home/me/notes/sub',
         })
         expect(useUIStore.getState().filesOpen).toBe(true)
-        expect(window.ostia.terminalLinks.openFolder).not.toHaveBeenCalled()
+        expect(window.ostia.terminalLinks.openDefault).not.toHaveBeenCalled()
 
         const folder = await linkOn(2)
         hover(folder)
@@ -826,13 +831,16 @@ describe('TerminalView engines', () => {
           expect(hint()).toHaveTextContent('Ctrl+Click Open the folder in the file manager'),
         )
         act(() => folder.activate({ ctrlKey: false, isTrusted: true } as MouseEvent, folder.text))
-        expect(window.ostia.terminalLinks.openFolder).not.toHaveBeenCalled()
+        expect(window.ostia.terminalLinks.openDefault).not.toHaveBeenCalled()
         ctrlClick(folder)
-        expect(window.ostia.terminalLinks.openFolder).toHaveBeenCalledWith('p1', '/out/shots')
+        expect(window.ostia.terminalLinks.openDefault).toHaveBeenCalledWith('p1', '/out/shots')
 
         const file = await linkOn(3)
         hover(file)
         await waitFor(() => expect(hint()).toHaveTextContent('Ctrl+Click Open the file'))
+        expect(hint()).toHaveTextContent('Ctrl+Shift+Click Open with its default app')
+        expect(hint()).toHaveTextContent('Ctrl+Shift+Alt+Click Show in the file manager')
+        expect(hint()).not.toHaveTextContent('Show in Files')
         ctrlClick(file)
         await waitFor(() =>
           expect(openFile).toHaveBeenCalledWith(expect.any(String), '/out/shots/report.txt'),
@@ -842,7 +850,33 @@ describe('TerminalView engines', () => {
           column: 1,
         })
         expect(window.ostia.terminalLinks.admit).toHaveBeenCalledWith('p1', '/out/shots/report.txt')
-        expect(window.ostia.terminalLinks.openFolder).toHaveBeenCalledTimes(1)
+        expect(window.ostia.terminalLinks.openDefault).toHaveBeenCalledTimes(1)
+
+        ctrlClick(file, { shiftKey: true })
+        expect(window.ostia.terminalLinks.openDefault).toHaveBeenLastCalledWith(
+          'p1',
+          '/out/shots/report.txt',
+        )
+        ctrlClick(file, { shiftKey: true, altKey: true })
+        expect(window.ostia.terminalLinks.showInFolder).toHaveBeenCalledWith(
+          'p1',
+          '/out/shots/report.txt',
+        )
+        expect(window.ostia.terminalLinks.admit).toHaveBeenCalledTimes(1)
+
+        vi.mocked(window.ostia.terminalLinks.openDefault).mockResolvedValueOnce({
+          ok: false,
+          error: 'program',
+        })
+        ctrlClick(file, { shiftKey: true })
+        await waitFor(() =>
+          expect(window.ostia.notifications.post).toHaveBeenCalledWith(
+            expect.objectContaining({
+              kind: 'error',
+              title: expect.stringContaining('launch programs or scripts from a terminal link'),
+            }),
+          ),
+        )
       } finally {
         rect.mockRestore()
         openFile.mockRestore()

@@ -870,7 +870,8 @@ interface FilesApi {
 interface TerminalLinksApi {
   probe: (paneId: string, path: string) => Promise<FsKind | null>
   admit: (paneId: string, written: string) => Promise<OpenFileVerdict | null>
-  openFolder: (paneId: string, written: string) => Promise<OpenPathResult>
+  openDefault: (paneId: string, written: string) => Promise<OpenPathResult>
+  showInFolder: (paneId: string, written: string) => Promise<OpenPathResult>
 }
 
 export interface ClipboardContents {

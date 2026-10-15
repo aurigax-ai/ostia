@@ -2695,6 +2695,10 @@ export const en = {
     openFile: 'Open the file',
     revealFolder: 'Show the folder in Files',
     openFolder: 'Open the folder in the file manager',
+    openDefault: 'Open with its default app',
+    showInFiles: 'Show in Files',
+    showInFileManager: 'Show in the file manager',
+    refusedProgram: '{product} doesn’t launch programs or scripts from a terminal link.',
   },
   terminalGhost: {
     copy: 'Copy',
@@ -6312,6 +6316,10 @@ export const zhHant: Dict = {
     openFile: '開啟檔案',
     revealFolder: '在「檔案」中顯示資料夾',
     openFolder: '在檔案管理員開啟資料夾',
+    openDefault: '以預設 App 開啟',
+    showInFiles: '在「檔案」中顯示',
+    showInFileManager: '在檔案管理員中顯示',
+    refusedProgram: '{product} 不會從終端機連結啟動程式或指令碼。',
   },
   terminalGhost: {
     copy: '複製',

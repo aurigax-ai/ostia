@@ -21,6 +21,15 @@ const shiftClick = chordText(
   true,
 )
 
+const optionClick = chordText(
+  { ctrl: false, meta: true, shift: false, alt: true, key: 'Click' },
+  true,
+)
+const optionShiftClick = chordText(
+  { ctrl: false, meta: true, shift: true, alt: true, key: 'Click' },
+  true,
+)
+
 const choices = (): string[] =>
   [...document.querySelectorAll('span.font-medium')].map(
     (el) => el.parentElement?.textContent ?? '',
@@ -69,5 +78,42 @@ describe('TerminalLinkHint', () => {
       `${click} Open in the system browser`,
       `${shiftClick} Open in a new browser tab`,
     ])
+  })
+
+  it('lists every action a file link offers with its macOS chord, and swaps Shift with the setting', async () => {
+    const offers = ['open', 'open-system', 'show', 'show-system'] as const
+    show({ ...box, kind: 'open-file', offers: [...offers], plainClick: true })
+    expect(await screen.findByText('Open the file')).toBeInTheDocument()
+    expect(choices()).toEqual([
+      `${click} Open the file`,
+      `${shiftClick} Open with its default app`,
+      `${optionClick} Show in Files`,
+      `${optionShiftClick} Show in the file manager`,
+    ])
+    cleanup()
+
+    useSettingsStore.setState((s) => ({ terminal: { ...s.terminal, linkClick: 'system' } }))
+    show({ ...box, kind: 'open-file', offers: [...offers], plainClick: true })
+    expect(await screen.findByText('Open the file')).toBeInTheDocument()
+    expect(choices()).toEqual([
+      `${click} Open with its default app`,
+      `${shiftClick} Open the file`,
+      `${optionClick} Show in the file manager`,
+      `${optionShiftClick} Show in Files`,
+    ])
+  })
+
+  it('lists only what the link offers, and names a folder the file manager opens', async () => {
+    show({ ...box, kind: 'open-folder', offers: ['open', 'open-system'], plainClick: true })
+    expect(await screen.findAllByText('Open the folder in the file manager')).toHaveLength(2)
+    expect(choices()).toEqual([
+      `${click} Open the folder in the file manager`,
+      `${shiftClick} Open the folder in the file manager`,
+    ])
+    cleanup()
+
+    show({ ...box, kind: 'open-file', offers: ['open'], plainClick: true })
+    expect(await screen.findByText('Open the file')).toBeInTheDocument()
+    expect(choices()).toEqual([`${click} Open the file`])
   })
 })

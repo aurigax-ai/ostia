@@ -31,7 +31,8 @@ function print(paneId: string, text: string, cwd: string | null = null, remote =
 
 function setup(workspace: { sandboxed?: boolean; scratch?: boolean } = {}) {
   const grants = new OpenFileGrants({ roots: () => [home], file: join(base, 'opened-files.json') })
-  const openFolder = vi.fn(async () => '')
+  const openPath = vi.fn(async (_path: string) => '')
+  const showInFolder = vi.fn()
   const links = new TerminalPathLinks({
     grants,
     home,
@@ -40,9 +41,10 @@ function setup(workspace: { sandboxed?: boolean; scratch?: boolean } = {}) {
       paneId === 'p1' || paneId === 'p2' ? { windowId: '7', workspaceId: 'w1' } : undefined,
     isSandboxed: () => workspace.sandboxed ?? false,
     isScratch: () => workspace.scratch ?? false,
-    openFolder,
+    openPath,
+    showInFolder,
   })
-  return { grants, links, openFolder }
+  return { grants, links, openPath, showInFolder }
 }
 
 beforeEach(() => {
@@ -187,67 +189,123 @@ describe('TerminalPathLinks.admit', () => {
   })
 })
 
-describe('TerminalPathLinks.openFolder', () => {
-  it('opens a folder by its real path and nothing that is not a folder', async () => {
-    const { links, openFolder } = setup()
-    expect(await links.openFolder(WINDOW, 'p1', join(outside, 'shots-link'))).toEqual({ ok: true })
-    expect(openFolder).toHaveBeenCalledWith(join(outside, 'shots'))
-    openFolder.mockClear()
+describe('TerminalPathLinks.openDefault', () => {
+  it('opens a printed file or folder with the system default by its real path', async () => {
+    const { links, openPath } = setup()
+    expect(await links.openDefault(WINDOW, 'p1', join(outside, 'link.png'))).toEqual({ ok: true })
+    expect(openPath).toHaveBeenCalledWith(join(outside, 'shots', 'a.png'))
+    expect(await links.openDefault(WINDOW, 'p1', join(outside, 'shots-link'))).toEqual({ ok: true })
+    expect(openPath).toHaveBeenLastCalledWith(join(outside, 'shots'))
+    openPath.mockClear()
 
-    for (const path of [join(outside, 'shots', 'a.png'), '/dev/null', join(outside, 'gone')]) {
-      expect(await links.openFolder(WINDOW, 'p1', path)).toEqual({ ok: false, error: 'not-found' })
+    for (const path of ['/dev/null', join(outside, 'null-link'), join(outside, 'gone')]) {
+      expect(await links.openDefault(WINDOW, 'p1', path)).toEqual({ ok: false, error: 'not-found' })
     }
-    expect(openFolder).not.toHaveBeenCalled()
+    expect(openPath).not.toHaveBeenCalled()
   })
 
-  it('refuses a folder the system would launch as a program', async () => {
-    const { links, openFolder } = setup()
-    expect(await links.openFolder(WINDOW, 'p1', join(outside, 'Tool.app'))).toEqual({
+  it('refuses a program or script instead of launching it', async () => {
+    const { links, openPath } = setup()
+    writeFileSync(join(outside, 'build.sh'), 'echo hi')
+    writeFileSync(join(outside, 'tool'), 'bin', { mode: 0o755 })
+    print(
+      'p1',
+      `${join(outside, 'build.sh')} ${join(outside, 'tool')} ${join(outside, 'Tool.app')}`,
+    )
+    for (const name of ['build.sh', 'tool', 'Tool.app']) {
+      expect(await links.openDefault(WINDOW, 'p1', join(outside, name))).toEqual({
+        ok: false,
+        error: 'program',
+      })
+    }
+    expect(openPath).not.toHaveBeenCalled()
+  })
+
+  it('answers failed when the system has no app for the file', async () => {
+    const { links, openPath } = setup()
+    openPath.mockResolvedValueOnce('no application')
+    expect(await links.openDefault(WINDOW, 'p1', join(outside, 'shots', 'a.png'))).toEqual({
       ok: false,
-      error: 'program',
+      error: 'failed',
     })
-    expect(openFolder).not.toHaveBeenCalled()
   })
 
   it('opens nothing for a sandboxed or scratch workspace, another window or a guest', async () => {
-    const folder = join(outside, 'shots')
+    const file = join(outside, 'shots', 'a.png')
     const refused = { ok: false, error: 'not-found' }
     for (const workspace of [{ sandboxed: true }, { scratch: true }]) {
-      const { links, openFolder } = setup(workspace)
-      expect(await links.openFolder(WINDOW, 'p1', folder)).toEqual(refused)
-      expect(openFolder).not.toHaveBeenCalled()
+      const { links, openPath } = setup(workspace)
+      expect(await links.openDefault(WINDOW, 'p1', file)).toEqual(refused)
+      expect(openPath).not.toHaveBeenCalled()
     }
-    const { links, openFolder } = setup()
-    expect(await links.openFolder(OTHER_WINDOW, 'p1', folder)).toEqual(refused)
-    expect(await links.openFolder(WEBVIEW, 'p1', folder)).toEqual(refused)
-    expect(openFolder).not.toHaveBeenCalled()
+    const { links, openPath } = setup()
+    expect(await links.openDefault(OTHER_WINDOW, 'p1', file)).toEqual(refused)
+    expect(await links.openDefault(WEBVIEW, 'p1', file)).toEqual(refused)
+    expect(await links.openDefault(WINDOW, 'p9', file)).toEqual(refused)
+    expect(openPath).not.toHaveBeenCalled()
+  })
+})
+
+describe('TerminalPathLinks.showInFolder', () => {
+  it('shows a printed file or folder in its folder by its real path, a program included', async () => {
+    const { links, showInFolder, openPath } = setup()
+    expect(await links.showInFolder(WINDOW, 'p1', join(outside, 'link.png'))).toEqual({ ok: true })
+    expect(showInFolder).toHaveBeenCalledWith(join(outside, 'shots', 'a.png'))
+    expect(await links.showInFolder(WINDOW, 'p1', join(outside, 'Tool.app'))).toEqual({ ok: true })
+    expect(showInFolder).toHaveBeenLastCalledWith(join(outside, 'Tool.app'))
+    expect(openPath).not.toHaveBeenCalled()
+  })
+
+  it('shows nothing that is gone or not a file or folder', async () => {
+    const { links, showInFolder } = setup()
+    for (const path of ['/dev/null', join(outside, 'gone')]) {
+      expect(await links.showInFolder(WINDOW, 'p1', path)).toEqual({
+        ok: false,
+        error: 'not-found',
+      })
+    }
+    expect(showInFolder).not.toHaveBeenCalled()
+  })
+
+  it('shows nothing for a sandboxed or scratch workspace, another window or a guest', async () => {
+    const file = join(outside, 'shots', 'a.png')
+    const refused = { ok: false, error: 'not-found' }
+    for (const workspace of [{ sandboxed: true }, { scratch: true }]) {
+      const { links, showInFolder } = setup(workspace)
+      expect(await links.showInFolder(WINDOW, 'p1', file)).toEqual(refused)
+      expect(showInFolder).not.toHaveBeenCalled()
+    }
+    const { links, showInFolder } = setup()
+    expect(await links.showInFolder(OTHER_WINDOW, 'p1', file)).toEqual(refused)
+    expect(await links.showInFolder(WEBVIEW, 'p1', file)).toEqual(refused)
+    expect(showInFolder).not.toHaveBeenCalled()
   })
 })
 
 describe('a path is acted on only when its own pane printed it', () => {
   it('refuses a file or folder the pane never printed, and one only another pane printed', async () => {
-    const { links, grants, openFolder } = setup()
+    const { links, grants, openPath } = setup()
     const secret = join(outside, 'secret.txt')
     writeFileSync(secret, 'x')
     mkdirSync(join(outside, 'private'))
     expect(await links.admit(WINDOW, 'p1', secret)).toBeNull()
-    expect(await links.openFolder(WINDOW, 'p1', join(outside, 'private'))).toEqual({
+    expect(await links.openDefault(WINDOW, 'p1', join(outside, 'private'))).toEqual({
       ok: false,
       error: 'not-found',
     })
 
     print('p2', `made ${secret} in ${join(outside, 'private')}`)
     expect(await links.admit(WINDOW, 'p1', secret)).toBeNull()
-    expect(await links.openFolder(WINDOW, 'p1', join(outside, 'private'))).toEqual({
+    expect(await links.openDefault(WINDOW, 'p1', join(outside, 'private'))).toEqual({
       ok: false,
       error: 'not-found',
     })
     expect(grants.confine(secret)).toBeNull()
-    expect(openFolder).not.toHaveBeenCalled()
+    expect(openPath).not.toHaveBeenCalled()
 
     expect(await links.admit(WINDOW, 'p2', secret)).toEqual({ ok: true, path: secret })
-    expect(await links.openFolder(WINDOW, 'p2', join(outside, 'private'))).toEqual({ ok: true })
-    expect(openFolder).toHaveBeenCalledWith(join(outside, 'private'))
+    expect(await links.openDefault(WINDOW, 'p2', join(outside, 'private'))).toEqual({ ok: true })
+    expect(openPath).toHaveBeenCalledWith(join(outside, 'private'))
   })
 
   it('tells nothing about a path the pane never printed, and resolves a printed relative one in the pane’s own folder', async () => {
@@ -266,15 +324,19 @@ describe('a path is acted on only when its own pane printed it', () => {
   })
 
   it('does nothing for a pane whose shell reports another host', async () => {
-    const { links, grants, openFolder } = setup()
+    const { links, grants, openPath, showInFolder } = setup()
     const file = join(outside, 'shots', 'a.png')
     const folder = join(outside, 'shots')
+    const refused = { ok: false, error: 'not-found' }
     print('p1', `saved ${file} in ${folder}`, null, true)
     expect(await links.probe(WINDOW, 'p1', file)).toBeNull()
     expect(await links.admit(WINDOW, 'p1', file)).toBeNull()
-    expect(await links.openFolder(WINDOW, 'p1', folder)).toEqual({ ok: false, error: 'not-found' })
+    expect(await links.openDefault(WINDOW, 'p1', folder)).toEqual(refused)
+    expect(await links.openDefault(WINDOW, 'p1', file)).toEqual(refused)
+    expect(await links.showInFolder(WINDOW, 'p1', file)).toEqual(refused)
     expect(grants.confine(file)).toBeNull()
-    expect(openFolder).not.toHaveBeenCalled()
+    expect(openPath).not.toHaveBeenCalled()
+    expect(showInFolder).not.toHaveBeenCalled()
   })
 
   it('refuses a path that is only part of what the pane printed', async () => {
@@ -285,15 +347,15 @@ describe('a path is acted on only when its own pane printed it', () => {
   })
 
   it('resolves a relative path in the folder the pane itself reported, and ~ in the real home', async () => {
-    const { links, openFolder } = setup()
+    const { links, openPath } = setup()
     mkdirSync(join(home, 'docs'))
     print('p1', 'see shots/a.png and ~/docs', outside)
     expect(await links.admit(WINDOW, 'p1', 'shots/a.png')).toEqual({
       ok: true,
       path: join(outside, 'shots', 'a.png'),
     })
-    expect(await links.openFolder(WINDOW, 'p1', '~/docs')).toEqual({ ok: true })
-    expect(openFolder).toHaveBeenCalledWith(join(home, 'docs'))
+    expect(await links.openDefault(WINDOW, 'p1', '~/docs')).toEqual({ ok: true })
+    expect(openPath).toHaveBeenCalledWith(join(home, 'docs'))
   })
 
   it('refuses a relative path while the pane reported no folder, and everything for a pane with no output', async () => {

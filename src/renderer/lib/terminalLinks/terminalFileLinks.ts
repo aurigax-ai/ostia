@@ -2,6 +2,7 @@ import type { OstiaTerminal as Terminal } from '@/lib/terminal/ostiaTerminal'
 import { findFileLinks, resolveLinkPath } from '@shared/files/fileLinks'
 import type { IBufferCellPosition, IBufferRange, ILink, ILinkProvider } from '@xterm/xterm'
 import { LRUCache } from 'lru-cache'
+import type { PathLinkTarget } from './linkModifier'
 
 interface LogicalLine {
   text: string
@@ -50,8 +51,20 @@ export function fileLinkAction(facts: FileLinkFacts): FileLinkAction | null {
   return facts.probed === 'file' ? 'admit-file' : null
 }
 
-function needsHumanClick(action: FileLinkAction): boolean {
+function needsHumanClick(how: PathLinkTarget, action: FileLinkAction): boolean {
+  if (how !== 'open') return how !== 'show'
   return action === 'admit-file' || action === 'open-folder'
+}
+
+export function pathLinkOffers(
+  facts: Pick<FileLinkFacts, 'confined' | 'confinedOnly'>,
+  inTree: boolean,
+): PathLinkTarget[] {
+  const offers: PathLinkTarget[] = ['open']
+  if (!facts.confinedOnly) offers.push('open-system')
+  if (facts.confined && inTree) offers.push('show')
+  if (!facts.confinedOnly) offers.push('show-system')
+  return offers
 }
 
 export interface FileLinkTarget {
@@ -68,9 +81,9 @@ export interface FileLinkDeps {
   revealable: (path: string) => boolean
   stat: (path: string) => Promise<Kind | null>
   probe: (written: string) => Promise<Kind | null>
-  activate: (action: FileLinkAction, target: FileLinkTarget) => void
-  modifierHeld: (event: MouseEvent) => boolean
-  hover: (range: IBufferRange, action: FileLinkAction) => void
+  activate: (how: PathLinkTarget, action: FileLinkAction, target: FileLinkTarget) => void
+  target: (event: MouseEvent) => PathLinkTarget | null
+  hover: (range: IBufferRange, action: FileLinkAction, offers: PathLinkTarget[]) => void
   leave: () => void
 }
 
@@ -126,16 +139,22 @@ export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): ILin
             revealable: kinds.confined === 'dir' && deps.revealable(path),
           })
           if (!action) return null
+          const offers = pathLinkOffers(
+            { confined: kinds.confined, confinedOnly },
+            kinds.confined !== null && deps.revealable(path),
+          )
           return {
             range: { start: cells[m.start], end: cells[m.end - 1] },
             text: text.slice(m.start, m.end),
             decorations: { pointerCursor: true, underline: true },
             activate: (event) => {
-              if (!deps.modifierHeld(event) || deps.remote()) return
-              if (needsHumanClick(action) && !event.isTrusted) return
-              deps.activate(action, { written: m.path, path, line: m.line, column: m.column })
+              const how = deps.target(event)
+              if (!how || !offers.includes(how) || deps.remote()) return
+              if (needsHumanClick(how, action) && !event.isTrusted) return
+              deps.activate(how, action, { written: m.path, path, line: m.line, column: m.column })
             },
-            hover: () => deps.hover({ start: cells[m.start], end: cells[m.end - 1] }, action),
+            hover: () =>
+              deps.hover({ start: cells[m.start], end: cells[m.end - 1] }, action, offers),
             leave: () => deps.leave(),
           }
         }),
