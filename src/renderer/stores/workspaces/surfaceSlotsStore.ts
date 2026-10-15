@@ -1,5 +1,3 @@
-import { TERMINAL_INPUT_SELECTOR } from '@/lib/terminal/ostiaTerminal'
-
 const hosts = new Map<string, HTMLDivElement>()
 let holder: HTMLDivElement | null = null
 
@@ -35,38 +33,49 @@ export function parkSurface(paneId: string, slot: HTMLElement): void {
   if (host && host.parentNode === slot) parking().appendChild(host)
 }
 
-const SURFACE_INPUTS = [
-  '.input-editor:not([hidden]) textarea',
-  TERMINAL_INPUT_SELECTOR,
-  '.editor.modified .native-edit-context',
-  '.native-edit-context',
-  'textarea[name="message"]',
-  'webview',
-]
+type FocusTarget = () => HTMLElement | null
+
+interface FocusEntry {
+  target: FocusTarget | null
+}
+
+const focusEntries = new Map<string, FocusEntry>()
+let recheck: (() => void) | null = null
+
+export function setFocusTarget(paneId: string, target: FocusTarget | null): () => void {
+  const entry: FocusEntry = { target }
+  focusEntries.set(paneId, entry)
+  recheck?.()
+  return () => {
+    if (focusEntries.get(paneId) === entry) focusEntries.delete(paneId)
+  }
+}
 
 function focusTarget(paneId: string): HTMLElement | null {
-  const host = hosts.get(paneId)
-  if (!host) return null
-  for (const selector of SURFACE_INPUTS) {
-    const target = host.querySelector<HTMLElement>(selector)
-    if (target) return target
-  }
-  return null
+  return focusEntries.get(paneId)?.target?.() ?? null
+}
+
+function takesNoKeyboard(paneId: string): boolean {
+  const entry = focusEntries.get(paneId)
+  return entry !== undefined && entry.target === null
 }
 
 export function focusSurface(paneId: string): void {
   focusTarget(paneId)?.focus()
 }
 
+const DIALOG = '[role="dialog"], [role="alertdialog"]'
+
 function canTakeFocus(target: HTMLElement): boolean {
   return (
     target.isConnected &&
     !target.closest('[inert], [data-hidden]') &&
-    !document.activeElement?.closest('[role="dialog"], [role="alertdialog"]')
+    !document.activeElement?.closest(DIALOG)
   )
 }
 
-function tookFocus(paneId: string): boolean {
+function settled(paneId: string): boolean {
+  if (takesNoKeyboard(paneId)) return true
   const target = focusTarget(paneId)
   if (!target || !canTakeFocus(target)) return false
   target.focus()
@@ -77,14 +86,28 @@ let stopWaiting: (() => void) | null = null
 
 export function focusSurfaceWhenReady(paneId: string, wanted: () => boolean): void {
   stopWaiting?.()
-  if (!wanted() || tookFocus(paneId)) return
-  const observer = new MutationObserver(() => {
-    if (!wanted() || tookFocus(paneId)) stop()
-  })
+  if (!wanted() || settled(paneId)) return
+  const check = (): void => {
+    if (!wanted() || settled(paneId)) stop()
+  }
+  const observer = new MutationObserver(check)
+  const onKeyDown = (e: KeyboardEvent): void => {
+    if (e.isTrusted) stop()
+  }
+  const onFocusIn = (e: FocusEvent): void => {
+    const into = e.target
+    if (into instanceof Element && (into === focusTarget(paneId) || into.closest(DIALOG))) return
+    stop()
+  }
   const stop = (): void => {
     observer.disconnect()
     window.removeEventListener('pointerdown', stop, true)
-    if (stopWaiting === stop) stopWaiting = null
+    window.removeEventListener('keydown', onKeyDown, true)
+    window.removeEventListener('focusin', onFocusIn, true)
+    if (stopWaiting === stop) {
+      stopWaiting = null
+      recheck = null
+    }
   }
   observer.observe(document.body, {
     subtree: true,
@@ -92,7 +115,10 @@ export function focusSurfaceWhenReady(paneId: string, wanted: () => boolean): vo
     attributeFilter: ['inert', 'data-hidden', 'hidden'],
   })
   window.addEventListener('pointerdown', stop, true)
+  window.addEventListener('keydown', onKeyDown, true)
+  window.addEventListener('focusin', onFocusIn, true)
   stopWaiting = stop
+  recheck = check
 }
 
 export function releaseSurfaces(live: ReadonlySet<string>): void {

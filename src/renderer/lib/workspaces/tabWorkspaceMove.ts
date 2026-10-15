@@ -1,7 +1,7 @@
 import { takeTab } from '@/lib/layout/tabMoves'
 import { allPanes, findPane, findSplitTab, tabIdOf } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
-import { focusActivePaneWhenReady } from '@/lib/terminal/focusNewTerminal'
+import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { Workspace, WorkspaceKind } from '@/stores/workspaces/workspaceTypes'

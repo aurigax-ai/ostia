@@ -19,7 +19,7 @@ import {
   previewErrorLine,
 } from '@shared/artifacts/htmlPreview'
 import type { SelectionCapture } from '@shared/browser/selection'
-import { useEffect, useRef, useState } from 'react'
+import { type MutableRefObject, useEffect, useRef, useState } from 'react'
 import {
   type PickedRegion,
   PreviewRegionOverlay,
@@ -42,11 +42,13 @@ export function HtmlPreview({
   visible,
   onSendErrors,
   onSendRegion,
+  focusRef,
 }: {
   workspaceId: string
   paneId: string
   filePath: string
   visible: boolean
+  focusRef?: MutableRefObject<HTMLElement | null>
   onSendErrors?: (count: number, text: string) => void
   onSendRegion?: (capture: SelectionCapture, image: Uint8Array) => void
 }): JSX.Element {
@@ -262,6 +264,9 @@ export function HtmlPreview({
           {onSendRegion ? <PreviewRegionTools onPick={setPicking} /> : null}
           <webview
             key={opened.url}
+            ref={(el) => {
+              if (focusRef) focusRef.current = el
+            }}
             className="preview-webview"
             src={opened.url}
             partition={opened.partition}

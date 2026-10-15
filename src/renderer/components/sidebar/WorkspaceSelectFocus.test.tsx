@@ -12,7 +12,7 @@ import { activateWorkspace } from '@/lib/workspaces/windowHandoff'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { startRailEditSync, useRailEditStore } from '@/stores/workspaces/railEditStore'
-import { releaseSurfaces, surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
+import { releaseSurfaces, setFocusTarget, surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { act, cleanup, screen, waitFor } from '@testing-library/react'
@@ -31,7 +31,6 @@ vi.mock('allotment', () => {
 })
 vi.mock('@/components/panes/SurfacePool', () => ({ SurfacePool: () => null }))
 vi.mock('@/components/settings/SettingsPanel', () => ({ SettingsPanel: () => null }))
-vi.mock('@/components/agents/DashboardPanel', () => ({ DashboardPanel: () => null }))
 
 const SWITCH_COMMANDS = new Set([
   'workspace.goto',
@@ -44,10 +43,12 @@ function workspace(id: string, name: string): Workspace {
   return { id, name, kind: 'terminal', workDir: `/${name}`, state: 'idle' }
 }
 
+const unregisters: (() => void)[] = []
+
 function surfaceInput(paneId: string): HTMLTextAreaElement {
   const input = document.createElement('textarea')
-  input.className = 'xterm-helper-textarea'
   surfaceHost(paneId).appendChild(input)
+  unregisters.push(setFocusTarget(paneId, () => (input.isConnected ? input : null)))
   return input
 }
 
@@ -142,6 +143,7 @@ describe('selecting a workspace gives the keyboard to its shown pane', () => {
   afterEach(() => {
     cleanup()
     stopSync()
+    for (const unregister of unregisters.splice(0)) unregister()
     releaseSurfaces(new Set())
     vi.restoreAllMocks()
     useRailEditStore.setState({ editing: null, recollapse: false })
@@ -260,6 +262,41 @@ describe('selecting a workspace gives the keyboard to its shown pane', () => {
     act(() => useWorkspacesStore.getState().setActive('a'))
     act(() => activateWorkspace('b', false, true))
     await waitFor(() => expect(input(seeded, seeded.beta.id)).toHaveFocus())
+  })
+
+  it('opening a workspace from the dashboard focuses its active pane', async () => {
+    const seeded = seed()
+    await renderApp()
+    await visitBetaAndReturn(seeded)
+    act(() => useUIStore.getState().openDashboard())
+
+    await userEvent
+      .setup()
+      .click(await screen.findByRole('button', { name: 'Open workspace beta' }))
+
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('b')
+    await waitFor(() => expect(input(seeded, seeded.beta.id)).toHaveFocus())
+  })
+
+  it('a second selection before the first pane is ready wins, and the first never lands', async () => {
+    const seeded = seed()
+    const alphaInput = input(seeded, seeded.alpha.id)
+    const betaInput = input(seeded, seeded.beta.id)
+    betaInput.remove()
+    await renderApp()
+    act(() => useWorkspacesStore.getState().setActive('b'))
+    act(() => useWorkspacesStore.getState().setActive('a'))
+    act(() => row('alpha').focus())
+
+    pressChord({ key: '2', code: 'Digit2', ctrlKey: true })
+    pressChord({ key: '1', code: 'Digit1', ctrlKey: true })
+    await waitFor(() => expect(alphaInput).toHaveFocus())
+    act(() => {
+      surfaceHost(seeded.beta.id).appendChild(betaInput)
+    })
+    await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
+
+    expect(alphaInput).toHaveFocus()
   })
 
   it('a hibernated agent pane takes the keyboard without its resume being typed', async () => {

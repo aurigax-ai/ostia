@@ -79,7 +79,9 @@ export function DashboardPanel(): JSX.Element | null {
     if (!focusCard(root, '[data-question]') && !focusCard(root, '.dashboard-card')) {
       root?.querySelector<HTMLElement>('[data-dashboard-close]')?.focus()
     }
-    return () => previous?.focus?.()
+    return () => {
+      if (!previous?.closest('[inert], [data-hidden]')) previous?.focus?.()
+    }
   }, [open])
 
   useEffect(() => {

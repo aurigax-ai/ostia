@@ -6,6 +6,7 @@ import { cropToPng } from '@/lib/browser/cropImage'
 import { type Size, fitScale } from '@/lib/browser/regionSelect'
 import { imageMimeType } from '@/lib/files/fileKinds'
 import { useElementSize, useFileBytes, usePinchZoom, useRegionDrag } from '@/lib/files/viewerHooks'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { PaperPlaneTiltIcon, XIcon } from '@phosphor-icons/react'
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { ViewerMessage, type Zoom, ZoomControls, useBytesProblem } from './ViewerChrome'
@@ -23,6 +24,7 @@ export function ImageViewer({
   filePath: string
 }): JSX.Element {
   const d = useDict()
+  useSurfaceFocus(paneId, null)
   const bytes = useFileBytes(filePath)
   const problem = useBytesProblem(bytes)
   const [url, setUrl] = useState<string | null>(null)

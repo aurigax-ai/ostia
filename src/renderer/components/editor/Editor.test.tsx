@@ -9,6 +9,12 @@ import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import { useRemoteFoldersStore } from '@/stores/files/remoteFoldersStore'
 import { useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import {
+  focusSurface,
+  mountSurface,
+  releaseSurfaces,
+  surfaceHost,
+} from '@/stores/workspaces/surfaceSlotsStore'
 import { PAD_MAX_BYTES } from '@shared/artifacts/artifacts'
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -136,7 +142,9 @@ const fake = vi.hoisted(() => {
     layouts: number
     themed: boolean
     themedAtCreate: boolean
+    input: HTMLElement | null
   } = {
+    input: null,
     themed: false,
     themedAtCreate: false,
     visible: true,
@@ -219,6 +227,7 @@ const fake = vi.hoisted(() => {
     layout: () => {
       state.layouts += 1
     },
+    getDomNode: () => state.input?.parentElement ?? null,
     dispose: () => {},
   }
   const monaco = {
@@ -236,7 +245,12 @@ const fake = vi.hoisted(() => {
         state.themed = true
       }),
       defineTheme: vi.fn(),
-      create: (_host: unknown, options: Record<string, unknown>) => {
+      create: (host: HTMLElement, options: Record<string, unknown>) => {
+        const input = document.createElement('div')
+        input.className = 'native-edit-context'
+        input.tabIndex = 0
+        host.appendChild(input)
+        state.input = input
         state.createOptions = options
         state.themedAtCreate = state.themed
         return editor
@@ -288,6 +302,7 @@ describe('EditorView', () => {
     fake.state.optionUpdates = []
     fake.state.visible = true
     fake.state.layouts = 0
+    fake.state.input = null
     useSettingsStore.setState(initSettings, true)
     useEditorStatus.setState(init, true)
   })
@@ -313,6 +328,36 @@ describe('EditorView', () => {
     render(<EditorView workspaceId="w1" paneId="p2" filePath="/w/a.ts" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     expect(screen.queryByRole('button', { name: 'Edit Markdown source' })).toBeNull()
+  })
+
+  it('gives the keyboard to the Markdown preview while it covers the source, and to the source once shown', async () => {
+    useSettingsStore.setState({
+      editor: { ...useSettingsStore.getState().editor, markdownPreview: true },
+    })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: '# Title\n\nPreview body',
+    })
+    const slot = document.createElement('div')
+    document.body.appendChild(slot)
+    mountSurface('p-md', slot)
+    render(<EditorView workspaceId="w1" paneId="p-md" filePath="/w/README.md" />, {
+      container: surfaceHost('p-md'),
+    })
+    await screen.findByText('Preview body')
+    await waitFor(() => expect(fake.state.input).not.toBeNull())
+
+    focusSurface('p-md')
+    expect(document.activeElement).toBe(document.querySelector('.markdown-preview'))
+    expect(document.activeElement).not.toBe(fake.state.input)
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Edit Markdown source' }))
+    focusSurface('p-md')
+    expect(document.activeElement).toBe(fake.state.input)
+    cleanup()
+    releaseSurfaces(new Set())
+    slot.remove()
   })
 
   it('the find key opens find in the code editor', async () => {

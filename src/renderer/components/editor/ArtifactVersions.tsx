@@ -18,6 +18,7 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { usePaneVisible } from '@/lib/attention/workspaceActivity'
 import { sizeText, useArtifactListing } from '@/lib/files/artifacts'
 import { csvDelimiter } from '@/lib/files/csvTable'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { type ShownVersion, useArtifactVersionsStore } from '@/stores/files/artifactVersionsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -82,6 +83,7 @@ export function ArtifactVersionsButton({
   filePath: string
 }): JSX.Element | null {
   const d = useDict()
+  useSurfaceFocus(paneId, null)
   const top = useTopArtifact(workspaceId, filePath)
   const versions = useVersions(workspaceId, filePath, top)
   const [open, setOpen] = useState(false)

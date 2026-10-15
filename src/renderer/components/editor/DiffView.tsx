@@ -4,9 +4,11 @@ import { IconButton } from '@/components/common/IconButton'
 import { Alert } from '@/components/ui/alert'
 import { useDict } from '@/lib/app/useDict'
 import { registerEditorPosition } from '@/lib/files/editorPositions'
+import { editorInput } from '@/lib/monaco/editorInput'
 import { langFor } from '@/lib/monaco/language'
 import { monaco } from '@/lib/monaco/setup'
 import { ensureMonacoTheme } from '@/lib/monaco/useMonacoTheme'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { codeFontStack } from '@/lib/theme/uiFonts'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -25,6 +27,7 @@ export function DiffView({ paneId }: { paneId: string }): JSX.Element {
   const font = useSettingsStore((s) => s.appearance.editor)
   const hostRef = useRef<HTMLDivElement>(null)
   const diffRef = useRef<monaco.editor.IStandaloneDiffEditor | null>(null)
+  useSurfaceFocus(paneId, () => editorInput(diffRef.current?.getModifiedEditor()))
   const pathRef = useRef(content?.path)
   pathRef.current = content?.path
   const [inline, setInline] = useState(

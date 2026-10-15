@@ -8,7 +8,7 @@ import {
   SYMBOLS_PREFIX,
   WORKSPACES_PREFIX,
 } from '@/lib/palette/paletteModes'
-import { focusActivePaneWhenReady } from '@/lib/terminal/focusNewTerminal'
+import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useUpdateStore } from '@/stores/app/updateStore'

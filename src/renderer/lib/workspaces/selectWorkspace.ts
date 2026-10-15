@@ -1,4 +1,4 @@
-import { focusActivePaneWhenReady } from '@/lib/terminal/focusNewTerminal'
+import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
 import { coversWorkspaces, useUIStore } from '@/stores/app/uiStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'

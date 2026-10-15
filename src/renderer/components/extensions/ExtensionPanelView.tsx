@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription } from '@/components/ui/empty'
 import { useReducedMotion } from '@/lib/app/motion'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { panelFontFaces } from '@/lib/theme/panelFontFaces'
 import { panelThemeCss } from '@/lib/theme/panelTheme'
 import { themedTokens, useEffectiveTheme } from '@/lib/theme/theme'
@@ -54,6 +55,7 @@ export function ExtensionPanelView({
   const themeCss = useThemeCss()
   const [source, setSource] = useState<ExtensionPanelSource | null>(null)
   const [webview, setWebview] = useState<HTMLElement | null>(null)
+  useSurfaceFocus(paneId, () => webview)
   const showing = useRef(false)
   showing.current = source?.ok === true
 

@@ -1,4 +1,5 @@
 import { useDict } from '@/lib/app/useDict'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { type BrowserProfile, browserPartition } from '@shared/browser/browserProfile'
 import { useRef, useState } from 'react'
 import { BrowserCaptureBar } from './BrowserCaptureBar'
@@ -53,6 +54,7 @@ export function BrowserView({
     navigate,
     onAddressKeyDown,
   } = useBrowserNavigation({ url })
+  useSurfaceFocus(paneId, () => webviewRef.current)
   const [storageOpen, setStorageOpen] = useState(false)
   const [findFocus, setFindFocus] = useState(-1)
   const [findResult, setFindResult] = useState<FindResult | null>(null)

@@ -1,7 +1,14 @@
 import { sourceLinesOf, trackSelection } from '@/lib/browser/domSelection'
 import { findStep, matchChord } from '@/lib/keyboard/chords'
 import { isMac } from '@/platform'
-import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
+import {
+  type KeyboardEvent,
+  type MutableRefObject,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { DocumentFind } from './DocumentFind'
@@ -77,11 +84,13 @@ export interface PreviewSelection {
 export function MarkdownPreview({
   source,
   onSelectionChange,
+  focusRef,
 }: {
   source: string
   onSelectionChange?: (selection: PreviewSelection | null) => void
+  focusRef?: MutableRefObject<HTMLElement | null>
 }): JSX.Element {
-  const rootRef = useRef<HTMLDivElement>(null)
+  const rootRef = useRef<HTMLDivElement | null>(null)
   const articleRef = useRef<HTMLElement>(null)
   const [finding, setFinding] = useState(false)
   const findStepRef = useRef<((by: number) => void) | null>(null)
@@ -101,6 +110,11 @@ export function MarkdownPreview({
     }
   }, [])
 
+  const setRoot = (el: HTMLDivElement | null): void => {
+    rootRef.current = el
+    if (focusRef) focusRef.current = el
+  }
+
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
     const chord = matchChord(e, isMac)
     const by = findStep(chord)
@@ -117,7 +131,7 @@ export function MarkdownPreview({
 
   return (
     // biome-ignore lint/a11y/noNoninteractiveTabindex: the preview takes focus so its find key reaches it
-    <div ref={rootRef} className="markdown-preview" tabIndex={0} onKeyDown={onKeyDown}>
+    <div ref={setRoot} className="markdown-preview" tabIndex={0} onKeyDown={onKeyDown}>
       {finding ? (
         <DocumentFind
           rootRef={articleRef}

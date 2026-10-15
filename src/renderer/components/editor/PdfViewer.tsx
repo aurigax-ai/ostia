@@ -17,6 +17,7 @@ import {
   useSettled,
 } from '@/lib/files/viewerHooks'
 import { findStep, matchChord } from '@/lib/keyboard/chords'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { isMac } from '@/platform'
 import { usePdfFindStore } from '@/stores/files/pdfFindStore'
 import {
@@ -163,6 +164,7 @@ export function PdfViewer({
   filePath: string
 }): JSX.Element {
   const d = useDict()
+  useSurfaceFocus(paneId, null)
   const bytes = useFileBytes(filePath)
   const problem = useBytesProblem(bytes)
   const { doc, failed } = usePdfDocument(bytes)
