@@ -292,6 +292,7 @@ import { writeOstiaLauncher } from './terminal/paneLauncher'
 import { createPtyAttach } from './terminal/pty/ptyAttach'
 import { createPtyIo } from './terminal/pty/ptyIo'
 import { registerPtyIpc } from './terminal/pty/ptyIpc'
+import { createLiveAttach } from './terminal/pty/ptyLiveAttach'
 import { createPtyQueries } from './terminal/pty/ptyQueries'
 import { createPtyRecovery } from './terminal/pty/ptyRecovery'
 import {
@@ -301,6 +302,8 @@ import {
   removeStateFile,
 } from './terminal/pty/ptyRegistry'
 import { createSandboxSpawn } from './terminal/pty/ptySandboxSpawn'
+import { createSpawnPlanner } from './terminal/pty/ptySpawnPlan'
+import { createPtyStart } from './terminal/pty/ptyStart'
 import { createPtyStop } from './terminal/pty/ptyStop'
 import type { SubscriberRole } from './terminal/ptySession'
 import { registerSelectionIpc } from './terminal/selectionReport'
@@ -318,6 +321,7 @@ import { type SavedAttention, isKeptAttentionState } from './tmux/attentionFile'
 import { KeptAttention } from './tmux/keptAttention'
 import { createKeptReattach } from './tmux/keptReattach'
 import { createKeptShellsWiring } from './tmux/keptShellsWiring'
+import { createKeptSpawner } from './tmux/keptSpawn'
 import { registerAppUpdate } from './updates/appUpdate'
 import { appVersion, runningBuild } from './updates/appVersion'
 import { installAppDir, installMethod } from './updates/installMethod'
@@ -788,14 +792,9 @@ const { reattachKept } = createKeptReattach({
   appLog: () => appLog,
 })
 
-const { attachPty } = createPtyAttach({
-  ptys,
-  windows,
-  movingPanes,
-  recoveryHeld,
-  hibernatedPanes,
-  keptShells,
-  keptPlumbing,
+const { subscriberFor, attachExisting } = createLiveAttach({ windows, movingPanes, recoveryHeld })
+
+const { planSpawn } = createSpawnPlanner({
   scratchFolders,
   artifactFolders,
   hostPaneGrants,
@@ -804,16 +803,40 @@ const { attachPty } = createPtyAttach({
   paneLauncherDir,
   keepShellsOn,
   keptShellsProgram,
+  telemetry: () => telemetry,
+})
+
+const { spawnKept } = createKeptSpawner({
+  keptShells,
+  keptPlumbing,
   withKeptProcess,
   keptPaneEnv,
-  loadPty,
+  appLog: () => appLog,
+})
+
+const { startTracked } = createPtyStart({
+  keptShells,
+  workspaceSandboxes,
+  hibernatedPanes,
   trackPty,
   feedPty,
   releaseMergedSandbox,
-  reattachKept,
-  spawnSandboxed,
   telemetry: () => telemetry,
   appLog: () => appLog,
+})
+
+const { attachPty } = createPtyAttach({
+  ptys,
+  keptShells,
+  loadPty,
+  subscriberFor,
+  attachExisting,
+  reattachKept,
+  planSpawn,
+  spawnSandboxed,
+  spawnKept,
+  startTracked,
+  telemetry: () => telemetry,
 })
 
 const EXTENSION_PARTITION_PREFIX = 'ostia-ext-'

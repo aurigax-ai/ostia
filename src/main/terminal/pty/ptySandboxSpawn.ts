@@ -4,7 +4,6 @@ import { join } from 'node:path'
 import { app } from 'electron'
 import { quoteArgv } from '../../../shared/terminal/shellQuote'
 import type { PtyAttachResult } from '../../../shared/types'
-import type { PaneIdentity } from '../../control/idRegistry'
 import { needsPtyRelay } from '../../platform/ptyRelay'
 import { PortBridge, bridgesPorts } from '../../sandbox/portBridge'
 import { relayForced, sandboxedShellCommand, wrapForTerminal } from '../../sandbox/ptyWrap'
@@ -16,30 +15,7 @@ import { packageCooldownEnv } from '../../sandboxPackages/packageEnv'
 import { SANDBOX_NOT_KEPT } from '../../tmux/keepShellsBanner'
 import type { KeptShells } from '../../tmux/keptShells'
 import { sandboxCwd } from '../spawnCwd'
-import type { SpawnFolder } from '../spawnCwd'
-
-export interface SpawnPlan {
-  identity: PaneIdentity
-  workspaceId: string
-  shell: string
-  cols: number
-  rows: number
-  stateFile: string
-  env: Record<string, string>
-  secretNotice: string
-  sandboxStamp: string | null
-  resizePipe: string | null
-  portBridge: PortBridge | null
-  file: string
-  args: string[]
-  folder: SpawnFolder
-  cwd: string
-  host: boolean
-  sandboxed: boolean
-  wantsKeep: boolean
-  notKept: string
-  tokenFile: string | null
-}
+import type { SpawnPlan } from './ptySpawnPlan'
 
 interface SandboxSpawnDeps {
   workspaceSandboxes: WorkspaceSandboxes
@@ -56,7 +32,10 @@ export function createSandboxSpawn({
   injectSecrets,
   onSandboxSpawnFailure,
 }: SandboxSpawnDeps) {
-  async function spawnSandboxed(paneId: string, plan: SpawnPlan): Promise<PtyAttachResult | null> {
+  async function spawnSandboxed(
+    paneId: string,
+    plan: SpawnPlan,
+  ): Promise<SpawnPlan | PtyAttachResult> {
     const { identity, workspaceId, shell, stateFile, wantsKeep } = plan
     let {
       secretNotice,
@@ -113,7 +92,8 @@ export function createSandboxSpawn({
       }
       env.TMPDIR = workspaceSandboxes.tmpDir(workspaceId)
       cwd = sandboxCwd(cwd, workspaceSandboxes.workDir(workspaceId))
-      Object.assign(plan, {
+      return {
+        ...plan,
         secretNotice,
         resizePipe,
         portBridge,
@@ -124,8 +104,7 @@ export function createSandboxSpawn({
         args,
         env,
         cwd,
-      })
-      return null
+      }
     } catch (err) {
       portBridge?.close()
       if (tokenFile) keptShells.removeToken(paneId)
