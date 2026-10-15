@@ -16,7 +16,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { resolveSafe } from '../platform/pathGuard'
 import {
   type FileChange,
@@ -50,15 +50,7 @@ function setup(debounceMs = 30, watchDir?: WatchDir) {
   return { root, changes, watches }
 }
 
-async function until<T>(read: () => T | undefined, ms = 3000): Promise<T> {
-  const start = Date.now()
-  for (;;) {
-    const value = read()
-    if (value !== undefined) return value
-    if (Date.now() - start > ms) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 20))
-  }
-}
+const POLL = { timeout: 3000, interval: 20 }
 
 function settle(): Promise<void> {
   return process.platform === 'darwin' ? pause(600) : Promise.resolve()
@@ -101,7 +93,7 @@ describe('FileWatches', () => {
     const started = Date.now()
     writeFileSync(join(root, '.a.txt.tmp'), 'two')
     renameSync(join(root, '.a.txt.tmp'), file)
-    const change = await until(() => changes.find((c) => c.path === file))
+    const change = await vi.waitUntil(() => changes.find((c) => c.path === file), POLL)
     expect(change).toMatchObject({ path: file, exists: true, owners: ['win-1'] })
     expect(Date.now() - started).toBeLessThan(1000)
   })
@@ -140,7 +132,7 @@ describe('FileWatches', () => {
     renameSync(join(root, '.same.txt.tmp'), same)
     await pause(120)
     writeFileSync(other, 'two')
-    await until(() => changes.find((c) => c.path === other))
+    await vi.waitUntil(() => changes.find((c) => c.path === other), POLL)
     await pause(120)
     expect(changes.map((c) => c.path)).toEqual([other])
   })
@@ -159,7 +151,7 @@ describe('FileWatches', () => {
 
     writeFileSync(join(root, '.a.txt.tmp'), 'three')
     renameSync(join(root, '.a.txt.tmp'), file)
-    await until(() => (changes.length === 2 ? changes : undefined))
+    await vi.waitUntil(() => (changes.length === 2 ? changes : undefined), POLL)
     expect(changes[1]).toEqual({ path: file, exists: true, owners: ['win-1', 'win-2'] })
   })
 
@@ -201,7 +193,7 @@ describe('FileWatches', () => {
       throw new Error('disk full')
     })
     await expect(failed).rejects.toThrow('disk full')
-    await until(() => changes.find((c) => c.path === file))
+    await vi.waitUntil(() => changes.find((c) => c.path === file), POLL)
     expect(changes).toEqual([{ path: file, exists: true, owners: ['win-1'] }])
   })
 
@@ -215,7 +207,7 @@ describe('FileWatches', () => {
       writeFileSync(file, text)
       await pause(20)
     }
-    await until(() => changes.find((c) => c.path === file))
+    await vi.waitUntil(() => changes.find((c) => c.path === file), POLL)
     await pause(200)
     expect(changes).toEqual([{ path: file, exists: true, owners: ['win-1'] }])
     expect(readFileSync(file, 'utf8')).toBe('three')
@@ -234,10 +226,10 @@ describe('FileWatches', () => {
     await settle()
     writeFileSync(file, 'one')
     emitters[0]('change', 'a.txt')
-    await until(() => changes.find((c) => c.path === file))
+    await vi.waitUntil(() => changes.find((c) => c.path === file), POLL)
     writeFileSync(file, 'two')
     emitters[0]('change', 'a.txt')
-    await until(() => (changes.length === 2 ? changes : undefined))
+    await vi.waitUntil(() => (changes.length === 2 ? changes : undefined), POLL)
     expect(changes.map((c) => c.exists)).toEqual([true, true])
   })
 
@@ -249,9 +241,9 @@ describe('FileWatches', () => {
     watches.watch('win-2', file)
     await settle()
     unlinkSync(file)
-    await until(() => changes.find((c) => !c.exists))
+    await vi.waitUntil(() => changes.find((c) => !c.exists), POLL)
     writeFileSync(file, 'back')
-    await until(() => (changes.length === 2 ? changes : undefined))
+    await vi.waitUntil(() => (changes.length === 2 ? changes : undefined), POLL)
     expect(changes).toEqual([
       { path: file, exists: false, owners: ['win-1', 'win-2'] },
       { path: file, exists: true, owners: ['win-1', 'win-2'] },
@@ -268,7 +260,7 @@ describe('FileWatches', () => {
     await settle()
     writeFileSync(join(root, '.link.txt.tmp'), 'two')
     renameSync(join(root, '.link.txt.tmp'), link)
-    const change = await until(() => changes.find((c) => c.path === link))
+    const change = await vi.waitUntil(() => changes.find((c) => c.path === link), POLL)
     expect(change.exists).toBe(true)
   })
 
@@ -282,7 +274,7 @@ describe('FileWatches', () => {
     expect(watches.watch('win-1', file)).toBe(true)
     await settle()
     writeFileSync(join(root, 'real', 'a.txt'), 'two')
-    const change = await until(() => changes[0])
+    const change = await vi.waitUntil(() => changes[0], POLL)
     expect(change).toEqual({ path: file, exists: true, owners: ['win-1'] })
   })
 
@@ -301,7 +293,7 @@ describe('FileWatches', () => {
     await settle()
     writeFileSync(join(root, 'unwatched.txt'), 'x')
     writeFileSync(file, 'two')
-    await until(() => changes.find((c) => c.path === file))
+    await vi.waitUntil(() => changes.find((c) => c.path === file), POLL)
     await pause(100)
     expect(changes.map((c) => c.path)).toEqual([file])
   })
@@ -319,7 +311,7 @@ describe('FileWatches', () => {
       expect(kernelWatchesOn([root])).toBe(1)
       expect(kernelWatchesOn([file, base, tmpdir()])).toBe(0)
       writeFileSync(file, 'two')
-      await until(() => changes.find((c) => c.path === file))
+      await vi.waitUntil(() => changes.find((c) => c.path === file), POLL)
       watches.closeAll()
       expect(watches.watchedDirs()).toEqual([])
       expect(kernelWatchesOn([root])).toBe(0)
@@ -335,7 +327,7 @@ describe('FileWatches', () => {
     expect(watches.watch('win-1', file)).toBe(true)
     await settle()
     rmSync(join(root, 'sub'), { recursive: true })
-    await until(() => changes.find((c) => c.path === file))
+    await vi.waitUntil(() => changes.find((c) => c.path === file), POLL)
     await pause(150)
     expect(changes).toEqual([{ path: file, exists: false, owners: ['win-1'] }])
   })
@@ -389,11 +381,11 @@ describe('TreeWatches', () => {
     expect(stop).not.toBeNull()
     const created = join(root, 'src', 'deep', 'new.txt')
     writeFileSync(created, 'x')
-    await until(() => seen(created, 'created'))
+    await vi.waitUntil(() => seen(created, 'created'), POLL)
     writeFileSync(join(root, 'src', 'a.txt'), 'two')
-    await until(() => seen(join(root, 'src', 'a.txt'), 'changed'))
+    await vi.waitUntil(() => seen(join(root, 'src', 'a.txt'), 'changed'), POLL)
     unlinkSync(created)
-    await until(() => seen(created, 'deleted'))
+    await vi.waitUntil(() => seen(created, 'deleted'), POLL)
   })
 
   it('reports the files of a root that vanished as deleted and nothing from beside it', async () => {
@@ -402,7 +394,7 @@ describe('TreeWatches', () => {
     watches.watch(root, listen)
     await settle()
     rmSync(root, { recursive: true })
-    await until(() => seen(join(root, 'src', 'a.txt'), 'deleted'))
+    await vi.waitUntil(() => seen(join(root, 'src', 'a.txt'), 'deleted'), POLL)
     writeFileSync(join(base, 'sibling', 'x.txt'), 'x')
     await pause(150)
     expect(changes.every((c) => c.kind === 'deleted' && c.path.startsWith(`${root}/`))).toBe(true)
@@ -417,9 +409,9 @@ describe('TreeWatches', () => {
     const made = join(root, 'src', 'later')
     mkdirSync(made)
     writeFileSync(join(made, 'first.txt'), 'x')
-    await until(() => seen(join(made, 'first.txt'), 'created'))
+    await vi.waitUntil(() => seen(join(made, 'first.txt'), 'created'), POLL)
     writeFileSync(join(made, 'second.txt'), 'y')
-    await until(() => seen(join(made, 'second.txt'), 'created'))
+    await vi.waitUntil(() => seen(join(made, 'second.txt'), 'created'), POLL)
     expect(watches.watchedDirs(root)).toContain(made)
   })
 
@@ -440,7 +432,10 @@ describe('TreeWatches', () => {
     }
     const created = (): Set<string> =>
       new Set(changes.filter((c) => c.kind === 'created').map((c) => c.path))
-    await until(() => (made.every((path) => created().has(path)) ? true : undefined), 10_000)
+    await vi.waitUntil(() => made.every((path) => created().has(path)), {
+      timeout: 10_000,
+      interval: 20,
+    })
   })
 
   it('delivers changes made together as one batch of path and kind', async () => {
@@ -457,14 +452,13 @@ describe('TreeWatches', () => {
       { path: join(root, 'src', 'two.txt'), kind: 'created' },
     ]
     if (process.platform === 'darwin') {
-      await until(() =>
-        expected.every((c) => changes.some((x) => x.path === c.path && x.kind === c.kind))
-          ? true
-          : undefined,
+      await vi.waitUntil(
+        () => expected.every((c) => changes.some((x) => x.path === c.path && x.kind === c.kind)),
+        POLL,
       )
       return
     }
-    const first = await until(() => batches[0])
+    const first = await vi.waitUntil(() => batches[0], POLL)
     expect([...first].sort((a, b) => a.path.localeCompare(b.path))).toEqual(expected)
     await pause(100)
     expect(batches).toHaveLength(1)
@@ -477,9 +471,9 @@ describe('TreeWatches', () => {
     watches.watch(root, listen)
     await settle()
     writeFileSync(file, 'two')
-    await until(() => changes[0])
+    await vi.waitUntil(() => changes[0], POLL)
     writeFileSync(file, 'three')
-    await until(() => (changes.length === 2 ? changes : undefined))
+    await vi.waitUntil(() => (changes.length === 2 ? changes : undefined), POLL)
     expect(changes).toEqual([
       { path: file, kind: 'changed' },
       { path: file, kind: 'changed' },
@@ -497,7 +491,7 @@ describe('TreeWatches', () => {
     writeFileSync(join(root, 'node_modules', 'pkg', 'index.js'), 'x')
     writeFileSync(join(outside, 'secret.txt'), 'x')
     writeFileSync(join(root, 'src', 'marker.txt'), 'x')
-    await until(() => changes.find((c) => c.path === join(root, 'src', 'marker.txt')))
+    await vi.waitUntil(() => changes.find((c) => c.path === join(root, 'src', 'marker.txt')), POLL)
     expect(changes.map((c) => c.path)).toEqual([join(root, 'src', 'marker.txt')])
   })
 
@@ -510,12 +504,12 @@ describe('TreeWatches', () => {
     await settle()
     const link = join(root, 'src', 'linked')
     symlinkSync(outside, link)
-    await until(() => seen(link, 'created'))
+    await vi.waitUntil(() => seen(link, 'created'), POLL)
     writeFileSync(join(outside, 'secret.txt'), 'x')
     mkdirSync(join(root, 'src', 'node_modules'))
     writeFileSync(join(root, 'src', 'node_modules', 'index.js'), 'x')
     writeFileSync(join(root, 'src', 'marker.txt'), 'x')
-    await until(() => seen(join(root, 'src', 'marker.txt'), 'created'))
+    await vi.waitUntil(() => seen(join(root, 'src', 'marker.txt'), 'created'), POLL)
     await pause(100)
     expect(changes.map((c) => c.path).sort()).toEqual([link, join(root, 'src', 'marker.txt')])
     expect(watches.watchedDirs(root)).toEqual([root, join(root, 'src'), join(root, 'src', 'deep')])
@@ -558,7 +552,7 @@ describe('TreeWatches', () => {
     writeFileSync(join(base, 'sibling', 'x.txt'), 'x')
     writeFileSync(join(base, 'beside.txt'), 'x')
     writeFileSync(join(root, 'marker.txt'), 'x')
-    await until(() => changes.find((c) => c.path === join(root, 'marker.txt')))
+    await vi.waitUntil(() => changes.find((c) => c.path === join(root, 'marker.txt')), POLL)
     await pause(100)
     expect(new Set(changes.map((c) => c.path))).toEqual(new Set([join(root, 'marker.txt')]))
   })
@@ -592,7 +586,7 @@ describe('TreeWatches', () => {
     mkdirSync(join(root, 'lib', 'later'))
     writeFileSync(join(root, 'lib', 'later', 'unseen.txt'), 'x')
     writeFileSync(join(root, 'lib', 'marker.txt'), 'x')
-    await until(() => seen(join(root, 'lib', 'marker.txt'), 'created'))
+    await vi.waitUntil(() => seen(join(root, 'lib', 'marker.txt'), 'created'), POLL)
     await pause(100)
     expect([...new Set(changes.map((c) => c.path))]).toEqual([join(root, 'lib', 'marker.txt')])
     expect(watches.watchedDirs(root)).toHaveLength(3)
@@ -605,10 +599,10 @@ describe('TreeWatches', () => {
     await settle()
     expect(watches.watchedDirs(root)).toEqual([root, join(root, 'src'), join(root, 'src', 'deep')])
     rmSync(join(root, 'src', 'deep'), { recursive: true })
-    await until(() => (watches.watchedDirs(root).length === 2 ? true : undefined))
+    await vi.waitUntil(() => watches.watchedDirs(root).length === 2, POLL)
     mkdirSync(join(root, 'src', 'next'))
     writeFileSync(join(root, 'src', 'next', 'in.txt'), 'x')
-    await until(() => seen(join(root, 'src', 'next', 'in.txt'), 'created'))
+    await vi.waitUntil(() => seen(join(root, 'src', 'next', 'in.txt'), 'created'), POLL)
     expect(watches.watchedDirs(root)).toEqual([root, join(root, 'src'), join(root, 'src', 'next')])
   })
 
@@ -619,9 +613,9 @@ describe('TreeWatches', () => {
     watches.watch(root, listen)
     await settle()
     rmSync(join(root, 'src'), { recursive: true })
-    await until(() => seen(join(root, 'src', 'deep', 'in.txt'), 'deleted'))
-    await until(() => seen(join(root, 'src', 'a.txt'), 'deleted'))
-    await until(() => (watches.watchedDirs(root).length === 1 ? true : undefined))
+    await vi.waitUntil(() => seen(join(root, 'src', 'deep', 'in.txt'), 'deleted'), POLL)
+    await vi.waitUntil(() => seen(join(root, 'src', 'a.txt'), 'deleted'), POLL)
+    await vi.waitUntil(() => watches.watchedDirs(root).length === 1, POLL)
   })
 
   it('closes its watchers when the last listener leaves', async () => {
@@ -660,7 +654,7 @@ describe('watchers on a kernel that stays silent about vanished folders and new 
     writeFileSync(file, 'one')
     expect(watches.watch('win-1', file)).toBe(true)
     rmSync(join(root, 'sub'), { recursive: true })
-    await until(() => changes.find((c) => c.path === file))
+    await vi.waitUntil(() => changes.find((c) => c.path === file), POLL)
     await pause(150)
     expect(changes).toEqual([{ path: file, exists: false, owners: ['win-1'] }])
   })
@@ -669,7 +663,7 @@ describe('watchers on a kernel that stays silent about vanished folders and new 
     const { base, root, changes, watches, listen, seen } = tree({ silent: true })
     watches.watch(root, listen)
     rmSync(root, { recursive: true })
-    await until(() => seen(join(root, 'src', 'a.txt'), 'deleted'))
+    await vi.waitUntil(() => seen(join(root, 'src', 'a.txt'), 'deleted'), POLL)
     writeFileSync(join(base, 'sibling', 'x.txt'), 'x')
     await pause(150)
     expect(changes.every((c) => c.kind === 'deleted' && c.path.startsWith(`${root}/`))).toBe(true)
@@ -691,7 +685,10 @@ describe('watchers on a kernel that stays silent about vanished folders and new 
     }
     const created = (): Set<string> =>
       new Set(changes.filter((c) => c.kind === 'created').map((c) => c.path))
-    await until(() => (made.every((path) => created().has(path)) ? true : undefined), 5000)
+    await vi.waitUntil(() => made.every((path) => created().has(path)), {
+      timeout: 5000,
+      interval: 20,
+    })
     expect(changes.filter((c) => c.kind === 'created')).toHaveLength(made.length)
   })
 })

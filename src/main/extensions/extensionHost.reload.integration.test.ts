@@ -3,13 +3,15 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { ExtensionCaller, PaneChip } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { registerPane } from '../control/idRegistry'
 import { ExtensionHost } from './extensionHost'
 import { registerExtensionMethods } from './extensionMethods'
 import { ExtensionStore } from './extensionStore'
+
+const POLL = { timeout: 5000, interval: 20 }
 
 const caller: ExtensionCaller = { kind: 'user', workspaceId: 's1', capabilities: [] }
 const jsonrpc = require.resolve('vscode-jsonrpc/node')
@@ -34,16 +36,6 @@ socket.on('connect', async () => {
   await conn.sendRequest('ext.registerCommands', { commands: ${JSON.stringify(commands)} })
 })
 `
-
-async function until<T>(read: () => T | undefined, timeoutMs = 5000): Promise<T> {
-  const start = Date.now()
-  for (;;) {
-    const value = read()
-    if (value !== undefined) return value
-    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 20))
-  }
-}
 
 function settleWatchers(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, process.platform === 'darwin' ? 600 : 0))
@@ -213,11 +205,11 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
     host.processes.watchUserExtensions()
     await settleWatchers()
     pinger(['notify'])
-    await until(() => info('pinger'))
+    await vi.waitUntil(() => info('pinger'), POLL)
     expect(info('pinger')?.status).toBe('pending-approval')
     await settleWatchers()
     pinger(['notify'], '3.0.0')
-    await until(() => (info('pinger')?.version === '3.0.0' ? true : undefined))
+    await vi.waitUntil(() => info('pinger')?.version === '3.0.0', POLL)
   })
 
   it('picks up a manifest written into a directory that appeared empty earlier', async () => {
@@ -228,7 +220,7 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
     await new Promise((r) => setTimeout(r, 600))
     expect(info('late')).toBeUndefined()
     writeExtension('late', { capabilities: [] })
-    await until(() => info('late'))
+    await vi.waitUntil(() => info('late'), POLL)
     expect(info('late')?.status).toBe('pending-approval')
   })
 

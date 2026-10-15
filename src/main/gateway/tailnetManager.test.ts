@@ -56,13 +56,7 @@ function invocations(argvFile: string): string[][] {
     .map((l) => JSON.parse(l) as string[])
 }
 
-async function until(check: () => boolean, ms = 3000): Promise<void> {
-  const deadline = Date.now() + ms
-  while (!check()) {
-    if (Date.now() > deadline) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 20))
-  }
-}
+const POLL = { timeout: 3000, interval: 20 }
 
 const RUNNING = JSON.stringify({
   state: 'running',
@@ -88,13 +82,13 @@ describe('tailnet helper manager', () => {
       FAKE_TSNET_EXIT_AFTER_MS: '100',
     })
     h.tailnet.start(target)
-    await until(() => h.tailnet.state().state === 'error')
+    await vi.waitUntil(() => h.tailnet.state().state === 'error', POLL)
     expect(h.tailnet.state()).toEqual({ state: 'error', code: 'helper-stopped' })
     await new Promise((r) => setTimeout(r, 400))
     expect(invocations(h.argvFile)).toHaveLength(1)
 
     h.tailnet.start(target)
-    await until(() => invocations(h.argvFile).length === 2)
+    await vi.waitUntil(() => invocations(h.argvFile).length === 2, POLL)
   })
 
   it('TSN-C14 ignores lines that are not events and logs only that it did', async () => {
@@ -106,7 +100,7 @@ describe('tailnet helper manager', () => {
       ]),
     })
     h.tailnet.start(target)
-    await until(() => h.tailnet.state().state === 'running')
+    await vi.waitUntil(() => h.tailnet.state().state === 'running', POLL)
     expect(h.states.map((s) => s.state)).toEqual(['starting', 'running'])
     expect(h.log).toHaveBeenCalledTimes(2)
     for (const call of h.log.mock.calls) {
@@ -131,7 +125,7 @@ describe('tailnet helper manager', () => {
   it('TSN-C36 stops the helper but keeps the node signed in', async () => {
     const h = harness({ FAKE_TSNET_LINES: JSON.stringify([RUNNING]) })
     h.tailnet.start(target)
-    await until(() => h.tailnet.state().state === 'running')
+    await vi.waitUntil(() => h.tailnet.state().state === 'running', POLL)
     await h.tailnet.stop()
     expect(h.tailnet.state()).toEqual({ state: 'off' })
     expect(existsSync(h.stateDir)).toBe(true)
@@ -141,7 +135,7 @@ describe('tailnet helper manager', () => {
   it('TSN-C17 signs out by logging the node out and deleting its state folder', async () => {
     const h = harness({ FAKE_TSNET_LINES: JSON.stringify([RUNNING]) })
     h.tailnet.start(target)
-    await until(() => h.tailnet.state().state === 'running')
+    await vi.waitUntil(() => h.tailnet.state().state === 'running', POLL)
     await h.tailnet.signOut()
     const logout = invocations(h.argvFile).find((a) => a.includes('--logout'))
     expect(logout).toEqual(expect.arrayContaining(['--logout', '--dir', h.stateDir]))

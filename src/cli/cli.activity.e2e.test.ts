@@ -100,15 +100,7 @@ function run(command: string, args: string[], env: NodeJS.ProcessEnv): Promise<R
   })
 }
 
-async function until<T>(read: () => Promise<T | undefined>, timeoutMs = 10_000): Promise<T> {
-  const start = Date.now()
-  for (;;) {
-    const value = await read()
-    if (value !== undefined) return value
-    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 50))
-  }
-}
+const POLL = { timeout: 10_000, interval: 50 }
 
 describe('the Activity extension records two fake agents and shows them in its panel (real CLI, real socket)', () => {
   let dir: string
@@ -346,10 +338,10 @@ describe('the Activity extension records two fake agents and shows them in its p
       'hook PreToolUse []',
     ])
 
-    const model = await until(async () => {
+    const model = await vi.waitUntil(async () => {
       const current = await snapshot()
       return eventCount(current) === 6 ? current : undefined
-    })
+    }, POLL)
     expect(model.showActivity).toBe(false)
     expect(model.workspaces.map((w) => w.name)).toEqual(['shop'])
     const [latest, earlier] = model.workspaces[0].agents
@@ -389,10 +381,10 @@ describe('the Activity extension records two fake agents and shows them in its p
     await runAgent('claude', scratchPane, [
       ['UserPromptSubmit', { session_id: 's-3', prompt: 'jot this down' }],
     ])
-    const model = await until(async () => {
+    const model = await vi.waitUntil(async () => {
       const current = await snapshot()
       return current.workspaces.some((w) => w.name === 'notes') ? current : undefined
-    })
+    }, POLL)
     const notes = model.workspaces.find((w) => w.name === 'notes')
     expect(notes?.agents[0].current.prompt).toBe('jot this down')
     expect(existsSync(journalFile('sc1'))).toBe(false)
@@ -423,8 +415,9 @@ describe('the Activity extension records two fake agents and shows them in its p
     expect(storedSettings).toEqual({ activity: { showActivity: true } })
 
     host.processes.stopAll()
-    await until(async () =>
-      host.list().find((e) => e.id === 'activity')?.status !== 'running' ? true : undefined,
+    await vi.waitUntil(
+      async () => host.list().find((e) => e.id === 'activity')?.status !== 'running',
+      POLL,
     )
     serving = newHost()
 
@@ -440,8 +433,9 @@ describe('the Activity extension records two fake agents and shows them in its p
 
   it('answers the panel’s snapshot right after a restart while the extension still loads its settings', async () => {
     serving.processes.stopAll()
-    await until(async () =>
-      serving.list().find((e) => e.id === 'activity')?.status !== 'running' ? true : undefined,
+    await vi.waitUntil(
+      async () => serving.list().find((e) => e.id === 'activity')?.status !== 'running',
+      POLL,
     )
     const restarted = newHost()
     const loaded = restarted.config.getSettings.bind(restarted.config)
@@ -476,7 +470,7 @@ describe('the Activity extension records two fake agents and shows them in its p
     const id = added.stdout.trim()
     expect(id).toMatch(/^[a-z2-7]{10}$/)
     expect(readFileSync(journalFile('w1'), 'utf8')).not.toContain(FAKE.githubClassic)
-    expect(await until(async () => (openCount() === '1' ? '1' : undefined))).toBe('1')
+    expect(await vi.waitUntil(async () => (openCount() === '1' ? '1' : undefined), POLL)).toBe('1')
 
     const listed = await ostia(codexPane, 'ostia activity list --open --json')
     expect(listed.code).toBe(0)
@@ -492,7 +486,7 @@ describe('the Activity extension records two fake agents and shows them in its p
       ?.notes.find((n) => n.id === id)
     expect(note).toMatchObject({ needsYou: true, done: false })
     expect(await panel('done', { workspaceId: 'w1', id })).toEqual({ ok: true })
-    await until(async () => (openCount() === undefined ? true : undefined))
+    await vi.waitUntil(async () => openCount() === undefined, POLL)
 
     const shown = await ostia(claudePane, `ostia activity show ${id} --json`)
     expect(JSON.parse(shown.stdout)).toMatchObject({ id, needsYou: true, done: true })

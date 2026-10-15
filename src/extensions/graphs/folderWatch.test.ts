@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const hasMkfifo = (() => {
   try {
@@ -32,9 +32,7 @@ function folder(): string {
   return root
 }
 
-async function until(check: () => boolean): Promise<void> {
-  for (let i = 0; i < 200 && !check(); i++) await new Promise((r) => setTimeout(r, 10))
-}
+const POLL = { timeout: 2000, interval: 10 }
 
 describe('the folder watcher of a files trigger', () => {
   it('reports changes outside .git, node_modules and gitignored paths', async () => {
@@ -52,7 +50,7 @@ describe('the folder watcher of a files trigger', () => {
     writeFileSync(join(root, 'build/out/b.ts'), '1')
     writeFileSync(join(root, 'src/a/debug.log'), '1')
     writeFileSync(join(root, 'src/a/b.ts'), '1')
-    await until(() => seen.includes('src/a/b.ts'))
+    await vi.waitUntil(() => seen.includes('src/a/b.ts'), POLL)
     await new Promise((r) => setTimeout(r, 100))
     expect([...new Set(seen)]).toEqual(['src/a/b.ts'])
   })
@@ -70,7 +68,7 @@ describe('the folder watcher of a files trigger', () => {
     mkdirSync(join(root, 'src/new'))
     await new Promise((r) => setTimeout(r, 100))
     writeFileSync(join(root, 'src/new/c.ts'), '1')
-    await until(() => seen.includes('src/new/c.ts'))
+    await vi.waitUntil(() => seen.includes('src/new/c.ts'), POLL)
     expect(seen).toContain('src/new/c.ts')
   })
 
@@ -104,7 +102,7 @@ describe('the folder watcher of a files trigger', () => {
     await new Promise((r) => setTimeout(r, 150))
     writeFileSync(join(outside, 'secret.ts'), '1')
     writeFileSync(join(root, 'src/a/b.ts'), '1')
-    await until(() => seen.includes('src/a/b.ts'))
+    await vi.waitUntil(() => seen.includes('src/a/b.ts'), POLL)
     await new Promise((r) => setTimeout(r, 150))
     expect(seen.filter((p) => p.startsWith('src/before') || p.startsWith('src/after'))).toEqual([])
     expect(watcher.watching()).toBe(3)
@@ -127,7 +125,7 @@ describe('the folder watcher of a files trigger', () => {
     expect(watcher.start()).toEqual({ ok: true, folders: 5 })
     expect(watcher.ignored('src/a/b.ts', false)).toBe(false)
     writeFileSync(join(root, 'src/a/b.ts'), '1')
-    await until(() => seen.includes('src/a/b.ts'))
+    await vi.waitUntil(() => seen.includes('src/a/b.ts'), POLL)
     expect(seen).toContain('src/a/b.ts')
   })
 
@@ -159,12 +157,12 @@ describe('the folder watcher of a files trigger', () => {
     watchers.push(watcher)
     expect(watcher.start()).toEqual({ ok: true, folders: 4 })
     rmSync(join(root, 'src/a'), { recursive: true, force: true })
-    await until(() => watcher.watching() === 2)
+    await vi.waitUntil(() => watcher.watching() === 2, POLL)
     expect(watcher.watching()).toBe(2)
     mkdirSync(join(root, 'src/a'))
-    await until(() => watcher.watching() === 3)
+    await vi.waitUntil(() => watcher.watching() === 3, POLL)
     writeFileSync(join(root, 'src/a/c.ts'), '1')
-    await until(() => seen.includes('src/a/c.ts'))
+    await vi.waitUntil(() => seen.includes('src/a/c.ts'), POLL)
     expect(seen).toContain('src/a/c.ts')
     expect(watcher.watching()).toBe(3)
   })

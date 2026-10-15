@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { AssistModelSettings } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { ExtensionHost } from './extensionHost'
@@ -10,19 +10,11 @@ import { ExtensionLaunches } from './extensionLaunches'
 import { registerExtensionMethods } from './extensionMethods'
 import { ExtensionStore } from './extensionStore'
 
+const POLL = { timeout: 8000, interval: 20 }
+
 const echoFixtures = resolve(__dirname, '../../../test/fixtures/extensions')
 const assistFixtures = resolve(__dirname, '../../../test/fixtures/extensions-assist-models')
 const builtinExtensions = resolve(__dirname, '../../../out/extensions')
-
-async function until<T>(read: () => T | undefined, timeoutMs = 8000): Promise<T> {
-  const start = Date.now()
-  for (;;) {
-    const value = read()
-    if (value !== undefined) return value
-    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 20))
-  }
-}
 
 describe('a built-in assist extension starts on demand', () => {
   let dir: string
@@ -79,18 +71,18 @@ describe('a built-in assist extension starts on demand', () => {
   })
 
   it('starts a built-in extension with window items with the window', async () => {
-    await until(() => (status('echo') === 'running' ? true : undefined))
+    await vi.waitUntil(() => status('echo') === 'running', POLL)
   })
 
   it('wakes an assist extension when its UI asks for it', async () => {
     expect(host.processes.isRunning('switchboard')).toBe(false)
     host.assistant.wakeAssist()
-    await until(() => (status('switchboard') === 'running' ? true : undefined))
+    await vi.waitUntil(() => status('switchboard') === 'running', POLL)
   })
 
   it('starts an assist extension with the window once it has a provider to serve', async () => {
     host.processes.setEnabled('switchboard', false)
-    await until(() => (host.processes.isRunning('switchboard') ? undefined : true))
+    await vi.waitUntil(() => !host.processes.isRunning('switchboard'), POLL)
     host.processes.setEnabled('switchboard', true)
     await new Promise((r) => setTimeout(r, 200))
     expect(host.processes.isRunning('switchboard')).toBe(false)
@@ -108,11 +100,11 @@ describe('a built-in assist extension starts on demand', () => {
       ],
     }
     host.assistant.reloadAssistSettings()
-    await until(() => (status('switchboard') === 'running' ? true : undefined))
+    await vi.waitUntil(() => status('switchboard') === 'running', POLL)
   })
 
   it('runs a command asked for while the extension is still exiting, once the old process is gone', async () => {
-    await until(() => (status('echo') === 'running' ? true : undefined))
+    await vi.waitUntil(() => status('echo') === 'running', POLL)
     host.processes.stopAll()
     expect(host.processes.isRunning('echo')).toBe(true)
     const caller = { kind: 'user' as const, capabilities: [] }

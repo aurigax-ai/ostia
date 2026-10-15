@@ -119,10 +119,7 @@ describe('ExtensionHost confirm and panel notifications', () => {
     expect(host.list()[0].status).toBe('running')
     store.set('asker', { enabled: false, approved: ['notify'] })
     host.processes.reloadRecords()
-    const start = Date.now()
-    while (host.list()[0].status !== 'disabled' && Date.now() - start < 3000) {
-      await new Promise((r) => setTimeout(r, 20))
-    }
+    await vi.waitUntil(() => host.list()[0].status === 'disabled', { timeout: 3000, interval: 20 })
     expect(host.list()[0].status).toBe('disabled')
     expect(await host.invoke('asker', 'confirm', {}, caller)).toMatchObject({
       ok: false,
