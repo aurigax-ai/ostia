@@ -1,5 +1,5 @@
-import { paneIds } from '@/layout/tree'
-import type { LayoutNode, PaneNode } from '@/layout/types'
+import { paneIds } from '@/lib/layout/tree'
+import type { LayoutNode, PaneNode } from '@/lib/layout/types'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'

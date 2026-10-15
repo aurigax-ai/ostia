@@ -1,6 +1,6 @@
-import { currentDict } from '@/i18n/useDict'
-import { panelKey, sizePanel } from '@/layout/panelSize'
-import { joinSplitTab, separateFromSplitTab } from '@/layout/tabJoin'
+import { currentDict } from '@/lib/app/useDict'
+import { panelKey, sizePanel } from '@/lib/layout/panelSize'
+import { joinSplitTab, separateFromSplitTab } from '@/lib/layout/tabJoin'
 import {
   type DropZone,
   addTab,
@@ -57,8 +57,8 @@ import {
   tabIdOf,
   tabsOfPane,
   takeTab,
-} from '@/layout/tree'
-import type { Direction, LayoutNode, PaneNode, SurfaceKind } from '@/layout/types'
+} from '@/lib/layout/tree'
+import type { Direction, LayoutNode, PaneNode, SurfaceKind } from '@/lib/layout/types'
 import { forgetAgentSplitTab, isAgentSplitTab, markAgentSplitTab } from '@/lib/panes/agentSplitTabs'
 import { rememberedPanelFraction } from '@/lib/panes/panelSizes'
 import { forgetSplitTabSeeds, seedSplitTab, splitTabSeed } from '@/lib/panes/splitTabSeeds'

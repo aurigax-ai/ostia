@@ -1,4 +1,4 @@
-import type { ProcEntry } from '../../shared/common/procfs'
+import type { ProcEntry } from '../platform/procfs'
 
 export interface ListeningSocket {
   port: number

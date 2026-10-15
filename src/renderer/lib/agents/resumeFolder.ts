@@ -1,6 +1,6 @@
-import { allPanes, findPane } from '@/layout/tree'
-import type { PaneNode } from '@/layout/types'
 import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
+import { allPanes, findPane } from '@/lib/layout/tree'
+import type { PaneNode } from '@/lib/layout/types'
 import { runWhenIdle } from '@/lib/terminal/blockActions'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'

@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { SANDBOX_NAV_EXPANDED_KEY } from '@/lib/app/settingsNav'
+import { SANDBOX_NAV_EXPANDED_KEY } from '@/lib/settings/settingsNav'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'

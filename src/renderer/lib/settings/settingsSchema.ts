@@ -1,0 +1,1206 @@
+import { bindableIds } from '@/lib/keyboard/chords'
+import {
+  KEYBOARD_PLATFORMS,
+  type KeyboardPlatform,
+  OSTIA_KEYMAP,
+  TERMINAL_KEYMAPS,
+  isKeyboardPlatform,
+  keyboardPlatform,
+} from '@/lib/keyboard/keyboardPresets'
+import { TERMINAL_SEND_MAX, TERMINAL_SEND_TYPES } from '@/lib/keyboard/terminalKeys'
+import { BUILTIN_COLOR_SCHEMES } from '@/lib/theme/colorSchemes'
+import { MATCH_OSTIA_THEME } from '@/lib/theme/themeChoice'
+import { platform } from '@/platform'
+import {
+  BELL_MODES,
+  LONG_COMMAND_MAX_SECONDS,
+  LONG_COMMAND_MIN_SECONDS,
+} from '@shared/app/notificationSettings'
+import { GIT_POLL_SECONDS } from '@shared/boards/git'
+import { PORTS_INTERVAL_SECONDS } from '@shared/boards/ports'
+import { CHORDS_PER_COMMAND_MAX } from '@shared/keyboard/chordSpec'
+import { DEFAULT_CHORDS } from '@shared/keyboard/defaultChords'
+import { GLOBAL_HOTKEY_MAX_LENGTH } from '@shared/keyboard/globalHotkey'
+import { REDACTION_PATTERNS_MAX, REDACTION_PATTERN_MAX } from '@shared/privacy/redaction'
+import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
+import {
+  CORE_CHIP_IDS,
+  MAX_PROMPT_CHIPS,
+  PROMPT_SEPARATORS,
+  PROMPT_STYLES,
+} from '@shared/terminal/promptSettings'
+import { SHELL_SETTING_MAX_LENGTH } from '@shared/terminal/terminalShell'
+import { ACTIONS_MAX, ACTION_ICONS, ACTION_ID, ACTION_PLACES, ACTION_TITLE_MAX } from './actions'
+import {
+  BREADCRUMB_STYLES,
+  EXCLUDE_MAX,
+  FILE_SORT_BYS,
+  FILE_SORT_ORDERS,
+  NESTING_MAX,
+  PATTERN_MAX_LENGTH,
+} from './fileTreeSettings'
+import { KEYBOARD_FIELDS } from './keyboardSettings'
+import { KEYMAP_SETTING_PATTERN } from './keymapSetting'
+
+const font = (title: string) => ({
+  type: 'object',
+  title,
+  additionalProperties: false,
+  properties: {
+    family: { type: 'string', description: 'Font family name.' },
+    size: { type: 'number', minimum: 8, maximum: 32, description: 'Font size in px.' },
+    baseSize: {
+      type: 'number',
+      minimum: 8,
+      maximum: 32,
+      description:
+        'Font size in px that Cmd/Ctrl+scroll zoom returns to. Set while the size is zoomed, ' +
+        'removed when the zoom is reset or the size is changed in Settings.',
+    },
+    weight: {
+      type: 'number',
+      enum: [300, 400, 450, 500, 600, 700],
+      description:
+        'Body text weight. In the UI, emphasis and headings step up from it (+100, +200).',
+    },
+  },
+})
+
+const schemeChoice = (surface: string) => ({
+  type: 'string',
+  examples: [MATCH_OSTIA_THEME, ...BUILTIN_COLOR_SCHEMES.map((s) => s.id)],
+  description: [
+    `Color scheme for the ${surface}.`,
+    `"${MATCH_OSTIA_THEME}" uses the scheme of appearance.theme (following its light/dark switch);`,
+    'a scheme id such as catppuccin-mocha keeps that scheme whatever the app theme is.',
+    `An unknown id falls back to the app theme's scheme. Default: ${MATCH_OSTIA_THEME}.`,
+  ].join(' '),
+})
+
+const CHORD_VALUE = {
+  type: ['string', 'array', 'null'],
+  items: { type: 'string' },
+  maxItems: CHORDS_PER_COMMAND_MAX,
+  description:
+    'A chord like "Ctrl+Shift+K", "Cmd+Alt+P" or "Mod+Shift+K" (Mod is Cmd on macOS, Ctrl ' +
+    'elsewhere), a list of chords that all run the command (menus show the first one that ' +
+    'works everywhere), or null to unbind. A chord written "terminal:Cmd+K" runs the ' +
+    'command only while a terminal has the focus, and elsewhere the key keeps its other ' +
+    'use. "Shift+Shift" is Shift pressed twice on its own. Chords the shell needs are ' +
+    'ignored: plain Ctrl+letter, plain or Ctrl arrows, Escape, Tab and keys without Ctrl/Cmd.',
+}
+
+function keybindingsSchema(ids: readonly string[]) {
+  return {
+    type: 'object',
+    description:
+      'Keyboard shortcuts: command id → chord, list of chords, or null to unbind. Unlisted ' +
+      'commands keep their default. Edit them in Settings → Keyboard.',
+    properties: Object.fromEntries(ids.map((id) => [id, CHORD_VALUE])),
+    additionalProperties: CHORD_VALUE,
+  }
+}
+
+const KEYMAP_VALUE = {
+  type: 'string',
+  pattern: KEYMAP_SETTING_PATTERN.source,
+  examples: [OSTIA_KEYMAP, 'keymap-macos/cmux'],
+  description:
+    '"ostia" for the default command shortcuts, or a keymap an enabled extension contributes ' +
+    '(contributes.keymaps), as "<extension id>/<keymap id>": its chords replace the default ' +
+    'command shortcuts, and your keybindings apply on top. An id no enabled extension offers ' +
+    'on this computer counts as "ostia".',
+}
+
+const TERMINAL_KEYMAP_VALUE = {
+  type: 'string',
+  enum: TERMINAL_KEYMAPS.map((k) => k.id),
+  description:
+    '"ostia": line and word editing with Cmd and Option on macOS, and with Ctrl and Alt plus ' +
+    'Ctrl+Backspace on Linux. "natural-text-editing": the keys of iTerm2’s Natural Text ' +
+    'Editing preset (macOS). "none": keys go to the terminal as typed, for shells in vi mode. ' +
+    'A preset this platform doesn’t have counts as its default ("ostia").',
+}
+
+const TERMINAL_KEYS_VALUE = {
+  type: 'object',
+  description:
+    'Chord → what to send, or null to drop a key the text editing preset sends. They apply ' +
+    'on top of the preset; a command bound to the same chord wins.',
+  additionalProperties: {
+    oneOf: [
+      { type: 'null' },
+      {
+        type: 'object',
+        additionalProperties: false,
+        required: ['type', 'value'],
+        properties: {
+          type: {
+            type: 'string',
+            enum: [...TERMINAL_SEND_TYPES],
+            description:
+              '"text": the value, with \\n \\r \\t \\e \\\\ and \\xHH escapes. ' +
+              '"escape": ESC, then the value. "hex": bytes like "0x1b 0x7f" (0x00-0x7f).',
+          },
+          value: { type: 'string', minLength: 1, maxLength: TERMINAL_SEND_MAX },
+        },
+      },
+    ],
+  },
+}
+
+const KEYBINDINGS_DESC =
+  'Your keyboard shortcuts for each platform ("mac", "linux"): command id → chord, or null ' +
+  'to unbind. Unlisted commands keep their default. Edit them in Settings → Keyboard.'
+
+function perPlatformSchema<T>(description: string, value: T) {
+  const properties = Object.fromEntries(KEYBOARD_PLATFORMS.map((p) => [p, value]))
+  return {
+    type: 'object',
+    description,
+    additionalProperties: false,
+    properties: properties as Record<KeyboardPlatform, T>,
+  }
+}
+
+export const SETTINGS_JSON_SCHEMA = {
+  $schema: 'http://json-schema.org/draft-07/schema#',
+  title: `${PRODUCT_DISPLAY_NAME} Settings`,
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    locale: {
+      type: 'string',
+      enum: ['en', 'zh-Hant'],
+      description: 'Interface language.',
+    },
+    appearance: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        theme: {
+          type: 'string',
+          description:
+            'Theme id (built-in: adeberry, one-dark-vivid, instrument-night, dracula, oxocarbon, ostia-light; ' +
+            'or an extension theme). Default: adeberry.',
+        },
+        followSystem: {
+          type: 'boolean',
+          description:
+            'Switch between lightTheme and darkTheme when the operating system switches. When ' +
+            'off, "theme" is used. Default: true.',
+        },
+        lightTheme: {
+          type: 'string',
+          description:
+            'Theme id used when the OS is light and followSystem is on. Default: ostia-light.',
+        },
+        darkTheme: {
+          type: 'string',
+          description:
+            'Theme id used when the OS is dark and followSystem is on. Default: adeberry.',
+        },
+        accent: {
+          type: 'string',
+          pattern: '^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}))?$',
+          description:
+            'Hex color (#rgb or #rrggbb) that replaces the theme’s brand color. Empty uses the ' +
+            'theme’s own. Default: empty.',
+        },
+        zoom: {
+          type: 'integer',
+          minimum: 80,
+          maximum: 150,
+          description: 'Interface zoom in percent. Default: 100.',
+        },
+        motion: {
+          type: 'string',
+          enum: ['system', 'reduced', 'full'],
+          description:
+            'Interface animation. "system" follows the OS reduce-motion preference, "reduced" ' +
+            'turns movement off (state stays visible), "full" animates regardless of the OS. ' +
+            'Default: system.',
+        },
+        windowTitle: {
+          type: 'string',
+          maxLength: 120,
+          description:
+            'Window title shown by the OS (taskbar, Alt+Tab). Placeholders: {workspace}, ' +
+            '{pane}, {cwd}, {product}. Default: "{workspace} · {product}".',
+        },
+        ui: font('UI font'),
+        terminal: {
+          ...font('Terminal font'),
+          properties: {
+            ...font('Terminal font').properties,
+            lineHeight: {
+              type: 'number',
+              minimum: 1,
+              maximum: 2,
+              description: 'Terminal row height as a multiple of the font size. Default: 1.15.',
+            },
+          },
+        },
+        editor: font('Editor font'),
+      },
+    },
+    behavior: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        cursorStyle: {
+          type: 'string',
+          enum: ['block', 'underline', 'bar'],
+          description: 'Terminal cursor shape.',
+        },
+        cursorBlink: { type: 'boolean', description: 'Blink the terminal cursor.' },
+        inputMode: {
+          type: 'string',
+          enum: ['terminal', 'editor'],
+          description:
+            'How you type commands. "terminal" types straight into the shell. "editor" docks ' +
+            'an input editor under the command blocks while the shell waits at a prompt ' +
+            '(multi-line, history on Up, path completion on Tab); running programs still get ' +
+            'your keys directly. Shells without integration always use "terminal". ' +
+            'Default: terminal.',
+        },
+        inputEditorVim: {
+          type: 'boolean',
+          description:
+            'Edit commands in the input editor with vim keys. Esc switches to normal mode ' +
+            '(h j k l w b e 0 $ x dd dw cw u, with counts); i a A I o O return to insert mode. ' +
+            'Enter runs the command from either mode. Default: false.',
+        },
+        historySuggestions: {
+          type: 'boolean',
+          description:
+            'Suggest commands from this session and from the shell’s history file in the input ' +
+            'editor: gray text (Right arrow or End accepts it), Tab arguments and Up. When false ' +
+            'the history file is not read. Default: true.',
+        },
+        copyOnSelect: {
+          type: 'boolean',
+          description: 'Copy selected terminal text to the clipboard as soon as it is selected.',
+        },
+        wheelZoom: {
+          type: 'boolean',
+          description:
+            'Hold Cmd (macOS) or Ctrl and scroll over a terminal or the editor to change its ' +
+            'font size. Default: off on macOS, on elsewhere.',
+        },
+        gpuAcceleration: {
+          type: 'boolean',
+          description:
+            'Draw terminals on the GPU (WebGL). Block and box-drawing characters then fill ' +
+            'their cells exactly. Falls back to the DOM renderer when WebGL is unavailable. ' +
+            'Applies to new terminals.',
+        },
+        restoreWorkspace: {
+          type: 'boolean',
+          description:
+            'Reopen the previous run’s workspaces, panes and terminal scrollback at launch. ' +
+            'Shells are always respawned fresh; this restores the workspace’s shape and ' +
+            'history, not live processes. Turning it off erases what is already stored.',
+        },
+        checkForUpdates: {
+          type: 'boolean',
+          description:
+            'Ask GitHub once after launch and then once an hour whether a newer release exists, ' +
+            'and show a notice when one does. Nothing is downloaded or installed. Only you can ' +
+            'change this, in Settings → About. Default: true.',
+        },
+        updateChannel: {
+          type: 'string',
+          enum: ['stable', 'beta', 'main'],
+          description:
+            'Which builds the update check offers. "stable" offers releases only. "beta" also ' +
+            'offers release candidates and installs them in the app: macOS (the dmg or ' +
+            'Homebrew install, shown as "Receive beta updates") and the Linux tarball or a ' +
+            'local build. "main" (the Linux tarball or a local build) also offers the daily ' +
+            'build of the main branch and release candidates. A newer release is offered on ' +
+            'every channel. apt stays on stable. Only you can change this, in Settings → ' +
+            'About. Default: stable.',
+        },
+        discreteGpu: {
+          type: 'boolean',
+          description:
+            'Linux: run the app on the discrete GPU that switcheroo-control lists. Needs ' +
+            'switcheroo-control. Programs in terminals keep the default GPU. Applies on the ' +
+            'next start. Only you can change this, in Settings → Terminal. Default: false.',
+        },
+        externalEditor: {
+          type: 'string',
+          description:
+            'Command for "Open in External Editor". "auto" picks the first of code, cursor, zed ' +
+            'on PATH; empty turns it off. Placeholders: {file}, {line}, {column}, e.g. ' +
+            '"code -g {file}:{line}:{column}". Runs the program directly, never through a shell.',
+        },
+      },
+    },
+    files: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        exclude: {
+          type: 'array',
+          maxItems: EXCLUDE_MAX,
+          items: { type: 'string', maxLength: PATTERN_MAX_LENGTH },
+          description:
+            "Glob patterns of files and folders the Files explorer hides, like VS Code's " +
+            'files.exclude. A pattern matches the path relative to the folder the explorer ' +
+            'shows or the absolute path: "**/node_modules" hides every node_modules, ' +
+            '"**/.*" hides dotfiles. "Hide in tree" adds the item\'s absolute path. ' +
+            'Default: .git, .hg, .svn, .DS_Store and Thumbs.db anywhere.',
+        },
+        showExcluded: {
+          type: 'boolean',
+          description:
+            'Show excluded files anyway, dimmed (the eye button in the Files header). ' +
+            'Default: false.',
+        },
+        searchIgnored: {
+          type: 'boolean',
+          description:
+            'Search in the Files panel also looks in files .gitignore leaves out. Default: false.',
+        },
+        compactFolders: {
+          type: 'boolean',
+          description:
+            'Show a chain of folders that each hold only one folder as one row, like ' +
+            '"src/main/java". Default: true.',
+        },
+        nesting: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            enabled: {
+              type: 'boolean',
+              description:
+                "Group related files under a parent file, like VS Code's file nesting. " +
+                'Default: true.',
+            },
+            patterns: {
+              type: 'object',
+              maxProperties: NESTING_MAX,
+              additionalProperties: { type: 'string', maxLength: PATTERN_MAX_LENGTH },
+              description:
+                'Parent file pattern → comma-separated child patterns (VS Code syntax). A ' +
+                'parent may hold one "*"; children may use "*" and "${capture}" (the text the ' +
+                'parent\'s "*" matched), e.g. "*.ts": "${capture}.test.ts, ${capture}.d.ts" or ' +
+                '"package.json": "pnpm-lock.yaml". Replaces the defaults when set.',
+            },
+          },
+        },
+        sortOrder: {
+          type: 'string',
+          enum: [...FILE_SORT_ORDERS],
+          description:
+            'foldersFirst lists folders above files; mixed interleaves them. Default: foldersFirst.',
+        },
+        sortBy: {
+          type: 'string',
+          enum: [...FILE_SORT_BYS],
+          description: 'Sort by name, or by file type (extension) then name. Default: name.',
+        },
+        breadcrumb: {
+          type: 'string',
+          enum: [...BREADCRUMB_STYLES],
+          description:
+            'The Files header path, on one line. auto shortens folder names to their first ' +
+            'letter and then folds the leading ones into … only when the path does not fit; ' +
+            'full never shortens and scrolls; short always shortens. Default: auto.',
+        },
+        iconTheme: {
+          type: 'string',
+          description:
+            'File icon theme: "ostia" (built-in) or the id of a VS Code icon theme an enabled ' +
+            'extension contributes (contributes.iconThemes). Default: ostia.',
+        },
+      },
+    },
+    terminal: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        theme: schemeChoice('terminal'),
+        scrollSpeed: {
+          type: 'number',
+          minimum: 0.5,
+          maximum: 5,
+          description: 'Mouse wheel scroll speed multiplier for terminals. Default: 1.',
+        },
+        scrollbackLines: {
+          type: 'integer',
+          minimum: 1000,
+          maximum: 100000,
+          description: 'Lines of history each terminal keeps. Default: 10000.',
+        },
+        clipboardKeys: {
+          type: 'string',
+          enum: ['shift', 'smart'],
+          description:
+            'Terminal copy/paste keys on Linux and Windows. "shift": Ctrl+Shift+C/V, and Ctrl+C/V ' +
+            'go to the program. "smart": Ctrl+C copies when text is selected (else interrupts), ' +
+            'Ctrl+V pastes; Ctrl+Shift+C/V still work. macOS always uses Cmd+C/V. Default: shift.',
+        },
+        linkClick: {
+          type: 'string',
+          enum: ['app', 'system'],
+          description:
+            'Where Ctrl+click (Cmd+click on macOS) opens a web link in a terminal. "app": a new ' +
+            'browser tab in the app, and adding Shift opens the system browser. "system": the ' +
+            'system browser, and adding Shift opens a new browser tab in the app. Default: app.',
+        },
+        warnOnRiskyPaste: {
+          type: 'boolean',
+          description:
+            'Ask before pasting two or more lines into a terminal from the clipboard. A single ' +
+            'line is always pasted without its trailing newline or control characters. Only ' +
+            'you can change this, in Settings; agents cannot. Default: true.',
+        },
+        primarySelection: {
+          type: 'boolean',
+          description:
+            'Linux: selecting terminal text puts it in the primary selection, and a middle ' +
+            'click pastes the primary selection (through the same paste check as Ctrl+Shift+V). ' +
+            'Off turns both off. Default: true.',
+        },
+        macOptionIsMeta: {
+          type: 'boolean',
+          description:
+            'macOS: send Option+key as Meta (Esc+key) so readline and fzf Alt shortcuts work; ' +
+            'Option then no longer types special characters. Default: false.',
+        },
+        renderer: {
+          type: 'string',
+          enum: ['xterm', 'ghostty'],
+          description:
+            'Experimental. Engine for terminals opened from now on and terminals restored at ' +
+            'the next start; an open terminal keeps its engine. "ghostty" runs Ghostty\'s own ' +
+            'emulator (libghostty-vt) and falls back to "xterm" if it cannot start. Default: "xterm".',
+        },
+        keepShells: {
+          type: 'boolean',
+          description:
+            'Experimental. Run new terminals in a private tmux server (tmux 3.2 or newer) so ' +
+            'restarting for an update or a crash leaves them running. With confirmQuit on, Quit ' +
+            'asks whether to keep them for the next start or end them; otherwise Quit ends them. ' +
+            'Only you can change this, in Settings; agents cannot. Default: false.',
+        },
+        osc52Write: {
+          type: 'boolean',
+          description:
+            'Let programs in a terminal set the clipboard with OSC 52 (tmux, vim and agents ' +
+            'over ssh copy this way). Programs can never read the clipboard. Only you can ' +
+            'change this, in Settings; agents cannot. Default: true.',
+        },
+        shell: {
+          type: 'string',
+          maxLength: SHELL_SETTING_MAX_LENGTH,
+          description:
+            'Program new terminals run, with its arguments, e.g. "/usr/bin/fish" or "nu -l". ' +
+            'Empty uses your login shell ($SHELL). Run directly, never through a shell. Blocks, ' +
+            'the input editor and the folder chip need zsh or bash; other shells work without ' +
+            'them. Applies to new terminals. Only you can change this, in Settings; agents ' +
+            'cannot. Default: empty.',
+        },
+        minimumContrast: {
+          type: 'number',
+          minimum: 1,
+          maximum: 21,
+          description:
+            'Lowest contrast ratio allowed between terminal text and its background; ' +
+            'text below it is adjusted. 1 turns it off. Default: 1.',
+        },
+        prompt: {
+          type: 'object',
+          additionalProperties: false,
+          description:
+            'The prompt the input editor shows (behavior.inputMode "editor"). Arrange it in ' +
+            'Settings → Prompt, or right-click the prompt and choose Edit prompt.',
+          properties: {
+            style: {
+              type: 'string',
+              enum: [...PROMPT_STYLES],
+              description:
+                '"shell" keeps your shell’s own prompt (PS1, prompt frameworks). "ostia" shows ' +
+                'context chips above the input editor, and new shells get a plain "cwd" prompt ' +
+                'so scrollback stays readable. Terminals already open keep their prompt until ' +
+                'a new shell starts. Default: shell.',
+            },
+            chips: {
+              type: 'array',
+              maxItems: MAX_PROMPT_CHIPS,
+              uniqueItems: true,
+              items: {
+                type: 'string',
+                anyOf: [
+                  { enum: [...CORE_CHIP_IDS] },
+                  { pattern: '^[a-z][a-z0-9-]{1,39}\\.[a-z][a-z0-9-]{0,39}$' },
+                ],
+              },
+              description:
+                'Chips in order, left to right. Built in: conda, virtualenv, node, cwd, user, ' +
+                'host, kube (Kubernetes context), date, time12, time24, exitCode, duration. ' +
+                'Extensions add chips as "<extension>.<chip>". Chips without a value are hidden. ' +
+                'Default: ["conda", "virtualenv", "node", "cwd", "git.branch", "git.diff-stats"].',
+            },
+            sameLine: {
+              type: 'boolean',
+              description: 'Show the chips on the same line as the command. Default: false.',
+            },
+            separator: {
+              type: 'string',
+              enum: [...PROMPT_SEPARATORS],
+              description:
+                'Character after the prompt: in the plain shell prompt, and after the chips ' +
+                'when sameLine is on. Default: none.',
+            },
+          },
+        },
+      },
+    },
+    panes: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        dimInactive: {
+          type: 'boolean',
+          description: 'Dim panes that are not focused while a workspace is split. Default: true.',
+        },
+        focusOnHover: {
+          type: 'boolean',
+          description: 'Focus a pane after the pointer rests on it. Default: false.',
+        },
+        equalizeOnSplit: {
+          type: 'boolean',
+          description:
+            'Resize every split in the workspace to equal shares when a pane is created. Default: false.',
+        },
+        hideTabClose: {
+          type: 'boolean',
+          description: 'Hide the close button on pane tabs. Default: false.',
+        },
+      },
+    },
+    notifications: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        desktop: { type: 'boolean', description: 'Show system notification banners.' },
+        sound: { type: 'boolean', description: 'Play the system sound with each banner.' },
+        whenFocused: {
+          type: 'boolean',
+          description: `Also show banners for the pane you are looking at while ${PRODUCT_DISPLAY_NAME} is focused.`,
+        },
+        agentWaiting: {
+          type: 'boolean',
+          description:
+            'Banner when an agent waits for your input or permission (ostia state waiting).',
+        },
+        agentDone: {
+          type: 'boolean',
+          description: 'Banner when an agent finishes its turn (ostia state done).',
+        },
+        command: {
+          type: 'string',
+          description:
+            'Program run for every notification, e.g. "notify-send {title} {body}". Placeholders: ' +
+            '{title}, {body}, {pane}. Runs the program directly, never through a shell. Empty ' +
+            'turns it off. Only the human can change it, in Settings.',
+        },
+        commandFinished: {
+          type: 'boolean',
+          description:
+            'Banner when a long command (longCommandSeconds or more) finishes in a pane you ' +
+            'are not watching.',
+        },
+        longCommandSeconds: {
+          type: 'integer',
+          minimum: LONG_COMMAND_MIN_SECONDS,
+          maximum: LONG_COMMAND_MAX_SECONDS,
+          description: `Seconds a command must run before its end notifies you while ${PRODUCT_DISPLAY_NAME} is in the background. Default: 10.`,
+        },
+        bell: {
+          type: 'string',
+          enum: [...BELL_MODES],
+          description:
+            'What a terminal bell (BEL) does: "attention" marks the pane when you are not ' +
+            'viewing it, "sound" also plays the system sound, "off" ignores it. Default: attention.',
+        },
+      },
+    },
+    sidebar: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        showPath: { type: 'boolean', description: 'Show each workspace folder under its name.' },
+        showMessage: {
+          type: 'boolean',
+          description: 'Show the latest notification or running command under each workspace.',
+        },
+        showDescription: {
+          type: 'boolean',
+          description: 'Show custom workspace descriptions.',
+        },
+        showExtensionItems: {
+          type: 'boolean',
+          description: 'Show items extensions add to a workspace row (git branch, counts).',
+        },
+        showSSH: {
+          type: 'boolean',
+          description:
+            'Show the host a foreground ssh in the workspace is connected to (the Ports ' +
+            'extension). Needs showExtensionItems.',
+        },
+      },
+    },
+    assistant: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        chatHistory: {
+          type: 'boolean',
+          description: `Save assistant chat sessions on this computer (never synced), so a chat pane reopens its last session and you can search, rename, export or delete past ones. Terminal output you add as context is stored only as the text that was sent. Off keeps chats in memory until ${PRODUCT_DISPLAY_NAME} quits. Only you can change this; ostia settings set refuses it. Default: true.`,
+        },
+        mcpServers: {
+          type: 'array',
+          description:
+            'MCP servers the assistant chat can call tools from. Each one runs a program from ' +
+            'an argv (never a shell) or connects to an http(s) URL. Every tool call asks you ' +
+            'in the chat first. Tokens go in Settings → Assistant (stored encrypted, ' +
+            'never here). Only you can change this; ostia settings set refuses it.',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['name'],
+            properties: {
+              name: { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$' },
+              enabled: { type: 'boolean' },
+              command: { type: 'array', items: { type: 'string' }, minItems: 1 },
+              url: { type: 'string' },
+              env: { type: 'object', additionalProperties: { type: 'string' } },
+              secrets: {
+                type: 'array',
+                items: { type: 'string' },
+                description:
+                  'Names of environment variables (stdio) or headers (http) whose values are ' +
+                  'stored encrypted.',
+              },
+              disabledTools: { type: 'array', items: { type: 'string' } },
+            },
+          },
+        },
+        skillFolders: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Absolute paths of skill folders (a folder with a SKILL.md, or a folder of them). ' +
+            'The chat model sees each skill name and description and loads one when it needs ' +
+            'it.',
+        },
+      },
+    },
+    agents: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        autoResume: {
+          type: 'boolean',
+          description: `Resume an agent session that was running when ${PRODUCT_DISPLAY_NAME} quit, at its pane's first idle prompt once the pane is visible. Only you can change this; ostia settings set refuses it. Default: false.`,
+        },
+        autoSendReferences: {
+          type: 'boolean',
+          description: `Press Enter after ${PRODUCT_DISPLAY_NAME} pastes a reference you sent (Point at element, Capture region, Send selection) into a pane running claude or codex, so the agent reads it at once. Never at a shell prompt, and never for references from the file menu, an extension or an agent. Only you can change this; ostia settings set refuses it. Default: true.`,
+        },
+        hooks: {
+          type: 'object',
+          additionalProperties: false,
+          description: `${PRODUCT_DISPLAY_NAME}’s integration for each agent CLI in new terminals. Turn one off if it clashes with your own hooks; that agent then runs untouched and reports no attention state or resume token on its own. Only you can change this, in Settings; agents cannot.`,
+          properties: {
+            claude: {
+              type: 'boolean',
+              description: `Run claude with the ${PRODUCT_DISPLAY_NAME} plugin (CLI skill, resume token, attention hooks). Default: true.`,
+            },
+            codex: {
+              type: 'boolean',
+              description: `Run interactive codex sessions with ${PRODUCT_DISPLAY_NAME}’s hooks (resume token, attention state, CLI context). Default: true.`,
+            },
+          },
+        },
+        hibernation: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            enabled: {
+              type: 'boolean',
+              description:
+                'Stop the shell of an idle, hidden agent terminal to save memory once more than ' +
+                'maxLiveTerminals agents run. Only panes whose agent stored a resume token are ' +
+                'hibernated; the scrollback is kept and Resume starts a fresh shell that runs ' +
+                'the agent’s resume command. Default: false.',
+            },
+            idleSeconds: {
+              type: 'number',
+              minimum: 5,
+              maximum: 86400,
+              description:
+                'Seconds without output or input before an agent terminal may hibernate. ' +
+                'Default: 600.',
+            },
+            maxLiveTerminals: {
+              type: 'number',
+              minimum: 0,
+              maximum: 64,
+              description:
+                'Agent terminals kept running before idle hidden ones hibernate. Default: 6.',
+            },
+          },
+        },
+      },
+    },
+    workspaces: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        placement: {
+          type: 'string',
+          enum: ['end', 'top', 'afterCurrent'],
+          description:
+            'Where a new workspace appears in the sidebar: "end" of the list, at the "top" ' +
+            '(below pinned workspaces), or right "afterCurrent". Default: end.',
+        },
+        inheritFolder: {
+          type: 'boolean',
+          description:
+            'Start a new workspace in the folder of the current workspace’s focused pane. ' +
+            'Falls back to defaultFolder. Default: false.',
+        },
+        defaultFolder: {
+          type: 'string',
+          description: 'Folder a new workspace starts in. "~" is your home folder. Default: ~.',
+        },
+        confirmClose: {
+          type: 'boolean',
+          description: 'Ask before closing a workspace that has a running command. Default: true.',
+        },
+        confirmQuit: {
+          type: 'boolean',
+          description:
+            'Ask before quitting or closing the window while commands are running. Default: true.',
+        },
+        closeToTray: {
+          type: 'boolean',
+          description: `Closing the window hides ${PRODUCT_DISPLAY_NAME} instead of quitting; your terminals keep running and a tray icon brings the window back. Quit from the tray icon. Needs a desktop with a system tray. Default: true.`,
+        },
+        globalHotkey: {
+          type: 'string',
+          maxLength: GLOBAL_HOTKEY_MAX_LENGTH,
+          description: `A system-wide shortcut that brings every ${PRODUCT_DISPLAY_NAME} window up, or hides them to the tray when one has focus, e.g. "Ctrl+Alt+Space". Modifiers: Ctrl, Alt, Shift, Super, Cmd, Mod (Cmd on macOS, Ctrl elsewhere); needs one other than Shift. On Wayland it works only where the desktop lets apps register global shortcuts. Empty turns it off. Only you can change this, in Settings; agents cannot. Default: empty.`,
+        },
+        wrapTitles: {
+          type: 'boolean',
+          description: 'Wrap long workspace titles onto up to two lines in the sidebar.',
+        },
+      },
+    },
+    browser: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        searchEngine: {
+          type: 'string',
+          enum: ['google', 'duckduckgo', 'bing', 'kagi', 'custom'],
+          description:
+            'Search engine for address-bar text that is not a URL. "custom" uses customSearchUrl. ' +
+            'Default: google.',
+        },
+        customSearchUrl: {
+          type: 'string',
+          description:
+            'Search URL for the "custom" engine: http or https, containing {query}, e.g. ' +
+            '"https://example.com/search?q={query}". An invalid template falls back to Google.',
+        },
+        defaultZoom: {
+          type: 'number',
+          minimum: 50,
+          maximum: 300,
+          description: 'Page zoom in percent for browser panes when a page loads. Default: 100.',
+        },
+        attachCaptureImage: {
+          type: 'boolean',
+          description:
+            'When a browser capture (a picked element or a cropped region) is sent to an agent, insert its screenshot as a second @reference after the report, so agents that attach @image paths see the picture. Default: true.',
+        },
+      },
+    },
+    editor: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        theme: schemeChoice('editor'),
+        wordWrap: { type: 'string', enum: ['off', 'on'], description: 'Wrap long lines.' },
+        lineNumbers: {
+          type: 'string',
+          enum: ['on', 'off', 'relative'],
+          description: 'Line number gutter. "relative" counts lines from the cursor.',
+        },
+        tabSize: { type: 'number', enum: [2, 4, 8], description: 'Spaces per tab stop.' },
+        insertSpaces: {
+          type: 'boolean',
+          description: 'Insert spaces when Tab is pressed instead of a tab character.',
+        },
+        autoSave: {
+          type: 'string',
+          enum: ['off', 'afterDelay', 'onFocusChange'],
+          description:
+            'Save changed files by themselves: "afterDelay" one second after the last edit, ' +
+            '"onFocusChange" when the editor loses focus. Default: off.',
+        },
+        formatOnSave: {
+          type: 'boolean',
+          description:
+            'Format the document before every save with the language server or built-in ' +
+            'formatter. Files with no formatter are just saved. Default: false.',
+        },
+        markdownPreview: {
+          type: 'boolean',
+          description:
+            'Open Markdown files in the rendered preview instead of the source. Default: false.',
+        },
+        diffLayout: {
+          type: 'string',
+          enum: ['sideBySide', 'inline'],
+          description:
+            'How a diff opens: both texts side by side, or inline in one column. The button in ' +
+            'each diff switches it. Default: sideBySide.',
+        },
+        openFilesIn: {
+          type: 'string',
+          enum: ['tab', 'split'],
+          description:
+            'Where an opened file shows: "tab" as a tab next to the focused pane (reusing an ' +
+            'editor tab already there), "split" in the workspace editor pane, split to the ' +
+            'right when there is none. Default: tab.',
+        },
+      },
+    },
+    keymap: perPlatformSchema(
+      'The App shortcuts preset for each platform ("mac", "linux"). A platform without one ' +
+        'uses its default. Pick it in Settings → Keyboard.',
+      KEYMAP_VALUE,
+    ),
+    terminalKeymap: perPlatformSchema(
+      'The text editing preset for each platform ("mac", "linux"): the keys that send line and ' +
+        'word editing sequences to the shell. A platform without one uses its default. Pick ' +
+        'it in Settings → Keyboard.',
+      TERMINAL_KEYMAP_VALUE,
+    ),
+    keybindings: perPlatformSchema(
+      KEYBINDINGS_DESC,
+      keybindingsSchema(Object.keys(DEFAULT_CHORDS)),
+    ),
+    terminalKeys: perPlatformSchema(
+      'Your keys that send text to the terminal, for each platform ("mac", "linux"). Only you ' +
+        'can change this, in Settings → Keyboard; agents cannot.',
+      TERMINAL_KEYS_VALUE,
+    ),
+    workspaceGroups: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        byCwd: {
+          type: 'array',
+          description:
+            'Put each new workspace into a sidebar group by its folder. The first rule whose ' +
+            'pattern matches the workspace folder wins; the group is created if it does not ' +
+            'exist. "*" matches within one folder name, "**" across folders, "?" one character.',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['pattern', 'group'],
+            properties: {
+              pattern: {
+                type: 'string',
+                description: 'Glob matched against the whole workspace folder, e.g. ~/work/**.',
+              },
+              group: { type: 'string', description: 'Name of the group to put the workspace in.' },
+            },
+          },
+        },
+      },
+    },
+    git: {
+      type: 'object',
+      additionalProperties: false,
+      description:
+        'Git: the branch and diff stats of each workspace and the Git panel. Only you can change this (Settings → Git).',
+      properties: {
+        enabled: { type: 'boolean', description: 'Default: true.' },
+        pollSeconds: {
+          type: 'number',
+          minimum: GIT_POLL_SECONDS.min,
+          maximum: GIT_POLL_SECONDS.max,
+          description: 'Seconds between refreshes while a window is focused. Default: 10.',
+        },
+        showDiffStats: {
+          type: 'boolean',
+          description: 'Diff stats of the active workspace in the top bar. Default: true.',
+        },
+        graphScope: {
+          type: 'string',
+          enum: ['current', 'all'],
+          description: 'Branches the commit graph shows. Default: current.',
+        },
+        changesView: {
+          type: 'string',
+          enum: ['list', 'tree'],
+          description: 'Changed files as a flat list or a folder tree. Default: list.',
+        },
+      },
+    },
+    ports: {
+      type: 'object',
+      additionalProperties: false,
+      description:
+        'Listening ports and ssh logins of your terminals. Only you can change this (Settings → Ports).',
+      properties: {
+        enabled: { type: 'boolean', description: 'Default: true.' },
+        intervalSeconds: {
+          type: 'number',
+          minimum: PORTS_INTERVAL_SECONDS.min,
+          maximum: PORTS_INTERVAL_SECONDS.max,
+          description: 'Seconds between scans while a window is focused. Default: 3.',
+        },
+        portHost: {
+          type: 'string',
+          enum: ['localhost', '127.0.0.1'],
+          description: 'Host used to open a port in the browser pane. Default: localhost.',
+        },
+      },
+    },
+    extensionSettings: {
+      type: 'object',
+      description:
+        'Extension id → its setting values. Edit them in Settings → Extensions; each ' +
+        "extension's manifest lists its settings.",
+      additionalProperties: {
+        type: 'object',
+        additionalProperties: { type: ['string', 'number', 'boolean'] },
+      },
+    },
+    sync: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        dir: {
+          type: 'string',
+          description:
+            'Folder to sync settings and extension choices through (a git repository, ' +
+            'Syncthing or Dropbox folder). Empty turns sync off. Set it from Settings → Sync; ' +
+            'agents cannot change it. Secrets and capability grants never sync.',
+        },
+      },
+    },
+    actions: {
+      type: 'array',
+      maxItems: ACTIONS_MAX,
+      description:
+        'Buttons and menu entries that run a palette command. Each also becomes a palette ' +
+        'command "action.<id>" you can bind in keybindings. An action whose command needs a ' +
+        'permission beyond the defaults asks before its first run.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['id', 'title', 'command'],
+        properties: {
+          id: { type: 'string', pattern: ACTION_ID.source, description: 'Stable id, a-z 0-9 -.' },
+          title: { type: 'string', maxLength: ACTION_TITLE_MAX, description: 'Label and tooltip.' },
+          command: {
+            type: 'string',
+            description: 'A palette command id (see ostia commands), e.g. "pane.split".',
+          },
+          args: {
+            type: 'object',
+            description:
+              'Arguments for the command. Strings may use {cwd} (the pane folder) and {file} ' +
+              '(the file an editor pane shows).',
+          },
+          icon: {
+            type: 'string',
+            enum: [...ACTION_ICONS],
+            description: 'Icon. Default: lightning.',
+          },
+          in: {
+            type: 'array',
+            items: { type: 'string', enum: [...ACTION_PLACES] },
+            description:
+              'Where it shows besides the palette: "paneHeader" (a button in each pane header), ' +
+              '"tabMenu" (the pane tab right-click menu).',
+          },
+          paneKinds: {
+            type: 'array',
+            items: {
+              type: 'string',
+              enum: ['terminal', 'editor', 'browser', 'extension', 'git', 'diff', 'view'],
+            },
+            description: 'Only show it on these pane kinds. Default: all.',
+          },
+        },
+      },
+    },
+    privacy: {
+      type: 'object',
+      additionalProperties: false,
+      description: 'Only you can change this (Settings → Privacy); agents cannot set it.',
+      properties: {
+        redaction: {
+          type: 'object',
+          additionalProperties: false,
+          description: `Secret redaction. Text that leaves ${PRODUCT_DISPLAY_NAME} for an AI provider, or that it writes to disk (saved scrollback, the notification log, selection and pick reports), has detected secrets replaced with [redacted:<kind>]. The live terminal, the clipboard and your files are never changed.`,
+          properties: {
+            enabled: { type: 'boolean', description: 'Default: true.' },
+            patterns: {
+              type: 'array',
+              maxItems: REDACTION_PATTERNS_MAX,
+              items: { type: 'string', maxLength: REDACTION_PATTERN_MAX },
+              description:
+                'Your own patterns: regular expressions matched on one line at a time. No ' +
+                'lookaround or backreferences, no repeated group that itself repeats or ' +
+                'branches, at most one open-ended repeat (* + {n,}). A pattern that breaks a ' +
+                'rule is ignored.',
+            },
+          },
+        },
+      },
+    },
+    manager: {
+      type: 'object',
+      additionalProperties: false,
+      description: `The manager: one agent you start with \`ostia <agent>\` from a terminal outside ${PRODUCT_DISPLAY_NAME}. Only you can change this (Settings → Manager); agents cannot set it.`,
+      properties: {
+        agents: {
+          type: 'object',
+          description:
+            'Presets for `ostia <name>` and for the workers the manager starts: a name mapped to ' +
+            'the program and its arguments. claude and codex are built in; a preset with the ' +
+            'same name replaces them.',
+          additionalProperties: { type: 'array', items: { type: 'string' }, minItems: 1 },
+        },
+        skills: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Absolute paths of skill folders (each with a SKILL.md) the manager gets besides ' +
+            'its own guide. Workers never get these.',
+        },
+        allowInput: {
+          type: 'boolean',
+          description:
+            "Let the manager type into other panes, for example to answer a worker's " +
+            'permission prompt. Default: false.',
+        },
+        limits: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            maxWorkers: { type: 'integer', minimum: 0, maximum: 64, description: 'Default: 8.' },
+            spawnsPer10Min: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 200,
+              description: 'Default: 20.',
+            },
+            busPerMinute: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 600,
+              description: 'Default: 60.',
+            },
+          },
+        },
+      },
+    },
+    trustedActions: {
+      type: 'array',
+      items: { type: 'string' },
+      description:
+        'Actions you chose "Run and trust" for. Only you can change this; it never syncs.',
+    },
+    approvals: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        mode: {
+          type: 'string',
+          enum: ['ask', 'allow'],
+          description:
+            'When an agent needs a capability it lacks: "ask" holds the request and asks you in ' +
+            'the pane (Allow once / Allow for this pane / Deny); "allow" lets it through and ' +
+            'records it in the permission inbox. Destructive actions always ask. Only you can ' +
+            'change this; agents cannot, and it never syncs. Default: ask.',
+        },
+      },
+    },
+    capabilities: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        grants: {
+          type: 'array',
+          items: {
+            type: 'string',
+            enum: [
+              'send-other-pane',
+              'type-other-pane',
+              'read-other-pane',
+              'kill-pane',
+              'all-workspaces',
+              'shell',
+              'destructive',
+              'phone',
+              'gateway',
+              'browse',
+              'settings-write',
+              'credentials',
+            ],
+          },
+          description: `Elevated capabilities pre-granted to every pane (pane-scoped defaults already cover the rest). Human-edited only; restart ${PRODUCT_DISPLAY_NAME} to apply.`,
+        },
+      },
+    },
+  },
+}
+
+export function fullSettingsSchema() {
+  return {
+    ...SETTINGS_JSON_SCHEMA,
+    properties: {
+      ...SETTINGS_JSON_SCHEMA.properties,
+      keybindings: perPlatformSchema(KEYBINDINGS_DESC, keybindingsSchema(bindableIds())),
+    },
+  }
+}
+
+interface SchemaNode {
+  properties?: Record<string, SchemaNode>
+  additionalProperties?: boolean | SchemaNode
+  [key: string]: unknown
+}
+
+const PER_PLATFORM: ReadonlySet<string> = new Set(KEYBOARD_FIELDS)
+
+export function settingsSchemaAt(path?: string): unknown {
+  let node = fullSettingsSchema() as unknown as SchemaNode
+  const keys = (path ?? '').split('.').filter(Boolean)
+  if (PER_PLATFORM.has(keys[0]) && !isKeyboardPlatform(keys[1])) {
+    keys.splice(1, 0, keyboardPlatform(platform))
+  }
+  for (const key of keys) {
+    const extra = node.additionalProperties
+    const next = node.properties?.[key] ?? (typeof extra === 'object' ? extra : undefined)
+    if (!next) throw new Error(`unknown settings key: ${path}`)
+    node = next
+  }
+  return node
+}

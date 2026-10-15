@@ -1,5 +1,5 @@
-import { createPane, findPane, tabsOf } from '@/layout/tree'
-import type { PaneNode } from '@/layout/types'
+import { createPane, findPane, tabsOf } from '@/lib/layout/tree'
+import type { PaneNode } from '@/lib/layout/types'
 import { RUN_WHEN_IDLE_TIMEOUT_MS } from '@/lib/terminal/blockActions'
 import {
   registerOffscreenStarter,

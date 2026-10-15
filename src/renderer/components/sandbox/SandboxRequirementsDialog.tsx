@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { SANDBOX_FEATURE, useSandboxStore } from '@/stores/app/sandboxStore'
 import { useEffect } from 'react'
 

@@ -1,4 +1,5 @@
 import { IconButton } from '@/components/common/IconButton'
+import { useDict } from '@/lib/app/useDict'
 import type { GraphRow } from '@/lib/git/gitGraph'
 import {
   type GraphEntry,
@@ -45,7 +46,6 @@ import {
   useRef,
   useState,
 } from 'react'
-import { useDict } from '../../i18n/useDict'
 import {
   type ChangeHandlers,
   ChangeSections,

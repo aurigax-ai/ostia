@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
-import { CloseConfirmDialog } from '@/components/rail/CloseConfirmDialog'
+import { CloseConfirmDialog } from '@/components/sidebar/CloseConfirmDialog'
+import { resetIds } from '@/lib/layout/tree'
 import { requestClosePane, requestCloseWorkspace } from '@/lib/workspaces/closeConfirm'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useCloseConfirmStore } from '@/stores/workspaces/closeConfirmStore'
@@ -10,7 +11,6 @@ import type { AppSnapshot } from '@shared/types'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { resetIds } from '../layout/tree'
 import { openManagerWorkspace } from './managerBridge'
 
 if (!Element.prototype.getAnimations) {

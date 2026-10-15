@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { findPane, paneBrowserProfile } from '@/layout/tree'
+import { findPane, paneBrowserProfile } from '@/lib/layout/tree'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'

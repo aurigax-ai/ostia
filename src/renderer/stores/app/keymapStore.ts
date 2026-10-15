@@ -1,7 +1,7 @@
+import { OSTIA_KEYMAP } from '@/lib/keyboard/keyboardPresets'
 import { platform } from '@/platform'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type { ExtensionInfo } from '@shared/extensions'
-import { OSTIA_KEYMAP } from '@shared/keyboard/keyboardPresets'
 import type { LoadedKeymap } from '@shared/keyboard/keymapFile'
 import { type KeymapInfo, keymapOffered, keymapRef } from '@shared/keymap'
 import { create } from 'zustand'

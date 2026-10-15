@@ -1,4 +1,4 @@
-import { useDict } from '@/i18n/useDict'
+import { useDict } from '@/lib/app/useDict'
 import { chatKey, useChatStore } from '@/stores/assist/chatStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useEffect } from 'react'

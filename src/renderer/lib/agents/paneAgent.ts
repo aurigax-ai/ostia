@@ -1,5 +1,5 @@
-import { findPane } from '@/layout/tree'
 import type { AttentionEvent } from '@/lib/attention/attention'
+import { findPane } from '@/lib/layout/tree'
 import { isIdlePrompt } from '@/lib/terminal/blocks'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'

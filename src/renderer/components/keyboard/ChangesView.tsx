@@ -1,8 +1,8 @@
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { TableBody, TableCell, TableHead, TableRow } from '@/components/ui/table'
-import { fmt, useDict } from '@/i18n/useDict'
-import { baseChords, chordsOf, keymapBindings, useBindings } from '@/lib/keys/chords'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { baseChords, chordsOf, keymapBindings, useBindings } from '@/lib/keyboard/chords'
 import {
   type CommandChange,
   type TerminalChange,
@@ -11,14 +11,14 @@ import {
   textPresetChanges,
   userChangeCount,
   userChanges,
-} from '@/lib/keys/keyChanges'
-import { layerOf } from '@/lib/keys/keySources'
+} from '@/lib/keyboard/keyChanges'
+import { layerOf } from '@/lib/keyboard/keySources'
+import { OSTIA_KEYMAP } from '@/lib/keyboard/keyboardPresets'
+import type { TerminalSend } from '@/lib/keyboard/terminalKeys'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { ArrowCounterClockwiseIcon } from '@phosphor-icons/react'
 import { chordText } from '@shared/keyboard/chordSpec'
-import { OSTIA_KEYMAP } from '@shared/keyboard/keyboardPresets'
-import type { TerminalSend } from '@shared/keyboard/terminalKeys'
 import { Fragment, type ReactNode, useState } from 'react'
 import { KEY_TABLE_COLUMNS, commandTitle, keysLabel, sendLabel, sendText } from './keyboardLabels'
 

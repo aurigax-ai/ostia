@@ -5,7 +5,7 @@ import {
   isPaneShown,
   paneIds,
   paneInDirection,
-} from '@/layout/tree'
+} from '@/lib/layout/tree'
 import { globalWorkspaceOrder, latestRemoteUnread } from '@/lib/workspaces/windowWorkspaces'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { coversWorkspaces, useUIStore } from '@/stores/app/uiStore'

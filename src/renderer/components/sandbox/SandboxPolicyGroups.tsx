@@ -2,7 +2,7 @@ import { ControlRow, SettingsGroup, SubHead } from '@/components/settings/Settin
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { useDict } from '@/i18n/useDict'
+import { useDict } from '@/lib/app/useDict'
 import { isMac } from '@/platform'
 import type { SandboxFixedPolicy, SandboxPathKind, SandboxSwitches } from '@shared/sandbox/sandbox'
 import {

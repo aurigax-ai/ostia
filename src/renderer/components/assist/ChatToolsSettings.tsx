@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/empty'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item'
 import { Switch } from '@/components/ui/switch'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { skillsInFolder } from '@/lib/assist/mcpServerForm'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/app/settingsStore'

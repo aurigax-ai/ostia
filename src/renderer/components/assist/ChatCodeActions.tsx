@@ -11,7 +11,7 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import {
   type TerminalTarget,
   insertInto,
@@ -21,7 +21,7 @@ import {
   sendToAgent,
   workspaceTerminals,
 } from '@/lib/assist/chatActions'
-import { confirmsGeneratedText } from '@/lib/keys/pasteGate'
+import { confirmsGeneratedText } from '@/lib/keyboard/pasteGate'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'

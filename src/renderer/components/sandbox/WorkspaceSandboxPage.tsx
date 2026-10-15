@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { isMac } from '@/platform'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import {

@@ -1,4 +1,4 @@
-import type { SplitNode } from '@/layout/types'
+import type { SplitNode } from '@/lib/layout/types'
 
 export type SplitTabLayout = 'sideBySide' | 'stacked' | 'grid'
 

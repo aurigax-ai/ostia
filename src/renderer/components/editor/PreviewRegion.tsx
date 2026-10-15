@@ -1,7 +1,7 @@
 import { MenuItem } from '@/components/common/Menu'
 import { SplitButton, SplitButtonMenu } from '@/components/common/SplitButton'
 import { Button } from '@/components/ui/button'
-import { useDict } from '@/i18n/useDict'
+import { useDict } from '@/lib/app/useDict'
 import type { Region } from '@shared/browser/selection'
 import { type PointerEvent, useEffect, useRef, useState } from 'react'
 

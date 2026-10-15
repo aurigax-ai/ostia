@@ -39,9 +39,9 @@ vi.mock('@xterm/xterm', () => ({ Terminal: FakeXterm }))
 vi.mock('@xterm/addon-fit', () => ({ FitAddon: class {} }))
 vi.mock('@xterm/addon-unicode11', () => ({ Unicode11Addon: class {} }))
 import { commands } from '@/commands/registry'
-import { findPane } from '@/layout/tree'
-import type { PaneNode } from '@/layout/types'
 import { RESUME_CLAIM_MS, claimResume, clearResumeClaims } from '@/lib/agents/resumeFolder'
+import { findPane } from '@/lib/layout/tree'
+import type { PaneNode } from '@/lib/layout/types'
 import * as blockActions from '@/lib/terminal/blockActions'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'

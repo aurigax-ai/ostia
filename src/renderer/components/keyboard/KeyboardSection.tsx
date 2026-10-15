@@ -10,15 +10,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Kbd } from '@/components/ui/kbd'
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { fmt, useDict } from '@/i18n/useDict'
 import { currentDesktops } from '@/lib/app/desktop'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { BASE_LANGUAGE } from '@/lib/extensions/languagePacks'
 import {
   SEND_ACTION_KEYS,
   type SendActionKey,
   actionSend,
   sendActionKey,
-} from '@/lib/keys/actionSends'
+} from '@/lib/keyboard/actionSends'
 import {
   WORKSPACE_GOTO,
   baseChords,
@@ -33,7 +33,7 @@ import {
   terminalKeyConflicts,
   useBindings,
   workspaceDigit,
-} from '@/lib/keys/chords'
+} from '@/lib/keyboard/chords'
 import {
   type TerminalKeyRow,
   removeTerminalKey,
@@ -41,7 +41,7 @@ import {
   saveTerminalKey,
   terminalKeyFor,
   terminalKeymapOf,
-} from '@/lib/keys/keyPresets'
+} from '@/lib/keyboard/keyPresets'
 import {
   type KeySource,
   type TerminalKeySources,
@@ -54,9 +54,16 @@ import {
   withChordAdded,
   withChordRemoved,
   withChordReplaced,
-} from '@/lib/keys/keySources'
+} from '@/lib/keyboard/keySources'
+import {
+  TERMINAL_SEND_TYPES,
+  type TerminalSend,
+  type TerminalSendType,
+  sendChordProblem,
+  sendData,
+} from '@/lib/keyboard/terminalKeys'
+import type { LinkClick } from '@/lib/settings/terminalPaneSettings'
 import { isMac, platform } from '@/platform'
-import type { LinkClick } from '@/settings/terminalPaneSettings'
 import { appKeymap, keymapChoices, useKeymapStore } from '@/stores/app/keymapStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
@@ -75,13 +82,6 @@ import {
   usedByMonaco,
 } from '@shared/keyboard/chordSpec'
 import { desktopTaking } from '@shared/keyboard/desktopChords'
-import {
-  TERMINAL_SEND_TYPES,
-  type TerminalSend,
-  type TerminalSendType,
-  sendChordProblem,
-  sendData,
-} from '@shared/keyboard/terminalKeys'
 import { Fragment, useRef, useState, useSyncExternalStore } from 'react'
 import { BindingDetail, RowToggle, TerminalKeyDetail } from './BindingDetail'
 import { ChangesView, useChangeTotal } from './ChangesView'

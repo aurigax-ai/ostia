@@ -21,7 +21,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished,
 import { CommandPalette } from './CommandPalette'
 
 const searchWorkspaceSymbols = vi.hoisted(() => vi.fn())
-vi.mock('@/lsp/client', () => ({ searchWorkspaceSymbols }))
+vi.mock('@/lib/lsp/client', () => ({ searchWorkspaceSymbols }))
 
 describe('CommandPalette', () => {
   let uiInit: ReturnType<typeof useUIStore.getState>

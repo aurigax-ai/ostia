@@ -14,11 +14,11 @@ import {
 import { MenuItem } from '@/components/common/Menu'
 import { RiskyPasteDialog } from '@/components/common/RiskyPasteDialog'
 import { SplitButton, SplitButtonMenu } from '@/components/common/SplitButton'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import type { ApprovalAnswer } from '@/lib/assist/chatToolPermissions'
 import { workspaceFolder } from '@/lib/assist/chatTools'
 import { type ToolPartLike, outputText, toolNameOf } from '@/lib/assist/chatTransport'
-import { confirmsGeneratedText } from '@/lib/keys/pasteGate'
+import { confirmsGeneratedText } from '@/lib/keyboard/pasteGate'
 import {
   type PendingApproval,
   answerApproval,

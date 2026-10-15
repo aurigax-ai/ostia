@@ -1,4 +1,4 @@
-import { parseTerminalSettings } from '@/settings/terminalPaneSettings'
+import { parseTerminalSettings } from '@/lib/settings/terminalPaneSettings'
 import { describe, expect, it, vi } from 'vitest'
 import { OSC52_MAX_PAYLOAD, decodeOsc52, registerOsc52 } from './osc52'
 

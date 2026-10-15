@@ -1,5 +1,5 @@
-import { createPane, findSplitTabByName, paneIds, splitOf, tabsOf } from '@/layout/tree'
-import type { SplitNode } from '@/layout/types'
+import { createPane, findSplitTabByName, paneIds, splitOf, tabsOf } from '@/lib/layout/tree'
+import type { SplitNode } from '@/lib/layout/types'
 import { forgetSplitTabSeeds } from '@/lib/panes/splitTabSeeds'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'

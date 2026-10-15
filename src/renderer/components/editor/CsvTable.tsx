@@ -1,4 +1,4 @@
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { CSV_COLUMNS_MAX, CSV_ROWS_MAX, type CsvTableData, parseCsv } from '@/lib/files/csvTable'
 import { useEffect, useState } from 'react'
 

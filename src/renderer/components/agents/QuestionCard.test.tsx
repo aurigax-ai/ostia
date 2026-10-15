@@ -248,7 +248,7 @@ describe('QuestionCard', () => {
   })
 
   it('goes to the asking pane and leaves the dashboard', async () => {
-    const { createPane } = await import('@/layout/tree')
+    const { createPane } = await import('@/lib/layout/tree')
     const pane = { ...createPane('terminal'), id: 'p1' }
     useWorkspacesStore.setState({
       workspaces: [{ id: 'w1', name: 'payments', kind: 'terminal', workDir: '/p', state: 'idle' }],

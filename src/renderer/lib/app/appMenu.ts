@@ -1,6 +1,5 @@
 import { type CommandDef, commandWording, commands } from '@/commands/registry'
-import { currentDict } from '@/i18n/useDict'
-import { chordOf, onBindingsChange } from '@/lib/keys/chords'
+import { chordOf, onBindingsChange } from '@/lib/keyboard/chords'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
@@ -12,6 +11,7 @@ import {
   electronAccelerator,
 } from '@shared/app/appMenu'
 import type { Dict } from '@shared/app/dict'
+import { currentDict } from './useDict'
 
 export const SSH_CONNECT_ITEM = 'menu.sshConnect'
 const SSH_CONNECT_COMMAND = 'ssh.connect'

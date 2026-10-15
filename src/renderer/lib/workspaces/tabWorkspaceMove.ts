@@ -1,5 +1,5 @@
-import { allPanes, findPane, findSplitTab, tabIdOf, takeTab } from '@/layout/tree'
-import type { PaneNode } from '@/layout/types'
+import { allPanes, findPane, findSplitTab, tabIdOf, takeTab } from '@/lib/layout/tree'
+import type { PaneNode } from '@/lib/layout/types'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { focusSurfaceWhenReady } from '@/stores/workspaces/surfaceSlotsStore'

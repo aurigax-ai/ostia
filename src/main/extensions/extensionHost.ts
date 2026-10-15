@@ -126,7 +126,6 @@ import {
 import type { IconThemeContribution } from '../../shared/iconTheme'
 import { LANGUAGE_SERVER_CAPABILITY, languageServerSummary } from '../../shared/languageServers'
 import type { RedactionResult } from '../../shared/privacy/redaction'
-import { redactAssistRequest } from '../../shared/privacy/redactionTargets'
 import {
   FOLDER_CLOSED_EVENT,
   type RemoteCwd,
@@ -165,6 +164,7 @@ import {
 import type { EditorLanguageSource } from '../lsp/editorLanguages'
 import type { LanguageServerSource } from '../lsp/languageServers'
 import { isInsideDir } from '../platform/pathGuard'
+import { redactAssistRequest } from '../privacy/redactionTargets'
 import { spawnFolder } from '../terminal/spawnCwd'
 import type { ExtensionConnections } from './extensionConnections'
 import type { ExtensionExec } from './extensionExec'

@@ -3,10 +3,10 @@ import { IconButton } from '@/components/common/IconButton'
 import { TextLink } from '@/components/common/TextLink'
 import { WorkspaceChips } from '@/components/extensions/ExtensionChips'
 import { Button } from '@/components/ui/button'
-import { fmt, useDict } from '@/i18n/useDict'
-import { allPanes, paneIds } from '@/layout/tree'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { unreadCount } from '@/lib/attention/attention'
 import { markWorkspaceRead, revealPane } from '@/lib/attention/workspaceActivity'
+import { allPanes, paneIds } from '@/lib/layout/tree'
 import {
   DASHBOARD_PATH_CHARS,
   type NeedsYouItem,

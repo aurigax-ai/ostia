@@ -1,5 +1,5 @@
 import { SaveSnippetDialog } from '@/components/palette/SaveSnippetDialog'
-import { createPane, firstPaneOfKind } from '@/layout/tree'
+import { createPane, firstPaneOfKind } from '@/lib/layout/tree'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useAssistStore } from '@/stores/assist/assistStore'
 import { resetChats, useChatStore } from '@/stores/assist/chatStore'

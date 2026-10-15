@@ -1,4 +1,4 @@
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import type { ExtensionInfo } from '@shared/extensions'
 
 export function ExtensionAgentPlugin({

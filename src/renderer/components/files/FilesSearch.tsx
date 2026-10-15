@@ -1,6 +1,6 @@
 import { IconButton } from '@/components/common/IconButton'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { childPath } from '@/lib/files/fileTree'
 import { openFileAt, openFileInWorkspace } from '@/lib/files/openFile'
 import { type PdfSearchResults, searchPdfs } from '@/lib/files/pdfSearch'

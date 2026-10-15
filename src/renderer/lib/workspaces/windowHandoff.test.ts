@@ -1,5 +1,5 @@
-import { createPane, paneIds as paneIdsOf, resetIds, splitPane } from '@/layout/tree'
 import { goToWorkspace, jumpToLatestUnread } from '@/lib/attention/workspaceActivity'
+import { createPane, paneIds as paneIdsOf, resetIds, splitPane } from '@/lib/layout/tree'
 import { beginDrag, endPaneDrag } from '@/lib/panes/paneDrag'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'

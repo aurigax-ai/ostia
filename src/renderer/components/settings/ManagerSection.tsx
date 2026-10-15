@@ -2,7 +2,7 @@ import { IconButton } from '@/components/common/IconButton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { XIcon } from '@phosphor-icons/react'
 import {

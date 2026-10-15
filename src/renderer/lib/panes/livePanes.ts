@@ -1,4 +1,4 @@
-import { allPanes } from '@/layout/tree'
+import { allPanes } from '@/lib/layout/tree'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 
 export function livePaneIds(): string[] {

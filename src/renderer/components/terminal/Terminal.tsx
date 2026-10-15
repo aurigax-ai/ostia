@@ -1,6 +1,6 @@
 import { keptShellReattached } from '@/lib/agents/autoResume'
+import type { TerminalRenderer } from '@/lib/settings/terminalPaneSettings'
 import { silenceQueryReplies } from '@/lib/terminal/tmuxQueries'
-import type { TerminalRenderer } from '@/settings/terminalPaneSettings'
 import { CHAT_CONTEXT_TEXT_MAX } from '@shared/assist'
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
@@ -12,9 +12,9 @@ import { commands } from '@/commands/registry'
 import { useSelectionSend } from '@/components/agents/SelectionSend'
 import { AssistComposer } from '@/components/assist/AssistComposer'
 import { RiskyPasteDialog } from '@/components/common/RiskyPasteDialog'
-import { currentDict, fmt } from '@/i18n/useDict'
 import { keptAgentReattached, terminalNotification } from '@/lib/agents/paneAgent'
 import { registerSelectionSender } from '@/lib/agents/selectionSenders'
+import { currentDict, fmt } from '@/lib/app/useDict'
 import { attachWheelZoom } from '@/lib/app/wheelZoom'
 import { tail } from '@/lib/assist/askContext'
 import {
@@ -43,7 +43,7 @@ import {
   isTerminalCommandChord,
   matchChord,
   matchTerminalChord,
-} from '@/lib/keys/chords'
+} from '@/lib/keyboard/chords'
 import {
   CLIPBOARD_READ_MS,
   NO_CLIPBOARD_CONTENTS,
@@ -52,10 +52,10 @@ import {
   pasteEventReadsClipboard,
   settleWithin,
   smartClipboardAction,
-} from '@/lib/keys/clipboardKeys'
-import { acceptsPathDrop, droppedPaths, pathsAsInput } from '@/lib/keys/dropPaths'
-import { terminalKeyData } from '@/lib/keys/keyPresets'
-import { planDraftPaste, planHumanPaste } from '@/lib/keys/pasteGate'
+} from '@/lib/keyboard/clipboardKeys'
+import { acceptsPathDrop, droppedPaths, pathsAsInput } from '@/lib/keyboard/dropPaths'
+import { terminalKeyData } from '@/lib/keyboard/keyPresets'
+import { planDraftPaste, planHumanPaste } from '@/lib/keyboard/pasteGate'
 import { spawnPromptOption } from '@/lib/prompt/promptChips'
 import { scrollUpSequence } from '@/lib/prompt/promptOverlay'
 import { measureCells } from '@/lib/prompt/usePromptGeometry'
@@ -67,15 +67,6 @@ import {
 } from '@/lib/terminal/blockActions'
 import { decodeCommandLine, readCommandText } from '@/lib/terminal/blockText'
 import { ghosttyModule, loadGhostty } from '@/lib/terminal/ghosttyEngine'
-import { createLinkHint } from '@/lib/terminal/linkHint'
-import {
-  type LinkKind,
-  attachLinkClaim,
-  attachLinkModifier,
-  linkModifierHeld,
-  linkSpan,
-  terminalLinkTarget,
-} from '@/lib/terminal/linkModifier'
 import {
   noteFittedGrid,
   offscreenGrid,
@@ -95,24 +86,33 @@ import {
 import { commitProgramTitle, commitShellTitle } from '@/lib/terminal/paneTitle'
 import { installPrimarySelection } from '@/lib/terminal/primarySelection'
 import { createPtyAcker } from '@/lib/terminal/ptyAck'
-import {
-  createAppLinkProvider,
-  hintedLinkHandler,
-  xtermLinkHandler,
-} from '@/lib/terminal/terminalAppLinks'
-import { createFileLinkProvider } from '@/lib/terminal/terminalFileLinks'
 import { inputEditorFor, registerTerminal } from '@/lib/terminal/terminalHandles'
-import {
-  type LinkPane,
-  activateFileLink,
-  linkRevealable,
-  linksConfinedOnly,
-} from '@/lib/terminal/terminalLinkActions'
 import { terminalTitle } from '@/lib/terminal/terminalTitle'
 import { createTitleCommitter } from '@/lib/terminal/titleCommit'
 import { keepDrawing, usePauseWhenHidden } from '@/lib/terminal/usePauseWhenHidden'
 import { type WebglRenderer, createWebglRenderer } from '@/lib/terminal/webglRenderer'
 import { attachWheelReports } from '@/lib/terminal/wheelReports'
+import { createLinkHint } from '@/lib/terminalLinks/linkHint'
+import {
+  type LinkKind,
+  attachLinkClaim,
+  attachLinkModifier,
+  linkModifierHeld,
+  linkSpan,
+  terminalLinkTarget,
+} from '@/lib/terminalLinks/linkModifier'
+import {
+  createAppLinkProvider,
+  hintedLinkHandler,
+  xtermLinkHandler,
+} from '@/lib/terminalLinks/terminalAppLinks'
+import { createFileLinkProvider } from '@/lib/terminalLinks/terminalFileLinks'
+import {
+  type LinkPane,
+  activateFileLink,
+  linkRevealable,
+  linksConfinedOnly,
+} from '@/lib/terminalLinks/terminalLinkActions'
 import { currentScheme, terminalTheme, useScheme } from '@/lib/theme/colorScheme'
 import { terminalFontStack } from '@/lib/theme/uiFonts'
 import { isLinux, isMac } from '@/platform'

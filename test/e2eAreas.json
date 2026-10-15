@@ -9,7 +9,7 @@
         "src/main/secrets/vault.ts",
         "src/shared/sandbox/sandbox.",
         "src/shared/sandbox/sandboxPresets.",
-        "src/shared/sandbox/packages.ts",
+        "src/main/sandboxPackages/packages.ts",
         "src/shared/sandbox/secrets.ts",
         "src/renderer/components/sandbox/SandboxFolderDialog.",
         "src/renderer/components/sandbox/SandboxListEditor.tsx",
@@ -65,7 +65,7 @@
         "src/shared/languageServers.ts",
         "src/shared/editorLanguages.ts",
         "src/shared/extensions/extensionSuggestions.ts",
-        "src/renderer/lsp/",
+        "src/renderer/lib/lsp/",
         "src/renderer/components/editor/LanguagesSection.tsx",
         "src/renderer/components/editor/LanguageNotice.tsx",
         "src/renderer/stores/extensions/languageServersStore.ts",
@@ -79,7 +79,7 @@
     {
       "name": "file views",
       "paths": [
-        "src/renderer/monaco/",
+        "src/renderer/lib/monaco/",
         "src/renderer/components/editor/Editor.tsx",
         "src/renderer/components/editor/FileView.tsx",
         "src/renderer/components/editor/MarkdownPreview.tsx",
@@ -98,7 +98,7 @@
         "src/renderer/stores/files/editorRevealStore.",
         "src/renderer/stores/files/editorStatusStore.",
         "src/renderer/stores/files/pdfFindStore.ts",
-        "src/shared/browser/browserEditorSettings.ts",
+        "src/renderer/lib/settings/browserEditorSettings.ts",
         "src/main/files/fsText.ts",
         "src/main/files/fsBinary.ts",
         "src/main/files/watchedFiles.ts"
@@ -129,7 +129,7 @@
         "src/shared/browser/browseNetwork.",
         "src/shared/browser/browseRuntime.ts",
         "src/shared/browser/browseSnapshot.",
-        "src/shared/browser/browserEditorSettings.",
+        "src/renderer/lib/settings/browserEditorSettings.",
         "src/shared/browser/browserProfile.",
         "src/shared/browser/browserStorage.",
         "src/shared/browser/passkeyGuard.",
@@ -306,7 +306,7 @@
         "src/main/platform/watchSets.ts",
         "src/renderer/lib/workspaces/coreWatch.ts",
         "src/cli/verbs/coreBoards.ts",
-        "src/shared/common/procfs.ts",
+        "src/main/platform/procfs.ts",
         "test/fixtures/ports/"
       ],
       "specs": ["e2e/ports-hibernation.spec.ts"]
@@ -418,29 +418,29 @@
         "src/main/windows/primarySelection.ts",
         "src/shared/keymap",
         "src/shared/keyboard/keymapFile.",
-        "src/shared/keyboard/keyboardPresets.ts",
+        "src/renderer/lib/keyboard/keyboardPresets.ts",
         "src/shared/keyboard/chordSpec.ts",
         "src/shared/keyboard/desktopChords.ts",
         "src/shared/keyboard/clipboardChords.ts",
         "src/shared/keyboard/guestChords.ts",
-        "src/shared/keyboard/terminalKeys.ts",
-        "src/renderer/lib/keys/chords.ts",
+        "src/renderer/lib/keyboard/terminalKeys.ts",
+        "src/renderer/lib/keyboard/chords.ts",
         "src/renderer/lib/app/desktop.ts",
-        "src/renderer/lib/keys/keyChanges.",
-        "src/renderer/lib/keys/keyPresets.",
-        "src/renderer/lib/keys/keySources.",
-        "src/renderer/lib/keys/clipboardKeys.ts",
-        "src/renderer/lib/keys/documentClipboard.ts",
-        "src/renderer/lib/keys/guestChordBridge.ts",
+        "src/renderer/lib/keyboard/keyChanges.",
+        "src/renderer/lib/keyboard/keyPresets.",
+        "src/renderer/lib/keyboard/keySources.",
+        "src/renderer/lib/keyboard/clipboardKeys.ts",
+        "src/renderer/lib/keyboard/documentClipboard.ts",
+        "src/renderer/lib/keyboard/guestChordBridge.ts",
         "src/renderer/lib/terminal/primarySelection.ts",
         "src/renderer/lib/terminal/middlePaste.ts",
-        "src/renderer/lib/keys/pasteGate.ts",
+        "src/renderer/lib/keyboard/pasteGate.ts",
         "src/renderer/components/keyboard/KeyboardSection.tsx",
         "src/renderer/components/keyboard/KeymapCombo.tsx",
         "src/renderer/components/keyboard/BindingDetail.tsx",
         "src/renderer/components/common/RiskyPasteDialog.tsx",
         "src/renderer/stores/app/keymapStore.ts",
-        "src/renderer/settings/key"
+        "src/renderer/lib/settings/key"
       ],
       "specs": [
         "e2e/browser-keys.spec.ts",
@@ -493,10 +493,10 @@
         "src/main/updates/updateRun.ts",
         "src/shared/app/installMethod.ts",
         "src/shared/app/releases.ts",
-        "src/renderer/components/shell/UpdateChannelPicker.",
-        "src/renderer/components/shell/UpdateCheck.",
-        "src/renderer/components/shell/UpdateConfirmDialog.tsx",
-        "src/renderer/components/shell/UpdateNotice.",
+        "src/renderer/components/app/UpdateChannelPicker.",
+        "src/renderer/components/app/UpdateCheck.",
+        "src/renderer/components/app/UpdateConfirmDialog.tsx",
+        "src/renderer/components/app/UpdateNotice.",
         "src/renderer/stores/app/updateStore.ts"
       ],
       "specs": ["e2e/update-check.spec.ts", "e2e/update-mac.spec.ts"]
@@ -527,15 +527,15 @@
         "src/renderer/lib/files/fileTree.",
         "src/renderer/lib/files/fileTreeActions.ts",
         "src/renderer/lib/files/fileDrop.ts",
-        "src/renderer/lib/keys/dropPaths.ts",
+        "src/renderer/lib/keyboard/dropPaths.ts",
         "src/renderer/lib/files/fileKinds.ts",
         "src/renderer/lib/files/openFile.ts",
         "src/renderer/lib/files/workspaceFileSearch.ts",
         "src/renderer/lib/files/workspaceSymbolSearch.ts",
-        "src/renderer/lib/terminal/terminalFileLinks.ts",
-        "src/renderer/lib/terminal/terminalLinkActions.ts",
+        "src/renderer/lib/terminalLinks/terminalFileLinks.ts",
+        "src/renderer/lib/terminalLinks/terminalLinkActions.ts",
         "src/renderer/stores/files/fileTreeStore.ts",
-        "src/renderer/settings/fileTreeSettings.ts"
+        "src/renderer/lib/settings/fileTreeSettings.ts"
       ],
       "specs": [
         "e2e/open-any-file.spec.ts",
@@ -557,9 +557,9 @@
         "src/renderer/components/views/ViewsRail.tsx",
         "src/renderer/components/views/ViewsSection.tsx",
         "src/renderer/components/views/viewIcons.ts",
-        "src/renderer/lib/extensions/viewData.",
-        "src/renderer/lib/extensions/viewExpand.",
-        "src/renderer/lib/extensions/views.ts",
+        "src/renderer/lib/views/viewData.",
+        "src/renderer/lib/views/viewExpand.",
+        "src/renderer/lib/views/views.ts",
         "src/renderer/lib/files/viewerHooks.ts",
         "src/renderer/lib/panes/panelWidth.ts",
         "src/renderer/stores/extensions/viewsStore.ts"
@@ -597,7 +597,7 @@
         "src/renderer/lib/agents/forkConversation.ts",
         "src/renderer/components/agents/AgentForkButton.tsx",
         "src/renderer/components/terminal/HibernatedView.tsx",
-        "src/renderer/components/rail/HibernateSkippedDialog.tsx",
+        "src/renderer/components/sidebar/HibernateSkippedDialog.tsx",
         "src/renderer/components/panes/ResumeFolderNotice.tsx"
       ],
       "specs": [
@@ -706,7 +706,7 @@
     {
       "name": "user actions",
       "paths": [
-        "src/renderer/settings/actions.ts",
+        "src/renderer/lib/settings/actions.ts",
         "src/renderer/lib/palette/userActions.ts",
         "src/renderer/components/settings/ActionConfirmDialog.tsx",
         "src/renderer/components/settings/ActionsSection.tsx",
@@ -727,7 +727,7 @@
         "src/renderer/lib/agents/originAgents.ts",
         "src/renderer/lib/workspaces/tabWorkspaceMove.ts",
         "src/renderer/lib/workspaces/tabMoveRefusalText.ts",
-        "src/renderer/components/shell/DetachedTitleBar.tsx",
+        "src/renderer/components/app/DetachedTitleBar.tsx",
         "src/renderer/components/panes/TabMoveMenuItems.tsx",
         "src/renderer/stores/workspaces/windowsStore.ts",
         "src/renderer/stores/agents/originAgentsStore.ts"
@@ -752,9 +752,9 @@
         "src/renderer/lib/panes/scratchPanes.ts",
         "src/renderer/lib/workspaces/workspaceProjects.ts",
         "src/renderer/lib/workspaces/newWorkspace.ts",
-        "src/renderer/components/rail/MergeConfirmDialog.tsx",
-        "src/renderer/components/rail/MergeMenuItems.tsx",
-        "src/renderer/components/rail/MergeWorkspaces.test.tsx",
+        "src/renderer/components/sidebar/MergeConfirmDialog.tsx",
+        "src/renderer/components/sidebar/MergeMenuItems.tsx",
+        "src/renderer/components/sidebar/MergeWorkspaces.test.tsx",
         "src/renderer/components/settings/WorkspacesSection.tsx",
         "src/renderer/stores/workspaces/mergeConfirmStore.ts",
         "src/renderer/lib/sidebar/groupPeers.ts",
@@ -770,7 +770,7 @@
         "src/main/platform/userDirs.",
         "src/main/platform/userDirsBoot.ts",
         "src/main/platform/oldDirsPrompt.ts",
-        "src/renderer/layout/snapshot.ts",
+        "src/renderer/lib/layout/snapshot.ts",
         "src/renderer/stores/workspaces/persistence.ts"
       ],
       "specs": [
@@ -803,7 +803,7 @@
         "src/renderer/lib/terminal/titleCommit.ts",
         "src/renderer/lib/terminal/cellBox.ts",
         "src/renderer/lib/terminal/paneTitle.ts",
-        "src/renderer/lib/terminal/linkModifier.ts",
+        "src/renderer/lib/terminalLinks/linkModifier.ts",
         "src/renderer/lib/app/wheelZoom.",
         "src/renderer/lib/terminal/wheelReports.",
         "src/renderer/lib/terminal/osc52.",
@@ -872,8 +872,8 @@
     {
       "name": "tabs and panes",
       "paths": [
-        "src/renderer/layout/tree.ts",
-        "src/renderer/layout/panelSize.ts",
+        "src/renderer/lib/layout/tree.ts",
+        "src/renderer/lib/layout/panelSize.ts",
         "src/renderer/components/panes/TabBody.tsx",
         "src/renderer/components/panes/TabFace.tsx",
         "src/renderer/components/panes/TabHint.tsx",
@@ -885,14 +885,14 @@
         "src/renderer/components/panes/PaneDiskMarker.test.tsx",
         "src/renderer/components/panes/PaneTabMenu.",
         "src/renderer/components/panes/PaneTree.tsx",
-        "src/renderer/components/shell/PanelToggles.tsx",
+        "src/renderer/components/app/PanelToggles.tsx",
         "src/renderer/components/panes/SurfacePool.tsx",
-        "src/renderer/components/shell/WorkZone.tsx",
-        "src/renderer/components/rail/CloseConfirmDialog.tsx",
+        "src/renderer/components/app/WorkZone.tsx",
+        "src/renderer/components/sidebar/CloseConfirmDialog.tsx",
         "src/renderer/lib/panes/tabRow.ts",
         "src/renderer/lib/panes/splitTabs.ts",
         "src/renderer/lib/panes/splitTabSeeds.ts",
-        "src/renderer/layout/tabJoin.ts",
+        "src/renderer/lib/layout/tabJoin.ts",
         "src/renderer/commands/paneTabCommands.ts",
         "src/renderer/lib/panes/paneDrag.ts",
         "src/renderer/lib/panes/dropZone.ts",
@@ -916,8 +916,8 @@
     {
       "name": "sidebar",
       "paths": [
-        "src/renderer/components/rail/DeckRail.tsx",
-        "src/renderer/components/rail/RailMeta.tsx",
+        "src/renderer/components/sidebar/DeckRail.tsx",
+        "src/renderer/components/sidebar/RailMeta.tsx",
         "src/renderer/lib/sidebar/railDropZone.",
         "src/renderer/lib/sidebar/railMeta.",
         "src/renderer/lib/sidebar/railMotion.ts",
@@ -943,7 +943,7 @@
         "src/renderer/components/settings/ThemeSettings.tsx",
         "src/renderer/components/settings/FontPicker.tsx",
         "src/renderer/components/common/IconButton.tsx",
-        "src/renderer/components/shell/ZoomReset.tsx",
+        "src/renderer/components/app/ZoomReset.tsx",
         "src/renderer/lib/theme/theme.ts",
         "src/renderer/lib/theme/color.",
         "src/renderer/lib/theme/colorScheme.",
@@ -953,9 +953,9 @@
         "src/renderer/lib/theme/localFonts.ts",
         "src/renderer/lib/theme/panelFontFaces.ts",
         "src/renderer/lib/theme/panelTheme.ts",
-        "src/renderer/plugins/",
+        "src/renderer/lib/theme/",
         "src/renderer/stores/app/systemThemeStore.ts",
-        "src/shared/app/themeChoice.ts",
+        "src/renderer/lib/theme/themeChoice.ts",
         "src/shared/app/zoom.ts"
       ],
       "specs": [
@@ -970,12 +970,12 @@
         "src/renderer/components/settings/SettingsPanel.",
         "src/renderer/components/settings/SettingsSearch.tsx",
         "src/renderer/components/common/SectionTabs.tsx",
-        "src/renderer/settings/settingsSchema.ts",
-        "src/renderer/settings/registerSettingsSchema.ts",
-        "src/renderer/settings/terminalPaneSettings.ts",
-        "src/renderer/settings/windowTitle.ts",
-        "src/renderer/lib/app/settingsNav.",
-        "src/renderer/lib/app/settingsSearch."
+        "src/renderer/lib/settings/settingsSchema.ts",
+        "src/renderer/lib/settings/registerSettingsSchema.ts",
+        "src/renderer/lib/settings/terminalPaneSettings.ts",
+        "src/renderer/lib/settings/windowTitle.ts",
+        "src/renderer/lib/settings/settingsNav.",
+        "src/renderer/lib/settings/settingsSearch."
       ],
       "specs": [
         "e2e/settings-gap.spec.ts",
@@ -1005,7 +1005,7 @@
         "src/shared/app/discreteGpu.ts",
         "src/renderer/lib/app/appMenu.ts",
         "src/renderer/components/settings/DiscreteGpuRow.tsx",
-        "src/renderer/components/shell/WindowControls.tsx"
+        "src/renderer/components/app/WindowControls.tsx"
       ],
       "specs": [
         "e2e/auto-resume.spec.ts",
@@ -1035,7 +1035,7 @@
         "src/main/diagnostics/rendererReports.ts",
         "src/main/diagnostics/diagnostics.ts",
         "src/main/diagnostics/testCrashDumps.ts",
-        "src/renderer/components/shell/AppErrorBoundary.tsx",
+        "src/renderer/components/app/AppErrorBoundary.tsx",
         "src/renderer/components/panes/SurfaceErrorBoundary.tsx",
         "src/renderer/lib/app/errorReporting.ts"
       ],
@@ -1058,7 +1058,7 @@
         "src/main/privacy/redactionScan.ts",
         "src/main/privacy/redactionWorker.ts",
         "src/shared/privacy/redaction.",
-        "src/shared/privacy/redactionTargets.ts",
+        "src/main/privacy/redactionTargets.ts",
         "src/renderer/components/settings/PrivacySection.tsx"
       ],
       "specs": ["e2e/secret-redaction.spec.ts"]

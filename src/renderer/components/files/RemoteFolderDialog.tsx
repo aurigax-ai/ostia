@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { useRemoteFoldersStore } from '@/stores/files/remoteFoldersStore'
 
 export function RemoteFolderDialog(): JSX.Element {

@@ -1,5 +1,5 @@
 import { BASE_LANGUAGE } from '@/lib/extensions/languagePacks'
-import { BUILTIN_PLUGINS } from '@/plugins/builtin'
+import { BUILTIN_PLUGINS } from '@/lib/theme/builtin'
 import { en } from '@shared/app/dict'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { usePluginsStore } from './pluginsStore'

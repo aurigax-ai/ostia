@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { type ProcEntry, parseProcStat } from '../../shared/common/procfs'
+import { type ProcEntry, parseProcStat } from '../platform/procfs'
 import {
   childrenOf,
   parseNetTcp,

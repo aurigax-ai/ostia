@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
-import { tabsOf } from '@/layout/tree'
-import type { LayoutNode, PaneNode, SplitNode } from '@/layout/types'
+import { tabsOf } from '@/lib/layout/tree'
+import type { LayoutNode, PaneNode, SplitNode } from '@/lib/layout/types'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { act, cleanup, render } from '@testing-library/react'

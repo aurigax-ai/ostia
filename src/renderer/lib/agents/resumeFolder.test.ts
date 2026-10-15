@@ -1,5 +1,5 @@
-import { createPane, findPane, tabsOf } from '@/layout/tree'
-import type { PaneNode } from '@/layout/types'
+import { createPane, findPane, tabsOf } from '@/lib/layout/tree'
+import type { PaneNode } from '@/lib/layout/types'
 import type { CommandBlock } from '@/stores/terminal/blocksStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'

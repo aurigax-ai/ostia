@@ -1,7 +1,7 @@
 import { MenuContent, MenuItem } from '@/components/common/Menu'
 import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
-import { fmt, useDict } from '@/i18n/useDict'
 import { openSelectionSend } from '@/lib/agents/selectionSenders'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { attachAndOpenChat, blockOutputContext, explainFailedBlock } from '@/lib/assist/askContext'
 import { featureEnabled, useAssistFeature, useChatAvailable } from '@/lib/assist/assistFeatures'
 import { copyBlock, rerunBlock } from '@/lib/terminal/blockActions'

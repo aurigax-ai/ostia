@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import { useDict } from '@/i18n/useDict'
+import { useDict } from '@/lib/app/useDict'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { ChatCircleTextIcon } from '@phosphor-icons/react'

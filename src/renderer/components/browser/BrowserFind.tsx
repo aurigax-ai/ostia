@@ -6,7 +6,7 @@ import {
   InputGroupInput,
   InputGroupText,
 } from '@/components/ui/input-group'
-import { useDict } from '@/i18n/useDict'
+import { useDict } from '@/lib/app/useDict'
 import { CaretDownIcon, CaretUpIcon, XIcon } from '@phosphor-icons/react'
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 

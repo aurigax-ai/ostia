@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { useDict } from '@/i18n/useDict'
+import { useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useTelemetryConsentStore } from '@/stores/app/telemetryConsentStore'
 import {

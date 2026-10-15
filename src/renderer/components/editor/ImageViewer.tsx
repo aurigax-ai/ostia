@@ -1,7 +1,7 @@
 import { useSelectionSend } from '@/components/agents/SelectionSend'
 import { IconButton } from '@/components/common/IconButton'
-import { useDict } from '@/i18n/useDict'
 import { registerSelectionSender } from '@/lib/agents/selectionSenders'
+import { useDict } from '@/lib/app/useDict'
 import { cropToPng } from '@/lib/browser/cropImage'
 import { type Size, fitScale } from '@/lib/browser/regionSelect'
 import { imageMimeType } from '@/lib/files/fileKinds'

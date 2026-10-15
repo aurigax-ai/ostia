@@ -1,4 +1,4 @@
-import type { LanguageContribution } from '@/plugins/types'
+import type { LanguageContribution } from '@/lib/theme/types'
 import { mergeCatalog } from '@shared/app/dict'
 import type { LanguagePack } from '@shared/languagePack'
 

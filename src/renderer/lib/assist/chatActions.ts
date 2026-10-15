@@ -1,6 +1,6 @@
-import { allPanes, findPane } from '@/layout/tree'
 import { type ReferenceTarget, sendReference } from '@/lib/agents/sendPick'
 import { openFileInWorkspace } from '@/lib/files/openFile'
+import { allPanes, findPane } from '@/lib/layout/tree'
 import { canTypeInto, insertCommand, runWhenIdle } from '@/lib/terminal/blockActions'
 import { isIdlePrompt } from '@/lib/terminal/blocks'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'

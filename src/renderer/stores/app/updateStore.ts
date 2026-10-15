@@ -1,4 +1,4 @@
-import { currentDict, fmt } from '@/i18n/useDict'
+import { currentDict, fmt } from '@/lib/app/useDict'
 import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { type BuildInfo, sameBuild } from '@shared/app/buildInfo'

@@ -3,9 +3,9 @@ import { IconButton } from '@/components/common/IconButton'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
-import { fmt, useDict } from '@/i18n/useDict'
 import type { PickTarget } from '@/lib/agents/pickTargets'
 import { sendPickToPane, sendRegionToPane } from '@/lib/agents/sendPick'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { resolveAddress } from '@/lib/browser/browserAddress'
 import {
   type BrowserAction,
@@ -13,7 +13,7 @@ import {
   registerBrowserHandle,
 } from '@/lib/browser/browserHandles'
 import { registerRegionCapture } from '@/lib/browser/regionCaptures'
-import { matchChord } from '@/lib/keys/chords'
+import { matchChord } from '@/lib/keyboard/chords'
 import { terminalTitle } from '@/lib/terminal/terminalTitle'
 import { isMac } from '@/platform'
 import { useSandboxStore } from '@/stores/app/sandboxStore'

@@ -40,7 +40,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import {
   ASK_CONTEXT_ORDER,
   type AskContextKind,

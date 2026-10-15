@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { findSplitTabByName, firstPaneId } from '@/layout/tree'
+import { findSplitTabByName, firstPaneId } from '@/lib/layout/tree'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'

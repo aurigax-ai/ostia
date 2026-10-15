@@ -1,4 +1,5 @@
 import { capLabel } from '@/components/agents/ApprovalCard'
+import { UpdateCheck } from '@/components/app/UpdateCheck'
 import { AssistantSection } from '@/components/assist/AssistantSection'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
@@ -14,7 +15,6 @@ import { extensionIcon } from '@/components/extensions/extensionIcons'
 import { KeyboardSection } from '@/components/keyboard/KeyboardSection'
 import { SandboxSection } from '@/components/sandbox/SandboxSection'
 import { WorkspaceSandboxPage } from '@/components/sandbox/WorkspaceSandboxPage'
-import { UpdateCheck } from '@/components/shell/UpdateCheck'
 import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -24,23 +24,18 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { ViewsSection } from '@/components/views/ViewsSection'
-import { fmt, useDict, withProductName } from '@/i18n/useDict'
+import { countUsage } from '@/lib/app/usageCounts'
+import { fmt, useDict, withProductName } from '@/lib/app/useDict'
+import { extensionMatchesQuery } from '@/lib/extensions/extensionSettingText'
+import { openFileInWorkspace } from '@/lib/files/openFile'
 import {
   EXTENSIONS_NAV_EXPANDED_KEY,
   SANDBOX_NAV_EXPANDED_KEY,
   navExpanded,
   rememberNavExpanded,
-} from '@/lib/app/settingsNav'
-import { firstMatchControl, matchesQuery } from '@/lib/app/settingsSearch'
-import { countUsage } from '@/lib/app/usageCounts'
-import { extensionMatchesQuery } from '@/lib/extensions/extensionSettingText'
-import { openFileInWorkspace } from '@/lib/files/openFile'
-import { ghosttyFailure } from '@/lib/terminal/ghosttyEngine'
-import { ACCENT_PRESETS, normalizeHex } from '@/lib/theme/color'
-import { useEffectiveTheme } from '@/lib/theme/theme'
-import { cn } from '@/lib/utils'
-import { isLinux, isMac, platform } from '@/platform'
-import type { ClipboardKeys, TerminalRenderer } from '@/settings/terminalPaneSettings'
+} from '@/lib/settings/settingsNav'
+import { firstMatchControl, matchesQuery } from '@/lib/settings/settingsSearch'
+import type { ClipboardKeys, TerminalRenderer } from '@/lib/settings/terminalPaneSettings'
 import {
   CONTRAST_MAX,
   CONTRAST_MIN,
@@ -49,8 +44,13 @@ import {
   SCROLL_SPEED_MAX,
   SCROLL_SPEED_MIN,
   TERMINAL_RENDERERS,
-} from '@/settings/terminalPaneSettings'
-import { WINDOW_TITLE_MAX } from '@/settings/windowTitle'
+} from '@/lib/settings/terminalPaneSettings'
+import { WINDOW_TITLE_MAX } from '@/lib/settings/windowTitle'
+import { ghosttyFailure } from '@/lib/terminal/ghosttyEngine'
+import { ACCENT_PRESETS, normalizeHex } from '@/lib/theme/color'
+import { useEffectiveTheme } from '@/lib/theme/theme'
+import { cn } from '@/lib/utils'
+import { isLinux, isMac, platform } from '@/platform'
 import {
   CURSOR_STYLES,
   type CursorStyle,

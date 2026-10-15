@@ -2,7 +2,7 @@ import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import {
   type ShownChip,
   chipAction,

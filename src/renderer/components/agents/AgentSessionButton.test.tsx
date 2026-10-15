@@ -1,4 +1,4 @@
-import { createPane } from '@/layout/tree'
+import { createPane } from '@/lib/layout/tree'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'

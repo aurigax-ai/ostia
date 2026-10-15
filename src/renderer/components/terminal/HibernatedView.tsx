@@ -1,9 +1,9 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { fmt, useDict } from '@/i18n/useDict'
 import { wakePane } from '@/lib/agents/hibernationScheduler'
-import { matchChordInTerminal } from '@/lib/keys/chords'
-import { smartClipboardAction } from '@/lib/keys/clipboardKeys'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { matchChordInTerminal } from '@/lib/keyboard/chords'
+import { smartClipboardAction } from '@/lib/keyboard/clipboardKeys'
 import {
   type ReadOnlyTerminal,
   createReadOnlyTerminal,

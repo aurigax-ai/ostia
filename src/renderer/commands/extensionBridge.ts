@@ -1,5 +1,5 @@
-import { findPane } from '@/layout/tree'
 import { revealPane } from '@/lib/attention/workspaceActivity'
+import { findPane } from '@/lib/layout/tree'
 import { openKeepingFocus } from '@/lib/panes/callerFocus'
 import { runWhenIdle } from '@/lib/terminal/blockActions'
 import { startOffscreen } from '@/lib/terminal/offscreenStart'

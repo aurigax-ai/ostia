@@ -1,7 +1,7 @@
 import { SettingsGroup } from '@/components/settings/SettingsPanel'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { isMac } from '@/platform'
 import type { SandboxViolation } from '@shared/sandbox/sandbox'
 import { useCallback, useEffect, useState } from 'react'

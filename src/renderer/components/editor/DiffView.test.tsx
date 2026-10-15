@@ -60,10 +60,10 @@ const fake = vi.hoisted(() => {
   return { monaco, state }
 })
 
-vi.mock('@/monaco/setup', () => ({
+vi.mock('@/lib/monaco/setup', () => ({
   monaco: fake.monaco,
 }))
-vi.mock('@/lsp/client', () => ({ openDocument: vi.fn() }))
+vi.mock('@/lib/lsp/client', () => ({ openDocument: vi.fn() }))
 
 const { DiffView } = await import('./DiffView')
 

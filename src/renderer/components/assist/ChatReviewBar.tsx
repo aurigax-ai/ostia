@@ -1,6 +1,6 @@
 import { IconButton } from '@/components/common/IconButton'
 import { Button } from '@/components/ui/button'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { editHunks, hunkCounts } from '@/lib/assist/chatHunks'
 import { type ReviewItem, acceptAll, rejectAll, reviewItems } from '@/lib/assist/chatReview'
 import { useChatToolsStore } from '@/stores/assist/chatToolsStore'

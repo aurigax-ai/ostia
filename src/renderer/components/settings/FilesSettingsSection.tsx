@@ -1,7 +1,7 @@
 import { IconButton } from '@/components/common/IconButton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import {
   BREADCRUMB_STYLES,
   type BreadcrumbStyle,
@@ -11,7 +11,7 @@ import {
   FILE_SORT_ORDERS,
   type FileSortBy,
   type FileSortOrder,
-} from '@/settings/fileTreeSettings'
+} from '@/lib/settings/fileTreeSettings'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useAvailableIconThemes } from '@/stores/extensions/iconThemeStore'
 import { PlusIcon, XIcon } from '@phosphor-icons/react'

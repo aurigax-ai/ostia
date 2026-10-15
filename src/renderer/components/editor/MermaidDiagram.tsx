@@ -1,4 +1,4 @@
-import { useDict } from '@/i18n/useDict'
+import { useDict } from '@/lib/app/useDict'
 import { mermaidSvg, releaseImageUrl, svgImageUrl } from '@/lib/files/mermaidImage'
 import { useEffectiveTheme } from '@/lib/theme/theme'
 import { useEffect, useState } from 'react'

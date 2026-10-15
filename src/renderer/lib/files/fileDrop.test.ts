@@ -1,5 +1,5 @@
-import { allPanes, resetIds, tabsOfPane } from '@/layout/tree'
-import { OSTIA_PATH_MIME } from '@/lib/keys/dropPaths'
+import { OSTIA_PATH_MIME } from '@/lib/keyboard/dropPaths'
+import { allPanes, resetIds, tabsOfPane } from '@/lib/layout/tree'
 import { PANE_DND } from '@/lib/panes/paneDrag'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'

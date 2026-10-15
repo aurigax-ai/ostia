@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { Separator } from '@/components/ui/separator'
-import { fmt, useDict, withProductName } from '@/i18n/useDict'
+import { fmt, useDict, withProductName } from '@/lib/app/useDict'
 import {
   BROWSE_FILTERS,
   type BrowseChip,

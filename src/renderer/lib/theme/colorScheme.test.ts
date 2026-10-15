@@ -1,9 +1,8 @@
-import { BUILTIN_PLUGINS } from '@/plugins/builtin'
-import type { ColorScheme, Theme } from '@/plugins/types'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSystemThemeStore } from '@/stores/app/systemThemeStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { afterEach, describe, expect, it } from 'vitest'
+import { BUILTIN_PLUGINS } from './builtin'
 import { SELECTION_MIN_DISTANCE, selectionVisibility } from './color'
 import {
   accentScheme,
@@ -13,6 +12,7 @@ import {
   terminalTheme,
 } from './colorScheme'
 import { effectiveThemeId, resolveTheme } from './theme'
+import type { ColorScheme, Theme } from './types'
 
 const themes = BUILTIN_PLUGINS.flatMap((p) => p.contributes.themes ?? [])
 const schemes = BUILTIN_PLUGINS.flatMap((p) => p.contributes.colorSchemes ?? [])

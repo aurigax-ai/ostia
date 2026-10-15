@@ -1,5 +1,5 @@
-import type { PaneNode } from '@/layout/types'
 import type { PaneAttention } from '@/lib/attention/attention'
+import type { PaneNode } from '@/lib/layout/types'
 
 function stillRelevant(a: PaneAttention): boolean {
   return a.unread || a.state === 'waiting' || a.state === 'error'

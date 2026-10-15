@@ -8,8 +8,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { fmt, useDict } from '@/i18n/useDict'
-import { allPanes } from '@/layout/tree'
+import { fmt, useDict } from '@/lib/app/useDict'
 import {
   blockOutputContext,
   fileAttachment,
@@ -17,6 +16,7 @@ import {
   terminalSelectionContext,
 } from '@/lib/assist/askContext'
 import { byteSize, formatSize, workspaceTerminals } from '@/lib/assist/chatActions'
+import { allPanes } from '@/lib/layout/tree'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'

@@ -1,4 +1,4 @@
-import { currentDict } from '@/i18n/useDict'
+import { currentDict } from '@/lib/app/useDict'
 import { useUIStore } from '@/stores/app/uiStore'
 import { type GitPage, useGitViewStore } from '@/stores/files/gitViewStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'

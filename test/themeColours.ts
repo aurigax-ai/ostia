@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { BUILTIN_PLUGINS } from '../src/renderer/plugins/builtin'
-import type { Theme } from '../src/renderer/plugins/types'
+import { BUILTIN_PLUGINS } from '../src/renderer/lib/theme/builtin'
+import type { Theme } from '../src/renderer/lib/theme/types'
 
 const CSS = readFileSync(resolve(process.cwd(), 'src/renderer/index.css'), 'utf8')
 

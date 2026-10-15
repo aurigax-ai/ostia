@@ -1,4 +1,4 @@
-import { findPane, firstPaneId } from '@/layout/tree'
+import { findPane, firstPaneId } from '@/lib/layout/tree'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'

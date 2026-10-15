@@ -1,8 +1,8 @@
-import { BUILTIN_PLUGINS } from '@/plugins/builtin'
-import type { Theme } from '@/plugins/types'
 import { wcagContrast } from 'culori'
 import { afterEach, describe, expect, it } from 'vitest'
+import { BUILTIN_PLUGINS } from './builtin'
 import { applyTheme, effectiveThemeId, resolveTheme, themedTokens } from './theme'
+import type { Theme } from './types'
 
 const themes = BUILTIN_PLUGINS.flatMap((p) => p.contributes.themes ?? [])
 const dark = themes.find((t) => t.id === 'adeberry') as Theme

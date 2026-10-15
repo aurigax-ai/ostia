@@ -1,4 +1,4 @@
-import { findPane, findSplitTab } from '@/layout/tree'
+import { findPane, findSplitTab } from '@/lib/layout/tree'
 import { create } from 'zustand'
 import { useLayoutStore } from './layoutStore'
 import { useWorkspacesStore } from './workspacesStore'

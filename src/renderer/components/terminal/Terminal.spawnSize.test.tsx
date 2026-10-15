@@ -1,4 +1,4 @@
-import { firstPaneId } from '@/layout/tree'
+import { firstPaneId } from '@/lib/layout/tree'
 import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import {
   noteFittedGrid,

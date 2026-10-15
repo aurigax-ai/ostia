@@ -1,7 +1,7 @@
 import { statSync } from 'node:fs'
 import { extname } from 'node:path'
 import { type BrowserWindow, type IpcMainInvokeEvent, ipcMain, shell } from 'electron'
-import { externalHref } from '../../shared/links/externalLinks'
+import { externalHref } from '../../shared/common/externalLinks'
 import type { OpenPathResult } from '../../shared/types'
 import { fromAppWindow } from '../platform/appWindowSender'
 import { resolveSafe } from '../platform/pathGuard'

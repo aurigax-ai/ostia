@@ -26,10 +26,10 @@ import {
   SelectTrigger,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { featuresInUse, toggleAssistFeature } from '@/lib/assist/assistFeatures'
 import { openAssistUi } from '@/lib/assist/assistUi'
-import { useChordLabel } from '@/lib/keys/chords'
+import { useChordLabel } from '@/lib/keyboard/chords'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'

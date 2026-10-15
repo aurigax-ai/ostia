@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { chordLabel } from '@/lib/keys/chords'
+import { chordLabel } from '@/lib/keyboard/chords'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type { ExtensionInfo } from '@shared/extensions'
 import type { KeymapLoad } from '@shared/keyboard/keymapFile'

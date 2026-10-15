@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { Dict } from '@shared/app/dict'
 import type { SyncConflict, SyncStatus } from '@shared/types'

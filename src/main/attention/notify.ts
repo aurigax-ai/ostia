@@ -6,7 +6,6 @@ import {
   type NotificationSettings,
   parseNotificationSettings,
 } from '../../shared/app/notificationSettings'
-import type { RedactText } from '../../shared/privacy/redactionTargets'
 import {
   type NotificationEntry,
   type NotificationKind,
@@ -17,6 +16,7 @@ import { registerControlMethod } from '../control/controlServer'
 import { emitPlatformEvent } from '../control/events'
 import { getByPaneId } from '../control/idRegistry'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
+import type { RedactText } from '../privacy/redactionTargets'
 import { type AttentionDeps, clampMessage, targetOf } from './attention'
 import { runNotifyCommand } from './notifyCommand'
 

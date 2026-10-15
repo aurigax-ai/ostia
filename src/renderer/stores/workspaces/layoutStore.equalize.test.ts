@@ -1,5 +1,5 @@
-import { firstPaneId } from '@/layout/tree'
-import type { SplitNode } from '@/layout/types'
+import { firstPaneId } from '@/lib/layout/tree'
+import type { SplitNode } from '@/lib/layout/types'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { useLayoutStore } from './layoutStore'

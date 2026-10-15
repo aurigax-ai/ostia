@@ -1,4 +1,4 @@
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { useExitPresence } from '@/lib/app/useExitPresence'
 import { blockSpan, commandLine, stickyBlock } from '@/lib/terminal/blocks'
 import { createCellBoxCache } from '@/lib/terminal/cellBox'

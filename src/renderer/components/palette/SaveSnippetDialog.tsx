@@ -10,7 +10,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { useDict } from '@/i18n/useDict'
+import { useDict } from '@/lib/app/useDict'
 import { parseTags, suggestedName } from '@/lib/palette/snippets'
 import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import { fmt } from '@shared/app/dict'

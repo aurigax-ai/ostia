@@ -1,5 +1,5 @@
-import { allPanes } from '@/layout/tree'
 import { countUsage } from '@/lib/app/usageCounts'
+import { allPanes } from '@/lib/layout/tree'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { ResumableAgent } from '@shared/agents/agentResume'

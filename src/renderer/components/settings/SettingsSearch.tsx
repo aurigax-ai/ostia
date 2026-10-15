@@ -1,4 +1,4 @@
-import { highlightParts, matchesQuery } from '@/lib/app/settingsSearch'
+import { highlightParts, matchesQuery } from '@/lib/settings/settingsSearch'
 import {
   type ReactNode,
   createContext,

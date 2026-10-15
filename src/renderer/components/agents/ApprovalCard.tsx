@@ -1,4 +1,4 @@
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { cn } from '@/lib/utils'
 import { ShieldWarningIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
