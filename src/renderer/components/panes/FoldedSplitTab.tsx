@@ -58,15 +58,18 @@ export function FoldedSplitTab({
   return (
     <div
       className={cn('pane-tab pane-split-tab folded', dropMark && `drop-${dropMark}`)}
-      role="tab"
-      tabIndex={-1}
-      aria-selected={false}
-      aria-label={fmt(d.pane.foldedSplitTab, { name, summary: parts.join(', ') })}
       data-tab-id={tab.id}
       data-attention={mark ?? undefined}
       {...tabDragProps(tab.id, workspaceId, true)}
     >
-      <button type="button" className="split-tab-fold-main" onClick={() => focusPane(open.id)}>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={false}
+        aria-label={fmt(d.pane.foldedSplitTab, { name, summary: parts.join(', ') })}
+        className="split-tab-fold-main"
+        onClick={() => focusPane(open.id)}
+      >
         <SplitTabGlyph tab={tab} focusedId={null} />
         {mark ? <span className="pane-attn-mark" aria-hidden /> : null}
         <span className="split-tab-name">{name}</span>

@@ -27,7 +27,10 @@ test('a split tab folds to one chip with its counts and unfolds on an attention 
 
     await win.getByRole('button', { name: 'Fold workers' }).click()
     const chip = win.locator('.pane-split-tab.folded')
-    await expect(chip).toHaveAttribute('aria-label', /^Folded split tab workers: 2 panes/)
+    await expect(chip.getByRole('tab')).toHaveAttribute(
+      'aria-label',
+      /^Folded split tab workers: 2 panes/,
+    )
     await expect(chip).toContainText('2 panes')
     await expect(segments).toHaveCount(0)
 
@@ -42,7 +45,7 @@ test('a split tab folds to one chip with its counts and unfolds on an attention 
 
     await win.getByRole('button', { name: 'Fold workers' }).click()
     await expect(chip).toHaveCount(1)
-    await chip.getByRole('button').click()
+    await chip.getByRole('tab').click()
     await expect(chip).toHaveCount(0)
     await expect(segments).toHaveCount(2)
   } finally {

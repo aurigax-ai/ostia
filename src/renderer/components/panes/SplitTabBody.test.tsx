@@ -122,7 +122,7 @@ describe('folded split tab', () => {
     const chip = screen.getByRole('tab', {
       name: 'Folded split tab workers: 3 panes, 1 waiting, 1 working',
     })
-    expect(chip).toHaveAttribute('data-attention', 'waiting')
+    expect(chip.closest('.pane-split-tab')).toHaveAttribute('data-attention', 'waiting')
     expect(within(chip).getByText('3 panes')).toBeInTheDocument()
     expect(container.querySelectorAll('.split-tab-segment')).toHaveLength(0)
     expect(findPane(layout().root, b.id)).not.toBeNull()
@@ -134,7 +134,7 @@ describe('folded split tab', () => {
     await act(() => commands.exec('pane.foldSplitTab'))
     const chip = container.querySelector('.pane-split-tab.folded') as HTMLElement
 
-    await userEvent.click(within(chip).getByRole('button'))
+    await userEvent.click(within(chip).getByRole('tab'))
 
     expect(container.querySelector('.pane-split-tab.folded')).toBeNull()
     expect(container.querySelectorAll('.split-tab-segment')).toHaveLength(3)
