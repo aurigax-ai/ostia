@@ -326,6 +326,22 @@ describe('Files tree operations', () => {
       )
     })
 
+    it('shows a move only while the move modifier is held and the source allows it', async () => {
+      seed()
+      render(<FilesView />)
+      const src = await screen.findByRole('button', { name: 'src' })
+      const effect = (keys: MouseEventInit, effectAllowed: string): string => {
+        const transfer = { types: ['Files'], files: [], dropEffect: 'none', effectAllowed }
+        fireEvent(src, dragEvent('dragover', transfer, keys))
+        return transfer.dropEffect
+      }
+      expect(effect({}, 'all')).toBe('copy')
+      expect(effect({ shiftKey: true }, 'all')).toBe('move')
+      expect(effect({ shiftKey: true }, 'copyMove')).toBe('move')
+      expect(effect({ shiftKey: true }, 'copy')).toBe('copy')
+      expect(effect({ ctrlKey: true }, 'all')).toBe('copy')
+    })
+
     it('moves with Shift on Linux and Windows and with Cmd on macOS', () => {
       const keys = { altKey: false, ctrlKey: false, metaKey: false, shiftKey: false }
       expect(importMoves(keys, false)).toBe(false)

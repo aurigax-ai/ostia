@@ -604,6 +604,7 @@
         "src/renderer/lib/files/fileTreeActions.ts",
         "src/renderer/lib/files/fileDrop.ts",
         "src/main/files/fileDrops.ts",
+        "src/main/files/exclusiveTransfer.ts",
         "src/renderer/components/panes/FileDropCover.tsx",
         "src/renderer/lib/keyboard/dropPaths.ts",
         "src/renderer/lib/files/fileKinds.ts",

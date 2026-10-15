@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
-import { centerOf, dropFiles } from './osDrag'
+import { centerOf, dragFiles, dropFiles } from './osDrag'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
 const SHIFT = 8
@@ -12,7 +12,10 @@ const SHIFT = 8
 const DROP_PAGE = `<!doctype html><title>waiting</title>
 <p style="position:fixed;inset:0;margin:0">drop here</p>
 <script>
-addEventListener('dragover', (e) => e.preventDefault())
+addEventListener('dragover', (e) => {
+  e.preventDefault()
+  if (document.title === 'waiting') document.title = 'over'
+})
 addEventListener('drop', async (e) => {
   e.preventDefault()
   const files = [...e.dataTransfer.files]
@@ -69,7 +72,17 @@ test('a file dropped from the system onto a web page in a browser pane reaches t
       .poll(async () => (await guestPage(app, url))[0]?.title, { timeout: 15_000 })
       .toBe('waiting')
 
-    await dropFiles(win, [notes, photo], await centerOf(win.locator('webview:visible')))
+    const page = await centerOf(win.locator('webview:visible'))
+    const drag = await dragFiles(win, [notes, photo])
+    await drag.send('dragEnter', page)
+    await expect
+      .poll(async () => {
+        await drag.send('dragOver', page)
+        return (await guestPage(app, url))[0]?.title
+      })
+      .toBe('over')
+    await drag.send('drop', page)
+    await drag.done()
 
     await expect
       .poll(async () => (await guestPage(app, url))[0]?.title, { timeout: 10_000 })

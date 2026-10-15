@@ -1,11 +1,13 @@
-import { cpSync, lstatSync, mkdirSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
+import { lstatSync, mkdirSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
 import { basename, dirname, extname, isAbsolute, join, sep } from 'node:path'
 import type { FileOpResult } from '../../shared/files/fileOps'
 import { resolveSafe } from '../platform/pathGuard'
+import { copyExclusive, moveExclusive } from './exclusiveTransfer'
 
 const FILE_OP_MAX_PATHS = 500
 const NAME_MAX_BYTES = 255
 const COPY_NAME_TRIES = 1000
+const CLAIM_TRIES = 20
 
 export interface FileOpsDeps {
   roots: string[]
@@ -89,9 +91,19 @@ export function numberedName(dir: string, name: string): string | null {
   return null
 }
 
-function isCrossDevice(error: unknown): boolean {
-  return (error as NodeJS.ErrnoException | null)?.code === 'EXDEV'
+type PickName = (dir: string, name: string) => string | null
+
+const sameName: PickName = (dir, name) => (exists(join(dir, name)) ? null : name)
+
+const copyOrSameName: PickName = (dir, name) =>
+  exists(join(dir, name)) ? copyName(dir, name) : name
+
+function isDroppable(path: string): boolean {
+  const stat = lstatSync(path)
+  return stat.isFile() || stat.isDirectory() || stat.isSymbolicLink()
 }
+
+type Transfer = { ok: true; target: string } | FileOpFailure
 
 export class FileOps {
   private readonly realRoots: string[]
@@ -176,19 +188,59 @@ export class FileOps {
     return { sources, dest }
   }
 
-  move(pathsInput: unknown, destInput: unknown): FileOpResult {
-    const planned = this.plan(this.paths(pathsInput), destInput)
-    if ('ok' in planned) return planned
-    const { sources, dest } = planned
-    const moves = sources
-      .filter((source) => dirname(source) !== dest)
-      .map((source) => ({ source, target: join(dest, basename(source)) }))
-    if (moves.some(({ target }) => exists(target))) return fail('exists')
+  private async firstFreeName(
+    source: string,
+    dest: string,
+    pick: PickName,
+    attempt: (target: string) => Promise<Transfer | 'taken'>,
+  ): Promise<Transfer> {
+    for (let tries = 0; tries < CLAIM_TRIES; tries++) {
+      const name = pick(dest, basename(source))
+      if (name === null) return fail('exists')
+      const sent = await attempt(join(dest, name))
+      if (sent !== 'taken') return sent
+    }
+    return fail('exists')
+  }
+
+  private copyNew(source: string, dest: string, pick: PickName): Promise<Transfer> {
+    return this.firstFreeName(source, dest, pick, async (target) =>
+      (await copyExclusive(source, target, this.deps.trash)) === 'done'
+        ? { ok: true, target }
+        : 'taken',
+    )
+  }
+
+  private moveNew(source: string, dest: string, pick: PickName): Promise<Transfer> {
+    return this.firstFreeName(source, dest, pick, async (target) => {
+      const moved = await moveExclusive(source, target)
+      if (moved === 'copy') return this.copyThenTrash(source, dest, pick)
+      return moved === 'done' ? { ok: true, target } : 'taken'
+    })
+  }
+
+  private async copyThenTrash(source: string, dest: string, pick: PickName): Promise<Transfer> {
+    const copied = await this.copyNew(source, dest, pick)
+    if (!copied.ok) return copied
+    try {
+      await this.deps.trash(source)
+      return copied
+    } catch {
+      return { ok: false, error: 'not-moved', paths: [copied.target] }
+    }
+  }
+
+  private async transferAll(
+    sources: string[],
+    send: (source: string) => Promise<Transfer>,
+  ): Promise<FileOpResult> {
     const done: string[] = []
-    for (const { source, target } of moves) {
+    for (const source of sources) {
       try {
-        renameSync(source, target)
-        done.push(target)
+        const sent = await send(source)
+        if (!sent.ok)
+          return { ok: false, error: sent.error, paths: [...done, ...(sent.paths ?? [])] }
+        done.push(sent.target)
       } catch {
         return { ok: false, error: 'failed', paths: done }
       }
@@ -196,75 +248,40 @@ export class FileOps {
     return { ok: true, paths: done }
   }
 
-  copy(pathsInput: unknown, destInput: unknown): FileOpResult {
+  async move(pathsInput: unknown, destInput: unknown): Promise<FileOpResult> {
     const planned = this.plan(this.paths(pathsInput), destInput)
     if ('ok' in planned) return planned
     const { sources, dest } = planned
-    const done: string[] = []
-    for (const source of sources) {
-      const name = basename(source)
-      const free = exists(join(dest, name)) ? copyName(dest, name) : name
-      if (free === null) return { ok: false, error: 'exists', paths: done }
-      const target = join(dest, free)
-      try {
-        this.copyEntry(source, target)
-        done.push(target)
-      } catch {
-        return { ok: false, error: 'failed', paths: done }
-      }
-    }
-    return { ok: true, paths: done }
+    const moving = sources.filter((source) => dirname(source) !== dest)
+    if (moving.some((source) => exists(join(dest, basename(source))))) return fail('exists')
+    return this.transferAll(moving, (source) => this.moveNew(source, dest, sameName))
+  }
+
+  async copy(pathsInput: unknown, destInput: unknown): Promise<FileOpResult> {
+    const planned = this.plan(this.paths(pathsInput), destInput)
+    if ('ok' in planned) return planned
+    const { sources, dest } = planned
+    return this.transferAll(sources, (source) => this.copyNew(source, dest, copyOrSameName))
   }
 
   private dropped(input: unknown): string[] | null {
     return everyPath(input, (item) => {
       if (typeof item !== 'string' || !isAbsolute(item) || !exists(item)) return null
       const real = join(realpathSync(dirname(item)), basename(item))
-      return this.realRoots.includes(real) ? null : real
+      if (this.realRoots.includes(real) || !isDroppable(real)) return null
+      return real
     })
-  }
-
-  private copyEntry(source: string, target: string): void {
-    cpSync(source, target, {
-      recursive: true,
-      errorOnExist: true,
-      force: false,
-      verbatimSymlinks: true,
-    })
-  }
-
-  private async moveEntry(source: string, target: string): Promise<void> {
-    try {
-      renameSync(source, target)
-    } catch (error) {
-      if (!isCrossDevice(error)) throw error
-      this.copyEntry(source, target)
-      await this.deps.trash(source)
-    }
   }
 
   async importInto(pathsInput: unknown, destInput: unknown, move: boolean): Promise<FileOpResult> {
     const planned = this.plan(this.dropped(pathsInput), destInput)
     if ('ok' in planned) return planned
     const { sources, dest } = planned
-    const done: string[] = []
-    for (const source of sources) {
-      if (move && dirname(source) === dest) {
-        done.push(source)
-        continue
-      }
-      const free = numberedName(dest, basename(source))
-      if (free === null) return { ok: false, error: 'exists', paths: done }
-      const target = join(dest, free)
-      try {
-        if (move) await this.moveEntry(source, target)
-        else this.copyEntry(source, target)
-        done.push(target)
-      } catch {
-        return { ok: false, error: 'failed', paths: done }
-      }
-    }
-    return { ok: true, paths: done }
+    return this.transferAll(sources, async (source) => {
+      if (!move) return this.copyNew(source, dest, numberedName)
+      if (dirname(source) === dest) return { ok: true, target: source }
+      return this.moveNew(source, dest, numberedName)
+    })
   }
 
   draggable(input: unknown): string | null {

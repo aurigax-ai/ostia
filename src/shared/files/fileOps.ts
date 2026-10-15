@@ -4,6 +4,7 @@ export type FileOpError =
   | 'exists'
   | 'into-itself'
   | 'sandboxed'
+  | 'not-moved'
   | 'failed'
 
 export type FileOpResult =

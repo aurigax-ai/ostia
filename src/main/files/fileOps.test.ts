@@ -1,16 +1,21 @@
 import {
+  chmodSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
+  readlinkSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
+import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { copyExclusive, moveExclusive } from './exclusiveTransfer'
 import { FileOps, copyName, nameProblem, numberedName } from './fileOps'
 
 const dirs: string[] = []
@@ -116,33 +121,33 @@ describe('FileOps', () => {
     expect(readFileSync(join(root, 'Notes.md'), 'utf8')).toBe('notes')
   })
 
-  it('moves entries into a folder, refusing a clash or a folder into itself', () => {
+  it('moves entries into a folder, refusing a clash or a folder into itself', async () => {
     const { root, ops } = setup()
     mkdirSync(join(root, 'docs'))
-    expect(ops.move([join(root, 'notes.md')], join(root, 'docs'))).toEqual({
+    expect(await ops.move([join(root, 'notes.md')], join(root, 'docs'))).toEqual({
       ok: true,
       paths: [join(root, 'docs', 'notes.md')],
     })
-    expect(ops.move([join(root, 'src')], join(root, 'src'))).toEqual({
+    expect(await ops.move([join(root, 'src')], join(root, 'src'))).toEqual({
       ok: false,
       error: 'into-itself',
     })
     writeFileSync(join(root, 'notes.md'), 'again')
-    expect(ops.move([join(root, 'notes.md')], join(root, 'docs'))).toEqual({
+    expect(await ops.move([join(root, 'notes.md')], join(root, 'docs'))).toEqual({
       ok: false,
       error: 'exists',
     })
     expect(readFileSync(join(root, 'docs', 'notes.md'), 'utf8')).toBe('notes')
   })
 
-  it('copies beside the original under a copy name and copies folders whole', () => {
+  it('copies beside the original under a copy name and copies folders whole', async () => {
     const { root, ops } = setup()
-    expect(ops.copy([join(root, 'notes.md'), join(root, 'src')], root)).toEqual({
+    expect(await ops.copy([join(root, 'notes.md'), join(root, 'src')], root)).toEqual({
       ok: true,
       paths: [join(root, 'notes copy.md'), join(root, 'src copy')],
     })
     expect(readFileSync(join(root, 'src copy', 'main.ts'), 'utf8')).toBe('main')
-    expect(ops.copy([join(root, 'src')], join(root, 'src'))).toEqual({
+    expect(await ops.copy([join(root, 'src')], join(root, 'src'))).toEqual({
       ok: false,
       error: 'into-itself',
     })
@@ -169,7 +174,7 @@ describe('FileOps', () => {
       ok: false,
       error: 'outside',
     })
-    expect(ops.copy([join(root, 'notes.md')], join(root, 'link'))).toEqual({
+    expect(await ops.copy([join(root, 'notes.md')], join(root, 'link'))).toEqual({
       ok: false,
       error: 'outside',
     })
@@ -279,6 +284,129 @@ describe('FileOps.importInto', () => {
       expect(await ops.importInto(paths, root, false)).toEqual({ ok: false, error: 'outside' })
     }
     expect(readdirSync(root).sort()).toEqual(['notes.md', 'src'])
+  })
+})
+
+describe('FileOps transfers never replace and never block', () => {
+  it('moves a file, a folder and a link inside the roots and keeps a link a link', async () => {
+    const { root, outside, ops } = setup()
+    mkdirSync(join(root, 'docs'))
+    symlinkSync(outside, join(root, 'link'))
+    expect(
+      await ops.move(
+        [join(root, 'notes.md'), join(root, 'src'), join(root, 'link')],
+        join(root, 'docs'),
+      ),
+    ).toEqual({
+      ok: true,
+      paths: [
+        join(root, 'docs', 'notes.md'),
+        join(root, 'docs', 'src'),
+        join(root, 'docs', 'link'),
+      ],
+    })
+    expect(readFileSync(join(root, 'docs', 'src', 'main.ts'), 'utf8')).toBe('main')
+    expect(readlinkSync(join(root, 'docs', 'link'))).toBe(outside)
+    expect(readdirSync(root).sort()).toEqual(['docs'])
+  })
+
+  it('refuses a FIFO, a socket or a device dropped from the system', async () => {
+    const { root, outside, ops } = setup()
+    const socket = join(outside, 's.sock')
+    const server = createServer()
+    await new Promise<void>((ok) => server.listen(socket, ok))
+    try {
+      for (const source of [socket, '/dev/null']) {
+        expect(await ops.importInto([source], root, false), source).toEqual({
+          ok: false,
+          error: 'outside',
+        })
+      }
+    } finally {
+      await new Promise((ok) => server.close(ok))
+    }
+    expect(readdirSync(root).sort()).toEqual(['notes.md', 'src'])
+  })
+
+  it('refuses a remote destination', async () => {
+    const { outside, ops } = setup()
+    writeFileSync(join(outside, 'a.txt'), 'a')
+    expect(await ops.importInto([join(outside, 'a.txt')], 'remote://host/w', false)).toEqual({
+      ok: false,
+      error: 'outside',
+    })
+  })
+
+  it.skipIf(process.getuid?.() === 0)(
+    'sends a copy that fails partway to the trash and leaves the folder as it was',
+    async () => {
+      const { root, outside, ops, trashed } = setup()
+      const source = join(outside, 'photos')
+      mkdirSync(source)
+      writeFileSync(join(source, 'a.jpg'), 'a')
+      writeFileSync(join(source, 'b.jpg'), 'b')
+      chmodSync(join(source, 'b.jpg'), 0)
+      try {
+        expect(await ops.importInto([source], root, false)).toEqual({
+          ok: false,
+          error: 'failed',
+          paths: [],
+        })
+      } finally {
+        chmodSync(join(source, 'b.jpg'), 0o644)
+      }
+      expect(trashed).toEqual([join(root, 'photos')])
+      expect(readdirSync(root).sort()).toEqual(['notes.md', 'src'])
+      expect(existsSync(join(source, 'a.jpg'))).toBe(true)
+    },
+  )
+
+  it.runIf(existsSync('/dev/shm'))(
+    'reports a cross-device move whose original cannot go to the trash as copied, not moved',
+    async () => {
+      const root = tmp()
+      const ops = new FileOps({
+        roots: [root],
+        trash: async () => {
+          throw new Error('no trash')
+        },
+      })
+      const shm = mkdtempSync(join('/dev/shm', 'ostia-fileops-'))
+      dirs.push(shm)
+      const source = join(shm, 'far.txt')
+      writeFileSync(source, 'far')
+      expect(await ops.importInto([source], root, true)).toEqual({
+        ok: false,
+        error: 'not-moved',
+        paths: [join(root, 'far.txt')],
+      })
+      expect(readFileSync(join(root, 'far.txt'), 'utf8')).toBe('far')
+      expect(existsSync(source)).toBe(true)
+    },
+  )
+})
+
+describe('exclusive transfers', () => {
+  it('never takes a name that appeared after it was picked', async () => {
+    const dir = tmp()
+    const target = join(dir, 'taken')
+    for (const make of [
+      () => writeFileSync(join(dir, 'file'), 'new'),
+      () => mkdirSync(join(dir, 'folder')),
+      () => symlinkSync(dir, join(dir, 'link')),
+    ]) {
+      make()
+    }
+    writeFileSync(target, 'theirs')
+    for (const source of [join(dir, 'file'), join(dir, 'folder'), join(dir, 'link')]) {
+      expect(await moveExclusive(source, target), source).toBe('taken')
+      expect(await copyExclusive(source, target, async () => {}), source).toBe('taken')
+      expect(existsSync(source)).toBe(true)
+    }
+    expect(readFileSync(target, 'utf8')).toBe('theirs')
+    mkdirSync(join(dir, 'empty'))
+    expect(await moveExclusive(join(dir, 'folder'), join(dir, 'empty'))).toBe('taken')
+    expect(lstatSync(join(dir, 'folder')).isDirectory()).toBe(true)
   })
 })
 

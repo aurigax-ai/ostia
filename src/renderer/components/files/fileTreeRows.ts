@@ -74,28 +74,50 @@ function dropInto(e: DragEvent<HTMLElement>, workspaceId: string, dir: string, r
   void importInto(workspaceId, files, dir, importMoves(e, isMac))
 }
 
+const MOVE_ALLOWED = new Set(['all', 'move', 'copyMove', 'linkMove', 'uninitialized'])
+
+function dropEffectFor(e: DragEvent<HTMLElement>): 'copy' | 'move' {
+  return importMoves(e, isMac) && MOVE_ALLOWED.has(e.dataTransfer.effectAllowed) ? 'move' : 'copy'
+}
+
+function isFileDrag(e: DragEvent<HTMLElement>): boolean {
+  return e.dataTransfer.types.includes('Files')
+}
+
+const refusedDrop: Pick<HTMLAttributes<HTMLElement>, 'onDragOver' | 'onDrop'> = {
+  onDragOver: (e) => {
+    if (e.defaultPrevented || !isFileDrag(e)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'none'
+  },
+  onDrop: (e) => {
+    if (isFileDrag(e)) e.preventDefault()
+  },
+}
+
 export function useFolderDrop(
   dir: string,
   tree: TreeContext,
 ): Pick<HTMLAttributes<HTMLElement>, 'onDragOver' | 'onDragLeave' | 'onDrop'> & { over: boolean } {
   const [over, setOver] = useState(false)
   const workspaceId = tree.focus.workspaceId
-  if (tree.remote || !workspaceId) return { over: false }
+  if (tree.remote) return { over: false, ...refusedDrop }
+  if (!workspaceId) return { over: false }
   return {
     over,
     onDragOver: (e) => {
-      if (e.defaultPrevented || !e.dataTransfer.types.includes('Files')) {
+      if (e.defaultPrevented || !isFileDrag(e)) {
         if (over) setOver(false)
         return
       }
       e.preventDefault()
-      e.dataTransfer.dropEffect = 'copy'
+      e.dataTransfer.dropEffect = dropEffectFor(e)
       if (!over) setOver(true)
     },
     onDragLeave: () => setOver(false),
     onDrop: (e) => {
       setOver(false)
-      if (e.defaultPrevented || !e.dataTransfer.types.includes('Files')) return
+      if (e.defaultPrevented || !isFileDrag(e)) return
       e.preventDefault()
       dropInto(e, workspaceId, dir, tree.root)
     },
