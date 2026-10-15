@@ -289,7 +289,7 @@ test('an agent resumed in a visible split leaves keyboard focus in the pane the 
   }
 })
 
-test('an agent a coordinator started with process run resumes with its allowed flags only, not its prompt, variables, agent or permission bypass', async () => {
+test('an agent a coordinator started with process run resumes with the variables, agent and permission bypass of its typed line, not its prompt or secrets', async () => {
   const dataHome = freshDataHome()
   seedSettings(dataHome, AUTO_RESUME_SETTINGS)
   const { app, win } = await launchAgentApp(dataHome)
@@ -313,7 +313,7 @@ test('an agent a coordinator started with process run resumes with its allowed f
       )
       .toMatch(
         new RegExp(
-          `^fake-agent-resumed --plugin-dir [^ ]+ --resume ${RESUME_ID} --model Y --name Slack push GL=none TOK=none END$`,
+          `^fake-agent-resumed --plugin-dir [^ ]+ --resume ${RESUME_ID} --model Y --name Slack push --agent X --dangerously-skip-permissions GL=665#2 TOK=none END$`,
           'm',
         ),
       )
