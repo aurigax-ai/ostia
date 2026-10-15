@@ -1,7 +1,7 @@
 import { claimedLanguages } from '@/lib/monaco/builtinFeatures'
 import { fileLanguage } from '@/lib/monaco/language'
 import { builtinFeatures, monaco } from '@/lib/monaco/setup'
-import type { LspSessionInfo } from '@shared/languageServers'
+import type { LspSessionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import type {
   Diagnostic,
   ServerCapabilities,

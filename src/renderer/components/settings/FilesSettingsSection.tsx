@@ -14,8 +14,8 @@ import {
 } from '@/lib/settings/fileTreeSettings'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useAvailableIconThemes } from '@/stores/extensions/iconThemeStore'
+import { BUILTIN_ICON_THEME } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
 import { PlusIcon, XIcon } from '@phosphor-icons/react'
-import { BUILTIN_ICON_THEME } from '@shared/iconTheme'
 import { type FormEvent, useState } from 'react'
 import { ControlRow, SelectField, SettingsGroup, SubHead, ToggleRow } from './SettingsPanel'
 

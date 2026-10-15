@@ -74,6 +74,7 @@ import {
   type WorkspaceState,
   useWorkspacesStore,
 } from '@/stores/workspaces/workspacesStore'
+import type { ExtensionSidebarItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import {
   AppWindowIcon,
   ArrowDownIcon,
@@ -109,7 +110,6 @@ import {
   XSquareIcon,
 } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
-import type { ExtensionSidebarItem } from '@shared/extensions'
 import {
   WORKSPACE_GROUP_COLORS,
   type WorkspaceGroupColor,

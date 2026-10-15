@@ -1,4 +1,4 @@
-import { envName } from '../appEnv'
+import { envName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import type { ResumableAgent } from './agentResume'
 
 type Arity = 'none' | 'one' | 'optional' | 'many'

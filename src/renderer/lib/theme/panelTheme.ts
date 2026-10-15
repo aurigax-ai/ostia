@@ -1,4 +1,4 @@
-import { PRODUCT_NAME } from '@shared/product'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { codeFontStack, uiFontStack } from './uiFonts'
 
 const TOKEN_NAME = /^[a-z0-9-]+$/

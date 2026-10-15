@@ -1,4 +1,4 @@
-import type { HookAgent } from '../../shared/agentPlugins'
+import type { HookAgent } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import {
   type ActivityEvent,
   type ActivityKind,

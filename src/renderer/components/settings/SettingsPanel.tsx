@@ -72,6 +72,12 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import {
+  type ExtensionInfo,
+  PRODUCT_PLACEHOLDER,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import {
   ArrowsClockwiseIcon,
   BellIcon,
@@ -119,11 +125,8 @@ import {
   clampLongCommandSeconds,
 } from '@shared/app/notificationSettings'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/app/zoom'
-import type { Capability } from '@shared/capabilities'
-import { type ExtensionInfo, PRODUCT_PLACEHOLDER } from '@shared/extensions'
 import type { ApprovalMode } from '@shared/permissions/approvals'
 import { REACH_MODES, type ReachMode, parseReachMode } from '@shared/permissions/reach'
-import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { KEEP_SHELLS_FEATURE, TMUX_MIN_VERSION } from '@shared/terminal/keepShells'
 import type { AppInfo, Platform } from '@shared/types'
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'

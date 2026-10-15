@@ -1,6 +1,6 @@
 import { homedir } from 'node:os'
-import { isAbsolute, join, relative, resolve, sep } from 'node:path'
-import { isRemotePath } from '../../shared/remoteFolders'
+import { join, resolve, sep } from 'node:path'
+import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 
 export function expandHome(p: string, home = homedir()): string {
   if (p === '~') return home
@@ -26,9 +26,4 @@ export function resolveSafe(inputPath: string, roots: string[]): string | null {
 
 export function isPathAllowed(inputPath: string, roots: string[]): boolean {
   return resolveSafe(inputPath, roots) !== null
-}
-
-export function isInsideDir(dir: string, path: string): boolean {
-  const rel = relative(resolve(dir), resolve(dir, path))
-  return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel)
 }

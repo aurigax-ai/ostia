@@ -1,4 +1,4 @@
-import type { AssistChunk } from '@shared/assist'
+import type { AssistChunk } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { assistRequest } from './assistStore'
 

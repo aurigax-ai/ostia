@@ -4,7 +4,7 @@ import {
   COMPLETION_PREFIX_MAX,
   COMPLETION_SUFFIX_MAX,
   type CompletionAssistRequest,
-} from '@shared/assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import type * as Monaco from 'monaco-editor'
 import { isLargeModel } from './largeFile'
 

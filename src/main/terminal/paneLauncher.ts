@@ -1,6 +1,6 @@
 import { mkdirSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { shellEnv } from '../../shared/appEnv'
+import { shellEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 
 export const OSTIA_LAUNCHER_NAME = 'ostia'
 

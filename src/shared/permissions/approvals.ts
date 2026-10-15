@@ -1,4 +1,4 @@
-import type { Capability } from '../capabilities'
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 
 const APPROVAL_MODES = ['ask', 'allow'] as const
 export type ApprovalMode = (typeof APPROVAL_MODES)[number]

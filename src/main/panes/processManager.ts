@@ -1,8 +1,8 @@
 import { isAbsolute } from 'node:path'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { MANAGER_AGENT_NAME } from '../../shared/agents/managerSettings'
 import { ChangeSignal, type Subscribe, anyOf } from '../../shared/common/actThenConfirm'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import {
   SPLIT_TAB_NAME_MAX,

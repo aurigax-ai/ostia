@@ -1,6 +1,6 @@
 import { fileViewKind } from '@/lib/files/fileKinds'
 import { useArtifactVersionsStore } from '@/stores/files/artifactVersionsStore'
-import { isRemotePath } from '@shared/remoteFolders'
+import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { VersionView } from './ArtifactVersions'
 import { EditorView } from './Editor'
 import { ImageViewer } from './ImageViewer'

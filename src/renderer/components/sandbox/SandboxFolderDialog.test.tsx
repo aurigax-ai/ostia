@@ -1,4 +1,4 @@
-import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import '@testing-library/jest-dom/vitest'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { act, cleanup, render, screen } from '@testing-library/react'

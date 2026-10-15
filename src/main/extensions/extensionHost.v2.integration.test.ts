@@ -1,9 +1,13 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import type {
+  ExtensionCaller,
+  PaneChip,
+  WorkspaceChip,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ownWorkspaceReach } from '../../../test/reach'
-import type { ExtensionCaller, PaneChip, WorkspaceChip } from '../../shared/extensions'
 import type { CommandResult, CommandTarget } from '../../shared/types'
 import { registerAttentionMethods } from '../attention/attention'
 import { registerBrowseMethods } from '../browser/browse'

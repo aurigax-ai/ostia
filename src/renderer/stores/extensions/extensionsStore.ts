@@ -1,5 +1,4 @@
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { type CoreItems, NO_CORE_ITEMS } from '@shared/boards/git'
 import type {
   ExtensionConnectionEntry,
   ExtensionConnectionSave,
@@ -7,7 +6,8 @@ import type {
   ExtensionSidebarItem,
   PaneChip,
   WorkspaceChip,
-} from '@shared/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { type CoreItems, NO_CORE_ITEMS } from '@shared/boards/git'
 import { create } from 'zustand'
 
 interface PanelNavigation {

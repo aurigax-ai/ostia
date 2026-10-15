@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { arch, platform, release } from 'node:os'
+import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { app, ipcMain } from 'electron'
 import type { TelemetryStamp } from '../../shared/app/buildInfo'
-import { readEnv } from '../../shared/appEnv'
 import {
   COUNT_ID_PATTERN,
   DEFAULT_TELEMETRY_SETTINGS,
@@ -37,7 +38,6 @@ import {
   parseTelemetrySettings,
   withoutCategories,
 } from '../../shared/privacy/telemetry'
-import { PRODUCT_NAME } from '../../shared/product'
 import { loadJson, saveJson } from '../platform/jsonStore'
 import { type LogFields, redactSecrets } from './appLog'
 

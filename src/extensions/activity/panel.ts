@@ -1,3 +1,11 @@
+import {
+  call,
+  errorText,
+  h,
+  icon,
+  onChange,
+  panelTranslator,
+} from '@aurigax-ai/ostia-extension-sdk/panel'
 import chatText from '@phosphor-icons/core/regular/chat-text.svg'
 import checkCircle from '@phosphor-icons/core/regular/check-circle.svg'
 import fileText from '@phosphor-icons/core/regular/file-text.svg'
@@ -10,7 +18,6 @@ import terminalWindow from '@phosphor-icons/core/regular/terminal-window.svg'
 import usersThree from '@phosphor-icons/core/regular/users-three.svg'
 import warningCircle from '@phosphor-icons/core/regular/warning-circle.svg'
 import wrench from '@phosphor-icons/core/regular/wrench.svg'
-import { call, errorText, h, icon, onChange, panelTranslator } from '../sdk/panel'
 import type { ToolKind } from './hookEvent'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'

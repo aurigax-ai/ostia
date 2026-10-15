@@ -9,8 +9,12 @@ import { type LiveSelection, useLiveSelectionStore } from '@/stores/terminal/liv
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRecencyStore } from '@/stores/workspaces/paneRecencyStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { CHAT_CONTEXT_TEXT_MAX, type ChatContextItem, type ChatContextKind } from '@shared/assist'
-import { isRemotePath } from '@shared/remoteFolders'
+import {
+  CHAT_CONTEXT_TEXT_MAX,
+  type ChatContextItem,
+  type ChatContextKind,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { openChatPane } from './chatPane'
 
 const OUTPUT_TAIL_MAX = 8000

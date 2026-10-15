@@ -1,0 +1,41 @@
+{
+  "name": "@aurigax-ai/ostia-extension-sdk",
+  "private": true,
+  "description": "Write extensions for Ostia: the client library, its types, manifest schemas and a project generator",
+  "keywords": ["ostia", "terminal", "extension", "sdk", "coding-agents"],
+  "license": "MIT",
+  "exports": {
+    ".": "./src/client/index.ts",
+    "./assist": "./src/assist/index.ts",
+    "./panel": "./src/client/panel.ts",
+    "./splitter": "./src/client/splitter.ts",
+    "./panel.css": "./src/client/panel.css",
+    "./contract/*": "./src/contract/*.ts",
+    "./manifest/*": "./src/manifest/*.ts"
+  },
+  "dependencies": {
+    "vscode-jsonrpc": "^9.0.1"
+  },
+  "peerDependencies": {
+    "@ai-sdk-tool/parser": "^5.1.6",
+    "ai": "^7.0.122",
+    "undici": "^6.29.0",
+    "zod": "^4.6.5"
+  },
+  "peerDependenciesMeta": {
+    "@ai-sdk-tool/parser": { "optional": true },
+    "ai": { "optional": true },
+    "undici": { "optional": true },
+    "zod": { "optional": true }
+  },
+  "devDependencies": {
+    "@ai-sdk-tool/parser": "^5.1.6",
+    "@types/node": "^24.19.1",
+    "ai": "^7.0.122",
+    "esbuild": "^0.28.2",
+    "typescript": "5.9.3",
+    "undici": "^6.29.0",
+    "vitest": "^5.0.4",
+    "zod": "^4.6.5"
+  }
+}

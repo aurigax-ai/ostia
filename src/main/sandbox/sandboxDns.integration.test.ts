@@ -26,7 +26,7 @@ beforeAll(async () => {
     bundle: true,
     platform: 'node',
     format: 'esm',
-    packages: 'external',
+    external: ['@anthropic-ai/sandbox-runtime'],
   })
   server = createServer((_req, res) => res.end('HOST-LOOPBACK-SERVICE'))
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))

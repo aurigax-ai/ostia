@@ -3,10 +3,13 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
+import type {
+  LanguageServerContribution,
+  LanguageServerInfo,
+} from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { type MessageConnection, createMessageConnection } from 'vscode-jsonrpc'
 import { StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node'
-import type { LanguageServerContribution, LanguageServerInfo } from '../../shared/languageServers'
 import type { Requirement } from '../platform/systemRequirements'
 import {
   type LanguageServerSource,

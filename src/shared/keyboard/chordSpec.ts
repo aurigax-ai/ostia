@@ -1,4 +1,4 @@
-import { isDangerousSegment } from '../protoGuard'
+import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 
 export interface ChordSpec {
   ctrl: boolean

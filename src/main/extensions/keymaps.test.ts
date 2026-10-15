@@ -1,9 +1,9 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { KeymapContribution } from '@aurigax-ai/ostia-extension-sdk/contract/keymap'
+import { readManifest } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { KeymapContribution } from '../../shared/keymap'
-import { readManifest } from './extensionManifest'
 import {
   type KeymapDeps,
   type KeymapSource,

@@ -7,7 +7,11 @@ import {
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { Chat } from '@ai-sdk/react'
-import { type AssistModelRef, CHAT_CONTEXT_MAX, type ChatContextItem } from '@shared/assist'
+import {
+  type AssistModelRef,
+  CHAT_CONTEXT_MAX,
+  type ChatContextItem,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import {
   CHAT_EDIT_TEXT_MAX,
   CHAT_TITLE_MAX,

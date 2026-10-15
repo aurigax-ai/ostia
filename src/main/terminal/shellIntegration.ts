@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { version } from '../../../package.json'
 import {
   AGENT_HOOK_EVENTS,
   AGENT_SKILL_ENTRY,
@@ -9,19 +8,20 @@ import {
   type HookAgent,
   hookAgentsFor,
   isAgentHookEvent,
-} from '../../shared/agentPlugins'
-import { AGENT_HOOKS_OFF_ENV } from '../../shared/agents/agentHooks'
-import { AGENT_ARGS_ENV } from '../../shared/agents/agentLaunch'
-import { CLAUDE_QUESTION_TOOLS } from '../../shared/agents/claudeAttention'
-import { appEnv, envName, shellEnv } from '../../shared/appEnv'
-import { PRODUCT_NAME } from '../../shared/product'
-import { type PromptSeparator, isPromptSeparator } from '../../shared/terminal/promptSettings'
+} from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
+import { appEnv, envName, shellEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import {
   type AgentPluginContent,
   type ExtensionAgentHook,
   type LoadedAgentSkill,
   NO_AGENT_PLUGINS,
-} from '../agents/agentSkills'
+} from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
+import { version } from '../../../package.json'
+import { AGENT_HOOKS_OFF_ENV } from '../../shared/agents/agentHooks'
+import { AGENT_ARGS_ENV } from '../../shared/agents/agentLaunch'
+import { CLAUDE_QUESTION_TOOLS } from '../../shared/agents/claudeAttention'
+import { type PromptSeparator, isPromptSeparator } from '../../shared/terminal/promptSettings'
 import { CORE_SKILL_FILES, writeBundledSkill } from '../agents/bundledSkills'
 import { privateTmpDir } from '../platform/privateTmp'
 

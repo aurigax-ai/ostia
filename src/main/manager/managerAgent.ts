@@ -8,8 +8,8 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { basename, join } from 'node:path'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import type { AgentResume, ResumableAgent } from '../../shared/agents/agentResume'
-import { PRODUCT_NAME } from '../../shared/product'
 import { MANAGER_SKILL_FILES, writeBundledSkill } from '../agents/bundledSkills'
 import {
   CLAUDE_PLUGIN_MANIFEST,

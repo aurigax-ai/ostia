@@ -1,4 +1,7 @@
-import type { RemoteFolder, RemoteFolderAsk } from '@shared/remoteFolders'
+import type {
+  RemoteFolder,
+  RemoteFolderAsk,
+} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { create } from 'zustand'
 
 interface PendingAsk {

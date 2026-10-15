@@ -1,3 +1,4 @@
+import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import {
   type ChordProblem,
   type ChordSpec,
@@ -5,7 +6,6 @@ import {
   isDoubleShift,
   parseChord,
 } from '@shared/keyboard/chordSpec'
-import { isDangerousSegment } from '@shared/protoGuard'
 
 export const TERMINAL_SEND_TYPES = ['text', 'escape', 'hex'] as const
 

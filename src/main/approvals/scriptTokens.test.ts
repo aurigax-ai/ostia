@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync 
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { DEFAULT_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   type MessageConnection,
@@ -10,7 +11,6 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import { DEFAULT_CAPABILITIES } from '../../shared/capabilities'
 import type { ApprovalOutcome } from '../../shared/permissions/approvals'
 import { SCRIPT_CAPABILITIES, type ScriptTokenScope } from '../../shared/permissions/scriptTokens'
 import { emptyWorkspaceSandbox } from '../../shared/sandbox/sandbox'

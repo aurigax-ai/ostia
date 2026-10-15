@@ -1,3 +1,4 @@
+import type { ExtensionIcon } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import {
   BellIcon,
   BookOpenIcon,
@@ -17,7 +18,6 @@ import {
   TerminalWindowIcon,
   WarningIcon,
 } from '@phosphor-icons/react'
-import type { ExtensionIcon } from '@shared/extensions'
 
 const ICONS: Record<ExtensionIcon, IconComponent> = {
   puzzle: PuzzlePieceIcon,

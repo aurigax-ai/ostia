@@ -1,6 +1,6 @@
 import { monaco } from '@/lib/monaco/setup'
-import type { LspSessionInfo } from '@shared/languageServers'
-import { PRODUCT_NAME } from '@shared/product'
+import type { LspSessionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import {
   type CancellationToken,
   CancellationTokenSource,

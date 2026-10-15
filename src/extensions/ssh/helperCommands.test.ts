@@ -1,10 +1,15 @@
 import { spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import type {
+  ConfirmRequest,
+  ExtensionResult,
+  OpenFolderOptions,
+  OpenFolderResult,
+} from '@aurigax-ai/ostia-extension-sdk'
+import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterEach, describe, expect, it } from 'vitest'
 import { type RemoteHost, helperSource, remoteHost } from '../../../test/fixtures/ssh/remoteHost'
-import type { ExtensionCaller } from '../../shared/extensions'
-import type { ConfirmRequest, ExtensionResult, OpenFolderOptions, OpenFolderResult } from '../sdk'
 import { HelperConsent } from './consent'
 import { HelperFolders, Sessions } from './folders'
 import { shippedHelper } from './helper'

@@ -1,4 +1,7 @@
-import type { EditorLanguage, EditorLanguageConfiguration } from '@shared/editorLanguages'
+import type {
+  EditorLanguage,
+  EditorLanguageConfiguration,
+} from '@aurigax-ai/ostia-extension-sdk/contract/editorLanguages'
 import { setContributedLanguages } from './language'
 import { monaco } from './setup'
 

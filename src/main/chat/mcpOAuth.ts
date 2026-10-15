@@ -9,15 +9,15 @@ import {
   auth,
   createMCPClient,
 } from '@ai-sdk/mcp'
+import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { escape as escapeHtml } from 'es-toolkit'
-import { readEnv } from '../../shared/appEnv'
 import type {
   McpAuthState,
   McpServerSettings,
   McpSignInError,
   McpSignInResult,
 } from '../../shared/assist/chatTools'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import type { McpOAuthStore } from './mcpOAuthStore'
 
 const MCP_OAUTH_TIMEOUT_MS = 5 * 60_000

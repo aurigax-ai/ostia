@@ -1,3 +1,28 @@
+import type { AssistApi } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import type { EditorLanguagesApi } from '@aurigax-ai/ostia-extension-sdk/contract/editorLanguages'
+import type {
+  ExtensionOpenTerminalRequest,
+  ExtensionResult,
+  ExtensionsApi,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { IconThemesApi } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
+import type { LanguagePacksApi } from '@aurigax-ai/ostia-extension-sdk/contract/languagePack'
+import type { LspApi } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
+import type {
+  RemoteCwd,
+  RemoteFolder,
+  RemoteFolderAsk,
+  RemoteListResult,
+  RemoteReadResult,
+  RemoteStatResult,
+  RemoteWriteResult,
+} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import type {
+  SnippetDocument,
+  SnippetListing,
+  SnippetSaveResult,
+} from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
 import type { AgentResume, ResumableAgent } from './agents/agentResume'
 import type { AgentSessionInfo } from './agents/agentSessionInfo'
 import type { HibernateOutcome } from './agents/agentWork'
@@ -23,7 +48,6 @@ import type {
 } from './artifacts/artifacts'
 import type { PreviewApi } from './artifacts/htmlPreview'
 import type { PortableAction, PortableRequest, PortableResult } from './artifacts/portable'
-import type { AssistApi } from './assist'
 import type { ChatSessionsApi } from './assist/chatSessions'
 import type { ChatToolsApi } from './assist/chatTools'
 import type { GitBridge } from './boards/git'
@@ -56,21 +80,15 @@ import type {
   RegionSendRequest,
 } from './browser/regionCapture'
 import type { SelectionSendRequest, SelectionSendResult } from './browser/selection'
-import type { Capability } from './capabilities'
-import type { EditorLanguagesApi } from './editorLanguages'
-import type { ExtensionOpenTerminalRequest, ExtensionResult, ExtensionsApi } from './extensions'
 import type { SuggestionsApi } from './extensions/extensionSuggestions'
 import type { MarketplaceApi } from './extensions/marketplace'
 import type { FileOpsApi } from './files/fileOps'
 import type { OpenFileVerdict } from './files/openFiles'
 import type { SearchApi } from './files/search'
 import type { PhoneGrantableCap } from './gateway/phoneCapabilities'
-import type { IconThemesApi } from './iconTheme'
 import type { ClipboardChords, ClipboardEdit } from './keyboard/clipboardChords'
 import type { GuestChordFire } from './keyboard/guestChords'
 import type { KeymapsApi } from './keyboard/keymapFile'
-import type { LanguagePacksApi } from './languagePack'
-import type { LspApi } from './languageServers'
 import type { ApprovalAnswer, ApprovalState } from './permissions/approvals'
 import type { AgentGroupPlacement, ReachMode } from './permissions/reach'
 import type {
@@ -82,15 +100,6 @@ import type {
 } from './permissions/scriptTokens'
 import type { PrivacyApi } from './privacy/redaction'
 import type { TelemetryApi } from './privacy/telemetry'
-import type {
-  RemoteCwd,
-  RemoteFolder,
-  RemoteFolderAsk,
-  RemoteListResult,
-  RemoteReadResult,
-  RemoteStatResult,
-  RemoteWriteResult,
-} from './remoteFolders'
 import type {
   PortsPolicy,
   SandboxControls,
@@ -109,7 +118,6 @@ import type {
 } from './sandbox/sandbox'
 import type { SandboxReadPreset } from './sandbox/sandboxPresets'
 import type { SecretEntry, SecretGrant } from './sandbox/secrets'
-import type { SnippetDocument, SnippetListing, SnippetSaveResult } from './snippets'
 import type { SpecCommand } from './terminal/completionSpec'
 import type { PromptSeparator } from './terminal/promptSettings'
 import type { ViewsApi } from './views/views'

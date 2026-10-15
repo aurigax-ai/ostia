@@ -1,8 +1,8 @@
 import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { ExtensionConnectionKind } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { describe, expect, it } from 'vitest'
-import type { ExtensionConnectionKind } from '../../shared/extensions'
 import { ExtensionConnections, connectionSecretKey } from './extensionConnections'
 import { type SecretStoreDeps, createSecretStore } from './extensionSecrets'
 

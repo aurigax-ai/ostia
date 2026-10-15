@@ -1,5 +1,5 @@
 import { fmt, useDict } from '@/lib/app/useDict'
-import type { ExtensionInfo } from '@shared/extensions'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 
 export function ExtensionAgentPlugin({
   ext,

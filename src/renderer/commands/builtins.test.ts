@@ -22,11 +22,14 @@ import * as surfaceSlots from '@/stores/workspaces/surfaceSlotsStore'
 import { useTabSleepNoticeStore } from '@/stores/workspaces/tabSleepNoticeStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import {
+  type Capability,
+  DEFAULT_CAPABILITIES,
+} from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { SCRIPT_CAPABILITIES } from '@shared/permissions/scriptTokens'
 import { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { SCRIPT_COMMANDS } from '../../main/control/commandArgs'
-import { type Capability, DEFAULT_CAPABILITIES } from '../../shared/capabilities'
 import { registerBuiltinCommands } from './builtins'
 import { type CommandContext, commands } from './registry'
 

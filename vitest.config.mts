@@ -16,8 +16,6 @@ export default defineConfig({
         __dirname,
         'node_modules/vscode-jsonrpc/lib/browser/main.js',
       ),
-      '@aurigax-ai/ostia-extension-sdk/assist': resolve(__dirname, 'src/extensions/sdk/assist'),
-      '@aurigax-ai/ostia-extension-sdk': resolve(__dirname, 'src/extensions/sdk'),
     },
   },
   test: {
@@ -26,7 +24,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary', 'html', 'lcov'],
-      include: ['src/**/*.{ts,tsx}'],
+      include: ['src/**/*.{ts,tsx}', 'packages/*/src/**/*.ts'],
       exclude: [
         'src/renderer/components/ui/**',
         'src/renderer/main.tsx',
@@ -54,6 +52,7 @@ export default defineConfig({
             'src/shared/**/*.test.ts',
             'src/cli/**/*.test.ts',
             'src/extensions/**/*.test.ts',
+            'packages/*/src/**/*.test.ts',
             'test/quarantine.test.ts',
             'test/e2eImports.test.ts',
             'test/affectedTests.test.ts',

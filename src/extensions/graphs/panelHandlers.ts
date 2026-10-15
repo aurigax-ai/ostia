@@ -1,4 +1,10 @@
-import { type ExtensionResult, type OstiaExtension, failure, namedArgs, ok } from '../sdk'
+import {
+  type ExtensionResult,
+  type OstiaExtension,
+  failure,
+  namedArgs,
+  ok,
+} from '@aurigax-ai/ostia-extension-sdk'
 import { definition, listModel, runModel } from './panelModel'
 import type { GraphListing, GraphsRunner } from './runner'
 

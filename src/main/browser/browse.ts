@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { webContents } from 'electron'
 import {
   DEFAULT_SCROLL_PX,
@@ -26,8 +28,6 @@ import type {
 } from '../../shared/browser/browseRuntime'
 import { type SnapshotNode, formatSnapshot } from '../../shared/browser/browseSnapshot'
 import type { StorageCookie } from '../../shared/browser/browserStorage'
-import { PRODUCT_NAME } from '../../shared/product'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import type { CommandResult, CommandTarget } from '../../shared/types'
 import { ensureCaps } from '../approvals/controlElevation'
 import type { Reach } from '../approvals/reach'

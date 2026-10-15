@@ -14,8 +14,8 @@ import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { refreshMcp, refreshSkills, useChatToolsStore } from '@/stores/assist/chatToolsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import type { ChatToolMode } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { WrenchIcon } from '@phosphor-icons/react'
-import type { ChatToolMode } from '@shared/assist'
 import {
   BUILTIN_TOOL_ACCESS,
   type BuiltinChatTool,

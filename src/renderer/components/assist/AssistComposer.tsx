@@ -16,14 +16,14 @@ import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { isMac, platform } from '@/platform'
 import { useAssistComposerStore } from '@/stores/assist/assistComposerStore'
 import { assistRequest, useAssistProvider } from '@/stores/assist/assistStore'
-import { ChatCircleDotsIcon, XIcon } from '@phosphor-icons/react'
 import type {
   AssistFeatureId,
   AssistProviderInfo,
   AssistResponse,
   CommandSuggestion,
   PromptReview,
-} from '@shared/assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { ChatCircleDotsIcon, XIcon } from '@phosphor-icons/react'
 import { type KeyboardEvent, type RefObject, useEffect, useMemo, useRef, useState } from 'react'
 
 const TYPO_DEBOUNCE_MS = 700

@@ -2,8 +2,12 @@ import { EMPTY_ATTENTION, type PaneAttention, unreadCount } from '@/lib/attentio
 import { allPanes } from '@/lib/layout/tree'
 import type { WorkspaceLayout } from '@/stores/workspaces/layoutStore'
 import type { Workspace } from '@/stores/workspaces/workspacesStore'
-import { GIT_SOURCE, PORTS_CHIP, PORTS_SOURCE } from '@shared/boards/git'
-import type { ExtensionSidebarItem, WorkspaceChip } from '@shared/extensions'
+import type {
+  ExtensionSidebarItem,
+  WorkspaceChip,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { GIT_SOURCE, PORTS_SOURCE } from '@aurigax-ai/ostia-extension-sdk/manifest/coreNames'
+import { PORTS_CHIP } from '@shared/boards/git'
 import type { NotificationEntry } from '@shared/types'
 import type { ViewSource } from '@shared/views/views'
 

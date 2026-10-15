@@ -11,7 +11,7 @@ import {
   type ChatContextItem,
   type ChatMessage,
   type ChatToolCall,
-} from '@shared/assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import type { ChatMessageMetadata } from '@shared/assist/chatSessions'
 import type { ChatTransport, UIMessage, UIMessageChunk } from 'ai'
 import { redactToolOutput } from './chatRedaction'

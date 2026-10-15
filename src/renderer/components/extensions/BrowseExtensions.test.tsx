@@ -1,7 +1,7 @@
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
-import type { ExtensionInfo } from '@shared/extensions'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type {
   MarketplaceExtension,
   MarketplaceInfo,

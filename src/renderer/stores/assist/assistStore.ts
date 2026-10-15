@@ -11,7 +11,7 @@ import {
   EMPTY_ASSIST_CATALOG,
   choiceLabel,
   sameModelRef,
-} from '@shared/assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { useMemo } from 'react'
 import { create } from 'zustand'
 

@@ -9,7 +9,7 @@ import { marketplaceIds } from './marketplace.mjs'
 const srcRoot = 'src/extensions'
 const builtinRoot = 'out/extensions'
 const published = marketplaceIds()
-const panelBaseCss = join(srcRoot, 'sdk/panel.css')
+const panelBaseCss = 'packages/extension-sdk/src/client/panel.css'
 
 async function writeCatalog(exportName, file) {
   const bundle = resolve(builtinRoot, 'dict-build.mjs')
@@ -29,8 +29,7 @@ async function writeCatalog(exportName, file) {
 rmSync(builtinRoot, { recursive: true, force: true })
 
 const ids = readdirSync(srcRoot).filter(
-  (name) =>
-    name !== 'sdk' && !published.includes(name) && statSync(join(srcRoot, name)).isDirectory(),
+  (name) => !published.includes(name) && statSync(join(srcRoot, name)).isDirectory(),
 )
 
 for (const id of ids) {

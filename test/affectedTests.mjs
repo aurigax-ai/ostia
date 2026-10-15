@@ -13,7 +13,16 @@ const CORE_TAG = /@core\b/
 const TEST_CALL = /^\s*test(?:\.(?:only|skip|fixme|fail|slow))?\(/
 const QUARANTINE = 'test/quarantine.json'
 const QUARANTINE_TEST = 'test/quarantine.test.ts'
-const NODE_TEST_DIRS = ['src/main', 'src/shared', 'src/cli', 'src/extensions']
+const NODE_TEST_DIRS = [
+  'src/main',
+  'src/shared',
+  'src/cli',
+  'src/extensions',
+  'packages/extension-sdk/src',
+]
+const SOURCE = /^(src|packages\/[^/]+\/src)\//
+const SDK_DIR = 'packages/extension-sdk'
+const SDK_IMPORT = /(?:from|import)\s*\(?\s*['"]@aurigax-ai\/ostia-extension-sdk(\/[^'"]+)?['"]/g
 
 const READ_FOLDERS = [
   { folder: 'e2e/', named: /['"`]e2e['"`/]/ },
@@ -66,17 +75,21 @@ function readByTests(file) {
   return file === QUARANTINE || READ_FOLDERS.some(({ folder }) => file.startsWith(folder))
 }
 
+function isSource(file) {
+  return SOURCE.test(file)
+}
+
 function runsEverything(file) {
-  return !file.startsWith('src/') && !ROOT_DOC.test(file) && !readByTests(file)
+  return !isSource(file) && !ROOT_DOC.test(file) && !readByTests(file)
 }
 
 function staysInRenderer(file) {
-  return !file.startsWith('src/') || file.startsWith('src/renderer/')
+  return !isSource(file) || file.startsWith('src/renderer/')
 }
 
 export function planTests(changed, readers, quarantined = []) {
   if (changed.some(runsEverything)) return { node: null, dom: null }
-  const sources = changed.filter((file) => file.startsWith('src/'))
+  const sources = changed.filter(isSource)
   const folderReaders = READ_FOLDERS.filter(({ folder }) =>
     changed.some((file) => file.startsWith(folder)),
   ).flatMap(({ folder }) => readers.folders[folder] ?? [])
@@ -169,6 +182,19 @@ function resolveImport(from, target) {
   return null
 }
 
+function resolveSdkImport(subpath = '') {
+  const { exports } = JSON.parse(readFileSync(join(ROOT, SDK_DIR, 'package.json'), 'utf8'))
+  const key = `.${subpath}`
+  for (const [pattern, target] of Object.entries(exports)) {
+    const [prefix, suffix] = pattern.split('*')
+    if (pattern === key) return join(SDK_DIR, target)
+    if (suffix === '' && key.startsWith(prefix)) {
+      return join(SDK_DIR, target.replace('*', key.slice(prefix.length)))
+    }
+  }
+  return null
+}
+
 function importsOf(file, seen) {
   if (seen.has(file)) return
   seen.add(file)
@@ -176,6 +202,10 @@ function importsOf(file, seen) {
   for (const [, target] of text.matchAll(RELATIVE_IMPORT)) {
     const resolved = resolveImport(file, target)
     if (resolved && !resolved.startsWith('..')) importsOf(resolved, seen)
+  }
+  for (const [, subpath] of text.matchAll(SDK_IMPORT)) {
+    const resolved = resolveSdkImport(subpath)
+    if (resolved) importsOf(resolved, seen)
   }
 }
 

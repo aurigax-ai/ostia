@@ -1,10 +1,10 @@
-import { type WebContents, ipcMain } from 'electron'
 import {
   type LanguageServerInfo,
   type LanguageServerOverrideProblem,
   type LanguageServerOverrideResult,
   splitLanguageServerKey,
-} from '../../shared/languageServers'
+} from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
+import { type WebContents, ipcMain } from 'electron'
 import type { LanguageServers } from './languageServers'
 
 export interface LanguageServersIpcDeps {

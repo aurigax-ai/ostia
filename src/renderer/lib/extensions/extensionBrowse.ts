@@ -1,4 +1,7 @@
-import { EXTENSION_CATEGORIES, type ExtensionCategory } from '@shared/extensions'
+import {
+  EXTENSION_CATEGORIES,
+  type ExtensionCategory,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type {
   MarketplaceExtension,
   MarketplaceInfo,

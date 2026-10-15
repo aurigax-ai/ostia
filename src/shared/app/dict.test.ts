@@ -1,5 +1,5 @@
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { describe, expect, it } from 'vitest'
-import { PRODUCT_DISPLAY_NAME } from '../productDisplay'
 import { en, withProductName, zhHant } from './dict'
 
 type Strings = { [key: string]: string | Strings }

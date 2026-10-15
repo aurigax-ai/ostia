@@ -1,7 +1,7 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { chmod, mkdir, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { PRODUCT_NAME } from '../../shared/product'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { appDataDir } from './userDirs'
 
 export type StoreScope = 'project' | 'global'

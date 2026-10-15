@@ -2,7 +2,7 @@ import {
   ASSIST_PROVIDERS_MAX,
   ASSIST_PROVIDER_MODELS_MAX,
   type AssistProviderConfig,
-} from '@shared/assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { describe, expect, it } from 'vitest'
 import { newProviderId, patchProvider, withModel, withProvider } from './assistProviders'
 

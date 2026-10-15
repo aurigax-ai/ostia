@@ -1,4 +1,11 @@
-import { call, context, errorText, h, onChange, panelTranslator } from '../sdk/panel'
+import {
+  call,
+  context,
+  errorText,
+  h,
+  onChange,
+  panelTranslator,
+} from '@aurigax-ai/ostia-extension-sdk/panel'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
 import type { Definition, GraphRow, ListModel, RunModel } from './panelModel'

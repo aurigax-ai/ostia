@@ -1,4 +1,7 @@
-import type { IconAssociations, LoadedIconTheme } from '@shared/iconTheme'
+import type {
+  IconAssociations,
+  LoadedIconTheme,
+} from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
 import { describe, expect, it } from 'vitest'
 import { languageIdFor, themeIconId, themeIconSrc } from './iconTheme'
 

@@ -1,5 +1,5 @@
-import { readEnv } from '../appEnv'
-import { PRODUCT_NAME } from '../product'
+import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 
 export function portalSocketPath(
   packaged: boolean,

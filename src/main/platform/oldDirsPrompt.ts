@@ -1,5 +1,5 @@
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import type { MessageBoxOptions } from 'electron'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import {
   type DirMove,
   type MoveResult,

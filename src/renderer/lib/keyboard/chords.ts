@@ -2,6 +2,7 @@ import { commands } from '@/commands/registry'
 import { countUsage } from '@/lib/app/usageCounts'
 import { useKeymapStore } from '@/stores/app/keymapStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import {
   BROWSER_CHORD_IDS,
   CHORDS_PER_COMMAND_MAX,
@@ -33,7 +34,6 @@ import {
   DEFAULT_CHORDS,
   type TerminalChord,
 } from '@shared/keyboard/defaultChords'
-import { isDangerousSegment } from '@shared/protoGuard'
 
 export type { KeyLike, KeybindingMap } from '@shared/keyboard/chordSpec'
 export { WORKSPACE_GOTO, bindingProblem, checkBinding } from '@shared/keyboard/chordSpec'

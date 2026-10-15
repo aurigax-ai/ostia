@@ -13,8 +13,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { useDict } from '@/lib/app/useDict'
 import { parseTags, suggestedName } from '@/lib/palette/snippets'
 import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
+import {
+  placeholderNames,
+  snippetDocument,
+} from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
 import { fmt } from '@shared/app/dict'
-import { placeholderNames, snippetDocument } from '@shared/snippets'
 import { type FormEvent, useId, useState } from 'react'
 import { SnippetCommand } from './SnippetPicker'
 

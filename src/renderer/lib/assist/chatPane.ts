@@ -9,7 +9,7 @@ import {
 } from '@/stores/assist/chatStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ChatContextItem } from '@shared/assist'
+import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 
 export interface OpenChatOptions {
   workspaceId?: string

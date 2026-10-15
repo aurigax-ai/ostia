@@ -1,6 +1,6 @@
 import { editorPositionOf } from '@/lib/files/editorPositions'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { isRemotePath } from '@shared/remoteFolders'
+import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import type { ExternalEditorResult } from '@shared/types'
 import { registerCore } from './core'
 

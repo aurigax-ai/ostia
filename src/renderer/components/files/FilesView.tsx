@@ -47,6 +47,15 @@ import { useRemoteFoldersStore } from '@/stores/files/remoteFoldersStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
+  BUILTIN_ICON_THEME,
+  type LoadedIconTheme,
+} from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
+import {
+  type RemoteFileError,
+  type RemoteFolder,
+  remotePath,
+} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import {
   ArrowClockwiseIcon,
   CaretRightIcon,
   EyeIcon,
@@ -56,8 +65,6 @@ import {
   SlidersHorizontalIcon,
   XIcon,
 } from '@phosphor-icons/react'
-import { BUILTIN_ICON_THEME, type LoadedIconTheme } from '@shared/iconTheme'
-import { type RemoteFileError, type RemoteFolder, remotePath } from '@shared/remoteFolders'
 import type { FsEntry } from '@shared/types'
 import {
   type DragEvent,

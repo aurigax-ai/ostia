@@ -1,4 +1,4 @@
-import { PRODUCT_NAME } from '../product'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { quoteArgv } from '../terminal/shellQuote'
 import { DEFAULT_UPDATE_CHANNEL, type ReleaseInfo, type UpdateChannel } from './releases'
 

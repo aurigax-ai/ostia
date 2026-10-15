@@ -1,6 +1,6 @@
-import { PRODUCT_PLACEHOLDER } from '../extensions'
-import type { LanguageCatalog } from '../languagePack'
-import { PRODUCT_DISPLAY_NAME } from '../productDisplay'
+import { PRODUCT_PLACEHOLDER } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { LanguageCatalog } from '@aurigax-ai/ostia-extension-sdk/contract/languagePack'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 
 export type Locale = string
 

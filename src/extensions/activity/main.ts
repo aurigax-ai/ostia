@@ -1,4 +1,3 @@
-import { readEnv } from '../../shared/appEnv'
 import {
   type CommandHandler,
   type ExtensionEventType,
@@ -13,7 +12,8 @@ import {
   numberSetting,
   ok,
   startPanelServer,
-} from '../sdk'
+} from '@aurigax-ai/ostia-extension-sdk'
+import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { isRecordId } from './hookEvent'
 import { ARCHIVE_DAYS, DAY_MS, Journal, RETENTION_DAYS, type Retention } from './journal'
 import { Recorder } from './recorder'

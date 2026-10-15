@@ -11,6 +11,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { RemoteFolder } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerControlServer, stopControlServer } from '../main/control/controlServer'
 import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
@@ -22,7 +23,6 @@ import {
 } from '../main/extensions/extensionHost'
 import { ExtensionStore } from '../main/extensions/extensionStore'
 import type { RemoteFolderConfirm } from '../main/files/remoteFolders'
-import type { RemoteFolder } from '../shared/remoteFolders'
 import type { CommandResult } from '../shared/types'
 
 const repoRoot = process.cwd()

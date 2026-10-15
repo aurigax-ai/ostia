@@ -1,4 +1,4 @@
-import type { DiffContent } from '@shared/extensions'
+import type { DiffContent } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { create } from 'zustand'
 
 interface DiffState {

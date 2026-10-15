@@ -8,7 +8,11 @@ import { useDiffStore } from '@/stores/files/diffStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ExtensionInfo, ExtensionSettingsStored, PaneChip } from '@shared/extensions'
+import type {
+  ExtensionInfo,
+  ExtensionSettingsStored,
+  PaneChip,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import {

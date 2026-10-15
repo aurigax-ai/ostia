@@ -5,7 +5,7 @@ import {
   type RemoteReadResult,
   type RemoteStatResult,
   type RemoteWriteResult,
-} from '@shared/remoteFolders'
+} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 
 export const REMOTE_POLL_MS = 3000
 

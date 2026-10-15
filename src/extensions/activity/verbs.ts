@@ -7,7 +7,7 @@ import {
   failure,
   ok,
   parseFlags,
-} from '../sdk'
+} from '@aurigax-ai/ostia-extension-sdk'
 import {
   type ActivityNote,
   type ActivityRecord,

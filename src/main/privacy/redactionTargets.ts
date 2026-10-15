@@ -5,7 +5,7 @@ import type {
   ChatMessage,
   CompletionAssistRequest,
   TerminalAssistRequest,
-} from '../../shared/assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import type { ChatPart, ChatSession, ChatSessionMessage } from '../../shared/assist/chatSessions'
 import type { RedactionResult } from '../../shared/privacy/redaction'
 

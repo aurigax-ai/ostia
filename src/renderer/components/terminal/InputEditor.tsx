@@ -79,8 +79,8 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { assistRequest, useAssistProvider } from '@/stores/assist/assistStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
+import type { CommandSuggestion } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { ClipboardTextIcon, CopyIcon } from '@phosphor-icons/react'
-import type { CommandSuggestion } from '@shared/assist'
 import type { SpecCommand } from '@shared/terminal/completionSpec'
 import {
   type CSSProperties,

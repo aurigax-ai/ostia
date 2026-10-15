@@ -98,6 +98,9 @@ importers:
       '@aurigax-ai/ghostty-web':
         specifier: ^0.3.3
         version: 0.3.3
+      '@aurigax-ai/ostia-extension-sdk':
+        specifier: workspace:*
+        version: link:packages/extension-sdk
       '@base-ui/react':
         specifier: ^1.7.0
         version: 1.7.0(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -351,6 +354,37 @@ importers:
       '@vscode/ripgrep-linux-x64':
         specifier: 1.18.0
         version: 1.18.0
+
+  packages/extension-sdk:
+    dependencies:
+      vscode-jsonrpc:
+        specifier: ^9.0.1
+        version: 9.0.2
+    devDependencies:
+      '@ai-sdk-tool/parser':
+        specifier: ^5.1.6
+        version: 5.1.6(@ai-sdk/provider-utils@5.0.51(zod@4.6.5))(@ai-sdk/provider@4.0.19)
+      '@types/node':
+        specifier: ^24.19.1
+        version: 24.19.1
+      ai:
+        specifier: ^7.0.122
+        version: 7.0.122(zod@4.6.5)
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      undici:
+        specifier: ^6.29.0
+        version: 6.29.0
+      vitest:
+        specifier: ^5.0.4
+        version: 5.0.4(@types/node@24.19.1)(@vitest/coverage-v8@5.0.4)(jsdom@29.1.1(@noble/hashes@2.4.0))(vite@7.3.7(@types/node@24.19.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.1))
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
 
 packages:
 

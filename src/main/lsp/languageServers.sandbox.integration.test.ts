@@ -2,11 +2,11 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { readManifest } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { installFakeLanguageExtension } from '../../../test/fixtures/lsp/installFakeExtension'
 import { DEFAULT_SANDBOX_GLOBALS } from '../../shared/sandbox/sandbox'
-import { readManifest } from '../extensions/extensionManifest'
 import { onPath } from '../platform/systemRequirements'
 import { sandboxSpawnEnv } from '../sandbox/spawnEnv'
 import { SandboxStore } from '../sandbox/store'
@@ -88,7 +88,7 @@ beforeAll(async () => {
     bundle: true,
     platform: 'node',
     format: 'esm',
-    packages: 'external',
+    external: ['@anthropic-ai/sandbox-runtime'],
   })
   root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-lsp-sbx-')))
   home = join(root, 'home')

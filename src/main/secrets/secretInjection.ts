@@ -1,6 +1,6 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { appEnv } from '../../shared/appEnv'
+import { appEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import type { SecretEntry, SecretGrant } from '../../shared/sandbox/secrets'
 
 export interface PreparedSecrets {

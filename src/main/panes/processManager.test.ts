@@ -1,6 +1,7 @@
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   type MessageConnection,
@@ -9,7 +10,6 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { ownWorkspaceReach } from '../../../test/reach'
-import type { Capability } from '../../shared/capabilities'
 import { ChangeSignal } from '../../shared/common/actThenConfirm'
 import type { CommandResult } from '../../shared/types'
 import { grant, setCaps } from '../approvals/capabilityStore'

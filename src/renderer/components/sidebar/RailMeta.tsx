@@ -6,7 +6,7 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { fitCount, shortenPath } from '@/lib/sidebar/railMeta'
 import { openSidebarUrl } from '@/lib/sidebar/sidebarItems'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import type { ExtensionSidebarItem } from '@shared/extensions'
+import type { ExtensionSidebarItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { useLayoutEffect, useRef, useState } from 'react'
 
 const itemKey = (item: ExtensionSidebarItem): string => `${item.extId}:${item.key}`

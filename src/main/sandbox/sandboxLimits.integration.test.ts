@@ -10,9 +10,9 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import {
   DEFAULT_SANDBOX_GLOBALS,
   type SandboxViolation,
@@ -97,7 +97,7 @@ beforeAll(async () => {
     bundle: true,
     platform: 'node',
     format: 'esm',
-    packages: 'external',
+    external: ['@anthropic-ai/sandbox-runtime'],
   })
   root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-limits-')))
   home = join(root, 'home')

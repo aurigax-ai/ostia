@@ -6,22 +6,18 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
-  symlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { MARKETPLACE_MANIFEST_FILE } from '@aurigax-ai/ostia-extension-sdk/manifest/marketplaceManifest'
 import { afterEach, describe, expect, it } from 'vitest'
-import { MARKETPLACE_MANIFEST_FILE } from '../../shared/extensions/marketplace'
 import {
-  EXTENSION_MAX_FILES,
   GitError,
   type GitRunner,
   Marketplace,
   marketplaceId,
   normalizeMarketplaceUrl,
-  parseMarketplaceManifest,
-  planCopy,
   runGit,
 } from './marketplace'
 
@@ -190,84 +186,6 @@ describe('normalizeMarketplaceUrl', () => {
     ]) {
       expect(normalizeMarketplaceUrl(bad)).toBeNull()
     }
-  })
-})
-
-describe('parseMarketplaceManifest', () => {
-  it('accepts a name and a list of folders inside the repository', () => {
-    expect(parseMarketplaceManifest({ name: 'Mine', extensions: ['a', 'tools/b', 'a'] })).toEqual({
-      name: 'Mine',
-      description: '',
-      extensions: ['a', 'tools/b'],
-      unlisted: [],
-    })
-  })
-
-  it('accepts unlisted folders, each with its own install code', () => {
-    const unlisted = [{ path: 'tools/c', code: CODE }]
-    expect(parseMarketplaceManifest({ name: 'Mine', extensions: ['a'], unlisted })).toEqual({
-      name: 'Mine',
-      description: '',
-      extensions: ['a'],
-      unlisted,
-    })
-  })
-
-  it('refuses an unlisted entry with a weak, shared or missing code, or a path listed twice', () => {
-    const parse = (unlisted: unknown): unknown =>
-      parseMarketplaceManifest({ name: 'x', extensions: ['a'], unlisted })
-    expect(typeof parse('tools/c')).toBe('string')
-    expect(typeof parse([{ path: 'tools/c' }])).toBe('string')
-    expect(typeof parse([{ path: 'tools/c', code: 'keeper' }])).toBe('string')
-    expect(typeof parse([{ path: '../c', code: CODE }])).toBe('string')
-    expect(typeof parse([{ path: 'a', code: CODE }])).toBe('string')
-    expect(
-      typeof parse([
-        { path: 'tools/c', code: CODE },
-        { path: 'tools/d', code: CODE },
-      ]),
-    ).toBe('string')
-  })
-
-  it('refuses a missing name and paths that leave the repository', () => {
-    expect(typeof parseMarketplaceManifest({ extensions: [] })).toBe('string')
-    expect(typeof parseMarketplaceManifest({ name: 'x', extensions: ['../out'] })).toBe('string')
-    expect(typeof parseMarketplaceManifest({ name: 'x', extensions: ['/etc'] })).toBe('string')
-    expect(typeof parseMarketplaceManifest({ name: 'x', extensions: ['.'] })).toBe('string')
-    expect(typeof parseMarketplaceManifest({ name: 'x', extensions: 'a' })).toBe('string')
-  })
-})
-
-describe('planCopy', () => {
-  it('lists every regular file and skips the .git folder', () => {
-    const dir = tmp()
-    mkdirSync(join(dir, '.git'))
-    writeFileSync(join(dir, '.git', 'HEAD'), '')
-    mkdirSync(join(dir, 'lib'))
-    writeFileSync(join(dir, 'ostia.json'), '{}')
-    writeFileSync(join(dir, 'lib', 'a.js'), '')
-    const plan = planCopy(dir)
-    expect(plan.ok && plan.files.sort()).toEqual(['lib/a.js', 'ostia.json'])
-  })
-
-  it('refuses a folder that holds a symlink', () => {
-    const dir = tmp()
-    symlinkSync('/etc/passwd', join(dir, 'passwd'))
-    expect(planCopy(dir)).toEqual({ ok: false, error: 'invalid-extension' })
-  })
-
-  it('takes an extension that ships a language server with thousands of small files', () => {
-    const dir = tmp()
-    mkdirSync(join(dir, 'server', 'stubs'), { recursive: true })
-    for (let i = 0; i < 5500; i++) writeFileSync(join(dir, 'server', 'stubs', `s${i}.pyi`), '')
-    const plan = planCopy(dir)
-    expect(plan.ok && plan.files.length).toBe(5500)
-  })
-
-  it('refuses a folder with too many files', () => {
-    const dir = tmp()
-    for (let i = 0; i <= EXTENSION_MAX_FILES; i++) writeFileSync(join(dir, `f${i}`), '')
-    expect(planCopy(dir)).toEqual({ ok: false, error: 'too-large' })
   })
 })
 

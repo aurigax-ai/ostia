@@ -1,11 +1,9 @@
 import { type ChildProcessWithoutNullStreams, spawn as spawnProcess } from 'node:child_process'
 import { existsSync, realpathSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { isEqual } from 'es-toolkit'
-import { StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node'
-import { isAppEnvName } from '../../shared/appEnv'
-import { languageForPath } from '../../shared/editorLanguages'
-import type { ExtensionSettingValues } from '../../shared/extensions'
+import { isAppEnvName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { languageForPath } from '@aurigax-ai/ostia-extension-sdk/contract/editorLanguages'
+import type { ExtensionSettingValues } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import {
   type JsonObject,
   LSP_LOG_LINE_MAX,
@@ -37,7 +35,9 @@ import {
   pinnedVersion,
   substituteJson,
   substitutePlaceholders,
-} from '../../shared/languageServers'
+} from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
+import { isEqual } from 'es-toolkit'
+import { StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import { type LogFields, redactSecrets } from '../diagnostics/appLog'
 import type { TreeChange } from '../files/fileWatch'

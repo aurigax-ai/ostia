@@ -1,12 +1,12 @@
 import { lstatSync, realpathSync } from 'node:fs'
 import { dirname, extname, resolve } from 'node:path'
-import { ipcMain } from 'electron'
 import type {
   IconAssociations,
   IconThemeContribution,
   LoadedIconTheme,
-} from '../../shared/iconTheme'
-import { readConfined } from '../platform/confinedRead'
+} from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
+import { readConfined } from '@aurigax-ai/ostia-extension-sdk/manifest/confinedRead'
+import { ipcMain } from 'electron'
 
 export const ICON_THEME_MAX_BYTES = 4 * 1024 * 1024
 export const ICON_FILE_MAX_BYTES = 512 * 1024

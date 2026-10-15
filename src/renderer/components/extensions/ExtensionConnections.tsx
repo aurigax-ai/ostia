@@ -3,12 +3,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import { TrashIcon } from '@phosphor-icons/react'
 import type {
   ExtensionConnectionEntry,
   ExtensionConnectionKind,
   ExtensionInfo,
-} from '@shared/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { TrashIcon } from '@phosphor-icons/react'
 import { type ComponentType, type ReactNode, useCallback, useEffect, useState } from 'react'
 
 export interface SettingsRows {

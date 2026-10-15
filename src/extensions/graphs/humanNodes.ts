@@ -1,4 +1,9 @@
 import {
+  EXTENSION_REDACT_TEXTS_MAX,
+  EXTENSION_REDACT_TEXT_MAX,
+  type OstiaExtension,
+} from '@aurigax-ai/ostia-extension-sdk'
+import {
   DEFAULT_CHOICES,
   NodeError,
   type NodeKind,
@@ -9,7 +14,6 @@ import {
   commandNode,
   notifyNode,
 } from '@aurigax-ai/wire'
-import { EXTENSION_REDACT_TEXTS_MAX, EXTENSION_REDACT_TEXT_MAX, type OstiaExtension } from '../sdk'
 
 const ANSWER = 'answer'
 

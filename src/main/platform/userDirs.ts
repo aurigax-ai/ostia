@@ -11,7 +11,7 @@ import {
 } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { PRODUCT_NAME } from '../../shared/product'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 
 export type EnvSource = Record<string, string | undefined>
 

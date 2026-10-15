@@ -1,10 +1,13 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { ConfirmRequest, OpenTerminalResult, ToolRun } from '@aurigax-ai/ostia-extension-sdk'
+import type {
+  ExtensionCaller,
+  OpenTerminalOptions,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { describe, expect, it, vi } from 'vitest'
 import { helperSource } from '../../../test/fixtures/ssh/remoteHost'
-import type { ExtensionCaller, OpenTerminalOptions } from '../../shared/extensions'
-import type { ConfirmRequest, OpenTerminalResult, ToolRun } from '../sdk'
 import { type SshDeps, sshCommands } from './commands'
 import { shippedHelper } from './helper'
 import { discoverHosts } from './hosts'

@@ -1,4 +1,7 @@
-import { BUILTIN_ICON_THEME, ICON_THEME_ID_PATTERN } from '@shared/iconTheme'
+import {
+  BUILTIN_ICON_THEME,
+  ICON_THEME_ID_PATTERN,
+} from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
 
 export type FileSortOrder = 'foldersFirst' | 'mixed'
 export type FileSortBy = 'name' | 'type'

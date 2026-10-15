@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "rootDir": "src",
+    "outDir": "../../out/sdk/types"
+  },
+  "files": [
+    "src/client/index.ts",
+    "src/assist/index.ts",
+    "src/client/panel.ts",
+    "src/client/splitter.ts"
+  ]
+}

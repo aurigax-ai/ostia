@@ -1,6 +1,6 @@
+import { CHAT_TOOL_NAME_PATTERN } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import { isSkillPath } from '../agents/managerSettings'
-import { CHAT_TOOL_NAME_PATTERN } from '../assist'
-import { isDangerousSegment } from '../protoGuard'
 import type { ChatEdit } from './chatEdits'
 
 const BUILTIN_CHAT_TOOLS = [

@@ -5,17 +5,19 @@ import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
 import { openSidebarUrl } from '@/lib/sidebar/sidebarItems'
 import { useCoreWatch } from '@/lib/workspaces/coreWatch'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import type { Dict } from '@shared/app/dict'
+import type {
+  ExtensionChip,
+  ExtensionInfo,
+  PaneChip,
+  WorkspaceChip,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import {
-  GIT_BRANCH_CHIP,
-  GIT_DIFF_STATS_CHIP,
   GIT_SOURCE,
-  PORTS_CHIP,
   PORTS_SOURCE,
-  SSH_CHIP,
   isCoreSource,
-} from '@shared/boards/git'
-import type { ExtensionChip, ExtensionInfo, PaneChip, WorkspaceChip } from '@shared/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/manifest/coreNames'
+import type { Dict } from '@shared/app/dict'
+import { GIT_BRANCH_CHIP, GIT_DIFF_STATS_CHIP, PORTS_CHIP, SSH_CHIP } from '@shared/boards/git'
 import { useMemo } from 'react'
 
 export interface ChipCatalogEntry {

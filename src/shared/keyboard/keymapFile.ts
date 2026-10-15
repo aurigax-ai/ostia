@@ -1,4 +1,4 @@
-import { isDangerousSegment } from '../protoGuard'
+import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import {
   CHORDS_PER_COMMAND_MAX,
   type ChordProblem,

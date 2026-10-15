@@ -13,14 +13,14 @@ import {
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { gzipSync } from 'node:zlib'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { makeTar, makeZip } from '../../../test/fixtures/lsp/archives'
-import { envName } from '../../shared/appEnv'
+import { envName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import type {
   LanguageServerArchive,
   LanguageServerFetchFailure,
   LanguageServerRun,
-} from '../../shared/languageServers'
+} from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { makeTar, makeZip } from '../../../test/fixtures/lsp/archives'
 import {
   DOWNLOAD_BASE_URL_ENV,
   FetchError,

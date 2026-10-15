@@ -18,6 +18,7 @@ import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
+import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import {
   AppWindowIcon,
   ArrowsInIcon,
@@ -30,7 +31,6 @@ import {
   SunIcon,
   XSquareIcon,
 } from '@phosphor-icons/react'
-import { isRemotePath } from '@shared/remoteFolders'
 import type { ReactElement } from 'react'
 import { TabMoveMenuItems } from './TabMoveMenuItems'
 

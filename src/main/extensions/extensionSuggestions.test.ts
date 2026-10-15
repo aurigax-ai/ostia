@@ -1,8 +1,8 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { LanguageServerContribution } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { LanguageServerContribution } from '../../shared/languageServers'
 import type { LanguageServerSource } from '../lsp/languageServers'
 import { DismissedSuggestions, type SuggestionSources, suggestionFor } from './extensionSuggestions'
 

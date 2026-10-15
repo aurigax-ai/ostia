@@ -1,8 +1,12 @@
 import { resolve } from 'node:path'
+import type {
+  LanguageCatalog,
+  LanguageContribution,
+  LanguagePack,
+} from '@aurigax-ai/ostia-extension-sdk/contract/languagePack'
+import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
+import { readConfined } from '@aurigax-ai/ostia-extension-sdk/manifest/confinedRead'
 import { ipcMain } from 'electron'
-import type { LanguageCatalog, LanguageContribution, LanguagePack } from '../../shared/languagePack'
-import { isDangerousSegment } from '../../shared/protoGuard'
-import { readConfined } from '../platform/confinedRead'
 
 export const LANGUAGE_FILE_MAX_BYTES = 1024 * 1024
 const LANGUAGE_MAX_DEPTH = 8

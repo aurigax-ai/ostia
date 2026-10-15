@@ -1,4 +1,7 @@
-import type { ExtensionEventPayloads, PaneAttentionEventState } from '../../shared/extensions'
+import type {
+  ExtensionEventPayloads,
+  PaneAttentionEventState,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 
 const STATES: Record<string, PaneAttentionEventState> = {
   working: 'working',
