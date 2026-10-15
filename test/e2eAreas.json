@@ -211,6 +211,7 @@
         "e2e/browser-tab.spec.ts",
         "e2e/browser-width.spec.ts",
         "e2e/detached-send.spec.ts",
+        "e2e/os-file-drop.spec.ts",
         "e2e/preview-send.spec.ts"
       ]
     },
@@ -606,6 +607,12 @@
         "src/renderer/lib/files/fileTree.",
         "src/renderer/lib/files/fileTreeActions.ts",
         "src/renderer/lib/files/fileDrop.ts",
+        "src/main/files/fileDrops.ts",
+        "src/main/files/exclusiveTransfer.ts",
+        "src/main/files/folderAnchor.ts",
+        "src/main/files/freedesktopTrash.ts",
+        "src/main/files/transferFs.ts",
+        "src/renderer/components/panes/FileDropCover.tsx",
         "src/renderer/lib/keyboard/dropPaths.ts",
         "src/renderer/lib/files/fileKinds.ts",
         "src/renderer/lib/files/openFile.ts",
@@ -618,6 +625,7 @@
       ],
       "specs": [
         "e2e/open-any-file.spec.ts",
+        "e2e/os-file-drop.spec.ts",
         "e2e/palette-focus.spec.ts",
         "e2e/terminal-file-links.spec.ts",
         "e2e/terminal-path-link-actions.spec.ts"
@@ -678,10 +686,14 @@
         "src/renderer/components/agents/AgentForkButton.tsx",
         "src/renderer/components/terminal/HibernatedView.tsx",
         "src/renderer/components/sidebar/HibernateSkippedDialog.tsx",
-        "src/renderer/components/panes/ResumeFolderNotice.tsx"
+        "src/renderer/components/panes/ResumeFolderNotice.tsx",
+        "src/main/agents/claudeFolderTrust.ts",
+        "src/main/agents/folderTrustIpc.ts",
+        "src/renderer/lib/agents/folderTrust.ts"
       ],
       "specs": [
         "e2e/auto-resume.spec.ts",
+        "e2e/claude-folder-trust.spec.ts",
         "e2e/hibernate-background-work.spec.ts",
         "e2e/hibernate-group.spec.ts",
         "e2e/ports-hibernation.spec.ts",

@@ -138,6 +138,11 @@ export const workspacesEn = {
     resumeFolderMissingLabel: 'Agent folder missing',
     resumeFolderMissing:
       'The folder {agent} worked in no longer exists: {path}. Nothing was run. Restore the folder and cd into it to resume, or close the tab.',
+    folderTrustLabel: 'Claude folder trust',
+    folderTrust: 'Claude will ask to trust this folder: {path}',
+    folderTrustOnce: 'Trust for Claude',
+    folderTrustAlways: 'Always trust my workspace folders',
+    folderTrustSkip: 'Resume anyway',
     resumeConflictLabel: 'Agent session open twice',
     resumeConflictBoth:
       'This {agent} session is running here and in the tab “{tab}” at the same time. Both copies write to the same transcript. Close one of the two tabs.',

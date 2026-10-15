@@ -10,13 +10,20 @@ import type { TabNode } from '@/lib/layout/types'
 import { cn } from '@/lib/utils'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useFolderTrustStore } from '@/stores/agents/folderTrustStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
+import { FileDropCover } from './FileDropCover'
 import { FoldedSplitTab } from './FoldedSplitTab'
 import { PaneActions } from './PaneActions'
 import { PaneTab } from './PaneTab'
-import { ResumeConflictNotice, ResumeFailedNotice, ResumeFolderNotice } from './ResumeFolderNotice'
+import {
+  FolderTrustNotice,
+  ResumeConflictNotice,
+  ResumeFailedNotice,
+  ResumeFolderNotice,
+} from './ResumeFolderNotice'
 import { SplitTabPill } from './SplitTab'
 import { SplitTabBody } from './SplitTabBody'
 import { TabBody } from './TabBody'
@@ -54,6 +61,7 @@ export function Pane({
   const attention = useAttentionStore((s) => s.byPane[shown.id])
   const approval = useApprovalsStore((s) => s.pending.find((r) => r.paneId === shown.id))
   const question = useQuestionsStore((s) => s.pending.find((q) => q.paneId === shown.id))
+  const trustFolder = useFolderTrustStore((s) => s.byPane[shown.id])
   const unread = attention?.unread ?? false
   const dimInactive = useSettingsStore((s) => s.panes.dimInactive)
   const hideTabClose = useSettingsStore((s) => s.panes.hideTabClose)
@@ -149,6 +157,8 @@ export function Pane({
           <ApprovalCard request={approval} paneTitle={shown.title} />
         ) : question ? (
           <QuestionNotice question={question} />
+        ) : trustFolder ? (
+          <FolderTrustNotice paneId={shown.id} folder={trustFolder} />
         ) : shown.resumeFailed ? (
           <ResumeFailedNotice paneId={shown.id} failure={shown.resumeFailed} />
         ) : shown.resumeFolderMissing && shown.resume ? (
@@ -162,7 +172,9 @@ export function Pane({
         ) : null}
       </div>
 
-      {shown.kind === 'terminal' ? null : <div className="pane-file-drop" />}
+      {shownTab.type === 'pane' ? (
+        <FileDropCover kind={shown.kind} workspaceId={workspaceId} />
+      ) : null}
       {dragging && shownTab.type === 'pane' ? (
         <div
           className="pane-drop-layer"

@@ -153,6 +153,7 @@ export function createWindowWiring({
       webPreferences.nodeIntegration = false
       webPreferences.contextIsolation = true
       webPreferences.sandbox = true
+      webPreferences.navigateOnDragDrop = false
       Object.assign(webPreferences, {
         disablePopups: params.partition !== SHARED_BROWSER_PARTITION,
       })
