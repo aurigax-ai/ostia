@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { COLUMNS_MAX, ROWS_MAX, delimiterOf, parseTable } from './csvParse'
+import { parseTable } from './csvParse'
+import { COLUMNS_MAX, ROWS_MAX, delimiterOf } from './csvShape'
 
 describe('parseTable', () => {
   it('reads quoted cells, embedded newlines and ragged rows into a rectangle', () => {

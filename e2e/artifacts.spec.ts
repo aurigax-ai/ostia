@@ -109,7 +109,7 @@ test('a CSV artifact opens as a table and a mermaid block in Markdown is drawn a
     const viewer = win.locator('[data-testid="file-viewer"]:visible')
     await expect(viewer).toHaveAttribute('data-view-type', 'csv.table', { timeout: 20_000 })
     await expect
-      .poll(() => viewerGuestText(app, 'csv.table'), { timeout: 20_000 })
+      .poll(() => viewerGuestText(app, { viewType: 'csv.table' }), { timeout: 20_000 })
       .toContain('Hsinchu, East')
     await viewer.getByRole('button', { name: 'Open With…' }).click()
     await win.getByRole('radio', { name: 'Text editor' }).click()

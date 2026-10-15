@@ -1,15 +1,35 @@
 import type { ElectronApplication } from './test'
 
-export async function viewerGuestText(app: ElectronApplication, viewType: string): Promise<string> {
-  return app.evaluate(async ({ webContents }, wanted) => {
-    for (const contents of webContents.getAllWebContents()) {
-      if (!contents.getURL().startsWith('ostia-viewer://')) continue
-      const shown = await contents.executeJavaScript('document.body.innerText').catch(() => '')
-      const type = await contents
-        .executeJavaScript('fetch("/~meta").then((r) => r.json()).then((m) => m.viewType)')
-        .catch(() => '')
-      if (type === wanted) return String(shown)
-    }
-    return ''
-  }, viewType)
+export interface GuestMatch {
+  viewType: string
+  name?: string
+}
+
+export async function viewerGuestRun(
+  app: ElectronApplication,
+  match: GuestMatch,
+  script: string,
+): Promise<unknown> {
+  return app.evaluate(
+    async ({ webContents }, { wanted, code }) => {
+      for (const contents of webContents.getAllWebContents()) {
+        if (!contents.getURL().startsWith('ostia-viewer://')) continue
+        const meta = await contents
+          .executeJavaScript('fetch("/~meta").then((r) => r.json())')
+          .catch(() => null)
+        if (meta?.viewType !== wanted.viewType) continue
+        if (wanted.name !== undefined && meta.name !== wanted.name) continue
+        return contents.executeJavaScript(code).catch(() => null)
+      }
+      return null
+    },
+    { wanted: match, code: script },
+  )
+}
+
+export async function viewerGuestText(
+  app: ElectronApplication,
+  match: GuestMatch,
+): Promise<string> {
+  return String((await viewerGuestRun(app, match, 'document.body.innerText')) ?? '')
 }

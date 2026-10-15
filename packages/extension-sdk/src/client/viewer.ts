@@ -64,3 +64,25 @@ export async function publishPortable(tables: ViewerPortableTables): Promise<boo
     return false
   }
 }
+
+export type WorkerOutcome<T> = { ok: true; value: T } | { ok: false; problem: 'timeout' | 'failed' }
+
+export function runWorker<T>(
+  script: string,
+  message: unknown,
+  transfer: Transferable[],
+  timeoutMs: number,
+): Promise<WorkerOutcome<T>> {
+  return new Promise((resolve) => {
+    const worker = new Worker(script)
+    const finish = (outcome: WorkerOutcome<T>): void => {
+      clearTimeout(timer)
+      worker.terminate()
+      resolve(outcome)
+    }
+    const timer = setTimeout(() => finish({ ok: false, problem: 'timeout' }), timeoutMs)
+    worker.onmessage = (event: MessageEvent<T>) => finish({ ok: true, value: event.data })
+    worker.onerror = () => finish({ ok: false, problem: 'failed' })
+    worker.postMessage(message, transfer)
+  })
+}
