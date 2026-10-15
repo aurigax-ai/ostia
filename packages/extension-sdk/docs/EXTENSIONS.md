@@ -1269,6 +1269,7 @@ pnpm add -D @aurigax-ai/ostia-extension-sdk
 |---|---|
 | `@aurigax-ai/ostia-extension-sdk` | `connect()` and everything in "Talking to Ostia" below the raw protocol |
 | `…/panel`, `…/splitter`, `…/panel.css` | The panel page helpers and base styles |
+| `…/atomicWrite` | `writeFileAtomic(path, text, {mode, dirMode})` and `writeFileAtomicAsync`: the folder is made with `dirMode` (an existing one is tightened to it), the text goes to a new temp file opened with `mode` and flushed, and one rename puts it in place. Use `{mode: 0o600, dirMode: 0o700}` for anything secret |
 | `…/assist` | The assistant engine: `runAssistExtension({catalog})` with your own `ProviderCatalog` (needs `ai`, `zod`, `@ai-sdk-tool/parser`, `undici`) |
 | `schemas/ostia.schema.json`, `schemas/ostia-marketplace.schema.json` | JSON Schemas for the two manifest files (also published under their old names, `ostia.schema.json` and `ostia-marketplace.schema.json`); name one in `"$schema"` and your editor checks the file as you type |
 | `ostia-extension validate [folder]` | Runs the loader's own checks on an extension folder (its manifest, every catalog under `locales/`, plus the marketplace install limits), or on a marketplace folder and every extension it lists or holds unlisted. Exits 0 when Ostia would accept it |

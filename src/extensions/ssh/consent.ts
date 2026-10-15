@@ -1,5 +1,5 @@
-import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 
 export const CONSENT_FILE = 'helper-hosts.json'
 export const CONSENT_HOSTS_MAX = 500
@@ -60,13 +60,11 @@ export class HelperConsent {
 
   private save(): void {
     if (!this.file) return
-    mkdirSync(dirname(this.file), { recursive: true })
-    const next = `${this.file}.new`
-    writeFileSync(next, `${JSON.stringify({ hosts: Object.fromEntries(this.hosts) }, null, 2)}\n`, {
-      mode: 0o600,
-    })
-    chmodSync(next, 0o600)
-    renameSync(next, this.file)
+    writeFileAtomic(
+      this.file,
+      `${JSON.stringify({ hosts: Object.fromEntries(this.hosts) }, null, 2)}\n`,
+      { mode: 0o600, dirMode: 0o700 },
+    )
   }
 
   get(key: string): HostRecord | undefined {

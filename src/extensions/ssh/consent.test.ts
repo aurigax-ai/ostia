@@ -1,6 +1,6 @@
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { CONSENT_HOSTS_MAX, HelperConsent, parseConsent } from './consent'
 
@@ -74,6 +74,18 @@ describe('HelperConsent', () => {
     expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual({
       hosts: { web: { answer: 'refused', at: 'now' } },
     })
+  })
+
+  it('makes its folder private and never writes through a link beside the file', () => {
+    const path = file()
+    const outside = join(dirname(dirname(path)), 'target')
+    writeFileSync(outside, 'untouched')
+    new HelperConsent(path).set('db', { answer: 'refused', at: '' })
+    expect(statSync(dirname(path)).mode & 0o777).toBe(0o700)
+    symlinkSync(outside, `${path}.new`)
+    new HelperConsent(path).set('web', { answer: 'refused', at: '' })
+    expect(readFileSync(outside, 'utf8')).toBe('untouched')
+    expect(new HelperConsent(path).get('web')).toEqual({ answer: 'refused', at: '' })
   })
 
   it('starts empty from a damaged file and refuses a key that is not a host', () => {

@@ -1,5 +1,5 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { writeFileAtomic } from './atomicWrite'
 import { PANEL_SIZE_KEY, isFraction, parsePanelSizes, withPanelSize } from './split'
 
 export const PANEL_SIZES_FILE = 'panel-sizes.json'
@@ -25,10 +25,7 @@ export class PanelSizeStore {
 
   private save(): void {
     if (!this.file) return
-    mkdirSync(dirname(this.file), { recursive: true, mode: 0o700 })
-    const tmp = `${this.file}.${process.pid}.tmp`
-    writeFileSync(tmp, JSON.stringify(this.sizes, null, 2), { mode: 0o600 })
-    renameSync(tmp, this.file)
+    writeFileAtomic(this.file, JSON.stringify(this.sizes, null, 2), { mode: 0o600, dirMode: 0o700 })
   }
 }
 

@@ -1,6 +1,10 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import { chmod, mkdir, rename, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import {
+  type AtomicWriteOptions,
+  writeFileAtomic,
+  writeFileAtomicAsync,
+} from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { appDataDir } from './userDirs'
 
@@ -28,16 +32,10 @@ export function loadJson<T>(path: string, fallback: T): T {
   }
 }
 
+const SECURE: AtomicWriteOptions = { mode: 0o600, dirMode: 0o700 }
+
 export function saveJson(path: string, data: unknown, opts?: { secure?: boolean }): void {
-  const dir = dirname(path)
-  mkdirSync(dir, { recursive: true })
-  const tmp = `${path}.tmp`
-  writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8')
-  renameSync(tmp, path)
-  if (opts?.secure) {
-    chmodSync(dir, 0o700)
-    chmodSync(path, 0o600)
-  }
+  writeFileAtomic(path, JSON.stringify(data, null, 2), opts?.secure ? SECURE : {})
 }
 
 export async function saveJsonAsync(
@@ -45,16 +43,5 @@ export async function saveJsonAsync(
   data: unknown,
   opts?: { secure?: boolean },
 ): Promise<void> {
-  const dir = dirname(path)
-  await mkdir(dir, { recursive: true })
-  const tmp = `${path}.tmp`
-  await writeFile(tmp, JSON.stringify(data), {
-    encoding: 'utf8',
-    ...(opts?.secure ? { mode: 0o600 } : {}),
-  })
-  await rename(tmp, path)
-  if (opts?.secure) {
-    await chmod(dir, 0o700)
-    await chmod(path, 0o600)
-  }
+  await writeFileAtomicAsync(path, JSON.stringify(data), opts?.secure ? SECURE : {})
 }

@@ -1,4 +1,12 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -41,5 +49,17 @@ describe('PanelSizeStore', () => {
     const store = new PanelSizeStore(null)
     store.set('a', 0.25)
     expect(store.all()).toEqual({ a: 0.25 })
+  })
+
+  it('tightens its folder and never writes through a link beside the file', () => {
+    const file = join(dir, 'panel-sizes.json')
+    const outside = join(dir, 'target')
+    writeFileSync(outside, 'untouched')
+    symlinkSync(outside, `${file}.${process.pid}.tmp`)
+    chmodSync(dir, 0o755)
+    new PanelSizeStore(file).set('graph-details', 0.3)
+    expect(statSync(dir).mode & 0o777).toBe(0o700)
+    expect(readFileSync(outside, 'utf8')).toBe('untouched')
+    expect(new PanelSizeStore(file).all()).toEqual({ 'graph-details': 0.3 })
   })
 })
