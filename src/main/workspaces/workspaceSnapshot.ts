@@ -128,6 +128,7 @@ function parseNode(
     if (raw.locked === true) pane.locked = true
     if (pane.kind === 'terminal' && raw.defaultTitle === true) pane.defaultTitle = true
     if (raw.titlePinned === true) pane.titlePinned = true
+    if (inTab && raw.collapsed === true) pane.collapsed = true
     if (pane.kind === 'extension' && !pane.extensionId) return null
     if (pane.kind === 'view' && !pane.viewName) return null
     paneIds.push(id)

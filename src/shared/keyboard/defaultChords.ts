@@ -37,6 +37,7 @@ type AppChord =
   | 'pane.focusUp'
   | 'pane.focusDown'
   | 'pane.zoom'
+  | 'pane.collapse'
   | 'pane.close'
   | 'tab.next'
   | 'tab.previous'
@@ -86,6 +87,7 @@ export const DEFAULT_CHORDS: Readonly<
     ['terminal:Shift+Cmd+Enter', 'Cmd+Shift+X'],
     ['terminal:Ctrl+Shift+Enter', 'Ctrl+Shift+X'],
   ],
+  'pane.collapse': ['Cmd+Ctrl+M', 'Ctrl+Shift+Alt+M'],
   'pane.close': ['Cmd+W', 'Ctrl+Shift+W'],
   'tab.next': [
     ['Ctrl+Tab', 'Shift+Cmd+]'],

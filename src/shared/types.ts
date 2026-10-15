@@ -522,6 +522,7 @@ export interface SnapshotPaneNode {
   locked?: true
   defaultTitle?: true
   titlePinned?: true
+  collapsed?: true
 }
 
 export interface SnapshotSplitNode {
