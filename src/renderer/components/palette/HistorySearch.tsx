@@ -7,8 +7,8 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import { useDict } from '@/i18n/useDict'
-import { allPanes } from '@/layout/tree'
+import { useDict } from '@/lib/app/useDict'
+import { allPanes } from '@/lib/layout/tree'
 import { fileOnlyCommands } from '@/lib/prompt/historyRank'
 import { useFileHistory } from '@/lib/prompt/useFileHistory'
 import { type PaneOrigin, collectHistory } from '@/lib/terminal/blocks'

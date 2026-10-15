@@ -1,4 +1,10 @@
-import { allPanes, findPane, findSplitTabByName, splitTabOfPane, tabsOfPane } from '@/layout/tree'
+import {
+  allPanes,
+  findPane,
+  findSplitTabByName,
+  splitTabOfPane,
+  tabsOfPane,
+} from '@/lib/layout/tree'
 import { isAgentSplitTab } from '@/lib/panes/agentSplitTabs'
 import { splitTabSeed } from '@/lib/panes/splitTabSeeds'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'

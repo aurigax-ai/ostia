@@ -1,6 +1,6 @@
 import { BASE_LANGUAGE, languagesFrom } from '@/lib/extensions/languagePacks'
-import { BUILTIN_PLUGINS } from '@/plugins/builtin'
-import type { ColorScheme, LanguageContribution, PluginManifest, Theme } from '@/plugins/types'
+import { BUILTIN_PLUGINS } from '@/lib/theme/builtin'
+import type { ColorScheme, LanguageContribution, PluginManifest, Theme } from '@/lib/theme/types'
 import { create } from 'zustand'
 
 const collectThemes = (plugins: PluginManifest[]): Theme[] =>

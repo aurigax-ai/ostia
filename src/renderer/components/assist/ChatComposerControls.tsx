@@ -6,7 +6,7 @@ import {
   ContextMenuRadioGroup,
   ContextMenuSeparator,
 } from '@/components/ui/context-menu'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { CHAT_MODES, type ChatMode } from '@/lib/assist/chatToolPermissions'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/app/uiStore'

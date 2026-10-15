@@ -1,5 +1,5 @@
 import { commands } from '@/commands/registry'
-import type { PaneNode } from '@/layout/types'
+import type { PaneNode } from '@/lib/layout/types'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'

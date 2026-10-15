@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { fmt, useDict, withProductName } from '@/i18n/useDict'
+import { fmt, useDict, withProductName } from '@/lib/app/useDict'
 import { pendingApproval, useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { ExtensionAgentPlugin } from './ExtensionAgentPlugin'
 

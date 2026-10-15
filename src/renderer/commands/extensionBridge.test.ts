@@ -1,3 +1,4 @@
+import { findPane, isPaneShown, paneIds, resetIds, tabsOfPane } from '@/lib/layout/tree'
 import { registerOffscreenStarter } from '@/lib/terminal/offscreenStart'
 import { isTitlePinned, resetPinnedTitles } from '@/lib/terminal/pinnedTitles'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
@@ -10,7 +11,6 @@ import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionInfo, ExtensionSettingsStored, PaneChip } from '@shared/extensions'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { findPane, isPaneShown, paneIds, resetIds, tabsOfPane } from '../layout/tree'
 import {
   openExtensionDiff,
   openExtensionPanel,

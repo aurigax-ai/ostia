@@ -1,5 +1,5 @@
 import { commands } from '@/commands/registry'
-import { DeckRail } from '@/components/rail/DeckRail'
+import { DeckRail } from '@/components/sidebar/DeckRail'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'

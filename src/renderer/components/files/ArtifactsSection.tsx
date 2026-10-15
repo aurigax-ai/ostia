@@ -6,7 +6,7 @@ import {
   usePortableFile,
 } from '@/components/editor/PortableActions'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
-import { useDict } from '@/i18n/useDict'
+import { useDict } from '@/lib/app/useDict'
 import { openArtifact, openPad, opensInOstia, sizeText } from '@/lib/files/artifacts'
 import { agoText } from '@/lib/sidebar/dashboard'
 import { useSettingsStore } from '@/stores/app/settingsStore'

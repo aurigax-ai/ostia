@@ -1,5 +1,5 @@
-import { findPane } from '@/layout/tree'
-import type { LayoutNode } from '@/layout/types'
+import { findPane } from '@/lib/layout/tree'
+import type { LayoutNode } from '@/lib/layout/types'
 import type { QuestionRequest } from '@shared/agents/questions'
 import type { ApprovalRequest } from '@shared/permissions/approvals'
 import { shortenPath } from './railMeta'

@@ -1,8 +1,8 @@
 import { commands } from '@/commands/registry'
 import { SEND_SELECTION_COMMAND, registerSelectionSendCommand } from '@/commands/selectionSend'
 import { openSelectionSend } from '@/lib/agents/selectionSenders'
+import { LARGE_FILE_LINES, fileFeatureOptions } from '@/lib/monaco/largeFile'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
-import { LARGE_FILE_LINES, fileFeatureOptions } from '@/monaco/largeFile'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import { useEditorStatus } from '@/stores/files/editorStatusStore'
@@ -252,20 +252,20 @@ const fake = vi.hoisted(() => {
   return { monaco, models, state }
 })
 
-vi.mock('@/monaco/setup', () => ({
+vi.mock('@/lib/monaco/setup', () => ({
   monaco: fake.monaco,
 }))
 vi.mock('@/lib/attention/workspaceActivity', async (original) => ({
   ...(await original<typeof import('@/lib/attention/workspaceActivity')>()),
   usePaneVisible: () => fake.state.visible,
 }))
-vi.mock('@/lsp/client', () => ({
+vi.mock('@/lib/lsp/client', () => ({
   openDocument: vi.fn(() => () => {}),
   documentSaved: vi.fn(),
 }))
 
 const { EditorView } = await import('./Editor')
-const { openDocument } = await import('@/lsp/client')
+const { openDocument } = await import('@/lib/lsp/client')
 
 describe('EditorView', () => {
   let init: ReturnType<typeof useEditorStatus.getState>

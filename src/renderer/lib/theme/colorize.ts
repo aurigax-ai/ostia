@@ -1,4 +1,4 @@
-import type { ColorScheme } from '@/plugins/types'
+import type { ColorScheme } from './types'
 
 const COLORIZE_MAX = 200_000
 
@@ -38,8 +38,8 @@ export async function colorizeCode(
   if (!fence.trim() || code.length > COLORIZE_MAX) return null
   try {
     const [{ monaco }, { applyMonacoScheme }] = await Promise.all([
-      import('@/monaco/setup'),
-      import('@/monaco/useMonacoTheme'),
+      import('@/lib/monaco/setup'),
+      import('@/lib/monaco/useMonacoTheme'),
     ])
     applyMonacoScheme(scheme)
     const known = monaco.languages.getLanguages().map((l) => l.id)

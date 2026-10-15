@@ -1,6 +1,6 @@
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
-import { allPanes } from '@/layout/tree'
+import { allPanes } from '@/lib/layout/tree'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useSnippetsStore } from '@/stores/terminal/snippetsStore'

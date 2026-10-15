@@ -1,5 +1,5 @@
 import { commands } from '@/commands/registry'
-import type { DropZone } from '@/layout/types'
+import type { DropZone } from '@/lib/layout/types'
 import {
   canMovePane,
   movePaneToDropWindow,

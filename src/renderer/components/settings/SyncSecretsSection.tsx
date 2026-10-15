@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { useDict } from '@/i18n/useDict'
+import { useDict } from '@/lib/app/useDict'
 import type { Dict } from '@shared/app/dict'
 import type { SecretActionResult, SyncStatus } from '@shared/types'
 import { useState } from 'react'

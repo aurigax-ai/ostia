@@ -1,4 +1,4 @@
-import { type HumanPastePlan, planHumanPaste } from '@/lib/keys/pasteGate'
+import { type HumanPastePlan, planHumanPaste } from '@/lib/keyboard/pasteGate'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { pressEnterAfterPaste } from './agentEnter'
 import { runningAgent } from './paneAgent'

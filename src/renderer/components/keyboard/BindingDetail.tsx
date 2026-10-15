@@ -1,12 +1,17 @@
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { TableCell, TableRow } from '@/components/ui/table'
-import { fmt, useDict } from '@/i18n/useDict'
-import type { CommandSources, KeySource, Layer, TerminalKeySources } from '@/lib/keys/keySources'
+import { fmt, useDict } from '@/lib/app/useDict'
+import type {
+  CommandSources,
+  KeySource,
+  Layer,
+  TerminalKeySources,
+} from '@/lib/keyboard/keySources'
+import type { TerminalSend } from '@/lib/keyboard/terminalKeys'
 import { isMac } from '@/platform'
 import { ArrowLeftIcon } from '@phosphor-icons/react'
 import { type ChordSpec, chordText } from '@shared/keyboard/chordSpec'
-import type { TerminalSend } from '@shared/keyboard/terminalKeys'
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { sendLabel } from './keyboardLabels'
 

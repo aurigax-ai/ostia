@@ -1,4 +1,4 @@
-import { currentDict, fmt } from '@/i18n/useDict'
+import { currentDict, fmt } from '@/lib/app/useDict'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionInfo } from '@shared/extensions'

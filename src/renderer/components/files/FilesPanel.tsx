@@ -1,6 +1,6 @@
 import { PanelResizer } from '@/components/common/PanelResizer'
-import { useDict } from '@/i18n/useDict'
-import { matchChord } from '@/lib/keys/chords'
+import { useDict } from '@/lib/app/useDict'
+import { matchChord } from '@/lib/keyboard/chords'
 import { FILES_WIDTH } from '@/lib/panes/panelWidth'
 import { isMac } from '@/platform'
 import { useUIStore } from '@/stores/app/uiStore'

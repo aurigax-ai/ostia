@@ -1,4 +1,4 @@
-import type { FileSortBy, FileSortOrder } from '@/settings/fileTreeSettings'
+import type { FileSortBy, FileSortOrder } from '@/lib/settings/fileTreeSettings'
 import type { FsEntry } from '@shared/types'
 import { escapeRegExp } from 'es-toolkit'
 import picomatch from 'picomatch/posix'

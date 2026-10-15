@@ -1,7 +1,7 @@
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { resetIds } from '@/layout/tree'
 import { browserPaneOfGuest, runBrowserAction } from '@/lib/browser/browserHandles'
 import { startRegionCapture } from '@/lib/browser/regionCaptures'
+import { resetIds } from '@/lib/layout/tree'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'

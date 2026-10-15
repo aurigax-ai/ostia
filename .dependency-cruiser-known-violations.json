@@ -1,6 +1,91 @@
 [
   {
     "type": "cycle",
+    "from": "src/renderer/components/app/UpdateChannelPicker.tsx",
+    "to": "src/renderer/components/settings/SettingsPanel.tsx",
+    "unresolvedTo": "@/components/settings/SettingsPanel",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-cycles"
+    },
+    "cycle": [
+      {
+        "name": "src/renderer/components/settings/SettingsPanel.tsx",
+        "dependencyTypes": [
+          "aliased",
+          "aliased-tsconfig",
+          "aliased-tsconfig-paths",
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/renderer/components/app/UpdateCheck.tsx",
+        "dependencyTypes": [
+          "aliased",
+          "aliased-tsconfig",
+          "aliased-tsconfig-paths",
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/renderer/components/app/UpdateChannelPicker.tsx",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/renderer/components/app/UpdateCheck.tsx",
+    "to": "src/renderer/components/settings/SettingsPanel.tsx",
+    "unresolvedTo": "@/components/settings/SettingsPanel",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-cycles"
+    },
+    "cycle": [
+      {
+        "name": "src/renderer/components/settings/SettingsPanel.tsx",
+        "dependencyTypes": [
+          "aliased",
+          "aliased-tsconfig",
+          "aliased-tsconfig-paths",
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/renderer/components/app/UpdateCheck.tsx",
+        "dependencyTypes": [
+          "aliased",
+          "aliased-tsconfig",
+          "aliased-tsconfig-paths",
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
     "from": "src/renderer/components/assist/AssistantProviders.tsx",
     "to": "src/renderer/components/settings/SettingsPanel.tsx",
     "unresolvedTo": "@/components/settings/SettingsPanel",
@@ -1677,45 +1762,6 @@
   {
     "type": "cycle",
     "from": "src/renderer/components/settings/SettingsPanel.tsx",
-    "to": "src/renderer/components/shell/UpdateCheck.tsx",
-    "unresolvedTo": "@/components/shell/UpdateCheck",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "no-cycles"
-    },
-    "cycle": [
-      {
-        "name": "src/renderer/components/shell/UpdateCheck.tsx",
-        "dependencyTypes": [
-          "aliased",
-          "aliased-tsconfig",
-          "aliased-tsconfig-paths",
-          "local",
-          "import"
-        ]
-      },
-      {
-        "name": "src/renderer/components/settings/SettingsPanel.tsx",
-        "dependencyTypes": [
-          "aliased",
-          "aliased-tsconfig",
-          "aliased-tsconfig-paths",
-          "local",
-          "import"
-        ]
-      }
-    ]
-  },
-  {
-    "type": "cycle",
-    "from": "src/renderer/components/settings/SettingsPanel.tsx",
     "to": "src/renderer/components/views/ViewsSection.tsx",
     "unresolvedTo": "@/components/views/ViewsSection",
     "dependencyTypes": [
@@ -1782,52 +1828,6 @@
       },
       {
         "name": "src/renderer/components/settings/SyncSecretsSection.tsx",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
-      }
-    ]
-  },
-  {
-    "type": "cycle",
-    "from": "src/renderer/components/shell/UpdateChannelPicker.tsx",
-    "to": "src/renderer/components/settings/SettingsPanel.tsx",
-    "unresolvedTo": "@/components/settings/SettingsPanel",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "no-cycles"
-    },
-    "cycle": [
-      {
-        "name": "src/renderer/components/settings/SettingsPanel.tsx",
-        "dependencyTypes": [
-          "aliased",
-          "aliased-tsconfig",
-          "aliased-tsconfig-paths",
-          "local",
-          "import"
-        ]
-      },
-      {
-        "name": "src/renderer/components/shell/UpdateCheck.tsx",
-        "dependencyTypes": [
-          "aliased",
-          "aliased-tsconfig",
-          "aliased-tsconfig-paths",
-          "local",
-          "import"
-        ]
-      },
-      {
-        "name": "src/renderer/components/shell/UpdateChannelPicker.tsx",
         "dependencyTypes": [
           "local",
           "import"

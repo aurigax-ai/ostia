@@ -1,5 +1,5 @@
 import { commands } from '@/commands/registry'
-import { bindableIds, chordLabel, onBindingsChange } from '@/lib/keys/chords'
+import { bindableIds, chordLabel, onBindingsChange } from '@/lib/keyboard/chords'
 import { isMac } from '@/platform'
 
 export function shortcutMap(mac: boolean): Record<string, string> {

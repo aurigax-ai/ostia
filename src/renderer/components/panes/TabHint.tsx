@@ -1,8 +1,8 @@
 import { usePaneAgentSession } from '@/components/agents/AgentSessionButton'
 import { stateLabel } from '@/components/agents/PickSendPanel'
 import { Hint } from '@/components/common/Hint'
-import { useDict } from '@/i18n/useDict'
-import type { PaneNode } from '@/layout/types'
+import { useDict } from '@/lib/app/useDict'
+import type { PaneNode } from '@/lib/layout/types'
 import type { ReactElement } from 'react'
 import { usePaneTitle } from './TabFace'
 

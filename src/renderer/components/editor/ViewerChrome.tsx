@@ -1,5 +1,5 @@
 import { IconButton } from '@/components/common/IconButton'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { stepZoom, zoomPercent } from '@/lib/browser/regionSelect'
 import type { FileBytes } from '@/lib/files/viewerHooks'
 import {

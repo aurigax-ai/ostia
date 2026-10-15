@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { InfoIcon } from '@phosphor-icons/react'
 import {

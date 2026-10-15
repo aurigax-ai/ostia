@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { findPane } from '@/layout/tree'
+import { findPane } from '@/lib/layout/tree'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'

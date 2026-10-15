@@ -9,8 +9,8 @@ import {
   splitPane,
   tabIdOf,
   tabsOf,
-} from '@/layout/tree'
-import type { LayoutNode, PaneNode, TabsNode } from '@/layout/types'
+} from '@/lib/layout/tree'
+import type { LayoutNode, PaneNode, TabsNode } from '@/lib/layout/types'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'

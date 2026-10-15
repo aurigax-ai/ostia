@@ -23,7 +23,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/u
 import { Input } from '@/components/ui/input'
 import { Item, ItemActions, ItemContent, ItemTitle } from '@/components/ui/item'
 import { Switch } from '@/components/ui/switch'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { patchProvider, withModel, withProvider } from '@/lib/assist/assistProviders'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/app/settingsStore'

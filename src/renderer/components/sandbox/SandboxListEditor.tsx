@@ -3,7 +3,7 @@ import { SubHead } from '@/components/settings/SettingsPanel'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { XIcon } from '@phosphor-icons/react'
 import { useState } from 'react'
 

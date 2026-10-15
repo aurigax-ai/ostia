@@ -1,7 +1,7 @@
 import { IconButton } from '@/components/common/IconButton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { TrashIcon } from '@phosphor-icons/react'
 import type {

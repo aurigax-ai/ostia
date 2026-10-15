@@ -1,7 +1,7 @@
+import { currentDict } from '@/lib/app/useDict'
 import { openGit } from '@/lib/git/gitPanel'
+import { findPane } from '@/lib/layout/tree'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { currentDict } from '../i18n/useDict'
-import { findPane } from '../layout/tree'
 import { registerCore } from './core'
 import type { CommandContext } from './registry'
 

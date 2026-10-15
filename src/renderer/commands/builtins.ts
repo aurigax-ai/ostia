@@ -14,6 +14,7 @@ import {
   paneResumeHolder,
   resumeHolder,
 } from '@/lib/agents/resumeFolder'
+import { currentDict } from '@/lib/app/useDict'
 import { resetZoom } from '@/lib/app/wheelZoom'
 import { postAgentNotification } from '@/lib/attention/agentNotification'
 import { announceBusMessage } from '@/lib/attention/busNotice'
@@ -38,7 +39,17 @@ import {
 } from '@/lib/files/openFile'
 import { waitOnPanes } from '@/lib/files/openWaits'
 import { revealFolder } from '@/lib/files/revealFolder'
-import { setKeybindingSetting } from '@/lib/keys/chords'
+import { setKeybindingSetting } from '@/lib/keyboard/chords'
+import {
+  type DropZone,
+  type FocusDirection,
+  allPanes,
+  findPane,
+  splitTabOfPane,
+  tabIdOf,
+  tabNeighbor,
+} from '@/lib/layout/tree'
+import type { Direction, SurfaceKind } from '@/lib/layout/types'
 import {
   FILES_PREFIX,
   GO_TO_FILE_COMMAND,
@@ -49,6 +60,8 @@ import {
 } from '@/lib/palette/paletteModes'
 import { openSnippetPicker } from '@/lib/palette/snippets'
 import { callerHasFocus, openKeepingFocus, opensQuietly } from '@/lib/panes/callerFocus'
+import { keymapSettingValue, terminalKeymapSettingValue } from '@/lib/settings/keymapSetting'
+import { settingsSchemaAt } from '@/lib/settings/settingsSchema'
 import { groupMates } from '@/lib/sidebar/groupPeers'
 import {
   type BlockPart,
@@ -128,20 +141,7 @@ import {
   isWorkspaceGroupColor,
   normalizeGroupName,
 } from '@shared/workspaces/workspaceGroups'
-import { currentDict } from '../i18n/useDict'
-import {
-  type DropZone,
-  type FocusDirection,
-  allPanes,
-  findPane,
-  splitTabOfPane,
-  tabIdOf,
-  tabNeighbor,
-} from '../layout/tree'
-import type { Direction, SurfaceKind } from '../layout/types'
 import { isMac } from '../platform'
-import { keymapSettingValue, terminalKeymapSettingValue } from '../settings/keymapSetting'
-import { settingsSchemaAt } from '../settings/settingsSchema'
 import { registerBrowserCommands } from './browserCommands'
 import { type CoreCommandId, registerCore } from './core'
 import { registerGitCommands } from './gitCommands'

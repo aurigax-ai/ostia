@@ -1,4 +1,4 @@
-import type { PaneNode } from '@/layout/types'
+import type { PaneNode } from '@/lib/layout/types'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { startKeptReattach } from './keptReattach'

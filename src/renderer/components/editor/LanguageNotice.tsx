@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button'
-import { fmt, useDict } from '@/i18n/useDict'
-import { fileLanguage } from '@/monaco/language'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { fileLanguage } from '@/lib/monaco/language'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLanguageNoticeStore } from '@/stores/extensions/languageNoticeStore'

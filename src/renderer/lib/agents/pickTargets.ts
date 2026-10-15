@@ -1,6 +1,6 @@
-import { allPanes } from '@/layout/tree'
-import type { LayoutNode } from '@/layout/types'
 import type { PaneAttention } from '@/lib/attention/attention'
+import { allPanes } from '@/lib/layout/tree'
+import type { LayoutNode } from '@/lib/layout/types'
 import type { AttentionState } from '@shared/types'
 
 export interface PickTarget {

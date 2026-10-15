@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty'
-import { useDict } from '@/i18n/useDict'
+import { useDict } from '@/lib/app/useDict'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useViewsStore } from '@/stores/extensions/viewsStore'
 import { DeclarativeView } from './DeclarativeView'

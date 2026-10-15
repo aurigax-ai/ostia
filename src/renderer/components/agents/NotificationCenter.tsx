@@ -1,6 +1,5 @@
 import { openExtensionPanel } from '@/commands/extensionBridge'
-import { fmt, useDict } from '@/i18n/useDict'
-import { findPane } from '@/layout/tree'
+import { fmt, useDict } from '@/lib/app/useDict'
 import {
   NOTIFICATION_TABS,
   type NotificationTab,
@@ -8,6 +7,7 @@ import {
   inTab,
 } from '@/lib/attention/notificationGroups'
 import { revealPane } from '@/lib/attention/workspaceActivity'
+import { findPane } from '@/lib/layout/tree'
 import { remoteWorkspacesOf } from '@/lib/workspaces/windowWorkspaces'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'

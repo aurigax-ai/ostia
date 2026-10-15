@@ -1,4 +1,4 @@
-import { findPane } from '@/layout/tree'
+import { findPane } from '@/lib/layout/tree'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'

@@ -1,5 +1,6 @@
 import { tabMark } from '@/lib/attention/attention'
 import { followedFolder, treeRoot } from '@/lib/files/revealFolder'
+import { allPanes, findPane, paneBrowserProfile, tabsOfPane } from '@/lib/layout/tree'
 import { callerHasFocus, opensQuietly } from '@/lib/panes/callerFocus'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
@@ -16,7 +17,6 @@ import {
   REVEAL_FOLDER_COMMAND,
 } from '@shared/files/openFiles'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { allPanes, findPane, paneBrowserProfile, tabsOfPane } from '../layout/tree'
 import { registerBuiltinCommands } from './builtins'
 import { type CommandContext, commands } from './registry'
 

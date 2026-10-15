@@ -1,5 +1,5 @@
 import { FindBar, type FindStepRef } from '@/components/common/FindBar'
-import { useDict } from '@/i18n/useDict'
+import { useDict } from '@/lib/app/useDict'
 import type { TerminalSearch } from '@/lib/terminal/ostiaTerminal'
 import type { ISearchOptions } from '@xterm/addon-search'
 import type { ITheme } from '@xterm/xterm'

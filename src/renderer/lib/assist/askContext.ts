@@ -1,5 +1,5 @@
-import { allPanes, findPane } from '@/layout/tree'
 import { editorPositionOf } from '@/lib/files/editorPositions'
+import { allPanes, findPane } from '@/lib/layout/tree'
 import { blockText } from '@/lib/terminal/blockActions'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { chatKey, useChatStore } from '@/stores/assist/chatStore'

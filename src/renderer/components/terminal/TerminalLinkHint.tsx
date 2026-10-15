@@ -1,12 +1,12 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useDict } from '@/i18n/useDict'
-import { type LinkKind, webLinkTarget } from '@/lib/terminal/linkModifier'
-import type { FileLinkAction } from '@/lib/terminal/terminalFileLinks'
+import { useDict } from '@/lib/app/useDict'
+import { type LinkKind, webLinkTarget } from '@/lib/terminalLinks/linkModifier'
+import type { FileLinkAction } from '@/lib/terminalLinks/terminalFileLinks'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { Dict } from '@shared/app/dict'
+import { linkKind } from '@shared/common/externalLinks'
 import { chordText } from '@shared/keyboard/chordSpec'
-import { linkKind } from '@shared/links/externalLinks'
 
 const FILE_ACTION_TEXT: Record<FileLinkAction, (d: Dict) => string> = {
   'open-file': (d) => d.terminalLinks.openFile,

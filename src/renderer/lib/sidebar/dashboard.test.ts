@@ -1,4 +1,4 @@
-import { createPane } from '@/layout/tree'
+import { createPane } from '@/lib/layout/tree'
 import type { QuestionRequest } from '@shared/agents/questions'
 import type { ApprovalRequest } from '@shared/permissions/approvals'
 import { describe, expect, it } from 'vitest'

@@ -1,7 +1,7 @@
 import { MenuItem } from '@/components/common/Menu'
 import { SplitButton, SplitButtonMenu } from '@/components/common/SplitButton'
 import { Button } from '@/components/ui/button'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { useArtifactListing } from '@/lib/files/artifacts'
 import { previewTheme } from '@/lib/theme/previewTheme'
 import { useSandboxStore } from '@/stores/app/sandboxStore'

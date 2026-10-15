@@ -23,10 +23,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Kbd } from '@/components/ui/kbd'
-import { fmt, useDict } from '@/i18n/useDict'
-import { allPanes, firstPaneOfKind } from '@/layout/tree'
-import type { PaneNode } from '@/layout/types'
 import { countUsage } from '@/lib/app/usageCounts'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { useChatAvailable } from '@/lib/assist/assistFeatures'
 import { revealPane } from '@/lib/attention/workspaceActivity'
 import { childPath } from '@/lib/files/fileTree'
@@ -47,7 +45,9 @@ import {
   findWorkspaceSymbols,
   symbolPlace,
 } from '@/lib/files/workspaceSymbolSearch'
-import { chordLabel, matchChord, runAppChord, useBindings } from '@/lib/keys/chords'
+import { chordLabel, matchChord, runAppChord, useBindings } from '@/lib/keyboard/chords'
+import { allPanes, firstPaneOfKind } from '@/lib/layout/tree'
+import type { PaneNode } from '@/lib/layout/types'
 import { isComposingEscape, swallowHeldEscape } from '@/lib/palette/paletteEscape'
 import { paletteFilter } from '@/lib/palette/paletteFilter'
 import { paletteReturnFocus } from '@/lib/palette/paletteFocus'

@@ -1,5 +1,5 @@
-import { allPanes, createPane, findPane } from '@/layout/tree'
-import type { PaneNode } from '@/layout/types'
+import { allPanes, createPane, findPane } from '@/lib/layout/tree'
+import type { PaneNode } from '@/lib/layout/types'
 import * as blockActions from '@/lib/terminal/blockActions'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'

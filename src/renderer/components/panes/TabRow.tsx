@@ -9,10 +9,10 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { fmt, useDict } from '@/i18n/useDict'
-import { allPanes, firstPaneId } from '@/layout/tree'
-import type { PaneNode, SplitNode, TabNode } from '@/layout/types'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { tabMark } from '@/lib/attention/attention'
+import { allPanes, firstPaneId } from '@/lib/layout/tree'
+import type { PaneNode, SplitNode, TabNode } from '@/lib/layout/types'
 import { type HiddenTabs, hiddenTabs, revealScroll } from '@/lib/panes/tabRow'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { focusSurface } from '@/stores/workspaces/surfaceSlotsStore'

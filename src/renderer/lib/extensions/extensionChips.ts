@@ -1,6 +1,6 @@
 import { extensionCommandId } from '@/commands/extensionBridge'
 import { commands } from '@/commands/registry'
-import { currentDict, useDict } from '@/i18n/useDict'
+import { currentDict, useDict } from '@/lib/app/useDict'
 import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
 import { openSidebarUrl } from '@/lib/sidebar/sidebarItems'
 import { useCoreWatch } from '@/lib/workspaces/coreWatch'

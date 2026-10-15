@@ -1,4 +1,4 @@
-import type { DropZone } from '@/layout/types'
+import type { DropZone } from '@/lib/layout/types'
 import type { ScreenPoint } from '@shared/types'
 
 export interface Rect {

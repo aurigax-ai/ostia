@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { EXTENSIONS_NAV_EXPANDED_KEY } from '@/lib/app/settingsNav'
+import { EXTENSIONS_NAV_EXPANDED_KEY } from '@/lib/settings/settingsNav'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'

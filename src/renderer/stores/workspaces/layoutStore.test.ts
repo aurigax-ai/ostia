@@ -1,3 +1,4 @@
+import { BASE_LANGUAGE } from '@/lib/extensions/languagePacks'
 import {
   allPanes,
   findPane,
@@ -6,9 +7,8 @@ import {
   paneIds,
   splitTabOfPane,
   tabsOfPane,
-} from '@/layout/tree'
-import type { SplitNode } from '@/layout/types'
-import { BASE_LANGUAGE } from '@/lib/extensions/languagePacks'
+} from '@/lib/layout/tree'
+import type { SplitNode } from '@/lib/layout/types'
 import { forgetSplitTabSeeds } from '@/lib/panes/splitTabSeeds'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'

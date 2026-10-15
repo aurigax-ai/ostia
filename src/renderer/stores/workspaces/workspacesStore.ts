@@ -1,4 +1,4 @@
-import { restoreSnapshot } from '@/layout/snapshot'
+import { restoreSnapshot } from '@/lib/layout/snapshot'
 import {
   type DragSource,
   type DropTarget,

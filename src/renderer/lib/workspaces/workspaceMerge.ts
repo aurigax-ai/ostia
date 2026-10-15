@@ -1,4 +1,4 @@
-import { allPanes } from '@/layout/tree'
+import { allPanes } from '@/lib/layout/tree'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { chatReplacedByMerge, mergeChatWorkspace } from '@/stores/assist/chatStore'

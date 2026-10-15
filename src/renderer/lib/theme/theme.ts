@@ -1,8 +1,8 @@
-import type { Theme } from '@/plugins/types'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSystemThemeStore } from '@/stores/app/systemThemeStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { deriveAccent, normalizeHex, readableOn } from './color'
+import type { Theme } from './types'
 
 export interface ThemeChoice {
   followSystem: boolean

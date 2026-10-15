@@ -19,7 +19,6 @@ import {
   screenshotRect,
 } from '../../shared/browser/pick'
 import { PICK_RUNTIME_GLOBAL, pickRuntimeScript } from '../../shared/browser/pickRuntime'
-import type { RedactText } from '../../shared/privacy/redactionTargets'
 import { PRODUCT_NAME } from '../../shared/product'
 import { postBusMessage } from '../agents/bus'
 import type { OriginReach } from '../agents/originAgents'
@@ -27,6 +26,7 @@ import type { Reach } from '../approvals/reach'
 import { registerControlMethod } from '../control/controlServer'
 import { getByPaneId } from '../control/idRegistry'
 import { privateTmpDir } from '../platform/privateTmp'
+import type { RedactText } from '../privacy/redactionTargets'
 import { type ConsoleEntry, ownedGuest, resolveGuest } from './browse'
 import { failedRequestsFor } from './guestNetwork'
 

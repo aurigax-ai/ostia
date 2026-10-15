@@ -1,4 +1,5 @@
 import { IconButton } from '@/components/common/IconButton'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { type TreeNode, buildFileTree } from '@/lib/git/gitFileTree'
 import { AREA_ORDER, leaves, rowIndent, splitPath } from '@/lib/git/gitView'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -28,7 +29,6 @@ import type {
   StatusSummary,
 } from '@shared/boards/git'
 import { Fragment, type KeyboardEvent, type ReactNode, useMemo } from 'react'
-import { fmt, useDict } from '../../i18n/useDict'
 
 type GitDict = Dict['git']
 

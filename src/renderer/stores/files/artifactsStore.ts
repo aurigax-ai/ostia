@@ -1,4 +1,4 @@
-import { allPanes, findPane } from '@/layout/tree'
+import { allPanes, findPane } from '@/lib/layout/tree'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { type ArtifactListing, changedArtifacts } from '@shared/artifacts/artifacts'

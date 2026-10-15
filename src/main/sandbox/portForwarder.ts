@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync, readlinkSync } from 'node:fs'
 import { type Server, type Socket, createServer } from 'node:net'
-import { parseProcStat } from '../../shared/common/procfs'
+import { parseProcStat } from '../platform/procfs'
 import type { PortBridge } from './portBridge'
 
 export interface SandboxListener {

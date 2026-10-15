@@ -1,5 +1,5 @@
-import { findPane } from '@/layout/tree'
-import { formatWindowTitle } from '@/settings/windowTitle'
+import { findPane } from '@/lib/layout/tree'
+import { formatWindowTitle } from '@/lib/settings/windowTitle'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'

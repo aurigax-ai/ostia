@@ -1,5 +1,5 @@
-import { allPanes } from '@/layout/tree'
-import type { LayoutNode, PaneNode } from '@/layout/types'
+import { allPanes } from '@/lib/layout/tree'
+import type { LayoutNode, PaneNode } from '@/lib/layout/types'
 import { startOffscreen } from '@/lib/terminal/offscreenStart'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'

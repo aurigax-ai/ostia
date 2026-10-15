@@ -1,4 +1,4 @@
-import { currentDict, fmt } from '@/i18n/useDict'
+import { currentDict, fmt } from '@/lib/app/useDict'
 import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'

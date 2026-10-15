@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { CopyIcon, TrashIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import type { CredentialImportResult, CredentialSummary } from '@shared/browser/credentials'

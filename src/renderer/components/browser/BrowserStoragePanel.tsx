@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/table'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { cookieRowKey, filterCookies, filterEntries, formatExpiry } from '@/lib/browser/storageRows'
 import {
   ArrowClockwiseIcon,

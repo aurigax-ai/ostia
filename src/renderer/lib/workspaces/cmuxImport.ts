@@ -1,4 +1,4 @@
-import { type RestorableWorkspace, workspaceHandoff } from '@/layout/snapshot'
+import { type RestorableWorkspace, workspaceHandoff } from '@/lib/layout/snapshot'
 import {
   TERMINAL_TITLE,
   createPane,
@@ -7,8 +7,8 @@ import {
   paneIds,
   splitOf,
   tabsOf,
-} from '@/layout/tree'
-import type { LayoutNode, PaneNode } from '@/layout/types'
+} from '@/lib/layout/tree'
+import type { LayoutNode, PaneNode } from '@/lib/layout/types'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useCmuxImportStore } from '@/stores/workspaces/cmuxImportStore'
 import { isRestorable } from '@/stores/workspaces/persistence'

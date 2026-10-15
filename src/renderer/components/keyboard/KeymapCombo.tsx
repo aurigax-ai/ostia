@@ -2,8 +2,8 @@ import { WarningNote } from '@/components/settings/SettingsPanel'
 import { useSearchLeaf } from '@/components/settings/SettingsSearch'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
-import { fmt, useDict } from '@/i18n/useDict'
-import { keymapBindings } from '@/lib/keys/chords'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { keymapBindings } from '@/lib/keyboard/chords'
 import {
   type PresetLayer,
   appPresetChanges,
@@ -12,21 +12,21 @@ import {
   textPreview,
   userChangeCount,
   userChanges,
-} from '@/lib/keys/keyChanges'
-import { terminalKeymapOf } from '@/lib/keys/keyPresets'
+} from '@/lib/keyboard/keyChanges'
+import { terminalKeymapOf } from '@/lib/keyboard/keyPresets'
+import {
+  NATURAL_TEXT_EDITING,
+  OSTIA_KEYMAP,
+  keyboardPlatform,
+  terminalKeymapsFor,
+} from '@/lib/keyboard/keyboardPresets'
+import type { TerminalSend } from '@/lib/keyboard/terminalKeys'
 import { isMac, platform } from '@/platform'
 import { appKeymap, keymapChoices, useKeymapStore } from '@/stores/app/keymapStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { ArrowRightIcon, CaretRightIcon } from '@phosphor-icons/react'
 import type { KeybindingMap } from '@shared/keyboard/chordSpec'
-import {
-  NATURAL_TEXT_EDITING,
-  OSTIA_KEYMAP,
-  keyboardPlatform,
-  terminalKeymapsFor,
-} from '@shared/keyboard/keyboardPresets'
-import type { TerminalSend } from '@shared/keyboard/terminalKeys'
 import { useEffect, useState } from 'react'
 import {
   appKeymapLabel,

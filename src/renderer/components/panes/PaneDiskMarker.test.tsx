@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import type { PaneNode } from '@/layout/types'
+import type { PaneNode } from '@/lib/layout/types'
 import { unsavedFilesOf } from '@/lib/workspaces/closeConfirm'
 import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import { act, cleanup, render, screen } from '@testing-library/react'

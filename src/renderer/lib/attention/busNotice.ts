@@ -1,4 +1,4 @@
-import { currentDict, fmt } from '@/i18n/useDict'
+import { currentDict, fmt } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { busLabel, busPreview } from '@shared/agents/busMessages'
 import { wantsDesktopBanner } from '@shared/app/notificationSettings'

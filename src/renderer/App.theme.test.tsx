@@ -4,11 +4,11 @@ import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { App } from './App'
 
-vi.mock('@/monaco/setup', () => ({ monaco: {} }))
-vi.mock('@/lsp/client', () => ({ startLanguageServices: vi.fn(async () => {}) }))
-vi.mock('@/monaco/contributedLanguages', () => ({ loadEditorLanguages: vi.fn(async () => {}) }))
-vi.mock('@/monaco/useMonacoTheme', () => ({ useMonacoTheme: () => {} }))
-vi.mock('@/settings/registerSettingsSchema', () => ({
+vi.mock('@/lib/monaco/setup', () => ({ monaco: {} }))
+vi.mock('@/lib/lsp/client', () => ({ startLanguageServices: vi.fn(async () => {}) }))
+vi.mock('@/lib/monaco/contributedLanguages', () => ({ loadEditorLanguages: vi.fn(async () => {}) }))
+vi.mock('@/lib/monaco/useMonacoTheme', () => ({ useMonacoTheme: () => {} }))
+vi.mock('@/lib/settings/registerSettingsSchema', () => ({
   registerSettingsSchema: vi.fn(async () => {}),
 }))
 

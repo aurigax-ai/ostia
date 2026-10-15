@@ -1,21 +1,27 @@
-import type { GroupRule } from '@/lib/sidebar/workspaceGroups'
-import { normalizeHex } from '@/lib/theme/color'
-import { isMac } from '@/platform'
-import { platform } from '@/platform'
-import { type UserAction, parseActions } from '@/settings/actions'
+import { keyboardPlatform } from '@/lib/keyboard/keyboardPresets'
+import type { TerminalKeyMap, TerminalSend } from '@/lib/keyboard/terminalKeys'
+import { type UserAction, parseActions } from '@/lib/settings/actions'
+import {
+  type BrowserSettings,
+  DEFAULT_BROWSER_SETTINGS,
+  DEFAULT_EDITOR_SETTINGS,
+  type EditorSettings,
+  parseBrowserSettings,
+  parseEditorSettings,
+} from '@/lib/settings/browserEditorSettings'
 import {
   DEFAULT_FILE_TREE_SETTINGS,
   type FileTreeSettings,
   parseFileTreeSettings,
-} from '@/settings/fileTreeSettings'
+} from '@/lib/settings/fileTreeSettings'
 import {
   type KeyboardElsewhere,
   type KeyboardField,
   type KeyboardFile,
   readKeyboard,
   writeKeyboard,
-} from '@/settings/keyboardSettings'
-import { parseKeymapSetting, parseTerminalKeymapSetting } from '@/settings/keymapSetting'
+} from '@/lib/settings/keyboardSettings'
+import { parseKeymapSetting, parseTerminalKeymapSetting } from '@/lib/settings/keymapSetting'
 import {
   DEFAULT_PANE_SETTINGS,
   DEFAULT_TERMINAL_SETTINGS,
@@ -26,8 +32,12 @@ import {
   clampScrollback,
   parsePaneSettings,
   parseTerminalSettings,
-} from '@/settings/terminalPaneSettings'
-import { DEFAULT_WINDOW_TITLE, parseWindowTitle } from '@/settings/windowTitle'
+} from '@/lib/settings/terminalPaneSettings'
+import { DEFAULT_WINDOW_TITLE, parseWindowTitle } from '@/lib/settings/windowTitle'
+import type { GroupRule } from '@/lib/sidebar/workspaceGroups'
+import { normalizeHex } from '@/lib/theme/color'
+import { isMac } from '@/platform'
+import { platform } from '@/platform'
 import { type AgentHooks, DEFAULT_AGENT_HOOKS, parseAgentHooks } from '@shared/agents/agentHooks'
 import {
   DEFAULT_MANAGER_SETTINGS,
@@ -62,20 +72,10 @@ import {
   type PortsSettings,
   parsePortsSettings,
 } from '@shared/boards/ports'
-import {
-  type BrowserSettings,
-  DEFAULT_BROWSER_SETTINGS,
-  DEFAULT_EDITOR_SETTINGS,
-  type EditorSettings,
-  parseBrowserSettings,
-  parseEditorSettings,
-} from '@shared/browser/browserEditorSettings'
 import type { Capability } from '@shared/capabilities'
 import type { ExtensionSettingValues } from '@shared/extensions'
 import type { ChordValue, KeybindingMap } from '@shared/keyboard/chordSpec'
 import { parseGlobalHotkey } from '@shared/keyboard/globalHotkey'
-import { keyboardPlatform } from '@shared/keyboard/keyboardPresets'
-import type { TerminalKeyMap, TerminalSend } from '@shared/keyboard/terminalKeys'
 import {
   type ApprovalMode,
   type ApprovalSettings,

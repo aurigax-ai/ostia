@@ -1,4 +1,4 @@
-import type { DropZone } from '@/layout/tree'
+import type { DropZone } from '@/lib/layout/tree'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { usePaneDnd } from './paneDndStore'
 

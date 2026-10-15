@@ -1,6 +1,6 @@
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
-import { useDict } from '@/i18n/useDict'
+import { useDict } from '@/lib/app/useDict'
 import {
   NEW_WORKSPACE_PLACEMENTS,
   type NewWorkspacePlacement,

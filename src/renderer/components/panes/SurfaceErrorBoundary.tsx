@@ -8,13 +8,13 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty'
-import { useDict } from '@/i18n/useDict'
 import {
   type ErrorDetails,
   errorDetails,
   reportDetails,
   withComponentStack,
 } from '@/lib/app/errorReporting'
+import { useDict } from '@/lib/app/useDict'
 import { WarningIcon, XIcon } from '@phosphor-icons/react'
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 

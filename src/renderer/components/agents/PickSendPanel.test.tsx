@@ -1,4 +1,4 @@
-import { createPane } from '@/layout/tree'
+import { createPane } from '@/lib/layout/tree'
 import { useAgentGroupsStore } from '@/stores/agents/agentGroupsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useOriginAgentsStore } from '@/stores/agents/originAgentsStore'

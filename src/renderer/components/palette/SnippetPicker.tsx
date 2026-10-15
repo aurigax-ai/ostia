@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useDict } from '@/i18n/useDict'
+import { useDict } from '@/lib/app/useDict'
 import { deliverCommand } from '@/lib/palette/snippets'
 import { canTypeInto } from '@/lib/terminal/blockActions'
 import { isIdlePrompt } from '@/lib/terminal/blocks'

@@ -1,5 +1,5 @@
-import { paneIds, splitOf } from '@/layout/tree'
-import type { PaneNode, SurfaceKind } from '@/layout/types'
+import { paneIds, splitOf } from '@/lib/layout/tree'
+import type { PaneNode, SurfaceKind } from '@/lib/layout/types'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useChatStore } from '@/stores/assist/chatStore'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'

@@ -1,5 +1,5 @@
 import { openExtensionTerminal } from '@/commands/extensionBridge'
-import { createPane } from '@/layout/tree'
+import { createPane } from '@/lib/layout/tree'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionInfo } from '@shared/extensions'

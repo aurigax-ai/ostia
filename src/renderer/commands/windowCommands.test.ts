@@ -1,4 +1,4 @@
-import { defaultChords } from '@/lib/keys/chords'
+import { defaultChords } from '@/lib/keyboard/chords'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { resetWorkspaceIds, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'

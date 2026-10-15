@@ -1,6 +1,6 @@
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
-import type { PackageRef } from '../../shared/sandbox/packages'
-import type { PackageBlockReason, PackagePolicy } from './packagePolicy'
+import type { PackageBlockReason, PackagePolicy } from '../sandboxPackages/packagePolicy'
+import type { PackageRef } from '../sandboxPackages/packages'
 
 export const HOST_PROTOCOL_VERSION = 1
 

@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
-import { createPane } from '@/layout/tree'
 import { loadHomeDir } from '@/lib/files/homeDir'
+import { createPane } from '@/lib/layout/tree'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { startAgentGroupsSync, useAgentGroupsStore } from '@/stores/agents/agentGroupsStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'

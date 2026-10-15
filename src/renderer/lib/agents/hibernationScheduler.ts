@@ -1,7 +1,7 @@
-import { allPanes, findPane } from '@/layout/tree'
 import { countUsage } from '@/lib/app/usageCounts'
 import { paneActivityAt } from '@/lib/attention/paneActivity'
 import { isPaneVisible, workspaceOfPane } from '@/lib/attention/workspaceActivity'
+import { allPanes, findPane } from '@/lib/layout/tree'
 import { clampIdleSeconds, clampMaxLive, useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import {

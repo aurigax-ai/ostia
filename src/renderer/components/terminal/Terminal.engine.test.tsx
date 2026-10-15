@@ -1,13 +1,13 @@
 import '@testing-library/jest-dom/vitest'
 import { commands } from '@/commands/registry'
 import { FilesView } from '@/components/files/FilesView'
-import { allPanes, createPane, findPane, firstPaneId, tabsOf } from '@/layout/tree'
 import { focusPaneInDirection } from '@/lib/attention/workspaceActivity'
-import { runAppChord } from '@/lib/keys/chords'
-import { CLIPBOARD_READ_MS } from '@/lib/keys/clipboardKeys'
+import { runAppChord } from '@/lib/keyboard/chords'
+import { CLIPBOARD_READ_MS } from '@/lib/keyboard/clipboardKeys'
+import { allPanes, createPane, findPane, firstPaneId, tabsOf } from '@/lib/layout/tree'
 import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
-import { createFileLinkProvider } from '@/lib/terminal/terminalFileLinks'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
+import { createFileLinkProvider } from '@/lib/terminalLinks/terminalFileLinks'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
@@ -56,8 +56,8 @@ vi.mock('@/lib/terminal/webglRenderer', () => ({
   createWebglRenderer: () => webgl,
 }))
 
-vi.mock('@/lib/terminal/terminalFileLinks', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/terminal/terminalFileLinks')>()
+vi.mock('@/lib/terminalLinks/terminalFileLinks', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/terminalLinks/terminalFileLinks')>()
   return { ...actual, createFileLinkProvider: vi.fn(actual.createFileLinkProvider) }
 })
 

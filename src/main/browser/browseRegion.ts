@@ -21,11 +21,11 @@ import {
   regionPageRect,
   renderRegionReport,
 } from '../../shared/browser/regionCapture'
-import type { RedactText } from '../../shared/privacy/redactionTargets'
 import { postBusMessage } from '../agents/bus'
 import type { OriginReach } from '../agents/originAgents'
 import { getByPaneId } from '../control/idRegistry'
 import { privateTmpDir } from '../platform/privateTmp'
+import type { RedactText } from '../privacy/redactionTargets'
 import { ownedGuest } from './browse'
 import { REPORT_DIR_NAME } from './browsePick'
 

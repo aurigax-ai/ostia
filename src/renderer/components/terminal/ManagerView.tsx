@@ -1,4 +1,4 @@
-import { useDict } from '@/i18n/useDict'
+import { useDict } from '@/lib/app/useDict'
 import {
   type ReadOnlyTerminal,
   createReadOnlyTerminal,

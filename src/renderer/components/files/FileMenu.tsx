@@ -7,10 +7,10 @@ import {
   ContextMenuSub,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
-import { currentDict, fmt, useDict } from '@/i18n/useDict'
 import { relativePath } from '@/lib/agents/fileReference'
 import type { PickTarget } from '@/lib/agents/pickTargets'
 import { insertPathReference } from '@/lib/agents/sendPick'
+import { currentDict, fmt, useDict } from '@/lib/app/useDict'
 import { askAboutFile } from '@/lib/assist/askContext'
 import { useChatAvailable } from '@/lib/assist/assistFeatures'
 import {

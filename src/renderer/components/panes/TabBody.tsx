@@ -1,4 +1,4 @@
-import type { PaneNode, SurfaceKind } from '@/layout/types'
+import type { PaneNode, SurfaceKind } from '@/lib/layout/types'
 import { mountSurface, parkSurface } from '@/stores/workspaces/surfaceSlotsStore'
 import { useCallback, useLayoutEffect, useRef } from 'react'
 

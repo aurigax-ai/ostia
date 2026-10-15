@@ -1,4 +1,4 @@
-import { DEFAULT_BROWSER_SETTINGS } from '@shared/browser/browserEditorSettings'
+import { DEFAULT_BROWSER_SETTINGS } from '@/lib/settings/browserEditorSettings'
 import { describe, expect, it } from 'vitest'
 import { resolveAddress } from './browserAddress'
 

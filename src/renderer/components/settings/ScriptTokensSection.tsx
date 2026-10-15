@@ -24,8 +24,8 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { fmt, useDict } from '@/i18n/useDict'
 import { readPref, writePref } from '@/lib/app/localPrefs'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import {

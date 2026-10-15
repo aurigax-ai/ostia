@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { ContextMenuSeparator } from '@/components/ui/context-menu'
 import { Input } from '@/components/ui/input'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import {
   type TreeEditError,
   copyInto,

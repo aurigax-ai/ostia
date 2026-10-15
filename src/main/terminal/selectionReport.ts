@@ -13,12 +13,12 @@ import {
   renderSelectionReport,
   selectionBusMessage,
 } from '../../shared/browser/selection'
-import type { RedactText } from '../../shared/privacy/redactionTargets'
 import { postBusMessage } from '../agents/bus'
 import type { OriginReach } from '../agents/originAgents'
 import { REPORT_DIR_NAME } from '../browser/browsePick'
 import { getByPaneId } from '../control/idRegistry'
 import { privateTmpDir } from '../platform/privateTmp'
+import type { RedactText } from '../privacy/redactionTargets'
 
 function asBytes(value: unknown): Uint8Array | null {
   if (value instanceof Uint8Array) return value

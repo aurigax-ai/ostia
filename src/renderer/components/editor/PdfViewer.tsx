@@ -1,8 +1,8 @@
 import { useSelectionSend } from '@/components/agents/SelectionSend'
 import { FindBar, findStatus } from '@/components/common/FindBar'
 import { IconButton } from '@/components/common/IconButton'
-import { fmt, useDict } from '@/i18n/useDict'
 import { registerSelectionSender } from '@/lib/agents/selectionSenders'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { cropToPng } from '@/lib/browser/cropImage'
 import { trackSelection } from '@/lib/browser/domSelection'
 import { type Size, fitWidthScale, pixelRect } from '@/lib/browser/regionSelect'
@@ -16,7 +16,7 @@ import {
   useRegionDrag,
   useSettled,
 } from '@/lib/files/viewerHooks'
-import { findStep, matchChord } from '@/lib/keys/chords'
+import { findStep, matchChord } from '@/lib/keyboard/chords'
 import { isMac } from '@/platform'
 import { usePdfFindStore } from '@/stores/files/pdfFindStore'
 import {

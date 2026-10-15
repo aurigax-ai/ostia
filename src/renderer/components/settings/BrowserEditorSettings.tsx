@@ -1,6 +1,5 @@
 import { Input } from '@/components/ui/input'
-import { useDict } from '@/i18n/useDict'
-import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useDict } from '@/lib/app/useDict'
 import {
   type AutoSaveMode,
   DIFF_LAYOUTS,
@@ -16,7 +15,8 @@ import {
   ZOOM_MIN,
   clampZoom,
   isValidSearchTemplate,
-} from '@shared/browser/browserEditorSettings'
+} from '@/lib/settings/browserEditorSettings'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useState } from 'react'
 import {
   ControlRow,
