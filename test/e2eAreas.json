@@ -619,7 +619,8 @@
       "specs": [
         "e2e/open-any-file.spec.ts",
         "e2e/palette-focus.spec.ts",
-        "e2e/terminal-file-links.spec.ts"
+        "e2e/terminal-file-links.spec.ts",
+        "e2e/terminal-path-link-actions.spec.ts"
       ]
     },
     {
@@ -923,6 +924,7 @@
         "e2e/terminal-ghostty-parity.spec.ts",
         "e2e/terminal-overflow.spec.ts",
         "e2e/terminal-padding.spec.ts",
+        "e2e/terminal-path-link-actions.spec.ts",
         "e2e/terminal-scrollbar.spec.ts",
         "e2e/terminal-selection.spec.ts",
         "e2e/terminal-tab-title.spec.ts",

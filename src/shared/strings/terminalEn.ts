@@ -173,6 +173,10 @@ export const terminalEn = {
     openFile: 'Open the file',
     revealFolder: 'Show the folder in Files',
     openFolder: 'Open the folder in the file manager',
+    openDefault: 'Open with its default app',
+    showInFiles: 'Show in Files',
+    showInFileManager: 'Show in the file manager',
+    refusedProgram: '{product} doesn’t launch programs or scripts from a terminal link.',
   },
   terminalGhost: {
     copy: 'Copy',
