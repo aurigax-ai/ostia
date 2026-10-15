@@ -11,7 +11,7 @@ import {
   type AssistModelRef,
   type ChatAssistRequest,
   EMPTY_ASSIST_CATALOG,
-} from '@shared/assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import type { ChatPlanOutput, ChatPreviewOutput, ChatWriteOutput } from '@shared/assist/chatTools'
 import type { UIMessageChunk } from 'ai'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

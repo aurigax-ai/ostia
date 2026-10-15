@@ -1,12 +1,15 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import type {
+  AssistAvailability,
+  AssistOpenUiRequest,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { CancellationTokenSource } from 'vscode-jsonrpc/node'
 import { FAKE } from '../../../test/fixtures/secrets/samples'
 import { testScan } from '../../../test/redactionScan'
-import type { AssistAvailability, AssistOpenUiRequest } from '../../shared/assist'
-import type { ExtensionCaller } from '../../shared/extensions'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { createRedactor } from '../privacy/redaction'
 import { ExtensionHost, registerExtensionMethods } from './extensionHost'

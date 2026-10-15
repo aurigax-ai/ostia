@@ -28,6 +28,7 @@ import { readPref, writePref } from '@/lib/app/localPrefs'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import {
   CaretLeftIcon,
   CheckIcon,
@@ -40,7 +41,6 @@ import {
   XIcon,
 } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
-import type { Capability } from '@shared/capabilities'
 import { type RelativeStep, formatRelative } from '@shared/common/relativeTime'
 import {
   DEFAULT_TOKEN_EXPIRY,

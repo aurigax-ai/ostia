@@ -3,6 +3,28 @@ import { randomUUID } from 'node:crypto'
 import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir, hostname } from 'node:os'
 import { basename, dirname, join } from 'node:path'
+import { appEnv, readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { MANAGER_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import { languageForPath } from '@aurigax-ai/ostia-extension-sdk/contract/editorLanguages'
+import type {
+  ExtensionEventPayloads,
+  ExtensionEventType,
+  ExtensionPanelContext,
+  ExtensionResult,
+  WorkspaceChip,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { languageServerKey } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
+import {
+  OFFICIAL_MARKETPLACE,
+  PRODUCT_NAME,
+} from '@aurigax-ai/ostia-extension-sdk/contract/product'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
+import {
+  type RemoteCwd,
+  normalizeRemoteCwd,
+} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import { agentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
+import type { ExtensionRoot } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import {
   BrowserWindow,
   ClipboardItem,
@@ -20,8 +42,7 @@ import {
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
 import { parseAgentHooks } from '../shared/agents/agentHooks'
-import { type AgentResume, parseAgentResume } from '../shared/agents/agentResume'
-import { isResumableAgent } from '../shared/agents/agentResume'
+import { type AgentResume, isResumableAgent, parseAgentResume } from '../shared/agents/agentResume'
 import type { HibernateOutcome } from '../shared/agents/agentWork'
 import {
   MANAGER_FEATURE,
@@ -32,7 +53,6 @@ import { fmt } from '../shared/app/dict'
 import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
 import { isMacInstall, replacesInApp } from '../shared/app/installMethod'
 import { clampZoom, zoomFactor } from '../shared/app/zoom'
-import { appEnv, readEnv } from '../shared/appEnv'
 import { ARTIFACT_LIST_MAX } from '../shared/artifacts/artifacts'
 import { isPreviewPartition } from '../shared/artifacts/htmlPreview'
 import { parseChatToolSettings } from '../shared/assist/chatTools'
@@ -40,27 +60,13 @@ import { parseGitSettings } from '../shared/boards/git'
 import { parsePortsSettings } from '../shared/boards/ports'
 import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browser/browserProfile'
 import { PASSKEY_GUARD_JS } from '../shared/browser/passkeyGuard'
-import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import { ChangeSignal } from '../shared/common/actThenConfirm'
 import { externalHref } from '../shared/common/externalLinks'
-import { languageForPath } from '../shared/editorLanguages'
-import type {
-  ExtensionEventPayloads,
-  ExtensionEventType,
-  ExtensionPanelContext,
-  ExtensionResult,
-  WorkspaceChip,
-} from '../shared/extensions'
 import { EXTENSION_SUGGESTIONS } from '../shared/extensions/extensionSuggestions'
-import { OPEN_FILES_COMMAND } from '../shared/files/openFiles'
-import { OPEN_FILES_MAX } from '../shared/files/openFiles'
+import { OPEN_FILES_COMMAND, OPEN_FILES_MAX } from '../shared/files/openFiles'
 import { desktopsOf } from '../shared/keyboard/desktopChords'
-import { languageServerKey } from '../shared/languageServers'
 import { parsePrivacySettings } from '../shared/privacy/redaction'
 import { bucketCount } from '../shared/privacy/telemetry'
-import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
-import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
-import { type RemoteCwd, normalizeRemoteCwd } from '../shared/remoteFolders'
 import { parseSandboxGlobals } from '../shared/sandbox/sandbox'
 import { KEEP_SHELLS_FEATURE, parseKeepShells } from '../shared/terminal/keepShells'
 import { isHostNamed } from '../shared/terminal/osc7'
@@ -86,7 +92,6 @@ import type {
 } from '../shared/types'
 import { AGENT_OFFER_RESULT_CHANNEL, createAgentOfferRelay } from './agents/agentOfferRelay'
 import { AgentRunningPanes } from './agents/agentRunning'
-import { agentPluginContent } from './agents/agentSkills'
 import { registerAgentTranscriptIpc } from './agents/agentTranscript'
 import {
   ReportedAgentWork,
@@ -217,7 +222,6 @@ import { ExtensionConnections } from './extensions/extensionConnections'
 import { ExtensionExec } from './extensions/extensionExec'
 import { ExtensionHost, registerExtensionMethods } from './extensions/extensionHost'
 import { ExtensionLaunches } from './extensions/extensionLaunches'
-import type { ExtensionRoot } from './extensions/extensionManifest'
 import { type SecretStoreDeps, createSecretStore } from './extensions/extensionSecrets'
 import { ExtensionStore } from './extensions/extensionStore'
 import { DismissedSuggestions, suggestionFor } from './extensions/extensionSuggestions'

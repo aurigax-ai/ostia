@@ -1,7 +1,7 @@
 import { constants, accessSync, realpathSync } from 'node:fs'
 import { dirname, isAbsolute, join, relative } from 'node:path'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
-import { PRODUCT_NAME } from '../../shared/product'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import {
   DEFAULT_SWITCHES,
   type ResolvedSandbox,

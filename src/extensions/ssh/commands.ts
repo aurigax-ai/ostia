@@ -1,4 +1,3 @@
-import type { ExtensionCaller, OpenTerminalOptions } from '../../shared/extensions'
 import {
   type CommandHandler,
   type ConfirmRequest,
@@ -7,7 +6,11 @@ import {
   cliArgs,
   failure,
   ok,
-} from '../sdk'
+} from '@aurigax-ai/ostia-extension-sdk'
+import type {
+  ExtensionCaller,
+  OpenTerminalOptions,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { connectConfirm } from './confirm'
 import type { HelperBundle } from './helper'
 import { ALIAS_PATTERN, type HostList } from './hosts'

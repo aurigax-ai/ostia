@@ -1,6 +1,11 @@
+import type {
+  AskOptions,
+  ConnectionValue,
+  ExecOptions,
+  PaneInfo,
+} from '@aurigax-ai/ostia-extension-sdk'
 import { MemoryJournalStore, type Output } from '@aurigax-ai/wire'
 import { FakeClock, settle } from '@aurigax-ai/wire/testing'
-import type { AskOptions, ConnectionValue, ExecOptions, PaneInfo } from '../sdk'
 import { type GraphsExt, GraphsRunner, type Workspace } from './runner'
 
 export interface FakeExt {

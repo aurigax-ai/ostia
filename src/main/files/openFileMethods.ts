@@ -1,7 +1,10 @@
 import { readFileSync, statSync } from 'node:fs'
 import { basename } from 'node:path'
-import { DIFF_TEXT_MAX } from '../../shared/extensions'
-import type { ExtensionOpenFileRequest, ExtensionResult } from '../../shared/extensions'
+import { DIFF_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type {
+  ExtensionOpenFileRequest,
+  ExtensionResult,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import {
   type DiffFilesResult,
   type FileTarget,

@@ -5,8 +5,8 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { gzipSync } from 'node:zlib'
+import type { LanguageServerRun } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type { LanguageServerRun } from '../../shared/languageServers'
 import { FetchError, ManagedServers } from './managedServers'
 
 const program = Buffer.from('#!/bin/sh\necho fetched\n')

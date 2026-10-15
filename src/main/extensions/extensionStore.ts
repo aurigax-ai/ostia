@@ -1,4 +1,8 @@
-import { ALL_CAPABILITIES, BUILTIN_CAPABILITIES, type Capability } from '../../shared/capabilities'
+import {
+  ALL_CAPABILITIES,
+  BUILTIN_CAPABILITIES,
+  type Capability,
+} from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { loadJson, saveJson } from '../platform/jsonStore'
 
 export interface ExtensionRecord {

@@ -13,10 +13,14 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import type {
+  ExtensionResult,
+  ExtensionSettingValues,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { agentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { FAKE } from '../../test/fixtures/secrets/samples'
 import type { PanelModel } from '../extensions/activity/view'
-import { agentPluginContent } from '../main/agents/agentSkills'
 import { registerControlServer, stopControlServer } from '../main/control/controlServer'
 import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
 import { ExtensionHost, registerExtensionMethods } from '../main/extensions/extensionHost'
@@ -29,7 +33,6 @@ import {
   shellIntegrationDir,
   shellIntegrationSpawnOptions,
 } from '../main/terminal/shellIntegration'
-import type { ExtensionResult, ExtensionSettingValues } from '../shared/extensions'
 import type { CommandResult } from '../shared/types'
 
 const repoRoot = process.cwd()

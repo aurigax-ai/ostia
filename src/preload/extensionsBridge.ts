@@ -1,4 +1,3 @@
-import { ipcRenderer } from 'electron'
 import type {
   ExtensionAgentOffer,
   ExtensionConnectionEntry,
@@ -15,12 +14,13 @@ import type {
   ExtensionSidebarItem,
   PaneChip,
   WorkspaceChip,
-} from '../shared/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { LoadedIconTheme } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
+import type { LanguagePack } from '@aurigax-ai/ostia-extension-sdk/contract/languagePack'
+import { ipcRenderer } from 'electron'
 import type { ExtensionSuggestion } from '../shared/extensions/extensionSuggestions'
 import type { MarketplaceResult, MarketplaceState } from '../shared/extensions/marketplace'
-import type { LoadedIconTheme } from '../shared/iconTheme'
 import type { KeymapLoad } from '../shared/keyboard/keymapFile'
-import type { LanguagePack } from '../shared/languagePack'
 import type { OstiaBridge } from '../shared/types'
 
 export const extensionsBridge: Pick<

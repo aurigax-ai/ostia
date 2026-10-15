@@ -1,7 +1,7 @@
 import { cpSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { buildSync } from 'esbuild'
-import { PRODUCT_NAME } from '../src/shared/product'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, waitForPaletteSelection } from './helpers'

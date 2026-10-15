@@ -1,7 +1,10 @@
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { LanguageServerInfo, LspLog } from '@shared/languageServers'
+import type {
+  LanguageServerInfo,
+  LspLog,
+} from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'

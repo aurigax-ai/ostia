@@ -9,7 +9,11 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ExtensionInfo, ExtensionResult, WorkspaceChip } from '@shared/extensions'
+import type {
+  ExtensionInfo,
+  ExtensionResult,
+  WorkspaceChip,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'

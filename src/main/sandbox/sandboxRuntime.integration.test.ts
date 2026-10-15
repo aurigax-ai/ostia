@@ -71,7 +71,7 @@ beforeAll(async () => {
     bundle: true,
     platform: 'node',
     format: 'esm',
-    packages: 'external',
+    external: ['@anthropic-ai/sandbox-runtime'],
   })
   root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-sbx-')))
   home = join(root, 'home')

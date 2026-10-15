@@ -3,6 +3,12 @@ import { chmodSync, rmSync } from 'node:fs'
 import { type Server, type Socket, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import {
+  type Capability,
+  DEFAULT_CAPABILITIES,
+} from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import { TARGET_PANE_PARAM } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
+import {
   type CancellationToken,
   ErrorCodes,
   type MessageConnection,
@@ -11,13 +17,10 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import { type Capability, DEFAULT_CAPABILITIES } from '../../shared/capabilities'
-import { TARGET_PANE_PARAM } from '../../shared/extensions'
 import type {
   ScriptTokenCallOutcome,
   ScriptTokenCallTarget,
 } from '../../shared/permissions/scriptTokens'
-import { PRODUCT_NAME } from '../../shared/product'
 import type {
   CommandDescriptor,
   CommandResult,

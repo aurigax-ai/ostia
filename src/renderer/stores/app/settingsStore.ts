@@ -36,8 +36,15 @@ import {
 import { DEFAULT_WINDOW_TITLE, parseWindowTitle } from '@/lib/settings/windowTitle'
 import type { GroupRule } from '@/lib/sidebar/workspaceGroups'
 import { normalizeHex } from '@/lib/theme/color'
-import { isMac } from '@/platform'
-import { platform } from '@/platform'
+import { isMac, platform } from '@/platform'
+import {
+  type AssistModelSettings,
+  DEFAULT_ASSIST_MODEL_SETTINGS,
+  parseAssistModelSettings,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import type { ExtensionSettingValues } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import { type AgentHooks, DEFAULT_AGENT_HOOKS, parseAgentHooks } from '@shared/agents/agentHooks'
 import {
   DEFAULT_MANAGER_SETTINGS,
@@ -57,11 +64,6 @@ import {
 } from '@shared/app/releases'
 import { ZOOM_DEFAULT, clampZoom } from '@shared/app/zoom'
 import {
-  type AssistModelSettings,
-  DEFAULT_ASSIST_MODEL_SETTINGS,
-  parseAssistModelSettings,
-} from '@shared/assist'
-import {
   type ChatToolSettings,
   DEFAULT_CHAT_TOOL_SETTINGS,
   parseChatToolSettings,
@@ -72,8 +74,6 @@ import {
   type PortsSettings,
   parsePortsSettings,
 } from '@shared/boards/ports'
-import type { Capability } from '@shared/capabilities'
-import type { ExtensionSettingValues } from '@shared/extensions'
 import type { ChordValue, KeybindingMap } from '@shared/keyboard/chordSpec'
 import { parseGlobalHotkey } from '@shared/keyboard/globalHotkey'
 import {
@@ -91,7 +91,6 @@ import {
   parseRedactionSettings,
 } from '@shared/privacy/redaction'
 import { type TelemetrySettings, parseTelemetrySettings } from '@shared/privacy/telemetry'
-import { isDangerousSegment } from '@shared/protoGuard'
 import { type SandboxGlobals, parseSandboxGlobals } from '@shared/sandbox/sandbox'
 import { parsePromptSettings } from '@shared/terminal/promptSettings'
 import { normalizeGroupName } from '@shared/workspaces/workspaceGroups'

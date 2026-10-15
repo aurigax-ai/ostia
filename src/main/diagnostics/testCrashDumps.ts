@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { isAbsolute } from 'node:path'
+import { type EnvSource, envName, readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { app, crashReporter } from 'electron'
-import { type EnvSource, envName, readEnv } from '../../shared/appEnv'
 
 const CRASH_DUMPS_ENV = 'E2E_CRASH_DUMPS'
 

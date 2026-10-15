@@ -2,9 +2,13 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { EXTENSION_API_VERSION } from '@aurigax-ai/ostia-extension-sdk/contract/extensionApi'
+import type {
+  ExtensionCaller,
+  ExtensionInfo,
+  ExtensionSidebarItem,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { EXTENSION_API_VERSION } from '../../shared/extensionApi'
-import type { ExtensionCaller, ExtensionInfo, ExtensionSidebarItem } from '../../shared/extensions'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { registerPaneListMethods } from '../panes/paneList'

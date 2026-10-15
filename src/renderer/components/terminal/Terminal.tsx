@@ -1,7 +1,7 @@
 import { keptShellReattached } from '@/lib/agents/autoResume'
 import type { TerminalRenderer } from '@/lib/settings/terminalPaneSettings'
 import { silenceQueryReplies } from '@/lib/terminal/tmuxQueries'
-import { CHAT_CONTEXT_TEXT_MAX } from '@shared/assist'
+import { CHAT_CONTEXT_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'

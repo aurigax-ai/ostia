@@ -1,9 +1,9 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { en, zhHant } from '../../shared/app/dict'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import type { LanguageSource } from './languagePacks'
 import { createMainStrings } from './strings'
 

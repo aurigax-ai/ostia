@@ -1,5 +1,6 @@
 import { readdirSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk'
 import {
   GRAPHS_LISTED_MAX,
   type LoadedGraph,
@@ -7,7 +8,6 @@ import {
   type Problem,
   readGraphFile,
 } from '@aurigax-ai/wire'
-import { PRODUCT_NAME } from '../sdk'
 
 const GRAPHS_FOLDER = join(`.${PRODUCT_NAME.toLowerCase()}`, 'graphs')
 

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, realpathSync } from 'node:fs'
 import { lstat, mkdir, open, readFile, readdir, stat, unlink, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
-import { CHAT_TOOL_OUTPUT_MAX } from '../../shared/assist'
+import { CHAT_TOOL_OUTPUT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { CHAT_EDITS_MAX, applyEdits } from '../../shared/assist/chatEdits'
 import {
   CHAT_DIRTY_PATHS_MAX,

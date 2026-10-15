@@ -2,9 +2,9 @@ import { openBrowserAs } from '@/lib/browser/browserProfile'
 import type { SidebarSettings } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { PORTS_SOURCE } from '@shared/boards/git'
+import type { ExtensionSidebarItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { PORTS_SOURCE } from '@aurigax-ai/ostia-extension-sdk/manifest/coreNames'
 import type { BrowserOpener } from '@shared/browser/browserProfile'
-import type { ExtensionSidebarItem } from '@shared/extensions'
 
 type ItemToggles = Pick<SidebarSettings, 'showSSH'>
 

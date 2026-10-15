@@ -1,4 +1,4 @@
-import { readEnv } from '../../shared/appEnv'
+import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { quoteArg } from '../../shared/terminal/shellQuote'
 
 const NEW_SESSION = ' --new-session --die-with-parent '

@@ -1,9 +1,9 @@
 import { rmSync } from 'node:fs'
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
+import { parseEndpoint } from '@aurigax-ai/ostia-extension-sdk/assist'
 import { APICallError, type UIMessageChunk, generateText, streamText } from 'ai'
 import { afterEach, describe, expect, it } from 'vitest'
-import { parseEndpoint } from '../sdk/assist/endpoint'
 import { ASSISTANT_CATALOG, createProvider, kindTitle } from './providers'
 
 interface Seen {

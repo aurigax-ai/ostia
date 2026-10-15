@@ -1,5 +1,5 @@
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Capability } from '../../shared/capabilities'
 import type { ApprovalMode, ApprovalState } from '../../shared/permissions/approvals'
 
 vi.mock('electron', () => ({

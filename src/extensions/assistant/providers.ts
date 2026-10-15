@@ -1,18 +1,18 @@
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
-import { createOpenRouter } from '@openrouter/ai-sdk-provider'
-import type { AssistModel, ChatToolMode } from '../../shared/assist'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
+import { createTranslator } from '@aurigax-ai/ostia-extension-sdk'
 import {
   type Endpoint,
   type FetchFn,
   baseUrl,
   endpointFetch,
   requestJson,
-} from '../sdk/assist/endpoint'
-import type { Provider, ProviderCatalog } from '../sdk/assist/provider'
-import { createTranslator } from '../sdk/i18n'
+} from '@aurigax-ai/ostia-extension-sdk/assist'
+import type { Provider, ProviderCatalog } from '@aurigax-ai/ostia-extension-sdk/assist'
+import type { AssistModel, ChatToolMode } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
+import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 
 const PROVIDER_KINDS = ['ollama', 'openai-compatible', 'openrouter', 'openai', 'anthropic'] as const
 

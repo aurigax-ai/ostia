@@ -10,8 +10,8 @@ import {
   usePaneChips,
   useWorkspaceChips,
 } from '@/lib/extensions/extensionChips'
+import type { PaneChipItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { CopyIcon } from '@phosphor-icons/react'
-import type { PaneChipItem } from '@shared/extensions'
 import { extensionIcon } from './extensionIcons'
 
 export function PaneChips({ paneId }: { paneId: string }): JSX.Element | null {

@@ -7,9 +7,9 @@ import {
   createServer as createNetServer,
 } from 'node:net'
 import { TLSSocket, createSecureContext } from 'node:tls'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { app } from 'electron'
 import { type WebSocket, WebSocketServer } from 'ws'
-import { PRODUCT_NAME } from '../../shared/product'
 import type { GatewayPhoneAddress } from '../../shared/types'
 import { PLATFORM_EVENT_TYPES, type PlatformEventType, platformEvents } from '../control/events'
 import { getByPaneId, resolveExternal } from '../control/idRegistry'

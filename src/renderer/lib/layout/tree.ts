@@ -1,7 +1,7 @@
 import { namespacedId } from '@/lib/workspaces/idNamespace'
+import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { type AgentResume, sameResume } from '@shared/agents/agentResume'
 import { type BrowserProfile, parseBrowserProfile } from '@shared/browser/browserProfile'
-import { isRemotePath } from '@shared/remoteFolders'
 import type { PanePlacement } from '@shared/types'
 import type {
   Direction,

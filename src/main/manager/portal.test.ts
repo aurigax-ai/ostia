@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync, statSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   type MessageConnection,
@@ -11,7 +12,6 @@ import {
 } from 'vscode-jsonrpc/node'
 import { managerAgents, parseManagerSettings } from '../../shared/agents/managerSettings'
 import type { MissingRequirement } from '../../shared/app/systemRequirements'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import { ManagerService } from './manager'
 import { type MirrorSink, Portal, portalSupported } from './portal'
 import type { CallerVerdict } from './portalCaller'

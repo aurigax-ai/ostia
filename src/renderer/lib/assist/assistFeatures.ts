@@ -9,7 +9,7 @@ import {
   choiceLabel,
   featureModelClass,
   sameModelRef,
-} from '@shared/assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { useMemo } from 'react'
 
 export interface AssistFeatureRef {

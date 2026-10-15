@@ -1,7 +1,10 @@
 import { Badge } from '@/components/ui/badge'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { remoteFolderOf, useRemoteFoldersStore } from '@/stores/files/remoteFoldersStore'
-import { type RemoteFileError, parseRemotePath } from '@shared/remoteFolders'
+import {
+  type RemoteFileError,
+  parseRemotePath,
+} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 
 export function RemoteFileBar({
   filePath,

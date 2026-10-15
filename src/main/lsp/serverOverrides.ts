@@ -4,8 +4,8 @@ import {
   type LanguageServerOverrideProblem,
   parseLanguageServerOverride,
   splitLanguageServerKey,
-} from '../../shared/languageServers'
-import { isDangerousSegment } from '../../shared/protoGuard'
+} from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
+import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import { loadJson, saveJson } from '../platform/jsonStore'
 
 const MAX_OVERRIDES = 256

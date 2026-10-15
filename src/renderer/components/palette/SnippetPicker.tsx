@@ -31,7 +31,7 @@ import {
   defaultValues,
   renderSnippet,
   snippetArguments,
-} from '@shared/snippets'
+} from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
 import { type FormEvent, useId, useState } from 'react'
 
 export function SnippetCommand({

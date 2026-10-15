@@ -1,7 +1,7 @@
 import { fmt, useDict } from '@/lib/app/useDict'
 import { attachAndOpenChat } from '@/lib/assist/askContext'
 import { setAssistFeature, useAssistFeature, useChatAvailable } from '@/lib/assist/assistFeatures'
-import { CHAT_CONTEXT_TEXT_MAX } from '@shared/assist'
+import { CHAT_CONTEXT_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { type RefObject, useEffect } from 'react'
 import type { monaco } from './setup'
 

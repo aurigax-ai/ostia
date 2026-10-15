@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { chmodSync, lstatSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { PRODUCT_NAME } from '../../shared/product'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 
 export function socketPathLimit(platform: NodeJS.Platform): number {
   return platform === 'darwin' ? 103 : 107

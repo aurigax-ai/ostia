@@ -1,6 +1,6 @@
 import { statSync } from 'node:fs'
+import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import { readEnv } from '../../shared/appEnv'
 import { ARTIFACTS_ENV } from '../../shared/artifacts/artifacts'
 import {
   type DiffFilesResult,

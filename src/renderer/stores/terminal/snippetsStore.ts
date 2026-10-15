@@ -1,4 +1,7 @@
-import type { SnippetEntry, SnippetListing } from '@shared/snippets'
+import type {
+  SnippetEntry,
+  SnippetListing,
+} from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
 import { create } from 'zustand'
 
 const EMPTY_LISTING: SnippetListing = { snippets: [], problems: [] }

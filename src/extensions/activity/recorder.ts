@@ -1,5 +1,9 @@
-import { type AgentHookEvent, isAgentHookEvent, isHookAgent } from '../../shared/agentPlugins'
-import type { ExtensionCaller } from '../../shared/extensions'
+import {
+  type AgentHookEvent,
+  isAgentHookEvent,
+  isHookAgent,
+} from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
+import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { type ActivityEvent, parseHookEvent } from './hookEvent'
 import type { Journal } from './journal'
 

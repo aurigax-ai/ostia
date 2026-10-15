@@ -15,7 +15,7 @@ import type {
   ExtensionInfo,
   ExtensionOpenDiffRequest,
   ExtensionOpenPanelRequest,
-} from '@shared/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { ProcessTerminalRequest } from '@shared/types'
 import { commands } from './registry'
 

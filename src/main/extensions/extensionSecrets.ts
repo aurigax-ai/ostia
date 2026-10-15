@@ -1,5 +1,5 @@
-import { EXTENSION_SECRET_MAX } from '../../shared/extensions'
-import { isDangerousSegment } from '../../shared/protoGuard'
+import { EXTENSION_SECRET_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import type { ExtensionSecretStore } from './extensionHost'
 
 export type StoredSecrets = Record<string, Record<string, string>>

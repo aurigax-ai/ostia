@@ -66,9 +66,9 @@ import { readableColumns } from '@/lib/panes/splitTabs'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useDiffStore } from '@/stores/files/diffStore'
 import { isWaitedPane } from '@/stores/files/openWaitsStore'
+import type { DiffContent } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { AgentResume } from '@shared/agents/agentResume'
 import type { BrowserProfile } from '@shared/browser/browserProfile'
-import type { DiffContent } from '@shared/extensions'
 import type { PanePlacement } from '@shared/types'
 import {
   SPLIT_TAB_NAME_MAX,

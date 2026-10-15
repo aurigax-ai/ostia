@@ -1,8 +1,11 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type {
+  ExtensionCaller,
+  ExtensionInfo,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { ExtensionCaller, ExtensionInfo } from '../../shared/extensions'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import {

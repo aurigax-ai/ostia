@@ -21,7 +21,7 @@ describe('sandboxed servers on macOS', () => {
         bundle: true,
         platform: 'node',
         format: 'esm',
-        packages: 'external',
+        external: ['@anthropic-ai/sandbox-runtime'],
       })
       const root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-mac-ports-')))
       const workDir = join(root, 'home', 'proj')

@@ -1,4 +1,7 @@
-import type { LanguageServerInfo, LspSessionInfo } from '@shared/languageServers'
+import type {
+  LanguageServerInfo,
+  LspSessionInfo,
+} from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { type ServerEndpoint, createServerEndpoint } from '../../../../test/mocks/lspTransport'
 import { FakeModel, createFakeMonaco } from '../../../../test/mocks/monaco'

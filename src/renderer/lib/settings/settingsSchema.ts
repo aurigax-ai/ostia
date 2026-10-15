@@ -11,6 +11,7 @@ import { TERMINAL_SEND_MAX, TERMINAL_SEND_TYPES } from '@/lib/keyboard/terminalK
 import { BUILTIN_COLOR_SCHEMES } from '@/lib/theme/colorSchemes'
 import { MATCH_OSTIA_THEME } from '@/lib/theme/themeChoice'
 import { platform } from '@/platform'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import {
   BELL_MODES,
   LONG_COMMAND_MAX_SECONDS,
@@ -22,7 +23,6 @@ import { CHORDS_PER_COMMAND_MAX } from '@shared/keyboard/chordSpec'
 import { DEFAULT_CHORDS } from '@shared/keyboard/defaultChords'
 import { GLOBAL_HOTKEY_MAX_LENGTH } from '@shared/keyboard/globalHotkey'
 import { REDACTION_PATTERNS_MAX, REDACTION_PATTERN_MAX } from '@shared/privacy/redaction'
-import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import {
   CORE_CHIP_IDS,
   MAX_PROMPT_CHIPS,

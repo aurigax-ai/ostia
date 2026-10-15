@@ -1,6 +1,6 @@
+import { envName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { describe, expect, it } from 'vitest'
 import { en } from '../../shared/app/dict'
-import { envName } from '../../shared/appEnv'
 import {
   MCP_OAUTH_BROWSER_ENV,
   SignInFailure,

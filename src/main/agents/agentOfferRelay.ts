@@ -1,4 +1,4 @@
-import type { ExtensionAgentOffer } from '../../shared/extensions'
+import type { ExtensionAgentOffer } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { AgentOfferDelivery } from './extensionAgents'
 
 export const AGENT_OFFER_TIMEOUT_MS = 120_000

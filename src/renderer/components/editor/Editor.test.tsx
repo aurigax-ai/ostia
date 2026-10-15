@@ -890,7 +890,7 @@ describe('EditorView', () => {
     })
 
     it('offers no compare when either side is beyond the diff size cap', async () => {
-      const { DIFF_TEXT_MAX } = await import('@shared/extensions')
+      const { DIFF_TEXT_MAX } = await import('@aurigax-ai/ostia-extension-sdk/contract/extensions')
       await open()
       act(() => fake.state.model?.setValue('my edit'))
       await diskChanges('x'.repeat(DIFF_TEXT_MAX + 1))

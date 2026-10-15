@@ -1,6 +1,6 @@
 import { SandboxManager } from '@anthropic-ai/sandbox-runtime'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { cachedLookups } from '../sandboxPackages/packageLookups'
 import { type PackagePolicy, decidePackage } from '../sandboxPackages/packagePolicy'
 import { REGISTRY_HOSTS, parsePackageDownload } from '../sandboxPackages/packages'

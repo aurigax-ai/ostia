@@ -1,7 +1,5 @@
 import { lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { ipcMain } from 'electron'
-import { parseAllDocuments, stringify } from 'yaml'
 import {
   type Snippet,
   type SnippetEntry,
@@ -12,7 +10,9 @@ import {
   parseSnippet,
   snippetDocument,
   snippetFileStem,
-} from '../../shared/snippets'
+} from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
+import { ipcMain } from 'electron'
+import { parseAllDocuments, stringify } from 'yaml'
 import { registerControlMethod } from '../control/controlServer'
 import { PROJECT_DIR } from '../platform/jsonStore'
 import { resolveSafe } from '../platform/pathGuard'

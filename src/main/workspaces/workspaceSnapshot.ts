@@ -1,7 +1,7 @@
 import { existsSync, rmSync } from 'node:fs'
+import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
+import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { parseAgentResume } from '../../shared/agents/agentResume'
-import { isDangerousSegment } from '../../shared/protoGuard'
-import { isRemotePath } from '../../shared/remoteFolders'
 import type {
   AppSnapshot,
   PaneDrop,

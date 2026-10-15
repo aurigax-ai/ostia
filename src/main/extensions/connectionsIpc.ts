@@ -1,5 +1,8 @@
+import type {
+  ExtensionConnectionEntry,
+  ExtensionConnectionResult,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { type IpcMainInvokeEvent, ipcMain } from 'electron'
-import type { ExtensionConnectionEntry, ExtensionConnectionResult } from '../../shared/extensions'
 import type { ExtensionHost } from './extensionHost'
 
 function fromWindow(e: IpcMainInvokeEvent): boolean {

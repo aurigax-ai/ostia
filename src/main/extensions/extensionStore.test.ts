@@ -1,8 +1,8 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { ALL_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { afterEach, describe, expect, it } from 'vitest'
-import { ALL_CAPABILITIES } from '../../shared/capabilities'
 import { ExtensionStore, effectiveRecord, grantedCaps, needsApproval } from './extensionStore'
 
 describe('grantedCaps', () => {

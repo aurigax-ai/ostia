@@ -15,15 +15,18 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { gzipSync } from 'node:zlib'
+import { appEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import {
+  type EditorLanguage,
+  languageForPath,
+} from '@aurigax-ai/ostia-extension-sdk/contract/editorLanguages'
+import type { LanguageServerContribution } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
+import { readManifest } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   FAKE_LSP_BIN,
   installFakeLanguageExtension,
 } from '../../../test/fixtures/lsp/installFakeExtension'
-import { appEnv } from '../../shared/appEnv'
-import { type EditorLanguage, languageForPath } from '../../shared/editorLanguages'
-import type { LanguageServerContribution } from '../../shared/languageServers'
-import { readManifest } from '../extensions/extensionManifest'
 import { TreeWatches } from '../files/fileWatch'
 import { programPath } from '../platform/systemRequirements'
 import { releaseUserAgent } from '../updates/releaseCheck'

@@ -1,3 +1,16 @@
+packages:
+  - packages/*
+catalog:
+  '@ai-sdk-tool/parser': ^5.1.6
+  '@types/node': ^24.19.1
+  ai: ^7.0.122
+  esbuild: ^0.28.2
+  typescript: 5.9.3
+  undici: ^6.29.0
+  vitest: ^5.0.4
+  vscode-jsonrpc: ^9.0.1
+  yaml: ^2.9.1
+  zod: ^4.6.5
 allowBuilds:
   '@biomejs/biome': true
   electron: true

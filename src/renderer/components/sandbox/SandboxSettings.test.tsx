@@ -1,4 +1,4 @@
-import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import '@testing-library/jest-dom/vitest'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import {

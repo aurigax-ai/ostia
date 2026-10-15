@@ -14,18 +14,18 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useAssistStore, wakeAssist } from '@/stores/assist/assistStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import {
-  CaretDownIcon,
-  ChatCircleDotsIcon,
-  GearSixIcon,
-  WarningCircleIcon,
-} from '@phosphor-icons/react'
-import {
   type AssistCatalog,
   type AssistFeatureState,
   type AssistModelClass,
   choiceLabel,
   sameModelRef,
-} from '@shared/assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import {
+  CaretDownIcon,
+  ChatCircleDotsIcon,
+  GearSixIcon,
+  WarningCircleIcon,
+} from '@phosphor-icons/react'
 import { useState } from 'react'
 
 function useAssistMenuVisible(): boolean {

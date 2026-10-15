@@ -1,5 +1,8 @@
-import type { ExtensionInfo, ExtensionSettingContribution } from '@shared/extensions'
-import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
+import type {
+  ExtensionInfo,
+  ExtensionSettingContribution,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { describe, expect, it } from 'vitest'
 import {
   entryTitle,

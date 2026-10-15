@@ -1,8 +1,8 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { ExtensionCaller, ExtensionResult } from '@aurigax-ai/ostia-extension-sdk'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { ExtensionCaller, ExtensionResult } from '../sdk'
 import { JOURNAL_DIR, Journal } from './journal'
 import { type Entry, activityVerbs } from './verbs'
 

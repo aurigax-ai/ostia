@@ -4,8 +4,12 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useAssistStore } from '@/stores/assist/assistStore'
 import { resetChatTools } from '@/stores/assist/chatToolsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import type { AssistCatalog, AssistExtensionState, AssistProviderConfig } from '@shared/assist'
-import type { ExtensionInfo } from '@shared/extensions'
+import type {
+  AssistCatalog,
+  AssistExtensionState,
+  AssistProviderConfig,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'

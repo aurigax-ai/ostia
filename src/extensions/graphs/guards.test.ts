@@ -109,7 +109,7 @@ describe('what the graphs extension may do', () => {
     const core = files(
       join(REPO, 'src'),
       (n) => /\.tsx?$/.test(n) && !/\.test\.tsx?$/.test(n),
-    ).filter((f) => !f.includes('/extensions/graphs/') && !f.includes('/extensions/sdk/'))
+    ).filter((f) => !f.includes('/extensions/graphs/'))
     for (const file of core.filter((f) => f.includes('/renderer/commands/'))) {
       expect(read(file)).not.toMatch(/id: 'graphs?\./)
     }

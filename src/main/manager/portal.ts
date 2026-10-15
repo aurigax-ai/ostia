@@ -1,6 +1,7 @@
 import { chmodSync, rmSync } from 'node:fs'
 import { type Server, type Socket, createConnection, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import {
   ErrorCodes,
   ResponseError,
@@ -10,7 +11,6 @@ import {
 } from 'vscode-jsonrpc/node'
 import { portalSocketPath as sharedPortalSocketPath } from '../../shared/agents/portal'
 import type { InstallHint, MissingRequirement } from '../../shared/app/systemRequirements'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import { ManagerError, type ManagerService, parseOpenRequest } from './manager'
 import type { CallerVerdict } from './portalCaller'
 

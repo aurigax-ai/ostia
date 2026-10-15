@@ -1,5 +1,3 @@
-import { type IpcMainInvokeEvent, ipcMain } from 'electron'
-import { CancellationTokenSource } from 'vscode-jsonrpc/node'
 import {
   ASSIST_REQUEST_ID_PATTERN,
   type AssistAvailability,
@@ -12,7 +10,9 @@ import {
   type AssistResponse,
   EMPTY_ASSIST_CATALOG,
   isAssistPoint,
-} from '../../shared/assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { type IpcMainInvokeEvent, ipcMain } from 'electron'
+import { CancellationTokenSource } from 'vscode-jsonrpc/node'
 import type { AssistCallOptions } from '../extensions/extensionHost'
 
 const MAX_ASSIST_REQUESTS_PER_WINDOW = 8

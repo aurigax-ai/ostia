@@ -2,8 +2,8 @@ import { spawn } from 'node:child_process'
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { AgentResume } from '../src/shared/agents/agentResume'
-import type { ExtensionResult } from '../src/shared/extensions'
 import type { CommandResult } from '../src/shared/types'
 
 const repoRoot = process.cwd()

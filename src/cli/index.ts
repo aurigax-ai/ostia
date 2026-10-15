@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { type Socket, createConnection } from 'node:net'
+import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import {
   type MessageConnection,
   StreamMessageReader,
@@ -7,7 +8,6 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { controlInfoPath, readControlSocket } from '../main/control/controlDiscovery'
-import { readEnv } from '../shared/appEnv'
 import { SCRIPT_TOKEN_PREFIX } from '../shared/permissions/scriptTokens'
 import { wantsHelp } from './common/commandHelp'
 import { describeFailure, fail } from './common/failure'

@@ -4,14 +4,12 @@ import { type FSWatcher, mkdirSync, readdirSync, watch } from 'node:fs'
 import { homedir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { debounce, isEqual } from 'es-toolkit'
 import {
-  type CancellationToken,
-  CancellationTokenSource,
-  type MessageConnection,
-} from 'vscode-jsonrpc/node'
-import { AGENT_PLUGIN_CAPABILITY, agentSkillId, hookAgentsFor } from '../../shared/agentPlugins'
-import { appEnv, withoutEnv } from '../../shared/appEnv'
+  AGENT_PLUGIN_CAPABILITY,
+  agentSkillId,
+  hookAgentsFor,
+} from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
+import { appEnv, withoutEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import {
   ASSIST_ERRORS,
   ASSIST_POINTS,
@@ -56,16 +54,22 @@ import {
   normalizeSetupProblem,
   parseAssistModelSettings,
   sameModelRef,
-} from '../../shared/assist'
-import { ALL_CAPABILITIES, type Capability } from '../../shared/capabilities'
-import { EXTENSION_API_ENV, EXTENSION_API_VERSION } from '../../shared/extensionApi'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import {
+  ALL_CAPABILITIES,
+  type Capability,
+} from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import {
+  EXTENSION_API_ENV,
+  EXTENSION_API_VERSION,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionApi'
 import {
   EXTENSION_BASE_LOCALE,
   EXTENSION_LOCALES_DIR,
   type ExtensionLocaleChangedPayload,
   LOCALE_CHANGED_EVENT,
   type LocaleCatalogs,
-} from '../../shared/extensionLocales'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
 import {
   AGENT_OFFER_LABEL_MAX,
   AGENT_OFFER_TEXT_MAX,
@@ -122,19 +126,39 @@ import {
   panelPath,
   sidebarItemUrl,
   validSettingValue,
-} from '../../shared/extensions'
-import type { IconThemeContribution } from '../../shared/iconTheme'
-import { LANGUAGE_SERVER_CAPABILITY, languageServerSummary } from '../../shared/languageServers'
-import type { RedactionResult } from '../../shared/privacy/redaction'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { IconThemeContribution } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
+import {
+  LANGUAGE_SERVER_CAPABILITY,
+  languageServerSummary,
+} from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import {
   FOLDER_CLOSED_EVENT,
   type RemoteCwd,
   type RemoteFilesRequest,
   type RemoteFolder,
-} from '../../shared/remoteFolders'
-import type { Snippet } from '../../shared/snippets'
+} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import type { Snippet } from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
+import type { AgentPluginSource } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
+import { isInsideDir } from '@aurigax-ai/ostia-extension-sdk/manifest/confinedRead'
+import {
+  type DiscoveredExtension,
+  type ExtensionRoot,
+  discoverExtensions,
+  parseCommand,
+} from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
+import {
+  loadLocaleCatalogs,
+  manifestIn,
+} from '@aurigax-ai/ostia-extension-sdk/manifest/localeCatalogs'
+import { debounce, isEqual } from 'es-toolkit'
+import {
+  type CancellationToken,
+  CancellationTokenSource,
+  type MessageConnection,
+} from 'vscode-jsonrpc/node'
+import type { RedactionResult } from '../../shared/privacy/redaction'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
-import type { AgentPluginSource } from '../agents/agentSkills'
 import {
   type AgentOfferDelivery,
   type HeldResume,
@@ -163,19 +187,11 @@ import {
 } from '../files/remoteFolders'
 import type { EditorLanguageSource } from '../lsp/editorLanguages'
 import type { LanguageServerSource } from '../lsp/languageServers'
-import { isInsideDir } from '../platform/pathGuard'
 import { redactAssistRequest } from '../privacy/redactionTargets'
 import { spawnFolder } from '../terminal/spawnCwd'
 import type { ExtensionConnections } from './extensionConnections'
 import type { ExtensionExec } from './extensionExec'
 import type { ExtensionLaunches } from './extensionLaunches'
-import { loadLocaleCatalogs, manifestIn } from './extensionLocales'
-import {
-  type DiscoveredExtension,
-  type ExtensionRoot,
-  discoverExtensions,
-  parseCommand,
-} from './extensionManifest'
 import { type ExtensionStore, effectiveRecord, grantedCaps, needsApproval } from './extensionStore'
 import type { KeymapSource } from './keymaps'
 import type { LanguageSource } from './languagePacks'

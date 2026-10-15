@@ -1,8 +1,8 @@
 import { randomBytes } from 'node:crypto'
 import { type Dirent, lstatSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { ipcMain, shell } from 'electron'
-import { PRODUCT_NAME } from '../../shared/product'
 import { processAlive } from '../platform/processAlive'
 
 export const SCRATCH_HISTORY_FILE = `.${PRODUCT_NAME}_history`

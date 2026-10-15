@@ -1,6 +1,6 @@
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { ipcMain } from 'electron'
 import type { ChangeArea, GitFailure, GitPathsRequest } from '../../shared/boards/git'
-import type { Capability } from '../../shared/capabilities'
 import { registerControlMethod } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
 import { AREAS, type GitCaller, type GitCommands } from './commands'

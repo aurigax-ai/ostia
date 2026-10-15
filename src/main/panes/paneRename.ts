@@ -1,5 +1,5 @@
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
-import type { Capability } from '../../shared/capabilities'
 import type { CommandResult, CommandTarget } from '../../shared/types'
 import { ensureCaps } from '../approvals/controlElevation'
 import type { Reach } from '../approvals/reach'

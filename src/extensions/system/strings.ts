@@ -1,4 +1,4 @@
-import { localized } from '../../shared/extensionLocales'
+import { localized } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
 export interface Strings {
   confirmTitle: string
   confirmMessage: (packages: string[], manager: string) => string

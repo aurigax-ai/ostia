@@ -1,4 +1,4 @@
-import type { LanguageServerInfo } from '@shared/languageServers'
+import type { LanguageServerInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import { describe, expect, it } from 'vitest'
 import { type BuiltinDefaults, BuiltinFeatures, claimedLanguages } from './builtinFeatures'
 

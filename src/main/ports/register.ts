@@ -1,5 +1,5 @@
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { ipcMain } from 'electron'
-import type { Capability } from '../../shared/capabilities'
 import { ensureCaps } from '../approvals/controlElevation'
 import { registerControlMethod } from '../control/controlServer'
 import type { PortsService } from './service'

@@ -1,5 +1,6 @@
 import { readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { ipcMain } from 'electron'
 import {
   PICK_NOTE_MAX,
@@ -19,7 +20,6 @@ import {
   screenshotRect,
 } from '../../shared/browser/pick'
 import { PICK_RUNTIME_GLOBAL, pickRuntimeScript } from '../../shared/browser/pickRuntime'
-import { PRODUCT_NAME } from '../../shared/product'
 import { postBusMessage } from '../agents/bus'
 import type { OriginReach } from '../agents/originAgents'
 import type { Reach } from '../approvals/reach'

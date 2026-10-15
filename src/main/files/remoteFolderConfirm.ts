@@ -1,5 +1,5 @@
+import type { RemoteFolderAsk } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { type BrowserWindow, ipcMain } from 'electron'
-import type { RemoteFolderAsk } from '../../shared/remoteFolders'
 
 interface Pending {
   senderId: number

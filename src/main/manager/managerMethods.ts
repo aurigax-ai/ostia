@@ -1,6 +1,6 @@
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import type { ManagerSettings } from '../../shared/agents/managerSettings'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import { type ControlMethod, registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import { type PaneIo, inputBytes, readLineCount } from '../panes/paneIo'

@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   StreamMessageReader,
@@ -9,7 +10,6 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import type { QuestionState } from '../../shared/agents/questions'
-import type { ExtensionCaller } from '../../shared/extensions'
 import type { CommandResult } from '../../shared/types'
 import { AGENT_TASKS_PER_MINUTE, type HeldResume } from '../agents/extensionAgents'
 

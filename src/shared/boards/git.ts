@@ -1,8 +1,8 @@
-import type { ExtensionSidebarItem, PaneChip, WorkspaceChip } from '../extensions'
-
-export const GIT_SOURCE = 'git'
-export const PORTS_SOURCE = 'ports'
-const CORE_SOURCES: readonly string[] = [GIT_SOURCE, PORTS_SOURCE]
+import type {
+  ExtensionSidebarItem,
+  PaneChip,
+  WorkspaceChip,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 
 export const GIT_BRANCH_CHIP = 'branch'
 export const GIT_DIFF_STATS_CHIP = 'diff-stats'
@@ -17,10 +17,6 @@ export interface CoreItems {
 }
 
 export const NO_CORE_ITEMS: CoreItems = { sidebar: [], paneChips: [], workspaceChips: [] }
-
-export function isCoreSource(id: string): boolean {
-  return CORE_SOURCES.includes(id)
-}
 
 export interface BranchInfo {
   oid: string | null

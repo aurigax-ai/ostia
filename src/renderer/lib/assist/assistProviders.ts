@@ -5,7 +5,7 @@ import {
   type AssistProviderConfig,
   type AssistProviderKind,
   isAssistModelId,
-} from '@shared/assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 
 export function newProviderId(kind: string, taken: readonly string[]): string {
   if (!taken.includes(kind)) return kind

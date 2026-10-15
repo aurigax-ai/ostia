@@ -1,5 +1,8 @@
+import {
+  type Capability,
+  capabilityRefusalHint,
+} from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
-import { type Capability, capabilityRefusalHint } from '../../shared/capabilities'
 import { type AuthedConn, capAllowedHere, connHasCap } from '../control/controlAuth'
 import type { PaneIdentity } from '../control/idRegistry'
 import { approvals } from './approvals'

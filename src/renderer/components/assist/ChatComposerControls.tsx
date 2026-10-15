@@ -14,6 +14,11 @@ import { chatChoices, useAssistStore, useChatModel } from '@/stores/assist/assis
 import { setSessionModel, useChatStore } from '@/stores/assist/chatStore'
 import { useChatMode, useChatToolsStore } from '@/stores/assist/chatToolsStore'
 import {
+  type AssistModelChoice,
+  type AssistModelRef,
+  modelRefKey,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import {
   CaretDownIcon,
   ChatCircleIcon,
   CubeIcon,
@@ -21,7 +26,6 @@ import {
   type Icon,
   PencilSimpleIcon,
 } from '@phosphor-icons/react'
-import { type AssistModelChoice, type AssistModelRef, modelRefKey } from '@shared/assist'
 import { useMemo } from 'react'
 
 const TRIGGER = 'h-6 gap-1 px-1.5 text-ui-xs'
