@@ -1,3 +1,4 @@
+import { escapeRegExp } from 'es-toolkit'
 import { textPainted } from './pixels'
 import { type ElectronApplication, type Locator, type Page, expect } from './test'
 
@@ -116,10 +117,6 @@ export function occurrences(text: string, part: string): number {
 export async function waitForPaletteSelection(win: Page, title: string): Promise<void> {
   const option = win.getByRole('option', { name: new RegExp(`^${escapeRegExp(title)}`) }).first()
   await expect(option).toHaveAttribute('aria-selected', 'true', { timeout: 5_000 })
-}
-
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 export async function waitForExit(app: ElectronApplication): Promise<void> {
