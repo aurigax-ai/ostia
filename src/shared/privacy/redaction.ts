@@ -1,3 +1,4 @@
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import {
   DEFAULT_TELEMETRY_SETTINGS,
   type TelemetrySettings,
@@ -24,10 +25,6 @@ export const CUSTOM_KIND = 'custom'
 export const DEFAULT_PRIVACY_SETTINGS: PrivacySettings = {
   redaction: { enabled: true, patterns: [] },
   telemetry: DEFAULT_TELEMETRY_SETTINGS,
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
 export function parseRedactionSettings(raw: unknown): RedactionSettings {

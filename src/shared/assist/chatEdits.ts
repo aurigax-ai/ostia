@@ -1,3 +1,4 @@
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 export const CHAT_EDITS_MAX = 32
 
 export interface ChatEdit {
@@ -11,10 +12,6 @@ type ChatEditError = 'no-match' | 'ambiguous' | 'no-change'
 export type ChatEditResult =
   | { ok: true; text: string }
   | { ok: false; error: ChatEditError; edit: number; count?: number }
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
 
 function editOf(raw: unknown): ChatEdit | null {
   if (!isRecord(raw)) return null

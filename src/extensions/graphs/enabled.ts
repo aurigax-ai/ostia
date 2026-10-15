@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { ScheduleMemory } from '@aurigax-ai/wire'
 
 export const ENABLED_FILE = 'enabled.json'
@@ -20,10 +21,6 @@ export interface EnabledRecord {
 interface Stored {
   enabled: EnabledRecord[]
   changed: { workspaceId: string; realPath: string }[]
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function parse(raw: unknown): Stored {

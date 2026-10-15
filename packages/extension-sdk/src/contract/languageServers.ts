@@ -1,5 +1,6 @@
 import { EDITOR_LANGUAGE_ID_PATTERN } from './editorLanguages'
 import type { ExtensionSettingValues } from './extensions'
+import { isRecord } from './isRecord'
 import { isDangerousSegment } from './protoGuard'
 
 export const LANGUAGE_SERVER_CAPABILITY = 'language-server'
@@ -400,10 +401,6 @@ export function downloadUrlProblem(raw: unknown): string | null {
   return url.href === raw ? null : 'must be a plain, already encoded URL'
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 function cleanJson(value: unknown): JsonValue | undefined {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return value
   if (typeof value === 'number') return Number.isFinite(value) ? value : undefined
@@ -762,7 +759,7 @@ export function overlaySettings(
     let node = out
     for (const segment of segments.slice(0, -1)) {
       const next = Object.hasOwn(node, segment) ? node[segment] : undefined
-      if (typeof next === 'object' && next !== null && !Array.isArray(next)) {
+      if (isRecord(next)) {
         node = next
       } else {
         const created: JsonObject = {}

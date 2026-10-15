@@ -3,6 +3,7 @@ import type {
   HookAgent,
 } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import { parseAgentStop } from '@aurigax-ai/ostia-extension-sdk/contract/agentStop'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 
 const TOOL_KINDS = ['edit', 'command', 'search', 'read', 'subagent', 'web', 'other'] as const
 
@@ -86,10 +87,6 @@ const TOOL_TARGETS: Record<string, { kind: ToolKind; fields: string[] }> = {
 }
 
 const PATH_FIELDS = ['file_path', 'notebook_path', 'path']
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 function withoutControls(text: string): string {
   let out = ''
