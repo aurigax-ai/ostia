@@ -113,6 +113,7 @@ import { createBrowserGuests } from './browser/browserGuests'
 import { registerBrowserStorageIpc } from './browser/browserStorage'
 import { credentials, registerCredentials } from './browser/credentials'
 import { type GuestChords, registerGuestChords } from './browser/guestChords'
+import { createGuestProfiles } from './browser/guestProfiles'
 import { registerLoginFill } from './browser/loginFill'
 import { registerAssistIpc } from './chat/assistIpc'
 import { createChatSessionStore } from './chat/chatSessions'
@@ -587,20 +588,20 @@ const { secretService, workspaceAgents, injectSecrets } = createSecretServices({
   paneForWorkspace,
 })
 
+const { browserProfiles, browserFence, fenceBrowserGuest } = createGuestProfiles({
+  scratchFolders,
+  workspaceSandboxes,
+  domainRequests,
+  browserPanes,
+})
+
 const {
-  browserProfiles,
-  browserFence,
-  fenceBrowserGuest,
   extensionOfPartition,
   browserAgentsOf,
   instrumentBrowserGuest,
   allowHumanPopups,
   hardenExtensionGuest,
 } = createBrowserGuests({
-  scratchFolders,
-  workspaceSandboxes,
-  domainRequests,
-  browserPanes,
   consoleBuffers,
   errorBuffers,
   windows,
