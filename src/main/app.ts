@@ -742,7 +742,7 @@ const { killPty, hibernatePty } = createPtyStop({
   appLog: () => appLog,
 })
 
-const { paneActivity, sandboxReadRules, ptyPid, paneOutput } = createPtyQueries({
+const { paneActivity, foregroundProgram, sandboxReadRules, ptyPid, paneOutput } = createPtyQueries({
   ptys,
   agentRunning,
   workspaceSandboxes,
@@ -2486,6 +2486,7 @@ app.whenReady().then(() => {
   registerPaneRenameMethods({ execCommand, reach, windowOfWorkspace: workspaceWindowId })
   registerPaneResumeMethods({
     execCommand,
+    foregroundProgram,
     onResume: (identity, resume) => {
       telemetry?.count('agents', 'resume')
       paneWaking.end(identity.paneId, 'started')

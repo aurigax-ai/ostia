@@ -1,4 +1,4 @@
-import { carriedFlags, resumeFlags, safeEnv, shellQuote } from './agentLaunch'
+import { resumeFlags, safeEnv, shellQuote } from './agentLaunch'
 
 export type ResumableAgent = 'claude' | 'codex'
 
@@ -55,14 +55,6 @@ export function parseAgentResume(raw: unknown): AgentResume | null {
   return resume
 }
 
-export function parseReportedResume(raw: unknown): AgentResume | null {
-  const resume = parseAgentResume(raw)
-  if (!resume) return null
-  const { args, env: _env, ...rest } = resume
-  const carried = carriedFlags(resume.agent, args ?? [])
-  return carried.length > 0 ? { ...rest, args: carried } : rest
-}
-
 export function sameResume(a: AgentResume | undefined, b: AgentResume): boolean {
   return (
     a?.agent === b.agent &&
@@ -74,10 +66,10 @@ export function sameResume(a: AgentResume | undefined, b: AgentResume): boolean 
 }
 
 function agentCommandLine(resume: AgentResume, base: string[]): string {
-  const env = Object.entries(resume.env ?? {}).map(
+  const env = Object.entries(safeEnv(resume.env)).map(
     ([name, value]) => `${name}=${shellQuote(value)}`,
   )
-  return [...env, ...base, ...(resume.args ?? []).map(shellQuote)].join(' ')
+  return [...env, ...base, ...resumeArgs(resume.agent, resume.args).map(shellQuote)].join(' ')
 }
 
 export function resumeCommand(resume: AgentResume): string {

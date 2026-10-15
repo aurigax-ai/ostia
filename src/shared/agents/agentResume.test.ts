@@ -3,7 +3,6 @@ import { commandLineEnv } from './agentLaunch'
 import {
   forkCommand,
   parseAgentResume,
-  parseReportedResume,
   resumeCommand,
   resumeFromHookPayload,
   sameResume,
@@ -62,35 +61,30 @@ describe('parseAgentResume with the launch flags and environment', () => {
   })
 })
 
-describe('parseReportedResume', () => {
-  it('keeps the carried flags and drops escaping flags and every variable', () => {
-    const reported = parseReportedResume({
-      agent: 'codex',
-      id: 'abc',
-      cwd: '/w',
-      args: [
-        '--dangerously-bypass-approvals-and-sandbox',
-        '-s',
-        'danger-full-access',
-        '-m',
-        'gpt-5',
-      ],
-      env: { CODEX_HOME: '/tmp/x', GL_ISSUE: '687' },
-    })
-    expect(reported).toEqual({ agent: 'codex', id: 'abc', cwd: '/w', args: ['-m', 'gpt-5'] })
-    expect(resumeCommand(reported ?? { agent: 'codex', id: 'none' })).toBe(
-      'codex resume abc -m gpt-5',
-    )
-  })
-
-  it('stores no permission bypass when a caller switches the agent', () => {
+describe('parseAgentResume with an escaping flag', () => {
+  it('stores none of them, from the hook or from a saved snapshot', () => {
     expect(
-      parseReportedResume({ agent: 'claude', id: 'abc', args: ['--dangerously-skip-permissions'] }),
-    ).toEqual({ agent: 'claude', id: 'abc' })
-  })
-
-  it('rejects what parseAgentResume rejects', () => {
-    expect(parseReportedResume({ agent: 'bash', id: 'abc' })).toBeNull()
+      parseAgentResume({
+        agent: 'claude',
+        id: 'abc',
+        args: [
+          '--dangerously-skip-permissions',
+          '--permission-mode',
+          'bypassPermissions',
+          '--model',
+          'opus',
+        ],
+        env: { CLAUDE_CONFIG_DIR: '/tmp/c' },
+      }),
+    ).toEqual({ agent: 'claude', id: 'abc', args: ['--model', 'opus'] })
+    expect(
+      parseAgentResume({
+        agent: 'codex',
+        id: 'abc',
+        args: ['--dangerously-bypass-approvals-and-sandbox', '-a', 'never'],
+        env: { CODEX_HOME: '/tmp/x' },
+      }),
+    ).toEqual({ agent: 'codex', id: 'abc' })
   })
 })
 
@@ -126,46 +120,23 @@ describe('resumeCommand', () => {
     ).toBe(`codex resume abc -c 'model_reasoning_effort="high"'`)
   })
 
-  it('resumes in the account the agent was started with', () => {
+  it('never replays an escaping flag or an agent config variable, even from a record built by hand', () => {
     expect(
-      resumeCommand(
-        parseAgentResume({
-          agent: 'claude',
-          id: 'abc',
-          args: ['--agent', 'ostia'],
-          env: { CLAUDE_CONFIG_DIR: '/Users/j/.claude-profiles/twai', HOME: '/tmp/h' },
-        }) ?? { agent: 'claude', id: 'none' },
-      ),
-    ).toBe('CLAUDE_CONFIG_DIR=/Users/j/.claude-profiles/twai claude --resume abc --agent ostia')
+      resumeCommand({
+        agent: 'codex',
+        id: 'abc',
+        args: ['--yolo', '-s', 'danger-full-access', '-c', 'notify=["sh"]', '-m', 'gpt-5'],
+        env: { CODEX_HOME: '/tmp/x', GL_ISSUE: '687' },
+      }),
+    ).toBe('GL_ISSUE=687 codex resume abc -m gpt-5')
     expect(
-      resumeCommand(
-        parseAgentResume({
-          agent: 'codex',
-          id: 'abc',
-          env: { CODEX_HOME: '/Users/j/.codex work', PATH: '/tmp' },
-        }) ?? { agent: 'codex', id: 'none' },
-      ),
-    ).toBe("CODEX_HOME='/Users/j/.codex work' codex resume abc")
-  })
-
-  it('quotes an account folder with shell characters and drops a relative one', () => {
-    expect(
-      resumeCommand(
-        parseAgentResume({
-          agent: 'claude',
-          id: 'abc',
-          env: { CLAUDE_CONFIG_DIR: "/home/j/it's $HOME" },
-        }) ?? { agent: 'claude', id: 'none' },
-      ),
-    ).toBe(`CLAUDE_CONFIG_DIR='/home/j/it'\\''s $HOME' claude --resume abc`)
-    expect(
-      resumeCommand(
-        parseAgentResume({ agent: 'codex', id: 'abc', env: { CODEX_HOME: './.codex' } }) ?? {
-          agent: 'codex',
-          id: 'none',
-        },
-      ),
-    ).toBe('codex resume abc')
+      forkCommand({
+        agent: 'claude',
+        id: 'abc',
+        args: ['--dangerously-skip-permissions', '--settings', '/tmp/s.json', '--model', 'opus'],
+        env: { CLAUDE_CONFIG_DIR: '/tmp/c' },
+      }),
+    ).toBe('claude --resume abc --fork-session --model opus')
   })
 
   it('reads its own variables back from the command it typed', () => {

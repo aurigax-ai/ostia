@@ -18,23 +18,14 @@ const MAX_ENV_VALUE = 1024
 const MAX_COMMAND_LINE = 16384
 
 const CLAUDE_FLAGS: Record<string, Arity> = {
-  '--add-dir': 'many',
   '--agent': 'one',
-  '--agents': 'one',
-  '--allow-dangerously-skip-permissions': 'none',
-  '--allowed-tools': 'many',
-  '--allowedTools': 'many',
   '--append-system-prompt': 'one',
-  '--append-system-prompt-file': 'one',
   '--autocompact': 'one',
   '--ax-screen-reader': 'none',
   '--bare': 'none',
   '--betas': 'many',
   '--brief': 'none',
-  '--chrome': 'none',
-  '--dangerously-skip-permissions': 'none',
   '--debug': 'optional',
-  '--debug-file': 'one',
   '--disable-slash-commands': 'none',
   '--disallowed-tools': 'many',
   '--disallowedTools': 'many',
@@ -42,22 +33,16 @@ const CLAUDE_FLAGS: Record<string, Arity> = {
   '--exclude-dynamic-system-prompt-sections': 'none',
   '--fallback-model': 'one',
   '--ide': 'none',
-  '--mcp-config': 'many',
   '--model': 'one',
   '--name': 'one',
   '--no-chrome': 'none',
   '--permission-mode': 'one',
-  '--plugin-dir': 'one',
-  '--plugin-url': 'one',
   '--remote-control': 'optional',
   '--remote-control-session-name-prefix': 'one',
   '--restricted': 'none',
   '--safe-mode': 'none',
-  '--setting-sources': 'one',
-  '--settings': 'one',
   '--strict-mcp-config': 'none',
   '--system-prompt': 'one',
-  '--system-prompt-file': 'one',
   '--system-prompt-snapshot': 'one',
   '--tools': 'many',
   '--verbose': 'none',
@@ -66,75 +51,20 @@ const CLAUDE_FLAGS: Record<string, Arity> = {
 const CODEX_FLAGS: Record<string, Arity> = {
   '-a': 'one',
   '--ask-for-approval': 'one',
-  '--add-dir': 'one',
-  '--approve-for-me': 'none',
   '-c': 'one',
   '--config': 'one',
-  '--dangerously-bypass-approvals-and-sandbox': 'none',
-  '--dangerously-bypass-hook-trust': 'none',
-  '--disable': 'one',
-  '--enable': 'one',
   '--local-provider': 'one',
   '-m': 'one',
   '--model': 'one',
   '--no-alt-screen': 'none',
   '--oss': 'none',
-  '-p': 'one',
-  '--profile': 'one',
-  '--remote': 'one',
-  '--remote-auth-token-env': 'one',
   '-s': 'one',
   '--sandbox': 'one',
   '--search': 'none',
   '--strict-config': 'none',
-  '--yolo': 'none',
 }
 
-type Carry = true | ReadonlySet<string> | ((value: string) => boolean)
-
-const CLAUDE_PERMISSION_MODES = new Set([
-  'acceptEdits',
-  'auto',
-  'default',
-  'dontAsk',
-  'manual',
-  'plan',
-])
-
-const CLAUDE_CARRY: Record<string, Carry> = {
-  '--agent': true,
-  '--append-system-prompt': true,
-  '--append-system-prompt-file': true,
-  '--autocompact': true,
-  '--ax-screen-reader': true,
-  '--bare': true,
-  '--betas': true,
-  '--brief': true,
-  '--chrome': true,
-  '--debug': true,
-  '--disable-slash-commands': true,
-  '--disallowed-tools': true,
-  '--disallowedTools': true,
-  '--effort': true,
-  '--exclude-dynamic-system-prompt-sections': true,
-  '--fallback-model': true,
-  '--ide': true,
-  '--model': true,
-  '--name': true,
-  '--no-chrome': true,
-  '--permission-mode': CLAUDE_PERMISSION_MODES,
-  '--remote-control': true,
-  '--remote-control-session-name-prefix': true,
-  '--restricted': true,
-  '--safe-mode': true,
-  '--strict-mcp-config': true,
-  '--system-prompt': true,
-  '--system-prompt-file': true,
-  '--system-prompt-snapshot': true,
-  '--tools': true,
-  '--verbose': true,
-}
-
+const CLAUDE_PERMISSION_MODES = new Set(['acceptEdits', 'default', 'dontAsk', 'manual', 'plan'])
 const CODEX_SANDBOXES = new Set(['read-only', 'workspace-write'])
 const CODEX_APPROVALS = new Set(['untrusted', 'on-failure', 'on-request'])
 const CODEX_CONFIG_KEYS = new Set([
@@ -145,37 +75,21 @@ const CODEX_CONFIG_KEYS = new Set([
   'service_tier',
 ])
 
-function isCarriedCodexConfig(value: string): boolean {
+function isModelConfig(value: string): boolean {
   const eq = value.indexOf('=')
   return eq > 0 && CODEX_CONFIG_KEYS.has(value.slice(0, eq).trim())
 }
 
-const CODEX_CARRY: Record<string, Carry> = {
-  '-a': CODEX_APPROVALS,
-  '--ask-for-approval': CODEX_APPROVALS,
-  '-c': isCarriedCodexConfig,
-  '--config': isCarriedCodexConfig,
-  '--local-provider': true,
-  '-m': true,
-  '--model': true,
-  '--no-alt-screen': true,
-  '--oss': true,
-  '-s': CODEX_SANDBOXES,
-  '--sandbox': CODEX_SANDBOXES,
-  '--search': true,
-  '--strict-config': true,
-}
-
-const AGENT_CARRY: Record<ResumableAgent, Record<string, Carry>> = {
-  claude: CLAUDE_CARRY,
-  codex: CODEX_CARRY,
-}
-
-function isCarried(agent: ResumableAgent, name: string, values: readonly string[]): boolean {
-  const carry = Object.hasOwn(AGENT_CARRY[agent], name) ? AGENT_CARRY[agent][name] : undefined
-  if (carry === undefined) return false
-  if (carry === true) return true
-  return values.every((value) => (typeof carry === 'function' ? carry(value) : carry.has(value)))
+const ALLOWED_VALUES: Record<ResumableAgent, Record<string, (value: string) => boolean>> = {
+  claude: { '--permission-mode': (value) => CLAUDE_PERMISSION_MODES.has(value) },
+  codex: {
+    '-a': (value) => CODEX_APPROVALS.has(value),
+    '--ask-for-approval': (value) => CODEX_APPROVALS.has(value),
+    '-c': isModelConfig,
+    '--config': isModelConfig,
+    '-s': (value) => CODEX_SANDBOXES.has(value),
+    '--sandbox': (value) => CODEX_SANDBOXES.has(value),
+  },
 }
 
 const ALIASES: Record<ResumableAgent, Record<string, string>> = {
@@ -192,12 +106,7 @@ const SECRET_NAME =
   /KEY|TOKEN|SECRET|PASS|PWD|CREDENTIAL|AUTH|COOKIE|SESSION|PRIVATE|CERT|(^|[_.])(PIN|PW)($|[_.])/i
 
 const CODE_LOADING_ENV =
-  /^(LD_|DYLD_|XDG_|GIT_CONFIG_)|^(NODE_OPTIONS|NODE_PATH|BASH_ENV|ENV|PATH|HOME|PROMPT_COMMAND|ZDOTDIR|SHELLOPTS|BASHOPTS|PYTHONPATH|PYTHONSTARTUP|PERL5OPT|PERL5LIB|RUBYOPT|JAVA_TOOL_OPTIONS|GIT_SSH_COMMAND|GIT_EXEC_PATH|GIT_CONFIG|EDITOR|VISUAL|PAGER)$/
-
-const CONFIG_FLAGS: Record<ResumableAgent, ReadonlySet<string>> = {
-  claude: new Set(['--settings', '--agents', '--mcp-config']),
-  codex: new Set(['-c', '--config']),
-}
+  /^(LD_|DYLD_|XDG_|GIT_CONFIG_|CLAUDE_|CODEX_)|^(NODE_OPTIONS|NODE_PATH|BASH_ENV|ENV|PATH|HOME|PROMPT_COMMAND|ZDOTDIR|SHELLOPTS|BASHOPTS|PYTHONPATH|PYTHONSTARTUP|PERL5OPT|PERL5LIB|RUBYOPT|JAVA_TOOL_OPTIONS|GIT_SSH_COMMAND|GIT_EXEC_PATH|GIT_CONFIG|EDITOR|VISUAL|PAGER)$/
 
 const SECRET_TEXT = [
   /sk-[A-Za-z0-9_-]{16,}/,
@@ -216,9 +125,6 @@ const SECRET_TEXT = [
 
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/
 
-const PATH_ENV = new Set(['CLAUDE_CONFIG_DIR', 'CODEX_HOME'])
-const ABSOLUTE_PATH = /^(\/|[A-Za-z]:[\\/])/
-
 function hasControlCharacter(text: string): boolean {
   for (const ch of text) {
     const code = ch.charCodeAt(0)
@@ -233,13 +139,6 @@ export function looksSecret(text: string): boolean {
 
 function isSafeValue(value: string, max: number): boolean {
   return value.length <= max && !hasControlCharacter(value) && !looksSecret(value)
-}
-
-function isSafeConfig(agent: ResumableAgent, value: string): boolean {
-  if (agent === 'claude') return !value.trimStart().startsWith('{')
-  const eq = value.indexOf('=')
-  const key = (eq < 0 ? value : value.slice(0, eq)).trim()
-  return !/(^|\.)env(\.|$)/i.test(key) && !SECRET_NAME.test(key)
 }
 
 function splitFlag(agent: ResumableAgent, arg: string): [string, string | undefined] {
@@ -258,11 +157,7 @@ function splitFlag(agent: ResumableAgent, arg: string): [string, string | undefi
   return [arg.length === 2 ? name : arg, undefined]
 }
 
-function flagGroups(
-  agent: ResumableAgent,
-  argv: readonly string[],
-  keep: (name: string, values: string[]) => boolean,
-): string[] {
+export function resumeFlags(agent: ResumableAgent, argv: readonly string[]): string[] {
   const flags = AGENT_FLAGS[agent]
   const out: string[] = []
   let total = 0
@@ -291,10 +186,8 @@ function flagGroups(
       continue
     }
     if (values.some((value) => !isSafeValue(value, MAX_ARG_LENGTH))) continue
-    if (CONFIG_FLAGS[agent].has(name) && !values.every((value) => isSafeConfig(agent, value))) {
-      continue
-    }
-    if (!keep(name, values)) continue
+    const allowed = ALLOWED_VALUES[agent][name]
+    if (allowed && !values.every(allowed)) continue
     const group =
       arity === 'one' ? [name, ...values] : [values.length ? `${name}=${values[0]}` : name]
     const size = group.reduce((sum, part) => sum + part.length, 0)
@@ -305,18 +198,6 @@ function flagGroups(
   return out
 }
 
-export function resumeFlags(agent: ResumableAgent, argv: readonly string[]): string[] {
-  return flagGroups(agent, argv, () => true)
-}
-
-export function carriedFlags(agent: ResumableAgent, argv: readonly string[]): string[] {
-  return flagGroups(agent, argv, (name, values) => isCarried(agent, name, values))
-}
-
-function typedOnlyFlags(agent: ResumableAgent, argv: readonly string[]): string[] {
-  return flagGroups(agent, argv, (name, values) => !isCarried(agent, name, values))
-}
-
 export function capturedArgs(
   agent: ResumableAgent,
   env: Record<string, string | undefined>,
@@ -324,7 +205,7 @@ export function capturedArgs(
   const raw = env[envName(AGENT_ARGS_ENV[agent])]
   if (raw === undefined) return null
   if (raw === '') return []
-  return carriedFlags(agent, raw.split(AGENT_ARGS_SEPARATOR))
+  return resumeFlags(agent, raw.split(AGENT_ARGS_SEPARATOR))
 }
 
 export function safeEnv(raw: unknown): Record<string, string> {
@@ -335,7 +216,6 @@ export function safeEnv(raw: unknown): Record<string, string> {
     if (!ENV_NAME.test(name) || SECRET_NAME.test(name) || CODE_LOADING_ENV.test(name)) continue
     if (name.startsWith(envName(''))) continue
     if (typeof value !== 'string' || !isSafeValue(value, MAX_ENV_VALUE)) continue
-    if (PATH_ENV.has(name) && !ABSOLUTE_PATH.test(value)) continue
     out[name] = value
   }
   return out
@@ -413,39 +293,6 @@ export function commandLineEnv(agent: ResumableAgent, line: string): Record<stri
 }
 
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/
-
-const UNREADABLE_WORD = '\u0000'
-
-export function typedCommandFlags(agent: ResumableAgent, line: string): string[] | null {
-  if (line.length > MAX_COMMAND_LINE) return null
-  let words: string[] | null = null
-  let commandStart = true
-  let i = 0
-  while (i < line.length) {
-    if (line[i] === ' ' || line[i] === '\t') {
-      i++
-      continue
-    }
-    if (OPERATORS.has(line[i])) {
-      if (words) break
-      commandStart = true
-      i++
-      continue
-    }
-    const start = i
-    const read = readWord(line, i)
-    if (!read) return null
-    i = read.end
-    const { word } = read
-    if (words) {
-      words.push(word.safe ? word.text : UNREADABLE_WORD)
-    } else if (commandStart && !ASSIGNMENT.test(line.slice(start, i))) {
-      commandStart = false
-      if (word.plain && word.text === agent) words = []
-    }
-  }
-  return words ? typedOnlyFlags(agent, words) : null
-}
 
 export function shellQuote(value: string): string {
   return /^[A-Za-z0-9_./:,@%+-][A-Za-z0-9_./:,@%+=-]*$/.test(value)

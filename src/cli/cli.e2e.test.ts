@@ -701,9 +701,41 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
   })
 
   describe('resume-token and pane.setResume', () => {
+    let foreground: string | null = null
+    let stored: unknown = null
+    const fromMain: string[] = []
     beforeAll(() => {
-      registerPaneResumeMethods({ execCommand: fakeDeps.execCommand, onResume: () => {} })
+      registerPaneResumeMethods({
+        execCommand: async (target, id, args, main) => {
+          if (main) fromMain.push(id)
+          if (id === 'pane.resumeToken') return { ok: true, result: { resume: stored } }
+          return fakeDeps.execCommand(target, id, args)
+        },
+        foregroundProgram: () => foreground,
+        onResume: () => {},
+      })
     })
+    beforeEach(() => {
+      foreground = null
+      stored = null
+      fromMain.length = 0
+    })
+
+    async function setResume(params: unknown): Promise<unknown> {
+      const socket = createConnection(socketPath)
+      const conn = createMessageConnection(
+        new StreamMessageReader(socket),
+        new StreamMessageWriter(socket),
+      )
+      conn.listen()
+      try {
+        await conn.sendRequest('hello', { token: identity.token })
+        return await conn.sendRequest('pane.setResume', params)
+      } finally {
+        conn.dispose()
+        socket.destroy()
+      }
+    }
 
     it('resume-token keeps the folder from the hook payload and the flags the agent was started with', async () => {
       const res = await runOstia(
@@ -739,7 +771,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       })
     })
 
-    it('resume-token never sends a flag that leaves the agent sandbox or its approvals', async () => {
+    it('resume-token never sends a flag that leaves the sandbox or its approvals', async () => {
       const started = [
         '--dangerously-bypass-approvals-and-sandbox',
         '--yolo',
@@ -768,31 +800,47 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       })
     })
 
-    it('pane.setResume stores no escaping flag or variable from a caller that holds the token', async () => {
-      const socket = createConnection(socketPath)
-      const conn = createMessageConnection(
-        new StreamMessageReader(socket),
-        new StreamMessageWriter(socket),
-      )
-      conn.listen()
-      try {
-        await conn.sendRequest('hello', { token: identity.token })
-        const res = await conn.sendRequest('pane.setResume', {
+    it('stores no escaping flag or agent config variable from any caller holding the token', async () => {
+      foreground = 'claude'
+      expect(
+        await setResume({
           agent: 'claude',
           id: 'e2e-tok-raw',
           args: ['--dangerously-skip-permissions', '--settings', '/tmp/s.json', '--model', 'opus'],
           env: { CLAUDE_CONFIG_DIR: '/tmp/c', GL_ISSUE: '687' },
-        })
-        expect(res).toEqual({ ok: true })
-      } finally {
-        conn.dispose()
-        socket.destroy()
-      }
-      expect(execCalls.at(-1)?.args).toEqual({
-        agent: 'claude',
-        id: 'e2e-tok-raw',
-        args: ['--model', 'opus'],
+        }),
+      ).toEqual({ ok: true })
+      expect(execCalls.at(-1)).toMatchObject({
+        id: 'resume.set',
+        args: {
+          agent: 'claude',
+          id: 'e2e-tok-raw',
+          args: ['--model', 'opus'],
+          env: { GL_ISSUE: '687' },
+        },
       })
+      expect(fromMain).toContain('resume.set')
+    })
+
+    it('refuses an agent other than the one running in the pane', async () => {
+      foreground = 'codex'
+      expect(
+        await setResume({ agent: 'claude', id: 'e2e-tok-switch', args: ['--model', 'opus'] }),
+      ).toEqual({ ok: false, error: 'agent-mismatch' })
+      expect(execCalls.some((c) => c.id === 'resume.set')).toBe(false)
+      expect(await setResume({ agent: 'codex', id: 'e2e-tok-same' })).toEqual({ ok: true })
+    })
+
+    it('keeps the stored agent when main cannot see which one runs', async () => {
+      foreground = 'node'
+      stored = { agent: 'codex', id: 'e2e-tok-old' }
+      expect(await setResume({ agent: 'claude', id: 'e2e-tok-switch' })).toEqual({
+        ok: false,
+        error: 'agent-mismatch',
+      })
+      expect(await setResume({ agent: 'codex', id: 'e2e-tok-new' })).toEqual({ ok: true })
+      stored = null
+      expect(await setResume({ agent: 'claude', id: 'e2e-tok-first' })).toEqual({ ok: true })
     })
   })
 

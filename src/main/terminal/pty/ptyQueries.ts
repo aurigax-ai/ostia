@@ -50,6 +50,11 @@ export function createPtyQueries({ ptys, agentRunning, workspaceSandboxes }: Pty
     }
   }
 
+  function foregroundProgram(paneId: string): string | null {
+    const entry = ptys.get(paneId)
+    return entry ? paneActivity(entry).program : null
+  }
+
   function ptyPid(paneId: string): number | undefined {
     return ptys.get(paneId)?.pty.pid
   }
@@ -63,5 +68,5 @@ export function createPtyQueries({ ptys, agentRunning, workspaceSandboxes }: Pty
     return { text, cwd: report?.path ?? null, remote }
   }
 
-  return { paneActivity, sandboxReadRules, ptyPid, paneOutput }
+  return { paneActivity, foregroundProgram, sandboxReadRules, ptyPid, paneOutput }
 }

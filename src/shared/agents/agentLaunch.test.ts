@@ -2,17 +2,15 @@ import { describe, expect, it } from 'vitest'
 import {
   AGENT_ARGS_SEPARATOR,
   capturedArgs,
-  carriedFlags,
   commandLineEnv,
   looksSecret,
   resumeFlags,
   safeEnv,
   shellQuote,
-  typedCommandFlags,
 } from './agentLaunch'
 
 describe('resumeFlags for claude', () => {
-  it('keeps the agent, model, effort and permission flags in both spellings', () => {
+  it('keeps the agent, model, effort and permission mode in both spellings', () => {
     expect(
       resumeFlags('claude', [
         '--agent',
@@ -22,7 +20,6 @@ describe('resumeFlags for claude', () => {
         'high',
         '--permission-mode',
         'acceptEdits',
-        '--dangerously-skip-permissions',
       ]),
     ).toEqual([
       '--agent',
@@ -33,7 +30,6 @@ describe('resumeFlags for claude', () => {
       'high',
       '--permission-mode',
       'acceptEdits',
-      '--dangerously-skip-permissions',
     ])
   })
 
@@ -46,13 +42,7 @@ describe('resumeFlags for claude', () => {
         'Slack 推播上線',
         '--dangerously-skip-permissions',
       ]),
-    ).toEqual([
-      '--agent',
-      'twai-yushan',
-      '--name',
-      'Slack 推播上線',
-      '--dangerously-skip-permissions',
-    ])
+    ).toEqual(['--agent', 'twai-yushan', '--name', 'Slack 推播上線'])
     expect(resumeFlags('claude', ['--name=修 probe'])).toEqual(['--name', '修 probe'])
   })
 
@@ -86,25 +76,25 @@ describe('resumeFlags for claude', () => {
   it('keeps list and optional-value flags only when their value is attached, so a prompt is never stored', () => {
     expect(
       resumeFlags('claude', [
-        '--add-dir=/a',
-        '--allowedTools=Bash(git *)',
+        '--tools=Read,Edit',
+        '--disallowedTools=Bash(rm *)',
         '--debug=api,hooks',
         '-dhooks',
         '-d',
         '--bare',
       ]),
     ).toEqual([
-      '--add-dir=/a',
-      '--allowedTools=Bash(git *)',
+      '--tools=Read,Edit',
+      '--disallowedTools=Bash(rm *)',
       '--debug=api,hooks',
       '--debug=hooks',
       '--debug',
       '--bare',
     ])
     for (const argv of [
-      ['--add-dir', '/a', 'fix the login bug'],
-      ['--mcp-config', 'servers.json', 'fix the login bug'],
-      ['--allowedTools', 'Edit', 'fix the login bug'],
+      ['--tools', 'Read', 'fix the login bug'],
+      ['--betas', 'x', 'fix the login bug'],
+      ['--disallowedTools', 'Edit', 'fix the login bug'],
       ['--debug', 'fix the login bug'],
       ['-d', 'fix the login bug'],
     ]) {
@@ -115,7 +105,7 @@ describe('resumeFlags for claude', () => {
 
   it('reads back the flags it replays the same way', () => {
     const once = resumeFlags('claude', [
-      '--add-dir=/a b',
+      '--disallowed-tools=Bash(rm *)',
       '--debug=api',
       '--model',
       'opus',
@@ -125,25 +115,11 @@ describe('resumeFlags for claude', () => {
     expect(resumeFlags('claude', once)).toEqual(once)
   })
 
-  it('drops inline JSON settings, agents and MCP servers, which can carry hooks or keys', () => {
-    expect(
-      resumeFlags('claude', [
-        '--settings',
-        '{"hooks":{"SessionStart":[]}}',
-        '--agents',
-        ' {"a":{}}',
-        '--mcp-config={"mcpServers":{}}',
-        '--settings',
-        '/home/u/settings.json',
-      ]),
-    ).toEqual(['--settings', '/home/u/settings.json'])
-  })
-
   it('drops a flag that carries a secret, a control character or a value that is too long', () => {
     expect(
       resumeFlags('claude', [
-        '--settings',
-        '{"env":{"GITHUB_TOKEN":"x"}}',
+        '--append-system-prompt',
+        `use ${'sk'}-${'a'.repeat(20)}`,
         '--append-system-prompt',
         'a\u001bb',
         '--system-prompt',
@@ -167,17 +143,16 @@ describe('resumeFlags for claude', () => {
 })
 
 describe('resumeFlags for codex', () => {
-  it('keeps config, model, profile, sandbox and approval flags, short or long', () => {
+  it('keeps model, model config, sandbox and approval flags that stay sandboxed, short or long', () => {
     expect(
       resumeFlags('codex', [
         '-m',
         'gpt-5',
         '-c',
         'model_reasoning_effort="high"',
-        '-pwork',
         '--sandbox=workspace-write',
         '-a',
-        'never',
+        'on-request',
         '--search',
         'fix it',
       ]),
@@ -186,12 +161,10 @@ describe('resumeFlags for codex', () => {
       'gpt-5',
       '-c',
       'model_reasoning_effort="high"',
-      '-p',
-      'work',
       '--sandbox',
       'workspace-write',
       '-a',
-      'never',
+      'on-request',
       '--search',
     ])
   })
@@ -228,15 +201,12 @@ describe('resumeFlags for codex', () => {
       expect(resumeFlags('codex', ['-c', config, '--oss']), config).toEqual(['--oss'])
       expect(resumeFlags('codex', [`--config=${config}`, '--oss']), config).toEqual(['--oss'])
     }
-    expect(resumeFlags('codex', ['-c', 'environment_name="x"'])).toEqual([
-      '-c',
-      'environment_name="x"',
-    ])
+    expect(resumeFlags('codex', ['-c', 'model="gpt-5"'])).toEqual(['-c', 'model="gpt-5"'])
   })
 
   it('replays only flags codex resume accepts, never one the hook args already pass', () => {
-    expect(resumeFlags('codex', ['--yolo', '--no-daemon', '--full-auto', '--last'])).toEqual([
-      '--yolo',
+    expect(resumeFlags('codex', ['--oss', '--no-daemon', '--full-auto', '--last'])).toEqual([
+      '--oss',
     ])
   })
 })
@@ -246,20 +216,28 @@ const CLAUDE_ESCAPES = [
   '--allow-dangerously-skip-permissions',
   '--permission-mode',
   'bypassPermissions',
-  '--permission-mode=bypassPermissions',
+  '--permission-mode=auto',
   '--settings',
   '/tmp/s.json',
+  '--setting-sources',
+  'project',
   '--mcp-config=/tmp/m.json',
   '--plugin-dir',
   '/tmp/p',
+  '--plugin-url',
+  'https://example.com/p.zip',
   '--agents',
   '/tmp/a.json',
   '--add-dir=/',
   '--allowedTools=Bash',
-  '--setting-sources',
-  'user',
+  '--allowed-tools=Bash',
+  '--system-prompt-file',
+  '/tmp/p.md',
+  '--append-system-prompt-file',
+  '/tmp/p.md',
   '--debug-file',
   '/home/j/.bashrc',
+  '--chrome',
 ]
 
 const CODEX_ESCAPES = [
@@ -270,17 +248,27 @@ const CODEX_ESCAPES = [
   '--sandbox=danger-full-access',
   '-a',
   'never',
+  '--ask-for-approval=never',
   '-c',
   'sandbox_mode="danger-full-access"',
   '-c',
+  'approval_policy="never"',
+  '-c',
   'notify=["sh","-c","id"]',
   '--config=mcp_servers.x.command="sh"',
+  '-c',
+  'sandbox_workspace_write.network_access=true',
+  '-c',
+  'shell_environment_policy.inherit="all"',
+  '-c',
+  'default_permissions="full"',
   '-c',
   'environment_name="x"',
   '--add-dir',
   '/',
   '-p',
   'yolo',
+  '--profile=yolo',
   '--enable',
   'computer_use',
   '--disable',
@@ -289,48 +277,20 @@ const CODEX_ESCAPES = [
   '--dangerously-bypass-hook-trust',
   '--remote',
   'ws://h:1',
+  '--remote-auth-token-env',
+  'T',
 ]
 
-describe('carriedFlags', () => {
-  it('drops every claude flag that skips permissions or loads settings, plugins or tools', () => {
-    expect(
-      carriedFlags('claude', [
-        ...CLAUDE_ESCAPES,
-        '--model',
-        'opus',
-        '--permission-mode',
-        'plan',
-        '--agent',
-        'ostia',
-      ]),
-    ).toEqual(['--model', 'opus', '--permission-mode', 'plan', '--agent', 'ostia'])
+describe('resumeFlags never carries a way out of the sandbox or the approvals', () => {
+  it('drops each claude flag that skips permissions or loads settings, plugins, tools or files', () => {
+    expect(resumeFlags('claude', [...CLAUDE_ESCAPES, '--model', 'opus'])).toEqual([
+      '--model',
+      'opus',
+    ])
   })
 
-  it('drops every codex flag that leaves the sandbox, its approvals or loads config', () => {
-    expect(
-      carriedFlags('codex', [
-        ...CODEX_ESCAPES,
-        '-m',
-        'gpt-5',
-        '-s',
-        'workspace-write',
-        '-a',
-        'on-request',
-        '-c',
-        'model_reasoning_effort="high"',
-        '--search',
-      ]),
-    ).toEqual([
-      '-m',
-      'gpt-5',
-      '-s',
-      'workspace-write',
-      '-a',
-      'on-request',
-      '-c',
-      'model_reasoning_effort="high"',
-      '--search',
-    ])
+  it('drops each codex flag that leaves the sandbox or its approvals or loads config', () => {
+    expect(resumeFlags('codex', [...CODEX_ESCAPES, '-m', 'gpt-5'])).toEqual(['-m', 'gpt-5'])
   })
 })
 
@@ -359,42 +319,6 @@ describe('capturedArgs', () => {
   })
 })
 
-describe('typedCommandFlags', () => {
-  it('reads the escaping flags the human typed after the agent', () => {
-    expect(
-      typedCommandFlags('claude', 'claude --model opus --dangerously-skip-permissions hello'),
-    ).toEqual(['--dangerously-skip-permissions'])
-    expect(
-      typedCommandFlags('codex', 'GL_ISSUE=1 codex --sandbox danger-full-access -a never'),
-    ).toEqual(['--sandbox', 'danger-full-access', '-a', 'never'])
-    expect(typedCommandFlags('codex', 'codex resume 0199aa --yolo')).toEqual(['--yolo'])
-    expect(typedCommandFlags('claude', 'claude --agent x')).toEqual([])
-  })
-
-  it('finds the agent after other commands and stops at the next operator', () => {
-    expect(
-      typedCommandFlags(
-        'claude',
-        `cd '/w' && (true) && claude --agent personal --dangerously-skip-permissions -n "整理帳單"`,
-      ),
-    ).toEqual(['--dangerously-skip-permissions'])
-    expect(
-      typedCommandFlags(
-        'claude',
-        'codex --yolo; claude --model opus && echo --dangerously-skip-permissions',
-      ),
-    ).toEqual([])
-  })
-
-  it('reads nothing when the agent is not the command or a value is not literal', () => {
-    expect(typedCommandFlags('claude', 'echo claude --dangerously-skip-permissions')).toBeNull()
-    expect(typedCommandFlags('codex', 'my-agent-script --yolo')).toBeNull()
-    expect(typedCommandFlags('claude', "'claude' --dangerously-skip-permissions")).toBeNull()
-    expect(typedCommandFlags('codex', 'codex -s "$MODE" -c "$CFG"')).toEqual([])
-    expect(typedCommandFlags('codex', 'codex "--yolo')).toBeNull()
-  })
-})
-
 describe('commandLineEnv', () => {
   it('reads the variables assigned in front of the agent', () => {
     expect(commandLineEnv('claude', 'GL_ISSUE=685 MODE="fast mode" claude --agent x')).toEqual({
@@ -408,16 +332,14 @@ describe('commandLineEnv', () => {
     expect(commandLineEnv('claude', 'claude')).toEqual({})
   })
 
-  it('keeps the config directory typed in front of the agent', () => {
+  it('drops a config directory typed in front of the agent and keeps the rest', () => {
     expect(
       commandLineEnv(
         'claude',
         `CLAUDE_CONFIG_DIR='/Users/j/.claude-profiles/twai' GL_ISSUE='665#2' claude --agent research`,
       ),
-    ).toEqual({ CLAUDE_CONFIG_DIR: '/Users/j/.claude-profiles/twai', GL_ISSUE: '665#2' })
-    expect(commandLineEnv('codex', 'CODEX_HOME=/Users/j/.codex-work HOME=/tmp/h codex')).toEqual({
-      CODEX_HOME: '/Users/j/.codex-work',
-    })
+    ).toEqual({ GL_ISSUE: '665#2' })
+    expect(commandLineEnv('codex', 'CODEX_HOME=/tmp/x HOME=/tmp/h codex')).toEqual({})
   })
 
   it('reads a single-quoted value with a hash, as process run passes it', () => {
@@ -505,38 +427,19 @@ describe('safeEnv', () => {
     expect(safeEnv(null)).toEqual({})
   })
 
-  it('keeps the variables that pick the agent account and still drops the ones beside them', () => {
+  it('drops every variable the agents read their config, sandbox or shell from', () => {
     expect(
       safeEnv({
         CLAUDE_CONFIG_DIR: '/Users/j/.claude-profiles/twai',
-        CODEX_HOME: '/Users/j/.codex-work',
-        HOME: '/tmp/h',
-        PATH: '/tmp',
-        XDG_CONFIG_HOME: '/tmp/x',
-        LD_PRELOAD: '/tmp/x.so',
-        DYLD_INSERT_LIBRARIES: '/tmp/x.dylib',
-        EDITOR: '/tmp/e',
+        CODEX_HOME: '/tmp/x',
+        CODEX_SQLITE_HOME: '/tmp/x',
+        CLAUDE_CODE_SHELL_PREFIX: '/tmp/x.sh',
+        CLAUDE_ENV_FILE: '/tmp/x.sh',
         CLAUDE_CODE_USE_BEDROCK: '1',
         CODEX_SANDBOX: 'seatbelt',
+        GL_ISSUE: '687',
       }),
-    ).toEqual({
-      CLAUDE_CONFIG_DIR: '/Users/j/.claude-profiles/twai',
-      CODEX_HOME: '/Users/j/.codex-work',
-      CLAUDE_CODE_USE_BEDROCK: '1',
-      CODEX_SANDBOX: 'seatbelt',
-    })
-  })
-
-  it('keeps the account folders only as absolute paths', () => {
-    for (const value of ['./x', 'x', '../profiles/a', '~/.claude', '']) {
-      expect(safeEnv({ CLAUDE_CONFIG_DIR: value, CODEX_HOME: value })).toEqual({})
-    }
-    expect(
-      safeEnv({ CLAUDE_CONFIG_DIR: '/home/j/.claude-b', CODEX_HOME: 'C:\\Users\\j\\.codex' }),
-    ).toEqual({
-      CLAUDE_CONFIG_DIR: '/home/j/.claude-b',
-      CODEX_HOME: 'C:\\Users\\j\\.codex',
-    })
+    ).toEqual({ GL_ISSUE: '687' })
   })
 })
 

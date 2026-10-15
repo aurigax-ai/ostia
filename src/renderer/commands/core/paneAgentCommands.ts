@@ -6,7 +6,7 @@ import {
   wakePane,
 } from '@/lib/agents/hibernationScheduler'
 import { isStaleAgentReport } from '@/lib/agents/paneAgent'
-import { withCommandLine } from '@/lib/agents/resumeCommandLine'
+import { withCommandLineEnv } from '@/lib/agents/resumeEnv'
 import {
   claimAcrossWindows,
   claimResume,
@@ -31,7 +31,7 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useTabSleepNoticeStore } from '@/stores/workspaces/tabSleepNoticeStore'
-import { type AgentResume, parseReportedResume, resumeCommand } from '@shared/agents/agentResume'
+import { type AgentResume, parseAgentResume, resumeCommand } from '@shared/agents/agentResume'
 import { isAgentBusyReason } from '@shared/agents/agentWork'
 import { wantsDesktopBanner } from '@shared/app/notificationSettings'
 import type { AttentionState } from '@shared/types'
@@ -86,10 +86,11 @@ function registerAgentSessionCommands(): void {
     id: 'resume.set',
     category: 'pane',
     hidden: true,
+    local: true,
     capabilities: ['drive-self'],
     run: (raw, ctx) => {
       if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
-      const resume = withCommandLine(parseReportedResume(raw), ctx.activePaneId)
+      const resume = withCommandLineEnv(parseAgentResume(raw), ctx.activePaneId)
       if (!resume) throw new Error('invalid resume')
       useLayoutStore.getState().setResume(ctx.activeWorkspaceId, ctx.activePaneId, resume)
       useBlocksStore.getState().markAgent(ctx.activePaneId, resume.agent)
