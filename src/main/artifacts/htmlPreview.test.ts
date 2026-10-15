@@ -1,4 +1,5 @@
 import {
+  type FSWatcher,
   mkdirSync,
   mkdtempSync,
   realpathSync,
@@ -240,6 +241,24 @@ let inputsOf = (source: PreviewSource): string[] => [source.file]
 
 const hostZoom = { value: 1 }
 
+function watcherOf(dir: string): FSWatcher {
+  const { calls, results } = vi.mocked(watch).mock
+  const index = calls.findLastIndex((call) => call[0] === dir)
+  const result = results[index]
+  if (index < 0 || result.type !== 'return') throw new Error(`${dir} not watched`)
+  return result.value
+}
+
+async function armed(watcher: FSWatcher, dir: string): Promise<void> {
+  const probes: string[] = []
+  watcher.on('change', (_kind, name) => probes.push(String(name)))
+  for (let i = 0; i < 200 && probes.length === 0; i++) {
+    writeFileSync(join(dir, `.probe-${i}`), '1')
+    await new Promise((written) => setTimeout(written, 10))
+  }
+  expect(probes).not.toEqual([])
+}
+
 interface Rig {
   host: PreviewHost
   sessions: Map<string, FakeSession>
@@ -312,6 +331,7 @@ describe('PreviewHost', () => {
   let r: Rig
 
   beforeEach(() => {
+    inputsOf = (source) => [source.file]
     r = rig()
   })
 
@@ -527,10 +547,19 @@ describe('PreviewHost', () => {
     const guest = r.attach(opened)
     const serve = r.sessionOf(opened).serve as (request: Request) => Promise<Response>
     await serve(new Request(opened.url))
-    writeFileSync(join(folder, 'unrelated.txt'), 'x')
+    const assets = watcherOf(join(folder, 'assets'))
+    await armed(watcherOf(folder), folder)
+    await armed(assets, join(folder, 'assets'))
+    await new Promise((settled) => setTimeout(settled, PREVIEW_LIMITS.reloadDebounceMs + 100))
+    const before = guest.reloads
+    const names: string[] = []
+    assets.on('change', (_kind, name) => names.push(String(name)))
+    writeFileSync(join(folder, 'assets', 'unrelated.txt'), 'x')
+    await vi.waitFor(() => expect(names).toContain('unrelated.txt'), { timeout: 3000 })
+    await new Promise((settled) => setTimeout(settled, PREVIEW_LIMITS.reloadDebounceMs + 100))
+    expect(guest.reloads).toBe(before)
     writeFileSync(chart, 'export default () => 1')
-    await vi.waitFor(() => expect(guest.reloads).toBe(1), { timeout: 3000 })
-    inputsOf = (source) => [source.file]
+    await vi.waitFor(() => expect(guest.reloads).toBe(before + 1), { timeout: 3000 })
   })
 
   it('says a page is not responding after 5 s, then stops and kills it at 15 s', async () => {
