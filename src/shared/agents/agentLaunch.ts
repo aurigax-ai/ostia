@@ -1,5 +1,4 @@
 import { envName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
-import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { ResumableAgent } from './agentResume'
 
 type Arity = 'none' | 'one' | 'optional' | 'many'
@@ -14,28 +13,15 @@ export const AGENT_ARGS_SEPARATOR = '\u001f'
 const MAX_ARGS = 64
 const MAX_ARG_LENGTH = 2048
 const MAX_ARGS_LENGTH = 8192
-const MAX_ENV = 32
-const MAX_ENV_VALUE = 1024
-const MAX_COMMAND_LINE = 16384
 
 const CLAUDE_FLAGS: Record<string, Arity> = {
-  '--add-dir': 'many',
-  '--agent': 'one',
-  '--agents': 'one',
-  '--allow-dangerously-skip-permissions': 'none',
-  '--allowed-tools': 'many',
-  '--allowedTools': 'many',
   '--append-system-prompt': 'one',
-  '--append-system-prompt-file': 'one',
   '--autocompact': 'one',
   '--ax-screen-reader': 'none',
   '--bare': 'none',
   '--betas': 'many',
   '--brief': 'none',
-  '--chrome': 'none',
-  '--dangerously-skip-permissions': 'none',
   '--debug': 'optional',
-  '--debug-file': 'one',
   '--disable-slash-commands': 'none',
   '--disallowed-tools': 'many',
   '--disallowedTools': 'many',
@@ -43,22 +29,16 @@ const CLAUDE_FLAGS: Record<string, Arity> = {
   '--exclude-dynamic-system-prompt-sections': 'none',
   '--fallback-model': 'one',
   '--ide': 'none',
-  '--mcp-config': 'many',
   '--model': 'one',
   '--name': 'one',
   '--no-chrome': 'none',
   '--permission-mode': 'one',
-  '--plugin-dir': 'one',
-  '--plugin-url': 'one',
   '--remote-control': 'optional',
   '--remote-control-session-name-prefix': 'one',
   '--restricted': 'none',
   '--safe-mode': 'none',
-  '--setting-sources': 'one',
-  '--settings': 'one',
   '--strict-mcp-config': 'none',
   '--system-prompt': 'one',
-  '--system-prompt-file': 'one',
   '--system-prompt-snapshot': 'one',
   '--tools': 'many',
   '--verbose': 'none',
@@ -67,28 +47,45 @@ const CLAUDE_FLAGS: Record<string, Arity> = {
 const CODEX_FLAGS: Record<string, Arity> = {
   '-a': 'one',
   '--ask-for-approval': 'one',
-  '--add-dir': 'one',
-  '--approve-for-me': 'none',
   '-c': 'one',
   '--config': 'one',
-  '--dangerously-bypass-approvals-and-sandbox': 'none',
-  '--dangerously-bypass-hook-trust': 'none',
-  '--disable': 'one',
-  '--enable': 'one',
   '--local-provider': 'one',
   '-m': 'one',
   '--model': 'one',
   '--no-alt-screen': 'none',
   '--oss': 'none',
-  '-p': 'one',
-  '--profile': 'one',
-  '--remote': 'one',
-  '--remote-auth-token-env': 'one',
   '-s': 'one',
   '--sandbox': 'one',
   '--search': 'none',
   '--strict-config': 'none',
-  '--yolo': 'none',
+}
+
+const CLAUDE_PERMISSION_MODES = new Set(['dontAsk', 'manual', 'plan'])
+const CODEX_SANDBOXES = new Set(['read-only', 'workspace-write'])
+const CODEX_APPROVALS = new Set(['untrusted', 'on-failure', 'on-request'])
+const CODEX_CONFIG_KEYS = new Set([
+  'model',
+  'model_reasoning_effort',
+  'model_reasoning_summary',
+  'model_verbosity',
+  'service_tier',
+])
+
+function isModelConfig(value: string): boolean {
+  const eq = value.indexOf('=')
+  return eq > 0 && CODEX_CONFIG_KEYS.has(value.slice(0, eq).trim())
+}
+
+const ALLOWED_VALUES: Record<ResumableAgent, Record<string, (value: string) => boolean>> = {
+  claude: { '--permission-mode': (value) => CLAUDE_PERMISSION_MODES.has(value) },
+  codex: {
+    '-a': (value) => CODEX_APPROVALS.has(value),
+    '--ask-for-approval': (value) => CODEX_APPROVALS.has(value),
+    '-c': isModelConfig,
+    '--config': isModelConfig,
+    '-s': (value) => CODEX_SANDBOXES.has(value),
+    '--sandbox': (value) => CODEX_SANDBOXES.has(value),
+  },
 }
 
 const ALIASES: Record<ResumableAgent, Record<string, string>> = {
@@ -99,17 +96,6 @@ const ALIASES: Record<ResumableAgent, Record<string, string>> = {
 const AGENT_FLAGS: Record<ResumableAgent, Record<string, Arity>> = {
   claude: CLAUDE_FLAGS,
   codex: CODEX_FLAGS,
-}
-
-const SECRET_NAME =
-  /KEY|TOKEN|SECRET|PASS|PWD|CREDENTIAL|AUTH|COOKIE|SESSION|PRIVATE|CERT|(^|[_.])(PIN|PW)($|[_.])/i
-
-const CODE_LOADING_ENV =
-  /^(LD_|DYLD_|XDG_|GIT_CONFIG_)|^(NODE_OPTIONS|NODE_PATH|BASH_ENV|ENV|PATH|HOME|PROMPT_COMMAND|ZDOTDIR|SHELLOPTS|BASHOPTS|PYTHONPATH|PYTHONSTARTUP|PERL5OPT|PERL5LIB|RUBYOPT|JAVA_TOOL_OPTIONS|GIT_SSH_COMMAND|GIT_EXEC_PATH|GIT_CONFIG|EDITOR|VISUAL|PAGER)$/
-
-const CONFIG_FLAGS: Record<ResumableAgent, ReadonlySet<string>> = {
-  claude: new Set(['--settings', '--agents', '--mcp-config']),
-  codex: new Set(['-c', '--config']),
 }
 
 const SECRET_TEXT = [
@@ -127,11 +113,6 @@ const SECRET_TEXT = [
   /[A-Za-z0-9_+=-]{40,}/,
 ]
 
-const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/
-
-const PATH_ENV = new Set(['CLAUDE_CONFIG_DIR', 'CODEX_HOME'])
-const ABSOLUTE_PATH = /^(\/|[A-Za-z]:[\\/])/
-
 function hasControlCharacter(text: string): boolean {
   for (const ch of text) {
     const code = ch.charCodeAt(0)
@@ -146,13 +127,6 @@ export function looksSecret(text: string): boolean {
 
 function isSafeValue(value: string, max: number): boolean {
   return value.length <= max && !hasControlCharacter(value) && !looksSecret(value)
-}
-
-function isSafeConfig(agent: ResumableAgent, value: string): boolean {
-  if (agent === 'claude') return !value.trimStart().startsWith('{')
-  const eq = value.indexOf('=')
-  const key = (eq < 0 ? value : value.slice(0, eq)).trim()
-  return !/(^|\.)env(\.|$)/i.test(key) && !SECRET_NAME.test(key)
 }
 
 function splitFlag(agent: ResumableAgent, arg: string): [string, string | undefined] {
@@ -199,10 +173,11 @@ export function resumeFlags(agent: ResumableAgent, argv: readonly string[]): str
     } else {
       continue
     }
-    if (values.some((value) => !isSafeValue(value, MAX_ARG_LENGTH))) continue
-    if (CONFIG_FLAGS[agent].has(name) && !values.every((value) => isSafeConfig(agent, value))) {
+    if (values.some((value) => value.startsWith('-') || !isSafeValue(value, MAX_ARG_LENGTH))) {
       continue
     }
+    const allowed = ALLOWED_VALUES[agent][name]
+    if (allowed && !values.every(allowed)) continue
     const group =
       arity === 'one' ? [name, ...values] : [values.length ? `${name}=${values[0]}` : name]
     const size = group.reduce((sum, part) => sum + part.length, 0)
@@ -222,91 +197,3 @@ export function capturedArgs(
   if (raw === '') return []
   return resumeFlags(agent, raw.split(AGENT_ARGS_SEPARATOR))
 }
-
-export function safeEnv(raw: unknown): Record<string, string> {
-  if (!isRecord(raw)) return {}
-  const out: Record<string, string> = {}
-  for (const [name, value] of Object.entries(raw)) {
-    if (Object.keys(out).length >= MAX_ENV) break
-    if (!ENV_NAME.test(name) || SECRET_NAME.test(name) || CODE_LOADING_ENV.test(name)) continue
-    if (name.startsWith(envName(''))) continue
-    if (typeof value !== 'string' || !isSafeValue(value, MAX_ENV_VALUE)) continue
-    if (PATH_ENV.has(name) && !ABSOLUTE_PATH.test(value)) continue
-    out[name] = value
-  }
-  return out
-}
-
-const OPERATORS = new Set([';', '&', '|', '<', '>', '(', ')', '\n'])
-const UNQUOTED_SAFE = /^[A-Za-z0-9_./:,@%+=#-]$/
-
-interface Word {
-  text: string
-  plain: boolean
-  safe: boolean
-}
-
-function readWord(line: string, start: number): { word: Word; end: number } | null {
-  let i = start
-  let text = ''
-  let plain = true
-  let safe = true
-  while (i < line.length) {
-    const ch = line[i]
-    if (ch === ' ' || ch === '\t' || OPERATORS.has(ch)) break
-    if (ch === "'") {
-      const close = line.indexOf("'", i + 1)
-      if (close < 0) return null
-      text += line.slice(i + 1, close)
-      plain = false
-      i = close + 1
-    } else if (ch === '"') {
-      let j = i + 1
-      while (j < line.length && line[j] !== '"') {
-        if (line[j] === '\\') j++
-        j++
-      }
-      if (j >= line.length) return null
-      const inner = line.slice(i + 1, j)
-      if (/[$`\\]/.test(inner)) safe = false
-      text += inner
-      plain = false
-      i = j + 1
-    } else if (ch === '\\') {
-      if (i + 1 >= line.length) return null
-      text += line[i + 1]
-      plain = false
-      i += 2
-    } else {
-      if (!UNQUOTED_SAFE.test(ch)) safe = false
-      text += ch
-      i++
-    }
-  }
-  return { word: { text, plain, safe }, end: i }
-}
-
-export function commandLineEnv(agent: ResumableAgent, line: string): Record<string, string> | null {
-  if (line.length > MAX_COMMAND_LINE) return null
-  const assigned: Record<string, string> = {}
-  let i = 0
-  for (;;) {
-    while (line[i] === ' ' || line[i] === '\t') i++
-    if (i >= line.length || OPERATORS.has(line[i])) return null
-    const start = i
-    const read = readWord(line, i)
-    if (!read) return null
-    i = read.end
-    const { word } = read
-    if (ASSIGNMENT.test(line.slice(start, i))) {
-      const eq = word.text.indexOf('=')
-      if (word.safe) assigned[word.text.slice(0, eq)] = word.text.slice(eq + 1)
-      continue
-    }
-    const raw = line.slice(start, i)
-    if (raw !== agent && raw !== `'${agent}'`) return null
-    return safeEnv(assigned)
-  }
-}
-
-const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/

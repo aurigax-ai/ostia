@@ -30,6 +30,7 @@ import { SCRIPT_CAPABILITIES } from '@shared/permissions/scriptTokens'
 import { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { SCRIPT_COMMANDS } from '../../main/control/commandArgs'
+import { wireCommandBridge } from './bridge'
 import { registerBuiltinCommands } from './builtins'
 import { type CommandContext, commands } from './registry'
 
@@ -2163,47 +2164,22 @@ describe('agent resume', () => {
     })
   })
 
-  it('keeps the launch flags and the variables typed in front of the agent, then replays them', async () => {
+  it('replays the launch flags but no variable, typed in front of the agent or sent', async () => {
     const pane = seedPane()
-    const line = 'GL_ISSUE=685 GH_TOKEN=x claude --agent ostia'
+    const line = 'GL_ISSUE=685 GIT_DIR=/tmp/g claude --model opus'
     useBlocksStore.getState().commandStart(pane.id, { line: 1 }, line, line)
     await commands.execWith(ctx('s1', pane.id), 'resume.set', {
       agent: 'claude',
       id: 'abc',
-      args: ['--agent', 'ostia', '--session-id', 'old'],
+      args: ['--model', 'opus', '--session-id', 'old', '-n', '修 probe'],
+      env: { ANTHROPIC_BASE_URL: 'http://127.0.0.1:9', HTTPS_PROXY: 'http://127.0.0.1:9' },
     })
-    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
-      resume: { agent: 'claude', id: 'abc', args: ['--agent', 'ostia'], env: { GL_ISSUE: '685' } },
-    })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.env')
     const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
     await commands.execWith(ctx('s1', pane.id), 'agent.resume')
     expect(insert).toHaveBeenCalledWith(
       pane.id,
-      "GL_ISSUE=685 'claude' --resume abc --agent ostia",
-      true,
-    )
-  })
-
-  it('keeps the flags but no variables when the line starts with something else', async () => {
-    const pane = seedPane()
-    useBlocksStore
-      .getState()
-      .commandStart(
-        pane.id,
-        { line: 1 },
-        `GL_ISSUE=1 true && (ostia workspace group 'Home' || true) && claude --agent homelab -n "修 probe"`,
-        `GL_ISSUE=1 true && (ostia workspace group 'Home' || true) && claude --agent homelab -n "修 probe"`,
-      )
-    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
-      agent: 'claude',
-      id: 'abc',
-      args: ['--agent', 'homelab', '-n', '修 probe'],
-    })
-    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
-    await commands.execWith(ctx('s1', pane.id), 'agent.resume')
-    expect(insert).toHaveBeenCalledWith(
-      pane.id,
-      "'claude' --resume abc --agent homelab --name '修 probe'",
+      "'claude' --resume abc --model opus --name '修 probe'",
       true,
     )
   })
@@ -2229,6 +2205,39 @@ describe('agent resume', () => {
     })
     expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.env')
     expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.args')
+  })
+
+  it('stores no flag that skips permissions or leaves the sandbox', async () => {
+    const pane = seedPane()
+    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, 'claude --model opus')
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'claude',
+      id: 'abc',
+      args: ['--dangerously-skip-permissions', '--settings', '/tmp/s.json', '--model', 'opus'],
+    })
+    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
+    await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    expect(insert).toHaveBeenCalledWith(pane.id, "'claude' --resume abc --model opus", true)
+  })
+
+  it('stores a resume token only when main asks, never from a raw command call', async () => {
+    const pane = seedPane()
+    wireCommandBridge()
+    const invoke = vi.mocked(window.ostia.commands.onInvoke).mock.calls.at(-1)?.[0]
+    const target = { workspaceId: 's1', paneId: pane.id }
+    const raw = await invoke?.({ id: 'resume.set', args: { agent: 'claude', id: 'abc' }, target })
+    expect(raw).toMatchObject({ ok: false, error: { code: 'unknown-command' } })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume')
+    const fromMain = await invoke?.({
+      id: 'resume.set',
+      args: { agent: 'claude', id: 'abc' },
+      target,
+      fromMain: true,
+    })
+    expect(fromMain).toMatchObject({ ok: true })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+      resume: { agent: 'claude', id: 'abc' },
+    })
   })
 
   it('runs the agent’s resume command in the pane', async () => {

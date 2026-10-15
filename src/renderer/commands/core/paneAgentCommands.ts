@@ -6,7 +6,6 @@ import {
   wakePane,
 } from '@/lib/agents/hibernationScheduler'
 import { isStaleAgentReport } from '@/lib/agents/paneAgent'
-import { withCommandLineEnv } from '@/lib/agents/resumeEnv'
 import {
   claimAcrossWindows,
   claimResume,
@@ -87,10 +86,11 @@ function registerAgentSessionCommands(): void {
     id: 'resume.set',
     category: 'pane',
     hidden: true,
+    local: true,
     capabilities: ['drive-self'],
     run: (raw, ctx) => {
       if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
-      const resume = withCommandLineEnv(parseAgentResume(raw), ctx.activePaneId)
+      const resume = parseAgentResume(raw)
       if (!resume) throw new Error('invalid resume')
       useLayoutStore.getState().setResume(ctx.activeWorkspaceId, ctx.activePaneId, resume)
       useBlocksStore.getState().markAgent(ctx.activePaneId, resume.agent)

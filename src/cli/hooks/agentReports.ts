@@ -48,8 +48,8 @@ export async function runResumeTokenVerb(conn: MessageConnection): Promise<void>
     process.exitCode = 1
     return
   }
-  const session = resumeFromHookPayload(raw === '-' ? await readAllStdin() : raw)
-  if (!session) {
+  const id = resumeFromHookPayload(raw === '-' ? await readAllStdin() : raw)
+  if (!id) {
     console.error('ostia resume-token: no agent session id found')
     process.exitCode = 1
     return
@@ -57,7 +57,7 @@ export async function runResumeTokenVerb(conn: MessageConnection): Promise<void>
   const args = capturedArgs(agent, process.env)
   const res = await conn.sendRequest<{ ok: boolean; error?: string }>('pane.setResume', {
     agent,
-    ...session,
+    id,
     ...(args ? { args } : {}),
   })
   if (res.ok) {
