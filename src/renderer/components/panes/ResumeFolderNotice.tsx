@@ -1,6 +1,7 @@
 import { commands } from '@/commands/registry'
 import { WarningNote } from '@/components/settings/ControlRow'
 import { Button } from '@/components/ui/button'
+import { alwaysTrustWorkspaceFolders, resumeAnyway, trustForClaude } from '@/lib/agents/folderTrust'
 import { runningAgentOf } from '@/lib/agents/paneAgent'
 import { dismissResumeFailure, retryResume, startNewSession } from '@/lib/agents/resumeFailure'
 import { resumeClaimEndsAt, resumeConflict } from '@/lib/agents/resumeFolder'
@@ -131,6 +132,43 @@ export function ResumeFailedNotice({
             id: resume.id.slice(0, 8),
             code: exitCode,
           })}
+        </span>
+      </WarningNote>
+    </section>
+  )
+}
+
+export function FolderTrustNotice({
+  paneId,
+  folder,
+}: {
+  paneId: string
+  folder: string
+}): JSX.Element {
+  const d = useDict()
+  return (
+    <section
+      aria-label={d.pane.folderTrustLabel}
+      data-folder-trust=""
+      className="motion-enter absolute right-0 bottom-0 left-0 z-20 border-line border-t bg-surface-1 px-2 pb-1.5"
+    >
+      <WarningNote
+        actions={
+          <>
+            <Button variant="outline" size="xs" onClick={() => void trustForClaude(paneId)}>
+              {d.pane.folderTrustOnce}
+            </Button>
+            <Button variant="outline" size="xs" onClick={() => void alwaysTrustWorkspaceFolders()}>
+              {d.pane.folderTrustAlways}
+            </Button>
+            <Button variant="ghost" size="xs" onClick={() => resumeAnyway(paneId)}>
+              {d.pane.folderTrustSkip}
+            </Button>
+          </>
+        }
+      >
+        <span className="[overflow-wrap:anywhere]">
+          {fmt(d.pane.folderTrust, { path: folder })}
         </span>
       </WarningNote>
     </section>

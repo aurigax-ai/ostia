@@ -9,6 +9,8 @@ import { TerminalPathLinks, registerTerminalPathLinkIpc } from '../terminal/term
 import type { PaneOutput } from '../terminal/terminalPathLinks'
 import { registerProjectRootIpc } from '../workspaces/projectRoot'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
+import { windowForWorkspace } from '../workspaces/workspaceRegistry'
+import { registerFileDropIpc } from './fileDrops'
 import { FileOps } from './fileOps'
 import type { FileSources } from './fileSources'
 import { FileWatches } from './fileWatch'
@@ -74,6 +76,14 @@ export function registerFsIpc({
   ipcMain.handle('files:move', (_e, paths: unknown, dir: unknown) => fileOps.move(paths, dir))
   ipcMain.handle('files:copy', (_e, paths: unknown, dir: unknown) => fileOps.copy(paths, dir))
   ipcMain.handle('files:trash', (_e, paths: unknown) => fileOps.trash(paths))
+  registerFileDropIpc({
+    fileOps,
+    windowOfWorkspace: windowForWorkspace,
+    sandboxRefusal: (workspaceId, dir) =>
+      workspaceSandboxes.isEnabled(workspaceId)
+        ? workspaceSandboxes.writeRefusal(workspaceId, dir)
+        : null,
+  })
 
   ipcMain.handle('fs:list', (_e, dir: unknown): Promise<FsEntry[]> | FsEntry[] =>
     typeof dir === 'string' ? sources.of(dir).list(dir) : [],

@@ -121,6 +121,15 @@ export const filesBridge: Pick<
     move: (paths, dir) => ipcRenderer.invoke('files:move', paths, dir) as Promise<FileOpResult>,
     copy: (paths, dir) => ipcRenderer.invoke('files:copy', paths, dir) as Promise<FileOpResult>,
     trash: (paths) => ipcRenderer.invoke('files:trash', paths) as Promise<FileOpResult>,
+    importDropped: (files, dir, workspaceId, move) =>
+      ipcRenderer.invoke(
+        'files:import',
+        files.map((file) => webUtils.getPathForFile(file)).filter((path) => path.length > 0),
+        dir,
+        workspaceId,
+        move,
+      ) as Promise<FileOpResult>,
+    startDrag: (path) => ipcRenderer.send('files:start-drag', path),
   },
   externalEditor: {
     open: (req) => ipcRenderer.invoke('editor:open-external', req) as Promise<ExternalEditorResult>,
