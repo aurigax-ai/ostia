@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { readdirSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { basename, join } from 'node:path'
+import { join } from 'node:path'
 import { appEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { MANAGER_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import type {
@@ -23,13 +23,8 @@ import { agentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/age
 import type { ExtensionRoot } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import { BrowserWindow, ClipboardItem, app, clipboard, ipcMain, shell } from 'electron'
 import type { IPty } from 'node-pty'
-import { parseAgentHooks } from '../shared/agents/agentHooks'
-import { type AgentResume, isResumableAgent } from '../shared/agents/agentResume'
-import {
-  MANAGER_FEATURE,
-  managerAgents,
-  parseManagerSettings,
-} from '../shared/agents/managerSettings'
+import type { AgentResume } from '../shared/agents/agentResume'
+import { MANAGER_FEATURE, parseManagerSettings } from '../shared/agents/managerSettings'
 import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
 import { isMacInstall, replacesInApp } from '../shared/app/installMethod'
 import { parseGitSettings } from '../shared/boards/git'
@@ -51,10 +46,11 @@ import type {
 import { createAgentOfferRelay } from './agents/agentOfferRelay'
 import { AgentRunningPanes } from './agents/agentRunning'
 import { registerAgentTranscriptIpc } from './agents/agentTranscript'
-import { ReportedAgentWork, registerAgentWorkMethods } from './agents/agentWork'
-import { registerBusMethods, tellPane } from './agents/bus'
+import { registerAgentWiring } from './agents/agentWiring'
+import { ReportedAgentWork } from './agents/agentWork'
 import type { OriginReach } from './agents/originAgents'
 import { createResumeClaimer, registerResumeClaimIpc } from './agents/resumeClaims'
+import { registerToolbeltWiring } from './agents/toolbeltWiring'
 import { approvals, registerApprovals } from './approvals/approvals'
 import { createAskHub } from './approvals/asks'
 import { loadReachMode, refreshCapabilitySettings, setCaps } from './approvals/capabilityStore'
@@ -73,13 +69,8 @@ import { registerArtifactProducersIpc } from './artifacts/artifactProducers'
 import { createArtifactServices } from './artifacts/artifactServices'
 import { registerPreviewIpc } from './artifacts/htmlPreview'
 import { registerPortableIpc } from './artifacts/portableExport'
-import { registerAttentionMethods, targetOf } from './attention/attention'
-import { announceBusMessage } from './attention/busNotice'
-import {
-  postActionNotification,
-  registerNotifyIpc,
-  registerNotifyMethods,
-} from './attention/notify'
+import { targetOf } from './attention/attention'
+import { registerNotifyWiring } from './attention/notifyWiring'
 import type { ConsoleEntry } from './browser/browseMethod'
 import { registerBrowserGuestIpc } from './browser/browserGuestIpc'
 import { createBrowserGuests } from './browser/browserGuests'
@@ -95,7 +86,6 @@ import { createCommandBridge } from './control/commandBridge'
 import { setCapFilter } from './control/controlAuth'
 import { controlSocketPath } from './control/controlServer'
 import { startControlServer } from './control/controlWiring'
-import { registerDocsMethods } from './control/docs'
 import { emitPlatformEvent } from './control/events'
 import {
   type PaneIdentity,
@@ -129,7 +119,6 @@ import { FileOps } from './files/fileOps'
 import { FileWatches } from './files/fileWatch'
 import { readBinaryConfined } from './files/fsBinary'
 import { readTextConfined, versionConfined, writeText, writeTextConfined } from './files/fsText'
-import { registerOpenFileMethods } from './files/openFileMethods'
 import { registerOpenPathIpc } from './files/openPath'
 import { OpenWaits } from './files/openWaits'
 import { registerRemoteFolderConfirm } from './files/remoteFolderConfirm'
@@ -154,18 +143,11 @@ import type { ManagerLimiter } from './manager/managerMethods'
 import { startManager } from './manager/managerWiring'
 import { Portal, portalSocketPath, portalSupported } from './manager/portal'
 import { callerVerdict, procFs, ttysOf } from './manager/portalCaller'
-import { registerExtensionWake } from './panes/extensionWake'
-import { type PaneAttentionPeek, registerPaneIoMethods } from './panes/paneIo'
 import { registerPaneLifecycleIpc } from './panes/paneLifecycleIpc'
 import { listPanes, listWorkspaceGroups, listWorkspaces } from './panes/paneList'
-import { registerPaneMoveToMethods } from './panes/paneMoveTo'
-import type { PaneReachDeps } from './panes/paneReach'
-import { registerPaneRenameMethods } from './panes/paneRename'
-import { registerPaneResumeMethods } from './panes/paneResume'
-import { PaneWatch, registerPaneWaitMethods } from './panes/paneWait'
-import { wakeHibernatedPane } from './panes/paneWake'
+import { registerPaneMethodsWiring } from './panes/paneMethodsWiring'
+import { PaneWatch } from './panes/paneWait'
 import { PaneWaking } from './panes/paneWaking'
-import { INTERRUPT_GRACE_MS, registerProcessMethods } from './panes/processManager'
 import type { ProcessRegistry } from './panes/processRegistry'
 import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './platform/discreteGpu'
 import { loadJson, saveJson, storePath } from './platform/jsonStore'
@@ -188,14 +170,11 @@ import { createRedactor } from './privacy/redaction'
 import { createWorkerScan, redactionWorkerScript } from './privacy/redactionScan'
 import type { ProfileSyncHandle } from './profileSync/ipc'
 import { startProfileSyncWiring } from './profileSync/profileSyncWiring'
-import { registerSandboxMethods } from './sandbox/controlMethods'
 import { registerSandboxIpc } from './sandbox/ipc'
 import { createSandboxServices } from './sandbox/sandboxServices'
-import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
+import { registerSandboxWiring } from './sandbox/sandboxWiring'
 import { createEncryptedStores } from './secrets/encryptedStores'
-import { registerSecretMethods } from './secrets/register'
 import { createSecretServices } from './secrets/secretServices'
-import { deleteGlobalVaultValue, registerVaultMethods, setGlobalVaultValue } from './secrets/vault'
 import { writeOstiaLauncher } from './terminal/paneLauncher'
 import { createPtyAttach } from './terminal/pty/ptyAttach'
 import { createPtyIo } from './terminal/pty/ptyIo'
@@ -203,7 +182,7 @@ import { registerPtyIpc } from './terminal/pty/ptyIpc'
 import { createLiveAttach } from './terminal/pty/ptyLiveAttach'
 import { createPtyQueries } from './terminal/pty/ptyQueries'
 import { createPtyRecovery } from './terminal/pty/ptyRecovery'
-import { type PaneTitleEntry, type PtyEntry, createPtyRegistry } from './terminal/pty/ptyRegistry'
+import { type PtyEntry, createPtyRegistry } from './terminal/pty/ptyRegistry'
 import { createSandboxSpawn } from './terminal/pty/ptySandboxSpawn'
 import { createSpawnPlanner } from './terminal/pty/ptySpawnPlan'
 import { createPtyStart } from './terminal/pty/ptyStart'
@@ -1653,223 +1632,11 @@ app.whenReady().then(() => {
       listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
     ),
   )
-  const notifyDeps = {
-    execCommand,
-    isScratchPane,
-    windows: () => windows.values(),
-    windowById: (id: string) => windows.get(id),
-    redact: redactor.text,
-  }
-  registerNotifyMethods(notifyDeps)
-  registerNotifyIpc(notifyDeps)
-  registerSandboxMethods({ domains: domainRequests, ports: portRequests })
-  registerSecretMethods({
-    service: secretService,
-    sandboxes: workspaceSandboxes,
-    ownerWindow: windowForWorkspace,
-    vaultSet: setGlobalVaultValue,
-    vaultDelete: deleteGlobalVaultValue,
-  })
-  if (process.platform === 'linux') setInterval(scanSandboxPorts, PORT_SCAN_MS).unref()
-  services.onSandboxSpawnFailure = (workspaceId, errors) =>
-    reportSandboxSpawnFailure(
-      {
-        notify: (input, onClick) =>
-          postActionNotification(notifyDeps, { ...input, from: 'sandbox' }, onClick),
-        showRequirements: (id, report) => {
-          const windowId = windowForWorkspace(id)
-          const win = windowId ? windows.get(windowId) : undefined
-          if (!win || win.isDestroyed()) return
-          if (win.isMinimized()) win.restore()
-          win.show()
-          win.focus()
-          win.webContents.send('sandbox:blocked', { workspaceId: id, report })
-        },
-        report: () => {
-          const missing = missingRequirements(SANDBOX_FEATURE)
-          return {
-            missing,
-            hint: installHint(missing),
-            canInstall:
-              services.extensionHost?.list().some((x) => x.id === 'system' && x.enabled) ?? false,
-          }
-        },
-      },
-      workspaceId,
-      errors,
-    )
-  registerAttentionMethods({ execCommand, reported: (paneId) => keptAttention.reported(paneId) })
-  registerAgentWorkMethods(agentWork)
-  registerPaneRenameMethods({ execCommand, reach, windowOfWorkspace: workspaceWindowId })
-  registerPaneResumeMethods({
-    execCommand,
-    onResume: (identity, resume) => {
-      services.telemetry?.count('agents', 'resume')
-      paneWaking.end(identity.paneId, 'started')
-      startedAgents.add(identity.paneId)
-      agentChanges.fire()
-      if (identity.manager) services.managerService?.rememberResume(resume)
-    },
-  })
-  const registry = registerProcessMethods({
-    openTab: openTerminalInWindow,
-    onChange: (entry) => {
-      syncKeptMeta(entry.paneId)
-      paneWatch.emit(entry.paneId, { kind: 'state' })
-    },
-    ring: (paneId) => {
-      const session = ptys.get(paneId)?.session
-      return session ? (from) => session.since(from) : undefined
-    },
-    writePane: paneIo.write,
-    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-    endShell: (paneId) => killPty(paneId, 'process-kill'),
-    hasShell: (paneId) => ptys.has(paneId),
-    runInPane: (paneId, command) => {
-      const windowId = getByPaneId(paneId)?.windowId
-      const win = windowId ? windows.get(windowId) : undefined
-      if (!win || win.isDestroyed()) return false
-      win.webContents.send('pty:run', paneId, command)
-      return true
-    },
-    cwdOfPane: (paneId) => terminalState.get(paneId)?.cwd,
-    agentArgv: (name) => managerAgents(managerSettings())[name] ?? null,
-    isAgent: (paneId) => agentRunning.has(paneId),
-    agentStarted: (paneId) => startedAgents.has(paneId),
-    startsWithHook: (argv) => {
-      const program = basename(argv[0] ?? '')
-      return isResumableAgent(program) && parseAgentHooks(readSettingsFile().agents?.hooks)[program]
-    },
-    agentChanges: agentChanges.subscribe,
-    tell: tellPane,
-    splitTabNow: async (workspaceId, paneId) => {
-      const target = workspaceCommandTarget(workspaceId)
-      const res = await execCommand(target, 'pane.splitTabOf', { paneId }, true)
-      return res.ok ? (res.result as { name: string | null; human: boolean }) : null
-    },
-    humanTab: async (workspaceId, name) => {
-      const target = workspaceCommandTarget(workspaceId)
-      const res = await execCommand(target, 'pane.tabPlan', { paneIds: [], tab: name }, true)
-      return res.ok && typeof (res.result as { human?: unknown }).human === 'string'
-    },
-    paneTitle: async (paneId) => {
-      const pane = getByPaneId(paneId)
-      if (!pane) return undefined
-      const res = await execCommand({ ...targetOf(pane), paneId: null }, 'pane.list')
-      const panes = res.ok && Array.isArray(res.result) ? (res.result as PaneTitleEntry[]) : []
-      return panes.find((p) => p.paneId === paneId)?.title
-    },
-    reach,
-    interruptGraceMs: INTERRUPT_GRACE_MS,
-  })
-  services.processes = registry
-  const peekAttention = async (to: PaneIdentity): Promise<PaneAttentionPeek> => {
-    const unreported = keptAttention.peek(to.paneId)
-    if (unreported) return unreported
-    const res = await execCommand(targetOf(to), 'attention.peek')
-    return res.ok && res.result && typeof res.result === 'object' ? res.result : {}
-  }
-  const paneHibernated = async (to: PaneIdentity): Promise<boolean> => {
-    const res = await execCommand(targetOf(to), 'pane.hibernated')
-    return res.ok && (res.result as { hibernated?: unknown } | undefined)?.hibernated === true
-  }
-  const paneReachDeps: PaneReachDeps = {
-    processPane: async (ref, ctx) => {
-      const entry = registry.resolve(ref, ctx.identity.workspaceId, await reach.visible(ctx))
-      return entry && entry.status !== 'closed' ? entry.paneId : undefined
-    },
-    inScope: reach.inScope,
-    isChild: (ownerPaneId, paneId) => registry.isChild(ownerPaneId, paneId),
-    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-    isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
-  }
-  registerPaneIoMethods({
-    ...paneReachDeps,
-    io: paneIo,
-    state: getTerminalState,
-    managerAllowsInput: () => managerSettings().allowInput,
-    attention: peekAttention,
-    inputSent: (to) => void execCommand(targetOf(to), 'attention.typed'),
-    hibernated: paneHibernated,
-    wake: (to) => wakeHibernatedPane(execCommand, to),
-    hibernate: (to) => execCommand(targetOf(to), 'pane.hibernate'),
-    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
-    waking: paneWaking,
-    close: (to) => execCommand(targetOf(to), 'pane.close'),
-    resume: (to) => execCommand(targetOf(to), 'agent.resume'),
-    delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    hooksOn: (agent) =>
-      isResumableAgent(agent) && parseAgentHooks(readSettingsFile().agents?.hooks)[agent],
-  })
-  registerExtensionWake({
-    openedBy: (caller, paneId) => services.extensionHost?.openedBy(caller, paneId) ?? false,
-    hibernated: paneHibernated,
-    wake: (to) => wakeHibernatedPane(execCommand, to),
-    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
-    waking: paneWaking,
-  })
-  registerPaneMoveToMethods({
-    ...paneReachDeps,
-    ownerWindow: windowForWorkspace,
-    paneOf: getByPaneId,
-    isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
-    ensureReach: reach.ensure,
-    move: (to, workspaceId) => execCommand(targetOf(to), 'pane.moveToWorkspace', { workspaceId }),
-    tabPlan: (workspaceId, paneIds, tab) =>
-      execCommand(workspaceCommandTarget(workspaceId), 'pane.tabPlan', { paneIds, tab }, true),
-    joinTab: (workspaceId, paneIds, tab) =>
-      execCommand(workspaceCommandTarget(workspaceId), 'pane.joinTab', { paneIds, tab }, true),
-    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
-  })
-  registerPaneWaitMethods({
-    ...paneReachDeps,
-    watch: paneWatch,
-    attention: peekAttention,
-    exited: (paneId) => {
-      const entry = registry.forPane(paneId)
-      if (entry) return entry.status === 'exited'
-      return terminalState.get(paneId)?.running === false
-    },
-  })
-  registerDocsMethods({ extensions: () => services.extensionHost?.listForAgents() ?? [] })
-  registerVaultMethods({ isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId) })
-  registerOpenFileMethods({
-    grants: openFileGrants,
-    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-    isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
-    confineFolder: (path) => resolveSafe(path, fileRoots()),
-    waits: openWaits,
-    execCommand,
-    opened: (workspaceId, paneId, paths) => {
-      const noted = paths.filter((path) => artifactProducers.note(workspaceId, paneId, path))
-      if (noted.length > 0) artifactsChanged(workspaceId)
-    },
-  })
-  registerBusMethods({
-    inScope: reach.inScope,
-    managerSendAllowed: () => services.managerLimiter?.busAllowed() ?? true,
-    sent: () => services.telemetry?.count('agents', 'bus_message'),
-    announce: (from, to, text) => {
-      void announceBusMessage(
-        {
-          execCommand,
-          listPanes: () =>
-            listPanes({
-              execCommand,
-              getTerminalState,
-              ptyPid,
-              windowIds,
-              waking: isWaking,
-            }),
-          listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
-        },
-        from,
-        to,
-        text,
-      ).catch(() => {})
-    },
-    hibernated: paneHibernated,
-  })
+  const { notifyDeps } = registerNotifyWiring({ ...wiring })
+  registerSandboxWiring({ ...wiring, notifyDeps })
+  const { registry } = registerAgentWiring({ ...wiring })
+  const { paneHibernated } = registerPaneMethodsWiring({ ...wiring, registry })
+  registerToolbeltWiring({ ...wiring, paneHibernated })
   const { extensionRemoteFolders, extensionExec, resumeOfPane } = extensionHostParts({ ...wiring })
   const { extensionStore, extensionHost } = startExtensionHost({
     ...wiring,
@@ -2025,4 +1792,22 @@ const wiring = {
   registerExtensionIpc,
   registerRemoteFilesIpc,
   createLanguageServers,
+  openWaits,
+  artifactProducers,
+  artifactsChanged,
+  keptAttention,
+  paneWaking,
+  workspaceCommandTarget,
+  paneWatch,
+  agentWork,
+  startedAgents,
+  agentChanges,
+  syncKeptMeta,
+  killPty,
+  domainRequests,
+  portRequests,
+  secretService,
+  scanSandboxPorts,
+  PORT_SCAN_MS,
+  isScratchPane,
 }

@@ -16,6 +16,7 @@ import type { AgentRunningPanes } from '../agents/agentRunning'
 import type { HeldResume } from '../agents/extensionAgents'
 import { targetOf } from '../attention/attention'
 import { postNotification, postPanelNotification } from '../attention/notify'
+import type { NotifyDeps } from '../attention/notify'
 import { controlSocketPath } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { Telemetry } from '../diagnostics/telemetry'
@@ -33,7 +34,6 @@ import type { ProcessTabRequest } from '../panes/processLaunch'
 import { expandHome } from '../platform/pathGuard'
 import { readLocale, readSettingsFile, readSettingsFileOrNull } from '../platform/settingsFile'
 import type { Redactor } from '../privacy/redaction'
-import type { RedactText } from '../privacy/redactionTargets'
 import type { HostPaneGrants } from '../sandbox/hostPanes'
 import { sandboxSpawnEnv } from '../sandbox/spawnEnv'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
@@ -178,18 +178,7 @@ interface ExtensionHostStartDeps {
     fromMain?: boolean,
   ) => Promise<CommandResult>
   openTerminalInWindow: (req: ProcessTabRequest) => Promise<string | null>
-  notifyDeps: {
-    execCommand: (
-      target: CommandTarget,
-      id: string,
-      args?: unknown,
-      fromMain?: boolean,
-    ) => Promise<CommandResult>
-    isScratchPane: (paneId: string) => boolean
-    windows: () => MapIterator<BrowserWindow>
-    windowById: (id: string) => BrowserWindow | undefined
-    redact: RedactText
-  }
+  notifyDeps: NotifyDeps
   windows: Map<string, BrowserWindow>
   managerSettings: () => ManagerSettings
   agentOffers: AgentOfferRelay

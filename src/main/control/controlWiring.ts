@@ -15,10 +15,10 @@ import {
 } from '../approvals/scriptTokens'
 import { electronPresenceDeps, verifyUserPresence } from '../approvals/userPresence'
 import { postNotification } from '../attention/notify'
+import type { NotifyDeps } from '../attention/notify'
 import type { OwnerLookup } from '../extensions/workspaceChips'
 import { listPanes } from '../panes/paneList'
 import { storePath } from '../platform/jsonStore'
-import type { RedactText } from '../privacy/redactionTargets'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { KeptPlumbing } from '../tmux/keptLaunchers'
 import { setScriptTokenCheck } from './controlAuth'
@@ -28,18 +28,7 @@ import { controlSocketPath, registerControlServer } from './controlServer'
 interface ControlStartDeps {
   retiredScriptTokensPath: () => string
   mainStrings: () => Dict
-  notifyDeps: {
-    execCommand: (
-      target: CommandTarget,
-      id: string,
-      args?: unknown,
-      fromMain?: boolean,
-    ) => Promise<CommandResult>
-    isScratchPane: (paneId: string) => boolean
-    windows: () => MapIterator<BrowserWindow>
-    windowById: (id: string) => BrowserWindow | undefined
-    redact: RedactText
-  }
+  notifyDeps: NotifyDeps
   scriptTokensPath: () => string
   workspaceListing: () => Promise<ReachListing>
   broadcast: (channel: string, payload: unknown) => void
