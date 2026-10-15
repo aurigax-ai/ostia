@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import {
   copyFileSync,
   existsSync,
@@ -71,7 +71,7 @@ export function normalizeMarketplaceUrl(input: unknown): string | null {
 }
 
 export function marketplaceId(url: string): string {
-  return createHash('sha256').update(url).digest('hex').slice(0, 12)
+  return hash('sha256', url).slice(0, 12)
 }
 
 interface Source {

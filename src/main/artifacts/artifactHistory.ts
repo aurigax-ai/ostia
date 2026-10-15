@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import {
   constants,
   existsSync,
@@ -57,10 +57,6 @@ interface StoredVersion extends ArtifactVersion {
 interface Manifest {
   hash?: string
   sources?: Record<string, string>
-}
-
-function sha(data: string | Buffer): string {
-  return createHash('sha256').update(data).digest('hex')
 }
 
 function manifestOf(text: string): Manifest | null {
@@ -159,21 +155,21 @@ export class ArtifactHistory {
     const name = this.nameOf(workspaceId, path)
     if (!name || !isRegular(path)) return false
     let body: Buffer
-    let hash: string
+    let digest: string
     if (isCopied(name)) {
       const read = await readRegularFile(path, PORTABLE_LIMITS.fileBytes)
       if (!read.ok) return false
       body = read.body
-      hash = sha(read.body)
+      digest = hash('sha256', read.body)
     } else {
       const closing = this.closings.get(workspaceId) ?? 0
       const text = await this.deps.make(workspaceId, path).catch(() => null)
       if ((this.closings.get(workspaceId) ?? 0) !== closing) return false
       if (!text) return false
       body = Buffer.from(text)
-      hash = manifestOf(text)?.hash ?? sha(text)
+      digest = manifestOf(text)?.hash ?? hash('sha256', text)
     }
-    const short = hash.slice(0, 8)
+    const short = digest.slice(0, 8)
     if (this.stored(workspaceId, name)[0]?.hash === short) return false
     const dir = this.versionsDir(workspaceId, name)
     mkdirSync(dir, { recursive: true, mode: 0o700 })

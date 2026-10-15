@@ -1,4 +1,4 @@
-import { X509Certificate, createHash } from 'node:crypto'
+import { X509Certificate, hash } from 'node:crypto'
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app } from 'electron'
@@ -18,7 +18,7 @@ function gatewayDir(baseDirOverride?: string): string {
 
 function fingerprintOf(certPem: string): string {
   const der = new X509Certificate(certPem).raw
-  return `sha256/${createHash('sha256').update(der).digest('base64')}`
+  return `sha256/${hash('sha256', der, 'base64')}`
 }
 
 let cached: GatewayCert | null = null

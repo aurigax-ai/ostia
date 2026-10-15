@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -234,7 +234,7 @@ export class WorkspaceSandboxes {
         allowLocalBinding: network.allowLocalBinding,
         unixSockets: this.resolved(workspaceId).switches.unixSockets,
       }
-      return createHash('sha256').update(JSON.stringify(baked)).digest('hex').slice(0, 16)
+      return hash('sha256', JSON.stringify(baked)).slice(0, 16)
     } catch {
       return null
     }
@@ -317,7 +317,7 @@ export class WorkspaceSandboxes {
   tmpDir(workspaceId: string): string {
     const chosen = this.tmpDirs.get(workspaceId)
     if (chosen) return chosen
-    const short = createHash('sha256').update(workspaceId).digest('hex').slice(0, 10)
+    const short = hash('sha256', workspaceId).slice(0, 10)
     const kept = this.deps.kept
     const dir = join(kept?.enabled() ? kept.tmpRoot : this.instanceTmp, short)
     this.tmpDirs.set(workspaceId, dir)

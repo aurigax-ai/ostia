@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import { mkdirSync, readdirSync, realpathSync, rmSync, statSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
@@ -56,10 +56,6 @@ const IMAGE_CSS =
   'body{display:flex;align-items:center;justify-content:center;min-height:100vh}img{max-width:100%;max-height:100vh}'
 const JSON_CSS =
   'pre{margin:0;padding:16px;font-family:var(--ostia-font-code,ui-monospace,monospace);white-space:pre-wrap;word-break:break-word}'
-
-function sha256(text: string): string {
-  return createHash('sha256').update(text).digest('hex')
-}
 
 function normalizeDocument(value: unknown): PortableDocument | null {
   const raw = value as Partial<PortableDocument> | null
@@ -157,7 +153,7 @@ export class PortableExport {
       ostia: this.deps.version,
       libraries: [],
       theme: request.theme,
-      hash: sha256(document),
+      hash: hash('sha256', document),
       sources: { [name]: text },
     }
     const wrapped = wrapPortable(document, manifest)
@@ -187,7 +183,7 @@ export class PortableExport {
   private async open(file: string, text: string): Promise<PortableResult> {
     const dir = this.deps.tmpDir()
     const stem = portableFileName(file).replace(/\.html$/, '')
-    const target = join(dir, `${stem}-${sha256(text).slice(0, 8)}.html`)
+    const target = join(dir, `${stem}-${hash('sha256', text).slice(0, 8)}.html`)
     try {
       mkdirSync(dir, { recursive: true, mode: 0o700 })
       await writeFile(target, text, { mode: 0o600 })

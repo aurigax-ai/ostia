@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import { chmodSync, rmSync } from 'node:fs'
 import { type Server, type Socket, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -42,7 +42,7 @@ export function controlSocketPath(): string {
 }
 
 export function keptControlSocketPath(userData: string): string {
-  const digest = createHash('sha256').update(userData).digest('hex').slice(0, 16)
+  const digest = hash('sha256', userData).slice(0, 16)
   return socketPath(privateTmpDir(`${PRODUCT_NAME}-kept`), `${digest}.sock`)
 }
 

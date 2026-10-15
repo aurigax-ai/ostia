@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, hash } from 'node:crypto'
 
 const SEPARATOR = Buffer.from([0])
 const DIGITS = 1_000_000
@@ -21,5 +21,5 @@ export function checkCode(
 }
 
 export function commitOf(nonce: Buffer): string {
-  return createHash('sha256').update(nonce).digest('hex')
+  return hash('sha256', nonce)
 }

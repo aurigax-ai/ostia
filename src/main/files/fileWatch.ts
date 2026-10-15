@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import {
   type Dirent,
   type FSWatcher,
@@ -52,7 +52,7 @@ function sameStamp(a: FileStamp, b: FileStamp): boolean {
 }
 
 function digest(data: string | Uint8Array): string {
-  return createHash('sha1').update(data).digest('hex')
+  return hash('sha1', data)
 }
 
 async function fingerprintAfter(

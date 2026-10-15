@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import { existsSync, realpathSync } from 'node:fs'
 import { lstat, mkdir, open, readFile, readdir, stat, unlink, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
@@ -45,7 +45,7 @@ const SKIPPED_DIRS = new Set(['.git', 'node_modules'])
 type Fail = ChatFsFailure
 
 export function versionOf(content: Buffer | string): string {
-  return createHash('sha256').update(content).digest('hex')
+  return hash('sha256', content)
 }
 
 function fail(error: ChatFsError, path?: string): Fail {

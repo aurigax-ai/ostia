@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
+import { hash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { existsSync, rmSync } from 'node:fs'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
@@ -67,7 +67,7 @@ function fail(message: string): ResponseError<void> {
 }
 
 function hashOf(token: string): string {
-  return createHash('sha256').update(token, 'utf8').digest('hex')
+  return hash('sha256', token)
 }
 
 function newToken(): string {

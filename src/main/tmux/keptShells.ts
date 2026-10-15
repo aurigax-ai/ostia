@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { connect as connectSocket } from 'node:net'
 import { join } from 'node:path'
@@ -190,7 +190,7 @@ const HOST_WINDOW_ROWS = 24
 const TOKENS_DIR = 'tokens'
 
 function tokenName(paneId: string): string {
-  return createHash('sha256').update(paneId).digest('hex').slice(0, 32)
+  return hash('sha256', paneId).slice(0, 32)
 }
 
 export class KeptShells {
