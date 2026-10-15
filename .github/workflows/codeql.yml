@@ -2,6 +2,7 @@ name: CodeQL
 
 on:
   pull_request:
+    branches-ignore: [dev]
   push:
     branches: [main]
   schedule:

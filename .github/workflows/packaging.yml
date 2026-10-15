@@ -5,6 +5,7 @@ on:
     tags:
       - v*-rc.*
   pull_request:
+    branches-ignore: [dev]
     paths:
       - electron-builder.yml
       - packaging/**
