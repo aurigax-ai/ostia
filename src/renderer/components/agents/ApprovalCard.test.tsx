@@ -1,4 +1,5 @@
 import { newRequests, useApprovalsStore } from '@/stores/agents/approvalsStore'
+import type { Capability } from '@shared/capabilities'
 import type { ApprovalRequest } from '@shared/permissions/approvals'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -31,6 +32,19 @@ describe('ApprovalCard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Deny' }))
     expect(window.ostia.approvals.answer).toHaveBeenCalledWith('approval-1', 'deny')
   })
+
+  it.each<[Capability, string]>([
+    ['type-other-pane', 'type into other terminal panes'],
+    ['read-other-pane', 'read the screen of other terminal panes'],
+  ])(
+    'a pane types into and reads a tab it opened, and asks the human for any other pane: %s',
+    (cap, text) => {
+      render(<ApprovalCard request={{ ...REQUEST, caps: [cap] }} paneTitle="claude" />)
+      expect(screen.getByText(new RegExp(`claude wants to ${text}`))).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: 'Deny' }))
+      expect(window.ostia.approvals.answer).toHaveBeenCalledWith('approval-1', 'deny')
+    },
+  )
 
   it('asks first about the folder an agent set, then for all workspaces, and denies with the button', () => {
     const { rerender } = render(

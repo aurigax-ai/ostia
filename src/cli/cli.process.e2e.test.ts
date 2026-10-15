@@ -41,6 +41,7 @@ const opened: OpenRequest[] = []
 const written: { paneId: string; data: string }[] = []
 const reruns: { paneId: string; command: string }[] = []
 const closedPanes: string[] = []
+const newWorkspaceArgs: unknown[] = []
 const asleep = new Set<string>()
 const waking = new PaneWaking()
 let tabSeq = 0
@@ -81,6 +82,7 @@ async function execRenderer(
   }
   if (id === 'workspace.groups') return { ok: true, result: [] }
   if (id === 'workspace.new') {
+    newWorkspaceArgs.push(args)
     const workspaceId = `ws${workspaces.length + 1}`
     workspaces.push({
       workspaceId,
@@ -350,11 +352,28 @@ describe('ostia process (the real CLI against a live control server)', () => {
     expect(res.stderr).toContain('failed')
   })
 
-  it('workspace new: answers with the workspace it read back, and fails when it is not there', async () => {
+  it('workspace new: passes its name, group and --no-focus, answers with the workspace it read back, and fails when it is not there', async () => {
     const made = await ostia(['workspace', 'new', home, '--name', 'made', '--no-focus'])
     expect(made.code).toBe(0)
     const { workspaceId } = JSON.parse(made.stdout)
     expect(workspaces.map((w) => w.workspaceId)).toContain(workspaceId)
+    const grouped = await ostia([
+      'workspace',
+      'new',
+      home,
+      '--name',
+      'proj · workers',
+      '--group',
+      'proj',
+      '--no-focus',
+    ])
+    expect(grouped.code).toBe(0)
+    expect(newWorkspaceArgs.at(-1)).toEqual({
+      dir: home,
+      name: 'proj · workers',
+      group: 'proj',
+      focus: false,
+    })
     hiddenWorkspaces.add(`ws${workspaces.length + 1}`)
     const lost = await ostia(['workspace', 'new', home, '--name', 'lost', '--no-focus'])
     expect(lost.code).toBe(1)

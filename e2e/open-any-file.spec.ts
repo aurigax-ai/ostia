@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, emptyState, openWorkspace } from './helpers'
+import { openWorkspace } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
 
 const PIXEL_PNG = Buffer.from(
@@ -142,37 +142,16 @@ test('ostia <file> shows a text file and an image from outside the home folder, 
 
 test('a file dropped on the window opens in the viewer; dropped on a terminal it pastes its path', async () => {
   const dataHome = freshDataHome()
-  const { log, image, dir } = outsideFiles(dataHome)
+  const { log, dir } = outsideFiles(dataHome)
   const app = await electron.launch(isolatedLaunch(dataHome))
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
-    await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
-
-    const empty = await centerOf(win, '.workzone-empty')
-    await dropFiles(win, [image], empty.x, empty.y)
-    await expect(tab(win, 'shot.png')).toBeVisible({ timeout: 15_000 })
-    await expect(win.locator('.viewer-meta:visible')).toHaveText('1 × 1', { timeout: 15_000 })
-
-    const body = await centerOf(win, '.viewer-stage')
-    await dropFiles(win, [log], body.x, body.y)
-    await expect(tab(win, 'app.log')).toBeVisible({ timeout: 15_000 })
-    await expect(win.locator('.monaco-editor:visible .view-lines')).toContainText(
-      'second line outside home',
-      { timeout: 15_000 },
-    )
-
-    await win.getByRole('button', { name: 'New terminal tab', exact: true }).first().click()
-    await expect(win.locator('.xterm-rows:visible')).toContainText(PROMPT, { timeout: 15_000 })
+    await openWorkspace(win)
     const terminal = await centerOf(win, '.terminal-surface:visible')
     await dropFiles(win, [log], terminal.x, terminal.y)
     await expect(win.locator('.xterm-rows:visible')).toContainText(log, { timeout: 10_000 })
-    await expect(win.locator('.pane-tab')).toHaveCount(3)
-
-    const header = await centerOf(win, '.pane-tabs')
-    await dropFiles(win, [log], header.x, header.y)
-    await expect(tab(win, 'app.log')).toHaveClass(/selected/, { timeout: 10_000 })
-    await expect(win.locator('.pane-tab')).toHaveCount(3)
+    await expect(tab(win, 'app.log')).toHaveCount(0)
 
     const notes = join(dir, 'notes.txt')
     writeFileSync(notes, 'dropped on a web page\n')

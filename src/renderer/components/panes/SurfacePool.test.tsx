@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { firstPaneId } from '@/layout/tree'
+import { findSplitTabByName, firstPaneId } from '@/layout/tree'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
@@ -109,5 +109,44 @@ describe('SurfacePool', () => {
     expect(
       vi.mocked(window.ostia.pty.attach).mock.calls.filter(([paneId]) => paneId === original),
     ).toHaveLength(1)
+  })
+
+  it('joining panes into a split tab and separating them again keeps every terminal DOM node', async () => {
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 'w1', name: 'me', kind: 'terminal', workDir: '/home/me', state: 'idle' }],
+      activeWorkspaceId: 'w1',
+    })
+    const layout = useLayoutStore.getState()
+    layout.ensure('w1')
+    const caller = firstPaneId(useLayoutStore.getState().byWorkspace.w1.root)
+    const w1 = layout.newTab('w1', caller, 'terminal') ?? ''
+    const w2 = layout.newTab('w1', w1, 'terminal') ?? ''
+    const panes = [caller, w1, w2]
+    await renderSettled(<SurfacePool />)
+    const attaches = (id: string) =>
+      vi.mocked(window.ostia.pty.attach).mock.calls.filter(([paneId]) => paneId === id)
+    await waitFor(() => {
+      for (const id of panes) expect(attaches(id)).toHaveLength(1)
+    })
+    const hosts = panes.map((id) => surfaceHost(id).querySelector('.xterm'))
+    expect(hosts).not.toContain(null)
+    const expectSameHosts = () => {
+      panes.forEach((id, i) => expect(surfaceHost(id).querySelector('.xterm')).toBe(hosts[i]))
+    }
+
+    act(() => {
+      useLayoutStore.getState().joinTab('w1', [w1, w2], 'workers')
+    })
+    expect(
+      findSplitTabByName(useLayoutStore.getState().byWorkspace.w1.root, 'workers'),
+    ).not.toBeNull()
+    expectSameHosts()
+
+    act(() => {
+      useLayoutStore.getState().joinTab('w1', [w2], null)
+    })
+    expect(findSplitTabByName(useLayoutStore.getState().byWorkspace.w1.root, 'workers')).toBeNull()
+    expectSameHosts()
+    for (const id of panes) expect(attaches(id)).toHaveLength(1)
   })
 })

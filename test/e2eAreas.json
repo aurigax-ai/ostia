@@ -642,7 +642,6 @@
         "test/fixtures/agents/"
       ],
       "specs": [
-        "e2e/agent-run-start.spec.ts",
         "e2e/pane-move-tab.spec.ts",
         "e2e/pane-send-submit.spec.ts",
         "e2e/processes.spec.ts",
@@ -905,7 +904,6 @@
         "e2e/pane-dnd.spec.ts",
         "e2e/pane-lock.spec.ts",
         "e2e/pane-move-tab.spec.ts",
-        "e2e/split-tabs.spec.ts",
         "e2e/tab-rename.spec.ts",
         "e2e/tab-switch.spec.ts"
       ]

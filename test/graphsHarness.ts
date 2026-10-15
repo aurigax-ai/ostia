@@ -56,6 +56,7 @@ export interface Harness {
   stop: (pane: FakePane, payload: Record<string, unknown>) => Promise<CliResult>
   stopAll: () => void
   host: import('../src/main/extensions/extensionHost').ExtensionHost
+  launches: import('../src/main/extensions/extensionLaunches').ExtensionLaunches | null
   secrets: import('../src/main/extensions/extensionHost').ExtensionSecretStore
 }
 
@@ -96,7 +97,7 @@ function runCli(args: string[], env: NodeJS.ProcessEnv, stdin = ''): Promise<Cli
 }
 
 export async function graphsHarness(
-  opts: { activity?: boolean; mcp?: boolean; connections?: boolean } = {},
+  opts: { activity?: boolean; mcp?: boolean; connections?: boolean; launches?: boolean } = {},
 ): Promise<Harness> {
   const { registerControlServer } = await import('../src/main/control/controlServer')
   const { registerPane, markManager, getByPaneId } = await import('../src/main/control/idRegistry')
@@ -117,6 +118,7 @@ export async function graphsHarness(
   const { registerExtensionMcp } = await import('../src/main/chat/extensionMcp')
   const { ExtensionConnections } = await import('../src/main/extensions/extensionConnections')
   const { createSecretStore } = await import('../src/main/extensions/extensionSecrets')
+  const { ExtensionLaunches } = await import('../src/main/extensions/extensionLaunches')
 
   const dir = mkdtempSync(join(tmpdir(), 'ostia-graphs-'))
   const workDir = join(dir, 'shop')
@@ -180,8 +182,12 @@ export async function graphsHarness(
   const connections = opts.connections
     ? new ExtensionConnections(join(dir, 'extension-connections.json'), () => secretStore)
     : undefined
+  const launches = opts.launches
+    ? new ExtensionLaunches(join(dir, 'extension-launches.json'))
+    : null
   const host = new ExtensionHost({
     ...(connections ? { connections, secrets: secretStore } : {}),
+    ...(launches ? { launches } : {}),
     roots: [{ dir: join(dir, 'builtin'), builtin: true }],
     store: new ExtensionStore(join(dir, 'extensions.json')),
     socketPath: () => socketPath,
@@ -378,6 +384,7 @@ export async function graphsHarness(
     remotePane,
     managerPane,
     host,
+    launches,
     writeGraph: (name, text) => {
       const path = join(workDir, '.ostia/graphs', `${name}.yaml`)
       writeFileSync(path, text)
