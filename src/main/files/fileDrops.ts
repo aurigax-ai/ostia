@@ -37,7 +37,8 @@ export function registerFileDropIpc(deps: FileDropsDeps): void {
       importDropped(deps, String(e.sender.id), { paths, dir, workspaceId, move }),
   )
   ipcMain.on('files:start-drag', (e, path: unknown) => {
-    const file = deps.fileOps.draggable(path)
-    if (file !== null) e.sender.startDrag({ file, icon: dragIcon() })
+    void deps.fileOps.draggable(path).then((file) => {
+      if (file !== null && !e.sender.isDestroyed()) e.sender.startDrag({ file, icon: dragIcon() })
+    })
   })
 }

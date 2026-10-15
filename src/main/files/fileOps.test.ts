@@ -15,7 +15,7 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { copyExclusive, moveExclusive } from './exclusiveTransfer'
+import { type TransferFs, copyExclusive, moveExclusive, nodeTransferFs } from './exclusiveTransfer'
 import { FileOps, copyName, nameProblem, numberedName } from './fileOps'
 
 const dirs: string[] = []
@@ -59,7 +59,7 @@ function setup(): { root: string; outside: string; ops: FileOps; trashed: string
 }
 
 describe('nameProblem', () => {
-  it('refuses empty, dot, separator, NUL, padded and overlong names', () => {
+  it('refuses empty, dot, separator, NUL, padded and overlong names', async () => {
     for (const bad of ['', '.', '..', 'a/b', 'a\\b', 'a\0b', ' a', 'a ', 'x'.repeat(256), 3]) {
       expect(nameProblem(bad), String(bad)).toBe(true)
     }
@@ -70,50 +70,53 @@ describe('nameProblem', () => {
 })
 
 describe('copyName', () => {
-  it('adds copy, then a number, before the extension', () => {
+  it('adds copy, then a number, before the extension', async () => {
     const dir = tmp()
     writeFileSync(join(dir, 'a.ts'), '')
-    expect(copyName(dir, 'a.ts')).toBe('a copy.ts')
+    expect(await copyName(dir, 'a.ts')).toBe('a copy.ts')
     writeFileSync(join(dir, 'a copy.ts'), '')
-    expect(copyName(dir, 'a.ts')).toBe('a copy 2.ts')
-    expect(copyName(dir, '.env')).toBe('.env copy')
+    expect(await copyName(dir, 'a.ts')).toBe('a copy 2.ts')
+    expect(await copyName(dir, '.env')).toBe('.env copy')
   })
 })
 
 describe('FileOps', () => {
-  it('creates an empty file and a folder, never over an existing name', () => {
+  it('creates an empty file and a folder, never over an existing name', async () => {
     const { root, ops } = setup()
-    expect(ops.create(join(root, 'src'), 'new.ts', 'file')).toEqual({
+    expect(await ops.create(join(root, 'src'), 'new.ts', 'file')).toEqual({
       ok: true,
       paths: [join(root, 'src', 'new.ts')],
     })
     expect(readFileSync(join(root, 'src', 'new.ts'), 'utf8')).toBe('')
-    expect(ops.create(root, 'lib', 'folder').ok).toBe(true)
-    expect(ops.create(root, 'notes.md', 'file')).toEqual({ ok: false, error: 'exists' })
+    expect((await ops.create(root, 'lib', 'folder')).ok).toBe(true)
+    expect(await ops.create(root, 'notes.md', 'file')).toEqual({ ok: false, error: 'exists' })
     expect(readFileSync(join(root, 'notes.md'), 'utf8')).toBe('notes')
-    expect(ops.create(root, '../x', 'file')).toEqual({ ok: false, error: 'invalid-name' })
+    expect(await ops.create(root, '../x', 'file')).toEqual({ ok: false, error: 'invalid-name' })
   })
 
-  it('renames in place and refuses a name another entry has', () => {
+  it('renames in place and refuses a name another entry has', async () => {
     const { root, ops } = setup()
-    expect(ops.rename(join(root, 'notes.md'), 'readme.md')).toEqual({
+    expect(await ops.rename(join(root, 'notes.md'), 'readme.md')).toEqual({
       ok: true,
       paths: [join(root, 'readme.md')],
     })
-    expect(ops.rename(join(root, 'readme.md'), 'src')).toEqual({ ok: false, error: 'exists' })
+    expect(await ops.rename(join(root, 'readme.md'), 'src')).toEqual({ ok: false, error: 'exists' })
     expect(existsSync(join(root, 'readme.md'))).toBe(true)
   })
 
-  it.skipIf(!CASE_SENSITIVE)('refuses a case-only rename onto a different file', () => {
+  it.skipIf(!CASE_SENSITIVE)('refuses a case-only rename onto a different file', async () => {
     const { root, ops } = setup()
     writeFileSync(join(root, 'Notes.md'), 'other')
-    expect(ops.rename(join(root, 'notes.md'), 'Notes.md')).toEqual({ ok: false, error: 'exists' })
+    expect(await ops.rename(join(root, 'notes.md'), 'Notes.md')).toEqual({
+      ok: false,
+      error: 'exists',
+    })
     expect(readFileSync(join(root, 'Notes.md'), 'utf8')).toBe('other')
   })
 
-  it.skipIf(CASE_SENSITIVE)('renames a file to another case of its own name', () => {
+  it.skipIf(CASE_SENSITIVE)('renames a file to another case of its own name', async () => {
     const { root, ops } = setup()
-    expect(ops.rename(join(root, 'notes.md'), 'Notes.md')).toEqual({
+    expect(await ops.rename(join(root, 'notes.md'), 'Notes.md')).toEqual({
       ok: true,
       paths: [join(root, 'Notes.md')],
     })
@@ -168,9 +171,12 @@ describe('FileOps', () => {
     const { root, outside, ops } = setup()
     writeFileSync(join(outside, 'secret.txt'), 'secret')
     symlinkSync(outside, join(root, 'link'))
-    expect(ops.create(outside, 'x', 'file')).toEqual({ ok: false, error: 'outside' })
-    expect(ops.create(join(root, 'link'), 'x', 'file')).toEqual({ ok: false, error: 'outside' })
-    expect(ops.rename(join(root, 'link', 'secret.txt'), 'y')).toEqual({
+    expect(await ops.create(outside, 'x', 'file')).toEqual({ ok: false, error: 'outside' })
+    expect(await ops.create(join(root, 'link'), 'x', 'file')).toEqual({
+      ok: false,
+      error: 'outside',
+    })
+    expect(await ops.rename(join(root, 'link', 'secret.txt'), 'y')).toEqual({
       ok: false,
       error: 'outside',
     })
@@ -189,22 +195,22 @@ describe('FileOps', () => {
   it('renames, moves and trashes a symlink itself, not its target', async () => {
     const { root, outside, ops } = setup()
     symlinkSync(outside, join(root, 'link'))
-    expect(ops.rename(join(root, 'link'), 'renamed').ok).toBe(true)
+    expect((await ops.rename(join(root, 'link'), 'renamed')).ok).toBe(true)
     expect(await ops.trash([join(root, 'renamed')])).toMatchObject({ ok: true })
     expect(existsSync(outside)).toBe(true)
   })
 })
 
 describe('numberedName', () => {
-  it('keeps a free name, then numbers it before the extension', () => {
+  it('keeps a free name, then numbers it before the extension', async () => {
     const dir = tmp()
-    expect(numberedName(dir, 'a.ts')).toBe('a.ts')
+    expect(await numberedName(dir, 'a.ts')).toBe('a.ts')
     writeFileSync(join(dir, 'a.ts'), '')
-    expect(numberedName(dir, 'a.ts')).toBe('a (2).ts')
+    expect(await numberedName(dir, 'a.ts')).toBe('a (2).ts')
     writeFileSync(join(dir, 'a (2).ts'), '')
-    expect(numberedName(dir, 'a.ts')).toBe('a (3).ts')
+    expect(await numberedName(dir, 'a.ts')).toBe('a (3).ts')
     mkdirSync(join(dir, 'docs'))
-    expect(numberedName(dir, 'docs')).toBe('docs (2)')
+    expect(await numberedName(dir, 'docs')).toBe('docs (2)')
   })
 })
 
@@ -387,41 +393,192 @@ describe('FileOps transfers never replace and never block', () => {
 })
 
 describe('exclusive transfers', () => {
+  function swapFs(swap: { before: 'open' | 'mkdir'; at: string; run: () => void }): TransferFs {
+    let swapped = false
+    const once = (path: string): void => {
+      if (swapped || path !== swap.at) return
+      swapped = true
+      swap.run()
+    }
+    return {
+      ...nodeTransferFs,
+      open: (async (path: string, ...rest: unknown[]) => {
+        const handle = await (nodeTransferFs.open as (...args: unknown[]) => Promise<unknown>)(
+          path,
+          ...rest,
+        )
+        if (swap.before === 'open') once(path)
+        return handle
+      }) as TransferFs['open'],
+      mkdir: async (path) => {
+        await nodeTransferFs.mkdir(path)
+        if (swap.before === 'mkdir') once(path)
+      },
+    }
+  }
+
   it('never takes a name that appeared after it was picked', async () => {
     const dir = tmp()
+    const parent = lstatSync(dir)
     const target = join(dir, 'taken')
-    for (const make of [
-      () => writeFileSync(join(dir, 'file'), 'new'),
-      () => mkdirSync(join(dir, 'folder')),
-      () => symlinkSync(dir, join(dir, 'link')),
-    ]) {
-      make()
-    }
+    writeFileSync(join(dir, 'file'), 'new')
+    mkdirSync(join(dir, 'folder'))
+    symlinkSync(dir, join(dir, 'link'))
     writeFileSync(target, 'theirs')
     for (const source of [join(dir, 'file'), join(dir, 'folder'), join(dir, 'link')]) {
-      expect(await moveExclusive(source, target), source).toBe('taken')
-      expect(await copyExclusive(source, target, async () => {}), source).toBe('taken')
+      expect(await moveExclusive(source, target, { parent }), source).toBe('taken')
+      expect(await copyExclusive(source, target, async () => {}, { parent }), source).toBe('taken')
       expect(existsSync(source)).toBe(true)
     }
     expect(readFileSync(target, 'utf8')).toBe('theirs')
-    mkdirSync(join(dir, 'empty'))
-    expect(await moveExclusive(join(dir, 'folder'), join(dir, 'empty'))).toBe('taken')
-    expect(lstatSync(join(dir, 'folder')).isDirectory()).toBe(true)
+  })
+
+  it('never writes through a link put in place of a name it picked', async () => {
+    const dir = tmp()
+    const outside = tmp()
+    const parent = lstatSync(dir)
+    writeFileSync(join(outside, 'victim'), 'outside')
+    writeFileSync(join(dir, 'source.txt'), 'payload')
+    symlinkSync(join(outside, 'victim'), join(dir, 'copy.txt'))
+    expect(
+      await copyExclusive(join(dir, 'source.txt'), join(dir, 'copy.txt'), async () => {}, {
+        parent,
+      }),
+    ).toBe('taken')
+    expect(readFileSync(join(outside, 'victim'), 'utf8')).toBe('outside')
+  })
+
+  it('stops a folder copy whose new folder was swapped for a link, writing nothing outside', async () => {
+    const dir = tmp()
+    const outside = tmp()
+    const parent = lstatSync(dir)
+    const source = join(dir, 'photos')
+    mkdirSync(source)
+    writeFileSync(join(source, 'a.jpg'), 'a')
+    const target = join(dir, 'photos copy')
+    const discarded: string[] = []
+    const fs = swapFs({
+      before: 'mkdir',
+      at: target,
+      run: () => {
+        rmSync(target, { recursive: true })
+        symlinkSync(outside, target)
+      },
+    })
+    await expect(
+      copyExclusive(source, target, async (path) => void discarded.push(path), { parent, fs }),
+    ).rejects.toThrow('folder-replaced')
+    expect(readdirSync(outside)).toEqual([])
+    expect(discarded).toEqual([target])
+  })
+
+  it('stops a copy whose destination folder was swapped for a link, writing nothing outside', async () => {
+    const root = tmp()
+    const outside = tmp()
+    const dest = join(root, 'dest')
+    mkdirSync(dest)
+    const parent = lstatSync(dest)
+    writeFileSync(join(root, 'a.txt'), 'a')
+    rmSync(dest, { recursive: true })
+    symlinkSync(outside, dest)
+    await expect(
+      copyExclusive(join(root, 'a.txt'), join(dest, 'a.txt'), async () => {}, { parent }),
+    ).rejects.toThrow('folder-replaced')
+    await expect(
+      moveExclusive(join(root, 'a.txt'), join(dest, 'a.txt'), { parent }),
+    ).rejects.toThrow('folder-replaced')
+    expect(readdirSync(outside)).toEqual([])
+  })
+
+  it('a file copy writes into the handle it created, not the path, when the name is swapped mid-copy', async () => {
+    const dir = tmp()
+    const outside = tmp()
+    const parent = lstatSync(dir)
+    writeFileSync(join(outside, 'victim'), 'outside')
+    writeFileSync(join(dir, 'source.txt'), 'payload')
+    const target = join(dir, 'copy.txt')
+    const fs = swapFs({
+      before: 'open',
+      at: target,
+      run: () => {
+        rmSync(target)
+        symlinkSync(join(outside, 'victim'), target)
+      },
+    })
+    expect(
+      await copyExclusive(join(dir, 'source.txt'), target, async () => {}, { parent, fs }),
+    ).toBe('done')
+    expect(readFileSync(join(outside, 'victim'), 'utf8')).toBe('outside')
+  })
+
+  it('moves a folder by copy on Windows, where a rename cannot replace a folder', async () => {
+    const dir = tmp()
+    const parent = lstatSync(dir)
+    mkdirSync(join(dir, 'folder'))
+    expect(
+      await moveExclusive(join(dir, 'folder'), join(dir, 'moved'), { parent, platform: 'win32' }),
+    ).toBe('copy')
+    expect(existsSync(join(dir, 'moved'))).toBe(false)
+    writeFileSync(join(dir, 'file'), 'f')
+    expect(
+      await moveExclusive(join(dir, 'file'), join(dir, 'moved.txt'), { parent, platform: 'win32' }),
+    ).toBe('done')
+  })
+
+  it('a Windows folder move through FileOps copies, then trashes the original', async () => {
+    const root = tmp()
+    const trashed: string[] = []
+    const ops = new FileOps({
+      roots: [root],
+      platform: 'win32',
+      trash: async (path) => {
+        trashed.push(path)
+        rmSync(path, { recursive: true, force: true })
+      },
+    })
+    mkdirSync(join(root, 'src'))
+    writeFileSync(join(root, 'src', 'a.ts'), 'a')
+    mkdirSync(join(root, 'docs'))
+    expect(await ops.move([join(root, 'src')], join(root, 'docs'))).toEqual({
+      ok: true,
+      paths: [join(root, 'docs', 'src')],
+    })
+    expect(readFileSync(join(root, 'docs', 'src', 'a.ts'), 'utf8')).toBe('a')
+    expect(trashed).toEqual([join(root, 'src')])
+  })
+
+  it('keeps main responsive while a large folder copies', async () => {
+    const { root, outside, ops } = setup()
+    const source = join(outside, 'big')
+    mkdirSync(source)
+    const chunk = Buffer.alloc(1024 * 1024, 7)
+    for (let i = 0; i < 64; i++) writeFileSync(join(source, `part-${i}.bin`), chunk)
+    let ticks = 0
+    const timer = setInterval(() => {
+      ticks++
+    }, 1)
+    try {
+      expect(await ops.importInto([source], root, false)).toMatchObject({ ok: true })
+    } finally {
+      clearInterval(timer)
+    }
+    expect(readdirSync(join(root, 'big'))).toHaveLength(64)
+    expect(ticks).toBeGreaterThan(3)
   })
 })
 
 describe('FileOps.draggable', () => {
-  it('hands out a real file or folder inside a root, never a root, a link or a path outside', () => {
+  it('hands out a real file or folder inside a root, never a root, a link or a path outside', async () => {
     const { root, outside, ops } = setup()
     writeFileSync(join(outside, 'secret'), 's')
     symlinkSync(join(outside, 'secret'), join(root, 'link'))
-    expect(ops.draggable(join(root, 'notes.md'))).toBe(join(root, 'notes.md'))
-    expect(ops.draggable(join(root, 'src'))).toBe(join(root, 'src'))
-    expect(ops.draggable(join(root, 'src', '..', 'notes.md'))).toBe(join(root, 'notes.md'))
-    expect(ops.draggable(root)).toBeNull()
-    expect(ops.draggable(join(root, 'link'))).toBeNull()
-    expect(ops.draggable(join(outside, 'secret'))).toBeNull()
-    expect(ops.draggable(join(root, 'missing'))).toBeNull()
-    expect(ops.draggable(42)).toBeNull()
+    expect(await ops.draggable(join(root, 'notes.md'))).toBe(join(root, 'notes.md'))
+    expect(await ops.draggable(join(root, 'src'))).toBe(join(root, 'src'))
+    expect(await ops.draggable(join(root, 'src', '..', 'notes.md'))).toBe(join(root, 'notes.md'))
+    expect(await ops.draggable(root)).toBeNull()
+    expect(await ops.draggable(join(root, 'link'))).toBeNull()
+    expect(await ops.draggable(join(outside, 'secret'))).toBeNull()
+    expect(await ops.draggable(join(root, 'missing'))).toBeNull()
+    expect(await ops.draggable(42)).toBeNull()
   })
 })
