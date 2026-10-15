@@ -20,7 +20,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
+import { DATE_ONLY, formatDate } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { Dict } from '@shared/app/dict'
 import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/gateway/phoneCapabilities'
 import type { GatewayDevice } from '@shared/types'
@@ -52,6 +54,7 @@ function DeviceRow({
   onRevoke: () => void
 }): JSX.Element {
   const d = useDict()
+  const locale = useSettingsStore((s) => s.locale)
   const [asking, setAsking] = useState(false)
   const text = capText(d)
   return (
@@ -61,7 +64,7 @@ function DeviceRow({
           <span className="truncate font-medium text-fg text-ui-base">{device.name}</span>
           <span className="shrink-0 text-fg-muted text-ui-sm tabular-nums">
             {fmt(d.settings.remotePairedOn, {
-              date: new Date(device.createdAt).toLocaleDateString(),
+              date: formatDate(Date.parse(device.createdAt), locale, DATE_ONLY),
             })}
           </span>
         </div>
