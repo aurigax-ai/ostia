@@ -132,7 +132,7 @@ ostia process list                       # id, name, status, paneId, command
 ostia process logs web [--since N]       # that command's output only; (cursor=N) on stderr
 ostia process kill web                   # Ctrl+C, then ends the shell if it keeps running
 ostia process restart web                # Ctrl+C, then the same line in the same tab
-ostia agent run claude "fix the login bug" --name fixer [--cwd DIR] [--workspace <id|name>] [--tab <name>]
+ostia agent run claude "fix the login bug" --name fixer [--model M] [--cwd DIR] [--workspace <id|name>] [--tab <name>]
 ostia agent run codex - --name review < task.md   # - reads the prompt from stdin
 ```
 
