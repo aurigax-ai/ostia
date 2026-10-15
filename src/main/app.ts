@@ -204,12 +204,10 @@ import {
 } from './diagnostics/telemetry'
 import { registerConnectionsIpc } from './extensions/connectionsIpc'
 import { confirmForExtension } from './extensions/extensionConfirm'
-import { ExtensionConnections } from './extensions/extensionConnections'
 import { ExtensionExec } from './extensions/extensionExec'
 import { ExtensionHost } from './extensions/extensionHost'
 import { ExtensionLaunches } from './extensions/extensionLaunches'
 import { registerExtensionMethods } from './extensions/extensionMethods'
-import { type SecretStoreDeps, createSecretStore } from './extensions/extensionSecrets'
 import { ExtensionStore } from './extensions/extensionStore'
 import { DismissedSuggestions, suggestionFor } from './extensions/extensionSuggestions'
 import { registerIconThemeIpc } from './extensions/iconThemes'
@@ -339,17 +337,10 @@ import { type SandboxReadRules, visibleInSandbox } from './sandbox/visibility'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { packageCooldownEnv } from './sandboxPackages/packageEnv'
 import { PackageRequests } from './sandboxPackages/packageRequests'
+import { createEncryptedStores } from './secrets/encryptedStores'
 import { registerSecretMethods } from './secrets/register'
-import { prepareSecrets } from './secrets/secretInjection'
-import { SecretService } from './secrets/secretService'
-import {
-  deleteGlobalVaultValue,
-  registerVaultMethods,
-  setGlobalVaultValue,
-  vaultKeys,
-  vaultValue,
-} from './secrets/vault'
-import { WorkspaceAgents } from './secrets/workspaceAgents'
+import { createSecretServices } from './secrets/secretServices'
+import { deleteGlobalVaultValue, registerVaultMethods, setGlobalVaultValue } from './secrets/vault'
 import { registerCompletionIpc } from './terminal/completionSpecs'
 import { atLocalPrompt, busyProgram } from './terminal/localPrompt'
 import { writeOstiaLauncher } from './terminal/paneLauncher'
@@ -1267,87 +1258,10 @@ function scanSandboxPorts(): void {
   }
 }
 
-const GH_TOKEN_TTL_MS = 60_000
-let ghTokenCache: { at: number; value: string | null } | null = null
-
-function ghToken(): string | null {
-  if (ghTokenCache && Date.now() - ghTokenCache.at < GH_TOKEN_TTL_MS) return ghTokenCache.value
-  let value: string | null = null
-  const gh = programPath('gh')
-  if (gh) {
-    try {
-      value =
-        execFileSync(gh, ['auth', 'token'], { encoding: 'utf8', timeout: 3000 }).trim() || null
-    } catch {
-      value = null
-    }
-  }
-  ghTokenCache = { at: Date.now(), value }
-  return value
-}
-
-const secretService: SecretService = new SecretService({
-  home: homedir,
-  env: () => process.env,
-  ghToken,
-  vault: {
-    list: (workspaceId) => [
-      ...vaultKeys('global', workspaceId).map((key) => ({ key, scope: 'global' as const })),
-      ...vaultKeys('project', workspaceId).map((key) => ({ key, scope: 'project' as const })),
-    ],
-    get: (key, scope, workspaceId) => vaultValue(key, scope, workspaceId),
-  },
-  grantedIds: (workspaceId) =>
-    (workspaceSandboxes.settings(workspaceId).secrets ?? []).map((g) => g.id),
-  ask: async ({ workspaceId, paneId, name, reason }) => {
-    const identity = getByPaneId(paneId) ?? getByPaneId(paneForWorkspace(workspaceId) ?? '')
-    const queue = approvals()
-    if (!identity || !queue) return 'deny'
-    return queue.request({
-      externalId: identity.externalId,
-      windowId: identity.windowId,
-      paneId: identity.paneId,
-      workspaceId,
-      caps: [],
-      kind: 'secret',
-      subject: name,
-      action: `ostia secret get ${name}`,
-      detail: reason,
-    })
-  },
+const { secretService, workspaceAgents, injectSecrets } = createSecretServices({
+  workspaceSandboxes,
+  paneForWorkspace,
 })
-
-const workspaceAgents = new WorkspaceAgents()
-
-async function injectSecrets(
-  workspaceId: string,
-): Promise<{ env: Record<string, string>; notice: string }> {
-  const grants = workspaceSandboxes.settings(workspaceId).secrets ?? []
-  if (grants.length === 0) return { env: {}, notice: '' }
-  const dir = join(workspaceSandboxes.tmpDir(workspaceId), 'secrets')
-  const prepared = prepareSecrets({
-    grants,
-    list: secretService.list(workspaceId),
-    value: (id) => secretService.value(workspaceId, id),
-    dir,
-  })
-  const env = { ...prepared.env }
-  try {
-    const socket = await workspaceAgents.ensure(
-      workspaceId,
-      workspaceSandboxes.sshAgentSocket(workspaceId),
-      prepared.sshKeys,
-    )
-    if (socket) env.SSH_AUTH_SOCK = socket
-  } catch {
-    prepared.missing.push('ssh-agent')
-  }
-  const notice =
-    prepared.missing.length > 0
-      ? `\x1b[33m Granted secrets not found: ${prepared.missing.join(', ')}\x1b[0m\r\n`
-      : ''
-  return { env, notice }
-}
 
 const browserProfiles = new BrowserProfiles({
   ownerOf: (paneId) => {
@@ -3287,37 +3201,13 @@ function sendToWorkspaceWindow(
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
 }
 
-let connectionsStore: ExtensionConnections | null = null
-
-function extensionConnections(): ExtensionConnections {
-  connectionsStore ??= new ExtensionConnections(
-    join(app.getPath('userData'), 'extension-connections.json'),
-    () => extensionSecretStore(),
-  )
-  return connectionsStore
-}
-
-function extensionSecretStore() {
-  return encryptedStore(storePath('extension-secrets', 'global'))
-}
-
-function assistKeyStore() {
-  return encryptedStore(storePath('assist-keys', 'global'))
-}
-
-function encryptedFile(path: string): SecretStoreDeps {
-  return {
-    load: () => loadJson<unknown>(path, {}),
-    save: (data) => saveJson(path, data, { secure: true }),
-    canEncrypt: () => safeStorage.isEncryptionAvailable(),
-    encrypt: (plain) => safeStorage.encryptString(plain).toString('base64'),
-    decrypt: (secret) => safeStorage.decryptString(Buffer.from(secret, 'base64')),
-  }
-}
-
-function encryptedStore(path: string) {
-  return createSecretStore(encryptedFile(path))
-}
+const {
+  extensionConnections,
+  extensionSecretStore,
+  assistKeyStore,
+  encryptedFile,
+  encryptedStore,
+} = createEncryptedStores()
 
 function readSettingsFileOrNull(): { assistant?: unknown } | null {
   try {
