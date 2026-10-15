@@ -20,7 +20,10 @@ import { KubeContextReader, NodeVersionResolver, promptContext } from '../prompt
 import { ExecutableIndex, readShellState, registerCommandNamesIpc } from '../shellCommands'
 import { ShellHistoryFiles, registerShellHistoryIpc } from '../shellHistory'
 import type { PtyAttach } from './ptyAttach'
-import type { PtyEntry, PtyRegistry } from './ptyRegistry'
+import { type PtyIo, resizePty } from './ptyIo'
+import { type PtyQueries, holdsLocalPrompt } from './ptyQueries'
+import type { PtyEntry } from './ptyRegistry'
+import type { PtyStop } from './ptyStop'
 
 interface PtyIpcDeps {
   attachPty: PtyAttach['attachPty']
@@ -31,13 +34,11 @@ interface PtyIpcDeps {
   agentWork: ReportedAgentWork
   agentRunning: AgentRunningPanes
   paneWaking: PaneWaking
-  hibernatePty: PtyRegistry['hibernatePty']
-  killPty: PtyRegistry['killPty']
-  releasePtyFlow: PtyRegistry['releasePtyFlow']
-  paneActivity: PtyRegistry['paneActivity']
-  holdsLocalPrompt: PtyRegistry['holdsLocalPrompt']
-  sandboxReadRules: PtyRegistry['sandboxReadRules']
-  resizePty: PtyRegistry['resizePty']
+  hibernatePty: PtyStop['hibernatePty']
+  killPty: PtyStop['killPty']
+  releasePtyFlow: PtyIo['releasePtyFlow']
+  paneActivity: PtyQueries['paneActivity']
+  sandboxReadRules: PtyQueries['sandboxReadRules']
   windowOfPane: (paneId: string) => string | undefined
   readSettingsFile: () => { behavior?: { historySuggestions?: unknown } }
 }
@@ -110,7 +111,6 @@ function registerPtyControlIpc({
   agentRunning,
   paneWaking,
   releasePtyFlow,
-  resizePty,
 }: PtyIpcDeps): void {
   ipcMain.on('pty:agent-running', (e, paneId: unknown, running: unknown) => {
     if (typeof paneId !== 'string' || typeof running !== 'boolean') return
@@ -148,7 +148,6 @@ function registerPtyQueryIpc({
   ptys,
   terminalState,
   paneActivity,
-  holdsLocalPrompt,
   sandboxReadRules,
   readSettingsFile,
 }: PtyIpcDeps): void {

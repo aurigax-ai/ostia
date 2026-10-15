@@ -290,10 +290,18 @@ import { deleteGlobalVaultValue, registerVaultMethods, setGlobalVaultValue } fro
 import { registerCompletionIpc } from './terminal/completionSpecs'
 import { writeOstiaLauncher } from './terminal/paneLauncher'
 import { createPtyAttach } from './terminal/pty/ptyAttach'
+import { createPtyIo } from './terminal/pty/ptyIo'
 import { registerPtyIpc } from './terminal/pty/ptyIpc'
+import { createPtyQueries } from './terminal/pty/ptyQueries'
 import { createPtyRecovery } from './terminal/pty/ptyRecovery'
-import { type PaneTitleEntry, type PtyEntry, createPtyRegistry } from './terminal/pty/ptyRegistry'
+import {
+  type PaneTitleEntry,
+  type PtyEntry,
+  createPtyRegistry,
+  removeStateFile,
+} from './terminal/pty/ptyRegistry'
 import { createSandboxSpawn } from './terminal/pty/ptySandboxSpawn'
+import { createPtyStop } from './terminal/pty/ptyStop'
 import type { SubscriberRole } from './terminal/ptySession'
 import { registerSelectionIpc } from './terminal/selectionReport'
 import { setAgentPlugins } from './terminal/shellIntegration'
@@ -702,44 +710,42 @@ const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
   broker?.reaches(senderWindowId, sourcePaneId, targetPaneId) ?? false
 let profileSync: ProfileSyncHandle | null = null
 
-const {
-  loadPty,
-  holdsLocalPrompt,
-  paneActivity,
-  sandboxReadRules,
-  removeStateFile,
-  killPty,
-  hibernatePty,
-  ptyPid,
-  paneOutput,
-  feedPty,
-  paneIo,
-  releasePtyFlow,
-  hidePtyFlow,
-  resizePty,
-  trackPty,
-  attachMirror,
-  ptyResize,
-  ptyWrite,
-} = createPtyRegistry({
+const { loadPty, feedPty, trackPty } = createPtyRegistry({
   ptys,
   movingPanes,
+  recoveryHeld,
+  closedPanes,
+  scheduleReap: (paneId, entry) => scheduleReap(paneId, entry),
+  openWaits,
+  agentRunning,
+  agentWork,
+  keptAttention,
+  processes: () => processes,
+  appLog: () => appLog,
+})
+
+const { killPty, hibernatePty } = createPtyStop({
+  ptys,
   recoveryHeld,
   closedPanes,
   hibernatedPanes,
   startedAgents,
   terminalState,
   keptShells,
-  workspaceSandboxes,
-  openWaits,
-  agentRunning,
   agentWork,
-  keptAttention,
   paneWaking,
-  scheduleReap: (paneId, entry) => scheduleReap(paneId, entry),
-  processes: () => processes,
   telemetry: () => telemetry,
   appLog: () => appLog,
+})
+
+const { paneActivity, sandboxReadRules, ptyPid, paneOutput } = createPtyQueries({
+  ptys,
+  agentRunning,
+  workspaceSandboxes,
+})
+
+const { paneIo, releasePtyFlow, hidePtyFlow, attachMirror, ptyResize, ptyWrite } = createPtyIo({
+  ptys,
 })
 
 const {
@@ -2293,9 +2299,7 @@ app.whenReady().then(() => {
     killPty,
     releasePtyFlow,
     paneActivity,
-    holdsLocalPrompt,
     sandboxReadRules,
-    resizePty,
     windowOfPane,
     readSettingsFile,
   })
