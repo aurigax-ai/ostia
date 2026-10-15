@@ -1587,6 +1587,7 @@ export const en = {
     'outside-sandbox': '{path} is outside what a sandboxed workspace may open.',
   },
   portable: {
+    openFirst: 'Open this file in its viewer first to make its portable copy.',
     group: 'Portable file',
     chip: 'Artifacts from this pane',
     chipOne: 'Artifacts from this pane: {name}',
@@ -5250,6 +5251,7 @@ export const zhHant: Dict = {
     'outside-sandbox': '{path} 超出沙箱工作區可開啟的範圍。',
   },
   portable: {
+    openFirst: '先在檢視器中開啟這個檔案，才能製作它的可攜副本。',
     group: '可攜檔案',
     chip: '此窗格的產出物',
     chipOne: '此窗格的產出物：{name}',

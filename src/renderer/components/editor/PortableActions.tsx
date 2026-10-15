@@ -15,7 +15,7 @@ import {
   runsScripts,
 } from '@shared/artifacts/portable'
 import { useEffect, useRef, useState } from 'react'
-import { portableDocument } from './portableDocuments'
+import { portableDocument, sheetsDocument } from './portableDocuments'
 
 const COPIED_MS = 2_000
 
@@ -66,6 +66,14 @@ export function usePortableFile(workspaceId: string, filePath: string) {
         return
       }
       document = await portableDocument(filePath, read.text, theme.dark)
+    }
+    if (type === 'sheet') {
+      const tables = await window.ostia.viewers.portable(filePath)
+      if (!tables) {
+        setProblem(d.portable.openFirst)
+        return
+      }
+      document = await sheetsDocument(tables)
     }
     const result = await window.ostia.artifacts.portable(action, {
       workspaceId,

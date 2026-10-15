@@ -39,10 +39,9 @@ describe('readDocument', () => {
     const fetch = vi.spyOn(globalThis, 'fetch')
     const result = await readDocument(
       docx({
-        body:
-          picture('r:embed', 'rPng', 'inside') +
-          picture('r:link', 'rFar', 'outside') +
-          '<w:p><w:hyperlink r:id="rSite"><w:r><w:t>site</w:t></w:r></w:hyperlink></w:p>',
+        body: `${
+          picture('r:embed', 'rPng', 'inside') + picture('r:link', 'rFar', 'outside')
+        }<w:p><w:hyperlink r:id="rSite"><w:r><w:t>site</w:t></w:r></w:hyperlink></w:p>`,
         relationships:
           externalRelationship('rFar', 'image', 'http://127.0.0.1:9/far.png') +
           externalRelationship('rSite', 'hyperlink', 'http://127.0.0.1:9/page'),

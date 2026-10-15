@@ -181,11 +181,12 @@ describe('ViewerHost', () => {
       get(session, 'ostia-viewer://t1/~portable', { method: 'POST', body: JSON.stringify(body) })
     expect((await post({ tables: [{ name: 'S', columns: ['A'], rows: [[1]] }] })).status).toBe(400)
     expect((await post({ tables: 'x' })).status).toBe(400)
-    expect(host.portable('w1', 'p1')).toBeNull()
+    expect(host.portable('w1', FILE)).toBeNull()
     const tables = { tables: [{ name: 'S', columns: ['A'], rows: [['1']] }] }
     expect((await post(tables)).status).toBe(204)
-    expect(host.portable('w1', 'p1')).toEqual(tables)
-    expect(host.portable('w2', 'p1')).toBeNull()
+    expect(host.portable('w1', FILE)).toEqual(tables)
+    expect(host.portable('w2', FILE)).toBeNull()
+    expect(host.portable('w1', '/home/u/other.xlsx')).toBeNull()
   })
 
   it('lets only the exact page of the owner window attach in the viewer partition', () => {

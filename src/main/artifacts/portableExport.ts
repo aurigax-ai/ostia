@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync, readdirSync, realpathSync, rmSync, statSync } from 'node:fs'
+import { lstatSync, mkdirSync, readdirSync, realpathSync, rmSync, statSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { basename, dirname, join, sep } from 'node:path'
 import { ipcMain } from 'electron'
@@ -145,10 +145,31 @@ export class PortableExport {
       if (built.ok) return { ok: true, file: built.file }
       return { ok: false, reason: 'not-built', message: built.problems.map(problemText).join('\n') }
     }
+    if (type === 'sheet') return this.sheet(file, request)
     const read = await readRegularFile(file, PORTABLE_LIMITS.sourceFileBytes)
     if (!read.ok) return { ok: false, reason: read.status === 413 ? 'too-large' : 'not-allowed' }
     const text = read.body.toString('utf8')
     const page = this.documentFor(type, text, read.body, request.document)
+    return this.wrap(file, type, page, request, { [basename(file)]: text })
+  }
+
+  private sheet(file: string, request: PortableRequest): Made {
+    let regular = false
+    try {
+      regular = lstatSync(file).isFile()
+    } catch {}
+    if (!regular) return { ok: false, reason: 'not-allowed' }
+    if (!request.document) return { ok: false, reason: 'not-built' }
+    return this.wrap(file, 'sheet', request.document, request, {})
+  }
+
+  private wrap(
+    file: string,
+    type: PortableType,
+    page: PortableDocument,
+    request: PortableRequest,
+    sources: Record<string, string>,
+  ): Made {
     const name = basename(file)
     const document = documentPage(name, page.body, page.css, request.theme)
     const manifest: PortableManifest = {
@@ -160,7 +181,7 @@ export class PortableExport {
       libraries: [],
       theme: request.theme,
       hash: sha256(document),
-      sources: { [name]: text },
+      sources,
     }
     const wrapped = wrapPortable(document, manifest)
     if (Buffer.byteLength(wrapped) > PORTABLE_LIMITS.fileBytes) {

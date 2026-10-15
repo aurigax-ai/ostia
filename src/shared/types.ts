@@ -358,7 +358,7 @@ export type ViewerOpenResult =
 interface ViewersApi {
   open: (request: ViewerOpenRequest) => Promise<ViewerOpenResult>
   close: (paneId: string) => void
-  portable: (paneId: string) => Promise<ViewerPortableTables | null>
+  portable: (path: string) => Promise<ViewerPortableTables | null>
 }
 
 interface FsApi {

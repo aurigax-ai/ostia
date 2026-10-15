@@ -41,8 +41,8 @@ export const filesBridge: Pick<
   viewers: {
     open: (request) => ipcRenderer.invoke('viewers:open', request) as Promise<ViewerOpenResult>,
     close: (paneId) => ipcRenderer.send('viewers:close', paneId),
-    portable: (paneId) =>
-      ipcRenderer.invoke('viewers:portable', paneId) as Promise<ViewerPortableTables | null>,
+    portable: (path) =>
+      ipcRenderer.invoke('viewers:portable', path) as Promise<ViewerPortableTables | null>,
   },
   fs: {
     list: (path) => ipcRenderer.invoke('fs:list', path) as Promise<FsEntry[]>,

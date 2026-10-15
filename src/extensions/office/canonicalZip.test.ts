@@ -112,9 +112,24 @@ describe('checkCanonicalZip', () => {
     const end = lastSignature(BOOK, EOCD)
     const central = lastSignature(BOOK, CENTRAL)
     const cases: [string, Uint8Array][] = [
-      ['entries on this disk differ from the total', patched(BOOK, (b) => (b[end + 8] += 1))],
-      ['a disk number', patched(BOOK, (b) => (b[end + 4] = 1))],
-      ['a comment length that does not reach the end', patched(BOOK, (b) => (b[end + 20] = 4))],
+      [
+        'entries on this disk differ from the total',
+        patched(BOOK, (b) => {
+          b[end + 8] += 1
+        }),
+      ],
+      [
+        'a disk number',
+        patched(BOOK, (b) => {
+          b[end + 4] = 1
+        }),
+      ],
+      [
+        'a comment length that does not reach the end',
+        patched(BOOK, (b) => {
+          b[end + 20] = 4
+        }),
+      ],
       [
         'a second end record in the comment',
         (() => {
@@ -126,14 +141,30 @@ describe('checkCanonicalZip', () => {
           return out
         })(),
       ],
-      ['an encrypted entry', patched(BOOK, (b) => (b[central + 8] |= 1))],
-      ['a local name that differs', patched(BOOK, (b) => (b[30] ^= 0x20))],
+      [
+        'an encrypted entry',
+        patched(BOOK, (b) => {
+          b[central + 8] |= 1
+        }),
+      ],
+      [
+        'a local name that differs',
+        patched(BOOK, (b) => {
+          b[30] ^= 0x20
+        }),
+      ],
       ['a truncated file', BOOK.subarray(0, BOOK.length - 30)],
     ]
     for (const [name, bytes] of cases) {
       expect(verdict(bytes), name).not.toBe('ok')
     }
-    expect(verdict(patched(BOOK, (b) => (b[central + 8] |= 1)))).toBe('encrypted')
+    expect(
+      verdict(
+        patched(BOOK, (b) => {
+          b[central + 8] |= 1
+        }),
+      ),
+    ).toBe('encrypted')
   })
 
   it('refuses more entries than the limit', () => {

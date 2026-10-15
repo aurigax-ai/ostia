@@ -31,7 +31,19 @@ const HISTORY_LIMITS = {
   workspaceBytes: 64 * 1024 * 1024,
 } as const
 
-const COPIED = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.pdf'])
+const COPIED = new Set([
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.webp',
+  '.avif',
+  '.pdf',
+  '.xlsx',
+  '.xlsm',
+  '.ods',
+  '.docx',
+])
 const VERSION_NAME = /^(\d+)-([0-9a-f]{8})(\.\w+)$/
 const MANIFEST = /<script type="application\/json" id="ostia-artifact">([^<]*)<\/script>/
 const SRCDOC = ' srcdoc="'

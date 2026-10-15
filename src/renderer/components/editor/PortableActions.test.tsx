@@ -103,6 +103,26 @@ describe('PortableActions', () => {
     )
   })
 
+  it('makes a spreadsheet portable from the tables its open viewer published, and says to open it first', async () => {
+    vi.mocked(window.ostia.viewers.portable).mockResolvedValueOnce(null)
+    await renderSettled(actions('sales.xlsx'))
+    await userEvent.click(screen.getByRole('button', { name: 'Open in Browser' }))
+    expect(await screen.findByTestId('portable-problem')).toHaveTextContent(
+      'Open this file in its viewer first to make its portable copy.',
+    )
+    expect(window.ostia.artifacts.portable).not.toHaveBeenCalled()
+    vi.mocked(window.ostia.viewers.portable).mockResolvedValueOnce({
+      tables: [{ name: 'Sales', columns: ['A', 'B'], rows: [['<b>North</b>', '12.50%']] }],
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Open in Browser' }))
+    await waitFor(() => expect(window.ostia.artifacts.portable).toHaveBeenCalledTimes(1))
+    expect(window.ostia.viewers.portable).toHaveBeenLastCalledWith(`${DIR}/sales.xlsx`)
+    const request = vi.mocked(window.ostia.artifacts.portable).mock.calls[0][1]
+    expect(request.document?.body).toContain('<h2 class="portable-sheet-name">Sales</h2>')
+    expect(request.document?.body).toContain('&lt;b&gt;North&lt;/b&gt;')
+    expect(request.document?.body).toContain('12.50%')
+  })
+
   it('PRT-C40 shows the build error when a component does not build', async () => {
     vi.mocked(window.ostia.artifacts.portable).mockResolvedValue({
       ok: false,

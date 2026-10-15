@@ -169,6 +169,31 @@ describe('PortableExport', () => {
     expect(r.clipboard[0].replace(/"built":"[^"]+"/, '')).toBe(text.replace(/"built":"[^"]+"/, ''))
   })
 
+  it('copies a spreadsheet out as the tables its viewer published, never its bytes', async () => {
+    const path = join(r.folder, 'sales.xlsx')
+    writeFileSync(path, Buffer.from('PK\u0003\u0004 workbook bytes OSTIA_SHEET_BYTES'))
+    const tables = {
+      body: '<div class="portable-sheets"><h2 class="portable-sheet-name">Sales</h2></div>',
+      css: '.portable-sheet-name{color:red}',
+    }
+    expect(await r.exporter.run('1', 'copy', { workspaceId: '1:w', path, theme: THEME })).toEqual({
+      ok: false,
+      reason: 'not-built',
+    })
+    const copied = await r.exporter.run('1', 'copy', {
+      workspaceId: '1:w',
+      path,
+      theme: THEME,
+      document: tables,
+    })
+    expect(copied).toEqual({ ok: true })
+    const text = r.clipboard[0]
+    expect(text).toContain('portable-sheet-name')
+    expect(text).toContain('"type":"sheet"')
+    expect(text).toContain('"sources":{}')
+    expect(text).not.toContain('OSTIA_SHEET_BYTES')
+  })
+
   it('PRT-C35 is reached only over owner-window IPC', async () => {
     registerPortableIpc(r.exporter)
     expect([...handlers.keys()].sort()).toEqual([

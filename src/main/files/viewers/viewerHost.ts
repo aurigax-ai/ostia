@@ -192,9 +192,12 @@ export class ViewerHost {
     }
   }
 
-  portable(windowId: string, paneId: string): ViewerPortableTables | null {
+  portable(windowId: string, path: string): ViewerPortableTables | null {
+    const confined = this.deps.confine(path)
+    if (!confined) return null
     for (const live of this.byToken.values()) {
-      if (live.windowId === windowId && live.paneId === paneId) return live.portable
+      if (live.windowId === windowId && live.path === confined && live.portable)
+        return live.portable
     }
     return null
   }

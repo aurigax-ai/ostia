@@ -61,7 +61,7 @@ export function registerViewerIpc({ viewers }: { viewers: ViewerHost }): void {
   ipcMain.on('viewers:close', (e, paneId: unknown) => {
     if (typeof paneId === 'string') viewers.close(String(e.sender.id), paneId)
   })
-  ipcMain.handle('viewers:portable', (e, paneId: unknown) =>
-    typeof paneId === 'string' ? viewers.portable(String(e.sender.id), paneId) : null,
+  ipcMain.handle('viewers:portable', (e, path: unknown) =>
+    typeof path === 'string' ? viewers.portable(String(e.sender.id), path) : null,
   )
 }

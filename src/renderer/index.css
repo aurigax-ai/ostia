@@ -4417,3 +4417,16 @@ button.prompt-chip:hover {
   font-size: var(--text-ui-sm);
   line-height: var(--text-ui-sm--line-height);
 }
+
+.portable-sheets .csv-table {
+  position: static;
+  max-height: none;
+}
+
+.portable-sheet-name {
+  margin: 16px 12px 4px;
+  color: var(--fg);
+  font-size: var(--text-ui-base);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--text-ui-base--line-height);
+}
