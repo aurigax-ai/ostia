@@ -85,32 +85,63 @@ const rootEl = document.getElementById('root')
 if (!rootEl) throw new Error('missing #root')
 const root: HTMLElement = rootEl
 
-let view: View = params.get('view') === 'vault' ? 'vault' : 'board'
-let ctx: PanelContext | null = null
-let failed: ExtensionResult | null = null
-let project: string | null = null
-let boardSlug: string | null = null
-let boardData: BoardData | null = null
-let boardFailure: ExtensionResult | null = null
-let openRef: string | null = params.get('card')
-let cardData: CardData | null = null
-let cardFailure: ExtensionResult | null = null
-let cardQuery = ''
-let commentDraft = ''
-let newCard: NewCardDraft | null = null
-let entries: VaultEntrySummary[] | null = null
-let vaultFailure: ExtensionResult | null = null
-let entryQuery = ''
-let openSlug: string | null = null
-let entryData: VaultEntry | null = null
-let entryFailure: ExtensionResult | null = null
-let banner: string | null = null
-let notice: string | null = null
-let tasks = new Map<string, CardTask>()
-let agentNames: string[] | null = null
-let workMenu: string | null = null
-let busy = false
-let requestSeq = 0
+interface PanelState {
+  view: View
+  ctx: PanelContext | null
+  failed: ExtensionResult | null
+  project: string | null
+  boardSlug: string | null
+  boardData: BoardData | null
+  boardFailure: ExtensionResult | null
+  openRef: string | null
+  cardData: CardData | null
+  cardFailure: ExtensionResult | null
+  cardQuery: string
+  commentDraft: string
+  newCard: NewCardDraft | null
+  entries: VaultEntrySummary[] | null
+  vaultFailure: ExtensionResult | null
+  entryQuery: string
+  openSlug: string | null
+  entryData: VaultEntry | null
+  entryFailure: ExtensionResult | null
+  banner: string | null
+  notice: string | null
+  tasks: Map<string, CardTask>
+  agentNames: string[] | null
+  workMenu: string | null
+  busy: boolean
+  requestSeq: number
+}
+
+const state: PanelState = {
+  view: params.get('view') === 'vault' ? 'vault' : 'board',
+  ctx: null,
+  failed: null,
+  project: null,
+  boardSlug: null,
+  boardData: null,
+  boardFailure: null,
+  openRef: params.get('card'),
+  cardData: null,
+  cardFailure: null,
+  cardQuery: '',
+  commentDraft: '',
+  newCard: null,
+  entries: null,
+  vaultFailure: null,
+  entryQuery: '',
+  openSlug: null,
+  entryData: null,
+  entryFailure: null,
+  banner: null,
+  notice: null,
+  tasks: new Map<string, CardTask>(),
+  agentNames: null,
+  workMenu: null,
+  busy: false,
+  requestSeq: 0,
+}
 
 const relative = new Intl.RelativeTimeFormat(context.locale, { numeric: 'auto' })
 const RELATIVE_STEPS: [Intl.RelativeTimeFormatUnit, number][] = [
@@ -222,7 +253,7 @@ function failureState(res: ExtensionResult): HTMLElement {
 }
 
 function actorLabel(actor: string): string {
-  return ctx && actor === ctx.actor ? p('you') : actorName(actor)
+  return state.ctx && actor === state.ctx.actor ? p('you') : actorName(actor)
 }
 
 function priorityLabel(value: string): string {
@@ -254,29 +285,30 @@ function select(
 }
 
 function setView(next: View): void {
-  view = next
-  banner = null
+  state.view = next
+  state.banner = null
   void refresh()
 }
 
 function setProject(next: string): void {
-  project = next
-  boardSlug = ctx?.workspace?.project === next ? (ctx.workspace.board ?? null) : null
-  boardData = null
-  entries = null
-  openRef = null
-  cardData = null
-  openSlug = null
-  entryData = null
-  newCard = null
-  banner = null
+  state.project = next
+  state.boardSlug =
+    state.ctx?.workspace?.project === next ? (state.ctx.workspace.board ?? null) : null
+  state.boardData = null
+  state.entries = null
+  state.openRef = null
+  state.cardData = null
+  state.openSlug = null
+  state.entryData = null
+  state.newCard = null
+  state.banner = null
   void refresh()
 }
 
 function toolbar(): HTMLElement {
   const views: View[] = ['board', 'vault']
-  const projects = ctx?.projects ?? []
-  const boards = boardData?.boards ?? []
+  const projects = state.ctx?.projects ?? []
+  const boards = state.boardData?.boards ?? []
   return h(
     'nav',
     { class: 'toolbar' },
@@ -290,19 +322,19 @@ function toolbar(): HTMLElement {
             class: 'tab',
             role: 'tab',
             'data-key': `tab-${v}`,
-            'aria-selected': v === view ? 'true' : 'false',
+            'aria-selected': v === state.view ? 'true' : 'false',
             onclick: () => setView(v),
           },
           p(`tab.${v}`),
         ),
       ),
     ),
-    projects.length > 0 && project
+    projects.length > 0 && state.project
       ? select(
           'project',
           p('project'),
           projects.map((x) => ({ value: x.key, text: x.key })),
-          project,
+          state.project,
           setProject,
         )
       : projects.length > 0
@@ -317,20 +349,20 @@ function toolbar(): HTMLElement {
             (value) => value && setProject(value),
           )
         : null,
-    view === 'board' && boards.length > 1 && boardData
+    state.view === 'board' && boards.length > 1 && state.boardData
       ? select(
           'board',
           p('board'),
           boards.map((b) => ({ value: b.slug, text: b.name })),
-          boardData.board.slug,
+          state.boardData.board.slug,
           (slug) => {
-            boardSlug = slug
+            state.boardSlug = slug
             void refresh()
           },
         )
       : null,
     h('span', { class: 'spacer' }),
-    view === 'board' && boardData
+    state.view === 'board' && state.boardData
       ? h(
           'button',
           { class: 'with-icon', 'data-key': 'new-card', onclick: openNewCard },
@@ -343,8 +375,8 @@ function toolbar(): HTMLElement {
 }
 
 function bannerView(): HTMLElement | null {
-  if (banner) return h('div', { class: 'banner error', role: 'alert' }, banner)
-  return notice ? h('div', { class: 'banner', role: 'status' }, notice) : null
+  if (state.banner) return h('div', { class: 'banner error', role: 'alert' }, state.banner)
+  return state.notice ? h('div', { class: 'banner', role: 'status' }, state.notice) : null
 }
 
 function taskText(task: CardTask): string {
@@ -352,7 +384,7 @@ function taskText(task: CardTask): string {
 }
 
 function taskButton(ref: string, key: string): HTMLElement | null {
-  const task = tasks.get(ref)
+  const task = state.tasks.get(ref)
   if (!task) return null
   return h(
     'button',
@@ -371,35 +403,36 @@ function taskButton(ref: string, key: string): HTMLElement | null {
 
 async function focusTask(ref: string): Promise<void> {
   const res = await call('focus', { ref })
-  banner = res.ok ? null : errorText(res)
-  notice = null
+  state.banner = res.ok ? null : errorText(res)
+  state.notice = null
   if (!res.ok) await refresh()
 }
 
 async function toggleWorkMenu(ref: string): Promise<void> {
-  workMenu = workMenu === ref ? null : ref
+  state.workMenu = state.workMenu === ref ? null : ref
   render()
-  if (!workMenu || agentNames) return
+  if (!state.workMenu || state.agentNames) return
   const res = await call('agents')
-  agentNames = res.ok ? (res.data as { agents: string[] }).agents : []
+  state.agentNames = res.ok ? (res.data as { agents: string[] }).agents : []
   render()
 }
 
 async function handOff(command: 'offer' | 'start', ref: string, agent?: string): Promise<void> {
-  workMenu = null
+  state.workMenu = null
   render()
   const res = await call(command, {
     ref,
-    board: boardData?.board.slug || undefined,
+    board: state.boardData?.board.slug || undefined,
     ...(agent ? { agent } : {}),
   })
-  banner = res.ok ? null : errorText(res)
-  notice = res.ok && (res.data as { sent?: boolean }).sent === false ? p('work.notSent') : null
+  state.banner = res.ok ? null : errorText(res)
+  state.notice =
+    res.ok && (res.data as { sent?: boolean }).sent === false ? p('work.notSent') : null
   await refresh()
 }
 
 function workMenuView(ref: string): HTMLElement {
-  const names = agentNames
+  const names = state.agentNames
   return h(
     'div',
     { class: 'work-menu', role: 'menu', 'aria-label': p('work.menu') },
@@ -434,7 +467,7 @@ function workMenuView(ref: string): HTMLElement {
 }
 
 function workRow(ref: string): HTMLElement {
-  const open = workMenu === ref
+  const open = state.workMenu === ref
   return h(
     'div',
     { class: 'work-row' },
@@ -460,13 +493,13 @@ function workRow(ref: string): HTMLElement {
 }
 
 function claimLine(card: TrellisCard): HTMLElement | null {
-  const state = claimState(card, ctx?.actor ?? '', Date.now())
-  if (state === 'none') return null
+  const claim = claimState(card, state.ctx?.actor ?? '', Date.now())
+  if (claim === 'none') return null
   const text =
-    state === 'mine'
+    claim === 'mine'
       ? p('claim.mine')
       : p('claim.other', { actor: actorName(card.claimedBy ?? '') })
-  return h('span', { class: `claim claim-${state}` }, icon(userCircle), text)
+  return h('span', { class: `claim claim-${claim}` }, icon(userCircle), text)
 }
 
 function labelChips(card: TrellisCard): HTMLElement | null {
@@ -483,14 +516,14 @@ function labelChips(card: TrellisCard): HTMLElement | null {
 function cardTile(card: TrellisCard): HTMLElement {
   return h(
     'li',
-    { class: tasks.has(card.ref) ? 'has-task' : '' },
+    { class: state.tasks.has(card.ref) ? 'has-task' : '' },
     h(
       'button',
       {
         class: 'card',
         'data-key': `card-${card.ref}`,
         'data-ref': card.ref,
-        'aria-current': card.ref === openRef ? 'true' : 'false',
+        'aria-current': card.ref === state.openRef ? 'true' : 'false',
         onclick: () => openCard(card.ref),
       },
       h('span', { class: 'card-ref' }, card.ref),
@@ -522,7 +555,11 @@ function columnView(column: ShownColumn): HTMLElement {
       { class: 'cards', 'data-scroll': `column-${column.name}` },
       ...column.cards.map(cardTile),
       column.cards.length === 0
-        ? h('li', { class: 'column-empty muted' }, p(cardQuery ? 'column.noMatch' : 'column.empty'))
+        ? h(
+            'li',
+            { class: 'column-empty muted' },
+            p(state.cardQuery ? 'column.noMatch' : 'column.empty'),
+          )
         : null,
       column.hidden > 0
         ? h('li', { class: 'column-empty muted' }, p('column.more', { count: column.hidden }))
@@ -532,10 +569,10 @@ function columnView(column: ShownColumn): HTMLElement {
 }
 
 function openNewCard(): void {
-  newCard = {
+  state.newCard = {
     title: '',
     body: '',
-    column: boardData?.board.columns[0]?.name ?? '',
+    column: state.boardData?.board.columns[0]?.name ?? '',
     priority: DEFAULT_PRIORITY,
   }
   render()
@@ -543,25 +580,25 @@ function openNewCard(): void {
 }
 
 async function createCard(): Promise<void> {
-  if (!newCard || !project || busy || !newCard.title.trim()) return
-  busy = true
+  if (!state.newCard || !state.project || state.busy || !state.newCard.title.trim()) return
+  state.busy = true
   const res = await call('create', {
-    project,
-    board: boardData?.board.slug || undefined,
-    title: newCard.title,
-    body: newCard.body,
-    column: newCard.column || undefined,
-    priority: newCard.priority,
+    project: state.project,
+    board: state.boardData?.board.slug || undefined,
+    title: state.newCard.title,
+    body: state.newCard.body,
+    column: state.newCard.column || undefined,
+    priority: state.newCard.priority,
   })
-  busy = false
+  state.busy = false
   if (res.ok) {
-    newCard = null
-    banner = null
+    state.newCard = null
+    state.banner = null
     const created = (res.data as { card: TrellisCard }).card
-    openRef = created.ref
-    cardData = null
+    state.openRef = created.ref
+    state.cardData = null
   } else {
-    banner = errorText(res)
+    state.banner = errorText(res)
   }
   await refresh()
 }
@@ -600,7 +637,7 @@ function newCardForm(board: TrellisBoard, draft: NewCardDraft): HTMLElement {
       onkeydown: (e) => {
         const key = e as KeyboardEvent
         if (key.key === 'Escape') {
-          newCard = null
+          state.newCard = null
           render()
         } else if (key.key === 'Enter' && (key.ctrlKey || key.metaKey)) {
           key.preventDefault()
@@ -644,7 +681,7 @@ function newCardForm(board: TrellisBoard, draft: NewCardDraft): HTMLElement {
           type: 'button',
           'data-key': 'new-cancel',
           onclick: () => {
-            newCard = null
+            state.newCard = null
             render()
           },
         },
@@ -656,53 +693,54 @@ function newCardForm(board: TrellisBoard, draft: NewCardDraft): HTMLElement {
 }
 
 function openCard(ref: string): void {
-  if (openRef !== ref) {
-    cardData = null
-    cardFailure = null
-    commentDraft = ''
+  if (state.openRef !== ref) {
+    state.cardData = null
+    state.cardFailure = null
+    state.commentDraft = ''
   }
-  openRef = ref
+  state.openRef = ref
   const key = CARD_REF.exec(ref)?.[1]
-  if (key && key !== project && ctx?.projects.some((x) => x.key === key)) {
-    project = key
-    boardSlug = null
-    boardData = null
+  if (key && key !== state.project && state.ctx?.projects.some((x) => x.key === key)) {
+    state.project = key
+    state.boardSlug = null
+    state.boardData = null
   }
-  view = 'board'
+  state.view = 'board'
   render()
   void refresh()
 }
 
 function closeCard(): void {
-  const ref = openRef
-  openRef = null
-  cardData = null
-  cardFailure = null
+  const ref = state.openRef
+  state.openRef = null
+  state.cardData = null
+  state.cardFailure = null
   render()
   if (ref) root.querySelector<HTMLElement>(`[data-key="card-${ref}"]`)?.focus()
 }
 
 async function act(command: string, args: Record<string, unknown>): Promise<boolean> {
-  if (busy) return false
-  busy = true
+  if (state.busy) return false
+  state.busy = true
   const res = await call(command, args)
-  busy = false
-  banner = res.ok ? null : errorText(res)
+  state.busy = false
+  state.banner = res.ok ? null : errorText(res)
   await refresh()
   return res.ok
 }
 
 async function moveTo(ref: string, column: string): Promise<void> {
-  if (boardData) boardData = { ...boardData, board: moveCard(boardData.board, ref, column) }
+  if (state.boardData)
+    state.boardData = { ...state.boardData, board: moveCard(state.boardData.board, ref, column) }
   render()
   await act('move', { ref, column })
 }
 
 async function sendComment(): Promise<void> {
-  if (!openRef || !commentDraft.trim()) return
-  const body = commentDraft
-  if (await act('comment', { ref: openRef, body })) {
-    commentDraft = ''
+  if (!state.openRef || !state.commentDraft.trim()) return
+  const body = state.commentDraft
+  if (await act('comment', { ref: state.openRef, body })) {
+    state.commentDraft = ''
     render()
   }
 }
@@ -757,7 +795,7 @@ function commentForm(): HTMLElement {
     placeholder: p('comment.placeholder'),
     rows: '3',
     oninput: (e) => {
-      commentDraft = (e.target as HTMLTextAreaElement).value
+      state.commentDraft = (e.target as HTMLTextAreaElement).value
     },
     onkeydown: (e) => {
       const key = e as KeyboardEvent
@@ -767,7 +805,7 @@ function commentForm(): HTMLElement {
       }
     },
   }) as HTMLTextAreaElement
-  box.value = commentDraft
+  box.value = state.commentDraft
   return h(
     'form',
     {
@@ -793,9 +831,9 @@ function commentForm(): HTMLElement {
 }
 
 function claimControls(card: CardDetail): HTMLElement {
-  const state = claimState(card, ctx?.actor ?? '', Date.now())
+  const claim = claimState(card, state.ctx?.actor ?? '', Date.now())
   const until =
-    state !== 'none' && card.claimUntil
+    claim !== 'none' && card.claimUntil
       ? h('span', { class: 'muted' }, p('claim.until', { time: relativeTime(card.claimUntil) }))
       : null
   const button = (key: string, command: string): HTMLElement =>
@@ -807,21 +845,21 @@ function claimControls(card: CardDetail): HTMLElement {
   return h(
     'div',
     { class: 'claim-row' },
-    state === 'none'
+    claim === 'none'
       ? h('span', { class: 'muted' }, p('claim.none'))
       : h(
           'span',
-          { class: `claim claim-${state}` },
+          { class: `claim claim-${claim}` },
           icon(userCircle),
-          state === 'mine'
+          claim === 'mine'
             ? p('claim.mine')
             : p('claim.other', { actor: actorName(card.claimedBy ?? '') }),
         ),
     until,
     h('span', { class: 'spacer' }),
-    state === 'none' ? button('claim', 'claim') : null,
-    state === 'mine' ? button('renew', 'renew') : null,
-    state === 'mine' ? button('release', 'release') : null,
+    claim === 'none' ? button('claim', 'claim') : null,
+    claim === 'mine' ? button('renew', 'renew') : null,
+    claim === 'mine' ? button('release', 'release') : null,
   )
 }
 
@@ -870,12 +908,12 @@ function detailView(ref: string): HTMLElement {
     iconButton(p('card.close'), xIcon, closeCard, { 'data-key': 'card-close' }),
   )
   const attrs = { class: 'detail', 'aria-label': ref, 'data-scroll': 'detail' }
-  if (cardFailure) return h('aside', attrs, head, failureState(cardFailure))
-  if (!cardData || cardData.card.ref !== ref) {
+  if (state.cardFailure) return h('aside', attrs, head, failureState(state.cardFailure))
+  if (!state.cardData || state.cardData.card.ref !== ref) {
     return h('aside', attrs, head, h('div', { class: 'empty muted', role: 'status' }, p('loading')))
   }
-  const card = cardData.card
-  const columns = boardData?.board.columns.map((c) => c.name) ?? []
+  const card = state.cardData.card
+  const columns = state.boardData?.board.columns.map((c) => c.name) ?? []
   const options = columns.includes(card.column) ? columns : [card.column, ...columns]
   return h(
     'aside',
@@ -903,14 +941,14 @@ function detailView(ref: string): HTMLElement {
     workRow(card.ref),
     relationsView(card),
     card.body.trim() ? markdown(card.body) : h('p', { class: 'muted note' }, p('card.noBody')),
-    threadView(cardData.thread),
+    threadView(state.cardData.thread),
     commentForm(),
   )
 }
 
 function boardView(): HTMLElement {
-  if (boardFailure) return failureState(boardFailure)
-  if (!boardData) return h('div', { class: 'empty muted', role: 'status' }, p('loading'))
+  if (state.boardFailure) return failureState(state.boardFailure)
+  if (!state.boardData) return h('div', { class: 'empty muted', role: 'status' }, p('loading'))
   const filter = h('input', {
     type: 'search',
     class: 'filter',
@@ -918,35 +956,35 @@ function boardView(): HTMLElement {
     'aria-label': p('filterCards'),
     placeholder: p('filterCards'),
     oninput: (e) => {
-      cardQuery = (e.target as HTMLInputElement).value
+      state.cardQuery = (e.target as HTMLInputElement).value
       render()
     },
   }) as HTMLInputElement
-  filter.value = cardQuery
+  filter.value = state.cardQuery
   return h(
     'div',
-    { class: `board-layout${openRef ? ' has-detail' : ''}` },
+    { class: `board-layout${state.openRef ? ' has-detail' : ''}` },
     h(
       'div',
       { class: 'board-main' },
-      newCard ? newCardForm(boardData.board, newCard) : null,
+      state.newCard ? newCardForm(state.boardData.board, state.newCard) : null,
       h('div', { class: 'filter-row' }, filter),
       h(
         'div',
         { class: 'columns', 'data-scroll': 'columns' },
-        ...shownColumns(boardData.board, cardQuery).map(columnView),
+        ...shownColumns(state.boardData.board, state.cardQuery).map(columnView),
       ),
     ),
-    openRef ? detailView(openRef) : null,
+    state.openRef ? detailView(state.openRef) : null,
   )
 }
 
 function openEntry(slug: string): void {
-  if (openSlug !== slug) {
-    entryData = null
-    entryFailure = null
+  if (state.openSlug !== slug) {
+    state.entryData = null
+    state.entryFailure = null
   }
-  openSlug = slug
+  state.openSlug = slug
   render()
   void refresh()
 }
@@ -961,7 +999,7 @@ function entryRow(entry: VaultEntrySummary): HTMLElement {
         class: 'entry',
         'data-key': `entry-${entry.slug}`,
         'data-slug': entry.slug,
-        'aria-current': entry.slug === openSlug ? 'true' : 'false',
+        'aria-current': entry.slug === state.openSlug ? 'true' : 'false',
         onclick: () => openEntry(entry.slug),
       },
       h(
@@ -986,8 +1024,8 @@ function entryView(slug: string): HTMLElement {
       p('vault.close'),
       xIcon,
       () => {
-        openSlug = null
-        entryData = null
+        state.openSlug = null
+        state.entryData = null
         render()
         root.querySelector<HTMLElement>(`[data-key="entry-${slug}"]`)?.focus()
       },
@@ -995,8 +1033,8 @@ function entryView(slug: string): HTMLElement {
     ),
   )
   const attrs = { class: 'detail entry-detail', 'aria-label': slug, 'data-scroll': 'entry' }
-  if (entryFailure) return h('article', attrs, head, failureState(entryFailure))
-  if (!entryData || entryData.slug !== slug) {
+  if (state.entryFailure) return h('article', attrs, head, failureState(state.entryFailure))
+  if (!state.entryData || state.entryData.slug !== slug) {
     return h(
       'article',
       attrs,
@@ -1004,7 +1042,7 @@ function entryView(slug: string): HTMLElement {
       h('div', { class: 'empty muted', role: 'status' }, p('loading')),
     )
   }
-  const entry = entryData
+  const entry = state.entryData
   return h(
     'article',
     attrs,
@@ -1033,9 +1071,9 @@ function entryView(slug: string): HTMLElement {
 }
 
 function vaultView(): HTMLElement {
-  if (vaultFailure) return failureState(vaultFailure)
-  if (!entries) return h('div', { class: 'empty muted', role: 'status' }, p('loading'))
-  if (entries.length === 0) return emptyState(p('vault.empty'))
+  if (state.vaultFailure) return failureState(state.vaultFailure)
+  if (!state.entries) return h('div', { class: 'empty muted', role: 'status' }, p('loading'))
+  if (state.entries.length === 0) return emptyState(p('vault.empty'))
   const filter = h('input', {
     type: 'search',
     class: 'filter',
@@ -1043,15 +1081,15 @@ function vaultView(): HTMLElement {
     'aria-label': p('filterEntries'),
     placeholder: p('filterEntries'),
     oninput: (e) => {
-      entryQuery = (e.target as HTMLInputElement).value
+      state.entryQuery = (e.target as HTMLInputElement).value
       render()
     },
   }) as HTMLInputElement
-  filter.value = entryQuery
-  const groups = groupEntries(entries, entryQuery)
+  filter.value = state.entryQuery
+  const groups = groupEntries(state.entries, state.entryQuery)
   return h(
     'div',
-    { class: `vault-layout${openSlug ? ' has-detail' : ''}` },
+    { class: `vault-layout${state.openSlug ? ' has-detail' : ''}` },
     h(
       'div',
       { class: 'vault-list', 'data-scroll': 'vault-list' },
@@ -1066,29 +1104,31 @@ function vaultView(): HTMLElement {
         ),
       ),
     ),
-    openSlug ? entryView(openSlug) : h('div', { class: 'vault-hint' }, emptyState(p('vault.pick'))),
+    state.openSlug
+      ? entryView(state.openSlug)
+      : h('div', { class: 'vault-hint' }, emptyState(p('vault.pick'))),
   )
 }
 
 async function initProject(): Promise<void> {
   const res = await call('init')
-  banner = res.ok || res.error === 'cancelled' ? null : errorText(res)
-  ctx = null
+  state.banner = res.ok || res.error === 'cancelled' ? null : errorText(res)
+  state.ctx = null
   await refresh()
 }
 
 function body(): HTMLElement {
-  if (failed) return failureState(failed)
-  if (!ctx) return h('div', { class: 'empty muted', role: 'status' }, p('loading'))
-  if (!project) {
-    const init = ctx.canInit
+  if (state.failed) return failureState(state.failed)
+  if (!state.ctx) return h('div', { class: 'empty muted', role: 'status' }, p('loading'))
+  if (!state.project) {
+    const init = state.ctx.canInit
       ? h('button', { 'data-key': 'init', onclick: () => void initProject() }, p('empty.init'))
       : undefined
-    return ctx.projects.length === 0 && !ctx.canInit
+    return state.ctx.projects.length === 0 && !state.ctx.canInit
       ? emptyState(p('empty.noProjects'))
       : emptyState(p('empty.noProject'), p('empty.noProjectHint'), 'muted', init)
   }
-  return view === 'vault' ? vaultView() : boardView()
+  return state.view === 'vault' ? vaultView() : boardView()
 }
 
 function render(): void {
@@ -1098,85 +1138,90 @@ function render(): void {
 async function loadContext(): Promise<void> {
   const res = await call('context')
   if (!res.ok) {
-    failed = res
+    state.failed = res
     return
   }
-  failed = null
-  ctx = res.data as PanelContext
-  if (project) return
-  const fromCard = openRef ? CARD_REF.exec(openRef)?.[1] : null
-  project = fromCard ?? ctx.workspace?.project ?? null
-  boardSlug = project === ctx.workspace?.project ? (ctx.workspace?.board ?? null) : null
+  state.failed = null
+  state.ctx = res.data as PanelContext
+  if (state.project) return
+  const fromCard = state.openRef ? CARD_REF.exec(state.openRef)?.[1] : null
+  state.project = fromCard ?? state.ctx.workspace?.project ?? null
+  state.boardSlug =
+    state.project === state.ctx.workspace?.project ? (state.ctx.workspace?.board ?? null) : null
 }
 
 async function loadBoard(seq: number): Promise<void> {
   const [res, working] = await Promise.all([
-    call('board', { project, board: boardSlug ?? undefined }),
+    call('board', { project: state.project, board: state.boardSlug ?? undefined }),
     call('tasks'),
   ])
-  if (seq !== requestSeq) return
-  boardFailure = res.ok ? null : res
-  if (res.ok) boardData = res.data as BoardData
+  if (seq !== state.requestSeq) return
+  state.boardFailure = res.ok ? null : res
+  if (res.ok) state.boardData = res.data as BoardData
   if (working.ok) {
     const list = (working.data as { tasks: CardTask[] }).tasks
-    tasks = new Map(list.map((task) => [task.ref, task]))
+    state.tasks = new Map(list.map((task) => [task.ref, task]))
   }
 }
 
 async function loadCard(seq: number, ref: string): Promise<void> {
-  const res = await call('card', { ref, board: boardData?.board.slug || undefined })
-  if (seq !== requestSeq || openRef !== ref) return
-  cardFailure = res.ok ? null : res
-  if (res.ok) cardData = res.data as CardData
+  const res = await call('card', { ref, board: state.boardData?.board.slug || undefined })
+  if (seq !== state.requestSeq || state.openRef !== ref) return
+  state.cardFailure = res.ok ? null : res
+  if (res.ok) state.cardData = res.data as CardData
 }
 
 async function loadVault(seq: number): Promise<void> {
-  const res = await call('vault', { project })
-  if (seq !== requestSeq) return
-  vaultFailure = res.ok ? null : res
-  if (res.ok) entries = (res.data as { entries: VaultEntrySummary[] }).entries
-  const slug = openSlug
+  const res = await call('vault', { project: state.project })
+  if (seq !== state.requestSeq) return
+  state.vaultFailure = res.ok ? null : res
+  if (res.ok) state.entries = (res.data as { entries: VaultEntrySummary[] }).entries
+  const slug = state.openSlug
   if (!slug) return
-  const shown = await call('entry', { project, slug })
-  if (seq !== requestSeq || openSlug !== slug) return
-  entryFailure = shown.ok ? null : shown
-  if (shown.ok) entryData = (shown.data as { entry: VaultEntry }).entry
+  const shown = await call('entry', { project: state.project, slug })
+  if (seq !== state.requestSeq || state.openSlug !== slug) return
+  state.entryFailure = shown.ok ? null : shown
+  if (shown.ok) state.entryData = (shown.data as { entry: VaultEntry }).entry
 }
 
 async function refresh(): Promise<void> {
-  const seq = ++requestSeq
-  if (!ctx || failed) await loadContext()
-  if (seq !== requestSeq) return
-  if (ctx && project) {
-    if (view === 'vault') await loadVault(seq)
+  const seq = ++state.requestSeq
+  if (!state.ctx || state.failed) await loadContext()
+  if (seq !== state.requestSeq) return
+  if (state.ctx && state.project) {
+    if (state.view === 'vault') await loadVault(seq)
     else {
       await loadBoard(seq)
-      if (seq === requestSeq && openRef) {
-        if (boardData && !findCard(boardData.board, openRef) && cardData?.card.ref !== openRef) {
-          cardData = null
+      if (seq === state.requestSeq && state.openRef) {
+        if (
+          state.boardData &&
+          !findCard(state.boardData.board, state.openRef) &&
+          state.cardData?.card.ref !== state.openRef
+        ) {
+          state.cardData = null
         }
-        await loadCard(seq, openRef)
+        await loadCard(seq, state.openRef)
       }
     }
   }
-  if (seq === requestSeq) render()
+  if (seq === state.requestSeq) render()
 }
 
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape' || e.defaultPrevented) return
   const target = e.target as HTMLElement | null
   if (target?.closest('.new-card')) return
-  if (workMenu) {
-    workMenu = null
+  if (state.workMenu) {
+    state.workMenu = null
     render()
     return
   }
-  if (view === 'board' && openRef) closeCard()
+  if (state.view === 'board' && state.openRef) closeCard()
 })
 
 document.addEventListener('pointerdown', (e) => {
-  if (!workMenu || (e.target as HTMLElement | null)?.closest('.work')) return
-  workMenu = null
+  if (!state.workMenu || (e.target as HTMLElement | null)?.closest('.work')) return
+  state.workMenu = null
   render()
 })
 
