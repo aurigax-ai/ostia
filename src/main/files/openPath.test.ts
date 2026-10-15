@@ -59,6 +59,35 @@ describe('openUnlessProgram', () => {
     expect(openPath).toHaveBeenCalledTimes(1)
   })
 
+  it('reads a launcher header and a shebang after a BOM, and opens a doc that only mentions them', async () => {
+    const write = (name: string, body: string | Buffer): string => {
+      const path = join(dir, name)
+      writeFileSync(path, body)
+      return path
+    }
+    const refused = [
+      write('a.txt', Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('#!/bin/sh\n')])),
+      write('b.txt', '# tool\r\n\r\n  [Desktop Entry]\r\nExec=sh\r\n'),
+    ]
+    for (const path of refused) {
+      expect(await openUnlessProgram(path, statSync(path), openPath)).toEqual({
+        ok: false,
+        error: 'program',
+      })
+    }
+    const doc = write('c.md', 'Write a [Desktop Entry] header, or start with #! on line one.\n')
+    expect(await openUnlessProgram(doc, statSync(doc), openPath)).toEqual({ ok: true })
+    expect(openPath).toHaveBeenCalledTimes(1)
+  })
+
+  it('sniffs a hostile file of comment lines at once, without backtracking', async () => {
+    const path = join(dir, 'notes.txt')
+    writeFileSync(path, `#${'\r\n#'.repeat(100_000)}x`)
+    const started = performance.now()
+    expect(await openUnlessProgram(path, statSync(path), openPath)).toEqual({ ok: true })
+    expect(performance.now() - started).toBeLessThan(1_000)
+  }, 5_000)
+
   it('refuses a file replaced or made executable between the check and the open', async () => {
     const doc = join(dir, 'report.csv')
     writeFileSync(doc, 'a,b\n')

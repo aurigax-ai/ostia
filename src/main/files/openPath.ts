@@ -54,7 +54,6 @@ const PROGRAM_EXTENSIONS = new Set([
 const SNIFF_BYTES = 4096
 
 const PROGRAM_MAGICS = [
-  [0x23, 0x21],
   [0x7f, 0x45, 0x4c, 0x46],
   [0x4d, 0x5a],
   [0xfe, 0xed, 0xfa, 0xce],
@@ -64,7 +63,29 @@ const PROGRAM_MAGICS = [
   [0xca, 0xfe, 0xba, 0xbe],
 ].map((magic) => Buffer.from(magic))
 
-const DESKTOP_ENTRY = /^(?:\uFEFF)?(?:[ \t]*(?:#[^\n]*)?\r?\n)*[ \t]*\[Desktop Entry\]/
+const UTF8_BOM = Buffer.from([0xef, 0xbb, 0xbf])
+const SHEBANG = Buffer.from('#!')
+const DESKTOP_ENTRY = Buffer.from('[Desktop Entry]')
+const NEWLINE = 0x0a
+const SPACE = 0x20
+const TAB = 0x09
+
+function startsWith(head: Buffer, prefix: Buffer): boolean {
+  return head.subarray(0, prefix.length).equals(prefix)
+}
+
+function startsLine(head: Buffer, at: number, textStart: number): boolean {
+  let before = at - 1
+  while (before >= textStart && (head[before] === SPACE || head[before] === TAB)) before--
+  return before < textStart || head[before] === NEWLINE
+}
+
+function hasDesktopEntry(head: Buffer, textStart: number): boolean {
+  for (let at = head.indexOf(DESKTOP_ENTRY); at >= 0; at = head.indexOf(DESKTOP_ENTRY, at + 1)) {
+    if (startsLine(head, at, textStart)) return true
+  }
+  return false
+}
 
 export function isProgram(path: string, mode: number, isFile: boolean): boolean {
   if (PROGRAM_EXTENSIONS.has(extname(path).toLowerCase())) return true
@@ -72,8 +93,10 @@ export function isProgram(path: string, mode: number, isFile: boolean): boolean 
 }
 
 function looksLikeProgram(head: Buffer): boolean {
-  if (PROGRAM_MAGICS.some((magic) => head.subarray(0, magic.length).equals(magic))) return true
-  return DESKTOP_ENTRY.test(head.toString('utf8'))
+  if (PROGRAM_MAGICS.some((magic) => startsWith(head, magic))) return true
+  const textStart = startsWith(head, UTF8_BOM) ? UTF8_BOM.length : 0
+  if (startsWith(head.subarray(textStart), SHEBANG)) return true
+  return hasDesktopEntry(head, textStart)
 }
 
 async function fileHead(path: string): Promise<Buffer | null> {
