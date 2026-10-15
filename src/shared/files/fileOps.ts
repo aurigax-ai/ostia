@@ -5,11 +5,12 @@ export type FileOpError =
   | 'into-itself'
   | 'sandboxed'
   | 'not-moved'
+  | 'partial'
   | 'failed'
 
 export type FileOpResult =
   | { ok: true; paths: string[] }
-  | { ok: false; error: FileOpError; paths?: string[] }
+  | { ok: false; error: FileOpError; paths?: string[]; partial?: string[] }
 
 export type NewEntryKind = 'file' | 'folder'
 

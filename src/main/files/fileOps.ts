@@ -1,9 +1,17 @@
 import type { Stats } from 'node:fs'
-import { lstat, mkdir, realpath, rename, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, realpath, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, isAbsolute, join, sep } from 'node:path'
 import type { FileOpResult } from '../../shared/files/fileOps'
 import { resolveSafe } from '../platform/pathGuard'
-import { type TransferFs, copyExclusive, moveExclusive } from './exclusiveTransfer'
+import {
+  PartialTransferError,
+  type TransferEnd,
+  copyExclusive,
+  moveExclusive,
+  sourceUnchanged,
+} from './exclusiveTransfer'
+import { type FolderAnchor, openAnchor } from './folderAnchor'
+import { type TransferFs, nodeTransferFs } from './transferFs'
 
 const FILE_OP_MAX_PATHS = 500
 const NAME_MAX_BYTES = 255
@@ -120,6 +128,13 @@ async function isDroppable(path: string): Promise<boolean> {
 
 type Transfer = { ok: true; target: string } | FileOpFailure
 
+function failure(error: unknown, done: string[]): FileOpFailure {
+  if (error instanceof PartialTransferError) {
+    return { ok: false, error: 'partial', paths: done, partial: [error.path] }
+  }
+  return { ok: false, error: 'failed', paths: done }
+}
+
 interface Destination {
   path: string
   stat: Stats
@@ -127,8 +142,12 @@ interface Destination {
 
 export class FileOps {
   private readonly realRoots: Promise<string[]>
+  private readonly fs: TransferFs
+  private readonly platform: NodeJS.Platform
 
   constructor(private readonly deps: FileOpsDeps) {
+    this.fs = deps.fs ?? nodeTransferFs
+    this.platform = deps.platform ?? process.platform
     this.realRoots = Promise.all(
       deps.roots.map((root) =>
         realpath(root).then(
@@ -139,8 +158,17 @@ export class FileOps {
     ).then((reals) => reals.flat())
   }
 
-  private transferOptions(parent: Stats) {
-    return { parent, fs: this.deps.fs, platform: this.deps.platform }
+  private async anchored<T>(
+    path: string,
+    expected: Stats | null,
+    run: (anchor: FolderAnchor) => Promise<T>,
+  ): Promise<T> {
+    const anchor = await openAnchor(this.fs, path, this.platform, expected)
+    try {
+      return await run(anchor)
+    } finally {
+      await anchor.close()
+    }
   }
 
   private async destination(input: unknown): Promise<Destination | null> {
@@ -196,17 +224,24 @@ export class FileOps {
     const parent = await this.destination(dirname(source))
     if (parent === null) return fail('outside')
     try {
-      const moved = (await sameEntry(source, target))
-        ? await rename(source, target).then(() => 'done' as const)
-        : await moveExclusive(source, target, this.transferOptions(parent.stat))
-      if (moved === 'taken') return fail('exists')
-      if (moved === 'copy') {
-        if (await exists(target)) return fail('exists')
-        await rename(source, target)
-      }
-      return { ok: true, paths: [target] }
-    } catch {
-      return fail('failed')
+      return await this.anchored(parent.path, parent.stat, async (anchor) => {
+        const from = { anchor, name: basename(source) }
+        const to = { anchor, name: name as string }
+        const renameAnchored = async () =>
+          this.fs.rename(await anchor.at(from.name), await anchor.at(to.name))
+        if (await sameEntry(source, target)) await renameAnchored()
+        else {
+          const moved = await moveExclusive(this.fs, from, to, this.platform)
+          if (moved === 'taken') return fail('exists')
+          if (moved === 'copy') {
+            if (await exists(target)) return fail('exists')
+            await renameAnchored()
+          }
+        }
+        return { ok: true, paths: [target] } as const
+      })
+    } catch (error) {
+      return failure(error, [])
     }
   }
 
@@ -221,68 +256,76 @@ export class FileOps {
   }
 
   private async firstFreeName(
-    source: string,
-    dest: Destination,
+    source: TransferEnd,
+    dest: FolderAnchor,
     pick: PickName,
-    attempt: (target: string) => Promise<Transfer | 'taken'>,
+    attempt: (target: TransferEnd) => Promise<Transfer | 'taken'>,
   ): Promise<Transfer> {
     for (let tries = 0; tries < CLAIM_TRIES; tries++) {
-      const name = await pick(dest.path, basename(source))
+      const name = await pick(dest.path, source.name)
       if (name === null) return fail('exists')
-      const sent = await attempt(join(dest.path, name))
+      const sent = await attempt({ anchor: dest, name })
       if (sent !== 'taken') return sent
     }
     return fail('exists')
   }
 
-  private copyNew(source: string, dest: Destination, pick: PickName): Promise<Transfer> {
+  private copyNew(source: TransferEnd, dest: FolderAnchor, pick: PickName): Promise<Transfer> {
     return this.firstFreeName(source, dest, pick, async (target) =>
-      (await copyExclusive(source, target, this.deps.trash, this.transferOptions(dest.stat))) ===
-      'done'
-        ? { ok: true, target }
+      (await copyExclusive(this.fs, source, target)) === 'done'
+        ? { ok: true, target: join(dest.path, target.name) }
         : 'taken',
     )
   }
 
-  private moveNew(source: string, dest: Destination, pick: PickName): Promise<Transfer> {
+  private moveNew(source: TransferEnd, dest: FolderAnchor, pick: PickName): Promise<Transfer> {
     return this.firstFreeName(source, dest, pick, async (target) => {
-      const moved = await moveExclusive(source, target, this.transferOptions(dest.stat))
+      const moved = await moveExclusive(this.fs, source, target, this.platform)
       if (moved === 'copy') return this.copyThenTrash(source, dest, pick)
-      return moved === 'done' ? { ok: true, target } : 'taken'
+      return moved === 'done' ? { ok: true, target: join(dest.path, target.name) } : 'taken'
     })
   }
 
   private async copyThenTrash(
-    source: string,
-    dest: Destination,
+    source: TransferEnd,
+    dest: FolderAnchor,
     pick: PickName,
   ): Promise<Transfer> {
+    const before = await this.fs.lstat(await source.anchor.at(source.name))
     const copied = await this.copyNew(source, dest, pick)
     if (!copied.ok) return copied
+    const notMoved: Transfer = { ok: false, error: 'not-moved', paths: [copied.target] }
+    if (!(await sourceUnchanged(this.fs, source, before))) return notMoved
     try {
-      await this.deps.trash(source)
+      await this.deps.trash(join(source.anchor.path, source.name))
       return copied
     } catch {
-      return { ok: false, error: 'not-moved', paths: [copied.target] }
+      return notMoved
     }
   }
 
   private async transferAll(
     sources: string[],
-    send: (source: string) => Promise<Transfer>,
+    dest: Destination,
+    send: (source: TransferEnd, dest: FolderAnchor) => Promise<Transfer>,
   ): Promise<FileOpResult> {
     const done: string[] = []
-    for (const source of sources) {
-      try {
-        const sent = await send(source)
-        if (!sent.ok)
-          return { ok: false, error: sent.error, paths: [...done, ...(sent.paths ?? [])] }
-        done.push(sent.target)
-      } catch {
-        return { ok: false, error: 'failed', paths: done }
-      }
+    try {
+      return await this.anchored(dest.path, dest.stat, async (destAnchor) => {
+        for (const source of sources) {
+          const sent = await this.anchored(dirname(source), null, (sourceAnchor) =>
+            send({ anchor: sourceAnchor, name: basename(source) }, destAnchor),
+          )
+          if (!sent.ok) {
+            return { ok: false, error: sent.error, paths: [...done, ...(sent.paths ?? [])] }
+          }
+          done.push(sent.target)
+        }
+        return { ok: true, paths: done } as const
+      })
+    } catch (error) {
+      return failure(error, done)
     }
-    return { ok: true, paths: done }
   }
 
   async move(pathsInput: unknown, destInput: unknown): Promise<FileOpResult> {
@@ -293,14 +336,18 @@ export class FileOps {
     for (const source of moving) {
       if (await exists(join(dest.path, basename(source)))) return fail('exists')
     }
-    return this.transferAll(moving, (source) => this.moveNew(source, dest, sameName))
+    return this.transferAll(moving, dest, (source, anchor) =>
+      this.moveNew(source, anchor, sameName),
+    )
   }
 
   async copy(pathsInput: unknown, destInput: unknown): Promise<FileOpResult> {
     const planned = await this.plan(await this.paths(pathsInput), destInput)
     if ('ok' in planned) return planned
     const { sources, dest } = planned
-    return this.transferAll(sources, (source) => this.copyNew(source, dest, copyOrSameName))
+    return this.transferAll(sources, dest, (source, anchor) =>
+      this.copyNew(source, anchor, copyOrSameName),
+    )
   }
 
   private dropped(input: unknown): Promise<string[] | null> {
@@ -320,10 +367,12 @@ export class FileOps {
     const planned = await this.plan(await this.dropped(pathsInput), destInput)
     if ('ok' in planned) return planned
     const { sources, dest } = planned
-    return this.transferAll(sources, async (source) => {
-      if (!move) return this.copyNew(source, dest, numberedName)
-      if (dirname(source) === dest.path) return { ok: true, target: source }
-      return this.moveNew(source, dest, numberedName)
+    return this.transferAll(sources, dest, async (source, anchor) => {
+      if (!move) return this.copyNew(source, anchor, numberedName)
+      if (source.anchor.path === dest.path) {
+        return { ok: true, target: join(dest.path, source.name) }
+      }
+      return this.moveNew(source, anchor, numberedName)
     })
   }
 

@@ -1,50 +1,22 @@
 import { constants, type Stats } from 'node:fs'
-import {
-  lstat,
-  mkdir,
-  open,
-  readdir,
-  readlink,
-  rename,
-  rmdir,
-  symlink,
-  unlink,
-} from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
+import type { FolderAnchor } from './folderAnchor'
+import type { TransferFs } from './transferFs'
 
-export interface TransferFs {
-  lstat: (path: string) => Promise<Stats>
-  readdir: (path: string) => Promise<string[]>
-  readlink: (path: string) => Promise<string>
-  mkdir: (path: string) => Promise<unknown>
-  symlink: (target: string, path: string) => Promise<void>
-  open: typeof open
-  rename: (from: string, to: string) => Promise<void>
-  rmdir: (path: string) => Promise<void>
-  unlink: (path: string) => Promise<void>
-}
-
-export const nodeTransferFs: TransferFs = {
-  lstat: (path) => lstat(path),
-  readdir: (path) => readdir(path),
-  readlink: (path) => readlink(path),
-  mkdir: (path) => mkdir(path),
-  symlink: (target, path) => symlink(target, path),
-  open,
-  rename,
-  rmdir: (path) => rmdir(path),
-  unlink,
-}
-
-export interface TransferOptions {
-  parent: Stats
-  fs?: TransferFs
-  platform?: NodeJS.Platform
+export interface TransferEnd {
+  anchor: FolderAnchor
+  name: string
 }
 
 export type CopyClaim = 'done' | 'taken'
 
 export type MoveClaim = CopyClaim | 'copy'
+
+export class PartialTransferError extends Error {
+  constructor(readonly path: string) {
+    super('partial')
+  }
+}
 
 const READ_FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
 const CREATE_FLAGS =
@@ -58,8 +30,12 @@ function errorCode(error: unknown): string | undefined {
   return (error as NodeJS.ErrnoException | null)?.code
 }
 
-function isSameFolder(made: Stats, now: Stats): boolean {
-  return now.isDirectory() && made.dev === now.dev && made.ino === now.ino
+function sameEntry(a: Stats, b: Stats): boolean {
+  return a.dev === b.dev && a.ino === b.ino
+}
+
+function pathOf(end: TransferEnd): string {
+  return join(end.anchor.path, end.name)
 }
 
 async function claimed(create: () => Promise<unknown>): Promise<boolean> {
@@ -72,16 +48,17 @@ async function claimed(create: () => Promise<unknown>): Promise<boolean> {
   }
 }
 
-async function checkFolder(fs: TransferFs, path: string, expected: Stats): Promise<void> {
-  if (!isSameFolder(expected, await fs.lstat(path))) throw new Error('folder-replaced')
-}
-
-async function claimFile(fs: TransferFs, source: string, target: string): Promise<Claim> {
-  const input = await fs.open(source, READ_FLAGS)
+async function claimFile(
+  fs: TransferFs,
+  from: string,
+  to: string,
+  expected: Stats,
+): Promise<Claim> {
+  const input = await fs.open(from, READ_FLAGS)
   try {
     const info = await input.stat()
-    if (!info.isFile()) throw new Error('not-a-file')
-    const output = await fs.open(target, CREATE_FLAGS, info.mode & MODE_BITS).catch((error) => {
+    if (!info.isFile() || !sameEntry(expected, info)) throw new Error('source-replaced')
+    const output = await fs.open(to, CREATE_FLAGS, info.mode & MODE_BITS).catch((error) => {
       if (errorCode(error) === 'EEXIST') return null
       throw error
     })
@@ -112,32 +89,53 @@ async function claimFile(fs: TransferFs, source: string, target: string): Promis
   }
 }
 
-async function claimTarget(fs: TransferFs, source: string, target: string): Promise<Claim | null> {
-  const stat = await fs.lstat(source)
+async function claimFolder(
+  fs: TransferFs,
+  source: TransferEnd,
+  target: TransferEnd,
+  expected: Stats,
+): Promise<Claim> {
+  if (!(await claimed(async () => fs.mkdir(await target.anchor.at(target.name))))) return 'taken'
+  return {
+    fill: async () => {
+      const made = await fs.lstat(await target.anchor.at(target.name))
+      const from = await source.anchor.child(source.name, expected)
+      try {
+        const into = await target.anchor.child(target.name, made)
+        try {
+          await copyChildren(fs, from, into)
+        } finally {
+          await into.close()
+        }
+      } finally {
+        await from.close()
+      }
+    },
+  }
+}
+
+async function claimTarget(
+  fs: TransferFs,
+  source: TransferEnd,
+  target: TransferEnd,
+): Promise<Claim | null> {
+  const from = await source.anchor.at(source.name)
+  const stat = await fs.lstat(from)
   if (stat.isSymbolicLink()) {
-    const destination = await fs.readlink(source)
-    return (await claimed(() => fs.symlink(destination, target)))
-      ? { fill: async () => {} }
-      : 'taken'
+    const destination = await fs.readlink(from)
+    const made = await claimed(async () =>
+      fs.symlink(destination, await target.anchor.at(target.name)),
+    )
+    return made ? { fill: async () => {} } : 'taken'
   }
-  if (stat.isDirectory()) {
-    if (!(await claimed(() => fs.mkdir(target)))) return 'taken'
-    const made = await fs.lstat(target)
-    return { fill: () => copyChildren(fs, source, target, made) }
-  }
-  if (stat.isFile()) return claimFile(fs, source, target)
+  if (stat.isDirectory()) return claimFolder(fs, source, target, stat)
+  if (stat.isFile()) return claimFile(fs, from, await target.anchor.at(target.name), stat)
   return null
 }
 
-async function copyChildren(
-  fs: TransferFs,
-  source: string,
-  target: string,
-  made: Stats,
-): Promise<void> {
-  for (const name of await fs.readdir(source)) {
-    await checkFolder(fs, target, made)
-    const claim = await claimTarget(fs, join(source, name), join(target, name))
+async function copyChildren(fs: TransferFs, from: FolderAnchor, into: FolderAnchor): Promise<void> {
+  for (const name of await from.list()) {
+    const claim = await claimTarget(fs, { anchor: from, name }, { anchor: into, name })
     if (claim === null) continue
     if (claim === 'taken') throw new Error('exists')
     await claim.fill()
@@ -145,44 +143,51 @@ async function copyChildren(
 }
 
 export async function copyExclusive(
-  source: string,
-  target: string,
-  discard: (path: string) => Promise<void>,
-  { parent, fs = nodeTransferFs }: TransferOptions,
+  fs: TransferFs,
+  source: TransferEnd,
+  target: TransferEnd,
 ): Promise<CopyClaim> {
-  await checkFolder(fs, dirname(target), parent)
   const claim = await claimTarget(fs, source, target)
   if (claim === null) throw new Error('not-copyable')
   if (claim === 'taken') return 'taken'
   try {
     await claim.fill()
     return 'done'
-  } catch (error) {
-    await discard(target).catch(() => {})
-    throw error
+  } catch {
+    throw new PartialTransferError(pathOf(target))
   }
 }
 
-async function placeholder(fs: TransferFs, target: string, folder: boolean): Promise<boolean> {
-  if (folder) return claimed(() => fs.mkdir(target))
-  return claimed(async () => (await fs.open(target, CREATE_FLAGS, 0o600)).close())
+async function placeholder(fs: TransferFs, target: TransferEnd, folder: boolean): Promise<boolean> {
+  const to = await target.anchor.at(target.name)
+  if (folder) return claimed(() => fs.mkdir(to))
+  return claimed(async () => (await fs.open(to, CREATE_FLAGS, 0o600)).close())
 }
 
 export async function moveExclusive(
-  source: string,
-  target: string,
-  { parent, fs = nodeTransferFs, platform = process.platform }: TransferOptions,
+  fs: TransferFs,
+  source: TransferEnd,
+  target: TransferEnd,
+  platform: NodeJS.Platform,
 ): Promise<MoveClaim> {
-  const folder = (await fs.lstat(source)).isDirectory()
-  if (folder && platform === 'win32') return 'copy'
-  await checkFolder(fs, dirname(target), parent)
+  const info = await fs.lstat(await source.anchor.at(source.name))
+  const folder = info.isDirectory()
+  if ((folder && platform === 'win32') || info.dev !== target.anchor.stat.dev) return 'copy'
   if (!(await placeholder(fs, target, folder))) return 'taken'
   try {
-    await fs.rename(source, target)
+    await fs.rename(await source.anchor.at(source.name), await target.anchor.at(target.name))
     return 'done'
-  } catch (error) {
-    await (folder ? fs.rmdir(target) : fs.unlink(target)).catch(() => {})
-    if (errorCode(error) === 'EXDEV') return 'copy'
-    throw error
+  } catch {
+    throw new PartialTransferError(pathOf(target))
   }
+}
+
+export async function sourceUnchanged(
+  fs: TransferFs,
+  source: TransferEnd,
+  expected: Stats,
+): Promise<boolean> {
+  if (!(await source.anchor.stillAt())) return false
+  const now = await fs.lstat(await source.anchor.at(source.name)).catch(() => null)
+  return now !== null && sameEntry(expected, now)
 }

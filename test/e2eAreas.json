@@ -605,6 +605,8 @@
         "src/renderer/lib/files/fileDrop.ts",
         "src/main/files/fileDrops.ts",
         "src/main/files/exclusiveTransfer.ts",
+        "src/main/files/folderAnchor.ts",
+        "src/main/files/transferFs.ts",
         "src/renderer/components/panes/FileDropCover.tsx",
         "src/renderer/lib/keyboard/dropPaths.ts",
         "src/renderer/lib/files/fileKinds.ts",

@@ -7,16 +7,19 @@ import {
   readFileSync,
   readdirSync,
   readlinkSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { type TransferFs, copyExclusive, moveExclusive, nodeTransferFs } from './exclusiveTransfer'
+import { copyExclusive, moveExclusive } from './exclusiveTransfer'
 import { FileOps, copyName, nameProblem, numberedName } from './fileOps'
+import { openAnchor } from './folderAnchor'
+import { type TransferFs, nodeTransferFs } from './transferFs'
 
 const dirs: string[] = []
 
@@ -344,7 +347,7 @@ describe('FileOps transfers never replace and never block', () => {
   })
 
   it.skipIf(process.getuid?.() === 0)(
-    'sends a copy that fails partway to the trash and leaves the folder as it was',
+    'leaves a copy that fails partway where it is, reports it, and deletes nothing',
     async () => {
       const { root, outside, ops, trashed } = setup()
       const source = join(outside, 'photos')
@@ -355,14 +358,15 @@ describe('FileOps transfers never replace and never block', () => {
       try {
         expect(await ops.importInto([source], root, false)).toEqual({
           ok: false,
-          error: 'failed',
+          error: 'partial',
           paths: [],
+          partial: [join(root, 'photos')],
         })
       } finally {
         chmodSync(join(source, 'b.jpg'), 0o644)
       }
-      expect(trashed).toEqual([join(root, 'photos')])
-      expect(readdirSync(root).sort()).toEqual(['notes.md', 'src'])
+      expect(trashed).toEqual([])
+      expect(readdirSync(root).sort()).toEqual(['notes.md', 'photos', 'src'])
       expect(existsSync(join(source, 'a.jpg'))).toBe(true)
     },
   )
@@ -393,136 +397,210 @@ describe('FileOps transfers never replace and never block', () => {
 })
 
 describe('exclusive transfers', () => {
-  function swapFs(swap: { before: 'open' | 'mkdir'; at: string; run: () => void }): TransferFs {
-    let swapped = false
-    const once = (path: string): void => {
-      if (swapped || path !== swap.at) return
-      swapped = true
-      swap.run()
+  type Kind = 'open' | 'mkdir' | 'rename'
+
+  function hookedFs(
+    kind: Kind,
+    name: string,
+    when: 'before' | 'after',
+    run: () => void,
+    fail = false,
+  ): TransferFs {
+    let fired = false
+    const fire = (path: string): void => {
+      if (fired || basename(path) !== name) return
+      fired = true
+      run()
     }
+    const wrap =
+      <A extends unknown[], R>(k: Kind, call: (...args: A) => Promise<R>) =>
+      async (...args: A): Promise<R> => {
+        const path = String(k === 'rename' ? args[1] : args[0])
+        if (kind === k && when === 'before') fire(path)
+        if (kind === k && fail && basename(path) === name) {
+          throw Object.assign(new Error('injected'), { code: 'EIO' })
+        }
+        const result = await call(...args)
+        if (kind === k && when === 'after') fire(path)
+        return result
+      }
     return {
       ...nodeTransferFs,
-      open: (async (path: string, ...rest: unknown[]) => {
-        const handle = await (nodeTransferFs.open as (...args: unknown[]) => Promise<unknown>)(
-          path,
-          ...rest,
-        )
-        if (swap.before === 'open') once(path)
-        return handle
-      }) as TransferFs['open'],
-      mkdir: async (path) => {
-        await nodeTransferFs.mkdir(path)
-        if (swap.before === 'mkdir') once(path)
-      },
+      open: wrap(
+        'open',
+        nodeTransferFs.open as (...args: unknown[]) => Promise<never>,
+      ) as TransferFs['open'],
+      mkdir: wrap('mkdir', nodeTransferFs.mkdir),
+      rename: wrap('rename', nodeTransferFs.rename),
     }
   }
 
+  function swapForLink(folder: string, to: string): () => void {
+    return () => {
+      renameSync(folder, `${folder}-real`)
+      symlinkSync(to, folder)
+    }
+  }
+
+  function swapCase(fs: TransferFs) {
+    const root = tmp()
+    const outside = tmp()
+    const far = tmp()
+    mkdirSync(join(root, 'drop'))
+    const trashed: string[] = []
+    const ops = new FileOps({
+      roots: [root],
+      fs,
+      trash: async (path) => {
+        trashed.push(path)
+        rmSync(path, { recursive: true, force: true })
+      },
+    })
+    return { root, outside, far, drop: join(root, 'drop'), ops, trashed }
+  }
+
+  const linux = process.platform === 'linux'
+
+  it.runIf(linux)(
+    'keeps writing into the real folder when the destination is swapped for a link mid-copy, and deletes nothing',
+    async () => {
+      let swap = (): void => {}
+      const c = swapCase(hookedFs('open', 'a.jpg', 'after', () => swap()))
+      swap = swapForLink(c.drop, c.outside)
+      mkdirSync(join(c.outside, 'photos'))
+      writeFileSync(join(c.outside, 'photos', 'keep'), 'outside')
+      const source = join(c.far, 'photos')
+      mkdirSync(source)
+      writeFileSync(join(source, 'a.jpg'), 'a')
+      writeFileSync(join(source, 'b.jpg'), 'b')
+      expect(await c.ops.importInto([source], c.drop, false)).toMatchObject({ ok: true })
+      expect(c.trashed).toEqual([])
+      expect(readdirSync(join(c.outside, 'photos'))).toEqual(['keep'])
+      expect(readdirSync(join(c.root, 'drop-real', 'photos')).sort()).toEqual(['a.jpg', 'b.jpg'])
+    },
+  )
+
+  it.runIf(linux)(
+    'moves into the real folder when the destination is swapped for a link before the rename',
+    async () => {
+      let swap = (): void => {}
+      const c = swapCase(hookedFs('open', 'notes.txt', 'after', () => swap()))
+      swap = swapForLink(c.drop, c.outside)
+      writeFileSync(join(c.outside, 'notes.txt'), 'outside')
+      writeFileSync(join(c.far, 'notes.txt'), 'agent')
+      expect(await c.ops.importInto([join(c.far, 'notes.txt')], c.drop, true)).toMatchObject({
+        ok: true,
+      })
+      expect(readFileSync(join(c.outside, 'notes.txt'), 'utf8')).toBe('outside')
+      expect(readFileSync(join(c.root, 'drop-real', 'notes.txt'), 'utf8')).toBe('agent')
+    },
+  )
+
+  it.runIf(linux)(
+    'deletes nothing after a failed rename, even when the destination was swapped for a link',
+    async () => {
+      let swap = (): void => {}
+      const c = swapCase(hookedFs('rename', 'notes.txt', 'before', () => swap(), true))
+      swap = swapForLink(c.drop, c.outside)
+      writeFileSync(join(c.outside, 'notes.txt'), 'outside')
+      writeFileSync(join(c.far, 'notes.txt'), 'agent')
+      expect(await c.ops.importInto([join(c.far, 'notes.txt')], c.drop, true)).toMatchObject({
+        ok: false,
+        error: 'partial',
+      })
+      expect(readFileSync(join(c.outside, 'notes.txt'), 'utf8')).toBe('outside')
+      expect(readFileSync(join(c.far, 'notes.txt'), 'utf8')).toBe('agent')
+      expect(c.trashed).toEqual([])
+    },
+  )
+
+  it.runIf(linux)(
+    'never reads through a source subfolder swapped for a link to secrets',
+    async () => {
+      let swap = (): void => {}
+      const c = swapCase(hookedFs('mkdir', 'sub', 'after', () => swap()))
+      const project = join(c.far, 'project')
+      mkdirSync(join(project, 'sub'), { recursive: true })
+      writeFileSync(join(project, 'sub', 'ok.txt'), 'ok')
+      writeFileSync(join(c.outside, 'id_rsa'), 'secret')
+      swap = swapForLink(join(project, 'sub'), c.outside)
+      expect(await c.ops.importInto([project], c.drop, false)).toMatchObject({
+        ok: false,
+        error: 'partial',
+      })
+      expect(readdirSync(join(c.drop, 'project', 'sub'))).toEqual([])
+    },
+  )
+
+  it.runIf(linux)(
+    'keeps a folder walk inside the folder it made when that folder is swapped for a link',
+    async () => {
+      let swap = (): void => {}
+      const c = swapCase(hookedFs('open', 'f.txt', 'before', () => swap()))
+      const project = join(c.far, 'project')
+      mkdirSync(join(project, 'sub'), { recursive: true })
+      writeFileSync(join(project, 'sub', 'f.txt'), 'f')
+      swap = (): void => swapForLink(join(c.drop, 'project', 'sub'), c.outside)()
+      await c.ops.importInto([project], c.drop, false)
+      expect(readdirSync(c.outside)).toEqual([])
+    },
+  )
+
   it('never takes a name that appeared after it was picked', async () => {
     const dir = tmp()
-    const parent = lstatSync(dir)
-    const target = join(dir, 'taken')
     writeFileSync(join(dir, 'file'), 'new')
     mkdirSync(join(dir, 'folder'))
     symlinkSync(dir, join(dir, 'link'))
-    writeFileSync(target, 'theirs')
-    for (const source of [join(dir, 'file'), join(dir, 'folder'), join(dir, 'link')]) {
-      expect(await moveExclusive(source, target, { parent }), source).toBe('taken')
-      expect(await copyExclusive(source, target, async () => {}, { parent }), source).toBe('taken')
-      expect(existsSync(source)).toBe(true)
+    writeFileSync(join(dir, 'taken'), 'theirs')
+    const anchor = await openAnchor(nodeTransferFs, dir, process.platform)
+    try {
+      for (const name of ['file', 'folder', 'link']) {
+        const source = { anchor, name }
+        const target = { anchor, name: 'taken' }
+        expect(await moveExclusive(nodeTransferFs, source, target, process.platform), name).toBe(
+          'taken',
+        )
+        expect(await copyExclusive(nodeTransferFs, source, target), name).toBe('taken')
+        expect(existsSync(join(dir, name))).toBe(true)
+      }
+    } finally {
+      await anchor.close()
     }
-    expect(readFileSync(target, 'utf8')).toBe('theirs')
+    expect(readFileSync(join(dir, 'taken'), 'utf8')).toBe('theirs')
   })
 
-  it('never writes through a link put in place of a name it picked', async () => {
+  it('never writes through a link already at a name it picked', async () => {
     const dir = tmp()
     const outside = tmp()
-    const parent = lstatSync(dir)
     writeFileSync(join(outside, 'victim'), 'outside')
     writeFileSync(join(dir, 'source.txt'), 'payload')
     symlinkSync(join(outside, 'victim'), join(dir, 'copy.txt'))
-    expect(
-      await copyExclusive(join(dir, 'source.txt'), join(dir, 'copy.txt'), async () => {}, {
-        parent,
-      }),
-    ).toBe('taken')
+    const anchor = await openAnchor(nodeTransferFs, dir, process.platform)
+    try {
+      expect(
+        await copyExclusive(
+          nodeTransferFs,
+          { anchor, name: 'source.txt' },
+          { anchor, name: 'copy.txt' },
+        ),
+      ).toBe('taken')
+    } finally {
+      await anchor.close()
+    }
     expect(readFileSync(join(outside, 'victim'), 'utf8')).toBe('outside')
   })
 
-  it('stops a folder copy whose new folder was swapped for a link, writing nothing outside', async () => {
-    const dir = tmp()
-    const outside = tmp()
-    const parent = lstatSync(dir)
-    const source = join(dir, 'photos')
-    mkdirSync(source)
-    writeFileSync(join(source, 'a.jpg'), 'a')
-    const target = join(dir, 'photos copy')
-    const discarded: string[] = []
-    const fs = swapFs({
-      before: 'mkdir',
-      at: target,
-      run: () => {
-        rmSync(target, { recursive: true })
-        symlinkSync(outside, target)
-      },
-    })
-    await expect(
-      copyExclusive(source, target, async (path) => void discarded.push(path), { parent, fs }),
-    ).rejects.toThrow('folder-replaced')
-    expect(readdirSync(outside)).toEqual([])
-    expect(discarded).toEqual([target])
-  })
-
-  it('stops a copy whose destination folder was swapped for a link, writing nothing outside', async () => {
+  it('refuses a destination that is no longer the folder it was checked as', async () => {
     const root = tmp()
     const outside = tmp()
-    const dest = join(root, 'dest')
-    mkdirSync(dest)
-    const parent = lstatSync(dest)
-    writeFileSync(join(root, 'a.txt'), 'a')
-    rmSync(dest, { recursive: true })
-    symlinkSync(outside, dest)
+    mkdirSync(join(root, 'dest'))
+    const checked = lstatSync(join(root, 'dest'))
+    renameSync(join(root, 'dest'), join(root, 'dest-real'))
+    symlinkSync(outside, join(root, 'dest'))
     await expect(
-      copyExclusive(join(root, 'a.txt'), join(dest, 'a.txt'), async () => {}, { parent }),
-    ).rejects.toThrow('folder-replaced')
-    await expect(
-      moveExclusive(join(root, 'a.txt'), join(dest, 'a.txt'), { parent }),
-    ).rejects.toThrow('folder-replaced')
+      openAnchor(nodeTransferFs, join(root, 'dest'), process.platform, checked),
+    ).rejects.toThrow()
     expect(readdirSync(outside)).toEqual([])
-  })
-
-  it('a file copy writes into the handle it created, not the path, when the name is swapped mid-copy', async () => {
-    const dir = tmp()
-    const outside = tmp()
-    const parent = lstatSync(dir)
-    writeFileSync(join(outside, 'victim'), 'outside')
-    writeFileSync(join(dir, 'source.txt'), 'payload')
-    const target = join(dir, 'copy.txt')
-    const fs = swapFs({
-      before: 'open',
-      at: target,
-      run: () => {
-        rmSync(target)
-        symlinkSync(join(outside, 'victim'), target)
-      },
-    })
-    expect(
-      await copyExclusive(join(dir, 'source.txt'), target, async () => {}, { parent, fs }),
-    ).toBe('done')
-    expect(readFileSync(join(outside, 'victim'), 'utf8')).toBe('outside')
-  })
-
-  it('moves a folder by copy on Windows, where a rename cannot replace a folder', async () => {
-    const dir = tmp()
-    const parent = lstatSync(dir)
-    mkdirSync(join(dir, 'folder'))
-    expect(
-      await moveExclusive(join(dir, 'folder'), join(dir, 'moved'), { parent, platform: 'win32' }),
-    ).toBe('copy')
-    expect(existsSync(join(dir, 'moved'))).toBe(false)
-    writeFileSync(join(dir, 'file'), 'f')
-    expect(
-      await moveExclusive(join(dir, 'file'), join(dir, 'moved.txt'), { parent, platform: 'win32' }),
-    ).toBe('done')
   })
 
   it('a Windows folder move through FileOps copies, then trashes the original', async () => {
