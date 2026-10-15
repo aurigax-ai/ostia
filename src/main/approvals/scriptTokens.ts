@@ -1,4 +1,4 @@
-import { hash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
+import { hash, randomBytes, randomUUID } from 'node:crypto'
 import { existsSync, rmSync } from 'node:fs'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
@@ -17,6 +17,7 @@ import {
 import { registerControlMethod } from '../control/controlServer'
 import { removeScript } from '../control/idRegistry'
 import { loadJson, saveJson } from '../platform/jsonStore'
+import { sameBytes } from '../platform/sameBytes'
 import { ensureCaps } from './controlElevation'
 import type { ReachListing } from './reach'
 import { type ScriptTokenUsageLog, type UsageLookups, usageView } from './scriptTokenUsage'
@@ -144,15 +145,10 @@ function expired(t: Pick<StoredToken, 'expiresAt'>, now: Date): boolean {
   return t.expiresAt !== null && Date.parse(t.expiresAt) <= now.getTime()
 }
 
-function sameHash(stored: string, given: Buffer): boolean {
-  const known = Buffer.from(stored, 'hex')
-  return known.length === given.length && timingSafeEqual(known, given)
-}
-
 function matching<T extends { hash: string }>(entries: Iterable<T>, token: string): T | undefined {
   if (!token.startsWith(SCRIPT_TOKEN_PREFIX)) return undefined
   const given = Buffer.from(hashOf(token), 'hex')
-  for (const entry of entries) if (sameHash(entry.hash, given)) return entry
+  for (const entry of entries) if (sameBytes(Buffer.from(entry.hash, 'hex'), given)) return entry
   return undefined
 }
 
