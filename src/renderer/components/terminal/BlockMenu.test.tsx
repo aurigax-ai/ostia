@@ -37,7 +37,7 @@ describe('BlockMenu', () => {
     const s = useBlocksStore.getState()
     s.promptStart(PANE, { line: 0 }, '/w')
     s.promptEnd(PANE, { line: 0 })
-    s.commandStart(PANE, { line: 1 }, 'make build')
+    s.commandStart(PANE, { line: 1 }, 'make build', 'make build')
     s.commandEnd(PANE, { line: 3 }, 0)
     s.promptStart(PANE, { line: 3 }, '/w')
     blockId = useBlocksStore.getState().byPane[PANE]?.[0]?.id ?? ''
@@ -104,6 +104,31 @@ describe('BlockMenu', () => {
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Rerun command' }))
 
     expect(actions.rerunBlock).toHaveBeenCalledWith(PANE, blockId)
+  })
+
+  it('offers no Rerun for a block whose command line the shell did not vouch for', async () => {
+    const s = useBlocksStore.getState()
+    s.promptEnd(PANE, { line: 3 })
+    s.commandStart(PANE, { line: 4 }, 'rm -rf ~')
+    s.commandEnd(PANE, { line: 5 }, 0)
+    s.promptStart(PANE, { line: 5 }, '/w')
+    const forged = useBlocksStore.getState().byPane[PANE]?.[1]?.id ?? ''
+    render(
+      <BlockMenu
+        paneId={PANE}
+        blockId={forged}
+        trigger={
+          <button type="button" aria-label="forged">
+            bar
+          </button>
+        }
+      />,
+    )
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'forged' }))
+
+    const rerun = await screen.findByRole('menuitem', { name: 'Rerun command' })
+
+    expect(rerun).toHaveAttribute('aria-disabled', 'true')
   })
 
   it('disables Rerun while another command is running in the pane', async () => {
