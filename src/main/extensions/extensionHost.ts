@@ -10,51 +10,7 @@ import {
   hookAgentsFor,
 } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import { appEnv, withoutEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
-import {
-  ASSIST_ERRORS,
-  ASSIST_POINTS,
-  ASSIST_UIS,
-  type AssistAvailability,
-  type AssistCatalog,
-  type AssistError,
-  type AssistExtensionState,
-  type AssistFeatureId,
-  type AssistKeyResult,
-  type AssistModelChangeResult,
-  type AssistModelChoice,
-  type AssistModelClass,
-  type AssistModelRef,
-  type AssistModelSettings,
-  type AssistModelsResult,
-  type AssistOpenUiRequest,
-  type AssistPoint,
-  type AssistProviderEntry,
-  type AssistProviderInfo,
-  type AssistProviderKind,
-  type AssistProviderState,
-  type AssistResponse,
-  type AssistResults,
-  type AssistSetupProblem,
-  type AssistStatus,
-  type AssistUi,
-  CHAT_STREAM_MAX,
-  choiceLabel,
-  isAssistModelId,
-  modelClassOf,
-  normalizeAssistError,
-  normalizeAssistFeatures,
-  normalizeAssistLabel,
-  normalizeAssistModels,
-  normalizeAssistRequest,
-  normalizeAssistResult,
-  normalizeAssistStatus,
-  normalizeModelRef,
-  normalizeProviderKinds,
-  normalizeProviderStates,
-  normalizeSetupProblem,
-  parseAssistModelSettings,
-  sameModelRef,
-} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import type { AssistOpenUiRequest } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import {
   ALL_CAPABILITIES,
   type Capability,
@@ -68,13 +24,11 @@ import {
   EXTENSION_LOCALES_DIR,
   type ExtensionLocaleChangedPayload,
   LOCALE_CHANGED_EVENT,
-  type LocaleCatalogs,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
 import {
   AGENT_OFFER_LABEL_MAX,
   AGENT_OFFER_TEXT_MAX,
   AGENT_PROMPT_MAX,
-  ASSIST_PROVIDERS_CHANGED_EVENT,
   CONNECTIONS_CHANGED_EVENT,
   DIFF_TEXT_MAX,
   EXTENSION_EVENT_TYPES,
@@ -142,7 +96,6 @@ import type { Snippet } from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
 import type { AgentPluginSource } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { isInsideDir } from '@aurigax-ai/ostia-extension-sdk/manifest/confinedRead'
 import {
-  type DiscoveredExtension,
   type ExtensionRoot,
   discoverExtensions,
   parseCommand,
@@ -151,12 +104,8 @@ import {
   loadLocaleCatalogs,
   manifestIn,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/localeCatalogs'
-import { debounce, isEqual } from 'es-toolkit'
-import {
-  type CancellationToken,
-  CancellationTokenSource,
-  type MessageConnection,
-} from 'vscode-jsonrpc/node'
+import { debounce } from 'es-toolkit'
+import type { CancellationToken, MessageConnection } from 'vscode-jsonrpc/node'
 import type { RedactionResult } from '../../shared/privacy/redaction'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import {
@@ -187,11 +136,18 @@ import {
 } from '../files/remoteFolders'
 import type { EditorLanguageSource } from '../lsp/editorLanguages'
 import type { LanguageServerSource } from '../lsp/languageServers'
-import { redactAssistRequest } from '../privacy/redactionTargets'
 import { spawnFolder } from '../terminal/spawnCwd'
+import { ExtensionAssist } from './extensionAssist'
 import type { ExtensionConnections } from './extensionConnections'
 import type { ExtensionExec } from './extensionExec'
 import type { ExtensionLaunches } from './extensionLaunches'
+import {
+  type LoadedExtension,
+  type Runtime,
+  fail,
+  isPlainRecord,
+  withTimeout,
+} from './extensionRuntime'
 import { type ExtensionStore, effectiveRecord, grantedCaps, needsApproval } from './extensionStore'
 import type { KeymapSource } from './keymaps'
 import type { LanguageSource } from './languagePacks'
@@ -205,64 +161,6 @@ const DIFF_TITLE_MAX = 200
 const DIFF_LANGUAGE_MAX = 40
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost'])
 const RESCAN_DEBOUNCE_MS = 250
-const ASSIST_TIMEOUT_MS = 60_000
-const ASSIST_CHAT_TIMEOUT_MS = 5 * 60_000
-const ASSIST_MODELS_TIMEOUT_MS = 15_000
-const ASSIST_MODEL_CHANGE_TIMEOUT_MS = 5 * 60_000
-const ASSIST_CHUNK_MAX = 262_144
-
-type RunState = 'idle' | 'starting' | 'running' | 'crashed'
-
-interface LoadedExtension extends DiscoveredExtension {
-  catalogs: LocaleCatalogs
-}
-
-interface Runtime {
-  ext: LoadedExtension
-  proc: ChildProcess | null
-  identity: PaneIdentity | null
-  conn: MessageConnection | null
-  ready: Map<string, ExtensionCommandContribution>
-  subscriptions: Set<ExtensionEventType>
-  state: RunState
-  restarts: number
-  restartTimer: ReturnType<typeof setTimeout> | null
-  stopping: boolean
-  restartAfterExit: boolean
-  panelOrigins: Set<string>
-  assistStatus: AssistStatus
-  assistReport: AssistRuntimeReport | null
-  offering: boolean
-  reached: Set<string>
-  opened: Set<string>
-  callerWorkspaces: Set<string>
-}
-
-interface AssistRuntimeReport {
-  features: { id: AssistFeatureId; setting: string; ready: boolean }[]
-  setup: AssistSetupProblem | null
-  lastError?: string
-  label?: string
-  models: boolean
-  providers?: AssistProviderState[]
-  kinds: AssistProviderKind[]
-}
-
-const SHORTCUT_IDS_MAX = 64
-const SHORTCUT_LABEL_MAX = 40
-const SHORTCUT_ID_MAX = 120
-
-interface AssistStream {
-  rt: Runtime
-  onChunk: (text: string) => void
-  sent: number
-}
-
-export interface AssistCallOptions {
-  onChunk?: (text: string) => void
-  token?: CancellationToken
-  model?: unknown
-}
 
 function newRuntime(ext: LoadedExtension): Runtime {
   return {
@@ -285,38 +183,6 @@ function newRuntime(ext: LoadedExtension): Runtime {
     opened: new Set(),
     callerWorkspaces: new Set(),
   }
-}
-
-function assistReply<P extends AssistPoint>(point: P, raw: unknown): AssistResponse<P> {
-  const error = isPlainRecord(raw) ? raw.error : undefined
-  if (ASSIST_ERRORS.includes(error as AssistError)) {
-    const message = isPlainRecord(raw) && typeof raw.message === 'string' ? raw.message : undefined
-    return message
-      ? { ok: false, error: error as AssistError, message: message.slice(0, 500) }
-      : { ok: false, error: error as AssistError }
-  }
-  return { ok: true, result: normalizeAssistResult(point, raw) }
-}
-
-export function withoutCorrection<P extends AssistPoint>(
-  point: P,
-  response: AssistResponse<P>,
-): AssistResponse<P> {
-  if (point !== 'input' || !response.ok) return response
-  const { corrected: _corrected, ...result } = response.result as AssistResults['input']
-  return { ok: true, result: result as AssistResults[P] }
-}
-
-function cancelled(token: CancellationToken | undefined): Promise<'cancelled'> {
-  return new Promise((resolve) => {
-    if (!token) return
-    if (token.isCancellationRequested) resolve('cancelled')
-    else token.onCancellationRequested(() => resolve('cancelled'))
-  })
-}
-
-function isPlainRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
 function storedSettings(raw: unknown): Map<string, ExtensionSettingValues> {
@@ -482,28 +348,8 @@ function terminalArgv(raw: unknown): string[] | string {
   return raw as string[]
 }
 
-function fail(error: string, message?: string): ExtensionResult {
-  return message ? { ok: false, error, message } : { ok: false, error }
-}
-
 function filePosition(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined
-}
-
-function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`${what} timed out`)), ms)
-    p.then(
-      (v) => {
-        clearTimeout(timer)
-        resolve(v)
-      },
-      (e) => {
-        clearTimeout(timer)
-        reject(e)
-      },
-    )
-  })
 }
 
 function normalizeResult(raw: unknown): ExtensionResult {
@@ -555,23 +401,31 @@ export class ExtensionHost {
   private chips = new Map<string, PaneChip>()
   private workspaceChipSlots = new Map<string, WorkspaceChip>()
   private settings: Map<string, ExtensionSettingValues>
-  private assistSettings: AssistModelSettings
   private changes = new EventEmitter()
   private watchers: FSWatcher[] = []
   private readonly scheduleRescan = debounce(() => this.rescan(), RESCAN_DEBOUNCE_MS)
   private watching = false
-  private assistStreams = new Map<string, AssistStream>()
-  private assistSeq = 0
-  private shortcuts: Record<string, string> = {}
   private announcedLocale: string
   private readonly agentTasks: ReturnType<typeof agentTaskLimiter>
   readonly remoteFolders: RemoteFolders | null
+  readonly assistant: ExtensionAssist
 
   constructor(private readonly deps: ExtensionHostDeps) {
     this.changes.setMaxListeners(0)
     for (const ext of this.discover()) this.runtimes.set(ext.manifest.id, newRuntime(ext))
     this.settings = storedSettings(deps.readExtensionSettings?.())
-    this.assistSettings = parseAssistModelSettings(deps.readAssistSettings?.()?.assistant)
+    this.assistant = new ExtensionAssist({
+      deps,
+      runtimes: this.runtimes,
+      active: (rt) => this.active(rt),
+      granted: (rt) => this.granted(rt),
+      shownName: (rt) => this.shownName(rt),
+      runtimeOf: (identity, conn) => this.runtimeOf(identity, conn),
+      onDemand: (rt) => this.onDemand(rt),
+      eager: (rt) => this.eager(rt),
+      start: (rt) => this.start(rt),
+      settingValues: (rt) => this.settingValues(rt),
+    })
     this.announcedLocale = this.currentLocale()
     this.agentTasks = agentTaskLimiter(deps.agentTaskClock)
     this.remoteFolders = this.createRemoteFolders()
@@ -890,14 +744,8 @@ export class ExtensionHost {
   private changed(rt?: Runtime): void {
     if (rt) this.changes.emit(rt.ext.manifest.id)
     this.deps.broadcast('extensions:changed', this.list())
-    this.assistChanged()
+    this.assistant.assistChanged()
     this.deps.onChanged?.()
-  }
-
-  private assistChanged(): void {
-    this.deps.broadcast('assist:availability', this.assistAvailability())
-    this.deps.broadcast('assist:overview', this.assistOverview())
-    this.deps.broadcast('assist:catalog', this.assistCatalog())
   }
 
   private sidebarChanged(): void {
@@ -935,7 +783,7 @@ export class ExtensionHost {
   private onDemand(rt: Runtime): boolean {
     if (!rt.ext.builtin) return false
     const c = rt.ext.manifest.contributes
-    if (c.assist.length > 0) return this.assistEntries(rt).length === 0
+    if (c.assist.length > 0) return this.assistant.assistEntries(rt).length === 0
     const chips = c.paneChips.length > 0 || c.workspaceChips.length > 0
     return !chips && !this.deps.launches?.has(rt.ext.manifest.id)
   }
@@ -946,12 +794,6 @@ export class ExtensionHost {
 
   isRunning(extId: string): boolean {
     return Boolean(this.runtimes.get(extId)?.proc)
-  }
-
-  wakeAssist(): void {
-    for (const rt of this.runtimes.values()) {
-      if (rt.ext.manifest.contributes.assist.length > 0 && rt.state !== 'crashed') this.start(rt)
-    }
   }
 
   startEager(): void {
@@ -1092,7 +934,7 @@ export class ExtensionHost {
     rt.panelOrigins.clear()
     rt.assistStatus = {}
     rt.assistReport = null
-    this.dropAssistStreams(rt)
+    this.assistant.dropAssistStreams(rt)
     this.clearSidebarOf(id)
     this.clearChipsWhere((chip) => chip.extId === id)
     this.clearWorkspaceChipsWhere((chip) => chip.extId === id)
@@ -1141,7 +983,7 @@ export class ExtensionHost {
     if (!rt.proc) rt.state = 'idle'
     rt.assistStatus = {}
     rt.assistReport = null
-    this.dropAssistStreams(rt)
+    this.assistant.dropAssistStreams(rt)
     const id = rt.ext.manifest.id
     this.clearSidebarOf(id)
     this.clearChipsWhere((chip) => chip.extId === id)
@@ -1585,7 +1427,7 @@ export class ExtensionHost {
     for (const [id, rt] of this.runtimes) {
       if (before.get(id) !== JSON.stringify(this.settingValues(rt))) this.sendSettings(rt)
     }
-    this.reloadAssistSettings()
+    this.assistant.reloadAssistSettings()
     this.changed()
   }
 
@@ -2059,407 +1901,6 @@ export class ExtensionHost {
     return { ok: true, confirmed }
   }
 
-  private servesAssist(rt: Runtime): boolean {
-    return (
-      this.active(rt) &&
-      rt.conn !== null &&
-      rt.assistReport !== null &&
-      this.granted(rt).includes('assist')
-    )
-  }
-
-  private modelChoices(): AssistModelChoice[] {
-    const out: AssistModelChoice[] = []
-    for (const rt of this.runtimes.values()) {
-      const report = rt.assistReport
-      if (!report || !this.servesAssist(rt)) continue
-      const extId = rt.ext.manifest.id
-      const points = ASSIST_POINTS.filter(
-        (point) =>
-          rt.ext.manifest.contributes.assist.includes(point) &&
-          rt.assistStatus[point]?.ready === true,
-      )
-      if (!report.providers) {
-        const name = this.shownName(rt)
-        const tools = rt.assistStatus.chat?.tools
-        const choice = { ref: { extId }, group: name, label: report.label ?? name, points }
-        out.push(tools ? { ...choice, tools } : choice)
-        continue
-      }
-      for (const provider of report.providers) {
-        if (provider.setup !== null) continue
-        for (const model of provider.models) {
-          const choice: AssistModelChoice = {
-            ref: { extId, provider: provider.id, model: model.id },
-            group: provider.name,
-            label: model.id,
-            points,
-          }
-          out.push(model.tools ? { ...choice, tools: model.tools } : choice)
-        }
-      }
-    }
-    return out
-  }
-
-  private offers(extId: string, modelClass: AssistModelClass): boolean {
-    const assist = this.runtimes.get(extId)?.ext.manifest.contributes.assist ?? []
-    return assist.some((point) => modelClassOf(point) === modelClass)
-  }
-
-  private selectedChoice(
-    modelClass: AssistModelClass,
-    choices: AssistModelChoice[],
-  ): AssistModelChoice | null {
-    const eligible = choices.filter((c) => this.offers(c.ref.extId, modelClass))
-    const wanted =
-      modelClass === 'chat' ? this.assistSettings.chatModel : this.assistSettings.fastModel
-    if (wanted) return eligible.find((c) => sameModelRef(c.ref, wanted)) ?? null
-    return eligible[0] ?? null
-  }
-
-  private assistTarget(
-    point: AssistPoint,
-    explicit: AssistModelRef | null,
-  ): { rt: Runtime; choice: AssistModelChoice } | null {
-    const choices = this.modelChoices()
-    const choice = explicit
-      ? choices.find((c) => sameModelRef(c.ref, explicit))
-      : this.selectedChoice(modelClassOf(point), choices)
-    if (!choice?.points.includes(point)) return null
-    const rt = this.runtimes.get(choice.ref.extId)
-    return rt ? { rt, choice } : null
-  }
-
-  assistCatalog(): AssistCatalog {
-    const models = this.modelChoices()
-    return {
-      models,
-      chat: this.selectedChoice('chat', models)?.ref ?? null,
-      fast: this.selectedChoice('fast', models)?.ref ?? null,
-    }
-  }
-
-  assistAvailability(): AssistAvailability {
-    const out: AssistAvailability = {}
-    for (const point of ASSIST_POINTS) {
-      const target = this.assistTarget(point, null)
-      if (!target) continue
-      const { rt, choice } = target
-      const status = rt.assistStatus[point]
-      const info: AssistProviderInfo = {
-        extId: rt.ext.manifest.id,
-        name: this.shownName(rt),
-        ref: choice.ref,
-      }
-      const label = choice.ref.provider ? choiceLabel(choice) : status?.label
-      const tools = choice.ref.provider ? choice.tools : status?.tools
-      if (label) info.label = label
-      if (tools && point === 'chat') info.tools = tools
-      out[point] = info
-    }
-    return out
-  }
-
-  private assistEntries(rt: Runtime): AssistProviderEntry[] {
-    const extId = rt.ext.manifest.id
-    return this.assistSettings.providers
-      .filter((p) => p.extId === extId && p.enabled)
-      .map((p) => ({
-        id: p.id,
-        kind: p.kind,
-        name: p.name,
-        baseUrl: p.baseUrl,
-        models: p.models,
-        apiKey: this.deps.assistKeys?.get(extId, p.id) ?? null,
-      }))
-  }
-
-  getAssistProviders(identity: PaneIdentity, conn: MessageConnection) {
-    const rt = this.runtimeOf(identity, conn)
-    if (rt.ext.manifest.contributes.assist.length === 0) {
-      return fail('not-contributed', 'manifest does not contribute assist')
-    }
-    return { ok: true, providers: this.assistEntries(rt) }
-  }
-
-  private sendAssistProviders(rt: Runtime): void {
-    if (!rt.conn || rt.ext.manifest.contributes.assist.length === 0) return
-    if (!this.granted(rt).includes('assist')) return
-    const payload = { providers: this.assistEntries(rt) }
-    void rt.conn
-      .sendNotification('ext.event', { type: ASSIST_PROVIDERS_CHANGED_EVENT, payload })
-      .catch(() => {})
-  }
-
-  reloadAssistSettings(): void {
-    const file = this.deps.readAssistSettings?.()
-    if (!file) return
-    const next = parseAssistModelSettings(file.assistant)
-    if (isEqual(next, this.assistSettings)) return
-    const before = new Map(
-      [...this.runtimes].map(([id, rt]) => [id, JSON.stringify(this.assistEntries(rt))]),
-    )
-    const waiting = [...this.runtimes.values()].filter((rt) => this.onDemand(rt))
-    this.assistSettings = next
-    const keys = this.deps.assistKeys
-    for (const [id, rt] of this.runtimes) {
-      for (const key of keys?.keys(id) ?? []) {
-        const kept = this.assistSettings.providers.some((p) => p.extId === id && p.id === key)
-        if (!kept) keys?.set(id, key, null)
-      }
-      if (before.get(id) !== JSON.stringify(this.assistEntries(rt))) this.sendAssistProviders(rt)
-      if (waiting.includes(rt) && this.eager(rt)) this.start(rt)
-    }
-    this.assistChanged()
-  }
-
-  setAssistProviderKey(providerId: unknown, value: unknown): AssistKeyResult {
-    const config = this.assistSettings.providers.find((p) => p.id === providerId)
-    if (!config) return { ok: false, error: 'unknown-provider' }
-    if (value !== null && typeof value !== 'string') return { ok: false, error: 'invalid-value' }
-    if (!this.deps.assistKeys) return { ok: false, error: 'encryption-unavailable' }
-    const res = this.deps.assistKeys.set(config.extId, config.id, value)
-    if (!res.ok) return res
-    const rt = this.runtimes.get(config.extId)
-    if (rt) this.sendAssistProviders(rt)
-    this.assistChanged()
-    return { ok: true }
-  }
-
-  setAssistStatus(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    const contributed = rt.ext.manifest.contributes.assist
-    if (contributed.length === 0)
-      return fail('not-contributed', 'manifest does not contribute assist')
-    const p = (params ?? {}) as Record<string, unknown>
-    const status = normalizeAssistStatus(p.status)
-    rt.assistStatus = Object.fromEntries(
-      Object.entries(status).filter(([point]) => contributed.includes(point as AssistPoint)),
-    )
-    const booleans = new Set(
-      rt.ext.manifest.contributes.settings.filter((s) => s.type === 'boolean').map((s) => s.key),
-    )
-    const report: AssistRuntimeReport = {
-      features: normalizeAssistFeatures(p.features).filter((f) => booleans.has(f.setting)),
-      setup: normalizeSetupProblem(p.setup),
-      models: p.models === true,
-      kinds: normalizeProviderKinds(p.kinds),
-    }
-    if (Array.isArray(p.providers)) report.providers = normalizeProviderStates(p.providers)
-    const lastError = normalizeAssistError(p.lastError)
-    if (lastError) report.lastError = lastError
-    const label = normalizeAssistLabel(p.label)
-    if (label) report.label = label
-    rt.assistReport = report
-    this.assistChanged()
-    return { ok: true }
-  }
-
-  assistOverview(): AssistExtensionState[] {
-    const out: AssistExtensionState[] = []
-    for (const rt of this.runtimes.values()) {
-      const report = rt.assistReport
-      if (!report || !this.servesAssist(rt)) continue
-      const values = this.settingValues(rt)
-      const extId = rt.ext.manifest.id
-      const state: AssistExtensionState = {
-        extId,
-        name: this.shownName(rt),
-        setup: report.setup,
-        features: report.features.map((f) => ({ ...f, on: values[f.setting] === true })),
-        models: report.models,
-        providers: report.providers ?? [],
-        kinds: report.kinds,
-        keysSet: this.deps.assistKeys?.keys(extId) ?? [],
-      }
-      if (report.label) state.label = report.label
-      if (report.lastError) state.lastError = report.lastError
-      out.push(state)
-    }
-    return out
-  }
-
-  private modelsRuntime(extId: unknown): Runtime | null {
-    if (typeof extId !== 'string') return null
-    const rt = this.runtimes.get(extId)
-    if (!rt?.conn || !rt.assistReport?.models || !this.active(rt)) return null
-    return this.granted(rt).includes('assist') ? rt : null
-  }
-
-  async assistModels(extId: unknown, provider?: unknown): Promise<AssistModelsResult> {
-    const rt = this.modelsRuntime(extId)
-    const conn = rt?.conn
-    if (!rt || !conn) return { ok: false, error: 'unavailable' }
-    const target = typeof provider === 'string' ? { provider } : {}
-    try {
-      const reply = await withTimeout(
-        conn.sendRequest('ext.assistModels', { action: 'list', ...target }),
-        this.deps.assistModelsTimeoutMs ?? ASSIST_MODELS_TIMEOUT_MS,
-        `${rt.ext.manifest.id} models`,
-      )
-      const list = normalizeAssistModels(reply)
-      return list ? { ok: true, ...list } : { ok: false, error: 'invalid' }
-    } catch (err) {
-      return { ok: false, error: normalizeAssistError((err as Error).message) ?? 'failed' }
-    }
-  }
-
-  async setAssistModelLoaded(
-    extId: unknown,
-    id: unknown,
-    loaded: unknown,
-    provider?: unknown,
-  ): Promise<AssistModelChangeResult> {
-    if (!isAssistModelId(id) || typeof loaded !== 'boolean') return { ok: false, error: 'invalid' }
-    const rt = this.modelsRuntime(extId)
-    const conn = rt?.conn
-    if (!rt || !conn) return { ok: false, error: 'unavailable' }
-    const target = typeof provider === 'string' ? { provider } : {}
-    try {
-      const reply = (await withTimeout(
-        conn.sendRequest('ext.assistModels', {
-          action: loaded ? 'load' : 'unload',
-          id,
-          ...target,
-        }),
-        this.deps.assistModelsTimeoutMs ?? ASSIST_MODEL_CHANGE_TIMEOUT_MS,
-        `${rt.ext.manifest.id} models`,
-      )) as { ok?: unknown; error?: unknown } | null
-      if (reply?.ok === true) return { ok: true }
-      return { ok: false, error: normalizeAssistError(reply?.error) ?? 'failed' }
-    } catch (err) {
-      return { ok: false, error: normalizeAssistError((err as Error).message) ?? 'failed' }
-    }
-  }
-
-  setShortcuts(raw: unknown): void {
-    const next: Record<string, string> = {}
-    if (isPlainRecord(raw)) {
-      for (const [id, label] of Object.entries(raw)) {
-        if (id.length > SHORTCUT_ID_MAX || typeof label !== 'string' || !label) continue
-        next[id] = label.slice(0, SHORTCUT_LABEL_MAX)
-      }
-    }
-    this.shortcuts = next
-  }
-
-  getShortcuts(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    this.runtimeOf(identity, conn)
-    const ids = (params as { ids?: unknown } | null)?.ids
-    if (!Array.isArray(ids) || ids.length > SHORTCUT_IDS_MAX) {
-      return fail('invalid-params', `ids must be an array of at most ${SHORTCUT_IDS_MAX}`)
-    }
-    const shortcuts: Record<string, string | null> = {}
-    for (const id of ids) {
-      if (typeof id === 'string')
-        shortcuts[id] = Object.hasOwn(this.shortcuts, id) ? this.shortcuts[id] : null
-    }
-    return { ok: true, shortcuts }
-  }
-
-  openAssistUi(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    const p = (params ?? {}) as { ui?: unknown; workspaceId?: unknown }
-    if (!ASSIST_UIS.includes(p.ui as AssistUi)) {
-      return fail('invalid-params', `ui must be one of ${ASSIST_UIS.join(', ')}`)
-    }
-    const ui = p.ui as AssistUi
-    const needs: AssistPoint[] = ui === 'compose' ? ['input', 'command'] : ['chat']
-    if (!needs.some((point) => rt.ext.manifest.contributes.assist.includes(point))) {
-      return fail('not-contributed', `manifest does not contribute ${needs.join(' or ')}`)
-    }
-    const req: AssistOpenUiRequest = { extId: rt.ext.manifest.id, ui }
-    if (typeof p.workspaceId === 'string' && p.workspaceId) req.workspaceId = p.workspaceId
-    if (!this.deps.openAssistUiIn) return fail('no-window')
-    this.deps.openAssistUiIn(req)
-    return { ok: true }
-  }
-
-  async assist<P extends AssistPoint>(
-    point: P,
-    input: unknown,
-    opts: AssistCallOptions = {},
-  ): Promise<AssistResponse<P>> {
-    const normalized = normalizeAssistRequest(point, input)
-    if (!normalized) return { ok: false, error: 'invalid' }
-    let request = normalized
-    let redacted = 0
-    if (this.deps.redact) {
-      try {
-        const safe = await redactAssistRequest(point, normalized, this.deps.redact)
-        request = safe.request
-        redacted = safe.count
-      } catch {
-        return { ok: false, error: 'failed' }
-      }
-    }
-    const explicit = opts.model === undefined ? null : normalizeModelRef(opts.model)
-    if (opts.model !== undefined && !explicit) return { ok: false, error: 'invalid' }
-    const target = this.assistTarget(point, explicit)
-    const rt = target?.rt
-    const conn = rt?.conn
-    if (!target || !rt || !conn) return { ok: false, error: 'unavailable' }
-    const { provider, model } = target.choice.ref
-    const routed = provider && model ? { model: { provider, model } } : {}
-    const requestId = `a${++this.assistSeq}`
-    this.assistStreams.set(requestId, { rt, onChunk: opts.onChunk ?? (() => {}), sent: 0 })
-    const source = new CancellationTokenSource()
-    const sub = opts.token?.onCancellationRequested(() => source.cancel())
-    const timeoutMs =
-      point === 'chat'
-        ? (this.deps.assistChatTimeoutMs ?? ASSIST_CHAT_TIMEOUT_MS)
-        : (this.deps.assistTimeoutMs ?? ASSIST_TIMEOUT_MS)
-    try {
-      const reply = await Promise.race([
-        withTimeout(
-          conn.sendRequest(
-            'ext.assist',
-            { point, requestId, input: request, ...routed },
-            source.token,
-          ),
-          timeoutMs,
-          `${rt.ext.manifest.id} assist`,
-        ),
-        cancelled(opts.token),
-      ])
-      if (reply === 'cancelled' || opts.token?.isCancellationRequested) {
-        return { ok: false, error: 'cancelled' }
-      }
-      const response = assistReply(point, reply)
-      return redacted > 0 ? withoutCorrection(point, response) : response
-    } catch (err) {
-      if (opts.token?.isCancellationRequested) return { ok: false, error: 'cancelled' }
-      return { ok: false, error: 'failed', message: (err as Error).message }
-    } finally {
-      source.cancel()
-      source.dispose()
-      sub?.dispose()
-      this.assistStreams.delete(requestId)
-    }
-  }
-
-  assistChunk(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    const p = (params ?? {}) as { requestId?: unknown; text?: unknown }
-    const stream = typeof p.requestId === 'string' ? this.assistStreams.get(p.requestId) : undefined
-    if (!stream || stream.rt !== rt) return { ok: true, live: false }
-    if (typeof p.text !== 'string') return fail('invalid-params', 'text must be a string')
-    const room = Math.min(ASSIST_CHUNK_MAX, CHAT_STREAM_MAX - stream.sent)
-    if (p.text.startsWith('{') && p.text.length > room) return { ok: true, live: false }
-    const text = p.text.slice(0, room)
-    if (!text) return { ok: true, live: stream.sent < CHAT_STREAM_MAX }
-    stream.sent += text.length
-    stream.onChunk(text)
-    return { ok: true, live: true }
-  }
-
-  private dropAssistStreams(rt: Runtime): void {
-    for (const [id, stream] of this.assistStreams) {
-      if (stream.rt === rt) this.assistStreams.delete(id)
-    }
-  }
-
   getSecret(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
     const rt = this.runtimeOf(identity, conn)
     const key = (params as { key?: unknown } | null)?.key
@@ -2685,15 +2126,15 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   )
 
   registerControlMethod('ext.setAssistStatus', {
-    ...forExtension((h, id, conn, p) => h.setAssistStatus(id, conn, p)),
+    ...forExtension((h, id, conn, p) => h.assistant.setAssistStatus(id, conn, p)),
     cap: 'assist',
   })
   registerControlMethod('ext.assistProviders', {
-    ...forExtension((h, id, conn) => h.getAssistProviders(id, conn)),
+    ...forExtension((h, id, conn) => h.assistant.getAssistProviders(id, conn)),
     cap: 'assist',
   })
   registerControlMethod('ext.assistChunk', {
-    ...forExtension((h, id, conn, p) => h.assistChunk(id, conn, p)),
+    ...forExtension((h, id, conn, p) => h.assistant.assistChunk(id, conn, p)),
     cap: 'assist',
   })
   registerControlMethod(
@@ -2702,11 +2143,11 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   )
   registerControlMethod(
     'ext.shortcuts',
-    forExtension((h, id, conn, p) => h.getShortcuts(id, conn, p)),
+    forExtension((h, id, conn, p) => h.assistant.getShortcuts(id, conn, p)),
   )
   registerControlMethod(
     'ext.openAssistUi',
-    forExtension((h, id, conn, p) => h.openAssistUi(id, conn, p)),
+    forExtension((h, id, conn, p) => h.assistant.openAssistUi(id, conn, p)),
   )
   registerControlMethod(
     'ext.getSecret',

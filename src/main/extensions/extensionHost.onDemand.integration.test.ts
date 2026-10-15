@@ -83,7 +83,7 @@ describe('a built-in assist extension starts on demand', () => {
 
   it('wakes an assist extension when its UI asks for it', async () => {
     expect(host.isRunning('switchboard')).toBe(false)
-    host.wakeAssist()
+    host.assistant.wakeAssist()
     await until(() => (status('switchboard') === 'running' ? true : undefined))
   })
 
@@ -106,7 +106,7 @@ describe('a built-in assist extension starts on demand', () => {
         },
       ],
     }
-    host.reloadAssistSettings()
+    host.assistant.reloadAssistSettings()
     await until(() => (status('switchboard') === 'running' ? true : undefined))
   })
 

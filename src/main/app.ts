@@ -3201,7 +3201,7 @@ function registerFsIpc(): void {
             telemetry?.settingsChanged()
             refreshCapabilitySettings()
             extensionHost?.refreshLocale()
-            extensionHost?.reloadAssistSettings()
+            extensionHost?.assistant.reloadAssistSettings()
             gitService?.settingsChanged()
             portsService?.settingsChanged()
             applyGlobalHotkey()
@@ -4296,7 +4296,7 @@ app.whenReady().then(() => {
       redactionScan.scan(text, parsePrivacySettings(readSettingsFile().privacy).redaction.patterns),
   })
   void profileSync.run()
-  registerAssistIpc(() => extensionHost)
+  registerAssistIpc(() => extensionHost?.assistant ?? null)
   registerChatSessionIpc(
     createChatSessionStore({ dir: join(dirname(storePath('chat', 'global')), 'chat-sessions') }),
     redactor.text,
