@@ -1,4 +1,5 @@
-import { ControlRow, NumberRow, ToggleRow, WarningNote } from '@/components/settingsKit/ControlRow'
+import { Notice } from '@/components/common/Notice'
+import { ControlRow, NumberRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
@@ -160,7 +161,7 @@ export function AgentsSection(): JSX.Element {
               max={HIBERNATION_LIVE_MAX}
               onCommit={(n) => set({ maxLiveTerminals: n })}
             />
-            <WarningNote>{d.settings.hibernateNote}</WarningNote>
+            <Notice>{d.settings.hibernateNote}</Notice>
           </>
         ) : null}
       </SettingsGroup>

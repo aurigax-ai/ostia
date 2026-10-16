@@ -1,5 +1,5 @@
 import { IconButton } from '@/components/common/IconButton'
-import { WarningNote } from '@/components/settingsKit/ControlRow'
+import { Notice } from '@/components/common/Notice'
 import { Kbd } from '@/components/ui/kbd'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -67,9 +67,7 @@ export function TerminalKeyLine({
         />
       </span>
       {shadowedBy ? (
-        <WarningNote>
-          {fmt(d.keyboard.shadowed, { command: commandTitle(shadowedBy, d) })}
-        </WarningNote>
+        <Notice>{fmt(d.keyboard.shadowed, { command: commandTitle(shadowedBy, d) })}</Notice>
       ) : null}
       <DesktopNote specs={[row.spec]} />
     </>
