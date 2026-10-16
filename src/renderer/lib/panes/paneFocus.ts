@@ -1,12 +1,12 @@
 import { isPaneVisible } from '@/lib/attention/workspaceActivity'
 import { keyboardPaneId } from '@/lib/layout/focusDirection'
+import { guestReached } from '@/lib/panes/guestReached'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import {
   focusSurfaceWhenReady,
   retryPendingFocus,
   setFocusTarget,
 } from '@/stores/workspaces/surfaceSlotsStore'
-import type { WebviewTag } from 'electron'
 import { useEffect, useRef, useState } from 'react'
 
 export function focusPaneWhenReady(paneId: string): void {
@@ -29,15 +29,6 @@ export function useSurfaceFocus(
     if (!paneId) return
     return setFocusTarget(paneId, takesKeyboard ? () => targetRef.current?.() ?? null : null)
   }, [paneId, takesKeyboard])
-}
-
-function guestReached(webview: HTMLElement): boolean {
-  try {
-    ;(webview as unknown as WebviewTag).getWebContentsId()
-    return true
-  } catch {
-    return false
-  }
 }
 
 export function useGuestReady(webview: HTMLElement | null): HTMLElement | null {

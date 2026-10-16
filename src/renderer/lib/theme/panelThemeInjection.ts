@@ -40,8 +40,8 @@ export function useInjectedCss(webview: HTMLElement | null, css: string): () => 
         .catch(() => undefined)
     } catch {}
   }, [webview, css])
-  useEffect(() => apply(), [apply])
   useEffect(() => {
+    apply()
     if (!webview) return
     webview.addEventListener('dom-ready', apply)
     return () => webview.removeEventListener('dom-ready', apply)

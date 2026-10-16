@@ -1,9 +1,1 @@
-[
-  {
-    "file": "e2e/graphs-restart.spec.ts",
-    "name": "GRF-C59 GRF-C70 a waiting approval and a cut-off command come back after Ostia is killed",
-    "issue": 987,
-    "until": "2026-11-15",
-    "platforms": ["linux"]
-  }
-]
+[]
