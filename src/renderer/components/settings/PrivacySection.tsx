@@ -1,10 +1,6 @@
 import { IconButton } from '@/components/common/IconButton'
-import {
-  ControlRow,
-  MachineValue,
-  ToggleRow,
-  WarningNote,
-} from '@/components/settingsKit/ControlRow'
+import { Notice } from '@/components/common/Notice'
+import { ControlRow, MachineValue, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
@@ -146,9 +142,7 @@ function Patterns({ onChanged }: { onChanged: () => void }): JSX.Element {
               title={<span className="font-mono text-ui-sm">{pattern}</span>}
               detail={
                 problem ? (
-                  <WarningNote>
-                    {fmt(d.privacy.ignored, { problem: problemText(d, problem) })}
-                  </WarningNote>
+                  <Notice>{fmt(d.privacy.ignored, { problem: problemText(d, problem) })}</Notice>
                 ) : null
               }
               actions={
@@ -162,7 +156,7 @@ function Patterns({ onChanged }: { onChanged: () => void }): JSX.Element {
           )
         })}
       </SettingsList>
-      {error ? <WarningNote>{error}</WarningNote> : null}
+      {error ? <Notice>{error}</Notice> : null}
     </SettingsGroup>
   )
 }

@@ -1,6 +1,7 @@
 import { IconButton } from '@/components/common/IconButton'
+import { Notice } from '@/components/common/Notice'
 import { RequirementsNote } from '@/components/settings/RequirementsNote'
-import { MachineValue, WarningNote } from '@/components/settingsKit/ControlRow'
+import { MachineValue } from '@/components/settingsKit/ControlRow'
 import { SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import {
   AlertDialog,
@@ -180,7 +181,7 @@ function MarketplaceRow({ marketplace }: { marketplace: MarketplaceInfo }): JSX.
           <RemoveMarketplaceButton marketplace={marketplace} />
         </div>
       </div>
-      {marketplace.error ? <WarningNote>{marketplace.error}</WarningNote> : null}
+      {marketplace.error ? <Notice>{marketplace.error}</Notice> : null}
       {!marketplace.downloaded ? (
         <p className="mt-0.5 text-fg-muted text-ui-xs">{d.marketplace.notDownloaded}</p>
       ) : null}
@@ -219,12 +220,12 @@ export function MarketplaceFailureNote(): JSX.Element | null {
   const failure = useMarketplaceStore((s) => s.failure)
   if (!failure) return null
   return (
-    <WarningNote>
+    <Notice>
       <p>{d.marketplace.errors[failure.error]}</p>
       {failure.detail ? (
         <p className="mt-1 break-words font-mono text-ui-xs">{failure.detail}</p>
       ) : null}
-    </WarningNote>
+    </Notice>
   )
 }
 

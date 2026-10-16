@@ -1,6 +1,7 @@
 import { IconButton } from '@/components/common/IconButton'
+import { Notice } from '@/components/common/Notice'
 import { PromptChip, chipIcon, chipName } from '@/components/prompt/PromptChips'
-import { ControlRow, ToggleRow, WarningNote } from '@/components/settingsKit/ControlRow'
+import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsGroup, SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
@@ -298,7 +299,7 @@ export function PromptSection(): JSX.Element {
         </ControlRow>
         <p className="text-fg-muted text-ui-xs">{d.prompt.openShellsNote}</p>
         {prompt.style === 'ostia' && inputMode !== 'editor' ? (
-          <WarningNote>{d.settings.promptNeedsEditor}</WarningNote>
+          <Notice>{d.settings.promptNeedsEditor}</Notice>
         ) : null}
       </SettingsGroup>
       <SettingsGroup title={d.prompt.groupChips}>

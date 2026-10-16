@@ -1,4 +1,5 @@
-import { ControlRow, ToggleRow, WarningNote } from '@/components/settingsKit/ControlRow'
+import { Notice } from '@/components/common/Notice'
+import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
@@ -89,7 +90,7 @@ export function BrowserSettingsSection(): JSX.Element {
               />
             </ControlRow>
             {isValidSearchTemplate(browser.customSearchUrl) ? null : (
-              <WarningNote>{d.browserSettings.customUrlInvalid}</WarningNote>
+              <Notice>{d.browserSettings.customUrlInvalid}</Notice>
             )}
           </>
         ) : null}

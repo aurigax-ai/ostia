@@ -1,5 +1,5 @@
 import { IconButton } from '@/components/common/IconButton'
-import { WarningNote } from '@/components/settingsKit/ControlRow'
+import { Notice } from '@/components/common/Notice'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
@@ -25,7 +25,7 @@ function Problems({ view }: { view: ViewInfo }): JSX.Element | null {
   return (
     <div className="mt-1.5 flex flex-col gap-1">
       {view.stale ? (
-        <WarningNote>{d.views.stale}</WarningNote>
+        <Notice>{d.views.stale}</Notice>
       ) : (
         <p className="text-attn-fg text-ui-xs">{d.views.invalid}</p>
       )}
