@@ -1,38 +1,18 @@
-import type { OstiaChatMessage } from '@/lib/assist/chatTransport'
-import type { UseChatHelpers } from '@ai-sdk/react'
-import type {
-  AssistProviderInfo,
-  ChatContextItem,
-} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
-import type { RefObject } from 'react'
-import { ChatComposer } from './ChatComposer'
+import { ChatComposer, type ChatComposerProps } from './ChatComposer'
 import { ChatSlashMenu } from './ChatSlashMenu'
 import type { ChatComposerState } from './useChatComposer'
-import type { ChatContext } from './useChatContext'
 
-interface ChatComposerAreaProps {
-  sessionId: string
-  workspaceId: string | null
-  chatKey: string
-  chat: Pick<UseChatHelpers<OstiaChatMessage>, 'messages' | 'status'>
-  provider: AssistProviderInfo | null
-  busy: boolean
-  draft: string
-  setDraft: (draft: string) => void
-  editing: string | null
-  setEditing: (id: string | null) => void
-  areaRef: RefObject<HTMLTextAreaElement>
-  noticeText: string
-  composer: ChatComposerState
-  picking: boolean
-  setPicking: (open: boolean) => void
-  attachments: ChatContextItem[]
-  willRedact: number
-  context: ChatContext
-  ask: (text: string, extra?: ChatContextItem[]) => void
-  onStop: () => void
-  onBack?: () => void
-}
+type ChatComposerAreaProps = Omit<
+  ChatComposerProps,
+  | 'toolsOpen'
+  | 'setToolsOpen'
+  | 'modelOpen'
+  | 'setModelOpen'
+  | 'setFocused'
+  | 'pickerQuery'
+  | 'setPickerQuery'
+  | 'slash'
+> & { composer: ChatComposerState }
 
 export function ChatComposerArea({
   composer,

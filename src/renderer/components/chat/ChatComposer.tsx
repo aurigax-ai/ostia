@@ -27,7 +27,7 @@ function opensPicker(text: string, caret: number): boolean {
   return before === '' || /\s/.test(before)
 }
 
-interface ChatComposerProps {
+export interface ChatComposerProps {
   sessionId: string
   workspaceId: string | null
   chatKey: string
