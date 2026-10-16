@@ -27,6 +27,7 @@ function reportsOnceGated(gate: string): string {
   return [
     `  while [ ! -e "${gate}" ]; do sleep 0.1; done`,
     `  ${REPORT} >/dev/null 2>&1`,
+    '  sleep 2',
     '  echo resumed-ready',
     '  exec sleep 600',
   ].join('\n')
@@ -92,13 +93,14 @@ test(
       await hibernateWorker(win)
       await typeLine(
         win,
-        'ostia pane wake worker; echo wake-exit-$?; ostia pane read worker | grep -c resumed-ready',
+        'ostia pane wake worker; echo wake-exit-$?; until ostia pane read worker | grep -q resumed-ready; do sleep 0.2; done; echo worker-shows-ready-$?',
       )
       await expect(caller).toContainText('ostia pane wake worker')
       await new Promise((resolve) => setTimeout(resolve, 2000))
       await expect(caller).not.toContainText('wake-exit-0')
       writeFileSync(gate, '')
-      await expect(caller).toContainText(/wake-exit-0[1-9]/, { timeout: 30_000 })
+      await expect(caller).toContainText('wake-exit-0', { timeout: 30_000 })
+      await expect(caller).toContainText('worker-shows-ready-0', { timeout: 30_000 })
     } finally {
       await app.close()
     }

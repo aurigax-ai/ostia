@@ -50,7 +50,7 @@ describe('surfaceSlotsStore', () => {
   })
 
   it('fades a new host in once, so later moves between slots do not replay it', () => {
-    const host = surfaceHost('pane-1')
+    const host = surfaceHost('pane-1', true)
     expect(host).toHaveClass('surface-enter')
     const child = div()
     host.appendChild(child)
@@ -60,6 +60,10 @@ describe('surfaceSlotsStore', () => {
     expect(host).not.toHaveClass('surface-enter')
     mountSurface('pane-1', div())
     expect(host).not.toHaveClass('surface-enter')
+  })
+
+  it('never fades a host in unless asked, so a terminal canvas is not composited mid-spawn', () => {
+    expect(surfaceHost('pane-1')).not.toHaveClass('surface-enter')
   })
 
   it('releaseSurfaces removes hosts of dead panes and keeps live ones', () => {

@@ -101,11 +101,11 @@ export class Marketplace {
   private readonly officialUrl: string | null
 
   constructor(private readonly deps: MarketplaceDeps) {
-    const fresh = !existsSync(deps.recordsPath)
     this.records = sanitizeRecords(loadJson<unknown>(deps.recordsPath, {}))
     this.officialUrl = normalizeMarketplaceUrl(deps.official)
-    if (fresh && this.officialUrl) {
-      this.records.sources.push({ id: marketplaceId(this.officialUrl), url: this.officialUrl })
+    const official = this.officialUrl
+    if (official && !this.records.sources.some((s) => s.url === official)) {
+      this.records.sources.unshift({ id: marketplaceId(official), url: official })
     }
   }
 
@@ -376,6 +376,7 @@ export class Marketplace {
     return this.serialized(async () => {
       const source = this.records.sources.find((s) => s.id === id)
       if (!source) return this.fail('unknown-marketplace')
+      if (source.url === this.officialUrl) return this.fail('official-marketplace')
       if (uninstallExtensions === true) {
         for (const [extId, owner] of Object.entries(this.records.installs)) {
           if (owner !== source.id) continue

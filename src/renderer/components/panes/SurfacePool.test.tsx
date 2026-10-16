@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { findSplitTabByName, firstPaneId } from '@/lib/layout/tree'
+import { createPane, findSplitTabByName, firstPaneId, splitOf } from '@/lib/layout/tree'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
@@ -80,6 +80,29 @@ describe('SurfacePool', () => {
     cleanup()
     useLayoutStore.setState(layoutInit, true)
     useWorkspacesStore.setState(workspacesInit, true)
+  })
+
+  it('never fades in the host of a terminal or the manager, which hold an xterm', async () => {
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 'w1', name: 'me', kind: 'terminal', workDir: '/home/me', state: 'idle' }],
+      activeWorkspaceId: 'w1',
+    })
+    useLayoutStore.getState().ensure('w1')
+    const terminal = firstPaneId(useLayoutStore.getState().byWorkspace.w1.root)
+    const manager = createPane('manager', 'manager')
+    useLayoutStore.setState({
+      byWorkspace: {
+        w1: {
+          root: splitOf('horizontal', useLayoutStore.getState().byWorkspace.w1.root, manager),
+          activePaneId: terminal,
+          zoomedPaneId: null,
+        },
+      },
+    })
+    await renderSettled(<SurfacePool />)
+
+    expect(surfaceHost(terminal)).not.toHaveClass('surface-enter')
+    expect(surfaceHost(manager.id)).not.toHaveClass('surface-enter')
   })
 
   it('splitting keeps the original terminal DOM node and its history', async () => {
