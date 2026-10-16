@@ -1,4 +1,4 @@
-import { app } from 'electron'
+import { type GPUFeatureStatus, app } from 'electron'
 import type { AppLog } from './appLog'
 
 interface GpuDevice {
@@ -15,7 +15,7 @@ interface GpuInfo {
 }
 
 export function gpuFacts(
-  status: Record<string, string>,
+  status: Partial<GPUFeatureStatus>,
   info: GpuInfo,
 ): Record<string, string | number | boolean> {
   const devices = info.gpuDevice ?? []
@@ -30,7 +30,6 @@ export function gpuFacts(
     webgl2: status.webgl2 ?? '',
     gpuCompositing: status.gpu_compositing ?? '',
     rasterization: status.rasterization ?? '',
-    canvasOop: status.canvas_oop_rasterization ?? '',
   }
 }
 
@@ -38,7 +37,7 @@ export function registerGpuReport(log: AppLog): void {
   const report = async (event: string): Promise<void> => {
     try {
       const info = (await app.getGPUInfo('basic')) as GpuInfo
-      log.info(event, gpuFacts(app.getGPUFeatureStatus() as Record<string, string>, info))
+      log.info(event, gpuFacts(app.getGPUFeatureStatus(), info))
     } catch (err) {
       log.warn(event, { error: err instanceof Error ? err.message : String(err) })
     }
