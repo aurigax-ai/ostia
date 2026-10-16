@@ -670,7 +670,7 @@ your extension then waits for approval like any other. No is remembered per exte
 
 Ostia also carries a small compiled table (`src/shared/extensions/extensionSuggestions.ts`) of the language
 extensions it publishes itself and the file names and suffixes each is suggested for, so the
-offer works before any marketplace has been added; Install then adds the official marketplace
+offer works before the official marketplace has been downloaded; Install then downloads it
 first. An id in that table is only ever taken from the official marketplace, whatever another
 marketplace lists under the same id.
 
