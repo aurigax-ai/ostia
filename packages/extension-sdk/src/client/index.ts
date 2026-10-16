@@ -49,6 +49,7 @@ import type {
   SidebarKind,
   SidebarTone,
   TerminalWait,
+  WireRuntimeResult,
 } from '../contract/extensions'
 import {
   ASSIST_PROVIDERS_CHANGED_EVENT,
@@ -114,6 +115,7 @@ export type {
   SidebarTone,
   TerminalWait,
   TerminalWaitOutcome,
+  WireRuntimeResult,
 } from '../contract/extensions'
 
 export {
@@ -312,6 +314,7 @@ export interface OstiaExtension {
     url?: string
   }) => Promise<unknown>
   startWithWindow: (on: boolean) => Promise<ExtensionResult>
+  wireRuntime: () => Promise<WireRuntimeResult>
   notify: (title: string, body?: string) => Promise<unknown>
   openPanel: (workspaceId?: string, path?: string) => Promise<unknown>
   setPaneChip: (chip: PaneChipValue) => Promise<ExtensionResult>
@@ -568,6 +571,7 @@ export async function connect(): Promise<OstiaExtension> {
     },
     setSidebarItem: (item) => conn.sendRequest('ext.setSidebarItem', item),
     startWithWindow: (on) => conn.sendRequest('ext.startWithWindow', { on }),
+    wireRuntime: () => conn.sendRequest('ext.wireRuntime', {}),
     notify: (title, body) => conn.sendRequest('ext.notify', { title, body }),
     openPanel: (workspaceId, path) => conn.sendRequest('ext.openPanel', { workspaceId, path }),
     setPaneChip: (chip) => conn.sendRequest('ext.setPaneChip', chip),

@@ -11,12 +11,10 @@ import {
   isHookAgent,
 } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import type { GraphsRunner } from './runner'
-import type { TriggerHost } from './triggers'
 
 interface PaneSignalsDeps {
   ext: OstiaExtension
   runner: GraphsRunner
-  triggers: TriggerHost
   refresh: () => Promise<void>
 }
 
@@ -24,10 +22,15 @@ export function createPaneSignals(deps: PaneSignalsDeps): {
   onStop: CommandHandler
   onEvent: EventHandler
 } {
-  const { ext, runner, triggers, refresh } = deps
+  const { ext, runner, refresh } = deps
   const agentWaiting = async (pane: string, workspaceId: string): Promise<void> => {
     const info = (await ext.listPanes().catch(() => [])).find((p) => p.paneId === pane)
-    triggers.agent(workspaceId, pane, 'waiting', info?.agent)
+    await runner.trigger(workspaceId, {
+      kind: 'agent',
+      pane,
+      state: 'waiting',
+      ...(info?.agent ? { agent: info.agent } : {}),
+    })
   }
 
   const onStop: CommandHandler = async (args, caller) => {
@@ -44,7 +47,13 @@ export function createPaneSignals(deps: PaneSignalsDeps): {
       backgroundWork: stop.backgroundWork,
       ...(stop.message !== undefined ? { message: stop.message } : {}),
     })
-    if (caller.workspaceId) triggers.agent(caller.workspaceId, caller.paneId, 'stopped', agent)
+    if (caller.workspaceId)
+      await runner.trigger(caller.workspaceId, {
+        kind: 'agent',
+        pane: caller.paneId,
+        state: 'stopped',
+        agent,
+      })
     return ok()
   }
 
@@ -65,8 +74,12 @@ export function createPaneSignals(deps: PaneSignalsDeps): {
     if (type === 'pane.closed' && pane) void runner.stopped({ pane, closed: true })
     else if (type === 'command.finished' && pane) {
       void runner.stopped({ pane, exited: true })
-      if (event.workspaceId)
-        triggers.commandFinished({ ...event, paneId: pane, workspaceId: event.workspaceId })
+      if (event.workspaceId && event.remote !== true && typeof event.exitCode === 'number')
+        void runner.trigger(event.workspaceId, {
+          kind: 'command',
+          pane,
+          exitCode: event.exitCode,
+        })
     }
     void refresh()
   }

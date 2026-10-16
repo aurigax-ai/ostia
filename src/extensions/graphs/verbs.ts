@@ -143,7 +143,7 @@ export function graphVerbs(
       const refused = paneProblem(caller)
       if (refused) return refused
       await known(runner, refresh, caller)
-      const graphs = runner.graphs(caller.workspaceId as string)
+      const graphs = await runner.graphs(caller.workspaceId as string)
       if ('error' in graphs) return failure(graphs.error)
       return ok(
         undefined,
@@ -163,14 +163,14 @@ export function graphVerbs(
       await known(runner, refresh, caller)
       const name = cliArgs(args)?.argv[0]
       if (runner.workspace(caller.workspaceId)?.kind === 'scratch') return failure('scratch')
-      return ok(undefined, runner.runs(caller.workspaceId as string, name))
+      return ok(undefined, await runner.runs(caller.workspaceId as string, name))
     },
     show: async (args, caller) => {
       const refused = paneProblem(caller)
       if (refused) return refused
       await known(runner, refresh, caller)
       const { flags, rest } = parseFlags(cliArgs(args)?.argv ?? [], ['node'])
-      const view = rest[0] ? runner.view(caller.workspaceId as string, rest[0]) : null
+      const view = rest[0] ? await runner.view(caller.workspaceId as string, rest[0]) : null
       if (!view) return failure('unknown-run', rest[0] ?? 'a run id is needed')
       return ok(
         undefined,
@@ -185,7 +185,7 @@ export function graphVerbs(
       const inputs = repeated(argv.slice(1), 'input')
       const json = repeated(inputs.rest, 'input-json')
       if (!argv[0]) return failure('usage', 'ostia graph run <name> [--input key=value]…')
-      const res = runner.start(caller.workspaceId as string, argv[0], {
+      const res = await runner.start(caller.workspaceId as string, argv[0], {
         byAgent: true,
         pane: caller.paneId as string,
         inputs: inputs.values,

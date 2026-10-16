@@ -473,6 +473,10 @@ export type ExtensionResult =
 
 export type ExtensionPanelSource = { ok: true; src: string } | { ok: false; error: string }
 
+export type WireRuntimeResult =
+  | { ok: true; socket: string; token: string; started: boolean; mode: string; version: string }
+  | { ok: false; error: string; contract?: number; version?: string; message?: string }
+
 export interface ExtensionOpenPanelRequest {
   extId: string
   workspaceId?: string

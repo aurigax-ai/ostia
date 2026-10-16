@@ -30,6 +30,10 @@
   "messages": {
     "title": "狀態圖",
     "runsWhileOpen": "狀態圖在 Ostia 開著時執行，包含常駐在系統匣時。",
+    "runsAsDaemon": "狀態圖執行環境在這台電腦上以常駐程式執行，所以 Ostia 關閉時狀態圖也會執行。",
+    "runtime.connecting": "正在連線到狀態圖執行環境…",
+    "runtime.otherContract": "另一個版本的狀態圖執行環境正在執行（{version}），它使用這個 Ostia 不支援的協定。Ostia 不會動它：請停止或更新它，才能在這裡使用狀態圖。",
+    "runtime.unreachable": "狀態圖執行環境沒有回應：{message}",
     "empty.folder": "還沒有圖。圖是 {folder} 中的檔案。",
     "empty.scratch": "暫存工作區沒有圖。",
     "state.enabled": "已啟用",

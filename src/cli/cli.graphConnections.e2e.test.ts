@@ -1,7 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { type Harness, POLL, graphsHarness } from '../../test/graphsHarness'
 
@@ -21,15 +19,7 @@ describe('connection secrets on the built-in graphs extension (real CLI, real so
   let base: string
   let hits = 0
 
-  const lines = (runId: string, name: string): Line[] => {
-    const file = join(h.dataDir, 'graphs', 'runs', 'w1', name, runId, 'journal.jsonl')
-    if (!existsSync(file)) return []
-    return readFileSync(file, 'utf8')
-      .trim()
-      .split('\n')
-      .filter(Boolean)
-      .map((l) => JSON.parse(l) as Line)
-  }
+  const lines = (runId: string, _name: string): Line[] => h.journal(runId) as unknown as Line[]
 
   beforeAll(async () => {
     server = createServer((_req, res) => {

@@ -393,6 +393,14 @@ export class ExtensionHost {
     return { ok: true, domains: [...domains] }
   }
 
+  isBuiltin(identity: PaneIdentity, conn: MessageConnection): boolean {
+    try {
+      return this.runtimeOf(identity, conn).ext.builtin
+    } catch {
+      return false
+    }
+  }
+
   private runtimeOf(identity: PaneIdentity, conn: MessageConnection): Runtime {
     const rt = identity.extId ? this.runtimes.get(identity.extId) : undefined
     if (!rt || rt.identity?.externalId !== identity.externalId) throw new Error('stale extension')

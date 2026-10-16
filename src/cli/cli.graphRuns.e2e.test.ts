@@ -25,15 +25,7 @@ type Line = Record<string, unknown> & { type: string }
 describe('graph runs on the built-in graphs extension (real CLI, real socket)', () => {
   let h: Harness
 
-  const lines = (runId: string, graph: string): Line[] => {
-    const file = join(h.dataDir, 'graphs', 'runs', 'w1', graph, runId, 'journal.jsonl')
-    if (!existsSync(file)) return []
-    return readFileSync(file, 'utf8')
-      .trim()
-      .split('\n')
-      .filter(Boolean)
-      .map((l) => JSON.parse(l) as Line)
-  }
+  const lines = (runId: string, _graph: string): Line[] => h.journal(runId) as unknown as Line[]
   const ended = (runId: string, graph: string) =>
     vi.waitUntil(() => {
       const found = lines(runId, graph)
@@ -409,10 +401,7 @@ edges: []
 `,
     )
     await ended(runId, 'secret')
-    const journalText = readFileSync(
-      join(h.dataDir, 'graphs', 'runs', 'w1', 'secret', runId, 'journal.jsonl'),
-      'utf8',
-    )
+    const journalText = JSON.stringify(h.journal(runId))
     expect(journalText).not.toContain(FAKE.githubClassic)
     expect(String(state(runId, 'secret').out)).toMatch(/\[redacted:[^\]]+\]/)
 

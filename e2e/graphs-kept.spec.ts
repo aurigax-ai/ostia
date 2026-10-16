@@ -74,7 +74,7 @@ function setup(report: boolean) {
   writeFileSync(join(launch.home, '.ostia/graphs/kept.yaml'), GRAPH)
   const env = { ...launch.env, PATH: `${bin}:${launch.env.PATH ?? ''}` }
   const lines = (): Line[] => {
-    const root = join(dataHome, 'userData', 'extension-data', 'graphs', 'runs')
+    const root = join(dataHome, 'state', 'wire', 'runs')
     if (!existsSync(root)) return []
     for (const scope of readdirSync(root)) {
       const folder = join(root, scope, 'kept')

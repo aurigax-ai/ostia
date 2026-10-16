@@ -336,7 +336,37 @@ async function runView(runId: string): Promise<HTMLElement[]> {
   ]
 }
 
+async function runtimeNote(): Promise<HTMLElement> {
+  const res = await call('runtime', {})
+  const runtime = (res.ok ? res.data : { state: 'failed', message: errorText(res) }) as {
+    state: string
+    daemon?: boolean
+    version?: string
+    message?: string
+  }
+  if (runtime.state === 'ready')
+    return h(
+      'p',
+      { class: 'note muted', 'data-runtime': runtime.daemon ? 'daemon' : 'client' },
+      runtime.daemon ? t('runsAsDaemon') : t('runsWhileOpen'),
+    )
+  if (runtime.state === 'other-contract')
+    return h(
+      'p',
+      { class: 'error', role: 'alert', 'data-runtime': 'other-contract' },
+      t('runtime.otherContract', { version: runtime.version ?? '?' }),
+    )
+  if (runtime.state === 'connecting')
+    return h('p', { class: 'note muted', 'data-runtime': 'connecting' }, t('runtime.connecting'))
+  return h(
+    'p',
+    { class: 'error', role: 'alert', 'data-runtime': 'failed' },
+    t('runtime.unreachable', { message: runtime.message ?? '' }),
+  )
+}
+
 async function render(): Promise<void> {
+  const note = await runtimeNote()
   const body =
     view.kind === 'list'
       ? await listView()
@@ -360,7 +390,7 @@ async function render(): Promise<void> {
       h(
         'main',
         { class: 'body' },
-        h('p', { class: 'note muted' }, t('runsWhileOpen')),
+        note,
         problem ? h('p', { class: 'error', role: 'alert' }, problem) : null,
         ...body,
       ),

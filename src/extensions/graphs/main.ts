@@ -10,12 +10,10 @@ import {
   ok,
   startPanelServer,
 } from '@aurigax-ai/ostia-extension-sdk'
-import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { HOUR_MS, realClock } from '@aurigax-ai/wire'
 import { createPaneSignals } from './paneSignals'
 import { panelHandlers } from './panelHandlers'
 import { GraphsRunner, type Workspace } from './runner'
-import { TriggerHost } from './triggers'
 import { graphVerbs } from './verbs'
 
 const PANEL_FILES = ['panel.html', 'panel.js', 'panel.css', 'base.css']
@@ -56,25 +54,16 @@ async function main(): Promise<void> {
   let sidebarTimer: ReturnType<typeof setTimeout> | null = null
   const runner = new GraphsRunner({
     ext,
-    dataDir: readEnv('EXTENSION_DATA') ?? null,
     clock: realClock,
     changed: () => {
       panelChanged()
       if (!sidebarTimer) sidebarTimer = setTimeout(() => void showActive(), 300)
     },
   })
-  const triggers = new TriggerHost({
-    clock: realClock,
-    dataDir: readEnv('EXTENSION_DATA') ?? null,
-    enabled: () => runner.enabledGraphs(),
-    fire: (graph, payload) => void runner.fire(graph, payload),
-    ownPane: (workspaceId, graph, pane) => runner.ownPane(workspaceId, graph, pane),
-    changed: () => panelChanged(),
-  })
   const shown = new Set<string>()
   let startsWithWindow: boolean | null = null
   const keepStarting = async (): Promise<void> => {
-    const needed = runner.hasUnfinishedRuns() || triggers.needsLiveHost()
+    const needed = (await runner.hasUnfinishedRuns()) || (await runner.needsLiveHost())
     if (needed === startsWithWindow) return
     startsWithWindow = needed
     await ext.startWithWindow(needed).catch(() => {})
@@ -82,9 +71,7 @@ async function main(): Promise<void> {
   const showActive = async (): Promise<void> => {
     sidebarTimer = null
     await keepStarting()
-    const counts = new Map<string, number>()
-    for (const run of runner.engine.active())
-      counts.set(run.state.scope, (counts.get(run.state.scope) ?? 0) + 1)
+    const counts = await runner.activeCounts()
     for (const workspaceId of new Set([...shown, ...counts.keys()])) {
       const count = counts.get(workspaceId) ?? 0
       if (count === 0) shown.delete(workspaceId)
@@ -110,12 +97,11 @@ async function main(): Promise<void> {
       ])
       if (connections.ok) runner.setConnections(connections.connections)
       runner.setMcpGranted(servers.ok || !servers.error.includes('needs-elevation'))
-      runner.setWorkspaces(workspacesOf(workspaces))
-      triggers.refresh()
+      await runner.setWorkspaces(workspacesOf(workspaces))
       await keepStarting()
     } catch {}
   }
-  const handlers = panelHandlers(runner, ext, refresh, (id) => triggers.filesRefused(id))
+  const handlers = panelHandlers(runner, ext, refresh)
   const panelStarting = startPanelServer({
     dir: __dirname,
     files: PANEL_FILES,
@@ -138,15 +124,15 @@ async function main(): Promise<void> {
   ext.onLocaleChanged((next) => {
     locale = next
   })
-  runner.engine.ceilings = ceilingsOf(await ext.getSettings())
+  await runner.setCeilings(ceilingsOf(await ext.getSettings()))
   ext.onConnectionsChanged(() => void refresh())
   ext.onSettingsChanged((values) => {
-    runner.engine.ceilings = ceilingsOf(values)
+    void runner.setCeilings(ceilingsOf(values))
   })
   const panel = await panelStarting
   panelChanged = () => panel.changed()
 
-  const signals = createPaneSignals({ ext, runner, triggers, refresh })
+  const signals = createPaneSignals({ ext, runner, refresh })
 
   const commands: Record<string, CommandHandler> = {
     ...graphVerbs(runner, refresh, ext),
