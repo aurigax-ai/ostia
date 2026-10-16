@@ -1,7 +1,7 @@
 import { IconButton } from '@/components/common/IconButton'
-import { MachineValue, WarningNote } from '@/components/settings/ControlRow'
 import { RequirementsNote } from '@/components/settings/RequirementsNote'
-import { SubHead } from '@/components/settings/SettingsGroup'
+import { MachineValue, WarningNote } from '@/components/settingsKit/ControlRow'
+import { SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -239,7 +239,7 @@ export function MarketplacesPanel(): JSX.Element {
   }
   return (
     <section aria-label={d.marketplace.title}>
-      <SubHead title={d.marketplace.title} desc={d.marketplace.desc} />
+      <SettingsSubgroup title={d.marketplace.title} desc={d.marketplace.desc} />
       <RequirementsNote feature={MARKETPLACE_FEATURE} body={d.marketplace.requirementsBody} />
       <form
         className="mt-2 flex items-center gap-2"

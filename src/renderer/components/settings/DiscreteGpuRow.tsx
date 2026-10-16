@@ -1,3 +1,4 @@
+import { ExperimentalBadge, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -9,7 +10,6 @@ import {
   rendererDeviceName,
 } from '@shared/app/discreteGpu'
 import { useEffect, useState } from 'react'
-import { ExperimentalBadge, ToggleRow } from './ControlRow'
 import { RequirementsNoteView, useRequirements } from './RequirementsNote'
 
 function drawingGpu(): string | null {

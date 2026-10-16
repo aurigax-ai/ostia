@@ -1,6 +1,6 @@
 import { IconButton } from '@/components/common/IconButton'
-import { ControlRow } from '@/components/settings/ControlRow'
-import { SettingsGroup } from '@/components/settings/SettingsGroup'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { Button } from '@/components/ui/button'
 import { useCopied } from '@/lib/app/useCopied'
 import { fmt, useDict } from '@/lib/app/useDict'

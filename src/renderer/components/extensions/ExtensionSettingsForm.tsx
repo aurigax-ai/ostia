@@ -1,6 +1,6 @@
 import { ExtensionConnections } from '@/components/extensions/ExtensionConnections'
-import { ControlRow } from '@/components/settings/ControlRow'
-import { SelectField } from '@/components/settings/SelectField'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -61,7 +61,7 @@ export function ExtensionSettingsForm({
           {fmt(d.extensions.settingInvalid, { error })}
         </p>
       ) : null}
-      <ExtensionConnections ext={ext} rows={{ ControlRow, SelectField }} />
+      <ExtensionConnections ext={ext} />
     </fieldset>
   )
 }
