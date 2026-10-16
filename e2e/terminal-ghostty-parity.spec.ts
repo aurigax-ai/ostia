@@ -1,8 +1,18 @@
+import { createHash } from 'node:crypto'
+import { existsSync, mkdtempSync } from 'node:fs'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { chords } from './chords'
 import { GHOSTTY, launchGhostty } from './ghostty'
-import { openedExternally, stubExternalOpener, typeLine, typeLineToEnd } from './helpers'
+import {
+  expectHeld,
+  openedExternally,
+  stubExternalOpener,
+  typeLine,
+  typeLineToEnd,
+} from './helpers'
 import { clickWith, hoverPoint, printOnFirstRow } from './terminalLinks'
 import { type ElectronApplication, type Page, expect, test } from './test'
 
@@ -216,6 +226,46 @@ test(
       })
       await expect(win.locator('html')).toHaveAttribute('data-theme', 'ostia-light')
       await expect.poll(async () => brightness(await screenBackground(win))).toBeGreaterThan(dark)
+    } finally {
+      await app.close()
+    }
+  },
+)
+
+test(
+  'Ghostty scroll: scrolling up while the program keeps writing holds the view until the user types',
+  { tag: '@experimental' },
+  async () => {
+    test.setTimeout(60_000)
+    const ready = join(mkdtempSync(join(tmpdir(), 'ostia-scroll-')), 'ready')
+    const { app, win } = await launchGhostty()
+    try {
+      await typeLine(
+        win,
+        `seq -f 'static %g' 1 300; touch '${ready}'; while :; do echo tick; sleep 0.05; done`,
+      )
+      await expect.poll(() => existsSync(ready), { timeout: 15_000 }).toBe(true)
+      const box = await win.locator('.ghostty-host').first().boundingBox()
+      if (!box) throw new Error('terminal host not found')
+      const clip = { x: box.x, y: box.y, width: box.width * 0.7, height: box.height }
+      const view = async (): Promise<string> =>
+        createHash('sha1')
+          .update(await win.screenshot({ clip }))
+          .digest('hex')
+      await win.locator('.ghostty-screen').first().hover()
+      await win.mouse.wheel(0, -20_000)
+      let seen = await view()
+      await expect
+        .poll(async () => {
+          const before = seen
+          seen = await view()
+          return seen === before
+        })
+        .toBe(true)
+      const scrolledUp = seen
+      await expectHeld(view, scrolledUp, 3_000, 'the view moved while the program kept writing')
+      await win.keyboard.type('a')
+      await expect.poll(view, { timeout: 15_000 }).not.toBe(scrolledUp)
     } finally {
       await app.close()
     }
