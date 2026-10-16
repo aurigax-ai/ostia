@@ -1,7 +1,7 @@
 {
   "name": "assistant and chat",
   "paths": [
-    "packages/extension-sdk/src/contract/assist.ts",
+    "packages/extension-sdk/src/contract/assist",
     "src/extensions/assistant/",
     "src/extensions/model-runtime/",
     "src/main/chat/assistIpc.ts",

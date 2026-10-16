@@ -19,20 +19,24 @@ import {
   type AssistUi,
   CHAT_STREAM_MAX,
   choiceLabel,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import {
+  normalizeAssistRequest,
+  normalizeAssistResult,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assistPayloads'
+import {
   isAssistModelId,
   normalizeAssistError,
   normalizeAssistFeatures,
   normalizeAssistLabel,
   normalizeAssistModels,
-  normalizeAssistRequest,
-  normalizeAssistResult,
   normalizeAssistStatus,
   normalizeModelRef,
   normalizeProviderKinds,
   normalizeProviderStates,
   normalizeSetupProblem,
   parseAssistModelSettings,
-} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assistReports'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import {
   ASSIST_PROVIDERS_CHANGED_EVENT,

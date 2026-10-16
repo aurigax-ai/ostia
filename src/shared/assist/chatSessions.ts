@@ -1,9 +1,9 @@
-import {
-  type AssistModelRef,
-  type ChatContextItem,
-  normalizeChatContextItem,
-  normalizeModelRef,
+import type {
+  AssistModelRef,
+  ChatContextItem,
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { normalizeChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assistPayloads'
+import { normalizeModelRef } from '@aurigax-ai/ostia-extension-sdk/contract/assistReports'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 
 export interface ChatPart {
