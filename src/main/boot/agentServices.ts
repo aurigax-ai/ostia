@@ -9,6 +9,7 @@ import { targetOf } from '../attention/attention'
 import { emitPlatformEvent } from '../control/events'
 import { type PaneIdentity, getByPaneId } from '../control/idRegistry'
 import { PaneAttentionEvents } from '../extensions/paneAttentionEvents'
+import { PaneLifecycleEvents } from '../extensions/paneLifecycleEvents'
 import { PaneWatch } from '../panes/paneWait'
 import { PaneWaking } from '../panes/paneWaking'
 import type { SavedAttention } from '../tmux/attentionFile'
@@ -46,6 +47,10 @@ export function createAgentServices(ctx: WorkspaceContext) {
     identity: getByPaneId,
     emit: (payload) => emitPaneEvent('pane.attention', payload),
   })
+  const paneLifecycleEvents = new PaneLifecycleEvents({
+    identity: getByPaneId,
+    emit: (payload) => emitPaneEvent('pane.lifecycle', payload),
+  })
   const paneWaking = new PaneWaking()
   const isWaking = (paneId: string): boolean => paneWaking.has(paneId)
   const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
@@ -61,6 +66,7 @@ export function createAgentServices(ctx: WorkspaceContext) {
     restoreKeptAttention,
     paneWatch,
     paneAttentionEvents,
+    paneLifecycleEvents,
     paneWaking,
     isWaking,
     reachesPane,

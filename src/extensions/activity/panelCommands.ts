@@ -26,6 +26,7 @@ function listedPanes(raw: unknown): OpenPane[] {
 interface PanelCommandsDeps {
   ext: OstiaExtension
   journal: Journal
+  hostJournal: Journal
   state: { showActivity: boolean }
   settingsLoaded: Promise<void>
   refreshWorkspaces: () => Promise<OpenWorkspace[] | null>
@@ -35,7 +36,7 @@ interface PanelCommandsDeps {
 export type PanelCommand = (args: unknown, caller: ExtensionCaller) => Promise<ExtensionResult>
 
 export function activityPanelCommands(deps: PanelCommandsDeps): Record<string, PanelCommand> {
-  const { ext, journal, state, settingsLoaded, refreshWorkspaces, changed } = deps
+  const { ext, journal, hostJournal, state, settingsLoaded, refreshWorkspaces, changed } = deps
   const snapshot = async (_args: unknown, caller: ExtensionCaller): Promise<ExtensionResult> => {
     await settingsLoaded
     const open = await refreshWorkspaces()
@@ -52,7 +53,10 @@ export function activityPanelCommands(deps: PanelCommandsDeps): Record<string, P
         showActivity: state.showActivity,
         workspace: open.find((w) => w.workspaceId === caller.workspaceId),
         panes,
-        events: (workspaceId) => journal.events(workspaceId),
+        events: (workspaceId) => [
+          ...journal.events(workspaceId),
+          ...hostJournal.events(workspaceId),
+        ],
       }),
     )
   }
