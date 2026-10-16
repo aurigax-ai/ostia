@@ -8,7 +8,6 @@ import {
   panelTranslator,
 } from '@aurigax-ai/ostia-extension-sdk/panel'
 import clockCounterClockwise from '@phosphor-icons/core/regular/clock-counter-clockwise.svg'
-import copy from '@phosphor-icons/core/regular/copy.svg'
 import graph from '@phosphor-icons/core/regular/graph.svg'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
@@ -61,26 +60,8 @@ function emptyState(view: EmptyView): HTMLElement {
   )
 }
 
-function folderAction(folder: string): HTMLElement {
-  const path = h('code', { class: 'empty-path' }, folder)
-  const label = h('span', {}, t('empty.copy'))
-  const copyButton = h(
-    'button',
-    {
-      type: 'button',
-      class: 'primary',
-      onClick: () => {
-        getSelection()?.selectAllChildren(path)
-        label.textContent = t(document.execCommand('copy') ? 'empty.copied' : 'empty.copyFailed')
-        setTimeout(() => {
-          label.textContent = t('empty.copy')
-        }, 2000)
-      },
-    },
-    icon(copy),
-    label,
-  )
-  return h('div', { class: 'empty-action' }, path, copyButton)
+function folderPath(folder: string): HTMLElement {
+  return h('code', { class: 'empty-path' }, folder)
 }
 
 async function act(command: string, args: Record<string, unknown>): Promise<boolean> {
@@ -175,7 +156,7 @@ async function listView(): Promise<HTMLElement[]> {
         media: graph,
         title: t('empty.folder.title'),
         description: t('empty.folder.description'),
-        action: folderAction(model.folder),
+        action: folderPath(model.folder),
       }),
     ]
   }
