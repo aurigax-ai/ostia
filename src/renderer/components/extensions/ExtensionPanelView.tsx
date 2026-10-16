@@ -9,7 +9,7 @@ import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type {
   ExtensionPanelContext,
   ExtensionPanelSource,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import { GIT_SOURCE } from '@aurigax-ai/ostia-extension-sdk/manifest/coreNames'
 import { useCallback, useEffect, useRef, useState } from 'react'
 

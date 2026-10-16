@@ -2,6 +2,8 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import type {
   ExtensionConnectionEntry,
   ExtensionConnectionSave,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionConnections'
+import type {
   ExtensionInfo,
   ExtensionSidebarItem,
   PaneChip,

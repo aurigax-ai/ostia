@@ -73,12 +73,11 @@ export type {
   WakePaneResult,
 } from './workApi'
 export { type AgentStop, parseAgentStop } from '../contract/agentStop'
+export type { ConnectionInfo, ConnectionValue } from '../contract/extensionConnections'
 
 export type {
   AgentOfferOptions,
   AgentOfferResult,
-  ConnectionInfo,
-  ConnectionValue,
   DiffContent,
   ExtensionCaller,
   ExtensionEventType,

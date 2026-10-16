@@ -1,5 +1,6 @@
 import type { CancellationToken, MessageConnection } from 'vscode-jsonrpc/node'
 import type { AssistError, AssistPoint, AssistProviderEntry } from '../contract/assist'
+import { CONNECTIONS_CHANGED_EVENT } from '../contract/extensionConnections'
 import {
   type ExtensionLocaleChangedPayload,
   LOCALE_CHANGED_EVENT,
@@ -9,11 +10,7 @@ import type {
   ExtensionEventType,
   ExtensionSettingValues,
 } from '../contract/extensions'
-import {
-  ASSIST_PROVIDERS_CHANGED_EVENT,
-  CONNECTIONS_CHANGED_EVENT,
-  SETTINGS_CHANGED_EVENT,
-} from '../contract/extensions'
+import { ASSIST_PROVIDERS_CHANGED_EVENT, SETTINGS_CHANGED_EVENT } from '../contract/extensions'
 import { FOLDER_CLOSED_EVENT, type RemoteFilesRequest } from '../contract/remoteFolders'
 import type {
   AssistHandler,

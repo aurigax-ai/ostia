@@ -4,11 +4,11 @@ import {
   EXTENSION_CONNECTIONS_MAX,
   EXTENSION_CONNECTION_NAME_PATTERN,
   EXTENSION_CONNECTION_VALUE_MAX,
-  EXTENSION_SECRET_MAX,
   type ExtensionConnectionEntry,
   type ExtensionConnectionKind,
   type ExtensionConnectionResult,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionConnections'
+import { EXTENSION_SECRET_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import { loadJson, saveJson } from '../platform/jsonStore'

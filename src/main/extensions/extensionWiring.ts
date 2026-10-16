@@ -1,9 +1,7 @@
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import type {
-  ExtensionPanelContext,
-  ExtensionResult,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionPanelContext } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import type { RemoteCwd } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { agentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import type { ExtensionRoot } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'

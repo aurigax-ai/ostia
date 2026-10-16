@@ -1,11 +1,10 @@
 import { isAbsolute } from 'node:path'
-import {
-  DIFF_TEXT_MAX,
-  type ExtensionOpenDiffRequest,
-  type ExtensionOpenFileRequest,
-  type ExtensionOpenPanelRequest,
-  panelPath,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { DIFF_TEXT_MAX, panelPath } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type {
+  ExtensionOpenDiffRequest,
+  ExtensionOpenFileRequest,
+  ExtensionOpenPanelRequest,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { RemoteFolders } from '../files/remoteFolders'

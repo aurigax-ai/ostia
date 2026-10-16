@@ -1,5 +1,6 @@
 import { readdirSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
+import type { ExtensionConnectionKind } from '../contract/extensionConnections'
 import {
   EXTENSION_LOCALES_DIR,
   EXTENSION_LOCALE_FILE_MAX_BYTES,
@@ -13,7 +14,6 @@ import {
   COMMAND_ARGUMENT_LABEL_MAX,
   EXTENSION_SETTING_TITLE_MAX,
   type ExtensionChipContribution,
-  type ExtensionConnectionKind,
   type ExtensionManifest,
 } from '../contract/extensions'
 import { FILE_VIEWER_DISPLAY_NAME_MAX } from '../contract/fileViewers'
