@@ -1,6 +1,5 @@
 import {
   type CommandHandler,
-  type ExtensionEventType,
   type ExtensionSettingValues,
   booleanSetting,
   cliArgs,
@@ -12,6 +11,7 @@ import {
   startPanelServer,
 } from '@aurigax-ai/ostia-extension-sdk'
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { BUS_EVENT, HOST_EVENTS, HostRecorder, type HostWorkspace } from './hostRecorder'
 import { ARCHIVE_DAYS, DAY_MS, Journal, RETENTION_DAYS, type Retention } from './journal'
 import { createNeedsYou } from './needsYou'
 import { type PanelCommand, SHOW_ACTIVITY, activityPanelCommands } from './panelCommands'
@@ -20,7 +20,6 @@ import { activityVerbs } from './verbs'
 import type { OpenWorkspace } from './view'
 
 const PANEL_FILES = ['panel.html', 'panel.js', 'panel.css', 'base.css']
-const EVENTS: ExtensionEventType[] = ['pane.closed']
 const PRUNE_EVERY_MS = 60 * 60 * 1000
 
 function retentionOf(values: ExtensionSettingValues): Retention {
@@ -31,6 +30,8 @@ function retentionOf(values: ExtensionSettingValues): Retention {
 
 interface ListedWorkspace extends OpenWorkspace {
   kind: string
+  workDir: string
+  sandboxed?: boolean
 }
 
 function listedWorkspaces(raw: unknown): ListedWorkspace[] {
@@ -40,9 +41,16 @@ function listedWorkspaces(raw: unknown): ListedWorkspace[] {
       (w): w is ListedWorkspace =>
         typeof w?.workspaceId === 'string' &&
         typeof w?.name === 'string' &&
-        typeof w?.kind === 'string',
+        typeof w?.kind === 'string' &&
+        typeof w?.workDir === 'string',
     )
-    .map((w) => ({ workspaceId: w.workspaceId, name: w.name, kind: w.kind }))
+    .map((w) => ({
+      workspaceId: w.workspaceId,
+      name: w.name,
+      kind: w.kind,
+      workDir: w.workDir,
+      ...(w.sandboxed === true ? { sandboxed: true } : {}),
+    }))
 }
 
 async function main(): Promise<void> {
@@ -96,18 +104,29 @@ async function main(): Promise<void> {
     return workspaces
   }
 
-  const workspaceKind = async (workspaceId: string): Promise<string | null> => {
+  const workspaceInfo = async (workspaceId: string): Promise<ListedWorkspace | null> => {
     const known = workspaces.find((w) => w.workspaceId === workspaceId)
-    if (known) return known.kind
+    if (known) return known
     const listed = await refreshWorkspaces()
-    return listed?.find((w) => w.workspaceId === workspaceId)?.kind ?? null
+    return listed?.find((w) => w.workspaceId === workspaceId) ?? null
   }
+
+  const workspaceKind = async (workspaceId: string): Promise<string | null> =>
+    (await workspaceInfo(workspaceId))?.kind ?? null
 
   const recorder = new Recorder({
     journal,
     now: Date.now,
     redact: (texts) => ext.redact(texts),
     workspaceKind,
+    changed,
+  })
+
+  const hostRecorder = new HostRecorder({
+    journal,
+    now: Date.now,
+    redact: (texts) => ext.redact(texts),
+    workspace: async (workspaceId): Promise<HostWorkspace | null> => workspaceInfo(workspaceId),
     changed,
   })
 
@@ -153,9 +172,12 @@ async function main(): Promise<void> {
   }
   await ext.registerCommands(handlers)
 
-  await ext.subscribe(EVENTS, () => {
-    void refreshWorkspaces().then(() => panel.changed())
-  })
+  const onEvent: Parameters<typeof ext.subscribe>[1] = (type, payload) => {
+    if (type === 'pane.closed') void refreshWorkspaces().then(() => panel.changed())
+    hostRecorder.accept(type, payload)
+  }
+  await ext.subscribe([...HOST_EVENTS], onEvent)
+  await ext.subscribe([BUS_EVENT], onEvent).catch(() => {})
   await refreshWorkspaces()
   journal.prune()
   await showNeedsYou()
