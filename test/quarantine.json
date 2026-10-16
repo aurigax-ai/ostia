@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "file": "src/renderer/components/settings/SettingsPanel.searchRenders.test.tsx",
+    "name": "SettingsPanel search renders > re-renders a row that does not match the query only when its own match flips",
+    "issue": 1037,
+    "until": "2026-11-13"
+  }
+]
