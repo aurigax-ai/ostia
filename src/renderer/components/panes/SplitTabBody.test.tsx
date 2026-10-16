@@ -155,6 +155,27 @@ describe('folded split tab', () => {
     expect(pill).toHaveClass('motion-fade')
   })
 
+  it('does not fade a split tab that was created, only one that was folded or unfolded', async () => {
+    const { b, container } = workers()
+    const [x, y] = ['x', 'y'].map((title): PaneNode => createPane('terminal', title))
+    const existing = layout().root
+    if (existing.type !== 'tabs') throw new Error('expected tabs')
+    act(() =>
+      useLayoutStore.setState({
+        byWorkspace: {
+          w: {
+            root: { ...existing, children: [...existing.children, splitOf('horizontal', x, y)] },
+            activePaneId: b.id,
+            zoomedPaneId: null,
+          },
+        },
+      }),
+    )
+
+    expect(container.querySelectorAll('.pane-split-tab')).toHaveLength(2)
+    expect(container.querySelector('.pane-split-tab.motion-fade')).toBeNull()
+  })
+
   it('unfolds and shows its panes when the chip is clicked', async () => {
     const { a, container } = workers()
     await act(() => commands.exec('pane.foldSplitTab'))

@@ -3,6 +3,8 @@ import { SplitButton } from '@/components/common/SplitButton'
 import { Button } from '@/components/ui/button'
 import { replaceLabel } from '@/lib/app/updateProgressLabel'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { useFlipped } from '@/lib/app/useFlipped'
+import { cn } from '@/lib/utils'
 import { restartReady, showsUpdate, updateAction, useUpdateStore } from '@/stores/app/updateStore'
 import {
   ArrowClockwiseIcon,
@@ -20,6 +22,7 @@ function NoticeGroup({
   disabled,
   dismissLabel,
   onDismiss,
+  appearing,
 }: {
   icon: IconComponent
   label: string
@@ -28,9 +31,10 @@ function NoticeGroup({
   disabled?: boolean
   dismissLabel: string
   onDismiss: () => void
+  appearing: boolean
 }): JSX.Element {
   return (
-    <output className="update-notice motion-fade no-drag">
+    <output className={cn('update-notice no-drag', appearing && 'motion-fade')}>
       <SplitButton
         label={label}
         main={
@@ -67,9 +71,13 @@ export function UpdateNotice(): JSX.Element | null {
   const replaceInstall = useUpdateStore((s) => s.replaceInstall)
   const askUpdate = useUpdateStore((s) => s.askUpdate)
   const dismissRelease = useUpdateStore((s) => s.dismissRelease)
+  const appearing = useFlipped({
+    notice: Boolean((restartVisible && available) || ready || (release && action)),
+  }).has('notice')
   if (restartVisible && available) {
     return (
       <NoticeGroup
+        appearing={appearing}
         icon={ArrowClockwiseIcon}
         label={d.update.restart}
         hint={fmt(d.update.body, { build: available.version })}
@@ -82,6 +90,7 @@ export function UpdateNotice(): JSX.Element | null {
   if (ready) {
     return (
       <NoticeGroup
+        appearing={appearing}
         icon={ArrowClockwiseIcon}
         label={d.update.restartApp}
         hint={d.update.restartAppHint}
@@ -100,6 +109,7 @@ export function UpdateNotice(): JSX.Element | null {
     const busy = replaceRun.status === 'downloading' || replaceRun.status === 'installing'
     return (
       <NoticeGroup
+        appearing={appearing}
         icon={DownloadSimpleIcon}
         label={busy ? replaceLabel(d, replaceRun, progress) : d.update.downloadInstall}
         hint={
@@ -117,6 +127,7 @@ export function UpdateNotice(): JSX.Element | null {
   if (action === 'release') {
     return (
       <NoticeGroup
+        appearing={appearing}
         icon={ArrowSquareOutIcon}
         label={fmt(d.update.releaseAvailable, { version: release.version })}
         hint={
@@ -135,6 +146,7 @@ export function UpdateNotice(): JSX.Element | null {
   const running = run.status === 'running'
   return (
     <NoticeGroup
+      appearing={appearing}
       icon={DownloadSimpleIcon}
       label={running ? d.update.updating : d.update.updateWith[action]}
       hint={fmt(d.update.releaseAvailable, { version: release.version })}

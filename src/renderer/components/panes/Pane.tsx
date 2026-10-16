@@ -5,7 +5,7 @@ import { PaneChips } from '@/components/extensions/ExtensionChips'
 import { ArtifactChip } from '@/components/files/ArtifactChip'
 import { HostPaneBadge, SandboxRestartButton } from '@/components/sandbox/SandboxRestartButton'
 import { useDict } from '@/lib/app/useDict'
-import { useEntered } from '@/lib/app/useEntered'
+import { useFlipped } from '@/lib/app/useFlipped'
 import { allPanes, findPane } from '@/lib/layout/tree'
 import type { TabNode } from '@/lib/layout/types'
 import { cn } from '@/lib/utils'
@@ -53,8 +53,9 @@ export function Pane({
 }: PaneProps): JSX.Element {
   const d = useDict()
   const shownTab = tabs.find((t) => holds(t, shownId)) ?? tabs[0]
-  const folded = useEntered(tabs.filter((t) => t.type !== 'pane' && t.folded).map((t) => t.id))
-  const unfolded = useEntered(tabs.filter((t) => t.type !== 'pane' && !t.folded).map((t) => t.id))
+  const flipped = useFlipped(
+    Object.fromEntries(tabs.flatMap((t) => (t.type === 'pane' ? [] : [[t.id, t.folded === true]]))),
+  )
   const shown =
     shownTab.type === 'pane' ? shownTab : (findPane(shownTab, shownId) ?? allPanes(shownTab)[0])
   const active = holds(shownTab, activePaneId)
@@ -111,7 +112,7 @@ export function Pane({
             ) : tab.folded ? (
               <FoldedSplitTab
                 key={tab.id}
-                entering={folded.has(tab.id)}
+                entering={flipped.has(tab.id)}
                 tab={tab}
                 dropMark={dropMark}
                 workspaceId={workspaceId}
@@ -119,7 +120,7 @@ export function Pane({
             ) : (
               <SplitTabPill
                 key={tab.id}
-                entering={unfolded.has(tab.id)}
+                entering={flipped.has(tab.id)}
                 tab={tab}
                 selected={tab === shownTab}
                 focusedId={shown.id}

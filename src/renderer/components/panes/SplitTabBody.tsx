@@ -2,7 +2,7 @@ import { ApprovalCard } from '@/components/agents/ApprovalCard'
 import { stateLabel } from '@/components/agents/PickSendPanel'
 import { QuestionNotice } from '@/components/agents/QuestionNotice'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { useEntered } from '@/lib/app/useEntered'
+import { useFlipped } from '@/lib/app/useFlipped'
 import { STRIP_SIZE, isStrip, stripSizes } from '@/lib/layout/collapse'
 import type { Direction, LayoutNode, PaneNode, SplitNode } from '@/lib/layout/types'
 import { cellDropTarget, dropZoneAt } from '@/lib/panes/dropZone'
@@ -83,7 +83,7 @@ function SplitCell({
   const mark = usePaneMark(pane)
   const focused = pane.id === ctx.focusedId
   const collapsed = pane.collapsed === true
-  const folding = useEntered(collapsed ? ['strip'] : []).size > 0
+  const folding = useFlipped({ strip: collapsed }).has('strip')
 
   const targetAt = (e: DragEvent<HTMLElement>, sourceId: string | null) => {
     const rect = cellRef.current?.getBoundingClientRect()

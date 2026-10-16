@@ -15,7 +15,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { useEntered } from '@/lib/app/useEntered'
+import { useFlipped } from '@/lib/app/useFlipped'
 import { markWorkspaceRead } from '@/lib/attention/workspaceActivity'
 import type { WorkspaceGroup } from '@/lib/sidebar/workspaceGroups'
 import { cn } from '@/lib/utils'
@@ -71,7 +71,7 @@ export function GroupBlock({
     useUIStore.getState().showWorkspaces()
     startNewWorkspace({ groupId: group.id })
   }
-  const revealing = useEntered(group.collapsed ? [] : ['members']).size > 0
+  const revealing = useFlipped({ members: !group.collapsed }).has('members')
   const caretClass = cn('rail-group-caret', !group.collapsed && 'open')
 
   return (
