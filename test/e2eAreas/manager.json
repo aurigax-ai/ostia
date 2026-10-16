@@ -17,7 +17,5 @@
     "src/shared/agents/portal.ts",
     "test/fixtures/manager/"
   ],
-  "specs": [
-    "e2e/manager.spec.ts"
-  ]
+  "specs": ["e2e/manager.spec.ts"]
 }

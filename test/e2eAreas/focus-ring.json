@@ -1,10 +1,5 @@
 {
   "name": "focus ring",
-  "paths": [
-    "src/renderer/components/ui/button.tsx",
-    "src/renderer/lib/app/focusModality."
-  ],
-  "specs": [
-    "e2e/focus-ring.spec.ts"
-  ]
+  "paths": ["src/renderer/components/ui/button.tsx", "src/renderer/lib/app/focusModality."],
+  "specs": ["e2e/focus-ring.spec.ts"]
 }

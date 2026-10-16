@@ -1,10 +1,5 @@
 {
   "name": "screens",
-  "paths": [
-    "src/extensions/screens/",
-    "test/fixtures/tools/bin/screens"
-  ],
-  "specs": [
-    "e2e/screens-panel.spec.ts"
-  ]
+  "paths": ["src/extensions/screens/", "test/fixtures/tools/bin/screens"],
+  "specs": ["e2e/screens-panel.spec.ts"]
 }

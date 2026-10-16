@@ -6,9 +6,5 @@
     "src/main/extensions/wireRuntime.ts",
     "src/main/platform/inheritableFiles.ts"
   ],
-  "specs": [
-    "e2e/graphs-kept.spec.ts",
-    "e2e/graphs-restart.spec.ts",
-    "e2e/graphs.spec.ts"
-  ]
+  "specs": ["e2e/graphs-kept.spec.ts", "e2e/graphs-restart.spec.ts", "e2e/graphs.spec.ts"]
 }

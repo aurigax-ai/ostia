@@ -55,8 +55,5 @@
     "src/shared/extensions/extensionSuggestions.",
     "test/fixtures/extensions"
   ],
-  "specs": [
-    "e2e/extension-locales.spec.ts",
-    "e2e/extensions-v2.spec.ts"
-  ]
+  "specs": ["e2e/extension-locales.spec.ts", "e2e/extensions-v2.spec.ts"]
 }

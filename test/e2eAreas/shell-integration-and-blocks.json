@@ -31,9 +31,5 @@
     "src/renderer/stores/terminal/historySearchStore.ts",
     "src/shared/terminal/promptSettings.ts"
   ],
-  "specs": [
-    "e2e/blocks.spec.ts",
-    "e2e/input-editor.spec.ts",
-    "e2e/terminal-basics.spec.ts"
-  ]
+  "specs": ["e2e/blocks.spec.ts", "e2e/input-editor.spec.ts", "e2e/terminal-basics.spec.ts"]
 }

@@ -20,11 +20,13 @@ let software: boolean | undefined
 export function drawOnGpu(
   requested: boolean,
   probe: () => string | null = probeRenderer,
-  allowSoftware: boolean = window.ostia.softwareWebgl,
+  allowSoftware: boolean = window.ostia.system.softwareWebgl,
 ): boolean {
   if (!requested || allowSoftware) return requested
-  software ??= isSoftwareRenderer(probe())
-  if (software) countUsage('terminal', 'webgl_software')
+  if (software === undefined) {
+    software = isSoftwareRenderer(probe())
+    if (software) countUsage('terminal', 'webgl_fallback')
+  }
   return !software
 }
 

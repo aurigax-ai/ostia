@@ -8,7 +8,5 @@
     "src/main/extensions/strings.ts",
     "src/renderer/lib/extensions/languagePacks.ts"
   ],
-  "specs": [
-    "e2e/extension-locales.spec.ts"
-  ]
+  "specs": ["e2e/extension-locales.spec.ts"]
 }

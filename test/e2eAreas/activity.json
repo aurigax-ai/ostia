@@ -1,9 +1,5 @@
 {
   "name": "activity",
-  "paths": [
-    "src/extensions/activity/"
-  ],
-  "specs": [
-    "e2e/activity.spec.ts"
-  ]
+  "paths": ["src/extensions/activity/"],
+  "specs": ["e2e/activity.spec.ts"]
 }

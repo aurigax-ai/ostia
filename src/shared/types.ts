@@ -61,7 +61,6 @@ export interface OstiaBridge
   ping: () => Promise<'pong'>
   info: () => Promise<AppInfo>
   platform: Platform
-  softwareWebgl: boolean
   search: SearchApi
   lsp: LspApi
   preview: PreviewApi

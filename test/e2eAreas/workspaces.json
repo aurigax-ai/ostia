@@ -20,8 +20,5 @@
     "src/renderer/stores/workspaces/mergeConfirmStore.ts",
     "src/shared/workspaces/workspaceGroups.ts"
   ],
-  "specs": [
-    "e2e/scratch-workspace.spec.ts",
-    "e2e/workspace-groups.spec.ts"
-  ]
+  "specs": ["e2e/scratch-workspace.spec.ts", "e2e/workspace-groups.spec.ts"]
 }

@@ -24,8 +24,5 @@
     "src/shared/sandbox/sandboxPresets.",
     "src/shared/sandbox/secrets.ts"
   ],
-  "specs": [
-    "e2e/keep-shells-sandbox.spec.ts",
-    "e2e/sandbox.spec.ts"
-  ]
+  "specs": ["e2e/keep-shells-sandbox.spec.ts", "e2e/sandbox.spec.ts"]
 }

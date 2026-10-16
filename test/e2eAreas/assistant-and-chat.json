@@ -48,9 +48,5 @@
     "test/fixtures/extensions-assist",
     "test/fixtures/mcp/"
   ],
-  "specs": [
-    "e2e/assistant-chat.spec.ts",
-    "e2e/assistant.spec.ts",
-    "e2e/chat-editing.spec.ts"
-  ]
+  "specs": ["e2e/assistant-chat.spec.ts", "e2e/assistant.spec.ts", "e2e/chat-editing.spec.ts"]
 }

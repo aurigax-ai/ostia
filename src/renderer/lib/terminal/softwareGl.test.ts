@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('@/lib/app/usageCounts', () => ({ countUsage: vi.fn() }))
+const countUsage = vi.hoisted(() => vi.fn())
+
+vi.mock('@/lib/app/usageCounts', () => ({ countUsage }))
 
 const { drawOnGpu, forgetProbe, isSoftwareRenderer } = await import('./softwareGl')
 
-afterEach(forgetProbe)
+afterEach(() => {
+  forgetProbe()
+  countUsage.mockClear()
+})
 
 describe('isSoftwareRenderer', () => {
   it('treats SwiftShader, llvmpipe and a missing context as software', () => {
@@ -52,5 +57,17 @@ describe('drawOnGpu', () => {
     drawOnGpu(true, probe, false)
     drawOnGpu(true, probe, false)
     expect(probe).toHaveBeenCalledTimes(1)
+  })
+
+  it('counts a software fallback once per page, not once per terminal', () => {
+    drawOnGpu(true, () => 'SwiftShader', false)
+    drawOnGpu(true, () => 'SwiftShader', false)
+    expect(countUsage).toHaveBeenCalledTimes(1)
+    expect(countUsage).toHaveBeenCalledWith('terminal', 'webgl_fallback')
+  })
+
+  it('counts nothing on a hardware renderer', () => {
+    drawOnGpu(true, () => 'ANGLE (Intel, Arc)', false)
+    expect(countUsage).not.toHaveBeenCalled()
   })
 })

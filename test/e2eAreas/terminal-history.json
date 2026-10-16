@@ -10,7 +10,5 @@
     "src/renderer/stores/terminal/historyViewStore.ts",
     "src/shared/terminal/scrollbackHistory.ts"
   ],
-  "specs": [
-    "e2e/terminal-history.spec.ts"
-  ]
+  "specs": ["e2e/terminal-history.spec.ts"]
 }

@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { SOFTWARE_WEBGL_ARG } from '../shared/app/discreteGpu'
 import type { AppInfo, OstiaBridge, Platform } from '../shared/types'
 import { agentsBridge } from './agentsBridge'
 import { artifactsBridge } from './artifactsBridge'
@@ -27,7 +26,6 @@ const bridge: OstiaBridge = {
   ping: () => ipcRenderer.invoke('app:ping') as Promise<'pong'>,
   info: () => ipcRenderer.invoke('app:info') as Promise<AppInfo>,
   platform: process.platform as Platform,
-  softwareWebgl: process.argv.includes(SOFTWARE_WEBGL_ARG),
   ...windowBridge,
   ...controlBridge,
   ...diagnosticsBridge,
