@@ -1,5 +1,5 @@
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
-import type { AttentionState } from '../../shared/types'
+import type { AttentionState } from '../../shared/attention/attention'
 import { clampMessage } from '../attention/attention'
 import { registerControlMethod } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'

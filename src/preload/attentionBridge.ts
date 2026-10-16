@@ -1,5 +1,6 @@
 import { ipcRenderer } from 'electron'
-import type { NotificationEntry, OstiaBridge } from '../shared/types'
+import type { NotificationEntry } from '../shared/attention/attention'
+import type { OstiaBridge } from '../shared/types'
 import { listen } from './listen'
 
 export const attentionBridge: Pick<OstiaBridge, 'notifications'> = {

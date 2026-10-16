@@ -15,7 +15,7 @@ import {
   type ViewerDocumentMeta,
   type ViewerPortableTables,
 } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
-import type { ViewerOpenRequest, ViewerOpenResult, ViewerStopped } from '../../../shared/types'
+import type { ViewerOpenRequest, ViewerOpenResult, ViewerStopped } from '../../../shared/files/filesApi'
 import {
   type ViewerSession,
   contentTypeOf,

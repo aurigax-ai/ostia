@@ -2,7 +2,7 @@ import { readFileSync, utimesSync } from 'node:fs'
 import { join } from 'node:path'
 import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
-import type { SecretSyncStatus, SyncOffer } from '../../shared/types'
+import type { SecretSyncStatus, SyncOffer } from '../../shared/profileSync/profileSync'
 import { type JsonObject, SETTINGS_FILE, readProfileFolders, readTopFile } from './profile'
 
 const STATE_FILE = 'sync-state.json'

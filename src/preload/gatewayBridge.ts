@@ -1,17 +1,6 @@
 import { ipcRenderer } from 'electron'
-import type {
-  GatewayActionResult,
-  GatewayBindAddress,
-  GatewayDevice,
-  GatewayEnableResponse,
-  GatewayPairRequest,
-  GatewayPairResponse,
-  GatewayRemoteStatus,
-  GatewaySetCapResult,
-  GatewaySetRouteResult,
-  GatewayTailnetActionResult,
-  OstiaBridge,
-} from '../shared/types'
+import type { GatewayActionResult, GatewayBindAddress, GatewayDevice, GatewayEnableResponse, GatewayPairRequest, GatewayPairResponse, GatewayRemoteStatus, GatewaySetCapResult, GatewaySetRouteResult, GatewayTailnetActionResult } from '../shared/gateway/gatewayApi'
+import type { OstiaBridge } from '../shared/types'
 import { listen } from './listen'
 
 export const gatewayBridge: Pick<OstiaBridge, 'gateway'> = {

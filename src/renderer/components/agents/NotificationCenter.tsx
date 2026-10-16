@@ -18,7 +18,7 @@ import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { TrayIcon } from '@phosphor-icons/react'
-import type { NotificationEntry } from '@shared/types'
+import type { NotificationEntry } from '@shared/attention/attention'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { IconButton } from '@/components/common/IconButton'

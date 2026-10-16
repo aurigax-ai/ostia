@@ -8,14 +8,9 @@ import type {
   HistoryPage,
   HistorySearchResult,
 } from '../shared/terminal/scrollbackHistory'
-import type {
-  FsKind,
-  OpenPathResult,
-  OstiaBridge,
-  PaneActivity,
-  PromptContext,
-  PtyAttachResult,
-} from '../shared/types'
+import type { FsKind, OpenPathResult } from '../shared/files/filesApi'
+import type { OstiaBridge } from '../shared/types'
+import type { PaneActivity, PromptContext, PtyAttachResult } from '../shared/terminal/ptyApi'
 import { listen } from './listen'
 
 export const terminalBridge: Pick<

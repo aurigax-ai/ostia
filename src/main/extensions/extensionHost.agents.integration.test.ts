@@ -9,7 +9,7 @@ import {
 import type { ExtensionAgentOffer } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RedactionResult } from '../../shared/privacy/redaction'
-import type { CommandResult } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 import {
   AGENT_TASKS_PER_MINUTE,
   type AgentOfferDelivery,

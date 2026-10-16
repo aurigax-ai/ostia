@@ -2,7 +2,7 @@ import { lstat, realpath, stat } from 'node:fs/promises'
 import { basename, dirname, join, resolve as resolvePath } from 'node:path'
 import { writeFileAtomicAsync } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import { lock } from 'proper-lockfile'
-import type { FolderTrust } from '../../shared/types'
+import type { FolderTrust } from '../../shared/agents/agentsApi'
 import { readRegularFile } from '../artifacts/previewFiles'
 import { isInsidePath } from '../platform/pathGuard'
 

@@ -16,7 +16,7 @@ import {
   openedPaneIds,
   parseFileTargets,
 } from '../../shared/files/openFiles'
-import type { CommandResult, CommandTarget } from '../../shared/types'
+import type { CommandResult, CommandTarget } from '../../shared/control/commands'
 import { targetOf } from '../attention/attention'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import type { OpenFileGrants } from './openFileGrants'

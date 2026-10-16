@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { AppSnapshot, SnapshotWorkspace } from '../../shared/types'
+import type { AppSnapshot, SnapshotWorkspace } from '../../shared/workspaces/workspaceApi'
 import {
   handoffPaneIds,
   parseHandoff,

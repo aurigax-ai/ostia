@@ -1,4 +1,4 @@
-import type { PanePlacement } from '@shared/types'
+import type { PanePlacement } from '@shared/workspaces/workspaceApi'
 import {
   addTab,
   allPanes,

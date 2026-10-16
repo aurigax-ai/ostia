@@ -14,7 +14,7 @@ import {
 import type { ApprovalOutcome } from '../../shared/permissions/approvals'
 import { SCRIPT_CAPABILITIES, type ScriptTokenScope } from '../../shared/permissions/scriptTokens'
 import { emptyWorkspaceSandbox } from '../../shared/sandbox/sandbox'
-import type { CommandResult } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 import type { ReachListing } from './reach'
 import type { PresenceFailure, PresenceResult } from './userPresence'
 

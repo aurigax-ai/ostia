@@ -1,5 +1,6 @@
 import { ipcRenderer } from 'electron'
-import type { OstiaBridge, SyncStatus } from '../shared/types'
+import type { OstiaBridge } from '../shared/types'
+import type { SyncStatus } from '../shared/profileSync/profileSync'
 import { listen } from './listen'
 
 export const settingsBridge: Pick<OstiaBridge, 'settings' | 'sync'> = {

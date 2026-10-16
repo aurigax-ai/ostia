@@ -5,7 +5,7 @@ import { ipcMain } from 'electron'
 import { LRUCache } from 'lru-cache'
 import { findFileLinks, resolveLinkPath } from '../../shared/files/fileLinks'
 import type { OpenFileVerdict } from '../../shared/files/openFiles'
-import type { FsKind, OpenPathResult } from '../../shared/types'
+import type { FsKind, OpenPathResult } from '../../shared/files/filesApi'
 import type { OpenFileGrants } from '../files/openFileGrants'
 import { openUnlessProgram } from '../files/openPath'
 

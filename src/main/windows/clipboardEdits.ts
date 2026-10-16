@@ -8,7 +8,7 @@ import {
   isClipboardEdit,
   normalizeClipboardChords,
 } from '../../shared/keyboard/clipboardChords'
-import type { ClipboardContents } from '../../shared/types'
+import type { ClipboardContents } from '../../shared/app/appApi'
 
 export interface ClipboardSnapshot {
   formats: string[]

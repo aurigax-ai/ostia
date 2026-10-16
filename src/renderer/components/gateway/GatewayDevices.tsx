@@ -25,7 +25,7 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { Dict } from '@shared/app/dict'
 import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/gateway/phoneCapabilities'
-import type { GatewayDevice } from '@shared/types'
+import type { GatewayDevice } from '@shared/gateway/gatewayApi'
 import { useState } from 'react'
 
 const CAP_NEEDS: Partial<Record<PhoneGrantableCap, PhoneGrantableCap>> = {

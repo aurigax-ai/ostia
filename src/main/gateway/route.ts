@@ -3,7 +3,7 @@ import {
   isBindAddress,
   phoneAddressOf,
 } from '../../shared/gateway/gatewayRoute'
-import type { GatewayRoute } from '../../shared/types'
+import type { GatewayRoute } from '../../shared/gateway/gatewayApi'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 
 function routePath(): string {

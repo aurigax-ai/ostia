@@ -3,7 +3,7 @@ import { opendir, realpath, stat } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { ipcMain } from 'electron'
-import type { FsEntry } from '../../shared/types'
+import type { FsEntry } from '../../shared/files/filesApi'
 import { expandHome } from '../platform/pathGuard'
 import {
   type SandboxReadRules,

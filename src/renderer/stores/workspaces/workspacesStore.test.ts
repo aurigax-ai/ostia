@@ -1,5 +1,5 @@
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import type { AppSnapshot } from '@shared/types'
+import type { AppSnapshot } from '@shared/workspaces/workspaceApi'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLayoutStore } from './layoutStore'
 import { resetWorkspaceIds, useWorkspacesStore } from './workspacesStore'

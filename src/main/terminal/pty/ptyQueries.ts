@@ -1,6 +1,6 @@
 import { hostname } from 'node:os'
 import { isHostNamed } from '../../../shared/terminal/osc7'
-import type { PaneActivity } from '../../../shared/types'
+import type { PaneActivity } from '../../../shared/terminal/ptyApi'
 import type { AgentRunningPanes } from '../../agents/agentRunning'
 import type { SandboxReadRules } from '../../sandbox/visibility'
 import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'

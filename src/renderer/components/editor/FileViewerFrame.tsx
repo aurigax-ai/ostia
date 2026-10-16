@@ -6,7 +6,7 @@ import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useInjectedCss, usePanelThemeCss } from '@/lib/theme/panelThemeInjection'
 import { useOpenWithStore } from '@/stores/files/openWithStore'
 import { ArrowsLeftRightIcon } from '@phosphor-icons/react'
-import type { ViewerOpenResult, ViewerStopReason } from '@shared/types'
+import type { ViewerOpenResult, ViewerStopReason } from '@shared/files/filesApi'
 import { useEffect, useState } from 'react'
 import { ViewerMessage } from './ViewerChrome'
 

@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path'
 import type { HookAgent } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ApprovalOutcome } from '../shared/permissions/approvals'
-import type { CommandResult } from '../shared/types'
+import type { CommandResult } from '../shared/control/commands'
 
 const dir = mkdtempSync(join(tmpdir(), 'ostia-cli-bus-'))
 process.env.XDG_DATA_HOME = join(dir, 'data')

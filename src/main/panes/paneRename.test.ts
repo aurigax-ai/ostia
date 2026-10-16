@@ -9,7 +9,7 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { SCRIPT_CAPABILITIES } from '../../shared/permissions/scriptTokens'
-import type { CommandResult, CommandTarget } from '../../shared/types'
+import type { CommandResult, CommandTarget } from '../../shared/control/commands'
 
 const request = vi.fn(async () => 'deny' as const)
 

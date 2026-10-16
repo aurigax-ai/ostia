@@ -1,5 +1,5 @@
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
-import { RENDERER_ERROR_KINDS, type RendererErrorReport } from '../../shared/types'
+import { RENDERER_ERROR_KINDS, type RendererErrorReport } from '../../shared/app/appApi'
 
 export const REPORT_MESSAGE_MAX = 1000
 export const REPORT_STACK_MAX = 8000

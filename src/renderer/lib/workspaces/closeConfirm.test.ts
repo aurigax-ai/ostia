@@ -13,7 +13,8 @@ import type { WorkspaceKind } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { QuestionRequest } from '@shared/agents/questions'
 import type { ApprovalRequest } from '@shared/permissions/approvals'
-import type { AttentionState, PaneActivity } from '@shared/types'
+import type { AttentionState } from '@shared/attention/attention'
+import type { PaneActivity } from '@shared/terminal/ptyApi'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   collectQuitGroups,

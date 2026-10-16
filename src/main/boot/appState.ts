@@ -1,5 +1,6 @@
 import type { BrowserWindow } from 'electron'
-import type { CommandDescriptor, TerminalStateSnapshot } from '../../shared/types'
+import type { CommandDescriptor } from '../../shared/control/commands'
+import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { ConsoleEntry } from '../browser/browseMethod'
 import type { GuestChords } from '../browser/guestChords'
 import type { McpHost } from '../chat/mcpHost'

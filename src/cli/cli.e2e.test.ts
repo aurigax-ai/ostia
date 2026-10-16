@@ -57,7 +57,7 @@ import {
   REVEAL_FOLDER_COMMAND,
 } from '../shared/files/openFiles'
 import { emptyWorkspaceSandbox } from '../shared/sandbox/sandbox'
-import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
+import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/control/commands'
 
 const repoRoot = process.cwd()
 const cliPath = join(repoRoot, 'out', 'cli', 'index.js')

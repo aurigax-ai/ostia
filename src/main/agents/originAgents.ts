@@ -1,16 +1,6 @@
 import { isResumableAgent } from '../../shared/agents/agentResume'
-import type {
-  AttentionState,
-  OriginAgentTarget,
-  OriginAgents,
-  OriginReferenceRequest,
-  PaneAgentKind,
-  ReferenceInsert,
-  WindowPaneReport,
-  WindowPaneSummary,
-  WindowWorkspaceReport,
-  WindowWorkspaceSummary,
-} from '../../shared/types'
+import type { AttentionState } from '../../shared/attention/attention'
+import type { OriginAgentTarget, OriginAgents, OriginReferenceRequest, PaneAgentKind, ReferenceInsert, WindowPaneReport, WindowPaneSummary, WindowWorkspaceReport, WindowWorkspaceSummary } from '../../shared/windows/windowsApi'
 import { crossesSandbox } from '../windows/windowBook'
 
 export const REFERENCE_TEXT_MAX = 64 * 1024

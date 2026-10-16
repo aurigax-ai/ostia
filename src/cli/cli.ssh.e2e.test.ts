@@ -20,7 +20,7 @@ import { registerExtensionMethods } from '../main/extensions/extensionMethods'
 import type { ExtensionConfirmRequest, TerminalOpenRequest } from '../main/extensions/extensionRuns'
 import { ExtensionStore } from '../main/extensions/extensionStore'
 import type { RemoteFolderConfirm } from '../main/files/remoteFolders'
-import type { CommandResult } from '../shared/types'
+import type { CommandResult } from '../shared/control/commands'
 
 const repoRoot = process.cwd()
 const cliPath = join(repoRoot, 'out', 'cli', 'index.js')

@@ -1,13 +1,6 @@
 import { app, ipcMain } from 'electron'
 import type { HibernateOutcome } from '../../../shared/agents/agentWork'
-import type {
-  PaneActivity,
-  PromptContext,
-  PromptContextRequest,
-  PtyAttachResult,
-  PtySpawnOptions,
-  TerminalStateSnapshot,
-} from '../../../shared/types'
+import type { PaneActivity, PromptContext, PromptContextRequest, PtyAttachResult, PtySpawnOptions, TerminalStateSnapshot } from '../../../shared/terminal/ptyApi'
 import type { AgentRunningPanes } from '../../agents/agentRunning'
 import { type ReportedAgentWork, backgroundWork, readProcessTable } from '../../agents/agentWork'
 import { getByPaneId } from '../../control/idRegistry'

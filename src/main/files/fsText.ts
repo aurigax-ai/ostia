@@ -1,6 +1,6 @@
 import type { Stats } from 'node:fs'
 import { open, readFile, stat } from 'node:fs/promises'
-import type { FsTextResult } from '../../shared/types'
+import type { FsTextResult } from '../../shared/files/filesApi'
 import { FS_BINARY_MAX } from './fsBinary'
 
 export const FS_TEXT_SNIFF_BYTES = 8192

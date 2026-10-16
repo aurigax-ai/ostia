@@ -1,4 +1,4 @@
-import type { QuitAnswer } from '../../shared/types'
+import type { QuitAnswer } from '../../shared/windows/windowsApi'
 import type { ArtifactFolders } from '../artifacts/artifactFolders'
 import type { ArtifactHistory } from '../artifacts/artifactHistory'
 import type { PreviewHost } from '../artifacts/htmlPreview'

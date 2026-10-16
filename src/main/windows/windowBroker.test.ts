@@ -2,12 +2,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type {
-  SnapshotWorkspace,
-  WindowBounds,
-  WindowSummary,
-  WindowWorkspaceReport,
-} from '../../shared/types'
+import type { SnapshotWorkspace, WindowBounds } from '../../shared/workspaces/workspaceApi'
+import type { WindowSummary, WindowWorkspaceReport } from '../../shared/windows/windowsApi'
 
 type Handler = (
   event: { sender: { id: number; getType: () => string } },

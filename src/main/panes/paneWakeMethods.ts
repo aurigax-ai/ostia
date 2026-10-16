@@ -6,7 +6,7 @@ import {
   confirmed,
   mismatch,
 } from '../../shared/common/actThenConfirm'
-import type { CommandResult } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
 import { type PaneEntry, liveSessionHolder } from './paneList'

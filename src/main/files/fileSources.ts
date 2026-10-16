@@ -1,7 +1,7 @@
 import type { Stats } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import { isArchiveName } from '../../shared/archives/archivePaths'
-import type { FsBinaryResult, FsEntry, FsKind, FsTextResult } from '../../shared/types'
+import type { FsBinaryResult, FsEntry, FsKind, FsTextResult } from '../../shared/files/filesApi'
 import { resolveSafe } from '../platform/pathGuard'
 import { readBinaryConfined } from './fsBinary'
 import { readTextConfined, versionConfined } from './fsText'

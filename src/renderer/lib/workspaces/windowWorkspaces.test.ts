@@ -1,4 +1,4 @@
-import type { WindowSummary } from '@shared/types'
+import type { WindowSummary } from '@shared/windows/windowsApi'
 import { describe, expect, it } from 'vitest'
 import { globalWorkspaceOrder, latestRemoteUnread, remoteWorkspacesOf } from './windowWorkspaces'
 

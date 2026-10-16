@@ -5,7 +5,7 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { cn } from '@/lib/utils'
 import { CaretRightIcon, CopyIcon } from '@phosphor-icons/react'
 import { formatCode } from '@shared/gateway/pairCode'
-import type { GatewayPairRequest } from '@shared/types'
+import type { GatewayPairRequest } from '@shared/gateway/gatewayApi'
 import { useState } from 'react'
 import type { PairCode } from './usePairCode'
 

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ApprovalOutcome } from '../shared/permissions/approvals'
-import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
+import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/control/commands'
 
 let answer: ApprovalOutcome = 'deny'
 const request = vi.fn(async () => answer)

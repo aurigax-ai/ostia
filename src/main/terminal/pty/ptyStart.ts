@@ -1,6 +1,6 @@
 import { rmSync } from 'node:fs'
 import { shellName } from '../../../shared/terminal/terminalShell'
-import type { PtyAttachResult } from '../../../shared/types'
+import type { PtyAttachResult } from '../../../shared/terminal/ptyApi'
 import type { AppLog } from '../../diagnostics/appLog'
 import type { Telemetry } from '../../diagnostics/telemetry'
 import type { PaneProcess } from '../../panes/paneProcess'

@@ -1,12 +1,8 @@
 import type { DragSource, DropTarget, WorkspaceGroup } from '@/lib/sidebar/workspaceGroups'
 import type { NewWorkspacePlacement } from '@/stores/app/settingsModel'
-import type {
-  AppSnapshot,
-  SnapshotWorkspace,
-  WorkspaceLiveState,
-  WorkspaceOrigin,
-  WorkspaceProject,
-} from '@shared/types'
+import type { AppSnapshot, SnapshotWorkspace, WorkspaceOrigin } from '@shared/workspaces/workspaceApi'
+import type { WorkspaceLiveState } from '@shared/attention/attention'
+import type { WorkspaceProject } from '@shared/files/filesApi'
 import type { WorkspaceGroupColor } from '@shared/workspaces/workspaceGroups'
 import type { StoreApi } from 'zustand'
 

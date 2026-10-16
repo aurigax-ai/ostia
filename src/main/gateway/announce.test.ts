@@ -3,7 +3,7 @@ import { hostname } from 'node:os'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { GatewayTailnetState } from '../../shared/types'
+import type { GatewayTailnetState } from '../../shared/gateway/gatewayApi'
 import { storePath } from '../platform/jsonStore'
 import type { Tailnet } from './tailnet'
 

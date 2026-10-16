@@ -20,7 +20,7 @@ import {
   nextWorkspaceId,
   useWorkspacesStore,
 } from '@/stores/workspaces/workspacesStore'
-import type { SnapshotWorkspace } from '@shared/types'
+import type { SnapshotWorkspace } from '@shared/workspaces/workspaceApi'
 import {
   CMUX_SESSION_MAX_BYTES,
   type CmuxImportReport,

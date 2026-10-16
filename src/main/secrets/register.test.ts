@@ -9,7 +9,7 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import type { CommandDescriptor, CommandResult } from '../../shared/types'
+import type { CommandDescriptor, CommandResult } from '../../shared/control/commands'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
 

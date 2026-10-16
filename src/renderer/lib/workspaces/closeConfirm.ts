@@ -18,7 +18,8 @@ import { isRestorable } from '@/stores/workspaces/persistence'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { isResumableAgent } from '@shared/agents/agentResume'
-import type { PaneActivity, QuitAnswer } from '@shared/types'
+import type { PaneActivity } from '@shared/terminal/ptyApi'
+import type { QuitAnswer } from '@shared/windows/windowsApi'
 
 export function runningCommandsOf(
   panes: readonly string[],

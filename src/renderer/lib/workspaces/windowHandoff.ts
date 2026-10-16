@@ -17,15 +17,9 @@ import { isMovable, liveAgentPanes } from '@/stores/workspaces/persistence'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { nextWorkspaceId, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type {
-  AttentionState,
-  ScreenPoint,
-  SnapshotNode,
-  SnapshotWorkspace,
-  WindowPaneReport,
-  WindowWorkspaceReport,
-  WorkspaceOrigin,
-} from '@shared/types'
+import type { AttentionState } from '@shared/attention/attention'
+import type { ScreenPoint, WindowPaneReport, WindowWorkspaceReport } from '@shared/windows/windowsApi'
+import type { SnapshotNode, SnapshotWorkspace, WorkspaceOrigin } from '@shared/workspaces/workspaceApi'
 import { confirmMove } from './closeConfirm'
 import { setIdNamespace } from './idNamespace'
 import { selectWorkspace } from './selectWorkspace'

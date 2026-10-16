@@ -1,5 +1,5 @@
 import type { BrowserWindow } from 'electron'
-import type { TerminalStateSnapshot } from '../../../shared/types'
+import type { TerminalStateSnapshot } from '../../../shared/terminal/ptyApi'
 import type { AgentRunningPanes } from '../../agents/agentRunning'
 import type { ReportedAgentWork } from '../../agents/agentWork'
 import type { ArtifactFolders } from '../../artifacts/artifactFolders'

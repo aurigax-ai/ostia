@@ -1,4 +1,4 @@
-import type { ShellHistoryEntry } from '@shared/types'
+import type { ShellHistoryEntry } from '@shared/terminal/ptyApi'
 import { useEffect, useState } from 'react'
 
 const NONE: ShellHistoryEntry[] = []

@@ -5,7 +5,7 @@ import {
   type PhoneCap,
   type PhoneGrantableCap,
 } from '../../shared/gateway/phoneCapabilities'
-import type { GatewaySetCapResult } from '../../shared/types'
+import type { GatewaySetCapResult } from '../../shared/gateway/gatewayApi'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 import { sameBytes } from '../platform/sameBytes'
 

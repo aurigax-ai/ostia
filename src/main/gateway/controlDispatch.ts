@@ -1,11 +1,7 @@
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { plainBlock } from '../../shared/agents/questions'
-import type {
-  CommandDescriptor,
-  CommandResult,
-  CommandTarget,
-  TerminalStateSnapshot,
-} from '../../shared/types'
+import type { CommandDescriptor, CommandResult, CommandTarget } from '../../shared/control/commands'
+import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { Ask, AskAnswerResult } from '../approvals/asks'
 import { internalPaneArgs } from '../control/commandArgs'
 import { resolveExternal } from '../control/idRegistry'

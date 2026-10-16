@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { QuestionRequest, QuestionState } from '../shared/agents/questions'
-import type { CommandResult } from '../shared/types'
+import type { CommandResult } from '../shared/control/commands'
 
 const WINDOW_ID = '7'
 const sent: { channel: string; state: QuestionState }[] = []

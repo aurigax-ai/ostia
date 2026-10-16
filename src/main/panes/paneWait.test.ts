@@ -9,7 +9,7 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import type { ApprovalOutcome } from '../../shared/permissions/approvals'
-import type { CommandResult } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 import type { ApprovalAsk } from '../approvals/approvals'
 
 let answer: ApprovalOutcome = 'deny'

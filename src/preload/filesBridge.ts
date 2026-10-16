@@ -10,17 +10,9 @@ import { ipcRenderer, webUtils } from 'electron'
 import type { FileOpResult } from '../shared/files/fileOps'
 import type { OpenFileVerdict } from '../shared/files/openFiles'
 import type { SearchOutcome } from '../shared/files/search'
-import type {
-  ExternalEditorResult,
-  FsBinaryResult,
-  FsEntry,
-  FsKind,
-  FsTextResult,
-  OpenPathResult,
-  OstiaBridge,
-  ViewerOpenResult,
-  WorkspaceProject,
-} from '../shared/types'
+import type { ExternalEditorResult } from '../shared/app/appApi'
+import type { FsBinaryResult, FsEntry, FsKind, FsTextResult, OpenPathResult, ViewerOpenResult, WorkspaceProject } from '../shared/files/filesApi'
+import type { OstiaBridge } from '../shared/types'
 import { listen } from './listen'
 
 export const filesBridge: Pick<

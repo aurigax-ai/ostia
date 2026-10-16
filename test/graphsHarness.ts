@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { AgentResume } from '../src/shared/agents/agentResume'
-import type { CommandResult } from '../src/shared/types'
+import type { CommandResult } from '../src/shared/control/commands'
 
 const repoRoot = process.cwd()
 const CLI = join(repoRoot, 'out', 'cli', 'index.js')

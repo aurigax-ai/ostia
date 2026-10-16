@@ -16,7 +16,7 @@ import {
   XIcon,
 } from '@phosphor-icons/react'
 import type { SearchNameHit, SearchOutcome } from '@shared/files/search'
-import type { FsEntry } from '@shared/types'
+import type { FsEntry } from '@shared/files/filesApi'
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { fileIcon } from './fileIcon'
 

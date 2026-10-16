@@ -1,5 +1,5 @@
 import { app } from 'electron'
-import type { CommandTarget } from '../../shared/types'
+import type { CommandTarget } from '../../shared/control/commands'
 import { createAgentOfferRelay } from '../agents/agentOfferRelay'
 import { getByPaneId } from '../control/idRegistry'
 import { createExtensionIpc } from '../extensions/extensionWiring'

@@ -4,7 +4,7 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { SnapshotPaneNode } from '@shared/types'
+import type { SnapshotPaneNode } from '@shared/workspaces/workspaceApi'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/terminal/blockActions', () => ({ runWhenIdle: vi.fn(() => vi.fn()) }))

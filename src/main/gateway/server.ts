@@ -8,7 +8,7 @@ import {
 } from 'node:net'
 import { TLSSocket, createSecureContext } from 'node:tls'
 import { type WebSocket, WebSocketServer } from 'ws'
-import type { GatewayPhoneAddress } from '../../shared/types'
+import type { GatewayPhoneAddress } from '../../shared/gateway/gatewayApi'
 import { PLATFORM_EVENT_TYPES, type PlatformEventType, platformEvents } from '../control/events'
 import { getByPaneId } from '../control/idRegistry'
 import { type GatewayCert, getCert } from './cert'

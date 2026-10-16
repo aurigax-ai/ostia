@@ -6,12 +6,7 @@ import {
   type NotificationSettings,
   parseNotificationSettings,
 } from '../../shared/app/notificationSettings'
-import {
-  type NotificationEntry,
-  type NotificationKind,
-  type NotificationPost,
-  notificationKindOf,
-} from '../../shared/types'
+import { type NotificationEntry, type NotificationKind, type NotificationPost, notificationKindOf } from '../../shared/attention/attention'
 import { registerControlMethod } from '../control/controlServer'
 import { emitPlatformEvent } from '../control/events'
 import { getByPaneId } from '../control/idRegistry'

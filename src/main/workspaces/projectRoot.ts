@@ -2,7 +2,7 @@ import { existsSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { ipcMain } from 'electron'
-import type { WorkspaceProject } from '../../shared/types'
+import type { WorkspaceProject } from '../../shared/files/filesApi'
 import { resolveSafe } from '../platform/pathGuard'
 
 export function findProjectRoot(

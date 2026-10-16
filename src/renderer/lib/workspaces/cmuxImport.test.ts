@@ -8,7 +8,8 @@ import { useCmuxImportStore } from '@/stores/workspaces/cmuxImportStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { resetWorkspaceIds, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { SnapshotNode, SnapshotWorkspace, WindowSummary } from '@shared/types'
+import type { SnapshotNode, SnapshotWorkspace } from '@shared/workspaces/workspaceApi'
+import type { WindowSummary } from '@shared/windows/windowsApi'
 import {
   type CmuxImportReport,
   type CmuxLayout,
