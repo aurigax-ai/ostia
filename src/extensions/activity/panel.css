@@ -164,7 +164,6 @@ button.agent-head {
 .turn[data-state="working"] .node {
   border-color: var(--brand);
   background: var(--brand);
-  animation: working calc(1600ms * var(--ostia-motion-scale, 1)) var(--ease-out) infinite alternate;
 }
 
 .turn[data-state="waiting"] .node,
@@ -176,16 +175,6 @@ button.agent-head {
 .turn[data-state="done"] .node {
   border-color: var(--ok);
   background: var(--ok);
-}
-
-@keyframes working {
-  from {
-    opacity: 1;
-  }
-
-  to {
-    opacity: 0.35;
-  }
 }
 
 .turn-head {
@@ -321,6 +310,9 @@ button.actions-toggle:hover {
   padding: 4px 8px 6px;
   border-top: 1px solid var(--line);
   list-style: none;
+}
+
+.action-list.reveal {
   animation: reveal var(--motion-base) var(--ease-out);
 }
 

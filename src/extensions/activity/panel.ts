@@ -143,6 +143,7 @@ function actionGroup(key: string, events: readonly EventView[]): HTMLElement | n
         const next = toggle.getAttribute('aria-expanded') !== 'true'
         toggle.setAttribute('aria-expanded', String(next))
         body.hidden = !next
+        body.classList.toggle('reveal', next)
         if (next) openGroups.add(key)
         else openGroups.delete(key)
       },
