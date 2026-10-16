@@ -35,6 +35,7 @@ import type {
   SidebarKind,
   SidebarTone,
   TerminalWait,
+  WireRuntimeResult,
 } from '../contract/extensions'
 import type {
   RemoteFilesRequest,
@@ -91,6 +92,7 @@ export type {
   SidebarTone,
   TerminalWait,
   TerminalWaitOutcome,
+  WireRuntimeResult,
 } from '../contract/extensions'
 
 export {
@@ -271,6 +273,7 @@ export interface OstiaExtension {
     url?: string
   }) => Promise<unknown>
   startWithWindow: (on: boolean) => Promise<ExtensionResult>
+  wireRuntime: () => Promise<WireRuntimeResult>
   notify: (title: string, body?: string) => Promise<unknown>
   openPanel: (workspaceId?: string, path?: string) => Promise<unknown>
   setPaneChip: (chip: PaneChipValue) => Promise<ExtensionResult>

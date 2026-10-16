@@ -406,6 +406,10 @@ export type ExtensionResult =
   | { ok: true; text?: string; data?: unknown }
   | { ok: false; error: string; message?: string; data?: unknown }
 
+export type WireRuntimeResult =
+  | { ok: true; socket: string; token: string; started: boolean; mode: string; version: string }
+  | { ok: false; error: string; contract?: number; version?: string; message?: string }
+
 export const DIFF_TEXT_MAX = 5 * 1024 * 1024
 
 export interface DiffContent {

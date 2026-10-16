@@ -2,6 +2,10 @@
   "messages": {
     "title": "Graphs",
     "runsWhileOpen": "Graphs run while Ostia is open, the tray included.",
+    "runsAsDaemon": "The Graph Runtime runs as a daemon on this computer, so graphs run also while Ostia is closed.",
+    "runtime.connecting": "Connecting to the Graph Runtime…",
+    "runtime.otherContract": "Another version of the Graph Runtime is running ({version}) and speaks a contract this Ostia does not. Ostia leaves it alone: stop it or update it to use Graphs here.",
+    "runtime.unreachable": "The Graph Runtime is not answering: {message}",
     "empty.folder": "No graphs yet. A graph is a file in {folder}.",
     "empty.scratch": "A scratch workspace has no graphs.",
     "state.enabled": "Enabled",

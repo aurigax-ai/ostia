@@ -53,8 +53,8 @@ importers:
         specifier: 0.0.79
         version: 0.0.79
       '@aurigax-ai/wire':
-        specifier: 0.1.2
-        version: 0.1.2
+        specifier: 0.1.14
+        version: 0.1.14
       '@xterm/headless':
         specifier: ^6.0.0
         version: 6.0.0
@@ -73,9 +73,6 @@ importers:
       esbuild:
         specifier: 'catalog:'
         version: 0.28.2
-      ignore:
-        specifier: 7.0.12
-        version: 7.0.12
       lru-cache:
         specifier: ^11.5.3
         version: 11.5.3
@@ -527,8 +524,8 @@ packages:
   '@aurigax-ai/ghostty-web@0.3.3':
     resolution: {integrity: sha512-P5/9jq9TzzEpLqzu4KA7ljWY3BYSybS7nCwuI8H08rHrTfvBTTOwhGHNlL9DjarG9y0Rj7729joLqc13PoXeJQ==}
 
-  '@aurigax-ai/wire@0.1.2':
-    resolution: {integrity: sha512-2dl9E4rUZQ5HdBD9dqbUUPMcsw1NAcHlB0dGWsJRmmoo2AwGcX50kBjuiUWqc8YLJqeYhVsVTXlEZZFVcm9Bcw==}
+  '@aurigax-ai/wire@0.1.14':
+    resolution: {integrity: sha512-4o/NsNfN4yA9jh/pzyzNZ0AsPO9831YyO5EL/hn5NSQ9Hd5KVdkc8kweCKT69XnQSm4enzxUdFTIf6z7ONRTag==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -5712,6 +5709,10 @@ packages:
     resolution: {integrity: sha512-SbQSV9yRemARxeXw6LU5sS6Zq0e9/DgCCX5yelH263ZQWukbTk8EF8fjTrr1dziasf4GwlJbvTwFnTrnQFWZXQ==}
     engines: {node: '>=14.0.0'}
 
+  vscode-jsonrpc@9.0.3:
+    resolution: {integrity: sha512-qETYf9PCl1lVfwR+oBmMfc4vP2nqLNA35ABxorw3j06+xlKRgDVxbLgKm4Y/xPL0YWdeDjLoI4ImICIT3nB0zQ==}
+    engines: {node: '>=14.0.0'}
+
   vscode-languageserver-protocol@3.17.5:
     resolution: {integrity: sha512-mb1bvRJN8SVznADSGWM9u/b07H7Ecg0I3OgXDuLdn307rl/J3A9YD6/eYOssqhecL27hK1IPZAsaqh00i/Jljg==}
 
@@ -6045,10 +6046,12 @@ snapshots:
 
   '@aurigax-ai/ghostty-web@0.3.3': {}
 
-  '@aurigax-ai/wire@0.1.2':
+  '@aurigax-ai/wire@0.1.14':
     dependencies:
       croner: 10.0.1
+      ignore: 7.0.12
       picomatch: 4.0.7
+      vscode-jsonrpc: 9.0.3
       yaml: 2.9.1
       zod: 4.6.5
 
@@ -11386,6 +11389,8 @@ snapshots:
   vscode-jsonrpc@8.2.0: {}
 
   vscode-jsonrpc@9.0.2: {}
+
+  vscode-jsonrpc@9.0.3: {}
 
   vscode-languageserver-protocol@3.17.5:
     dependencies:

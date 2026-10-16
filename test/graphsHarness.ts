@@ -1,5 +1,14 @@
 import { spawn } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
@@ -55,6 +64,9 @@ export interface Harness {
   enable: (name: string) => Promise<ExtensionResult>
   stop: (pane: FakePane, payload: Record<string, unknown>) => Promise<CliResult>
   stopAll: () => void
+  wireData: string
+  journal: (runId: string) => Record<string, unknown>[]
+  runIds: (graph: string) => string[]
   host: import('../src/main/extensions/extensionHost').ExtensionHost
   launches: import('../src/main/extensions/extensionLaunches').ExtensionLaunches | null
   secrets: import('../src/main/extensions/extensionHostDeps').ExtensionSecretStore
@@ -107,6 +119,7 @@ export async function graphsHarness(
   const { ExtensionConnections } = await import('../src/main/extensions/extensionConnections')
   const { createSecretStore } = await import('../src/main/extensions/extensionSecrets')
   const { ExtensionLaunches } = await import('../src/main/extensions/extensionLaunches')
+  const { WireRuntime, registerWireRuntime } = await import('../src/main/extensions/wireRuntime')
 
   const dir = mkdtempSync(join(tmpdir(), 'ostia-graphs-'))
   const workDir = join(dir, 'shop')
@@ -240,6 +253,28 @@ export async function graphsHarness(
     log: (extId, line) => logs.push(`${extId}: ${line}`),
   })
   registerExtensionMethods(() => host)
+  const wireEnv = {
+    PATH: `${dirname(process.execPath)}:/usr/bin:/bin`,
+    HOME: dir,
+    XDG_STATE_HOME: join(dir, 'wire-state'),
+    XDG_RUNTIME_DIR: join(dir, 'wire-run'),
+  }
+  mkdirSync(wireEnv.XDG_RUNTIME_DIR, { recursive: true, mode: 0o700 })
+  const wireData = join(wireEnv.XDG_STATE_HOME, 'wire')
+  registerWireRuntime({
+    host: () => host,
+    runtime: new WireRuntime({
+      nodePath: process.execPath,
+      baseEnv: () => wireEnv,
+      pathEnv: () => ({
+        env: wireEnv,
+        platform: process.platform,
+        uid: process.getuid?.() ?? 0,
+        home: dir,
+        tmp: tmpdir(),
+      }),
+    }),
+  })
   const mcp = opts.mcp
     ? new McpHost({
         servers: () => [
@@ -395,9 +430,33 @@ export async function graphsHarness(
         JSON.stringify({ session_id: 's-1', ...payload }),
       ),
     secrets: secretStore,
+    wireData,
+    journal: (runId) => {
+      const root = join(wireData, 'runs')
+      for (const scope of existsSync(root) ? readdirSync(root) : [])
+        for (const graph of readdirSync(join(root, scope))) {
+          const file = join(root, scope, graph, runId, 'journal.jsonl')
+          if (existsSync(file))
+            return readFileSync(file, 'utf8')
+              .trim()
+              .split('\n')
+              .map((l) => JSON.parse(l) as Record<string, unknown>)
+        }
+      return []
+    },
+    runIds: (graph) => {
+      const root = join(wireData, 'runs')
+      return (existsSync(root) ? readdirSync(root) : []).flatMap((scope) =>
+        existsSync(join(root, scope, graph)) ? readdirSync(join(root, scope, graph)) : [],
+      )
+    },
     stopAll: () => {
       host.processes.stopAll()
       mcp?.closeAll()
+      try {
+        const pid = Number(readFileSync(join(wireData, 'runtime.lock'), 'utf8').trim())
+        if (pid > 0) process.kill(pid, 'SIGKILL')
+      } catch {}
       rmSync(dir, { recursive: true, force: true })
     },
   }

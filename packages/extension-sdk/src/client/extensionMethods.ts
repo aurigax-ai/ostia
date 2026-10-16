@@ -36,6 +36,7 @@ export function windowMethods(
   | 'subscribe'
   | 'setSidebarItem'
   | 'startWithWindow'
+  | 'wireRuntime'
   | 'notify'
   | 'openPanel'
   | 'setPaneChip'
@@ -73,6 +74,7 @@ export function windowMethods(
     },
     setSidebarItem: (item) => conn.sendRequest('ext.setSidebarItem', item),
     startWithWindow: (on) => conn.sendRequest('ext.startWithWindow', { on }),
+    wireRuntime: () => conn.sendRequest('ext.wireRuntime', {}),
     notify: (title, body) => conn.sendRequest('ext.notify', { title, body }),
     openPanel: (workspaceId, path) => conn.sendRequest('ext.openPanel', { workspaceId, path }),
     setPaneChip: (chip) => conn.sendRequest('ext.setPaneChip', chip),

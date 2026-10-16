@@ -47,6 +47,7 @@ import type { ExtensionHostDeps, ExtensionSecretStore } from './extensionHostDep
 import { ExtensionLaunches } from './extensionLaunches'
 import { registerExtensionMethods } from './extensionMethods'
 import { ExtensionStore } from './extensionStore'
+import { WireRuntime, registerWireRuntime } from './wireRuntime'
 import { workspaceChipsForWindow } from './workspaceChips'
 
 interface ExtensionHostPartsDeps {
@@ -273,6 +274,10 @@ export function startExtensionHost({
   })
   refreshAgentPlugins()
   registerExtensionMethods(() => services.extensionHost)
+  registerWireRuntime({
+    host: () => services.extensionHost,
+    runtime: new WireRuntime({ nodePath: process.execPath, baseEnv: () => process.env }),
+  })
   registerExtensionIpc(services.extensionHost)
   registerRemoteFilesIpc(services.extensionHost)
   ipcMain.on(AGENT_OFFER_RESULT_CHANNEL, (e, requestId: unknown, paneId: unknown) =>

@@ -16,6 +16,7 @@ import {
 import { NATIVE_CONNECTORS } from './connectorHost'
 import { graphsFolder } from './graphFiles'
 import type { GraphListing, GraphState } from './runner'
+import type { LinkState } from './runtimeLink'
 
 export interface GraphRow {
   name: string
@@ -79,6 +80,21 @@ export interface ListModel {
   graphs: GraphRow[]
 }
 
+export type RuntimeModel =
+  | { state: 'ready'; daemon: boolean; version: string }
+  | { state: 'other-contract'; version?: string }
+  | { state: 'connecting' }
+  | { state: 'failed'; message: string }
+
+export function runtimeModel(state: LinkState): RuntimeModel {
+  if (state.kind === 'ready')
+    return { state: 'ready', daemon: state.mode === 'daemon', version: state.version }
+  if (state.kind === 'other-contract')
+    return { state: 'other-contract', ...(state.version ? { version: state.version } : {}) }
+  if (state.kind === 'failed') return { state: 'failed', message: state.message }
+  return { state: 'connecting' }
+}
+
 function agentsMayStart(graph: GraphFile): boolean {
   return graph.on.some(
     (t) =>
@@ -91,8 +107,6 @@ export function listModel(
   workDir: string,
   listings: GraphListing[],
   runs: RunSummary[],
-  filesRefused = false,
-  skipped: (name: string) => number = () => 0,
 ): ListModel {
   return {
     workspaceId,
@@ -112,8 +126,8 @@ export function listModel(
           ? { lastRun: { runId: last.runId, status: last.status, startedAt: last.startedAt } }
           : {}),
         ...(l.entry.loaded ? { fingerprint: l.entry.loaded.fingerprint } : {}),
-        ...(filesRefused && graph?.on.some((t) => 'files' in t) ? { filesRefused: true } : {}),
-        ...(skipped(l.entry.name) > 0 ? { skipped: skipped(l.entry.name) } : {}),
+        ...(l.filesRefused ? { filesRefused: true } : {}),
+        ...(l.skipped > 0 ? { skipped: l.skipped } : {}),
       }
     }),
   }

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
@@ -31,15 +31,7 @@ edges: []
 describe('connectors on the built-in graphs extension (real CLI, real socket, fake MCP server)', () => {
   let h: Harness
 
-  const lines = (runId: string, name: string): Line[] => {
-    const file = join(h.dataDir, 'graphs', 'runs', 'w1', name, runId, 'journal.jsonl')
-    if (!existsSync(file)) return []
-    return readFileSync(file, 'utf8')
-      .trim()
-      .split('\n')
-      .filter(Boolean)
-      .map((l) => JSON.parse(l) as Line)
-  }
+  const lines = (runId: string, _name: string): Line[] => h.journal(runId) as unknown as Line[]
   const run = async (
     name: string,
     text: string,
