@@ -2,6 +2,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { closeSpillChannels, spillInThread } from '../../../../test/historySpill'
 import type { PtyEntry } from '../pty/ptyRegistry'
 import { ScreenMirror } from '../screenMirror'
 import { PaneHistories } from './paneHistories'
@@ -24,8 +25,9 @@ function setup() {
   const histories = new PaneHistories({
     root: mkdtempSync(join(tmpdir(), 'history-ipc-')),
     setting: () => 'unlimited',
+    startSpill: spillInThread,
   })
-  const mirror = new ScreenMirror(80, 24, histories.forPane('p1'))
+  const mirror = new ScreenMirror(80, 24, histories.feedFor('p1', 80, 24))
   const ptys = new Map([['p1', { mirror } as unknown as PtyEntry]])
   registerHistoryIpc({
     ptys,
@@ -41,6 +43,7 @@ function setup() {
   const write = async (data: string) => {
     mirror.write(data)
     await mirror.flush()
+    await mirror.historyTail()
   }
   return { call, write }
 }
@@ -50,6 +53,7 @@ const numbered = (from: number, count: number, text = 'out'): string =>
 
 afterEach(() => {
   for (const fn of cleanup.splice(0)) fn()
+  closeSpillChannels()
 })
 
 describe('history IPC', () => {

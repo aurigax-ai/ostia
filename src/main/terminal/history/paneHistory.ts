@@ -270,7 +270,7 @@ export class PaneHistory {
     }
   }
 
-  private fail(reason: string): void {
+  fail(reason: string): void {
     if (this.disposed || this.failure) return
     this.failure = reason
     this.deps.onFailed(reason)

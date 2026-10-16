@@ -1,9 +1,24 @@
 import type { IBufferNamespace, IDisposable, IMarker, Terminal } from '@xterm/headless'
 import { decodeCommandLine } from '../../../shared/terminal/commandLine'
 import { serializeLogicalLines } from '../screenSerialize'
-import type { PaneHistory } from './paneHistory'
 
 export const SPILL_BATCH = 500
+
+export interface SpillSink {
+  readonly end: number
+  readonly live: boolean
+  append(lines: readonly string[]): void
+  blockStarted(seq: number, start: number, command: string | null): void
+  blockEnded(
+    seq: number,
+    end: number,
+    endCol: number,
+    exitCode: number,
+    command: string | null,
+  ): void
+  wipe(): void
+  flush(): void
+}
 export const GAP_LINE = '\x1b[2m── earlier lines not kept ──\x1b[0m'
 
 interface PendingMark {
@@ -33,10 +48,11 @@ export class HistorySpill {
 
   constructor(
     private readonly term: Terminal,
-    private readonly history: PaneHistory,
+    private readonly history: SpillSink,
+    seqOffset: number,
   ) {
     this.buffers = term.buffer
-    this.seq = history.seqOffset
+    this.seq = seqOffset
     this.frontier = this.markerAt(0)
     this.subs = [
       term.onScroll(() => this.check()),
@@ -54,10 +70,6 @@ export class HistorySpill {
         return false
       }),
     ]
-  }
-
-  get blockSeq(): number {
-    return this.seq
   }
 
   hold(): void {
@@ -86,8 +98,7 @@ export class HistorySpill {
       this.spill(this.lastContentRow(), true)
     }
     this.finished = true
-    this.history.seqOffset = this.seq
-    void this.history.flush()
+    this.history.flush()
   }
 
   dispose(): void {

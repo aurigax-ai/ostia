@@ -1,7 +1,6 @@
 import { type IBufferLine, type IMarker, Terminal } from '@xterm/headless'
 import { type CwdReport, parseOsc7 } from '../../shared/terminal/osc7'
-import { HistorySpill } from './history/historySpill'
-import type { PaneHistory } from './history/paneHistory'
+import type { HistoryFeed } from './history/historyFeed'
 import { serializeLines } from './screenSerialize'
 
 const MIRROR_SCROLLBACK = 2000
@@ -26,11 +25,14 @@ export class ScreenMirror {
   private changes = 0
   private serialized: { at: number; text: string } | undefined
   private reportedCwd: CwdReport | null = null
-  private readonly spill: HistorySpill | null
+  private commandStarts = 0
   readonly blockSeqBase: number
-  private readonly continuesHistory: boolean
 
-  constructor(cols: number, rows: number, paneHistory: PaneHistory | null = null) {
+  constructor(
+    cols: number,
+    rows: number,
+    private readonly feed: HistoryFeed | null = null,
+  ) {
     this.targetCols = Math.max(1, cols)
     this.targetRows = Math.max(1, rows)
     this.term = new Terminal({
@@ -48,9 +50,7 @@ export class ScreenMirror {
       return false
     })
     this.term.onWriteParsed(() => this.changes++)
-    this.blockSeqBase = paneHistory?.seqOffset ?? 0
-    this.continuesHistory = (paneHistory?.end ?? 0) > (paneHistory?.first ?? 0)
-    this.spill = paneHistory ? new HistorySpill(this.term, paneHistory) : null
+    this.blockSeqBase = feed?.seqBase ?? 0
   }
 
   get cwdReport(): CwdReport | null {
@@ -74,7 +74,9 @@ export class ScreenMirror {
   }
 
   write(data: string): void {
-    if (!this.disposed && data) this.term.write(data)
+    if (this.disposed || !data) return
+    this.term.write(data)
+    this.feed?.write(data)
   }
 
   resize(cols: number, rows: number): void {
@@ -82,6 +84,7 @@ export class ScreenMirror {
     if (cols === this.targetCols && rows === this.targetRows) return
     this.targetCols = cols
     this.targetRows = rows
+    this.feed?.resize(cols, rows)
     this.term.write('', () => {
       if (!this.disposed) this.term.resize(cols, rows)
     })
@@ -94,28 +97,23 @@ export class ScreenMirror {
 
   restore(history: string): void {
     if (this.disposed || !history) return
-    if (this.continuesHistory) this.spill?.hold()
+    this.feed?.restore(history)
     this.term.write(`${history}\r\n`, () => {
       if (this.disposed) return
       this.clearUntouched()
       const seamEnd = this.term.registerMarker(0)
-      if (seamEnd) {
-        this.spill?.resumeAt(seamEnd)
-        this.untouched = { history, seamEnd, prompted: false }
-      }
+      if (seamEnd) this.untouched = { history, seamEnd, prompted: false }
     })
   }
 
   async pendingBlockEnd(
     seq: number,
   ): Promise<{ line: number; endCol: number; exitCode: number } | null> {
-    await this.flush()
-    return this.disposed ? null : (this.spill?.pendingEnd(seq) ?? null)
+    return this.disposed ? null : ((await this.feed?.pendingEnd(seq)) ?? null)
   }
 
   async historyTail(): Promise<string[]> {
-    await this.flush()
-    return this.disposed ? [] : (this.spill?.tail() ?? [])
+    return this.disposed ? [] : ((await this.feed?.tail()) ?? [])
   }
 
   serialize(): string {
@@ -163,14 +161,14 @@ export class ScreenMirror {
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
-    this.spill?.finish()
-    this.spill?.dispose()
+    void this.feed?.close(this.commandStarts)
     this.clearPromptStart()
     this.clearUntouched()
     this.term.dispose()
   }
 
   private onPromptMark(kind: string): void {
+    if (kind === COMMAND_START) this.commandStarts++
     if (this.term.buffer.active.type !== 'normal') return
     if (kind === PROMPT_START) {
       this.clearPromptStart()

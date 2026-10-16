@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, statSync } from 'node:
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { spillInThread } from '../../../../test/historySpill'
 import type { ScrollbackHistory } from '../../../shared/terminal/scrollbackHistory'
 import { FREE_SPACE_FLOOR, PaneHistories, sweepHistoryRoot } from './paneHistories'
 
@@ -9,7 +10,12 @@ const made: PaneHistories[] = []
 
 function histories(setting: ScrollbackHistory = 'unlimited', free = () => FREE_SPACE_FLOOR * 2) {
   const root = mkdtempSync(join(tmpdir(), 'histories-'))
-  const store = new PaneHistories({ root, setting: () => setting, freeBytes: async () => free() })
+  const store = new PaneHistories({
+    root,
+    setting: () => setting,
+    startSpill: spillInThread,
+    freeBytes: async () => free(),
+  })
   made.push(store)
   return { store, root }
 }
@@ -68,6 +74,7 @@ describe('PaneHistories', () => {
     const store = new PaneHistories({
       root,
       setting: () => 'unlimited',
+      startSpill: spillInThread,
       segmentBytes: 1,
       freeBytes: async () => (low && big?.first === 0 ? 0 : FREE_SPACE_FLOOR),
     })

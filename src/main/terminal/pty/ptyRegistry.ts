@@ -193,7 +193,11 @@ export function createPtyRegistry({
         pause: () => pausePty(entry, true),
         resume: () => pausePty(entry, false),
       }),
-      mirror: new ScreenMirror(opts.cols, opts.rows, histories()?.forPane(paneId) ?? null),
+      mirror: new ScreenMirror(
+        opts.cols,
+        opts.rows,
+        histories()?.feedFor(paneId, opts.cols, opts.rows) ?? null,
+      ),
       subs: opts.subs,
       killTimer: null,
       spawnPath: opts.spawnPath,

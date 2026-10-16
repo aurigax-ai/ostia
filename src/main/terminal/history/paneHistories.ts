@@ -3,6 +3,7 @@ import { chmodSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { statfs } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { ScrollbackHistory } from '../../../shared/terminal/scrollbackHistory'
+import type { HistoryFeed, SpillClient } from './historyFeed'
 import { newHistoryKey } from './historyRecords'
 import { PaneHistory } from './paneHistory'
 
@@ -38,6 +39,7 @@ function paneFolder(paneId: string): string {
 export interface PaneHistoriesDeps {
   root: string
   setting: () => ScrollbackHistory
+  startSpill: () => SpillClient
   freeBytes?: (dir: string) => Promise<number>
   onFailed?: (paneId: string, reason: string) => void
   segmentBytes?: number
@@ -52,6 +54,7 @@ export class PaneHistories {
   private readonly key = newHistoryKey()
   private readonly runDir: string
   private readonly panes = new Map<string, PaneHistory>()
+  private spill: SpillClient | null = null
 
   constructor(private readonly deps: PaneHistoriesDeps) {
     sweepHistoryRoot(deps.root)
@@ -80,6 +83,13 @@ export class PaneHistories {
     })
     this.panes.set(paneId, history)
     return history
+  }
+
+  feedFor(paneId: string, cols: number, rows: number): HistoryFeed | null {
+    const history = this.forPane(paneId)
+    if (!history) return null
+    if (!this.spill?.alive) this.spill = this.deps.startSpill()
+    return this.spill.open(history, cols, rows)
   }
 
   drop(paneId: string): void {
