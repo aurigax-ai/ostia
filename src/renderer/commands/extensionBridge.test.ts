@@ -60,6 +60,7 @@ function ext(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     category: 'other',
     languages: [],
     languageServers: [],
+    fileViewers: [],
     agentSkills: [],
     agentHooks: [],
     iconThemes: [],

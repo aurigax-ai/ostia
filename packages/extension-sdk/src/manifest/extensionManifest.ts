@@ -38,6 +38,7 @@ import {
   type ExtensionSettingsPageContribution,
   validSettingValue,
 } from '../contract/extensions'
+import { parseFileViewers } from '../contract/fileViewers'
 import { ICON_THEME_ID_PATTERN, type IconThemeContribution } from '../contract/iconTheme'
 import { isRecord } from '../contract/isRecord'
 import {
@@ -608,6 +609,10 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
     isInsideDir(dir, path),
   )
   if (typeof editorLanguages === 'string') return { ok: false, error: editorLanguages }
+  const fileViewers = parseFileViewers(contributes.fileViewers, id, (path) =>
+    isInsideDir(dir, path),
+  )
+  if (typeof fileViewers === 'string') return { ok: false, error: fileViewers }
   const agentSkills = parseAgentSkills(contributes.agentSkills, dir)
   if (typeof agentSkills === 'string') return { ok: false, error: agentSkills }
   const agentHooks = parseAgentHooks(contributes.agentHooks, commands)
@@ -661,6 +666,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (keymaps.length > 0) manifest.contributes.keymaps = keymaps
   if (languageServers.length > 0) manifest.contributes.languageServers = languageServers
   if (editorLanguages.length > 0) manifest.contributes.editorLanguages = editorLanguages
+  if (fileViewers.length > 0) manifest.contributes.fileViewers = fileViewers
   if (agentSkills.length > 0) manifest.contributes.agentSkills = agentSkills
   if (agentHooks.length > 0) manifest.contributes.agentHooks = agentHooks
   if (typeof contributes.verb === 'string') manifest.contributes.verb = contributes.verb

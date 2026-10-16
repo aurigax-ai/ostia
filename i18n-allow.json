@@ -68,6 +68,9 @@
         "manifest.commands.chat.category"
       ]
     },
+    "office:zh-Hant": {
+      "spreadsheet keywords Excel shows untranslated": ["messages.true", "messages.false"]
+    },
     "screens:zh-Hant": {
       "product and brand names": [
         "manifest.name",
@@ -93,6 +96,18 @@
         "manifest.commands.init.category"
       ]
     }
+  },
+  "unused": {
+    "read by the SDK's loadViewerBytes and runWorker outcomes": [
+      "csv:loading",
+      "csv:unreadable",
+      "csv:gone",
+      "csv:tooLarge",
+      "csv:timeout",
+      "office:loading",
+      "office:unreadable",
+      "office:gone"
+    ]
   },
   "literals": {
     "text": {

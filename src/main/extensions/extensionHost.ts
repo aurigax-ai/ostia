@@ -292,6 +292,7 @@ export class ExtensionHost {
         ...(platform ? { platform } : {}),
       })),
       languageServers: (m.contributes.languageServers ?? []).map(languageServerSummary),
+      fileViewers: (m.contributes.fileViewers ?? []).map(({ entry: _entry, ...viewer }) => viewer),
       agentSkills: (m.contributes.agentSkills ?? []).map((skill) => agentSkillId(m.id, skill.name)),
       agentHooks: (m.contributes.agentHooks ?? []).map((hook) => ({
         ...hook,

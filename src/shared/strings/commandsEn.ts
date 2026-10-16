@@ -80,6 +80,7 @@ export const commandsEn = {
       'editor.open': 'Open File',
       'editor.openExternal': 'Open in External Editor',
       'editor.openFiles': 'Open Files',
+      'file.openWith': 'Open With…',
       'files.reveal': 'Show Folder in Files',
       'git.blameFile': 'Blame File',
       'git.show': 'Show Changes',

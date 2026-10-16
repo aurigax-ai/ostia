@@ -43,6 +43,7 @@ export interface ArtifactHistoryDeps {
   folderOf: (workspaceId: string) => string | null
   isScratch: (workspaceId: string) => boolean
   make: (workspaceId: string, file: string) => Promise<string | null>
+  viewerMatches: (name: string) => boolean
   now?: () => number
   quietMs?: number
 }
@@ -95,12 +96,8 @@ function isRealDir(path: string): boolean {
   }
 }
 
-function isCopied(name: string): boolean {
-  return COPIED.has(extname(name).toLowerCase())
-}
-
-function keeps(name: string): boolean {
-  return name !== PAD_FILE && (portableType(name) !== null || isCopied(name))
+function isCopiedVersion(file: string): boolean {
+  return extname(file).toLowerCase() !== '.html'
 }
 
 export class ArtifactHistory {
@@ -129,7 +126,13 @@ export class ArtifactHistory {
     const folder = this.deps.folderOf(workspaceId)
     if (!folder || dirname(path) !== folder) return null
     const name = basename(path)
-    return keeps(name) ? name : null
+    return name !== PAD_FILE && (portableType(name) !== null || this.copies(name)) ? name : null
+  }
+
+  private copies(name: string): boolean {
+    const extension = extname(name).toLowerCase()
+    if (!extension || portableType(name) !== null) return false
+    return COPIED.has(extension) || this.deps.viewerMatches(name)
   }
 
   private versionsDir(workspaceId: string, name: string): string {
@@ -166,7 +169,8 @@ export class ArtifactHistory {
     if (!name || !isRegular(path)) return false
     let body: Buffer
     let hash: string
-    if (isCopied(name)) {
+    const copied = this.copies(name)
+    if (copied) {
       const read = await readRegularFile(path, PORTABLE_LIMITS.fileBytes)
       if (!read.ok) return false
       body = read.body
@@ -183,7 +187,7 @@ export class ArtifactHistory {
     if (this.stored(workspaceId, name)[0]?.hash === short) return false
     const dir = this.versionsDir(workspaceId, name)
     mkdirSync(dir, { recursive: true, mode: 0o700 })
-    const extension = isCopied(name) ? extname(name).toLowerCase() : '.html'
+    const extension = copied ? extname(name).toLowerCase() : '.html'
     await writeFile(join(dir, `${this.now()}-${short}${extension}`), body, { mode: 0o600 })
     this.prune(workspaceId, name)
     return true
@@ -263,7 +267,7 @@ export class ArtifactHistory {
     const found = this.stored(workspaceId, name).find((version) => version.id === id)
     if (!found) return null
     const type = portableType(name) ?? extname(name).slice(1).toLowerCase()
-    if (isCopied(name)) return { file: found.path, type, sources: {} }
+    if (isCopiedVersion(found.path)) return { file: found.path, type, sources: {} }
     const manifest = manifestOf(readFileSync(found.path, 'utf8'))
     return { file: found.path, type, sources: manifest?.sources ?? {} }
   }
@@ -285,7 +289,7 @@ export class ArtifactHistory {
     const found = this.stored(workspaceId, name).find((version) => version.id === id)
     if (!found) return null
     await this.snapshot(workspaceId, path)
-    const sources: [string, string | Buffer][] = isCopied(name)
+    const sources: [string, string | Buffer][] = isCopiedVersion(found.path)
       ? [[name, readFileSync(found.path)]]
       : Object.entries(manifestOf(readFileSync(found.path, 'utf8'))?.sources ?? {})
     const restored: string[] = []

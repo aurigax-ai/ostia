@@ -1,12 +1,15 @@
 import type { SelectionSend } from '@/components/agents/SelectionSend'
 import { IconButton } from '@/components/common/IconButton'
-import { useDict } from '@/lib/app/useDict'
-import { csvDelimiter } from '@/lib/files/csvTable'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { CodeIcon, EyeIcon, PaperPlaneTiltIcon, PlayIcon, TableIcon } from '@phosphor-icons/react'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
-import { CsvTable } from './CsvTable'
 import { HtmlPreview } from './HtmlPreview'
 import { MarkdownPreview, type PreviewSelection } from './MarkdownPreview'
+
+export interface OptionViewer {
+  name: string
+  show: () => void
+}
 
 interface EditorModesProps {
   workspaceId: string
@@ -22,9 +25,7 @@ interface EditorModesProps {
   selectionSend: Pick<SelectionSend, 'open'>
   running: boolean
   runnable: boolean
-  tabled: boolean
-  tabular: boolean
-  tableText: string
+  optionViewer?: OptionViewer
   setRunChoice: (choice: { file: string; on: boolean }) => void
   overlayRef: MutableRefObject<HTMLElement | null>
 }
@@ -43,9 +44,7 @@ export function EditorModes({
   selectionSend,
   running,
   runnable,
-  tabled,
-  tabular,
-  tableText,
+  optionViewer,
   setRunChoice,
   overlayRef,
 }: EditorModesProps): JSX.Element {
@@ -85,16 +84,13 @@ export function EditorModes({
           onSendRegion={(capture, image) => selectionSend.open(capture, image)}
         />
       ) : null}
-      {tabled && filePath ? (
-        <CsvTable source={tableText} delimiter={csvDelimiter(filePath)} focusRef={overlayRef} />
-      ) : null}
-      {tabular && filePath ? (
+      {optionViewer && !markdown && !runnable ? (
         <IconButton
           className="editor-mode"
-          icon={tabled ? CodeIcon : TableIcon}
-          label={tabled ? d.viewer.csvSource : d.viewer.csvTable}
+          icon={TableIcon}
+          label={fmt(d.viewer.showWith, { name: optionViewer.name })}
           hintSide="left"
-          onClick={() => setRunChoice({ file: filePath, on: !tabled })}
+          onClick={optionViewer.show}
         />
       ) : null}
       {runnable && filePath ? (

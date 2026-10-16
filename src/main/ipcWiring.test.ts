@@ -64,6 +64,7 @@ const PUSHED = [
   'scriptTokens:changed',
   'settings:changed',
   'sync:status',
+  'viewers:stopped',
   'views:changed',
   'window:confirm-close',
   'window:freeze',

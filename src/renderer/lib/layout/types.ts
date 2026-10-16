@@ -23,6 +23,7 @@ export interface PaneNode {
   kind: SurfaceKind
   cwd?: string
   filePath?: string
+  viewType?: string
   url?: string
   extensionId?: string
   chatSessionId?: string

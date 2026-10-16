@@ -375,7 +375,7 @@ describe('EditorView', () => {
     }
   }
 
-  it('gives the keyboard to the CSV table while it covers the source, and to the source once shown', async () => {
+  it('keeps the keyboard on the source of a CSV; its table opens in the csv viewer', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue({
       ok: true,
       version: 'v1',
@@ -383,14 +383,6 @@ describe('EditorView', () => {
     })
     const done = editorInSurface('p-csv', '/w/fruit.csv')
     await waitFor(() => expect(fake.state.input).not.toBeNull())
-    const user = userEvent.setup()
-
-    await user.click(screen.getByRole('button', { name: 'Show as table' }))
-    await screen.findByText('apples')
-    focusSurface('p-csv')
-    expect(document.activeElement).toBe(screen.getByTestId('csv-table'))
-
-    await user.click(screen.getByRole('button', { name: 'Edit CSV source' }))
     focusSurface('p-csv')
     expect(document.activeElement).toBe(fake.state.input)
     done()

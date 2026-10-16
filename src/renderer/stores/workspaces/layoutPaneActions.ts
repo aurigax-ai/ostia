@@ -13,6 +13,7 @@ import {
   setPaneSpawnDir,
   setPaneTitle,
   setPaneUrl,
+  setPaneViewType,
   setResumePending,
   settleSpawnDir,
 } from '@/lib/layout/paneFields'
@@ -27,6 +28,7 @@ type LayoutPaneActions = Pick<
   | 'setBrowserDevice'
   | 'followMovedFile'
   | 'setTitle'
+  | 'setViewType'
   | 'rename'
   | 'setDefaultTitle'
   | 'setResume'
@@ -89,6 +91,16 @@ export function createLayoutPaneActions(set: LayoutSet, get: LayoutGet): LayoutP
         const layout = s.byWorkspace[workspaceId]
         if (!layout) return s
         const root = setPaneTitle(layout.root, paneId, title)
+        return root === layout.root
+          ? s
+          : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+      }),
+
+    setViewType: (workspaceId, paneId, viewType) =>
+      set((s) => {
+        const layout = s.byWorkspace[workspaceId]
+        if (!layout) return s
+        const root = setPaneViewType(layout.root, paneId, viewType)
         return root === layout.root
           ? s
           : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }

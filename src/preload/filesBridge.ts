@@ -18,6 +18,8 @@ import type {
   FsTextResult,
   OpenPathResult,
   OstiaBridge,
+  ViewerOpenResult,
+  ViewerStopped,
   WorkspaceProject,
 } from '../shared/types'
 
@@ -25,6 +27,7 @@ export const filesBridge: Pick<
   OstiaBridge,
   | 'search'
   | 'fs'
+  | 'viewers'
   | 'remoteFiles'
   | 'openWaits'
   | 'files'
@@ -34,6 +37,15 @@ export const filesBridge: Pick<
 > = {
   search: {
     run: (req) => ipcRenderer.invoke('search:run', req) as Promise<SearchOutcome>,
+  },
+  viewers: {
+    open: (request) => ipcRenderer.invoke('viewers:open', request) as Promise<ViewerOpenResult>,
+    close: (paneId) => ipcRenderer.send('viewers:close', paneId),
+    onStopped: (cb) => {
+      const handler = (_e: Electron.IpcRendererEvent, event: ViewerStopped): void => cb(event)
+      ipcRenderer.on('viewers:stopped', handler)
+      return () => ipcRenderer.removeListener('viewers:stopped', handler)
+    },
   },
   fs: {
     list: (path) => ipcRenderer.invoke('fs:list', path) as Promise<FsEntry[]>,

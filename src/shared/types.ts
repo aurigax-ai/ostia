@@ -361,6 +361,33 @@ export interface ShellHistoryEntry {
 export interface FsEntry {
   name: string
   dir: boolean
+  archive?: true
+  link?: string
+  encrypted?: true
+}
+
+export interface ViewerOpenRequest {
+  workspaceId: string
+  paneId: string
+  path: string
+  viewType: string
+}
+
+export type ViewerOpenResult =
+  | { ok: true; src: string; partition: string }
+  | { ok: false; error: 'denied' | 'unknown-viewer' }
+
+export type ViewerStopReason = 'memory' | 'unresponsive'
+
+export interface ViewerStopped {
+  paneId: string
+  reason: ViewerStopReason
+}
+
+interface ViewersApi {
+  open: (request: ViewerOpenRequest) => Promise<ViewerOpenResult>
+  close: (paneId: string) => void
+  onStopped: (cb: (event: ViewerStopped) => void) => () => void
 }
 
 interface FsApi {
@@ -386,15 +413,19 @@ interface RemoteFilesApi {
   write: (path: string, content: string, baseVersion: string) => Promise<RemoteWriteResult>
 }
 
+export type ArchiveEntryProblem = 'encrypted' | 'link' | 'unzip-limit' | 'gone'
+
 export type FsBinaryResult =
   | { ok: true; data: Uint8Array }
   | { ok: false; error: 'denied' | 'unreadable' }
   | { ok: false; error: 'too-large'; size: number }
+  | { ok: false; error: 'archive'; reason: ArchiveEntryProblem }
 
 export type FsTextResult =
   | { ok: true; text: string; version: string }
   | { ok: false; error: 'missing' | 'denied' | 'unreadable' | 'binary' }
   | { ok: false; error: 'too-large'; size: number }
+  | { ok: false; error: 'archive'; reason: ArchiveEntryProblem }
 
 export type FsKind = 'file' | 'dir'
 
@@ -529,6 +560,7 @@ export interface SnapshotPaneNode {
   kind: SnapshotSurfaceKind
   cwd?: string
   filePath?: string
+  viewType?: string
   url?: string
   extensionId?: string
   chatSessionId?: string
@@ -1142,6 +1174,7 @@ export interface OstiaBridge {
   pty: PtyApi
   manager: ManagerApi
   fs: FsApi
+  viewers: ViewersApi
   search: SearchApi
   remoteFiles: RemoteFilesApi
   lsp: LspApi

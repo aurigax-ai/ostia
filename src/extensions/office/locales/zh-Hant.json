@@ -1,0 +1,32 @@
+{
+  "manifest": {
+    "name": "Office 文件",
+    "description": "以唯讀方式顯示試算表（.xlsx、.xlsm、.ods）的工作表與分頁，以及 Word 文件（.docx）的文字。它在自己的沙盒中解析你開啟的檔案，並設有大小、解壓縮與儲存格上限，超過時會說明原因；絕不執行巨集、絕不開啟連結，也不會把檔案傳送到任何地方。",
+    "fileViewers.office.spreadsheet.displayName": "試算表",
+    "fileViewers.office.document.displayName": "文件"
+  },
+  "messages": {
+    "loading": "載入中…",
+    "sheets": "工作表",
+    "true": "TRUE",
+    "false": "FALSE",
+    "empty": "這個工作表是空的。",
+    "rowsCut": "只顯示前 {rows} 列。",
+    "columnsCut": "只顯示前 {columns} 欄。",
+    "uncached": "沒有儲存值的公式：{count} 個。請用試算表程式開啟檔案以計算它們。",
+    "hidden": "未顯示的隱藏工作表：{count} 個。",
+    "sheetsCut": "只顯示前 {sheets} 個工作表。",
+    "cellsCut": "這個活頁簿超過 {cells} 個儲存格，因此省略了後面的工作表。",
+    "too-large": "檔案太大，無法預覽（上限為 {limit}）。",
+    "unzip-limit": "這個檔案解壓縮後超過 {limit}，因此不預覽。",
+    "cells-limit": "這個檔案會產生超過 {cells} 個儲存格，因此不預覽。",
+    "nodes-limit": "這個檔案的內容超過檢視器能安全顯示的量，因此不預覽。",
+    "timeout": "讀取這個檔案太久，已經停止。",
+    "failed": "無法讀取這個檔案。檔案可能已損毀，或是這個檢視器不支援的格式。",
+    "encrypted": "這個檔案受密碼保護，無法預覽。",
+    "gone": "這個檔案已經不在了。",
+    "imagesDropped": "略過的圖片：{count} 張（未內嵌、不支援的格式，或超過檢視器顯示的 20 MB）。",
+    "documentEmpty": "這份文件沒有可顯示的文字。",
+    "unreadable": "無法讀取這個檔案。"
+  }
+}

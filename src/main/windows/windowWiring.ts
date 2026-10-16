@@ -15,8 +15,9 @@ import { followAgentByHost } from '../browser/signinUserAgent'
 import { getByPaneId, removeWindow } from '../control/idRegistry'
 import type { Diagnostics } from '../diagnostics/diagnostics'
 import type { ExtensionHost } from '../extensions/extensionHost'
-import type { FileWatches } from '../files/fileWatch'
+import type { FileServices } from '../files/filesWiring'
 import type { OpenWaits } from '../files/openWaits'
+import { extensionOfViewerPartition } from '../files/viewers/viewerSessions'
 import type { GitService } from '../git/service'
 import type { ManagerService } from '../manager/manager'
 import type { SettingsFile } from '../platform/settingsFile'
@@ -38,7 +39,7 @@ interface WindowWiringDeps {
     clipboardEdits: ClipboardEdits | null
     diagnostics: Diagnostics | null
     extensionHost: ExtensionHost | null
-    fileWatches: FileWatches | null
+    files: FileServices | null
     gitService: GitService | null
     guestChords: GuestChords | null
     managerService: ManagerService | null
@@ -136,6 +137,24 @@ export function createWindowWiring({
     attachContextMenu(win.webContents, false, contextMenuText)
 
     win.webContents.on('will-attach-webview', (event, webPreferences, params) => {
+      if (extensionOfViewerPartition(params.partition)) {
+        if (
+          services.files?.viewers.acceptsAttach(
+            params.partition,
+            params.src,
+            String(win.webContents.id),
+          )
+        ) {
+          webPreferences.preload = undefined
+          webPreferences.nodeIntegration = false
+          webPreferences.contextIsolation = true
+          webPreferences.sandbox = true
+          Object.assign(webPreferences, { disablePopups: true })
+        } else {
+          event.preventDefault()
+        }
+        return
+      }
       if (isPreviewPartition(params.partition)) {
         if (previews.acceptsAttach(params.partition, params.src, String(win.webContents.id))) {
           hardenPreviewAttach(webPreferences, params)
@@ -167,6 +186,10 @@ export function createWindowWiring({
       services.clipboardEdits?.guardGuest(guest)
       services.guestChords?.guardGuest(guest)
       if (previews.adopt(guest)) return
+      if (services.files?.viewers.adopt(guest)) {
+        attachContextMenu(guest, false, contextMenuText)
+        return
+      }
       if (hardenExtensionGuest(guest)) {
         attachContextMenu(guest, false, contextMenuText)
         return
@@ -189,6 +212,7 @@ export function createWindowWiring({
     const wid = String(win.webContents.id)
     windows.set(wid, win)
     services.diagnostics?.watchWindow(win)
+    services.files?.viewers.followReloads(win.webContents, wid)
     win.on('hide', () => hidePtyFlow(wid))
     win.on('minimize', () => hidePtyFlow(wid))
     win.on('closed', () => {
@@ -197,8 +221,9 @@ export function createWindowWiring({
       services.portsService?.windowGone(wid)
       releaseWindowPtys(wid)
       previews.windowClosed(wid)
+      services.files?.viewers.forgetWindow(wid)
       openWaits.windowGone(wid)
-      services.fileWatches?.unwatchOwner(wid)
+      services.files?.watches.unwatchOwner(wid)
       commandsByWindow.delete(wid)
       for (const [paneId, wcId] of browserPanes) {
         if (getByPaneId(paneId)?.windowId === wid) {

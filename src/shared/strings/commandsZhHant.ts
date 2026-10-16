@@ -82,6 +82,7 @@ export const commandsZhHant: typeof commandsEn = {
       'editor.open': '開啟檔案',
       'editor.openExternal': '在外部編輯器中開啟',
       'editor.openFiles': '開啟多個檔案',
+      'file.openWith': '開啟方式…',
       'files.reveal': '在檔案面板顯示資料夾',
       'git.blameFile': '逐行追溯檔案',
       'git.show': '顯示變更',

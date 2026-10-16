@@ -505,6 +505,7 @@ describe('NotificationCenter', () => {
           category: 'other',
           languages: [],
           languageServers: [],
+          fileViewers: [],
           agentSkills: [],
           agentHooks: [],
           iconThemes: [],

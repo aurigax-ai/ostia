@@ -7,6 +7,7 @@ import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/compone
 import { forkConversation, forkableResume } from '@/lib/agents/forkConversation'
 import { hibernatableAgentPanes } from '@/lib/agents/hibernationScheduler'
 import { useDict } from '@/lib/app/useDict'
+import { viewerOptions } from '@/lib/files/viewerChoice'
 import { useChordLabel } from '@/lib/keyboard/chords'
 import { canCollapse } from '@/lib/layout/collapse'
 import { allPanes, splitTabOfPane } from '@/lib/layout/tree'
@@ -17,6 +18,7 @@ import { closableOtherTabPanes } from '@/lib/workspaces/closeConfirm'
 import { canMovePane, movePaneToNewWindow } from '@/lib/workspaces/windowHandoff'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
@@ -25,6 +27,7 @@ import {
   ArrowsInIcon,
   ArrowsInLineHorizontalIcon,
   ArrowsInSimpleIcon,
+  ArrowsLeftRightIcon,
   ArrowsOutIcon,
   ArrowsOutLineHorizontalIcon,
   ArrowsOutSimpleIcon,
@@ -74,6 +77,7 @@ export function PaneTabMenu({
     pane.kind === 'editor' && workspaceId && !isRemotePath(pane.filePath)
       ? pane.filePath
       : undefined
+  const viewable = useExtensionsStore((s) => viewerOptions(file, s.list).length > 0)
   const movable = workspaceId !== null && canMovePane(workspaceId, pane.id)
   const lockable = workspaceId !== null && pane.kind !== 'manager'
   const zoom = useLayoutStore((s) => {
@@ -152,6 +156,14 @@ export function PaneTabMenu({
             onClick={() => void commands.exec('pane.foldSplitTab', { tabId: splitTabId })}
           >
             {d.pane.foldSplitTab}
+          </MenuItem>
+        ) : null}
+        {viewable ? (
+          <MenuItem
+            icon={ArrowsLeftRightIcon}
+            onClick={() => void commands.exec('file.openWith', { paneId: pane.id })}
+          >
+            {d.viewer.openWith}
           </MenuItem>
         ) : null}
         {zoom ? (

@@ -1,6 +1,7 @@
 import { baseName, parentOf } from '@/lib/files/fileTree'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { type AgentResume, sameResume } from '@shared/agents/agentResume'
+import { isArchivePath } from '@shared/archives/archivePaths'
 import type { BrowserDevice } from '@shared/browser/browserDevice'
 import { type BrowserProfile, parseBrowserProfile } from '@shared/browser/browserProfile'
 import { isEqual } from 'es-toolkit'
@@ -155,20 +156,32 @@ export function setPaneEditor(
   title: string,
   filePath: string,
 ): LayoutNode {
-  if (isRemotePath(filePath)) {
-    return mapPane(root, paneId, ({ cwd: _local, ...p }) => ({
+  if (isRemotePath(filePath) || isArchivePath(filePath)) {
+    return mapPane(root, paneId, ({ cwd: _local, viewType: _viewType, ...p }) => ({
       ...p,
       kind: 'editor',
       title,
       filePath,
     }))
   }
-  return mapPane(root, paneId, (p) => ({
+  return mapPane(root, paneId, ({ viewType: _viewType, ...p }) => ({
     ...named(p, title),
     kind: 'editor',
     filePath,
     cwd: parentOf(filePath),
   }))
+}
+
+export function setPaneViewType(
+  root: LayoutNode,
+  paneId: string,
+  viewType: string | null,
+): LayoutNode {
+  return mapPane(root, paneId, (p) => {
+    if ((p.viewType ?? null) === viewType) return p
+    const { viewType: _previous, ...rest } = p
+    return viewType === null ? rest : { ...rest, viewType }
+  })
 }
 
 function movedPath(path: string, from: string, to: string): string | null {
