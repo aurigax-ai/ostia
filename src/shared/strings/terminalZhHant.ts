@@ -124,17 +124,6 @@ export const terminalZhHant: typeof terminalEn = {
     title: '要貼上這段文字嗎？',
     truncated: '預覽已截斷；仍會貼上完整文字。',
   },
-  scrollHistory: {
-    edge: '磁碟上還有 {count} 行較早的輸出',
-    live: '回到即時畫面',
-    match: '{index}/{count}',
-    nextMatch: '較新的符合項目',
-    oldest: '最早',
-    position: '第 {line} 行，共 {total} 行',
-    previousMatch: '較早的符合項目',
-    show: '顯示',
-    title: '較早的輸出',
-  },
   send: {
     groupTarget: '{agent}（{workspace}）',
     noGroupTargets: '此工作區及其群組都沒有執行中的代理程式。',
