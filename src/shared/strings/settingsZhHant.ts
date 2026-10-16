@@ -140,6 +140,7 @@ export const settingsZhHant: typeof settingsEn = {
     groupBell: '終端機響鈴',
     groupColors: '色彩',
     groupCommand: '指令',
+    groupComputer: '這台電腦',
     groupCursor: '游標',
     groupDesktop: '桌面',
     groupDisplay: '顯示',
@@ -160,6 +161,7 @@ export const settingsZhHant: typeof settingsEn = {
     groupSelection: '選取',
     groupSession: '工作階段',
     groupTheme: '主題與動態',
+    groupUpdates: '更新',
     groups: {
       agents: '代理程式',
       editor: '編輯器與瀏覽器',
@@ -199,6 +201,8 @@ export const settingsZhHant: typeof settingsEn = {
     lightTheme: '淺色主題',
     lineHeight: '終端機行高',
     lineHeightDesc: '以字型大小的倍數表示的行高。',
+    log: '記錄檔',
+    logDesc: '{product} 寫入記錄檔的資料夾。',
     longCommandSeconds: '視為長指令的秒數',
     longCommandSecondsDesc: '執行至少這麼久的指令，在 {product} 位於背景時完成會通知你。',
     macOptionIsMeta: 'Option 作為 Meta',
@@ -231,6 +235,7 @@ export const settingsZhHant: typeof settingsEn = {
     notifyWhenFocusedDesc:
       '關閉時，{product} 視窗在前景時通知只顯示在 {product} 內；開啟時也會傳送到系統。',
     openFile: '開啟設定檔',
+    operatingSystem: '作業系統',
     osc52Write: '允許程式複製到剪貼簿',
     osc52WriteDesc:
       'tmux、vim 或透過 ssh 執行的代理程式等程式可用 OSC 52 設定剪貼簿，但永遠無法讀取。',

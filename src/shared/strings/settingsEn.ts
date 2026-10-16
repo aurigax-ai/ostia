@@ -144,6 +144,7 @@ export const settingsEn = {
     groupBell: 'Terminal bell',
     groupColors: 'Colors',
     groupCommand: 'Command',
+    groupComputer: 'This computer',
     groupCursor: 'Cursor',
     groupDesktop: 'Desktop',
     groupDisplay: 'Display',
@@ -164,6 +165,7 @@ export const settingsEn = {
     groupSelection: 'Selection',
     groupSession: 'Session',
     groupTheme: 'Theme and motion',
+    groupUpdates: 'Updates',
     groups: {
       agents: 'Agents',
       editor: 'Editor and browser',
@@ -203,6 +205,8 @@ export const settingsEn = {
     lightTheme: 'Light theme',
     lineHeight: 'Terminal line height',
     lineHeightDesc: 'Row height as a multiple of the font size.',
+    log: 'Log',
+    logDesc: 'The folder where {product} writes its log files.',
     longCommandSeconds: 'Long command after (seconds)',
     longCommandSecondsDesc:
       'A command that runs at least this long notifies you when it finishes while {product} is in the background.',
@@ -239,6 +243,7 @@ export const settingsEn = {
     notifyWhenFocusedDesc:
       'Off: while a {product} window is in front, notifications only appear in {product}. On: they also go to the system.',
     openFile: 'Open settings file',
+    operatingSystem: 'Operating system',
     osc52Write: 'Let programs copy to the clipboard',
     osc52WriteDesc:
       'Programs such as tmux, vim or an agent over ssh may set the clipboard with OSC 52. They can never read it.',
