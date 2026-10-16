@@ -1,0 +1,30 @@
+import type { ColorScheme } from '@/lib/theme/types'
+
+export const oneDarkVivid: ColorScheme = {
+  id: 'one-dark-vivid',
+  name: 'One Dark Vivid',
+  appearance: 'dark',
+  colors: {
+    background: '#282c34',
+    foreground: '#d7dae0',
+    cursor: '#61afef',
+    cursorAccent: '#282c34',
+    selectionBackground: 'rgba(97, 175, 239, 0.25)',
+    black: '#3a4150',
+    red: '#ef596f',
+    green: '#89ca78',
+    yellow: '#e5c07b',
+    blue: '#61afef',
+    magenta: '#d55fde',
+    cyan: '#56b6c2',
+    white: '#d7dae0',
+    brightBlack: '#636d83',
+    brightRed: '#ef596f',
+    brightGreen: '#89ca78',
+    brightYellow: '#e5c07b',
+    brightBlue: '#61afef',
+    brightMagenta: '#d55fde',
+    brightCyan: '#56b6c2',
+    brightWhite: '#ffffff',
+  },
+}

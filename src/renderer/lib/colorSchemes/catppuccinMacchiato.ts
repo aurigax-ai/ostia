@@ -1,0 +1,31 @@
+import type { ColorScheme } from '@/lib/theme/types'
+
+export const catppuccinMacchiato: ColorScheme = {
+  id: 'catppuccin-macchiato',
+  name: 'Catppuccin Macchiato',
+  appearance: 'dark',
+  colors: {
+    background: '#24273a',
+    foreground: '#cad3f5',
+    cursor: '#f4dbd6',
+    cursorAccent: '#24273a',
+    selectionBackground: '#f4dbd6',
+    selectionForeground: '#24273a',
+    black: '#494d64',
+    red: '#ed8796',
+    green: '#a6da95',
+    yellow: '#eed49f',
+    blue: '#8aadf4',
+    magenta: '#f5bde6',
+    cyan: '#8bd5ca',
+    white: '#b8c0e0',
+    brightBlack: '#5b6078',
+    brightRed: '#f2a7b2',
+    brightGreen: '#bde3b0',
+    brightYellow: '#f4e3c1',
+    brightBlue: '#adc5f7',
+    brightMagenta: '#f493da',
+    brightCyan: '#a5ded6',
+    brightWhite: '#a5adcb',
+  },
+}

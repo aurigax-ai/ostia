@@ -1,0 +1,31 @@
+import type { ColorScheme } from '@/lib/theme/types'
+
+export const catppuccinFrappe: ColorScheme = {
+  id: 'catppuccin-frappe',
+  name: 'Catppuccin Frappé',
+  appearance: 'dark',
+  colors: {
+    background: '#303446',
+    foreground: '#c6d0f5',
+    cursor: '#f2d5cf',
+    cursorAccent: '#303446',
+    selectionBackground: '#f2d5cf',
+    selectionForeground: '#303446',
+    black: '#51576d',
+    red: '#e78284',
+    green: '#a6d189',
+    yellow: '#e5c890',
+    blue: '#8caaee',
+    magenta: '#f4b8e4',
+    cyan: '#81c8be',
+    white: '#b5bfe2',
+    brightBlack: '#626880',
+    brightRed: '#eda0a2',
+    brightGreen: '#b9dba2',
+    brightYellow: '#ecd7ae',
+    brightBlue: '#adc2f3',
+    brightMagenta: '#f38ed8',
+    brightCyan: '#98d2ca',
+    brightWhite: '#a5adce',
+  },
+}
