@@ -97,6 +97,7 @@ export const appZhHant: typeof appEn = {
       copyImage: '複製圖片',
       copyLink: '複製連結網址',
       forward: '下一頁',
+      openLinkInNewTab: '在新分頁中開啟連結',
       reload: '重新載入',
     },
     extensionConfirm: { cancel: '取消', ok: '確定' },

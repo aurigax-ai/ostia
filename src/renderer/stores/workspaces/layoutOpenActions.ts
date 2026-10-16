@@ -66,19 +66,19 @@ export function createLayoutOpenActions(set: LayoutSet, get: LayoutGet): LayoutO
       }
     },
 
-    openBrowserTab: (workspaceId, url, profile, background) => {
+    openBrowserTab: (workspaceId, url, profile, placement = {}) => {
       const seeded = seedLayout(set, get, workspaceId, (p) => setPaneBrowser(p, p.id, url, profile))
       if (seeded) return seeded
       let createdPaneId: string | null = null
       set((s) => {
         const next = patch(s, workspaceId, (l) => {
-          const asked = background?.beside && findPane(l.root, background.beside)
+          const asked = placement.beside && findPane(l.root, placement.beside)
           const beside = asked
             ? asked.id
             : (browserPaneInUse(l.root, l.activePaneId, profile)?.id ?? l.activePaneId)
           const pane = createPane('browser')
           createdPaneId = pane.id
-          const quiet = background !== undefined
+          const quiet = placement.background === true
           const root = setPaneBrowser(addTab(l.root, beside, pane, quiet), pane.id, url, profile)
           return quiet ? { ...l, root } : { ...l, root, activePaneId: pane.id }
         })

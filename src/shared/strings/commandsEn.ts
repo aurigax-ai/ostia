@@ -97,6 +97,7 @@ export const commandsEn = {
       'pane.focusLeft': 'Focus Pane on the Left',
       'pane.focusRight': 'Focus Pane on the Right',
       'pane.focusUp': 'Focus Pane Above',
+      'pane.foldSplitTab': 'Fold Split Tab',
       'pane.hibernate': 'Hibernate Tab',
       'pane.hibernated': 'Read Whether a Pane Is Hibernated',
       'pane.joinTab': 'Move Panes to Split Tab',

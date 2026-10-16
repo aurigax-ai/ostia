@@ -8,8 +8,10 @@ import { pushConsoleEntry } from './browse'
 import type { ConsoleEntry } from './browseMethod'
 import { OSTIA_ERROR_PREFIX, PAGE_ERROR_CATCHER_JS, injectPageScripts } from './browsePageScripts'
 import { holdFirstLoad } from './guestFirstLoad'
+import { LINK_CLICK_SCRIPT, clickedLinkOf } from './guestLinkClicks'
 import { watchGuestNetwork } from './guestNetwork'
 import { openHumanPopups } from './guestPopups'
+import { openGuestTab, tabReferrerOf } from './guestTabs'
 import { type BrowserAgents, followAgentByHost, useBrowserAgents } from './signinUserAgent'
 
 interface BrowserGuestsDeps {
@@ -49,6 +51,15 @@ export function createBrowserGuests({
     })
   }
 
+  function isHumanProfile(guest: Electron.WebContents): boolean {
+    return guest.session === session.fromPartition(SHARED_BROWSER_PARTITION)
+  }
+
+  function tabReferrerOfGuest(guest: Electron.WebContents, url: string): string | undefined {
+    const host = guest.hostWebContents
+    return host ? tabReferrerOf(host.id, url) : undefined
+  }
+
   const instrumentedGuests = new WeakSet<Electron.WebContents>()
 
   function instrumentBrowserGuest(gc: Electron.WebContents, attaching = false): void {
@@ -56,6 +67,7 @@ export function createBrowserGuests({
     if (!instrumentedGuests.has(gc)) {
       instrumentedGuests.add(gc)
       gc.on('console-message', (event) => {
+        if (clickedLinkOf(event.message) !== null) return
         const entry: ConsoleEntry = {
           level: event.level,
           text: event.message,
@@ -71,9 +83,10 @@ export function createBrowserGuests({
       let registered: Promise<unknown> = Promise.resolve()
       try {
         gc.debugger.attach('1.3')
-        registered = injectPageScripts(gc, [PAGE_ERROR_CATCHER_JS, PASSKEY_GUARD_JS])
+        const linkClicks = isHumanProfile(gc) ? [LINK_CLICK_SCRIPT] : []
+        registered = injectPageScripts(gc, [PAGE_ERROR_CATCHER_JS, PASSKEY_GUARD_JS, ...linkClicks])
       } catch {}
-      if (attaching) void holdFirstLoad(gc, registered)
+      if (attaching) void holdFirstLoad(gc, registered, (url) => tabReferrerOfGuest(gc, url))
     }
     watchGuestNetwork(gc)
   }
@@ -89,16 +102,23 @@ export function createBrowserGuests({
     followAgentByHost(contents, agents, url)
   }
 
+  function attachBrowserMenu(guest: Electron.WebContents): void {
+    const openLinkInNewTab = isHumanProfile(guest)
+      ? (url: string, referrer: Electron.Referrer) => openGuestTab(guest, url, true, referrer)
+      : undefined
+    attachContextMenu(guest, true, contextMenuText, openLinkInNewTab)
+  }
+
   function allowHumanPopups(guest: Electron.WebContents): void {
     openHumanPopups(guest, {
-      isHumanProfile: (opener) =>
-        opener.session === session.fromPartition(SHARED_BROWSER_PARTITION),
+      isHumanProfile,
       ownerWindow: (opener) => {
         const host = opener.hostWebContents
         const owner = host ? BrowserWindow.fromWebContents(host) : null
         return owner && [...windows.values()].includes(owner) ? owner : null
       },
       prepare: prepareBrowserPopup,
+      openTab: openGuestTab,
     })
   }
 
@@ -126,6 +146,7 @@ export function createBrowserGuests({
     extensionOfPartition,
     browserAgentsOf,
     instrumentBrowserGuest,
+    attachBrowserMenu,
     allowHumanPopups,
     hardenExtensionGuest,
   }

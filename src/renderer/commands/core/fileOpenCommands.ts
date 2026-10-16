@@ -140,9 +140,10 @@ export function registerFileOpenCommands(): void {
         return
       }
       const opened = openKeepingFocus(() =>
-        useLayoutStore
-          .getState()
-          .openBrowserTab(workspaceId, url, profile, { beside: ctx.activePaneId ?? undefined }),
+        useLayoutStore.getState().openBrowserTab(workspaceId, url, profile, {
+          beside: ctx.activePaneId ?? undefined,
+          background: true,
+        }),
       )
       if (opened) markOpenedQuietly(opened, url)
     },

@@ -3,7 +3,7 @@ type Listener = (details: unknown) => void
 export interface FirstLoadGuest {
   isDestroyed(): boolean
   stop(): void
-  loadURL(url: string): Promise<unknown>
+  loadURL(url: string, options: { httpReferrer?: string }): Promise<unknown>
   on(event: 'did-start-navigation', listener: Listener): unknown
   off(event: 'did-start-navigation', listener: Listener): unknown
 }
@@ -20,6 +20,7 @@ function newDocumentUrl(details: unknown): string | null {
 export function holdFirstLoad(
   guest: FirstLoadGuest,
   ready: Promise<unknown>,
+  referrerOf: (url: string) => string | undefined,
   defer: (run: () => void) => void = setImmediate,
 ): void {
   const settled = ready.catch(() => {})
@@ -40,7 +41,9 @@ export function holdFirstLoad(
       void settled.then(() => {
         if (guest.isDestroyed()) return
         guest.off('did-start-navigation', onNext)
-        if (!replaced) guest.loadURL(url).catch(() => {})
+        if (replaced) return
+        const httpReferrer = referrerOf(url)
+        guest.loadURL(url, httpReferrer ? { httpReferrer } : {}).catch(() => {})
       })
     })
   }

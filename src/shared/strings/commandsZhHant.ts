@@ -99,6 +99,7 @@ export const commandsZhHant: typeof commandsEn = {
       'pane.focusLeft': '聚焦左側窗格',
       'pane.focusRight': '聚焦右側窗格',
       'pane.focusUp': '聚焦上方窗格',
+      'pane.foldSplitTab': '摺疊分割分頁',
       'pane.hibernate': '讓分頁休眠',
       'pane.hibernated': '讀取窗格是否休眠中',
       'pane.joinTab': '將窗格移到分割分頁',

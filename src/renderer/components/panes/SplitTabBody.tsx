@@ -3,7 +3,6 @@ import { stateLabel } from '@/components/agents/PickSendPanel'
 import { QuestionNotice } from '@/components/agents/QuestionNotice'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { STRIP_SIZE, isStrip, stripSizes } from '@/lib/layout/collapse'
-import { allPanes } from '@/lib/layout/tree'
 import type { Direction, LayoutNode, PaneNode, SplitNode } from '@/lib/layout/types'
 import { cellDropTarget, dropZoneAt } from '@/lib/panes/dropZone'
 import { PANE_DND, dropPaneOn, isPaneDrag } from '@/lib/panes/paneDrag'
@@ -32,7 +31,41 @@ interface CellContext {
   stackTabIds: readonly string[]
 }
 
-function SplitCell({ pane, ctx }: { pane: PaneNode; ctx: CellContext }): JSX.Element {
+function StripFace({
+  pane,
+  workspaceId,
+}: {
+  pane: PaneNode
+  workspaceId: string
+}): JSX.Element {
+  const d = useDict()
+  const title = usePaneTitle(pane)
+  const state = useAttentionStore((s) => s.byPane[pane.id]?.state ?? 'none')
+  const face = (
+    <button
+      type="button"
+      className="pane-strip-main text-ui-sm"
+      aria-label={fmt(d.pane.expandSplitPane, { title })}
+      onClick={() => focusPane(pane.id)}
+    >
+      <TabFace pane={pane} segment />
+      {state === 'none' ? null : (
+        <span className="pane-strip-state text-ui-xs">{stateLabel(d, state)}</span>
+      )}
+    </button>
+  )
+  return <PaneTabMenu pane={pane} workspaceId={workspaceId} trigger={face} />
+}
+
+function SplitCell({
+  pane,
+  ctx,
+  across,
+}: {
+  pane: PaneNode
+  ctx: CellContext
+  across: Direction
+}): JSX.Element {
   const cellRef = useRef<HTMLDivElement>(null)
   const dragging = usePaneDnd((s) => s.dragging)
   const over = usePaneDnd((s) => (s.overId === pane.id ? s.zone : null))
@@ -44,7 +77,9 @@ function SplitCell({ pane, ctx }: { pane: PaneNode; ctx: CellContext }): JSX.Ele
   )
   const trustFolder = useFolderTrustStore((s) => (ctx.shown ? s.byPane[pane.id] : undefined))
   const dimInactive = useSettingsStore((s) => s.panes.dimInactive)
+  const mark = usePaneMark(pane)
   const focused = pane.id === ctx.focusedId
+  const collapsed = pane.collapsed === true
 
   const targetAt = (e: DragEvent<HTMLElement>, sourceId: string | null) => {
     const rect = cellRef.current?.getBoundingClientRect()
@@ -80,15 +115,23 @@ function SplitCell({ pane, ctx }: { pane: PaneNode; ctx: CellContext }): JSX.Ele
   return (
     <div
       ref={cellRef}
-      className={cn(
-        'pane-cell',
-        focused && 'focused',
-        ctx.frameActive && !focused && dimInactive && 'dimmed',
-      )}
-      data-cell-id={pane.id}
+      className={
+        collapsed
+          ? 'pane-strip'
+          : cn(
+              'pane-cell',
+              focused && 'focused',
+              ctx.frameActive && !focused && dimInactive && 'dimmed',
+            )
+      }
+      data-cell-id={collapsed ? undefined : pane.id}
+      data-strip-id={collapsed ? pane.id : undefined}
+      data-across={collapsed ? across : undefined}
+      data-attention={collapsed ? (mark ?? undefined) : undefined}
     >
-      <TabBody pane={pane} shown />
-      {approval ? (
+      {collapsed ? <StripFace pane={pane} workspaceId={ctx.workspaceId} /> : null}
+      <TabBody pane={pane} shown={!collapsed} />
+      {collapsed ? null : approval ? (
         <ApprovalCard request={approval} paneTitle={pane.title} />
       ) : question ? (
         <QuestionNotice question={question} />
@@ -99,8 +142,8 @@ function SplitCell({ pane, ctx }: { pane: PaneNode; ctx: CellContext }): JSX.Ele
       ) : ctx.shown && pane.resume ? (
         <ResumeConflictNotice pane={pane} />
       ) : null}
-      <FileDropCover kind={pane.kind} workspaceId={ctx.workspaceId} />
-      {dragging ? (
+      {collapsed ? null : <FileDropCover kind={pane.kind} workspaceId={ctx.workspaceId} />}
+      {dragging && !collapsed ? (
         <div
           className="pane-cell-drop-layer"
           onDragOver={onDragOver}
@@ -108,83 +151,37 @@ function SplitCell({ pane, ctx }: { pane: PaneNode; ctx: CellContext }): JSX.Ele
           onDrop={onDrop}
         />
       ) : null}
-      {over ? <span className={`pane-drop pane-drop-${over}`} /> : null}
+      {over && !collapsed ? <span className={`pane-drop pane-drop-${over}`} /> : null}
     </div>
   )
 }
 
-function PaneStrip({
-  pane,
-  across,
-  workspaceId,
+function SplitTabSplit({
+  split,
+  ctx,
+  band,
 }: {
-  pane: PaneNode
-  across: Direction
-  workspaceId: string
+  split: SplitNode
+  ctx: CellContext
+  band: Direction | null
 }): JSX.Element {
-  const d = useDict()
-  const title = usePaneTitle(pane)
-  const mark = usePaneMark(pane)
-  const state = useAttentionStore((s) => s.byPane[pane.id]?.state ?? 'none')
-  const strip = (
-    <div
-      className="pane-strip"
-      data-across={across}
-      data-attention={mark ?? undefined}
-      data-strip-id={pane.id}
-    >
-      <button
-        type="button"
-        className="pane-strip-main text-ui-sm"
-        aria-label={fmt(d.pane.expandSplitPane, { title })}
-        onClick={() => focusPane(pane.id)}
-      >
-        <TabFace pane={pane} segment />
-        {state === 'none' ? null : (
-          <span className="pane-strip-state text-ui-xs">{stateLabel(d, state)}</span>
-        )}
-      </button>
-      <TabBody pane={pane} shown={false} />
-    </div>
-  )
-  return <PaneTabMenu pane={pane} workspaceId={workspaceId} trigger={strip} />
-}
-
-function Strips({
-  node,
-  across,
-  workspaceId,
-}: {
-  node: LayoutNode
-  across: Direction
-  workspaceId: string
-}): JSX.Element {
-  if (node.type === 'pane') {
-    return <PaneStrip pane={node} across={across} workspaceId={workspaceId} />
-  }
-  return (
-    <div className="pane-strip-group" data-across={across}>
-      {allPanes(node).map((pane) => (
-        <PaneStrip key={pane.id} pane={pane} across={across} workspaceId={workspaceId} />
-      ))}
-    </div>
-  )
-}
-
-function SplitTabSplit({ split, ctx }: { split: SplitNode; ctx: CellContext }): JSX.Element {
   const resize = useLayoutStore((s) => s.resize)
   const allotment = useRef<AllotmentHandle>(null)
   const reported = useRef<number[]>([])
   const sizes = useRef(split.sizes)
   sizes.current = split.sizes
-  const strips = split.children.map(isStrip)
+  const laidOut = useRef<string | null>(null)
+  const strips = split.children.map((child) => band === null && isStrip(child))
   const stripKey = strips.map(Number).join('')
   const measured = reported.current.reduce((sum, n) => sum + n, 0)
 
   useLayoutEffect(() => {
     const total = reported.current.reduce((sum, n) => sum + n, 0)
     const marks = [...stripKey].map((c) => c === '1')
-    if (total > 0) allotment.current?.resize(stripSizes(sizes.current, marks, total))
+    const before = laidOut.current ?? stripKey
+    const opened = marks.map((strip, i) => !strip && before[i] === '1')
+    laidOut.current = stripKey
+    if (total > 0) allotment.current?.resize(stripSizes(sizes.current, marks, total, opened))
   }, [stripKey])
 
   return (
@@ -201,24 +198,35 @@ function SplitTabSplit({ split, ctx }: { split: SplitNode; ctx: CellContext }): 
       {split.children.map((child, i) => (
         <Allotment.Pane
           key={child.id}
-          minSize={strips[i] ? STRIP_SIZE : 120}
+          minSize={band ? STRIP_SIZE : strips[i] ? STRIP_SIZE : 120}
           maxSize={strips[i] ? STRIP_SIZE : Number.POSITIVE_INFINITY}
         >
-          {strips[i] ? (
-            <Strips node={child} across={split.direction} workspaceId={ctx.workspaceId} />
-          ) : (
-            <SplitTabNode node={child} ctx={ctx} />
-          )}
+          <SplitTabNode
+            node={child}
+            ctx={ctx}
+            across={band ?? split.direction}
+            band={band ?? (strips[i] ? split.direction : null)}
+          />
         </Allotment.Pane>
       ))}
     </Allotment>
   )
 }
 
-function SplitTabNode({ node, ctx }: { node: LayoutNode; ctx: CellContext }): JSX.Element | null {
-  if (node.type === 'pane') return <SplitCell pane={node} ctx={ctx} />
+function SplitTabNode({
+  node,
+  ctx,
+  across,
+  band,
+}: {
+  node: LayoutNode
+  ctx: CellContext
+  across: Direction
+  band: Direction | null
+}): JSX.Element | null {
+  if (node.type === 'pane') return <SplitCell pane={node} ctx={ctx} across={across} />
   if (node.type === 'tabs') return null
-  return <SplitTabSplit split={node} ctx={ctx} />
+  return <SplitTabSplit split={node} ctx={ctx} band={band} />
 }
 
 export function SplitTabBody({ tab, ...ctx }: CellContext & { tab: SplitNode }): JSX.Element {
@@ -233,7 +241,7 @@ export function SplitTabBody({ tab, ...ctx }: CellContext & { tab: SplitNode }):
       data-split-tab-id={tab.id}
       ref={ref}
     >
-      <SplitTabNode node={tab} ctx={ctx} />
+      <SplitTabNode node={tab} ctx={ctx} across={tab.direction} band={null} />
     </div>
   )
 }

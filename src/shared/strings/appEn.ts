@@ -97,6 +97,7 @@ export const appEn = {
       copyImage: 'Copy Image',
       copyLink: 'Copy Link Address',
       forward: 'Forward',
+      openLinkInNewTab: 'Open Link in New Tab',
       reload: 'Reload',
     },
     extensionConfirm: { cancel: 'Cancel', ok: 'OK' },
