@@ -50,7 +50,8 @@ export const terminalBridge: Pick<
     keptWaiting: () => ipcRenderer.invoke('pty:kept-waiting') as Promise<string[]>,
     restart: (paneId) => ipcRenderer.invoke('pty:restart', paneId) as Promise<boolean>,
     reportAgentRunning: (paneId, running) => ipcRenderer.send('pty:agent-running', paneId, running),
-    reportWaking: (paneId, waking) => ipcRenderer.send('pty:waking', paneId, waking),
+    reportWaking: (paneId, waking, reason) =>
+      ipcRenderer.send('pty:waking', paneId, waking, reason),
     write: (paneId, data) => ipcRenderer.send('pty:write', paneId, data),
     ack: (paneId, chars) => ipcRenderer.send('pty:ack', paneId, chars),
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),

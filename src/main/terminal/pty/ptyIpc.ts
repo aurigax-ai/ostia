@@ -127,11 +127,11 @@ function registerPtyControlIpc({
     openWaits.windowGone(String(contents.id))
   })
 
-  ipcMain.on('pty:waking', (e, paneId: unknown, waking: unknown) => {
+  ipcMain.on('pty:waking', (e, paneId: unknown, waking: unknown, reason: unknown) => {
     if (typeof paneId !== 'string' || typeof waking !== 'boolean') return
     if (getByPaneId(paneId)?.windowId !== String(e.sender.id)) return
     if (waking) paneWaking.start(paneId)
-    else paneWaking.end(paneId, 'failed')
+    else paneWaking.end(paneId, 'failed', typeof reason === 'string' ? reason : undefined)
   })
 
   ipcMain.on('pty:write', (e, paneId: string, data: string) => {
