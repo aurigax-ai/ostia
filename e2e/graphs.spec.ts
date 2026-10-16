@@ -155,7 +155,10 @@ test('GRF-C140 a workspace with no graphs shows a centred empty state with the f
       const guest = webContents
         .getAllWebContents()
         .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
-      return guest?.executeJavaScript("document.querySelector('.empty-action button').click()", true)
+      return guest?.executeJavaScript(
+        "document.querySelector('.empty-action button').click()",
+        true,
+      )
     })
     await expect.poll(() => text(app, '.empty-action button'), { timeout: 10_000 }).toBe('Copied')
     expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe('.ostia/graphs')
