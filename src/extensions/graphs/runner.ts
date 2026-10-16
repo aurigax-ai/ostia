@@ -183,6 +183,7 @@ export class GraphsRunner {
   private workspaces = new Map<string, Workspace>()
   private scopes = new Map<string, string>()
   private shared = new Set<string>()
+  private owners = new Map<string, string>()
   private registered: {
     client: RuntimeClient | null
     folders: Map<string, { scope: string; sandboxed: boolean }>
@@ -261,16 +262,20 @@ export class GraphsRunner {
       this.registered = { client, folders: new Map(), workerScopes: '' }
     const scopes = new Map<string, string>()
     const shared = new Set<string>()
-    const owners = new Set<string>()
+    const byFolder = new Map<string, Workspace[]>()
     for (const w of this.open()) {
       const folder = realFolder(w.workDir)
-      if (owners.has(folder)) {
-        shared.add(w.workspaceId)
-        continue
-      }
-      owners.add(folder)
-      scopes.set(w.workspaceId, await this.register(client, folder, w))
+      byFolder.set(folder, [...(byFolder.get(folder) ?? []), w])
     }
+    const owners = new Map<string, string>()
+    for (const [folder, open] of byFolder) {
+      const kept = open.find((w) => w.workspaceId === this.owners.get(folder))
+      const owner = kept ?? (open[0] as Workspace)
+      owners.set(folder, owner.workspaceId)
+      for (const w of open) if (w !== owner) shared.add(w.workspaceId)
+      scopes.set(owner.workspaceId, await this.register(client, folder, owner))
+    }
+    this.owners = owners
     this.scopes = scopes
     this.shared = shared
     for (const scope of this.openScopes()) {

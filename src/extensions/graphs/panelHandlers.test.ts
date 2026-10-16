@@ -342,4 +342,33 @@ describe('the Graphs panel data', () => {
     expect(await h.runner.runs('w1')).toHaveLength(1)
     expect((await call<ListModel>('list')).graphs[0]?.skipped).toBe(2)
   })
+
+  it('GRF-C86 the workspace that owns a shared folder keeps it while it is open, whatever order the list comes in, and the other takes over with its own sandboxed flag once the owner closes', async () => {
+    const { h, workDir, call } = await panel({ agent: AGENT })
+    const def = await call<Definition>('definition', { name: 'agent' })
+    const first: Workspace = { workspaceId: 'w1', workDir, kind: 'terminal' }
+    const second: Workspace = { workspaceId: 'w2', workDir, kind: 'terminal', sandboxed: true }
+    const sandboxedFlags = () =>
+      Object.values(
+        JSON.parse(readFileSync(join(h.runtime.paths.data, 'scopes.json'), 'utf8')) as Record<
+          string,
+          { folder: string; sandboxed: boolean }
+        >,
+      )
+        .filter((s) => s.folder === realpathSync(workDir))
+        .map((s) => s.sandboxed)
+    await h.runner.setWorkspaces([first, second])
+    await h.runner.setWorkspaces([second, first])
+    expect(await h.runner.graphs('w2')).toMatchObject({ error: 'shared-folder' })
+    expect(await h.runner.enable('w1', 'agent', def.fingerprint)).toEqual({ ok: true })
+    expect(sandboxedFlags()).toEqual([false])
+
+    await h.runner.setWorkspaces([second])
+    expect(sandboxedFlags()).toEqual([true])
+    const listed = await h.runner.graphs('w2')
+    expect(Array.isArray(listed) && listed.map((g) => g.entry.name)).toEqual(['agent'])
+    await h.runner.setWorkspaces([second, first])
+    expect(await h.runner.graphs('w1')).toMatchObject({ error: 'shared-folder' })
+    expect(sandboxedFlags()).toEqual([true])
+  })
 })

@@ -9,6 +9,7 @@ import {
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
 import type { Definition, GraphRow, ListModel, RunModel } from './panelModel'
+import { renderGate } from './renderGate'
 
 const t = panelTranslator({ en: en.messages, 'zh-Hant': zhHant.messages })
 const root = document.getElementById('root') as HTMLElement
@@ -365,11 +366,10 @@ async function runtimeNote(): Promise<HTMLElement> {
   )
 }
 
-let renders = 0
-let painted = 0
+const gate = renderGate<View>()
 
 async function render(): Promise<void> {
-  const mine = ++renders
+  const mine = gate.begin()
   const shown = view
   const note = await runtimeNote()
   const body =
@@ -380,8 +380,7 @@ async function render(): Promise<void> {
         : shown.kind === 'runs'
           ? await runsView(shown.name)
           : await runView(shown.runId)
-  if (shown !== view || mine < painted) return
-  painted = mine
+  if (!gate.mayPaint(mine, shown, view)) return
   const back = shown.kind === 'list' ? null : button(t('action.back'), () => go({ kind: 'list' }))
   root.replaceChildren(
     h(
