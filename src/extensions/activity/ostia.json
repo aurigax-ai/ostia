@@ -72,7 +72,7 @@
         "type": "boolean",
         "title": "Show activity",
         "default": false,
-        "description": "Show each agent's events under its recap in the Activity panel"
+        "description": "Show each agent's turns as a timeline in the Activity panel, with its tool actions folded into one group per turn"
       },
       "retentionDays": {
         "type": "number",

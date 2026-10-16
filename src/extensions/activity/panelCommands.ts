@@ -1,4 +1,5 @@
 import {
+  type ExtensionCaller,
   type ExtensionResult,
   type OstiaExtension,
   failure,
@@ -31,11 +32,11 @@ interface PanelCommandsDeps {
   changed: () => void
 }
 
-export function activityPanelCommands(
-  deps: PanelCommandsDeps,
-): Record<string, (args: unknown) => Promise<ExtensionResult>> {
+export type PanelCommand = (args: unknown, caller: ExtensionCaller) => Promise<ExtensionResult>
+
+export function activityPanelCommands(deps: PanelCommandsDeps): Record<string, PanelCommand> {
   const { ext, journal, state, settingsLoaded, refreshWorkspaces, changed } = deps
-  const snapshot = async (): Promise<ExtensionResult> => {
+  const snapshot = async (_args: unknown, caller: ExtensionCaller): Promise<ExtensionResult> => {
     await settingsLoaded
     const open = await refreshWorkspaces()
     if (!open) return failure('unavailable')
@@ -49,7 +50,7 @@ export function activityPanelCommands(
       undefined,
       panelModel({
         showActivity: state.showActivity,
-        workspaces: open,
+        workspace: open.find((w) => w.workspaceId === caller.workspaceId),
         panes,
         events: (workspaceId) => journal.events(workspaceId),
       }),
