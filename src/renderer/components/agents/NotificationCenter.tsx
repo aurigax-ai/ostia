@@ -16,6 +16,7 @@ import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { TrayIcon } from '@phosphor-icons/react'
 import type { NotificationEntry } from '@shared/types'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -74,19 +75,10 @@ function useUnreadTotal(): number {
   })
 }
 
-export function NotificationCenter(): JSX.Element {
-  const d = useDict()
-  const locale = useSettingsStore((s) => s.locale)
-  const unread = useUnreadTotal()
-  const [open, setOpen] = useState(false)
+function useNotificationEntries(
+  open: boolean,
+): [NotificationEntry[], (entries: NotificationEntry[]) => void] {
   const [entries, setEntries] = useState<NotificationEntry[]>([])
-  const [tab, setTab] = useState<NotificationTab>('all')
-  const approvalsPending = useApprovalsStore((s) => s.pending.length)
-  const labelOf = usePaneLabels()
-  const extensions = useExtensionsStore((s) => s.list)
-  const panelOf = (extId: string | undefined) =>
-    extId ? (extensions.find((e) => e.id === extId && e.enabled && e.panel) ?? null) : null
-
   useEffect(() => {
     if (!open) return
     let live = true
@@ -102,50 +94,87 @@ export function NotificationCenter(): JSX.Element {
       off()
     }
   }, [open])
+  return [entries, setEntries]
+}
+
+function NotificationEntryItem({
+  entry,
+  where,
+  ext,
+  time,
+  onOpened,
+}: {
+  entry: NotificationEntry
+  where: PaneLabel | null
+  ext: ExtensionInfo | null
+  time: Intl.DateTimeFormat
+  onOpened: () => void
+}): JSX.Element {
+  const d = useDict()
+  const whereText = ext ? ext.name : where ? where.pane : d.attention.closedPane
+  return (
+    <li>
+      <Item
+        size="xs"
+        className="gap-0.5 p-1.5 text-left hover:bg-surface-2 disabled:text-fg-muted disabled:hover:bg-transparent"
+        render={
+          <button
+            type="button"
+            disabled={!where && !ext}
+            onClick={() => {
+              if (ext) {
+                openExtensionPanel(
+                  entry.panelPath ? { extId: ext.id, path: entry.panelPath } : { extId: ext.id },
+                )
+                onOpened()
+              } else if (entry.paneId) {
+                if (!revealPane(entry.paneId)) window.ostia.notifications.reveal(entry.paneId)
+                onOpened()
+              }
+            }}
+          />
+        }
+      >
+        <ItemHeader className="text-fg-muted text-ui-xs tabular-nums">
+          <span className="truncate">{whereText}</span>
+          <time dateTime={entry.ts}>{time.format(new Date(entry.ts))}</time>
+        </ItemHeader>
+        <ItemContent className="basis-full text-ui-sm [overflow-wrap:anywhere]">
+          {entry.body ? `${entry.title}: ${entry.body}` : entry.title}
+        </ItemContent>
+      </Item>
+    </li>
+  )
+}
+
+export function NotificationCenter(): JSX.Element {
+  const d = useDict()
+  const locale = useSettingsStore((s) => s.locale)
+  const unread = useUnreadTotal()
+  const [open, setOpen] = useState(false)
+  const [entries, setEntries] = useNotificationEntries(open)
+  const [tab, setTab] = useState<NotificationTab>('all')
+  const approvalsPending = useApprovalsStore((s) => s.pending.length)
+  const labelOf = usePaneLabels()
+  const extensions = useExtensionsStore((s) => s.list)
+  const panelOf = (extId: string | undefined) =>
+    extId ? (extensions.find((e) => e.id === extId && e.enabled && e.panel) ?? null) : null
 
   const time = useMemo(
     () => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }),
     [locale],
   )
 
-  const renderEntry = (entry: NotificationEntry): JSX.Element => {
-    const where = labelOf(entry.paneId)
-    const ext = panelOf(entry.extId)
-    const whereText = ext ? ext.name : where ? where.pane : d.attention.closedPane
-    return (
-      <li key={entry.id}>
-        <Item
-          size="xs"
-          className="gap-0.5 p-1.5 text-left hover:bg-surface-2 disabled:text-fg-muted disabled:hover:bg-transparent"
-          render={
-            <button
-              type="button"
-              disabled={!where && !ext}
-              onClick={() => {
-                if (ext) {
-                  openExtensionPanel(
-                    entry.panelPath ? { extId: ext.id, path: entry.panelPath } : { extId: ext.id },
-                  )
-                  setOpen(false)
-                } else if (entry.paneId) {
-                  if (!revealPane(entry.paneId)) window.ostia.notifications.reveal(entry.paneId)
-                  setOpen(false)
-                }
-              }}
-            />
-          }
-        >
-          <ItemHeader className="text-fg-muted text-ui-xs tabular-nums">
-            <span className="truncate">{whereText}</span>
-            <time dateTime={entry.ts}>{time.format(new Date(entry.ts))}</time>
-          </ItemHeader>
-          <ItemContent className="basis-full text-ui-sm [overflow-wrap:anywhere]">
-            {entry.body ? `${entry.title}: ${entry.body}` : entry.title}
-          </ItemContent>
-        </Item>
-      </li>
-    )
-  }
+  const renderEntry = (entry: NotificationEntry): JSX.Element => (
+    <NotificationEntryItem
+      key={entry.id}
+      entry={entry}
+      where={labelOf(entry.paneId)}
+      ext={panelOf(entry.extId)}
+      time={time}
+      onOpened={() => setOpen(false)}
+    />
+  )
 
   const groups = groupNotifications(
     entries.filter((e) => inTab(e, tab)),
