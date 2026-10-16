@@ -4,5 +4,11 @@
     "name": "ostia pane wake answers ok only after the agent reported its start",
     "issue": 1028,
     "until": "2026-10-23"
+  },
+  {
+    "file": "src/main/files/archives/archives.test.ts",
+    "name": "Archives > refuses a bomb entry by its declared size and by its real size",
+    "issue": 1039,
+    "until": "2026-10-30"
   }
 ]
