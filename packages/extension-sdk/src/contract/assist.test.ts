@@ -4,16 +4,20 @@ import {
   CHAT_CONTEXT_TEXT_MAX,
   CHAT_TOOL_OUTPUT_MAX,
   COMPLETION_PREFIX_MAX,
+  sameModelRef,
+} from './assist'
+import {
   normalizeAssistRequest,
   normalizeAssistResult,
-  normalizeAssistStatus,
   normalizeChatContextItem,
+} from './assistPayloads'
+import {
+  normalizeAssistStatus,
   normalizeModelRef,
   normalizeProviderKinds,
   normalizeProviderStates,
   parseAssistModelSettings,
-  sameModelRef,
-} from './assist'
+} from './assistReports'
 
 describe('normalizeAssistRequest', () => {
   it('keeps only known typo/review tasks and needs a non-empty draft', () => {

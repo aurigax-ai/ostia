@@ -2,7 +2,7 @@
   "name": "language servers",
   "paths": [
     "packages/extension-sdk/src/contract/editorLanguages.ts",
-    "packages/extension-sdk/src/contract/languageServers.ts",
+    "packages/extension-sdk/src/contract/languageServer",
     "src/extensions/lsp-",
     "src/main/extensions/marketplace/extensionSuggestions.ts",
     "src/main/lsp/editorLanguages.ts",

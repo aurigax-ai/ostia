@@ -6,7 +6,7 @@ import { parsePaneSettings, parseTerminalSettings } from '@/lib/settings/termina
 import { parseWindowTitle } from '@/lib/settings/windowTitle'
 import type { GroupRule } from '@/lib/sidebar/workspaceGroups'
 import { normalizeHex } from '@/lib/theme/color'
-import { parseAssistModelSettings } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { parseAssistModelSettings } from '@aurigax-ai/ostia-extension-sdk/contract/assistReports'
 import type { ExtensionSettingValues } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import { parseAgentHooks } from '@shared/agents/agentHooks'

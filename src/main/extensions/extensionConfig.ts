@@ -2,14 +2,18 @@ import {
   CONNECTIONS_CHANGED_EVENT,
   type ExtensionConnectionEntry,
   type ExtensionConnectionResult,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionConnections'
+import {
   type ExtensionInfo,
-  type ExtensionSecretResult,
-  type ExtensionSettingResult,
   type ExtensionSettingValues,
   SETTINGS_CHANGED_EVENT,
   effectiveSettingValues,
   validSettingValue,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type {
+  ExtensionSecretResult,
+  ExtensionSettingResult,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import type { PaneIdentity } from '../control/idRegistry'

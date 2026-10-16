@@ -1147,7 +1147,7 @@ A panel is a pane surface rendering your page in a sandboxed `<webview>`:
   entry); other navigations are blocked and `window.open` goes to the OS browser for http(s);
 - it talks to **your process**, never to Ostia directly — serve an API next to the page.
 
-The built-ins run a small HTTP server on `127.0.0.1:0` (`packages/extension-sdk/src/client/index.ts`,
+The built-ins run a small HTTP server on `127.0.0.1:0` (`packages/extension-sdk/src/client/panelServer.ts`,
 `startPanelServer`): the panel URL carries a per-run secret, `/api` requires it in a header,
 requests with a foreign `Host` or `Origin` are refused, and `/events` pushes "changed" over SSE
 so the panel updates when an agent edits data from the CLI. Do the same if your panel has data.

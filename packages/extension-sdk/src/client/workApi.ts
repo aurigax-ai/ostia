@@ -1,4 +1,4 @@
-import type { ConnectionInfo, ConnectionValue } from '../contract/extensions'
+import type { ConnectionInfo, ConnectionValue } from '../contract/extensionConnections'
 export interface ExecOptions {
   workspaceId: string
   command: string[]

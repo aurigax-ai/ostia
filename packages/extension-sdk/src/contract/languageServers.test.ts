@@ -1,16 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
-  SERVER_JSON_MAX_BYTES,
   configurationSection,
   documentLanguageId,
-  downloadUrlProblem,
+  overlaySettings,
+  substituteJson,
+} from './languageServerConfig'
+import { downloadUrlProblem, parseLanguageServers } from './languageServerManifest'
+import {
+  SERVER_JSON_MAX_BYTES,
   languageServerCommand,
   languageServerSummary,
-  overlaySettings,
   parseLanguageServerOverride,
-  parseLanguageServers,
   splitLanguageServerKey,
-  substituteJson,
 } from './languageServers'
 
 const options = {

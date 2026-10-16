@@ -1,5 +1,9 @@
 import { languageForPath } from '@aurigax-ai/ostia-extension-sdk/contract/editorLanguages'
 import {
+  documentLanguageId,
+  substituteJson,
+} from '@aurigax-ai/ostia-extension-sdk/contract/languageServerConfig'
+import {
   type JsonObject,
   LSP_LOG_MAX_ENTRIES,
   type LanguageServerInfo,
@@ -8,11 +12,9 @@ import {
   type LspLogEntry,
   type LspSessionInfo,
   type LspStopReason,
-  documentLanguageId,
   languageServerFeature,
   languageServerKey,
   pinnedVersion,
-  substituteJson,
 } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import type { LogFields } from '../diagnostics/appLog'
 import type { TreeChange } from '../files/fileWatch'

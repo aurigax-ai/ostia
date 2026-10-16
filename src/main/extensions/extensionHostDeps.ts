@@ -1,12 +1,14 @@
 import type { AssistOpenUiRequest } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import type {
+  ExtensionResult,
+  WorkspaceChip,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type {
   ExtensionAgentOffer,
   ExtensionOpenDiffRequest,
   ExtensionOpenFileRequest,
   ExtensionOpenPanelRequest,
-  ExtensionResult,
-  WorkspaceChip,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import type { RemoteCwd } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import type { ExtensionRoot } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import type { RedactionResult } from '../../shared/privacy/redaction'

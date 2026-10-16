@@ -5,14 +5,12 @@ import {
   type ExtensionManifest,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
-import {
-  EXTENSION_ID_PATTERN,
-  readManifest,
-} from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
+import { readManifest } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import {
   loadLocaleCatalogs,
   manifestIn,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/localeCatalogs'
+import { EXTENSION_ID_PATTERN } from '@aurigax-ai/ostia-extension-sdk/manifest/manifestFields'
 import {
   MARKETPLACE_CODE_PATTERN,
   planCopy,

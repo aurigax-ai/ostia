@@ -4,7 +4,7 @@ import {
   type ExtensionEventPayloads,
   type ExtensionEventType,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { parseCommand } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
+import { parseCommand } from '@aurigax-ai/ostia-extension-sdk/manifest/manifestContributions'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { hasCap } from '../approvals/capabilityStore'
 import type { PaneIdentity } from '../control/idRegistry'

@@ -1,11 +1,11 @@
 import type { AssistApi } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import type { EditorLanguagesApi } from '@aurigax-ai/ostia-extension-sdk/contract/editorLanguages'
+import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type {
   ExtensionOpenTerminalRequest,
-  ExtensionResult,
   ExtensionsApi,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import type { IconThemesApi } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
 import type { LanguagePacksApi } from '@aurigax-ai/ostia-extension-sdk/contract/languagePack'
 import type { LspApi } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'

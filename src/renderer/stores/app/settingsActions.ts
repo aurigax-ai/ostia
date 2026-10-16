@@ -8,7 +8,7 @@ import {
 } from '@/lib/settings/terminalPaneSettings'
 import { parseWindowTitle } from '@/lib/settings/windowTitle'
 import { normalizeHex } from '@/lib/theme/color'
-import { parseAssistModelSettings } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { parseAssistModelSettings } from '@aurigax-ai/ostia-extension-sdk/contract/assistReports'
 import { parseManagerSettings } from '@shared/agents/managerSettings'
 import { clampZoom } from '@shared/app/zoom'
 import { parseChatToolSettings } from '@shared/assist/chatTools'

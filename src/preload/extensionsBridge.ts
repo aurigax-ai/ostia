@@ -1,16 +1,20 @@
 import type {
   ExtensionConnectionEntry,
   ExtensionConnectionResult,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionConnections'
+import type {
   ExtensionInfo,
-  ExtensionOpenTerminalRequest,
-  ExtensionPanelSource,
   ExtensionResult,
-  ExtensionSecretResult,
-  ExtensionSettingResult,
   ExtensionSidebarItem,
   PaneChip,
   WorkspaceChip,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type {
+  ExtensionOpenTerminalRequest,
+  ExtensionPanelSource,
+  ExtensionSecretResult,
+  ExtensionSettingResult,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import type { LoadedIconTheme } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
 import type { LanguagePack } from '@aurigax-ai/ostia-extension-sdk/contract/languagePack'
 import { ipcRenderer } from 'electron'
