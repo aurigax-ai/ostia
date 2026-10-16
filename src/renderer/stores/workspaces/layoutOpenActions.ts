@@ -11,6 +11,7 @@ import type { LayoutNode } from '@/lib/layout/types'
 import { patch } from '@/lib/panes/layoutPatch'
 import { joinedTerminal, markNewSplitTab, splitTabAnchor } from '@/lib/panes/splitTabPlacement'
 import { forgetSplitTabSeeds, seedSplitTab } from '@/lib/panes/splitTabSeeds'
+import { noteOpener } from '@/lib/panes/tabHistory'
 import { newTerminalPane, seedLayout } from './layoutSeed'
 import type { LayoutGet, LayoutSet, LayoutState, OpenTerminalPlacement } from './layoutTypes'
 
@@ -70,6 +71,7 @@ export function createLayoutOpenActions(set: LayoutSet, get: LayoutGet): LayoutO
       const seeded = seedLayout(set, get, workspaceId, (p) => setPaneBrowser(p, p.id, url, profile))
       if (seeded) return seeded
       let createdPaneId: string | null = null
+      let openerId: string | null = null
       set((s) => {
         const next = patch(s, workspaceId, (l) => {
           const asked = placement.beside && findPane(l.root, placement.beside)
@@ -78,12 +80,14 @@ export function createLayoutOpenActions(set: LayoutSet, get: LayoutGet): LayoutO
             : (browserPaneInUse(l.root, l.activePaneId, profile)?.id ?? l.activePaneId)
           const pane = createPane('browser')
           createdPaneId = pane.id
+          openerId = beside
           const quiet = placement.background === true
           const root = setPaneBrowser(addTab(l.root, beside, pane, quiet), pane.id, url, profile)
           return quiet ? { ...l, root } : { ...l, root, activePaneId: pane.id }
         })
         return next ?? s
       })
+      if (createdPaneId && openerId) noteOpener(workspaceId, createdPaneId, openerId)
       if (createdPaneId) {
         window.ostia?.lifecycle?.emit?.({
           type: 'pane-created',
