@@ -24,7 +24,6 @@ interface EditorOptionsParams {
   padHint: string
   setPadFull: (full: boolean) => void
   setPreview: Dispatch<SetStateAction<boolean>>
-  reducedMotion: boolean
   font: SurfaceFont
 }
 
@@ -35,7 +34,6 @@ export function useEditorOptions({
   padHint,
   setPadFull,
   setPreview,
-  reducedMotion,
   font,
 }: EditorOptionsParams): void {
   useEffect(() => {
@@ -53,10 +51,6 @@ export function useEditorOptions({
     editor.updateOptions({ placeholder: padHint })
     return () => editor.updateOptions({ placeholder: '' })
   }, [editorRef, pad, padHint, setPadFull, setPreview])
-
-  useEffect(() => {
-    editorRef.current?.updateOptions({ smoothScrolling: !reducedMotion })
-  }, [editorRef, reducedMotion])
 
   useEffect(() => {
     editorRef.current?.updateOptions({
