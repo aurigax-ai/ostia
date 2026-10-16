@@ -25,6 +25,7 @@ import {
   terminalScreen,
 } from '@/lib/terminal/ostiaTerminal'
 import { TERMINAL_INPUT_SELECTOR } from '@/lib/terminal/ostiaTerminal'
+import { drawOnGpu } from '@/lib/terminal/softwareGl'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { keepDrawing, usePauseWhenHidden } from '@/lib/terminal/usePauseWhenHidden'
 import { type WebglRenderer, createWebglRenderer } from '@/lib/terminal/webglRenderer'
@@ -352,7 +353,7 @@ function startTerminal(deps: StartTerminalDeps): () => void {
     engine,
     host,
     options: initialTerminalOptions(),
-    gpuAcceleration: useSettingsStore.getState().behavior.gpuAcceleration,
+    gpuAcceleration: drawOnGpu(useSettingsStore.getState().behavior.gpuAcceleration),
     links,
   })
   const { term } = created

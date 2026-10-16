@@ -24,6 +24,8 @@ import {
 } from 'vitest'
 import { TerminalView } from './Terminal'
 
+vi.mock('@/lib/terminal/softwareGl', () => ({ drawOnGpu: (requested: boolean) => requested }))
+
 if (!Element.prototype.getAnimations) {
   Element.prototype.getAnimations = () => []
 }

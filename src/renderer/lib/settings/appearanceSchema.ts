@@ -154,8 +154,9 @@ export const behaviorSchema = {
       type: 'boolean',
       description:
         'Draw terminals on the GPU (WebGL). Block and box-drawing characters then fill ' +
-        'their cells exactly. Falls back to the DOM renderer when WebGL is unavailable. ' +
-        'Applies to new terminals.',
+        'their cells exactly. Falls back to the DOM renderer (the canvas renderer with the ' +
+        'ghostty engine) when WebGL is unavailable or runs in software. Applies to new ' +
+        'terminals.',
     },
     restoreWorkspace: {
       type: 'boolean',
