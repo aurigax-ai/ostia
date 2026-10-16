@@ -127,6 +127,24 @@ const sessionAgents = new WeakMap<AgentSession, BrowserAgents>()
 const deviceAgents = new Map<number, DeviceAgent>()
 const followers = new Map<number, () => void>()
 
+interface AgentChange {
+  done: Promise<void>
+  redirectedTo?: string
+}
+
+const applying = new Map<number, AgentChange>()
+
+export function restartAfterAgent(
+  guestId: number,
+  url: string,
+  method: string,
+): Promise<void> | undefined {
+  const pending = applying.get(guestId)
+  if (pending?.redirectedTo !== url || method !== 'GET') return undefined
+  pending.redirectedTo = undefined
+  return pending.done
+}
+
 export function setDeviceAgent(guestId: number, agent: DeviceAgent | null): void {
   if (agent) deviceAgents.set(guestId, agent)
   else deviceAgents.delete(guestId)
@@ -189,23 +207,31 @@ export function followAgentByHost(
   followedGuests.add(guest)
   const guestId = guest.id
   const override = (userAgent: string, userAgentMetadata: UserAgentMetadata): void => {
-    void guest.debugger
+    const done = guest.debugger
       .sendCommand('Emulation.setUserAgentOverride', { userAgent, userAgentMetadata })
-      .catch(() => {})
+      .then(
+        () => {},
+        () => {},
+      )
+      .finally(() => {
+        if (applying.get(guestId)?.done === done) applying.delete(guestId)
+      })
+    applying.set(guestId, { done })
   }
   let url = startUrl
   let current: string | DeviceAgent | null = null
-  const apply = (): void => {
+  const apply = (): boolean => {
     const next =
       deviceAgents.get(guestId) ?? (url === undefined ? agents.rewritten : agentFor(url, agents))
-    if (next === current) return
+    if (next === current) return false
     current = next
     if (typeof next === 'string') override(next, agents.metadata)
     else override(next.userAgent, next.metadata)
+    return true
   }
-  const follow = (next: string): void => {
+  const follow = (next: string): boolean => {
     url = next
-    apply()
+    return apply()
   }
   followers.set(guestId, apply)
   apply()
@@ -213,10 +239,13 @@ export function followAgentByHost(
     if (details.isMainFrame && !details.isSameDocument) follow(details.url)
   })
   guest.on('did-redirect-navigation', (details) => {
-    if (details.isMainFrame) follow(details.url)
+    if (!details.isMainFrame || !follow(details.url)) return
+    const pending = applying.get(guestId)
+    if (pending) pending.redirectedTo = details.url
   })
   guest.on('destroyed', () => {
     followers.delete(guestId)
     deviceAgents.delete(guestId)
+    applying.delete(guestId)
   })
 }

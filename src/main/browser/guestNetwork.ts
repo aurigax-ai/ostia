@@ -1,5 +1,6 @@
 import type { NetworkRequest } from '../../shared/browser/browseNetwork'
 import type { PickFailedRequest } from '../../shared/browser/pick'
+import { restartAfterAgent } from './signinUserAgent'
 
 export const MAX_FAILED_REQUESTS = 200
 const MAX_LOGGED_REQUESTS = 500
@@ -236,7 +237,8 @@ export function forgetGuestNetwork(wcId: number): void {
 export interface PausedRequest {
   requestId: string
   networkId?: string
-  request: { url: string }
+  resourceType?: string
+  request: { url: string; method?: string }
 }
 
 export interface PausedReply {
@@ -253,6 +255,7 @@ interface FetchUse {
 }
 
 const CAPTURE_ALL = ['*']
+const DOCUMENT_PATTERN = { urlPattern: '*', resourceType: DOCUMENT_TYPE }
 const watched = new WeakSet<Electron.WebContents>()
 const fetchUses = new Map<number, FetchUse>()
 
@@ -267,11 +270,9 @@ function fetchUse(wcId: number): FetchUse {
 
 function syncFetch(guest: Electron.WebContents, use: FetchUse): Promise<unknown> {
   const patterns = use.capturing ? CAPTURE_ALL : use.patterns
-  return patterns.length === 0
-    ? guest.debugger.sendCommand('Fetch.disable')
-    : guest.debugger.sendCommand('Fetch.enable', {
-        patterns: patterns.map((urlPattern) => ({ urlPattern })),
-      })
+  return guest.debugger.sendCommand('Fetch.enable', {
+    patterns: [...patterns.map((urlPattern) => ({ urlPattern })), DOCUMENT_PATTERN],
+  })
 }
 
 export async function setGuestRoutes(
@@ -304,6 +305,19 @@ export function watchGuestNetwork(guest: Electron.WebContents): void {
     }
     if (method !== 'Fetch.requestPaused') return
     const paused = params as PausedRequest
+    const restart =
+      paused.resourceType === DOCUMENT_TYPE
+        ? restartAfterAgent(wcId, paused.request.url, paused.request.method ?? 'GET')
+        : undefined
+    if (restart) {
+      guest.debugger
+        .sendCommand('Fetch.failRequest', { requestId: paused.requestId, errorReason: 'Aborted' })
+        .catch(() => {})
+      void restart.then(() => {
+        if (!guest.isDestroyed()) guest.loadURL(paused.request.url).catch(() => {})
+      })
+      return
+    }
     const reply = use.respond?.(paused) ?? {
       method: 'Fetch.continueRequest',
       params: { requestId: paused.requestId },
