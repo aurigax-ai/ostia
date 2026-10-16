@@ -6,7 +6,6 @@ import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { SecretReveal, SecretSyncStatus } from '../../shared/types'
 import type { CredentialStore } from '../browser/credentials'
 import { type SecretStoreDeps, sanitizeSecrets } from '../extensions/extensionSecrets'
-import { BASE_DIR } from './engine'
 import { mergeMaps } from './merge'
 import {
   type BundleHeader,
@@ -20,6 +19,7 @@ import {
   unwrapKey,
   withPassword,
 } from './secretCrypto'
+import { BASE_DIR } from './syncStore'
 
 export type SecretSourceName = 'vault' | 'extensions' | 'assistant' | 'mcp' | 'logins'
 
