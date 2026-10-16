@@ -19,6 +19,8 @@ export interface HistoryFeed {
   close(commandStarts: number): Promise<void>
 }
 
+const SPILL_HEAP_LIMITS = { maxYoungGenerationSizeMb: 4, maxOldGenerationSizeMb: 1024 }
+
 type Reply = Extract<SpillEvent, { kind: 'reply' }>
 
 export class SpillClient {
@@ -154,9 +156,14 @@ export function historyWorkerScript(appPath: string): string {
   return join(appPath.replace(/\.asar$/, '.asar.unpacked'), 'out/history/worker.js')
 }
 
-export function startSpillWorker(script: string): SpillClient {
-  const worker = new Worker(script)
+export function spillWorker(script: string): Worker {
+  const worker = new Worker(script, { resourceLimits: SPILL_HEAP_LIMITS })
   worker.unref()
+  return worker
+}
+
+export function startSpillWorker(script: string): SpillClient {
+  const worker = spillWorker(script)
   const client = new SpillClient(worker as unknown as SpillPort)
   worker.on('error', (err) => client.end(err.message))
   worker.on('exit', () => client.end('spill-worker-exited'))

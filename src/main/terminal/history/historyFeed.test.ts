@@ -9,7 +9,7 @@ import {
   spillInThread,
 } from '../../../../test/historySpill'
 import { ScreenMirror } from '../screenMirror'
-import { type SpillClient, startSpillWorker } from './historyFeed'
+import { SpillClient, type SpillPort, spillWorker, startSpillWorker } from './historyFeed'
 import { newHistoryKey } from './historyRecords'
 import { SPILL_BATCH } from './historySpill'
 import { PaneHistory } from './paneHistory'
@@ -57,6 +57,21 @@ describe('history feed', () => {
     expect(await plain(history)).toEqual(
       Array.from({ length: 3 * SPILL_BATCH }, (_, i) => `out ${i}`),
     )
+  })
+
+  it('keeps the worker heap small after a burst of output across panes', async () => {
+    const worker = spillWorker(HISTORY_WORKER_SCRIPT)
+    owned.push({ dispose: () => void worker.terminate() })
+    const client = new SpillClient(worker as unknown as SpillPort)
+    const feeds = Array.from({ length: 10 }, () => client.open(makeHistory(), 160, 24))
+    let peak = 0
+    for (let round = 0; round < 40; round++) {
+      for (const feed of feeds) feed.write(`${'x'.repeat(150)}\r\n`.repeat(SPILL_BATCH))
+      await Promise.all(feeds.map((feed) => feed.tail()))
+      peak = Math.max(peak, (await worker.getHeapStatistics()).total_heap_size)
+    }
+    await Promise.all(feeds.map((feed) => feed.close(0)))
+    expect(peak).toBeLessThan(96 * 1024 * 1024)
   })
 
   it('turns history off with the reason when the worker is gone, and answers what was asked', async () => {
