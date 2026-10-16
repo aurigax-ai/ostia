@@ -36,7 +36,8 @@ ostia activity add "Split the API client into transport and retry layers"
 ostia activity list                    # notes, needs-you items and agents' closing recaps
 ostia activity list --open             # needs-you items nobody has marked done
 ostia activity list --since 2h --json  # also: --needs-you, --archived, --since 2026-10-14T09:00
-ostia activity show <id>
+ostia activity show <id> [--workspace <id>]
+ostia activity open                    # opens the Activity panel for the human
 ```
 
 - You read your own workspace. `--workspace <id>` reads another one and needs the

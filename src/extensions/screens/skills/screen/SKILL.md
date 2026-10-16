@@ -54,6 +54,12 @@ ostia screen windows
 Add `--screen <id>` when the workspace has more than one screen. A sandboxed screen reaches only
 the domains the workspace allows; a page on another host waits until the human allows it.
 
+Flags: `create [--width N] [--height N] [--allow DOMAIN]…` (sizes 64 to 8192; a sandboxed
+workspace takes no `--allow`), `screenshot [--max-side N]`,
+`click [--button B] [--count N] [--modifiers KEYS] [--down|--up]`, `drag` and `scroll` with
+`[--modifiers KEYS]`, and `key <keys…> [--repeat N]`. `ostia screen open` opens the Screens panel
+for the human.
+
 ## Rules
 
 - Take a screenshot before you click, and after, to see what changed.

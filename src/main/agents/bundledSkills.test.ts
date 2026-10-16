@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join, normalize } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { findNoun } from '../../cli/common/usageTable'
+import { USAGE_TABLE, findNoun } from '../../cli/common/usageTable'
 import { type BundledSkillFile, CORE_SKILL_FILES, MANAGER_SKILL_FILES } from './bundledSkills'
 
 const ROOT = join(__dirname, '..', '..', '..')
@@ -15,7 +15,7 @@ interface Manifest {
   id: string
   contributes?: {
     verb?: string
-    commands?: { id: string }[]
+    commands?: { id: string; usage?: string; stdin?: true }[]
     agentSkills?: { name: string; path: string; files?: string[] }[]
   }
 }
@@ -104,6 +104,94 @@ function commandsShown(text: string): [string, string | undefined][] {
     m[2],
   ])
 }
+
+const HUMAN_MANAGES_TOKENS = [
+  'token create',
+  'token update',
+  'token show',
+  'token list',
+  'token revoke',
+]
+const HUMAN_INSTALLS_POLKIT_ACTION = ['polkit install']
+const HUMAN_IMPORTS_CMUX_SESSION = ['cmux import']
+const ADMIN_ONLY_COMMANDS = new Set([
+  ...HUMAN_MANAGES_TOKENS,
+  ...HUMAN_INSTALLS_POLKIT_ACTION,
+  ...HUMAN_IMPORTS_CMUX_SESSION,
+])
+const EXTENSIONS_FOR_THE_HUMAN_NO_AGENT_SKILL_COVERS = new Set([
+  'assistant',
+  'keeper',
+  'model-runtime',
+  'ssh',
+  'trellis',
+])
+
+interface CliSurface {
+  label: string
+  noun: string
+  verb?: string
+  args?: string
+}
+
+function surface(noun: string, verb: string | undefined, args: string | undefined): CliSurface {
+  return { label: ['ostia', noun, verb].filter(Boolean).join(' '), noun, verb, args }
+}
+
+function cliSurfaces(): CliSurface[] {
+  return USAGE_TABLE.filter((usage) => usage.audience !== 'plumbing').flatMap((usage) => {
+    const verbs = (usage.verbs ?? []).filter((verb) => !verb.hidden)
+    if (verbs.length === 0) return [surface(usage.noun, undefined, usage.args)]
+    return verbs.map((verb) => surface(usage.noun, verb.verb, verb.args))
+  })
+}
+
+function extensionSurfaces(): CliSurface[] {
+  return manifests()
+    .filter((manifest) => !EXTENSIONS_FOR_THE_HUMAN_NO_AGENT_SKILL_COVERS.has(manifest.id))
+    .flatMap((manifest) =>
+      (manifest.contributes?.commands ?? [])
+        .filter((command) => !command.stdin)
+        .map((command) =>
+          surface(manifest.contributes?.verb ?? manifest.id, command.id, command.usage),
+        ),
+    )
+}
+
+function flagsOf(args: string | undefined): string[] {
+  return [...new Set(args?.match(/(?<![\w-])--?[a-zA-Z][\w-]*/g) ?? [])]
+}
+
+function mentions(text: string, shown: CliSurface): boolean {
+  const verb = shown.verb ? ` ${shown.verb}` : ''
+  const direct = new RegExp(`ostia ${shown.noun}${verb}(?![\\w-])`)
+  const alternate = new RegExp(
+    `ostia ${shown.noun} [^\\n]*\\| (?:${shown.noun} )?${shown.verb}(?![\\w-])`,
+  )
+  return direct.test(text) || (shown.verb !== undefined && alternate.test(text))
+}
+
+function showsFlag(text: string, flag: string): boolean {
+  return new RegExp(`(?<![\\w-])${flag}(?![\\w-])`).test(text)
+}
+
+describe('bundled agent skills cover the CLI', () => {
+  const texts = SKILLS.flatMap((skill) => skill.files).map((file) => file.text)
+  const surfaces = [...cliSurfaces(), ...extensionSurfaces()].filter(
+    (shown) => !ADMIN_ONLY_COMMANDS.has(shown.label.replace(/^ostia /, '')),
+  )
+
+  it.each(surfaces)('$label is shown with every flag it takes', (shown) => {
+    const where = texts.filter((text) => mentions(text, shown))
+    expect(where.length, `${shown.label} is in no skill`).toBeGreaterThan(0)
+    for (const flag of flagsOf(shown.args)) {
+      expect(
+        where.some((text) => showsFlag(text, flag)),
+        `${shown.label} ${flag} is in no skill`,
+      ).toBe(true)
+    }
+  })
+})
 
 describe('bundled agent skills', () => {
   it.each(SKILLS)('$label has a valid name and a third-person description', (skill) => {

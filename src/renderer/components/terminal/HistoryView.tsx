@@ -200,7 +200,7 @@ export function HistoryView({
       }}
     >
       <div className="history-bar">
-        <ClockCounterClockwiseIcon aria-hidden className="text-fg-muted" />
+        <ClockCounterClockwiseIcon aria-hidden className="size-4 shrink-0 text-fg-muted" />
         <span className="text-ui-sm text-fg">{d.scrollHistory.title}</span>
         {position ? (
           <span className="text-ui-xs text-fg-muted tabular-nums">
