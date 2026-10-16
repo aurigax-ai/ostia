@@ -8,6 +8,7 @@ import {
   paneIds,
 } from '@/lib/layout/tree'
 import { patch, successorOf } from '@/lib/panes/layoutPatch'
+import { forgetTab, forgetWorkspaceTabs } from '@/lib/panes/tabHistory'
 import type { LayoutGet, LayoutSet, LayoutState, WorkspaceLayout } from './layoutTypes'
 
 type LayoutTransferActions = Pick<
@@ -18,6 +19,7 @@ type LayoutTransferActions = Pick<
 export function createLayoutTransferActions(set: LayoutSet, get: LayoutGet): LayoutTransferActions {
   return {
     removeWorkspace: (workspaceId) => {
+      forgetWorkspaceTabs(workspaceId)
       const layout = get().byWorkspace[workspaceId]
       set((s) => {
         if (!(workspaceId in s.byWorkspace)) return s
@@ -31,12 +33,14 @@ export function createLayoutTransferActions(set: LayoutSet, get: LayoutGet): Lay
       }
     },
 
-    release: (workspaceId) =>
+    release: (workspaceId) => {
+      forgetWorkspaceTabs(workspaceId)
       set((s) => {
         if (!(workspaceId in s.byWorkspace)) return s
         const { [workspaceId]: _released, ...byWorkspace } = s.byWorkspace
         return { byWorkspace }
-      }),
+      })
+    },
 
     releasePane: (workspaceId, paneId) => {
       const current = get().byWorkspace[workspaceId]
@@ -58,6 +62,7 @@ export function createLayoutTransferActions(set: LayoutSet, get: LayoutGet): Lay
             }
           }) ?? s,
       )
+      forgetTab(workspaceId, paneId)
     },
 
     graft: (workspaceId, incoming, beside) => {

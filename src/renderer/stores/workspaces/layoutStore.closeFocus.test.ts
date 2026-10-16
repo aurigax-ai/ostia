@@ -1,4 +1,5 @@
-import { firstPaneId, tabsOfPane } from '@/lib/layout/tree'
+import { createPane, firstPaneId, splitOf, tabsOfPane } from '@/lib/layout/tree'
+import { tabHistoryOf } from '@/lib/panes/tabHistory'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { useLayoutStore } from './layoutStore'
 
@@ -92,19 +93,45 @@ describe('layoutStore close focus', () => {
 
   it('shows the choice without moving the keyboard when the closed tab did not hold it', () => {
     const [a, b] = tabs('keyboard', 3)
-    useLayoutStore.getState().focusPane('keyboard', a)
-    useLayoutStore.getState().focusPane('keyboard', b)
-    useLayoutStore.getState().focusPane('keyboard', a)
-    useLayoutStore.getState().focusPane('keyboard', b)
+    const state = useLayoutStore.getState()
+    state.focusPane('keyboard', a)
+    state.focusPane('keyboard', b)
+    const cell = createPane('terminal')
     useLayoutStore.setState((s) => ({
       byWorkspace: {
         ...s.byWorkspace,
-        keyboard: { ...s.byWorkspace.keyboard, activePaneId: 'elsewhere' },
+        keyboard: {
+          ...s.byWorkspace.keyboard,
+          root: splitOf('horizontal', s.byWorkspace.keyboard.root, cell),
+          activePaneId: cell.id,
+        },
       },
     }))
-    useLayoutStore.getState().closePane('keyboard', b)
-    expect(layoutOf('keyboard').activePaneId).toBe('elsewhere')
+    state.closePane('keyboard', b)
+    expect(layoutOf('keyboard').activePaneId).toBe(cell.id)
     expect(shown('keyboard', a)).toBe(a)
+  })
+
+  it('forgets a released pane, its opener and the panes it opened', () => {
+    const [a, b] = tabs('released', 3)
+    const state = useLayoutStore.getState()
+    state.focusPane('released', b)
+    state.focusPane('released', a)
+    const opened = state.openBrowserTab('released', 'https://a.test', 'isolated', {
+      beside: a,
+    }) as string
+    expect(tabHistoryOf('released').openers[opened]).toBe(a)
+    state.releasePane('released', opened)
+    expect(tabHistoryOf('released').openers[opened]).toBeUndefined()
+    expect(tabHistoryOf('released').recent).not.toContain(opened)
+  })
+
+  it('drops the history of a released workspace', () => {
+    const [a] = tabs('gone', 3)
+    useLayoutStore.getState().focusPane('gone', a)
+    useLayoutStore.getState().openBrowserTab('gone', 'https://a.test', 'isolated', { beside: a })
+    useLayoutStore.getState().release('gone')
+    expect(tabHistoryOf('gone')).toEqual({ recent: [], openers: {} })
   })
 
   it('keeps the neighbour when there is no history', () => {

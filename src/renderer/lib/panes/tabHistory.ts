@@ -42,3 +42,7 @@ export function forgetTab(workspaceId: string, paneId: string): void {
     if (opener === paneId) delete history.openers[id]
   }
 }
+
+export function forgetWorkspaceTabs(workspaceId: string): void {
+  histories.delete(workspaceId)
+}
