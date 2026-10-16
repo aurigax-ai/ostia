@@ -83,10 +83,6 @@ export function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise
   })
 }
 
-export function isPlainRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
-
 export function newRuntime(ext: LoadedExtension): Runtime {
   return {
     ext,

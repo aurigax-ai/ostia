@@ -19,9 +19,9 @@ import type {
   OpenPathResult,
   OstiaBridge,
   ViewerOpenResult,
-  ViewerStopped,
   WorkspaceProject,
 } from '../shared/types'
+import { listen } from './listen'
 
 export const filesBridge: Pick<
   OstiaBridge,
@@ -41,11 +41,7 @@ export const filesBridge: Pick<
   viewers: {
     open: (request) => ipcRenderer.invoke('viewers:open', request) as Promise<ViewerOpenResult>,
     close: (paneId) => ipcRenderer.send('viewers:close', paneId),
-    onStopped: (cb) => {
-      const handler = (_e: Electron.IpcRendererEvent, event: ViewerStopped): void => cb(event)
-      ipcRenderer.on('viewers:stopped', handler)
-      return () => ipcRenderer.removeListener('viewers:stopped', handler)
-    },
+    onStopped: (cb) => listen('viewers:stopped', cb),
   },
   fs: {
     list: (path) => ipcRenderer.invoke('fs:list', path) as Promise<FsEntry[]>,
@@ -56,19 +52,11 @@ export const filesBridge: Pick<
     readBinary: (path) => ipcRenderer.invoke('fs:read-binary', path) as Promise<FsBinaryResult>,
     watch: (path) => ipcRenderer.invoke('fs:watch', path) as Promise<boolean>,
     unwatch: (path) => ipcRenderer.send('fs:unwatch', path),
-    onChanged: (cb) => {
-      const handler = (_e: unknown, change: { path: string; exists: boolean }): void => cb(change)
-      ipcRenderer.on('fs:changed', handler)
-      return () => ipcRenderer.removeListener('fs:changed', handler)
-    },
+    onChanged: (cb) => listen('fs:changed', cb),
   },
   remoteFiles: {
     folders: () => ipcRenderer.invoke('remote-files:folders') as Promise<RemoteFolder[]>,
-    onFolders: (cb) => {
-      const handler = (_e: unknown, folders: RemoteFolder[]): void => cb(folders)
-      ipcRenderer.on('remote-files:folders-changed', handler)
-      return () => ipcRenderer.removeListener('remote-files:folders-changed', handler)
-    },
+    onFolders: (cb) => listen('remote-files:folders-changed', cb),
     close: (folderId) => ipcRenderer.invoke('remote-files:close', folderId) as Promise<boolean>,
     onConfirm: (cb) => {
       const handler = (_e: unknown, requestId: number, ask: RemoteFolderAsk): void => {
@@ -91,11 +79,7 @@ export const filesBridge: Pick<
       ) as Promise<RemoteWriteResult>,
   },
   openWaits: {
-    onEnded: (cb) => {
-      const handler = (_e: Electron.IpcRendererEvent, paneIds: string[]): void => cb(paneIds)
-      ipcRenderer.on('open-waits:ended', handler)
-      return () => ipcRenderer.removeListener('open-waits:ended', handler)
-    },
+    onEnded: (cb) => listen('open-waits:ended', cb),
   },
   files: {
     pathForFile: (file) => webUtils.getPathForFile(file),

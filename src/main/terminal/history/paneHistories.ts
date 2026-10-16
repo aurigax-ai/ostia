@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { hash, randomBytes } from 'node:crypto'
 import { chmodSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { statfs } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -32,7 +32,7 @@ export function sweepHistoryRoot(root: string, ownPid = process.pid): void {
 }
 
 function paneFolder(paneId: string): string {
-  return createHash('sha256').update(paneId).digest('hex').slice(0, 24)
+  return hash('sha256', paneId).slice(0, 24)
 }
 
 export interface PaneHistoriesDeps {

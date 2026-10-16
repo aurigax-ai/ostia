@@ -5,9 +5,10 @@ import type {
   ArtifactVersion,
   ArtifactVersionContent,
 } from '../shared/artifacts/artifacts'
-import type { PreviewEvent, PreviewOpened } from '../shared/artifacts/htmlPreview'
+import type { PreviewOpened } from '../shared/artifacts/htmlPreview'
 import type { PortableResult } from '../shared/artifacts/portable'
 import type { OstiaBridge } from '../shared/types'
+import { listen } from './listen'
 
 export const artifactsBridge: Pick<OstiaBridge, 'artifacts' | 'preview'> = {
   artifacts: {
@@ -48,11 +49,7 @@ export const artifactsBridge: Pick<OstiaBridge, 'artifacts' | 'preview'> = {
         string,
         string
       > | null>,
-    onChanged: (cb) => {
-      const handler = (_e: Electron.IpcRendererEvent, workspaceId: string): void => cb(workspaceId)
-      ipcRenderer.on('artifacts:changed', handler)
-      return () => ipcRenderer.removeListener('artifacts:changed', handler)
-    },
+    onChanged: (cb) => listen('artifacts:changed', cb),
   },
   preview: {
     open: (paneId, path, theme) =>
@@ -67,10 +64,6 @@ export const artifactsBridge: Pick<OstiaBridge, 'artifacts' | 'preview'> = {
       } | null>,
     copyRegion: (id, rect) =>
       ipcRenderer.invoke('preview:copy-region', id, rect) as Promise<boolean>,
-    onEvent: (cb) => {
-      const handler = (_e: Electron.IpcRendererEvent, event: PreviewEvent): void => cb(event)
-      ipcRenderer.on('preview:event', handler)
-      return () => ipcRenderer.removeListener('preview:event', handler)
-    },
+    onEvent: (cb) => listen('preview:event', cb),
   },
 }

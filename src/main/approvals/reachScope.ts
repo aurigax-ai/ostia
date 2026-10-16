@@ -1,8 +1,8 @@
 import { readFileSync, realpathSync, statSync } from 'node:fs'
-import { dirname, isAbsolute, join, resolve, sep } from 'node:path'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import type { ReachMode } from '../../shared/permissions/reach'
 import { type WorkspaceSandbox, sandboxMergeRefusal } from '../../shared/sandbox/sandbox'
-import { expandHome } from '../platform/pathGuard'
+import { expandHome, isInsidePath } from '../platform/pathGuard'
 
 interface ScopeGroup {
   id: string
@@ -75,10 +75,6 @@ function realOr(path: string): string {
   }
 }
 
-function within(path: string, folder: string): boolean {
-  return path === folder || path.startsWith(folder.endsWith(sep) ? folder : `${folder}${sep}`)
-}
-
 function commonGitDir(dotGit: string): string | null {
   try {
     if (statSync(dotGit).isDirectory()) return realOr(dotGit)
@@ -102,7 +98,7 @@ export function projectKey(workDir: string, home: string): string | null {
   if (!isAbsolute(expanded)) return null
   const dir = realOr(resolve(expanded))
   const realHome = realOr(home)
-  if (within(realHome, dir)) return null
+  if (isInsidePath(dir, realHome)) return null
   let at = dir
   while (at !== realHome && dirname(at) !== at) {
     const common = commonGitDir(join(at, '.git'))

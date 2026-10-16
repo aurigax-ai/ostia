@@ -1,16 +1,12 @@
 import type {
-  ExtensionAgentOffer,
   ExtensionConnectionEntry,
   ExtensionConnectionResult,
   ExtensionInfo,
-  ExtensionOpenDiffRequest,
-  ExtensionOpenPanelRequest,
   ExtensionOpenTerminalRequest,
   ExtensionPanelSource,
   ExtensionResult,
   ExtensionSecretResult,
   ExtensionSettingResult,
-  ExtensionSettingsStored,
   ExtensionSidebarItem,
   PaneChip,
   WorkspaceChip,
@@ -22,6 +18,7 @@ import type { ExtensionSuggestion } from '../shared/extensions/extensionSuggesti
 import type { MarketplaceResult, MarketplaceState } from '../shared/extensions/marketplace'
 import type { KeymapLoad } from '../shared/keyboard/keymapFile'
 import type { OstiaBridge } from '../shared/types'
+import { listen } from './listen'
 
 export const extensionsBridge: Pick<
   OstiaBridge,
@@ -102,64 +99,24 @@ export const extensionsBridge: Pick<
         extId,
         name,
       ) as Promise<ExtensionConnectionResult>,
-    onChanged: (cb) => {
-      const handler = (_e: unknown, list: ExtensionInfo[]): void => cb(list)
-      ipcRenderer.on('extensions:changed', handler)
-      return () => ipcRenderer.removeListener('extensions:changed', handler)
-    },
-    onSidebar: (cb) => {
-      const handler = (_e: unknown, items: ExtensionSidebarItem[]): void => cb(items)
-      ipcRenderer.on('extensions:sidebar', handler)
-      return () => ipcRenderer.removeListener('extensions:sidebar', handler)
-    },
-    onPaneChips: (cb) => {
-      const handler = (_e: unknown, chips: PaneChip[]): void => cb(chips)
-      ipcRenderer.on('extensions:chips', handler)
-      return () => ipcRenderer.removeListener('extensions:chips', handler)
-    },
-    onWorkspaceChips: (cb) => {
-      const handler = (_e: unknown, chips: WorkspaceChip[]): void => cb(chips)
-      ipcRenderer.on('extensions:workspace-chips', handler)
-      return () => ipcRenderer.removeListener('extensions:workspace-chips', handler)
-    },
-    onSettingsStored: (cb) => {
-      const handler = (_e: unknown, update: ExtensionSettingsStored): void => cb(update)
-      ipcRenderer.on('extensions:settings-stored', handler)
-      return () => ipcRenderer.removeListener('extensions:settings-stored', handler)
-    },
-    onOpenPanel: (cb) => {
-      const handler = (_e: unknown, req: ExtensionOpenPanelRequest): void => cb(req)
-      ipcRenderer.on('extensions:open-panel', handler)
-      return () => ipcRenderer.removeListener('extensions:open-panel', handler)
-    },
-    onOpenDiff: (cb) => {
-      const handler = (_e: unknown, req: ExtensionOpenDiffRequest): void => cb(req)
-      ipcRenderer.on('extensions:open-diff', handler)
-      return () => ipcRenderer.removeListener('extensions:open-diff', handler)
-    },
+    onChanged: (cb) => listen('extensions:changed', cb),
+    onSidebar: (cb) => listen('extensions:sidebar', cb),
+    onPaneChips: (cb) => listen('extensions:chips', cb),
+    onWorkspaceChips: (cb) => listen('extensions:workspace-chips', cb),
+    onSettingsStored: (cb) => listen('extensions:settings-stored', cb),
+    onOpenPanel: (cb) => listen('extensions:open-panel', cb),
+    onOpenDiff: (cb) => listen('extensions:open-diff', cb),
     onOpenTerminal: (cb) => {
       const handler = (_e: unknown, req: ExtensionOpenTerminalRequest): void =>
         ipcRenderer.send('extensions:open-terminal-result', req.requestId, cb(req))
       ipcRenderer.on('extensions:open-terminal', handler)
       return () => ipcRenderer.removeListener('extensions:open-terminal', handler)
     },
-    onAgentOffer: (cb) => {
-      const handler = (_e: unknown, offer: ExtensionAgentOffer): void => cb(offer)
-      ipcRenderer.on('extensions:agent-offer', handler)
-      return () => ipcRenderer.removeListener('extensions:agent-offer', handler)
-    },
-    onAgentOfferWithdrawn: (cb) => {
-      const handler = (_e: unknown, requestId: string): void => cb(requestId)
-      ipcRenderer.on('extensions:agent-offer-withdrawn', handler)
-      return () => ipcRenderer.removeListener('extensions:agent-offer-withdrawn', handler)
-    },
+    onAgentOffer: (cb) => listen('extensions:agent-offer', cb),
+    onAgentOfferWithdrawn: (cb) => listen('extensions:agent-offer-withdrawn', cb),
     answerAgentOffer: (requestId, paneId) =>
       ipcRenderer.send('extensions:agent-offer-result', requestId, paneId),
-    onFocusPane: (cb) => {
-      const handler = (_e: unknown, paneId: string): void => cb(paneId)
-      ipcRenderer.on('extensions:focus-pane', handler)
-      return () => ipcRenderer.removeListener('extensions:focus-pane', handler)
-    },
+    onFocusPane: (cb) => listen('extensions:focus-pane', cb),
   },
   iconThemes: {
     load: (id) => ipcRenderer.invoke('iconThemes:load', id) as Promise<LoadedIconTheme | null>,

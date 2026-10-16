@@ -1,4 +1,5 @@
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { ensureCaps } from '../approvals/controlElevation'
 import type { Reach } from '../approvals/reach'
@@ -11,9 +12,7 @@ export function fail(message: string): ResponseError<void> {
 }
 
 export function record(raw: unknown): Record<string, unknown> {
-  return typeof raw === 'object' && raw !== null && !Array.isArray(raw)
-    ? (raw as Record<string, unknown>)
-    : {}
+  return isRecord(raw) ? raw : {}
 }
 
 export type PaneReach = 'input' | 'read' | 'close' | 'move'

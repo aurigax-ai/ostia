@@ -5,6 +5,7 @@ import type {
   IconThemeContribution,
   LoadedIconTheme,
 } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { readConfined } from '@aurigax-ai/ostia-extension-sdk/manifest/confinedRead'
 import { ipcMain } from 'electron'
 
@@ -25,10 +26,6 @@ const IMAGE_TYPES: Record<string, string> = {
 }
 
 export type IconThemeResult = { ok: true; theme: LoadedIconTheme } | { ok: false; error: string }
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
 
 function stringMap(raw: unknown, defined: ReadonlySet<string>, budget: { left: number }) {
   const out: Record<string, string> = {}

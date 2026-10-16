@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import {
   copyFileSync,
   existsSync,
@@ -10,11 +10,12 @@ import {
   renameSync,
   rmSync,
 } from 'node:fs'
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import {
   EXTENSION_MANIFEST_FILE,
   type ExtensionManifest,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import {
   EXTENSION_ID_PATTERN,
   readManifest,
@@ -40,6 +41,7 @@ import {
   type MarketplaceState,
 } from '../../../shared/extensions/marketplace'
 import { loadJson, saveJson } from '../../platform/jsonStore'
+import { isInsidePath } from '../../platform/pathGuard'
 import { missingRequirements, programPath } from '../../platform/systemRequirements'
 
 const MARKETPLACE_MANIFEST_MAX_BYTES = 64 * 1024
@@ -69,7 +71,7 @@ export function normalizeMarketplaceUrl(input: unknown): string | null {
 }
 
 export function marketplaceId(url: string): string {
-  return createHash('sha256').update(url).digest('hex').slice(0, 12)
+  return hash('sha256', url).slice(0, 12)
 }
 
 interface Source {
@@ -95,7 +97,7 @@ function sanitizeRecords(raw: unknown): Records {
       }
     }
   }
-  if (typeof installs === 'object' && installs !== null && !Array.isArray(installs)) {
+  if (isRecord(installs)) {
     for (const [extId, source] of Object.entries(installs)) {
       if (EXTENSION_ID_PATTERN.test(extId) && typeof source === 'string') {
         records.installs[extId] = source
@@ -210,7 +212,7 @@ function readCatalog(clone: string): Catalog | string {
       else problems.push(`${path}: ${problem}`)
     }
     const dir = join(clone, path)
-    if (!isRealDirectory(dir) || relative(root, realpathSync(dir)).startsWith('..')) {
+    if (!isRealDirectory(dir) || !isInsidePath(root, realpathSync(dir))) {
       refuse('not a folder in the repository')
       continue
     }

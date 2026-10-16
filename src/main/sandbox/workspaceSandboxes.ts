@@ -1,6 +1,7 @@
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import {
   type ResolvedSandbox,
@@ -14,7 +15,7 @@ import {
   resolveSandbox,
   sandboxMergeRefusal,
 } from '../../shared/sandbox/sandbox'
-import { isInsidePath } from '../platform/pathGuard'
+import { expandHome, isInsidePath } from '../platform/pathGuard'
 import { socketPathLimit } from '../platform/privateTmp'
 import { processAlive } from '../platform/processAlive'
 import type { PackageBlockReason, PackagePolicy } from '../sandboxPackages/packagePolicy'
@@ -26,7 +27,6 @@ import {
   type SandboxPaths,
   type SrtConfig,
   buildSrtConfig,
-  expandHome,
   fixedPolicy,
   folderProblem,
   protectedFiles,
@@ -78,7 +78,7 @@ async function waitForChannel(path: string): Promise<void> {
   const end = Date.now() + CHANNEL_WAIT_MS
   while (!existsSync(path)) {
     if (Date.now() > end) throw new SandboxHostError('the sandbox host did not start listening')
-    await new Promise((resolve) => setTimeout(resolve, CHANNEL_POLL_MS))
+    await sleep(CHANNEL_POLL_MS)
   }
 }
 
@@ -233,7 +233,7 @@ export class WorkspaceSandboxes {
         allowLocalBinding: network.allowLocalBinding,
         unixSockets: this.resolved(workspaceId).switches.unixSockets,
       }
-      return createHash('sha256').update(JSON.stringify(baked)).digest('hex').slice(0, 16)
+      return hash('sha256', JSON.stringify(baked)).slice(0, 16)
     } catch {
       return null
     }
@@ -316,7 +316,7 @@ export class WorkspaceSandboxes {
   tmpDir(workspaceId: string): string {
     const chosen = this.tmpDirs.get(workspaceId)
     if (chosen) return chosen
-    const short = createHash('sha256').update(workspaceId).digest('hex').slice(0, 10)
+    const short = hash('sha256', workspaceId).slice(0, 10)
     const kept = this.deps.kept
     const dir = join(kept?.enabled() ? kept.tmpRoot : this.instanceTmp, short)
     this.tmpDirs.set(workspaceId, dir)

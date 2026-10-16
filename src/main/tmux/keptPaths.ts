@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import { join } from 'node:path'
 import { KEPT_SHELLS_DIR } from '../../shared/terminal/keepShells'
 
 function shortHash(text: string): string {
-  return createHash('sha256').update(text).digest('hex').slice(0, 16)
+  return hash('sha256', text).slice(0, 16)
 }
 
 export function keptShellsDir(userData: string): string {

@@ -15,6 +15,7 @@ import {
   importableSpecifiers,
 } from '../../shared/artifacts/artifactRuntime'
 import { PORTABLE_LIMITS, type PortableMode } from '../../shared/artifacts/portable'
+import { isInsidePath } from '../platform/pathGuard'
 import { type PreviewSource, readRegularFile, resolvePreviewFile } from './previewFiles'
 import shellSource from './previewShellModule.txt?raw'
 
@@ -128,8 +129,7 @@ export class BuildRun {
 
   label(path: string): string {
     const base = dirname(this.source.file)
-    const inside = relative(base, path)
-    return inside.startsWith('..') ? path : inside.split(sep).join('/')
+    return isInsidePath(base, path) ? relative(base, path).split(sep).join('/') : path
   }
 
   async read(path: string): Promise<Buffer> {
@@ -199,9 +199,10 @@ export class BuildRun {
 
   noteLibrary(resolved: string): void {
     const tree = join(this.runtimeDir, RUNTIME_MODULES)
+    if (!isInsidePath(tree, resolved)) return
     const inside = relative(tree, resolved).split(sep)
     const name = inside[0]?.startsWith('@') ? `${inside[0]}/${inside[1]}` : inside[0]
-    if (!name || name.startsWith('..')) return
+    if (!name) return
     try {
       const info = JSON.parse(readFileSync(join(tree, name, 'package.json'), 'utf8')) as {
         version?: string
@@ -231,7 +232,7 @@ function notAllowed(specifier: string): string {
 
 function artifactPlugin(run: BuildRun, entry: ArtifactEntry): Plugin {
   const tree = join(run.runtimeDir, RUNTIME_MODULES)
-  const insideTree = (path: string): boolean => path === tree || path.startsWith(`${tree}${sep}`)
+  const insideTree = (path: string): boolean => isInsidePath(tree, path)
 
   const insideRuntime = async (
     build: PluginBuild,

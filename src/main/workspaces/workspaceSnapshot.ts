@@ -1,5 +1,6 @@
 import { existsSync, rmSync } from 'node:fs'
 import { isViewType } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { parseResumeFailure, parseStoredResume } from '../../shared/agents/agentResume'
@@ -66,10 +67,6 @@ export function snapshotPath(): string {
 
 export function scrollbackPath(): string {
   return storePath('scrollback', 'global')
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
 function copyOptionalString(

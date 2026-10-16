@@ -11,6 +11,7 @@ import type {
 } from '../shared/types'
 import type { ViewListing } from '../shared/views/views'
 import type { CmuxSessionRead } from '../shared/workspaces/cmuxSession'
+import { listen } from './listen'
 
 export const workspaceBridge: Pick<OstiaBridge, 'workspace' | 'scratch' | 'snippets' | 'views'> = {
   workspace: {
@@ -42,10 +43,6 @@ export const workspaceBridge: Pick<OstiaBridge, 'workspace' | 'scratch' | 'snipp
     setEnabled: (name, enabled) =>
       ipcRenderer.invoke('views:set-enabled', name, enabled) as Promise<ViewListing>,
     reveal: (name) => ipcRenderer.invoke('views:reveal', name) as Promise<boolean>,
-    onChanged: (cb) => {
-      const handler = (_e: unknown, listing: ViewListing): void => cb(listing)
-      ipcRenderer.on('views:changed', handler)
-      return () => ipcRenderer.removeListener('views:changed', handler)
-    },
+    onChanged: (cb) => listen('views:changed', cb),
   },
 }

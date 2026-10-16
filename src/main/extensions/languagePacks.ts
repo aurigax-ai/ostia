@@ -1,4 +1,5 @@
 import { resolve } from 'node:path'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type {
   LanguageCatalog,
   LanguageContribution,
@@ -22,10 +23,6 @@ export interface LanguageSource {
 export interface LanguagePackDeps {
   languages: () => LanguageSource[]
   onError: (extId: string, error: string) => void
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
 export function normalizeCatalog(raw: unknown): LanguageCatalog | null {

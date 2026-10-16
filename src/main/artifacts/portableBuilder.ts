@@ -1,6 +1,7 @@
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { basename, join } from 'node:path'
+import { LRUCache } from 'lru-cache'
 import { RUNTIME_MODULES, runtimePackages } from '../../shared/artifacts/artifactRuntime'
 import type { PreviewTheme } from '../../shared/artifacts/htmlPreview'
 import {
@@ -63,10 +64,6 @@ function withFile(
   return result as PortableBuild & { ok: true }
 }
 
-function sha256(data: string | Buffer): string {
-  return createHash('sha256').update(data).digest('hex')
-}
-
 export function missingRuntimePackages(
   runtimeDir: string,
   packages: readonly string[] = runtimePackages(),
@@ -83,13 +80,18 @@ export function failedDocument(problems: readonly CompileProblem[], theme: Previ
 }
 
 export class PortableBuilder {
-  private readonly cache = new Map<string, Cached>()
+  private readonly cache: LRUCache<string, Cached>
   private readonly tailwind: PortableTailwind
   private readonly target: string[]
   private readonly timeoutMs: number
   private readonly now: () => Date
 
   constructor(private readonly deps: PortableBuilderDeps) {
+    this.cache = new LRUCache({
+      max: CACHE_MAX,
+      maxSize: deps.cacheBytes ?? CACHE_BYTES,
+      sizeCalculation: (entry) => entry.bytes,
+    })
     this.tailwind = new PortableTailwind(deps.runtimeDir)
     this.target = deps.target ?? DEFAULT_TARGET
     this.timeoutMs = deps.timeoutMs ?? PORTABLE_LIMITS.buildMs
@@ -108,7 +110,7 @@ export class PortableBuilder {
     theme: PreviewTheme,
     mode: PortableMode,
   ): Promise<PortableBuild> {
-    const key = sha256(JSON.stringify([source.file, source.root, theme, mode]))
+    const key = hash('sha256', JSON.stringify([source.file, source.root, theme, mode]))
     const cached = this.cache.get(key)
     if (cached && (await this.unchanged(cached.hashes))) return cached.result
     const run = new BuildRun(source, this.deps.runtimeDir())
@@ -118,15 +120,13 @@ export class PortableBuilder {
   }
 
   cachedBytes(): number {
-    let total = 0
-    for (const entry of this.cache.values()) total += entry.bytes
-    return total
+    return this.cache.calculatedSize
   }
 
   private async unchanged(hashes: Map<string, string>): Promise<boolean> {
-    for (const [path, hash] of hashes) {
+    for (const [path, expected] of hashes) {
       const found = await readRegularFile(path, PORTABLE_LIMITS.fileBytes)
-      if (!found.ok || sha256(found.body) !== hash) return false
+      if (!found.ok || hash('sha256', found.body) !== expected) return false
     }
     return true
   }
@@ -136,18 +136,10 @@ export class PortableBuilder {
     for (const path of run.inputs.keys()) {
       const found = await readRegularFile(path, PORTABLE_LIMITS.fileBytes)
       if (!found.ok) return
-      hashes.set(path, sha256(found.body))
+      hashes.set(path, hash('sha256', found.body))
     }
     const bytes = result.document.length + JSON.stringify(result.manifest).length
-    const cap = this.deps.cacheBytes ?? CACHE_BYTES
-    if (bytes > cap) return
-    this.cache.delete(key)
     this.cache.set(key, { hashes, result, bytes })
-    while (this.cache.size > CACHE_MAX || this.cachedBytes() > cap) {
-      const oldest = this.cache.keys().next().value
-      if (oldest === undefined) break
-      this.cache.delete(oldest)
-    }
   }
 
   private async timed(run: BuildRun, work: () => Promise<PortableBuild>): Promise<PortableBuild> {
@@ -228,7 +220,7 @@ export class PortableBuilder {
       ostia: this.deps.version,
       libraries: [...run.libraries].sort(),
       theme,
-      hash: sha256(document),
+      hash: hash('sha256', document),
       sources: Object.fromEntries(run.sources),
     }
     const built = withFile(document, manifest, [...run.inputs.keys()])

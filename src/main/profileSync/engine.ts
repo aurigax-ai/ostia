@@ -1,6 +1,7 @@
 import { readFileSync, utimesSync } from 'node:fs'
 import { join } from 'node:path'
 import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { SecretSpan } from '../../shared/privacy/redaction'
 import type { SecretSyncStatus, SyncConflict, SyncOffer, SyncStatus } from '../../shared/types'
 import {
@@ -20,7 +21,6 @@ import {
   type SyncedExtension,
   decodeProfile,
   encodeProfile,
-  isObject,
   offerable,
   readProfileFolders,
   readTopFile,
@@ -180,7 +180,7 @@ export class ProfileSync {
     }
     try {
       const raw = JSON.parse(readFileSync(this.path(STATE_FILE), 'utf8')) as SyncState
-      if (!isObject(raw) || raw.target !== target) return fresh
+      if (!isRecord(raw) || raw.target !== target) return fresh
       return {
         target,
         version: typeof raw.version === 'string' ? raw.version : null,
@@ -190,7 +190,7 @@ export class ProfileSync {
         installedAtSync: Array.isArray(raw.installedAtSync) ? raw.installedAtSync : [],
         skipped: Array.isArray(raw.skipped) ? raw.skipped : [],
         heldBack: Array.isArray(raw.heldBack) ? raw.heldBack : [],
-        secrets: isObject(raw.secrets) ? raw.secrets : null,
+        secrets: isRecord(raw.secrets) ? raw.secrets : null,
       }
     } catch {
       return fresh
@@ -204,7 +204,7 @@ export class ProfileSync {
   private loadBase(target: string): Map<string, string> | null {
     try {
       const raw = JSON.parse(readFileSync(this.path(BASE_DIR, BASE_FILE), 'utf8')) as unknown
-      if (!isObject(raw) || raw.target !== target || !isObject(raw.files)) return null
+      if (!isRecord(raw) || raw.target !== target || !isRecord(raw.files)) return null
       const files = new Map<string, string>()
       for (const [path, text] of Object.entries(raw.files)) {
         if (typeof text === 'string') files.set(path, text)
@@ -229,7 +229,7 @@ export class ProfileSync {
       settingsTime = top.mtimeMs
       try {
         const parsed = JSON.parse(top.text) as unknown
-        if (isObject(parsed)) settings = parsed
+        if (isRecord(parsed)) settings = parsed
         else settingsInvalid = true
       } catch {
         settingsInvalid = true

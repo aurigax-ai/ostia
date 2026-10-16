@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import { chmodSync, rmSync } from 'node:fs'
 import { type Server, type Socket, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -7,6 +7,7 @@ import {
   DEFAULT_CAPABILITIES,
 } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { TARGET_PANE_PARAM } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import {
   type CancellationToken,
@@ -41,7 +42,7 @@ export function controlSocketPath(): string {
 }
 
 export function keptControlSocketPath(userData: string): string {
-  const digest = createHash('sha256').update(userData).digest('hex').slice(0, 16)
+  const digest = hash('sha256', userData).slice(0, 16)
   return socketPath(privateTmpDir(`${PRODUCT_NAME}-kept`), `${digest}.sock`)
 }
 
@@ -84,9 +85,7 @@ const ERROR_CODE = /^([a-z][a-z0-9-]{0,40})(?::|$)/
 const CAP_NAME = /^[a-z][a-z-]{0,40}$/
 
 function fields(raw: unknown): Record<string, unknown> {
-  return typeof raw === 'object' && raw !== null && !Array.isArray(raw)
-    ? (raw as Record<string, unknown>)
-    : {}
+  return isRecord(raw) ? raw : {}
 }
 
 function calledMethod(name: string, params: unknown): string {

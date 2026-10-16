@@ -1,9 +1,10 @@
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import { mkdirSync, readdirSync, realpathSync, rmSync, statSync } from 'node:fs'
 import { lstat, writeFile } from 'node:fs/promises'
-import { basename, dirname, join, sep } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import type { ViewerPortableTables } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
 import { ipcMain } from 'electron'
+import { escape as escapeHtml } from 'es-toolkit'
 import { type PreviewTheme, normalizePreviewTheme } from '../../shared/artifacts/htmlPreview'
 import {
   PORTABLE_FORMAT,
@@ -20,6 +21,7 @@ import {
   runsScripts,
   wrapPortable,
 } from '../../shared/artifacts/portable'
+import { isInsidePath } from '../platform/pathGuard'
 import type { PortableBuilder } from './portableBuilder'
 import { problemText } from './portableBundle'
 import { type PublishedTables, tablesDocument } from './portableTables'
@@ -45,10 +47,6 @@ export interface PortableExportDeps {
 
 type Made = { ok: true; file: string } | (PortableResult & { ok: false })
 
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
 function prettyJson(text: string): string {
   try {
     return JSON.stringify(JSON.parse(text), null, 2)
@@ -61,10 +59,6 @@ const IMAGE_CSS =
   'body{display:flex;align-items:center;justify-content:center;min-height:100vh}img{max-width:100%;max-height:100vh}'
 const JSON_CSS =
   'pre{margin:0;padding:16px;font-family:var(--ostia-font-code,ui-monospace,monospace);white-space:pre-wrap;word-break:break-word}'
-
-function sha256(text: string): string {
-  return createHash('sha256').update(text).digest('hex')
-}
 
 function normalizeDocument(value: unknown): PortableDocument | null {
   const raw = value as Partial<PortableDocument> | null
@@ -136,7 +130,7 @@ export class PortableExport {
       } catch {
         real = folder
       }
-      return file === real || file.startsWith(`${real}${sep}`)
+      return isInsidePath(real, file)
     })
   }
 
@@ -191,7 +185,7 @@ export class PortableExport {
       ostia: this.deps.version,
       libraries: [],
       theme: request.theme,
-      hash: sha256(document),
+      hash: hash('sha256', document),
       sources,
     }
     const wrapped = wrapPortable(document, manifest)
@@ -221,7 +215,7 @@ export class PortableExport {
   private async open(file: string, text: string): Promise<PortableResult> {
     const dir = this.deps.tmpDir()
     const stem = portableFileName(file).replace(/\.html$/, '')
-    const target = join(dir, `${stem}-${sha256(text).slice(0, 8)}.html`)
+    const target = join(dir, `${stem}-${hash('sha256', text).slice(0, 8)}.html`)
     try {
       mkdirSync(dir, { recursive: true, mode: 0o700 })
       await writeFile(target, text, { mode: 0o600 })

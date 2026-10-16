@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { arch, platform, release } from 'node:os'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { app, ipcMain } from 'electron'
@@ -417,10 +418,7 @@ export function createTelemetry(deps: TelemetryDeps): Telemetry {
       if (retryTimer) clearTimeout(retryTimer)
       takeUsage()
       if (!deps.endpoint || stored.queue.length === 0) return
-      await Promise.race([
-        flush(),
-        new Promise<void>((resolve) => setTimeout(resolve, TELEMETRY_QUIT_TIMEOUT_MS).unref()),
-      ])
+      await Promise.race([flush(), sleep(TELEMETRY_QUIT_TIMEOUT_MS, undefined, { ref: false })])
     },
   }
 }

@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import {
   PHONE_BASE_CAPS,
   PHONE_GRANTABLE_CAPS,
@@ -7,6 +7,7 @@ import {
 } from '../../shared/gateway/phoneCapabilities'
 import type { GatewaySetCapResult } from '../../shared/types'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
+import { sameBytes } from '../platform/sameBytes'
 
 export const DEFAULT_PHONE_CAPS: readonly string[] = PHONE_BASE_CAPS
 
@@ -68,17 +69,10 @@ export function registerDevice(input: RegisterDeviceInput): RegisteredDevice {
   return { deviceId: device.deviceId, token: device.token, caps: device.caps }
 }
 
-function timingSafeStringEqual(a: string, b: string): boolean {
-  const bufA = Buffer.from(a, 'utf8')
-  const bufB = Buffer.from(b, 'utf8')
-  if (bufA.length !== bufB.length) return false
-  return timingSafeEqual(bufA, bufB)
-}
-
 export function verifyToken(token: string): Device | null {
   let found: Device | null = null
   for (const device of Object.values(load())) {
-    if (timingSafeStringEqual(device.token, token)) found = device
+    if (sameBytes(Buffer.from(device.token), Buffer.from(token))) found = device
   }
   return found
 }

@@ -2,12 +2,12 @@ import { createHmac } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { SecretReveal, SecretSyncStatus } from '../../shared/types'
 import type { CredentialStore } from '../browser/credentials'
 import { type SecretStoreDeps, sanitizeSecrets } from '../extensions/extensionSecrets'
 import { BASE_DIR } from './engine'
 import { mergeMaps } from './merge'
-import { isObject } from './profile'
 import {
   type BundleHeader,
   newDataKey,
@@ -114,10 +114,10 @@ function parsePayload(text: string): Map<string, SecretEntry> | null {
   } catch {
     return null
   }
-  if (!isObject(raw) || !isObject(raw.entries)) return null
+  if (!isRecord(raw) || !isRecord(raw.entries)) return null
   const out = new Map<string, SecretEntry>()
   for (const [id, value] of Object.entries(raw.entries)) {
-    if (!id.includes(SEP) || !isObject(value)) continue
+    if (!id.includes(SEP) || !isRecord(value)) continue
     if (typeof value.value !== 'string' || typeof value.at !== 'number') continue
     out.set(id, { value: value.value, at: value.at })
   }
@@ -150,7 +150,7 @@ export class SecretSync {
   private load(): LocalState {
     try {
       const raw = JSON.parse(readFileSync(this.statePath(), 'utf8')) as unknown
-      if (!isObject(raw)) return { ...OFF_STATE }
+      if (!isRecord(raw)) return { ...OFF_STATE }
       const pending = ['create', 'rewrap', 'reset', 'remove'].includes(raw.pending as string)
         ? (raw.pending as Pending)
         : null
@@ -190,7 +190,7 @@ export class SecretSync {
       const raw = JSON.parse(
         this.deps.protect.decrypt(readFileSync(this.basePath(), 'utf8')),
       ) as unknown
-      if (!isObject(raw) || raw.keyId !== keyId || !isObject(raw.entries)) return null
+      if (!isRecord(raw) || raw.keyId !== keyId || !isRecord(raw.entries)) return null
       const out = new Map<string, string>()
       for (const [id, value] of Object.entries(raw.entries)) {
         if (typeof value === 'string') out.set(id, value)
@@ -523,7 +523,7 @@ export function groupedSource(
 export function flatSource(store: SecretStoreDeps, mtime: () => number): SecretSource {
   const load = (): Record<string, string> => {
     const raw = store.load()
-    if (!isObject(raw)) return {}
+    if (!isRecord(raw)) return {}
     return Object.fromEntries(
       Object.entries(raw).filter((e): e is [string, string] => typeof e[1] === 'string'),
     )

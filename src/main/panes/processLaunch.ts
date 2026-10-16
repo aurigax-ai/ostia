@@ -58,12 +58,6 @@ export function badRequest(message: string): ResponseError<void> {
   return new ResponseError(ErrorCodes.InvalidParams, `bad-request: ${message}`)
 }
 
-export function record(raw: unknown): Record<string, unknown> {
-  return typeof raw === 'object' && raw !== null && !Array.isArray(raw)
-    ? (raw as Record<string, unknown>)
-    : {}
-}
-
 export function commandOf(raw: unknown): string {
   if (typeof raw !== 'string' || !raw.trim()) throw badRequest('cmd')
   if (raw.length > PROCESS_COMMAND_MAX) throw badRequest('cmd is too long')

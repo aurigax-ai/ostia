@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import {
   constants,
   existsSync,
@@ -11,8 +11,9 @@ import {
   statSync,
 } from 'node:fs'
 import { open, writeFile } from 'node:fs/promises'
-import { basename, dirname, extname, isAbsolute, join, normalize, relative, sep } from 'node:path'
+import { basename, dirname, extname, isAbsolute, join } from 'node:path'
 import { ipcMain } from 'electron'
+import { unescape as unescapeHtml } from 'es-toolkit'
 import {
   type ArtifactRestore,
   type ArtifactVersion,
@@ -21,6 +22,7 @@ import {
 } from '../../shared/artifacts/artifacts'
 import type { PreviewTheme } from '../../shared/artifacts/htmlPreview'
 import { PORTABLE_LIMITS, portableType } from '../../shared/artifacts/portable'
+import { isInsidePath } from '../platform/pathGuard'
 import type { PreviewBuild } from './htmlPreview'
 import { type PreviewSource, readRegularFile } from './previewFiles'
 
@@ -56,18 +58,6 @@ interface StoredVersion extends ArtifactVersion {
 interface Manifest {
   hash?: string
   sources?: Record<string, string>
-}
-
-function sha(data: string | Buffer): string {
-  return createHash('sha256').update(data).digest('hex')
-}
-
-function unescapeAttribute(text: string): string {
-  return text
-    .replace(/&quot;/g, '"')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
 }
 
 function manifestOf(text: string): Manifest | null {
@@ -119,7 +109,7 @@ export class ArtifactHistory {
   }
 
   holds(path: string): boolean {
-    return path === this.root || path.startsWith(`${this.root}${sep}`)
+    return isInsidePath(this.root, path)
   }
 
   private nameOf(workspaceId: string, path: string): string | null {
@@ -168,22 +158,22 @@ export class ArtifactHistory {
     const name = this.nameOf(workspaceId, path)
     if (!name || !isRegular(path)) return false
     let body: Buffer
-    let hash: string
+    let digest: string
     const copied = this.copies(name)
     if (copied) {
       const read = await readRegularFile(path, PORTABLE_LIMITS.fileBytes)
       if (!read.ok) return false
       body = read.body
-      hash = sha(read.body)
+      digest = hash('sha256', read.body)
     } else {
       const closing = this.closings.get(workspaceId) ?? 0
       const text = await this.deps.make(workspaceId, path).catch(() => null)
       if ((this.closings.get(workspaceId) ?? 0) !== closing) return false
       if (!text) return false
       body = Buffer.from(text)
-      hash = manifestOf(text)?.hash ?? sha(text)
+      digest = manifestOf(text)?.hash ?? hash('sha256', text)
     }
-    const short = hash.slice(0, 8)
+    const short = digest.slice(0, 8)
     if (this.stored(workspaceId, name)[0]?.hash === short) return false
     const dir = this.versionsDir(workspaceId, name)
     mkdirSync(dir, { recursive: true, mode: 0o700 })
@@ -279,7 +269,7 @@ export class ArtifactHistory {
     if (start === -1) return null
     const from = start + SRCDOC.length
     const end = text.indexOf('"', from)
-    return end === -1 ? null : unescapeAttribute(text.slice(from, end))
+    return end === -1 ? null : unescapeHtml(text.slice(from, end))
   }
 
   async restore(workspaceId: string, path: string, id: string): Promise<ArtifactRestore | null> {
@@ -296,8 +286,8 @@ export class ArtifactHistory {
     const refused: string[] = []
     for (const [rel, body] of sources) {
       const target = join(folder, rel)
-      const inside = relative(folder, normalize(target))
-      const escapes = isAbsolute(rel) || inside === '' || inside.startsWith('..')
+      const escapes =
+        isAbsolute(rel) || isInsidePath(target, folder) || !isInsidePath(folder, target)
       if (!escapes && !rel.includes('\0') && (await writeInside(folder, target, body))) {
         restored.push(rel)
       } else {
@@ -373,7 +363,7 @@ export class ArtifactHistory {
 }
 
 async function writeInside(folder: string, target: string, body: string | Buffer) {
-  for (let dir = dirname(target); dir.startsWith(`${folder}${sep}`); dir = dirname(dir)) {
+  for (let dir = dirname(target); dir !== folder && isInsidePath(folder, dir); dir = dirname(dir)) {
     if (existsSync(dir) && !lstatSync(dir).isDirectory()) return false
   }
   try {

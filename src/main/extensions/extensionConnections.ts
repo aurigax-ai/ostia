@@ -9,6 +9,7 @@ import {
   type ExtensionConnectionKind,
   type ExtensionConnectionResult,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import { loadJson, saveJson } from '../platform/jsonStore'
 import type { ExtensionSecretStore } from './extensionHostDeps'
@@ -24,10 +25,6 @@ const SECRET_PREFIX = '@connection/'
 
 export function connectionSecretKey(name: string, key: string): string {
   return `${SECRET_PREFIX}${name}/${key}`
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
 function stringFields(raw: unknown): Record<string, string> | null {
