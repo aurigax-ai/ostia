@@ -24,7 +24,8 @@ interface StoredChunk {
 
 interface OpenChunk {
   first: number
-  lines: string[]
+  count: number
+  batches: string[]
   bytes: number
 }
 
@@ -93,14 +94,14 @@ export class PaneHistory {
     if (!this.live || lines.length === 0) return
     let chunk = this.open
     if (!chunk) {
-      chunk = { first: this.end, lines: [], bytes: 0 }
+      chunk = { first: this.end, count: 0, batches: [], bytes: 0 }
       this.open = chunk
       this.unwritten.push(chunk)
     }
-    for (const line of lines) {
-      chunk.lines.push(line)
-      chunk.bytes += line.length + 1
-    }
+    const batch = lines.join('\n')
+    chunk.batches.push(batch)
+    chunk.count += lines.length
+    chunk.bytes += batch.length + 1
     this.end += lines.length
     if (chunk.bytes >= RECORD_BYTES) void this.flush()
     else this.armTimer()
@@ -152,8 +153,8 @@ export class PaneHistory {
     const overlaps = (first: number, count: number) => first + count > from && first < until
     const stored = this.stored.filter((c) => overlaps(c.first, c.count))
     const pending = this.unwritten
-      .filter((c) => overlaps(c.first, c.lines.length))
-      .map((c) => ({ first: c.first, lines: c.lines.slice() }))
+      .filter((c) => overlaps(c.first, c.count))
+      .map((c) => ({ first: c.first, lines: c.batches.join('\n').split('\n') }))
     for (const chunk of stored) {
       if (generation !== this.generation) return
       yield { first: chunk.first, lines: await this.readChunk(chunk) }
@@ -216,8 +217,8 @@ export class PaneHistory {
   }
 
   private async write(chunk: OpenChunk, generation: number): Promise<void> {
-    if (chunk.lines.length === 0) return
-    const sealed = await sealLines(this.deps.key, chunk.lines)
+    if (chunk.count === 0) return
+    const sealed = await sealLines(this.deps.key, chunk.batches)
     if (generation !== this.generation) return
     const segment = await this.segmentFor(sealed.length)
     const offset = segment.size
@@ -227,7 +228,7 @@ export class PaneHistory {
     if (generation !== this.generation) return
     this.stored.push({
       first: chunk.first,
-      count: chunk.lines.length,
+      count: chunk.count,
       segment,
       offset,
       length: sealed.length,

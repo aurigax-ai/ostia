@@ -1,4 +1,4 @@
-import type { IDisposable, IMarker, Terminal } from '@xterm/headless'
+import type { IBufferNamespace, IDisposable, IMarker, Terminal } from '@xterm/headless'
 import { decodeCommandLine } from '../../../shared/terminal/commandLine'
 import { serializeLogicalLines } from '../screenSerialize'
 import type { PaneHistory } from './paneHistory'
@@ -29,11 +29,13 @@ export class HistorySpill {
   private running: number | null = null
   private command: string | null = null
   private readonly subs: IDisposable[]
+  private readonly buffers: IBufferNamespace
 
   constructor(
     private readonly term: Terminal,
     private readonly history: PaneHistory,
   ) {
+    this.buffers = term.buffer
     this.seq = history.seqOffset
     this.frontier = this.markerAt(0)
     this.subs = [
@@ -73,14 +75,14 @@ export class HistorySpill {
   tail(): string[] {
     const frontier = this.frontier
     if (this.held || this.finished || !frontier || frontier.isDisposed) return []
-    const buffer = this.term.buffer.normal
+    const buffer = this.buffers.normal
     const last = this.lastContentRow()
     return last < frontier.line ? [] : serializeLogicalLines(buffer, frontier.line, last)
   }
 
   finish(): void {
     if (this.finished) return
-    if (!this.held && this.term.buffer.active.type === 'normal') {
+    if (!this.held && this.buffers.active.type === 'normal') {
       this.spill(this.lastContentRow(), true)
     }
     this.finished = true
@@ -97,15 +99,15 @@ export class HistorySpill {
   }
 
   private lastContentRow(): number {
-    const buffer = this.term.buffer.normal
+    const buffer = this.buffers.normal
     let last = buffer.length - 1
     while (last >= 0 && (buffer.getLine(last)?.translateToString(true).trim() ?? '') === '') last--
     return last
   }
 
   private markerAt(line: number): IMarker | undefined {
-    const buffer = this.term.buffer.normal
-    if (this.term.buffer.active.type !== 'normal') return undefined
+    const buffer = this.buffers.normal
+    if (this.buffers.active.type !== 'normal') return undefined
     return this.term.registerMarker(line - (buffer.baseY + buffer.cursorY))
   }
 
@@ -122,8 +124,8 @@ export class HistorySpill {
     }
     const seq = kind === 'C' ? this.seq : this.running
     if (kind === 'D') this.running = null
-    if (seq === null || this.finished || this.term.buffer.active.type !== 'normal') return
-    const buffer = this.term.buffer.normal
+    if (seq === null || this.finished || this.buffers.active.type !== 'normal') return
+    const buffer = this.buffers.normal
     const marker = this.term.registerMarker(0)
     if (!marker) return
     this.marks.push({
@@ -137,10 +139,10 @@ export class HistorySpill {
   }
 
   private check(): void {
-    if (this.held || this.finished || this.term.buffer.active.type !== 'normal') return
+    if (this.held || this.finished || this.buffers.active.type !== 'normal') return
     if (!this.history.live) return
     const frontier = this.frontierLine()
-    const baseY = this.term.buffer.normal.baseY
+    const baseY = this.buffers.normal.baseY
     if (baseY - frontier >= SPILL_BATCH) this.spill(baseY - 1, false)
   }
 
@@ -154,7 +156,7 @@ export class HistorySpill {
 
   private spill(lastRow: number, whole: boolean): void {
     if (!this.history.live) return
-    const buffer = this.term.buffer.normal
+    const buffer = this.buffers.normal
     const from = this.frontierLine()
     let last = lastRow
     if (!whole) while (last >= from && buffer.getLine(last + 1)?.isWrapped) last--
@@ -179,7 +181,7 @@ export class HistorySpill {
   }
 
   private logicalLine(from: number, row: number, firstLine: number): number {
-    const buffer = this.term.buffer.normal
+    const buffer = this.buffers.normal
     let logical = firstLine
     for (let y = from + 1; y <= row; y++) if (!buffer.getLine(y)?.isWrapped) logical++
     return logical
@@ -203,11 +205,11 @@ export class HistorySpill {
   }
 
   private wipe(): void {
-    if (this.term.buffer.active.type !== 'normal' || this.finished) return
+    if (this.buffers.active.type !== 'normal' || this.finished) return
     for (const mark of this.marks) mark.marker.dispose()
     this.marks = []
     this.history.wipe()
     this.frontier?.dispose()
-    this.frontier = this.markerAt(this.term.buffer.normal.baseY)
+    this.frontier = this.markerAt(this.buffers.normal.baseY)
   }
 }

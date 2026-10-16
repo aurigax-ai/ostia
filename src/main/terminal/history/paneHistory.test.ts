@@ -51,6 +51,18 @@ describe('PaneHistory', () => {
     expect(await history.read(3008, 100)).toEqual(numbered(3008, 2))
   })
 
+  it('reads back pending batches line by line, empty lines and one-line batches included', async () => {
+    const { history } = makeHistory()
+    history.append(['first', '', 'third'])
+    history.append([''])
+    history.append(['\x1b[31mred\x1b[0m'])
+    expect(history.end).toBe(5)
+    expect(await history.read(0, 5)).toEqual(['first', '', 'third', '', '\x1b[31mred\x1b[0m'])
+    expect(await history.read(2, 2)).toEqual(['third', ''])
+    await history.flush()
+    expect(await history.read(0, 5)).toEqual(['first', '', 'third', '', '\x1b[31mred\x1b[0m'])
+  })
+
   it('keeps nothing readable on disk: a 0700 folder, 0600 files, no plaintext', async () => {
     const { history, dir } = makeHistory()
     history.append(numbered(0, 50, 'secret-looking text'))
