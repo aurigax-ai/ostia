@@ -80,7 +80,7 @@ function DeviceRow({
           {d.settings.remoteRevoke}
         </Button>
       }
-      detail={
+      below={
         <>
           <fieldset aria-label={fmt(d.settings.remoteGrantsFor, { name: device.name })}>
             {PHONE_GRANTABLE_CAPS.map((cap) => {

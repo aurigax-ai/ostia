@@ -56,7 +56,7 @@ function RunningGroupItem({ group }: { group: RunningGroup }): JSX.Element {
   return (
     <li>
       <div className="font-medium text-fg text-ui-base">{group.workspace}</div>
-      <ul className="mt-1 flex flex-col">
+      <ul className="mt-1 flex flex-col gap-1">
         {group.commands.map((command, index) => (
           <ListRow
             // biome-ignore lint/suspicious/noArrayIndexKey: commands can repeat and never reorder while the dialog is open
@@ -84,7 +84,7 @@ function RunningGroupItem({ group }: { group: RunningGroup }): JSX.Element {
                 ? d.closeConfirm.scratchFilesOne
                 : fmt(d.closeConfirm.scratchFiles, { count: group.scratchFiles })
             }
-            actions={
+            meta={
               <TextLink
                 size="xs"
                 className="h-5 px-1 text-ui-sm"
@@ -130,7 +130,7 @@ function KeptShellsSection({
           ? d.closeConfirm.keptShellsOne
           : fmt(d.closeConfirm.keptShells, { count: keptShells.length })}
       </div>
-      <ul className="flex flex-col">
+      <ul className="flex flex-col gap-1">
         {keptAgents(keptShells).map((agent, index) => (
           <ListRow
             // biome-ignore lint/suspicious/noArrayIndexKey: agents can repeat and never reorder while the dialog is open

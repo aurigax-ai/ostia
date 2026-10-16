@@ -54,7 +54,7 @@ export function MergeConfirmDialog(): JSX.Element {
             </ul>
           )}
           {summary && summary.running.length > 0 ? (
-            <ul className="flex flex-col">
+            <ul className="flex flex-col gap-1">
               {summary.running.map((r) => (
                 <ListRow
                   key={r.paneId}

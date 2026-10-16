@@ -1,5 +1,8 @@
 import { Item, ItemActions, ItemContent } from '@/components/ui/item'
 import { cn } from '@/lib/utils'
+import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react'
+import { useId, useState } from 'react'
+import { IconButton } from './IconButton'
 
 export interface ListRowProps extends Omit<React.ComponentProps<'li'>, 'title' | 'children'> {
   lead?: React.ReactNode
@@ -7,7 +10,10 @@ export interface ListRowProps extends Omit<React.ComponentProps<'li'>, 'title' |
   meta?: React.ReactNode
   detail?: React.ReactNode
   actions?: React.ReactNode
+  below?: React.ReactNode
   expanded?: React.ReactNode
+  expandLabel?: string
+  defaultOpen?: boolean
   density?: 'settings' | 'dense'
 }
 
@@ -17,16 +23,22 @@ export function ListRow({
   meta,
   detail,
   actions,
+  below,
   expanded,
+  expandLabel,
+  defaultOpen = false,
   density = 'settings',
   ...props
 }: ListRowProps): JSX.Element {
   const dense = density === 'dense'
+  const [open, setOpen] = useState(defaultOpen)
+  const regionId = useId()
+  const disclosure = expanded && expandLabel
   return (
     <li {...props}>
       <Item
         size="sm"
-        className={cn('items-start gap-2 rounded-none border-0 px-0', dense ? 'py-0.5' : 'py-1.5')}
+        className={cn('items-start gap-2 rounded-none border-0 px-0', dense ? 'py-0' : 'py-1.5')}
       >
         {lead ? (
           <span className={cn('flex shrink-0 items-center text-fg-muted', dense ? 'h-5' : 'h-6')}>
@@ -45,13 +57,32 @@ export function ListRow({
           </div>
           {detail ? <div className="text-fg-muted text-ui-sm">{detail}</div> : null}
         </ItemContent>
-        {actions ? (
+        {actions || disclosure ? (
           <ItemActions className={cn('shrink-0', dense ? 'min-h-5' : 'min-h-6')}>
             {actions}
+            {disclosure ? (
+              <IconButton
+                icon={open ? CaretDownIcon : CaretRightIcon}
+                label={expandLabel}
+                aria-expanded={open}
+                aria-controls={regionId}
+                onClick={() => setOpen((was) => !was)}
+              />
+            ) : null}
           </ItemActions>
         ) : null}
       </Item>
-      {expanded ? <div className="mt-1 mb-2 ml-2 border-line border-l pl-4">{expanded}</div> : null}
+      {below}
+      {expanded ? (
+        <section
+          id={regionId}
+          aria-label={expandLabel}
+          hidden={!open}
+          className="mt-1 mb-2 ml-2 border-line border-l pl-4"
+        >
+          {expanded}
+        </section>
+      ) : null}
     </li>
   )
 }

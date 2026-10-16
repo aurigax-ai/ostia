@@ -144,7 +144,12 @@ function SelectedChips({
       <p id="prompt-reorder-hint" className="-mt-1.5 mb-2 text-fg-muted text-ui-xs">
         {d.prompt.selectedHint}
       </p>
-      <SettingsList label={d.prompt.selected} empty={d.prompt.noneSelected}>
+      <SettingsList
+        ordered
+        label={d.prompt.selected}
+        labelledBy="prompt-selected"
+        empty={d.prompt.noneSelected}
+      >
         {order.map((id, index) => {
           const name = chipName(d, id, catalog)
           const Icon = chipIcon(isCoreChipId(id) ? id : null)
