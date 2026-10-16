@@ -1,9 +1,10 @@
+import { execFile } from 'node:child_process'
 import { mkdtempSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { stripVTControlCharacters } from 'node:util'
-import { setFlagsFromString } from 'node:v8'
-import { Worker } from 'node:worker_threads'
+import { join, resolve } from 'node:path'
+import { promisify, stripVTControlCharacters } from 'node:util'
+import { build } from 'esbuild'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   HISTORY_WORKER_SCRIPT,
@@ -18,7 +19,6 @@ import {
   SpillClient,
   type SpillPort,
   type SpillPressure,
-  spillWorker,
   startSpillWorker,
 } from './historyFeed'
 import { newHistoryKey } from './historyRecords'
@@ -30,6 +30,8 @@ import { SPILL_SCROLLBACK, SpillTerminal } from './spillTerminal'
 
 const ESC = '\x1b'
 const GIB = 1024 * 1024 * 1024
+const run = promisify(execFile)
+const electronBinary = createRequire(__filename)('electron') as unknown as string
 const mark = (kind: string) => `${ESC}]133;${kind}\x07`
 const owned: { dispose(): void }[] = []
 const clients: SpillClient[] = []
@@ -119,34 +121,22 @@ describe('history feed', () => {
     )
   })
 
-  it("starts the worker with a bounded heap instead of inheriting main's limit", async () => {
-    const worker = spillWorker(HISTORY_WORKER_SCRIPT)
-    owned.push({ dispose: () => void worker.terminate() })
-    await new Promise((resolve) => worker.once('online', resolve))
-    const { heap_size_limit } = await worker.getHeapStatistics()
-    expect(heap_size_limit).toBeLessThan(1.1 * GIB)
-  })
-
-  it('keeps the bound when NODE_OPTIONS raises the heap, and leaves later workers the inherited limit', async () => {
-    const nodeOptions = process.env.NODE_OPTIONS
-    process.env.NODE_OPTIONS = '--max-old-space-size=3000'
-    setFlagsFromString('--max-old-space-size=3000')
-    const limitOf = async (worker: Worker) => {
-      owned.push({ dispose: () => void worker.terminate() })
-      await new Promise((resolve) => worker.once('online', resolve))
-      return (await worker.getHeapStatistics()).heap_size_limit
-    }
-    try {
-      expect(await limitOf(spillWorker(HISTORY_WORKER_SCRIPT))).toBeLessThan(1.1 * GIB)
-      const later = new Worker('setInterval(() => {}, 1000)', { eval: true })
-      expect(await limitOf(later)).toBeGreaterThan(2.9 * GIB)
-    } finally {
-      process.env.NODE_OPTIONS = nodeOptions
-      setFlagsFromString(
-        nodeOptions?.split(/\s+/).find((arg) => arg.startsWith('--max-old-space-size=')) ??
-          '--max-old-space-size=0',
-      )
-    }
+  it('caps the worker heap under the runtime the app ships, whatever this test process was started with', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'heap-probe-'))
+    const probe = join(dir, 'heapProbe.cjs')
+    await build({
+      entryPoints: [resolve(__dirname, '../../../../test/fixtures/history/heapProbe.ts')],
+      bundle: true,
+      platform: 'node',
+      format: 'cjs',
+      outfile: probe,
+      logLevel: 'silent',
+    })
+    const { NODE_OPTIONS: _inherited, ...env } = process.env
+    const { stdout } = await run(electronBinary, [probe, HISTORY_WORKER_SCRIPT], {
+      env: { ...env, ELECTRON_RUN_AS_NODE: '1' },
+    })
+    expect(Number(stdout.trim())).toBeLessThan(1.1 * GIB)
   })
 
   it('keeps wide and combined characters through the worker', async () => {
