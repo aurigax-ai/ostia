@@ -18,6 +18,7 @@ import { setPaneIdSalt } from '../control/idRegistry'
 import { loadPaneIdSalt } from '../control/paneIdSalt'
 import { LOG_FILE_NAME, createAppLog } from '../diagnostics/appLog'
 import { registerDiagnostics } from '../diagnostics/diagnostics'
+import { registerGpuReport } from '../diagnostics/gpuReport'
 import { TELEMETRY_FILE, registerTelemetry } from '../diagnostics/telemetry'
 import { extensionHostParts, startExtensionHost } from '../extensions/extensionWiring'
 import { startMarketplace } from '../extensions/marketplace/marketplaceWiring'
@@ -107,6 +108,7 @@ export function boot(wiring: Wiring): void {
     finishRecovery,
     openPath: (path) => shell.openPath(path),
   })
+  registerGpuReport(services.appLog)
   handleQuitSignals()
   services.histories = new PaneHistories({
     root: join(appDataDir(), HISTORY_DIR),

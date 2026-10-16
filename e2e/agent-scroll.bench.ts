@@ -88,8 +88,15 @@ for (const config of CONFIGS) {
         if (!box) throw new Error('no terminal box')
         await win.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
         await win.evaluate(PROBE)
+        const cdp = await win.context().newCDPSession(win)
+        await cdp.send('Profiler.enable')
         for (const pattern of PATTERNS) {
+          await cdp.send('Profiler.start')
           const result = await scroll(win, pattern)
+          const { profile } = (await cdp.send('Profiler.stop')) as { profile: CpuProfile }
+          console.log(
+            `PROFILE ${config.name} ${streaming ? 'streaming' : 'idle'} ${pattern.name} ${JSON.stringify(topSelf(profile))}`,
+          )
           console.log(
             `BENCH scroll ${config.name} ${streaming ? 'streaming' : 'idle'} ${pattern.name} ${JSON.stringify(result)}`,
           )
@@ -151,4 +158,29 @@ async function scroll(
     inputToScrollP95: pct(lag, 0.95),
     scrollTop: Math.round(scrolled),
   }
+}
+
+interface CpuProfile {
+  nodes: {
+    id: number
+    callFrame: { functionName: string; url: string; lineNumber: number }
+  }[]
+  samples: number[]
+  timeDeltas: number[]
+}
+
+function topSelf(profile: CpuProfile): string[] {
+  const byId = new Map(profile.nodes.map((n) => [n.id, n]))
+  const self = new Map<string, number>()
+  profile.samples.forEach((id, i) => {
+    const frame = byId.get(id)?.callFrame
+    if (!frame) return
+    const file = frame.url.split('/').pop() ?? ''
+    const key = `${frame.functionName || '(anon)'} ${file}:${frame.lineNumber}`
+    self.set(key, (self.get(key) ?? 0) + (profile.timeDeltas[i] ?? 0) / 1000)
+  })
+  return [...self.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 14)
+    .map(([key, ms]) => `${Math.round(ms)}ms ${key}`)
 }
