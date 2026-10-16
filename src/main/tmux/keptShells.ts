@@ -3,7 +3,7 @@ import { hash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { connect as connectSocket } from 'node:net'
 import { join } from 'node:path'
-import type { KeptExposure } from '../sandbox/portRequests'
+import type { KeptExposure } from '../sandbox/ports/portRequests'
 import { HOST_PROTOCOL_VERSION } from '../sandbox/protocol'
 import { isMarkNonce } from '../terminal/markNonce'
 import {

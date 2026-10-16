@@ -19,7 +19,7 @@ import { windowForWorkspace, workDirForWorkspace } from '../workspaces/workspace
 import { registerSandboxMethods } from './controlMethods'
 import type { DomainRequests } from './domainRequests'
 import { registerSandboxIpc } from './ipc'
-import type { PortRequests } from './portRequests'
+import type { PortRequests } from './ports/portRequests'
 import { reportSandboxSpawnFailure } from './spawnFailureNotice'
 import type { ViolationLog } from './violations'
 import type { WorkspaceSandboxes } from './workspaceSandboxes'

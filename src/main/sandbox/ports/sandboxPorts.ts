@@ -1,12 +1,12 @@
 import { isEqual } from 'es-toolkit'
-import { approvals } from '../approvals/approvals'
-import { getByPaneId } from '../control/idRegistry'
-import type { PtyEntry } from '../terminal/pty/ptyRegistry'
-import type { KeptHostMeta } from '../tmux/keptShells'
-import type { TmuxPane } from '../tmux/tmuxServer'
+import { approvals } from '../../approvals/approvals'
+import { getByPaneId } from '../../control/idRegistry'
+import type { PtyEntry } from '../../terminal/pty/ptyRegistry'
+import type { KeptHostMeta } from '../../tmux/keptShells'
+import type { TmuxPane } from '../../tmux/tmuxServer'
+import type { WorkspaceSandboxes } from '../workspaceSandboxes'
 import { PortForwarder, type SandboxListener, type SandboxPane } from './portForwarder'
 import { PortRequests } from './portRequests'
-import type { WorkspaceSandboxes } from './workspaceSandboxes'
 
 interface SandboxPortsDeps {
   ptys: Map<string, PtyEntry>

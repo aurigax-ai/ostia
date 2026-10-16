@@ -20,7 +20,7 @@ import { parseSwitches, parseWorkspacePackages } from '../../shared/sandbox/sand
 import type { SandboxReadPreset } from '../../shared/sandbox/sandboxPresets'
 import type { DomainRequests } from './domainRequests'
 import { checkSandboxPaths } from './pathChecks'
-import type { PortRequests, PortRow } from './portRequests'
+import type { PortRequests, PortRow } from './ports/portRequests'
 import { availableReadPresets } from './presets'
 import type { ViolationLog } from './violations'
 import type { WorkspaceSandboxes } from './workspaceSandboxes'
