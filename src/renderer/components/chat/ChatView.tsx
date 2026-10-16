@@ -15,22 +15,23 @@ import { useChatToolsStore } from '@/stores/assist/chatToolsStore'
 import { retryPendingFocus } from '@/stores/workspaces/surfaceSlotsStore'
 import { useChat } from '@ai-sdk/react'
 import type { ChatContextItem } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import type { Dict } from '@shared/app/dict'
 import type { UIMessage } from 'ai'
-import { type MutableRefObject, useEffect, useMemo, useRef, useState } from 'react'
+import { type MutableRefObject, type RefObject, useEffect, useMemo, useRef, useState } from 'react'
 import { ChatCheckpointDialog } from './ChatCheckpointDialog'
 import { ChatClearDialog } from './ChatClearDialog'
 import type { ChatActionNotice } from './ChatCodeActions'
-import { ChatComposer } from './ChatComposer'
+import { ChatComposerArea } from './ChatComposerArea'
 import { ChatConversation } from './ChatConversation'
 import { ChatHeader, type ChatVariant } from './ChatHeader'
 import { markdownComponents } from './ChatMarkdown'
 import { ChatReviewBar } from './ChatReviewBar'
-import { ChatSlashMenu } from './ChatSlashMenu'
 import { useChatAsk } from './useChatAsk'
+import { useChatComposer } from './useChatComposer'
 import { useChatContext } from './useChatContext'
 import { useChatFocus } from './useChatFocus'
 import { useChatMessageActions } from './useChatMessageActions'
-import { type SlashCard, useChatSlash } from './useChatSlash'
+import type { SlashCard } from './useChatSlash'
 
 export interface ChatViewProps {
   workspaceId: string | null
@@ -72,13 +73,8 @@ function ChatSession({
   const chat = useMemo(() => chatFor(sessionId), [sessionId])
   const chatHelpers = useChat({ chat })
   const { messages, status, error } = chatHelpers
-  const modelRef = useChatStore((s) => s.meta[sessionId]?.modelRef)
-  const provider = useChatModel(modelRef)
-  const historyOn = useSettingsStore((s) => s.assistant.chatHistory)
-  const scratch = useChatStore((s) => s.meta[sessionId]?.scratch === true)
-  const sessionNotice = useChatStore((s) => s.notice[sessionId] ?? null)
-  const draftSeed = useChatStore((s) => s.drafts[key])
-  const attachments = useChatStore((s) => s.attachments[key] ?? EMPTY_ATTACHMENTS)
+  const session = useChatSessionData(sessionId, key)
+  const { provider, historyOn, scratch, sessionNotice, draftSeed, attachments } = session
   const [draft, setDraft] = useState(seed)
   const [notice, setNotice] = useState<Notice>(null)
   const [editing, setEditing] = useState<string | null>(null)
@@ -87,61 +83,29 @@ function ChatSession({
   const labels = d.ask.context
   const chatContext = useChatContext({ workspaceId, labels })
   const areaRef = useRef<HTMLTextAreaElement>(null)
-  useEffect(() => {
-    if (!focusRef) return
-    focusRef.current = areaRef.current
-    retryPendingFocus()
-    return () => {
-      focusRef.current = null
-    }
-  }, [focusRef])
+  useFocusRegistration(focusRef, areaRef)
   const rootRef = useRef<HTMLDivElement>(null)
   const busy = status === 'submitted' || status === 'streaming'
   const [sessionsOpen, setSessionsOpen] = useState(false)
-  const [toolsOpen, setToolsOpen] = useState(false)
-  const [modelOpen, setModelOpen] = useState(false)
-  const [pickerQuery, setPickerQuery] = useState('')
-  const [focused, setFocused] = useState(false)
   const [card, setCard] = useState<SlashCard>(null)
   const [confirmClear, setConfirmClear] = useState(false)
   const [checkpoint, setCheckpoint] = useState<string | null>(null)
-  const editRecords = useChatToolsStore((s) => s.edits)
-  const checkpoints = useMemo(() => {
-    const records = Object.values(editRecords).filter((e) => e.sessionId === sessionId)
-    if (records.length === 0) return new Set<string>()
-    return new Set(
-      messages
-        .filter((m) => m.role === 'user' && checkpointFiles(messages, records, m.id).length > 0)
-        .map((m) => m.id),
-    )
-  }, [editRecords, messages, sessionId])
-
+  const checkpoints = useChatCheckpoints(sessionId, messages)
+  const shared = { workspaceId, sessionId, draft, setDraft, busy, chat: chatHelpers, setCard }
   const { ask, willRedact } = useChatAsk({
-    workspaceId,
-    sessionId,
+    ...shared,
     chatKey: key,
     labels,
     context: chatContext,
     attachments,
-    draft,
-    setDraft,
-    busy,
     editing,
     setEditing,
-    chat: chatHelpers,
     setNotice,
-    setCard,
   })
   const last = messages[messages.length - 1]
-  const chatSlash = useChatSlash({
+  const composer = useChatComposer({
+    ...shared,
     d,
-    workspaceId,
-    sessionId,
-    draft,
-    setDraft,
-    focused,
-    busy,
-    chat: chatHelpers,
     last,
     historyOn,
     scratch,
@@ -149,50 +113,21 @@ function ChatSession({
     ask,
     setConfirmClear,
     setSessionsOpen,
-    setPickerQuery,
     setPicking,
-    setToolsOpen,
-    setModelOpen,
-    setCard,
     areaRef,
     rootRef,
   })
-  const { menu, rows, active, anchor, setSlashKey, pickRow, slashNotice, setSlashNotice } =
-    chatSlash
+  const { slashNotice, setSlashNotice } = composer.slash
   useChatFocus({ areaRef, draftSeed, setDraft, chatKey: key })
   const messageActions = useChatMessageActions({
-    sessionId,
-    chat: chatHelpers,
+    ...shared,
     setStopped,
     setEditing,
-    setDraft,
     setConfirmClear,
-    setCard,
     areaRef,
   })
-
-  const markdown = useMemo(
-    () =>
-      markdownComponents({
-        workspaceId,
-        sessionId,
-        onNotice: setNotice,
-        onInserted,
-      }),
-    [workspaceId, sessionId, onInserted],
-  )
-
-  const waiting = busy && (last?.role === 'user' || !hasVisibleContent(last))
-  const errorInfo = error ? decodeChatError(error.message) : null
-  const shownNotice = notice ?? sessionNotice
-  const noticeText =
-    slashNotice ??
-    (shownNotice
-      ? ((d.chatActions.notices as Record<string, string>)[shownNotice] ??
-        (d.chat.notices as Record<string, string>)[shownNotice] ??
-        '')
-      : '')
-
+  const markdown = useChatMarkdown({ workspaceId, sessionId, setNotice, onInserted })
+  const noticeText = slashNotice ?? noticeTextOf(d, notice ?? sessionNotice)
   return (
     <div
       ref={rootRef}
@@ -226,14 +161,14 @@ function ChatSession({
         editing={editing}
         checkpoints={checkpoints}
         card={card}
-        waiting={waiting}
-        errorInfo={errorInfo}
+        waiting={busy && (last?.role === 'user' || !hasVisibleContent(last))}
+        errorInfo={error ? decodeChatError(error.message) : null}
         ask={ask}
         setNotice={setNotice}
         setCheckpoint={setCheckpoint}
         setCard={setCard}
       />
-      <ChatComposer
+      <ChatComposerArea
         sessionId={sessionId}
         workspaceId={workspaceId}
         chatKey={key}
@@ -246,34 +181,16 @@ function ChatSession({
         setEditing={setEditing}
         areaRef={areaRef}
         noticeText={noticeText}
-        toolsOpen={toolsOpen}
-        setToolsOpen={setToolsOpen}
-        modelOpen={modelOpen}
-        setModelOpen={setModelOpen}
-        setFocused={setFocused}
+        composer={composer}
         picking={picking}
         setPicking={setPicking}
-        pickerQuery={pickerQuery}
-        setPickerQuery={setPickerQuery}
         attachments={attachments}
         willRedact={willRedact}
         context={chatContext}
-        slash={chatSlash}
         ask={ask}
         onStop={messageActions.onStop}
         onBack={onBack}
       />
-      {menu ? (
-        <ChatSlashMenu
-          menu={menu}
-          rows={rows}
-          activeKey={active?.key}
-          anchor={anchor}
-          areaRef={areaRef}
-          onActive={setSlashKey}
-          onPick={(row) => pickRow(row, false)}
-        />
-      ) : null}
       <ChatCheckpointDialog
         sessionId={sessionId}
         workspaceId={workspaceId}
@@ -289,6 +206,76 @@ function ChatSession({
         onClear={messageActions.clearChat}
       />
     </div>
+  )
+}
+
+function useChatSessionData(sessionId: string, key: string) {
+  const modelRef = useChatStore((s) => s.meta[sessionId]?.modelRef)
+  const provider = useChatModel(modelRef)
+  const historyOn = useSettingsStore((s) => s.assistant.chatHistory)
+  const scratch = useChatStore((s) => s.meta[sessionId]?.scratch === true)
+  const sessionNotice = useChatStore((s) => s.notice[sessionId] ?? null)
+  const draftSeed = useChatStore((s) => s.drafts[key])
+  const attachments = useChatStore((s) => s.attachments[key] ?? EMPTY_ATTACHMENTS)
+  return { provider, historyOn, scratch, sessionNotice, draftSeed, attachments }
+}
+
+function useFocusRegistration(
+  focusRef: MutableRefObject<HTMLElement | null> | undefined,
+  areaRef: RefObject<HTMLTextAreaElement>,
+): void {
+  useEffect(() => {
+    if (!focusRef) return
+    focusRef.current = areaRef.current
+    retryPendingFocus()
+    return () => {
+      focusRef.current = null
+    }
+  }, [focusRef, areaRef])
+}
+
+function noticeTextOf(d: Dict, shown: Notice): string {
+  if (!shown) return ''
+  return (
+    (d.chatActions.notices as Record<string, string>)[shown] ??
+    (d.chat.notices as Record<string, string>)[shown] ??
+    ''
+  )
+}
+
+function useChatCheckpoints(sessionId: string, messages: UIMessage[]): Set<string> {
+  const editRecords = useChatToolsStore((s) => s.edits)
+  return useMemo(() => {
+    const records = Object.values(editRecords).filter((e) => e.sessionId === sessionId)
+    if (records.length === 0) return new Set<string>()
+    return new Set(
+      messages
+        .filter((m) => m.role === 'user' && checkpointFiles(messages, records, m.id).length > 0)
+        .map((m) => m.id),
+    )
+  }, [editRecords, messages, sessionId])
+}
+
+function useChatMarkdown({
+  workspaceId,
+  sessionId,
+  setNotice,
+  onInserted,
+}: {
+  workspaceId: string | null
+  sessionId: string
+  setNotice: (notice: Notice) => void
+  onInserted: (() => void) | undefined
+}) {
+  return useMemo(
+    () =>
+      markdownComponents({
+        workspaceId,
+        sessionId,
+        onNotice: setNotice,
+        onInserted,
+      }),
+    [workspaceId, sessionId, setNotice, onInserted],
   )
 }
 
