@@ -58,6 +58,7 @@ async function attach(keepShells: boolean, spawnKept: () => Promise<unknown>) {
     spawnSandboxed: vi.fn() as never,
     spawnKept: spawned as never,
     startTracked: startTracked as never,
+    historySettled: async () => undefined,
     telemetry: () => null,
   })
   await attachPty({ sender: { id: 1 } } as never, 'p1', { cwd: '/', workspaceId: 'w1' } as never)

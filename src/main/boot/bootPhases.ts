@@ -35,7 +35,7 @@ import { registerPrivacyIpc } from '../privacy/privacyIpc'
 import { startProfileSyncWiring } from '../profileSync/profileSyncWiring'
 import { registerSandboxIpcWiring, registerSandboxWiring } from '../sandbox/sandboxWiring'
 import { registerHistoryIpc } from '../terminal/history/historyIpc'
-import { HISTORY_DIR, PaneHistories } from '../terminal/history/paneHistories'
+import { HISTORY_DIR, PaneHistories, appSpillWorker } from '../terminal/history/paneHistories'
 import { registerPtyIpc } from '../terminal/pty/ptyIpc'
 import { registerSelectionIpc } from '../terminal/selectionReport'
 import { startKeptShells } from '../tmux/keptShellsWiring'
@@ -111,6 +111,7 @@ export function boot(wiring: Wiring): void {
   services.histories = new PaneHistories({
     root: join(appDataDir(), HISTORY_DIR),
     setting: () => parseScrollbackHistory(readSettingsFile().terminal?.scrollbackHistory),
+    startSpill: appSpillWorker(app.getAppPath()),
     onFailed: (paneId, reason) => services.appLog?.info('history-off', { pane: paneId, reason }),
   })
   services.restoreOutcome = loadRestoredScrollback()

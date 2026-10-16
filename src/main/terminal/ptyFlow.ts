@@ -7,6 +7,13 @@ export interface FlowTarget {
   resume(): void
 }
 
+export interface FlowMarks {
+  high: number
+  low: number
+}
+
+const WINDOW_MARKS: FlowMarks = { high: FLOW_HIGH_WATERMARK, low: FLOW_LOW_WATERMARK }
+
 export interface FlowLane {
   sent(chars: number): void
   close(): void
@@ -15,6 +22,7 @@ export interface FlowLane {
 interface LaneState {
   unacked: number
   closed: boolean
+  marks: FlowMarks
 }
 
 export class PtyFlowControl {
@@ -28,8 +36,8 @@ export class PtyFlowControl {
     return this.paused
   }
 
-  open(id: string, shown: () => boolean): FlowLane {
-    const state: LaneState = { unacked: 0, closed: false }
+  open(id: string, shown: () => boolean, marks: FlowMarks = WINDOW_MARKS): FlowLane {
+    const state: LaneState = { unacked: 0, closed: false, marks }
     this.lanes.set(id, state)
     this.settle()
     return {
@@ -40,7 +48,7 @@ export class PtyFlowControl {
           return
         }
         state.unacked += chars
-        if (!this.paused && state.unacked > FLOW_HIGH_WATERMARK) this.pause()
+        if (!this.paused && state.unacked > marks.high) this.pause()
       },
       close: () => {
         state.closed = true
@@ -90,7 +98,7 @@ export class PtyFlowControl {
   private settle(): void {
     if (!this.paused) return
     for (const state of this.lanes.values()) {
-      if (state.unacked > FLOW_LOW_WATERMARK) return
+      if (state.unacked > state.marks.low) return
     }
     this.resume()
   }

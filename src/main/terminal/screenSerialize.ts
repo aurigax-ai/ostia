@@ -29,9 +29,11 @@ function cellStyle(cell: IBufferCell): string {
   return `\x1b[${params.join(';')}m`
 }
 
+const SPACE = 32
+
 function isEmptyCell(cell: IBufferCell): boolean {
-  const chars = cell.getChars()
-  return (chars === '' || chars === ' ') && cell.isBgDefault() && !cell.isInverse()
+  const code = cell.getCode()
+  return (code === 0 || code === SPACE) && cell.isBgDefault() && !cell.isInverse()
 }
 
 function contentEnd(line: IBufferLine, cell: IBufferCell): number {
@@ -41,32 +43,47 @@ function contentEnd(line: IBufferLine, cell: IBufferCell): number {
   return 0
 }
 
+function serializeRow(
+  line: IBufferLine,
+  stop: number,
+  cell: IBufferCell,
+  style: string,
+  parts: string[],
+): string {
+  let current = style
+  let runStart = 0
+  for (let x = 0; x < stop; x++) {
+    if (!line.getCell(x, cell) || cell.getWidth() === 0) continue
+    const next = cellStyle(cell)
+    if (next === current) continue
+    if (x > runStart) parts.push(line.translateToString(false, runStart, x))
+    parts.push(next || SGR_RESET)
+    current = next
+    runStart = x
+  }
+  if (stop > runStart) parts.push(line.translateToString(false, runStart, stop))
+  return current
+}
+
 export function serializeLogicalLines(buffer: IBuffer, start: number, end: number): string[] {
   const cell = buffer.getNullCell()
   const lines: string[] = []
-  let out = ''
+  let parts: string[] = []
   let style = ''
   for (let y = start; y <= end; y++) {
     const line = buffer.getLine(y)
     if (!line) continue
     if (y > start && !line.isWrapped) {
-      lines.push(style ? `${out}${SGR_RESET}` : out)
-      out = ''
+      if (style) parts.push(SGR_RESET)
+      lines.push(parts.join(''))
+      parts = []
       style = ''
     }
     const continues = y < end && buffer.getLine(y + 1)?.isWrapped === true
-    const stop = continues ? line.length : contentEnd(line, cell)
-    for (let x = 0; x < stop; x++) {
-      if (!line.getCell(x, cell) || cell.getWidth() === 0) continue
-      const next = cellStyle(cell)
-      if (next !== style) {
-        out += next || SGR_RESET
-        style = next
-      }
-      out += cell.getChars() || ' '
-    }
+    style = serializeRow(line, continues ? line.length : contentEnd(line, cell), cell, style, parts)
   }
-  lines.push(style ? `${out}${SGR_RESET}` : out)
+  if (style) parts.push(SGR_RESET)
+  lines.push(parts.join(''))
   return lines
 }
 
