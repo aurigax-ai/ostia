@@ -51,6 +51,11 @@ vi.mock('@/platform', () => ({
 }))
 
 const webgl = vi.hoisted(() => ({ pause: vi.fn(), dispose: vi.fn() }))
+const gl = vi.hoisted(() => ({ software: false }))
+
+vi.mock('@/lib/terminal/softwareGl', () => ({
+  drawOnGpu: (requested: boolean) => requested && !gl.software,
+}))
 
 vi.mock('@/lib/terminal/webglRenderer', () => ({
   createWebglRenderer: () => webgl,
@@ -216,6 +221,18 @@ describe('TerminalView engines', () => {
     expect(webgl.pause).toHaveBeenLastCalledWith(true)
     unmount()
     expect(webgl.dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('an xterm pane stays on the DOM renderer when WebGL runs in software', async () => {
+    gl.software = true
+    try {
+      const { unmount } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+      expect(webgl.pause).not.toHaveBeenCalled()
+      unmount()
+      expect(webgl.dispose).not.toHaveBeenCalled()
+    } finally {
+      gl.software = false
+    }
   })
 
   it('draws a new terminal with Ghostty and starts its shell through the shared path', async () => {

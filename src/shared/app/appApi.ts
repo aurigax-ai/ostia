@@ -40,6 +40,7 @@ interface SystemApi {
   requirements: (feature: string) => Promise<RequirementsReport | null>
   installRequirements: (feature: string, workspaceId: string) => Promise<ExtensionResult>
   discreteGpu: () => Promise<DiscreteGpuInfo | null>
+  softwareWebgl: boolean
 }
 
 interface SettingsApi {

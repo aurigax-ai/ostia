@@ -12,3 +12,5 @@ export function parseDiscreteGpu(raw: unknown): boolean {
 export function rendererDeviceName(renderer: string): string {
   return /^ANGLE \([^,]+, (.+), [^,]+\)$/.exec(renderer)?.[1] ?? renderer
 }
+
+export const SOFTWARE_WEBGL_ARG = '--ostia-software-webgl'

@@ -1,6 +1,6 @@
 import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { ipcRenderer } from 'electron'
-import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
+import { type DiscreteGpuInfo, SOFTWARE_WEBGL_ARG } from '../shared/app/discreteGpu'
 import type { RequirementsReport } from '../shared/app/systemRequirements'
 import type { OstiaBridge } from '../shared/types'
 
@@ -15,5 +15,6 @@ export const systemBridge: Pick<OstiaBridge, 'system'> = {
         workspaceId,
       ) as Promise<ExtensionResult>,
     discreteGpu: () => ipcRenderer.invoke('system:discrete-gpu') as Promise<DiscreteGpuInfo | null>,
+    softwareWebgl: process.argv.includes(SOFTWARE_WEBGL_ARG),
   },
 }
