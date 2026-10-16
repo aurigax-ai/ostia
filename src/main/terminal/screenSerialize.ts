@@ -30,21 +30,29 @@ function cellStyle(cell: IBufferCell): string {
 }
 
 const SPACE = 32
+const CELL_WORDS = 3
+const CONTENT_MASK = 0x3fffff
+const WIDTH_MASK = 0xc00000
+const FG_INVERSE = 0x4000000
+const BG_COLOR_MODE = 0x3000000
 
-function isEmptyCell(cell: IBufferCell): boolean {
-  const code = cell.getCode()
-  return (code === 0 || code === SPACE) && cell.isBgDefault() && !cell.isInverse()
+function cellData(line: IBufferLine): Uint32Array {
+  return (line as unknown as { _line: { _data: Uint32Array } })._line._data
 }
 
-function contentEnd(line: IBufferLine, cell: IBufferCell): number {
-  for (let x = line.length - 1; x >= 0; x--) {
-    if (line.getCell(x, cell) && !isEmptyCell(cell)) return x + 1
+function contentEnd(data: Uint32Array, cols: number): number {
+  for (let x = cols - 1; x >= 0; x--) {
+    const at = x * CELL_WORDS
+    const content = data[at] & CONTENT_MASK
+    if (content !== 0 && content !== SPACE) return x + 1
+    if (data[at + 2] & BG_COLOR_MODE || data[at + 1] & FG_INVERSE) return x + 1
   }
   return 0
 }
 
 function serializeRow(
   line: IBufferLine,
+  data: Uint32Array,
   stop: number,
   cell: IBufferCell,
   style: string,
@@ -52,8 +60,15 @@ function serializeRow(
 ): string {
   let current = style
   let runStart = 0
+  let fg = Number.NaN
+  let bg = Number.NaN
   for (let x = 0; x < stop; x++) {
-    if (!line.getCell(x, cell) || cell.getWidth() === 0) continue
+    const at = x * CELL_WORDS
+    if ((data[at] & WIDTH_MASK) === 0) continue
+    if (data[at + 1] === fg && data[at + 2] === bg) continue
+    fg = data[at + 1]
+    bg = data[at + 2]
+    line.getCell(x, cell)
     const next = cellStyle(cell)
     if (next === current) continue
     if (x > runStart) parts.push(line.translateToString(false, runStart, x))
@@ -80,7 +95,9 @@ export function serializeLogicalLines(buffer: IBuffer, start: number, end: numbe
       style = ''
     }
     const continues = y < end && buffer.getLine(y + 1)?.isWrapped === true
-    style = serializeRow(line, continues ? line.length : contentEnd(line, cell), cell, style, parts)
+    const data = cellData(line)
+    const stop = continues ? line.length : contentEnd(data, line.length)
+    style = serializeRow(line, data, stop, cell, style, parts)
   }
   if (style) parts.push(SGR_RESET)
   lines.push(parts.join(''))
