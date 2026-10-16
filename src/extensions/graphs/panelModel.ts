@@ -14,7 +14,7 @@ import {
   triggerKind,
 } from '@aurigax-ai/wire'
 import { NATIVE_CONNECTORS } from './connectorHost'
-import { graphsFolder } from './graphFiles'
+import { GRAPHS_FOLDER } from './graphFiles'
 import type { GraphListing, GraphState } from './runner'
 import type { LinkState } from './runtimeLink'
 
@@ -104,13 +104,12 @@ function agentsMayStart(graph: GraphFile): boolean {
 
 export function listModel(
   workspaceId: string,
-  workDir: string,
   listings: GraphListing[],
   runs: RunSummary[],
 ): ListModel {
   return {
     workspaceId,
-    folder: graphsFolder(workDir),
+    folder: GRAPHS_FOLDER,
     scratch: false,
     graphs: listings.map((l) => {
       const graph = l.entry.loaded?.graph
