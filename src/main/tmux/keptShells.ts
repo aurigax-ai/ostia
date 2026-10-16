@@ -13,9 +13,9 @@ import {
   writeSavedAttention,
 } from './attentionFile'
 import type { NewWindowSpec } from './tmuxCommand'
+import type { TmuxPane } from './tmuxPane'
 import {
   type KeptWindow,
-  type TmuxPane,
   TmuxServer,
   type TmuxServerOptions,
   ensureTmuxSocketDir,

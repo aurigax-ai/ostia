@@ -19,7 +19,7 @@ import {
   type KeptShells,
   SANDBOX_HOST_KIND,
 } from '../tmux/keptShells'
-import type { TmuxPane } from '../tmux/tmuxServer'
+import type { TmuxPane } from '../tmux/tmuxPane'
 import { workDirForWorkspace } from '../workspaces/workspaceRegistry'
 import type { DomainRequests } from './domainRequests'
 import { HostPaneGrants } from './hostPanes'

@@ -17,7 +17,7 @@ import { programPath } from '../platform/systemRequirements'
 import { HOST_PROTOCOL_VERSION } from '../sandbox/protocol'
 import { shellIntegrationSpawnOptions } from '../terminal/shellIntegration'
 import { type KeptHostMeta, type KeptMeta, KeptShells, SANDBOX_HOST_KIND } from './keptShells'
-import type { TmuxPane } from './tmuxServer'
+import type { TmuxPane } from './tmuxPane'
 
 const tmux = tmuxPath ?? 'tmux'
 const zsh = programPath('zsh') ?? 'zsh'
