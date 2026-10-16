@@ -50,15 +50,16 @@ vi.mock('@/platform', () => ({
   },
 }))
 
-const webgl = vi.hoisted(() => ({ pause: vi.fn(), dispose: vi.fn() }))
+const xtermRenderer = vi.hoisted(() => ({ pause: vi.fn(), dispose: vi.fn() }))
+const createXtermRenderer = vi.hoisted(() => vi.fn(() => xtermRenderer))
 const gl = vi.hoisted(() => ({ software: false }))
 
 vi.mock('@/lib/terminal/softwareGl', () => ({
   drawOnGpu: (requested: boolean) => requested && !gl.software,
 }))
 
-vi.mock('@/lib/terminal/webglRenderer', () => ({
-  createWebglRenderer: () => webgl,
+vi.mock('@/lib/terminal/xtermRenderer', () => ({
+  createXtermRenderer,
 }))
 
 vi.mock('@/lib/terminalLinks/terminalFileLinks', async (importOriginal) => {
@@ -216,20 +217,18 @@ describe('TerminalView engines', () => {
     await waitFor(() => expect(titleOf()).toBe('build logs'))
   })
 
-  it('an xterm pane hands its GPU renderer to the hidden-pane pause and drops it on unmount', async () => {
+  it('an xterm pane hands its renderer to the hidden-pane pause and drops it on unmount', async () => {
     const { unmount } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-    expect(webgl.pause).toHaveBeenLastCalledWith(true)
+    expect(xtermRenderer.pause).toHaveBeenLastCalledWith(true)
     unmount()
-    expect(webgl.dispose).toHaveBeenCalledTimes(1)
+    expect(xtermRenderer.dispose).toHaveBeenCalledTimes(1)
   })
 
-  it('an xterm pane stays on the DOM renderer when WebGL runs in software', async () => {
+  it('an xterm pane asks for no GPU when WebGL runs in software', async () => {
     gl.software = true
     try {
-      const { unmount } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
-      expect(webgl.pause).not.toHaveBeenCalled()
-      unmount()
-      expect(webgl.dispose).not.toHaveBeenCalled()
+      await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+      expect(createXtermRenderer).toHaveBeenLastCalledWith(expect.anything(), false)
     } finally {
       gl.software = false
     }

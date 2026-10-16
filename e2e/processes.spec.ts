@@ -16,6 +16,10 @@ async function launch(dataHome: string): Promise<{ app: ElectronApplication; win
   return { app, win }
 }
 
+function shownRows(win: Page): Locator {
+  return win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
+}
+
 function rows(win: Page, index: number): Locator {
   return win.locator('.xterm-rows').nth(index)
 }
@@ -47,7 +51,6 @@ test('ostia process run shows the command in a terminal tab the human can watch'
     await expect(tabs.nth(1)).toContainText('demo')
     await expect(tabs.nth(0)).toHaveAttribute('aria-selected', 'true')
     await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'false')
-    await expect(rows(win, 1)).toContainText('hello-from-42 two  words', { timeout: 20_000 })
     await expect(tabs.nth(1)).toContainText('demo')
     await expect(tabs.nth(1)).not.toContainText('hijack')
     await expect(rows(win, 0)).toContainText('"name":"demo"')
@@ -57,6 +60,7 @@ test('ostia process run shows the command in a terminal tab the human can watch'
     await tabs.nth(1).click()
     await expect(win.locator('.xterm').nth(1)).toBeVisible()
     await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true')
+    await expect(shownRows(win)).toContainText('hello-from-42 two  words', { timeout: 20_000 })
 
     await quitApp(app)
     ;({ app, win } = await launch(dataHome))

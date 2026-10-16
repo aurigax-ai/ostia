@@ -1,3 +1,5 @@
+import { Ghostty, Terminal as GhosttyTerm } from '@aurigax-ai/ghostty-web'
+import wasmDataUrl from '@aurigax-ai/ghostty-web/ghostty-vt.wasm?inline'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   type GhosttyTerminal,
@@ -24,8 +26,8 @@ function stubContext(canvas: HTMLCanvasElement): unknown {
 
 let created: GhosttyTerminal | null = null
 
-function open(): GhosttyTerminal {
-  created = createGhosttyTerminal({ fontSize: 13, scrollback: 1000 }, false, {
+function open(gpu = false): GhosttyTerminal {
+  created = createGhosttyTerminal({ fontSize: 13, scrollback: 1000 }, gpu, {
     activate: () => {},
     hover: () => {},
     leave: () => {},
@@ -128,6 +130,26 @@ describe('Ghostty terminal adapter', () => {
 
     ghostty.setPaused(false)
     expect(renders).toEqual([{ start: 0, end: ghostty.term.rows - 1 }])
+  })
+
+  it('keeps drawing on the canvas renderer when GPU acceleration is on but WebGL is missing', () => {
+    const ghostty = open(true)
+    const renders: unknown[] = []
+    ghostty.term.onRender((range) => renders.push(range))
+    ghostty.setPaused(false)
+    ghostty.term.write('shown\r\n')
+    expect(renders).toEqual([{ start: 0, end: ghostty.term.rows - 1 }])
+    ghostty.setPaused(true)
+    ghostty.setPaused(false)
+    expect(renders).toHaveLength(2)
+    expect(ghostty.term.buffer.active.getLine(0)?.translateToString(true)).toBe('shown')
+  })
+
+  it('relies on a released-renderer flag that ghostty-web still has', async () => {
+    const wasm = Uint8Array.from(atob(wasmDataUrl.split(',')[1]), (c) => c.charCodeAt(0))
+    const term = new GhosttyTerm({ ghostty: await Ghostty.fromBytes(wasm) })
+    expect(Object.hasOwn(term, 'rendererReleased')).toBe(true)
+    term.dispose()
   })
 
   it('stops answering terminal queries while shells are kept in tmux', () => {

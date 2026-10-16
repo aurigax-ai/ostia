@@ -221,13 +221,19 @@ for (const how of ['quit', 'SIGTERM', 'SIGKILL'] as const) {
     const second = await launchApp(dataHome)
     try {
       await expect(second.win.locator('.rail-row')).toHaveCount(WORKSPACES, { timeout: 15_000 })
+      const resumed: string[] = []
       for (let i = 0; i < WORKSPACES; i++) {
-        await expect(
-          second.win
-            .locator('.xterm-rows')
-            .filter({ hasText: new RegExp(`fake-agent-resumed .*--resume e2e-session-${i}\\b`) }),
-        ).toHaveCount(1, { timeout: 20_000 })
+        await second.win.locator('.rail-row').nth(i).click()
+        const rows = shownRows(second.win).last()
+        await expect(rows).toContainText(/fake-agent-resumed .*--resume e2e-session-\d+\b/, {
+          timeout: 20_000,
+        })
+        const text = (await rows.textContent()) ?? ''
+        resumed.push(text.match(/--resume (e2e-session-\d+)\b/)?.[1] ?? '')
       }
+      expect(resumed.sort()).toEqual(
+        Array.from({ length: WORKSPACES }, (_, i) => `e2e-session-${i}`).sort(),
+      )
     } finally {
       second.app.process().kill('SIGKILL')
     }
