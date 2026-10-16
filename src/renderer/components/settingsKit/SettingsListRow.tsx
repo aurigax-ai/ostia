@@ -1,5 +1,7 @@
 import { ListRow, type ListRowProps } from '@/components/common/ListRow'
 
-export function SettingsListRow(props: Omit<ListRowProps, 'density'>): JSX.Element {
-  return <ListRow {...props} density="settings" />
+type WithoutDensity<T> = T extends unknown ? Omit<T, 'density'> : never
+
+export function SettingsListRow(props: WithoutDensity<ListRowProps>): JSX.Element {
+  return <ListRow {...(props as ListRowProps)} density="settings" />
 }

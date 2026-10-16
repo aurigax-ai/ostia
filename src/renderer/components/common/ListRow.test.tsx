@@ -3,15 +3,15 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it } from 'vitest'
-import { ListRow } from './ListRow'
+import { ListRow, type ListRowProps } from './ListRow'
 
 afterEach(cleanup)
 
-function renderRow(props: Partial<React.ComponentProps<typeof ListRow>> = {}): void {
+function renderRow(props: ListRowProps): void {
   render(
     <TooltipProvider delay={0}>
       <ul>
-        <ListRow title="Build" {...props} />
+        <ListRow {...props} />
       </ul>
     </TooltipProvider>,
   )
@@ -20,6 +20,7 @@ function renderRow(props: Partial<React.ComponentProps<typeof ListRow>> = {}): v
 describe('ListRow', () => {
   it('shows the lead, title, meta, detail and actions of a row', () => {
     renderRow({
+      title: 'Build',
       lead: <span data-testid="lead" />,
       meta: 'Trusted',
       detail: 'pnpm build',
@@ -34,12 +35,12 @@ describe('ListRow', () => {
   })
 
   it('has no toggle without an expanded block', () => {
-    renderRow()
+    renderRow({ title: 'Build' })
     expect(screen.queryByRole('button')).toBeNull()
   })
 
   it('discloses the expanded block with a keyboard-operable toggle that names it', async () => {
-    renderRow({ expanded: <p>Version 1.0</p>, expandLabel: 'Details' })
+    renderRow({ title: 'Build', expanded: <p>Version 1.0</p>, expandLabel: 'Details' })
     const toggle = screen.getByRole('button', { name: 'Details' })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByText('Version 1.0')).not.toBeVisible()
@@ -54,7 +55,12 @@ describe('ListRow', () => {
   })
 
   it('opens an expanded block that starts open', () => {
-    renderRow({ expanded: <p>Version 1.0</p>, expandLabel: 'Details', defaultOpen: true })
+    renderRow({
+      title: 'Build',
+      expanded: <p>Version 1.0</p>,
+      expandLabel: 'Details',
+      defaultOpen: true,
+    })
     expect(screen.getByRole('button', { name: 'Details' })).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText('Version 1.0')).toBeVisible()
   })

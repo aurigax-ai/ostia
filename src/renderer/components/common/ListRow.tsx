@@ -4,18 +4,29 @@ import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react'
 import { useId, useState } from 'react'
 import { IconButton } from './IconButton'
 
-export interface ListRowProps extends Omit<React.ComponentProps<'li'>, 'title' | 'children'> {
+interface ListRowBase extends Omit<React.ComponentProps<'li'>, 'title' | 'children'> {
   lead?: React.ReactNode
   title: React.ReactNode
   meta?: React.ReactNode
   detail?: React.ReactNode
   actions?: React.ReactNode
   below?: React.ReactNode
-  expanded?: React.ReactNode
-  expandLabel?: string
-  defaultOpen?: boolean
   density?: 'settings' | 'dense'
 }
+
+interface Collapsed {
+  expanded?: undefined
+  expandLabel?: undefined
+  defaultOpen?: undefined
+}
+
+interface Expandable {
+  expanded: React.ReactNode
+  expandLabel: string
+  defaultOpen?: boolean
+}
+
+export type ListRowProps = ListRowBase & (Collapsed | Expandable)
 
 export function ListRow({
   lead,
@@ -33,7 +44,6 @@ export function ListRow({
   const dense = density === 'dense'
   const [open, setOpen] = useState(defaultOpen)
   const regionId = useId()
-  const disclosure = expanded && expandLabel
   return (
     <li {...props}>
       <Item
@@ -57,10 +67,10 @@ export function ListRow({
           </div>
           {detail ? <div className="text-fg-muted text-ui-sm">{detail}</div> : null}
         </ItemContent>
-        {actions || disclosure ? (
+        {actions || expanded ? (
           <ItemActions className={cn('shrink-0', dense ? 'min-h-5' : 'min-h-6')}>
             {actions}
-            {disclosure ? (
+            {expanded ? (
               <IconButton
                 icon={open ? CaretDownIcon : CaretRightIcon}
                 label={expandLabel}
