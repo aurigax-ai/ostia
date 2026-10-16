@@ -75,7 +75,7 @@ export function HistoryEdge({
   if (earlier <= 0) return null
   return (
     <div className="history-edge" data-history-edge="">
-      <ClockCounterClockwiseIcon aria-hidden className="text-fg-muted" />
+      <ClockCounterClockwiseIcon aria-hidden className="size-4 shrink-0 text-fg-muted" />
       <span className="text-ui-xs text-fg-muted tabular-nums">
         {fmt(d.scrollHistory.edge, { count: earlier.toLocaleString() })}
       </span>

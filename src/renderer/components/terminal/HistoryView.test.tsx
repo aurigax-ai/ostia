@@ -102,6 +102,16 @@ describe('HistoryView', () => {
     expect(screen.getByText(`Line ${(top + 1).toLocaleString()} of 50,000`)).toBeInTheDocument()
   })
 
+  it('sizes the header icon so it cannot fill the pane', async () => {
+    serveHistory(0, 100)
+    const { container } = render(
+      <HistoryView paneId="p1" target={{ kind: 'line', line: 0 }} onClose={vi.fn()} />,
+    )
+    await settle(() => expect(terms[0].scrolledTo).not.toBeNull())
+    const icon = container.querySelector('.history-bar > svg')
+    expect(icon).toHaveClass('size-4', 'shrink-0')
+  })
+
   it('selects a search match and steps to an older one', async () => {
     serveHistory(0, 10_000)
     const find = {
