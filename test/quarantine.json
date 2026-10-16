@@ -1,8 +1,1 @@
-[
-  {
-    "file": "e2e/pane-wake-confirm.spec.ts",
-    "name": "ostia pane wake answers ok only after the agent reported its start",
-    "issue": 1028,
-    "until": "2026-10-23"
-  }
-]
+[]
