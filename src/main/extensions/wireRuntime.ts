@@ -34,6 +34,9 @@ type Probe =
   | { kind: 'other'; contract?: number; version?: string }
   | { kind: 'refused' }
   | { kind: 'absent' }
+  | { kind: 'unknown'; code: string }
+
+const NO_RUNTIME = new Set(['ENOENT', 'ECONNREFUSED'])
 
 function wireBin(): string {
   const manifest = createRequire(__filename).resolve('@aurigax-ai/wire/package.json')
@@ -90,6 +93,12 @@ export class WireRuntime {
         ...(probe.contract !== undefined ? { contract: probe.contract } : {}),
         ...(probe.version !== undefined ? { version: probe.version } : {}),
       }
+    if (probe.kind === 'unknown')
+      return {
+        ok: false,
+        error: 'not-started',
+        message: `the runtime socket gave ${probe.code}; nothing was started or replaced`,
+      }
     if (probe.kind !== 'ok')
       return {
         ok: false,
@@ -123,7 +132,8 @@ export class WireRuntime {
         }
         return { kind: 'refused' }
       }
-      return { kind: 'absent' }
+      const code = (err as NodeJS.ErrnoException).code ?? 'unknown error'
+      return NO_RUNTIME.has(code) ? { kind: 'absent' } : { kind: 'unknown', code }
     }
   }
 
@@ -169,17 +179,29 @@ export class WireRuntime {
   }
 }
 
+export const WIRE_EXTENSION = 'graphs'
+
+type HostCheck = Pick<ExtensionHost, 'builtinId'>
+
+export function answerWireRuntime(
+  host: HostCheck | null,
+  runtime: Pick<WireRuntime, 'connect'>,
+  ctx: {
+    identity: Parameters<HostCheck['builtinId']>[0]
+    conn: Parameters<HostCheck['builtinId']>[1]
+  },
+) {
+  if (!host) return fail('no-extension-host')
+  if (host.builtinId(ctx.identity, ctx.conn) !== WIRE_EXTENSION) return fail('graphs-only')
+  return runtime.connect()
+}
+
 export function registerWireRuntime(deps: {
   host: () => ExtensionHost | null
   runtime: WireRuntime
 }): void {
   registerControlMethod('ext.wireRuntime', {
     callers: 'extensions',
-    handler: (_params, ctx) => {
-      const host = deps.host()
-      if (!host) return fail('no-extension-host')
-      if (!host.isBuiltin(ctx.identity, ctx.conn)) return fail('built-in-only')
-      return deps.runtime.connect()
-    },
+    handler: (_params, ctx) => answerWireRuntime(deps.host(), deps.runtime, ctx),
   })
 }

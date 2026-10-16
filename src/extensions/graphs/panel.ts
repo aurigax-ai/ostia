@@ -365,17 +365,24 @@ async function runtimeNote(): Promise<HTMLElement> {
   )
 }
 
+let renders = 0
+let painted = 0
+
 async function render(): Promise<void> {
+  const mine = ++renders
+  const shown = view
   const note = await runtimeNote()
   const body =
-    view.kind === 'list'
+    shown.kind === 'list'
       ? await listView()
-      : view.kind === 'definition'
-        ? await definitionView(view.name)
-        : view.kind === 'runs'
-          ? await runsView(view.name)
-          : await runView(view.runId)
-  const back = view.kind === 'list' ? null : button(t('action.back'), () => go({ kind: 'list' }))
+      : shown.kind === 'definition'
+        ? await definitionView(shown.name)
+        : shown.kind === 'runs'
+          ? await runsView(shown.name)
+          : await runView(shown.runId)
+  if (shown !== view || mine < painted) return
+  painted = mine
+  const back = shown.kind === 'list' ? null : button(t('action.back'), () => go({ kind: 'list' }))
   root.replaceChildren(
     h(
       'div',

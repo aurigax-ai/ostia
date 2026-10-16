@@ -1,3 +1,4 @@
+import { realpathSync } from 'node:fs'
 import type { OstiaExtension } from '@aurigax-ai/ostia-extension-sdk'
 import {
   type Clock,
@@ -33,6 +34,17 @@ import { serveWorker } from './worker'
 const OSTIA_TRIGGERS = ['manual', 'schedule', 'files', 'command', 'agent']
 const WORKER_KINDS = ['agent', 'approval', 'command', 'notify', 'connector']
 const SCRATCH = 'scratch'
+const SHARED = 'shared-folder'
+const SHARED_MESSAGE =
+  'this folder is open in another workspace too; its graphs belong to the workspace that opened it first'
+
+function realFolder(path: string): string {
+  try {
+    return realpathSync(path)
+  } catch {
+    return path
+  }
+}
 const EVENTS = ['graph.changed', 'run.changed', 'node.changed', 'worker.changed']
 const NEEDS_MCP =
   'Graphs may not call MCP servers yet: grant it MCP in Settings › Extensions › Graphs › Review permissions'
@@ -170,6 +182,12 @@ export class GraphsRunner {
   private readonly redact: (texts: string[]) => Promise<string[] | null>
   private workspaces = new Map<string, Workspace>()
   private scopes = new Map<string, string>()
+  private shared = new Set<string>()
+  private registered: {
+    client: RuntimeClient | null
+    folders: Map<string, { scope: string; sandboxed: boolean }>
+    workerScopes: string
+  } = { client: null, folders: new Map(), workerScopes: '' }
   private connections: ConnectionName[] = []
   private mcpGranted = true
   private ceilings: Ceilings | null = null
@@ -239,15 +257,22 @@ export class GraphsRunner {
   }
 
   private async sync(client: RuntimeClient): Promise<void> {
+    if (this.registered.client !== client)
+      this.registered = { client, folders: new Map(), workerScopes: '' }
     const scopes = new Map<string, string>()
+    const shared = new Set<string>()
+    const owners = new Set<string>()
     for (const w of this.open()) {
-      const { scope } = await client.call<{ scope: string }>('scopes.register', {
-        folder: w.workDir,
-        sandboxed: w.sandboxed === true,
-      })
-      scopes.set(w.workspaceId, scope)
+      const folder = realFolder(w.workDir)
+      if (owners.has(folder)) {
+        shared.add(w.workspaceId)
+        continue
+      }
+      owners.add(folder)
+      scopes.set(w.workspaceId, await this.register(client, folder, w))
     }
     this.scopes = scopes
+    this.shared = shared
     for (const scope of this.openScopes()) {
       const w = this.workspaces.get(this.workspaceOf(scope) as string) as Workspace
       const valid = listGraphs(w.workDir).filter((e) => e.loaded)
@@ -259,8 +284,24 @@ export class GraphsRunner {
         if (!valid.some((e) => e.name === g.name))
           await client.call('graphs.unload', { scope, name: g.name }).catch(() => {})
     }
-    await client.call('worker.register', { kinds: WORKER_KINDS, scopes: this.openScopes() })
+    const workerScopes = JSON.stringify([...this.openScopes()].sort())
+    if (workerScopes !== this.registered.workerScopes) {
+      await client.call('worker.register', { kinds: WORKER_KINDS, scopes: this.openScopes() })
+      this.registered.workerScopes = workerScopes
+    }
     if (this.ceilings) await client.call('runtime.ceilings', { ...this.ceilings })
+  }
+
+  private async register(client: RuntimeClient, folder: string, w: Workspace): Promise<string> {
+    const sandboxed = w.sandboxed === true
+    const known = this.registered.folders.get(folder)
+    if (known && known.sandboxed === sandboxed) return known.scope
+    const { scope } = await client.call<{ scope: string }>('scopes.register', {
+      folder: w.workDir,
+      sandboxed,
+    })
+    this.registered.folders.set(folder, { scope, sandboxed })
+    return scope
   }
 
   async setWorkspaces(list: Workspace[]): Promise<void> {
@@ -317,10 +358,11 @@ export class GraphsRunner {
     }
   }
 
-  async graphs(workspaceId: string): Promise<GraphListing[] | { error: string }> {
+  async graphs(workspaceId: string): Promise<GraphListing[] | { error: string; message?: string }> {
     const w = this.workspaces.get(workspaceId)
     if (!w) return { error: 'unknown-workspace' }
     if (w.kind === SCRATCH) return { error: SCRATCH }
+    if (this.shared.has(workspaceId)) return { error: SHARED, message: SHARED_MESSAGE }
     const remote = await this.remote(workspaceId)
     return listGraphs(w.workDir).map((entry) => this.listing(workspaceId, entry, remote))
   }
@@ -340,6 +382,7 @@ export class GraphsRunner {
   async enable(workspaceId: string, name: string, fingerprint: string): Promise<Result> {
     const w = this.workspaces.get(workspaceId)
     if (w?.kind === SCRATCH) return fail(SCRATCH, 'a scratch workspace has no graphs')
+    if (this.shared.has(workspaceId)) return fail(SHARED, SHARED_MESSAGE)
     const listing = await this.graph(workspaceId, name)
     if (!listing?.entry.loaded) return fail('invalid', 'the graph does not validate')
     if (listing.entry.loaded.fingerprint !== fingerprint)
@@ -376,6 +419,7 @@ export class GraphsRunner {
     const w = this.workspaces.get(workspaceId)
     if (!w) return fail('unknown-workspace', 'no open workspace')
     if (w.kind === SCRATCH) return fail(SCRATCH, 'a scratch workspace has no graphs')
+    if (this.shared.has(workspaceId)) return fail(SHARED, SHARED_MESSAGE)
     const listing = await this.graph(workspaceId, name)
     if (!listing) return fail('unknown-graph', `no graph ${name} in this workspace`)
     if (!listing.entry.loaded)

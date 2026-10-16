@@ -140,6 +140,7 @@ export interface HostHarness extends FakeExt {
   run: (runId: string) => Promise<RunSeen | null>
   journal: (runId: string) => { type: string; verdict?: string; node?: string }[]
   reopen: (fake?: FakeExt) => Promise<HostHarness>
+  restart: () => Promise<HostHarness>
   close: () => Promise<void>
 }
 
@@ -228,6 +229,13 @@ async function connected(
     reopen: async (next: FakeExt = fakeExt()) => {
       runner.stop()
       return connected(next, runtime, workspace, clock, socket, closing)
+    },
+    restart: async () => {
+      runner.stop()
+      closing()
+      await runtime.stop()
+      const again = await testRuntime(runtime.paths, { clock })
+      return connected(fakeExt(), again, workspace, clock, again.paths.socket, () => {})
     },
     close: async () => {
       runner.stop()

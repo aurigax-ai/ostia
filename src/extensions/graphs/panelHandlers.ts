@@ -49,7 +49,7 @@ export function panelHandlers(
       if ('error' in listings) {
         return listings.error === 'scratch'
           ? ok(undefined, { workspaceId: w.workspaceId, folder: '', scratch: true, graphs: [] })
-          : failure(listings.error)
+          : failure(listings.error, listings.message)
       }
       return ok(
         undefined,

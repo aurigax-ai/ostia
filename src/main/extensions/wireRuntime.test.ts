@@ -24,7 +24,7 @@ import {
   SocketMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import { WIRE_CLIENT, WireRuntime } from './wireRuntime'
+import { WIRE_CLIENT, WIRE_EXTENSION, WireRuntime, answerWireRuntime } from './wireRuntime'
 
 interface Spawned {
   file: string
@@ -236,4 +236,48 @@ describe('main starts and reaches the Wire runtime', () => {
     expect(client).toBe(WIRE_CLIENT)
     expect(rights).toEqual(expect.arrayContaining(['enable', 'control']))
   })
+
+  it('GRF-C232 only the graphs built-in gets the runtime token; another built-in, a marketplace extension and no host get none', async () => {
+    const ctx = { identity: {} as never, conn: {} as never }
+    let connects = 0
+    const runtime = {
+      connect: async () => {
+        connects += 1
+        return { ok: false as const, error: 'not-started' as const, message: 'fake' }
+      },
+    }
+    const host = (id: string | null) => ({ builtinId: () => id })
+    await answerWireRuntime(host(WIRE_EXTENSION), runtime, ctx)
+    expect(connects).toBe(1)
+    for (const id of ['system', null])
+      expect(await answerWireRuntime(host(id), runtime, ctx)).toMatchObject({
+        ok: false,
+        error: 'graphs-only',
+      })
+    expect(await answerWireRuntime(null, runtime, ctx)).toMatchObject({
+      ok: false,
+      error: 'no-extension-host',
+    })
+    expect(connects).toBe(1)
+  })
+
+  it.runIf(process.getuid?.() !== 0)(
+    'GRF-C227 a socket that gives anything but refused or not there (EACCES) is left alone and nothing is started',
+    async () => {
+      const { paths, runtime, spawned, ranFromPath } = place()
+      mkdirSync(dirname(paths.socket), { recursive: true, mode: 0o700 })
+      const server = createServer(() => {})
+      servers.push(server)
+      await new Promise<void>((resolve) => server.listen(paths.socket, resolve))
+      chmodSync(paths.socket, 0)
+      const inode = statSync(paths.socket).ino
+      const answer = await runtime.connect()
+      expect(answer).toMatchObject({ ok: false, error: 'not-started' })
+      expect((answer as { message: string }).message).toContain('EACCES')
+      expect(spawned).toEqual([])
+      expect(statSync(paths.socket).ino).toBe(inode)
+      expect(server.listening).toBe(true)
+      expect(ranFromPath()).toBe('')
+    },
+  )
 })

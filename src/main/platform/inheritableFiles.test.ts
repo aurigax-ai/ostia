@@ -8,7 +8,10 @@ import { inheritableFds, withoutInheritedFiles } from './inheritableFiles'
 
 const LEAKED_FD = 40
 
-function childReport(held: string): Promise<{ fds: number[]; seen: string }> {
+function childReport(
+  held: string,
+  probe = 'ls -l /proc/self/fd',
+): Promise<{ fds: number[]; seen: string }> {
   const module = join(mkdtempSync(join(tmpdir(), 'ostia-inheritable-module-')), 'module.mts')
   copyFileSync(join(__dirname, 'inheritableFiles.ts'), module)
   const MODULE = pathToFileURL(module).href
@@ -17,7 +20,7 @@ function childReport(held: string): Promise<{ fds: number[]; seen: string }> {
     const { inheritableFds, withoutInheritedFiles } = await import(${JSON.stringify(MODULE)})
     const fds = inheritableFds()
     const { stdio, release } = withoutInheritedFiles(['ignore', 'pipe', 'ignore'], fds)
-    const seen = spawnSync('/bin/sh', ['-c', 'ls -l /proc/self/fd'], { stdio }).stdout.toString()
+    const seen = spawnSync('/bin/sh', ['-c', ${JSON.stringify(probe)}], { stdio }).stdout.toString()
     release()
     process.stdout.write(JSON.stringify({ fds, seen }))
   `
@@ -48,6 +51,19 @@ describe('files a spawned program would inherit', () => {
       expect(fds).toContain(LEAKED_FD)
       expect(seen).not.toContain(held)
       expect(seen).toMatch(new RegExp(`\\b${LEAKED_FD} -> /dev/null`))
+    },
+  )
+
+  it.runIf(process.platform === 'darwin')(
+    'GRF-C226 on macOS a descriptor main left inheritable never reaches a spawned program (libuv spawns with POSIX_SPAWN_CLOEXEC_DEFAULT)',
+    async () => {
+      const held = join(mkdtempSync(join(tmpdir(), 'ostia-inheritable-')), 'held')
+      writeFileSync(held, '')
+      const { seen } = await childReport(
+        held,
+        `if [ -e /dev/fd/${LEAKED_FD} ]; then echo held; else echo free; fi`,
+      )
+      expect(seen.trim()).toBe('free')
     },
   )
 

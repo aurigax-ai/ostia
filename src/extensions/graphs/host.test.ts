@@ -338,4 +338,30 @@ edges: []
     await later.stop('pane-1')
     expect(await later.runner.hasUnfinishedRuns()).toBe(false)
   })
+
+  it('GRF-C202 an agent pane a finished run opened never fires its graph again, also after the runtime restarts', async () => {
+    const h = await hostHarness(
+      workspace({
+        g: `version: 1
+on: [{ manual: { agents: true } }, { agent: { state: stopped } }]
+start: a
+state: { n: { type: integer, default: 0 } }
+nodes:
+  - { id: a, kind: agent, with: { mode: start, agent: claude, prompt: "Do the task." } }
+edges: []
+`,
+      }),
+    )
+    const id = await enableAndStart(h, 'g')
+    await settle()
+    await h.stop('pane-1')
+    expect((await h.run(id))?.status).toBe('done')
+    const again = await h.restart()
+    await again.runner.trigger('w1', { kind: 'agent', pane: 'pane-1', state: 'stopped' })
+    await settle()
+    expect((await again.runner.runs('w1')).map((r) => r.runId)).toEqual([id])
+    await again.runner.trigger('w1', { kind: 'agent', pane: 'pane-9', state: 'stopped' })
+    await settle()
+    expect(await again.runner.runs('w1')).toHaveLength(2)
+  })
 })

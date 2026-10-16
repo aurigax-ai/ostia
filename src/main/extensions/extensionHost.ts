@@ -393,11 +393,12 @@ export class ExtensionHost {
     return { ok: true, domains: [...domains] }
   }
 
-  isBuiltin(identity: PaneIdentity, conn: MessageConnection): boolean {
+  builtinId(identity: PaneIdentity, conn: MessageConnection): string | null {
     try {
-      return this.runtimeOf(identity, conn).ext.builtin
+      const rt = this.runtimeOf(identity, conn)
+      return rt.ext.builtin ? rt.ext.manifest.id : null
     } catch {
-      return false
+      return null
     }
   }
 

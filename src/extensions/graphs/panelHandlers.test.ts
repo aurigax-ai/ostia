@@ -1,4 +1,11 @@
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { ok } from '@aurigax-ai/ostia-extension-sdk'
@@ -247,13 +254,14 @@ describe('the Graphs panel data', () => {
     expect(en.messages.runsWhileOpen).toContain('while Ostia is open')
   })
 
-  it('listing again with no graph file changed reloads nothing, so the panel is not told to render again', async () => {
+  it('listing again with no workspace or graph file changed sends the runtime nothing that tells a client to render again', async () => {
     const { h, call } = await panel({ agent: AGENT, ready: READY }, { others: [] })
     await call<ListModel>('list')
     await settle()
     const watcher = await cliClient(h.runtime.paths)
     const changed: unknown[] = []
-    watcher.on('graph.changed', (params) => changed.push(params))
+    for (const event of ['graph.changed', 'run.changed', 'node.changed', 'worker.changed'])
+      watcher.on(event, (params) => changed.push({ event, params }))
     try {
       for (let i = 0; i < 3; i++) await call<ListModel>('list')
       await settle()
@@ -261,5 +269,77 @@ describe('the Graphs panel data', () => {
     } finally {
       watcher.close()
     }
+  })
+
+  it('GRF-C86 a second workspace on the same real folder gets no graphs of its own: enabling from the first never enables it, and it cannot flip the folder to sandboxed', async () => {
+    const { h, workDir, call } = await panel({ agent: AGENT }, { others: [] })
+    const def = await call<Definition>('definition', { name: 'agent' })
+    await call('enable', { name: 'agent', fingerprint: def.fingerprint })
+    expect((await call<ListModel>('list')).graphs.map((g) => g.state)).toEqual(['enabled'])
+    const second: Workspace = { workspaceId: 'w2', workDir, kind: 'terminal', sandboxed: true }
+    await h.runner.setWorkspaces([{ workspaceId: 'w1', workDir, kind: 'terminal' }, second])
+    expect(await h.runner.graphs('w2')).toMatchObject({ error: 'shared-folder' })
+    expect(await h.runner.enable('w2', 'agent', def.fingerprint)).toMatchObject({
+      ok: false,
+      error: 'shared-folder',
+    })
+    expect(await h.runner.start('w2', 'agent', { byAgent: false, inputs: [] })).toMatchObject({
+      ok: false,
+      error: 'shared-folder',
+    })
+    const scopes = JSON.parse(
+      readFileSync(join(h.runtime.paths.data, 'scopes.json'), 'utf8'),
+    ) as Record<string, { folder: string; sandboxed: boolean }>
+    expect(Object.values(scopes).filter((s) => s.folder === realpathSync(workDir))).toEqual([
+      expect.objectContaining({ sandboxed: false }),
+    ])
+  })
+
+  it('GRF-C81 the Enable click leaves the runtime holding the folder, the real path and the fingerprint in a 0600 enabled.json', async () => {
+    const { h, workDir, call } = await panel({ agent: AGENT })
+    const def = await call<Definition>('definition', { name: 'agent' })
+    await call('enable', { name: 'agent', fingerprint: def.fingerprint })
+    const file = join(h.runtime.paths.data, 'enabled.json')
+    expect(statSync(file).mode & 0o777).toBe(0o600)
+    const stored = JSON.parse(readFileSync(file, 'utf8')) as {
+      enabled: { scope: string; realPath: string; fingerprint: string }[]
+    }
+    expect(stored.enabled).toEqual([
+      expect.objectContaining({
+        scope: `dir:${realpathSync(workDir)}`,
+        realPath: realpathSync(join(workDir, '.ostia/graphs/agent.yaml')),
+        fingerprint: def.fingerprint,
+      }),
+    ])
+  })
+
+  it('GRF-C84 after one character of a prompt changes the row says changed and Run now is refused, and the runtime no longer lists it as enabled', async () => {
+    const { h, workDir, call } = await panel({ agent: AGENT }, { others: [] })
+    const def = await call<Definition>('definition', { name: 'agent' })
+    await call('enable', { name: 'agent', fingerprint: def.fingerprint })
+    writeFileSync(join(workDir, '.ostia/graphs/agent.yaml'), AGENT.replace('Fix it', 'Fix it!'))
+    expect((await call<ListModel>('list')).graphs.map((g) => g.state)).toEqual(['changed'])
+    expect(await h.runner.start('w1', 'agent', { byAgent: false, inputs: [] })).toMatchObject({
+      ok: false,
+      error: 'not-enabled',
+    })
+    const stored = JSON.parse(readFileSync(join(h.runtime.paths.data, 'enabled.json'), 'utf8')) as {
+      enabled: unknown[]
+    }
+    expect(stored.enabled).toEqual([])
+  })
+
+  it('GRF-C190 a command that ends twice while the graph run is still active starts no second run, and the row shows the two skips', async () => {
+    const graphText = AGENT.replace('on: [{ manual: {} }]', 'on: [{ manual: {} }, { command: {} }]')
+    const { h, call } = await panel({ agent: graphText })
+    const def = await call<Definition>('definition', { name: 'agent' })
+    await call('enable', { name: 'agent', fingerprint: def.fingerprint })
+    await call('runNow', { name: 'agent' })
+    await settle()
+    await h.runner.trigger('w1', { kind: 'command', pane: 'pane-7', exitCode: 0 })
+    await h.runner.trigger('w1', { kind: 'command', pane: 'pane-8', exitCode: 1 })
+    await settle()
+    expect(await h.runner.runs('w1')).toHaveLength(1)
+    expect((await call<ListModel>('list')).graphs[0]?.skipped).toBe(2)
   })
 })
