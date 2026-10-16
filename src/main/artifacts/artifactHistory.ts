@@ -154,6 +154,10 @@ export class ArtifactHistory {
     return next
   }
 
+  async settled(): Promise<void> {
+    while (this.running.size > 0) await Promise.all(this.running.values())
+  }
+
   private async take(workspaceId: string, path: string): Promise<boolean> {
     const name = this.nameOf(workspaceId, path)
     if (!name || !isRegular(path)) return false
