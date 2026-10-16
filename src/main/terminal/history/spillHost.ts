@@ -21,7 +21,7 @@ export type SpillRequest =
   | { kind: 'close'; session: number }
 
 export type SpillEvent =
-  | { kind: 'append'; session: number; lines: readonly string[] }
+  | { kind: 'append'; session: number; text: string; count: number }
   | { kind: 'blockStarted'; session: number; seq: number; start: number; command: string | null }
   | {
       kind: 'blockEnded'
@@ -55,7 +55,7 @@ function postingSink(
     live: true,
     append: (batch) => {
       ends.set(history, (ends.get(history) ?? 0) + batch.length)
-      port.postMessage({ kind: 'append', session, lines: batch })
+      port.postMessage({ kind: 'append', session, text: batch.join('\n'), count: batch.length })
     },
     blockStarted: (seq, start, command) =>
       port.postMessage({ kind: 'blockStarted', session, seq, start, command }),

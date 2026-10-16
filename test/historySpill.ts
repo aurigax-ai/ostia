@@ -1,6 +1,7 @@
 import { resolve } from 'node:path'
 import { MessageChannel } from 'node:worker_threads'
 import { SpillClient, type SpillPort } from '../src/main/terminal/history/historyFeed'
+import type { PaneHistory } from '../src/main/terminal/history/paneHistory'
 import { type SpillHostPort, serveSpill } from '../src/main/terminal/history/spillHost'
 
 export const HISTORY_WORKER_SCRIPT = resolve(__dirname, '../out/history/worker.js')
@@ -19,4 +20,8 @@ export function closeSpillChannels(): void {
     channel.port1.close()
     channel.port2.close()
   }
+}
+
+export function put(history: PaneHistory | null | undefined, lines: readonly string[]): void {
+  history?.append(lines.join('\n'), lines.length)
 }

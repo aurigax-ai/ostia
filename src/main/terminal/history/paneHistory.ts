@@ -90,19 +90,18 @@ export class PaneHistory {
     return !this.disposed && this.failure === null
   }
 
-  append(lines: readonly string[]): void {
-    if (!this.live || lines.length === 0) return
+  append(batch: string, count: number): void {
+    if (!this.live || count === 0) return
     let chunk = this.open
     if (!chunk) {
       chunk = { first: this.end, count: 0, batches: [], bytes: 0 }
       this.open = chunk
       this.unwritten.push(chunk)
     }
-    const batch = lines.join('\n')
     chunk.batches.push(batch)
-    chunk.count += lines.length
+    chunk.count += count
     chunk.bytes += batch.length + 1
-    this.end += lines.length
+    this.end += count
     if (chunk.bytes >= RECORD_BYTES) void this.flush()
     else this.armTimer()
   }

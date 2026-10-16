@@ -13,6 +13,7 @@ import { SpillClient, type SpillPort, spillWorker, startSpillWorker } from './hi
 import { newHistoryKey } from './historyRecords'
 import { SPILL_BATCH } from './historySpill'
 import { PaneHistory } from './paneHistory'
+import type { SpillRequest } from './spillHost'
 
 const ESC = '\x1b'
 const mark = (kind: string) => `${ESC}]133;${kind}\x07`
@@ -72,6 +73,24 @@ describe('history feed', () => {
     }
     await Promise.all(feeds.map((feed) => feed.close(0)))
     expect(peak).toBeLessThan(96 * 1024 * 1024)
+  })
+
+  it('posts the writes of one turn as one message, ahead of the next request', async () => {
+    const posted: SpillRequest[] = []
+    const client = new SpillClient({
+      postMessage: (request) => posted.push(request),
+      on: () => undefined,
+    })
+    const feed = client.open(makeHistory(), 80, 24)
+    feed.write('a')
+    feed.write('b')
+    feed.resize(100, 30)
+    feed.write('c')
+    feed.write('d')
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(posted.map((r) => r.kind)).toEqual(['open', 'write', 'resize', 'write'])
+    expect(posted.filter((r) => r.kind === 'write').map((r) => r.data)).toEqual(['ab', 'cd'])
+    client.end('test-done')
   })
 
   it('turns history off with the reason when the worker is gone, and answers what was asked', async () => {

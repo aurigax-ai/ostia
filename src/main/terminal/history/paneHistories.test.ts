@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, statSync } from 'node:
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { spillInThread } from '../../../../test/historySpill'
+import { put, spillInThread } from '../../../../test/historySpill'
 import type { ScrollbackHistory } from '../../../shared/terminal/scrollbackHistory'
 import { FREE_SPACE_FLOOR, PaneHistories, sweepHistoryRoot } from './paneHistories'
 
@@ -44,7 +44,7 @@ describe('PaneHistories', () => {
   it('gives each pane its own folder under this run, named without the pane id', async () => {
     const { store, root } = histories()
     const history = store.forPane('p1')
-    history?.append(['a'])
+    put(history, ['a'])
     await history?.flush()
     const [run] = readdirSync(root)
     expect(run).toMatch(new RegExp(`^${process.pid}-`))
@@ -57,8 +57,8 @@ describe('PaneHistories', () => {
     const { store, root } = histories()
     const one = store.forPane('p1')
     const two = store.forPane('p2')
-    one?.append(['a'])
-    two?.append(['b'])
+    put(one, ['a'])
+    put(two, ['b'])
     await Promise.all([one?.flush(), two?.flush()])
     const [run] = readdirSync(root)
     store.drop('p1')
@@ -83,12 +83,12 @@ describe('PaneHistories', () => {
     const small = store.forPane('small')
     if (!big || !small) throw new Error('no history')
     for (let i = 0; i < 3; i++) {
-      big.append([`${'x'.repeat(1000)} ${i}`])
+      put(big, [`${'x'.repeat(1000)} ${i}`])
       await big.flush()
     }
     expect(big.droppable).toBe(true)
     low = true
-    small.append(['y'])
+    put(small, ['y'])
     await small.flush()
     expect(big.live).toBe(true)
     expect(big.first).toBe(1)
@@ -99,7 +99,7 @@ describe('PaneHistories', () => {
   it('turns a pane off when no pane can give up space', async () => {
     const { store } = histories('unlimited', () => 0)
     const only = store.forPane('only')
-    only?.append(['y'])
+    put(only, ['y'])
     await only?.flush()
     expect(only?.live).toBe(false)
   })

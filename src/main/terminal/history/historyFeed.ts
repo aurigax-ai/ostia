@@ -28,6 +28,8 @@ export class SpillClient {
   private readonly closing = new Map<number, () => void>()
   private readonly replies = new Map<number, (reply: Reply | null) => void>()
   private readonly historyIds = new WeakMap<PaneHistory, number>()
+  private readonly unsent = new Map<number, string[]>()
+  private sending: ReturnType<typeof setImmediate> | null = null
   private nextHistory = 0
   private nextSession = 0
   private nextReply = 0
@@ -59,7 +61,7 @@ export class SpillClient {
     return {
       seqBase,
       continues,
-      write: (data) => this.post({ kind: 'write', session, data }),
+      write: (data) => this.queue(session, data),
       restore: (text) => this.post({ kind: 'restore', session, history: text, hold: continues }),
       resize: (c, r) => this.post({ kind: 'resize', session, cols: c, rows: r }),
       tail: async () => (await this.ask({ kind: 'tail', session }))?.tail ?? [],
@@ -80,6 +82,9 @@ export class SpillClient {
   end(reason: string): void {
     if (this.ended) return
     this.ended = true
+    if (this.sending) clearImmediate(this.sending)
+    this.sending = null
+    this.unsent.clear()
     for (const history of this.sessions.values()) history.fail(reason)
     this.sessions.clear()
     for (const settle of this.replies.values()) settle(null)
@@ -97,7 +102,29 @@ export class SpillClient {
     return id
   }
 
+  private queue(session: number, data: string): void {
+    if (this.ended || !data) return
+    const pending = this.unsent.get(session)
+    if (pending) pending.push(data)
+    else this.unsent.set(session, [data])
+    this.sending ??= setImmediate(() => this.send())
+  }
+
+  private send(): void {
+    if (this.sending) clearImmediate(this.sending)
+    this.sending = null
+    const batches = [...this.unsent]
+    this.unsent.clear()
+    for (const [session, parts] of batches)
+      this.deliver({ kind: 'write', session, data: parts.join('') })
+  }
+
   private post(request: SpillRequest): void {
+    if (this.unsent.size > 0) this.send()
+    this.deliver(request)
+  }
+
+  private deliver(request: SpillRequest): void {
     if (this.ended) return
     try {
       this.port.postMessage(request)
@@ -130,7 +157,7 @@ export class SpillClient {
     if (!history) return
     switch (event.kind) {
       case 'append':
-        history.append(event.lines)
+        history.append(event.text, event.count)
         return
       case 'blockStarted':
         history.blockStarted(event.seq, event.start, event.command)

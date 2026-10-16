@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, statSync } from 'no
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { put } from '../../../../test/historySpill'
 import { newHistoryKey, openLines, sealLines } from './historyRecords'
 import { PaneHistory, RECORD_BYTES } from './paneHistory'
 
@@ -42,9 +43,9 @@ describe('history records', () => {
 describe('PaneHistory', () => {
   it('reads back what was appended, written or still pending, in order', async () => {
     const { history } = makeHistory()
-    history.append(numbered(0, 3000))
+    put(history, numbered(0, 3000))
     await history.flush()
-    history.append(numbered(3000, 10))
+    put(history, numbered(3000, 10))
     expect(history.end).toBe(3010)
     expect(await history.read(2995, 10)).toEqual(numbered(2995, 10))
     expect(await history.read(0, 2)).toEqual(numbered(0, 2))
@@ -53,9 +54,9 @@ describe('PaneHistory', () => {
 
   it('reads back pending batches line by line, empty lines and one-line batches included', async () => {
     const { history } = makeHistory()
-    history.append(['first', '', 'third'])
-    history.append([''])
-    history.append(['\x1b[31mred\x1b[0m'])
+    put(history, ['first', '', 'third'])
+    put(history, [''])
+    put(history, ['\x1b[31mred\x1b[0m'])
     expect(history.end).toBe(5)
     expect(await history.read(0, 5)).toEqual(['first', '', 'third', '', '\x1b[31mred\x1b[0m'])
     expect(await history.read(2, 2)).toEqual(['third', ''])
@@ -65,7 +66,7 @@ describe('PaneHistory', () => {
 
   it('keeps nothing readable on disk: a 0700 folder, 0600 files, no plaintext', async () => {
     const { history, dir } = makeHistory()
-    history.append(numbered(0, 50, 'secret-looking text'))
+    put(history, numbered(0, 50, 'secret-looking text'))
     await history.flush()
     expect(statSync(dir).mode & 0o777).toBe(0o700)
     const files = readdirSync(dir)
@@ -77,18 +78,18 @@ describe('PaneHistory', () => {
 
   it('writes a record once enough text is pending, without waiting for the idle flush', async () => {
     const { history, dir } = makeHistory()
-    history.append(['x'.repeat(RECORD_BYTES)])
+    put(history, ['x'.repeat(RECORD_BYTES)])
     await vi.waitFor(() => expect(existsSync(dir) && readdirSync(dir).length).toBe(1))
   })
 
   it('drops the oldest segment past the cap and moves the first line', async () => {
     const { history, dir } = makeHistory({ limitBytes: () => 1, segmentBytes: 1 })
-    history.append(numbered(0, 100))
+    put(history, numbered(0, 100))
     await history.flush()
     history.blockStarted(1, 10, 'make')
-    history.append(numbered(100, 100))
+    put(history, numbered(100, 100))
     await history.flush()
-    history.append(numbered(200, 100))
+    put(history, numbered(200, 100))
     await history.flush()
     expect(history.first).toBe(200)
     await vi.waitFor(() => expect(readdirSync(dir)).toHaveLength(1))
@@ -98,7 +99,7 @@ describe('PaneHistory', () => {
 
   it('records blocks and finds them by sequence number', () => {
     const { history } = makeHistory()
-    history.append(numbered(0, 5))
+    put(history, numbered(0, 5))
     history.blockStarted(7, 1, 'ls')
     history.blockEnded(7, 4, 3, 2, null)
     expect(history.block(7)).toEqual({
@@ -113,7 +114,7 @@ describe('PaneHistory', () => {
 
   it('wipes every line, block and file but keeps counting lines', async () => {
     const { history, dir } = makeHistory()
-    history.append(numbered(0, 100))
+    put(history, numbered(0, 100))
     history.blockStarted(1, 2, 'cat')
     await history.flush()
     history.wipe()
@@ -122,24 +123,24 @@ describe('PaneHistory', () => {
     expect(await history.read(0, 100)).toEqual([])
     expect(history.block(1)).toBeUndefined()
     expect(readdirSync(dir)).toEqual([])
-    history.append(['after'])
+    put(history, ['after'])
     expect(await history.read(100, 1)).toEqual(['after'])
   })
 
   it('turns itself off when it cannot make room, and reports why', async () => {
     const onFailed = vi.fn()
     const { history } = makeHistory({ ensureSpace: async () => false, onFailed })
-    history.append(numbered(0, 3))
+    put(history, numbered(0, 3))
     await history.flush()
     expect(onFailed).toHaveBeenCalledWith('disk-full')
     expect(history.live).toBe(false)
-    history.append(['ignored'])
+    put(history, ['ignored'])
     expect(await history.read(0, 10)).toEqual([])
   })
 
   it('removes its folder when disposed', async () => {
     const { history, dir } = makeHistory()
-    history.append(numbered(0, 3))
+    put(history, numbered(0, 3))
     await history.flush()
     history.dispose()
     expect(existsSync(dir)).toBe(false)
