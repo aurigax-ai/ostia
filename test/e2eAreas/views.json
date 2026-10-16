@@ -1,0 +1,25 @@
+{
+  "name": "views",
+  "paths": [
+    "src/cli/verbs/view.ts",
+    "src/main/workspaces/viewHost.ts",
+    "src/main/workspaces/viewsIpc.ts",
+    "src/renderer/components/editor/ViewerChrome.tsx",
+    "src/renderer/components/views/DeclarativeView.tsx",
+    "src/renderer/components/views/ViewSurface.tsx",
+    "src/renderer/components/views/Views.test.tsx",
+    "src/renderer/components/views/ViewsRail.tsx",
+    "src/renderer/components/views/ViewsSection.tsx",
+    "src/renderer/components/views/viewIcons.ts",
+    "src/renderer/lib/files/viewerHooks.ts",
+    "src/renderer/lib/panes/panelWidth.ts",
+    "src/renderer/lib/views/viewData.",
+    "src/renderer/lib/views/viewExpand.",
+    "src/renderer/lib/views/views.ts",
+    "src/renderer/stores/extensions/viewsStore.ts",
+    "src/shared/view"
+  ],
+  "specs": [
+    "e2e/views.spec.ts"
+  ]
+}

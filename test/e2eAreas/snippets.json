@@ -1,0 +1,14 @@
+{
+  "name": "snippets",
+  "paths": [
+    "packages/extension-sdk/src/contract/snippets.ts",
+    "src/main/workspaces/snippets.ts",
+    "src/renderer/components/palette/SaveSnippetDialog.tsx",
+    "src/renderer/components/palette/SnippetPicker.tsx",
+    "src/renderer/lib/palette/snippets.ts",
+    "src/renderer/stores/terminal/snippetsStore.ts"
+  ],
+  "specs": [
+    "e2e/workflows.spec.ts"
+  ]
+}

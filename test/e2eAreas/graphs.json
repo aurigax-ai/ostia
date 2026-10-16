@@ -1,0 +1,12 @@
+{
+  "name": "graphs",
+  "paths": [
+    "src/extensions/graphs/",
+    "src/main/extensions/extensionExec.ts"
+  ],
+  "specs": [
+    "e2e/graphs-kept.spec.ts",
+    "e2e/graphs-restart.spec.ts",
+    "e2e/graphs.spec.ts"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "confinement",
+  "paths": [
+    "packages/extension-sdk/src/manifest/confinedRead.ts",
+    "src/main/control/controlAuth.ts",
+    "src/main/platform/pathGuard.ts"
+  ],
+  "specs": []
+}

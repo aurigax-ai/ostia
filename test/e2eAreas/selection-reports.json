@@ -1,0 +1,16 @@
+{
+  "name": "selection reports",
+  "paths": [
+    "src/main/terminal/selectionReport.ts",
+    "src/renderer/components/agents/SelectionSend.tsx",
+    "src/renderer/lib/agents/fileReference.ts",
+    "src/renderer/lib/agents/selectionSenders.ts",
+    "src/renderer/lib/browser/domSelection.ts",
+    "src/shared/browser/selection.ts"
+  ],
+  "specs": [
+    "e2e/browser-pick.spec.ts",
+    "e2e/detached-send.spec.ts",
+    "e2e/preview-send.spec.ts"
+  ]
+}

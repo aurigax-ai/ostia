@@ -1,0 +1,30 @@
+{
+  "name": "language servers",
+  "paths": [
+    "packages/extension-sdk/src/contract/editorLanguages.ts",
+    "packages/extension-sdk/src/contract/languageServers.ts",
+    "src/extensions/lsp-",
+    "src/main/extensions/marketplace/extensionSuggestions.ts",
+    "src/main/lsp/editorLanguages.ts",
+    "src/main/lsp/languageServers.",
+    "src/main/lsp/languageServersIpc.ts",
+    "src/main/lsp/managedServers.ts",
+    "src/main/lsp/serverBinaries.ts",
+    "src/main/lsp/serverOverrides.ts",
+    "src/main/lsp/serverSpawn.ts",
+    "src/main/lsp/sessionProtocol.ts",
+    "src/renderer/components/editor/LanguageNotice.tsx",
+    "src/renderer/components/editor/LanguagesSection.tsx",
+    "src/renderer/lib/lsp/",
+    "src/renderer/stores/extensions/languageNoticeStore.ts",
+    "src/renderer/stores/extensions/languageServersStore.ts",
+    "src/shared/extensions/extensionSuggestions.ts",
+    "test/fixtures/extensions-lsp/",
+    "test/fixtures/lsp/"
+  ],
+  "specs": [
+    "e2e/lsp-install.spec.ts",
+    "e2e/lsp-servers.spec.ts",
+    "e2e/lsp.spec.ts"
+  ]
+}

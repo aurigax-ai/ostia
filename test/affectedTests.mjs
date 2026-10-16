@@ -79,8 +79,43 @@ function isSource(file) {
   return SOURCE.test(file)
 }
 
-function runsEverything(file) {
-  return !isSource(file) && !ROOT_DOC.test(file) && !readByTests(file)
+const GLOBAL_INPUTS = [
+  /^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|vitest\.config\.mts)$/,
+  /^tsconfig[^/]*\.json$/,
+  /^test\/(hostEnv|privateTmp|appEnv|quarantineSetup|domEvents|setup|buildOnce|consoleGuard)\.ts$/,
+  /^test\/quarantine\.mjs$/,
+  /^test\/mocks\//,
+  /^scripts\/build-[^/]+\.mjs$/,
+  /^packages\/[^/]+\/(package\.json|scripts\/build\.mjs)$/,
+  /^packages\/extension-sdk\/template\/package\.json$/,
+  /^electron\.vite\.config\.ts$/,
+  /^patches\//,
+  /^(biome|knip)\.json$/,
+  /^\.jscpd\.json$/,
+  /^\.dependency-cruiser[^/]*\.json$/,
+]
+
+const PLANNER_TESTS = ['test/affectedTests.test.ts', 'test/e2eAreas.test.ts']
+
+function isGlobalInput(file) {
+  return GLOBAL_INPUTS.some((pattern) => pattern.test(file))
+}
+
+function isDataFile(file) {
+  return !isSource(file) && !ROOT_DOC.test(file) && !readByTests(file) && !isGlobalInput(file)
+}
+
+function needlesOf(file) {
+  const parts = file.split('/')
+  const needles = [file, parts[parts.length - 1]]
+  for (let depth = parts.length - 1; depth >= 2; depth--)
+    needles.push(parts.slice(0, depth).join('/'))
+  return needles
+}
+
+function testsNaming(file, texts) {
+  const needles = needlesOf(file)
+  return Object.keys(texts).filter((test) => needles.some((needle) => texts[test].includes(needle)))
 }
 
 function staysInRenderer(file) {
@@ -88,7 +123,10 @@ function staysInRenderer(file) {
 }
 
 export function planTests(changed, readers, quarantined = []) {
-  if (changed.some(runsEverything)) return { node: null, dom: null }
+  if (changed.some(isGlobalInput)) return { node: null, dom: null }
+  const dataReaders = changed.filter(isDataFile).map((file) => testsNaming(file, readers.texts))
+  if (dataReaders.some((tests) => tests.length === 0)) return { node: null, dom: null }
+  const dataTests = unique(dataReaders.flat())
   const sources = changed.filter(isSource)
   const folderReaders = READ_FOLDERS.filter(({ folder }) =>
     changed.some((file) => file.startsWith(folder)),
@@ -102,12 +140,14 @@ export function planTests(changed, readers, quarantined = []) {
       ? unique([
           ...sources,
           ...folderReaders,
+          ...dataTests.filter((file) => !inRenderer(file)),
           ...quarantineTests.filter((file) => !inRenderer(file)),
         ])
       : null,
     dom: unique([
       ...sources,
       ...(sources.length > 0 ? readers.dom : []),
+      ...dataTests.filter(inRenderer),
       ...quarantineTests.filter(inRenderer),
     ]),
   }
@@ -146,8 +186,15 @@ export function planE2e(changed, map, imports, quarantined = []) {
   return [...specs].filter((entry) => entry === specOf(entry) || !specs.has(specOf(entry))).sort()
 }
 
-function loadE2eMap() {
-  return JSON.parse(readFileSync(join(ROOT, 'test/e2eAreas.json'), 'utf8'))
+const AREAS_DIR = 'test/e2eAreas'
+
+export function loadE2eMap() {
+  const names = readdirSync(join(ROOT, AREAS_DIR))
+    .filter((name) => name.endsWith('.json'))
+    .sort()
+  return {
+    areas: names.map((name) => JSON.parse(readFileSync(join(ROOT, AREAS_DIR, name), 'utf8'))),
+  }
 }
 
 export function e2eSpecs() {
@@ -249,8 +296,19 @@ export function nodeFolderReaders() {
   )
 }
 
+export function unitTexts() {
+  const tests = [
+    ...NODE_TEST_DIRS.flatMap(testFiles),
+    ...testFiles('src/renderer'),
+    ...readdirSync(join(ROOT, 'test'))
+      .filter((name) => UNIT_TEST.test(name))
+      .map((name) => `test/${name}`),
+  ].filter((file) => !PLANNER_TESTS.includes(file))
+  return Object.fromEntries(tests.map((file) => [file, readFileSync(join(ROOT, file), 'utf8')]))
+}
+
 function fileReaders() {
-  return { dom: domFileReaders(), folders: nodeFolderReaders() }
+  return { dom: domFileReaders(), folders: nodeFolderReaders(), texts: unitTexts() }
 }
 
 export function changedQuarantineFiles(before, after) {

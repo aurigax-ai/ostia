@@ -1,10 +1,12 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { REPO_ROOT } from './i18nCatalog.mjs'
 import { runChecks } from './i18nCheck.mjs'
+import { sortCatalogues } from './i18nOrder.mjs'
 import { baselineOf, coverageMarkdown, coverageRows, sameReasons } from './i18nCoverage.mjs'
 
 const USAGE = [
   'usage: node scripts/i18n.mjs check',
+  '       node scripts/i18n.mjs sort',
   '       node scripts/i18n.mjs coverage [--json <sha>] [--baseline <baseline.json>]',
 ].join('\n')
 
@@ -22,6 +24,10 @@ async function main(args) {
       console.log(`\ni18n: ${problems.length} problem(s)`)
       process.exitCode = 1
     }
+    return
+  }
+  if (verb === 'sort') {
+    sortCatalogues(REPO_ROOT)
     return
   }
   if (verb === 'coverage') {

@@ -1,0 +1,12 @@
+{
+  "name": "telemetry",
+  "paths": [
+    "src/main/diagnostics/telemetry.ts",
+    "src/renderer/components/settings/TelemetryConsentDialog.",
+    "src/renderer/components/settings/TelemetryReportsDialog.tsx",
+    "src/renderer/lib/app/usageCounts.ts",
+    "src/renderer/stores/app/telemetryConsentStore.ts",
+    "src/shared/privacy/telemetry.ts"
+  ],
+  "specs": []
+}

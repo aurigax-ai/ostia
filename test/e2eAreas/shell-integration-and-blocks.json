@@ -1,0 +1,39 @@
+{
+  "name": "shell integration and blocks",
+  "paths": [
+    "src/main/terminal/agentHookCommands.ts",
+    "src/main/terminal/agentPlugin.ts",
+    "src/main/terminal/claudeIntegration.ts",
+    "src/main/terminal/codexIntegration.ts",
+    "src/main/terminal/localPrompt.ts",
+    "src/main/terminal/promptContext.ts",
+    "src/main/terminal/shellCommands.ts",
+    "src/main/terminal/shellExit.ts",
+    "src/main/terminal/shellIntegration.ts",
+    "src/main/terminal/terminalType.ts",
+    "src/renderer/components/palette/HistorySearch.tsx",
+    "src/renderer/components/prompt/",
+    "src/renderer/components/settings/PromptSection.",
+    "src/renderer/components/terminal/BlockMenu.tsx",
+    "src/renderer/components/terminal/Blocks.tsx",
+    "src/renderer/lib/prompt/inputEditor.ts",
+    "src/renderer/lib/prompt/lineEditing.ts",
+    "src/renderer/lib/prompt/promptChips.ts",
+    "src/renderer/lib/prompt/promptOverlay.ts",
+    "src/renderer/lib/prompt/shellTokens.ts",
+    "src/renderer/lib/prompt/usePromptChips.ts",
+    "src/renderer/lib/prompt/usePromptGeometry.",
+    "src/renderer/lib/prompt/vimMode.ts",
+    "src/renderer/lib/terminal/blockActions.",
+    "src/renderer/lib/terminal/blockText.",
+    "src/renderer/lib/terminal/blocks.",
+    "src/renderer/stores/terminal/blocksStore.ts",
+    "src/renderer/stores/terminal/historySearchStore.ts",
+    "src/shared/terminal/promptSettings.ts"
+  ],
+  "specs": [
+    "e2e/blocks.spec.ts",
+    "e2e/input-editor.spec.ts",
+    "e2e/terminal-basics.spec.ts"
+  ]
+}

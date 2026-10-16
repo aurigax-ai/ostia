@@ -1,0 +1,12 @@
+{
+  "name": "user actions",
+  "paths": [
+    "src/renderer/components/settings/ActionConfirmDialog.tsx",
+    "src/renderer/components/settings/ActionsSection.tsx",
+    "src/renderer/components/settings/actionIcons.ts",
+    "src/renderer/lib/palette/userActions.ts",
+    "src/renderer/lib/settings/actions.ts",
+    "src/renderer/stores/agents/actionConfirmStore.ts"
+  ],
+  "specs": []
+}
