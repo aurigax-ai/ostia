@@ -36,7 +36,7 @@ function Bar({ children }: { children: React.ReactNode }): JSX.Element {
   return (
     <output
       aria-label={d.languageNotice.label}
-      className="language-notice flex items-center gap-2 border-line border-b bg-surface-2 px-3 text-fg-muted text-ui-sm"
+      className="language-notice motion-fade flex items-center gap-2 border-line border-b bg-surface-2 px-3 text-fg-muted text-ui-sm"
     >
       {children}
     </output>

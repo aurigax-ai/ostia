@@ -77,6 +77,16 @@ describe('collapsed split tab panes', () => {
     expect(slot.inert).toBe(true)
   })
 
+  it('fades a strip face in only when the human collapses it, never at first render', async () => {
+    const { a, container } = workers()
+    expect(container.querySelector('.motion-fade')).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Collapse alpha' }))
+
+    const strip = container.querySelector(`[data-strip-id="${a.id}"]`) as HTMLElement
+    expect(strip.querySelector('.pane-strip-main')).toHaveClass('motion-fade')
+  })
+
   it('expands a strip on a click and focuses its pane', async () => {
     const { a, container } = workers()
     act(() => useLayoutStore.getState().changeCollapse('w', a.id, 'collapse'))
@@ -128,6 +138,21 @@ describe('folded split tab', () => {
     expect(container.querySelectorAll('.split-tab-segment')).toHaveLength(0)
     expect(findPane(layout().root, b.id)).not.toBeNull()
     expect(layout().activePaneId).not.toBe(b.id)
+  })
+
+  it('fades the chip and the unfolded pill in only after the human toggles them', async () => {
+    const { container } = workers()
+    expect(container.querySelector('.pane-split-tab.motion-fade')).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Fold workers' }))
+    const face = await screen.findByRole('tab', { name: /^Folded split tab workers/ })
+    const chip = face.closest('.pane-split-tab') as HTMLElement
+    expect(chip).toHaveClass('motion-fade')
+
+    await userEvent.click(within(chip).getByRole('tab'))
+    const pill = container.querySelector('.pane-split-tab') as HTMLElement
+    expect(pill).not.toHaveClass('folded')
+    expect(pill).toHaveClass('motion-fade')
   })
 
   it('unfolds and shows its panes when the chip is clicked', async () => {

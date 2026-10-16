@@ -20,7 +20,7 @@ export function RemoteFileBar({
   return (
     <output
       data-testid="remote-file-bar"
-      className="language-notice flex items-center gap-2 border-line border-b bg-surface-2 px-3 text-fg-muted text-ui-sm"
+      className="language-notice motion-fade flex items-center gap-2 border-line border-b bg-surface-2 px-3 text-fg-muted text-ui-sm"
     >
       <Badge variant="outline">{d.remoteFolders.badge}</Badge>
       <span className="truncate">

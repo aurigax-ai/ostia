@@ -30,7 +30,7 @@ function NoticeGroup({
   onDismiss: () => void
 }): JSX.Element {
   return (
-    <output className="update-notice no-drag">
+    <output className="update-notice motion-fade no-drag">
       <SplitButton
         label={label}
         main={

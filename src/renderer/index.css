@@ -911,6 +911,11 @@
 .rail-group-caret {
   flex-shrink: 0;
   color: var(--fg-muted);
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.rail-group-caret.open {
+  transform: rotate(90deg);
 }
 
 .rail-group-swatch,
@@ -1567,6 +1572,7 @@
   position: relative;
   background: var(--fg-dim);
   flex: 0 0 auto;
+  transition: background-color var(--motion-base) var(--ease-out);
 }
 
 .dot.working {
@@ -4157,6 +4163,32 @@ button.prompt-chip:hover {
 
 .assist-composer {
   animation: composer-in var(--motion-base) var(--ease-out);
+}
+
+.motion-fade {
+  animation: motion-fade-in var(--motion-fast) var(--ease-out);
+}
+
+.motion-reveal {
+  animation: reveal var(--motion-base) var(--ease-out);
+}
+
+.motion-reveal-panel {
+  transition-property: opacity, transform;
+  transition-duration: var(--motion-base);
+  transition-timing-function: var(--ease-out);
+}
+
+.motion-reveal-panel[data-starting-style] {
+  opacity: 0;
+  transform: translateY(-2px);
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
 }
 
 .surface-host.surface-enter {

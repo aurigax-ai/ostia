@@ -15,6 +15,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { useEntered } from '@/lib/app/useEntered'
 import { markWorkspaceRead } from '@/lib/attention/workspaceActivity'
 import type { WorkspaceGroup } from '@/lib/sidebar/workspaceGroups'
 import { cn } from '@/lib/utils'
@@ -70,7 +71,8 @@ export function GroupBlock({
     useUIStore.getState().showWorkspaces()
     startNewWorkspace({ groupId: group.id })
   }
-  const Caret = group.collapsed ? CaretRightIcon : CaretDownIcon
+  const revealing = useEntered(group.collapsed ? [] : ['members']).size > 0
+  const caretClass = cn('rail-group-caret', !group.collapsed && 'open')
 
   return (
     <div
@@ -108,7 +110,7 @@ export function GroupBlock({
         >
           {renaming ? (
             <span className="rail-group-main">
-              <Caret size={16} className="rail-group-caret" aria-hidden />
+              <CaretRightIcon size={16} className={caretClass} aria-hidden />
               <span className="rail-group-swatch" aria-hidden />
               <RenameInput
                 value={group.name}
@@ -127,7 +129,7 @@ export function GroupBlock({
               onClick={toggle}
               onDoubleClick={() => onRenaming(true)}
             >
-              <Caret size={16} className="rail-group-caret" aria-hidden />
+              <CaretRightIcon size={16} className={caretClass} aria-hidden />
               <span className="rail-group-swatch" aria-hidden />
               <GroupUnreadDot workspaceIds={members.map((w) => w.id)} />
               <span className="rail-group-name">{group.name}</span>
@@ -159,7 +161,9 @@ export function GroupBlock({
           onRenaming={onRenaming}
         />
       </ContextMenu>
-      {group.collapsed ? null : <div className="rail-group-members">{children}</div>}
+      {group.collapsed ? null : (
+        <div className={cn('rail-group-members', revealing && 'motion-reveal')}>{children}</div>
+      )}
     </div>
   )
 }
