@@ -184,19 +184,28 @@ describe('CommandPalette', () => {
       })
     }
 
-    const WITH_KEYS = ['palette-title', 'palette-name', 'palette-keys', 'palette-meta']
-    const WITHOUT_KEYS = ['palette-title', 'palette-name', 'palette-meta']
+    const WITH_KEYS = [
+      'palette-title',
+      'palette-name',
+      'palette-trailing',
+      'palette-keys',
+      'palette-meta',
+    ]
+    const WITHOUT_KEYS = ['palette-title', 'palette-name', 'palette-trailing', 'palette-meta']
 
-    it('puts a command’s keycap directly after its title, then the id', async () => {
+    it('puts a command’s keycap and id at the right edge of the row, after its title', async () => {
       useUIStore.setState({ paletteOpen: true })
       render(<CommandPalette />)
       const option = await screen.findByRole('option', { name: /Open Settings/ })
 
       expect(slots(option)).toEqual(WITH_KEYS)
       expect(part(option, 'name')).toHaveTextContent('Open Settings')
-      expect(part(option, 'name').nextElementSibling).toBe(part(option, 'keys'))
       expect(part(option, 'keys').tagName).toBe('KBD')
-      expect(part(option, 'title').nextElementSibling).toBe(part(option, 'meta'))
+      expect(part(option, 'title').nextElementSibling).toBe(part(option, 'trailing'))
+      expect(part(option, 'trailing')).toHaveClass('ml-auto', 'shrink-0')
+      expect(part(option, 'title')).toHaveClass('min-w-0')
+      expect(part(option, 'keys').nextElementSibling).toBe(part(option, 'meta'))
+      expect(part(option, 'meta')).toHaveClass('font-mono')
       expect(part(option, 'meta')).toHaveTextContent('app.openSettings')
     })
 
@@ -209,7 +218,7 @@ describe('CommandPalette', () => {
       expect(part(option, 'name')).not.toHaveClass('text-muted-foreground', 'text-fg-muted')
     })
 
-    it('puts the id directly after the title of a command without a keybinding', async () => {
+    it('puts the id at the right edge of a command without a keybinding', async () => {
       useUIStore.setState({ paletteOpen: true })
       render(<CommandPalette />)
       const options = await screen.findAllByRole('option')
@@ -315,15 +324,16 @@ describe('CommandPalette', () => {
       }
     })
 
-    it('keeps the title whole and lets the secondary text give way first', async () => {
+    it('truncates a long title before the right-aligned keycap and id', async () => {
       useUIStore.setState({ paletteOpen: true })
       render(<CommandPalette />)
       const option = await screen.findByRole('option', { name: /Open Settings/ })
 
-      expect(part(option, 'title')).toHaveClass('shrink-0', 'max-w-full', 'min-w-0')
+      expect(part(option, 'title')).toHaveClass('min-w-0')
+      expect(part(option, 'title')).not.toHaveClass('shrink-0')
       expect(part(option, 'name')).toHaveClass('truncate', 'min-w-0')
+      expect(part(option, 'trailing')).toHaveClass('shrink-0', 'ml-auto')
       expect(part(option, 'meta')).toHaveClass('truncate', 'min-w-0', 'text-fg-muted')
-      expect(part(option, 'meta')).not.toHaveClass('shrink-0')
     })
 
     it('lays rows out the same way in Traditional Chinese', async () => {
@@ -768,7 +778,7 @@ describe('CommandPalette', () => {
       expect([...row.children].map((el) => (el as HTMLElement).dataset.slot)).toEqual([
         'palette-title',
         'palette-detail',
-        'palette-meta',
+        'palette-trailing',
       ])
       expect(row.children[0]).toHaveTextContent('greet')
       expect(row.children[1]).toHaveTextContent('lib')
