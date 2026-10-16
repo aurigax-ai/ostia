@@ -1,6 +1,7 @@
 import { SectionTab, SectionTabsList } from '@/components/common/SectionTabs'
-import { ControlRow } from '@/components/settings/ControlRow'
-import { SectionHead, SettingsGroup } from '@/components/settings/SettingsGroup'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -152,11 +153,10 @@ export function WorkspaceSandboxPage({
   } = useWorkspaceSandbox(workspaceId)
 
   return (
-    <div>
-      <SectionHead
-        title={fmt(d.sandbox.workspacePage, { name: workspaceName })}
-        desc={d.sandbox.workspaceDesc}
-      />
+    <SettingsPage
+      title={fmt(d.sandbox.workspacePage, { name: workspaceName })}
+      desc={d.sandbox.workspaceDesc}
+    >
       <Tabs defaultValue="general">
         <SectionTabsList>
           <SectionTab value="general">{d.sandbox.general}</SectionTab>
@@ -260,6 +260,6 @@ export function WorkspaceSandboxPage({
           <SandboxViolations workspaceId={workspaceId} />
         </TabsContent>
       </Tabs>
-    </div>
+    </SettingsPage>
   )
 }

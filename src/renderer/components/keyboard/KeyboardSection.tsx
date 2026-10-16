@@ -1,7 +1,7 @@
 import { commands } from '@/commands/registry'
-import { ControlRow } from '@/components/settings/ControlRow'
-import { SelectField } from '@/components/settings/SelectField'
-import { SectionHead } from '@/components/settings/SettingsGroup'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -179,8 +179,7 @@ export function KeyboardSection(): JSX.Element {
   const toggle = (key: string) => (): void => setOpen((was) => (was === key ? null : key))
 
   return (
-    <section aria-label={d.keyboard.title}>
-      <SectionHead title={d.keyboard.title} desc={d.keyboard.desc} />
+    <SettingsPage title={d.keyboard.title} desc={d.keyboard.desc}>
       <KeymapCombo onShowChanges={() => setView('changes')} />
       <LinkClickRow />
       <div className="mb-2 flex items-center gap-2">
@@ -255,6 +254,6 @@ export function KeyboardSection(): JSX.Element {
           </Button>
         </div>
       ) : null}
-    </section>
+    </SettingsPage>
   )
 }

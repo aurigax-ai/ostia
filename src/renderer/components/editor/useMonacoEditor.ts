@@ -74,7 +74,7 @@ export function useMonacoEditor({
       fontLigatures: true,
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
-      smoothScrolling: !reducedMotionRef.current,
+      smoothScrolling: false,
       ...behaviorOptions(useSettingsStore.getState().editor),
       renderWhitespace: 'selection',
       padding: { top: 8 },

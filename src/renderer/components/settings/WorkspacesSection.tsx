@@ -1,3 +1,6 @@
+import { ControlRow, ToggleRow, WarningNote } from '@/components/settingsKit/ControlRow'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { useDict } from '@/lib/app/useDict'
@@ -5,8 +8,6 @@ import { NEW_WORKSPACE_PLACEMENTS, type NewWorkspacePlacement } from '@/stores/a
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { toAccelerator } from '@shared/keyboard/globalHotkey'
 import { useEffect, useState } from 'react'
-import { ControlRow, ToggleRow, WarningNote } from './ControlRow'
-import { SectionHead, SettingsGroup } from './SettingsGroup'
 
 const FOLDER_CHECK_DELAY_MS = 300
 
@@ -41,8 +42,7 @@ export function WorkspacesSection(): JSX.Element {
   }
 
   return (
-    <div>
-      <SectionHead title={d.workspaceSettings.title} />
+    <SettingsPage title={d.workspaceSettings.title}>
       <SettingsGroup title={d.workspaceSettings.groupNew}>
         <ControlRow label={d.workspaceSettings.placement} desc={d.workspaceSettings.placementDesc}>
           <Select
@@ -133,6 +133,6 @@ export function WorkspacesSection(): JSX.Element {
           onChange={(v) => set({ wrapTitles: v })}
         />
       </SettingsGroup>
-    </div>
+    </SettingsPage>
   )
 }
