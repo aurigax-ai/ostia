@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import { Highlight, useSearchLeaf } from './SettingsSearch'
 
 export function SettingsPage({
@@ -12,9 +13,10 @@ export function SettingsPage({
   children?: React.ReactNode
 }): JSX.Element {
   useSearchLeaf([title, desc])
+  const headingId = useId()
   const head = (
     <>
-      <h2 className="mb-1.5 font-semibold text-fg text-ui-lg">
+      <h2 id={headingId} className="mb-1.5 font-semibold text-fg text-ui-lg">
         <Highlight text={title} />
       </h2>
       {desc ? (
@@ -25,7 +27,7 @@ export function SettingsPage({
     </>
   )
   return (
-    <section aria-label={title}>
+    <section aria-labelledby={headingId}>
       {actions ? (
         <div className="flex items-start justify-between gap-6">
           <div className="min-w-0">{head}</div>
