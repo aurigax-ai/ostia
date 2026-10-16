@@ -17,7 +17,7 @@ function sourceFiles(dir: string, extensions: string[]): string[] {
 const styleFiles = [
   ...sourceFiles('src/renderer', ['.css']),
   ...sourceFiles('src/extensions', ['.css']),
-  ...sourceFiles('packages/extension-sdk/src/client', ['.css']),
+  ...sourceFiles(join('packages', 'extension-sdk', 'src', 'client'), ['.css']),
 ]
 const codeFiles = [
   ...sourceFiles('src/renderer', ['.ts', '.tsx']),

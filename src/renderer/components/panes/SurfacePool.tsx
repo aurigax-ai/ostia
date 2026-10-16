@@ -103,7 +103,7 @@ export function SurfacePool(): JSX.Element {
           <SurfaceErrorBoundary paneId={s.paneId}>
             <Surface surface={s} generation={generation[s.paneId] ?? 0} />
           </SurfaceErrorBoundary>,
-          surfaceHost(s.paneId, s.kind !== 'terminal'),
+          surfaceHost(s.paneId, s.kind !== 'terminal' && s.kind !== 'manager'),
           s.paneId,
         ),
       )}
