@@ -49,6 +49,26 @@
     "summary.web.one": "made {count} web lookup",
     "summary.web.other": "made {count} web lookups",
     "summary.other.one": "used {count} other tool",
-    "summary.other.other": "used {count} other tools"
+    "summary.other.other": "used {count} other tools",
+    "stream": "Workspace events",
+    "stream.pane": "Pane",
+    "stream.ostia": "Ostia",
+    "stream.extension": "An extension",
+    "stream.elsewhere": "Another workspace",
+    "stream.started": "{who} started",
+    "stream.closed": "{who} closed",
+    "stream.hibernated": "{who} hibernated",
+    "stream.woken": "{who} woke up",
+    "stream.state.working": "{who} is working",
+    "stream.state.waiting": "{who} is waiting",
+    "stream.state.done": "{who} finished",
+    "stream.state.error": "{who} hit an error",
+    "stream.folder": "{who} moved to {folder}",
+    "stream.bus.message": "{from} sent a message to {to}",
+    "stream.bus.task": "{from} handed a task to {to}",
+    "stream.phase.queued": "not read yet",
+    "stream.phase.waiting": "handed to a waiting pane",
+    "stream.phase.seen": "read",
+    "stream.rootFolder": "the workspace folder"
   }
 }

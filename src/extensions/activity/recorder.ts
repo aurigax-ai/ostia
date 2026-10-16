@@ -18,7 +18,10 @@ export interface RecorderDeps {
   changed: () => void
 }
 
-export function keepsOnDisk(caller: ExtensionCaller, kind: string | null): boolean {
+export function keepsOnDisk(
+  caller: Pick<ExtensionCaller, 'sandboxed'>,
+  kind: string | null,
+): boolean {
   return caller.sandboxed !== true && kind !== null && !MEMORY_ONLY_KINDS.includes(kind)
 }
 

@@ -1,3 +1,7 @@
+import { ControlRow, NumberRow, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Input } from '@/components/ui/input'
 import { useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -8,9 +12,6 @@ import {
   LONG_COMMAND_MIN_SECONDS,
   clampLongCommandSeconds,
 } from '@shared/app/notificationSettings'
-import { ControlRow, NumberRow, ToggleRow } from './ControlRow'
-import { SelectField } from './SelectField'
-import { SectionHead, SettingsGroup } from './SettingsGroup'
 
 export function NotificationsSection(): JSX.Element {
   const d = useDict()
@@ -22,8 +23,7 @@ export function NotificationsSection(): JSX.Element {
     off: d.settings.bellOff,
   }
   return (
-    <div>
-      <SectionHead title={d.settings.notifications} />
+    <SettingsPage title={d.settings.notifications}>
       <SettingsGroup title={d.settings.groupDesktop}>
         <ToggleRow
           label={d.settings.notifyDesktop}
@@ -93,6 +93,6 @@ export function NotificationsSection(): JSX.Element {
           />
         </ControlRow>
       </SettingsGroup>
-    </div>
+    </SettingsPage>
   )
 }

@@ -49,6 +49,38 @@ button.tab[aria-pressed="true"] {
   padding: 8px;
 }
 
+.stream {
+  margin: 0 0 12px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.stream-title {
+  margin: 0 0 6px;
+  padding: 0 8px;
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.stream-row {
+  padding-bottom: 8px;
+}
+
+.stream-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.phase {
+  flex: 0 0 auto;
+  font-size: var(--text-ui-xs);
+}
+
 .agent {
   padding: 8px 0 12px;
   border-top: 1px solid var(--line);
@@ -312,19 +344,8 @@ button.actions-toggle:hover {
   list-style: none;
 }
 
-.action-list.reveal {
-  animation: reveal var(--motion-base) var(--ease-out);
-}
-
 .action-list[hidden] {
   display: none;
-}
-
-@keyframes reveal {
-  from {
-    opacity: 0;
-    transform: translateY(-2px);
-  }
 }
 
 .event {

@@ -201,6 +201,7 @@ export const securityZhHant: typeof securityEn = {
       '沙箱中的 shell 無法讀取的檔案與資料夾，即使位於可讀取的資料夾內。被隱藏的 socket 無法連線。',
     inherited: '沿用',
     install: '安裝',
+    listEmpty: '尚未新增。',
     malware: '封鎖已知惡意套件',
     malwareDesc: '每次下載套件時比對 OSV 惡意套件資料庫。',
     navList: '沙箱頁面',
@@ -261,6 +262,7 @@ export const securityZhHant: typeof securityEn = {
     secrets: '機密',
     secretsDesc:
       '將機密交給沙箱中的 shell：作為環境變數、檔案，或只在代理程式請求且你允許時提供。主機機密留在主機上，{product} 不會修改它們。',
+    secretsEmpty: '沒有密鑰。',
     strictDomains: '不詢問其他網域',
     strictDomainsDesc:
       '直接拒絕不在允許清單中的主機，而不顯示請求。被拒絕的主機會出現在「已封鎖」中。',

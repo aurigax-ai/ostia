@@ -1,5 +1,5 @@
-import { ControlRow, ToggleRow, WarningNote } from '@/components/settings/ControlRow'
-import { SelectField } from '@/components/settings/SelectField'
+import { ControlRow, ToggleRow, WarningNote } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'

@@ -1,8 +1,8 @@
 import { toolTitle } from '@/components/chat/ChatToolPart'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
-import { ControlRow, WarningNote } from '@/components/settings/ControlRow'
-import { SettingsGroup } from '@/components/settings/SettingsGroup'
+import { ControlRow, WarningNote } from '@/components/settingsKit/ControlRow'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
