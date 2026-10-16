@@ -53,7 +53,7 @@ function confirmCopy(d: Dict): Record<CloseConfirmKind, ConfirmCopy> {
 function RunningGroupItem({ group }: { group: RunningGroup }): JSX.Element {
   const d = useDict()
   return (
-    <li key={group.workspaceId}>
+    <li>
       <div className="font-medium text-fg text-ui-base">{group.workspace}</div>
       <ul className="mt-1 flex flex-col gap-1">
         {group.commands.map((command, index) => (
