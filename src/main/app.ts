@@ -71,8 +71,8 @@ import {
   extensionHostParts,
   startExtensionHost,
 } from './extensions/extensionWiring'
-import { marketplaceId, normalizeMarketplaceUrl } from './extensions/marketplace/marketplace'
 import { createMarketplaceIpc } from './extensions/marketplace/marketplaceIpc'
+import { marketplaceId, normalizeMarketplaceUrl } from './extensions/marketplace/marketplaceSources'
 import { startMarketplace } from './extensions/marketplace/marketplaceWiring'
 import { PaneAttentionEvents } from './extensions/paneAttentionEvents'
 import { createMainStrings } from './extensions/strings'

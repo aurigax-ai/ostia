@@ -12,14 +12,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { MARKETPLACE_MANIFEST_FILE } from '@aurigax-ai/ostia-extension-sdk/manifest/marketplaceManifest'
 import { afterEach, describe, expect, it } from 'vitest'
+import { Marketplace } from './marketplace'
 import {
   GitError,
   type GitRunner,
-  Marketplace,
   marketplaceId,
   normalizeMarketplaceUrl,
   runGit,
-} from './marketplace'
+} from './marketplaceSources'
 
 const dirs: string[] = []
 afterEach(() => {
