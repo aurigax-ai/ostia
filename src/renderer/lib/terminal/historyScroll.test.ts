@@ -1,6 +1,8 @@
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useHistoryViewStore } from '@/stores/terminal/historyViewStore'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { OstiaTerminal } from './ostiaTerminal'
+import { registerInputEditor } from './terminalHandles'
 
 interface FakePane {
   term: Record<string, unknown>
@@ -9,6 +11,7 @@ interface FakePane {
   top: number
   lines: string[]
   scrolledBy: number
+  selected: string
 }
 
 const panes: FakePane[] = []
@@ -21,6 +24,7 @@ vi.mock('./historyLayerPane', () => ({
       top: 0,
       lines: [],
       scrolledBy: 0,
+      selected: '',
       term: {},
     }
     pane.term = {
@@ -35,6 +39,8 @@ vi.mock('./historyLayerPane', () => ({
       },
       resize: () => {},
       select: () => {},
+      hasSelection: () => pane.selected !== '',
+      getSelection: () => pane.selected,
       scrollToLine: (row: number) => {
         pane.top = row
       },
@@ -72,6 +78,8 @@ const { createHistoryScroll } = await import('./historyScroll')
 
 const SEAM = 970
 
+const pasteSpy = vi.fn()
+
 function liveTerminal() {
   const rows = 10
   const line = { isWrapped: false, translateToString: () => 'live line' }
@@ -91,6 +99,7 @@ function liveTerminal() {
     onScroll: () => ({ dispose: () => {} }),
     onData: () => ({ dispose: () => {} }),
     onResize: () => ({ dispose: () => {} }),
+    paste: pasteSpy,
     scrollToBottom: vi.fn(),
     scrollToLine: vi.fn(),
     scrollToTop: vi.fn(),
@@ -101,7 +110,7 @@ function liveTerminal() {
   return term
 }
 
-function mount() {
+function mount(shown = true) {
   const stack = document.createElement('div')
   stack.className = 'terminal-stack'
   const host = document.createElement('div')
@@ -116,6 +125,7 @@ function mount() {
     engine: 'xterm',
     options: () => ({}),
     pause,
+    shown: () => shown,
   })
   return { stack, host, term, pause, scroll }
 }
@@ -199,6 +209,103 @@ describe('history scroll', () => {
     await vi.waitFor(() => expect(box(stack)?.style.visibility).toBe('visible'))
     expect(Number(box(stack)?.dataset.top)).toBe(400 - 3)
     expect(useHistoryViewStore.getState().open.p1).toBeUndefined()
+    scroll.dispose()
+  })
+
+  it('returns to the live bottom when text is pasted or typed into the live terminal', async () => {
+    const { stack, term, scroll } = mount()
+    scroll.interceptWheel(wheelUp())
+    await vi.waitFor(() => expect(box(stack)?.style.visibility).toBe('visible'))
+    ;(term as unknown as { paste: (data: string) => void }).paste('\x1b[200~text\x1b[201~')
+    expect(box(stack)?.style.visibility).toBe('hidden')
+    expect(pasteSpy).toHaveBeenCalledWith('\x1b[200~text\x1b[201~')
+    expect(term.scrollToBottom).toHaveBeenCalled()
+    scroll.dispose()
+  })
+
+  it('moves focus from the history layer to the live terminal or its input editor', async () => {
+    const { stack, term, scroll } = mount()
+    scroll.interceptWheel(wheelUp())
+    await vi.waitFor(() => expect(box(stack)?.style.visibility).toBe('visible'))
+    panes[0]?.el.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+    await vi.waitFor(() => expect(term.focus).toHaveBeenCalled())
+    const focus = vi.fn()
+    const unregister = registerInputEditor('p1', { insert: vi.fn(), type: vi.fn(), focus })
+    panes[0]?.el.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+    await vi.waitFor(() => expect(focus).toHaveBeenCalled())
+    unregister()
+    scroll.dispose()
+  })
+
+  it('copies a selection made in the layer and keeps the layer, but sends Ctrl+C to the shell without one', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+    useSettingsStore.setState((state) => ({
+      terminal: { ...state.terminal, clipboardKeys: 'smart' },
+    }))
+    const { stack, scroll } = mount()
+    scroll.interceptWheel(wheelUp())
+    await vi.waitFor(() => expect(box(stack)?.style.visibility).toBe('visible'))
+    const pane = panes[1] ?? panes[0]
+    const visiblePane = panes.find((p) => p.el.style.visibility === '') ?? pane
+    if (visiblePane) visiblePane.selected = 'picked'
+    const ctrlC = () =>
+      new KeyboardEvent('keydown', { key: 'c', ctrlKey: true, bubbles: true, cancelable: true })
+    const copy = ctrlC()
+    stack.dispatchEvent(copy)
+    expect(writeText).toHaveBeenCalledWith('picked')
+    expect(copy.defaultPrevented).toBe(true)
+    expect(box(stack)?.style.visibility).toBe('visible')
+    if (visiblePane) visiblePane.selected = ''
+    const interrupt = ctrlC()
+    stack.dispatchEvent(interrupt)
+    expect(interrupt.defaultPrevented).toBe(false)
+    expect(box(stack)?.style.visibility).toBe('hidden')
+    scroll.dispose()
+  })
+
+  it('leaves history when an IME composition starts', async () => {
+    const { stack, host, scroll } = mount()
+    scroll.interceptWheel(wheelUp())
+    await vi.waitFor(() => expect(box(stack)?.style.visibility).toBe('visible'))
+    host.dispatchEvent(new Event('compositionstart', { bubbles: true }))
+    expect(box(stack)?.style.visibility).toBe('hidden')
+    scroll.dispose()
+  })
+
+  it('never covers the alternate screen, even when it starts while history is loading', async () => {
+    const { stack, term, pause, scroll } = mount()
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const serve = vi.mocked(window.ostia.pty.historyRead).getMockImplementation()
+    vi.mocked(window.ostia.pty.historyRead).mockImplementation(async (...args) => {
+      await gate
+      return serve?.(...args) ?? null
+    })
+    scroll.interceptWheel(wheelUp())
+    ;(term.buffer.active as { type: string }).type = 'alternate'
+    release()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(box(stack)?.style.visibility).not.toBe('visible')
+    expect(pause).not.toHaveBeenCalledWith(true)
+    useHistoryViewStore.getState().show('p1', { kind: 'line', line: 400 })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(box(stack)?.style.visibility).not.toBe('visible')
+    scroll.scrollToTop()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(box(stack)?.style.visibility).not.toBe('visible')
+    scroll.dispose()
+  })
+
+  it('does not resume drawing a pane that is hidden when history closes', async () => {
+    const { stack, pause, scroll } = mount(false)
+    scroll.interceptWheel(wheelUp())
+    await vi.waitFor(() => expect(box(stack)?.style.visibility).toBe('visible'))
+    scroll.scrollToBottom()
+    expect(box(stack)?.style.visibility).toBe('hidden')
+    expect(pause).not.toHaveBeenCalledWith(false)
     scroll.dispose()
   })
 })

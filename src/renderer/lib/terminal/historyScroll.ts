@@ -7,12 +7,14 @@ import { type LayerPane, createLayerPane } from './historyLayerPane'
 import { WINDOW_LINES, lineAtRow, logicalLinesFrom, rowOfLine, windowStart } from './historyPages'
 import { type HistoryScrollbar, createHistoryScrollbar } from './historyScrollbar'
 import type { OstiaTerminal, TerminalOptions } from './ostiaTerminal'
+import { readOnlyCopyKey } from './readOnlyTerminal'
 import { inputEditorFor } from './terminalHandles'
 
 const NO_HISTORY_MS = 1000
 const FALLBACK_CELL_PX = 17
 const REFRESH_MS = 500
 const KEEP_LAYER_MS = 3000
+const IME_KEYS = new Set(['Process', 'Unidentified'])
 const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'AltGraph'])
 const EDIT_KEYS = new Set([
   'Enter',
@@ -69,16 +71,18 @@ export interface HistoryScrollDeps {
   engine: TerminalRenderer
   options: () => TerminalOptions
   pause: (paused: boolean) => void
+  shown: () => boolean
 }
 
 function isTypedKey(e: KeyboardEvent): boolean {
+  if (IME_KEYS.has(e.key)) return true
   if (MODIFIER_KEYS.has(e.key) || e.metaKey) return false
   if (e.ctrlKey || e.altKey) return e.key.length === 1 && !(e.ctrlKey && e.shiftKey)
   return e.key.length === 1 || EDIT_KEYS.has(e.key)
 }
 
 export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
-  const { host, paneId, term, engine, pause } = deps
+  const { host, paneId, term, engine, pause, shown } = deps
   const stack = host.closest<HTMLElement>('.terminal-stack') ?? host.parentElement ?? host
   let alive = true
   let layer: Layer | null = null
@@ -132,26 +136,22 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
     bar.update(top / room, rows / total)
   }
 
-  const typed = (e: KeyboardEvent): void => {
-    leave('bottom')
+  const focusLive = (): void => {
     const editor = inputEditorFor(paneId)
-    const printable = e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey
-    if (editor) {
-      if (printable) editor.type(e.key)
-      else editor.focus()
-      return
-    }
-    const data = terminalKeyData(e, isMac) ?? (printable ? e.key : e.key === 'Enter' ? '\r' : null)
-    if (data) term.input(data, true)
-    term.focus()
+    if (editor) editor.focus()
+    else term.focus()
   }
 
-  const onPaneKey = (e: KeyboardEvent): void => {
-    if (isTypedKey(e)) {
-      e.preventDefault()
-      typed(e)
-    }
+  const copyLayerSelection = (e: KeyboardEvent): boolean => {
+    const pane = visible()
+    if (!pane || !pane.term.hasSelection() || !readOnlyCopyKey(e, true)) return false
+    e.preventDefault()
+    e.stopPropagation()
+    void navigator.clipboard.writeText(pane.term.getSelection())
+    return true
   }
+
+  const notAlternate = (): boolean => term.buffer.active.type === 'normal'
 
   const ensureLayer = (): Layer | null => {
     window.clearTimeout(dropTimer)
@@ -169,7 +169,6 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
         box,
         { cols: term.cols, rows: term.rows },
         deps.options(),
-        onPaneKey,
       )
       if (!pane) {
         for (const made of panes) made.dispose()
@@ -178,6 +177,7 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
       }
       pane.el.style.visibility = 'hidden'
       pane.term.onScroll(() => onLayerScroll(pane))
+      pane.el.addEventListener('focusin', () => queueMicrotask(focusLive))
       panes.push(pane)
     }
     layer = { box, panes, shown: 0 }
@@ -196,10 +196,10 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
     if (!engaged) return
     engaged = false
     if (layer) layer.box.style.visibility = 'hidden'
-    pause(false)
+    if (shown()) pause(false)
     if (to === 'bottom') term.scrollToBottom()
     else term.scrollToLine(to)
-    if (layer?.box.contains(document.activeElement)) term.focus()
+    if (layer?.box.contains(document.activeElement)) focusLive()
     updateBar()
     window.clearTimeout(dropTimer)
     dropTimer = window.setTimeout(dropLayer, KEEP_LAYER_MS)
@@ -217,9 +217,11 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
       }
       return
     }
+    if (!notAlternate()) return
     busy = true
     try {
       const read = await readInfo()
+      if (!notAlternate()) return
       if (!read || (!engaged && seam <= read.first)) {
         if (!engaged) noHistoryUntil = Date.now() + NO_HISTORY_MS
         return
@@ -229,13 +231,13 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
       const anchor = Math.max(read.first, request.options.follow ? layerTop() : request.pick(read))
       const from = windowStart(anchor, read.first, read.end)
       const next = await window.ostia.pty.historyRead(paneId, from, WINDOW_LINES)
-      if (!alive || !next || layer !== target) return
+      if (!alive || !next || layer !== target || !notAlternate()) return
       const hidden = target.panes[1 - target.shown]
       if (!hidden) return
       const t = hidden.term
       t.reset()
       await new Promise<void>((done) => t.write(next.lines.join('\r\n'), done))
-      if (!alive || layer !== target) return
+      if (!alive || layer !== target || !notAlternate()) return
       const keep = request.options.follow ? layerTop() : anchor
       const buf = t.buffer.active
       t.scrollToLine(rowOfLine(buf, Math.max(0, keep - next.from)))
@@ -348,9 +350,12 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
   })
 
   const onKeyDown = (e: KeyboardEvent): void => {
-    if (engaged && isTypedKey(e)) {
-      leave('bottom')
-      return
+    if (engaged) {
+      if (copyLayerSelection(e)) return
+      if (isTypedKey(e)) {
+        leave('bottom')
+        return
+      }
     }
     if (!e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return
     if (e.key !== 'PageUp' && e.key !== 'PageDown') return
@@ -360,6 +365,19 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
     scrollLines((e.key === 'PageUp' ? -1 : 1) * term.rows)
   }
   stack.addEventListener('keydown', onKeyDown, true)
+  const onComposition = (): void => leave('bottom')
+  stack.addEventListener('compositionstart', onComposition, true)
+
+  const paste = term.paste.bind(term)
+  const input = term.input.bind(term)
+  term.paste = (data) => {
+    leave('bottom')
+    paste(data)
+  }
+  term.input = (data, wasUserInput) => {
+    if (wasUserInput) leave('bottom')
+    input(data, wasUserInput)
+  }
 
   const subscriptions = [
     term.onScroll(() => {
@@ -373,9 +391,6 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
           updateBar()
         })
       } else updateBar()
-    }),
-    term.onData((data) => {
-      if (engaged && !data.startsWith('\x1b')) leave('bottom')
     }),
     term.onResize(({ cols, rows }) => {
       for (const pane of layer?.panes ?? []) pane.term.resize(cols, rows)
@@ -411,7 +426,10 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
       alive = false
       unsubscribe()
       stack.removeEventListener('keydown', onKeyDown, true)
+      stack.removeEventListener('compositionstart', onComposition, true)
       for (const sub of subscriptions) sub.dispose()
+      term.paste = paste
+      term.input = input
       window.clearTimeout(dropTimer)
       engaged = false
       dropLayer()

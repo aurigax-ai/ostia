@@ -93,10 +93,9 @@ export function mountSizedReadOnlyTerminal(
   host: HTMLElement,
   size: { cols: number; rows: number },
   options: ITerminalOptions,
-  onKey?: (e: KeyboardEvent) => void,
 ): MountedReadOnlyTerminal {
   const term = createReadOnlyTerminal(readOnlyViewOptions({ ...size, ...options }))
-  wireReadOnly(term, onKey)
+  wireReadOnly(term)
   term.open(host)
   return { term, dispose: () => term.dispose() }
 }

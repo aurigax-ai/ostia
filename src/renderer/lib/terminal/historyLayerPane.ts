@@ -2,7 +2,7 @@ import type { TerminalRenderer } from '@/lib/settings/terminalPaneSettings'
 import { ghosttyModule } from './ghosttyEngine'
 import { WINDOW_LINES } from './historyPages'
 import type { OstiaTerminal, TerminalOptions } from './ostiaTerminal'
-import { mountSizedReadOnlyTerminal, readOnlyCopyKey } from './readOnlyTerminal'
+import { mountSizedReadOnlyTerminal } from './readOnlyTerminal'
 
 export interface LayerPane {
   term: OstiaTerminal
@@ -17,7 +17,6 @@ export function createLayerPane(
   parent: HTMLElement,
   size: { cols: number; rows: number },
   options: TerminalOptions,
-  onKey: (e: KeyboardEvent) => void,
 ): LayerPane | null {
   const el = document.createElement('div')
   el.className = 'history-pane'
@@ -36,14 +35,7 @@ export function createLayerPane(
     const term = created.term
     term.open(el)
     term.resize(size.cols, size.rows)
-    term.attachCustomKeyEventHandler((e) => {
-      if (e.type !== 'keydown') return false
-      if (readOnlyCopyKey(e, term.hasSelection())) {
-        e.preventDefault()
-        void navigator.clipboard.writeText(term.getSelection())
-      } else onKey(e)
-      return false
-    })
+    term.attachCustomKeyEventHandler(() => false)
     return {
       term,
       el,
@@ -53,7 +45,7 @@ export function createLayerPane(
       },
     }
   }
-  const mounted = mountSizedReadOnlyTerminal(el, size, { scrollback: WINDOW_LINES * 4 }, onKey)
+  const mounted = mountSizedReadOnlyTerminal(el, size, { scrollback: WINDOW_LINES * 4 })
   return {
     term: mounted.term,
     el,

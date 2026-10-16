@@ -163,6 +163,8 @@ function TerminalSurface({
   const findStepRef = useRef<((by: number) => void) | null>(null)
   const [alternateScreen, setAlternateScreen] = useState(false)
   const shown = usePaneVisible(paneId)
+  const shownRef = useRef(shown)
+  shownRef.current = shown
   useSurfaceFocus(
     paneId,
     () =>
@@ -189,6 +191,7 @@ function TerminalSurface({
       spawnCwd,
       termRef,
       pauseRef,
+      shownRef,
       lastSizeRef,
       syncSizeRef,
       pasteRef,
@@ -284,6 +287,7 @@ interface StartTerminalDeps {
   spawnCwd: { current: string | undefined }
   termRef: { current: OstiaTerminal | null }
   pauseRef: { current: PauseTerminal }
+  shownRef: { current: boolean }
   lastSizeRef: { current: { cols: number; rows: number } }
   syncSizeRef: { current: () => void }
   pasteRef: { current: (text: string) => void }
@@ -327,6 +331,7 @@ function startTerminal(deps: StartTerminalDeps): () => void {
     engine,
     options: initialTerminalOptions,
     pause: (paused) => pauseRef.current(paused),
+    shown: () => deps.shownRef.current,
   })
   attachWheelReports(
     term,
