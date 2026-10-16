@@ -1,4 +1,5 @@
 import { join } from 'node:path'
+import { setFlagsFromString } from 'node:v8'
 import { Worker } from 'node:worker_threads'
 import type { FlowMarks } from '../ptyFlow'
 import type { PaneHistory } from './paneHistory'
@@ -34,6 +35,7 @@ export const PANE_SEND_CHARS = 4 * 1024 * 1024
 export const SLICE_CHARS = 1024 * 1024
 const SPILL_HEAP_LIMITS = { maxYoungGenerationSizeMb: 4, maxOldGenerationSizeMb: 1024 }
 const utf8 = new TextEncoder()
+const HEAP_FLAG = /^--max[-_](old|semi)[-_]space[-_]size=\d+$/
 
 type Reply = Extract<SpillEvent, { kind: 'reply' }>
 
@@ -256,8 +258,22 @@ export function historyWorkerScript(appPath: string): string {
   return join(appPath.replace(/\.asar$/, '.asar.unpacked'), 'out/history/worker.js')
 }
 
+function inheritedHeapFlags(): string[] {
+  const nodeOptions = (process.env.NODE_OPTIONS ?? '').split(/\s+/)
+  return [...process.execArgv, ...nodeOptions].filter((arg) => HEAP_FLAG.test(arg))
+}
+
 export function spillWorker(script: string): Worker {
+  const inherited = inheritedHeapFlags()
+  for (const flag of inherited) setFlagsFromString(`${flag.split('=')[0]}=0`)
   const worker = new Worker(script, { resourceLimits: SPILL_HEAP_LIMITS })
+  if (inherited.length > 0) {
+    const restore = () => {
+      for (const flag of inherited) setFlagsFromString(flag)
+    }
+    worker.once('online', restore)
+    worker.once('exit', restore)
+  }
   worker.unref()
   return worker
 }

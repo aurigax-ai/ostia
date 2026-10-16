@@ -2,6 +2,8 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { stripVTControlCharacters } from 'node:util'
+import { setFlagsFromString } from 'node:v8'
+import { Worker } from 'node:worker_threads'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   HISTORY_WORKER_SCRIPT,
@@ -27,6 +29,7 @@ import type { SpillEvent, SpillRequest } from './spillHost'
 import { SPILL_SCROLLBACK, SpillTerminal } from './spillTerminal'
 
 const ESC = '\x1b'
+const GIB = 1024 * 1024 * 1024
 const mark = (kind: string) => `${ESC}]133;${kind}\x07`
 const owned: { dispose(): void }[] = []
 const clients: SpillClient[] = []
@@ -121,7 +124,29 @@ describe('history feed', () => {
     owned.push({ dispose: () => void worker.terminate() })
     await new Promise((resolve) => worker.once('online', resolve))
     const { heap_size_limit } = await worker.getHeapStatistics()
-    expect(heap_size_limit).toBeLessThan(1.1 * 1024 * 1024 * 1024)
+    expect(heap_size_limit).toBeLessThan(1.1 * GIB)
+  })
+
+  it('keeps the bound when NODE_OPTIONS raises the heap, and leaves later workers the inherited limit', async () => {
+    const nodeOptions = process.env.NODE_OPTIONS
+    process.env.NODE_OPTIONS = '--max-old-space-size=3000'
+    setFlagsFromString('--max-old-space-size=3000')
+    const limitOf = async (worker: Worker) => {
+      owned.push({ dispose: () => void worker.terminate() })
+      await new Promise((resolve) => worker.once('online', resolve))
+      return (await worker.getHeapStatistics()).heap_size_limit
+    }
+    try {
+      expect(await limitOf(spillWorker(HISTORY_WORKER_SCRIPT))).toBeLessThan(1.1 * GIB)
+      const later = new Worker('setInterval(() => {}, 1000)', { eval: true })
+      expect(await limitOf(later)).toBeGreaterThan(2.9 * GIB)
+    } finally {
+      process.env.NODE_OPTIONS = nodeOptions
+      setFlagsFromString(
+        nodeOptions?.split(/\s+/).find((arg) => arg.startsWith('--max-old-space-size=')) ??
+          '--max-old-space-size=0',
+      )
+    }
   })
 
   it('keeps wide and combined characters through the worker', async () => {
