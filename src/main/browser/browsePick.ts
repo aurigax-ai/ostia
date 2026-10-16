@@ -19,7 +19,8 @@ import {
   renderPickReport,
   screenshotRect,
 } from '../../shared/browser/pick'
-import { PICK_RUNTIME_GLOBAL, pickRuntimeScript } from '../../shared/browser/pickRuntime'
+import { PICK_RUNTIME_GLOBAL } from '../../shared/browser/pickRuntime'
+import { pickRuntimeScript } from '../../shared/pageScripts/installScripts'
 import { postBusMessage } from '../agents/bus'
 import type { OriginReach } from '../agents/originAgents'
 import type { Reach } from '../approvals/reach'

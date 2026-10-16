@@ -20,7 +20,7 @@ import { parsePortsSettings } from '@shared/boards/ports'
 import { parseGlobalHotkey } from '@shared/keyboard/globalHotkey'
 import { parseApprovalSettings } from '@shared/permissions/approvals'
 import { parsePrivacySettings } from '@shared/privacy/redaction'
-import { parseSandboxGlobals } from '@shared/sandbox/sandbox'
+import { parseSandboxGlobals } from '@shared/sandbox/sandboxParse'
 import { normalizeGroupName } from '@shared/workspaces/workspaceGroups'
 import {
   type Behavior,
