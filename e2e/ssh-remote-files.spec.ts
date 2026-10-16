@@ -84,7 +84,6 @@ async function sessionInProject(): Promise<Session> {
   await expect(sshPane.locator('.xterm-rows')).toContainText(/in-42\s*remote\$/, {
     timeout: 15_000,
   })
-  await win.waitForTimeout(500)
   return { app, win, remoteHome, project, sshLog }
 }
 

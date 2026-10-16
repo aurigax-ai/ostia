@@ -174,7 +174,10 @@ test('a Trellis card goes to a new agent or to a running one, only on the humanâ
         timeout: 15_000,
       })
       .toContain('An agent is working on this')
-    await win.waitForTimeout(1000)
+    await win.locator('.xterm', { has: agentTerminal }).click()
+    await win.keyboard.type('flush_marker')
+    await win.keyboard.press('Enter')
+    await expect(agentTerminal).toContainText('flush_marker', { timeout: 15_000 })
     expect(occurrences((await agentTerminal.textContent()) ?? '', line)).toBe(1)
   } finally {
     await app.close()

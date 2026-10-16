@@ -65,21 +65,19 @@ test('the input editor runs commands, walks history and steps aside for interact
     const input = win.getByRole('textbox', { name: 'Command input' })
     const promptLines = async (): Promise<number> =>
       (await rows.innerText()).split('\n').filter((l) => l.includes('❯')).length
-    await win.waitForTimeout(1_500)
     await expect.poll(promptLines).toBe(1)
     await expect(input).toBeHidden()
 
     await switchToEditorMode(win)
     await expect(input).toBeVisible()
-    await win.waitForTimeout(2_000)
-    await expect
-      .poll(promptLines, { message: 'the shrink at the idle prompt must not duplicate it' })
-      .toBe(1)
 
     await input.click()
     await win.keyboard.type('echo ostia_editor_$((40+2))')
     await win.keyboard.press('Enter')
     await expect(rows).toContainText('ostia_editor_42', { timeout: 15_000 })
+    await expect
+      .poll(promptLines, { message: 'the shrink at the idle prompt must not duplicate it' })
+      .toBe(2)
     await expect(input).toBeVisible()
     await expect(input).toBeFocused()
     await expect(input).toHaveValue('')
@@ -115,10 +113,7 @@ test('the input editor runs commands, walks history and steps aside for interact
     await win.keyboard.type('echo ostia_after_cat')
     await win.keyboard.press('Enter')
     await expect(rows).toContainText('ostia_after_cat', { timeout: 15_000 })
-    await win.waitForTimeout(1_500)
-    const settled = await promptLines()
-    await win.waitForTimeout(2_000)
-    expect(await promptLines()).toBe(settled)
+    await expect.poll(promptLines).toBe(5)
   } finally {
     await app.close()
   }

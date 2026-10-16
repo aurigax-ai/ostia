@@ -1,7 +1,14 @@
 import { chords } from './chords'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
-import { type Locator, type Page, _electron as electron, expect, test } from './test'
+import {
+  type ElectronApplication,
+  type Locator,
+  type Page,
+  expect,
+  launchShared,
+  test,
+} from './test'
 
 type Indicator = {
   focused: boolean
@@ -11,12 +18,34 @@ type Indicator = {
   radius: string
 }
 
-async function launch() {
-  const app = await electron.launch(isolatedLaunch())
-  const win = await app.firstWindow()
+let app: ElectronApplication | undefined
+let win: Page
+
+test.beforeAll(async () => {
+  app = await launchShared(isolatedLaunch())
+  win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
   await openWorkspace(win)
-  return { app, win }
+})
+
+test.afterEach(async () => {
+  await win.keyboard.press('Escape')
+  await expect(win.getByRole('region', { name: 'Settings' })).toBeHidden()
+})
+
+test.afterAll(async () => {
+  await app?.close()
+})
+
+function transitionsDone(page: Page): Promise<unknown> {
+  return page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((animation) => animation instanceof CSSTransition)
+        .map((animation) => animation.finished),
+    ),
+  )
 }
 
 function indicator(control: Locator): Promise<Indicator> {
@@ -38,67 +67,52 @@ function settingsRow(win: Page, name: string): Locator {
 
 async function expectNoIndicator(control: Locator, rest: Indicator): Promise<void> {
   await expect.poll(() => indicator(control)).toEqual({ ...rest, focused: true })
-  await control.page().waitForTimeout(300)
+  await transitionsDone(control.page())
   expect(await indicator(control)).toEqual({ ...rest, focused: true })
 }
 
 test('a clicked Settings row shows no focus ring, also after a modifier or a chord', async () => {
-  const { app, win } = await launch()
-  try {
-    await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
-    const row = settingsRow(win, 'Terminal')
-    const rest = await indicator(row)
-    expect(rest.outlineStyle).toBe('none')
-    await row.click()
-    await expectNoIndicator(row, rest)
-    await win.keyboard.press('Control')
-    await expectNoIndicator(row, rest)
-    await win.keyboard.press(chords.palette)
-    await expect(win.getByRole('dialog')).toBeVisible()
-    await win.keyboard.press('Escape')
-    await expect(win.getByRole('dialog')).toBeHidden()
-    await expectNoIndicator(row, rest)
-  } finally {
-    await app.close()
-  }
+  await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
+  const row = settingsRow(win, 'Terminal')
+  const rest = await indicator(row)
+  expect(rest.outlineStyle).toBe('none')
+  await row.click()
+  await expectNoIndicator(row, rest)
+  await win.keyboard.press('Control')
+  await expectNoIndicator(row, rest)
+  await win.keyboard.press(chords.palette)
+  await expect(win.getByRole('dialog')).toBeVisible()
+  await win.keyboard.press('Escape')
+  await expect(win.getByRole('dialog')).toBeHidden()
+  await expectNoIndicator(row, rest)
 })
 
 test('a Settings row clicked after the Settings chord shows no focus ring', async () => {
-  const { app, win } = await launch()
-  try {
-    await win.keyboard.press(chords.openSettings)
-    const row = settingsRow(win, 'Terminal')
-    await expect(row).toBeVisible()
-    const rest = await indicator(row)
-    await row.click()
-    await expectNoIndicator(row, rest)
-    await win.keyboard.press('Control')
-    await expectNoIndicator(row, rest)
-  } finally {
-    await app.close()
-  }
+  await win.keyboard.press(chords.openSettings)
+  const row = settingsRow(win, 'Terminal')
+  await expect(row).toBeVisible()
+  const rest = await indicator(row)
+  await row.click()
+  await expectNoIndicator(row, rest)
+  await win.keyboard.press('Control')
+  await expectNoIndicator(row, rest)
 })
 
 test('Tab onto a Settings row shows exactly one focus indicator and keeps its radius', async () => {
-  const { app, win } = await launch()
-  try {
-    await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
-    const row = settingsRow(win, 'Terminal')
-    const rest = await indicator(row)
-    await settingsRow(win, 'Appearance').click()
-    await expect
-      .poll(async () => {
-        await win.keyboard.press('Tab')
-        return (await indicator(row)).focused
-      })
-      .toBe(true)
-    await expect.poll(async () => (await indicator(row)).outlineStyle).toBe('solid')
-    await win.waitForTimeout(300)
-    const focused = await indicator(row)
-    expect(focused).toEqual({ ...rest, focused: true, outlineStyle: 'solid' })
-    await win.keyboard.press('Control')
-    expect((await indicator(row)).outlineStyle).toBe('solid')
-  } finally {
-    await app.close()
-  }
+  await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
+  const row = settingsRow(win, 'Terminal')
+  const rest = await indicator(row)
+  await settingsRow(win, 'Appearance').click()
+  await expect
+    .poll(async () => {
+      await win.keyboard.press('Tab')
+      return (await indicator(row)).focused
+    })
+    .toBe(true)
+  await expect.poll(async () => (await indicator(row)).outlineStyle).toBe('solid')
+  await transitionsDone(win)
+  const focused = await indicator(row)
+  expect(focused).toEqual({ ...rest, focused: true, outlineStyle: 'solid' })
+  await win.keyboard.press('Control')
+  expect((await indicator(row)).outlineStyle).toBe('solid')
 })

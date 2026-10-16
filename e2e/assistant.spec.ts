@@ -66,7 +66,11 @@ test('an Ask answer fits its inline command chip to the code, and a suggested co
     await expect(composer).toBeHidden()
     const rows = win.locator('.xterm-rows').first()
     await expect(rows).toContainText(SUGGESTED, { timeout: 10_000 })
-    await win.waitForTimeout(500)
+    await win.locator('.xterm').first().click()
+    await win.keyboard.press('Control+C')
+    await expect
+      .poll(async () => (await rows.innerText()).split('\n').filter((l) => l.includes('❯')).length)
+      .toBe(2)
     const screen = (await rows.innerText()).split('\n')
     expect(screen.filter((l) => l.trim() === 'ostia-assist-suggested')).toHaveLength(0)
     const lines = screen.filter((l) => l.includes(SUGGESTED))

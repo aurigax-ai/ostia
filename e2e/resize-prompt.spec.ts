@@ -1,6 +1,10 @@
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
-import { _electron as electron, expect, test } from './test'
+import { type Locator, _electron as electron, expect, test } from './test'
+
+async function promptLines(rows: Locator): Promise<number> {
+  return (await rows.innerText()).split('\n').filter((l) => l.includes('❯')).length
+}
 
 test('splitting a pane does not duplicate the existing prompt', async () => {
   test.setTimeout(60_000)
@@ -10,28 +14,19 @@ test('splitting a pane does not duplicate the existing prompt', async () => {
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
     const leftRows = win.locator('.xterm-rows').first()
-    await win.waitForTimeout(2_000)
-
-    const countPrompts = async (): Promise<number> => {
-      const text = await leftRows.innerText()
-      return text.split('\n').filter((l) => l.includes('❯')).length
-    }
-    expect(await countPrompts()).toBe(1)
+    expect(await promptLines(leftRows)).toBe(1)
 
     await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
     await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
-
-    let elapsed = 0
-    for (const t of [500, 2000, 4000]) {
-      await win.waitForTimeout(t - elapsed)
-      elapsed = t
-      expect(await countPrompts(), `prompt lines ${t}ms after split`).toBe(1)
-    }
+    await expect(win.locator('.xterm-rows').nth(1)).toContainText('❯', { timeout: 15_000 })
 
     await win.locator('.xterm').first().click()
     await win.keyboard.type('echo ostia_resize_$((40+2))')
     await win.keyboard.press('Enter')
     await expect(leftRows).toContainText('ostia_resize_42', { timeout: 15_000 })
+    await expect
+      .poll(() => promptLines(leftRows), { message: 'prompt lines after the split' })
+      .toBe(2)
   } finally {
     await app.close()
   }
@@ -45,16 +40,11 @@ test('drag-resizing the window keeps command output and a single prompt', async 
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
     const rows = win.locator('.xterm-rows').first()
-    await win.waitForTimeout(2_000)
     await win.locator('.xterm').first().click()
     await win.keyboard.type("printf 'ostia_out_%s\\n' 1 2 3")
     await win.keyboard.press('Enter')
     await expect(rows).toContainText('ostia_out_3', { timeout: 15_000 })
-    await win.waitForTimeout(1_000)
-
-    const promptLines = async (): Promise<number> =>
-      (await rows.innerText()).split('\n').filter((l) => l.includes('❯')).length
-    const before = await promptLines()
+    await expect.poll(() => promptLines(rows)).toBe(2)
 
     const setWidth = (w: number) =>
       app.evaluate(({ BrowserWindow }, width) => {
@@ -67,13 +57,16 @@ test('drag-resizing the window keeps command output and a single prompt', async 
     for (let i = 0; i < 20; i++) widths.push(i % 2 ? 900 : 1100)
     for (const w of widths) {
       await setWidth(w)
-      await win.waitForTimeout(16)
+      await win.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)))
     }
-    await win.waitForTimeout(2_000)
+
+    await win.keyboard.type('echo ostia_flush_$((1+1))')
+    await win.keyboard.press('Enter')
+    await expect(rows).toContainText('ostia_flush_2', { timeout: 15_000 })
+    await expect.poll(() => promptLines(rows)).toBe(3)
 
     const text = await rows.innerText()
     for (const n of [1, 2, 3]) expect(text).toContain(`ostia_out_${n}`)
-    expect(await promptLines()).toBe(before)
   } finally {
     await app.close()
   }

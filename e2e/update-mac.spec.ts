@@ -92,19 +92,31 @@ interface Layout {
   digest: string
 }
 
-function layout(): Layout {
-  const root = mkdtempSync(join(tmpdir(), 'ostia-e2e-mac-update-'))
-  const bundle = appBundle(join(root, 'Applications', 'Ostia.app'), INSTALLED)
-  const dmg = diskImage(root)
-  return {
-    root,
-    bundle,
+type Release = Pick<Layout, 'files' | 'digest'>
+
+let release: Release
+let releaseRoot: string
+
+test.beforeAll(() => {
+  releaseRoot = mkdtempSync(join(tmpdir(), 'ostia-e2e-mac-release-'))
+  const dmg = diskImage(releaseRoot)
+  release = {
     digest: sha256(dmg),
     files: {
       [`${DOWNLOAD}/${DMG}`]: dmg,
       [`${DOWNLOAD}/SHA256SUMS`]: Buffer.from(`${sha256(dmg)}  ${DMG}\n`),
     },
   }
+})
+
+test.afterAll(() => {
+  rmSync(releaseRoot, { recursive: true, force: true })
+})
+
+function layout(): Layout {
+  const root = mkdtempSync(join(tmpdir(), 'ostia-e2e-mac-update-'))
+  const bundle = appBundle(join(root, 'Applications', 'Ostia.app'), INSTALLED)
+  return { root, bundle, ...release }
 }
 
 interface FakeGitHub {
@@ -393,7 +405,8 @@ test('after an update restart with keep-shells on, the agent keeps running with 
   try {
     const screen = second.win.locator('.xterm-rows').first()
     await expect(screen).toContainText(`fake-agent-ready pid=${pid}`, { timeout: 30_000 })
-    await second.win.waitForTimeout(2000)
+    await runInTerminal(second.win, 'flush_marker')
+    await expect(screen).toContainText('flush_marker', { timeout: 15_000 })
     expect(() => process.kill(pid, 0)).not.toThrow()
     await expect(second.win.locator('.xterm-rows').filter({ hasText: '--resume' })).toHaveCount(0)
     expect(savedPanes(dataHome).some((p) => p.agentRunning === true)).toBe(true)

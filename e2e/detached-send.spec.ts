@@ -106,7 +106,10 @@ test('a browser pane moved to its own window sends a picked element to the agent
     })
     const terminal = win.locator('.xterm-rows').first()
     await expect(terminal).toContainText(/agent-read: @\S*capture-\d+\S*\.md/, { timeout: 15_000 })
-    await win.waitForTimeout(500)
+    await win.locator('.xterm').first().click()
+    await win.keyboard.type('flush_marker')
+    await win.keyboard.press('Enter')
+    await expect(terminal).toContainText('agent-read: flush_marker', { timeout: 15_000 })
     const text = (await terminal.textContent()) ?? ''
     expect(text.match(/agent-read: @\S*capture-\d+\S*\.md/g)).toHaveLength(1)
     expect([...new Set(text.match(/capture-\d+\S*\.md/g))]).toHaveLength(1)

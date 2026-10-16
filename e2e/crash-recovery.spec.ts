@@ -200,7 +200,6 @@ test('closing a diff tab keeps the window and the other terminals working', asyn
     await diffTab.hover()
     await diffTab.getByRole('button', { name: 'Close tab' }).click()
     await expect(win.locator('.diff-surface')).toHaveCount(0)
-    await win.waitForTimeout(4_000)
 
     await expect(win.locator('.xterm')).toHaveCount(2)
     await expect(win.getByRole('heading', { name: 'Something went wrong' })).toHaveCount(0)
