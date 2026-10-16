@@ -1,4 +1,5 @@
-import { ControlRow, ToggleRow, WarningNote } from '@/components/settingsKit/ControlRow'
+import { Notice } from '@/components/common/Notice'
+import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Input } from '@/components/ui/input'
@@ -87,7 +88,7 @@ export function WorkspacesSection(): JSX.Element {
             className="h-7 w-56 font-mono"
           />
         </ControlRow>
-        {folderExists ? null : <WarningNote>{d.workspaceSettings.folderInvalid}</WarningNote>}
+        {folderExists ? null : <Notice>{d.workspaceSettings.folderInvalid}</Notice>}
       </SettingsGroup>
       <SettingsGroup title={d.workspaceSettings.groupClosing}>
         <ToggleRow
@@ -122,7 +123,7 @@ export function WorkspacesSection(): JSX.Element {
           />
         </ControlRow>
         {settings.globalHotkey.trim() && !toAccelerator(settings.globalHotkey) ? (
-          <WarningNote>{d.workspaceSettings.globalHotkeyInvalid}</WarningNote>
+          <Notice>{d.workspaceSettings.globalHotkeyInvalid}</Notice>
         ) : null}
       </SettingsGroup>
       <SettingsGroup title={d.workspaceSettings.groupSidebar}>

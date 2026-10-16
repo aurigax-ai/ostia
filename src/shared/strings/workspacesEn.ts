@@ -185,7 +185,6 @@ export const workspacesEn = {
   },
   pane: {
     allTabs: 'All tabs',
-    asleep: 'Asleep',
     closeOtherTabs: 'Close other tabs',
     closeSplitPane: 'Close {title}',
     closeTab: 'Close tab',

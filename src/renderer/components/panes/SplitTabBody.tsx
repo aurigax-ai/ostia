@@ -3,6 +3,7 @@ import { stateLabel } from '@/components/agents/PickSendPanel'
 import { QuestionNotice } from '@/components/agents/QuestionNotice'
 import { NoticeSlot } from '@/components/common/NoticeSlot'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { useFlipped } from '@/lib/app/useFlipped'
 import { STRIP_SIZE, isStrip, stripSizes } from '@/lib/layout/collapse'
 import type { Direction, LayoutNode, PaneNode, SplitNode } from '@/lib/layout/types'
 import { cellDropTarget, dropZoneAt } from '@/lib/panes/dropZone'
@@ -35,9 +36,11 @@ interface CellContext {
 function StripFace({
   pane,
   workspaceId,
+  entering,
 }: {
   pane: PaneNode
   workspaceId: string
+  entering: boolean
 }): JSX.Element {
   const d = useDict()
   const title = usePaneTitle(pane)
@@ -45,7 +48,7 @@ function StripFace({
   const face = (
     <button
       type="button"
-      className="pane-strip-main text-ui-sm"
+      className={cn('pane-strip-main text-ui-sm', entering && 'motion-fade')}
       aria-label={fmt(d.pane.expandSplitPane, { title })}
       onClick={() => focusPane(pane.id)}
     >
@@ -81,6 +84,7 @@ function SplitCell({
   const mark = usePaneMark(pane)
   const focused = pane.id === ctx.focusedId
   const collapsed = pane.collapsed === true
+  const folding = useFlipped({ strip: collapsed }).has('strip')
 
   const targetAt = (e: DragEvent<HTMLElement>, sourceId: string | null) => {
     const rect = cellRef.current?.getBoundingClientRect()
@@ -130,7 +134,9 @@ function SplitCell({
       data-across={collapsed ? across : undefined}
       data-attention={collapsed ? (mark ?? undefined) : undefined}
     >
-      {collapsed ? <StripFace pane={pane} workspaceId={ctx.workspaceId} /> : null}
+      {collapsed ? (
+        <StripFace pane={pane} workspaceId={ctx.workspaceId} entering={folding} />
+      ) : null}
       <TabBody pane={pane} shown={!collapsed} />
       <NoticeSlot>
         {collapsed ? null : approval ? (

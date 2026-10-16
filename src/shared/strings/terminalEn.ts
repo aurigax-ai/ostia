@@ -123,17 +123,6 @@ export const terminalEn = {
     title: 'Paste this text?',
     truncated: 'The preview is cut short; the whole text is pasted.',
   },
-  scrollHistory: {
-    edge: '{count} earlier lines on disk',
-    live: 'Back to live',
-    match: '{index}/{count}',
-    nextMatch: 'Newer match',
-    oldest: 'Oldest',
-    position: 'Line {line} of {total}',
-    previousMatch: 'Older match',
-    show: 'Show',
-    title: 'Earlier output',
-  },
   send: {
     groupTarget: '{agent} ({workspace})',
     noGroupTargets: 'No agent is running in this workspace or its group.',

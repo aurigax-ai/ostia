@@ -136,7 +136,7 @@ test('GRF-C140 GRF-C141 GRF-C142 GRF-C58 the Graphs panel lists, enables, runs a
   }
 })
 
-test('GRF-C140 a workspace with no graphs shows a centred empty state with the folder and a copy action', async () => {
+test('GRF-C140 a workspace with no graphs shows a centred empty state with the folder', async () => {
   const launch = isolatedLaunch(freshDataHome())
   const app = await electron.launch(launch)
   try {
@@ -149,16 +149,7 @@ test('GRF-C140 a workspace with no graphs shows a centred empty state with the f
       .toBe('folder')
     expect(await text(app, '.empty-title')).toBe('No graphs')
     expect(await text(app, '.empty-path')).toBe('.ostia/graphs')
-    expect(await text(app, '.empty-action button')).toBe('Copy path')
     expect(await text(app, '.note')).toBe('')
-    await app.evaluate(({ webContents }) => {
-      const guest = webContents
-        .getAllWebContents()
-        .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
-      return guest?.executeJavaScript("document.querySelector('.empty-action button').click()", true)
-    })
-    await expect.poll(() => text(app, '.empty-action button'), { timeout: 10_000 }).toBe('Copied')
-    expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe('.ostia/graphs')
   } finally {
     await quitApp(app)
   }

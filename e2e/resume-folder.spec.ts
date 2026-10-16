@@ -78,7 +78,7 @@ test('waking an agent whose folder was removed shows a notice and runs nothing',
   try {
     renameSync(tree, join(root, 'work', 'tree-moved'))
     await sleeping.click()
-    await shownTerminal(win).click()
+    await win.locator('.hibernated-view').click()
     const notice = win.getByRole('region', { name: 'Agent folder missing' })
     await expect(notice).toBeVisible({ timeout: 20_000 })
     const rows = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
@@ -100,7 +100,7 @@ test('an agent started with a cd on the same line resumes in the folder it ran i
   )
   try {
     await sleeping.click()
-    await shownTerminal(win).click()
+    await win.locator('.hibernated-view').click()
     await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(
       `--resume e2e-tok-cd in ${tree}`,
       { timeout: 20_000 },

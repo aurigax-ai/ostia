@@ -344,19 +344,8 @@ button.actions-toggle:hover {
   list-style: none;
 }
 
-.action-list.reveal {
-  animation: reveal var(--motion-base) var(--ease-out);
-}
-
 .action-list[hidden] {
   display: none;
-}
-
-@keyframes reveal {
-  from {
-    opacity: 0;
-    transform: translateY(-2px);
-  }
 }
 
 .event {

@@ -181,6 +181,30 @@ describe('motion CSS contract', () => {
     )
   })
 
+  it('reveals a collapsible by opacity and a small translate, with no close transition', () => {
+    expect(ruleBody('.motion-reveal-panel')).toContain('transition-property: opacity, transform;')
+    expect(ruleBody('.motion-reveal-panel[data-starting-style]')).toMatch(
+      /opacity: 0;\n {2}transform: translateY\(-2px\);/,
+    )
+    expect(css).not.toContain('.motion-reveal-panel[data-ending-style]')
+  })
+
+  it('gives panels every motion token of the app, scaled by the reduced-motion setting', () => {
+    const panel = readFileSync(
+      resolve(process.cwd(), join('packages', 'extension-sdk', 'src', 'client'), 'panel.css'),
+      'utf8',
+    )
+    const durations = ['panel', 'pulse', 'breathe', 'highlight'].map((name) => `--motion-${name}`)
+    for (const token of [...durations, '--ease-in-out']) {
+      expect(css, token).toMatch(new RegExp(`^\\s+${token}:`, 'm'))
+      expect(panel, token).toMatch(new RegExp(`^\\s+${token}:`, 'm'))
+    }
+    for (const token of durations) {
+      expect(panel, token).toContain(`${token}: calc(`)
+      expect(panel, token).toContain('* var(--ostia-motion-scale, 1))')
+    }
+  })
+
   it('blinks the unread tab lead like every other attention cue', () => {
     expect(ruleBody('.tab-lead-unread')).toMatch(
       /animation: attn-blink var\(--motion-pulse\) var\(--ease-out\) 3;/,

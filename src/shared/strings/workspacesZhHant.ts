@@ -183,7 +183,6 @@ export const workspacesZhHant: typeof workspacesEn = {
   },
   pane: {
     allTabs: '所有分頁',
-    asleep: '休眠中',
     closeOtherTabs: '關閉其他分頁',
     closeSplitPane: '關閉 {title}',
     closeTab: '關閉分頁',

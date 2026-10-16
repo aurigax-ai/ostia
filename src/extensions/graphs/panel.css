@@ -43,8 +43,6 @@
   justify-content: center;
   gap: 16px;
   padding: 24px;
-  border: 1px dashed var(--line-strong);
-  border-radius: var(--radius-md);
   text-align: center;
   text-wrap: balance;
 }
@@ -78,30 +76,13 @@
   color: var(--fg-muted);
 }
 
-.empty-action {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  max-width: 100%;
-}
-
 .empty-path {
   max-width: 100%;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
   font-family: var(--font-code);
   font-size: var(--text-ui-sm);
   line-height: var(--text-ui-sm--line-height);
   overflow-wrap: anywhere;
   user-select: text;
-}
-
-.empty-action button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .note {

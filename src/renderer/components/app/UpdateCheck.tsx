@@ -1,4 +1,5 @@
-import { ControlRow, ToggleRow, WarningNote } from '@/components/settingsKit/ControlRow'
+import { Notice } from '@/components/common/Notice'
+import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { Button } from '@/components/ui/button'
 import { replaceLabel } from '@/lib/app/updateProgressLabel'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -43,14 +44,14 @@ export function UpdateCheck(): JSX.Element {
     <>
       <output className="block text-fg-muted text-ui-sm">{message}</output>
       {run.status === 'failed' ? (
-        <WarningNote>
+        <Notice>
           {run.exitCode === null
             ? d.update.updateStopped
             : fmt(d.update.updateFailed, { code: run.exitCode })}
-        </WarningNote>
+        </Notice>
       ) : null}
       {replaceRun.status === 'failed' ? (
-        <WarningNote>{d.update.replaceFailed[replaceRun.reason]}</WarningNote>
+        <Notice>{d.update.replaceFailed[replaceRun.reason]}</Notice>
       ) : null}
       {release && replace && !replace.ok ? (
         <p className="text-fg-muted text-ui-xs">

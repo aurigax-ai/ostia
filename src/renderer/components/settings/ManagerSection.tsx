@@ -1,5 +1,6 @@
 import { IconButton } from '@/components/common/IconButton'
-import { NumberRow, ToggleRow, WarningNote } from '@/components/settingsKit/ControlRow'
+import { Notice } from '@/components/common/Notice'
+import { NumberRow, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
@@ -80,7 +81,7 @@ function PresetRow({
           />
         )}
       </div>
-      {invalid ? <WarningNote>{d.manager.badCommand}</WarningNote> : null}
+      {invalid ? <Notice>{d.manager.badCommand}</Notice> : null}
     </li>
   )
 }
@@ -134,7 +135,7 @@ function AddPreset(): JSX.Element {
           {d.manager.addPreset}
         </Button>
       </div>
-      {error ? <WarningNote>{error}</WarningNote> : null}
+      {error ? <Notice>{error}</Notice> : null}
     </div>
   )
 }
@@ -195,7 +196,7 @@ function SkillsGroup(): JSX.Element {
           />
         ))}
       </SettingsList>
-      {invalid ? <WarningNote>{d.manager.badSkill}</WarningNote> : null}
+      {invalid ? <Notice>{d.manager.badSkill}</Notice> : null}
     </SettingsGroup>
   )
 }
