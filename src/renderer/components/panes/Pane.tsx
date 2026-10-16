@@ -1,6 +1,7 @@
 import { commands } from '@/commands/registry'
 import { ApprovalCard } from '@/components/agents/ApprovalCard'
 import { QuestionNotice } from '@/components/agents/QuestionNotice'
+import { NoticeSlot } from '@/components/common/NoticeSlot'
 import { PaneChips } from '@/components/extensions/ExtensionChips'
 import { ArtifactChip } from '@/components/files/ArtifactChip'
 import { HostPaneBadge, SandboxRestartButton } from '@/components/sandbox/SandboxRestartButton'
@@ -153,23 +154,25 @@ export function Pane({
             />
           ),
         )}
-        {shownTab.type !== 'pane' ? null : approval ? (
-          <ApprovalCard request={approval} paneTitle={shown.title} />
-        ) : question ? (
-          <QuestionNotice question={question} />
-        ) : trustFolder ? (
-          <FolderTrustNotice paneId={shown.id} folder={trustFolder} />
-        ) : shown.resumeFailed ? (
-          <ResumeFailedNotice paneId={shown.id} failure={shown.resumeFailed} />
-        ) : shown.resumeFolderMissing && shown.resume ? (
-          <ResumeFolderNotice
-            paneId={shown.id}
-            resume={shown.resume}
-            folder={shown.resumeFolderMissing}
-          />
-        ) : shown.resume ? (
-          <ResumeConflictNotice pane={shown} />
-        ) : null}
+        <NoticeSlot key={shown.id}>
+          {shownTab.type !== 'pane' ? null : approval ? (
+            <ApprovalCard request={approval} paneTitle={shown.title} />
+          ) : question ? (
+            <QuestionNotice question={question} />
+          ) : trustFolder ? (
+            <FolderTrustNotice paneId={shown.id} folder={trustFolder} />
+          ) : shown.resumeFailed ? (
+            <ResumeFailedNotice paneId={shown.id} failure={shown.resumeFailed} />
+          ) : shown.resumeFolderMissing && shown.resume ? (
+            <ResumeFolderNotice
+              paneId={shown.id}
+              resume={shown.resume}
+              folder={shown.resumeFolderMissing}
+            />
+          ) : shown.resume ? (
+            <ResumeConflictNotice pane={shown} />
+          ) : null}
+        </NoticeSlot>
       </div>
 
       {shownTab.type === 'pane' ? (

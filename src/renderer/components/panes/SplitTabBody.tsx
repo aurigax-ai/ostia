@@ -1,6 +1,7 @@
 import { ApprovalCard } from '@/components/agents/ApprovalCard'
 import { stateLabel } from '@/components/agents/PickSendPanel'
 import { QuestionNotice } from '@/components/agents/QuestionNotice'
+import { NoticeSlot } from '@/components/common/NoticeSlot'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { STRIP_SIZE, isStrip, stripSizes } from '@/lib/layout/collapse'
 import type { Direction, LayoutNode, PaneNode, SplitNode } from '@/lib/layout/types'
@@ -131,17 +132,19 @@ function SplitCell({
     >
       {collapsed ? <StripFace pane={pane} workspaceId={ctx.workspaceId} /> : null}
       <TabBody pane={pane} shown={!collapsed} />
-      {collapsed ? null : approval ? (
-        <ApprovalCard request={approval} paneTitle={pane.title} />
-      ) : question ? (
-        <QuestionNotice question={question} />
-      ) : trustFolder ? (
-        <FolderTrustNotice paneId={pane.id} folder={trustFolder} />
-      ) : ctx.shown && pane.resumeFailed ? (
-        <ResumeFailedNotice paneId={pane.id} failure={pane.resumeFailed} />
-      ) : ctx.shown && pane.resume ? (
-        <ResumeConflictNotice pane={pane} />
-      ) : null}
+      <NoticeSlot>
+        {collapsed ? null : approval ? (
+          <ApprovalCard request={approval} paneTitle={pane.title} />
+        ) : question ? (
+          <QuestionNotice question={question} />
+        ) : trustFolder ? (
+          <FolderTrustNotice paneId={pane.id} folder={trustFolder} />
+        ) : ctx.shown && pane.resumeFailed ? (
+          <ResumeFailedNotice paneId={pane.id} failure={pane.resumeFailed} />
+        ) : ctx.shown && pane.resume ? (
+          <ResumeConflictNotice pane={pane} />
+        ) : null}
+      </NoticeSlot>
       {collapsed ? null : <FileDropCover kind={pane.kind} workspaceId={ctx.workspaceId} />}
       {dragging && !collapsed ? (
         <div

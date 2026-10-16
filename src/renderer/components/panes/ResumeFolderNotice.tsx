@@ -28,7 +28,7 @@ export function ResumeFolderNotice({
     <section
       aria-label={d.pane.resumeFolderMissingLabel}
       data-resume-folder-missing=""
-      className="motion-enter absolute right-0 bottom-0 left-0 z-20 border-line border-t bg-surface-1 px-2 pb-1.5"
+      className="motion-enter-edge absolute right-0 bottom-0 left-0 z-20 border-line border-t bg-surface-1 px-2 pb-1.5"
     >
       <WarningNote
         actions={
@@ -69,7 +69,7 @@ export function ResumeConflictNotice({ pane }: { pane: PaneNode }): JSX.Element 
     <section
       aria-label={d.pane.resumeConflictLabel}
       data-resume-conflict=""
-      className="motion-enter absolute right-0 bottom-0 left-0 z-20 border-line border-t bg-surface-1 px-2 pb-1.5"
+      className="motion-enter-edge absolute right-0 bottom-0 left-0 z-20 border-line border-t bg-surface-1 px-2 pb-1.5"
     >
       <WarningNote
         actions={
@@ -107,7 +107,7 @@ export function ResumeFailedNotice({
     <section
       aria-label={d.pane.resumeFailedLabel}
       data-resume-failed=""
-      className="motion-enter absolute right-0 bottom-0 left-0 z-20 border-line border-t bg-surface-1 px-2 pb-1.5"
+      className="motion-enter-edge absolute right-0 bottom-0 left-0 z-20 border-line border-t bg-surface-1 px-2 pb-1.5"
     >
       <WarningNote
         actions={
@@ -150,7 +150,7 @@ export function FolderTrustNotice({
     <section
       aria-label={d.pane.folderTrustLabel}
       data-folder-trust=""
-      className="motion-enter absolute right-0 bottom-0 left-0 z-20 border-line border-t bg-surface-1 px-2 pb-1.5"
+      className="motion-enter-edge absolute right-0 bottom-0 left-0 z-20 border-line border-t bg-surface-1 px-2 pb-1.5"
     >
       <WarningNote
         actions={

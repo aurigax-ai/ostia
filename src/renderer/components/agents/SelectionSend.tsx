@@ -1,3 +1,4 @@
+import { NoticeSlot } from '@/components/common/NoticeSlot'
 import type { PickTarget } from '@/lib/agents/pickTargets'
 import { sendSelectionToPane } from '@/lib/agents/sendPick'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -65,21 +66,25 @@ export function useSelectionSend(workspaceId: string, paneId: string): Selection
     }
   }
 
-  const panel = pending ? (
-    <PickSendPanel
-      key={pending.id}
-      id={pending.id}
-      summary={selectionLabel(pending.capture)}
-      noteLabel={d.viewer.note}
-      notePlaceholder={d.viewer.notePlaceholder}
-      closeLabel={d.viewer.discard}
-      targets={targets}
-      noTargets={noTargets}
-      sending={sending}
-      onSend={(t, note) => void send(t, note)}
-      onClose={() => setPending(null)}
-    />
-  ) : null
+  const panel = (
+    <NoticeSlot>
+      {pending ? (
+        <PickSendPanel
+          key={pending.id}
+          id={pending.id}
+          summary={selectionLabel(pending.capture)}
+          noteLabel={d.viewer.note}
+          notePlaceholder={d.viewer.notePlaceholder}
+          closeLabel={d.viewer.discard}
+          targets={targets}
+          noTargets={noTargets}
+          sending={sending}
+          onSend={(t, note) => void send(t, note)}
+          onClose={() => setPending(null)}
+        />
+      ) : null}
+    </NoticeSlot>
+  )
 
   const statusLine = status ? <output className="viewer-status">{status}</output> : null
 
