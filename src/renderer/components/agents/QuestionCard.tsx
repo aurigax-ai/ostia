@@ -133,7 +133,7 @@ export function QuestionCard({
       className="dashboard-card flex flex-col gap-2 rounded-md border border-line bg-surface-1 p-3 text-fg text-ui-base"
     >
       <header className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-fg-muted text-ui-xs">
-        <ChatCircleTextIcon size={14} aria-hidden className="shrink-0" />
+        <ChatCircleTextIcon size={16} aria-hidden className="shrink-0" />
         <span className="truncate font-medium text-fg">
           {where?.workspace ?? d.attention.closedPane}
         </span>
@@ -186,7 +186,7 @@ export function QuestionCard({
 
       {sent ? (
         <output className="flex items-center gap-1.5 text-ok text-ui-sm">
-          <CheckCircleIcon size={14} aria-hidden />
+          <CheckCircleIcon size={16} aria-hidden />
           {d.dashboard.sent}
         </output>
       ) : question.permission ? (

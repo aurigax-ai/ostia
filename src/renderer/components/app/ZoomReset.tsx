@@ -13,7 +13,7 @@ function ZoomFace({ percent }: { percent: number }): JSX.Element {
   const Icon = percent < 100 ? MagnifyingGlassMinusIcon : MagnifyingGlassPlusIcon
   return (
     <>
-      <Icon className="size-3.5 shrink-0" aria-hidden />
+      <Icon className="size-4 shrink-0" aria-hidden />
       <span className="tabular-nums">{percent}%</span>
     </>
   )

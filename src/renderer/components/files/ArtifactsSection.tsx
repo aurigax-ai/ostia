@@ -103,7 +103,7 @@ export function ArtifactsSection({ workspaceId }: { workspaceId: string | null }
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
         >
-          <CaretRightIcon size={12} className={`file-twisty${open ? ' open' : ''}`} />
+          <CaretRightIcon size={16} className={`file-twisty${open ? ' open' : ''}`} />
           <span>{d.artifacts.title}</span>
         </button>
         <IconButton

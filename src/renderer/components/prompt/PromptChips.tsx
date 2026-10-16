@@ -79,7 +79,7 @@ export function PromptChip({
   const tooltip = chipTooltip(d, chip)
   const body = (
     <>
-      <ChipIcon size={12} aria-hidden="true" />
+      <ChipIcon size={16} aria-hidden="true" />
       <span className="prompt-chip-text">{chip.text}</span>
     </>
   )

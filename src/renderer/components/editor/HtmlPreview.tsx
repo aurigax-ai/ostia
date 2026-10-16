@@ -180,8 +180,8 @@ export function HtmlPreview({
             aria-expanded={expanded}
             onClick={() => setExpanded((open) => !open)}
           >
-            <CaretRightIcon size={12} className={`file-twisty${expanded ? ' open' : ''}`} />
-            <WarningIcon size={14} aria-hidden />
+            <CaretRightIcon size={16} className={`file-twisty${expanded ? ' open' : ''}`} />
+            <WarningIcon size={16} aria-hidden />
             <span className="preview-strip-count">
               {fmt(errors.length === 1 ? d.preview.oneError : d.preview.errors, {
                 count: errors.length,

@@ -249,7 +249,7 @@ export function ChatEditCard({
       tabIndex={-1}
     >
       <header className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        <HeadIcon aria-hidden className="size-3.5 shrink-0 text-fg-muted" />
+        <HeadIcon aria-hidden className="size-4 shrink-0 text-fg-muted" />
         <Hint label={fmt(t.openFile, { path })}>
           <button
             type="button"

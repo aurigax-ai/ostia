@@ -93,7 +93,7 @@ export function CloseConfirmDialog(): JSX.Element {
                     key={index}
                     className="flex min-w-0 items-center gap-2 text-fg-muted"
                   >
-                    <TerminalWindowIcon size={14} className="shrink-0" aria-hidden />
+                    <TerminalWindowIcon size={16} className="shrink-0" aria-hidden />
                     <span className="truncate font-mono text-fg text-ui-sm">
                       {command || d.closeConfirm.unknownCommand}
                     </span>
@@ -105,7 +105,7 @@ export function CloseConfirmDialog(): JSX.Element {
                     key={index}
                     className="flex min-w-0 items-center gap-2 text-fg-muted"
                   >
-                    <RobotIcon size={14} className="shrink-0" aria-hidden />
+                    <RobotIcon size={16} className="shrink-0" aria-hidden />
                     <span className="truncate font-mono text-fg text-ui-sm">
                       {agent || d.closeConfirm.unknownCommand}
                     </span>
@@ -113,7 +113,7 @@ export function CloseConfirmDialog(): JSX.Element {
                 ))}
                 {group.scratchFiles ? (
                   <li className="flex min-w-0 items-center gap-2 text-fg-muted">
-                    <FlaskIcon size={14} className="shrink-0" aria-hidden />
+                    <FlaskIcon size={16} className="shrink-0" aria-hidden />
                     <span className="truncate text-fg text-ui-sm">
                       {group.scratchFiles === 1
                         ? d.closeConfirm.scratchFilesOne
@@ -130,7 +130,7 @@ export function CloseConfirmDialog(): JSX.Element {
                 ) : null}
                 {group.files.map((file) => (
                   <li key={file} className="flex min-w-0 items-center gap-2 text-fg-muted">
-                    <FileDashedIcon size={14} className="shrink-0" aria-hidden />
+                    <FileDashedIcon size={16} className="shrink-0" aria-hidden />
                     <span className="truncate text-fg text-ui-sm">
                       {fmt(d.closeConfirm.unsaved, { file: baseName(file) })}
                     </span>
@@ -138,7 +138,7 @@ export function CloseConfirmDialog(): JSX.Element {
                 ))}
                 {group.unanswered ? (
                   <li className="flex min-w-0 items-center gap-2 text-fg-muted">
-                    <QuestionIcon size={14} className="shrink-0" aria-hidden />
+                    <QuestionIcon size={16} className="shrink-0" aria-hidden />
                     <span className="truncate text-fg text-ui-sm">{d.closeConfirm.unanswered}</span>
                   </li>
                 ) : null}
@@ -160,7 +160,7 @@ export function CloseConfirmDialog(): JSX.Element {
                   key={index}
                   className="flex min-w-0 items-center gap-2 text-fg-muted"
                 >
-                  <RobotIcon size={14} className="shrink-0" aria-hidden />
+                  <RobotIcon size={16} className="shrink-0" aria-hidden />
                   <span className="truncate font-mono text-fg text-ui-sm">
                     {agent || d.closeConfirm.unknownCommand}
                   </span>

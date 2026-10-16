@@ -96,7 +96,7 @@ function ComposerFrame({
   return (
     <section className="assist-composer" aria-label={title}>
       <header className="assist-composer-head">
-        <ChatCircleDotsIcon className="size-3.5 shrink-0 text-fg-muted" aria-hidden="true" />
+        <ChatCircleDotsIcon className="size-4 shrink-0 text-fg-muted" aria-hidden="true" />
         <span className="font-medium text-fg">{title}</span>
         {provider?.label ? (
           <span className="min-w-0 truncate text-fg-muted">

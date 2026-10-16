@@ -65,7 +65,7 @@ function ValueCell({ value }: { value: string }): JSX.Element {
 }
 
 function Flag({ on, label }: { on: boolean; label: string }): JSX.Element | null {
-  return on ? <CheckIcon role="img" aria-label={label} className="size-3.5 text-fg" /> : null
+  return on ? <CheckIcon role="img" aria-label={label} className="size-4 text-fg" /> : null
 }
 
 export function BrowserStoragePanel({

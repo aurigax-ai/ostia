@@ -280,7 +280,7 @@ function DirRow({
         expandKey(e, setOpen)
       }}
     >
-      <CaretRightIcon size={12} className={`file-twisty${open ? ' open' : ''}`} />
+      <CaretRightIcon size={16} className={`file-twisty${open ? ' open' : ''}`} />
       <RowIcon entry={entry.archive ? entry : { name: last, dir: true }} open={open} tree={tree} />
       <span className="file-name">
         {names.map((name, i) => (
@@ -371,7 +371,7 @@ function FileRow({
       }}
     >
       {parent ? (
-        <CaretRightIcon size={12} className={`file-twisty${open ? ' open' : ''}`} />
+        <CaretRightIcon size={16} className={`file-twisty${open ? ' open' : ''}`} />
       ) : (
         <span className="file-twisty-spacer" />
       )}
@@ -380,7 +380,7 @@ function FileRow({
         {entry.link === undefined ? entry.name : `${entry.name} → ${entry.link}`}
       </span>
       {entry.encrypted ? (
-        <LockSimpleIcon size={12} className="file-lock" aria-label={d.editor.encryptedEntry} />
+        <LockSimpleIcon size={16} className="file-lock" aria-label={d.editor.encryptedEntry} />
       ) : null}
     </button>
   )

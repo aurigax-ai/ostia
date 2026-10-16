@@ -137,7 +137,7 @@ function AccentRow(): JSX.Element {
                 : 'border-line-strong border-dashed text-fg-muted hover:text-fg',
             )}
           >
-            {custom ? null : <PlusIcon size={12} aria-hidden />}
+            {custom ? null : <PlusIcon size={16} aria-hidden />}
             <input
               type="color"
               aria-label={d.settings.accentCustom}

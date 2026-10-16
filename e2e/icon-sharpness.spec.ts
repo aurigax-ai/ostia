@@ -5,6 +5,7 @@ import { openWorkspace } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
 
 const MIN_ICONS = 20
+const MIN_ICON_SIZE = 16
 const PHOSPHOR = resolve(__dirname, '../node_modules/@phosphor-icons/core/assets')
 const WEIGHTS = ['regular', 'bold'] as const
 type Weight = (typeof WEIGHTS)[number]
@@ -58,7 +59,7 @@ async function launch(scale: number) {
 }
 
 async function measureIcons(win: Page) {
-  return win.evaluate(() => {
+  return win.evaluate((minSize) => {
     const scale = window.devicePixelRatio
     const onDevicePixel = (value: number): boolean =>
       Math.abs(value * scale - Math.round(value * scale)) < 0.01
@@ -108,11 +109,13 @@ async function measureIcons(win: Page) {
     ].filter((svg) => svg.getBoundingClientRect().width > 0)
     const fractionalSizes: string[] = []
     const shifted: string[] = []
+    const small: string[] = []
     const mounted: MountedIcon[] = []
     for (const svg of icons) {
       const box = svg.getBoundingClientRect()
       const name = `${svg.closest('[aria-label]')?.getAttribute('aria-label') ?? svg.parentElement?.className}`
       if (!Number.isInteger(box.width) || !Number.isInteger(box.height)) fractionalSizes.push(name)
+      if (Math.min(box.width, box.height) < minSize) small.push(`${name} ${box.width}x${box.height}`)
       let x = 0
       let y = 0
       for (let el: Element | null = svg; el; el = el.parentElement) {
@@ -130,8 +133,8 @@ async function measureIcons(win: Page) {
         height: box.height,
       })
     }
-    return { scale, mounted, fractionalSizes, shifted }
-  })
+    return { scale, mounted, fractionalSizes, shifted, small }
+  }, MIN_ICON_SIZE)
 }
 
 async function sharpness(win: Page, icons: Omit<MountedIcon, 'paths'>[]): Promise<number> {
@@ -180,6 +183,7 @@ for (const scale of [1, 1.5, 2]) {
       expect(icons.mounted.length).toBeGreaterThanOrEqual(MIN_ICONS)
       expect(icons.fractionalSizes).toEqual([])
       expect(icons.shifted).toEqual([])
+      expect(icons.small).toEqual([])
       const matched = icons.mounted.flatMap((icon) => {
         const match = nameByPaths.get(icon.paths)
         const markup = match && byName.get(match.name)
@@ -239,6 +243,33 @@ test('an icon under a fractional translate fails the offset check', async () => 
     const { shifted } = await measureIcons(win)
     expect(shifted).toEqual(expect.arrayContaining(['half pixel', 'half of an odd height']))
     expect(shifted).not.toContain('whole pixel')
+  } finally {
+    await app.close()
+  }
+})
+
+test('an icon drawn at 12 or 14 px fails the size check', async () => {
+  test.setTimeout(90_000)
+  const { app, win } = await launch(1)
+  try {
+    await win.evaluate(() => {
+      const icon = document.querySelector('svg[viewBox="0 0 256 256"]')
+      if (!icon) return
+      for (const size of [12, 14, 16]) {
+        const box = document.createElement('div')
+        box.setAttribute('aria-label', `icon ${size}`)
+        box.style.cssText = 'position: fixed; left: 0; top: 0'
+        const copy = icon.cloneNode(true) as SVGSVGElement
+        copy.removeAttribute('aria-label')
+        copy.setAttribute('width', String(size))
+        copy.setAttribute('height', String(size))
+        box.append(copy)
+        document.body.append(box)
+      }
+    })
+    const { small } = await measureIcons(win)
+    expect(small).toEqual(expect.arrayContaining(['icon 12 12x12', 'icon 14 14x14']))
+    expect(small.join()).not.toContain('icon 16')
   } finally {
     await app.close()
   }

@@ -17,7 +17,7 @@ export function QuestionNotice({ question }: { question: QuestionRequest }): JSX
       aria-label={d.dashboard.questionNotice}
       className="motion-enter absolute right-2 bottom-2 left-2 z-20 flex origin-bottom items-center gap-2 rounded-md border border-line bg-surface-3 p-2 text-fg text-ui-sm shadow-md"
     >
-      <ChatCircleTextIcon size={14} aria-hidden className="shrink-0" />
+      <ChatCircleTextIcon size={16} aria-hidden className="shrink-0" />
       <span className="line-clamp-2 min-w-0 flex-1 [overflow-wrap:anywhere]">
         {questionTitle(d, question)}
       </span>

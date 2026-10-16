@@ -60,7 +60,7 @@ export const ToolStatus = ({ state, label, className, ...props }: ToolStatusProp
       data-state={state}
       {...props}
     >
-      <StateIcon className="size-3.5" />
+      <StateIcon className="size-4" />
       {label}
     </span>
   )
@@ -80,10 +80,10 @@ export const ToolHeader = ({ className, title, state, stateLabel, ...props }: To
     )}
     {...props}
   >
-    <WrenchIcon className="size-3.5 shrink-0 text-fg-muted" />
+    <WrenchIcon className="size-4 shrink-0 text-fg-muted" />
     <span className="min-w-0 flex-1 truncate font-mono text-fg text-ui-sm">{title}</span>
     <ToolStatus state={state} label={stateLabel} />
-    <CaretDownIcon className="size-3 shrink-0 text-fg-muted transition-transform group-data-[open]/tool:rotate-180" />
+    <CaretDownIcon className="size-4 shrink-0 text-fg-muted transition-transform group-data-[open]/tool:rotate-180" />
   </CollapsibleTrigger>
 )
 

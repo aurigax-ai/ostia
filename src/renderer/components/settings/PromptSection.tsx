@@ -82,7 +82,7 @@ function Preview({ order }: { order: string[] }): JSX.Element {
                   data-unavailable=""
                   aria-label={fmt(d.prompt.unavailable, { name })}
                 >
-                  <Icon size={12} aria-hidden="true" />
+                  <Icon size={16} aria-hidden="true" />
                   <span className="prompt-chip-text">{name}</span>
                 </span>
               )
@@ -186,8 +186,8 @@ function SelectedChips({
                   className="flex min-w-0 flex-1 cursor-grab items-center gap-2 rounded-sm text-left"
                   onKeyDown={(e) => onHandleKey(e, index)}
                 >
-                  <DotsSixVerticalIcon size={14} aria-hidden="true" className="text-fg-muted" />
-                  <Icon size={14} aria-hidden="true" className="text-fg-muted" />
+                  <DotsSixVerticalIcon size={16} aria-hidden="true" className="text-fg-muted" />
+                  <Icon size={16} aria-hidden="true" className="text-fg-muted" />
                   <span className="min-w-0 flex-1 truncate">{name}</span>
                 </button>
                 <IconButton
