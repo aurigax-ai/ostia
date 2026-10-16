@@ -10,6 +10,7 @@ import type { BrowserGuests } from '../browser/browserGuests'
 import type { GuestChords } from '../browser/guestChords'
 import { forgetGuestNetwork } from '../browser/guestNetwork'
 import type { GuestProfiles } from '../browser/guestProfiles'
+import { tabReferrerOf } from '../browser/guestTabs'
 import { followAgentByHost } from '../browser/signinUserAgent'
 import { getByPaneId, removeWindow } from '../control/idRegistry'
 import type { Diagnostics } from '../diagnostics/diagnostics'
@@ -57,6 +58,7 @@ interface WindowWiringDeps {
   instrumentBrowserGuest: BrowserGuests['instrumentBrowserGuest']
   fenceBrowserGuest: GuestProfiles['fenceBrowserGuest']
   allowHumanPopups: BrowserGuests['allowHumanPopups']
+  attachBrowserMenu: BrowserGuests['attachBrowserMenu']
   consoleBuffers: Map<number, ConsoleEntry[]>
   errorBuffers: Map<number, ConsoleEntry[]>
   windows: Map<string, BrowserWindow>
@@ -85,6 +87,7 @@ export function createWindowWiring({
   instrumentBrowserGuest,
   fenceBrowserGuest,
   allowHumanPopups,
+  attachBrowserMenu,
   consoleBuffers,
   errorBuffers,
   windows,
@@ -149,6 +152,8 @@ export function createWindowWiring({
         event.preventDefault()
         return
       }
+      const referrer = extId ? undefined : tabReferrerOf(win.webContents.id, params.src)
+      if (referrer) params.httpreferrer = referrer
       webPreferences.preload = undefined
       webPreferences.nodeIntegration = false
       webPreferences.contextIsolation = true
@@ -166,7 +171,7 @@ export function createWindowWiring({
         attachContextMenu(guest, false, contextMenuText)
         return
       }
-      attachContextMenu(guest, true, contextMenuText)
+      attachBrowserMenu(guest)
       const agents = browserAgentsOf(guest.session)
       guest.setUserAgent(agents.rewritten)
       instrumentBrowserGuest(guest, true)

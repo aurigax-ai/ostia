@@ -68,6 +68,7 @@ import type {
   CredentialSummary,
 } from './browser/credentials'
 import type { DeviceTouch } from './browser/deviceTouch'
+import type { BrowserTabOpen } from './browser/linkTabs'
 import type {
   PickOutcome,
   PickSendRequest,
@@ -873,6 +874,7 @@ interface BrowserApi {
   storageSet: (paneId: string, edit: StorageEdit) => Promise<StorageWriteResult>
   storageRemove: (paneId: string, removal: StorageRemoval) => Promise<StorageWriteResult>
   storageClear: (paneId: string, kind: StorageKind) => Promise<StorageWriteResult>
+  onOpenTab: (cb: (open: BrowserTabOpen) => void) => () => void
 }
 
 interface SelectionApi {
