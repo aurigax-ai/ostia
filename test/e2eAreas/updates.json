@@ -17,5 +17,8 @@
     "src/shared/app/installMethod.ts",
     "src/shared/app/releases.ts"
   ],
-  "specs": ["e2e/update-check.spec.ts", "e2e/update-mac.spec.ts"]
+  "specs": [
+    "e2e/update-check.spec.ts",
+    "e2e/update-mac.spec.ts"
+  ]
 }

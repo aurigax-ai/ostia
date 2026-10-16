@@ -8,5 +8,7 @@
     "src/renderer/lib/palette/snippets.ts",
     "src/renderer/stores/terminal/snippetsStore.ts"
   ],
-  "specs": ["e2e/workflows.spec.ts"]
+  "specs": [
+    "e2e/workflows.spec.ts"
+  ]
 }

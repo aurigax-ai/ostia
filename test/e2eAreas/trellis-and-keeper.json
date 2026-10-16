@@ -1,5 +1,12 @@
 {
   "name": "trellis and keeper",
-  "paths": ["src/extensions/keeper/", "src/extensions/trellis/", "test/fixtures/tools/"],
-  "specs": ["e2e/trellis-agents.spec.ts", "e2e/trellis-panel.spec.ts"]
+  "paths": [
+    "src/extensions/keeper/",
+    "src/extensions/trellis/",
+    "test/fixtures/tools/"
+  ],
+  "specs": [
+    "e2e/trellis-agents.spec.ts",
+    "e2e/trellis-panel.spec.ts"
+  ]
 }
