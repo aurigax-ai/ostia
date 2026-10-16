@@ -115,7 +115,6 @@
   --motion-fast-exit: 63ms;
   --motion-base-exit: 105ms;
   --motion-pulse: 1500ms;
-  --motion-pulse-fast: 400ms;
   --motion-breathe: 2400ms;
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
@@ -391,14 +390,14 @@
 @keyframes zoom-chip-in {
   from {
     opacity: 0;
-    transform: scale(0.96);
+    transform: scale(0.98);
   }
 }
 
 @keyframes zoom-chip-out {
   to {
     opacity: 0;
-    transform: scale(0.96);
+    transform: scale(0.98);
   }
 }
 
@@ -517,6 +516,7 @@
 
 [class*="sash-module_sash"] {
   --focus-border: var(--line-strong);
+  --sash-hover-transition-duration: var(--motion-fast);
 }
 
 .rail-resizer.collapsed {
@@ -645,7 +645,7 @@
 
 .tab-lead-unread {
   color: var(--attn-fg);
-  animation: attn-blink var(--motion-pulse-fast) var(--ease-out) 6;
+  animation: attn-blink var(--motion-pulse) var(--ease-out) 3;
 }
 
 .unread-dot {

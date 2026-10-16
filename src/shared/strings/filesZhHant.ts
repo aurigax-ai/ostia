@@ -82,6 +82,8 @@ export const filesZhHant: typeof filesEn = {
     nestingPatternsDesc:
       '父檔案模式（可含一個 *）及收在其下的檔案。子模式可使用 * 與 ${capture}（父模式中 * 所比對到的文字）。',
     newExclude: '模式，例如 **/dist',
+    noExclude: '沒有模式。',
+    noNesting: '沒有巢狀模式。',
     ops: {
       cancel: '取消',
       copy: '複製',

@@ -256,7 +256,6 @@ export const extensionsEn = {
   marketplace: {
     add: 'Add',
     addLabel: 'Marketplace repository',
-    addOfficial: 'Add the official marketplace',
     addPlaceholder: 'owner/repo, a git URL or a folder',
     cancel: 'Cancel',
     codeLabel: 'Install code for {name}',
@@ -274,6 +273,7 @@ export const extensionsEn = {
       'invalid-marketplace': 'The repository is not a valid marketplace.',
       'invalid-url': 'Enter owner/repo, an https or ssh git URL, or a folder path.',
       'not-installed': 'This extension was not installed from a marketplace.',
+      'official-marketplace': 'The official marketplace is always listed and cannot be removed.',
       'too-large': 'The extension is too large to install.',
       'unknown-code': 'No unlisted extension in this marketplace has this install code.',
       'unknown-extension': 'The marketplace no longer lists this extension. Refresh it.',

@@ -1,5 +1,6 @@
-import { ToggleRow } from '@/components/settings/ControlRow'
-import { SectionHead, SettingsGroup } from '@/components/settings/SettingsGroup'
+import { ToggleRow } from '@/components/settingsKit/ControlRow'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 
@@ -8,8 +9,7 @@ export function SidebarSection(): JSX.Element {
   const sidebar = useSettingsStore((s) => s.sidebar)
   const set = useSettingsStore((s) => s.setSidebar)
   return (
-    <div>
-      <SectionHead title={d.settings.sidebar} />
+    <SettingsPage title={d.settings.sidebar}>
       <SettingsGroup title={d.settings.groupRows}>
         <ToggleRow
           label={d.settings.sidebarPath}
@@ -42,6 +42,6 @@ export function SidebarSection(): JSX.Element {
           onChange={(v) => set({ showSSH: v })}
         />
       </SettingsGroup>
-    </div>
+    </SettingsPage>
   )
 }

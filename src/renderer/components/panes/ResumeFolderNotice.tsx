@@ -1,5 +1,5 @@
 import { commands } from '@/commands/registry'
-import { WarningNote } from '@/components/settings/ControlRow'
+import { WarningNote } from '@/components/settingsKit/ControlRow'
 import { Button } from '@/components/ui/button'
 import { alwaysTrustWorkspaceFolders, resumeAnyway, trustForClaude } from '@/lib/agents/folderTrust'
 import { runningAgentOf } from '@/lib/agents/paneAgent'
