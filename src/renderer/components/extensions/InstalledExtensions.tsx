@@ -1,6 +1,7 @@
 import { isAssistExtension } from '@/components/assist/AssistantSection'
+import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
-import { ControlRow, WarningNote } from '@/components/settingsKit/ControlRow'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup, SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
@@ -107,9 +108,7 @@ function PermissionRows({ ext }: { ext: ExtensionInfo }): JSX.Element {
         </ControlRow>
       ))}
       {ext.unapproved.length > 0 && ext.status !== 'pending-approval' ? (
-        <WarningNote>
-          {fmt(d.extensions.unapproved, { caps: ext.unapproved.join(', ') })}
-        </WarningNote>
+        <Notice>{fmt(d.extensions.unapproved, { caps: ext.unapproved.join(', ') })}</Notice>
       ) : null}
       {needsReview ? (
         <ControlRow label={d.extensions.review}>

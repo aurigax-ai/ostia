@@ -9,7 +9,7 @@ export interface HistoryFind {
 }
 
 export type HistoryTarget =
-  | { kind: 'aboveLive'; liveLines: number }
+  | { kind: 'aboveLive' }
   | { kind: 'line'; line: number }
   | { kind: 'match'; find: HistoryFind }
 

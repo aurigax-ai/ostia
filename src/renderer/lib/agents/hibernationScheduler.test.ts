@@ -241,8 +241,14 @@ describe('hibernateIdleAgents', () => {
     await commands.exec('pane.focus', { paneId: 'idle-claude' })
     expect(hibernated('idle-claude')).toBe(true)
     const target = document.getElementById('body')
-    const press = { type: 'pointerdown', isTrusted: true, button: 0, target } as unknown as Event
-    for (const listener of inputListeners.get('pointerdown') ?? []) listener(press)
+    const press = {
+      type: 'click',
+      isTrusted: true,
+      button: 0,
+      detail: 1,
+      target,
+    } as unknown as Event
+    for (const listener of inputListeners.get('click') ?? []) listener(press)
 
     expect(hibernated('idle-claude')).toBe(false)
     expect(typed.mock.calls.map(([id, command]) => [id, command])).toEqual([

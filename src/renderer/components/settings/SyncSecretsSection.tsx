@@ -1,4 +1,5 @@
-import { ControlRow, WarningNote } from '@/components/settingsKit/ControlRow'
+import { Notice } from '@/components/common/Notice'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import {
   AlertDialog,
@@ -230,7 +231,7 @@ export function SyncSecretsSection({
           </ControlRow>
         ) : null}
         {state === 'locked' || state === 'damaged' ? (
-          <WarningNote
+          <Notice
             actions={
               <>
                 {state === 'locked' ? (
@@ -245,7 +246,7 @@ export function SyncSecretsSection({
             }
           >
             {state === 'locked' ? t.locked : t.damaged}
-          </WarningNote>
+          </Notice>
         ) : null}
         {shownForm === 'unlock' && state === 'locked' ? (
           <PasswordFields
@@ -303,7 +304,7 @@ export function SyncSecretsSection({
             onSubmit={(f) => void act(api.changePassword(f.password, f.confirm))}
           />
         ) : null}
-        {error ? <WarningNote>{error}</WarningNote> : null}
+        {error ? <Notice>{error}</Notice> : null}
         <SecretsConfirmDialog
           confirming={confirming}
           onClose={() => setConfirming(null)}

@@ -1,38 +1,11 @@
 import { Hint } from '@/components/common/Hint'
-import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { useDict } from '@/lib/app/useDict'
 import { cn } from '@/lib/utils'
-import { WarningIcon } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { Highlight, SearchScopeProvider, useSearchRow } from './SettingsSearch'
-
-export function WarningNote({
-  children,
-  actions,
-}: {
-  children: React.ReactNode
-  actions?: React.ReactNode
-}): JSX.Element {
-  return (
-    <Alert
-      className={cn(
-        'mt-1 items-center rounded-none border-0 bg-transparent p-0 text-warn-fg has-[.alert-action]:pr-0',
-        actions ? 'has-[>svg]:grid-cols-[auto_1fr_auto]' : null,
-      )}
-    >
-      <WarningIcon className="size-4" />
-      <AlertDescription className="text-warn-fg text-ui-sm [&_p:not(:last-child)]:mb-1">
-        {children}
-      </AlertDescription>
-      {actions ? (
-        <AlertAction className="static flex items-center gap-1">{actions}</AlertAction>
-      ) : null}
-    </Alert>
-  )
-}
 
 export function ControlRow({
   label,

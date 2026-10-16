@@ -52,8 +52,24 @@
   --motion-base: calc(150ms * var(--ostia-motion-scale, 1));
   --motion-fast-exit: calc(63ms * var(--ostia-motion-scale, 1));
   --motion-base-exit: calc(105ms * var(--ostia-motion-scale, 1));
+  --motion-panel: calc(180ms * var(--ostia-motion-scale, 1));
+  --motion-pulse: calc(1500ms * var(--ostia-motion-scale, 1));
+  --motion-breathe: calc(2400ms * var(--ostia-motion-scale, 1));
+  --motion-highlight: calc(2000ms * var(--ostia-motion-scale, 1));
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.motion-reveal {
+  animation: reveal var(--motion-base) var(--ease-out);
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
 }
 
 * {

@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { BrowserWindow, app, nativeTheme } from 'electron'
 import appIcon from '../../../resources/icon.png?asset'
+import { SOFTWARE_WEBGL_ARG } from '../../shared/app/discreteGpu'
 import type { WindowBounds } from '../../shared/workspaces/workspaceApi'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import type { GitService } from '../git/service'
@@ -51,6 +52,9 @@ export function createAppWindows({
       sandbox: true,
       nodeIntegration: false,
       webviewTag: true,
+      additionalArguments: app.commandLine.hasSwitch('enable-unsafe-swiftshader')
+        ? [SOFTWARE_WEBGL_ARG]
+        : [],
     }
   }
 
