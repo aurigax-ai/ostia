@@ -130,7 +130,7 @@ test('installs from a git marketplace, is approved, configured and updated', asy
     settings = await openSettingsPage(win, 'Extensions')
     await installed
       .getByRole('listitem', { name: 'Hello' })
-      .getByRole('button', { name: 'Hello' })
+      .getByRole('button', { name: 'Details of Hello' })
       .click()
     await expect(details).toContainText('0.2.0')
     await expect(details.getByRole('textbox', { name: 'Greeting' })).toHaveValue('hey')
