@@ -16,6 +16,7 @@ allowBuilds:
   electron: true
   electron-winstaller: false
   esbuild: true
+  koffi: false
   node-pty: true
 minimumReleaseAgeExclude:
   - '@aurigax-ai/wire@0.1.14'

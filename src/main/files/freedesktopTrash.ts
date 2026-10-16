@@ -1,9 +1,9 @@
-import { constants, type Stats } from 'node:fs'
+import { constants } from 'node:fs'
 import { lstat, mkdir, readFile, realpath } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import type { TransferEnd } from './exclusiveTransfer'
 import { type FolderAnchor, openAnchor } from './folderAnchor'
-import type { TransferFs } from './transferFs'
+import type { EntryStat, TransferFs } from './transferFs'
 import { mountAllowsTrash } from './trashMounts'
 
 const CREATE_FLAGS =
@@ -31,7 +31,7 @@ function errorCode(error: unknown): string | undefined {
   return (error as NodeJS.ErrnoException | null)?.code
 }
 
-function sameEntry(a: Stats, b: Stats | null): boolean {
+function sameEntry(a: EntryStat, b: EntryStat | null): boolean {
   return b !== null && a.dev === b.dev && a.ino === b.ino
 }
 
@@ -116,7 +116,7 @@ export async function mountTopdir(path: string): Promise<string> {
   }
 }
 
-async function removeOwn(fs: TransferFs, anchor: FolderAnchor, name: string, own: Stats) {
+async function removeOwn(fs: TransferFs, anchor: FolderAnchor, name: string, own: EntryStat) {
   const path = await anchor.at(name)
   if (!sameEntry(own, await fs.lstat(path).catch(() => null))) return
   await (own.isDirectory() ? fs.rmdir(path) : fs.unlink(path)).catch(() => {})
@@ -127,7 +127,7 @@ async function claimInfo(
   info: FolderAnchor,
   name: string,
   text: string,
-): Promise<Stats | null> {
+): Promise<EntryStat | null> {
   const handle = await fs
     .open(await info.at(`${name}.trashinfo`), CREATE_FLAGS, 0o600)
     .catch((error) => {
@@ -135,7 +135,7 @@ async function claimInfo(
       throw error
     })
   if (handle === null) return null
-  let own: Stats | null = null
+  let own: EntryStat | null = null
   try {
     own = await handle.stat()
     await handle.writeFile(text)
@@ -153,7 +153,7 @@ async function claimPlaceholder(
   files: FolderAnchor,
   name: string,
   folder: boolean,
-): Promise<Stats | null> {
+): Promise<EntryStat | null> {
   const path = await files.at(name)
   try {
     if (folder) {
@@ -190,7 +190,7 @@ export function trashedName(name: string, attempt: number): string {
 async function trashInto(
   fs: TransferFs,
   source: TransferEnd,
-  expected: Stats,
+  expected: EntryStat,
   files: FolderAnchor,
   info: FolderAnchor,
   text: string,
@@ -230,7 +230,7 @@ function ownAnchor(anchor: FolderAnchor, uid: number, dev: number): boolean {
 export async function moveToTrash(
   fs: TransferFs,
   source: TransferEnd,
-  expected: Stats,
+  expected: EntryStat,
   place: TrashPlace,
   uid: number,
   at: Date,
