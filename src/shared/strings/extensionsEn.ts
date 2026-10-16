@@ -259,8 +259,9 @@ export const extensionsEn = {
   },
   marketplace: {
     add: 'Add',
+    addDesc: 'A marketplace is a git repository that lists extensions.',
     addLabel: 'Marketplace repository',
-    addPlaceholder: 'owner/repo, a git URL or a folder',
+    addPlaceholder: 'owner/repo, URL or folder',
     addTitle: 'Add a marketplace',
     cancel: 'Cancel',
     codeLabel: 'Install code for {name}',
@@ -268,7 +269,6 @@ export const extensionsEn = {
     codeTitle: 'Install with a code',
     conflict: 'An extension with this id is already installed from somewhere else.',
     dataOnly: 'Data only, runs no program',
-    desc: 'A marketplace is a git repository that lists extensions. Installing copies an extension to this computer; it still waits for your approval before it runs.',
     download: 'Download',
     errors: {
       'already-added': 'This marketplace is already added.',

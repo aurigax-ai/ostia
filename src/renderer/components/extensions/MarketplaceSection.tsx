@@ -254,13 +254,13 @@ export function MarketplacesGroup(): JSX.Element {
           void submit()
         }}
       >
-        <ControlRow label={d.marketplace.addTitle} desc={d.marketplace.desc}>
+        <ControlRow label={d.marketplace.addTitle} desc={d.marketplace.addDesc}>
           <Input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder={d.marketplace.addPlaceholder}
             aria-label={d.marketplace.addLabel}
-            className="h-7 w-80 font-mono"
+            className="h-7 w-56 font-mono"
           />
           <Button type="submit" variant="outline" size="sm" disabled={busy || !url.trim()}>
             {busy ? d.marketplace.working : d.marketplace.add}

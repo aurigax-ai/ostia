@@ -258,6 +258,7 @@ export const extensionsZhHant: typeof extensionsEn = {
   },
   marketplace: {
     add: '新增',
+    addDesc: '市集是列出擴充功能的 git 儲存庫。',
     addLabel: '市集儲存庫',
     addPlaceholder: 'owner/repo、git 網址或資料夾',
     addTitle: '新增市集',
@@ -267,7 +268,6 @@ export const extensionsZhHant: typeof extensionsEn = {
     codeTitle: '用安裝碼安裝',
     conflict: '已從其他來源安裝了相同 id 的擴充功能。',
     dataOnly: '僅資料，不執行程式',
-    desc: '市集是一個列出擴充功能的 git 儲存庫。安裝會把擴充功能複製到這台電腦；執行前仍需您核准。',
     download: '下載',
     errors: {
       'already-added': '這個市集已經新增過了。',
