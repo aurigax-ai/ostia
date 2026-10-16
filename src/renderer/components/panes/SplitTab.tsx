@@ -16,11 +16,16 @@ import {
   ArrowsInLineVerticalIcon,
   ArrowsOutLineHorizontalIcon,
   ArrowsOutLineVerticalIcon,
-  CaretDoubleLeftIcon,
   LockSimpleIcon,
   XIcon,
 } from '@phosphor-icons/react'
-import type { CSSProperties, HTMLAttributes, KeyboardEvent } from 'react'
+import {
+  type CSSProperties,
+  type HTMLAttributes,
+  type KeyboardEvent,
+  useEffect,
+  useRef,
+} from 'react'
 import { PaneRenameField } from './PaneRenameField'
 import { PaneTabMenu } from './PaneTabMenu'
 import { TabFace, usePaneMark, usePaneTitle } from './TabFace'
@@ -32,6 +37,8 @@ export function focusPane(paneId: string): void {
     if (usePaneRenameStore.getState().paneId !== paneId) focusSurface(paneId)
   })
 }
+
+const DOUBLE_CLICK_MS = 250
 
 function GlyphNode({ node, focusedId }: { node: LayoutNode; focusedId: string | null }) {
   if (node.type === 'pane') {
@@ -56,19 +63,12 @@ function GlyphNode({ node, focusedId }: { node: LayoutNode; focusedId: string | 
 export function SplitTabGlyph({
   tab,
   focusedId,
-  onDoubleClick,
 }: {
   tab: SplitNode
   focusedId: string | null
-  onDoubleClick?: () => void
 }): JSX.Element {
   return (
-    <span
-      className="split-tab-glyph"
-      data-split-glyph={splitTabLayout(tab)}
-      aria-hidden
-      onDoubleClick={onDoubleClick}
-    >
+    <span className="split-tab-glyph" data-split-glyph={splitTabLayout(tab)} aria-hidden>
       <GlyphNode node={tab} focusedId={focusedId} />
     </span>
   )
@@ -222,10 +222,59 @@ function useSplitTabLabel(tab: SplitNode): string {
     : fmt(d.pane.splitTab, { layout, panes })
 }
 
+function SplitTabHead({
+  tab,
+  focusedId,
+  naming,
+  workspaceId,
+}: {
+  tab: SplitNode
+  focusedId: string | null
+  naming: boolean
+  workspaceId: string | null
+}): JSX.Element {
+  const d = useDict()
+  const pendingFold = useRef<number>()
+  useEffect(() => () => window.clearTimeout(pendingFold.current), [])
+  if (naming) {
+    return (
+      <div className="split-tab-head">
+        <SplitTabGlyph tab={tab} focusedId={focusedId} />
+        <SplitTabRenameField tab={tab} workspaceId={workspaceId} />
+      </div>
+    )
+  }
+  const fold = () => void commands.exec('pane.foldSplitTab', { tabId: tab.id })
+  return (
+    <button
+      type="button"
+      className="split-tab-head"
+      aria-expanded
+      aria-label={
+        tab.name ? fmt(d.pane.foldNamedSplitTab, { name: tab.name }) : d.pane.foldSplitTab
+      }
+      onClick={(e) => {
+        if (e.detail > 1) return
+        if (e.detail === 0) fold()
+        else pendingFold.current = window.setTimeout(fold, DOUBLE_CLICK_MS)
+      }}
+      onDoubleClick={() => {
+        window.clearTimeout(pendingFold.current)
+        usePaneRenameStore.getState().beginSplitTab(tab.id)
+      }}
+    >
+      <SplitTabGlyph tab={tab} focusedId={focusedId} />
+      {tab.name ? <span className="split-tab-name">{tab.name}</span> : null}
+    </button>
+  )
+}
+
 function moveSegmentFocus(e: KeyboardEvent<HTMLElement>): void {
   if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
   if (e.target instanceof HTMLInputElement) return
-  const buttons = [...e.currentTarget.querySelectorAll<HTMLElement>('.split-tab-segment-main')]
+  const buttons = [
+    ...e.currentTarget.querySelectorAll<HTMLElement>('.split-tab-head, .split-tab-segment-main'),
+  ]
   const at = buttons.indexOf(document.activeElement as HTMLElement)
   const next = at === -1 ? buttons[0] : buttons[at + (e.key === 'ArrowRight' ? 1 : -1)]
   if (!next) return
@@ -264,14 +313,12 @@ export function SplitTabPill({
   showClose: boolean
   workspaceId: string | null
 }): JSX.Element {
-  const d = useDict()
   const label = useSplitTabLabel(tab)
   const panes = allPanes(tab)
   const renaming = usePaneRenameStore(
     (s) => s.splitTabId === tab.id || panes.some((p) => p.id === s.paneId),
   )
   const naming = usePaneRenameStore((s) => s.splitTabId === tab.id)
-  const beginNaming = () => usePaneRenameStore.getState().beginSplitTab(tab.id)
   return (
     <div
       style={{ '--split-segments': panes.length } as CSSProperties}
@@ -288,18 +335,12 @@ export function SplitTabPill({
       {...tabDragProps(tab.id, workspaceId, !renaming)}
       onKeyDown={moveSegmentFocus}
     >
-      <SplitTabGlyph
+      <SplitTabHead
         tab={tab}
         focusedId={selected ? focusedId : null}
-        onDoubleClick={beginNaming}
+        naming={naming}
+        workspaceId={workspaceId}
       />
-      {naming ? (
-        <SplitTabRenameField tab={tab} workspaceId={workspaceId} />
-      ) : tab.name ? (
-        <span className="split-tab-name" onDoubleClick={beginNaming}>
-          {tab.name}
-        </span>
-      ) : null}
       {panes.map((pane) => (
         <SplitTabSegment
           key={pane.id}
@@ -310,12 +351,6 @@ export function SplitTabPill({
           workspaceId={workspaceId}
         />
       ))}
-      <IconButton
-        icon={CaretDoubleLeftIcon}
-        label={tab.name ? fmt(d.pane.foldNamedSplitTab, { name: tab.name }) : d.pane.foldSplitTab}
-        className="split-tab-fold"
-        onClick={() => void commands.exec('pane.foldSplitTab', { tabId: tab.id })}
-      />
     </div>
   )
 }
