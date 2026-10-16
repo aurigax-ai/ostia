@@ -82,9 +82,20 @@ function isSource(file) {
 const GLOBAL_INPUTS = [
   /^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|vitest\.config\.mts)$/,
   /^tsconfig[^/]*\.json$/,
-  /^test\/(hostEnv|privateTmp|appEnv|quarantineSetup|domEvents|setup|buildOnce)\.ts$/,
+  /^test\/(hostEnv|privateTmp|appEnv|quarantineSetup|domEvents|setup|buildOnce|consoleGuard)\.ts$/,
+  /^test\/quarantine\.mjs$/,
   /^test\/mocks\//,
+  /^scripts\/build-[^/]+\.mjs$/,
+  /^packages\/[^/]+\/(package\.json|scripts\/build\.mjs)$/,
+  /^packages\/extension-sdk\/template\/package\.json$/,
+  /^electron\.vite\.config\.ts$/,
+  /^patches\//,
+  /^(biome|knip)\.json$/,
+  /^\.jscpd\.json$/,
+  /^\.dependency-cruiser[^/]*\.json$/,
 ]
+
+const PLANNER_TESTS = ['test/affectedTests.test.ts', 'test/e2eAreas.test.ts']
 
 function isGlobalInput(file) {
   return GLOBAL_INPUTS.some((pattern) => pattern.test(file))
@@ -285,14 +296,14 @@ export function nodeFolderReaders() {
   )
 }
 
-function unitTexts() {
+export function unitTexts() {
   const tests = [
     ...NODE_TEST_DIRS.flatMap(testFiles),
     ...testFiles('src/renderer'),
     ...readdirSync(join(ROOT, 'test'))
       .filter((name) => UNIT_TEST.test(name))
       .map((name) => `test/${name}`),
-  ]
+  ].filter((file) => !PLANNER_TESTS.includes(file))
   return Object.fromEntries(tests.map((file) => [file, readFileSync(join(ROOT, file), 'utf8')]))
 }
 

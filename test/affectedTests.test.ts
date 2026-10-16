@@ -17,6 +17,7 @@ import {
   planChanges,
   planE2e,
   planTests,
+  unitTexts,
   vitestArgs,
 } from './affectedTests.mjs'
 
@@ -83,6 +84,40 @@ describe('planTests', () => {
       node: ['src/main/ports/portFixtures.test.ts'],
       dom: ['src/renderer/lib/app/motion.test.tsx'],
     })
+  })
+
+  it('runs every test for a build input, setup helper or tool config', () => {
+    for (const file of [
+      ...['extensions', 'tsnet', 'marketplace', 'artifact-runtime', 'info'].map(
+        (name) => `scripts/build-${name}.mjs`,
+      ),
+      'packages/extension-sdk/scripts/build.mjs',
+      'packages/extension-sdk/package.json',
+      'packages/extension-sdk/template/package.json',
+      'electron.vite.config.ts',
+      'patches/swr@2.5.1.patch',
+      'biome.json',
+      'knip.json',
+      '.jscpd.json',
+      '.dependency-cruiser.json',
+      '.dependency-cruiser-known-violations.json',
+      'test/consoleGuard.ts',
+      'test/quarantine.mjs',
+    ]) {
+      expect(planTests([file], readers), file).toEqual({ node: null, dom: null })
+    }
+  })
+
+  it('plans against the real test texts without the planner tests', () => {
+    const texts = unitTexts()
+    expect(Object.keys(texts)).not.toContain('test/affectedTests.test.ts')
+    expect(Object.keys(texts)).not.toContain('test/e2eAreas.test.ts')
+    const real = { ...readers, texts }
+    expect(planTests(['packages/extension-sdk/docs/EXTENSIONS.md'], real)).toEqual({
+      node: null,
+      dom: null,
+    })
+    expect(planTests(['scripts/build-extensions.mjs'], real)).toEqual({ node: null, dom: null })
   })
 
   it('runs every test for a non-code file no test names', () => {
