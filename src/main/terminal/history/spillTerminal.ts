@@ -22,8 +22,8 @@ export class SpillTerminal {
     this.spill = new HistorySpill(this.term, sink, seqOffset)
   }
 
-  write(data: string): void {
-    if (!this.closed && data) this.term.write(data)
+  write(data: Uint8Array): void {
+    if (!this.closed && data.length > 0) this.term.write(data)
   }
 
   restore(history: string, hold: boolean): void {

@@ -4,7 +4,7 @@ import type { PaneHistory } from './paneHistory'
 import type { BlockEnd, SpillEvent, SpillRequest } from './spillHost'
 
 export interface SpillPort {
-  postMessage(request: SpillRequest): void
+  postMessage(request: SpillRequest, transfer?: ArrayBuffer[]): void
   on(type: 'message', listener: (event: SpillEvent) => void): unknown
 }
 
@@ -19,6 +19,9 @@ export interface HistoryFeed {
   close(commandStarts: number): Promise<void>
 }
 
+const utf8 = new TextEncoder()
+const SPILL_QUIET_MS = 100
+const SPILL_SEND_CHARS = 32 * 1024 * 1024
 const SPILL_HEAP_LIMITS = { maxYoungGenerationSizeMb: 4, maxOldGenerationSizeMb: 1024 }
 
 type Reply = Extract<SpillEvent, { kind: 'reply' }>
@@ -29,7 +32,8 @@ export class SpillClient {
   private readonly replies = new Map<number, (reply: Reply | null) => void>()
   private readonly historyIds = new WeakMap<PaneHistory, number>()
   private readonly unsent = new Map<number, string[]>()
-  private sending: ReturnType<typeof setImmediate> | null = null
+  private sending: ReturnType<typeof setTimeout> | null = null
+  private unsentBytes = 0
   private nextHistory = 0
   private nextSession = 0
   private nextReply = 0
@@ -82,7 +86,7 @@ export class SpillClient {
   end(reason: string): void {
     if (this.ended) return
     this.ended = true
-    if (this.sending) clearImmediate(this.sending)
+    if (this.sending) clearTimeout(this.sending)
     this.sending = null
     this.unsent.clear()
     for (const history of this.sessions.values()) history.fail(reason)
@@ -107,16 +111,25 @@ export class SpillClient {
     const pending = this.unsent.get(session)
     if (pending) pending.push(data)
     else this.unsent.set(session, [data])
-    this.sending ??= setImmediate(() => this.send())
+    this.unsentBytes += data.length
+    if (this.unsentBytes >= SPILL_SEND_CHARS) this.send()
+    else if (this.sending) this.sending.refresh()
+    else {
+      this.sending = setTimeout(() => this.send(), SPILL_QUIET_MS)
+      this.sending.unref()
+    }
   }
 
   private send(): void {
-    if (this.sending) clearImmediate(this.sending)
+    if (this.sending) clearTimeout(this.sending)
     this.sending = null
+    this.unsentBytes = 0
     const batches = [...this.unsent]
     this.unsent.clear()
-    for (const [session, parts] of batches)
-      this.deliver({ kind: 'write', session, data: parts.join('') })
+    for (const [session, parts] of batches) {
+      const data = utf8.encode(parts.join(''))
+      this.deliver({ kind: 'write', session, data }, [data.buffer])
+    }
   }
 
   private post(request: SpillRequest): void {
@@ -124,10 +137,10 @@ export class SpillClient {
     this.deliver(request)
   }
 
-  private deliver(request: SpillRequest): void {
+  private deliver(request: SpillRequest, transfer?: ArrayBuffer[]): void {
     if (this.ended) return
     try {
-      this.port.postMessage(request)
+      this.port.postMessage(request, transfer)
     } catch (err) {
       this.end(err instanceof Error ? err.message : 'spill-post-failed')
     }

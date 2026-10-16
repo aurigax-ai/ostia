@@ -75,21 +75,53 @@ describe('history feed', () => {
     expect(peak).toBeLessThan(96 * 1024 * 1024)
   })
 
-  it('posts the writes of one turn as one message, ahead of the next request', async () => {
+  it('keeps wide and combined characters through the worker', async () => {
+    const client = startSpillWorker(HISTORY_WORKER_SCRIPT)
+    clients.push(client)
+    const history = makeHistory()
+    const feed = client.open(history, 80, 24)
+    feed.write('漢字 🙂 café\r\n')
+    feed.write(numbered(0, SPILL_BATCH))
+    await feed.close(0)
+    expect((await plain(history))[0]).toBe('漢字 🙂 café')
+  })
+
+  it('posts output once the pane goes quiet, as one message, ahead of the next request', async () => {
+    vi.useFakeTimers()
     const posted: SpillRequest[] = []
     const client = new SpillClient({
       postMessage: (request) => posted.push(request),
       on: () => undefined,
     })
     const feed = client.open(makeHistory(), 80, 24)
+    const written = () =>
+      posted.filter((r) => r.kind === 'write').map((r) => new TextDecoder().decode(r.data))
     feed.write('a')
     feed.write('b')
     feed.resize(100, 30)
     feed.write('c')
+    vi.advanceTimersByTime(60)
     feed.write('d')
-    await new Promise((resolve) => setImmediate(resolve))
+    vi.advanceTimersByTime(60)
+    expect(written()).toEqual(['ab'])
+    vi.advanceTimersByTime(60)
     expect(posted.map((r) => r.kind)).toEqual(['open', 'write', 'resize', 'write'])
-    expect(posted.filter((r) => r.kind === 'write').map((r) => r.data)).toEqual(['ab', 'cd'])
+    expect(written()).toEqual(['ab', 'cd'])
+    client.end('test-done')
+    vi.useRealTimers()
+  })
+
+  it('posts at once when a burst passes the size cap, so main never holds more', () => {
+    const posted: SpillRequest[] = []
+    const client = new SpillClient({
+      postMessage: (request) => posted.push(request),
+      on: () => undefined,
+    })
+    const feed = client.open(makeHistory(), 80, 24)
+    const chunk = 'x'.repeat(1024 * 1024)
+    for (let i = 0; i < 32; i++) feed.write(chunk)
+    const writes = posted.filter((r) => r.kind === 'write')
+    expect(writes.map((r) => r.data.length)).toEqual([32 * chunk.length])
     client.end('test-done')
   })
 

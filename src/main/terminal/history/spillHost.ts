@@ -13,7 +13,7 @@ export type SpillRequest =
       end: number
       seqOffset: number
     }
-  | { kind: 'write'; session: number; data: string }
+  | { kind: 'write'; session: number; data: Uint8Array }
   | { kind: 'restore'; session: number; history: string; hold: boolean }
   | { kind: 'resize'; session: number; cols: number; rows: number }
   | { kind: 'tail'; session: number; id: number }
