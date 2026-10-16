@@ -156,7 +156,7 @@ describe('motion CSS contract', () => {
 
   it('gives panels every motion token of the app, scaled by the reduced-motion setting', () => {
     const panel = readFileSync(
-      resolve(process.cwd(), 'packages/extension-sdk/src/client/panel.css'),
+      resolve(process.cwd(), join('packages', 'extension-sdk', 'src', 'client'), 'panel.css'),
       'utf8',
     )
     const durations = ['panel', 'pulse', 'breathe', 'highlight'].map((name) => `--motion-${name}`)
