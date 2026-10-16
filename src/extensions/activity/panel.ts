@@ -1,13 +1,14 @@
 import {
   call,
+  context,
   errorText,
   h,
   icon,
   onChange,
   panelTranslator,
 } from '@aurigax-ai/ostia-extension-sdk/panel'
+import caretRight from '@phosphor-icons/core/regular/caret-right.svg'
 import chatText from '@phosphor-icons/core/regular/chat-text.svg'
-import checkCircle from '@phosphor-icons/core/regular/check-circle.svg'
 import fileText from '@phosphor-icons/core/regular/file-text.svg'
 import globe from '@phosphor-icons/core/regular/globe.svg'
 import magnifyingGlass from '@phosphor-icons/core/regular/magnifying-glass.svg'
@@ -21,6 +22,7 @@ import wrench from '@phosphor-icons/core/regular/wrench.svg'
 import type { ToolKind } from './hookEvent'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
+import { type MarkdownNode, renderMarkdown } from './markdown'
 import {
   type AgentView,
   type EventView,
@@ -28,6 +30,7 @@ import {
   type PanelModel,
   type TurnView,
   type WorkspaceView,
+  actionCounts,
   ageOf,
 } from './view'
 
@@ -51,7 +54,8 @@ const recapButton = viewButton(false)
 const activityButton = viewButton(true)
 const notes = new Map<string, string>()
 const doneFailures = new Map<string, string>()
-const expanded = new Set<string>()
+const openGroups = new Set<string>()
+let groupSeq = 0
 let model: PanelModel | null = null
 
 function viewButton(showActivity: boolean): HTMLElement {
@@ -73,7 +77,15 @@ function ageText(then: number): string {
 }
 
 function age(then: number): HTMLElement {
-  return h('time', { class: 'age muted', 'data-t': String(then) }, ageText(then))
+  return h(
+    'time',
+    {
+      class: 'age muted',
+      'data-t': String(then),
+      title: new Date(then).toLocaleString(context.locale),
+    },
+    ageText(then),
+  )
 }
 
 function refreshAges(): void {
@@ -82,60 +94,89 @@ function refreshAges(): void {
   }
 }
 
-function eventRow(event: EventView): HTMLElement {
-  if (event.kind === 'prompt') {
-    return h(
-      'li',
-      { class: 'event', 'data-kind': 'prompt' },
-      icon(chatText),
-      h('span', { class: 'event-label muted' }, t('event.prompt')),
-      event.text ? h('span', { class: 'event-text' }, event.text) : null,
+function toDom(node: MarkdownNode): Node | string {
+  if (typeof node === 'string') return node
+  const attrs: Record<string, string> = node.href
+    ? { href: node.href, target: '_blank', rel: 'noopener noreferrer' }
+    : {}
+  return h(node.tag, attrs, ...node.children.map(toDom))
+}
+
+function markdown(source: string): HTMLElement {
+  return h('div', { class: 'markdown' }, ...renderMarkdown(source).map(toDom))
+}
+
+function actionSummary(events: readonly EventView[]): string {
+  const text = actionCounts(events)
+    .map(({ category, count }) =>
+      t(`summary.${category}.${count === 1 ? 'one' : 'other'}`, { count }),
     )
-  }
-  if (event.kind === 'stop') {
-    return h(
-      'li',
-      { class: 'event', 'data-kind': 'stop' },
-      icon(checkCircle),
-      h('span', { class: 'event-label muted' }, t('event.stop')),
-    )
-  }
+    .join(t('summary.separator'))
+  return text.charAt(0).toLocaleUpperCase(context.locale) + text.slice(1)
+}
+
+function actionRow(event: EventView): HTMLElement {
   const tool = event.tool ?? 'other'
   return h(
     'li',
-    { class: 'event', 'data-kind': 'tool', 'data-tool': tool },
+    { class: 'event', 'data-tool': tool },
     icon(TOOL_ICONS[tool]),
     h('span', { class: 'event-label muted' }, t(`event.tool.${tool}`)),
     event.text ? h('code', { class: 'event-text' }, event.text) : null,
   )
 }
 
-function turnEvents(turn: TurnView): HTMLElement {
-  return h('ul', { class: 'events' }, ...turn.events.map(eventRow))
+function actionGroup(key: string, events: readonly EventView[]): HTMLElement | null {
+  const tools = events.filter((event) => event.kind === 'tool')
+  if (tools.length === 0) return null
+  const id = `actions-${groupSeq++}`
+  const open = openGroups.has(key)
+  const body = h('ul', { class: 'action-list', id, hidden: !open }, ...tools.map(actionRow))
+  const toggle = h(
+    'button',
+    {
+      class: 'actions-toggle',
+      type: 'button',
+      'aria-expanded': String(open),
+      'aria-controls': id,
+      onClick: () => {
+        const next = toggle.getAttribute('aria-expanded') !== 'true'
+        toggle.setAttribute('aria-expanded', String(next))
+        body.hidden = !next
+        if (next) openGroups.add(key)
+        else openGroups.delete(key)
+      },
+    },
+    icon(caretRight),
+    h('span', { class: 'actions-summary' }, actionSummary(tools)),
+  )
+  return h('div', { class: 'actions' }, toggle, body)
 }
 
-function earlierTurn(turn: TurnView): HTMLElement {
+function turnNode(agent: AgentView, turn: TurnView, current: boolean): HTMLElement {
   return h(
-    'div',
-    { class: 'turn' },
-    turnEvents(turn),
-    turn.recap ? h('p', { class: 'recap muted' }, turn.recap) : null,
+    'li',
+    { class: 'turn', 'data-state': current ? (agent.state ?? 'idle') : 'past' },
+    h('span', { class: 'node', 'aria-hidden': 'true' }),
+    h(
+      'div',
+      { class: 'turn-head' },
+      icon(chatText),
+      h('p', { class: 'prompt' }, turn.prompt ?? ''),
+      age(turn.start),
+    ),
+    turn.recap ? markdown(turn.recap) : null,
+    actionGroup(`${agent.paneId}:${turn.start}`, turn.events),
   )
 }
 
-function earlierTurns(agent: AgentView): HTMLElement | null {
-  if (agent.earlier.length === 0) return null
-  const details = h(
-    'details',
-    { class: 'earlier', open: expanded.has(agent.paneId) },
-    h('summary', { class: 'muted' }, t('earlier', { count: agent.earlier.length })),
-    ...agent.earlier.map(earlierTurn),
-  ) as HTMLDetailsElement
-  details.addEventListener('toggle', () => {
-    if (details.open) expanded.add(agent.paneId)
-    else expanded.delete(agent.paneId)
-  })
-  return details
+function timeline(agent: AgentView): HTMLElement {
+  return h(
+    'ol',
+    { class: 'timeline', 'aria-label': t('timeline') },
+    turnNode(agent, agent.current, true),
+    ...agent.earlier.map((turn) => turnNode(agent, turn, false)),
+  )
 }
 
 function agentCard(agent: AgentView, showActivity: boolean): HTMLElement {
@@ -160,10 +201,8 @@ function agentCard(agent: AgentView, showActivity: boolean): HTMLElement {
       h('span', { class: 'spacer' }),
       age(agent.last),
     ),
-    agent.recap ? h('p', { class: 'recap' }, agent.recap) : null,
     note ? h('p', { class: 'note muted', role: 'status' }, note) : null,
-    showActivity ? turnEvents(agent.current) : null,
-    showActivity ? earlierTurns(agent) : null,
+    showActivity ? timeline(agent) : agent.recap ? markdown(agent.recap) : null,
   )
 }
 
@@ -217,7 +256,6 @@ function workspaceSection(workspace: WorkspaceView, showActivity: boolean): HTML
   return h(
     'section',
     { class: 'workspace', 'data-workspace': workspace.workspaceId },
-    h('h2', { class: 'workspace-name muted' }, workspace.name),
     notesList(workspace),
     ...workspace.agents.map((agent) => agentCard(agent, showActivity)),
   )
@@ -235,11 +273,11 @@ function render(): void {
   recapButton.setAttribute('aria-pressed', String(!model.showActivity))
   activityButton.setAttribute('aria-pressed', String(model.showActivity))
   const showActivity = model.showActivity
-  if (model.workspaces.length === 0) {
+  if (!model.workspace) {
     list.replaceChildren(h('p', { class: 'center muted' }, t('empty')))
     return
   }
-  list.replaceChildren(...model.workspaces.map((w) => workspaceSection(w, showActivity)))
+  list.replaceChildren(workspaceSection(model.workspace, showActivity))
 }
 
 async function refresh(): Promise<void> {

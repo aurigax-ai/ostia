@@ -1,7 +1,6 @@
 import {
   type CommandHandler,
   type ExtensionEventType,
-  type ExtensionResult,
   type ExtensionSettingValues,
   booleanSetting,
   cliArgs,
@@ -15,7 +14,7 @@ import {
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { ARCHIVE_DAYS, DAY_MS, Journal, RETENTION_DAYS, type Retention } from './journal'
 import { createNeedsYou } from './needsYou'
-import { SHOW_ACTIVITY, activityPanelCommands } from './panelCommands'
+import { type PanelCommand, SHOW_ACTIVITY, activityPanelCommands } from './panelCommands'
 import { Recorder } from './recorder'
 import { activityVerbs } from './verbs'
 import type { OpenWorkspace } from './view'
@@ -29,8 +28,6 @@ function retentionOf(values: ExtensionSettingValues): Retention {
   const archiveDays = numberSetting(values, 'archiveDays', ARCHIVE_DAYS, { min: 1, max: 3650 })
   return { liveMs: liveDays * DAY_MS, archiveMs: archiveDays * DAY_MS }
 }
-
-type PanelCommand = (args: unknown) => Promise<ExtensionResult>
 
 interface ListedWorkspace extends OpenWorkspace {
   kind: string
@@ -54,9 +51,9 @@ async function main(): Promise<void> {
   const panelStarting = startPanelServer({
     dir: __dirname,
     files: PANEL_FILES,
-    handle: async (command, args) => {
+    handle: async (command, args, caller) => {
       const handler = panelHandlers[command]
-      return handler ? handler(args) : failure('unknown-command', command)
+      return handler ? handler(args, caller) : failure('unknown-command', command)
     },
   })
   let handlersAssigned = (): void => {}
