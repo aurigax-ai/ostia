@@ -54,6 +54,7 @@
     "electron-log": "^5.4.4",
     "es-toolkit": "^1.52.0",
     "esbuild": "catalog:",
+    "koffi": "^3.3.3",
     "lru-cache": "^11.5.3",
     "node-pty": "^1.1.0",
     "parse5": "^8.0.1",

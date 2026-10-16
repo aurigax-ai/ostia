@@ -1,7 +1,7 @@
-import { constants, type Stats } from 'node:fs'
+import { constants } from 'node:fs'
 import { join } from 'node:path'
 import type { FolderAnchor } from './folderAnchor'
-import type { TransferFs } from './transferFs'
+import type { EntryStat, TransferFs } from './transferFs'
 
 export interface TransferEnd {
   anchor: FolderAnchor
@@ -30,7 +30,7 @@ function errorCode(error: unknown): string | undefined {
   return (error as NodeJS.ErrnoException | null)?.code
 }
 
-function sameEntry(a: Stats, b: Stats): boolean {
+function sameEntry(a: EntryStat, b: EntryStat): boolean {
   return a.dev === b.dev && a.ino === b.ino
 }
 
@@ -58,7 +58,7 @@ async function claimFile(
   fs: TransferFs,
   from: string,
   to: string,
-  expected: Stats,
+  expected: EntryStat,
 ): Promise<Claim> {
   const input = await fs.open(from, READ_FLAGS)
   try {
@@ -98,7 +98,7 @@ async function claimFolder(
   fs: TransferFs,
   source: TransferEnd,
   target: TransferEnd,
-  expected: Stats,
+  expected: EntryStat,
 ): Promise<Claim> {
   if (!(await claimed(async () => fs.mkdir(await target.anchor.at(target.name))))) return 'taken'
   return {
@@ -190,7 +190,7 @@ export async function moveExclusive(
 export async function entryUnchanged(
   fs: TransferFs,
   end: TransferEnd,
-  expected: Stats,
+  expected: EntryStat,
 ): Promise<boolean> {
   if (!(await end.anchor.stillAt())) return false
   const now = await fs.lstat(await end.anchor.at(end.name)).catch(() => null)

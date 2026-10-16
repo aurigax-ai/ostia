@@ -17,9 +17,12 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { atTransferFs } from './atTransferFs'
 import { copyExclusive, moveExclusive } from './exclusiveTransfer'
 import { FileOps, copyName, nameProblem, numberedName } from './fileOps'
 import { openAnchor } from './folderAnchor'
+import { macAt } from './macAt'
+import { procAtFs } from './procAtFs'
 import { type TransferFs, nodeTransferFs } from './transferFs'
 
 const dirs: string[] = []
@@ -46,6 +49,18 @@ function tmp(): string {
 }
 
 const linux = process.platform === 'linux'
+
+const modes: { platform: NodeJS.Platform; base: TransferFs }[] = linux
+  ? [
+      { platform: 'linux', base: nodeTransferFs },
+      { platform: 'darwin', base: atTransferFs(procAtFs) },
+    ]
+  : [
+      {
+        platform: process.platform,
+        base: process.platform === 'darwin' ? atTransferFs(macAt) : nodeTransferFs,
+      },
+    ]
 
 function privateTrash(): {
   homeTrash: string
@@ -435,7 +450,9 @@ describe('FileOps transfers never replace and never block', () => {
   )
 })
 
-describe('exclusive transfers', () => {
+describe.each(modes)('exclusive transfers on $platform', ({ platform, base }) => {
+  const anchored = platform === 'linux' || platform === 'darwin'
+  const onLinux = platform === 'linux'
   type Kind = 'open' | 'mkdir' | 'rename'
 
   function hookedFs(
@@ -464,13 +481,10 @@ describe('exclusive transfers', () => {
         return result
       }
     return {
-      ...nodeTransferFs,
-      open: wrap(
-        'open',
-        nodeTransferFs.open as (...args: unknown[]) => Promise<never>,
-      ) as TransferFs['open'],
-      mkdir: wrap('mkdir', nodeTransferFs.mkdir),
-      rename: wrap('rename', nodeTransferFs.rename),
+      ...base,
+      open: wrap('open', base.open as (...args: unknown[]) => Promise<never>) as TransferFs['open'],
+      mkdir: wrap('mkdir', base.mkdir),
+      rename: wrap('rename', base.rename),
     }
   }
 
@@ -491,6 +505,7 @@ describe('exclusive transfers', () => {
     const ops = new FileOps({
       roots: [root],
       fs,
+      platform,
       ...trash,
       trash: async (path) => {
         trashed.push(path)
@@ -508,7 +523,7 @@ describe('exclusive transfers', () => {
     }
   }
 
-  it.runIf(linux)(
+  it.runIf(anchored)(
     'keeps writing into the real folder when the destination is swapped for a link mid-copy, and deletes nothing',
     async () => {
       let swap = (): void => {}
@@ -527,7 +542,7 @@ describe('exclusive transfers', () => {
     },
   )
 
-  it.runIf(linux)(
+  it.runIf(anchored)(
     'moves into the real folder when the destination is swapped for a link before the rename',
     async () => {
       let swap = (): void => {}
@@ -543,7 +558,7 @@ describe('exclusive transfers', () => {
     },
   )
 
-  it.runIf(linux)(
+  it.runIf(anchored)(
     'deletes nothing after a failed rename, even when the destination was swapped for a link',
     async () => {
       let swap = (): void => {}
@@ -561,7 +576,7 @@ describe('exclusive transfers', () => {
     },
   )
 
-  it.runIf(linux)(
+  it.runIf(anchored)(
     'never reads through a source subfolder swapped for a link to secrets',
     async () => {
       let swap = (): void => {}
@@ -579,7 +594,7 @@ describe('exclusive transfers', () => {
     },
   )
 
-  it.runIf(linux)(
+  it.runIf(anchored)(
     'keeps a folder walk inside the folder it made when that folder is swapped for a link',
     async () => {
       let swap = (): void => {}
@@ -604,21 +619,19 @@ describe('exclusive transfers', () => {
         return result
       }
     return {
-      lstat: counted(nodeTransferFs.lstat),
-      readdir: counted(nodeTransferFs.readdir),
-      readlink: counted(nodeTransferFs.readlink),
-      mkdir: counted(nodeTransferFs.mkdir),
-      symlink: counted(nodeTransferFs.symlink),
-      open: counted(
-        nodeTransferFs.open as (...args: unknown[]) => Promise<never>,
-      ) as TransferFs['open'],
-      rename: counted(nodeTransferFs.rename),
-      rmdir: counted(nodeTransferFs.rmdir),
-      unlink: counted(nodeTransferFs.unlink),
+      lstat: counted(base.lstat),
+      readdir: counted(base.readdir),
+      readlink: counted(base.readlink),
+      mkdir: counted(base.mkdir),
+      symlink: counted(base.symlink),
+      open: counted(base.open as (...args: unknown[]) => Promise<never>) as TransferFs['open'],
+      rename: counted(base.rename),
+      rmdir: counted(base.rmdir),
+      unlink: counted(base.unlink),
     }
   }
 
-  it.runIf(linux)(
+  it.runIf(onLinux)(
     'a folder swapped for a link at any step of a Delete never trashes anything outside',
     async () => {
       for (let step = 1; step <= 40; step++) {
@@ -649,7 +662,7 @@ describe('exclusive transfers', () => {
     },
   )
 
-  it.runIf(linux)('answers a Delete only with the entry really in the Trash', async () => {
+  it.runIf(onLinux)('answers a Delete only with the entry really in the Trash', async () => {
     const root = tmp()
     mkdirSync(join(root, 'sub'))
     writeFileSync(join(root, 'sub', 'notes.md'), 'mine')
@@ -667,7 +680,7 @@ describe('exclusive transfers', () => {
     expect(readdirSync(join(root, 'sub'))).toEqual([])
   })
 
-  it.runIf(linux)(
+  it.runIf(onLinux)(
     'writes a trashinfo with the encoded original path and date, which restores to the original name',
     async () => {
       const { root, ops, homeTrash } = setup()
@@ -687,7 +700,7 @@ describe('exclusive transfers', () => {
     },
   )
 
-  it.runIf(linux && existsSync('/dev/shm'))(
+  it.runIf(onLinux && existsSync('/dev/shm'))(
     "trashes a source on another device into that device's own trash folder, with a relative path",
     async () => {
       const root = tmp()
@@ -716,7 +729,7 @@ describe('exclusive transfers', () => {
     },
   )
 
-  it.runIf(linux)(
+  it.runIf(anchored)(
     'refuses a source whose folder was swapped for a link before it was anchored',
     async () => {
       let swap = (): void => {}
@@ -733,7 +746,7 @@ describe('exclusive transfers', () => {
     },
   )
 
-  it.runIf(linux)(
+  it.runIf(anchored)(
     'refuses a source reached through a folder higher up that was swapped for a link',
     async () => {
       let swap = (): void => {}
@@ -751,12 +764,13 @@ describe('exclusive transfers', () => {
     },
   )
 
-  it.runIf(linux)('refuses every transfer when /proc cannot vouch for a folder', async () => {
+  it.runIf(anchored)('refuses every transfer when /proc cannot vouch for a folder', async () => {
     const c = swapCase({
-      ...nodeTransferFs,
+      ...base,
       readlink: async (path) => {
-        if (path.startsWith('/proc/')) throw Object.assign(new Error('no proc'), { code: 'ENOENT' })
-        return nodeTransferFs.readlink(path)
+        if (path.startsWith('/proc/') || path.startsWith('/dev/fd/'))
+          throw Object.assign(new Error('no proc'), { code: 'ENOENT' })
+        return base.readlink(path)
       },
     })
     writeFileSync(join(c.far, 'a.txt'), 'a')
@@ -772,21 +786,58 @@ describe('exclusive transfers', () => {
     expect(existsSync(join(c.far, 'a.txt'))).toBe(true)
   })
 
+  it.runIf(anchored)(
+    'lists many varied names and stats entries it cannot open, as the system lstat does',
+    async () => {
+      const dir = tmp()
+      const names = [
+        '.hidden',
+        '..dots',
+        'ünï-çødé.txt',
+        'e\u0301.txt',
+        '日本語の名前.md',
+        'x'.repeat(250),
+        'with space',
+        ...Array.from({ length: 300 }, (_, i) => `file-${i}-${'n'.repeat(i % 40)}`),
+      ]
+      for (const name of names) writeFileSync(join(dir, name), name)
+      writeFileSync(join(dir, 'locked'), 'secret')
+      chmodSync(join(dir, 'locked'), 0)
+      const socket = join(dir, 's.sock')
+      const server = createServer()
+      await new Promise<void>((ok) => server.listen(socket, ok))
+      const anchor = await openAnchor(base, dir, platform)
+      try {
+        expect((await anchor.list()).sort()).toEqual(readdirSync(dir).sort())
+        expect((await anchor.list()).length).toBe(names.length + 2)
+        const locked = await base.lstat(await anchor.at('locked'))
+        expect(locked.isFile()).toBe(true)
+        expect(locked.mode & 0o777).toBe(0)
+        const sock = await base.lstat(await anchor.at('s.sock'))
+        expect(sock.isFile() || sock.isDirectory() || sock.isSymbolicLink()).toBe(false)
+        const real = lstatSync(join(dir, 'locked'))
+        expect([locked.dev, locked.ino, locked.uid]).toEqual([real.dev, real.ino, real.uid])
+      } finally {
+        await anchor.close()
+        await new Promise((ok) => server.close(ok))
+        chmodSync(join(dir, 'locked'), 0o600)
+      }
+    },
+  )
+
   it('never takes a name that appeared after it was picked', async () => {
     const dir = tmp()
     writeFileSync(join(dir, 'file'), 'new')
     mkdirSync(join(dir, 'folder'))
     symlinkSync(dir, join(dir, 'link'))
     writeFileSync(join(dir, 'taken'), 'theirs')
-    const anchor = await openAnchor(nodeTransferFs, dir, process.platform)
+    const anchor = await openAnchor(base, dir, platform)
     try {
       for (const name of ['file', 'folder', 'link']) {
         const source = { anchor, name }
         const target = { anchor, name: 'taken' }
-        expect(await moveExclusive(nodeTransferFs, source, target, process.platform), name).toBe(
-          'taken',
-        )
-        expect(await copyExclusive(nodeTransferFs, source, target), name).toBe('taken')
+        expect(await moveExclusive(base, source, target, platform), name).toBe('taken')
+        expect(await copyExclusive(base, source, target), name).toBe('taken')
         expect(existsSync(join(dir, name))).toBe(true)
       }
     } finally {
@@ -801,14 +852,10 @@ describe('exclusive transfers', () => {
     writeFileSync(join(outside, 'victim'), 'outside')
     writeFileSync(join(dir, 'source.txt'), 'payload')
     symlinkSync(join(outside, 'victim'), join(dir, 'copy.txt'))
-    const anchor = await openAnchor(nodeTransferFs, dir, process.platform)
+    const anchor = await openAnchor(base, dir, platform)
     try {
       expect(
-        await copyExclusive(
-          nodeTransferFs,
-          { anchor, name: 'source.txt' },
-          { anchor, name: 'copy.txt' },
-        ),
+        await copyExclusive(base, { anchor, name: 'source.txt' }, { anchor, name: 'copy.txt' }),
       ).toBe('taken')
     } finally {
       await anchor.close()
@@ -823,9 +870,7 @@ describe('exclusive transfers', () => {
     const checked = lstatSync(join(root, 'dest'))
     renameSync(join(root, 'dest'), join(root, 'dest-real'))
     symlinkSync(outside, join(root, 'dest'))
-    await expect(
-      openAnchor(nodeTransferFs, join(root, 'dest'), process.platform, checked),
-    ).rejects.toThrow()
+    await expect(openAnchor(base, join(root, 'dest'), platform, checked)).rejects.toThrow()
     expect(readdirSync(outside)).toEqual([])
   })
 

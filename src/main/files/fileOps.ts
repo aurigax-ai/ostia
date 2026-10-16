@@ -4,6 +4,7 @@ import { homedir } from 'node:os'
 import { basename, dirname, extname, isAbsolute, join } from 'node:path'
 import type { FileOpResult } from '../../shared/files/fileOps'
 import { isInsidePath, resolveSafe } from '../platform/pathGuard'
+import { atTransferFs } from './atTransferFs'
 import {
   PartialTransferError,
   type TransferEnd,
@@ -19,7 +20,8 @@ import {
   moveToTrash,
   topdirTrashPlace,
 } from './freedesktopTrash'
-import { type TransferFs, nodeTransferFs } from './transferFs'
+import { macAt } from './macAt'
+import { type EntryStat, type TransferFs, nodeTransferFs } from './transferFs'
 
 const FILE_OP_MAX_PATHS = 500
 const NAME_MAX_BYTES = 255
@@ -151,7 +153,7 @@ function failure(error: unknown, done: string[]): FileOpFailure {
 
 interface Destination {
   path: string
-  stat: Stats
+  stat: EntryStat
 }
 
 export class FileOps {
@@ -160,8 +162,8 @@ export class FileOps {
   private readonly platform: NodeJS.Platform
 
   constructor(private readonly deps: FileOpsDeps) {
-    this.fs = deps.fs ?? nodeTransferFs
     this.platform = deps.platform ?? process.platform
+    this.fs = deps.fs ?? (this.platform === 'darwin' ? atTransferFs(macAt) : nodeTransferFs)
     this.realRoots = Promise.all(
       deps.roots.map((root) =>
         realpath(root).then(
@@ -174,7 +176,7 @@ export class FileOps {
 
   private async anchored<T>(
     path: string,
-    expected: Stats | null,
+    expected: EntryStat | null,
     run: (anchor: FolderAnchor) => Promise<T>,
   ): Promise<T> {
     const anchor = await openAnchor(this.fs, path, this.platform, expected)
@@ -317,7 +319,7 @@ export class FileOps {
     }
   }
 
-  private async toTrash(source: TransferEnd, expected: Stats): Promise<TrashOutcome> {
+  private async toTrash(source: TransferEnd, expected: EntryStat): Promise<TrashOutcome> {
     try {
       if (this.platform !== 'linux') {
         if (!(await entryUnchanged(this.fs, source, expected))) return 'failed'
