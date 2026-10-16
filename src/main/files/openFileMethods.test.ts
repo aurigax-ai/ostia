@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { OPEN_FILES_COMMAND } from '../../shared/files/openFiles'
 import type { CommandResult } from '../../shared/control/commands'
+import { OPEN_FILES_COMMAND } from '../../shared/files/openFiles'
 import { OpenFileGrants } from './openFileGrants'
 import { type ExtensionOpenFileDeps, openFileForExtension } from './openFileMethods'
 

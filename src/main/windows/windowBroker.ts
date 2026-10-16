@@ -1,9 +1,15 @@
 import { type BrowserWindow, ipcMain } from 'electron'
 import { debounce } from 'es-toolkit'
-import type { AppSnapshot, WindowBounds } from '../../shared/workspaces/workspaceApi'
-import type { CommandResult, CommandTarget } from '../../shared/control/commands'
-import type { NewWorkspaceRequest, WindowInfo, WindowPaneReport, WindowSummary, WindowWorkspaceReport } from '../../shared/windows/windowsApi'
 import type { WorkspaceLiveState } from '../../shared/attention/attention'
+import type { CommandResult, CommandTarget } from '../../shared/control/commands'
+import type {
+  NewWorkspaceRequest,
+  WindowInfo,
+  WindowPaneReport,
+  WindowSummary,
+  WindowWorkspaceReport,
+} from '../../shared/windows/windowsApi'
+import type { AppSnapshot, WindowBounds } from '../../shared/workspaces/workspaceApi'
 import type { AgentRunningPanes } from '../agents/agentRunning'
 import {
   type OriginRules,

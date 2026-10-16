@@ -1,12 +1,28 @@
-import type { BrowserProfile } from './browserProfile'
-import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
-import type { RegionCaptureOutcome, RegionCaptureRequest, RegionCopyResult, RegionSendRequest } from './regionCapture'
 import type { BrowserDevice } from './browserDevice'
+import type { BrowserProfile } from './browserProfile'
+import type {
+  BrowserStorageRead,
+  StorageEdit,
+  StorageKind,
+  StorageRemoval,
+  StorageWriteResult,
+} from './browserStorage'
+import type {
+  CredentialImportResult,
+  CredentialInput,
+  CredentialSaveResult,
+  CredentialSummary,
+} from './credentials'
 import type { DeviceTouch } from './deviceTouch'
-import type { BrowserStorageRead, StorageEdit, StorageKind, StorageRemoval, StorageWriteResult } from './browserStorage'
 import type { BrowserTabOpen } from './linkTabs'
+import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
+import type {
+  RegionCaptureOutcome,
+  RegionCaptureRequest,
+  RegionCopyResult,
+  RegionSendRequest,
+} from './regionCapture'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
-import type { CredentialImportResult, CredentialInput, CredentialSaveResult, CredentialSummary } from './credentials'
 
 interface BrowserApi {
   claimProfile: (paneId: string, profile: BrowserProfile) => Promise<BrowserProfile>

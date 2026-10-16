@@ -1,5 +1,3 @@
-
-
 export type WorkspaceLiveState = 'idle' | 'working' | 'waiting' | 'done' | 'error'
 
 export type AttentionState = 'none' | 'working' | 'waiting' | 'done' | 'error'

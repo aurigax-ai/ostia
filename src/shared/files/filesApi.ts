@@ -1,4 +1,11 @@
-import type { RemoteFolder, RemoteFolderAsk, RemoteListResult, RemoteReadResult, RemoteStatResult, RemoteWriteResult } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import type {
+  RemoteFolder,
+  RemoteFolderAsk,
+  RemoteListResult,
+  RemoteReadResult,
+  RemoteStatResult,
+  RemoteWriteResult,
+} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import type { OpenFileVerdict } from './openFiles'
 
 export interface FsEntry {

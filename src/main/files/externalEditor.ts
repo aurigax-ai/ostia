@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process'
 import { constants, accessSync } from 'node:fs'
 import { isAbsolute } from 'node:path'
-import { splitArgs } from '../../shared/terminal/argv'
 import type { ExternalEditorRequest, ExternalEditorResult } from '../../shared/app/appApi'
+import { splitArgs } from '../../shared/terminal/argv'
 import { findOnPath } from '../platform/pathLookup'
 
 const AUTO_EDITOR = 'auto'

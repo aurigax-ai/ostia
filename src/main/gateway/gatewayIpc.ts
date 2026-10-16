@@ -1,8 +1,19 @@
 import { hostname } from 'node:os'
 import { type IpcMainInvokeEvent, ipcMain } from 'electron'
 import { isEqual } from 'es-toolkit'
+import type {
+  GatewayActionResult,
+  GatewayDevice,
+  GatewayEnableResponse,
+  GatewayPairResponse,
+  GatewayPhoneAddress,
+  GatewayRemoteStatus,
+  GatewaySetCapResult,
+  GatewaySetRouteResult,
+  GatewayTailnetActionResult,
+  GatewayTailnetState,
+} from '../../shared/gateway/gatewayApi'
 import { LOOPBACK_ADDRESS } from '../../shared/gateway/gatewayRoute'
-import type { GatewayActionResult, GatewayDevice, GatewayEnableResponse, GatewayPairResponse, GatewayPhoneAddress, GatewayRemoteStatus, GatewaySetCapResult, GatewaySetRouteResult, GatewayTailnetActionResult, GatewayTailnetState } from '../../shared/gateway/gatewayApi'
 import { registerControlMethod } from '../control/controlServer'
 import { type Announcement, type Publisher, announcementFor } from './announce'
 import type { Device } from './devices'

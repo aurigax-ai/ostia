@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import { type BrowserWindow, screen } from 'electron'
-import type { AppSnapshot, SnapshotWorkspace, WindowBounds } from '../../shared/workspaces/workspaceApi'
 import type { WindowWorkspaceReport } from '../../shared/windows/windowsApi'
+import type {
+  AppSnapshot,
+  SnapshotWorkspace,
+  WindowBounds,
+} from '../../shared/workspaces/workspaceApi'
 import { MAX_WORKSPACES } from '../../shared/workspaces/workspaceLimits'
 import { approvals } from '../approvals/approvals'
 import { questions } from '../approvals/questions'

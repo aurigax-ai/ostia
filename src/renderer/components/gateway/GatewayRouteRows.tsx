@@ -4,8 +4,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
 import type { Dict } from '@shared/app/dict'
+import type {
+  GatewayBindAddress,
+  GatewayPhoneAddress,
+  GatewayRoute,
+  GatewayTailnetState,
+} from '@shared/gateway/gatewayApi'
 import { formatPhoneAddress, parsePhoneAddress } from '@shared/gateway/gatewayRoute'
-import type { GatewayBindAddress, GatewayPhoneAddress, GatewayRoute, GatewayTailnetState } from '@shared/gateway/gatewayApi'
 import { useEffect, useState } from 'react'
 import type { GatewayRouteState } from './useGatewayRoute'
 import type { GatewayStatus } from './useGatewayStatus'

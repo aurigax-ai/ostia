@@ -1,9 +1,14 @@
-import type { PromptSeparator } from './promptSettings'
-import type { HibernateOutcome } from '../agents/agentWork'
-import type { HistoryBlockRange, HistoryPage, HistorySearchOptions, HistorySearchResult } from './scrollbackHistory'
-import type { FsEntry } from '../files/filesApi'
 import type { RemoteCwd } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import type { HibernateOutcome } from '../agents/agentWork'
+import type { FsEntry } from '../files/filesApi'
 import type { SpecCommand } from './completionSpec'
+import type { PromptSeparator } from './promptSettings'
+import type {
+  HistoryBlockRange,
+  HistoryPage,
+  HistorySearchOptions,
+  HistorySearchResult,
+} from './scrollbackHistory'
 
 export interface PaneActivity {
   program: string | null

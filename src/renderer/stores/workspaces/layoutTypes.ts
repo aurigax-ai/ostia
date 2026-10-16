@@ -5,8 +5,8 @@ import type { DiffContent } from '@aurigax-ai/ostia-extension-sdk/contract/exten
 import type { AgentResume } from '@shared/agents/agentResume'
 import type { BrowserDevice } from '@shared/browser/browserDevice'
 import type { BrowserProfile } from '@shared/browser/browserProfile'
-import type { PanePlacement } from '@shared/workspaces/workspaceApi'
 import type { SplitTabPlacement } from '@shared/workspaces/splitTabs'
+import type { PanePlacement } from '@shared/workspaces/workspaceApi'
 import type { StoreApi } from 'zustand'
 
 export interface WorkspaceLayout {

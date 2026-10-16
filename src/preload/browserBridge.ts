@@ -1,4 +1,5 @@
 import { ipcRenderer } from 'electron'
+import type { CredentialFillResult } from '../shared/browser/browserApi'
 import type { BrowserProfile } from '../shared/browser/browserProfile'
 import type { BrowserStorageRead, StorageWriteResult } from '../shared/browser/browserStorage'
 import type {
@@ -8,7 +9,6 @@ import type {
 } from '../shared/browser/credentials'
 import type { PickOutcome, PickSendResult } from '../shared/browser/pick'
 import type { RegionCaptureOutcome, RegionCopyResult } from '../shared/browser/regionCapture'
-import type { CredentialFillResult } from '../shared/browser/browserApi'
 import type { OstiaBridge } from '../shared/types'
 import { listen } from './listen'
 

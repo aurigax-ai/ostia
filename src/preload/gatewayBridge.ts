@@ -1,5 +1,16 @@
 import { ipcRenderer } from 'electron'
-import type { GatewayActionResult, GatewayBindAddress, GatewayDevice, GatewayEnableResponse, GatewayPairRequest, GatewayPairResponse, GatewayRemoteStatus, GatewaySetCapResult, GatewaySetRouteResult, GatewayTailnetActionResult } from '../shared/gateway/gatewayApi'
+import type {
+  GatewayActionResult,
+  GatewayBindAddress,
+  GatewayDevice,
+  GatewayEnableResponse,
+  GatewayPairRequest,
+  GatewayPairResponse,
+  GatewayRemoteStatus,
+  GatewaySetCapResult,
+  GatewaySetRouteResult,
+  GatewayTailnetActionResult,
+} from '../shared/gateway/gatewayApi'
 import type { OstiaBridge } from '../shared/types'
 import { listen } from './listen'
 

@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import type { IpcMain, WebContents } from 'electron'
+import type { ClipboardContents } from '../../shared/app/appApi'
 import {
   type ClipboardChords,
   type ClipboardEdit,
@@ -8,7 +9,6 @@ import {
   isClipboardEdit,
   normalizeClipboardChords,
 } from '../../shared/keyboard/clipboardChords'
-import type { ClipboardContents } from '../../shared/app/appApi'
 
 export interface ClipboardSnapshot {
   formats: string[]

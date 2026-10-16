@@ -20,7 +20,6 @@ import {
   nextWorkspaceId,
   useWorkspacesStore,
 } from '@/stores/workspaces/workspacesStore'
-import type { SnapshotWorkspace } from '@shared/workspaces/workspaceApi'
 import {
   CMUX_SESSION_MAX_BYTES,
   type CmuxImportReport,
@@ -34,6 +33,7 @@ import {
   type CmuxSurface,
   type CmuxWorkspace,
 } from '@shared/workspaces/cmuxSession'
+import type { SnapshotWorkspace } from '@shared/workspaces/workspaceApi'
 import type { WorkspaceGroupColor } from '@shared/workspaces/workspaceGroups'
 import { MAX_LAYOUT_DEPTH, MAX_PANES, MAX_WORKSPACES } from '@shared/workspaces/workspaceLimits'
 import { normalizeDescription } from '@shared/workspaces/workspaceText'

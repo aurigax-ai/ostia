@@ -1,7 +1,21 @@
-import type { SecretEntry, SecretGrant } from './secrets'
-import type { PortsPolicy, SandboxControls, SandboxEditError, SandboxEditResult, SandboxEnableResult, SandboxExposeResult, SandboxFixedPolicy, SandboxPathKind, SandboxPortRow, SandboxSwitches, SandboxViolation, WorkspacePackages, WorkspaceSandbox } from './sandbox'
-import type { SandboxReadPreset } from './sandboxPresets'
 import type { RequirementsReport } from '../app/systemRequirements'
+import type {
+  PortsPolicy,
+  SandboxControls,
+  SandboxEditError,
+  SandboxEditResult,
+  SandboxEnableResult,
+  SandboxExposeResult,
+  SandboxFixedPolicy,
+  SandboxPathKind,
+  SandboxPortRow,
+  SandboxSwitches,
+  SandboxViolation,
+  WorkspacePackages,
+  WorkspaceSandbox,
+} from './sandbox'
+import type { SandboxReadPreset } from './sandboxPresets'
+import type { SecretEntry, SecretGrant } from './secrets'
 
 interface SecretsApi {
   view: (workspaceId: string) => Promise<{ secrets: SecretEntry[]; grants: SecretGrant[] } | null>

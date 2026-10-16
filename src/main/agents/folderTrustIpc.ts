@@ -1,7 +1,7 @@
 import { homedir, hostname } from 'node:os'
 import { ipcMain } from 'electron'
-import { isHostNamed } from '../../shared/terminal/osc7'
 import type { FolderTrust } from '../../shared/agents/agentsApi'
+import { isHostNamed } from '../../shared/terminal/osc7'
 import { getByPaneId, panesOwnedBy } from '../control/idRegistry'
 import type { SettingsFile } from '../platform/settingsFile'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'

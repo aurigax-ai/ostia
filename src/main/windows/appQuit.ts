@@ -1,7 +1,7 @@
 import { BrowserWindow, app } from 'electron'
 import type { Dict } from '../../shared/app/dict'
-import type { QuitAnswer } from '../../shared/windows/windowsApi'
 import type { PaneActivity } from '../../shared/terminal/ptyApi'
+import type { QuitAnswer } from '../../shared/windows/windowsApi'
 import type { ScriptTokenUsageLog } from '../approvals/scriptTokenUsage'
 import type { AppLog } from '../diagnostics/appLog'
 import type { Telemetry } from '../diagnostics/telemetry'

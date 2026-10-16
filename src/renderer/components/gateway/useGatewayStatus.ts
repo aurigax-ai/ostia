@@ -1,4 +1,10 @@
-import type { GatewayBindAddress, GatewayDevice, GatewayPairRequest, GatewayRemoteStatus, GatewayTailnetState } from '@shared/gateway/gatewayApi'
+import type {
+  GatewayBindAddress,
+  GatewayDevice,
+  GatewayPairRequest,
+  GatewayRemoteStatus,
+  GatewayTailnetState,
+} from '@shared/gateway/gatewayApi'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 export interface GatewayStatus {

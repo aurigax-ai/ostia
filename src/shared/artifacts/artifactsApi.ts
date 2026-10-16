@@ -1,4 +1,9 @@
-import type { ArtifactListing, ArtifactRestore, ArtifactVersion, ArtifactVersionContent } from './artifacts'
+import type {
+  ArtifactListing,
+  ArtifactRestore,
+  ArtifactVersion,
+  ArtifactVersionContent,
+} from './artifacts'
 import type { PortableAction, PortableRequest, PortableResult } from './portable'
 
 interface ArtifactsApi {

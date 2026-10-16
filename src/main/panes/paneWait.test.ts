@@ -8,8 +8,8 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import type { ApprovalOutcome } from '../../shared/permissions/approvals'
 import type { CommandResult } from '../../shared/control/commands'
+import type { ApprovalOutcome } from '../../shared/permissions/approvals'
 import type { ApprovalAsk } from '../approvals/approvals'
 
 let answer: ApprovalOutcome = 'deny'

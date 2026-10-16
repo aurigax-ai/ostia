@@ -1,5 +1,3 @@
-
-
 export interface SyncConflict {
   id: string
   kind: 'setting' | 'file' | 'secret'

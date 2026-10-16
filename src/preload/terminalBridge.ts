@@ -1,16 +1,16 @@
 import { ipcRenderer } from 'electron'
 import type { HibernateOutcome } from '../shared/agents/agentWork'
 import type { SelectionSendResult } from '../shared/browser/selection'
+import type { FsKind, OpenPathResult } from '../shared/files/filesApi'
 import type { OpenFileVerdict } from '../shared/files/openFiles'
 import type { SpecCommand } from '../shared/terminal/completionSpec'
+import type { PaneActivity, PromptContext, PtyAttachResult } from '../shared/terminal/ptyApi'
 import type {
   HistoryBlockRange,
   HistoryPage,
   HistorySearchResult,
 } from '../shared/terminal/scrollbackHistory'
-import type { FsKind, OpenPathResult } from '../shared/files/filesApi'
 import type { OstiaBridge } from '../shared/types'
-import type { PaneActivity, PromptContext, PtyAttachResult } from '../shared/terminal/ptyApi'
 import { listen } from './listen'
 
 export const terminalBridge: Pick<

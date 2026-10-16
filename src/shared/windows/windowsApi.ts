@@ -1,5 +1,5 @@
-import type { AttentionState, WorkspaceLiveState } from '../attention/attention'
 import type { ResumableAgent } from '../agents/agentResume'
+import type { AttentionState, WorkspaceLiveState } from '../attention/attention'
 import type { PanePlacement, SnapshotWorkspace } from '../workspaces/workspaceApi'
 
 interface WindowControls {

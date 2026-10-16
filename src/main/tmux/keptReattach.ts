@@ -1,6 +1,6 @@
 import { rmSync } from 'node:fs'
-import { shellName } from '../../shared/terminal/terminalShell'
 import type { PtyAttachResult, PtySpawnOptions } from '../../shared/terminal/ptyApi'
+import { shellName } from '../../shared/terminal/terminalShell'
 import type { AgentRunningPanes } from '../agents/agentRunning'
 import { type PaneIdentity, adoptPane } from '../control/idRegistry'
 import type { AppLog } from '../diagnostics/appLog'

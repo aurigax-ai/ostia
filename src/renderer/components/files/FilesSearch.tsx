@@ -15,8 +15,8 @@ import {
   TextUnderlineIcon,
   XIcon,
 } from '@phosphor-icons/react'
-import type { SearchNameHit, SearchOutcome } from '@shared/files/search'
 import type { FsEntry } from '@shared/files/filesApi'
+import type { SearchNameHit, SearchOutcome } from '@shared/files/search'
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { fileIcon } from './fileIcon'
 

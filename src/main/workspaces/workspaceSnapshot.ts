@@ -3,10 +3,23 @@ import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { parseResumeFailure, parseStoredResume } from '../../shared/agents/agentResume'
 import { parseBrowserDevice } from '../../shared/browser/browserDevice'
-import type { AppSnapshot, PanePlacement, PanePlacementZone, SnapshotGroup, SnapshotNode, SnapshotPaneNode, SnapshotSurfaceKind, SnapshotTabNode, SnapshotWindow, SnapshotWorkspace, WindowBounds, WorkspaceOrigin } from '../../shared/workspaces/workspaceApi'
-import type { PaneDrop } from '../../shared/windows/windowsApi'
 import { VIEW_NAME } from '../../shared/views/views'
+import type { PaneDrop } from '../../shared/windows/windowsApi'
 import { normalizeSplitTabName } from '../../shared/workspaces/splitTabs'
+import type {
+  AppSnapshot,
+  PanePlacement,
+  PanePlacementZone,
+  SnapshotGroup,
+  SnapshotNode,
+  SnapshotPaneNode,
+  SnapshotSurfaceKind,
+  SnapshotTabNode,
+  SnapshotWindow,
+  SnapshotWorkspace,
+  WindowBounds,
+  WorkspaceOrigin,
+} from '../../shared/workspaces/workspaceApi'
 import { isWorkspaceGroupColor, normalizeGroupName } from '../../shared/workspaces/workspaceGroups'
 import {
   MAX_LAYOUT_DEPTH,

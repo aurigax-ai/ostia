@@ -1,12 +1,19 @@
-import type { RequirementsReport } from './systemRequirements'
 import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import type { DiscreteGpuInfo } from './discreteGpu'
-import type { AppMenuSpec } from './appMenu'
 import type { ClipboardChords, ClipboardEdit } from '../keyboard/clipboardChords'
 import type { GuestChordFire } from '../keyboard/guestChords'
+import type { AppMenuSpec } from './appMenu'
 import type { BuildInfo } from './buildInfo'
-import type { ReleaseState, ReplaceProgress, ReplaceStart, ReplaceState, UpdateRunStart, UpdateRunState } from './installMethod'
+import type { DiscreteGpuInfo } from './discreteGpu'
+import type {
+  ReleaseState,
+  ReplaceProgress,
+  ReplaceStart,
+  ReplaceState,
+  UpdateRunStart,
+  UpdateRunState,
+} from './installMethod'
 import type { ReleaseCheckResult } from './releases'
+import type { RequirementsReport } from './systemRequirements'
 
 export const RENDERER_ERROR_KINDS = ['error', 'rejection', 'render', 'surface'] as const
 

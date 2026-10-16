@@ -7,11 +7,19 @@ import type {
   RemoteWriteResult,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { ipcRenderer, webUtils } from 'electron'
+import type { ExternalEditorResult } from '../shared/app/appApi'
 import type { FileOpResult } from '../shared/files/fileOps'
+import type {
+  FsBinaryResult,
+  FsEntry,
+  FsKind,
+  FsTextResult,
+  OpenPathResult,
+  ViewerOpenResult,
+  WorkspaceProject,
+} from '../shared/files/filesApi'
 import type { OpenFileVerdict } from '../shared/files/openFiles'
 import type { SearchOutcome } from '../shared/files/search'
-import type { ExternalEditorResult } from '../shared/app/appApi'
-import type { FsBinaryResult, FsEntry, FsKind, FsTextResult, OpenPathResult, ViewerOpenResult, WorkspaceProject } from '../shared/files/filesApi'
 import type { OstiaBridge } from '../shared/types'
 import { listen } from './listen'
 
