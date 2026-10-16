@@ -78,7 +78,7 @@ function KeyNotice({ children }: { children: React.ReactNode }): JSX.Element {
   return (
     <div
       data-slot="key-notice"
-      className="absolute top-full left-0 z-20 mt-0.5 w-max max-w-md rounded-md border border-line bg-popover p-2 text-popover-foreground shadow-md"
+      className="motion-enter absolute top-full left-0 origin-top-left z-20 mt-0.5 w-max max-w-md rounded-md border border-line bg-popover p-2 text-popover-foreground shadow-md"
     >
       {children}
     </div>

@@ -3,6 +3,7 @@ import type { PtyAttachResult } from '../../../shared/terminal/ptyApi'
 import { shellName } from '../../../shared/terminal/terminalShell'
 import type { AppLog } from '../../diagnostics/appLog'
 import type { Telemetry } from '../../diagnostics/telemetry'
+import type { PaneLifecycleEvents } from '../../extensions/paneLifecycleEvents'
 import type { PaneProcess } from '../../panes/paneProcess'
 import { hiddenHomeNotice } from '../../sandbox/spawnBanner'
 import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'
@@ -21,6 +22,7 @@ interface PtyStartDeps {
   keptShells: KeptShells
   workspaceSandboxes: WorkspaceSandboxes
   hibernatedPanes: Set<string>
+  paneLifecycleEvents: PaneLifecycleEvents
   trackPty: PtyRegistry['trackPty']
   feedPty: PtyRegistry['feedPty']
   releaseMergedSandbox: (workspaceId: string, exiting?: PtyEntry) => void
@@ -34,6 +36,7 @@ export function createPtyStart({
   keptShells,
   workspaceSandboxes,
   hibernatedPanes,
+  paneLifecycleEvents,
   trackPty,
   feedPty,
   releaseMergedSandbox,
@@ -108,7 +111,9 @@ export function createPtyStart({
 
     const history = takeRestoredScrollback(paneId)
     if (history) appLog()?.info('scrollback-replay', { pane: paneId, chars: history.length })
-    const seam = hibernatedPanes.delete(paneId) ? HIBERNATE_SEAM : RESTORE_SEAM
+    const woken = hibernatedPanes.delete(paneId)
+    if (woken) paneLifecycleEvents.change(paneId, 'woken')
+    const seam = woken ? HIBERNATE_SEAM : RESTORE_SEAM
     if (history) replayRestored(entry, history, seam)
     if (secretNotice) feedDisplay(entry, secretNotice)
     if (notKept) feedDisplay(entry, keepShellsNotice(notKept))

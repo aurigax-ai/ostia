@@ -67,7 +67,7 @@ export function ChatSlashMenu({
   return (
     <div
       ref={rootRef}
-      className="chat-slash-menu motion-enter absolute z-30 max-w-[calc(100%-8px)]"
+      className="chat-slash-menu absolute z-30 max-w-[calc(100%-8px)]"
       style={{
         width: SLASH_MENU_WIDTH,
         left: anchor?.left ?? 8,
