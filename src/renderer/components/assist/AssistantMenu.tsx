@@ -151,7 +151,7 @@ function ModelsPanel(): JSX.Element {
       <ModelLine title={d.assistMenu.fastModel} label={modelLabel(catalog, 'fast')} />
       {lastError ? (
         <p className="flex items-start gap-1 px-1.5 text-attn-fg text-ui-xs">
-          <WarningCircleIcon aria-hidden className="mt-0.5 size-3 shrink-0" />
+          <WarningCircleIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
           <span className="min-w-0 break-words">
             {fmt(d.assistMenu.lastError, { error: lastError })}
           </span>

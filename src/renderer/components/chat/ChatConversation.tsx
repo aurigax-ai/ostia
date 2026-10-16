@@ -122,7 +122,7 @@ export function ChatConversation({
         {waiting ? <ChatWaiting model={provider?.label ?? provider?.name ?? null} /> : null}
         {errorInfo ? (
           <p role="alert" className="flex items-start gap-1.5 text-attn-fg text-ui-sm">
-            <WarningCircleIcon className="mt-0.5 size-3.5 shrink-0" />
+            <WarningCircleIcon className="mt-0.5 size-4 shrink-0" />
             <span>
               {[d.ask.errors[errorInfo.code] ?? d.ask.errors.failed, errorInfo.message]
                 .filter(Boolean)

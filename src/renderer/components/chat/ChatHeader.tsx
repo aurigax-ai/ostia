@@ -60,7 +60,7 @@ export function ChatHeader({
           )}
           data-recording={recording || undefined}
         >
-          <ClockCounterClockwiseIcon className="size-3" />
+          <ClockCounterClockwiseIcon className="size-4" />
           {recording ? d.chat.recording : d.chat.notRecording}
         </span>
       </Hint>

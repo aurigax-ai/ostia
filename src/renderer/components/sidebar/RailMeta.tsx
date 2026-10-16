@@ -44,7 +44,7 @@ function SidebarItem({
   const Icon = item.icon ? extensionIcon(item.icon) : null
   const body = (
     <>
-      {Icon ? <Icon size={12} aria-hidden /> : null}
+      {Icon ? <Icon size={16} aria-hidden /> : null}
       {item.badge ? (
         <Badge variant="outline" className="h-4 px-1 text-ui-xs tracking-caps">
           {item.badge}

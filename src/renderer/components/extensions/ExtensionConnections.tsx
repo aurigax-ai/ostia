@@ -6,8 +6,8 @@ import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type {
   ExtensionConnectionEntry,
   ExtensionConnectionKind,
-  ExtensionInfo,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionConnections'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { TrashIcon } from '@phosphor-icons/react'
 import { type ComponentType, type ReactNode, useCallback, useEffect, useState } from 'react'
 

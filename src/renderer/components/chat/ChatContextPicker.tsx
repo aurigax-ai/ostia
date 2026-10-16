@@ -265,7 +265,7 @@ export function AttachmentChips({
                     className="flex min-w-0 items-center gap-1 rounded-sm"
                     aria-label={fmt(d.chatActions.preview, { label: item.label, size })}
                   >
-                    <IconFor aria-hidden className="size-3 shrink-0 text-fg-muted" />
+                    <IconFor aria-hidden className="size-4 shrink-0 text-fg-muted" />
                     <span className="max-w-48 truncate">{item.label}</span>
                     <span className="shrink-0 text-fg-muted tabular-nums">{size}</span>
                   </button>

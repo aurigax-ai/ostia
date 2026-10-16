@@ -128,7 +128,7 @@ function SlashItem({
     >
       <IconFor
         aria-hidden
-        className="mt-0.5 size-3.5 text-fg-muted group-data-[disabled=true]/command-item:opacity-60"
+        className="mt-0.5 size-4 text-fg-muted group-data-[disabled=true]/command-item:opacity-60"
       />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="flex min-w-0 items-baseline gap-1.5">
@@ -175,7 +175,7 @@ export function ChatSlashHelp({ onClose }: { onClose: () => void }): JSX.Element
           const IconFor = command.icon
           return (
             <li key={command.id} className="flex items-baseline gap-2 text-ui-sm">
-              <IconFor aria-hidden className="size-3.5 shrink-0 self-center text-fg-muted" />
+              <IconFor aria-hidden className="size-4 shrink-0 self-center text-fg-muted" />
               <span className="shrink-0 font-mono text-fg">
                 /{command.id}
                 {command.arg ? (

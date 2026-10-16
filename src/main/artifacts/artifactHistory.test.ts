@@ -11,7 +11,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
 
@@ -84,10 +84,12 @@ function write(name: string, body: string | Buffer): string {
 }
 
 async function quiet(): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 80))
+  await vi.runOnlyPendingTimersAsync()
+  await history.settled()
 }
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   root = realpathSync(mkdtempSync(join(tmpdir(), 'artifact-history-')))
   folder = join(root, 'w1')
   mkdirSync(folder)
@@ -96,6 +98,10 @@ beforeEach(() => {
   made = 0
   clock = { now: Date.UTC(2026, 9, 14, 12) }
   history = rig()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('ArtifactHistory', () => {
@@ -334,7 +340,7 @@ describe('ArtifactHistory', () => {
       release = resolve
     })
     const running = history.snapshot('w1', path)
-    await new Promise((resolve) => setTimeout(resolve, 10))
+    await vi.advanceTimersByTimeAsync(10)
     history.close('w1', null)
     release()
     expect(await running).toBe(false)

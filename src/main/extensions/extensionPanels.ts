@@ -2,10 +2,12 @@ import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
   type ExtensionCaller,
-  type ExtensionPanelContext,
-  type ExtensionPanelSource,
   panelPath,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type {
+  ExtensionPanelContext,
+  ExtensionPanelSource,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import { viewerMatches } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
 import { isInsideDir } from '@aurigax-ai/ostia-extension-sdk/manifest/confinedRead'
 import type { ExtensionHostDeps } from './extensionHostDeps'

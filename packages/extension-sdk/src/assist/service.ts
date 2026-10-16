@@ -1,14 +1,8 @@
 import {
-  APICallError,
-  type JSONSchema7,
   NoObjectGeneratedError,
   Output,
-  RetryError,
-  type ToolSet,
-  dynamicTool,
   extractJsonMiddleware,
   generateText,
-  jsonSchema,
   streamText,
   wrapLanguageModel,
 } from 'ai'
@@ -27,7 +21,6 @@ import type {
   AssistSetupProblem,
   ChatAssistRequest,
   ChatToolMode,
-  ChatToolSpec,
   CommandAssistRequest,
   CompletionAssistRequest,
   InputAssistRequest,
@@ -35,6 +28,7 @@ import type {
   TerminalAssistRequest,
 } from '../contract/assist'
 import type { ExtensionSettingValues } from '../contract/extensions'
+import { cleanCompletion } from './completionCleanup'
 import {
   type AssistantConfig,
   type EntryProblem,
@@ -45,14 +39,13 @@ import {
   pointOn,
   readConfig,
 } from './config'
-import { HttpError } from './endpoint'
 import { type Flight, createFlight } from './flight'
 import { type Limiter, createLimiter } from './limiter'
+import { chatToolSet, messageOf, statusOf } from './modelCalls'
 import { withPromptedTools } from './promptedTools'
 import {
   type Prompt,
   chatPrompt,
-  cleanCompletion,
   cleanTerminal,
   commandPrompt,
   commandSchema,
@@ -86,33 +79,6 @@ interface Run {
   provider: Provider
   model: string
   tools: ChatToolMode | null
-}
-
-function chatToolSet(specs: ChatToolSpec[]): ToolSet {
-  const tools: ToolSet = {}
-  for (const spec of specs) {
-    tools[spec.name] = dynamicTool({
-      description: spec.description,
-      inputSchema: jsonSchema(spec.inputSchema as JSONSchema7),
-    })
-  }
-  return tools
-}
-
-function statusOf(err: unknown): number | undefined {
-  if (err instanceof HttpError) return err.status
-  if (APICallError.isInstance(err)) return err.statusCode
-  if (RetryError.isInstance(err)) return statusOf(err.lastError)
-  return undefined
-}
-
-function messageOf(err: unknown): string {
-  if (RetryError.isInstance(err)) return messageOf(err.lastError)
-  if (APICallError.isInstance(err)) {
-    const body = err.responseBody?.trim()
-    return err.statusCode ? `HTTP ${err.statusCode}: ${body || err.message}` : err.message
-  }
-  return err instanceof Error ? err.message : String(err)
 }
 
 const BASE_LOCALE = 'en'

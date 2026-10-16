@@ -23,7 +23,7 @@ export function WarningNote({
         actions ? 'has-[>svg]:grid-cols-[auto_1fr_auto]' : null,
       )}
     >
-      <WarningIcon className="size-3.5" />
+      <WarningIcon className="size-4" />
       <AlertDescription className="text-warn-fg text-ui-sm [&_p:not(:last-child)]:mb-1">
         {children}
       </AlertDescription>

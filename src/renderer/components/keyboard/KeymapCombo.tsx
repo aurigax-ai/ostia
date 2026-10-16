@@ -147,7 +147,7 @@ function PresetPreview({
             <span className="truncate text-fg">{commandTitle(c.id, d)}</span>
             <span className="flex flex-wrap items-center gap-1">
               {keysOrNone(c.before, d.keyboard.noKey)}
-              <ArrowRightIcon className="size-3 shrink-0 text-fg-dim" aria-hidden />
+              <ArrowRightIcon className="size-4 shrink-0 text-fg-dim" aria-hidden />
               {keysOrNone(c.after, d.keyboard.noKey)}
               {plan.keptCustom.includes(c) ? (
                 <span className="text-brand text-ui-xs">{d.keyboard.previewYoursStay}</span>
@@ -170,7 +170,7 @@ function PresetPreview({
             <Kbd className="w-fit text-fg">{c.keys}</Kbd>
             <span className="flex flex-wrap items-center gap-1">
               {sendOrNone(c.before, d.keyboard.notTranslated, d)}
-              <ArrowRightIcon className="size-3 shrink-0 text-fg-dim" aria-hidden />
+              <ArrowRightIcon className="size-4 shrink-0 text-fg-dim" aria-hidden />
               {sendOrNone(c.after, d.keyboard.notTranslated, d)}
               {plan.keptCustom.includes(c) ? (
                 <span className="text-brand text-ui-xs">{d.keyboard.previewYoursStay}</span>

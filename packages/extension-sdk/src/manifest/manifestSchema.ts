@@ -21,16 +21,18 @@ import {
   MAX_LANGUAGE_FILE_PATTERNS,
 } from '../contract/editorLanguages'
 import { EXTENSION_API_PATTERN } from '../contract/extensionApi'
-import { EXTENSION_LOCALES_MAX } from '../contract/extensionLocales'
 import {
-  COMMAND_ARGUMENT_LABEL_MAX,
-  EXTENSION_CATEGORIES,
   EXTENSION_CONNECTION_FIELDS_MAX,
   EXTENSION_CONNECTION_FIELD_TYPES,
   EXTENSION_CONNECTION_KINDS_MAX,
   EXTENSION_CONNECTION_KIND_PATTERN,
   EXTENSION_CONNECTION_SECRETS_MAX,
   EXTENSION_CONNECTION_VALUE_MAX,
+} from '../contract/extensionConnections'
+import { EXTENSION_LOCALES_MAX } from '../contract/extensionLocales'
+import {
+  COMMAND_ARGUMENT_LABEL_MAX,
+  EXTENSION_CATEGORIES,
   EXTENSION_ICONS,
   EXTENSION_SETTING_TITLE_MAX,
   EXTENSION_SETTING_TYPES,
@@ -75,20 +77,21 @@ import {
 import { isCoreSource } from './coreNames'
 import { verbProblem } from './coreNames'
 import {
-  COMMAND_ID_PATTERN,
-  EXTENSION_ID_PATTERN,
   KEYMAP_ID_PATTERN,
   MAX_CHIPS,
   MAX_COMMANDS,
-  MAX_DESCRIPTION,
-  MAX_ENUM_VALUES,
   MAX_ICON_THEMES,
   MAX_KEYMAPS,
   MAX_LANGUAGES,
   MAX_SNIPPETS,
+} from './manifestContributions'
+import {
+  COMMAND_ID_PATTERN,
+  EXTENSION_ID_PATTERN,
+  MAX_DESCRIPTION,
   MAX_TEXT,
-  SETTING_KEY_PATTERN,
-} from './extensionManifest'
+} from './manifestFields'
+import { MAX_ENUM_VALUES, SETTING_KEY_PATTERN } from './manifestSettings'
 import {
   MARKETPLACE_CODE_PATTERN,
   MARKETPLACE_DESCRIPTION_MAX,

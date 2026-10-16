@@ -63,7 +63,7 @@ export function ArtifactChip({
           return (
             <MenuItem
               key={entry.path}
-              leading={<Icon size={14} style={{ color }} />}
+              leading={<Icon size={16} style={{ color }} />}
               hint={
                 <>
                   {unread[entry.path] ? (

@@ -96,7 +96,7 @@ export function TopBar(): JSX.Element {
             className="h-6 min-w-0 flex-1 justify-start gap-1 rounded-sm bg-fg/6 pr-1 pl-2 font-normal text-fg-muted text-ui-base hover:bg-fg/10 hover:text-fg dark:hover:bg-fg/10"
             onClick={() => openPalette('everywhere')}
           >
-            <MagnifyingGlassIcon className="size-3.5" />
+            <MagnifyingGlassIcon className="size-4" />
             <span className="flex-1 truncate text-left">{d.search.command}</span>
             {paletteKeys ? <Kbd className="h-4 bg-transparent">{paletteKeys}</Kbd> : null}
           </Button>

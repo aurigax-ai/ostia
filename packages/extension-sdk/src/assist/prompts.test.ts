@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { cleanCompletion } from './completionCleanup'
 import {
   chatPrompt,
-  cleanCompletion,
   cleanTerminal,
   commandPrompt,
   commandSchema,

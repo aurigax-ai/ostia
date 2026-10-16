@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { EXTENSION_API_VERSION } from '@aurigax-ai/ostia-extension-sdk/contract/extensionApi'
-import { overlaySettings } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
+import { overlaySettings } from '@aurigax-ai/ostia-extension-sdk/contract/languageServerConfig'
 import {
   agentSkillProblems,
   loadAgentSkill,

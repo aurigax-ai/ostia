@@ -9,7 +9,7 @@ import {
 import {
   COMMAND_ID_PATTERN,
   EXTENSION_ID_PATTERN,
-} from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
+} from '@aurigax-ai/ostia-extension-sdk/manifest/manifestFields'
 
 export interface AgentHookCall {
   extId: string
