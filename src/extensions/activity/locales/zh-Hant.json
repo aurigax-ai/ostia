@@ -1,7 +1,7 @@
 {
   "manifest": {
     "name": "活動",
-    "description": "在一個面板中查看每個代理程式做了什麼與需要你處理的事：以它最新的結語作為持續更新的摘要、代理程式用 ostia activity add 留下的備註，以及需要你處理的項目，在你標為完成之前側邊欄會顯示數量。可依需要顯示每一輪的提示、工具呼叫與停止。所有資料只留在這台電腦上，舊的項目會移到壓縮封存，而且絕不會在終端機中輸入。",
+    "description": "在一個面板中查看每個代理程式做了什麼與需要你處理的事：以它最新的結語作為持續更新的摘要、代理程式用 ostia activity add 留下的備註，以及需要你處理的項目，在你標為完成之前側邊欄會顯示數量。可依需要以時間軸顯示每一輪的提示、工具呼叫與停止，並在旁邊列出工作區事件：窗格啟動、關閉、休眠或喚醒、代理程式狀態、資料夾變更，以及（在你授予 read-bus 後）哪個窗格傳了匯流排訊息給哪個窗格，但不會顯示內容。所有資料只留在這台電腦上，舊的項目會移到壓縮封存，而且絕不會在終端機中輸入。",
     "commands.open.title": "活動：開啟",
     "commands.open.category": "活動",
     "panel.title": "活動",
@@ -62,6 +62,26 @@
     "summary.web.one": "進行了 {count} 次網路查詢",
     "summary.web.other": "進行了 {count} 次網路查詢",
     "summary.other.one": "使用了 {count} 個其他工具",
-    "summary.other.other": "使用了 {count} 個其他工具"
+    "summary.other.other": "使用了 {count} 個其他工具",
+    "stream": "工作區事件",
+    "stream.pane": "窗格",
+    "stream.ostia": "Ostia",
+    "stream.extension": "某個擴充功能",
+    "stream.elsewhere": "其他工作區",
+    "stream.started": "{who} 已啟動",
+    "stream.closed": "{who} 已關閉",
+    "stream.hibernated": "{who} 已休眠",
+    "stream.woken": "{who} 已喚醒",
+    "stream.state.working": "{who} 工作中",
+    "stream.state.waiting": "{who} 等待中",
+    "stream.state.done": "{who} 已完成",
+    "stream.state.error": "{who} 發生錯誤",
+    "stream.folder": "{who} 移到 {folder}",
+    "stream.bus.message": "{from} 傳了訊息給 {to}",
+    "stream.bus.task": "{from} 交付任務給 {to}",
+    "stream.phase.queued": "尚未讀取",
+    "stream.phase.waiting": "已交給等待中的窗格",
+    "stream.phase.seen": "已讀取",
+    "stream.rootFolder": "工作區資料夾"
   }
 }

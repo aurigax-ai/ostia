@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ActivityEvent, ActivityNote } from './hookEvent'
+import type { ActivityEvent, ActivityHost, ActivityNote } from './hookEvent'
 import { EARLIER_TURNS_MAX, actionCategory, actionCounts, ageOf, panelModel, turnsOf } from './view'
 
 let clock = 0
@@ -132,6 +132,90 @@ describe('panelModel', () => {
     expect(agent?.earlier).toHaveLength(EARLIER_TURNS_MAX)
     expect(agent?.earlier[0].prompt).toBe(`turn ${EARLIER_TURNS_MAX + 3}`)
     expect(agent?.recap).toBe(`recap ${EARLIER_TURNS_MAX + 4}`)
+  })
+})
+
+describe('the workspace stream', () => {
+  const host = (pane: string, t: number, extra: Partial<ActivityHost> = {}): ActivityHost => ({
+    v: 2,
+    t,
+    id: `host${t}`,
+    pane,
+    kind: 'host',
+    host: 'started',
+    ...extra,
+  })
+  const model = (records: (ActivityEvent | ActivityHost)[]) =>
+    panelModel({
+      showActivity: true,
+      workspace: { workspaceId: 'w', name: 'w' },
+      panes: [],
+      events: () => records,
+    }).workspace
+
+  it('lists host events newest first, labelled by agent and by order among panes of the same kind', () => {
+    const rows = model([
+      host('a', 1),
+      host('b', 2),
+      ev('a', 'prompt', 'go'),
+      host('a', 3, { host: 'state', state: 'working' }),
+    ])?.stream
+    expect(rows?.map((r) => [r.host, r.subject])).toEqual([
+      ['state', { agent: 'claude', n: 1 }],
+      ['started', { n: 1 }],
+      ['started', { agent: 'claude', n: 1 }],
+    ])
+  })
+
+  it('shows a workspace that has only host events, and folds one bus message to its latest phase', () => {
+    const workspace = model([
+      host('a', 1, {
+        host: 'bus',
+        from: 'a',
+        to: '@elsewhere',
+        message: 'task',
+        state: 'queued',
+        ref: 'm1',
+      }),
+      host('a', 2, {
+        host: 'bus',
+        from: 'a',
+        to: '@elsewhere',
+        message: 'task',
+        state: 'seen',
+        ref: 'm1',
+      }),
+      host('a', 3, {
+        host: 'bus',
+        from: '@ostia',
+        to: 'a',
+        message: 'message',
+        state: 'waiting',
+        ref: 'm2',
+      }),
+    ])
+    expect(workspace?.agents).toEqual([])
+    expect(workspace?.stream.map((r) => [r.t, r.state, r.from?.kind, r.to?.kind])).toEqual([
+      [3, 'waiting', 'ostia', 'pane'],
+      [1, 'seen', 'pane', 'elsewhere'],
+    ])
+  })
+
+  it('keeps host events out of the agents and their turns', () => {
+    const prompt = ev('a', 'prompt', 'go')
+    const agent = panelModel({
+      showActivity: true,
+      workspace: { workspaceId: 'w', name: 'w' },
+      panes: [{ paneId: 'a' }],
+      events: () => [prompt, host('a', prompt.t + 1000, { host: 'woken' })],
+    }).workspace?.agents[0]
+    expect(agent?.current.events.map((e) => e.kind)).toEqual(['prompt'])
+    expect(agent?.last).toBe(prompt.t)
+  })
+
+  it('caps the rows it sends', () => {
+    const many = Array.from({ length: 150 }, (_, i) => host('a', i + 1))
+    expect(model(many)?.stream).toHaveLength(100)
   })
 })
 

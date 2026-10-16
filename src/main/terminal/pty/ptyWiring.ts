@@ -6,6 +6,7 @@ import type { ArtifactFolders } from '../../artifacts/artifactFolders'
 import type { PaneIdentity } from '../../control/idRegistry'
 import type { AppLog } from '../../diagnostics/appLog'
 import type { Telemetry } from '../../diagnostics/telemetry'
+import type { PaneLifecycleEvents } from '../../extensions/paneLifecycleEvents'
 import type { OpenWaits } from '../../files/openWaits'
 import type { PaneWaking } from '../../panes/paneWaking'
 import type { ProcessRegistry } from '../../panes/processRegistry'
@@ -55,6 +56,7 @@ interface PtyWiringDeps {
   terminalState: Map<string, TerminalStateSnapshot>
   keptShells: KeptShellsWiring['keptShells']
   paneWaking: PaneWaking
+  paneLifecycleEvents: PaneLifecycleEvents
   workspaceSandboxes: WorkspaceSandboxes
   injectSecrets: (workspaceId: string) => Promise<{ env: Record<string, string>; notice: string }>
   keptPlumbing: KeptShellsWiring['keptPlumbing']
@@ -88,6 +90,7 @@ type PtyCoreDeps = Pick<
   | 'terminalState'
   | 'keptShells'
   | 'paneWaking'
+  | 'paneLifecycleEvents'
   | 'workspaceSandboxes'
 >
 
@@ -106,6 +109,7 @@ function createPtyCore({
   terminalState,
   keptShells,
   paneWaking,
+  paneLifecycleEvents,
   workspaceSandboxes,
 }: PtyCoreDeps) {
   const { loadPty, feedPty, trackPty } = createPtyRegistry({
@@ -133,6 +137,7 @@ function createPtyCore({
     keptShells,
     agentWork,
     paneWaking,
+    paneLifecycleEvents,
     telemetry: () => services.telemetry,
     appLog: () => services.appLog,
   })
@@ -225,6 +230,7 @@ interface PtyAttachWiringDeps {
   keptAttention: KeptAttention
   agentRunning: AgentRunningPanes
   hibernatedPanes: Set<string>
+  paneLifecycleEvents: PaneLifecycleEvents
   portRequests: PortRequests
   trackPty: PtyRegistry['trackPty']
   feedPty: PtyRegistry['feedPty']
@@ -254,6 +260,7 @@ function createPtyAttachWiring({
   keptAttention,
   agentRunning,
   hibernatedPanes,
+  paneLifecycleEvents,
   portRequests,
   trackPty,
   feedPty,
@@ -322,6 +329,7 @@ function createPtyAttachWiring({
     keptShells,
     workspaceSandboxes,
     hibernatedPanes,
+    paneLifecycleEvents,
     trackPty,
     feedPty,
     releaseMergedSandbox,

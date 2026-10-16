@@ -97,8 +97,11 @@ describe('Journal', () => {
     expect(second.workspaceIds()).toEqual([])
     expect(existsSync(file('w1'))).toBe(false)
     expect(existsSync(file('w2'))).toBe(false)
-    expect(second.archived('w1').map((e) => e.text)).toEqual(['pnpm test', 'recent'])
-    expect(second.archived('w2').map((e) => e.text)).toEqual(['only'])
+    expect(second.archived('w1').map((e) => ('text' in e ? e.text : undefined))).toEqual([
+      'pnpm test',
+      'recent',
+    ])
+    expect(second.archived('w2').map((e) => ('text' in e ? e.text : undefined))).toEqual(['only'])
     expect(second.prune()).toBe(false)
   })
 
@@ -229,7 +232,10 @@ describe('Journal', () => {
     expect(statSync(month).mode & 0o777).toBe(0o600)
     expect(statSync(join(dir, ARCHIVE_DIR, 'w1')).mode & 0o777).toBe(0o700)
     expect(readFileSync(month).subarray(0, 2)).toEqual(Buffer.from([0x1f, 0x8b]))
-    expect(archiving.archived('w1').map((e) => e.text)).toEqual(['december', 'january'])
+    expect(archiving.archived('w1').map((e) => ('text' in e ? e.text : undefined))).toEqual([
+      'december',
+      'january',
+    ])
     now = Date.UTC(2026, 2, 5)
     archiving.prune()
     expect(archiveFiles('w1')).toEqual(['2026-01.jsonl.gz'])
