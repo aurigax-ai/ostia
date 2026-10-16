@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { chords } from './chords'
 import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
 import { openWorkspace, typeLine } from './helpers'
@@ -96,8 +97,12 @@ for (const scenario of SCENARIOS) {
       const win = await app.firstWindow()
       await win.waitForLoadState('domcontentloaded')
       await openWorkspace(win)
-      await win.locator('.xterm, .ghostty-screen').first().click()
-      await typeLine(win, `ostia open --split right '${doc}'`)
+      const terminals = win.locator('.xterm:visible, .ghostty-screen:visible')
+      await terminals.first().click()
+      await win.keyboard.press(chords.splitRight)
+      await expect(terminals).toHaveCount(2)
+      await terminals.nth(1).click()
+      await typeLine(win, `ostia open '${doc}'`)
       const lines = win.locator('.monaco-editor:visible .view-lines').first()
       await expect(lines).toContainText('Computer use plan', { timeout: 15_000 })
       await startAgents(win, scenario.agents)
