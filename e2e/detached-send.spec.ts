@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { REPORT_SESSION, fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
-import { openWorkspace, waitForPaletteSelection } from './helpers'
+import { expectHeld, openWorkspace, waitForPaletteSelection } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 const PAGE = `<!doctype html>
@@ -110,9 +110,15 @@ test('a browser pane moved to its own window sends a picked element to the agent
     await win.keyboard.type('flush_marker')
     await win.keyboard.press('Enter')
     await expect(terminal).toContainText('agent-read: flush_marker', { timeout: 15_000 })
+    const reports = async (): Promise<{ lines: number; files: number }> => {
+      const text = (await terminal.textContent()) ?? ''
+      return {
+        lines: text.match(/agent-read: @\S*capture-\d+\S*\.md/g)?.length ?? 0,
+        files: new Set(text.match(/capture-\d+\S*\.md/g)).size,
+      }
+    }
+    await expectHeld(reports, { lines: 1, files: 1 }, 2_000)
     const text = (await terminal.textContent()) ?? ''
-    expect(text.match(/agent-read: @\S*capture-\d+\S*\.md/g)).toHaveLength(1)
-    expect([...new Set(text.match(/capture-\d+\S*\.md/g))]).toHaveLength(1)
     const match = text.match(/agent-read: @(\S*capture-\d+\S*\.md)/)
     const report = readFileSync((match as RegExpMatchArray)[1], 'utf8')
     expect(report).toContain('[data-testid="broken-button"]')

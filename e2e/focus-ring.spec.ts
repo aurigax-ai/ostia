@@ -1,6 +1,6 @@
 import { chords } from './chords'
 import { isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
+import { expectHeld, openWorkspace } from './helpers'
 import {
   type ElectronApplication,
   type Locator,
@@ -28,6 +28,12 @@ test.beforeAll(async () => {
   await openWorkspace(win)
 })
 
+test.beforeEach(async () => {
+  await win.evaluate(() => {
+    document.documentElement.dataset.keyboardNav = ''
+  })
+})
+
 test.afterEach(async () => {
   await win.keyboard.press('Escape')
   await expect(win.getByRole('region', { name: 'Settings' })).toBeHidden()
@@ -36,17 +42,6 @@ test.afterEach(async () => {
 test.afterAll(async () => {
   await app?.close()
 })
-
-function transitionsDone(page: Page): Promise<unknown> {
-  return page.evaluate(() =>
-    Promise.all(
-      document
-        .getAnimations()
-        .filter((animation) => animation instanceof CSSTransition)
-        .map((animation) => animation.finished),
-    ),
-  )
-}
 
 function indicator(control: Locator): Promise<Indicator> {
   return control.evaluate((el) => {
@@ -67,8 +62,7 @@ function settingsRow(win: Page, name: string): Locator {
 
 async function expectNoIndicator(control: Locator, rest: Indicator): Promise<void> {
   await expect.poll(() => indicator(control)).toEqual({ ...rest, focused: true })
-  await transitionsDone(control.page())
-  expect(await indicator(control)).toEqual({ ...rest, focused: true })
+  await expectHeld(() => indicator(control), { ...rest, focused: true }, 500)
 }
 
 test('a clicked Settings row shows no focus ring, also after a modifier or a chord', async () => {
@@ -110,9 +104,7 @@ test('Tab onto a Settings row shows exactly one focus indicator and keeps its ra
     })
     .toBe(true)
   await expect.poll(async () => (await indicator(row)).outlineStyle).toBe('solid')
-  await transitionsDone(win)
-  const focused = await indicator(row)
-  expect(focused).toEqual({ ...rest, focused: true, outlineStyle: 'solid' })
+  await expectHeld(() => indicator(row), { ...rest, focused: true, outlineStyle: 'solid' }, 500)
   await win.keyboard.press('Control')
   expect((await indicator(row)).outlineStyle).toBe('solid')
 })

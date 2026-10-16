@@ -3,7 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, openWorkspace, runInTerminal } from './helpers'
+import { PROMPT, expectHeld, openWorkspace, runInTerminal } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const GRACE_OUTLIVED_MS = 5_000
@@ -207,8 +207,15 @@ test('closing a diff tab keeps the window and the other terminals working', asyn
     await expect(win.locator('.xterm-rows').nth(1)).toContainText('after_diff_42', {
       timeout: 15_000,
     })
-    expect(pageErrors).toEqual([])
-    expect(mainLog(dataHome)).not.toMatch(/renderer-error|pty-reap/)
+    await expectHeld(
+      async () => ({
+        pageErrors,
+        recovery: await win.getByRole('heading', { name: 'Something went wrong' }).count(),
+        logged: /renderer-error|pty-reap/.test(mainLog(dataHome)),
+      }),
+      { pageErrors: [], recovery: 0, logged: false },
+      4_000,
+    )
   } finally {
     await app.close()
   }

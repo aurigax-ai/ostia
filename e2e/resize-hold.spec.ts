@@ -1,5 +1,5 @@
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { closeAllWorkspaces, openWorkspace } from './helpers'
+import { closeAllWorkspaces, expectHeld, openWorkspace } from './helpers'
 import { type ElectronApplication, type Page, expect, launchShared, test } from './test'
 
 let app: ElectronApplication | undefined
@@ -71,7 +71,7 @@ for (const order of ['enter-first', 'resize-first'] as const) {
       await expect(rows).toContainText('ostia_held_42', { timeout: 10_000 })
       await win.evaluate((id) => window.ostia.pty.write(id, 'echo ostia_flush_$((1+1))\r'), paneId)
       await expect(rows).toContainText('ostia_flush_2', { timeout: 10_000 })
-      await expect(rows).toContainText('ostia_held_42')
+      await expectHeld(async () => (await rows.innerText()).includes('ostia_held_42'), true, 1_500)
     },
   )
 }

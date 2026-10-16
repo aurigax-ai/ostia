@@ -5,6 +5,7 @@ import {
   closeAllWorkspaces,
   emptyState,
   emptyWorkspace,
+  expectHeld,
   newTerminalWorkspace,
   openWorkspace,
   runInTerminal,
@@ -51,7 +52,14 @@ test(
   { tag: '@core' },
   async () => {
     await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
-    await expect(win.locator('.xterm')).toHaveCount(0)
+    await expectHeld(
+      async () => ({
+        terminals: await win.locator('.xterm').count(),
+        workspaces: await win.locator('.rail-tab').count(),
+      }),
+      { terminals: 0, workspaces: 0 },
+      1_000,
+    )
 
     await win.keyboard.press(chords.newWorkspace)
 

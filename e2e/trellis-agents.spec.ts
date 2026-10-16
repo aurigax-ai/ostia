@@ -13,7 +13,7 @@ import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { REPORT_SESSION } from './fakeAgent'
-import { occurrences, waitForPaletteSelection } from './helpers'
+import { expectHeld, occurrences, waitForPaletteSelection } from './helpers'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
 const FIXTURES = resolve(__dirname, '../test/fixtures/tools')
@@ -177,7 +177,11 @@ test('a Trellis card goes to a new agent or to a running one, only on the humanâ
     await win.locator('.xterm', { has: agentTerminal }).click()
     await win.keyboard.type('flush_marker')
     await expect(agentTerminal).toContainText('flush_marker', { timeout: 15_000 })
-    expect(occurrences((await agentTerminal.textContent()) ?? '', line)).toBe(1)
+    await expectHeld(
+      async () => occurrences((await agentTerminal.textContent()) ?? '', line),
+      1,
+      2_000,
+    )
   } finally {
     await app.close()
   }

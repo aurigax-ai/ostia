@@ -37,6 +37,20 @@ export async function openWorkspace(win: Page): Promise<void> {
   await expect.poll(() => promptShown(win), { timeout: 15_000 }).toBe(true)
 }
 
+export async function expectHeld<T>(
+  read: () => Promise<T>,
+  expected: T,
+  holdMs = 2_000,
+  message?: string,
+): Promise<void> {
+  const until = Date.now() + holdMs
+  do {
+    const actual: unknown = await read()
+    expect(actual, message).toEqual(expected)
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  } while (Date.now() < until)
+}
+
 export async function closeAllWorkspaces(win: Page): Promise<void> {
   const tabs = win.locator('.rail-tab')
   for (let open = await tabs.count(); open > 0; open--) {

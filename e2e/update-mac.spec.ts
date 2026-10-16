@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { withAsar } from './fakeAsar'
-import { openWorkspace, quitApp, runInTerminal, stubExternalOpener } from './helpers'
+import { expectHeld, openWorkspace, quitApp, runInTerminal, stubExternalOpener } from './helpers'
 import {
   type ElectronApplication,
   type Page,
@@ -407,8 +407,21 @@ test('after an update restart with keep-shells on, the agent keeps running with 
     await expect(screen).toContainText(`fake-agent-ready pid=${pid}`, { timeout: 30_000 })
     await runInTerminal(second.win, 'flush_marker')
     await expect(screen).toContainText('flush_marker', { timeout: 15_000 })
-    expect(() => process.kill(pid, 0)).not.toThrow()
-    await expect(second.win.locator('.xterm-rows').filter({ hasText: '--resume' })).toHaveCount(0)
+    await expectHeld(
+      async () => ({
+        alive: (() => {
+          try {
+            process.kill(pid, 0)
+            return true
+          } catch {
+            return false
+          }
+        })(),
+        resumes: await second.win.locator('.xterm-rows').filter({ hasText: '--resume' }).count(),
+      }),
+      { alive: true, resumes: 0 },
+      2_000,
+    )
     expect(savedPanes(dataHome).some((p) => p.agentRunning === true)).toBe(true)
   } finally {
     await quitApp(second.app)

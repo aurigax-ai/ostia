@@ -1,7 +1,7 @@
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { type FakeRequest, fakeAssistantSettings, startFakeProvider } from './fakeProvider'
-import { PROMPT, openWorkspace } from './helpers'
+import { PROMPT, expectHeld, openWorkspace } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 const SUGGESTED = 'echo ostia-assist-suggested'
@@ -71,10 +71,15 @@ test('an Ask answer fits its inline command chip to the code, and a suggested co
     await expect
       .poll(async () => (await rows.innerText()).split('\n').filter((l) => l.includes('❯')).length)
       .toBe(2)
-    const screen = (await rows.innerText()).split('\n')
-    expect(screen.filter((l) => l.trim() === 'ostia-assist-suggested')).toHaveLength(0)
-    const lines = screen.filter((l) => l.includes(SUGGESTED))
-    expect(lines).toHaveLength(1)
+    const typed = async (): Promise<{ ran: number; typed: number }> => {
+      const screen = (await rows.innerText()).split('\n')
+      return {
+        ran: screen.filter((l) => l.trim() === 'ostia-assist-suggested').length,
+        typed: screen.filter((l) => l.includes(SUGGESTED)).length,
+      }
+    }
+    await expectHeld(typed, { ran: 0, typed: 1 }, 1_500)
+    const lines = (await rows.innerText()).split('\n').filter((l) => l.includes(SUGGESTED))
     expect(lines[0]).toMatch(PROMPT)
   } finally {
     await app.close()

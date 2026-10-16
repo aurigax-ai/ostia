@@ -227,6 +227,12 @@ test('restores a clean final screen at a different window size', async () => {
       timeout: 15_000,
     })
     await wobbleWidth(first)
+    await first.win.keyboard.type(`echo ${marker}_end_$((20+22))`)
+    await first.win.keyboard.press('Enter')
+    await expect(first.win.locator('.xterm-rows').first()).toContainText(
+      new RegExp(`${marker}_end_42[^❯]*❯`),
+      { timeout: 15_000 },
+    )
   } finally {
     await quitApp(first.app)
   }
@@ -254,7 +260,8 @@ test('restores a clean final screen at a different window size', async () => {
     expect(lines.some((l) => l.trim() === '%')).toBe(false)
     expect(lines.slice(0, seam).join('\n')).toContain(`${marker}_1`)
     const history = lines.slice(0, seam).filter((l) => l.trim() !== '')
-    expect(history[history.length - 1]).toBe(`${marker}_2`)
+    expect(history[history.length - 1]).toBe(`${marker}_end_42`)
+    expect(history).toContain(`${marker}_2`)
     expect(history.filter((l) => l.includes(`printf '${marker}`))).toHaveLength(1)
   } finally {
     await quitApp(second.app)

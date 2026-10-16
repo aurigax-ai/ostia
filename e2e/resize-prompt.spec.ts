@@ -1,5 +1,5 @@
 import { isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
+import { expectHeld, openWorkspace } from './helpers'
 import { type Locator, _electron as electron, expect, test } from './test'
 
 async function promptLines(rows: Locator): Promise<number> {
@@ -14,11 +14,12 @@ test('splitting a pane does not duplicate the existing prompt', async () => {
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
     const leftRows = win.locator('.xterm-rows').first()
-    expect(await promptLines(leftRows)).toBe(1)
+    await expectHeld(() => promptLines(leftRows), 1, 1_000)
 
     await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
     await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
     await expect(win.locator('.xterm-rows').nth(1)).toContainText('❯', { timeout: 15_000 })
+    await expectHeld(() => promptLines(leftRows), 1, 3_000, 'prompt lines after the split')
 
     await win.locator('.xterm').first().click()
     await win.keyboard.type('echo ostia_resize_$((40+2))')
@@ -63,7 +64,7 @@ test('drag-resizing the window keeps command output and a single prompt', async 
     await win.keyboard.type('echo ostia_flush_$((1+1))')
     await win.keyboard.press('Enter')
     await expect(rows).toContainText('ostia_flush_2', { timeout: 15_000 })
-    await expect.poll(() => promptLines(rows)).toBe(3)
+    await expectHeld(() => promptLines(rows), 3, 2_000)
 
     const text = await rows.innerText()
     for (const n of [1, 2, 3]) expect(text).toContain(`ostia_out_${n}`)
