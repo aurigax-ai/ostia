@@ -1,0 +1,31 @@
+import type { ColorScheme } from '@/lib/theme/types'
+
+export const everforestLight: ColorScheme = {
+  id: 'everforest-light',
+  name: 'Everforest Light',
+  appearance: 'light',
+  colors: {
+    background: '#efebd4',
+    foreground: '#5c6a72',
+    cursor: '#f57d26',
+    cursorAccent: '#eaedc8',
+    selectionBackground: '#eaedc8',
+    selectionForeground: '#5c6a72',
+    black: '#7a8478',
+    red: '#e67e80',
+    green: '#9ab373',
+    yellow: '#c1a266',
+    blue: '#7fbbb3',
+    magenta: '#d699b6',
+    cyan: '#83c092',
+    white: '#b2af9f',
+    brightBlack: '#a6b0a0',
+    brightRed: '#f85552',
+    brightGreen: '#8da101',
+    brightYellow: '#dfa000',
+    brightBlue: '#3a94c5',
+    brightMagenta: '#df69ba',
+    brightCyan: '#35a77c',
+    brightWhite: '#fffbef',
+  },
+}

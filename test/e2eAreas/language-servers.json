@@ -14,7 +14,7 @@
     "src/main/lsp/serverSpawn.ts",
     "src/main/lsp/sessionProtocol.ts",
     "src/renderer/components/editor/LanguageNotice.tsx",
-    "src/renderer/components/editor/LanguagesSection.tsx",
+    "src/renderer/components/languageServers/",
     "src/renderer/lib/lsp/",
     "src/renderer/stores/extensions/languageNoticeStore.ts",
     "src/renderer/stores/extensions/languageServersStore.ts",
