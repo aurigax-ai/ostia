@@ -37,10 +37,10 @@ human's instruction.
 ostia manager spawn claude --cwd ~/src/api --name "api tests" -- "run the tests and fix failures"
 ```
 
-`manager spawn <preset> [--cwd DIR] [--workspace ID] [--name NAME] [-- args…]` opens a terminal
-pane running the preset (`claude`, `codex`, or one the human added in Settings → Manager) with
-`args` appended, in a new workspace named `--name` in `--cwd` unless `--workspace` names one. It
-prints the worker's `paneId`. Workers are ordinary panes with the `ostia` skill.
+`ostia manager spawn <preset> [--cwd DIR] [--workspace ID] [--name NAME] [-- args…]` opens a
+terminal pane running the preset (`claude`, `codex`, or one the human added in Settings → Manager)
+with `args` appended, in a new workspace named `--name` in `--cwd` unless `--workspace` names
+one. It prints the worker's `paneId`. Workers are ordinary panes with the `ostia` skill.
 
 ## Message workers
 
@@ -61,10 +61,10 @@ Replies to you also arrive as context at your next prompt.
 ostia manager input <paneId> --text y --key enter
 ```
 
-`manager input <paneId> [--text TEXT] [--key KEY]…` works only while Settings → Manager → Allow
-typing into other panes is on; otherwise it fails with `input-off`. The same switch covers
-`ostia pane wake <paneId>`. Keys: enter, tab, shift-tab, escape, backspace, delete, space, up,
-down, left, right, home, end, pageup, pagedown, ctrl-a to ctrl-z.
+`ostia manager input <paneId> [--text TEXT] [--key KEY]…` works only while Settings → Manager →
+Allow typing into other panes is on; otherwise it fails with `input-off`. The same switch covers
+`ostia pane send`, `ostia pane key` and `ostia pane wake`. Keys: enter, tab, shift-tab, escape,
+backspace, delete, space, up, down, left, right, home, end, pageup, pagedown, ctrl-a to ctrl-z.
 
 ## Limits
 
