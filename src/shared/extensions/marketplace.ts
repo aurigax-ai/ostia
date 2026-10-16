@@ -62,6 +62,7 @@ export type MarketplaceError =
   | 'invalid-extension'
   | 'too-large'
   | 'not-installed'
+  | 'official-marketplace'
   | 'write-failed'
 
 export type MarketplaceResult =

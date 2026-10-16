@@ -185,3 +185,35 @@ describe('parseStoredRecord', () => {
     expect(parseStoredRecord({ ...note, text: 'x'.repeat(2001) })).toBeNull()
   })
 })
+
+describe('parseStoredRecord for a host event', () => {
+  const host = { v: 2, t: 1000, id: 'abcdefghij', pane: 'p1', kind: 'host', host: 'bus' }
+
+  it('reads a host record and its metadata, and nothing it does not know', () => {
+    expect(
+      parseStoredRecord({
+        ...host,
+        from: 'p1',
+        to: '@elsewhere',
+        message: 'task',
+        state: 'queued',
+        ref: 'm1',
+        text: 'secret',
+      }),
+    ).toEqual({
+      ...host,
+      from: 'p1',
+      to: '@elsewhere',
+      message: 'task',
+      state: 'queued',
+      ref: 'm1',
+    })
+  })
+
+  it('refuses an unknown host kind, an unknown message kind and a field that is not a short string', () => {
+    expect(parseStoredRecord({ ...host, host: 'typed' })).toBeNull()
+    expect(parseStoredRecord({ ...host, message: 'secret' })).toBeNull()
+    expect(parseStoredRecord({ ...host, from: 7 })).toBeNull()
+    expect(parseStoredRecord({ ...host, folder: 'x'.repeat(201) })).toBeNull()
+  })
+})
