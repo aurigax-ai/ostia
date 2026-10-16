@@ -355,6 +355,7 @@ export const appZhHant: typeof appEn = {
     updateStopped: '更新終端機在指令結束前就關閉了。',
     updateWith: { apt: '以 apt 更新', brew: '以 Homebrew 更新' },
     updating: '更新中…',
+    version: '版本',
     viewRelease: '查看發行版本',
   },
   window: {

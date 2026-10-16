@@ -20,6 +20,7 @@ import {
 } from './hookEvent'
 
 export const JOURNAL_DIR = 'journal'
+export const HOST_DIR = 'host'
 const JOURNAL_SUFFIX = '.jsonl'
 const JOURNAL_MAX_BYTES = 512 * 1024
 export const DAY_MS = 24 * 60 * 60 * 1000

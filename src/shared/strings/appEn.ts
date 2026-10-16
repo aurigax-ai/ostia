@@ -368,6 +368,7 @@ export const appEn = {
     updateStopped: 'The update terminal closed before the command ended.',
     updateWith: { apt: 'Update with apt', brew: 'Update with Homebrew' },
     updating: 'Updating…',
+    version: 'Version',
     viewRelease: 'View release',
   },
   window: {

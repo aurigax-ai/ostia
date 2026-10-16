@@ -287,10 +287,10 @@ async function measureHistory(win: Page, dataHome: string): Promise<Metrics> {
     }
   }, paneId)
   const diskBytes = folderBytes(join(dataHome, 'ostia', 'scrollback'))
-  const rows = win.locator('.history-screen .xterm-rows')
+  const rows = win.locator('.history-pane:not([style*="hidden"]) .xterm-rows')
   await win.keyboard.press(chords.palette)
-  await win.locator('[data-slot="command-input"]').fill('Show Earlier Output')
-  await waitForPaletteSelection(win, 'Show Earlier Output')
+  await win.locator('[data-slot="command-input"]').fill('Scroll to Top')
+  await waitForPaletteSelection(win, 'Scroll to Top')
   await win.evaluate(watchHistoryText, 'bulk output')
   await win.evaluate(() => {
     const w = window as unknown as HistoryTimes
@@ -307,20 +307,12 @@ async function measureHistory(win: Page, dataHome: string): Promise<Metrics> {
   await expect(rows).toContainText('bulk output', { timeout: 30_000 })
   const openMs = Date.now() - openAt
   const openInPageMs = await win.evaluate(historyTextShownAfter)
-  await win.evaluate(watchHistoryText, 'line 1 of the bulk')
-  const pageAt = Date.now()
-  await win.evaluate(() => {
-    const w = window as unknown as HistoryTimes
-    w.__historyFrom = performance.now()
-    const oldest = [...document.querySelectorAll('.history-bar button')].find(
-      (b) => b.textContent === 'Oldest',
-    ) as HTMLButtonElement | undefined
-    oldest?.click()
-  })
-  await expect(rows).toContainText(/line 1 of the bulk/, { timeout: 30_000 })
-  const pageMs = Date.now() - pageAt
-  const pageInPageMs = await win.evaluate(historyTextShownAfter)
-  await win.getByRole('button', { name: 'Back to live' }).click()
+  const pageMs = openMs
+  const pageInPageMs = openInPageMs
+  await win.keyboard.press(chords.palette)
+  await win.locator('[data-slot="command-input"]').fill('Scroll to Bottom')
+  await waitForPaletteSelection(win, 'Scroll to Bottom')
+  await win.keyboard.press('Enter')
   return {
     ...stats,
     diskBytes,

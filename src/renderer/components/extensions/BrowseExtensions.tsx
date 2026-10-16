@@ -1,7 +1,7 @@
+import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
-import { WarningNote } from '@/components/settings/ControlRow'
-import { SelectField } from '@/components/settings/SelectField'
-import { SectionHead } from '@/components/settings/SettingsGroup'
+import { SelectField } from '@/components/settingsKit/SelectField'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
@@ -207,7 +207,7 @@ function EntryDetails({
         </div>
       </div>
       {ext.state === 'conflict' ? (
-        <WarningNote
+        <Notice
           actions={
             <TextLink size="xs" onClick={() => openInExtensions(ext.id)}>
               {d.extensionsBrowse.showInstalled}
@@ -215,10 +215,10 @@ function EntryDetails({
           }
         >
           {d.marketplace.conflict}
-        </WarningNote>
+        </Notice>
       ) : null}
       {ext.state === 'replace' ? (
-        <WarningNote
+        <Notice
           actions={
             <TextLink size="xs" disabled={busy} onClick={() => void replace()}>
               {d.marketplace.replace}
@@ -226,7 +226,7 @@ function EntryDetails({
           }
         >
           {d.marketplace.orphaned}
-        </WarningNote>
+        </Notice>
       ) : null}
       {ext.description ? (
         <p className="text-fg text-ui-sm">{withProductName(ext.description)}</p>
@@ -314,8 +314,7 @@ export function BrowseExtensions(): JSX.Element {
   const selected = results.find((e) => e.key === selectedKey) ?? results[0] ?? null
 
   return (
-    <section aria-label={d.extensionsBrowse.title}>
-      <SectionHead title={d.extensionsBrowse.title} desc={d.extensionsBrowse.desc} />
+    <SettingsPage title={d.extensionsBrowse.title} desc={d.extensionsBrowse.desc}>
       <MarketplaceFailureNote />
       {installedId ? <InstalledNote extId={installedId} /> : null}
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -381,6 +380,6 @@ export function BrowseExtensions(): JSX.Element {
       )}
       <Separator className="my-4" />
       <MarketplacesPanel />
-    </section>
+    </SettingsPage>
   )
 }

@@ -14,6 +14,7 @@ import { dirname, join } from 'node:path'
 import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { AgentResume } from '../src/shared/agents/agentResume'
 import type { CommandResult } from '../src/shared/control/commands'
+import { journalLines } from './journalLines'
 
 const repoRoot = process.cwd()
 const CLI = join(repoRoot, 'out', 'cli', 'index.js')
@@ -436,11 +437,7 @@ export async function graphsHarness(
       for (const scope of existsSync(root) ? readdirSync(root) : [])
         for (const graph of readdirSync(join(root, scope))) {
           const file = join(root, scope, graph, runId, 'journal.jsonl')
-          if (existsSync(file))
-            return readFileSync(file, 'utf8')
-              .trim()
-              .split('\n')
-              .map((l) => JSON.parse(l) as Record<string, unknown>)
+          if (existsSync(file)) return journalLines(readFileSync(file, 'utf8'))
         }
       return []
     },

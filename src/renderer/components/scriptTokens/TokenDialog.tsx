@@ -1,4 +1,4 @@
-import { SelectField } from '@/components/settings/SelectField'
+import { SelectField } from '@/components/settingsKit/SelectField'
 import {
   AlertDialog,
   AlertDialogAction,

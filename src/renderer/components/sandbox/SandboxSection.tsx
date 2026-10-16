@@ -1,5 +1,6 @@
-import { ControlRow } from '@/components/settings/ControlRow'
-import { SectionHead, SettingsGroup } from '@/components/settings/SettingsGroup'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { useDict } from '@/lib/app/useDict'
@@ -97,8 +98,7 @@ export function SandboxSection(): JSX.Element {
   }
 
   return (
-    <div>
-      <SectionHead title={d.sandbox.title} desc={d.sandbox.desc} />
+    <SettingsPage title={d.sandbox.title} desc={d.sandbox.desc}>
       <SandboxNetworkGroups scope={scope} />
       <SandboxFilesGroups scope={scope} />
       <SettingsGroup title={d.sandbox.ports}>
@@ -135,7 +135,7 @@ export function SandboxSection(): JSX.Element {
           />
         </ControlRow>
       </SettingsGroup>
-    </div>
+    </SettingsPage>
   )
 }
 

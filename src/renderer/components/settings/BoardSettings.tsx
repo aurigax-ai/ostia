@@ -1,10 +1,11 @@
+import { ControlRow, NumberRow, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { GIT_POLL_SECONDS } from '@shared/boards/git'
 import { PORTS_INTERVAL_SECONDS, type PortHost } from '@shared/boards/ports'
-import { ControlRow, NumberRow, ToggleRow } from './ControlRow'
-import { SelectField } from './SelectField'
-import { SectionHead, SettingsGroup } from './SettingsGroup'
 
 const PORT_HOSTS: readonly PortHost[] = ['localhost', '127.0.0.1']
 
@@ -13,8 +14,7 @@ export function GitSection(): JSX.Element {
   const git = useSettingsStore((s) => s.git)
   const set = useSettingsStore((s) => s.setGit)
   return (
-    <div>
-      <SectionHead title={d.git.title} desc={d.git.settingsDesc} />
+    <SettingsPage title={d.git.title} desc={d.git.settingsDesc}>
       <SettingsGroup title={d.git.groupStatus}>
         <ToggleRow
           label={d.git.enabled}
@@ -61,7 +61,7 @@ export function GitSection(): JSX.Element {
           />
         </ControlRow>
       </SettingsGroup>
-    </div>
+    </SettingsPage>
   )
 }
 
@@ -70,8 +70,7 @@ export function PortsSection(): JSX.Element {
   const ports = useSettingsStore((s) => s.ports)
   const set = useSettingsStore((s) => s.setPorts)
   return (
-    <div>
-      <SectionHead title={d.ports.title} desc={d.ports.settingsDesc} />
+    <SettingsPage title={d.ports.title} desc={d.ports.settingsDesc}>
       <SettingsGroup title={d.ports.groupScan}>
         <ToggleRow
           label={d.ports.enabled}
@@ -96,6 +95,6 @@ export function PortsSection(): JSX.Element {
           />
         </ControlRow>
       </SettingsGroup>
-    </div>
+    </SettingsPage>
   )
 }

@@ -1,5 +1,6 @@
 import type { ExtensionAnchor } from '@/components/extensions/InstalledExtensions'
 import { extensionIcon } from '@/components/extensions/extensionIcons'
+import { type SearchStore, createSearchStore } from '@/components/settingsKit/SettingsSearch'
 import { countUsage } from '@/lib/app/usageCounts'
 import { extensionMatchesQuery } from '@/lib/extensions/extensionSettingText'
 import {
@@ -29,7 +30,6 @@ import {
   useEffect,
   useState,
 } from 'react'
-import { type SearchStore, createSearchStore } from './SettingsSearch'
 
 const SANDBOX_DEFAULTS_ITEM = ''
 

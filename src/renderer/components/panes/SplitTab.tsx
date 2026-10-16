@@ -305,6 +305,7 @@ export function SplitTabPill({
   dropMark,
   showClose,
   workspaceId,
+  entering,
 }: {
   tab: SplitNode
   selected: boolean
@@ -312,6 +313,7 @@ export function SplitTabPill({
   dropMark: 'before' | 'after' | null
   showClose: boolean
   workspaceId: string | null
+  entering: boolean
 }): JSX.Element {
   const label = useSplitTabLabel(tab)
   const panes = allPanes(tab)
@@ -324,6 +326,7 @@ export function SplitTabPill({
       style={{ '--split-segments': panes.length } as CSSProperties}
       className={cn(
         'pane-tab pane-split-tab',
+        entering && 'motion-fade',
         selected && 'selected',
         dropMark && `drop-${dropMark}`,
       )}

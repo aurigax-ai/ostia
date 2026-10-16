@@ -1,7 +1,7 @@
 import { isAssistExtension } from '@/components/assist/AssistantSection'
+import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
-import { WarningNote } from '@/components/settings/ControlRow'
-import { SearchGroup } from '@/components/settings/SettingsSearch'
+import { SearchGroup } from '@/components/settingsKit/SettingsSearch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -212,9 +212,7 @@ function ExtensionDetails({
           <CapabilityList label={d.extensions.requested} caps={ext.requested} />
         ) : null}
         {ext.unapproved.length > 0 && ext.status !== 'pending-approval' ? (
-          <WarningNote>
-            {fmt(d.extensions.unapproved, { caps: ext.unapproved.join(', ') })}
-          </WarningNote>
+          <Notice>{fmt(d.extensions.unapproved, { caps: ext.unapproved.join(', ') })}</Notice>
         ) : null}
         {needsReview ? (
           <Button variant="outline" size="sm" className="self-start" onClick={() => review(ext.id)}>

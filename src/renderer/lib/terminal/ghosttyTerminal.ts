@@ -177,6 +177,7 @@ function optionsProxy(t: GhosttyTerm): TerminalOptions {
     'cursorBlink',
     'theme',
     'scrollback',
+    'nativeScrollbar',
     'scrollSensitivity',
     'minimumContrastRatio',
     'macOptionIsMeta',
@@ -185,8 +186,9 @@ function optionsProxy(t: GhosttyTerm): TerminalOptions {
     get: (_target, key: string) => (t.options as unknown as Record<string, unknown>)[key],
     set: (_target, key: string, value: unknown) => {
       if (settable.has(key as keyof TerminalOptions)) {
-        ;(t.options as unknown as Record<string, unknown>)[key] =
-          key === 'fontWeight' ? fontWeightOf(value as TerminalOptions['fontWeight']) : value
+        ;(t.options as unknown as Record<string, unknown>)[
+          key === 'nativeScrollbar' ? 'scrollbar' : key
+        ] = key === 'fontWeight' ? fontWeightOf(value as TerminalOptions['fontWeight']) : value
       }
       return true
     },
@@ -218,6 +220,7 @@ export function createGhosttyTerminal(
     cursorBlink: options.cursorBlink,
     theme: options.theme,
     scrollback: options.scrollback,
+    scrollbar: options.nativeScrollbar,
   })
   const fit = new FitAddon()
   t.loadAddon(fit)
@@ -273,6 +276,7 @@ export function createGhosttyTerminal(
     getSelection: () => t.getSelection(),
     hasSelection: () => t.hasSelection(),
     clearSelection: () => t.clearSelection(),
+    select: (column, row, length) => t.select(column, row, length),
     selectAll: () => t.selectAll(),
     scrollLines: (amount) => t.scrollLines(amount),
     scrollPages: (amount) => t.scrollPages(amount),

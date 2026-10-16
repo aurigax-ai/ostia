@@ -1,21 +1,5 @@
 import { Highlight, SearchScopeProvider, useSearchGroup, useSearchLeaf } from './SettingsSearch'
 
-export function SectionHead({ title, desc }: { title: string; desc?: string }): JSX.Element {
-  useSearchLeaf([title, desc])
-  return (
-    <>
-      <h2 className="mb-1.5 font-semibold text-fg text-ui-lg">
-        <Highlight text={title} />
-      </h2>
-      {desc ? (
-        <p className="mb-3 text-fg-muted text-ui-sm">
-          <Highlight text={desc} />
-        </p>
-      ) : null}
-    </>
-  )
-}
-
 export function SettingsGroup({
   title,
   desc,
@@ -51,7 +35,7 @@ export function SettingsGroup({
   )
 }
 
-export function SubHead({ title, desc }: { title: string; desc?: string }): JSX.Element {
+export function SettingsSubgroup({ title, desc }: { title: string; desc?: string }): JSX.Element {
   useSearchLeaf([title, desc])
   return (
     <div className="mb-2">

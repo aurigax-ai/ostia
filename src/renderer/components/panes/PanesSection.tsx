@@ -1,5 +1,6 @@
-import { ToggleRow } from '@/components/settings/ControlRow'
-import { SectionHead, SettingsGroup } from '@/components/settings/SettingsGroup'
+import { ToggleRow } from '@/components/settingsKit/ControlRow'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 
@@ -8,8 +9,7 @@ export function PanesSection(): JSX.Element {
   const panes = useSettingsStore((s) => s.panes)
   const set = useSettingsStore((s) => s.setPanes)
   return (
-    <div>
-      <SectionHead title={d.settings.panes} />
+    <SettingsPage title={d.settings.panes}>
       <SettingsGroup title={d.settings.groupPaneFocus}>
         <ToggleRow
           label={d.settings.dimInactive}
@@ -40,6 +40,6 @@ export function PanesSection(): JSX.Element {
           onChange={(v) => set({ hideTabClose: v })}
         />
       </SettingsGroup>
-    </div>
+    </SettingsPage>
   )
 }

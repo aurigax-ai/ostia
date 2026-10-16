@@ -1,5 +1,5 @@
 import { IconButton } from '@/components/common/IconButton'
-import { WarningNote } from '@/components/settings/ControlRow'
+import { Notice } from '@/components/common/Notice'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { TableCell, TableRow } from '@/components/ui/table'
@@ -78,7 +78,7 @@ function KeyNotice({ children }: { children: React.ReactNode }): JSX.Element {
   return (
     <div
       data-slot="key-notice"
-      className="absolute top-full left-0 z-20 mt-0.5 w-max max-w-md rounded-md border border-line bg-popover p-2 text-popover-foreground shadow-md"
+      className="motion-enter absolute top-full left-0 origin-top-left z-20 mt-0.5 w-max max-w-md rounded-md border border-line bg-popover p-2 text-popover-foreground shadow-md"
     >
       {children}
     </div>
@@ -304,12 +304,12 @@ function ChordEditor({
       <DesktopNote specs={current} />
       <TerminalLosesNote id={id} specs={current} />
       {ignored && mode.kind === 'idle' ? (
-        <WarningNote>
+        <Notice>
           {fmt(d.keyboard.ignored, {
             value: ignored.value,
             reason: problemText(ignored.problem, d, isMac),
           })}
-        </WarningNote>
+        </Notice>
       ) : null}
     </>
   )
@@ -439,16 +439,16 @@ function PendingChoice({
     <div className="flex flex-col gap-1.5">
       <Kbd className="text-fg">{keys}</Kbd>
       {pending.conflicts.map((other) => (
-        <WarningNote key={other}>
+        <Notice key={other}>
           {fmt(d.keyboard.conflict, { keys, command: commandTitle(other, d) })}
-        </WarningNote>
+        </Notice>
       ))}
       {pending.terminal ? (
-        <WarningNote>
+        <Notice>
           {fmt(d.keyboard.terminalConflict, { keys, send: sendText(pending.terminal.send) })}
-        </WarningNote>
+        </Notice>
       ) : null}
-      {pending.monaco ? <WarningNote>{fmt(d.keyboard.monaco, { keys })}</WarningNote> : null}
+      {pending.monaco ? <Notice>{fmt(d.keyboard.monaco, { keys })}</Notice> : null}
       <div className="flex gap-1">
         <Button size="xs" onClick={onConfirm}>
           {pending.conflicts.length > 0 || pending.terminal

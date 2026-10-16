@@ -1,8 +1,9 @@
 import { toolTitle } from '@/components/chat/ChatToolPart'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
-import { ControlRow, WarningNote } from '@/components/settings/ControlRow'
-import { SettingsGroup } from '@/components/settings/SettingsGroup'
+import { Notice } from '@/components/common/Notice'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -232,7 +233,7 @@ function SkillFolders(): JSX.Element {
           })}
         </ul>
       )}
-      {invalid ? <WarningNote>{t.badSkillFolder}</WarningNote> : null}
+      {invalid ? <Notice>{t.badSkillFolder}</Notice> : null}
     </SettingsGroup>
   )
 }

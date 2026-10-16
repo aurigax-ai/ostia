@@ -108,11 +108,11 @@ async function startAgentRun(h: HostHarness, call: Awaited<ReturnType<typeof pan
 }
 
 describe('the Graphs panel data', () => {
-  it('GRF-C140 an empty folder lists no graphs and names the folder to put them in', async () => {
-    const { workDir, call } = await panel({})
+  it('GRF-C140 an empty folder lists no graphs and names the folder to put them in, relative to the workspace', async () => {
+    const { call } = await panel({})
     expect(await call<ListModel>('list')).toEqual({
       workspaceId: 'w1',
-      folder: join(workDir, '.ostia/graphs'),
+      folder: join('.ostia', 'graphs'),
       scratch: false,
       graphs: [],
     })
@@ -250,7 +250,7 @@ describe('the Graphs panel data', () => {
       state: 'ready',
       daemon: false,
     })
-    expect(en.messages.runsAsDaemon).toContain('also while Ostia is closed')
+    expect(en.messages.runsAsDaemon).toContain('while Ostia is closed')
     expect(en.messages.runsWhileOpen).toContain('while Ostia is open')
   })
 

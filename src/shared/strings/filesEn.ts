@@ -85,6 +85,8 @@ export const filesEn = {
     nestingPatternsDesc:
       'A parent file pattern (one * allowed) and the files nested under it. Child patterns take * and ${capture}, the text the parent’s * matched.',
     newExclude: 'Pattern, e.g. **/dist',
+    noExclude: 'No patterns.',
+    noNesting: 'No nesting patterns.',
     ops: {
       cancel: 'Cancel',
       copy: 'Copy',

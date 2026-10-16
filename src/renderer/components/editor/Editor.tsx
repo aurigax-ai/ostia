@@ -1,8 +1,10 @@
+import { useFlipped } from '@/lib/app/useFlipped'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { EditorAlerts } from './EditorAlerts'
 import { EditorModes, type OptionViewer } from './EditorModes'
 import { LanguageNotice, LargeFileNotice } from './LanguageNotice'
 import { RemoteFileBar } from './RemoteFileBar'
+import { NoticeAppearing } from './noticeAppearing'
 import { useEditorView } from './useEditorView'
 
 export function EditorView({
@@ -45,16 +47,18 @@ export function EditorView({
     external,
   } = useEditorView({ workspaceId, paneId, filePath })
   const remote = isRemotePath(filePath)
+  const fixedBarAppearing = useFlipped({
+    bar: Boolean(filePath && (remote || (!blocked && large))),
+  }).has('bar')
 
   return (
     <>
-      {filePath && remote ? <RemoteFileBar filePath={filePath} problem={remoteProblem} /> : null}
-      {filePath && !blocked && !remote ? (
-        large ? (
-          <LargeFileNotice />
-        ) : (
-          <LanguageNotice paneId={paneId} filePath={filePath} />
-        )
+      <NoticeAppearing.Provider value={fixedBarAppearing}>
+        {filePath && remote ? <RemoteFileBar filePath={filePath} problem={remoteProblem} /> : null}
+        {filePath && !blocked && !remote && large ? <LargeFileNotice /> : null}
+      </NoticeAppearing.Provider>
+      {filePath && !blocked && !remote && !large ? (
+        <LanguageNotice paneId={paneId} filePath={filePath} />
       ) : null}
       <div
         ref={hostRef}

@@ -1,3 +1,6 @@
+import { Notice } from '@/components/common/Notice'
+import { ControlRow, MachineValue } from '@/components/settingsKit/ControlRow'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -5,8 +8,6 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { Dict } from '@shared/app/dict'
 import type { SyncConflict, SyncStatus } from '@shared/profileSync/profileSync'
 import { useEffect, useMemo, useState } from 'react'
-import { ControlRow, MachineValue, WarningNote } from './ControlRow'
-import { SectionHead } from './SettingsGroup'
 import { SyncSecretsSection } from './SyncSecretsSection'
 
 const OFF: SyncStatus = {
@@ -72,44 +73,45 @@ function SyncConflicts({
 
   if (!active || status.conflicts.length === 0) return null
   return (
-    <section aria-label={d.sync.conflictsTitle} className="mt-4">
-      <SectionHead title={d.sync.conflictsTitle} desc={d.sync.conflictsDesc} />
-      {status.conflicts.map((conflict) => {
-        const shownValues = conflict.kind === 'secret' ? revealed[conflict.id] : conflict
-        const kept = shownValues
-          ? conflict.winner === 'local'
-            ? shownValues.local
-            : shownValues.remote
-          : null
-        const other = shownValues
-          ? conflict.winner === 'local'
-            ? shownValues.remote
-            : shownValues.local
-          : null
-        const desc =
-          conflict.kind === 'secret' && !shownValues
-            ? fmt(d.sync.secretChanged, {
-                here: time.format(new Date(conflict.localAt ?? 0)),
-                there: time.format(new Date(conflict.remoteAt ?? 0)),
-              })
-            : fmt(d.sync.conflictValues, {
-                kept: conflictValue(d, conflict, kept),
-                other: conflictValue(d, conflict, other),
-              })
-        return (
-          <ControlRow key={conflict.id} label={conflict.key} desc={desc}>
-            {conflict.kind === 'secret' ? (
-              <Button variant="ghost" size="sm" onClick={() => void toggleReveal(conflict.id)}>
-                {shownValues ? d.sync.hide : d.sync.reveal}
+    <div className="mt-4">
+      <SettingsPage title={d.sync.conflictsTitle} desc={d.sync.conflictsDesc}>
+        {status.conflicts.map((conflict) => {
+          const shownValues = conflict.kind === 'secret' ? revealed[conflict.id] : conflict
+          const kept = shownValues
+            ? conflict.winner === 'local'
+              ? shownValues.local
+              : shownValues.remote
+            : null
+          const other = shownValues
+            ? conflict.winner === 'local'
+              ? shownValues.remote
+              : shownValues.local
+            : null
+          const desc =
+            conflict.kind === 'secret' && !shownValues
+              ? fmt(d.sync.secretChanged, {
+                  here: time.format(new Date(conflict.localAt ?? 0)),
+                  there: time.format(new Date(conflict.remoteAt ?? 0)),
+                })
+              : fmt(d.sync.conflictValues, {
+                  kept: conflictValue(d, conflict, kept),
+                  other: conflictValue(d, conflict, other),
+                })
+          return (
+            <ControlRow key={conflict.id} label={conflict.key} desc={desc}>
+              {conflict.kind === 'secret' ? (
+                <Button variant="ghost" size="sm" onClick={() => void toggleReveal(conflict.id)}>
+                  {shownValues ? d.sync.hide : d.sync.reveal}
+                </Button>
+              ) : null}
+              <Button variant="outline" size="sm" onClick={() => void resolve(conflict.id)}>
+                {d.sync.useOther}
               </Button>
-            ) : null}
-            <Button variant="outline" size="sm" onClick={() => void resolve(conflict.id)}>
-              {d.sync.useOther}
-            </Button>
-          </ControlRow>
-        )
-      })}
-    </section>
+            </ControlRow>
+          )
+        })}
+      </SettingsPage>
+    </div>
   )
 }
 
@@ -136,21 +138,22 @@ function SyncOffers({
 
   if (!active || status.offers.length === 0) return null
   return (
-    <section aria-label={d.sync.offersTitle} className="mt-4">
-      <SectionHead title={d.sync.offersTitle} desc={d.sync.offersDesc} />
-      {status.offers.map((offer) => (
-        <ControlRow key={offer.id} label={offer.id} desc={offer.marketplace}>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={installing === offer.id}
-            onClick={() => void install(offer.id)}
-          >
-            {d.sync.install}
-          </Button>
-        </ControlRow>
-      ))}
-    </section>
+    <div className="mt-4">
+      <SettingsPage title={d.sync.offersTitle} desc={d.sync.offersDesc}>
+        {status.offers.map((offer) => (
+          <ControlRow key={offer.id} label={offer.id} desc={offer.marketplace}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={installing === offer.id}
+              onClick={() => void install(offer.id)}
+            >
+              {d.sync.install}
+            </Button>
+          </ControlRow>
+        ))}
+      </SettingsPage>
+    </div>
   )
 }
 
@@ -215,8 +218,7 @@ export function SyncSection(): JSX.Element {
         : d.sync.never
 
   return (
-    <div>
-      <SectionHead title={d.sync.title} desc={d.sync.desc} />
+    <SettingsPage title={d.sync.title} desc={d.sync.desc}>
       <Separator className="mb-2" />
       <ControlRow label={d.sync.folder} desc={d.sync.folderDesc}>
         {dir ? (
@@ -244,14 +246,14 @@ export function SyncSection(): JSX.Element {
         </Button>
       </ControlRow>
       {dir && status.skipped.length > 0 ? (
-        <WarningNote>{fmt(d.sync.skipped, { files: status.skipped.join(', ') })}</WarningNote>
+        <Notice>{fmt(d.sync.skipped, { files: status.skipped.join(', ') })}</Notice>
       ) : null}
       {dir && status.heldBack.length > 0 ? (
-        <WarningNote>{fmt(d.sync.heldBack, { keys: status.heldBack.join(', ') })}</WarningNote>
+        <Notice>{fmt(d.sync.heldBack, { keys: status.heldBack.join(', ') })}</Notice>
       ) : null}
       <SyncConflicts active={dir !== ''} status={status} time={time} onStatus={setStatus} />
       {dir ? <SyncSecretsSection status={status} onStatus={setStatus} /> : null}
       <SyncOffers active={dir !== ''} status={status} onStatus={setStatus} />
-    </div>
+    </SettingsPage>
   )
 }
