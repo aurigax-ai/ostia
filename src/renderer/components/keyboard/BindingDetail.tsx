@@ -144,7 +144,7 @@ function DetailFrame({
                     <span className="flex items-center gap-1 text-fg-muted text-ui-xs">
                       {on ? (
                         <>
-                          <ArrowLeftIcon className="size-3 shrink-0" aria-hidden />
+                          <ArrowLeftIcon className="size-4 shrink-0" aria-hidden />
                           {d.keyboard.inEffect}
                         </>
                       ) : null}

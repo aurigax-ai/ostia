@@ -61,7 +61,7 @@ export function ChatModeSelect({ sessionId }: { sessionId: string }): JSX.Elemen
         >
           <ModeIcon aria-hidden />
           <span className="@max-3xs:hidden">{name}</span>
-          <CaretDownIcon aria-hidden className="size-3 @max-3xs:hidden" />
+          <CaretDownIcon aria-hidden className="size-4 @max-3xs:hidden" />
         </Button>
       }
     >
@@ -97,7 +97,7 @@ export function ChatModeSelect({ sessionId }: { sessionId: string }): JSX.Elemen
 
 function ModeLeading({ mode }: { mode: ChatMode }): JSX.Element {
   const ModeIcon = MODE_ICONS[mode]
-  return <ModeIcon className="size-3.5 text-fg-muted" />
+  return <ModeIcon className="size-4 text-fg-muted" />
 }
 
 function grouped(choices: AssistModelChoice[]): { group: string; items: AssistModelChoice[] }[] {
@@ -149,7 +149,7 @@ export function ChatModelSelect({
           <Hint label={label}>
             <span className="min-w-0 truncate">{short}</span>
           </Hint>
-          <CaretDownIcon aria-hidden className="size-3 @max-3xs:hidden" />
+          <CaretDownIcon aria-hidden className="size-4 @max-3xs:hidden" />
         </Button>
       }
     >

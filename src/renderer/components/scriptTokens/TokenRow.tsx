@@ -29,7 +29,7 @@ export function TokenRow({
   return (
     <li className="flex items-center gap-3 border-line border-b px-3 py-2.5 last:border-b-0">
       <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-surface-2 text-fg-muted">
-        <KeyIcon className="size-3.5" />
+        <KeyIcon className="size-4" />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">

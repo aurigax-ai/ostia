@@ -173,7 +173,7 @@ export function NameInputRow({
     <div className="file-name-edit">
       <div className="file-row editing" style={{ paddingLeft: 8 + depth * 13 }}>
         {dir ? (
-          <CaretRightIcon size={12} className="file-twisty" />
+          <CaretRightIcon size={16} className="file-twisty" />
         ) : (
           <span className="file-twisty-spacer" />
         )}

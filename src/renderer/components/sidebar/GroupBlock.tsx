@@ -108,7 +108,7 @@ export function GroupBlock({
         >
           {renaming ? (
             <span className="rail-group-main">
-              <Caret size={12} className="rail-group-caret" aria-hidden />
+              <Caret size={16} className="rail-group-caret" aria-hidden />
               <span className="rail-group-swatch" aria-hidden />
               <RenameInput
                 value={group.name}
@@ -127,7 +127,7 @@ export function GroupBlock({
               onClick={toggle}
               onDoubleClick={() => onRenaming(true)}
             >
-              <Caret size={12} className="rail-group-caret" aria-hidden />
+              <Caret size={16} className="rail-group-caret" aria-hidden />
               <span className="rail-group-swatch" aria-hidden />
               <GroupUnreadDot workspaceIds={members.map((w) => w.id)} />
               <span className="rail-group-name">{group.name}</span>

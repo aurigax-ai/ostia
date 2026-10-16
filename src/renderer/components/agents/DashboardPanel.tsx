@@ -355,7 +355,7 @@ function RemoteEntry({ workspace: w }: { workspace: RemoteWorkspace }): JSX.Elem
       <StateMark state={w.state} />
       <PathText path={w.workDir} />
       <span className="ml-auto flex shrink-0 items-center gap-1 text-fg-muted text-ui-xs">
-        <AppWindowIcon size={12} aria-hidden />
+        <AppWindowIcon size={16} aria-hidden />
         {d.window.inOtherWindow}
       </span>
     </li>
