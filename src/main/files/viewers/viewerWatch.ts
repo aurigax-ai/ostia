@@ -1,6 +1,6 @@
 import { PREVIEW_LIMITS, type PreviewLimits } from '../../../shared/artifacts/htmlPreview'
 import type { ViewerStopReason } from '../../../shared/types'
-import type { ProcessUse } from '../../artifacts/htmlPreview'
+import type { ProcessUse } from '../../artifacts/previewHostTypes'
 import { previewVerdict } from '../../artifacts/previewLimits'
 
 const MIB = 1024 * 1024
