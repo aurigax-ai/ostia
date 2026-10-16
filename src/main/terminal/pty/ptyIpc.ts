@@ -13,6 +13,7 @@ import { type ReportedAgentWork, backgroundWork, readProcessTable } from '../../
 import { getByPaneId } from '../../control/idRegistry'
 import type { OpenWaits } from '../../files/openWaits'
 import type { PaneWaking } from '../../panes/paneWaking'
+import { wakeReason } from '../../panes/wakeReason'
 import type { KeptShells } from '../../tmux/keptShells'
 import { stashedScreen } from '../../workspaces/workspaceSnapshot'
 import { registerPathCompletionIpc } from '../pathCompletion'
@@ -131,7 +132,7 @@ function registerPtyControlIpc({
     if (typeof paneId !== 'string' || typeof waking !== 'boolean') return
     if (getByPaneId(paneId)?.windowId !== String(e.sender.id)) return
     if (waking) paneWaking.start(paneId)
-    else paneWaking.end(paneId, 'failed', typeof reason === 'string' ? reason : undefined)
+    else paneWaking.end(paneId, 'failed', wakeReason(reason))
   })
 
   ipcMain.on('pty:write', (e, paneId: string, data: string) => {

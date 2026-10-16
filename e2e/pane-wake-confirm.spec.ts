@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, isolatedHome } from './fakeAgent'
@@ -22,12 +23,14 @@ function agentScript(marker: string, onResume: string): string {
 
 const EXITS_AT_ONCE = ['  echo refused-at-once', '  exit 1'].join('\n')
 
-const REPORTS_LATE = [
-  '  sleep 4',
-  `  ${REPORT} >/dev/null 2>&1`,
-  '  echo resumed-ready',
-  '  exec sleep 600',
-].join('\n')
+function reportsOnceGated(gate: string): string {
+  return [
+    `  while [ ! -e "${gate}" ]; do sleep 0.1; done`,
+    `  ${REPORT} >/dev/null 2>&1`,
+    '  echo resumed-ready',
+    '  exec sleep 600',
+  ].join('\n')
+}
 
 async function hibernateWorker(win: Page): Promise<void> {
   const caller = win.locator('.xterm-rows').first()
@@ -82,7 +85,8 @@ test(
   { tag: '@core' },
   async () => {
     test.setTimeout(120_000)
-    const { app, win } = await launch((marker) => agentScript(marker, REPORTS_LATE))
+    const gate = join(freshDataHome(), 'report-now')
+    const { app, win } = await launch((marker) => agentScript(marker, reportsOnceGated(gate)))
     try {
       const caller = win.locator('.xterm-rows').first()
       await hibernateWorker(win)
@@ -90,8 +94,11 @@ test(
         win,
         'ostia pane wake worker; echo wake-exit-$?; ostia pane read worker | grep -c resumed-ready',
       )
-      await expect(caller).toContainText('wake-exit-0', { timeout: 30_000 })
-      await expect(caller).toContainText(/wake-exit-0[1-9]/)
+      await expect(caller).toContainText('ostia pane wake worker')
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+      await expect(caller).not.toContainText('wake-exit-0')
+      writeFileSync(gate, '')
+      await expect(caller).toContainText(/wake-exit-0[1-9]/, { timeout: 30_000 })
     } finally {
       await app.close()
     }

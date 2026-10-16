@@ -106,26 +106,30 @@ export function registerPaneWakeMethods(
       }
       checkSessions([...asleepPanes, ...awakePanes], await deps.panes())
       const woke: string[] = []
-      for (const to of asleepPanes) {
-        deps.waking.start(to.paneId)
-        const outcome = await deps.wake(to)
-        if (outcome.conflict || !outcome.woke) deps.waking.abandon(to.paneId)
-        if (outcome.conflict) throw sessionConflict(to, `"${outcome.conflict}"`)
-        if (!outcome.woke) throw notResumable(to)
-        woke.push(to.externalId)
-      }
-      for (const to of awakePanes) {
-        deps.waking.start(to.paneId)
-        const res = await deps.resume(to)
-        if (!res.ok || (res.result as { resumed?: unknown } | undefined)?.resumed !== true) {
-          deps.waking.abandon(to.paneId)
+      const marked: PaneIdentity[] = []
+      try {
+        for (const to of asleepPanes) {
+          marked.push(to)
+          deps.waking.start(to.paneId)
+          const outcome = await deps.wake(to)
+          if (outcome.conflict) throw sessionConflict(to, `"${outcome.conflict}"`)
+          if (!outcome.woke) throw notResumable(to)
+          woke.push(to.externalId)
         }
-        if (!res.ok) throw fail(res.error.message)
-        if ((res.result as { resumed?: unknown } | undefined)?.resumed !== true) {
-          throw notResumable(to)
+        for (const to of awakePanes) {
+          marked.push(to)
+          deps.waking.start(to.paneId)
+          const res = await deps.resume(to)
+          if (!res.ok) throw fail(res.error.message)
+          if ((res.result as { resumed?: unknown } | undefined)?.resumed !== true) {
+            throw notResumable(to)
+          }
+          waited.push(to)
+          woke.push(to.externalId)
         }
-        waited.push(to)
-        woke.push(to.externalId)
+      } catch (err) {
+        for (const to of marked) deps.waking.abandon(to.paneId)
+        throw err
       }
       if (waited.length === 0) return { ok: true, woke }
       const cancelled = new ChangeSignal()

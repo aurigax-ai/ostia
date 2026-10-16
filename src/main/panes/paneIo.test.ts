@@ -48,6 +48,7 @@ const wakeConflicts = new Map<string, string>()
 let listed: PaneEntry[] = []
 const woken: string[] = []
 const failsWhileWaking = new Map<string, string>()
+const rejectsWake = new Set<string>()
 const hibernateOutcomes = new Map<string, string>()
 const hibernateCalls: string[] = []
 const closed: string[] = []
@@ -107,6 +108,7 @@ registerPaneIoMethods({
   hibernated: async (pane) => asleepPanes.has(pane.paneId),
   wake: async (pane) => {
     woken.push(pane.paneId)
+    if (rejectsWake.has(pane.paneId)) throw new Error('window gone')
     const conflict = wakeConflicts.get(pane.paneId)
     if (conflict) return { woke: false, conflict }
     const woke = asleepPanes.delete(pane.paneId)
@@ -871,6 +873,21 @@ describe('pane.wake', () => {
     )
     wakeConflicts.delete('child-pane')
     expect(waking.has('child-pane')).toBe(false)
+  })
+
+  it('leaves every pane it marked out of the waking set when a wake rejects', async () => {
+    startsAgents = false
+    asleepPanes.add('child-pane')
+    asleepPanes.add('sibling-pane')
+    rejectsWake.add('sibling-pane')
+    const conn = await client(agent)
+    await expect(
+      conn.sendRequest('pane.wake', { panes: ['echo', sibling.externalId] }),
+    ).rejects.toThrow()
+    rejectsWake.delete('sibling-pane')
+    expect(waking.has('child-pane')).toBe(false)
+    expect(waking.has('sibling-pane')).toBe(false)
+    asleepPanes.delete('sibling-pane')
   })
 
   it('refuses a bad timeout', async () => {
