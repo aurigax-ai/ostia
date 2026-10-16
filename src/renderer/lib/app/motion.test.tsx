@@ -172,6 +172,14 @@ describe('motion CSS contract', () => {
     }
   })
 
+  it('reveals a collapsible by opacity and a small translate, with no close transition', () => {
+    expect(ruleBody('.motion-reveal-panel')).toContain('transition-property: opacity, transform;')
+    expect(ruleBody('.motion-reveal-panel[data-starting-style]')).toMatch(
+      /opacity: 0;\n {2}transform: translateY\(-2px\);/,
+    )
+    expect(css).not.toContain('.motion-reveal-panel[data-ending-style]')
+  })
+
   it('gives panels every motion token of the app, scaled by the reduced-motion setting', () => {
     const panel = readFileSync(
       resolve(process.cwd(), join('packages', 'extension-sdk', 'src', 'client'), 'panel.css'),

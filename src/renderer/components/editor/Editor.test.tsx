@@ -884,6 +884,7 @@ describe('EditorView', () => {
     expect(window.ostia.fs.read).not.toHaveBeenCalled()
     const bar = screen.getByTestId('remote-file-bar')
     expect(bar).toHaveTextContent('Remote file on db')
+    expect(bar).not.toHaveClass('motion-fade')
 
     act(() => useRemoteFoldersStore.setState({ folders: [] }))
     expect(bar).toHaveTextContent('This remote folder is closed')
