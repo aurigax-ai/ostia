@@ -8,7 +8,7 @@ import {
   seedSettings,
 } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
-import { PROMPT, openWorkspace, runInTerminal, shownTerminal } from './helpers'
+import { PROMPT, expectHeld, openWorkspace, runInTerminal, shownTerminal } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 test.describe.configure({ timeout: 90_000 })
@@ -83,8 +83,7 @@ test('waking an agent whose folder was removed shows a notice and runs nothing',
     await expect(notice).toBeVisible({ timeout: 20_000 })
     const rows = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
     await expect(rows).toContainText(PROMPT, { timeout: 15_000 })
-    await win.waitForTimeout(2_000)
-    await expect(rows).not.toContainText('--resume e2e-tok-gone')
+    await expectHeld(async () => (await rows.innerText()).includes('--resume e2e-tok-gone'), false)
   } finally {
     await app.close()
   }
