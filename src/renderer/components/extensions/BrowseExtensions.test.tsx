@@ -354,7 +354,6 @@ describe('BrowseExtensions', () => {
     const row = within(panel).getByRole('listitem', { name: pending.name })
     expect(within(row).getByText('Not downloaded yet.')).toBeVisible()
     expect(within(row).queryByText('This marketplace lists no extensions.')).toBeNull()
-    expect(within(panel).queryByRole('button', { name: 'Add the official marketplace' })).toBeNull()
     vi.mocked(window.ostia.marketplace.refresh).mockResolvedValue({
       ok: true,
       state: stateWith(marketplace({ official: true })),
@@ -364,25 +363,18 @@ describe('BrowseExtensions', () => {
     expect(await within(results()).findByRole('listitem', { name: 'Weather' })).toBeVisible()
   })
 
-  it('adds the official marketplace back in one click once it was removed', async () => {
-    await browse(stateWith(marketplace()))
-    const panel = screen.getByRole('region', { name: 'Marketplaces' })
-    vi.mocked(window.ostia.marketplace.add).mockResolvedValue({
-      ok: true,
-      state: {
-        marketplaces: [marketplace(), marketplace({ ...OTHER, official: true })],
-        installed: [],
-      },
+  it('has no remove button for the official marketplace and no line to add it', async () => {
+    await browse({
+      marketplaces: [
+        marketplace(),
+        marketplace({ ...OTHER, name: 'Ostia extensions', official: true }),
+      ],
+      installed: [],
     })
-    await userEvent.click(
-      within(panel).getByRole('button', { name: 'Add the official marketplace' }),
-    )
-    expect(window.ostia.marketplace.add).toHaveBeenCalledWith('aurigax-ai/ostia-extensions')
-    await waitFor(() =>
-      expect(
-        within(panel).queryByRole('button', { name: 'Add the official marketplace' }),
-      ).toBeNull(),
-    )
+    const panel = screen.getByRole('region', { name: 'Marketplaces' })
+    expect(within(panel).getByRole('button', { name: 'Remove Acme extensions' })).toBeVisible()
+    expect(within(panel).queryByRole('button', { name: 'Remove Ostia extensions' })).toBeNull()
+    expect(within(panel).queryByRole('button', { name: 'Add the official marketplace' })).toBeNull()
   })
 
   it('refreshes and removes a marketplace from its panel', async () => {
