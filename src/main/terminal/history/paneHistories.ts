@@ -3,7 +3,12 @@ import { chmodSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { statfs } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { ScrollbackHistory } from '../../../shared/terminal/scrollbackHistory'
-import type { HistoryFeed, SpillClient } from './historyFeed'
+import {
+  type HistoryFeed,
+  type SpillClient,
+  historyWorkerScript,
+  startSpillWorker,
+} from './historyFeed'
 import { newHistoryKey } from './historyRecords'
 import { PaneHistory } from './paneHistory'
 
@@ -48,6 +53,10 @@ export interface PaneHistoriesDeps {
 async function statfsFree(dir: string): Promise<number> {
   const stats = await statfs(dir)
   return stats.bavail * stats.bsize
+}
+
+export function appSpillWorker(appPath: string): () => SpillClient {
+  return () => startSpillWorker(historyWorkerScript(appPath))
 }
 
 export class PaneHistories {
