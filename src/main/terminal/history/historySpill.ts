@@ -92,6 +92,23 @@ export class HistorySpill {
     return last < frontier.line ? [] : serializeLogicalLines(buffer, frontier.line, last)
   }
 
+  get seqEnd(): number {
+    return this.seq
+  }
+
+  lose(): void {
+    if (this.finished) return
+    if (!this.held && this.buffers.active.type === 'normal') {
+      this.spill(this.lastContentRow(), true)
+    }
+    if (this.history.live) this.history.append([GAP_LINE])
+    for (const mark of this.marks) mark.marker.dispose()
+    this.marks = []
+    this.frontier?.dispose()
+    this.frontier = undefined
+    this.held = true
+  }
+
   finish(): void {
     if (this.finished) return
     if (!this.held && this.buffers.active.type === 'normal') {

@@ -45,7 +45,8 @@ function setup() {
     await mirror.flush()
     await mirror.historyTail()
   }
-  return { call, write }
+  const send = (data: string) => mirror.write(data)
+  return { call, write, send }
 }
 
 const numbered = (from: number, count: number, text = 'out'): string =>
@@ -105,6 +106,29 @@ describe('history IPC', () => {
     expect(output.split('\n')).toEqual(numbered(0, 2500).trimEnd().split('\r\n'))
     expect(await call(7, 'pty:block-output', 'p1', 1, 'other')).toBeNull()
     expect(await call(7, 'pty:history-block', 'p1', 1, 'build')).toEqual({ start: 1, end: 2501 })
+  })
+  it('reads what was just written, without waiting for the pane to go quiet', async () => {
+    const { call, send } = setup()
+    send(numbered(0, 3000))
+    const page = (await call(7, 'pty:history-read', 'p1', 0, 10)) as {
+      end: number
+      lines: string[]
+    }
+    expect(page.end).toBe(3000)
+    expect(page.lines).toEqual(numbered(0, 10).trimEnd().split('\r\n'))
+  })
+
+  it('never shows a cleared line, even when asked right after the clear', async () => {
+    const { call, write, send } = setup()
+    await write(`${mark('A')}$ ${ESC}]633;E;build;n0nce\x07${mark('B')}build\r\n${mark('C')}`)
+    await write(numbered(0, 2500))
+    await write(`${mark('D;0')}${mark('A')}$ `)
+    send(`${ESC}[3J`)
+    expect(await call(7, 'pty:history-block', 'p1', 1, 'build')).toBeNull()
+    const page = (await call(7, 'pty:history-read', 'p1', 0, 5000)) as { lines: string[] }
+    expect(page.lines).not.toContain('out 10')
+    const found = (await call(7, 'pty:history-search', 'p1', 'out 10', {}, 0)) as { count: number }
+    expect(found.count).toBe(0)
   })
 })
 

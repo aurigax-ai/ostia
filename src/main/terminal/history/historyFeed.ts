@@ -1,5 +1,6 @@
 import { join } from 'node:path'
 import { Worker } from 'node:worker_threads'
+import type { FlowMarks } from '../ptyFlow'
 import type { PaneHistory } from './paneHistory'
 import type { BlockEnd, SpillEvent, SpillRequest } from './spillHost'
 
@@ -8,33 +9,49 @@ export interface SpillPort {
   on(type: 'message', listener: (event: SpillEvent) => void): unknown
 }
 
+export interface SpillPressure {
+  readonly canPause: boolean
+  hold(chars: number): void
+  release(chars: number): void
+  close(): void
+}
+
 export interface HistoryFeed {
   readonly seqBase: number
   readonly continues: boolean
   write(data: string): void
   restore(history: string): void
   resize(cols: number, rows: number): void
+  watchScreen(screen: () => string): void
   tail(): Promise<string[]>
   pendingEnd(seq: number): Promise<BlockEnd | null>
-  close(commandStarts: number): Promise<void>
+  close(): Promise<void>
 }
 
-const utf8 = new TextEncoder()
+export const SPILL_BACKLOG: FlowMarks = { high: 8 * 1024 * 1024, low: 2 * 1024 * 1024 }
 const SPILL_QUIET_MS = 100
-const SPILL_SEND_CHARS = 32 * 1024 * 1024
+export const PANE_SEND_CHARS = 2 * 1024 * 1024
+export const SLICE_CHARS = 512 * 1024
 const SPILL_HEAP_LIMITS = { maxYoungGenerationSizeMb: 4, maxOldGenerationSizeMb: 1024 }
+const utf8 = new TextEncoder()
 
 type Reply = Extract<SpillEvent, { kind: 'reply' }>
 
+interface Session {
+  history: PaneHistory
+  pressure: SpillPressure | null
+  unsent: string[]
+  unsentChars: number
+  inFlight: number
+  dropping: boolean
+  screen: () => string
+  closing: (() => void) | null
+}
+
 export class SpillClient {
-  private readonly sessions = new Map<number, PaneHistory>()
-  private readonly closing = new Map<number, () => void>()
+  private readonly sessions = new Map<number, Session>()
   private readonly replies = new Map<number, (reply: Reply | null) => void>()
-  private readonly historyIds = new WeakMap<PaneHistory, number>()
-  private readonly unsent = new Map<number, string[]>()
   private sending: ReturnType<typeof setTimeout> | null = null
-  private unsentBytes = 0
-  private nextHistory = 0
   private nextSession = 0
   private nextReply = 0
   private ended = false
@@ -47,37 +64,48 @@ export class SpillClient {
     return !this.ended
   }
 
-  open(history: PaneHistory, cols: number, rows: number): HistoryFeed {
-    const session = this.nextSession++
+  open(
+    history: PaneHistory,
+    cols: number,
+    rows: number,
+    pressure: SpillPressure | null = null,
+  ): HistoryFeed {
+    const id = this.nextSession++
     const seqBase = history.seqOffset
-    this.sessions.set(session, history)
-    this.post({
-      kind: 'open',
-      session,
-      history: this.historyId(history),
-      cols,
-      rows,
-      end: history.end,
-      seqOffset: seqBase,
-    })
     const continues = history.end > history.first
+    const session: Session = {
+      history,
+      pressure,
+      unsent: [],
+      unsentChars: 0,
+      inFlight: 0,
+      dropping: false,
+      screen: () => '',
+      closing: null,
+    }
+    this.sessions.set(id, session)
+    this.post({ kind: 'open', session: id, cols, rows, end: history.end, seqOffset: seqBase })
     let closed: Promise<void> | null = null
     return {
       seqBase,
       continues,
-      write: (data) => this.queue(session, data),
-      restore: (text) => this.post({ kind: 'restore', session, history: text, hold: continues }),
-      resize: (c, r) => this.post({ kind: 'resize', session, cols: c, rows: r }),
-      tail: async () => (await this.ask({ kind: 'tail', session }))?.tail ?? [],
+      write: (data) => this.queue(session, id, data),
+      restore: (text) =>
+        this.post({ kind: 'restore', session: id, history: text, hold: continues }),
+      resize: (c, r) => this.post({ kind: 'resize', session: id, cols: c, rows: r }),
+      watchScreen: (screen) => {
+        session.screen = screen
+      },
+      tail: async () => (await this.ask({ kind: 'tail', session: id }))?.tail ?? [],
       pendingEnd: async (seq) =>
-        (await this.ask({ kind: 'pendingEnd', session, seq }))?.pendingEnd ?? null,
-      close: (commandStarts) => {
+        (await this.ask({ kind: 'pendingEnd', session: id, seq }))?.pendingEnd ?? null,
+      close: () => {
         if (closed) return closed
-        history.seqOffset = seqBase + commandStarts
-        closed = this.ended
-          ? Promise.resolve()
-          : new Promise((resolve) => this.closing.set(session, resolve))
-        this.post({ kind: 'close', session })
+        closed = new Promise((resolve) => {
+          session.closing = resolve
+        })
+        if (this.ended) this.settle(id, session)
+        else this.post({ kind: 'close', session: id })
         return closed
       },
     }
@@ -88,52 +116,81 @@ export class SpillClient {
     this.ended = true
     if (this.sending) clearTimeout(this.sending)
     this.sending = null
-    this.unsent.clear()
-    for (const history of this.sessions.values()) history.fail(reason)
-    this.sessions.clear()
+    for (const [id, session] of [...this.sessions]) {
+      session.history.fail(reason)
+      this.settle(id, session)
+    }
     for (const settle of this.replies.values()) settle(null)
     this.replies.clear()
-    for (const resolve of this.closing.values()) resolve()
-    this.closing.clear()
   }
 
-  private historyId(history: PaneHistory): number {
-    let id = this.historyIds.get(history)
-    if (id === undefined) {
-      id = this.nextHistory++
-      this.historyIds.set(history, id)
+  private queue(session: Session, id: number, data: string): void {
+    if (this.ended || !data || session.dropping) return
+    if (!session.pressure?.canPause && this.backlog(session) + data.length > SPILL_BACKLOG.high) {
+      session.dropping = true
+      return
     }
-    return id
-  }
-
-  private queue(session: number, data: string): void {
-    if (this.ended || !data) return
-    const pending = this.unsent.get(session)
-    if (pending) pending.push(data)
-    else this.unsent.set(session, [data])
-    this.unsentBytes += data.length
-    if (this.unsentBytes >= SPILL_SEND_CHARS) this.send()
+    session.unsent.push(data)
+    session.unsentChars += data.length
+    session.pressure?.hold(data.length)
+    if (session.unsentChars >= PANE_SEND_CHARS) this.sendSession(session, id)
     else if (this.sending) this.sending.refresh()
     else {
-      this.sending = setTimeout(() => this.send(), SPILL_QUIET_MS)
+      this.sending = setTimeout(() => this.sendAll(), SPILL_QUIET_MS)
       this.sending.unref()
     }
   }
 
-  private send(): void {
+  private backlog(session: Session): number {
+    return session.unsentChars + session.inFlight
+  }
+
+  private sendAll(): void {
     if (this.sending) clearTimeout(this.sending)
     this.sending = null
-    this.unsentBytes = 0
-    const batches = [...this.unsent]
-    this.unsent.clear()
-    for (const [session, parts] of batches) {
-      const data = utf8.encode(parts.join(''))
-      this.deliver({ kind: 'write', session, data }, [data.buffer])
+    for (const [id, session] of this.sessions) this.sendSession(session, id)
+  }
+
+  private sendSession(session: Session, id: number): void {
+    const parts = session.unsent
+    if (parts.length === 0) return
+    session.unsent = []
+    session.unsentChars = 0
+    let slice: string[] = []
+    let chars = 0
+    const ship = () => {
+      if (chars === 0) return
+      const data = utf8.encode(slice.join(''))
+      session.inFlight += chars
+      this.deliver({ kind: 'write', session: id, data, chars }, [data.buffer])
+      slice = []
+      chars = 0
     }
+    for (const part of parts) {
+      if (chars > 0 && chars + part.length > SLICE_CHARS) ship()
+      slice.push(part)
+      chars += part.length
+    }
+    ship()
+  }
+
+  private parsed(session: Session, id: number, chars: number): void {
+    session.inFlight = Math.max(0, session.inFlight - chars)
+    session.pressure?.release(chars)
+    if (!session.dropping || this.backlog(session) > SPILL_BACKLOG.low) return
+    session.dropping = false
+    this.post({ kind: 'resync', session: id, screen: session.screen() })
+  }
+
+  private settle(id: number, session: Session): void {
+    this.sessions.delete(id)
+    session.pressure?.close()
+    session.unsent = []
+    session.closing?.()
   }
 
   private post(request: SpillRequest): void {
-    if (this.unsent.size > 0) this.send()
+    if (this.sending) this.sendAll()
     this.deliver(request)
   }
 
@@ -166,8 +223,9 @@ export class SpillClient {
       settle?.(event)
       return
     }
-    const history = this.sessions.get(event.session)
-    if (!history) return
+    const session = this.sessions.get(event.session)
+    if (!session) return
+    const { history } = session
     switch (event.kind) {
       case 'append':
         history.append(event.text, event.count)
@@ -184,10 +242,12 @@ export class SpillClient {
       case 'flush':
         void history.flush()
         return
+      case 'parsed':
+        this.parsed(session, event.session, event.chars)
+        return
       case 'closed':
-        this.sessions.delete(event.session)
-        this.closing.get(event.session)?.()
-        this.closing.delete(event.session)
+        history.seqOffset = event.seqEnd
+        this.settle(event.session, session)
     }
   }
 }

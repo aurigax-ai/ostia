@@ -42,7 +42,7 @@ const spilled = (mirror: ScreenMirror): Promise<string[]> => mirror.historyTail(
 async function closed(mirror: ScreenMirror): Promise<void> {
   await mirror.flush()
   mirror.dispose()
-  await feeds.get(mirror)?.close(0)
+  await feeds.get(mirror)?.close()
 }
 
 const numbered = (from: number, count: number): string =>

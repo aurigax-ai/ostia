@@ -9,6 +9,7 @@ import type { PortBridge } from '../../sandbox/ports/portBridge'
 import type { KeptAttention } from '../../tmux/keptAttention'
 import type { KeptMeta } from '../../tmux/keptShells'
 import type { TmuxPane } from '../../tmux/tmuxPane'
+import { SPILL_BACKLOG, type SpillPressure } from '../history/historyFeed'
 import type { PaneHistories } from '../history/paneHistories'
 import { markNonceFileFor } from '../markNonce'
 import { PtyFlowControl } from '../ptyFlow'
@@ -54,6 +55,18 @@ function pausePty(entry: PtyEntry, paused: boolean): void {
     if (paused) entry.pty.pause?.()
     else entry.pty.resume?.()
   } catch {}
+}
+
+const HISTORY_LANE = 'history'
+
+function spillPressure(flow: PtyFlowControl, pty: PaneProcess): SpillPressure {
+  const lane = flow.open(HISTORY_LANE, () => true, SPILL_BACKLOG)
+  return {
+    canPause: typeof pty.pause === 'function',
+    hold: (chars) => lane.sent(chars),
+    release: (chars) => flow.ack(HISTORY_LANE, chars),
+    close: () => lane.close(),
+  }
 }
 
 interface PtyRegistryDeps {
@@ -185,19 +198,17 @@ export function createPtyRegistry({
         }
       },
     })
+    const flow = new PtyFlowControl({
+      pause: () => pausePty(entry, true),
+      resume: () => pausePty(entry, false),
+    })
+    const feed = histories()?.feedFor(paneId, opts.cols, opts.rows, spillPressure(flow, pty))
     const entry: PtyEntry = {
       paneId,
       pty,
       session,
-      flow: new PtyFlowControl({
-        pause: () => pausePty(entry, true),
-        resume: () => pausePty(entry, false),
-      }),
-      mirror: new ScreenMirror(
-        opts.cols,
-        opts.rows,
-        histories()?.feedFor(paneId, opts.cols, opts.rows) ?? null,
-      ),
+      flow,
+      mirror: new ScreenMirror(opts.cols, opts.rows, feed ?? null),
       subs: opts.subs,
       killTimer: null,
       spawnPath: opts.spawnPath,

@@ -1,7 +1,8 @@
 import { Terminal } from '@xterm/headless'
 import { HistorySpill, SPILL_BATCH, type SpillSink } from './historySpill'
 
-const SPILL_SCROLLBACK = 2 * SPILL_BATCH
+export const SPILL_SCROLLBACK = 2 * SPILL_BATCH
+const MODES_RESET = '\x1b[?1049l\x1b[!p\x1b[0m'
 
 export class SpillTerminal {
   private readonly term: Terminal
@@ -22,14 +23,27 @@ export class SpillTerminal {
     this.spill = new HistorySpill(this.term, sink, seqOffset)
   }
 
-  write(data: Uint8Array): void {
-    if (!this.closed && data.length > 0) this.term.write(data)
+  write(data: Uint8Array, parsed: () => void): void {
+    if (this.closed) parsed()
+    else this.term.write(data, parsed)
+  }
+
+  resync(screen: string): void {
+    if (this.closed) return
+    this.term.write('', () => {
+      if (!this.closed) this.spill.lose()
+    })
+    this.resumeAfter(`${MODES_RESET}${screen}`)
   }
 
   restore(history: string, hold: boolean): void {
     if (this.closed || !history) return
     if (hold) this.spill.hold()
-    this.term.write(`${history}\r\n`, () => {
+    this.resumeAfter(history)
+  }
+
+  private resumeAfter(text: string): void {
+    this.term.write(`${text}\r\n`, () => {
       if (this.closed) return
       const seamEnd = this.term.registerMarker(0)
       if (!seamEnd) return
@@ -60,13 +74,15 @@ export class SpillTerminal {
     return this.closed ? null : this.spill.pendingEnd(seq)
   }
 
-  async close(): Promise<void> {
+  async close(): Promise<number> {
     await this.parsed()
-    if (this.closed) return
+    const seqEnd = this.spill.seqEnd
+    if (this.closed) return seqEnd
     this.closed = true
     this.spill.finish()
     this.spill.dispose()
     this.term.dispose()
+    return seqEnd
   }
 
   private parsed(): Promise<void> {

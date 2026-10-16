@@ -25,6 +25,7 @@ interface PtyAttachDeps {
   spawnSandboxed: SandboxSpawn['spawnSandboxed']
   spawnKept: KeptSpawner['spawnKept']
   startTracked: PtyStart['startTracked']
+  historySettled: (paneId: string) => Promise<void>
   telemetry: () => Telemetry | null
 }
 
@@ -45,6 +46,7 @@ export function createPtyAttach({
   spawnSandboxed,
   spawnKept,
   startTracked,
+  historySettled,
   telemetry,
 }: PtyAttachDeps) {
   const SANDBOX_LOST_WHILE_AWAY = `its sandbox ended while ${PRODUCT_DISPLAY_NAME} was closed`
@@ -62,6 +64,9 @@ export function createPtyAttach({
 
     const existing = ptys.get(paneId)
     if (existing) return attachExisting(existing, e, paneId, opts, mkSub)
+    await historySettled(paneId)
+    const settled = ptys.get(paneId)
+    if (settled) return attachExisting(settled, e, paneId, opts, mkSub)
     await keptShells.ready
     const keptShell = keptShells.claim(paneId)
     if (keptShell) return reattachKept(e, paneId, opts, keptShell, mkSub)

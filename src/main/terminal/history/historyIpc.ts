@@ -122,6 +122,7 @@ export function registerHistoryIpc({ ptys, windowOfPane, services }: HistoryIpcD
 
   const blockOf = async (paneId: string, history: PaneHistory, seq: unknown, command: unknown) => {
     if (typeof seq !== 'number' || typeof command !== 'string') return undefined
+    await withTail(paneId, history)
     const block = history.block(seq)
     if (!block || !sameCommand(block.command, command)) return undefined
     if (block.end !== null) return { ...block, end: block.end }

@@ -4,16 +4,9 @@ import { SpillTerminal } from './spillTerminal'
 export type BlockEnd = { line: number; endCol: number; exitCode: number }
 
 export type SpillRequest =
-  | {
-      kind: 'open'
-      session: number
-      history: number
-      cols: number
-      rows: number
-      end: number
-      seqOffset: number
-    }
-  | { kind: 'write'; session: number; data: Uint8Array }
+  | { kind: 'open'; session: number; cols: number; rows: number; end: number; seqOffset: number }
+  | { kind: 'write'; session: number; data: Uint8Array; chars: number }
+  | { kind: 'resync'; session: number; screen: string }
   | { kind: 'restore'; session: number; history: string; hold: boolean }
   | { kind: 'resize'; session: number; cols: number; rows: number }
   | { kind: 'tail'; session: number; id: number }
@@ -34,7 +27,8 @@ export type SpillEvent =
     }
   | { kind: 'wipe'; session: number }
   | { kind: 'flush'; session: number }
-  | { kind: 'closed'; session: number }
+  | { kind: 'parsed'; session: number; chars: number }
+  | { kind: 'closed'; session: number; seqEnd: number }
   | { kind: 'reply'; id: number; tail?: string[]; pendingEnd?: BlockEnd | null }
 
 export interface SpillHostPort {
@@ -42,19 +36,15 @@ export interface SpillHostPort {
   on(type: 'message', listener: (request: SpillRequest) => void): unknown
 }
 
-function postingSink(
-  port: SpillHostPort,
-  session: number,
-  ends: Map<number, number>,
-  history: number,
-): SpillSink {
+function postingSink(port: SpillHostPort, session: number, start: number): SpillSink {
+  let end = start
   return {
     get end() {
-      return ends.get(history) ?? 0
+      return end
     },
     live: true,
     append: (batch) => {
-      ends.set(history, (ends.get(history) ?? 0) + batch.length)
+      end += batch.length
       port.postMessage({ kind: 'append', session, text: batch.join('\n'), count: batch.length })
     },
     blockStarted: (seq, start, command) =>
@@ -76,11 +66,9 @@ function postingSink(
 
 export function serveSpill(port: SpillHostPort): void {
   const sessions = new Map<number, SpillTerminal>()
-  const ends = new Map<number, number>()
   port.on('message', (request) => {
     if (request.kind === 'open') {
-      if (!ends.has(request.history)) ends.set(request.history, request.end)
-      const sink = postingSink(port, request.session, ends, request.history)
+      const sink = postingSink(port, request.session, request.end)
       sessions.set(
         request.session,
         new SpillTerminal(request.cols, request.rows, sink, request.seqOffset),
@@ -89,8 +77,15 @@ export function serveSpill(port: SpillHostPort): void {
     }
     const spill = sessions.get(request.session)
     switch (request.kind) {
-      case 'write':
-        spill?.write(request.data)
+      case 'write': {
+        const { session, chars } = request
+        const parsed = () => port.postMessage({ kind: 'parsed', session, chars })
+        if (spill) spill.write(request.data, parsed)
+        else parsed()
+        return
+      }
+      case 'resync':
+        spill?.resync(request.screen)
         return
       case 'restore':
         spill?.restore(request.history, request.hold)
@@ -110,8 +105,8 @@ export function serveSpill(port: SpillHostPort): void {
         return
       case 'close':
         sessions.delete(request.session)
-        void (spill?.close() ?? Promise.resolve()).then(() =>
-          port.postMessage({ kind: 'closed', session: request.session }),
+        void (spill?.close() ?? Promise.resolve(0)).then((seqEnd) =>
+          port.postMessage({ kind: 'closed', session: request.session, seqEnd }),
         )
     }
   })

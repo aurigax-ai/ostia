@@ -6,6 +6,7 @@ import type { ScrollbackHistory } from '../../../shared/terminal/scrollbackHisto
 import {
   type HistoryFeed,
   type SpillClient,
+  type SpillPressure,
   historyWorkerScript,
   startSpillWorker,
 } from './historyFeed'
@@ -64,6 +65,7 @@ export class PaneHistories {
   private readonly runDir: string
   private readonly panes = new Map<string, PaneHistory>()
   private spill: SpillClient | null = null
+  private readonly closing = new Map<string, Promise<void>>()
 
   constructor(private readonly deps: PaneHistoriesDeps) {
     sweepHistoryRoot(deps.root)
@@ -94,11 +96,31 @@ export class PaneHistories {
     return history
   }
 
-  feedFor(paneId: string, cols: number, rows: number): HistoryFeed | null {
+  feedFor(
+    paneId: string,
+    cols: number,
+    rows: number,
+    pressure: SpillPressure | null = null,
+  ): HistoryFeed | null {
     const history = this.forPane(paneId)
     if (!history) return null
     if (!this.spill?.alive) this.spill = this.deps.startSpill()
-    return this.spill.open(history, cols, rows)
+    const feed = this.spill.open(history, cols, rows, pressure)
+    return {
+      ...feed,
+      close: () => {
+        const closed = feed.close()
+        this.closing.set(paneId, closed)
+        void closed.then(() => {
+          if (this.closing.get(paneId) === closed) this.closing.delete(paneId)
+        })
+        return closed
+      },
+    }
+  }
+
+  settled(paneId: string): Promise<void> {
+    return this.closing.get(paneId) ?? Promise.resolve()
   }
 
   drop(paneId: string): void {

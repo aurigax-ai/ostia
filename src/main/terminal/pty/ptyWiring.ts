@@ -219,6 +219,7 @@ interface PtyAttachWiringDeps {
     onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null
     processes: ProcessRegistry | null
     telemetry: Telemetry | null
+    histories: PaneHistories | null
   }
   keptPlumbing: KeptShellsWiring['keptPlumbing']
   keptAttention: KeptAttention
@@ -339,6 +340,7 @@ function createPtyAttachWiring({
     spawnSandboxed,
     spawnKept,
     startTracked,
+    historySettled: (paneId) => services.histories?.settled(paneId) ?? Promise.resolve(),
     telemetry: () => services.telemetry,
   })
 

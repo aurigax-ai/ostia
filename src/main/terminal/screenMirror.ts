@@ -25,7 +25,6 @@ export class ScreenMirror {
   private changes = 0
   private serialized: { at: number; text: string } | undefined
   private reportedCwd: CwdReport | null = null
-  private commandStarts = 0
   readonly blockSeqBase: number
 
   constructor(
@@ -51,6 +50,7 @@ export class ScreenMirror {
     })
     this.term.onWriteParsed(() => this.changes++)
     this.blockSeqBase = feed?.seqBase ?? 0
+    feed?.watchScreen(() => this.serialize())
   }
 
   get cwdReport(): CwdReport | null {
@@ -161,14 +161,13 @@ export class ScreenMirror {
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
-    void this.feed?.close(this.commandStarts)
+    void this.feed?.close()
     this.clearPromptStart()
     this.clearUntouched()
     this.term.dispose()
   }
 
   private onPromptMark(kind: string): void {
-    if (kind === COMMAND_START) this.commandStarts++
     if (this.term.buffer.active.type !== 'normal') return
     if (kind === PROMPT_START) {
       this.clearPromptStart()
