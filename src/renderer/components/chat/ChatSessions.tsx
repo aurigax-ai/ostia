@@ -116,58 +116,25 @@ export function ChatSessions({
               </li>
             ) : (
               shown.map((s) => (
-                <li
+                <SessionRow
                   key={s.id}
-                  className={cn(
-                    'group/session flex items-center gap-1 rounded-sm px-1.5 py-1 hover:bg-surface-3',
-                    s.id === sessionId && 'bg-surface-2',
-                  )}
-                  aria-current={s.id === sessionId || undefined}
-                >
-                  {editing === s.id ? (
-                    <RenameField
-                      initial={s.title}
-                      onDone={(next) => {
-                        setEditing(null)
-                        if (next !== null) void renameSession(s.id, next)
-                      }}
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      className="flex min-w-0 flex-1 flex-col items-start text-left"
-                      onClick={() => {
-                        void openSession(workspaceId, s.id)
-                        setOpen(false)
-                      }}
-                    >
-                      <span className="w-full truncate text-fg text-ui-sm">{s.title}</span>
-                      <span className="text-fg-muted text-ui-xs">
-                        {relativeTimeText(s.updatedAt, now, locale)} ·{' '}
-                        {s.messageCount === 1
-                          ? d.chat.oneMessage
-                          : fmt(d.chat.messages, { count: s.messageCount })}
-                      </span>
-                    </button>
-                  )}
-                  <span className="flex shrink-0 items-center opacity-0 group-focus-within/session:opacity-100 group-hover/session:opacity-100">
-                    <IconButton
-                      icon={PencilSimpleIcon}
-                      label={d.chat.rename}
-                      onClick={() => setEditing(s.id)}
-                    />
-                    <IconButton
-                      icon={DownloadSimpleIcon}
-                      label={d.chat.export}
-                      onClick={() => exportSession(s.id)}
-                    />
-                    <IconButton
-                      icon={TrashIcon}
-                      label={d.chat.delete}
-                      onClick={() => setConfirming(s)}
-                    />
-                  </span>
-                </li>
+                  session={s}
+                  current={s.id === sessionId}
+                  editing={editing === s.id}
+                  now={now}
+                  locale={locale}
+                  onRenamed={(next) => {
+                    setEditing(null)
+                    if (next !== null) void renameSession(s.id, next)
+                  }}
+                  onOpen={() => {
+                    void openSession(workspaceId, s.id)
+                    setOpen(false)
+                  }}
+                  onEdit={() => setEditing(s.id)}
+                  onExport={() => exportSession(s.id)}
+                  onDelete={() => setConfirming(s)}
+                />
               ))
             )}
           </ul>
@@ -186,38 +153,109 @@ export function ChatSessions({
           </div>
         </PopoverContent>
       </Popover>
-      <Dialog
-        open={confirming !== null}
-        onOpenChange={(o) => {
-          if (!o) setConfirming(null)
-        }}
-      >
-        <DialogContent showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>{d.chat.deleteTitle}</DialogTitle>
-            <DialogDescription>
-              {fmt(d.chat.deleteBody, { title: confirming?.title ?? '' })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirming(null)}>
-              {d.chat.cancel}
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => {
-                const target = confirming
-                setConfirming(null)
-                if (target) void deleteSession(target.id)
-              }}
-            >
-              {d.chat.delete}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteSessionDialog confirming={confirming} onClose={() => setConfirming(null)} />
     </>
+  )
+}
+
+function SessionRow({
+  session: s,
+  current,
+  editing,
+  now,
+  locale,
+  onRenamed,
+  onOpen,
+  onEdit,
+  onExport,
+  onDelete,
+}: {
+  session: ChatSessionSummary
+  current: boolean
+  editing: boolean
+  now: number
+  locale: string
+  onRenamed: (title: string | null) => void
+  onOpen: () => void
+  onEdit: () => void
+  onExport: () => void
+  onDelete: () => void
+}): JSX.Element {
+  const d = useDict()
+  return (
+    <li
+      className={cn(
+        'group/session flex items-center gap-1 rounded-sm px-1.5 py-1 hover:bg-surface-3',
+        current && 'bg-surface-2',
+      )}
+      aria-current={current || undefined}
+    >
+      {editing ? (
+        <RenameField initial={s.title} onDone={onRenamed} />
+      ) : (
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 flex-col items-start text-left"
+          onClick={onOpen}
+        >
+          <span className="w-full truncate text-fg text-ui-sm">{s.title}</span>
+          <span className="text-fg-muted text-ui-xs">
+            {relativeTimeText(s.updatedAt, now, locale)} ·{' '}
+            {s.messageCount === 1
+              ? d.chat.oneMessage
+              : fmt(d.chat.messages, { count: s.messageCount })}
+          </span>
+        </button>
+      )}
+      <span className="flex shrink-0 items-center opacity-0 group-focus-within/session:opacity-100 group-hover/session:opacity-100">
+        <IconButton icon={PencilSimpleIcon} label={d.chat.rename} onClick={onEdit} />
+        <IconButton icon={DownloadSimpleIcon} label={d.chat.export} onClick={onExport} />
+        <IconButton icon={TrashIcon} label={d.chat.delete} onClick={onDelete} />
+      </span>
+    </li>
+  )
+}
+
+function DeleteSessionDialog({
+  confirming,
+  onClose,
+}: {
+  confirming: ChatSessionSummary | null
+  onClose: () => void
+}): JSX.Element {
+  const d = useDict()
+  return (
+    <Dialog
+      open={confirming !== null}
+      onOpenChange={(o) => {
+        if (!o) onClose()
+      }}
+    >
+      <DialogContent showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>{d.chat.deleteTitle}</DialogTitle>
+          <DialogDescription>
+            {fmt(d.chat.deleteBody, { title: confirming?.title ?? '' })}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={() => onClose()}>
+            {d.chat.cancel}
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => {
+              const target = confirming
+              onClose()
+              if (target) void deleteSession(target.id)
+            }}
+          >
+            {d.chat.delete}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

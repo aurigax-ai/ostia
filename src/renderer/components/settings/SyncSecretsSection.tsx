@@ -111,6 +111,76 @@ function PasswordFields({
   )
 }
 
+function SecretsConfirmDialog({
+  confirming,
+  onClose,
+  onConfirm,
+}: {
+  confirming: Confirming
+  onClose: () => void
+  onConfirm: () => void
+}): JSX.Element {
+  const t = useDict().sync.secrets
+  return (
+    <AlertDialog
+      open={confirming !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {confirming === 'remove' ? t.removeTitle : t.resetTitle}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {confirming === 'remove' ? t.removeBody : t.resetBody}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel size="sm">{t.cancel}</AlertDialogCancel>
+          <AlertDialogAction size="sm" variant="destructive" onClick={onConfirm}>
+            {confirming === 'remove' ? t.remove : t.reset}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+function RecoveryKeyDialog({
+  recoveryKey,
+  onClose,
+}: {
+  recoveryKey: string | null
+  onClose: () => void
+}): JSX.Element {
+  const t = useDict().sync.secrets
+  return (
+    <AlertDialog
+      open={recoveryKey !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t.recoveryTitle}</AlertDialogTitle>
+          <AlertDialogDescription>{t.recoveryBody}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <output className="select-text break-all font-mono text-fg text-ui-base">
+          {recoveryKey}
+        </output>
+        <AlertDialogFooter>
+          <AlertDialogAction size="sm" onClick={() => onClose()}>
+            {t.recoverySaved}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
 export function SyncSecretsSection({
   status,
   onStatus,
@@ -234,59 +304,17 @@ export function SyncSecretsSection({
         />
       ) : null}
       {error ? <WarningNote>{error}</WarningNote> : null}
-      <AlertDialog
-        open={confirming !== null}
-        onOpenChange={(open) => {
-          if (!open) setConfirming(null)
+      <SecretsConfirmDialog
+        confirming={confirming}
+        onClose={() => setConfirming(null)}
+        onConfirm={() => {
+          const which = confirming
+          setConfirming(null)
+          if (which === 'remove') void act(api.remove())
+          else setForm('reset')
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirming === 'remove' ? t.removeTitle : t.resetTitle}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirming === 'remove' ? t.removeBody : t.resetBody}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel size="sm">{t.cancel}</AlertDialogCancel>
-            <AlertDialogAction
-              size="sm"
-              variant="destructive"
-              onClick={() => {
-                const which = confirming
-                setConfirming(null)
-                if (which === 'remove') void act(api.remove())
-                else setForm('reset')
-              }}
-            >
-              {confirming === 'remove' ? t.remove : t.reset}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      <AlertDialog
-        open={recoveryKey !== null}
-        onOpenChange={(open) => {
-          if (!open) setRecoveryKey(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t.recoveryTitle}</AlertDialogTitle>
-            <AlertDialogDescription>{t.recoveryBody}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <output className="select-text break-all font-mono text-fg text-ui-base">
-            {recoveryKey}
-          </output>
-          <AlertDialogFooter>
-            <AlertDialogAction size="sm" onClick={() => setRecoveryKey(null)}>
-              {t.recoverySaved}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      />
+      <RecoveryKeyDialog recoveryKey={recoveryKey} onClose={() => setRecoveryKey(null)} />
     </section>
   )
 }

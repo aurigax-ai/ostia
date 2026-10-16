@@ -60,6 +60,169 @@ function collapseOffers(tab: SplitNode, pane: PaneNode): CollapseOffers {
   }
 }
 
+interface PaneTabMenuItemsProps {
+  pane: PaneNode
+  workspaceId: string | null
+  file: string | undefined
+  tabActions: ReturnType<typeof actionsFor>
+  viewable: boolean
+  movable: boolean
+  lockable: boolean
+  renamable: boolean
+  zoom: 'zoomed' | 'zoomable' | null
+  zoomKeys: string | null
+  collapse: CollapseOffers
+  collapseKeys: string | null
+  splitTabId: string | null
+  otherTabs: number
+  agentTab: boolean
+}
+
+function PaneTabMenuItems({
+  pane,
+  workspaceId,
+  file,
+  tabActions,
+  viewable,
+  movable,
+  lockable,
+  renamable,
+  zoom,
+  zoomKeys,
+  collapse,
+  collapseKeys,
+  splitTabId,
+  otherTabs,
+  agentTab,
+}: PaneTabMenuItemsProps): JSX.Element {
+  const d = useDict()
+  return (
+    <>
+      {file && workspaceId ? <FileMenuItems workspaceId={workspaceId} path={file} inOstia /> : null}
+      {file && tabActions.length > 0 ? <ContextMenuSeparator /> : null}
+      {tabActions.map((action) => (
+        <MenuItem
+          key={action.id}
+          icon={actionIcon(action.icon)}
+          onClick={() => void runUserAction(action, pane.id)}
+        >
+          {action.title}
+        </MenuItem>
+      ))}
+      {(movable || lockable || zoom || renamable) && (file || tabActions.length > 0) ? (
+        <ContextMenuSeparator />
+      ) : null}
+      {renamable ? (
+        <MenuItem
+          icon={PencilSimpleIcon}
+          onClick={() => usePaneRenameStore.getState().begin(pane.id)}
+        >
+          {d.pane.renameTab}
+        </MenuItem>
+      ) : null}
+      {splitTabId ? (
+        <MenuItem
+          icon={PencilSimpleIcon}
+          onClick={() => usePaneRenameStore.getState().beginSplitTab(splitTabId)}
+        >
+          {d.pane.renameSplitTab}
+        </MenuItem>
+      ) : null}
+      {splitTabId ? (
+        <MenuItem
+          icon={CaretDoubleLeftIcon}
+          onClick={() => void commands.exec('pane.foldSplitTab', { tabId: splitTabId })}
+        >
+          {d.pane.foldSplitTab}
+        </MenuItem>
+      ) : null}
+      {viewable ? (
+        <MenuItem
+          icon={ArrowsLeftRightIcon}
+          onClick={() => void commands.exec('file.openWith', { paneId: pane.id })}
+        >
+          {d.viewer.openWith}
+        </MenuItem>
+      ) : null}
+      {zoom ? (
+        <MenuItem
+          icon={zoom === 'zoomed' ? ArrowsInIcon : ArrowsOutIcon}
+          hint={zoomKeys}
+          onClick={() => void commands.exec('pane.zoom', { paneId: pane.id })}
+        >
+          {zoom === 'zoomed' ? d.pane.unzoom : d.pane.zoom}
+        </MenuItem>
+      ) : null}
+      {collapse.self ? (
+        <MenuItem
+          icon={ArrowsInLineHorizontalIcon}
+          hint={collapseKeys}
+          onClick={() => void commands.exec('pane.collapse', { paneId: pane.id })}
+        >
+          {d.pane.collapsePane}
+        </MenuItem>
+      ) : null}
+      {pane.collapsed ? (
+        <MenuItem
+          icon={ArrowsOutLineHorizontalIcon}
+          onClick={() => void commands.exec('pane.focus', { paneId: pane.id })}
+        >
+          {d.pane.expandPane}
+        </MenuItem>
+      ) : null}
+      {collapse.others ? (
+        <MenuItem
+          icon={ArrowsInSimpleIcon}
+          onClick={() => void commands.exec('pane.collapseOthers', { paneId: pane.id })}
+        >
+          {d.pane.collapseOtherPanes}
+        </MenuItem>
+      ) : null}
+      {collapse.all ? (
+        <MenuItem
+          icon={ArrowsOutSimpleIcon}
+          onClick={() => void commands.exec('pane.expandAll', { paneId: pane.id })}
+        >
+          {d.pane.expandAllPanes}
+        </MenuItem>
+      ) : null}
+      {lockable ? (
+        <MenuItem
+          icon={pane.locked ? LockSimpleOpenIcon : LockSimpleIcon}
+          onClick={() => void commands.exec('pane.toggleLock', { paneId: pane.id })}
+        >
+          {pane.locked ? d.pane.unlock : d.pane.lock}
+        </MenuItem>
+      ) : null}
+      {movable && workspaceId ? (
+        <MenuItem
+          icon={AppWindowIcon}
+          onClick={() => void movePaneToNewWindow(workspaceId, pane.id)}
+        >
+          {d.window.movePaneToNewWindow}
+        </MenuItem>
+      ) : null}
+      {lockable && workspaceId ? (
+        <TabMoveMenuItems workspaceId={workspaceId} tabId={pane.id} />
+      ) : null}
+      {agentTab && workspaceId ? <TabHibernateItems workspaceId={workspaceId} pane={pane} /> : null}
+      {workspaceId && forkableResume(pane) ? (
+        <MenuItem icon={GitForkIcon} onClick={() => forkConversation(workspaceId, pane.id)}>
+          {d.pane.forkConversation}
+        </MenuItem>
+      ) : null}
+      {otherTabs > 0 ? (
+        <MenuItem
+          icon={XSquareIcon}
+          onClick={() => void commands.exec('tab.closeOthers', { paneId: pane.id })}
+        >
+          {d.pane.closeOtherTabs}
+        </MenuItem>
+      ) : null}
+    </>
+  )
+}
+
 export function PaneTabMenu({
   pane,
   workspaceId,
@@ -69,7 +232,6 @@ export function PaneTabMenu({
   workspaceId: string | null
   trigger: ReactElement
 }): JSX.Element {
-  const d = useDict()
   const zoomKeys = useChordLabel('pane.zoom', isMac)
   const actions = useSettingsStore((s) => s.actions)
   const tabActions = actionsFor(actions, 'tabMenu', pane.kind)
@@ -118,131 +280,23 @@ export function PaneTabMenu({
     <ContextMenu>
       <ContextMenuTrigger render={trigger} />
       <MenuContent>
-        {file && workspaceId ? (
-          <FileMenuItems workspaceId={workspaceId} path={file} inOstia />
-        ) : null}
-        {file && tabActions.length > 0 ? <ContextMenuSeparator /> : null}
-        {tabActions.map((action) => (
-          <MenuItem
-            key={action.id}
-            icon={actionIcon(action.icon)}
-            onClick={() => void runUserAction(action, pane.id)}
-          >
-            {action.title}
-          </MenuItem>
-        ))}
-        {(movable || lockable || zoom || renamable) && (file || tabActions.length > 0) ? (
-          <ContextMenuSeparator />
-        ) : null}
-        {renamable ? (
-          <MenuItem
-            icon={PencilSimpleIcon}
-            onClick={() => usePaneRenameStore.getState().begin(pane.id)}
-          >
-            {d.pane.renameTab}
-          </MenuItem>
-        ) : null}
-        {splitTabId ? (
-          <MenuItem
-            icon={PencilSimpleIcon}
-            onClick={() => usePaneRenameStore.getState().beginSplitTab(splitTabId)}
-          >
-            {d.pane.renameSplitTab}
-          </MenuItem>
-        ) : null}
-        {splitTabId ? (
-          <MenuItem
-            icon={CaretDoubleLeftIcon}
-            onClick={() => void commands.exec('pane.foldSplitTab', { tabId: splitTabId })}
-          >
-            {d.pane.foldSplitTab}
-          </MenuItem>
-        ) : null}
-        {viewable ? (
-          <MenuItem
-            icon={ArrowsLeftRightIcon}
-            onClick={() => void commands.exec('file.openWith', { paneId: pane.id })}
-          >
-            {d.viewer.openWith}
-          </MenuItem>
-        ) : null}
-        {zoom ? (
-          <MenuItem
-            icon={zoom === 'zoomed' ? ArrowsInIcon : ArrowsOutIcon}
-            hint={zoomKeys}
-            onClick={() => void commands.exec('pane.zoom', { paneId: pane.id })}
-          >
-            {zoom === 'zoomed' ? d.pane.unzoom : d.pane.zoom}
-          </MenuItem>
-        ) : null}
-        {collapse.self ? (
-          <MenuItem
-            icon={ArrowsInLineHorizontalIcon}
-            hint={collapseKeys}
-            onClick={() => void commands.exec('pane.collapse', { paneId: pane.id })}
-          >
-            {d.pane.collapsePane}
-          </MenuItem>
-        ) : null}
-        {pane.collapsed ? (
-          <MenuItem
-            icon={ArrowsOutLineHorizontalIcon}
-            onClick={() => void commands.exec('pane.focus', { paneId: pane.id })}
-          >
-            {d.pane.expandPane}
-          </MenuItem>
-        ) : null}
-        {collapse.others ? (
-          <MenuItem
-            icon={ArrowsInSimpleIcon}
-            onClick={() => void commands.exec('pane.collapseOthers', { paneId: pane.id })}
-          >
-            {d.pane.collapseOtherPanes}
-          </MenuItem>
-        ) : null}
-        {collapse.all ? (
-          <MenuItem
-            icon={ArrowsOutSimpleIcon}
-            onClick={() => void commands.exec('pane.expandAll', { paneId: pane.id })}
-          >
-            {d.pane.expandAllPanes}
-          </MenuItem>
-        ) : null}
-        {lockable ? (
-          <MenuItem
-            icon={pane.locked ? LockSimpleOpenIcon : LockSimpleIcon}
-            onClick={() => void commands.exec('pane.toggleLock', { paneId: pane.id })}
-          >
-            {pane.locked ? d.pane.unlock : d.pane.lock}
-          </MenuItem>
-        ) : null}
-        {movable && workspaceId ? (
-          <MenuItem
-            icon={AppWindowIcon}
-            onClick={() => void movePaneToNewWindow(workspaceId, pane.id)}
-          >
-            {d.window.movePaneToNewWindow}
-          </MenuItem>
-        ) : null}
-        {lockable && workspaceId ? (
-          <TabMoveMenuItems workspaceId={workspaceId} tabId={pane.id} />
-        ) : null}
-        {agentTab && workspaceId ? (
-          <TabHibernateItems workspaceId={workspaceId} pane={pane} />
-        ) : null}
-        {workspaceId && forkableResume(pane) ? (
-          <MenuItem icon={GitForkIcon} onClick={() => forkConversation(workspaceId, pane.id)}>
-            {d.pane.forkConversation}
-          </MenuItem>
-        ) : null}
-        {otherTabs > 0 ? (
-          <MenuItem
-            icon={XSquareIcon}
-            onClick={() => void commands.exec('tab.closeOthers', { paneId: pane.id })}
-          >
-            {d.pane.closeOtherTabs}
-          </MenuItem>
-        ) : null}
+        <PaneTabMenuItems
+          pane={pane}
+          workspaceId={workspaceId}
+          file={file}
+          tabActions={tabActions}
+          viewable={viewable}
+          movable={movable}
+          lockable={lockable}
+          renamable={renamable}
+          zoom={zoom}
+          zoomKeys={zoomKeys}
+          collapse={collapse}
+          collapseKeys={collapseKeys}
+          splitTabId={splitTabId}
+          otherTabs={otherTabs}
+          agentTab={agentTab}
+        />
       </MenuContent>
     </ContextMenu>
   )
