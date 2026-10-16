@@ -39,6 +39,7 @@ export const browserBridge: Pick<OstiaBridge, 'browser' | 'guestChords' | 'crede
       ipcRenderer.invoke('browser:storage-remove', paneId, removal) as Promise<StorageWriteResult>,
     storageClear: (paneId, kind) =>
       ipcRenderer.invoke('browser:storage-clear', paneId, kind) as Promise<StorageWriteResult>,
+    onOpenTab: (cb) => listen('browser:open-tab', cb),
   },
   guestChords: {
     set: (signatures) => ipcRenderer.send('guest-chords:set', signatures),

@@ -1,0 +1,42 @@
+{
+  "name": "file views",
+  "paths": [
+    "src/main/files/fsBinary.ts",
+    "src/main/files/fsText.ts",
+    "src/main/files/watchedFiles.ts",
+    "src/renderer/components/editor/DocumentFind.tsx",
+    "src/renderer/components/editor/Editor.tsx",
+    "src/renderer/components/editor/EditorAlerts.tsx",
+    "src/renderer/components/editor/EditorModes.tsx",
+    "src/renderer/components/editor/FileView.tsx",
+    "src/renderer/components/editor/ImageViewer.tsx",
+    "src/renderer/components/editor/MarkdownPreview.tsx",
+    "src/renderer/components/editor/PdfViewer.tsx",
+    "src/renderer/components/editor/ViewerChrome.tsx",
+    "src/renderer/components/editor/editorDiskSync.ts",
+    "src/renderer/components/editor/editorModels.ts",
+    "src/renderer/components/editor/useEditorActions.ts",
+    "src/renderer/components/editor/useEditorFile.ts",
+    "src/renderer/components/editor/useEditorOptions.ts",
+    "src/renderer/components/editor/useModelText.ts",
+    "src/renderer/components/editor/useMonacoEditor.ts",
+    "src/renderer/lib/files/diskReload.ts",
+    "src/renderer/lib/files/domFind.ts",
+    "src/renderer/lib/files/editorPositions.ts",
+    "src/renderer/lib/files/editorSave.ts",
+    "src/renderer/lib/files/pdf.ts",
+    "src/renderer/lib/files/pdfSearch.",
+    "src/renderer/lib/files/pdfText.",
+    "src/renderer/lib/files/viewerHooks.ts",
+    "src/renderer/lib/monaco/",
+    "src/renderer/lib/settings/browserEditorSettings.ts",
+    "src/renderer/stores/files/editorRevealStore.",
+    "src/renderer/stores/files/editorStatusStore.",
+    "src/renderer/stores/files/pdfFindStore.ts"
+  ],
+  "specs": [
+    "e2e/markdown-preview.spec.ts",
+    "e2e/open-any-file.spec.ts",
+    "e2e/preview-send.spec.ts"
+  ]
+}

@@ -17,17 +17,17 @@ const FILES: Record<string, string> = {
     include: ['src/**/*'],
   }),
   'src/shared/strings/appEn.ts': `export const appEn = {
-  greet: { hello: 'Hello {name}', bye: 'Goodbye', row: '{a} · {b}' },
-  modes: { fast: 'Fast', slow: 'Slow' },
   brand: { product: 'Acme Cloud' },
+  greet: { bye: 'Goodbye', hello: 'Hello {name}', row: '{a} · {b}' },
+  modes: { fast: 'Fast', slow: 'Slow' },
 }
 `,
   'src/shared/strings/appZhHant.ts': `import type { appEn } from './appEn'
 
 export const appZhHant: typeof appEn = {
-  greet: { hello: '你好 {name}', bye: '再見', row: '{a} · {b}' },
-  modes: { fast: '快', slow: '慢' },
   brand: { product: 'Acme Cloud' },
+  greet: { bye: '再見', hello: '你好 {name}', row: '{a} · {b}' },
+  modes: { fast: '快', slow: '慢' },
 }
 `,
   'src/shared/app/dict.ts': `import { appEn } from '../strings/appEn'

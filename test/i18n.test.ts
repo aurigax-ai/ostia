@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { runChecks } from '../scripts/i18nCheck.mjs'
+import { sortCatalogues } from '../scripts/i18nOrder.mjs'
 import { COMMENT_MARKER, baselineOf, coverageMarkdown, coverageRows, percent } from '../scripts/i18nCoverage.mjs'
 import { type I18nRepo, i18nRepo } from './i18nFixture'
 
 async function problemsOf(change: (repo: I18nRepo) => void): Promise<string[]> {
   const repo = i18nRepo()
   change(repo)
+  sortCatalogues(repo.root)
   return (await runChecks(repo.root)).problems
 }
 
@@ -39,6 +41,18 @@ const DEMO_ZH = { name: '示範', 'commands.run.title': '執行示範' }
 describe('i18n check', () => {
   it('finds nothing in a repository without drift', async () => {
     expect(await problemsOf(() => {})).toEqual([])
+  })
+
+  it('names a catalogue whose keys are not sorted', async () => {
+    const repo = i18nRepo()
+    repo.write(
+      'src/shared/strings/appEn.ts',
+      "export const appEn = {\n  modes: { fast: 'Fast', slow: 'Slow' },\n  greet: { bye: 'Goodbye' },\n}\n",
+    )
+    const problems = (await runChecks(repo.root)).problems
+    expect(problems).toContain(
+      'unsorted: src/shared/strings/appEn.ts: keys must be sorted. Run node scripts/i18n.mjs sort.',
+    )
   })
 
   it('I18N-C1 names a key a catalogue has no translation for', async () => {

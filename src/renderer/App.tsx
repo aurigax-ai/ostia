@@ -22,6 +22,7 @@ import { HibernateSkippedDialog } from '@/components/sidebar/HibernateSkippedDia
 import { MergeConfirmDialog } from '@/components/sidebar/MergeConfirmDialog'
 import { TabSleepNoticeDialog } from '@/components/sidebar/TabSleepNoticeDialog'
 import { useMotionAttribute } from '@/lib/app/motion'
+import { wireLinkTabs } from '@/lib/browser/linkTabs'
 import { installDoubleShift, runAppChord } from '@/lib/keyboard/chords'
 import { handleDocumentClipboardChord, syncClipboardChords } from '@/lib/keyboard/documentClipboard'
 import { wireGuestChords } from '@/lib/keyboard/guestChordBridge'
@@ -83,6 +84,7 @@ export function App(): JSX.Element {
 
   useEffect(() => syncClipboardChords(isMac), [])
   useEffect(() => wireGuestChords(isMac), [])
+  useEffect(() => wireLinkTabs(), [])
   useEffect(() => installDoubleShift(window, isMac), [])
 
   useEffect(() => installMiddlePasteGuard(window), [])

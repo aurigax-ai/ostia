@@ -25,6 +25,7 @@ const PUSHED = [
   'assist:chunk',
   'assist:open-ui',
   'assist:overview',
+  'browser:open-tab',
   'browser:pick-state',
   'chatTools:always-grants',
   'chatTools:mcp-status',

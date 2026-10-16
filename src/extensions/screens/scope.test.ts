@@ -15,7 +15,7 @@ const ALLOWED = [
   /^packages\/extension-sdk\/docs\/EXTENSIONS\.md$/,
   /^e2e\/screens-panel\.spec\.ts$/,
   /^e2e\/editor-scroll\.bench\.ts$/,
-  /^test\/e2eAreas\.json$/,
+  /^test\/e2eAreas\/screens\.json$/,
   ...(existsSync(join(root, 'src/main')) ? [] : [/^README\.md$/]),
 ]
 const SKIPPED = new Set(['node_modules', '.git', 'out', 'dist'])

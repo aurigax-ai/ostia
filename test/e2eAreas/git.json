@@ -1,0 +1,25 @@
+{
+  "name": "git",
+  "paths": [
+    "packages/extension-sdk/src/manifest/coreNames.ts",
+    "src/cli/verbs/coreBoards.ts",
+    "src/main/git/",
+    "src/main/platform/watchSets.ts",
+    "src/renderer/commands/gitCommands.ts",
+    "src/renderer/components/editor/DiffView.tsx",
+    "src/renderer/components/git/",
+    "src/renderer/components/keyboard/ChangesView.tsx",
+    "src/renderer/lib/git/gitFileTree.ts",
+    "src/renderer/lib/git/gitGraph.ts",
+    "src/renderer/lib/git/gitPanel.ts",
+    "src/renderer/lib/git/gitView.ts",
+    "src/renderer/lib/workspaces/coreWatch.ts",
+    "src/renderer/stores/files/diffStore.ts",
+    "src/renderer/stores/files/gitViewStore.ts",
+    "src/shared/boards/git.ts"
+  ],
+  "specs": [
+    "e2e/diff-hidden.spec.ts",
+    "e2e/git.spec.ts"
+  ]
+}

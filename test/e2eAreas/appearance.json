@@ -1,0 +1,27 @@
+{
+  "name": "appearance",
+  "paths": [
+    "src/renderer/components/app/ZoomReset.tsx",
+    "src/renderer/components/common/IconButton.tsx",
+    "src/renderer/components/settings/FontPicker.tsx",
+    "src/renderer/components/settings/ThemeSettings.tsx",
+    "src/renderer/lib/theme/",
+    "src/renderer/lib/theme/color.",
+    "src/renderer/lib/theme/colorScheme.",
+    "src/renderer/lib/theme/colorize.ts",
+    "src/renderer/lib/theme/iconWeight.ts",
+    "src/renderer/lib/theme/localFonts.ts",
+    "src/renderer/lib/theme/panelFontFaces.ts",
+    "src/renderer/lib/theme/panelTheme.ts",
+    "src/renderer/lib/theme/theme.ts",
+    "src/renderer/lib/theme/themeChoice.ts",
+    "src/renderer/lib/theme/uiFonts.ts",
+    "src/renderer/stores/app/systemThemeStore.ts",
+    "src/shared/app/zoom.ts"
+  ],
+  "specs": [
+    "e2e/appearance.spec.ts",
+    "e2e/icon-sharpness.spec.ts",
+    "e2e/terminal-settings.spec.ts"
+  ]
+}

@@ -3,6 +3,7 @@ import { compareCatalog } from './i18nCompare.mjs'
 import { BASE_LANGUAGE, CORE_LANGUAGES, REPO_ROOT, areaFile, bundleModule, loadCatalogue } from './i18nCatalog.mjs'
 import { checkExtensions } from './i18nExtensions.mjs'
 import { checkLiterals } from './i18nLiterals.mjs'
+import { orderProblems } from './i18nOrder.mjs'
 import { checkPacks } from './i18nPacks.mjs'
 import { unusedKeys } from './i18nUsage.mjs'
 
@@ -34,6 +35,7 @@ export async function runChecks(root) {
       `unused: ${key}: no source outside tests reads it. Remove it from ${areaFile(catalogue.areaOf(key), BASE_LANGUAGE)} and every translation.`,
     )
   }
+  problems.push(...orderProblems(root))
   const packs = checkPacks(root, catalogue, allow)
   const extensions = checkExtensions(root, sdk, allow)
   problems.push(...packs.problems, ...extensions.problems, ...checkLiterals(root, allow), ...allow.stale())

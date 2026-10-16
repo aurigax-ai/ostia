@@ -1,12 +1,23 @@
-import type { BrowserWindow, BrowserWindowConstructorOptions, WebContents } from 'electron'
+import type {
+  BrowserWindow,
+  BrowserWindowConstructorOptions,
+  HandlerDetails,
+  Referrer,
+  WebContents,
+} from 'electron'
+import { isTabUrl } from '../../shared/browser/linkTabs'
+import { clickedLinkOf } from './guestLinkClicks'
 
 export const POPUP_GESTURE_MS = 5000
+
+export const LINK_CLICK_MS = 1000
 
 const GESTURE_INPUTS = new Set(['mouseDown', 'keyDown', 'touchStart'])
 
 export interface GuestActivity {
   inputAt?: number
   agentAt?: number
+  link?: { url: string; at: number }
 }
 
 export function humanGestureAllowsPopup(activity: GuestActivity | undefined, now: number): boolean {
@@ -56,10 +67,25 @@ function popupWindowOptions(parent: BrowserWindow): BrowserWindowConstructorOpti
   }
 }
 
+function clickedJustNow(activity: GuestActivity, url: string, now: number): boolean {
+  const link = activity.link
+  activity.link = undefined
+  return link?.url === url && now - link.at <= LINK_CLICK_MS
+}
+
+function opensAsTab(details: HandlerDetails, activity: GuestActivity, now: number): boolean {
+  if (details.postBody || !isTabUrl(details.url)) return false
+  if (details.disposition === 'background-tab') return true
+  if (details.disposition !== 'foreground-tab') return false
+  const plain = details.frameName === '' && details.features === ''
+  return clickedJustNow(activity, details.url, now) && plain
+}
+
 export interface GuestPopupsDeps {
   isHumanProfile: (guest: WebContents) => boolean
   ownerWindow: (guest: WebContents) => BrowserWindow | null
   prepare: (popup: BrowserWindow, url: string) => void
+  openTab: (opener: WebContents, url: string, background: boolean, referrer: Referrer) => void
   now?: () => number
 }
 
@@ -69,11 +95,21 @@ export function openHumanPopups(guest: WebContents, deps: GuestPopupsDeps): void
   guest.on('input-event', (_event, input) => {
     if (GESTURE_INPUTS.has(input.type)) activityOf(guestId).inputAt = now()
   })
-  guest.setWindowOpenHandler(() => {
+  guest.on('console-message', ({ message }) => {
+    const url = clickedLinkOf(message)
+    if (url !== null) activityOf(guestId).link = { url, at: now() }
+  })
+  guest.setWindowOpenHandler((details) => {
     const parent = deps.ownerWindow(guest)
     if (!parent || !deps.isHumanProfile(guest)) return { action: 'deny' }
     if (!humanGestureAllowsPopup(activities.get(guestId), now())) return { action: 'deny' }
-    activityOf(guestId).inputAt = undefined
+    const activity = activityOf(guestId)
+    activity.inputAt = undefined
+    if (opensAsTab(details, activity, now())) {
+      const background = details.disposition === 'background-tab'
+      deps.openTab(guest, details.url, background, details.referrer)
+      return { action: 'deny' }
+    }
     return { action: 'allow', overrideBrowserWindowOptions: popupWindowOptions(parent) }
   })
   guest.on('did-create-window', (popup, details) => {
