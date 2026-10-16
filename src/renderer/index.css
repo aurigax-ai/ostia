@@ -4195,6 +4195,45 @@ button.prompt-chip:hover {
   animation: overlay-in var(--motion-base) var(--ease-out);
 }
 
+.motion-enter-edge {
+  animation: edge-in var(--motion-base) var(--ease-out);
+}
+
+.notice-slot {
+  display: contents;
+}
+
+.notice-slot[data-leaving] .motion-enter {
+  pointer-events: none;
+  animation: overlay-out var(--motion-base-exit) var(--ease-in) forwards;
+}
+
+.notice-slot[data-leaving] .motion-enter-edge {
+  pointer-events: none;
+  animation: edge-out var(--motion-base-exit) var(--ease-in) forwards;
+}
+
+@keyframes overlay-out {
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes edge-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes edge-out {
+  to {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
 @keyframes overlay-in {
   from {
     opacity: 0;
