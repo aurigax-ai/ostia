@@ -27,8 +27,8 @@ vi.spyOn(window, 'addEventListener').mockImplementation((type, listener, options
 })
 
 function press(target: Element, trusted = true, button = 0): void {
-  listeners.get('pointerdown')?.({
-    type: 'pointerdown',
+  listeners.get('click')?.({
+    type: 'click',
     isTrusted: trusted,
     button,
     target,

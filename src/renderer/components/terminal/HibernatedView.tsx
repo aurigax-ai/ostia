@@ -26,17 +26,8 @@ export function HibernatedView({
   const { background, foreground } = useScheme('terminal').colors
   useSurfaceFocus(paneId, resume ? () => wakeRef.current : null)
 
-  const wake = (): void => {
-    wakePane(paneId, undefined, true)
-  }
-
   return (
-    <div
-      className="hibernated-view"
-      data-hibernated=""
-      style={{ background, color: foreground }}
-      onMouseDown={wake}
-    >
+    <div className="hibernated-view" data-hibernated="" style={{ background, color: foreground }}>
       <Empty className="h-full">
         <EmptyHeader>
           {resume ? (
@@ -49,7 +40,12 @@ export function HibernatedView({
         </EmptyHeader>
         {resume ? (
           <EmptyContent>
-            <Button ref={wakeRef} variant="outline" size="sm" onClick={wake}>
+            <Button
+              ref={wakeRef}
+              variant="outline"
+              size="sm"
+              onClick={() => wakePane(paneId, undefined, true)}
+            >
               <PlayIcon data-icon="inline-start" aria-hidden />
               {fmt(d.pane.resume, { agent: resume.agent })}
             </Button>

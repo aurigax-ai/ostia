@@ -335,8 +335,8 @@ describe('startAutoResume', () => {
     expect(runWhenIdle).not.toHaveBeenCalled()
 
     const target = document.getElementById('body')
-    inputListeners.get('pointerdown')?.({
-      type: 'pointerdown',
+    inputListeners.get('click')?.({
+      type: 'click',
       isTrusted: true,
       button: 0,
       target,
@@ -373,8 +373,8 @@ describe('startAutoResume', () => {
     }
 
     const target = document.getElementById('sidebar')
-    inputListeners.get('pointerdown')?.({
-      type: 'pointerdown',
+    inputListeners.get('click')?.({
+      type: 'click',
       isTrusted: true,
       button: 0,
       target,
