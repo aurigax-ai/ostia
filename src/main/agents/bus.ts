@@ -214,8 +214,15 @@ function receiverOf(to: unknown): PaneIdentity | undefined {
   return target?.kind === 'pane' ? target : undefined
 }
 
+type AnnounceQueued = (
+  delivery: BusDelivery,
+  from: PaneIdentity,
+  to: PaneIdentity,
+  text: string,
+) => void
+
 export function registerBusMethods(deps: BusDeps): void {
-  const announceQueued = (
+  const announceQueued: AnnounceQueued = (
     delivery: BusDelivery,
     from: PaneIdentity,
     to: PaneIdentity,
@@ -223,7 +230,12 @@ export function registerBusMethods(deps: BusDeps): void {
   ): void => {
     if (delivery === 'queued' && to.externalId !== from.externalId) deps.announce(from, to, text)
   }
+  registerBusSendMethods(deps, announceQueued)
+  registerBusInboxMethods()
+  registerBusHandoffMethods(announceQueued)
+}
 
+function registerBusSendMethods(deps: BusDeps, announceQueued: AnnounceQueued): void {
   registerControlMethod('bus.send', {
     scripts: true,
     handler: async (params, ctx) => {
@@ -298,7 +310,9 @@ export function registerBusMethods(deps: BusDeps): void {
       return { ok: true, id, delivered, ...(asleep ? { asleep: true } : {}) }
     },
   })
+}
 
+function registerBusInboxMethods(): void {
   registerControlMethod('bus.inbox', {
     handler: (params, ctx) => {
       const { drain } = (params ?? {}) as { drain?: boolean }
@@ -365,7 +379,9 @@ export function registerBusMethods(deps: BusDeps): void {
       })
     },
   })
+}
 
+function registerBusHandoffMethods(announceQueued: AnnounceQueued): void {
   registerControlMethod('bus.handoff', {
     handler: async (params, ctx) => {
       const { to, task, summary, context } = (params ?? {}) as {
