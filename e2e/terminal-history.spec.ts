@@ -49,8 +49,7 @@ async function flood(win: Page, screen: string): Promise<void> {
   })
 }
 
-const historyScreen = (win: Page) =>
-  win.locator('.history-pane:not([style*="hidden"]) .xterm-rows')
+const historyScreen = (win: Page) => win.locator('.history-pane:not([style*="hidden"]) .xterm-rows')
 
 const layer = (win: Page) => win.locator('.history-layer')
 
@@ -144,6 +143,37 @@ for (const engine of ENGINES) {
       await expect
         .poll(async () => (await app.evaluate(({ clipboard }) => clipboard.readText())).split('\n'))
         .toEqual(Array.from({ length: LINES }, (_, i) => `hist ${i + 1}`))
+    } finally {
+      await app.close()
+    }
+  })
+}
+
+for (const engine of ENGINES) {
+  test(`${engine.name}: a mouse selection in history is copied, keeps the layer and leaves the keyboard on the live pane`, async () => {
+    test.setTimeout(180_000)
+    const { app, win } = await launch(engine.settings)
+    try {
+      await flood(win, engine.screen)
+      await wheelIntoHistory(win, engine.screen)
+      await app.evaluate(({ clipboard }) => clipboard.writeText(''))
+      const box = await layer(win).boundingBox()
+      if (!box) throw new Error('history layer has no box')
+      await win.mouse.move(box.x + 4, box.y + 40)
+      await win.mouse.down()
+      await win.mouse.move(box.x + 140, box.y + 90, { steps: 8 })
+      await win.mouse.up()
+      await win.keyboard.press(chords.copy)
+      await expect
+        .poll(async () => app.evaluate(({ clipboard }) => clipboard.readText()))
+        .toMatch(/hist \d+/)
+      await expect(layer(win)).toBeVisible()
+      const focusInLayer = await win.evaluate(
+        () => document.querySelector('.history-layer')?.contains(document.activeElement) ?? false,
+      )
+      expect(focusInLayer).toBe(false)
+      await win.keyboard.type('x')
+      await expect(layer(win)).toBeHidden()
     } finally {
       await app.close()
     }

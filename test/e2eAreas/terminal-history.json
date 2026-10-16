@@ -3,10 +3,11 @@
   "paths": [
     "src/main/terminal/history/",
     "src/main/terminal/screenSerialize.ts",
-    "src/renderer/components/terminal/HistoryEdge.tsx",
-    "src/renderer/components/terminal/HistoryView.",
     "src/renderer/lib/terminal/historyActions.ts",
+    "src/renderer/lib/terminal/historyLayerPane.ts",
     "src/renderer/lib/terminal/historyPages.",
+    "src/renderer/lib/terminal/historyScroll.",
+    "src/renderer/lib/terminal/historyScrollbar.ts",
     "src/renderer/stores/terminal/historyViewStore.ts",
     "src/shared/terminal/scrollbackHistory.ts"
   ],

@@ -11,6 +11,7 @@ import { readOnlyCopyKey } from './readOnlyTerminal'
 import { inputEditorFor } from './terminalHandles'
 
 const NO_HISTORY_MS = 1000
+const RESET_TERMINAL = '\x1bc'
 const FALLBACK_CELL_PX = 17
 const REFRESH_MS = 500
 const KEEP_LAYER_MS = 3000
@@ -235,8 +236,7 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
       const hidden = target.panes[1 - target.shown]
       if (!hidden) return
       const t = hidden.term
-      t.reset()
-      await new Promise<void>((done) => t.write(next.lines.join('\r\n'), done))
+      await new Promise<void>((done) => t.write(RESET_TERMINAL + next.lines.join('\r\n'), done))
       if (!alive || layer !== target || !notAlternate()) return
       const keep = request.options.follow ? layerTop() : anchor
       const buf = t.buffer.active

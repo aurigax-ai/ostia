@@ -34,7 +34,7 @@ vi.mock('./historyLayerPane', () => ({
         pane.lines = []
       },
       write: (data: string, done?: () => void) => {
-        pane.lines = data.split('\r\n')
+        pane.lines = data.replace('\x1bc', '').split('\r\n')
         done?.()
       },
       resize: () => {},

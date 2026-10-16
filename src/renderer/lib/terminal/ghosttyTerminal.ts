@@ -277,7 +277,6 @@ export function createGhosttyTerminal(
     hasSelection: () => t.hasSelection(),
     clearSelection: () => t.clearSelection(),
     select: (column, row, length) => t.select(column, row, length),
-    reset: () => t.reset(),
     selectAll: () => t.selectAll(),
     scrollLines: (amount) => t.scrollLines(amount),
     scrollPages: (amount) => t.scrollPages(amount),
