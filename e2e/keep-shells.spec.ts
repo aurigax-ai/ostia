@@ -268,7 +268,9 @@ test('KSH-C36 an agent still running after a restart stays marked and is never r
     await second.win.locator('.xterm').first().click()
     await typeLine(second.win, 'agent-alive')
     await expect(screen(second.win)).toContainText('agent-alive', { timeout: 15_000 })
-    expect(savedPanes().some((p) => p.agentRunning === true)).toBe(true)
+    await expect
+      .poll(() => savedPanes().some((p) => p.agentRunning === true), { timeout: 15_000 })
+      .toBe(true)
     await second.win.keyboard.press('Control+D')
     await expect(screen(second.win)).toContainText(PROMPT, { timeout: 15_000 })
     await runInTerminal(second.win, 'echo after-$((6*7))')
@@ -471,10 +473,10 @@ test('KSH-C67 text sent to an agent that kept running across a restart waits for
   }
 })
 
-test('KSH-C37 a process tab is still listed after a restart and can still be killed', async () => {
+test('KSH-C37 KSH-C27 a process tab is still listed after a restart, takes typed text and shows it, and can be killed', async () => {
   const first = await launch(dataHome)
   await openWorkspace(first.win)
-  await runInTerminal(first.win, 'ostia process run "sleep 60" --name demo')
+  await runInTerminal(first.win, 'ostia process run "cat" --name demo')
   await expect(first.win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
   await runInTerminal(
     first.win,
@@ -489,7 +491,12 @@ test('KSH-C37 a process tab is still listed after a restart and can still be kil
     await expect(screen(second.win)).toContainText(PROMPT, { timeout: 15_000 })
     await runInTerminal(second.win, 'clear; ostia process list')
     await expect(screen(second.win)).toContainText(/demo\s+running/, { timeout: 15_000 })
-    await runInTerminal(second.win, 'ostia process kill demo && ostia process list')
+    await runInTerminal(
+      second.win,
+      'clear; ostia pane send demo "sum-$((20+3))" --enter; until ostia pane read demo | grep -q sum-23; do sleep 0.2; done; echo read-ok',
+    )
+    await expect(screen(second.win)).toContainText('read-ok', { timeout: 30_000 })
+    await runInTerminal(second.win, 'clear; ostia process kill demo && ostia process list')
     await expect(screen(second.win)).toContainText(/demo\s+exited/, { timeout: 15_000 })
   } finally {
     await quitApp(second.app)
