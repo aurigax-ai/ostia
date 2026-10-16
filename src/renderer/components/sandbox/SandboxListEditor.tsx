@@ -1,7 +1,7 @@
 import { IconButton } from '@/components/common/IconButton'
+import { ListRow } from '@/components/common/ListRow'
 import { SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
-import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -101,7 +101,8 @@ export function SandboxListEditor({
         }
       >
         {fixed.map((item) => (
-          <SettingsListRow
+          <ListRow
+            density="dense"
             key={`f-${item}`}
             title={<span className="font-mono text-fg-muted text-ui-sm">{item}</span>}
             actions={
@@ -112,7 +113,8 @@ export function SandboxListEditor({
           />
         ))}
         {inherited.map((item) => (
-          <SettingsListRow
+          <ListRow
+            density="dense"
             key={`g-${item}`}
             title={<span className="font-mono text-fg-muted text-ui-sm">{item}</span>}
             actions={
@@ -126,7 +128,8 @@ export function SandboxListEditor({
           />
         ))}
         {items.map((item) => (
-          <SettingsListRow
+          <ListRow
+            density="dense"
             key={item}
             title={<span className="font-mono text-ui-sm">{item}</span>}
             actions={

@@ -1,7 +1,7 @@
+import { ListRow } from '@/components/common/ListRow'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup, SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsList } from '@/components/settingsKit/SettingsList'
-import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -226,7 +226,8 @@ function HiddenSockets({ sockets }: { sockets: readonly string[] }): JSX.Element
       <SettingsSubgroup title={d.sandbox.hiddenSockets} desc={d.sandbox.hiddenSocketsDesc} />
       <SettingsList label={d.sandbox.hiddenSockets} empty={d.sandbox.hiddenSocketsEmpty}>
         {sockets.map((socket) => (
-          <SettingsListRow
+          <ListRow
+            density="dense"
             key={socket}
             title={<span className="font-mono text-fg-muted text-ui-sm">{socket}</span>}
             actions={<Badge variant="outline">{d.sandbox.always}</Badge>}
