@@ -27,7 +27,7 @@ export function createReadOnlyTerminal(options: ITerminalOptions = {}): ReadOnly
   })
 }
 
-function readOnlyCopyKey(e: KeyboardEvent, hasSelection: boolean): boolean {
+export function readOnlyCopyKey(e: KeyboardEvent, hasSelection: boolean): boolean {
   const clipboardKeys = useSettingsStore.getState().terminal.clipboardKeys
   if (smartClipboardAction(e, clipboardKeys, hasSelection, isMac) === 'copy') return true
   return matchChordInTerminal(e, isMac) === 'copy'
@@ -38,20 +38,7 @@ export interface MountedReadOnlyTerminal {
   dispose: () => void
 }
 
-export function mountReadOnlyTerminal(
-  host: HTMLElement,
-  options: ITerminalOptions = {},
-  onKey?: (e: KeyboardEvent) => void,
-): MountedReadOnlyTerminal {
-  const settings = useSettingsStore.getState().terminal
-  const term = createReadOnlyTerminal({
-    scrollSensitivity: settings.scrollSpeed,
-    minimumContrastRatio: settings.minimumContrast,
-    cursorInactiveStyle: 'none',
-    ...options,
-  })
-  const fit = new FitAddon()
-  term.loadAddon(fit)
+function wireReadOnly(term: ReadOnlyTerminal, onKey?: (e: KeyboardEvent) => void): void {
   term.loadAddon(new Unicode11Addon())
   term.unicode.activeVersion = '11'
   term.attachCustomKeyEventHandler((e) => {
@@ -64,6 +51,27 @@ export function mountReadOnlyTerminal(
     onKey?.(e)
     return false
   })
+}
+
+function readOnlyViewOptions(options: ITerminalOptions): ITerminalOptions {
+  const settings = useSettingsStore.getState().terminal
+  return {
+    scrollSensitivity: settings.scrollSpeed,
+    minimumContrastRatio: settings.minimumContrast,
+    cursorInactiveStyle: 'none',
+    ...options,
+  }
+}
+
+export function mountReadOnlyTerminal(
+  host: HTMLElement,
+  options: ITerminalOptions = {},
+  onKey?: (e: KeyboardEvent) => void,
+): MountedReadOnlyTerminal {
+  const term = createReadOnlyTerminal(readOnlyViewOptions(options))
+  const fit = new FitAddon()
+  term.loadAddon(fit)
+  wireReadOnly(term, onKey)
   term.open(host)
   const refit = (): void => {
     if (host.offsetWidth === 0 || host.offsetHeight === 0) return
@@ -79,6 +87,18 @@ export function mountReadOnlyTerminal(
       term.dispose()
     },
   }
+}
+
+export function mountSizedReadOnlyTerminal(
+  host: HTMLElement,
+  size: { cols: number; rows: number },
+  options: ITerminalOptions,
+  onKey?: (e: KeyboardEvent) => void,
+): MountedReadOnlyTerminal {
+  const term = createReadOnlyTerminal(readOnlyViewOptions({ ...size, ...options }))
+  wireReadOnly(term, onKey)
+  term.open(host)
+  return { term, dispose: () => term.dispose() }
 }
 
 export function useReadOnlyTerminalBackground(

@@ -3509,47 +3509,59 @@ button.prompt-chip:hover {
   font-size: var(--text-ui-sm);
 }
 
-.history-view {
+.history-layer {
+  position: absolute;
+  inset: 4px 6px;
+  z-index: 2;
+  visibility: hidden;
+  background: inherit;
+}
+
+.history-pane {
   position: absolute;
   inset: 0;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
+  overflow: hidden;
 }
 
-.history-bar {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 8px 0 12px;
-  background: var(--surface-1);
-  border-bottom: 1px solid var(--line);
-  font-family: var(--font-ui);
+.terminal-stack .history-pane .xterm {
+  height: 100%;
+  padding: 0;
 }
 
-.history-screen {
-  position: relative;
-  flex: 1;
-  min-height: 0;
+.terminal-stack .history-pane .xterm .xterm-viewport.xterm-viewport {
+  background-color: transparent;
+  scrollbar-width: none;
 }
 
-.history-edge {
+.terminal-stack[data-history-scroll] .xterm-scrollable-element > .xterm-scrollbar {
+  display: none;
+}
+
+.history-scrollbar {
   position: absolute;
-  top: 6px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 4px 2px 8px;
-  background: var(--surface-2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-lg);
-  font-family: var(--font-ui);
+  top: 4px;
+  right: 2px;
+  bottom: 4px;
+  z-index: 3;
+  width: 10px;
+  opacity: 0;
+  transition: opacity var(--motion-fast, 120ms) ease-out;
+}
+
+.history-scrollbar[data-active],
+.history-scrollbar:hover {
+  opacity: 1;
+}
+
+.history-scrollbar-thumb {
+  width: 6px;
+  margin-left: 2px;
+  border-radius: 3px;
+  background: var(--scrollbar-thumb);
+}
+
+.history-scrollbar:hover .history-scrollbar-thumb {
+  background: var(--scrollbar-thumb-hover);
 }
 
 .dot.error {

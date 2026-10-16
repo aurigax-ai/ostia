@@ -17,6 +17,7 @@ import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { measureCells } from '@/lib/prompt/usePromptGeometry'
 import { ghosttyModule, loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import { liveLogicalLines } from '@/lib/terminal/historyActions'
+import { createHistoryScroll } from '@/lib/terminal/historyScroll'
 import {
   type OstiaTerminal,
   type PauseTerminal,
@@ -25,7 +26,7 @@ import {
   terminalScreen,
 } from '@/lib/terminal/ostiaTerminal'
 import { TERMINAL_INPUT_SELECTOR } from '@/lib/terminal/ostiaTerminal'
-import { registerTerminal } from '@/lib/terminal/terminalHandles'
+import { registerHistoryScroll, registerTerminal } from '@/lib/terminal/terminalHandles'
 import { keepDrawing, usePauseWhenHidden } from '@/lib/terminal/usePauseWhenHidden'
 import { type WebglRenderer, createWebglRenderer } from '@/lib/terminal/webglRenderer'
 import { attachWheelReports } from '@/lib/terminal/wheelReports'
@@ -36,10 +37,8 @@ import { isLinux, isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHistoryViewStore } from '@/stores/terminal/historyViewStore'
-import { type HTMLAttributes, type RefObject, useEffect, useMemo, useRef, useState } from 'react'
+import { type HTMLAttributes, useEffect, useMemo, useRef, useState } from 'react'
 import { Blocks } from './Blocks'
-import { HistoryEdge } from './HistoryEdge'
-import { HistoryView } from './HistoryView'
 import { TerminalFind, findOptions } from './TerminalFind'
 import { type LinkHintBox, TerminalLinkHint } from './TerminalLinkHint'
 import { TerminalMenu } from './TerminalMenu'
@@ -102,34 +101,6 @@ function pathDropHandlers(
       termRef.current?.focus()
     },
   }
-}
-
-function TerminalHistoryLayer({
-  paneId,
-  target,
-  termRef,
-  hostRef,
-  shown,
-}: {
-  paneId: string
-  target: ReturnType<typeof useHistoryViewStore.getState>['open'][string] | undefined
-  termRef: { current: OstiaTerminal | null }
-  hostRef: RefObject<HTMLDivElement | null>
-  shown: boolean
-}): JSX.Element {
-  if (target) {
-    return (
-      <HistoryView
-        paneId={paneId}
-        target={target}
-        onClose={() => {
-          useHistoryViewStore.getState().close(paneId)
-          termRef.current?.focus()
-        }}
-      />
-    )
-  }
-  return <HistoryEdge paneId={paneId} termRef={termRef} hostRef={hostRef} shown={shown} />
 }
 
 function TerminalFindLayer({
@@ -233,9 +204,8 @@ function TerminalSurface({
     })
   }, [paneId, engine])
 
-  const historyTarget = useHistoryViewStore((s) => s.open[paneId])
   useEffect(() => () => useHistoryViewStore.getState().close(paneId), [paneId])
-  usePauseWhenHidden(pauseRef, shown && !historyTarget, paneId, engine)
+  usePauseWhenHidden(pauseRef, shown, paneId, engine)
   useTerminalOptions({ termRef, syncSizeRef, font, palette })
   const input = terminalInputBridge({ paneId, termRef, setSuppressedPrompt })
 
@@ -280,13 +250,6 @@ function TerminalSurface({
         />
         <AssistComposer paneId={paneId} cwd={cwd} termRef={termRef} />
         <TerminalLinkHint hint={shown ? linkHint : null} />
-        <TerminalHistoryLayer
-          paneId={paneId}
-          target={historyTarget}
-          termRef={termRef}
-          hostRef={hostRef}
-          shown={shown}
-        />
         {findOpen && search && (
           <TerminalFindLayer
             paneId={paneId}
@@ -357,13 +320,27 @@ function startTerminal(deps: StartTerminalDeps): () => void {
   })
   const { term } = created
   if (created.pause) pauseRef.current = created.pause
-  attachWheelReports(term, () => measureCells(host, term)?.height ?? 0, isLinux)
+  const history = createHistoryScroll({
+    host,
+    paneId,
+    term,
+    engine,
+    options: initialTerminalOptions,
+    pause: (paused) => pauseRef.current(paused),
+  })
+  attachWheelReports(
+    term,
+    () => measureCells(host, term)?.height ?? 0,
+    isLinux,
+    history.interceptWheel,
+  )
   const detachWheelZoom = attachWheelZoom(host, 'terminal', isMac)
   const screenElement = terminalScreen(host)
   const detachLinks = links.attach(term, screenElement)
   termRef.current = term
   setSearch(created.search)
   const unregisterTerminal = registerTerminal(paneId, term)
+  const unregisterHistory = registerHistoryScroll(paneId, history)
   const paste = createTerminalPaste({ host, term, paneId, session, setPendingPaste })
   pasteRef.current = paste.pasteConfirmed
   pasteClipboardRef.current = () => paste.pasteFromClipboard()
@@ -411,6 +388,8 @@ function startTerminal(deps: StartTerminalDeps): () => void {
     unregisterLinks()
     detachWheelZoom()
     detachLinks()
+    unregisterHistory()
+    history.dispose()
     unregisterTerminal()
     forgetPaneActivity(paneId)
     useBlocksStore.getState().dropPane(paneId)

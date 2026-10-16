@@ -69,12 +69,18 @@ export function attachWheelReports(
   term: WheelTerminal,
   cellHeight: () => number,
   notches: boolean,
+  intercept: (e: WheelEvent) => boolean = () => false,
 ): void {
   const ticks = new WeakSet<WheelEvent>()
   const rows = createWheelRows()
   let lastRoute: WheelRoute | null = null
   term.attachCustomWheelEventHandler((e) => {
     if (ticks.has(e)) return true
+    if (intercept(e)) {
+      e.preventDefault()
+      e.stopPropagation()
+      return false
+    }
     const route = wheelRoute(term.modes.mouseTrackingMode, term.buffer.active.type)
     if (route !== lastRoute) rows.reset()
     lastRoute = route

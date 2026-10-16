@@ -56,6 +56,7 @@ export interface TerminalOptions {
   theme?: Xterm['options']['theme']
   scrollSensitivity?: number
   scrollback?: number
+  nativeScrollbar?: boolean
   minimumContrastRatio?: number
   macOptionIsMeta?: boolean
   macOptionClickForcesSelection?: boolean
@@ -100,6 +101,8 @@ export interface OstiaTerminal {
   getSelection(): string
   hasSelection(): boolean
   clearSelection(): void
+  select(column: number, row: number, length: number): void
+  reset(): void
   selectAll(): void
   scrollLines(amount: number): void
   scrollPages(pageCount: number): void
