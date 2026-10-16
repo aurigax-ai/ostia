@@ -96,7 +96,7 @@ export function DashboardPanel(): JSX.Element | null {
     <section
       ref={rootRef}
       aria-label={d.dashboard.title}
-      className="dashboard absolute inset-0 z-20 flex min-h-0 flex-col overflow-y-auto bg-bg text-fg"
+      className="dashboard motion-fade absolute inset-0 z-20 flex min-h-0 flex-col overflow-y-auto bg-bg text-fg"
     >
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-5 sm:px-8">
         <header className="flex items-center gap-2">

@@ -14,6 +14,7 @@ import { PanesSection } from '@/components/panes/PanesSection'
 import { SandboxSection } from '@/components/sandbox/SandboxSection'
 import { WorkspaceSandboxPage } from '@/components/sandbox/WorkspaceSandboxPage'
 import { ScriptTokensSection } from '@/components/scriptTokens/ScriptTokensSection'
+import { type SearchStore, SettingsSearchSection } from '@/components/settingsKit/SettingsSearch'
 import { SidebarSection } from '@/components/sidebar/SidebarSection'
 import { TerminalSection } from '@/components/terminal/TerminalSection'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -44,7 +45,6 @@ import { PasswordsSection } from './PasswordsSection'
 import { PrivacySection } from './PrivacySection'
 import { PromptSection } from './PromptSection'
 import { SettingsNav } from './SettingsNav'
-import { type SearchStore, SettingsSearchSection } from './SettingsSearch'
 import { SyncSection } from './SyncSection'
 import { WorkspacesSection } from './WorkspacesSection'
 import { useSettingsNavigation } from './useSettingsNavigation'
@@ -94,7 +94,7 @@ export function SettingsPanel(): JSX.Element | null {
   return (
     <section
       aria-label={d.settings.title}
-      className="absolute inset-0 z-20 flex min-h-0 flex-col bg-bg text-fg"
+      className="motion-fade absolute inset-0 z-20 flex min-h-0 flex-col bg-bg text-fg"
     >
       <div className="grid min-h-0 flex-1 grid-cols-[210px_minmax(0,1fr)]">
         <SettingsNav

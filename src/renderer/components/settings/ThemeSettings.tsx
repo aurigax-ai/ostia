@@ -1,3 +1,5 @@
+import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
 import {
   Combobox,
   ComboboxContent,
@@ -17,8 +19,6 @@ import { ANSI_NAMES, type ColorScheme } from '@/lib/theme/types'
 import { codeFontStack, terminalFontStack } from '@/lib/theme/uiFonts'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
-import { ControlRow, ToggleRow } from './ControlRow'
-import { SelectField } from './SelectField'
 
 const SWATCH_HUES = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan'] as const
 

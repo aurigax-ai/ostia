@@ -1,5 +1,5 @@
 import { MenuItem } from '@/components/common/Menu'
-import { WarningNote } from '@/components/settings/ControlRow'
+import { Notice } from '@/components/common/Notice'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -210,7 +210,7 @@ export function NameInputRow({
       </div>
       {message ? (
         <div style={{ paddingLeft: 8 + depth * 13 + NAME_OFFSET }}>
-          <WarningNote>{message}</WarningNote>
+          <Notice>{message}</Notice>
         </div>
       ) : null}
     </div>

@@ -27,7 +27,10 @@ import {
   type AgentView,
   type EventView,
   type NoteView,
+  type PaneLabel,
   type PanelModel,
+  type StreamEndpoint,
+  type StreamRow,
   type TurnView,
   type WorkspaceView,
   actionCounts,
@@ -143,7 +146,7 @@ function actionGroup(key: string, events: readonly EventView[]): HTMLElement | n
         const next = toggle.getAttribute('aria-expanded') !== 'true'
         toggle.setAttribute('aria-expanded', String(next))
         body.hidden = !next
-        body.classList.toggle('reveal', next)
+        body.classList.toggle('motion-reveal', next)
         if (next) openGroups.add(key)
         else openGroups.delete(key)
       },
@@ -177,6 +180,60 @@ function timeline(agent: AgentView): HTMLElement {
     { class: 'timeline', 'aria-label': t('timeline') },
     turnNode(agent, agent.current, true),
     ...agent.earlier.map((turn) => turnNode(agent, turn, false)),
+  )
+}
+
+function labelText(label: PaneLabel): string {
+  const base = label.agent ? t(`agent.${label.agent}`) : t('stream.pane')
+  return label.n > 1 ? `${base} ${label.n}` : base
+}
+
+function endpointText(endpoint: StreamEndpoint | undefined): string {
+  if (!endpoint) return ''
+  return endpoint.kind === 'pane' ? labelText(endpoint.label) : t(`stream.${endpoint.kind}`)
+}
+
+function streamText(row: StreamRow): string {
+  const who = labelText(row.subject)
+  if (row.host === 'bus') {
+    return t(`stream.bus.${row.message ?? 'message'}`, {
+      from: endpointText(row.from),
+      to: endpointText(row.to),
+    })
+  }
+  if (row.host === 'state') return t(`stream.state.${row.state}`, { who })
+  const folder = row.folder === '.' ? t('stream.rootFolder') : (row.folder ?? '')
+  return t(`stream.${row.host}`, { who, folder })
+}
+
+function streamRow(row: StreamRow): HTMLElement {
+  return h(
+    'li',
+    {
+      class: 'turn stream-row',
+      'data-host': row.host,
+      'data-state': row.host === 'state' && row.state ? row.state : 'past',
+    },
+    h('span', { class: 'node', 'aria-hidden': 'true' }),
+    h(
+      'div',
+      { class: 'turn-head' },
+      h('p', { class: 'stream-text' }, streamText(row)),
+      row.host === 'bus' && row.state
+        ? h('span', { class: 'phase muted' }, t(`stream.phase.${row.state}`))
+        : null,
+      age(row.t),
+    ),
+  )
+}
+
+function stream(workspace: WorkspaceView): HTMLElement | null {
+  if (workspace.stream.length === 0) return null
+  return h(
+    'section',
+    { class: 'stream' },
+    h('h2', { class: 'stream-title muted' }, t('stream')),
+    h('ol', { class: 'timeline', 'aria-label': t('stream') }, ...workspace.stream.map(streamRow)),
   )
 }
 
@@ -258,6 +315,7 @@ function workspaceSection(workspace: WorkspaceView, showActivity: boolean): HTML
     'section',
     { class: 'workspace', 'data-workspace': workspace.workspaceId },
     notesList(workspace),
+    showActivity ? stream(workspace) : null,
     ...workspace.agents.map((agent) => agentCard(agent, showActivity)),
   )
 }

@@ -115,8 +115,7 @@ async function measureIcons(win: Page) {
       const box = svg.getBoundingClientRect()
       const name = `${svg.closest('[aria-label]')?.getAttribute('aria-label') ?? svg.parentElement?.className}`
       if (!Number.isInteger(box.width) || !Number.isInteger(box.height)) fractionalSizes.push(name)
-      if (Math.min(box.width, box.height) < minSize)
-        small.push(`${name} ${box.width}x${box.height}`)
+      if (Math.min(box.width, box.height) < minSize) small.push(`${name} ${box.width}x${box.height}`)
       let x = 0
       let y = 0
       for (let el: Element | null = svg; el; el = el.parentElement) {

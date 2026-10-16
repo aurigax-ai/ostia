@@ -364,12 +364,25 @@ export const EXTENSION_EVENT_TYPES = [
   'focus.changed',
   'notification',
   'pane.attention',
+  'pane.lifecycle',
+  'bus.message',
   'workspace.closed',
 ] as const
 
 export type ExtensionEventType = (typeof EXTENSION_EVENT_TYPES)[number]
 
 export type PaneAttentionEventState = 'working' | 'waiting' | 'done' | 'error' | 'cleared'
+
+export type PaneLifecycleEventState = 'hibernated' | 'woken'
+
+export type BusMessageKind = 'message' | 'task'
+
+export type BusMessagePhase = 'queued' | 'waiting' | 'seen'
+
+export interface BusEndpoint {
+  id: string
+  workspaceId?: string
+}
 
 export interface ExtensionEventPayloads {
   'pane.created': { paneId: string; workspaceId: string }
@@ -384,6 +397,14 @@ export interface ExtensionEventPayloads {
   }
   'cwd.changed': { paneId: string; workspaceId: string; cwd: string }
   'pane.attention': { paneId: string; workspaceId: string; state: PaneAttentionEventState }
+  'pane.lifecycle': { paneId: string; workspaceId: string; state: PaneLifecycleEventState }
+  'bus.message': {
+    id: string
+    from: BusEndpoint
+    to: BusEndpoint
+    kind: BusMessageKind
+    phase: BusMessagePhase
+  }
   'focus.changed': { focused: boolean }
   notification: { title: string; body?: string; from: string }
   'workspace.closed': { workspaceId: string }

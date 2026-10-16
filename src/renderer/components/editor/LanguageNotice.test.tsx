@@ -62,6 +62,22 @@ describe('LanguageNotice', () => {
     useUIStore.setState(ui, true)
   })
 
+  it('fades in only a notice that appears after the first render, never one already there', async () => {
+    useLanguageServersStore.setState({
+      list: [server({ status: 'downloading', progress: 10 })],
+      load: vi.fn(async () => {}),
+    })
+    suggest(null)
+    const { unmount } = render(<LanguageNotice paneId="p1" filePath="/work/main.rs" />)
+    expect(await screen.findByRole('status')).not.toHaveClass('motion-fade')
+    unmount()
+
+    useLanguageServersStore.setState({ list: [], load: vi.fn(async () => {}) })
+    suggest(install)
+    render(<LanguageNotice paneId="p2" filePath="/work/main.rs" />)
+    expect(await screen.findByRole('status')).toHaveClass('motion-fade')
+  })
+
   it('shows nothing when main has no suggestion for the file', async () => {
     suggest(null)
     render(<LanguageNotice paneId="p1" filePath="/work/notes.txt" />)

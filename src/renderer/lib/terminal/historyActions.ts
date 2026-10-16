@@ -7,11 +7,8 @@ export function liveLogicalLines(term: OstiaTerminal): number {
   return logicalLinesFrom(term.buffer.normal, 0)
 }
 
-export function showHistoryAboveLive(paneId: string, term: OstiaTerminal): void {
-  const buf = term.buffer.normal
-  useHistoryViewStore
-    .getState()
-    .show(paneId, { kind: 'aboveLive', liveLines: logicalLinesFrom(buf, buf.viewportY) })
+export function showHistoryAboveLive(paneId: string): void {
+  useHistoryViewStore.getState().show(paneId, { kind: 'aboveLive' })
 }
 
 export function isSpilled(block: CommandBlock): block is CommandBlock & { seq: number } {

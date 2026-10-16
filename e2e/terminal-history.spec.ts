@@ -49,7 +49,22 @@ async function flood(win: Page, screen: string): Promise<void> {
   })
 }
 
-const historyScreen = (win: Page) => win.locator('.history-screen .xterm-rows')
+const historyScreen = (win: Page) => win.locator('.history-pane:not([style*="hidden"]) .xterm-rows')
+
+const layer = (win: Page) => win.locator('.history-layer')
+
+const layerTop = async (win: Page): Promise<number> =>
+  Number(await layer(win).getAttribute('data-top'))
+
+async function wheelIntoHistory(win: Page, screen: string): Promise<void> {
+  await win.locator(screen).first().hover()
+  await runCommand(win, 'Scroll to Bottom')
+  for (let i = 0; i < 400 && !(await layer(win).isVisible()); i++) {
+    await win.mouse.wheel(0, -1500)
+    await win.waitForTimeout(40)
+  }
+  await expect(layer(win)).toBeVisible()
+}
 
 async function launch(settings: Record<string, unknown> & { terminal?: object }): Promise<{
   app: ElectronApplication
@@ -78,30 +93,87 @@ for (const engine of ENGINES) {
         expect(statSync(file).mode & 0o777).toBe(0o600)
       }
 
-      await runCommand(win, 'Show Earlier Output')
-      await expect(win.locator('.history-view')).toBeVisible()
-      await win.getByRole('button', { name: 'Oldest' }).click()
-      await expect(historyScreen(win)).toContainText(/hist 1(?!\d)/)
-      await win.keyboard.press('Escape')
-      await expect(win.locator('.history-view')).toHaveCount(0)
+      await wheelIntoHistory(win, engine.screen)
+      await expect(win.locator('.history-view, .history-bar, .history-edge')).toHaveCount(0)
+      await expect(win.locator('.history-scrollbar')).toHaveCount(1)
+      const entered = await layerTop(win)
+      await win.mouse.wheel(0, -600)
+      await expect.poll(() => layerTop(win)).toBeLessThan(entered)
+      const deep = await layerTop(win)
+      await win.mouse.wheel(0, 600)
+      await expect.poll(() => layerTop(win)).toBeGreaterThan(deep)
+      await runCommand(win, 'Scroll to Top')
+      await expect.poll(() => layerTop(win)).toBeLessThan(40)
+      if (engine.name === 'xterm') await expect(historyScreen(win)).toContainText(/hist 1(?!\d)/)
+      await runCommand(win, 'Scroll to Bottom')
+      await expect(layer(win)).toBeHidden()
+      await wheelIntoHistory(win, engine.screen)
+      for (let i = 0; i < 10; i++) await win.mouse.wheel(0, -600)
+      const seen: number[] = []
+      for (let i = 0; i < 300 && (await layer(win).isVisible()); i++) {
+        await win.mouse.wheel(0, 120)
+        await win.waitForTimeout(40)
+        if (await layer(win).isVisible()) seen.push(await layerTop(win))
+      }
+      await expect(layer(win)).toBeHidden()
+      expect(seen.length).toBeGreaterThan(3)
+      expect(seen).toEqual([...seen].sort((x, y) => x - y))
+
+      await wheelIntoHistory(win, engine.screen)
+      await win.keyboard.type('x')
+      await expect(layer(win)).toBeHidden()
+      await win.keyboard.press('Backspace')
 
       await win.locator(engine.screen).first().click()
       await win.keyboard.press(chords.find)
       await win.getByRole('textbox', { name: 'Find in terminal' }).fill('hist 15')
       await win.getByRole('button', { name: /earlier$/ }).click()
-      await expect(win.locator('.history-view')).toBeVisible()
-      await expect(historyScreen(win)).toContainText('hist 15999')
-      await win.getByRole('button', { name: 'Back to live' }).click()
+      await expect(layer(win)).toBeVisible()
+      if (engine.name === 'xterm') await expect(historyScreen(win)).toContainText('hist 15999')
+      await runCommand(win, 'Scroll to Bottom')
+      await expect(layer(win)).toBeHidden()
 
       await win.locator(engine.screen).first().click()
       await win.keyboard.press(chords.blockPrev)
-      await expect(win.locator('.history-view')).toBeVisible()
-      await expect(historyScreen(win)).toContainText(/hist 1(?!\d)/)
-      await win.getByRole('button', { name: 'Back to live' }).click()
+      await expect(layer(win)).toBeVisible()
+      if (engine.name === 'xterm') await expect(historyScreen(win)).toContainText(/hist 1(?!\d)/)
+      await runCommand(win, 'Scroll to Bottom')
+      await expect(layer(win)).toBeHidden()
       await runCommand(win, 'Copy Block Output')
       await expect
         .poll(async () => (await app.evaluate(({ clipboard }) => clipboard.readText())).split('\n'))
         .toEqual(Array.from({ length: LINES }, (_, i) => `hist ${i + 1}`))
+    } finally {
+      await app.close()
+    }
+  })
+}
+
+for (const engine of ENGINES) {
+  test(`${engine.name}: a mouse selection in history is copied, keeps the layer and leaves the keyboard on the live pane`, async () => {
+    test.setTimeout(180_000)
+    const { app, win } = await launch(engine.settings)
+    try {
+      await flood(win, engine.screen)
+      await wheelIntoHistory(win, engine.screen)
+      await app.evaluate(({ clipboard }) => clipboard.writeText(''))
+      const box = await layer(win).boundingBox()
+      if (!box) throw new Error('history layer has no box')
+      await win.mouse.move(box.x + 4, box.y + 40)
+      await win.mouse.down()
+      await win.mouse.move(box.x + 140, box.y + 90, { steps: 8 })
+      await win.mouse.up()
+      await win.keyboard.press(chords.copy)
+      await expect
+        .poll(async () => app.evaluate(({ clipboard }) => clipboard.readText()))
+        .toMatch(/hist \d+/)
+      await expect(layer(win)).toBeVisible()
+      const focusInLayer = await win.evaluate(
+        () => document.querySelector('.history-layer')?.contains(document.activeElement) ?? false,
+      )
+      expect(focusInLayer).toBe(false)
+      await win.keyboard.type('x')
+      await expect(layer(win)).toBeHidden()
     } finally {
       await app.close()
     }
@@ -120,21 +192,9 @@ test('clear, closing the pane and quitting leave no history behind', async () =>
 
     await flood(win, '.xterm-screen')
     await expect.poll(() => historyFiles(dataHome).length, { timeout: 15_000 }).toBeGreaterThan(0)
-    await runCommand(win, 'Scroll to Top')
-    await expect(win.locator('.history-edge')).toBeVisible()
-    await win.locator('.history-edge').getByRole('button', { name: 'Show' }).click()
-    await expect(win.locator('.history-view')).toBeVisible()
-    await win.getByRole('button', { name: 'Back to live' }).click()
-    await runCommand(win, 'Scroll to Top')
-    await expect(win.locator('.history-edge')).toBeVisible()
-    await win.locator('.xterm-screen').first().hover()
-    await expect
-      .poll(async () => {
-        await win.mouse.wheel(0, -100)
-        return win.locator('.history-view').count()
-      })
-      .toBe(1)
-    await win.getByRole('button', { name: 'Back to live' }).click()
+    await wheelIntoHistory(win, '.xterm-screen')
+    await runCommand(win, 'Scroll to Bottom')
+    await expect(layer(win)).toBeHidden()
 
     await win.keyboard.press(chords.splitRight)
     await expect(win.locator('.xterm-screen')).toHaveCount(2, { timeout: 15_000 })
@@ -197,8 +257,8 @@ test('a restart restores the screen and starts a fresh history from it', async (
     await expect(win.locator('.xterm-rows').first()).toContainText('more 3000', {
       timeout: 30_000,
     })
-    await runCommand(win, 'Show Earlier Output')
-    await win.getByRole('button', { name: 'Oldest' }).click()
+    await runCommand(win, 'Scroll to Top')
+    await expect(layer(win)).toBeVisible()
     await expect(historyScreen(win)).toContainText('hist 19')
   } finally {
     await app.close()

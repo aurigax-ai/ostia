@@ -151,6 +151,8 @@ test('a collapsed pane of a split tab stays a strip across a restart', async () 
       ids[name] = (await segment(win, name).getAttribute('data-segment-id')) ?? ''
     }
 
+    await segment(win, 'w1').locator('.split-tab-segment-main').click()
+    await expect(cell(win, ids.w1)).toBeVisible()
     await segment(win, 'w3').getByRole('button', { name: 'Collapse w3' }).click()
     await expect(strip(win, ids.w3)).toHaveCount(1)
     await expect(strip(win, ids.w1)).toHaveCount(0)

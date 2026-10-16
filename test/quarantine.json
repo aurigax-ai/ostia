@@ -1,8 +1,32 @@
 [
   {
-    "file": "src/cli/cli.graphRuns.e2e.test.ts",
-    "name": "graph runs on the built-in graphs extension (real CLI, real socket) > GRF-C57 a timeout ends the process, a large output is cut, a missing program and a failed exit are errors",
-    "issue": 1022,
-    "until": "2026-11-15"
+    "file": "e2e/graphs-kept.spec.ts",
+    "name": "GRF-C71 an agent still working in its kept pane across a restart is reattached as running and its report ends the node",
+    "issue": 1044,
+    "until": "2026-10-30"
+  },
+  {
+    "file": "e2e/graphs-restart.spec.ts",
+    "name": "GRF-C59 GRF-C70 a waiting approval and a cut-off command come back after Ostia is killed",
+    "issue": 1044,
+    "until": "2026-10-30"
+  },
+  {
+    "file": "src/main/files/archives/archives.test.ts",
+    "name": "Archives > refuses a bomb entry by its declared size and by its real size",
+    "issue": 1039,
+    "until": "2026-10-30"
+  },
+  {
+    "file": "src/renderer/components/chat/ChatView.test.tsx",
+    "name": "chat > sends the text selected in the workspace with the next question by itself",
+    "issue": 1045,
+    "until": "2026-10-30"
+  },
+  {
+    "file": "src/renderer/components/settings/SettingsPanel.searchRenders.test.tsx",
+    "name": "SettingsPanel search renders > re-renders a row that does not match the query only when its own match flips",
+    "issue": 1037,
+    "until": "2026-11-13"
   }
 ]

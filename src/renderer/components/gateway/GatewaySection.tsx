@@ -1,5 +1,5 @@
-import { ControlRow } from '@/components/settings/ControlRow'
-import { SectionHead } from '@/components/settings/SettingsGroup'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { useDict } from '@/lib/app/useDict'
@@ -32,9 +32,7 @@ export function GatewaySection(): JSX.Element {
   }
 
   return (
-    <section>
-      <SectionHead title={d.settings.remote} desc={d.settings.remoteDesc} />
-
+    <SettingsPage title={d.settings.remote} desc={d.settings.remoteDesc}>
       <GatewayRouteRows gateway={gateway} routing={routing} />
 
       <Separator className="my-3" />
@@ -57,6 +55,6 @@ export function GatewaySection(): JSX.Element {
       <Separator className="my-3" />
 
       <DeviceList devices={devices} refresh={refresh} />
-    </section>
+    </SettingsPage>
   )
 }

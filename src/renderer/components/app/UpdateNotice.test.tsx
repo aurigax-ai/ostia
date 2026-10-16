@@ -33,6 +33,18 @@ describe('UpdateNotice', () => {
     expect(container.innerHTML).toBe('')
   })
 
+  it('fades in only a notice that appears during the session, never one already there', () => {
+    act(() => useUpdateStore.getState().receive(BUILD))
+    const first = render(<UpdateNotice />)
+    expect(first.container.querySelector('.update-notice')).not.toHaveClass('motion-fade')
+    first.unmount()
+
+    useUpdateStore.setState(init, true)
+    const { container } = render(<UpdateNotice />)
+    act(() => useUpdateStore.getState().receive(BUILD))
+    expect(container.querySelector('.update-notice')).toHaveClass('motion-fade')
+  })
+
   it('offers a restart for a new build, hides on Later, and returns for a newer build', () => {
     render(<UpdateNotice />)
     act(() => useUpdateStore.getState().receive(BUILD))

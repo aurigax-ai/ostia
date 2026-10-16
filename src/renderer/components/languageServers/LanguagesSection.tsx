@@ -1,4 +1,5 @@
-import { SectionHead } from '@/components/settings/SettingsGroup'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { useDict } from '@/lib/app/useDict'
 import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
 import { useEffect } from 'react'
@@ -16,17 +17,12 @@ export function LanguagesSection(): JSX.Element {
     return () => window.removeEventListener('focus', onFocus)
   }, [load])
   return (
-    <section aria-label={t.title}>
-      <SectionHead title={t.title} desc={t.desc} />
-      {servers.length === 0 ? (
-        <p className="text-fg-muted text-ui-sm">{t.none}</p>
-      ) : (
-        <ul className="-mx-3 flex flex-col">
-          {servers.map((server) => (
-            <ServerRow key={server.key} server={server} />
-          ))}
-        </ul>
-      )}
-    </section>
+    <SettingsPage title={t.title} desc={t.desc}>
+      <SettingsList label={t.title} empty={t.none}>
+        {servers.map((server) => (
+          <ServerRow key={server.key} server={server} />
+        ))}
+      </SettingsList>
+    </SettingsPage>
   )
 }

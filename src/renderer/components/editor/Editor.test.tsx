@@ -442,15 +442,14 @@ describe('EditorView', () => {
     await waitFor(() => expect(fake.state.ranActions).toEqual(['actions.find']))
   })
 
-  it('scrolls without smooth animation while motion is reduced', async () => {
+  it('never scrolls with smooth animation, whatever the motion setting', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
-    act(() => useSettingsStore.getState().setMotion('reduced'))
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     expect(fake.state.createOptions?.smoothScrolling).toBe(false)
 
     act(() => useSettingsStore.getState().setMotion('full'))
-    expect(fake.state.optionUpdates.at(-1)).toEqual({ smoothScrolling: true })
+    expect(fake.state.optionUpdates.some((u) => 'smoothScrolling' in u)).toBe(false)
   })
 
   it('word wrap and tab width from Settings apply to the open editor', async () => {
@@ -885,6 +884,7 @@ describe('EditorView', () => {
     expect(window.ostia.fs.read).not.toHaveBeenCalled()
     const bar = screen.getByTestId('remote-file-bar')
     expect(bar).toHaveTextContent('Remote file on db')
+    expect(bar).not.toHaveClass('motion-fade')
 
     act(() => useRemoteFoldersStore.setState({ folders: [] }))
     expect(bar).toHaveTextContent('This remote folder is closed')

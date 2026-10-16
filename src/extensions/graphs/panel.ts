@@ -8,7 +8,6 @@ import {
   panelTranslator,
 } from '@aurigax-ai/ostia-extension-sdk/panel'
 import clockCounterClockwise from '@phosphor-icons/core/regular/clock-counter-clockwise.svg'
-import copy from '@phosphor-icons/core/regular/copy.svg'
 import graph from '@phosphor-icons/core/regular/graph.svg'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
@@ -61,26 +60,8 @@ function emptyState(view: EmptyView): HTMLElement {
   )
 }
 
-function folderAction(folder: string): HTMLElement {
-  const path = h('code', { class: 'empty-path' }, folder)
-  const label = h('span', {}, t('empty.copy'))
-  const copyButton = h(
-    'button',
-    {
-      type: 'button',
-      class: 'primary',
-      onClick: () => {
-        getSelection()?.selectAllChildren(path)
-        label.textContent = t(document.execCommand('copy') ? 'empty.copied' : 'empty.copyFailed')
-        setTimeout(() => {
-          label.textContent = t('empty.copy')
-        }, 2000)
-      },
-    },
-    icon(copy),
-    label,
-  )
-  return h('div', { class: 'empty-action' }, path, copyButton)
+function folderPath(folder: string): HTMLElement {
+  return h('code', { class: 'empty-path' }, folder)
 }
 
 async function act(command: string, args: Record<string, unknown>): Promise<boolean> {
@@ -92,6 +73,19 @@ async function act(command: string, args: Record<string, unknown>): Promise<bool
 
 function pretty(value: unknown): HTMLElement {
   return h('div', { class: 'mono' }, JSON.stringify(value, null, 2))
+}
+
+function fold(label: string, value: unknown): HTMLElement {
+  const body = pretty(value)
+  const details = h(
+    'details',
+    {
+      onToggle: () => body.classList.toggle('motion-reveal', (details as HTMLDetailsElement).open),
+    },
+    h('summary', {}, label),
+    body,
+  )
+  return details
 }
 
 function graphRow(row: GraphRow): HTMLElement {
@@ -175,7 +169,7 @@ async function listView(): Promise<HTMLElement[]> {
         media: graph,
         title: t('empty.folder.title'),
         description: t('empty.folder.description'),
-        action: folderAction(model.folder),
+        action: folderPath(model.folder),
       }),
     ]
   }
@@ -391,12 +385,10 @@ async function runView(runId: string): Promise<HTMLElement[]> {
               )
             : null,
           n.error ? h('div', { class: 'error mono' }, `${n.error.name}: ${n.error.message}`) : null,
-          h('details', {}, h('summary', {}, t('node.input')), pretty(n.input)),
-          n.output ? h('details', {}, h('summary', {}, t('node.output')), pretty(n.output)) : null,
-          n.wait ? h('details', {}, h('summary', {}, t('node.wait')), pretty(n.wait)) : null,
-          n.stateAfter
-            ? h('details', {}, h('summary', {}, t('node.state')), pretty(n.stateAfter))
-            : null,
+          fold(t('node.input'), n.input),
+          n.output ? fold(t('node.output'), n.output) : null,
+          n.wait ? fold(t('node.wait'), n.wait) : null,
+          n.stateAfter ? fold(t('node.state'), n.stateAfter) : null,
         )
       }),
     ),

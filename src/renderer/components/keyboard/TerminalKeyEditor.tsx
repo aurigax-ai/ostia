@@ -1,5 +1,5 @@
-import { WarningNote } from '@/components/settings/ControlRow'
-import { SelectField } from '@/components/settings/SelectField'
+import { Notice } from '@/components/common/Notice'
+import { SelectField } from '@/components/settingsKit/SelectField'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Kbd } from '@/components/ui/kbd'
@@ -163,14 +163,12 @@ export function TerminalKeyEditor({
         </p>
       ) : null}
       {replacing?.commands.map((id) => (
-        <WarningNote key={id}>
-          {fmt(d.keyboard.conflict, { keys, command: commandTitle(id, d) })}
-        </WarningNote>
+        <Notice key={id}>{fmt(d.keyboard.conflict, { keys, command: commandTitle(id, d) })}</Notice>
       ))}
       {replacing?.existing ? (
-        <WarningNote>
+        <Notice>
           {fmt(d.keyboard.sendConflict, { keys, send: sendText(replacing.existing.send) })}
-        </WarningNote>
+        </Notice>
       ) : null}
       <div className="flex gap-1">
         <Button size="xs" onClick={save}>

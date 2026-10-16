@@ -1,6 +1,8 @@
-import { ControlRow, NumberRow, ToggleRow, WarningNote } from '@/components/settings/ControlRow'
-import { SelectField } from '@/components/settings/SelectField'
-import { SectionHead, SettingsGroup } from '@/components/settings/SettingsGroup'
+import { Notice } from '@/components/common/Notice'
+import { ControlRow, NumberRow, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import { useDict } from '@/lib/app/useDict'
 import {
@@ -82,8 +84,7 @@ export function AgentsSection(): JSX.Element {
   const approvalMode = useSettingsStore((s) => s.approvals.mode)
   const setApprovalMode = useSettingsStore((s) => s.setApprovalMode)
   return (
-    <div>
-      <SectionHead title={d.settings.agents} />
+    <SettingsPage title={d.settings.agents}>
       <SettingsGroup title={d.approvals.inbox}>
         <ControlRow label={d.approvals.mode} desc={d.approvals.modeDesc}>
           <SelectField
@@ -160,10 +161,10 @@ export function AgentsSection(): JSX.Element {
               max={HIBERNATION_LIVE_MAX}
               onCommit={(n) => set({ maxLiveTerminals: n })}
             />
-            <WarningNote>{d.settings.hibernateNote}</WarningNote>
+            <Notice>{d.settings.hibernateNote}</Notice>
           </>
         ) : null}
       </SettingsGroup>
-    </div>
+    </SettingsPage>
   )
 }

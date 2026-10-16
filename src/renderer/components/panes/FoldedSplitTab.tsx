@@ -36,10 +36,12 @@ export function FoldedSplitTab({
   tab,
   dropMark,
   workspaceId,
+  entering,
 }: {
   tab: SplitNode
   dropMark: 'before' | 'after' | null
   workspaceId: string | null
+  entering: boolean
 }): JSX.Element {
   const d = useDict()
   const panes = allPanes(tab)
@@ -57,7 +59,11 @@ export function FoldedSplitTab({
   const open = panes.find((p) => !p.collapsed) ?? panes[0]
   return (
     <div
-      className={cn('pane-tab pane-split-tab folded', dropMark && `drop-${dropMark}`)}
+      className={cn(
+        'pane-tab pane-split-tab folded',
+        entering && 'motion-fade',
+        dropMark && `drop-${dropMark}`,
+      )}
       data-tab-id={tab.id}
       data-attention={mark ?? undefined}
       {...tabDragProps(tab.id, workspaceId, true)}
