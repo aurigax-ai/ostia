@@ -1424,6 +1424,26 @@ describe('CommandPalette', () => {
       await closedByEscape('a command’s value step')
     })
 
+    it('keeps the repeats of a held Escape from the window once it closed the palette, and lets the next press through', async () => {
+      const outside = vi.fn()
+      window.addEventListener('keydown', outside)
+      onTestFinished(() => window.removeEventListener('keydown', outside))
+      render(<CommandPalette />)
+      act(() => useUIStore.getState().openPalette('search'))
+      fireEvent.keyDown(await screen.findByRole('combobox'), { key: 'Escape', code: 'Escape' })
+      expect(useUIStore.getState().paletteOpen).toBe(false)
+      await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull())
+
+      outside.mockClear()
+      fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape', repeat: true })
+      fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape', repeat: true })
+      expect(outside).not.toHaveBeenCalled()
+
+      fireEvent.keyUp(document.body, { key: 'Escape', code: 'Escape' })
+      fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape' })
+      expect(outside).toHaveBeenCalledTimes(1)
+    })
+
     it.each(['search', 'everywhere'] as const)(
       'Escape while an input method is composing in the %s palette closes it, and the next Escape in a reopened palette closes it too',
       async (mode) => {
