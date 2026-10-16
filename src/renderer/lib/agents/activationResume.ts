@@ -8,7 +8,8 @@ function paneBodyAt(target: EventTarget | null): string | null {
 
 export function startActivationResume(): () => void {
   const onClick = (e: Event): void => {
-    if (!e.isTrusted || (e as MouseEvent).button !== 0) return
+    const { button, detail } = e as MouseEvent
+    if (!e.isTrusted || button !== 0 || detail === 0) return
     const paneId = paneBodyAt(e.target)
     if (paneId) resumeOnActivation(paneId)
   }

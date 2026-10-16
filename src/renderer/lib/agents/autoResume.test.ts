@@ -339,6 +339,7 @@ describe('startAutoResume', () => {
       type: 'click',
       isTrusted: true,
       button: 0,
+      detail: 1,
       target,
     } as unknown as Event)
 
@@ -377,6 +378,7 @@ describe('startAutoResume', () => {
       type: 'click',
       isTrusted: true,
       button: 0,
+      detail: 1,
       target,
     } as unknown as Event)
     useWorkspacesStore.getState().setActive('s2')
