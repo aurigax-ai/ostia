@@ -271,7 +271,15 @@ async function measureHistory(win: Page, dataHome: string): Promise<Metrics> {
     const all = await pty.historySearch(pane, 'bulk output', {}, 0)
     const searchMs = performance.now() - started
     const gaps = await pty.historySearch(pane, 'earlier lines not kept', {}, 0)
+    const readAt = performance.now()
+    await pty.historyRead(pane, 0, 6000)
+    const readOldestMs = performance.now() - readAt
+    const latestAt = performance.now()
+    await pty.historyRead(pane, Math.max(0, (info?.end ?? 0) - 6000), 6000)
+    const readLatestMs = performance.now() - latestAt
     return {
+      readOldestMs: Math.round(readOldestMs),
+      readLatestMs: Math.round(readLatestMs),
       lines: info ? info.end - info.first : -1,
       searchMs: Math.round(searchMs),
       matches: all?.count ?? -1,
@@ -283,22 +291,71 @@ async function measureHistory(win: Page, dataHome: string): Promise<Metrics> {
   await win.keyboard.press(chords.palette)
   await win.locator('[data-slot="command-input"]').fill('Show Earlier Output')
   await waitForPaletteSelection(win, 'Show Earlier Output')
+  await win.evaluate(watchHistoryText, 'bulk output')
+  await win.evaluate(() => {
+    const w = window as unknown as HistoryTimes
+    document.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.key === 'Enter' && w.__historyFrom === undefined) w.__historyFrom = performance.now()
+      },
+      { capture: true },
+    )
+  })
   const openAt = Date.now()
   await win.keyboard.press('Enter')
   await expect(rows).toContainText('bulk output', { timeout: 30_000 })
   const openMs = Date.now() - openAt
+  const openInPageMs = await win.evaluate(historyTextShownAfter)
+  await win.evaluate(watchHistoryText, 'line 1 of the bulk')
   const pageAt = Date.now()
-  await win.getByRole('button', { name: 'Oldest' }).click()
+  await win.evaluate(() => {
+    const w = window as unknown as HistoryTimes
+    w.__historyFrom = performance.now()
+    const oldest = [...document.querySelectorAll('.history-bar button')].find(
+      (b) => b.textContent === 'Oldest',
+    ) as HTMLButtonElement | undefined
+    oldest?.click()
+  })
   await expect(rows).toContainText(/line 1 of the bulk/, { timeout: 30_000 })
   const pageMs = Date.now() - pageAt
+  const pageInPageMs = await win.evaluate(historyTextShownAfter)
   await win.getByRole('button', { name: 'Back to live' }).click()
   return {
     ...stats,
     diskBytes,
     bytesPerLine: +(diskBytes / Math.max(1, stats.lines)).toFixed(1),
     openMs,
+    openInPageMs,
     pageMs,
+    pageInPageMs,
   }
+}
+
+interface HistoryTimes {
+  __historyFrom?: number
+  __historyShown?: Promise<number>
+}
+
+function watchHistoryText(text: string): void {
+  const w = window as unknown as HistoryTimes
+  w.__historyFrom = undefined
+  w.__historyShown = new Promise((resolve) => {
+    const shows = () =>
+      document.querySelector('.history-screen .xterm-rows')?.textContent?.includes(text) ?? false
+    const observer = new MutationObserver(() => {
+      if (!shows()) return
+      observer.disconnect()
+      requestAnimationFrame(() => resolve(performance.now()))
+    })
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true })
+  })
+}
+
+async function historyTextShownAfter(): Promise<number> {
+  const w = window as unknown as HistoryTimes
+  const shown = await w.__historyShown
+  return Math.round((shown ?? Number.NaN) - (w.__historyFrom ?? Number.NaN))
 }
 
 function MAIN_PROBE(): void {

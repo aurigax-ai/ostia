@@ -32,9 +32,9 @@ describe('history pages', () => {
 
   it('moves the window one page at a time without leaving the history', () => {
     expect(earlierStart(5000, 0)).toBe(5000 - PAGE_LINES)
-    expect(earlierStart(1000, 400)).toBe(400)
+    expect(earlierStart(1000, 900)).toBe(900)
     expect(laterStart(0, 0, 50_000)).toBe(PAGE_LINES)
-    expect(laterStart(44_000, 0, 50_000)).toBe(50_000 - WINDOW_LINES)
+    expect(laterStart(49_500, 0, 50_000)).toBe(50_000 - WINDOW_LINES)
   })
 
   it('maps rows and logical lines across soft wraps', () => {
