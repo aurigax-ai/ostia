@@ -157,6 +157,131 @@ function EditHunks({
   )
 }
 
+type EditStrings = ReturnType<typeof useDict>['chatTools']['edit']
+
+function editCardState({
+  pending,
+  edit,
+  partState,
+  busy,
+}: {
+  pending: boolean
+  edit: { state: string; auto: boolean } | undefined
+  partState: ToolPartLike['state']
+  busy: boolean
+}): EditCardState {
+  if (pending) return 'pending'
+  if (edit) return edit.state === 'undone' ? 'undone' : edit.auto ? 'auto' : 'applied'
+  if (partState === 'output-available') return 'applied'
+  if (partState === 'output-denied') return 'rejected'
+  if (partState === 'output-error') return 'failed'
+  return busy ? 'preparing' : 'stopped'
+}
+
+function EditCardHead({
+  t,
+  path,
+  shown,
+  created,
+  added,
+  removed,
+  state,
+}: {
+  t: EditStrings
+  path: string
+  shown: string
+  created: unknown
+  added: number | null
+  removed: number | null
+  state: EditCardState
+}): JSX.Element {
+  const HeadIcon = created === true ? FilePlusIcon : PencilSimpleLineIcon
+  return (
+    <header className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      <HeadIcon aria-hidden className="size-4 shrink-0 text-fg-muted" />
+      <Hint label={fmt(t.openFile, { path })}>
+        <button
+          type="button"
+          className="chat-file-link min-w-16 flex-1 truncate text-left"
+          onClick={() => {
+            useUIStore.getState().closePalette()
+            openFileAt(path)
+          }}
+        >
+          <span className="font-mono text-fg text-ui-sm">{shown}</span>
+        </button>
+      </Hint>
+      {created === true ? (
+        <span className="shrink-0 text-fg-muted text-ui-xs">{t.created}</span>
+      ) : null}
+      {added !== null && removed !== null ? (
+        <span className="flex shrink-0 gap-1.5 font-mono text-ui-xs tabular-nums">
+          <span className="text-add">+{added}</span>
+          <span className="text-del">-{removed}</span>
+        </span>
+      ) : null}
+      <ToolStatus state={STATUS_ICON[state]} label={t.states[state]} role="status" />
+    </header>
+  )
+}
+
+function EditCardActions({
+  t,
+  id,
+  state,
+  canOpenDiff,
+  undoable,
+  reviewing,
+  onOpenDiff,
+}: {
+  t: EditStrings
+  id: string
+  state: EditCardState
+  canOpenDiff: boolean
+  undoable: boolean
+  reviewing: boolean
+  onOpenDiff: () => void
+}): JSX.Element {
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-1.5">
+      {canOpenDiff ? (
+        <Button type="button" variant="ghost" size="sm" onClick={onOpenDiff}>
+          {t.openDiff}
+        </Button>
+      ) : null}
+      {state === 'pending' ? (
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => answerApproval(id, { approved: false })}
+          >
+            {t.reject}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => answerApproval(id, { approved: true, scope: 'once' })}
+          >
+            {t.accept}
+          </Button>
+        </>
+      ) : null}
+      {undoable ? (
+        <Button type="button" variant="outline" size="sm" onClick={() => void undoEdit(id)}>
+          {t.undo}
+        </Button>
+      ) : null}
+      {reviewing ? (
+        <Button type="button" size="sm" onClick={() => keepEdit(id)}>
+          {t.keep}
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
 export function ChatEditCard({
   part,
   name,
@@ -190,29 +315,12 @@ export function ChatEditCard({
     (typeof output.path === 'string' ? output.path : null) ??
     (typeof input.path === 'string' ? input.path : '')
   const created = pending ? pending.detail.exists === false : edit ? !edit.existed : output.created
-  const state: EditCardState = pending
-    ? 'pending'
-    : edit
-      ? edit.state === 'undone'
-        ? 'undone'
-        : edit.auto
-          ? 'auto'
-          : 'applied'
-      : part.state === 'output-available'
-        ? 'applied'
-        : part.state === 'output-denied'
-          ? 'rejected'
-          : part.state === 'output-error'
-            ? 'failed'
-            : busy
-              ? 'preparing'
-              : 'stopped'
+  const state = editCardState({ pending: pending !== undefined, edit, partState: part.state, busy })
   const counts = hunks ? hunkCounts(hunks, decisions) : null
   const added = counts?.added ?? count(output.added)
   const removed = counts?.removed ?? count(output.removed)
   const reason = pending?.detail.reason
   const shown = shownPath(path, workspaceId)
-  const HeadIcon = created === true ? FilePlusIcon : PencilSimpleLineIcon
   const target = workspaceId ?? useWorkspacesStore.getState().activeWorkspaceId
   const undoable = canUndo(edit)
   const reviewing = edit !== undefined && awaitsReview(edit)
@@ -248,31 +356,15 @@ export function ChatEditCard({
       data-review={reviewing || state === 'pending' || undefined}
       tabIndex={-1}
     >
-      <header className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        <HeadIcon aria-hidden className="size-4 shrink-0 text-fg-muted" />
-        <Hint label={fmt(t.openFile, { path })}>
-          <button
-            type="button"
-            className="chat-file-link min-w-16 flex-1 truncate text-left"
-            onClick={() => {
-              useUIStore.getState().closePalette()
-              openFileAt(path)
-            }}
-          >
-            <span className="font-mono text-fg text-ui-sm">{shown}</span>
-          </button>
-        </Hint>
-        {created === true ? (
-          <span className="shrink-0 text-fg-muted text-ui-xs">{t.created}</span>
-        ) : null}
-        {added !== null && removed !== null ? (
-          <span className="flex shrink-0 gap-1.5 font-mono text-ui-xs tabular-nums">
-            <span className="text-add">+{added}</span>
-            <span className="text-del">-{removed}</span>
-          </span>
-        ) : null}
-        <ToolStatus state={STATUS_ICON[state]} label={t.states[state]} role="status" />
-      </header>
+      <EditCardHead
+        t={t}
+        path={path}
+        shown={shown}
+        created={created}
+        added={added}
+        removed={removed}
+        state={state}
+      />
       {reason && reason !== 'ask-mode' ? (
         <p className="text-fg text-ui-xs">{t.reasons[reason]}</p>
       ) : null}
@@ -298,42 +390,15 @@ export function ChatEditCard({
       ) : null}
       {notKept ? <p className="text-fg-muted text-ui-xs">{t.notKept}</p> : null}
       {hunks || reviewing ? (
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
-          {target && hunks ? (
-            <Button type="button" variant="ghost" size="sm" onClick={openDiff}>
-              {t.openDiff}
-            </Button>
-          ) : null}
-          {state === 'pending' ? (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => answerApproval(id, { approved: false })}
-              >
-                {t.reject}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => answerApproval(id, { approved: true, scope: 'once' })}
-              >
-                {t.accept}
-              </Button>
-            </>
-          ) : null}
-          {undoable ? (
-            <Button type="button" variant="outline" size="sm" onClick={() => void undoEdit(id)}>
-              {t.undo}
-            </Button>
-          ) : null}
-          {reviewing ? (
-            <Button type="button" size="sm" onClick={() => keepEdit(id)}>
-              {t.keep}
-            </Button>
-          ) : null}
-        </div>
+        <EditCardActions
+          t={t}
+          id={id}
+          state={state}
+          canOpenDiff={Boolean(target && hunks)}
+          undoable={undoable}
+          reviewing={reviewing}
+          onOpenDiff={openDiff}
+        />
       ) : null}
     </section>
   )

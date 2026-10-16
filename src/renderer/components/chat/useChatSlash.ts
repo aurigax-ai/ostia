@@ -118,7 +118,7 @@ function createSlashActions({
   }
 }
 
-interface ChatSlashParams
+export interface ChatSlashParams
   extends Omit<SlashActionsParams, 'sourceLabels' | 'setSlashNotice' | 'chat'> {
   chat: Pick<UseChatHelpers<OstiaChatMessage>, 'messages' | 'clearError' | 'regenerate'>
   draft: string
