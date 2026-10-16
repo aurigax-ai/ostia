@@ -1,9 +1,5 @@
-import {
-  VIEW_MAX_LIST_ITEMS,
-  VIEW_MAX_RENDERED_NODES,
-  type ViewDoc,
-  parseViewText,
-} from '@shared/views/views'
+import { parseViewText } from '@shared/views/viewParse'
+import { VIEW_MAX_LIST_ITEMS, VIEW_MAX_RENDERED_NODES, type ViewDoc } from '@shared/views/views'
 import { describe, expect, it } from 'vitest'
 import { type RenderNode, expandView } from './viewExpand'
 

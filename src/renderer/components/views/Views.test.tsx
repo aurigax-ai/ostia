@@ -12,12 +12,12 @@ import { useViewsStore } from '@/stores/extensions/viewsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import { parseViewText } from '@shared/views/viewParse'
 import {
   VIEW_MAX_LIST_ITEMS,
   type ViewInfo,
   type ViewListing,
   type ViewStatus,
-  parseViewText,
 } from '@shared/views/views'
 import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'

@@ -2,6 +2,7 @@ import { type FSWatcher, lstatSync, mkdirSync, readFileSync, readdirSync, watch 
 import { join } from 'node:path'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { debounce } from 'es-toolkit'
+import { parseViewText } from '../../shared/views/viewParse'
 import {
   VIEW_FILES_MAX,
   VIEW_FILE_MAX_BYTES,
@@ -10,7 +11,6 @@ import {
   type ViewListing,
   type ViewProblem,
   type ViewStatus,
-  parseViewText,
   viewNameOf,
 } from '../../shared/views/views'
 import { loadJson, saveJson } from '../platform/jsonStore'
