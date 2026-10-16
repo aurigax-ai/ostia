@@ -1178,9 +1178,11 @@ embeds its bundled Inter Variable and Geist Mono Variable (latin) in the injecte
 panel gets them even though they are not system fonts. It also defines control radii
 (`--radius-sm`, `--radius-md`), a `.switch` class that draws an `<input type="checkbox">` like
 Ostia's switch, and motion tokens (`--motion-fast`, `--motion-base`, their `-exit`
-pair, `--ease-out`, `--ease-in`), already multiplied by `--ostia-motion-scale`: time every
+pair, `--motion-panel`, `--motion-pulse`, `--motion-breathe`, `--motion-highlight`, `--ease-out`,
+`--ease-in`, `--ease-in-out`), already multiplied by `--ostia-motion-scale`: time every
 transition with them and animate only opacity and transform (hover may change colors), so a
-panel follows Ostia's motion rules and its reduced-motion setting.
+panel follows Ostia's motion rules and its reduced-motion setting. Add the `.motion-reveal` class
+to content right after the human opens it (a fade plus a 2 px move); never on first render.
 
 ### Resizable splits
 
