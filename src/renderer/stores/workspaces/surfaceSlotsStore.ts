@@ -6,11 +6,11 @@ function parking(): HTMLDivElement {
   return holder
 }
 
-export function surfaceHost(paneId: string): HTMLDivElement {
+export function surfaceHost(paneId: string, fadesIn = false): HTMLDivElement {
   let host = hosts.get(paneId)
   if (!host) {
     host = document.createElement('div')
-    host.className = 'surface-host surface-enter'
+    host.className = fadesIn ? 'surface-host surface-enter' : 'surface-host'
     host.addEventListener('animationend', (e) => {
       if (e.target === host) host.classList.remove('surface-enter')
     })

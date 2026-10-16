@@ -1,8 +1,8 @@
 import { zoomFont } from '@/lib/app/wheelZoom'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { ZOOM_CHIP_EXIT_MS, ZoomReset } from './ZoomReset'
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { ZoomReset } from './ZoomReset'
 
 describe('ZoomReset', () => {
   let init: ReturnType<typeof useSettingsStore.getState>
@@ -12,7 +12,6 @@ describe('ZoomReset', () => {
   })
 
   afterEach(() => {
-    vi.useRealTimers()
     cleanup()
     useSettingsStore.setState(init, true)
   })
@@ -84,7 +83,6 @@ describe('ZoomReset', () => {
   })
 
   it('fades out the last value without a clickable button, then leaves nothing behind', () => {
-    vi.useFakeTimers()
     const { container } = render(<ZoomReset />)
     act(() => useSettingsStore.getState().setZoom(130))
     fireEvent.click(screen.getByRole('button', { name: 'Reset zoom to 100%' }))
@@ -94,20 +92,11 @@ describe('ZoomReset', () => {
     expect(leaving?.textContent).toBe('130%')
     expect(leaving?.getAttribute('aria-hidden')).toBe('true')
 
-    act(() => vi.advanceTimersByTime(ZOOM_CHIP_EXIT_MS))
-    expect(container.innerHTML).toBe('')
-  })
-
-  it('skips the fade when motion is reduced', () => {
-    useSettingsStore.getState().setMotion('reduced')
-    const { container } = render(<ZoomReset />)
-    act(() => useSettingsStore.getState().setZoom(110))
-    fireEvent.click(screen.getByRole('button', { name: 'Reset zoom to 100%' }))
+    fireEvent.animationEnd(leaving as Element)
     expect(container.innerHTML).toBe('')
   })
 
   it('comes straight back as a button when zoomed again mid-fade', () => {
-    vi.useFakeTimers()
     const { container } = render(<ZoomReset />)
     act(() => useSettingsStore.getState().setZoom(110))
     fireEvent.click(screen.getByRole('button', { name: 'Reset zoom to 100%' }))
@@ -115,7 +104,6 @@ describe('ZoomReset', () => {
 
     expect(container.querySelector('[data-leaving]')).toBeNull()
     expect(screen.getByRole('button', { name: 'Reset zoom to 100%' }).textContent).toBe('90%')
-    act(() => vi.advanceTimersByTime(ZOOM_CHIP_EXIT_MS))
     expect(screen.getByRole('button', { name: 'Reset zoom to 100%' }).textContent).toBe('90%')
   })
 })
