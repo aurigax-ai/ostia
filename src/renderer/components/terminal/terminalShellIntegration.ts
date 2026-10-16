@@ -1,4 +1,4 @@
-import { typedLaunchOfNewBlock } from '@/lib/agents/resumeTyped'
+import { clearTypedLaunchOnNewBlock } from '@/lib/agents/resumeTyped'
 import { currentDict, fmt } from '@/lib/app/useDict'
 import { isPaneViewed, shouldNotifyCommandEnd } from '@/lib/attention/workspaceActivity'
 import { readCommandText } from '@/lib/terminal/blockText'
@@ -153,8 +153,13 @@ export function createShellIntegration({
       reportedCommand = null
       session.blockSeq += 1
       blocks.commandStart(paneId, start, runningCommand, typed, session.blockSeq)
+      clearTypedLaunchOnNewBlock(
+        workspaceIdRef.current,
+        paneId,
+        session.replaying ? runningCommand : typed,
+        session.replaying,
+      )
       if (!session.replaying) {
-        typedLaunchOfNewBlock(workspaceIdRef.current, paneId, typed)
         useAttentionStore.getState().dispatch(paneId, { type: 'commandStart', at: Date.now() })
       }
     } else if (kind === 'D') {

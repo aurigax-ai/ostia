@@ -3,7 +3,7 @@ import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { AgentResume } from '@shared/agents/agentResume'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { typedLaunchOfNewBlock, withTypedLaunch } from './resumeTyped'
+import { clearTypedLaunchOnNewBlock, withTypedLaunch } from './resumeTyped'
 
 const TYPED = { args: ['--agent', 'a', '--dangerously-skip-permissions'], env: { GL_ISSUE: '1' } }
 const LINE = 'GL_ISSUE=1 claude --agent a --dangerously-skip-permissions'
@@ -66,36 +66,52 @@ describe('a typed launch follows the pane and the agent kind', () => {
 })
 
 describe('a new command block', () => {
-  it('sets the typed part from its nonce-backed line', () => {
-    seed({ agent: 'claude', id: 'old' })
-    typedLaunchOfNewBlock('w1', PANE.id, LINE)
-    expect(stored()).toEqual({ agent: 'claude', id: 'old', typed: TYPED })
+  const plain: AgentResume = { agent: 'claude', id: 'old' }
+
+  it('never adds a typed part from its line to a record that has none', () => {
+    seed(plain)
+    clearTypedLaunchOnNewBlock('w1', PANE.id, LINE, false)
+    expect(stored()).toEqual(plain)
+  })
+
+  it('never replaces the typed part with the one its line carries', () => {
+    seed(saved)
+    clearTypedLaunchOnNewBlock('w1', PANE.id, 'claude --agent b', false)
+    expect(stored()).toEqual(plain)
   })
 
   it('clears it when the block has no nonce-backed line', () => {
     seed(saved)
-    typedLaunchOfNewBlock('w1', PANE.id, undefined)
-    expect(stored()).toEqual({ agent: 'claude', id: 'old' })
+    clearTypedLaunchOnNewBlock('w1', PANE.id, undefined, false)
+    expect(stored()).toEqual(plain)
   })
 
   it('clears it for a typed line that does not launch the saved agent', () => {
     seed(saved)
-    typedLaunchOfNewBlock('w1', PANE.id, 'ls -la')
-    expect(stored()).toEqual({ agent: 'claude', id: 'old' })
+    clearTypedLaunchOnNewBlock('w1', PANE.id, 'ls -la', false)
+    expect(stored()).toEqual(plain)
     seed(saved)
-    typedLaunchOfNewBlock('w1', PANE.id, 'codex --yolo')
-    expect(stored()).toEqual({ agent: 'claude', id: 'old' })
+    clearTypedLaunchOnNewBlock('w1', PANE.id, 'codex --yolo', false)
+    expect(stored()).toEqual(plain)
   })
 
-  it('leaves a record that already matches untouched', () => {
+  it('keeps it for a line that carries the same typed part', () => {
     seed(saved)
     const before = useLayoutStore.getState().byWorkspace
-    typedLaunchOfNewBlock('w1', PANE.id, LINE)
+    clearTypedLaunchOnNewBlock('w1', PANE.id, LINE, false)
     expect(useLayoutStore.getState().byWorkspace).toBe(before)
   })
 
+  it('clears it for a replayed launch whose flags differ, and ignores a replayed block that launches nothing', () => {
+    seed(saved)
+    clearTypedLaunchOnNewBlock('w1', PANE.id, 'ls -la', true)
+    expect(stored()).toEqual(saved)
+    clearTypedLaunchOnNewBlock('w1', PANE.id, 'claude --agent b', true)
+    expect(stored()).toEqual(plain)
+  })
+
   it('does nothing for a pane with no record', () => {
-    typedLaunchOfNewBlock('w1', PANE.id, LINE)
+    clearTypedLaunchOnNewBlock('w1', PANE.id, LINE, false)
     expect(stored()).toBeUndefined()
   })
 })

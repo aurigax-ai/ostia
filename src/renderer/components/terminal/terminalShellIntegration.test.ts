@@ -181,9 +181,21 @@ describe('the typed launch a pane keeps', () => {
     expect(stored()).toEqual({ agent: 'claude', id: 's1' })
   })
 
-  it('is kept while a kept shell replays its old blocks', async () => {
+  it('is kept while a kept shell replays blocks that launch nothing', async () => {
     session.replaying = true
     await write(`${PROMPT}${OSC('633;E;ls')}${OSC('133;C')}`)
     expect(stored()?.typed).toEqual(TYPED)
+  })
+
+  it('is cleared by a replayed launch with other flags, nonce or not', async () => {
+    session.replaying = true
+    await write(`${PROMPT}${OSC('633;E;claude --agent b')}${OSC('133;C')}`)
+    expect(stored()).toEqual({ agent: 'claude', id: 's1' })
+  })
+
+  it('is never added by a nonce-backed line before an agent reports', async () => {
+    seed({ agent: 'claude', id: 's1' })
+    await write(`${PROMPT}${OSC(`633;E;${LINE};${NONCE}`)}${OSC('133;C')}`)
+    expect(stored()).toEqual({ agent: 'claude', id: 's1' })
   })
 })

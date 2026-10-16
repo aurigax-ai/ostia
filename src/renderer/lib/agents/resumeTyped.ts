@@ -27,17 +27,19 @@ export function withTypedLaunch(
   return typed ? { ...rest, typed } : rest
 }
 
-export function typedLaunchOfNewBlock(
+export function clearTypedLaunchOnNewBlock(
   workspaceId: string,
   paneId: string,
-  typedLine: string | undefined,
+  line: string | undefined,
+  replayed: boolean,
 ): void {
   const layout = useLayoutStore.getState().byWorkspace[workspaceId]
   const pane = layout ? findPane(layout.root, paneId) : null
   const resume = pane?.kind === 'terminal' ? pane.resume : undefined
-  if (!resume) return
-  const { typed: _previous, ...rest } = resume
-  const typed = typedLine === undefined ? undefined : typedLaunch(resume.agent, typedLine)
-  if (JSON.stringify(typed ?? null) === JSON.stringify(resume.typed ?? null)) return
-  useLayoutStore.getState().setResume(workspaceId, paneId, typed ? { ...rest, typed } : rest)
+  if (!resume?.typed) return
+  const parsed = line === undefined ? undefined : typedLaunch(resume.agent, line)
+  const same = JSON.stringify(parsed ?? null) === JSON.stringify(resume.typed)
+  if (same || (replayed && parsed === undefined)) return
+  const { typed: _typed, ...rest } = resume
+  useLayoutStore.getState().setResume(workspaceId, paneId, rest)
 }
