@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { HostRecorder, type HostWorkspace, folderWithin } from './hostRecorder'
-import { JOURNAL_DIR, Journal } from './journal'
+import { HOST_DIR, JOURNAL_DIR, Journal } from './journal'
 
 describe('HostRecorder', () => {
   let dir: string
@@ -25,13 +25,14 @@ describe('HostRecorder', () => {
       workspace: async (id) => workspaces[id] ?? null,
       changed,
     })
-  const file = (workspaceId: string): string => join(dir, JOURNAL_DIR, `${workspaceId}.jsonl`)
+  const file = (workspaceId: string): string =>
+    join(dir, HOST_DIR, JOURNAL_DIR, `${workspaceId}.jsonl`)
   const hosts = (workspaceId: string) =>
     journal.events(workspaceId).flatMap((r) => (r.kind === 'host' ? [r] : []))
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'ostia-activity-host-'))
-    journal = new Journal({ dir, now: () => clock })
+    journal = new Journal({ dir: join(dir, HOST_DIR), now: () => clock })
     clock = 1000
     changed.mockClear()
   })
@@ -118,6 +119,44 @@ describe('HostRecorder', () => {
       expect(existsSync(file(workspaceId))).toBe(false)
       expect(hosts(workspaceId)).toHaveLength(1)
     }
+  })
+})
+
+describe('the host journal', () => {
+  it('has its own file and cap, so a flood of host events never pushes an agent turn out', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ostia-activity-host-cap-'))
+    let clock = 1
+    const turns = new Journal({ dir, now: () => clock })
+    const hostJournal = new Journal({ dir: join(dir, HOST_DIR), now: () => clock, maxBytes: 2000 })
+    turns.append(
+      'w1',
+      {
+        v: 2,
+        t: 1,
+        id: 'abcdefghij',
+        pane: 'p',
+        agent: 'claude',
+        session: 's',
+        kind: 'stop',
+        text: 'recap',
+      },
+      true,
+    )
+    const rec = new HostRecorder({
+      journal: hostJournal,
+      now: () => clock++,
+      redact: async (texts) => texts,
+      workspace: async () => ({ workspaceId: 'w1', kind: 'terminal', workDir: '/w' }),
+      changed: () => {},
+    })
+    for (let i = 0; i < 200; i++)
+      rec.accept('cwd.changed', { paneId: 'p', workspaceId: 'w1', cwd: `/w/dir${i}` })
+    await rec.settled()
+    expect(turns.events('w1')).toHaveLength(1)
+    expect(hostJournal.events('w1').length).toBeLessThan(200)
+    expect(existsSync(join(dir, JOURNAL_DIR, 'w1.jsonl'))).toBe(true)
+    expect(readFileSync(join(dir, JOURNAL_DIR, 'w1.jsonl'), 'utf8')).not.toContain('"host"')
+    rmSync(dir, { recursive: true, force: true })
   })
 })
 

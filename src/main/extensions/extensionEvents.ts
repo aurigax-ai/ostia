@@ -1,5 +1,6 @@
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import {
+  type BusEndpoint,
   EXTENSION_EVENT_TYPES,
   type ExtensionEventPayloads,
   type ExtensionEventType,
@@ -19,12 +20,14 @@ const EVENT_CAPABILITIES: Partial<Record<ExtensionEventType, Capability>> = {
 }
 
 export interface ExtensionEventsHost {
-  deps: Pick<ExtensionHostDeps, 'launches'>
+  deps: Pick<ExtensionHostDeps, 'launches' | 'sandboxDomains'>
   runtimes: ReadonlyMap<string, Runtime>
   runs: Pick<ExtensionRuns, 'settleTerminalWait'>
   runtimeOf(identity: PaneIdentity, conn: MessageConnection): Runtime
   changed(rt?: Runtime): void
 }
+
+const HIDDEN_ENDPOINT: BusEndpoint = { id: '' }
 
 export class ExtensionEvents {
   constructor(private readonly host: ExtensionEventsHost) {}
@@ -34,14 +37,46 @@ export class ExtensionEvents {
     this.emitEvent('workspace.closed', { workspaceId })
   }
 
+  private sees(rt: Runtime, workspaceId: string): boolean {
+    if (rt.callerWorkspaces.has(workspaceId)) return true
+    const reachesAll = !!rt.identity && hasCap(rt.identity.externalId, 'all-workspaces')
+    return reachesAll && this.host.deps.sandboxDomains?.(workspaceId) == null
+  }
+
+  private seenBusEndpoint(rt: Runtime, endpoint: BusEndpoint): BusEndpoint | null {
+    if (!endpoint.workspaceId || this.sees(rt, endpoint.workspaceId)) return endpoint
+    return null
+  }
+
+  private filtered<T extends ExtensionEventType>(
+    rt: Runtime,
+    type: T,
+    payload: ExtensionEventPayloads[T],
+  ): ExtensionEventPayloads[T] | null {
+    if (type === 'pane.lifecycle') {
+      const { workspaceId } = payload as ExtensionEventPayloads['pane.lifecycle']
+      return this.sees(rt, workspaceId) ? payload : null
+    }
+    if (type !== 'bus.message') return payload
+    if (!(rt.identity && hasCap(rt.identity.externalId, 'read-bus'))) return null
+    const bus = payload as ExtensionEventPayloads['bus.message']
+    const from = this.seenBusEndpoint(rt, bus.from)
+    const to = this.seenBusEndpoint(rt, bus.to)
+    if (!from && !to) return null
+    return {
+      ...bus,
+      from: from ?? HIDDEN_ENDPOINT,
+      to: to ?? HIDDEN_ENDPOINT,
+    } as ExtensionEventPayloads[T]
+  }
+
   emitEvent<T extends ExtensionEventType>(type: T, payload: ExtensionEventPayloads[T]): void {
     this.host.runs.settleTerminalWait(type, payload)
     for (const rt of this.host.runtimes.values()) {
       if (!rt.conn || !rt.subscriptions.has(type)) continue
-      if (type === 'bus.message' && !(rt.identity && hasCap(rt.identity.externalId, 'read-bus'))) {
-        continue
-      }
-      void rt.conn.sendNotification('ext.event', { type, payload }).catch(() => {})
+      const shown = this.filtered(rt, type, payload)
+      if (!shown) continue
+      void rt.conn.sendNotification('ext.event', { type, payload: shown }).catch(() => {})
     }
   }
 

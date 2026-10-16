@@ -49,7 +49,7 @@ function endpointLabel(
   workspaceId: string,
 ): string {
   if (endpoint.workspaceId === workspaceId) return endpoint.id
-  if (endpoint.workspaceId) return ELSEWHERE_ENDPOINT
+  if (endpoint.workspaceId || endpoint.id === '') return ELSEWHERE_ENDPOINT
   return endpoint.id === 'ostia' ? OSTIA_ENDPOINT : EXTENSION_ENDPOINT
 }
 

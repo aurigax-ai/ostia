@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import {
   type CommandHandler,
   type ExtensionSettingValues,
@@ -12,7 +13,7 @@ import {
 } from '@aurigax-ai/ostia-extension-sdk'
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { BUS_EVENT, HOST_EVENTS, HostRecorder, type HostWorkspace } from './hostRecorder'
-import { ARCHIVE_DAYS, DAY_MS, Journal, RETENTION_DAYS, type Retention } from './journal'
+import { ARCHIVE_DAYS, DAY_MS, HOST_DIR, Journal, RETENTION_DAYS, type Retention } from './journal'
 import { createNeedsYou } from './needsYou'
 import { type PanelCommand, SHOW_ACTIVITY, activityPanelCommands } from './panelCommands'
 import { Recorder } from './recorder'
@@ -77,16 +78,19 @@ async function main(): Promise<void> {
       }),
     }
   })
-  const journal = new Journal({ dir: readEnv('EXTENSION_DATA') ?? null, now: Date.now })
+  const dataDir = readEnv('EXTENSION_DATA') ?? null
+  const journal = new Journal({ dir: dataDir, now: Date.now })
+  const hostJournal = new Journal({ dir: dataDir ? join(dataDir, HOST_DIR) : null, now: Date.now })
+  const journals = [journal, hostJournal]
   const translate = createTranslator()
   const state = { locale: 'en', showActivity: false }
   let panelChanged = (): void => {}
   const settingsLoaded = ext.getSettings().then((values) => {
     state.showActivity = booleanSetting(values, SHOW_ACTIVITY, false)
-    journal.setRetention(retentionOf(values))
+    for (const j of journals) j.setRetention(retentionOf(values))
   })
   await settingsLoaded
-  journal.load()
+  for (const j of journals) j.load()
   const showNeedsYou = createNeedsYou({ ext, journal, translate, state })
   const changed = (): void => {
     panelChanged()
@@ -94,13 +98,17 @@ async function main(): Promise<void> {
   }
   let workspaces: ListedWorkspace[] = []
 
+  let retrySubscribe = async (): Promise<void> => {}
+
   const refreshWorkspaces = async (): Promise<ListedWorkspace[] | null> => {
     try {
       workspaces = listedWorkspaces(await ext.listWorkspaces())
     } catch {
       return null
     }
-    journal.dropClosedMemory(new Set(workspaces.map((w) => w.workspaceId)))
+    const open = new Set(workspaces.map((w) => w.workspaceId))
+    for (const j of journals) j.dropClosedMemory(open)
+    void retrySubscribe()
     return workspaces
   }
 
@@ -123,7 +131,7 @@ async function main(): Promise<void> {
   })
 
   const hostRecorder = new HostRecorder({
-    journal,
+    journal: hostJournal,
     now: Date.now,
     redact: (texts) => ext.redact(texts),
     workspace: async (workspaceId): Promise<HostWorkspace | null> => workspaceInfo(workspaceId),
@@ -132,7 +140,15 @@ async function main(): Promise<void> {
 
   Object.assign(
     panelHandlers,
-    activityPanelCommands({ ext, journal, state, settingsLoaded, refreshWorkspaces, changed }),
+    activityPanelCommands({
+      ext,
+      journal,
+      hostJournal,
+      state,
+      settingsLoaded,
+      refreshWorkspaces,
+      changed,
+    }),
   )
   handlersAssigned()
 
@@ -142,8 +158,8 @@ async function main(): Promise<void> {
 
   ext.onSettingsChanged((values) => {
     state.showActivity = booleanSetting(values, SHOW_ACTIVITY, false)
-    journal.setRetention(retentionOf(values))
-    journal.prune()
+    for (const j of journals) j.setRetention(retentionOf(values))
+    for (const j of journals) j.prune()
     changed()
   })
   state.locale = await ext.getLocale()
@@ -173,16 +189,31 @@ async function main(): Promise<void> {
   await ext.registerCommands(handlers)
 
   const onEvent: Parameters<typeof ext.subscribe>[1] = (type, payload) => {
-    if (type === 'pane.closed') void refreshWorkspaces().then(() => panel.changed())
-    hostRecorder.accept(type, payload)
+    if (type === 'pane.closed') {
+      hostRecorder.accept(type, payload)
+      void refreshWorkspaces().then(() => panel.changed())
+    } else if (type === 'pane.created') {
+      void refreshWorkspaces().then(() => hostRecorder.accept(type, payload))
+    } else {
+      hostRecorder.accept(type, payload)
+    }
   }
   await ext.subscribe([...HOST_EVENTS], onEvent)
-  await ext.subscribe([BUS_EVENT], onEvent).catch(() => {})
+  let busSubscribed = false
+  const subscribeBus = async (): Promise<void> => {
+    if (busSubscribed) return
+    const res = (await ext.subscribe([BUS_EVENT], onEvent).catch(() => null)) as {
+      ok?: boolean
+    } | null
+    busSubscribed = res?.ok === true
+  }
+  await subscribeBus()
+  retrySubscribe = subscribeBus
   await refreshWorkspaces()
-  journal.prune()
+  for (const j of journals) j.prune()
   await showNeedsYou()
   setInterval(() => {
-    if (journal.prune()) changed()
+    if (journals.map((j) => j.prune()).some(Boolean)) changed()
   }, PRUNE_EVERY_MS).unref()
 }
 
