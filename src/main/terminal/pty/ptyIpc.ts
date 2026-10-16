@@ -7,7 +7,7 @@ import type {
   PtyAttachResult,
   PtySpawnOptions,
   TerminalStateSnapshot,
-} from '../../../shared/types'
+} from '../../../shared/terminal/ptyApi'
 import type { AgentRunningPanes } from '../../agents/agentRunning'
 import { type ReportedAgentWork, backgroundWork, readProcessTable } from '../../agents/agentWork'
 import { getByPaneId } from '../../control/idRegistry'

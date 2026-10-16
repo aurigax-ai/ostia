@@ -1,4 +1,4 @@
-import type { GatewayPairRequest, GatewayRemoteStatus } from '@shared/types'
+import type { GatewayPairRequest, GatewayRemoteStatus } from '@shared/gateway/gatewayApi'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

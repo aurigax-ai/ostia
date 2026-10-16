@@ -1,7 +1,11 @@
 import { fmt, useDict } from '@/lib/app/useDict'
 import type { Dict } from '@shared/app/dict'
+import type {
+  GatewayRemoteStatus,
+  GatewayRoute,
+  GatewayTailnetState,
+} from '@shared/gateway/gatewayApi'
 import { DEFAULT_GATEWAY_ROUTE, LOOPBACK_ADDRESS } from '@shared/gateway/gatewayRoute'
-import type { GatewayRemoteStatus, GatewayRoute, GatewayTailnetState } from '@shared/types'
 import { useState } from 'react'
 
 function tailnetProblem(d: Dict, node: GatewayTailnetState): string | null {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { AppSnapshot, SnapshotPaneNode } from '../../shared/types'
+import type { AppSnapshot, SnapshotPaneNode } from '../../shared/workspaces/workspaceApi'
 import { AgentRunningPanes } from './agentRunning'
 
 const resume = { agent: 'claude' as const, id: 'tok-1' }

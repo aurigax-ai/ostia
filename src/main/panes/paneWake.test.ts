@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { CommandResult, CommandTarget } from '../../shared/types'
+import type { CommandResult, CommandTarget } from '../../shared/control/commands'
 import type { PaneIdentity } from '../control/idRegistry'
 import { wakeHibernatedPane } from './paneWake'
 

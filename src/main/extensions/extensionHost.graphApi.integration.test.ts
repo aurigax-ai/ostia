@@ -10,7 +10,7 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import type { QuestionState } from '../../shared/agents/questions'
-import type { CommandResult } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 import { AGENT_TASKS_PER_MINUTE, type HeldResume } from '../agents/extensionAgents'
 
 const published: { windowId: string; state: QuestionState }[] = []

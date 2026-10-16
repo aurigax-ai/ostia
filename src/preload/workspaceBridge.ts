@@ -3,14 +3,14 @@ import type {
   SnippetSaveResult,
 } from '@aurigax-ai/ostia-extension-sdk/contract/snippets'
 import { ipcRenderer } from 'electron'
-import type {
-  AppSnapshot,
-  OstiaBridge,
-  PaneMoveResult,
-  WorkspaceMergeResult,
-} from '../shared/types'
+import type { OstiaBridge } from '../shared/types'
 import type { ViewListing } from '../shared/views/views'
 import type { CmuxSessionRead } from '../shared/workspaces/cmuxSession'
+import type {
+  AppSnapshot,
+  PaneMoveResult,
+  WorkspaceMergeResult,
+} from '../shared/workspaces/workspaceApi'
 import { listen } from './listen'
 
 export const workspaceBridge: Pick<OstiaBridge, 'workspace' | 'scratch' | 'snippets' | 'views'> = {

@@ -6,7 +6,7 @@ import type {
   ExtensionInfo,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { CommandResult } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { ExtensionHost } from './extensionHost'
 import { registerExtensionMethods } from './extensionMethods'

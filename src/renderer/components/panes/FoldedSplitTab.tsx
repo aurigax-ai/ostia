@@ -4,7 +4,7 @@ import { allPanes } from '@/lib/layout/tree'
 import type { SplitNode } from '@/lib/layout/types'
 import { cn } from '@/lib/utils'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
-import type { AttentionState } from '@shared/types'
+import type { AttentionState } from '@shared/attention/attention'
 import { SplitTabGlyph, focusPane, tabDragProps } from './SplitTab'
 
 const COUNTED = ['waiting', 'working', 'done'] as const

@@ -1,6 +1,6 @@
 import { type BrowserWindow, Menu, Tray, nativeImage } from 'electron'
 import { type Dict, fmt } from '../../shared/app/dict'
-import type { WindowSummary } from '../../shared/types'
+import type { WindowSummary } from '../../shared/windows/windowsApi'
 
 export type CloseAction = 'close' | 'hide'
 

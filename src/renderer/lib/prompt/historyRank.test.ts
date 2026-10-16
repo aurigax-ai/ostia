@@ -1,5 +1,5 @@
 import type { CommandBlock } from '@/stores/terminal/blocksStore'
-import type { ShellHistoryEntry } from '@shared/types'
+import type { ShellHistoryEntry } from '@shared/terminal/ptyApi'
 import { describe, expect, it } from 'vitest'
 import {
   type RankContext,

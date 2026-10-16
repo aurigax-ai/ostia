@@ -1,5 +1,5 @@
 import { PREVIEW_LIMITS, type PreviewLimits } from '../../../shared/artifacts/htmlPreview'
-import type { ViewerStopReason } from '../../../shared/types'
+import type { ViewerStopReason } from '../../../shared/files/filesApi'
 import type { ProcessUse } from '../../artifacts/previewHostTypes'
 import { previewVerdict } from '../../artifacts/previewLimits'
 

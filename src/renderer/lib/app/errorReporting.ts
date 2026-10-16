@@ -1,4 +1,4 @@
-import type { RendererErrorKind } from '@shared/types'
+import type { RendererErrorKind } from '@shared/app/appApi'
 
 export interface ErrorDetails {
   message: string

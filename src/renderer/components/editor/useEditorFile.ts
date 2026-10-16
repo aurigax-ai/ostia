@@ -8,7 +8,7 @@ import {
   type RemoteFileError,
   isRemotePath,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import type { ArchiveEntryProblem, FsTextResult } from '@shared/types'
+import type { ArchiveEntryProblem, FsTextResult } from '@shared/files/filesApi'
 import { type MutableRefObject, useEffect } from 'react'
 import type { DiskBar } from './editorDiskSync'
 import {

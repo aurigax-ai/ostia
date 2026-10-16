@@ -1,7 +1,7 @@
 import { type BrowserWindow, app } from 'electron'
 import { isPreviewPartition } from '../../shared/artifacts/htmlPreview'
 import { SHARED_BROWSER_PARTITION } from '../../shared/browser/browserProfile'
-import type { CommandDescriptor } from '../../shared/types'
+import type { CommandDescriptor } from '../../shared/control/commands'
 import type { PreviewHost } from '../artifacts/htmlPreview'
 import { hardenPreviewAttach } from '../artifacts/previewAttach'
 import { clearGuestBrowseState } from '../browser/browseGuests'

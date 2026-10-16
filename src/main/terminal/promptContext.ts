@@ -3,7 +3,7 @@ import { lstat, readFile, realpath, stat } from 'node:fs/promises'
 import { homedir, hostname, userInfo } from 'node:os'
 import { basename, delimiter, dirname, join } from 'node:path'
 import { LRUCache } from 'lru-cache'
-import type { PromptContext, PromptContextRequest } from '../../shared/types'
+import type { PromptContext, PromptContextRequest } from '../../shared/terminal/ptyApi'
 import { type ShellState, pathDirs } from './shellCommands'
 
 const NODE_VERSION = /^v\d+\.\d+\.\d+\S*$/

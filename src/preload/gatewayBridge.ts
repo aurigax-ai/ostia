@@ -10,8 +10,8 @@ import type {
   GatewaySetCapResult,
   GatewaySetRouteResult,
   GatewayTailnetActionResult,
-  OstiaBridge,
-} from '../shared/types'
+} from '../shared/gateway/gatewayApi'
+import type { OstiaBridge } from '../shared/types'
 import { listen } from './listen'
 
 export const gatewayBridge: Pick<OstiaBridge, 'gateway'> = {

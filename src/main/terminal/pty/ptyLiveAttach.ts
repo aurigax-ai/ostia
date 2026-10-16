@@ -1,6 +1,6 @@
 import type { BrowserWindow } from 'electron'
+import type { PtyAttachResult, PtySpawnOptions } from '../../../shared/terminal/ptyApi'
 import { shellName } from '../../../shared/terminal/terminalShell'
-import type { PtyAttachResult, PtySpawnOptions } from '../../../shared/types'
 import { CoalescedOutput } from '../ptyFlow'
 import type { Subscriber, SubscriberRole } from '../ptySession'
 import type { PtyEntry } from './ptyRegistry'

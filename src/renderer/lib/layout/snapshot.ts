@@ -6,7 +6,7 @@ import type {
   SnapshotSplitNode,
   SnapshotWorkspace,
   WorkspaceOrigin,
-} from '@shared/types'
+} from '@shared/workspaces/workspaceApi'
 import { settleCollapse } from './collapse'
 import { isRemoteFilePane } from './paneFields'
 import { TERMINAL_TITLE, adoptIds, findPane, firstPaneId, withoutPanes } from './tree'

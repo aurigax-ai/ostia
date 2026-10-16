@@ -1,7 +1,11 @@
 import { join } from 'node:path'
 import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import type { SecretSpan } from '../../shared/privacy/redaction'
-import type { SecretSyncStatus, SyncConflict, SyncStatus } from '../../shared/types'
+import type {
+  SecretSyncStatus,
+  SyncConflict,
+  SyncStatus,
+} from '../../shared/profileSync/profileSync'
 import { keyPath, withValueAt } from './merge'
 import { SETTINGS_FILE, type SyncedExtension, removeRegularFile } from './profile'
 import type { SecretSync } from './secrets'

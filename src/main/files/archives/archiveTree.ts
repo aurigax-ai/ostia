@@ -1,4 +1,4 @@
-import type { FsEntry } from '../../../shared/types'
+import type { FsEntry } from '../../../shared/files/filesApi'
 
 export const ARCHIVE_LIMITS = {
   entries: 20_000,

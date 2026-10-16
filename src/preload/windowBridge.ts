@@ -1,11 +1,7 @@
 import { ipcRenderer } from 'electron'
-import type {
-  ClipboardContents,
-  OriginAgents,
-  OstiaBridge,
-  QuitQuestion,
-  WindowInfo,
-} from '../shared/types'
+import type { ClipboardContents } from '../shared/app/appApi'
+import type { OstiaBridge } from '../shared/types'
+import type { OriginAgents, QuitQuestion, WindowInfo } from '../shared/windows/windowsApi'
 import { listen } from './listen'
 
 export const windowBridge: Pick<

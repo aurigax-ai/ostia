@@ -1,5 +1,6 @@
 import type { BrowserProfile } from '@shared/browser/browserProfile'
-import type { OstiaBridge, SyncStatus } from '@shared/types'
+import type { SyncStatus } from '@shared/profileSync/profileSync'
+import type { OstiaBridge } from '@shared/types'
 import { vi } from 'vitest'
 
 const SYNC_OFF: SyncStatus = {

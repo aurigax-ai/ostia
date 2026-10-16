@@ -1,5 +1,5 @@
 import type { Dict } from '@shared/app/dict'
-import type { ArchiveEntryProblem } from '@shared/types'
+import type { ArchiveEntryProblem } from '@shared/files/filesApi'
 
 export function archiveProblemText(d: Dict, reason: ArchiveEntryProblem): string {
   if (reason === 'encrypted') return d.editor.archiveEncrypted

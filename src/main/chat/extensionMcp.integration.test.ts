@@ -9,7 +9,7 @@ import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/e
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { type FakeMcpHttp, startFakeMcpHttp } from '../../../test/fixtures/mcp/startHttpServer'
 import type { McpServerSettings } from '../../shared/assist/chatTools'
-import type { CommandResult } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { ExtensionHost } from '../extensions/extensionHost'
 import { registerExtensionMethods } from '../extensions/extensionMethods'

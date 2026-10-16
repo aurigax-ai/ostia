@@ -51,13 +51,13 @@ import { ViewHost, ViewStore } from '../main/workspaces/viewHost'
 import { registerViewMethods } from '../main/workspaces/viewsIpc'
 import { setWorkspaceWorkDir, windowForWorkspace } from '../main/workspaces/workspaceRegistry'
 import { managerAgents, parseManagerSettings } from '../shared/agents/managerSettings'
+import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/control/commands'
 import {
   OPEN_DIFF_COMMAND,
   OPEN_FILES_COMMAND,
   REVEAL_FOLDER_COMMAND,
 } from '../shared/files/openFiles'
 import { emptyWorkspaceSandbox } from '../shared/sandbox/sandbox'
-import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
 
 const repoRoot = process.cwd()
 const cliPath = join(repoRoot, 'out', 'cli', 'index.js')

@@ -16,7 +16,7 @@ import {
   type SelectionSendError,
   selectionLabel,
 } from '@shared/browser/selection'
-import type { ReferenceInsert } from '@shared/types'
+import type { ReferenceInsert } from '@shared/windows/windowsApi'
 import { pressEnterAfterPaste } from './agentEnter'
 import { runningAgentOf } from './paneAgent'
 

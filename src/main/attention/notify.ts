@@ -11,7 +11,7 @@ import {
   type NotificationKind,
   type NotificationPost,
   notificationKindOf,
-} from '../../shared/types'
+} from '../../shared/attention/attention'
 import { registerControlMethod } from '../control/controlServer'
 import { emitPlatformEvent } from '../control/events'
 import { getByPaneId } from '../control/idRegistry'

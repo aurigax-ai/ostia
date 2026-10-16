@@ -1,7 +1,7 @@
 import type { CommandBlock } from '@/stores/terminal/blocksStore'
 import { resolveLinkPath } from '@shared/files/fileLinks'
+import type { FsEntry } from '@shared/files/filesApi'
 import type { SpecCommand } from '@shared/terminal/completionSpec'
-import type { FsEntry } from '@shared/types'
 import { firstCommand, isCommandPosition } from './shellTokens'
 import { type SpecItem, commandWords, specAnswer } from './specCompletion'
 

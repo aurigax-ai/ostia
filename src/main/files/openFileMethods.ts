@@ -3,6 +3,7 @@ import { basename } from 'node:path'
 import { DIFF_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { ExtensionOpenFileRequest } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
+import type { CommandResult, CommandTarget } from '../../shared/control/commands'
 import {
   type DiffFilesResult,
   type FileTarget,
@@ -16,7 +17,6 @@ import {
   openedPaneIds,
   parseFileTargets,
 } from '../../shared/files/openFiles'
-import type { CommandResult, CommandTarget } from '../../shared/types'
 import { targetOf } from '../attention/attention'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import type { OpenFileGrants } from './openFileGrants'

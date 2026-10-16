@@ -19,7 +19,7 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { LoadedIconTheme } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
 import type { RemoteFileError } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
-import type { FsEntry } from '@shared/types'
+import type { FsEntry } from '@shared/files/filesApi'
 import { useMemo } from 'react'
 
 export interface TreeFocus {

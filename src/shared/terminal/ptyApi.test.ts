@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { PtyAttachResult, PtySpawnOptions } from './types'
+import type { PtyAttachResult, PtySpawnOptions } from './ptyApi'
 
 describe('pty IPC contract', () => {
   it('attach result carries a cursor and dropped flag; opts allow a role', () => {

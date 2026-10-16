@@ -16,7 +16,7 @@ import type {
   ExtensionOpenDiffRequest,
   ExtensionOpenPanelRequest,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
-import type { ProcessTerminalRequest } from '@shared/types'
+import type { ProcessTerminalRequest } from '@shared/workspaces/workspaceApi'
 import { commands } from './registry'
 
 const registered = new Map<string, string>()

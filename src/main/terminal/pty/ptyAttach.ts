@@ -1,6 +1,6 @@
 import { rmSync } from 'node:fs'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
-import type { PtyAttachResult, PtySpawnOptions } from '../../../shared/types'
+import type { PtyAttachResult, PtySpawnOptions } from '../../../shared/terminal/ptyApi'
 import { panesOwnedBy } from '../../control/idRegistry'
 import type { Telemetry } from '../../diagnostics/telemetry'
 import { sandboxFailureBanner } from '../../sandbox/spawnBanner'

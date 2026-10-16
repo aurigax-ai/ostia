@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
-import type { SecretReveal, SecretSyncStatus } from '../../shared/types'
+import type { SecretReveal, SecretSyncStatus } from '../../shared/profileSync/profileSync'
 import { mergeMaps } from './merge'
 import {
   type BundleHeader,

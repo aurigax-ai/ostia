@@ -7,7 +7,7 @@ import {
   isCoreChipId,
   separatorText,
 } from '@shared/terminal/promptSettings'
-import type { PromptContext, PromptContextRequest, PtySpawnOptions } from '@shared/types'
+import type { PromptContext, PromptContextRequest, PtySpawnOptions } from '@shared/terminal/ptyApi'
 
 type ChipTone = 'default' | 'ok' | 'warn' | 'error'
 

@@ -1,11 +1,7 @@
 import { ipcRenderer } from 'electron'
 import type { AgentSessionInfo } from '../shared/agents/agentSessionInfo'
-import type {
-  FolderTrust,
-  ManagerOpenPaneRequest,
-  OstiaBridge,
-  ResumeVerdict,
-} from '../shared/types'
+import type { FolderTrust, ManagerOpenPaneRequest, ResumeVerdict } from '../shared/agents/agentsApi'
+import type { OstiaBridge } from '../shared/types'
 
 export const agentsBridge: Pick<OstiaBridge, 'manager' | 'agentSession'> = {
   manager: {

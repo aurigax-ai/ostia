@@ -1,11 +1,11 @@
 import { randomBytes, randomUUID } from 'node:crypto'
+import type { GatewaySetCapResult } from '../../shared/gateway/gatewayApi'
 import {
   PHONE_BASE_CAPS,
   PHONE_GRANTABLE_CAPS,
   type PhoneCap,
   type PhoneGrantableCap,
 } from '../../shared/gateway/phoneCapabilities'
-import type { GatewaySetCapResult } from '../../shared/types'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 import { sameBytes } from '../platform/sameBytes'
 

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import type { ViewerStopReason } from '../../../shared/types'
+import type { ViewerStopReason } from '../../../shared/files/filesApi'
 import { VIEWER_LIMITS, ViewerWatch, type WatchedGuest } from './viewerWatch'
 
 const MIB = 1024 * 1024

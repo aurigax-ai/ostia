@@ -1,6 +1,6 @@
 import { stat } from 'node:fs/promises'
 import { isArchivePath, parseArchivePath } from '../../../shared/archives/archivePaths'
-import type { FsBinaryResult, FsEntry, FsKind, FsTextResult } from '../../../shared/types'
+import type { FsBinaryResult, FsEntry, FsKind, FsTextResult } from '../../../shared/files/filesApi'
 import type { FileStat, VirtualSource } from '../fileSources'
 import type { EntryRead } from './archiveFile'
 import {

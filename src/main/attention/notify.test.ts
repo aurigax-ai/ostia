@@ -9,7 +9,7 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import type { CommandResult } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 
 const userData = mkdtempSync(join(tmpdir(), 'ostia-notify-'))
 const ipcHandlers = new Map<string, (...args: unknown[]) => void>()

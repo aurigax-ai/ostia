@@ -1,4 +1,4 @@
-import type { AppSnapshot } from '@shared/types'
+import type { AppSnapshot } from '@shared/workspaces/workspaceApi'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { setDefaultPaneTitle, setPaneView } from './paneFields'
 import { buildSnapshot, restoreSnapshot } from './snapshot'

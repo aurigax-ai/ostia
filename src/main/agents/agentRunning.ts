@@ -3,7 +3,7 @@ import type {
   SnapshotNode,
   SnapshotPaneNode,
   SnapshotWorkspace,
-} from '../../shared/types'
+} from '../../shared/workspaces/workspaceApi'
 import { type PromptOwner, busyProgram } from '../terminal/localPrompt'
 
 function snapshotWorkspaces(snapshot: AppSnapshot): SnapshotWorkspace[] {

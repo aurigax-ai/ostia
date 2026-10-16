@@ -1,5 +1,5 @@
 import { type NetworkInterfaceInfo, networkInterfaces } from 'node:os'
-import type { GatewayBindAddress } from '../../shared/types'
+import type { GatewayBindAddress } from '../../shared/gateway/gatewayApi'
 
 export function bindAddressesOf(ifaces: NodeJS.Dict<NetworkInterfaceInfo[]>): GatewayBindAddress[] {
   const out: GatewayBindAddress[] = []

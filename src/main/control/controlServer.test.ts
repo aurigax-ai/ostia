@@ -10,12 +10,8 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { gitRequest } from '../../cli/verbs/coreBoards'
-import type {
-  CommandDescriptor,
-  CommandResult,
-  CommandTarget,
-  TerminalStateSnapshot,
-} from '../../shared/types'
+import type { CommandDescriptor, CommandResult, CommandTarget } from '../../shared/control/commands'
+import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { grant } from '../approvals/capabilityStore'
 import {
   type ControlServerDeps,

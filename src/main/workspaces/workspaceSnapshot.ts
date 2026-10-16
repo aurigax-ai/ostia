@@ -3,9 +3,11 @@ import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { parseResumeFailure, parseStoredResume } from '../../shared/agents/agentResume'
 import { parseBrowserDevice } from '../../shared/browser/browserDevice'
+import { VIEW_NAME } from '../../shared/views/views'
+import type { PaneDrop } from '../../shared/windows/windowsApi'
+import { normalizeSplitTabName } from '../../shared/workspaces/splitTabs'
 import type {
   AppSnapshot,
-  PaneDrop,
   PanePlacement,
   PanePlacementZone,
   SnapshotGroup,
@@ -17,9 +19,7 @@ import type {
   SnapshotWorkspace,
   WindowBounds,
   WorkspaceOrigin,
-} from '../../shared/types'
-import { VIEW_NAME } from '../../shared/views/views'
-import { normalizeSplitTabName } from '../../shared/workspaces/splitTabs'
+} from '../../shared/workspaces/workspaceApi'
 import { isWorkspaceGroupColor, normalizeGroupName } from '../../shared/workspaces/workspaceGroups'
 import {
   MAX_LAYOUT_DEPTH,

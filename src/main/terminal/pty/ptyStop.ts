@@ -1,4 +1,4 @@
-import type { TerminalStateSnapshot } from '../../../shared/types'
+import type { TerminalStateSnapshot } from '../../../shared/terminal/ptyApi'
 import type { ReportedAgentWork } from '../../agents/agentWork'
 import type { AppLog } from '../../diagnostics/appLog'
 import type { Telemetry } from '../../diagnostics/telemetry'
