@@ -1,4 +1,5 @@
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import {
   AlertDialog,
@@ -148,26 +149,20 @@ export function ScriptTokensSection(): JSX.Element {
               }}
             />
           ) : null}
-          {tokens.length === 0 ? (
-            <p className="rounded-md border border-line px-3 py-4 text-center text-fg-muted text-ui-sm">
-              {t.empty}
-            </p>
-          ) : (
-            <ul aria-label={t.title} className="rounded-md border border-line bg-surface-1">
-              {tokens.map((token) => (
-                <TokenRow
-                  key={token.id}
-                  token={token}
-                  state={state}
-                  now={now}
-                  locale={locale}
-                  onEdit={() => setEditing(token)}
-                  onDetails={() => setDetailId(token.id)}
-                  onRevoke={() => setRevoking(token)}
-                />
-              ))}
-            </ul>
-          )}
+          <SettingsList label={t.title} empty={t.empty}>
+            {tokens.map((token) => (
+              <TokenRow
+                key={token.id}
+                token={token}
+                state={state}
+                now={now}
+                locale={locale}
+                onEdit={() => setEditing(token)}
+                onDetails={() => setDetailId(token.id)}
+                onRevoke={() => setRevoking(token)}
+              />
+            ))}
+          </SettingsList>
           {status ? (
             <output className="mt-2 block text-fg-muted text-ui-sm">{status}</output>
           ) : null}

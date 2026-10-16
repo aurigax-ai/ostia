@@ -1,6 +1,8 @@
 import { IconButton } from '@/components/common/IconButton'
 import { NumberRow, ToggleRow, WarningNote } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
+import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -156,39 +158,43 @@ function SkillsGroup(): JSX.Element {
   return (
     <SettingsGroup title={d.manager.groupSkills}>
       <p className="mb-2 text-fg-muted text-ui-sm">{d.manager.skillsDesc}</p>
-      {skills.length === 0 ? (
-        <p className="py-1.5 text-fg-muted text-ui-sm">{d.manager.noSkills}</p>
-      ) : (
-        <ul className="flex flex-col">
-          {skills.map((path) => (
-            <li key={path} className="flex items-center gap-3 py-1">
-              <span className="min-w-0 flex-1 truncate font-mono text-fg text-ui-sm">{path}</span>
+      <SettingsList
+        label={d.manager.groupSkills}
+        empty={d.manager.noSkills}
+        add={
+          <div className="flex items-center gap-3">
+            <Input
+              value={draft}
+              spellCheck={false}
+              placeholder={d.manager.skillPath}
+              aria-label={d.manager.skillPath}
+              aria-invalid={invalid}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') add()
+              }}
+              className="h-7 flex-1 font-mono"
+            />
+            <Button variant="outline" size="sm" onClick={add}>
+              {d.manager.addSkill}
+            </Button>
+          </div>
+        }
+      >
+        {skills.map((path) => (
+          <SettingsListRow
+            key={path}
+            title={<span className="font-mono text-ui-sm">{path}</span>}
+            actions={
               <IconButton
                 icon={XIcon}
                 label={fmt(d.manager.removeSkill, { path })}
                 onClick={() => setManager({ skills: skills.filter((s) => s !== path) })}
               />
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="flex items-center gap-3 pt-2">
-        <Input
-          value={draft}
-          spellCheck={false}
-          placeholder={d.manager.skillPath}
-          aria-label={d.manager.skillPath}
-          aria-invalid={invalid}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') add()
-          }}
-          className="h-7 flex-1 font-mono"
-        />
-        <Button variant="outline" size="sm" onClick={add}>
-          {d.manager.addSkill}
-        </Button>
-      </div>
+            }
+          />
+        ))}
+      </SettingsList>
       {invalid ? <WarningNote>{d.manager.badSkill}</WarningNote> : null}
     </SettingsGroup>
   )

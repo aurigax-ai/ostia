@@ -1,5 +1,7 @@
+import { ListRow } from '@/components/common/ListRow'
 import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { SettingsGroup, SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -222,18 +224,16 @@ function HiddenSockets({ sockets }: { sockets: readonly string[] }): JSX.Element
   return (
     <fieldset aria-label={d.sandbox.hiddenSockets} className="mb-4">
       <SettingsSubgroup title={d.sandbox.hiddenSockets} desc={d.sandbox.hiddenSocketsDesc} />
-      {sockets.length === 0 ? (
-        <p className="text-fg-muted text-ui-sm">{d.sandbox.hiddenSocketsEmpty}</p>
-      ) : (
-        <ul className="flex flex-col gap-1">
-          {sockets.map((socket) => (
-            <li key={socket} className="flex items-center gap-2 font-mono text-fg-muted text-ui-sm">
-              <span className="min-w-0 flex-1 truncate">{socket}</span>
-              <Badge variant="outline">{d.sandbox.always}</Badge>
-            </li>
-          ))}
-        </ul>
-      )}
+      <SettingsList label={d.sandbox.hiddenSockets} empty={d.sandbox.hiddenSocketsEmpty}>
+        {sockets.map((socket) => (
+          <ListRow
+            density="dense"
+            key={socket}
+            title={<span className="font-mono text-fg-muted text-ui-sm">{socket}</span>}
+            actions={<Badge variant="outline">{d.sandbox.always}</Badge>}
+          />
+        ))}
+      </SettingsList>
     </fieldset>
   )
 }

@@ -3,6 +3,8 @@ import { PromptChip, chipIcon, chipName } from '@/components/prompt/PromptChips'
 import { ControlRow, ToggleRow, WarningNote } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsGroup, SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
+import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -142,40 +144,39 @@ function SelectedChips({
       <p id="prompt-reorder-hint" className="-mt-1.5 mb-2 text-fg-muted text-ui-xs">
         {d.prompt.selectedHint}
       </p>
-      {order.length === 0 ? (
-        <p className="text-fg-muted text-ui-sm">{d.prompt.noneSelected}</p>
-      ) : (
-        <ol
-          aria-labelledby="prompt-selected"
-          className="flex flex-col divide-y divide-line rounded-sm border border-line"
-        >
-          {order.map((id, index) => {
-            const name = chipName(d, id, catalog)
-            const Icon = chipIcon(isCoreChipId(id) ? id : null)
-            return (
-              <li
-                key={id}
-                draggable
-                data-chip={id}
-                data-dragging={dragging === index || undefined}
-                className="flex items-center gap-2 px-2 py-1 text-fg text-ui-base data-dragging:opacity-50"
-                onDragStart={(e) => {
-                  e.dataTransfer.effectAllowed = 'move'
-                  e.dataTransfer.setData('text/plain', id)
-                  setDragging(index)
-                }}
-                onDragOver={(e) => {
-                  if (dragging === null) return
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = 'move'
-                }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  if (dragging !== null) move(dragging, index)
-                  setDragging(null)
-                }}
-                onDragEnd={() => setDragging(null)}
-              >
+      <SettingsList
+        ordered
+        label={d.prompt.selected}
+        labelledBy="prompt-selected"
+        empty={d.prompt.noneSelected}
+      >
+        {order.map((id, index) => {
+          const name = chipName(d, id, catalog)
+          const Icon = chipIcon(isCoreChipId(id) ? id : null)
+          return (
+            <SettingsListRow
+              key={id}
+              draggable
+              data-chip={id}
+              data-dragging={dragging === index || undefined}
+              className="data-dragging:opacity-50"
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = 'move'
+                e.dataTransfer.setData('text/plain', id)
+                setDragging(index)
+              }}
+              onDragOver={(e) => {
+                if (dragging === null) return
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'move'
+              }}
+              onDrop={(e) => {
+                e.preventDefault()
+                if (dragging !== null) move(dragging, index)
+                setDragging(null)
+              }}
+              onDragEnd={() => setDragging(null)}
+              title={
                 <button
                   type="button"
                   ref={(el) => {
@@ -184,35 +185,39 @@ function SelectedChips({
                   }}
                   aria-label={fmt(d.prompt.reorder, { name })}
                   aria-describedby="prompt-reorder-hint"
-                  className="flex min-w-0 flex-1 cursor-grab items-center gap-2 rounded-sm text-left"
+                  className="flex w-full min-w-0 cursor-grab items-center gap-2 rounded-sm text-left"
                   onKeyDown={(e) => onHandleKey(e, index)}
                 >
                   <DotsSixVerticalIcon size={16} aria-hidden="true" className="text-fg-muted" />
                   <Icon size={16} aria-hidden="true" className="text-fg-muted" />
                   <span className="min-w-0 flex-1 truncate">{name}</span>
                 </button>
-                <IconButton
-                  icon={ArrowUpIcon}
-                  label={fmt(d.prompt.moveUp, { name })}
-                  disabled={index === 0}
-                  onClick={() => move(index, index - 1)}
-                />
-                <IconButton
-                  icon={ArrowDownIcon}
-                  label={fmt(d.prompt.moveDown, { name })}
-                  disabled={index === order.length - 1}
-                  onClick={() => move(index, index + 1)}
-                />
-                <IconButton
-                  icon={XIcon}
-                  label={fmt(d.prompt.remove, { name })}
-                  onClick={() => setOrder(removeChip(order, id))}
-                />
-              </li>
-            )
-          })}
-        </ol>
-      )}
+              }
+              actions={
+                <>
+                  <IconButton
+                    icon={ArrowUpIcon}
+                    label={fmt(d.prompt.moveUp, { name })}
+                    disabled={index === 0}
+                    onClick={() => move(index, index - 1)}
+                  />
+                  <IconButton
+                    icon={ArrowDownIcon}
+                    label={fmt(d.prompt.moveDown, { name })}
+                    disabled={index === order.length - 1}
+                    onClick={() => move(index, index + 1)}
+                  />
+                  <IconButton
+                    icon={XIcon}
+                    label={fmt(d.prompt.remove, { name })}
+                    onClick={() => setOrder(removeChip(order, id))}
+                  />
+                </>
+              }
+            />
+          )
+        })}
+      </SettingsList>
       <span className="sr-only" aria-live="polite">
         {announcement}
       </span>

@@ -1,4 +1,6 @@
 import { IconButton } from '@/components/common/IconButton'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
+import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Badge } from '@/components/ui/badge'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -16,40 +18,39 @@ export function ActionsSection(): JSX.Element {
   return (
     <div className="mt-6">
       <SettingsPage title={d.actions.settingsTitle} desc={d.actions.settingsDesc}>
-        {actions.length === 0 ? (
-          <p className="py-2 text-fg-muted text-ui-sm">{d.actions.none}</p>
-        ) : (
-          <ul className="flex flex-col">
-            {actions.map((action) => {
-              const Icon = actionIcon(action.icon)
-              const places = action.in.map((p) => d.actions.places[p] ?? p)
-              return (
-                <li key={action.id} className="flex items-center gap-3 rounded-sm px-3 py-2">
-                  <Icon size={16} className="shrink-0 text-fg-muted" aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-fg text-ui-base">{action.title}</span>
-                      {trusted.includes(actionFingerprint(action)) ? (
-                        <Badge variant="outline" className="text-ui-xs">
-                          {d.actions.trusted}
-                        </Badge>
-                      ) : null}
-                    </div>
-                    <p className="truncate font-mono text-fg-muted text-ui-xs">
-                      {action.command}
-                      {places.length > 0 ? ` · ${places.join(', ')}` : ''}
-                    </p>
-                  </div>
+        <SettingsList label={d.actions.settingsTitle} empty={d.actions.none}>
+          {actions.map((action) => {
+            const Icon = actionIcon(action.icon)
+            const places = action.in.map((p) => d.actions.places[p] ?? p)
+            return (
+              <SettingsListRow
+                key={action.id}
+                lead={<Icon size={16} aria-hidden />}
+                title={action.title}
+                meta={
+                  trusted.includes(actionFingerprint(action)) ? (
+                    <Badge variant="outline" className="text-ui-xs">
+                      {d.actions.trusted}
+                    </Badge>
+                  ) : null
+                }
+                detail={
+                  <span className="block truncate font-mono text-ui-xs">
+                    {action.command}
+                    {places.length > 0 ? ` · ${places.join(', ')}` : ''}
+                  </span>
+                }
+                actions={
                   <IconButton
                     icon={XIcon}
                     label={fmt(d.actions.remove, { title: action.title })}
                     onClick={() => remove(action.id)}
                   />
-                </li>
-              )
-            })}
-          </ul>
-        )}
+                }
+              />
+            )
+          })}
+        </SettingsList>
       </SettingsPage>
     </div>
   )
