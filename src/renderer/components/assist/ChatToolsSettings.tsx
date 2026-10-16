@@ -54,7 +54,7 @@ import {
 } from '@shared/assist/chatTools'
 import { quoteArgv } from '@shared/terminal/shellQuote'
 import { useEffect, useState } from 'react'
-import { toolTitle } from './ChatToolPart'
+import { toolTitle } from '@/components/chat/ChatToolPart'
 import { McpServerDialog, saveMcpServers } from './McpServerDialog'
 
 const STATE_DOT: Record<McpServerState, string> = {

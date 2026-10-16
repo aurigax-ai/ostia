@@ -1,5 +1,5 @@
-import { ChatPane } from '@/components/assist/ChatPane'
 import { BrowserView } from '@/components/browser/BrowserView'
+import { ChatPane } from '@/components/chat/ChatPane'
 import { DiffView } from '@/components/editor/DiffView'
 import { FileView } from '@/components/editor/FileView'
 import { ExtensionPanelView } from '@/components/extensions/ExtensionPanelView'
