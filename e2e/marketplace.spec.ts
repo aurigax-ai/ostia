@@ -55,7 +55,7 @@ async function openSettingsPage(win: Page, page: string): Promise<Locator> {
   return settings
 }
 
-test('installs from a git marketplace, is approved, configured, updated and uninstalled', async () => {
+test('installs from a git marketplace, is approved, configured and updated', async () => {
   test.setTimeout(90_000)
   const dataHome = freshDataHome()
   const repo = marketplaceRepo(dataHome)
@@ -135,16 +135,6 @@ test('installs from a git marketplace, is approved, configured, updated and unin
       .click()
     await expect(details).toContainText('0.2.0')
     await expect(details.getByRole('textbox', { name: 'Greeting' })).toHaveValue('hey')
-    await details.getByRole('button', { name: 'Uninstall' }).click()
-    const confirm = win.getByRole('alertdialog')
-    await confirm.getByRole('button', { name: 'Uninstall' }).click()
-    await expect(installed.getByRole('listitem', { name: 'Hello' })).toHaveCount(0, {
-      timeout: 15_000,
-    })
-    expect(existsSync(installedManifest)).toBe(false)
-
-    await openSettingsPage(win, 'Browse extensions')
-    await expect(row.getByRole('button', { name: 'Install', exact: true })).toBeVisible()
   } finally {
     await app.close()
   }

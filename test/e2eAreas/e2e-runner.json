@@ -1,9 +1,0 @@
-{
-  "name": "e2e runner",
-  "paths": [
-    "scripts/e2e.sh"
-  ],
-  "specs": [
-    "e2e/runner-display.spec.ts"
-  ]
-}
