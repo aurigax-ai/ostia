@@ -138,7 +138,7 @@ export function TokenDetail({
         onClick={onBack}
         className="mb-3 inline-flex items-center gap-1 text-fg-muted text-ui-sm hover:text-fg"
       >
-        <CaretLeftIcon className="size-3.5" />
+        <CaretLeftIcon className="size-4" />
         {t.back}
       </button>
       <div className="mb-4 flex items-start gap-3">
@@ -214,7 +214,7 @@ export function TokenDetail({
                 })}
                 {token.scope.ownWorkspaces ? (
                   <li className="flex items-center gap-1.5 text-fg-muted">
-                    <PlusIcon className="size-3" />
+                    <PlusIcon className="size-4" />
                     {t.accessOwnShort}
                   </li>
                 ) : null}

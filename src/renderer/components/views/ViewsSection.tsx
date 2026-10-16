@@ -58,7 +58,7 @@ function ViewRow({ view }: { view: ViewInfo }): JSX.Element {
     >
       <div className="flex items-start justify-between gap-6">
         <div className="flex min-w-0 flex-1 gap-2.5">
-          <Icon size={14} className="mt-0.5 shrink-0 text-fg-muted" aria-hidden />
+          <Icon size={16} className="mt-0.5 shrink-0 text-fg-muted" aria-hidden />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="truncate text-fg text-ui-base">

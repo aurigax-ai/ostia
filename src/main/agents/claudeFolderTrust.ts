@@ -1,9 +1,10 @@
 import { lstat, realpath, stat } from 'node:fs/promises'
-import { basename, dirname, join, resolve as resolvePath, sep } from 'node:path'
+import { basename, dirname, join, resolve as resolvePath } from 'node:path'
 import { writeFileAtomicAsync } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import { lock } from 'proper-lockfile'
-import type { FolderTrust } from '../../shared/types'
+import type { FolderTrust } from '../../shared/agents/agentsApi'
 import { readRegularFile } from '../artifacts/previewFiles'
+import { isInsidePath } from '../platform/pathGuard'
 
 export interface TrustPlace {
   folder: string
@@ -28,10 +29,6 @@ const CONFIG_READ_MAX = 32 * 1024 * 1024
 const GIT_POINTER_MAX = 4096
 const WRITABLE = 0o222
 const LOCK_RETRIES = { retries: 5, minTimeout: 50, maxTimeout: 500 }
-
-function within(child: string, parent: string): boolean {
-  return child === parent || child.startsWith(parent.endsWith(sep) ? parent : parent + sep)
-}
 
 function isRoot(path: string): boolean {
   return dirname(path) === path
@@ -124,12 +121,12 @@ async function resolve(place: TrustPlace): Promise<Resolved | null> {
   const [folder, workDir, home] = await Promise.all(
     [place.folder, place.workDir, place.home].map((p) => realpath(p).catch(() => null)),
   )
-  if (!folder || !workDir || !home || isRoot(workDir) || within(home, workDir)) return null
+  if (!folder || !workDir || !home || isRoot(workDir) || isInsidePath(workDir, home)) return null
   if (!(await stat(folder).catch(() => null))?.isDirectory()) return null
   const root = await gitRoot(folder)
   const canonical = root ? await canonicalRoot(root) : null
   const key = root ?? folder
-  const allowed = !isRoot(key) && !within(home, key) && within(key, workDir)
+  const allowed = !isRoot(key) && !isInsidePath(key, home) && isInsidePath(workDir, key)
   return { folder, root, canonical, key: allowed ? key : null }
 }
 

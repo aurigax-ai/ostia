@@ -1,3 +1,4 @@
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { BrowseState } from './browseGuests'
 import type { BrowseInput, MouseButton } from './browseInput'
 import { type BrowseMethod, debuggerCommand, fail, num, str } from './browseMethod'
@@ -87,9 +88,7 @@ export function registerBrowseDeviceMethods(deps: DeviceDeps): void {
         return { ok: true }
       case 'headers': {
         const headers = p.headers
-        if (!headers || typeof headers !== 'object' || Array.isArray(headers)) {
-          return fail('headers-required')
-        }
+        if (!isRecord(headers)) return fail('headers-required')
         const clean: Record<string, string> = {}
         for (const [k, v] of Object.entries(headers)) clean[k] = String(v)
         await debuggerCommand(guest, 'Network.setExtraHTTPHeaders', { headers: clean })

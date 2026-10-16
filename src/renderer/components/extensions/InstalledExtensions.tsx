@@ -19,6 +19,7 @@ import { MagnifyingGlassIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import { useEffect, useState } from 'react'
 import { ExtensionAgentPlugin } from './ExtensionAgentPlugin'
+import { ExtensionFileViewers } from './ExtensionApprovalDialog'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
 import { UninstallExtensionButton, useMarketplaceList } from './MarketplaceSection'
 import { extensionIcon } from './extensionIcons'
@@ -221,6 +222,7 @@ function ExtensionDetails({
           </Button>
         ) : null}
       </div>
+      <ExtensionFileViewers ext={ext} />
       <ExtensionAgentPlugin ext={ext} explain={false} />
       <ExtensionSettingsArea ext={ext} />
       <div className="flex items-center gap-2">

@@ -9,7 +9,7 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import type { CommandDescriptor, CommandResult } from '../../shared/types'
+import type { CommandDescriptor, CommandResult } from '../../shared/control/commands'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { registerPane } from '../control/idRegistry'
 import { registerSandboxMethods } from './controlMethods'

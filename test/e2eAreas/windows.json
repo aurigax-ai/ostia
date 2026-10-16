@@ -6,6 +6,7 @@
     "src/main/windows/appWindows.ts",
     "src/main/windows/windowBook.",
     "src/main/windows/windowBroker.ts",
+    "src/main/windows/windowHandoffs.ts",
     "src/main/windows/windowWiring.ts",
     "src/renderer/components/app/DetachedTitleBar.tsx",
     "src/renderer/components/panes/TabMoveMenuItems.tsx",

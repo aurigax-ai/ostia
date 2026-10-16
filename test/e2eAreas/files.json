@@ -1,10 +1,12 @@
 {
   "name": "files",
   "paths": [
+    "src/main/files/archives/",
     "src/main/files/exclusiveTransfer.ts",
     "src/main/files/fileGuard.ts",
     "src/main/files/fileOps.ts",
     "src/main/files/fileOpsIpc.ts",
+    "src/main/files/fileSources.ts",
     "src/main/files/fileWatch.ts",
     "src/main/files/folderAnchor.ts",
     "src/main/files/freedesktopTrash.ts",
@@ -30,6 +32,7 @@
     "src/renderer/components/files/fileTreeRows.ts",
     "src/renderer/components/panes/FileDropCover.tsx",
     "src/renderer/components/settings/FilesSettingsSection.tsx",
+    "src/renderer/lib/files/archiveProblems.ts",
     "src/renderer/lib/files/fileDrop.ts",
     "src/renderer/lib/files/fileKinds.ts",
     "src/renderer/lib/files/fileTree.",
@@ -42,12 +45,15 @@
     "src/renderer/lib/terminalLinks/terminalFileLinks.ts",
     "src/renderer/lib/terminalLinks/terminalLinkActions.ts",
     "src/renderer/stores/files/fileTreeStore.ts",
+    "src/shared/archives/",
     "src/shared/files/fileLinks.ts",
     "src/shared/files/fileOps.ts",
     "src/shared/files/openFiles.ts",
-    "src/shared/files/search.ts"
+    "src/shared/files/search.ts",
+    "test/fixtures/archives/"
   ],
   "specs": [
+    "e2e/archive-browsing.spec.ts",
     "e2e/open-any-file.spec.ts",
     "e2e/os-file-drop.spec.ts",
     "e2e/palette-focus.spec.ts",

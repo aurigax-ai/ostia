@@ -1,10 +1,10 @@
+import type { ScreenPoint } from '../../shared/windows/windowsApi'
 import type {
   AppSnapshot,
   PanePlacement,
-  ScreenPoint,
   SnapshotWorkspace,
   WindowBounds,
-} from '../../shared/types'
+} from '../../shared/workspaces/workspaceApi'
 
 export const MAIN_SLOT = 'main'
 

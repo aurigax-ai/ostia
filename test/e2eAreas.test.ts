@@ -48,6 +48,17 @@ describe('test/e2eAreas', () => {
   it('leaves the hub files every spec loads to the @core tests', () => {
     for (const hub of [
       'src/main/app.ts',
+      'src/main/boot/agentServices.ts',
+      'src/main/boot/appState.ts',
+      'src/main/boot/bootPhases.ts',
+      'src/main/boot/browserServices.ts',
+      'src/main/boot/confinedServices.ts',
+      'src/main/boot/featureServices.ts',
+      'src/main/boot/paneServices.ts',
+      'src/main/boot/quitServices.ts',
+      'src/main/boot/sharedServices.ts',
+      'src/main/boot/windowShell.ts',
+      'src/main/boot/workspaceServices.ts',
       'src/main/index.ts',
       'src/preload/index.ts',
       'src/shared/types.ts',

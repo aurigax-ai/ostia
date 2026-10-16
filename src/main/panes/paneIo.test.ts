@@ -9,8 +9,8 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
+import type { CommandResult } from '../../shared/control/commands'
 import type { ApprovalOutcome } from '../../shared/permissions/approvals'
-import type { CommandResult } from '../../shared/types'
 import type { ApprovalAsk } from '../approvals/approvals'
 import type { PaneEntry } from './paneList'
 
@@ -47,6 +47,8 @@ const asleepPanes = new Set<string>()
 const wakeConflicts = new Map<string, string>()
 let listed: PaneEntry[] = []
 const woken: string[] = []
+const failsWhileWaking = new Map<string, string>()
+const rejectsWake = new Set<string>()
 const hibernateOutcomes = new Map<string, string>()
 const hibernateCalls: string[] = []
 const closed: string[] = []
@@ -106,10 +108,13 @@ registerPaneIoMethods({
   hibernated: async (pane) => asleepPanes.has(pane.paneId),
   wake: async (pane) => {
     woken.push(pane.paneId)
+    if (rejectsWake.has(pane.paneId)) throw new Error('window gone')
     const conflict = wakeConflicts.get(pane.paneId)
     if (conflict) return { woke: false, conflict }
     const woke = asleepPanes.delete(pane.paneId)
-    if (woke) startLater(pane.paneId)
+    const reason = failsWhileWaking.get(pane.paneId)
+    if (woke && reason) waking.end(pane.paneId, 'failed', reason)
+    else if (woke) startLater(pane.paneId)
     return { woke }
   },
   hibernate: async (pane) => {
@@ -832,9 +837,9 @@ describe('pane.wake', () => {
     asleepPanes.add('child-pane')
     const failing = conn.sendRequest('pane.wake', { panes: ['echo'] })
     await vi.waitFor(() => expect(waking.has('child-pane')).toBe(true))
-    waking.end('child-pane', 'failed')
+    waking.end('child-pane', 'failed', 'its agent exited with code 1 before it started')
     await expect(failing).rejects.toThrow(
-      `resume-failed: ${child.externalId} could not start its agent`,
+      `not-started: ${child.externalId} its agent exited with code 1 before it started`,
     )
 
     asleepPanes.add('child-pane')
@@ -843,6 +848,46 @@ describe('pane.wake', () => {
     )
     expect(waking.has('child-pane')).toBe(true)
     waking.end('child-pane', 'failed')
+  })
+
+  it('answers not-started with the reason when the agent failed before wake returned', async () => {
+    startsAgents = false
+    asleepPanes.add('child-pane')
+    failsWhileWaking.set('child-pane', 'its agent exited with code 1 before it started')
+    const conn = await client(agent)
+    await expect(
+      conn.sendRequest('pane.wake', { panes: ['echo'], timeoutMs: 1000 }),
+    ).rejects.toThrow(
+      `not-started: ${child.externalId} its agent exited with code 1 before it started`,
+    )
+    failsWhileWaking.delete('child-pane')
+    expect(waking.has('child-pane')).toBe(false)
+  })
+
+  it('leaves a pane that could not be woken out of the waking set', async () => {
+    asleepPanes.add('child-pane')
+    wakeConflicts.set('child-pane', 'other tab')
+    const conn = await client(agent)
+    await expect(conn.sendRequest('pane.wake', { panes: ['echo'] })).rejects.toThrow(
+      'session-conflict',
+    )
+    wakeConflicts.delete('child-pane')
+    expect(waking.has('child-pane')).toBe(false)
+  })
+
+  it('leaves every pane it marked out of the waking set when a wake rejects', async () => {
+    startsAgents = false
+    asleepPanes.add('child-pane')
+    asleepPanes.add('sibling-pane')
+    rejectsWake.add('sibling-pane')
+    const conn = await client(agent)
+    await expect(
+      conn.sendRequest('pane.wake', { panes: ['echo', sibling.externalId] }),
+    ).rejects.toThrow()
+    rejectsWake.delete('sibling-pane')
+    expect(waking.has('child-pane')).toBe(false)
+    expect(waking.has('sibling-pane')).toBe(false)
+    asleepPanes.delete('sibling-pane')
   })
 
   it('refuses a bad timeout', async () => {

@@ -4,7 +4,7 @@ import type {
   GatewayPairRequest,
   GatewayRemoteStatus,
   GatewayTailnetState,
-} from '@shared/types'
+} from '@shared/gateway/gatewayApi'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 export interface GatewayStatus {

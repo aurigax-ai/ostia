@@ -1,4 +1,4 @@
-import type { QuitAnswer, RunningGroup } from '@shared/types'
+import type { QuitAnswer, RunningGroup } from '@shared/windows/windowsApi'
 import { create } from 'zustand'
 
 export type { RunningGroup }

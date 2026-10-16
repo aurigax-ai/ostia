@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import type { PaneMoveResult } from '../../shared/types'
+import type { PaneMoveResult } from '../../shared/workspaces/workspaceApi'
 import { crossesSandbox } from '../windows/windowBook'
 
 export interface MovingPane {

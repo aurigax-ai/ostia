@@ -1,37 +1,22 @@
-import { execFile } from 'node:child_process'
-import { createHash } from 'node:crypto'
-import {
-  copyFileSync,
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  realpathSync,
-  renameSync,
-  rmSync,
-} from 'node:fs'
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import {
   EXTENSION_MANIFEST_FILE,
   type ExtensionManifest,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import {
-  EXTENSION_ID_PATTERN,
-  readManifest,
-} from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
+import { readManifest } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import {
   loadLocaleCatalogs,
   manifestIn,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/localeCatalogs'
+import { EXTENSION_ID_PATTERN } from '@aurigax-ai/ostia-extension-sdk/manifest/manifestFields'
 import {
   MARKETPLACE_CODE_PATTERN,
-  MARKETPLACE_MANIFEST_FILE,
-  parseMarketplaceManifest,
   planCopy,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/marketplaceManifest'
 import {
   MARKETPLACE_FEATURE,
-  MARKETPLACE_URL_MAX,
   type MarketplaceError,
   type MarketplaceExtension,
   type MarketplaceInfo,
@@ -40,37 +25,17 @@ import {
   type MarketplaceState,
 } from '../../../shared/extensions/marketplace'
 import { loadJson, saveJson } from '../../platform/jsonStore'
-import { missingRequirements, programPath } from '../../platform/systemRequirements'
+import { missingRequirements } from '../../platform/systemRequirements'
+import { type Catalog, type CatalogEntry, isRealDirectory, readCatalog } from './marketplaceCatalog'
+import {
+  GitError,
+  type GitRunner,
+  marketplaceId,
+  normalizeMarketplaceUrl,
+  runGit,
+} from './marketplaceSources'
 
-const MARKETPLACE_MANIFEST_MAX_BYTES = 64 * 1024
-const GIT_TIMEOUT_MS = 120_000
 const DETAIL_MAX = 400
-
-const GITHUB_SHORTHAND = /^[A-Za-z0-9][A-Za-z0-9_.-]*\/[A-Za-z0-9_.-]+$/
-const SCP_LIKE = /^[A-Za-z0-9_.-]+@[A-Za-z0-9.-]+:[A-Za-z0-9_./~-]+$/
-
-export function normalizeMarketplaceUrl(input: unknown): string | null {
-  if (typeof input !== 'string') return null
-  const text = input.trim()
-  if (!text || text.length > MARKETPLACE_URL_MAX || text.startsWith('-')) return null
-  if (/[\s\p{Cc}]/u.test(text)) return null
-  if (isAbsolute(text)) return resolve(text)
-  if (GITHUB_SHORTHAND.test(text)) return `https://github.com/${text.replace(/\.git$/, '')}.git`
-  if (SCP_LIKE.test(text)) return text
-  let url: URL
-  try {
-    url = new URL(text)
-  } catch {
-    return null
-  }
-  if (url.protocol === 'https:') return url.username || url.password ? null : url.href
-  if (url.protocol === 'ssh:') return url.password ? null : url.href
-  return null
-}
-
-export function marketplaceId(url: string): string {
-  return createHash('sha256').update(url).digest('hex').slice(0, 12)
-}
 
 interface Source {
   id: string
@@ -95,7 +60,7 @@ function sanitizeRecords(raw: unknown): Records {
       }
     }
   }
-  if (typeof installs === 'object' && installs !== null && !Array.isArray(installs)) {
+  if (isRecord(installs)) {
     for (const [extId, source] of Object.entries(installs)) {
       if (EXTENSION_ID_PATTERN.test(extId) && typeof source === 'string') {
         records.installs[extId] = source
@@ -104,36 +69,6 @@ function sanitizeRecords(raw: unknown): Records {
   }
   return records
 }
-
-export type GitRunner = (args: string[]) => Promise<void>
-
-export class GitError extends Error {
-  constructor(
-    readonly code: MarketplaceError,
-    message: string,
-  ) {
-    super(message)
-  }
-}
-
-export const runGit: GitRunner = (args) =>
-  new Promise((done, fail) => {
-    execFile(
-      programPath('git') ?? 'git',
-      args,
-      {
-        shell: false,
-        timeout: GIT_TIMEOUT_MS,
-        windowsHide: true,
-        env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
-      },
-      (err, _stdout, stderr) => {
-        if (!err) return done()
-        const missing = (err as NodeJS.ErrnoException).code === 'ENOENT'
-        fail(new GitError(missing ? 'git-missing' : 'clone-failed', String(stderr || err.message)))
-      },
-    )
-  })
 
 export interface MarketplaceDeps {
   recordsPath: string
@@ -148,89 +83,8 @@ export interface MarketplaceDeps {
   gitMissing?: () => boolean
 }
 
-interface CatalogEntry {
-  dir: string
-  manifest: ExtensionManifest
-  code?: string
-}
-
-interface BrokenUnlisted {
-  code: string
-  problem: string
-}
-
-interface Catalog {
-  name: string
-  description: string
-  problems: string[]
-  entries: CatalogEntry[]
-  unlisted: boolean
-  brokenUnlisted: BrokenUnlisted[]
-}
-
 function clip(text: string): string {
   return text.trim().slice(0, DETAIL_MAX)
-}
-
-function isRealDirectory(path: string): boolean {
-  try {
-    return lstatSync(path).isDirectory()
-  } catch {
-    return false
-  }
-}
-
-function readCatalog(clone: string): Catalog | string {
-  const name = MARKETPLACE_MANIFEST_FILE
-  const file = join(clone, name)
-  let raw: unknown
-  try {
-    const stat = lstatSync(file)
-    if (!stat.isFile()) return `${name} is not a regular file`
-    if (stat.size > MARKETPLACE_MANIFEST_MAX_BYTES) {
-      return `${name} is larger than ${MARKETPLACE_MANIFEST_MAX_BYTES} bytes`
-    }
-    raw = JSON.parse(readFileSync(file, 'utf8'))
-  } catch (err) {
-    return `unreadable ${name}: ${(err as Error).message}`
-  }
-  const manifest = parseMarketplaceManifest(raw)
-  if (typeof manifest === 'string') return manifest
-  const root = realpathSync(clone)
-  const problems: string[] = []
-  const entries: CatalogEntry[] = []
-  const brokenUnlisted: BrokenUnlisted[] = []
-  const offered: { path: string; code?: string }[] = [
-    ...manifest.extensions.map((path) => ({ path })),
-    ...manifest.unlisted,
-  ]
-  for (const { path, code } of offered) {
-    const refuse = (problem: string): void => {
-      if (code) brokenUnlisted.push({ code, problem })
-      else problems.push(`${path}: ${problem}`)
-    }
-    const dir = join(clone, path)
-    if (!isRealDirectory(dir) || relative(root, realpathSync(dir)).startsWith('..')) {
-      refuse('not a folder in the repository')
-      continue
-    }
-    const res = readManifest(dir)
-    if (!res.ok) {
-      refuse(res.error)
-    } else if (entries.some((e) => e.manifest.id === res.manifest.id)) {
-      refuse(`duplicate extension id '${res.manifest.id}'`)
-    } else {
-      entries.push({ dir, manifest: res.manifest, ...(code ? { code } : {}) })
-    }
-  }
-  return {
-    name: manifest.name,
-    description: manifest.description,
-    problems,
-    entries,
-    unlisted: manifest.unlisted.length > 0,
-    brokenUnlisted,
-  }
 }
 
 export interface LanguageListing {

@@ -50,10 +50,13 @@
     "src/renderer/components/browser/DeviceTouchLayer.tsx",
     "src/renderer/components/browser/LoginButton.tsx",
     "src/renderer/components/browser/RegionCropOverlay.tsx",
+    "src/renderer/components/browser/StorageDialogs.tsx",
+    "src/renderer/components/browser/StorageTables.tsx",
     "src/renderer/components/browser/useBrowserActions.ts",
     "src/renderer/components/browser/useBrowserCapture.ts",
     "src/renderer/components/browser/useBrowserDevice.ts",
     "src/renderer/components/browser/useBrowserNavigation.ts",
+    "src/renderer/components/browser/useBrowserStorage.ts",
     "src/renderer/components/browser/useGrantedProfile.ts",
     "src/renderer/components/browser/useWebviewEvents.ts",
     "src/renderer/components/settings/BrowserEditorSettings.tsx",
@@ -85,7 +88,8 @@
     "src/shared/browser/passkeyGuard.",
     "src/shared/browser/pick.",
     "src/shared/browser/pickRuntime.ts",
-    "src/shared/browser/regionCapture.ts"
+    "src/shared/browser/regionCapture.ts",
+    "src/shared/pageScripts/"
   ],
   "specs": [
     "e2e/browser-agent.spec.ts",

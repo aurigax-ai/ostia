@@ -9,6 +9,7 @@ import {
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
 import type { Definition, GraphRow, ListModel, RunModel } from './panelModel'
+import { renderGate } from './renderGate'
 
 const t = panelTranslator({ en: en.messages, 'zh-Hant': zhHant.messages })
 const root = document.getElementById('root') as HTMLElement
@@ -336,16 +337,51 @@ async function runView(runId: string): Promise<HTMLElement[]> {
   ]
 }
 
+async function runtimeNote(): Promise<HTMLElement> {
+  const res = await call('runtime', {})
+  const runtime = (res.ok ? res.data : { state: 'failed', message: errorText(res) }) as {
+    state: string
+    daemon?: boolean
+    version?: string
+    message?: string
+  }
+  if (runtime.state === 'ready')
+    return h(
+      'p',
+      { class: 'note muted', 'data-runtime': runtime.daemon ? 'daemon' : 'client' },
+      runtime.daemon ? t('runsAsDaemon') : t('runsWhileOpen'),
+    )
+  if (runtime.state === 'other-contract')
+    return h(
+      'p',
+      { class: 'error', role: 'alert', 'data-runtime': 'other-contract' },
+      t('runtime.otherContract', { version: runtime.version ?? '?' }),
+    )
+  if (runtime.state === 'connecting')
+    return h('p', { class: 'note muted', 'data-runtime': 'connecting' }, t('runtime.connecting'))
+  return h(
+    'p',
+    { class: 'error', role: 'alert', 'data-runtime': 'failed' },
+    t('runtime.unreachable', { message: runtime.message ?? '' }),
+  )
+}
+
+const gate = renderGate<View>()
+
 async function render(): Promise<void> {
+  const mine = gate.begin()
+  const shown = view
+  const note = await runtimeNote()
   const body =
-    view.kind === 'list'
+    shown.kind === 'list'
       ? await listView()
-      : view.kind === 'definition'
-        ? await definitionView(view.name)
-        : view.kind === 'runs'
-          ? await runsView(view.name)
-          : await runView(view.runId)
-  const back = view.kind === 'list' ? null : button(t('action.back'), () => go({ kind: 'list' }))
+      : shown.kind === 'definition'
+        ? await definitionView(shown.name)
+        : shown.kind === 'runs'
+          ? await runsView(shown.name)
+          : await runView(shown.runId)
+  if (!gate.mayPaint(mine, shown, view)) return
+  const back = shown.kind === 'list' ? null : button(t('action.back'), () => go({ kind: 'list' }))
   root.replaceChildren(
     h(
       'div',
@@ -360,7 +396,7 @@ async function render(): Promise<void> {
       h(
         'main',
         { class: 'body' },
-        h('p', { class: 'note muted' }, t('runsWhileOpen')),
+        note,
         problem ? h('p', { class: 'error', role: 'alert' }, problem) : null,
         ...body,
       ),

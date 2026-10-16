@@ -1,10 +1,10 @@
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
-import type { AttentionState } from '../../shared/types'
+import type { AttentionState } from '../../shared/attention/attention'
 import { clampMessage } from '../attention/attention'
 import { registerControlMethod } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { PaneAttentionPeek } from './paneIo'
-import { type PaneReachDeps, ensurePaneReach, paneTarget } from './paneReach'
+import { type PaneReachDeps, ensurePaneReach, paneTarget, record } from './paneReach'
 
 const PANE_WAIT_STATES = ['done', 'waiting', 'idle', 'exited'] as const
 export type PaneWaitState = (typeof PANE_WAIT_STATES)[number]
@@ -103,12 +103,6 @@ export interface PaneWaitDeps extends PaneReachDeps {
   watch: PaneWatch
   attention: (pane: PaneIdentity) => Promise<PaneAttentionPeek>
   exited: (paneId: string) => boolean
-}
-
-function record(raw: unknown): Record<string, unknown> {
-  return typeof raw === 'object' && raw !== null && !Array.isArray(raw)
-    ? (raw as Record<string, unknown>)
-    : {}
 }
 
 export function registerPaneWaitMethods(deps: PaneWaitDeps): void {

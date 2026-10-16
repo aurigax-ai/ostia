@@ -462,7 +462,7 @@ describe('hibernating and resuming agents in bulk', () => {
     ])
     heldResumes.shift()?.gaveUp()
     expect(report.mock.calls.slice(3)).toEqual([
-      ['a1', false],
+      ['a1', false, expect.any(String)],
       ['a4', true],
     ])
   })
@@ -578,7 +578,7 @@ describe('the pane.wake command an agent reaches through main', () => {
     typed.mock.calls[0][4]?.()
     expect(report.mock.calls).toEqual([
       ['idle-claude', true],
-      ['idle-claude', false],
+      ['idle-claude', false, expect.any(String)],
     ])
   })
 
@@ -688,7 +688,7 @@ describe('the pane.wake command an agent reaches through main', () => {
     const fresh = () =>
       findPane(useLayoutStore.getState().byWorkspace.s2?.root ?? terminal('x'), 'fresh-claude')
     expect(fresh()?.resumePending).toBe(true)
-    expect(report).toHaveBeenCalledWith('fresh-claude', false)
+    expect(report).toHaveBeenCalledWith('fresh-claude', false, expect.any(String))
     const holder = fresh() ? resumeConflict(fresh() as PaneNode) : null
     expect(holder?.id).toBe('idle-claude')
   })

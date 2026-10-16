@@ -6,8 +6,8 @@ import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type {
   ExtensionConnectionEntry,
   ExtensionConnectionKind,
-  ExtensionInfo,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionConnections'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { TrashIcon } from '@phosphor-icons/react'
 import { type ComponentType, type ReactNode, useCallback, useEffect, useState } from 'react'
 
@@ -153,6 +153,116 @@ export function ExtensionConnections({
   )
 }
 
+function ConnectionFieldRows({
+  rows,
+  kind,
+  draft,
+  setDraft,
+}: {
+  rows: SettingsRows
+  kind: ExtensionConnectionKind
+  draft: Draft
+  setDraft: (draft: Draft | null) => void
+}): JSX.Element {
+  const { ControlRow, SelectField } = rows
+  return (
+    <>
+      {kind.fields.map((field) => (
+        <ControlRow key={field.key} label={field.title} desc={field.description}>
+          {field.type === 'enum' ? (
+            <SelectField
+              value={draft.fields[field.key] ?? field.default ?? ''}
+              label={field.title}
+              options={(field.enum ?? []).map((value) => ({ value, label: value }))}
+              onChange={(value) =>
+                setDraft({ ...draft, fields: { ...draft.fields, [field.key]: value } })
+              }
+            />
+          ) : (
+            <Input
+              value={draft.fields[field.key] ?? ''}
+              spellCheck={false}
+              autoComplete="off"
+              aria-label={field.title}
+              onChange={(e) =>
+                setDraft({ ...draft, fields: { ...draft.fields, [field.key]: e.target.value } })
+              }
+              className="h-7 w-72 font-mono text-ui-sm"
+            />
+          )}
+        </ControlRow>
+      ))}
+    </>
+  )
+}
+
+function ConnectionSecretRows({
+  rows,
+  kind,
+  draft,
+  saved,
+  setDraft,
+}: {
+  rows: SettingsRows
+  kind: ExtensionConnectionKind
+  draft: Draft
+  saved: string[]
+  setDraft: (draft: Draft | null) => void
+}): JSX.Element {
+  const d = useDict()
+  const { ControlRow } = rows
+  return (
+    <>
+      {kind.secrets.map((secret) => {
+        const isSaved = saved.includes(secret.key)
+        const cleared = draft.secrets[secret.key] === null
+        return (
+          <ControlRow
+            key={secret.key}
+            label={secret.title}
+            desc={
+              cleared
+                ? d.extensions.connectionSecretCleared
+                : isSaved
+                  ? d.extensions.connectionSecretKeep
+                  : secret.description
+            }
+          >
+            <div className="flex items-center gap-2">
+              <Input
+                type="password"
+                value={cleared ? '' : (draft.secrets[secret.key] ?? '')}
+                autoComplete="off"
+                spellCheck={false}
+                aria-label={secret.title}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    secrets: { ...draft.secrets, [secret.key]: e.target.value },
+                  })
+                }
+                className="h-7 w-56 font-mono text-ui-sm"
+              />
+              {isSaved && !cleared ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setDraft({ ...draft, secrets: { ...draft.secrets, [secret.key]: null } })
+                  }
+                >
+                  {d.extensions.connectionSecretClear}
+                </Button>
+              ) : null}
+            </div>
+          </ControlRow>
+        )
+      })}
+    </>
+  )
+}
+
 function ConnectionForm({
   ext,
   rows,
@@ -223,77 +333,14 @@ function ConnectionForm({
           className="h-7 w-56 font-mono text-ui-sm"
         />
       </ControlRow>
-      {kind.fields.map((field) => (
-        <ControlRow key={field.key} label={field.title} desc={field.description}>
-          {field.type === 'enum' ? (
-            <SelectField
-              value={draft.fields[field.key] ?? field.default ?? ''}
-              label={field.title}
-              options={(field.enum ?? []).map((value) => ({ value, label: value }))}
-              onChange={(value) =>
-                setDraft({ ...draft, fields: { ...draft.fields, [field.key]: value } })
-              }
-            />
-          ) : (
-            <Input
-              value={draft.fields[field.key] ?? ''}
-              spellCheck={false}
-              autoComplete="off"
-              aria-label={field.title}
-              onChange={(e) =>
-                setDraft({ ...draft, fields: { ...draft.fields, [field.key]: e.target.value } })
-              }
-              className="h-7 w-72 font-mono text-ui-sm"
-            />
-          )}
-        </ControlRow>
-      ))}
-      {kind.secrets.map((secret) => {
-        const isSaved = saved.includes(secret.key)
-        const cleared = draft.secrets[secret.key] === null
-        return (
-          <ControlRow
-            key={secret.key}
-            label={secret.title}
-            desc={
-              cleared
-                ? d.extensions.connectionSecretCleared
-                : isSaved
-                  ? d.extensions.connectionSecretKeep
-                  : secret.description
-            }
-          >
-            <div className="flex items-center gap-2">
-              <Input
-                type="password"
-                value={cleared ? '' : (draft.secrets[secret.key] ?? '')}
-                autoComplete="off"
-                spellCheck={false}
-                aria-label={secret.title}
-                onChange={(e) =>
-                  setDraft({
-                    ...draft,
-                    secrets: { ...draft.secrets, [secret.key]: e.target.value },
-                  })
-                }
-                className="h-7 w-56 font-mono text-ui-sm"
-              />
-              {isSaved && !cleared ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    setDraft({ ...draft, secrets: { ...draft.secrets, [secret.key]: null } })
-                  }
-                >
-                  {d.extensions.connectionSecretClear}
-                </Button>
-              ) : null}
-            </div>
-          </ControlRow>
-        )
-      })}
+      <ConnectionFieldRows rows={rows} kind={kind} draft={draft} setDraft={setDraft} />
+      <ConnectionSecretRows
+        rows={rows}
+        kind={kind}
+        draft={draft}
+        saved={saved}
+        setDraft={setDraft}
+      />
       <div className="mt-2 flex items-center gap-2">
         <Button type="submit" size="sm" disabled={!draft.name}>
           {d.extensions.connectionSave}

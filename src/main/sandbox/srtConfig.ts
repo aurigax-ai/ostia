@@ -9,7 +9,7 @@ import {
   type SandboxFolderReason,
   type SandboxSwitches,
 } from '../../shared/sandbox/sandbox'
-import { isInsidePath } from '../platform/pathGuard'
+import { expandHome, isInsidePath } from '../platform/pathGuard'
 import { OLD_PRODUCT_NAME } from '../platform/userDirs'
 
 export interface SandboxPaths {
@@ -107,11 +107,6 @@ function vendoredBinaries(
       ? { seccomp: { applyPath: join(vendorDir, 'seccomp', arch, 'apply-seccomp') } }
       : {}),
   }
-}
-
-export function expandHome(path: string, home: string): string {
-  if (path === '~') return home
-  return path.startsWith('~/') ? join(home, path.slice(2)) : path
 }
 
 export function realPath(path: string): string {

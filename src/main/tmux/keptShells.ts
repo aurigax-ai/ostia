@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { connect as connectSocket } from 'node:net'
 import { join } from 'node:path'
-import type { KeptExposure } from '../sandbox/portRequests'
+import type { KeptExposure } from '../sandbox/ports/portRequests'
 import { HOST_PROTOCOL_VERSION } from '../sandbox/protocol'
 import { isMarkNonce } from '../terminal/markNonce'
 import {
@@ -13,9 +13,9 @@ import {
   writeSavedAttention,
 } from './attentionFile'
 import type { NewWindowSpec } from './tmuxCommand'
+import type { TmuxPane } from './tmuxPane'
 import {
   type KeptWindow,
-  type TmuxPane,
   TmuxServer,
   type TmuxServerOptions,
   ensureTmuxSocketDir,
@@ -193,7 +193,7 @@ const HOST_WINDOW_ROWS = 24
 const TOKENS_DIR = 'tokens'
 
 function tokenName(paneId: string): string {
-  return createHash('sha256').update(paneId).digest('hex').slice(0, 32)
+  return hash('sha256', paneId).slice(0, 32)
 }
 
 export class KeptShells {

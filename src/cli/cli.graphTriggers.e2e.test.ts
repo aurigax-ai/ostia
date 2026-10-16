@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { type Harness, POLL, graphsHarness } from '../../test/graphsHarness'
@@ -13,16 +13,8 @@ type Line = Record<string, unknown> & { type: string }
 describe('triggers on the built-in graphs extension (real CLI, real socket, real folder watch)', () => {
   let h: Harness
 
-  const runIds = (name: string): string[] => {
-    const folder = join(h.dataDir, 'graphs', 'runs', 'w1', name)
-    return existsSync(folder) ? readdirSync(folder).sort() : []
-  }
-  const lines = (name: string, runId: string): Line[] =>
-    readFileSync(join(h.dataDir, 'graphs', 'runs', 'w1', name, runId, 'journal.jsonl'), 'utf8')
-      .trim()
-      .split('\n')
-      .filter(Boolean)
-      .map((l) => JSON.parse(l) as Line)
+  const runIds = (name: string): string[] => h.runIds(name).sort()
+  const lines = (_name: string, runId: string): Line[] => h.journal(runId) as Line[]
   const triggerOf = (name: string, runId: string) =>
     lines(name, runId).find((l) => l.type === 'run-start')?.trigger
   const enable = async (name: string, text: string): Promise<void> => {

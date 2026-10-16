@@ -1,0 +1,31 @@
+import type { ColorScheme } from '@/lib/theme/types'
+
+export const monokaiClassic: ColorScheme = {
+  id: 'monokai-classic',
+  name: 'Monokai Classic',
+  appearance: 'dark',
+  colors: {
+    background: '#272822',
+    foreground: '#fdfff1',
+    cursor: '#c0c1b5',
+    cursorAccent: '#8d8e82',
+    selectionBackground: '#57584f',
+    selectionForeground: '#fdfff1',
+    black: '#272822',
+    red: '#f92672',
+    green: '#a6e22e',
+    yellow: '#e6db74',
+    blue: '#fd971f',
+    magenta: '#ae81ff',
+    cyan: '#66d9ef',
+    white: '#fdfff1',
+    brightBlack: '#6e7066',
+    brightRed: '#f92672',
+    brightGreen: '#a6e22e',
+    brightYellow: '#e6db74',
+    brightBlue: '#fd971f',
+    brightMagenta: '#ae81ff',
+    brightCyan: '#66d9ef',
+    brightWhite: '#fdfff1',
+  },
+}

@@ -1,5 +1,5 @@
 import type { FileSortBy, FileSortOrder } from '@/lib/settings/fileTreeSettings'
-import type { FsEntry } from '@shared/types'
+import type { FsEntry } from '@shared/files/filesApi'
 import { escapeRegExp } from 'es-toolkit'
 import picomatch from 'picomatch/posix'
 

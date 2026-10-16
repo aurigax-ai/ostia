@@ -4,7 +4,7 @@ import type {
   ExtensionSidebarItem,
   WorkspaceChip,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import type { NotificationEntry } from '@shared/types'
+import type { NotificationEntry } from '@shared/attention/attention'
 import { describe, expect, it } from 'vitest'
 import { VIEW_NOTIFICATIONS_MAX, type ViewDataInputs, buildViewScope } from './viewData'
 

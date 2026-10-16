@@ -1,5 +1,6 @@
 import { ipcRenderer } from 'electron'
-import type { CommandInvokeRequest, OstiaBridge } from '../shared/types'
+import type { CommandInvokeRequest } from '../shared/control/commands'
+import type { OstiaBridge } from '../shared/types'
 
 export const controlBridge: Pick<OstiaBridge, 'commands' | 'terminalState'> = {
   commands: {

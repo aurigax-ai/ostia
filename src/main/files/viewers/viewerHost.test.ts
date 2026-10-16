@@ -1,0 +1,281 @@
+import { EventEmitter } from 'node:events'
+import { PORTABLE_TABLES_BYTES_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+import { describe, expect, it, vi } from 'vitest'
+import { type ViewerGuest, ViewerHost, type ViewerHostDeps, viewerOwner } from './viewerHost'
+import { VIEWER_PAGE_CSP, type ViewerSession } from './viewerSessions'
+import { VIEWER_LIMITS, ViewerWatch } from './viewerWatch'
+
+interface FakeSession extends ViewerSession {
+  handler: ((request: Request) => Promise<Response>) | null
+  filter: ((details: { url: string }, cb: (r: { cancel: boolean }) => void) => void) | null
+  permission: ((wc: unknown, permission: string, cb: (granted: boolean) => void) => void) | null
+}
+
+function fakeSession(): FakeSession {
+  const session: FakeSession = {
+    handler: null,
+    filter: null,
+    permission: null,
+    protocol: {
+      handle: (_scheme, handler) => {
+        session.handler = handler
+      },
+    },
+    webRequest: {
+      onBeforeRequest: (listener) => {
+        session.filter = listener
+      },
+    },
+    setProxy: async () => {},
+    setPermissionRequestHandler: (handler) => {
+      session.permission = handler
+    },
+    setPermissionCheckHandler: () => {},
+    on: () => {},
+  }
+  return session
+}
+
+const FILE = '/home/u/report.xlsx'
+const BYTES = Buffer.from([1, 2, 3, 4])
+
+function setup(overrides: Partial<ViewerHostDeps> = {}) {
+  const sessions = new Map<string, FakeSession>()
+  const watched: string[] = []
+  const unwatched: string[] = []
+  const stopped: unknown[] = []
+  const memory = { bytes: 0 }
+  let tokens = 0
+  let enabled = true
+  const deps: ViewerHostDeps = {
+    sessionOf: (partition) => {
+      const session = sessions.get(partition) ?? fakeSession()
+      sessions.set(partition, session)
+      return session
+    },
+    confine: (path) => (path.startsWith('/home/u/') ? path : null),
+    ownsPane: (windowId, paneId) => windowId === 'w1' && paneId === 'p1',
+    viewer: (extId, viewType, path) =>
+      enabled && extId === 'office' && viewType === 'office.spreadsheet' && path.endsWith('.xlsx')
+        ? { dir: '/ext/office', entry: 'sheet.html' }
+        : null,
+    readDocument: async (path) =>
+      path === FILE ? { ok: true, body: BYTES } : { ok: false, status: 413 },
+    statDocument: async (path) => (path.startsWith('/home/u/') ? { size: 4, modified: 7 } : null),
+    readExtensionFile: (_dir, path) => (path === 'sheet.html' ? Buffer.from('<html>') : null),
+    watch: (owner, path) => {
+      watched.push(`${owner} ${path}`)
+    },
+    unwatch: (owner, path) => {
+      unwatched.push(`${owner} ${path}`)
+    },
+    locale: () => 'zh-Hant',
+    guests: new ViewerWatch({
+      processes: () => [{ pid: 9, memoryBytes: memory.bytes, cpuPercent: 0 }],
+    }),
+    stopped: (windowId, event) => {
+      stopped.push({ windowId, ...event })
+    },
+    token: () => `t${++tokens}`,
+    ...overrides,
+  }
+  const host = new ViewerHost(deps)
+  const disable = (): void => {
+    enabled = false
+  }
+  return { host, deps, sessions, watched, unwatched, stopped, memory, disable }
+}
+
+const OPEN = { workspaceId: 'ws', paneId: 'p1', path: FILE, viewType: 'office.spreadsheet' }
+
+function get(session: FakeSession | undefined, url: string, init?: RequestInit): Promise<Response> {
+  if (!session?.handler) throw new Error('no handler')
+  return session.handler(new Request(url, init))
+}
+
+describe('ViewerHost', () => {
+  it('opens a viewer only for the owner window, a known viewer and a confined path', () => {
+    const { host, watched } = setup()
+    expect(host.open('w2', OPEN)).toEqual({ ok: false, error: 'denied' })
+    expect(host.open('w1', { ...OPEN, viewType: 'office.nope' })).toEqual({
+      ok: false,
+      error: 'unknown-viewer',
+    })
+    expect(host.open('w1', { ...OPEN, path: '/etc/x.xlsx' })).toEqual({
+      ok: false,
+      error: 'denied',
+    })
+    expect(host.open('w1', OPEN)).toEqual({
+      ok: true,
+      src: 'ostia-viewer://t1/sheet.html',
+      partition: 'ostia-viewer-office',
+    })
+    expect(watched).toEqual([`${viewerOwner('t1')} ${FILE}`])
+  })
+
+  it('serves the page, the meta and the bytes with the viewer policy, and nothing else', async () => {
+    const { host, sessions } = setup()
+    host.open('w1', OPEN)
+    const session = sessions.get('ostia-viewer-office')
+    const page = await get(session, 'ostia-viewer://t1/sheet.html')
+    expect(await page.text()).toBe('<html>')
+    expect(page.headers.get('content-security-policy')).toBe(VIEWER_PAGE_CSP)
+    expect(page.headers.get('content-type')).toBe('text/html; charset=utf-8')
+    const meta = await (await get(session, 'ostia-viewer://t1/~meta')).json()
+    expect(meta).toEqual({
+      name: 'report.xlsx',
+      size: 4,
+      modified: 7,
+      locale: 'zh-Hant',
+      viewType: 'office.spreadsheet',
+    })
+    const body = await get(session, 'ostia-viewer://t1/~document')
+    expect(new Uint8Array(await body.arrayBuffer())).toEqual(new Uint8Array(BYTES))
+    expect((await get(session, 'ostia-viewer://t1/..%2F..%2Fetc%2Fpasswd')).status).toBe(404)
+    expect((await get(session, 'ostia-viewer://t9/~document')).status).toBe(404)
+    expect((await get(session, 'ostia-viewer://t1/~document', { method: 'PUT' })).status).toBe(405)
+  })
+
+  it('keeps one extension partition from reading another extension document', async () => {
+    const { host, sessions } = setup()
+    host.open('w1', OPEN)
+    const office = sessions.get('ostia-viewer-office')
+    const other = fakeSession()
+    expect(office).toBeDefined()
+    await expect(
+      host.serve('csv', new Request('ostia-viewer://t1/~document')),
+    ).resolves.toHaveProperty('status', 404)
+    expect(other.handler).toBeNull()
+  })
+
+  it('says how large a file is that it will not serve', async () => {
+    const { host, sessions } = setup({
+      readDocument: async () => ({ ok: false, status: 413 }),
+    })
+    host.open('w1', OPEN)
+    const res = await get(sessions.get('ostia-viewer-office'), 'ostia-viewer://t1/~document')
+    expect(res.status).toBe(413)
+    expect(res.headers.get('x-ostia-size')).toBe('4')
+  })
+
+  it('stops serving when the extension is disabled and when the pane closes', async () => {
+    const { host, sessions, disable, unwatched } = setup()
+    host.open('w1', OPEN)
+    const session = sessions.get('ostia-viewer-office')
+    disable()
+    expect((await get(session, 'ostia-viewer://t1/~document')).status).toBe(410)
+    host.close('w1', 'p1')
+    expect((await get(session, 'ostia-viewer://t1/~document')).status).toBe(404)
+    expect(unwatched).toEqual([`${viewerOwner('t1')} ${FILE}`])
+  })
+
+  it('tells the page when its file changes', async () => {
+    const { host, sessions } = setup()
+    host.open('w1', OPEN)
+    const res = await get(sessions.get('ostia-viewer-office'), 'ostia-viewer://t1/~events')
+    const reader = res.body?.getReader()
+    if (!reader) throw new Error('no stream')
+    await reader.read()
+    host.changed(viewerOwner('t1'))
+    host.changed('w1')
+    const { value } = await reader.read()
+    expect(new TextDecoder().decode(value)).toBe('event: changed\ndata: 1\n\n')
+    host.forgetWindow('w1')
+    expect((await reader.read()).done).toBe(true)
+  })
+
+  it('stops the viewer of a guest past its memory limit, tells its window and ends its token', () => {
+    const { host, deps, sessions, stopped, memory, unwatched } = setup()
+    const opened = host.open('w1', OPEN)
+    if (!opened.ok) throw new Error('not opened')
+    const guest = Object.assign(new EventEmitter(), {
+      session: sessions.get('ostia-viewer-office'),
+      crashed: 0,
+      setWindowOpenHandler: () => {},
+      setWebRTCIPHandlingPolicy: () => {},
+      isDestroyed: () => false,
+      getOSProcessId: () => 9,
+      executeJavaScript: () => Promise.resolve(0),
+      forcefullyCrashRenderer: () => {
+        guest.crashed++
+      },
+    })
+    expect(host.adopt(guest as unknown as ViewerGuest)).toBe(true)
+    guest.emit('did-navigate', {}, opened.src)
+    memory.bytes = VIEWER_LIMITS.memoryBytes + 1
+    deps.guests.measure()
+    deps.guests.tick()
+    deps.guests.dispose()
+    expect(guest.crashed).toBe(1)
+    expect(stopped).toEqual([{ windowId: 'w1', paneId: 'p1', reason: 'memory' }])
+    expect(unwatched).toEqual([`${viewerOwner('t1')} ${FILE}`])
+  })
+
+  it('ends the viewers of a window when its page reloads, not on an in-page navigation', () => {
+    const { host, unwatched } = setup()
+    const contents = new EventEmitter()
+    host.followReloads(contents, 'w1')
+    host.open('w1', OPEN)
+    contents.emit('did-start-navigation', {}, 'app://index.html#x', true, true)
+    contents.emit('did-start-navigation', {}, 'https://frame', false, false)
+    expect(unwatched).toEqual([])
+    contents.emit('did-start-navigation', {}, 'app://index.html', false, true)
+    expect(unwatched).toHaveLength(1)
+  })
+
+  it('keeps only well-formed text tables a page publishes for the portable file', async () => {
+    const { host, sessions } = setup()
+    host.open('w1', OPEN)
+    const session = sessions.get('ostia-viewer-office')
+    const post = (body: unknown): Promise<Response> =>
+      get(session, 'ostia-viewer://t1/~portable', { method: 'POST', body: JSON.stringify(body) })
+    expect((await post({ tables: [{ name: 'S', columns: ['A'], rows: [[1]] }] })).status).toBe(400)
+    expect((await post({ tables: 'x' })).status).toBe(400)
+    expect(host.portable('w1', FILE)).toBeNull()
+    const tables = { tables: [{ name: 'S', columns: ['A'], rows: [['1']] }] }
+    expect((await post(tables)).status).toBe(204)
+    expect(host.portable('w1', FILE)).toEqual(tables)
+    expect(host.portable('w2', FILE)).toBeNull()
+    expect(host.portable('w1', '/home/u/other.xlsx')).toBeNull()
+    const oversize = {
+      tables: [{ name: 'S', columns: ['A'], rows: [['x'.repeat(PORTABLE_TABLES_BYTES_MAX)]] }],
+    }
+    expect((await post(oversize)).status).toBe(413)
+    expect(host.portable('w1', FILE)).toBe('too-large')
+  })
+
+  it('lets only the exact page of the owner window attach in the viewer partition', () => {
+    const { host } = setup()
+    host.open('w1', OPEN)
+    const src = 'ostia-viewer://t1/sheet.html'
+    expect(host.acceptsAttach('ostia-viewer-office', src, 'w1')).toBe(true)
+    expect(host.acceptsAttach('ostia-viewer-office', src, 'w2')).toBe(false)
+    expect(host.acceptsAttach('ostia-viewer-csv', src, 'w1')).toBe(false)
+    expect(host.acceptsAttach('ostia-viewer-office', 'ostia-viewer://t1/other.html', 'w1')).toBe(
+      false,
+    )
+    expect(host.acceptsAttach('ostia-ext-office', src, 'w1')).toBe(false)
+  })
+
+  it('cancels every request off the viewer scheme and denies every permission', () => {
+    const { host, sessions } = setup()
+    host.open('w1', OPEN)
+    const session = sessions.get('ostia-viewer-office')
+    const cancelled = (url: string): boolean => {
+      let result = false
+      session?.filter?.({ url }, (r) => {
+        result = r.cancel
+      })
+      return result
+    }
+    expect(cancelled('http://127.0.0.1:9999/x')).toBe(true)
+    expect(cancelled('https://example.com/')).toBe(true)
+    expect(cancelled('file:///etc/passwd')).toBe(true)
+    expect(cancelled('ostia-preview://x/')).toBe(true)
+    expect(cancelled('ostia-viewer://t1/sheet.js')).toBe(false)
+    expect(cancelled('data:image/png;base64,AA==')).toBe(false)
+    const granted = vi.fn()
+    session?.permission?.(null, 'clipboard-read', granted)
+    expect(granted).toHaveBeenCalledWith(false)
+  })
+})

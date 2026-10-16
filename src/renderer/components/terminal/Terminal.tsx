@@ -36,7 +36,7 @@ import { isLinux, isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHistoryViewStore } from '@/stores/terminal/historyViewStore'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { type HTMLAttributes, type RefObject, useEffect, useMemo, useRef, useState } from 'react'
 import { Blocks } from './Blocks'
 import { HistoryEdge } from './HistoryEdge'
 import { HistoryView } from './HistoryView'
@@ -81,6 +81,89 @@ export function TerminalView(props: TerminalViewProps): JSX.Element {
   }, [ready])
   if (!ready) return <div className="terminal-surface" />
   return <TerminalSurface engine={engine} {...props} />
+}
+
+function pathDropHandlers(
+  pasteRef: { current: (text: string) => void },
+  termRef: { current: OstiaTerminal | null },
+): Pick<HTMLAttributes<HTMLDivElement>, 'onDragOver' | 'onDrop'> {
+  return {
+    onDragOver: (e) => {
+      if (!acceptsPathDrop([...e.dataTransfer.types])) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+    },
+    onDrop: (e) => {
+      if (!acceptsPathDrop([...e.dataTransfer.types])) return
+      e.preventDefault()
+      const text = pathsAsInput(droppedPaths(e.dataTransfer))
+      if (!text) return
+      pasteRef.current(text)
+      termRef.current?.focus()
+    },
+  }
+}
+
+function TerminalHistoryLayer({
+  paneId,
+  target,
+  termRef,
+  hostRef,
+  shown,
+}: {
+  paneId: string
+  target: ReturnType<typeof useHistoryViewStore.getState>['open'][string] | undefined
+  termRef: { current: OstiaTerminal | null }
+  hostRef: RefObject<HTMLDivElement | null>
+  shown: boolean
+}): JSX.Element {
+  if (target) {
+    return (
+      <HistoryView
+        paneId={paneId}
+        target={target}
+        onClose={() => {
+          useHistoryViewStore.getState().close(paneId)
+          termRef.current?.focus()
+        }}
+      />
+    )
+  }
+  return <HistoryEdge paneId={paneId} termRef={termRef} hostRef={hostRef} shown={shown} />
+}
+
+function TerminalFindLayer({
+  paneId,
+  search,
+  options,
+  stepRef,
+  termRef,
+  setFindOpen,
+}: {
+  paneId: string
+  search: TerminalSearch
+  options: ReturnType<typeof findOptions>
+  stepRef: { current: ((by: number) => void) | null }
+  termRef: { current: OstiaTerminal | null }
+  setFindOpen: (open: boolean) => void
+}): JSX.Element {
+  return (
+    <TerminalFind
+      paneId={paneId}
+      search={search}
+      options={options}
+      stepRef={stepRef}
+      liveLines={() => (termRef.current ? liveLogicalLines(termRef.current) : 0)}
+      onShowEarlier={(find) => {
+        setFindOpen(false)
+        useHistoryViewStore.getState().show(paneId, { kind: 'match', find })
+      }}
+      onClose={() => {
+        setFindOpen(false)
+        termRef.current?.focus()
+      }}
+    />
+  )
 }
 
 function TerminalSurface({
@@ -164,23 +247,7 @@ function TerminalSurface({
   const background = palette.background
 
   return (
-    <div
-      ref={surfaceRef}
-      className="terminal-surface"
-      onDragOver={(e) => {
-        if (!acceptsPathDrop([...e.dataTransfer.types])) return
-        e.preventDefault()
-        e.dataTransfer.dropEffect = 'copy'
-      }}
-      onDrop={(e) => {
-        if (!acceptsPathDrop([...e.dataTransfer.types])) return
-        e.preventDefault()
-        const text = pathsAsInput(droppedPaths(e.dataTransfer))
-        if (!text) return
-        pasteRef.current(text)
-        termRef.current?.focus()
-      }}
-    >
+    <div ref={surfaceRef} className="terminal-surface" {...pathDropHandlers(pasteRef, termRef)}>
       <div className="terminal-stack" style={{ background }}>
         <TerminalMenu
           paneId={paneId}
@@ -213,33 +280,21 @@ function TerminalSurface({
         />
         <AssistComposer paneId={paneId} cwd={cwd} termRef={termRef} />
         <TerminalLinkHint hint={shown ? linkHint : null} />
-        {historyTarget ? (
-          <HistoryView
-            paneId={paneId}
-            target={historyTarget}
-            onClose={() => {
-              useHistoryViewStore.getState().close(paneId)
-              termRef.current?.focus()
-            }}
-          />
-        ) : (
-          <HistoryEdge paneId={paneId} termRef={termRef} hostRef={hostRef} shown={shown} />
-        )}
+        <TerminalHistoryLayer
+          paneId={paneId}
+          target={historyTarget}
+          termRef={termRef}
+          hostRef={hostRef}
+          shown={shown}
+        />
         {findOpen && search && (
-          <TerminalFind
+          <TerminalFindLayer
             paneId={paneId}
             search={search}
             options={searchOptions}
             stepRef={findStepRef}
-            liveLines={() => (termRef.current ? liveLogicalLines(termRef.current) : 0)}
-            onShowEarlier={(find) => {
-              setFindOpen(false)
-              useHistoryViewStore.getState().show(paneId, { kind: 'match', find })
-            }}
-            onClose={() => {
-              setFindOpen(false)
-              termRef.current?.focus()
-            }}
+            termRef={termRef}
+            setFindOpen={setFindOpen}
           />
         )}
       </div>

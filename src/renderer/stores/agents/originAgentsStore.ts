@@ -1,4 +1,4 @@
-import type { OriginAgents } from '@shared/types'
+import type { OriginAgents } from '@shared/windows/windowsApi'
 import { create } from 'zustand'
 
 interface OriginAgentsState {

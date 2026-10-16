@@ -1,21 +1,17 @@
 import { ipcRenderer } from 'electron'
 import type { HibernateOutcome } from '../shared/agents/agentWork'
 import type { SelectionSendResult } from '../shared/browser/selection'
+import type { FsKind, OpenPathResult } from '../shared/files/filesApi'
 import type { OpenFileVerdict } from '../shared/files/openFiles'
 import type { SpecCommand } from '../shared/terminal/completionSpec'
+import type { PaneActivity, PromptContext, PtyAttachResult } from '../shared/terminal/ptyApi'
 import type {
   HistoryBlockRange,
   HistoryPage,
   HistorySearchResult,
 } from '../shared/terminal/scrollbackHistory'
-import type {
-  FsKind,
-  OpenPathResult,
-  OstiaBridge,
-  PaneActivity,
-  PromptContext,
-  PtyAttachResult,
-} from '../shared/types'
+import type { OstiaBridge } from '../shared/types'
+import { listen } from './listen'
 
 export const terminalBridge: Pick<
   OstiaBridge,
@@ -49,7 +45,8 @@ export const terminalBridge: Pick<
     keptWaiting: () => ipcRenderer.invoke('pty:kept-waiting') as Promise<string[]>,
     restart: (paneId) => ipcRenderer.invoke('pty:restart', paneId) as Promise<boolean>,
     reportAgentRunning: (paneId, running) => ipcRenderer.send('pty:agent-running', paneId, running),
-    reportWaking: (paneId, waking) => ipcRenderer.send('pty:waking', paneId, waking),
+    reportWaking: (paneId, waking, reason) =>
+      ipcRenderer.send('pty:waking', paneId, waking, reason),
     write: (paneId, data) => ipcRenderer.send('pty:write', paneId, data),
     ack: (paneId, chars) => ipcRenderer.send('pty:ack', paneId, chars),
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
@@ -62,26 +59,10 @@ export const terminalBridge: Pick<
       ipcRenderer.invoke('pty:activity', paneId) as Promise<PaneActivity | null>,
     promptContext: (paneId, want) =>
       ipcRenderer.invoke('pty:prompt-context', paneId, want) as Promise<PromptContext | null>,
-    onData: (paneId, cb) => {
-      const handler = (_e: unknown, data: string): void => cb(data)
-      ipcRenderer.on(`pty:data:${paneId}`, handler)
-      return () => ipcRenderer.removeListener(`pty:data:${paneId}`, handler)
-    },
-    onExit: (paneId, cb) => {
-      const handler = (_e: unknown, code: number, closes: boolean): void => cb(code, closes)
-      ipcRenderer.on(`pty:exit:${paneId}`, handler)
-      return () => ipcRenderer.removeListener(`pty:exit:${paneId}`, handler)
-    },
-    onSize: (paneId, cb) => {
-      const handler = (_e: unknown, cols: number, rows: number): void => cb(cols, rows)
-      ipcRenderer.on(`pty:size:${paneId}`, handler)
-      return () => ipcRenderer.removeListener(`pty:size:${paneId}`, handler)
-    },
-    onRun: (cb) => {
-      const handler = (_e: unknown, paneId: string, command: string): void => cb(paneId, command)
-      ipcRenderer.on('pty:run', handler)
-      return () => ipcRenderer.removeListener('pty:run', handler)
-    },
+    onData: (paneId, cb) => listen(`pty:data:${paneId}`, cb),
+    onExit: (paneId, cb) => listen(`pty:exit:${paneId}`, cb),
+    onSize: (paneId, cb) => listen(`pty:size:${paneId}`, cb),
+    onRun: (cb) => listen('pty:run', cb),
   },
   terminalLinks: {
     probe: (paneId, path) =>

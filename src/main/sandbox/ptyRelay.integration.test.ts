@@ -6,9 +6,9 @@ import type { IPty } from 'node-pty'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { holdPort } from '../../../test/heldPort'
 import { DEFAULT_SANDBOX_GLOBALS, type SandboxSwitches } from '../../shared/sandbox/sandbox'
-import { PortBridge } from './portBridge'
-import { PortForwarder } from './portForwarder'
-import { PortRequests } from './portRequests'
+import { PortBridge } from './ports/portBridge'
+import { PortForwarder } from './ports/portForwarder'
+import { PortRequests } from './ports/portRequests'
 import { sandboxedShellCommand, wrapForTerminal } from './ptyWrap'
 import { SandboxStore } from './store'
 import { WorkspaceSandboxes } from './workspaceSandboxes'
@@ -60,9 +60,9 @@ async function start(
     hostScript,
     onAsk: async () => false,
   })
-  const pipe = relay ? join(sandboxes.tmpDir('ws'), 'resize-test') : null
-  if (ports) await sandboxes.connect('ws')
-  const bridge = ports ? await PortBridge.open(sandboxes.tmpDir('ws')) : null
+  const pipe = relay ? join(sandboxes.tmp.tmpDir('ws'), 'resize-test') : null
+  if (ports) await sandboxes.hosts.connect('ws')
+  const bridge = ports ? await PortBridge.open(sandboxes.tmp.tmpDir('ws')) : null
   const wrapped = await sandboxes.wrap(
     'ws',
     sandboxedShellCommand(SHELL_ARGV, '/bin/bash', pipe, bridge?.command ?? null),
@@ -73,7 +73,7 @@ async function start(
     cols: 80,
     rows: 24,
     cwd: workDir,
-    env: { ...process.env, HOME: home, TMPDIR: sandboxes.tmpDir('ws') },
+    env: { ...process.env, HOME: home, TMPDIR: sandboxes.tmp.tmpDir('ws') },
   })
   let buffer = ''
   term.onData((data) => {
@@ -173,7 +173,7 @@ afterEach(() => {
   for (const session of open.splice(0)) {
     session.term.kill()
     session.bridge?.close()
-    session.sandboxes.stopAll()
+    session.sandboxes.hosts.stopAll()
   }
 })
 

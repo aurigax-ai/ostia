@@ -1,6 +1,6 @@
 import { resolve as resolvePath } from 'node:path'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import type { CommandResult } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 import type {
   CmuxImportReport,
   CmuxLoss,

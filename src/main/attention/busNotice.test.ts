@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { CommandResult } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { PaneEntry, WorkspaceEntry } from '../panes/paneList'
 import { announceBusMessage, senderLabel } from './busNotice'

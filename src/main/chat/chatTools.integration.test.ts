@@ -5,11 +5,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { AssistContext } from '@aurigax-ai/ostia-extension-sdk'
 import { AssistantService } from '@aurigax-ai/ostia-extension-sdk/assist'
-import {
-  type ChatAssistRequest,
-  type ChatToolCall,
-  normalizeAssistRequest,
+import type {
+  ChatAssistRequest,
+  ChatToolCall,
 } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { normalizeAssistRequest } from '@aurigax-ai/ostia-extension-sdk/contract/assistPayloads'
 import type { UIMessageChunk } from 'ai'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ASSISTANT_CATALOG } from '../../extensions/assistant/providers'

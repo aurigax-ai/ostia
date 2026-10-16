@@ -5,8 +5,8 @@ import {
   type SandboxEditError,
   type SandboxPathKind,
 } from '../../shared/sandbox/sandbox'
-import { isInsidePath } from '../platform/pathGuard'
-import { expandHome, realPath, touches } from './srtConfig'
+import { expandHome, isInsidePath } from '../platform/pathGuard'
+import { realPath, touches } from './srtConfig'
 
 type PathCheckReason =
   | 'not-absolute'

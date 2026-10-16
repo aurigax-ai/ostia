@@ -4,7 +4,7 @@ import { request } from 'node:https'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { GatewayTailnetState } from '../../shared/types'
+import type { GatewayTailnetState } from '../../shared/gateway/gatewayApi'
 import type { Tailnet } from './tailnet'
 
 vi.mock('electron', () => ({

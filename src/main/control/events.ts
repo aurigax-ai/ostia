@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import type { ArtifactChangeKind } from '../../shared/artifacts/artifacts'
-import type { WorkspaceLiveState } from '../../shared/types'
+import type { WorkspaceLiveState } from '../../shared/attention/attention'
 import type { Ask, AskResolved } from '../approvals/asks'
 
 interface NotifyEventPayload {

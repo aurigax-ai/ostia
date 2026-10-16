@@ -28,6 +28,7 @@ import type { PortableResult } from '../../shared/artifacts/portable'
 import { PortableBuilder } from './portableBuilder'
 import type { Bundler } from './portableBundle'
 import { PortableExport, registerPortableIpc } from './portableExport'
+import type { PublishedTables } from './portableTables'
 
 const THEME: PreviewTheme = { dark: false, vars: { '--ostia-bg': '#fff' } }
 const DAY = 24 * 60 * 60 * 1000
@@ -42,6 +43,7 @@ interface Rig {
   sandboxed: Set<string>
   builds: () => number
   clock: { now: number }
+  published: Map<string, PublishedTables>
 }
 
 let r: Rig
@@ -56,6 +58,7 @@ function rig(): Rig {
   const saveTo = { path: null as string | null }
   const sandboxed = new Set<string>()
   const clock = { now: Date.UTC(2026, 9, 14, 12) }
+  const published = new Map<string, PublishedTables>()
   let builds = 0
   const builder = new PortableBuilder({
     load: async () => {
@@ -88,6 +91,7 @@ function rig(): Rig {
     downloads: () => base,
     writeClipboard: (text) => clipboard.push(text),
     version: '9.9.9',
+    publishedTables: (_windowId, path) => published.get(path) ?? null,
     now: () => clock.now,
   })
   return {
@@ -98,6 +102,7 @@ function rig(): Rig {
     clipboard,
     saveTo,
     sandboxed,
+    published,
     builds: () => builds,
     clock,
   }
@@ -167,6 +172,37 @@ describe('PortableExport', () => {
     expect(copied).toEqual({ ok: true })
     expect(r.clipboard).toHaveLength(1)
     expect(r.clipboard[0].replace(/"built":"[^"]+"/, '')).toBe(text.replace(/"built":"[^"]+"/, ''))
+  })
+
+  it('copies a viewed file out as the tables its viewer published, never its bytes', async () => {
+    const path = join(r.folder, 'sales.xlsx')
+    writeFileSync(path, Buffer.from('PK\u0003\u0004 workbook bytes OSTIA_SHEET_BYTES'))
+    expect(await r.exporter.run('1', 'copy', { workspaceId: '1:w', path, theme: THEME })).toEqual({
+      ok: false,
+      reason: 'no-tables',
+    })
+    r.published.set(path, 'too-large')
+    expect(await r.exporter.run('1', 'copy', { workspaceId: '1:w', path, theme: THEME })).toEqual({
+      ok: false,
+      reason: 'too-large',
+    })
+    r.published.set(path, {
+      tables: [{ name: 'Sales <Q1>', columns: ['Region'], rows: [['<b>North</b>']] }],
+    })
+    const copied = await r.exporter.run('1', 'copy', {
+      workspaceId: '1:w',
+      path,
+      theme: THEME,
+      document: { body: '<script>renderer</script>', css: '' },
+    })
+    expect(copied).toEqual({ ok: true })
+    const text = r.clipboard[0]
+    expect(text).toContain('Sales &amp;lt;Q1&amp;gt;')
+    expect(text).toContain('&amp;lt;b&amp;gt;North')
+    expect(text).not.toContain('renderer')
+    expect(text).toContain('"type":"tables"')
+    expect(text).toContain('"sources":{}')
+    expect(text).not.toContain('OSTIA_SHEET_BYTES')
   })
 
   it('PRT-C35 is reached only over owner-window IPC', async () => {

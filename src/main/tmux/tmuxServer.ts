@@ -1,20 +1,26 @@
 import { type ChildProcessWithoutNullStreams, type StdioOptions, spawn } from 'node:child_process'
 import { closeSync, lstatSync, mkdirSync, openSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { processAlive } from '../platform/processAlive'
 import { type ControlEvent, ControlModeParser } from './controlMode'
-import { SCREEN_INFO_FORMAT, screenReplay } from './screenReplay'
-import { type NewWindowSpec, newWindowCommand, sendKeysCommands, tmuxQuote } from './tmuxCommand'
+import {
+  META_OPTION,
+  type NewWindowSpec,
+  decodeMeta,
+  encodeMeta,
+  newWindowCommand,
+  tmuxQuote,
+} from './tmuxCommand'
 import { tmuxConf } from './tmuxConf'
+import { LOST_EXIT_CODE, TmuxPane } from './tmuxPane'
 
 const TMUX_SESSION = 'ostia'
 const HOLDER_META = 'holder'
-const META_OPTION = '@ostia-meta'
 const DEAD_SUBSCRIPTION = 'ostia-dead'
 const DEAD_FORMAT = '#{pane_dead}:#{pane_dead_status}:#{pane_dead_signal}'
 const EXIT_POLL_MS = 50
 const EXIT_POLL_TRIES = 40
-const LOST_EXIT_CODE = 1
 const COMMAND_SUBSCRIPTION = 'ostia-cmd'
 const SERVER_ENV_KEYS = ['PATH', 'HOME', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TMPDIR']
 const FIELD_SEPARATOR = '\t'
@@ -69,7 +75,7 @@ async function processGone(pid: number, ms: number): Promise<void> {
   if (pid <= 0) return
   const end = Date.now() + ms
   while (processAlive(pid) && Date.now() < end) {
-    await new Promise((resolve) => setTimeout(resolve, SERVER_EXIT_POLL_MS))
+    await sleep(SERVER_EXIT_POLL_MS)
   }
 }
 const RUN_DRAIN_MS = 200
@@ -125,19 +131,6 @@ function run(tmux: string, args: string[], env: NodeJS.ProcessEnv): Promise<RunR
     })
     child.on('close', () => finish(code === 0))
   }).finally(() => closeSync(devNull))
-}
-
-function encodeMeta(meta: unknown): string {
-  return Buffer.from(JSON.stringify(meta), 'utf8').toString('base64')
-}
-
-function decodeMeta(raw: string): unknown {
-  if (!raw) return null
-  try {
-    return JSON.parse(Buffer.from(raw, 'base64').toString('utf8'))
-  } catch {
-    return null
-  }
 }
 
 export function parseExit(value: string): number | null {
@@ -365,7 +358,7 @@ export class TmuxServer {
 
   private async reapedExit(pane: TmuxPane): Promise<void> {
     for (let tries = 0; tries < EXIT_POLL_TRIES; tries++) {
-      await new Promise((resolve) => setTimeout(resolve, EXIT_POLL_MS))
+      await sleep(EXIT_POLL_MS)
       if (this.closed || pane.hasExited) return
       this.nudgeReaper()
       const lines = await this.command(
@@ -402,156 +395,5 @@ export class TmuxServer {
     for (const pane of [...this.panes.values()]) pane.lost()
     this.panes.clear()
     this.onGone()
-  }
-}
-
-type Listener<T> = (value: T) => void
-
-interface Disposable {
-  dispose(): void
-}
-
-export class TmuxPane {
-  foreground = ''
-  private readonly dataListeners = new Set<Listener<string>>()
-  private readonly exitListeners = new Set<Listener<{ exitCode: number; signal?: number }>>()
-  private exited = false
-  private detached = false
-  private held: string[] | null = null
-  unheard = ''
-
-  constructor(
-    private readonly server: TmuxServer,
-    readonly windowId: string,
-    readonly paneId: string,
-    readonly pid: number,
-    public cols: number,
-    public rows: number,
-  ) {}
-
-  get hasExited(): boolean {
-    return this.exited
-  }
-
-  get process(): string {
-    return this.foreground
-  }
-
-  onData(listener: Listener<string>): Disposable {
-    this.dataListeners.add(listener)
-    const unheard = this.unheard
-    this.unheard = ''
-    if (unheard) listener(unheard)
-    return { dispose: () => this.dataListeners.delete(listener) }
-  }
-
-  onExit(listener: Listener<{ exitCode: number; signal?: number }>): Disposable {
-    this.exitListeners.add(listener)
-    return { dispose: () => this.exitListeners.delete(listener) }
-  }
-
-  write(data: string): void {
-    if (this.exited || this.detached) return
-    for (const line of sendKeysCommands(this.paneId, data)) this.server.send(line)
-  }
-
-  paste(text: string): void {
-    if (this.exited || this.detached) return
-    const buffer = tmuxQuote(`ostia-paste-${this.paneId}`)
-    void this.server
-      .batch([
-        `set-buffer -b ${buffer} -- ${tmuxQuote(text)}`,
-        `paste-buffer -d -p -r -b ${buffer} -t ${this.paneId}`,
-      ])
-      .catch(() => undefined)
-  }
-
-  resize(cols: number, rows: number): void {
-    if (this.exited || this.detached || cols <= 0 || rows <= 0) return
-    if (cols === this.cols && rows === this.rows) return
-    this.cols = cols
-    this.rows = rows
-    this.server.send(`resize-window -t ${this.windowId} -x ${cols} -y ${rows}`)
-  }
-
-  kill(): void {
-    if (this.exited || this.detached) return
-    this.detached = true
-    this.server.forget(this)
-    void this.server.killWindow(this.windowId)
-  }
-
-  detach(): void {
-    this.detached = true
-    this.server.forget(this)
-  }
-
-  setMeta(meta: unknown): void {
-    if (this.exited || this.detached) return
-    this.server.send(`set -w -t ${this.windowId} ${META_OPTION} ${tmuxQuote(encodeMeta(meta))}`)
-  }
-
-  async currentCommand(): Promise<string> {
-    const [command = ''] = await this.server.command(
-      `display-message -p -t ${this.paneId} "#{pane_current_command}"`,
-    )
-    this.foreground = command
-    return command
-  }
-
-  async snapshot(cols: number, rows: number): Promise<string> {
-    this.held = []
-    if (cols > 0 && rows > 0 && (cols !== this.cols || rows !== this.rows)) {
-      this.cols = cols
-      this.rows = rows
-      this.server.send(`resize-window -t ${this.windowId} -x ${cols} -y ${rows}`)
-    }
-    const [[alternate = '0']] = await this.server.batch([
-      `display-message -p -t ${this.paneId} "#{alternate_on}"`,
-    ])
-    const onAlternate = alternate === '1'
-    const lines = [
-      onAlternate
-        ? `capture-pane -p -e -a -t ${this.paneId}`
-        : `capture-pane -p -e -S - -t ${this.paneId}`,
-      ...(onAlternate ? [`capture-pane -p -e -t ${this.paneId}`] : []),
-      `display-message -p -t ${this.paneId} ${tmuxQuote(SCREEN_INFO_FORMAT)}`,
-    ]
-    const replies = await this.server.batch(lines, () => {
-      this.held = []
-    })
-    const info = replies[replies.length - 1]?.join('') ?? ''
-    return screenReplay(info, replies[0] ?? [], onAlternate ? (replies[1] ?? []) : null)
-  }
-
-  live(): void {
-    const held = this.held
-    this.held = null
-    if (held && held.length > 0) this.deliver(held.join(''))
-  }
-
-  deliver(data: string): void {
-    if (this.detached) return
-    if (this.held) {
-      this.held.push(data)
-      return
-    }
-    for (const listener of this.dataListeners) listener(data)
-  }
-
-  died(exitCode: number): void {
-    if (this.exited) return
-    this.exited = true
-    this.server.forget(this)
-    void this.server.killWindow(this.windowId)
-    if (this.detached) return
-    for (const listener of this.exitListeners) listener({ exitCode })
-  }
-
-  lost(): void {
-    if (this.exited) return
-    this.exited = true
-    if (this.detached) return
-    for (const listener of this.exitListeners) listener({ exitCode: LOST_EXIT_CODE })
   }
 }

@@ -9,7 +9,7 @@ import type {
   ExtensionSidebarItem,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { CommandResult } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { registerPaneListMethods } from '../panes/paneList'
 import { ExtensionHost } from './extensionHost'

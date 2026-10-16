@@ -35,7 +35,7 @@ export function RemoteFolderSection({
           aria-label={fmt(d.remoteFolders.collapse, { host: folder.host })}
           onClick={() => setOpen((o) => !o)}
         >
-          <CaretRightIcon size={12} className={`file-twisty${open ? ' open' : ''}`} />
+          <CaretRightIcon size={16} className={`file-twisty${open ? ' open' : ''}`} />
           <Badge variant="outline" className="remote-folder-badge">
             {d.remoteFolders.badge}
           </Badge>

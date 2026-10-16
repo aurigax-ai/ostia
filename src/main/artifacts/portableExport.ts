@@ -1,8 +1,10 @@
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import { mkdirSync, readdirSync, realpathSync, rmSync, statSync } from 'node:fs'
-import { writeFile } from 'node:fs/promises'
-import { basename, dirname, join, sep } from 'node:path'
+import { lstat, writeFile } from 'node:fs/promises'
+import { basename, dirname, join } from 'node:path'
+import type { ViewerPortableTables } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
 import { ipcMain } from 'electron'
+import { escape as escapeHtml } from 'es-toolkit'
 import { type PreviewTheme, normalizePreviewTheme } from '../../shared/artifacts/htmlPreview'
 import {
   PORTABLE_FORMAT,
@@ -19,8 +21,10 @@ import {
   runsScripts,
   wrapPortable,
 } from '../../shared/artifacts/portable'
+import { isInsidePath } from '../platform/pathGuard'
 import type { PortableBuilder } from './portableBuilder'
 import { problemText } from './portableBundle'
+import { type PublishedTables, tablesDocument } from './portableTables'
 import { readRegularFile } from './previewFiles'
 
 const SWEEP_AGE_MS = 24 * 60 * 60 * 1000
@@ -37,14 +41,11 @@ export interface PortableExportDeps {
   downloads: () => string
   writeClipboard: (text: string) => void
   version: string
+  publishedTables: (windowId: string, path: string) => PublishedTables
   now?: () => number
 }
 
 type Made = { ok: true; file: string } | (PortableResult & { ok: false })
-
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
 
 function prettyJson(text: string): string {
   try {
@@ -58,10 +59,6 @@ const IMAGE_CSS =
   'body{display:flex;align-items:center;justify-content:center;min-height:100vh}img{max-width:100%;max-height:100vh}'
 const JSON_CSS =
   'pre{margin:0;padding:16px;font-family:var(--ostia-font-code,ui-monospace,monospace);white-space:pre-wrap;word-break:break-word}'
-
-function sha256(text: string): string {
-  return createHash('sha256').update(text).digest('hex')
-}
 
 function normalizeDocument(value: unknown): PortableDocument | null {
   const raw = value as Partial<PortableDocument> | null
@@ -98,9 +95,13 @@ export class PortableExport {
     if (!this.deps.ownsWorkspace(windowId, request.workspaceId)) {
       return { ok: false, reason: 'not-allowed' }
     }
-    const type = portableType(request.path)
-    const confined = type ? this.deps.confine(request.path) : null
-    if (!type || !confined) return { ok: false, reason: 'not-allowed' }
+    const known = portableType(request.path)
+    const published = known ? null : this.deps.publishedTables(windowId, request.path)
+    if (!known && published === null) return { ok: false, reason: 'no-tables' }
+    if (published === 'too-large') return { ok: false, reason: 'too-large' }
+    const type = known ?? 'tables'
+    const confined = this.deps.confine(request.path)
+    if (!confined) return { ok: false, reason: 'not-allowed' }
     let file: string
     try {
       file = realpathSync(confined)
@@ -110,7 +111,9 @@ export class PortableExport {
     if (runsScripts(type) && this.insideSandbox(file)) {
       return { ok: false, reason: 'sandboxed' }
     }
-    const made = await this.make(file, type, request)
+    const made = published
+      ? await this.tables(file, published, request)
+      : await this.make(file, type, request)
     if (!made.ok) return made
     if (action === 'copy') {
       this.deps.writeClipboard(made.file)
@@ -127,7 +130,7 @@ export class PortableExport {
       } catch {
         real = folder
       }
-      return file === real || file.startsWith(`${real}${sep}`)
+      return isInsidePath(real, file)
     })
   }
 
@@ -149,6 +152,29 @@ export class PortableExport {
     if (!read.ok) return { ok: false, reason: read.status === 413 ? 'too-large' : 'not-allowed' }
     const text = read.body.toString('utf8')
     const page = this.documentFor(type, text, read.body, request.document)
+    return this.wrap(file, type, page, request, { [basename(file)]: text })
+  }
+
+  private async tables(
+    file: string,
+    published: ViewerPortableTables,
+    request: PortableRequest,
+  ): Promise<Made> {
+    const regular = await lstat(file).then(
+      (stat) => stat.isFile(),
+      () => false,
+    )
+    if (!regular) return { ok: false, reason: 'not-allowed' }
+    return this.wrap(file, 'tables', tablesDocument(published), request, {})
+  }
+
+  private wrap(
+    file: string,
+    type: PortableType,
+    page: PortableDocument,
+    request: PortableRequest,
+    sources: Record<string, string>,
+  ): Made {
     const name = basename(file)
     const document = documentPage(name, page.body, page.css, request.theme)
     const manifest: PortableManifest = {
@@ -159,8 +185,8 @@ export class PortableExport {
       ostia: this.deps.version,
       libraries: [],
       theme: request.theme,
-      hash: sha256(document),
-      sources: { [name]: text },
+      hash: hash('sha256', document),
+      sources,
     }
     const wrapped = wrapPortable(document, manifest)
     if (Buffer.byteLength(wrapped) > PORTABLE_LIMITS.fileBytes) {
@@ -189,7 +215,7 @@ export class PortableExport {
   private async open(file: string, text: string): Promise<PortableResult> {
     const dir = this.deps.tmpDir()
     const stem = portableFileName(file).replace(/\.html$/, '')
-    const target = join(dir, `${stem}-${sha256(text).slice(0, 8)}.html`)
+    const target = join(dir, `${stem}-${hash('sha256', text).slice(0, 8)}.html`)
     try {
       mkdirSync(dir, { recursive: true, mode: 0o700 })
       await writeFile(target, text, { mode: 0o600 })

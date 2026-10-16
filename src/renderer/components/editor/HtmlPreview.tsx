@@ -21,7 +21,14 @@ import {
   previewErrorLine,
 } from '@shared/artifacts/htmlPreview'
 import type { SelectionCapture } from '@shared/browser/selection'
-import { type MutableRefObject, useEffect, useRef, useState } from 'react'
+import {
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import {
   type PickedRegion,
   PreviewRegionOverlay,
@@ -35,6 +42,177 @@ const SLEEPS: readonly PreviewStopReason[] = ['hidden', 'limit']
 
 function errorText(blocked: string, error: PreviewError): string {
   return error.kind === 'blocked' ? fmt(blocked, { host: error.message }) : previewErrorLine(error)
+}
+
+function PreviewErrorStrip({
+  errors,
+  expanded,
+  setExpanded,
+  onSendErrors,
+}: {
+  errors: PreviewError[]
+  expanded: boolean
+  setExpanded: Dispatch<SetStateAction<boolean>>
+  onSendErrors?: (count: number, text: string) => void
+}): JSX.Element {
+  const d = useDict()
+  const report = (): string => errors.map((error) => errorText(d.preview.blocked, error)).join('\n')
+  const newest = errors[errors.length - 1]
+
+  return (
+    <>
+      {newest ? (
+        <div className="preview-strip" data-testid="preview-errors">
+          <button
+            type="button"
+            className="preview-strip-toggle"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((open) => !open)}
+          >
+            <CaretRightIcon size={16} className={`file-twisty${expanded ? ' open' : ''}`} />
+            <WarningIcon size={16} aria-hidden />
+            <span className="preview-strip-count">
+              {fmt(errors.length === 1 ? d.preview.oneError : d.preview.errors, {
+                count: errors.length,
+              })}
+            </span>
+            <span className="preview-strip-newest">{errorText(d.preview.blocked, newest)}</span>
+          </button>
+          {onSendErrors ? (
+            <ButtonGroup aria-label={d.preview.errorActions}>
+              <Button
+                variant="outline"
+                size="xs"
+                onClick={() => onSendErrors(errors.length, report())}
+              >
+                {d.preview.sendError}
+              </Button>
+              <ButtonGroupSeparator />
+              <DropdownMenu
+                trigger={
+                  <Button variant="outline" size="icon-xs" aria-label={d.preview.errorActions}>
+                    <CaretDownIcon aria-hidden />
+                  </Button>
+                }
+              >
+                <MenuItem onClick={() => void navigator.clipboard.writeText(report())}>
+                  {d.preview.copyErrors}
+                </MenuItem>
+              </DropdownMenu>
+            </ButtonGroup>
+          ) : (
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={() => void navigator.clipboard.writeText(report())}
+            >
+              {d.preview.copyErrors}
+            </Button>
+          )}
+        </div>
+      ) : null}
+      {newest && expanded ? (
+        <ol className="preview-error-list" data-testid="preview-error-list">
+          {errors.map((error, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: errors are append-only text lines without ids
+            <li key={index}>{errorText(d.preview.blocked, error)}</li>
+          ))}
+        </ol>
+      ) : null}
+    </>
+  )
+}
+
+function PreviewBars({
+  workspaceId,
+  opened,
+  vitals,
+  link,
+  setLink,
+  stop,
+}: {
+  workspaceId: string
+  opened: PreviewOpened | null
+  vitals: { responding: boolean; busy: boolean }
+  link: string | null
+  setLink: Dispatch<SetStateAction<string | null>>
+  stop: () => void
+}): JSX.Element {
+  const d = useDict()
+  return (
+    <>
+      {opened && !vitals.responding ? (
+        <Alert className={cn(ATTENTION_ALERT, 'preview-bar')} data-testid="preview-not-responding">
+          <span className="min-w-0 flex-1">{d.preview.notResponding}</span>
+          <Button variant="outline" size="xs" onClick={stop}>
+            {d.preview.stop}
+          </Button>
+        </Alert>
+      ) : null}
+      {opened && vitals.responding && vitals.busy ? (
+        <Alert className={cn(ATTENTION_ALERT, 'preview-bar')} data-testid="preview-busy">
+          <span className="min-w-0 flex-1">{d.preview.busy}</span>
+          <Button variant="outline" size="xs" onClick={stop}>
+            {d.preview.stop}
+          </Button>
+        </Alert>
+      ) : null}
+      {link ? (
+        <Alert className={cn(ATTENTION_ALERT, 'preview-bar')} data-testid="preview-link">
+          <span className="preview-link-url min-w-0 flex-1">{link}</span>
+          {isWebLink(link) ? (
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={() => {
+                openBrowserAs(workspaceId, link, 'agent')
+                setLink(null)
+              }}
+            >
+              {d.preview.openInBrowser}
+            </Button>
+          ) : null}
+          <IconButton icon={XIcon} label={d.preview.dismiss} onClick={() => setLink(null)} />
+        </Alert>
+      ) : null}
+    </>
+  )
+}
+
+function usePreviewRegion({
+  opened,
+  filePath,
+  onSendRegion,
+}: {
+  opened: PreviewOpened | null
+  filePath: string
+  onSendRegion?: (capture: SelectionCapture, image: Uint8Array) => void
+}) {
+  const [picking, setPicking] = useState<RegionAction | null>(null)
+  const region = async (picked: PickedRegion | null): Promise<void> => {
+    const action = picking
+    setPicking(null)
+    if (!picked || !opened || !action) return
+    if (action === 'copy') {
+      await window.ostia.preview.copyRegion(opened.id, picked.region)
+      return
+    }
+    const captured = await window.ostia.preview.capture(opened.id, picked.region)
+    if (!captured || !onSendRegion) return
+    onSendRegion(
+      {
+        kind: 'preview-region',
+        file: filePath,
+        viewWidth: picked.viewWidth,
+        viewHeight: picked.viewHeight,
+        region: captured.region,
+        version: null,
+      },
+      captured.image,
+    )
+  }
+
+  return { picking, setPicking, region }
 }
 
 export function HtmlPreview({
@@ -61,7 +239,7 @@ export function HtmlPreview({
   const [expanded, setExpanded] = useState(false)
   const [vitals, setVitals] = useState({ responding: true, busy: false })
   const [link, setLink] = useState<string | null>(null)
-  const [picking, setPicking] = useState<RegionAction | null>(null)
+  const { picking, setPicking, region } = usePreviewRegion({ opened, filePath, onSendRegion })
   const [webview, setWebview] = useState<HTMLElement | null>(null)
   const readyWebview = useGuestReady(webview)
   useEffect(() => {
@@ -145,125 +323,23 @@ export function HtmlPreview({
     setExpanded(false)
     setStopped(null)
   }
-  const region = async (picked: PickedRegion | null): Promise<void> => {
-    const action = picking
-    setPicking(null)
-    if (!picked || !opened || !action) return
-    if (action === 'copy') {
-      await window.ostia.preview.copyRegion(opened.id, picked.region)
-      return
-    }
-    const captured = await window.ostia.preview.capture(opened.id, picked.region)
-    if (!captured || !onSendRegion) return
-    onSendRegion(
-      {
-        kind: 'preview-region',
-        file: filePath,
-        viewWidth: picked.viewWidth,
-        viewHeight: picked.viewHeight,
-        region: captured.region,
-        version: null,
-      },
-      captured.image,
-    )
-  }
-  const report = (): string => errors.map((error) => errorText(d.preview.blocked, error)).join('\n')
-  const newest = errors[errors.length - 1]
 
   return (
     <div className="html-preview" data-testid="html-preview" data-live={opened ? 'true' : 'false'}>
-      {newest ? (
-        <div className="preview-strip" data-testid="preview-errors">
-          <button
-            type="button"
-            className="preview-strip-toggle"
-            aria-expanded={expanded}
-            onClick={() => setExpanded((open) => !open)}
-          >
-            <CaretRightIcon size={12} className={`file-twisty${expanded ? ' open' : ''}`} />
-            <WarningIcon size={14} aria-hidden />
-            <span className="preview-strip-count">
-              {fmt(errors.length === 1 ? d.preview.oneError : d.preview.errors, {
-                count: errors.length,
-              })}
-            </span>
-            <span className="preview-strip-newest">{errorText(d.preview.blocked, newest)}</span>
-          </button>
-          {onSendErrors ? (
-            <ButtonGroup aria-label={d.preview.errorActions}>
-              <Button
-                variant="outline"
-                size="xs"
-                onClick={() => onSendErrors(errors.length, report())}
-              >
-                {d.preview.sendError}
-              </Button>
-              <ButtonGroupSeparator />
-              <DropdownMenu
-                trigger={
-                  <Button variant="outline" size="icon-xs" aria-label={d.preview.errorActions}>
-                    <CaretDownIcon aria-hidden />
-                  </Button>
-                }
-              >
-                <MenuItem onClick={() => void navigator.clipboard.writeText(report())}>
-                  {d.preview.copyErrors}
-                </MenuItem>
-              </DropdownMenu>
-            </ButtonGroup>
-          ) : (
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => void navigator.clipboard.writeText(report())}
-            >
-              {d.preview.copyErrors}
-            </Button>
-          )}
-        </div>
-      ) : null}
-      {newest && expanded ? (
-        <ol className="preview-error-list" data-testid="preview-error-list">
-          {errors.map((error, index) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: errors are append-only text lines without ids
-            <li key={index}>{errorText(d.preview.blocked, error)}</li>
-          ))}
-        </ol>
-      ) : null}
-      {opened && !vitals.responding ? (
-        <Alert className={cn(ATTENTION_ALERT, 'preview-bar')} data-testid="preview-not-responding">
-          <span className="min-w-0 flex-1">{d.preview.notResponding}</span>
-          <Button variant="outline" size="xs" onClick={stop}>
-            {d.preview.stop}
-          </Button>
-        </Alert>
-      ) : null}
-      {opened && vitals.responding && vitals.busy ? (
-        <Alert className={cn(ATTENTION_ALERT, 'preview-bar')} data-testid="preview-busy">
-          <span className="min-w-0 flex-1">{d.preview.busy}</span>
-          <Button variant="outline" size="xs" onClick={stop}>
-            {d.preview.stop}
-          </Button>
-        </Alert>
-      ) : null}
-      {link ? (
-        <Alert className={cn(ATTENTION_ALERT, 'preview-bar')} data-testid="preview-link">
-          <span className="preview-link-url min-w-0 flex-1">{link}</span>
-          {isWebLink(link) ? (
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => {
-                openBrowserAs(workspaceId, link, 'agent')
-                setLink(null)
-              }}
-            >
-              {d.preview.openInBrowser}
-            </Button>
-          ) : null}
-          <IconButton icon={XIcon} label={d.preview.dismiss} onClick={() => setLink(null)} />
-        </Alert>
-      ) : null}
+      <PreviewErrorStrip
+        errors={errors}
+        expanded={expanded}
+        setExpanded={setExpanded}
+        onSendErrors={onSendErrors}
+      />
+      <PreviewBars
+        workspaceId={workspaceId}
+        opened={opened}
+        vitals={vitals}
+        link={link}
+        setLink={setLink}
+        stop={stop}
+      />
       {stopped ? (
         <div className="preview-stopped" data-testid="preview-stopped">
           <span>{d.preview.stopped[stopped]}</span>

@@ -1,41 +1,19 @@
 import { commands } from '@/commands/registry'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription } from '@/components/ui/empty'
-import { useReducedMotion } from '@/lib/app/motion'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
-import { panelFontFaces } from '@/lib/theme/panelFontFaces'
-import { panelThemeCss } from '@/lib/theme/panelTheme'
-import { themedTokens, useEffectiveTheme } from '@/lib/theme/theme'
+import { useInjectedCss, usePanelThemeCss } from '@/lib/theme/panelThemeInjection'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type {
   ExtensionPanelContext,
   ExtensionPanelSource,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import { GIT_SOURCE } from '@aurigax-ai/ostia-extension-sdk/manifest/coreNames'
-import type { WebviewTag } from 'electron'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 const EXTENSION_PARTITION_PREFIX = 'ostia-ext-'
-
-function useThemeCss(): string {
-  const activeTheme = useEffectiveTheme()
-  const accent = useSettingsStore((s) => s.appearance.accent)
-  const ui = useSettingsStore((s) => s.appearance.ui)
-  const code = useSettingsStore((s) => s.appearance.editor.family)
-  const reducedMotion = useReducedMotion()
-  return useMemo(
-    () =>
-      `${panelFontFaces([ui.family, code])}\n${panelThemeCss(
-        activeTheme ? themedTokens(activeTheme, accent) : {},
-        { ui: ui.family, code, size: ui.size, weight: ui.weight },
-        activeTheme?.appearance ?? 'dark',
-        reducedMotion,
-      )}`,
-    [activeTheme, accent, ui, code, reducedMotion],
-  )
-}
 
 export function ExtensionPanelView({
   extId,
@@ -52,7 +30,7 @@ export function ExtensionPanelView({
   const enabled = info?.enabled ?? false
   const hasPanel = Boolean(info?.panel)
   const locale = useSettingsStore((s) => s.locale)
-  const themeCss = useThemeCss()
+  const themeCss = usePanelThemeCss()
   const [source, setSource] = useState<ExtensionPanelSource | null>(null)
   const [webview, setWebview] = useState<HTMLElement | null>(null)
   const readyWebview = useGuestReady(webview)
@@ -89,23 +67,7 @@ export function ExtensionPanelView({
     }
   }, [enabled, hasPanel, resolve])
 
-  const insertedCss = useRef<string | null>(null)
-  const applyTheme = useCallback(() => {
-    const wv = webview as unknown as WebviewTag | null
-    if (!wv) return
-    try {
-      const previous = insertedCss.current
-      insertedCss.current = null
-      if (previous) wv.removeInsertedCSS(previous).catch(() => undefined)
-      wv.insertCSS(themeCss)
-        .then((key) => {
-          insertedCss.current = key
-        })
-        .catch(() => undefined)
-    } catch {}
-  }, [webview, themeCss])
-
-  useEffect(() => applyTheme(), [applyTheme])
+  useInjectedCss(webview, themeCss)
 
   useEffect(() => {
     const el = webview
@@ -116,13 +78,9 @@ export function ExtensionPanelView({
         setSource({ ok: false, error: d.extensions.panelUnreachable })
       }
     }
-    el.addEventListener('dom-ready', applyTheme)
     el.addEventListener('did-fail-load', onFail)
-    return () => {
-      el.removeEventListener('dom-ready', applyTheme)
-      el.removeEventListener('did-fail-load', onFail)
-    }
-  }, [webview, applyTheme, d])
+    return () => el.removeEventListener('did-fail-load', onFail)
+  }, [webview, d])
 
   if (!info) {
     return (

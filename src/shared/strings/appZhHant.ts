@@ -165,6 +165,7 @@ export const appZhHant: typeof appEn = {
     notBuilt: '檔案無法建置：{message}',
     notRestored: '未還原：{files}',
     open: '在瀏覽器中開啟',
+    openFirst: '先在檢視器中開啟這個檔案，才能製作它的可攜副本。',
     restore: '還原',
     restoreBody: '要還原 {time} 的版本嗎？目前的檔案會先保留為一個版本。',
     restoreTitle: '還原此版本？',

@@ -7,8 +7,10 @@ import { languagesFrom } from '@/lib/extensions/languagePacks'
 import { LINE_SEARCH_DELAY_MS } from '@/lib/files/workspaceFileSearch'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
+import { useAssistStore } from '@/stores/assist/assistStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
+import { newTerminalPane } from '@/stores/workspaces/layoutSeed'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -669,6 +671,7 @@ describe('CommandPalette', () => {
       category: 'other',
       languages: [],
       languageServers: [],
+      fileViewers: [],
       agentSkills: [],
       agentHooks: [],
       iconThemes: [],
@@ -1324,6 +1327,28 @@ describe('CommandPalette', () => {
       expect(outside).not.toHaveBeenCalled()
     })
 
+    it('closes on the palette chord from Ask, and the chord never reaches the window', async () => {
+      seed()
+      const outside = keysOutside()
+      useAssistStore.setState({
+        availability: {
+          chat: {
+            extId: 'assistant',
+            name: 'Assistant',
+            label: 'model-runtime · gemma',
+            ref: { extId: 'assistant' },
+          },
+        },
+      })
+      onTestFinished(() => useAssistStore.setState({ availability: {} }))
+      render(<CommandPalette />)
+      act(() => useUIStore.getState().openPalette('ask'))
+      const question = await screen.findByRole('combobox', { name: 'Your question' })
+      fireEvent.keyDown(question, PALETTE_TOGGLE_KEY)
+      expect(useUIStore.getState().paletteOpen).toBe(false)
+      expect(outside).not.toHaveBeenCalled()
+    })
+
     it('closes on the palette chord from a command’s value step', async () => {
       seed()
       const outside = keysOutside()
@@ -1423,6 +1448,26 @@ describe('CommandPalette', () => {
       await closedByEscape('a command’s value step')
     })
 
+    it('keeps the repeats of a held Escape from the window once it closed the palette, and lets the next press through', async () => {
+      const outside = vi.fn()
+      window.addEventListener('keydown', outside)
+      onTestFinished(() => window.removeEventListener('keydown', outside))
+      render(<CommandPalette />)
+      act(() => useUIStore.getState().openPalette('search'))
+      fireEvent.keyDown(await screen.findByRole('combobox'), { key: 'Escape', code: 'Escape' })
+      expect(useUIStore.getState().paletteOpen).toBe(false)
+      await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull())
+
+      outside.mockClear()
+      fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape', repeat: true })
+      fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape', repeat: true })
+      expect(outside).not.toHaveBeenCalled()
+
+      fireEvent.keyUp(document.body, { key: 'Escape', code: 'Escape' })
+      fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape' })
+      expect(outside).toHaveBeenCalledTimes(1)
+    })
+
     it.each(['search', 'everywhere'] as const)(
       'Escape while an input method is composing in the %s palette closes it, and the next Escape in a reopened palette closes it too',
       async (mode) => {
@@ -1441,5 +1486,54 @@ describe('CommandPalette', () => {
         await closedByEscape(`${mode}, reopened`)
       },
     )
+  })
+
+  describe('focus after closing', () => {
+    let terminal: HTMLTextAreaElement
+
+    beforeEach(() => {
+      terminal = document.createElement('textarea')
+      document.body.append(terminal)
+      onTestFinished(() => terminal.remove())
+      terminal.focus()
+      const first = newTerminalPane()
+      const second = newTerminalPane()
+      useWorkspacesStore.setState({ activeWorkspaceId: 'w' })
+      const layout = (pane: typeof first) => ({
+        byWorkspace: { w: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+      })
+      useLayoutStore.setState(layout(first))
+      onTestFinished(() => useLayoutStore.setState(layout(second)))
+    })
+
+    const switchPane = (): void => {
+      const pane = newTerminalPane()
+      useLayoutStore.setState({
+        byWorkspace: { w: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+      })
+    }
+
+    const closers: [string, () => Promise<void> | void][] = [
+      ['Escape', () => userEvent.keyboard('{Escape}')],
+      ['the palette chord', () => act(() => useUIStore.getState().togglePalette())],
+    ]
+
+    it.each(closers)('%s returns focus when the keyboard pane is unchanged', async (_, close) => {
+      render(<CommandPalette />)
+      act(() => useUIStore.getState().openPalette())
+      await screen.findByRole('combobox')
+      await close()
+      await waitFor(() => expect(terminal).toHaveFocus())
+    })
+
+    it.each(closers)('%s leaves focus alone when the keyboard pane changed', async (_, close) => {
+      render(<CommandPalette />)
+      act(() => useUIStore.getState().openPalette())
+      await screen.findByRole('combobox')
+      act(switchPane)
+      await close()
+      await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull())
+      expect(terminal).not.toHaveFocus()
+    })
   })
 })

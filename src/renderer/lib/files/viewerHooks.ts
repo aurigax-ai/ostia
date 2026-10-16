@@ -8,7 +8,7 @@ import {
   toContentPoint,
 } from '@/lib/browser/regionSelect'
 import type { Region } from '@shared/browser/selection'
-import type { FsBinaryResult } from '@shared/types'
+import type { FsBinaryResult } from '@shared/files/filesApi'
 import {
   type PointerEvent as ReactPointerEvent,
   type RefObject,

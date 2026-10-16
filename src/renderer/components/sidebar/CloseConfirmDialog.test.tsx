@@ -12,7 +12,7 @@ import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore
 import { useCloseConfirmStore } from '@/stores/workspaces/closeConfirmStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { QuitAnswer } from '@shared/types'
+import type { QuitAnswer } from '@shared/windows/windowsApi'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'

@@ -1,6 +1,6 @@
 import { isResumableAgent } from '../../shared/agents/agentResume'
+import type { AttentionState } from '../../shared/attention/attention'
 import type {
-  AttentionState,
   OriginAgentTarget,
   OriginAgents,
   OriginReferenceRequest,
@@ -10,7 +10,7 @@ import type {
   WindowPaneSummary,
   WindowWorkspaceReport,
   WindowWorkspaceSummary,
-} from '../../shared/types'
+} from '../../shared/windows/windowsApi'
 import { crossesSandbox } from '../windows/windowBook'
 
 export const REFERENCE_TEXT_MAX = 64 * 1024

@@ -1,5 +1,6 @@
 import type { BrowserProfile } from '@shared/browser/browserProfile'
-import type { OstiaBridge, SyncStatus } from '@shared/types'
+import type { SyncStatus } from '@shared/profileSync/profileSync'
+import type { OstiaBridge } from '@shared/types'
 import { vi } from 'vitest'
 
 const SYNC_OFF: SyncStatus = {
@@ -84,6 +85,11 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     },
     search: {
       run: vi.fn().mockResolvedValue({ ok: false, error: 'failed', message: '' }),
+    },
+    viewers: {
+      open: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-viewer' }),
+      close: vi.fn(),
+      onStopped: vi.fn(() => () => {}),
     },
     fs: {
       list: vi.fn().mockResolvedValue([]),

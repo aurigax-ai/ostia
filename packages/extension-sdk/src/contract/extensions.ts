@@ -6,6 +6,8 @@ import type {
 import type { AssistPoint } from './assist'
 import type { Capability } from './capabilities'
 import type { EditorLanguageContribution } from './editorLanguages'
+import type { ExtensionConnectionKind } from './extensionConnections'
+import type { FileViewerContribution, FileViewerInfo } from './fileViewers'
 import type { IconThemeContribution, IconThemeInfo } from './iconTheme'
 import { isRecord } from './isRecord'
 import type { KeymapContribution, KeymapInfo } from './keymap'
@@ -136,72 +138,6 @@ export interface ExtensionSecretContribution {
 
 export const EXTENSION_SECRET_MAX = 4096
 
-export const EXTENSION_CONNECTION_FIELD_TYPES = ['string', 'enum'] as const
-
-export type ExtensionConnectionFieldType = (typeof EXTENSION_CONNECTION_FIELD_TYPES)[number]
-
-export interface ExtensionConnectionField {
-  key: string
-  title: string
-  description?: string
-  type: ExtensionConnectionFieldType
-  enum?: string[]
-  default?: string
-  required?: boolean
-}
-
-export interface ExtensionConnectionSecret {
-  key: string
-  title: string
-  description?: string
-}
-
-export interface ExtensionConnectionKind {
-  kind: string
-  title: string
-  description?: string
-  fields: ExtensionConnectionField[]
-  secrets: ExtensionConnectionSecret[]
-}
-
-export const EXTENSION_CONNECTION_NAME_PATTERN = /^[a-z][a-z0-9-]{0,39}$/
-export const EXTENSION_CONNECTION_KIND_PATTERN = /^[a-z][a-z0-9-]{0,39}$/
-export const EXTENSION_CONNECTIONS_MAX = 32
-export const EXTENSION_CONNECTION_KINDS_MAX = 8
-export const EXTENSION_CONNECTION_FIELDS_MAX = 8
-export const EXTENSION_CONNECTION_SECRETS_MAX = 4
-export const EXTENSION_CONNECTION_VALUE_MAX = 2048
-
-export interface ExtensionConnectionEntry {
-  name: string
-  kind: string
-  fields: Record<string, string>
-  secretsSet: string[]
-}
-
-export interface ExtensionConnectionSave {
-  name: string
-  kind: string
-  fields: Record<string, string>
-  secrets?: Record<string, string | null>
-}
-
-export type ExtensionConnectionResult = { ok: true } | { ok: false; error: string }
-
-export interface ConnectionInfo {
-  name: string
-  kind: string
-}
-
-export interface ConnectionValue {
-  name: string
-  kind: string
-  fields: Record<string, string>
-  secrets: Record<string, string>
-}
-
-export const CONNECTIONS_CHANGED_EVENT = 'connections.changed'
-
 export const EXTENSION_CATEGORIES = [
   'ai',
   'scm',
@@ -243,6 +179,7 @@ export interface ExtensionManifest {
     keymaps?: KeymapContribution[]
     languageServers?: LanguageServerContribution[]
     editorLanguages?: EditorLanguageContribution[]
+    fileViewers?: FileViewerContribution[]
     agentSkills?: AgentSkillContribution[]
     agentHooks?: AgentHookContribution[]
     verb?: string
@@ -285,6 +222,7 @@ export interface ExtensionInfo {
   languages: LanguageInfo[]
   keymaps: KeymapInfo[]
   languageServers: LanguageServerSummary[]
+  fileViewers: FileViewerInfo[]
   agentSkills: string[]
   agentHooks: AgentHookSummary[]
 }
@@ -468,31 +406,9 @@ export type ExtensionResult =
   | { ok: true; text?: string; data?: unknown }
   | { ok: false; error: string; message?: string; data?: unknown }
 
-export type ExtensionPanelSource = { ok: true; src: string } | { ok: false; error: string }
-
-export interface ExtensionOpenPanelRequest {
-  extId: string
-  workspaceId?: string
-  path?: string
-}
-
-export interface ExtensionPanelContext {
-  workspaceId: string
-  locale: string
-  path?: string
-}
-
-export type ExtensionSettingResult =
-  | { ok: true; stored: ExtensionSettingValues; list: ExtensionInfo[] }
-  | { ok: false; error: string }
-
-export type ExtensionSecretResult =
-  | { ok: true; list: ExtensionInfo[] }
-  | { ok: false; error: string }
-export interface ExtensionSettingsStored {
-  extId: string
-  stored: ExtensionSettingValues
-}
+export type WireRuntimeResult =
+  | { ok: true; socket: string; token: string; started: boolean; mode: string; version: string }
+  | { ok: false; error: string; contract?: number; version?: string; message?: string }
 
 export const DIFF_TEXT_MAX = 5 * 1024 * 1024
 
@@ -502,19 +418,6 @@ export interface DiffContent {
   modified: string
   language?: string
   path?: string
-}
-
-export interface ExtensionOpenDiffRequest extends DiffContent {
-  extId: string
-  workspaceId?: string
-}
-
-export interface ExtensionOpenFileRequest {
-  extId: string
-  workspaceId: string
-  path: string
-  line?: number
-  column?: number
 }
 
 export const TERMINAL_COMMAND_MAX_ARGS = 64
@@ -574,60 +477,3 @@ export const EXEC_ENV_VALUE_MAX = 4096
 export const BUS_SEND_TEXT_MAX = 16_000
 export const WAKE_WAIT_MAX_MS = 120_000
 export const EXTENSION_VERB_PATTERN = /^[a-z][a-z0-9-]{1,19}$/
-
-export interface ExtensionAgentOffer {
-  requestId: string
-  extId: string
-  extName: string
-  workspaceId: string
-  label: string
-  text: string
-}
-
-export interface ExtensionOpenTerminalRequest {
-  requestId: string
-  command: string
-  hostToken?: string
-  workspaceId?: string
-  afterPaneId?: string
-  cwd?: string
-  title?: string
-  backgroundTab?: boolean
-  pinTitle?: boolean
-}
-
-export interface ExtensionsApi {
-  list: () => Promise<ExtensionInfo[]>
-  setEnabled: (extId: string, enabled: boolean) => Promise<ExtensionInfo[]>
-  approve: (extId: string) => Promise<ExtensionInfo[]>
-  invoke: (
-    extId: string,
-    command: string,
-    target: { workspaceId: string | null; paneId: string | null },
-    argument?: string,
-  ) => Promise<ExtensionResult>
-  panel: (extId: string, context: ExtensionPanelContext) => Promise<ExtensionPanelSource>
-  sidebarItems: () => Promise<ExtensionSidebarItem[]>
-  paneChips: () => Promise<PaneChip[]>
-  workspaceChips: () => Promise<WorkspaceChip[]>
-  setSetting: (extId: string, key: string, value: unknown) => Promise<ExtensionSettingResult>
-  setSecret: (extId: string, key: string, value: string | null) => Promise<ExtensionSecretResult>
-  connections: (extId: string) => Promise<ExtensionConnectionEntry[]>
-  saveConnection: (
-    extId: string,
-    connection: ExtensionConnectionSave,
-  ) => Promise<ExtensionConnectionResult>
-  removeConnection: (extId: string, name: string) => Promise<ExtensionConnectionResult>
-  onChanged: (cb: (list: ExtensionInfo[]) => void) => () => void
-  onSidebar: (cb: (items: ExtensionSidebarItem[]) => void) => () => void
-  onPaneChips: (cb: (chips: PaneChip[]) => void) => () => void
-  onWorkspaceChips: (cb: (chips: WorkspaceChip[]) => void) => () => void
-  onSettingsStored: (cb: (update: ExtensionSettingsStored) => void) => () => void
-  onOpenPanel: (cb: (req: ExtensionOpenPanelRequest) => void) => () => void
-  onOpenDiff: (cb: (req: ExtensionOpenDiffRequest) => void) => () => void
-  onOpenTerminal: (cb: (req: ExtensionOpenTerminalRequest) => string | null) => () => void
-  onAgentOffer: (cb: (offer: ExtensionAgentOffer) => void) => () => void
-  onAgentOfferWithdrawn: (cb: (requestId: string) => void) => () => void
-  answerAgentOffer: (requestId: string, paneId: string | null) => void
-  onFocusPane: (cb: (paneId: string) => void) => () => void
-}

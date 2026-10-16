@@ -1,6 +1,7 @@
 import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { isResumableAgent } from '../../shared/agents/agentResume'
-import type { CommandResult, CommandTarget, TerminalStateSnapshot } from '../../shared/types'
+import type { CommandResult, CommandTarget } from '../../shared/control/commands'
+import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { Reach } from '../approvals/reach'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import { getByPaneId } from '../control/idRegistry'

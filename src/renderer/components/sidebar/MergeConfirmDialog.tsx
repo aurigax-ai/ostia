@@ -56,7 +56,7 @@ export function MergeConfirmDialog(): JSX.Element {
             <ul className="flex flex-col gap-1">
               {summary.running.map((r) => (
                 <li key={r.paneId} className="flex min-w-0 items-center gap-2 text-fg-muted">
-                  <TerminalWindowIcon size={14} className="shrink-0" aria-hidden />
+                  <TerminalWindowIcon size={16} className="shrink-0" aria-hidden />
                   <span className="truncate font-mono text-fg text-ui-sm">
                     {fmt(d.merge.keepsRunning, {
                       title: r.title,

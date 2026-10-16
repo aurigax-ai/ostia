@@ -18,10 +18,11 @@ import {
   type SandboxViolation,
   type WorkspaceSandbox,
 } from '../../shared/sandbox/sandbox'
+import { SandboxUnavailableError } from './sandboxHosts'
 import { sandboxFailureBanner } from './spawnBanner'
 import { SandboxStore } from './store'
 import { ViolationLog, recordViolations } from './violations'
-import { SandboxUnavailableError, WorkspaceSandboxes } from './workspaceSandboxes'
+import { WorkspaceSandboxes } from './workspaceSandboxes'
 
 const repoRoot = process.cwd()
 const hostScript = join(repoRoot, 'node_modules/.cache/ostia-test/sandbox-host-limits.mjs')
@@ -130,7 +131,7 @@ describe.skipIf(!seatbeltOrBwrap)(
       const out = await run(
         `echo built > ${home}/builds/out.txt && echo WRITE-OK; echo x > ${home}/notes/new.txt; ls ${home}/builds`,
       )
-      sandboxes.stopAll()
+      sandboxes.hosts.stopAll()
       expect(out).toContain('WRITE-OK')
       expect(readFileSync(join(home, 'builds/out.txt'), 'utf8')).toBe('built\n')
       expect(existsSync(join(home, 'notes/new.txt'))).toBe(false)
@@ -144,7 +145,7 @@ describe.skipIf(!seatbeltOrBwrap)(
       const out = await run(
         `cat ${home}/.cargo/bin/tool; echo; cat ${home}/.cargo/credentials.toml; cat ${home}/.cargo/credentials; echo CARGO-DONE`,
       )
-      sandboxes.stopAll()
+      sandboxes.hosts.stopAll()
       expect(out).toContain('CARGO-TOOL')
       expect(out).toContain('CARGO-DONE')
       expect(out).not.toContain('CRATES-TOKEN')
@@ -159,7 +160,7 @@ describe.skipIf(!seatbeltOrBwrap)(
       const out = await run(
         `echo x > ${home}/builds/release/v1 || echo RELEASE-READ-ONLY; echo y > ${home}/builds/dev && echo DEV-OK`,
       )
-      sandboxes.stopAll()
+      sandboxes.hosts.stopAll()
       expect(out).toContain('RELEASE-READ-ONLY')
       expect(out).toContain('DEV-OK')
       expect(existsSync(join(home, 'builds/release/v1'))).toBe(false)
@@ -173,7 +174,7 @@ describe.skipIf(!seatbeltOrBwrap)(
       const out = await run(
         `cat ${home}/notes/readme.txt; cat ${home}/notes/private/key.txt || echo KEY-HIDDEN; cat ${workDir}/secrets/token.txt || echo TOKEN-HIDDEN`,
       )
-      sandboxes.stopAll()
+      sandboxes.hosts.stopAll()
       expect(out).toContain('NOTES-README')
       expect(out).toContain('KEY-HIDDEN')
       expect(out).toContain('TOKEN-HIDDEN')
@@ -187,7 +188,7 @@ describe.skipIf(!seatbeltOrBwrap)(
         denyRead: ['~/notes'],
       })
       const out = await run(`cat ${home}/notes/readme.txt || echo NOTES-HIDDEN`)
-      sandboxes.stopAll()
+      sandboxes.hosts.stopAll()
       expect(out).toContain('NOTES-HIDDEN')
       expect(out).not.toContain('NOTES-README')
     }, 60_000)
@@ -197,7 +198,7 @@ describe.skipIf(!seatbeltOrBwrap)(
       const out = await run(
         `cat ${dataDir}/vault.json || echo VAULT-HIDDEN; echo x > ${dataDir}/planted || echo PLANT-REFUSED`,
       )
-      sandboxes.stopAll()
+      sandboxes.hosts.stopAll()
       expect(out).toContain('VAULT-HIDDEN')
       expect(out).not.toContain('VAULT-CONTENTS')
       expect(existsSync(join(dataDir, 'planted'))).toBe(false)
@@ -212,14 +213,14 @@ describe.skipIf(!linux)('sandbox Unix sockets in a real sandbox (Linux only: sec
   it('lets a sandboxed command open a Unix socket by default', async () => {
     const { sandboxes, run } = start('sockets-on', {})
     const out = await run(OPEN_SOCKET)
-    sandboxes.stopAll()
+    sandboxes.hosts.stopAll()
     expect(out).toContain('UNIX-SOCKET-OPENED')
   }, 60_000)
 
   it('blocks every Unix socket once the human turns them off, and the command still runs', async () => {
     const { sandboxes, run } = start('sockets-off', { switches: { unixSockets: false } })
     const out = await run(`${OPEN_SOCKET}; echo STILL-RUNNING`)
-    sandboxes.stopAll()
+    sandboxes.hosts.stopAll()
     expect(out).not.toContain('UNIX-SOCKET-OPENED')
     expect(out).toContain('Operation not permitted')
     expect(out).toContain('STILL-RUNNING')
@@ -238,7 +239,7 @@ describe.skipIf(!linux)(
         'curl -s -m 5 -o /dev/null http://unlisted.invalid/; curl -s -m 5 -o /dev/null http://blocked.invalid/',
       )
       const list = await violations((v) => v.target === 'blocked.invalid:80')
-      sandboxes.stopAll()
+      sandboxes.hosts.stopAll()
       expect(list).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -267,7 +268,7 @@ describe.skipIf(!linux)(
         `echo ok > ${home}/builds/fine.txt; echo q > /dev/null; echo r > ${home}/builds/release/v2; echo x > /etc/ostia-violation-probe; true`,
       )
       const list = await violations((v) => v.target === '/etc/ostia-violation-probe')
-      sandboxes.stopAll()
+      sandboxes.hosts.stopAll()
       expect(list).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -296,10 +297,10 @@ describe.skipIf(!linux)(
       })
       await run('true')
       sandboxes.update('ws', (current) => ({ ...current, allowWrite: ['~/builds'] }))
-      await sandboxes.refresh('ws')
+      await sandboxes.hosts.refresh('ws')
       await run(`echo late > ${home}/builds/late.txt; echo x > /etc/ostia-late-probe; true`)
       const list = await violations((v) => v.target === '/etc/ostia-late-probe')
-      sandboxes.stopAll()
+      sandboxes.hosts.stopAll()
       expect(store.get('ws').allowWrite).toEqual(['~/builds'])
       expect(readFileSync(join(home, 'builds/late.txt'), 'utf8')).toBe('late\n')
       expect(list.some((v) => v.target === '/etc/ostia-late-probe')).toBe(true)
@@ -312,7 +313,7 @@ describe('a workspace folder the sandbox cannot confine', () => {
   it('refuses to wrap a command for a workspace at the home folder and says why in the banner', async () => {
     const { sandboxes } = start('home-folder', {}, home)
     const failure = await sandboxes.wrap('ws', 'bash', 'bash').catch((err: unknown) => err)
-    sandboxes.stopAll()
+    sandboxes.hosts.stopAll()
     expect(failure).toBeInstanceOf(SandboxUnavailableError)
     const banner = sandboxFailureBanner((failure as Error).message, [])
     expect(banner).toContain(`${home} is your home folder`)
@@ -326,7 +327,7 @@ describe('a workspace folder the sandbox cannot confine', () => {
     await expect(sandboxes.wrap('ws', 'bash', 'bash')).rejects.toThrow(
       `${home} is your home folder`,
     )
-    sandboxes.stopAll()
+    sandboxes.hosts.stopAll()
   })
 
   it('refuses a workspace whose folder holds Ostia data', async () => {
@@ -334,6 +335,6 @@ describe('a workspace folder the sandbox cannot confine', () => {
     await expect(sandboxes.wrap('ws', 'bash', 'bash')).rejects.toThrow(
       `holds ${PRODUCT_DISPLAY_NAME}'s own data`,
     )
-    sandboxes.stopAll()
+    sandboxes.hosts.stopAll()
   })
 })

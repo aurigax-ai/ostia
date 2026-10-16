@@ -47,6 +47,7 @@ const git: ExtensionInfo = {
   category: 'other',
   languages: [],
   languageServers: [],
+  fileViewers: [],
   agentSkills: [],
   agentHooks: [],
   iconThemes: [],

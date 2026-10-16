@@ -1,4 +1,4 @@
-import { BUILTIN_COLOR_SCHEMES } from '@/lib/theme/colorSchemes'
+import { BUILTIN_COLOR_SCHEMES } from '@/lib/colorSchemes/builtinColorSchemes'
 import { MATCH_OSTIA_THEME } from '@/lib/theme/themeChoice'
 
 const font = (title: string) => ({

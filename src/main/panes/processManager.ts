@@ -4,6 +4,7 @@ import { quoteArgv } from '../../shared/terminal/shellQuote'
 import type { Reach } from '../approvals/reach'
 import { registerControlMethod, registerTargetableMethod } from '../control/controlServer'
 import { getByPaneId } from '../control/idRegistry'
+import { record } from './paneReach'
 import { type ProcessControlDeps, createProcessControl } from './processControl'
 import {
   type ProcessLaunchDeps,
@@ -16,7 +17,6 @@ import {
   modelFlags,
   nameOf,
   promptOf,
-  record,
   splitTabOf,
   workspaceOf,
 } from './processLaunch'

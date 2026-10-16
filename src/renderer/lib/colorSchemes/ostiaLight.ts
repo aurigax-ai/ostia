@@ -1,0 +1,30 @@
+import type { ColorScheme } from '@/lib/theme/types'
+
+export const ostiaLight: ColorScheme = {
+  id: 'ostia-light',
+  name: 'Ostia Light',
+  appearance: 'light',
+  colors: {
+    background: '#fbfcfd',
+    foreground: '#24292f',
+    cursor: '#0b62c4',
+    cursorAccent: '#fbfcfd',
+    selectionBackground: 'rgba(11, 98, 196, 0.22)',
+    black: '#2b303b',
+    red: '#c62828',
+    green: '#1b7f3b',
+    yellow: '#8a6100',
+    blue: '#1f5fbf',
+    magenta: '#a1349f',
+    cyan: '#0b7285',
+    white: '#5f6672',
+    brightBlack: '#59616e',
+    brightRed: '#d32f2f',
+    brightGreen: '#1a7a35',
+    brightYellow: '#946800',
+    brightBlue: '#2b6fd6',
+    brightMagenta: '#b53fb2',
+    brightCyan: '#0c7a8d',
+    brightWhite: '#3f4550',
+  },
+}

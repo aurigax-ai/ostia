@@ -336,8 +336,8 @@
 }
 
 .topbar-split-caret svg {
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
 }
 
 .files-panel {
@@ -1526,7 +1526,7 @@
 }
 
 .file-twisty-spacer {
-  width: 12px;
+  width: 16px;
   flex: 0 0 auto;
 }
 
@@ -2882,50 +2882,6 @@ button.prompt-chip:hover {
   z-index: 2;
   width: auto;
   background: color-mix(in srgb, var(--attn) 10%, var(--surface-1));
-}
-
-.csv-table {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  overflow: auto;
-  padding: 8px 12px 24px;
-  background: var(--surface-1);
-  font-size: var(--text-ui-sm);
-  line-height: var(--text-ui-sm--line-height);
-}
-
-.csv-table:focus {
-  outline: none;
-}
-
-.csv-table table {
-  border-collapse: collapse;
-}
-
-.csv-table th,
-.csv-table td {
-  max-width: 480px;
-  padding: 3px 10px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-code);
-}
-
-.csv-table th {
-  position: sticky;
-  top: -8px;
-  background: var(--surface-2);
-  color: var(--fg);
-  font-weight: var(--font-weight-medium);
-}
-
-.csv-table-note {
-  margin: 0 0 8px;
-  color: var(--fg-muted);
 }
 
 .mermaid-diagram {
@@ -4678,4 +4634,25 @@ button.prompt-chip:hover {
   to {
     opacity: 1;
   }
+}
+
+.viewer-fallback {
+  position: absolute;
+  bottom: 8px;
+  left: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  margin: 0;
+  color: var(--warn-fg);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+}
+
+.file-lock {
+  flex: none;
+  margin-left: 4px;
+  color: var(--fg-muted);
 }

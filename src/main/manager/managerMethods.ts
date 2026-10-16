@@ -1,3 +1,4 @@
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import type { ManagerSettings } from '../../shared/agents/managerSettings'
@@ -30,9 +31,7 @@ function fail(message: string): ResponseError<void> {
 }
 
 function params(raw: unknown): Record<string, unknown> {
-  return typeof raw === 'object' && raw !== null && !Array.isArray(raw)
-    ? (raw as Record<string, unknown>)
-    : {}
+  return isRecord(raw) ? raw : {}
 }
 
 function targetPane(raw: unknown, me: PaneIdentity): PaneIdentity {

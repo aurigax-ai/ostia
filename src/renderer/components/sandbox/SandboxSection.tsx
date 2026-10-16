@@ -12,8 +12,8 @@ import {
   type SandboxFixedPolicy,
   type SandboxGlobals,
   checkDomainPattern,
-  parseSandboxGlobals,
 } from '@shared/sandbox/sandbox'
+import { parseSandboxGlobals } from '@shared/sandbox/sandboxParse'
 import { useEffect, useState } from 'react'
 import { PackagesEditor } from './SandboxPackagesTab'
 import {

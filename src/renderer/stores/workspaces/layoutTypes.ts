@@ -5,8 +5,8 @@ import type { DiffContent } from '@aurigax-ai/ostia-extension-sdk/contract/exten
 import type { AgentResume } from '@shared/agents/agentResume'
 import type { BrowserDevice } from '@shared/browser/browserDevice'
 import type { BrowserProfile } from '@shared/browser/browserProfile'
-import type { PanePlacement } from '@shared/types'
 import type { SplitTabPlacement } from '@shared/workspaces/splitTabs'
+import type { PanePlacement } from '@shared/workspaces/workspaceApi'
 import type { StoreApi } from 'zustand'
 
 export interface WorkspaceLayout {
@@ -50,6 +50,7 @@ export interface LayoutState {
   setLocked: (workspaceId: string, paneId: string, locked: boolean) => void
   isLocked: (workspaceId: string, paneId?: string) => boolean
   setTitle: (workspaceId: string, paneId: string, title: string) => void
+  setViewType: (workspaceId: string, paneId: string, viewType: string | null) => void
   followMovedFile: (from: string, to: string) => void
   rename: (workspaceId: string, paneId: string, title: string) => void
   setDefaultTitle: (workspaceId: string, paneId: string, title: string) => void

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type BrowserWindow, ipcMain } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AppSnapshot, SnapshotNode } from '../../shared/types'
+import type { AppSnapshot, SnapshotNode } from '../../shared/workspaces/workspaceApi'
 import { AgentRunningPanes } from '../agents/agentRunning'
 import { MAIN_SLOT } from '../windows/windowBook'
 import { WindowBroker } from '../windows/windowBroker'
@@ -11,18 +11,20 @@ import {
   SCROLLBACK_CAP_BYTES,
   clearPersisted,
   loadRestoredScrollback,
-  loadSnapshot,
-  parseHandoff,
-  parseSnapshot,
   pendingRestoredScrollback,
   saveScrollback,
-  saveSnapshot,
   scrollbackPath,
-  snapshotPath,
   stashScrollback,
   stashedScreen,
   takeRestoredScrollback,
   trimScrollback,
+} from './savedScrollback'
+import {
+  loadSnapshot,
+  parseHandoff,
+  parseSnapshot,
+  saveSnapshot,
+  snapshotPath,
 } from './workspaceSnapshot'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn(), on: vi.fn() }, screen: {} }))

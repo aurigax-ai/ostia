@@ -4,7 +4,7 @@ import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { type BrowserDevice, DEFAULT_DEVICE } from '@shared/browser/browserDevice'
 import { type BrowserProfile, browserPartition } from '@shared/browser/browserProfile'
 import type { DeviceTouch } from '@shared/browser/deviceTouch'
-import { useCallback, useRef, useState } from 'react'
+import { type MutableRefObject, useCallback, useRef, useState } from 'react'
 import { BrowserCaptureBar } from './BrowserCaptureBar'
 import { BrowserFind, type FindResult } from './BrowserFind'
 import { BrowserLoadError } from './BrowserLoadError'
@@ -19,6 +19,111 @@ import { useBrowserDevice } from './useBrowserDevice'
 import { useBrowserNavigation } from './useBrowserNavigation'
 import { useGrantedProfile } from './useGrantedProfile'
 import { useWebviewEvents } from './useWebviewEvents'
+
+function BrowserStage({
+  device,
+  preview,
+  commit,
+  sendTouch,
+  focusPage,
+  cropping,
+  setCropping,
+  finishCrop,
+  partition,
+  attachWebview,
+  src,
+  findFocus,
+  findResult,
+  searchPage,
+  clearFind,
+  closeFind,
+  findStepRef,
+  loadError,
+  navigate,
+}: {
+  device: BrowserDevice | undefined
+  preview: ReturnType<typeof useBrowserDevice>['preview']
+  commit: ReturnType<typeof useBrowserDevice>['commit']
+  sendTouch: (input: DeviceTouch) => void
+  focusPage: () => void
+  cropping: boolean
+  setCropping: (on: boolean) => void
+  finishCrop: ReturnType<typeof useBrowserCapture>['finishCrop']
+  partition: string | null
+  attachWebview: (el: HTMLElement | null) => void
+  src: string
+  findFocus: number
+  findResult: FindResult | null
+  searchPage: ReturnType<typeof useBrowserActions>['searchPage']
+  clearFind: () => void
+  closeFind: () => void
+  findStepRef: MutableRefObject<((by: number) => void) | null>
+  loadError: ReturnType<typeof useBrowserNavigation>['loadError']
+  navigate: ReturnType<typeof useBrowserNavigation>['navigate']
+}): JSX.Element {
+  const d = useDict()
+  return (
+    <div className="browser-stage">
+      <DeviceStage
+        device={device}
+        onPreview={preview}
+        onCommit={commit}
+        onTouch={sendTouch}
+        onFocusPage={focusPage}
+        overlay={(scale) =>
+          cropping ? (
+            <RegionCropOverlay
+              label={d.browser.regionLayer}
+              onDone={(rect, view) => {
+                const unscaled = unscaledRegion(rect, view, scale)
+                void finishCrop(unscaled.rect, unscaled.view)
+              }}
+              onCancel={() => setCropping(false)}
+            />
+          ) : null
+        }
+      >
+        {partition ? (
+          <webview
+            key={partition}
+            ref={attachWebview}
+            className="browser-webview"
+            src={src}
+            partition={partition}
+          />
+        ) : null}
+      </DeviceStage>
+      {findFocus >= 0 ? (
+        <BrowserFind
+          focusKey={findFocus}
+          result={findResult}
+          onSearch={searchPage}
+          onClear={clearFind}
+          onClose={closeFind}
+          stepRef={findStepRef}
+        />
+      ) : null}
+      {loadError ? <BrowserLoadError loadError={loadError} navigate={navigate} /> : null}
+    </div>
+  )
+}
+
+function useBrowserWebview(
+  paneId: string,
+  webviewRef: ReturnType<typeof useBrowserNavigation>['webviewRef'],
+) {
+  const [webview, setWebview] = useState<HTMLElement | null>(null)
+  const readyWebview = useGuestReady(webview)
+  const attachWebview = useCallback(
+    (el: HTMLElement | null) => {
+      webviewRef.current = el
+      setWebview(el)
+    },
+    [webviewRef],
+  )
+  useSurfaceFocus(paneId, () => readyWebview)
+  return { readyWebview, attachWebview }
+}
 
 export function BrowserView({
   workspaceId,
@@ -62,16 +167,7 @@ export function BrowserView({
     navigate,
     onAddressKeyDown,
   } = useBrowserNavigation({ url })
-  const [webview, setWebview] = useState<HTMLElement | null>(null)
-  const readyWebview = useGuestReady(webview)
-  const attachWebview = useCallback(
-    (el: HTMLElement | null) => {
-      webviewRef.current = el
-      setWebview(el)
-    },
-    [webviewRef],
-  )
-  useSurfaceFocus(paneId, () => readyWebview)
+  const { readyWebview, attachWebview } = useBrowserWebview(paneId, webviewRef)
   const sendTouch = useCallback(
     (input: DeviceTouch) => window.ostia.browser.deviceTouch(paneId, input),
     [paneId],
@@ -119,25 +215,7 @@ export function BrowserView({
     setFindResult,
   })
 
-  const {
-    picking,
-    capture,
-    setCapture,
-    cropping,
-    setCropping,
-    region,
-    setRegion,
-    sending,
-    status,
-    setStatus,
-    targets,
-    noTargets,
-    startCrop,
-    finishCrop,
-    copyRegion,
-    togglePick,
-    send,
-  } = useBrowserCapture({ workspaceId, paneId, partition, webviewRef, withGuest, d })
+  const capture = useBrowserCapture({ workspaceId, paneId, partition, webviewRef, withGuest, d })
 
   return (
     <div className="browser-surface relative" onKeyDown={onSurfaceKeyDown}>
@@ -151,75 +229,36 @@ export function BrowserView({
         setAddress={setAddress}
         editingRef={editingRef}
         onAddressKeyDown={onAddressKeyDown}
-        picking={picking}
-        togglePick={togglePick}
-        cropping={cropping}
-        setCropping={setCropping}
-        startCrop={startCrop}
+        {...capture}
         navCount={navCount}
-        setStatus={setStatus}
         storageOpen={storageOpen}
         setStorageOpen={setStorageOpen}
         deviceOn={device !== undefined}
         toggleDevice={() => commit(device ? null : DEFAULT_DEVICE)}
       />
       {device ? <DeviceBar device={device} onChange={commit} /> : null}
-      <BrowserCaptureBar
-        picking={picking}
-        cropping={cropping}
-        status={status}
-        capture={capture}
-        setCapture={setCapture}
-        region={region}
-        setRegion={setRegion}
-        targets={targets}
-        noTargets={noTargets}
-        sending={sending}
-        send={send}
-        copyRegion={copyRegion}
+      <BrowserCaptureBar {...capture} />
+      <BrowserStage
+        device={device}
+        preview={preview}
+        commit={commit}
+        sendTouch={sendTouch}
+        focusPage={focusPage}
+        cropping={capture.cropping}
+        setCropping={capture.setCropping}
+        finishCrop={capture.finishCrop}
+        partition={partition}
+        attachWebview={attachWebview}
+        src={src}
+        findFocus={findFocus}
+        findResult={findResult}
+        searchPage={searchPage}
+        clearFind={clearFind}
+        closeFind={closeFind}
+        findStepRef={findStepRef}
+        loadError={loadError}
+        navigate={navigate}
       />
-      <div className="browser-stage">
-        <DeviceStage
-          device={device}
-          onPreview={preview}
-          onCommit={commit}
-          onTouch={sendTouch}
-          onFocusPage={focusPage}
-          overlay={(scale) =>
-            cropping ? (
-              <RegionCropOverlay
-                label={d.browser.regionLayer}
-                onDone={(rect, view) => {
-                  const unscaled = unscaledRegion(rect, view, scale)
-                  void finishCrop(unscaled.rect, unscaled.view)
-                }}
-                onCancel={() => setCropping(false)}
-              />
-            ) : null
-          }
-        >
-          {partition ? (
-            <webview
-              key={partition}
-              ref={attachWebview}
-              className="browser-webview"
-              src={src}
-              partition={partition}
-            />
-          ) : null}
-        </DeviceStage>
-        {findFocus >= 0 ? (
-          <BrowserFind
-            focusKey={findFocus}
-            result={findResult}
-            onSearch={searchPage}
-            onClear={clearFind}
-            onClose={closeFind}
-            stepRef={findStepRef}
-          />
-        ) : null}
-        {loadError ? <BrowserLoadError loadError={loadError} navigate={navigate} /> : null}
-      </div>
       {storageOpen ? (
         <BrowserStoragePanel
           paneId={paneId}

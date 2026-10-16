@@ -1,4 +1,5 @@
-import type { AttentionState, CommandResult, CommandTarget } from '../../shared/types'
+import type { AttentionState } from '../../shared/attention/attention'
+import type { CommandResult, CommandTarget } from '../../shared/control/commands'
 import { ensureCaps } from '../approvals/controlElevation'
 import { registerTargetableMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'

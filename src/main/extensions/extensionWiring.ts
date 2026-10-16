@@ -1,9 +1,7 @@
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import type {
-  ExtensionPanelContext,
-  ExtensionResult,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionPanelContext } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import type { RemoteCwd } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { agentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import type { ExtensionRoot } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
@@ -11,7 +9,7 @@ import { type BrowserWindow, app, ipcMain } from 'electron'
 import { parseAgentResume } from '../../shared/agents/agentResume'
 import { type ManagerSettings, managerAgents } from '../../shared/agents/managerSettings'
 import type { Dict } from '../../shared/app/dict'
-import type { TerminalStateSnapshot } from '../../shared/types'
+import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { AGENT_OFFER_RESULT_CHANNEL, type AgentOfferRelay } from '../agents/agentOfferRelay'
 import type { AgentRunningPanes } from '../agents/agentRunning'
 import type { HeldResume } from '../agents/extensionAgents'
@@ -49,6 +47,7 @@ import type { ExtensionHostDeps, ExtensionSecretStore } from './extensionHostDep
 import { ExtensionLaunches } from './extensionLaunches'
 import { registerExtensionMethods } from './extensionMethods'
 import { ExtensionStore } from './extensionStore'
+import { WireRuntime, registerWireRuntime } from './wireRuntime'
 import { workspaceChipsForWindow } from './workspaceChips'
 
 interface ExtensionHostPartsDeps {
@@ -109,7 +108,7 @@ export function extensionHostParts({
       workspaceSandboxes.wrap(workspaceId, command, 'bash', [], extraReads),
     sandboxEnv: (workspaceId, env) => ({
       ...sandboxSpawnEnv(env),
-      TMPDIR: workspaceSandboxes.tmpDir(workspaceId),
+      TMPDIR: workspaceSandboxes.tmp.tmpDir(workspaceId),
     }),
     dataDir: (extId) => join(app.getPath('userData'), 'extension-data', extId),
     baseEnv: () => process.env,
@@ -275,6 +274,10 @@ export function startExtensionHost({
   })
   refreshAgentPlugins()
   registerExtensionMethods(() => services.extensionHost)
+  registerWireRuntime({
+    host: () => services.extensionHost,
+    runtime: new WireRuntime({ nodePath: process.execPath, baseEnv: () => process.env }),
+  })
   registerExtensionIpc(services.extensionHost)
   registerRemoteFilesIpc(services.extensionHost)
   ipcMain.on(AGENT_OFFER_RESULT_CHANNEL, (e, requestId: unknown, paneId: unknown) =>

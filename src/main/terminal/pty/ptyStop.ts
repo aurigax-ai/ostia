@@ -1,10 +1,10 @@
-import type { TerminalStateSnapshot } from '../../../shared/types'
+import type { TerminalStateSnapshot } from '../../../shared/terminal/ptyApi'
 import type { ReportedAgentWork } from '../../agents/agentWork'
 import type { AppLog } from '../../diagnostics/appLog'
 import type { Telemetry } from '../../diagnostics/telemetry'
 import type { PaneWaking } from '../../panes/paneWaking'
 import type { KeptShells } from '../../tmux/keptShells'
-import { stashScrollback } from '../../workspaces/workspaceSnapshot'
+import { stashScrollback } from '../../workspaces/savedScrollback'
 import type { ReapReason } from '../ptyReaper'
 import { type PtyEntry, removeStateFile } from './ptyRegistry'
 

@@ -1,6 +1,6 @@
 import type { BrowserWindow } from 'electron'
 import { bucketCount } from '../../shared/privacy/telemetry'
-import type { SessionFacts } from './telemetry'
+import type { SessionFacts } from './telemetryUsage'
 
 interface SessionFactsDeps {
   readSettings: () => unknown

@@ -1,5 +1,5 @@
 import { commands } from '@/commands/registry'
-import { ChatView } from '@/components/assist/ChatView'
+import { ChatView } from '@/components/chat/ChatView'
 import { Command } from '@/components/ui/command'
 import {
   Dialog,

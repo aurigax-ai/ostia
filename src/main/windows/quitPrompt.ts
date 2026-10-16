@@ -1,6 +1,6 @@
 import { type MessageBoxOptions, dialog } from 'electron'
 import { type Dict, fmt } from '../../shared/app/dict'
-import type { QuitAnswer, RunningGroup } from '../../shared/types'
+import type { QuitAnswer, RunningGroup } from '../../shared/windows/windowsApi'
 
 type Text = Dict['native']['quit']
 

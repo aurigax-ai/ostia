@@ -36,7 +36,7 @@ import { useTabSleepNoticeStore } from '@/stores/workspaces/tabSleepNoticeStore'
 import { type AgentResume, parseAgentResume, resumeCommand } from '@shared/agents/agentResume'
 import { isAgentBusyReason } from '@shared/agents/agentWork'
 import { wantsDesktopBanner } from '@shared/app/notificationSettings'
-import type { AttentionState } from '@shared/types'
+import type { AttentionState } from '@shared/attention/attention'
 
 function registerAttentionCommands(): void {
   registerCore<{ state: AttentionState; message?: string }>({

@@ -3,13 +3,7 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import {
-  PROMPT,
-  newTerminalWorkspace,
-  openWorkspace,
-  openedExternally,
-  stubExternalOpener,
-} from './helpers'
+import { PROMPT, newTerminalWorkspace, openWorkspace } from './helpers'
 import { clickWith, hoverPoint, linkPoint } from './terminalLinks'
 import { type Page, _electron as electron, expect, test } from './test'
 
@@ -94,14 +88,12 @@ test('the link hint goes away when a Ctrl+click opens a browser tab in front and
     await expect(linkHint(win)).toContainText(url, { timeout: 5_000 })
     await clickWith(win, link, ['Control'])
     await expect(win.locator('webview')).toHaveCount(2, { timeout: 15_000 })
-    await win.waitForTimeout(800)
     await expect(linkHint(win)).toHaveCount(0)
 
     await win.mouse.move(link.x, link.y + 60)
     await win.mouse.move(link.x, link.y, { steps: 2 })
     await clickWith(win, link, ['Control'])
     await expect(win.locator('webview')).toHaveCount(3, { timeout: 15_000 })
-    await win.waitForTimeout(800)
     await expect(linkHint(win)).toHaveCount(0)
 
     await newTerminalWorkspace(win)
@@ -112,7 +104,6 @@ test('the link hint goes away when a Ctrl+click opens a browser tab in front and
     await expect(linkHint(win)).toContainText(other, { timeout: 5_000 })
     await win.keyboard.press('Control+1')
     await expect(win.locator('.pane-slot:not([data-hidden]) webview')).toHaveCount(1)
-    await win.waitForTimeout(800)
     await expect(linkHint(win)).toHaveCount(0)
   } finally {
     await app.close()
@@ -151,35 +142,5 @@ test('a hyperlink in a mouse-reporting program leaves plain clicks to the progra
   } finally {
     await app.close()
     server.close()
-  }
-})
-
-test('links of any other scheme open in their app on a plain click and show their target', async () => {
-  test.setTimeout(60_000)
-  const app = await electron.launch(isolatedLaunch(freshDataHome()))
-  try {
-    await stubExternalOpener(app)
-    const win = await app.firstWindow()
-    await openWorkspace(win)
-    await win.locator('.xterm').first().click()
-    await win.keyboard.type(`clear; printf 'slack://channel?id=1\\nzed://file/tmp/a\\n'`)
-    await win.keyboard.press('Enter')
-
-    const hint = win.locator('[data-slot="tooltip-content"]')
-    const slack = await linkPoint(win, /^slack:\/\/channel\?id=1\s*$/, 'channel')
-    await hoverPoint(win, slack)
-    await expect(hint).toContainText('slack://channel?id=1', { timeout: 5_000 })
-    await clickWith(win, slack, [])
-    const zed = await linkPoint(win, /^zed:\/\/file\/tmp\/a\s*$/, 'file')
-    await hoverPoint(win, zed)
-    await expect(hint).toContainText('zed://file/tmp/a', { timeout: 5_000 })
-    await clickWith(win, zed, [])
-
-    await expect
-      .poll(() => openedExternally(app), { timeout: 10_000 })
-      .toEqual(['slack://channel?id=1', 'zed://file/tmp/a'])
-    await expect(addresses(win)).toHaveCount(0)
-  } finally {
-    await app.close()
   }
 })

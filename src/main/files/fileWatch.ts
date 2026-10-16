@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import {
   type Dirent,
   type FSWatcher,
@@ -10,6 +10,7 @@ import {
 } from 'node:fs'
 import { readFile, stat } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
+import { isInsidePath } from '../platform/pathGuard'
 import { type FileStamp, stampOf } from './fsText'
 
 export interface FileChange {
@@ -51,7 +52,7 @@ function sameStamp(a: FileStamp, b: FileStamp): boolean {
 }
 
 function digest(data: string | Uint8Array): string {
-  return createHash('sha1').update(data).digest('hex')
+  return hash('sha1', data)
 }
 
 async function fingerprintAfter(
@@ -422,9 +423,8 @@ export class TreeWatches {
 
   private dropDir(tree: TreeWatch, dir: string): TreeChange[] {
     const deleted: TreeChange[] = []
-    const prefix = `${dir}/`
     for (const [path, entry] of [...tree.dirs]) {
-      if (path !== dir && !path.startsWith(prefix)) continue
+      if (!isInsidePath(dir, path)) continue
       entry.watcher.close()
       tree.dirs.delete(path)
       for (const name of entry.files) deleted.push({ path: join(path, name), kind: 'deleted' })

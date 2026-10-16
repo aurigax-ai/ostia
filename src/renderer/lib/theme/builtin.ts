@@ -1,4 +1,4 @@
-import { BUILTIN_COLOR_SCHEMES } from './colorSchemes'
+import { BUILTIN_COLOR_SCHEMES } from '@/lib/colorSchemes/builtinColorSchemes'
 import type { PluginManifest, Theme } from './types'
 
 const adeberry: Theme = {

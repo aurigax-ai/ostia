@@ -1,9 +1,9 @@
-import { app, protocol } from 'electron'
+import { type CustomScheme, app, protocol } from 'electron'
 import { PREVIEW_SCHEME } from '../../shared/artifacts/htmlPreview'
 
 const NO_DNS_PREFETCH = ['blink-settings', 'dnsPrefetchingEnabled=false'] as const
 
-export function registerPreviewScheme(): void {
+export function registerPreviewScheme(others: readonly CustomScheme[] = []): void {
   app.commandLine.appendSwitch(...NO_DNS_PREFETCH)
   protocol.registerSchemesAsPrivileged([
     {
@@ -16,5 +16,6 @@ export function registerPreviewScheme(): void {
         stream: true,
       },
     },
+    ...others,
   ])
 }

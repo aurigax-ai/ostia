@@ -1,16 +1,18 @@
 import { type ChildProcessWithoutNullStreams, spawn as spawnProcess } from 'node:child_process'
 import { existsSync, realpathSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { isAppEnvName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { substitutePlaceholders } from '@aurigax-ai/ostia-extension-sdk/contract/languageServerConfig'
 import {
   LSP_LOG_LINE_MAX,
   type LanguageServerSandboxProblem,
   type LspLogEntry,
   isNodeRun,
-  substitutePlaceholders,
 } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import { type LogFields, redactSecrets } from '../diagnostics/appLog'
+import { isInsidePath } from '../platform/pathGuard'
 import type { LanguageServerSource, ServerBinaries, ServerRecord } from './serverBinaries'
 import type { Session, SessionProtocol } from './sessionProtocol'
 
@@ -62,14 +64,6 @@ export function sourceSignature(source: LanguageServerSource): string {
   ])
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-export function isInside(path: string, base: string): boolean {
-  return path === base || path.startsWith(base.endsWith('/') ? base : `${base}/`)
-}
-
 export function scrubbedEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const out: NodeJS.ProcessEnv = {}
   for (const [name, value] of Object.entries(env)) {
@@ -87,18 +81,18 @@ export function findServerRoot(
   exists: (path: string) => boolean = existsSync,
 ): string {
   const start = dirname(file)
-  const inWorkspace = workDir !== undefined && isInside(start, workDir)
+  const inWorkspace = workDir !== undefined && isInsidePath(workDir, start)
   const fallback = inWorkspace ? workDir : start
   if (markers.length === 0) return fallback
   const boundary = inWorkspace
     ? workDir
-    : (roots.filter((root) => isInside(start, root)).sort((a, b) => b.length - a.length)[0] ??
+    : (roots.filter((root) => isInsidePath(root, start)).sort((a, b) => b.length - a.length)[0] ??
       start)
   let dir = start
   for (;;) {
     if (markers.some((marker) => exists(join(dir, marker)))) return dir
     const parent = dirname(dir)
-    if (dir === boundary || parent === dir || !isInside(parent, boundary)) return fallback
+    if (dir === boundary || parent === dir || !isInsidePath(boundary, parent)) return fallback
     dir = parent
   }
 }
@@ -107,7 +101,7 @@ export function confinedScript(extensionDir: string, script: string): string | n
   try {
     const dir = realpathSync(extensionDir)
     const file = realpathSync(join(extensionDir, script))
-    if (file === dir || !isInside(file, dir)) return null
+    if (file === dir || !isInsidePath(dir, file)) return null
     return statSync(file).isFile() ? file : null
   } catch {
     return null

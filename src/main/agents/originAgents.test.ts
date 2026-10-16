@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ReferenceInsert, WindowWorkspaceReport } from '../../shared/types'
+import type { ReferenceInsert, WindowWorkspaceReport } from '../../shared/windows/windowsApi'
 import {
   type OriginRules,
   REFERENCE_NOTE_MAX,

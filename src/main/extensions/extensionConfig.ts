@@ -2,24 +2,29 @@ import {
   CONNECTIONS_CHANGED_EVENT,
   type ExtensionConnectionEntry,
   type ExtensionConnectionResult,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionConnections'
+import {
   type ExtensionInfo,
-  type ExtensionSecretResult,
-  type ExtensionSettingResult,
   type ExtensionSettingValues,
   SETTINGS_CHANGED_EVENT,
   effectiveSettingValues,
   validSettingValue,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type {
+  ExtensionSecretResult,
+  ExtensionSettingResult,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { ExtensionHostDeps } from './extensionHostDeps'
-import { type Runtime, fail, isPlainRecord } from './extensionRuntime'
+import { type Runtime, fail } from './extensionRuntime'
 
 function storedSettings(raw: unknown): Map<string, ExtensionSettingValues> {
   const out = new Map<string, ExtensionSettingValues>()
-  if (!isPlainRecord(raw)) return out
+  if (!isRecord(raw)) return out
   for (const [extId, values] of Object.entries(raw)) {
-    if (!isPlainRecord(values)) continue
+    if (!isRecord(values)) continue
     const kept: ExtensionSettingValues = {}
     for (const [key, value] of Object.entries(values)) {
       if (typeof value === 'string' || typeof value === 'boolean') kept[key] = value

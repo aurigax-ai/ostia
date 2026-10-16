@@ -1,7 +1,9 @@
+import { setTimeout as sleep } from 'node:timers/promises'
 import { parseAgentHooks } from '../../shared/agents/agentHooks'
 import { isResumableAgent } from '../../shared/agents/agentResume'
 import type { ManagerSettings } from '../../shared/agents/managerSettings'
-import type { CommandTarget, TerminalStateSnapshot } from '../../shared/types'
+import type { CommandTarget } from '../../shared/control/commands'
+import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { AgentWiring } from '../agents/agentWiring'
 import type { Reach } from '../approvals/reach'
 import { targetOf } from '../attention/attention'
@@ -104,7 +106,7 @@ export function registerPaneMethodsWiring({
     waking: paneWaking,
     close: (to) => execCommand(targetOf(to), 'pane.close'),
     resume: (to) => execCommand(targetOf(to), 'agent.resume'),
-    delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    delay: (ms) => sleep(ms),
     hooksOn: (agent) =>
       isResumableAgent(agent) && parseAgentHooks(readSettingsFile().agents?.hooks)[agent],
   })

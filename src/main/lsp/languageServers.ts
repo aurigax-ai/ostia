@@ -1,5 +1,9 @@
 import { languageForPath } from '@aurigax-ai/ostia-extension-sdk/contract/editorLanguages'
 import {
+  documentLanguageId,
+  substituteJson,
+} from '@aurigax-ai/ostia-extension-sdk/contract/languageServerConfig'
+import {
   type JsonObject,
   LSP_LOG_MAX_ENTRIES,
   type LanguageServerInfo,
@@ -8,14 +12,13 @@ import {
   type LspLogEntry,
   type LspSessionInfo,
   type LspStopReason,
-  documentLanguageId,
   languageServerFeature,
   languageServerKey,
   pinnedVersion,
-  substituteJson,
 } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import type { LogFields } from '../diagnostics/appLog'
 import type { TreeChange } from '../files/fileWatch'
+import { isInsidePath } from '../platform/pathGuard'
 import type { Requirement } from '../platform/systemRequirements'
 import {
   type LanguageServerSource,
@@ -27,7 +30,6 @@ import {
   type LanguageServerSandbox,
   type SpawnServer,
   findServerRoot,
-  isInside,
   sourceSignature,
   startServer,
 } from './serverSpawn'
@@ -262,7 +264,7 @@ export class LanguageServers {
           serverKey: session.key,
           root: session.root,
           editRoot:
-            !sandboxed || (workDir !== undefined && isInside(session.root, workDir))
+            !sandboxed || (workDir !== undefined && isInsidePath(workDir, session.root))
               ? session.root
               : null,
           languageId: documentLanguageId(source.server, file, language),

@@ -105,7 +105,7 @@ export function ShownDialog({
           <CodeBlock lines={[`export ${ENV}=${masked(value)}`, EXAMPLE]} />
         </div>
         <p className="flex items-start gap-2 rounded-md border border-line px-3 py-2 text-fg-muted text-ui-sm">
-          <InfoIcon className="mt-0.5 size-3.5 shrink-0" />
+          <InfoIcon className="mt-0.5 size-4 shrink-0" />
           {t.hashOnly}
         </p>
         <DialogFooter>

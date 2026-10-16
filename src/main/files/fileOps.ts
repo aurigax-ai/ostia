@@ -1,9 +1,9 @@
 import type { Stats } from 'node:fs'
 import { lstat, mkdir, realpath, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { basename, dirname, extname, isAbsolute, join, sep } from 'node:path'
+import { basename, dirname, extname, isAbsolute, join } from 'node:path'
 import type { FileOpResult } from '../../shared/files/fileOps'
-import { resolveSafe } from '../platform/pathGuard'
+import { isInsidePath, resolveSafe } from '../platform/pathGuard'
 import {
   PartialTransferError,
   type TransferEnd,
@@ -62,10 +62,6 @@ export function nameProblem(name: unknown): boolean {
     name.trim() !== name ||
     Buffer.byteLength(name) > NAME_MAX_BYTES
   )
-}
-
-function isInside(root: string, target: string): boolean {
-  return target === root || target.startsWith(root.endsWith(sep) ? root : root + sep)
 }
 
 async function stat(path: string): Promise<Stats | null> {
@@ -198,7 +194,7 @@ export class FileOps {
       const info = await lstat(real)
       if (!info.isDirectory()) return null
       const roots = await this.realRoots
-      return roots.some((root) => isInside(root, real)) ? { path: real, stat: info } : null
+      return roots.some((root) => isInsidePath(root, real)) ? { path: real, stat: info } : null
     } catch {
       return null
     }
@@ -269,7 +265,7 @@ export class FileOps {
   ): Promise<{ sources: string[]; dest: Destination } | FileOpFailure> {
     const dest = await this.destination(destInput)
     if (sources === null || dest === null) return fail('outside')
-    if (sources.some((source) => isInside(source, dest.path))) return fail('into-itself')
+    if (sources.some((source) => isInsidePath(source, dest.path))) return fail('into-itself')
     return { sources, dest }
   }
 

@@ -11,7 +11,7 @@ import {
 } from 'vscode-jsonrpc/node'
 import { ownWorkspaceReach } from '../../../test/reach'
 import { ChangeSignal } from '../../shared/common/actThenConfirm'
-import type { CommandResult } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 import { grant, setCaps } from '../approvals/capabilityStore'
 import { setScriptTokenCheck } from '../control/controlAuth'
 import { registerControlServer, stopControlServer } from '../control/controlServer'

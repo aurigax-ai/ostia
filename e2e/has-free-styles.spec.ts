@@ -3,9 +3,9 @@ import { join, resolve } from 'node:path'
 import { buildSync } from 'esbuild'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import type { FixtureName } from './hasFixtures'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { type ElectronApplication, type Page, expect, launchShared, test } from './test'
 
-let app: ElectronApplication
+let app: ElectronApplication | undefined
 let win: Page
 let fixtures: Record<FixtureName, string>
 
@@ -21,19 +21,16 @@ test.beforeAll(async () => {
     logLevel: 'error',
   })
   fixtures = JSON.parse(execFileSync(process.execPath, [bundle], { encoding: 'utf8' }))
-})
-
-test.beforeEach(async () => {
   const dataHome = freshDataHome()
   seedSettings(dataHome, DOM_RENDERER_SETTINGS)
-  app = await electron.launch(isolatedLaunch(dataHome))
+  app = await launchShared(isolatedLaunch(dataHome))
   win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
   await expect(win.locator('.app')).toBeVisible({ timeout: 15_000 })
 })
 
-test.afterEach(async () => {
-  await app.close()
+test.afterAll(async () => {
+  await app?.close()
 })
 
 async function mount(name: FixtureName): Promise<number> {

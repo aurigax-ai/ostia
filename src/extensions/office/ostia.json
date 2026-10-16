@@ -1,0 +1,31 @@
+{
+  "id": "office",
+  "name": "Office documents",
+  "version": "1.0.0",
+  "api": "4.8",
+  "description": "Shows spreadsheets (.xlsx, .xlsm, .ods) as sheets with tabs and Word documents (.docx) as text, read-only. It parses the file you opened inside its own sandbox with size, unpacking and cell limits that say why when a file goes past them, never runs macros, never follows links and sends the file nowhere.",
+  "category": "tools",
+  "locales": ["zh-Hant"],
+  "contributes": {
+    "fileViewers": [
+      {
+        "viewType": "office.spreadsheet",
+        "displayName": "Spreadsheet",
+        "selector": [
+          { "filenamePattern": "*.xlsx" },
+          { "filenamePattern": "*.xlsm" },
+          { "filenamePattern": "*.ods" }
+        ],
+        "priority": "default",
+        "entry": "sheet.html"
+      },
+      {
+        "viewType": "office.document",
+        "displayName": "Document",
+        "selector": [{ "filenamePattern": "*.docx" }],
+        "priority": "default",
+        "entry": "document.html"
+      }
+    ]
+  }
+}

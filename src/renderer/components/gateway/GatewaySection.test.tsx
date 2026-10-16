@@ -1,4 +1,4 @@
-import type { GatewayDevice } from '@shared/types'
+import type { GatewayDevice } from '@shared/gateway/gatewayApi'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'

@@ -18,7 +18,7 @@ import {
   TerminalWindowIcon,
   TextAaIcon,
 } from '@phosphor-icons/react'
-import type { FsEntry } from '@shared/types'
+import type { FsEntry } from '@shared/files/filesApi'
 
 const hue = (group: string): string => `color-mix(in srgb, var(--group-${group}) 72%, var(--fg))`
 

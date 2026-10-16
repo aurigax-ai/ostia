@@ -1,4 +1,4 @@
-import type { QuitAnswer } from '../../shared/types'
+import type { QuitAnswer } from '../../shared/windows/windowsApi'
 
 const UNATTENDED_QUIT_DEADLINE_MS = 5000
 

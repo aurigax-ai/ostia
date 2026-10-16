@@ -3,8 +3,8 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/control/commands'
 import type { ApprovalOutcome } from '../shared/permissions/approvals'
-import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
 
 let answer: ApprovalOutcome = 'deny'
 const request = vi.fn(async () => answer)

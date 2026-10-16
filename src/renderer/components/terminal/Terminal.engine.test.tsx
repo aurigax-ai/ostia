@@ -16,8 +16,8 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { releaseSurfaces, surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { ClipboardContents } from '@shared/app/appApi'
 import { PTY_ACK_CHARS } from '@shared/terminal/ptyFlow'
-import type { ClipboardContents } from '@shared/types'
 import {
   type RenderResult,
   act,
@@ -190,6 +190,26 @@ describe('TerminalView engines', () => {
       )
     })
   }
+
+  it('a title a program sets with OSC 0 replaces the shell name of the tab', async () => {
+    useLayoutStore.getState().ensure('w1')
+    const paneId = firstPaneId(useLayoutStore.getState().byWorkspace.w1.root)
+    vi.mocked(window.ostia.pty.attach).mockResolvedValueOnce({
+      created: true,
+      buffer: '',
+      cursor: 0,
+      dropped: false,
+      shell: 'bash',
+    })
+    await renderSettled(<TerminalView workspaceId="w1" paneId={paneId} />)
+    const titleOf = (): string | undefined =>
+      findPane(useLayoutStore.getState().byWorkspace.w1.root, paneId)?.title
+    await waitFor(() => expect(titleOf()).toBe('bash'))
+    await waitFor(() => expect(window.ostia.pty.onData).toHaveBeenCalled())
+    const deliver = vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
+    act(() => deliver('\x1b]0;build logs\x07'))
+    await waitFor(() => expect(titleOf()).toBe('build logs'))
+  })
 
   it('an xterm pane hands its GPU renderer to the hidden-pane pause and drops it on unmount', async () => {
     const { unmount } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)

@@ -2,6 +2,8 @@
   "name": "telemetry",
   "paths": [
     "src/main/diagnostics/telemetry.ts",
+    "src/main/diagnostics/telemetryQueue.ts",
+    "src/main/diagnostics/telemetryUsage.ts",
     "src/renderer/components/settings/TelemetryConsentDialog.",
     "src/renderer/components/settings/TelemetryReportsDialog.tsx",
     "src/renderer/lib/app/usageCounts.ts",

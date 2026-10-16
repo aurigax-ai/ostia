@@ -8,7 +8,7 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { focusSurface } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { AttentionState } from '@shared/types'
+import type { AttentionState } from '@shared/attention/attention'
 import { useSyncExternalStore } from 'react'
 import {
   type AttentionEvent,
