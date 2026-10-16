@@ -3,14 +3,11 @@ import { fmt } from '../../shared/app/dict'
 import type { Dict } from '../../shared/app/dict'
 import type { ReachListing } from '../approvals/reach'
 import type { Reach } from '../approvals/reach'
+import { setUserPresenceCheck } from '../approvals/scriptTokenConfirm'
 import { registerScriptTokenIpc } from '../approvals/scriptTokenIpc'
+import { retireLegacyScriptTokens } from '../approvals/scriptTokenRetired'
 import type { ScriptTokenUsageLog } from '../approvals/scriptTokenUsage'
-import {
-  checkScriptToken,
-  registerScriptTokenMethods,
-  retireLegacyScriptTokens,
-  setUserPresenceCheck,
-} from '../approvals/scriptTokens'
+import { checkScriptToken, registerScriptTokenMethods } from '../approvals/scriptTokens'
 import { electronPresenceDeps, verifyUserPresence } from '../approvals/userPresence'
 import { postNotification } from '../attention/notify'
 import type { NotifyWiring } from '../attention/notifyWiring'
