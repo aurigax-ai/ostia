@@ -190,7 +190,7 @@ describe('watchGuestNetwork', () => {
   it('logs and lets through a request the page made before it announces requests itself', () => {
     const { guest, commands, message } = fakeGuest(7001)
     watchGuestNetwork(guest)
-    expect(commands).toEqual(['Fetch.enable *,*:Document', 'Network.enable'])
+    expect(commands).toEqual(['Fetch.enable *,*:Document', 'Network.enable', 'Page.getFrameTree'])
     message('Network.requestWillBeSent', {
       requestId: 'doc',
       type: 'Document',
@@ -265,7 +265,7 @@ describe('a redirect into a sign-in host', () => {
     arch: 'x64',
   })
 
-  function redirectedGuest(id: number) {
+  async function redirectedGuest(id: number) {
     const events = new EventEmitter()
     const log: string[] = []
     let ack: () => void = () => {}
@@ -279,6 +279,9 @@ describe('a redirect into a sign-in host', () => {
           }
         })
       }
+      if (method === 'Page.getFrameTree') {
+        return Promise.resolve({ frameTree: { frame: { id: 'main' } } })
+      }
       log.push(params?.requestId ? `${method} ${params.requestId}` : method)
       return Promise.resolve({})
     }
@@ -291,37 +294,76 @@ describe('a redirect into a sign-in host', () => {
       },
       on: (event: string, listener: (...args: unknown[]) => void) => events.on(event, listener),
       isDestroyed: () => false,
-      loadURL: (url: string) => {
-        log.push(`load ${url}`)
+      loadURL: (url: string, options?: { httpReferrer?: string }) => {
+        log.push(options?.httpReferrer ? `load ${url} from ${options.httpReferrer}` : `load ${url}`)
         return Promise.resolve()
       },
     }
     followAgentByHost(guest as unknown as AgentGuest, agents, 'http://example.com/')
     watchGuestNetwork(guest as unknown as Electron.WebContents)
+    await new Promise((resolve) => setTimeout(resolve))
     log.length = 0
     events.emit('did-redirect-navigation', { url: SIGNIN, isMainFrame: true })
-    const pause = (method: string) =>
+    const pause = (method: string, frameId = 'main', requestId = 'hop') =>
       events.emit('message', {}, 'Fetch.requestPaused', {
-        requestId: 'hop',
+        requestId,
         networkId: 'doc',
         resourceType: 'Document',
-        request: { url: SIGNIN, method },
+        frameId,
+        request: { url: SIGNIN, method, headers: { Referer: 'http://example.com/start' } },
       })
-    return { log, pause, ack: () => ack() }
+    return { log, events, pause, ack: () => ack() }
   }
 
   it('aborts the document request and reloads it only once the agent switch is acknowledged', async () => {
-    const { log, pause, ack } = redirectedGuest(7101)
+    const { log, pause, ack } = await redirectedGuest(7101)
     pause('GET')
-    await Promise.resolve()
+    await new Promise((resolve) => setTimeout(resolve))
     expect(log).toEqual(['override', 'Fetch.failRequest hop'])
     ack()
     await new Promise((resolve) => setTimeout(resolve))
-    expect(log).toEqual(['override', 'Fetch.failRequest hop', 'acked', `load ${SIGNIN}`])
+    expect(log).toEqual([
+      'override',
+      'Fetch.failRequest hop',
+      'acked',
+      `load ${SIGNIN} from http://example.com/start`,
+    ])
+  })
+
+  it('lets a subframe document at the same address continue and keeps the restart for the main frame', async () => {
+    const { log, pause, ack } = await redirectedGuest(7103)
+    pause('GET', 'child', 'sub')
+    await new Promise((resolve) => setTimeout(resolve))
+    expect(log).toEqual(['override', 'Fetch.continueRequest sub'])
+    pause('GET')
+    ack()
+    await new Promise((resolve) => setTimeout(resolve))
+    expect(log).toContain('Fetch.failRequest hop')
+    expect(log.at(-1)).toBe(`load ${SIGNIN} from http://example.com/start`)
+  })
+
+  it('stops restarting after three redirects in one load and starts again once a load finishes', async () => {
+    const { log, events, pause, ack } = await redirectedGuest(7104)
+    const bounce = async (): Promise<void> => {
+      events.emit('did-redirect-navigation', { url: 'http://example.com/back', isMainFrame: true })
+      events.emit('did-redirect-navigation', { url: SIGNIN, isMainFrame: true })
+      pause('GET')
+      ack()
+      await new Promise((resolve) => setTimeout(resolve))
+    }
+    await bounce()
+    await bounce()
+    await bounce()
+    await bounce()
+    expect(log.filter((entry) => entry.startsWith('load '))).toHaveLength(3)
+    expect(log.filter((entry) => entry === 'Fetch.continueRequest hop')).toHaveLength(1)
+    events.emit('did-finish-load')
+    await bounce()
+    expect(log.filter((entry) => entry.startsWith('load '))).toHaveLength(4)
   })
 
   it('lets a POST redirect continue as it is', async () => {
-    const { log, pause, ack } = redirectedGuest(7102)
+    const { log, pause, ack } = await redirectedGuest(7102)
     pause('POST')
     ack()
     await new Promise((resolve) => setTimeout(resolve))
