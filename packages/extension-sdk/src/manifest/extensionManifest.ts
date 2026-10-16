@@ -11,7 +11,7 @@ import {
 } from '../contract/extensions'
 import { parseFileViewers } from '../contract/fileViewers'
 import { isRecord } from '../contract/isRecord'
-import { parseLanguageServers } from '../contract/languageServers'
+import { parseLanguageServers } from '../contract/languageServerManifest'
 import { isInsideDir } from './confinedRead'
 import { parseConnectionKinds } from './connectionKinds'
 import { isCoreSource } from './coreNames'
