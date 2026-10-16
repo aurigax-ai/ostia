@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace } from './helpers'
+import { expectHeld, openWorkspace } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
 
 async function switchToEditorMode(win: Page): Promise<void> {
@@ -65,16 +65,12 @@ test('the input editor runs commands, walks history and steps aside for interact
     const input = win.getByRole('textbox', { name: 'Command input' })
     const promptLines = async (): Promise<number> =>
       (await rows.innerText()).split('\n').filter((l) => l.includes('❯')).length
-    await win.waitForTimeout(1_500)
-    await expect.poll(promptLines).toBe(1)
+    await expectHeld(promptLines, 1, 1_500)
     await expect(input).toBeHidden()
 
     await switchToEditorMode(win)
     await expect(input).toBeVisible()
-    await win.waitForTimeout(2_000)
-    await expect
-      .poll(promptLines, { message: 'the shrink at the idle prompt must not duplicate it' })
-      .toBe(1)
+    await expectHeld(promptLines, 1, 2_000, 'the shrink at the idle prompt must not duplicate it')
 
     await input.click()
     await win.keyboard.type('echo ostia_editor_$((40+2))')
@@ -115,10 +111,7 @@ test('the input editor runs commands, walks history and steps aside for interact
     await win.keyboard.type('echo ostia_after_cat')
     await win.keyboard.press('Enter')
     await expect(rows).toContainText('ostia_after_cat', { timeout: 15_000 })
-    await win.waitForTimeout(1_500)
-    const settled = await promptLines()
-    await win.waitForTimeout(2_000)
-    expect(await promptLines()).toBe(settled)
+    await expectHeld(promptLines, 5, 2_000)
   } finally {
     await app.close()
   }

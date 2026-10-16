@@ -88,7 +88,9 @@ for (const renderer of ['webgl', 'dom'] as const) {
           timeout: 15_000,
         })
       }
-      await win.waitForTimeout(1_500)
+      await expect(win.getByRole('textbox', { name: 'Command input' })).toBeVisible({
+        timeout: 15_000,
+      })
       await win.locator('.xterm').first().click()
       await win.keyboard.type('claude')
       await win.keyboard.press('Enter')

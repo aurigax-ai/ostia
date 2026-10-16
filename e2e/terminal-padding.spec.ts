@@ -1,8 +1,16 @@
 import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin, isolatedHome } from './fakeAgent'
-import { PROMPT, openWorkspace } from './helpers'
+import { PROMPT, changeSettings, closeAllWorkspaces, openWorkspace } from './helpers'
 import { type PixelRegion, regionColors } from './pixels'
-import { type Locator, type Page, _electron as electron, expect, test } from './test'
+import {
+  type ElectronApplication,
+  type Locator,
+  type Page,
+  _electron as electron,
+  expect,
+  launchShared,
+  test,
+} from './test'
 
 const ENGINES = [
   { name: 'xterm, GPU off', renderer: 'xterm', gpu: false, grid: '.xterm-screen' },
@@ -61,23 +69,40 @@ async function painted(win: Page, pane: Locator, gridSelector: string): Promise<
   return { left, right, top, bottom, grid }
 }
 
-for (const engine of ENGINES) {
-  for (const scheme of SCHEMES) {
-    test(
-      `the padding around the text grid has the terminal background (${engine.name}, ${scheme.name})`,
-      { tag: engine.renderer === 'ghostty' ? '@experimental' : [] },
-      async () => {
-        const dataHome = freshDataHome()
-        seedSettings(dataHome, {
-          appearance: { theme: 'oxocarbon', followSystem: false },
-          behavior: { gpuAcceleration: engine.gpu },
-          terminal: { renderer: engine.renderer, theme: scheme.theme },
-          workspaces: { confirmQuit: false },
-        })
-        const launch = isolatedLaunch(dataHome)
-        const app = await electron.launch({ ...launch, args: [SOFTWARE_WEBGL, ...launch.args] })
-        try {
-          const win = await app.firstWindow()
+let app: ElectronApplication | undefined
+let win: Page
+
+test.describe('around the text grid', () => {
+  test.beforeAll(async () => {
+    const dataHome = freshDataHome()
+    seedSettings(dataHome, {
+      appearance: { theme: 'oxocarbon', followSystem: false },
+      workspaces: { confirmQuit: false },
+    })
+    const launch = isolatedLaunch(dataHome)
+    app = await launchShared({ ...launch, args: [SOFTWARE_WEBGL, ...launch.args] })
+    win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+  })
+
+  test.afterEach(async () => {
+    await closeAllWorkspaces(win)
+  })
+
+  test.afterAll(async () => {
+    await app?.close()
+  })
+
+  for (const engine of ENGINES) {
+    for (const scheme of SCHEMES) {
+      test(
+        `the padding around the text grid has the terminal background (${engine.name}, ${scheme.name})`,
+        { tag: engine.renderer === 'ghostty' ? '@experimental' : [] },
+        async () => {
+          await changeSettings(win, {
+            behavior: { gpuAcceleration: engine.gpu },
+            terminal: { renderer: engine.renderer, theme: scheme.theme },
+          })
           await openWorkspace(win)
           const pane = win.locator('.pane-body-term').first()
           const background = [scheme.background]
@@ -90,13 +115,11 @@ for (const engine of ENGINES) {
               bottom: background,
               grid: background,
             })
-        } finally {
-          await app.close()
-        }
-      },
-    )
+        },
+      )
+    }
   }
-}
+})
 
 test('the padding of a hibernated pane’s screen has the colour of its text grid', async () => {
   test.setTimeout(60_000)
