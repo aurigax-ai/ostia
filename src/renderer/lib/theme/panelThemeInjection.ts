@@ -1,5 +1,4 @@
 import { useReducedMotion } from '@/lib/app/motion'
-import { guestReached } from '@/lib/panes/guestReached'
 import { panelFontFaces } from '@/lib/theme/panelFontFaces'
 import { panelThemeCss } from '@/lib/theme/panelTheme'
 import { themedTokens, useEffectiveTheme } from '@/lib/theme/theme'
@@ -41,11 +40,10 @@ export function useInjectedCss(webview: HTMLElement | null, css: string): () => 
         .catch(() => undefined)
     } catch {}
   }, [webview, css])
-  useEffect(() => apply(), [apply])
   useEffect(() => {
+    apply()
     if (!webview) return
     webview.addEventListener('dom-ready', apply)
-    if (guestReached(webview)) apply()
     return () => webview.removeEventListener('dom-ready', apply)
   }, [webview, apply])
   return apply
