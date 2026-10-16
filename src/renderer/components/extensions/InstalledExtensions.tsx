@@ -1,21 +1,23 @@
 import { isAssistExtension } from '@/components/assist/AssistantSection'
 import { TextLink } from '@/components/common/TextLink'
-import { WarningNote } from '@/components/settingsKit/ControlRow'
+import { ControlRow, WarningNote } from '@/components/settingsKit/ControlRow'
+import { SettingsGroup, SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
+import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { SearchGroup } from '@/components/settingsKit/SettingsSearch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useReducedMotion } from '@/lib/app/motion'
 import { fmt, useDict, withProductName } from '@/lib/app/useDict'
+import { firstSentence } from '@/lib/extensions/extensionBrowse'
 import { entryTitle } from '@/lib/extensions/extensionSettingText'
 import { extensionAnchorId } from '@/lib/settings/settingsNav'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
-import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { MagnifyingGlassIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import { useEffect, useState } from 'react'
 import { ExtensionAgentPlugin } from './ExtensionAgentPlugin'
@@ -31,40 +33,20 @@ export interface ExtensionAnchor {
 
 const ANCHOR_HIGHLIGHT_MS = 2000
 
-type InstalledChip = 'enabled' | 'disabled' | 'needs-approval' | 'problem'
-
-function installedChip(ext: ExtensionInfo): InstalledChip {
-  if (ext.status === 'pending-approval') return 'needs-approval'
-  if (ext.status === 'crashed' || ext.unapproved.length > 0) return 'problem'
-  return ext.enabled ? 'enabled' : 'disabled'
+function exceptionLabel(d: Dict, ext: ExtensionInfo): string | null {
+  if (ext.status === 'pending-approval') return d.extensions.stateNeedsApproval
+  if (ext.status === 'crashed' || ext.unapproved.length > 0) return d.extensions.stateProblem
+  return null
 }
 
-function chipLabel(d: Dict, chip: InstalledChip): string {
-  switch (chip) {
-    case 'enabled':
-      return d.extensions.stateEnabled
-    case 'disabled':
-      return d.extensions.stateDisabled
-    case 'needs-approval':
-      return d.extensions.stateNeedsApproval
-    case 'problem':
-      return d.extensions.stateProblem
-  }
-}
-
-function StateChip({ ext }: { ext: ExtensionInfo }): JSX.Element {
+function ExceptionChip({ ext }: { ext: ExtensionInfo }): JSX.Element | null {
   const d = useDict()
-  const chip = installedChip(ext)
+  const label = exceptionLabel(d, ext)
+  if (!label) return null
+  const problem = ext.status !== 'pending-approval'
   return (
-    <Badge
-      variant={chip === 'enabled' || chip === 'disabled' ? 'outline' : 'secondary'}
-      className={cn(
-        'text-ui-xs',
-        chip === 'disabled' && 'text-fg-muted',
-        chip === 'problem' && 'text-warn-fg',
-      )}
-    >
-      {chipLabel(d, chip)}
+    <Badge variant="secondary" className={cn('text-ui-xs', problem && 'text-warn-fg')}>
+      {label}
     </Badge>
   )
 }
@@ -96,32 +78,47 @@ function useSourceLabel(ext: ExtensionInfo): string {
   return fromMarketplace ? d.extensions.sourceOrphaned : d.extensions.sourceManual
 }
 
-function CapabilityList({
-  label,
-  caps,
-}: {
-  label: string
-  caps: readonly Capability[]
-}): JSX.Element {
+function Value({ children }: { children: React.ReactNode }): JSX.Element {
+  return <span className="text-fg-muted text-ui-sm tabular-nums">{children}</span>
+}
+
+function PermissionRows({ ext }: { ext: ExtensionInfo }): JSX.Element {
   const d = useDict()
+  const review = useExtensionsStore((s) => s.review)
+  const needsReview = ext.status === 'pending-approval' || ext.unapproved.length > 0
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-fg-muted text-ui-xs">{label}</span>
-      {caps.length === 0 ? (
-        <p className="text-fg-muted text-ui-xs">{d.extensions.noPermissions}</p>
-      ) : (
-        <ul aria-label={label} className="flex flex-col gap-1">
-          {caps.map((cap) => (
-            <li key={cap} className="flex items-baseline gap-2 text-ui-xs">
-              <Badge variant="outline" className="shrink-0 font-mono text-ui-xs">
-                {cap}
-              </Badge>
-              <span className="text-fg-muted">{d.extensions.capabilityAllows[cap] ?? cap}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <>
+      <SettingsSubgroup title={d.extensions.permissions} />
+      {ext.granted.length === 0 && ext.unapproved.length === 0 ? (
+        <p className="py-1.5 text-fg-muted text-ui-sm">{d.extensions.noPermissions}</p>
+      ) : null}
+      {ext.granted.map((cap) => (
+        <ControlRow key={cap} label={cap} desc={d.extensions.capabilityAllows[cap] ?? cap}>
+          <Badge variant="outline" className="text-ui-xs">
+            {d.extensions.approved}
+          </Badge>
+        </ControlRow>
+      ))}
+      {ext.unapproved.map((cap) => (
+        <ControlRow key={cap} label={cap} desc={d.extensions.capabilityAllows[cap] ?? cap}>
+          <Badge variant="secondary" className="text-ui-xs">
+            {d.extensions.requested}
+          </Badge>
+        </ControlRow>
+      ))}
+      {ext.unapproved.length > 0 && ext.status !== 'pending-approval' ? (
+        <WarningNote>
+          {fmt(d.extensions.unapproved, { caps: ext.unapproved.join(', ') })}
+        </WarningNote>
+      ) : null}
+      {needsReview ? (
+        <ControlRow label={d.extensions.review}>
+          <Button variant="outline" size="sm" onClick={() => review(ext.id)}>
+            {d.extensions.review}
+          </Button>
+        </ControlRow>
+      ) : null}
+    </>
   )
 }
 
@@ -129,120 +126,91 @@ function ExtensionSettingsArea({ ext }: { ext: ExtensionInfo }): JSX.Element | n
   const d = useDict()
   if (ext.settingsPage) {
     return (
-      <TextLink
-        size="xs"
-        className="h-5 self-start px-0 text-ui-sm"
-        onClick={() => useUIStore.getState().openSettings('extensions', { extension: ext.id })}
-      >
-        {d.extensions.openSettingsPage}
-      </TextLink>
+      <ControlRow label={d.extensions.groupSettings}>
+        <TextLink
+          size="xs"
+          className="h-5 px-0 text-ui-sm"
+          onClick={() => useUIStore.getState().openSettings('extensions', { extension: ext.id })}
+        >
+          {d.extensions.openSettingsPage}
+        </TextLink>
+      </ControlRow>
     )
   }
   if (isAssistExtension(ext)) {
     return ext.enabled ? (
-      <TextLink
-        size="xs"
-        className="h-5 self-start px-0 text-ui-sm"
-        onClick={() => useUIStore.getState().openSettings('assistant')}
-      >
-        {d.assistantSettings.configure}
-      </TextLink>
+      <ControlRow label={d.extensions.groupSettings}>
+        <TextLink
+          size="xs"
+          className="h-5 px-0 text-ui-sm"
+          onClick={() => useUIStore.getState().openSettings('assistant')}
+        >
+          {d.assistantSettings.configure}
+        </TextLink>
+      </ControlRow>
     ) : null
   }
   if (ext.settings.length === 0 && ext.secrets.length === 0) {
-    return <p className="text-fg-muted text-ui-sm">{d.extensions.noSettings}</p>
+    return <p className="py-1.5 text-fg-muted text-ui-sm">{d.extensions.noSettings}</p>
   }
   return <ExtensionSettingsForm ext={ext} bare />
 }
 
-function ExtensionDetails({
-  ext,
-  flash,
-}: {
-  ext: ExtensionInfo
-  flash: ExtensionAnchor | null
-}): JSX.Element {
+function ExtensionDetails({ ext }: { ext: ExtensionInfo }): JSX.Element {
   const d = useDict()
-  const review = useExtensionsStore((s) => s.review)
-  const reducedMotion = useReducedMotion()
   const source = useSourceLabel(ext)
-  const Icon = extensionIcon(ext.panel?.icon ?? ext.settingsPage?.icon)
-  const needsReview = ext.status === 'pending-approval' || ext.unapproved.length > 0
+  const description = withProductName(ext.description)
   return (
-    <section
-      id={extensionAnchorId(ext.id)}
-      tabIndex={-1}
-      aria-label={ext.name}
-      className="relative flex min-w-0 scroll-mt-3 flex-col gap-3 rounded-sm border border-line p-3 outline-none"
-    >
-      {flash?.id === ext.id ? (
-        <span
-          key={flash.nonce}
-          aria-hidden
-          data-testid="extension-anchor-highlight"
-          className={cn(
-            'settings-anchor-highlight pointer-events-none absolute inset-0 rounded-sm',
-            reducedMotion && 'settings-anchor-highlight-static',
-          )}
-        />
-      ) : null}
-      <div className="flex items-start gap-2.5">
-        <Icon aria-hidden className="mt-0.5 size-5 shrink-0 text-fg-muted" />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-medium text-fg text-ui-base">{ext.name}</h3>
-            <StateChip ext={ext} />
-          </div>
-          <p className="text-fg-muted text-ui-xs tabular-nums">
-            {ext.version} · {source} · {d.extensions.categories[ext.category]}
-          </p>
-        </div>
-      </div>
-      {ext.description ? (
-        <p className="text-fg text-ui-sm">{withProductName(ext.description)}</p>
-      ) : null}
-      <div className="flex flex-col gap-0.5">
-        <h4 className="font-medium text-fg text-ui-sm">{d.extensions.status}</h4>
-        <p className="text-fg-muted text-ui-xs">{extensionStatusLabel(d, ext)}</p>
-      </div>
-      <div className="flex flex-col gap-2">
-        <h4 className="font-medium text-fg text-ui-sm">{d.extensions.permissions}</h4>
-        <CapabilityList label={d.extensions.approved} caps={ext.granted} />
-        {ext.unapproved.length > 0 ? (
-          <CapabilityList label={d.extensions.requested} caps={ext.requested} />
-        ) : null}
-        {ext.unapproved.length > 0 && ext.status !== 'pending-approval' ? (
-          <WarningNote>
-            {fmt(d.extensions.unapproved, { caps: ext.unapproved.join(', ') })}
-          </WarningNote>
-        ) : null}
-        {needsReview ? (
-          <Button variant="outline" size="sm" className="self-start" onClick={() => review(ext.id)}>
-            {d.extensions.review}
-          </Button>
-        ) : null}
-      </div>
+    <>
+      {description ? <p className="mb-2 text-fg text-ui-sm">{description}</p> : null}
+      <SettingsSubgroup title={d.extensions.groupDetails} />
+      <ControlRow label={d.extensions.version}>
+        <Value>{ext.version}</Value>
+      </ControlRow>
+      <ControlRow label={d.extensions.sourceLabel}>
+        <Value>{source}</Value>
+      </ControlRow>
+      <ControlRow label={d.extensions.categoryLabel}>
+        <Value>{d.extensions.categories[ext.category]}</Value>
+      </ControlRow>
+      <ControlRow label={d.extensions.status}>
+        <Value>{extensionStatusLabel(d, ext)}</Value>
+      </ControlRow>
+      <div className="mt-3" />
+      <PermissionRows ext={ext} />
       <ExtensionFileViewers ext={ext} />
       <ExtensionAgentPlugin ext={ext} explain={false} />
+      <div className="mt-3" />
+      <SettingsSubgroup title={d.extensions.groupSettings} />
       <ExtensionSettingsArea ext={ext} />
-      <div className="flex items-center gap-2">
-        <UninstallExtensionButton extId={ext.id} name={ext.name} />
-      </div>
-    </section>
+      <UninstallRow ext={ext} />
+    </>
+  )
+}
+
+function UninstallRow({ ext }: { ext: ExtensionInfo }): JSX.Element | null {
+  const d = useDict()
+  const installed = useMarketplaceStore((s) => s.state.installed.includes(ext.id))
+  if (!installed) return null
+  return (
+    <ControlRow label={d.marketplace.uninstall}>
+      <UninstallExtensionButton extId={ext.id} name={ext.name} />
+    </ControlRow>
   )
 }
 
 function ExtensionListRow({
   ext,
-  selected,
-  onSelect,
+  anchor,
+  flashing,
 }: {
   ext: ExtensionInfo
-  selected: boolean
-  onSelect: () => void
+  anchor: boolean
+  flashing: boolean
 }): JSX.Element {
   const d = useDict()
   const setEnabled = useExtensionsStore((s) => s.setEnabled)
+  const reducedMotion = useReducedMotion()
   const Icon = extensionIcon(ext.panel?.icon ?? ext.settingsPage?.icon)
   return (
     <SearchGroup
@@ -254,30 +222,44 @@ function ExtensionListRow({
       ]}
     >
       {(search) => (
-        <li
+        <SettingsListRow
+          id={extensionAnchorId(ext.id)}
+          tabIndex={-1}
           aria-label={ext.name}
           hidden={search.hidden}
           data-search-hit={search.hit || undefined}
-          data-selected={selected || undefined}
-          className="flex items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-surface-2 data-[selected]:bg-surface-2"
-        >
-          <button
-            type="button"
-            aria-label={ext.name}
-            aria-current={selected || undefined}
-            onClick={onSelect}
-            className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
-          >
-            <Icon aria-hidden className="size-4 shrink-0 text-fg-muted" />
-            <span className="min-w-0 truncate text-fg text-ui-sm">{ext.name}</span>
-            <StateChip ext={ext} />
-          </button>
-          <Switch
-            checked={ext.enabled}
-            onCheckedChange={(v) => void setEnabled(ext.id, v)}
-            aria-label={fmt(d.extensions.enable, { name: ext.name })}
-          />
-        </li>
+          className="relative scroll-mt-3 outline-none"
+          lead={<Icon aria-hidden className="size-4" />}
+          title={ext.name}
+          meta={<ExceptionChip ext={ext} />}
+          detail={
+            <span className="block truncate">
+              {firstSentence(withProductName(ext.description))}
+            </span>
+          }
+          actions={
+            <Switch
+              checked={ext.enabled}
+              onCheckedChange={(v) => void setEnabled(ext.id, v)}
+              aria-label={fmt(d.extensions.enable, { name: ext.name })}
+            />
+          }
+          expandLabel={fmt(d.extensions.detailsOf, { name: ext.name })}
+          defaultOpen={anchor}
+          expanded={<ExtensionDetails ext={ext} />}
+          below={
+            flashing ? (
+              <span
+                aria-hidden
+                data-testid="extension-anchor-highlight"
+                className={cn(
+                  'settings-anchor-highlight pointer-events-none absolute inset-0 rounded-sm',
+                  reducedMotion && 'settings-anchor-highlight-static',
+                )}
+              />
+            ) : undefined
+          }
+        />
       )}
     </SearchGroup>
   )
@@ -291,13 +273,11 @@ export function ExtensionsSection({
   const d = useDict()
   const list = useExtensionsStore((s) => s.list)
   useMarketplaceList()
-  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [flash, setFlash] = useState<ExtensionAnchor | null>(null)
   const anchorListed = anchor !== null && list.some((e) => e.id === anchor.id)
 
   useEffect(() => {
     if (!anchor || !anchorListed) return
-    setSelectedId(anchor.id)
     setFlash(anchor)
     const timer = setTimeout(() => setFlash(null), ANCHOR_HIGHLIGHT_MS)
     return () => clearTimeout(timer)
@@ -305,44 +285,23 @@ export function ExtensionsSection({
 
   useEffect(() => {
     if (!flash) return
-    const details = document.getElementById(extensionAnchorId(flash.id))
-    details?.scrollIntoView({ block: 'start' })
-    details?.focus({ preventScroll: true })
+    const row = document.getElementById(extensionAnchorId(flash.id))
+    row?.scrollIntoView({ block: 'start' })
+    row?.focus({ preventScroll: true })
   }, [flash])
 
-  const selected = list.find((e) => e.id === selectedId) ?? list[0] ?? null
-
   return (
-    <section aria-label={d.extensions.title} className="@container">
-      <div className="mb-3 flex items-start justify-between gap-6">
-        <p className="text-fg-muted text-ui-sm">{d.extensions.desc}</p>
-        <Button
-          variant="outline"
-          size="sm"
-          className="shrink-0"
-          onClick={() => useUIStore.getState().openSettings('browseExtensions')}
-        >
-          <MagnifyingGlassIcon data-icon="inline-start" />
-          {d.extensions.findMore}
-        </Button>
-      </div>
-      {list.length === 0 ? (
-        <p className="text-fg-muted text-ui-sm">{d.extensions.none}</p>
-      ) : (
-        <div className="grid grid-cols-1 items-start gap-4 @2xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-          <ul aria-label={d.extensions.listLabel} className="flex flex-col gap-0.5">
-            {list.map((ext) => (
-              <ExtensionListRow
-                key={ext.id}
-                ext={ext}
-                selected={ext.id === selected?.id}
-                onSelect={() => setSelectedId(ext.id)}
-              />
-            ))}
-          </ul>
-          {selected ? <ExtensionDetails key={selected.id} ext={selected} flash={flash} /> : null}
-        </div>
-      )}
-    </section>
+    <SettingsGroup title={d.extensions.groupInstalled}>
+      <SettingsList label={d.extensions.listLabel} empty={d.extensions.none}>
+        {list.map((ext) => (
+          <ExtensionListRow
+            key={`${ext.id}:${anchor?.id === ext.id ? anchor.nonce : 0}`}
+            ext={ext}
+            anchor={anchor?.id === ext.id}
+            flashing={flash?.id === ext.id}
+          />
+        ))}
+      </SettingsList>
+    </SettingsGroup>
   )
 }
