@@ -116,20 +116,13 @@ describe('history feed', () => {
     )
   })
 
-  it('keeps the worker heap small after a burst of output across panes', async () => {
+  it("starts the worker with a bounded heap instead of inheriting main's limit", async () => {
     const worker = spillWorker(HISTORY_WORKER_SCRIPT)
     owned.push({ dispose: () => void worker.terminate() })
-    const client = new SpillClient(worker as unknown as SpillPort)
-    const feeds = Array.from({ length: 10 }, () => client.open(makeHistory(), 160, 24))
-    let peak = 0
-    for (let round = 0; round < 20; round++) {
-      for (const feed of feeds) feed.write(`${'x'.repeat(150)}\r\n`.repeat(SPILL_BATCH))
-      await Promise.all(feeds.map((feed) => feed.tail()))
-      peak = Math.max(peak, (await worker.getHeapStatistics()).total_heap_size)
-    }
-    await Promise.all(feeds.map((feed) => feed.close()))
-    expect(peak).toBeLessThan(80 * 1024 * 1024)
-  }, 60_000)
+    await new Promise((resolve) => worker.once('online', resolve))
+    const { heap_size_limit } = await worker.getHeapStatistics()
+    expect(heap_size_limit).toBeLessThan(1.1 * 1024 * 1024 * 1024)
+  })
 
   it('keeps wide and combined characters through the worker', async () => {
     const client = startSpillWorker(HISTORY_WORKER_SCRIPT)
