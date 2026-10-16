@@ -1,3 +1,4 @@
+import { ListRow } from '@/components/common/ListRow'
 import { TextLink } from '@/components/common/TextLink'
 import { Button } from '@/components/ui/button'
 import {
@@ -55,61 +56,59 @@ function RunningGroupItem({ group }: { group: RunningGroup }): JSX.Element {
   return (
     <li>
       <div className="font-medium text-fg text-ui-base">{group.workspace}</div>
-      <ul className="mt-1 flex flex-col gap-1">
+      <ul className="mt-1 flex flex-col">
         {group.commands.map((command, index) => (
-          <li
+          <ListRow
             // biome-ignore lint/suspicious/noArrayIndexKey: commands can repeat and never reorder while the dialog is open
             key={index}
-            className="flex min-w-0 items-center gap-2 text-fg-muted"
-          >
-            <TerminalWindowIcon size={16} className="shrink-0" aria-hidden />
-            <span className="truncate font-mono text-fg text-ui-sm">
-              {command || d.closeConfirm.unknownCommand}
-            </span>
-          </li>
+            density="dense"
+            lead={<TerminalWindowIcon size={16} aria-hidden />}
+            title={<span className="font-mono">{command || d.closeConfirm.unknownCommand}</span>}
+          />
         ))}
         {group.agents?.map((agent, index) => (
-          <li
+          <ListRow
             // biome-ignore lint/suspicious/noArrayIndexKey: agents can repeat and never reorder while the dialog is open
             key={index}
-            className="flex min-w-0 items-center gap-2 text-fg-muted"
-          >
-            <RobotIcon size={16} className="shrink-0" aria-hidden />
-            <span className="truncate font-mono text-fg text-ui-sm">
-              {agent || d.closeConfirm.unknownCommand}
-            </span>
-          </li>
+            density="dense"
+            lead={<RobotIcon size={16} aria-hidden />}
+            title={<span className="font-mono">{agent || d.closeConfirm.unknownCommand}</span>}
+          />
         ))}
         {group.scratchFiles ? (
-          <li className="flex min-w-0 items-center gap-2 text-fg-muted">
-            <FlaskIcon size={16} className="shrink-0" aria-hidden />
-            <span className="truncate text-fg text-ui-sm">
-              {group.scratchFiles === 1
+          <ListRow
+            density="dense"
+            lead={<FlaskIcon size={16} aria-hidden />}
+            title={
+              group.scratchFiles === 1
                 ? d.closeConfirm.scratchFilesOne
-                : fmt(d.closeConfirm.scratchFiles, { count: group.scratchFiles })}
-            </span>
-            <TextLink
-              size="xs"
-              className="h-5 px-1 text-ui-sm"
-              onClick={() => window.ostia.scratch.reveal(group.workspaceId)}
-            >
-              {d.closeConfirm.reveal}
-            </TextLink>
-          </li>
+                : fmt(d.closeConfirm.scratchFiles, { count: group.scratchFiles })
+            }
+            actions={
+              <TextLink
+                size="xs"
+                className="h-5 px-1 text-ui-sm"
+                onClick={() => window.ostia.scratch.reveal(group.workspaceId)}
+              >
+                {d.closeConfirm.reveal}
+              </TextLink>
+            }
+          />
         ) : null}
         {group.files.map((file) => (
-          <li key={file} className="flex min-w-0 items-center gap-2 text-fg-muted">
-            <FileDashedIcon size={16} className="shrink-0" aria-hidden />
-            <span className="truncate text-fg text-ui-sm">
-              {fmt(d.closeConfirm.unsaved, { file: baseName(file) })}
-            </span>
-          </li>
+          <ListRow
+            key={file}
+            density="dense"
+            lead={<FileDashedIcon size={16} aria-hidden />}
+            title={fmt(d.closeConfirm.unsaved, { file: baseName(file) })}
+          />
         ))}
         {group.unanswered ? (
-          <li className="flex min-w-0 items-center gap-2 text-fg-muted">
-            <QuestionIcon size={16} className="shrink-0" aria-hidden />
-            <span className="truncate text-fg text-ui-sm">{d.closeConfirm.unanswered}</span>
-          </li>
+          <ListRow
+            density="dense"
+            lead={<QuestionIcon size={16} aria-hidden />}
+            title={d.closeConfirm.unanswered}
+          />
         ) : null}
       </ul>
     </li>
@@ -131,18 +130,15 @@ function KeptShellsSection({
           ? d.closeConfirm.keptShellsOne
           : fmt(d.closeConfirm.keptShells, { count: keptShells.length })}
       </div>
-      <ul className="flex flex-col gap-1">
+      <ul className="flex flex-col">
         {keptAgents(keptShells).map((agent, index) => (
-          <li
+          <ListRow
             // biome-ignore lint/suspicious/noArrayIndexKey: agents can repeat and never reorder while the dialog is open
             key={index}
-            className="flex min-w-0 items-center gap-2 text-fg-muted"
-          >
-            <RobotIcon size={16} className="shrink-0" aria-hidden />
-            <span className="truncate font-mono text-fg text-ui-sm">
-              {agent || d.closeConfirm.unknownCommand}
-            </span>
-          </li>
+            density="dense"
+            lead={<RobotIcon size={16} aria-hidden />}
+            title={<span className="font-mono">{agent || d.closeConfirm.unknownCommand}</span>}
+          />
         ))}
       </ul>
       {showBody ? <p className="text-fg-muted text-ui-sm">{d.closeConfirm.keptBody}</p> : null}

@@ -1,5 +1,7 @@
 import { IconButton } from '@/components/common/IconButton'
 import { SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
+import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -70,58 +72,76 @@ export function SandboxListEditor({
   return (
     <fieldset aria-label={label} className="mb-4">
       <SettingsSubgroup title={label} desc={desc} />
-      <ul className="mb-2 flex flex-col gap-1">
+      <SettingsList
+        label={label}
+        empty={d.sandbox.listEmpty}
+        add={
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void add()
+            }}
+          >
+            <Input
+              value={draft}
+              placeholder={placeholder}
+              aria-label={label}
+              aria-invalid={error ? true : undefined}
+              onChange={(e) => {
+                setDraft(e.target.value)
+                setError(null)
+              }}
+              className="h-7 flex-1 font-mono"
+            />
+            <Button type="submit" variant="outline" size="sm">
+              {d.sandbox.add}
+            </Button>
+          </form>
+        }
+      >
         {fixed.map((item) => (
-          <li key={`f-${item}`} className="flex items-center gap-2 text-fg-muted text-ui-sm">
-            <span className="min-w-0 flex-1 truncate font-mono">{item}</span>
-            <Badge variant="outline" className="text-ui-xs">
-              {d.sandbox.always}
-            </Badge>
-          </li>
+          <SettingsListRow
+            key={`f-${item}`}
+            title={<span className="font-mono text-fg-muted text-ui-sm">{item}</span>}
+            actions={
+              <Badge variant="outline" className="text-ui-xs">
+                {d.sandbox.always}
+              </Badge>
+            }
+          />
         ))}
         {inherited.map((item) => (
-          <li key={`g-${item}`} className="flex items-center gap-2 text-fg-muted text-ui-sm">
-            <span className="min-w-0 flex-1 truncate font-mono">{item}</span>
-            {tag(item)}
-            <Badge variant="outline" className="text-ui-xs">
-              {d.sandbox.global}
-            </Badge>
-          </li>
+          <SettingsListRow
+            key={`g-${item}`}
+            title={<span className="font-mono text-fg-muted text-ui-sm">{item}</span>}
+            actions={
+              <>
+                {tag(item)}
+                <Badge variant="outline" className="text-ui-xs">
+                  {d.sandbox.global}
+                </Badge>
+              </>
+            }
+          />
         ))}
         {items.map((item) => (
-          <li key={item} className="flex items-center gap-2 text-fg text-ui-sm">
-            <span className="min-w-0 flex-1 truncate font-mono">{item}</span>
-            {tag(item)}
-            <IconButton
-              icon={XIcon}
-              label={fmt(d.sandbox.remove, { item })}
-              onClick={() => void apply(items.filter((i) => i !== item))}
-            />
-          </li>
+          <SettingsListRow
+            key={item}
+            title={<span className="font-mono text-ui-sm">{item}</span>}
+            actions={
+              <>
+                {tag(item)}
+                <IconButton
+                  icon={XIcon}
+                  label={fmt(d.sandbox.remove, { item })}
+                  onClick={() => void apply(items.filter((i) => i !== item))}
+                />
+              </>
+            }
+          />
         ))}
-      </ul>
-      <form
-        className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault()
-          void add()
-        }}
-      >
-        <Input
-          value={draft}
-          placeholder={placeholder}
-          aria-label={label}
-          aria-invalid={error ? true : undefined}
-          onChange={(e) => {
-            setDraft(e.target.value)
-            setError(null)
-          }}
-          className="h-7 flex-1 font-mono"
-        />
-        <Button type="submit" variant="outline" size="sm">
-          {d.sandbox.add}
-        </Button>
-      </form>
+      </SettingsList>
       {error ? (
         <p role="alert" className="mt-1 text-attn-fg text-ui-sm">
           {error}

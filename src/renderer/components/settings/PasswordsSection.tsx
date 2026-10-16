@@ -1,5 +1,7 @@
 import { IconButton } from '@/components/common/IconButton'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
+import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import {
@@ -45,40 +47,37 @@ function SavedPasswords({
   const d = useDict()
   return (
     <SettingsGroup title={d.passwords.groupSaved}>
-      {list.length === 0 ? (
-        <p className="px-3 py-2 text-fg-muted text-ui-sm">{d.passwords.none}</p>
-      ) : (
-        <ul className="flex flex-col">
-          {list.map((c) => (
-            <li key={c.id} className="flex items-center gap-3 rounded-sm px-3 py-1.5">
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-fg text-ui-base">{c.origin}</div>
-                <div className="truncate text-fg-muted text-ui-sm">
-                  {c.username || d.passwords.noUsername}
-                </div>
-              </div>
-              <IconButton
-                icon={CopyIcon}
-                label={fmt(d.passwords.copy, { origin: c.origin })}
-                onClick={() =>
-                  void window.ostia.credentials
-                    .copyPassword(c.id)
-                    .then((ok) =>
-                      onStatus(ok ? d.passwords.copied : d.passwords.encryptionUnavailable),
-                    )
-                }
-              />
-              <IconButton
-                icon={TrashIcon}
-                label={fmt(d.passwords.remove, { origin: c.origin })}
-                className="hover:text-attn-fg"
-                onClick={() => onRemove(c)}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="flex items-center gap-2 px-3 pt-2">
+      <SettingsList label={d.passwords.groupSaved} empty={d.passwords.none}>
+        {list.map((c) => (
+          <SettingsListRow
+            key={c.id}
+            title={c.origin}
+            detail={c.username || d.passwords.noUsername}
+            actions={
+              <>
+                <IconButton
+                  icon={CopyIcon}
+                  label={fmt(d.passwords.copy, { origin: c.origin })}
+                  onClick={() =>
+                    void window.ostia.credentials
+                      .copyPassword(c.id)
+                      .then((ok) =>
+                        onStatus(ok ? d.passwords.copied : d.passwords.encryptionUnavailable),
+                      )
+                  }
+                />
+                <IconButton
+                  icon={TrashIcon}
+                  label={fmt(d.passwords.remove, { origin: c.origin })}
+                  className="hover:text-attn-fg"
+                  onClick={() => onRemove(c)}
+                />
+              </>
+            }
+          />
+        ))}
+      </SettingsList>
+      <div className="flex items-center gap-2 pt-2">
         <Button
           variant="outline"
           size="sm"

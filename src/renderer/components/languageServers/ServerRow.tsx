@@ -1,5 +1,6 @@
 import { IconButton } from '@/components/common/IconButton'
 import { useRequirements } from '@/components/settings/RequirementsNote'
+import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Highlight, useSearchGroup } from '@/components/settingsKit/SettingsSearch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -107,55 +108,52 @@ export function ServerRow({ server }: { server: LanguageServerInfo }): JSX.Eleme
     server.status === 'crashed'
   const search = useSearchGroup([server.name, server.extName, server.languages.join(', ')])
   return (
-    <li
+    <SettingsListRow
       aria-label={server.name}
       hidden={search.hidden}
       data-search-hit={search.hit || undefined}
       data-server-key={server.key}
       data-server-status={server.status}
-      className="flex flex-col rounded-sm px-3 py-2"
-    >
-      <div className="flex items-start justify-between gap-6">
-        <div className="flex min-w-0 flex-1 gap-2.5">
-          <span
-            aria-hidden
-            className={`mt-1.5 size-2 shrink-0 rounded-full ${STATUS_DOT[server.status]}`}
-          />
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="min-w-0 break-words text-fg text-ui-base">
-                <Highlight text={server.name} />
-              </span>
-              <Badge variant="outline" className="text-ui-xs">
-                {t.kinds[server.kind]}
-              </Badge>
-            </div>
-            <p className="mt-0.5 break-words text-fg-muted text-ui-xs">
-              {server.extName} · {server.languages.join(', ')} ·{' '}
-              <span className="break-all font-mono">{server.command}</span>
-            </p>
-            <p
-              data-testid="language-server-status"
-              className={`mt-0.5 text-ui-sm ${problem ? 'text-attn-fg' : 'text-fg-muted'}`}
+      lead={<span aria-hidden className={`size-2 rounded-full ${STATUS_DOT[server.status]}`} />}
+      title={<Highlight text={server.name} />}
+      meta={
+        <Badge variant="outline" className="text-ui-xs">
+          {t.kinds[server.kind]}
+        </Badge>
+      }
+      detail={
+        <>
+          <p className="break-words text-ui-xs">
+            {server.extName} · {server.languages.join(', ')} ·{' '}
+            <span className="break-all font-mono">{server.command}</span>
+          </p>
+          <p
+            data-testid="language-server-status"
+            className={`mt-0.5 text-ui-sm ${problem ? 'text-attn-fg' : 'text-fg-muted'}`}
+          >
+            {statusLabel(d, server)}
+          </p>
+          {reason ? <p className="mt-0.5 text-ui-xs">{reason}</p> : null}
+          {note ? <p className="mt-0.5 text-ui-xs">{note}</p> : null}
+          {needsProgram ? <InstallProgram server={server} /> : null}
+          {failed ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-1"
+              onClick={() => void window.ostia.lsp.fetch(server.key)}
             >
-              {statusLabel(d, server)}
-            </p>
-            {reason ? <p className="mt-0.5 text-fg-muted text-ui-xs">{reason}</p> : null}
-            {note ? <p className="mt-0.5 text-fg-muted text-ui-xs">{note}</p> : null}
-            {needsProgram ? <InstallProgram server={server} /> : null}
-            {failed ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-1"
-                onClick={() => void window.ostia.lsp.fetch(server.key)}
-              >
-                {t.retry}
-              </Button>
-            ) : null}
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
+              {t.retry}
+            </Button>
+          ) : null}
+          {showLog ? <ServerLogDialog server={server} onClose={() => setShowLog(false)} /> : null}
+          {choosing ? (
+            <ServerProgramDialog server={server} onClose={() => setChoosing(false)} />
+          ) : null}
+        </>
+      }
+      actions={
+        <>
           {canFetchNow && !failed ? (
             <IconButton
               icon={DownloadSimpleIcon}
@@ -193,10 +191,8 @@ export function ServerRow({ server }: { server: LanguageServerInfo }): JSX.Eleme
             onCheckedChange={(v) => void setEnabled(server.key, v)}
             aria-label={fmt(t.enable, { name: server.name })}
           />
-        </div>
-      </div>
-      {showLog ? <ServerLogDialog server={server} onClose={() => setShowLog(false)} /> : null}
-      {choosing ? <ServerProgramDialog server={server} onClose={() => setChoosing(false)} /> : null}
-    </li>
+        </>
+      }
+    />
   )
 }
