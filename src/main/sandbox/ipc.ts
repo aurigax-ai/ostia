@@ -15,9 +15,8 @@ import {
   type WorkspaceSandbox,
   checkDomainPattern,
   checkExposePort,
-  parseSwitches,
-  parseWorkspacePackages,
 } from '../../shared/sandbox/sandbox'
+import { parseSwitches, parseWorkspacePackages } from '../../shared/sandbox/sandboxParse'
 import type { SandboxReadPreset } from '../../shared/sandbox/sandboxPresets'
 import type { DomainRequests } from './domainRequests'
 import { checkSandboxPaths } from './pathChecks'

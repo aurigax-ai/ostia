@@ -45,6 +45,7 @@
     "src/shared/workspaces/splitTabs.ts"
   ],
   "specs": [
+    "e2e/close-tab-focus.spec.ts",
     "e2e/new-terminal-focus.spec.ts",
     "e2e/pane-dnd.spec.ts",
     "e2e/pane-lock.spec.ts",

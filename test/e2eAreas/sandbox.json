@@ -20,6 +20,7 @@
     "src/renderer/components/sandbox/WorkspaceSandboxPage.tsx",
     "src/renderer/stores/app/sandboxStore.ts",
     "src/shared/sandbox/sandbox.",
+    "src/shared/sandbox/sandboxParse.ts",
     "src/shared/sandbox/sandboxPresets.",
     "src/shared/sandbox/secrets.ts"
   ],

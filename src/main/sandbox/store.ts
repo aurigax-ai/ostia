@@ -1,10 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
-import {
-  type WorkspaceSandbox,
-  emptyWorkspaceSandbox,
-  parseWorkspaceSandbox,
-} from '../../shared/sandbox/sandbox'
+import { type WorkspaceSandbox, emptyWorkspaceSandbox } from '../../shared/sandbox/sandbox'
+import { parseWorkspaceSandbox } from '../../shared/sandbox/sandboxParse'
 import { saveJson } from '../platform/jsonStore'
 
 export class SandboxStore {

@@ -85,7 +85,8 @@
     "src/shared/browser/passkeyGuard.",
     "src/shared/browser/pick.",
     "src/shared/browser/pickRuntime.ts",
-    "src/shared/browser/regionCapture.ts"
+    "src/shared/browser/regionCapture.ts",
+    "src/shared/pageScripts/"
   ],
   "specs": [
     "e2e/browser-agent.spec.ts",

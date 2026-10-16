@@ -17,8 +17,8 @@ import type { HostPaneGrants } from '../../sandbox/hostPanes'
 import type { PortBridge } from '../../sandbox/portBridge'
 import { sandboxFailureBanner } from '../../sandbox/spawnBanner'
 import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'
-import { TMUX_MISSING } from '../../tmux/keepShellsBanner'
 import type { KeptProgram } from '../../tmux/keptShells'
+import { tmuxMissingReason } from '../../tmux/keptSpawn'
 import type { ScratchFolders } from '../../workspaces/scratchFolders'
 import { markNonceFileFor, writeMarkNonce } from '../markNonce'
 import { sendsMarkNonce, shellIntegrationSpawnOptions } from '../shellIntegration'
@@ -136,8 +136,7 @@ export function createSpawnPlanner({
     const host = opts.hostToken ? hostPaneGrants.consume(opts.hostToken) : false
     const sandboxed = !host && workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
     const wantsKeep = keepShellsOn() && !host
-    if (wantsKeep && !keptShellsProgram()) await loginPathSettled()
-    const notKept = wantsKeep && !keptShellsProgram() ? TMUX_MISSING : ''
+    const notKept = wantsKeep ? await tmuxMissingReason(keptShellsProgram, loginPathSettled) : ''
     return {
       identity,
       workspaceId,

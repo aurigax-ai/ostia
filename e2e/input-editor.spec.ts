@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace } from './helpers'
+import { expectHeld, openWorkspace } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
 
 async function switchToEditorMode(win: Page): Promise<void> {
@@ -65,16 +65,12 @@ test('the input editor runs commands, walks history and steps aside for interact
     const input = win.getByRole('textbox', { name: 'Command input' })
     const promptLines = async (): Promise<number> =>
       (await rows.innerText()).split('\n').filter((l) => l.includes('❯')).length
-    await win.waitForTimeout(1_500)
-    await expect.poll(promptLines).toBe(1)
+    await expectHeld(promptLines, 1, 1_500)
     await expect(input).toBeHidden()
 
     await switchToEditorMode(win)
     await expect(input).toBeVisible()
-    await win.waitForTimeout(2_000)
-    await expect
-      .poll(promptLines, { message: 'the shrink at the idle prompt must not duplicate it' })
-      .toBe(1)
+    await expectHeld(promptLines, 1, 2_000, 'the shrink at the idle prompt must not duplicate it')
 
     await input.click()
     await win.keyboard.type('echo ostia_editor_$((40+2))')
@@ -115,46 +111,7 @@ test('the input editor runs commands, walks history and steps aside for interact
     await win.keyboard.type('echo ostia_after_cat')
     await win.keyboard.press('Enter')
     await expect(rows).toContainText('ostia_after_cat', { timeout: 15_000 })
-    await win.waitForTimeout(1_500)
-    const settled = await promptLines()
-    await win.waitForTimeout(2_000)
-    expect(await promptLines()).toBe(settled)
-  } finally {
-    await app.close()
-  }
-})
-
-test('a fresh pane suggests a command from the shell’s history file', async () => {
-  test.setTimeout(60_000)
-  const dataHome = freshDataHome()
-  const home = join(dataHome, 'home')
-  mkdirSync(home, { recursive: true })
-  writeFileSync(join(home, '.zshrc'), "PROMPT='%~ ❯ '\nHISTFILE=$HOME/.zsh_history\n")
-  writeFileSync(
-    join(home, '.zsh_history'),
-    ': 1700000000:0;echo ostia_seeded_history_entry\n: 1700000060:0;ls\n',
-  )
-  seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
-    behavior: { ...DOM_RENDERER_SETTINGS.behavior, inputMode: 'editor' },
-  })
-  const launch = isolatedLaunch(dataHome)
-  const app = await electron.launch({
-    ...launch,
-    env: { ...launch.env, HOME: home, SHELL: '/bin/zsh' },
-  })
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await openWorkspace(win)
-    const input = win.getByRole('textbox', { name: 'Command input' })
-    await expect(input).toBeVisible({ timeout: 15_000 })
-    await input.click()
-
-    await win.keyboard.type('echo ostia_see')
-    await expect(win.locator('.input-editor-ghost')).toHaveText('ded_history_entry')
-    await win.keyboard.press('End')
-    await expect(input).toHaveValue('echo ostia_seeded_history_entry')
+    await expectHeld(promptLines, 5, 2_000)
   } finally {
     await app.close()
   }

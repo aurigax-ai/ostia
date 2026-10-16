@@ -1,10 +1,7 @@
-import {
-  BROWSE_RUNTIME_GLOBAL,
-  type BrowseRuntime,
-  browseRuntime,
-  browseRuntimeScript,
-} from '@shared/browser/browseRuntime'
+import { BROWSE_RUNTIME_GLOBAL, type BrowseRuntime } from '@shared/browser/browseRuntime'
 import { formatSnapshot } from '@shared/browser/browseSnapshot'
+import { browseRuntime } from '@shared/pageScripts/browsePage'
+import { browseRuntimeScript } from '@shared/pageScripts/installScripts'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MemoryStorage } from '../../../../test/mocks/memoryStorage'
 

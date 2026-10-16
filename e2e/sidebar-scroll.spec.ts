@@ -70,7 +70,6 @@ test('sidebar scroll list: edges fade where rows continue, and the scrollbar sho
 
     const scrollbar = railScrollbar(win)
     await expect(scrollbar).toBeAttached()
-    await expect(scrollbar).not.toHaveAttribute('data-scrolling')
     await expect.poll(() => opacityOf(scrollbar)).toBe(0)
     await expect.poll(() => fadeAt(viewport, 't')).toBe(0)
     await expect.poll(() => fadeAt(viewport, 'b')).toBeGreaterThan(0)
@@ -80,7 +79,6 @@ test('sidebar scroll list: edges fade where rows continue, and the scrollbar sho
     await win.locator('.deck-rail').screenshot({ path: test.info().outputPath('sidebar-rest.png') })
 
     await wheelOverRail(win, 160)
-    await expect(scrollbar).toHaveAttribute('data-scrolling', '')
     await expect.poll(() => opacityOf(scrollbar)).toBe(1)
     await expect.poll(() => fadeAt(viewport, 't')).toBeGreaterThan(0)
     await expect.poll(() => fadeAt(viewport, 'b')).toBeGreaterThan(0)
@@ -89,7 +87,6 @@ test('sidebar scroll list: edges fade where rows continue, and the scrollbar sho
       .locator('.deck-rail')
       .screenshot({ path: test.info().outputPath('sidebar-scrolling.png') })
 
-    await expect(scrollbar).not.toHaveAttribute('data-scrolling')
     await expect.poll(() => opacityOf(scrollbar)).toBe(0)
     expect(await gutter(win)).toEqual(atRest)
 

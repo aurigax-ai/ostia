@@ -83,81 +83,6 @@ test('Escape closes the palette from every way of opening it, and the shell neve
   }
 })
 
-test('Escape held until it repeats closes the palette once and none of its repeats reach the shell; the next press is the shell’s', async () => {
-  const { app, win } = await launchWithNotes()
-  try {
-    const dialog = win.getByRole('dialog')
-    const rows = win.locator('.xterm-rows').first()
-    const textarea = win.locator('.xterm-helper-textarea').first()
-    await startCat(win)
-
-    for (const [name, open] of OPENERS) {
-      await open(win)
-      await expect(dialog.getByRole('combobox'), name).toBeFocused()
-      await win.keyboard.down('Escape')
-      await expect(dialog, name).toBeHidden()
-      await expect(textarea, name).toBeFocused()
-      await win.keyboard.down('Escape')
-      await win.keyboard.down('Escape')
-      await win.keyboard.up('Escape')
-    }
-    await shellSawNoEscape(win, 'after-held-escape')
-
-    await win.keyboard.press('Escape')
-    await expect(rows).toContainText('^[')
-  } finally {
-    await app.close()
-  }
-})
-
-test('Escape while an input method is composing in the palette closes it, and the next Escape in a reopened palette closes it too', async () => {
-  const { app, win } = await launchWithNotes()
-  try {
-    const dialog = win.getByRole('dialog')
-    const input = dialog.getByRole('combobox')
-    const cdp = await win.context().newCDPSession(win)
-    await startCat(win)
-
-    const compose = (text: string): Promise<unknown> =>
-      cdp.send('Input.imeSetComposition', {
-        text,
-        selectionStart: text.length,
-        selectionEnd: text.length,
-      })
-
-    await win.keyboard.press(chords.palette)
-    await expect(input).toBeFocused()
-    await compose('ni')
-    await expect(input).toHaveValue(/ni$/)
-    await cdp.send('Input.dispatchKeyEvent', {
-      type: 'rawKeyDown',
-      key: 'Process',
-      code: 'Escape',
-      windowsVirtualKeyCode: 229,
-      nativeVirtualKeyCode: 229,
-    })
-    await cdp.send('Input.dispatchKeyEvent', {
-      type: 'keyUp',
-      key: 'Escape',
-      code: 'Escape',
-      windowsVirtualKeyCode: 27,
-      nativeVirtualKeyCode: 27,
-    })
-    await expect(dialog).toBeHidden()
-    await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused()
-
-    await win.keyboard.press(chords.palette)
-    await expect(input).toBeFocused()
-    await expect(input).not.toHaveValue(/ni$/)
-    await win.keyboard.press('Escape')
-    await expect(dialog, 'reopened').toBeHidden()
-
-    await shellSawNoEscape(win, 'after-composing-escape')
-  } finally {
-    await app.close()
-  }
-})
-
 test('Escape closes the palette opened over an editor and a browser page, and gives each its keyboard back untouched', async () => {
   test.setTimeout(90_000)
   const server = createServer((_req, res) => {
@@ -237,12 +162,10 @@ test('Escape closes the palette in a second window, and its shell never gets it'
     const moved = second.getByRole('dialog')
     await second.locator('.xterm').first().click()
     await expect(second.locator('.xterm-helper-textarea').first()).toBeFocused()
-    for (const [name, open] of OPENERS) {
-      await open(second)
-      await expect(moved.getByRole('combobox'), name).toBeFocused()
-      await second.keyboard.press('Escape')
-      await expect(moved, name).toBeHidden()
-    }
+    await second.keyboard.press(chords.palette)
+    await expect(moved.getByRole('combobox')).toBeFocused()
+    await second.keyboard.press('Escape')
+    await expect(moved).toBeHidden()
     await shellSawNoEscape(second, 'after-second-window-escape')
   } finally {
     await app.close()

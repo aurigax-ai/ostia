@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
+import { type ElectronApplication, type Page, expect, launchShared, test } from './test'
 
 const MIN_ICONS = 20
 const MIN_ICON_SIZE = 16
@@ -42,7 +42,7 @@ async function launch(scale: number) {
   mkdirSync(join(home, 'src'), { recursive: true })
   writeFileSync(join(home, 'index.ts'), 'export const one = 1\n')
   const options = isolatedLaunch(dataHome)
-  const app = await electron.launch({
+  const app = await launchShared({
     args: [`--force-device-scale-factor=${scale}`, ...options.args],
     env: { ...options.env, HOME: home },
   })
@@ -173,11 +173,24 @@ async function sharpness(win: Page, icons: Omit<MountedIcon, 'paths'>[]): Promis
 }
 
 for (const scale of [1, 1.5, 2]) {
-  test(`icons are drawn sharp at display scale ${scale}`, async () => {
-    test.setTimeout(120_000)
-    const { byName, nameByPaths } = phosphorAssets()
-    const { app, win } = await launch(scale)
-    try {
+  test.describe(`at display scale ${scale}`, () => {
+    let app: ElectronApplication | undefined
+    let win: Page
+
+    test.beforeAll(async () => {
+      test.setTimeout(120_000)
+      const launched = await launch(scale)
+      app = launched.app
+      win = launched.win
+    })
+
+    test.afterAll(async () => {
+      await app?.close()
+    })
+
+    test(`icons are drawn sharp at display scale ${scale}`, async () => {
+      test.setTimeout(120_000)
+      const { byName, nameByPaths } = phosphorAssets()
       const icons = await measureIcons(win)
       expect(icons.scale).toBe(scale)
       expect(icons.mounted.length).toBeGreaterThanOrEqual(MIN_ICONS)
@@ -211,66 +224,54 @@ for (const scale of [1, 1.5, 2]) {
       )
       expect(matched.length).toBeGreaterThanOrEqual(MIN_ICONS)
       expect(mean.app).toBeGreaterThanOrEqual(threshold)
-    } finally {
-      await app.close()
+    })
+
+    if (scale === 1) {
+      test('an icon under a fractional translate fails the offset check', async () => {
+        await win.evaluate(() => {
+          const icon = document.querySelector('svg[viewBox="0 0 256 256"]')
+          if (!icon) return
+          for (const [label, translate] of [
+            ['half pixel', '0.5px 0'],
+            ['half of an odd height', '0 -50%'],
+            ['whole pixel', '1px 0'],
+          ]) {
+            const box = document.createElement('div')
+            box.setAttribute('aria-label', label)
+            box.style.cssText = `position: fixed; left: 0; top: 0; width: 16px; height: 17px; translate: ${translate}`
+            const copy = icon.cloneNode(true) as SVGSVGElement
+            copy.removeAttribute('aria-label')
+            copy.setAttribute('width', '16')
+            copy.setAttribute('height', '16')
+            box.append(copy)
+            document.body.append(box)
+          }
+        })
+        const { shifted } = await measureIcons(win)
+        expect(shifted).toEqual(expect.arrayContaining(['half pixel', 'half of an odd height']))
+        expect(shifted).not.toContain('whole pixel')
+      })
+
+      test('an icon drawn at 12 or 14 px fails the size check', async () => {
+        await win.evaluate(() => {
+          const icon = document.querySelector('svg[viewBox="0 0 256 256"]')
+          if (!icon) return
+          for (const size of [12, 14, 16]) {
+            const box = document.createElement('div')
+            box.setAttribute('aria-label', `icon ${size}`)
+            box.style.cssText = 'position: fixed; left: 0; top: 0'
+            const copy = icon.cloneNode(true) as SVGSVGElement
+            copy.removeAttribute('aria-label')
+            copy.setAttribute('width', String(size))
+            copy.setAttribute('height', String(size))
+            box.append(copy)
+            document.body.append(box)
+          }
+        })
+        const { small } = await measureIcons(win)
+        expect(small).toEqual(expect.arrayContaining(['icon 12 12x12', 'icon 14 14x14']))
+        expect(small.join()).not.toContain('icon 16')
+      })
     }
   })
 }
-
-test('an icon under a fractional translate fails the offset check', async () => {
-  test.setTimeout(90_000)
-  const { app, win } = await launch(1)
-  try {
-    await win.evaluate(() => {
-      const icon = document.querySelector('svg[viewBox="0 0 256 256"]')
-      if (!icon) return
-      for (const [label, translate] of [
-        ['half pixel', '0.5px 0'],
-        ['half of an odd height', '0 -50%'],
-        ['whole pixel', '1px 0'],
-      ]) {
-        const box = document.createElement('div')
-        box.setAttribute('aria-label', label)
-        box.style.cssText = `position: fixed; left: 0; top: 0; width: 16px; height: 17px; translate: ${translate}`
-        const copy = icon.cloneNode(true) as SVGSVGElement
-        copy.removeAttribute('aria-label')
-        copy.setAttribute('width', '16')
-        copy.setAttribute('height', '16')
-        box.append(copy)
-        document.body.append(box)
-      }
-    })
-    const { shifted } = await measureIcons(win)
-    expect(shifted).toEqual(expect.arrayContaining(['half pixel', 'half of an odd height']))
-    expect(shifted).not.toContain('whole pixel')
-  } finally {
-    await app.close()
-  }
-})
-
-test('an icon drawn at 12 or 14 px fails the size check', async () => {
-  test.setTimeout(90_000)
-  const { app, win } = await launch(1)
-  try {
-    await win.evaluate(() => {
-      const icon = document.querySelector('svg[viewBox="0 0 256 256"]')
-      if (!icon) return
-      for (const size of [12, 14, 16]) {
-        const box = document.createElement('div')
-        box.setAttribute('aria-label', `icon ${size}`)
-        box.style.cssText = 'position: fixed; left: 0; top: 0'
-        const copy = icon.cloneNode(true) as SVGSVGElement
-        copy.removeAttribute('aria-label')
-        copy.setAttribute('width', String(size))
-        copy.setAttribute('height', String(size))
-        box.append(copy)
-        document.body.append(box)
-      }
-    })
-    const { small } = await measureIcons(win)
-    expect(small).toEqual(expect.arrayContaining(['icon 12 12x12', 'icon 14 14x14']))
-    expect(small.join()).not.toContain('icon 16')
-  } finally {
-    await app.close()
-  }
-})
