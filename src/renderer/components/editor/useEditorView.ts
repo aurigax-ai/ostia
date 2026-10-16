@@ -25,6 +25,19 @@ import { useEditorOptions } from './useEditorOptions'
 import { useModelText } from './useModelText'
 import { useMonacoEditor } from './useMonacoEditor'
 
+function useRunChoice(filePath: string | undefined, runnable: boolean, inArtifacts: boolean) {
+  const [runChoice, setRunChoice] = useState<{ file: string; on: boolean } | null>(null)
+  const chosen = runChoice && runChoice.file === filePath ? runChoice.on : null
+  const running = runnable && (chosen ?? inArtifacts)
+  return { setRunChoice, running }
+}
+
+interface EditorViewParams {
+  workspaceId: string
+  paneId: string
+  filePath?: string
+}
+
 export function useExternalEditorAction(paneId: string): {
   open: () => void
   error: string | null
@@ -46,15 +59,7 @@ export function useExternalEditorAction(paneId: string): {
   return { open, error }
 }
 
-export function useEditorView({
-  workspaceId,
-  paneId,
-  filePath,
-}: {
-  workspaceId: string
-  paneId: string
-  filePath?: string
-}) {
+export function useEditorView({ workspaceId, paneId, filePath }: EditorViewParams) {
   const hostRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
   const d = useDict()
@@ -87,13 +92,10 @@ export function useEditorView({
   const padRef = useRef(pad)
   padRef.current = pad
   const [padFull, setPadFull] = useState(false)
-  const padHint = d.artifacts.padHint
   const waitedBy = useOpenWaitsStore((s) => s.byPane[paneId])
   const runnable = isPreviewPath(filePath) && !remote && !blocked
   const inArtifacts = isInside(artifacts?.dir, filePath)
-  const [runChoice, setRunChoice] = useState<{ file: string; on: boolean } | null>(null)
-  const chosen = runChoice && runChoice.file === filePath ? runChoice.on : null
-  const running = runnable && (chosen ?? inArtifacts)
+  const { setRunChoice, running } = useRunChoice(filePath, runnable, inArtifacts)
   const overlayRef = useRef<HTMLElement | null>(null)
   const overlayUp = (markdown && preview) || running
   useSurfaceFocus(
@@ -172,7 +174,7 @@ export function useEditorView({
     editorRef,
     editorSettings,
     pad,
-    padHint,
+    padHint: d.artifacts.padHint,
     setPadFull,
     setPreview,
     reducedMotion,
@@ -183,7 +185,6 @@ export function useEditorView({
     hostRef,
     blocked,
     large,
-    remote,
     remoteProblem,
     visible,
     markdown,

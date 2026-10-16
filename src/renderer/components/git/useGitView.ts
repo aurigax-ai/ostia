@@ -66,6 +66,29 @@ function useGitFolders(): FolderState {
   )
 }
 
+function useGitHandlers(
+  workspaceId: string,
+  act: (run: Promise<GitReply<unknown>>) => Promise<void>,
+) {
+  const handlers = useMemo<ChangeHandlers>(() => {
+    const git = window.ostia.git
+    return {
+      open: (path, area) => void act(git.openChange(workspaceId, path, area)),
+      stage: (req) => void act(git.stage(workspaceId, req)),
+      unstage: (req) => void act(git.unstage(workspaceId, req)),
+      discard: (req) => void act(git.discard(workspaceId, req)),
+    }
+  }, [workspaceId, act])
+
+  const openCommitFile = useCallback(
+    (sha: string, path: string): void =>
+      void act(window.ostia.git.openCommitFile(workspaceId, sha, path)),
+    [workspaceId, act],
+  )
+
+  return { handlers, openCommitFile }
+}
+
 export function useGitView({
   workspaceId,
   paneId,
@@ -177,21 +200,7 @@ export function useGitView({
     if (alive.current) setLoadingMore(false)
   }, [])
 
-  const handlers = useMemo<ChangeHandlers>(() => {
-    const git = window.ostia.git
-    return {
-      open: (path, area) => void act(git.openChange(workspaceId, path, area)),
-      stage: (req) => void act(git.stage(workspaceId, req)),
-      unstage: (req) => void act(git.unstage(workspaceId, req)),
-      discard: (req) => void act(git.discard(workspaceId, req)),
-    }
-  }, [workspaceId, act])
-
-  const openCommitFile = useCallback(
-    (sha: string, path: string): void =>
-      void act(window.ostia.git.openCommitFile(workspaceId, sha, path)),
-    [workspaceId, act],
-  )
+  const { handlers, openCommitFile } = useGitHandlers(workspaceId, act)
 
   const choosePage = (next: GitPage): void => {
     if (next === page) return

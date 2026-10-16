@@ -1,3 +1,4 @@
+import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { EditorAlerts } from './EditorAlerts'
 import { EditorModes, type OptionViewer } from './EditorModes'
 import { LanguageNotice, LargeFileNotice } from './LanguageNotice'
@@ -19,7 +20,6 @@ export function EditorView({
     hostRef,
     blocked,
     large,
-    remote,
     remoteProblem,
     visible,
     markdown,
@@ -44,6 +44,7 @@ export function EditorView({
     unsavedPath,
     external,
   } = useEditorView({ workspaceId, paneId, filePath })
+  const remote = isRemotePath(filePath)
 
   return (
     <>
