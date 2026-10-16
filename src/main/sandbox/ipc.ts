@@ -94,6 +94,11 @@ function ownsWorkspace(
 }
 
 export function registerSandboxIpc(deps: SandboxIpcDeps): void {
+  registerSandboxEditIpc(deps)
+  registerSandboxPolicyIpc(deps)
+}
+
+function registerSandboxEditIpc(deps: SandboxIpcDeps): void {
   ipcMain.handle('sandbox:get', (e, workspaceId: unknown): WorkspaceSandbox | null =>
     ownsWorkspace(deps, e.sender.id, workspaceId) ? deps.sandboxes.settings(workspaceId) : null,
   )
@@ -178,6 +183,9 @@ export function registerSandboxIpc(deps: SandboxIpcDeps): void {
       }
     },
   )
+}
+
+function registerSandboxPolicyIpc(deps: SandboxIpcDeps): void {
   ipcMain.handle(
     'sandbox:set-switches',
     (e, workspaceId: unknown, patch: unknown): WorkspaceSandbox | null => {
