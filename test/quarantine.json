@@ -16,5 +16,11 @@
     "name": "Archives > refuses a bomb entry by its declared size and by its real size",
     "issue": 1039,
     "until": "2026-10-30"
+  },
+  {
+    "file": "src/renderer/components/chat/ChatView.test.tsx",
+    "name": "chat > sends the text selected in the workspace with the next question by itself",
+    "issue": 1045,
+    "until": "2026-10-30"
   }
 ]
