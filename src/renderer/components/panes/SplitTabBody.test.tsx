@@ -119,9 +119,10 @@ describe('folded split tab', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Fold workers' }))
 
-    const chip = screen.getByRole('tab', {
+    const chip = await screen.findByRole('tab', {
       name: 'Folded split tab workers: 3 panes, 1 waiting, 1 working',
     })
+    expect(chip).toHaveAttribute('aria-expanded', 'false')
     expect(chip.closest('.pane-split-tab')).toHaveAttribute('data-attention', 'waiting')
     expect(within(chip).getByText('3 panes')).toBeInTheDocument()
     expect(container.querySelectorAll('.split-tab-segment')).toHaveLength(0)

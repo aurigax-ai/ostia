@@ -66,6 +66,7 @@ export function FoldedSplitTab({
         type="button"
         role="tab"
         aria-selected={false}
+        aria-expanded={false}
         aria-label={fmt(d.pane.foldedSplitTab, { name, summary: parts.join(', ') })}
         className="split-tab-fold-main"
         onClick={() => focusPane(open.id)}

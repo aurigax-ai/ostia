@@ -25,8 +25,12 @@ test('a split tab folds to one chip with its counts and unfolds on an attention 
     await expect(segments).toHaveCount(2, { timeout: 30_000 })
     await segments.filter({ hasText: 'w2' }).locator('.split-tab-segment-main').click()
 
-    await win.getByRole('button', { name: 'Fold workers' }).click()
+    const head = win.getByRole('button', { name: 'Fold workers' })
+    await expect(head).toHaveAttribute('aria-expanded', 'true')
+    await expect(win.locator('.split-tab-fold')).toHaveCount(0)
+    await head.click()
     const chip = win.locator('.pane-split-tab.folded')
+    await expect(chip.getByRole('tab')).toHaveAttribute('aria-expanded', 'false')
     await expect(chip.getByRole('tab')).toHaveAttribute(
       'aria-label',
       /^Folded split tab workers: 2 panes/,
@@ -46,6 +50,18 @@ test('a split tab folds to one chip with its counts and unfolds on an attention 
     await win.getByRole('button', { name: 'Fold workers' }).click()
     await expect(chip).toHaveCount(1)
     await chip.getByRole('tab').click()
+    await expect(chip).toHaveCount(0)
+    await expect(segments).toHaveCount(2)
+
+    await win.getByRole('button', { name: 'Fold workers' }).focus()
+    await win.keyboard.press('Enter')
+    await expect(chip).toHaveCount(1)
+    await chip.getByRole('tab').focus()
+    await win.keyboard.press('Space')
+    await expect(chip).toHaveCount(0)
+
+    await win.locator('.split-tab-name').dblclick()
+    await expect(win.getByRole('textbox', { name: 'Rename split tab' })).toBeVisible()
     await expect(chip).toHaveCount(0)
     await expect(segments).toHaveCount(2)
   } finally {
