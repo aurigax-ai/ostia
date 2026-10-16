@@ -22,7 +22,9 @@ run `ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" <noun> <verb> …`.
 
 Every command is `ostia <noun> <verb> [args]`. `ostia <noun> --help` prints a noun's verbs and
 arguments; `ostia --help` lists the nouns. `ostia docs` prints this skill and the commands of
-the enabled extensions.
+the enabled extensions. `ostia whoami` prints JSON: `externalId` (the pane id other commands
+take), `paneId` and `workspaceId` (the app's internal ids), `cwd` and `running` (whether a command
+runs there). A script token gets `{externalId, kind: "script"}` and no pane.
 
 ## Command map
 
@@ -56,10 +58,10 @@ Reports the human sends (picked elements, selections, captures): see
 ostia open src/app.ts:42:5 notes.md      # a tab per file; file:line[:col] jumps there
 ostia open .                             # a folder, in the Files panel (under the home folder only)
 ostia open https://localhost:3000        # a URL, in a browser pane
-ostia open -b report.md                  # --background: never takes the keyboard
-GIT_EDITOR="ostia open --wait" git commit  # --wait returns when the tab closes: exit 0, else 1
+ostia open -b report.md                  # -b|--background: never takes the keyboard
+GIT_EDITOR="ostia open --wait" git commit  # -w|--wait returns when the tab closes: exit 0, else 1
 git diff | ostia open - --name change.diff  # stdin saved into $OSTIA_ARTIFACTS, then opened
-ostia diff old.json new.json             # read-only comparison; --wait too
+ostia diff old.json new.json             # read-only comparison; -b and -w too
 ```
 
 A tab opened from a pane takes the keyboard only when that pane has it; otherwise it opens
@@ -144,8 +146,8 @@ output?, reason?}`: `started` (an agent reported its start; a command still runs
 second), `exited` (the command ended with exit code 0), `failed` (it ended otherwise, or its tab
 closed; `output` holds its last 20 lines) or `timed-out` (no start within 15 s, 60 s for an
 agent). Exit 1 for `failed` and `timed-out`. An agent caller also gets the outcome as a bus
-message from `ostia`. `pane list` shows it as `process.start`. Unknown flags are refused. Status is `starting`, `running`, `exited(<code>)` or
-`closed`; nothing survives a restart of Ostia. `logs` is empty for a full-screen program: read
+message from `ostia`. `pane list` repeats the outcome as `process.start` on that pane. Unknown
+flags are refused. Status is `starting`, `running`, `exited(<code>)` or `closed`; nothing survives a restart of Ostia. `logs` is empty for a full-screen program: read
 its screen with `ostia pane read`. `restart` answers `still-running` when the command ignores
 Ctrl+C.
 
@@ -162,6 +164,7 @@ plain tab when the human took that tab over. `ostia pane list` reports `splitTab
 ostia pane list                          # every pane you can see (JSON)
 ostia pane send <pane> "text" [--enter]  # types text; no Enter unless --enter
 ostia pane send <pane> --enter -- "-y"   # text starting with - goes after --
+ostia pane send <pane> --paste "text"    # --paste: as one bracketed paste; --raw: the bytes as typed
 ostia pane send <pane> "answer" --enter --force  # --force types into an agent waiting for the human
 ostia pane key <pane> enter              # keys: enter tab shift-tab escape backspace delete space
                                          # up down left right home end pageup pagedown ctrl-a…ctrl-z
@@ -190,7 +193,9 @@ ostia pane close [<pane>…] [--json]      # no pane: your own
   (`--until idle` also counts a pane with nothing reported). It prints
   `<paneId>\t<state>\t<message>` and never reads the screen. Exit 0 reached, 3 timed out (default
   10 minutes, at most 1800 s), 4 the pane closed.
-- **send** and **key** print `ok` once the pane shows something new, or
+- **send** types the text as a bracketed paste when it holds a newline and the pane asked for
+  bracketed paste, so a newline does not submit. `--paste` forces that for one line, `--raw`
+  forces the bytes as typed (the two exclude each other). **send** and **key** print `ok` once the pane shows something new, or
   `sent; <pane> showed nothing yet` (exit 0, the bytes went in) for a pane that stays quiet,
   such as Enter at an idle prompt or `read -s`: read it with `pane read`, never send again.
   With `--enter` into an agent that reports its turns (claude or codex with hooks on) and is
@@ -325,6 +330,7 @@ ostia graph list                         # this workspace's graphs and whether e
 ostia graph runs [name] | graph show <run> [--node <id>]
 ostia graph run <name> [--input key=value]… [--input-json <json>]
 ostia graph report --json '<object>' [--run <id>]
+ostia graph open                         # opens the Graphs panel for the human
 ```
 
 A graph is one YAML file, `.ostia/graphs/<name>.yaml` in the workspace folder. It runs only
@@ -348,11 +354,15 @@ ostia snippet list [--json] | snippet show <name> [--json]
 ```
 
 `set` prints `{previous, value, applied}` and refuses an unknown key, a wrong type or a value
-the setting does not list. The human's own keys are refused: `capabilities`, `approvals`,
-`sync`, `terminalKeys`, `behavior.externalEditor`, `behavior.checkForUpdates`,
-`behavior.updateChannel`, `notifications.command`, `agents.autoResume`,
-`agents.autoSendReferences`, `agents.hooks`, `terminal.warnOnRiskyPaste`, `terminal.shell`,
-`terminal.osc52Write`, `workspaces.globalHotkey`. A chord the shell needs (plain Ctrl+letter,
+the setting does not list. The human's own keys are refused with `can only be changed by you in
+Settings`: the roots `capabilities`, `privacy`, `terminalKeys` and `workspaceGroups`, and
+`behavior.externalEditor`, `behavior.checkForUpdates`, `behavior.updateChannel`,
+`behavior.discreteGpu`, `notifications.command`, `agents.autoResume`,
+`agents.autoSendReferences`, `agents.hooks`, `agents.trustWorkspaceFolders`,
+`terminal.warnOnRiskyPaste`, `terminal.shell`, `terminal.osc52Write`, `terminal.keepShells`,
+`terminal.scrollbackHistory`, `workspaces.globalHotkey`. Any other root that is not a settings
+group (`approvals`, `sync`, `sandbox`, `manager`, `assistant`, …) answers `unknown settings key`.
+A chord the shell needs (plain Ctrl+letter,
 arrows, Escape, Tab) is refused for a keybinding. Snippets come from
 `<workDir>/.ostia/snippets/*.yaml`, `~/.config/ostia/snippets/*.yaml` and extensions; there is
 no verb that runs one.
