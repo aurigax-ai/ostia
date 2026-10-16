@@ -335,10 +335,11 @@ describe('startAutoResume', () => {
     expect(runWhenIdle).not.toHaveBeenCalled()
 
     const target = document.getElementById('body')
-    inputListeners.get('pointerdown')?.({
-      type: 'pointerdown',
+    inputListeners.get('click')?.({
+      type: 'click',
       isTrusted: true,
       button: 0,
+      detail: 1,
       target,
     } as unknown as Event)
 
@@ -373,10 +374,11 @@ describe('startAutoResume', () => {
     }
 
     const target = document.getElementById('sidebar')
-    inputListeners.get('pointerdown')?.({
-      type: 'pointerdown',
+    inputListeners.get('click')?.({
+      type: 'click',
       isTrusted: true,
       button: 0,
+      detail: 1,
       target,
     } as unknown as Event)
     useWorkspacesStore.getState().setActive('s2')

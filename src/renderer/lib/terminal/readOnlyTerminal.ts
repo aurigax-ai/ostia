@@ -6,7 +6,6 @@ import { currentScheme, terminalTheme, useScheme } from '@/lib/theme/colorScheme
 import { terminalFontStack } from '@/lib/theme/uiFonts'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { FitAddon } from '@xterm/addon-fit'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { type RefObject, useEffect } from 'react'
 
@@ -38,7 +37,7 @@ export interface MountedReadOnlyTerminal {
   dispose: () => void
 }
 
-function wireReadOnly(term: ReadOnlyTerminal, onKey?: (e: KeyboardEvent) => void): void {
+function wireReadOnly(term: ReadOnlyTerminal): void {
   term.loadAddon(new Unicode11Addon())
   term.unicode.activeVersion = '11'
   term.attachCustomKeyEventHandler((e) => {
@@ -48,7 +47,6 @@ function wireReadOnly(term: ReadOnlyTerminal, onKey?: (e: KeyboardEvent) => void
       void navigator.clipboard.writeText(term.getSelection())
       return false
     }
-    onKey?.(e)
     return false
   })
 }
@@ -60,32 +58,6 @@ function readOnlyViewOptions(options: ITerminalOptions): ITerminalOptions {
     minimumContrastRatio: settings.minimumContrast,
     cursorInactiveStyle: 'none',
     ...options,
-  }
-}
-
-export function mountReadOnlyTerminal(
-  host: HTMLElement,
-  options: ITerminalOptions = {},
-  onKey?: (e: KeyboardEvent) => void,
-): MountedReadOnlyTerminal {
-  const term = createReadOnlyTerminal(readOnlyViewOptions(options))
-  const fit = new FitAddon()
-  term.loadAddon(fit)
-  wireReadOnly(term, onKey)
-  term.open(host)
-  const refit = (): void => {
-    if (host.offsetWidth === 0 || host.offsetHeight === 0) return
-    fit.fit()
-  }
-  refit()
-  const observer = new ResizeObserver(refit)
-  observer.observe(host)
-  return {
-    term,
-    dispose: () => {
-      observer.disconnect()
-      term.dispose()
-    },
   }
 }
 
@@ -108,16 +80,4 @@ export function useReadOnlyTerminalBackground(
     if (termRef.current) termRef.current.options.theme = terminalTheme(palette)
   }, [palette, termRef])
   return palette.background
-}
-
-export function useReadOnlyTerminalFont(termRef: RefObject<ReadOnlyTerminal | null>): void {
-  const font = useSettingsStore((s) => s.appearance.terminal)
-  useEffect(() => {
-    const term = termRef.current
-    if (!term) return
-    term.options.fontFamily = terminalFontStack(font.family)
-    term.options.fontSize = font.size
-    term.options.fontWeight = font.weight as FontWeight
-    term.options.lineHeight = font.lineHeight
-  }, [font.family, font.size, font.weight, font.lineHeight, termRef])
 }
