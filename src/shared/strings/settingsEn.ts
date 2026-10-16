@@ -102,7 +102,7 @@ export const settingsEn = {
     dimInactiveDesc: 'Fade panes you are not working in while a workspace is split.',
     discreteGpu: 'Use the discrete GPU',
     discreteGpuDesc:
-      'Run {product} on the discrete GPU that switcheroo-control lists. Programs in terminals keep the default GPU.',
+      'Run {product} on the discrete GPU that switcheroo-control lists. Programs in terminals keep the default GPU. On a laptop where another GPU drives the screen, every frame is copied between the two GPUs, which adds latency to terminal text and scrolling. Leave this off unless you need the discrete GPU for the app itself.',
     discreteGpuDrawing: 'Drawing on: {name}',
     discreteGpuFound: 'Discrete GPU: {name}',
     discreteGpuNextStart: 'Applies on the next start.',

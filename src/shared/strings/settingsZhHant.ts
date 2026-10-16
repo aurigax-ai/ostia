@@ -102,7 +102,7 @@ export const settingsZhHant: typeof settingsEn = {
     dimInactiveDesc: '工作區分割時，淡化你未使用的面板。',
     discreteGpu: '使用獨立 GPU',
     discreteGpuDesc:
-      '在 switcheroo-control 列出的獨立 GPU 上執行 {product}。終端機中的程式仍使用預設 GPU。',
+      '在 switcheroo-control 列出的獨立 GPU 上執行 {product}。終端機中的程式仍使用預設 GPU。若由另一個 GPU 驅動螢幕（例如筆電），每個畫面都要在兩個 GPU 之間複製，會讓終端機文字與捲動延遲增加。除非應用程式本身需要獨立 GPU，否則請保持關閉。',
     discreteGpuDrawing: '目前繪製於：{name}',
     discreteGpuFound: '獨立 GPU：{name}',
     discreteGpuNextStart: '下次啟動時套用。',
