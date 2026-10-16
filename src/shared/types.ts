@@ -327,7 +327,7 @@ interface PtyApi {
   keptWaiting: () => Promise<string[]>
   restart: (paneId: string) => Promise<boolean>
   reportAgentRunning: (paneId: string, running: boolean) => void
-  reportWaking: (paneId: string, waking: boolean) => void
+  reportWaking: (paneId: string, waking: boolean, reason?: string) => void
   write: (paneId: string, data: string) => void
   ack: (paneId: string, chars: number) => void
   resize: (paneId: string, cols: number, rows: number) => void

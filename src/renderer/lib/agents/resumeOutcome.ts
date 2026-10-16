@@ -23,6 +23,11 @@ export function resumeStarted(paneId: string): void {
 function failed(paneId: string, resume: AgentResume, exitCode: number): void {
   const workspaceId = workspaceOfPane(paneId)
   if (workspaceId) useLayoutStore.getState().failResume(workspaceId, paneId, resume, exitCode)
+  window.ostia.pty.reportWaking(
+    paneId,
+    false,
+    `its agent exited with code ${exitCode} before it started`,
+  )
 }
 
 function isFailure(exitCode: number | null | undefined): exitCode is number {

@@ -73,6 +73,7 @@ describe('a typed resume that fails', () => {
     for (const stop of stops.splice(0)) stop()
     vi.mocked(runWhenIdle).mockClear()
     vi.mocked(window.ostia.pty.reportAgentRunning).mockClear()
+    vi.mocked(window.ostia.pty.reportWaking).mockClear()
     useLayoutStore.setState(init.layout, true)
     useBlocksStore.setState(init.blocks, true)
     useSettingsStore.setState(init.settings, true)
@@ -83,6 +84,17 @@ describe('a typed resume that fails', () => {
       byWorkspace: { w1: { root: pane, activePaneId: 'p1', zoomedPaneId: null } },
     })
   }
+
+  it('tells main the wake ended with the exit code when the typed resume fails', () => {
+    seed()
+    typeResume()
+    runBlock(1)
+    expect(window.ostia.pty.reportWaking).toHaveBeenCalledWith(
+      'p1',
+      false,
+      'its agent exited with code 1 before it started',
+    )
+  })
 
   it('RSM-C2 moves the token into the saved failure, so it is never typed again but survives a restart', () => {
     seed()

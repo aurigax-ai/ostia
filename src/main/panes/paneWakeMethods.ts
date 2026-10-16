@@ -106,22 +106,30 @@ export function registerPaneWakeMethods(
       }
       checkSessions([...asleepPanes, ...awakePanes], await deps.panes())
       const woke: string[] = []
-      for (const to of asleepPanes) {
-        const outcome = await deps.wake(to)
-        if (outcome.conflict) throw sessionConflict(to, `"${outcome.conflict}"`)
-        if (!outcome.woke) throw notResumable(to)
-        deps.waking.start(to.paneId)
-        woke.push(to.externalId)
-      }
-      for (const to of awakePanes) {
-        const res = await deps.resume(to)
-        if (!res.ok) throw fail(res.error.message)
-        if ((res.result as { resumed?: unknown } | undefined)?.resumed !== true) {
-          throw notResumable(to)
+      const marked: PaneIdentity[] = []
+      try {
+        for (const to of asleepPanes) {
+          marked.push(to)
+          deps.waking.start(to.paneId)
+          const outcome = await deps.wake(to)
+          if (outcome.conflict) throw sessionConflict(to, `"${outcome.conflict}"`)
+          if (!outcome.woke) throw notResumable(to)
+          woke.push(to.externalId)
         }
-        deps.waking.start(to.paneId)
-        waited.push(to)
-        woke.push(to.externalId)
+        for (const to of awakePanes) {
+          marked.push(to)
+          deps.waking.start(to.paneId)
+          const res = await deps.resume(to)
+          if (!res.ok) throw fail(res.error.message)
+          if ((res.result as { resumed?: unknown } | undefined)?.resumed !== true) {
+            throw notResumable(to)
+          }
+          waited.push(to)
+          woke.push(to.externalId)
+        }
+      } catch (err) {
+        for (const to of marked) deps.waking.abandon(to.paneId)
+        throw err
       }
       if (waited.length === 0) return { ok: true, woke }
       const cancelled = new ChangeSignal()
@@ -139,9 +147,8 @@ export function registerPaneWakeMethods(
             if (end === 'closed')
               return mismatch('closed', { ok: true, woke, closed: to.externalId })
             if (end === 'failed') {
-              return mismatch(
-                `resume-failed: ${to.externalId} could not start its agent; read it with ostia pane read`,
-              )
+              const why = deps.waking.lastReason(to.paneId) ?? 'its agent did not start'
+              return mismatch(`not-started: ${to.externalId} ${why}; read it with ostia pane read`)
             }
           }
           const started = waited.every((to) => deps.waking.lastEnd(to.paneId) === 'started')
@@ -153,7 +160,7 @@ export function registerPaneWakeMethods(
       })
       closedConn.dispose()
       if (seen.value) return seen.value
-      throw fail(seen.ok ? 'resume-failed' : seen.reason)
+      throw fail(seen.ok ? 'not-started' : seen.reason)
     },
   })
 
