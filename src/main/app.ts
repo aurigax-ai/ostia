@@ -76,7 +76,7 @@ import { createMarketplaceIpc } from './extensions/marketplace/marketplaceIpc'
 import { startMarketplace } from './extensions/marketplace/marketplaceWiring'
 import { PaneAttentionEvents } from './extensions/paneAttentionEvents'
 import { createMainStrings } from './extensions/strings'
-import type { FileWatches } from './files/fileWatch'
+import type { FileServices } from './files/filesWiring'
 import { registerFsIpc } from './files/fsIpc'
 import { OpenWaits } from './files/openWaits'
 import { startGateway } from './gateway/gatewayWiring'
@@ -196,7 +196,7 @@ const services = {
   managerService: null as ManagerService | null,
   managerLimiter: null as ManagerLimiter | null,
   portal: null as Portal | null,
-  fileWatches: null as FileWatches | null,
+  files: null as FileServices | null,
   histories: null as PaneHistories | null,
 }
 
@@ -271,7 +271,7 @@ const {
   artifactProducers,
   artifactsChanged,
   isScratchPane,
-} = createArtifactServices({ windows, workspaceSandboxes: () => workspaceSandboxes })
+} = createArtifactServices({ windows, workspaceSandboxes: () => workspaceSandboxes, services })
 
 const openWaits = new OpenWaits((windowId, paneIds) =>
   windows.get(windowId)?.webContents.send('open-waits:ended', paneIds),

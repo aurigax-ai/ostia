@@ -4,7 +4,6 @@ import { useReducedMotion } from '@/lib/app/motion'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { usePaneVisible } from '@/lib/attention/workspaceActivity'
 import { useArtifactListing } from '@/lib/files/artifacts'
-import { isCsvPath } from '@/lib/files/csvTable'
 import { editorInput } from '@/lib/monaco/editorInput'
 import type { monaco } from '@/lib/monaco/setup'
 import { useSurfaceFocus } from '@/lib/panes/paneFocus'
@@ -14,11 +13,12 @@ import {
   type RemoteFileError,
   isRemotePath,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import { isArchivePath } from '@shared/archives/archivePaths'
 import { isInside, isPadPath } from '@shared/artifacts/artifacts'
 import { isPreviewPath } from '@shared/artifacts/htmlPreview'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { EditorAlerts } from './EditorAlerts'
-import { EditorModes } from './EditorModes'
+import { EditorModes, type OptionViewer } from './EditorModes'
 import { LanguageNotice, LargeFileNotice } from './LanguageNotice'
 import { type PreviewSelection, isMarkdownPath } from './MarkdownPreview'
 import { RemoteFileBar } from './RemoteFileBar'
@@ -54,10 +54,12 @@ export function EditorView({
   workspaceId,
   paneId,
   filePath,
+  optionViewer,
 }: {
   workspaceId: string
   paneId: string
   filePath?: string
+  optionViewer?: OptionViewer
 }): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
@@ -72,6 +74,7 @@ export function EditorView({
   const [large, setLarge] = useState(false)
   const [remoteProblem, setRemoteProblem] = useState<RemoteFileError | null>(null)
   const remote = isRemotePath(filePath)
+  const archived = isArchivePath(filePath)
   const [unsavedPath, setUnsavedPath] = useState<string | null>(null)
   const [diskBar, setDiskBar] = useState<DiskBar | null>(null)
   const diskBarRef = useRef<DiskBar | null>(null)
@@ -96,12 +99,9 @@ export function EditorView({
   const inArtifacts = isInside(artifacts?.dir, filePath)
   const [runChoice, setRunChoice] = useState<{ file: string; on: boolean } | null>(null)
   const chosen = runChoice && runChoice.file === filePath ? runChoice.on : null
-  const tabular = isCsvPath(filePath) && !remote && !blocked
-  const tabled = tabular && (chosen ?? inArtifacts)
-  const tableText = useModelText(liveEditor, tabled)
   const running = runnable && (chosen ?? inArtifacts)
   const overlayRef = useRef<HTMLElement | null>(null)
-  const overlayUp = (markdown && preview) || running || tabled
+  const overlayUp = (markdown && preview) || running
   useSurfaceFocus(
     paneId,
     blocked ? null : () => (overlayUp ? overlayRef.current : editorInput(editorRef.current)),
@@ -143,6 +143,10 @@ export function EditorView({
     visibleRef,
     releaseShownRef,
   })
+
+  useEffect(() => {
+    liveEditor?.updateOptions({ readOnly: archived })
+  }, [liveEditor, archived])
   useEditorActions({
     d,
     editorRef,
@@ -210,11 +214,9 @@ export function EditorView({
         selectionSend={selectionSend}
         running={running}
         runnable={runnable}
-        tabled={tabled}
-        tabular={tabular}
-        tableText={tableText}
-        setRunChoice={setRunChoice}
+        optionViewer={blocked ? undefined : optionViewer}
         overlayRef={overlayRef}
+        setRunChoice={setRunChoice}
       />
       <EditorAlerts
         workspaceId={workspaceId}

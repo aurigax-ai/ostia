@@ -1,11 +1,10 @@
-import { readdirSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { type BrowserWindow, app, ipcMain, shell } from 'electron'
 import { OPEN_FILES_MAX } from '../../shared/files/openFiles'
 import type { FsEntry, FsKind } from '../../shared/types'
 import { getByPaneId } from '../control/idRegistry'
-import { resolveSafe } from '../platform/pathGuard'
+import type { ExtensionHost } from '../extensions/extensionHost'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import { TerminalPathLinks, registerTerminalPathLinkIpc } from '../terminal/terminalPathLinks'
 import type { PaneOutput } from '../terminal/terminalPathLinks'
@@ -14,12 +13,13 @@ import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { windowForWorkspace } from '../workspaces/workspaceRegistry'
 import { FileOps } from './fileOps'
 import { registerFileOpsIpc } from './fileOpsIpc'
-import { FileWatches } from './fileWatch'
-import { readBinaryConfined } from './fsBinary'
-import { readTextConfined, versionConfined, writeText, writeTextConfined } from './fsText'
+import { type FileServices, createFileServices } from './filesWiring'
+import { FS_BINARY_MAX } from './fsBinary'
+import { writeText, writeTextConfined } from './fsText'
 import type { OpenFileGrants } from './openFileGrants'
 import { registerOpenPathIpc } from './openPath'
 import { ripgrepPath } from './ripgrep'
+import { registerViewerIpc } from './viewers/viewerIpc'
 import { registerSearchIpc } from './workspaceSearch'
 
 interface FsIpcDeps {
@@ -30,22 +30,11 @@ interface FsIpcDeps {
   workspaceSandboxes: WorkspaceSandboxes
   scratchFolders: ScratchFolders
   services: {
-    fileWatches: FileWatches | null
+    files: FileServices | null
+    extensionHost: ExtensionHost | null
   }
   onSettingsWritten: () => void
 }
-
-function listDir(dir: string): FsEntry[] {
-  try {
-    return readdirSync(dir, { withFileTypes: true })
-      .map((d) => ({ name: d.name, dir: d.isDirectory() }))
-      .sort((a, b) => (a.dir === b.dir ? a.name.localeCompare(b.name) : a.dir ? -1 : 1))
-  } catch {
-    return []
-  }
-}
-
-const FILE_WATCH_DEBOUNCE_MS = 150
 
 export function registerFsIpc({
   fileRoots,
@@ -85,29 +74,34 @@ export function registerFsIpc({
         : null,
   })
 
-  ipcMain.handle('fs:list', (_e, dir: string): FsEntry[] => {
-    const safe = resolveSafe(dir, allowedRoots)
-    if (safe === null) return []
-    return listDir(safe)
+  const files = createFileServices({
+    windows,
+    fileRoots,
+    confine: (path) => openFileGrants.confine(path),
+    extensions: () => services.extensionHost,
   })
+  services.files = files
+  const { sources } = files
+  registerViewerIpc({ viewers: files.viewers })
 
-  ipcMain.handle('fs:stat', (_e, path: string): FsKind | null => {
-    const safe = openFileGrants.confine(path)
-    if (safe === null) return null
-    try {
-      const stat = statSync(safe)
-      return stat.isFile() ? 'file' : stat.isDirectory() ? 'dir' : null
-    } catch {
-      return null
-    }
-  })
+  ipcMain.handle('fs:list', (_e, dir: unknown): Promise<FsEntry[]> | FsEntry[] =>
+    typeof dir === 'string' ? sources.of(dir).list(dir) : [],
+  )
+
+  ipcMain.handle('fs:stat', (_e, path: unknown): Promise<FsKind | null> | null =>
+    typeof path === 'string' ? sources.of(path).kind(path) : null,
+  )
 
   ipcMain.handle('fs:read', (_e, path: unknown) =>
-    readTextConfined(path, (candidate) => openFileGrants.confine(candidate)),
+    typeof path === 'string'
+      ? sources.of(path).readText(path, FS_BINARY_MAX)
+      : { ok: false, error: 'denied' },
   )
 
   ipcMain.handle('fs:read-binary', (_e, path: unknown) =>
-    readBinaryConfined(path, (candidate) => openFileGrants.confine(candidate)),
+    typeof path === 'string'
+      ? sources.of(path).readBinary(path, FS_BINARY_MAX)
+      : { ok: false, error: 'denied' },
   )
 
   ipcMain.handle('files:admit-dropped', (_e, paths: unknown, workspaceId: unknown) => {
@@ -118,27 +112,17 @@ export function registerFsIpc({
       .map((path) => openFileGrants.admit(path, { sandboxed: false, remember }))
   })
 
-  services.fileWatches = new FileWatches({
-    confine: (path) => openFileGrants.confine(path),
-    debounceMs: FILE_WATCH_DEBOUNCE_MS,
-    onChange: ({ path, exists, owners }) => {
-      for (const owner of owners) {
-        const win = windows.get(owner)
-        if (win && !win.isDestroyed()) win.webContents.send('fs:changed', { path, exists })
-      }
-    },
-  })
   ipcMain.handle('fs:watch', (e, path: unknown): boolean =>
-    typeof path === 'string'
-      ? (services.fileWatches?.watch(String(e.sender.id), path) ?? false)
+    typeof path === 'string' && sources.of(path).watchable
+      ? files.watches.watch(String(e.sender.id), path)
       : false,
   )
   ipcMain.on('fs:unwatch', (e, path: unknown) => {
-    if (typeof path === 'string') services.fileWatches?.unwatch(String(e.sender.id), path)
+    if (typeof path === 'string') files.watches.unwatch(String(e.sender.id), path)
   })
 
   ipcMain.handle('fs:version', (_e, path: unknown) =>
-    versionConfined(path, (candidate) => openFileGrants.confine(candidate)),
+    typeof path === 'string' ? sources.of(path).version(path) : null,
   )
 
   ipcMain.handle(
@@ -149,7 +133,7 @@ export function registerFsIpc({
         (p) => openFileGrants.confine(p),
         async (safe) => {
           const save = () => writeText(safe, content)
-          await (services.fileWatches?.write(String(e.sender.id), safe, content, save) ?? save())
+          await files.watches.write(String(e.sender.id), safe, content, save)
           if (safe === settingsFile) onSettingsWritten()
         },
       ),

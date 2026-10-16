@@ -42,6 +42,7 @@ function provider(id: string, keymaps: KeymapInfo[], enabled = true): ExtensionI
     languages: [],
     keymaps,
     languageServers: [],
+    fileViewers: [],
     agentSkills: [],
     agentHooks: [],
   }

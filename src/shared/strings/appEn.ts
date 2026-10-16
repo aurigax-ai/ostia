@@ -166,6 +166,7 @@ export const appEn = {
     notBuilt: 'The file does not build: {message}',
     notRestored: 'Not restored: {files}',
     open: 'Open in Browser',
+    openFirst: 'Open this file in its viewer first to make its portable copy.',
     restore: 'Restore',
     restoreBody: 'Restore the version from {time}? The current files are kept as a version first.',
     restoreTitle: 'Restore this version?',

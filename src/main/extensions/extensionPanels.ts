@@ -6,6 +6,7 @@ import {
   type ExtensionPanelSource,
   panelPath,
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { viewerMatches } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
 import { isInsideDir } from '@aurigax-ai/ostia-extension-sdk/manifest/confinedRead'
 import type { ExtensionHostDeps } from './extensionHostDeps'
 import type { ExtensionProcesses } from './extensionProcesses'
@@ -95,6 +96,28 @@ export class ExtensionPanels {
     }
     const origin = loopbackOrigin(url)
     return origin !== null && rt.panelOrigins.has(origin)
+  }
+
+  fileViewerSource(
+    extId: string,
+    viewType: string,
+    path: string,
+  ): { dir: string; entry: string } | null {
+    const rt = this.host.runtimes.get(extId)
+    if (!rt || !this.host.active(rt)) return null
+    const viewer = rt.ext.manifest.contributes.fileViewers?.find((v) => v.viewType === viewType)
+    if (!viewer || !viewerMatches(path, viewer)) return null
+    return { dir: rt.ext.dir, entry: viewer.entry }
+  }
+
+  hasFileViewer(path: string): boolean {
+    return [...this.host.runtimes.values()].some(
+      (rt) =>
+        this.host.active(rt) &&
+        (rt.ext.manifest.contributes.fileViewers ?? []).some((viewer) =>
+          viewerMatches(path, viewer),
+        ),
+    )
   }
 
   panelExtensionIds(): string[] {

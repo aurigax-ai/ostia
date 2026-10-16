@@ -71,6 +71,7 @@ function rig(quietMs = 30): ArtifactHistory {
     folderOf: (workspaceId) => (workspaceId === 'w1' ? folder : join(root, workspaceId)),
     isScratch: (workspaceId) => scratch.has(workspaceId),
     make,
+    viewerMatches: (name) => name.endsWith('.xlsx'),
     now: () => clock.now,
     quietMs,
   })
@@ -173,6 +174,19 @@ describe('ArtifactHistory', () => {
     expect(await history.snapshot('w1', deep)).toBe(false)
     expect(history.list('w1', join(folder, 'link.md'))).toHaveLength(0)
     expect(history.list('w1', deep)).toHaveLength(0)
+  })
+
+  it('keeps a copy of a file a viewer opens, and nothing for a file no viewer opens', async () => {
+    const sheet = write('sales.xlsx', Buffer.from('PK workbook one'))
+    await history.snapshot('w1', sheet)
+    const [version] = history.list('w1', sheet)
+    const content = history.version('w1', sheet, version.id)
+    expect(content?.sources).toEqual({})
+    expect(readFileSync(content?.file ?? '', 'latin1')).toBe('PK workbook one')
+    expect(made).toBe(0)
+    const unknown = write('blob.bin', Buffer.from([0, 1, 2]))
+    expect(await history.snapshot('w1', unknown)).toBe(false)
+    expect(history.list('w1', unknown)).toHaveLength(0)
   })
 
   it('PRT-C47 previews a version from its stored document, without building it', async () => {

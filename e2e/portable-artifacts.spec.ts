@@ -17,6 +17,7 @@ import {
   firefox,
   test,
 } from './test'
+import { viewerGuestText } from './viewerGuest'
 
 const PREVIEW_URL = 'ostia-preview://'
 const BROWSERS: ReadonlyArray<[string, BrowserType]> = [
@@ -196,6 +197,11 @@ test('PRT-C1 a portable file of every type opens offline in Chromium and Firefox
   try {
     for (const name of Object.keys(files)) {
       await openArtifact(win, name)
+      if (name === 'rows.csv') {
+        await expect
+          .poll(() => viewerGuestText(app, { viewType: 'csv.table', name }), { timeout: 20_000 })
+          .toContain('alpha')
+      }
       await savePortable(app, win, name, join(saved, `${name}.html`))
     }
   } finally {

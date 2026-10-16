@@ -31,7 +31,6 @@ const METRICS_MS = 5_000
 const GESTURE_MS = 5_000
 const MESSAGE_MAX = 2_000
 const WATCHED_DIRS_MAX = 16
-const DEAD_PROXY = { proxyRules: 'http://127.0.0.1:9', proxyBypassRules: '<-loopback>' }
 const GESTURE_INPUTS = new Set(['mouseDown', 'keyDown', 'touchStart'])
 const CLIPBOARD_WRITE = 'clipboard-sanitized-write'
 const DEBUGGER_PROTOCOL = '1.3'
@@ -69,6 +68,21 @@ export interface PreviewSession {
   setPermissionCheckHandler: (handler: (wc: unknown, permission: string) => boolean) => void
   on: (event: 'will-download', listener: (event: { preventDefault: () => void }) => void) => void
   clearStorageData: () => Promise<void>
+}
+
+const DEAD_PROXY = { proxyRules: 'http://127.0.0.1:9', proxyBypassRules: '<-loopback>' }
+
+export function lockDownSession(
+  session: Pick<
+    PreviewSession,
+    'setProxy' | 'setPermissionRequestHandler' | 'setPermissionCheckHandler' | 'on'
+  >,
+  allows: (permission: string) => boolean,
+): void {
+  void session.setProxy(DEAD_PROXY).catch(() => {})
+  session.setPermissionRequestHandler((_wc, permission, callback) => callback(allows(permission)))
+  session.setPermissionCheckHandler((_wc, permission) => allows(permission))
+  session.on('will-download', (event) => event.preventDefault())
 }
 
 interface PreviewRect {
@@ -263,12 +277,7 @@ export class PreviewHost {
       if (!allowed) this.blocked(slot, details.url)
       callback({ cancel: !allowed })
     })
-    void session.setProxy(DEAD_PROXY).catch(() => {})
-    session.setPermissionRequestHandler((_wc, permission, callback) =>
-      callback(this.allowsPermission(slot, permission)),
-    )
-    session.setPermissionCheckHandler((_wc, permission) => this.allowsPermission(slot, permission))
-    session.on('will-download', (event) => event.preventDefault())
+    lockDownSession(session, (permission) => this.allowsPermission(slot, permission))
     return slot
   }
 

@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import { fmt, useDict, withProductName } from '@/lib/app/useDict'
 import { pendingApproval, useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { ExtensionAgentPlugin } from './ExtensionAgentPlugin'
 
 export function ExtensionApprovalDialog(): JSX.Element {
@@ -76,6 +77,7 @@ export function ExtensionApprovalDialog(): JSX.Element {
             ))}
           </ul>
         ) : null}
+        {ext ? <ExtensionFileViewers ext={ext} /> : null}
         {ext ? <ExtensionAgentPlugin ext={ext} explain /> : null}
         <DialogFooter>
           <Button
@@ -95,5 +97,22 @@ export function ExtensionApprovalDialog(): JSX.Element {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+export function ExtensionFileViewers({ ext }: { ext: ExtensionInfo }): JSX.Element | null {
+  const d = useDict()
+  if (ext.fileViewers.length === 0) return null
+  return (
+    <ul aria-label={d.extensions.fileViewers} className="flex flex-col gap-1">
+      {ext.fileViewers.map((viewer) => (
+        <li key={viewer.viewType} className="text-fg-muted text-ui-sm">
+          {fmt(d.extensions.opensFiles, {
+            name: viewer.displayName,
+            patterns: viewer.selector.map((item) => item.filenamePattern).join(', '),
+          })}
+        </li>
+      ))}
+    </ul>
   )
 }

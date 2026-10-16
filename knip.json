@@ -5,6 +5,9 @@
       "entry": [
         "src/shared/artifacts/artifactRuntime.ts",
         "src/extensions/*/{main,panel}.ts",
+        "src/extensions/*/*.worker.ts",
+        "src/extensions/csv/table.ts",
+        "src/extensions/office/{sheet,document}.ts",
         "src/extensions/*/panel.css",
         "scripts/*.mjs",
         "marketplace/*.mjs",

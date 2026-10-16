@@ -2,6 +2,7 @@ import { IconButton } from '@/components/common/IconButton'
 import { formatBytes } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { stepZoom, zoomPercent } from '@/lib/browser/regionSelect'
+import { archiveProblemText } from '@/lib/files/archiveProblems'
 import type { FileBytes } from '@/lib/files/viewerHooks'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
@@ -67,5 +68,6 @@ export function useBytesProblem(bytes: FileBytes): string | null {
   if (bytes.error === 'too-large') {
     return fmt(d.viewer.tooLarge, { size: formatBytes(bytes.size, locale) })
   }
+  if (bytes.error === 'archive') return archiveProblemText(d, bytes.reason)
   return d.viewer.unreadable
 }

@@ -163,6 +163,7 @@ The manifest is `ostia.json`; a marketplace's is `ostia-marketplace.json`.
 | `contributes.keymaps[]` | Up to 8 keymaps, each `{id, label, path, platform?}`: `id` lowercase letters, digits and dashes (unique in the extension), `label` (1–40 chars) the name shown in Settings → Keyboard, `path` a `.json` file inside the extension, `platform` optional `darwin` or `linux` to offer it on that platform only. Data only: no `main` and no capability needed. See [Keymaps](#keymaps). |
 | `contributes.languageServers[]` | Up to 8 language servers the editor talks to, as data: Ostia starts each one itself and speaks LSP to it. Needs the `language-server` capability; no `main` needed. See [Language servers](#language-servers). |
 | `contributes.editorLanguages[]` | Up to 16 languages the editor does not know yet, each with a Monarch grammar as JSON. Data only: no `main` and no capability needed. See [Editor languages](#editor-languages). |
+| `contributes.fileViewers[]` | API 4.6. Up to 16 read-only viewers for files the human opens, in the shape of VS Code's custom editors: `{viewType, displayName, selector: [{filenamePattern}], priority?, entry}`. No `main` and no capability needed. See [File viewers](#file-viewers). |
 | `contributes.agentSkills[]` | Up to 8 skills that Ostia gives claude and codex in your terminals: `{name, path, files?}`. Needs the `agent-plugin` capability. See [Agent skills and hooks](#agent-skills-and-hooks). |
 | `contributes.agentHooks[]` | Up to 16 `{event, command}`: when the agent reaches `event`, Ostia runs your own command `command` with the hook's JSON on stdin. Needs the `agent-plugin` capability and `main`. See [Agent skills and hooks](#agent-skills-and-hooks). |
 
@@ -1215,6 +1216,69 @@ const body = splitter({
   `loadPanelSizes()` reads them once, before the first split is drawn. `localStorage` doesn't
   work for this: the panel partition isn't persistent and its origin's port changes every run.
 - Nothing animates the layout: only the divider's highlight fades in (opacity).
+
+## File viewers
+
+API 4.6. A file viewer shows a file the human opened (from the Files tree, `ostia open`, a link or an archive) in its file view tab, read-only. The shape copies VS Code's custom editors (`contributes.customEditors` with a `CustomReadonlyEditorProvider`), with one difference: no code of yours ever runs outside the page, so a viewer needs no `main`, and nothing but the sandboxed page ever holds the file.
+
+```json
+"contributes": {
+  "fileViewers": [
+    {
+      "viewType": "office.spreadsheet",
+      "displayName": "Spreadsheet",
+      "selector": [{ "filenamePattern": "*.xlsx" }, { "filenamePattern": "*.ods" }],
+      "priority": "default",
+      "entry": "sheet.html"
+    }
+  ]
+}
+```
+
+- `viewType` is `<your id>.<name>`, with a name of lowercase letters, digits and dashes.
+- `displayName` (at most 60 characters) names the viewer in Open With. Translate it in your catalog as `fileViewers.<viewType>.displayName`.
+- `selector[].filenamePattern` is `*.<extension>` (`*.tar.gz` works) or an exact file name, matched against the base name without case. Each viewer has 1-32 patterns.
+- `priority` is `default` (the default) or `option`.
+  - **`default`:** the viewer opens matching files.
+  - **`option`:** the viewer is offered only in Open With, and as a toggle while the file shows as source.
+- `entry` is an `.html` file in your extension. The build bundles `<name>.ts` next to it into `<name>.js` and every `*.worker.ts` into `*.worker.js`.
+
+**Which viewer opens a file.**
+1. The human's choice in `files.viewerAssociations` (`{"*.xlsx": "office.spreadsheet"}`, or `"default"` for Ostia's own view), set from Open With → "Always use for …".
+2. Ostia's own views (images, PDF, Markdown) for their kinds.
+3. The `default` viewers of enabled extensions: built-in ones first, then by extension id.
+4. The source.
+
+Open With (in the file view, the tab menu and the palette) lists every viewer that matches, plus the source. If your extension is disabled or your page fails, the file shows as source with a note.
+
+**Your page.** It is served from your extension folder at a per-document origin, `ostia-viewer://<token>/`. The guest is sandboxed harder than a panel:
+- it has its own partition `ostia-viewer-<id>`, no preload, no Node and no `window.ostia`;
+- every request outside its own origin is cancelled, and `connect-src 'self'` is in its CSP, so it cannot reach the network, your process or loopback;
+- popups, navigation and downloads are refused. Unlike a panel, `window.open` does not reach the OS browser either.
+
+Scripts, styles and workers load from your folder (`worker-src 'self'`). Ostia injects the same theme custom properties and fonts as for panels (see Panels), so start from `panel.css` (it is copied to `base.css`).
+
+```ts
+import { openViewerDocument, publishPortable, ViewerDocumentError } from '@aurigax-ai/ostia-extension-sdk/viewer'
+import { grid } from '@aurigax-ai/ostia-extension-sdk/grid'
+
+const doc = await openViewerDocument()
+const bytes = await doc.bytes()
+doc.onDidChange(() => location.reload())
+```
+
+- `openViewerDocument()` returns `{name, size, modified, locale, viewType, bytes(), onDidChange(listener)}`:
+  - `name` is the base name;
+  - `locale` is the human's, for your `panelTranslator`.
+- `bytes()` reads the file through Ostia's confined read, at most 50 MiB. It throws a `ViewerDocumentError` whose `problem` is `too-large` (with `size`), `gone` or `unreadable`.
+- `onDidChange` fires when the file changes on disk.
+- The file is untrusted input:
+  - parse it in a worker with your own limits and a time limit;
+  - never put its text into `innerHTML` without a sanitizer;
+  - remember that a guest that runs out of memory only loses itself.
+- `publishPortable({tables: [{name, columns, rows}]})` hands Ostia the text a table viewer shows, so the human can save the open file as a portable artifact. Ostia renders the tables itself, at most 256 tables of 5,000 rows and 1,000 columns, 16 MiB in all.
+
+`grid({label, columns, rowCount, cell(row, column), rowLabels?, notes?})` returns `{element, destroy}`: a read-only grid of text that windows rows and columns with `@tanstack/virtual-core`, so a sheet of 100,000 rows and 1,000 columns keeps only the visible cells in the page. `columnName(index)` gives spreadsheet column letters. Its styles are the `.ostia-grid*` rules in `panel.css`.
 
 ## Lifecycle
 

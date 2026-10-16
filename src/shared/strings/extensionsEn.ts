@@ -75,6 +75,7 @@ export const extensionsEn = {
     desc: 'Features that run as separate processes and use the public extension API. Disabling one stops its process and removes its commands, panel and sidebar items.',
     describedBounds: '{description} {bounds}',
     enable: 'Enable {name}',
+    fileViewers: 'File viewers',
     findMore: 'Browse extensions',
     listLabel: 'Installed extensions',
     loading: 'Loading…',
@@ -83,6 +84,8 @@ export const extensionsEn = {
     none: 'No extensions installed.',
     notInstalled: 'Extension “{id}” is not installed.',
     openSettingsPage: 'Open its settings page',
+    opensFiles:
+      '{name} shows the {patterns} files you open, read-only. It cannot send them anywhere.',
     panelDisabled: '{name} is disabled. Enable it in Settings → Extensions.',
     panelGone: '{name} no longer has a panel.',
     panelUnreachable: 'The extension panel did not load.',
