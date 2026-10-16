@@ -154,6 +154,15 @@ describe('motion CSS contract', () => {
     }
   })
 
+  it('exits a notice by opacity and a small movement on the exit tokens, edge bars by translate', () => {
+    expect(ruleBody('.notice-slot[data-leaving] .motion-enter')).toContain(
+      'animation: overlay-out var(--motion-base-exit) var(--ease-in) forwards;',
+    )
+    expect(ruleBody('.notice-slot[data-leaving] .motion-enter-edge')).toContain(
+      'animation: edge-out var(--motion-base-exit) var(--ease-in) forwards;',
+    )
+  })
+
   it('times every transition and animation with the motion tokens', () => {
     const offenders = styleFiles.flatMap((file) =>
       motionDeclarations(readFileSync(file, 'utf8'))
