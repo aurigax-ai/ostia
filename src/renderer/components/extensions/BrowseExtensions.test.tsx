@@ -533,13 +533,17 @@ describe('Uninstall and source on the Extensions page', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Details of Manual' }))
     const manual = screen.getByRole('region', { name: 'Details of Manual' })
+    expect(within(manual).getByText('1.0.0')).toBeVisible()
     expect(within(manual).getByText('Installed by hand')).toBeVisible()
+    expect(within(manual).getByText('Other')).toBeVisible()
     expect(within(manual).queryByRole('button', { name: 'Uninstall' })).toBeNull()
 
     await user.click(screen.getByRole('button', { name: 'Details of Weather' }))
 
     const weather = screen.getByRole('region', { name: 'Details of Weather' })
+    expect(within(weather).getByText('1.0.0')).toBeVisible()
     expect(within(weather).getByText('From Acme extensions')).toBeVisible()
+    expect(within(weather).getByText('Other')).toBeVisible()
     await user.click(within(weather).getByRole('button', { name: 'Uninstall' }))
     expect(window.ostia.marketplace.uninstall).not.toHaveBeenCalled()
     const dialog = await screen.findByRole('alertdialog')

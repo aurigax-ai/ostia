@@ -123,6 +123,18 @@ function PermissionRows({ ext }: { ext: ExtensionInfo }): JSX.Element {
 
 function ExtensionSettingsArea({ ext }: { ext: ExtensionInfo }): JSX.Element | null {
   const d = useDict()
+  if (isAssistExtension(ext) && !ext.settingsPage && !ext.enabled) return null
+  return (
+    <>
+      <div className="mt-3" />
+      <SettingsSubgroup title={d.extensions.groupSettings} />
+      <ExtensionSettingsContent ext={ext} />
+    </>
+  )
+}
+
+function ExtensionSettingsContent({ ext }: { ext: ExtensionInfo }): JSX.Element {
+  const d = useDict()
   if (ext.settingsPage) {
     return (
       <ControlRow label={d.extensions.groupSettings}>
@@ -137,7 +149,7 @@ function ExtensionSettingsArea({ ext }: { ext: ExtensionInfo }): JSX.Element | n
     )
   }
   if (isAssistExtension(ext)) {
-    return ext.enabled ? (
+    return (
       <ControlRow label={d.extensions.groupSettings}>
         <TextLink
           size="xs"
@@ -147,7 +159,7 @@ function ExtensionSettingsArea({ ext }: { ext: ExtensionInfo }): JSX.Element | n
           {d.assistantSettings.configure}
         </TextLink>
       </ControlRow>
-    ) : null
+    )
   }
   if (ext.settings.length === 0 && ext.secrets.length === 0) {
     return <p className="py-1.5 text-fg-muted text-ui-sm">{d.extensions.noSettings}</p>
@@ -179,8 +191,6 @@ function ExtensionDetails({ ext }: { ext: ExtensionInfo }): JSX.Element {
       <PermissionRows ext={ext} />
       <ExtensionFileViewers ext={ext} />
       <ExtensionAgentPlugin ext={ext} explain={false} />
-      <div className="mt-3" />
-      <SettingsSubgroup title={d.extensions.groupSettings} />
       <ExtensionSettingsArea ext={ext} />
       <UninstallRow ext={ext} />
     </>

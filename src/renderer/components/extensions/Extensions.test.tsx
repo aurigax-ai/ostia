@@ -143,6 +143,23 @@ describe('Extensions UI', () => {
       expect(useUIStore.getState().settingsSection).toBe('browseExtensions')
     })
 
+    it('omits the Settings group for a disabled assist extension', async () => {
+      useExtensionsStore.setState({
+        list: [
+          ext({ id: 'assistant', name: 'Assistant', assist: ['chat'], enabled: false }),
+          ext({ id: 'other', name: 'Other one' }),
+        ],
+      })
+      await renderSettled(<ExtensionsSection />)
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Details of Assistant' }))
+      await user.click(screen.getByRole('button', { name: 'Details of Other one' }))
+      const assistant = screen.getByRole('region', { name: 'Details of Assistant' })
+      expect(within(assistant).queryByRole('heading', { name: 'Settings' })).toBeNull()
+      const other = screen.getByRole('region', { name: 'Details of Other one' })
+      expect(within(other).getByRole('heading', { name: 'Settings' })).toBeInTheDocument()
+    })
+
     it('toggling an extension persists through the bridge', async () => {
       const setEnabled = vi.fn().mockResolvedValue([ext({ enabled: false, status: 'disabled' })])
       window.ostia.extensions.setEnabled = setEnabled
