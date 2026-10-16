@@ -11,18 +11,20 @@ import {
   SCROLLBACK_CAP_BYTES,
   clearPersisted,
   loadRestoredScrollback,
-  loadSnapshot,
-  parseHandoff,
-  parseSnapshot,
   pendingRestoredScrollback,
   saveScrollback,
-  saveSnapshot,
   scrollbackPath,
-  snapshotPath,
   stashScrollback,
   stashedScreen,
   takeRestoredScrollback,
   trimScrollback,
+} from './savedScrollback'
+import {
+  loadSnapshot,
+  parseHandoff,
+  parseSnapshot,
+  saveSnapshot,
+  snapshotPath,
 } from './workspaceSnapshot'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn(), on: vi.fn() }, screen: {} }))

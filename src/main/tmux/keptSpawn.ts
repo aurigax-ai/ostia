@@ -4,7 +4,7 @@ import { TMUX_MISSING } from './keepShellsBanner'
 import type { KeptPlumbing } from './keptLaunchers'
 import type { KeptMeta, KeptProgram } from './keptShells'
 import type { KeptShells } from './keptShells'
-import type { TmuxPane } from './tmuxServer'
+import type { TmuxPane } from './tmuxPane'
 
 export interface KeptSpawn {
   kept: TmuxPane | null

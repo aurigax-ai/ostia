@@ -29,15 +29,10 @@ import {
   regionCaptureRect,
   regionPageRect,
 } from '../../shared/browser/regionCapture'
-import {
-  type PreviewGuest,
-  PreviewHost,
-  type PreviewSession,
-  type ProcessUse,
-  hardenPreviewAttach,
-  previewHeaders,
-} from './htmlPreview'
+import { PreviewHost } from './htmlPreview'
+import { hardenPreviewAttach, previewHeaders } from './previewAttach'
 import type { PreviewSource } from './previewFiles'
+import type { PreviewGuest, PreviewSession, ProcessUse } from './previewHostTypes'
 
 const MIB = 1024 * 1024
 

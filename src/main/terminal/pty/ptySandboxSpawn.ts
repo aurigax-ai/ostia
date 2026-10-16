@@ -5,11 +5,11 @@ import { app } from 'electron'
 import { quoteArgv } from '../../../shared/terminal/shellQuote'
 import type { PtyAttachResult } from '../../../shared/types'
 import { needsPtyRelay } from '../../platform/ptyRelay'
-import { PortBridge, bridgesPorts } from '../../sandbox/portBridge'
+import { PortBridge, bridgesPorts } from '../../sandbox/ports/portBridge'
 import { relayForced, sandboxedShellCommand, wrapForTerminal } from '../../sandbox/ptyWrap'
+import { SandboxUnavailableError } from '../../sandbox/sandboxHosts'
 import { sandboxFailureBanner } from '../../sandbox/spawnBanner'
 import { sandboxSpawnEnv } from '../../sandbox/spawnEnv'
-import { SandboxUnavailableError } from '../../sandbox/workspaceSandboxes'
 import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'
 import { packageCooldownEnv } from '../../sandboxPackages/packageEnv'
 import { SANDBOX_NOT_KEPT } from '../../tmux/keepShellsBanner'
@@ -55,17 +55,17 @@ export function createSandboxSpawn({
       const secrets = await injectSecrets(workspaceId)
       secretNotice = secrets.notice
       resizePipe = needsPtyRelay(relayForced(app.isPackaged, process.env))
-        ? join(workspaceSandboxes.tmpDir(workspaceId), `resize-${randomUUID()}`)
+        ? join(workspaceSandboxes.tmp.tmpDir(workspaceId), `resize-${randomUUID()}`)
         : null
       portBridge = bridgesPorts(
         process.platform,
         workspaceSandboxes.resolved(workspaceId).switches.unixSockets,
       )
-        ? await PortBridge.open(workspaceSandboxes.tmpDir(workspaceId))
+        ? await PortBridge.open(workspaceSandboxes.tmp.tmpDir(workspaceId))
         : null
       if (wantsKeep && !notKept) {
-        await workspaceSandboxes.connect(workspaceId)
-        if (!workspaceSandboxes.isKept(workspaceId)) notKept = SANDBOX_NOT_KEPT
+        await workspaceSandboxes.hosts.connect(workspaceId)
+        if (!workspaceSandboxes.hosts.isKept(workspaceId)) notKept = SANDBOX_NOT_KEPT
       }
       if (wantsKeep && !notKept) tokenFile = keptShells.writeToken(paneId, identity.token)
       const wrapped = await workspaceSandboxes.wrap(
@@ -93,7 +93,7 @@ export function createSandboxSpawn({
         ),
         ...secrets.env,
       }
-      env.TMPDIR = workspaceSandboxes.tmpDir(workspaceId)
+      env.TMPDIR = workspaceSandboxes.tmp.tmpDir(workspaceId)
       cwd = sandboxCwd(cwd, workspaceSandboxes.workDir(workspaceId))
       return {
         ...plan,

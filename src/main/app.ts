@@ -71,8 +71,8 @@ import {
   extensionHostParts,
   startExtensionHost,
 } from './extensions/extensionWiring'
-import { marketplaceId, normalizeMarketplaceUrl } from './extensions/marketplace/marketplace'
 import { createMarketplaceIpc } from './extensions/marketplace/marketplaceIpc'
+import { marketplaceId, normalizeMarketplaceUrl } from './extensions/marketplace/marketplaceSources'
 import { startMarketplace } from './extensions/marketplace/marketplaceWiring'
 import { PaneAttentionEvents } from './extensions/paneAttentionEvents'
 import { createMainStrings } from './extensions/strings'
@@ -138,15 +138,15 @@ import { createWindowSend } from './windows/windowSend'
 import { startWindows } from './windows/windowStartup'
 import { createWindowWiring } from './windows/windowWiring'
 import { registerContentIpc } from './workspaces/contentWiring'
-import { createScrollbackPersistence } from './workspaces/scrollbackPersistence'
-import type { ViewHost } from './workspaces/viewHost'
-import { createWorkspaceLifecycle } from './workspaces/workspaceLifecycle'
-import { windowForWorkspace, workDirForWorkspace } from './workspaces/workspaceRegistry'
 import {
   type RestoreOutcome,
   loadRestoredScrollback,
   pendingRestoredScrollback,
-} from './workspaces/workspaceSnapshot'
+} from './workspaces/savedScrollback'
+import { createScrollbackPersistence } from './workspaces/scrollbackPersistence'
+import type { ViewHost } from './workspaces/viewHost'
+import { createWorkspaceLifecycle } from './workspaces/workspaceLifecycle'
+import { windowForWorkspace, workDirForWorkspace } from './workspaces/workspaceRegistry'
 
 const windows = new Map<string, BrowserWindow>()
 const commandsByWindow = new Map<string, CommandDescriptor[]>()

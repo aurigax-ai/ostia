@@ -50,40 +50,13 @@ import {
   type Runtime,
   fail,
   newRuntime,
+  normalizeResult,
   withTimeout,
 } from './extensionRuntime'
 import { ExtensionSlots } from './extensionSlots'
 import { effectiveRecord, grantedCaps, needsApproval } from './extensionStore'
 import { ExtensionWindowRequests } from './extensionWindowRequests'
 const INTERACTIVE_TIMEOUT_MS = 10 * 60_000
-
-function normalizeResult(raw: unknown): ExtensionResult {
-  if (
-    typeof raw === 'object' &&
-    raw !== null &&
-    typeof (raw as { ok?: unknown }).ok === 'boolean'
-  ) {
-    const r = raw as {
-      ok: boolean
-      error?: unknown
-      message?: unknown
-      text?: unknown
-      data?: unknown
-    }
-    if (!r.ok) {
-      const failed = fail(
-        typeof r.error === 'string' ? r.error : 'failed',
-        typeof r.message === 'string' ? r.message : undefined,
-      )
-      return r.data === undefined ? failed : { ...failed, data: r.data }
-    }
-    const out: ExtensionResult = { ok: true }
-    if (typeof r.text === 'string') out.text = r.text
-    if (r.data !== undefined) out.data = r.data
-    return out
-  }
-  return raw === undefined || raw === null ? { ok: true } : { ok: true, data: raw }
-}
 
 function capsOf(externalId: string): Capability[] {
   return ALL_CAPABILITIES.filter((cap) => hasCap(externalId, cap))

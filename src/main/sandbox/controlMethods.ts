@@ -1,7 +1,7 @@
 import { ResponseError } from 'vscode-jsonrpc/node'
 import { registerControlMethod } from '../control/controlServer'
 import type { DomainRequests } from './domainRequests'
-import type { PortRequests } from './portRequests'
+import type { PortRequests } from './ports/portRequests'
 
 export interface SandboxMethodsDeps {
   domains: DomainRequests

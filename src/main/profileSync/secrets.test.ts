@@ -17,13 +17,8 @@ import { ProfileSync } from './engine'
 import { FolderMethod } from './folderMethod'
 import { SECRETS_FILE } from './profile'
 import { openBundle } from './secretCrypto'
-import {
-  type SecretEntry,
-  type SecretSource,
-  type SecretSourceName,
-  SecretSync,
-  loginsSource,
-} from './secrets'
+import { loginsSource } from './secretSources'
+import { type SecretEntry, type SecretSource, type SecretSourceName, SecretSync } from './secrets'
 
 const PASSWORD = 'correct horse battery'
 const NEW_PASSWORD = 'staple orange lantern'

@@ -19,12 +19,12 @@ import {
   type KeptShells,
   SANDBOX_HOST_KIND,
 } from '../tmux/keptShells'
-import type { TmuxPane } from '../tmux/tmuxServer'
+import type { TmuxPane } from '../tmux/tmuxPane'
 import { workDirForWorkspace } from '../workspaces/workspaceRegistry'
 import type { DomainRequests } from './domainRequests'
 import { HostPaneGrants } from './hostPanes'
+import { createSandboxPorts } from './ports/sandboxPorts'
 import { HOST_PROTOCOL_VERSION } from './protocol'
-import { createSandboxPorts } from './sandboxPorts'
 import { createSandboxRequests } from './sandboxRequests'
 import { type SandboxBasePaths, reachableContainerSockets, srtVendorDir } from './srtConfig'
 import { SandboxStore } from './store'

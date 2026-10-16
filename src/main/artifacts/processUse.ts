@@ -1,5 +1,5 @@
 import { app } from 'electron'
-import type { ProcessUse } from './htmlPreview'
+import type { ProcessUse } from './previewHostTypes'
 
 export function appProcessUse(): ProcessUse[] {
   return app.getAppMetrics().map((metric) => ({

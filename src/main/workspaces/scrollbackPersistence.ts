@@ -4,7 +4,7 @@ import type { Redactor } from '../privacy/redaction'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
 import type { QuitTrace } from '../windows/quitPlan'
 import type { WindowBroker } from '../windows/windowBroker'
-import { pendingRestoredScrollback, saveScrollback, scrollbackToSave } from './workspaceSnapshot'
+import { pendingRestoredScrollback, saveScrollback, scrollbackToSave } from './savedScrollback'
 
 interface ScrollbackPersistenceDeps {
   redactor: Redactor

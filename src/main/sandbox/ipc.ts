@@ -20,7 +20,7 @@ import { parseSwitches, parseWorkspacePackages } from '../../shared/sandbox/sand
 import type { SandboxReadPreset } from '../../shared/sandbox/sandboxPresets'
 import type { DomainRequests } from './domainRequests'
 import { checkSandboxPaths } from './pathChecks'
-import type { PortRequests, PortRow } from './portRequests'
+import type { PortRequests, PortRow } from './ports/portRequests'
 import { availableReadPresets } from './presets'
 import type { ViolationLog } from './violations'
 import type { WorkspaceSandboxes } from './workspaceSandboxes'
@@ -94,6 +94,11 @@ function ownsWorkspace(
 }
 
 export function registerSandboxIpc(deps: SandboxIpcDeps): void {
+  registerSandboxEditIpc(deps)
+  registerSandboxPolicyIpc(deps)
+}
+
+function registerSandboxEditIpc(deps: SandboxIpcDeps): void {
   ipcMain.handle('sandbox:get', (e, workspaceId: unknown): WorkspaceSandbox | null =>
     ownsWorkspace(deps, e.sender.id, workspaceId) ? deps.sandboxes.settings(workspaceId) : null,
   )
@@ -178,6 +183,9 @@ export function registerSandboxIpc(deps: SandboxIpcDeps): void {
       }
     },
   )
+}
+
+function registerSandboxPolicyIpc(deps: SandboxIpcDeps): void {
   ipcMain.handle(
     'sandbox:set-switches',
     (e, workspaceId: unknown, patch: unknown): WorkspaceSandbox | null => {
