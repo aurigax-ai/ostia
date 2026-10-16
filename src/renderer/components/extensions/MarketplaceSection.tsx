@@ -95,7 +95,7 @@ function InstallCodeRow({ marketplace }: { marketplace: MarketplaceInfo }): JSX.
           onChange={(e) => setCode(e.target.value)}
           placeholder={d.marketplace.codePlaceholder}
           aria-label={fmt(d.marketplace.codeLabel, { name: marketplaceName(d, marketplace) })}
-          className="h-7 w-56 font-mono"
+          className="h-7 w-80 font-mono"
         />
         <Button type="submit" variant="outline" size="sm" disabled={busy || !code.trim()}>
           {d.marketplace.install}
