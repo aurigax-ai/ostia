@@ -260,6 +260,7 @@ export const extensionsZhHant: typeof extensionsEn = {
     add: '新增',
     addLabel: '市集儲存庫',
     addPlaceholder: 'owner/repo、git 網址或資料夾',
+    addTitle: '新增市集',
     cancel: '取消',
     codeLabel: '{name} 的安裝碼',
     codePlaceholder: '未列出擴充功能的安裝碼',

@@ -363,8 +363,12 @@ export function BrowseExtensions(): JSX.Element {
           {results.map((entry) => (
             <ResultRow key={entry.key} entry={entry} onInstalled={setInstalledId} />
           ))}
-          {problems.length > 0 ? <NotCompatibleRow problems={problems} /> : null}
         </SettingsList>
+        {problems.length > 0 ? (
+          <SettingsList label={d.extensionsBrowse.notCompatibleDetails} empty="">
+            <NotCompatibleRow problems={problems} />
+          </SettingsList>
+        ) : null}
       </SettingsGroup>
       <MarketplacesGroup />
     </SettingsPage>

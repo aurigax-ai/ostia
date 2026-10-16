@@ -246,32 +246,28 @@ export function MarketplacesGroup(): JSX.Element {
     if (await add(url)) setUrl('')
   }
   return (
-    <SettingsGroup title={d.marketplace.title} desc={d.marketplace.desc}>
+    <SettingsGroup title={d.marketplace.title}>
       <RequirementsNote feature={MARKETPLACE_FEATURE} body={d.marketplace.requirementsBody} />
-      <SettingsList
-        label={d.marketplace.title}
-        empty={d.marketplace.none}
-        add={
-          <form
-            className="flex items-center gap-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              void submit()
-            }}
-          >
-            <Input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder={d.marketplace.addPlaceholder}
-              aria-label={d.marketplace.addLabel}
-              className="h-7 flex-1 font-mono"
-            />
-            <Button type="submit" variant="outline" size="sm" disabled={busy || !url.trim()}>
-              {busy ? d.marketplace.working : d.marketplace.add}
-            </Button>
-          </form>
-        }
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          void submit()
+        }}
       >
+        <ControlRow label={d.marketplace.addTitle} desc={d.marketplace.desc}>
+          <Input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder={d.marketplace.addPlaceholder}
+            aria-label={d.marketplace.addLabel}
+            className="h-7 w-80 font-mono"
+          />
+          <Button type="submit" variant="outline" size="sm" disabled={busy || !url.trim()}>
+            {busy ? d.marketplace.working : d.marketplace.add}
+          </Button>
+        </ControlRow>
+      </form>
+      <SettingsList label={d.marketplace.title} empty={d.marketplace.none}>
         {marketplaces.map((marketplace) => (
           <MarketplaceRow key={marketplace.id} marketplace={marketplace} />
         ))}

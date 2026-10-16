@@ -124,6 +124,10 @@ describe('BrowseExtensions', () => {
   it('adds the typed repository and lists what it offers in compact rows', async () => {
     await browse(EMPTY)
     expect(screen.getByText('No marketplaces added.')).toBeVisible()
+    const addRow = screen.getByText('Add a marketplace')
+    expect(addRow.compareDocumentPosition(screen.getByText('No marketplaces added.'))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
     expect(screen.getByText('Add a marketplace below to browse its extensions.')).toBeVisible()
     vi.mocked(window.ostia.marketplace.add).mockResolvedValue({
       ok: true,
@@ -401,6 +405,13 @@ describe('BrowseExtensions', () => {
     expect(within(list).getByText('Needs extension API 9.0; this provides 4.8')).toBeVisible()
     expect(within(list).getByText('extensions/broken')).toBeVisible()
     expect(within(list).getByText('missing name')).toBeVisible()
+  })
+
+  it('still says nothing matches while a marketplace has entries it could not offer', async () => {
+    await browse(stateWith(marketplace({ problems: ['extensions/broken: missing name'] })))
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search extensions' }), 'zzz')
+    expect(screen.getByText('No extension matches.')).toBeVisible()
+    expect(screen.getByText('1 not compatible')).toBeVisible()
   })
 
   it('shows no not-compatible row when every entry is offered', async () => {

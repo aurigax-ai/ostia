@@ -261,6 +261,7 @@ export const extensionsEn = {
     add: 'Add',
     addLabel: 'Marketplace repository',
     addPlaceholder: 'owner/repo, a git URL or a folder',
+    addTitle: 'Add a marketplace',
     cancel: 'Cancel',
     codeLabel: 'Install code for {name}',
     codePlaceholder: 'Install code of an unlisted extension',
