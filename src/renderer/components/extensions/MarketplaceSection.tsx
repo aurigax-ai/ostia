@@ -1,7 +1,7 @@
 import { IconButton } from '@/components/common/IconButton'
-import { MachineValue, WarningNote } from '@/components/settings/ControlRow'
 import { RequirementsNote } from '@/components/settings/RequirementsNote'
-import { SubHead } from '@/components/settings/SettingsGroup'
+import { MachineValue, WarningNote } from '@/components/settingsKit/ControlRow'
+import { SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,7 +17,6 @@ import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
-import { OFFICIAL_MARKETPLACE } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { ArrowsClockwiseIcon, TrashIcon } from '@phosphor-icons/react'
 import { MARKETPLACE_FEATURE, type MarketplaceInfo } from '@shared/extensions/marketplace'
 import { useEffect, useState } from 'react'
@@ -177,7 +176,7 @@ function MarketplaceRow({ marketplace }: { marketplace: MarketplaceInfo }): JSX.
               {d.marketplace.download}
             </Button>
           )}
-          <RemoveMarketplaceButton marketplace={marketplace} />
+          {marketplace.official ? null : <RemoveMarketplaceButton marketplace={marketplace} />}
         </div>
       </div>
       {marketplace.error ? <WarningNote>{marketplace.error}</WarningNote> : null}
@@ -240,7 +239,7 @@ export function MarketplacesPanel(): JSX.Element {
   }
   return (
     <section aria-label={d.marketplace.title}>
-      <SubHead title={d.marketplace.title} desc={d.marketplace.desc} />
+      <SettingsSubgroup title={d.marketplace.title} desc={d.marketplace.desc} />
       <RequirementsNote feature={MARKETPLACE_FEATURE} body={d.marketplace.requirementsBody} />
       <form
         className="mt-2 flex items-center gap-2"
@@ -260,17 +259,6 @@ export function MarketplacesPanel(): JSX.Element {
           {busy ? d.marketplace.working : d.marketplace.add}
         </Button>
       </form>
-      {marketplaces.some((m) => m.official) ? null : (
-        <Button
-          variant="outline"
-          size="sm"
-          className="mt-2"
-          disabled={busy}
-          onClick={() => void add(OFFICIAL_MARKETPLACE)}
-        >
-          {d.marketplace.addOfficial}
-        </Button>
-      )}
       {marketplaces.length === 0 ? (
         <p className="mt-2 text-fg-muted text-ui-sm">{d.marketplace.none}</p>
       ) : (
