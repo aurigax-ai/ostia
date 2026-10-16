@@ -140,7 +140,7 @@ test('a hibernated agent is still hibernated after a restart and wakes when the 
     const asleep = win.locator('.hibernated-view')
     await expect(asleep.getByText('Hibernated')).toBeVisible()
     await expect(asleep.locator('.xterm')).toHaveCount(0)
-    await asleep.getByRole('button', { name: 'Resume claude' }).click()
+    await asleep.click()
     const rows = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
     await expect(rows).toContainText(/fake agent up: .*--resume e2e-tok-2/, { timeout: 20_000 })
     await expect(win.locator('.hibernated-view')).toHaveCount(0)
