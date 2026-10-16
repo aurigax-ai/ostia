@@ -172,6 +172,22 @@ describe('motion CSS contract', () => {
     }
   })
 
+  it('gives panels every motion token of the app, scaled by the reduced-motion setting', () => {
+    const panel = readFileSync(
+      resolve(process.cwd(), join('packages', 'extension-sdk', 'src', 'client'), 'panel.css'),
+      'utf8',
+    )
+    const durations = ['panel', 'pulse', 'breathe', 'highlight'].map((name) => `--motion-${name}`)
+    for (const token of [...durations, '--ease-in-out']) {
+      expect(css, token).toMatch(new RegExp(`^\\s+${token}:`, 'm'))
+      expect(panel, token).toMatch(new RegExp(`^\\s+${token}:`, 'm'))
+    }
+    for (const token of durations) {
+      expect(panel, token).toContain(`${token}: calc(`)
+      expect(panel, token).toContain('* var(--ostia-motion-scale, 1))')
+    }
+  })
+
   it('blinks the unread tab lead like every other attention cue', () => {
     expect(ruleBody('.tab-lead-unread')).toMatch(
       /animation: attn-blink var\(--motion-pulse\) var\(--ease-out\) 3;/,
