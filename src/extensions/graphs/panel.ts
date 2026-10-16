@@ -71,8 +71,7 @@ function folderAction(folder: string): HTMLElement {
       class: 'primary',
       onClick: () => {
         getSelection()?.selectAllChildren(path)
-        if (!document.execCommand('copy')) return
-        label.textContent = t('empty.copied')
+        label.textContent = t(document.execCommand('copy') ? 'empty.copied' : 'empty.copyFailed')
         setTimeout(() => {
           label.textContent = t('empty.copy')
         }, 2000)

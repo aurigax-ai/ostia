@@ -87,6 +87,7 @@
     "empty.folder.description": "A graph is a .yaml file in this folder of the workspace.",
     "empty.copy": "Copy path",
     "empty.copied": "Copied",
+    "empty.copyFailed": "Copy failed",
     "empty.scratch.title": "No graphs here",
     "empty.scratch.description": "Graphs live in a workspace folder, and a scratch workspace has none.",
     "empty.runs.title": "No runs",
