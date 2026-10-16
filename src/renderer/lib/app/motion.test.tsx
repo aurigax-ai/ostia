@@ -17,6 +17,7 @@ function sourceFiles(dir: string, extensions: string[]): string[] {
 const styleFiles = [
   ...sourceFiles('src/renderer', ['.css']),
   ...sourceFiles('src/extensions', ['.css']),
+  ...sourceFiles('packages/extension-sdk/src/client', ['.css']),
 ]
 const codeFiles = [
   ...sourceFiles('src/renderer', ['.ts', '.tsx']),
@@ -39,6 +40,7 @@ const FORBIDDEN_CODE_MOTION = [
   /\b(?:active|data-pressed|data-\[pressed\]):-?(?:scale|translate)/,
   /\b(?:transition|animation)(?:Duration|TimingFunction|Delay)?\s*:\s*['"`]/,
   /\bbehavior:\s*['"]smooth['"]/,
+  /\bsmoothScrolling:(?!\s*false\b)/,
 ]
 
 function motionDeclarations(source: string): string[] {
@@ -46,6 +48,22 @@ function motionDeclarations(source: string): string[] {
   const decl = /(?:^|[;{\s])((?:transition|animation)(?:-[a-z-]+)?\s*:[^;{}]+)/g
   for (const match of source.matchAll(decl)) found.push(match[1].replace(/\s+/g, ' ').trim())
   return found
+}
+
+function keyframeBlocks(source: string): Array<{ name: string; body: string }> {
+  const blocks: Array<{ name: string; body: string }> = []
+  for (const match of source.matchAll(/@keyframes\s+([\w-]+)\s*\{/g)) {
+    let depth = 1
+    let i = match.index + match[0].length
+    const start = i
+    while (depth > 0 && i < source.length) {
+      if (source[i] === '{') depth++
+      else if (source[i] === '}') depth--
+      i++
+    }
+    blocks.push({ name: match[1], body: source.slice(start, i - 1) })
+  }
+  return blocks
 }
 
 function stripVars(declaration: string): string {
@@ -152,6 +170,27 @@ describe('motion CSS contract', () => {
     for (const file of styleFiles.filter((f) => !f.endsWith('src/renderer/index.css'))) {
       expect(readFileSync(file, 'utf8'), file).not.toMatch(/\binfinite\b/)
     }
+  })
+
+  it('blinks the unread tab lead like every other attention cue', () => {
+    expect(ruleBody('.tab-lead-unread')).toMatch(
+      /animation: attn-blink var\(--motion-pulse\) var\(--ease-out\) 3;/,
+    )
+    expect(css).not.toContain('--motion-pulse-fast')
+  })
+
+  it('animates only opacity and transform in every keyframe of every style file', () => {
+    const keyframes = styleFiles.flatMap((file) =>
+      keyframeBlocks(readFileSync(file, 'utf8')).map((block) => ({ file, ...block })),
+    )
+    expect(keyframes.length).toBeGreaterThan(0)
+    const offenders = keyframes.flatMap(({ file, name, body }) =>
+      [...body.matchAll(/([a-z-]+)\s*:/g)]
+        .map((m) => m[1])
+        .filter((prop) => prop !== 'transform' && prop !== 'opacity')
+        .map((prop) => `${file}: ${name} animates ${prop}`),
+    )
+    expect(offenders).toEqual([])
   })
 
   it('times every transition and animation with the motion tokens', () => {

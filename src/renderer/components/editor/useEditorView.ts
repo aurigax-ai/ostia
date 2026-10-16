@@ -177,7 +177,6 @@ export function useEditorView({ workspaceId, paneId, filePath }: EditorViewParam
     padHint: d.artifacts.padHint,
     setPadFull,
     setPreview,
-    reducedMotion,
     font,
   })
 
