@@ -271,6 +271,7 @@ describe('Extension API v2 UI', () => {
     it('shows a control per setting with the effective value', async () => {
       useExtensionsStore.setState({ list: [withSettings] })
       await renderSettled(<ExtensionsSection />)
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Details of Demo' }))
       expect(screen.getByRole('group', { name: 'Demo settings' })).toBeInTheDocument()
       expect(screen.getByText('Shout it')).toBeInTheDocument()
       expect(screen.getByRole('switch', { name: 'Loud' })).not.toBeChecked()
@@ -289,7 +290,9 @@ describe('Extension API v2 UI', () => {
       useExtensionsStore.setState({ list: [withSettings] })
       await renderSettled(<ExtensionsSection />)
 
-      await userEvent.setup().click(screen.getByRole('switch', { name: 'Loud' }))
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Details of Demo' }))
+      await user.click(screen.getByRole('switch', { name: 'Loud' }))
 
       expect(setSetting).toHaveBeenCalledWith('demo', 'loud', true)
       await waitFor(() => expect(screen.getByRole('switch', { name: 'Loud' })).toBeChecked())
@@ -302,6 +305,7 @@ describe('Extension API v2 UI', () => {
       useExtensionsStore.setState({ list: [withSettings] })
       await renderSettled(<ExtensionsSection />)
       const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Details of Demo' }))
       const input = screen.getByRole('spinbutton', { name: 'Count' })
 
       await user.clear(input)

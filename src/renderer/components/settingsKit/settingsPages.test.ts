@@ -23,7 +23,6 @@ const KNOWN_OFFENDERS: Record<string, Rule[]> = {
   'components/extensions/BrowseExtensions.tsx': ['separator', 'handHeading', 'handSection'],
   'components/extensions/ExtensionAgentPlugin.tsx': ['handSection'],
   'components/extensions/ExtensionConnections.tsx': ['handSection'],
-  'components/extensions/InstalledExtensions.tsx': ['handHeading', 'handSection', 'handRow'],
   'components/extensions/MarketplaceSection.tsx': ['divide', 'handSection', 'handRow'],
   'components/gateway/GatewayPairing.tsx': ['handRow'],
   'components/gateway/GatewaySection.tsx': ['separator'],
