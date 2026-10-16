@@ -1,4 +1,14 @@
 import { IconButton } from '@/components/common/IconButton'
+import {
+  ControlRow,
+  MachineValue,
+  ToggleRow,
+  WarningNote,
+} from '@/components/settingsKit/ControlRow'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
+import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,8 +32,6 @@ import {
 } from '@shared/privacy/redaction'
 import { TELEMETRY_CATEGORIES, type TelemetryCategory } from '@shared/privacy/telemetry'
 import { useEffect, useState } from 'react'
-import { ControlRow, MachineValue, ToggleRow, WarningNote } from './ControlRow'
-import { SectionHead, SettingsGroup } from './SettingsGroup'
 import { CategoryDetails } from './TelemetryConsentDialog'
 import { TelemetryReportsDialog } from './TelemetryReportsDialog'
 
@@ -104,54 +112,56 @@ function Patterns({ onChanged }: { onChanged: () => void }): JSX.Element {
   }
   return (
     <SettingsGroup title={d.privacy.groupPatterns} desc={d.privacy.patternsDesc}>
-      {patterns.length === 0 ? (
-        <p className="py-1.5 text-fg-muted text-ui-sm">{d.privacy.noPatterns}</p>
-      ) : (
-        <ul aria-label={d.privacy.groupPatterns} className="flex flex-col">
-          {patterns.map((pattern) => {
-            const problem = patternProblem(pattern)
-            return (
-              <li key={pattern} className="py-1">
-                <div className="flex items-center gap-3">
-                  <span className="min-w-0 flex-1 truncate font-mono text-fg text-ui-sm">
-                    {pattern}
-                  </span>
-                  <IconButton
-                    icon={XIcon}
-                    label={fmt(d.privacy.removePattern, { pattern })}
-                    onClick={() => void save(patterns.filter((p) => p !== pattern))}
-                  />
-                </div>
-                {problem ? (
+      <SettingsList
+        label={d.privacy.groupPatterns}
+        empty={d.privacy.noPatterns}
+        add={
+          <div className="flex items-center gap-3">
+            <Input
+              value={draft}
+              spellCheck={false}
+              placeholder={d.privacy.pattern}
+              aria-label={d.privacy.pattern}
+              aria-invalid={error !== null}
+              onChange={(e) => {
+                setDraft(e.target.value)
+                setError(null)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') add()
+              }}
+              className="h-7 flex-1 font-mono"
+            />
+            <Button variant="outline" size="sm" onClick={add}>
+              {d.privacy.addPattern}
+            </Button>
+          </div>
+        }
+      >
+        {patterns.map((pattern) => {
+          const problem = patternProblem(pattern)
+          return (
+            <SettingsListRow
+              key={pattern}
+              title={<span className="font-mono text-ui-sm">{pattern}</span>}
+              detail={
+                problem ? (
                   <WarningNote>
                     {fmt(d.privacy.ignored, { problem: problemText(d, problem) })}
                   </WarningNote>
-                ) : null}
-              </li>
-            )
-          })}
-        </ul>
-      )}
-      <div className="flex items-center gap-3 pt-2">
-        <Input
-          value={draft}
-          spellCheck={false}
-          placeholder={d.privacy.pattern}
-          aria-label={d.privacy.pattern}
-          aria-invalid={error !== null}
-          onChange={(e) => {
-            setDraft(e.target.value)
-            setError(null)
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') add()
-          }}
-          className="h-7 flex-1 font-mono"
-        />
-        <Button variant="outline" size="sm" onClick={add}>
-          {d.privacy.addPattern}
-        </Button>
-      </div>
+                ) : null
+              }
+              actions={
+                <IconButton
+                  icon={XIcon}
+                  label={fmt(d.privacy.removePattern, { pattern })}
+                  onClick={() => void save(patterns.filter((p) => p !== pattern))}
+                />
+              }
+            />
+          )
+        })}
+      </SettingsList>
       {error ? <WarningNote>{error}</WarningNote> : null}
     </SettingsGroup>
   )
@@ -326,8 +336,7 @@ export function PrivacySection(): JSX.Element {
     }
   }, [])
   return (
-    <div>
-      <SectionHead title={d.privacy.title} desc={d.privacy.desc} />
+    <SettingsPage title={d.privacy.title} desc={d.privacy.desc}>
       <SettingsGroup title={d.privacy.groupRedaction}>
         <ToggleRow
           label={d.privacy.enabled}
@@ -340,6 +349,6 @@ export function PrivacySection(): JSX.Element {
       <Patterns onChanged={() => setRevision((n) => n + 1)} />
       <TestBox revision={revision} />
       <TelemetryGroup />
-    </div>
+    </SettingsPage>
   )
 }

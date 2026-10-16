@@ -208,6 +208,7 @@ export const securityEn = {
       'Files and folders sandboxed shells cannot read, even inside a readable folder. A hidden socket cannot be connected to.',
     inherited: 'Inherited',
     install: 'Install',
+    listEmpty: 'Nothing added.',
     malware: 'Block known malware',
     malwareDesc: 'Check every package download against the OSV malicious-package database.',
     navList: 'Sandbox pages',
@@ -270,6 +271,7 @@ export const securityEn = {
     secrets: 'Secrets',
     secretsDesc:
       'Hand secrets to sandboxed shells: as an env var, as a file, or only when an agent asks and you allow it. Host secrets stay on the host; {product} never edits them.',
+    secretsEmpty: 'No secrets.',
     strictDomains: 'Never ask about other domains',
     strictDomainsDesc:
       'Refuse every host that is not on the allowed list instead of showing a request. Refused hosts appear under Blocked.',

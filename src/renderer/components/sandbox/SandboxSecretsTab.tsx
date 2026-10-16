@@ -1,4 +1,6 @@
 import { IconButton } from '@/components/common/IconButton'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
+import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -65,47 +67,52 @@ export function SandboxSecretsTab({ workspaceId }: { workspaceId: string }): JSX
 
   return (
     <fieldset aria-label={d.sandbox.secrets} className="mb-4">
-      <ul className="flex flex-col gap-1">
+      <SettingsList label={d.sandbox.secrets} empty={d.sandbox.secretsEmpty}>
         {secrets.map((secret) => {
           const grant = grants.find((g) => g.id === secret.id)
           const mode: ModeChoice = grant?.mode ?? 'none'
           const choices: ModeChoice[] = ['none', 'env', 'file', 'request']
           return (
-            <li key={secret.id} className="flex items-center gap-2 text-ui-sm">
-              <Badge variant="outline">{sourceLabel[secret.source]}</Badge>
-              <span className="min-w-0 flex-1 truncate font-mono text-fg">{secret.name}</span>
-              {secret.source === 'ostia' ? (
-                <IconButton
-                  icon={TrashIcon}
-                  label={fmt(d.sandbox.remove, { item: secret.name })}
-                  onClick={() =>
-                    void window.ostia.secrets.vaultDelete(workspaceId, secret.name).then(load)
-                  }
-                />
-              ) : null}
-              <Select
-                value={mode}
-                onValueChange={(next) => void setMode(secret, next as ModeChoice)}
-              >
-                <SelectTrigger
-                  size="sm"
-                  aria-label={fmt(d.sandbox.secretMode, { name: secret.name })}
-                  className="w-fit min-w-40 max-w-80"
-                >
-                  <span className="min-w-0 truncate">{modeLabel[mode]}</span>
-                </SelectTrigger>
-                <SelectContent>
-                  {choices.map((choice) => (
-                    <SelectItem key={choice} value={choice}>
-                      {modeLabel[choice]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </li>
+            <SettingsListRow
+              key={secret.id}
+              title={<span className="font-mono">{secret.name}</span>}
+              meta={<Badge variant="outline">{sourceLabel[secret.source]}</Badge>}
+              actions={
+                <>
+                  {secret.source === 'ostia' ? (
+                    <IconButton
+                      icon={TrashIcon}
+                      label={fmt(d.sandbox.remove, { item: secret.name })}
+                      onClick={() =>
+                        void window.ostia.secrets.vaultDelete(workspaceId, secret.name).then(load)
+                      }
+                    />
+                  ) : null}
+                  <Select
+                    value={mode}
+                    onValueChange={(next) => void setMode(secret, next as ModeChoice)}
+                  >
+                    <SelectTrigger
+                      size="sm"
+                      aria-label={fmt(d.sandbox.secretMode, { name: secret.name })}
+                      className="w-fit min-w-40 max-w-80"
+                    >
+                      <span className="min-w-0 truncate">{modeLabel[mode]}</span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {choices.map((choice) => (
+                        <SelectItem key={choice} value={choice}>
+                          {modeLabel[choice]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </>
+              }
+            />
           )
         })}
-      </ul>
+      </SettingsList>
       <form
         className="mt-3 flex gap-2"
         onSubmit={(e) => {

@@ -1,4 +1,10 @@
 import { IconButton } from '@/components/common/IconButton'
+import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
+import { SettingsGroup, SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
+import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -17,9 +23,6 @@ import { useAvailableIconThemes } from '@/stores/extensions/iconThemeStore'
 import { BUILTIN_ICON_THEME } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
 import { PlusIcon, XIcon } from '@phosphor-icons/react'
 import { type FormEvent, useState } from 'react'
-import { ControlRow, ToggleRow } from './ControlRow'
-import { SelectField } from './SelectField'
-import { SectionHead, SettingsGroup, SubHead } from './SettingsGroup'
 
 function PatternRow({
   label,
@@ -32,17 +35,21 @@ function PatternRow({
 }): JSX.Element {
   const d = useDict()
   return (
-    <li className="flex items-center gap-2 rounded-sm py-0.5 pr-1 pl-2">
-      <span className="min-w-0 flex-1 truncate font-mono text-fg text-ui-sm">
-        {label}
-        {detail ? <span className="text-fg-muted"> → {detail}</span> : null}
-      </span>
-      <IconButton
-        icon={XIcon}
-        label={fmt(d.filesView.removePattern, { pattern: label })}
-        onClick={onRemove}
-      />
-    </li>
+    <SettingsListRow
+      title={
+        <span className="font-mono text-ui-sm">
+          {label}
+          {detail ? <span className="text-fg-muted"> → {detail}</span> : null}
+        </span>
+      }
+      actions={
+        <IconButton
+          icon={XIcon}
+          label={fmt(d.filesView.removePattern, { pattern: label })}
+          onClick={onRemove}
+        />
+      }
+    />
   )
 }
 
@@ -61,7 +68,26 @@ function ExcludeList(): JSX.Element {
   return (
     <div className="py-1.5">
       <p className="mb-2 text-fg-muted text-ui-sm">{d.filesView.excludeDesc}</p>
-      <ul aria-label={d.filesView.exclude} className="mb-2 flex flex-col">
+      <SettingsList
+        label={d.filesView.exclude}
+        empty={d.filesView.noExclude}
+        add={
+          <form className="flex items-center gap-2" onSubmit={add}>
+            <Input
+              value={draft}
+              spellCheck={false}
+              placeholder={d.filesView.newExclude}
+              aria-label={d.filesView.newExclude}
+              onChange={(e) => setDraft(e.target.value)}
+              className="h-7 flex-1 font-mono"
+            />
+            <Button type="submit" variant="outline" size="sm" disabled={!draft.trim()}>
+              <PlusIcon data-icon="inline-start" />
+              {d.filesView.addPattern}
+            </Button>
+          </form>
+        }
+      >
         {exclude.map((pattern) => (
           <PatternRow
             key={pattern}
@@ -69,21 +95,7 @@ function ExcludeList(): JSX.Element {
             onRemove={() => setFiles({ exclude: exclude.filter((p) => p !== pattern) })}
           />
         ))}
-      </ul>
-      <form className="flex items-center gap-2" onSubmit={add}>
-        <Input
-          value={draft}
-          spellCheck={false}
-          placeholder={d.filesView.newExclude}
-          aria-label={d.filesView.newExclude}
-          onChange={(e) => setDraft(e.target.value)}
-          className="h-7 flex-1 font-mono"
-        />
-        <Button type="submit" variant="outline" size="sm" disabled={!draft.trim()}>
-          <PlusIcon data-icon="inline-start" />
-          {d.filesView.addPattern}
-        </Button>
-      </form>
+      </SettingsList>
     </div>
   )
 }
@@ -111,39 +123,47 @@ function NestingList(): JSX.Element {
   }
   return (
     <div className="py-1.5">
-      <SubHead title={d.filesView.nestingPatterns} desc={d.filesView.nestingPatternsDesc} />
-      <ul aria-label={d.filesView.nestingPatterns} className="mb-2 flex flex-col">
+      <SettingsSubgroup
+        title={d.filesView.nestingPatterns}
+        desc={d.filesView.nestingPatternsDesc}
+      />
+      <SettingsList
+        label={d.filesView.nestingPatterns}
+        empty={d.filesView.noNesting}
+        add={
+          <form className="flex items-center gap-2" onSubmit={add}>
+            <Input
+              value={parent}
+              spellCheck={false}
+              placeholder={d.filesView.nestingParent}
+              aria-label={d.filesView.nestingParent}
+              onChange={(e) => setParent(e.target.value)}
+              className="h-7 w-40 font-mono"
+            />
+            <Input
+              value={children}
+              spellCheck={false}
+              placeholder={d.filesView.nestingChildren}
+              aria-label={d.filesView.nestingChildren}
+              onChange={(e) => setChildren(e.target.value)}
+              className="h-7 flex-1 font-mono"
+            />
+            <Button
+              type="submit"
+              variant="outline"
+              size="sm"
+              disabled={!parent.trim() || !children.trim()}
+            >
+              <PlusIcon data-icon="inline-start" />
+              {d.filesView.addPattern}
+            </Button>
+          </form>
+        }
+      >
         {Object.entries(nesting.patterns).map(([key, value]) => (
           <PatternRow key={key} label={key} detail={value} onRemove={() => remove(key)} />
         ))}
-      </ul>
-      <form className="flex items-center gap-2" onSubmit={add}>
-        <Input
-          value={parent}
-          spellCheck={false}
-          placeholder={d.filesView.nestingParent}
-          aria-label={d.filesView.nestingParent}
-          onChange={(e) => setParent(e.target.value)}
-          className="h-7 w-40 font-mono"
-        />
-        <Input
-          value={children}
-          spellCheck={false}
-          placeholder={d.filesView.nestingChildren}
-          aria-label={d.filesView.nestingChildren}
-          onChange={(e) => setChildren(e.target.value)}
-          className="h-7 flex-1 font-mono"
-        />
-        <Button
-          type="submit"
-          variant="outline"
-          size="sm"
-          disabled={!parent.trim() || !children.trim()}
-        >
-          <PlusIcon data-icon="inline-start" />
-          {d.filesView.addPattern}
-        </Button>
-      </form>
+      </SettingsList>
       <Button
         variant="ghost"
         size="sm"
@@ -266,11 +286,10 @@ function FileTreeSettingsGroups(): JSX.Element {
 export function FilesSection(): JSX.Element {
   const d = useDict()
   return (
-    <section>
-      <SectionHead title={d.settings.files} />
+    <SettingsPage title={d.settings.files}>
       <ExternalEditorRow />
       <FileTreeSettingsGroups />
-    </section>
+    </SettingsPage>
   )
 }
 

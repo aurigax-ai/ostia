@@ -1,4 +1,4 @@
-import { ControlRow, ToggleRow, WarningNote } from '@/components/settings/ControlRow'
+import { ControlRow, ToggleRow, WarningNote } from '@/components/settingsKit/ControlRow'
 import { Button } from '@/components/ui/button'
 import { replaceLabel } from '@/lib/app/updateProgressLabel'
 import { fmt, useDict } from '@/lib/app/useDict'
