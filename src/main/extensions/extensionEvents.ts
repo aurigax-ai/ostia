@@ -13,6 +13,11 @@ import type { ExtensionRuns } from './extensionRuns'
 import { fail } from './extensionRuntime'
 import type { Runtime } from './extensionRuntime'
 
+const EVENT_CAPABILITIES: Partial<Record<ExtensionEventType, Capability>> = {
+  notification: 'notify',
+  'bus.message': 'read-bus',
+}
+
 export interface ExtensionEventsHost {
   deps: Pick<ExtensionHostDeps, 'launches'>
   runtimes: ReadonlyMap<string, Runtime>
@@ -32,9 +37,11 @@ export class ExtensionEvents {
   emitEvent<T extends ExtensionEventType>(type: T, payload: ExtensionEventPayloads[T]): void {
     this.host.runs.settleTerminalWait(type, payload)
     for (const rt of this.host.runtimes.values()) {
-      if (rt.conn && rt.subscriptions.has(type)) {
-        void rt.conn.sendNotification('ext.event', { type, payload }).catch(() => {})
+      if (!rt.conn || !rt.subscriptions.has(type)) continue
+      if (type === 'bus.message' && !(rt.identity && hasCap(rt.identity.externalId, 'read-bus'))) {
+        continue
       }
+      void rt.conn.sendNotification('ext.event', { type, payload }).catch(() => {})
     }
   }
 
@@ -67,7 +74,7 @@ export class ExtensionEvents {
       if (!EXTENSION_EVENT_TYPES.includes(type as ExtensionEventType)) {
         return fail('unknown-event', String(type))
       }
-      const cap: Capability = type === 'notification' ? 'notify' : 'read-board'
+      const cap: Capability = EVENT_CAPABILITIES[type as ExtensionEventType] ?? 'read-board'
       if (!hasCap(identity.externalId, cap)) return fail('needs-elevation', cap)
     }
     for (const type of events) rt.subscriptions.add(type as ExtensionEventType)
