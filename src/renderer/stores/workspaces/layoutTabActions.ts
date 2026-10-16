@@ -1,8 +1,7 @@
-import { changeCollapse } from '@/lib/layout/collapse'
+import { changeCollapse, foldSplitTab, isTucked } from '@/lib/layout/collapse'
 import { joinSplitTab, separateFromSplitTab } from '@/lib/layout/tabJoin'
 import { movePane, moveTab } from '@/lib/layout/tabMoves'
 import {
-  findPane,
   findSplitTab,
   findSplitTabByName,
   focusIdOf,
@@ -25,12 +24,12 @@ import type { LayoutGet, LayoutSet, LayoutState, WorkspaceLayout } from './layou
 
 type LayoutTabActions = Pick<
   LayoutState,
-  'movePane' | 'moveTab' | 'renameSplitTab' | 'joinTab' | 'changeCollapse'
+  'movePane' | 'moveTab' | 'renameSplitTab' | 'joinTab' | 'changeCollapse' | 'foldSplitTab'
 >
 
-function collapsedAway(layout: WorkspaceLayout, root: LayoutNode): WorkspaceLayout {
+function tuckedAway(layout: WorkspaceLayout, root: LayoutNode): WorkspaceLayout {
   if (root === layout.root) return layout
-  const away = (id: string | null) => id !== null && findPane(root, id)?.collapsed === true
+  const away = (id: string | null) => id !== null && isTucked(root, id)
   return {
     ...layout,
     root,
@@ -81,9 +80,11 @@ export function createLayoutTabActions(set: LayoutSet, get: LayoutGet): LayoutTa
     changeCollapse: (workspaceId, paneId, change) =>
       set(
         (s) =>
-          patch(s, workspaceId, (l) => collapsedAway(l, changeCollapse(l.root, paneId, change))) ??
-          s,
+          patch(s, workspaceId, (l) => tuckedAway(l, changeCollapse(l.root, paneId, change))) ?? s,
       ),
+
+    foldSplitTab: (workspaceId, tabId) =>
+      set((s) => patch(s, workspaceId, (l) => tuckedAway(l, foldSplitTab(l.root, tabId))) ?? s),
 
     joinTab: (workspaceId, ids, tab) => {
       const layout = get().byWorkspace[workspaceId]

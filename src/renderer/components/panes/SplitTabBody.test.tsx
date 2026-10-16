@@ -108,3 +108,36 @@ describe('collapsed split tab panes', () => {
     expect(document.querySelectorAll('.pane-strip')).toHaveLength(0)
   })
 })
+
+describe('folded split tab', () => {
+  it('folds from the pill into one chip with its pane count and attention counts', async () => {
+    const { a, b, c, container } = workers()
+    act(() => {
+      useAttentionStore.getState().dispatch(a.id, { type: 'set', state: 'working', at: 1 })
+      useAttentionStore.getState().dispatch(c.id, { type: 'set', state: 'waiting', at: 2 })
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Fold workers' }))
+
+    const chip = screen.getByRole('tab', {
+      name: 'Folded split tab workers: 3 panes, 1 waiting, 1 working',
+    })
+    expect(chip.closest('.pane-split-tab')).toHaveAttribute('data-attention', 'waiting')
+    expect(within(chip).getByText('3 panes')).toBeInTheDocument()
+    expect(container.querySelectorAll('.split-tab-segment')).toHaveLength(0)
+    expect(findPane(layout().root, b.id)).not.toBeNull()
+    expect(layout().activePaneId).not.toBe(b.id)
+  })
+
+  it('unfolds and shows its panes when the chip is clicked', async () => {
+    const { a, container } = workers()
+    await act(() => commands.exec('pane.foldSplitTab'))
+    const chip = container.querySelector('.pane-split-tab.folded') as HTMLElement
+
+    await userEvent.click(within(chip).getByRole('tab'))
+
+    expect(container.querySelector('.pane-split-tab.folded')).toBeNull()
+    expect(container.querySelectorAll('.split-tab-segment')).toHaveLength(3)
+    expect(layout().activePaneId).toBe(a.id)
+  })
+})

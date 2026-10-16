@@ -345,6 +345,7 @@ export const appZhHant: typeof appEn = {
       cancel: '取消',
     },
     contextMenu: {
+      openLinkInNewTab: '在新分頁中開啟連結',
       copyLink: '複製連結網址',
       copyImage: '複製圖片',
       back: '上一頁',

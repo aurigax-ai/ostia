@@ -4,7 +4,7 @@ import { type FirstLoadGuest, holdFirstLoad } from './guestFirstLoad'
 
 const PAGE = 'https://example.com/restored'
 
-function setup() {
+function setup(referrers: Record<string, string> = {}) {
   let release: () => void = () => {}
   let refuse: (reason: Error) => void = () => {}
   const ready = new Promise<void>((ok, fail) => {
@@ -18,7 +18,12 @@ function setup() {
     stop: vi.fn(),
     loadURL: vi.fn(async () => {}),
   })
-  holdFirstLoad(guest as unknown as FirstLoadGuest, ready, (run) => deferred.push(run))
+  holdFirstLoad(
+    guest as unknown as FirstLoadGuest,
+    ready,
+    (url) => referrers[url],
+    (run) => deferred.push(run),
+  )
   return {
     guest,
     state,
@@ -50,7 +55,18 @@ describe('holdFirstLoad', () => {
     release()
     await settle()
     expect(guest.loadURL).toHaveBeenCalledTimes(1)
-    expect(guest.loadURL).toHaveBeenCalledWith(PAGE)
+    expect(guest.loadURL).toHaveBeenCalledWith(PAGE, {})
+  })
+
+  it('starts the first load again with the referrer it was opened with', async () => {
+    const { guest, start, runDeferred, release, settle } = setup({
+      [PAGE]: 'https://site.example/',
+    })
+    start(PAGE)
+    runDeferred()
+    release()
+    await settle()
+    expect(guest.loadURL).toHaveBeenCalledWith(PAGE, { httpReferrer: 'https://site.example/' })
   })
 
   it('holds only the first load', async () => {
@@ -98,7 +114,7 @@ describe('holdFirstLoad', () => {
     start('https://example.com/frame', { isMainFrame: false })
     release()
     await settle()
-    expect(guest.loadURL).toHaveBeenCalledWith(PAGE)
+    expect(guest.loadURL).toHaveBeenCalledWith(PAGE, {})
   })
 
   it('loads the page even when registering the scripts failed', async () => {
@@ -107,7 +123,7 @@ describe('holdFirstLoad', () => {
     runDeferred()
     refuse(new Error('detached'))
     await settle()
-    expect(guest.loadURL).toHaveBeenCalledWith(PAGE)
+    expect(guest.loadURL).toHaveBeenCalledWith(PAGE, {})
   })
 
   it('touches nothing on a guest that is gone', async () => {

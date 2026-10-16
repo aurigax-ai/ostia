@@ -147,6 +147,8 @@
         "src/main/browser/guestFirstLoad.",
         "src/main/browser/guestNetwork.ts",
         "src/main/browser/guestPopups.",
+        "src/main/browser/guestLinkClicks.",
+        "src/main/browser/guestTabs.",
         "src/main/browser/guestDevice.",
         "src/main/browser/signinUserAgent.",
         "src/main/browser/loginFill.ts",
@@ -167,6 +169,7 @@
         "src/shared/browser/regionCapture.ts",
         "src/shared/browser/credentials.ts",
         "src/shared/browser/loginScripts.ts",
+        "src/shared/browser/linkTabs.ts",
         "src/cli/verbs/browse.ts",
         "src/cli/verbs/browseArgs.",
         "src/cli/verbs/browseFlags.ts",
@@ -197,6 +200,7 @@
         "src/renderer/components/browser/LoginButton.tsx",
         "src/renderer/lib/browser/browserAddress.",
         "src/renderer/lib/browser/browserHandles.",
+        "src/renderer/lib/browser/linkTabs.",
         "src/renderer/lib/browser/browserProfile.ts",
         "src/renderer/lib/browser/regionCaptures.ts",
         "src/renderer/lib/browser/regionSelect.ts",
@@ -211,6 +215,7 @@
         "e2e/browser-device.spec.ts",
         "e2e/browser-iframe-scripts.spec.ts",
         "e2e/browser-keys.spec.ts",
+        "e2e/browser-link-tabs.spec.ts",
         "e2e/browser-login.spec.ts",
         "e2e/browser-passkey.spec.ts",
         "e2e/browser-pick.spec.ts",
@@ -1021,6 +1026,7 @@
         "src/renderer/components/panes/TabRow.",
         "src/renderer/components/panes/SplitTab.tsx",
         "src/renderer/components/panes/SplitTabBody.tsx",
+        "src/renderer/components/panes/FoldedSplitTab.tsx",
         "src/renderer/lib/layout/collapse.ts",
         "src/renderer/components/common/PanelResizer.",
         "src/renderer/components/panes/Pane.",
@@ -1057,6 +1063,7 @@
         "e2e/pane-lock.spec.ts",
         "e2e/pane-move-tab.spec.ts",
         "e2e/split-tab-collapse.spec.ts",
+        "e2e/split-tab-fold.spec.ts",
         "e2e/tab-rename.spec.ts",
         "e2e/tab-switch.spec.ts",
         "e2e/workspace-select-focus.spec.ts"
@@ -1190,7 +1197,12 @@
         "src/renderer/components/settings/DiscreteGpuRow.tsx",
         "src/renderer/components/app/WindowControls.tsx"
       ],
-      "specs": ["e2e/auto-resume.spec.ts", "e2e/quit-confirm.spec.ts", "e2e/tray.spec.ts"]
+      "specs": [
+        "e2e/auto-resume.spec.ts",
+        "e2e/browser-link-tabs.spec.ts",
+        "e2e/quit-confirm.spec.ts",
+        "e2e/tray.spec.ts"
+      ]
     },
     {
       "name": "command palette",

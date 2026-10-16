@@ -1,5 +1,6 @@
-import type { ContextMenuParams, MenuItemConstructorOptions } from 'electron'
+import type { ContextMenuParams, MenuItemConstructorOptions, Referrer } from 'electron'
 import type { Dict } from '../../shared/app/dict'
+import { isTabUrl } from '../../shared/browser/linkTabs'
 
 export type ContextMenuText = Dict['native']['contextMenu']
 
@@ -11,6 +12,9 @@ export type ContextParams = Pick<
   | 'linkURL'
   | 'mediaType'
   | 'hasImageContents'
+  | 'referrerPolicy'
+  | 'frameURL'
+  | 'pageURL'
   | 'x'
   | 'y'
 >
@@ -22,11 +26,16 @@ export interface ContextPage {
 }
 
 export interface ContextActions {
+  openLinkInNewTab?: (url: string, referrer: Referrer) => void
   copyLink: (url: string) => void
   copyImage: (x: number, y: number) => void
   back: () => void
   forward: () => void
   reload: () => void
+}
+
+function linkReferrer(params: ContextParams): Referrer {
+  return { url: params.frameURL || params.pageURL, policy: params.referrerPolicy.policy }
 }
 
 export function contextMenuTemplate(
@@ -59,7 +68,14 @@ export function contextMenuTemplate(
     group([{ role: 'copy' }])
   }
   if (params.linkURL) {
-    group([{ label: text.copyLink, click: () => actions.copyLink(params.linkURL) }])
+    const link = params.linkURL
+    const open = actions.openLinkInNewTab
+    group([
+      ...(open && isTabUrl(link)
+        ? [{ label: text.openLinkInNewTab, click: () => open(link, linkReferrer(params)) }]
+        : []),
+      { label: text.copyLink, click: () => actions.copyLink(link) },
+    ])
   }
   if (image) {
     group([{ label: text.copyImage, click: () => actions.copyImage(params.x, params.y) }])
