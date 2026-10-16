@@ -1,8 +1,10 @@
 import { IconButton } from '@/components/common/IconButton'
 import { Notice } from '@/components/common/Notice'
 import { RequirementsNote } from '@/components/settings/RequirementsNote'
-import { MachineValue } from '@/components/settingsKit/ControlRow'
-import { SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
+import { ControlRow, MachineValue } from '@/components/settingsKit/ControlRow'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
+import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,8 +21,13 @@ import { fmt, useDict } from '@/lib/app/useDict'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 import { ArrowsClockwiseIcon, TrashIcon } from '@phosphor-icons/react'
+import type { Dict } from '@shared/app/dict'
 import { MARKETPLACE_FEATURE, type MarketplaceInfo } from '@shared/extensions/marketplace'
 import { useEffect, useState } from 'react'
+
+export function marketplaceName(d: Dict, marketplace: MarketplaceInfo): string {
+  return marketplace.official ? d.marketplace.officialName : marketplace.name
+}
 
 export function UninstallExtensionButton({
   extId,
@@ -66,7 +73,7 @@ export function UninstallExtensionButton({
   )
 }
 
-function InstallCodeForm({ marketplace }: { marketplace: MarketplaceInfo }): JSX.Element {
+function InstallCodeRow({ marketplace }: { marketplace: MarketplaceInfo }): JSX.Element {
   const d = useDict()
   const busy = useMarketplaceStore((s) => s.busy)
   const installCode = useMarketplaceStore((s) => s.installCode)
@@ -77,22 +84,23 @@ function InstallCodeForm({ marketplace }: { marketplace: MarketplaceInfo }): JSX
   }
   return (
     <form
-      className="mt-1 flex items-center gap-2"
       onSubmit={(e) => {
         e.preventDefault()
         void submit()
       }}
     >
-      <Input
-        value={code}
-        onChange={(e) => setCode(e.target.value)}
-        placeholder={d.marketplace.codePlaceholder}
-        aria-label={fmt(d.marketplace.codeLabel, { name: marketplace.name })}
-        className="h-7 flex-1 font-mono"
-      />
-      <Button type="submit" variant="outline" size="sm" disabled={busy || !code.trim()}>
-        {d.marketplace.install}
-      </Button>
+      <ControlRow label={d.marketplace.codeTitle}>
+        <Input
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          placeholder={d.marketplace.codePlaceholder}
+          aria-label={fmt(d.marketplace.codeLabel, { name: marketplaceName(d, marketplace) })}
+          className="h-7 w-56 font-mono"
+        />
+        <Button type="submit" variant="outline" size="sm" disabled={busy || !code.trim()}>
+          {d.marketplace.install}
+        </Button>
+      </ControlRow>
     </form>
   )
 }
@@ -114,7 +122,7 @@ function RemoveMarketplaceButton({
     <>
       <IconButton
         icon={TrashIcon}
-        label={fmt(d.marketplace.remove, { name: marketplace.name })}
+        label={fmt(d.marketplace.remove, { name: marketplaceName(d, marketplace) })}
         disabled={busy}
         onClick={() => {
           if (marketplace.installs.length > 0) setAsking(true)
@@ -125,7 +133,7 @@ function RemoveMarketplaceButton({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {fmt(d.marketplace.removeTitle, { name: marketplace.name })}
+              {fmt(d.marketplace.removeTitle, { name: marketplaceName(d, marketplace) })}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {fmt(d.marketplace.removeBody, { list: marketplace.installs.join(', ') })}
@@ -150,20 +158,30 @@ function MarketplaceRow({ marketplace }: { marketplace: MarketplaceInfo }): JSX.
   const d = useDict()
   const busy = useMarketplaceStore((s) => s.busy)
   const refresh = useMarketplaceStore((s) => s.refresh)
+  const name = marketplaceName(d, marketplace)
+  const empty = marketplace.downloaded && !marketplace.error && marketplace.extensions.length === 0
   return (
-    <li aria-label={marketplace.name} className="flex flex-col py-2">
-      <div className="flex items-start justify-between gap-6">
-        <div className="min-w-0">
-          <div className="text-fg text-ui-sm">{marketplace.name}</div>
-          <div className="flex min-w-0">
-            <MachineValue value={marketplace.url} />
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
+    <SettingsListRow
+      aria-label={name}
+      title={name}
+      detail={
+        <>
+          {name === marketplace.url ? null : (
+            <div className="flex min-w-0">
+              <MachineValue value={marketplace.url} />
+            </div>
+          )}
+          {marketplace.downloaded ? null : <p>{d.marketplace.notDownloaded}</p>}
+          {empty ? <p>{d.marketplace.noExtensions}</p> : null}
+          {marketplace.error ? <Notice>{marketplace.error}</Notice> : null}
+        </>
+      }
+      actions={
+        <>
           {marketplace.downloaded ? (
             <IconButton
               icon={ArrowsClockwiseIcon}
-              label={fmt(d.marketplace.refresh, { name: marketplace.name })}
+              label={fmt(d.marketplace.refresh, { name })}
               disabled={busy}
               onClick={() => void refresh(marketplace.id)}
             />
@@ -178,27 +196,16 @@ function MarketplaceRow({ marketplace }: { marketplace: MarketplaceInfo }): JSX.
             </Button>
           )}
           {marketplace.official ? null : <RemoveMarketplaceButton marketplace={marketplace} />}
-        </div>
-      </div>
-      {marketplace.error ? <Notice>{marketplace.error}</Notice> : null}
-      {!marketplace.downloaded ? (
-        <p className="mt-0.5 text-fg-muted text-ui-xs">{d.marketplace.notDownloaded}</p>
-      ) : null}
-      {marketplace.downloaded && !marketplace.error && marketplace.extensions.length === 0 ? (
-        <p className="mt-0.5 text-fg-muted text-ui-xs">{d.marketplace.noExtensions}</p>
-      ) : null}
-      {marketplace.unlisted ? <InstallCodeForm marketplace={marketplace} /> : null}
-      {marketplace.problems.length > 0 ? (
-        <div className="mt-1 text-fg-muted text-ui-xs">
-          <div>{d.marketplace.problems}</div>
-          <ul className="mt-0.5 font-mono">
-            {marketplace.problems.map((problem) => (
-              <li key={problem}>{problem}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-    </li>
+        </>
+      }
+      below={
+        marketplace.unlisted ? (
+          <div className="mt-1 mb-2 ml-2 border-line border-l pl-4">
+            <InstallCodeRow marketplace={marketplace} />
+          </div>
+        ) : undefined
+      }
+    />
   )
 }
 
@@ -228,7 +235,7 @@ export function MarketplaceFailureNote(): JSX.Element | null {
   )
 }
 
-export function MarketplacesPanel(): JSX.Element {
+export function MarketplacesGroup(): JSX.Element {
   const d = useDict()
   const marketplaces = useMarketplaceStore((s) => s.state.marketplaces)
   const busy = useMarketplaceStore((s) => s.busy)
@@ -239,36 +246,36 @@ export function MarketplacesPanel(): JSX.Element {
     if (await add(url)) setUrl('')
   }
   return (
-    <section aria-label={d.marketplace.title}>
-      <SettingsSubgroup title={d.marketplace.title} desc={d.marketplace.desc} />
+    <SettingsGroup title={d.marketplace.title} desc={d.marketplace.desc}>
       <RequirementsNote feature={MARKETPLACE_FEATURE} body={d.marketplace.requirementsBody} />
-      <form
-        className="mt-2 flex items-center gap-2"
-        onSubmit={(e) => {
-          e.preventDefault()
-          void submit()
-        }}
+      <SettingsList
+        label={d.marketplace.title}
+        empty={d.marketplace.none}
+        add={
+          <form
+            className="flex items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void submit()
+            }}
+          >
+            <Input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder={d.marketplace.addPlaceholder}
+              aria-label={d.marketplace.addLabel}
+              className="h-7 flex-1 font-mono"
+            />
+            <Button type="submit" variant="outline" size="sm" disabled={busy || !url.trim()}>
+              {busy ? d.marketplace.working : d.marketplace.add}
+            </Button>
+          </form>
+        }
       >
-        <Input
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder={d.marketplace.addPlaceholder}
-          aria-label={d.marketplace.addLabel}
-          className="h-7 flex-1 font-mono"
-        />
-        <Button type="submit" variant="outline" size="sm" disabled={busy || !url.trim()}>
-          {busy ? d.marketplace.working : d.marketplace.add}
-        </Button>
-      </form>
-      {marketplaces.length === 0 ? (
-        <p className="mt-2 text-fg-muted text-ui-sm">{d.marketplace.none}</p>
-      ) : (
-        <ul className="mt-1 flex flex-col divide-y divide-line">
-          {marketplaces.map((marketplace) => (
-            <MarketplaceRow key={marketplace.id} marketplace={marketplace} />
-          ))}
-        </ul>
-      )}
-    </section>
+        {marketplaces.map((marketplace) => (
+          <MarketplaceRow key={marketplace.id} marketplace={marketplace} />
+        ))}
+      </SettingsList>
+    </SettingsGroup>
   )
 }
