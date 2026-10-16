@@ -2279,12 +2279,16 @@ describe('agent resume', () => {
     expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.env')
   })
 
-  it('keeps what was typed when the same session reports again without a typed line, and only then', async () => {
+  it('keeps what was typed when a session reports again without a typed line, until the agent kind changes', async () => {
     const typed = { args: ['--dangerously-skip-permissions'], env: { GL_ISSUE: '1' } }
     const pane = seedPane({ agent: 'claude', id: 'abc', typed })
     await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'claude', id: 'abc' })
     expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({ resume: { typed } })
     await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'claude', id: 'other' })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+      resume: { id: 'other', typed },
+    })
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'codex', id: 'other' })
     expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.typed')
   })
 
