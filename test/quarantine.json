@@ -1,5 +1,17 @@
 [
   {
+    "file": "e2e/graphs-kept.spec.ts",
+    "name": "GRF-C71 an agent still working in its kept pane across a restart is reattached as running and its report ends the node",
+    "issue": 1044,
+    "until": "2026-10-30"
+  },
+  {
+    "file": "e2e/graphs-restart.spec.ts",
+    "name": "GRF-C59 GRF-C70 a waiting approval and a cut-off command come back after Ostia is killed",
+    "issue": 1044,
+    "until": "2026-10-30"
+  },
+  {
     "file": "src/main/files/archives/archives.test.ts",
     "name": "Archives > refuses a bomb entry by its declared size and by its real size",
     "issue": 1039,
