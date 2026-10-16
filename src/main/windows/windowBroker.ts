@@ -25,12 +25,8 @@ import {
   summaryOf,
 } from '../agents/originAgents'
 import { getByPaneId } from '../control/idRegistry'
-import {
-  clearPersisted,
-  loadSnapshot,
-  parseSnapshot,
-  saveSnapshot,
-} from '../workspaces/workspaceSnapshot'
+import { clearPersisted } from '../workspaces/savedScrollback'
+import { loadSnapshot, parseSnapshot, saveSnapshot } from '../workspaces/workspaceSnapshot'
 import { MAIN_SLOT, WindowBook, clampBounds } from './windowBook'
 import { WindowHandoffs, windowIdOf, workAreas } from './windowHandoffs'
 

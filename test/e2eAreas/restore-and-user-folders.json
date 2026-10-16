@@ -5,6 +5,7 @@
     "src/main/platform/userDirs.",
     "src/main/platform/userDirsBoot.ts",
     "src/main/terminal/screenMirror.ts",
+    "src/main/workspaces/savedScrollback.ts",
     "src/main/workspaces/scrollbackPersistence.ts",
     "src/main/workspaces/workspaceSnapshot.ts",
     "src/renderer/lib/layout/snapshot.ts",

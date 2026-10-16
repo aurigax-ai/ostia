@@ -138,15 +138,15 @@ import { createWindowSend } from './windows/windowSend'
 import { startWindows } from './windows/windowStartup'
 import { createWindowWiring } from './windows/windowWiring'
 import { registerContentIpc } from './workspaces/contentWiring'
-import { createScrollbackPersistence } from './workspaces/scrollbackPersistence'
-import type { ViewHost } from './workspaces/viewHost'
-import { createWorkspaceLifecycle } from './workspaces/workspaceLifecycle'
-import { windowForWorkspace, workDirForWorkspace } from './workspaces/workspaceRegistry'
 import {
   type RestoreOutcome,
   loadRestoredScrollback,
   pendingRestoredScrollback,
-} from './workspaces/workspaceSnapshot'
+} from './workspaces/savedScrollback'
+import { createScrollbackPersistence } from './workspaces/scrollbackPersistence'
+import type { ViewHost } from './workspaces/viewHost'
+import { createWorkspaceLifecycle } from './workspaces/workspaceLifecycle'
+import { windowForWorkspace, workDirForWorkspace } from './workspaces/workspaceRegistry'
 
 const windows = new Map<string, BrowserWindow>()
 const commandsByWindow = new Map<string, CommandDescriptor[]>()
