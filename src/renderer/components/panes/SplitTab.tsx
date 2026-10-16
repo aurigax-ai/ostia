@@ -16,10 +16,11 @@ import {
   ArrowsInLineVerticalIcon,
   ArrowsOutLineHorizontalIcon,
   ArrowsOutLineVerticalIcon,
+  CaretDoubleLeftIcon,
   LockSimpleIcon,
   XIcon,
 } from '@phosphor-icons/react'
-import type { CSSProperties, KeyboardEvent } from 'react'
+import type { CSSProperties, HTMLAttributes, KeyboardEvent } from 'react'
 import { PaneRenameField } from './PaneRenameField'
 import { PaneTabMenu } from './PaneTabMenu'
 import { TabFace, usePaneMark, usePaneTitle } from './TabFace'
@@ -232,6 +233,22 @@ function moveSegmentFocus(e: KeyboardEvent<HTMLElement>): void {
   next.focus()
 }
 
+export function tabDragProps(
+  tabId: string,
+  workspaceId: string | null,
+  draggable: boolean,
+): Pick<HTMLAttributes<HTMLElement>, 'draggable' | 'onDragStart' | 'onDragEnd'> {
+  return {
+    draggable,
+    onDragStart: (e) => {
+      e.dataTransfer.setData(PANE_DND, tabId)
+      e.dataTransfer.effectAllowed = 'move'
+      beginPaneDrag(tabId, e)
+    },
+    onDragEnd: (e) => endPaneDrag(workspaceId, tabId, e),
+  }
+}
+
 export function SplitTabPill({
   tab,
   selected,
@@ -247,6 +264,7 @@ export function SplitTabPill({
   showClose: boolean
   workspaceId: string | null
 }): JSX.Element {
+  const d = useDict()
   const label = useSplitTabLabel(tab)
   const panes = allPanes(tab)
   const renaming = usePaneRenameStore(
@@ -267,13 +285,7 @@ export function SplitTabPill({
       aria-selected={selected}
       aria-label={label}
       data-tab-id={tab.id}
-      draggable={!renaming}
-      onDragStart={(e) => {
-        e.dataTransfer.setData(PANE_DND, tab.id)
-        e.dataTransfer.effectAllowed = 'move'
-        beginPaneDrag(tab.id, e)
-      }}
-      onDragEnd={(e) => endPaneDrag(workspaceId, tab.id, e)}
+      {...tabDragProps(tab.id, workspaceId, !renaming)}
       onKeyDown={moveSegmentFocus}
     >
       <SplitTabGlyph
@@ -298,6 +310,12 @@ export function SplitTabPill({
           workspaceId={workspaceId}
         />
       ))}
+      <IconButton
+        icon={CaretDoubleLeftIcon}
+        label={tab.name ? fmt(d.pane.foldNamedSplitTab, { name: tab.name }) : d.pane.foldSplitTab}
+        className="split-tab-fold"
+        onClick={() => void commands.exec('pane.foldSplitTab', { tabId: tab.id })}
+      />
     </div>
   )
 }

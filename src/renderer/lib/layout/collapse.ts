@@ -1,6 +1,15 @@
 import { mapPanes } from './paneFields'
-import { allPanes, findPane, replaceSlot, replaceTab, splitTabOfPane, tabsOfPane } from './tree'
-import type { Direction, LayoutNode, PaneNode, SplitNode } from './types'
+import {
+  allPanes,
+  findPane,
+  findSplitTab,
+  firstPaneId,
+  replaceSlot,
+  replaceTab,
+  splitTabOfPane,
+  tabsOfPane,
+} from './tree'
+import type { Direction, LayoutNode, PaneNode, SplitNode, TabNode } from './types'
 
 export const STRIP_SIZE = 26
 
@@ -81,11 +90,30 @@ export function changeCollapse(
   return expandAll(root, paneId)
 }
 
+function unfolded(split: SplitNode): SplitNode {
+  if (!split.folded) return split
+  const { folded: _folded, ...rest } = split
+  return rest
+}
+
+function settleInner(node: LayoutNode): LayoutNode {
+  if (node.type !== 'split') return node
+  const children = node.children.map(settleInner)
+  return unfolded(children.every((c, i) => c === node.children[i]) ? node : { ...node, children })
+}
+
 function settleTab(tab: SplitNode, activeId: string): SplitNode {
   const panes = allPanes(tab)
   const keep =
     panes.find((p) => p.id === activeId) ?? (panes.every((p) => p.collapsed) ? panes[0] : null)
-  return keep?.collapsed ? (mapPanes(tab, (p) => (p === keep ? expanded(p) : p)) as SplitNode) : tab
+  const opened = keep?.collapsed
+    ? (mapPanes(tab, (p) => (p === keep ? expanded(p) : p)) as SplitNode)
+    : tab
+  const children = opened.children.map(settleInner)
+  const inner = children.every((c, i) => c === opened.children[i])
+    ? opened
+    : { ...opened, children }
+  return panes.some((p) => p.id === activeId) ? unfolded(inner) : inner
 }
 
 export function settleCollapse(root: LayoutNode): LayoutNode {
@@ -97,16 +125,50 @@ export function settleCollapse(root: LayoutNode): LayoutNode {
     return children.every((c, i) => c === root.children[i]) ? root : { ...root, children }
   }
   const children = root.children.map(settleCollapse)
-  return children.every((c, i) => c === root.children[i]) ? root : { ...root, children }
+  return unfolded(children.every((c, i) => c === root.children[i]) ? root : { ...root, children })
+}
+
+function openPaneOf(tab: TabNode): string | null {
+  if (tab.type === 'pane') return tab.id
+  if (tab.folded) return null
+  return allPanes(tab).find((p) => !p.collapsed)?.id ?? null
+}
+
+export function foldSplitTab(root: LayoutNode, tabId: string): LayoutNode {
+  const tab = findSplitTab(root, tabId)
+  const tabs = tab ? tabsOfPane(root, firstPaneId(tab)) : null
+  if (!tab || !tabs || tab.folded) return root
+  const folded = replaceTab(root, tabId, () => ({ ...tab, folded: true }))
+  if (!findPane(tab, tabs.activeId)) return folded
+  const at = tabs.children.indexOf(tab)
+  const shown = [...tabs.children.slice(at + 1), ...tabs.children.slice(0, at).reverse()]
+    .map(openPaneOf)
+    .find((id) => id !== null)
+  return shown ? showPane(folded, shown) : root
+}
+
+export function isTucked(root: LayoutNode, paneId: string): boolean {
+  return findPane(root, paneId)?.collapsed === true || splitTabOfPane(root, paneId)?.folded === true
 }
 
 export function stripSizes(
   sizes: readonly number[],
   strips: readonly boolean[],
   total?: number,
+  opened: readonly boolean[] = [],
 ): number[] {
-  const open = sizes.reduce((sum, n, i) => (strips[i] ? sum : sum + n), 0)
+  const sum = (keep: (i: number) => boolean) =>
+    sizes.reduce((acc, n, i) => (keep(i) ? acc + n : acc), 0)
   const stripped = STRIP_SIZE * strips.filter(Boolean).length
-  const room = Math.max(0, (total ?? open + stripped) - stripped)
-  return sizes.map((n, i) => (strips[i] ? STRIP_SIZE : open > 0 ? (n / open) * room : 0))
+  const room = Math.max(0, (total ?? sum((i) => !strips[i]) + stripped) - stripped)
+  const back = sum((i) => !strips[i] && opened[i] === true)
+  const rest = sum((i) => !strips[i] && opened[i] !== true)
+  const restored = back < room && rest > 0
+  const share = restored ? room - back : room
+  const pool = restored ? rest : back + rest
+  return sizes.map((n, i) => {
+    if (strips[i]) return STRIP_SIZE
+    if (restored && opened[i]) return n
+    return pool > 0 ? (n / pool) * share : 0
+  })
 }

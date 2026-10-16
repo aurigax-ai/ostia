@@ -145,8 +145,16 @@ function parseNode(
       if (!isRecord(child) || (child.type !== 'pane' && child.type !== 'split')) return null
       const parsed = parseNode(child, paneIds, depth + 1, true)
       if (!parsed || parsed.type === 'tabs') return null
-      const name = parsed.type === 'split' ? normalizeSplitTabName(child.name) : null
-      tabs.push(name && parsed.type === 'split' ? { ...parsed, name } : parsed)
+      if (parsed.type === 'pane') {
+        tabs.push(parsed)
+        continue
+      }
+      const name = normalizeSplitTabName(child.name)
+      tabs.push({
+        ...parsed,
+        ...(name ? { name } : {}),
+        ...(child.folded === true ? { folded: true as const } : {}),
+      })
     }
     if (tabs.length === 1) return tabs[0]
     const ids = tabs.flatMap(tabPaneIds)
