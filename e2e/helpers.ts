@@ -37,6 +37,59 @@ export async function openWorkspace(win: Page): Promise<void> {
   await expect.poll(() => promptShown(win), { timeout: 15_000 }).toBe(true)
 }
 
+export async function expectHeld<T>(
+  read: () => Promise<T>,
+  expected: T,
+  holdMs = 2_000,
+  message?: string,
+): Promise<void> {
+  const until = Date.now() + holdMs
+  do {
+    const actual: unknown = await read()
+    expect(actual, message).toEqual(expected)
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  } while (Date.now() < until)
+}
+
+export async function closeAllWorkspaces(win: Page): Promise<void> {
+  const tabs = win.locator('.rail-tab')
+  for (let open = await tabs.count(); open > 0; open--) {
+    await tabs.first().hover()
+    await tabs.first().getByRole('button', { name: 'Close' }).click()
+    await expect(tabs).toHaveCount(open - 1)
+  }
+}
+
+const ACCENTS = ['#ff8800', '#0088ff']
+
+const brandColour = (win: Page): Promise<string> =>
+  win.evaluate(() => document.documentElement.style.getPropertyValue('--color-brand'))
+
+export async function changeSettings(
+  win: Page,
+  patch: Record<string, Record<string, unknown>>,
+): Promise<void> {
+  const before = await brandColour(win)
+  await win.evaluate(
+    async ({ patch, accents }) => {
+      const path = await window.ostia.settings.path()
+      const res = await window.ostia.fs.read(path)
+      const current = JSON.parse(res.ok ? res.text : '{}')
+      for (const [section, values] of Object.entries(patch)) {
+        current[section] = { ...current[section], ...values }
+      }
+      const accent = current.appearance?.accent
+      current.appearance = {
+        ...current.appearance,
+        accent: accent === accents[0] ? accents[1] : accents[0],
+      }
+      await window.ostia.fs.write(path, JSON.stringify(current, null, 2))
+    },
+    { patch, accents: ACCENTS },
+  )
+  await expect.poll(() => brandColour(win)).not.toBe(before)
+}
+
 export async function newTerminalWorkspace(win: Page): Promise<void> {
   const before = await win.locator('.xterm').count()
   await win.locator('.topbar').getByRole('button', { name: 'New workspace' }).click()

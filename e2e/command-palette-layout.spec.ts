@@ -2,8 +2,8 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
+import { closeAllWorkspaces, openWorkspace } from './helpers'
+import { type ElectronApplication, type Page, expect, launchShared, test } from './test'
 
 const TITLE_GAP_MAX = 12.5
 
@@ -63,34 +63,10 @@ function expectInline(found: Awaited<ReturnType<typeof rows>>): void {
   }
 }
 
-test('each palette row shows its keycap directly after its title, dimmer, then the secondary text, with and without a query', async () => {
-  const app = await electron.launch(isolatedLaunch())
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await openWorkspace(win)
-    await win.keyboard.press(chords.palette)
-    const palette = win.getByRole('dialog', { name: 'Command palette' })
-    await expect(palette.getByRole('option').first()).toBeVisible()
+let app: ElectronApplication | undefined
+let win: Page
 
-    const all = await rows(win)
-    expect(all.count).toBeGreaterThan(1)
-    expect(all.keyGaps.length).toBeGreaterThan(1)
-    expect(all.metaGaps.length).toBeGreaterThan(1)
-    expectInline(all)
-
-    await palette.getByRole('combobox').fill('pane')
-    await expect(palette.getByRole('option', { name: /pane/i }).first()).toBeVisible()
-    const searched = await rows(win)
-    expect(searched.count).toBeGreaterThan(1)
-    expect(searched.keyGaps.length).toBeGreaterThan(0)
-    expectInline(searched)
-  } finally {
-    await app.close()
-  }
-})
-
-test('a long workspace path is cut short inside its row and the names stay whole', async () => {
+test.beforeAll(async () => {
   const dataHome = freshDataHome()
   const deep = join(dataHome, ...Array(4).fill('a-rather-long-folder-name-for-the-palette-row'))
   mkdirSync(deep, { recursive: true })
@@ -114,27 +90,53 @@ test('a long workspace path is cut short inside its row and the names stay whole
       ],
     }),
   )
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await expect(win.getByText('deep').first()).toBeVisible({ timeout: 15_000 })
-    await win.keyboard.press(chords.palette)
-    const palette = win.getByRole('dialog', { name: 'Command palette' })
-    await palette.getByRole('combobox').fill('')
-    await expect(palette.getByRole('option', { name: /deep/ }).first()).toBeVisible()
+  app = await launchShared(isolatedLaunch(dataHome))
+  win = await app.firstWindow()
+  await win.waitForLoadState('domcontentloaded')
+})
 
-    const all = await rows(win)
-    expect(all.keyGaps.length).toBeGreaterThan(1)
-    expect(all.metaCut).toBeGreaterThan(0)
-    expectInline(all)
+test.afterAll(async () => {
+  await app?.close()
+})
 
-    await palette.getByRole('combobox').fill('@deep')
-    await expect(palette.getByRole('option', { name: /deep/ }).first()).toBeVisible()
-    const workspaces = await rows(win)
-    expect(workspaces.metaCut).toBeGreaterThan(0)
-    expectInline(workspaces)
-  } finally {
-    await app.close()
-  }
+test('a long workspace path is cut short inside its row and the names stay whole', async () => {
+  await expect(win.getByText('deep').first()).toBeVisible({ timeout: 15_000 })
+  await win.keyboard.press(chords.palette)
+  const palette = win.getByRole('dialog', { name: 'Command palette' })
+  await palette.getByRole('combobox').fill('')
+  await expect(palette.getByRole('option', { name: /deep/ }).first()).toBeVisible()
+
+  const all = await rows(win)
+  expect(all.keyGaps.length).toBeGreaterThan(1)
+  expect(all.metaCut).toBeGreaterThan(0)
+  expectInline(all)
+
+  await palette.getByRole('combobox').fill('@deep')
+  await expect(palette.getByRole('option', { name: /deep/ }).first()).toBeVisible()
+  const workspaces = await rows(win)
+  expect(workspaces.metaCut).toBeGreaterThan(0)
+  expectInline(workspaces)
+  await win.keyboard.press('Escape')
+  await expect(palette).toBeHidden()
+})
+
+test('each palette row shows its keycap directly after its title, dimmer, then the secondary text, with and without a query', async () => {
+  await closeAllWorkspaces(win)
+  await openWorkspace(win)
+  await win.keyboard.press(chords.palette)
+  const palette = win.getByRole('dialog', { name: 'Command palette' })
+  await expect(palette.getByRole('option').first()).toBeVisible()
+
+  const all = await rows(win)
+  expect(all.count).toBeGreaterThan(1)
+  expect(all.keyGaps.length).toBeGreaterThan(1)
+  expect(all.metaGaps.length).toBeGreaterThan(1)
+  expectInline(all)
+
+  await palette.getByRole('combobox').fill('pane')
+  await expect(palette.getByRole('option', { name: /pane/i }).first()).toBeVisible()
+  const searched = await rows(win)
+  expect(searched.count).toBeGreaterThan(1)
+  expect(searched.keyGaps.length).toBeGreaterThan(0)
+  expectInline(searched)
 })
