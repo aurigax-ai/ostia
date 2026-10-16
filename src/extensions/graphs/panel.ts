@@ -3,9 +3,13 @@ import {
   context,
   errorText,
   h,
+  icon,
   onChange,
   panelTranslator,
 } from '@aurigax-ai/ostia-extension-sdk/panel'
+import clockCounterClockwise from '@phosphor-icons/core/regular/clock-counter-clockwise.svg'
+import copy from '@phosphor-icons/core/regular/copy.svg'
+import graph from '@phosphor-icons/core/regular/graph.svg'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
 import type { Definition, GraphRow, ListModel, RunModel } from './panelModel'
@@ -32,6 +36,52 @@ function go(next: View): void {
 
 function button(label: string, onClick: () => void, primary = false): HTMLElement {
   return h('button', { type: 'button', class: primary ? 'primary' : '', onClick }, label)
+}
+
+interface EmptyView {
+  kind: string
+  media: string
+  title: string
+  description: string
+  action?: HTMLElement
+}
+
+function emptyState(view: EmptyView): HTMLElement {
+  return h(
+    'section',
+    { class: 'empty', 'data-empty': view.kind },
+    h('div', { class: 'empty-media' }, icon(view.media)),
+    h(
+      'div',
+      { class: 'empty-header' },
+      h('h2', { class: 'empty-title' }, view.title),
+      h('p', { class: 'empty-description' }, view.description),
+    ),
+    view.action ?? null,
+  )
+}
+
+function folderAction(folder: string): HTMLElement {
+  const path = h('code', { class: 'empty-path' }, folder)
+  const label = h('span', {}, t('empty.copy'))
+  const copyButton = h(
+    'button',
+    {
+      type: 'button',
+      class: 'primary',
+      onClick: () => {
+        getSelection()?.selectAllChildren(path)
+        if (!document.execCommand('copy')) return
+        label.textContent = t('empty.copied')
+        setTimeout(() => {
+          label.textContent = t('empty.copy')
+        }, 2000)
+      },
+    },
+    icon(copy),
+    label,
+  )
+  return h('div', { class: 'empty-action' }, path, copyButton)
 }
 
 async function act(command: string, args: Record<string, unknown>): Promise<boolean> {
@@ -111,14 +161,23 @@ async function listView(): Promise<HTMLElement[]> {
   if (!res.ok) return [h('p', { class: 'error' }, t('error', { error: errorText(res) }))]
   const model = res.data as ListModel
   if (model.scratch)
-    return [h('p', { class: 'muted', 'data-empty': 'scratch' }, t('empty.scratch'))]
+    return [
+      emptyState({
+        kind: 'scratch',
+        media: graph,
+        title: t('empty.scratch.title'),
+        description: t('empty.scratch.description'),
+      }),
+    ]
   if (model.graphs.length === 0) {
     return [
-      h(
-        'p',
-        { class: 'muted', 'data-empty': 'folder' },
-        t('empty.folder', { folder: model.folder }),
-      ),
+      emptyState({
+        kind: 'folder',
+        media: graph,
+        title: t('empty.folder.title'),
+        description: t('empty.folder.description'),
+        action: folderAction(model.folder),
+      }),
     ]
   }
   return [h('ul', { class: 'rows' }, ...model.graphs.map(graphRow))]
@@ -240,7 +299,15 @@ async function runsView(name: string): Promise<HTMLElement[]> {
   const res = await call('runs', { workspaceId: context.workspaceId, name })
   if (!res.ok) return [h('p', { class: 'error' }, t('error', { error: errorText(res) }))]
   const runs = res.data as { runId: string; status: string; steps: number }[]
-  if (runs.length === 0) return [h('p', { class: 'muted', 'data-empty': 'runs' }, t('runs.none'))]
+  if (runs.length === 0)
+    return [
+      emptyState({
+        kind: 'runs',
+        media: clockCounterClockwise,
+        title: t('empty.runs.title'),
+        description: t('empty.runs.description'),
+      }),
+    ]
   return [
     h(
       'ul',
@@ -337,7 +404,7 @@ async function runView(runId: string): Promise<HTMLElement[]> {
   ]
 }
 
-async function runtimeNote(): Promise<HTMLElement> {
+async function runtimeNote(quiet: boolean): Promise<HTMLElement | null> {
   const res = await call('runtime', {})
   const runtime = (res.ok ? res.data : { state: 'failed', message: errorText(res) }) as {
     state: string
@@ -346,11 +413,13 @@ async function runtimeNote(): Promise<HTMLElement> {
     message?: string
   }
   if (runtime.state === 'ready')
-    return h(
-      'p',
-      { class: 'note muted', 'data-runtime': runtime.daemon ? 'daemon' : 'client' },
-      runtime.daemon ? t('runsAsDaemon') : t('runsWhileOpen'),
-    )
+    return quiet
+      ? null
+      : h(
+          'p',
+          { class: 'note muted', 'data-runtime': runtime.daemon ? 'daemon' : 'client' },
+          runtime.daemon ? t('runsAsDaemon') : t('runsWhileOpen'),
+        )
   if (runtime.state === 'other-contract')
     return h(
       'p',
@@ -371,7 +440,6 @@ const gate = renderGate<View>()
 async function render(): Promise<void> {
   const mine = gate.begin()
   const shown = view
-  const note = await runtimeNote()
   const body =
     shown.kind === 'list'
       ? await listView()
@@ -380,6 +448,7 @@ async function render(): Promise<void> {
         : shown.kind === 'runs'
           ? await runsView(shown.name)
           : await runView(shown.runId)
+  const note = await runtimeNote(body.some((el) => el.hasAttribute('data-empty')))
   if (!gate.mayPaint(mine, shown, view)) return
   const back = shown.kind === 'list' ? null : button(t('action.back'), () => go({ kind: 'list' }))
   root.replaceChildren(

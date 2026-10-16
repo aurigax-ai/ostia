@@ -51,10 +51,7 @@ export function panelHandlers(
           ? ok(undefined, { workspaceId: w.workspaceId, folder: '', scratch: true, graphs: [] })
           : failure(listings.error, listings.message)
       }
-      return ok(
-        undefined,
-        listModel(w.workspaceId, w.workDir, listings, await runner.runs(w.workspaceId)),
-      )
+      return ok(undefined, listModel(w.workspaceId, listings, await runner.runs(w.workspaceId)))
     },
     runtime: async () => {
       await runner.link.ensure()
