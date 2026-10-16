@@ -801,6 +801,20 @@ describe('DeckRail', () => {
       expect(within(members).queryByRole('button', { name: /solo/ })).toBeNull()
     })
 
+    it('reveals the members only when the human expands the group, never at first render', async () => {
+      seedGroups()
+      await renderSettled(<DeckRail />)
+      const members = () =>
+        (header().closest('.rail-group') as HTMLElement).querySelector('.rail-group-members')
+      expect(members()).not.toHaveClass('motion-reveal')
+
+      const user = userEvent.setup()
+      await user.click(header())
+      expect(members()).toBeNull()
+      await user.click(header())
+      expect(members()).toHaveClass('motion-reveal')
+    })
+
     it('collapses to the header alone and still shows that a member needs you', async () => {
       seedGroups()
       useLayoutStore.setState({

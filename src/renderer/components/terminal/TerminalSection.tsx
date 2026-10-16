@@ -1,12 +1,8 @@
+import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
 import { DiscreteGpuRow } from '@/components/settings/DiscreteGpuRow'
 import { RequirementsNoteView, useRequirements } from '@/components/settings/RequirementsNote'
-import {
-  ControlRow,
-  ExperimentalBadge,
-  ToggleRow,
-  WarningNote,
-} from '@/components/settingsKit/ControlRow'
+import { ControlRow, ExperimentalBadge, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { SelectField } from '@/components/settingsKit/SelectField'
 import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
@@ -108,7 +104,7 @@ function TerminalInputGroup(): JSX.Element {
         </span>
       </ControlRow>
       {promptStyle === 'ostia' && mode !== 'editor' ? (
-        <WarningNote>{d.settings.promptNeedsEditor}</WarningNote>
+        <Notice>{d.settings.promptNeedsEditor}</Notice>
       ) : null}
     </SettingsGroup>
   )
@@ -311,9 +307,7 @@ function TerminalRenderingGroup(): JSX.Element {
         />
       </ControlRow>
       {renderer === 'ghostty' && ghosttyFailure() ? (
-        <WarningNote>
-          {fmt(d.settings.ghosttyFailed, { reason: ghosttyFailure() ?? '' })}
-        </WarningNote>
+        <Notice>{fmt(d.settings.ghosttyFailed, { reason: ghosttyFailure() ?? '' })}</Notice>
       ) : null}
     </SettingsGroup>
   )

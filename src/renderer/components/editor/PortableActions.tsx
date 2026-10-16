@@ -88,7 +88,7 @@ export function PortableProblem({ problem }: { problem: string | null }): JSX.El
       data-testid="portable-problem"
       className="portable-problem text-warn-fg text-ui-xs"
     >
-      <WarningIcon aria-hidden />
+      <WarningIcon size={16} aria-hidden />
       <span className="truncate">{problem}</span>
     </span>
   )

@@ -94,7 +94,7 @@ export function SettingsPanel(): JSX.Element | null {
   return (
     <section
       aria-label={d.settings.title}
-      className="absolute inset-0 z-20 flex min-h-0 flex-col bg-bg text-fg"
+      className="motion-fade absolute inset-0 z-20 flex min-h-0 flex-col bg-bg text-fg"
     >
       <div className="grid min-h-0 flex-1 grid-cols-[210px_minmax(0,1fr)]">
         <SettingsNav

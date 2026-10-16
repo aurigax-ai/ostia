@@ -1,4 +1,5 @@
-import { ControlRow, MachineValue, WarningNote } from '@/components/settingsKit/ControlRow'
+import { Notice } from '@/components/common/Notice'
+import { ControlRow, MachineValue } from '@/components/settingsKit/ControlRow'
 import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -245,10 +246,10 @@ export function SyncSection(): JSX.Element {
         </Button>
       </ControlRow>
       {dir && status.skipped.length > 0 ? (
-        <WarningNote>{fmt(d.sync.skipped, { files: status.skipped.join(', ') })}</WarningNote>
+        <Notice>{fmt(d.sync.skipped, { files: status.skipped.join(', ') })}</Notice>
       ) : null}
       {dir && status.heldBack.length > 0 ? (
-        <WarningNote>{fmt(d.sync.heldBack, { keys: status.heldBack.join(', ') })}</WarningNote>
+        <Notice>{fmt(d.sync.heldBack, { keys: status.heldBack.join(', ') })}</Notice>
       ) : null}
       <SyncConflicts active={dir !== ''} status={status} time={time} onStatus={setStatus} />
       {dir ? <SyncSecretsSection status={status} onStatus={setStatus} /> : null}
