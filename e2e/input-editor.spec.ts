@@ -111,6 +111,7 @@ test('the input editor runs commands, walks history and steps aside for interact
     await win.keyboard.type('echo ostia_after_cat')
     await win.keyboard.press('Enter')
     await expect(rows).toContainText('ostia_after_cat', { timeout: 15_000 })
+    await expect.poll(promptLines).toBe(5)
     await expectHeld(promptLines, 5, 2_000)
   } finally {
     await app.close()

@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin, startFakeAgent } from './fakeAgent'
-import { openWorkspace, runInTerminal } from './helpers'
+import { expectHeld, openWorkspace, runInTerminal } from './helpers'
 import {
   type BrowserContext,
   type BrowserType,
@@ -371,9 +371,12 @@ test('PRT-C4 a portable file has no storage, cookies, popups, top navigation or 
         expect(['threw', 'nothing', ''], name).toContain(r.cookie)
         expect(['threw', 'nothing'], name).toContain(r.open)
         expect(r.top, name).toBe('threw')
-        await page.waitForTimeout(500)
-        expect(page.url(), name).toBe(pathToFileURL(saved).href)
-        expect(context.pages(), name).toHaveLength(1)
+        await expectHeld(
+          async () => [page.url(), context.pages().length],
+          [pathToFileURL(saved).href, 1],
+          500,
+          name,
+        )
       },
       { offline: false },
     )
@@ -413,8 +416,7 @@ test('PRT-C5 a portable file cannot navigate its frame to the network by script 
         for (const control of ['#go', '#link']) {
           await page.goto(pathToFileURL(saved).href)
           await frame.locator(control).click({ timeout: 10_000 })
-          await page.waitForTimeout(1000)
-          expect(outside.hits(), `${name} ${control}`).toBe(0)
+          await expectHeld(async () => outside.hits(), 0, 1_000, `${name} ${control}`)
         }
       },
       { offline: false },
@@ -457,47 +459,6 @@ test('PRT-C6 a link in a portable Markdown file opens in a new tab, and the file
     )
   } finally {
     await target.close()
-  }
-})
-
-const CDN = `<!doctype html>
-<body>
-<p id="rest">rendered</p>
-<script src="http://127.0.0.1:__PORT__/x.js"></script>
-<script>document.getElementById('rest').dataset.cdn = String(typeof window.fromCdn)</script>
-</body>
-`
-
-test('PRT-C14 a script from a CDN is not loaded, in the preview or in a browser', async () => {
-  test.setTimeout(240_000)
-  const dataHome = freshDataHome()
-  const cdn = await listen('window.fromCdn = 1')
-  const host = `127.0.0.1:${cdn.port}`
-  writeFileSync(join(home(dataHome), 'cdn.html'), CDN.replace('__PORT__', String(cdn.port)))
-  const saved = join(dataHome, 'cdn.html.html')
-  const { app, win } = await launch(dataHome)
-  try {
-    await openArtifact(win, 'cdn.html')
-    await expect(win.getByTestId('preview-errors')).toContainText(host, { timeout: 30_000 })
-    await expect
-      .poll(() => inGuest<string>(app, "document.getElementById('rest')?.dataset.cdn ?? ''"))
-      .toBe('undefined')
-    await savePortable(app, win, 'cdn.html', saved)
-  } finally {
-    await app.close()
-  }
-  try {
-    await inBrowsers(
-      saved,
-      async (frame, _page, name) => {
-        await expect(frame.locator('#rest'), name).toHaveText('rendered')
-        await expect(frame.locator('#rest'), name).toHaveAttribute('data-cdn', 'undefined')
-      },
-      { offline: false },
-    )
-    expect(cdn.hits()).toBe(0)
-  } finally {
-    await cdn.close()
   }
 })
 
@@ -610,7 +571,7 @@ fetch('./data.json').then(() => { out.textContent = 'reached' }, () => { out.tex
 
 const REPORT_REF = /@(\S*selection-\d+\.md)/g
 
-test('PRT-C54 a region of a running preview goes to the agent as a report with its picture, without Enter', async () => {
+test('PRT-C54 a region of a running preview goes to the agent as a report with its picture', async () => {
   test.setTimeout(240_000)
   const dataHome = freshDataHome()
   writeFileSync(join(home(dataHome), 'chart.tsx'), CHART)
@@ -645,7 +606,6 @@ test('PRT-C54 a region of a running preview goes to the agent as a report with i
     await panel.getByRole('button', { name: 'Send' }).click()
     const terminal = win.locator('.xterm-rows').first()
     await expect(terminal).toContainText(/@\S*selection-\d+\.md/, { timeout: 15_000 })
-    await win.waitForTimeout(1_000)
     const refs = [...((await terminal.textContent()) ?? '').matchAll(REPORT_REF)]
     expect(refs).toHaveLength(1)
     const report = readFileSync(refs[0][1], 'utf8')

@@ -13,7 +13,6 @@ import {
   portableType,
   wrapPortable,
 } from '../../shared/artifacts/portable'
-import type { PreviewBuild } from './htmlPreview'
 import {
   BuildFailure,
   BuildRun,
@@ -26,6 +25,7 @@ import {
 import { buildPage } from './portablePage'
 import { PortableTailwind } from './portableTailwind'
 import { type PreviewSource, readRegularFile } from './previewFiles'
+import type { PreviewBuild } from './previewHostTypes'
 
 const CACHE_MAX = 64
 const CACHE_BYTES = 64 * 1024 * 1024

@@ -4,6 +4,8 @@
     "marketplace/",
     "packages/extension-sdk/src/manifest/marketplaceManifest.ts",
     "src/main/extensions/marketplace/marketplace.ts",
+    "src/main/extensions/marketplace/marketplaceCatalog.ts",
+    "src/main/extensions/marketplace/marketplaceSources.ts",
     "src/renderer/components/extensions/BrowseExtensions.tsx",
     "src/renderer/components/extensions/MarketplaceSection.tsx",
     "src/renderer/stores/extensions/marketplaceStore.ts",

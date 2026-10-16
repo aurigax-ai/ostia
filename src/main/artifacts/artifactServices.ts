@@ -17,9 +17,10 @@ import { ArtifactFolders } from './artifactFolders'
 import { ArtifactHistory, previewBuild } from './artifactHistory'
 import { ArtifactProducers } from './artifactProducers'
 import { loadEsbuild } from './esbuildService'
-import { PreviewHost, type PreviewSession } from './htmlPreview'
+import { PreviewHost } from './htmlPreview'
 import { PortableBuilder } from './portableBuilder'
 import { PortableExport } from './portableExport'
+import type { PreviewSession } from './previewHostTypes'
 import { appProcessUse } from './processUse'
 
 interface ArtifactServicesDeps {

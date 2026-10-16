@@ -15,6 +15,7 @@ import {
   previewPartition,
   shellCsp,
 } from './htmlPreview'
+import { PORTABLE_CSP } from './portable'
 
 describe('preview policy', () => {
   it('runs scripts with an opaque origin and nothing remote', () => {
@@ -127,6 +128,22 @@ describe('preview errors', () => {
     expect(isWebLink('HTTP://example.com/')).toBe(true)
     expect(isWebLink('file:///etc/passwd')).toBe(false)
     expect(isWebLink('javascript:alert(1)')).toBe(false)
+  })
+})
+
+describe('a script from the network', () => {
+  const scriptSources = (csp: string): string[] =>
+    (csp.split('; ').find((d) => d.startsWith('script-src ')) ?? '').split(' ').slice(1)
+
+  it.each([
+    ['PRT-C14 the preview page', PREVIEW_PAGE_CSP],
+    ['PRT-C14 the component shell', shellCsp('abc123')],
+    ['PRT-C14 a portable file', PORTABLE_CSP],
+  ])('%s allows no script source but itself and inline code', (_name, csp) => {
+    expect(csp.split('; ')).toContain("default-src 'none'")
+    for (const source of scriptSources(csp)) {
+      expect(source).toMatch(/^('unsafe-inline'|'nonce-[\w-]+'|ostia-preview:)$/)
+    }
   })
 })
 

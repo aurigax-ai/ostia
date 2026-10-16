@@ -200,7 +200,8 @@ ostia pane close [<pane>…] [--json]      # no pane: your own
   want.
 - **wake** starts a hibernated agent again with its own resume command, or types that command
   at the prompt of an awake agent pane, and returns once the agent started: exit 0, 3 timed
-  out (default 2 minutes), 4 closed, 1 with `resume-failed:`. It answers `not-resumable` for a
+  out (default 2 minutes), 4 closed, 1 with `not-started: <reason>` when the agent exited or
+  could not be typed before it reported its start. It answers `not-resumable` for a
   pane with no session to resume. `send` and `key` refuse a pane that is `hibernated:` or
   `waking:`.
 - **hibernate** skips a busy agent and exits 2 with the reason.

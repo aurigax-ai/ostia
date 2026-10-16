@@ -4,10 +4,13 @@ import { blockSpan, commandLine, stickyBlock } from '@/lib/terminal/blocks'
 import { createCellBoxCache } from '@/lib/terminal/cellBox'
 import type { OstiaTerminal as Xterm } from '@/lib/terminal/ostiaTerminal'
 import { terminalScreen } from '@/lib/terminal/ostiaTerminal'
-import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { throttle } from 'es-toolkit'
 import {
+  type Dispatch,
+  type MutableRefObject,
   type RefObject,
+  type SetStateAction,
   memo,
   useCallback,
   useEffect,
@@ -57,33 +60,100 @@ const EMPTY: Geometry = {
   view: null,
 }
 
-export function Blocks({
+function computeGeometry({
+  list,
+  selected,
+  rows,
+  viewportY,
+  cursorLine,
+  cellHeight,
+  originTop,
+}: {
+  list: CommandBlock[]
+  selected: string | undefined
+  rows: number
+  viewportY: number
+  cursorLine: number
+  cellHeight: number
+  originTop: number
+}): Geometry {
+  const toViewport = (start: number, end: number): Frame | null => {
+    const startRow = Math.max(0, start - viewportY)
+    const endRow = Math.min(rows, end - viewportY)
+    if (endRow <= startRow) return null
+    return { top: originTop + startRow * cellHeight, height: (endRow - startRow) * cellHeight }
+  }
+  const toTrack = (start: number, end: number): Frame | null => {
+    if (end <= viewportY - rows || start >= viewportY + 2 * rows) return null
+    return { top: start * cellHeight, height: (end - start) * cellHeight }
+  }
+  const bars: Bar[] = []
+  let live: Bar | null = null
+  for (const b of list.slice(-MAX_BARS)) {
+    const span = blockSpan(b, cursorLine)
+    if (span.end <= 0) continue
+    const running = b.endLine === null
+    const box = (running ? toViewport : toTrack)(span.start, span.end)
+    if (!box) continue
+    const bar = { id: b.id, ...box, attn: (b.exitCode ?? 0) !== 0 }
+    if (running) live = bar
+    else bars.push(bar)
+  }
+  const selectedBlock = selected ? list.find((b) => b.id === selected) : undefined
+  const selectedSpan = selectedBlock ? blockSpan(selectedBlock, cursorLine) : null
+  const selectedRunning = selectedBlock?.endLine === null
+  const frame =
+    selectedSpan && selectedRunning ? toViewport(selectedSpan.start, selectedSpan.end) : null
+  const trackFrame =
+    selectedSpan && !selectedRunning ? toTrack(selectedSpan.start, selectedSpan.end) : null
+  const top = stickyBlock(list, viewportY, cursorLine)
+  const sticky: StickyInfo | null = top?.command
+    ? {
+        blockId: top.id,
+        command: top.command,
+        running: top.endLine === null,
+        exitCode: top.exitCode,
+        line: commandLine(top),
+      }
+    : null
+  const view = { top: originTop, height: rows * cellHeight }
+  return { bars, live, frame, trackFrame, sticky, view }
+}
+
+function mergeGeometry(prev: Geometry, parts: Geometry): Geometry {
+  const { bars, live, frame, trackFrame, sticky, view } = parts
+  const next: Geometry = {
+    bars: sameBars(prev.bars, bars) ? prev.bars : bars,
+    live: sameBar(prev.live, live) ? prev.live : live,
+    frame: sameBox(prev.frame, frame) ? prev.frame : frame,
+    trackFrame: sameBox(prev.trackFrame, trackFrame) ? prev.trackFrame : trackFrame,
+    sticky: sameSticky(prev.sticky, sticky) ? prev.sticky : sticky,
+    view: sameBox(prev.view, view) ? prev.view : view,
+  }
+  return sameGeometry(prev, next) ? prev : next
+}
+
+function useBlockGeometry({
   paneId,
   termRef,
   hostRef,
   shown,
+  blocks,
+  selectedId,
+  placeTrack,
+  scroll,
+  setGeo,
 }: {
   paneId: string
   termRef: RefObject<Xterm | null>
   hostRef: RefObject<HTMLDivElement | null>
   shown: boolean
-}): JSX.Element | null {
-  const d = useDict()
-  const [geo, setGeo] = useState<Geometry>(EMPTY)
-  const trackRef = useRef<HTMLDivElement>(null)
-  const scroll = useRef({ viewportY: 0, cellHeight: 0 })
-  const blocks = useBlocksStore((s) => s.byPane[paneId])
-  const selectedId = useBlocksStore((s) => s.selected[paneId])
-
-  const placeTrack = useCallback((): void => {
-    const track = trackRef.current
-    if (!track) return
-    const { viewportY, cellHeight } = scroll.current
-    track.style.transform = `translateY(${-viewportY * cellHeight}px)`
-  }, [])
-
-  useLayoutEffect(placeTrack)
-
+  blocks: CommandBlock[] | undefined
+  selectedId: string | undefined
+  placeTrack: () => void
+  scroll: MutableRefObject<{ viewportY: number; cellHeight: number }>
+  setGeo: Dispatch<SetStateAction<Geometry>>
+}): void {
   // biome-ignore lint/correctness/useExhaustiveDependencies: blocks and selectedId drive recompute
   useEffect(() => {
     const term = termRef.current
@@ -105,58 +175,17 @@ export function Blocks({
       const cursorLine = buf.baseY + buf.cursorY
       scroll.current = { viewportY, cellHeight }
       placeTrack()
-      const toViewport = (start: number, end: number): Frame | null => {
-        const startRow = Math.max(0, start - viewportY)
-        const endRow = Math.min(term.rows, end - viewportY)
-        if (endRow <= startRow) return null
-        return { top: originTop + startRow * cellHeight, height: (endRow - startRow) * cellHeight }
-      }
-      const toTrack = (start: number, end: number): Frame | null => {
-        if (end <= viewportY - term.rows || start >= viewportY + 2 * term.rows) return null
-        return { top: start * cellHeight, height: (end - start) * cellHeight }
-      }
-      const bars: Bar[] = []
-      let live: Bar | null = null
-      for (const b of list.slice(-MAX_BARS)) {
-        const span = blockSpan(b, cursorLine)
-        if (span.end <= 0) continue
-        const running = b.endLine === null
-        const box = (running ? toViewport : toTrack)(span.start, span.end)
-        if (!box) continue
-        const bar = { id: b.id, ...box, attn: (b.exitCode ?? 0) !== 0 }
-        if (running) live = bar
-        else bars.push(bar)
-      }
       const selected = state.selected[paneId]
-      const selectedBlock = selected ? list.find((b) => b.id === selected) : undefined
-      const selectedSpan = selectedBlock ? blockSpan(selectedBlock, cursorLine) : null
-      const selectedRunning = selectedBlock?.endLine === null
-      const frame =
-        selectedSpan && selectedRunning ? toViewport(selectedSpan.start, selectedSpan.end) : null
-      const trackFrame =
-        selectedSpan && !selectedRunning ? toTrack(selectedSpan.start, selectedSpan.end) : null
-      const top = stickyBlock(list, viewportY, cursorLine)
-      const sticky: StickyInfo | null = top?.command
-        ? {
-            blockId: top.id,
-            command: top.command,
-            running: top.endLine === null,
-            exitCode: top.exitCode,
-            line: commandLine(top),
-          }
-        : null
-      const view = { top: originTop, height: term.rows * cellHeight }
-      setGeo((prev) => {
-        const next: Geometry = {
-          bars: sameBars(prev.bars, bars) ? prev.bars : bars,
-          live: sameBar(prev.live, live) ? prev.live : live,
-          frame: sameBox(prev.frame, frame) ? prev.frame : frame,
-          trackFrame: sameBox(prev.trackFrame, trackFrame) ? prev.trackFrame : trackFrame,
-          sticky: sameSticky(prev.sticky, sticky) ? prev.sticky : sticky,
-          view: sameBox(prev.view, view) ? prev.view : view,
-        }
-        return sameGeometry(prev, next) ? prev : next
+      const parts = computeGeometry({
+        list,
+        selected,
+        rows: term.rows,
+        viewportY,
+        cursorLine,
+        cellHeight,
+        originTop,
       })
+      setGeo((prev) => mergeGeometry(prev, parts))
     }
 
     recompute()
@@ -187,6 +216,46 @@ export function Blocks({
       boxObserver.disconnect()
     }
   }, [paneId, blocks, selectedId, termRef, hostRef, shown, placeTrack])
+}
+
+export function Blocks({
+  paneId,
+  termRef,
+  hostRef,
+  shown,
+}: {
+  paneId: string
+  termRef: RefObject<Xterm | null>
+  hostRef: RefObject<HTMLDivElement | null>
+  shown: boolean
+}): JSX.Element | null {
+  const d = useDict()
+  const [geo, setGeo] = useState<Geometry>(EMPTY)
+  const trackRef = useRef<HTMLDivElement>(null)
+  const scroll = useRef({ viewportY: 0, cellHeight: 0 })
+  const blocks = useBlocksStore((s) => s.byPane[paneId])
+  const selectedId = useBlocksStore((s) => s.selected[paneId])
+
+  const placeTrack = useCallback((): void => {
+    const track = trackRef.current
+    if (!track) return
+    const { viewportY, cellHeight } = scroll.current
+    track.style.transform = `translateY(${-viewportY * cellHeight}px)`
+  }, [])
+
+  useLayoutEffect(placeTrack)
+
+  useBlockGeometry({
+    paneId,
+    termRef,
+    hostRef,
+    shown,
+    blocks,
+    selectedId,
+    placeTrack,
+    scroll,
+    setGeo,
+  })
 
   const sticky = useExitPresence(geo.sticky)
 

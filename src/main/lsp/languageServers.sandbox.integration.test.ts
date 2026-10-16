@@ -55,7 +55,7 @@ function start(builtin: boolean): void {
       },
       env: (workspaceId, env) => ({
         ...sandboxSpawnEnv(env as Record<string, string>),
-        TMPDIR: sandboxes.tmpDir(workspaceId),
+        TMPDIR: sandboxes.tmp.tmpDir(workspaceId),
       }),
     },
     findProgram: () => null,
@@ -131,7 +131,7 @@ beforeAll(async () => {
 
 afterAll(() => {
   servers?.stopAll()
-  sandboxes?.stopAll()
+  sandboxes?.hosts.stopAll()
   if (root) rmSync(root, { recursive: true, force: true })
 })
 

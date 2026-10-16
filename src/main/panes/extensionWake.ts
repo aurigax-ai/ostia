@@ -49,16 +49,19 @@ export function registerExtensionWake(deps: ExtensionWakeDeps): void {
         }
       }
       const to: PaneIdentity = found
+      let marked = false
       try {
         if (!(await deps.hibernated(to))) throw notHibernated(to)
         checkSessions([to], await deps.panes())
+        marked = true
+        deps.waking.start(to.paneId)
         const outcome = await deps.wake(to)
         if (outcome.conflict) throw sessionConflict(to, `"${outcome.conflict}"`)
         if (!outcome.woke) throw notHibernated(to)
       } catch (err) {
+        if (marked) deps.waking.abandon(to.paneId)
         return codeOf(err)
       }
-      deps.waking.start(to.paneId)
       if (waitMs === null) return { ok: true, outcome: 'woke' }
       const ended = await deps.waking.until([to.paneId], waitMs, (cancel) =>
         ctx.conn.onClose(cancel),

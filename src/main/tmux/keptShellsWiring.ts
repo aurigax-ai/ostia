@@ -166,9 +166,9 @@ export function startKeptShells({
       const kept = keptShells.keptHostWorkspaces()
       for (const workspaceId of kept) {
         const host = keptShells.keptHost(workspaceId)
-        if (host) workspaceSandboxes.adoptKeptTmp(workspaceId, host.tmpDir)
+        if (host) workspaceSandboxes.tmp.adoptKeptTmp(workspaceId, host.tmpDir)
       }
-      workspaceSandboxes.sweepKeptTmp(kept)
+      workspaceSandboxes.tmp.sweepKeptTmp(kept)
     })
   try {
     writeOstiaLauncher(paneLauncherDir())

@@ -1,5 +1,6 @@
 import { VIEWER_SCHEME } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
-import { type PreviewSession, lockDownSession } from '../../artifacts/htmlPreview'
+import { lockDownSession } from '../../artifacts/previewAttach'
+import type { PreviewSession } from '../../artifacts/previewHostTypes'
 
 const VIEWER_PARTITION_PREFIX = 'ostia-viewer-'
 

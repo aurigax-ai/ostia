@@ -61,14 +61,7 @@ const WORKSPACE_LISTS: Record<SandboxListKey, keyof WorkspaceSandbox> = {
   deniedDomains: 'deniedDomains',
 }
 
-export function WorkspaceSandboxPage({
-  workspaceId,
-  workspaceName,
-}: {
-  workspaceId: string
-  workspaceName: string
-}): JSX.Element {
-  const d = useDict()
+function useWorkspaceSandbox(workspaceId: string) {
   const globals = useSandboxGlobals()
   const [settings, setSettings] = useState<WorkspaceSandbox | null>(null)
   const fixed = useFixedPolicy(workspaceId, settings)
@@ -121,6 +114,42 @@ export function WorkspaceSandboxPage({
     },
     fixed,
   }
+  return {
+    globals,
+    settings,
+    setSettings,
+    applied,
+    current,
+    effective,
+    overrides,
+    scope,
+    setControls,
+    setPortsPolicy,
+    without,
+  }
+}
+
+export function WorkspaceSandboxPage({
+  workspaceId,
+  workspaceName,
+}: {
+  workspaceId: string
+  workspaceName: string
+}): JSX.Element {
+  const d = useDict()
+  const {
+    globals,
+    settings,
+    setSettings,
+    applied,
+    current,
+    effective,
+    overrides,
+    scope,
+    setControls,
+    setPortsPolicy,
+    without,
+  } = useWorkspaceSandbox(workspaceId)
 
   return (
     <div>

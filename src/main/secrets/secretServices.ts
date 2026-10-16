@@ -73,7 +73,7 @@ export function createSecretServices({ workspaceSandboxes, paneForWorkspace }: S
   ): Promise<{ env: Record<string, string>; notice: string }> {
     const grants = workspaceSandboxes.settings(workspaceId).secrets ?? []
     if (grants.length === 0) return { env: {}, notice: '' }
-    const dir = join(workspaceSandboxes.tmpDir(workspaceId), 'secrets')
+    const dir = join(workspaceSandboxes.tmp.tmpDir(workspaceId), 'secrets')
     const prepared = prepareSecrets({
       grants,
       list: secretService.list(workspaceId),
@@ -84,7 +84,7 @@ export function createSecretServices({ workspaceSandboxes, paneForWorkspace }: S
     try {
       const socket = await workspaceAgents.ensure(
         workspaceId,
-        workspaceSandboxes.sshAgentSocket(workspaceId),
+        workspaceSandboxes.tmp.sshAgentSocket(workspaceId),
         prepared.sshKeys,
       )
       if (socket) env.SSH_AUTH_SOCK = socket

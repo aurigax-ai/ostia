@@ -17,15 +17,15 @@ import type { Portal } from '../manager/portal'
 import { saveJson } from '../platform/jsonStore'
 import type { PortsService } from '../ports/service'
 import type { ProfileSyncHandle } from '../profileSync/ipc'
-import type { PortForwarder } from '../sandbox/portForwarder'
-import type { SandboxListener } from '../sandbox/portForwarder'
+import type { PortForwarder } from '../sandbox/ports/portForwarder'
+import type { SandboxListener } from '../sandbox/ports/portForwarder'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { WorkspaceAgents } from '../secrets/workspaceAgents'
 import type { PaneHistories } from '../terminal/history/paneHistories'
 import { type PtyEntry, removeStateFile } from '../terminal/pty/ptyRegistry'
 import type { KeptHostMeta } from '../tmux/keptShells'
 import type { KeptShellsWiring } from '../tmux/keptShellsWiring'
-import type { TmuxPane } from '../tmux/tmuxServer'
+import type { TmuxPane } from '../tmux/tmuxPane'
 import type { PendingSweep } from '../updates/installReplace'
 import { swapStagedBundle, verifyStagedSync } from '../updates/macReplace'
 import type { SignaturePolicy } from '../updates/macReplace'
@@ -134,11 +134,11 @@ export function createQuitTeardown({
     services.languageServers?.stopAll()
     languageServerWatches.closeAll()
     quitTrace.stage('teardown-sandboxes')
-    if (keepingShells) workspaceSandboxes.releaseAll()
-    else workspaceSandboxes.stopAll()
+    if (keepingShells) workspaceSandboxes.hosts.releaseAll()
+    else workspaceSandboxes.hosts.stopAll()
     workspaceAgents.stopAll()
     for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)
-    workspaceSandboxes.clearTmp(!keepingShells)
+    workspaceSandboxes.tmp.clearTmp(!keepingShells)
     artifactFolders.dispose()
     artifactHistory.quit()
     artifactHistory.dispose()

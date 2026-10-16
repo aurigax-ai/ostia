@@ -23,8 +23,8 @@ import {
 import type { PreviewTheme } from '../../shared/artifacts/htmlPreview'
 import { PORTABLE_LIMITS, portableType } from '../../shared/artifacts/portable'
 import { isInsidePath } from '../platform/pathGuard'
-import type { PreviewBuild } from './htmlPreview'
 import { type PreviewSource, readRegularFile } from './previewFiles'
+import type { PreviewBuild } from './previewHostTypes'
 
 export const HISTORY_DIR = '.history'
 const HISTORY_LIMITS = {

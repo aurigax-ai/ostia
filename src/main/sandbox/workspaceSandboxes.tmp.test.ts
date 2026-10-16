@@ -46,9 +46,9 @@ describe('WorkspaceSandboxes temp folders', () => {
     const second = instance(202)
     first.config('ws')
     second.config('ws')
-    expect(first.tmpDir('ws')).not.toBe(second.tmpDir('ws'))
-    expect(existsSync(first.tmpDir('ws'))).toBe(true)
-    expect(existsSync(second.tmpDir('ws'))).toBe(true)
+    expect(first.tmp.tmpDir('ws')).not.toBe(second.tmp.tmpDir('ws'))
+    expect(existsSync(first.tmp.tmpDir('ws'))).toBe(true)
+    expect(existsSync(second.tmp.tmpDir('ws'))).toBe(true)
   })
 
   it('keeps another running instance’s temp folder when one instance clears its own at quit', () => {
@@ -56,29 +56,29 @@ describe('WorkspaceSandboxes temp folders', () => {
     const running = instance(202)
     quitting.config('ws')
     running.config('ws')
-    writeFileSync(join(running.tmpDir('ws'), 'probe'), 'in use')
-    quitting.clearTmp()
-    expect(existsSync(quitting.tmpDir('ws'))).toBe(false)
-    expect(existsSync(join(running.tmpDir('ws'), 'probe'))).toBe(true)
+    writeFileSync(join(running.tmp.tmpDir('ws'), 'probe'), 'in use')
+    quitting.tmp.clearTmp()
+    expect(existsSync(quitting.tmp.tmpDir('ws'))).toBe(false)
+    expect(existsSync(join(running.tmp.tmpDir('ws'), 'probe'))).toBe(true)
   })
 
   it('a sandboxed shell keeps its temp folder when another Ostia quits', () => {
     const running = instance(202)
     running.config('ws')
-    writeFileSync(join(running.tmpDir('ws'), 'probe'), 'in use')
+    writeFileSync(join(running.tmp.tmpDir('ws'), 'probe'), 'in use')
     const other = instance(303, [202])
-    other.sweepTmp()
+    other.tmp.sweepTmp()
     other.config('ws')
-    other.clearTmp()
-    expect(existsSync(join(running.tmpDir('ws'), 'probe'))).toBe(true)
-    expect(running.config('ws').filesystem.allowWrite).toContain(running.tmpDir('ws'))
+    other.tmp.clearTmp()
+    expect(existsSync(join(running.tmp.tmpDir('ws'), 'probe'))).toBe(true)
+    expect(running.config('ws').filesystem.allowWrite).toContain(running.tmp.tmpDir('ws'))
   })
 
   it('keeps the shared temp root hidden from every sandbox, whichever instance owns a folder', () => {
     const sandboxes = instance(101)
     const { filesystem } = sandboxes.config('ws')
     expect(filesystem.denyRead).toContain(join(root, 'tmp'))
-    expect(filesystem.allowWrite).toContain(sandboxes.tmpDir('ws'))
+    expect(filesystem.allowWrite).toContain(sandboxes.tmp.tmpDir('ws'))
   })
 
   it('sweeps temp folders left by instances that no longer run, and keeps live ones and its own', () => {
@@ -89,23 +89,23 @@ describe('WorkspaceSandboxes temp folders', () => {
     const starting = instance(303, [202])
     starting.config('ws')
     mkdirSync(join(root, 'tmp', 'not-an-instance'))
-    expect(starting.sweepTmp()).toEqual([join(root, 'tmp', '101')])
-    expect(existsSync(crashed.tmpDir('ws'))).toBe(false)
-    expect(existsSync(live.tmpDir('ws'))).toBe(true)
-    expect(existsSync(starting.tmpDir('ws'))).toBe(true)
+    expect(starting.tmp.sweepTmp()).toEqual([join(root, 'tmp', '101')])
+    expect(existsSync(crashed.tmp.tmpDir('ws'))).toBe(false)
+    expect(existsSync(live.tmp.tmpDir('ws'))).toBe(true)
+    expect(existsSync(starting.tmp.tmpDir('ws'))).toBe(true)
     expect(existsSync(join(root, 'tmp', 'not-an-instance'))).toBe(true)
   })
 
   it('sweeps nothing when the temp root does not exist yet', () => {
-    expect(instance(101).sweepTmp()).toEqual([])
+    expect(instance(101).tmp.sweepTmp()).toEqual([])
   })
 
   it('puts the ssh-agent socket inside the temp folder, short enough for macOS and allowed there', () => {
     const sandboxes = instance(1234567, [], MACOS_TMP_ROOT)
     const workspaceId = 'ws-3f9a2c-17'
-    const socket = sandboxes.sshAgentSocket(workspaceId)
+    const socket = sandboxes.tmp.sshAgentSocket(workspaceId)
     expect(Buffer.byteLength(socket)).toBeLessThanOrEqual(103)
-    expect(socket.startsWith(`${sandboxes.tmpDir(workspaceId)}/`)).toBe(true)
+    expect(socket.startsWith(`${sandboxes.tmp.tmpDir(workspaceId)}/`)).toBe(true)
     const config = buildSrtConfig(
       { allowRead: [], domains: [] },
       {
@@ -114,11 +114,11 @@ describe('WorkspaceSandboxes temp folders', () => {
         socketPath: '/tmp/s',
         runtimeReads: [],
         workDir: '/Users/u/proj',
-        tmpDir: sandboxes.tmpDir(workspaceId),
+        tmpDir: sandboxes.tmp.tmpDir(workspaceId),
       },
       'darwin',
     )
     expect(config.network.allowUnixSockets).toContain(socket)
-    expect(config.filesystem.allowWrite).toContain(sandboxes.tmpDir(workspaceId))
+    expect(config.filesystem.allowWrite).toContain(sandboxes.tmp.tmpDir(workspaceId))
   })
 })

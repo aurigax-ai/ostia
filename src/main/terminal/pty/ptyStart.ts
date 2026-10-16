@@ -9,8 +9,8 @@ import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'
 import { keepShellsNotice } from '../../tmux/keepShellsBanner'
 import type { KeptMeta } from '../../tmux/keptShells'
 import type { KeptShells } from '../../tmux/keptShells'
-import type { TmuxPane } from '../../tmux/tmuxServer'
-import { takeRestoredScrollback } from '../../workspaces/workspaceSnapshot'
+import type { TmuxPane } from '../../tmux/tmuxPane'
+import { takeRestoredScrollback } from '../../workspaces/savedScrollback'
 import type { Subscriber } from '../ptySession'
 import { HIBERNATE_SEAM, RESTORE_SEAM } from '../screenMirror'
 import { PTY_TERM_NAME } from '../terminalType'
@@ -101,7 +101,7 @@ export function createPtyStart({
       entry.exitListeners.add(() => {
         if (resizePipe) rmSync(resizePipe, { force: true })
         portBridge?.close()
-        void workspaceSandboxes.cleanup(workspaceId)
+        void workspaceSandboxes.hosts.cleanup(workspaceId)
         releaseMergedSandbox(workspaceId, entry)
       })
     }

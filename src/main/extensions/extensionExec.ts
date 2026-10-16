@@ -14,7 +14,7 @@ import {
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import { withoutGpuLaunchEnv } from '../platform/discreteGpu'
-import { SandboxUnavailableError } from '../sandbox/workspaceSandboxes'
+import { SandboxUnavailableError } from '../sandbox/sandboxHosts'
 
 export const EXEC_CONCURRENT_MAX = 8
 const EXEC_KILL_GRACE_MS = 5000

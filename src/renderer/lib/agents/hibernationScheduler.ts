@@ -93,7 +93,13 @@ export function wakePane(
     resume,
     (held) => {
       if (held) useLayoutStore.getState().setResumePending(workspaceId, paneId, true)
-      window.ostia.pty.reportWaking(paneId, false)
+      window.ostia.pty.reportWaking(
+        paneId,
+        false,
+        held
+          ? 'its agent session is already running in another tab'
+          : 'its resume command could not be typed: the shell never reached a prompt, or folder trust was declined',
+      )
       settleOnce()
     },
     settleOnce,

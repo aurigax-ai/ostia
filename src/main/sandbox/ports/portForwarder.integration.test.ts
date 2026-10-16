@@ -5,13 +5,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { holdPort } from '../../../test/heldPort'
-import { DEFAULT_CONTROLS } from '../../shared/sandbox/sandbox'
-import { SandboxHost } from './hostClient'
+import { holdPort } from '../../../../test/heldPort'
+import { DEFAULT_CONTROLS } from '../../../shared/sandbox/sandbox'
+import { SandboxHost } from '../hostClient'
+import { sandboxedShellCommand } from '../ptyWrap'
+import { buildSrtConfig } from '../srtConfig'
 import { PortBridge } from './portBridge'
 import { PortForwarder } from './portForwarder'
-import { sandboxedShellCommand } from './ptyWrap'
-import { buildSrtConfig } from './srtConfig'
 
 const repoRoot = process.cwd()
 const hostScript = join(repoRoot, 'node_modules/.cache/ostia-test/sandbox-host-ports.mjs')

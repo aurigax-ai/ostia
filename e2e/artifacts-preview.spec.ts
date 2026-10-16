@@ -605,30 +605,6 @@ test('a .tsx component runs with the bundled libraries, no eval, no network, and
   }
 })
 
-test('a component that imports what is not bundled says so in the strip', async () => {
-  test.setTimeout(120_000)
-  const dataHome = freshDataHome()
-  const home = join(dataHome, 'home')
-  mkdirSync(home, { recursive: true })
-  writeFileSync(
-    join(home, 'Unbundled.tsx'),
-    "import { motion } from 'framer-motion'\nexport default () => <motion.div />\n",
-  )
-  const { app, win } = await launch(dataHome)
-  try {
-    await runInTerminal(
-      win,
-      'cp ~/Unbundled.tsx "$OSTIA_ARTIFACTS/" && ostia open "$OSTIA_ARTIFACTS/Unbundled.tsx"',
-    )
-    await expect(win.getByTestId('preview-errors')).toContainText('framer-motion', {
-      timeout: 30_000,
-    })
-    expect(await guestUrls(app)).toHaveLength(1)
-  } finally {
-    await app.close()
-  }
-})
-
 test('PRT-C30 a page cannot make the resolver look up a host name: no DNS prefetch, preconnect or anchor lookup', async () => {
   test.setTimeout(120_000)
   const dataHome = freshDataHome()

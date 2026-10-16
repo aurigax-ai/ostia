@@ -12,7 +12,7 @@ import type { ProcessRegistry } from '../../panes/processRegistry'
 import { foregroundCwd } from '../../platform/foregroundCwd'
 import { readSettingsFile } from '../../platform/settingsFile'
 import type { HostPaneGrants } from '../../sandbox/hostPanes'
-import type { PortRequests } from '../../sandbox/portRequests'
+import type { PortRequests } from '../../sandbox/ports/portRequests'
 import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'
 import type { SavedAttention } from '../../tmux/attentionFile'
 import type { KeptAttention } from '../../tmux/keptAttention'
@@ -72,7 +72,26 @@ interface PtyWiringDeps {
   keptPaneEnv: KeptShellsWiring['keptPaneEnv']
 }
 
-export function createPtyWiring({
+type PtyCoreDeps = Pick<
+  PtyWiringDeps,
+  | 'ptys'
+  | 'movingPanes'
+  | 'recoveryHeld'
+  | 'closedPanes'
+  | 'openWaits'
+  | 'agentRunning'
+  | 'agentWork'
+  | 'keptAttention'
+  | 'services'
+  | 'hibernatedPanes'
+  | 'startedAgents'
+  | 'terminalState'
+  | 'keptShells'
+  | 'paneWaking'
+  | 'workspaceSandboxes'
+>
+
+function createPtyCore({
   ptys,
   movingPanes,
   recoveryHeld,
@@ -88,21 +107,7 @@ export function createPtyWiring({
   keptShells,
   paneWaking,
   workspaceSandboxes,
-  injectSecrets,
-  keptPlumbing,
-  portRequests,
-  releaseMergedSandbox,
-  restoreKeptAttention,
-  windows,
-  scratchFolders,
-  artifactFolders,
-  hostPaneGrants,
-  paneLauncherDir,
-  keepShellsOn,
-  keptShellsProgram,
-  withKeptProcess,
-  keptPaneEnv,
-}: PtyWiringDeps) {
+}: PtyCoreDeps) {
   const { loadPty, feedPty, trackPty } = createPtyRegistry({
     ptys,
     movingPanes,
@@ -168,34 +173,6 @@ export function createPtyWiring({
     killPty,
     appLog: () => services.appLog,
   })
-  const { attachPty } = createPtyAttachWiring({
-    workspaceSandboxes,
-    keptShells,
-    injectSecrets,
-    services,
-    keptPlumbing,
-    keptAttention,
-    agentRunning,
-    hibernatedPanes,
-    portRequests,
-    trackPty,
-    feedPty,
-    releaseMergedSandbox,
-    restoreKeptAttention,
-    windows,
-    movingPanes,
-    recoveryHeld,
-    scratchFolders,
-    artifactFolders,
-    hostPaneGrants,
-    paneLauncherDir,
-    keepShellsOn,
-    keptShellsProgram,
-    withKeptProcess,
-    keptPaneEnv,
-    ptys,
-    loadPty,
-  })
 
   return {
     loadPty,
@@ -222,8 +199,15 @@ export function createPtyWiring({
     releaseWindowPtys,
     holdPtys,
     releaseMovingPane,
-    attachPty,
   }
+}
+
+export function createPtyWiring(deps: PtyWiringDeps) {
+  const core = createPtyCore(deps)
+  const { loadPty, feedPty, trackPty } = core
+  const { attachPty } = createPtyAttachWiring({ ...deps, trackPty, feedPty, loadPty })
+
+  return { ...core, attachPty }
 }
 
 interface PtyAttachWiringDeps {

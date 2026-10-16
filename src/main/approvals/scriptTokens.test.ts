@@ -36,17 +36,16 @@ const {
   checkScriptToken,
   createScriptToken,
   listScriptTokens,
-  parseTokenRequest,
   recordCreatedWorkspace,
   registerScriptTokenMethods,
-  retireLegacyScriptTokens,
-  retiredScriptTokens,
   revokeScriptToken,
   scriptTokenScope,
-  setUserPresenceCheck,
   updateScriptToken,
   verifyScriptToken,
 } = await import('./scriptTokens')
+const { setUserPresenceCheck } = await import('./scriptTokenConfirm')
+const { parseTokenRequest } = await import('./scriptTokenRequests')
+const { retireLegacyScriptTokens, retiredScriptTokens } = await import('./scriptTokenRetired')
 const { createScriptTokenUsage } = await import('./scriptTokenUsage')
 
 const dirs: string[] = []

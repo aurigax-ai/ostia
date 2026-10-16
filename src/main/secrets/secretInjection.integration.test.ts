@@ -115,7 +115,7 @@ beforeAll(async () => {
 }, 60_000)
 
 afterAll(() => {
-  manager?.stopAll()
+  manager?.hosts.stopAll()
   if (root) rmSync(root, { recursive: true, force: true })
 })
 
@@ -125,7 +125,7 @@ describe('secret injection', () => {
       grants: [{ id: 'host:env:GITHUB_TOKEN', mode: 'env' }],
       list: LIST,
       value: (id) => VALUES[id] ?? null,
-      dir: join(manager.tmpDir('a'), 'secrets'),
+      dir: join(manager.tmp.tmpDir('a'), 'secrets'),
     })
     expect(await runIn('a', 'echo "token=$GITHUB_TOKEN"', prepared.env)).toContain(
       'token=ghp_real_value',
@@ -133,14 +133,14 @@ describe('secret injection', () => {
   })
 
   it('SBX-C71 gives git the file-granted SSH key through an agent while ~/.ssh stays hidden', async () => {
-    const dir = join(manager.tmpDir('a'), 'secrets')
+    const dir = join(manager.tmp.tmpDir('a'), 'secrets')
     const prepared = prepareSecrets({
       grants: [{ id: 'host:ssh:id_real', mode: 'file' }],
       list: [...LIST, REAL_KEY_ENTRY],
       value: (id) => (id === 'host:ssh:id_real' ? readFileSync(realKey, 'utf8') : null),
       dir,
     })
-    const agent = await startSshAgent(manager.sshAgentSocket('a'), prepared.sshKeys)
+    const agent = await startSshAgent(manager.tmp.sshAgentSocket('a'), prepared.sshKeys)
     try {
       const out = await runIn(
         'a',
@@ -156,7 +156,7 @@ describe('secret injection', () => {
   }, 30_000)
 
   it('SBX-C73 keeps one workspace file secret unreadable from another sandboxed workspace', async () => {
-    const dir = join(manager.tmpDir('a'), 'secrets')
+    const dir = join(manager.tmp.tmpDir('a'), 'secrets')
     prepareSecrets({
       grants: [{ id: 'host:ssh:id_ed25519', mode: 'file' }],
       list: LIST,
@@ -168,7 +168,7 @@ describe('secret injection', () => {
   })
 
   it('SBX-C72 removes the workspace secrets folder when the workspace closes', () => {
-    const dir = join(manager.tmpDir('a'), 'secrets')
+    const dir = join(manager.tmp.tmpDir('a'), 'secrets')
     prepareSecrets({
       grants: [{ id: 'host:ssh:id_ed25519', mode: 'file' }],
       list: LIST,
@@ -188,7 +188,7 @@ describe('secret injection', () => {
       ],
       list: LIST,
       value: (id) => VALUES[id] ?? null,
-      dir: join(manager.tmpDir('b'), 'secrets'),
+      dir: join(manager.tmp.tmpDir('b'), 'secrets'),
     })
     expect(prepared.missing).toEqual(['id_gone'])
     expect(prepared.env.GITHUB_TOKEN).toBe('ghp_real_value')
