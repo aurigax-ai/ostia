@@ -13,6 +13,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
   type ReactNode,
+  type RefObject,
   useCallback,
   useEffect,
   useRef,
@@ -32,6 +33,67 @@ const UNMEASURED: Measure = { collapsed: false, min: 0, max: 100, now: 0 }
 
 function splitSizeKey(splitKey: string): string {
   return `git:${splitKey}`
+}
+
+function useSplitMeasure({
+  container,
+  firstPane,
+  handle,
+  split,
+  minFirst,
+  minSecond,
+  collapseSecond,
+}: {
+  container: RefObject<HTMLDivElement>
+  firstPane: RefObject<HTMLDivElement>
+  handle: RefObject<HTMLDivElement>
+  split: boolean
+  minFirst: number
+  minSecond: number
+  collapseSecond: boolean
+}): { measure: Measure; total: () => number; bounds: () => SplitBounds } {
+  const [measure, setMeasure] = useState<Measure>(UNMEASURED)
+
+  const total = useCallback((): number => {
+    const height = container.current?.clientHeight ?? 0
+    return Math.max(0, height - (handle.current?.offsetHeight ?? 0))
+  }, [container, handle])
+
+  const bounds = useCallback(
+    (): SplitBounds => splitBounds(total(), minFirst, minSecond),
+    [total, minFirst, minSecond],
+  )
+
+  const sync = useCallback((): void => {
+    const size = total()
+    const b = bounds()
+    const position = size > 0 ? (firstPane.current?.getBoundingClientRect().height ?? 0) : 0
+    const next: Measure = {
+      collapsed: collapseSecond && size > 0 && b.collapsed,
+      min: percentOf(b.min, size),
+      max: percentOf(b.max, size),
+      now: percentOf(position, size),
+    }
+    setMeasure((old) =>
+      old.collapsed === next.collapsed &&
+      old.min === next.min &&
+      old.max === next.max &&
+      old.now === next.now
+        ? old
+        : next,
+    )
+  }, [total, bounds, collapseSecond, firstPane])
+
+  useEffect(() => {
+    if (!split || !container.current || !firstPane.current) return
+    const observer = new ResizeObserver(sync)
+    observer.observe(container.current)
+    observer.observe(firstPane.current)
+    sync()
+    return () => observer.disconnect()
+  }, [split, sync, container, firstPane])
+
+  return { measure, total, bounds }
 }
 
 export function SplitPane({
@@ -63,47 +125,16 @@ export function SplitPane({
   const [fraction, setFraction] = useState(
     () => rememberedPanelFraction(splitSizeKey(splitKey)) ?? defaultFraction,
   )
-  const [measure, setMeasure] = useState<Measure>(UNMEASURED)
   const split = second !== null
-
-  const total = useCallback((): number => {
-    const height = container.current?.clientHeight ?? 0
-    return Math.max(0, height - (handle.current?.offsetHeight ?? 0))
-  }, [])
-
-  const bounds = useCallback(
-    (): SplitBounds => splitBounds(total(), minFirst, minSecond),
-    [total, minFirst, minSecond],
-  )
-
-  const sync = useCallback((): void => {
-    const size = total()
-    const b = bounds()
-    const position = size > 0 ? (firstPane.current?.getBoundingClientRect().height ?? 0) : 0
-    const next: Measure = {
-      collapsed: collapseSecond && size > 0 && b.collapsed,
-      min: percentOf(b.min, size),
-      max: percentOf(b.max, size),
-      now: percentOf(position, size),
-    }
-    setMeasure((old) =>
-      old.collapsed === next.collapsed &&
-      old.min === next.min &&
-      old.max === next.max &&
-      old.now === next.now
-        ? old
-        : next,
-    )
-  }, [total, bounds, collapseSecond])
-
-  useEffect(() => {
-    if (!split || !container.current || !firstPane.current) return
-    const observer = new ResizeObserver(sync)
-    observer.observe(container.current)
-    observer.observe(firstPane.current)
-    sync()
-    return () => observer.disconnect()
-  }, [split, sync])
+  const { measure, total, bounds } = useSplitMeasure({
+    container,
+    firstPane,
+    handle,
+    split,
+    minFirst,
+    minSecond,
+    collapseSecond,
+  })
 
   const remember = (next: number): void => {
     rememberPanelFractions([{ key: splitSizeKey(splitKey), fraction: next }])

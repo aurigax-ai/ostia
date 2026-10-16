@@ -8,6 +8,7 @@
     "src/renderer/commands/gitCommands.ts",
     "src/renderer/components/editor/DiffView.tsx",
     "src/renderer/components/git/",
+    "src/renderer/components/keyboard/ChangeLines.tsx",
     "src/renderer/components/keyboard/ChangesView.tsx",
     "src/renderer/lib/git/gitFileTree.ts",
     "src/renderer/lib/git/gitGraph.ts",

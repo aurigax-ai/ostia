@@ -1,9 +1,9 @@
+import { BUILTIN_PLUGINS } from '@/lib/theme/builtin'
+import { normalizeHex } from '@/lib/theme/color'
+import { ANSI_NAMES } from '@/lib/theme/types'
 import { wcagContrast } from 'culori'
 import { describe, expect, it } from 'vitest'
-import { BUILTIN_PLUGINS } from './builtin'
-import { normalizeHex } from './color'
-import { BUILTIN_COLOR_SCHEMES } from './colorSchemes'
-import { ANSI_NAMES } from './types'
+import { BUILTIN_COLOR_SCHEMES } from './builtinColorSchemes'
 
 const REQUIRED = ['background', 'foreground', 'cursor', 'cursorAccent', 'selectionBackground']
 const RGBA = /^rgba\(\d{1,3}, \d{1,3}, \d{1,3}, (0|1|0?\.\d+)\)$/

@@ -53,6 +53,7 @@ describe('the extension API a graph host needs', () => {
   const hibernated = new Set<string>()
   const typed: string[] = []
   const waking = new PaneWaking()
+  let wakeRejects = false
   const panes = registerPane.bind(null)
   const target = panes({ windowId: '7', workspaceId: 'w1', paneId: 'pane-target' })
   const sleeper = panes({ windowId: '7', workspaceId: 'w1', paneId: 'pane-sleeper' })
@@ -116,6 +117,7 @@ describe('the extension API a graph host needs', () => {
       openedBy: (caller, paneId) => host.openedBy(caller, paneId),
       hibernated: async (pane) => hibernated.has(pane.paneId),
       wake: async (pane) => {
+        if (wakeRejects) throw new Error('window gone')
         if (pane.paneId === twin.paneId || pane.paneId === held.paneId) {
           return { woke: false, conflict: 'other tab' }
         }
@@ -207,6 +209,25 @@ describe('the extension API a graph host needs', () => {
     waking.end(sleeper.paneId, 'started')
     expect(await reply).toEqual({ ok: true, outcome: 'started' })
     expect(typed).toEqual([`${sleeper.paneId}: 'claude' --resume s1`])
+  })
+
+  it('ext.wakePane answers resume-failed when the agent did not start', async () => {
+    hibernated.add(sleeper.paneId)
+    const reply = call('runner', 'ext.wakePane', { paneId: sleeper.externalId, waitMs: 5000 })
+    await new Promise((r) => setTimeout(r, 200))
+    waking.end(sleeper.paneId, 'failed', 'its agent exited with code 1 before it started')
+    expect(await reply).toEqual({ ok: true, outcome: 'resume-failed' })
+  })
+
+  it('ext.wakePane leaves the pane out of the waking set when the wake rejects', async () => {
+    hibernated.add(sleeper.paneId)
+    wakeRejects = true
+    try {
+      await call('runner', 'ext.wakePane', { paneId: sleeper.externalId, waitMs: 5000 })
+    } finally {
+      wakeRejects = false
+    }
+    expect(waking.has(sleeper.paneId)).toBe(false)
   })
 
   it('GRF-C117 ext.wakePane refuses an awake pane, a session held elsewhere and the manager, and ignores text', async () => {

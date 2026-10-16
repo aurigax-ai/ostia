@@ -1,0 +1,31 @@
+import type { ColorScheme } from '@/lib/theme/types'
+
+export const nord: ColorScheme = {
+  id: 'nord',
+  name: 'Nord',
+  appearance: 'dark',
+  colors: {
+    background: '#2e3440',
+    foreground: '#d8dee9',
+    cursor: '#eceff4',
+    cursorAccent: '#282828',
+    selectionBackground: '#eceff4',
+    selectionForeground: '#4c566a',
+    black: '#3b4252',
+    red: '#bf616a',
+    green: '#a3be8c',
+    yellow: '#ebcb8b',
+    blue: '#81a1c1',
+    magenta: '#b48ead',
+    cyan: '#88c0d0',
+    white: '#e5e9f0',
+    brightBlack: '#596377',
+    brightRed: '#bf616a',
+    brightGreen: '#a3be8c',
+    brightYellow: '#ebcb8b',
+    brightBlue: '#81a1c1',
+    brightMagenta: '#b48ead',
+    brightCyan: '#8fbcbb',
+    brightWhite: '#eceff4',
+  },
+}

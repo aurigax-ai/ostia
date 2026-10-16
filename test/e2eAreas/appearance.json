@@ -5,6 +5,7 @@
     "src/renderer/components/common/IconButton.tsx",
     "src/renderer/components/settings/FontPicker.tsx",
     "src/renderer/components/settings/ThemeSettings.tsx",
+    "src/renderer/lib/colorSchemes/",
     "src/renderer/lib/theme/",
     "src/renderer/lib/theme/color.",
     "src/renderer/lib/theme/colorScheme.",

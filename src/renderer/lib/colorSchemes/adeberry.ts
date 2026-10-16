@@ -1,0 +1,30 @@
+import type { ColorScheme } from '@/lib/theme/types'
+
+export const adeberry: ColorScheme = {
+  id: 'adeberry',
+  name: 'Adeberry',
+  appearance: 'dark',
+  colors: {
+    background: '#1d2022',
+    foreground: '#d5dde3',
+    cursor: '#00d8ff',
+    cursorAccent: '#1d2022',
+    selectionBackground: 'rgba(83, 139, 181, 0.3)',
+    black: '#313537',
+    red: '#bf5f54',
+    green: '#58c98c',
+    yellow: '#cfd77c',
+    blue: '#538bb5',
+    magenta: '#c99bf9',
+    cyan: '#5aceca',
+    white: '#e3edf5',
+    brightBlack: '#5c6266',
+    brightRed: '#d47466',
+    brightGreen: '#60ec9f',
+    brightYellow: '#e3ec93',
+    brightBlue: '#5aceca',
+    brightMagenta: '#d9b3fc',
+    brightCyan: '#6cfcf9',
+    brightWhite: '#f5fbff',
+  },
+}

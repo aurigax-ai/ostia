@@ -1,7 +1,6 @@
 import { AgentsSection } from '@/components/agents/AgentsSection'
 import { AboutSection } from '@/components/app/AboutSection'
 import { AssistantSection } from '@/components/assist/AssistantSection'
-import { LanguagesSection } from '@/components/editor/LanguagesSection'
 import {
   BrowseExtensionsPage,
   ExtensionSettingsPage,
@@ -10,6 +9,7 @@ import {
 import type { ExtensionAnchor } from '@/components/extensions/InstalledExtensions'
 import { GatewaySection } from '@/components/gateway/GatewaySection'
 import { KeyboardSection } from '@/components/keyboard/KeyboardSection'
+import { LanguagesSection } from '@/components/languageServers/LanguagesSection'
 import { PanesSection } from '@/components/panes/PanesSection'
 import { SandboxSection } from '@/components/sandbox/SandboxSection'
 import { WorkspaceSandboxPage } from '@/components/sandbox/WorkspaceSandboxPage'

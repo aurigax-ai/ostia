@@ -1,0 +1,31 @@
+import type { ColorScheme } from '@/lib/theme/types'
+
+export const oneHalfLight: ColorScheme = {
+  id: 'one-half-light',
+  name: 'One Half Light',
+  appearance: 'light',
+  colors: {
+    background: '#fafafa',
+    foreground: '#383a42',
+    cursor: '#a5b4e5',
+    cursorAccent: '#383a42',
+    selectionBackground: '#bfceff',
+    selectionForeground: '#383a42',
+    black: '#383a42',
+    red: '#e45649',
+    green: '#50a14f',
+    yellow: '#c18401',
+    blue: '#0184bc',
+    magenta: '#a626a4',
+    cyan: '#0997b3',
+    white: '#bababa',
+    brightBlack: '#4f525e',
+    brightRed: '#e06c75',
+    brightGreen: '#98c379',
+    brightYellow: '#d8b36e',
+    brightBlue: '#61afef',
+    brightMagenta: '#c678dd',
+    brightCyan: '#56b6c2',
+    brightWhite: '#ffffff',
+  },
+}
