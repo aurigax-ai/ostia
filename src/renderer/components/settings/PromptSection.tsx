@@ -1,5 +1,9 @@
 import { IconButton } from '@/components/common/IconButton'
 import { PromptChip, chipIcon, chipName } from '@/components/prompt/PromptChips'
+import { ControlRow, ToggleRow, WarningNote } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
+import { SettingsGroup, SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useChipCatalog } from '@/lib/extensions/extensionChips'
@@ -30,9 +34,6 @@ import {
   isCoreChipId,
 } from '@shared/terminal/promptSettings'
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
-import { ControlRow, ToggleRow, WarningNote } from './ControlRow'
-import { SelectField } from './SelectField'
-import { SectionHead, SettingsGroup, SubHead } from './SettingsGroup'
 
 function findTerminal(
   byWorkspace: Record<string, WorkspaceLayout | undefined>,
@@ -65,7 +66,7 @@ function Preview({ order }: { order: string[] }): JSX.Element {
   const { chips } = usePromptChips(paneId, pane?.cwd, order, true)
   return (
     <section aria-label={d.prompt.preview} className="mb-4">
-      <SubHead title={d.prompt.preview} desc={paneId ? d.prompt.previewPane : undefined} />
+      <SettingsSubgroup title={d.prompt.preview} desc={paneId ? d.prompt.previewPane : undefined} />
       {paneId ? (
         <div className="rounded-sm border border-line bg-bg-sunken px-3 py-2">
           <div className="prompt-chips prompt-preview">
@@ -136,7 +137,7 @@ function SelectedChips({
   return (
     <section className="mb-4">
       <div id="prompt-selected">
-        <SubHead title={d.prompt.selected} />
+        <SettingsSubgroup title={d.prompt.selected} />
       </div>
       <p id="prompt-reorder-hint" className="-mt-1.5 mb-2 text-fg-muted text-ui-xs">
         {d.prompt.selectedHint}
@@ -235,7 +236,7 @@ function AvailableChips({
   return (
     <section>
       <div id="prompt-available">
-        <SubHead title={d.prompt.available} />
+        <SettingsSubgroup title={d.prompt.available} />
       </div>
       {available.length === 0 ? (
         <p className="text-fg-muted text-ui-sm">{d.prompt.noneAvailable}</p>
@@ -280,8 +281,7 @@ export function PromptSection(): JSX.Element {
   const separatorLabel = (s: PromptSeparator): string => (s === 'none' ? d.prompt.separatorNone : s)
 
   return (
-    <div>
-      <SectionHead title={d.prompt.title} desc={d.prompt.desc} />
+    <SettingsPage title={d.prompt.title} desc={d.prompt.desc}>
       <SettingsGroup title={d.prompt.groupStyle}>
         <ControlRow label={d.settings.promptStyle} desc={d.settings.promptStyleDesc}>
           <SelectField
@@ -332,6 +332,6 @@ export function PromptSection(): JSX.Element {
           </Button>
         </ControlRow>
       </SettingsGroup>
-    </div>
+    </SettingsPage>
   )
 }

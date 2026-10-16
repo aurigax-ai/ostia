@@ -1,4 +1,4 @@
-import { WarningNote } from '@/components/settings/ControlRow'
+import { WarningNote } from '@/components/settingsKit/ControlRow'
 import { currentDesktops } from '@/lib/app/desktop'
 import { fmt, useDict } from '@/lib/app/useDict'
 import type { KeySource } from '@/lib/keyboard/keySources'

@@ -1,4 +1,4 @@
-import { SettingsGroup } from '@/components/settings/SettingsGroup'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { TIME_ONLY, formatDate } from '@/lib/app/localeFormat'

@@ -1,4 +1,8 @@
 import { Hint } from '@/components/common/Hint'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -20,10 +24,7 @@ import { PRODUCT_PLACEHOLDER } from '@aurigax-ai/ostia-extension-sdk/contract/ex
 import { PlusIcon } from '@phosphor-icons/react'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/app/zoom'
 import { useEffect, useState } from 'react'
-import { ControlRow } from './ControlRow'
 import { FontPicker } from './FontPicker'
-import { SelectField } from './SelectField'
-import { SectionHead, SettingsGroup } from './SettingsGroup'
 import { ThemeRows } from './ThemeSettings'
 
 export function AppearanceSection(): JSX.Element {
@@ -36,8 +37,7 @@ export function AppearanceSection(): JSX.Element {
     full: d.settings.motionFull,
   }
   return (
-    <div>
-      <SectionHead title={d.settings.appearance} />
+    <SettingsPage title={d.settings.appearance}>
       <SettingsGroup title={d.settings.groupTheme}>
         <ThemeRows />
         <ControlRow label={d.settings.motion} desc={d.settings.motionDesc}>
@@ -60,7 +60,7 @@ export function AppearanceSection(): JSX.Element {
         <LineHeightRow />
         <FontRow surface="editor" label={d.settings.editorFont} desc={d.settings.editorFontDesc} />
       </SettingsGroup>
-    </div>
+    </SettingsPage>
   )
 }
 

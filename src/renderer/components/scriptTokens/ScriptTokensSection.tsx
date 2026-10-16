@@ -1,4 +1,5 @@
-import { SectionHead, SettingsGroup } from '@/components/settings/SettingsGroup'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -128,16 +129,16 @@ export function ScriptTokensSection(): JSX.Element {
           onRevoke={() => setRevoking(detail)}
         />
       ) : (
-        <>
-          <div className="flex items-start justify-between gap-6">
-            <div className="min-w-0">
-              <SectionHead title={t.title} desc={fmt(t.desc, { env: ENV })} />
-            </div>
-            <Button size="sm" className="shrink-0" onClick={() => setEditing(null)}>
+        <SettingsPage
+          title={t.title}
+          desc={fmt(t.desc, { env: ENV })}
+          actions={
+            <Button size="sm" onClick={() => setEditing(null)}>
               <PlusIcon data-icon="inline-start" />
               {t.generate}
             </Button>
-          </div>
+          }
+        >
           {showRetired ? (
             <RetiredBanner
               state={state}
@@ -175,7 +176,7 @@ export function ScriptTokensSection(): JSX.Element {
               <CodeBlock lines={[`export ${ENV}=ostia_…`, EXAMPLE]} />
             </SettingsGroup>
           </div>
-        </>
+        </SettingsPage>
       )}
       {editing !== undefined ? (
         <TokenDialog

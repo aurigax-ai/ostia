@@ -1,4 +1,6 @@
 import { IconButton } from '@/components/common/IconButton'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -15,7 +17,6 @@ import { CopyIcon, TrashIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import type { CredentialImportResult, CredentialSummary } from '@shared/browser/credentials'
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
-import { SectionHead, SettingsGroup } from './SettingsGroup'
 
 function importMessage(d: Dict, res: CredentialImportResult): string | null {
   if (res.ok)
@@ -225,8 +226,7 @@ export function PasswordsSection(): JSX.Element {
   useEffect(() => reload(), [reload])
 
   return (
-    <div>
-      <SectionHead title={d.passwords.title} desc={d.passwords.desc} />
+    <SettingsPage title={d.passwords.title} desc={d.passwords.desc}>
       <SavedPasswords list={list} onStatus={setStatus} onReload={reload} onRemove={setRemoving} />
       <AddPasswordForm onStatus={setStatus} onSaved={reload} />
       {status ? (
@@ -241,6 +241,6 @@ export function PasswordsSection(): JSX.Element {
           if (target) void window.ostia.credentials.remove(target.id).then(reload)
         }}
       />
-    </div>
+    </SettingsPage>
   )
 }

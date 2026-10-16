@@ -1,4 +1,12 @@
 import { IconButton } from '@/components/common/IconButton'
+import {
+  ControlRow,
+  MachineValue,
+  ToggleRow,
+  WarningNote,
+} from '@/components/settingsKit/ControlRow'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,8 +30,6 @@ import {
 } from '@shared/privacy/redaction'
 import { TELEMETRY_CATEGORIES, type TelemetryCategory } from '@shared/privacy/telemetry'
 import { useEffect, useState } from 'react'
-import { ControlRow, MachineValue, ToggleRow, WarningNote } from './ControlRow'
-import { SectionHead, SettingsGroup } from './SettingsGroup'
 import { CategoryDetails } from './TelemetryConsentDialog'
 import { TelemetryReportsDialog } from './TelemetryReportsDialog'
 
@@ -326,8 +332,7 @@ export function PrivacySection(): JSX.Element {
     }
   }, [])
   return (
-    <div>
-      <SectionHead title={d.privacy.title} desc={d.privacy.desc} />
+    <SettingsPage title={d.privacy.title} desc={d.privacy.desc}>
       <SettingsGroup title={d.privacy.groupRedaction}>
         <ToggleRow
           label={d.privacy.enabled}
@@ -340,6 +345,6 @@ export function PrivacySection(): JSX.Element {
       <Patterns onChanged={() => setRevision((n) => n + 1)} />
       <TestBox revision={revision} />
       <TelemetryGroup />
-    </div>
+    </SettingsPage>
   )
 }

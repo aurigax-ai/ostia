@@ -1,7 +1,7 @@
 import { IconButton } from '@/components/common/IconButton'
-import { WarningNote } from '@/components/settings/ControlRow'
-import { SectionHead } from '@/components/settings/SettingsGroup'
-import { Highlight, useSearchGroup } from '@/components/settings/SettingsSearch'
+import { WarningNote } from '@/components/settingsKit/ControlRow'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
+import { Highlight, useSearchGroup } from '@/components/settingsKit/SettingsSearch'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -108,8 +108,7 @@ export function ViewsSection(): JSX.Element {
   const dir = useViewsStore((s) => s.dir)
   const views = useViewsStore((s) => s.views)
   return (
-    <section aria-label={d.views.title}>
-      <SectionHead title={d.views.title} desc={fmt(d.views.desc, { dir })} />
+    <SettingsPage title={d.views.title} desc={fmt(d.views.desc, { dir })}>
       {views.length === 0 ? (
         <p className="text-fg-muted text-ui-sm">{d.views.none}</p>
       ) : (
@@ -119,6 +118,6 @@ export function ViewsSection(): JSX.Element {
           ))}
         </ul>
       )}
-    </section>
+    </SettingsPage>
   )
 }

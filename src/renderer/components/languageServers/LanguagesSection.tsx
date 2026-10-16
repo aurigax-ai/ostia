@@ -1,4 +1,4 @@
-import { SectionHead } from '@/components/settings/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { useDict } from '@/lib/app/useDict'
 import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
 import { useEffect } from 'react'
@@ -16,8 +16,7 @@ export function LanguagesSection(): JSX.Element {
     return () => window.removeEventListener('focus', onFocus)
   }, [load])
   return (
-    <section aria-label={t.title}>
-      <SectionHead title={t.title} desc={t.desc} />
+    <SettingsPage title={t.title} desc={t.desc}>
       {servers.length === 0 ? (
         <p className="text-fg-muted text-ui-sm">{t.none}</p>
       ) : (
@@ -27,6 +26,6 @@ export function LanguagesSection(): JSX.Element {
           ))}
         </ul>
       )}
-    </section>
+    </SettingsPage>
   )
 }

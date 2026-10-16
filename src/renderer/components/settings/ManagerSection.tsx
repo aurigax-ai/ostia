@@ -1,4 +1,7 @@
 import { IconButton } from '@/components/common/IconButton'
+import { NumberRow, ToggleRow, WarningNote } from '@/components/settingsKit/ControlRow'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,9 +20,7 @@ import {
 import { splitArgs } from '@shared/terminal/argv'
 import { quoteArgv } from '@shared/terminal/shellQuote'
 import { useEffect, useState } from 'react'
-import { NumberRow, ToggleRow, WarningNote } from './ControlRow'
 import { RequirementsNote } from './RequirementsNote'
-import { SectionHead, SettingsGroup } from './SettingsGroup'
 
 function parseCommand(line: string): string[] | null {
   const argv = splitArgs(line)
@@ -215,8 +216,7 @@ export function ManagerSection(): JSX.Element {
     busPerMinute: [d.manager.busPerMinute, d.manager.busPerMinuteDesc],
   }
   return (
-    <div>
-      <SectionHead title={d.manager.settingsTitle} desc={d.manager.settingsDesc} />
+    <SettingsPage title={d.manager.settingsTitle} desc={d.manager.settingsDesc}>
       <RequirementsNote feature={MANAGER_FEATURE} body={d.manager.requirementsBody} />
       <SettingsGroup title={d.manager.groupAgents}>
         <p className="mb-2 text-fg-muted text-ui-sm">{d.manager.agentsDesc}</p>
@@ -253,6 +253,6 @@ export function ManagerSection(): JSX.Element {
           )
         })}
       </SettingsGroup>
-    </div>
+    </SettingsPage>
   )
 }

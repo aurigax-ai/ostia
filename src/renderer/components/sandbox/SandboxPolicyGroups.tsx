@@ -1,5 +1,5 @@
-import { ControlRow } from '@/components/settings/ControlRow'
-import { SettingsGroup, SubHead } from '@/components/settings/SettingsGroup'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SettingsGroup, SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -133,7 +133,7 @@ function ReadPresets({
 
   return (
     <fieldset aria-label={d.sandbox.presets} className="mb-4">
-      <SubHead title={d.sandbox.presets} desc={d.sandbox.presetsDesc} />
+      <SettingsSubgroup title={d.sandbox.presets} desc={d.sandbox.presetsDesc} />
       {presets.map((preset) => {
         const name = d.sandbox.presetNames[preset.id]
         const state = presetState(preset, own, inherited)
@@ -221,7 +221,7 @@ function HiddenSockets({ sockets }: { sockets: readonly string[] }): JSX.Element
   const d = useDict()
   return (
     <fieldset aria-label={d.sandbox.hiddenSockets} className="mb-4">
-      <SubHead title={d.sandbox.hiddenSockets} desc={d.sandbox.hiddenSocketsDesc} />
+      <SettingsSubgroup title={d.sandbox.hiddenSockets} desc={d.sandbox.hiddenSocketsDesc} />
       {sockets.length === 0 ? (
         <p className="text-fg-muted text-ui-sm">{d.sandbox.hiddenSocketsEmpty}</p>
       ) : (

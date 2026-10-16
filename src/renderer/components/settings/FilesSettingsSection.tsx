@@ -1,4 +1,8 @@
 import { IconButton } from '@/components/common/IconButton'
+import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
+import { SettingsGroup, SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -17,9 +21,6 @@ import { useAvailableIconThemes } from '@/stores/extensions/iconThemeStore'
 import { BUILTIN_ICON_THEME } from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
 import { PlusIcon, XIcon } from '@phosphor-icons/react'
 import { type FormEvent, useState } from 'react'
-import { ControlRow, ToggleRow } from './ControlRow'
-import { SelectField } from './SelectField'
-import { SectionHead, SettingsGroup, SubHead } from './SettingsGroup'
 
 function PatternRow({
   label,
@@ -111,7 +112,10 @@ function NestingList(): JSX.Element {
   }
   return (
     <div className="py-1.5">
-      <SubHead title={d.filesView.nestingPatterns} desc={d.filesView.nestingPatternsDesc} />
+      <SettingsSubgroup
+        title={d.filesView.nestingPatterns}
+        desc={d.filesView.nestingPatternsDesc}
+      />
       <ul aria-label={d.filesView.nestingPatterns} className="mb-2 flex flex-col">
         {Object.entries(nesting.patterns).map(([key, value]) => (
           <PatternRow key={key} label={key} detail={value} onRemove={() => remove(key)} />
@@ -266,11 +270,10 @@ function FileTreeSettingsGroups(): JSX.Element {
 export function FilesSection(): JSX.Element {
   const d = useDict()
   return (
-    <section>
-      <SectionHead title={d.settings.files} />
+    <SettingsPage title={d.settings.files}>
       <ExternalEditorRow />
       <FileTreeSettingsGroups />
-    </section>
+    </SettingsPage>
   )
 }
 

@@ -1,5 +1,5 @@
-import { ControlRow } from '@/components/settings/ControlRow'
-import { SubHead } from '@/components/settings/SettingsGroup'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -163,7 +163,7 @@ export function DeviceList({
 
   return (
     <>
-      <SubHead
+      <SettingsSubgroup
         title={d.settings.remoteDevices}
         desc={devices.length > 0 ? d.settings.remoteGrantsDesc : undefined}
       />

@@ -1,5 +1,5 @@
 import { IconButton } from '@/components/common/IconButton'
-import { SubHead } from '@/components/settings/SettingsGroup'
+import { SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -69,7 +69,7 @@ export function SandboxListEditor({
 
   return (
     <fieldset aria-label={label} className="mb-4">
-      <SubHead title={label} desc={desc} />
+      <SettingsSubgroup title={label} desc={desc} />
       <ul className="mb-2 flex flex-col gap-1">
         {fixed.map((item) => (
           <li key={`f-${item}`} className="flex items-center gap-2 text-fg-muted text-ui-sm">

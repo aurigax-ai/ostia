@@ -1,6 +1,6 @@
 import { IconButton } from '@/components/common/IconButton'
 import { useRequirements } from '@/components/settings/RequirementsNote'
-import { Highlight, useSearchGroup } from '@/components/settings/SettingsSearch'
+import { Highlight, useSearchGroup } from '@/components/settingsKit/SettingsSearch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'

@@ -1,4 +1,4 @@
-import { ControlRow } from '@/components/settings/ControlRow'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
