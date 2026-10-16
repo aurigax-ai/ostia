@@ -7,6 +7,7 @@ import { languagesFrom } from '@/lib/extensions/languagePacks'
 import { LINE_SEARCH_DELAY_MS } from '@/lib/files/workspaceFileSearch'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
+import { useAssistStore } from '@/stores/assist/assistStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -1322,6 +1323,28 @@ describe('CommandPalette', () => {
       fireEvent.keyDown(await screen.findByRole('combobox'), { key: 'F1', code: 'F1' })
       expect(useUIStore.getState().paletteOpen).toBe(false)
       await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull())
+      expect(outside).not.toHaveBeenCalled()
+    })
+
+    it('closes on the palette chord from Ask, and the chord never reaches the window', async () => {
+      seed()
+      const outside = keysOutside()
+      useAssistStore.setState({
+        availability: {
+          chat: {
+            extId: 'assistant',
+            name: 'Assistant',
+            label: 'model-runtime · gemma',
+            ref: { extId: 'assistant' },
+          },
+        },
+      })
+      onTestFinished(() => useAssistStore.setState({ availability: {} }))
+      render(<CommandPalette />)
+      act(() => useUIStore.getState().openPalette('ask'))
+      const question = await screen.findByRole('combobox', { name: 'Your question' })
+      fireEvent.keyDown(question, PALETTE_TOGGLE_KEY)
+      expect(useUIStore.getState().paletteOpen).toBe(false)
       expect(outside).not.toHaveBeenCalled()
     })
 

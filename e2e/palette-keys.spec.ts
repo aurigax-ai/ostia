@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
+import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
@@ -96,6 +97,33 @@ test('F1 opens the palette from a terminal, an editor and a browser pane, and a 
   } finally {
     await app.close()
     server.close()
+  }
+})
+
+test('the palette chord closes the palette and gives the keyboard back to the terminal', async () => {
+  const { app, win } = await launchWithNotes()
+  try {
+    const rows = win.locator('.xterm-rows').first()
+    const dialog = win.getByRole('dialog')
+    await focusTerminal(win)
+    await win.keyboard.type('cat -v\n')
+
+    await win.keyboard.press(chords.palette)
+    await expect(dialog.getByRole('combobox')).toBeFocused()
+    await win.keyboard.type('needle')
+    await win.keyboard.press(chords.palette)
+    await expect(dialog).toBeHidden()
+    await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused()
+
+    await win.keyboard.type('after-toggle\n')
+    await expect
+      .poll(async () =>
+        (await rows.innerText()).split('\n').filter((l) => l.trim() === 'after-toggle'),
+      )
+      .toHaveLength(2)
+    await expect(rows).not.toContainText('^[')
+  } finally {
+    await app.close()
   }
 })
 
