@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto'
-import { BUS_SEND_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import {
+  BUS_SEND_TEXT_MAX,
+  type BusMessageKind,
+  type BusMessagePhase,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { type BusDelivery, busContext, busPreview } from '../../shared/agents/busMessages'
 import { actThenConfirm, confirmed, mismatch } from '../../shared/common/actThenConfirm'
@@ -17,6 +21,7 @@ interface Message {
   ts: string
   seenAt?: string
   quiet?: true
+  task?: true
 }
 
 interface SentMessage {
@@ -120,11 +125,35 @@ function clampTimeout(timeoutMs: number | undefined): number {
   return Math.min(MAX_WAIT_MS, Math.max(MIN_WAIT_MS, timeoutMs))
 }
 
+interface BusObservation {
+  id: string
+  from: string
+  to: string
+  kind: BusMessageKind
+  phase: BusMessagePhase
+}
+
+let observer: ((observation: BusObservation) => void) | undefined
+
+function observe(message: Message, phase: BusMessagePhase): void {
+  if (message.quiet) return
+  observer?.({
+    id: message.id,
+    from: message.from,
+    to: message.to,
+    kind: message.task ? 'task' : 'message',
+    phase,
+  })
+}
+
 function markSeen(data: BusData, messages: readonly Message[], at: string): boolean {
   const fresh = messages.filter((message) => !message.seenAt)
   if (fresh.length === 0) return false
   const ids = new Set(fresh.map((message) => message.id))
-  for (const message of fresh) message.seenAt = at
+  for (const message of fresh) {
+    message.seenAt = at
+    observe(message, 'seen')
+  }
   for (const record of data.sent) {
     if (ids.has(record.id) && !record.seenAt) record.seenAt = at
   }
@@ -149,6 +178,7 @@ function deliver(data: BusData, msg: Message): BusDelivery {
   data.inboxes[msg.to] = inbox
   if (!msg.quiet) remember(data, msg)
   const delivery: BusDelivery = hasWaiter(msg.to) ? 'waiting' : 'queued'
+  observe(msg, delivery)
   if (delivery === 'waiting') markSeen(data, [msg], msg.ts)
   saveBus(data)
   wake(msg.to, [msg])
@@ -207,6 +237,7 @@ export interface BusDeps {
   announce: (from: PaneIdentity, to: PaneIdentity, text: string) => void
   hibernated: (pane: PaneIdentity) => Promise<boolean>
   inScope?: Reach['inScope']
+  observe?: (observation: BusObservation) => void
 }
 
 function receiverOf(to: unknown): PaneIdentity | undefined {
@@ -222,6 +253,7 @@ type AnnounceQueued = (
 ) => void
 
 export function registerBusMethods(deps: BusDeps): void {
+  observer = deps.observe
   const announceQueued: AnnounceQueued = (
     delivery: BusDelivery,
     from: PaneIdentity,
@@ -426,6 +458,7 @@ function registerBusHandoffMethods(announceQueued: AnnounceQueued): void {
         to,
         text: `handoff ${id}: ${task} — ${summary}`,
         ts: now,
+        task: true,
       })
       const { seen } = await confirmDelivered(to, messageId)
       if (!loadBus().handoffs.some((h) => h.id === id)) {

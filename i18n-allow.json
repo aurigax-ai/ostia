@@ -28,7 +28,8 @@
     "activity:zh-Hant": {
       "product and brand names": [
         "messages.agent.claude",
-        "messages.agent.codex"
+        "messages.agent.codex",
+        "messages.stream.ostia"
       ]
     },
     "assistant:zh-Hant": {

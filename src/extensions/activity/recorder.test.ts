@@ -72,7 +72,9 @@ describe('Recorder', () => {
       ),
     ).toBe(true)
     await rec.settled()
-    expect(journal.events('w1').map((e) => [e.t, e.kind, e.text])).toEqual([
+    expect(
+      journal.events('w1').map((e) => [e.t, e.kind, 'text' in e ? e.text : undefined]),
+    ).toEqual([
       [5000, 'prompt', 'log in with [redacted]'],
       [5001, 'tool', 'ls'],
       [5002, 'stop', 'Listed the folder.'],
@@ -93,7 +95,13 @@ describe('Recorder', () => {
     await rec.settled()
     await throwing.settled()
     expect(
-      journal.events('w1').map((e) => [e.kind === 'note' ? null : e.agent, e.kind, e.text]),
+      journal
+        .events('w1')
+        .map((e) => [
+          e.kind === 'note' || e.kind === 'host' ? null : e.agent,
+          e.kind,
+          'text' in e ? e.text : undefined,
+        ]),
     ).toEqual([
       ['claude', 'prompt', undefined],
       ['codex', 'prompt', undefined],

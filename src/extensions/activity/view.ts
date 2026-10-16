@@ -1,9 +1,12 @@
 import type { HookAgent } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import {
   type ActivityEvent,
+  type ActivityHost,
   type ActivityKind,
   type ActivityNote,
   type ActivityRecord,
+  type BusMessageKind,
+  type HostKind,
   type ToolKind,
   isOpenNeedsYou,
 } from './hookEvent'
@@ -14,6 +17,7 @@ type AgentState = (typeof AGENT_STATES)[number]
 
 export const EARLIER_TURNS_MAX = 20
 const NOTES_SHOWN_MAX = 20
+const STREAM_ROWS_MAX = 100
 const TURN_EVENTS_MAX = 200
 
 export interface OpenWorkspace {
@@ -59,10 +63,32 @@ export interface NoteView {
   link?: string
 }
 
+export interface PaneLabel {
+  agent?: HookAgent
+  n: number
+}
+
+export type StreamEndpoint =
+  | { kind: 'pane'; label: PaneLabel }
+  | { kind: 'ostia' | 'extension' | 'elsewhere' }
+
+export interface StreamRow {
+  id: string
+  t: number
+  host: HostKind
+  subject: PaneLabel
+  state?: string
+  from?: StreamEndpoint
+  to?: StreamEndpoint
+  message?: BusMessageKind
+  folder?: string
+}
+
 export interface WorkspaceView {
   workspaceId: string
   agents: AgentView[]
   notes: NoteView[]
+  stream: StreamRow[]
 }
 
 export interface PanelModel {
@@ -182,14 +208,83 @@ function notesOf(records: readonly ActivityRecord[]): NoteView[] {
   return [...open, ...rest].map(noteView)
 }
 
+function paneLabels(
+  events: readonly ActivityEvent[],
+  hosts: readonly ActivityHost[],
+): (pane: string) => PaneLabel {
+  const firstSeen = new Map<string, number>()
+  const agents = new Map<string, HookAgent>()
+  const see = (pane: string | undefined, t: number): void => {
+    if (pane && !firstSeen.has(pane)) firstSeen.set(pane, t)
+  }
+  for (const event of events) {
+    see(event.pane, event.t)
+    agents.set(event.pane, event.agent)
+  }
+  for (const host of hosts) {
+    see(host.pane, host.t)
+    if (host.host === 'bus') {
+      see(host.from, host.t)
+      see(host.to, host.t)
+    }
+  }
+  return (pane) => {
+    const agent = agents.get(pane)
+    const peers = [...firstSeen].filter(([other]) => agents.get(other) === agent)
+    const mine = firstSeen.get(pane) ?? 0
+    const before = peers.filter(([other, t]) => t < mine || (t === mine && other < pane)).length
+    return { ...(agent ? { agent } : {}), n: before + 1 }
+  }
+}
+
+const OTHER_ENDPOINTS: Record<string, 'ostia' | 'extension' | 'elsewhere'> = {
+  '@ostia': 'ostia',
+  '@extension': 'extension',
+  '@elsewhere': 'elsewhere',
+}
+
+function endpointView(id: string, label: (pane: string) => PaneLabel): StreamEndpoint {
+  const other = OTHER_ENDPOINTS[id]
+  return other ? { kind: other } : { kind: 'pane', label: label(id) }
+}
+
+function streamOf(events: readonly ActivityEvent[], hosts: readonly ActivityHost[]): StreamRow[] {
+  const label = paneLabels(events, hosts)
+  const rows: StreamRow[] = []
+  const messages = new Map<string, StreamRow>()
+  for (const host of hosts) {
+    const row: StreamRow = { id: host.id, t: host.t, host: host.host, subject: label(host.pane) }
+    if (host.state) row.state = host.state
+    if (host.folder) row.folder = host.folder
+    if (host.host === 'bus') {
+      if (host.from) row.from = endpointView(host.from, label)
+      if (host.to) row.to = endpointView(host.to, label)
+      if (host.message) row.message = host.message
+      const known = host.ref ? messages.get(host.ref) : undefined
+      if (known) {
+        if (host.state) known.state = host.state
+        continue
+      }
+      if (host.ref) messages.set(host.ref, row)
+    }
+    rows.push(row)
+  }
+  return rows.reverse().slice(0, STREAM_ROWS_MAX)
+}
+
 export function panelModel(sources: ViewSources): PanelModel {
   const { workspace, showActivity } = sources
   if (!workspace) return { showActivity, workspace: null }
   const panes = new Map(sources.panes.map((pane) => [pane.paneId, pane]))
   const byPane = new Map<string, ActivityEvent[]>()
+  const hosts: ActivityHost[] = []
   const records = sources.events(workspace.workspaceId)
   for (const event of records) {
     if (event.kind === 'note') continue
+    if (event.kind === 'host') {
+      hosts.push(event)
+      continue
+    }
     const known = byPane.get(event.pane)
     if (known) known.push(event)
     else byPane.set(event.pane, [event])
@@ -201,9 +296,12 @@ export function panelModel(sources: ViewSources): PanelModel {
     if (view) agents.push(view)
   }
   const notes = notesOf(records)
-  if (agents.length === 0 && notes.length === 0) return { showActivity, workspace: null }
+  const stream = streamOf([...byPane.values()].flat(), hosts)
+  if (agents.length === 0 && notes.length === 0 && stream.length === 0) {
+    return { showActivity, workspace: null }
+  }
   agents.sort(mostRecentFirst)
-  return { showActivity, workspace: { workspaceId: workspace.workspaceId, agents, notes } }
+  return { showActivity, workspace: { workspaceId: workspace.workspaceId, agents, notes, stream } }
 }
 
 export type AgeUnit = 'now' | 'minutes' | 'hours' | 'days'
