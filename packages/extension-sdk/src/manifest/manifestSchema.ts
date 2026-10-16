@@ -75,20 +75,21 @@ import {
 import { isCoreSource } from './coreNames'
 import { verbProblem } from './coreNames'
 import {
-  COMMAND_ID_PATTERN,
-  EXTENSION_ID_PATTERN,
   KEYMAP_ID_PATTERN,
   MAX_CHIPS,
   MAX_COMMANDS,
-  MAX_DESCRIPTION,
-  MAX_ENUM_VALUES,
   MAX_ICON_THEMES,
   MAX_KEYMAPS,
   MAX_LANGUAGES,
   MAX_SNIPPETS,
+} from './manifestContributions'
+import {
+  COMMAND_ID_PATTERN,
+  EXTENSION_ID_PATTERN,
+  MAX_DESCRIPTION,
   MAX_TEXT,
-  SETTING_KEY_PATTERN,
-} from './extensionManifest'
+} from './manifestFields'
+import { MAX_ENUM_VALUES, SETTING_KEY_PATTERN } from './manifestSettings'
 import {
   MARKETPLACE_CODE_PATTERN,
   MARKETPLACE_DESCRIPTION_MAX,

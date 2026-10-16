@@ -19,7 +19,7 @@ import {
 import { FILE_VIEWER_DISPLAY_NAME_MAX } from '../contract/fileViewers'
 import { isRecord } from '../contract/isRecord'
 import { readConfined } from './confinedRead'
-import { MAX_DESCRIPTION, MAX_TEXT, hasControlCharacter } from './extensionManifest'
+import { MAX_DESCRIPTION, MAX_TEXT, hasControlCharacter } from './manifestFields'
 
 export interface LocaleCatalog {
   manifest: LocaleStrings

@@ -12,8 +12,9 @@ import { join, normalize, relative, resolve } from 'node:path'
 import { EXTENSION_MANIFEST_FILE, type ExtensionManifest } from '../contract/extensions'
 import { PRODUCT_NAME } from '../contract/product'
 import { agentSkillProblems } from './agentSkills'
-import { EXTENSION_ID_PATTERN, readManifest } from './extensionManifest'
+import { readManifest } from './extensionManifest'
 import { localeProblems } from './localeCatalogs'
+import { EXTENSION_ID_PATTERN } from './manifestFields'
 import {
   MARKETPLACE_MANIFEST_FILE,
   parseMarketplaceManifest,
