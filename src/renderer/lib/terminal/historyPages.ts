@@ -1,4 +1,4 @@
-export const PAGE_LINES = 2000
+export const PAGE_LINES = 400
 export const WINDOW_LINES = 3 * PAGE_LINES
 
 interface RowLike {
