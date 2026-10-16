@@ -102,6 +102,10 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
       .poll(() => panelEval(app, `document.querySelector('.actions-toggle').ariaExpanded`))
       .toBe('true')
     expect(await text(app, '.event')).toBe('Ran\npnpm test')
+    await win.keyboard.press(chords.splitRight)
+    await expect
+      .poll(() => text(app, '.stream-text'), { timeout: 15_000 })
+      .toContain('Pane started')
     await panelEval(app, `document.querySelector('.agent-head').click(); 'ok'`)
     await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused({ timeout: 15_000 })
     expect(await text(app, '.note')).toBe('')

@@ -75,6 +75,19 @@ function pretty(value: unknown): HTMLElement {
   return h('div', { class: 'mono' }, JSON.stringify(value, null, 2))
 }
 
+function fold(label: string, value: unknown): HTMLElement {
+  const body = pretty(value)
+  const details = h(
+    'details',
+    {
+      onToggle: () => body.classList.toggle('motion-reveal', (details as HTMLDetailsElement).open),
+    },
+    h('summary', {}, label),
+    body,
+  )
+  return details
+}
+
 function graphRow(row: GraphRow): HTMLElement {
   const actions = h(
     'div',
@@ -372,12 +385,10 @@ async function runView(runId: string): Promise<HTMLElement[]> {
               )
             : null,
           n.error ? h('div', { class: 'error mono' }, `${n.error.name}: ${n.error.message}`) : null,
-          h('details', {}, h('summary', {}, t('node.input')), pretty(n.input)),
-          n.output ? h('details', {}, h('summary', {}, t('node.output')), pretty(n.output)) : null,
-          n.wait ? h('details', {}, h('summary', {}, t('node.wait')), pretty(n.wait)) : null,
-          n.stateAfter
-            ? h('details', {}, h('summary', {}, t('node.state')), pretty(n.stateAfter))
-            : null,
+          fold(t('node.input'), n.input),
+          n.output ? fold(t('node.output'), n.output) : null,
+          n.wait ? fold(t('node.wait'), n.wait) : null,
+          n.stateAfter ? fold(t('node.state'), n.stateAfter) : null,
         )
       }),
     ),

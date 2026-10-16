@@ -1,14 +1,15 @@
 import { TextLink } from '@/components/common/TextLink'
+import { DiscreteGpuRow } from '@/components/settings/DiscreteGpuRow'
+import { RequirementsNoteView, useRequirements } from '@/components/settings/RequirementsNote'
 import {
   ControlRow,
   ExperimentalBadge,
   ToggleRow,
   WarningNote,
-} from '@/components/settings/ControlRow'
-import { DiscreteGpuRow } from '@/components/settings/DiscreteGpuRow'
-import { RequirementsNoteView, useRequirements } from '@/components/settings/RequirementsNote'
-import { SelectField } from '@/components/settings/SelectField'
-import { SectionHead, SettingsGroup } from '@/components/settings/SettingsGroup'
+} from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
 import type { ClipboardKeys, TerminalRenderer } from '@/lib/settings/terminalPaneSettings'
@@ -42,8 +43,7 @@ import { useEffect, useState } from 'react'
 export function TerminalSection(): JSX.Element {
   const d = useDict()
   return (
-    <div>
-      <SectionHead title={d.settings.terminal} />
+    <SettingsPage title={d.settings.terminal}>
       <TerminalInputGroup />
       {isMac ? <TerminalKeyboardGroup /> : null}
       <TerminalCursorGroup />
@@ -53,7 +53,7 @@ export function TerminalSection(): JSX.Element {
       <TerminalColorsGroup />
       <TerminalRenderingGroup />
       <TerminalSessionGroup />
-    </div>
+    </SettingsPage>
   )
 }
 

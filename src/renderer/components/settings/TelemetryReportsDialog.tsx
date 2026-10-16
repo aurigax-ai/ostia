@@ -1,3 +1,4 @@
+import { SelectField } from '@/components/settingsKit/SelectField'
 import {
   Dialog,
   DialogContent,
@@ -14,7 +15,6 @@ import {
   reportCategories,
 } from '@shared/privacy/telemetry'
 import { useEffect, useState } from 'react'
-import { SelectField } from './SelectField'
 
 type Filter = TelemetryCategory | 'all'
 

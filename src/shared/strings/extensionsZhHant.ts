@@ -255,7 +255,6 @@ export const extensionsZhHant: typeof extensionsEn = {
   marketplace: {
     add: '新增',
     addLabel: '市集儲存庫',
-    addOfficial: '新增官方市集',
     addPlaceholder: 'owner/repo、git 網址或資料夾',
     cancel: '取消',
     codeLabel: '{name} 的安裝碼',
@@ -273,6 +272,7 @@ export const extensionsZhHant: typeof extensionsEn = {
       'invalid-marketplace': '這個儲存庫不是有效的市集。',
       'invalid-url': '請輸入 owner/repo、https 或 ssh 的 git 網址，或資料夾路徑。',
       'not-installed': '這個擴充功能不是從市集安裝的。',
+      'official-marketplace': '官方市集一律列出，無法移除。',
       'too-large': '這個擴充功能太大，無法安裝。',
       'unknown-code': '這個市集沒有使用此安裝碼的未列出擴充功能。',
       'unknown-extension': '市集已不再列出這個擴充功能，請重新整理。',

@@ -1,6 +1,6 @@
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
-import { Highlight, useSearchGroup } from '@/components/settings/SettingsSearch'
+import { Highlight, useSearchGroup } from '@/components/settingsKit/SettingsSearch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'

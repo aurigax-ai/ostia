@@ -1,5 +1,5 @@
-import { WarningNote } from '@/components/settings/ControlRow'
-import { useSearchLeaf } from '@/components/settings/SettingsSearch'
+import { WarningNote } from '@/components/settingsKit/ControlRow'
+import { useSearchLeaf } from '@/components/settingsKit/SettingsSearch'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { fmt, useDict } from '@/lib/app/useDict'

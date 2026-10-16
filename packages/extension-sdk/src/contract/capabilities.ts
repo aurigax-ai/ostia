@@ -23,6 +23,7 @@ export type Capability =
   | 'language-server'
   | 'agent-plugin'
   | 'mcp'
+  | 'read-bus'
 
 export const DEFAULT_CAPABILITIES: Capability[] = [
   'drive-self',
@@ -58,16 +59,22 @@ export const ALL_CAPABILITIES: Capability[] = [
   'language-server',
   'agent-plugin',
   'mcp',
+  'read-bus',
 ]
 
-export const HUMAN_GRANTED_CAPABILITIES: readonly Capability[] = ['mcp']
+export const HUMAN_GRANTED_CAPABILITIES: readonly Capability[] = ['mcp', 'read-bus']
 
 export const BUILTIN_CAPABILITIES: Capability[] = ALL_CAPABILITIES.filter(
   (cap) => !HUMAN_GRANTED_CAPABILITIES.includes(cap),
 )
 
 export const MANAGER_CAPABILITIES: Capability[] = ALL_CAPABILITIES.filter(
-  (cap) => cap !== 'phone' && cap !== 'gateway' && cap !== 'destructive' && cap !== 'mcp',
+  (cap) =>
+    cap !== 'phone' &&
+    cap !== 'gateway' &&
+    cap !== 'destructive' &&
+    cap !== 'mcp' &&
+    cap !== 'read-bus',
 )
 
 export const CAPABILITY_ALLOWS: Record<Capability, string> = {
@@ -94,6 +101,7 @@ export const CAPABILITY_ALLOWS: Record<Capability, string> = {
   'language-server': 'run language servers',
   'agent-plugin': 'manage agent plugins',
   mcp: 'call the MCP servers you set up',
+  'read-bus': 'see which panes send each other bus messages, never what they say',
 }
 
 export type CapabilityRefusal = 'denied' | 'not-approved'

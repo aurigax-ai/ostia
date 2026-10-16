@@ -1,8 +1,14 @@
+import type {
+  BusEndpoint,
+  ExtensionEventPayloads,
+  ExtensionEventType,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { Reach } from '../approvals/reach'
 import type { ArtifactProducers } from '../artifacts/artifactProducers'
 import { announceBusMessage } from '../attention/busNotice'
 import type { CommandBridge } from '../control/commandBridge'
 import { registerDocsMethods } from '../control/docs'
+import { resolveExternal } from '../control/idRegistry'
 import type { Telemetry } from '../diagnostics/telemetry'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import type { OpenFileGrants } from '../files/openFileGrants'
@@ -38,6 +44,12 @@ interface ToolbeltWiringDeps {
   windowIds: WindowSend['windowIds']
   isWaking: (paneId: string) => boolean
   paneHibernated: PaneMethodsWiring['paneHibernated']
+  emitPaneEvent: <T extends ExtensionEventType>(type: T, payload: ExtensionEventPayloads[T]) => void
+}
+
+function endpointOf(id: string): BusEndpoint {
+  const target = resolveExternal(id)
+  return target?.kind === 'pane' ? { id, workspaceId: target.workspaceId } : { id }
 }
 
 export function registerToolbeltWiring({
@@ -56,6 +68,7 @@ export function registerToolbeltWiring({
   windowIds,
   isWaking,
   paneHibernated,
+  emitPaneEvent,
 }: ToolbeltWiringDeps) {
   registerDocsMethods({ extensions: () => services.extensionHost?.listForAgents() ?? [] })
   registerVaultMethods({ isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId) })
@@ -95,5 +108,11 @@ export function registerToolbeltWiring({
       ).catch(() => {})
     },
     hibernated: paneHibernated,
+    observe: (observation) =>
+      emitPaneEvent('bus.message', {
+        ...observation,
+        from: endpointOf(observation.from),
+        to: endpointOf(observation.to),
+      }),
   })
 }

@@ -1,5 +1,5 @@
 import { IconButton } from '@/components/common/IconButton'
-import { WarningNote } from '@/components/settings/ControlRow'
+import { WarningNote } from '@/components/settingsKit/ControlRow'
 import { Kbd } from '@/components/ui/kbd'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { fmt, useDict } from '@/lib/app/useDict'
