@@ -3545,7 +3545,7 @@ button.prompt-chip:hover {
   z-index: 3;
   width: 10px;
   opacity: 0;
-  transition: opacity var(--motion-fast, 120ms) ease-out;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .history-scrollbar[data-active],
