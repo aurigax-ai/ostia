@@ -31,7 +31,7 @@ vi.mock('electron', () => ({
 const { createTelemetry, readTelemetrySettings, registerTelemetry, telemetryEndpoint } =
   await import('./telemetry')
 const { registerDiagnostics } = await import('./diagnostics')
-type SessionFacts = import('./telemetry').SessionFacts
+type SessionFacts = import('./telemetryUsage').SessionFacts
 type Telemetry = import('./telemetry').Telemetry
 
 const context: InstallContext = {
