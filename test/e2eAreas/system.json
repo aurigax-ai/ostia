@@ -1,0 +1,14 @@
+{
+  "name": "system",
+  "paths": [
+    "src/extensions/system/",
+    "src/main/platform/systemRequirements.",
+    "src/main/platform/systemRequirementsIpc.",
+    "src/renderer/components/settings/RequirementsNote.tsx",
+    "src/shared/app/systemRequirements.ts",
+    "test/fixtures/system/"
+  ],
+  "specs": [
+    "e2e/system.spec.ts"
+  ]
+}

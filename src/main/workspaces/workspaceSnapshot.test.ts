@@ -375,6 +375,34 @@ describe('parseSnapshot', () => {
     expect(top?.type === 'split' && top.children[0]).not.toHaveProperty('collapsed')
   })
 
+  it('keeps a folded mark only on a split tab and only when it is true', () => {
+    const tabs = {
+      type: 'tabs',
+      id: 'tabs-3',
+      activeId: 'pane-1',
+      children: [
+        { type: 'pane', id: 'pane-1', title: 'zsh', kind: 'terminal', folded: true },
+        { ...split('pane-2', 'pane-3'), folded: true },
+      ],
+    }
+    const root = parseSnapshot(
+      snap({ workspaces: [{ ...snap().workspaces[0], root: tabs as never }] }),
+    )?.workspaces[0].root
+    expect(root?.type === 'tabs' && root.children[0]).not.toHaveProperty('folded')
+    expect(root?.type === 'tabs' && root.children[1]).toMatchObject({ folded: true })
+    const loose = parseSnapshot(
+      snap({
+        workspaces: [
+          {
+            ...snap().workspaces[0],
+            root: { ...split('pane-1', 'pane-2'), folded: 'yes' } as never,
+          },
+        ],
+      }),
+    )?.workspaces[0].root
+    expect(loose).not.toHaveProperty('folded')
+  })
+
   it('drops a bad split tab name and repairs the shown pane to the first pane', () => {
     const tabs = {
       type: 'tabs',

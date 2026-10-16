@@ -1,0 +1,15 @@
+{
+  "name": "marketplace",
+  "paths": [
+    "marketplace/",
+    "packages/extension-sdk/src/manifest/marketplaceManifest.ts",
+    "src/main/extensions/marketplace/marketplace.ts",
+    "src/renderer/components/extensions/BrowseExtensions.tsx",
+    "src/renderer/components/extensions/MarketplaceSection.tsx",
+    "src/renderer/stores/extensions/marketplaceStore.ts",
+    "src/shared/extensions/marketplace.ts"
+  ],
+  "specs": [
+    "e2e/marketplace.spec.ts"
+  ]
+}

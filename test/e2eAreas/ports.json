@@ -1,0 +1,15 @@
+{
+  "name": "ports",
+  "paths": [
+    "src/cli/verbs/coreBoards.ts",
+    "src/main/platform/procfs.ts",
+    "src/main/platform/watchSets.ts",
+    "src/main/ports/",
+    "src/renderer/lib/workspaces/coreWatch.ts",
+    "src/shared/boards/ports.ts",
+    "test/fixtures/ports/"
+  ],
+  "specs": [
+    "e2e/ports-hibernation.spec.ts"
+  ]
+}

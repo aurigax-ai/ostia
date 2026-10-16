@@ -16,14 +16,16 @@ const EXTENSION_FILE_MAX = 32 * 1024 * 1024
 interface ViewerWiringDeps {
   windows: Map<string, BrowserWindow>
   sources: FileSources
-  services: { extensionHost: ExtensionHost | null; fileWatches: FileWatches | null }
+  watches: FileWatches
+  extensions: () => ExtensionHost | null
   readLocale: () => string | undefined
 }
 
 export function createViewerHost({
   windows,
   sources,
-  services,
+  watches,
+  extensions,
   readLocale,
 }: ViewerWiringDeps): ViewerHost {
   return new ViewerHost({
@@ -31,7 +33,7 @@ export function createViewerHost({
     confine: (path) => sources.of(path).confine(path),
     ownsPane: (windowId, paneId) => getByPaneId(paneId)?.windowId === windowId,
     viewer: (extId, viewType, path) =>
-      services.extensionHost?.panels.fileViewerSource(extId, viewType, path) ?? null,
+      extensions()?.panels.fileViewerSource(extId, viewType, path) ?? null,
     readDocument: async (path): Promise<ViewerRead> => {
       const read = await sources.of(path).readBinary(path, FS_BINARY_MAX)
       if (read.ok) return { ok: true, body: Buffer.from(read.data) }
@@ -43,9 +45,9 @@ export function createViewerHost({
       return read.ok ? read.data : null
     },
     watch: (owner, path) => {
-      services.fileWatches?.watch(owner, path)
+      watches.watch(owner, path)
     },
-    unwatch: (owner, path) => services.fileWatches?.unwatch(owner, path),
+    unwatch: (owner, path) => watches.unwatch(owner, path),
     locale: () => readLocale() ?? 'en',
     guests: new ViewerWatch({ processes: appProcessUse }),
     stopped: (windowId, event) => windows.get(windowId)?.webContents.send('viewers:stopped', event),

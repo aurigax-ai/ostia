@@ -4,6 +4,7 @@ import { type BrowserWindow, app, ipcMain, shell } from 'electron'
 import { OPEN_FILES_MAX } from '../../shared/files/openFiles'
 import type { FsEntry, FsKind } from '../../shared/types'
 import { getByPaneId } from '../control/idRegistry'
+import type { ExtensionHost } from '../extensions/extensionHost'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import { TerminalPathLinks, registerTerminalPathLinkIpc } from '../terminal/terminalPathLinks'
 import type { PaneOutput } from '../terminal/terminalPathLinks'
@@ -12,13 +13,13 @@ import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { windowForWorkspace } from '../workspaces/workspaceRegistry'
 import { FileOps } from './fileOps'
 import { registerFileOpsIpc } from './fileOpsIpc'
-import type { FileSources } from './fileSources'
-import { FileWatches } from './fileWatch'
+import { type FileServices, createFileServices } from './filesWiring'
 import { FS_BINARY_MAX } from './fsBinary'
 import { writeText, writeTextConfined } from './fsText'
 import type { OpenFileGrants } from './openFileGrants'
 import { registerOpenPathIpc } from './openPath'
 import { ripgrepPath } from './ripgrep'
+import { registerViewerIpc } from './viewers/viewerIpc'
 import { registerSearchIpc } from './workspaceSearch'
 
 interface FsIpcDeps {
@@ -29,14 +30,11 @@ interface FsIpcDeps {
   workspaceSandboxes: WorkspaceSandboxes
   scratchFolders: ScratchFolders
   services: {
-    fileWatches: FileWatches | null
+    files: FileServices | null
+    extensionHost: ExtensionHost | null
   }
   onSettingsWritten: () => void
-  viewers: { changed: (owner: string) => void }
-  sources: FileSources
 }
-
-const FILE_WATCH_DEBOUNCE_MS = 150
 
 export function registerFsIpc({
   fileRoots,
@@ -47,8 +45,6 @@ export function registerFsIpc({
   scratchFolders,
   services,
   onSettingsWritten,
-  viewers,
-  sources,
 }: FsIpcDeps): void {
   const allowedRoots = fileRoots()
   const settingsFile = join(app.getPath('userData'), 'settings.json')
@@ -78,6 +74,16 @@ export function registerFsIpc({
         : null,
   })
 
+  const files = createFileServices({
+    windows,
+    fileRoots,
+    confine: (path) => openFileGrants.confine(path),
+    extensions: () => services.extensionHost,
+  })
+  services.files = files
+  const { sources } = files
+  registerViewerIpc({ viewers: files.viewers })
+
   ipcMain.handle('fs:list', (_e, dir: unknown): Promise<FsEntry[]> | FsEntry[] =>
     typeof dir === 'string' ? sources.of(dir).list(dir) : [],
   )
@@ -106,24 +112,13 @@ export function registerFsIpc({
       .map((path) => openFileGrants.admit(path, { sandboxed: false, remember }))
   })
 
-  services.fileWatches = new FileWatches({
-    confine: (path) => openFileGrants.confine(path),
-    debounceMs: FILE_WATCH_DEBOUNCE_MS,
-    onChange: ({ path, exists, owners }) => {
-      for (const owner of owners) {
-        viewers.changed(owner)
-        const win = windows.get(owner)
-        if (win && !win.isDestroyed()) win.webContents.send('fs:changed', { path, exists })
-      }
-    },
-  })
   ipcMain.handle('fs:watch', (e, path: unknown): boolean =>
     typeof path === 'string' && sources.of(path).watchable
-      ? (services.fileWatches?.watch(String(e.sender.id), path) ?? false)
+      ? files.watches.watch(String(e.sender.id), path)
       : false,
   )
   ipcMain.on('fs:unwatch', (e, path: unknown) => {
-    if (typeof path === 'string') services.fileWatches?.unwatch(String(e.sender.id), path)
+    if (typeof path === 'string') files.watches.unwatch(String(e.sender.id), path)
   })
 
   ipcMain.handle('fs:version', (_e, path: unknown) =>
@@ -138,7 +133,7 @@ export function registerFsIpc({
         (p) => openFileGrants.confine(p),
         async (safe) => {
           const save = () => writeText(safe, content)
-          await (services.fileWatches?.write(String(e.sender.id), safe, content, save) ?? save())
+          await files.watches.write(String(e.sender.id), safe, content, save)
           if (safe === settingsFile) onSettingsWritten()
         },
       ),

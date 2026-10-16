@@ -5,6 +5,8 @@ import { type BrowserWindow, app, clipboard, dialog, session, shell } from 'elec
 import { ARTIFACT_LIST_MAX } from '../../shared/artifacts/artifacts'
 import { emitPlatformEvent } from '../control/events'
 import { getByPaneId } from '../control/idRegistry'
+import type { ExtensionHost } from '../extensions/extensionHost'
+import type { FileServices } from '../files/filesWiring'
 import { OpenFileGrants } from '../files/openFileGrants'
 import { privateTmpDir } from '../platform/privateTmp'
 import { appDataDir } from '../platform/userDirs'
@@ -18,21 +20,18 @@ import { loadEsbuild } from './esbuildService'
 import { PreviewHost, type PreviewSession } from './htmlPreview'
 import { PortableBuilder } from './portableBuilder'
 import { PortableExport } from './portableExport'
-import type { PublishedTables } from './portableTables'
 import { appProcessUse } from './processUse'
 
 interface ArtifactServicesDeps {
   windows: Map<string, BrowserWindow>
   workspaceSandboxes: () => WorkspaceSandboxes
-  viewerMatches: (name: string) => boolean
-  publishedTables: (windowId: string, path: string) => PublishedTables
+  services: { files: FileServices | null; extensionHost: ExtensionHost | null }
 }
 
 export function createArtifactServices({
   windows,
   workspaceSandboxes,
-  viewerMatches,
-  publishedTables,
+  services,
 }: ArtifactServicesDeps) {
   const scratchFolders = new ScratchFolders(privateTmpDir(`${PRODUCT_NAME}-scratch`))
 
@@ -112,14 +111,14 @@ export function createArtifactServices({
     downloads: () => app.getPath('downloads'),
     writeClipboard: (text) => clipboard.writeText(text),
     version: app.getVersion(),
-    publishedTables,
+    publishedTables: (windowId, path) => services.files?.viewers.portable(windowId, path) ?? null,
   })
 
   const artifactHistory: ArtifactHistory = new ArtifactHistory({
     root: artifactFolders.root,
     folderOf: (workspaceId) => artifactFolders.dirOf(workspaceId),
     isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
-    viewerMatches,
+    viewerMatches: (name) => services.extensionHost?.panels.hasFileViewer(name) ?? false,
     make: (workspaceId, file) =>
       portableExport.fileFor(file, previews.themeOf(windowForWorkspace(workspaceId))),
   })

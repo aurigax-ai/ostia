@@ -236,6 +236,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       storageSet: vi.fn().mockResolvedValue({ ok: true }),
       storageRemove: vi.fn().mockResolvedValue({ ok: true }),
       storageClear: vi.fn().mockResolvedValue({ ok: true }),
+      onOpenTab: vi.fn(noopUnsub),
     },
     selection: {
       send: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),

@@ -1,0 +1,15 @@
+{
+  "name": "approvals",
+  "paths": [
+    "packages/extension-sdk/src/contract/capabilities.ts",
+    "src/main/approvals/approvals.ts",
+    "src/main/approvals/capabilityStore.ts",
+    "src/main/approvals/controlElevation.ts",
+    "src/renderer/components/agents/ApprovalActions.tsx",
+    "src/renderer/components/agents/ApprovalCard.",
+    "src/renderer/components/agents/ApprovalsInbox.tsx",
+    "src/renderer/stores/agents/approvalsStore.ts",
+    "src/shared/permissions/approvals.ts"
+  ],
+  "specs": []
+}

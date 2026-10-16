@@ -1,0 +1,16 @@
+{
+  "name": "terminal history",
+  "paths": [
+    "src/main/terminal/history/",
+    "src/main/terminal/screenSerialize.ts",
+    "src/renderer/components/terminal/HistoryEdge.tsx",
+    "src/renderer/components/terminal/HistoryView.",
+    "src/renderer/lib/terminal/historyActions.ts",
+    "src/renderer/lib/terminal/historyPages.",
+    "src/renderer/stores/terminal/historyViewStore.ts",
+    "src/shared/terminal/scrollbackHistory.ts"
+  ],
+  "specs": [
+    "e2e/terminal-history.spec.ts"
+  ]
+}

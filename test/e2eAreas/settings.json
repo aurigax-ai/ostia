@@ -1,0 +1,38 @@
+{
+  "name": "settings",
+  "paths": [
+    "src/renderer/components/agents/AgentsSection.tsx",
+    "src/renderer/components/app/AboutSection.tsx",
+    "src/renderer/components/common/SectionTabs.tsx",
+    "src/renderer/components/extensions/ExtensionSettingsPage.tsx",
+    "src/renderer/components/panes/PanesSection.tsx",
+    "src/renderer/components/settings/AppearanceSection.tsx",
+    "src/renderer/components/settings/ControlRow.",
+    "src/renderer/components/settings/LanguageSection.tsx",
+    "src/renderer/components/settings/NotificationsSection.tsx",
+    "src/renderer/components/settings/SelectField.tsx",
+    "src/renderer/components/settings/SettingsGroup.tsx",
+    "src/renderer/components/settings/SettingsNav.tsx",
+    "src/renderer/components/settings/SettingsPanel.",
+    "src/renderer/components/settings/SettingsSearch.tsx",
+    "src/renderer/components/settings/useSettingsNavigation.ts",
+    "src/renderer/components/sidebar/SidebarSection.tsx",
+    "src/renderer/components/terminal/TerminalSection.tsx",
+    "src/renderer/lib/settings/agentSchema.ts",
+    "src/renderer/lib/settings/appearanceSchema.ts",
+    "src/renderer/lib/settings/registerSettingsSchema.ts",
+    "src/renderer/lib/settings/settingsNav.",
+    "src/renderer/lib/settings/settingsSchema.ts",
+    "src/renderer/lib/settings/settingsSearch.",
+    "src/renderer/lib/settings/settingsSections.ts",
+    "src/renderer/lib/settings/terminalPaneSettings.ts",
+    "src/renderer/lib/settings/terminalSchema.ts",
+    "src/renderer/lib/settings/windowTitle.ts",
+    "src/renderer/lib/settings/workspaceSchema.ts"
+  ],
+  "specs": [
+    "e2e/settings-gap.spec.ts",
+    "e2e/settings-row-width.spec.ts",
+    "e2e/terminal-settings.spec.ts"
+  ]
+}

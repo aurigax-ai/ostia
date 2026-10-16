@@ -10,13 +10,13 @@ import type { BrowserGuests } from '../browser/browserGuests'
 import type { GuestChords } from '../browser/guestChords'
 import { forgetGuestNetwork } from '../browser/guestNetwork'
 import type { GuestProfiles } from '../browser/guestProfiles'
+import { tabReferrerOf } from '../browser/guestTabs'
 import { followAgentByHost } from '../browser/signinUserAgent'
 import { getByPaneId, removeWindow } from '../control/idRegistry'
 import type { Diagnostics } from '../diagnostics/diagnostics'
 import type { ExtensionHost } from '../extensions/extensionHost'
-import type { FileWatches } from '../files/fileWatch'
+import type { FileServices } from '../files/filesWiring'
 import type { OpenWaits } from '../files/openWaits'
-import type { ViewerHost } from '../files/viewers/viewerHost'
 import { extensionOfViewerPartition } from '../files/viewers/viewerSessions'
 import type { GitService } from '../git/service'
 import type { ManagerService } from '../manager/manager'
@@ -39,7 +39,7 @@ interface WindowWiringDeps {
     clipboardEdits: ClipboardEdits | null
     diagnostics: Diagnostics | null
     extensionHost: ExtensionHost | null
-    fileWatches: FileWatches | null
+    files: FileServices | null
     gitService: GitService | null
     guestChords: GuestChords | null
     managerService: ManagerService | null
@@ -52,7 +52,6 @@ interface WindowWiringDeps {
   requestQuit: AppQuit['requestQuit']
   openExternalSafe: (url: string) => boolean
   previews: PreviewHost
-  viewers: ViewerHost
   extensionOfPartition: BrowserGuests['extensionOfPartition']
   browserProfiles: GuestProfiles['browserProfiles']
   hardenExtensionGuest: BrowserGuests['hardenExtensionGuest']
@@ -60,6 +59,7 @@ interface WindowWiringDeps {
   instrumentBrowserGuest: BrowserGuests['instrumentBrowserGuest']
   fenceBrowserGuest: GuestProfiles['fenceBrowserGuest']
   allowHumanPopups: BrowserGuests['allowHumanPopups']
+  attachBrowserMenu: BrowserGuests['attachBrowserMenu']
   consoleBuffers: Map<number, ConsoleEntry[]>
   errorBuffers: Map<number, ConsoleEntry[]>
   windows: Map<string, BrowserWindow>
@@ -81,7 +81,6 @@ export function createWindowWiring({
   requestQuit,
   openExternalSafe,
   previews,
-  viewers,
   extensionOfPartition,
   browserProfiles,
   hardenExtensionGuest,
@@ -89,6 +88,7 @@ export function createWindowWiring({
   instrumentBrowserGuest,
   fenceBrowserGuest,
   allowHumanPopups,
+  attachBrowserMenu,
   consoleBuffers,
   errorBuffers,
   windows,
@@ -138,7 +138,13 @@ export function createWindowWiring({
 
     win.webContents.on('will-attach-webview', (event, webPreferences, params) => {
       if (extensionOfViewerPartition(params.partition)) {
-        if (viewers.acceptsAttach(params.partition, params.src, String(win.webContents.id))) {
+        if (
+          services.files?.viewers.acceptsAttach(
+            params.partition,
+            params.src,
+            String(win.webContents.id),
+          )
+        ) {
           webPreferences.preload = undefined
           webPreferences.nodeIntegration = false
           webPreferences.contextIsolation = true
@@ -165,6 +171,8 @@ export function createWindowWiring({
         event.preventDefault()
         return
       }
+      const referrer = extId ? undefined : tabReferrerOf(win.webContents.id, params.src)
+      if (referrer) params.httpreferrer = referrer
       webPreferences.preload = undefined
       webPreferences.nodeIntegration = false
       webPreferences.contextIsolation = true
@@ -178,7 +186,7 @@ export function createWindowWiring({
       services.clipboardEdits?.guardGuest(guest)
       services.guestChords?.guardGuest(guest)
       if (previews.adopt(guest)) return
-      if (viewers.adopt(guest)) {
+      if (services.files?.viewers.adopt(guest)) {
         attachContextMenu(guest, false, contextMenuText)
         return
       }
@@ -186,7 +194,7 @@ export function createWindowWiring({
         attachContextMenu(guest, false, contextMenuText)
         return
       }
-      attachContextMenu(guest, true, contextMenuText)
+      attachBrowserMenu(guest)
       const agents = browserAgentsOf(guest.session)
       guest.setUserAgent(agents.rewritten)
       instrumentBrowserGuest(guest, true)
@@ -204,7 +212,7 @@ export function createWindowWiring({
     const wid = String(win.webContents.id)
     windows.set(wid, win)
     services.diagnostics?.watchWindow(win)
-    viewers.followReloads(win.webContents, wid)
+    services.files?.viewers.followReloads(win.webContents, wid)
     win.on('hide', () => hidePtyFlow(wid))
     win.on('minimize', () => hidePtyFlow(wid))
     win.on('closed', () => {
@@ -213,9 +221,9 @@ export function createWindowWiring({
       services.portsService?.windowGone(wid)
       releaseWindowPtys(wid)
       previews.windowClosed(wid)
-      viewers.forgetWindow(wid)
+      services.files?.viewers.forgetWindow(wid)
       openWaits.windowGone(wid)
-      services.fileWatches?.unwatchOwner(wid)
+      services.files?.watches.unwatchOwner(wid)
       commandsByWindow.delete(wid)
       for (const [paneId, wcId] of browserPanes) {
         if (getByPaneId(paneId)?.windowId === wid) {

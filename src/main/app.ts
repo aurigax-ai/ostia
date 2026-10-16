@@ -76,12 +76,9 @@ import { createMarketplaceIpc } from './extensions/marketplace/marketplaceIpc'
 import { startMarketplace } from './extensions/marketplace/marketplaceWiring'
 import { PaneAttentionEvents } from './extensions/paneAttentionEvents'
 import { createMainStrings } from './extensions/strings'
-import { Archives } from './files/archives/archives'
-import { FileSources, localSource } from './files/fileSources'
-import type { FileWatches } from './files/fileWatch'
+import type { FileServices } from './files/filesWiring'
 import { registerFsIpc } from './files/fsIpc'
 import { OpenWaits } from './files/openWaits'
-import { createViewerHost, registerViewerIpc } from './files/viewers/viewerIpc'
 import { startGateway } from './gateway/gatewayWiring'
 import { createCoreBoards } from './git/coreBoards'
 import type { GitService } from './git/service'
@@ -199,7 +196,7 @@ const services = {
   managerService: null as ManagerService | null,
   managerLimiter: null as ManagerLimiter | null,
   portal: null as Portal | null,
-  fileWatches: null as FileWatches | null,
+  files: null as FileServices | null,
   histories: null as PaneHistories | null,
 }
 
@@ -274,18 +271,7 @@ const {
   artifactProducers,
   artifactsChanged,
   isScratchPane,
-} = createArtifactServices({
-  windows,
-  workspaceSandboxes: () => workspaceSandboxes,
-  viewerMatches: (name) => services.extensionHost?.panels.hasFileViewer(name) ?? false,
-  publishedTables: (windowId, path) => viewers.portable(windowId, path),
-})
-
-const fileSources = new FileSources(
-  localSource(fileRoots, (path) => openFileGrants.confine(path)),
-  [new Archives((path) => openFileGrants.confine(path))],
-)
-const viewers = createViewerHost({ windows, sources: fileSources, services, readLocale })
+} = createArtifactServices({ windows, workspaceSandboxes: () => workspaceSandboxes, services })
 
 const openWaits = new OpenWaits((windowId, paneIds) =>
   windows.get(windowId)?.webContents.send('open-waits:ended', paneIds),
@@ -349,6 +335,7 @@ const {
   extensionOfPartition,
   browserAgentsOf,
   instrumentBrowserGuest,
+  attachBrowserMenu,
   allowHumanPopups,
   hardenExtensionGuest,
 } = createBrowserGuests({
@@ -523,7 +510,6 @@ const { wireWindow } = createWindowWiring({
   requestQuit: () => requestQuit(),
   openExternalSafe,
   previews,
-  viewers,
   extensionOfPartition,
   browserProfiles,
   hardenExtensionGuest,
@@ -531,6 +517,7 @@ const { wireWindow } = createWindowWiring({
   instrumentBrowserGuest,
   fenceBrowserGuest,
   allowHumanPopups,
+  attachBrowserMenu,
   consoleBuffers,
   errorBuffers,
   windows,
@@ -728,7 +715,6 @@ function boot(): void {
   registerPtyIpc({ ...wiring })
   registerHistoryIpc({ ...wiring })
   registerFsIpc({ ...wiring })
-  registerViewerIpc({ ...wiring })
   registerSelectionIpc(reachesPane, redactor.text)
   registerArtifactViewIpc({ ...wiring })
   registerPrivacyIpc(redactor)
@@ -819,8 +805,6 @@ const { requestQuit, handleQuitSignals } = registerAppQuit({
 
 const wiring = {
   services,
-  viewers,
-  sources: fileSources,
   mainStrings,
   windows,
   requestQuit,

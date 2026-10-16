@@ -17,6 +17,7 @@ import {
   planChanges,
   planE2e,
   planTests,
+  unitTexts,
   vitestArgs,
 } from './affectedTests.mjs'
 
@@ -25,6 +26,13 @@ const readers = {
   folders: {
     'e2e/': ['test/e2eImports.test.ts'],
     '.github/': ['src/main/updates/releasePackaging.test.ts'],
+  },
+  texts: {
+    'test/e2eAreas.test.ts': "join(ROOT, 'test/e2eAreas')",
+    'src/main/agents/skillFiles.test.ts': "'packages/extension-sdk/docs/EXTENSIONS.md'",
+    'src/main/ports/portFixtures.test.ts': "join(root, 'test/fixtures/ports')",
+    'src/renderer/lib/app/motion.test.tsx': "readFileSync('test/fixtures/ports/a.json')",
+    'src/main/panes/paneIo.test.ts': "import './paneIo'",
   },
 }
 
@@ -52,16 +60,68 @@ describe('planTests', () => {
       'package.json',
       'vitest.config.mts',
       'playwright.config.ts',
+      'tsconfig.node.json',
       'test/setup.ts',
       'test/mocks/ostia.ts',
-      'scripts/build-extensions.mjs',
-      'packages/extension-sdk/docs/EXTENSIONS.md',
     ]) {
       expect(planTests(['src/renderer/lib/keyboard/keyPresets.ts', file], readers), file).toEqual({
         node: null,
         dom: null,
       })
     }
+  })
+
+  it('runs only the tests that name a non-code file', () => {
+    expect(planTests(['test/e2eAreas/ssh.json'], readers)).toEqual({
+      node: ['test/e2eAreas.test.ts'],
+      dom: [],
+    })
+    expect(planTests(['packages/extension-sdk/docs/EXTENSIONS.md'], readers)).toEqual({
+      node: ['src/main/agents/skillFiles.test.ts'],
+      dom: [],
+    })
+    expect(planTests(['test/fixtures/ports/a.json'], readers)).toEqual({
+      node: ['src/main/ports/portFixtures.test.ts'],
+      dom: ['src/renderer/lib/app/motion.test.tsx'],
+    })
+  })
+
+  it('runs every test for a build input, setup helper or tool config', () => {
+    for (const file of [
+      ...['extensions', 'tsnet', 'marketplace', 'artifact-runtime', 'info'].map(
+        (name) => `scripts/build-${name}.mjs`,
+      ),
+      'packages/extension-sdk/scripts/build.mjs',
+      'packages/extension-sdk/package.json',
+      'packages/extension-sdk/template/package.json',
+      'electron.vite.config.ts',
+      'patches/swr@2.5.1.patch',
+      'biome.json',
+      'knip.json',
+      '.jscpd.json',
+      '.dependency-cruiser.json',
+      '.dependency-cruiser-known-violations.json',
+      'test/consoleGuard.ts',
+      'test/quarantine.mjs',
+    ]) {
+      expect(planTests([file], readers), file).toEqual({ node: null, dom: null })
+    }
+  })
+
+  it('plans against the real test texts without the planner tests', () => {
+    const texts = unitTexts()
+    expect(Object.keys(texts)).not.toContain('test/affectedTests.test.ts')
+    expect(Object.keys(texts)).not.toContain('test/e2eAreas.test.ts')
+    const real = { ...readers, texts }
+    expect(planTests(['packages/extension-sdk/docs/EXTENSIONS.md'], real)).toEqual({
+      node: null,
+      dom: null,
+    })
+    expect(planTests(['scripts/build-extensions.mjs'], real)).toEqual({ node: null, dom: null })
+  })
+
+  it('runs every test for a non-code file no test names', () => {
+    expect(planTests(['scripts/build-extensions.mjs'], readers)).toEqual({ node: null, dom: null })
   })
 
   it('runs only related tests for a renderer change, plus the dom tests that read files', () => {
