@@ -101,7 +101,7 @@ export function createPtyStart({
       entry.exitListeners.add(() => {
         if (resizePipe) rmSync(resizePipe, { force: true })
         portBridge?.close()
-        void workspaceSandboxes.cleanup(workspaceId)
+        void workspaceSandboxes.hosts.cleanup(workspaceId)
         releaseMergedSandbox(workspaceId, entry)
       })
     }

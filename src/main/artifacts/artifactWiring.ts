@@ -34,7 +34,7 @@ export function startArtifacts({
   artifactFolders.sweep()
   artifactHistory.sweep()
   portableExport.sweep()
-  workspaceSandboxes.sweepTmp()
+  workspaceSandboxes.tmp.sweepTmp()
   registerScratchIpc(scratchFolders)
   registerArtifactIpc({
     folders: artifactFolders,

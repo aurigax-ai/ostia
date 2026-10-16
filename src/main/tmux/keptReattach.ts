@@ -75,9 +75,13 @@ export function createKeptReattach({
     const sandbox = meta.sandbox
     const workspaceId = meta.workspaceId
     const keptHost = sandbox ? keptShells.keptHost(workspaceId) : undefined
-    if (keptHost) workspaceSandboxes.adoptKeptTmp(workspaceId, keptHost.tmpDir)
+    if (keptHost) workspaceSandboxes.tmp.adoptKeptTmp(workspaceId, keptHost.tmpDir)
     const portBridge = sandbox?.bridgeId
-      ? await PortBridge.open(workspaceSandboxes.tmpDir(workspaceId), undefined, sandbox.bridgeId)
+      ? await PortBridge.open(
+          workspaceSandboxes.tmp.tmpDir(workspaceId),
+          undefined,
+          sandbox.bridgeId,
+        )
       : null
     const entry = trackPty(paneId, pane, {
       kept: pane,
@@ -99,11 +103,11 @@ export function createKeptReattach({
       entry.exitListeners.add(() => {
         if (sandbox.resizePipe) rmSync(sandbox.resizePipe, { force: true })
         portBridge?.close()
-        void workspaceSandboxes.cleanup(workspaceId)
+        void workspaceSandboxes.hosts.cleanup(workspaceId)
         releaseMergedSandbox(workspaceId, entry)
       })
       portRequests.keep(workspaceId, keptHost?.exposed ?? [])
-      void workspaceSandboxes.connect(workspaceId).catch(() => undefined)
+      void workspaceSandboxes.hosts.connect(workspaceId).catch(() => undefined)
     }
     pane.onData((d) => feedPty(entry, d))
     pane.onExit(({ exitCode }) => entry.session.exit(exitCode))

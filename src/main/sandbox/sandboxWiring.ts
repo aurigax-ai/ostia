@@ -115,7 +115,7 @@ export function registerSandboxIpcWiring({
     domains: domainRequests,
     ports: portRequests,
     violations: sandboxViolations,
-    refreshAll: () => workspaceSandboxes.refreshAll(),
+    refreshAll: () => workspaceSandboxes.hosts.refreshAll(),
   })
   registerSystemRequirementsIpc({
     ownerWindow: windowForWorkspace,

@@ -109,7 +109,7 @@ export function extensionHostParts({
       workspaceSandboxes.wrap(workspaceId, command, 'bash', [], extraReads),
     sandboxEnv: (workspaceId, env) => ({
       ...sandboxSpawnEnv(env),
-      TMPDIR: workspaceSandboxes.tmpDir(workspaceId),
+      TMPDIR: workspaceSandboxes.tmp.tmpDir(workspaceId),
     }),
     dataDir: (extId) => join(app.getPath('userData'), 'extension-data', extId),
     baseEnv: () => process.env,
