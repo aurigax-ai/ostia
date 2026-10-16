@@ -28,10 +28,10 @@ export interface HistoryFeed {
   close(): Promise<void>
 }
 
-export const SPILL_BACKLOG: FlowMarks = { high: 8 * 1024 * 1024, low: 2 * 1024 * 1024 }
+export const SPILL_BACKLOG: FlowMarks = { high: 32 * 1024 * 1024, low: 8 * 1024 * 1024 }
 const SPILL_QUIET_MS = 100
-export const PANE_SEND_CHARS = 2 * 1024 * 1024
-export const SLICE_CHARS = 512 * 1024
+export const PANE_SEND_CHARS = 4 * 1024 * 1024
+export const SLICE_CHARS = 1024 * 1024
 const SPILL_HEAP_LIMITS = { maxYoungGenerationSizeMb: 4, maxOldGenerationSizeMb: 1024 }
 const utf8 = new TextEncoder()
 

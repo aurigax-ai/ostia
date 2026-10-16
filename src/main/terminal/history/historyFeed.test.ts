@@ -198,7 +198,7 @@ describe('history feed', () => {
     const client = new SpillClient(port)
     const feed = client.open(makeHistory(), 80, 24, countingPressure(false).pressure)
     feed.watchScreen(() => 'screen now')
-    for (let i = 0; i < 400; i++) feed.write('z'.repeat(64 * 1024))
+    for (let i = 0; i < 800; i++) feed.write('z'.repeat(64 * 1024))
     feed.resize(81, 24)
     const sent = writesOf(posted).reduce((sum, r) => sum + r.chars, 0)
     expect(sent).toBeLessThanOrEqual(SPILL_BACKLOG.high)
