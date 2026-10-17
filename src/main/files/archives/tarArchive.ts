@@ -24,6 +24,7 @@ function scan(
       let scanned = 0
       let settled = false
       let reading = false
+      let ended = false
       const finish = (complete: boolean): void => {
         if (settled) return
         settled = true
@@ -49,10 +50,14 @@ function scan(
         if (step === 'stop') finish(true)
       })
       parser.on('eof', () => {
+        ended = true
         if (!reading) finish(true)
+        parser.abort(new Error('end of archive'))
       })
       parser.on('end', () => finish(true))
-      parser.on('error', () => finish(false))
+      parser.on('error', () => {
+        if (!ended) finish(false)
+      })
       input.on('error', () => finish(false))
       input.pipe(parser)
     })
