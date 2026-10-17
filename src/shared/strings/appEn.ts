@@ -102,7 +102,7 @@ export const appEn = {
     },
     extensionConfirm: { cancel: 'Cancel', ok: 'OK' },
     folderAccessBlocked: {
-      body: 'Shells in {product} get “Operation not permitted” in these folders until {product} restarts. Quit {product}, choose Quit and end shells if it asks, then open it again.',
+      body: 'Shells in {product} may keep failing to read these folders. Quit {product} with “Quit and end shells” and open it again to restore access.',
       title: 'macOS is blocking {folders}',
     },
     quit: {
