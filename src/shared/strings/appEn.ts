@@ -114,6 +114,8 @@ export const appEn = {
       keptShellsOne: '1 kept shell is running',
       keptTitle: 'Quit with kept shells running?',
       message: 'Quitting ends or discards everything listed here.',
+      more: 'and {count} more',
+      moreWorkspaces: 'and {count} more workspaces',
       quit: 'Quit',
       scratch: 'Files in the scratch folder: {count}',
       title: 'Quit and lose this work?',

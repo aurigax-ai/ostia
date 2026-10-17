@@ -114,6 +114,8 @@ export const appZhHant: typeof appEn = {
       keptShellsOne: '1 個保留的 shell 正在執行',
       keptTitle: '要在保留的 shell 執行中結束嗎？',
       message: '結束後，下列項目會被終止或捨棄。',
+      more: '還有 {count} 項',
+      moreWorkspaces: '還有 {count} 個工作區',
       quit: '結束',
       scratch: '暫存資料夾中的檔案：{count}',
       title: '要結束並捨棄這些工作嗎？',
