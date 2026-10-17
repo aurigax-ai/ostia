@@ -144,7 +144,7 @@ export async function startPanelServer(opts: PanelServerOptions): Promise<Screen
         const result = await opts.handle(body.command, body.args, scope)
         return send(res, 200, 'application/json', JSON.stringify(result))
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err)
+        const message = err instanceof Error ? err.message : 'bad request'
         return send(res, 400, 'application/json', JSON.stringify({ ok: false, error: message }))
       }
     }

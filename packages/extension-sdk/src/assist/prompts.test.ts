@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { COMPLETION_TEXT_MAX } from '../contract/assist'
 import { cleanCompletion } from './completionCleanup'
 import {
   chatPrompt,
@@ -47,6 +48,28 @@ describe('parseCorrection', () => {
         'fix teh tests',
       ),
     ).toBeNull()
+  })
+})
+
+describe('regexp cost on adversarial input', () => {
+  const tabs = '\t'.repeat(60_000)
+
+  it('keeps the whitespace around a correction in linear time', () => {
+    const start = performance.now()
+    expect(parseCorrection(`a${tabs}b`, `a${tabs}c`)).toBe(`a${tabs}b`)
+    expect(parseCorrection('fix the tests', `  fix teh tests${tabs}`)).toBe(
+      `  fix the tests${tabs}`,
+    )
+    expect(performance.now() - start).toBeLessThan(200)
+  })
+
+  it('cleans a completion with long whitespace runs in linear time', () => {
+    const start = performance.now()
+    const kept = `x${tabs}y`.slice(0, COMPLETION_TEXT_MAX)
+    expect(cleanCompletion(`x${tabs}y`, '', '')).toBe(kept)
+    expect(cleanCompletion(`x${tabs}y${tabs}`, '', `${tabs}z`)).toBe(kept)
+    expect(cleanCompletion(`foo(1))${tabs}`, 'call ', '')).toBe('foo(1)')
+    expect(performance.now() - start).toBeLessThan(200)
   })
 })
 

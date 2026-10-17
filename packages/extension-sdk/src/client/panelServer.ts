@@ -6,7 +6,7 @@ import { readEnv } from '../contract/appEnv'
 import { ALL_CAPABILITIES } from '../contract/capabilities'
 import type { ExtensionCaller, ExtensionResult } from '../contract/extensions'
 import { PANEL_SIZES_FILE, PanelSizeStore } from './panelSizes'
-import { errorMessage, failure } from './results'
+import { failure } from './results'
 import { PANEL_SIZES_PATH } from './split'
 
 function panelCaller(context: Record<string, unknown>): ExtensionCaller {
@@ -31,6 +31,10 @@ const CONTENT_TYPES: Record<string, string> = {
 }
 
 const MAX_BODY = 1024 * 1024
+
+function responseMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'bad request'
+}
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -99,7 +103,7 @@ export async function startPanelServer(opts: {
           res,
           400,
           'application/json',
-          JSON.stringify(failure('bad-request', errorMessage(err))),
+          JSON.stringify(failure('bad-request', responseMessage(err))),
         )
       }
     }
@@ -119,7 +123,7 @@ export async function startPanelServer(opts: {
           res,
           400,
           'application/json',
-          JSON.stringify(failure('bad-request', errorMessage(err))),
+          JSON.stringify(failure('bad-request', responseMessage(err))),
         )
       }
     }

@@ -55,7 +55,6 @@ import {
   GO_MODULE_MAX,
   LANGUAGE_SERVER_ARCHIVES,
   LANGUAGE_SERVER_DOCUMENT_ID_PATTERN,
-  LANGUAGE_SERVER_DOWNLOAD_HOSTS,
   LANGUAGE_SERVER_EXECUTABLE_PATTERN,
   LANGUAGE_SERVER_GO_MODULE_PATTERN,
   LANGUAGE_SERVER_GO_VERSION_PATTERN,
@@ -190,9 +189,8 @@ const settingKey = z.string().regex(SETTING_KEY_PATTERN)
 
 const serverArgs = z.array(z.string().max(SERVER_ARG_MAX)).max(MAX_SERVER_ARGS)
 const serverProgram = z.string().regex(LANGUAGE_SERVER_PROGRAM_PATTERN)
-const downloadUrl = new RegExp(
-  `^https://(${LANGUAGE_SERVER_DOWNLOAD_HOSTS.map((host) => host.replaceAll('.', '\\.')).join('|')})/`,
-)
+const downloadUrl =
+  /^https:\/\/(github\.com|objects\.githubusercontent\.com|release-assets\.githubusercontent\.com)\//
 
 const serverAsset = z.strictObject({
   url: z.string().max(DOWNLOAD_URL_MAX).regex(downloadUrl),
