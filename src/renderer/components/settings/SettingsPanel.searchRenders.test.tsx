@@ -4,7 +4,14 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
-const { emptyPage } = vi.hoisted(() => ({ emptyPage: () => null }))
+const { search, emptyPage } = vi.hoisted(() => {
+  const holder = { useSearchLeaf: (_texts: readonly string[]): boolean => false }
+  const page = (): null => {
+    for (const text of ['b', 'bl', 'bli', 'blin']) holder.useSearchLeaf([text])
+    return null
+  }
+  return { search: holder, emptyPage: page }
+})
 
 vi.mock('@/components/agents/AgentsSection', () => ({ AgentsSection: emptyPage }))
 vi.mock('@/components/app/AboutSection', () => ({ AboutSection: emptyPage }))
@@ -44,6 +51,7 @@ const renders = new Map<string, number>()
 
 vi.mock('@/components/settingsKit/SettingsSearch', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/components/settingsKit/SettingsSearch')>()
+  search.useSearchLeaf = actual.useSearchLeaf
   return {
     ...actual,
     useSearchRow: (texts: readonly (string | null | undefined)[]) => {
