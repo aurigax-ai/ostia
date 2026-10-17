@@ -1731,6 +1731,35 @@ describe('pane.list / workspace.list', () => {
     })
   })
 
+  it('pane.list marks a terminal waiting for activation and leaves it off a plain one', async () => {
+    const waiting = {
+      ...createPane('terminal', 'claude', '/work/api'),
+      resume: { agent: 'claude' as const, id: 's1' },
+      resumePending: true as const,
+    }
+    const plain = createPane('terminal', 'zsh', '/work/api')
+    useWorkspacesStore.setState({
+      workspaces: [
+        { id: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
+      ],
+    })
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: { type: 'tabs', id: 'tabs-1', activeId: plain.id, children: [waiting, plain] },
+          activePaneId: plain.id,
+          zoomedPaneId: null,
+        },
+      },
+    })
+
+    const res = await commands.execWith(ctx('s1', null), 'pane.list')
+
+    const entries = (res as { result: Array<{ paneId: string }> }).result
+    expect(entries.find((e) => e.paneId === waiting.id)).toMatchObject({ awaitingActivation: true })
+    expect(entries.find((e) => e.paneId === plain.id)).not.toHaveProperty('awaitingActivation')
+  })
+
   it('pane.list reports the open file of a file view', async () => {
     const view = { ...createPane('editor', 'a.ts', '/work/api'), filePath: '/work/api/a.ts' }
     useWorkspacesStore.setState({
