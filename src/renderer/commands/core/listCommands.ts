@@ -1,7 +1,9 @@
 import { registerCore } from '@/commands/coreCommand'
+import { awaitsResume } from '@/lib/agents/autoResume'
 import { type PaneAgentReport, paneAgentReport } from '@/lib/agents/paneAgent'
 import { allPanes, splitTabOfPane } from '@/lib/layout/tree'
 import type { SurfaceKind } from '@/lib/layout/types'
+import { isKeptShell } from '@/lib/terminal/keptReattach'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { WorkspaceKind, WorkspaceState } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -17,6 +19,7 @@ interface PaneListEntry extends PaneAgentReport {
   splitTabId?: string
   splitTabName?: string
   hibernated?: true
+  awaitingActivation?: true
 }
 
 interface WorkspaceListEntry {
@@ -68,6 +71,9 @@ export function registerListCommands(): void {
             ...(splitTab ? { splitTabId: splitTab.id } : {}),
             ...(splitTab?.name ? { splitTabName: splitTab.name } : {}),
             ...(pane.hibernated ? { hibernated: true } : {}),
+            ...(pane.kind === 'terminal' && awaitsResume(pane) && !isKeptShell(pane.id)
+              ? { awaitingActivation: true }
+              : {}),
           })
         }
       }

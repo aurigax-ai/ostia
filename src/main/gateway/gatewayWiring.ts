@@ -40,6 +40,7 @@ interface GatewayStartDeps {
   ptyPid: (paneId: string) => number | undefined
   windowIds: WindowSend['windowIds']
   isWaking: (paneId: string) => boolean
+  paneStartErrors: ReadonlyMap<string, string>
   services: {
     appLog: AppLog | null
     processes: ProcessRegistry | null
@@ -68,6 +69,7 @@ export function startGateway({
   ptyPid,
   windowIds,
   isWaking,
+  paneStartErrors,
   services,
   reach,
   workspaceSandboxes,
@@ -90,6 +92,7 @@ export function startGateway({
     ptyPid,
     windowIds,
     waking: isWaking,
+    startError: (paneId) => paneStartErrors.get(paneId),
     processOf: (paneId) => {
       const entry = services.processes?.forPane(paneId)
       return entry ? processStatusOf(entry) : undefined

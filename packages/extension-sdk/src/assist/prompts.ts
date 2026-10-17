@@ -61,7 +61,7 @@ export function parseCorrection(raw: string, original: string): string | null {
   if (!body || body === core) return null
   if (body.length > core.length * 1.5 + 10 || body.length < core.length * 0.5) return null
   const lead = /^\s*/.exec(original)?.[0] ?? ''
-  const trail = /\s*$/.exec(original)?.[0] ?? ''
+  const trail = original.slice(original.trimEnd().length)
   return `${lead}${body}${trail}`
 }
 
@@ -237,7 +237,7 @@ export function cleanTerminal(raw: string, line: string): string {
   const body = raw.trim().startsWith('```') ? stripFences(raw) : raw.replace(/^\s*\n/, '')
   const full = unquote((body.split(/\r?\n/)[0] ?? '').trim()).replace(/^\$\s+/, '')
   if (!full.startsWith(line.trimStart())) return ''
-  const rest = full.slice(line.trimStart().length).replace(/\s+$/, '')
+  const rest = full.slice(line.trimStart().length).trimEnd()
   return rest.trim() ? rest.slice(0, TERMINAL_COMPLETION_MAX) : ''
 }
 

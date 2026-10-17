@@ -111,6 +111,26 @@ describe('the Screens panel server', () => {
     expect(await rawUpgrade(port, `${other}stream`)).not.toContain('101')
   })
 
+  it('answers a failed API call without the stack of what the handler threw', async () => {
+    const stack = 'Error: boom\n    at handler (/home/dev/extension/main.js:12:7)'
+    const call = () =>
+      get(
+        server.port,
+        `${base}api`,
+        { 'content-type': 'application/json' },
+        'POST',
+        JSON.stringify({ command: 'state' }),
+      )
+    for (const thrown of [stack, { toString: () => stack }]) {
+      handle.mockRejectedValueOnce(thrown)
+      const reply = await call()
+      expect(reply.status).toBe(400)
+      expect(reply.body).not.toContain('main.js')
+    }
+    handle.mockRejectedValueOnce(new Error('boom'))
+    expect(JSON.parse((await call()).body)).toEqual({ ok: false, error: 'boom' })
+  })
+
   it('forgets the panels of a closed workspace', async () => {
     server.forget('A')
     expect((await get(server.port, base)).status).toBe(404)
