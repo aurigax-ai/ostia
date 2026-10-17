@@ -121,7 +121,7 @@ describe('TerminalLinkHint', () => {
     const path = '/Users/j/.cache/meeting-transcribe/results/會議 記錄/speakers.html'
     show({
       ...box,
-      kind: 'html-page',
+      kind: 'preview-page',
       url: path,
       offers: ['open', 'open-system'],
       plainClick: true,
@@ -133,9 +133,16 @@ describe('TerminalLinkHint', () => {
     ])
     cleanup()
 
-    const pdf = '/Users/j/Downloads/a b.pdf'
-    show({ ...box, kind: 'default-app', url: pdf, offers: ['open'], plainClick: true })
+    const pdf = '/Users/j/Documents/a b.pdf'
+    show({ ...box, kind: 'open-default', url: pdf, offers: ['open'], plainClick: true })
     expect(await screen.findByText(pdf)).toBeInTheDocument()
     expect(choices()).toEqual([`${click} Open with its default app`])
+  })
+
+  it('lists one system browser row for a page outside the artifacts folder', async () => {
+    const path = '/Users/j/.cache/r/speakers.html'
+    show({ ...box, kind: 'browse-page', url: path, offers: ['open'], plainClick: true })
+    expect(await screen.findByText(path)).toBeInTheDocument()
+    expect(choices()).toEqual([`${click} Open in the system browser`])
   })
 })

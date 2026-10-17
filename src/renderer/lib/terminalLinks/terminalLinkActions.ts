@@ -13,6 +13,7 @@ import type { FileUrlTarget } from '@shared/files/fileUrls'
 import type { OpenPathResult } from '@shared/files/filesApi'
 import type { PathLinkTarget } from './linkModifier'
 import type { FileLinkAction, FileLinkTarget } from './terminalFileLinks'
+import type { FileUrlAction } from './terminalFileUrls'
 
 export interface LinkPane {
   workspaceId: string
@@ -92,7 +93,7 @@ export function activateFileLink(
   }
 }
 
-function previewsInOstia(pane: LinkPane, target: FileUrlTarget): boolean {
+export function fileUrlPreviews(pane: LinkPane, target: FileUrlTarget): boolean {
   const artifacts = useArtifactsStore.getState().byWorkspace[pane.workspaceId]
   return target.opener === 'html-page' && isInside(artifacts?.dir, target.path)
 }
@@ -102,8 +103,9 @@ export function activateFileUrl(
   how: PathLinkTarget,
   url: string,
   target: FileUrlTarget,
+  action: FileUrlAction,
 ): void {
-  if (how === 'open' && previewsInOstia(pane, target)) {
+  if (how === 'open' && action === 'preview-page') {
     openFileAt(target.path)
     return
   }

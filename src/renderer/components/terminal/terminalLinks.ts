@@ -24,6 +24,7 @@ import {
   type LinkPane,
   activateFileLink,
   activateFileUrl,
+  fileUrlPreviews,
   linkRevealable,
   linksConfinedOnly,
 } from '@/lib/terminalLinks/terminalLinkActions'
@@ -122,10 +123,11 @@ export function createTerminalLinks({
   const fileUrls = createFileUrlLinks({
     remote: () => session.remote,
     check: (url) => window.ostia.terminalLinks.fileUrl(paneId, url),
+    previews: (target) => fileUrlPreviews(linkPane(), target),
     target: pathTarget,
-    activate: (how, url, target) => activateFileUrl(linkPane(), how, url, target),
-    hover: (range, target) =>
-      showLinkHint(target.opener, range, target.path, fileUrlOffers(target.opener)),
+    activate: (how, url, target, action) => activateFileUrl(linkPane(), how, url, target, action),
+    hover: (range, target, action) =>
+      showLinkHint(action, range, target.path, fileUrlOffers(action)),
     leave: hideLinkHint,
   })
   const webLinks: WebLinkHandler = withFileUrls(

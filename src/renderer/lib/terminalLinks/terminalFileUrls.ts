@@ -1,10 +1,5 @@
 import type { OstiaTerminal as Terminal, WebLinkHandler } from '@/lib/terminal/ostiaTerminal'
-import {
-  type FileUrlOpener,
-  type FileUrlTarget,
-  findFileUrls,
-  opensFileUrl,
-} from '@shared/files/fileUrls'
+import { type FileUrlTarget, findFileUrls, opensFileUrl } from '@shared/files/fileUrls'
 import type { IBufferRange, ILink, ILinkProvider } from '@xterm/xterm'
 import { LRUCache } from 'lru-cache'
 import type { PathLinkTarget } from './linkModifier'
@@ -13,16 +8,24 @@ import { matchesOnRow, provideFound, readLogicalLine } from './terminalFileLinks
 const CHECK_TTL_MS = 5_000
 const CHECK_CACHE_MAX = 500
 
-export function fileUrlOffers(opener: FileUrlOpener): PathLinkTarget[] {
-  return opener === 'html-page' ? ['open', 'open-system'] : ['open']
+export type FileUrlAction = 'preview-page' | 'browse-page' | 'open-default'
+
+export function fileUrlAction(target: FileUrlTarget, previews: boolean): FileUrlAction {
+  if (target.opener === 'default-app') return 'open-default'
+  return previews ? 'preview-page' : 'browse-page'
+}
+
+export function fileUrlOffers(action: FileUrlAction): PathLinkTarget[] {
+  return action === 'preview-page' ? ['open', 'open-system'] : ['open']
 }
 
 export interface FileUrlDeps {
   remote: () => boolean
   check: (url: string) => Promise<FileUrlTarget | null>
+  previews: (target: FileUrlTarget) => boolean
   target: (event: MouseEvent) => PathLinkTarget | null
-  activate: (how: PathLinkTarget, url: string, target: FileUrlTarget) => void
-  hover: (range: IBufferRange, target: FileUrlTarget) => void
+  activate: (how: PathLinkTarget, url: string, target: FileUrlTarget, action: FileUrlAction) => void
+  hover: (range: IBufferRange, target: FileUrlTarget, action: FileUrlAction) => void
   leave: () => void
 }
 
@@ -51,14 +54,18 @@ export function createFileUrlLinks(deps: FileUrlDeps): FileUrlLinks {
     const how = deps.target(event)
     if (!how) return
     void check(url).then((target) => {
-      if (target && fileUrlOffers(target.opener).includes(how)) deps.activate(how, url, target)
+      if (!target) return
+      const action = fileUrlAction(target, deps.previews(target))
+      if (fileUrlOffers(action).includes(how)) deps.activate(how, url, target, action)
     })
   }
   const hover = (range: IBufferRange, url: string): void => {
     hovered = url
     if (deps.remote() || !opensFileUrl(url)) return
     void check(url).then((target) => {
-      if (target && hovered === url) deps.hover(range, target)
+      if (target && hovered === url) {
+        deps.hover(range, target, fileUrlAction(target, deps.previews(target)))
+      }
     })
   }
   const leave = (): void => {

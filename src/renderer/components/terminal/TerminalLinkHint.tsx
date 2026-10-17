@@ -7,22 +7,23 @@ import {
   webLinkTarget,
 } from '@/lib/terminalLinks/linkModifier'
 import type { FileLinkAction } from '@/lib/terminalLinks/terminalFileLinks'
+import type { FileUrlAction } from '@/lib/terminalLinks/terminalFileUrls'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { Dict } from '@shared/app/dict'
 import { linkKind } from '@shared/common/externalLinks'
-import type { FileUrlOpener } from '@shared/files/fileUrls'
 import { chordText } from '@shared/keyboard/chordSpec'
 
-type PathHintKind = FileLinkAction | FileUrlOpener
+type PathHintKind = FileLinkAction | FileUrlAction
 
 const FILE_ACTION_TEXT: Record<PathHintKind, (d: Dict) => string> = {
   'open-file': (d) => d.terminalLinks.openFile,
   'admit-file': (d) => d.terminalLinks.openFile,
   'reveal-folder': (d) => d.terminalLinks.revealFolder,
   'open-folder': (d) => d.terminalLinks.openFolder,
-  'html-page': (d) => d.terminalLinks.openFile,
-  'default-app': (d) => d.terminalLinks.openDefault,
+  'preview-page': (d) => d.terminalLinks.openFile,
+  'browse-page': (d) => d.terminalLinks.openSystem,
+  'open-default': (d) => d.terminalLinks.openDefault,
 }
 
 const FOLDER_ACTIONS: ReadonlySet<PathHintKind> = new Set(['reveal-folder', 'open-folder'])
@@ -38,7 +39,7 @@ function pathTargetText(d: Dict, action: PathHintKind, how: PathLinkTarget): str
   if (how === 'open') return FILE_ACTION_TEXT[action](d)
   if (how === 'show') return d.terminalLinks.showInFiles
   if (how === 'show-system') return d.terminalLinks.showInFileManager
-  if (action === 'html-page') return d.terminalLinks.openSystem
+  if (action === 'preview-page') return d.terminalLinks.openSystem
   return FOLDER_ACTIONS.has(action) ? d.terminalLinks.openFolder : d.terminalLinks.openDefault
 }
 

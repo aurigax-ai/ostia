@@ -6,6 +6,7 @@ import { pathLinkTarget, terminalLinkTarget } from './linkModifier'
 import {
   type FileUrlDeps,
   createFileUrlLinks,
+  fileUrlAction,
   fileUrlOffers,
   withFileUrls,
 } from './terminalFileUrls'
@@ -48,6 +49,7 @@ function fileUrls(more: Partial<FileUrlDeps> = {}) {
   const deps = {
     remote: () => false,
     check: vi.fn(allowed),
+    previews: () => false,
     target: macTarget,
     activate: vi.fn(),
     hover: vi.fn(),
@@ -87,10 +89,12 @@ describe('createFileUrlLinks provider', () => {
     expect(link.range).toEqual({ start: { x: 8, y: 1 }, end: { x: 7 + PAGE.length, y: 1 } })
     link.activate(human(), link.text)
     await settle()
-    expect(deps.activate).toHaveBeenCalledWith('open', PAGE, {
-      path: PAGE_PATH,
-      opener: 'html-page',
-    })
+    expect(deps.activate).toHaveBeenCalledWith(
+      'open',
+      PAGE,
+      { path: PAGE_PATH, opener: 'html-page' },
+      'browse-page',
+    )
   })
 
   it('opens a pdf and a png through main on Cmd+click', async () => {
@@ -104,14 +108,18 @@ describe('createFileUrlLinks provider', () => {
     expect(found?.map((l) => l.text)).toEqual([pdf, png])
     for (const link of found ?? []) link.activate(human(), link.text)
     await settle()
-    expect(deps.activate).toHaveBeenCalledWith('open', pdf, {
-      path: '/Users/j/a b.pdf',
-      opener: 'default-app',
-    })
-    expect(deps.activate).toHaveBeenCalledWith('open', png, {
-      path: '/Users/j/shot.png',
-      opener: 'default-app',
-    })
+    expect(deps.activate).toHaveBeenCalledWith(
+      'open',
+      pdf,
+      { path: '/Users/j/a b.pdf', opener: 'default-app' },
+      'open-default',
+    )
+    expect(deps.activate).toHaveBeenCalledWith(
+      'open',
+      png,
+      { path: '/Users/j/shot.png', opener: 'default-app' },
+      'open-default',
+    )
   })
 
   it('leaves commands, apps, executables, folders and files outside home unlinked', async () => {
@@ -134,10 +142,12 @@ describe('createFileUrlLinks provider', () => {
     for (const link of found ?? []) link.activate(human(), link.text)
     await settle()
     expect(deps.activate).toHaveBeenCalledTimes(1)
-    expect(deps.activate).toHaveBeenCalledWith('open', local, {
-      path: '/Users/j/listing.pdf',
-      opener: 'default-app',
-    })
+    expect(deps.activate).toHaveBeenCalledWith(
+      'open',
+      local,
+      { path: '/Users/j/listing.pdf', opener: 'default-app' },
+      'open-default',
+    )
   })
 
   it('does nothing without the modifier, for a scripted click or in a remote shell', async () => {
@@ -152,19 +162,37 @@ describe('createFileUrlLinks provider', () => {
     expect(remote.deps.check).not.toHaveBeenCalled()
   })
 
-  it('opens a page with the system browser on Cmd+Shift+click, and other files only with Cmd', async () => {
+  it('opens a previewable page with the system browser on Cmd+Shift+click, and other files only with Cmd', async () => {
     const pdf = 'file:///Users/j/a.pdf'
-    const { found, deps } = await linksFor(`${PAGE} ${pdf}`)
+    const previews = (target: FileUrlTarget) => target.opener === 'html-page'
+    const { found, deps } = await linksFor(`${PAGE} ${pdf}`, { previews })
     const [page, doc] = found ?? []
     page.activate(human({ shiftKey: true }), page.text)
     doc.activate(human({ shiftKey: true }), doc.text)
     doc.activate(human({ altKey: true }), doc.text)
     await settle()
     expect(deps.activate).toHaveBeenCalledTimes(1)
-    expect(deps.activate).toHaveBeenCalledWith('open-system', PAGE, {
-      path: PAGE_PATH,
-      opener: 'html-page',
-    })
+    expect(deps.activate).toHaveBeenCalledWith(
+      'open-system',
+      PAGE,
+      { path: PAGE_PATH, opener: 'html-page' },
+      'preview-page',
+    )
+  })
+
+  it('offers a page outside the artifacts folder only with Cmd, since both clicks would open the browser', async () => {
+    const { found, deps } = await linksFor(PAGE)
+    const [page] = found ?? []
+    page.activate(human({ shiftKey: true }), page.text)
+    await settle()
+    expect(deps.activate).not.toHaveBeenCalled()
+    page.hover?.(new MouseEvent('mousemove'), page.text)
+    await settle()
+    expect(deps.hover).toHaveBeenCalledWith(
+      page.range,
+      { path: PAGE_PATH, opener: 'html-page' },
+      'browse-page',
+    )
   })
 
   it('hovers with the decoded real path and stops once the pointer left', async () => {
@@ -172,7 +200,11 @@ describe('createFileUrlLinks provider', () => {
     const [link] = found ?? []
     link.hover?.(new MouseEvent('mousemove'), link.text)
     await settle()
-    expect(deps.hover).toHaveBeenCalledWith(link.range, { path: PAGE_PATH, opener: 'html-page' })
+    expect(deps.hover).toHaveBeenCalledWith(
+      link.range,
+      { path: PAGE_PATH, opener: 'html-page' },
+      'browse-page',
+    )
     link.leave?.(new MouseEvent('mousemove'), link.text)
     expect(deps.leave).toHaveBeenCalledTimes(1)
   })
@@ -196,13 +228,19 @@ describe('withFileUrls', () => {
     const handler = withFileUrls(web, links)
     handler.hover(new MouseEvent('mousemove'), PAGE, range)
     await settle()
-    expect(deps.hover).toHaveBeenCalledWith(range, { path: PAGE_PATH, opener: 'html-page' })
+    expect(deps.hover).toHaveBeenCalledWith(
+      range,
+      { path: PAGE_PATH, opener: 'html-page' },
+      'browse-page',
+    )
     handler.activate(human(), PAGE, range)
     await settle()
-    expect(deps.activate).toHaveBeenCalledWith('open', PAGE, {
-      path: PAGE_PATH,
-      opener: 'html-page',
-    })
+    expect(deps.activate).toHaveBeenCalledWith(
+      'open',
+      PAGE,
+      { path: PAGE_PATH, opener: 'html-page' },
+      'browse-page',
+    )
     handler.leave(new MouseEvent('mousemove'), PAGE, range)
     expect(deps.leave).toHaveBeenCalledTimes(1)
     expect(web.activate).not.toHaveBeenCalled()
@@ -246,9 +284,15 @@ describe('withFileUrls', () => {
 })
 
 describe('file url offers', () => {
-  it('offers the built-in page and the system browser for html, and only Cmd for other files', () => {
-    expect(fileUrlOffers('html-page')).toEqual(['open', 'open-system'])
-    expect(fileUrlOffers('default-app')).toEqual(['open'])
+  it('previews html only where Ostia can show it, and otherwise browses it like any default-app file', () => {
+    const page = { path: PAGE_PATH, opener: 'html-page' as const }
+    const pdf = { path: '/Users/j/a.pdf', opener: 'default-app' as const }
+    expect(fileUrlAction(page, true)).toBe('preview-page')
+    expect(fileUrlAction(page, false)).toBe('browse-page')
+    expect(fileUrlAction(pdf, true)).toBe('open-default')
+    expect(fileUrlOffers('preview-page')).toEqual(['open', 'open-system'])
+    expect(fileUrlOffers('browse-page')).toEqual(['open'])
+    expect(fileUrlOffers('open-default')).toEqual(['open'])
   })
 
   it('keeps file urls out of the web and app link targets', () => {
