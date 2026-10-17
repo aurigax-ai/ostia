@@ -54,6 +54,7 @@ function setup(workspace: { sandboxed?: boolean; scratch?: boolean } = {}) {
   const links = new TerminalPathLinks({
     grants,
     home,
+    hostname: 'Justins-Mac.local',
     output: async (paneId) => printed[paneId] ?? null,
     pane: (paneId) =>
       paneId === 'p1' || paneId === 'p2' ? { windowId: '7', workspaceId: 'w1' } : undefined,
@@ -551,6 +552,39 @@ describe('TerminalPathLinks file URLs', () => {
     ]) {
       expect(await links.fileUrl(WINDOW, 'p1', raw)).toBeNull()
       expect(await links.openFileUrl(WINDOW, 'p1', raw)).toEqual({ ok: false, error: 'not-found' })
+    }
+    expect(openPath).not.toHaveBeenCalled()
+  })
+
+  it('accepts the local hostname that ls, rg, fd and eza put in their hyperlinks', async () => {
+    const { links, openPath } = setup()
+    const f = homeFiles()
+    for (const host of ['Justins-Mac', 'justins-mac.local', 'JUSTINS-MAC.LOCAL']) {
+      expect(await links.fileUrl(WINDOW, 'p1', `file://${host}${f.pdf}`)).toEqual({
+        path: f.pdf,
+        opener: 'default-app',
+      })
+    }
+    expect(await links.openFileUrl(WINDOW, 'p1', `file://Justins-Mac${f.png}`)).toEqual({
+      ok: true,
+    })
+    expect(openPath).toHaveBeenCalledWith(f.png)
+  })
+
+  it('refuses a hostname that only looks local', async () => {
+    const { links, openPath } = setup()
+    const f = homeFiles()
+    for (const host of [
+      'localhost.evil',
+      'justins-mac.evil',
+      'other-mac',
+      'justins-mac.local.evil',
+    ]) {
+      expect(await links.fileUrl(WINDOW, 'p1', `file://${host}${f.pdf}`)).toBeNull()
+      expect(await links.openFileUrl(WINDOW, 'p1', `file://${host}${f.pdf}`)).toEqual({
+        ok: false,
+        error: 'not-found',
+      })
     }
     expect(openPath).not.toHaveBeenCalled()
   })

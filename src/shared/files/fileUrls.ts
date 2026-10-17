@@ -43,11 +43,20 @@ function decoded(pathname: string): string | null {
   }
 }
 
-export function fileUrlPath(url: string): string | null {
+function bareHost(name: string): string {
+  return name.toLowerCase().replace(/\.local$/, '')
+}
+
+export function isLocalHost(host: string, hostname: string): boolean {
+  if (host === '' || host === 'localhost') return true
+  return hostname !== '' && bareHost(host) === bareHost(hostname)
+}
+
+const anyHost = (): boolean => true
+
+export function fileUrlPath(url: string, acceptsHost: (host: string) => boolean): string | null {
   const parsed = parse(url)
-  if (parsed?.protocol !== 'file:' || (parsed.host !== '' && parsed.host !== 'localhost')) {
-    return null
-  }
+  if (parsed?.protocol !== 'file:' || !acceptsHost(parsed.host)) return null
   const path = decoded(parsed.pathname)
   if (!path?.startsWith('/') || path.includes('\0')) return null
   return resolveLinkPath(path, '/')
@@ -63,7 +72,7 @@ export function fileUrlOpener(path: string): FileUrlOpener | null {
 }
 
 export function opensFileUrl(url: string): boolean {
-  const path = fileUrlPath(url)
+  const path = fileUrlPath(url, anyHost)
   return path !== null && fileUrlOpener(path) !== null
 }
 

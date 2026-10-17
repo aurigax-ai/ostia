@@ -1,4 +1,4 @@
-import { homedir } from 'node:os'
+import { homedir, hostname } from 'node:os'
 import { join } from 'node:path'
 import { type BrowserWindow, app, ipcMain, shell } from 'electron'
 import type { FsEntry, FsKind } from '../../shared/files/filesApi'
@@ -53,6 +53,7 @@ export function registerFsIpc({
     new TerminalPathLinks({
       grants: openFileGrants,
       home: homedir(),
+      hostname: hostname(),
       output: (paneId) => paneOutput(paneId),
       pane: (paneId) => getByPaneId(paneId),
       isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),

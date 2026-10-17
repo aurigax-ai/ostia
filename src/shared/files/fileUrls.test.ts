@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { fileUrlOpener, fileUrlPath, findFileUrls, opensFileUrl } from './fileUrls'
+import {
+  fileUrlOpener,
+  findFileUrls,
+  isLocalHost,
+  opensFileUrl,
+  fileUrlPath as parsePath,
+} from './fileUrls'
+
+const fileUrlPath = (url: string) => parsePath(url, (host) => isLocalHost(host, 'Mac'))
 
 describe('fileUrlPath', () => {
   it('decodes percent-encoded spaces and CJK into an absolute path', () => {
@@ -9,11 +17,24 @@ describe('fileUrlPath', () => {
     expect(fileUrlPath('file:///Users/j/會議記錄.html')).toBe('/Users/j/會議記錄.html')
   })
 
-  it('accepts an empty host or localhost and refuses any other host', () => {
+  it('accepts an empty host, localhost or the local hostname and refuses any other host', () => {
     expect(fileUrlPath('file://localhost/Users/j/a.pdf')).toBe('/Users/j/a.pdf')
     expect(fileUrlPath('file:///Users/j/a.pdf')).toBe('/Users/j/a.pdf')
+    expect(fileUrlPath('file://Mac/Users/j/a.pdf')).toBe('/Users/j/a.pdf')
+    expect(fileUrlPath('file://mac.local/Users/j/a.pdf')).toBe('/Users/j/a.pdf')
     expect(fileUrlPath('file://server/Users/j/a.pdf')).toBeNull()
+    expect(fileUrlPath('file://localhost.evil/Users/j/a.pdf')).toBeNull()
+    expect(fileUrlPath('file://mac.evil/Users/j/a.pdf')).toBeNull()
     expect(fileUrlPath('file://192.168.1.2/a.pdf')).toBeNull()
+  })
+
+  it('matches the hostname in any case, with or without .local, and never an empty hostname', () => {
+    expect(isLocalHost('justins-mbp', 'Justins-MBP.local')).toBe(true)
+    expect(isLocalHost('justins-mbp.local', 'Justins-MBP')).toBe(true)
+    expect(isLocalHost('', 'Mac')).toBe(true)
+    expect(isLocalHost('other', 'Mac')).toBe(false)
+    expect(isLocalHost('mac', '')).toBe(false)
+    expect(isLocalHost('local', '.local')).toBe(false)
   })
 
   it('resolves .. including encoded slashes, and drops the query and fragment', () => {
@@ -96,12 +117,20 @@ describe('findFileUrls', () => {
     expect(
       findFileUrls('file:///Users/j/run.command file:///Users/j/Tool.app file:///Users/j/docs/'),
     ).toEqual([])
-    expect(findFileUrls('file://server/Users/j/a.pdf https://a.b/a.pdf')).toEqual([])
+    expect(findFileUrls('https://a.b/a.pdf')).toEqual([])
   })
 
   it('tells which urls are worth asking about', () => {
     expect(opensFileUrl('file:///Users/j/a.pdf')).toBe(true)
     expect(opensFileUrl('file:///Users/j/a.sh')).toBe(false)
     expect(opensFileUrl('https://a.b/a.pdf')).toBe(false)
+  })
+
+  it('leaves any host to main, which knows the local hostname', () => {
+    expect(opensFileUrl('file://Mac/Users/j/a.pdf')).toBe(true)
+    expect(opensFileUrl('file://server/Users/j/a.pdf')).toBe(true)
+    expect(findFileUrls('ls: file://Mac/Users/j/a.pdf').map((m) => m.url)).toEqual([
+      'file://Mac/Users/j/a.pdf',
+    ])
   })
 })

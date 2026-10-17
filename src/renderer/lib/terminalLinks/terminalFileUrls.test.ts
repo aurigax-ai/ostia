@@ -121,6 +121,25 @@ describe('createFileUrlLinks provider', () => {
     expect(check.mock.calls).toEqual([['file:///tmp/outside.pdf']])
   })
 
+  it('asks main about a hostname url, linking the local hostname and not another machine', async () => {
+    const local = 'file://Mac/Users/j/listing.pdf'
+    const other = 'file://other-mac/Users/j/listing.pdf'
+    const check = vi.fn(
+      async (url: string): Promise<FileUrlTarget | null> =>
+        url === local ? { path: '/Users/j/listing.pdf', opener: 'default-app' } : null,
+    )
+    const { found, deps } = await linksFor(`${local} ${other}`, { check })
+    expect(check.mock.calls).toEqual([[local], [other]])
+    expect(found?.map((l) => l.text)).toEqual([local])
+    for (const link of found ?? []) link.activate(human(), link.text)
+    await settle()
+    expect(deps.activate).toHaveBeenCalledTimes(1)
+    expect(deps.activate).toHaveBeenCalledWith('open', local, {
+      path: '/Users/j/listing.pdf',
+      opener: 'default-app',
+    })
+  })
+
   it('does nothing without the modifier, for a scripted click or in a remote shell', async () => {
     const { found, deps } = await linksFor(PAGE)
     const [link] = found ?? []

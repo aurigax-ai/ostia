@@ -4,7 +4,12 @@ import { join } from 'node:path'
 import { ipcMain } from 'electron'
 import { LRUCache } from 'lru-cache'
 import { findFileLinks, resolveLinkPath } from '../../shared/files/fileLinks'
-import { type FileUrlTarget, fileUrlOpener, fileUrlPath } from '../../shared/files/fileUrls'
+import {
+  type FileUrlTarget,
+  fileUrlOpener,
+  fileUrlPath,
+  isLocalHost,
+} from '../../shared/files/fileUrls'
 import type { FsKind, OpenPathResult } from '../../shared/files/filesApi'
 import type { OpenFileVerdict } from '../../shared/files/openFiles'
 import type { OpenFileGrants } from '../files/openFileGrants'
@@ -35,6 +40,7 @@ export interface PaneOutput {
 export interface TerminalPathLinksDeps {
   output: (paneId: string) => Promise<PaneOutput | null>
   home: string
+  hostname: string
   grants: Pick<OpenFileGrants, 'admit'>
   pane: (paneId: string) => { windowId: string; workspaceId: string } | undefined
   isSandboxed: (workspaceId: string) => boolean
@@ -139,7 +145,7 @@ export class TerminalPathLinks {
     rated: boolean,
   ): Promise<LocatedFileUrl | null> {
     const url = text(raw, URL_MAX)
-    const path = url ? fileUrlPath(url) : null
+    const path = url ? fileUrlPath(url, (host) => isLocalHost(host, this.deps.hostname)) : null
     if (!path || !(await this.localPane(sender, paneId))) return null
     if (rated && !this.withinRate(sender.id)) return null
     const found = await locate(path)
