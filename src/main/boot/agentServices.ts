@@ -52,6 +52,7 @@ export function createAgentServices(ctx: WorkspaceContext) {
     emit: (payload) => emitPaneEvent('pane.lifecycle', payload),
   })
   const paneWaking = new PaneWaking()
+  const paneStartErrors = new Map<string, string>()
   const isWaking = (paneId: string): boolean => paneWaking.has(paneId)
   const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
     services.broker?.reaches(senderWindowId, sourcePaneId, targetPaneId) ?? false
@@ -68,6 +69,7 @@ export function createAgentServices(ctx: WorkspaceContext) {
     paneAttentionEvents,
     paneLifecycleEvents,
     paneWaking,
+    paneStartErrors,
     isWaking,
     reachesPane,
   }

@@ -35,6 +35,7 @@ interface PtyIpcDeps {
   agentWork: ReportedAgentWork
   agentRunning: AgentRunningPanes
   paneWaking: PaneWaking
+  paneStartErrors: Map<string, string>
   hibernatePty: PtyStop['hibernatePty']
   killPty: PtyStop['killPty']
   releasePtyFlow: PtyIo['releasePtyFlow']
@@ -58,6 +59,7 @@ function registerPtyLifecycleIpc({
   hibernatePty,
   killPty,
   windowOfPane,
+  paneStartErrors,
 }: PtyIpcDeps): void {
   const attaching = new Map<string, Promise<PtyAttachResult>>()
   ipcMain.handle('pty:attach', async (e, paneId: string, opts: PtySpawnOptions) => {
@@ -66,7 +68,14 @@ function registerPtyLifecycleIpc({
     const pending = attachPty(e, paneId, opts)
     attaching.set(paneId, pending)
     try {
-      return await pending
+      const result = await pending
+      if (!result.created && !opts.attachOnly && !ptys.has(paneId)) {
+        paneStartErrors.set(paneId, 'the shell did not start')
+      } else paneStartErrors.delete(paneId)
+      return result
+    } catch (error) {
+      paneStartErrors.set(paneId, error instanceof Error ? error.message : String(error))
+      throw error
     } finally {
       if (attaching.get(paneId) === pending) attaching.delete(paneId)
     }
