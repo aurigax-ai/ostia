@@ -12,7 +12,7 @@ interface PendingPane {
   pane: PaneNode
 }
 
-function awaitsResume(pane: PaneNode): boolean {
+export function awaitsResume(pane: PaneNode): boolean {
   return Boolean(pane.resumePending && pane.resume && !pane.hibernated)
 }
 

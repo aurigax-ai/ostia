@@ -64,7 +64,7 @@ describe('startKeptReattach', () => {
     await settle()
     expect(behind).toHaveBeenCalledTimes(1)
     expect(behind).toHaveBeenCalledWith({ keepSize: true })
-    expect(shown).not.toHaveBeenCalled()
+    expect(shown).toHaveBeenCalledWith({})
     const other = vi.fn()
     registerOffscreenStarter('kept-other-workspace', other)
     expect(other).toHaveBeenCalledTimes(1)
@@ -83,13 +83,51 @@ describe('startKeptReattach', () => {
     expect(elsewhere).not.toHaveBeenCalled()
   })
 
-  it('does nothing when the main process cannot say which shells wait', async () => {
+  it('starts restored terminals of a workspace that is not shown, without keepSize', async () => {
+    useLayoutStore.setState({
+      byWorkspace: {
+        w1: { root: terminal('shown'), activePaneId: 'shown', zoomedPaneId: null },
+        w2: {
+          root: {
+            type: 'tabs',
+            id: 'tabs-2',
+            activeId: 'plain',
+            children: [
+              terminal('plain'),
+              terminal('asleep', { hibernated: true }),
+              terminal('agent', {
+                resume: { agent: 'claude', id: 's1' },
+                resumePending: true,
+              }),
+            ],
+          },
+          activePaneId: 'plain',
+          zoomedPaneId: null,
+        },
+      },
+    })
+    waiting([])
+    const plain = vi.fn()
+    const asleep = vi.fn()
+    const agent = vi.fn()
+    registerOffscreenStarter('plain', plain)
+    registerOffscreenStarter('asleep', asleep)
+    registerOffscreenStarter('agent', agent)
+    startKeptReattach()
+    await settle()
+    expect(plain).toHaveBeenCalledTimes(1)
+    expect(plain).toHaveBeenCalledWith({})
+    expect(asleep).not.toHaveBeenCalled()
+    expect(agent).not.toHaveBeenCalled()
+  })
+
+  it('still starts terminals when the main process cannot say which shells wait', async () => {
     seed()
     vi.mocked(window.ostia.pty.keptWaiting).mockRejectedValueOnce(new Error('gone'))
     const behind = vi.fn()
     registerOffscreenStarter('kept-behind', behind)
     startKeptReattach()
     await settle()
-    expect(behind).not.toHaveBeenCalled()
+    expect(behind).toHaveBeenCalledWith({})
   })
 })
