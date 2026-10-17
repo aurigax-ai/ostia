@@ -75,7 +75,7 @@ export const settingsZhHant: typeof settingsEn = {
       '當你指向元素、擷取區域或傳送選取內容到執行 Claude Code 或 Codex 的窗格時，貼上後按下 Enter，讓代理程式立即讀取。絕不在 shell 提示字元按下。只有你能變更此設定。',
     bell: '程式響鈴時',
     bellAttention: '標示需要注意',
-    bellDesc: '標示面板需要注意、同時播放系統音效，或忽略響鈴。',
+    bellDesc: '標示面板需要注意、同時播放系統音效，或兩者都不做。下方的閃爍另外設定。',
     bellEaseInOut: '先慢後快再慢',
     bellEaseOut: '先快後慢',
     bellFlash: '響鈴時閃爍面板',

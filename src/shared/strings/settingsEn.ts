@@ -75,7 +75,8 @@ export const settingsEn = {
       'When you point at an element, capture a region or send a selection to a pane running Claude Code or Codex, press Enter after pasting so the agent reads it at once. Never at a shell prompt. Only you can change this.',
     bell: 'When a program rings the bell',
     bellAttention: 'Mark for attention',
-    bellDesc: 'Mark the pane for attention, also play the system sound, or ignore the bell.',
+    bellDesc:
+      'Mark the pane for attention, also play the system sound, or do neither. The flash below is set separately.',
     bellEaseInOut: 'Ease in and out',
     bellEaseOut: 'Ease out',
     bellFlash: 'Flash the pane on bell',

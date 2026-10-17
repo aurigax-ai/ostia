@@ -247,7 +247,8 @@ export const notificationsSchema = {
       enum: [...BELL_MODES],
       description:
         'What a terminal bell (BEL) does: "attention" marks the pane when you are not ' +
-        'viewing it, "sound" also plays the system sound, "off" ignores it. Default: attention.',
+        'viewing it, "sound" also plays the system sound, "off" neither marks nor plays a sound ' +
+        '(visualBell is separate). Default: attention.',
     },
     visualBell: {
       type: 'boolean',
