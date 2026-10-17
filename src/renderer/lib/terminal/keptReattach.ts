@@ -1,9 +1,9 @@
 import { allPanes } from '@/lib/layout/tree'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { startOffscreen } from './offscreenStart'
+import { holdOffscreenStarts, startOffscreen } from './offscreenStart'
 
 export function startKeptReattach(): void {
-  void window.ostia.pty
+  const listed = window.ostia.pty
     .keptWaiting()
     .then((paneIds) => {
       const waiting = new Set(paneIds)
@@ -16,4 +16,5 @@ export function startKeptReattach(): void {
       }
     })
     .catch(() => undefined)
+  holdOffscreenStarts(listed)
 }
