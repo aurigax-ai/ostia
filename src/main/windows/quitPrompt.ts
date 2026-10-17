@@ -6,19 +6,48 @@ type Text = Dict['native']['quit']
 
 export const MAX_GROUPS = 3
 export const MAX_ITEMS_PER_GROUP = 5
-export const MAX_NAME_LENGTH = 40
+export const MAX_NAME_COLUMNS = 40
+
+const WIDE_RANGES: readonly (readonly [number, number])[] = [
+  [0x1100, 0x115f],
+  [0x2e80, 0xa4cf],
+  [0xac00, 0xd7a3],
+  [0xf900, 0xfaff],
+  [0xfe30, 0xfe6f],
+  [0xff00, 0xff60],
+  [0xffe0, 0xffe6],
+  [0x1f300, 0x1faff],
+  [0x20000, 0x3fffd],
+]
+
+const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+
+function columns(grapheme: string): number {
+  const point = grapheme.codePointAt(0) ?? 0
+  return WIDE_RANGES.some(([from, to]) => point >= from && point <= to) ? 2 : 1
+}
 
 function clip(name: string): string {
-  return name.length > MAX_NAME_LENGTH ? `${name.slice(0, MAX_NAME_LENGTH - 1)}…` : name
+  const flat = name.replace(/\s+/g, ' ').trim()
+  const graphemes = Array.from(segmenter.segment(flat), (part) => part.segment)
+  if (graphemes.reduce((sum, g) => sum + columns(g), 0) <= MAX_NAME_COLUMNS) return flat
+  let used = 1
+  let kept = ''
+  for (const g of graphemes) {
+    used += columns(g)
+    if (used > MAX_NAME_COLUMNS) break
+    kept += g
+  }
+  return `${kept}…`
 }
 
 function capped(lines: string[], max: number, more: (hidden: number) => string): string[] {
-  return lines.length > max ? [...lines.slice(0, max), more(lines.length - max)] : lines
+  return lines.length > max + 1 ? [...lines.slice(0, max), more(lines.length - max)] : lines
 }
 
 function groupLines(text: Text, group: RunningGroup): string[] {
   const named = (template: string, name: string): string =>
-    `  ${fmt(template, { name: clip(name || text.unknown) })}`
+    `  ${fmt(template, { name: clip(name) || text.unknown })}`
   const items = [
     ...group.commands.map((c) => named(text.command, c)),
     ...(group.agents ?? []).map((a) => named(text.agent, a)),
@@ -35,7 +64,11 @@ function groupLines(text: Text, group: RunningGroup): string[] {
 export function cappedLostLines(text: Text, groups: readonly RunningGroup[]): string[] {
   const shown = groups.slice(0, MAX_GROUPS).flatMap((g) => groupLines(text, g))
   const hidden = groups.length - MAX_GROUPS
-  return hidden > 0 ? [...shown, fmt(text.moreWorkspaces, { count: hidden })] : shown
+  if (hidden <= 0) return shown
+  return [
+    ...shown,
+    hidden === 1 ? text.moreWorkspacesOne : fmt(text.moreWorkspaces, { count: hidden }),
+  ]
 }
 
 function keptLines(text: Text, keptShells: number): string[] {

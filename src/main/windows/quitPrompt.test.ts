@@ -6,7 +6,7 @@ vi.mock('electron', () => ({ dialog: { showMessageBox } }))
 const {
   MAX_GROUPS,
   MAX_ITEMS_PER_GROUP,
-  MAX_NAME_LENGTH,
+  MAX_NAME_COLUMNS,
   cappedLostLines,
   nativeQuitConfirm,
   quitPromptOptions,
@@ -125,20 +125,68 @@ describe('cappedLostLines', () => {
         files: [`/w/${long}.md`],
       },
     ])
-    expect(lines[0]).toHaveLength(MAX_NAME_LENGTH)
+    expect(lines[0]).toHaveLength(MAX_NAME_COLUMNS)
     expect(lines[0].endsWith('…')).toBe(true)
-    for (const line of lines.slice(1)) expect(line.length).toBeLessThan(MAX_NAME_LENGTH + 20)
+    for (const line of lines.slice(1)) expect(line.length).toBeLessThan(MAX_NAME_COLUMNS + 20)
+  })
+
+  it('folds a multi-line command into one line', () => {
+    const lines = cappedLostLines(text, [
+      groupOf(1, ['cat <<EOF\n  line one\r\n\tline two\nEOF', ' \n\t ']),
+    ])
+    expect(lines).toEqual([
+      'ws-1',
+      '  Running: cat <<EOF line one line two EOF',
+      '  Running: a command',
+    ])
+  })
+
+  it('clips by display width so wide characters cannot widen the alert', () => {
+    const lines = cappedLostLines(text, [groupOf(1, ['漢'.repeat(100)])])
+    const name = lines[1].replace('  Running: ', '')
+    expect(name.endsWith('…')).toBe(true)
+    expect(Array.from(name)).toHaveLength(MAX_NAME_COLUMNS / 2)
+    expect(lines[1].length).toBeLessThan(MAX_NAME_COLUMNS)
+  })
+
+  it('never cuts an emoji in half at the clip point', () => {
+    const lines = cappedLostLines(text, [
+      groupOf(1, [
+        `${'a'.repeat(MAX_NAME_COLUMNS - 2)}😀😀`,
+        `${'a'.repeat(MAX_NAME_COLUMNS - 3)}😀😀`,
+      ]),
+    ])
+    for (const line of lines) expect(line).not.toMatch(/\p{Cs}/u)
+    expect(lines[1]).toBe(`  Running: ${'a'.repeat(MAX_NAME_COLUMNS - 2)}…`)
+    expect(lines[2]).toBe(`  Running: ${'a'.repeat(MAX_NAME_COLUMNS - 3)}😀…`)
+  })
+
+  it('keeps a name that exactly fits', () => {
+    const fits = 'a'.repeat(MAX_NAME_COLUMNS)
+    expect(cappedLostLines(text, [groupOf(1, [fits])])[1]).toBe(`  Running: ${fits}`)
+  })
+
+  it('shows every item when only one would be hidden', () => {
+    const lines = cappedLostLines(text, [groupOf(1, manyCommands(MAX_ITEMS_PER_GROUP + 1))])
+    expect(lines).toHaveLength(MAX_ITEMS_PER_GROUP + 2)
+    expect(lines.some((line) => line.includes('more'))).toBe(false)
+  })
+
+  it('uses the singular when one workspace is hidden', () => {
+    const groups = Array.from({ length: MAX_GROUPS + 1 }, (_, i) => groupOf(i + 1, ['make']))
+    expect(cappedLostLines(text, groups).at(-1)).toBe('and 1 more workspace')
+    expect(cappedLostLines(zhHant.native.quit, groups).at(-1)).toBe('還有 1 個工作區')
   })
 })
 
 describe('quitPromptOptions with many panes', () => {
   it('keeps the detail short for 60 panes across 12 workspaces', () => {
-    const groups = Array.from({ length: 12 }, (_, i) => groupOf(i + 1, manyCommands(6)))
+    const groups = Array.from({ length: 12 }, (_, i) => groupOf(i + 1, manyCommands(8)))
     const options = quitPromptOptions(groups, 3, en.native.quit)
     const lines = options.detail?.split('\n') ?? []
     expect(lines.length).toBeLessThanOrEqual(30)
     expect(lines).toContain('and 9 more workspaces')
-    expect(lines).toContain('  and 1 more')
+    expect(lines).toContain('  and 3 more')
     expect(options.buttons).toEqual(['Cancel', 'Quit and end shells', 'Quit and keep shells'])
     expect(options.defaultId).toBe(2)
     expect(options.cancelId).toBe(0)

@@ -116,6 +116,7 @@ export const appZhHant: typeof appEn = {
       message: '結束後，下列項目會被終止或捨棄。',
       more: '還有 {count} 項',
       moreWorkspaces: '還有 {count} 個工作區',
+      moreWorkspacesOne: '還有 1 個工作區',
       quit: '結束',
       scratch: '暫存資料夾中的檔案：{count}',
       title: '要結束並捨棄這些工作嗎？',

@@ -116,6 +116,7 @@ export const appEn = {
       message: 'Quitting ends or discards everything listed here.',
       more: 'and {count} more',
       moreWorkspaces: 'and {count} more workspaces',
+      moreWorkspacesOne: 'and 1 more workspace',
       quit: 'Quit',
       scratch: 'Files in the scratch folder: {count}',
       title: 'Quit and lose this work?',
