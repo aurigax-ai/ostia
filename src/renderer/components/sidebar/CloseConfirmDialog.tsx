@@ -26,6 +26,8 @@ import {
 } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 
+const WRAP = 'block min-w-0 whitespace-normal [overflow-wrap:anywhere]'
+
 function confirmCopy(d: Dict): Record<CloseConfirmKind, ConfirmCopy> {
   return {
     workspace: {
@@ -55,7 +57,9 @@ function RunningGroupItem({ group }: { group: RunningGroup }): JSX.Element {
   const d = useDict()
   return (
     <li>
-      <div className="font-medium text-fg text-ui-base">{group.workspace}</div>
+      <div className="min-w-0 font-medium text-fg text-ui-base [overflow-wrap:anywhere]">
+        {group.workspace}
+      </div>
       <ul className="mt-1 flex flex-col gap-1">
         {group.commands.map((command, index) => (
           <ListRow
@@ -63,7 +67,11 @@ function RunningGroupItem({ group }: { group: RunningGroup }): JSX.Element {
             key={index}
             density="dense"
             lead={<TerminalWindowIcon size={16} aria-hidden />}
-            title={<span className="font-mono">{command || d.closeConfirm.unknownCommand}</span>}
+            title={
+              <span className={`${WRAP} font-mono`}>
+                {command || d.closeConfirm.unknownCommand}
+              </span>
+            }
           />
         ))}
         {group.agents?.map((agent, index) => (
@@ -72,7 +80,9 @@ function RunningGroupItem({ group }: { group: RunningGroup }): JSX.Element {
             key={index}
             density="dense"
             lead={<RobotIcon size={16} aria-hidden />}
-            title={<span className="font-mono">{agent || d.closeConfirm.unknownCommand}</span>}
+            title={
+              <span className={`${WRAP} font-mono`}>{agent || d.closeConfirm.unknownCommand}</span>
+            }
           />
         ))}
         {group.scratchFiles ? (
@@ -100,7 +110,9 @@ function RunningGroupItem({ group }: { group: RunningGroup }): JSX.Element {
             key={file}
             density="dense"
             lead={<FileDashedIcon size={16} aria-hidden />}
-            title={fmt(d.closeConfirm.unsaved, { file: baseName(file) })}
+            title={
+              <span className={WRAP}>{fmt(d.closeConfirm.unsaved, { file: baseName(file) })}</span>
+            }
           />
         ))}
         {group.unanswered ? (
@@ -137,7 +149,9 @@ function KeptShellsSection({
             key={index}
             density="dense"
             lead={<RobotIcon size={16} aria-hidden />}
-            title={<span className="font-mono">{agent || d.closeConfirm.unknownCommand}</span>}
+            title={
+              <span className={`${WRAP} font-mono`}>{agent || d.closeConfirm.unknownCommand}</span>
+            }
           />
         ))}
       </ul>
@@ -168,28 +182,33 @@ export function CloseConfirmDialog(): JSX.Element {
         if (!open) answer(false)
       }}
     >
-      <DialogContent showCloseButton={false}>
+      <DialogContent
+        showCloseButton={false}
+        className="max-h-[calc(100dvh-2rem)] grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto]"
+      >
         <DialogHeader>
           <DialogTitle>{text.title}</DialogTitle>
           <DialogDescription>{text.body}</DialogDescription>
         </DialogHeader>
-        {pending?.kind === 'quit' && pending.groups.length > 0 ? (
-          <ul aria-label={text.body} className="flex flex-col gap-1">
-            {lossLines(d, quitLosses(pending.groups)).map((line) => (
-              <li key={line} className="font-medium text-fg text-ui-sm">
-                {line}
-              </li>
+        <div data-slot="close-confirm-body" className="flex min-h-0 flex-col gap-4 overflow-auto">
+          {pending?.kind === 'quit' && pending.groups.length > 0 ? (
+            <ul aria-label={text.body} className="flex flex-col gap-1">
+              {lossLines(d, quitLosses(pending.groups)).map((line) => (
+                <li key={line} className="font-medium text-fg text-ui-sm">
+                  {line}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <ul aria-label={text.title} className="flex flex-col gap-2">
+            {pending?.groups.map((group) => (
+              <RunningGroupItem key={group.workspaceId} group={group} />
             ))}
           </ul>
-        ) : null}
-        <ul aria-label={text.title} className="flex max-h-56 flex-col gap-2 overflow-auto">
-          {pending?.groups.map((group) => (
-            <RunningGroupItem key={group.workspaceId} group={group} />
-          ))}
-        </ul>
-        {offersKeep ? (
-          <KeptShellsSection keptShells={keptShells} showBody={Boolean(pending?.groups.length)} />
-        ) : null}
+          {offersKeep ? (
+            <KeptShellsSection keptShells={keptShells} showBody={Boolean(pending?.groups.length)} />
+          ) : null}
+        </div>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => answer(false)}>
             {d.closeConfirm.cancel}
