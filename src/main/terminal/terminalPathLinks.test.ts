@@ -47,7 +47,11 @@ function print(
   printed[paneId] = { text, cwd, remote, sandboxed }
 }
 
-function setup(workspace: { sandboxed?: boolean; scratch?: boolean } = {}, homeDir: string = home) {
+function setup(
+  workspace: { sandboxed?: boolean; scratch?: boolean } = {},
+  homeDir: string = home,
+  hostname = 'Justins-Mac.local',
+) {
   const grants = new OpenFileGrants({
     roots: () => [homeDir],
     file: join(base, 'opened-files.json'),
@@ -57,7 +61,7 @@ function setup(workspace: { sandboxed?: boolean; scratch?: boolean } = {}, homeD
   const links = new TerminalPathLinks({
     grants,
     home: homeDir,
-    hostname: 'Justins-Mac.local',
+    hostname,
     output: async (paneId) => printed[paneId] ?? null,
     pane: (paneId) =>
       paneId === 'p1' || paneId === 'p2' ? { windowId: '7', workspaceId: 'w1' } : undefined,
@@ -589,6 +593,20 @@ describe('TerminalPathLinks file URLs', () => {
       ok: true,
     })
     expect(openPath).toHaveBeenCalledWith(f.png)
+  })
+
+  it('accepts <hostname>.local when the hostname has no .local', async () => {
+    const { links } = setup({}, home, 'Studio')
+    const f = homeFiles()
+    for (const host of ['studio', 'Studio.local', 'STUDIO.LOCAL']) {
+      expect(await links.fileUrl(WINDOW, 'p1', `file://${host}${f.pdf}`)).toEqual({
+        path: f.pdf,
+        opener: 'default-app',
+      })
+    }
+    for (const host of ['studio.lan', 'studio2', 'localhost.evil', 'justins-mac']) {
+      expect(await links.fileUrl(WINDOW, 'p1', `file://${host}${f.pdf}`)).toBeNull()
+    }
   })
 
   it('refuses a hostname that only looks local', async () => {
