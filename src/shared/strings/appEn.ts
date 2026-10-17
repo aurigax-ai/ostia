@@ -101,6 +101,10 @@ export const appEn = {
       reload: 'Reload',
     },
     extensionConfirm: { cancel: 'Cancel', ok: 'OK' },
+    folderAccessBlocked: {
+      body: 'Shells in {product} get “Operation not permitted” in these folders until {product} restarts. Quit {product}, choose Quit and end shells if it asks, then open it again.',
+      title: 'macOS is blocking {folders}',
+    },
     quit: {
       agent: 'Agent: {name}',
       cancel: 'Cancel',

@@ -101,6 +101,10 @@ export const appZhHant: typeof appEn = {
       reload: '重新載入',
     },
     extensionConfirm: { cancel: '取消', ok: '確定' },
+    folderAccessBlocked: {
+      body: '在 {product} 重新啟動前，{product} 裡的 shell 讀這些資料夾都會出現「Operation not permitted」。請結束 {product}（若有詢問，選「結束並關閉 shell」），再重新開啟。',
+      title: 'macOS 擋住了 {folders}',
+    },
     quit: {
       agent: '代理程式：{name}',
       cancel: '取消',
