@@ -1,4 +1,4 @@
-export const PROTECTED_FOLDERS = ['Downloads', 'Documents', 'Desktop'] as const
+export const PROTECTED_FOLDERS = ['Downloads', 'Documents'] as const
 
 export type ProtectedFolder = (typeof PROTECTED_FOLDERS)[number]
 

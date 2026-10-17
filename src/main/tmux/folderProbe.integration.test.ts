@@ -85,6 +85,6 @@ describe.skipIf(skipWithoutTmux)('kept shells owner and folder probe', () => {
       home,
       runShell: (script) => kept.runShell(script),
     })
-    expect(reads).toEqual({ Downloads: 'other', Documents: 'ok', Desktop: 'other' })
+    expect(reads).toEqual({ Downloads: 'other', Documents: 'ok' })
   })
 })

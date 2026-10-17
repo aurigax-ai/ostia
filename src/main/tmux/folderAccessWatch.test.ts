@@ -45,11 +45,11 @@ describe('createFolderAccessWatch', () => {
   })
 
   it('announces when Ostia itself loses a folder it could read earlier', async () => {
-    const { deps, watch } = setup({ main: [{ Desktop: 'ok' }, { Desktop: 'denied' }] })
+    const { deps, watch } = setup({ main: [{ Documents: 'ok' }, { Documents: 'denied' }] })
     await watch.probe()
     expect(deps.announce).not.toHaveBeenCalled()
     await watch.probe()
-    expect(deps.announce).toHaveBeenCalledWith(['Desktop'])
+    expect(deps.announce).toHaveBeenCalledWith(['Documents'])
   })
 
   it('probes on focus at most once a minute', async () => {

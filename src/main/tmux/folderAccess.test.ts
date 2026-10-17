@@ -51,16 +51,16 @@ describe('FolderAccessMonitor', () => {
     const monitor = new FolderAccessMonitor()
     expect(
       monitor.observe([
-        { Downloads: 'ok', Documents: 'ok', Desktop: 'ok' },
-        { Downloads: 'denied', Documents: 'denied', Desktop: 'ok' },
+        { Downloads: 'ok', Documents: 'ok' },
+        { Downloads: 'denied', Documents: 'ok' },
       ]),
-    ).toEqual(['Downloads', 'Documents'])
+    ).toEqual(['Downloads'])
   })
 
   it('does not report Permission denied or a missing folder', () => {
     const monitor = new FolderAccessMonitor()
-    monitor.observe([{ Downloads: 'ok', Desktop: 'ok' }])
-    expect(monitor.observe([{ Downloads: 'other', Desktop: 'other' }])).toBeNull()
+    monitor.observe([{ Downloads: 'ok', Documents: 'ok' }])
+    expect(monitor.observe([{ Downloads: 'other', Documents: 'other' }])).toBeNull()
   })
 
   it('reports the same set of folders once per launch and a new set again', () => {

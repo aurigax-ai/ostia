@@ -37,7 +37,7 @@ describe('folder probes', () => {
 
   afterEach(() => {
     try {
-      chmodSync(join(home, 'Desktop'), 0o700)
+      chmodSync(join(home, 'Documents'), 0o700)
     } catch {}
     rmSync(root, { recursive: true, force: true })
   })
@@ -45,22 +45,21 @@ describe('folder probes', () => {
   it('parses the kept-shell report and counts only Operation not permitted as denied', () => {
     const text = [
       'Downloads\t1\tls: /u/Downloads: Operation not permitted ',
-      'Documents\t0\t',
-      'Desktop\t1\tls: /u/Desktop: No such file or directory ',
-      'Library\t1\tls: /u/Library: Operation not permitted ',
-      'Desktop-ish\tx\t',
+      'Documents\t1\tfind: /u/Documents: No such file or directory ',
+      'Desktop\t1\tfind: /u/Desktop: Operation not permitted ',
+      'Documents-ish\tx\t',
       '',
     ].join('\n')
-    expect(parseKeptProbe(text)).toEqual({ Downloads: 'denied', Documents: 'ok', Desktop: 'other' })
+    expect(parseKeptProbe(text)).toEqual({ Downloads: 'denied', Documents: 'other' })
   })
 
   it.skipIf(isRoot)(
-    'lists each folder from a shell and reports ok, Permission denied and missing apart',
+    'lists each folder from a shell and tells ok from Permission denied',
     async () => {
-      mkdirSync(join(home, 'Desktop'))
-      chmodSync(join(home, 'Desktop'), 0)
+      mkdirSync(join(home, 'Documents'))
+      chmodSync(join(home, 'Documents'), 0)
       const reads = await readFoldersInKeptShells({ dir, home, runShell: sh })
-      expect(reads).toEqual({ Downloads: 'ok', Documents: 'other', Desktop: 'other' })
+      expect(reads).toEqual({ Downloads: 'ok', Documents: 'other' })
       expect(readdirSync(dir)).toEqual([])
     },
   )
@@ -76,6 +75,12 @@ describe('folder probes', () => {
     expect(script.indexOf("'/k/p/report'")).toBe(script.lastIndexOf("'/k/p/report'"))
     expect(script).toContain("/usr/bin/find '/u/Downloads' -mindepth 1 -maxdepth 1 -print -quit")
     expect(script).not.toContain('/bin/ls')
+  })
+
+  it('never reads Desktop, from the kept shells or from Ostia', async () => {
+    mkdirSync(join(home, 'Desktop'))
+    expect(keptProbeScript(home, join(dir, 'p'))).not.toContain('Desktop')
+    expect(Object.keys(await readFoldersInMain(home))).toEqual(['Downloads', 'Documents'])
   })
 
   it('gives up when tmux cannot run the probe or it never reports', async () => {
@@ -116,7 +121,6 @@ describe('folder probes', () => {
     expect(await readFoldersInMain(home)).toEqual({
       Downloads: 'ok',
       Documents: 'other',
-      Desktop: 'other',
     })
   })
 
