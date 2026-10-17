@@ -7,6 +7,7 @@ import { createPane, paneIds, splitOf, tabsOf } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
 import { needsTrust } from '@/lib/palette/userActions'
 import * as blockActions from '@/lib/terminal/blockActions'
+import { startKeptReattach } from '@/lib/terminal/keptReattach'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import * as closeConfirm from '@/lib/workspaces/closeConfirm'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
@@ -1758,6 +1759,30 @@ describe('pane.list / workspace.list', () => {
     const entries = (res as { result: Array<{ paneId: string }> }).result
     expect(entries.find((e) => e.paneId === waiting.id)).toMatchObject({ awaitingActivation: true })
     expect(entries.find((e) => e.paneId === plain.id)).not.toHaveProperty('awaitingActivation')
+  })
+
+  it('pane.list does not mark a kept agent tab as awaiting activation', async () => {
+    const keptAgent = {
+      ...createPane('terminal', 'claude', '/work/api'),
+      resume: { agent: 'claude' as const, id: 's1' },
+      resumePending: true as const,
+    }
+    useWorkspacesStore.setState({
+      workspaces: [
+        { id: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
+      ],
+    })
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: keptAgent, activePaneId: keptAgent.id, zoomedPaneId: null } },
+    })
+    vi.mocked(window.ostia.pty.keptWaiting).mockResolvedValueOnce([keptAgent.id])
+    startKeptReattach()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    const res = await commands.execWith(ctx('s1', null), 'pane.list')
+
+    const entries = (res as { result: Array<{ paneId: string }> }).result
+    expect(entries[0]).not.toHaveProperty('awaitingActivation')
   })
 
   it('pane.list reports the open file of a file view', async () => {
