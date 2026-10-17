@@ -76,6 +76,20 @@ async function confirmQuitIfAsked(win: Page, done: Promise<boolean>): Promise<vo
       .catch(() => {})
 }
 
+const NATIVE_QUIT_MARKER = 'native-quit-asked'
+
+async function answerNativeQuitPrompt(app: ElectronApplication, dataHome: string): Promise<void> {
+  await app.evaluate(
+    ({ dialog }, marker) => {
+      dialog.showMessageBox = (async () => {
+        process.getBuiltinModule('node:fs').writeFileSync(marker, 'asked')
+        return { response: 1, checkboxChecked: false }
+      }) as typeof dialog.showMessageBox
+    },
+    join(dataHome, NATIVE_QUIT_MARKER),
+  )
+}
+
 async function stopApp({ app, win }: Launched, how: 'quit' | NodeJS.Signals): Promise<void> {
   const done = exitedWithin(app.process(), EXIT_TIMEOUT_MS)
   if (how === 'quit') {
@@ -211,7 +225,10 @@ test('quitting right after a restart keeps every workspace', async () => {
   }
 
   const second = await launchApp(dataHome)
+  await answerNativeQuitPrompt(second.app, dataHome)
   await stopApp(second, 'quit')
+  if (existsSync(join(dataHome, NATIVE_QUIT_MARKER)))
+    test.info().annotations.push({ type: 'native-quit-prompt', description: 'answered Quit' })
   expect(saved(dataHome)).toEqual(expected)
 
   const third = await launchApp(dataHome)
