@@ -95,9 +95,7 @@ function registerPtyLifecycleIpc({
     if (!entry) return 'no-terminal'
     const busy = backgroundWork(agentWork.reason(paneId), await readProcessTable(), entry.pty.pid)
     if (busy) return busy
-    if (ptys.get(paneId) !== entry || !hibernatePty(paneId)) return 'no-terminal'
-    paneStartErrors.delete(paneId)
-    return 'hibernated'
+    return ptys.get(paneId) === entry && hibernatePty(paneId) ? 'hibernated' : 'no-terminal'
   })
 
   ipcMain.handle('pty:kept-waiting', async (): Promise<string[]> => {
