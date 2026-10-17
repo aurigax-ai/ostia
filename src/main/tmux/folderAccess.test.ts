@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FolderAccessMonitor, folderReadOfError, folderReadOfLs } from './folderAccess'
+import { FolderAccessMonitor, folderReadOfCommand, folderReadOfError } from './folderAccess'
 
 function errno(code: string, message: string): NodeJS.ErrnoException {
   return Object.assign(new Error(message), { code })
@@ -22,13 +22,15 @@ describe('folderReadOfError', () => {
   })
 })
 
-describe('folderReadOfLs', () => {
+describe('folderReadOfCommand', () => {
   it('counts a failed ls as denied only when it says Operation not permitted', () => {
-    expect(folderReadOfLs(0, '')).toBe('ok')
-    expect(folderReadOfLs(1, 'ls: /Users/a/Downloads: Operation not permitted ')).toBe('denied')
-    expect(folderReadOfLs(1, 'ls: /Users/a/Downloads: Permission denied ')).toBe('other')
-    expect(folderReadOfLs(1, 'ls: /Users/a/Desktop: No such file or directory ')).toBe('other')
-    expect(folderReadOfLs(2, '')).toBe('other')
+    expect(folderReadOfCommand(0, '')).toBe('ok')
+    expect(folderReadOfCommand(1, 'ls: /Users/a/Downloads: Operation not permitted ')).toBe(
+      'denied',
+    )
+    expect(folderReadOfCommand(1, 'ls: /Users/a/Downloads: Permission denied ')).toBe('other')
+    expect(folderReadOfCommand(1, 'ls: /Users/a/Desktop: No such file or directory ')).toBe('other')
+    expect(folderReadOfCommand(2, '')).toBe('other')
   })
 })
 

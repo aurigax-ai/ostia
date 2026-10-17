@@ -10,6 +10,7 @@ import {
   parseKeptProbe,
   readFoldersInKeptShells,
   readFoldersInMain,
+  sweepKeptProbes,
 } from './folderProbe'
 
 const run = promisify(execFile)
@@ -65,10 +66,16 @@ describe('folder probes', () => {
   )
 
   it('writes the report under a temporary name and moves it into place', () => {
-    const script = keptProbeScript('/u', '/k/out')
-    expect(script.startsWith("umask 077; : > '/k/out.partial'; ")).toBe(true)
-    expect(script.endsWith("; mv -f '/k/out.partial' '/k/out'")).toBe(true)
-    expect(script.indexOf("'/k/out'")).toBe(script.lastIndexOf("'/k/out'"))
+    const script = keptProbeScript('/u', '/k/p')
+    expect(script.startsWith("umask 077; [ -d '/k/p' ] || exit 0; : > '/k/p/report.partial'")).toBe(
+      true,
+    )
+    expect(script.endsWith("; [ -d '/k/p' ] && mv -f '/k/p/report.partial' '/k/p/report'")).toBe(
+      true,
+    )
+    expect(script.indexOf("'/k/p/report'")).toBe(script.lastIndexOf("'/k/p/report'"))
+    expect(script).toContain("/usr/bin/find '/u/Downloads' -mindepth 1 -maxdepth 1 -print -quit")
+    expect(script).not.toContain('/bin/ls')
   })
 
   it('gives up when tmux cannot run the probe or it never reports', async () => {
@@ -77,6 +84,32 @@ describe('folder probes', () => {
       await readFoldersInKeptShells({ dir, home, runShell: async () => true, waitMs: 100 }),
     ).toBeNull()
     expect(readdirSync(dir)).toEqual([])
+  })
+
+  it('leaves nothing behind when the shell runs the probe after Ostia gave up on it', async () => {
+    let late = ''
+    const reads = await readFoldersInKeptShells({
+      dir,
+      home,
+      runShell: async (script) => {
+        late = script
+        return true
+      },
+      waitMs: 50,
+    })
+    expect(reads).toBeNull()
+    await sh(late)
+    expect(readdirSync(dir)).toEqual([])
+  })
+
+  it('clears probe folders an earlier run left, and nothing else', async () => {
+    mkdirSync(join(dir, 'folder-probe-old'))
+    writeFileSync(join(dir, 'folder-probe-old', 'report'), 'x')
+    writeFileSync(join(dir, 'folder-probe-stray'), 'x')
+    writeFileSync(join(dir, 'k.owner.json'), '{}')
+    await sweepKeptProbes(dir)
+    expect(readdirSync(dir)).toEqual(['k.owner.json'])
+    await expect(sweepKeptProbes(join(root, 'missing'))).resolves.toBeUndefined()
   })
 
   it('reads the folders from Ostia itself without reading any file', async () => {

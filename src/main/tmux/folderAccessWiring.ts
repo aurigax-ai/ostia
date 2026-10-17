@@ -6,7 +6,12 @@ import type { NotifyWiring } from '../attention/notifyWiring'
 import type { AppLog } from '../diagnostics/appLog'
 import type { ProtectedFolder } from './folderAccess'
 import { PERIODIC_PROBE_MS, createFolderAccessWatch } from './folderAccessWatch'
-import { hasFullDiskAccess, readFoldersInKeptShells, readFoldersInMain } from './folderProbe'
+import {
+  hasFullDiskAccess,
+  readFoldersInKeptShells,
+  readFoldersInMain,
+  sweepKeptProbes,
+} from './folderProbe'
 import { keptShellsDir } from './keptPaths'
 import type { KeptShells } from './keptShells'
 
@@ -25,16 +30,20 @@ export function startFolderAccessWatch({
 }: FolderAccessWiringDeps): void {
   if (process.platform !== 'darwin') return
   const home = homedir()
+  const dir = keptShellsDir(app.getPath('userData'))
+  const swept = sweepKeptProbes(dir)
   const watch = createFolderAccessWatch({
     now: Date.now,
     hasFullDiskAccess: () => hasFullDiskAccess(),
     readMain: () => readFoldersInMain(home),
-    readKept: () =>
-      readFoldersInKeptShells({
-        dir: keptShellsDir(app.getPath('userData')),
+    readKept: async () => {
+      await swept
+      return readFoldersInKeptShells({
+        dir,
         home,
         runShell: (script) => keptShells.runShell(script),
-      }),
+      })
+    },
     announce: (folders: ProtectedFolder[]) => {
       services.appLog?.warn('folder-access-blocked', { folders: folders.join(',') })
       const text = mainStrings().native.folderAccessBlocked

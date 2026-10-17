@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { open, opendir, readFile, rm } from 'node:fs/promises'
+import { mkdir, open, opendir, readFile, readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import {
   type FolderReads,
   PROTECTED_FOLDERS,
   type ProtectedFolder,
+  folderReadOfCommand,
   folderReadOfError,
-  folderReadOfLs,
 } from './folderAccess'
 
 const FULL_DISK_ACCESS_PROBE = '/Library/Application Support/com.apple.TCC/TCC.db'
@@ -48,20 +48,42 @@ function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`
 }
 
-export function keptProbeScript(home: string, out: string): string {
-  const partial = shellQuote(`${out}.partial`)
-  const err = shellQuote(`${out}.err`)
-  const lines = ['umask 077', `: > ${partial}`]
+const KEPT_PROBE_PREFIX = 'folder-probe-'
+const KEPT_PROBE_REPORT = 'report'
+
+export function keptProbeScript(home: string, probeDir: string): string {
+  const dir = shellQuote(probeDir)
+  const partial = shellQuote(join(probeDir, `${KEPT_PROBE_REPORT}.partial`))
+  const err = shellQuote(join(probeDir, 'err'))
+  const lines = ['umask 077', `[ -d ${dir} ] || exit 0`, `: > ${partial} || exit 0`]
   for (const folder of PROTECTED_FOLDERS) {
+    const path = shellQuote(join(home, folder))
     lines.push(
-      `/bin/ls -A ${shellQuote(join(home, folder))} >/dev/null 2>${err}; s=$?`,
+      `/usr/bin/find ${path} -mindepth 1 -maxdepth 1 -print -quit >/dev/null 2>${err}; s=$?`,
       `printf '%s\\t%s\\t' ${folder} "$s" >> ${partial}`,
       `tr '\\t\\n' '  ' < ${err} >> ${partial}`,
       `echo >> ${partial}`,
     )
   }
-  lines.push(`rm -f ${err}`, `mv -f ${partial} ${shellQuote(out)}`)
+  lines.push(
+    `rm -f ${err}`,
+    `[ -d ${dir} ] && mv -f ${partial} ${shellQuote(join(probeDir, KEPT_PROBE_REPORT))}`,
+  )
   return lines.join('; ')
+}
+
+export async function sweepKeptProbes(dir: string): Promise<void> {
+  let names: string[] = []
+  try {
+    names = await readdir(dir)
+  } catch {
+    return
+  }
+  await Promise.all(
+    names
+      .filter((name) => name.startsWith(KEPT_PROBE_PREFIX))
+      .map((name) => rm(join(dir, name), { recursive: true, force: true }).catch(() => undefined)),
+  )
 }
 
 export function parseKeptProbe(text: string): FolderReads {
@@ -70,7 +92,7 @@ export function parseKeptProbe(text: string): FolderReads {
   for (const line of text.split('\n')) {
     const [folder, status, ...rest] = line.split('\t')
     if (!folder || !known.has(folder) || status === undefined || !/^\d+$/.test(status)) continue
-    reads[folder as ProtectedFolder] = folderReadOfLs(Number(status), rest.join('\t'))
+    reads[folder as ProtectedFolder] = folderReadOfCommand(Number(status), rest.join('\t'))
   }
   return reads
 }
@@ -83,9 +105,11 @@ export interface KeptProbeDeps {
 }
 
 export async function readFoldersInKeptShells(deps: KeptProbeDeps): Promise<FolderReads | null> {
-  const out = join(deps.dir, `folder-probe-${randomUUID()}`)
+  const probeDir = join(deps.dir, `${KEPT_PROBE_PREFIX}${randomUUID()}`)
+  const out = join(probeDir, KEPT_PROBE_REPORT)
   try {
-    if (!(await deps.runShell(keptProbeScript(deps.home, out)))) return null
+    await mkdir(probeDir, { mode: 0o700 })
+    if (!(await deps.runShell(keptProbeScript(deps.home, probeDir)))) return null
     const end = Date.now() + (deps.waitMs ?? KEPT_PROBE_WAIT_MS)
     while (!existsSync(out)) {
       if (Date.now() >= end) return null
@@ -95,8 +119,6 @@ export async function readFoldersInKeptShells(deps: KeptProbeDeps): Promise<Fold
   } catch {
     return null
   } finally {
-    await Promise.all(
-      [out, `${out}.partial`, `${out}.err`].map((file) => rm(file, { force: true })),
-    ).catch(() => undefined)
+    await rm(probeDir, { recursive: true, force: true }).catch(() => undefined)
   }
 }

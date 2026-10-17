@@ -18,7 +18,7 @@ export function folderReadOfError(err: unknown): FolderRead {
   return 'other'
 }
 
-export function folderReadOfLs(exitCode: number, stderr: string): FolderRead {
+export function folderReadOfCommand(exitCode: number, stderr: string): FolderRead {
   if (exitCode === 0) return 'ok'
   return stderr.includes(TCC_DENIED) ? 'denied' : 'other'
 }
