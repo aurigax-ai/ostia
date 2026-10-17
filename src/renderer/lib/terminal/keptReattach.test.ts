@@ -1,7 +1,7 @@
 import type { PaneNode } from '@/lib/layout/types'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { startKeptReattach } from './keptReattach'
+import { isKeptShell, startKeptReattach } from './keptReattach'
 import { registerOffscreenStarter, resetOffscreenStartForTests } from './offscreenStart'
 
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
@@ -119,6 +119,28 @@ describe('startKeptReattach', () => {
     expect(plain).toHaveBeenCalledWith({})
     expect(asleep).not.toHaveBeenCalled()
     expect(agent).not.toHaveBeenCalled()
+  })
+
+  it('reattaches a kept shell of an agent tab awaiting resume with keepSize', async () => {
+    useLayoutStore.setState({
+      byWorkspace: {
+        w1: {
+          root: terminal('kept-agent', {
+            resume: { agent: 'claude', id: 's1' },
+            resumePending: true,
+          }),
+          activePaneId: 'kept-agent',
+          zoomedPaneId: null,
+        },
+      },
+    })
+    waiting(['kept-agent'])
+    const agent = vi.fn()
+    registerOffscreenStarter('kept-agent', agent)
+    startKeptReattach()
+    await settle()
+    expect(agent).toHaveBeenCalledWith({ keepSize: true })
+    expect(isKeptShell('kept-agent')).toBe(true)
   })
 
   it('still starts terminals when the main process cannot say which shells wait', async () => {

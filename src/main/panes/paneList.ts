@@ -144,7 +144,7 @@ export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
     const state = deps.getTerminalState(p.paneId)
     const pid = p.kind === 'terminal' ? deps.ptyPid(p.paneId) : undefined
     const run = deps.processOf?.(p.paneId)
-    const startError = pid ? undefined : deps.startError?.(p.paneId)
+    const startError = pid || p.hibernated === true ? undefined : deps.startError?.(p.paneId)
     mapped.push({
       paneId: identity.externalId,
       workspaceId: p.workspaceId,

@@ -69,7 +69,9 @@ function registerPtyLifecycleIpc({
     attaching.set(paneId, pending)
     try {
       const result = await pending
-      paneStartErrors.delete(paneId)
+      if (!result.created && !opts.attachOnly && !ptys.has(paneId)) {
+        paneStartErrors.set(paneId, 'the shell did not start')
+      } else paneStartErrors.delete(paneId)
       return result
     } catch (error) {
       paneStartErrors.set(paneId, error instanceof Error ? error.message : String(error))
@@ -93,7 +95,9 @@ function registerPtyLifecycleIpc({
     if (!entry) return 'no-terminal'
     const busy = backgroundWork(agentWork.reason(paneId), await readProcessTable(), entry.pty.pid)
     if (busy) return busy
-    return ptys.get(paneId) === entry && hibernatePty(paneId) ? 'hibernated' : 'no-terminal'
+    if (ptys.get(paneId) !== entry || !hibernatePty(paneId)) return 'no-terminal'
+    paneStartErrors.delete(paneId)
+    return 'hibernated'
   })
 
   ipcMain.handle('pty:kept-waiting', async (): Promise<string[]> => {
