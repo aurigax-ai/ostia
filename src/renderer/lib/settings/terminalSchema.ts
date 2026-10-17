@@ -252,8 +252,9 @@ export const notificationsSchema = {
     visualBell: {
       type: 'boolean',
       description:
-        'Flash the pane briefly when a terminal bell (BEL) rings. Never flashes while reduced ' +
-        'motion is on, and at most three times a second. Default: false.',
+        'Flash the pane briefly when a terminal bell (BEL) rings, independent of the bell ' +
+        'setting above. Never flashes while reduced motion is on; a run of bells flashes ' +
+        'once. Default: false.',
     },
     visualBellMs: {
       type: 'integer',

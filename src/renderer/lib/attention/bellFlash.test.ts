@@ -44,6 +44,30 @@ describe('createBellFlash', () => {
     expect(flashes()).toBe(1)
   })
 
+  it('flashes once for a continuous stream and again once it has been quiet for the duration', () => {
+    const bell = createBellFlash(container)
+    let flashed = 0
+    for (let t = 0; t < 2000; t += 100) {
+      if (bell.flash({ ...base, now: 30_000 + t })) flashed++
+    }
+    expect(flashed).toBe(1)
+    expect(bell.flash({ ...base, now: 30_000 + 1900 + 399 })).toBe(false)
+    expect(bell.flash({ ...base, now: 30_000 + 1900 + 399 + 400 })).toBe(true)
+  })
+
+  it('carries the theme colour onto the overlay and leaves it unset otherwise', () => {
+    const bell = createBellFlash(container)
+    bell.flash({ ...base, color: '#abcdef', now: 40_000 })
+    const el = container.querySelector<HTMLElement>('.bell-flash')
+    expect(el?.style.getPropertyValue('--bell-flash-color')).toBe('#abcdef')
+    bell.flash({ ...base, now: 50_000 })
+    expect(
+      container
+        .querySelector<HTMLElement>('.bell-flash')
+        ?.style.getPropertyValue('--bell-flash-color'),
+    ).toBe('')
+  })
+
   it('flashes again once the duration has passed', () => {
     const bell = createBellFlash(container)
     expect(bell.flash({ ...base, now: 10_000 })).toBe(true)
@@ -56,7 +80,7 @@ describe('createBellFlash', () => {
     const short = { ...base, durationMs: 50 }
     expect(bell.flash({ ...short, now: 20_000 })).toBe(true)
     expect(bell.flash({ ...short, now: 20_000 + BELL_FLASH_MIN_INTERVAL_MS - 1 })).toBe(false)
-    expect(bell.flash({ ...short, now: 20_000 + BELL_FLASH_MIN_INTERVAL_MS })).toBe(true)
+    expect(bell.flash({ ...short, now: 20_000 + BELL_FLASH_MIN_INTERVAL_MS * 2 - 1 })).toBe(true)
     expect(BELL_FLASH_MIN_INTERVAL_MS * 3).toBeGreaterThan(1000)
   })
 

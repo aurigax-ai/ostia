@@ -101,9 +101,10 @@ export function attachTerminalSignals({
     const now = Date.now()
     const notifications = useSettingsStore.getState().notifications
     bellFlash.flash({
-      enabled: notifications.visualBell,
+      enabled: notifications.visualBell && isPaneVisible(paneId),
       durationMs: notifications.visualBellMs,
       easing: notifications.visualBellEasing,
+      color: term.options.theme?.foreground,
       reducedMotion: reducedMotionNow(),
       now,
     })

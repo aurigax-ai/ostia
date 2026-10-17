@@ -2736,7 +2736,7 @@ button.prompt-chip:hover {
   inset: 0;
   z-index: 2;
   pointer-events: none;
-  background: var(--color-fg);
+  background: var(--bell-flash-color, var(--color-fg));
   opacity: 0;
   --bell-flash-ease: var(--ease-out);
   animation: bell-flash var(--bell-flash-ms, var(--motion-base)) var(--bell-flash-ease) forwards;

@@ -80,7 +80,7 @@ export const settingsEn = {
     bellEaseOut: 'Ease out',
     bellFlash: 'Flash the pane on bell',
     bellFlashDesc:
-      'Briefly lighten the pane when a program rings the bell. Off when reduced motion is on, and never more than three flashes a second.',
+      'Briefly flash the pane when a program rings the bell, whatever the setting above says. Off when reduced motion is on; a run of bells flashes once.',
     bellFlashDuration: 'Flash length (milliseconds)',
     bellFlashDurationDesc: 'How long one flash lasts, from 50 to 1000.',
     bellFlashEasing: 'Flash easing',

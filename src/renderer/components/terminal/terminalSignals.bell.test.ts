@@ -5,8 +5,15 @@ import { createTerminalSession } from './terminalSession'
 import { attachTerminalSignals } from './terminalSignals'
 
 const reduced = vi.hoisted(() => ({ value: false }))
+const visible = vi.hoisted(() => ({ value: true }))
 
 vi.mock('@/lib/app/motion', () => ({ reducedMotionNow: () => reduced.value }))
+
+vi.mock('@/lib/attention/workspaceActivity', () => ({
+  isPaneViewed: () => false,
+  isPaneVisible: () => visible.value,
+  signalPane: () => undefined,
+}))
 
 function fakeTerm(): {
   term: Parameters<typeof attachTerminalSignals>[0]['term']
@@ -24,6 +31,7 @@ function fakeTerm(): {
     },
     hasSelection: () => false,
     getSelection: () => '',
+    options: { theme: { foreground: '#123456' } },
   } as unknown as Parameters<typeof attachTerminalSignals>[0]['term']
   return { term, ring: () => onBell() }
 }
@@ -64,6 +72,7 @@ beforeEach(() => {
   stack.appendChild(host)
   document.body.appendChild(stack)
   reduced.value = false
+  visible.value = true
   setNotifications({ visualBell: true, bell: 'off' })
 })
 
@@ -106,6 +115,31 @@ describe('visual bell in the terminal signals', () => {
     setNotifications({ visualBell: false })
     attach().ring()
     expect(flashes()).toBe(0)
+  })
+
+  it('flashes in the terminal theme foreground so it shows on any scheme', () => {
+    attach().ring()
+    const el = stack.querySelector<HTMLElement>('.bell-flash')
+    expect(el?.style.getPropertyValue('--bell-flash-color')).toBe('#123456')
+  })
+
+  it('does not flash a pane that is not visible', () => {
+    visible.value = false
+    attach().ring()
+    expect(flashes()).toBe(0)
+  })
+
+  it('flashes once for a continuous stream of bells and again after it goes quiet', () => {
+    const added = vi.spyOn(stack, 'appendChild')
+    const { ring } = attach()
+    for (let i = 0; i < 20; i++) {
+      ring()
+      vi.advanceTimersByTime(100)
+    }
+    expect(added).toHaveBeenCalledTimes(1)
+    vi.advanceTimersByTime(400)
+    ring()
+    expect(added).toHaveBeenCalledTimes(2)
   })
 
   it('does not flash under reduced motion', () => {

@@ -79,7 +79,8 @@ export const settingsZhHant: typeof settingsEn = {
     bellEaseInOut: '先慢後快再慢',
     bellEaseOut: '先快後慢',
     bellFlash: '響鈴時閃爍面板',
-    bellFlashDesc: '程式響鈴時讓面板短暫變亮。開啟減少動態效果時不會閃爍，且每秒最多閃三次。',
+    bellFlashDesc:
+      '程式響鈴時短暫閃一下面板，不受上方響鈴設定影響。開啟減少動態效果時不會閃爍，連續響鈴只閃一次。',
     bellFlashDuration: '閃爍時間（毫秒）',
     bellFlashDurationDesc: '單次閃爍持續多久，範圍 50 到 1000。',
     bellFlashEasing: '閃爍緩動曲線',

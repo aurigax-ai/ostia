@@ -8,6 +8,7 @@ export interface BellFlashRequest {
   enabled: boolean
   durationMs: number
   easing: BellFlashEasing
+  color?: string
   reducedMotion: boolean
   now: number
 }
@@ -30,16 +31,18 @@ export function createBellFlash(container: HTMLElement): BellFlash {
   }
 
   return {
-    flash: ({ enabled, durationMs, easing, reducedMotion, now }) => {
+    flash: ({ enabled, durationMs, easing, color, reducedMotion, now }) => {
       if (!enabled || reducedMotion) return false
-      if (now - last < Math.max(durationMs, BELL_FLASH_MIN_INTERVAL_MS)) return false
+      const quiet = now - last >= Math.max(durationMs, BELL_FLASH_MIN_INTERVAL_MS)
       last = now
+      if (!quiet) return false
       clear()
       const el = container.ownerDocument.createElement('div')
       el.className = 'bell-flash'
       el.setAttribute('aria-hidden', 'true')
       el.style.setProperty('--bell-flash-ms', `${durationMs}ms`)
       el.dataset.easing = easing
+      if (color) el.style.setProperty('--bell-flash-color', color)
       container.appendChild(el)
       overlay = el
       timer = setTimeout(clear, durationMs + REMOVE_GRACE_MS)
