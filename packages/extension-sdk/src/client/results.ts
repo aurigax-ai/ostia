@@ -34,7 +34,3 @@ export function booleanSetting(
 export function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
-
-export function responseMessage(err: unknown): string {
-  return err instanceof Error ? err.message : 'bad request'
-}
