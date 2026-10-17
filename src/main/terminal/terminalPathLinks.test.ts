@@ -47,13 +47,16 @@ function print(
   printed[paneId] = { text, cwd, remote, sandboxed }
 }
 
-function setup(workspace: { sandboxed?: boolean; scratch?: boolean } = {}) {
-  const grants = new OpenFileGrants({ roots: () => [home], file: join(base, 'opened-files.json') })
+function setup(workspace: { sandboxed?: boolean; scratch?: boolean } = {}, homeDir: string = home) {
+  const grants = new OpenFileGrants({
+    roots: () => [homeDir],
+    file: join(base, 'opened-files.json'),
+  })
   const openPath = vi.fn(async (_path: string) => '')
   const showInFolder = vi.fn()
   const links = new TerminalPathLinks({
     grants,
-    home,
+    home: homeDir,
     hostname: 'Justins-Mac.local',
     output: async (paneId) => printed[paneId] ?? null,
     pane: (paneId) =>
@@ -554,6 +557,23 @@ describe('TerminalPathLinks file URLs', () => {
       expect(await links.openFileUrl(WINDOW, 'p1', raw)).toEqual({ ok: false, error: 'not-found' })
     }
     expect(openPath).not.toHaveBeenCalled()
+  })
+
+  it('opens a file when home itself is a symlink to the real folder', async () => {
+    const realHomeDir = join(base, 'var', 'home')
+    mkdirSync(realHomeDir, { recursive: true })
+    const linkedHome = join(base, 'linked-home')
+    symlinkSync(realHomeDir, linkedHome)
+    writeFileSync(join(realHomeDir, 'report.pdf'), 'x')
+    const { links, openPath } = setup({}, linkedHome)
+    const written = url(join(linkedHome, 'report.pdf'))
+    expect(await links.fileUrl(WINDOW, 'p1', written)).toEqual({
+      path: join(realHomeDir, 'report.pdf'),
+      opener: 'default-app',
+    })
+    expect(await links.openFileUrl(WINDOW, 'p1', written)).toEqual({ ok: true })
+    expect(openPath).toHaveBeenCalledWith(join(realHomeDir, 'report.pdf'))
+    expect(await links.fileUrl(WINDOW, 'p1', url(join(outside, 'shots', 'a.png')))).toBeNull()
   })
 
   it('accepts the local hostname that ls, rg, fd and eza put in their hyperlinks', async () => {
