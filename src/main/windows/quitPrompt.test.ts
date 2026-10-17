@@ -161,6 +161,17 @@ describe('cappedLostLines', () => {
     expect(lines[2]).toBe(`  Running: ${'a'.repeat(MAX_NAME_COLUMNS - 3)}😀…`)
   })
 
+  it('counts symbols and flags as wide when clipping', () => {
+    const lines = cappedLostLines(text, [
+      groupOf(1, [
+        `${'a'.repeat(MAX_NAME_COLUMNS - 1)}☕`,
+        `${'a'.repeat(MAX_NAME_COLUMNS - 1)}🇯🇵`,
+      ]),
+    ])
+    const clipped = `  Running: ${'a'.repeat(MAX_NAME_COLUMNS - 1)}…`
+    expect(lines.slice(1)).toEqual([clipped, clipped])
+  })
+
   it('keeps a name that exactly fits', () => {
     const fits = 'a'.repeat(MAX_NAME_COLUMNS)
     expect(cappedLostLines(text, [groupOf(1, [fits])])[1]).toBe(`  Running: ${fits}`)

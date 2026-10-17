@@ -470,6 +470,7 @@ describe('close confirmation', () => {
         workspace: i === 0 ? LONG : `group ${i + 1}`,
         commands: [i === 0 ? LONG : `make ${i + 1}`, `sleep ${i + 1}`],
         files: [`/g/${i === 0 ? LONG : `file-${i + 1}`}.md`],
+        ...(i === 1 ? { unanswered: true, scratchFiles: 2 } : {}),
       }))
       act(() => {
         void confirmQuit(groups, kept)
@@ -509,6 +510,15 @@ describe('close confirmation', () => {
       expect(command).toHaveClass('[overflow-wrap:anywhere]', 'whitespace-normal', 'min-w-0')
       const file = screen.getByText(`${LONG}.md`, { exact: false })
       expect(file).toHaveClass('[overflow-wrap:anywhere]', 'whitespace-normal')
+      for (const text of [
+        'The window did not answer, so it may have running commands or unsaved files',
+        '2 files in the scratch folder',
+      ]) {
+        expect(screen.getByText(text, { exact: false })).toHaveClass(
+          '[overflow-wrap:anywhere]',
+          'whitespace-normal',
+        )
+      }
       const workspace = [...dialog.querySelectorAll('div')].find((el) => el.textContent === LONG)
       expect(workspace).toHaveClass('[overflow-wrap:anywhere]', 'min-w-0')
       act(() => useCloseConfirmStore.getState().answer(false))

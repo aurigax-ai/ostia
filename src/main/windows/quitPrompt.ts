@@ -10,6 +10,8 @@ export const MAX_NAME_COLUMNS = 40
 
 const WIDE_RANGES: readonly (readonly [number, number])[] = [
   [0x1100, 0x115f],
+  [0x1f1e6, 0x1f1ff],
+  [0x2600, 0x27bf],
   [0x2e80, 0xa4cf],
   [0xac00, 0xd7a3],
   [0xf900, 0xfaff],

@@ -90,9 +90,11 @@ function RunningGroupItem({ group }: { group: RunningGroup }): JSX.Element {
             density="dense"
             lead={<FlaskIcon size={16} aria-hidden />}
             title={
-              group.scratchFiles === 1
-                ? d.closeConfirm.scratchFilesOne
-                : fmt(d.closeConfirm.scratchFiles, { count: group.scratchFiles })
+              <span className={WRAP}>
+                {group.scratchFiles === 1
+                  ? d.closeConfirm.scratchFilesOne
+                  : fmt(d.closeConfirm.scratchFiles, { count: group.scratchFiles })}
+              </span>
             }
             meta={
               <TextLink
@@ -119,7 +121,7 @@ function RunningGroupItem({ group }: { group: RunningGroup }): JSX.Element {
           <ListRow
             density="dense"
             lead={<QuestionIcon size={16} aria-hidden />}
-            title={d.closeConfirm.unanswered}
+            title={<span className={WRAP}>{d.closeConfirm.unanswered}</span>}
           />
         ) : null}
       </ul>
