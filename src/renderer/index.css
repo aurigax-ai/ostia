@@ -2731,6 +2731,34 @@ button.prompt-chip:hover {
   background: var(--scrollbar-thumb-hover);
 }
 
+.bell-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: var(--color-fg);
+  opacity: 0;
+  --bell-flash-ease: var(--ease-out);
+  animation: bell-flash var(--bell-flash-ms, var(--motion-base)) var(--bell-flash-ease) forwards;
+}
+
+.bell-flash[data-easing="in-out"] {
+  --bell-flash-ease: var(--ease-in-out);
+}
+
+.bell-flash[data-easing="linear"] {
+  --bell-flash-ease: linear;
+}
+
+@keyframes bell-flash {
+  from {
+    opacity: 0.2;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 .blocks-overlay {
   position: absolute;
   inset: 0;
