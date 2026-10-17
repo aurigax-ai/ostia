@@ -3,8 +3,8 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
-import { openWorkspace, waitForPaletteSelection } from './helpers'
+import { REPORT_SESSION, fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
+import { expectHeld, openWorkspace, waitForPaletteSelection } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 const PAGE = `<!doctype html>
@@ -14,8 +14,7 @@ const PAGE = `<!doctype html>
   <button data-testid="broken-button" style="margin:40px;width:160px;height:40px">Checkout</button>
 </body></html>`
 
-const LINE_AGENT =
-  '#!/bin/sh\necho fake-agent-ready\nwhile IFS= read -r line; do echo "agent-read: $line"; done\n'
+const LINE_AGENT = `#!/bin/sh\n${REPORT_SESSION}\necho fake-agent-ready\nwhile IFS= read -r line; do echo "agent-read: $line"; done\n`
 
 test('a browser pane moved to its own window sends a picked element to the agent it left behind', async () => {
   test.setTimeout(150_000)
@@ -107,10 +106,19 @@ test('a browser pane moved to its own window sends a picked element to the agent
     })
     const terminal = win.locator('.xterm-rows').first()
     await expect(terminal).toContainText(/agent-read: @\S*capture-\d+\S*\.md/, { timeout: 15_000 })
-    await win.waitForTimeout(500)
+    await win.locator('.xterm').first().click()
+    await win.keyboard.type('flush_marker')
+    await win.keyboard.press('Enter')
+    await expect(terminal).toContainText('agent-read: flush_marker', { timeout: 15_000 })
+    const reports = async (): Promise<{ lines: number; files: number }> => {
+      const text = (await terminal.textContent()) ?? ''
+      return {
+        lines: text.match(/agent-read: @\S*capture-\d+\S*\.md/g)?.length ?? 0,
+        files: new Set(text.match(/capture-\d+\S*\.md/g)).size,
+      }
+    }
+    await expectHeld(reports, { lines: 1, files: 1 }, 2_000)
     const text = (await terminal.textContent()) ?? ''
-    expect(text.match(/agent-read: @\S*capture-\d+\S*\.md/g)).toHaveLength(1)
-    expect([...new Set(text.match(/capture-\d+\S*\.md/g))]).toHaveLength(1)
     const match = text.match(/agent-read: @(\S*capture-\d+\S*\.md)/)
     const report = readFileSync((match as RegExpMatchArray)[1], 'utf8')
     expect(report).toContain('[data-testid="broken-button"]')

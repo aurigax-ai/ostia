@@ -8,11 +8,8 @@ import { useDiffStore } from '@/stores/files/diffStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type {
-  ExtensionInfo,
-  ExtensionSettingsStored,
-  PaneChip,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionInfo, PaneChip } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionSettingsStored } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import {
@@ -60,6 +57,7 @@ function ext(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     category: 'other',
     languages: [],
     languageServers: [],
+    fileViewers: [],
     agentSkills: [],
     agentHooks: [],
     iconThemes: [],

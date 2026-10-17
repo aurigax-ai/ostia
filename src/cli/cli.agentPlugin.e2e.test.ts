@@ -24,7 +24,7 @@ import {
   shellIntegrationDir,
   shellIntegrationSpawnOptions,
 } from '../main/terminal/shellIntegration'
-import type { CommandResult } from '../shared/types'
+import type { CommandResult } from '../shared/control/commands'
 
 const repoRoot = process.cwd()
 const cliPath = join(repoRoot, 'out', 'cli', 'index.js')

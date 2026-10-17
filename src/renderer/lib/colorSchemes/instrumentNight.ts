@@ -1,0 +1,30 @@
+import type { ColorScheme } from '@/lib/theme/types'
+
+export const instrumentNight: ColorScheme = {
+  id: 'instrument-night',
+  name: 'Instrument Night',
+  appearance: 'dark',
+  colors: {
+    background: '#0a0c12',
+    foreground: '#e7e9f0',
+    cursor: '#f2b347',
+    cursorAccent: '#0a0c12',
+    selectionBackground: 'rgba(242, 179, 71, 0.22)',
+    black: '#1d2230',
+    red: '#ff6b5e',
+    green: '#5bd6a0',
+    yellow: '#f2b347',
+    blue: '#6ea8fe',
+    magenta: '#c792ea',
+    cyan: '#5ccfe6',
+    white: '#c8ccd8',
+    brightBlack: '#6b7186',
+    brightRed: '#ff8a80',
+    brightGreen: '#7ee6b8',
+    brightYellow: '#ffc874',
+    brightBlue: '#8fbcff',
+    brightMagenta: '#d7a8f5',
+    brightCyan: '#86e1f0',
+    brightWhite: '#ffffff',
+  },
+}

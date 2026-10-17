@@ -42,6 +42,7 @@ const base = {
   category: 'other',
   languages: [],
   languageServers: [],
+  fileViewers: [],
   agentSkills: [],
   agentHooks: [],
 } satisfies Partial<ExtensionInfo>

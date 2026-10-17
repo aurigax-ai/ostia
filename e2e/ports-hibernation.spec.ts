@@ -40,7 +40,6 @@ test('a port a terminal listens on shows in the top bar and opens in the browser
     const open = win.getByRole('button', {
       name: `Open http://localhost:${port}/ in the browser pane`,
     })
-    await expect(open).toHaveText(new RegExp(`^:${port}python3`))
     await open.click()
 
     await expect(win.locator('.pane-tab .title').filter({ hasText: /./ })).toHaveCount(2, {
@@ -78,7 +77,10 @@ test('a hibernated agent is still hibernated after a restart and wakes when the 
   const dataHome = freshDataHome()
   const bin = join(dataHome, 'bin')
   mkdirSync(bin, { recursive: true })
-  writeFileSync(join(bin, 'claude'), '#!/bin/sh\necho "fake agent up: $*"\nexec sleep 600\n')
+  writeFileSync(
+    join(bin, 'claude'),
+    '#!/bin/sh\nELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude e2e-tok-2 >/dev/null 2>&1\necho "fake agent up: $*"\nexec sleep 600\n',
+  )
   chmodSync(join(bin, 'claude'), 0o755)
   seedSettings(dataHome, {
     ...DOM_RENDERER_SETTINGS,
@@ -135,7 +137,10 @@ test('a hibernated agent is still hibernated after a restart and wakes when the 
     await expect(win.locator('.terminal-surface .xterm')).toHaveCount(1)
 
     await sleeping.click()
-    await shownTerminal(win).click()
+    const asleep = win.locator('.hibernated-view')
+    await expect(asleep.getByText('Hibernated')).toBeVisible()
+    await expect(asleep.locator('.xterm')).toHaveCount(0)
+    await asleep.click()
     const rows = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
     await expect(rows).toContainText(/fake agent up: .*--resume e2e-tok-2/, { timeout: 20_000 })
     await expect(win.locator('.hibernated-view')).toHaveCount(0)

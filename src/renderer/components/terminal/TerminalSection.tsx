@@ -1,14 +1,11 @@
+import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
-import {
-  ControlRow,
-  ExperimentalBadge,
-  ToggleRow,
-  WarningNote,
-} from '@/components/settings/ControlRow'
 import { DiscreteGpuRow } from '@/components/settings/DiscreteGpuRow'
 import { RequirementsNoteView, useRequirements } from '@/components/settings/RequirementsNote'
-import { SelectField } from '@/components/settings/SelectField'
-import { SectionHead, SettingsGroup } from '@/components/settings/SettingsGroup'
+import { ControlRow, ExperimentalBadge, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
 import type { ClipboardKeys, TerminalRenderer } from '@/lib/settings/terminalPaneSettings'
@@ -33,13 +30,16 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { CaretRightIcon } from '@phosphor-icons/react'
 import { KEEP_SHELLS_FEATURE, TMUX_MIN_VERSION } from '@shared/terminal/keepShells'
+import {
+  SCROLLBACK_HISTORY_MAX_MIB,
+  SCROLLBACK_HISTORY_MIN_MIB,
+} from '@shared/terminal/scrollbackHistory'
 import { useEffect, useState } from 'react'
 
 export function TerminalSection(): JSX.Element {
   const d = useDict()
   return (
-    <div>
-      <SectionHead title={d.settings.terminal} />
+    <SettingsPage title={d.settings.terminal}>
       <TerminalInputGroup />
       {isMac ? <TerminalKeyboardGroup /> : null}
       <TerminalCursorGroup />
@@ -49,7 +49,7 @@ export function TerminalSection(): JSX.Element {
       <TerminalColorsGroup />
       <TerminalRenderingGroup />
       <TerminalSessionGroup />
-    </div>
+    </SettingsPage>
   )
 }
 
@@ -104,7 +104,7 @@ function TerminalInputGroup(): JSX.Element {
         </span>
       </ControlRow>
       {promptStyle === 'ostia' && mode !== 'editor' ? (
-        <WarningNote>{d.settings.promptNeedsEditor}</WarningNote>
+        <Notice>{d.settings.promptNeedsEditor}</Notice>
       ) : null}
     </SettingsGroup>
   )
@@ -205,6 +205,7 @@ function TerminalScrollingGroup(): JSX.Element {
         step={1000}
         onCommit={(v) => setTerminal({ scrollbackLines: v })}
       />
+      <HistoryOnDiskRow />
     </SettingsGroup>
   )
 }
@@ -306,9 +307,7 @@ function TerminalRenderingGroup(): JSX.Element {
         />
       </ControlRow>
       {renderer === 'ghostty' && ghosttyFailure() ? (
-        <WarningNote>
-          {fmt(d.settings.ghosttyFailed, { reason: ghosttyFailure() ?? '' })}
-        </WarningNote>
+        <Notice>{fmt(d.settings.ghosttyFailed, { reason: ghosttyFailure() ?? '' })}</Notice>
       ) : null}
     </SettingsGroup>
   )
@@ -354,6 +353,62 @@ function TerminalSessionGroup(): JSX.Element {
         requirements={keepShellsRequirements}
       />
     </SettingsGroup>
+  )
+}
+
+const HISTORY_LIMIT_DEFAULT_MIB = 1024
+
+function HistoryOnDiskRow(): JSX.Element {
+  const d = useDict()
+  const value = useSettingsStore((s) => s.terminal.scrollbackHistory)
+  const setTerminal = useSettingsStore((s) => s.setTerminal)
+  const mode = typeof value === 'number' ? 'limit' : value
+  const [draft, setDraft] = useState(typeof value === 'number' ? String(value) : '')
+  useEffect(() => setDraft(typeof value === 'number' ? String(value) : ''), [value])
+  return (
+    <ControlRow label={d.settings.scrollbackHistory} desc={d.settings.scrollbackHistoryDesc}>
+      <div className="flex items-center gap-2">
+        <SelectField
+          value={mode}
+          onChange={(v) =>
+            setTerminal({
+              scrollbackHistory:
+                v === 'limit' ? HISTORY_LIMIT_DEFAULT_MIB : (v as 'off' | 'unlimited'),
+            })
+          }
+          label={d.settings.scrollbackHistory}
+          options={[
+            { value: 'unlimited', label: d.settings.scrollbackHistoryUnlimited },
+            { value: 'limit', label: d.settings.scrollbackHistoryLimit },
+            { value: 'off', label: d.settings.scrollbackHistoryOff },
+          ]}
+        />
+        {typeof value === 'number' ? (
+          <Input
+            type="number"
+            min={SCROLLBACK_HISTORY_MIN_MIB}
+            max={SCROLLBACK_HISTORY_MAX_MIB}
+            step={256}
+            value={draft}
+            aria-label={d.settings.scrollbackHistoryMib}
+            title={d.settings.scrollbackHistoryMib}
+            onChange={(e) => {
+              setDraft(e.target.value)
+              const n = Number(e.target.value)
+              if (
+                Number.isFinite(n) &&
+                n >= SCROLLBACK_HISTORY_MIN_MIB &&
+                n <= SCROLLBACK_HISTORY_MAX_MIB
+              ) {
+                setTerminal({ scrollbackHistory: n })
+              }
+            }}
+            onBlur={() => setDraft(String(value))}
+            className="h-7 w-24 font-mono"
+          />
+        ) : null}
+      </div>
+    </ControlRow>
   )
 }
 

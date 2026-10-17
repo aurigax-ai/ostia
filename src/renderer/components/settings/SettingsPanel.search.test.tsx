@@ -56,6 +56,7 @@ const BOARD: ExtensionInfo = {
   category: 'other',
   languages: [],
   languageServers: [],
+  fileViewers: [],
   agentSkills: [],
   agentHooks: [],
   iconThemes: [],

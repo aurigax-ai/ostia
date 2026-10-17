@@ -1,4 +1,4 @@
-import type { AttentionState } from '@shared/types'
+import type { AttentionState } from '@shared/attention/attention'
 import { create } from 'zustand'
 import { useBlocksStore } from './blocksStore'
 

@@ -1,5 +1,6 @@
 import type { ResponseError } from 'vscode-jsonrpc/node'
-import type { CommandResult, TerminalStateSnapshot } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
+import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'
 import { CONFIRM_MAX_MS, createPaneConfirms } from './paneConfirm'

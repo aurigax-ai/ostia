@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { BrowserWindow, systemPreferences } from 'electron'
+import { escape as escapeHtml } from 'es-toolkit'
 import { fmt, withProductName } from '../../shared/app/dict'
 import {
   POLKIT_ACTION,
@@ -202,14 +203,6 @@ export function installPolkitCommand(resourcesPath: string): string {
   return `sudo "${join(resourcesPath, 'bin', 'ostia')}" install-polkit`
 }
 
-function html(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
 function scriptString(text: string): string {
   return JSON.stringify(text).replace(/</g, '\\u003c')
 }
@@ -222,7 +215,8 @@ export function fallbackPage(
 ): string {
   const detail =
     platform === 'darwin' ? text.detailMac : prompt.polkitHint ? text.detailLinux : text.detailOther
-  const t = (s: string, vars: Record<string, string> = {}) => html(withProductName(fmt(s, vars)))
+  const t = (s: string, vars: Record<string, string> = {}) =>
+    escapeHtml(withProductName(fmt(s, vars)))
   return `<!doctype html>
 <html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">

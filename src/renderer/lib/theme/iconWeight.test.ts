@@ -61,4 +61,14 @@ describe('icon weight source', () => {
     )
     expect(overrides).toEqual([])
   })
+
+  it('is never drawn smaller than 16 px', () => {
+    const tag = String.raw`<(?:\w*Icon\w*|Caret)\b[^>]*?`
+    const smallProp = new RegExp(String.raw`${tag}\ssize=\{(?:[1-9]|1[0-5])\}`, 'g')
+    const smallClass = new RegExp(String.raw`${tag}\bsize-(?:2|2\.5|3|3\.5)\b`, 'g')
+    const small = sources.flatMap((s) =>
+      [...s.text.matchAll(smallProp), ...s.text.matchAll(smallClass)].map(() => s.file),
+    )
+    expect(small).toEqual([])
+  })
 })

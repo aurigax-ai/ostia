@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { GatewayTailnetState } from '../../shared/types'
+import type { GatewayTailnetState } from '../../shared/gateway/gatewayApi'
 import { loadJson, storePath } from '../platform/jsonStore'
 import type { Tailnet } from './tailnet'
 

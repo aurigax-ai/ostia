@@ -20,7 +20,7 @@ const read = (path: string) => readFileSync(path, 'utf8')
 const extensionSource = sources(HERE).filter((f) => !f.endsWith('fakeExt.ts'))
 const runtimeSource = [
   ...extensionSource,
-  ...sources(ENGINE).filter((f) => !/fakeHost|fixtures|contractSuite/.test(f)),
+  ...sources(ENGINE).filter((f) => !/fakeHost|fixtures|contractSuite|testRuntime/.test(f)),
 ]
 
 function skillSection(): string {
@@ -46,10 +46,22 @@ describe('what the graphs extension may do', () => {
       .map((f) => f.slice(REPO.length + 1))
     expect(writers.sort()).toEqual([
       'node_modules/@aurigax-ai/wire/src/engine/fileStore.ts',
-      'src/extensions/graphs/enabled.ts',
+      'node_modules/@aurigax-ai/wire/src/runtime/lock.ts',
+      'node_modules/@aurigax-ai/wire/src/runtime/paths.ts',
+      'node_modules/@aurigax-ai/wire/src/runtime/privateFile.ts',
+      'node_modules/@aurigax-ai/wire/src/runtime/server.ts',
+      'node_modules/@aurigax-ai/wire/src/runtime/tokens.ts',
     ])
-    expect(read(join(HERE, 'enabled.ts'))).not.toContain('graphsFolder')
-    expect(read(join(ENGINE, 'engine/fileStore.ts'))).not.toContain('.ostia')
+    for (const file of writers) expect(read(join(REPO, file))).not.toContain('.ostia')
+  })
+
+  it('GRF-C216 it never opens a file under its old extension-data folder; runs and enable records live in the runtime', () => {
+    for (const file of extensionSource) {
+      const text = read(file)
+      for (const word of ["'EXTENSION_DATA'", 'enabled.json', 'changed.json', 'schedules.json'])
+        expect(text.includes(word), `${file} names ${word}`).toBe(false)
+    }
+    expect(read(join(HERE, 'main.ts'))).not.toContain('readEnv(')
   })
 
   it('GRF-C4 no surveyed engine is a dependency of the bundle, the engine or the app', () => {
@@ -130,5 +142,37 @@ describe('what the graphs extension may do', () => {
     expect(read(join(REPO, 'src/cli/verbs/coreBoards.ts'))).not.toMatch(/case 'graph'/)
     const words = `${catalogText()}\n${skillSection()}`.toLowerCase()
     for (const word of ['workflow', ' job', 'flow ']) expect(words).not.toContain(word)
+  })
+
+  it('GRF-C224 Ostia depends on @aurigax-ai/wire exactly and nothing names @aurigax-ai/graph or a graph bin', () => {
+    const manifest = JSON.parse(read(join(REPO, 'package.json'))) as {
+      dependencies: Record<string, string>
+    }
+    expect(manifest.dependencies['@aurigax-ai/wire']).toMatch(/^\d+\.\d+\.\d+$/)
+    expect(manifest.dependencies['@aurigax-ai/graph']).toBeUndefined()
+    const skip = new Set(['node_modules', 'out', 'dist', 'test-results', '.git'])
+    const walk = (dir: string): string[] =>
+      readdirSync(dir).flatMap((name) => {
+        if (skip.has(name)) return []
+        const path = join(dir, name)
+        if (statSync(path).isDirectory()) return walk(path)
+        return /\.(ts|tsx|mts|mjs|js|json|md|yaml|yml|sh)$/.test(name) ? [path] : []
+      })
+    const tracked = [
+      ...['src', 'scripts', 'e2e', 'test', 'packages', 'marketplace'].flatMap((d) =>
+        walk(join(REPO, d)),
+      ),
+      ...[
+        'package.json',
+        'pnpm-workspace.yaml',
+        '.dependency-cruiser.json',
+        'README.md',
+        'knip.json',
+      ]
+        .map((f) => join(REPO, f))
+        .filter((f) => existsSync(f)),
+    ].filter((f) => f !== __filename)
+    const named = tracked.filter((f) => /@aurigax-ai\/graph(?![-\w])|\.bin\/graph\b/.test(read(f)))
+    expect(named).toEqual([])
   })
 })

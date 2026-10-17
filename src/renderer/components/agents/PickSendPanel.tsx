@@ -19,7 +19,7 @@ import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { XIcon } from '@phosphor-icons/react'
 import type { ResumableAgent } from '@shared/agents/agentResume'
 import type { Dict } from '@shared/app/dict'
-import type { AttentionState } from '@shared/types'
+import type { AttentionState } from '@shared/attention/attention'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 
 export function stateLabel(d: Dict, state: AttentionState): string {

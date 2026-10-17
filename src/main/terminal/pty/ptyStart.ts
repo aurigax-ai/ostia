@@ -1,16 +1,17 @@
 import { rmSync } from 'node:fs'
+import type { PtyAttachResult } from '../../../shared/terminal/ptyApi'
 import { shellName } from '../../../shared/terminal/terminalShell'
-import type { PtyAttachResult } from '../../../shared/types'
 import type { AppLog } from '../../diagnostics/appLog'
 import type { Telemetry } from '../../diagnostics/telemetry'
+import type { PaneLifecycleEvents } from '../../extensions/paneLifecycleEvents'
 import type { PaneProcess } from '../../panes/paneProcess'
 import { hiddenHomeNotice } from '../../sandbox/spawnBanner'
 import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'
 import { keepShellsNotice } from '../../tmux/keepShellsBanner'
 import type { KeptMeta } from '../../tmux/keptShells'
 import type { KeptShells } from '../../tmux/keptShells'
-import type { TmuxPane } from '../../tmux/tmuxServer'
-import { takeRestoredScrollback } from '../../workspaces/workspaceSnapshot'
+import type { TmuxPane } from '../../tmux/tmuxPane'
+import { takeRestoredScrollback } from '../../workspaces/savedScrollback'
 import type { Subscriber } from '../ptySession'
 import { HIBERNATE_SEAM, RESTORE_SEAM } from '../screenMirror'
 import { PTY_TERM_NAME } from '../terminalType'
@@ -21,6 +22,7 @@ interface PtyStartDeps {
   keptShells: KeptShells
   workspaceSandboxes: WorkspaceSandboxes
   hibernatedPanes: Set<string>
+  paneLifecycleEvents: PaneLifecycleEvents
   trackPty: PtyRegistry['trackPty']
   feedPty: PtyRegistry['feedPty']
   releaseMergedSandbox: (workspaceId: string, exiting?: PtyEntry) => void
@@ -34,6 +36,7 @@ export function createPtyStart({
   keptShells,
   workspaceSandboxes,
   hibernatedPanes,
+  paneLifecycleEvents,
   trackPty,
   feedPty,
   releaseMergedSandbox,
@@ -101,14 +104,16 @@ export function createPtyStart({
       entry.exitListeners.add(() => {
         if (resizePipe) rmSync(resizePipe, { force: true })
         portBridge?.close()
-        void workspaceSandboxes.cleanup(workspaceId)
+        void workspaceSandboxes.hosts.cleanup(workspaceId)
         releaseMergedSandbox(workspaceId, entry)
       })
     }
 
     const history = takeRestoredScrollback(paneId)
     if (history) appLog()?.info('scrollback-replay', { pane: paneId, chars: history.length })
-    const seam = hibernatedPanes.delete(paneId) ? HIBERNATE_SEAM : RESTORE_SEAM
+    const woken = hibernatedPanes.delete(paneId)
+    if (woken) paneLifecycleEvents.change(paneId, 'woken')
+    const seam = woken ? HIBERNATE_SEAM : RESTORE_SEAM
     if (history) replayRestored(entry, history, seam)
     if (secretNotice) feedDisplay(entry, secretNotice)
     if (notKept) feedDisplay(entry, keepShellsNotice(notKept))
@@ -119,7 +124,7 @@ export function createPtyStart({
 
     pty.onData((d) => feedPty(entry, d))
     pty.onExit(({ exitCode }) => session.exit(exitCode))
-    const { data, cursor, dropped } = session.since(0)
+    const { data, cursor, dropped, startsBefore } = session.since(0)
     session.addLiveSubscriber(mkSub(entry))
     if (folder.missing) telemetry()?.count('terminal', 'spawn_failure', 'cwd-missing')
     return {
@@ -127,6 +132,7 @@ export function createPtyStart({
       buffer: data,
       cursor,
       dropped,
+      blockSeqBase: entry.mirror.blockSeqBase + startsBefore,
       shell: shellName(shell) || undefined,
       sandboxed,
       host,

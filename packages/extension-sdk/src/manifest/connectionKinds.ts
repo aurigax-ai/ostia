@@ -5,12 +5,12 @@ import {
   EXTENSION_CONNECTION_KIND_PATTERN,
   EXTENSION_CONNECTION_SECRETS_MAX,
   EXTENSION_CONNECTION_VALUE_MAX,
-  EXTENSION_SETTING_TITLE_MAX,
   type ExtensionConnectionField,
   type ExtensionConnectionFieldType,
   type ExtensionConnectionKind,
   type ExtensionConnectionSecret,
-} from '../contract/extensions'
+} from '../contract/extensionConnections'
+import { EXTENSION_SETTING_TITLE_MAX } from '../contract/extensions'
 import { isRecord } from '../contract/isRecord'
 
 const KEY_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]{0,39}$/

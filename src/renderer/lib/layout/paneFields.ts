@@ -1,11 +1,14 @@
 import { baseName, parentOf } from '@/lib/files/fileTree'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { type AgentResume, sameResume } from '@shared/agents/agentResume'
+import { isArchivePath } from '@shared/archives/archivePaths'
+import type { BrowserDevice } from '@shared/browser/browserDevice'
 import { type BrowserProfile, parseBrowserProfile } from '@shared/browser/browserProfile'
+import { isEqual } from 'es-toolkit'
 import { allPanes, findPane } from './tree'
 import type { LayoutNode, PaneNode, SurfaceKind, TabNode } from './types'
 
-function mapPanes(node: LayoutNode, fn: (pane: PaneNode) => PaneNode): LayoutNode {
+export function mapPanes(node: LayoutNode, fn: (pane: PaneNode) => PaneNode): LayoutNode {
   if (node.type === 'pane') return fn(node)
   if (node.type === 'tabs') {
     const children = node.children.map((c) => mapPanes(c, fn) as TabNode)
@@ -153,20 +156,32 @@ export function setPaneEditor(
   title: string,
   filePath: string,
 ): LayoutNode {
-  if (isRemotePath(filePath)) {
-    return mapPane(root, paneId, ({ cwd: _local, ...p }) => ({
+  if (isRemotePath(filePath) || isArchivePath(filePath)) {
+    return mapPane(root, paneId, ({ cwd: _local, viewType: _viewType, ...p }) => ({
       ...p,
       kind: 'editor',
       title,
       filePath,
     }))
   }
-  return mapPane(root, paneId, (p) => ({
+  return mapPane(root, paneId, ({ viewType: _viewType, ...p }) => ({
     ...named(p, title),
     kind: 'editor',
     filePath,
     cwd: parentOf(filePath),
   }))
+}
+
+export function setPaneViewType(
+  root: LayoutNode,
+  paneId: string,
+  viewType: string | null,
+): LayoutNode {
+  return mapPane(root, paneId, (p) => {
+    if ((p.viewType ?? null) === viewType) return p
+    const { viewType: _previous, ...rest } = p
+    return viewType === null ? rest : { ...rest, viewType }
+  })
 }
 
 function movedPath(path: string, from: string, to: string): string | null {
@@ -202,6 +217,19 @@ export function setPaneBrowser(
     if (profile === undefined) return next
     const { browserProfile: _previous, ...rest } = next
     return profile === 'shared' ? { ...rest, browserProfile: 'shared' } : rest
+  })
+}
+
+export function setPaneBrowserDevice(
+  root: LayoutNode,
+  paneId: string,
+  device: BrowserDevice | null,
+): LayoutNode {
+  return mapPane(root, paneId, (p) => {
+    if (p.kind !== 'browser') return p
+    const { browserDevice: previous, ...rest } = p
+    if (!device) return previous ? rest : p
+    return previous && isEqual(previous, device) ? p : { ...rest, browserDevice: device }
   })
 }
 

@@ -1,3 +1,4 @@
+import { ExperimentalBadge, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -9,7 +10,6 @@ import {
   rendererDeviceName,
 } from '@shared/app/discreteGpu'
 import { useEffect, useState } from 'react'
-import { ExperimentalBadge, ToggleRow } from './ControlRow'
 import { RequirementsNoteView, useRequirements } from './RequirementsNote'
 
 function drawingGpu(): string | null {
@@ -55,7 +55,7 @@ export function DiscreteGpuRow(): JSX.Element {
         requirements={requirements}
       />
       <div role="note" className="mt-1 flex items-start gap-2 text-fg-muted text-ui-sm">
-        <InfoIcon className="mt-0.5 size-3.5 shrink-0" />
+        <InfoIcon className="mt-0.5 size-4 shrink-0" />
         <div className="min-w-0 flex-1">
           {ready && gpu === null ? <p>{d.settings.discreteGpuNone}</p> : null}
           {gpu ? <p>{fmt(d.settings.discreteGpuFound, { name: gpu.name })}</p> : null}

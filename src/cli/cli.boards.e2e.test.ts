@@ -13,7 +13,7 @@ import { PortsService } from '../main/ports/service'
 import { en } from '../shared/app/dict'
 import { DEFAULT_GIT_SETTINGS } from '../shared/boards/git'
 import { DEFAULT_PORTS_SETTINGS } from '../shared/boards/ports'
-import type { CommandResult } from '../shared/types'
+import type { CommandResult } from '../shared/control/commands'
 
 const cliPath = join(process.cwd(), 'out', 'cli', 'index.js')
 

@@ -8,8 +8,9 @@ import type { ExtensionConnections } from '../extensionConnections'
 import type { ExtensionHost } from '../extensionHost'
 import type { ExtensionSecretStore } from '../extensionHostDeps'
 import type { ExtensionStore } from '../extensionStore'
-import { Marketplace, marketplaceId } from './marketplace'
+import { Marketplace } from './marketplace'
 import type { MarketplaceIpc } from './marketplaceIpc'
+import { marketplaceId } from './marketplaceSources'
 
 interface MarketplaceStartDeps {
   configDir: () => string

@@ -1,4 +1,5 @@
 import type { AgentResume, ResumeFailure } from '@shared/agents/agentResume'
+import type { BrowserDevice } from '@shared/browser/browserDevice'
 import type { BrowserProfile } from '@shared/browser/browserProfile'
 
 export type Direction = 'horizontal' | 'vertical'
@@ -22,11 +23,13 @@ export interface PaneNode {
   kind: SurfaceKind
   cwd?: string
   filePath?: string
+  viewType?: string
   url?: string
   extensionId?: string
   chatSessionId?: string
   viewName?: string
   browserProfile?: BrowserProfile
+  browserDevice?: BrowserDevice
   resume?: AgentResume
   hibernated?: true
   resumePending?: true
@@ -36,6 +39,7 @@ export interface PaneNode {
   locked?: true
   defaultTitle?: true
   titlePinned?: true
+  collapsed?: true
 }
 
 export interface SplitNode {
@@ -45,6 +49,7 @@ export interface SplitNode {
   children: LayoutNode[]
   sizes: number[]
   name?: string
+  folded?: true
 }
 
 export type TabNode = PaneNode | SplitNode

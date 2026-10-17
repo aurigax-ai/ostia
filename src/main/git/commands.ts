@@ -1,5 +1,5 @@
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
-import type { ExtensionOpenDiffRequest } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionOpenDiffRequest } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import { GIT_SOURCE } from '@aurigax-ai/ostia-extension-sdk/manifest/coreNames'
 import {
   type BlameLine,

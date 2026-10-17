@@ -4,8 +4,10 @@ import { commands } from '@/commands/registry'
 import { CommandPalette } from '@/components/palette/CommandPalette'
 import { findExtensionPane } from '@/lib/layout/paneFields'
 import { createPane } from '@/lib/layout/tree'
+import { COMMANDS_PREFIX } from '@/lib/palette/paletteModes'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -45,6 +47,7 @@ const git: ExtensionInfo = {
   category: 'other',
   languages: [],
   languageServers: [],
+  fileViewers: [],
   agentSkills: [],
   agentHooks: [],
   iconThemes: [],
@@ -56,12 +59,14 @@ describe('TopBar', () => {
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
   let uiInit: ReturnType<typeof useUIStore.getState>
   let extInit: ReturnType<typeof useExtensionsStore.getState>
+  let settingsInit: ReturnType<typeof useSettingsStore.getState>
 
   beforeAll(() => {
     workspacesInit = useWorkspacesStore.getState()
     layoutInit = useLayoutStore.getState()
     uiInit = useUIStore.getState()
     extInit = useExtensionsStore.getState()
+    settingsInit = useSettingsStore.getState()
   })
 
   afterEach(() => {
@@ -70,6 +75,7 @@ describe('TopBar', () => {
     useLayoutStore.setState(layoutInit, true)
     useUIStore.setState(uiInit, true)
     useExtensionsStore.setState(extInit, true)
+    useSettingsStore.setState(settingsInit, true)
     vi.restoreAllMocks()
   })
 
@@ -243,19 +249,31 @@ describe('TopBar', () => {
     expect(files).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('the top-bar search opens Search Everywhere with the keyboard in its input', async () => {
+  it('the top-bar search shows the palette chord and opens the palette in command mode', async () => {
     render(
       <>
         <TopBar />
         <CommandPalette />
       </>,
     )
-    await userEvent.click(screen.getByRole('button', { name: /Search or run a command/ }))
+    const button = screen.getByRole('button', { name: /Search or run a command/ })
+    expect(within(button).getByText('Ctrl+Shift+P')).toBeInTheDocument()
+    expect(within(button).queryByText(/Shift\+Shift/)).toBeNull()
+    await userEvent.click(button)
 
-    const everywhere = await screen.findByRole('dialog', { name: 'Search everywhere' })
-    expect(useUIStore.getState().paletteMode).toBe('everywhere')
-    await waitFor(() => expect(within(everywhere).getByRole('combobox')).toHaveFocus())
-    expect(within(everywhere).getByRole('combobox')).toHaveValue('')
+    const palette = await screen.findByRole('dialog', { name: 'Command palette' })
+    expect(useUIStore.getState().paletteMode).toBe('search')
+    expect(useUIStore.getState().paletteSeed).toBe(COMMANDS_PREFIX)
+    await waitFor(() => expect(within(palette).getByRole('combobox')).toHaveFocus())
+  })
+
+  it('the top-bar search label follows the user’s palette.toggle binding', () => {
+    useSettingsStore.setState({
+      keybindings: { ...useSettingsStore.getState().keybindings, 'palette.toggle': 'Ctrl+Alt+K' },
+    })
+    render(<TopBar />)
+    const button = screen.getByRole('button', { name: /Search or run a command/ })
+    expect(within(button).getByText('Ctrl+Alt+K')).toBeInTheDocument()
   })
 
   it('puts the dashboard button after Files and before the Git and extension panel toggles', () => {

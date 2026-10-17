@@ -7,29 +7,18 @@ import type {
 } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import { ipcRenderer } from 'electron'
 import type { OstiaBridge } from '../shared/types'
+import { listen } from './listen'
 
 export const lspBridge: Pick<OstiaBridge, 'lsp' | 'editorLanguages'> = {
   lsp: {
     servers: () => ipcRenderer.invoke('lsp:servers') as Promise<LanguageServerInfo[]>,
-    onServersChanged: (cb) => {
-      const handler = (_e: unknown, list: LanguageServerInfo[]): void => cb(list)
-      ipcRenderer.on('lsp:servers-changed', handler)
-      return () => ipcRenderer.removeListener('lsp:servers-changed', handler)
-    },
+    onServersChanged: (cb) => listen('lsp:servers-changed', cb),
     open: (paneId, filePath) =>
       ipcRenderer.invoke('lsp:open', paneId, filePath) as Promise<LspSessionInfo[]>,
     send: (sessionId, message) => ipcRenderer.send('lsp:send', sessionId, message),
     release: (sessionId) => ipcRenderer.send('lsp:release', sessionId),
-    onMessage: (sessionId, cb) => {
-      const handler = (_e: unknown, message: unknown): void => cb(message)
-      ipcRenderer.on(`lsp:msg:${sessionId}`, handler)
-      return () => ipcRenderer.removeListener(`lsp:msg:${sessionId}`, handler)
-    },
-    onExit: (sessionId, cb) => {
-      const handler = (): void => cb()
-      ipcRenderer.on(`lsp:exit:${sessionId}`, handler)
-      return () => ipcRenderer.removeListener(`lsp:exit:${sessionId}`, handler)
-    },
+    onMessage: (sessionId, cb) => listen(`lsp:msg:${sessionId}`, cb),
+    onExit: (sessionId, cb) => listen(`lsp:exit:${sessionId}`, () => cb()),
     setEnabled: (serverKey, enabled) =>
       ipcRenderer.invoke('extensions:set-language-server', serverKey, enabled) as Promise<
         LanguageServerInfo[]

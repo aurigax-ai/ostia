@@ -12,8 +12,8 @@ export interface SettingsFile {
   manager?: unknown
   assistant?: unknown
   privacy?: unknown
-  terminal?: { shell?: unknown; keepShells?: unknown }
-  agents?: { hooks?: unknown }
+  terminal?: { shell?: unknown; keepShells?: unknown; scrollbackHistory?: unknown }
+  agents?: { hooks?: unknown; trustWorkspaceFolders?: unknown }
   behavior?: { historySuggestions?: unknown }
 }
 

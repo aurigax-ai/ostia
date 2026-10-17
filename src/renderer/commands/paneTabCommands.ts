@@ -87,7 +87,41 @@ function shownSplitTabId(): string | null {
   return activeSplitTabId(workspaceId, paneId ?? null)
 }
 
+const COLLAPSE_COMMANDS = [
+  ['pane.collapse', 'collapse'],
+  ['pane.collapseOthers', 'collapseOthers'],
+  ['pane.expandAll', 'expandAll'],
+] as const
+
 export function registerPaneTabCommands(): void {
+  for (const [id, change] of COLLAPSE_COMMANDS) {
+    registerCore<{ paneId?: string } | undefined>({
+      id,
+      category: 'pane',
+      local: true,
+      listed: () => shownSplitTabId() !== null,
+      run: (args, ctx) => {
+        const paneId = args?.paneId ?? ctx.activePaneId
+        if (ctx.activeWorkspaceId && paneId) {
+          useLayoutStore.getState().changeCollapse(ctx.activeWorkspaceId, paneId, change)
+        }
+      },
+    })
+  }
+
+  registerCore<{ tabId?: string } | undefined>({
+    id: 'pane.foldSplitTab',
+    category: 'pane',
+    local: true,
+    listed: () => shownSplitTabId() !== null,
+    run: (args, ctx) => {
+      const tabId = args?.tabId ?? activeSplitTabId(ctx.activeWorkspaceId, ctx.activePaneId)
+      if (ctx.activeWorkspaceId && tabId) {
+        useLayoutStore.getState().foldSplitTab(ctx.activeWorkspaceId, tabId)
+      }
+    },
+  })
+
   registerCore({
     id: 'pane.renameSplitTab',
     category: 'pane',

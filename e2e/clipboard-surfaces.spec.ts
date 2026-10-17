@@ -142,7 +142,7 @@ test('Cmd+V pastes a copied file as a quoted path and hands an image to the prog
     for (const flavors of ['file-and-image', 'file-and-text'] as const) {
       n += 1
       copyFileOnMac(shot, flavors)
-      expect((await contents()).files).toEqual([shot])
+      await expect.poll(async () => (await contents()).files).toEqual([shot])
       await win.keyboard.type(readLine(n))
       await win.keyboard.press('Enter')
       await expect(rows).toContainText(`line${n}_7`)
@@ -155,7 +155,7 @@ test('Cmd+V pastes a copied file as a quoted path and hands an image to the prog
     for (const flavors of ['image', 'image-and-text', 'image-and-spaced-text'] as const) {
       n += 1
       copyFileOnMac(shot, flavors)
-      expect(await contents()).toEqual({ files: [], image: true })
+      await expect.poll(contents).toEqual({ files: [], image: true })
       await win.keyboard.type(readByte(n))
       await win.keyboard.press('Enter')
       await expect(rows).toContainText(`byte${n}_7`)

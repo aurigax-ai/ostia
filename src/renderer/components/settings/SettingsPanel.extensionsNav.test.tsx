@@ -42,6 +42,7 @@ function ext(id: string, name: string, overrides: Partial<ExtensionInfo> = {}): 
     category: 'other',
     languages: [],
     languageServers: [],
+    fileViewers: [],
     agentSkills: [],
     agentHooks: [],
     iconThemes: [],
@@ -313,8 +314,9 @@ describe('SettingsPanel extensions nav', () => {
       const list = screen.getByRole('list', { name: 'Installed extensions' })
 
       const ports = document.getElementById('settings-extension-tunnels') as HTMLElement
+      await user.click(within(list).getByRole('button', { name: 'Details of Tunnels' }))
       expect(within(ports).getByRole('spinbutton', { name: 'Scan interval' })).toBeInTheDocument()
-      await user.click(within(list).getByRole('button', { name: 'Board' }))
+      await user.click(within(list).getByRole('button', { name: 'Details of Board' }))
       const board = document.getElementById('settings-extension-board') as HTMLElement
       expect(within(board).queryByRole('spinbutton', { name: 'Poll interval' })).toBeNull()
 
@@ -351,7 +353,7 @@ describe('SettingsPanel extensions nav', () => {
       await user.click(within(nav()).getByRole('button', { name: 'Extensions' }))
       await user.click(
         within(screen.getByRole('list', { name: 'Installed extensions' })).getByRole('button', {
-          name: 'Board',
+          name: 'Details of Board',
         }),
       )
       const board = document.getElementById('settings-extension-board') as HTMLElement

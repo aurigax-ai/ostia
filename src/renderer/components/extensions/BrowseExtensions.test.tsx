@@ -354,7 +354,6 @@ describe('BrowseExtensions', () => {
     const row = within(panel).getByRole('listitem', { name: pending.name })
     expect(within(row).getByText('Not downloaded yet.')).toBeVisible()
     expect(within(row).queryByText('This marketplace lists no extensions.')).toBeNull()
-    expect(within(panel).queryByRole('button', { name: 'Add the official marketplace' })).toBeNull()
     vi.mocked(window.ostia.marketplace.refresh).mockResolvedValue({
       ok: true,
       state: stateWith(marketplace({ official: true })),
@@ -364,25 +363,18 @@ describe('BrowseExtensions', () => {
     expect(await within(results()).findByRole('listitem', { name: 'Weather' })).toBeVisible()
   })
 
-  it('adds the official marketplace back in one click once it was removed', async () => {
-    await browse(stateWith(marketplace()))
-    const panel = screen.getByRole('region', { name: 'Marketplaces' })
-    vi.mocked(window.ostia.marketplace.add).mockResolvedValue({
-      ok: true,
-      state: {
-        marketplaces: [marketplace(), marketplace({ ...OTHER, official: true })],
-        installed: [],
-      },
+  it('has no remove button for the official marketplace and no line to add it', async () => {
+    await browse({
+      marketplaces: [
+        marketplace(),
+        marketplace({ ...OTHER, name: 'Ostia extensions', official: true }),
+      ],
+      installed: [],
     })
-    await userEvent.click(
-      within(panel).getByRole('button', { name: 'Add the official marketplace' }),
-    )
-    expect(window.ostia.marketplace.add).toHaveBeenCalledWith('aurigax-ai/ostia-extensions')
-    await waitFor(() =>
-      expect(
-        within(panel).queryByRole('button', { name: 'Add the official marketplace' }),
-      ).toBeNull(),
-    )
+    const panel = screen.getByRole('region', { name: 'Marketplaces' })
+    expect(within(panel).getByRole('button', { name: 'Remove Acme extensions' })).toBeVisible()
+    expect(within(panel).queryByRole('button', { name: 'Remove Ostia extensions' })).toBeNull()
+    expect(within(panel).queryByRole('button', { name: 'Add the official marketplace' })).toBeNull()
   })
 
   it('refreshes and removes a marketplace from its panel', async () => {
@@ -524,6 +516,7 @@ describe('Uninstall and source on the Extensions page', () => {
       category: 'other',
       languages: [],
       languageServers: [],
+      fileViewers: [],
       agentSkills: [],
       agentHooks: [],
       iconThemes: [],
@@ -537,15 +530,21 @@ describe('Uninstall and source on the Extensions page', () => {
       stateWith(marketplace({ installs: ['weather'] }), ['weather']),
     )
     await renderSettled(<ExtensionsSection />)
-    const manual = screen.getByRole('region', { name: 'Manual' })
-    expect(within(manual).getByText('1.0.0 · Installed by hand · Other')).toBeVisible()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Details of Manual' }))
+    const manual = screen.getByRole('region', { name: 'Details of Manual' })
+    expect(within(manual).getByText('1.0.0')).toBeVisible()
+    expect(within(manual).getByText('Installed by hand')).toBeVisible()
+    expect(within(manual).getByText('Other')).toBeVisible()
     expect(within(manual).queryByRole('button', { name: 'Uninstall' })).toBeNull()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Weather' }))
+    await user.click(screen.getByRole('button', { name: 'Details of Weather' }))
 
-    const weather = screen.getByRole('region', { name: 'Weather' })
-    expect(within(weather).getByText('1.0.0 · From Acme extensions · Other')).toBeVisible()
-    await userEvent.click(within(weather).getByRole('button', { name: 'Uninstall' }))
+    const weather = screen.getByRole('region', { name: 'Details of Weather' })
+    expect(within(weather).getByText('1.0.0')).toBeVisible()
+    expect(within(weather).getByText('From Acme extensions')).toBeVisible()
+    expect(within(weather).getByText('Other')).toBeVisible()
+    await user.click(within(weather).getByRole('button', { name: 'Uninstall' }))
     expect(window.ostia.marketplace.uninstall).not.toHaveBeenCalled()
     const dialog = await screen.findByRole('alertdialog')
     expect(within(dialog).getByText('Uninstall “Weather”?')).toBeVisible()

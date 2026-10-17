@@ -3,6 +3,7 @@ import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { formatBytes } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { archiveProblemText } from '@/lib/files/archiveProblems'
 import { baseName } from '@/lib/files/fileTree'
 import { langFor } from '@/lib/monaco/language'
 import type { monaco } from '@/lib/monaco/setup'
@@ -81,7 +82,9 @@ export function EditorAlerts({
               ? d.editor.binary
               : blocked.kind === 'too-large'
                 ? fmt(d.editor.tooLarge, { size: formatBytes(blocked.size, locale) })
-                : d.editor.unreadable}
+                : blocked.kind === 'archive'
+                  ? archiveProblemText(d, blocked.reason)
+                  : d.editor.unreadable}
           </span>
         </div>
       ) : null}

@@ -3,8 +3,8 @@ import { basename, join } from 'node:path'
 import { appEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { app } from 'electron'
+import type { PtyAttachResult, PtySpawnOptions } from '../../../shared/terminal/ptyApi'
 import { shellArgv } from '../../../shared/terminal/terminalShell'
-import type { PtyAttachResult, PtySpawnOptions } from '../../../shared/types'
 import type { ArtifactFolders } from '../../artifacts/artifactFolders'
 import { controlSocketPath } from '../../control/controlServer'
 import { getByPaneId, registerPane } from '../../control/idRegistry'
@@ -14,11 +14,11 @@ import { privateTmpDir } from '../../platform/privateTmp'
 import { loginPathSettled } from '../../platform/toolPath'
 import { attachWorkspace } from '../../sandbox/attachWorkspace'
 import type { HostPaneGrants } from '../../sandbox/hostPanes'
-import type { PortBridge } from '../../sandbox/portBridge'
+import type { PortBridge } from '../../sandbox/ports/portBridge'
 import { sandboxFailureBanner } from '../../sandbox/spawnBanner'
 import type { WorkspaceSandboxes } from '../../sandbox/workspaceSandboxes'
-import { TMUX_MISSING } from '../../tmux/keepShellsBanner'
 import type { KeptProgram } from '../../tmux/keptShells'
+import { tmuxMissingReason } from '../../tmux/keptSpawn'
 import type { ScratchFolders } from '../../workspaces/scratchFolders'
 import { markNonceFileFor, writeMarkNonce } from '../markNonce'
 import { sendsMarkNonce, shellIntegrationSpawnOptions } from '../shellIntegration'
@@ -136,8 +136,7 @@ export function createSpawnPlanner({
     const host = opts.hostToken ? hostPaneGrants.consume(opts.hostToken) : false
     const sandboxed = !host && workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
     const wantsKeep = keepShellsOn() && !host
-    if (wantsKeep && !keptShellsProgram()) await loginPathSettled()
-    const notKept = wantsKeep && !keptShellsProgram() ? TMUX_MISSING : ''
+    const notKept = wantsKeep ? await tmuxMissingReason(keptShellsProgram, loginPathSettled) : ''
     return {
       identity,
       workspaceId,

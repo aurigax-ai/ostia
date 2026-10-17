@@ -1,5 +1,6 @@
 import { isPaneVisible } from '@/lib/attention/workspaceActivity'
 import { keyboardPaneId } from '@/lib/layout/focusDirection'
+import { guestReached } from '@/lib/panes/guestReached'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import {
   focusSurfaceWhenReady,
@@ -36,6 +37,7 @@ export function useGuestReady(webview: HTMLElement | null): HTMLElement | null {
     if (!webview) return
     const onReady = (): void => setReady(webview)
     webview.addEventListener('dom-ready', onReady)
+    if (guestReached(webview)) onReady()
     return () => webview.removeEventListener('dom-ready', onReady)
   }, [webview])
   const shown = ready !== null && ready === webview ? ready : null

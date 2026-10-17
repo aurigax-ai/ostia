@@ -18,8 +18,8 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { NotificationEntry } from '@shared/attention/attention'
 import type { ApprovalRecord } from '@shared/permissions/approvals'
-import type { NotificationEntry } from '@shared/types'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createPortal } from 'react-dom'
@@ -505,6 +505,7 @@ describe('NotificationCenter', () => {
           category: 'other',
           languages: [],
           languageServers: [],
+          fileViewers: [],
           agentSkills: [],
           agentHooks: [],
           iconThemes: [],

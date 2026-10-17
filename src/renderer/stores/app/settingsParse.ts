@@ -6,7 +6,7 @@ import { parsePaneSettings, parseTerminalSettings } from '@/lib/settings/termina
 import { parseWindowTitle } from '@/lib/settings/windowTitle'
 import type { GroupRule } from '@/lib/sidebar/workspaceGroups'
 import { normalizeHex } from '@/lib/theme/color'
-import { parseAssistModelSettings } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { parseAssistModelSettings } from '@aurigax-ai/ostia-extension-sdk/contract/assistReports'
 import type { ExtensionSettingValues } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import { parseAgentHooks } from '@shared/agents/agentHooks'
@@ -20,7 +20,7 @@ import { parsePortsSettings } from '@shared/boards/ports'
 import { parseGlobalHotkey } from '@shared/keyboard/globalHotkey'
 import { parseApprovalSettings } from '@shared/permissions/approvals'
 import { parsePrivacySettings } from '@shared/privacy/redaction'
-import { parseSandboxGlobals } from '@shared/sandbox/sandbox'
+import { parseSandboxGlobals } from '@shared/sandbox/sandboxParse'
 import { normalizeGroupName } from '@shared/workspaces/workspaceGroups'
 import {
   type Behavior,
@@ -165,6 +165,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
       hibernation: parseHibernation(p.agents?.hibernation),
       autoResume: p.agents?.autoResume === true,
       autoSendReferences: p.agents?.autoSendReferences !== false,
+      trustWorkspaceFolders: p.agents?.trustWorkspaceFolders === true,
       hooks: parseAgentHooks(p.agents?.hooks),
     },
     assistant: {

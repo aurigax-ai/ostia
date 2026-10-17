@@ -1,4 +1,5 @@
 import { extname } from 'node:path'
+import { escape as escapeHtml } from 'es-toolkit'
 import { type DefaultTreeAdapterMap, parse } from 'parse5'
 import type { PortableMode } from '../../shared/artifacts/portable'
 import {
@@ -59,17 +60,13 @@ function localPath(url: string): string {
   }
 }
 
-function escapeAttribute(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
-}
-
 function startTag(element: Element, drop: readonly string[], set: Record<string, string> = {}) {
   const kept = element.attrs.filter((attr) => !drop.includes(attr.name) && !(attr.name in set))
   const attrs = [
     ...kept.map((attr) =>
-      attr.value === '' ? attr.name : `${attr.name}="${escapeAttribute(attr.value)}"`,
+      attr.value === '' ? attr.name : `${attr.name}="${escapeHtml(attr.value)}"`,
     ),
-    ...Object.entries(set).map(([name, value]) => `${name}="${escapeAttribute(value)}"`),
+    ...Object.entries(set).map(([name, value]) => `${name}="${escapeHtml(value)}"`),
   ]
   return `<${element.tagName}${attrs.length > 0 ? ` ${attrs.join(' ')}` : ''}>`
 }

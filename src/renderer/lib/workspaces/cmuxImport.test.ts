@@ -8,7 +8,7 @@ import { useCmuxImportStore } from '@/stores/workspaces/cmuxImportStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { resetWorkspaceIds, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { SnapshotNode, SnapshotWorkspace, WindowSummary } from '@shared/types'
+import type { WindowSummary } from '@shared/windows/windowsApi'
 import {
   type CmuxImportReport,
   type CmuxLayout,
@@ -16,6 +16,7 @@ import {
   type CmuxSurface,
   parseCmuxSession,
 } from '@shared/workspaces/cmuxSession'
+import type { SnapshotNode, SnapshotWorkspace } from '@shared/workspaces/workspaceApi'
 import { MAX_LAYOUT_DEPTH, MAX_PANES, MAX_WORKSPACES } from '@shared/workspaces/workspaceLimits'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import {

@@ -12,14 +12,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { MARKETPLACE_MANIFEST_FILE } from '@aurigax-ai/ostia-extension-sdk/manifest/marketplaceManifest'
 import { afterEach, describe, expect, it } from 'vitest'
+import { Marketplace } from './marketplace'
 import {
   GitError,
   type GitRunner,
-  Marketplace,
   marketplaceId,
   normalizeMarketplaceUrl,
   runGit,
-} from './marketplace'
+} from './marketplaceSources'
 
 const dirs: string[] = []
 afterEach(() => {
@@ -225,28 +225,26 @@ describe('Marketplace', () => {
     expect(res.state.marketplaces[0]?.extensions.map((e) => e.id)).toEqual(['weather'])
   })
 
-  it('keeps the official marketplace removed once the human removed it, until it is added back', async () => {
-    const official = marketplaceRepo()
-    const h = harness({
-      official: 'aurigax-ai/ostia-extensions',
-      git: async (args) => runGit([...args.slice(0, -2), official, args[args.length - 1]]),
-    })
+  it('refuses to remove the official marketplace', async () => {
+    const h = harness({ official: 'aurigax-ai/ostia-extensions' })
     const [listed] = h.marketplace.state().marketplaces
-    expect((await h.marketplace.remove(listed?.id, false)).state.marketplaces).toEqual([])
-    expect(h.reopen().state().marketplaces).toEqual([])
-
-    const back = await h.reopen().add('aurigax-ai/ostia-extensions')
-    expect(back.state.marketplaces).toEqual([
-      expect.objectContaining({ url: OFFICIAL_URL, official: true, downloaded: true }),
-    ])
+    const res = await h.marketplace.remove(listed?.id, false)
+    expect(res).toMatchObject({ ok: false, error: 'official-marketplace' })
+    expect(
+      h
+        .reopen()
+        .state()
+        .marketplaces.map((m) => m.url),
+    ).toEqual([OFFICIAL_URL])
   })
 
-  it('adds no default to an install that already keeps a marketplace list', () => {
+  it('lists the official marketplace first on an install that already keeps a list, and after it was removed by hand', () => {
     const h = harness({
       official: 'aurigax-ai/ostia-extensions',
       recordsText: JSON.stringify({ sources: [{ url: 'acme/ext' }], installs: {} }),
     })
     expect(h.marketplace.state().marketplaces.map((m) => [m.url, m.official])).toEqual([
+      [OFFICIAL_URL, true],
       ['https://github.com/acme/ext.git', false],
     ])
   })

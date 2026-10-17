@@ -16,7 +16,7 @@ import { useDiffStore } from '@/stores/files/diffStore'
 import { DIFF_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { ArrowSquareOutIcon, ColumnsIcon, RowsIcon } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
-import { useExternalEditorAction } from './Editor'
+import { useExternalEditorAction } from './useEditorView'
 
 const DIFF_COMPUTATION_MS = 2000
 const MB = 1024 * 1024

@@ -7,14 +7,15 @@ import type {
   PtyAttachResult,
   PtySpawnOptions,
   TerminalStateSnapshot,
-} from '../../../shared/types'
+} from '../../../shared/terminal/ptyApi'
 import type { AgentRunningPanes } from '../../agents/agentRunning'
 import { type ReportedAgentWork, backgroundWork, readProcessTable } from '../../agents/agentWork'
 import { getByPaneId } from '../../control/idRegistry'
 import type { OpenWaits } from '../../files/openWaits'
 import type { PaneWaking } from '../../panes/paneWaking'
+import { wakeReason } from '../../panes/wakeReason'
 import type { KeptShells } from '../../tmux/keptShells'
-import { stashedScreen } from '../../workspaces/workspaceSnapshot'
+import { stashedScreen } from '../../workspaces/savedScrollback'
 import { registerPathCompletionIpc } from '../pathCompletion'
 import { KubeContextReader, NodeVersionResolver, promptContext } from '../promptContext'
 import { ExecutableIndex, readShellState, registerCommandNamesIpc } from '../shellCommands'
@@ -127,11 +128,11 @@ function registerPtyControlIpc({
     openWaits.windowGone(String(contents.id))
   })
 
-  ipcMain.on('pty:waking', (e, paneId: unknown, waking: unknown) => {
+  ipcMain.on('pty:waking', (e, paneId: unknown, waking: unknown, reason: unknown) => {
     if (typeof paneId !== 'string' || typeof waking !== 'boolean') return
     if (getByPaneId(paneId)?.windowId !== String(e.sender.id)) return
     if (waking) paneWaking.start(paneId)
-    else paneWaking.end(paneId, 'failed')
+    else paneWaking.end(paneId, 'failed', wakeReason(reason))
   })
 
   ipcMain.on('pty:write', (e, paneId: string, data: string) => {

@@ -1,0 +1,26 @@
+{
+  "name": "windows",
+  "paths": [
+    "src/main/agents/originAgents.ts",
+    "src/main/panes/paneMove.ts",
+    "src/main/windows/appWindows.ts",
+    "src/main/windows/windowBook.",
+    "src/main/windows/windowBroker.ts",
+    "src/main/windows/windowHandoffs.ts",
+    "src/main/windows/windowWiring.ts",
+    "src/renderer/components/app/DetachedTitleBar.tsx",
+    "src/renderer/components/panes/TabMoveMenuItems.tsx",
+    "src/renderer/lib/agents/originAgents.ts",
+    "src/renderer/lib/workspaces/tabMoveRefusalText.ts",
+    "src/renderer/lib/workspaces/tabWorkspaceMove.ts",
+    "src/renderer/lib/workspaces/windowHandoff.ts",
+    "src/renderer/lib/workspaces/windowWorkspaces.ts",
+    "src/renderer/stores/agents/originAgentsStore.ts",
+    "src/renderer/stores/workspaces/windowsStore.ts"
+  ],
+  "specs": [
+    "e2e/detached-send.spec.ts",
+    "e2e/detached-windows.spec.ts",
+    "e2e/tab-workspace-move.spec.ts"
+  ]
+}

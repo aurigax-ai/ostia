@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import {
   constants,
   existsSync,
@@ -11,8 +11,9 @@ import {
   statSync,
 } from 'node:fs'
 import { open, writeFile } from 'node:fs/promises'
-import { basename, dirname, extname, isAbsolute, join, normalize, relative, sep } from 'node:path'
+import { basename, dirname, extname, isAbsolute, join } from 'node:path'
 import { ipcMain } from 'electron'
+import { unescape as unescapeHtml } from 'es-toolkit'
 import {
   type ArtifactRestore,
   type ArtifactVersion,
@@ -21,8 +22,9 @@ import {
 } from '../../shared/artifacts/artifacts'
 import type { PreviewTheme } from '../../shared/artifacts/htmlPreview'
 import { PORTABLE_LIMITS, portableType } from '../../shared/artifacts/portable'
-import type { PreviewBuild } from './htmlPreview'
+import { isInsidePath } from '../platform/pathGuard'
 import { type PreviewSource, readRegularFile } from './previewFiles'
+import type { PreviewBuild } from './previewHostTypes'
 
 export const HISTORY_DIR = '.history'
 const HISTORY_LIMITS = {
@@ -43,6 +45,7 @@ export interface ArtifactHistoryDeps {
   folderOf: (workspaceId: string) => string | null
   isScratch: (workspaceId: string) => boolean
   make: (workspaceId: string, file: string) => Promise<string | null>
+  viewerMatches: (name: string) => boolean
   now?: () => number
   quietMs?: number
 }
@@ -55,18 +58,6 @@ interface StoredVersion extends ArtifactVersion {
 interface Manifest {
   hash?: string
   sources?: Record<string, string>
-}
-
-function sha(data: string | Buffer): string {
-  return createHash('sha256').update(data).digest('hex')
-}
-
-function unescapeAttribute(text: string): string {
-  return text
-    .replace(/&quot;/g, '"')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
 }
 
 function manifestOf(text: string): Manifest | null {
@@ -95,12 +86,8 @@ function isRealDir(path: string): boolean {
   }
 }
 
-function isCopied(name: string): boolean {
-  return COPIED.has(extname(name).toLowerCase())
-}
-
-function keeps(name: string): boolean {
-  return name !== PAD_FILE && (portableType(name) !== null || isCopied(name))
+function isCopiedVersion(file: string): boolean {
+  return extname(file).toLowerCase() !== '.html'
 }
 
 export class ArtifactHistory {
@@ -122,14 +109,20 @@ export class ArtifactHistory {
   }
 
   holds(path: string): boolean {
-    return path === this.root || path.startsWith(`${this.root}${sep}`)
+    return isInsidePath(this.root, path)
   }
 
   private nameOf(workspaceId: string, path: string): string | null {
     const folder = this.deps.folderOf(workspaceId)
     if (!folder || dirname(path) !== folder) return null
     const name = basename(path)
-    return keeps(name) ? name : null
+    return name !== PAD_FILE && (portableType(name) !== null || this.copies(name)) ? name : null
+  }
+
+  private copies(name: string): boolean {
+    const extension = extname(name).toLowerCase()
+    if (!extension || portableType(name) !== null) return false
+    return COPIED.has(extension) || this.deps.viewerMatches(name)
   }
 
   private versionsDir(workspaceId: string, name: string): string {
@@ -161,29 +154,34 @@ export class ArtifactHistory {
     return next
   }
 
+  async settled(): Promise<void> {
+    while (this.running.size > 0) await Promise.all(this.running.values())
+  }
+
   private async take(workspaceId: string, path: string): Promise<boolean> {
     const name = this.nameOf(workspaceId, path)
     if (!name || !isRegular(path)) return false
     let body: Buffer
-    let hash: string
-    if (isCopied(name)) {
+    let digest: string
+    const copied = this.copies(name)
+    if (copied) {
       const read = await readRegularFile(path, PORTABLE_LIMITS.fileBytes)
       if (!read.ok) return false
       body = read.body
-      hash = sha(read.body)
+      digest = hash('sha256', read.body)
     } else {
       const closing = this.closings.get(workspaceId) ?? 0
       const text = await this.deps.make(workspaceId, path).catch(() => null)
       if ((this.closings.get(workspaceId) ?? 0) !== closing) return false
       if (!text) return false
       body = Buffer.from(text)
-      hash = manifestOf(text)?.hash ?? sha(text)
+      digest = manifestOf(text)?.hash ?? hash('sha256', text)
     }
-    const short = hash.slice(0, 8)
+    const short = digest.slice(0, 8)
     if (this.stored(workspaceId, name)[0]?.hash === short) return false
     const dir = this.versionsDir(workspaceId, name)
     mkdirSync(dir, { recursive: true, mode: 0o700 })
-    const extension = isCopied(name) ? extname(name).toLowerCase() : '.html'
+    const extension = copied ? extname(name).toLowerCase() : '.html'
     await writeFile(join(dir, `${this.now()}-${short}${extension}`), body, { mode: 0o600 })
     this.prune(workspaceId, name)
     return true
@@ -263,7 +261,7 @@ export class ArtifactHistory {
     const found = this.stored(workspaceId, name).find((version) => version.id === id)
     if (!found) return null
     const type = portableType(name) ?? extname(name).slice(1).toLowerCase()
-    if (isCopied(name)) return { file: found.path, type, sources: {} }
+    if (isCopiedVersion(found.path)) return { file: found.path, type, sources: {} }
     const manifest = manifestOf(readFileSync(found.path, 'utf8'))
     return { file: found.path, type, sources: manifest?.sources ?? {} }
   }
@@ -275,7 +273,7 @@ export class ArtifactHistory {
     if (start === -1) return null
     const from = start + SRCDOC.length
     const end = text.indexOf('"', from)
-    return end === -1 ? null : unescapeAttribute(text.slice(from, end))
+    return end === -1 ? null : unescapeHtml(text.slice(from, end))
   }
 
   async restore(workspaceId: string, path: string, id: string): Promise<ArtifactRestore | null> {
@@ -285,15 +283,15 @@ export class ArtifactHistory {
     const found = this.stored(workspaceId, name).find((version) => version.id === id)
     if (!found) return null
     await this.snapshot(workspaceId, path)
-    const sources: [string, string | Buffer][] = isCopied(name)
+    const sources: [string, string | Buffer][] = isCopiedVersion(found.path)
       ? [[name, readFileSync(found.path)]]
       : Object.entries(manifestOf(readFileSync(found.path, 'utf8'))?.sources ?? {})
     const restored: string[] = []
     const refused: string[] = []
     for (const [rel, body] of sources) {
       const target = join(folder, rel)
-      const inside = relative(folder, normalize(target))
-      const escapes = isAbsolute(rel) || inside === '' || inside.startsWith('..')
+      const escapes =
+        isAbsolute(rel) || isInsidePath(target, folder) || !isInsidePath(folder, target)
       if (!escapes && !rel.includes('\0') && (await writeInside(folder, target, body))) {
         restored.push(rel)
       } else {
@@ -369,7 +367,7 @@ export class ArtifactHistory {
 }
 
 async function writeInside(folder: string, target: string, body: string | Buffer) {
-  for (let dir = dirname(target); dir.startsWith(`${folder}${sep}`); dir = dirname(dir)) {
+  for (let dir = dirname(target); dir !== folder && isInsidePath(folder, dir); dir = dirname(dir)) {
     if (existsSync(dir) && !lstatSync(dir).isDirectory()) return false
   }
   try {

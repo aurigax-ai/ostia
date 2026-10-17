@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { CommandResult, CommandTarget, TerminalStateSnapshot } from '../../shared/types'
+import type { CommandResult, CommandTarget } from '../../shared/control/commands'
+import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { registerPane } from '../control/idRegistry'
 import {
   type PaneListDeps,

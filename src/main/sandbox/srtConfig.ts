@@ -1,5 +1,5 @@
 import { constants, accessSync, realpathSync } from 'node:fs'
-import { dirname, isAbsolute, join, relative } from 'node:path'
+import { dirname, join } from 'node:path'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import {
@@ -9,6 +9,7 @@ import {
   type SandboxFolderReason,
   type SandboxSwitches,
 } from '../../shared/sandbox/sandbox'
+import { expandHome, isInsidePath } from '../platform/pathGuard'
 import { OLD_PRODUCT_NAME } from '../platform/userDirs'
 
 export interface SandboxPaths {
@@ -108,16 +109,6 @@ function vendoredBinaries(
   }
 }
 
-export function expandHome(path: string, home: string): string {
-  if (path === '~') return home
-  return path.startsWith('~/') ? join(home, path.slice(2)) : path
-}
-
-export function within(child: string, parent: string): boolean {
-  const rel = relative(parent, child)
-  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))
-}
-
 export function realPath(path: string): string {
   try {
     return realpathSync(path)
@@ -127,7 +118,7 @@ export function realPath(path: string): string {
 }
 
 function overlaps(path: string, other: string): boolean {
-  return within(path, other) || within(other, path)
+  return isInsidePath(other, path) || isInsidePath(path, other)
 }
 
 export function touches(path: string, guarded: readonly string[]): boolean {
@@ -163,7 +154,7 @@ export function folderProblem(
 ): SandboxFolderReason | null {
   const folder = realPath(workDir)
   const home = realPath(paths.home)
-  if (within(home, folder)) return within(folder, home) ? 'home' : 'above-home'
+  if (isInsidePath(folder, home)) return isInsidePath(home, folder) ? 'home' : 'above-home'
   return paths.dataDirs.some((dir) => overlaps(folder, realPath(dir))) ? 'ostia-data' : null
 }
 
@@ -239,7 +230,7 @@ export function buildSrtConfig(
   const guarded = protectedPaths(paths)
   const expand = (list: readonly string[] = []): string[] => list.map((p) => expandHome(p, home))
   const denyRead = expand(policy.denyRead)
-  const hiddenByHuman = (path: string): boolean => denyRead.some((d) => within(path, d))
+  const hiddenByHuman = (path: string): boolean => denyRead.some((d) => isInsidePath(d, path))
   const opened = (list?: readonly string[]): string[] =>
     expand(list).filter((p) => !touches(p, guarded) && !hiddenByHuman(p))
   const agentDirs = AGENT_DATA_DIRS.map((d) => join(home, d)).filter((d) => !hiddenByHuman(d))

@@ -28,17 +28,17 @@ export function WindowControls(): JSX.Element | null {
         aria-label={d.window.minimize}
         onClick={() => window.ostia.window.minimize()}
       >
-        <MinusIcon size={12} />
+        <MinusIcon size={16} />
       </button>
       <button
         type="button"
         aria-label={maximized ? d.window.restore : d.window.maximize}
         onClick={() => window.ostia.window.toggleMaximize()}
       >
-        {maximized ? <CopyIcon size={11} /> : <SquareIcon size={10} />}
+        {maximized ? <CopyIcon size={16} /> : <SquareIcon size={16} />}
       </button>
       <button type="button" aria-label={d.window.close} onClick={() => window.ostia.window.close()}>
-        <XIcon size={12} />
+        <XIcon size={16} />
       </button>
     </div>
   )

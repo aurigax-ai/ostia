@@ -2,7 +2,8 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join, sep } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { expandHome, isPathAllowed, resolveSafe } from './pathGuard'
+import { archiveRoot } from '../../shared/archives/archivePaths'
+import { expandHome, isInsidePath, isPathAllowed, resolveSafe } from './pathGuard'
 
 const root = mkdtempSync(join(tmpdir(), 'ostia-guard-'))
 
@@ -25,10 +26,53 @@ describe('expandHome', () => {
   })
 })
 
+describe('isInsidePath', () => {
+  it.each([
+    ['/', '/', true],
+    ['/', '/a', true],
+    ['/', '/a/b/c', true],
+    ['/a/b', '/a/b', true],
+    ['/a/b', '/a/b/', true],
+    ['/a/b/', '/a/b', true],
+    ['/a/b', '/a/b/c', true],
+    ['/a/b/', '/a/b/c', true],
+    ['/a/b', '/a/b/c/d.txt', true],
+    ['/a/b', '/a/b//c', true],
+    ['/a/b', '//a/b/c', true],
+    ['/a/b', '/a/b/./c', true],
+    ['/a/b', '/a/b/c/..', true],
+    ['/a/b', '/a/b/..c', true],
+    ['/a/b', '/a/b/...', true],
+    ['/a/b', '/a/bc', false],
+    ['/a/b', '/a/b-c/d', false],
+    ['/a/b', '/a/b.c', false],
+    ['/a/b', '/a', false],
+    ['/a/b', '/', false],
+    ['/a/b', '/a/c', false],
+    ['/a/b', '/a/b/..', false],
+    ['/a/b', '/a/b/../c', false],
+    ['/a/b', '/a/b/../../etc', false],
+    ['/a/b', '/a/b/c/../../bc', false],
+    ['/a/b', 'a/b/c', false],
+    ['a/b', '/a/b/c', false],
+    ['/a/b', 'c', false],
+    ['/a/b', '', false],
+    ['', '/a/b', false],
+  ])('isInsidePath(%j, %j) is %s', (base, path, inside) => {
+    expect(isInsidePath(base, path)).toBe(inside)
+  })
+})
+
 describe('resolveSafe — rejections', () => {
   it('rejects a remote file address, which is never a local path', () => {
     expect(resolveSafe('remote://abcdef012345/etc/passwd', [process.cwd(), '/'])).toBeNull()
     expect(isPathAllowed('remote://abcdef012345/srv/app', ['/'])).toBe(false)
+  })
+
+  it('rejects an archive path, which resolves against the working folder as a plain path', () => {
+    const entry = `${archiveRoot('/etc/archive.zip')}/passwd`
+    expect(resolveSafe(entry, [process.cwd(), '/'])).toBeNull()
+    expect(isPathAllowed(entry, ['/'])).toBe(false)
   })
 
   it('rejects an absolute path outside every root (/etc/passwd)', () => {

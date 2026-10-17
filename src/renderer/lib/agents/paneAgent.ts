@@ -5,18 +5,14 @@ import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { type AgentResume, type ResumableAgent, isResumableAgent } from '@shared/agents/agentResume'
-import type { AttentionState } from '@shared/types'
-import { commandAgent } from './hibernation'
+import type { AttentionState } from '@shared/attention/attention'
 
 const FOREGROUND_CHECKS_MS = [800, 3000, 10_000] as const
 
 export function runningAgentOf(paneId: string): ResumableAgent | null {
-  const { running, byPane, agentBlocks } = useBlocksStore.getState()
+  const { running, agentBlocks } = useBlocksStore.getState()
   const blockId = running[paneId]
   if (!blockId) return null
-  const command = byPane[paneId]?.find((b) => b.id === blockId)?.command
-  const named = command ? commandAgent(command) : null
-  if (named) return named
   const marked = agentBlocks[paneId]
   return marked?.blockId === blockId ? marked.agent : null
 }

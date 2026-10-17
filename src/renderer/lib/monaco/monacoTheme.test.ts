@@ -1,5 +1,5 @@
+import { BUILTIN_COLOR_SCHEMES } from '@/lib/colorSchemes/builtinColorSchemes'
 import { mix } from '@/lib/theme/color'
-import { BUILTIN_COLOR_SCHEMES } from '@/lib/theme/colorSchemes'
 import type { ColorScheme } from '@/lib/theme/types'
 import { wcagContrast } from 'culori'
 import { describe, expect, it } from 'vitest'

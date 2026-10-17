@@ -8,7 +8,7 @@ import type {
 } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ownWorkspaceReach } from '../../../test/reach'
-import type { CommandResult, CommandTarget } from '../../shared/types'
+import type { CommandResult, CommandTarget } from '../../shared/control/commands'
 import { registerAttentionMethods } from '../attention/attention'
 import { registerBrowseMethods } from '../browser/browse'
 import { registerControlServer, stopControlServer } from '../control/controlServer'

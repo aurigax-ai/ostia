@@ -11,7 +11,7 @@ import {
   renameSync,
   rmSync,
 } from 'node:fs'
-import { dirname, join, resolve, sep } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { type Readable, Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { createGunzip } from 'node:zlib'
@@ -32,6 +32,7 @@ import { type ReadEntry, extract as extractTar, list as listTar } from 'tar'
 import { type Entry, type ZipFile, open as openZip } from 'yauzl'
 import { redactSecrets } from '../diagnostics/appLog'
 import { DownloadError, downloadChecked, isAllowedHop } from '../platform/checkedDownload'
+import { isInsidePath } from '../platform/pathGuard'
 
 export const DOWNLOAD_BASE_URL_ENV = 'LSP_DOWNLOAD_BASE_URL'
 const DOWNLOAD_MAX_BYTES = 256 * 1024 * 1024
@@ -96,10 +97,6 @@ export interface ManagedServersDeps {
   goTimeoutMs?: number
 }
 
-function isInside(path: string, base: string): boolean {
-  return path === base || path.startsWith(base.endsWith(sep) ? base : `${base}${sep}`)
-}
-
 function entryTarget(stage: string, name: string): string {
   if (name.includes('\0') || name.includes('\\') || name.startsWith('/')) {
     throw new FetchError('bad-archive', 'an entry has an unsafe name')
@@ -107,7 +104,8 @@ function entryTarget(stage: string, name: string): string {
   const segments = name.split('/').filter((segment) => segment !== '' && segment !== '.')
   if (segments.includes('..')) throw new FetchError('bad-archive', 'an entry leaves the folder')
   const target = resolve(stage, ...segments)
-  if (!isInside(target, stage)) throw new FetchError('bad-archive', 'an entry leaves the folder')
+  if (!isInsidePath(stage, target))
+    throw new FetchError('bad-archive', 'an entry leaves the folder')
   return target
 }
 
@@ -314,7 +312,7 @@ export class ManagedServers {
       }
       const executable = join(stage, relative)
       if (
-        !isInside(executable, stage) ||
+        !isInsidePath(stage, executable) ||
         !existsSync(executable) ||
         !lstatSync(executable).isFile()
       ) {

@@ -1,4 +1,4 @@
-import type { CommandInvokeRequest, CommandsApi } from '@shared/types'
+import type { CommandInvokeRequest, CommandsApi } from '@shared/control/commands'
 import { describe, expect, it, vi } from 'vitest'
 import { wireCommandBridge } from './bridge'
 import { registerPaneTabCommands } from './paneTabCommands'

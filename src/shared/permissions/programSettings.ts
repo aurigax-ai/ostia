@@ -9,9 +9,11 @@ export const PROGRAM_SETTINGS: readonly { group: ProgramSettingGroup; field: str
   { group: 'agents', field: 'autoResume' },
   { group: 'agents', field: 'autoSendReferences' },
   { group: 'agents', field: 'hooks' },
+  { group: 'agents', field: 'trustWorkspaceFolders' },
   { group: 'terminal', field: 'warnOnRiskyPaste' },
   { group: 'terminal', field: 'shell' },
   { group: 'terminal', field: 'osc52Write' },
   { group: 'terminal', field: 'keepShells' },
+  { group: 'terminal', field: 'scrollbackHistory' },
   { group: 'workspaces', field: 'globalHotkey' },
 ]

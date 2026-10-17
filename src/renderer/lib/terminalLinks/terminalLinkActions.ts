@@ -7,7 +7,7 @@ import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { OpenPathResult } from '@shared/types'
+import type { OpenPathResult } from '@shared/files/filesApi'
 import type { PathLinkTarget } from './linkModifier'
 import type { FileLinkAction, FileLinkTarget } from './terminalFileLinks'
 

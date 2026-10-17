@@ -1,5 +1,5 @@
 import { MenuItem } from '@/components/common/Menu'
-import { WarningNote } from '@/components/settings/ControlRow'
+import { Notice } from '@/components/common/Notice'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -130,11 +130,13 @@ function labelFor(edit: TreeEdit, d: ReturnType<typeof useDict>): string {
 const NAME_OFFSET = 38
 
 export function NameInputRow({
+  workspaceId,
   edit,
   depth,
   dir,
   icon,
 }: {
+  workspaceId: string | null
   edit: TreeEdit
   depth: number
   dir: boolean
@@ -148,15 +150,15 @@ export function NameInputRow({
   const close = (): void => useFileTreeStore.getState().setEdit(null)
   const commit = async (): Promise<void> => {
     if (busy) return
-    if (!name || name === initial) {
+    if (!workspaceId || !name || name === initial) {
       close()
       return
     }
     setBusy(true)
     const error =
       edit.kind === 'rename'
-        ? await renameEntry(edit.path, name)
-        : await createEntry(edit.dir, name, edit.entry)
+        ? await renameEntry(workspaceId, edit.path, name)
+        : await createEntry(workspaceId, edit.dir, name, edit.entry)
     setBusy(false)
     if (error) setProblem(error)
     else close()
@@ -171,7 +173,7 @@ export function NameInputRow({
     <div className="file-name-edit">
       <div className="file-row editing" style={{ paddingLeft: 8 + depth * 13 }}>
         {dir ? (
-          <CaretRightIcon size={12} className="file-twisty" />
+          <CaretRightIcon size={16} className="file-twisty" />
         ) : (
           <span className="file-twisty-spacer" />
         )}
@@ -208,7 +210,7 @@ export function NameInputRow({
       </div>
       {message ? (
         <div style={{ paddingLeft: 8 + depth * 13 + NAME_OFFSET }}>
-          <WarningNote>{message}</WarningNote>
+          <Notice>{message}</Notice>
         </div>
       ) : null}
     </div>

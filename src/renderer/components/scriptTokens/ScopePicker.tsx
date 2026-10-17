@@ -32,7 +32,7 @@ function ScopeChip({
         onClick={onRemove}
         className="flex size-4 items-center justify-center rounded-full text-fg-muted hover:bg-surface-3 hover:text-fg"
       >
-        <XIcon className="size-3" />
+        <XIcon className="size-4" />
       </button>
     </span>
   )

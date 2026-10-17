@@ -1,4 +1,5 @@
 import type { OAuthClientInformation, OAuthTokens } from '@ai-sdk/mcp'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import { type SecretStoreDeps, sanitizeSecrets } from '../extensions/extensionSecrets'
 
@@ -21,9 +22,6 @@ export interface McpOAuthStore {
   canStore: () => boolean
 }
 
-const isObject = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v)
-
 function parseRecord(text: string): McpOAuthRecord | null {
   let raw: unknown
   try {
@@ -31,17 +29,17 @@ function parseRecord(text: string): McpOAuthRecord | null {
   } catch {
     return null
   }
-  if (!isObject(raw) || typeof raw.url !== 'string' || typeof raw.redirectUrl !== 'string') {
+  if (!isRecord(raw) || typeof raw.url !== 'string' || typeof raw.redirectUrl !== 'string') {
     return null
   }
-  if (!isObject(raw.client) || typeof raw.client.client_id !== 'string') return null
+  if (!isRecord(raw.client) || typeof raw.client.client_id !== 'string') return null
   const record: McpOAuthRecord = {
     url: raw.url,
     redirectUrl: raw.redirectUrl,
     client: raw.client as OAuthClientInformation,
   }
   if (
-    isObject(raw.tokens) &&
+    isRecord(raw.tokens) &&
     typeof raw.tokens.access_token === 'string' &&
     typeof raw.tokens.token_type === 'string'
   ) {

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { COMPLETION_TEXT_MAX } from '../contract/assist'
+import { cleanCompletion } from './completionCleanup'
 import {
   chatPrompt,
-  cleanCompletion,
   cleanTerminal,
   commandPrompt,
   commandSchema,

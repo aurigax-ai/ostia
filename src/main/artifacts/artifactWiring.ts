@@ -1,4 +1,5 @@
-import { ClipboardItem, clipboard } from 'electron'
+import { ClipboardItem, clipboard, ipcMain } from 'electron'
+import type { PreviewOpened } from '../../shared/artifacts/htmlPreview'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import { registerCmuxSessionIpc } from '../workspaces/cmuxSession'
 import { registerScratchIpc } from '../workspaces/scratchFolders'
@@ -10,7 +11,6 @@ import { registerArtifactHistoryIpc } from './artifactHistory'
 import type { ArtifactHistory } from './artifactHistory'
 import { registerArtifactProducersIpc } from './artifactProducers'
 import type { ArtifactProducers } from './artifactProducers'
-import { registerPreviewIpc } from './htmlPreview'
 import type { PreviewHost } from './htmlPreview'
 import { registerPortableIpc } from './portableExport'
 import type { PortableExport } from './portableExport'
@@ -34,7 +34,7 @@ export function startArtifacts({
   artifactFolders.sweep()
   artifactHistory.sweep()
   portableExport.sweep()
-  workspaceSandboxes.sweepTmp()
+  workspaceSandboxes.tmp.sweepTmp()
   registerScratchIpc(scratchFolders)
   registerArtifactIpc({
     folders: artifactFolders,
@@ -67,5 +67,39 @@ export function registerArtifactViewIpc({
   registerArtifactProducersIpc({
     producers: artifactProducers,
     ownsWorkspace: (windowId, workspaceId) => windowForWorkspace(workspaceId) === windowId,
+  })
+}
+
+function registerPreviewIpc(
+  host: PreviewHost,
+  copyImage: (png: Uint8Array) => void = () => {},
+): void {
+  ipcMain.handle('preview:capture', async (e, id: unknown, rect: unknown) => {
+    if (typeof id !== 'string') return null
+    const windowId = String(e.sender.id)
+    const image = await host.capture(windowId, id, rect)
+    const region = host.pageRegion(windowId, rect)
+    return image && region ? { image, region } : null
+  })
+  ipcMain.handle('preview:copy-region', async (e, id: unknown, rect: unknown) => {
+    const png = typeof id === 'string' ? await host.capture(String(e.sender.id), id, rect) : null
+    if (png) copyImage(png)
+    return png !== null
+  })
+  ipcMain.handle(
+    'preview:open',
+    (e, paneId: unknown, path: unknown, theme: unknown): PreviewOpened | null =>
+      typeof paneId === 'string' && typeof path === 'string'
+        ? host.open(String(e.sender.id), paneId, path, theme)
+        : null,
+  )
+  ipcMain.on('preview:shown', (e, id: unknown, visible: unknown) => {
+    if (typeof id === 'string') host.shown(String(e.sender.id), id, visible === true)
+  })
+  ipcMain.on('preview:stop', (e, id: unknown) => {
+    if (typeof id === 'string') host.stopByHuman(String(e.sender.id), id)
+  })
+  ipcMain.on('preview:close', (e, id: unknown) => {
+    if (typeof id === 'string') host.close(String(e.sender.id), id)
   })
 }

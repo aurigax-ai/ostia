@@ -88,6 +88,7 @@ function claudeRunning(): void {
     drafts: {},
     running: { [TARGET]: 'b1' },
     byPane: { [TARGET]: [{ id: 'b1', paneId: TARGET, command: 'claude --model opus' } as never] },
+    agentBlocks: { [TARGET]: { blockId: 'b1', agent: 'claude' } },
   })
 }
 
@@ -464,6 +465,32 @@ describe('pressing Enter after a reference the human pointed at', () => {
     })
     const res = await sendSelectionToPane({
       capture: { kind: 'preview-error', file: '/a/page.html', count: 1, text: 'boom' },
+      sourcePaneId: 'pane-editor',
+      targetPaneId: TARGET,
+      note: '',
+    })
+    expect(res.ok && res.inserted).toBe(true)
+    await settle()
+    expect(term.paste).toHaveBeenCalledWith(`@${REPORT} `)
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
+  })
+
+  it('never presses Enter after a preview region, which the page drew', async () => {
+    claudeRunning()
+    vi.mocked(window.ostia.selection.send).mockResolvedValue({
+      ok: true,
+      path: REPORT,
+      imagePath: SHOT,
+    })
+    const res = await sendSelectionToPane({
+      capture: {
+        kind: 'preview-region',
+        file: '/a/chart.tsx',
+        viewWidth: 400,
+        viewHeight: 300,
+        region: { x: 10, y: 10, width: 150, height: 80 },
+        version: null,
+      },
       sourcePaneId: 'pane-editor',
       targetPaneId: TARGET,
       note: '',

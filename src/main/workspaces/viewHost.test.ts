@@ -2,12 +2,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  VIEW_FILE_MAX_BYTES,
-  type ViewInfo,
-  type ViewListing,
-  parseViewText,
-} from '../../shared/views/views'
+import { parseViewText } from '../../shared/views/viewParse'
+import { VIEW_FILE_MAX_BYTES, type ViewInfo, type ViewListing } from '../../shared/views/views'
 import { ViewHost, ViewStore } from './viewHost'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()

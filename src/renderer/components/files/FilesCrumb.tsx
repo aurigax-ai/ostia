@@ -32,7 +32,7 @@ export function FilesCrumb({ path }: { path: string }): JSX.Element {
           key={crumb.key}
           className={`crumb${i === shown.length - 1 ? ' current' : ''}${crumb.key === FOLDED_CRUMB ? ' folded' : ''}`}
         >
-          {i > 0 ? <CaretRightIcon size={12} className="crumb-sep" /> : null}
+          {i > 0 ? <CaretRightIcon size={16} className="crumb-sep" /> : null}
           {crumb.label}
         </span>
       ))}

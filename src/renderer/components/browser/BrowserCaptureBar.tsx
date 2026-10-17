@@ -1,4 +1,5 @@
 import { PickSendPanel } from '@/components/agents/PickSendPanel'
+import { NoticeSlot } from '@/components/common/NoticeSlot'
 import type { PickTarget } from '@/lib/agents/pickTargets'
 import { fmt, useDict } from '@/lib/app/useDict'
 import type { PickCapture } from '@shared/browser/pick'
@@ -47,39 +48,43 @@ export function BrowserCaptureBar({
               : status}
         </output>
       ) : null}
-      {capture ? (
-        <PickSendPanel
-          id={capture.id}
-          summary={capture.label || capture.selector}
-          noteLabel={d.browser.note}
-          notePlaceholder={d.browser.notePlaceholder}
-          closeLabel={d.browser.closeSend}
-          targets={targets}
-          noTargets={noTargets}
-          sending={sending}
-          onSend={(target, note) => void send(target, note)}
-          onClose={() => setCapture(null)}
-        />
-      ) : null}
-      {region ? (
-        <PickSendPanel
-          id={region.id}
-          summary={fmt(d.browser.regionSummary, {
-            width: region.rect.width,
-            height: region.rect.height,
-            page: region.title || region.url,
-          })}
-          noteLabel={d.browser.note}
-          notePlaceholder={d.browser.notePlaceholder}
-          closeLabel={d.browser.closeSend}
-          targets={targets}
-          noTargets={noTargets}
-          sending={sending}
-          onSend={(target, note) => void send(target, note)}
-          onClose={() => setRegion(null)}
-          secondary={{ label: d.browser.copyImage, onClick: () => void copyRegion() }}
-        />
-      ) : null}
+      <NoticeSlot>
+        {capture ? (
+          <PickSendPanel
+            id={capture.id}
+            summary={capture.label || capture.selector}
+            noteLabel={d.browser.note}
+            notePlaceholder={d.browser.notePlaceholder}
+            closeLabel={d.browser.closeSend}
+            targets={targets}
+            noTargets={noTargets}
+            sending={sending}
+            onSend={(target, note) => void send(target, note)}
+            onClose={() => setCapture(null)}
+          />
+        ) : null}
+      </NoticeSlot>
+      <NoticeSlot>
+        {region ? (
+          <PickSendPanel
+            id={region.id}
+            summary={fmt(d.browser.regionSummary, {
+              width: region.rect.width,
+              height: region.rect.height,
+              page: region.title || region.url,
+            })}
+            noteLabel={d.browser.note}
+            notePlaceholder={d.browser.notePlaceholder}
+            closeLabel={d.browser.closeSend}
+            targets={targets}
+            noTargets={noTargets}
+            sending={sending}
+            onSend={(target, note) => void send(target, note)}
+            onClose={() => setRegion(null)}
+            secondary={{ label: d.browser.copyImage, onClick: () => void copyRegion() }}
+          />
+        ) : null}
+      </NoticeSlot>
     </>
   )
 }

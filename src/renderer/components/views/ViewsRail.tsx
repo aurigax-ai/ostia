@@ -21,8 +21,8 @@ function RailView({ view }: { view: RenderableView }): JSX.Element {
         aria-label={fmt(collapsed ? d.views.expand : d.views.collapse, { title: view.title })}
         onClick={() => toggle(view.name)}
       >
-        <Caret size={12} className="rail-view-caret" aria-hidden />
-        <Icon size={12} aria-hidden />
+        <Caret size={16} className="rail-view-caret" aria-hidden />
+        <Icon size={16} aria-hidden />
         <span className="rail-view-title">{view.title}</span>
       </button>
       {collapsed ? null : (

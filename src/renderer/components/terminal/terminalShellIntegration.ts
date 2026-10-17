@@ -1,6 +1,7 @@
+import { clearTypedLaunchOnNewBlock } from '@/lib/agents/resumeTyped'
 import { currentDict, fmt } from '@/lib/app/useDict'
 import { isPaneViewed, shouldNotifyCommandEnd } from '@/lib/attention/workspaceActivity'
-import { decodeCommandLine, readCommandText } from '@/lib/terminal/blockText'
+import { readCommandText } from '@/lib/terminal/blockText'
 import { isLocalHost, parseOsc7 } from '@/lib/terminal/osc7'
 import type { OstiaTerminal, TerminalMarker } from '@/lib/terminal/ostiaTerminal'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
@@ -9,6 +10,7 @@ import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useRemoteCwdStore } from '@/stores/terminal/remoteCwdStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { wantsDesktopBanner } from '@shared/app/notificationSettings'
+import { decodeCommandLine } from '@shared/terminal/commandLine'
 import type { TerminalSession } from './terminalSession'
 
 interface ReportedCommand {
@@ -149,7 +151,14 @@ export function createShellIntegration({
             )
           : '')
       reportedCommand = null
-      blocks.commandStart(paneId, start, runningCommand, typed)
+      session.blockSeq += 1
+      blocks.commandStart(paneId, start, runningCommand, typed, session.blockSeq)
+      clearTypedLaunchOnNewBlock(
+        workspaceIdRef.current,
+        paneId,
+        session.replaying ? runningCommand : typed,
+        session.replaying,
+      )
       if (!session.replaying) {
         useAttentionStore.getState().dispatch(paneId, { type: 'commandStart', at: Date.now() })
       }

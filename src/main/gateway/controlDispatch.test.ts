@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { en, zhHant } from '../../shared/app/dict'
-import type { CommandDescriptor, CommandResult } from '../../shared/types'
+import type { CommandDescriptor, CommandResult } from '../../shared/control/commands'
 import { registerPane } from '../control/idRegistry'
 import {
   AGENT_ENTER_DELAY_MS,

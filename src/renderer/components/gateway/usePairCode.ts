@@ -1,4 +1,4 @@
-import type { GatewayPairResult } from '@shared/types'
+import type { GatewayPairResult } from '@shared/gateway/gatewayApi'
 import QRCode from 'qrcode'
 import { useCallback, useEffect, useState } from 'react'
 

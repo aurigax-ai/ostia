@@ -11,7 +11,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
 
@@ -71,6 +71,7 @@ function rig(quietMs = 30): ArtifactHistory {
     folderOf: (workspaceId) => (workspaceId === 'w1' ? folder : join(root, workspaceId)),
     isScratch: (workspaceId) => scratch.has(workspaceId),
     make,
+    viewerMatches: (name) => name.endsWith('.xlsx'),
     now: () => clock.now,
     quietMs,
   })
@@ -83,10 +84,12 @@ function write(name: string, body: string | Buffer): string {
 }
 
 async function quiet(): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 80))
+  await vi.runOnlyPendingTimersAsync()
+  await history.settled()
 }
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   root = realpathSync(mkdtempSync(join(tmpdir(), 'artifact-history-')))
   folder = join(root, 'w1')
   mkdirSync(folder)
@@ -95,6 +98,10 @@ beforeEach(() => {
   made = 0
   clock = { now: Date.UTC(2026, 9, 14, 12) }
   history = rig()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('ArtifactHistory', () => {
@@ -173,6 +180,19 @@ describe('ArtifactHistory', () => {
     expect(await history.snapshot('w1', deep)).toBe(false)
     expect(history.list('w1', join(folder, 'link.md'))).toHaveLength(0)
     expect(history.list('w1', deep)).toHaveLength(0)
+  })
+
+  it('keeps a copy of a file a viewer opens, and nothing for a file no viewer opens', async () => {
+    const sheet = write('sales.xlsx', Buffer.from('PK workbook one'))
+    await history.snapshot('w1', sheet)
+    const [version] = history.list('w1', sheet)
+    const content = history.version('w1', sheet, version.id)
+    expect(content?.sources).toEqual({})
+    expect(readFileSync(content?.file ?? '', 'latin1')).toBe('PK workbook one')
+    expect(made).toBe(0)
+    const unknown = write('blob.bin', Buffer.from([0, 1, 2]))
+    expect(await history.snapshot('w1', unknown)).toBe(false)
+    expect(history.list('w1', unknown)).toHaveLength(0)
   })
 
   it('PRT-C47 previews a version from its stored document, without building it', async () => {
@@ -320,7 +340,7 @@ describe('ArtifactHistory', () => {
       release = resolve
     })
     const running = history.snapshot('w1', path)
-    await new Promise((resolve) => setTimeout(resolve, 10))
+    await vi.advanceTimersByTimeAsync(10)
     history.close('w1', null)
     release()
     expect(await running).toBe(false)

@@ -1,4 +1,3 @@
-import { commandAgent } from '@/lib/agents/hibernation'
 import { runningAgent, runningAgentOf } from '@/lib/agents/paneAgent'
 import { allPanes, findPane, tabIdOf, tabsOfPane } from '@/lib/layout/tree'
 import type { PaneNode } from '@/lib/layout/types'
@@ -18,7 +17,9 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { isRestorable } from '@/stores/workspaces/persistence'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { PaneActivity, QuitAnswer } from '@shared/types'
+import { isResumableAgent } from '@shared/agents/agentResume'
+import type { PaneActivity } from '@shared/terminal/ptyApi'
+import type { QuitAnswer } from '@shared/windows/windowsApi'
 
 export function runningCommandsOf(
   panes: readonly string[],
@@ -116,7 +117,7 @@ function runningIn(
     }
     const program = hasShellIntegration(pane.id) ? null : (activity?.program ?? null)
     if (program === null) continue
-    if (commandAgent(program)) agents.push(program)
+    if (isResumableAgent(program)) agents.push(program)
     else commands.push(program)
   }
   return { commands, agents }

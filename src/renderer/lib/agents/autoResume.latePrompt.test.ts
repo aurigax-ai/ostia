@@ -30,9 +30,9 @@ function seed(...panes: PaneNode[]): void {
   })
 }
 
-function shellStarts(paneId: string): ReturnType<typeof vi.fn> {
+function shellStarts(paneId: string, focus = vi.fn()): ReturnType<typeof vi.fn> {
   const paste = vi.fn()
-  registerTerminal(paneId, { paste, focus: vi.fn() } as unknown as OstiaTerminal)
+  registerTerminal(paneId, { paste, focus } as unknown as OstiaTerminal)
   return paste
 }
 
@@ -57,7 +57,10 @@ describe('startAutoResume with a late prompt', () => {
     vi.useFakeTimers()
     vi.stubGlobal('ostia', {
       pty: { write },
-      agentSession: { claimResume: vi.fn().mockResolvedValue({ ok: true }) },
+      agentSession: {
+        claimResume: vi.fn().mockResolvedValue({ ok: true }),
+        folderTrust: vi.fn().mockResolvedValue({ state: 'trusted' }),
+      },
     })
   })
 
@@ -87,6 +90,39 @@ describe('startAutoResume with a late prompt', () => {
 
     expect(paste).toHaveBeenCalledWith("'claude' --resume late-1")
     expect(write).toHaveBeenCalledWith(background.id, '\r')
+  })
+
+  it('resumes a late background tab and another workspace without moving focus or the shown pane', async () => {
+    const shown = agentPane()
+    const background = agentPane()
+    const other = { ...agentPane(), resume: { agent: 'claude' as const, id: 'late-2' } }
+    seed(shown, background)
+    useLayoutStore.setState((s) => ({
+      byWorkspace: {
+        ...s.byWorkspace,
+        w2: { root: other, activePaneId: other.id, zoomedPaneId: null },
+      },
+    }))
+    const before = structuredClone(useLayoutStore.getState().byWorkspace)
+    stop = startAutoResume()
+
+    vi.advanceTimersByTime(RUN_WHEN_IDLE_TIMEOUT_MS * 2)
+    const focus = vi.fn()
+    const backgroundPaste = shellStarts(background.id, focus)
+    const otherPaste = shellStarts(other.id, focus)
+    promptArrives(background.id)
+    promptArrives(other.id)
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(backgroundPaste).toHaveBeenCalledWith("'claude' --resume late-1")
+    expect(otherPaste).toHaveBeenCalledWith("'claude' --resume late-2")
+    expect(focus).not.toHaveBeenCalled()
+    const after = useLayoutStore.getState().byWorkspace
+    expect(after.w1.activePaneId).toBe(before.w1.activePaneId)
+    expect(after.w1.root).toMatchObject({
+      activeId: (before.w1.root as { activeId: string }).activeId,
+    })
+    expect(after.w2.activePaneId).toBe(before.w2.activePaneId)
   })
 
   it('asks a pane that is not shown to start its shell', () => {

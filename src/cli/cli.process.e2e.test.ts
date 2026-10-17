@@ -3,8 +3,8 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/control/commands'
 import type { ApprovalOutcome } from '../shared/permissions/approvals'
-import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
 
 let answer: ApprovalOutcome = 'deny'
 const request = vi.fn(async () => answer)
@@ -34,6 +34,7 @@ const exit = (code: number): string => `\x1b]133;D;${code}\x1b\\`
 const startsRunning = (paneId: string, command: string): void =>
   emit(paneId, `${PROMPT}${command}\r\n${C}`)
 let onOpen: (paneId: string, command: string) => void = startsRunning
+let hooked = false
 const hiddenWorkspaces = new Set<string>()
 
 const rings = new Map<string, InstanceType<typeof PtyRingBuffer>>()
@@ -165,7 +166,7 @@ const registry = registerProcessMethods({
   splitTabNow: async () => null,
   humanTab: async () => false,
   agentStarted: () => false,
-  startsWithHook: () => false,
+  startsWithHook: () => hooked,
   agentChanges: () => () => {},
   tell: () => {},
   startTiming: { settleMs: 10, processMs: 60, agentMs: 60, pollMs: 5 },
@@ -238,13 +239,19 @@ let seq = 0
 let home = ''
 const liveChildren = new Set<ReturnType<typeof spawn>>()
 
-function ostia(args: string[], cwd = home, token = agent.token): Promise<RunResult> {
+function ostia(
+  args: string[],
+  cwd = home,
+  token = agent.token,
+  input?: string,
+): Promise<RunResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [cliPath, ...args], {
       cwd,
       env: { ...process.env, OSTIA_SOCKET: socketPath, OSTIA_TOKEN: token },
     })
     liveChildren.add(child)
+    child.stdin?.end(input ?? '')
     let stdout = ''
     let stderr = ''
     child.stdout?.on('data', (chunk: Buffer) => {
@@ -303,6 +310,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  hooked = false
   onOpen = startsRunning
   stopControlServer()
   for (const w of workspaces) {
@@ -336,6 +344,71 @@ describe('ostia process (the real CLI against a live control server)', () => {
     const res = await ostia(['agent', 'run', 'claude', '--split-tab', 'workers', 'fix it'])
     expect(res.code).toBe(1)
     expect(res.stderr).toContain('unknown flag --split-tab')
+    expect(opened).toEqual([])
+  })
+
+  it('agent run: --model reaches the agent as argv, with the prompt read from stdin', async () => {
+    const spaced = await ostia(
+      ['agent', 'run', 'claude', '--name', 'W', '--model', 'sonnet', '-'],
+      home,
+      agent.token,
+      'the brief; $(not run)',
+    )
+    expect(spaced.stderr).toBe('')
+    expect(opened.at(-1)?.command).toBe("claude --model sonnet 'the brief; $(not run)'")
+
+    const joined = await ostia(
+      ['agent', 'run', 'claude', '--model=sonnet', '-'],
+      home,
+      agent.token,
+      'second brief',
+    )
+    expect(joined.stderr).toBe('')
+    expect(opened.at(-1)?.command).toBe("claude --model sonnet 'second brief'")
+  })
+
+  it('agent run: - reads the prompt from stdin whatever flags come before or after it', async () => {
+    const before = await ostia(
+      ['agent', 'run', 'claude', '--name', 'W', '--cwd', 'api', '--tab', 'workers', '-'],
+      home,
+      agent.token,
+      'brief one',
+    )
+    expect(before.stderr).toBe('')
+    expect(opened.at(-1)).toMatchObject({
+      command: "claude 'brief one'",
+      title: 'W',
+      cwd: join(home, 'api'),
+      splitTab: { name: 'workers' },
+    })
+
+    const after = await ostia(
+      ['agent', 'run', 'claude', '-', '--name', 'W2'],
+      home,
+      agent.token,
+      'brief two',
+    )
+    expect(after.stderr).toBe('')
+    expect(opened.at(-1)).toMatchObject({ command: "claude 'brief two'", title: 'W2' })
+  })
+
+  it('agent run: an agent that exits 0 at once is still a failure, never started', async () => {
+    hooked = true
+    onOpen = (paneId, command) => emit(paneId, `${PROMPT}${command}\r\n${C}${exit(0)}${PROMPT}`)
+    const res = await ostia(['agent', 'run', 'claude', '--model', 'sonnet', 'fix it'])
+    expect(res.code).toBe(1)
+    expect(JSON.parse(res.stdout)).toMatchObject({ status: 'failed', exitCode: 0 })
+    expect(res.stderr).toContain('before the agent started')
+  })
+
+  it('agent run: refuses an unknown flag or a model outside the allow-list with the usage, starting nothing', async () => {
+    const bogus = await ostia(['agent', 'run', 'claude', '--bogus', 'x', 'fix it'])
+    expect(bogus.code).toBe(1)
+    expect(bogus.stderr).toContain('unknown flag --bogus')
+    expect(bogus.stderr).toContain('ostia agent run <agent>')
+
+    const dashed = await ostia(['agent', 'run', 'claude', '--model', '--yolo', 'fix it'])
+    expect(dashed.code).toBe(1)
     expect(opened).toEqual([])
   })
 

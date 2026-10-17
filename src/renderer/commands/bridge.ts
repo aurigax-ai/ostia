@@ -1,4 +1,4 @@
-import type { CommandInvokeRequest } from '../../shared/types'
+import type { CommandInvokeRequest } from '../../shared/control/commands'
 import { commands } from './registry'
 
 export function wireCommandBridge(): void {

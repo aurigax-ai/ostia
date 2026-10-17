@@ -82,6 +82,7 @@ describe('split tab session warning', () => {
           { id: 'run-a', paneId: a.id, command: 'claude --resume sess-split', startedAt: 0 },
         ] as unknown as CommandBlock[],
       },
+      agentBlocks: { [a.id]: { blockId: 'run-a', agent: 'claude' } },
     })
     const { container } = renderStack(root, b.id)
     const cell = container.querySelector(`[data-cell-id="${b.id}"]`) as HTMLElement
@@ -168,6 +169,39 @@ describe('SplitTabPill', () => {
     const segment = container.querySelector(`[data-segment-id="${c.id}"] .split-tab-segment-main`)
     fireEvent.click(segment as Element)
     expect(exec).toHaveBeenCalledWith('pane.focus', { paneId: c.id })
+  })
+
+  it('folds when its head is clicked a double-click interval later, at once from the keyboard', () => {
+    vi.useFakeTimers()
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    const { root } = stackWithSplit()
+    renderStack(root)
+    const head = screen.getByRole('button', { name: 'Fold split tab' })
+    expect(head).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(head, { detail: 1 })
+    expect(exec).not.toHaveBeenCalledWith('pane.foldSplitTab', expect.anything())
+    vi.advanceTimersByTime(1000)
+    expect(exec).toHaveBeenCalledWith('pane.foldSplitTab', { tabId: expect.any(String) })
+    exec.mockClear()
+    fireEvent.click(head, { detail: 0 })
+    expect(exec).toHaveBeenCalledTimes(1)
+    vi.useRealTimers()
+  })
+
+  it('keeps a double-click on the head for rename and never folds', () => {
+    vi.useFakeTimers()
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    const { root } = stackWithSplit()
+    renderStack(root)
+    const head = screen.getByRole('button', { name: 'Fold split tab' })
+    fireEvent.click(head, { detail: 1 })
+    fireEvent.click(head, { detail: 2 })
+    fireEvent.doubleClick(head)
+    vi.advanceTimersByTime(1000)
+    expect(exec).not.toHaveBeenCalledWith('pane.foldSplitTab', expect.anything())
+    expect(screen.getByRole('textbox')).toBeInTheDocument()
+    act(() => usePaneRenameStore.getState().end())
+    vi.useRealTimers()
   })
 
   it('closes one pane from its segment', () => {

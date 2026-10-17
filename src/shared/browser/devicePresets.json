@@ -1,0 +1,174 @@
+{
+  "source": "https://github.com/ChromeDevTools/devtools-frontend/blob/901a26873e86b8af055e2916c68b6f4db89cef1c/front_end/models/emulation/EmulatedDevices.ts",
+  "license": "BSD-3-Clause, see devicePresets-LICENSE.txt",
+  "devices": [
+    {
+      "title": "iPhone SE",
+      "type": "phone",
+      "screen": {
+        "horizontal": {
+          "width": 667,
+          "height": 375
+        },
+        "device-pixel-ratio": 2,
+        "vertical": {
+          "width": 375,
+          "height": 667
+        }
+      },
+      "capabilities": ["touch", "mobile"],
+      "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
+      "user-agent-metadata": {
+        "platform": "iOS",
+        "platformVersion": "18.5",
+        "architecture": "",
+        "model": "iPhone",
+        "mobile": true
+      }
+    },
+    {
+      "title": "iPhone 16",
+      "type": "phone",
+      "screen": {
+        "horizontal": {
+          "width": 852,
+          "height": 393
+        },
+        "device-pixel-ratio": 3,
+        "vertical": {
+          "width": 393,
+          "height": 852
+        }
+      },
+      "capabilities": ["touch", "mobile"],
+      "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
+      "user-agent-metadata": {
+        "platform": "iOS",
+        "platformVersion": "18.5",
+        "architecture": "",
+        "model": "iPhone",
+        "mobile": true
+      }
+    },
+    {
+      "title": "Pixel 9",
+      "type": "phone",
+      "screen": {
+        "horizontal": {
+          "width": 924,
+          "height": 412
+        },
+        "device-pixel-ratio": 2.625,
+        "vertical": {
+          "width": 412,
+          "height": 924
+        }
+      },
+      "capabilities": ["touch", "mobile"],
+      "user-agent": "Mozilla/5.0 (Linux; Android 14; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Mobile Safari/537.36",
+      "user-agent-metadata": {
+        "platform": "Android",
+        "platformVersion": "14",
+        "architecture": "",
+        "model": "Pixel 9",
+        "mobile": true
+      }
+    },
+    {
+      "title": "Samsung Galaxy S20 Ultra",
+      "type": "phone",
+      "screen": {
+        "horizontal": {
+          "width": 915,
+          "height": 412
+        },
+        "device-pixel-ratio": 3.5,
+        "vertical": {
+          "width": 412,
+          "height": 915
+        }
+      },
+      "capabilities": ["touch", "mobile"],
+      "user-agent": "Mozilla/5.0 (Linux; Android 13; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Mobile Safari/537.36",
+      "user-agent-metadata": {
+        "platform": "Android",
+        "platformVersion": "13",
+        "architecture": "",
+        "model": "SM-G981B",
+        "mobile": true
+      }
+    },
+    {
+      "title": "iPad Mini",
+      "type": "tablet",
+      "screen": {
+        "horizontal": {
+          "width": 1024,
+          "height": 768
+        },
+        "device-pixel-ratio": 2,
+        "vertical": {
+          "width": 768,
+          "height": 1024
+        }
+      },
+      "capabilities": ["touch", "mobile"],
+      "user-agent": "Mozilla/5.0 (iPad; CPU OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
+      "user-agent-metadata": {
+        "platform": "iOS",
+        "platformVersion": "18.5",
+        "architecture": "",
+        "model": "iPad",
+        "mobile": true
+      }
+    },
+    {
+      "title": "iPad Pro 13",
+      "type": "tablet",
+      "screen": {
+        "horizontal": {
+          "width": 1376,
+          "height": 1032
+        },
+        "device-pixel-ratio": 2,
+        "vertical": {
+          "width": 1032,
+          "height": 1376
+        }
+      },
+      "capabilities": ["touch", "mobile"],
+      "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15",
+      "user-agent-metadata": {
+        "platform": "iOS",
+        "platformVersion": "18.5",
+        "architecture": "",
+        "model": "iPad",
+        "mobile": true
+      }
+    },
+    {
+      "title": "Galaxy Tab S4",
+      "type": "phone",
+      "screen": {
+        "horizontal": {
+          "width": 1138,
+          "height": 712
+        },
+        "device-pixel-ratio": 2.25,
+        "vertical": {
+          "width": 712,
+          "height": 1138
+        }
+      },
+      "capabilities": ["touch", "mobile"],
+      "user-agent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36",
+      "user-agent-metadata": {
+        "platform": "Android",
+        "platformVersion": "8.1.0",
+        "architecture": "",
+        "model": "SM-T837A",
+        "mobile": false
+      }
+    }
+  ]
+}

@@ -1,12 +1,10 @@
 import { randomBytes } from 'node:crypto'
 import { type FSWatcher, realpathSync, watch } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { ipcMain } from 'electron'
 import {
   PREVIEW_LIMITS,
   PREVIEW_SCHEME,
   type PreviewError,
-  type PreviewEvent,
   type PreviewOpened,
   type PreviewStopReason,
   type PreviewTheme,
@@ -17,13 +15,14 @@ import {
   normalizePreviewTheme,
   previewPartition,
 } from '../../shared/artifacts/htmlPreview'
-import { PORTABLE_CSP, portableSandbox, portableType } from '../../shared/artifacts/portable'
 import {
   REGION_IMAGE_MAX,
   regionCaptureRect,
   regionPageRect,
 } from '../../shared/browser/regionCapture'
+import { lockDownSession, previewHeaders } from './previewAttach'
 import { type PreviewSource, regularFileSize } from './previewFiles'
+import type { PreviewGuest, PreviewHostDeps, PreviewRect, PreviewSession } from './previewHostTypes'
 import { busySince, previewVerdict, previewsOverCap } from './previewLimits'
 
 const PING_MS = 1_000
@@ -31,52 +30,10 @@ const METRICS_MS = 5_000
 const GESTURE_MS = 5_000
 const MESSAGE_MAX = 2_000
 const WATCHED_DIRS_MAX = 16
-const DEAD_PROXY = { proxyRules: 'http://127.0.0.1:9', proxyBypassRules: '<-loopback>' }
 const GESTURE_INPUTS = new Set(['mouseDown', 'keyDown', 'touchStart'])
 const CLIPBOARD_WRITE = 'clipboard-sanitized-write'
 const DEBUGGER_PROTOCOL = '1.3'
 const PAUSE_SCRIPTS = 'Emulation.setScriptExecutionDisabled'
-
-export interface PreviewBuild {
-  document: string
-  inputs: readonly string[]
-}
-
-export function previewHeaders(file: string): Record<string, string> {
-  const type = portableType(file)
-  return {
-    'content-type': 'text/html; charset=utf-8',
-    'content-security-policy': `${PORTABLE_CSP}, sandbox ${type ? portableSandbox(type) : 'allow-scripts'}`,
-    'cache-control': 'no-store',
-    'x-content-type-options': 'nosniff',
-    'x-dns-prefetch-control': 'off',
-  }
-}
-
-export interface PreviewSession {
-  protocol: {
-    handle: (scheme: string, handler: (request: Request) => Promise<Response>) => void
-  }
-  webRequest: {
-    onBeforeRequest: (
-      listener: (details: { url: string }, callback: (r: { cancel: boolean }) => void) => void,
-    ) => void
-  }
-  setProxy: (config: { proxyRules: string; proxyBypassRules: string }) => Promise<void>
-  setPermissionRequestHandler: (
-    handler: (wc: unknown, permission: string, callback: (granted: boolean) => void) => void,
-  ) => void
-  setPermissionCheckHandler: (handler: (wc: unknown, permission: string) => boolean) => void
-  on: (event: 'will-download', listener: (event: { preventDefault: () => void }) => void) => void
-  clearStorageData: () => Promise<void>
-}
-
-interface PreviewRect {
-  x: number
-  y: number
-  width: number
-  height: number
-}
 
 const REGION_MIN = 4
 
@@ -89,45 +46,6 @@ function regionOf(value: unknown): PreviewRect | null {
   if ([x, y, width, height].some(Number.isNaN) || x < 0 || y < 0) return null
   if (width < REGION_MIN || height < REGION_MIN) return null
   return { x, y, width, height }
-}
-
-export interface PreviewGuest {
-  id: number
-  session: unknown
-  isDestroyed: () => boolean
-  capturePage: (rect: PreviewRect) => Promise<{ toPNG: () => Buffer; isEmpty: () => boolean }>
-  getOSProcessId: () => number
-  reload: () => void
-  executeJavaScript: (code: string) => Promise<unknown>
-  forcefullyCrashRenderer: () => void
-  setWindowOpenHandler: (handler: () => { action: 'deny' }) => void
-  setWebRTCIPHandlingPolicy: (policy: 'disable_non_proxied_udp') => void
-  setBackgroundThrottling: (allowed: boolean) => void
-  debugger: {
-    isAttached: () => boolean
-    attach: (protocolVersion?: string) => void
-    sendCommand: (method: string, params?: Record<string, unknown>) => Promise<unknown>
-  }
-  // biome-ignore lint/suspicious/noExplicitAny: Electron's per-event listener signatures differ.
-  on: (event: any, listener: (...args: any[]) => void) => unknown
-}
-
-export interface ProcessUse {
-  pid: number
-  memoryBytes: number
-  cpuPercent: number
-}
-
-export interface PreviewHostDeps {
-  sessionOf: (partition: string) => PreviewSession
-  confine: (path: string) => string | null
-  servesFolder: (dir: string) => boolean
-  ownsPane: (windowId: string, paneId: string) => boolean
-  send: (windowId: string, event: PreviewEvent) => void
-  processes: () => ProcessUse[]
-  hostZoom?: (windowId: string) => number
-  build: (source: PreviewSource, theme: PreviewTheme) => Promise<PreviewBuild>
-  now?: () => number
 }
 
 interface Slot {
@@ -263,12 +181,7 @@ export class PreviewHost {
       if (!allowed) this.blocked(slot, details.url)
       callback({ cancel: !allowed })
     })
-    void session.setProxy(DEAD_PROXY).catch(() => {})
-    session.setPermissionRequestHandler((_wc, permission, callback) =>
-      callback(this.allowsPermission(slot, permission)),
-    )
-    session.setPermissionCheckHandler((_wc, permission) => this.allowsPermission(slot, permission))
-    session.on('will-download', (event) => event.preventDefault())
+    lockDownSession(session, (permission) => this.allowsPermission(slot, permission))
     return slot
   }
 
@@ -580,79 +493,4 @@ export class PreviewHost {
     for (const live of [...this.live.values()]) this.release(live, true)
     this.stopTimers()
   }
-}
-
-const HOST_SET_ATTRIBUTES = [
-  'preload',
-  'allowpopups',
-  'nodeintegration',
-  'nodeintegrationinsubframes',
-  'plugins',
-  'disablewebsecurity',
-  'webpreferences',
-  'blinkfeatures',
-  'disableblinkfeatures',
-  'enableblinkfeatures',
-  'useragent',
-  'httpreferrer',
-]
-
-export function hardenPreviewAttach(
-  webPreferences: Electron.WebPreferences,
-  params: Record<string, string>,
-): void {
-  webPreferences.preload = undefined
-  webPreferences.nodeIntegration = false
-  webPreferences.nodeIntegrationInSubFrames = false
-  webPreferences.nodeIntegrationInWorker = false
-  webPreferences.contextIsolation = true
-  webPreferences.sandbox = true
-  webPreferences.webSecurity = true
-  webPreferences.webviewTag = false
-  webPreferences.disableDialogs = true
-  webPreferences.navigateOnDragDrop = false
-  webPreferences.autoplayPolicy = 'user-gesture-required'
-  webPreferences.transparent = false
-  webPreferences.experimentalFeatures = false
-  webPreferences.plugins = false
-  webPreferences.allowRunningInsecureContent = false
-  webPreferences.enableBlinkFeatures = undefined
-  webPreferences.disableBlinkFeatures = undefined
-  for (const name of HOST_SET_ATTRIBUTES) {
-    delete params[name]
-  }
-}
-
-export function registerPreviewIpc(
-  host: PreviewHost,
-  copyImage: (png: Uint8Array) => void = () => {},
-): void {
-  ipcMain.handle('preview:capture', async (e, id: unknown, rect: unknown) => {
-    if (typeof id !== 'string') return null
-    const windowId = String(e.sender.id)
-    const image = await host.capture(windowId, id, rect)
-    const region = host.pageRegion(windowId, rect)
-    return image && region ? { image, region } : null
-  })
-  ipcMain.handle('preview:copy-region', async (e, id: unknown, rect: unknown) => {
-    const png = typeof id === 'string' ? await host.capture(String(e.sender.id), id, rect) : null
-    if (png) copyImage(png)
-    return png !== null
-  })
-  ipcMain.handle(
-    'preview:open',
-    (e, paneId: unknown, path: unknown, theme: unknown): PreviewOpened | null =>
-      typeof paneId === 'string' && typeof path === 'string'
-        ? host.open(String(e.sender.id), paneId, path, theme)
-        : null,
-  )
-  ipcMain.on('preview:shown', (e, id: unknown, visible: unknown) => {
-    if (typeof id === 'string') host.shown(String(e.sender.id), id, visible === true)
-  })
-  ipcMain.on('preview:stop', (e, id: unknown) => {
-    if (typeof id === 'string') host.stopByHuman(String(e.sender.id), id)
-  })
-  ipcMain.on('preview:close', (e, id: unknown) => {
-    if (typeof id === 'string') host.close(String(e.sender.id), id)
-  })
 }

@@ -1,5 +1,6 @@
 import { constants, type Stats, accessSync, realpathSync, statSync } from 'node:fs'
 import { isAbsolute, resolve } from 'node:path'
+import { isArchivePath } from '../../shared/archives/archivePaths'
 import type { OpenFileVerdict } from '../../shared/files/openFiles'
 import { loadJson, saveJson } from '../platform/jsonStore'
 import { expandHome, resolveSafe } from '../platform/pathGuard'
@@ -67,6 +68,7 @@ export class OpenFileGrants {
   }
 
   confine(path: string): string | null {
+    if (isArchivePath(path)) return null
     const safe = resolveSafe(path, this.deps.roots())
     if (safe !== null) return safe
     const resolved = resolve(path)

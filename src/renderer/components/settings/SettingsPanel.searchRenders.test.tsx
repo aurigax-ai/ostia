@@ -6,8 +6,8 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 const renders = new Map<string, number>()
 
-vi.mock('./SettingsSearch', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./SettingsSearch')>()
+vi.mock('@/components/settingsKit/SettingsSearch', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/components/settingsKit/SettingsSearch')>()
   return {
     ...actual,
     useSearchRow: (texts: readonly (string | null | undefined)[]) => {

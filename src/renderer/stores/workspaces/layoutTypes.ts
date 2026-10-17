@@ -1,10 +1,12 @@
+import type { CollapseChange } from '@/lib/layout/collapse'
 import type { DropZone } from '@/lib/layout/tree'
 import type { Direction, LayoutNode, SurfaceKind } from '@/lib/layout/types'
 import type { DiffContent } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { AgentResume } from '@shared/agents/agentResume'
+import type { BrowserDevice } from '@shared/browser/browserDevice'
 import type { BrowserProfile } from '@shared/browser/browserProfile'
-import type { PanePlacement } from '@shared/types'
 import type { SplitTabPlacement } from '@shared/workspaces/splitTabs'
+import type { PanePlacement } from '@shared/workspaces/workspaceApi'
 import type { StoreApi } from 'zustand'
 
 export interface WorkspaceLayout {
@@ -33,8 +35,11 @@ export interface LayoutState {
   moveTab: (workspaceId: string, sourceId: string, targetId: string, after: boolean) => void
   joinTab: (workspaceId: string, paneIds: readonly string[], tab: string | null) => string[]
   renameSplitTab: (workspaceId: string, tabId: string, name: string) => void
+  changeCollapse: (workspaceId: string, paneId: string, change: CollapseChange) => void
+  foldSplitTab: (workspaceId: string, tabId: string) => void
   setCwd: (workspaceId: string, paneId: string, cwd: string) => void
   setUrl: (workspaceId: string, paneId: string, url: string) => void
+  setBrowserDevice: (workspaceId: string, paneId: string, device: BrowserDevice | null) => void
   setResume: (workspaceId: string, paneId: string, resume: AgentResume) => void
   setResumePending: (workspaceId: string, paneId: string, pending: boolean) => void
   failResume: (workspaceId: string, paneId: string, resume: AgentResume, exitCode: number) => void
@@ -45,6 +50,7 @@ export interface LayoutState {
   setLocked: (workspaceId: string, paneId: string, locked: boolean) => void
   isLocked: (workspaceId: string, paneId?: string) => boolean
   setTitle: (workspaceId: string, paneId: string, title: string) => void
+  setViewType: (workspaceId: string, paneId: string, viewType: string | null) => void
   followMovedFile: (from: string, to: string) => void
   rename: (workspaceId: string, paneId: string, title: string) => void
   setDefaultTitle: (workspaceId: string, paneId: string, title: string) => void
@@ -63,7 +69,7 @@ export interface LayoutState {
     workspaceId: string,
     url: string,
     profile: BrowserProfile,
-    background?: { beside?: string },
+    placement?: { beside?: string; background?: boolean },
   ) => string | null
   openExtensionPanel: (workspaceId: string, extensionId: string, title: string) => string | null
   openGit: (workspaceId: string, title: string) => string | null

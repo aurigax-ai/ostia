@@ -1,4 +1,5 @@
-import { RENDERER_ERROR_KINDS, type RendererErrorReport } from '../../shared/types'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
+import { RENDERER_ERROR_KINDS, type RendererErrorReport } from '../../shared/app/appApi'
 
 export const REPORT_MESSAGE_MAX = 1000
 export const REPORT_STACK_MAX = 8000
@@ -24,8 +25,8 @@ function clipped(value: unknown, max: number): string | undefined {
 }
 
 export function normalizeRendererReport(raw: unknown): RendererErrorReport | null {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
-  const value = raw as Record<string, unknown>
+  if (!isRecord(raw)) return null
+  const value = raw
   const kind = RENDERER_ERROR_KINDS.find((k) => k === value.kind)
   const message = clipped(value.message, REPORT_MESSAGE_MAX)
   if (!kind || message === undefined) return null

@@ -1,10 +1,13 @@
+import { findPane } from '@/lib/layout/tree'
 import { rerunBlock } from '@/lib/terminal/blockActions'
 import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import type { AgentResume } from '@shared/agents/agentResume'
 import { Terminal } from '@xterm/xterm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createTerminalSession } from './terminalSession'
+import { type TerminalSession, createTerminalSession } from './terminalSession'
 import { createShellIntegration } from './terminalShellIntegration'
 
 const PANE = 'pane-marks'
@@ -14,10 +17,11 @@ const PROMPT = `${OSC('133;A')}$ ${OSC('133;B')}`
 
 let term: Terminal
 let dispose: () => void
+let session: TerminalSession
 
 function attach(markNonce: string | null): void {
   term = new Terminal({ cols: 80, rows: 10, allowProposedApi: true })
-  const session = createTerminalSession(null)
+  session = createTerminalSession(null)
   session.markNonce = markNonce
   const integration = createShellIntegration({
     term: term as unknown as OstiaTerminal,
@@ -132,5 +136,66 @@ describe('shell integration command marks', () => {
     } finally {
       unregister()
     }
+  })
+})
+
+describe('the typed launch a pane keeps', () => {
+  const TYPED = { args: ['--agent', 'a'], env: { GL_ISSUE: '1' } }
+  const LINE = 'GL_ISSUE=1 claude --agent a'
+
+  function seed(resume: AgentResume): void {
+    const pane = { type: 'pane', id: PANE, kind: 'terminal', resume } as never
+    useLayoutStore.setState({
+      byWorkspace: { w: { root: pane, activePaneId: PANE, zoomedPaneId: null } },
+    })
+  }
+
+  function stored(): AgentResume | undefined {
+    const pane = findPane(useLayoutStore.getState().byWorkspace.w.root, PANE)
+    return pane?.kind === 'terminal' ? pane.resume : undefined
+  }
+
+  beforeEach(() => {
+    useBlocksStore.getState().resetPane(PANE)
+    seed({ agent: 'claude', id: 's1', typed: TYPED })
+    attach(NONCE)
+  })
+  afterEach(() => {
+    dispose()
+    term.dispose()
+    useBlocksStore.getState().dropPane(PANE)
+  })
+
+  it('survives a block that restates the same nonce-backed line', async () => {
+    await write(`${PROMPT}${OSC(`633;E;${LINE};${NONCE}`)}${OSC('133;C')}`)
+    expect(stored()?.typed).toEqual(TYPED)
+  })
+
+  it('is cleared by a new block with a nonce-backed line for another program', async () => {
+    await write(`${PROMPT}${OSC(`633;E;ls;${NONCE}`)}${OSC('133;C')}`)
+    expect(stored()).toEqual({ agent: 'claude', id: 's1' })
+  })
+
+  it('is cleared by a new block with no nonce-backed line, such as ssh or an unsupported shell', async () => {
+    await write(`${PROMPT}${OSC(`633;E;${LINE}`)}${OSC('133;C')}`)
+    expect(stored()).toEqual({ agent: 'claude', id: 's1' })
+  })
+
+  it('is kept while a kept shell replays blocks that launch nothing', async () => {
+    session.replaying = true
+    await write(`${PROMPT}${OSC('633;E;ls')}${OSC('133;C')}`)
+    expect(stored()?.typed).toEqual(TYPED)
+  })
+
+  it('is cleared by a replayed launch with other flags, nonce or not', async () => {
+    session.replaying = true
+    await write(`${PROMPT}${OSC('633;E;claude --agent b')}${OSC('133;C')}`)
+    expect(stored()).toEqual({ agent: 'claude', id: 's1' })
+  })
+
+  it('is never added by a nonce-backed line before an agent reports', async () => {
+    seed({ agent: 'claude', id: 's1' })
+    await write(`${PROMPT}${OSC(`633;E;${LINE};${NONCE}`)}${OSC('133;C')}`)
+    expect(stored()).toEqual({ agent: 'claude', id: 's1' })
   })
 })

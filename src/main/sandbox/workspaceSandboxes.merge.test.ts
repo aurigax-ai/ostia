@@ -73,7 +73,7 @@ describe('WorkspaceSandboxes merge', () => {
     const { store, sandboxes } = setup()
     store.set('src', on())
     store.set('dst', on())
-    const tmp = sandboxes.tmpDir('src')
+    const tmp = sandboxes.tmp.tmpDir('src')
     mkdirSync(tmp, { recursive: true })
 
     sandboxes.merge('src', 'dst')

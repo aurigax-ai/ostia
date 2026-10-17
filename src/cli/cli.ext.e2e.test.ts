@@ -11,7 +11,7 @@ import type { ExtensionConfirmRequest, TerminalOpenRequest } from '../main/exten
 import { ExtensionStore } from '../main/extensions/extensionStore'
 import { requirementsInstallArgs } from '../main/platform/systemRequirementsIpc'
 import { HostPaneGrants } from '../main/sandbox/hostPanes'
-import type { CommandResult } from '../shared/types'
+import type { CommandResult } from '../shared/control/commands'
 
 const repoRoot = process.cwd()
 const cliPath = join(repoRoot, 'out', 'cli', 'index.js')

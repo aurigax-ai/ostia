@@ -1,7 +1,5 @@
-import type {
-  ExtensionConnectionEntry,
-  ExtensionInfo,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionConnectionEntry } from '@aurigax-ai/ostia-extension-sdk/contract/extensionConnections'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -53,6 +51,7 @@ function graphs(): ExtensionInfo {
     category: 'tools',
     languages: [],
     languageServers: [],
+    fileViewers: [],
     agentSkills: [],
     agentHooks: [],
   }

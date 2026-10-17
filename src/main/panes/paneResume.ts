@@ -4,7 +4,7 @@ import {
   isResumableAgent,
   parseAgentResume,
 } from '../../shared/agents/agentResume'
-import type { CommandResult, CommandTarget } from '../../shared/types'
+import type { CommandResult, CommandTarget } from '../../shared/control/commands'
 import { targetOf } from '../attention/attention'
 import { registerControlMethod } from '../control/controlServer'
 import type { PaneIdentity } from '../control/idRegistry'

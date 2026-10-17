@@ -7,12 +7,13 @@ function paneBodyAt(target: EventTarget | null): string | null {
 }
 
 export function startActivationResume(): () => void {
-  const onPointerDown = (e: Event): void => {
-    if (!e.isTrusted || (e as PointerEvent).button !== 0) return
+  const onClick = (e: Event): void => {
+    const { button, detail } = e as MouseEvent
+    if (!e.isTrusted || button !== 0 || detail === 0) return
     const paneId = paneBodyAt(e.target)
     if (paneId) resumeOnActivation(paneId)
   }
 
-  window.addEventListener('pointerdown', onPointerDown, true)
-  return () => window.removeEventListener('pointerdown', onPointerDown, true)
+  window.addEventListener('click', onClick, true)
+  return () => window.removeEventListener('click', onClick, true)
 }

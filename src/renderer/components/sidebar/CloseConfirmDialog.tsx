@@ -1,3 +1,4 @@
+import { ListRow } from '@/components/common/ListRow'
 import { TextLink } from '@/components/common/TextLink'
 import { Button } from '@/components/ui/button'
 import {
@@ -25,15 +26,8 @@ import {
 } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 
-export function CloseConfirmDialog(): JSX.Element {
-  const d = useDict()
-  const pending = useCloseConfirmStore((s) => s.pending)
-  const answer = useCloseConfirmStore((s) => s.answer)
-  const keepShells = useCloseConfirmStore((s) => s.keepShells)
-  const keptShells = pending?.kind === 'quit' ? pending.keptShells : []
-  const offersKeep = keptShells.length > 0
-
-  const copy: Record<CloseConfirmKind, { title: string; body: string; action: string }> = {
+function confirmCopy(d: Dict): Record<CloseConfirmKind, ConfirmCopy> {
+  return {
     workspace: {
       title: d.closeConfirm.workspaceTitle,
       body: d.closeConfirm.workspaceBody,
@@ -55,6 +49,112 @@ export function CloseConfirmDialog(): JSX.Element {
       action: d.closeConfirm.moveAction,
     },
   }
+}
+
+function RunningGroupItem({ group }: { group: RunningGroup }): JSX.Element {
+  const d = useDict()
+  return (
+    <li>
+      <div className="font-medium text-fg text-ui-base">{group.workspace}</div>
+      <ul className="mt-1 flex flex-col gap-1">
+        {group.commands.map((command, index) => (
+          <ListRow
+            // biome-ignore lint/suspicious/noArrayIndexKey: commands can repeat and never reorder while the dialog is open
+            key={index}
+            density="dense"
+            lead={<TerminalWindowIcon size={16} aria-hidden />}
+            title={<span className="font-mono">{command || d.closeConfirm.unknownCommand}</span>}
+          />
+        ))}
+        {group.agents?.map((agent, index) => (
+          <ListRow
+            // biome-ignore lint/suspicious/noArrayIndexKey: agents can repeat and never reorder while the dialog is open
+            key={index}
+            density="dense"
+            lead={<RobotIcon size={16} aria-hidden />}
+            title={<span className="font-mono">{agent || d.closeConfirm.unknownCommand}</span>}
+          />
+        ))}
+        {group.scratchFiles ? (
+          <ListRow
+            density="dense"
+            lead={<FlaskIcon size={16} aria-hidden />}
+            title={
+              group.scratchFiles === 1
+                ? d.closeConfirm.scratchFilesOne
+                : fmt(d.closeConfirm.scratchFiles, { count: group.scratchFiles })
+            }
+            meta={
+              <TextLink
+                size="xs"
+                className="h-5 px-1 text-ui-sm"
+                onClick={() => window.ostia.scratch.reveal(group.workspaceId)}
+              >
+                {d.closeConfirm.reveal}
+              </TextLink>
+            }
+          />
+        ) : null}
+        {group.files.map((file) => (
+          <ListRow
+            key={file}
+            density="dense"
+            lead={<FileDashedIcon size={16} aria-hidden />}
+            title={fmt(d.closeConfirm.unsaved, { file: baseName(file) })}
+          />
+        ))}
+        {group.unanswered ? (
+          <ListRow
+            density="dense"
+            lead={<QuestionIcon size={16} aria-hidden />}
+            title={d.closeConfirm.unanswered}
+          />
+        ) : null}
+      </ul>
+    </li>
+  )
+}
+
+function KeptShellsSection({
+  keptShells,
+  showBody,
+}: {
+  keptShells: Parameters<typeof keptAgents>[0]
+  showBody: boolean
+}): JSX.Element {
+  const d = useDict()
+  return (
+    <section aria-label={d.closeConfirm.keptTitle} className="flex flex-col gap-1">
+      <div className="font-medium text-fg text-ui-sm">
+        {keptShells.length === 1
+          ? d.closeConfirm.keptShellsOne
+          : fmt(d.closeConfirm.keptShells, { count: keptShells.length })}
+      </div>
+      <ul className="flex flex-col gap-1">
+        {keptAgents(keptShells).map((agent, index) => (
+          <ListRow
+            // biome-ignore lint/suspicious/noArrayIndexKey: agents can repeat and never reorder while the dialog is open
+            key={index}
+            density="dense"
+            lead={<RobotIcon size={16} aria-hidden />}
+            title={<span className="font-mono">{agent || d.closeConfirm.unknownCommand}</span>}
+          />
+        ))}
+      </ul>
+      {showBody ? <p className="text-fg-muted text-ui-sm">{d.closeConfirm.keptBody}</p> : null}
+    </section>
+  )
+}
+
+export function CloseConfirmDialog(): JSX.Element {
+  const d = useDict()
+  const pending = useCloseConfirmStore((s) => s.pending)
+  const answer = useCloseConfirmStore((s) => s.answer)
+  const keepShells = useCloseConfirmStore((s) => s.keepShells)
+  const keptShells = pending?.kind === 'quit' ? pending.keptShells : []
+  const offersKeep = keptShells.length > 0
+
+  const copy = confirmCopy(d)
   const text = withKept(
     d,
     withScratch(d, pending?.kind ?? 'workspace', pending?.groups ?? [], copy),
@@ -84,93 +184,11 @@ export function CloseConfirmDialog(): JSX.Element {
         ) : null}
         <ul aria-label={text.title} className="flex max-h-56 flex-col gap-2 overflow-auto">
           {pending?.groups.map((group) => (
-            <li key={group.workspaceId}>
-              <div className="font-medium text-fg text-ui-base">{group.workspace}</div>
-              <ul className="mt-1 flex flex-col gap-1">
-                {group.commands.map((command, index) => (
-                  <li
-                    // biome-ignore lint/suspicious/noArrayIndexKey: commands can repeat and never reorder while the dialog is open
-                    key={index}
-                    className="flex min-w-0 items-center gap-2 text-fg-muted"
-                  >
-                    <TerminalWindowIcon size={14} className="shrink-0" aria-hidden />
-                    <span className="truncate font-mono text-fg text-ui-sm">
-                      {command || d.closeConfirm.unknownCommand}
-                    </span>
-                  </li>
-                ))}
-                {group.agents?.map((agent, index) => (
-                  <li
-                    // biome-ignore lint/suspicious/noArrayIndexKey: agents can repeat and never reorder while the dialog is open
-                    key={index}
-                    className="flex min-w-0 items-center gap-2 text-fg-muted"
-                  >
-                    <RobotIcon size={14} className="shrink-0" aria-hidden />
-                    <span className="truncate font-mono text-fg text-ui-sm">
-                      {agent || d.closeConfirm.unknownCommand}
-                    </span>
-                  </li>
-                ))}
-                {group.scratchFiles ? (
-                  <li className="flex min-w-0 items-center gap-2 text-fg-muted">
-                    <FlaskIcon size={14} className="shrink-0" aria-hidden />
-                    <span className="truncate text-fg text-ui-sm">
-                      {group.scratchFiles === 1
-                        ? d.closeConfirm.scratchFilesOne
-                        : fmt(d.closeConfirm.scratchFiles, { count: group.scratchFiles })}
-                    </span>
-                    <TextLink
-                      size="xs"
-                      className="h-5 px-1 text-ui-sm"
-                      onClick={() => window.ostia.scratch.reveal(group.workspaceId)}
-                    >
-                      {d.closeConfirm.reveal}
-                    </TextLink>
-                  </li>
-                ) : null}
-                {group.files.map((file) => (
-                  <li key={file} className="flex min-w-0 items-center gap-2 text-fg-muted">
-                    <FileDashedIcon size={14} className="shrink-0" aria-hidden />
-                    <span className="truncate text-fg text-ui-sm">
-                      {fmt(d.closeConfirm.unsaved, { file: baseName(file) })}
-                    </span>
-                  </li>
-                ))}
-                {group.unanswered ? (
-                  <li className="flex min-w-0 items-center gap-2 text-fg-muted">
-                    <QuestionIcon size={14} className="shrink-0" aria-hidden />
-                    <span className="truncate text-fg text-ui-sm">{d.closeConfirm.unanswered}</span>
-                  </li>
-                ) : null}
-              </ul>
-            </li>
+            <RunningGroupItem key={group.workspaceId} group={group} />
           ))}
         </ul>
         {offersKeep ? (
-          <section aria-label={d.closeConfirm.keptTitle} className="flex flex-col gap-1">
-            <div className="font-medium text-fg text-ui-sm">
-              {keptShells.length === 1
-                ? d.closeConfirm.keptShellsOne
-                : fmt(d.closeConfirm.keptShells, { count: keptShells.length })}
-            </div>
-            <ul className="flex flex-col gap-1">
-              {keptAgents(keptShells).map((agent, index) => (
-                <li
-                  // biome-ignore lint/suspicious/noArrayIndexKey: agents can repeat and never reorder while the dialog is open
-                  key={index}
-                  className="flex min-w-0 items-center gap-2 text-fg-muted"
-                >
-                  <RobotIcon size={14} className="shrink-0" aria-hidden />
-                  <span className="truncate font-mono text-fg text-ui-sm">
-                    {agent || d.closeConfirm.unknownCommand}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            {pending?.groups.length ? (
-              <p className="text-fg-muted text-ui-sm">{d.closeConfirm.keptBody}</p>
-            ) : null}
-          </section>
+          <KeptShellsSection keptShells={keptShells} showBody={Boolean(pending?.groups.length)} />
         ) : null}
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => answer(false)}>

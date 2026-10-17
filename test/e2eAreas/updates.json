@@ -1,0 +1,24 @@
+{
+  "name": "updates",
+  "paths": [
+    "src/main/updates/appUpdate.ts",
+    "src/main/updates/bundleFs.ts",
+    "src/main/updates/installMethod.ts",
+    "src/main/updates/installReplace.ts",
+    "src/main/updates/launchSweep.ts",
+    "src/main/updates/macReplace.ts",
+    "src/main/updates/releaseCheck.ts",
+    "src/main/updates/updateRun.ts",
+    "src/renderer/components/app/UpdateChannelPicker.",
+    "src/renderer/components/app/UpdateCheck.",
+    "src/renderer/components/app/UpdateConfirmDialog.tsx",
+    "src/renderer/components/app/UpdateNotice.",
+    "src/renderer/stores/app/updateStore.ts",
+    "src/shared/app/installMethod.ts",
+    "src/shared/app/releases.ts"
+  ],
+  "specs": [
+    "e2e/update-check.spec.ts",
+    "e2e/update-mac.spec.ts"
+  ]
+}

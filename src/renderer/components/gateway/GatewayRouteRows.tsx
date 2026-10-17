@@ -1,16 +1,17 @@
-import { ControlRow, ToggleRow, WarningNote } from '@/components/settings/ControlRow'
-import { SelectField } from '@/components/settings/SelectField'
+import { Notice } from '@/components/common/Notice'
+import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/lib/app/useDict'
 import type { Dict } from '@shared/app/dict'
-import { formatPhoneAddress, parsePhoneAddress } from '@shared/gateway/gatewayRoute'
 import type {
   GatewayBindAddress,
   GatewayPhoneAddress,
   GatewayRoute,
   GatewayTailnetState,
-} from '@shared/types'
+} from '@shared/gateway/gatewayApi'
+import { formatPhoneAddress, parsePhoneAddress } from '@shared/gateway/gatewayRoute'
 import { useEffect, useState } from 'react'
 import type { GatewayRouteState } from './useGatewayRoute'
 import type { GatewayStatus } from './useGatewayStatus'
@@ -181,12 +182,10 @@ export function GatewayRouteRows({
         />
       )}
 
-      {unreachable ? <WarningNote>{d.settings.remoteLoopbackOnly}</WarningNote> : null}
+      {unreachable ? <Notice>{d.settings.remoteLoopbackOnly}</Notice> : null}
 
       {exposed ? (
-        <WarningNote>
-          {fmt(d.settings.remoteAddressWarning, { address: route.bindAddress })}
-        </WarningNote>
+        <Notice>{fmt(d.settings.remoteAddressWarning, { address: route.bindAddress })}</Notice>
       ) : null}
 
       <ToggleRow
@@ -196,9 +195,9 @@ export function GatewayRouteRows({
         onChange={(v) => void onDiscoverable(v)}
       />
 
-      {problem ? <WarningNote>{problem}</WarningNote> : null}
-      {signInError ? <WarningNote>{signInError}</WarningNote> : null}
-      {routeError ? <WarningNote>{routeError}</WarningNote> : null}
+      {problem ? <Notice>{problem}</Notice> : null}
+      {signInError ? <Notice>{signInError}</Notice> : null}
+      {routeError ? <Notice>{routeError}</Notice> : null}
     </>
   )
 }

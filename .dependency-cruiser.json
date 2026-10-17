@@ -119,9 +119,17 @@
       }
     },
     {
+      "name": "only-office-imports-its-parsers",
+      "severity": "error",
+      "from": { "pathNot": "^src/extensions/office/|^test/" },
+      "to": { "path": "node_modules/(xlsx|mammoth|dompurify)/" }
+    },
+    {
       "name": "only-graphs-imports-wire",
       "severity": "error",
-      "from": { "pathNot": "^src/extensions/graphs/|^src/cli/cli\\.graph[A-Za-z]*\\.e2e\\.test\\.ts$" },
+      "from": {
+        "pathNot": "^src/extensions/graphs/|^src/main/extensions/wireRuntime\\.ts$|^src/cli/cli\\.graph[A-Za-z]*\\.e2e\\.test\\.ts$"
+      },
       "to": { "path": "node_modules/@aurigax-ai/wire/" }
     },
     {

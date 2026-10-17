@@ -375,7 +375,7 @@ describe('EditorView', () => {
     }
   }
 
-  it('gives the keyboard to the CSV table while it covers the source, and to the source once shown', async () => {
+  it('keeps the keyboard on the source of a CSV; its table opens in the csv viewer', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue({
       ok: true,
       version: 'v1',
@@ -383,14 +383,6 @@ describe('EditorView', () => {
     })
     const done = editorInSurface('p-csv', '/w/fruit.csv')
     await waitFor(() => expect(fake.state.input).not.toBeNull())
-    const user = userEvent.setup()
-
-    await user.click(screen.getByRole('button', { name: 'Show as table' }))
-    await screen.findByText('apples')
-    focusSurface('p-csv')
-    expect(document.activeElement).toBe(screen.getByTestId('csv-table'))
-
-    await user.click(screen.getByRole('button', { name: 'Edit CSV source' }))
     focusSurface('p-csv')
     expect(document.activeElement).toBe(fake.state.input)
     done()
@@ -450,15 +442,14 @@ describe('EditorView', () => {
     await waitFor(() => expect(fake.state.ranActions).toEqual(['actions.find']))
   })
 
-  it('scrolls without smooth animation while motion is reduced', async () => {
+  it('never scrolls with smooth animation, whatever the motion setting', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
-    act(() => useSettingsStore.getState().setMotion('reduced'))
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     expect(fake.state.createOptions?.smoothScrolling).toBe(false)
 
     act(() => useSettingsStore.getState().setMotion('full'))
-    expect(fake.state.optionUpdates.at(-1)).toEqual({ smoothScrolling: true })
+    expect(fake.state.optionUpdates.some((u) => 'smoothScrolling' in u)).toBe(false)
   })
 
   it('word wrap and tab width from Settings apply to the open editor', async () => {
@@ -893,6 +884,7 @@ describe('EditorView', () => {
     expect(window.ostia.fs.read).not.toHaveBeenCalled()
     const bar = screen.getByTestId('remote-file-bar')
     expect(bar).toHaveTextContent('Remote file on db')
+    expect(bar).not.toHaveClass('motion-fade')
 
     act(() => useRemoteFoldersStore.setState({ folders: [] }))
     expect(bar).toHaveTextContent('This remote folder is closed')

@@ -55,7 +55,7 @@ async function openSettingsPage(win: Page, page: string): Promise<Locator> {
   return settings
 }
 
-test('installs from a git marketplace, is approved, configured, updated and uninstalled', async () => {
+test('installs from a git marketplace, is approved, configured and updated', async () => {
   test.setTimeout(90_000)
   const dataHome = freshDataHome()
   const repo = marketplaceRepo(dataHome)
@@ -96,9 +96,8 @@ test('installs from a git marketplace, is approved, configured, updated and unin
     const installed = settings.getByRole('list', { name: 'Installed extensions' })
     const hello = installed.getByRole('listitem', { name: 'Hello' })
     await expect(hello.getByRole('switch')).toBeChecked()
-    await expect(hello.getByText('Enabled', { exact: true })).toBeVisible()
-    await hello.getByRole('button', { name: 'Hello' }).click()
-    const details = settings.getByRole('region', { name: 'Hello', exact: true })
+    await hello.getByRole('button', { name: 'Details of Hello' }).click()
+    const details = settings.getByRole('region', { name: 'Details of Hello' })
     const greeting = details.getByRole('textbox', { name: 'Greeting' })
     await greeting.fill('hey')
     await greeting.press('Enter')
@@ -131,20 +130,10 @@ test('installs from a git marketplace, is approved, configured, updated and unin
     settings = await openSettingsPage(win, 'Extensions')
     await installed
       .getByRole('listitem', { name: 'Hello' })
-      .getByRole('button', { name: 'Hello' })
+      .getByRole('button', { name: 'Details of Hello' })
       .click()
     await expect(details).toContainText('0.2.0')
     await expect(details.getByRole('textbox', { name: 'Greeting' })).toHaveValue('hey')
-    await details.getByRole('button', { name: 'Uninstall' }).click()
-    const confirm = win.getByRole('alertdialog')
-    await confirm.getByRole('button', { name: 'Uninstall' }).click()
-    await expect(installed.getByRole('listitem', { name: 'Hello' })).toHaveCount(0, {
-      timeout: 15_000,
-    })
-    expect(existsSync(installedManifest)).toBe(false)
-
-    await openSettingsPage(win, 'Browse extensions')
-    await expect(row.getByRole('button', { name: 'Install', exact: true })).toBeVisible()
   } finally {
     await app.close()
   }

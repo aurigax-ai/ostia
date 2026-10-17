@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import type { SandboxMergeRefusal } from '../../shared/sandbox/sandbox'
-import type { WorkspaceMergeResult } from '../../shared/types'
+import type { WorkspaceMergeResult } from '../../shared/workspaces/workspaceApi'
 
 export interface WorkspaceMergeDeps {
   ownerWindow: (workspaceId: string) => string | undefined

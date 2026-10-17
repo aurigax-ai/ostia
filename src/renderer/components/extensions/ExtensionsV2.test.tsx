@@ -4,11 +4,8 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type {
-  ExtensionInfo,
-  ExtensionSettingResult,
-  PaneChip,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionInfo, PaneChip } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionSettingResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -43,6 +40,7 @@ function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     category: 'other',
     languages: [],
     languageServers: [],
+    fileViewers: [],
     agentSkills: [],
     agentHooks: [],
     iconThemes: [],
@@ -273,6 +271,7 @@ describe('Extension API v2 UI', () => {
     it('shows a control per setting with the effective value', async () => {
       useExtensionsStore.setState({ list: [withSettings] })
       await renderSettled(<ExtensionsSection />)
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Details of Demo' }))
       expect(screen.getByRole('group', { name: 'Demo settings' })).toBeInTheDocument()
       expect(screen.getByText('Shout it')).toBeInTheDocument()
       expect(screen.getByRole('switch', { name: 'Loud' })).not.toBeChecked()
@@ -291,7 +290,9 @@ describe('Extension API v2 UI', () => {
       useExtensionsStore.setState({ list: [withSettings] })
       await renderSettled(<ExtensionsSection />)
 
-      await userEvent.setup().click(screen.getByRole('switch', { name: 'Loud' }))
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Details of Demo' }))
+      await user.click(screen.getByRole('switch', { name: 'Loud' }))
 
       expect(setSetting).toHaveBeenCalledWith('demo', 'loud', true)
       await waitFor(() => expect(screen.getByRole('switch', { name: 'Loud' })).toBeChecked())
@@ -304,6 +305,7 @@ describe('Extension API v2 UI', () => {
       useExtensionsStore.setState({ list: [withSettings] })
       await renderSettled(<ExtensionsSection />)
       const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Details of Demo' }))
       const input = screen.getByRole('spinbutton', { name: 'Count' })
 
       await user.clear(input)

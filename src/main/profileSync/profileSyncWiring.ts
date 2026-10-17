@@ -10,7 +10,7 @@ import { readSettingsFile } from '../platform/settingsFile'
 import type { WorkerScan } from '../privacy/redactionScan'
 import type { WindowSend } from '../windows/windowSend'
 import { type ProfileSyncHandle, startProfileSync } from './ipc'
-import { flatSource, groupedSource, loginsSource } from './secrets'
+import { flatSource, groupedSource, loginsSource } from './secretSources'
 
 interface ProfileSyncStartDeps {
   services: {

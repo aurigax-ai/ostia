@@ -7,7 +7,7 @@ import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { PromptContext } from '@shared/types'
+import type { PromptContext } from '@shared/terminal/ptyApi'
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -192,6 +192,7 @@ describe('Ostia prompt in the input editor', () => {
           category: 'other',
           languages: [],
           languageServers: [],
+          fileViewers: [],
           agentSkills: [],
           agentHooks: [],
           iconThemes: [],

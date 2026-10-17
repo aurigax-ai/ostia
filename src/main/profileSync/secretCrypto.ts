@@ -1,6 +1,6 @@
 import { argon2, createCipheriv, createDecipheriv, randomBytes, randomUUID } from 'node:crypto'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { canonicalJson } from './merge'
-import { isObject } from './profile'
 
 const BUNDLE_FORMAT = 1
 const KDF_MEMORY_KIB = 64 * 1024
@@ -167,13 +167,13 @@ export async function withPassword(
 }
 
 const isWrap = (v: unknown): v is Wrap =>
-  isObject(v) && ['salt', 'nonce', 'data', 'tag'].every((k) => typeof v[k] === 'string')
+  isRecord(v) && ['salt', 'nonce', 'data', 'tag'].every((k) => typeof v[k] === 'string')
 
 export function parseHeader(raw: unknown): BundleHeader | null {
-  if (!isObject(raw) || raw.format !== BUNDLE_FORMAT) return null
+  if (!isRecord(raw) || raw.format !== BUNDLE_FORMAT) return null
   if (typeof raw.keyId !== 'string' || typeof raw.wrapId !== 'string') return null
   const kdf = raw.kdf
-  if (!isObject(kdf) || kdf.name !== 'argon2id') return null
+  if (!isRecord(kdf) || kdf.name !== 'argon2id') return null
   if (!inRange(kdf.memory, KDF_MEMORY_RANGE) || !inRange(kdf.passes, KDF_PASSES_RANGE)) return null
   if (!inRange(kdf.parallelism, KDF_PARALLELISM_RANGE)) return null
   if (!isWrap(raw.password) || !isWrap(raw.recovery)) return null
@@ -213,7 +213,7 @@ export function openBundle(text: string): OpenedBundle | null {
   } catch {
     return null
   }
-  if (!isObject(raw)) return null
+  if (!isRecord(raw)) return null
   const header = parseHeader(raw.header)
   const nonce = bytesOf(raw.nonce, NONCE_BYTES)
   const data = bytesOf(raw.data)

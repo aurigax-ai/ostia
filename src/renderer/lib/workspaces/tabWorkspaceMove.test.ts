@@ -4,7 +4,7 @@ import { findPane, paneIds, splitTabOfPane, tabsOfPane } from '@/lib/layout/tree
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { resetWorkspaceIds, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { LifecycleEvent } from '@shared/types'
+import type { LifecycleEvent } from '@shared/attention/attention'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   type TabMoveSide,

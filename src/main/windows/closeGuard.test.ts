@@ -1,6 +1,6 @@
 import type { BrowserWindow } from 'electron'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { QuitAnswer, RunningGroup } from '../../shared/types'
+import type { QuitAnswer, RunningGroup } from '../../shared/windows/windowsApi'
 
 const ipcOn = vi.hoisted(() => vi.fn())
 vi.mock('electron', () => ({ ipcMain: { on: ipcOn } }))

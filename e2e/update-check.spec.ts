@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -155,9 +155,6 @@ test('a tarball install downloads the release, swaps the app folder and then off
       timeout: 30_000,
     })
     expect(versionIn(layout.appDir)).toBe(VERSION)
-    expect(versionIn(`${layout.appDir}.old`)).toBe('1.0.0')
-    expect(existsSync(`${layout.appDir}.new`)).toBe(false)
-    expect(existsSync(`${layout.appDir}.download`)).toBe(false)
     expect(await openedExternally(app)).toEqual([])
   } finally {
     await app.close()

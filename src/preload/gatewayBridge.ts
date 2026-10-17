@@ -10,9 +10,9 @@ import type {
   GatewaySetCapResult,
   GatewaySetRouteResult,
   GatewayTailnetActionResult,
-  GatewayTailnetState,
-  OstiaBridge,
-} from '../shared/types'
+} from '../shared/gateway/gatewayApi'
+import type { OstiaBridge } from '../shared/types'
+import { listen } from './listen'
 
 export const gatewayBridge: Pick<OstiaBridge, 'gateway'> = {
   gateway: {
@@ -40,11 +40,7 @@ export const gatewayBridge: Pick<OstiaBridge, 'gateway'> = {
       ipcRenderer.invoke('gateway:tailnet-sign-in') as Promise<GatewayTailnetActionResult>,
     tailnetSignOut: () =>
       ipcRenderer.invoke('gateway:tailnet-sign-out') as Promise<GatewayTailnetActionResult>,
-    onTailnetChanged: (cb) => {
-      const handler = (_event: unknown, state: GatewayTailnetState): void => cb(state)
-      ipcRenderer.on('gateway:tailnet-changed', handler)
-      return () => ipcRenderer.removeListener('gateway:tailnet-changed', handler)
-    },
+    onTailnetChanged: (cb) => listen('gateway:tailnet-changed', cb),
     setDiscoverable: (on) =>
       ipcRenderer.invoke('gateway:set-discoverable', on) as Promise<GatewayActionResult>,
     pairRequests: () =>
@@ -54,10 +50,6 @@ export const gatewayBridge: Pick<OstiaBridge, 'gateway'> = {
         requestId,
         approve,
       }) as Promise<GatewayActionResult>,
-    onPairRequestsChanged: (cb) => {
-      const handler = (_event: unknown, requests: GatewayPairRequest[]): void => cb(requests)
-      ipcRenderer.on('gateway:pair-requests-changed', handler)
-      return () => ipcRenderer.removeListener('gateway:pair-requests-changed', handler)
-    },
+    onPairRequestsChanged: (cb) => listen('gateway:pair-requests-changed', cb),
   },
 }

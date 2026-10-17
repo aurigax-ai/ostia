@@ -8,7 +8,7 @@ import {
 } from '@/lib/settings/terminalPaneSettings'
 import { parseWindowTitle } from '@/lib/settings/windowTitle'
 import { normalizeHex } from '@/lib/theme/color'
-import { parseAssistModelSettings } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { parseAssistModelSettings } from '@aurigax-ai/ostia-extension-sdk/contract/assistReports'
 import { parseManagerSettings } from '@shared/agents/managerSettings'
 import { clampZoom } from '@shared/app/zoom'
 import { parseChatToolSettings } from '@shared/assist/chatTools'
@@ -17,6 +17,7 @@ import { parsePortsSettings } from '@shared/boards/ports'
 import { parseRedactionSettings } from '@shared/privacy/redaction'
 import { parseTelemetrySettings } from '@shared/privacy/telemetry'
 import { parsePromptSettings } from '@shared/terminal/promptSettings'
+import { parseScrollbackHistory } from '@shared/terminal/scrollbackHistory'
 import type { StoreApi } from 'zustand'
 import { type SettingsState, clampLineHeight, withBaseSize } from './settingsModel'
 import { parseHibernation } from './settingsParse'
@@ -130,6 +131,9 @@ export function createTerminalActions(
           ...patch,
           scrollSpeed: clampScrollSpeed(patch.scrollSpeed ?? s.terminal.scrollSpeed),
           scrollbackLines: clampScrollback(patch.scrollbackLines ?? s.terminal.scrollbackLines),
+          scrollbackHistory: parseScrollbackHistory(
+            patch.scrollbackHistory ?? s.terminal.scrollbackHistory,
+          ),
           minimumContrast: clampContrast(patch.minimumContrast ?? s.terminal.minimumContrast),
           prompt: parsePromptSettings(patch.prompt ?? s.terminal.prompt),
         },
@@ -272,6 +276,7 @@ export function createTrustActions(
   | 'setAssistModels'
   | 'setAutoResume'
   | 'setAutoSendReferences'
+  | 'setTrustWorkspaceFolders'
   | 'setAgentHooks'
   | 'setHibernation'
   | 'trustAction'
@@ -346,6 +351,11 @@ export function createTrustActions(
 
     setAutoSendReferences: (autoSendReferences) => {
       set((s) => ({ agents: { ...s.agents, autoSendReferences } }))
+      scheduleSave(get)
+    },
+
+    setTrustWorkspaceFolders: (trustWorkspaceFolders) => {
+      set((s) => ({ agents: { ...s.agents, trustWorkspaceFolders } }))
       scheduleSave(get)
     },
 

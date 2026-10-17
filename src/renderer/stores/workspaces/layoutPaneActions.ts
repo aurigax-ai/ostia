@@ -5,6 +5,7 @@ import {
   hasLockedPane,
   renamePane,
   setDefaultPaneTitle,
+  setPaneBrowserDevice,
   setPaneCwd,
   setPaneHibernated,
   setPaneLocked,
@@ -12,6 +13,7 @@ import {
   setPaneSpawnDir,
   setPaneTitle,
   setPaneUrl,
+  setPaneViewType,
   setResumePending,
   settleSpawnDir,
 } from '@/lib/layout/paneFields'
@@ -19,14 +21,20 @@ import { findPane } from '@/lib/layout/tree'
 import { neutralTerminalTitle } from './layoutSeed'
 import type { LayoutGet, LayoutSet, LayoutState, WorkspaceLayout } from './layoutTypes'
 
-type LayoutPaneActions = Pick<
+type LayoutPaneFieldActions = Pick<
   LayoutState,
   | 'setCwd'
   | 'setUrl'
+  | 'setBrowserDevice'
   | 'followMovedFile'
   | 'setTitle'
+  | 'setViewType'
   | 'rename'
   | 'setDefaultTitle'
+>
+
+type LayoutPaneResumeActions = Pick<
+  LayoutState,
   | 'setResume'
   | 'setResumePending'
   | 'failResume'
@@ -34,11 +42,13 @@ type LayoutPaneActions = Pick<
   | 'setHibernated'
   | 'setSpawnDir'
   | 'settleSpawnDir'
-  | 'setLocked'
-  | 'isLocked'
 >
 
-export function createLayoutPaneActions(set: LayoutSet, get: LayoutGet): LayoutPaneActions {
+type LayoutPaneLockActions = Pick<LayoutState, 'setLocked' | 'isLocked'>
+
+type LayoutPaneActions = LayoutPaneFieldActions & LayoutPaneResumeActions & LayoutPaneLockActions
+
+function createPaneFieldActions(set: LayoutSet): LayoutPaneFieldActions {
   return {
     setCwd: (workspaceId, paneId, cwd) =>
       set((s) => {
@@ -55,6 +65,16 @@ export function createLayoutPaneActions(set: LayoutSet, get: LayoutGet): LayoutP
         const layout = s.byWorkspace[workspaceId]
         if (!layout) return s
         const root = setPaneUrl(layout.root, paneId, url)
+        return root === layout.root
+          ? s
+          : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+      }),
+
+    setBrowserDevice: (workspaceId, paneId, device) =>
+      set((s) => {
+        const layout = s.byWorkspace[workspaceId]
+        if (!layout) return s
+        const root = setPaneBrowserDevice(layout.root, paneId, device)
         return root === layout.root
           ? s
           : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
@@ -82,6 +102,16 @@ export function createLayoutPaneActions(set: LayoutSet, get: LayoutGet): LayoutP
           : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
       }),
 
+    setViewType: (workspaceId, paneId, viewType) =>
+      set((s) => {
+        const layout = s.byWorkspace[workspaceId]
+        if (!layout) return s
+        const root = setPaneViewType(layout.root, paneId, viewType)
+        return root === layout.root
+          ? s
+          : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+      }),
+
     rename: (workspaceId, paneId, title) =>
       set((s) => {
         const layout = s.byWorkspace[workspaceId]
@@ -101,7 +131,11 @@ export function createLayoutPaneActions(set: LayoutSet, get: LayoutGet): LayoutP
           ? s
           : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
       }),
+  }
+}
 
+function createPaneResumeActions(set: LayoutSet): LayoutPaneResumeActions {
+  return {
     setResume: (workspaceId, paneId, resume) =>
       set((s) => {
         const layout = s.byWorkspace[workspaceId]
@@ -174,7 +208,11 @@ export function createLayoutPaneActions(set: LayoutSet, get: LayoutGet): LayoutP
           ? s
           : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
       }),
+  }
+}
 
+function createPaneLockActions(set: LayoutSet, get: LayoutGet): LayoutPaneLockActions {
+  return {
     setLocked: (workspaceId, paneId, locked) =>
       set((s) => {
         const layout = s.byWorkspace[workspaceId]
@@ -190,5 +228,13 @@ export function createLayoutPaneActions(set: LayoutSet, get: LayoutGet): LayoutP
       if (!root) return false
       return paneId === undefined ? hasLockedPane(root) : findPane(root, paneId)?.locked === true
     },
+  }
+}
+
+export function createLayoutPaneActions(set: LayoutSet, get: LayoutGet): LayoutPaneActions {
+  return {
+    ...createPaneFieldActions(set),
+    ...createPaneResumeActions(set),
+    ...createPaneLockActions(set, get),
   }
 }

@@ -1,0 +1,14 @@
+{
+  "manifest": {},
+  "messages": {
+    "loading": "Loading…",
+    "tooLarge": "This file is too large to show as a table ({size}).",
+    "unreadable": "Could not read this file.",
+    "gone": "This file is no longer there.",
+    "timeout": "Reading this file took too long, so it was stopped.",
+    "failed": "Could not read this file as a table.",
+    "empty": "This file is empty.",
+    "rowsCut": "Showing the first {rows} rows.",
+    "columnsCut": "Showing the first {columns} columns."
+  }
+}

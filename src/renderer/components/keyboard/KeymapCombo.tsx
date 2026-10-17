@@ -1,5 +1,5 @@
-import { WarningNote } from '@/components/settings/ControlRow'
-import { useSearchLeaf } from '@/components/settings/SettingsSearch'
+import { Notice } from '@/components/common/Notice'
+import { useSearchLeaf } from '@/components/settingsKit/SettingsSearch'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { fmt, useDict } from '@/lib/app/useDict'
@@ -135,7 +135,7 @@ function PresetPreview({
       loaded.status === 'loading' ? (
         <p className="text-fg-muted text-ui-sm">{fmt(d.keyboard.previewLoading, { name })}</p>
       ) : (
-        <WarningNote>{fmt(d.keyboard.previewFailed, { name, error: loaded.error })}</WarningNote>
+        <Notice>{fmt(d.keyboard.previewFailed, { name, error: loaded.error })}</Notice>
       )
   } else if (choice.layer === 'app' && loaded.status === 'ready') {
     const plan = appPreview(keymapBindings(), loaded.bindings, user, isMac)
@@ -147,7 +147,7 @@ function PresetPreview({
             <span className="truncate text-fg">{commandTitle(c.id, d)}</span>
             <span className="flex flex-wrap items-center gap-1">
               {keysOrNone(c.before, d.keyboard.noKey)}
-              <ArrowRightIcon className="size-3 shrink-0 text-fg-dim" aria-hidden />
+              <ArrowRightIcon className="size-4 shrink-0 text-fg-dim" aria-hidden />
               {keysOrNone(c.after, d.keyboard.noKey)}
               {plan.keptCustom.includes(c) ? (
                 <span className="text-brand text-ui-xs">{d.keyboard.previewYoursStay}</span>
@@ -170,7 +170,7 @@ function PresetPreview({
             <Kbd className="w-fit text-fg">{c.keys}</Kbd>
             <span className="flex flex-wrap items-center gap-1">
               {sendOrNone(c.before, d.keyboard.notTranslated, d)}
-              <ArrowRightIcon className="size-3 shrink-0 text-fg-dim" aria-hidden />
+              <ArrowRightIcon className="size-4 shrink-0 text-fg-dim" aria-hidden />
               {sendOrNone(c.after, d.keyboard.notTranslated, d)}
               {plan.keptCustom.includes(c) ? (
                 <span className="text-brand text-ui-xs">{d.keyboard.previewYoursStay}</span>
@@ -345,10 +345,10 @@ export function KeymapCombo({ onShowChanges }: { onShowChanges: () => void }): J
         <PresetPreview choice={preview} onApply={apply} onCancel={() => setPreview(null)} />
       ) : null}
       {chosen && error ? (
-        <WarningNote>{fmt(d.keyboard.keymapFailed, { name: chosen.label, error })}</WarningNote>
+        <Notice>{fmt(d.keyboard.keymapFailed, { name: chosen.label, error })}</Notice>
       ) : null}
       {loaded && loaded.skipped.length > 0 ? (
-        <WarningNote>
+        <Notice>
           <p>{fmt(d.keyboard.keymapSkipped, { name: loaded.label })}</p>
           <ul className="mt-1 list-disc pl-4">
             {loaded.skipped.map((skip, i) => (
@@ -361,7 +361,7 @@ export function KeymapCombo({ onShowChanges }: { onShowChanges: () => void }): J
               </li>
             ))}
           </ul>
-        </WarningNote>
+        </Notice>
       ) : null}
       <ChoiceRow
         layer="text"
@@ -377,7 +377,7 @@ export function KeymapCombo({ onShowChanges }: { onShowChanges: () => void }): J
         <PresetPreview choice={preview} onApply={apply} onCancel={() => setPreview(null)} />
       ) : null}
       {terminal === NATURAL_TEXT_EDITING ? (
-        <WarningNote>{d.keyboard.naturalTextEditingNote}</WarningNote>
+        <Notice>{d.keyboard.naturalTextEditingNote}</Notice>
       ) : null}
       <p className="mt-1 text-fg-muted text-ui-xs">
         {custom > 0 ? fmt(d.keyboard.comboCustom, { count: custom }) : d.keyboard.comboCustomNone}

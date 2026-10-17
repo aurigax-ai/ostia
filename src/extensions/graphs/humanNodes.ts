@@ -19,7 +19,7 @@ const ANSWER = 'answer'
 
 export interface AskDeps {
   ext: Pick<OstiaExtension, 'ask'>
-  deliver: (event: Output) => void
+  deliver: (workspaceId: string, event: Output) => void
 }
 
 function askOf(wait: NodeWait | undefined): Record<string, unknown> | null {
@@ -48,9 +48,15 @@ export function approvalNode(deps: AskDeps): NodeKind {
         if (!res.ok || abort.signal.aborted) return
         if (res.outcome === 'answered') {
           const answer = res.reply.choices[0] ?? res.reply.text
-          deps.deliver({ type: ANSWER, key, answer, text: res.reply.text, outcome: 'answered' })
+          deps.deliver(scope, {
+            type: ANSWER,
+            key,
+            answer,
+            text: res.reply.text,
+            outcome: 'answered',
+          })
         } else if (res.outcome === 'dismissed') {
-          deps.deliver({ type: ANSWER, key, outcome: 'dismissed' })
+          deps.deliver(scope, { type: ANSWER, key, outcome: 'dismissed' })
         }
       })
   }

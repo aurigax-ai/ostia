@@ -96,7 +96,7 @@ export function DashboardPanel(): JSX.Element | null {
     <section
       ref={rootRef}
       aria-label={d.dashboard.title}
-      className="dashboard absolute inset-0 z-20 flex min-h-0 flex-col overflow-y-auto bg-bg text-fg"
+      className="dashboard motion-fade absolute inset-0 z-20 flex min-h-0 flex-col overflow-y-auto bg-bg text-fg"
     >
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-5 sm:px-8">
         <header className="flex items-center gap-2">
@@ -355,7 +355,7 @@ function RemoteEntry({ workspace: w }: { workspace: RemoteWorkspace }): JSX.Elem
       <StateMark state={w.state} />
       <PathText path={w.workDir} />
       <span className="ml-auto flex shrink-0 items-center gap-1 text-fg-muted text-ui-xs">
-        <AppWindowIcon size={12} aria-hidden />
+        <AppWindowIcon size={16} aria-hidden />
         {d.window.inOtherWindow}
       </span>
     </li>

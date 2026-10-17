@@ -1,6 +1,6 @@
 import type { BrowserWindow } from 'electron'
+import type { PtyAttachResult, PtySpawnOptions } from '../../../shared/terminal/ptyApi'
 import { shellName } from '../../../shared/terminal/terminalShell'
-import type { PtyAttachResult, PtySpawnOptions } from '../../../shared/types'
 import { CoalescedOutput } from '../ptyFlow'
 import type { Subscriber, SubscriberRole } from '../ptySession'
 import type { PtyEntry } from './ptyRegistry'
@@ -62,12 +62,13 @@ export function createLiveAttach({ windows, movingPanes, recoveryHeld }: LiveAtt
     recoveryHeld.delete(paneId)
     existing.subs.set(subId, e.sender)
     existing.session.addLiveSubscriber(mkSub(existing))
-    const { data, cursor, dropped } = existing.session.since(opts.sinceCursor ?? 0)
+    const { data, cursor, dropped, startsBefore } = existing.session.since(opts.sinceCursor ?? 0)
     return {
       created: false,
       buffer: data,
       cursor,
       dropped,
+      blockSeqBase: existing.mirror.blockSeqBase + startsBefore,
       shell: shellName(existing.shell) || undefined,
       sandboxed: existing.sandboxed,
       ...(existing.sandboxStamp ? { sandboxStamp: existing.sandboxStamp } : {}),

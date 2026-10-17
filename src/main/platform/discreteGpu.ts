@@ -1,5 +1,6 @@
 import { execFile, execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 
 const GPU_ENV_KEYS: readonly string[] = [
   'DRI_PRIME',
@@ -126,7 +127,7 @@ function parseRestore(raw: string | undefined): Restore | null {
   if (raw === undefined) return null
   try {
     const parsed: unknown = JSON.parse(raw)
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null
+    if (!isRecord(parsed)) return null
     const restore: Restore = {}
     for (const [key, value] of Object.entries(parsed)) {
       if (!GPU_ENV_KEYS.includes(key) || !(value === null || validValue(value))) return null

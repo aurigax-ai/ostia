@@ -9,7 +9,7 @@ import {
   readGraphFile,
 } from '@aurigax-ai/wire'
 
-const GRAPHS_FOLDER = join(`.${PRODUCT_NAME.toLowerCase()}`, 'graphs')
+export const GRAPHS_FOLDER = join(`.${PRODUCT_NAME.toLowerCase()}`, 'graphs')
 
 export interface GraphEntry {
   name: string
@@ -19,7 +19,7 @@ export interface GraphEntry {
   problems: Problem[]
 }
 
-export function graphsFolder(workDir: string): string {
+function graphsFolder(workDir: string): string {
   return join(workDir, GRAPHS_FOLDER)
 }
 

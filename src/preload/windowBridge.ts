@@ -1,14 +1,8 @@
 import { ipcRenderer } from 'electron'
-import type {
-  ClipboardContents,
-  OriginAgents,
-  OstiaBridge,
-  QuitQuestion,
-  ReferenceInsert,
-  SnapshotWorkspace,
-  WindowInfo,
-  WindowSummary,
-} from '../shared/types'
+import type { ClipboardContents } from '../shared/app/appApi'
+import type { OstiaBridge } from '../shared/types'
+import type { OriginAgents, QuitQuestion, WindowInfo } from '../shared/windows/windowsApi'
+import { listen } from './listen'
 
 export const windowBridge: Pick<
   OstiaBridge,
@@ -24,16 +18,8 @@ export const windowBridge: Pick<
     beep: () => ipcRenderer.send('window:beep'),
     writePrimarySelection: (text) => ipcRenderer.send('window:write-primary', text),
     isSystemDark: () => ipcRenderer.invoke('window:system-dark') as Promise<boolean>,
-    onSystemDarkChange: (cb) => {
-      const handler = (_event: unknown, dark: boolean): void => cb(dark)
-      ipcRenderer.on('window:system-dark-changed', handler)
-      return () => ipcRenderer.removeListener('window:system-dark-changed', handler)
-    },
-    onMaximizeChange: (cb) => {
-      const handler = (_event: unknown, maximized: boolean): void => cb(maximized)
-      ipcRenderer.on('window:maximized', handler)
-      return () => ipcRenderer.removeListener('window:maximized', handler)
-    },
+    onSystemDarkChange: (cb) => listen('window:system-dark-changed', cb),
+    onMaximizeChange: (cb) => listen('window:maximized', cb),
     onRunningQuery: (cb) => {
       const handler = (_event: unknown, requestId: number, kept: string[]): void => {
         void Promise.resolve(cb(kept)).then((groups) =>
@@ -52,11 +38,7 @@ export const windowBridge: Pick<
       ipcRenderer.on('window:confirm-close', handler)
       return () => ipcRenderer.removeListener('window:confirm-close', handler)
     },
-    onFreeze: (cb) => {
-      const handler = (): void => cb()
-      ipcRenderer.on('window:freeze', handler)
-      return () => ipcRenderer.removeListener('window:freeze', handler)
-    },
+    onFreeze: (cb) => listen('window:freeze', () => cb()),
   },
   windows: {
     info: () => ipcRenderer.invoke('windows:info') as Promise<WindowInfo>,
@@ -74,45 +56,16 @@ export const windowBridge: Pick<
       ipcRenderer.send('windows:focus-workspace', workspaceId, jumpToUnread, takesKeyboard),
     returnWorkspace: (workspaceId) => ipcRenderer.send('windows:return-workspace', workspaceId),
     newWorkspace: (request) => ipcRenderer.send('windows:new-workspace', request),
-    onList: (cb) => {
-      const handler = (_e: unknown, list: WindowSummary[]): void => cb(list)
-      ipcRenderer.on('windows:list', handler)
-      return () => ipcRenderer.removeListener('windows:list', handler)
-    },
-    onAdopt: (cb) => {
-      const handler = (_e: unknown, workspaces: SnapshotWorkspace[]): void => cb(workspaces)
-      ipcRenderer.on('windows:adopt', handler)
-      return () => ipcRenderer.removeListener('windows:adopt', handler)
-    },
-    onActivateWorkspace: (cb) => {
-      const handler = (
-        _e: unknown,
-        workspaceId: string,
-        jumpToUnread: boolean,
-        takesKeyboard: boolean,
-      ): void => cb(workspaceId, jumpToUnread, takesKeyboard)
-      ipcRenderer.on('windows:activate-workspace', handler)
-      return () => ipcRenderer.removeListener('windows:activate-workspace', handler)
-    },
-    onReturnRequest: (cb) => {
-      const handler = (): void => cb()
-      ipcRenderer.on('windows:return-request', handler)
-      return () => ipcRenderer.removeListener('windows:return-request', handler)
-    },
+    onList: (cb) => listen('windows:list', cb),
+    onAdopt: (cb) => listen('windows:adopt', cb),
+    onActivateWorkspace: (cb) => listen('windows:activate-workspace', cb),
+    onReturnRequest: (cb) => listen('windows:return-request', () => cb()),
     originAgents: (workspaceId) =>
       ipcRenderer.invoke('windows:origin-agents', workspaceId) as Promise<OriginAgents | null>,
-    onOriginAgentsChanged: (cb) => {
-      const handler = (): void => cb()
-      ipcRenderer.on('windows:origin-agents-changed', handler)
-      return () => ipcRenderer.removeListener('windows:origin-agents-changed', handler)
-    },
+    onOriginAgentsChanged: (cb) => listen('windows:origin-agents-changed', () => cb()),
     insertReference: (request) =>
       ipcRenderer.invoke('windows:insert-reference', request) as Promise<boolean>,
-    onInsertReference: (cb) => {
-      const handler = (_e: unknown, insert: ReferenceInsert): void => cb(insert)
-      ipcRenderer.on('windows:reference-insert', handler)
-      return () => ipcRenderer.removeListener('windows:reference-insert', handler)
-    },
+    onInsertReference: (cb) => listen('windows:reference-insert', cb),
     answerInsertReference: (requestId, inserted) =>
       ipcRenderer.send('windows:reference-inserted', requestId, inserted),
   },
@@ -121,11 +74,7 @@ export const windowBridge: Pick<
   },
   appMenu: {
     set: (spec) => ipcRenderer.send('app-menu:set', spec),
-    onRun: (cb) => {
-      const listener = (_e: unknown, command: string): void => cb(command)
-      ipcRenderer.on('app-menu:run', listener)
-      return () => ipcRenderer.removeListener('app-menu:run', listener)
-    },
+    onRun: (cb) => listen('app-menu:run', cb),
   },
   clipboard: {
     edit: (edit) => ipcRenderer.invoke('clipboard:edit', edit) as Promise<void>,

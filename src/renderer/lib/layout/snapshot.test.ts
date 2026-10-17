@@ -1,4 +1,4 @@
-import type { AppSnapshot } from '@shared/types'
+import type { AppSnapshot } from '@shared/workspaces/workspaceApi'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { setDefaultPaneTitle, setPaneView } from './paneFields'
 import { buildSnapshot, restoreSnapshot } from './snapshot'
@@ -53,6 +53,22 @@ describe('buildSnapshot', () => {
     const restored = restoreSnapshot(snapshot).layouts.s1
     expect(restored.root).toEqual(root)
     expect(restored.activePaneId).toBe(c.id)
+  })
+
+  it('round-trips a collapsed pane of a split tab and expands one no tab holds any more', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const tab = splitOf('horizontal', b, { ...c, collapsed: true as const })
+    const root = tabsOf(b.id, a, tab)
+    expect(restoreSnapshot(build(root, b.id)).layouts.s1.root).toEqual(root)
+    const loose = splitOf('horizontal', a, { ...c, collapsed: true as const })
+    const restored = restoreSnapshot(build(loose, a.id)).layouts.s1.root
+    expect(restored.type === 'split' && restored.children[1]).not.toHaveProperty('collapsed')
+  })
+
+  it('round-trips a folded split tab that is not shown', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const root = tabsOf(a.id, a, { ...splitOf('horizontal', b, c), folded: true as const })
+    expect(restoreSnapshot(build(root, a.id)).layouts.s1.root).toEqual(root)
   })
 
   it('carries an editor’s file path and a browser’s url', () => {

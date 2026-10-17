@@ -1,9 +1,9 @@
+import type { GatewayRoute } from '../../shared/gateway/gatewayApi'
 import {
   DEFAULT_GATEWAY_ROUTE,
   isBindAddress,
   phoneAddressOf,
 } from '../../shared/gateway/gatewayRoute'
-import type { GatewayRoute } from '../../shared/types'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 
 function routePath(): string {

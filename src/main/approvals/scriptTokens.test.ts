@@ -11,10 +11,10 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
+import type { CommandResult } from '../../shared/control/commands'
 import type { ApprovalOutcome } from '../../shared/permissions/approvals'
 import { SCRIPT_CAPABILITIES, type ScriptTokenScope } from '../../shared/permissions/scriptTokens'
 import { emptyWorkspaceSandbox } from '../../shared/sandbox/sandbox'
-import type { CommandResult } from '../../shared/types'
 import type { ReachListing } from './reach'
 import type { PresenceFailure, PresenceResult } from './userPresence'
 
@@ -36,17 +36,16 @@ const {
   checkScriptToken,
   createScriptToken,
   listScriptTokens,
-  parseTokenRequest,
   recordCreatedWorkspace,
   registerScriptTokenMethods,
-  retireLegacyScriptTokens,
-  retiredScriptTokens,
   revokeScriptToken,
   scriptTokenScope,
-  setUserPresenceCheck,
   updateScriptToken,
   verifyScriptToken,
 } = await import('./scriptTokens')
+const { setUserPresenceCheck } = await import('./scriptTokenConfirm')
+const { parseTokenRequest } = await import('./scriptTokenRequests')
+const { retireLegacyScriptTokens, retiredScriptTokens } = await import('./scriptTokenRetired')
 const { createScriptTokenUsage } = await import('./scriptTokenUsage')
 
 const dirs: string[] = []

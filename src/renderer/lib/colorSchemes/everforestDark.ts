@@ -1,0 +1,31 @@
+import type { ColorScheme } from '@/lib/theme/types'
+
+export const everforestDark: ColorScheme = {
+  id: 'everforest-dark',
+  name: 'Everforest Dark',
+  appearance: 'dark',
+  colors: {
+    background: '#1e2326',
+    foreground: '#d3c6aa',
+    cursor: '#e69875',
+    cursorAccent: '#4c3743',
+    selectionBackground: '#4c3743',
+    selectionForeground: '#d3c6aa',
+    black: '#7a8478',
+    red: '#e67e80',
+    green: '#a7c080',
+    yellow: '#dbbc7f',
+    blue: '#7fbbb3',
+    magenta: '#d699b6',
+    cyan: '#83c092',
+    white: '#f2efdf',
+    brightBlack: '#a6b0a0',
+    brightRed: '#f85552',
+    brightGreen: '#8da101',
+    brightYellow: '#dfa000',
+    brightBlue: '#3a94c5',
+    brightMagenta: '#df69ba',
+    brightCyan: '#35a77c',
+    brightWhite: '#fffbef',
+  },
+}

@@ -1,5 +1,7 @@
-import { ControlRow } from '@/components/settings/ControlRow'
-import { SubHead } from '@/components/settings/SettingsGroup'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
+import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,8 +26,8 @@ import { DATE_ONLY, formatDate } from '@/lib/app/localeFormat'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { Dict } from '@shared/app/dict'
+import type { GatewayDevice } from '@shared/gateway/gatewayApi'
 import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/gateway/phoneCapabilities'
-import type { GatewayDevice } from '@shared/types'
 import { useState } from 'react'
 
 const CAP_NEEDS: Partial<Record<PhoneGrantableCap, PhoneGrantableCap>> = {
@@ -58,72 +60,78 @@ function DeviceRow({
   const [asking, setAsking] = useState(false)
   const text = capText(d)
   return (
-    <li className="border-line border-t pt-2 first:border-t-0 first:pt-0">
-      <div className="flex items-center justify-between gap-6 py-1.5">
-        <div className="flex min-w-0 items-baseline gap-2">
-          <span className="truncate font-medium text-fg text-ui-base">{device.name}</span>
-          <span className="shrink-0 text-fg-muted text-ui-sm tabular-nums">
-            {fmt(d.settings.remotePairedOn, {
-              date: formatDate(Date.parse(device.createdAt), locale, DATE_ONLY),
-            })}
-          </span>
-        </div>
+    <SettingsListRow
+      title={<span className="font-medium">{device.name}</span>}
+      meta={
+        <span className="tabular-nums">
+          {fmt(d.settings.remotePairedOn, {
+            date: formatDate(Date.parse(device.createdAt), locale, DATE_ONLY),
+          })}
+        </span>
+      }
+      actions={
         <Button
           variant="ghost"
           size="sm"
-          className="-mr-2.5 text-attn-fg hover:text-attn-fg"
+          className="text-attn-fg hover:text-attn-fg"
           onClick={() => setAsking(true)}
           aria-label={fmt(d.settings.remoteRevokeFor, { name: device.name })}
         >
           {d.settings.remoteRevoke}
         </Button>
-      </div>
-      <fieldset aria-label={fmt(d.settings.remoteGrantsFor, { name: device.name })}>
-        {PHONE_GRANTABLE_CAPS.map((cap) => {
-          const needs = CAP_NEEDS[cap]
-          const { label, desc } = text[cap]
-          return (
-            <ControlRow
-              key={cap}
-              label={label}
-              desc={needs ? fmt(d.settings.remoteCapNeeds, { desc, cap: text[needs].label }) : desc}
-            >
-              <Switch
-                checked={device.caps.includes(cap)}
-                disabled={needs !== undefined && !device.caps.includes(needs)}
-                onCheckedChange={(v) => onChange(cap, v)}
-                aria-label={fmt(d.settings.remoteCapFor, { cap: label, name: device.name })}
-              />
-            </ControlRow>
-          )
-        })}
-      </fieldset>
-      <AlertDialog open={asking} onOpenChange={setAsking}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {fmt(d.settings.remoteRevokeTitle, { name: device.name })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {fmt(d.settings.remoteRevokeBody, { name: device.name })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel size="sm">{d.settings.remoteCancel}</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              size="sm"
-              onClick={() => {
-                setAsking(false)
-                onRevoke()
-              }}
-            >
-              {d.settings.remoteRevoke}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </li>
+      }
+      below={
+        <>
+          <fieldset aria-label={fmt(d.settings.remoteGrantsFor, { name: device.name })}>
+            {PHONE_GRANTABLE_CAPS.map((cap) => {
+              const needs = CAP_NEEDS[cap]
+              const { label, desc } = text[cap]
+              return (
+                <ControlRow
+                  key={cap}
+                  label={label}
+                  desc={
+                    needs ? fmt(d.settings.remoteCapNeeds, { desc, cap: text[needs].label }) : desc
+                  }
+                >
+                  <Switch
+                    checked={device.caps.includes(cap)}
+                    disabled={needs !== undefined && !device.caps.includes(needs)}
+                    onCheckedChange={(v) => onChange(cap, v)}
+                    aria-label={fmt(d.settings.remoteCapFor, { cap: label, name: device.name })}
+                  />
+                </ControlRow>
+              )
+            })}
+          </fieldset>
+          <AlertDialog open={asking} onOpenChange={setAsking}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {fmt(d.settings.remoteRevokeTitle, { name: device.name })}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {fmt(d.settings.remoteRevokeBody, { name: device.name })}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel size="sm">{d.settings.remoteCancel}</AlertDialogCancel>
+                <AlertDialogAction
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    setAsking(false)
+                    onRevoke()
+                  }}
+                >
+                  {d.settings.remoteRevoke}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      }
+    />
   )
 }
 
@@ -163,24 +171,20 @@ export function DeviceList({
 
   return (
     <>
-      <SubHead
+      <SettingsSubgroup
         title={d.settings.remoteDevices}
         desc={devices.length > 0 ? d.settings.remoteGrantsDesc : undefined}
       />
-      {devices.length === 0 ? (
-        <p className="text-fg-muted text-ui-sm">{d.settings.remoteNoDevices}</p>
-      ) : (
-        <ul className="flex flex-col">
-          {devices.map((dev) => (
-            <DeviceRow
-              key={dev.deviceId}
-              device={dev}
-              onChange={(cap, v) => onCapChange(dev, cap, v)}
-              onRevoke={() => void onRevoke(dev.deviceId)}
-            />
-          ))}
-        </ul>
-      )}
+      <SettingsList label={d.settings.remoteDevices} empty={d.settings.remoteNoDevices}>
+        {devices.map((dev) => (
+          <DeviceRow
+            key={dev.deviceId}
+            device={dev}
+            onChange={(cap, v) => onCapChange(dev, cap, v)}
+            onRevoke={() => void onRevoke(dev.deviceId)}
+          />
+        ))}
+      </SettingsList>
 
       <Dialog
         open={confirmDevice !== null}

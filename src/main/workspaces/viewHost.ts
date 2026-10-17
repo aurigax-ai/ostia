@@ -1,6 +1,8 @@
 import { type FSWatcher, lstatSync, mkdirSync, readFileSync, readdirSync, watch } from 'node:fs'
 import { join } from 'node:path'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { debounce } from 'es-toolkit'
+import { parseViewText } from '../../shared/views/viewParse'
 import {
   VIEW_FILES_MAX,
   VIEW_FILE_MAX_BYTES,
@@ -9,7 +11,6 @@ import {
   type ViewListing,
   type ViewProblem,
   type ViewStatus,
-  parseViewText,
   viewNameOf,
 } from '../../shared/views/views'
 import { loadJson, saveJson } from '../platform/jsonStore'
@@ -22,8 +23,8 @@ export interface ViewRecord {
 
 function sanitize(raw: unknown): Record<string, ViewRecord> {
   const out: Record<string, ViewRecord> = {}
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return out
-  for (const [name, value] of Object.entries(raw as Record<string, unknown>)) {
+  if (!isRecord(raw)) return out
+  for (const [name, value] of Object.entries(raw)) {
     if (viewNameOf(`${name}.json`) === null) continue
     if (typeof value !== 'object' || value === null) continue
     Object.defineProperty(out, name, {

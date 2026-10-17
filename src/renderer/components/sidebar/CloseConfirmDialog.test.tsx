@@ -12,7 +12,7 @@ import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore
 import { useCloseConfirmStore } from '@/stores/workspaces/closeConfirmStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { QuitAnswer } from '@shared/types'
+import type { QuitAnswer } from '@shared/windows/windowsApi'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -244,6 +244,7 @@ describe('close confirmation', () => {
     useBlocksStore.setState((s) => ({
       running: { ...s.running, p2: 'b2' },
       byPane: { ...s.byPane, p2: [{ id: 'b2', paneId: 'p2', command: 'claude' } as CommandBlock] },
+      agentBlocks: { ...s.agentBlocks, p2: { blockId: 'b2', agent: 'claude' } },
     }))
     const groups = quitGroups()
     expect(groups.map((g) => [g.commands, g.agents])).toEqual([

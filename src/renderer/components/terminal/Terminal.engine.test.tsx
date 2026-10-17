@@ -16,8 +16,8 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { releaseSurfaces, surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { ClipboardContents } from '@shared/app/appApi'
 import { PTY_ACK_CHARS } from '@shared/terminal/ptyFlow'
-import type { ClipboardContents } from '@shared/types'
 import {
   type RenderResult,
   act,
@@ -51,6 +51,11 @@ vi.mock('@/platform', () => ({
 }))
 
 const webgl = vi.hoisted(() => ({ pause: vi.fn(), dispose: vi.fn() }))
+const gl = vi.hoisted(() => ({ software: false }))
+
+vi.mock('@/lib/terminal/softwareGl', () => ({
+  drawOnGpu: (requested: boolean) => requested && !gl.software,
+}))
 
 vi.mock('@/lib/terminal/webglRenderer', () => ({
   createWebglRenderer: () => webgl,
@@ -132,20 +137,6 @@ const shownUrl = (): string | undefined => {
   return allPanes(layout.root).find((pane) => pane.id === layout.activePaneId)?.url
 }
 
-function dataTransfer(): DataTransfer {
-  const data = new Map<string, string>()
-  return {
-    get types() {
-      return [...data.keys()]
-    },
-    files: [],
-    dropEffect: 'none',
-    effectAllowed: 'all',
-    setData: (type: string, value: string) => data.set(type, value),
-    getData: (type: string) => data.get(type) ?? '',
-  } as unknown as DataTransfer
-}
-
 describe('TerminalView engines', () => {
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
   let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
@@ -205,11 +196,43 @@ describe('TerminalView engines', () => {
     })
   }
 
+  it('a title a program sets with OSC 0 replaces the shell name of the tab', async () => {
+    useLayoutStore.getState().ensure('w1')
+    const paneId = firstPaneId(useLayoutStore.getState().byWorkspace.w1.root)
+    vi.mocked(window.ostia.pty.attach).mockResolvedValueOnce({
+      created: true,
+      buffer: '',
+      cursor: 0,
+      dropped: false,
+      shell: 'bash',
+    })
+    await renderSettled(<TerminalView workspaceId="w1" paneId={paneId} />)
+    const titleOf = (): string | undefined =>
+      findPane(useLayoutStore.getState().byWorkspace.w1.root, paneId)?.title
+    await waitFor(() => expect(titleOf()).toBe('bash'))
+    await waitFor(() => expect(window.ostia.pty.onData).toHaveBeenCalled())
+    const deliver = vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
+    act(() => deliver('\x1b]0;build logs\x07'))
+    await waitFor(() => expect(titleOf()).toBe('build logs'))
+  })
+
   it('an xterm pane hands its GPU renderer to the hidden-pane pause and drops it on unmount', async () => {
     const { unmount } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
     expect(webgl.pause).toHaveBeenLastCalledWith(true)
     unmount()
     expect(webgl.dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('an xterm pane stays on the DOM renderer when WebGL runs in software', async () => {
+    gl.software = true
+    try {
+      const { unmount } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+      expect(webgl.pause).not.toHaveBeenCalled()
+      unmount()
+      expect(webgl.dispose).not.toHaveBeenCalled()
+    } finally {
+      gl.software = false
+    }
   })
 
   it('draws a new terminal with Ghostty and starts its shell through the shared path', async () => {
@@ -990,7 +1013,7 @@ describe('TerminalView engines', () => {
     expect(browserUrls()).toEqual([])
   })
 
-  it('a link’s hover hint goes away when its pane stops being visible, the window loses focus or the terminal resizes', async () => {
+  it('a link’s hover hint goes away when its pane stops being visible, the window loses focus, the terminal resizes or a mouse button goes down', async () => {
     const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
     const box = vi
       .spyOn(Element.prototype, 'getBoundingClientRect')
@@ -1030,9 +1053,28 @@ describe('TerminalView engines', () => {
     await hoverUntilHinted()
     act(() => term.resize(term.cols + 1, term.rows))
     expect(hint()).toBeNull()
+
+    await hoverUntilHinted()
+    act(() => {
+      term.element?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, ctrlKey: true }))
+    })
+    expect(hint()).toBeNull()
+
+    vi.useFakeTimers()
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
+    act(() => links.hover?.(new MouseEvent('mousemove'), 'http://127.0.0.1:8000/first', linkRange))
+    act(() => {
+      term.element?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, ctrlKey: true }))
+    })
+    act(() => {
+      vi.advanceTimersByTime(1_000)
+    })
+    expect(hint()).toBeNull()
   })
 
-  it('dragging a file from the Files panel types its quoted path at the terminal prompt', async () => {
+  it('a Files row starts a native file drag, and that file dropped on the terminal types its quoted path', async () => {
     useWorkspacesStore.setState({
       workspaces: [{ id: 'w1', name: 'me', kind: 'terminal', workDir: '/home/me', state: 'idle' }],
       activeWorkspaceId: 'w1',
@@ -1045,13 +1087,16 @@ describe('TerminalView engines', () => {
         <TerminalView workspaceId="w1" paneId="p1" />
       </>,
     )
-    const transfer = dataTransfer()
-
-    fireEvent.dragStart(await screen.findByRole('button', { name: 'notes file.md' }), {
-      dataTransfer: transfer,
-    })
+    const dragged = fireEvent.dragStart(
+      await screen.findByRole('button', { name: 'notes file.md' }),
+      { dataTransfer: { setData: vi.fn() } },
+    )
+    expect(dragged).toBe(false)
+    expect(window.ostia.fileOps.startDrag).toHaveBeenCalledWith('w1', '/home/me/notes file.md')
+    const file = new File([''], 'notes file.md')
+    vi.mocked(window.ostia.files.pathForFile).mockReturnValue('/home/me/notes file.md')
     fireEvent.drop(container.querySelector('.terminal-surface') as HTMLElement, {
-      dataTransfer: transfer,
+      dataTransfer: { types: ['Files'], files: [file], getData: () => '' },
     })
 
     expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', "'/home/me/notes file.md' ")

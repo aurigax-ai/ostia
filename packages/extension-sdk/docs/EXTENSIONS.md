@@ -163,6 +163,7 @@ The manifest is `ostia.json`; a marketplace's is `ostia-marketplace.json`.
 | `contributes.keymaps[]` | Up to 8 keymaps, each `{id, label, path, platform?}`: `id` lowercase letters, digits and dashes (unique in the extension), `label` (1–40 chars) the name shown in Settings → Keyboard, `path` a `.json` file inside the extension, `platform` optional `darwin` or `linux` to offer it on that platform only. Data only: no `main` and no capability needed. See [Keymaps](#keymaps). |
 | `contributes.languageServers[]` | Up to 8 language servers the editor talks to, as data: Ostia starts each one itself and speaks LSP to it. Needs the `language-server` capability; no `main` needed. See [Language servers](#language-servers). |
 | `contributes.editorLanguages[]` | Up to 16 languages the editor does not know yet, each with a Monarch grammar as JSON. Data only: no `main` and no capability needed. See [Editor languages](#editor-languages). |
+| `contributes.fileViewers[]` | API 4.6. Up to 16 read-only viewers for files the human opens, in the shape of VS Code's custom editors: `{viewType, displayName, selector: [{filenamePattern}], priority?, entry}`. No `main` and no capability needed. See [File viewers](#file-viewers). |
 | `contributes.agentSkills[]` | Up to 8 skills that Ostia gives claude and codex in your terminals: `{name, path, files?}`. Needs the `agent-plugin` capability. See [Agent skills and hooks](#agent-skills-and-hooks). |
 | `contributes.agentHooks[]` | Up to 16 `{event, command}`: when the agent reaches `event`, Ostia runs your own command `command` with the hook's JSON on stdin. Needs the `agent-plugin` capability and `main`. See [Agent skills and hooks](#agent-skills-and-hooks). |
 
@@ -669,7 +670,7 @@ your extension then waits for approval like any other. No is remembered per exte
 
 Ostia also carries a small compiled table (`src/shared/extensions/extensionSuggestions.ts`) of the language
 extensions it publishes itself and the file names and suffixes each is suggested for, so the
-offer works before any marketplace has been added; Install then adds the official marketplace
+offer works before the official marketplace has been downloaded; Install then downloads it
 first. An id in that table is only ever taken from the official marketplace, whatever another
 marketplace lists under the same id.
 
@@ -850,9 +851,10 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 | Method | Params | Notes |
 |---|---|---|
 | `ext.registerCommands` | `{commands: (string \| CommandContribution)[]}` | Returns `{ok, commands}`. |
-| `ext.subscribe` | `{events: string[]}` | `pane.created`, `pane.closed`, `command.started`, `command.finished`, `cwd.changed`, `focus.changed`, (API 4.1) `pane.attention` and (API 4.2) `workspace.closed` need `read-board`; `notification` needs `notify`. |
+| `ext.subscribe` | `{events: string[]}` | `pane.created`, `pane.closed`, `command.started`, `command.finished`, `cwd.changed`, `focus.changed`, (API 4.1) `pane.attention` and (API 4.2) `workspace.closed` and (API 4.9) `pane.lifecycle` need `read-board`; `notification` needs `notify`; (API 4.9) `bus.message` needs `read-bus`, a capability no extension holds by default and the human grants (never the manager's). |
 | `ext.setSidebarItem` | `{key?, workspaceId?, text, icon?, badge?, tone?, kind?, url?}` | `badge` (1-6 letters or digits, e.g. `SSH`) shows as a small outlined label before `text`, to say what kind of thing the item is; anything else is ignored. With `workspaceId` it shows on that workspace's row, without it in the sidebar footer. `tone`: `neutral`, `brand`, `ok`, `warn`, `error`. `kind` places a row item: `location` (where the workspace is, like a branch) shares the line with the folder; `live` (the default; what is running, like ports or counts) goes on the line below, where items that don't fit fold into a `+N` popover. The footer ignores `kind`. Empty `text` removes the item. 80 chars, 32 items. With an http(s) `url` the item is a link: clicking it switches to that workspace and opens the URL in its browser pane. |
 | `ext.startWithWindow` | `{on}` | `on: true` makes Ostia start you with the window from the next launch on, until you call it with `false`; for an extension that has work to pick up after a restart (Graphs while a run is unfinished). Kept by Ostia on this computer, never synced. A non-boolean `on` is `invalid-params`. |
+| `ext.wireRuntime` | `{}` | The graphs built-in only (`graphs-only` otherwise). Ostia writes its own token file for the Wire Graph Runtime (`@aurigax-ai/wire`), starts the runtime bundled with the app when none answers on its socket, and answers `{ok: true, socket, token, started, mode, version}` for the extension to connect with. A runtime of another contract is never stopped or replaced: the answer is `{ok: false, error: 'other-contract', contract, version}`. |
 | `ext.notify` | `{title, body?, openPanel?}` | Needs `notify`. Goes into the notification center and the desktop. With `openPanel: true` (and a panel in your manifest) clicking it opens your panel instead of jumping to a pane; with `openPanel: "/path"` it opens the panel at that path (or navigates your open panel there), from the desktop notice and from the notification center alike. |
 | `ext.openPanel` | `{workspaceId?, path?}` | Opens (or focuses) your panel in that workspace, else the active one. An already-open panel is focused, not reloaded; with `path` it navigates the open panel there instead of opening a second one. See [Panels](#panels) for what `path` means. |
 | `ext.setPaneChip` | `{paneId, id, text, tooltip?, tone?, icon?, items?, command?, url?}` | Shows `text` (40 chars) as chip `id` (from your `contributes.paneChips`) on that pane's header; setting it again replaces the value. `paneId` is an external pane id (`caller.paneId`, `pane.list`, events). `tone`: as for sidebar items. `command`: one of your own palette commands; clicking the chip focuses the pane and runs it, so `caller.paneId` is that pane. `url` (http/https, instead of `command`): clicking the chip opens it in the browser pane of that pane's workspace. `icon` (one of the sidebar item icon names, e.g. `plugs`): the chip shows as that icon with `text` as a small badge, which keeps the header narrow (a count reads best); with `items` it shows a dot instead of the badge, since the list itself gives the count. `items` (instead of `command` or `url`; 1-20 `{text, detail?, url?}`, text and detail 80 chars each, url http/https): clicking the chip lists them in a popover, `detail` in muted text after `text`; an item with a url opens in the browser pane on click and can be copied. A bad `icon`, `items` or `url` is refused with `invalid-params`. Empty `text` clears it. Chips vanish when the pane closes or your process stops; set them again after a restart. |
@@ -947,6 +949,8 @@ And the notification `ext.event {type, payload}`:
 | `command.finished` | `{paneId, workspaceId, cwd?, exitCode?}` |
 | `cwd.changed` | `{paneId, workspaceId, cwd}` |
 | `pane.attention` | `{paneId, workspaceId, state}`: API 4.1. A pane's attention changed: `working`, `waiting`, `done`, `error` or `cleared`. Sent only when the state changed, never with the agent's message text. |
+| `pane.lifecycle` | `{paneId, workspaceId, state}`: API 4.9. A pane's terminal was hibernated (`hibernated`) or started again after hibernating (`woken`). Sent only for workspaces you have a caller in, or any unsandboxed one when you hold `all-workspaces`. |
+| `bus.message` | `{id, from, to, kind, phase}`: API 4.9, needs `read-bus`. A bus message between panes, Ostia or an extension: `from` and `to` are `{id, workspaceId?}` (`workspaceId` only for a pane), `kind` is `message` or `task`, `phase` is `queued` (left in the receiver's inbox), `waiting` (handed to a receiver that was waiting for it) or `seen` (the receiver read it); one message sends one event per phase, with the same `id`. Metadata only: never the text, and never a quiet system nudge. Like `pane.lifecycle`, it reaches you only for workspaces you have a caller in (or any unsandboxed one with `all-workspaces`); an endpoint in a workspace you cannot see comes with an empty `id`, and a message with no visible side is not sent. |
 | `focus.changed` | `{focused}`: whether any Ostia window has focus. Assume focused at start; use it to pause polling while the user is elsewhere. |
 | `notification` | `{title, body?, from}` |
 | `workspace.closed` | `{workspaceId}`: a workspace closed in any window. Release what you hold for it. API 4.2. |
@@ -1146,7 +1150,7 @@ A panel is a pane surface rendering your page in a sandboxed `<webview>`:
   entry); other navigations are blocked and `window.open` goes to the OS browser for http(s);
 - it talks to **your process**, never to Ostia directly — serve an API next to the page.
 
-The built-ins run a small HTTP server on `127.0.0.1:0` (`packages/extension-sdk/src/client/index.ts`,
+The built-ins run a small HTTP server on `127.0.0.1:0` (`packages/extension-sdk/src/client/panelServer.ts`,
 `startPanelServer`): the panel URL carries a per-run secret, `/api` requires it in a header,
 requests with a foreign `Host` or `Origin` are refused, and `/events` pushes "changed" over SSE
 so the panel updates when an agent edits data from the CLI. Do the same if your panel has data.
@@ -1174,9 +1178,11 @@ embeds its bundled Inter Variable and Geist Mono Variable (latin) in the injecte
 panel gets them even though they are not system fonts. It also defines control radii
 (`--radius-sm`, `--radius-md`), a `.switch` class that draws an `<input type="checkbox">` like
 Ostia's switch, and motion tokens (`--motion-fast`, `--motion-base`, their `-exit`
-pair, `--ease-out`, `--ease-in`), already multiplied by `--ostia-motion-scale`: time every
+pair, `--motion-panel`, `--motion-pulse`, `--motion-breathe`, `--motion-highlight`, `--ease-out`,
+`--ease-in`, `--ease-in-out`), already multiplied by `--ostia-motion-scale`: time every
 transition with them and animate only opacity and transform (hover may change colors), so a
-panel follows Ostia's motion rules and its reduced-motion setting.
+panel follows Ostia's motion rules and its reduced-motion setting. Add the `.motion-reveal` class
+to content right after the human opens it (a fade plus a 2 px move); never on first render.
 
 ### Resizable splits
 
@@ -1215,6 +1221,69 @@ const body = splitter({
   `loadPanelSizes()` reads them once, before the first split is drawn. `localStorage` doesn't
   work for this: the panel partition isn't persistent and its origin's port changes every run.
 - Nothing animates the layout: only the divider's highlight fades in (opacity).
+
+## File viewers
+
+API 4.6. A file viewer shows a file the human opened (from the Files tree, `ostia open`, a link or an archive) in its file view tab, read-only. The shape copies VS Code's custom editors (`contributes.customEditors` with a `CustomReadonlyEditorProvider`), with one difference: no code of yours ever runs outside the page, so a viewer needs no `main`, and nothing but the sandboxed page ever holds the file.
+
+```json
+"contributes": {
+  "fileViewers": [
+    {
+      "viewType": "office.spreadsheet",
+      "displayName": "Spreadsheet",
+      "selector": [{ "filenamePattern": "*.xlsx" }, { "filenamePattern": "*.ods" }],
+      "priority": "default",
+      "entry": "sheet.html"
+    }
+  ]
+}
+```
+
+- `viewType` is `<your id>.<name>`, with a name of lowercase letters, digits and dashes.
+- `displayName` (at most 60 characters) names the viewer in Open With. Translate it in your catalog as `fileViewers.<viewType>.displayName`.
+- `selector[].filenamePattern` is `*.<extension>` (`*.tar.gz` works) or an exact file name, matched against the base name without case. Each viewer has 1-32 patterns.
+- `priority` is `default` (the default) or `option`.
+  - **`default`:** the viewer opens matching files.
+  - **`option`:** the viewer is offered only in Open With, and as a toggle while the file shows as source.
+- `entry` is an `.html` file in your extension. The build bundles `<name>.ts` next to it into `<name>.js` and every `*.worker.ts` into `*.worker.js`.
+
+**Which viewer opens a file.**
+1. The human's choice in `files.viewerAssociations` (`{"*.xlsx": "office.spreadsheet"}`, or `"default"` for Ostia's own view), set from Open With → "Always use for …".
+2. Ostia's own views (images, PDF, Markdown) for their kinds.
+3. The `default` viewers of enabled extensions: built-in ones first, then by extension id.
+4. The source.
+
+Open With (in the file view, the tab menu and the palette) lists every viewer that matches, plus the source. If your extension is disabled or your page fails, the file shows as source with a note.
+
+**Your page.** It is served from your extension folder at a per-document origin, `ostia-viewer://<token>/`. The guest is sandboxed harder than a panel:
+- it has its own partition `ostia-viewer-<id>`, no preload, no Node and no `window.ostia`;
+- every request outside its own origin is cancelled, and `connect-src 'self'` is in its CSP, so it cannot reach the network, your process or loopback;
+- popups, navigation and downloads are refused. Unlike a panel, `window.open` does not reach the OS browser either.
+
+Scripts, styles and workers load from your folder (`worker-src 'self'`). Ostia injects the same theme custom properties and fonts as for panels (see Panels), so start from `panel.css` (it is copied to `base.css`).
+
+```ts
+import { openViewerDocument, publishPortable, ViewerDocumentError } from '@aurigax-ai/ostia-extension-sdk/viewer'
+import { grid } from '@aurigax-ai/ostia-extension-sdk/grid'
+
+const doc = await openViewerDocument()
+const bytes = await doc.bytes()
+doc.onDidChange(() => location.reload())
+```
+
+- `openViewerDocument()` returns `{name, size, modified, locale, viewType, bytes(), onDidChange(listener)}`:
+  - `name` is the base name;
+  - `locale` is the human's, for your `panelTranslator`.
+- `bytes()` reads the file through Ostia's confined read, at most 50 MiB. It throws a `ViewerDocumentError` whose `problem` is `too-large` (with `size`), `gone` or `unreadable`.
+- `onDidChange` fires when the file changes on disk.
+- The file is untrusted input:
+  - parse it in a worker with your own limits and a time limit;
+  - never put its text into `innerHTML` without a sanitizer;
+  - remember that a guest that runs out of memory only loses itself.
+- `publishPortable({tables: [{name, columns, rows}]})` hands Ostia the text a table viewer shows, so the human can save the open file as a portable artifact. Ostia renders the tables itself, at most 256 tables of 5,000 rows and 1,000 columns, 16 MiB in all.
+
+`grid({label, columns, rowCount, cell(row, column), rowLabels?, notes?})` returns `{element, destroy}`: a read-only grid of text that windows rows and columns with `@tanstack/virtual-core`, so a sheet of 100,000 rows and 1,000 columns keeps only the visible cells in the page. `columnName(index)` gives spreadsheet column letters. Its styles are the `.ostia-grid*` rules in `panel.css`.
 
 ## Lifecycle
 
@@ -1449,7 +1518,7 @@ are Settings → Git and Settings → Ports.
 | `langpack-zh-hant` | Traditional Chinese (`zh-Hant`) for the interface, as a `contributes.languages` pack with no process. Its `zh-Hant.json` is generated at build time from `zhHant` in `src/shared/app/dict.ts`, which stays typed against the English catalog so a missing string fails the typecheck |
 | `system` | `ostia system info` (OS, kernel, arch, shell, package managers on PATH and the default one) and `ostia system install <pkg...> [--manager <name>] [--reason <text>] [--wait]`: validates the names, shows the human the exact install command and the reason, and on Approve runs it in a new terminal next to the agent (`ext.openTerminal`). Returns `{approved, command, paneId?}`; a denial exits 1. With `--wait` it returns when the install ends (`ext.openTerminal`'s `waitMs`, within the command's 10 minutes) and adds `{finished, exitCode}`; a failed install or a closed terminal exits 1 |
 | `ssh` | The hosts of your ssh config and a session in a new terminal, with the system OpenSSH client. "SSH: Connect to Host…" and `ostia ssh connect [-J <hop>[,<hop>...]] [-p <port>] <[user@]host>` take ssh's own spelling and nothing else (any other option is refused), resolve the target with `ssh -G`, and open `ssh … -- <host>` beside the caller with `ext.openTerminal`; a pane caller is asked first, with the exact command, the resolved `user@host:port` and the bastion hops. `ostia ssh ls` lists the aliases (it reads `~/.ssh/config` and its `Include`s and runs nothing); `ostia ssh show <host>` resolves one. A caller in a sandboxed workspace is refused. Bastions come from `ProxyJump` in your config or from `-J`; the `user@host` chip is the Ports extension's. With the human's consent per host (a dialog naming the host and the exact path), it installs two readable shell files in `~/.ostia/helper/<version>/` there: `helper.sh`, which it talks to over `ssh -T`, and `session.sh`, the shell integration, so later sessions to that host type a short command that sources it (after a checksum check) instead of the whole integration: "SSH: Open Remote Folder", run from a session it opened, shows that session's current folder in Files through [Remote folders](#remote-folders). "SSH: Install Remote Helper on Host…" and "SSH: Remove Remote Helper…" are for the human only; `ostia ssh helpers` lists the answers. The helper connects without a terminal, so the host must accept a key or an ssh agent. Setting `remoteHelper` (on by default) turns all of it off |
-| `activity` | One panel for what each agent did. Its hooks (`UserPromptSubmit`, `PreToolUse`, `Stop`) record one line per event: the first line of the prompt, each tool call as a kind and a target (edited a file, ran a command, searched, read, started a subagent, opened a page), and the stop with the agent's closing message cut to four lines, which is the recap. Tool output is never taken and no transcript is read. Text goes through `ext.redact` first; when the scan fails the line is kept without text. Agents write and read it with `ostia activity`: `add "<text>" [--needs-you] [--link <path|url>]` stores a note from the calling pane (2000 characters, redacted first; a failed scan stores nothing and the command fails) and prints its id; `list [--needs-you] [--open] [--archived] [--since <time>] [--json]` and `show <id>` read the caller's workspace (another one with `--workspace <id>` needs `all-workspaces`, never from a sandboxed pane); `done <id>` closes the caller's own needs-you item. A needs-you item is something the human must see or do that does not block the agent; open ones are counted on the workspace's sidebar item, shown first in the panel with a Mark done button, and never age out. One journal per workspace under `$OSTIA_EXTENSION_DATA/journal/<workspaceId>.jsonl` (folder 0700, file 0600, never synced), capped at 512 KiB; entries older than `retentionDays` (14) or trimmed by the cap move to `$OSTIA_EXTENSION_DATA/archive/<workspaceId>/<YYYY-MM>.jsonl.gz` (gzip, 0600), kept for `archiveDays` (180) and at most 8 MiB per workspace. A scratch workspace, a sandboxed one and one whose kind it cannot learn stay in memory, have no archive and are dropped when the workspace closes. The panel ("Activity: Open") groups agents by open workspace, most recent first: agent, state (from `pane.list`), latest recap, time since the last event; the toggle Recap / Recap + activity is the setting `showActivity` (`ext.setSetting`) and adds the events of the current turn and earlier turns behind an expander. A click on an agent shows its pane (`ext.focusPane`). It never types into a pane, answers an agent or sets attention, and it adds nothing to the agent's context |
+| `activity` | One panel for what each agent did. Its hooks (`UserPromptSubmit`, `PreToolUse`, `Stop`) record one line per event: the first line of the prompt, each tool call as a kind and a target (edited a file, ran a command, searched, read, started a subagent, opened a page), and the stop with the agent's closing message cut to four lines, which is the recap. Tool output is never taken and no transcript is read. Text goes through `ext.redact` first; when the scan fails the line is kept without text. Agents write and read it with `ostia activity`: `add "<text>" [--needs-you] [--link <path|url>]` stores a note from the calling pane (2000 characters, redacted first; a failed scan stores nothing and the command fails) and prints its id; `list [--needs-you] [--open] [--archived] [--since <time>] [--json]` and `show <id>` read the caller's workspace (another one with `--workspace <id>` needs `all-workspaces`, never from a sandboxed pane); `done <id>` closes the caller's own needs-you item. A needs-you item is something the human must see or do that does not block the agent; open ones are counted on the workspace's sidebar item, shown first in the panel with a Mark done button, and never age out. One journal per workspace under `$OSTIA_EXTENSION_DATA/journal/<workspaceId>.jsonl` (folder 0700, file 0600, never synced), capped at 512 KiB; entries older than `retentionDays` (14) or trimmed by the cap move to `$OSTIA_EXTENSION_DATA/archive/<workspaceId>/<YYYY-MM>.jsonl.gz` (gzip, 0600), kept for `archiveDays` (180) and at most 8 MiB per workspace. The same journal also holds the workspace's host events as a separate record kind, `host`, never hook input: pane started or closed (`pane.created`, `pane.closed`), agent status (`pane.attention`, state only), hibernated or woken (`pane.lifecycle`), folder changes (`cwd.changed`, relative to the workspace folder and through `ext.redact`) and, once the human grants `read-bus`, bus message metadata (`bus.message`: sender, receiver, kind, phase; never the text). They follow the same retention, archive and memory-only rules. A scratch workspace, a sandboxed one and one whose kind it cannot learn stay in memory, have no archive and are dropped when the workspace closes. The panel ("Activity: Open") shows only the workspace it is open in: its agents, most recent first, each with its state (from `pane.list`), its latest recap and the time since the last event; the recap is rendered as Markdown from a fixed set of elements (no raw HTML, no images, no remote loads; a link opens in the OS browser only when the human clicks it). The toggle Recap / Timeline is the setting `showActivity` (`ext.setSetting`) and shows each turn of the agent as a node on a timeline, newest first, with its prompt, its recap and its tool actions folded into one group that expands to the list. In Timeline the panel also lists the workspace's host events, newest first. A click on an agent shows its pane (`ext.focusPane`). It never types into a pane, answers an agent or sets attention, and it adds nothing to the agent's context |
 | `graphs` | Runs a procedure written as a graph (`<workDir>/.ostia/graphs/<name>.yaml`) on the Wire interpreter (`@aurigax-ai/wire`, github.com/aurigax-ai/wire): agents in background terminals (start, continue a session the run started, message through the bus), approvals through `ext.ask`, commands through `ext.exec` without a terminal and inside the workspace's sandbox, waits, notifications that open the panel at the run, and connectors: MCP tools through `ext.mcpCall` (`use: mcp:<server>/<tool>`) and the `http` connector through a connection you make in its settings (`use: http.request`, `connection: <name>`; requests stay under the connection's base URL, with no user:password@ in it; refused in a sandboxed workspace). It starts from its triggers: `manual`, `schedule` (`every` or a five-field `cron`, `catchUp`), `files` (globs in the workspace folder, without `.git`, `node_modules` and ignored paths, at most 5000 folders), `command` (`exit`) and `agent` (`stopped` or `waiting`); a pane one of a graph's runs opened never fires that graph. A graph does nothing until the human clicks Enable on its exact definition in the Graphs panel; any change outside `ui` disables it. Each run is a journal under `$OSTIA_EXTENSION_DATA/runs/<workspaceId>/<graph>/<runId>/` (folder 0700, files 0600, never synced), read back after a restart: a waiting node is re-armed, a cut-off node runs again unless it is `once`, which waits for the human. `ostia graph validate`, `schema`, `nodes`, `explain`, `dry-run`, `list`, `runs`, `show`, `run` (only an enabled graph whose manual trigger says `agents: true`) and `report` (`contributes.verb: "graph"`). Pause, Resume, Cancel, Retry, Run it again, Continue session and Skip it are panel buttons only. Graphs run while Ostia is open. Settings: `maxSteps`, `maxRunsPerHour`, `maxParallel`, `maxAgentsPerRun`, `maxRunHours` |
 | `assistant` | The assist points on the providers the human adds in Settings → Assistant: `ollama`, any `openai-compatible` endpoint (LM Studio, llama.cpp server, …), `openrouter`, `openai` or `anthropic`, several at once, each with its own base URL, API key and models. Built on the AI SDK (`ai`, `@ai-sdk/openai-compatible`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@openrouter/ai-sdk-provider`, zod for structured answers). Every request names its provider and model; the engine checks per model whether tools are native or described in the prompt. A switch per feature (`typos`, `promptReview`, `commandSuggest`, `terminalCompletions`, `editorCompletions`, `chat`, `explainError`) and a requests-per-minute limit are its own settings. Inert until a provider with a model exists. It has no panel: Settings → Assistant shows the models in use, each feature with its switch, model, readiness, shortcut and "Try it", and the providers; "Assistant: Chat" opens the chat pane |
 
