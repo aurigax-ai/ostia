@@ -1,5 +1,6 @@
 import type { LinkClick } from '@/lib/settings/terminalPaneSettings'
 import { linkKind } from '@shared/common/externalLinks'
+import type { FileUrlOpener } from '@shared/files/fileUrls'
 import type { IBufferRange } from '@xterm/xterm'
 import type { FileLinkAction } from './terminalFileLinks'
 
@@ -86,7 +87,7 @@ export function terminalLinkTarget(
   return kind === 'external' ? 'app' : target
 }
 
-export type LinkKind = 'web' | FileLinkAction
+export type LinkKind = 'web' | FileLinkAction | FileUrlOpener
 
 export interface LinkSpan {
   row: number

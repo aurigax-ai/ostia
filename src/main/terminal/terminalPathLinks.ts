@@ -4,10 +4,12 @@ import { join } from 'node:path'
 import { ipcMain } from 'electron'
 import { LRUCache } from 'lru-cache'
 import { findFileLinks, resolveLinkPath } from '../../shared/files/fileLinks'
+import { type FileUrlTarget, fileUrlOpener, fileUrlPath } from '../../shared/files/fileUrls'
 import type { FsKind, OpenPathResult } from '../../shared/files/filesApi'
 import type { OpenFileVerdict } from '../../shared/files/openFiles'
 import type { OpenFileGrants } from '../files/openFileGrants'
 import { openUnlessProgram } from '../files/openPath'
+import { isInsidePath } from '../platform/pathGuard'
 
 const PROBE_TTL_MS = 5_000
 const PROBE_CACHE_MAX = 500
@@ -15,6 +17,8 @@ const PROBE_RATE_WINDOW_MS = 1_000
 export const PROBE_RATE_MAX = 40
 const PROBE_CALLERS_MAX = 64
 const PATH_MAX = 4096
+const URL_MAX = 3 * PATH_MAX
+const EXECUTABLE_BITS = 0o111
 
 export interface LinkSender {
   id: number
@@ -45,6 +49,10 @@ interface Located {
   info: Stats
 }
 
+interface LocatedFileUrl extends Located {
+  opener: FileUrlTarget['opener']
+}
+
 async function locate(path: string): Promise<Located | null> {
   try {
     const real = await realpath(path)
@@ -56,8 +64,12 @@ async function locate(path: string): Promise<Located | null> {
   }
 }
 
+function text(raw: unknown, max: number): string | null {
+  return typeof raw === 'string' && raw.length <= max && !raw.includes('\0') ? raw : null
+}
+
 function pathText(raw: unknown): string | null {
-  return typeof raw === 'string' && raw.length <= PATH_MAX && !raw.includes('\0') ? raw : null
+  return text(raw, PATH_MAX)
 }
 
 function underHome(path: string): boolean {
@@ -74,6 +86,8 @@ export class TerminalPathLinks {
     max: PROBE_CALLERS_MAX,
     noUpdateTTL: true,
   })
+
+  private homeReal: Promise<string> | null = null
 
   constructor(private readonly deps: TerminalPathLinksDeps) {}
 
@@ -105,6 +119,45 @@ export class TerminalPathLinks {
     if (!found) return { ok: false, error: 'not-found' }
     this.deps.showInFolder(found.real)
     return { ok: true }
+  }
+
+  async fileUrl(sender: LinkSender, paneId: unknown, raw: unknown): Promise<FileUrlTarget | null> {
+    const found = await this.fileUrlFile(sender, paneId, raw, true)
+    return found ? { path: found.real, opener: found.opener } : null
+  }
+
+  async openFileUrl(sender: LinkSender, paneId: unknown, raw: unknown): Promise<OpenPathResult> {
+    const found = await this.fileUrlFile(sender, paneId, raw, false)
+    if (!found) return { ok: false, error: 'not-found' }
+    return openUnlessProgram(found.real, found.info, this.deps.openPath)
+  }
+
+  private async fileUrlFile(
+    sender: LinkSender,
+    paneId: unknown,
+    raw: unknown,
+    rated: boolean,
+  ): Promise<LocatedFileUrl | null> {
+    const url = text(raw, URL_MAX)
+    const path = url ? fileUrlPath(url) : null
+    if (!path || !(await this.localPane(sender, paneId))) return null
+    if (rated && !this.withinRate(sender.id)) return null
+    const found = await locate(path)
+    if (found?.kind !== 'file' || (found.info.mode & EXECUTABLE_BITS) !== 0) return null
+    if (!isInsidePath(await this.realHome(), found.real)) return null
+    const opener = fileUrlOpener(found.real)
+    return opener ? { ...found, opener } : null
+  }
+
+  private realHome(): Promise<string> {
+    this.homeReal ??= realpath(this.deps.home).catch(() => this.deps.home)
+    return this.homeReal
+  }
+
+  private async localPane(sender: LinkSender, paneId: unknown): Promise<boolean> {
+    if (typeof paneId !== 'string' || !this.allows(sender, paneId)) return false
+    const output = await this.deps.output(paneId)
+    return output !== null && !output.remote && !output.sandboxed
   }
 
   private async printedTarget(
@@ -160,5 +213,11 @@ export function registerTerminalPathLinkIpc(links: TerminalPathLinks): void {
   )
   ipcMain.handle('terminal-links:show-in-folder', (e, paneId: unknown, path: unknown) =>
     links.showInFolder(e.sender, paneId, path),
+  )
+  ipcMain.handle('terminal-links:file-url', (e, paneId: unknown, url: unknown) =>
+    links.fileUrl(e.sender, paneId, url),
+  )
+  ipcMain.handle('terminal-links:open-file-url', (e, paneId: unknown, url: unknown) =>
+    links.openFileUrl(e.sender, paneId, url),
   )
 }
