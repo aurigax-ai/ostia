@@ -143,6 +143,7 @@ describe('startFolderAccessWatch', () => {
       title: 'macOS is blocking ~/Downloads, ~/Documents',
       body: en.native.folderAccessBlocked.body,
       from: 'kept-shells',
+      evenWhenFocused: true,
     })
     expect(appLog.warn).toHaveBeenCalledWith('folder-access-blocked', {
       folders: 'Downloads,Documents',

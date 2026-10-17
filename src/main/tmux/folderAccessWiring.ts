@@ -51,6 +51,7 @@ export function startFolderAccessWatch({
         title: fmt(text.title, { folders: folders.map((f) => `~/${f}`).join(', ') }),
         body: text.body,
         from: 'kept-shells',
+        evenWhenFocused: true,
       })
     },
   })
