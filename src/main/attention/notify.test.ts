@@ -48,7 +48,8 @@ vi.mocked(electron.ipcMain.handle).mockImplementation((channel, fn) => {
   listHandlers.set(channel, fn as () => unknown)
 })
 
-const { registerNotifyIpc, registerNotifyMethods, notificationsRecorded } = await import('./notify')
+const { registerNotifyIpc, registerNotifyMethods, notificationsRecorded, postNotification } =
+  await import('./notify')
 const { setScriptTokenCheck } = await import('../control/controlAuth')
 const { registerControlServer, stopControlServer } = await import('../control/controlServer')
 
@@ -123,6 +124,26 @@ describe('desktop notifications', () => {
     settings({ whenFocused: true })
     windows = [ostiaWindow({ visible: true, focused: true })]
     post(true)
+    expect(shown).toHaveLength(1)
+  })
+
+  it('notifies the system while focused when the caller asks for it, and only then', () => {
+    settings({ whenFocused: false })
+    windows = [ostiaWindow({ visible: true, focused: true })]
+    postNotification(notifyDeps, { title: 'Folders blocked', from: 'kept-shells' })
+    expect(shown).toEqual([])
+    postNotification(notifyDeps, {
+      title: 'Folders blocked',
+      from: 'kept-shells',
+      evenWhenFocused: true,
+    })
+    expect(shown).toEqual([{ title: 'Folders blocked', body: undefined, silent: false }])
+    settings({ desktop: false })
+    postNotification(notifyDeps, {
+      title: 'Folders blocked',
+      from: 'kept-shells',
+      evenWhenFocused: true,
+    })
     expect(shown).toHaveLength(1)
   })
 
