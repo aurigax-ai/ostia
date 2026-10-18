@@ -1,6 +1,15 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() }, shell: {} }))
@@ -38,13 +47,21 @@ function print(
   printed[paneId] = { text, cwd, remote, sandboxed }
 }
 
-function setup(workspace: { sandboxed?: boolean; scratch?: boolean } = {}) {
-  const grants = new OpenFileGrants({ roots: () => [home], file: join(base, 'opened-files.json') })
+function setup(
+  workspace: { sandboxed?: boolean; scratch?: boolean } = {},
+  homeDir: string = home,
+  hostname = 'Justins-Mac.local',
+) {
+  const grants = new OpenFileGrants({
+    roots: () => [homeDir],
+    file: join(base, 'opened-files.json'),
+  })
   const openPath = vi.fn(async (_path: string) => '')
   const showInFolder = vi.fn()
   const links = new TerminalPathLinks({
     grants,
-    home,
+    home: homeDir,
+    hostname,
     output: async (paneId) => printed[paneId] ?? null,
     pane: (paneId) =>
       paneId === 'p1' || paneId === 'p2' ? { windowId: '7', workspaceId: 'w1' } : undefined,
@@ -430,5 +447,226 @@ describe('a path is acted on only when its own pane printed it', () => {
     expect(await links.admit(WINDOW, 'p1', 'shots/a.png')).toBeNull()
     printed.p1 = null
     expect(await links.admit(WINDOW, 'p1', join(outside, 'shots', 'a.png'))).toBeNull()
+  })
+})
+
+describe('TerminalPathLinks file URLs', () => {
+  const url = (path: string): string => pathToFileURL(path).href
+
+  function homeFiles() {
+    const docs = join(home, 'docs')
+    mkdirSync(docs)
+    const files = {
+      page: join(docs, 'speakers.html'),
+      pdf: join(docs, 'report.pdf'),
+      png: join(docs, 'shot.png'),
+      spaced: join(docs, '會議 記錄.PDF'),
+      command: join(docs, 'run.command'),
+      script: join(docs, 'build.sh'),
+      tool: join(docs, 'Tool.app'),
+      bare: join(docs, 'tool'),
+      runnable: join(docs, 'notes.txt'),
+      shebang: join(docs, 'start.md'),
+      toOutside: join(docs, 'outside.png'),
+      toScript: join(docs, 'build.json'),
+      toPdf: join(docs, 'alias.pdf'),
+    }
+    for (const file of [files.page, files.pdf, files.png, files.spaced, files.command]) {
+      writeFileSync(file, 'x')
+    }
+    writeFileSync(files.script, 'echo hi')
+    writeFileSync(files.shebang, '#!/bin/sh\necho hi')
+    mkdirSync(files.tool)
+    writeFileSync(files.bare, 'x')
+    chmodSync(files.bare, 0o755)
+    writeFileSync(files.runnable, 'x')
+    chmodSync(files.runnable, 0o744)
+    symlinkSync(join(outside, 'shots', 'a.png'), files.toOutside)
+    symlinkSync(files.script, files.toScript)
+    symlinkSync(files.pdf, files.toPdf)
+    return { docs, ...files }
+  }
+
+  it('opens an html page and allowlisted files under home by their real path', async () => {
+    const { links, openPath } = setup()
+    const f = homeFiles()
+    expect(await links.fileUrl(WINDOW, 'p1', url(f.page))).toEqual({
+      path: f.page,
+      opener: 'html-page',
+    })
+    for (const file of [f.pdf, f.png]) {
+      expect(await links.fileUrl(WINDOW, 'p1', url(file))).toEqual({
+        path: file,
+        opener: 'default-app',
+      })
+      expect(await links.openFileUrl(WINDOW, 'p1', url(file))).toEqual({ ok: true })
+      expect(openPath).toHaveBeenLastCalledWith(file)
+    }
+    expect(await links.openFileUrl(WINDOW, 'p1', url(f.page))).toEqual({ ok: true })
+    expect(openPath).toHaveBeenLastCalledWith(f.page)
+  })
+
+  it('decodes spaces and CJK, matches extensions in any case and accepts localhost', async () => {
+    const { links } = setup()
+    const f = homeFiles()
+    const encoded = url(f.spaced)
+    expect(encoded).toContain('%20')
+    expect(await links.fileUrl(WINDOW, 'p1', encoded)).toEqual({
+      path: f.spaced,
+      opener: 'default-app',
+    })
+    expect(await links.fileUrl(WINDOW, 'p1', `file://localhost${f.pdf}`)).toMatchObject({
+      path: f.pdf,
+    })
+    expect(await links.fileUrl(WINDOW, 'p1', url(f.toPdf))).toEqual({
+      path: f.pdf,
+      opener: 'default-app',
+    })
+  })
+
+  it('keeps commands, apps, scripts, executables, folders and missing files inert', async () => {
+    const { links, openPath } = setup()
+    const f = homeFiles()
+    for (const target of [
+      f.command,
+      f.script,
+      f.tool,
+      f.bare,
+      f.runnable,
+      f.docs,
+      `${f.docs}/`,
+      join(f.docs, 'gone.pdf'),
+    ]) {
+      expect(await links.fileUrl(WINDOW, 'p1', url(target))).toBeNull()
+      expect(await links.openFileUrl(WINDOW, 'p1', url(target))).toEqual({
+        ok: false,
+        error: 'not-found',
+      })
+    }
+    expect(openPath).not.toHaveBeenCalled()
+  })
+
+  it('refuses files outside home, also through a symlink or .. and a symlink to a script', async () => {
+    const { links, openPath } = setup()
+    const f = homeFiles()
+    for (const raw of [
+      'file:///etc/hosts',
+      url(join(outside, 'shots', 'a.png')),
+      url(f.toOutside),
+      url(f.toScript),
+      `${url(home)}/../outside/shots/a.png`,
+      `${url(home)}/docs/..%2F..%2Foutside/shots/a.png`,
+    ]) {
+      expect(await links.fileUrl(WINDOW, 'p1', raw)).toBeNull()
+      expect(await links.openFileUrl(WINDOW, 'p1', raw)).toEqual({ ok: false, error: 'not-found' })
+    }
+    expect(openPath).not.toHaveBeenCalled()
+  })
+
+  it('opens a file when home itself is a symlink to the real folder', async () => {
+    const realHomeDir = join(base, 'var', 'home')
+    mkdirSync(realHomeDir, { recursive: true })
+    const linkedHome = join(base, 'linked-home')
+    symlinkSync(realHomeDir, linkedHome)
+    writeFileSync(join(realHomeDir, 'report.pdf'), 'x')
+    const { links, openPath } = setup({}, linkedHome)
+    const written = url(join(linkedHome, 'report.pdf'))
+    expect(await links.fileUrl(WINDOW, 'p1', written)).toEqual({
+      path: join(realHomeDir, 'report.pdf'),
+      opener: 'default-app',
+    })
+    expect(await links.openFileUrl(WINDOW, 'p1', written)).toEqual({ ok: true })
+    expect(openPath).toHaveBeenCalledWith(join(realHomeDir, 'report.pdf'))
+    expect(await links.fileUrl(WINDOW, 'p1', url(join(outside, 'shots', 'a.png')))).toBeNull()
+  })
+
+  it('accepts the local hostname that ls, rg, fd and eza put in their hyperlinks', async () => {
+    const { links, openPath } = setup()
+    const f = homeFiles()
+    for (const host of ['Justins-Mac', 'justins-mac.local', 'JUSTINS-MAC.LOCAL']) {
+      expect(await links.fileUrl(WINDOW, 'p1', `file://${host}${f.pdf}`)).toEqual({
+        path: f.pdf,
+        opener: 'default-app',
+      })
+    }
+    expect(await links.openFileUrl(WINDOW, 'p1', `file://Justins-Mac${f.png}`)).toEqual({
+      ok: true,
+    })
+    expect(openPath).toHaveBeenCalledWith(f.png)
+  })
+
+  it('accepts <hostname>.local when the hostname has no .local', async () => {
+    const { links } = setup({}, home, 'Studio')
+    const f = homeFiles()
+    for (const host of ['studio', 'Studio.local', 'STUDIO.LOCAL']) {
+      expect(await links.fileUrl(WINDOW, 'p1', `file://${host}${f.pdf}`)).toEqual({
+        path: f.pdf,
+        opener: 'default-app',
+      })
+    }
+    for (const host of ['studio.lan', 'studio2', 'localhost.evil', 'justins-mac']) {
+      expect(await links.fileUrl(WINDOW, 'p1', `file://${host}${f.pdf}`)).toBeNull()
+    }
+  })
+
+  it('refuses a hostname that only looks local', async () => {
+    const { links, openPath } = setup()
+    const f = homeFiles()
+    for (const host of [
+      'localhost.evil',
+      'justins-mac.evil',
+      'other-mac',
+      'justins-mac.local.evil',
+    ]) {
+      expect(await links.fileUrl(WINDOW, 'p1', `file://${host}${f.pdf}`)).toBeNull()
+      expect(await links.openFileUrl(WINDOW, 'p1', `file://${host}${f.pdf}`)).toEqual({
+        ok: false,
+        error: 'not-found',
+      })
+    }
+    expect(openPath).not.toHaveBeenCalled()
+  })
+
+  it('refuses another host, other schemes and malformed urls', async () => {
+    const { links } = setup()
+    const f = homeFiles()
+    for (const raw of [
+      `file://server${f.pdf}`,
+      f.pdf,
+      `https://a.b${f.pdf}`,
+      `${url(f.docs)}/%E0%A4%A.pdf`,
+      `${url(f.pdf)}%00.pdf`,
+      42,
+    ]) {
+      expect(await links.fileUrl(WINDOW, 'p1', raw)).toBeNull()
+    }
+  })
+
+  it('still refuses a file that looks like a program when opening it', async () => {
+    const { links, openPath } = setup()
+    const f = homeFiles()
+    expect(await links.fileUrl(WINDOW, 'p1', url(f.shebang))).toMatchObject({ path: f.shebang })
+    expect(await links.openFileUrl(WINDOW, 'p1', url(f.shebang))).toEqual({
+      ok: false,
+      error: 'program',
+    })
+    expect(openPath).not.toHaveBeenCalled()
+  })
+
+  it('answers nothing to a sandboxed, scratch, remote or foreign pane', async () => {
+    const f = homeFiles()
+    const target = url(f.pdf)
+    expect(await setup({ sandboxed: true }).links.fileUrl(WINDOW, 'p1', target)).toBeNull()
+    expect(await setup({ scratch: true }).links.fileUrl(WINDOW, 'p1', target)).toBeNull()
+    const { links, openPath } = setup()
+    expect(await links.fileUrl(OTHER_WINDOW, 'p1', target)).toBeNull()
+    expect(await links.fileUrl(WEBVIEW, 'p1', target)).toBeNull()
+    expect(await links.fileUrl(WINDOW, 'p9', target)).toBeNull()
+    print('p1', 'remote', null, true)
+    expect(await links.fileUrl(WINDOW, 'p1', target)).toBeNull()
+    expect(await links.openFileUrl(WINDOW, 'p1', target)).toEqual({ ok: false, error: 'not-found' })
+    print('p1', 'sandboxed', null, false, true)
+    expect(await links.openFileUrl(WINDOW, 'p1', target)).toEqual({ ok: false, error: 'not-found' })
+    expect(openPath).not.toHaveBeenCalled()
   })
 })

@@ -32,6 +32,28 @@ export function readLogicalLine(term: Terminal, row: number): LogicalLine {
   return { text, cells }
 }
 
+export function matchesOnRow<T extends { start: number; end: number }>(
+  matches: T[],
+  cells: IBufferCellPosition[],
+  row: number,
+): T[] {
+  return matches.filter((m) => {
+    const start = cells[m.start]
+    const end = cells[m.end - 1]
+    return start && end && start.y <= row && end.y >= row
+  })
+}
+
+export function provideFound(
+  pending: Promise<ILink | null>[],
+  callback: (links: ILink[] | undefined) => void,
+): void {
+  void Promise.all(pending).then((links) => {
+    const found = links.filter((l): l is ILink => l !== null)
+    callback(found.length > 0 ? found : undefined)
+  })
+}
+
 type Kind = 'file' | 'dir'
 
 export type FileLinkAction = 'open-file' | 'admit-file' | 'reveal-folder' | 'open-folder'
@@ -121,16 +143,12 @@ export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): ILin
       const cwd = deps.cwd()
       const confinedOnly = deps.confinedOnly()
       const { text, cells } = readLogicalLine(term, row)
-      const matches = findFileLinks(text).filter((m) => {
-        const start = cells[m.start]
-        const end = cells[m.end - 1]
-        return start && end && start.y <= row && end.y >= row
-      })
+      const matches = matchesOnRow(findFileLinks(text), cells, row)
       if (matches.length === 0) {
         callback(undefined)
         return
       }
-      void Promise.all(
+      provideFound(
         matches.map(async (m): Promise<ILink | null> => {
           const path = resolveLinkPath(m.path, cwd ?? '~')
           const kinds = await kindsCached(m.path, path, confinedOnly)
@@ -160,10 +178,8 @@ export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): ILin
             leave: () => deps.leave(),
           }
         }),
-      ).then((links) => {
-        const found = links.filter((l): l is ILink => l !== null)
-        callback(found.length > 0 ? found : undefined)
-      })
+        callback,
+      )
     },
   }
 }
