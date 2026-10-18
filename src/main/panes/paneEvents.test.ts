@@ -86,7 +86,7 @@ describe('PaneEvents', () => {
     expect(lineFor).not.toHaveBeenCalled()
   })
 
-  it('replaces an event that is still queued instead of stacking a second one', async () => {
+  it('merges into an event that is still queued instead of stacking a second one', async () => {
     watchPane(boss.externalId, worker.externalId, ['done', 'waiting'])
     attention(worker.paneId, 'waiting')
     await settle()
@@ -95,7 +95,7 @@ describe('PaneEvents', () => {
     await settle()
     const inbox = inboxOf(boss.externalId)
     expect(inbox).toHaveLength(1)
-    expect(inbox[0]?.text).toBe('w-1  done 2s')
+    expect(inbox[0]?.text).toBe('w-1  done 1s\nw-1  done 2s')
   })
 
   it('starts a new event once the earlier one was taken', async () => {

@@ -92,6 +92,7 @@ export const LEASE_MS = 120_000
 export const HISTORY_MS = 7 * 24 * 60 * 60 * 1000
 export const HISTORY_PER_SENDER = 500
 const SENT_LISTED = 50
+const EVENT_LINES_MAX = 20
 const OSTIA_SENDER = 'ostia'
 
 let data: BusData | undefined
@@ -322,7 +323,7 @@ export function postEvent(from: string, to: string, text: string): void {
     enqueue({ from, to, text, kind: 'event' })
     return
   }
-  open.text = text
+  open.text = [...(open.text ?? '').split('\n'), text].slice(-EVENT_LINES_MAX).join('\n')
   open.preview = busPreview(text)
   open.ts = new Date().toISOString()
   markBusDirty()

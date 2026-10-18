@@ -718,6 +718,26 @@ describe('bus observation', () => {
   })
 })
 
+describe('bus.update', () => {
+  it('refuses a state that is not a handoff state and keeps the handoff as it was', async () => {
+    await call<Promise<unknown>>('bus.handoff', sender, {
+      to: receiver.externalId,
+      task: 't',
+      summary: 's',
+    })
+    const listed = () =>
+      call<Promise<{ handoffs: { id: string; state: string }[] }>>('bus.handoffs', receiver)
+    const id = (await listed()).handoffs[0].id
+    expect(call('bus.update', receiver, { id, state: 'exploded' })).toMatchObject({
+      ok: false,
+      error: 'bad-state',
+    })
+    expect(call('bus.update', receiver, { id, state: undefined })).toMatchObject({ ok: false })
+    expect(call('bus.update', receiver, { id, state: 'claimed' })).toEqual({ ok: true })
+    expect((await listed()).handoffs[0].state).toBe('claimed')
+  })
+})
+
 describe('who may wake a hibernated pane by mail', () => {
   it('marks the mail as waking only when the sender holds the type-other-pane reach', async () => {
     await send('no reach')

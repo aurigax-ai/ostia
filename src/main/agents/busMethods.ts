@@ -112,6 +112,8 @@ async function postAndReadBack(draft: Parameters<typeof enqueue>[0]): Promise<Ma
   return seen.value
 }
 
+const HANDOFF_STATES: readonly HandoffState[] = ['submitted', 'claimed', 'completed', 'failed']
+
 export interface BusDeps {
   managerSendAllowed: () => boolean
   sent?: () => void
@@ -426,6 +428,13 @@ function registerBusHandoffMethods(deps: BusDeps): void {
   registerControlMethod('bus.update', {
     handler: (params, ctx) => {
       const { id, state } = (params ?? {}) as { id: string; state: HandoffState }
+      if (!HANDOFF_STATES.includes(state)) {
+        return {
+          ok: false,
+          error: 'bad-state',
+          message: `state must be one of ${HANDOFF_STATES.join(', ')}`,
+        }
+      }
       const me = ctx.identity.externalId
       const handoff = busHandoffs().find((h) => h.id === id)
       if (!handoff || (handoff.to !== me && handoff.from !== me)) return NOT_FOUND

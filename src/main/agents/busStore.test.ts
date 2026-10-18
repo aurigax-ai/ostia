@@ -255,18 +255,28 @@ describe('mail views', () => {
 })
 
 describe('events and watches', () => {
-  it('keeps one queued event per watched pane and subscriber, newest text, and starts a new one after a take', () => {
+  it('keeps one queued event per watched pane and subscriber, with every line since, and starts a new one after a take', () => {
     postEvent('w', 'b', 'first line')
     postEvent('w', 'b', 'second line')
     postEvent('other', 'b', 'from another pane')
     const queued = inboxOf('b')
     expect(queued.map((m) => [m.kind, m.from, m.text])).toEqual([
-      ['event', 'w', 'second line'],
+      ['event', 'w', 'first line\nsecond line'],
       ['event', 'other', 'from another pane'],
     ])
     takeMail('b', 'read', all)
     postEvent('w', 'b', 'third line')
     expect(inboxOf('b').map((m) => m.text)).toEqual(['third line'])
+  })
+
+  it('keeps only the newest lines of a long run of coalesced events, and shows the newest as the preview', () => {
+    for (let i = 1; i <= 30; i++) postEvent('w', 'b', `line ${i}`)
+    const [event] = inboxOf('b')
+    const lines = (event.text ?? '').split('\n')
+    expect(lines).toHaveLength(20)
+    expect(lines[0]).toBe('line 11')
+    expect(lines.at(-1)).toBe('line 30')
+    expect(event.preview).toBe('line 30')
   })
 
   it('leaves events out of the sender’s list, the sender’s counts and the extension events', () => {

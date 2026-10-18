@@ -35,6 +35,7 @@ import { registerCodexMail } from './codexMailWiring'
 import { syncMailFlags } from './mailFlag'
 import { registerMailIpc } from './mailIpc'
 import { mailPending } from './mailPending'
+import { journalDelivered } from '../panes/paneMailJournal'
 import { createMailWaker } from './mailWake'
 import { mailers } from './mailers'
 
@@ -60,7 +61,8 @@ interface ToolbeltWiringDeps {
   paneReachDeps: PaneMethodsWiring['paneReachDeps']
   paneJournal: PaneJournal
   paneWaking: PaneWaking
-  broadcast: WindowSend['broadcast']
+  sendToWindow: WindowSend['sendToWindow']
+  workspaceWindowId: WindowSend['workspaceWindowId']
   emitPaneEvent: <T extends ExtensionEventType>(type: T, payload: ExtensionEventPayloads[T]) => void
 }
 
@@ -86,10 +88,11 @@ export function registerToolbeltWiring({
   paneReachDeps,
   paneJournal,
   paneWaking,
-  broadcast,
+  sendToWindow,
+  workspaceWindowId,
   emitPaneEvent,
 }: ToolbeltWiringDeps) {
-  registerMailIpc(broadcast)
+  registerMailIpc({ windowIds, sendToWindow, workspaceWindowId })
   registerCodexMail({
     journal: paneJournal,
     version: appVersion(),
@@ -161,11 +164,13 @@ export function registerToolbeltWiring({
       ),
     agentBusy: (pane) => ['working', 'waiting'].includes(paneJournal.stateOf(pane.paneId) ?? ''),
     journal: services.agentJournal ?? undefined,
-    observe: (observation) =>
+    observe: (observation) => {
+      journalDelivered(paneJournal, observation)
       emitPaneEvent('bus.message', {
         ...observation,
         from: endpointOf(observation.from),
         to: endpointOf(observation.to),
-      }),
+      })
+    },
   })
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { JOURNAL_EVENTS_MAX, PaneJournal } from './paneJournal'
+import { JOURNAL_CURSORS_MAX, JOURNAL_EVENTS_MAX, PaneJournal } from './paneJournal'
 
 function journal() {
   const clock = { now: 1000 }
@@ -120,6 +120,14 @@ describe('PaneJournal changes', () => {
     for (let i = 0; i < JOURNAL_EVENTS_MAX + 5; i++) j.mail('p')
     const seen = j.changes('a', 'p')
     expect(seen.first === false && seen.events).toHaveLength(JOURNAL_EVENTS_MAX)
+  })
+
+  it('bounds the cursors it keeps, dropping the one looked at longest ago', () => {
+    const { j } = journal()
+    j.changes('first', 'p')
+    for (let i = 0; i < JOURNAL_CURSORS_MAX; i++) j.changes(`caller-${i}`, 'p')
+    expect(j.changes('first', 'p')).toEqual({ first: true })
+    expect(j.changes(`caller-${JOURNAL_CURSORS_MAX - 1}`, 'p')).toMatchObject({ first: false })
   })
 
   it('forgets a closed pane, its closing line and every cursor that pointed at it', () => {

@@ -1,6 +1,7 @@
 import { STATUS_MESSAGE_MAX, closingLine } from '../../shared/agents/closingLine'
 
 export const JOURNAL_EVENTS_MAX = 20
+export const JOURNAL_CURSORS_MAX = 1000
 
 export type JournalEvent =
   | { kind: 'state'; state: string; from?: string }
@@ -120,7 +121,11 @@ export class PaneJournal {
   ): { first: true } | { first: false; events: StampedEvent[] } {
     const key = `${caller}>${paneId}`
     const seen = this.cursors.get(key)
+    this.cursors.delete(key)
     this.cursors.set(key, this.seq)
+    if (this.cursors.size > JOURNAL_CURSORS_MAX) {
+      this.cursors.delete(this.cursors.keys().next().value as string)
+    }
     if (seen === undefined) return { first: true }
     return {
       first: false,
