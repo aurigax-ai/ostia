@@ -63,7 +63,7 @@ type Flavors =
   | 'image-and-text'
   | 'image-and-spaced-text'
 
-const copyFileOnMac = (path: string, flavors: Flavors) => {
+const writeFlavorsOnMac = (path: string, flavors: Flavors) => {
   const png = 'read p as «class PNGf»'
   const clipboard = {
     image: `set the clipboard to (${png})`,
@@ -83,6 +83,25 @@ const copyFileOnMac = (path: string, flavors: Flavors) => {
     'end run',
     path,
   ])
+}
+
+const pasteboardClasses = () =>
+  execFileSync('osascript', ['-e', 'clipboard info'], { encoding: 'utf8' }).trim()
+
+async function copyFileOnMac(app: ElectronApplication, path: string, flavors: Flavors) {
+  await expect
+    .poll(async () => {
+      await app.evaluate(({ clipboard }) => clipboard.clear())
+      return pasteboardClasses()
+    })
+    .not.toMatch(/«class (furl|PNGf)»/)
+  const landed = flavors.startsWith('file') ? '«class furl»' : '«class PNGf»'
+  await expect
+    .poll(() => {
+      writeFlavorsOnMac(path, flavors)
+      return pasteboardClasses()
+    })
+    .toContain(landed)
 }
 
 async function selectTerminalWord(win: Page, word: string): Promise<void> {
@@ -148,7 +167,7 @@ test('Cmd+V pastes a copied file as a quoted path and hands an image to the prog
 
     for (const flavors of ['file-and-image', 'file-and-text'] as const) {
       n += 1
-      copyFileOnMac(shot, flavors)
+      await copyFileOnMac(app, shot, flavors)
       await expect.poll(async () => (await contents()).files).toEqual([shot])
       await win.keyboard.type(readLine(n))
       await win.keyboard.press('Enter')
@@ -161,7 +180,7 @@ test('Cmd+V pastes a copied file as a quoted path and hands an image to the prog
 
     for (const flavors of ['image', 'image-and-text', 'image-and-spaced-text'] as const) {
       n += 1
-      copyFileOnMac(shot, flavors)
+      await copyFileOnMac(app, shot, flavors)
       await expect.poll(contents).toEqual({ files: [], image: true })
       await win.keyboard.type(readByte(n))
       await win.keyboard.press('Enter')
