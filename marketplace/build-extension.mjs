@@ -59,10 +59,42 @@ function dependencyClosure(dir, found = new Map()) {
   return found
 }
 
+function modulesOf(dir) {
+  const marker = `${sep}node_modules${sep}`
+  return dir.slice(0, dir.lastIndexOf(marker) + marker.length)
+}
+
+function installedOptionals(dir) {
+  const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
+  return Object.keys(manifest.optionalDependencies ?? {})
+    .map((name) => [name, join(modulesOf(dir), name)])
+    .filter(([, from]) => existsSync(join(from, 'package.json')))
+}
+
+function modulesTarget(name, target) {
+  const folder = join(target)
+  const suffix = join('node_modules', name)
+  if (folder !== suffix && !folder.endsWith(`${sep}${suffix}`)) return null
+  return folder.slice(0, folder.length - name.length)
+}
+
+export function requiredPackages(src) {
+  const { packages } = vendoredPackages(src)
+  return Object.entries(packages)
+    .filter(([name, target]) => join(target) === join('node_modules', name))
+    .flatMap(([name]) => [name, `${name}/*`])
+}
+
 function copyVendoredPackages(src, out) {
   const { packages, closures } = vendoredPackages(src)
   for (const [name, target] of Object.entries(packages)) {
-    copyPackage(installedPackage(name), join(out, target))
+    const from = installedPackage(name)
+    copyPackage(from, join(out, target))
+    const modules = modulesTarget(name, target)
+    if (modules === null) continue
+    for (const [optional, dir] of installedOptionals(from)) {
+      copyPackage(realpathSync(dir), join(out, modules, optional))
+    }
   }
   for (const [name, target] of Object.entries(closures)) {
     for (const [dependency, from] of dependencyClosure(installedPackage(name))) {
@@ -99,6 +131,19 @@ function browserBundle(entry, outfile) {
   })
 }
 
+function nodeBundle(entry, outfile, src) {
+  return build({
+    entryPoints: [entry],
+    outfile,
+    bundle: true,
+    platform: 'node',
+    format: 'cjs',
+    target: 'node20',
+    external: requiredPackages(src),
+    logLevel: 'warning',
+  })
+}
+
 async function buildFileViewers(src, out, panelBaseCss) {
   const viewers = readSourceManifest(src).contributes?.fileViewers ?? []
   if (viewers.length === 0) return
@@ -128,15 +173,10 @@ export async function buildExtension(src, out, panelBaseCss) {
   await buildFileViewers(src, out, panelBaseCss)
   if (existsSync(join(src, 'panel.html'))) copyFileSync(panelBaseCss, join(out, 'base.css'))
   if (existsSync(join(src, 'main.ts'))) {
-    await build({
-      entryPoints: [join(src, 'main.ts')],
-      outfile: join(out, 'main.js'),
-      bundle: true,
-      platform: 'node',
-      format: 'cjs',
-      target: 'node20',
-      logLevel: 'warning',
-    })
+    const threads = readdirSync(src).filter((file) => file.endsWith('.thread.ts'))
+    for (const entry of ['main.ts', ...threads]) {
+      await nodeBundle(join(src, entry), join(out, entry.replace(/\.ts$/, '.js')), src)
+    }
   }
   if (existsSync(join(src, 'panel.ts'))) {
     await browserBundle(join(src, 'panel.ts'), join(out, 'panel.js'))

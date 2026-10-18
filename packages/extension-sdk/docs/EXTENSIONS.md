@@ -1574,10 +1574,14 @@ a project of their own: `pnpm build:marketplace` (`scripts/build-marketplace.mjs
 `test/fixtures/tools`, writes its `package.json`, and builds it against `out/sdk`. One function
 builds an extension folder for both the app and that project (`buildExtension` in
 `marketplace/build-extension.mjs`, which `scripts/build-extensions.mjs` imports):
-`ostia.json`, `locales/`, a bundled `main.js`, a panel's `panel.html`, `panel.css`, bundled
+`ostia.json`, `locales/`, a bundled `main.js` (and a `<name>.thread.js` for every `<name>.thread.ts`
+next to `main.ts`, for `worker_threads`), a panel's `panel.html`, `panel.css`, bundled
 `panel.js` and the SDK's `panel.css` as `base.css`, and the npm packages an extension's
 `vendor.json` names, copied unchanged (`packages` copies one package to a folder, `closures`
-copies a package and everything it depends on into a `node_modules` folder). The project's
+copies a package and everything it depends on into a `node_modules` folder). A package that
+`packages` puts in `node_modules/<name>` is left out of `main.js`, which requires it from there,
+and the optional dependencies it has installed (a native module's package for this platform) are
+copied next to it. The project's
 `package.json` lists every vendored package at the exact version the app pins, so its own
 `pnpm install` and `pnpm build` produce the same `extensions/`. `pnpm publish:marketplace <checkout>`
 copies that into a checkout of the marketplace repository (`aurigax-ai/ostia-extensions`), installs
