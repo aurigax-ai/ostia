@@ -260,15 +260,6 @@
   color: var(--fg-muted);
 }
 
-.git-surface .segmented {
-  display: inline-flex;
-  flex: 0 0 auto;
-  gap: 2px;
-  padding: 1px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-}
-
 .git-surface .root {
   flex: 0 0 auto;
   padding: 0 12px 8px;

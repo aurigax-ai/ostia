@@ -12,6 +12,7 @@ import type { SplitNode } from '@/lib/layout/types'
 import { forgetSplitTabSeeds } from '@/lib/panes/splitTabSeeds'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
+import { useDiffStore } from '@/stores/files/diffStore'
 import { zhHant } from '@shared/app/dict'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLayoutStore } from './layoutStore'
@@ -184,6 +185,29 @@ describe('layoutStore', () => {
       const api = open({ afterPaneId: caller, splitTab: { name: 'dev' } })
       expect(splitTabOfPane(layoutOf('sess').root, api)).toBeNull()
       expect(splitTabOfPane(layoutOf('sess').root, web)).toBeNull()
+    })
+
+    it('keeps a folded tab folded, its collapsed pane collapsed and the shown tab when members join and leave', () => {
+      const caller = ensure('sess')
+      const web = open({ afterPaneId: caller, splitTab: { name: 'dev' } })
+      const api = open({ afterPaneId: caller, splitTab: { name: 'dev' } })
+      const docs = open({ afterPaneId: caller, splitTab: { name: 'dev' } })
+      const store = useLayoutStore.getState()
+      store.changeCollapse('sess', web, 'collapse')
+      const tabId = (splitTabOfPane(layoutOf('sess').root, web) as SplitNode).id
+      store.foldSplitTab('sess', tabId)
+
+      const test = open({ afterPaneId: caller, splitTab: { name: 'dev' } })
+      store.joinTab('sess', [test], null)
+      const lint = open({ afterPaneId: caller, splitTab: { name: 'dev' } })
+
+      const { root, activePaneId } = layoutOf('sess')
+      const tab = splitTabOfPane(root, web) as SplitNode
+      expect(tab.folded).toBe(true)
+      expect(paneIds(tab)).toEqual([web, api, docs, lint])
+      expect(findPane(root, web)?.collapsed).toBe(true)
+      expect(activePaneId).toBe(caller)
+      expect(tabsOfPane(root, caller)?.activeId).toBe(caller)
     })
   })
 
@@ -587,6 +611,44 @@ describe('layoutStore', () => {
       const stacks = layout.root.type === 'split' ? layout.root.children : []
       const stack = stacks.find((c) => c.type === 'tabs')
       expect(stack && paneIds(stack)).toEqual([first, diffId])
+    })
+  })
+
+  describe('openDiff reuse', () => {
+    it('shows every later diff in the one diff tab and keeps its area', () => {
+      const { first, second } = twoPanes('sess')
+      const open = useLayoutStore.getState().openDiff
+      const one = open('sess', {
+        title: 'a.ts (Working Tree)',
+        original: 'a',
+        modified: 'b',
+        path: '/r/a.ts',
+        area: 'unstaged',
+      }) as string
+      useLayoutStore.getState().focusPane('sess', second)
+      const two = open('sess', {
+        title: 'a.ts (Index)',
+        original: 'a',
+        modified: 'c',
+        path: '/r/a.ts',
+        area: 'staged',
+      }) as string
+      const three = open('sess', {
+        title: 'x.ts ↔ y.ts',
+        original: 'x',
+        modified: 'y',
+        path: '/r/y.ts',
+      }) as string
+      expect(new Set([one, two, three]).size).toBe(1)
+      const layout = layoutOf('sess')
+      expect(
+        paneIds(layout.root).filter((id) => findPane(layout.root, id)?.kind === 'diff'),
+      ).toEqual([one])
+      expect(paneIds(layout.root)).toContain(first)
+      expect(findPane(layout.root, one)?.title).toBe('x.ts ↔ y.ts')
+      expect(layout.activePaneId).toBe(one)
+      expect(useDiffStore.getState().byPane[one]).toMatchObject({ modified: 'y' })
+      expect(useDiffStore.getState().byPane[one].area).toBeUndefined()
     })
   })
 

@@ -299,6 +299,32 @@ describe('history scroll', () => {
     scroll.dispose()
   })
 
+  it('stays on the live terminal when a key is pressed while a history load is still running', async () => {
+    const { stack, host, term, pause, scroll } = mount()
+    scroll.interceptWheel(wheelUp())
+    await vi.waitFor(() => expect(box(stack)?.style.visibility).toBe('visible'))
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const serve = vi.mocked(window.ostia.pty.historyRead).getMockImplementation()
+    vi.mocked(window.ostia.pty.historyRead).mockImplementation(async (...args) => {
+      await gate
+      return serve?.(...args) ?? null
+    })
+    scroll.scrollToTop()
+    scroll.scrollLines(-3)
+    host.dispatchEvent(new KeyboardEvent('keydown', { key: 'x', bubbles: true, cancelable: true }))
+    expect(box(stack)?.style.visibility).toBe('hidden')
+    pause.mockClear()
+    release()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(box(stack)?.style.visibility).toBe('hidden')
+    expect(pause).not.toHaveBeenCalledWith(true)
+    expect(term.scrollToBottom).toHaveBeenCalled()
+    scroll.dispose()
+  })
+
   it('does not resume drawing a pane that is hidden when history closes', async () => {
     const { stack, pause, scroll } = mount(false)
     scroll.interceptWheel(wheelUp())

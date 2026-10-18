@@ -155,7 +155,7 @@ describe('ostia git and ostia ports (real CLI process, real socket)', () => {
     expect(openDiff).toHaveBeenCalledWith(
       expect.objectContaining({
         workspaceId: 's1',
-        title: 'readme.md (unstaged)',
+        title: 'readme.md (Working Tree)',
         original: 'v1\n',
         modified: 'v2\n',
       }),

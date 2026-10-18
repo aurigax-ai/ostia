@@ -1,7 +1,10 @@
+import { existsSync, readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { isolatedLaunch } from './dataHome'
-import { openWorkspace, quitApp } from './helpers'
+import { join } from 'node:path'
+import { chords } from './chords'
+import { freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { addTab, openWorkspace, quitApp, typeLine } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const SITE = `<!doctype html><title>site</title>
@@ -88,3 +91,48 @@ test('closing a tab returns to the tab that opened it, else the most recently us
     server.close()
   }
 })
+
+const ENGINES = [
+  { name: 'xterm', terminal: {} },
+  { name: 'ghostty', terminal: { renderer: 'ghostty' } },
+]
+
+for (const engine of ENGINES) {
+  test(`closing the tab that holds the keyboard moves it to the shown terminal (${engine.name})`, async () => {
+    test.setTimeout(120_000)
+    const dataHome = freshDataHome()
+    seedSettings(dataHome, {
+      behavior: { gpuAcceleration: false },
+      terminal: engine.terminal,
+      workspaces: { confirmQuit: false },
+    })
+    const launch = isolatedLaunch(dataHome)
+    const app = await electron.launch({
+      ...launch,
+      env: { ...launch.env, SHELL: '/bin/zsh' },
+    })
+    try {
+      const win = await app.firstWindow()
+      await openWorkspace(win)
+      await typeLine(win, 'export WHERE=first')
+      await addTab(win)
+      await expect(tabs(win)).toHaveCount(2)
+      await win.keyboard.press(chords.closePane)
+      await expect(tabs(win)).toHaveCount(1)
+      await expect
+        .poll(() =>
+          win.evaluate(
+            () => document.activeElement?.closest('.pane-slot:not([data-hidden])') !== null,
+          ),
+        )
+        .toBe(true)
+      const marker = join(dataHome, 'where')
+      await typeLine(win, `echo $WHERE > ${marker}`)
+      await expect
+        .poll(() => existsSync(marker) && readFileSync(marker, 'utf8').trim())
+        .toBe('first')
+    } finally {
+      await quitApp(app)
+    }
+  })
+}

@@ -11,6 +11,6 @@
   "specs": [
     "e2e/browser-pick.spec.ts",
     "e2e/detached-send.spec.ts",
-    "e2e/preview-send.spec.ts"
+    "e2e/pdf-region.spec.ts"
   ]
 }

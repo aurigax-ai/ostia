@@ -55,7 +55,7 @@ describe('GitService', () => {
       ])
     listPanes.mockReset().mockResolvedValue([])
     repoAt.mockReset().mockImplementation(async (cwd) => repos.get(cwd) ?? null)
-    diffStats.mockReset().mockResolvedValue('1 • +2 -1')
+    diffStats.mockReset().mockResolvedValue('+2 −1')
     service = new GitService({
       settings: () => settings,
       listWorkspaces,
@@ -106,11 +106,10 @@ describe('GitService', () => {
           extId: 'git',
           workspaceId: 'one',
           id: 'branch',
-          text: 'main',
+          text: 'main · +2 −1',
           tone: 'neutral',
           command: 'git.show',
         },
-        { extId: 'git', workspaceId: 'one', id: 'diff-stats', text: '1 • +2 -1', tone: 'neutral' },
       ],
     })
     expect(items('w2')).toBeUndefined()
@@ -179,13 +178,55 @@ describe('GitService', () => {
     expect(items('w1')?.sidebar).toHaveLength(1)
   })
 
-  it('leaves the diff stats chip out and does not count lines when the setting is off', async () => {
+  it('leaves the line counts out of the chip and does not count lines when the setting is off', async () => {
     settings = { ...settings, showDiffStats: false }
     service.settingsChanged()
     service.watch('w1', ['one'])
     await settle()
     expect(diffStats).not.toHaveBeenCalled()
-    expect(items('w1')?.workspaceChips.map((c) => c.id)).toEqual(['branch'])
+    expect(items('w1')?.workspaceChips.map((c) => c.text)).toEqual(['main'])
+  })
+
+  it('shows the repo of the pane the human switched to at once, without waiting for the poll', async () => {
+    const panes = (cwd: string): PaneEntry[] => [
+      {
+        paneId: 'p1',
+        workspaceId: 'one',
+        kind: 'terminal',
+        title: 'a',
+        cwd: '/w/one',
+        running: false,
+        blockCount: 0,
+      },
+      {
+        paneId: 'p2',
+        workspaceId: 'one',
+        kind: 'terminal',
+        title: 'b',
+        cwd,
+        running: false,
+        blockCount: 0,
+      },
+    ]
+    const shownOn = (activePaneId: string): WorkspaceEntry[] => [
+      { ...workspace('one', '/w/one'), activePaneId },
+    ]
+    listPanes.mockResolvedValue(panes('/w/two'))
+    listWorkspaces.mockResolvedValue(shownOn('p1'))
+    service.watch('w1', ['one'])
+    await settle()
+    expect(items('w1')?.workspaceChips.map((c) => c.text)).toEqual(['main · +2 −1'])
+    listWorkspaces.mockResolvedValue(shownOn('p2'))
+    service.shown()
+    await settle()
+    expect(items('w1')?.workspaceChips.map((c) => c.text)).toEqual(['feature · +2 −1'])
+  })
+
+  it('reads nothing when the shown pane changes while no window shows git', async () => {
+    service.shown()
+    await settle(60_000)
+    expect(service.pending).toBe(false)
+    expect(repoAt).not.toHaveBeenCalled()
   })
 
   it('tells watching windows when a repository changed, and at once after a write', async () => {

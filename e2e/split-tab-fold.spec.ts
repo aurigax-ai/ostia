@@ -6,7 +6,7 @@ import { isolatedLaunch } from './dataHome'
 import { openWorkspace, typeLine } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
-test('a split tab folds to one chip with its counts and unfolds on an attention jump or a click', async () => {
+test('a split tab folds to one chip with its pane count and unfolds on an attention jump or a click', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'ostia-fold-'))
   const go = join(dir, 'go')
   const app = await electron.launch(isolatedLaunch())
@@ -35,11 +35,15 @@ test('a split tab folds to one chip with its counts and unfolds on an attention 
       'aria-label',
       /^Folded split tab workers: 2 panes/,
     )
-    await expect(chip).toContainText('2 panes')
+    await expect(chip).toHaveText(/^workers\s*2$/)
+    await chip.hover()
+    await expect(win.getByText('2 panes', { exact: true })).toBeVisible()
     await expect(segments).toHaveCount(0)
 
     writeFileSync(go, '')
-    await expect(chip).toContainText('1 done', { timeout: 15_000 })
+    await expect(chip.getByRole('tab')).toHaveAttribute('aria-label', /1 done/, {
+      timeout: 15_000,
+    })
     await expect(chip).toHaveAttribute('data-attention', 'done')
 
     await win.keyboard.press(defaultChord('attention.jumpToLatest', isMac))

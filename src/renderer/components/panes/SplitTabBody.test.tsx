@@ -120,7 +120,7 @@ describe('collapsed split tab panes', () => {
 })
 
 describe('folded split tab', () => {
-  it('folds from the pill into one chip with its pane count and attention counts', async () => {
+  it('folds from the pill into one chip with its pane count and the attention mark', async () => {
     const { a, b, c, container } = workers()
     act(() => {
       useAttentionStore.getState().dispatch(a.id, { type: 'set', state: 'working', at: 1 })
@@ -134,7 +134,7 @@ describe('folded split tab', () => {
     })
     expect(chip).toHaveAttribute('aria-expanded', 'false')
     expect(chip.closest('.pane-split-tab')).toHaveAttribute('data-attention', 'waiting')
-    expect(within(chip).getByText('3 panes')).toBeInTheDocument()
+    expect(within(chip).getByText('3')).toBeInTheDocument()
     expect(container.querySelectorAll('.split-tab-segment')).toHaveLength(0)
     expect(findPane(layout().root, b.id)).not.toBeNull()
     expect(layout().activePaneId).not.toBe(b.id)

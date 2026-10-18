@@ -19,11 +19,24 @@ describe('branchChipText', () => {
     expect(branchChipText({ ...branch, upstream: 'origin/main' })).toBe('main')
   })
 
-  it('adds ahead and behind after a bullet when tracking an upstream', () => {
+  it('adds ahead and behind after a dot when tracking an upstream', () => {
     const tracked = { ...branch, upstream: 'origin/main' }
-    expect(branchChipText({ ...tracked, ahead: 2, behind: 1 })).toBe('main • ↑2 ↓1')
-    expect(branchChipText({ ...tracked, behind: 4 })).toBe('main • ↓4')
-    expect(branchChipText({ ...tracked, ahead: 1200 })).toBe('main • ↑999+')
+    expect(branchChipText({ ...tracked, ahead: 2, behind: 1 })).toBe('main · ↑2 ↓1')
+    expect(branchChipText({ ...tracked, behind: 4 })).toBe('main · ↓4')
+    expect(branchChipText({ ...tracked, ahead: 1200 })).toBe('main · ↑999+')
+  })
+
+  it('puts the line counts between the branch and the tracking counts', () => {
+    const tracked = { ...branch, upstream: 'origin/main', behind: 3 }
+    expect(branchChipText(tracked, '+12 −3')).toBe('main · +12 −3 · ↓3')
+    expect(branchChipText(branch, '+12 −3')).toBe('main · +12 −3')
+    expect(branchChipText(branch, '')).toBe('main')
+  })
+
+  it('cuts a long branch name so the counts stay visible', () => {
+    const long = { ...branch, head: `feature/${'x'.repeat(60)}`, upstream: 'origin/x', behind: 3 }
+    const text = branchChipText(long, '+1')
+    expect(text).toBe(`feature/${'x'.repeat(19)}… · +1 · ↓3`)
   })
 
   it('shows the short sha when detached and nothing without any commit or branch', () => {
@@ -52,10 +65,11 @@ describe('diff stats', () => {
     expect(parseShortstat('')).toBeNull()
   })
 
-  it('formats files • +added -removed and hides a clean tree', () => {
-    expect(diffStatsChipText({ files: 3, added: 12, removed: 4 })).toBe('3 • +12 -4')
-    expect(diffStatsChipText({ files: 1, added: 0, removed: 2 })).toBe('1 • -2')
-    expect(diffStatsChipText({ files: 1, added: 0, removed: 0 })).toBe('1')
+  it('formats +added −removed, leaving out a zero side and a clean tree', () => {
+    expect(diffStatsChipText({ files: 3, added: 12, removed: 4 })).toBe('+12 −4')
+    expect(diffStatsChipText({ files: 1, added: 0, removed: 2 })).toBe('−2')
+    expect(diffStatsChipText({ files: 1, added: 5, removed: 0 })).toBe('+5')
+    expect(diffStatsChipText({ files: 0, added: 0, removed: 0 })).toBe('')
     expect(diffStatsChipText(null)).toBe('')
   })
 })
