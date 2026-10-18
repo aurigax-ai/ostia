@@ -9,7 +9,7 @@ import type { ExtensionHostDeps } from './extensionHostDeps'
 import type { ExtensionProcesses } from './extensionProcesses'
 import type { Runtime } from './extensionRuntime'
 
-export const ARCHIVE_KILL_GRACE_MS = 5_000
+const ARCHIVE_KILL_GRACE_MS = 5_000
 
 export interface ExtensionArchivesHost {
   deps: Pick<ExtensionHostDeps, 'dataDir' | 'archiveKillGraceMs'>

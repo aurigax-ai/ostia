@@ -16,8 +16,8 @@ import {
 } from '../../../shared/archives/archiveFile'
 import type { ArchiveLimits } from './archiveTree'
 
-export const ARCHIVE_READ_MS = 30_000
-export const ARCHIVE_LIST_CHARS_MAX = 32 * 1024 * 1024
+const ARCHIVE_READ_MS = 30_000
+const ARCHIVE_LIST_CHARS_MAX = 32 * 1024 * 1024
 
 const READ_PROBLEMS = new Set(['encrypted', 'link', 'gone', 'unzip-limit'])
 
@@ -60,7 +60,7 @@ function entryOf(raw: unknown): RawEntry | null {
   return { name, index, dir, size, encrypted, link }
 }
 
-export function parseListing(
+function parseListing(
   raw: unknown,
   limits: ArchiveLimits,
   charsMax: number,

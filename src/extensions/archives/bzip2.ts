@@ -21,7 +21,7 @@ const MAX_ALPHA = 258
 const RUNA = 0
 const RUNB = 1
 const MAX_RUN = 2 * 1024 * 1024
-export const MAX_BLOCK_BYTES = 2_700_000
+const MAX_BLOCK_BYTES = 2_700_000
 
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256)

@@ -22,7 +22,7 @@ export interface TarInput {
 
 export type OpenTar = () => Promise<TarInput | null>
 
-export function scanTar(
+function scanTar(
   open: OpenTar,
   limits: TarScanLimits,
   visit: (entry: ReadEntry, index: number) => 'next' | 'stop' | 'read',
