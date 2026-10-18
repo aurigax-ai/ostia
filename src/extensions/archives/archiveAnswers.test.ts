@@ -240,6 +240,12 @@ describe.each(FORMATS)('%s', (format, compress, opener) => {
     }
   })
 
+  it('answers failed at once when its opener throws', async () => {
+    const throwing: Opener = () => Promise.reject(new Error('worker would not start'))
+    const req = { op: 'list', reader: 'r', archive: join(dir, 'x'), limits: LIMITS } as const
+    expect(await listArchive(req, throwing, live)).toEqual({ ok: false, error: 'failed' })
+  })
+
   it('stops when the request is cancelled and answers the next one', async () => {
     const path = await put(tar([{ name: 'a.txt', data: 'x' }]))
     const abort = new AbortController()
