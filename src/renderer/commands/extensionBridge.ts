@@ -7,6 +7,7 @@ import { pinTitle } from '@/lib/terminal/pinnedTitles'
 import { useAgentOfferStore } from '@/stores/agents/agentOfferStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -85,16 +86,11 @@ function targetWorkspace(requested?: string): string | null {
     : workspaces.activeWorkspaceId
 }
 
-export function openExtensionPanel(req: ExtensionOpenPanelRequest): string | null {
-  const extensions = useExtensionsStore.getState()
-  const info = extensions.list.find((e) => e.id === req.extId)
+export function openExtensionPanel(req: ExtensionOpenPanelRequest): void {
+  const info = useExtensionsStore.getState().list.find((e) => e.id === req.extId)
   const workspaceId = targetWorkspace(req.workspaceId)
-  if (!info?.panel || !info.enabled || !workspaceId) return null
-  const paneId = useLayoutStore
-    .getState()
-    .openExtensionPanel(workspaceId, info.id, info.panel.title)
-  if (paneId && req.path) extensions.navigatePanel(paneId, req.path)
-  return paneId
+  if (!info?.panel || !info.enabled || !workspaceId) return
+  useSidePanelStore.getState().showRight(info.id, { workspaceId, path: req.path })
 }
 
 export function openExtensionDiff(req: GitOpenDiffRequest): string | null {

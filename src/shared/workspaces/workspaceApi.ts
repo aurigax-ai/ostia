@@ -17,7 +17,6 @@ export type SnapshotSurfaceKind =
   | 'editor'
   | 'agent'
   | 'browser'
-  | 'extension'
   | 'chat'
   | 'git'
   | 'view'
@@ -31,7 +30,6 @@ export interface SnapshotPaneNode {
   filePath?: string
   viewType?: string
   url?: string
-  extensionId?: string
   chatSessionId?: string
   viewName?: string
   browserProfile?: BrowserProfile
@@ -118,6 +116,7 @@ export interface AppSnapshot {
   workspaces: SnapshotWorkspace[]
   groups: SnapshotGroup[]
   leftPanel?: SnapshotLeftPanel
+  rightPanel?: string
   bounds?: WindowBounds
   detachedBounds?: Record<string, WindowBounds>
   windows?: SnapshotWindow[]
@@ -135,6 +134,7 @@ export interface SnapshotWindow {
   bounds: WindowBounds
   activeWorkspaceId: string | null
   leftPanel?: SnapshotLeftPanel
+  rightPanel?: string
   workspaces: SnapshotWorkspace[]
 }
 

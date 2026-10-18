@@ -63,6 +63,8 @@ function bytesOf(events: readonly ActivityRecord[]): number {
 
 export class Journal {
   private readonly byWorkspace = new Map<string, WorkspaceJournal>()
+  private readonly revisions = new Map<string, number>()
+  private sequence = 0
   private readonly dir: string | null
   private readonly archive: Archive | null
   private readonly now: () => number
@@ -123,6 +125,11 @@ export class Journal {
     journal.bytes += Buffer.byteLength(line)
     if (journal.onDisk && !this.appendLine(workspaceId, line)) journal.onDisk = false
     this.trim(workspaceId, journal)
+    this.touch(workspaceId)
+  }
+
+  revision(workspaceId: string): number {
+    return this.revisions.get(workspaceId) ?? 0
   }
 
   events(workspaceId: string): readonly ActivityRecord[] {
@@ -155,6 +162,7 @@ export class Journal {
     journal.events = journal.events.map((record, i) => (i === index ? done : record))
     journal.bytes = bytesOf(journal.events)
     if (journal.onDisk) this.rewrite(workspaceId, journal)
+    this.touch(workspaceId)
     return done
   }
 
@@ -171,6 +179,7 @@ export class Journal {
     for (const [workspaceId, journal] of this.byWorkspace) {
       if (journal.onDisk || open.has(workspaceId)) continue
       this.byWorkspace.delete(workspaceId)
+      this.touch(workspaceId)
       dropped = true
     }
     return dropped
@@ -187,6 +196,7 @@ export class Journal {
       if (old.length === 0) continue
       if (journal.onDisk) this.archive?.add(workspaceId, old)
       changed = true
+      this.touch(workspaceId)
       if (events.length === 0) {
         this.byWorkspace.delete(workspaceId)
         if (journal.onDisk) this.removeFile(workspaceId)
@@ -197,6 +207,10 @@ export class Journal {
       if (journal.onDisk) this.rewrite(workspaceId, journal)
     }
     return changed
+  }
+
+  private touch(workspaceId: string): void {
+    this.revisions.set(workspaceId, ++this.sequence)
   }
 
   private create(workspaceId: string, persist: boolean): WorkspaceJournal {

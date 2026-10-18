@@ -281,8 +281,8 @@ describe('Pane', () => {
       expect(exec).toHaveBeenCalledWith('tab.newBrowser', { paneId: 'pa' })
     })
 
-    it('shows no new-tab or split buttons on an extension panel or a chat', () => {
-      for (const kind of ['extension', 'chat'] as const) {
+    it('shows no new-tab or split buttons on a chat', () => {
+      for (const kind of ['chat'] as const) {
         const service: PaneNode = { type: 'pane', id: `s-${kind}`, kind, title: kind }
         const view = render(
           <Pane tabs={[service]} shownId={service.id} activePaneId={service.id} workspaceId="w" />,

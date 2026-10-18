@@ -30,59 +30,99 @@ function cellStyle(cell: IBufferCell): string {
 }
 
 const SPACE = 32
+const CELL_WORDS = 3
+const CONTENT_MASK = 0x3fffff
+const WIDTH_MASK = 0xc00000
+const FG_INVERSE = 0x4000000
+const BG_COLOR_MODE = 0x3000000
 
-function isEmptyCell(cell: IBufferCell): boolean {
-  const code = cell.getCode()
-  return (code === 0 || code === SPACE) && cell.isBgDefault() && !cell.isInverse()
+interface RowStyle {
+  sgr: string
+  fg: number
+  bg: number
 }
 
-function contentEnd(line: IBufferLine, cell: IBufferCell): number {
-  for (let x = line.length - 1; x >= 0; x--) {
-    if (line.getCell(x, cell) && !isEmptyCell(cell)) return x + 1
+function cellWords(line: IBufferLine): Uint32Array {
+  return (line as unknown as { _line: { _data: Uint32Array } })._line._data
+}
+
+function contentEnd(words: Uint32Array, cols: number, blankStyles: boolean): number {
+  for (let at = (cols - 1) * CELL_WORDS; at >= 0; at -= CELL_WORDS) {
+    const content = words[at]
+    if (!blankStyles) {
+      const code = content & CONTENT_MASK
+      if (code !== 0 && code !== SPACE) return at / CELL_WORDS + 1
+      continue
+    }
+    const fg = words[at + 1]
+    const bg = words[at + 2]
+    if ((content | fg | bg) === 0) continue
+    const code = content & CONTENT_MASK
+    if ((code !== 0 && code !== SPACE) || bg & BG_COLOR_MODE || fg & FG_INVERSE) {
+      return at / CELL_WORDS + 1
+    }
   }
   return 0
 }
 
 function serializeRow(
   line: IBufferLine,
+  words: Uint32Array,
   stop: number,
   cell: IBufferCell,
-  style: string,
+  style: RowStyle,
   parts: string[],
-): string {
-  let current = style
+): void {
   let runStart = 0
   for (let x = 0; x < stop; x++) {
-    if (!line.getCell(x, cell) || cell.getWidth() === 0) continue
+    const at = x * CELL_WORDS
+    if ((words[at] & WIDTH_MASK) === 0) continue
+    const fg = words[at + 1]
+    const bg = words[at + 2]
+    if (fg === style.fg && bg === style.bg) continue
+    style.fg = fg
+    style.bg = bg
+    line.getCell(x, cell)
     const next = cellStyle(cell)
-    if (next === current) continue
+    if (next === style.sgr) continue
     if (x > runStart) parts.push(line.translateToString(false, runStart, x))
     parts.push(next || SGR_RESET)
-    current = next
+    style.sgr = next
     runStart = x
   }
   if (stop > runStart) parts.push(line.translateToString(false, runStart, stop))
-  return current
 }
 
-export function serializeLogicalLines(buffer: IBuffer, start: number, end: number): string[] {
+export function serializeLogicalLines(
+  buffer: IBuffer,
+  start: number,
+  end: number,
+  blankStyles = true,
+): string[] {
   const cell = buffer.getNullCell()
   const lines: string[] = []
+  const style: RowStyle = { sgr: '', fg: 0, bg: 0 }
   let parts: string[] = []
-  let style = ''
+  let line = buffer.getLine(start)
   for (let y = start; y <= end; y++) {
-    const line = buffer.getLine(y)
-    if (!line) continue
-    if (y > start && !line.isWrapped) {
-      if (style) parts.push(SGR_RESET)
-      lines.push(parts.join(''))
-      parts = []
-      style = ''
+    const next = y < end ? buffer.getLine(y + 1) : undefined
+    if (line) {
+      if (y > start && !line.isWrapped) {
+        if (style.sgr) parts.push(SGR_RESET)
+        lines.push(parts.join(''))
+        parts = []
+        style.sgr = ''
+        style.fg = 0
+        style.bg = 0
+      }
+      const words = cellWords(line)
+      const stop =
+        next?.isWrapped === true ? line.length : contentEnd(words, line.length, blankStyles)
+      serializeRow(line, words, stop, cell, style, parts)
     }
-    const continues = y < end && buffer.getLine(y + 1)?.isWrapped === true
-    style = serializeRow(line, continues ? line.length : contentEnd(line, cell), cell, style, parts)
+    line = next
   }
-  if (style) parts.push(SGR_RESET)
+  if (style.sgr) parts.push(SGR_RESET)
   lines.push(parts.join(''))
   return lines
 }

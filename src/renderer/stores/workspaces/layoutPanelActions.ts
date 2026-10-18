@@ -1,10 +1,8 @@
 import {
-  findExtensionPane,
   findViewPane,
   firstPaneOfKind,
   setPaneChat,
   setPaneDiff,
-  setPaneExtension,
   setPaneGit,
   setPaneView,
 } from '@/lib/layout/paneFields'
@@ -64,20 +62,11 @@ function openSingleton(
 
 type LayoutPanelActions = Pick<
   LayoutState,
-  'openExtensionPanel' | 'openGit' | 'openView' | 'openChat' | 'setChatSession' | 'openDiff'
+  'openGit' | 'openView' | 'openChat' | 'setChatSession' | 'openDiff'
 >
 
 export function createLayoutPanelActions(set: LayoutSet, get: LayoutGet): LayoutPanelActions {
   return {
-    openExtensionPanel: (workspaceId, extensionId, title) =>
-      openSingleton(
-        set,
-        get,
-        workspaceId,
-        (root) => findExtensionPane(root, extensionId),
-        (root, paneId) => setPaneExtension(root, paneId, extensionId, title),
-      ),
-
     openGit: (workspaceId, title) =>
       openSingleton(
         set,

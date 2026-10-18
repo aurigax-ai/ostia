@@ -1,0 +1,39 @@
+import '@testing-library/jest-dom/vitest'
+import { commands } from '@/commands/registry'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { ResumeFolderNotice } from './ResumeFolderNotice'
+
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
+
+describe('ResumeFolderNotice', () => {
+  it('says which folder is gone and that nothing was run', () => {
+    render(
+      <ResumeFolderNotice
+        paneId="p1"
+        resume={{ agent: 'claude', id: 'dead1234-0000-4000-8000-000000000000' }}
+        folder="/work/tree"
+      />,
+    )
+    expect(screen.getByRole('region', { name: 'Agent folder missing' })).toHaveTextContent(
+      'The folder claude worked in no longer exists: /work/tree. Nothing was run.',
+    )
+  })
+
+  it('offers only Close tab, which closes this pane', () => {
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    render(
+      <ResumeFolderNotice
+        paneId="p1"
+        resume={{ agent: 'claude', id: 'dead1234-0000-4000-8000-000000000000' }}
+        folder="/work/tree"
+      />,
+    )
+    expect(screen.getAllByRole('button')).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Close tab' }))
+    expect(exec).toHaveBeenCalledWith('pane.close', { paneId: 'p1' })
+  })
+})

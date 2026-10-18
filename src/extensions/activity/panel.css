@@ -9,23 +9,6 @@
   flex: 1;
 }
 
-.toolbar {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 8px;
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--line);
-}
-
-.title {
-  margin: 0;
-  font-size: var(--text-ui-base);
-  line-height: var(--text-ui-base--line-height);
-  font-weight: var(--font-weight-semibold);
-}
-
 .tabs {
   display: flex;
   gap: 4px;
@@ -101,11 +84,16 @@ button.agent-head {
 }
 
 .agent-name {
+  min-width: 0;
+  overflow: hidden;
   font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .state {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 5px;
   padding: 0 7px;
@@ -139,6 +127,9 @@ button.agent-head {
 
 .age {
   flex: 0 0 auto;
+  min-width: 7ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
   font-size: var(--text-ui-xs);
   line-height: var(--text-ui-xs--line-height);
 }
@@ -344,10 +335,6 @@ button.actions-toggle:hover {
   list-style: none;
 }
 
-.action-list[hidden] {
-  display: none;
-}
-
 .event {
   display: flex;
   align-items: baseline;
@@ -430,4 +417,18 @@ button.actions-toggle:hover {
 
 button.done-button {
   flex: 0 0 auto;
+}
+
+.text-changed {
+  animation: text-changed var(--motion-fast) var(--ease-out);
+}
+
+@keyframes text-changed {
+  from {
+    opacity: 0.4;
+  }
+}
+
+[hidden] {
+  display: none;
 }

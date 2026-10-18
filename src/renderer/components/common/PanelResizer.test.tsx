@@ -1,6 +1,12 @@
 import '@testing-library/jest-dom/vitest'
 import { FilesPanel } from '@/components/files/FilesPanel'
-import { FILES_WIDTH, PANEL_KEY_STEP, RAIL_WIDTH, panelMaxWidth } from '@/lib/panes/panelWidth'
+import {
+  FILES_WIDTH,
+  PANEL_KEY_STEP,
+  RAIL_WIDTH,
+  panelMaxWidth,
+  rightPanelWidth,
+} from '@/lib/panes/panelWidth'
 import { useUIStore } from '@/stores/app/uiStore'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
@@ -202,5 +208,61 @@ describe('Files panel resizer', () => {
     await act(async () => {})
     expect(filesSeparator()).toHaveAttribute('aria-valuenow', '460')
     expect(filesVar()).toBe('460px')
+  })
+})
+
+describe('PanelResizer on the right edge', () => {
+  const spec = rightPanelWidth('graphs')
+  const rightSeparator = (): HTMLElement => screen.getByRole('separator', { name: 'Resize Graphs' })
+  const rightVar = (): string => document.documentElement.style.getPropertyValue(spec.cssVar)
+
+  beforeEach(() => {
+    installLocalStorage()
+    HTMLElement.prototype.setPointerCapture = () => {}
+  })
+
+  afterEach(() => {
+    cleanup()
+    window.localStorage.clear()
+    document.documentElement.style.removeProperty(spec.cssVar)
+  })
+
+  const mount = () =>
+    render(
+      <PanelResizer
+        spec={spec}
+        side="right"
+        label="Resize Graphs"
+        controls="right-panel"
+        className="right-resizer"
+      />,
+    )
+
+  it('grows when dragged to the left and stores the width on release', () => {
+    mount()
+    const el = rightSeparator()
+    pointer('pointerdown', el, 900)
+    pointer('pointermove', el, 800)
+    expect(rightVar()).toBe(`${spec.defaultWidth + 100}px`)
+    pointer('pointerup', el, 800)
+    expect(window.localStorage.getItem(spec.storageKey)).toBe(String(spec.defaultWidth + 100))
+  })
+
+  it('narrows when dragged to the right and answers the arrow keys the other way round', () => {
+    mount()
+    const el = rightSeparator()
+    pointer('pointerdown', el, 900)
+    pointer('pointermove', el, 940)
+    expect(rightVar()).toBe(`${spec.defaultWidth - 40}px`)
+    pointer('pointerup', el, 940)
+    fireEvent.keyDown(el, { key: 'ArrowLeft' })
+    expect(el).toHaveAttribute('aria-valuenow', String(spec.defaultWidth - 40 + PANEL_KEY_STEP))
+  })
+
+  it('starts at the width stored for that panel', () => {
+    window.localStorage.setItem(spec.storageKey, '500')
+    mount()
+    expect(rightSeparator()).toHaveAttribute('aria-valuenow', '500')
+    expect(rightVar()).toBe('500px')
   })
 })

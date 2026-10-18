@@ -1,6 +1,7 @@
 import { isViewType } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
 import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import { EXTENSION_ID_PATTERN } from '@aurigax-ai/ostia-extension-sdk/manifest/manifestFields'
 import { parseResumeFailure, parseStoredResume } from '../../shared/agents/agentResume'
 import { parseBrowserDevice } from '../../shared/browser/browserDevice'
 import { VIEW_NAME } from '../../shared/views/views'
@@ -41,7 +42,6 @@ const SURFACE_KINDS: ReadonlySet<string> = new Set<SnapshotSurfaceKind>([
   'editor',
   'agent',
   'browser',
-  'extension',
   'chat',
   'git',
   'view',
@@ -64,7 +64,7 @@ export function snapshotPath(): string {
 function copyOptionalString(
   src: Record<string, unknown>,
   dst: SnapshotPaneNode,
-  key: 'cwd' | 'filePath' | 'url' | 'extensionId' | 'chatSessionId',
+  key: 'cwd' | 'filePath' | 'url' | 'chatSessionId',
 ): void {
   const value = src[key]
   if (typeof value === 'string' && value.length > 0) dst[key] = value
@@ -80,18 +80,21 @@ function tabPaneIds(node: SnapshotNode): string[] {
   return node.type === 'pane' ? [node.id] : node.children.flatMap(tabPaneIds)
 }
 
+const RETIRED = Symbol('retired')
+
 function parseNode(
   raw: unknown,
   paneIds: string[],
   depth: number,
   inTab = false,
-): SnapshotNode | null {
+): SnapshotNode | typeof RETIRED | null {
   if (depth > MAX_LAYOUT_DEPTH || !isRecord(raw)) return null
   const id = raw.id
   if (typeof id !== 'string' || id.length === 0) return null
 
   if (raw.type === 'pane') {
-    if (typeof raw.kind !== 'string' || !SURFACE_KINDS.has(raw.kind)) return null
+    if (typeof raw.kind !== 'string') return null
+    if (!SURFACE_KINDS.has(raw.kind)) return RETIRED
     if (paneIds.length >= MAX_PANES) return null
     const pane: SnapshotPaneNode = {
       type: 'pane',
@@ -107,7 +110,6 @@ function parseNode(
       pane.viewType = raw.viewType
     }
     copyOptionalString(raw, pane, 'url')
-    copyOptionalString(raw, pane, 'extensionId')
     if (pane.kind === 'chat') copyOptionalString(raw, pane, 'chatSessionId')
     if (pane.kind === 'browser' && raw.browserProfile === 'shared') pane.browserProfile = 'shared'
     const device = pane.kind === 'browser' ? parseBrowserDevice(raw.browserDevice) : undefined
@@ -125,7 +127,6 @@ function parseNode(
     if (pane.kind === 'terminal' && raw.defaultTitle === true) pane.defaultTitle = true
     if (raw.titlePinned === true) pane.titlePinned = true
     if (inTab && raw.collapsed === true) pane.collapsed = true
-    if (pane.kind === 'extension' && !pane.extensionId) return null
     if (pane.kind === 'view' && !pane.viewName) return null
     paneIds.push(id)
     return pane
@@ -137,6 +138,7 @@ function parseNode(
     for (const child of raw.children) {
       if (!isRecord(child) || (child.type !== 'pane' && child.type !== 'split')) return null
       const parsed = parseNode(child, paneIds, depth + 1, true)
+      if (parsed === RETIRED) continue
       if (!parsed || parsed.type === 'tabs') return null
       if (parsed.type === 'pane') {
         tabs.push(parsed)
@@ -149,6 +151,7 @@ function parseNode(
         ...(child.folded === true ? { folded: true as const } : {}),
       })
     }
+    if (tabs.length === 0) return RETIRED
     if (tabs.length === 1) return tabs[0]
     const ids = tabs.flatMap(tabPaneIds)
     const activeId = ids.includes(raw.activeId as string) ? (raw.activeId as string) : ids[0]
@@ -159,23 +162,27 @@ function parseNode(
   if (!Array.isArray(raw.children) || raw.children.length === 0) return null
   const direction = raw.direction === 'vertical' ? 'vertical' : 'horizontal'
   const children: SnapshotNode[] = []
-  for (const child of raw.children) {
+  const kept: number[] = []
+  for (const [index, child] of raw.children.entries()) {
     const parsed = parseNode(child, paneIds, depth + 1, inTab)
+    if (parsed === RETIRED) continue
     if (!parsed) return null
     children.push(parsed)
+    kept.push(index)
   }
-  if (inTab && children.length === 1) return children[0]
+  if (children.length === 0) return RETIRED
+  if (children.length === 1 && (inTab || kept.length < raw.children.length)) return children[0]
   const raws = raw.sizes
   const sizesOk =
     Array.isArray(raws) &&
-    raws.length === children.length &&
+    raws.length === raw.children.length &&
     raws.every((n) => typeof n === 'number' && Number.isFinite(n) && n > 0)
   return {
     type: 'split',
     id,
     direction,
     children,
-    sizes: sizesOk ? (raws as number[]) : children.map(() => 1),
+    sizes: sizesOk ? kept.map((index) => (raws as number[])[index]) : children.map(() => 1),
   }
 }
 
@@ -246,8 +253,9 @@ function parseWorkspace(
   if (entry.kind === 'scratch' && !opts.scratch) return null
 
   const paneIds: string[] = []
-  const root = entry.root === undefined ? undefined : parseNode(entry.root, paneIds, 0)
-  if (root === null) return null
+  const parsedRoot = entry.root === undefined ? undefined : parseNode(entry.root, paneIds, 0)
+  if (parsedRoot === null) return null
+  const root = parsedRoot === RETIRED ? undefined : parsedRoot
   if (root && paneIds.length === 0) return null
   if (new Set(paneIds).size !== paneIds.length) return null
   if (paneIds.some((p) => claims.panes.has(p))) return null
@@ -353,15 +361,23 @@ function parseWindows(raw: unknown, claims: Claims, budget: number): SnapshotWin
       id,
       bounds,
       activeWorkspaceId: activeOf(entry.activeWorkspaceId, workspaces),
-      ...parseLeftPanel(entry.leftPanel),
+      ...parseSidePanels(entry),
       workspaces,
     })
   }
   return windows
 }
 
-function parseLeftPanel(raw: unknown): { leftPanel: SnapshotLeftPanel } | null {
-  return raw === 'files' ? { leftPanel: raw } : null
+function parseSidePanels(raw: Record<string, unknown>): {
+  leftPanel?: SnapshotLeftPanel
+  rightPanel?: string
+} {
+  return {
+    ...(raw.leftPanel === 'files' ? { leftPanel: raw.leftPanel } : {}),
+    ...(typeof raw.rightPanel === 'string' && EXTENSION_ID_PATTERN.test(raw.rightPanel)
+      ? { rightPanel: raw.rightPanel }
+      : {}),
+  }
 }
 
 function parseDetachedBounds(
@@ -396,7 +412,7 @@ export function parseSnapshot(raw: unknown): AppSnapshot | null {
     activeWorkspaceId: activeOf(raw.activeWorkspaceId, workspaces),
     workspaces,
     groups: knownGroups.filter((g) => workspaces.some((w) => w.groupId === g.id)),
-    ...parseLeftPanel(raw.leftPanel),
+    ...parseSidePanels(raw),
     ...(bounds ? { bounds } : {}),
     ...(detachedBounds ? { detachedBounds } : {}),
     ...(windows.length > 0 ? { windows } : {}),

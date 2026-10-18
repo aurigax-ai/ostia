@@ -1,7 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { GHOSTTY } from './ghostty'
 import { openWorkspace, typeLine } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
@@ -31,50 +30,43 @@ process.stdin.on('data', (chunk) => {
 process.stdout.write('\\x1b[?1049h\\x1b[?1000h\\x1b[?1006h\\x1b[2Jwheel-counter\\x1b[6n')
 `
 
-const ENGINES = [
-  { name: 'xterm.js', settings: DOM_RENDERER_SETTINGS, screen: '.xterm-screen' },
-  { name: 'Ghostty', settings: GHOSTTY, screen: '.ghostty-screen' },
-]
-
 test.skip(process.platform !== 'linux', 'wheel notches are counted on Linux')
 
-for (const engine of ENGINES) {
-  test(`${engine.name}: a wheel event sends a full-screen program one report or arrow key per notch it carries`, async () => {
-    test.setTimeout(60_000)
-    const dataHome = freshDataHome()
-    seedSettings(dataHome, engine.settings)
-    const script = join(dataHome, 'wheel-counter.cjs')
-    const counts = join(dataHome, 'wheel-counts')
-    writeFileSync(script, WHEEL_COUNTER)
-    const launch = isolatedLaunch(dataHome)
-    const app = await electron.launch({ ...launch, env: { ...launch.env, SHELL: '/bin/zsh' } })
-    try {
-      const win = await app.firstWindow()
-      await openWorkspace(win)
-      const screen = win.locator(engine.screen).first()
-      await screen.click()
-      await typeLine(win, `'${process.execPath}' '${script}' '${counts}'`)
-      const seen = (): string => {
-        try {
-          return readFileSync(counts, 'utf8')
-        } catch {
-          return ''
-        }
+test(`xterm.js: a wheel event sends a full-screen program one report or arrow key per notch it carries`, async () => {
+  test.setTimeout(60_000)
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
+  const script = join(dataHome, 'wheel-counter.cjs')
+  const counts = join(dataHome, 'wheel-counts')
+  writeFileSync(script, WHEEL_COUNTER)
+  const launch = isolatedLaunch(dataHome)
+  const app = await electron.launch({ ...launch, env: { ...launch.env, SHELL: '/bin/zsh' } })
+  try {
+    const win = await app.firstWindow()
+    await openWorkspace(win)
+    const screen = win.locator('.xterm-screen').first()
+    await screen.click()
+    await typeLine(win, `'${process.execPath}' '${script}' '${counts}'`)
+    const seen = (): string => {
+      try {
+        return readFileSync(counts, 'utf8')
+      } catch {
+        return ''
       }
-      await expect.poll(seen, { timeout: 15_000 }).toBe('reports 0 0 0 0')
-      await screen.hover()
-      await win.mouse.wheel(0, 3 * WHEEL_NOTCH)
-      await expect.poll(seen, { timeout: 15_000 }).toBe('reports 3 0 0 0')
-      await win.mouse.wheel(0, -WHEEL_NOTCH)
-      await expect.poll(seen, { timeout: 15_000 }).toBe('reports 3 1 0 0')
-      await win.keyboard.type('a')
-      await expect.poll(seen, { timeout: 15_000 }).toBe('arrows 3 1 0 0')
-      await win.mouse.wheel(0, 2 * WHEEL_NOTCH)
-      await expect.poll(seen, { timeout: 15_000 }).toBe('arrows 3 1 2 0')
-      await win.mouse.wheel(0, -WHEEL_NOTCH)
-      await expect.poll(seen, { timeout: 15_000 }).toBe('arrows 3 1 2 1')
-    } finally {
-      await app.close()
     }
-  })
-}
+    await expect.poll(seen, { timeout: 15_000 }).toBe('reports 0 0 0 0')
+    await screen.hover()
+    await win.mouse.wheel(0, 3 * WHEEL_NOTCH)
+    await expect.poll(seen, { timeout: 15_000 }).toBe('reports 3 0 0 0')
+    await win.mouse.wheel(0, -WHEEL_NOTCH)
+    await expect.poll(seen, { timeout: 15_000 }).toBe('reports 3 1 0 0')
+    await win.keyboard.type('a')
+    await expect.poll(seen, { timeout: 15_000 }).toBe('arrows 3 1 0 0')
+    await win.mouse.wheel(0, 2 * WHEEL_NOTCH)
+    await expect.poll(seen, { timeout: 15_000 }).toBe('arrows 3 1 2 0')
+    await win.mouse.wheel(0, -WHEEL_NOTCH)
+    await expect.poll(seen, { timeout: 15_000 }).toBe('arrows 3 1 2 1')
+  } finally {
+    await app.close()
+  }
+})

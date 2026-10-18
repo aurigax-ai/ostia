@@ -179,6 +179,25 @@ describe('history scroll', () => {
     scroll.dispose()
   })
 
+  it('moves down through history in order and hands back at the seam', async () => {
+    const { stack, scroll } = mount()
+    scroll.interceptWheel(wheelUp())
+    await vi.waitFor(() => expect(box(stack)?.style.visibility).toBe('visible'))
+    scroll.scrollLines(-30)
+    const tops: number[] = [Number(box(stack)?.dataset.top)]
+    for (let i = 0; i < 20 && box(stack)?.style.visibility === 'visible'; i++) {
+      scroll.scrollLines(7)
+      await vi.waitFor(() =>
+        expect(Number(box(stack)?.dataset.top)).toBeGreaterThan(tops.at(-1) ?? 0),
+      )
+      if (box(stack)?.style.visibility === 'visible') tops.push(Number(box(stack)?.dataset.top))
+    }
+    await vi.waitFor(() => expect(box(stack)?.style.visibility).toBe('hidden'))
+    expect(tops.length).toBeGreaterThan(3)
+    expect(tops).toEqual([...tops].sort((a, b) => a - b))
+    scroll.dispose()
+  })
+
   it('returns to the live bottom and types the key when a key is pressed', async () => {
     const { stack, host, term, scroll } = mount()
     scroll.interceptWheel(wheelUp())
@@ -322,6 +341,28 @@ describe('history scroll', () => {
     expect(box(stack)?.style.visibility).toBe('hidden')
     expect(pause).not.toHaveBeenCalledWith(true)
     expect(term.scrollToBottom).toHaveBeenCalled()
+    expect(term.scrollToTop).not.toHaveBeenCalled()
+    scroll.dispose()
+  })
+
+  it('stays on the live terminal when input arrives during the first history load', async () => {
+    const { stack, term, pause, scroll } = mount()
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const serve = vi.mocked(window.ostia.pty.historyRead).getMockImplementation()
+    vi.mocked(window.ostia.pty.historyRead).mockImplementation(async (...args) => {
+      await gate
+      return serve?.(...args) ?? null
+    })
+    scroll.scrollToTop()
+    term.input('x', true)
+    release()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(box(stack)?.style.visibility).not.toBe('visible')
+    expect(pause).not.toHaveBeenCalledWith(true)
+    expect(term.scrollToTop).not.toHaveBeenCalled()
     scroll.dispose()
   })
 

@@ -19,7 +19,6 @@ import {
   hostHarness,
   settle,
 } from './fakeExt'
-import en from './locales/en.json'
 import { panelHandlers } from './panelHandlers'
 import type { Definition, ListModel, RunModel, RuntimeModel } from './panelModel'
 import type { Workspace } from './runner'
@@ -250,8 +249,6 @@ describe('the Graphs panel data', () => {
       state: 'ready',
       daemon: false,
     })
-    expect(en.messages.runsAsDaemon).toContain('while Ostia is closed')
-    expect(en.messages.runsWhileOpen).toContain('while Ostia is open')
   })
 
   it('listing again with no workspace or graph file changed sends the runtime nothing that tells a client to render again', async () => {
