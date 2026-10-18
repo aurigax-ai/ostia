@@ -108,7 +108,6 @@
     "e2e/browser-tab.spec.ts",
     "e2e/browser-width.spec.ts",
     "e2e/detached-send.spec.ts",
-    "e2e/os-file-drop.spec.ts",
-    "e2e/preview-send.spec.ts"
+    "e2e/os-file-drop.spec.ts"
   ]
 }

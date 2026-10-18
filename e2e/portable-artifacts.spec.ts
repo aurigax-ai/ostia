@@ -6,6 +6,7 @@ import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } fr
 import { fakeAgentBin, startFakeAgent } from './fakeAgent'
 import { expectHeld, openWorkspace, runInTerminal } from './helpers'
 import {
+  type Browser,
   type BrowserContext,
   type BrowserType,
   type ElectronApplication,
@@ -96,23 +97,39 @@ async function savePortable(
   await expect.poll(() => existsSync(target), { timeout: 30_000 }).toBe(true)
 }
 
+const launchedBrowsers = new Map<string, Browser>()
+
+test.afterAll(async () => {
+  const open = [...launchedBrowsers.values()]
+  launchedBrowsers.clear()
+  await Promise.all(open.map((browser) => browser.close()))
+})
+
+async function browserOf(name: string, type: BrowserType): Promise<Browser> {
+  const known = launchedBrowsers.get(name)
+  if (known) return known
+  const browser = await type.launch({ headless: true })
+  launchedBrowsers.set(name, browser)
+  return browser
+}
+
 async function inBrowsers(
   file: string,
   run: (frame: FrameLocator, page: Page, name: string, context: BrowserContext) => Promise<void>,
   options: { offline?: boolean; viewport?: { width: number; height: number } } = {},
 ): Promise<void> {
   for (const [name, type] of BROWSERS) {
-    const browser = await type.launch({ headless: true })
+    const browser = await browserOf(name, type)
+    const context = await browser.newContext({
+      viewport: options.viewport ?? { width: 900, height: 700 },
+    })
     try {
-      const context = await browser.newContext({
-        viewport: options.viewport ?? { width: 900, height: 700 },
-      })
       if (options.offline !== false) await context.setOffline(true)
       const page = (await context.newPage()) as unknown as Page
       await page.goto(pathToFileURL(file).href)
       await run(page.frameLocator('iframe'), page, name, context)
     } finally {
-      await browser.close()
+      await context.close()
     }
   }
 }
@@ -177,10 +194,45 @@ graph TD
 const LOGO =
   '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#3366ff"/></svg>'
 
-test('PRT-C1 a portable file of every type opens offline in Chromium and Firefox and works', async () => {
+const ESCAPES = `export default function Escapes() {
+  const r: Record<string, string> = {}
+  const tried = (name: string, run: () => unknown) => {
+    try {
+      const value = run()
+      r[name] = value === undefined || value === null ? 'nothing' : String(value)
+    } catch (e) {
+      r[name] = 'threw'
+    }
+  }
+  tried('storage', () => { localStorage.setItem('a', '1'); return 'stored' })
+  tried('cookie', () => document.cookie)
+  tried('open', () => window.open('http://127.0.0.1:__PORT__/popup'))
+  tried('top', () => { top!.location.href = 'http://127.0.0.1:__PORT__/top'; return 'set' })
+  tried('form', () => {
+    const form = document.createElement('form')
+    form.method = 'post'
+    form.action = 'http://127.0.0.1:__PORT__/form'
+    document.body.appendChild(form)
+    form.submit()
+    return 'submitted'
+  })
+  return <pre id="result">{JSON.stringify(r)}</pre>
+}
+`
+
+const NAVIGATES = `<!doctype html>
+<body>
+<a id="link" href="http://127.0.0.1:__PORT__/y">a link</a>
+<button id="go" onclick="location.href = 'http://127.0.0.1:__PORT__/x'">go</button>
+</body>
+`
+
+test('PRT-C1 PRT-C4 PRT-C5 PRT-C6 a portable file of every type opens offline in Chromium and Firefox and works, cannot reach the network or leave its frame, and opens a Markdown link in a new tab', async () => {
   test.setTimeout(300_000)
   const dataHome = freshDataHome()
   const dir = home(dataHome)
+  const outside = await listen()
+  const target = await listen()
   const files: Record<string, string> = {
     'chart.tsx': CHART,
     'page.html': PAGE,
@@ -188,12 +240,15 @@ test('PRT-C1 a portable file of every type opens offline in Chromium and Firefox
     'logo.svg': LOGO,
     'rows.csv': 'name,count\nalpha,1\nbeta,2\n',
     'data.json': '{"answer":42,"list":[1,2]}',
+    'escapes.tsx': ESCAPES.replaceAll('__PORT__', String(outside.port)),
+    'navigates.html': NAVIGATES.replaceAll('__PORT__', String(outside.port)),
+    'link.md': `# Plan\n\n[docs](http://127.0.0.1:${target.port}/docs)\n`,
   }
   for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, name), body)
-  const outside = await listen()
   const { app, win } = await launch(dataHome)
   const saved = join(dataHome, 'saved')
   mkdirSync(saved)
+  const savedFile = (name: string): string => join(saved, `${name}.html`)
   try {
     for (const name of Object.keys(files)) {
       await openArtifact(win, name)
@@ -202,50 +257,105 @@ test('PRT-C1 a portable file of every type opens offline in Chromium and Firefox
           .poll(() => viewerGuestText(app, { viewType: 'csv.table', name }), { timeout: 20_000 })
           .toContain('alpha')
       }
-      await savePortable(app, win, name, join(saved, `${name}.html`))
+      await savePortable(app, win, name, savedFile(name))
     }
   } finally {
     await app.close()
   }
   try {
-    await inBrowsers(join(saved, 'chart.tsx.html'), async (frame, _page, name) => {
-      await expect(frame.locator('#inc'), name).toHaveText('count 0', { timeout: 15_000 })
-      await frame.locator('#inc').click()
-      await expect(frame.locator('#inc'), name).toHaveText('count 1')
-      await expect(frame.locator('svg.lucide'), name).toHaveCount(1)
-      await expect(frame.locator('.recharts-line path'), name).toHaveCount(1)
-      await expect(frame.locator('#box'), name).toHaveCSS('padding-top', '16px')
+    await test.step('PRT-C1 every type opens offline and works', async () => {
+      await inBrowsers(savedFile('chart.tsx'), async (frame, _page, name) => {
+        await expect(frame.locator('#inc'), name).toHaveText('count 0', { timeout: 15_000 })
+        await frame.locator('#inc').click()
+        await expect(frame.locator('#inc'), name).toHaveText('count 1')
+        await expect(frame.locator('svg.lucide'), name).toHaveCount(1)
+        await expect(frame.locator('.recharts-line path'), name).toHaveCount(1)
+        await expect(frame.locator('#box'), name).toHaveCSS('padding-top', '16px')
+      })
+      await inBrowsers(savedFile('page.html'), async (frame, _page, name) => {
+        await expect(frame.locator('#out'), name).toHaveText('scaled 5', { timeout: 15_000 })
+      })
+      await inBrowsers(savedFile('plan.md'), async (frame, _page, name) => {
+        await expect(frame.locator('h1'), name).toHaveText('Plan')
+        const diagram = frame.locator('img.mermaid-diagram')
+        await expect(diagram, name).toHaveCount(1)
+        await expect
+          .poll(() => diagram.evaluate((img: HTMLImageElement) => img.naturalWidth), {
+            message: name,
+          })
+          .toBeGreaterThan(0)
+      })
+      await inBrowsers(savedFile('logo.svg'), async (frame, _page, name) => {
+        await expect
+          .poll(() => frame.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth), {
+            message: name,
+          })
+          .toBe(40)
+      })
+      await inBrowsers(savedFile('rows.csv'), async (frame, _page, name) => {
+        await expect(frame.locator('td'), name).toHaveCount(4)
+        await expect(frame.locator('th').first(), name).toHaveText('name')
+      })
+      await inBrowsers(savedFile('data.json'), async (frame, _page, name) => {
+        await expect(frame.locator('pre'), name).toContainText('"answer": 42')
+      })
     })
-    await inBrowsers(join(saved, 'page.html.html'), async (frame, _page, name) => {
-      await expect(frame.locator('#out'), name).toHaveText('scaled 5', { timeout: 15_000 })
+
+    await test.step('PRT-C4 no storage, cookies, popups, top navigation or forms', async () => {
+      await inBrowsers(
+        savedFile('escapes.tsx'),
+        async (frame, page, name, context) => {
+          const text = await frame.locator('#result').textContent({ timeout: 15_000 })
+          const r = JSON.parse(text ?? '{}') as Record<string, string>
+          expect(r.storage, name).toBe('threw')
+          expect(['threw', 'nothing', ''], name).toContain(r.cookie)
+          expect(['threw', 'nothing'], name).toContain(r.open)
+          expect(r.top, name).toBe('threw')
+          await expectHeld(
+            async () => [page.url(), context.pages().length],
+            [pathToFileURL(savedFile('escapes.tsx')).href, 1],
+            500,
+            name,
+          )
+        },
+        { offline: false },
+      )
     })
-    await inBrowsers(join(saved, 'plan.md.html'), async (frame, _page, name) => {
-      await expect(frame.locator('h1'), name).toHaveText('Plan')
-      const diagram = frame.locator('img.mermaid-diagram')
-      await expect(diagram, name).toHaveCount(1)
-      await expect
-        .poll(() => diagram.evaluate((img: HTMLImageElement) => img.naturalWidth), {
-          message: name,
-        })
-        .toBeGreaterThan(0)
+
+    await test.step('PRT-C5 no navigation of the frame to the network by script or link', async () => {
+      const navigates = savedFile('navigates.html')
+      await inBrowsers(
+        navigates,
+        async (frame, page, name) => {
+          for (const control of ['#go', '#link']) {
+            await page.goto(pathToFileURL(navigates).href)
+            await frame.locator(control).click({ timeout: 10_000 })
+            await expectHeld(async () => outside.hits(), 0, 1_000, `${name} ${control}`)
+          }
+        },
+        { offline: false },
+      )
     })
-    await inBrowsers(join(saved, 'logo.svg.html'), async (frame, _page, name) => {
-      await expect
-        .poll(() => frame.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth), {
-          message: name,
-        })
-        .toBe(40)
-    })
-    await inBrowsers(join(saved, 'rows.csv.html'), async (frame, _page, name) => {
-      await expect(frame.locator('td'), name).toHaveCount(4)
-      await expect(frame.locator('th').first(), name).toHaveText('name')
-    })
-    await inBrowsers(join(saved, 'data.json.html'), async (frame, _page, name) => {
-      await expect(frame.locator('pre'), name).toContainText('"answer": 42')
+
+    await test.step('PRT-C6 a Markdown link opens in a new tab and the file runs no script', async () => {
+      await inBrowsers(
+        savedFile('link.md'),
+        async (frame, _page, name, context) => {
+          await expect(frame.locator('script'), name).toHaveCount(0)
+          const opened = context.waitForEvent('page', { timeout: 10_000 })
+          await frame.getByRole('link', { name: 'docs' }).click()
+          const tab = await opened
+          await expect
+            .poll(() => tab.url(), { message: name })
+            .toBe(`http://127.0.0.1:${target.port}/docs`)
+        },
+        { offline: false },
+      )
     })
     expect(outside.hits()).toBe(0)
   } finally {
     await outside.close()
+    await target.close()
   }
 })
 
@@ -316,149 +426,6 @@ test('PRT-C2 the Ostia preview and the portable file in Chromium look the same',
     expect(differing).toBeLessThanOrEqual(0.01)
   } finally {
     await app.close()
-  }
-})
-
-const ESCAPES = `export default function Escapes() {
-  const r: Record<string, string> = {}
-  const tried = (name: string, run: () => unknown) => {
-    try {
-      const value = run()
-      r[name] = value === undefined || value === null ? 'nothing' : String(value)
-    } catch (e) {
-      r[name] = 'threw'
-    }
-  }
-  tried('storage', () => { localStorage.setItem('a', '1'); return 'stored' })
-  tried('cookie', () => document.cookie)
-  tried('open', () => window.open('http://127.0.0.1:__PORT__/popup'))
-  tried('top', () => { top!.location.href = 'http://127.0.0.1:__PORT__/top'; return 'set' })
-  tried('form', () => {
-    const form = document.createElement('form')
-    form.method = 'post'
-    form.action = 'http://127.0.0.1:__PORT__/form'
-    document.body.appendChild(form)
-    form.submit()
-    return 'submitted'
-  })
-  return <pre id="result">{JSON.stringify(r)}</pre>
-}
-`
-
-test('PRT-C4 a portable file has no storage, cookies, popups, top navigation or forms in a browser', async () => {
-  test.setTimeout(240_000)
-  const dataHome = freshDataHome()
-  const outside = await listen()
-  writeFileSync(
-    join(home(dataHome), 'escapes.tsx'),
-    ESCAPES.replaceAll('__PORT__', String(outside.port)),
-  )
-  const saved = join(dataHome, 'escapes.html')
-  const { app, win } = await launch(dataHome)
-  try {
-    await openArtifact(win, 'escapes.tsx')
-    await savePortable(app, win, 'escapes.tsx', saved)
-  } finally {
-    await app.close()
-  }
-  try {
-    await inBrowsers(
-      saved,
-      async (frame, page, name, context) => {
-        const text = await frame.locator('#result').textContent({ timeout: 15_000 })
-        const r = JSON.parse(text ?? '{}') as Record<string, string>
-        expect(r.storage, name).toBe('threw')
-        expect(['threw', 'nothing', ''], name).toContain(r.cookie)
-        expect(['threw', 'nothing'], name).toContain(r.open)
-        expect(r.top, name).toBe('threw')
-        await expectHeld(
-          async () => [page.url(), context.pages().length],
-          [pathToFileURL(saved).href, 1],
-          500,
-          name,
-        )
-      },
-      { offline: false },
-    )
-    expect(outside.hits()).toBe(0)
-  } finally {
-    await outside.close()
-  }
-})
-
-const NAVIGATES = `<!doctype html>
-<body>
-<a id="link" href="http://127.0.0.1:__PORT__/y">a link</a>
-<button id="go" onclick="location.href = 'http://127.0.0.1:__PORT__/x'">go</button>
-</body>
-`
-
-test('PRT-C5 a portable file cannot navigate its frame to the network by script or link', async () => {
-  test.setTimeout(240_000)
-  const dataHome = freshDataHome()
-  const outside = await listen()
-  writeFileSync(
-    join(home(dataHome), 'navigates.html'),
-    NAVIGATES.replaceAll('__PORT__', String(outside.port)),
-  )
-  const saved = join(dataHome, 'navigates.html.html')
-  const { app, win } = await launch(dataHome)
-  try {
-    await openArtifact(win, 'navigates.html')
-    await savePortable(app, win, 'navigates.html', saved)
-  } finally {
-    await app.close()
-  }
-  try {
-    await inBrowsers(
-      saved,
-      async (frame, page, name) => {
-        for (const control of ['#go', '#link']) {
-          await page.goto(pathToFileURL(saved).href)
-          await frame.locator(control).click({ timeout: 10_000 })
-          await expectHeld(async () => outside.hits(), 0, 1_000, `${name} ${control}`)
-        }
-      },
-      { offline: false },
-    )
-    expect(outside.hits()).toBe(0)
-  } finally {
-    await outside.close()
-  }
-})
-
-test('PRT-C6 a link in a portable Markdown file opens in a new tab, and the file runs no script', async () => {
-  test.setTimeout(240_000)
-  const dataHome = freshDataHome()
-  const target = await listen()
-  writeFileSync(
-    join(home(dataHome), 'plan.md'),
-    `# Plan\n\n[docs](http://127.0.0.1:${target.port}/docs)\n`,
-  )
-  const saved = join(dataHome, 'plan.html')
-  const { app, win } = await launch(dataHome)
-  try {
-    await openArtifact(win, 'plan.md')
-    await savePortable(app, win, 'plan.md', saved)
-  } finally {
-    await app.close()
-  }
-  try {
-    await inBrowsers(
-      saved,
-      async (frame, _page, name, context) => {
-        await expect(frame.locator('script'), name).toHaveCount(0)
-        const opened = context.waitForEvent('page', { timeout: 10_000 })
-        await frame.getByRole('link', { name: 'docs' }).click()
-        const tab = await opened
-        await expect
-          .poll(() => tab.url(), { message: name })
-          .toBe(`http://127.0.0.1:${target.port}/docs`)
-      },
-      { offline: false },
-    )
-  } finally {
-    await target.close()
   }
 })
 

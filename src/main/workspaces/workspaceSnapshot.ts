@@ -11,6 +11,7 @@ import type {
   PanePlacement,
   PanePlacementZone,
   SnapshotGroup,
+  SnapshotLeftPanel,
   SnapshotNode,
   SnapshotPaneNode,
   SnapshotSurfaceKind,
@@ -352,10 +353,15 @@ function parseWindows(raw: unknown, claims: Claims, budget: number): SnapshotWin
       id,
       bounds,
       activeWorkspaceId: activeOf(entry.activeWorkspaceId, workspaces),
+      ...parseLeftPanel(entry.leftPanel),
       workspaces,
     })
   }
   return windows
+}
+
+function parseLeftPanel(raw: unknown): { leftPanel: SnapshotLeftPanel } | null {
+  return raw === 'files' ? { leftPanel: raw } : null
 }
 
 function parseDetachedBounds(
@@ -390,6 +396,7 @@ export function parseSnapshot(raw: unknown): AppSnapshot | null {
     activeWorkspaceId: activeOf(raw.activeWorkspaceId, workspaces),
     workspaces,
     groups: knownGroups.filter((g) => workspaces.some((w) => w.groupId === g.id)),
+    ...parseLeftPanel(raw.leftPanel),
     ...(bounds ? { bounds } : {}),
     ...(detachedBounds ? { detachedBounds } : {}),
     ...(windows.length > 0 ? { windows } : {}),

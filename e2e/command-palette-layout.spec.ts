@@ -8,6 +8,17 @@ import { type ElectronApplication, type Page, expect, launchShared, test } from 
 const RIGHT_EDGE_MAX = 16
 
 async function rows(win: Page) {
+  await win.waitForFunction(() => {
+    const list = document.querySelector('[data-slot="command-list"]')
+    const popup = list?.closest<HTMLElement>('[data-slot="dialog-content"]')
+    if (!popup) return false
+    const style = getComputedStyle(popup)
+    return (
+      !popup.hasAttribute('data-starting-style') &&
+      style.transform === 'none' &&
+      style.opacity === '1'
+    )
+  })
   return win.evaluate(() => {
     const list = document.querySelector('[data-slot="command-list"]') as HTMLElement
     const listRect = list.getBoundingClientRect()
@@ -24,7 +35,7 @@ async function rows(win: Page) {
       const trailingRect = trailing?.getBoundingClientRect()
       const rowRect = row.getBoundingClientRect()
       return {
-        edge: trailingRect ? rowRect.right - trailingRect.right : null,
+        edge: trailingRect ? Math.round(rowRect.right - trailingRect.right) : null,
         afterTitle: trailingRect ? trailingRect.left >= textRect.right : true,
         hasKeys: keys !== null,
         keysDimmer: keys ? getComputedStyle(keys).color !== getComputedStyle(name).color : true,

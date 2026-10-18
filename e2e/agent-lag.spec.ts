@@ -6,7 +6,6 @@ import { type Locator, _electron as electron, expect, test } from './test'
 
 const BUSY_AGENT = resolve(__dirname, '../test/fixtures/agents/busy-agent.mjs')
 const AGENT_FPS = 30
-const WINDOW_MS = 4_000
 const MAX_COMMITS = 40
 const MAX_SAVES = 6
 
@@ -74,12 +73,12 @@ test('an agent that redraws its spinner and title every frame does not re-render
     const frameBefore = await agentFrame(rows)
     const commitsBefore = await commits()
     const savesBefore = await saves()
-    await win.waitForTimeout(WINDOW_MS)
+    await expect
+      .poll(async () => (await agentFrame(rows)) - frameBefore, { timeout: 30_000 })
+      .toBeGreaterThan(MAX_COMMITS * 2)
     const committed = (await commits()) - commitsBefore
     const saved = (await saves()) - savesBefore
-    const frames = (await agentFrame(rows)) - frameBefore
 
-    expect(frames).toBeGreaterThan(MAX_COMMITS * 2)
     expect(committed).toBeLessThan(MAX_COMMITS)
     expect(saved).toBeLessThanOrEqual(MAX_SAVES)
 

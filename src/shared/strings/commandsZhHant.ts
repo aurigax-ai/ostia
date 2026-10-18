@@ -85,6 +85,8 @@ export const commandsZhHant: typeof commandsEn = {
       'file.openWith': '開啟方式…',
       'files.reveal': '在檔案面板顯示資料夾',
       'git.blameFile': '逐行追溯檔案',
+      'git.openNextChange': '開啟下一個變更的檔案',
+      'git.openPreviousChange': '開啟上一個變更的檔案',
       'git.show': '顯示變更',
       'git.showGraph': '顯示線圖',
       'history.insert': '插入指令',

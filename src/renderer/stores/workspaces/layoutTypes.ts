@@ -1,8 +1,8 @@
 import type { CollapseChange } from '@/lib/layout/collapse'
 import type { DropZone } from '@/lib/layout/tree'
 import type { Direction, LayoutNode, SurfaceKind } from '@/lib/layout/types'
-import type { DiffContent } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { AgentResume } from '@shared/agents/agentResume'
+import type { ShownDiff } from '@shared/boards/git'
 import type { BrowserDevice } from '@shared/browser/browserDevice'
 import type { BrowserProfile } from '@shared/browser/browserProfile'
 import type { SplitTabPlacement } from '@shared/workspaces/splitTabs'
@@ -74,7 +74,7 @@ export interface LayoutState {
   openExtensionPanel: (workspaceId: string, extensionId: string, title: string) => string | null
   openGit: (workspaceId: string, title: string) => string | null
   openView: (workspaceId: string, viewName: string, title: string) => string | null
-  openDiff: (workspaceId: string, content: DiffContent) => string | null
+  openDiff: (workspaceId: string, content: ShownDiff) => string | null
   openChat: (workspaceId: string, title: string) => string | null
   setChatSession: (workspaceId: string, paneId: string, sessionId: string, title: string) => void
   openTerminal: (workspaceId: string, opts: OpenTerminalPlacement) => string | null

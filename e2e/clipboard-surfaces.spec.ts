@@ -103,6 +103,13 @@ test(
     try {
       const rows = win.locator('.xterm-rows').first()
       await win.locator('.xterm').first().click()
+      await writeClipboard(app, 'echo pasted_$((6*7))')
+      await win.keyboard.press('Control+v')
+      await win.keyboard.press('x')
+      await expect(rows).toContainText(/[❯$%#] x/)
+      await expect(rows).not.toContainText('pasted_')
+      await win.keyboard.press('Control+c')
+      await expect(rows).toContainText(/[❯$%#] x.*[❯$%#]/)
       await win.keyboard.type('echo ostiacopyword')
       await win.keyboard.press('Enter')
       await expect(rows.locator('> div', { hasText: /^ostiacopyword/ })).toHaveCount(1)

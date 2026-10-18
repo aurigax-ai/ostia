@@ -28,9 +28,12 @@ export const settingsZhHant: typeof settingsEn = {
     autoSaveDesc: '編輯時自動儲存已變更的檔案。',
     autoSaveOff: '關閉',
     autoSaveOnFocusChange: '焦點離開時',
+    diffAuto: '自動',
+    diffIgnoreWhitespace: '差異檢視忽略空白',
+    diffIgnoreWhitespaceDesc: '不顯示僅在行尾新增或移除空白的變更。',
     diffInline: '內嵌',
     diffLayout: '差異檢視版面',
-    diffLayoutDesc: '差異檢視開啟時的版面。每個差異檢視中的按鈕可切換。',
+    diffLayoutDesc: '並排、內嵌，或自動：窗格過窄前並排顯示。每個差異檢視中的按鈕可設定。',
     diffSideBySide: '並排',
     formatOnSave: '儲存時格式化',
     formatOnSaveDesc:

@@ -110,14 +110,19 @@ describe('parseEditorSettings', () => {
       theme: 'rose-pine',
       markdownPreview: true,
       diffLayout: 'inline',
+      diffIgnoreWhitespace: true,
     }
     expect(parseEditorSettings(custom)).toEqual(custom)
   })
 
-  it('opens Markdown as source and diffs side by side unless set otherwise', () => {
+  it('opens Markdown as source and lets a diff pick its layout unless set otherwise', () => {
     expect(parseEditorSettings({}).markdownPreview).toBe(false)
     expect(parseEditorSettings({ markdownPreview: 'yes' }).markdownPreview).toBe(false)
-    expect(parseEditorSettings({ diffLayout: 'stacked' }).diffLayout).toBe('sideBySide')
+    expect(parseEditorSettings({}).diffLayout).toBe('auto')
+    expect(parseEditorSettings({ diffLayout: 'stacked' }).diffLayout).toBe('auto')
+    expect(parseEditorSettings({ diffLayout: 'sideBySide' }).diffLayout).toBe('sideBySide')
+    expect(parseEditorSettings({}).diffIgnoreWhitespace).toBe(false)
+    expect(parseEditorSettings({ diffIgnoreWhitespace: 'yes' }).diffIgnoreWhitespace).toBe(false)
   })
 
   it('links the editor colors to the Ostia theme by default', () => {

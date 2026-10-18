@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
+import { foldSplitTab, settleCollapse } from './collapse'
 import { arrangeSplitTab, joinSplitTab, separateFromSplitTab } from './tabJoin'
 import {
+  closePane,
   createPane,
+  findPane,
   findSplitTabByName,
   isPaneShown,
   paneIds,
+  selectTab as selectTabFor,
   splitOf,
   splitTabOfPane,
   tabsOf,
@@ -115,5 +119,57 @@ describe('separateFromSplitTab', () => {
     const [a, b] = panes(2)
     const root = tabsOf(a.id, a, b)
     expect(separateFromSplitTab(root, [b.id], 3)).toBe(root)
+  })
+})
+
+describe('a folded split tab stays folded', () => {
+  function folded() {
+    const [lone, a, b, e, c, d] = panes(6)
+    const joined = joinSplitTab(
+      tabsOf(lone.id, lone, a, b, e, c, d),
+      [a.id, b.id, e.id],
+      'workers',
+      3,
+    )
+    const tab = findSplitTabByName(joined, 'workers') as SplitNode
+    const tucked = {
+      ...joined,
+      children: (joined as ReturnType<typeof tabsOf>).children.map((child) =>
+        child === tab
+          ? { ...tab, children: [{ ...a, collapsed: true as const }, b, e], folded: true as const }
+          : child,
+      ),
+    } as LayoutNode
+    return { lone, a, b, e, c, d, root: foldSplitTab(tucked, tab.id) }
+  }
+
+  const settled = (root: LayoutNode, shownId: string) => settleCollapse(selectTabFor(root, shownId))
+
+  it('keeps the fold, the collapsed pane and the shown tab when a pane joins', () => {
+    const { lone, a, c, root } = folded()
+    const next = settled(joinSplitTab(root, [c.id], 'workers', 3), lone.id)
+    const tab = findSplitTabByName(next, 'workers') as SplitNode
+    expect(tab.folded).toBe(true)
+    expect(findPane(next, a.id)?.collapsed).toBe(true)
+    expect(tabsOfPane(next, lone.id)?.activeId).toBe(lone.id)
+    expect(paneIds(tab)).toContain(c.id)
+  })
+
+  it('keeps the fold, the collapsed pane and the shown tab when a pane leaves', () => {
+    const { lone, a, b, e, root } = folded()
+    const next = settled(separateFromSplitTab(root, [b.id], 3), lone.id)
+    expect(paneIds(findSplitTabByName(next, 'workers') as SplitNode)).toEqual([a.id, e.id])
+    expect((findSplitTabByName(next, 'workers') as SplitNode).folded).toBe(true)
+    expect(findPane(next, a.id)?.collapsed).toBe(true)
+    expect(tabsOfPane(next, lone.id)?.activeId).toBe(lone.id)
+  })
+
+  it('keeps the fold when a member closes', () => {
+    const { lone, a, b, e, d, root } = folded()
+    const grown = joinSplitTab(root, [d.id], 'workers', 3)
+    const next = settled(closePane(grown, d.id), lone.id)
+    expect((findSplitTabByName(next, 'workers') as SplitNode).folded).toBe(true)
+    expect(findPane(next, a.id)?.collapsed).toBe(true)
+    expect(paneIds(findSplitTabByName(next, 'workers') as SplitNode)).toEqual([a.id, b.id, e.id])
   })
 })
