@@ -21,8 +21,8 @@ const OUT_FLAGS = constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | co
 export type Opener = (archive: string, limits: ArchiveReaderLimits) => Promise<TarInput | null>
 
 function stopAll(source: TarInput, error?: Error): void {
-  source.input.destroy(error)
-  for (const stage of source.stages) stage.destroy()
+  source.input.destroy()
+  for (const stage of source.stages) stage.destroy(error)
 }
 
 function cancellable(open: OpenTar, signal: AbortSignal): OpenTar {
@@ -36,7 +36,7 @@ function cancellable(open: OpenTar, signal: AbortSignal): OpenTar {
     }
     const stop = (): void => stopAll(source, new Error('cancelled'))
     signal.addEventListener('abort', stop, { once: true })
-    source.input.once('close', () => signal.removeEventListener('abort', stop))
+    source.output.once('close', () => signal.removeEventListener('abort', stop))
     return source
   }
 }

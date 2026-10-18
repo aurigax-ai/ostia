@@ -3,9 +3,13 @@ import { connect } from '@aurigax-ai/ostia-extension-sdk'
 import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { ARCHIVE_READS_DIR } from '@aurigax-ai/ostia-extension-sdk/contract/archiveReaders'
 import { type Opener, listArchive, readArchive } from './archiveAnswers'
+import { bzip2Opener } from './bzip2Source'
 import { openXz } from './xzSource'
 
-const OPENERS: Record<string, Opener> = { xz: openXz }
+const OPENERS: Record<string, Opener> = {
+  xz: openXz,
+  bzip2: bzip2Opener(join(__dirname, 'bzip2.thread.js')),
+}
 
 async function main(): Promise<void> {
   const ext = await connect()

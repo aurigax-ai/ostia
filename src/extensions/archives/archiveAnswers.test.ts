@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import {
   mkdirSync,
   mkdtempSync,
@@ -19,6 +20,7 @@ import { XzCompressor } from '@napi-rs/lzma'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type TarItem, tarOf } from '../../../test/fixtures/archives/archives'
 import { type Opener, listArchive, readArchive } from './archiveAnswers'
+import { bzip2Opener } from './bzip2Source'
 import { openXz } from './xzSource'
 
 const MIB = 1024 * 1024
@@ -38,7 +40,16 @@ async function xz(bytes: Uint8Array): Promise<Buffer> {
   return Buffer.concat([compressor.update(bytes), await compressor.finish()])
 }
 
-const FORMATS: [string, (bytes: Uint8Array) => Promise<Buffer>, Opener][] = [['tar.xz', xz, openXz]]
+async function bzip2(bytes: Uint8Array): Promise<Buffer> {
+  return execFileSync('bzip2', ['-9', '-c'], { input: bytes, maxBuffer: 64 * MIB })
+}
+
+const BZIP2_WORKER = join(__dirname, '../../../out/extensions/archives/bzip2.thread.js')
+
+const FORMATS: [string, (bytes: Uint8Array) => Promise<Buffer>, Opener][] = [
+  ['tar.xz', xz, openXz],
+  ['tar.bz2', bzip2, bzip2Opener(BZIP2_WORKER)],
+]
 
 let dir: string
 let reads: string
@@ -207,9 +218,22 @@ describe.each(FORMATS)('%s', (format, compress, opener) => {
     expect(await read(path, 5)).toEqual({ ok: false, error: 'gone' })
   })
 
+  it('reads streams written one after another as one tar', async () => {
+    const whole = tar([
+      { name: 'a.txt', data: 'first' },
+      { name: 'b.txt', data: 'second' },
+    ])
+    const path = join(dir, `multi.${format}`)
+    const halves = [whole.subarray(0, 700), whole.subarray(700)]
+    writeFileSync(path, Buffer.concat(await Promise.all(halves.map(compress))))
+    expect(names(await list(path))).toEqual(['a.txt', 'b.txt'])
+    expect(await read(path, 1)).toEqual({ ok: true, size: 6 })
+  })
+
   it('does not open a compressed stream inside the compressed stream', async () => {
     const inner = tar([{ name: 'a.txt', data: 'x' }])
-    for (const nested of [gzipSync(inner), await xz(inner), Buffer.concat([BZIP2_HEAD, inner])]) {
+    const nests = [gzipSync(inner), await xz(inner), await bzip2(inner)]
+    for (const nested of [...nests, Buffer.concat([BZIP2_HEAD, inner])]) {
       const path = await put(nested)
       expect(await list(path)).toEqual({ ok: false, error: 'failed' })
       expect(await read(path, 0)).toEqual({ ok: false, error: 'gone' })

@@ -3,7 +3,7 @@
   "name": "More archives",
   "version": "1.0.0",
   "api": "4.13",
-  "description": "Lets Files expand .tar.xz archives like a zip: their entries list as a tree and open without anything being extracted to disk. It reads headers only to list, unpacks an entry only when you open it, stops at the same entry, size and time limits as the formats Files reads itself, never follows links and sends nothing anywhere.",
+  "description": "Lets Files expand .tar.xz and .tar.bz2 archives like a zip: their entries list as a tree and open without anything being extracted to disk. It reads headers only to list, unpacks an entry only when you open it, stops at the same entry, size and time limits as the formats Files reads itself, never follows links and sends nothing anywhere.",
   "category": "tools",
   "main": "main.js",
   "locales": ["zh-Hant"],
@@ -13,6 +13,15 @@
         "id": "xz",
         "displayName": "tar.xz",
         "selector": [{ "filenamePattern": "*.tar.xz" }, { "filenamePattern": "*.txz" }]
+      },
+      {
+        "id": "bzip2",
+        "displayName": "tar.bz2",
+        "selector": [
+          { "filenamePattern": "*.tar.bz2" },
+          { "filenamePattern": "*.tbz2" },
+          { "filenamePattern": "*.tbz" }
+        ]
       }
     ]
   }

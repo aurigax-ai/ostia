@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -20,6 +21,10 @@ const FILES = [
   { name: 'docs/deep/note.md', data: '# note' },
   { name: 'top.csv', data: 'a,b' },
 ]
+
+async function bzip2(bytes: Uint8Array): Promise<Buffer> {
+  return execFileSync('bzip2', ['-9', '-c'], { input: bytes })
+}
 
 async function xz(bytes: Uint8Array): Promise<Buffer> {
   const compressor = new XzCompressor({ preset: 0 })
@@ -74,9 +79,12 @@ describe('the built-in archives extension behind Files (real process, real socke
     rmSync(dir, { recursive: true, force: true })
   })
 
-  it('expands a .tar.xz like a zip and opens an entry, then shows a plain row once disabled', async () => {
-    const path = join(files, 'bundle.tar.xz')
-    writeFileSync(path, await xz(tarOf(FILES, false)))
+  it.each([
+    ['bundle.tar.xz', xz],
+    ['bundle.tar.bz2', bzip2],
+  ])('expands %s like a zip and opens an entry without extracting it', async (name, compress) => {
+    const path = join(files, name)
+    writeFileSync(path, await compress(tarOf(FILES, false)))
     const root = archiveRoot(path)
     expect(await archives.list(root)).toEqual([
       { name: 'docs', dir: true },
@@ -90,17 +98,25 @@ describe('the built-in archives extension behind Files (real process, real socke
       ok: true,
       text: '# note',
     })
-    expect(readdirSync(files)).toEqual(['bundle.tar.xz'])
+    expect(readdirSync(files)).toContain(name)
     expect(readdirSync(join(dir, 'data', 'archives', 'archive-reads'))).toEqual([])
+  })
 
+  it('shows plain rows for its archives once it is disabled', async () => {
     const local = localSource(
       () => [files],
       (p) => p,
       (name) => archives.handlesName(name),
     )
-    expect(await local.list(files)).toEqual([{ name: 'bundle.tar.xz', dir: false, archive: true }])
+    expect(await local.list(files)).toEqual([
+      { name: 'bundle.tar.bz2', dir: false, archive: true },
+      { name: 'bundle.tar.xz', dir: false, archive: true },
+    ])
     host.processes.setEnabled('archives', false)
-    expect(await local.list(files)).toEqual([{ name: 'bundle.tar.xz', dir: false }])
-    expect(await archives.list(root)).toEqual([])
+    expect(await local.list(files)).toEqual([
+      { name: 'bundle.tar.bz2', dir: false },
+      { name: 'bundle.tar.xz', dir: false },
+    ])
+    expect(await archives.list(archiveRoot(join(files, 'bundle.tar.xz')))).toEqual([])
   })
 })
