@@ -787,7 +787,7 @@ describe('builtins route to store actions', () => {
 
     await commands.execWith(ctx('s1', 'pA'), 'pane.close', { paneId: 'pX' })
 
-    expect(closePane).toHaveBeenCalledWith('s1', 'pX')
+    expect(closePane).toHaveBeenCalledWith('s1', 'pX', false)
   })
 
   it('describes the paneId pane.close takes and refuses one that is not a string', async () => {
@@ -821,7 +821,7 @@ describe('builtins route to store actions', () => {
 
     await commands.execWith(ctx('s1', 'pA'), 'pane.close')
 
-    expect(closePane).toHaveBeenCalledWith('s1', 'pA')
+    expect(closePane).toHaveBeenCalledWith('s1', 'pA', false)
   })
 
   it('closes the settings page instead of a pane when settings is showing', async () => {

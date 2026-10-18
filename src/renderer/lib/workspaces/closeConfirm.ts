@@ -15,6 +15,7 @@ import {
 } from '@/stores/workspaces/closeConfirmStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { isRestorable } from '@/stores/workspaces/persistence'
+import { surfaceHoldsKeyboard } from '@/stores/workspaces/surfaceSlotsStore'
 import type { Workspace } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { isResumableAgent } from '@shared/agents/agentResume'
@@ -290,8 +291,11 @@ export async function requestCloseOtherTabs(workspaceId: string, paneId: string)
   const group = confirmClose
     ? groupOf(workspace, panes, { ...PLAIN, activity: await paneActivities(panes) })
     : null
+  const held = new Set(panes.filter((pane) => surfaceHoldsKeyboard(pane.id)).map((pane) => pane.id))
   if (await confirmGroups('pane', group ? [group] : [])) {
-    for (const pane of panes) useLayoutStore.getState().closePane(workspaceId, pane.id)
+    for (const pane of panes) {
+      useLayoutStore.getState().closePane(workspaceId, pane.id, held.has(pane.id))
+    }
   }
 }
 
@@ -312,9 +316,10 @@ export async function requestClosePane(workspaceId: string, paneId: string): Pro
   if (useLayoutStore.getState().isLocked(workspaceId, paneId)) return
   const workspace = useWorkspacesStore.getState().workspaces.find((w) => w.id === workspaceId)
   const { confirmClose } = useSettingsStore.getState().workspaces
+  const held = surfaceHoldsKeyboard(paneId)
   const group = workspace && confirmClose ? await paneGroup(workspace, paneId) : null
   if (await confirmGroups('pane', group ? [group] : [])) {
-    useLayoutStore.getState().closePane(workspaceId, paneId)
+    useLayoutStore.getState().closePane(workspaceId, paneId, held)
   }
 }
 

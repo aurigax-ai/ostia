@@ -27,7 +27,7 @@ export interface LayoutState {
     kind: NewTabKind,
     browserProfile?: BrowserProfile,
   ) => string | null
-  closePane: (workspaceId: string, paneId: string) => void
+  closePane: (workspaceId: string, paneId: string, heldKeyboard?: boolean) => void
   focusPane: (workspaceId: string, paneId: string) => void
   resize: (workspaceId: string, splitId: string, sizes: number[]) => void
   zoomPane: (workspaceId: string, paneId: string, zoom?: boolean) => void

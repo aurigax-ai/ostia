@@ -118,7 +118,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     return createdPaneId
   },
 
-  closePane: (workspaceId, paneId) => {
+  closePane: (workspaceId, paneId, heldKeyboard = surfaceHoldsKeyboard(paneId)) => {
     if (get().isLocked(workspaceId, paneId)) return
     const current = get().byWorkspace[workspaceId]
     if (current?.root.type === 'pane' && current.root.id === paneId) {
@@ -129,7 +129,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       window.ostia?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
       return
     }
-    const heldKeyboard = surfaceHoldsKeyboard(paneId)
     let removed = false
     set((s) => {
       const next = patch(s, workspaceId, (l) => {

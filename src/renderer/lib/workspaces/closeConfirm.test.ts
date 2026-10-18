@@ -9,6 +9,7 @@ import { useAgentTurnStore } from '@/stores/terminal/agentTurnStore'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useCloseConfirmStore } from '@/stores/workspaces/closeConfirmStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { releaseSurfaces, setFocusTarget, surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import type { WorkspaceKind } from '@/stores/workspaces/workspaceTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { QuestionRequest } from '@shared/agents/questions'
@@ -337,6 +338,37 @@ describe('what a quit loses', () => {
       seedWorkspace(terminal('p1'))
       plainShell('p1', null, true)
       expect((await collectQuitGroups(new Set())).map((g) => g.agents)).toEqual([['claude']])
+    })
+
+    it('moves the keyboard to the next tab after the confirm dialog took it', async () => {
+      seedWorkspace({
+        type: 'tabs',
+        id: 't1',
+        activeId: 'p2',
+        children: [terminal('p1', false), terminal('p2', false)],
+      })
+      const inputs = ['p1', 'p2'].map((id) => {
+        const input = document.createElement('textarea')
+        surfaceHost(id).appendChild(input)
+        document.body.appendChild(surfaceHost(id))
+        setFocusTarget(id, () => input)
+        return input
+      })
+      inputs[1].focus()
+      plainShell('p2', 'make')
+      void requestClosePane('w1', 'p2')
+      await vi.waitFor(() => {
+        expect(useCloseConfirmStore.getState().pending?.groups[0]?.commands).toEqual(['make'])
+      })
+      const dialogButton = document.body.appendChild(document.createElement('button'))
+      dialogButton.focus()
+      useCloseConfirmStore.getState().answer(true)
+      dialogButton.remove()
+      await vi.waitFor(() => {
+        expect(document.activeElement).toBe(inputs[0])
+      })
+      releaseSurfaces(new Set())
+      document.body.replaceChildren()
     })
 
     it('asks before closing a pane whose agent runs in a background tab', async () => {

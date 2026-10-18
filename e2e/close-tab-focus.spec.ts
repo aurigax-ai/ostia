@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
@@ -41,6 +41,12 @@ function siteLoaded(app: ElectronApplication, siteUrl: string): Promise<boolean>
 }
 
 const tabs = (win: Page) => win.getByRole('tablist').getByRole('tab')
+
+function keyboardInShownSlot(win: Page): Promise<boolean> {
+  return win.evaluate(
+    () => document.activeElement?.closest('.pane-slot:not([data-hidden])') !== null,
+  )
+}
 
 async function closeTab(win: Page, index: number): Promise<void> {
   const tab = win.locator('.pane-tab').nth(index)
@@ -104,7 +110,7 @@ for (const engine of ENGINES) {
     seedSettings(dataHome, {
       behavior: { gpuAcceleration: false },
       terminal: engine.terminal,
-      workspaces: { confirmQuit: false },
+      workspaces: { confirmQuit: false, confirmClose: true },
     })
     const launch = isolatedLaunch(dataHome)
     const app = await electron.launch({
@@ -119,14 +125,25 @@ for (const engine of ENGINES) {
       await expect(tabs(win)).toHaveCount(2)
       await win.keyboard.press(chords.closePane)
       await expect(tabs(win)).toHaveCount(1)
-      await expect
-        .poll(() =>
-          win.evaluate(
-            () => document.activeElement?.closest('.pane-slot:not([data-hidden])') !== null,
-          ),
-        )
-        .toBe(true)
+      await expect.poll(() => keyboardInShownSlot(win)).toBe(true)
       const marker = join(dataHome, 'where')
+      await typeLine(win, `echo $WHERE > ${marker}`)
+      await expect
+        .poll(() => existsSync(marker) && readFileSync(marker, 'utf8').trim())
+        .toBe('first')
+
+      await addTab(win)
+      await expect(tabs(win)).toHaveCount(2)
+      await win.waitForTimeout(1500)
+      await typeLine(win, 'sleep 60')
+      await win.waitForTimeout(1000)
+      await win.keyboard.press(chords.closePane)
+      const dialog = win.getByRole('dialog', { name: 'Close this pane?' })
+      await expect(dialog).toBeVisible()
+      await dialog.getByRole('button', { name: 'Close pane' }).click()
+      await expect(tabs(win)).toHaveCount(1)
+      await expect.poll(() => keyboardInShownSlot(win)).toBe(true)
+      rmSync(marker)
       await typeLine(win, `echo $WHERE > ${marker}`)
       await expect
         .poll(() => existsSync(marker) && readFileSync(marker, 'utf8').trim())
