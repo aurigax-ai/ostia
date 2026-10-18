@@ -8,12 +8,12 @@ import {
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { act, cleanup, render, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { ExtensionPanelView } from './ExtensionPanelView'
+import { ExtensionSidePanel } from './ExtensionSidePanel'
 
 const PANE = 'panel-pane'
 const settle = () => act(() => new Promise<void>((resolve) => setTimeout(resolve)))
 
-describe('ExtensionPanelView keyboard target', () => {
+describe('ExtensionSidePanel keyboard target', () => {
   let extensionsInit: ReturnType<typeof useExtensionsStore.getState>
 
   beforeAll(() => {
@@ -42,7 +42,7 @@ describe('ExtensionPanelView keyboard target', () => {
     const slot = document.createElement('div')
     document.body.appendChild(slot)
     mountSurface(PANE, slot)
-    render(<ExtensionPanelView extId="graphs" workspaceId="w1" paneId={PANE} />, {
+    render(<ExtensionSidePanel extId="graphs" workspaceId="w1" focusKey={PANE} />, {
       container: surfaceHost(PANE),
     })
     const webview = await waitFor(() => {

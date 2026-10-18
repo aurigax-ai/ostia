@@ -49,8 +49,9 @@ test("an extension's own catalog translates its command, panel and settings row,
 
     await paletteOffers(win, 'Hello: Open Panel')
     await win.keyboard.press('Enter')
-    const tabTitle = win.locator('.pane-header .title')
-    await expect(tabTitle.filter({ hasText: /^Hello$/ })).toBeVisible({ timeout: 15_000 })
+    const dock = win.locator('#right-panel')
+    await expect(dock).toBeVisible({ timeout: 15_000 })
+    await expect(dock).toHaveAttribute('aria-label', 'Hello')
 
     await win.keyboard.press('Control+,')
     const settings = win.getByRole('region', { name: 'Settings' })
@@ -73,8 +74,7 @@ test("an extension's own catalog translates its command, panel and settings row,
       win.getByRole('dialog').getByText('Hello: Open Panel', { exact: true }),
     ).toHaveCount(0)
     await win.keyboard.press('Escape')
-    await expect(tabTitle.filter({ hasText: /^哈囉面板$/ })).toHaveCount(1)
-    await expect(tabTitle.filter({ hasText: /^Hello$/ })).toHaveCount(0)
+    await expect(dock).toHaveAttribute('aria-label', '哈囉面板')
 
     await translated.getByRole('button', { name: '語言', exact: true }).click()
     await translated.getByRole('combobox', { name: '顯示語言' }).click()
@@ -88,7 +88,7 @@ test("an extension's own catalog translates its command, panel and settings row,
     })
     await paletteOffers(win, 'Hello: Open Panel')
     await win.keyboard.press('Escape')
-    await expect(tabTitle.filter({ hasText: /^Hello$/ })).toHaveCount(1)
+    await expect(dock).toHaveAttribute('aria-label', 'Hello')
   } finally {
     await app.close()
   }

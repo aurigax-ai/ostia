@@ -67,11 +67,14 @@ export function panelKeyWidth(
   key: string,
   width: number,
   viewportWidth: number,
+  side: 'left' | 'right' = 'left',
 ): number | null {
+  const grow = side === 'right' ? 'ArrowLeft' : 'ArrowRight'
+  const shrink = side === 'right' ? 'ArrowRight' : 'ArrowLeft'
   switch (key) {
-    case 'ArrowLeft':
+    case shrink:
       return clampPanelWidth(spec, width - PANEL_KEY_STEP, viewportWidth)
-    case 'ArrowRight':
+    case grow:
       return clampPanelWidth(spec, width + PANEL_KEY_STEP, viewportWidth)
     case 'Home':
       return spec.minWidth
@@ -103,5 +106,16 @@ export function applyPanelWidth(spec: PanelWidthSpec, width: number): void {
 export function applyStoredPanelWidths(): void {
   for (const spec of [RAIL_WIDTH, FILES_WIDTH]) {
     applyPanelWidth(spec, clampPanelWidth(spec, storedPanelWidth(spec), window.innerWidth))
+  }
+}
+
+export function rightPanelWidth(extId: string): PanelWidthSpec {
+  return {
+    storageKey: `sidePanelWidth:${extId}`,
+    cssVar: '--right-w',
+    defaultWidth: 340,
+    minWidth: 260,
+    maxWidth: 1600,
+    maxViewportFraction: 0.7,
   }
 }

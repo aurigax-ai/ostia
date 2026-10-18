@@ -4,19 +4,19 @@ import { commands } from '@/commands/registry'
 import { PanelToggles } from '@/components/app/PanelToggles'
 import { TopBar } from '@/components/app/TopBar'
 import { PaneChips, WorkspaceChips } from '@/components/extensions/ExtensionChips'
-import { ExtensionPanelView } from '@/components/extensions/ExtensionPanelView'
 import { GitSection, PortsSection } from '@/components/settings/BoardSettings'
 import { firstPaneOfKind, setPaneEditor } from '@/lib/layout/paneFields'
 import { createPane } from '@/lib/layout/tree'
 import { resetCoreWatch } from '@/lib/workspaces/coreWatch'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useGitViewStore } from '@/stores/files/gitViewStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { CoreItems } from '@shared/boards/git'
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
@@ -86,6 +86,7 @@ describe('core git and ports in the window', () => {
   let extInit: ReturnType<typeof useExtensionsStore.getState>
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
   let gitViewInit: ReturnType<typeof useGitViewStore.getState>
+  let sideInit: ReturnType<typeof useSidePanelStore.getState>
 
   beforeAll(() => {
     workspacesInit = useWorkspacesStore.getState()
@@ -94,6 +95,7 @@ describe('core git and ports in the window', () => {
     extInit = useExtensionsStore.getState()
     settingsInit = useSettingsStore.getState()
     gitViewInit = useGitViewStore.getState()
+    sideInit = useSidePanelStore.getState()
     registerGitCommands()
     commands.setContextProvider(() => {
       const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
@@ -123,6 +125,7 @@ describe('core git and ports in the window', () => {
     vi.useRealTimers()
     resetCoreWatch()
     useWorkspacesStore.setState(workspacesInit, true)
+    useSidePanelStore.setState(sideInit, true)
     useLayoutStore.setState(layoutInit, true)
     useUIStore.setState(uiInit, true)
     useExtensionsStore.setState(extInit, true)
@@ -166,17 +169,15 @@ describe('core git and ports in the window', () => {
     expect(window.ostia.ports.watch).toHaveBeenLastCalledWith([])
   })
 
-  it('titles the core chips, and the branch chip opens the Git panel on Changes', async () => {
+  it('titles the core chips, and the branch chip shows Changes in the right side panel', async () => {
     render(<WorkspaceChips workspaceId="s1" />)
     act(() => {
       useExtensionsStore.getState().setGitItems(GIT_ITEMS)
       useExtensionsStore.getState().setPortsItems(PORTS_ITEMS)
     })
     await userEvent.setup().click(screen.getByRole('button', { name: /Git branch: main · \+2 −1/ }))
-    await waitFor(() => expect(gitPane()).not.toBeNull())
-    const pane = gitPane()
-    expect(pane?.title).toBe('Git')
-    expect(useGitViewStore.getState().nav[pane?.id ?? '']).toMatchObject({ page: 'changes' })
+    expect(useSidePanelStore.getState().right).toBe('git')
+    expect(gitPane()).toBeNull()
   })
 
   it('listening ports show as a plug in the top bar that opens the browser pane, and an ssh login shows on its pane', async () => {
@@ -306,12 +307,6 @@ describe('core git and ports in the window', () => {
       page: 'blame',
       file: '/home/a.txt',
     })
-  })
-
-  it('tells the human a saved pane of the old Git extension is gone, without loading anything', () => {
-    render(<ExtensionPanelView extId="git" workspaceId="s1" paneId="p9" />)
-    expect(screen.getByText(/Git is built in now/)).toBeVisible()
-    expect(window.ostia.extensions.panel).not.toHaveBeenCalled()
   })
 
   it('writes the Git and Ports settings from their pages, within their bounds', async () => {

@@ -227,8 +227,6 @@ export const filesEn = {
     notRepo: 'Not in a git repository',
     notRepoHint: 'Open a terminal inside a repository to see its changes and history.',
     nothingToDiscard: 'There are no unstaged or untracked changes to discard.',
-    oldPane:
-      'Git is built in now and this pane was saved by the old Git extension. Close it and open Git from the top bar.',
     oneFile: '1 file',
     openDiff: 'Open diff',
     parents: 'Parents',

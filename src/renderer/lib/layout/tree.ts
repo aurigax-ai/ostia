@@ -35,7 +35,6 @@ const SURFACE_TITLE: Record<SurfaceKind, string> = {
   editor: 'untitled',
   agent: 'claude',
   browser: 'localhost',
-  extension: 'Extension',
   diff: 'Diff',
   chat: 'Chat',
   git: 'Git',

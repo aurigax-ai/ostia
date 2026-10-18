@@ -174,10 +174,8 @@ edges: []
     await openWorkspace(win)
     await openPanel(win)
     await enableAndRun(app, 'held')
-    const panelTab = win.locator('.pane-tab', { hasText: 'Graphs' })
-    await panelTab.hover()
-    await panelTab.getByRole('button', { name: 'Close tab' }).click()
-    await expect.poll(() => panelEval(app, '1'), { timeout: 15_000 }).toBe('')
+    await win.locator('.topbar').getByRole('button', { name: 'Graphs', exact: true }).click()
+    await expect(win.locator('#right-panel')).toHaveAttribute('data-hidden', '')
     await win.keyboard.press('Control+Shift+D')
     await expect(
       win.locator('article[data-question]', { hasText: 'Still waiting after the restart?' }),

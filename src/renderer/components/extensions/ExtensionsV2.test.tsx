@@ -11,7 +11,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
 import { PaneChips } from './ExtensionChips'
-import { ExtensionPanelView } from './ExtensionPanelView'
+import { ExtensionSidePanel } from './ExtensionSidePanel'
 import { ExtensionsSection } from './InstalledExtensions'
 
 function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
@@ -222,7 +222,7 @@ describe('Extension API v2 UI', () => {
     })
   })
 
-  describe('extension panel navigation', () => {
+  describe('extension panel route', () => {
     it('navigates the shown panel to a new path without replacing its webview', async () => {
       const panel = vi.fn(async (_id: string, context: { path?: string }) => ({
         ok: true as const,
@@ -230,11 +230,20 @@ describe('Extension API v2 UI', () => {
       }))
       window.ostia.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({})] })
-      const { container } = render(<ExtensionPanelView extId="demo" workspaceId="s1" paneId="p1" />)
+      const { container, rerender } = render(
+        <ExtensionSidePanel extId="demo" workspaceId="s1" focusKey="k" />,
+      )
       await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
       const webview = container.querySelector('webview')
 
-      act(() => useExtensionsStore.getState().navigatePanel('p1', '/cards/4'))
+      rerender(
+        <ExtensionSidePanel
+          extId="demo"
+          workspaceId="s1"
+          focusKey="k"
+          route={{ path: '/cards/4', seq: 1 }}
+        />,
+      )
 
       await waitFor(() =>
         expect(webview?.getAttribute('src')).toBe('http://127.0.0.1:4100/cards/4'),
@@ -245,16 +254,6 @@ describe('Extension API v2 UI', () => {
         locale: 'en',
         path: '/cards/4',
       })
-    })
-
-    it('ignores a navigation meant for another pane', async () => {
-      const panel = vi.fn().mockResolvedValue({ ok: true, src: 'http://127.0.0.1:4100/' })
-      window.ostia.extensions.panel = panel
-      useExtensionsStore.setState({ list: [ext({})] })
-      const { container } = render(<ExtensionPanelView extId="demo" workspaceId="s1" paneId="p1" />)
-      await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
-      act(() => useExtensionsStore.getState().navigatePanel('p9', '/x'))
-      expect(panel).toHaveBeenCalledTimes(1)
     })
   })
 

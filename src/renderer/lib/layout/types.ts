@@ -9,7 +9,6 @@ export type SurfaceKind =
   | 'editor'
   | 'agent'
   | 'browser'
-  | 'extension'
   | 'diff'
   | 'chat'
   | 'git'
@@ -25,7 +24,6 @@ export interface PaneNode {
   filePath?: string
   viewType?: string
   url?: string
-  extensionId?: string
   chatSessionId?: string
   viewName?: string
   browserProfile?: BrowserProfile

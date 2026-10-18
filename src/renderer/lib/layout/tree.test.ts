@@ -6,9 +6,9 @@ import {
   setPaneBrowser,
   setPaneCwd,
   setPaneEditor,
-  setPaneExtension,
   setPaneLocked,
   setPaneTitle,
+  setPaneView,
 } from './paneFields'
 import { setSizes } from './panelSize'
 import { graftNode, movePane, moveTab, placementOf } from './tabMoves'
@@ -172,7 +172,7 @@ describe('splitOf', () => {
 describe('slotKey', () => {
   it('keeps a slot’s key when a tab joins its lone pane, so the split around it stays mounted', () => {
     const terminal = createPane()
-    const panel = createPane('extension')
+    const panel = createPane('view')
     const before = splitOf('horizontal', terminal, panel)
     const after = addTab(before, panel.id, createPane('diff'))
     if (after.type !== 'split') throw new Error('expected a split')
@@ -541,11 +541,11 @@ describe('terminal default title', () => {
     expect(setDefaultPaneTitles(reset, 'Terminal')).toBe(reset)
   })
 
-  it('drops the mark when the pane becomes an editor, a browser or an extension panel', () => {
+  it('drops the mark when the pane becomes an editor, a browser or a view', () => {
     const [a, b, c] = [createPane(), createPane(), createPane()]
     const editor = setPaneEditor(a, a.id, 'a.ts', '/srv/a.ts')
     const browser = setPaneBrowser(b, b.id, 'https://example.com/')
-    const panel = setPaneExtension(c, c.id, 'git', 'Git')
+    const panel = setPaneView(c, c.id, 'deploys', 'Deploys')
     for (const pane of [editor, browser, panel]) expect('defaultTitle' in pane).toBe(false)
   })
 

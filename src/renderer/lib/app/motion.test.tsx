@@ -319,7 +319,9 @@ describe('motion CSS contract', () => {
     const footprint = railRules.find(([, selector]) =>
       /\[data-rail-motion\] \.app\s*$/.test(selector),
     )
-    expect(footprint?.[2]).toMatch(/grid-template-columns: var\(--rail-w-collapsed\) auto 1fr;/)
+    expect(footprint?.[2]).toMatch(
+      /grid-template-columns: var\(--rail-w-collapsed\) auto 1fr auto;/,
+    )
     expect(footprint?.[2]).toMatch(/overflow: clip;/)
   })
 

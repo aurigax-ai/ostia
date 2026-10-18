@@ -6,6 +6,7 @@ import { refresh } from './panelData'
 import {
   DEFAULT_PRIORITY,
   actorLabel,
+  emptyState,
   failureState,
   field,
   iconButton,
@@ -261,7 +262,7 @@ export function detailView(ref: string): HTMLElement {
   const attrs = { class: 'detail', 'aria-label': ref, 'data-scroll': 'detail' }
   if (state.cardFailure) return h('aside', attrs, head, failureState(state.cardFailure))
   if (!state.cardData || state.cardData.card.ref !== ref) {
-    return h('aside', attrs, head, h('div', { class: 'empty muted', role: 'status' }, p('loading')))
+    return h('aside', attrs, head, emptyState(p('loading')))
   }
   const card = state.cardData.card
   const columns = state.boardData?.board.columns.map((c) => c.name) ?? []

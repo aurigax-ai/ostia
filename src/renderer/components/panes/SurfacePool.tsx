@@ -2,7 +2,6 @@ import { BrowserView } from '@/components/browser/BrowserView'
 import { ChatPane } from '@/components/chat/ChatPane'
 import { DiffView } from '@/components/editor/DiffView'
 import { FileView } from '@/components/editor/FileView'
-import { ExtensionPanelView } from '@/components/extensions/ExtensionPanelView'
 import { GitView } from '@/components/git/GitView'
 import { HibernatedView } from '@/components/terminal/HibernatedView'
 import { ManagerView } from '@/components/terminal/ManagerView'
@@ -30,7 +29,6 @@ interface SurfaceRef {
   cwd?: string
   filePath?: string
   url?: string
-  extensionId?: string
   chatSessionId?: string
   viewName?: string
   browserProfile: BrowserProfile
@@ -49,7 +47,6 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
       pane.kind === 'chat' ||
       pane.kind === 'git' ||
       pane.kind === 'manager' ||
-      (pane.kind === 'extension' && pane.extensionId) ||
       (pane.kind === 'view' && pane.viewName)
     ) {
       out.push({
@@ -59,7 +56,6 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
         cwd: pane.spawnDir ?? pane.cwd,
         filePath: pane.filePath,
         url: pane.url,
-        extensionId: pane.extensionId,
         chatSessionId: pane.chatSessionId,
         viewName: pane.viewName,
         browserProfile: paneBrowserProfile(pane),
@@ -122,7 +118,7 @@ function Surface({
   ) : s.kind === 'chat' ? (
     <ChatPane workspaceId={s.workspaceId} paneId={s.paneId} sessionId={s.chatSessionId} />
   ) : s.kind === 'git' ? (
-    <GitView workspaceId={s.workspaceId} paneId={s.paneId} />
+    <GitView workspaceId={s.workspaceId} paneId={s.paneId} home="pane" />
   ) : s.kind === 'manager' ? (
     <ManagerView paneId={s.paneId} />
   ) : s.kind === 'browser' ? (
@@ -133,8 +129,6 @@ function Surface({
       profile={s.browserProfile}
       device={s.browserDevice}
     />
-  ) : s.kind === 'extension' && s.extensionId ? (
-    <ExtensionPanelView extId={s.extensionId} workspaceId={s.workspaceId} paneId={s.paneId} />
   ) : s.kind === 'view' && s.viewName ? (
     <ViewSurface workspaceId={s.workspaceId} paneId={s.paneId} viewName={s.viewName} />
   ) : s.hibernated ? (

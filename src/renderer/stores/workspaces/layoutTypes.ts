@@ -71,7 +71,6 @@ export interface LayoutState {
     profile: BrowserProfile,
     placement?: { beside?: string; background?: boolean },
   ) => string | null
-  openExtensionPanel: (workspaceId: string, extensionId: string, title: string) => string | null
   openGit: (workspaceId: string, title: string) => string | null
   openView: (workspaceId: string, viewName: string, title: string) => string | null
   openDiff: (workspaceId: string, content: ShownDiff) => string | null

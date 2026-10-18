@@ -250,7 +250,7 @@ export const actionsSchema = {
         type: 'array',
         items: {
           type: 'string',
-          enum: ['terminal', 'editor', 'browser', 'extension', 'git', 'diff', 'view'],
+          enum: ['terminal', 'editor', 'browser', 'git', 'diff', 'view'],
         },
         description: 'Only show it on these pane kinds. Default: all.',
       },
