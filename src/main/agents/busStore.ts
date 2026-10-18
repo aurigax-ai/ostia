@@ -54,9 +54,16 @@ export interface Handoff {
   updatedAt: string
 }
 
+export interface Watch {
+  subscriber: string
+  watched: string
+  until: string[]
+}
+
 interface BusData {
   mail: Mail[]
   handoffs: Handoff[]
+  watches: Watch[]
 }
 
 export interface BusObservation {
@@ -100,7 +107,11 @@ function busPath(): string {
 function store(): BusData {
   if (!data) {
     const stored = loadJson<Partial<BusData>>(busPath(), {})
-    data = { mail: stored.mail ?? [], handoffs: stored.handoffs ?? [] }
+    data = {
+      mail: stored.mail ?? [],
+      handoffs: stored.handoffs ?? [],
+      watches: stored.watches ?? [],
+    }
   }
   return data
 }
@@ -156,7 +167,7 @@ export function busHandoffs(): Handoff[] {
 }
 
 function observe(mail: Mail, phase: BusMessagePhase): void {
-  if (mail.quiet) return
+  if (mail.quiet || mail.kind === 'event') return
   observer?.({
     id: mail.id,
     from: mail.from,
@@ -272,6 +283,57 @@ export function enqueue(draft: MailDraft): Mail {
   return mail
 }
 
+export function postEvent(from: string, to: string, text: string): void {
+  const open = store().mail.find(
+    (mail) =>
+      mail.kind === 'event' && mail.state === 'queued' && mail.from === from && mail.to === to,
+  )
+  if (!open) {
+    enqueue({ from, to, text, kind: 'event' })
+    return
+  }
+  open.text = text
+  open.preview = busPreview(text)
+  open.ts = new Date().toISOString()
+  markBusDirty()
+}
+
+export function watchPane(subscriber: string, watched: string, until: string[]): void {
+  const { watches } = store()
+  const known = watches.find((w) => w.subscriber === subscriber && w.watched === watched)
+  if (known) known.until = until
+  else watches.push({ subscriber, watched, until })
+  markBusDirty()
+}
+
+export function unwatchPanes(subscriber: string, watched?: string[]): void {
+  const before = store().watches.length
+  store().watches = store().watches.filter(
+    (w) => w.subscriber !== subscriber || (watched !== undefined && !watched.includes(w.watched)),
+  )
+  if (store().watches.length !== before) markBusDirty()
+}
+
+export function watchesOf(subscriber: string): Watch[] {
+  return store()
+    .watches.filter((w) => w.subscriber === subscriber)
+    .map((w) => ({ ...w, until: [...w.until] }))
+}
+
+export function watchersOf(watched: string): Watch[] {
+  return store()
+    .watches.filter((w) => w.watched === watched)
+    .map((w) => ({ ...w, until: [...w.until] }))
+}
+
+export function dropWatchesOf(externalId: string): void {
+  const before = store().watches.length
+  store().watches = store().watches.filter(
+    (w) => w.subscriber !== externalId && w.watched !== externalId,
+  )
+  if (store().watches.length !== before) markBusDirty()
+}
+
 export function setPending(id: string, pending: MailPending): void {
   const mail = store().mail.find((item) => item.id === id)
   if (!mail || mail.state !== 'queued' || mail.pending === pending) return
@@ -295,7 +357,7 @@ export function inboxOf(to: string): Mail[] {
 export function sentBy(from: string): Mail[] {
   sweepBus()
   return store()
-    .mail.filter((mail) => mail.from === from && !mail.quiet)
+    .mail.filter((mail) => mail.from === from && !mail.quiet && mail.kind !== 'event')
     .slice(-SENT_LISTED)
     .map(snapshot)
 }
@@ -317,7 +379,7 @@ export function mailCounts(pane: string) {
         lastFailure = mail.reason
       }
     }
-    if (mail.from === pane) {
+    if (mail.from === pane && mail.kind !== 'event') {
       if (undelivered(mail)) counts.sentQueued += 1
       else if (mail.state === 'failed') counts.sentFailed += 1
     }

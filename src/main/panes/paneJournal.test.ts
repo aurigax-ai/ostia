@@ -59,6 +59,25 @@ describe('PaneJournal commands', () => {
   })
 })
 
+describe('PaneJournal subscribe', () => {
+  it('tells a listener each event as it is recorded, with its pane', () => {
+    const { j, terminal } = journal()
+    const heard: [string, string][] = []
+    j.subscribe((paneId, event) => heard.push([paneId, event.kind]))
+    j.onChange('p', { kind: 'attention', attention: { state: 'done' } })
+    terminal.set('p', { running: true })
+    j.onChange('p', { kind: 'state' })
+    terminal.set('p', { running: false, lastExitCode: 0 })
+    j.onChange('p', { kind: 'state' })
+    j.mail('p')
+    expect(heard).toEqual([
+      ['p', 'state'],
+      ['p', 'command'],
+      ['p', 'mail'],
+    ])
+  })
+})
+
 describe('PaneJournal closing line', () => {
   it('prefers the line the agent set over the Stop text, and keeps both until the next turn', () => {
     const { j } = journal()

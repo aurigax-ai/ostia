@@ -61,18 +61,18 @@ export function registerAttentionMethods(deps: AttentionDeps): void {
         if (!other) return { ok: false, error: 'not-found' }
         target = other
       }
-      const res = await deps.execCommand(targetOf(target), 'attention.set', {
-        state: state === 'clear' ? 'none' : state,
-        message: clampMessage(message),
-      })
-      if (!res.ok) return { ok: false, error: res.error.code, message: res.error.message }
-      deps.reported?.(target.paneId)
       deps.closing?.(
         target.paneId,
         state,
         clampMessage(message),
         typeof closing === 'string' ? closing : undefined,
       )
+      const res = await deps.execCommand(targetOf(target), 'attention.set', {
+        state: state === 'clear' ? 'none' : state,
+        message: clampMessage(message),
+      })
+      if (!res.ok) return { ok: false, error: res.error.code, message: res.error.message }
+      deps.reported?.(target.paneId)
       return { ok: true }
     },
   })

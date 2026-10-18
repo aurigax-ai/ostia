@@ -24,10 +24,17 @@ const {
   onBusChange,
   inboxOf,
   leaseMail,
+  mailCounts,
   mailViews,
   resetBus,
   sentBy,
+  dropWatchesOf,
+  postEvent,
   setBusJournal,
+  unwatchPanes,
+  watchPane,
+  watchersOf,
+  watchesOf,
   setBusObserver,
   setPending,
   takeMail,
@@ -244,6 +251,76 @@ describe('mail views', () => {
     send('three')
     await Promise.resolve()
     expect(listener).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('events and watches', () => {
+  it('keeps one queued event per watched pane and subscriber, newest text, and starts a new one after a take', () => {
+    postEvent('w', 'b', 'first line')
+    postEvent('w', 'b', 'second line')
+    postEvent('other', 'b', 'from another pane')
+    const queued = inboxOf('b')
+    expect(queued.map((m) => [m.kind, m.from, m.text])).toEqual([
+      ['event', 'w', 'second line'],
+      ['event', 'other', 'from another pane'],
+    ])
+    takeMail('b', 'read', all)
+    postEvent('w', 'b', 'third line')
+    expect(inboxOf('b').map((m) => m.text)).toEqual(['third line'])
+  })
+
+  it('leaves events out of the sender’s list, the sender’s counts and the extension events', () => {
+    postEvent('w', 'b', 'status')
+    expect(sentBy('w')).toEqual([])
+    expect(mailCounts('w')).toMatchObject({ sentQueued: 0, sentFailed: 0 })
+    expect(mailCounts('b')).toMatchObject({ queued: 1 })
+    expect(observed).not.toHaveBeenCalled()
+    expect(mailViews().map((v) => v.state)).toEqual(['queued'])
+  })
+
+  it('fails an event with the rest of the pane’s mail, and delivers it to a parked waiter', () => {
+    const got = vi.fn()
+    addWaiter('b', got)
+    postEvent('w', 'b', 'status')
+    expect(got.mock.calls[0][0].map((m: { kind: string }) => m.kind)).toEqual(['event'])
+    postEvent('w', 'c', 'status')
+    failPaneMail('c')
+    expect(mailViews().map((v) => v.state)).toEqual(['failed'])
+  })
+
+  it('stores a watch once per pair, lists it by subscriber and by watched pane, and ends it on request', () => {
+    watchPane('boss', 'w1', ['done'])
+    watchPane('boss', 'w1', ['error'])
+    watchPane('boss', 'w2', ['done'])
+    watchPane('other', 'w1', ['done'])
+    expect(watchesOf('boss').map((w) => [w.watched, w.until])).toEqual([
+      ['w1', ['error']],
+      ['w2', ['done']],
+    ])
+    expect(watchersOf('w1').map((w) => w.subscriber)).toEqual(['boss', 'other'])
+    unwatchPanes('boss', ['w1'])
+    expect(watchesOf('boss').map((w) => w.watched)).toEqual(['w2'])
+    unwatchPanes('boss')
+    expect(watchesOf('boss')).toEqual([])
+  })
+
+  it('drops every watch a closed pane took part in, whichever side it was on', () => {
+    watchPane('boss', 'w1', ['done'])
+    watchPane('w1', 'w2', ['done'])
+    watchPane('other', 'w3', ['done'])
+    dropWatchesOf('w1')
+    expect(watchesOf('boss')).toEqual([])
+    expect(watchesOf('w1')).toEqual([])
+    expect(watchesOf('other')).toHaveLength(1)
+  })
+
+  it('keeps watches across a reload', async () => {
+    watchPane('boss', 'w1', ['done', 'command'])
+    await flushBus()
+    await resetBus()
+    expect(watchesOf('boss')).toEqual([
+      { subscriber: 'boss', watched: 'w1', until: ['done', 'command'] },
+    ])
   })
 })
 

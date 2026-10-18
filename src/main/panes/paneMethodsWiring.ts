@@ -3,6 +3,7 @@ import { parseAgentHooks } from '../../shared/agents/agentHooks'
 import { isResumableAgent } from '../../shared/agents/agentResume'
 import type { ManagerSettings } from '../../shared/agents/managerSettings'
 import type { CommandTarget } from '../../shared/control/commands'
+import { statusLine } from '../../shared/panes/paneStatus'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { AgentWiring } from '../agents/agentWiring'
 import { readRange, transcriptPath } from '../agents/transcriptFiles'
@@ -22,16 +23,18 @@ import type { WindowSend } from '../windows/windowSend'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { windowForWorkspace } from '../workspaces/workspaceRegistry'
 import { registerExtensionWake } from './extensionWake'
+import { PaneEvents } from './paneEvents'
 import { type PaneAttentionPeek, registerPaneIoMethods } from './paneIo'
 import type { PaneJournal } from './paneJournal'
 import { listPanes } from './paneList'
 import { registerPaneMoveToMethods } from './paneMoveTo'
 import type { PaneReachDeps } from './paneReach'
-import { registerPaneStatusMethods } from './paneStatus'
+import { type PaneStatusDeps, collectStatus, registerPaneStatusMethods } from './paneStatus'
 import { registerPaneTranscriptMethods } from './paneTranscript'
 import { type PaneWatch, registerPaneWaitMethods } from './paneWait'
 import { wakeHibernatedPane } from './paneWake'
 import type { PaneWaking } from './paneWaking'
+import { registerPaneWatchMethods } from './paneWatchMethods'
 
 interface PaneMethodsWiringDeps {
   keptAttention: KeptAttention
@@ -147,16 +150,11 @@ export function registerPaneMethodsWiring({
       execCommand(workspaceCommandTarget(workspaceId), 'pane.joinTab', { paneIds, tab }, true),
     panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
   })
-  registerPaneWaitMethods({
+  const listAll = () =>
+    listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking })
+  const statusDeps: PaneStatusDeps = {
     ...paneReachDeps,
-    watch: paneWatch,
-    attention: peekAttention,
-    exited: paneExited,
-  })
-
-  registerPaneStatusMethods({
-    ...paneReachDeps,
-    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
+    panes: listAll,
     journal: paneJournal,
     wakingSince: (paneId) => paneWaking.since(paneId),
     exited: paneExited,
@@ -177,7 +175,30 @@ export function registerPaneMethodsWiring({
       }
     },
     now: Date.now,
+  }
+  const statusOfPane = async (to: PaneIdentity, callerExternalId: string) =>
+    collectStatus(statusDeps, to, callerExternalId, await listAll())
+  registerPaneWaitMethods({
+    ...paneReachDeps,
+    watch: paneWatch,
+    attention: peekAttention,
+    exited: paneExited,
+    terminal: (paneId) => terminalState.get(paneId),
+    status: statusOfPane,
   })
+  registerPaneStatusMethods(statusDeps)
+
+  const paneEvents = new PaneEvents({
+    identity: getByPaneId,
+    exited: paneExited,
+    line: async (watched, subscriber) => {
+      const status = await statusOfPane(watched, subscriber.externalId)
+      return status ? statusLine(status) : undefined
+    },
+  })
+  paneJournal.subscribe(paneEvents.onJournal)
+  paneWatch.tap(paneEvents.onChange)
+  registerPaneWatchMethods(paneReachDeps)
 
   registerPaneTranscriptMethods({
     ...paneReachDeps,

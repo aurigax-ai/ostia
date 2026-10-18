@@ -9,6 +9,7 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import type { CommandResult } from '../../shared/control/commands'
+import type { PaneStatus } from '../../shared/panes/paneStatus'
 import type { ApprovalOutcome } from '../../shared/permissions/approvals'
 import type { ApprovalAsk } from '../approvals/approvals'
 
@@ -24,9 +25,14 @@ vi.mock('../approvals/approvals', () => ({ approvals: () => ({ request }) }))
 const { setCapFilter } = await import('../control/controlAuth')
 const { registerControlServer, stopControlServer } = await import('../control/controlServer')
 const { registerPane } = await import('../control/idRegistry')
-const { PaneWatch, reachedState, registerPaneWaitMethods, waitTimeout, waitUntil } = await import(
-  './paneWait'
-)
+const {
+  PaneWatch,
+  commandFinished,
+  reachedState,
+  registerPaneWaitMethods,
+  waitTimeout,
+  waitUntil,
+} = await import('./paneWait')
 
 type Identity = ReturnType<typeof registerPane>
 
@@ -53,6 +59,8 @@ const children = new Map<string, string>()
 const processes = new Map<string, string>()
 const attentionOf = new Map<string, { state?: string; message?: string }>()
 const exitedPanes = new Set<string>()
+const terminals = new Map<string, { running: boolean; blockCount: number; lastExitCode?: number }>()
+const statuses = new Map<string, PaneStatus>()
 
 registerPaneWaitMethods({
   processPane: async (ref) => processes.get(ref),
@@ -63,6 +71,8 @@ registerPaneWaitMethods({
   watch,
   attention: async (pane) => attentionOf.get(pane.paneId) ?? {},
   exited: (paneId) => exitedPanes.has(paneId),
+  terminal: (paneId) => terminals.get(paneId),
+  status: async (to) => statuses.get(to.paneId),
 })
 
 let seq = 0
@@ -113,6 +123,8 @@ beforeEach(() => {
   request.mockClear()
   attentionOf.clear()
   exitedPanes.clear()
+  terminals.clear()
+  statuses.clear()
   setCapFilter(() => true)
 })
 
@@ -139,6 +151,102 @@ describe('reachedState', () => {
     expect(waitTimeout(5)).toBe(1000)
     expect(waitTimeout(10_000_000)).toBe(1_800_000)
     expect(() => waitTimeout('soon')).toThrow('bad-request: timeoutMs')
+  })
+})
+
+describe('commandFinished', () => {
+  const at = (running: boolean, blockCount: number) => ({ running, blockCount })
+
+  it('is a command that was running and is not, or a block that ended while the pane waited', () => {
+    expect(commandFinished(at(true, 3), at(false, 3))).toBe(true)
+    expect(commandFinished(at(false, 3), at(false, 4))).toBe(true)
+  })
+
+  it('is not a command still running, one that has not changed, or a pane without state', () => {
+    expect(commandFinished(at(true, 3), at(true, 4))).toBe(false)
+    expect(commandFinished(at(false, 3), at(false, 3))).toBe(false)
+    expect(commandFinished(undefined, at(false, 1))).toBe(false)
+    expect(commandFinished(at(true, 1), undefined)).toBe(false)
+  })
+})
+
+describe('pane.wait until error and command', () => {
+  it('knows error and command as states, and reads an error report as error', () => {
+    expect(waitUntil(['error', 'command'])).toEqual(['error', 'command'])
+    expect(reachedState({ attention: { state: 'error' }, exited: false }, ['error'])).toBe('error')
+    expect(reachedState({ attention: { state: 'error' }, exited: false }, ['done'])).toBeUndefined()
+  })
+
+  it('wakes on error when asked for it', async () => {
+    const { me, worker } = caller()
+    attentionOf.set(worker.paneId, { state: 'working' })
+    const conn = await client(me)
+    const watched = watch.watched(worker.paneId)
+    const pending = conn.sendRequest('pane.wait', { panes: [worker.externalId], until: ['error'] })
+    await watched
+    watch.attention(worker.paneId, 'error', 'Turn failed')
+    await expect(pending).resolves.toEqual({
+      reached: true,
+      paneId: worker.externalId,
+      state: 'error',
+      message: 'Turn failed',
+    })
+  })
+
+  it('wakes when a command in that pane finishes, with its exit code', async () => {
+    const { me, worker } = caller()
+    attentionOf.set(worker.paneId, { state: 'working' })
+    terminals.set(worker.paneId, { running: true, blockCount: 2 })
+    const conn = await client(me)
+    const watched = watch.watched(worker.paneId)
+    const pending = conn.sendRequest('pane.wait', {
+      panes: [worker.externalId],
+      until: ['command'],
+    })
+    await watched
+    watch.emit(worker.paneId, { kind: 'state' })
+    terminals.set(worker.paneId, { running: false, blockCount: 3, lastExitCode: 2 })
+    watch.emit(worker.paneId, { kind: 'state' })
+    await expect(pending).resolves.toEqual({
+      reached: true,
+      paneId: worker.externalId,
+      state: 'command',
+      exitCode: 2,
+    })
+  })
+
+  it('does not take a command that finished before the wait began', async () => {
+    const { me, worker } = caller()
+    attentionOf.set(worker.paneId, { state: 'working' })
+    terminals.set(worker.paneId, { running: false, blockCount: 3, lastExitCode: 0 })
+    const conn = await client(me)
+    const watched = watch.watched(worker.paneId)
+    const pending = conn.sendRequest('pane.wait', {
+      panes: [worker.externalId],
+      until: ['command'],
+      timeoutMs: 1000,
+    })
+    await watched
+    watch.emit(worker.paneId, { kind: 'state' })
+    await expect(pending).resolves.toEqual({ timedOut: true })
+  })
+
+  it('carries the pane’s status in the answer, so no read follows', async () => {
+    const { me, worker } = caller()
+    attentionOf.set(worker.paneId, { state: 'done', message: 'tests pass' })
+    const status = {
+      pane: worker.externalId,
+      title: 'w-1',
+      state: 'done',
+      mail: { queued: 0, failed: 0, sentQueued: 0, sentFailed: 0 },
+      stale: [],
+      changes: { first: true, states: [], commands: 0, failed: 0, closing: false, mail: 0 },
+    } as PaneStatus
+    statuses.set(worker.paneId, status)
+    const conn = await client(me)
+    await expect(
+      conn.sendRequest('pane.wait', { panes: [worker.externalId], timeoutMs: 1000 }),
+    ).resolves.toMatchObject({ reached: true, state: 'done', status })
   })
 })
 

@@ -171,7 +171,8 @@ ostia pane key <pane> enter              # keys: enter tab shift-tab escape back
 ostia pane read <pane> [--lines N] [--json]   # its screen as text; --json adds cwd, running, lastExitCode
 ostia pane status <pane>… [--json]       # one line per pane: state, closing line, exit, git, mail, changes
 ostia pane transcript <pane> [--turns N | --full] [--json]   # the agent's own transcript, as written
-ostia pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]
+ostia pane wait <pane>… [--until done|waiting|error|idle|exited|command]… [--timeout <s>] [--json]
+ostia pane watch <pane>… [--until done|waiting|error|command|exited]… | --off
 ostia pane wake <pane>… [--timeout <s>] [--json]
 ostia pane hibernate <pane>… [--json]
 ostia pane move <pane>… --tab <name>|new [--workspace <id|name>] [--json]
@@ -206,9 +207,17 @@ ostia pane close [<pane>…] [--json]      # no pane: your own
   workspace, and answers `no-transcript:` for a pane with no agent session. A turn still running
   ends in `(no answer yet)`.
 - **wait** returns when any named pane reports `done` or `waiting` or its command exits
-  (`--until idle` also counts a pane with nothing reported). It prints
-  `<paneId>\t<state>\t<message>` and never reads the screen. Exit 0 reached, 3 timed out (default
-  10 minutes, at most 1800 s), 4 the pane closed.
+  (`--until idle` also counts a pane with nothing reported, `error` an agent that reported an
+  error, `command` a command block in that pane that finished after the wait began). It prints
+  the pane's status line, so no read follows (`--json` adds `exitCode` for `command`), and never
+  reads the screen. Exit 0 reached, 3 timed out (default 10 minutes, at most 1800 s), 4 the pane
+  closed.
+- **watch** is wait that arrives as mail. Each time a watched pane reaches one of the states
+  (default `done`, `waiting`, `error`, `exited`), one `event` message from that pane lands in your
+  inbox, with its status line as the text; an event still waiting there is replaced by the newer
+  one, not stacked. You read it like any bus message: as context at your next prompt, or with
+  `bus wait`. The watch needs the reach of `wait`, lasts until you run `watch <pane> --off` (no pane
+  stops all) or either pane closes, and holds at most 32 panes. It prints what you now watch.
 - **send** types the text as a bracketed paste when it holds a newline and the pane asked for
   bracketed paste, so a newline does not submit. `--paste` forces that for one line, `--raw`
   forces the bytes as typed (the two exclude each other). **send** and **key** print `ok` once the pane shows something new, or

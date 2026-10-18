@@ -19,6 +19,11 @@ export type PaneCall =
   | { method: 'pane.wait'; params: PaneWaitParams; json: boolean }
   | { method: 'pane.status'; params: { panes: string[] }; json: boolean }
   | {
+      method: 'pane.watch'
+      params: { panes?: string[]; until?: string[]; off?: true }
+      json: boolean
+    }
+  | {
       method: 'pane.transcript'
       params: { pane: string; turns?: number; full?: true }
       json: boolean
@@ -59,7 +64,14 @@ interface PaneWaitParams {
 }
 
 export type PaneWaitResult =
-  | { reached: true; paneId: string; state: string; message?: string }
+  | {
+      reached: true
+      paneId: string
+      state: string
+      message?: string
+      exitCode?: number
+      status?: PaneStatus
+    }
   | { timedOut: true }
   | { closed: true; paneId: string }
 
@@ -129,6 +141,24 @@ function parseTranscript(argv: string[]): PaneCall {
       pane,
       ...(turns === undefined ? {} : { turns }),
       ...(booleans.full ? { full: true as const } : {}),
+    },
+    json: booleans.json,
+  }
+}
+
+function parseWatch(argv: string[]): PaneCall {
+  const { positional, lists, booleans } = parseArgs(argv, {
+    lists: { until: '--until' },
+    booleans: { off: '--off', json: '--json' },
+  })
+  if (booleans.off && lists.until.length > 0) throw new Error(USAGE)
+  if (!booleans.off && positional.length === 0) throw new Error(USAGE)
+  return {
+    method: 'pane.watch',
+    params: {
+      ...(positional.length > 0 ? { panes: positional } : {}),
+      ...(lists.until.length > 0 ? { until: lists.until } : {}),
+      ...(booleans.off ? { off: true as const } : {}),
     },
     json: booleans.json,
   }
@@ -214,10 +244,18 @@ export function wakeOutcome(result: PaneWakeResult, json: boolean): { line: stri
 
 export function waitOutcome(result: PaneWaitResult, json: boolean): { line: string; code: number } {
   if ('reached' in result) {
-    const { paneId, state, message } = result
+    const { paneId, state, message, exitCode, status } = result
     const line = json
-      ? JSON.stringify({ paneId, state, message: message ?? null })
-      : [paneId, state, ...(message ? [message] : [])].join('\t')
+      ? JSON.stringify({
+          paneId,
+          state,
+          message: message ?? null,
+          ...(exitCode === undefined ? {} : { exitCode }),
+          ...(status ? { status } : {}),
+        })
+      : status
+        ? statusLine(status)
+        : [paneId, state, ...(message ? [message] : [])].join('\t')
     return { line, code: PANE_WAIT_EXIT.reached }
   }
   if ('closed' in result) {
@@ -239,9 +277,11 @@ export function parsePaneArgs(argv: string[]): PaneCall {
     return { method: 'pane.list', params: {}, json: true }
   }
   if (sub === 'close') return parseClose(argv.slice(1))
+  if (sub === 'watch' && pane === '--off' && rest.length === 0) return parseWatch(argv.slice(1))
   if (!sub || !pane) throw new Error(USAGE)
   if (sub === 'wait') return parseWait([pane, ...rest])
   if (sub === 'status') return parseStatus([pane, ...rest])
+  if (sub === 'watch') return parseWatch([pane, ...rest])
   if (sub === 'transcript') return parseTranscript([pane, ...rest])
   if (sub === 'wake') return parseWake([pane, ...rest])
   if (sub === 'hibernate') return parseHibernate([pane, ...rest])
@@ -341,6 +381,19 @@ export async function runPaneVerb(
       call.params,
     )
     console.log(call.json ? JSON.stringify(result, null, 2) : result.text)
+    return 0
+  }
+  if (call.method === 'pane.watch') {
+    const result = await conn.sendRequest<{
+      watching: { pane: string; until: string[]; open: boolean }[]
+    }>(call.method, call.params)
+    console.log(
+      call.json
+        ? JSON.stringify(result, null, 2)
+        : result.watching.length === 0
+          ? '(watching nothing)'
+          : result.watching.map((w) => `${w.pane}  until ${w.until.join(', ')}`).join('\n'),
+    )
     return 0
   }
   if (call.method === 'pane.status') {

@@ -96,8 +96,13 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       },
       {
         verb: 'wait',
-        args: `${PANE}… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]`,
-        about: 'block until one of those panes stops working',
+        args: `${PANE}… [--until done|waiting|error|idle|exited|command]… [--timeout <s>] [--json]`,
+        about: 'block until one of those panes stops working; prints its status line',
+      },
+      {
+        verb: 'watch',
+        args: `${PANE}… [--until done|waiting|error|command|exited]… | --off`,
+        about: 'get a message in your inbox when one of those panes reaches a state',
       },
       {
         verb: 'wake',

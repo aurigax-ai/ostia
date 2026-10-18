@@ -33,6 +33,7 @@ export class PaneJournal {
   private readonly panes = new Map<string, PaneRecord>()
   private readonly cursors = new Map<string, number>()
   private seq = 0
+  private readonly listeners = new Set<(paneId: string, event: StampedEvent) => void>()
 
   constructor(private readonly deps: JournalDeps) {}
 
@@ -47,8 +48,14 @@ export class PaneJournal {
 
   private push(paneId: string, event: JournalEvent): void {
     const record = this.record(paneId)
-    record.ring.push({ ...event, at: this.deps.now(), seq: ++this.seq })
+    const stamped: StampedEvent = { ...event, at: this.deps.now(), seq: ++this.seq }
+    record.ring.push(stamped)
     if (record.ring.length > JOURNAL_EVENTS_MAX) record.ring.shift()
+    for (const listener of [...this.listeners]) listener(paneId, stamped)
+  }
+
+  subscribe(listener: (paneId: string, event: StampedEvent) => void): void {
+    this.listeners.add(listener)
   }
 
   onChange = (paneId: string, change: JournalChange): void => {

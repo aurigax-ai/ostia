@@ -8,6 +8,7 @@ import {
 } from '../../shared/panes/paneStatus'
 import { mailCounts } from '../agents/busStore'
 import { registerControlMethod } from '../control/controlServer'
+import type { PaneIdentity } from '../control/idRegistry'
 import type { PaneJournal, StampedEvent } from './paneJournal'
 import type { PaneEntry } from './paneList'
 import { type PaneReachDeps, ensurePaneReach, paneRefs, paneTarget, record } from './paneReach'
@@ -124,6 +125,27 @@ function mailFacts(
   }
 }
 
+export async function collectStatus(
+  deps: Pick<PaneStatusDeps, 'journal' | 'exited' | 'git' | 'wakingSince' | 'now'>,
+  to: PaneIdentity,
+  callerExternalId: string,
+  entries: readonly PaneEntry[],
+): Promise<PaneStatus | undefined> {
+  const entry = entries.find((item) => item.paneId === to.externalId)
+  if (!entry) return undefined
+  const now = deps.now()
+  const seen = deps.journal.changes(callerExternalId, to.paneId)
+  const stateAt = deps.journal.stateSince(to.paneId)
+  return statusOf(entry, {
+    exited: deps.exited(to.paneId),
+    closing: deps.journal.closing(to.paneId),
+    sinceMs: stateAt === undefined ? undefined : now - stateAt,
+    git: await deps.git(to.paneId, entry.cwd),
+    changes: summarizeChanges(seen.first, seen.first ? [] : seen.events),
+    ...mailFacts(to.externalId, deps.wakingSince(to.paneId), now),
+  })
+}
+
 export function registerPaneStatusMethods(deps: PaneStatusDeps): void {
   registerControlMethod('pane.status', {
     scripts: true,
@@ -139,23 +161,10 @@ export function registerPaneStatusMethods(deps: PaneStatusDeps): void {
         })
       }
       const entries = await deps.panes()
-      const now = deps.now()
       const panes: PaneStatus[] = []
       for (const { to } of targets) {
-        const entry = entries.find((item) => item.paneId === to.externalId)
-        if (!entry) continue
-        const seen = deps.journal.changes(ctx.identity.externalId, to.paneId)
-        const stateAt = deps.journal.stateSince(to.paneId)
-        panes.push(
-          statusOf(entry, {
-            exited: deps.exited(to.paneId),
-            closing: deps.journal.closing(to.paneId),
-            sinceMs: stateAt === undefined ? undefined : now - stateAt,
-            git: await deps.git(to.paneId, entry.cwd),
-            changes: summarizeChanges(seen.first, seen.first ? [] : seen.events),
-            ...mailFacts(to.externalId, deps.wakingSince(to.paneId), now),
-          }),
-        )
+        const status = await collectStatus(deps, to, ctx.identity.externalId, entries)
+        if (status) panes.push(status)
       }
       return { panes }
     },
