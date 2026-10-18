@@ -45,6 +45,9 @@
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-full: 999px;
+  --scrollbar-size: 11px;
+  --scrollbar-thumb: var(--line-strong);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--fg) 26%, transparent);
   --switch-width: 32px;
   --switch-height: 18px;
   --switch-thumb: 14px;
@@ -132,8 +135,36 @@ textarea {
   background: var(--brand-glow);
 }
 
-html {
-  scrollbar-color: var(--line-strong) transparent;
+::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+::-webkit-scrollbar-button {
+  display: none;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  min-height: 28px;
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  background-clip: padding-box;
+}
+
+[data-scrolling]::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+[data-scrolling]::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
 }
 
 button:disabled {

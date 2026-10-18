@@ -54,6 +54,7 @@ import { startSnapshotAutosave } from '@/stores/workspaces/persistence'
 import { startRailEditSync } from '@/stores/workspaces/railEditStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import { watchScrolling } from '@aurigax-ai/ostia-extension-sdk/contract/scrollbar'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
@@ -75,6 +76,7 @@ import { isMac } from './platform'
 
 startErrorReporting()
 startFocusModality()
+watchScrolling(document)
 registerBuiltinCommands()
 registerExternalEditorCommand()
 registerSelectionSendCommand()

@@ -6,6 +6,7 @@ import { useDict } from '@/lib/app/useDict'
 import { registerEditorPosition } from '@/lib/files/editorPositions'
 import { editorInput } from '@/lib/monaco/editorInput'
 import { langFor } from '@/lib/monaco/language'
+import { EDITOR_SCROLLBAR } from '@/lib/monaco/scrollbarOptions'
 import { monaco } from '@/lib/monaco/setup'
 import { ensureMonacoTheme } from '@/lib/monaco/useMonacoTheme'
 import { useSurfaceFocus } from '@/lib/panes/paneFocus'
@@ -53,6 +54,7 @@ export function DiffView({ paneId }: { paneId: string }): JSX.Element {
       fontWeight: String(initial.weight),
       fontLigatures: true,
       minimap: { enabled: false },
+      scrollbar: EDITOR_SCROLLBAR,
       scrollBeyondLastLine: false,
       padding: { top: 8 },
     })
