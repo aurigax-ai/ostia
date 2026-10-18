@@ -12,10 +12,8 @@ import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import type {
-  ExtensionOpenDiffRequest,
-  ExtensionOpenPanelRequest,
-} from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
+import type { ExtensionOpenPanelRequest } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
+import type { GitOpenDiffRequest } from '@shared/boards/git'
 import type { ProcessTerminalRequest } from '@shared/workspaces/workspaceApi'
 import { commands } from './registry'
 
@@ -99,7 +97,7 @@ export function openExtensionPanel(req: ExtensionOpenPanelRequest): string | nul
   return paneId
 }
 
-export function openExtensionDiff(req: ExtensionOpenDiffRequest): string | null {
+export function openExtensionDiff(req: GitOpenDiffRequest): string | null {
   const { extId: _extId, workspaceId: requested, ...content } = req
   const workspaceId = targetWorkspace(requested)
   return workspaceId ? useLayoutStore.getState().openDiff(workspaceId, content) : null
