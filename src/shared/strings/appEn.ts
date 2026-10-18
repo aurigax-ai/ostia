@@ -101,6 +101,10 @@ export const appEn = {
       reload: 'Reload',
     },
     extensionConfirm: { cancel: 'Cancel', ok: 'OK' },
+    folderAccessBlocked: {
+      body: 'Shells in {product} may keep failing to read these folders. Quit {product}, choose “Quit and end shells” if it asks, and open it again to restore access.',
+      title: 'macOS is blocking {folders}',
+    },
     quit: {
       agent: 'Agent: {name}',
       cancel: 'Cancel',
@@ -114,6 +118,9 @@ export const appEn = {
       keptShellsOne: '1 kept shell is running',
       keptTitle: 'Quit with kept shells running?',
       message: 'Quitting ends or discards everything listed here.',
+      more: 'and {count} more',
+      moreWorkspaces: 'and {count} more workspaces',
+      moreWorkspacesOne: 'and 1 more workspace',
       quit: 'Quit',
       scratch: 'Files in the scratch folder: {count}',
       title: 'Quit and lose this work?',

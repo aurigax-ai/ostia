@@ -104,11 +104,11 @@ function balanced(url: string): string {
   return url.slice(0, end)
 }
 
-export function findAppLinks(text: string): AppLinkMatch[] {
+export function findSchemeLinks(text: string, accepts: (url: string) => boolean): AppLinkMatch[] {
   const out: AppLinkMatch[] = []
   for (const m of text.matchAll(BRACKETED)) {
     const start = (m.index ?? 0) + 1
-    if (linkKind(m[1]) !== 'external') continue
+    if (!accepts(m[1])) continue
     out.push({ start, end: start + m[1].length, url: m[1] })
   }
   const covered = (start: number, end: number): boolean =>
@@ -116,9 +116,12 @@ export function findAppLinks(text: string): AppLinkMatch[] {
   for (const m of text.matchAll(PLAIN)) {
     const start = m.index ?? 0
     const url = balanced(m[0])
-    if (!/:\/\/./.test(url) || linkKind(url) !== 'external' || covered(start, start + url.length))
-      continue
+    if (!/:\/\/./.test(url) || !accepts(url) || covered(start, start + url.length)) continue
     out.push({ start, end: start + url.length, url })
   }
   return out.sort((a, b) => a.start - b.start)
+}
+
+export function findAppLinks(text: string): AppLinkMatch[] {
+  return findSchemeLinks(text, (url) => linkKind(url) === 'external')
 }

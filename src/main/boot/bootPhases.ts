@@ -39,6 +39,7 @@ import { registerHistoryIpc } from '../terminal/history/historyIpc'
 import { HISTORY_DIR, PaneHistories, appSpillWorker } from '../terminal/history/paneHistories'
 import { registerPtyIpc } from '../terminal/pty/ptyIpc'
 import { registerSelectionIpc } from '../terminal/selectionReport'
+import { startFolderAccessWatch } from '../tmux/folderAccessWiring'
 import { startKeptShells } from '../tmux/keptShellsWiring'
 import { appVersion, runningBuild } from '../updates/appVersion'
 import { startUpdates } from '../updates/updateWiring'
@@ -146,6 +147,7 @@ export function boot(wiring: Wiring): void {
   registerFolderTrustIpc({ ...wiring, readSettingsFile })
   const { notifyDeps } = registerNotifyWiring({ ...wiring })
   registerSandboxWiring({ ...wiring, notifyDeps })
+  startFolderAccessWatch({ ...wiring, notifyDeps })
   const { registry } = registerAgentWiring({ ...wiring })
   const { paneHibernated } = registerPaneMethodsWiring({ ...wiring, registry })
   registerToolbeltWiring({ ...wiring, paneHibernated })
