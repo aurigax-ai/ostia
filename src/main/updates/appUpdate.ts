@@ -1,8 +1,7 @@
-import { join } from 'node:path'
 import { BrowserWindow, app, ipcMain } from 'electron'
 import { type BuildInfo, sameBuild } from '../../shared/app/buildInfo'
 import { restoreGpuLaunchEnv } from '../platform/discreteGpu'
-import { readBuildInfo, runningBuild } from './appVersion'
+import { packagedBuildInfoPath, readBuildInfo, runningBuild } from './appVersion'
 
 const UPDATE_POLL_MS = 30_000
 
@@ -43,7 +42,7 @@ function announce(info: BuildInfo): void {
 export function registerAppUpdate(quit: () => void): void {
   let watcher: UpdateWatcher | null = null
   if (app.isPackaged) {
-    const path = join(process.resourcesPath, 'build-info.json')
+    const path = packagedBuildInfoPath()
     const current = runningBuild()
     if (current) {
       const w = createUpdateWatcher({
