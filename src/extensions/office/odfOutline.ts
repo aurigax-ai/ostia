@@ -68,16 +68,25 @@ function runsOf(element: XmlElement, runs: Run[], href?: string): Run[] {
   return runs
 }
 
+function boxRuns(container: XmlElement, runs: Run[]): void {
+  for (const element of elementsOf(container)) {
+    if (skipped(element) || element.name === 'table:table') continue
+    if (element.name === 'text:p' || element.name === 'text:h') {
+      runs.push({ text: '\n' })
+      runsOf(element, runs)
+    } else if (element.name === 'draw:frame') {
+      frameRuns(element, runs)
+    } else {
+      boxRuns(element, runs)
+    }
+  }
+}
+
 function frameRuns(frame: XmlElement, runs: Run[]): void {
   const box = childOf(frame, 'draw:text-box')
-  if (box) {
-    for (const block of blocksOf(box, [])) {
-      if (block.type !== 'table') runs.push({ text: '\n' }, ...block.runs)
-    }
-    return
-  }
-  const figure = figureOf(frame)
-  if (figure) runs.push({ figure })
+  const figure = box ? null : figureOf(frame)
+  if (box) boxRuns(box, runs)
+  else if (figure) runs.push({ figure })
 }
 
 function paragraph(element: XmlElement, out: Block[], heading: boolean): void {

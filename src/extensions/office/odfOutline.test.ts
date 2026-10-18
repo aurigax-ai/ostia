@@ -56,6 +56,19 @@ describe('readDocument (odt)', () => {
     )
   })
 
+  it('writes the text of frames nested in a paragraph in place, line by line', async () => {
+    const box = (inner: string) =>
+      `<draw:frame><draw:text-box>${inner}</draw:text-box></draw:frame>`
+    const out = html(
+      await text(
+        odf(ODT_MIMETYPE, {
+          body: `<text:p>a${box(`<text:p>b${box('<text:list><text:list-item><text:p>c</text:p></text:list-item></text:list>')}</text:p>`)}</text:p>`,
+        }),
+      ),
+    )
+    expect(out).toBe('<p>a<br>b<br>c</p>')
+  })
+
   it('keeps merged table cells as spans and leaves out covered ones', async () => {
     const out = html(
       await text(
