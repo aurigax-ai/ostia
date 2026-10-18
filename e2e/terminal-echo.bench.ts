@@ -2,8 +2,8 @@ import { resolve } from 'node:path'
 import { chords } from './chords'
 import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import {
-  type MainProbe,
   alignKeys,
+  type MainProbe,
   hookTerminal,
   installMainProbe,
   percentile,
