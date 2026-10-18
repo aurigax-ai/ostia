@@ -175,7 +175,6 @@ export const filesZhHant: typeof filesEn = {
     countUnstaged: '{count} 未暫存',
     countUntracked: '{count} 未追蹤',
     detached: '分離',
-    diffStatsChip: 'Git 差異統計',
     discard: '捨棄變更',
     discardAll: '全部捨棄',
     discardCancelled: '已取消，沒有任何變更。',
@@ -232,7 +231,7 @@ export const filesZhHant: typeof filesEn = {
     settingsDesc:
       '在側邊欄與頂端列顯示每個工作區的分支與變更，並提供 Git 面板。畫面上沒有這些項目時不會讀取任何資料。',
     showDiffStats: '頂端列顯示差異統計',
-    showDiffStatsDesc: '顯示使用中工作區變更的檔案數，以及新增與刪除的行數。',
+    showDiffStatsDesc: '在使用中工作區的分支標籤顯示新增與刪除的行數。',
     stage: '暫存',
     stageAll: '全部暫存',
     stageFolder: '暫存資料夾',

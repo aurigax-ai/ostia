@@ -279,7 +279,7 @@ describe('TopBar', () => {
     expect(within(button).getByText('Ctrl+Alt+K')).toBeInTheDocument()
   })
 
-  it('puts the dashboard button after Files, and the Git and extension panel toggles at the right', () => {
+  it('puts the dashboard button after Files, and the extension panel toggles at the right', () => {
     seedWorkspace()
     useExtensionsStore.setState({ list: [git] })
     const { container } = render(<TopBar />)
@@ -289,8 +289,7 @@ describe('TopBar', () => {
       )
     expect(names('.topbar-left').slice(-2)).toEqual(['Files', 'Dashboard'])
     const right = names('.topbar-right')
-    expect(right.slice(right.indexOf('Git'), right.indexOf('Git') + 3)).toEqual([
-      'Git',
+    expect(right.slice(right.indexOf('Changes'), right.indexOf('Changes') + 2)).toEqual([
       'Changes',
       'Settings',
     ])

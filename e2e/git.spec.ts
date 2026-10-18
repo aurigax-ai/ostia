@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
+import { addTab, openWorkspace } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 test('a dirty repo shows Changes in the side panel, opens a diff as a pane and commits', async () => {
@@ -29,7 +29,7 @@ test('a dirty repo shows Changes in the side panel, opens a diff as a pane and c
     await openWorkspace(win)
 
     const chips = win.locator('.topbar-right .workspace-chips .pane-chip')
-    await chips.filter({ hasText: /^main$/ }).click({ timeout: 15_000 })
+    await chips.filter({ hasText: /^main · \+1$/ }).click({ timeout: 15_000 })
 
     const dock = win.locator('#right-panel')
     await expect(dock).toHaveAttribute('aria-label', 'Git', { timeout: 15_000 })
@@ -59,6 +59,52 @@ test('a dirty repo shows Changes in the side panel, opens a diff as a pane and c
     await expect(panel).toContainText('No changes', { timeout: 15_000 })
     const subject = execFileSync('git', ['log', '-1', '--format=%s'], { cwd: home })
     expect(subject.toString().trim()).toBe('commit from e2e')
+  } finally {
+    await app.close()
+  }
+})
+
+test('the top bar has one git entry, a button-sized chip that follows the shown tab', async () => {
+  const dataHome = freshDataHome()
+  const home = join(dataHome, 'home')
+  mkdirSync(home, { recursive: true })
+  const vcs = (cwd: string, ...args: string[]): void => {
+    execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], { cwd })
+  }
+  vcs(home, 'init', '-q', '-b', 'main')
+  vcs(home, 'config', 'user.email', 'e2e@example.com')
+  vcs(home, 'config', 'user.name', 'E2E')
+  writeFileSync(join(home, '.gitignore'), '*\n!notes.txt\n!.gitignore\n')
+  writeFileSync(join(home, 'notes.txt'), 'one\n')
+  vcs(home, 'add', '.')
+  vcs(home, 'commit', '-q', '-m', 'init')
+  const tree = join(dataHome, 'tree')
+  vcs(home, 'worktree', 'add', '-q', '-b', 'feature/tree', tree)
+  writeFileSync(join(tree, 'notes.txt'), 'one\ntwo\nthree\n')
+
+  const launch = isolatedLaunch(dataHome)
+  const app = await electron.launch({ ...launch, env: { ...launch.env, HOME: home } })
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+
+    const chip = win.locator('.topbar-right .workspace-chips .pane-chip')
+    await expect(chip).toHaveText('main', { timeout: 15_000 })
+    await expect(win.locator('.topbar-left').getByRole('button', { name: 'Git' })).toHaveCount(0)
+    const box = await chip.boundingBox()
+    expect(box?.height).toBe(24)
+
+    await addTab(win)
+    const tabs = win.getByRole('tablist').getByRole('tab')
+    await expect(tabs).toHaveCount(2, { timeout: 15_000 })
+    await win.locator('.xterm:visible').click()
+    await win.keyboard.type(`cd ${tree}`)
+    await win.keyboard.press('Enter')
+    await expect(chip).toHaveText('feature/tree · +2', { timeout: 15_000 })
+
+    await tabs.nth(0).click()
+    await expect(chip).toHaveText('main', { timeout: 5_000 })
   } finally {
     await app.close()
   }

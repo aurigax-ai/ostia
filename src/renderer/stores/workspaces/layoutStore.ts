@@ -1,3 +1,4 @@
+import { keyboardPaneId } from '@/lib/layout/focusDirection'
 import { setDefaultPaneTitles, setPaneBrowser, setPaneCwd } from '@/lib/layout/paneFields'
 import { setSizes } from '@/lib/layout/panelSize'
 import { focusAfterClose, showAfterClose } from '@/lib/layout/tabFocus'
@@ -7,6 +8,7 @@ import {
   createPane,
   findPane,
   firstPaneId,
+  isPaneShown,
   paneIds,
   splitPane,
 } from '@/lib/layout/tree'
@@ -21,7 +23,18 @@ import { neutralTerminalTitle, newTerminalPane } from './layoutSeed'
 import { createLayoutTabActions } from './layoutTabActions'
 import { createLayoutTransferActions } from './layoutTransferActions'
 import type { LayoutState } from './layoutTypes'
+import { focusSurfaceWhenReady, surfaceHoldsKeyboard } from './surfaceSlotsStore'
 import { workDirOf } from './workspaceLookup'
+
+function keepKeyboard(get: () => LayoutState, workspaceId: string): void {
+  const layout = get().byWorkspace[workspaceId]
+  if (!layout) return
+  const target = keyboardPaneId(layout)
+  focusSurfaceWhenReady(target, () => {
+    const now = get().byWorkspace[workspaceId]
+    return now !== undefined && isPaneShown(now.root, target)
+  })
+}
 
 export const useLayoutStore = create<LayoutState>((set, get) => ({
   byWorkspace: {},
@@ -116,6 +129,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       window.ostia?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
       return
     }
+    const heldKeyboard = surfaceHoldsKeyboard(paneId)
     let removed = false
     set((s) => {
       const next = patch(s, workspaceId, (l) => {
@@ -133,6 +147,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     })
     if (removed) {
       forgetTab(workspaceId, paneId)
+      if (heldKeyboard) keepKeyboard(get, workspaceId)
       window.ostia?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
     }
   },

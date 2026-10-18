@@ -1,37 +1,22 @@
 import { IconButton } from '@/components/common/IconButton'
 import { extensionIcon } from '@/components/extensions/extensionIcons'
-import { useDict } from '@/lib/app/useDict'
-import { GIT_PANEL_ID } from '@/lib/git/gitPanel'
 import { toggleRightPanel } from '@/lib/panes/rightPanelFocus'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { GitBranchIcon } from '@phosphor-icons/react'
 
 function hasToggle(ext: ExtensionInfo): boolean {
   return ext.enabled && ext.panel !== null && ext.assist.length === 0
 }
 
 export function PanelToggles(): JSX.Element | null {
-  const d = useDict()
   const panels = useExtensionsStore((s) => s.list).filter(hasToggle)
-  const git = useSettingsStore((s) => s.git.enabled)
   const right = useSidePanelStore((s) => s.right)
   const workspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
-  if (!workspaceId || (panels.length === 0 && !git)) return null
+  if (!workspaceId || panels.length === 0) return null
   return (
     <>
-      {git && (
-        <IconButton
-          size="bar"
-          icon={GitBranchIcon}
-          label={d.git.title}
-          aria-pressed={right === GIT_PANEL_ID}
-          onClick={() => toggleRightPanel(GIT_PANEL_ID)}
-        />
-      )}
       {panels.map((ext) => (
         <IconButton
           key={ext.id}

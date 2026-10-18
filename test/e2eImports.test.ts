@@ -8,6 +8,8 @@ import { KEPT_SHELLS_DIR } from '../src/shared/terminal/keepShells'
 const E2E = join(process.cwd(), 'e2e')
 const PLAYWRIGHT_IMPORT = /from '@playwright\/test'/
 const CORE_MARK = /@core\b/g
+const FIXED_SLEEP = /waitForTimeout\(|setTimeout\(resolve/g
+const FIXED_SLEEP_CAP = 8
 const DESCRIBE_WITH_CORE =
   /\.describe(?:\.\w+)?\(\s*(?:(['"`])[^\n]*?@core|(['"`])[^\n]*?\2\s*,\s*\{[^}]*@core)/
 
@@ -28,6 +30,11 @@ describe('e2e imports', () => {
   it('marks at most 34 e2e tests @core, so the merge queue runs a small set', () => {
     const marks = specSources().flatMap(({ source }) => source.match(CORE_MARK) ?? [])
     expect(marks.length).toBeLessThanOrEqual(34)
+  })
+
+  it(`keeps at most ${FIXED_SLEEP_CAP} fixed sleeps in e2e specs, a cap that only goes down; wait on a state instead`, () => {
+    const sleeps = specSources().flatMap(({ source }) => source.match(FIXED_SLEEP) ?? [])
+    expect(sleeps.length).toBeLessThanOrEqual(FIXED_SLEEP_CAP)
   })
 
   it('never puts @core on a describe, which would tag a whole group at once', () => {

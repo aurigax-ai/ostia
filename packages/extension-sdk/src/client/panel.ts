@@ -5,7 +5,10 @@ import {
   translatorFor,
 } from '../contract/extensionLocales'
 import type { ExtensionResult } from '../contract/extensions'
+import { watchScrolling } from '../contract/scrollbar'
 import { PANEL_SIZES_PATH, parsePanelSizes, withPanelSize } from './split'
+
+watchScrolling(document)
 
 const params = new URLSearchParams(location.search)
 const secret = params.get('t') ?? ''

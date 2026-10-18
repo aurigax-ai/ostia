@@ -5,6 +5,7 @@ import { listen } from './listen'
 export const boardsBridge: Pick<OstiaBridge, 'git' | 'ports'> = {
   git: {
     watch: (workspaceIds) => ipcRenderer.send('git:watch', workspaceIds),
+    shown: () => ipcRenderer.send('git:shown'),
     onItems: (cb) => listen('git:items', cb),
     onChanged: (cb) => listen('git:changed', () => cb()),
     changes: (workspaceId) => ipcRenderer.invoke('git:changes', workspaceId),

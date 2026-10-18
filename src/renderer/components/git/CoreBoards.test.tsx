@@ -56,11 +56,10 @@ const GIT_ITEMS: CoreItems = {
       extId: 'git',
       workspaceId: 's1',
       id: 'branch',
-      text: 'main',
+      text: 'main · +2 −1',
       tone: 'neutral',
       command: 'git.show',
     },
-    { extId: 'git', workspaceId: 's1', id: 'diff-stats', text: '1 • +2 -1', tone: 'neutral' },
   ],
 }
 
@@ -147,7 +146,6 @@ describe('core git and ports in the window', () => {
     store.setPortsItems(PORTS_ITEMS)
     expect(useExtensionsStore.getState().workspaceChips.map((c) => `${c.extId}.${c.id}`)).toEqual([
       'git.branch',
-      'git.diff-stats',
       'ports.ports',
       'env.venv',
     ])
@@ -177,8 +175,7 @@ describe('core git and ports in the window', () => {
       useExtensionsStore.getState().setGitItems(GIT_ITEMS)
       useExtensionsStore.getState().setPortsItems(PORTS_ITEMS)
     })
-    expect(screen.getByText('1 • +2 -1')).toBeVisible()
-    await userEvent.setup().click(screen.getByRole('button', { name: /Git branch: main/ }))
+    await userEvent.setup().click(screen.getByRole('button', { name: /Git branch: main · \+2 −1/ }))
     expect(useSidePanelStore.getState().right).toBe('git')
     expect(gitPane()).toBeNull()
   })
@@ -268,20 +265,17 @@ describe('core git and ports in the window', () => {
     )
   })
 
-  it('toggles Git in the right side panel from the top bar, and hides the button when Git is off', async () => {
-    const user = userEvent.setup()
+  it('has no Git button in the top bar, because the branch chip is the one way in', () => {
     render(<PanelToggles />)
-    const button = screen.getByRole('button', { name: 'Git' })
-    expect(button).toHaveAttribute('aria-pressed', 'false')
-    await user.click(button)
-    expect(useSidePanelStore.getState().right).toBe('git')
-    expect(gitPane()).toBeNull()
-    expect(button).toHaveAttribute('aria-pressed', 'true')
-    await user.click(button)
-    expect(useSidePanelStore.getState().right).toBeNull()
-    expect(button).toHaveAttribute('aria-pressed', 'false')
-    act(() => useSettingsStore.getState().setGit({ enabled: false }))
     expect(screen.queryByRole('button', { name: 'Git' })).toBeNull()
+  })
+
+  it('tells main when the shown pane changes, so the chip follows it', async () => {
+    useExtensionsStore.getState().setGitItems(GIT_ITEMS)
+    await renderSettled(<WorkspaceChips workspaceId="s1" />)
+    vi.mocked(window.ostia.git.shown).mockClear()
+    act(() => useLayoutStore.getState().focusPane('s1', 'p2'))
+    expect(window.ostia.git.shown).toHaveBeenCalledTimes(1)
   })
 
   it('opens the graph, and blame only for a focused file', async () => {

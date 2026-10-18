@@ -180,7 +180,6 @@ export const filesEn = {
     countUnstaged: '{count} unstaged',
     countUntracked: '{count} untracked',
     detached: 'detached',
-    diffStatsChip: 'Git diff stats',
     discard: 'Discard changes',
     discardAll: 'Discard all',
     discardCancelled: 'Cancelled; nothing was changed.',
@@ -240,7 +239,7 @@ export const filesEn = {
       'Branch and changes of each workspace in the sidebar and the top bar, and the Git panel. Nothing is read until one of them is on screen.',
     showDiffStats: 'Diff stats in the top bar',
     showDiffStatsDesc:
-      'Show the files changed and lines added and removed for the active workspace.',
+      'Show the lines added and removed in the branch chip of the active workspace.',
     stage: 'Stage',
     stageAll: 'Stage all',
     stageFolder: 'Stage folder',

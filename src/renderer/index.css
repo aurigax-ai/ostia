@@ -106,6 +106,7 @@
   --separator-border: var(--line);
   --focus-border: var(--brand);
 
+  --scrollbar-size: 11px;
   --scrollbar-thumb: var(--color-line-strong);
   --scrollbar-thumb-hover: color-mix(in srgb, var(--color-fg) 26%, transparent);
 
@@ -236,14 +237,13 @@
   }
 }
 
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) transparent;
+::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
 }
 
-::-webkit-scrollbar {
-  width: 11px;
-  height: 11px;
+::-webkit-scrollbar-button {
+  display: none;
 }
 
 ::-webkit-scrollbar-track,
@@ -255,17 +255,41 @@
   min-height: 28px;
   border: 3px solid transparent;
   border-radius: 8px;
+  background: transparent;
+  background-clip: padding-box;
+}
+
+[data-scrolling]::-webkit-scrollbar-thumb,
+[data-scrollbar-hover]::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
   background-clip: padding-box;
 }
 
-::-webkit-scrollbar-thumb:hover {
+[data-scrolling]::-webkit-scrollbar-thumb:hover,
+[data-scrollbar-hover]::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+.monaco-editor .monaco-scrollable-element > .scrollbar > .slider,
+.xterm-host .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider {
+  box-sizing: border-box;
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+.monaco-editor .monaco-scrollable-element > .scrollbar > .slider:hover,
+.monaco-editor .monaco-scrollable-element > .scrollbar > .slider.active,
+.xterm-host .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider:hover,
+.xterm-host .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider.xterm-active {
   background: var(--scrollbar-thumb-hover);
   background-clip: padding-box;
 }
 
 .scroll-quiet {
-  --scroll-gutter: calc(var(--spacing) * 2.5);
+  --scroll-gutter: var(--scrollbar-size);
 }
 
 .scroll-quiet > [data-slot="scroll-area-viewport"] {
@@ -273,16 +297,19 @@
   padding-inline-end: var(--scroll-gutter);
 }
 
-.scroll-quiet > [data-slot="scroll-area-scrollbar"] {
-  width: var(--scroll-gutter);
-  border-width: 0;
+[data-slot="scroll-area-scrollbar"] {
   opacity: 0;
   transition: opacity var(--motion-base-exit) var(--ease-in);
 }
 
-.scroll-quiet > [data-slot="scroll-area-scrollbar"][data-scrolling] {
+[data-slot="scroll-area-scrollbar"][data-scrolling],
+[data-slot="scroll-area-scrollbar"]:hover {
   opacity: 1;
   transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.scroll-quiet > [data-slot="scroll-area-scrollbar"] {
+  width: var(--scroll-gutter);
 }
 
 .app {
@@ -2766,15 +2793,6 @@ button.prompt-chip:hover {
   scrollbar-width: none;
 }
 
-.xterm-host .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider {
-  background: var(--scrollbar-thumb);
-}
-
-.xterm-host .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider:hover,
-.xterm-host .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider.xterm-active {
-  background: var(--scrollbar-thumb-hover);
-}
-
 .bell-flash {
   position: absolute;
   inset: 0;
@@ -3605,7 +3623,7 @@ button.prompt-chip:hover {
   right: 2px;
   bottom: 4px;
   z-index: 3;
-  width: 10px;
+  width: var(--scrollbar-size);
   opacity: 0;
   transition: opacity var(--motion-fast) var(--ease-out);
 }
@@ -3616,14 +3634,17 @@ button.prompt-chip:hover {
 }
 
 .history-scrollbar-thumb {
-  width: 6px;
-  margin-left: 2px;
-  border-radius: 3px;
+  box-sizing: border-box;
+  width: var(--scrollbar-size);
+  border: 3px solid transparent;
+  border-radius: 8px;
   background: var(--scrollbar-thumb);
+  background-clip: padding-box;
 }
 
-.history-scrollbar:hover .history-scrollbar-thumb {
+.history-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
 }
 
 .dot.error {
@@ -3746,6 +3767,14 @@ button.prompt-chip:hover {
 
 .workspace-chips {
   -webkit-app-region: no-drag;
+}
+
+.workspace-chips .pane-chip {
+  max-width: none;
+  height: 24px;
+  border-radius: var(--radius-lg);
+  padding: 0 8px;
+  font-size: var(--text-ui-sm);
 }
 
 .pane-chips {

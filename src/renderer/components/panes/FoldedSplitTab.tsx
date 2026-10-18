@@ -1,3 +1,4 @@
+import { Hint } from '@/components/common/Hint'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { tabMark } from '@/lib/attention/attention'
 import { allPanes } from '@/lib/layout/tree'
@@ -7,7 +8,7 @@ import { useAttentionStore } from '@/stores/agents/attentionStore'
 import type { AttentionState } from '@shared/attention/attention'
 import { SplitTabGlyph, focusPane, tabDragProps } from './SplitTab'
 
-const COUNTED = ['waiting', 'working', 'done'] as const
+const COUNTED = ['waiting', 'error', 'working', 'done'] as const
 
 const MARK_ORDER = ['waiting', 'error', 'done', 'unread'] as const
 
@@ -50,6 +51,7 @@ export function FoldedSplitTab({
   const countText = {
     waiting: d.pane.foldedWaiting,
     working: d.pane.foldedWorking,
+    error: d.pane.foldedFailed,
     done: d.pane.foldedDone,
   }
   const parts = [
@@ -68,24 +70,22 @@ export function FoldedSplitTab({
       data-attention={mark ?? undefined}
       {...tabDragProps(tab.id, workspaceId, true)}
     >
-      <button
-        type="button"
-        role="tab"
-        aria-selected={false}
-        aria-expanded={false}
-        aria-label={fmt(d.pane.foldedSplitTab, { name, summary: parts.join(', ') })}
-        className="split-tab-fold-main"
-        onClick={() => focusPane(open.id)}
-      >
-        <SplitTabGlyph tab={tab} focusedId={null} />
-        {mark ? <span className="pane-attn-mark" aria-hidden /> : null}
-        <span className="split-tab-name">{name}</span>
-        {parts.map((part) => (
-          <span key={part} className="split-tab-fold-count text-ui-xs">
-            {part}
-          </span>
-        ))}
-      </button>
+      <Hint label={parts.join(', ')} side="bottom">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={false}
+          aria-expanded={false}
+          aria-label={fmt(d.pane.foldedSplitTab, { name, summary: parts.join(', ') })}
+          className="split-tab-fold-main"
+          onClick={() => focusPane(open.id)}
+        >
+          <SplitTabGlyph tab={tab} focusedId={null} />
+          {mark ? <span className="pane-attn-mark" aria-hidden /> : null}
+          <span className="split-tab-name">{name}</span>
+          <span className="split-tab-fold-count text-ui-xs">{panes.length}</span>
+        </button>
+      </Hint>
     </div>
   )
 }
