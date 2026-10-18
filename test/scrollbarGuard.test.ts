@@ -9,6 +9,9 @@ const APP_CSS = 'src/renderer/index.css'
 const PANEL_CSS = 'packages/extension-sdk/src/client/panel.css'
 const SHARED = [APP_CSS, PANEL_CSS]
 
+const SHOWN =
+  '[data-scrolling]::-webkit-scrollbar-thumb,\n[data-scrollbar-hover]::-webkit-scrollbar-thumb'
+
 const sources = execFileSync('git', ['ls-files', '*.css', '*.html', '*.ts', '*.tsx'], {
   cwd: root,
   encoding: 'utf8',
@@ -47,9 +50,7 @@ describe('one scrollbar definition', () => {
       const css = read(file)
       expect(ruleBody(css, '::-webkit-scrollbar-button')).toContain('display: none')
       expect(ruleBody(css, '::-webkit-scrollbar-thumb')).toContain('background: transparent')
-      expect(ruleBody(css, '[data-scrolling]::-webkit-scrollbar-thumb')).toContain(
-        'background: var(--scrollbar-thumb)',
-      )
+      expect(ruleBody(css, SHOWN)).toContain('background: var(--scrollbar-thumb)')
     },
   )
 
@@ -63,8 +64,8 @@ describe('one scrollbar definition', () => {
       '::-webkit-scrollbar',
       '::-webkit-scrollbar-button',
       '::-webkit-scrollbar-thumb',
-      '[data-scrolling]::-webkit-scrollbar-thumb',
-      '[data-scrolling]::-webkit-scrollbar-thumb:hover',
+      '[data-scrolling]::-webkit-scrollbar-thumb,\n[data-scrollbar-hover]::-webkit-scrollbar-thumb',
+      '[data-scrolling]::-webkit-scrollbar-thumb:hover,\n[data-scrollbar-hover]::-webkit-scrollbar-thumb:hover',
     ]) {
       expect(ruleBody(app, selector)).not.toBe('')
       expect(ruleBody(app, selector)).toBe(ruleBody(panel, selector))
@@ -83,5 +84,11 @@ describe('one scrollbar definition', () => {
         /ScrollbarSize|HasArrows/.test(read(file)),
     )
     expect(literals).toEqual([])
+  })
+
+  it('shows the list and history scrollbars while the pointer is over the bar itself', () => {
+    const css = read(APP_CSS)
+    expect(css).toContain('[data-slot="scroll-area-scrollbar"]:hover')
+    expect(css).toContain('.history-scrollbar:hover')
   })
 })

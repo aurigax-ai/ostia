@@ -157,12 +157,14 @@ textarea {
   background-clip: padding-box;
 }
 
-[data-scrolling]::-webkit-scrollbar-thumb {
+[data-scrolling]::-webkit-scrollbar-thumb,
+[data-scrollbar-hover]::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
   background-clip: padding-box;
 }
 
-[data-scrolling]::-webkit-scrollbar-thumb:hover {
+[data-scrolling]::-webkit-scrollbar-thumb:hover,
+[data-scrollbar-hover]::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
   background-clip: padding-box;
 }

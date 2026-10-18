@@ -258,12 +258,14 @@
   background-clip: padding-box;
 }
 
-[data-scrolling]::-webkit-scrollbar-thumb {
+[data-scrolling]::-webkit-scrollbar-thumb,
+[data-scrollbar-hover]::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
   background-clip: padding-box;
 }
 
-[data-scrolling]::-webkit-scrollbar-thumb:hover {
+[data-scrolling]::-webkit-scrollbar-thumb:hover,
+[data-scrollbar-hover]::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
   background-clip: padding-box;
 }
@@ -299,7 +301,8 @@
   transition: opacity var(--motion-base-exit) var(--ease-in);
 }
 
-[data-slot="scroll-area-scrollbar"][data-scrolling] {
+[data-slot="scroll-area-scrollbar"][data-scrolling],
+[data-slot="scroll-area-scrollbar"]:hover {
   opacity: 1;
   transition: opacity var(--motion-fast) var(--ease-out);
 }
@@ -3581,7 +3584,8 @@ button.prompt-chip:hover {
   transition: opacity var(--motion-fast) var(--ease-out);
 }
 
-.history-scrollbar[data-active] {
+.history-scrollbar[data-active],
+.history-scrollbar:hover {
   opacity: 1;
 }
 

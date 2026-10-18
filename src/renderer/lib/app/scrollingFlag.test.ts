@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import {
+  SCROLLBAR_HOVER_ATTRIBUTE,
   SCROLLING_ATTRIBUTE,
   SCROLL_IDLE_MS,
   watchScrolling,
@@ -51,5 +52,53 @@ describe('watchScrolling', () => {
     expect(scroller('a')).not.toHaveAttribute(SCROLLING_ATTRIBUTE)
     scroller('b').dispatchEvent(new Event('scroll'))
     expect(scroller('b')).not.toHaveAttribute(SCROLLING_ATTRIBUTE)
+  })
+
+  describe('pointer over the scrollbar', () => {
+    function geometry(el: HTMLElement): void {
+      for (const [name, value] of Object.entries({
+        offsetWidth: 100,
+        clientWidth: 89,
+        offsetHeight: 100,
+        clientHeight: 100,
+      })) {
+        Object.defineProperty(el, name, { configurable: true, value })
+      }
+    }
+
+    function move(el: Element, offsetX: number): void {
+      const event = new Event('pointermove', { bubbles: true })
+      Object.defineProperty(event, 'offsetX', { value: offsetX })
+      Object.defineProperty(event, 'offsetY', { value: 10 })
+      el.dispatchEvent(event)
+    }
+
+    it('marks the scroller while the pointer is in its scrollbar gutter, not over its content', () => {
+      geometry(scroller('a'))
+      move(scroller('a'), 40)
+      expect(scroller('a')).not.toHaveAttribute(SCROLLBAR_HOVER_ATTRIBUTE)
+      move(scroller('a'), 95)
+      expect(scroller('a')).toHaveAttribute(SCROLLBAR_HOVER_ATTRIBUTE)
+      move(scroller('a'), 40)
+      expect(scroller('a')).not.toHaveAttribute(SCROLLBAR_HOVER_ATTRIBUTE)
+    })
+
+    it('moves the mark to another scroller and clears it when the pointer leaves the window', () => {
+      geometry(scroller('a'))
+      geometry(scroller('b'))
+      move(scroller('a'), 95)
+      move(scroller('b'), 95)
+      expect(scroller('a')).not.toHaveAttribute(SCROLLBAR_HOVER_ATTRIBUTE)
+      expect(scroller('b')).toHaveAttribute(SCROLLBAR_HOVER_ATTRIBUTE)
+      scroller('b').dispatchEvent(
+        new MouseEvent('pointerout', { bubbles: true, relatedTarget: null }),
+      )
+      expect(scroller('b')).not.toHaveAttribute(SCROLLBAR_HOVER_ATTRIBUTE)
+    })
+
+    it('ignores an element without a scrollbar', () => {
+      move(scroller('a'), 95)
+      expect(scroller('a')).not.toHaveAttribute(SCROLLBAR_HOVER_ATTRIBUTE)
+    })
   })
 })
