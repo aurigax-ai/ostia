@@ -1,8 +1,1 @@
-[
-  {
-    "file": "e2e/graphs-kept.spec.ts",
-    "name": "GRF-C71 an agent still working in its kept pane across a restart is reattached as running and its report ends the node",
-    "issue": 1044,
-    "until": "2026-10-30"
-  }
-]
+[]
