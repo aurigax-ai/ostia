@@ -1064,65 +1064,88 @@ describe('TerminalView engines', () => {
     expect(browserUrls()).toEqual([])
   })
 
-  it('a link’s hover hint goes away when its pane stops being visible, the window loses focus, the terminal resizes or a mouse button goes down', async () => {
-    const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
-    const box = vi
-      .spyOn(Element.prototype, 'getBoundingClientRect')
-      .mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 600 }))
-    const settingsActive = useUIStore.getState().settingsActive
-    onTestFinished(() => {
-      fitted.mockRestore()
-      box.mockRestore()
-      useUIStore.setState({ settingsActive })
-    })
-    const { term, links } = await renderLinkTerminal()
-    const hint = (): Element | null => document.querySelector('[data-slot="tooltip-content"]')
-    const hoverUntilHinted = async (): Promise<void> => {
-      act(() =>
-        links.hover?.(new MouseEvent('mousemove'), 'http://127.0.0.1:8000/first', linkRange),
-      )
-      await waitFor(() => expect(hint()).not.toBeNull())
+  describe('a link’s hover hint goes away', () => {
+    async function renderHinted() {
+      const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
+      const box = vi
+        .spyOn(Element.prototype, 'getBoundingClientRect')
+        .mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 600 }))
+      const settingsActive = useUIStore.getState().settingsActive
+      onTestFinished(() => {
+        fitted.mockRestore()
+        box.mockRestore()
+        useUIStore.setState({ settingsActive })
+        vi.useRealTimers()
+      })
+      const { term, links } = await renderLinkTerminal()
+      vi.useFakeTimers()
+      const hint = (): Element | null => document.querySelector('[data-slot="tooltip-content"]')
+      const hover = (): void => {
+        act(() =>
+          links.hover?.(new MouseEvent('mousemove'), 'http://127.0.0.1:8000/first', linkRange),
+        )
+      }
+      const hoverUntilHinted = (): void => {
+        hover()
+        act(() => {
+          vi.advanceTimersByTime(1_000)
+        })
+        expect(hint()).not.toBeNull()
+      }
+      return { term, hint, hover, hoverUntilHinted }
     }
 
-    await hoverUntilHinted()
-    act(() => useUIStore.setState({ settingsActive: true }))
-    expect(hint()).toBeNull()
-    act(() => useUIStore.setState({ settingsActive: false }))
-    expect(hint()).toBeNull()
-
-    await hoverUntilHinted()
-    act(() => useWorkspacesStore.setState({ activeWorkspaceId: 'w2' }))
-    expect(hint()).toBeNull()
-    act(() => useWorkspacesStore.setState({ activeWorkspaceId: 'w1' }))
-
-    await hoverUntilHinted()
-    act(() => {
-      window.dispatchEvent(new Event('blur'))
+    it('when the settings page covers its pane', async () => {
+      const { hint, hoverUntilHinted } = await renderHinted()
+      hoverUntilHinted()
+      act(() => useUIStore.setState({ settingsActive: true }))
+      expect(hint()).toBeNull()
+      act(() => useUIStore.setState({ settingsActive: false }))
+      expect(hint()).toBeNull()
     })
-    expect(hint()).toBeNull()
 
-    await hoverUntilHinted()
-    act(() => term.resize(term.cols + 1, term.rows))
-    expect(hint()).toBeNull()
+    it('when another workspace is shown', async () => {
+      const { hint, hoverUntilHinted } = await renderHinted()
+      hoverUntilHinted()
+      act(() => useWorkspacesStore.setState({ activeWorkspaceId: 'w2' }))
+      expect(hint()).toBeNull()
+      act(() => useWorkspacesStore.setState({ activeWorkspaceId: 'w1' }))
+      expect(hint()).toBeNull()
+    })
 
-    await hoverUntilHinted()
-    act(() => {
-      term.element?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, ctrlKey: true }))
+    it('when the window loses focus', async () => {
+      const { hint, hoverUntilHinted } = await renderHinted()
+      hoverUntilHinted()
+      act(() => {
+        window.dispatchEvent(new Event('blur'))
+      })
+      expect(hint()).toBeNull()
     })
-    expect(hint()).toBeNull()
 
-    vi.useFakeTimers()
-    onTestFinished(() => {
-      vi.useRealTimers()
+    it('when the terminal resizes', async () => {
+      const { term, hint, hoverUntilHinted } = await renderHinted()
+      hoverUntilHinted()
+      act(() => term.resize(term.cols + 1, term.rows))
+      expect(hint()).toBeNull()
     })
-    act(() => links.hover?.(new MouseEvent('mousemove'), 'http://127.0.0.1:8000/first', linkRange))
-    act(() => {
-      term.element?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, ctrlKey: true }))
+
+    it('when a mouse button goes down, also before the hint has shown', async () => {
+      const { term, hint, hover, hoverUntilHinted } = await renderHinted()
+      const press = (): void => {
+        act(() => {
+          term.element?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, ctrlKey: true }))
+        })
+      }
+      hoverUntilHinted()
+      press()
+      expect(hint()).toBeNull()
+      hover()
+      press()
+      act(() => {
+        vi.advanceTimersByTime(1_000)
+      })
+      expect(hint()).toBeNull()
     })
-    act(() => {
-      vi.advanceTimersByTime(1_000)
-    })
-    expect(hint()).toBeNull()
   })
 
   it('a Files row starts a native file drag, and that file dropped on the terminal types its quoted path', async () => {
