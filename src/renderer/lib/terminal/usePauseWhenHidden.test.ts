@@ -8,10 +8,15 @@ function fakePause(): { pause: PauseTerminal; setPaused: ReturnType<typeof vi.fn
   return { pause: setPaused, setPaused }
 }
 
-function mount(shown: boolean, pauseRef = { current: fakePause().pause }) {
-  return renderHook(({ shown, paneId }) => usePauseWhenHidden(pauseRef, shown, paneId, 'ghostty'), {
-    initialProps: { shown, paneId: 'p1' },
-  })
+function mount(
+  shown: boolean,
+  pauseRef = { current: fakePause().pause },
+  syncSizeRef = { current: vi.fn() },
+) {
+  return renderHook(
+    ({ shown, paneId }) => usePauseWhenHidden(pauseRef, syncSizeRef, shown, paneId, 'ghostty'),
+    { initialProps: { shown, paneId: 'p1' } },
+  )
 }
 
 describe('usePauseWhenHidden', () => {
@@ -27,6 +32,16 @@ describe('usePauseWhenHidden', () => {
     view.rerender({ shown: false, paneId: 'p1' })
     view.rerender({ shown: true, paneId: 'p1' })
     expect(setPaused.mock.calls).toEqual([[false], [true], [false]])
+  })
+
+  it('fits a terminal as it is shown and leaves a hidden one alone', () => {
+    const syncSize = vi.fn()
+    const view = mount(false, { current: fakePause().pause }, { current: syncSize })
+    expect(syncSize).not.toHaveBeenCalled()
+    view.rerender({ shown: true, paneId: 'p1' })
+    expect(syncSize).toHaveBeenCalledTimes(1)
+    view.rerender({ shown: false, paneId: 'p1' })
+    expect(syncSize).toHaveBeenCalledTimes(1)
   })
 
   it('pauses the new terminal when a hidden pane creates one', () => {

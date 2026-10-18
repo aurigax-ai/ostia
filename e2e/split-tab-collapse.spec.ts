@@ -202,6 +202,15 @@ test('a collapsed terminal keeps its size, never 0x0, and refits to its cell on 
     const w2 = (await segment(win, 'w2').getAttribute('data-segment-id')) ?? ''
     await segment(win, 'w1').locator('.split-tab-segment-main').click()
     const rows = cell(win, w1).locator('.xterm-rows')
+    await expect
+      .poll(
+        async () => {
+          const [grid, box] = await Promise.all([rows.boundingBox(), cell(win, w1).boundingBox()])
+          return grid && box ? grid.height <= box.height : false
+        },
+        { timeout: 15_000 },
+      )
+      .toBe(true)
     await expect.poll(() => settled(rows), { timeout: 15_000 }).not.toBeNull()
     const before = (await settled(rows)) ?? [0, 0]
     expect(before[0]).toBeGreaterThan(0)

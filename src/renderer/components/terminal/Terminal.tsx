@@ -209,7 +209,7 @@ function TerminalSurface({
   }, [paneId, engine])
 
   useEffect(() => () => useHistoryViewStore.getState().close(paneId), [paneId])
-  usePauseWhenHidden(pauseRef, shown, paneId, engine)
+  usePauseWhenHidden(pauseRef, syncSizeRef, shown, paneId, engine)
   useTerminalOptions({ termRef, syncSizeRef, font, palette })
   const input = terminalInputBridge({ paneId, termRef, setSuppressedPrompt })
 

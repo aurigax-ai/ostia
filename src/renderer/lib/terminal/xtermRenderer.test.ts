@@ -191,6 +191,23 @@ describe('createXtermRenderer', () => {
     expect(t.intersections).toEqual([true, false, true])
   })
 
+  it('keeps the screen of a pane that still holds the keyboard, such as one under the history layer', () => {
+    const t = fakeTerm()
+    const input = document.createElement('textarea')
+    t.screen.appendChild(input)
+    const renderer = create(t, false)
+    renderer.pause(false)
+    input.focus()
+    renderer.pause(true)
+    expect(t.screen.isConnected).toBe(true)
+    expect(document.activeElement).toBe(input)
+    expect(t.intersections).toEqual([true, false])
+
+    input.blur()
+    renderer.pause(true)
+    expect(t.screen.isConnected).toBe(false)
+  })
+
   it('takes a hidden screen off the page and puts it back in the same place', () => {
     const t = fakeTerm()
     const renderer = create(t)

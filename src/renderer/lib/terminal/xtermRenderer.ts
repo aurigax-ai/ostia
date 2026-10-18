@@ -49,7 +49,7 @@ export function createXtermRenderer(term: Terminal, gpu: boolean): XtermRenderer
   let parked: { parent: Node; sibling: Node | null } | null = null
 
   const park = (): void => {
-    if (!screen?.parentNode || parked) return
+    if (!screen?.parentNode || parked || screen.contains(document.activeElement)) return
     parked = { parent: screen.parentNode, sibling: screen.nextSibling }
     screen.remove()
   }
