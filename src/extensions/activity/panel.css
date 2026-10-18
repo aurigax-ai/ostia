@@ -9,23 +9,6 @@
   flex: 1;
 }
 
-.toolbar {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 8px;
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--line);
-}
-
-.title {
-  margin: 0;
-  font-size: var(--text-ui-base);
-  line-height: var(--text-ui-base--line-height);
-  font-weight: var(--font-weight-semibold);
-}
-
 .tabs {
   display: flex;
   gap: 4px;

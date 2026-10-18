@@ -105,3 +105,50 @@ export function errorText(res: ExtensionResult): string {
   if (res.ok) return ''
   return res.message ? `${res.error}: ${res.message}` : res.error
 }
+
+export function panelToolbar({
+  back,
+  actions = [],
+}: {
+  back?: { label: string; onClick: () => void }
+  actions?: Node[]
+}): HTMLElement | null {
+  if (!back && actions.length === 0) return null
+  return h(
+    'header',
+    { class: 'ostia-toolbar' },
+    back ? h('button', { type: 'button', onClick: back.onClick }, back.label) : null,
+    h('div', { class: 'ostia-spacer' }),
+    ...actions,
+  )
+}
+
+export function emptyState(
+  text: string,
+  action?: Node,
+  attrs: Record<string, string> = {},
+): HTMLElement {
+  return h('div', { class: 'ostia-empty', ...attrs }, h('p', {}, text), action)
+}
+
+export function listRow({
+  title,
+  meta = [],
+  detail = [],
+  actions = [],
+  attrs = {},
+}: {
+  title: string
+  meta?: Child[]
+  detail?: Child[]
+  actions?: Node[]
+  attrs?: Record<string, string>
+}): HTMLElement {
+  return h(
+    'li',
+    { class: 'ostia-row', ...attrs },
+    h('div', { class: 'ostia-row-head' }, h('span', { class: 'ostia-row-title' }, title), ...meta),
+    ...detail,
+    actions.length > 0 ? h('div', { class: 'ostia-row-actions' }, ...actions) : null,
+  )
+}
