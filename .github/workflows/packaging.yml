@@ -31,10 +31,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/linux-deps
       - uses: ./.github/actions/setup
         timeout-minutes: 10
       - run: pnpm build
       - run: pnpm exec electron-builder --linux deb --publish never
+      - name: Run the packaged-app specs against the unpacked build
+        env:
+          OSTIA_E2E_PACKAGED: ${{ github.workspace }}/dist/linux-unpacked/ostia
+        run: pnpm test:e2e e2e/packaged-cli.spec.ts e2e/packaged-preview.spec.ts
       - name: Fake a newer version of the same package to test the upgrade
         run: |
           mkdir -p repo

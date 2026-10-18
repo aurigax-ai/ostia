@@ -8,6 +8,9 @@ import {
   type ViewerDocumentMeta,
   type ViewerPortableTables,
 } from '../contract/fileViewers'
+import { watchScrolling } from '../contract/scrollbar'
+
+if (typeof document !== 'undefined') watchScrolling(document)
 
 export type ViewerDocumentProblem = 'too-large' | 'gone' | 'unreadable'
 

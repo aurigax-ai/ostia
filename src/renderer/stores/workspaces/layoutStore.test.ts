@@ -185,6 +185,29 @@ describe('layoutStore', () => {
       expect(splitTabOfPane(layoutOf('sess').root, api)).toBeNull()
       expect(splitTabOfPane(layoutOf('sess').root, web)).toBeNull()
     })
+
+    it('keeps a folded tab folded, its collapsed pane collapsed and the shown tab when members join and leave', () => {
+      const caller = ensure('sess')
+      const web = open({ afterPaneId: caller, splitTab: { name: 'dev' } })
+      const api = open({ afterPaneId: caller, splitTab: { name: 'dev' } })
+      const docs = open({ afterPaneId: caller, splitTab: { name: 'dev' } })
+      const store = useLayoutStore.getState()
+      store.changeCollapse('sess', web, 'collapse')
+      const tabId = (splitTabOfPane(layoutOf('sess').root, web) as SplitNode).id
+      store.foldSplitTab('sess', tabId)
+
+      const test = open({ afterPaneId: caller, splitTab: { name: 'dev' } })
+      store.joinTab('sess', [test], null)
+      const lint = open({ afterPaneId: caller, splitTab: { name: 'dev' } })
+
+      const { root, activePaneId } = layoutOf('sess')
+      const tab = splitTabOfPane(root, web) as SplitNode
+      expect(tab.folded).toBe(true)
+      expect(paneIds(tab)).toEqual([web, api, docs, lint])
+      expect(findPane(root, web)?.collapsed).toBe(true)
+      expect(activePaneId).toBe(caller)
+      expect(tabsOfPane(root, caller)?.activeId).toBe(caller)
+    })
   })
 
   describe('joinTab', () => {

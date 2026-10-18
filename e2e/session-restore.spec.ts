@@ -90,7 +90,21 @@ async function answerNativeQuitPrompt(app: ElectronApplication, dataHome: string
   )
 }
 
+const stoppedTraces: string[] = []
+
+async function saveTrace(app: ElectronApplication): Promise<void> {
+  const path = test.info().outputPath(`stopped-app-trace-${stoppedTraces.length + 1}.zip`)
+  await app
+    .context()
+    .tracing.stop({ path })
+    .then(
+      () => stoppedTraces.push(path),
+      () => {},
+    )
+}
+
 async function stopApp({ app, win }: Launched, how: 'quit' | NodeJS.Signals): Promise<void> {
+  await saveTrace(app)
   const done = exitedWithin(app.process(), EXIT_TIMEOUT_MS)
   if (how === 'quit') {
     await askToQuit(app)
@@ -193,6 +207,16 @@ let dataHome: string
 test.beforeEach(() => {
   dataHome = freshDataHome()
   seedSettings(dataHome, DEFAULT_QUIT_SETTINGS)
+})
+
+test.afterEach(async () => {
+  const testInfo = test.info()
+  const failed = testInfo.status !== testInfo.expectedStatus
+  for (const path of stoppedTraces.splice(0)) {
+    if (failed && existsSync(path))
+      await testInfo.attach('trace', { path, contentType: 'application/zip' })
+    rmSync(path, { force: true })
+  }
 })
 
 async function roundTrip(how: 'quit' | NodeJS.Signals): Promise<void> {

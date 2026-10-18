@@ -1,10 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { FAKE } from '../test/fixtures/secrets/samples'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, quitApp } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
-const TOKEN = ['ghp_', 'wWPw5k4aXcaT4fNP0UcnZwJUVFk6LO0pINUx'].join('')
+const TOKEN = FAKE.githubClassic
 const MARK = '[redacted:github]'
 
 async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {

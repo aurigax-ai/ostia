@@ -1,7 +1,7 @@
 import { awaitsResume } from '@/lib/agents/autoResume'
 import { allPanes } from '@/lib/layout/tree'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { startOffscreen } from './offscreenStart'
+import { holdOffscreenStarts, startOffscreen } from './offscreenStart'
 
 let kept: ReadonlySet<string> = new Set()
 
@@ -21,9 +21,10 @@ function startAll(waiting: ReadonlySet<string>): void {
 }
 
 export function startKeptReattach(): void {
-  void window.ostia.pty
+  const listed = window.ostia.pty
     .keptWaiting()
     .then((paneIds) => new Set(paneIds))
     .catch(() => new Set<string>())
     .then(startAll)
+  holdOffscreenStarts(listed)
 }
