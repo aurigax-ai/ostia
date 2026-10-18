@@ -105,6 +105,7 @@ describe('the extension API a graph host needs', () => {
     registerExtensionMethods(() => host)
     registerBusMethods({
       managerSendAllowed: () => true,
+      agentBusy: () => false,
       announce: () => {},
       pending: async () => 'idle-no-wake',
       reach: {

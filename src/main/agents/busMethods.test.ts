@@ -16,9 +16,10 @@ const ensureCaps = vi.fn(async (..._args: unknown[]) => {})
 vi.mock('../approvals/controlElevation', () => ({ ensureCaps }))
 
 const { registerBusMethods } = await import('./busMethods')
-const { INBOX_MAX, MAIL_TTL_MS, failPaneMail, flushBus, postBusMessage, resetBus } = await import(
-  './busStore'
-)
+const { INBOX_MAX, MAIL_TTL_MS, failPaneMail, flushBus, postBusMessage, postEvent, resetBus } =
+  await import('./busStore')
+const { mailers } = await import('./mailers')
+const { EVENT_BATCH_MS, MAIL_TURNS_MAX } = await import('../../shared/agents/mailDelivery')
 const { markManager, registerPane, registerScript } = await import('../control/idRegistry')
 
 const announce = vi.fn()
@@ -27,10 +28,12 @@ let managerMaySend = true
 const pendingByPane = new Map<string, MailPending>()
 const scriptReaches = new Set<string>()
 const scopeReaches = new Set<string>()
+const busyPanes = new Set<string>()
 const sandboxed = new Set<string>()
 const confined = new Set<string>()
 registerBusMethods({
   managerSendAllowed: () => managerMaySend,
+  agentBusy: (pane) => busyPanes.has(pane.paneId),
   announce,
   observe: observed,
   pending: async (pane) => pendingByPane.get(pane.paneId) ?? 'idle-no-wake',
@@ -465,6 +468,89 @@ describe('hook context', () => {
     expect(second.text).toContain('3 unread messages')
     ack(second.lease)
     expect(context().text).toBeNull()
+  })
+})
+
+const take = (identity = receiver) =>
+  call<{ text?: string; lease?: string; busy?: true; limited?: true; retryMs?: number }>(
+    'bus.take',
+    identity,
+  )
+
+describe('bus.take for the mod', () => {
+  beforeEach(() => {
+    mailers.clear(receiver.externalId)
+    busyPanes.clear()
+  })
+
+  it('leases the queued messages and answers their framed text and a lease, then delivers as a turn on ack', async () => {
+    await send('first')
+    await send('second')
+    const taken = take()
+    expect(taken.text).toContain('2 unread messages')
+    expect(taken.text).toContain('first')
+    expect(taken.lease).toBeTruthy()
+    expect((await sent()).map((m) => m.state)).toEqual(['leased', 'leased'])
+    expect(take()).toEqual({})
+    expect(ack(taken.lease)).toBe(2)
+    expect((await sent()).map((m) => [m.state, m.via])).toEqual([
+      ['delivered', 'turn'],
+      ['delivered', 'turn'],
+    ])
+  })
+
+  it('answers nothing for an empty inbox, and counts taking as the mailer being there', () => {
+    expect(take()).toEqual({})
+    expect(mailers.state(receiver.externalId)).toEqual({ draft: false })
+  })
+
+  it('does not take while the agent works or waits, so a lease never sits through a turn', async () => {
+    await send('wait for me')
+    busyPanes.add(receiver.paneId)
+    expect(take()).toEqual({ busy: true })
+    expect((await sent())[0]?.state).toBe('queued')
+    busyPanes.clear()
+    expect(take().text).toContain('wait for me')
+  })
+
+  it('stops after the maximum turns in a window and says so', async () => {
+    for (let i = 0; i < MAIL_TURNS_MAX; i++) {
+      await send(`m${i}`)
+      expect(take().lease).toBeTruthy()
+    }
+    await send('one too many')
+    expect(take()).toEqual({ limited: true })
+    expect((await sent()).at(-1)?.state).toBe('queued')
+  })
+
+  it('takes events at most once per window and always takes messages', async () => {
+    postEvent(sender.externalId, receiver.externalId, 'w-1  done 1s')
+    const first = take()
+    expect(first.text).toContain('w-1  done 1s')
+    postEvent(sender.externalId, receiver.externalId, 'w-1  error 2s')
+    await send('a real message')
+    const second = take()
+    expect(second.text).toContain('a real message')
+    expect(second.text).not.toContain('error 2s')
+    expect(second.retryMs).toBeGreaterThan(0)
+    expect(second.retryMs).toBeLessThanOrEqual(EVENT_BATCH_MS)
+    expect(take()).toEqual({ retryMs: expect.any(Number) })
+  })
+
+  it('refuses an acknowledgement of a lease another pane was given', async () => {
+    await send('mine')
+    const taken = take()
+    expect(ack(taken.lease, sender)).toBe(0)
+    expect(ack(taken.lease)).toBe(1)
+  })
+
+  it('records the mailer’s state, draft or gone, from mod-ready', () => {
+    call('bus.modReady', receiver, { state: 'draft' })
+    expect(mailers.state(receiver.externalId)).toEqual({ draft: true })
+    call('bus.modReady', receiver, { state: 'idle' })
+    expect(mailers.state(receiver.externalId)).toEqual({ draft: false })
+    call('bus.modReady', receiver, { state: 'gone' })
+    expect(mailers.state(receiver.externalId)).toBeUndefined()
   })
 })
 

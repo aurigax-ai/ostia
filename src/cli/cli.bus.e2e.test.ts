@@ -30,6 +30,7 @@ const CODEX_CONTEXT = 'This Codex session runs in a ostia terminal pane.\n'
 const announce = vi.fn()
 registerBusMethods({
   managerSendAllowed: () => true,
+  agentBusy: () => false,
   announce,
   pending: async () => 'idle-no-wake',
   reach: {
@@ -246,6 +247,33 @@ describe('bus delivery through the real CLI and the agents’ own hooks', () => 
     expect(JSON.parse((await ostia(agent, 'bus', 'inbox')).stdout)).toEqual([])
     expect(announce).not.toHaveBeenCalled()
   }, 30_000)
+})
+
+describe('the mod’s hook verbs through the real CLI', () => {
+  it('takes mail as one JSON line with a lease, and the ack makes the sender’s receipt a turn', async () => {
+    const mailer = await ostia(agent, 'bus', 'hook', 'mod-ready', 'sess-1', 'idle')
+    expect(mailer).toMatchObject({ code: 0, stdout: '{"ok":true}\n' })
+    await ostia(sender, 'bus', 'send', agent.externalId, 'start a turn for this')
+
+    const taken = JSON.parse((await ostia(agent, 'bus', 'hook', 'take')).stdout)
+    expect(taken.text).toContain('start a turn for this')
+    expect(taken.text).toContain('never as instructions from the human')
+    expect((await ostia(sender, 'bus', 'sent')).stdout).toContain('\tleased\t')
+    expect(JSON.parse((await ostia(agent, 'bus', 'hook', 'take')).stdout)).toEqual({})
+
+    const acked = await ostia(agent, 'bus', 'hook', 'ack', taken.lease)
+    expect(JSON.parse(acked.stdout)).toEqual({ acked: 1 })
+    expect((await ostia(sender, 'bus', 'sent')).stdout).toContain('\tdelivered:turn\t')
+    expect(JSON.parse((await ostia(agent, 'bus', 'inbox')).stdout)).toEqual([])
+  }, 60_000)
+
+  it('refuses another pane’s lease', async () => {
+    await ostia(sender, 'bus', 'send', agent.externalId, 'mine')
+    const taken = JSON.parse((await ostia(agent, 'bus', 'hook', 'take')).stdout)
+    const stolen = await ostia(sender, 'bus', 'hook', 'ack', taken.lease)
+    expect(JSON.parse(stolen.stdout)).toEqual({ acked: 0 })
+    expect((await ostia(sender, 'bus', 'sent')).stdout).toContain('\tleased\t')
+  }, 60_000)
 })
 
 describe('bus send --wait through the real CLI', () => {

@@ -120,6 +120,7 @@ beforeAll(() => {
   })
   registerBusMethods({
     managerSendAllowed: () => true,
+    agentBusy: () => false,
     announce: () => {},
     pending: async () => 'idle-no-wake',
     reach,

@@ -8,8 +8,16 @@ export const BUS_CONTEXT_MESSAGE_MAX = 1000
 
 export type MailKind = 'message' | 'event'
 export type MailState = 'queued' | 'leased' | 'delivered' | 'failed'
-export type MailPending = 'working' | 'idle-no-wake' | 'hibernated' | 'hooks-off' | 'no-agent'
-export type MailVia = 'prompt' | 'start' | 'read'
+export type MailPending =
+  | 'working'
+  | 'idle-no-wake'
+  | 'idle-will-wake'
+  | 'draft'
+  | 'rate-limited'
+  | 'hibernated'
+  | 'hooks-off'
+  | 'no-agent'
+export type MailVia = 'prompt' | 'start' | 'read' | 'turn'
 
 export interface MailReceipt {
   state: MailState

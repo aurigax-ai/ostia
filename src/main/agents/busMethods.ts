@@ -32,6 +32,7 @@ import {
   takeMail,
   whenSettled,
 } from './busStore'
+import { mailers } from './mailers'
 
 const MAX_HANDOFFS = 500
 
@@ -118,6 +119,7 @@ export interface BusDeps {
   reach: Omit<PaneReachDeps, 'processPane'>
   observe?: (observation: BusObservation) => void
   journal?: Pick<AgentJournal, 'mail' | 'leaseTimeout'>
+  agentBusy: (pane: PaneIdentity) => boolean
 }
 
 function receiverOf(to: unknown): PaneIdentity | undefined {
@@ -250,6 +252,37 @@ function registerBusInboxMethods(deps: BusDeps): void {
         shown.has(mail.id),
       )
       return leased ? { text: context.text, lease: leased.lease } : { text: null }
+    },
+  })
+
+  registerControlMethod('bus.modReady', {
+    handler: (params, ctx) => {
+      const { state } = (params ?? {}) as { state?: string }
+      const me = ctx.identity.externalId
+      if (state === 'gone') mailers.clear(me)
+      else mailers.set(me, state === 'draft')
+      return { ok: true }
+    },
+  })
+
+  registerControlMethod('bus.take', {
+    handler: (_params, ctx) => {
+      const me = ctx.identity.externalId
+      if (!mailers.state(me)) mailers.set(me, false)
+      if (mailers.limited(me)) return { limited: true }
+      if (deps.agentBusy(ctx.identity)) return { busy: true }
+      const waitMs = mailers.eventsWaitMs(me)
+      const queued = inboxOf(me).filter((mail) => mail.state === 'queued' && !mail.quiet)
+      const due = queued.filter((mail) => mail.kind !== 'event' || waitMs === 0)
+      const context = busContext(due.map((mail) => ({ ...mail, text: mail.text ?? '' })))
+      const held = queued.length - due.length
+      if (!context) return held > 0 ? { retryMs: waitMs } : {}
+      const shown = new Set(context.shown)
+      const leased = leaseMail(me, 'turn', (mail) => shown.has(mail.id))
+      if (!leased) return {}
+      if (leased.messages.some((mail) => mail.kind === 'event')) mailers.markEvents(me)
+      mailers.recordTurn(me)
+      return { text: context.text, lease: leased.lease, ...(held > 0 ? { retryMs: waitMs } : {}) }
     },
   })
 

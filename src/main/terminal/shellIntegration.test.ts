@@ -805,7 +805,7 @@ describe('shellIntegrationSpawnOptions', () => {
     it('writes Claude Code hooks that record the resume token and attention state', () => {
       shellIntegrationSpawnOptions('/bin/bash', {})
       const settings = JSON.parse(readFileSync(join(CLAUDE_PLUGIN, 'hooks', 'hooks.json'), 'utf8'))
-      expect(settings).toEqual(claudeHookSettings())
+      expect(settings).toEqual({ ...claudeHookSettings(), modules: ['./register.ts'] })
       const command = (event: string) => settings.hooks[event][0].hooks[0].command as string
       expect(command('SessionStart')).toContain('"${OSTIA_CLI}" resume-token claude -')
       expect(command('Notification')).toContain('"${OSTIA_CLI}" claude-hook Notification')
@@ -1241,9 +1241,10 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(readFileSync(join(plugin, 'skills', 'ostia', 'SKILL.md'), 'utf8')).toMatch(
         /^---\nname: ostia/,
       )
-      expect(JSON.parse(readFileSync(join(plugin, 'hooks', 'hooks.json'), 'utf8'))).toEqual(
-        claudeHookSettings(content.hooks),
-      )
+      expect(JSON.parse(readFileSync(join(plugin, 'hooks', 'hooks.json'), 'utf8'))).toEqual({
+        ...claudeHookSettings(content.hooks),
+        modules: ['./register.ts'],
+      })
       const codexDir = join(dir, 'codex')
       const context = readFileSync(join(codexDir, 'session-context.md'), 'utf8')
       expect(context).toContain(
@@ -1259,7 +1260,10 @@ describe('shellIntegrationSpawnOptions', () => {
       rmSync(hooks)
       rmSync(context)
       expect(writeAgentPlugin(root, content)).toBe(dir)
-      expect(JSON.parse(readFileSync(hooks, 'utf8'))).toEqual(claudeHookSettings(content.hooks))
+      expect(JSON.parse(readFileSync(hooks, 'utf8'))).toEqual({
+        ...claudeHookSettings(content.hooks),
+        modules: ['./register.ts'],
+      })
       expect(existsSync(context)).toBe(true)
     })
 

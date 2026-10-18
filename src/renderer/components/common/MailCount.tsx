@@ -21,8 +21,14 @@ function paneTitle(
 
 function pendingText(d: Dict, pending: MailItem['pending']): string {
   switch (pending) {
+    case 'draft':
+      return d.mail.pendingDraft
     case 'hibernated':
       return d.mail.pendingHibernated
+    case 'idle-will-wake':
+      return d.mail.pendingWillWake
+    case 'rate-limited':
+      return d.mail.pendingRateLimited
     case 'hooks-off':
       return d.mail.pendingHooksOff
     case 'no-agent':

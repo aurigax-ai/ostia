@@ -17,8 +17,11 @@ import type { OpenFileGrants } from '../files/openFileGrants'
 import { registerOpenFileMethods } from '../files/openFileMethods'
 import type { OpenWaits } from '../files/openWaits'
 import type { ManagerLimiter } from '../manager/managerMethods'
+import type { PaneJournal } from '../panes/paneJournal'
 import { listPanes, listWorkspaces } from '../panes/paneList'
 import type { PaneMethodsWiring } from '../panes/paneMethodsWiring'
+import { wakeHibernatedPane } from '../panes/paneWake'
+import type { PaneWaking } from '../panes/paneWaking'
 import { resolveSafe } from '../platform/pathGuard'
 import { readSettingsFile } from '../platform/settingsFile'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
@@ -26,8 +29,12 @@ import { registerVaultMethods } from '../secrets/vault'
 import type { WindowSend } from '../windows/windowSend'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { registerBusMethods } from './busMethods'
+import { onBusChange, onMailQueued, queuedCounts } from './busStore'
+import { syncMailFlags } from './mailFlag'
 import { registerMailIpc } from './mailIpc'
 import { mailPending } from './mailPending'
+import { createMailWaker } from './mailWake'
+import { mailers } from './mailers'
 
 interface ToolbeltWiringDeps {
   services: {
@@ -49,6 +56,8 @@ interface ToolbeltWiringDeps {
   windowIds: WindowSend['windowIds']
   isWaking: (paneId: string) => boolean
   paneReachDeps: PaneMethodsWiring['paneReachDeps']
+  paneJournal: PaneJournal
+  paneWaking: PaneWaking
   broadcast: WindowSend['broadcast']
   emitPaneEvent: <T extends ExtensionEventType>(type: T, payload: ExtensionEventPayloads[T]) => void
 }
@@ -73,10 +82,24 @@ export function registerToolbeltWiring({
   windowIds,
   isWaking,
   paneReachDeps,
+  paneJournal,
+  paneWaking,
   broadcast,
   emitPaneEvent,
 }: ToolbeltWiringDeps) {
   registerMailIpc(broadcast)
+  onBusChange(() => syncMailFlags(queuedCounts()))
+  onMailQueued(
+    createMailWaker({
+      panes: () =>
+        listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
+      wake: (to) => wakeHibernatedPane(execCommand, to),
+      waking: paneWaking,
+      isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+      isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
+      now: Date.now,
+    }),
+  )
   registerDocsMethods({ extensions: () => services.extensionHost?.listForAgents() ?? [] })
   registerVaultMethods({ isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId) })
   registerOpenFileMethods({
@@ -127,7 +150,9 @@ export function registerToolbeltWiring({
         ).find((entry) => entry.paneId === pane.externalId),
         (agent) =>
           isResumableAgent(agent) && parseAgentHooks(readSettingsFile().agents?.hooks)[agent],
+        { state: mailers.state(pane.externalId), limited: mailers.limited(pane.externalId) },
       ),
+    agentBusy: (pane) => ['working', 'waiting'].includes(paneJournal.stateOf(pane.paneId) ?? ''),
     journal: services.agentJournal ?? undefined,
     observe: (observation) =>
       emitPaneEvent('bus.message', {

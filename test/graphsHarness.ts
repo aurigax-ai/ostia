@@ -306,6 +306,7 @@ export async function graphsHarness(
   if (opts.mcp) host.processes.approve('graphs')
   registerBusMethods({
     managerSendAllowed: () => true,
+    agentBusy: () => false,
     announce: () => {},
     pending: async () => 'idle-no-wake',
     reach: {

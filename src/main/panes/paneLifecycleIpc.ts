@@ -8,6 +8,8 @@ import type { LifecycleEvent } from '../../shared/attention/attention'
 import type { CommandDescriptor } from '../../shared/control/commands'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { dropWatchesOf, failPaneMail } from '../agents/busStore'
+import { forgetMailFlag } from '../agents/mailFlag'
+import { mailers } from '../agents/mailers'
 import { approvals } from '../approvals/approvals'
 import { dropIdentity } from '../approvals/capabilityStore'
 import { questions } from '../approvals/questions'
@@ -119,6 +121,8 @@ export function registerPaneLifecycleIpc({
         services.updateRunner?.paneClosed(identity.externalId)
         failPaneMail(identity.externalId)
         dropWatchesOf(identity.externalId)
+        mailers.clear(identity.externalId)
+        forgetMailFlag(identity.externalId)
         paneJournal.forget(identity.paneId, identity.externalId)
         emitPaneEvent('pane.closed', {
           paneId: identity.externalId,

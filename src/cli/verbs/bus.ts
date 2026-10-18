@@ -8,7 +8,7 @@ import { type MailPending, type MailReceipt, mailLabel } from '../../shared/agen
 import { parseArgs } from '../common/args'
 import { type ErrResult, describeErrResult, failUsage } from '../common/failure'
 
-export const BUS_HOOK_USAGE = `usage: ostia bus hook <${AGENT_HOOK_CONTEXT_EVENTS.join('|')}>`
+export const BUS_HOOK_USAGE = `usage: ostia bus hook <${AGENT_HOOK_CONTEXT_EVENTS.join('|')}|mod-ready|take|ack>`
 
 function isContextEvent(value: unknown): value is AgentHookEvent {
   return AGENT_HOOK_CONTEXT_EVENTS.includes(value as AgentHookEvent)
@@ -17,7 +17,11 @@ function isContextEvent(value: unknown): value is AgentHookEvent {
 const PENDING_HINTS: Record<MailPending, string> = {
   working: 'working: the agent reads it at its next prompt',
   'idle-no-wake': 'idle-no-wake: the agent reads it at its next prompt; nothing wakes it',
-  hibernated: 'hibernated: the agent reads it when it wakes',
+  'idle-will-wake': 'idle-will-wake: Ostia starts a turn in the idle agent to read it',
+  draft: 'draft: the human has text in the agent’s prompt; it is read when they send it',
+  'rate-limited': 'rate-limited: too many mail turns lately; it is read at the next prompt',
+  hibernated:
+    'hibernated: Ostia wakes the agent (a few times an hour at most) and it reads the message',
   'hooks-off':
     'hooks-off: its Ostia hooks are off, so it reads the message only with ostia bus inbox',
   'no-agent': 'no-agent: no agent runs in that pane; it reads the message with ostia bus inbox',
@@ -54,12 +58,29 @@ export function sendExitCode(res: MailReceipt, waited: boolean): number {
 export interface BusHookIo {
   context: (event: AgentHookEvent) => Promise<{ text?: string | null; lease?: string }>
   ack: (lease: string) => Promise<unknown>
+  take: () => Promise<unknown>
+  modReady: (state: string) => Promise<unknown>
   out: (line: string) => void
   err: (line: string) => void
 }
 
+async function modHook(call: () => Promise<unknown>, io: BusHookIo): Promise<number> {
+  try {
+    const res = await call()
+    if (res !== undefined && res !== null) io.out(JSON.stringify(res))
+  } catch {
+    return 0
+  }
+  return 0
+}
+
 export async function runBusHook(args: readonly string[], io: BusHookIo): Promise<number> {
   const [event, ...rest] = args
+  if (event === 'take' && rest.length === 0) return modHook(() => io.take(), io)
+  if (event === 'ack' && rest.length === 1) return modHook(() => io.ack(rest[0]), io)
+  if (event === 'mod-ready' && rest.length >= 1 && rest.length <= 2) {
+    return modHook(() => io.modReady(rest[1] ?? 'idle'), io)
+  }
   if (rest.length > 0 || !isContextEvent(event)) {
     io.err(BUS_HOOK_USAGE)
     return 1
@@ -168,6 +189,8 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
       context: (event) =>
         conn.sendRequest<{ text?: string | null; lease?: string }>('bus.context', { event }),
       ack: (lease) => conn.sendRequest('bus.ack', { lease }),
+      take: () => conn.sendRequest('bus.take'),
+      modReady: (state) => conn.sendRequest('bus.modReady', { state }),
       out: (line) => console.log(line),
       err: (line) => console.error(line),
     })

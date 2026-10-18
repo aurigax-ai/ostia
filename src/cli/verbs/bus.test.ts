@@ -22,6 +22,8 @@ function io(
     ack: async (lease) => {
       acks.push(lease)
     },
+    take: vi.fn(async () => ({ text: 'taken', lease: 'l-1' })),
+    modReady: vi.fn(async (state: string) => ({ ok: state })),
     out: (line) => lines.push(line),
     err: (line) => errors.push(line),
   }
@@ -71,6 +73,47 @@ describe('runBusHook', () => {
       expect(hook.errors).toEqual([BUS_HOOK_USAGE])
     },
   )
+})
+
+describe('runBusHook for the mod', () => {
+  it('prints what bus.take answered as one JSON line', async () => {
+    const hook = io(async () => ({ text: null }))
+    expect(await runBusHook(['take'], hook)).toBe(0)
+    expect(hook.lines.map((line) => JSON.parse(line))).toEqual([{ text: 'taken', lease: 'l-1' }])
+    expect(hook.context).not.toHaveBeenCalled()
+  })
+
+  it('acknowledges the lease it is given', async () => {
+    const hook = io(async () => ({ text: null }))
+    await runBusHook(['ack', 'lease-9'], hook)
+    expect(hook.acks).toEqual(['lease-9'])
+  })
+
+  it('reports the mailer’s state, idle unless told otherwise', async () => {
+    const hook = io(async () => ({ text: null }))
+    await runBusHook(['mod-ready', 'sess-1'], hook)
+    await runBusHook(['mod-ready', 'sess-1', 'draft'], hook)
+    expect(vi.mocked(hook.modReady).mock.calls.map(([state]) => state)).toEqual(['idle', 'draft'])
+  })
+
+  it.each([
+    [['take', 'x']],
+    [['ack']],
+    [['ack', 'a', 'b']],
+    [['mod-ready']],
+    [['mod-ready', 'a', 'b', 'c']],
+  ])('refuses %j with the usage line', async (args) => {
+    const hook = io(async () => ({ text: null }))
+    expect(await runBusHook(args, hook)).toBe(1)
+    expect(hook.errors).toEqual([BUS_HOOK_USAGE])
+  })
+
+  it('never fails when the app cannot answer', async () => {
+    const hook = io(async () => ({ text: null }))
+    vi.mocked(hook.take).mockRejectedValueOnce(new Error('closed'))
+    expect(await runBusHook(['take'], hook)).toBe(0)
+    expect(hook.lines).toEqual([])
+  })
 })
 
 describe('sentLines', () => {

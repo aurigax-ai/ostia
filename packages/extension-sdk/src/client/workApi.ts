@@ -26,7 +26,15 @@ export type BusSendResult =
       ok: true
       id: string
       state: 'queued' | 'delivered'
-      pending?: 'working' | 'idle-no-wake' | 'hibernated' | 'hooks-off' | 'no-agent'
+      pending?:
+        | 'working'
+        | 'idle-no-wake'
+        | 'idle-will-wake'
+        | 'draft'
+        | 'rate-limited'
+        | 'hibernated'
+        | 'hooks-off'
+        | 'no-agent'
     }
   | { ok: false; error: string; message?: string }
 

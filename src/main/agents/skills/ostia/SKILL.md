@@ -263,10 +263,13 @@ ostia bus claim <id> | bus done <id> | bus handoffs [--all]
 ```
 
 Nothing is typed into the receiver. A message is `queued` until the receiver's agent takes it,
-then `delivered` (`via`: its next prompt, its start, or `inbox --take` / `wait`), or `failed`
+then `delivered` (`via`: its next prompt, its start, a turn Ostia started, or `inbox --take` / `wait`), or `failed`
 (`reason`: `pane-closed`, or `expired:<pending>` after 24 hours). `pending` says why a queued
-message waits: `working` or `idle-no-wake` (read at the agent's next prompt), `hibernated` (read
-when it wakes), `hooks-off` or `no-agent` (read only with `bus inbox`). `--wait <s>` blocks
+message waits: `working` (read when its turn ends), `idle-will-wake` (Ostia starts a turn in the
+idle agent to read it), `draft` (the human has text in its prompt), `rate-limited` (too many mail
+turns lately), `idle-no-wake` (read at its next prompt), `hibernated` (Ostia wakes the agent, at
+most 3 times an hour, and it reads the message), `hooks-off` or `no-agent` (read only with
+`bus inbox`). `--wait <s>` blocks
 (1–120 s) until it is delivered or failed and exits 0 delivered, 1 failed, 2 still queued. `send`
 and `handoff` read the store back and answer `not-queued:` or `not-recorded:` when the message
 is missing; a receiver with 200 undelivered messages answers `inbox-full`. Sending to another

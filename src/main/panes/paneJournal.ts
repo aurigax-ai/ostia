@@ -106,6 +106,10 @@ export class PaneJournal {
     return record?.explicit ?? record?.stop
   }
 
+  stateOf(paneId: string): string | undefined {
+    return this.panes.get(paneId)?.state
+  }
+
   stateSince(paneId: string): number | undefined {
     return this.panes.get(paneId)?.stateAt
   }

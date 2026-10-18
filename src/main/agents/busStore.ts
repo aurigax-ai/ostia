@@ -125,11 +125,21 @@ async function drain(): Promise<void> {
 }
 
 const changeListeners = new Set<() => void>()
+const queuedListeners = new Set<(mail: Mail) => void>()
 let changeQueued = false
 
 export function onBusChange(listener: () => void): () => void {
   changeListeners.add(listener)
   return () => changeListeners.delete(listener)
+}
+
+export function onMailQueued(listener: (mail: Mail) => void): void {
+  queuedListeners.add(listener)
+}
+
+function announceQueued(mail: Mail): void {
+  if (mail.quiet || mail.state !== 'queued') return
+  for (const listener of [...queuedListeners]) listener(snapshot(mail))
 }
 
 export function markBusDirty(): void {
@@ -280,6 +290,7 @@ export function enqueue(draft: MailDraft): Mail {
     for (const resolve of parked) resolve([delivered])
   }
   markBusDirty()
+  announceQueued(mail)
   return mail
 }
 
@@ -345,6 +356,15 @@ export function getMail(id: string): Mail | undefined {
   sweepBus()
   const mail = store().mail.find((item) => item.id === id)
   return mail ? snapshot(mail) : undefined
+}
+
+export function queuedCounts(): Map<string, number> {
+  sweepBus()
+  const counts = new Map<string, number>()
+  for (const mail of store().mail) {
+    if (mail.state === 'queued' && !mail.quiet) counts.set(mail.to, (counts.get(mail.to) ?? 0) + 1)
+  }
+  return counts
 }
 
 export function inboxOf(to: string): Mail[] {

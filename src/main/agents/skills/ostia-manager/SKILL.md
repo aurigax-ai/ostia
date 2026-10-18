@@ -51,8 +51,9 @@ ostia bus inbox [--take]                 # messages waiting for you; --take deli
 ostia bus wait [--timeout <s>]           # blocks until a message arrives
 ```
 
-A queued message reaches a claude or codex worker as context at its next prompt; `pending` says
-why it waits and `--wait` blocks until it is delivered or failed (exit 0, 1 or 2 if still queued).
+A queued message reaches a claude worker as a turn Ostia starts in it once it is idle, and a
+codex worker as context at its next prompt; `pending` says why it waits and `--wait` blocks
+until it is delivered or failed (exit 0, 1 or 2 if still queued).
 Replies to you also arrive as context at your next prompt.
 
 ## Type into a pane
