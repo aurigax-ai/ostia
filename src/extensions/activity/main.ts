@@ -15,7 +15,9 @@ import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { BUS_EVENT, HOST_EVENTS, HostRecorder, type HostWorkspace } from './hostRecorder'
 import { ARCHIVE_DAYS, DAY_MS, HOST_DIR, Journal, RETENTION_DAYS, type Retention } from './journal'
 import { createNeedsYou } from './needsYou'
+import { createOpenListing } from './openListing'
 import { type PanelCommand, SHOW_ACTIVITY, activityPanelCommands } from './panelCommands'
+import { PUSH_WINDOW_MS, coalesced } from './panelPush'
 import { Recorder } from './recorder'
 import { activityVerbs } from './verbs'
 import type { OpenWorkspace } from './view'
@@ -92,10 +94,19 @@ async function main(): Promise<void> {
   await settingsLoaded
   for (const j of journals) j.load()
   const showNeedsYou = createNeedsYou({ ext, journal, translate, state })
-  const changed = (): void => {
-    panelChanged()
-    void showNeedsYou()
-  }
+  const changed = coalesced(
+    () => {
+      panelChanged()
+      void showNeedsYou()
+    },
+    PUSH_WINDOW_MS,
+    {
+      now: Date.now,
+      after: (ms, run) => {
+        setTimeout(run, ms).unref()
+      },
+    },
+  )
   let workspaces: ListedWorkspace[] = []
 
   let retrySubscribe = async (): Promise<void> => {}
@@ -111,6 +122,12 @@ async function main(): Promise<void> {
     void retrySubscribe()
     return workspaces
   }
+
+  const listing = createOpenListing({
+    listWorkspaces: refreshWorkspaces,
+    listPanes: () => ext.listPanes(),
+    now: Date.now,
+  })
 
   const workspaceInfo = async (workspaceId: string): Promise<ListedWorkspace | null> => {
     const known = workspaces.find((w) => w.workspaceId === workspaceId)
@@ -146,7 +163,7 @@ async function main(): Promise<void> {
       hostJournal,
       state,
       settingsLoaded,
-      refreshWorkspaces,
+      listing,
       changed,
     }),
   )
@@ -189,9 +206,10 @@ async function main(): Promise<void> {
   await ext.registerCommands(handlers)
 
   const onEvent: Parameters<typeof ext.subscribe>[1] = (type, payload) => {
+    if (type.startsWith('pane.')) listing.invalidate()
     if (type === 'pane.closed') {
       hostRecorder.accept(type, payload)
-      void refreshWorkspaces().then(() => panel.changed())
+      changed()
     } else if (type === 'pane.created') {
       void refreshWorkspaces().then(() => hostRecorder.accept(type, payload))
     } else {
