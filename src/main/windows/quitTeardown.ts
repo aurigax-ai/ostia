@@ -144,8 +144,12 @@ export function createQuitTeardown({
     artifactHistory.dispose()
     previews.dispose()
     const stuckScratch = scratchFolders.removeAll()
-    if (stuckScratch.length > 0)
-      services.appLog?.warn('scratch-remove-failed', { folders: stuckScratch.length })
+    if (stuckScratch.length > 0) {
+      services.appLog?.warn('scratch-remove-failed', {
+        folders: stuckScratch.length,
+        codes: [...new Set(stuckScratch.map((f) => f.code))].join(','),
+      })
+    }
     quitTrace.stage('teardown-hosts')
     portForwarder.stopAll()
     services.gitService?.stop()

@@ -13,6 +13,11 @@ const REMOVE_RETRIES = 4
 const REMOVE_RETRY_STEP_MS = 25
 const RETRYABLE = new Set(['ENOTEMPTY', 'EBUSY'])
 
+export interface ScratchFailure {
+  dir: string
+  code: string
+}
+
 interface ScratchFolder {
   dir: string
   windowId: string
@@ -40,14 +45,14 @@ function pause(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 }
 
-function removeDir(dir: string): void {
+function removeDir(dir: string): ScratchFailure | null {
   for (let attempt = 0; ; attempt += 1) {
     try {
       rmSync(dir, { recursive: true, force: true })
-      return
+      return null
     } catch (err) {
-      const code = (err as NodeJS.ErrnoException).code ?? ''
-      if (attempt >= REMOVE_RETRIES || !RETRYABLE.has(code)) throw err
+      const code = (err as NodeJS.ErrnoException).code ?? 'UNKNOWN'
+      if (attempt >= REMOVE_RETRIES || !RETRYABLE.has(code)) return { dir, code }
       pause(REMOVE_RETRY_STEP_MS * (attempt + 1))
     }
   }
@@ -126,21 +131,18 @@ export class ScratchFolders {
     return dir && isRealDir(dir) ? countScratchFiles(dir) : 0
   }
 
-  remove(workspaceId: string): void {
+  remove(workspaceId: string): ScratchFailure | null {
     const folder = this.folderOf(workspaceId)
-    if (!folder) return
+    if (!folder) return null
     this.folders.delete(folder.dir)
-    rmSync(folder.dir, { recursive: true, force: true })
+    return removeDir(folder.dir)
   }
 
-  removeAll(): string[] {
-    const failed: string[] = []
+  removeAll(): ScratchFailure[] {
+    const failed: ScratchFailure[] = []
     for (const dir of this.folders.keys()) {
-      try {
-        removeDir(dir)
-      } catch {
-        failed.push(dir)
-      }
+      const failure = removeDir(dir)
+      if (failure) failed.push(failure)
     }
     this.folders.clear()
     return failed

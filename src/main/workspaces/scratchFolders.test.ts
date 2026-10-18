@@ -141,9 +141,30 @@ describe('ScratchFolders', () => {
     hooks.beforeRm = (target) => {
       if (target === stuck) throw enotempty(target)
     }
-    expect(folders.removeAll()).toEqual([stuck])
+    expect(folders.removeAll()).toEqual([{ dir: stuck, code: 'ENOTEMPTY' }])
     expect(existsSync(other)).toBe(false)
     expect(folders.dirs()).toEqual([])
+  })
+
+  it('retries and contains a failed removal when a scratch workspace is closed', () => {
+    const folders = new ScratchFolders(root, 4242)
+    const dir = folders.create('1')
+    folders.bind('w1', dir, '1')
+    hooks.beforeRm = (target, attempt) => {
+      if (attempt > 1) return
+      writeFileSync(join(target, SCRATCH_HISTORY_FILE), 'exit\n')
+      throw enotempty(target)
+    }
+    expect(folders.remove('w1')).toBeNull()
+    expect(existsSync(dir)).toBe(false)
+
+    const stuck = folders.create('1')
+    folders.bind('w2', stuck, '1')
+    hooks.beforeRm = (target) => {
+      throw enotempty(target)
+    }
+    expect(folders.remove('w2')).toEqual({ dir: stuck, code: 'ENOTEMPTY' })
+    expect(folders.isScratch('w2')).toBe(false)
   })
 
   it('sweeps leftover folders of exited processes and keeps live ones', () => {
