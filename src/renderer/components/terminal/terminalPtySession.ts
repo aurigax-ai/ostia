@@ -106,6 +106,7 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     }
   })
   const offExit = window.ostia.pty.onExit(paneId, (_code, closes) => {
+    neighbour.drain()
     term.writeln('\r\n\x1b[2m[process exited]\x1b[0m')
     if (closes || useSandboxStore.getState().hostPanes[paneId]) {
       useLayoutStore.getState().closePane(workspaceIdRef.current, paneId)

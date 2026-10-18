@@ -409,6 +409,57 @@ describe('TerminalView engines', () => {
     )
   })
 
+  describe('a pane that is not the active one', () => {
+    async function renderNeighbour(): Promise<(data: string) => void> {
+      const pane = { ...createPane('terminal'), id: 'p1' }
+      useLayoutStore.setState({
+        byWorkspace: { w1: { root: pane, activePaneId: 'other', zoomedPaneId: null } },
+      })
+      await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+      await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+      await act(() => new Promise((resolve) => setTimeout(resolve, 50)))
+      return vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
+    }
+
+    function screenText(): string {
+      const xterm = terminalFor('p1') as unknown as Xterm
+      return Array.from(
+        { length: xterm.buffer.active.length },
+        (_, y) => xterm.buffer.active.getLine(y)?.translateToString(true) ?? '',
+      ).join('')
+    }
+
+    it('shows the process-exited banner after the output still queued for it', async () => {
+      const deliver = await renderNeighbour()
+      const exit = vi.mocked(window.ostia.pty.onExit).mock.calls[0][1]
+      act(() => {
+        deliver('last-words\r\n')
+        exit(0, false)
+      })
+      await act(() => new Promise((resolve) => setTimeout(resolve, 200)))
+      const text = screenText()
+      expect(text).toContain('last-words')
+      expect(text.indexOf('last-words')).toBeLessThan(text.indexOf('[process exited]'))
+    })
+
+    it('acknowledges everything it was sent once the coalesced write is parsed', async () => {
+      const deliver = await renderNeighbour()
+      const chunks = ['one', 'two', 'three'].map(
+        (word) => `${word}-out\r\n${' '.repeat(PTY_ACK_CHARS)}\r\n`,
+      )
+      act(() => {
+        for (const chunk of chunks) deliver(chunk)
+      })
+      expect(vi.mocked(window.ostia.pty.ack)).not.toHaveBeenCalled()
+      await waitFor(() =>
+        expect(vi.mocked(window.ostia.pty.ack).mock.calls).toEqual([
+          ['p1', chunks.reduce((sum, chunk) => sum + chunk.length, 0)],
+        ]),
+      )
+      expect(screenText()).toMatch(/one-out.*two-out.*three-out/)
+    })
+  })
+
   it('keeps Option-drag away from the program in a Ghostty terminal on macOS only', async () => {
     const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
     await waitFor(() => expect(container.querySelector('.ghostty-host canvas')).not.toBeNull())
