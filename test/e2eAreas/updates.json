@@ -1,7 +1,9 @@
 {
   "name": "updates",
   "paths": [
+    "src/cli/common/version.ts",
     "src/main/updates/appUpdate.ts",
+    "src/main/updates/appVersion.ts",
     "src/main/updates/bundleFs.ts",
     "src/main/updates/installMethod.ts",
     "src/main/updates/installReplace.ts",
@@ -18,6 +20,7 @@
     "src/shared/app/releases.ts"
   ],
   "specs": [
+    "e2e/packaged-cli.spec.ts",
     "e2e/update-check.spec.ts",
     "e2e/update-mac.spec.ts"
   ]
