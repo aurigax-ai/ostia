@@ -35,7 +35,7 @@ async function rows(win: Page) {
       const trailingRect = trailing?.getBoundingClientRect()
       const rowRect = row.getBoundingClientRect()
       return {
-        edge: trailingRect ? rowRect.right - trailingRect.right : null,
+        edge: trailingRect ? Math.round(rowRect.right - trailingRect.right) : null,
         afterTitle: trailingRect ? trailingRect.left >= textRect.right : true,
         hasKeys: keys !== null,
         keysDimmer: keys ? getComputedStyle(keys).color !== getComputedStyle(name).color : true,
