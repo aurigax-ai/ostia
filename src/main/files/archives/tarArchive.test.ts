@@ -43,6 +43,8 @@ import { ARCHIVE_LIMITS } from './archiveTree'
 import { listTar, readTarEntry } from './tarArchive'
 
 const MIB = 1024 * 1024
+const XZ_HEAD = Buffer.from([0xfd, 0x37, 0x7a, 0x58, 0x5a, 0x00])
+const BZIP2_HEAD = Buffer.from('BZh91AY&SY')
 const TRAILING = 2 * MIB
 let dir: string
 
@@ -182,6 +184,8 @@ describe('a compressed archive inside a compressed archive', () => {
   it.each([
     ['gzip in gzip', (bytes: Buffer) => gzipSync(gzipSync(bytes))],
     ['zstd in gzip', (bytes: Buffer) => gzipSync(zstdCompressSync(bytes))],
+    ['xz in gzip', (bytes: Buffer) => gzipSync(Buffer.concat([XZ_HEAD, bytes]))],
+    ['bzip2 in zstd', (bytes: Buffer) => zstdCompressSync(Buffer.concat([BZIP2_HEAD, bytes]))],
   ])('%s is not opened', async (_name, nest) => {
     const path = join(dir, 'nested.tar.gz')
     writeFileSync(path, nest(Buffer.from(tarOf([{ name: 'a.txt', data: 'x' }], false))))

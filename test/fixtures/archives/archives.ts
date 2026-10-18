@@ -112,6 +112,7 @@ export interface TarItem {
   data?: string
   type?: '0' | '2' | '5'
   link?: string
+  size?: number
 }
 
 function field(text: string, length: number): Uint8Array {
@@ -133,7 +134,7 @@ export function tarOf(items: TarItem[], gzip = true): Uint8Array {
     header.set(octal(0o644, 8), 100)
     header.set(octal(0, 8), 108)
     header.set(octal(0, 8), 116)
-    header.set(octal(item.type === '0' || !item.type ? data.length : 0, 12), 124)
+    header.set(octal(item.size ?? (item.type === '0' || !item.type ? data.length : 0), 12), 124)
     header.set(octal(0, 12), 136)
     header.set(strToU8('        '), 148)
     header[156] = (item.type ?? '0').charCodeAt(0)
