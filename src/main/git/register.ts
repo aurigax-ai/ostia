@@ -85,6 +85,7 @@ export function registerGitIpc(deps: GitIpcDeps): void {
   ipcMain.on('git:watch', (e, workspaceIds: unknown) => {
     service.watch(String(e.sender.id), workspaceIds)
   })
+  ipcMain.on('git:shown', () => service.shown())
   owned('git:changes', (caller) => commands.changes(caller))
   owned('git:graph', (caller, limit) => commands.graph(caller, limit))
   owned('git:commit-files', (caller, sha) => commands.commitFiles(caller, sha))
