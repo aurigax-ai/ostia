@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { SLOW_FRAME_MS, fastFrames, slowFrames } from './frames'
-import { openWorkspace } from './helpers'
+import { openWorkspace, waitForPaletteSelection } from './helpers'
 import {
   type ElectronApplication,
   type Page,
@@ -23,7 +23,7 @@ const cursorLine = (win: Page) =>
     const lines = [...document.querySelectorAll('.monaco-editor .view-lines .view-line')]
     const top = cursor?.getBoundingClientRect().top
     const line = lines.find((el) => Math.abs(el.getBoundingClientRect().top - top) < 2)
-    return line?.textContent?.replaceAll(' ', ' ')
+    return line?.textContent?.replaceAll('\u00a0', ' ')
   })
 
 const OPENERS: [string, (win: Page) => Promise<void>][] = [
@@ -131,6 +131,21 @@ test('the palette opens from the chord, F1 and Shift twice in a terminal, toggle
   await win.keyboard.press(chords.palette)
   await expect(dialog).toBeHidden()
   await shellSawNoEscape(win, 'after-toggle')
+  await expect(win.locator('.xterm-rows').first()).not.toContainText('needle')
+
+  await win.keyboard.press('Shift')
+  await win.keyboard.press('Shift')
+  await expect(
+    win.getByRole('dialog', { name: 'Search everywhere' }).getByRole('combobox'),
+  ).toBeFocused()
+  await expect(win.locator('.xterm')).toHaveCount(1)
+  await win.keyboard.type('Split Pane Right')
+  await waitForPaletteSelection(win, 'Split Pane Right')
+  await win.keyboard.press('Enter')
+  await expect(win.locator('.xterm')).toHaveCount(2)
+  await expect(win.locator('.xterm-rows').first()).not.toContainText('Split Pane Right')
+  await win.keyboard.press(chords.closePane)
+  await expect(win.locator('.xterm')).toHaveCount(1)
 })
 
 test('Search Everywhere opens a file at the line typed after its name', async () => {
@@ -161,7 +176,14 @@ test('the palette opens and Escape closes it over an editor and a browser page, 
   try {
     const dialog = win.getByRole('dialog')
     const input = dialog.getByRole('combobox')
+    const search = win.getByRole('dialog', { name: 'Search everywhere' })
+    await win.keyboard.press('Shift')
+    await win.keyboard.press('Shift')
+    await win.keyboard.type('todo.md')
+    await search.getByRole('option', { name: /^todo\.md/ }).click()
+    await expect(search).toBeHidden()
     const lines = win.locator('.monaco-editor .view-lines').first()
+    await expect(lines).toContainText('find the needle here', { timeout: 15_000 })
     for (const [name, open] of OPENERS) {
       await lines.click()
       await open(win)
@@ -171,6 +193,12 @@ test('the palette opens and Escape closes it over an editor and a browser page, 
       await expect(dialog, name).toBeHidden()
       await expect(win.locator('.monaco-editor .native-edit-context').first(), name).toBeFocused()
     }
+    await lines.click()
+    await win.keyboard.press('F1')
+    await expect(input).toBeFocused()
+    await win.keyboard.press('F1')
+    await expect(dialog).toBeHidden()
+    await expect(win.locator('.monaco-editor .native-edit-context').first()).toBeFocused()
     await win.keyboard.type('typed after escape ')
     await expect(lines).toContainText('typed after escape')
 
