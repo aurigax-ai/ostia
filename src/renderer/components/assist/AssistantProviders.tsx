@@ -425,7 +425,7 @@ export function AssistantProviders(): JSX.Element {
   return (
     <SettingsGroup title={t.providers} desc={t.providersDesc} action={addMenu}>
       {providers.length === 0 && fixed.length === 0 ? (
-        <EmptyState title={t.noProviders} desc={t.noProvidersDesc} />
+        <EmptyState variant="block" title={t.noProviders} desc={t.noProvidersDesc} />
       ) : (
         <ul aria-label={t.providers} className="flex flex-col gap-2">
           {providers.map((config) => {

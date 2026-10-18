@@ -96,7 +96,7 @@ function McpServers(): JSX.Element {
       action={servers.length > 0 ? addButton : null}
     >
       {servers.length === 0 ? (
-        <EmptyState title={t.noServers} desc={t.noServersDesc} action={addButton} />
+        <EmptyState variant="block" title={t.noServers} desc={t.noServersDesc} action={addButton} />
       ) : (
         <ul aria-label={t.mcpTitle} className="flex flex-col gap-2">
           {servers.map((server) => (
@@ -176,7 +176,7 @@ function SkillFolders(): JSX.Element {
       action={folders.length > 0 ? addButton : null}
     >
       {folders.length === 0 ? (
-        <EmptyState title={t.noFolders} desc={t.noFoldersDesc} action={addButton} />
+        <EmptyState variant="block" title={t.noFolders} desc={t.noFoldersDesc} action={addButton} />
       ) : (
         <ul aria-label={t.skillsTitle} className="flex flex-col gap-2">
           {folders.map((path) => {

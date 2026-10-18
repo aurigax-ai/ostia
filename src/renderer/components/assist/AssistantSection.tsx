@@ -447,6 +447,7 @@ export function AssistantSection(): JSX.Element {
     <SettingsPage title={d.assistantSettings.title} desc={d.assistantSettings.desc}>
       {exts.length === 0 ? (
         <EmptyState
+          variant="block"
           title={d.assistantSettings.offTitle}
           desc={d.assistantSettings.offDesc}
           action={
