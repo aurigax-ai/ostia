@@ -3,7 +3,7 @@ import type { ReadStream } from 'node:fs'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { gzipSync } from 'node:zlib'
+import { gzipSync, zstdCompressSync } from 'node:zlib'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const opened: ReadStream[] = vi.hoisted(() => [])
@@ -24,9 +24,15 @@ vi.mock('node:fs', async (importOriginal) => {
 vi.mock('tar', async (importOriginal) => {
   const tar = await importOriginal<typeof import('tar')>()
   class RecordingParser extends tar.Parser {
+    fed = 0
     constructor(...args: ConstructorParameters<typeof tar.Parser>) {
       super(...args)
       parsers.push(this)
+      const write = this.write.bind(this) as (...rest: unknown[]) => boolean
+      this.write = ((chunk: Uint8Array | string, ...rest: unknown[]) => {
+        this.fed += chunk.length
+        return write(chunk, ...rest)
+      }) as typeof this.write
     }
   }
   return { ...tar, Parser: RecordingParser }
@@ -99,7 +105,7 @@ function decompressedBytes(): number {
     (symbol) => symbol.description === 'decompressedBytesRead',
   )
   if (!key) throw new Error('decompressedBytesRead not found')
-  return (parser as Record<symbol, number>)[key]
+  return (parser as Record<symbol, number>)[key] + (parser as { fed: number }).fed
 }
 
 describe('tar.gz with zeros after the end marker inside the compressed stream', () => {
@@ -132,5 +138,54 @@ describe('tar.gz with zeros after the end marker inside the compressed stream', 
     expect(read.ok && read.data.toString()).toBe('last')
     expect(opened[0].destroyed).toBe(true)
     expect(decompressedBytes()).toBeLessThan(MIB)
+  })
+})
+
+describe.each([
+  ['zstd', (bytes: Buffer) => zstdCompressSync(bytes), 'bomb.tar.zst'],
+  ['gzip', (bytes: Buffer) => gzipSync(bytes), 'bomb.tar.gz'],
+])('%s with a very high ratio', (_name, compress, file) => {
+  const BUDGET = 4 * MIB
+  const limits = { ...ARCHIVE_LIMITS, scanBytes: BUDGET }
+
+  function bomb(): string {
+    const path = join(dir, file)
+    writeFileSync(path, compress(Buffer.alloc(64 * MIB, 0x41)))
+    return path
+  }
+
+  it('stops listing after a bounded output', async () => {
+    expect(await listTar(bomb(), limits)).toBeNull()
+    expect(opened[0].destroyed).toBe(true)
+    expect(decompressedBytes()).toBeLessThan(BUDGET + MIB)
+  })
+
+  it('stops reading an entry after a bounded output and says why', async () => {
+    const read = await readTarEntry(bomb(), 0, MIB, limits)
+    expect(read).toEqual({ ok: false, problem: 'unzip-limit' })
+    expect(decompressedBytes()).toBeLessThan(BUDGET + MIB)
+  })
+})
+
+describe('tar.zst', () => {
+  it('lists and reads like a tar.gz', async () => {
+    const tar = tarOf([{ name: 'a.txt', data: 'first' }], false)
+    const path = join(dir, 'plain.tar.zst')
+    writeFileSync(path, zstdCompressSync(tar))
+    expect((await listTar(path, ARCHIVE_LIMITS))?.map((entry) => entry.name)).toEqual(['a.txt'])
+    const read = await readTarEntry(path, 0, MIB, ARCHIVE_LIMITS)
+    expect(read.ok && read.data.toString()).toBe('first')
+  })
+})
+
+describe('a compressed archive inside a compressed archive', () => {
+  it.each([
+    ['gzip in gzip', (bytes: Buffer) => gzipSync(gzipSync(bytes))],
+    ['zstd in gzip', (bytes: Buffer) => gzipSync(zstdCompressSync(bytes))],
+  ])('%s is not opened', async (_name, nest) => {
+    const path = join(dir, 'nested.tar.gz')
+    writeFileSync(path, nest(Buffer.from(tarOf([{ name: 'a.txt', data: 'x' }], false))))
+    expect(await listTar(path, ARCHIVE_LIMITS)).toBeNull()
+    expect(await readTarEntry(path, 0, MIB, ARCHIVE_LIMITS)).toEqual({ ok: false, problem: 'gone' })
   })
 })
