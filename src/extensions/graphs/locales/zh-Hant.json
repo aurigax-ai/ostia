@@ -108,9 +108,8 @@
     "def.secretInput": "{node} 的輸入看起來像密鑰。請把密鑰放在「設定」的連線中，切勿寫進狀態圖檔案。",
     "row.filesRefused": "它的檔案觸發已關閉：這個資料夾在 .git、node_modules 與忽略的路徑之外有超過 5000 個資料夾要監看。",
     "row.skipped": "自 Ostia 啟動以來略過 {count} 次：仍有執行在進行，或已達上限",
-    "empty.folder.title": "沒有狀態圖",
-    "empty.scratch.title": "這裡沒有狀態圖",
-    "empty.runs.title": "沒有執行紀錄",
-    "empty.runs.description": "在狀態圖清單中按「立即執行」來開始一次。"
+    "empty.folder.title": "沒有狀態圖。",
+    "empty.scratch.title": "這裡沒有狀態圖。",
+    "empty.runs": "沒有執行紀錄。在狀態圖清單中按「立即執行」來開始一次。"
   }
 }

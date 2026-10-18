@@ -27,6 +27,8 @@ interface SidePanelState {
   keep: (instance: PanelInstance) => void
   reveal: (instance: PanelInstance) => void
   drop: (extId: string) => void
+  forgetWorkspaces: (live: ReadonlySet<string>) => void
+  unload: (workspaceId: string) => void
 }
 
 let routeSeq = 0
@@ -57,6 +59,23 @@ export const useSidePanelStore = create<SidePanelState>((set) => ({
       const key = instanceKey(instance)
       return s.revealed.includes(key) ? s : { revealed: [...s.revealed, key] }
     }),
+  forgetWorkspaces: (live) =>
+    set((s) => {
+      const kept = s.kept.filter((i) => live.has(i.workspaceId))
+      if (kept.length === s.kept.length) return s
+      return {
+        kept,
+        revealed: s.revealed.filter((key) => live.has(key.slice(key.indexOf('\n') + 1))),
+        routes: Object.fromEntries(
+          Object.entries(s.routes).filter(([key]) => live.has(key.slice(key.indexOf('\n') + 1))),
+        ),
+      }
+    }),
+  unload: (workspaceId) =>
+    set((s) => ({
+      kept: s.kept.filter((i) => i.workspaceId !== workspaceId),
+      revealed: s.revealed.filter((key) => key.slice(key.indexOf('\n') + 1) !== workspaceId),
+    })),
   drop: (extId) =>
     set((s) => ({
       right: s.right === extId ? null : s.right,

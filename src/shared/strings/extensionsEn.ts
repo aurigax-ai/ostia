@@ -98,7 +98,7 @@ export const extensionsEn = {
     resizePanel: 'Resize {name}',
     retry: 'Retry',
     review: 'Review permissions',
-    sandboxedClosed: 'Closed in a sandboxed workspace',
+    sandboxedClosed: 'Closed in a sandboxed workspace.',
     settingInvalid: 'Not saved: {error}',
     settingsPageFrom: 'From the {name} extension.',
     settingsTitle: '{name} settings',
