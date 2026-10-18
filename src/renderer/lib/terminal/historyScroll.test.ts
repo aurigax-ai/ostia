@@ -179,6 +179,25 @@ describe('history scroll', () => {
     scroll.dispose()
   })
 
+  it('moves down through history in order and hands back at the seam', async () => {
+    const { stack, scroll } = mount()
+    scroll.interceptWheel(wheelUp())
+    await vi.waitFor(() => expect(box(stack)?.style.visibility).toBe('visible'))
+    scroll.scrollLines(-30)
+    const tops: number[] = [Number(box(stack)?.dataset.top)]
+    for (let i = 0; i < 20 && box(stack)?.style.visibility === 'visible'; i++) {
+      scroll.scrollLines(7)
+      await vi.waitFor(() =>
+        expect(Number(box(stack)?.dataset.top)).toBeGreaterThan(tops.at(-1) ?? 0),
+      )
+      if (box(stack)?.style.visibility === 'visible') tops.push(Number(box(stack)?.dataset.top))
+    }
+    await vi.waitFor(() => expect(box(stack)?.style.visibility).toBe('hidden'))
+    expect(tops.length).toBeGreaterThan(3)
+    expect(tops).toEqual([...tops].sort((a, b) => a - b))
+    scroll.dispose()
+  })
+
   it('returns to the live bottom and types the key when a key is pressed', async () => {
     const { stack, host, term, scroll } = mount()
     scroll.interceptWheel(wheelUp())
