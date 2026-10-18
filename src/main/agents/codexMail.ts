@@ -1,4 +1,5 @@
-import { ackMail, releaseMail } from './busStore'
+import { MAIL_REFUSED } from '../../shared/agents/agentIssues'
+import { ackMail, failLeased, releaseMail } from './busStore'
 import type { CodexRpc } from './codexRpc'
 import { takeMailTurn } from './mailTurn'
 import { mailers } from './mailers'
@@ -14,12 +15,14 @@ export interface CodexMailDeps {
 
 const FAILURE_COOLDOWN_MS = 10_000
 const RECENT_TURNS = 5
+const REFUSALS_MAX = 5
 
 export class CodexMail {
   private readonly attached = new Set<string>()
   private readonly clients = new Map<string, CodexRpc>()
   private readonly delivering = new Set<string>()
   private readonly coolUntil = new Map<string, number>()
+  private readonly refusals = new Map<string, number>()
 
   constructor(private readonly deps: CodexMailDeps) {}
 
@@ -36,6 +39,7 @@ export class CodexMail {
   detach(externalId: string): void {
     this.attached.delete(externalId)
     this.coolUntil.delete(externalId)
+    this.refusals.delete(externalId)
     this.clients.get(externalId)?.close()
     this.clients.delete(externalId)
     mailers.clear(externalId)
@@ -100,10 +104,19 @@ export class CodexMail {
       sent = await this.started(externalId, socket, threadId, turn.ids)
     }
     if (sent) {
+      this.refusals.delete(externalId)
       ackMail(externalId, turn.lease)
       if (turn.retryMs !== undefined) this.deps.schedule(turn.retryMs, () => this.kick(externalId))
     } else {
-      releaseMail(externalId, turn.lease)
+      mailers.unrecordTurn(externalId)
+      const refused = (this.refusals.get(externalId) ?? 0) + 1
+      if (refused >= REFUSALS_MAX) {
+        this.refusals.delete(externalId)
+        failLeased(externalId, turn.lease, MAIL_REFUSED)
+      } else {
+        this.refusals.set(externalId, refused)
+        releaseMail(externalId, turn.lease)
+      }
       this.coolUntil.set(externalId, this.deps.now() + FAILURE_COOLDOWN_MS)
       this.deps.schedule(FAILURE_COOLDOWN_MS, () => this.kick(externalId))
       this.clients.get(externalId)?.close()

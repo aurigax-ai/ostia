@@ -1,4 +1,5 @@
 export const MAIL_PANE_CLOSED = 'pane-closed'
+export const MAIL_REFUSED = 'agent-refused'
 export const MAIL_INBOX_FULL = 'inbox-full'
 export const MAIL_LEASE_TIMEOUT = 'lease-timeout'
 export const WAKE_NOT_READY = 'wake-not-ready'

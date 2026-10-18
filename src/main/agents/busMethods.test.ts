@@ -552,7 +552,8 @@ describe('bus.take for the mod', () => {
       expect(take().lease).toBeTruthy()
     }
     await send('one too many')
-    expect(take()).toEqual({ limited: true })
+    expect(take()).toMatchObject({ limited: true })
+    expect((take() as { retryMs?: number }).retryMs).toBeGreaterThan(0)
     expect((await sent()).at(-1)?.state).toBe('queued')
   })
 

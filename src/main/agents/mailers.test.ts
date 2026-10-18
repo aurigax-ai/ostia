@@ -36,6 +36,19 @@ describe('Mailers', () => {
     expect(m.limited('p')).toBe(false)
   })
 
+  it('says how long until the oldest turn leaves the window, and takes a turn back', () => {
+    const { m, clock } = mailers()
+    expect(m.limitedMs('p')).toBe(0)
+    for (let i = 0; i < MAIL_TURNS_MAX; i++) {
+      m.recordTurn('p')
+      clock.now += 1000
+    }
+    expect(m.limitedMs('p')).toBe(MAIL_TURNS_WINDOW_MS - MAIL_TURNS_MAX * 1000)
+    m.unrecordTurn('p')
+    expect(m.limited('p')).toBe(false)
+    expect(m.limitedMs('p')).toBe(0)
+  })
+
   it('holds events for the batch window after they were taken, and not before', () => {
     const { m, clock } = mailers()
     expect(m.eventsWaitMs('p')).toBe(0)

@@ -9,6 +9,7 @@ process.env.XDG_DATA_HOME = dataHome
 const { CodexMail } = await import('./codexMail')
 const { enqueue, flushBus, getMail, resetBus, takeMail } = await import('./busStore')
 const { mailers } = await import('./mailers')
+const { MAIL_TURNS_MAX, MAIL_TURNS_WINDOW_MS } = await import('../../shared/agents/mailDelivery')
 
 const request = vi.fn(async (_method: string, _params: unknown): Promise<unknown> => ({}))
 let closeClient: () => void = () => {}
@@ -161,6 +162,50 @@ describe('Codex mail', () => {
     mail.attach('codex-pane')
     await settle()
     expect(getMail(queued.id)?.state).toBe('queued')
+  })
+
+  it('tries again when the rate limit lifts instead of waiting for the next change', async () => {
+    for (let i = 0; i < MAIL_TURNS_MAX; i++) mailers.recordTurn('codex-pane')
+    const queued = send('over the limit')
+    mail.attach('codex-pane')
+    await settle()
+    expect(getMail(queued.id)?.state).toBe('queued')
+    expect(scheduled).toHaveLength(1)
+    expect(scheduled[0].ms).toBeGreaterThan(0)
+    expect(scheduled[0].ms).toBeLessThanOrEqual(MAIL_TURNS_WINDOW_MS)
+  })
+
+  it('does not count a refused turn toward the rate limit', async () => {
+    send('refused')
+    request.mockImplementation(async (method) => {
+      if (method === 'turn/start') throw new Error('no such thread')
+      return {}
+    })
+    mail.attach('codex-pane')
+    await settle()
+    expect(mailers.limited('codex-pane')).toBe(false)
+    for (let i = 0; i < MAIL_TURNS_MAX; i++) {
+      state.now += 10_000
+      mail.kick('codex-pane')
+      await settle()
+    }
+    expect(mailers.limited('codex-pane')).toBe(false)
+  })
+
+  it('fails the message with a reason after Codex refused it five times in a row', async () => {
+    const queued = send('never accepted')
+    request.mockImplementation(async (method) => {
+      if (method === 'turn/start') throw new Error('no such thread')
+      return {}
+    })
+    mail.attach('codex-pane')
+    await settle()
+    for (let i = 0; i < 4; i++) {
+      state.now += 10_000
+      mail.kick('codex-pane')
+      await settle()
+    }
+    expect(getMail(queued.id)).toMatchObject({ state: 'failed', reason: 'agent-refused' })
   })
 
   it('gives the message back when the connection cannot be made', async () => {

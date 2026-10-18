@@ -40,8 +40,19 @@ export class Mailers {
     return this.recent(externalId).length >= MAIL_TURNS_MAX
   }
 
+  limitedMs(externalId: string): number {
+    const recent = this.recent(externalId)
+    return recent.length < MAIL_TURNS_MAX
+      ? 0
+      : Math.max(1, recent[0] + MAIL_TURNS_WINDOW_MS - this.now())
+  }
+
   recordTurn(externalId: string): void {
     this.recent(externalId).push(this.now())
+  }
+
+  unrecordTurn(externalId: string): void {
+    this.recent(externalId).pop()
   }
 
   eventsWaitMs(externalId: string): number {

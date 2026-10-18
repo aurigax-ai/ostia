@@ -531,6 +531,17 @@ export function releaseMail(to: string, lease: string): void {
   if (changed) markBusDirty()
 }
 
+export function failLeased(to: string, lease: string, reason: string): void {
+  const at = new Date().toISOString()
+  let changed = false
+  for (const mail of store().mail) {
+    if (mail.to !== to || mail.state !== 'leased' || mail.lease !== lease) continue
+    failMail(mail, reason, at)
+    changed = true
+  }
+  if (changed) markBusDirty()
+}
+
 export function failPaneMail(to: string): void {
   const at = new Date().toISOString()
   let changed = false
