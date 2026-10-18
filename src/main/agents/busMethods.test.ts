@@ -46,6 +46,7 @@ const scopeReaches = new Set<string>()
 const busyPanes = new Set<string>()
 const sandboxed = new Set<string>()
 const confined = new Set<string>()
+const owned = new Set<string>()
 registerBusMethods({
   managerSendAllowed: () => managerMaySend,
   agentBusy: (pane) => busyPanes.has(pane.paneId),
@@ -57,7 +58,7 @@ registerBusMethods({
       ctx.identity.kind === 'script'
         ? scriptReaches.has(workspaceId)
         : ctx.identity.workspaceId === workspaceId || scopeReaches.has(workspaceId),
-    isChild: () => false,
+    isChild: (owner, paneId) => owned.has(`${owner}>${paneId}`),
     isSandboxed: (workspaceId) => sandboxed.has(workspaceId),
     isConfined: (paneId) => confined.has(paneId),
   },
@@ -135,6 +136,7 @@ beforeEach(async () => {
   announce.mockClear()
   queuedWakes.length = 0
   held.clear()
+  owned.clear()
   observed.mockClear()
   ensureCaps.mockClear()
   ensureCaps.mockImplementation(async () => {})
@@ -318,6 +320,7 @@ describe('who may send', () => {
   it('lets a pane answer the manager pane with send-other-pane only, but never a sandboxed one', async () => {
     const manager = registerPane({ windowId: 'w1', workspaceId: 'mgr', paneId: 'bus-manager-1' })
     markManager('bus-manager-1')
+    owned.add(`${manager.paneId}>${sender.paneId}`)
     expect((await send('done', manager.externalId)).state).toBe('queued')
     expect(ensureCaps).toHaveBeenLastCalledWith(
       {},
@@ -328,6 +331,19 @@ describe('who may send', () => {
     )
     sandboxed.add('ws1')
     await expect(send('done', manager.externalId)).rejects.toThrow('sandboxed')
+  })
+
+  it('asks all-workspaces of a pane the manager did not start before it may mail the manager', async () => {
+    const manager = registerPane({ windowId: 'w1', workspaceId: 'mgr', paneId: 'bus-manager-4' })
+    markManager('bus-manager-4')
+    await send('hello', manager.externalId)
+    expect(ensureCaps).toHaveBeenLastCalledWith(
+      {},
+      sender,
+      ['send-other-pane', 'all-workspaces'],
+      'bus.send',
+      `to ${manager.externalId}`,
+    )
   })
 
   it('stores nothing for a handoff that is out of reach', async () => {

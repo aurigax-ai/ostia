@@ -22,6 +22,7 @@ export interface ReachFacts {
   caller: { paneId: string; workspaceId: string; sandboxed: boolean }
   target: { paneId: string; workspaceId: string; manager: boolean; confined: boolean }
   ownChild: boolean
+  managedBy: boolean
   sameScope: boolean
 }
 
@@ -35,16 +36,18 @@ const REACH_CAPS: Readonly<Record<PaneReach, Capability>> = {
   message: 'send-other-pane',
 }
 
-function managerReach(kind: PaneReach, sandboxed: boolean): ReachVerdict {
+function managerReach(kind: PaneReach, facts: ReachFacts): ReachVerdict {
   if (kind !== 'message') return { allowed: false, error: 'unknown-pane' }
-  return sandboxed
-    ? { allowed: false, error: 'sandboxed' }
-    : { allowed: true, caps: ['send-other-pane'] }
+  if (facts.caller.sandboxed) return { allowed: false, error: 'sandboxed' }
+  return {
+    allowed: true,
+    caps: facts.managedBy ? ['send-other-pane'] : ['send-other-pane', 'all-workspaces'],
+  }
 }
 
 export function paneReach(kind: PaneReach, facts: ReachFacts): ReachVerdict {
   const { caller, target } = facts
-  if (target.manager) return managerReach(kind, caller.sandboxed)
+  if (target.manager) return managerReach(kind, facts)
   if (caller.paneId === target.paneId && kind !== 'close') {
     return kind === 'input' ? { allowed: false, error: 'own-pane' } : { allowed: true, caps: [] }
   }
@@ -116,6 +119,7 @@ async function reachVerdict(
       confined: deps.isConfined(to.paneId),
     },
     ownChild: deps.isChild(me.paneId, to.paneId),
+    managedBy: to.manager === true && deps.isChild(to.paneId, me.paneId),
     sameScope,
   })
 }

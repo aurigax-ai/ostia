@@ -248,13 +248,33 @@ const facts = (
     caller?: Partial<{ paneId: string; workspaceId: string; sandboxed: boolean }>
     target?: Partial<{ paneId: string; workspaceId: string; manager: boolean; confined: boolean }>
     ownChild?: boolean
+    managedBy?: boolean
     sameScope?: boolean
   } = {},
 ) => ({
   caller: { paneId: 'a', workspaceId: 'ws1', sandboxed: false, ...over.caller },
   target: { paneId: 'b', workspaceId: 'ws1', manager: false, confined: false, ...over.target },
   ownChild: over.ownChild ?? false,
+  managedBy: over.managedBy ?? false,
   sameScope: over.sameScope ?? false,
+})
+
+describe('paneReach to the manager pane', () => {
+  const toManager = { target: { manager: true } }
+
+  it('asks only send-other-pane of a worker the manager started', () => {
+    expect(paneReach('message', facts({ ...toManager, managedBy: true }))).toEqual({
+      allowed: true,
+      caps: ['send-other-pane'],
+    })
+  })
+
+  it('asks all-workspaces of any other pane that wants to mail the manager', () => {
+    expect(paneReach('message', facts(toManager))).toEqual({
+      allowed: true,
+      caps: ['send-other-pane', 'all-workspaces'],
+    })
+  })
 })
 
 describe('paneReach', () => {
@@ -391,9 +411,9 @@ describe('paneReach', () => {
     })
   })
 
-  it('lets a message reach the manager pane with send-other-pane only, never from a sandbox', () => {
+  it('lets a message reach the manager pane from its own worker with send-other-pane only, never from a sandbox', () => {
     const manager = { manager: true, workspaceId: 'mgr' }
-    expect(paneReach('message', facts({ target: manager }))).toEqual({
+    expect(paneReach('message', facts({ target: manager, managedBy: true }))).toEqual({
       allowed: true,
       caps: ['send-other-pane'],
     })
