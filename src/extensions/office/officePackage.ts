@@ -3,11 +3,30 @@ import { type ZipFile, readOfficeContainer } from './canonicalZip'
 import { GuardStop, type OfficeLimits } from './officeLimits'
 import { type Budget, elementCount, hyperlinkCells, odsCells, spend } from './xmlScans'
 
-export type OfficeKind = 'sheet' | 'document'
+export type OfficeKind = 'sheet' | 'document' | 'presentation'
 
-type Format = 'ooxml' | 'ods'
+type OfficeFormat = 'ooxml' | 'ods' | 'odt' | 'odp'
 
-const ODS_MIMETYPE = 'application/vnd.oasis.opendocument.spreadsheet'
+export interface OfficeParts {
+  format: OfficeFormat
+  parts: Map<string, ZipFile>
+}
+
+const ODF_FORMATS = new Map<string, OfficeFormat>([
+  ['application/vnd.oasis.opendocument.spreadsheet', 'ods'],
+  ['application/vnd.oasis.opendocument.text', 'odt'],
+  ['application/vnd.oasis.opendocument.presentation', 'odp'],
+])
+const FORMATS: Record<OfficeKind, OfficeFormat[]> = {
+  sheet: ['ooxml', 'ods'],
+  document: ['ooxml', 'odt'],
+  presentation: ['ooxml', 'odp'],
+}
+const NODES: Record<OfficeKind, 'sheetNodes' | 'documentNodes' | 'presentationNodes'> = {
+  sheet: 'sheetNodes',
+  document: 'documentNodes',
+  presentation: 'presentationNodes',
+}
 const ODS_PARTS = new Set([
   'mimetype',
   'meta-inf/manifest.xml',
@@ -15,6 +34,7 @@ const ODS_PARTS = new Set([
   'content.xml',
   'meta.xml',
 ])
+const ODF_OUTLINE_PARTS = new Set(['mimetype', 'meta-inf/manifest.xml', 'content.xml'])
 const SWITCHES_PARSER = new Set([
   'objectdata.xml',
   'index/document.iwa',
@@ -23,6 +43,9 @@ const SWITCHES_PARSER = new Set([
 ])
 const XML_PART = /\.(?:xml|rels)$/
 const DOCUMENT_IMAGE = /^word\/media\/[^/]+\.(?:png|jpe?g|gif|webp)$/
+const PRESENTATION_PART =
+  /^(?:\[content_types\]\.xml|ppt\/presentation\.xml|ppt\/_rels\/presentation\.xml\.rels|ppt\/(?:slides|notesslides)\/(?:[^/]+\.xml|_rels\/[^/]+\.xml\.rels))$/
+const ODF_ENCRYPTED = /<(?:[\w.-]+:)?encryption-data[\s/>]/
 
 function keyOf(name: string): string {
   return name.toLowerCase().replace(/\\/g, '/')
@@ -47,26 +70,69 @@ function indexed(files: ZipFile[]): Map<string, ZipFile> {
   return byKey
 }
 
-function formatOf(byKey: Map<string, ZipFile>): Format {
-  if (byKey.has('meta-inf/manifest.xml')) {
-    const mimetype = byKey.get('mimetype')
-    if (!mimetype || new TextDecoder().decode(mimetype.data) !== ODS_MIMETYPE) fail()
-    return 'ods'
+function decoded(file: ZipFile | undefined): string {
+  return file ? new TextDecoder().decode(file.data) : ''
+}
+
+function formatOf(byKey: Map<string, ZipFile>): OfficeFormat {
+  const manifest = byKey.get('meta-inf/manifest.xml')
+  if (manifest) {
+    const format = ODF_FORMATS.get(decoded(byKey.get('mimetype'))) ?? fail()
+    if (ODF_ENCRYPTED.test(decoded(manifest))) throw new GuardStop('encrypted')
+    return format
   }
   if (byKey.has('[content_types].xml')) return 'ooxml'
   return fail()
 }
 
-function kept(kind: OfficeKind, format: Format, key: string): boolean {
+function kept(kind: OfficeKind, format: OfficeFormat, key: string): boolean {
   if (format === 'ods') return ODS_PARTS.has(key)
+  if (format !== 'ooxml') return ODF_OUTLINE_PARTS.has(key)
+  if (kind === 'presentation') return PRESENTATION_PART.test(key)
   return XML_PART.test(key) || (kind === 'document' && DOCUMENT_IMAGE.test(key))
 }
 
-function scan(format: Format, key: string, data: Uint8Array, cells: Budget, nodes: Budget): void {
+interface Budgets {
+  cells: Budget
+  nodes: Budget
+}
+
+function scan(
+  kind: OfficeKind,
+  format: OfficeFormat,
+  key: string,
+  data: Uint8Array,
+  budgets: Budgets,
+): void {
   if (!XML_PART.test(key)) return
   const text = new TextDecoder().decode(data)
-  spend(nodes, elementCount(text), 'nodes-limit')
-  spend(cells, format === 'ods' ? odsCells(text) : hyperlinkCells(text), 'cells-limit')
+  spend(budgets.nodes, elementCount(text), 'nodes-limit')
+  if (kind !== 'sheet') return
+  spend(budgets.cells, format === 'ods' ? odsCells(text) : hyperlinkCells(text), 'cells-limit')
+}
+
+export function officeParts(
+  bytes: Uint8Array,
+  kind: OfficeKind,
+  limits: OfficeLimits,
+): OfficeParts {
+  const byKey = indexed(readOfficeContainer(bytes, limits))
+  const format = formatOf(byKey)
+  if (!FORMATS[kind].includes(format)) fail()
+  const budgets = { cells: { left: limits.cells }, nodes: { left: limits[NODES[kind]] } }
+  const parts = new Map<string, ZipFile>()
+  for (const [key, file] of byKey) {
+    if (!kept(kind, format, key)) continue
+    scan(kind, format, key, file.data, budgets)
+    parts.set(key, file)
+  }
+  return { format, parts }
+}
+
+export function zipParts(parts: Map<string, ZipFile>): Uint8Array {
+  const files: Record<string, Uint8Array> = {}
+  for (const file of parts.values()) files[file.name] = file.data
+  return zipSync(files, { level: 0 })
 }
 
 export function officePackage(
@@ -74,16 +140,5 @@ export function officePackage(
   kind: OfficeKind,
   limits: OfficeLimits,
 ): Uint8Array {
-  const byKey = indexed(readOfficeContainer(bytes, limits))
-  const format = formatOf(byKey)
-  if (kind === 'document' && format !== 'ooxml') fail()
-  const cells: Budget = { left: limits.cells }
-  const nodes: Budget = { left: kind === 'sheet' ? limits.sheetNodes : limits.documentNodes }
-  const parts: Record<string, Uint8Array> = {}
-  for (const [key, file] of byKey) {
-    if (!kept(kind, format, key)) continue
-    scan(format, key, file.data, cells, nodes)
-    parts[file.name] = file.data
-  }
-  return zipSync(parts, { level: 0 })
+  return zipParts(officeParts(bytes, kind, limits).parts)
 }

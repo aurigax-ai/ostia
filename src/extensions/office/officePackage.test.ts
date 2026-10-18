@@ -8,6 +8,7 @@ import {
   looseWorkbook,
   nestedIndexZip,
 } from '../../../test/fixtures/office/bypasses'
+import { ODP_MIMETYPE, odf, pptx, titleShape } from '../../../test/fixtures/office/presentations'
 import { probeSheetJS } from '../../../test/fixtures/office/sheetjsProbe'
 import {
   deflated,
@@ -19,7 +20,7 @@ import {
 } from '../../../test/fixtures/office/workbooks'
 import { readDocument } from './docModel'
 import { OFFICE_LIMITS } from './officeLimits'
-import { officePackage } from './officePackage'
+import { officePackage, officeParts } from './officePackage'
 import { readWorkbook } from './sheetModel'
 
 const SMALL = { ...OFFICE_LIMITS, cells: 100_000 }
@@ -122,5 +123,48 @@ describe('officePackage', () => {
     )
     const doc = officePackage(docx({ body: paragraph('x') }), 'document', OFFICE_LIMITS)
     expect(names(doc)).toContain('word/media/a.png')
+  })
+
+  it('hands the presentation parsers only the slide, notes and relationship parts', () => {
+    const deck = pptx({
+      slides: [{ shapes: titleShape('t'), notes: 'n' }],
+      extra: [
+        deflated('ppt/vbaProject.bin', strToU8('macro')),
+        deflated('ppt/media/image1.png', strToU8('png')),
+        deflated('ppt/slideLayouts/slideLayout1.xml', strToU8('<p:sldLayout/>')),
+      ],
+    })
+    expect([...officeParts(deck, 'presentation', OFFICE_LIMITS).parts.keys()].sort()).toEqual([
+      '[content_types].xml',
+      'ppt/_rels/presentation.xml.rels',
+      'ppt/notesslides/notesslide1.xml',
+      'ppt/presentation.xml',
+      'ppt/slides/_rels/slide1.xml.rels',
+      'ppt/slides/slide1.xml',
+    ])
+    const odp = odf(ODP_MIMETYPE, {
+      body: '',
+      extra: [
+        deflated('Basic/Standard/Module1.xml', strToU8('<x/>')),
+        deflated('styles.xml', strToU8('<x/>')),
+      ],
+    })
+    expect(officeParts(odp, 'presentation', OFFICE_LIMITS)).toMatchObject({ format: 'odp' })
+    expect([...officeParts(odp, 'presentation', OFFICE_LIMITS).parts.keys()].sort()).toEqual([
+      'content.xml',
+      'meta-inf/manifest.xml',
+      'mimetype',
+    ])
+  })
+
+  it('names a password-protected OpenDocument file from its manifest, spreadsheets too', () => {
+    const locked = rawZip([
+      deflated('mimetype', strToU8('application/vnd.oasis.opendocument.spreadsheet')),
+      deflated(
+        'META-INF/manifest.xml',
+        strToU8('<manifest:manifest><manifest:encryption-data/></manifest:manifest>'),
+      ),
+    ])
+    expect(readWorkbook(locked, OFFICE_LIMITS)).toEqual({ ok: false, problem: 'encrypted' })
   })
 })

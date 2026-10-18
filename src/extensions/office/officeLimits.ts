@@ -15,6 +15,7 @@ export const OFFICE_LIMITS = {
   cells: 2_000_000,
   sheetNodes: 4_500_000,
   documentNodes: 200_000,
+  presentationNodes: 1_000_000,
   xmlDepth: 256,
   parseMs: 20_000,
 } as const
