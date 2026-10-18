@@ -1,14 +1,14 @@
 import {
   call,
   context,
+  emptyState,
   errorText,
   h,
-  icon,
+  listRow,
   onChange,
+  panelToolbar,
   panelTranslator,
 } from '@aurigax-ai/ostia-extension-sdk/panel'
-import clockCounterClockwise from '@phosphor-icons/core/regular/clock-counter-clockwise.svg'
-import graph from '@phosphor-icons/core/regular/graph.svg'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
 import type { Definition, GraphRow, ListModel, RunModel } from './panelModel'
@@ -37,33 +37,6 @@ function button(label: string, onClick: () => void, primary = false): HTMLElemen
   return h('button', { type: 'button', class: primary ? 'primary' : '', onClick }, label)
 }
 
-interface EmptyView {
-  kind: string
-  media: string
-  title: string
-  description: string
-  action?: HTMLElement
-}
-
-function emptyState(view: EmptyView): HTMLElement {
-  return h(
-    'section',
-    { class: 'empty', 'data-empty': view.kind },
-    h('div', { class: 'empty-media' }, icon(view.media)),
-    h(
-      'div',
-      { class: 'empty-header' },
-      h('h2', { class: 'empty-title' }, view.title),
-      h('p', { class: 'empty-description' }, view.description),
-    ),
-    view.action ?? null,
-  )
-}
-
-function folderPath(folder: string): HTMLElement {
-  return h('code', { class: 'empty-path' }, folder)
-}
-
 async function act(command: string, args: Record<string, unknown>): Promise<boolean> {
   const res = await call(command, { workspaceId: context.workspaceId, ...args })
   problem = res.ok ? '' : t('error', { error: errorText(res) })
@@ -89,25 +62,10 @@ function fold(label: string, value: unknown): HTMLElement {
 }
 
 function graphRow(row: GraphRow): HTMLElement {
-  const actions = h(
-    'div',
-    { class: 'actions' },
-    row.state !== 'invalid'
-      ? button(t('action.view'), () => go({ kind: 'definition', name: row.name }))
-      : null,
-    row.state === 'enabled' ? button(t('action.runNow'), () => void runNow(row.name), true) : null,
-    row.state === 'enabled'
-      ? button(t('action.disable'), () => void act('disable', { name: row.name }))
-      : null,
-    button(t('action.runs'), () => go({ kind: 'runs', name: row.name })),
-  )
-  return h(
-    'li',
-    { class: 'row', 'data-graph': row.name, 'data-state': row.state },
-    h(
-      'div',
-      { class: 'row-head' },
-      h('span', { class: 'name' }, row.name),
+  return listRow({
+    title: row.name,
+    attrs: { 'data-graph': row.name, 'data-state': row.state },
+    meta: [
       h('span', { class: 'state', 'data-state': row.state }, t(`state.${row.state}`)),
       row.lastRun
         ? h(
@@ -116,27 +74,40 @@ function graphRow(row: GraphRow): HTMLElement {
             t('lastRun', { status: t(`status.${row.lastRun.status}`) }),
           )
         : null,
-    ),
-    row.description ? h('div', { class: 'muted' }, row.description) : null,
-    row.filesRefused
-      ? h('div', { class: 'error', 'data-files-refused': '' }, t('row.filesRefused'))
-      : null,
-    row.skipped
-      ? h(
-          'div',
-          { class: 'muted', 'data-skipped': String(row.skipped) },
-          t('row.skipped', { count: row.skipped }),
-        )
-      : null,
-    row.problem
-      ? h(
-          'div',
-          { class: 'error mono', 'data-problem': row.problem.code },
-          `${row.problem.code}${row.problem.node ? ` (${row.problem.node})` : ''}: ${row.problem.message}`,
-        )
-      : null,
-    actions,
-  )
+    ],
+    detail: [
+      row.description ? h('div', { class: 'muted' }, row.description) : null,
+      row.filesRefused
+        ? h('div', { class: 'error', 'data-files-refused': '' }, t('row.filesRefused'))
+        : null,
+      row.skipped
+        ? h(
+            'div',
+            { class: 'muted', 'data-skipped': String(row.skipped) },
+            t('row.skipped', { count: row.skipped }),
+          )
+        : null,
+      row.problem
+        ? h(
+            'div',
+            { class: 'error mono', 'data-problem': row.problem.code },
+            `${row.problem.code}${row.problem.node ? ` (${row.problem.node})` : ''}: ${row.problem.message}`,
+          )
+        : null,
+    ].filter((el): el is HTMLElement => el !== null),
+    actions: [
+      row.state !== 'invalid'
+        ? button(t('action.view'), () => go({ kind: 'definition', name: row.name }))
+        : null,
+      row.state === 'enabled'
+        ? button(t('action.runNow'), () => void runNow(row.name), true)
+        : null,
+      row.state === 'enabled'
+        ? button(t('action.disable'), () => void act('disable', { name: row.name }))
+        : null,
+      button(t('action.runs'), () => go({ kind: 'runs', name: row.name })),
+    ].filter((el): el is HTMLElement => el !== null),
+  })
 }
 
 async function runNow(name: string): Promise<void> {
@@ -154,24 +125,9 @@ async function listView(): Promise<HTMLElement[]> {
   if (!res.ok) return [h('p', { class: 'error' }, t('error', { error: errorText(res) }))]
   const model = res.data as ListModel
   if (model.scratch)
-    return [
-      emptyState({
-        kind: 'scratch',
-        media: graph,
-        title: t('empty.scratch.title'),
-        description: t('empty.scratch.description'),
-      }),
-    ]
+    return [emptyState(t('empty.scratch.title'), undefined, { 'data-empty': 'scratch' })]
   if (model.graphs.length === 0) {
-    return [
-      emptyState({
-        kind: 'folder',
-        media: graph,
-        title: t('empty.folder.title'),
-        description: t('empty.folder.description'),
-        action: folderPath(model.folder),
-      }),
-    ]
+    return [emptyState(t('empty.folder.title'), undefined, { 'data-empty': 'folder' })]
   }
   return [h('ul', { class: 'rows' }, ...model.graphs.map(graphRow))]
 }
@@ -294,11 +250,8 @@ async function runsView(name: string): Promise<HTMLElement[]> {
   const runs = res.data as { runId: string; status: string; steps: number }[]
   if (runs.length === 0)
     return [
-      emptyState({
-        kind: 'runs',
-        media: clockCounterClockwise,
-        title: t('empty.runs.title'),
-        description: t('empty.runs.description'),
+      emptyState(`${t('empty.runs.title')}. ${t('empty.runs.description')}`, undefined, {
+        'data-empty': 'runs',
       }),
     ]
   return [
@@ -395,7 +348,7 @@ async function runView(runId: string): Promise<HTMLElement[]> {
   ]
 }
 
-async function runtimeNote(quiet: boolean): Promise<HTMLElement | null> {
+async function runtimeNote(): Promise<HTMLElement | null> {
   const res = await call('runtime', {})
   const runtime = (res.ok ? res.data : { state: 'failed', message: errorText(res) }) as {
     state: string
@@ -403,14 +356,7 @@ async function runtimeNote(quiet: boolean): Promise<HTMLElement | null> {
     version?: string
     message?: string
   }
-  if (runtime.state === 'ready')
-    return quiet
-      ? null
-      : h(
-          'p',
-          { class: 'note muted', 'data-runtime': runtime.daemon ? 'daemon' : 'client' },
-          runtime.daemon ? t('runsAsDaemon') : t('runsWhileOpen'),
-        )
+  if (runtime.state === 'ready') return null
   if (runtime.state === 'other-contract')
     return h(
       'p',
@@ -439,19 +385,15 @@ async function render(): Promise<void> {
         : shown.kind === 'runs'
           ? await runsView(shown.name)
           : await runView(shown.runId)
-  const note = await runtimeNote(body.some((el) => el.hasAttribute('data-empty')))
+  const note = await runtimeNote()
   if (!gate.mayPaint(mine, shown, view)) return
-  const back = shown.kind === 'list' ? null : button(t('action.back'), () => go({ kind: 'list' }))
+  const back = shown.kind !== 'list'
   root.replaceChildren(
     h(
       'div',
       { class: 'page' },
-      h(
-        'header',
-        { class: 'toolbar' },
-        back,
-        h('h1', { class: 'title' }, t('title')),
-        h('div', { class: 'spacer' }),
+      panelToolbar(
+        back ? { back: { label: t('action.back'), onClick: () => go({ kind: 'list' }) } } : {},
       ),
       h(
         'main',
