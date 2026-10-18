@@ -3,7 +3,7 @@ import { inboxOf, leaseMail } from './busStore'
 import { mailers } from './mailers'
 
 export type MailTurn =
-  | { text: string; lease: string; retryMs?: number }
+  | { text: string; lease: string; ids: string[]; retryMs?: number }
   | { limited: true }
   | { busy: true }
   | { retryMs: number }
@@ -24,5 +24,10 @@ export function takeMailTurn(me: string, agentBusy: boolean): MailTurn {
   if (!leased) return {}
   if (leased.messages.some((mail) => mail.kind === 'event')) mailers.markEvents(me)
   mailers.recordTurn(me)
-  return { text: context.text, lease: leased.lease, ...(held > 0 ? { retryMs: waitMs } : {}) }
+  return {
+    text: context.text,
+    lease: leased.lease,
+    ids: context.shown,
+    ...(held > 0 ? { retryMs: waitMs } : {}),
+  }
 }

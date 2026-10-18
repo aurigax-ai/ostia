@@ -3,6 +3,7 @@ export const MOD_DRAFT_QUIET_MS = 10_000
 export const MOD_SAFETY_MS = 30_000
 export const MOD_BUSY_RETRY_MS = 10_000
 const MOD_HOOK_TIMEOUT_MS = 20_000
+const MOD_SUBMITTED_KEPT = 200
 export const MOD_WAITING_STATUS = 'mail waits for your prompt'
 
 interface Timer {
@@ -12,7 +13,7 @@ interface Timer {
 interface Mod$ {
   clock: { every: (ms: number, fn: () => void) => Timer }
   env: { get: (name: string) => Promise<string | undefined> }
-  fs: { stat: (path: string) => Promise<{ size: number; mtimeMs: number }> }
+  fs: { read: (path: string) => Promise<string> }
   process: {
     run: (
       argv: readonly string[],
@@ -34,6 +35,7 @@ export type ModOn = (event: string, hook: Hook) => unknown
 interface Taken {
   text?: string
   lease?: string
+  ids?: string[]
   busy?: true
   limited?: true
   retryMs?: number
@@ -51,6 +53,8 @@ interface ModState {
   timer: Timer | undefined
   working: boolean
   seen: string | undefined
+  waiting: boolean
+  submitted: string[]
   retryAt: number
   safetyAt: number
   editedAt: number
@@ -63,6 +67,8 @@ function freshState(): ModState {
     timer: undefined,
     working: false,
     seen: undefined,
+    waiting: false,
+    submitted: [],
     retryAt: 0,
     safetyAt: 0,
     editedAt: 0,
@@ -93,17 +99,30 @@ async function report($: Mod$, state: string): Promise<void> {
   await hook($, ['mod-ready', mod.link.session, state])
 }
 
+function showWaiting($: Mod$, waiting: boolean): void {
+  if (waiting === mod.waiting) return
+  mod.waiting = waiting
+  $.ui.status(waiting ? MOD_WAITING_STATUS : undefined)
+}
+
+function parseFlag(text: string): { count: number; seq: string } | undefined {
+  const [count, seq] = text.trim().split(':')
+  return /^\d+$/.test(count) ? { count: Number(count), seq: seq ?? '' } : undefined
+}
+
 async function tick($: Mod$): Promise<void> {
   const link = mod.link
   if (mod.working || !link) return
   mod.working = true
   try {
-    const flag = await $.fs.stat(link.file).then(
-      (stat) => `${stat.mtimeMs}:${stat.size}`,
-      () => undefined,
-    )
+    const flag = await $.fs.read(link.file).then(parseFlag, () => undefined)
+    if (!flag || flag.count === 0) {
+      mod.retryAt = 0
+      showWaiting($, false)
+      return
+    }
     const now = Date.now()
-    const changed = flag !== undefined && flag !== mod.seen
+    const changed = flag.seq !== mod.seen
     const due = changed || (mod.retryAt > 0 && now >= mod.retryAt) || now >= mod.safetyAt
     if (!due) return
     const box = await $.prompt.read()
@@ -111,11 +130,11 @@ async function tick($: Mod$): Promise<void> {
     await report($, drafting ? 'draft' : 'idle')
     if (drafting) {
       mod.retryAt = now
-      $.ui.status(MOD_WAITING_STATUS)
+      showWaiting($, true)
       return
     }
-    $.ui.status(undefined)
-    mod.seen = flag
+    showWaiting($, false)
+    mod.seen = flag.seq
     mod.retryAt = 0
     mod.safetyAt = now + MOD_SAFETY_MS
     const taken = await hook($, ['take'])
@@ -123,7 +142,12 @@ async function tick($: Mod$): Promise<void> {
     if (taken.busy) mod.retryAt = now + MOD_BUSY_RETRY_MS
     if (taken.retryMs !== undefined) mod.retryAt = now + Math.max(taken.retryMs, MOD_TICK_MS)
     if (!taken.text || !taken.lease) return
-    await $.prompt.submit({ text: taken.text })
+    const ids = taken.ids ?? []
+    const again = ids.length > 0 && ids.every((id) => mod.submitted.includes(id))
+    if (!again) {
+      await $.prompt.submit({ text: taken.text })
+      mod.submitted = [...mod.submitted, ...ids].slice(-MOD_SUBMITTED_KEPT)
+    }
     await hook($, ['ack', taken.lease])
   } catch {
     mod.retryAt = Date.now() + MOD_BUSY_RETRY_MS

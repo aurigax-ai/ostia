@@ -28,7 +28,7 @@ describe('the mod’s surface', () => {
     expect([...calls].sort()).toEqual([
       'clock.every',
       'env.get',
-      'fs.stat',
+      'fs.read',
       'process.run',
       'prompt.read',
       'prompt.submit',
@@ -107,10 +107,10 @@ function setup(
     },
     env: { get: async (name: string) => env[name] },
     fs: {
-      stat: async () => {
-        const flag = options.flag?.() ?? '1:1'
-        const [mtimeMs, size] = flag.split(':').map(Number)
-        return { mtimeMs, size }
+      read: async () => {
+        const flag = options.flag ? options.flag() : '1:1'
+        if (flag === undefined) throw new Error('missing')
+        return `${flag}\n`
       },
     },
     process: {
@@ -259,6 +259,37 @@ describe('the mod at work', () => {
     await vi.advanceTimersByTimeAsync(MOD_BUSY_RETRY_MS)
     await m.tick()
     expect(m.calls.run.filter((argv) => argv[4] === 'take').length).toBe(2)
+  })
+
+  it('shows no waiting status and spawns nothing while no mail is queued, even with a draft', async () => {
+    const m = setup({ flag: () => '0:5', draft: () => 'typing' })
+    await m.fire('session.start', { isInteractive: true })
+    await m.tick()
+    await vi.advanceTimersByTimeAsync(MOD_SAFETY_MS)
+    await m.tick()
+    expect(m.calls.status).toEqual([])
+    expect(m.calls.run.map((argv) => argv[4])).toEqual(['mod-ready'])
+  })
+
+  it('takes the safety poll only when the flag counts mail, and clears the status when the mail is gone', async () => {
+    let flag = '1:1'
+    const m = setup({ flag: () => flag, draft: () => 'typing' })
+    await m.fire('session.start', { isInteractive: true })
+    await m.tick()
+    expect(m.calls.status).toEqual([MOD_WAITING_STATUS])
+    flag = '0:2'
+    await m.tick()
+    expect(m.calls.status).toEqual([MOD_WAITING_STATUS, undefined])
+  })
+
+  it('submits a lease again returned after a failed acknowledgement only once, and acknowledges it', async () => {
+    const m = setup({ taken: () => ({ text: 'mail', lease: 'l', ids: ['a', 'b'] }) })
+    await m.fire('session.start', { isInteractive: true })
+    await m.tick()
+    await vi.advanceTimersByTimeAsync(MOD_SAFETY_MS)
+    await m.tick()
+    expect(m.calls.submitted).toEqual(['mail'])
+    expect(m.calls.run.filter((argv) => argv[4] === 'ack')).toHaveLength(2)
   })
 
   it('treats a missing flag file as nothing to do', async () => {

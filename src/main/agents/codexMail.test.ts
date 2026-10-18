@@ -20,6 +20,7 @@ const rpc = () => ({
   }),
 })
 const connect = vi.fn(async (_socket: string) => rpc())
+const started: unknown[] = []
 const scheduled: { ms: number; fn: () => void }[] = []
 const state = {
   busy: false,
@@ -49,6 +50,7 @@ beforeEach(async () => {
   request.mockImplementation(async () => ({}))
   connect.mockClear()
   scheduled.length = 0
+  started.length = 0
   Object.assign(state, { busy: false, thread: 'thread-1', socket: '/sock', now: 1000 })
 })
 
@@ -131,6 +133,34 @@ describe('Codex mail', () => {
     scheduled[0]?.fn()
     await settle()
     expect(getMail(queued.id)?.state).toBe('delivered')
+  })
+
+  it('does not start a second turn when the first one did start although the answer timed out', async () => {
+    const queued = send('slow')
+    request.mockImplementation(async (method, params) => {
+      if (method === 'turn/start') {
+        started.push(params)
+        throw new Error('turn/start timed out')
+      }
+      return { data: [{ items: [{ text: JSON.stringify(started[0]) }] }] }
+    })
+    mail.attach('codex-pane')
+    await settle()
+    expect(getMail(queued.id)?.state).toBe('delivered')
+    mail.kick('codex-pane')
+    await settle()
+    expect(request.mock.calls.filter(([method]) => method === 'turn/start')).toHaveLength(1)
+  })
+
+  it('gives the message back when the thread shows no turn with its id after a timeout', async () => {
+    const queued = send('lost')
+    request.mockImplementation(async (method) => {
+      if (method === 'turn/start') throw new Error('turn/start timed out')
+      return { data: [{ items: [{ text: 'something else' }] }] }
+    })
+    mail.attach('codex-pane')
+    await settle()
+    expect(getMail(queued.id)?.state).toBe('queued')
   })
 
   it('gives the message back when the connection cannot be made', async () => {

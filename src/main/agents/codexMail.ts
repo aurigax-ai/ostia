@@ -13,6 +13,7 @@ export interface CodexMailDeps {
 }
 
 const FAILURE_COOLDOWN_MS = 10_000
+const RECENT_TURNS = 5
 
 export class CodexMail {
   private readonly attached = new Set<string>()
@@ -58,6 +59,29 @@ export class CodexMail {
     return fresh
   }
 
+  private async started(
+    externalId: string,
+    socket: string,
+    threadId: string,
+    ids: string[],
+  ): Promise<boolean> {
+    try {
+      this.clients.get(externalId)?.close()
+      this.clients.delete(externalId)
+      const rpc = await this.client(externalId, socket)
+      const recent = await rpc.request('thread/turns/list', {
+        threadId,
+        limit: RECENT_TURNS,
+        itemsView: 'full',
+        sortDirection: 'desc',
+      })
+      const seen = JSON.stringify(recent)
+      return ids.some((id) => seen.includes(id))
+    } catch {
+      return false
+    }
+  }
+
   private async deliver(externalId: string): Promise<void> {
     const socket = this.deps.socketOf(externalId)
     const threadId = socket ? await this.deps.threadOf(externalId) : undefined
@@ -67,12 +91,18 @@ export class CodexMail {
       if ('retryMs' in turn) this.deps.schedule(turn.retryMs, () => this.kick(externalId))
       return
     }
+    let sent = false
     try {
       const rpc = await this.client(externalId, socket)
       await rpc.request('turn/start', { threadId, input: [{ type: 'text', text: turn.text }] })
+      sent = true
+    } catch {
+      sent = await this.started(externalId, socket, threadId, turn.ids)
+    }
+    if (sent) {
       ackMail(externalId, turn.lease)
       if (turn.retryMs !== undefined) this.deps.schedule(turn.retryMs, () => this.kick(externalId))
-    } catch {
+    } else {
       releaseMail(externalId, turn.lease)
       this.coolUntil.set(externalId, this.deps.now() + FAILURE_COOLDOWN_MS)
       this.deps.schedule(FAILURE_COOLDOWN_MS, () => this.kick(externalId))
