@@ -348,4 +348,32 @@ describe('RightPanel', () => {
     act(() => useSidePanelStore.getState().hideRight())
     await waitFor(() => expect(watchedWorkspaces('git')).toEqual([]))
   })
+
+  it('drops the live instances of a workspace that is closed at once', async () => {
+    setup()
+    render(<RightPanel />)
+    show('graphs')
+    await waitFor(() => expect(webviews()).toHaveLength(1))
+    act(() => useWorkspacesStore.setState({ activeWorkspaceId: 'w2' }))
+    await waitFor(() => expect(webviews()).toHaveLength(2))
+
+    act(() =>
+      useWorkspacesStore.setState({ workspaces: [workspace('w2')], activeWorkspaceId: 'w2' }),
+    )
+
+    await waitFor(() => expect(webviews()).toHaveLength(1))
+    expect(webviews()[0].getAttribute('src')).toBe('http://127.0.0.1:4100/graphs/w2')
+  })
+
+  it('asks again when a workspace with a live panel becomes sandboxed, and unloads the panel', async () => {
+    setup()
+    render(<RightPanel />)
+    show('graphs')
+    await waitFor(() => expect(webviews()).toHaveLength(1))
+
+    act(() => useSandboxStore.setState({ enabled: { w1: true } }))
+
+    expect(await screen.findByRole('button', { name: 'Show Graphs' })).toBeVisible()
+    expect(webviews()).toHaveLength(0)
+  })
 })

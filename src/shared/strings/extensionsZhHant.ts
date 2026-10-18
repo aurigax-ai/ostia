@@ -99,7 +99,7 @@ export const extensionsZhHant: typeof extensionsEn = {
     resizePanel: '調整{name}寬度',
     retry: '重試',
     review: '檢視權限',
-    sandboxedClosed: '在沙箱工作區中已關閉',
+    sandboxedClosed: '在沙箱工作區中已關閉。',
     settingInvalid: '未儲存：{error}',
     settingsPageFrom: '來自 {name} 擴充功能。',
     settingsTitle: '{name} 設定',

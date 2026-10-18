@@ -128,8 +128,7 @@ export function emptyState(
   action?: Node,
   attrs: Record<string, string> = {},
 ): HTMLElement {
-  const lead = /[.!?]$/.test(text) ? text : `${text}.`
-  return h('div', { class: 'ostia-empty', ...attrs }, h('p', {}, lead), action)
+  return h('div', { class: 'ostia-empty', ...attrs }, h('p', {}, text), action)
 }
 
 export function listRow({

@@ -30,15 +30,15 @@ describe('panel kit', () => {
   })
 
   describe('emptyState', () => {
-    it('is one muted line that ends in a full stop, with nothing else', () => {
-      const el = emptyState('No graphs')
+    it('is one muted line, exactly as given, with nothing else', () => {
+      const el = emptyState('沒有狀態圖。')
       expect(el.className).toBe('ostia-empty')
-      expect(el.textContent).toBe('No graphs.')
+      expect(el.textContent).toBe('沒有狀態圖。')
       expect(el.querySelector('svg, img, h1, h2, code')).toBeNull()
     })
 
-    it('keeps a full stop, question mark or exclamation mark it was given', () => {
-      for (const text of ['No runs.', 'Nothing?', 'Empty!']) {
+    it('adds no punctuation of its own, so a translation keeps its own', () => {
+      for (const text of ['No graphs.', 'No graphs', 'Loading…', 'Empty!']) {
         expect(emptyState(text).textContent).toBe(text)
       }
     })

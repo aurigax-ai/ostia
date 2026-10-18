@@ -114,8 +114,7 @@ export function emptyState(
   tone: 'muted' | 'error' = 'muted',
   action?: HTMLElement,
 ): HTMLElement {
-  const lead = /[.!?]$/.test(title) ? title : `${title}.`
-  const el = kitEmptyState(hint ? `${lead} ${hint}` : title, action, {
+  const el = kitEmptyState(hint ? `${title} ${hint}` : title, action, {
     role: tone === 'error' ? 'alert' : 'status',
   })
   if (tone === 'error') el.classList.add('error')

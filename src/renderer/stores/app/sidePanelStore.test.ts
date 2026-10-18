@@ -74,4 +74,30 @@ describe('sidePanelStore', () => {
     state().drop('graphs')
     expect(state().right).toBe('activity')
   })
+
+  it('forgets the instances, routes and reveals of a workspace that is gone, and nothing else', () => {
+    state().keep(at('graphs', 'w1'))
+    state().keep(at('graphs', 'w2'))
+    state().showRight('graphs', { workspaceId: 'w1', path: '/a' })
+    state().showRight('graphs', { workspaceId: 'w2', path: '/b' })
+    state().reveal(at('graphs', 'w1'))
+    state().reveal(at('graphs', 'w2'))
+
+    state().forgetWorkspaces(new Set(['w2']))
+
+    expect(state().kept).toEqual([at('graphs', 'w2')])
+    expect(state().revealed).toEqual([instanceKey(at('graphs', 'w2'))])
+    expect(Object.keys(state().routes)).toEqual([instanceKey(at('graphs', 'w2'))])
+  })
+
+  it('unloads the instances of a workspace and asks again before they load there', () => {
+    state().keep(at('graphs', 'w1'))
+    state().keep(at('graphs', 'w2'))
+    state().reveal(at('graphs', 'w1'))
+
+    state().unload('w1')
+
+    expect(state().kept).toEqual([at('graphs', 'w2')])
+    expect(state().revealed).toEqual([])
+  })
 })
