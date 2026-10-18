@@ -56,7 +56,7 @@
     "e2e/archive-browsing.spec.ts",
     "e2e/open-any-file.spec.ts",
     "e2e/os-file-drop.spec.ts",
-    "e2e/palette-focus.spec.ts",
+    "e2e/palette.spec.ts",
     "e2e/side-panel.spec.ts",
     "e2e/terminal-file-links.spec.ts",
     "e2e/terminal-path-link-actions.spec.ts"

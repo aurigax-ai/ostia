@@ -42,6 +42,6 @@
     "e2e/clipboard-keys.spec.ts",
     "e2e/clipboard-surfaces.spec.ts",
     "e2e/keybindings.spec.ts",
-    "e2e/palette-focus.spec.ts"
+    "e2e/palette.spec.ts"
   ]
 }
