@@ -1,4 +1,4 @@
-import { type BusObservation } from '../agents/busStore'
+import type { BusObservation } from '../agents/busStore'
 import { resolveExternal } from '../control/idRegistry'
 import type { PaneJournal } from './paneJournal'
 

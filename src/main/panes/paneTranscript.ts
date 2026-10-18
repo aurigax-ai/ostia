@@ -1,8 +1,8 @@
 import { type AgentResume, isResumableAgent } from '../../shared/agents/agentResume'
 import { claudeTurns, codexTurns, renderTurns } from '../../shared/agents/transcriptTurns'
+import type { TailRead } from '../agents/transcriptFiles'
 import { registerControlMethod } from '../control/controlServer'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
-import type { TailRead } from '../agents/transcriptFiles'
 import type { PaneEntry } from './paneList'
 import { type PaneReachDeps, ensurePaneReach, fail, paneTarget, record } from './paneReach'
 

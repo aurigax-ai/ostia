@@ -24,7 +24,11 @@ const worker = registerPane({ windowId: '1', workspaceId: 'ws1', paneId: 'mi-wor
 const boss = registerPane({ windowId: '1', workspaceId: 'ws1', paneId: 'mi-boss' })
 const sendToWindow = vi.fn()
 const strangerWorkspace = 'ws-elsewhere'
-const stranger = registerPane({ windowId: '2', workspaceId: strangerWorkspace, paneId: 'mi-stranger' })
+const stranger = registerPane({
+  windowId: '2',
+  workspaceId: strangerWorkspace,
+  paneId: 'mi-stranger',
+})
 
 registerMailIpc({
   windowIds: () => ['1', '2'],
