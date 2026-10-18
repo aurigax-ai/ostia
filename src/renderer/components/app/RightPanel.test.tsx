@@ -1,5 +1,7 @@
 import '@testing-library/jest-dom/vitest'
+import { resetCoreWatch, watchedWorkspaces } from '@/lib/workspaces/coreWatch'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -38,6 +40,7 @@ describe('RightPanel', () => {
   let extInit: ReturnType<typeof useExtensionsStore.getState>
   let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
   let sandboxInit: ReturnType<typeof useSandboxStore.getState>
+  let settingsInit: ReturnType<typeof useSettingsStore.getState>
   const panel = vi.fn()
 
   beforeAll(() => {
@@ -45,6 +48,7 @@ describe('RightPanel', () => {
     extInit = useExtensionsStore.getState()
     workspacesInit = useWorkspacesStore.getState()
     sandboxInit = useSandboxStore.getState()
+    settingsInit = useSettingsStore.getState()
   })
 
   const setup = () => {
@@ -63,11 +67,13 @@ describe('RightPanel', () => {
 
   afterEach(() => {
     cleanup()
+    resetCoreWatch()
     panel.mockReset()
     useSidePanelStore.setState(sideInit, true)
     useExtensionsStore.setState(extInit, true)
     useWorkspacesStore.setState(workspacesInit, true)
     useSandboxStore.setState(sandboxInit, true)
+    useSettingsStore.setState(settingsInit, true)
     window.localStorage.clear()
     document.documentElement.style.removeProperty('--right-w')
   })
@@ -281,6 +287,66 @@ describe('RightPanel', () => {
 
     await waitFor(() => expect(webviews()).toHaveLength(1))
     expect(dock()).not.toHaveAttribute('data-hidden')
+  })
+
+  it('shows Git as the Changes list alone, kept alive like an extension panel, and never behind a Show step', async () => {
+    setup()
+    useSandboxStore.setState({ enabled: { w1: true } })
+    render(<RightPanel />)
+
+    show('git')
+
+    await waitFor(() => expect(document.querySelector('#right-panel .git-surface')).not.toBeNull())
+    expect(screen.getByRole('complementary', { name: 'Git' })).toBe(dock())
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Changes'])
+    expect(screen.queryByText('Closed in a sandboxed workspace.')).toBeNull()
+    const surface = document.querySelector('#right-panel .git-surface')
+
+    show('graphs')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Show Graphs' })).toBeVisible())
+    show('git')
+
+    expect(document.querySelector('#right-panel .git-surface')).toBe(surface)
+  })
+
+  it('has no Git panel when Git is switched off', async () => {
+    setup()
+    useSettingsStore.getState().setGit({ enabled: false })
+    useSidePanelStore.setState({ right: 'git' })
+    render(<RightPanel />)
+
+    expect(dock()).toHaveAttribute('data-hidden')
+    expect(document.querySelector('#right-panel .git-surface')).toBeNull()
+  })
+
+  it('watches git only for the Git panel that is shown, and stops reading when it is hidden or another workspace is shown', async () => {
+    setup()
+    const git = window.ostia.git
+    const off = vi.fn()
+    vi.mocked(git.onChanged).mockReturnValue(off)
+    vi.mocked(git.changes).mockClear()
+    render(<RightPanel />)
+    show('git')
+    await waitFor(() => expect(watchedWorkspaces('git')).toEqual(['w1']))
+    await waitFor(() => expect(git.changes).toHaveBeenCalledTimes(1))
+
+    show('graphs')
+    await waitFor(() => expect(watchedWorkspaces('git')).toEqual([]))
+    expect(off).toHaveBeenCalled()
+    act(() => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    expect(git.changes).toHaveBeenCalledTimes(1)
+
+    show('git')
+    await waitFor(() => expect(watchedWorkspaces('git')).toEqual(['w1']))
+    await waitFor(() => expect(git.changes).toHaveBeenCalledTimes(2))
+
+    act(() => useWorkspacesStore.setState({ activeWorkspaceId: 'w2' }))
+    await waitFor(() => expect(watchedWorkspaces('git')).toEqual(['w2']))
+
+    act(() => useSidePanelStore.getState().hideRight())
+    await waitFor(() => expect(watchedWorkspaces('git')).toEqual([]))
   })
 
   it('drops the live instances of a workspace that is closed at once', async () => {

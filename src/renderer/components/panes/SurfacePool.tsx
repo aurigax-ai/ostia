@@ -118,7 +118,7 @@ function Surface({
   ) : s.kind === 'chat' ? (
     <ChatPane workspaceId={s.workspaceId} paneId={s.paneId} sessionId={s.chatSessionId} />
   ) : s.kind === 'git' ? (
-    <GitView workspaceId={s.workspaceId} paneId={s.paneId} />
+    <GitView workspaceId={s.workspaceId} paneId={s.paneId} home="pane" />
   ) : s.kind === 'manager' ? (
     <ManagerView paneId={s.paneId} />
   ) : s.kind === 'browser' ? (
