@@ -169,7 +169,7 @@ describe('archives read by an extension (real extension process, real socket)', 
       })
     }
     const left = readdirSync(join(dataDir, 'fakearc', 'archive-reads'))
-    expect(left.filter((name) => !name.endsWith('.x'))).toEqual([])
+    expect(left.filter((name) => !/\.(?:x|target)$/.test(name))).toEqual([])
     expect(await archives.readBinary(`${archiveRoot(put('gone.fake'))}/top.csv`, 64)).toEqual({
       ok: false,
       error: 'archive',

@@ -64,7 +64,8 @@ function read(req) {
   const name = stem(req.archive)
   if (name === 'stuck') return new Promise(() => {})
   if (name === 'symlink') {
-    symlinkSync(req.archive, req.out)
+    writeFileSync(`${req.out}.target`, 'hello')
+    symlinkSync(`${req.out}.target`, req.out)
     return { ok: true, size: 5 }
   }
   if (name === 'fifo') {
