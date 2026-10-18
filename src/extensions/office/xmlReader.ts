@@ -8,10 +8,15 @@ export interface XmlElement {
 
 type XmlNode = XmlElement | string
 
+interface Scope {
+  names: Map<string, string>
+  parent: Scope | null
+}
+
 interface Frame {
   element: XmlElement
   written: string
-  scope: Map<string, string>
+  scope: Scope | null
 }
 
 const NAMESPACES = new Map([
@@ -89,11 +94,19 @@ function decoded(raw: string): string {
   return out + raw.slice(last)
 }
 
-function resolved(written: string, scope: Map<string, string>, attribute: boolean): string {
+function uriOf(scope: Scope | null, prefix: string): string {
+  for (let at = scope; at; at = at.parent) {
+    const uri = at.names.get(prefix)
+    if (uri !== undefined) return uri
+  }
+  return ''
+}
+
+function resolved(written: string, scope: Scope | null, attribute: boolean): string {
   const colon = written.indexOf(':')
   if (colon === -1 && attribute) return written
   const prefix = colon === -1 ? '' : written.slice(0, colon)
-  const canonical = NAMESPACES.get(scope.get(prefix) ?? '')
+  const canonical = NAMESPACES.get(uriOf(scope, prefix))
   if (canonical === undefined) return written
   return `${canonical}:${written.slice(colon + 1)}`
 }
@@ -101,14 +114,14 @@ function resolved(written: string, scope: Map<string, string>, attribute: boolea
 function startTag(
   text: string,
   open: number,
-  parent: Map<string, string>,
+  parent: Scope | null,
 ): { frame: Frame; closed: boolean; next: number } {
   let at = open + 1
   while (at < text.length && !NAME_STOP.test(text[at])) at++
   const written = text.slice(open + 1, at)
   if (!written || BAD_NAME.test(written)) fail()
   const raw: [string, string][] = []
-  let scope = parent
+  let declared: Map<string, string> | null = null
   let closed = false
   for (;;) {
     at = skipSpace(text, at)
@@ -131,13 +144,14 @@ function startTag(
     const value = text.slice(quoteAt + 1, close)
     if (value.includes('<')) fail()
     if (name === 'xmlns' || name.startsWith('xmlns:')) {
-      if (scope === parent) scope = new Map(parent)
-      scope.set(name === 'xmlns' ? '' : name.slice(6), decoded(value))
+      declared ??= new Map()
+      declared.set(name === 'xmlns' ? '' : name.slice(6), decoded(value))
     } else {
       raw.push([name, decoded(value)])
     }
     at = close + 1
   }
+  const scope = declared ? { names: declared, parent } : parent
   const element: XmlElement = {
     name: resolved(written, scope, false),
     attributes: new Map(raw.map(([name, value]) => [resolved(name, scope, true), value])),
@@ -176,7 +190,7 @@ export function readXml(text: string, maxDepth: number): XmlElement {
       const top = stack.at(-1)
       if (!top && root) fail()
       if (stack.length >= maxDepth) throw new GuardStop('depth-limit')
-      const { frame, closed, next } = startTag(text, open, top?.scope ?? new Map())
+      const { frame, closed, next } = startTag(text, open, top ? top.scope : null)
       if (top) top.element.children.push(frame.element)
       else root = frame.element
       if (!closed) stack.push(frame)

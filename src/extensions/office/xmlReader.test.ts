@@ -43,6 +43,17 @@ describe('readXml', () => {
     expect(pathOf(root, 'p:cSld')).toBe(slide)
   })
 
+  it('scopes a namespace to the element that declares it and its children only', () => {
+    const P = 'http://schemas.openxmlformats.org/presentationml/2006/main'
+    const root = read(
+      `<a xmlns:x="${P}"><b xmlns:x="urn:other"><x:c/></b><x:d><e xmlns:y="urn:y"/><x:f/></x:d></a>`,
+    )
+    expect(childOf(childOf(root, 'b'), 'x:c')).toBeDefined()
+    const d = childOf(root, 'p:d')
+    expect(d).toBeDefined()
+    expect(childOf(d, 'p:f')).toBeDefined()
+  })
+
   it.each([
     ['a doctype', '<!DOCTYPE a><a/>'],
     ['an entity declaration', '<!DOCTYPE a [<!ENTITY e "x">]><a>&e;</a>'],
