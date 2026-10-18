@@ -10,9 +10,8 @@ const SWITCH_GAP_MS = 400
 const MIXED_XTERM_PANES = 3
 const MIXED_GHOSTTY_TABS = 14
 const TOO_MANY_CONTEXTS = /Too many active WebGL contexts/
-
 const CONTEXT_PROBE = `(() => {
-  const p = { created: 0, lost: 0 }
+  const p = { created: 0, lost: 0, restored: 0 }
   window.__contexts = p
   const getContext = HTMLCanvasElement.prototype.getContext
   HTMLCanvasElement.prototype.getContext = function (kind, ...rest) {
@@ -22,6 +21,7 @@ const CONTEXT_PROBE = `(() => {
       this.__ostiaGl = true
       p.created++
       this.addEventListener('webglcontextlost', () => { p.lost++ })
+      this.addEventListener('webglcontextrestored', () => { p.restored++ })
     }
     return context
   }
@@ -77,11 +77,40 @@ async function fill(win: Page): Promise<void> {
   await win.waitForTimeout(300)
 }
 
-async function liveContexts(win: Page): Promise<number> {
+async function contextCounts(
+  win: Page,
+): Promise<{ live: number; created: number; lost: number; restored: number }> {
   return win.evaluate(() => {
-    const p = (window as unknown as { __contexts: { created: number; lost: number } }).__contexts
-    return p.created - p.lost
+    const p = (
+      window as unknown as {
+        __contexts: { created: number; lost: number; restored: number }
+      }
+    ).__contexts
+    return { live: p.created - p.lost, created: p.created, lost: p.lost, restored: p.restored }
   })
+}
+
+async function gpuRenderer(win: Page): Promise<string> {
+  const renderer = await win.evaluate(() => {
+    const gl = document.createElement('canvas').getContext('webgl2')
+    const info = gl?.getExtension('WEBGL_debug_renderer_info')
+    const renderer = gl && info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : 'none'
+    gl?.getExtension('WEBGL_lose_context')?.loseContext()
+    return renderer
+  })
+  if (process.env.OSTIA_E2E_GL_ARG && /swiftshader|llvmpipe|softpipe/i.test(renderer)) {
+    throw new Error(`OSTIA_E2E_GL_ARG is set but WebGL runs in software: ${renderer}`)
+  }
+  return renderer
+}
+
+async function memoryMb(app: ElectronApplication): Promise<Record<string, number>> {
+  const metrics = await app.evaluate(({ app: electronApp }) =>
+    electronApp.getAppMetrics().map((m) => ({ type: m.type, kb: m.memory.workingSetSize })),
+  )
+  const mb = (type: string): number =>
+    Math.round(metrics.filter((m) => m.type === type).reduce((sum, m) => sum + m.kb, 0) / 1024)
+  return { rendererMb: mb('Tab'), gpuMb: mb('GPU'), totalMb: mb('Tab') + mb('GPU') + mb('Browser') }
 }
 
 function quantile(values: number[], q: number): number {
@@ -150,9 +179,11 @@ for (const engine of BENCH_ENGINES) {
       await switchTabs(win, TABS)
       const result = await switchTabs(win, SWITCHES)
       const fontBlockMs = await fontChangeBlockMs(win)
-      const contexts = await liveContexts(win)
+      const contexts = await contextCounts(win)
+      const memory = await memoryMb(app)
+      const renderer = await gpuRenderer(win)
       console.log(
-        `BENCH ${engine.name} tabs${TABS} ${JSON.stringify({ ...result, fontBlockMs, contexts, evictionWarnings: warnings() })}`,
+        `BENCH ${engine.name} tabs${TABS} ${JSON.stringify({ ...result, fontBlockMs, contexts, memory, renderer, evictionWarnings: warnings() })}`,
       )
     } finally {
       await app.close()
@@ -186,9 +217,11 @@ test('bench mixed engines share the WebGL budget', async () => {
     }
     const before = warnings()
     const result = await switchTabs(win, MIXED_GHOSTTY_TABS * 2)
-    const contexts = await liveContexts(win)
+    const contexts = await contextCounts(win)
+    const memory = await memoryMb(app)
+    const renderer = await gpuRenderer(win)
     console.log(
-      `BENCH mixed xterm${MIXED_XTERM_PANES}+ghostty${MIXED_GHOSTTY_TABS} ${JSON.stringify({ ...result, contexts, evictionWarnings: warnings(), warningsWhileSwitching: warnings() - before })}`,
+      `BENCH mixed xterm${MIXED_XTERM_PANES}+ghostty${MIXED_GHOSTTY_TABS} ${JSON.stringify({ ...result, contexts, memory, renderer, evictionWarnings: warnings(), warningsWhileSwitching: warnings() - before })}`,
     )
   } finally {
     await app.close()
