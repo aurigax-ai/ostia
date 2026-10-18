@@ -20,6 +20,20 @@ function build(root: LayoutNode, activePaneId = root.id): AppSnapshot {
 }
 
 describe('buildSnapshot', () => {
+  it('records the open left side panel and omits it when closed', () => {
+    const root = createPane('terminal', 'zsh', '/home/u/proj')
+    const input = {
+      workspaces: [WORKSPACE],
+      activeWorkspaceId: 's1',
+      layouts: { s1: { root, activePaneId: root.id } },
+      savedAt: 't',
+      groups: [],
+    }
+    expect(buildSnapshot({ ...input, leftPanel: 'files' }).leftPanel).toBe('files')
+    expect('leftPanel' in buildSnapshot({ ...input, leftPanel: null })).toBe(false)
+    expect('leftPanel' in buildSnapshot(input)).toBe(false)
+  })
+
   it('captures each workspace with its tree and focused pane', () => {
     const root = createPane('terminal', 'zsh', '/home/u/proj')
     const snapshot = build(root)
