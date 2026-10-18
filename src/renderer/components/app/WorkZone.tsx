@@ -1,22 +1,13 @@
 import { commands } from '@/commands/registry'
 import { DashboardPanel } from '@/components/agents/DashboardPanel'
+import { ChordButton } from '@/components/common/ChordButton'
+import { EmptyState } from '@/components/common/EmptyState'
 import { PaneTree } from '@/components/panes/PaneTree'
 import { SurfacePool } from '@/components/panes/SurfacePool'
 import { SettingsPanel } from '@/components/settings/SettingsPanel'
-import { Button } from '@/components/ui/button'
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from '@/components/ui/empty'
-import { Kbd } from '@/components/ui/kbd'
 import { workspacesAwaitingResume } from '@/lib/agents/autoResume'
 import { useDict } from '@/lib/app/useDict'
-import { useChordLabel } from '@/lib/keyboard/chords'
 import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
-import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { coversWorkspaces, useUIStore } from '@/stores/app/uiStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -92,43 +83,37 @@ function WorkspaceLayer({
 function NoWorkspaces(): JSX.Element {
   const d = useDict()
   const showWorkspaces = useUIStore((s) => s.showWorkspaces)
-  const newWorkspaceKeys = useChordLabel('workspace.new', isMac)
-  const newTerminalKeys = useChordLabel('tab.new', isMac)
   return (
-    <Empty className="workzone-empty">
-      <EmptyHeader>
-        <EmptyTitle className="font-semibold text-fg text-ui-lg">
-          <h2>{d.workzone.emptyTitle}</h2>
-        </EmptyTitle>
-        <EmptyDescription className="text-ui-base">{d.workzone.emptyBody}</EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent className="flex-row justify-center">
-        <Button
-          onClick={() => {
-            showWorkspaces()
-            startNewWorkspace()
-          }}
-        >
-          <PlusIcon data-icon="inline-start" />
-          {d.rail.newWorkspace}
-          {newWorkspaceKeys ? (
-            <Kbd className="ml-1 bg-primary-foreground/15 text-primary-foreground">
-              {newWorkspaceKeys}
-            </Kbd>
-          ) : null}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => {
-            showWorkspaces()
-            void commands.exec('tab.new')
-          }}
-        >
-          <TerminalWindowIcon data-icon="inline-start" />
-          {d.pane.newTerminal}
-          {newTerminalKeys ? <Kbd className="ml-1">{newTerminalKeys}</Kbd> : null}
-        </Button>
-      </EmptyContent>
-    </Empty>
+    <EmptyState
+      variant="surface"
+      className="workzone-empty"
+      title={d.workzone.emptyTitle}
+      titleAs="h2"
+      desc={d.workzone.emptyBody}
+      actionsClassName="flex-row justify-center"
+      actions={
+        <>
+          <ChordButton
+            command="workspace.new"
+            icon={<PlusIcon data-icon="inline-start" />}
+            label={d.rail.newWorkspace}
+            onClick={() => {
+              showWorkspaces()
+              startNewWorkspace()
+            }}
+          />
+          <ChordButton
+            command="tab.new"
+            variant="outline"
+            icon={<TerminalWindowIcon data-icon="inline-start" />}
+            label={d.pane.newTerminal}
+            onClick={() => {
+              showWorkspaces()
+              void commands.exec('tab.new')
+            }}
+          />
+        </>
+      }
+    />
   )
 }
