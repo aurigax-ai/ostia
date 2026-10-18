@@ -3704,6 +3704,14 @@ button.prompt-chip:hover {
   -webkit-app-region: no-drag;
 }
 
+.workspace-chips .pane-chip {
+  max-width: none;
+  height: 24px;
+  border-radius: var(--radius-lg);
+  padding: 0 8px;
+  font-size: var(--text-ui-sm);
+}
+
 .pane-chips {
   display: flex;
   align-items: center;
