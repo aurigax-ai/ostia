@@ -32,6 +32,7 @@ export interface PaneStatus {
   git?: { branch: string | null; ahead: number; behind: number; changed: number }
   mail: { queued: number; failed: number; sentQueued: number; sentFailed: number }
   stale: string[]
+  conflict: string[]
   changes: PaneStatusChanges
 }
 
@@ -86,6 +87,7 @@ export function statusLine(status: PaneStatus): string {
     mailText,
     status.closing ? JSON.stringify(status.closing) : '',
     status.stale.length > 0 ? `stale: ${status.stale.join(', ')}` : '',
+    status.conflict.length > 0 ? `conflict: ${status.conflict.join(', ')}` : '',
   ].filter(Boolean)
   return `${parts.join('  ')}  (${changesPart(status.changes)})`
 }

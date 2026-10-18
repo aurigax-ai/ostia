@@ -1,23 +1,12 @@
 import { Hint } from '@/components/common/Hint'
 import { Badge } from '@/components/ui/badge'
 import { fmt, useDict } from '@/lib/app/useDict'
-import { allPanes } from '@/lib/layout/tree'
+import { paneTitleIn } from '@/lib/layout/paneTitle'
 import { itemsOf, useMailStore } from '@/stores/agents/mailStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { MailItem } from '@shared/agents/mailApi'
 import type { Dict } from '@shared/app/dict'
 import { ageLabel } from '@shared/panes/paneStatus'
-
-function paneTitle(
-  paneId: string,
-  byWorkspace: ReturnType<typeof useLayoutStore.getState>['byWorkspace'],
-): string | undefined {
-  for (const layout of Object.values(byWorkspace)) {
-    const found = allPanes(layout.root).find((pane) => pane.id === paneId)
-    if (found) return found.title
-  }
-  return undefined
-}
 
 function pendingText(d: Dict, pending: MailItem['pending']): string {
   switch (pending) {
@@ -52,7 +41,7 @@ function MailList({ items }: { items: MailItem[] }): JSX.Element {
     <div>
       {items.map((item) => {
         const sender =
-          (item.from.paneId ? paneTitle(item.from.paneId, byWorkspace) : item.from.label) ||
+          (item.from.paneId ? paneTitleIn(byWorkspace, item.from.paneId) : item.from.label) ||
           d.mail.fromPane
         const detail =
           item.state === 'failed' ? reasonText(d, item.reason) : pendingText(d, item.pending)

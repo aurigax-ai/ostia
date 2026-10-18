@@ -12,6 +12,7 @@ const ON_CALLS = ['ipcMain.on', 'ipcMain.once', 'ipc.on']
 const SENT_BY_TESTS_ONLY = ['diagnostics:test-crash']
 
 const PUSHED = [
+  'agents:worktree',
   'app-menu:run',
   'app:install-replace-state',
   'app:release-available',

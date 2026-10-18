@@ -19,8 +19,9 @@ import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { Allotment, type AllotmentHandle } from 'allotment'
 import { type DragEvent, useLayoutEffect, useRef } from 'react'
 import { FileDropCover } from './FileDropCover'
+import { PaneAgentNotices } from './PaneAgentNotices'
 import { PaneTabMenu } from './PaneTabMenu'
-import { FolderTrustNotice, ResumeConflictNotice, ResumeFailedNotice } from './ResumeFolderNotice'
+import { FolderTrustNotice, ResumeFailedNotice } from './ResumeFolderNotice'
 import { focusPane } from './SplitTab'
 import { TabBody } from './TabBody'
 import { TabFace, usePaneMark, usePaneTitle } from './TabFace'
@@ -147,8 +148,8 @@ function SplitCell({
           <FolderTrustNotice paneId={pane.id} folder={trustFolder} />
         ) : ctx.shown && pane.resumeFailed ? (
           <ResumeFailedNotice paneId={pane.id} failure={pane.resumeFailed} />
-        ) : ctx.shown && pane.resume ? (
-          <ResumeConflictNotice pane={pane} />
+        ) : ctx.shown ? (
+          <PaneAgentNotices pane={pane} />
         ) : null}
       </NoticeSlot>
       {collapsed ? null : <FileDropCover kind={pane.kind} workspaceId={ctx.workspaceId} />}

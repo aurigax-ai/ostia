@@ -100,6 +100,7 @@ beforeAll(() => {
     panes: async () => entries(),
     journal,
     wakingSince: () => undefined,
+    conflicts: () => [],
     exited: () => false,
     git: async () => undefined,
     now: Date.now,

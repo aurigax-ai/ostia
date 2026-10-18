@@ -256,6 +256,8 @@ export const workspacesZhHant: typeof workspacesEn = {
     sandboxRestart: '重新啟動以套用',
     sandboxRestartHint: '沙箱設定已變更。重新啟動此 shell 以套用。',
     searchTabs: '搜尋分頁',
+    sharedWorktree: '與 {panes} 共用這個 git 工作樹。編輯可能互相衝突；不會自動替你處理。',
+    sharedWorktreeLabel: '共用的 git 工作樹',
     splitDown: '向下分割',
     splitRight: '向右分割',
     splitTab: '分割分頁，{layout}：{panes}',

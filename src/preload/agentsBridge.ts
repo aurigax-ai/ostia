@@ -2,10 +2,14 @@ import { ipcRenderer } from 'electron'
 import type { AgentSessionInfo } from '../shared/agents/agentSessionInfo'
 import type { FolderTrust, ManagerOpenPaneRequest, ResumeVerdict } from '../shared/agents/agentsApi'
 import type { MailMap } from '../shared/agents/mailApi'
+import type { WorktreeShareMap } from '../shared/agents/worktreeShareApi'
 import type { OstiaBridge } from '../shared/types'
 import { listen } from './listen'
 
-export const agentsBridge: Pick<OstiaBridge, 'manager' | 'agentSession' | 'mail'> = {
+export const agentsBridge: Pick<
+  OstiaBridge,
+  'manager' | 'agentSession' | 'mail' | 'worktreeShare'
+> = {
   manager: {
     onOpen: (cb) => {
       const handler = (_e: unknown, requestId: string, req: ManagerOpenPaneRequest): void =>
@@ -14,6 +18,10 @@ export const agentsBridge: Pick<OstiaBridge, 'manager' | 'agentSession' | 'mail'
       ipcRenderer.send('manager:ready')
       return () => ipcRenderer.removeListener('manager:open', handler)
     },
+  },
+  worktreeShare: {
+    snapshot: () => ipcRenderer.invoke('agents:worktree-snapshot') as Promise<WorktreeShareMap>,
+    onChange: (cb) => listen('agents:worktree', cb),
   },
   mail: {
     snapshot: () => ipcRenderer.invoke('bus:mail-snapshot') as Promise<MailMap>,

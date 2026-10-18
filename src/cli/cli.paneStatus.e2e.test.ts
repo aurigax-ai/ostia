@@ -111,6 +111,7 @@ beforeAll(() => {
     exited: () => false,
     git: async () => ({ branch: 'feat/inbox', ahead: 1, behind: 0, changed: 2 }),
     wakingSince: () => undefined,
+    conflicts: () => [],
     now: Date.now,
   })
   registerControlServer(

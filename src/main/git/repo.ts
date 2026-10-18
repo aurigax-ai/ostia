@@ -91,6 +91,13 @@ export async function repoRoot(cwd: string): Promise<string | null> {
   return root || null
 }
 
+export async function worktreeKey(cwd: string): Promise<string | undefined> {
+  const res = await run(cwd, ['rev-parse', '--show-toplevel', '--absolute-git-dir'])
+  if (res.code !== 0) return undefined
+  const [top, gitDir] = res.stdout.toString('utf8').trim().split('\n')
+  return top && gitDir ? `${top}\0${gitDir}` : undefined
+}
+
 export async function readStatus(root: string): Promise<RepoStatus> {
   const out = await runOk(root, [
     'status',

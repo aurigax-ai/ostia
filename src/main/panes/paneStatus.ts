@@ -26,6 +26,7 @@ export interface PaneStatusDeps extends PaneReachDeps {
   exited: (paneId: string) => boolean
   git: (paneId: string, cwd: string | undefined) => Promise<GitFacts | undefined>
   wakingSince: (paneId: string) => number | undefined
+  conflicts: (externalId: string) => string[]
   now: () => number
 }
 
@@ -90,6 +91,7 @@ export function statusOf(
     changes: PaneStatusChanges
     mail: PaneStatus['mail']
     stale?: string[]
+    conflict?: string[]
   },
 ): PaneStatus {
   const state = paneStateOf(entry, facts.exited)
@@ -105,6 +107,7 @@ export function statusOf(
     ...(facts.git ? { git: facts.git } : {}),
     mail: facts.mail,
     stale: facts.stale ?? [],
+    conflict: facts.conflict ?? [],
     changes: facts.changes,
   }
 }
@@ -126,7 +129,7 @@ function mailFacts(
 }
 
 export async function collectStatus(
-  deps: Pick<PaneStatusDeps, 'journal' | 'exited' | 'git' | 'wakingSince' | 'now'>,
+  deps: Pick<PaneStatusDeps, 'journal' | 'exited' | 'git' | 'wakingSince' | 'conflicts' | 'now'>,
   to: PaneIdentity,
   callerExternalId: string,
   entries: readonly PaneEntry[],
@@ -142,6 +145,9 @@ export async function collectStatus(
     sinceMs: stateAt === undefined ? undefined : now - stateAt,
     git: await deps.git(to.paneId, entry.cwd),
     changes: summarizeChanges(seen.first, seen.first ? [] : seen.events),
+    conflict: deps
+      .conflicts(to.externalId)
+      .map((id) => entries.find((item) => item.paneId === id)?.title || id.slice(0, 8)),
     ...mailFacts(to.externalId, deps.wakingSince(to.paneId), now),
   })
 }

@@ -240,6 +240,7 @@ describe('pane.wait until error and command', () => {
       state: 'done',
       mail: { queued: 0, failed: 0, sentQueued: 0, sentFailed: 0 },
       stale: [],
+      conflict: [],
       changes: { first: true, states: [], commands: 0, failed: 0, closing: false, mail: 0 },
     } as PaneStatus
     statuses.set(worker.paneId, status)

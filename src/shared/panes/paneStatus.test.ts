@@ -11,6 +11,7 @@ const base: PaneStatus = {
   git: { branch: 'feat/inbox', ahead: 1, behind: 0, changed: 2 },
   mail: { queued: 0, failed: 0, sentQueued: 0, sentFailed: 0 },
   stale: [],
+  conflict: [],
   changes: {
     first: false,
     states: ['working', 'done'],
@@ -76,6 +77,11 @@ describe('statusLine', () => {
     expect(statusLine({ ...base, stale: ['mail queued 38m', 'waking 3m'] })).toContain(
       '"PR #1081 open, unit green"  stale: mail queued 38m, waking 3m  (since last',
     )
+  })
+
+  it('names the panes that share its worktree, and leaves it out when none do', () => {
+    expect(statusLine(base)).not.toContain('conflict')
+    expect(statusLine({ ...base, conflict: ['w-4', 'w-5'] })).toContain('conflict: w-4, w-5')
   })
 
   it('names a detached head and shows behind commits', () => {

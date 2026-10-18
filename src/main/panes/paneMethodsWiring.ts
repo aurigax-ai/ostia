@@ -10,10 +10,10 @@ import { readRange, transcriptPath } from '../agents/transcriptFiles'
 import type { Reach } from '../approvals/reach'
 import { targetOf } from '../attention/attention'
 import type { CommandBridge } from '../control/commandBridge'
-import { type PaneIdentity, getByPaneId } from '../control/idRegistry'
+import { type PaneIdentity, getByPaneId, resolveExternal } from '../control/idRegistry'
 import type { AgentJournal } from '../diagnostics/agentJournal'
 import type { ExtensionHost } from '../extensions/extensionHost'
-import { readStatus, repoRoot } from '../git/repo'
+import { readStatus, repoRoot, worktreeKey } from '../git/repo'
 import { readSettingsFile } from '../platform/settingsFile'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { PtyIo } from '../terminal/pty/ptyIo'
@@ -35,6 +35,7 @@ import { type PaneWatch, registerPaneWaitMethods } from './paneWait'
 import { wakeHibernatedPane } from './paneWake'
 import type { PaneWaking } from './paneWaking'
 import { registerPaneWatchMethods } from './paneWatchMethods'
+import { WorktreeShare, registerWorktreeShareIpc } from './worktreeShare'
 
 interface PaneMethodsWiringDeps {
   keptAttention: KeptAttention
@@ -57,6 +58,7 @@ interface PaneMethodsWiringDeps {
   scratchFolders: ScratchFolders
   workspaceCommandTarget: (workspaceId: string) => CommandTarget
   paneWatch: PaneWatch
+  broadcast: WindowSend['broadcast']
   paneJournal: PaneJournal
   remoteCwdOfPane: (paneId: string) => unknown
   terminalState: Map<string, TerminalStateSnapshot>
@@ -82,6 +84,7 @@ export function registerPaneMethodsWiring({
   scratchFolders,
   workspaceCommandTarget,
   paneWatch,
+  broadcast,
   paneJournal,
   remoteCwdOfPane,
   terminalState,
@@ -152,11 +155,33 @@ export function registerPaneMethodsWiring({
   })
   const listAll = () =>
     listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking })
+  const worktreeShare = new WorktreeShare({
+    panes: listAll,
+    key: worktreeKey,
+    identity: (externalId) => {
+      const found = resolveExternal(externalId)
+      return found?.kind === 'pane' ? found : undefined
+    },
+    remote: (paneId) => remoteCwdOfPane(paneId) !== undefined,
+    publish: (map) => broadcast('agents:worktree', map),
+  })
+  registerWorktreeShareIpc(worktreeShare)
+  const lastCwd = new Map<string, string | undefined>()
+  paneWatch.tap((paneId, change) => {
+    if (change.kind === 'closed') lastCwd.delete(paneId)
+    if (change.kind === 'state') {
+      const cwd = terminalState.get(paneId)?.cwd
+      if (lastCwd.get(paneId) === cwd) return
+      lastCwd.set(paneId, cwd)
+    }
+    worktreeShare.schedule()
+  })
   const statusDeps: PaneStatusDeps = {
     ...paneReachDeps,
     panes: listAll,
     journal: paneJournal,
     wakingSince: (paneId) => paneWaking.since(paneId),
+    conflicts: (externalId) => worktreeShare.others(externalId),
     exited: paneExited,
     git: async (paneId, cwd) => {
       if (!cwd || remoteCwdOfPane(paneId) !== undefined) return undefined

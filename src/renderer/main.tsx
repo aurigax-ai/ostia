@@ -39,6 +39,7 @@ import { startAgentGroupsSync } from '@/stores/agents/agentGroupsStore'
 import { startApprovals } from '@/stores/agents/approvalsStore'
 import { startMail } from '@/stores/agents/mailStore'
 import { startQuestions } from '@/stores/agents/questionsStore'
+import { startWorktreeShare } from '@/stores/agents/worktreeShareStore'
 import { startKeymapSync } from '@/stores/app/keymapStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSystemThemeStore } from '@/stores/app/systemThemeStore'
@@ -156,6 +157,7 @@ async function boot(): Promise<void> {
   startAgentGroupsSync()
   startQuestions()
   startMail()
+  startWorktreeShare()
   startUserActions()
   startViews()
   startUpdateWatch()

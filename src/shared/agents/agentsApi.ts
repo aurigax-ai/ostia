@@ -1,6 +1,7 @@
 import type { AgentResume } from './agentResume'
 import type { AgentSessionInfo } from './agentSessionInfo'
 import type { MailApi } from './mailApi'
+import type { WorktreeShareApi } from './worktreeShareApi'
 
 export interface ManagerOpenPaneRequest {
   agent: string
@@ -29,4 +30,5 @@ export interface AgentsBridge {
   manager: ManagerApi
   agentSession: AgentSessionApi
   mail: MailApi
+  worktreeShare: WorktreeShareApi
 }

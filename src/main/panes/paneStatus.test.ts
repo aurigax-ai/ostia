@@ -24,6 +24,7 @@ const { markManager, registerPane } = await import('../control/idRegistry')
 const caller = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'st-caller' })
 const worker = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'st-worker' })
 const faraway = registerPane({ windowId: 'w1', workspaceId: 'ws9', paneId: 'st-faraway' })
+const second = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'st-second' })
 
 const entries = new Map<string, Partial<PaneEntry>>()
 const sandboxed = new Set<string>()
@@ -34,6 +35,7 @@ const terminal = new Map<string, { running: boolean; lastExitCode?: number }>()
 const journal = new PaneJournal({ terminal: (id) => terminal.get(id), now: () => clock.now })
 const gitCalls: (string | undefined)[] = []
 const wakingAt = new Map<string, number>()
+const sharing = new Map<string, string[]>()
 
 registerPaneStatusMethods({
   processPane: async () => undefined,
@@ -58,6 +60,7 @@ registerPaneStatusMethods({
   journal,
   exited: () => false,
   wakingSince: (paneId) => wakingAt.get(paneId),
+  conflicts: (externalId) => sharing.get(externalId) ?? [],
   git: async (_paneId, cwd) => {
     gitCalls.push(cwd)
     return cwd ? { branch: 'feat/x', ahead: 1, behind: 0, changed: 3 } : undefined
@@ -87,6 +90,7 @@ beforeEach(async () => {
   terminal.clear()
   gitCalls.length = 0
   wakingAt.clear()
+  sharing.clear()
   ensureCaps.mockClear()
   ensureCaps.mockImplementation(async () => {})
   journal.forget(worker.paneId, caller.externalId)
@@ -259,6 +263,15 @@ describe('pane.status', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('names the panes that share the worker’s git worktree, by title', async () => {
+    entries.set(second.externalId, { agent: 'codex', title: 'w-2' })
+    sharing.set(worker.externalId, [second.externalId])
+    const { panes } = await ask(caller, [worker.externalId])
+    expect(panes[0]?.conflict).toEqual(['w-2'])
+    const alone = await ask(caller, [second.externalId])
+    expect(alone.panes[0]?.conflict).toEqual([])
   })
 
   it('asks read-other-pane for another pane, with all-workspaces outside reach', async () => {
