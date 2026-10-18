@@ -12,7 +12,7 @@ const LZMA2_DICT_PROP_MAX = 40
 const CHECK_BYTES = [0, 4, 4, 4, 8, 8, 8, 16, 16, 16, 32, 32, 32, 64, 64, 64]
 const VARINT_BYTES_MAX = 9
 
-export class XzRefused extends Error {}
+class XzRefused extends Error {}
 
 type Step =
   | {
