@@ -13,8 +13,9 @@ function setup() {
   const hostJournal = new Journal({ dir: null, now: () => now })
   const listWorkspaces = vi.fn(async () => [{ workspaceId: 'w1', name: 'shop' }])
   const titles = { current: 'Fix upload' }
+  const states = { current: 'working' }
   const listPanes = vi.fn(async () => [
-    { paneId: 'p1', title: titles.current, agentState: 'working' },
+    { paneId: 'p1', title: titles.current, agentState: states.current },
   ])
   const listing = createOpenListing({ listWorkspaces, listPanes, now: () => now })
   const changed = vi.fn()
@@ -52,6 +53,7 @@ function setup() {
     listWorkspaces,
     listPanes,
     titles,
+    states,
     record,
     snapshot,
     advance: (ms: number) => {
@@ -107,6 +109,18 @@ describe('snapshot', () => {
     const again = await s.snapshot(renamed.data.rev)
     expect(s.listPanes).toHaveBeenCalledTimes(3)
     expect(again.data.workspace?.agents[0].label.title).toBe('Again')
+  })
+
+  it('shows a status change at once after a pane event, with a new revision', async () => {
+    const s = setup()
+    s.journal.append('w1', s.record('go'), false)
+    const first = await s.snapshot()
+    s.states.current = 'done'
+    expect((await s.snapshot(first.data.rev)).data.unchanged).toBe(true)
+    s.listing.invalidate()
+    const next = await s.snapshot(first.data.rev)
+    expect(next.data.rev).not.toBe(first.data.rev)
+    expect((next.data.workspace?.agents[0] as unknown as { state?: string }).state).toBe('done')
   })
 
   it('fails as unavailable when the panes cannot be listed', async () => {

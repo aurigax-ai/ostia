@@ -122,6 +122,9 @@ export class HostRecorder {
 
   accept(type: ExtensionEventType, payload: unknown): void {
     const now = this.deps.now()
+    if (type === 'pane.attention' && (payload as { state?: unknown }).state === 'cleared') {
+      this.deps.changed()
+    }
     for (const plan of plansOf(type, payload)) {
       this.queue = this.queue.then(() => this.store(plan, now)).catch(() => {})
     }

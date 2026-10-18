@@ -11,6 +11,7 @@ import { type ListContent, type RowEnv, ageText, createListView } from './rows'
 import { type NoteView, type PanelModel, type PanelSnapshot, liveKeys } from './view'
 
 const AGE_REFRESH_MS = 30_000
+const TITLE_POLL_MS = 2000
 
 const t = panelTranslator({ en: en.messages, 'zh-Hant': zhHant.messages })
 
@@ -190,4 +191,5 @@ root.replaceChildren(
 
 onChange(() => void refresh())
 setInterval(refreshAges, AGE_REFRESH_MS)
+setInterval(() => void refresh(), TITLE_POLL_MS)
 void refresh()

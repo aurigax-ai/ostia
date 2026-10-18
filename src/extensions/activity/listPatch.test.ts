@@ -147,6 +147,7 @@ describe('createPatcher', () => {
       ]),
     )
     const before = s.rows()
+    const records = s.watch()
     s.patch(
       s.items([
         ['c', 'three'],
@@ -155,6 +156,9 @@ describe('createPatcher', () => {
       ]),
     )
     expect(s.rows()).toEqual([before[2], before[0], before[1]])
+    const changes = records()
+    expect(changes.flatMap((r) => [...r.addedNodes])).toEqual([before[2]])
+    expect(changes.flatMap((r) => [...r.removedNodes])).toEqual([before[2]])
   })
 
   it('fades the changed text at most once per second and removes the class when the fade ends', () => {
