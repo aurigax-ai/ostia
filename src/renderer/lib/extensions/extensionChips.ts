@@ -5,6 +5,7 @@ import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
 import { openSidebarUrl } from '@/lib/sidebar/sidebarItems'
 import { useCoreWatch } from '@/lib/workspaces/coreWatch'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type {
   ExtensionChip,
   ExtensionInfo,
@@ -17,8 +18,8 @@ import {
   isCoreSource,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/coreNames'
 import type { Dict } from '@shared/app/dict'
-import { GIT_BRANCH_CHIP, GIT_DIFF_STATS_CHIP, PORTS_CHIP, SSH_CHIP } from '@shared/boards/git'
-import { useMemo } from 'react'
+import { GIT_BRANCH_CHIP, PORTS_CHIP, SSH_CHIP } from '@shared/boards/git'
+import { useEffect, useMemo } from 'react'
 
 export interface ChipCatalogEntry {
   extId: string
@@ -59,12 +60,6 @@ function corePaneChips(d: Dict): ChipCatalogEntry[] {
 function coreWorkspaceChips(d: Dict): ChipCatalogEntry[] {
   return [
     { extId: GIT_SOURCE, extName: d.git.title, id: GIT_BRANCH_CHIP, title: d.git.branchChip },
-    {
-      extId: GIT_SOURCE,
-      extName: d.git.title,
-      id: GIT_DIFF_STATS_CHIP,
-      title: d.git.diffStatsChip,
-    },
     { extId: PORTS_SOURCE, extName: d.ports.title, id: PORTS_CHIP, title: d.ports.portsChip },
   ]
 }
@@ -153,6 +148,12 @@ export function useWorkspaceChips(workspaceId: string | null): ShownChip[] {
   const d = useDict()
   useCoreWatch('git', workspaceId)
   useCoreWatch('ports', workspaceId)
+  const activePaneId = useLayoutStore((s) =>
+    workspaceId ? s.byWorkspace[workspaceId]?.activePaneId : undefined,
+  )
+  useEffect(() => {
+    if (activePaneId) window.ostia?.git?.shown()
+  }, [activePaneId])
   return useMemo(
     () =>
       chipsForWorkspace(

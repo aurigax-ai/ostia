@@ -75,6 +75,37 @@ afterEach(() => {
   rmSync(dataDir, { recursive: true, force: true })
 })
 
+describe('left side panel', () => {
+  it('keeps a known left panel and drops anything else', () => {
+    expect(parseSnapshot(snap({ leftPanel: 'files' }))?.leftPanel).toBe('files')
+    expect(parseSnapshot({ ...snap(), leftPanel: 'git' })).not.toHaveProperty('leftPanel')
+    expect(parseSnapshot({ ...snap(), leftPanel: true })).not.toHaveProperty('leftPanel')
+  })
+
+  it('keeps it per detached window', () => {
+    const window = (leftPanel: unknown) => ({
+      id: 'd1',
+      bounds: { x: 0, y: 0, width: 800, height: 600 },
+      activeWorkspaceId: 'w2',
+      leftPanel,
+      workspaces: [
+        {
+          ...snap().workspaces[0],
+          id: 'w2',
+          root: { ...snap().workspaces[0].root, id: 'pane-2' },
+          activePaneId: 'pane-2',
+        },
+      ],
+    })
+    expect(parseSnapshot({ ...snap(), windows: [window('files')] })?.windows?.[0].leftPanel).toBe(
+      'files',
+    )
+    expect(parseSnapshot({ ...snap(), windows: [window('x')] })?.windows?.[0]).not.toHaveProperty(
+      'leftPanel',
+    )
+  })
+})
+
 describe('parseSnapshot', () => {
   it('accepts a well-formed snapshot', () => {
     expect(parseSnapshot(snap())).toEqual(snap())

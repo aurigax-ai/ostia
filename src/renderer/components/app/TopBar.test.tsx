@@ -276,7 +276,7 @@ describe('TopBar', () => {
     expect(within(button).getByText('Ctrl+Alt+K')).toBeInTheDocument()
   })
 
-  it('puts the dashboard button after Files and before the Git and extension panel toggles', () => {
+  it('puts the dashboard button after Files and before the extension panel toggles', () => {
     seedWorkspace()
     useExtensionsStore.setState({ list: [git] })
     const { container } = render(<TopBar />)
@@ -284,7 +284,7 @@ describe('TopBar', () => {
     const names = Array.from(left?.querySelectorAll('button') ?? []).map((b) =>
       b.getAttribute('aria-label'),
     )
-    expect(names.slice(-4)).toEqual(['Files', 'Dashboard', 'Git', 'Changes'])
+    expect(names.slice(-3)).toEqual(['Files', 'Dashboard', 'Changes'])
   })
 
   it('opens and closes the dashboard from its button, pressed while open', async () => {

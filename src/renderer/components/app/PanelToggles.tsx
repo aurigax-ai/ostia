@@ -1,42 +1,23 @@
 import { IconButton } from '@/components/common/IconButton'
 import { extensionIcon } from '@/components/extensions/extensionIcons'
-import { useDict } from '@/lib/app/useDict'
-import { openGit } from '@/lib/git/gitPanel'
-import { findExtensionPane, firstPaneOfKind } from '@/lib/layout/paneFields'
-import { useSettingsStore } from '@/stores/app/settingsStore'
+import { findExtensionPane } from '@/lib/layout/paneFields'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { GitBranchIcon } from '@phosphor-icons/react'
 
 function hasToggle(ext: ExtensionInfo): boolean {
   return ext.enabled && ext.panel !== null && ext.assist.length === 0
 }
 
 export function PanelToggles(): JSX.Element | null {
-  const d = useDict()
   const panels = useExtensionsStore((s) => s.list).filter(hasToggle)
-  const git = useSettingsStore((s) => s.git.enabled)
   const workspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
   const root = useLayoutStore((s) => (workspaceId ? s.byWorkspace[workspaceId]?.root : undefined))
-  if (!workspaceId || (panels.length === 0 && !git)) return null
-  const gitPane = root ? firstPaneOfKind(root, 'git') : null
+  if (!workspaceId || panels.length === 0) return null
   return (
     <>
-      {git && (
-        <IconButton
-          size="bar"
-          icon={GitBranchIcon}
-          label={d.git.title}
-          aria-pressed={gitPane !== null}
-          onClick={() => {
-            if (gitPane) useLayoutStore.getState().closePane(workspaceId, gitPane.id)
-            else openGit(workspaceId, 'changes')
-          }}
-        />
-      )}
       {panels.map((ext) => {
         const title = ext.panel?.title ?? ext.name
         const open = root ? findExtensionPane(root, ext.id) : null
