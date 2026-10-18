@@ -24,7 +24,7 @@ import { useEffect, useState } from 'react'
 import { ExtensionAgentPlugin } from './ExtensionAgentPlugin'
 import { ExtensionFileViewers } from './ExtensionApprovalDialog'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
-import { UninstallExtensionButton, useMarketplaceList } from './MarketplaceSection'
+import { UninstallExtensionButton, marketplaceName, useMarketplaceList } from './MarketplaceSection'
 import { extensionIcon } from './extensionIcons'
 
 export interface ExtensionAnchor {
@@ -75,7 +75,7 @@ function useSourceLabel(ext: ExtensionInfo): string {
   const fromMarketplace = useMarketplaceStore((s) => s.state.installed.includes(ext.id))
   if (ext.builtin) return d.extensions.sourceBuiltin
   const owner = marketplaces.find((m) => m.installs.includes(ext.id))
-  if (owner) return fmt(d.extensions.sourceMarketplace, { name: owner.name })
+  if (owner) return fmt(d.extensions.sourceMarketplace, { name: marketplaceName(d, owner) })
   return fromMarketplace ? d.extensions.sourceOrphaned : d.extensions.sourceManual
 }
 

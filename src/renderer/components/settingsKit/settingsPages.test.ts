@@ -20,10 +20,8 @@ type Rule = keyof typeof DRIFT | 'root'
 const KNOWN_OFFENDERS: Record<string, Rule[]> = {
   'components/agents/ApprovalCard.tsx': ['handSection'],
   'components/app/AboutSection.tsx': ['root', 'handHeading', 'handSection'],
-  'components/extensions/BrowseExtensions.tsx': ['separator', 'handHeading', 'handSection'],
   'components/extensions/ExtensionAgentPlugin.tsx': ['handSection'],
   'components/extensions/ExtensionConnections.tsx': ['handSection'],
-  'components/extensions/MarketplaceSection.tsx': ['divide', 'handSection', 'handRow'],
   'components/gateway/GatewayPairing.tsx': ['handRow'],
   'components/gateway/GatewaySection.tsx': ['separator'],
   'components/keyboard/BindingDetail.tsx': ['handSection'],
