@@ -25,7 +25,7 @@ function scan(
       const kind = await sniffCompression(fd)
       const input = createReadStream('', { fd, autoClose: true, highWaterMark: READ_CHUNK })
       const inflated = kind ? inflate(input, kind, limits.scanBytes) : null
-      const parser = new Parser()
+      const parser = new Parser({ gzip: false, zstd: false, brotli: false })
       let index = 0
       let scanned = 0
       let settled = false
