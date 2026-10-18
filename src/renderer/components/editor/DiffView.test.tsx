@@ -1,8 +1,11 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { commands } from '@/commands/registry'
 import { editorPositionOf } from '@/lib/files/editorPositions'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useDiffStore } from '@/stores/files/diffStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 const fake = vi.hoisted(() => {
@@ -161,6 +164,27 @@ describe('DiffView', () => {
     }
   })
 
+  it('groups the layout buttons in the shared segmented control with the pressed one marked', () => {
+    const css = readFileSync(join(__dirname, '..', '..', 'index.css'), 'utf8')
+    const rule = (selector: string) => css.slice(css.indexOf(`\n${selector} {`)).split('}')[0]
+    expect(rule('.segmented')).toMatch(/border: 1px solid var\(--line-strong\)/)
+    expect(rule('.segmented button[aria-pressed="true"]')).toMatch(/background: var\(--surface-3\)/)
+    expect(readFileSync(join(__dirname, '..', 'git', 'git.css'), 'utf8')).not.toMatch(/\.segmented/)
+    useDiffStore.getState().set('d1', CONTENT)
+    const { container } = render(<DiffView workspaceId="w1" paneId="d1" />)
+    const group = container.querySelector('.diff-toolbar .segmented') as HTMLElement
+    expect(group).toHaveAttribute('role', 'group')
+    expect(within(group).getAllByRole('button')).toHaveLength(2)
+    expect(within(group).getByRole('button', { name: 'Side-by-side view' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(within(group).getByRole('button', { name: 'Inline view' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+  })
+
   it('starts side by side in auto and never lets Monaco switch the layout by itself', () => {
     useDiffStore.getState().set('d1', CONTENT)
     render(<DiffView workspaceId="w1" paneId="d1" />)
@@ -222,25 +246,16 @@ describe('DiffView', () => {
     expect(openFile).toHaveBeenCalledWith('w1', '/repo/src/a.ts')
   })
 
-  it('offers previous and next changed file only for a Git change, and opens that area', async () => {
-    vi.mocked(window.ostia.git.changes).mockResolvedValue({
-      ok: true,
-      data: {
-        root: '/repo',
-        changes: [
-          { path: 'src/a.ts', area: 'staged', code: 'M' },
-          { path: 'src/a.ts', area: 'unstaged', code: 'M' },
-          { path: 'src/b.ts', area: 'unstaged', code: 'M' },
-        ],
-      },
-    } as never)
+  it('runs the Git commands from the changed-file buttons without any Git call of its own', async () => {
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
     useDiffStore.getState().set('d1', { ...CONTENT, area: 'unstaged' })
     render(<DiffView workspaceId="w1" paneId="d1" />)
-    const next = await screen.findByRole('button', { name: 'Next changed file' })
-    fireEvent.click(next)
-    expect(window.ostia.git.openChange).toHaveBeenCalledWith('w1', '/repo/src/b.ts', 'unstaged')
+    fireEvent.click(screen.getByRole('button', { name: 'Next changed file' }))
     fireEvent.click(screen.getByRole('button', { name: 'Previous changed file' }))
-    expect(window.ostia.git.openChange).toHaveBeenLastCalledWith('w1', '/repo/src/a.ts', 'staged')
+    expect(exec).toHaveBeenNthCalledWith(1, 'git.openNextChange', { paneId: 'd1' })
+    expect(exec).toHaveBeenNthCalledWith(2, 'git.openPreviousChange', { paneId: 'd1' })
+    expect(window.ostia.git.changes).not.toHaveBeenCalled()
+    exec.mockRestore()
   })
 
   it('has no changed-file buttons for a diff that did not come from the changes list', () => {

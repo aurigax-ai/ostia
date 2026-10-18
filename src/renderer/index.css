@@ -3047,6 +3047,21 @@ button.prompt-chip:hover {
   background: color-mix(in srgb, var(--attn) 10%, var(--surface-1));
 }
 
+.segmented {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 1px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+}
+
+.segmented button[aria-pressed="true"] {
+  background: var(--surface-3);
+  color: var(--fg);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
 .diff-surface {
   display: flex;
   flex-direction: column;

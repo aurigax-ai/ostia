@@ -1,3 +1,4 @@
+import { commands } from '@/commands/registry'
 import { ATTENTION_ALERT } from '@/components/agents/attentionStyles'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
@@ -30,7 +31,6 @@ import {
   RowsIcon,
 } from '@phosphor-icons/react'
 import { useEffect, useRef } from 'react'
-import { useDiffFileNav } from './useDiffFileNav'
 import { useExternalEditorAction } from './useEditorView'
 
 const DIFF_COMPUTATION_MS = 2000
@@ -123,8 +123,6 @@ export function DiffView({
     })
   }, [font.family, font.size, font.weight])
 
-  const files = useDiffFileNav(workspaceId, content?.path, content?.area)
-
   const choose = (next: DiffLayout): void =>
     useSettingsStore.getState().setEditor({ diffLayout: next })
 
@@ -148,17 +146,17 @@ export function DiffView({
           label={d.diff.nextChange}
           onClick={() => diffRef.current?.goToDiff('next')}
         />
-        {files.available ? (
+        {content?.area ? (
           <>
             <IconButton
               icon={CaretDoubleUpIcon}
               label={d.diff.previousFile}
-              onClick={() => files.go(-1)}
+              onClick={() => void commands.exec('git.openPreviousChange', { paneId })}
             />
             <IconButton
               icon={CaretDoubleDownIcon}
               label={d.diff.nextFile}
-              onClick={() => files.go(1)}
+              onClick={() => void commands.exec('git.openNextChange', { paneId })}
             />
           </>
         ) : null}

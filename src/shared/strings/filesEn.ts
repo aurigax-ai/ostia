@@ -218,6 +218,7 @@ export const filesEn = {
     merge: 'Merge commit',
     noBlameFile: 'Open a file and run Git: Blame File',
     noBranches: 'No branches yet',
+    noChangedDiff: 'The active pane is not a diff of a Git change. Open a changed file first.',
     noCommits: 'No commits yet',
     noFile: 'The active pane is not a file. Focus a file view, then run Git: Blame File.',
     noFiles: 'No file changes',

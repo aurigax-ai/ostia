@@ -211,6 +211,7 @@ export const filesZhHant: typeof filesEn = {
     merge: '合併提交',
     noBlameFile: '請開啟檔案後執行「Git：逐行追溯檔案」',
     noBranches: '尚無分支',
+    noChangedDiff: '目前的窗格不是 Git 變更的差異。請先開啟一個變更的檔案。',
     noCommits: '尚無提交',
     noFile: '目前的窗格不是檔案。請先聚焦檔案檢視，再執行「Git：逐行追溯檔案」。',
     noFiles: '沒有檔案變更',
