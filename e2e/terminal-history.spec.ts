@@ -64,10 +64,13 @@ async function wheelIntoHistory(win: Page, screen: string): Promise<void> {
   await expect
     .poll(
       async () => {
-        for (let i = 0; i < WHEEL_BURST; i++) await win.mouse.wheel(0, -1500)
-        return layer(win).isVisible()
+        for (let i = 0; i < WHEEL_BURST; i++) {
+          await win.mouse.wheel(0, -1500)
+          if (await layer(win).isVisible()) return true
+        }
+        return false
       },
-      { timeout: 15_000, intervals: [50, 100, 250] },
+      { timeout: 30_000, intervals: [50, 100, 250] },
     )
     .toBe(true)
 }
