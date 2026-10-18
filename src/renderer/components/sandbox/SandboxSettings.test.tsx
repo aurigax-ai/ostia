@@ -1,4 +1,4 @@
-import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import '@testing-library/jest-dom/vitest'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
@@ -57,7 +57,7 @@ describe('sandbox settings', () => {
     const domains = screen.getByRole('group', { name: 'Allowed domains' })
     const name = within(domains).getByText('api.github.com')
     expect(name).toHaveClass('font-mono')
-    expect(name.closest('li')).toHaveClass('text-ui-sm')
+    expect(name).toHaveClass('text-ui-sm')
   })
 
   it('SBX-C60 shows global domains as inherited next to the workspace own domains', async () => {

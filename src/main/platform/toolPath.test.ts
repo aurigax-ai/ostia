@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   LOGIN_PATH_TIMEOUT_MS,
@@ -7,6 +8,7 @@ import {
   parseLoginPath,
   resetLoginPath,
   resolveLoginPath,
+  runLoginShell,
   toolPath,
 } from './toolPath'
 
@@ -116,5 +118,40 @@ describe('toolPath', () => {
     expect(parseLoginPath(`Last login\n${MARK}/a:/b\n${MARK}bye`)).toBe('/a:/b')
     expect(parseLoginPath('/a:/b')).toBeNull()
     expect(mergePaths('/a::/b', '/b:/c', '')).toBe('/a:/b:/c')
+  })
+})
+
+describe.skipIf(process.platform === 'win32')('runLoginShell', () => {
+  const alive = (pid: number): boolean => {
+    try {
+      process.kill(pid, 0)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  it('runs the login shell in a session of its own, so it can never take the launching terminal', async () => {
+    const key = process.platform === 'darwin' ? 'pgid' : 'sid'
+    const out = await runLoginShell('/bin/sh', ['-c', `echo $$ $(ps -o ${key}= -p $$)`], 5000)
+    const [pid, leader] = out.trim().split(/\s+/)
+    expect(Number(pid)).toBeGreaterThan(0)
+    expect(leader).toBe(pid)
+    expect(Number(leader)).not.toBe(
+      Number(
+        execFileSync('ps', ['-o', `${key}=`, '-p', String(process.pid)], {
+          encoding: 'utf8',
+        }).trim(),
+      ),
+    )
+  })
+
+  it('kills the whole probe, children included, when the time limit passes', async () => {
+    const started = Date.now()
+    const out = await runLoginShell('/bin/sh', ['-c', 'sleep 30 & echo $!; wait'], 300)
+    expect(Date.now() - started).toBeLessThan(10_000)
+    const child = Number(out.trim())
+    expect(child).toBeGreaterThan(0)
+    await expect.poll(() => alive(child)).toBe(false)
   })
 })

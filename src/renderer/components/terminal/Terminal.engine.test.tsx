@@ -1,19 +1,23 @@
 import '@testing-library/jest-dom/vitest'
+import { commands } from '@/commands/registry'
 import { FilesView } from '@/components/files/FilesView'
-import { allPanes, createPane, findPane, firstPaneId } from '@/layout/tree'
-import { CLIPBOARD_READ_MS } from '@/lib/keys/clipboardKeys'
+import { focusPaneInDirection } from '@/lib/attention/workspaceActivity'
+import { runAppChord } from '@/lib/keyboard/chords'
+import { CLIPBOARD_READ_MS } from '@/lib/keyboard/clipboardKeys'
+import { allPanes, createPane, findPane, firstPaneId, tabsOf } from '@/lib/layout/tree'
 import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
-import { createFileLinkProvider } from '@/lib/terminal/terminalFileLinks'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
+import { createFileLinkProvider } from '@/lib/terminalLinks/terminalFileLinks'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { releaseSurfaces, surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { ClipboardContents } from '@shared/app/appApi'
 import { PTY_ACK_CHARS } from '@shared/terminal/ptyFlow'
-import type { ClipboardContents } from '@shared/types'
 import {
   type RenderResult,
   act,
@@ -27,6 +31,7 @@ import userEvent from '@testing-library/user-event'
 import { FitAddon } from '@xterm/addon-fit'
 import type { ILink, ILinkHandler, ILinkProvider, Terminal as Xterm } from '@xterm/xterm'
 import type { ReactElement } from 'react'
+import { createPortal } from 'react-dom'
 import { afterAll, afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
 import { TerminalView } from './Terminal'
@@ -45,14 +50,26 @@ vi.mock('@/platform', () => ({
   },
 }))
 
-const xtermRenderer = vi.hoisted(() => ({ pause: vi.fn(), dispose: vi.fn() }))
+const xtermRenderer = vi.hoisted(() => ({
+  pause: vi.fn(),
+  dispose: vi.fn(),
+  create: vi.fn(),
+}))
+const gl = vi.hoisted(() => ({ software: false }))
 
-vi.mock('@/lib/terminal/xtermRenderer', () => ({
-  createXtermRenderer: () => xtermRenderer,
+vi.mock('@/lib/terminal/softwareGl', () => ({
+  drawOnGpu: (requested: boolean) => requested && !gl.software,
 }))
 
-vi.mock('@/lib/terminal/terminalFileLinks', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/terminal/terminalFileLinks')>()
+vi.mock('@/lib/terminal/xtermRenderer', () => ({
+  createXtermRenderer: (...args: unknown[]) => {
+    xtermRenderer.create(...args)
+    return xtermRenderer
+  },
+}))
+
+vi.mock('@/lib/terminalLinks/terminalFileLinks', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/terminalLinks/terminalFileLinks')>()
   return { ...actual, createFileLinkProvider: vi.fn(actual.createFileLinkProvider) }
 })
 
@@ -127,20 +144,6 @@ const shownUrl = (): string | undefined => {
   return allPanes(layout.root).find((pane) => pane.id === layout.activePaneId)?.url
 }
 
-function dataTransfer(): DataTransfer {
-  const data = new Map<string, string>()
-  return {
-    get types() {
-      return [...data.keys()]
-    },
-    files: [],
-    dropEffect: 'none',
-    effectAllowed: 'all',
-    setData: (type: string, value: string) => data.set(type, value),
-    getData: (type: string) => data.get(type) ?? '',
-  } as unknown as DataTransfer
-}
-
 describe('TerminalView engines', () => {
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
   let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
@@ -200,11 +203,44 @@ describe('TerminalView engines', () => {
     })
   }
 
+  it('a title a program sets with OSC 0 replaces the shell name of the tab', async () => {
+    useLayoutStore.getState().ensure('w1')
+    const paneId = firstPaneId(useLayoutStore.getState().byWorkspace.w1.root)
+    vi.mocked(window.ostia.pty.attach).mockResolvedValueOnce({
+      created: true,
+      buffer: '',
+      cursor: 0,
+      dropped: false,
+      shell: 'bash',
+    })
+    await renderSettled(<TerminalView workspaceId="w1" paneId={paneId} />)
+    const titleOf = (): string | undefined =>
+      findPane(useLayoutStore.getState().byWorkspace.w1.root, paneId)?.title
+    await waitFor(() => expect(titleOf()).toBe('bash'))
+    await waitFor(() => expect(window.ostia.pty.onData).toHaveBeenCalled())
+    const deliver = vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
+    act(() => deliver('\x1b]0;build logs\x07'))
+    await waitFor(() => expect(titleOf()).toBe('build logs'))
+  })
+
   it('an xterm pane hands its renderer to the hidden-pane pause and drops it on unmount', async () => {
     const { unmount } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
     expect(xtermRenderer.pause).toHaveBeenLastCalledWith(true)
     unmount()
     expect(xtermRenderer.dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('an xterm pane stays on the DOM renderer and still parks when WebGL runs in software', async () => {
+    gl.software = true
+    try {
+      const { unmount } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+      expect(xtermRenderer.create).toHaveBeenLastCalledWith(expect.anything(), false)
+      expect(xtermRenderer.pause).toHaveBeenLastCalledWith(true)
+      unmount()
+      expect(xtermRenderer.dispose).toHaveBeenCalledTimes(1)
+    } finally {
+      gl.software = false
+    }
   })
 
   it('draws a new terminal with Ghostty and starts its shell through the shared path', async () => {
@@ -240,6 +276,29 @@ describe('TerminalView engines', () => {
     )
     expect(findPane(useLayoutStore.getState().byWorkspace.w1.root, 'p1')).not.toHaveProperty(
       'resumeFolderMissing',
+    )
+  })
+
+  it('waking an agent whose folder was removed marks the folder missing when main says so', async () => {
+    const pane = { ...createPane('terminal'), id: 'p1', cwd: '/w', spawnDir: '/w/gone' }
+    useLayoutStore.setState({
+      byWorkspace: { w1: { root: pane, activePaneId: 'p1', zoomedPaneId: null } },
+    })
+    vi.mocked(window.ostia.pty.attach).mockResolvedValueOnce({
+      created: true,
+      buffer: '',
+      cursor: 0,
+      dropped: false,
+      cwdMissing: true,
+    })
+    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" cwd="/w/gone" />)
+    await waitFor(() =>
+      expect(findPane(useLayoutStore.getState().byWorkspace.w1.root, 'p1')).toMatchObject({
+        resumeFolderMissing: '/w/gone',
+      }),
+    )
+    expect(findPane(useLayoutStore.getState().byWorkspace.w1.root, 'p1')).not.toHaveProperty(
+      'spawnDir',
     )
   })
 
@@ -719,7 +778,7 @@ describe('TerminalView engines', () => {
   }
 
   for (const engine of ['xterm', 'Ghostty']) {
-    it(`${engine}: Ctrl+click reveals a folder in Files, opens an outside folder in the file manager and opens an outside file`, async () => {
+    it(`${engine}: Ctrl+click reveals a folder in Files, opens an outside folder in the file manager and opens an outside file; Ctrl+Shift and Ctrl+Shift+Alt hand it to the system, never a program`, async () => {
       const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
       onTestFinished(() => fitted.mockRestore())
       useFileTreeStore.setState({ revealed: null })
@@ -751,7 +810,8 @@ describe('TerminalView engines', () => {
         ok: true,
         path: '/out/shots/report.txt',
       })
-      vi.mocked(window.ostia.terminalLinks.openFolder).mockResolvedValue({ ok: true })
+      vi.mocked(window.ostia.terminalLinks.openDefault).mockResolvedValue({ ok: true })
+      vi.mocked(window.ostia.terminalLinks.showInFolder).mockResolvedValue({ ok: true })
       const openFile = vi.spyOn(useLayoutStore.getState(), 'openFile')
       const rect = vi
         .spyOn(Element.prototype, 'getBoundingClientRect')
@@ -777,34 +837,43 @@ describe('TerminalView engines', () => {
         const hover = (link: ILink): void => {
           act(() => link.hover?.(new MouseEvent('mousemove'), link.text))
         }
-        const ctrlClick = (link: ILink): void => {
-          act(() => link.activate({ ctrlKey: true, isTrusted: true } as MouseEvent, link.text))
+        const ctrlClick = (link: ILink, keys: Partial<MouseEvent> = {}): void => {
+          act(() =>
+            link.activate({ ctrlKey: true, isTrusted: true, ...keys } as MouseEvent, link.text),
+          )
         }
 
         const inside = await linkOn(1)
         hover(inside)
         await waitFor(() => expect(hint()).toHaveTextContent('Ctrl+Click Show the folder in Files'))
+        expect(hint()).not.toHaveTextContent('Show in Files')
+        expect(hint()).toHaveTextContent('Ctrl+Shift+Click Open the folder in the file manager')
+        expect(hint()).toHaveTextContent('Ctrl+Shift+Alt+Click Show in the file manager')
         ctrlClick(inside)
         expect(useFileTreeStore.getState().revealed).toEqual({
           root: '/home/me',
           path: '/home/me/notes/sub',
         })
         expect(useUIStore.getState().filesOpen).toBe(true)
-        expect(window.ostia.terminalLinks.openFolder).not.toHaveBeenCalled()
+        expect(window.ostia.terminalLinks.openDefault).not.toHaveBeenCalled()
 
         const folder = await linkOn(2)
         hover(folder)
         await waitFor(() =>
           expect(hint()).toHaveTextContent('Ctrl+Click Open the folder in the file manager'),
         )
+        expect(hint()).not.toHaveTextContent('Ctrl+Shift+Click')
         act(() => folder.activate({ ctrlKey: false, isTrusted: true } as MouseEvent, folder.text))
-        expect(window.ostia.terminalLinks.openFolder).not.toHaveBeenCalled()
+        expect(window.ostia.terminalLinks.openDefault).not.toHaveBeenCalled()
         ctrlClick(folder)
-        expect(window.ostia.terminalLinks.openFolder).toHaveBeenCalledWith('p1', '/out/shots')
+        expect(window.ostia.terminalLinks.openDefault).toHaveBeenCalledWith('p1', '/out/shots')
 
         const file = await linkOn(3)
         hover(file)
         await waitFor(() => expect(hint()).toHaveTextContent('Ctrl+Click Open the file'))
+        expect(hint()).toHaveTextContent('Ctrl+Shift+Click Open with its default app')
+        expect(hint()).toHaveTextContent('Ctrl+Shift+Alt+Click Show in the file manager')
+        expect(hint()).not.toHaveTextContent('Show in Files')
         ctrlClick(file)
         await waitFor(() =>
           expect(openFile).toHaveBeenCalledWith(expect.any(String), '/out/shots/report.txt'),
@@ -814,7 +883,33 @@ describe('TerminalView engines', () => {
           column: 1,
         })
         expect(window.ostia.terminalLinks.admit).toHaveBeenCalledWith('p1', '/out/shots/report.txt')
-        expect(window.ostia.terminalLinks.openFolder).toHaveBeenCalledTimes(1)
+        expect(window.ostia.terminalLinks.openDefault).toHaveBeenCalledTimes(1)
+
+        ctrlClick(file, { shiftKey: true })
+        expect(window.ostia.terminalLinks.openDefault).toHaveBeenLastCalledWith(
+          'p1',
+          '/out/shots/report.txt',
+        )
+        ctrlClick(file, { shiftKey: true, altKey: true })
+        expect(window.ostia.terminalLinks.showInFolder).toHaveBeenCalledWith(
+          'p1',
+          '/out/shots/report.txt',
+        )
+        expect(window.ostia.terminalLinks.admit).toHaveBeenCalledTimes(1)
+
+        vi.mocked(window.ostia.terminalLinks.openDefault).mockResolvedValueOnce({
+          ok: false,
+          error: 'program',
+        })
+        ctrlClick(file, { shiftKey: true })
+        await waitFor(() =>
+          expect(window.ostia.notifications.post).toHaveBeenCalledWith(
+            expect.objectContaining({
+              kind: 'error',
+              title: expect.stringContaining('launch programs or scripts from a terminal link'),
+            }),
+          ),
+        )
       } finally {
         rect.mockRestore()
         openFile.mockRestore()
@@ -926,7 +1021,7 @@ describe('TerminalView engines', () => {
     expect(browserUrls()).toEqual([])
   })
 
-  it('a link’s hover hint goes away when its pane stops being visible, the window loses focus or the terminal resizes', async () => {
+  it('a link’s hover hint goes away when its pane stops being visible, the window loses focus, the terminal resizes or a mouse button goes down', async () => {
     const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
     const box = vi
       .spyOn(Element.prototype, 'getBoundingClientRect')
@@ -966,9 +1061,28 @@ describe('TerminalView engines', () => {
     await hoverUntilHinted()
     act(() => term.resize(term.cols + 1, term.rows))
     expect(hint()).toBeNull()
+
+    await hoverUntilHinted()
+    act(() => {
+      term.element?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, ctrlKey: true }))
+    })
+    expect(hint()).toBeNull()
+
+    vi.useFakeTimers()
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
+    act(() => links.hover?.(new MouseEvent('mousemove'), 'http://127.0.0.1:8000/first', linkRange))
+    act(() => {
+      term.element?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, ctrlKey: true }))
+    })
+    act(() => {
+      vi.advanceTimersByTime(1_000)
+    })
+    expect(hint()).toBeNull()
   })
 
-  it('dragging a file from the Files panel types its quoted path at the terminal prompt', async () => {
+  it('a Files row starts a native file drag, and that file dropped on the terminal types its quoted path', async () => {
     useWorkspacesStore.setState({
       workspaces: [{ id: 'w1', name: 'me', kind: 'terminal', workDir: '/home/me', state: 'idle' }],
       activeWorkspaceId: 'w1',
@@ -981,15 +1095,271 @@ describe('TerminalView engines', () => {
         <TerminalView workspaceId="w1" paneId="p1" />
       </>,
     )
-    const transfer = dataTransfer()
-
-    fireEvent.dragStart(await screen.findByRole('button', { name: 'notes file.md' }), {
-      dataTransfer: transfer,
-    })
+    const dragged = fireEvent.dragStart(
+      await screen.findByRole('button', { name: 'notes file.md' }),
+      { dataTransfer: { setData: vi.fn() } },
+    )
+    expect(dragged).toBe(false)
+    expect(window.ostia.fileOps.startDrag).toHaveBeenCalledWith('w1', '/home/me/notes file.md')
+    const file = new File([''], 'notes file.md')
+    vi.mocked(window.ostia.files.pathForFile).mockReturnValue('/home/me/notes file.md')
     fireEvent.drop(container.querySelector('.terminal-surface') as HTMLElement, {
-      dataTransfer: transfer,
+      dataTransfer: { types: ['Files'], files: [file], getData: () => '' },
     })
 
     expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', "'/home/me/notes file.md' ")
+  })
+
+  for (const [system, binding, rebound, dropped, kept] of [
+    [
+      'Linux',
+      ['Ctrl+Shift+Y', 'F1'],
+      { key: 'Y', code: 'KeyY', keyCode: 89, ctrlKey: true, shiftKey: true },
+      { key: 'P', code: 'KeyP', keyCode: 80, ctrlKey: true, shiftKey: true },
+      [],
+    ],
+    [
+      'macOS',
+      ['Shift+Cmd+P', 'Shift+Cmd+Y', 'F1'],
+      { key: 'Y', code: 'KeyY', keyCode: 89, metaKey: true, shiftKey: true },
+      { key: 'k', code: 'KeyK', keyCode: 75, metaKey: true },
+      [{ key: 'P', code: 'KeyP', keyCode: 80, metaKey: true, shiftKey: true }],
+    ],
+  ] as const) {
+    it(`a rebound palette chord works from a focused terminal, and resets: ${system}`, async () => {
+      os.mac = system === 'macOS'
+      const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+      const onKey = (e: KeyboardEvent): void => {
+        runAppChord(e, os.mac)
+      }
+      window.addEventListener('keydown', onKey)
+      onTestFinished(() => {
+        os.mac = false
+        window.removeEventListener('keydown', onKey)
+        exec.mockRestore()
+      })
+      const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+      await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+      const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+      const opensPalette = (init: KeyboardEventInit): boolean => {
+        exec.mockClear()
+        fireEvent.keyDown(textarea, init)
+        return exec.mock.calls.some(([id]) => id === 'palette.toggle')
+      }
+
+      act(() => useSettingsStore.setState({ keybindings: { 'palette.toggle': [...binding] } }))
+      expect(opensPalette(dropped)).toBe(false)
+      vi.mocked(window.ostia.pty.write).mockClear()
+      expect(opensPalette(rebound)).toBe(true)
+      expect(window.ostia.pty.write).not.toHaveBeenCalled()
+      for (const init of kept) expect(opensPalette(init)).toBe(true)
+
+      act(() => useSettingsStore.setState({ keybindings: {} }))
+      expect(opensPalette(rebound)).toBe(false)
+      expect(opensPalette(dropped)).toBe(true)
+      for (const init of kept) expect(opensPalette(init)).toBe(true)
+    })
+  }
+
+  it('OSC 52 sets the clipboard only while terminal.osc52Write is on', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    const realClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    onTestFinished(() => {
+      if (realClipboard) Object.defineProperty(navigator, 'clipboard', realClipboard)
+      else Reflect.deleteProperty(navigator, 'clipboard')
+    })
+    act(() => useSettingsStore.getState().setTerminal({ osc52Write: true }))
+    useLayoutStore.getState().ensure('w1')
+    const { activePaneId } = useLayoutStore.getState().byWorkspace.w1
+    await renderSettled(<TerminalView workspaceId="w1" paneId={activePaneId} />)
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+    await act(async () => {
+      await vi.mocked(window.ostia.pty.attach).mock.results[0]?.value
+    })
+    const deliver = vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
+    const term = terminalFor(activePaneId)
+    const parsed = async (text: string): Promise<void> => {
+      act(() => deliver(text))
+      await act(() => new Promise<void>((resolve) => term?.write('', resolve)))
+    }
+
+    await parsed(`\x1b]52;c;${btoa('ostia-osc52')}\x07`)
+    expect(writeText.mock.calls).toEqual([['ostia-osc52']])
+
+    vi.mocked(window.ostia.pty.write).mockClear()
+    await parsed('\x1b]52;c;?\x07')
+    expect(writeText).toHaveBeenCalledTimes(1)
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
+
+    act(() => useSettingsStore.getState().setTerminal({ osc52Write: false }))
+    await parsed(`\x1b]52;c;${btoa('ostia-off')}\x07`)
+    expect(writeText).toHaveBeenCalledTimes(1)
+  })
+
+  it('moving focus by direction puts the keyboard in the terminal it makes active', async () => {
+    showWorkspace()
+    const left = { ...createPane('terminal'), id: 'left' }
+    const right = { ...createPane('terminal'), id: 'right' }
+    useLayoutStore.setState({
+      byWorkspace: {
+        w1: {
+          root: {
+            type: 'split',
+            id: 'sp',
+            direction: 'horizontal',
+            children: [left, right],
+            sizes: [1, 1],
+          },
+          activePaneId: 'right',
+          zoomedPaneId: null,
+        },
+      },
+    })
+    const hosts = { left: surfaceHost('left'), right: surfaceHost('right') }
+    document.body.append(hosts.left, hosts.right)
+    onTestFinished(() => releaseSurfaces(new Set()))
+    await renderSettled(
+      <>
+        {createPortal(<TerminalView workspaceId="w1" paneId="left" />, hosts.left)}
+        {createPortal(<TerminalView workspaceId="w1" paneId="right" />, hosts.right)}
+      </>,
+    )
+    const input = (paneId: 'left' | 'right'): HTMLElement =>
+      hosts[paneId].querySelector('.xterm-helper-textarea') as HTMLElement
+    input('right').focus()
+
+    act(() => {
+      focusPaneInDirection('w1', 'right', 'left')
+    })
+    expect(useLayoutStore.getState().byWorkspace.w1.activePaneId).toBe('left')
+    await waitFor(() => expect(input('left')).toHaveFocus())
+
+    act(() => {
+      focusPaneInDirection('w1', 'left', 'right')
+    })
+    await waitFor(() => expect(input('right')).toHaveFocus())
+  })
+
+  it('a multi-line paste into an xterm terminal asks first; Cancel pastes nothing, Paste pastes', async () => {
+    const user = userEvent.setup()
+    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+    const input = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    input.focus()
+
+    await navigator.clipboard.writeText('echo ostiacancelled\necho two\n')
+    await user.keyboard('{Control>}{Shift>}V{/Shift}{/Control}')
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('It has 2 lines')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
+
+    await navigator.clipboard.writeText('echo ostiafirst\necho ostiapasted42')
+    await user.keyboard('{Control>}{Shift>}V{/Shift}{/Control}')
+    await screen.findByRole('dialog')
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Paste' }))
+    await waitFor(() =>
+      expect(window.ostia.pty.write).toHaveBeenCalledWith(
+        'p1',
+        expect.stringContaining('echo ostiafirst\recho ostiapasted42'),
+      ),
+    )
+  })
+
+  it('a link’s hint in a mouse-reporting program offers Ctrl+Click and leaves plain clicks to the program', async () => {
+    const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
+    const box = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 600 }))
+    onTestFinished(() => {
+      fitted.mockRestore()
+      box.mockRestore()
+    })
+    const { term, links } = await renderLinkTerminal()
+    await act(() => new Promise<void>((done) => term.write('\x1b[?1000h\x1b[?1006h', done)))
+    expect(term.modes.mouseTrackingMode).not.toBe('none')
+
+    act(() => links.hover?.(new MouseEvent('mousemove'), 'http://127.0.0.1:8000/osc', linkRange))
+    const hint = await waitFor(() => {
+      const shown = document.querySelector('[data-slot="tooltip-content"]')
+      expect(shown).not.toBeNull()
+      return shown as HTMLElement
+    })
+    expect(hint).toHaveTextContent('Ctrl+Click Open in a new browser tab')
+    expect(hint).not.toHaveTextContent('Open in the browser pane')
+
+    act(() => links.activate(click(), 'http://127.0.0.1:8000/osc', linkRange))
+    expect(browserUrls()).toEqual([])
+  })
+
+  it('a link’s hover hint goes away when another tab of its stack is shown', async () => {
+    const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
+    const box = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 600 }))
+    onTestFinished(() => {
+      fitted.mockRestore()
+      box.mockRestore()
+    })
+    showWorkspace()
+    const linked = { ...createPane('terminal'), id: 'linked' }
+    const other = { ...createPane('terminal'), id: 'other' }
+    useLayoutStore.setState({
+      byWorkspace: {
+        w1: { root: tabsOf('linked', linked, other), activePaneId: 'linked', zoomedPaneId: null },
+      },
+    })
+    await renderSettled(<TerminalView workspaceId="w1" paneId="linked" />)
+    const links = (terminalFor('linked') as unknown as Xterm).options.linkHandler as ILinkHandler
+    const hint = (): Element | null => document.querySelector('[data-slot="tooltip-content"]')
+
+    act(() => links.hover?.(new MouseEvent('mousemove'), 'slack://channel?id=1', linkRange))
+    await waitFor(() => expect(hint()).not.toBeNull())
+
+    act(() => useLayoutStore.getState().focusPane('w1', 'other'))
+    expect(hint()).toBeNull()
+  })
+
+  it('a tab closes when its shell exits by itself, unless the human locked it', async () => {
+    showWorkspace()
+    const kept = { ...createPane('terminal'), id: 'kept' }
+    const own = { ...createPane('terminal'), id: 'own' }
+    const locked = { ...createPane('terminal'), id: 'locked' }
+    useLayoutStore.setState({
+      byWorkspace: {
+        w1: { root: tabsOf('own', kept, own, locked), activePaneId: 'own', zoomedPaneId: null },
+      },
+    })
+    act(() => useLayoutStore.getState().setLocked('w1', 'locked', true))
+    await renderSettled(
+      <>
+        <TerminalView workspaceId="w1" paneId="own" />
+        <TerminalView workspaceId="w1" paneId="locked" />
+      </>,
+    )
+    const exitOf = (paneId: string) => {
+      const call = vi.mocked(window.ostia.pty.onExit).mock.calls.find(([id]) => id === paneId)
+      if (!call) throw new Error(`no exit listener for ${paneId}`)
+      return call[1]
+    }
+    const tabIds = () => allPanes(useLayoutStore.getState().byWorkspace.w1.root).map((p) => p.id)
+
+    act(() => exitOf('own')(0, false))
+    expect(tabIds()).toEqual(['kept', 'own', 'locked'])
+    act(() => exitOf('own')(1, true))
+    expect(tabIds()).toEqual(['kept', 'locked'])
+
+    act(() => exitOf('locked')(0, true))
+    expect(tabIds()).toEqual(['kept', 'locked'])
+    const lockedTerm = terminalFor('locked') as unknown as Xterm
+    await act(() => new Promise<void>((done) => lockedTerm.write('', done)))
+    const text = Array.from(
+      { length: lockedTerm.buffer.active.length },
+      (_, i) => lockedTerm.buffer.active.getLine(i)?.translateToString(true) ?? '',
+    ).join('')
+    expect(text).toContain('[process exited]')
   })
 })

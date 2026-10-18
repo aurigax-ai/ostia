@@ -1,4 +1,4 @@
-import { allPanes, findPane } from '@/layout/tree'
+import { allPanes, findPane } from '@/lib/layout/tree'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { type ArtifactListing, changedArtifacts } from '@shared/artifacts/artifacts'
@@ -6,6 +6,7 @@ import { create } from 'zustand'
 
 interface ArtifactsState {
   byWorkspace: Record<string, ArtifactListing>
+  producers: Record<string, Record<string, string>>
   unread: Record<string, true>
   refresh: (workspaceId: string) => Promise<void>
   markRead: (path: string) => void
@@ -33,10 +34,14 @@ function isOpen(workspaceId: string, path: string): boolean {
 
 export const useArtifactsStore = create<ArtifactsState>((set, get) => ({
   byWorkspace: {},
+  producers: {},
   unread: {},
 
   refresh: async (workspaceId) => {
-    const listing = await window.ostia.artifacts.list(workspaceId)
+    const [listing, producers] = await Promise.all([
+      window.ostia.artifacts.list(workspaceId),
+      window.ostia.artifacts.producers(workspaceId),
+    ])
     if (!listing) return
     const previous = get().byWorkspace[workspaceId]
     const viewed = viewedFile()
@@ -52,7 +57,11 @@ export const useArtifactsStore = create<ArtifactsState>((set, get) => ({
       const unread = { ...s.unread }
       for (const entry of gone) delete unread[entry.path]
       for (const path of fresh) unread[path] = true
-      return { byWorkspace: { ...s.byWorkspace, [workspaceId]: listing }, unread }
+      return {
+        byWorkspace: { ...s.byWorkspace, [workspaceId]: listing },
+        producers: { ...s.producers, [workspaceId]: producers ?? {} },
+        unread,
+      }
     })
   },
 
@@ -68,10 +77,11 @@ export const useArtifactsStore = create<ArtifactsState>((set, get) => ({
       const listing = s.byWorkspace[workspaceId]
       if (!listing) return s
       const { [workspaceId]: _gone, ...byWorkspace } = s.byWorkspace
+      const { [workspaceId]: _made, ...producers } = s.producers
       const unread = { ...s.unread }
       for (const entry of listing.entries) delete unread[entry.path]
       delete unread[listing.pad]
-      return { byWorkspace, unread }
+      return { byWorkspace, producers, unread }
     }),
 }))
 

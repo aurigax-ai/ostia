@@ -1,8 +1,29 @@
-import type { Output } from '../../../graph-engine/src/engine/contract'
-import { FakeClock, settle } from '../../../graph-engine/src/engine/fakeHost'
-import { MemoryJournalStore } from '../../../graph-engine/src/engine/journal'
-import type { AskOptions, ExecOptions, PaneInfo } from '../sdk'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { type Server, connect, createServer } from 'node:net'
+import { dirname, join } from 'node:path'
+import type {
+  AskOptions,
+  ConnectionValue,
+  ExecOptions,
+  PaneInfo,
+} from '@aurigax-ai/ostia-extension-sdk'
+import { type Output, RIGHTS, type RunView } from '@aurigax-ai/wire'
+import {
+  FakeClock,
+  runtimePlace,
+  settle as settleEngine,
+  testRuntime,
+} from '@aurigax-ai/wire/testing'
 import { type GraphsExt, GraphsRunner, type Workspace } from './runner'
+
+type TestRuntime = Awaited<ReturnType<typeof testRuntime>>
+
+export async function settle(rounds = 4): Promise<void> {
+  for (let i = 0; i < rounds; i++) {
+    await settleEngine()
+    await new Promise((r) => setTimeout(r, 15))
+  }
+}
 
 export interface FakeExt {
   ext: GraphsExt
@@ -18,6 +39,9 @@ export interface FakeExt {
   ) => { ok: false; error: string; message?: string } | null
   execReply: (opts: ExecOptions) => Awaited<ReturnType<GraphsExt['exec']>>
   answer: (reply: Awaited<ReturnType<GraphsExt['ask']>>) => void
+  mcpCalls: { server: string; tool: string; input: Record<string, unknown> }[]
+  mcpReply: (server: string, tool: string) => Awaited<ReturnType<GraphsExt['mcpCall']>>
+  connections: ConnectionValue[]
 }
 
 export function fakeExt(): FakeExt {
@@ -41,6 +65,9 @@ export function fakeExt(): FakeExt {
       sandboxed: false,
     }),
     answer: (reply) => pendingAsks.shift()?.(reply),
+    mcpCalls: [],
+    mcpReply: (server, tool) => ({ ok: true, text: `${server}/${tool}` }),
+    connections: [],
     ext: {
       runAgent: async (opts) => {
         fake.runAgent.push(opts)
@@ -83,35 +110,157 @@ export function fakeExt(): FakeExt {
         return { ok: true }
       },
       redact: async (texts) => texts,
+      mcpCall: async (server, tool, input) => {
+        fake.mcpCalls.push({ server, tool, input })
+        return fake.mcpReply(server, tool)
+      },
+      connection: async (name) => ({
+        ok: true,
+        connection: fake.connections.find((c) => c.name === name) ?? null,
+      }),
+      wireRuntime: async () => ({ ok: false, error: 'no-runtime' }),
     },
   }
   return fake
 }
 
+interface RunSeen {
+  state: Output
+  status: string
+  failure?: { node: string; name: string; message: string }
+  view: RunView
+}
+
 export interface HostHarness extends FakeExt {
   runner: GraphsRunner
   clock: FakeClock
-  store: MemoryJournalStore
+  runtime: TestRuntime
   workspace: Workspace
   stop: (pane: string, extra?: Output) => Promise<void>
+  run: (runId: string) => Promise<RunSeen | null>
+  journal: (runId: string) => { type: string; verdict?: string; node?: string }[]
+  reopen: (fake?: FakeExt) => Promise<HostHarness>
+  restart: () => Promise<HostHarness>
+  close: () => Promise<void>
 }
 
-export function hostHarness(
+const open: HostHarness[] = []
+
+export async function closeHarnesses(): Promise<void> {
+  for (const h of open.splice(0)) await h.close()
+}
+
+function journalOf(runtime: TestRuntime, runId: string) {
+  const root = join(runtime.paths.data, 'runs')
+  for (const scope of readdirSync(root))
+    for (const graph of readdirSync(join(root, scope))) {
+      const path = join(root, scope, graph, runId, 'journal.jsonl')
+      if (existsSync(path))
+        return readFileSync(path, 'utf8')
+          .trim()
+          .split('\n')
+          .map((l) => JSON.parse(l) as { type: string; verdict?: string; node?: string })
+    }
+  return []
+}
+
+export interface HarnessOptions {
+  daemon?: boolean
+  log?: (line: string) => void
+  received?: Buffer[]
+}
+
+function tap(target: string, received: Buffer[]): Promise<{ socket: string; server: Server }> {
+  const socket = join(dirname(target), 'tap.sock')
+  const server = createServer((down) => {
+    const up = connect(target)
+    down.on('data', (chunk) => {
+      received.push(chunk)
+      up.write(chunk)
+    })
+    up.pipe(down)
+    down.on('close', () => up.destroy())
+    up.on('close', () => down.destroy())
+    up.on('error', () => down.destroy())
+    down.on('error', () => up.destroy())
+  })
+  return new Promise((resolve) => server.listen(socket, () => resolve({ socket, server })))
+}
+
+async function connected(
+  fake: FakeExt,
+  runtime: TestRuntime,
   workspace: Workspace,
-  store = new MemoryJournalStore(),
-  clock = new FakeClock(),
-): HostHarness {
-  const fake = fakeExt()
-  const runner = new GraphsRunner({ ext: fake.ext, dataDir: null, clock, store, changed: () => {} })
-  runner.setWorkspaces([workspace])
-  return Object.assign(fake, {
+  clock: FakeClock,
+  socket: string,
+  closing: () => void,
+): Promise<HostHarness> {
+  const token = runtime.tokens.issue('ostia', RIGHTS)
+  fake.ext.wireRuntime = async () => ({
+    ok: true,
+    socket,
+    token,
+    started: false,
+    mode: runtime.mode,
+    version: 'test',
+  })
+  const runner = new GraphsRunner({ ext: fake.ext, clock, changed: () => {} })
+  await runner.setWorkspaces([workspace])
+  const harness: HostHarness = Object.assign(fake, {
     runner,
     clock,
-    store,
+    runtime,
     workspace,
     stop: async (pane: string, extra: Output = {}) => {
       await runner.stopped({ pane, ...extra })
       await settle()
     },
+    run: async (runId: string): Promise<RunSeen | null> => {
+      const view = await runner.view(workspace.workspaceId, runId)
+      if (!view) return null
+      return {
+        state: view.state,
+        status: view.summary.status,
+        ...(view.summary.failure ? { failure: view.summary.failure } : {}),
+        view,
+      }
+    },
+    journal: (runId: string) => journalOf(runtime, runId),
+    reopen: async (next: FakeExt = fakeExt()) => {
+      runner.stop()
+      return connected(next, runtime, workspace, clock, socket, closing)
+    },
+    restart: async () => {
+      runner.stop()
+      closing()
+      await runtime.stop()
+      const again = await testRuntime(runtime.paths, { clock })
+      return connected(fakeExt(), again, workspace, clock, again.paths.socket, () => {})
+    },
+    close: async () => {
+      runner.stop()
+      closing()
+      await runtime.stop()
+    },
   })
+  open.push(harness)
+  await settle()
+  return harness
+}
+
+export async function hostHarness(
+  workspace: Workspace,
+  clock = new FakeClock(),
+  fake = fakeExt(),
+  opts: HarnessOptions = {},
+): Promise<HostHarness> {
+  const { paths } = runtimePlace()
+  const runtime = await testRuntime(paths, {
+    clock,
+    ...(opts.daemon ? { daemon: true } : {}),
+    ...(opts.log ? { log: opts.log } : {}),
+  })
+  if (!opts.received) return connected(fake, runtime, workspace, clock, paths.socket, () => {})
+  const { socket, server } = await tap(paths.socket, opts.received)
+  return connected(fake, runtime, workspace, clock, socket, () => server.close())
 }

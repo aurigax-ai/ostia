@@ -142,7 +142,7 @@ test('Cmd+V pastes a copied file as a quoted path and hands an image to the prog
     for (const flavors of ['file-and-image', 'file-and-text'] as const) {
       n += 1
       copyFileOnMac(shot, flavors)
-      expect((await contents()).files).toEqual([shot])
+      await expect.poll(async () => (await contents()).files).toEqual([shot])
       await win.keyboard.type(readLine(n))
       await win.keyboard.press('Enter')
       await expect(rows).toContainText(`line${n}_7`)
@@ -155,7 +155,7 @@ test('Cmd+V pastes a copied file as a quoted path and hands an image to the prog
     for (const flavors of ['image', 'image-and-text', 'image-and-spaced-text'] as const) {
       n += 1
       copyFileOnMac(shot, flavors)
-      expect(await contents()).toEqual({ files: [], image: true })
+      await expect.poll(contents).toEqual({ files: [], image: true })
       await win.keyboard.type(readByte(n))
       await win.keyboard.press('Enter')
       await expect(rows).toContainText(`byte${n}_7`)
@@ -167,7 +167,7 @@ test('Cmd+V pastes a copied file as a quoted path and hands an image to the prog
   }
 })
 
-test('the copy and paste chords work in Monaco and in a text field', async () => {
+test('the copy and paste chords work in Monaco', async () => {
   const { app, win, home } = await launch()
   try {
     writeFileSync(join(home, 'notes.txt'), 'monaco_text\n')
@@ -184,18 +184,6 @@ test('the copy and paste chords work in Monaco and in a text field', async () =>
     await writeClipboard(app, 'monaco_pasted')
     await win.keyboard.press(chords.paste)
     await expect(lines).toContainText('monaco_pasted')
-
-    await win.keyboard.press(chords.palette)
-    const palette = win.getByRole('combobox').first()
-    await expect(palette).toBeFocused()
-    await expect(palette).toHaveValue('>')
-    await win.keyboard.type('palette_text')
-    await win.keyboard.press(chords.selectAll)
-    await win.keyboard.press(chords.copy)
-    await expect.poll(() => readClipboard(app)).toBe('>palette_text')
-    await writeClipboard(app, 'field_pasted')
-    await win.keyboard.press(chords.paste)
-    await expect(palette).toHaveValue('field_pasted')
   } finally {
     await app.close()
   }

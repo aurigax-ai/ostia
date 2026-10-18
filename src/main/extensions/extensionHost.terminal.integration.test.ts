@@ -1,17 +1,15 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ExtensionCaller } from '../../shared/extensions'
-import type { CommandResult } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { type PaneIdentity, registerPane } from '../control/idRegistry'
-import {
-  type ExtensionConfirmRequest,
-  ExtensionHost,
-  type TerminalOpenRequest,
-  registerExtensionMethods,
-} from './extensionHost'
+import { HostPaneGrants } from '../sandbox/hostPanes'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
+import type { ExtensionConfirmRequest, TerminalOpenRequest } from './extensionRuns'
 import { ExtensionStore } from './extensionStore'
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions-terminal')
@@ -42,6 +40,8 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
       notify: () => {},
       confirm,
       openTerminalIn,
+      isSandboxed: (workspaceId) => workspaceId === 'w2',
+      hostGrants: new HostPaneGrants({ now: Date.now, ttlMs: 60_000 }),
       readyTimeoutMs: 8000,
       requestTimeoutMs: REQUEST_TIMEOUT_MS,
       interactiveTimeoutMs: 8000,
@@ -60,7 +60,7 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
@@ -110,6 +110,29 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
     })
   })
 
+  it('SBX-C3 opens an extension’s terminal in a sandboxed workspace with no host token, and refuses a host terminal nobody approved', async () => {
+    openTerminalIn.mockResolvedValue('sandboxed-external-id')
+    const opened = await host.invoke(
+      'opener',
+      'open',
+      { command: ['cat', '/home/u/.ssh/id_ed25519'], workspaceId: 'w2' },
+      { kind: 'user', capabilities: [] },
+    )
+    expect(opened).toEqual({ ok: true, data: { ok: true, paneId: 'sandboxed-external-id' } })
+    expect(openTerminalIn).toHaveBeenCalledWith({
+      command: 'cat /home/u/.ssh/id_ed25519',
+      workspaceId: 'w2',
+    })
+    const refused = await host.invoke(
+      'opener',
+      'open',
+      { command: ['cat', '/home/u/.ssh/id_ed25519'], workspaceId: 'w2', host: true },
+      { kind: 'user', capabilities: [] },
+    )
+    expect(refused).toMatchObject({ ok: true, data: { ok: false, error: 'host-not-approved' } })
+    expect(openTerminalIn).toHaveBeenCalledTimes(1)
+  })
+
   it('refuses bad requests without opening anything', async () => {
     const attempts: unknown[] = [
       { command: [] },
@@ -139,8 +162,16 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
 
   it('waits for the command it opened to finish and returns its exit code', async () => {
     const { result } = await openAndWait('pane-install', 5000)
-    host.emitEvent('command.finished', { paneId: 'other-pane', workspaceId: 'w1', exitCode: 9 })
-    host.emitEvent('command.finished', { paneId: 'pane-install', workspaceId: 'w1', exitCode: 0 })
+    host.events.emitEvent('command.finished', {
+      paneId: 'other-pane',
+      workspaceId: 'w1',
+      exitCode: 9,
+    })
+    host.events.emitEvent('command.finished', {
+      paneId: 'pane-install',
+      workspaceId: 'w1',
+      exitCode: 0,
+    })
     expect(await result).toEqual({
       ok: true,
       data: { ok: true, paneId: 'pane-install', wait: { outcome: 'finished', exitCode: 0 } },
@@ -149,7 +180,7 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
 
   it('stops waiting when the human closes that terminal', async () => {
     const { result } = await openAndWait('pane-closed-early', 5000)
-    host.emitEvent('pane.closed', { paneId: 'pane-closed-early', workspaceId: 'w1' })
+    host.events.emitEvent('pane.closed', { paneId: 'pane-closed-early', workspaceId: 'w1' })
     expect(await result).toMatchObject({ data: { wait: { outcome: 'closed' } } })
   })
 

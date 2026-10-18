@@ -1,8 +1,8 @@
-import type { Theme } from '@/plugins/types'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSystemThemeStore } from '@/stores/app/systemThemeStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { deriveAccent, normalizeHex, readableOn } from './color'
+import type { Theme } from './types'
 
 export interface ThemeChoice {
   followSystem: boolean
@@ -55,15 +55,16 @@ export function currentTheme(): Theme | undefined {
   )
 }
 
-export function useEffectiveTheme(): Theme | undefined {
+export function useEffectiveThemeId(): string {
   const followSystem = useSettingsStore((s) => s.appearance.followSystem)
   const theme = useSettingsStore((s) => s.appearance.theme)
   const lightTheme = useSettingsStore((s) => s.appearance.lightTheme)
   const darkTheme = useSettingsStore((s) => s.appearance.darkTheme)
-  const themes = usePluginsStore((s) => s.themes)
   const systemDark = useSystemDark()
-  return resolveTheme(
-    themes,
-    effectiveThemeId({ followSystem, systemDark, theme, lightTheme, darkTheme }),
-  )
+  return effectiveThemeId({ followSystem, systemDark, theme, lightTheme, darkTheme })
+}
+
+export function useEffectiveTheme(): Theme | undefined {
+  const themes = usePluginsStore((s) => s.themes)
+  return resolveTheme(themes, useEffectiveThemeId())
 }

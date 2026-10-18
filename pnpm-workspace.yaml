@@ -1,12 +1,30 @@
+packages:
+  - packages/*
+catalog:
+  '@ai-sdk-tool/parser': ^5.1.6
+  '@types/node': ^24.19.1
+  ai: ^7.0.122
+  esbuild: ^0.28.2
+  typescript: 5.9.3
+  undici: ^6.29.0
+  vitest: ^5.0.4
+  vscode-jsonrpc: ^9.0.1
+  yaml: ^2.9.1
+  zod: ^4.6.5
 allowBuilds:
   '@biomejs/biome': true
   electron: true
   electron-winstaller: false
   esbuild: true
+  koffi: false
   node-pty: true
 minimumReleaseAgeExclude:
+  - '@aurigax-ai/wire@0.1.14'
   - '@anthropic-ai/sandbox-runtime@0.0.79'
-  - '@aurigax-ai/ghostty-web@0.3.3'
+  - '@aurigax-ai/ghostty-web@0.3.5'
 patchedDependencies:
   '@xterm/xterm@6.1.0-beta.304': patches/@xterm__xterm@6.1.0-beta.304.patch
+  monaco-editor@0.57.0: patches/monaco-editor@0.57.0.patch
   swr@2.5.1: patches/swr@2.5.1.patch
+overrides:
+  'monaco-editor>dompurify': ^3.4.16

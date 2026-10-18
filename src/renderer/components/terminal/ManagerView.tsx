@@ -1,4 +1,5 @@
-import { useDict } from '@/i18n/useDict'
+import { useDict } from '@/lib/app/useDict'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import {
   type ReadOnlyTerminal,
   createReadOnlyTerminal,
@@ -12,6 +13,7 @@ export function ManagerView({ paneId }: { paneId: string }): JSX.Element {
   const termRef = useRef<ReadOnlyTerminal | null>(null)
   const [ended, setEnded] = useState(false)
   const background = useReadOnlyTerminalBackground(termRef)
+  useSurfaceFocus(paneId, () => termRef.current?.textarea ?? null)
 
   useEffect(() => {
     const host = hostRef.current

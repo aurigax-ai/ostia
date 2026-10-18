@@ -1,5 +1,8 @@
+import {
+  AGENT_HOOK_CONTEXT_MAX,
+  AGENT_HOOK_INPUT_MAX,
+} from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import { describe, expect, it, vi } from 'vitest'
-import { AGENT_HOOK_CONTEXT_MAX, AGENT_HOOK_INPUT_MAX } from '../../shared/agentPlugins'
 import { type AgentHookIo, parseAgentHookArgs, runAgentHook } from './agentHook'
 
 function io(

@@ -22,18 +22,39 @@ const RELATIVE_SCALE_FILES = new Map([
 
 const SETTINGS_FONT_FILES = new Map([
   ['src/renderer/components/terminal/Terminal.tsx', 'passes the terminal font settings to xterm'],
+  [
+    'src/renderer/components/terminal/useTerminalOptions.ts',
+    'passes the terminal font settings to xterm',
+  ],
   ['src/renderer/lib/terminal/ghosttyTerminal.ts', 'passes the terminal font settings to Ghostty'],
   ['src/renderer/lib/terminal/readOnlyTerminal.ts', 'passes the terminal font settings to xterm'],
-  ['src/renderer/components/editor/Editor.tsx', 'passes the editor font settings to Monaco'],
+  [
+    'src/renderer/components/editor/useMonacoEditor.ts',
+    'passes the editor font settings to Monaco',
+  ],
+  [
+    'src/renderer/components/editor/useEditorOptions.ts',
+    'passes the editor font settings to Monaco',
+  ],
   ['src/renderer/components/editor/DiffView.tsx', 'passes the editor font settings to Monaco'],
   [
-    'src/renderer/components/terminal/InputEditor.tsx',
+    'src/renderer/components/prompt/InputEditor.tsx',
     'draws over xterm cells, so it takes the terminal font, cell height and cell width',
+  ],
+  [
+    'src/renderer/components/prompt/useInputLayout.ts',
+    'draws over xterm cells, so it takes the terminal font, cell height and cell width',
+  ],
+  [
+    'src/renderer/components/prompt/InputEditorMenu.tsx',
+    'lists completions in the terminal font beside the input editor',
   ],
   ['src/renderer/components/settings/ThemeSettings.tsx', 'previews the terminal and editor fonts'],
   ['src/renderer/components/settings/FontPicker.tsx', 'shows each family in its own face'],
-  ['src/renderer/stores/app/settingsStore.ts', 'the font settings model itself'],
-  ['src/renderer/settings/settingsSchema.ts', 'the JSON schema of the font settings'],
+  ['src/renderer/stores/app/settingsModel.ts', 'the font settings model itself'],
+  ['src/renderer/stores/app/settingsParse.ts', 'the font settings model itself'],
+  ['src/renderer/stores/app/settingsActions.ts', 'the font settings model itself'],
+  ['src/renderer/lib/settings/appearanceSchema.ts', 'the JSON schema of the font settings'],
 ])
 
 const FONT_FACE_FILES = new Map([

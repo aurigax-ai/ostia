@@ -1,13 +1,14 @@
-import { isAbsolute, join } from 'node:path'
-import { shellQuote } from '../../shared/agents/agentLaunch'
-import { type AgentResume, forkCommand, resumeCommand } from '../../shared/agents/agentResume'
-import { MANAGER_AGENT_NAME } from '../../shared/agents/managerSettings'
+import { isAbsolute } from 'node:path'
 import {
   AGENT_OFFER_LABEL_MAX,
   AGENT_OFFER_TEXT_MAX,
   AGENT_PROMPT_MAX,
-} from '../../shared/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { type AgentResume, forkCommand, resumeCommand } from '../../shared/agents/agentResume'
+import { MANAGER_AGENT_NAME } from '../../shared/agents/managerSettings'
+import { quoteArg } from '../../shared/terminal/shellQuote'
 import { ReportLimiter } from '../diagnostics/rendererReports'
+import { expandHome } from '../platform/pathGuard'
 
 export const AGENT_TASKS_PER_MINUTE = 6
 const AGENT_TASK_WINDOW_MS = 60_000
@@ -56,8 +57,7 @@ export function agentTaskLimiter(now: () => number = Date.now): ReportLimiter {
 
 export function workspaceFolder(workDir: string | undefined, home: string): string | undefined {
   if (!workDir) return undefined
-  if (workDir === '~') return home
-  const expanded = workDir.startsWith('~/') ? join(home, workDir.slice(2)) : workDir
+  const expanded = expandHome(workDir, home)
   return isAbsolute(expanded) ? expanded : undefined
 }
 
@@ -68,5 +68,5 @@ export interface HeldResume {
 
 export function continueCommand(found: HeldResume, prompt: string): string {
   const base = found.held ? forkCommand(found.resume) : resumeCommand(found.resume)
-  return `${base} ${shellQuote(prompt)}`
+  return `${base} ${quoteArg(prompt)}`
 }

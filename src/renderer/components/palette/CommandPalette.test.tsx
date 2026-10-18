@@ -1,16 +1,20 @@
 import '@testing-library/jest-dom/vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
+import { syncExtensionCommands } from '@/commands/extensionBridge'
 import { commands } from '@/commands/registry'
 import { registerWindowCommands } from '@/commands/windowCommands'
 import { languagesFrom } from '@/lib/extensions/languagePacks'
 import { LINE_SEARCH_DELAY_MS } from '@/lib/files/workspaceFileSearch'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
+import { useAssistStore } from '@/stores/assist/assistStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
+import { newTerminalPane } from '@/stores/workspaces/layoutSeed'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { zhHant } from '@shared/app/dict'
 import type { SearchOutcome, SearchRequest } from '@shared/files/search'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -19,7 +23,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished,
 import { CommandPalette } from './CommandPalette'
 
 const searchWorkspaceSymbols = vi.hoisted(() => vi.fn())
-vi.mock('@/lsp/client', () => ({ searchWorkspaceSymbols }))
+vi.mock('@/lib/lsp/client', () => ({ searchWorkspaceSymbols }))
 
 describe('CommandPalette', () => {
   let uiInit: ReturnType<typeof useUIStore.getState>
@@ -180,19 +184,28 @@ describe('CommandPalette', () => {
       })
     }
 
-    const WITH_KEYS = ['palette-title', 'palette-name', 'palette-keys', 'palette-meta']
-    const WITHOUT_KEYS = ['palette-title', 'palette-name', 'palette-meta']
+    const WITH_KEYS = [
+      'palette-title',
+      'palette-name',
+      'palette-trailing',
+      'palette-keys',
+      'palette-meta',
+    ]
+    const WITHOUT_KEYS = ['palette-title', 'palette-name', 'palette-trailing', 'palette-meta']
 
-    it('puts a command’s keycap directly after its title, then the id', async () => {
+    it('puts a command’s keycap and id at the right edge of the row, after its title', async () => {
       useUIStore.setState({ paletteOpen: true })
       render(<CommandPalette />)
       const option = await screen.findByRole('option', { name: /Open Settings/ })
 
       expect(slots(option)).toEqual(WITH_KEYS)
       expect(part(option, 'name')).toHaveTextContent('Open Settings')
-      expect(part(option, 'name').nextElementSibling).toBe(part(option, 'keys'))
       expect(part(option, 'keys').tagName).toBe('KBD')
-      expect(part(option, 'title').nextElementSibling).toBe(part(option, 'meta'))
+      expect(part(option, 'title').nextElementSibling).toBe(part(option, 'trailing'))
+      expect(part(option, 'trailing')).toHaveClass('ml-auto', 'shrink-0')
+      expect(part(option, 'title')).toHaveClass('min-w-0')
+      expect(part(option, 'keys').nextElementSibling).toBe(part(option, 'meta'))
+      expect(part(option, 'meta')).toHaveClass('font-mono')
       expect(part(option, 'meta')).toHaveTextContent('app.openSettings')
     })
 
@@ -205,7 +218,7 @@ describe('CommandPalette', () => {
       expect(part(option, 'name')).not.toHaveClass('text-muted-foreground', 'text-fg-muted')
     })
 
-    it('puts the id directly after the title of a command without a keybinding', async () => {
+    it('puts the id at the right edge of a command without a keybinding', async () => {
       useUIStore.setState({ paletteOpen: true })
       render(<CommandPalette />)
       const options = await screen.findAllByRole('option')
@@ -311,15 +324,16 @@ describe('CommandPalette', () => {
       }
     })
 
-    it('keeps the title whole and lets the secondary text give way first', async () => {
+    it('truncates a long title before the right-aligned keycap and id', async () => {
       useUIStore.setState({ paletteOpen: true })
       render(<CommandPalette />)
       const option = await screen.findByRole('option', { name: /Open Settings/ })
 
-      expect(part(option, 'title')).toHaveClass('shrink-0', 'max-w-full', 'min-w-0')
+      expect(part(option, 'title')).toHaveClass('min-w-0')
+      expect(part(option, 'title')).not.toHaveClass('shrink-0')
       expect(part(option, 'name')).toHaveClass('truncate', 'min-w-0')
+      expect(part(option, 'trailing')).toHaveClass('shrink-0', 'ml-auto')
       expect(part(option, 'meta')).toHaveClass('truncate', 'min-w-0', 'text-fg-muted')
-      expect(part(option, 'meta')).not.toHaveClass('shrink-0')
     })
 
     it('lays rows out the same way in Traditional Chinese', async () => {
@@ -625,6 +639,78 @@ describe('CommandPalette', () => {
     })
   })
 
+  describe('the Git commit graph and Graphs', () => {
+    const graphs: ExtensionInfo = {
+      id: 'graphs',
+      name: 'Graphs',
+      version: '1.0.0',
+      description: '',
+      builtin: true,
+      enabled: true,
+      status: 'idle',
+      requested: [],
+      granted: [],
+      unapproved: [],
+      commands: [
+        {
+          id: 'open',
+          title: 'Graphs: Open Panel',
+          category: 'Graphs',
+          palette: true,
+          stdin: false,
+          capabilities: [],
+        },
+        {
+          id: 'validate',
+          title: 'Check a graph file',
+          palette: false,
+          stdin: false,
+          capabilities: [],
+        },
+      ],
+      panel: { title: 'Graphs', icon: 'graph' },
+      paneChips: [],
+      workspaceChips: [],
+      settings: [],
+      settingValues: {},
+      assist: [],
+      secrets: [],
+      secretsSet: [],
+      connectionKinds: [],
+      settingsPage: null,
+      category: 'other',
+      languages: [],
+      languageServers: [],
+      fileViewers: [],
+      agentSkills: [],
+      agentHooks: [],
+      iconThemes: [],
+      keymaps: [],
+    }
+
+    afterEach(() => act(() => syncExtensionCommands([])))
+
+    it('GRF-C149 typing graph shows Show Graph and the Graphs panel command once each, apart', async () => {
+      syncExtensionCommands([graphs])
+      syncExtensionCommands([graphs])
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+
+      await userEvent.type(await screen.findByRole('combobox'), 'graph')
+
+      const panel = await screen.findAllByRole('option', { name: /Graphs: Open Panel/ })
+      const showGraph = screen.getAllByRole('option', { name: /Show Graph/ })
+      expect(panel).toHaveLength(1)
+      expect(showGraph).toHaveLength(1)
+      expect(showGraph[0]).not.toHaveTextContent('Graphs')
+      expect(screen.queryByRole('option', { name: /Check a graph file/ })).toBeNull()
+      expect(showGraph[0]).toHaveTextContent('git.showGraph')
+      expect(panel[0]).toHaveTextContent('graphs.open')
+      const rows = screen.getAllByRole('option').map((o) => o.textContent)
+      expect(new Set(rows).size).toBe(rows.length)
+    })
+  })
+
   describe('symbols in the workspace', () => {
     const hit = {
       id: 'ext/fake\n/src/web/lib/greet.ts\n12\n17\ngreet\n12',
@@ -692,7 +778,7 @@ describe('CommandPalette', () => {
       expect([...row.children].map((el) => (el as HTMLElement).dataset.slot)).toEqual([
         'palette-title',
         'palette-detail',
-        'palette-meta',
+        'palette-trailing',
       ])
       expect(row.children[0]).toHaveTextContent('greet')
       expect(row.children[1]).toHaveTextContent('lib')
@@ -1251,6 +1337,28 @@ describe('CommandPalette', () => {
       expect(outside).not.toHaveBeenCalled()
     })
 
+    it('closes on the palette chord from Ask, and the chord never reaches the window', async () => {
+      seed()
+      const outside = keysOutside()
+      useAssistStore.setState({
+        availability: {
+          chat: {
+            extId: 'assistant',
+            name: 'Assistant',
+            label: 'model-runtime · gemma',
+            ref: { extId: 'assistant' },
+          },
+        },
+      })
+      onTestFinished(() => useAssistStore.setState({ availability: {} }))
+      render(<CommandPalette />)
+      act(() => useUIStore.getState().openPalette('ask'))
+      const question = await screen.findByRole('combobox', { name: 'Your question' })
+      fireEvent.keyDown(question, PALETTE_TOGGLE_KEY)
+      expect(useUIStore.getState().paletteOpen).toBe(false)
+      expect(outside).not.toHaveBeenCalled()
+    })
+
     it('closes on the palette chord from a command’s value step', async () => {
       seed()
       const outside = keysOutside()
@@ -1303,6 +1411,139 @@ describe('CommandPalette', () => {
       expect(screen.queryByRole('option', { name: /Search text in files/ })).toBeNull()
       expect(headings()).not.toContain('Settings')
       expect(window.ostia.search.run).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Escape', () => {
+    afterEach(() => act(() => commands.unregister('test.escape-card')))
+
+    const closedByEscape = async (state: string): Promise<void> => {
+      await userEvent.keyboard('{Escape}')
+      expect(useUIStore.getState().paletteOpen, state).toBe(false)
+      await waitFor(() => expect(screen.queryByRole('combobox'), state).toBeNull())
+    }
+
+    it.each(['>', '', '@', '#', '/', '%', '?'])(
+      'Escape closes the palette from the %j prefix',
+      async (typed) => {
+        render(<CommandPalette />)
+        act(() => useUIStore.getState().openPalette('search', typed))
+        const input = await screen.findByRole('combobox')
+        await waitFor(() => expect(input).toHaveValue(typed))
+        await waitFor(() => expect(input).toHaveFocus())
+        await closedByEscape(`prefix "${typed}"`)
+      },
+    )
+
+    it('Escape closes Search Everywhere after typing', async () => {
+      render(<CommandPalette />)
+      act(() => useUIStore.getState().openPalette('everywhere'))
+      await userEvent.type(await screen.findByRole('combobox'), 'needle')
+      await closedByEscape('Search Everywhere after typing')
+    })
+
+    it('Escape closes the palette from a command’s value step', async () => {
+      render(<CommandPalette />)
+      act(() => {
+        commands.register<{ argument?: string }, void>({
+          id: 'test.escape-card',
+          title: 'Test: Escape Card',
+          argument: 'Card id',
+          run: vi.fn(),
+        })
+        useUIStore.getState().openPalette('search')
+      })
+      await userEvent.click(await screen.findByRole('option', { name: /Test: Escape Card/ }))
+      expect(screen.getByPlaceholderText('Card id')).toHaveFocus()
+      await closedByEscape('a command’s value step')
+    })
+
+    it('keeps the repeats of a held Escape from the window once it closed the palette, and lets the next press through', async () => {
+      const outside = vi.fn()
+      window.addEventListener('keydown', outside)
+      onTestFinished(() => window.removeEventListener('keydown', outside))
+      render(<CommandPalette />)
+      act(() => useUIStore.getState().openPalette('search'))
+      fireEvent.keyDown(await screen.findByRole('combobox'), { key: 'Escape', code: 'Escape' })
+      expect(useUIStore.getState().paletteOpen).toBe(false)
+      await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull())
+
+      outside.mockClear()
+      fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape', repeat: true })
+      fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape', repeat: true })
+      expect(outside).not.toHaveBeenCalled()
+
+      fireEvent.keyUp(document.body, { key: 'Escape', code: 'Escape' })
+      fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape' })
+      expect(outside).toHaveBeenCalledTimes(1)
+    })
+
+    it.each(['search', 'everywhere'] as const)(
+      'Escape while an input method is composing in the %s palette closes it, and the next Escape in a reopened palette closes it too',
+      async (mode) => {
+        render(<CommandPalette />)
+        act(() => useUIStore.getState().openPalette(mode))
+        const input = await screen.findByRole('combobox')
+        fireEvent.change(input, { target: { value: 'ni' } })
+        fireEvent.keyDown(input, { key: 'Process', code: 'Escape', keyCode: 229 })
+        expect(useUIStore.getState().paletteOpen).toBe(false)
+        await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull())
+
+        act(() => useUIStore.getState().openPalette(mode))
+        const reopened = await screen.findByRole('combobox')
+        expect(reopened).not.toHaveValue(expect.stringMatching(/ni$/))
+        await waitFor(() => expect(reopened).toHaveFocus())
+        await closedByEscape(`${mode}, reopened`)
+      },
+    )
+  })
+
+  describe('focus after closing', () => {
+    let terminal: HTMLTextAreaElement
+
+    beforeEach(() => {
+      terminal = document.createElement('textarea')
+      document.body.append(terminal)
+      onTestFinished(() => terminal.remove())
+      terminal.focus()
+      const first = newTerminalPane()
+      const second = newTerminalPane()
+      useWorkspacesStore.setState({ activeWorkspaceId: 'w' })
+      const layout = (pane: typeof first) => ({
+        byWorkspace: { w: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+      })
+      useLayoutStore.setState(layout(first))
+      onTestFinished(() => useLayoutStore.setState(layout(second)))
+    })
+
+    const switchPane = (): void => {
+      const pane = newTerminalPane()
+      useLayoutStore.setState({
+        byWorkspace: { w: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+      })
+    }
+
+    const closers: [string, () => Promise<void> | void][] = [
+      ['Escape', () => userEvent.keyboard('{Escape}')],
+      ['the palette chord', () => act(() => useUIStore.getState().togglePalette())],
+    ]
+
+    it.each(closers)('%s returns focus when the keyboard pane is unchanged', async (_, close) => {
+      render(<CommandPalette />)
+      act(() => useUIStore.getState().openPalette())
+      await screen.findByRole('combobox')
+      await close()
+      await waitFor(() => expect(terminal).toHaveFocus())
+    })
+
+    it.each(closers)('%s leaves focus alone when the keyboard pane changed', async (_, close) => {
+      render(<CommandPalette />)
+      act(() => useUIStore.getState().openPalette())
+      await screen.findByRole('combobox')
+      act(switchPane)
+      await close()
+      await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull())
+      expect(terminal).not.toHaveFocus()
     })
   })
 })

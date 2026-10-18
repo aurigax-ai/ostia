@@ -11,10 +11,10 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { ExtensionOpenDiffRequest } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { en, zhHant } from '../../shared/app/dict'
 import { DEFAULT_GIT_SETTINGS, type GitSettings } from '../../shared/boards/git'
-import type { ExtensionOpenDiffRequest } from '../../shared/extensions'
 import { type DiscardPrompt, type GitCaller, GitCommands } from './commands'
 import { ViewStateStore } from './viewState'
 

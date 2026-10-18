@@ -1,11 +1,7 @@
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { plainBlock } from '../../shared/agents/questions'
-import type { Capability } from '../../shared/capabilities'
-import type {
-  CommandDescriptor,
-  CommandResult,
-  CommandTarget,
-  TerminalStateSnapshot,
-} from '../../shared/types'
+import type { CommandDescriptor, CommandResult, CommandTarget } from '../../shared/control/commands'
+import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { Ask, AskAnswerResult } from '../approvals/asks'
 import { internalPaneArgs } from '../control/commandArgs'
 import { resolveExternal } from '../control/idRegistry'
@@ -139,6 +135,193 @@ function agentPaneOf(paneId: unknown, deps: GatewayControlDeps): string | RpcOut
   return identity.paneId
 }
 
+interface GatewayCall {
+  p: Record<string, unknown>
+  deviceCaps: string[]
+  deps: GatewayControlDeps
+  hasCap: (cap: string) => boolean
+}
+
+async function sessionList(call: GatewayCall): Promise<RpcOutcome> {
+  const { deps, hasCap } = call
+  if (!hasCap('read')) return needsElevation('read')
+  const [workspaces, groups] = await Promise.all([
+    deps.listWorkspaces(),
+    deps.listWorkspaceGroups(),
+  ])
+  const groupNames = new Map(groups.map((g) => [g.groupId, g.name]))
+  return {
+    ok: true,
+    result: { sessions: workspaces.map((w) => toWireSession(w, groupNames)) },
+  }
+}
+
+async function paneList(call: GatewayCall): Promise<RpcOutcome> {
+  const { deps, hasCap } = call
+  if (!hasCap('read')) return needsElevation('read')
+  return { ok: true, result: { panes: (await deps.listPanes()).map(toWirePane) } }
+}
+
+async function commandList(call: GatewayCall): Promise<RpcOutcome> {
+  const { deps, hasCap } = call
+  if (!hasCap('read')) return needsElevation('read')
+  const windowId = deps.primaryWindowId()
+  return { ok: true, result: { commands: windowId ? deps.listCommandsFor(windowId) : [] } }
+}
+
+async function commandExec(call: GatewayCall): Promise<RpcOutcome> {
+  const { p, deps, hasCap, deviceCaps } = call
+  if (!hasCap('command')) return needsElevation('command')
+  const id = p.id
+  if (typeof id !== 'string' || !id) return invalidParams('missing command id')
+  const windowId = deps.primaryWindowId()
+  const descriptors = windowId ? deps.listCommandsFor(windowId) : []
+  const desc = descriptors.find((d) => d.id === id)
+  if (!desc) {
+    return {
+      ok: true,
+      result: {
+        ok: false,
+        error: { code: 'unknown-command', message: `unknown command '${id}'` },
+      },
+    }
+  }
+  const missing = missingCapForPhone(desc, deviceCaps)
+  if (missing) return needsElevation(missing)
+  const target = resolveTarget(p.target, windowId)
+  if (!target) return invalidParams('unknown pane target')
+  const translated = internalPaneArgs(p.args)
+  if (!translated.ok) return invalidParams(translated.error)
+  return { ok: true, result: await deps.execCommand(target, id, translated.args) }
+}
+
+async function paneInfo(call: GatewayCall): Promise<RpcOutcome> {
+  const { p, deps, hasCap } = call
+  if (!hasCap('read')) return needsElevation('read')
+  const paneId = p.paneId
+  if (typeof paneId !== 'string' || !paneId) return invalidParams('missing paneId')
+  const identity = resolveExternal(paneId)
+  if (!identity) return invalidParams('unknown paneId')
+  const state = deps.getTerminalState(identity.paneId)
+  return {
+    ok: true,
+    result: {
+      paneId,
+      generation: state?.generation ?? 0,
+      cwd: state?.cwd,
+      running: state?.running ?? false,
+      blockCount: state?.blockCount ?? 0,
+      lastExitCode: state?.lastExitCode,
+    },
+  }
+}
+
+async function cwdGet(call: GatewayCall): Promise<RpcOutcome> {
+  const { p, deps, hasCap } = call
+  if (!hasCap('read')) return needsElevation('read')
+  const paneId = p.paneId
+  if (typeof paneId !== 'string' || !paneId) return invalidParams('missing paneId')
+  const identity = resolveExternal(paneId)
+  const cwd = identity ? (deps.getTerminalState(identity.paneId)?.cwd ?? null) : null
+  return { ok: true, result: { cwd } }
+}
+
+async function fsList(call: GatewayCall): Promise<RpcOutcome> {
+  const { p, deps, hasCap } = call
+  if (!hasCap('read')) return needsElevation('read')
+  const folder = await workspaceFolder(p, deps)
+  if ('ok' in folder) return folder
+  const root = fileRootOf(p.root)
+  if (!root) return invalidParams('invalid-root')
+  if (root === 'artifacts') {
+    const dir = deps.artifactsDir(folder.workspaceId)
+    if (!dir) return invalidParams('not-found')
+    return fileOutcome(await listArtifactFiles(dir, folder.path), (entries) => ({ entries }))
+  }
+  const scope = deps.fileScope(folder.workspaceId)
+  return fileOutcome(await listWorkspaceFiles(folder.workDir, folder.path, scope), (entries) => ({
+    entries,
+  }))
+}
+
+async function fsRead(call: GatewayCall): Promise<RpcOutcome> {
+  const { p, deps, hasCap } = call
+  if (!hasCap('read')) return needsElevation('read')
+  const folder = await workspaceFolder(p, deps)
+  if ('ok' in folder) return folder
+  const root = fileRootOf(p.root)
+  if (!root) return invalidParams('invalid-root')
+  if (root === 'artifacts') {
+    const dir = deps.artifactsDir(folder.workspaceId)
+    if (!dir) return invalidParams('not-found')
+    return fileOutcome(
+      await readArtifactFile(dir, folder.path, p.maxBytes, p.offset),
+      (read) => read,
+    )
+  }
+  const scope = deps.fileScope(folder.workspaceId)
+  return fileOutcome(
+    await readWorkspaceFile(folder.workDir, folder.path, p.maxBytes, scope, p.offset),
+    (read) => read,
+  )
+}
+
+async function artifactOpen(call: GatewayCall): Promise<RpcOutcome> {
+  const { p, deps, hasCap } = call
+  if (!hasCap('command')) return needsElevation('command')
+  const folder = await workspaceFolder(p, deps)
+  if ('ok' in folder) return folder
+  const dir = deps.artifactsDir(folder.workspaceId)
+  if (!dir) return invalidParams('not-found')
+  const located = await locateArtifactFile(dir, folder.path)
+  if (!located.ok) return invalidParams(located.error)
+  const opened = await deps.openArtifact(folder.workspaceId, located.value)
+  return opened ? { ok: true, result: { ok: true } } : invalidParams('unknown-session')
+}
+
+async function askList(call: GatewayCall): Promise<RpcOutcome> {
+  const { deps, hasCap } = call
+  if (!hasCap('read')) return needsElevation('read')
+  return { ok: true, result: { asks: deps.listAsks() } }
+}
+
+async function askAnswer(call: GatewayCall): Promise<RpcOutcome> {
+  const { p, deps, hasCap } = call
+  if (!hasCap('respond')) return needsElevation('respond')
+  if (typeof p.askId !== 'string' || !p.askId) return invalidParams('missing askId')
+  const answered = deps.answerAsk(p.askId, p.choiceId, p.text)
+  return answered === 'ok' ? { ok: true, result: { ok: true } } : invalidParams(answered)
+}
+
+async function agentPrompt(call: GatewayCall): Promise<RpcOutcome> {
+  const { p, deps, hasCap } = call
+  if (!hasCap('respond')) return needsElevation('respond')
+  const paneId = agentPaneOf(p.paneId, deps)
+  if (typeof paneId !== 'string') return paneId
+  if (typeof p.text !== 'string') return invalidParams('missing text')
+  const text = plainBlock(p.text).slice(0, PHONE_PROMPT_MAX)
+  if (!text) return invalidParams('missing text')
+  deps.ptyWrite(paneId, bracketedPaste(text))
+  setTimeout(() => {
+    if (deps.agentRunning(paneId)) deps.ptyWrite(paneId, '\r')
+  }, AGENT_ENTER_DELAY_MS)
+  return { ok: true, result: { ok: true } }
+}
+
+async function agentInterrupt(call: GatewayCall): Promise<RpcOutcome> {
+  const { p, deps, hasCap } = call
+  if (!hasCap('respond')) return needsElevation('respond')
+  const paneId = agentPaneOf(p.paneId, deps)
+  if (typeof paneId !== 'string') return paneId
+  const key =
+    typeof p.key === 'string' && Object.hasOwn(INTERRUPT_KEYS, p.key)
+      ? INTERRUPT_KEYS[p.key]
+      : undefined
+  if (!key) return invalidParams('unknown key')
+  deps.ptyWrite(paneId, key)
+  return { ok: true, result: { ok: true } }
+}
+
 export async function dispatchGatewayMethod(
   method: string,
   params: unknown,
@@ -147,177 +330,47 @@ export async function dispatchGatewayMethod(
 ): Promise<RpcOutcome> {
   const p = (params ?? {}) as Record<string, unknown>
   const hasCap = (cap: string): boolean => deviceCaps.includes(cap)
+  const call: GatewayCall = { p, deviceCaps, deps, hasCap }
 
   switch (method) {
-    case 'session.list': {
-      if (!hasCap('read')) return needsElevation('read')
-      const [workspaces, groups] = await Promise.all([
-        deps.listWorkspaces(),
-        deps.listWorkspaceGroups(),
-      ])
-      const groupNames = new Map(groups.map((g) => [g.groupId, g.name]))
-      return {
-        ok: true,
-        result: { sessions: workspaces.map((w) => toWireSession(w, groupNames)) },
-      }
-    }
+    case 'session.list':
+      return sessionList(call)
 
-    case 'pane.list': {
-      if (!hasCap('read')) return needsElevation('read')
-      return { ok: true, result: { panes: (await deps.listPanes()).map(toWirePane) } }
-    }
+    case 'pane.list':
+      return paneList(call)
 
-    case 'command.list': {
-      if (!hasCap('read')) return needsElevation('read')
-      const windowId = deps.primaryWindowId()
-      return { ok: true, result: { commands: windowId ? deps.listCommandsFor(windowId) : [] } }
-    }
+    case 'command.list':
+      return commandList(call)
 
-    case 'command.exec': {
-      if (!hasCap('command')) return needsElevation('command')
-      const id = p.id
-      if (typeof id !== 'string' || !id) return invalidParams('missing command id')
-      const windowId = deps.primaryWindowId()
-      const descriptors = windowId ? deps.listCommandsFor(windowId) : []
-      const desc = descriptors.find((d) => d.id === id)
-      if (!desc) {
-        return {
-          ok: true,
-          result: {
-            ok: false,
-            error: { code: 'unknown-command', message: `unknown command '${id}'` },
-          },
-        }
-      }
-      const missing = missingCapForPhone(desc, deviceCaps)
-      if (missing) return needsElevation(missing)
-      const target = resolveTarget(p.target, windowId)
-      if (!target) return invalidParams('unknown pane target')
-      const translated = internalPaneArgs(p.args)
-      if (!translated.ok) return invalidParams(translated.error)
-      return { ok: true, result: await deps.execCommand(target, id, translated.args) }
-    }
+    case 'command.exec':
+      return commandExec(call)
 
-    case 'pane.info': {
-      if (!hasCap('read')) return needsElevation('read')
-      const paneId = p.paneId
-      if (typeof paneId !== 'string' || !paneId) return invalidParams('missing paneId')
-      const identity = resolveExternal(paneId)
-      if (!identity) return invalidParams('unknown paneId')
-      const state = deps.getTerminalState(identity.paneId)
-      return {
-        ok: true,
-        result: {
-          paneId,
-          generation: state?.generation ?? 0,
-          cwd: state?.cwd,
-          running: state?.running ?? false,
-          blockCount: state?.blockCount ?? 0,
-          lastExitCode: state?.lastExitCode,
-        },
-      }
-    }
+    case 'pane.info':
+      return paneInfo(call)
 
-    case 'cwd.get': {
-      if (!hasCap('read')) return needsElevation('read')
-      const paneId = p.paneId
-      if (typeof paneId !== 'string' || !paneId) return invalidParams('missing paneId')
-      const identity = resolveExternal(paneId)
-      const cwd = identity ? (deps.getTerminalState(identity.paneId)?.cwd ?? null) : null
-      return { ok: true, result: { cwd } }
-    }
+    case 'cwd.get':
+      return cwdGet(call)
 
-    case 'fs.list': {
-      if (!hasCap('read')) return needsElevation('read')
-      const folder = await workspaceFolder(p, deps)
-      if ('ok' in folder) return folder
-      const root = fileRootOf(p.root)
-      if (!root) return invalidParams('invalid-root')
-      if (root === 'artifacts') {
-        const dir = deps.artifactsDir(folder.workspaceId)
-        if (!dir) return invalidParams('not-found')
-        return fileOutcome(await listArtifactFiles(dir, folder.path), (entries) => ({ entries }))
-      }
-      const scope = deps.fileScope(folder.workspaceId)
-      return fileOutcome(
-        await listWorkspaceFiles(folder.workDir, folder.path, scope),
-        (entries) => ({
-          entries,
-        }),
-      )
-    }
+    case 'fs.list':
+      return fsList(call)
 
-    case 'fs.read': {
-      if (!hasCap('read')) return needsElevation('read')
-      const folder = await workspaceFolder(p, deps)
-      if ('ok' in folder) return folder
-      const root = fileRootOf(p.root)
-      if (!root) return invalidParams('invalid-root')
-      if (root === 'artifacts') {
-        const dir = deps.artifactsDir(folder.workspaceId)
-        if (!dir) return invalidParams('not-found')
-        return fileOutcome(
-          await readArtifactFile(dir, folder.path, p.maxBytes, p.offset),
-          (read) => read,
-        )
-      }
-      const scope = deps.fileScope(folder.workspaceId)
-      return fileOutcome(
-        await readWorkspaceFile(folder.workDir, folder.path, p.maxBytes, scope, p.offset),
-        (read) => read,
-      )
-    }
+    case 'fs.read':
+      return fsRead(call)
 
-    case 'artifact.open': {
-      if (!hasCap('command')) return needsElevation('command')
-      const folder = await workspaceFolder(p, deps)
-      if ('ok' in folder) return folder
-      const dir = deps.artifactsDir(folder.workspaceId)
-      if (!dir) return invalidParams('not-found')
-      const located = await locateArtifactFile(dir, folder.path)
-      if (!located.ok) return invalidParams(located.error)
-      const opened = await deps.openArtifact(folder.workspaceId, located.value)
-      return opened ? { ok: true, result: { ok: true } } : invalidParams('unknown-session')
-    }
+    case 'artifact.open':
+      return artifactOpen(call)
 
-    case 'ask.list': {
-      if (!hasCap('read')) return needsElevation('read')
-      return { ok: true, result: { asks: deps.listAsks() } }
-    }
+    case 'ask.list':
+      return askList(call)
 
-    case 'ask.answer': {
-      if (!hasCap('respond')) return needsElevation('respond')
-      if (typeof p.askId !== 'string' || !p.askId) return invalidParams('missing askId')
-      const answered = deps.answerAsk(p.askId, p.choiceId, p.text)
-      return answered === 'ok' ? { ok: true, result: { ok: true } } : invalidParams(answered)
-    }
+    case 'ask.answer':
+      return askAnswer(call)
 
-    case 'agent.prompt': {
-      if (!hasCap('respond')) return needsElevation('respond')
-      const paneId = agentPaneOf(p.paneId, deps)
-      if (typeof paneId !== 'string') return paneId
-      if (typeof p.text !== 'string') return invalidParams('missing text')
-      const text = plainBlock(p.text).slice(0, PHONE_PROMPT_MAX)
-      if (!text) return invalidParams('missing text')
-      deps.ptyWrite(paneId, bracketedPaste(text))
-      setTimeout(() => {
-        if (deps.agentRunning(paneId)) deps.ptyWrite(paneId, '\r')
-      }, AGENT_ENTER_DELAY_MS)
-      return { ok: true, result: { ok: true } }
-    }
+    case 'agent.prompt':
+      return agentPrompt(call)
 
-    case 'agent.interrupt': {
-      if (!hasCap('respond')) return needsElevation('respond')
-      const paneId = agentPaneOf(p.paneId, deps)
-      if (typeof paneId !== 'string') return paneId
-      const key =
-        typeof p.key === 'string' && Object.hasOwn(INTERRUPT_KEYS, p.key)
-          ? INTERRUPT_KEYS[p.key]
-          : undefined
-      if (!key) return invalidParams('unknown key')
-      deps.ptyWrite(paneId, key)
-      return { ok: true, result: { ok: true } }
-    }
+    case 'agent.interrupt':
+      return agentInterrupt(call)
 
     default:
       return { ok: false, code: -32601, message: `method not found: ${method}` }

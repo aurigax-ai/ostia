@@ -1,0 +1,66 @@
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.screens {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.screen {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--surface-2);
+  border-radius: 4px;
+}
+
+.screen .id {
+  font-family: var(--font-code);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.view {
+  flex: 1;
+  min-height: 0;
+  margin: 0 12px 12px;
+  background: var(--surface-2);
+}
+
+.badge {
+  padding: 0 6px;
+  color: var(--fg);
+  background: var(--surface-3);
+  border-radius: 4px;
+}
+
+.view:empty {
+  display: none;
+}
+
+.alpha {
+  color: var(--fg-muted);
+}

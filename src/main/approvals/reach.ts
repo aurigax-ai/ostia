@@ -39,7 +39,6 @@ export interface ReachDeps {
 export interface ScriptReach {
   covers: (workspaceId: string) => boolean
   hasGroup: (groupId: string) => boolean
-  confirmedGroup: (workspaceId: string) => string | undefined
   groupNamed: (name: unknown) => string | undefined
   ownWorkspaces: boolean
 }
@@ -56,6 +55,86 @@ export interface Reach {
 }
 
 const NO_WORKSPACES: ReachListing = { workspaces: [], groups: [] }
+
+function confirmCard(
+  deps: ReachDeps,
+  mode: ReachMode,
+  workspaceId: string,
+  groups: ReachListing,
+): Pick<ApprovalAsk, 'kind' | 'subject' | 'detail'> {
+  if (mode === 'project') {
+    return {
+      kind: 'reach-project',
+      subject: deps.workDir(workspaceId) ?? workspaceId,
+      detail: `workspace ${workspaceId}`,
+    }
+  }
+  const entry = groups.workspaces.find((w) => w.workspaceId === workspaceId)
+  const group = groups.groups.find((g) => g.groupId === entry?.groupId)
+  return {
+    kind: 'reach-group',
+    subject: entry?.name ?? workspaceId,
+    detail: `workspace ${workspaceId} in group ${JSON.stringify(group?.name ?? '')}`,
+  }
+}
+
+function createScriptReach(deps: ReachDeps, groupsByAgent: AgentProvenance): Reach['scriptReach'] {
+  return async (ctx) => {
+    if (ctx.identity.kind !== 'script') return null
+    const view = deps.scriptScope?.(ctx.identity.externalId)
+    if (view?.scope.kind !== 'limited') return null
+    const { groups, workspaces, ownWorkspaces } = view.scope
+    const listed = await deps.workspaces().catch(() => NO_WORKSPACES)
+    const groupOf = (workspaceId: string): string | undefined =>
+      listed.workspaces.find((w) => w.workspaceId === workspaceId)?.groupId
+    const confirmedGroup = (workspaceId: string): string | undefined => {
+      const groupId = groupOf(workspaceId)
+      return groupId && !groupsByAgent.byAgent(workspaceId, groupId) ? groupId : undefined
+    }
+    const hasGroup = (groupId: string): boolean => groups.includes(groupId)
+    return {
+      covers: (workspaceId) => {
+        if (!workspaceId) return false
+        if (workspaces.includes(workspaceId)) return true
+        const own = ownWorkspaces && view.created.includes(workspaceId)
+        const groupId = own ? groupOf(workspaceId) : confirmedGroup(workspaceId)
+        return groupId !== undefined && hasGroup(groupId)
+      },
+      hasGroup,
+      groupNamed: (raw) => {
+        const name = normalizeGroupName(raw)
+        return name ? listed.groups.find((g) => g.name === name)?.groupId : undefined
+      },
+      ownWorkspaces,
+    }
+  }
+}
+
+function trackAgentMoves(
+  deps: ReachDeps,
+  groupsByAgent: AgentProvenance,
+  foldersByAgent: AgentProvenance,
+  publishAgentGroups: () => void,
+): Reach['byAgent'] {
+  return async <T>(run: () => Promise<T>): Promise<T> => {
+    const before = await deps.workspaces().catch(() => null)
+    try {
+      return await run()
+    } finally {
+      const after = await deps.workspaces().catch(() => null)
+      for (const w of after?.workspaces ?? []) {
+        const was = before?.workspaces.find((b) => b.workspaceId === w.workspaceId)
+        if (w.groupId && (!before || was?.groupId !== w.groupId)) {
+          groupsByAgent.setByAgent(w.workspaceId, w.groupId)
+        }
+        if (!before || (was && was.workDir !== w.workDir)) {
+          foldersByAgent.setByAgent(w.workspaceId, w.workDir)
+        }
+      }
+      publishAgentGroups()
+    }
+  }
+}
 
 export function createReach(deps: ReachDeps): Reach {
   const groupsByAgent = new AgentProvenance()
@@ -90,27 +169,6 @@ export function createReach(deps: ReachDeps): Reach {
     }
   }
 
-  const confirmCard = (
-    mode: ReachMode,
-    workspaceId: string,
-    groups: ReachListing,
-  ): Pick<ApprovalAsk, 'kind' | 'subject' | 'detail'> => {
-    if (mode === 'project') {
-      return {
-        kind: 'reach-project',
-        subject: deps.workDir(workspaceId) ?? workspaceId,
-        detail: `workspace ${workspaceId}`,
-      }
-    }
-    const entry = groups.workspaces.find((w) => w.workspaceId === workspaceId)
-    const group = groups.groups.find((g) => g.groupId === entry?.groupId)
-    return {
-      kind: 'reach-group',
-      subject: entry?.name ?? workspaceId,
-      detail: `workspace ${workspaceId} in group ${JSON.stringify(group?.name ?? '')}`,
-    }
-  }
-
   const confirmMember = async (
     ctx: ReachCaller,
     mode: ReachMode,
@@ -126,7 +184,7 @@ export function createReach(deps: ReachDeps): Reach {
       workspaceId: me.workspaceId,
       caps: [],
       action: 'reach',
-      ...confirmCard(mode, workspaceId, groups),
+      ...confirmCard(deps, mode, workspaceId, groups),
     })
     if (!pending || (await pending) !== 'workspace') return false
     ;(mode === 'project' ? foldersByAgent : groupsByAgent).confirm(workspaceId)
@@ -134,37 +192,7 @@ export function createReach(deps: ReachDeps): Reach {
     return true
   }
 
-  const scriptReach = async (ctx: ReachCaller): Promise<ScriptReach | null> => {
-    if (ctx.identity.kind !== 'script') return null
-    const view = deps.scriptScope?.(ctx.identity.externalId)
-    if (view?.scope.kind !== 'limited') return null
-    const { groups, workspaces, ownWorkspaces } = view.scope
-    const listed = await deps.workspaces().catch(() => NO_WORKSPACES)
-    const groupOf = (workspaceId: string): string | undefined =>
-      listed.workspaces.find((w) => w.workspaceId === workspaceId)?.groupId
-    const confirmedGroup = (workspaceId: string): string | undefined => {
-      const groupId = groupOf(workspaceId)
-      return groupId && !groupsByAgent.byAgent(workspaceId, groupId) ? groupId : undefined
-    }
-    const hasGroup = (groupId: string): boolean => groups.includes(groupId)
-    return {
-      covers: (workspaceId) => {
-        if (!workspaceId) return false
-        if (workspaces.includes(workspaceId)) return true
-        const own = ownWorkspaces && view.created.includes(workspaceId)
-        const groupId = own ? groupOf(workspaceId) : confirmedGroup(workspaceId)
-        return groupId !== undefined && hasGroup(groupId)
-      },
-      hasGroup,
-      confirmedGroup,
-      groupNamed: (raw) => {
-        const name = normalizeGroupName(raw)
-        return name ? listed.groups.find((g) => g.name === name)?.groupId : undefined
-      },
-      ownWorkspaces,
-    }
-  }
-
+  const scriptReach = createScriptReach(deps, groupsByAgent)
   const inScope = async (ctx: ReachCaller, workspaceId: string): Promise<boolean> => {
     if (ctx.identity.kind === 'script') {
       return (await scriptReach(ctx))?.covers(workspaceId) ?? false
@@ -208,25 +236,7 @@ export function createReach(deps: ReachDeps): Reach {
       caller !== null && sameReachScope(caller, factsOf(workspaceId, groups), mode)
   }
 
-  const byAgent = async <T>(run: () => Promise<T>): Promise<T> => {
-    const before = await deps.workspaces().catch(() => null)
-    try {
-      return await run()
-    } finally {
-      const after = await deps.workspaces().catch(() => null)
-      for (const w of after?.workspaces ?? []) {
-        const was = before?.workspaces.find((b) => b.workspaceId === w.workspaceId)
-        if (w.groupId && (!before || was?.groupId !== w.groupId)) {
-          groupsByAgent.setByAgent(w.workspaceId, w.groupId)
-        }
-        if (!before || (was && was.workDir !== w.workDir)) {
-          foldersByAgent.setByAgent(w.workspaceId, w.workDir)
-        }
-      }
-      publishAgentGroups()
-    }
-  }
-
+  const byAgent = trackAgentMoves(deps, groupsByAgent, foldersByAgent, publishAgentGroups)
   return {
     inScope,
     ensure,

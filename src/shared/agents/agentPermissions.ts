@@ -1,3 +1,4 @@
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import {
   QUESTION_CONTEXT_MAX,
   QUESTION_MAX,
@@ -81,12 +82,11 @@ function rawDetail(toolInput: unknown): string {
 }
 
 export function permissionDetail(toolInput: unknown): string {
-  if (typeof toolInput === 'object' && toolInput !== null && !Array.isArray(toolInput)) {
-    const input = toolInput as Record<string, unknown>
-    const command = stringField(input, 'command')
+  if (isRecord(toolInput)) {
+    const command = stringField(toolInput, 'command')
     if (command !== null) return command
-    const path = stringField(input, 'file_path') ?? stringField(input, 'path')
-    if (path !== null) return editDetail(input, path)
+    const path = stringField(toolInput, 'file_path') ?? stringField(toolInput, 'path')
+    if (path !== null) return editDetail(toolInput, path)
   }
   return rawDetail(toolInput)
 }

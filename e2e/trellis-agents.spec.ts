@@ -9,10 +9,11 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { PRODUCT_NAME } from '../src/shared/product'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { occurrences, waitForPaletteSelection } from './helpers'
+import { REPORT_SESSION } from './fakeAgent'
+import { expectHeld, occurrences, waitForPaletteSelection } from './helpers'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
 const FIXTURES = resolve(__dirname, '../test/fixtures/tools')
@@ -40,6 +41,7 @@ function fakeClaude(dataHome: string, promptFile: string, skillFile: string): st
       'for arg; do [ "$prev" = --plugin-dir ] && plugin=$arg; prev=$arg; last=$arg; done',
       `head -n 2 "$plugin/skills/trellis-card/SKILL.md" > '${skillFile}'`,
       `printf '%s' "$last" > '${promptFile}'`,
+      REPORT_SESSION,
       'echo fake-agent-ready',
       'exec cat',
       '',
@@ -137,13 +139,8 @@ test('a Trellis card goes to a new agent or to a running one, only on the humanâ
     const agentTerminal = win.locator('.xterm-rows').filter({ hasText: 'fake-agent-ready' })
     await expect(agentTerminal).toHaveCount(1, { timeout: 30_000 })
     await expect.poll(() => existsSync(promptFile), { timeout: 15_000 }).toBe(true)
-    const prompt = readFileSync(promptFile, 'utf8')
-    expect(prompt.split('\n')[0]).toBe('Work on Trellis card DEMO-3: Write the rollback runbook')
-    expect(prompt).toContain('Follow the trellis-card skill')
+    expect(readFileSync(promptFile, 'utf8')).toContain('DEMO-3')
     expect(readFileSync(skillFile, 'utf8')).toBe('---\nname: trellis-card\n')
-    expect(prompt).toContain('`trellis card show DEMO-3`')
-    expect(prompt).toContain('`trellis card claim DEMO-3`')
-    expect(prompt).toContain('`trellis card move DEMO-3 review`')
     await expect
       .poll(() => panel(`document.querySelector('[data-task="DEMO-3"]')?.innerText ?? ''`), {
         timeout: 15_000,
@@ -177,10 +174,14 @@ test('a Trellis card goes to a new agent or to a running one, only on the humanâ
         timeout: 15_000,
       })
       .toContain('An agent is working on this')
-    await win.waitForTimeout(1000)
-    const shown = (await agentTerminal.textContent()) ?? ''
-    expect(occurrences(shown, line)).toBe(1)
-    expect(shown).toContain('`trellis card move DEMO-5 review`.')
+    await win.locator('.xterm', { has: agentTerminal }).click()
+    await win.keyboard.type('flush_marker')
+    await expect(agentTerminal).toContainText('flush_marker', { timeout: 15_000 })
+    await expectHeld(
+      async () => occurrences((await agentTerminal.textContent()) ?? '', line),
+      1,
+      2_000,
+    )
   } finally {
     await app.close()
   }

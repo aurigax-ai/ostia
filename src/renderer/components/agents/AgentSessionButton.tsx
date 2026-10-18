@@ -2,10 +2,10 @@ import { IconButton } from '@/components/common/IconButton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { fmt, useDict } from '@/i18n/useDict'
-import type { PaneNode } from '@/layout/types'
 import { type AgentSession, agentSession } from '@/lib/agents/agentSession'
-import { commandAgent } from '@/lib/agents/hibernation'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { useNow } from '@/lib/app/useNow'
+import type { PaneNode } from '@/lib/layout/types'
 import { formatDuration } from '@/lib/prompt/promptChips'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
@@ -48,17 +48,6 @@ function contextLabel(info: AgentSessionInfo): string | null {
   return `${used} / ${formatTokens(info.contextWindow)} (${percent}%)`
 }
 
-function useNow(enabled: boolean): number {
-  const [now, setNow] = useState(Date.now)
-  useEffect(() => {
-    if (!enabled) return
-    setNow(Date.now())
-    const timer = setInterval(() => setNow(Date.now()), CLOCK_MS)
-    return () => clearInterval(timer)
-  }, [enabled])
-  return now
-}
-
 function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex min-w-0 flex-col">
@@ -80,18 +69,13 @@ export function usePaneAgentSession(pane: PaneNode): AgentSession | null {
     const marked = s.agentBlocks[pane.id]
     return marked?.blockId === blockId ? marked.agent : null
   })
-  return agentSession(
-    pane,
-    running,
-    attention,
-    running ? (commandAgent(running.command) ?? agent) : null,
-  )
+  return agentSession(pane, running, attention, running ? agent : null)
 }
 
 export function AgentSessionButton({ pane }: { pane: PaneNode }): JSX.Element | null {
   const d = useDict()
   const [open, setOpen] = useState(false)
-  const now = useNow(open)
+  const now = useNow(CLOCK_MS, open)
   const session = usePaneAgentSession(pane)
   const info = useSessionInfo(session?.resume ?? null, open)
   if (!session) return null

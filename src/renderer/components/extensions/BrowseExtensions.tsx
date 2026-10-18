@@ -1,11 +1,16 @@
+import { Notice } from '@/components/common/Notice'
 import { TextLink } from '@/components/common/TextLink'
-import { SectionHead, SelectField, WarningNote } from '@/components/settings/SettingsPanel'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
+import { SettingsGroup, SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
+import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
-import { Separator } from '@/components/ui/separator'
-import { fmt, useDict, withProductName } from '@/i18n/useDict'
+import { fmt, useDict, withProductName } from '@/lib/app/useDict'
 import {
   BROWSE_FILTERS,
   type BrowseChip,
@@ -21,15 +26,16 @@ import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
+import type { ExtensionCategory } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { MagnifyingGlassIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
-import type { ExtensionCategory } from '@shared/extensions'
 import type { MarketplaceExtension } from '@shared/extensions/marketplace'
 import { useMemo, useState } from 'react'
 import {
   MarketplaceFailureNote,
-  MarketplacesPanel,
+  MarketplacesGroup,
   UninstallExtensionButton,
+  marketplaceName,
   useMarketplaceList,
 } from './MarketplaceSection'
 import { extensionIcon } from './extensionIcons'
@@ -80,11 +86,9 @@ function openInExtensions(extId: string): void {
 
 function EntryAction({
   entry,
-  size,
   onInstalled,
 }: {
   entry: BrowseEntry
-  size: 'xs' | 'sm'
   onInstalled: (extId: string) => void
 }): JSX.Element | null {
   const d = useDict()
@@ -97,70 +101,22 @@ function EntryAction({
   switch (ext.state) {
     case 'available':
       return (
-        <Button variant="outline" size={size} disabled={busy} onClick={() => void runInstall()}>
+        <Button variant="outline" size="sm" disabled={busy} onClick={() => void runInstall()}>
           {d.marketplace.install}
         </Button>
       )
     case 'update':
       return (
-        <Button size={size} disabled={busy} onClick={() => void runInstall()}>
-          {size === 'xs'
-            ? d.extensionsBrowse.updateShort
-            : fmt(d.marketplace.update, { version: ext.version })}
+        <Button size="sm" disabled={busy} onClick={() => void runInstall()}>
+          {d.extensionsBrowse.updateShort}
         </Button>
       )
     case 'installed':
-      return <UninstallExtensionButton extId={ext.id} name={ext.name} size={size} />
+      return <UninstallExtensionButton extId={ext.id} name={ext.name} />
     case 'replace':
     case 'conflict':
       return null
   }
-}
-
-function ResultRow({
-  entry,
-  selected,
-  onSelect,
-  onInstalled,
-}: {
-  entry: BrowseEntry
-  selected: boolean
-  onSelect: () => void
-  onInstalled: (extId: string) => void
-}): JSX.Element {
-  const { ext, marketplace } = entry
-  const Icon = extensionIcon(ext.icon)
-  return (
-    <li
-      aria-label={ext.name}
-      data-selected={selected || undefined}
-      className="flex items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-surface-2 data-[selected]:bg-surface-2"
-    >
-      <button
-        type="button"
-        aria-label={ext.name}
-        aria-current={selected || undefined}
-        onClick={onSelect}
-        className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
-      >
-        <Icon aria-hidden className="size-4 shrink-0 text-fg-muted" />
-        <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-2">
-            <span className="truncate text-fg text-ui-sm">{ext.name}</span>
-            <StateChip ext={ext} />
-          </span>
-          <span className="block truncate text-fg-muted text-ui-xs">
-            {[firstSentence(withProductName(ext.description)), marketplace.name]
-              .filter(Boolean)
-              .join(' · ')}
-          </span>
-        </span>
-      </button>
-      <div className="shrink-0">
-        <EntryAction entry={entry} size="xs" onInstalled={onInstalled} />
-      </div>
-    </li>
-  )
 }
 
 function EntryDetails({
@@ -174,38 +130,15 @@ function EntryDetails({
   const busy = useMarketplaceStore((s) => s.busy)
   const install = useMarketplaceStore((s) => s.install)
   const { ext, marketplace } = entry
-  const Icon = extensionIcon(ext.icon)
   const replace = async (): Promise<void> => {
     if (await install(marketplace.id, ext.id)) onInstalled(ext.id)
   }
+  const description = withProductName(ext.description)
   return (
-    <section
-      aria-label={d.extensionsBrowse.details}
-      className="flex min-w-0 flex-col gap-3 rounded-sm border border-line p-3"
-    >
-      <div className="flex items-start gap-2.5">
-        <Icon aria-hidden className="mt-0.5 size-5 shrink-0 text-fg-muted" />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-medium text-fg text-ui-base">{ext.name}</h3>
-            <StateChip ext={ext} />
-          </div>
-          <p className="text-fg-muted text-ui-xs tabular-nums">
-            {ext.state === 'update' && ext.installedVersion
-              ? fmt(d.extensionsBrowse.versionChange, {
-                  installed: ext.installedVersion,
-                  offered: ext.version,
-                })
-              : fmt(d.extensionsBrowse.version, { version: ext.version })}
-            {' · '}
-            {fmt(d.extensionsBrowse.marketplace, { name: marketplace.name })}
-            {' · '}
-            {d.extensions.categories[ext.category]}
-          </p>
-        </div>
-      </div>
+    <>
+      {description ? <p className="mb-2 text-fg text-ui-sm">{description}</p> : null}
       {ext.state === 'conflict' ? (
-        <WarningNote
+        <Notice
           actions={
             <TextLink size="xs" onClick={() => openInExtensions(ext.id)}>
               {d.extensionsBrowse.showInstalled}
@@ -213,10 +146,10 @@ function EntryDetails({
           }
         >
           {d.marketplace.conflict}
-        </WarningNote>
+        </Notice>
       ) : null}
       {ext.state === 'replace' ? (
-        <WarningNote
+        <Notice
           actions={
             <TextLink size="xs" disabled={busy} onClick={() => void replace()}>
               {d.marketplace.replace}
@@ -224,53 +157,121 @@ function EntryDetails({
           }
         >
           {d.marketplace.orphaned}
-        </WarningNote>
+        </Notice>
       ) : null}
-      {ext.description ? (
-        <p className="text-fg text-ui-sm">{withProductName(ext.description)}</p>
-      ) : null}
-      <div className="flex flex-col gap-1">
-        <h4 className="font-medium text-fg text-ui-sm">{d.extensionsBrowse.permissions}</h4>
-        <p className="text-fg-muted text-ui-xs">
-          {ext.runsProcess ? d.marketplace.runsProcess : d.marketplace.dataOnly}
-        </p>
-        {ext.capabilities.length === 0 ? (
-          <p className="text-fg-muted text-ui-xs">{d.extensions.noPermissions}</p>
-        ) : (
-          <ul aria-label={d.extensionsBrowse.permissions} className="flex flex-col gap-1">
-            {ext.capabilities.map((cap) => (
-              <li key={cap} className="flex items-baseline gap-2 text-ui-xs">
-                <Badge variant="outline" className="shrink-0 font-mono text-ui-xs">
-                  {cap}
-                </Badge>
-                <span className="text-fg-muted">{d.extensions.capabilityAllows[cap] ?? cap}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <SettingsSubgroup title={d.extensions.groupDetails} />
+      <ControlRow label={d.extensions.version}>
+        <Value>
+          {ext.state === 'update' && ext.installedVersion
+            ? fmt(d.extensionsBrowse.versionChange, {
+                installed: ext.installedVersion,
+                offered: ext.version,
+              })
+            : ext.version}
+        </Value>
+      </ControlRow>
+      <ControlRow label={d.extensions.sourceLabel}>
+        <Value>
+          {fmt(d.extensions.sourceMarketplace, { name: marketplaceName(d, marketplace) })}
+        </Value>
+      </ControlRow>
+      <ControlRow label={d.extensions.categoryLabel}>
+        <Value>{d.extensions.categories[ext.category]}</Value>
+      </ControlRow>
+      <div className="mt-3" />
+      <SettingsSubgroup
+        title={d.extensions.permissions}
+        desc={ext.runsProcess ? d.marketplace.runsProcess : d.marketplace.dataOnly}
+      />
+      {ext.capabilities.length === 0 ? (
+        <p className="py-1.5 text-fg-muted text-ui-sm">{d.extensions.noPermissions}</p>
+      ) : (
+        ext.capabilities.map((cap) => (
+          <ControlRow key={cap} label={cap} desc={d.extensions.capabilityAllows[cap] ?? cap}>
+            <Badge variant="secondary" className="text-ui-xs">
+              {d.extensions.requested}
+            </Badge>
+          </ControlRow>
+        ))
+      )}
       {ext.agentSkills.length > 0 || ext.agentHooks.length > 0 ? (
-        <div className="flex flex-col gap-0.5">
-          <h4 className="font-medium text-fg text-ui-sm">{d.extensions.agentPluginTitle}</h4>
+        <>
+          <div className="mt-3" />
+          <SettingsSubgroup title={d.extensions.agentPluginTitle} />
           {ext.agentSkills.length > 0 ? (
-            <p className="text-fg-muted text-ui-xs">
+            <p className="py-1.5 text-fg-muted text-ui-sm">
               {fmt(d.extensions.agentSkillsList, { list: ext.agentSkills.join(', ') })}
             </p>
           ) : null}
           {ext.agentHooks.map((hook) => (
-            <p key={`${hook.event}:${hook.command}`} className="text-fg-muted text-ui-xs">
+            <p key={`${hook.event}:${hook.command}`} className="py-1.5 text-fg-muted text-ui-sm">
               {fmt(d.extensionsBrowse.agentHook, { event: hook.event, command: hook.command })}
             </p>
           ))}
-        </div>
+        </>
       ) : null}
-      <div className="flex flex-wrap items-center gap-2">
-        <EntryAction entry={entry} size="sm" onInstalled={onInstalled} />
-        {ext.state === 'update' ? (
+      {ext.state === 'update' ? (
+        <ControlRow label={d.marketplace.uninstall}>
           <UninstallExtensionButton extId={ext.id} name={ext.name} />
-        ) : null}
-      </div>
-    </section>
+        </ControlRow>
+      ) : null}
+    </>
+  )
+}
+
+function Value({ children }: { children: React.ReactNode }): JSX.Element {
+  return <span className="text-fg-muted text-ui-sm tabular-nums">{children}</span>
+}
+
+function ResultRow({
+  entry,
+  onInstalled,
+}: {
+  entry: BrowseEntry
+  onInstalled: (extId: string) => void
+}): JSX.Element {
+  const d = useDict()
+  const { ext, marketplace } = entry
+  const Icon = extensionIcon(ext.icon)
+  return (
+    <SettingsListRow
+      aria-label={ext.name}
+      lead={<Icon aria-hidden className="size-4" />}
+      title={ext.name}
+      meta={<StateChip ext={ext} />}
+      detail={
+        <span className="block truncate">
+          {[firstSentence(withProductName(ext.description)), marketplaceName(d, marketplace)]
+            .filter(Boolean)
+            .join(' · ')}
+        </span>
+      }
+      actions={<EntryAction entry={entry} onInstalled={onInstalled} />}
+      expandLabel={fmt(d.extensions.detailsOf, { name: ext.name })}
+      expanded={<EntryDetails entry={entry} onInstalled={onInstalled} />}
+    />
+  )
+}
+
+function splitProblem(problem: string): { id: string; reason: string } {
+  const at = problem.indexOf(': ')
+  return at < 0
+    ? { id: problem, reason: '' }
+    : { id: problem.slice(0, at), reason: problem.slice(at + 2) }
+}
+
+function NotCompatibleRow({ problems }: { problems: string[] }): JSX.Element {
+  const d = useDict()
+  return (
+    <SettingsListRow
+      title={fmt(d.extensionsBrowse.notCompatible, { count: problems.length })}
+      detail={d.extensionsBrowse.notCompatibleDesc}
+      expandLabel={d.extensionsBrowse.notCompatibleDetails}
+      expanded={problems.map((problem) => {
+        const { id, reason } = splitProblem(problem)
+        return <ControlRow key={problem} label={id} desc={reason || undefined} />
+      })}
+    />
   )
 }
 
@@ -300,81 +301,76 @@ export function BrowseExtensions(): JSX.Element {
   const [category, setCategory] = useState<ExtensionCategory | typeof ALL_CATEGORIES>(
     ALL_CATEGORIES,
   )
-  const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [installedId, setInstalledId] = useState<string | null>(null)
   const entries = useMemo(() => browseEntries(marketplaces), [marketplaces])
   const categories = useMemo(() => browseCategories(entries), [entries])
+  const problems = marketplaces.flatMap((m) => m.problems)
   const results = filterBrowseEntries(
     entries,
     { text, filter, category: category === ALL_CATEGORIES ? null : category },
     (c) => d.extensions.categories[c],
   )
-  const selected = results.find((e) => e.key === selectedKey) ?? results[0] ?? null
+  const empty =
+    entries.length === 0
+      ? marketplaces.some((m) => !m.downloaded)
+        ? d.extensionsBrowse.notDownloaded
+        : d.extensionsBrowse.noMarketplaces
+      : d.extensionsBrowse.noResults
 
   return (
-    <section aria-label={d.extensionsBrowse.title}>
-      <SectionHead title={d.extensionsBrowse.title} desc={d.extensionsBrowse.desc} />
+    <SettingsPage title={d.extensionsBrowse.title} desc={d.extensionsBrowse.desc}>
       <MarketplaceFailureNote />
       {installedId ? <InstalledNote extId={installedId} /> : null}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <InputGroup className="h-7 min-w-48 flex-1">
-          <InputGroupAddon>
-            <MagnifyingGlassIcon />
-          </InputGroupAddon>
-          <InputGroupInput
-            type="search"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={d.extensionsBrowse.searchPlaceholder}
-            aria-label={d.extensionsBrowse.search}
-          />
-        </InputGroup>
-        <ButtonGroup aria-label={d.extensionsBrowse.filters}>
-          {BROWSE_FILTERS.map((f) => (
-            <Button
-              key={f}
-              variant={filter === f ? 'secondary' : 'outline'}
-              size="sm"
-              aria-pressed={filter === f}
-              onClick={() => setFilter(f)}
-            >
-              {filterLabel(d, f)}
-            </Button>
-          ))}
-        </ButtonGroup>
-        <SelectField
-          value={category}
-          onChange={setCategory}
-          label={d.extensionsBrowse.category}
-          width="w-fit min-w-36"
-          options={[
-            { value: ALL_CATEGORIES, label: d.extensionsBrowse.allCategories },
-            ...categories.map((c) => ({ value: c, label: d.extensions.categories[c] })),
-          ]}
-        />
-      </div>
-      {entries.length === 0 ? (
-        <p className="text-fg-muted text-ui-sm">{d.extensionsBrowse.noMarketplaces}</p>
-      ) : results.length === 0 ? (
-        <p className="text-fg-muted text-ui-sm">{d.extensionsBrowse.noResults}</p>
-      ) : (
-        <div className="grid grid-cols-[minmax(0,5fr)_minmax(0,6fr)] items-start gap-4">
-          <ul aria-label={d.extensionsBrowse.results} className="flex flex-col gap-0.5">
-            {results.map((entry) => (
-              <ResultRow
-                key={entry.key}
-                entry={entry}
-                selected={entry.key === selected?.key}
-                onSelect={() => setSelectedKey(entry.key)}
-                onInstalled={setInstalledId}
-              />
+      <SettingsGroup title={d.extensionsBrowse.groupExtensions}>
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <InputGroup className="h-7 min-w-48 flex-1">
+            <InputGroupAddon>
+              <MagnifyingGlassIcon />
+            </InputGroupAddon>
+            <InputGroupInput
+              type="search"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder={d.extensionsBrowse.searchPlaceholder}
+              aria-label={d.extensionsBrowse.search}
+            />
+          </InputGroup>
+          <ButtonGroup aria-label={d.extensionsBrowse.filters}>
+            {BROWSE_FILTERS.map((f) => (
+              <Button
+                key={f}
+                variant={filter === f ? 'secondary' : 'outline'}
+                size="sm"
+                aria-pressed={filter === f}
+                onClick={() => setFilter(f)}
+              >
+                {filterLabel(d, f)}
+              </Button>
             ))}
-          </ul>
-          {selected ? <EntryDetails entry={selected} onInstalled={setInstalledId} /> : null}
+          </ButtonGroup>
+          <SelectField
+            value={category}
+            onChange={setCategory}
+            label={d.extensionsBrowse.category}
+            width="w-fit min-w-36"
+            options={[
+              { value: ALL_CATEGORIES, label: d.extensionsBrowse.allCategories },
+              ...categories.map((c) => ({ value: c, label: d.extensions.categories[c] })),
+            ]}
+          />
         </div>
-      )}
-      <Separator className="my-4" />
-      <MarketplacesPanel />
-    </section>
+        <SettingsList label={d.extensionsBrowse.results} empty={empty}>
+          {results.map((entry) => (
+            <ResultRow key={entry.key} entry={entry} onInstalled={setInstalledId} />
+          ))}
+        </SettingsList>
+        {problems.length > 0 ? (
+          <SettingsList label={d.extensionsBrowse.notCompatibleDetails} empty="">
+            <NotCompatibleRow problems={problems} />
+          </SettingsList>
+        ) : null}
+      </SettingsGroup>
+      <MarketplacesGroup />
+    </SettingsPage>
   )
 }

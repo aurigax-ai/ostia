@@ -1,6 +1,6 @@
-import { allPanes, findPane } from '@/layout/tree'
 import { type ReferenceTarget, sendReference } from '@/lib/agents/sendPick'
 import { openFileInWorkspace } from '@/lib/files/openFile'
+import { allPanes, findPane } from '@/lib/layout/tree'
 import { canTypeInto, insertCommand, runWhenIdle } from '@/lib/terminal/blockActions'
 import { isIdlePrompt } from '@/lib/terminal/blocks'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
@@ -131,22 +131,6 @@ export function looksLikeCommand(text: string): boolean {
 
 export function byteSize(text: string): number {
   return new TextEncoder().encode(text).length
-}
-
-export function formatSize(bytes: number, locale?: string): string {
-  if (bytes < 1024) {
-    return new Intl.NumberFormat(locale, {
-      style: 'unit',
-      unit: 'byte',
-      unitDisplay: 'narrow',
-    }).format(bytes)
-  }
-  return new Intl.NumberFormat(locale, {
-    style: 'unit',
-    unit: 'kilobyte',
-    unitDisplay: 'narrow',
-    maximumFractionDigits: 1,
-  }).format(bytes / 1024)
 }
 
 export function idleTerminals(workspaceId: string | null | undefined): TerminalTarget[] {

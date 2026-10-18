@@ -1,10 +1,10 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ScriptTokenSaveResult } from '../../shared/permissions/scriptTokens'
 import type { ReachListing } from './reach'
-import type { PresenceRequest } from './scriptTokens'
+import type { PresenceRequest } from './scriptTokenConfirm'
 import type { PresenceResult } from './userPresence'
 
 const handlers = vi.hoisted(() => new Map<string, (...args: unknown[]) => unknown>())
@@ -19,7 +19,8 @@ vi.mock('electron', () => ({
 vi.mock('./approvals', () => ({ approvals: () => null }))
 
 const { registerScriptTokenIpc } = await import('./scriptTokenIpc')
-const { setUserPresenceCheck, verifyScriptToken } = await import('./scriptTokens')
+const { setUserPresenceCheck } = await import('./scriptTokenConfirm')
+const { verifyScriptToken } = await import('./scriptTokens')
 const { createScriptTokenUsage } = await import('./scriptTokenUsage')
 
 const LISTING: ReachListing = {
@@ -146,11 +147,13 @@ describe('script token IPC', () => {
   })
 
   it('is the only way the preload reaches script tokens', () => {
-    const preload = readFileSync(join(__dirname, '..', '..', 'preload', 'index.ts'), 'utf8')
+    const preloadDir = join(__dirname, '..', '..', 'preload')
+    const preload = readdirSync(preloadDir)
+      .map((name) => readFileSync(join(preloadDir, name), 'utf8'))
+      .join('\n')
     const block = /\n {2}scriptTokens: \{\n([\s\S]*?)\n {2}\},\n/.exec(preload)?.[1] ?? ''
-    const channels = [...block.matchAll(/ipcRenderer\.(\w+)\('([^']+)'/g)].map((m) => m[2])
+    const channels = [...block.matchAll(/(?:ipcRenderer\.\w+|listen)\('([^']+)'/g)].map((m) => m[1])
     expect(channels.sort()).toEqual([
-      'scriptTokens:changed',
       'scriptTokens:changed',
       'scriptTokens:create',
       'scriptTokens:list',

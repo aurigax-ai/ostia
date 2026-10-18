@@ -5,9 +5,9 @@ import { FAKE } from '../../test/fixtures/secrets/samples'
 import {
   FAKE_TOOL,
   type Harness,
+  POLL,
   SCAN_EXPLODES,
   graphsHarness,
-  until,
 } from '../../test/graphsHarness'
 import { running } from '../../test/tmux'
 
@@ -25,20 +25,12 @@ type Line = Record<string, unknown> & { type: string }
 describe('graph runs on the built-in graphs extension (real CLI, real socket)', () => {
   let h: Harness
 
-  const lines = (runId: string, graph: string): Line[] => {
-    const file = join(h.dataDir, 'graphs', 'runs', 'w1', graph, runId, 'journal.jsonl')
-    if (!existsSync(file)) return []
-    return readFileSync(file, 'utf8')
-      .trim()
-      .split('\n')
-      .filter(Boolean)
-      .map((l) => JSON.parse(l) as Line)
-  }
+  const lines = (runId: string, _graph: string): Line[] => h.journal(runId) as unknown as Line[]
   const ended = (runId: string, graph: string) =>
-    until(() => {
+    vi.waitUntil(() => {
       const found = lines(runId, graph)
       return found.some((l) => l.type === 'run-end') ? found : undefined
-    })
+    }, POLL)
   const start = async (name: string, text: string, input: string[] = []): Promise<string> => {
     h.writeGraph(name, text)
     const enabled = await h.enable(name)
@@ -48,15 +40,17 @@ describe('graph runs on the built-in graphs extension (real CLI, real socket)', 
     return (res.data as { runId: string }).runId
   }
   const waitingAt = (runId: string, graph: string, node: string) =>
-    until(() =>
-      lines(runId, graph).some((l) => l.type === 'node-wait' && l.node === node) ? true : undefined,
+    vi.waitUntil(
+      () => lines(runId, graph).some((l) => l.type === 'node-wait' && l.node === node),
+      POLL,
     )
-  const openedPane = (index: number) => until(() => h.opened[index])
+  const openedPane = (index: number) => vi.waitUntil(() => h.opened[index], POLL)
   const waits = (runId: string, graph: string, node: string, count: number) =>
-    until(() =>
-      lines(runId, graph).filter((l) => l.type === 'node-wait' && l.node === node).length >= count
-        ? true
-        : undefined,
+    vi.waitUntil(
+      () =>
+        lines(runId, graph).filter((l) => l.type === 'node-wait' && l.node === node).length >=
+        count,
+      POLL,
     )
   const state = (runId: string, graph: string): Record<string, unknown> => {
     const all = lines(runId, graph)
@@ -121,10 +115,12 @@ edges:
     await h.cli(secondReview, ['graph', 'report', '--json', '{"verdict":"pass"}'])
     await h.stop(secondReview, {})
     await waitingAt(runId, 'loop', 'ask')
-    const shown = await until(() =>
-      questions()
-        ?.stateFor('7')
-        .pending.find((q) => q.question === 'Open a pull request?'),
+    const shown = await vi.waitUntil(
+      () =>
+        questions()
+          ?.stateFor('7')
+          .pending.find((q) => q.question === 'Open a pull request?'),
+      POLL,
     )
     expect(shown.source?.extension).toBe('Graphs')
     expect(shown.context).toContain('Graph loop')
@@ -159,10 +155,12 @@ nodes:
 edges: []
 `,
     )
-    const shown = await until(() =>
-      questions()
-        ?.stateFor('7')
-        .pending.find((q) => q.question === 'Ship it?'),
+    const shown = await vi.waitUntil(
+      () =>
+        questions()
+          ?.stateFor('7')
+          .pending.find((q) => q.question === 'Ship it?'),
+      POLL,
     )
     expect(shown.source).toEqual({ extension: 'Graphs', workspaceId: 'w1' })
     expect(shown.context).toContain('Graph approve')
@@ -240,10 +238,10 @@ edges: []
     const s = state(runId, 'faults')
     expect(s.e1).toMatchObject({ name: 'Timeout' })
     const [parent, child] = readFileSync(pids, 'utf8').trim().split(' ').map(Number)
-    await until(
-      () => (!running(parent as number) && !running(child as number) ? true : undefined),
-      8000,
-    )
+    await vi.waitUntil(() => !running(parent as number) && !running(child as number), {
+      timeout: 8000,
+      interval: 50,
+    })
     expect(s.cut).toBe(true)
     expect(String(s.size).length).toBe(64 * 1024)
     expect(s.e3).toMatchObject({ name: 'BadOutput' })
@@ -265,7 +263,7 @@ edges: []
 `,
     )
     await ended(runId, 'tell-me')
-    await until(() => (h.notices.length > before ? true : undefined))
+    await vi.waitUntil(() => h.notices.length > before, POLL)
     await new Promise((r) => setTimeout(r, 300))
     const sent = h.notices.slice(before)
     expect(sent).toEqual([
@@ -287,16 +285,14 @@ edges:
   - { from: a, to: b }
 `,
     )
-    await until(() =>
-      lines(runId, 'pausing').some((l) => l.type === 'node-start' && l.node === 'a')
-        ? true
-        : undefined,
+    await vi.waitUntil(
+      () => lines(runId, 'pausing').some((l) => l.type === 'node-start' && l.node === 'a'),
+      POLL,
     )
     expect(await h.panel('control', { runId, action: 'pause' })).toEqual({ ok: true })
-    await until(() =>
-      lines(runId, 'pausing').some((l) => l.type === 'node-end' && l.node === 'a')
-        ? true
-        : undefined,
+    await vi.waitUntil(
+      () => lines(runId, 'pausing').some((l) => l.type === 'node-end' && l.node === 'a'),
+      POLL,
     )
     await new Promise((r) => setTimeout(r, 300))
     expect(lines(runId, 'pausing').some((l) => l.type === 'node-start' && l.node === 'b')).toBe(
@@ -352,15 +348,15 @@ edges: []
 `,
     )
     const pane = await openedPane(opened)
-    await until(() => (existsSync(pids) ? true : undefined))
+    await vi.waitUntil(() => existsSync(pids), POLL)
     expect(await h.panel('control', { runId, action: 'cancel' })).toEqual({ ok: true })
     const all = await ended(runId, 'cancelled')
     expect(all.at(-1)).toMatchObject({ type: 'run-end', status: 'cancelled' })
     const [parent, child] = readFileSync(pids, 'utf8').trim().split(' ').map(Number)
-    await until(
-      () => (!running(parent as number) && !running(child as number) ? true : undefined),
-      8000,
-    )
+    await vi.waitUntil(() => !running(parent as number) && !running(child as number), {
+      timeout: 8000,
+      interval: 50,
+    })
     expect(h.panes.has(pane.internalId)).toBe(true)
 
     const counter = join(h.dir, 'retry-count')
@@ -377,12 +373,11 @@ edges:
   - { from: first, to: flaky }
 `,
     )
-    await until(() =>
-      lines(retried, 'retried').some((l) => l.type === 'run-end') ? true : undefined,
-    )
+    await vi.waitUntil(() => lines(retried, 'retried').some((l) => l.type === 'run-end'), POLL)
     expect(await h.panel('control', { runId: retried, action: 'retry' })).toEqual({ ok: true })
-    await until(() =>
-      lines(retried, 'retried').filter((l) => l.type === 'run-end').length === 2 ? true : undefined,
+    await vi.waitUntil(
+      () => lines(retried, 'retried').filter((l) => l.type === 'run-end').length === 2,
+      POLL,
     )
     const starts = lines(retried, 'retried')
       .filter((l) => l.type === 'node-start')
@@ -406,10 +401,7 @@ edges: []
 `,
     )
     await ended(runId, 'secret')
-    const journalText = readFileSync(
-      join(h.dataDir, 'graphs', 'runs', 'w1', 'secret', runId, 'journal.jsonl'),
-      'utf8',
-    )
+    const journalText = JSON.stringify(h.journal(runId))
     expect(journalText).not.toContain(FAKE.githubClassic)
     expect(String(state(runId, 'secret').out)).toMatch(/\[redacted:[^\]]+\]/)
 
@@ -546,8 +538,8 @@ edges:
       expect(first?.command).toBe(`claude 'Implement ${name}.'`)
       expect(second?.command).toBe(
         exited
-          ? `claude --resume sess-${name} 'Fix the '\\''flaky'\\'' test'`
-          : `claude --resume sess-${name} --fork-session 'Fix the '\\''flaky'\\'' test'`,
+          ? `'claude' --resume sess-${name} 'Fix the '\\''flaky'\\'' test'`
+          : `'claude' --resume sess-${name} --fork-session 'Fix the '\\''flaky'\\'' test'`,
       )
       expect(second?.cwd).toBe(h.workDir)
     }
@@ -599,17 +591,15 @@ edges: []
     const runId = await start('shared-stop', graph)
     const pane = await openedPane(opened)
     const stop = JSON.stringify({ session_id: 's-9', last_assistant_message: 'All green.' })
-    await h.cli(pane, ['ext', 'activity', 'on-hook', 'claude', 'Stop'], stop)
+    await h.cli(pane, ['activity', 'on-hook', 'claude', 'Stop'], stop)
     await h.cli(pane, ['graph', 'on-stop', 'claude', 'Stop'], stop)
     await ended(runId, 'shared-stop')
     expect(state(runId, 'shared-stop').message).toBe('All green.')
     const journalDir = join(h.dataDir, 'activity', 'journal')
-    await until(() =>
-      existsSync(journalDir) && readdirSync(journalDir).length > 0 ? true : undefined,
-    )
+    await vi.waitUntil(() => existsSync(journalDir) && readdirSync(journalDir).length > 0, POLL)
     expect(readFileSync(join(journalDir, 'w1.jsonl'), 'utf8')).toContain('All green.')
 
-    h.host.setEnabled('activity', false)
+    h.host.processes.setEnabled('activity', false)
     const second = await start('shared-stop-2', graph)
     const next = await openedPane(opened + 1)
     await h.cli(next, ['graph', 'on-stop', 'claude', 'Stop'], stop)
@@ -640,7 +630,7 @@ edges:
     const all = await ended(runId, 'spin')
     expect(all.filter((l) => l.type === 'node-start')).toHaveLength(4)
     expect(all.at(-1)).toMatchObject({ type: 'run-end', status: 'step-limit' })
-    await until(() => (h.notices.length > before ? true : undefined))
+    await vi.waitUntil(() => h.notices.length > before, POLL)
     await new Promise((r) => setTimeout(r, 300))
     expect(h.notices.slice(before).filter((n) => n.title.includes('spin'))).toHaveLength(1)
   })
@@ -684,28 +674,32 @@ nodes:
 edges: []
 `,
     )
-    await until(() =>
-      questions()
-        ?.stateFor('7')
-        .pending.find((q) => q.question === 'Still there?'),
+    await vi.waitUntil(
+      () =>
+        questions()
+          ?.stateFor('7')
+          .pending.find((q) => q.question === 'Still there?'),
+      POLL,
     )
-    h.host.setEnabled('graphs', false)
-    await until(() =>
-      questions()
-        ?.stateFor('7')
-        .pending.some((q) => q.question === 'Still there?')
-        ? undefined
-        : true,
+    h.host.processes.setEnabled('graphs', false)
+    await vi.waitUntil(
+      () =>
+        !questions()
+          ?.stateFor('7')
+          .pending.some((q) => q.question === 'Still there?'),
+      POLL,
     )
     const off = await h.cli(h.human, ['graph', 'list'])
     expect(off.code).toBe(1)
-    expect(off.stderr).toContain('unknown command or extension')
-    h.host.setEnabled('graphs', true)
+    expect(off.stderr).toContain('ostia graph: the graphs extension is not enabled')
+    h.host.processes.setEnabled('graphs', true)
     await h.cli(h.human, ['graph', 'list'])
-    const again = await until(() =>
-      questions()
-        ?.stateFor('7')
-        .pending.find((q) => q.question === 'Still there?'),
+    const again = await vi.waitUntil(
+      () =>
+        questions()
+          ?.stateFor('7')
+          .pending.find((q) => q.question === 'Still there?'),
+      POLL,
     )
     questions()?.answer('7', again.id, { choices: [0], text: '' })
     await ended(runId, 'paused-by-off')

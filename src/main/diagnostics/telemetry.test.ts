@@ -3,9 +3,9 @@ import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { envName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FAKE } from '../../../test/fixtures/secrets/samples'
-import { envName } from '../../shared/appEnv'
 import {
   DEFAULT_TELEMETRY_SETTINGS,
   type InstallContext,
@@ -31,7 +31,7 @@ vi.mock('electron', () => ({
 const { createTelemetry, readTelemetrySettings, registerTelemetry, telemetryEndpoint } =
   await import('./telemetry')
 const { registerDiagnostics } = await import('./diagnostics')
-type SessionFacts = import('./telemetry').SessionFacts
+type SessionFacts = import('./telemetryUsage').SessionFacts
 type Telemetry = import('./telemetry').Telemetry
 
 const context: InstallContext = {

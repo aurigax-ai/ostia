@@ -40,20 +40,17 @@ export async function resolveWorkspaceRef(conn: MessageConnection, ref: string):
 
 interface CommandFlags {
   workspace?: string
-  noFocus: boolean
   rest: string[]
 }
 
 export function parseCommandFlags(argv: readonly string[]): CommandFlags {
-  const { positional, values, booleans } = parseArgs(argv, {
+  const { positional, values } = parseArgs(argv, {
     values: { workspace: '--workspace' },
-    booleans: { noFocus: '--no-focus' },
     unknown: 'keep',
   })
   if (values.workspace === '') throw new FlagError('missing-value', '--workspace')
   return {
     ...(values.workspace !== undefined ? { workspace: values.workspace } : {}),
-    noFocus: booleans.noFocus,
     rest: positional,
   }
 }
@@ -70,12 +67,7 @@ export function buildCommandCall(
   resolvedWorkspace: string | undefined,
 ): CommandCall {
   const raw = flags.rest[0]
-  let args: unknown = raw ? JSON.parse(raw) : undefined
-  if (flags.noFocus) {
-    if (id !== 'workspace.new') throw new Error('--no-focus only applies to workspace.new')
-    const given = typeof args === 'object' && args !== null && !Array.isArray(args) ? args : {}
-    args = { ...given, focus: false }
-  }
+  const args: unknown = raw ? JSON.parse(raw) : undefined
   return {
     id,
     ...(args !== undefined ? { args } : {}),

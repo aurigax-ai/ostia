@@ -1,6 +1,6 @@
 import type { BrowserWindow } from 'electron'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { QuitAnswer, RunningGroup } from '../../shared/types'
+import type { QuitAnswer, RunningGroup } from '../../shared/windows/windowsApi'
 
 const ipcOn = vi.hoisted(() => vi.fn())
 vi.mock('electron', () => ({ ipcMain: { on: ipcOn } }))
@@ -176,6 +176,24 @@ describe('confirmQuit', () => {
     expect(approved).toBe('quit')
     expect(spec.asked).toEqual([
       [{ workspaceId: 'w1', workspace: 'api', commands: ['make'], files: [], unanswered: true }],
+    ])
+  })
+
+  it('quitting while the window is too busy to answer asks instead of quitting', async () => {
+    vi.useFakeTimers()
+    const { win } = silentWindow(7)
+    const spec = check({
+      workspaces: { 7: [{ id: 'w1', name: 'api' }] },
+      processes: [{ paneId: 'p1', workspaceId: 'w1', program: null, agentRunning: false }],
+    })
+    let approved: QuitAnswer | null = null
+    void confirmQuit([win], win, spec.check).then((v) => {
+      approved = v
+    })
+    await vi.advanceTimersByTimeAsync(RUNNING_ANSWER_MS)
+    expect(approved).toBe('cancel')
+    expect(spec.asked).toEqual([
+      [{ workspaceId: 'w1', workspace: 'api', commands: [], files: [], unanswered: true }],
     ])
   })
 

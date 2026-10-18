@@ -1,16 +1,16 @@
-import { delimiter, isAbsolute, relative } from 'node:path'
+import { delimiter, relative } from 'node:path'
 import {
   SANDBOX_READ_PRESETS,
   type SandboxReadPreset,
   type SandboxReadPresetId,
 } from '../../shared/sandbox/sandboxPresets'
+import { isInsidePath } from '../platform/pathGuard'
 import { type SandboxPathEnv, checkSandboxPath } from './pathChecks'
-import { within } from './srtConfig'
 
 type ProcessEnv = Record<string, string | undefined>
 
 function underHome(path: string | undefined, home: string): string[] {
-  if (!path || !isAbsolute(path) || !within(path, home) || path === home) return []
+  if (!path || path === home || !isInsidePath(home, path)) return []
   return [`~/${relative(home, path)}`]
 }
 

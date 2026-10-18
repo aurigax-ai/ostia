@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process'
 import { lstat, readFile, readlink, realpath } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { isInsidePath } from '../platform/pathGuard'
 import {
   type BlameLine,
   type CommitFile,
@@ -169,11 +170,10 @@ export async function repoRelative(root: string, cwd: string, input: string): Pr
   const abs = isAbsolute(input) ? input : resolve(base, input)
   const real = await realpath(abs).catch(() => abs)
   const realRoot = await realpath(root).catch(() => root)
-  const rel = relative(realRoot, real)
-  if (rel.startsWith('..') || isAbsolute(rel)) {
+  if (!isInsidePath(realRoot, real)) {
     throw new RepoError('not-changed', `${input} is outside the repository`)
   }
-  return rel.split(sep).join('/')
+  return relative(realRoot, real).split(sep).join('/')
 }
 
 const MAX_COUNTED_UNTRACKED = 500

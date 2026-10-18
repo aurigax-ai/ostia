@@ -11,10 +11,10 @@ vi.mock('@/platform', () => ({ platform: 'darwin', isMac: true, isLinux: false }
 
 const initialSettings = useSettingsStore.getState()
 
-const editButtons = (): string[] => {
-  const buttons = screen.getAllByRole('button', { name: /^Edit / })
-  return buttons.map((b) => b.getAttribute('aria-label') ?? '').sort()
-}
+const editButtons = (): string[] =>
+  [...document.querySelectorAll('button[aria-label^="Edit "]')]
+    .map((b) => b.getAttribute('aria-label') ?? '')
+    .sort()
 
 const applied = (layer: string): string =>
   within(screen.getByRole('group', { name: layer }))
@@ -27,7 +27,9 @@ const applyPreset = async (layer: string, name: string): Promise<void> => {
   await userEvent.click(
     within(screen.getByRole('group', { name: layer })).getByRole('button', { name }),
   )
-  await userEvent.click(await screen.findByRole('button', { name: `Apply ${name}` }))
+  const combo = document.querySelector<HTMLElement>('[data-slot="keymap-combo"]')
+  if (!combo) throw new Error('no keymap combo')
+  await userEvent.click(await within(combo).findByRole('button', { name: `Apply ${name}` }))
 }
 
 const row = (name: RegExp): HTMLElement => {
@@ -192,5 +194,35 @@ describe('KeyboardSection on macOS', () => {
     expect(useSettingsStore.getState().terminalKeys).toEqual({
       'Cmd+Delete': { type: 'text', value: 'x' },
     })
+  })
+
+  it('records ⌘⇧Y over ⌘K, refuses a Control chord because it needs ⌘, and resets to ⌘⇧P and ⌘K', async () => {
+    render(<KeyboardSection />)
+    const press = (init: KeyboardEventInit): void => {
+      act(() => {
+        fireEvent.keyDown(window, init)
+      })
+    }
+    await userEvent.click(screen.getByRole('button', { name: 'Change ⌘K for Command Palette' }))
+    press({ key: 'Y', code: 'KeyY', metaKey: true, shiftKey: true })
+    expect(useSettingsStore.getState().keybindings['palette.toggle']).toEqual([
+      'Shift+Cmd+P',
+      'Shift+Cmd+Y',
+      'F1',
+    ])
+    expect(screen.queryByRole('button', { name: 'Change ⌘K for Command Palette' })).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Change ⌘⇧Y for Command Palette' }))
+    press({ key: 'Y', code: 'KeyY', ctrlKey: true, shiftKey: true })
+    const notice = document.querySelector<HTMLElement>('[data-slot="key-notice"]')
+    if (!notice) throw new Error('no key notice')
+    expect(within(notice).getByRole('alert')).toHaveTextContent('it needs ⌘')
+    press({ key: 'Escape', code: 'Escape' })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reset Command Palette' }))
+    expect(useSettingsStore.getState().keybindings).toEqual({})
+    const palette = row(/Command Palette/)
+    expect(palette).toHaveTextContent('⌘⇧P')
+    expect(palette).toHaveTextContent('⌘K')
   })
 })

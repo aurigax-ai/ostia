@@ -1,6 +1,8 @@
 import { realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { dirname, join, sep } from 'node:path'
+import { dirname, join } from 'node:path'
+import { type EnvSource, readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { app } from 'electron'
 import {
   type InstallMethod,
@@ -8,8 +10,7 @@ import {
   isInstallMethod,
   isMacInstall,
 } from '../../shared/app/installMethod'
-import { type EnvSource, readEnv } from '../../shared/appEnv'
-import { PRODUCT_NAME } from '../../shared/product'
+import { isInsidePath } from '../platform/pathGuard'
 
 const INSTALL_METHOD_ENV = 'INSTALL_METHOD'
 const INSTALL_APP_DIR_ENV = 'INSTALL_APP_DIR'
@@ -26,8 +27,6 @@ export interface InstallProbe {
   exists: (path: string) => boolean
 }
 
-const isUnder = (path: string, dir: string): boolean => path.startsWith(`${dir}${sep}`)
-
 function localAppDir(env: EnvSource, home: string): string {
   const dataHome = env.XDG_DATA_HOME || join(home, '.local', 'share')
   return join(dataHome, PRODUCT_NAME, 'app')
@@ -43,8 +42,8 @@ export function detectInstallMethod(probe: InstallProbe): InstallMethod {
   if (probe.platform === 'darwin') {
     return probe.execPath.includes('.app/') && caskReceipt(probe) ? 'brew' : 'dmg'
   }
-  if (isUnder(probe.execPath, APT_APP_DIR) && probe.exists(APT_PACKAGE_LIST)) return 'apt'
-  if (isUnder(probe.execPath, localAppDir(probe.env, probe.home))) return 'local'
+  if (isInsidePath(APT_APP_DIR, probe.execPath) && probe.exists(APT_PACKAGE_LIST)) return 'apt'
+  if (isInsidePath(localAppDir(probe.env, probe.home), probe.execPath)) return 'local'
   return 'tarball'
 }
 

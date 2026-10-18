@@ -1,28 +1,28 @@
 import { resolve } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
-import { dataUrl } from './scripts/dataUrl.mjs'
+import { defineConfig } from 'electron-vite'
+import { pageScriptPlugin } from './scripts/pageScriptPlugin.mjs'
 
 export default defineConfig({
   main: {
-    plugins: [
-      externalizeDepsPlugin({
+    plugins: [pageScriptPlugin()],
+    build: {
+      externalizeDeps: {
         exclude: [
           '@ai-sdk/mcp',
           '@secretlint/core',
           '@secretlint/secretlint-rule-preset-recommend',
+          'papaparse',
+          'parse5',
         ],
-      }),
-    ],
-    build: {
+      },
       rollupOptions: {
         input: { index: resolve('src/main/index.ts') },
       },
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
         input: { index: resolve('src/preload/index.ts') },
@@ -42,6 +42,7 @@ export default defineConfig({
         input: { index: resolve('src/renderer/index.html') },
       },
     },
-    plugins: [dataUrl(), react(), tailwindcss()],
+    assetsInclude: ['**/*.wasm'],
+    plugins: [react(), tailwindcss()],
   },
 })

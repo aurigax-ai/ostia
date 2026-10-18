@@ -3,10 +3,10 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Textarea } from '@/components/ui/textarea'
-import { fmt, useDict } from '@/i18n/useDict'
 import { sessionTitle } from '@/lib/agents/agentSession'
 import { runningAgent } from '@/lib/agents/paneAgent'
 import { type PickTarget, pickTargets } from '@/lib/agents/pickTargets'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { groupMates, groupPeerIds } from '@/lib/sidebar/groupPeers'
 import { useAgentGroupsStore } from '@/stores/agents/agentGroupsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
@@ -19,7 +19,7 @@ import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { XIcon } from '@phosphor-icons/react'
 import type { ResumableAgent } from '@shared/agents/agentResume'
 import type { Dict } from '@shared/app/dict'
-import type { AttentionState } from '@shared/types'
+import type { AttentionState } from '@shared/attention/attention'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 
 export function stateLabel(d: Dict, state: AttentionState): string {
@@ -223,7 +223,7 @@ export function PickSendPanel({
                 <label
                   key={t.paneId}
                   htmlFor={`${ids}-target-${t.paneId}`}
-                  className="flex items-center gap-2 rounded-sm px-2 py-1 hover:bg-surface-2 has-data-checked:bg-surface-2"
+                  className={`flex items-center gap-2 rounded-sm px-2 py-1 hover:bg-surface-2${checked ? ' bg-surface-2' : ''}`}
                 >
                   <RadioGroupItem id={`${ids}-target-${t.paneId}`} value={t.paneId} />
                   <span

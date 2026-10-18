@@ -1,4 +1,4 @@
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { cn } from '@/lib/utils'
 import { ShieldWarningIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
@@ -50,7 +50,7 @@ export function ApprovalCard({
     >
       {lead}
       <div className="flex items-center gap-2">
-        <ShieldWarningIcon size={14} aria-hidden />
+        <ShieldWarningIcon size={16} aria-hidden />
         <span className="font-medium">{d.approvals.title}</span>
       </div>
       {kind === 'capability' ? (

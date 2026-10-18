@@ -1,7 +1,12 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import {
+  ALL_CAPABILITIES,
+  type Capability,
+  DEFAULT_CAPABILITIES,
+} from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { app } from 'electron'
-import { ALL_CAPABILITIES, type Capability, DEFAULT_CAPABILITIES } from '../../shared/capabilities'
 import { ALWAYS_ASK } from '../../shared/permissions/approvals'
 import { type ReachMode, isReachMode, parseReachMode } from '../../shared/permissions/reach'
 
@@ -77,15 +82,14 @@ function writeCapabilities(change: (record: Record<string, unknown>) => void): b
   try {
     const path = settingsFile()
     const settings: unknown = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : {}
-    if (typeof settings !== 'object' || settings === null || Array.isArray(settings)) return false
-    const record = settings as Record<string, unknown>
-    const capabilities = record.capabilities
+    if (!isRecord(settings)) return false
+    const capabilities = settings.capabilities
     const next: Record<string, unknown> = {
       ...(typeof capabilities === 'object' && capabilities !== null ? capabilities : {}),
     }
     change(next)
-    record.capabilities = next
-    writeFileSync(path, `${JSON.stringify(record, null, 2)}\n`, 'utf8')
+    settings.capabilities = next
+    writeFileSync(path, `${JSON.stringify(settings, null, 2)}\n`, 'utf8')
     return true
   } catch {
     return false

@@ -11,7 +11,7 @@ import {
   type AssistModelRef,
   type ChatAssistRequest,
   EMPTY_ASSIST_CATALOG,
-} from '@shared/assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import type { ChatPlanOutput, ChatPreviewOutput, ChatWriteOutput } from '@shared/assist/chatTools'
 import type { UIMessageChunk } from 'ai'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -134,21 +134,11 @@ function sendWithTools(messages: OstiaChatMessage[], abortSignal?: AbortSignal, 
   })
 }
 
-async function pendingApproval(): Promise<string> {
-  for (let i = 0; i < 400; i++) {
-    const ids = Object.keys(useChatToolsStore.getState().pending)
-    if (ids.length > 0) return ids[0]
-    await new Promise((r) => setTimeout(r, 5))
-  }
-  throw new Error('no approval was requested')
-}
-
-async function waitForPending(match: (p: { kind: string }) => boolean): Promise<void> {
-  for (let i = 0; i < 200; i++) {
-    if (Object.values(useChatToolsStore.getState().pending).some(match)) return
-    await new Promise((r) => setTimeout(r, 5))
-  }
-  throw new Error('no matching approval')
+function pendingApproval(): Promise<string> {
+  return vi.waitUntil(() => Object.keys(useChatToolsStore.getState().pending)[0], {
+    timeout: 2000,
+    interval: 5,
+  })
 }
 
 function requestAt(n: number): ChatAssistRequest {
@@ -468,7 +458,10 @@ describe('createAssistTransport with tools', () => {
     expect(useChatToolsStore.getState().pending[first]).toMatchObject({ kind: 'read-outside' })
     expect(vi.mocked(window.ostia.chatTools.plan).mock.calls[0][0].outside).toBe(false)
     answerApproval(first, { approved: true, scope: 'once' })
-    await waitForPending((p) => p.kind === 'write')
+    await vi.waitUntil(
+      () => Object.values(useChatToolsStore.getState().pending).some((p) => p.kind === 'write'),
+      { timeout: 1000, interval: 5 },
+    )
     const second = Object.keys(useChatToolsStore.getState().pending)[0]
     expect(vi.mocked(window.ostia.chatTools.plan).mock.calls[1][0].outside).toBe(true)
     expect(useChatToolsStore.getState().pending[second].detail.reason).toBe('outside')

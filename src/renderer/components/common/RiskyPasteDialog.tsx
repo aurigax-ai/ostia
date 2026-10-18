@@ -9,8 +9,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { fmt, useDict } from '@/i18n/useDict'
-import { type PasteSource, countLines, pastePreview } from '@/lib/keys/pasteGate'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { type PasteSource, countLines, pastePreview } from '@/lib/keyboard/pasteGate'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useEffect, useRef, useState } from 'react'
 

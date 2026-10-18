@@ -1,7 +1,18 @@
-import { call, context, errorText, h, onChange, panelTranslator } from '../sdk/panel'
+import {
+  call,
+  context,
+  errorText,
+  h,
+  icon,
+  onChange,
+  panelTranslator,
+} from '@aurigax-ai/ostia-extension-sdk/panel'
+import clockCounterClockwise from '@phosphor-icons/core/regular/clock-counter-clockwise.svg'
+import graph from '@phosphor-icons/core/regular/graph.svg'
 import en from './locales/en.json'
 import zhHant from './locales/zh-Hant.json'
 import type { Definition, GraphRow, ListModel, RunModel } from './panelModel'
+import { renderGate } from './renderGate'
 
 const t = panelTranslator({ en: en.messages, 'zh-Hant': zhHant.messages })
 const root = document.getElementById('root') as HTMLElement
@@ -26,6 +37,33 @@ function button(label: string, onClick: () => void, primary = false): HTMLElemen
   return h('button', { type: 'button', class: primary ? 'primary' : '', onClick }, label)
 }
 
+interface EmptyView {
+  kind: string
+  media: string
+  title: string
+  description: string
+  action?: HTMLElement
+}
+
+function emptyState(view: EmptyView): HTMLElement {
+  return h(
+    'section',
+    { class: 'empty', 'data-empty': view.kind },
+    h('div', { class: 'empty-media' }, icon(view.media)),
+    h(
+      'div',
+      { class: 'empty-header' },
+      h('h2', { class: 'empty-title' }, view.title),
+      h('p', { class: 'empty-description' }, view.description),
+    ),
+    view.action ?? null,
+  )
+}
+
+function folderPath(folder: string): HTMLElement {
+  return h('code', { class: 'empty-path' }, folder)
+}
+
 async function act(command: string, args: Record<string, unknown>): Promise<boolean> {
   const res = await call(command, { workspaceId: context.workspaceId, ...args })
   problem = res.ok ? '' : t('error', { error: errorText(res) })
@@ -35,6 +73,19 @@ async function act(command: string, args: Record<string, unknown>): Promise<bool
 
 function pretty(value: unknown): HTMLElement {
   return h('div', { class: 'mono' }, JSON.stringify(value, null, 2))
+}
+
+function fold(label: string, value: unknown): HTMLElement {
+  const body = pretty(value)
+  const details = h(
+    'details',
+    {
+      onToggle: () => body.classList.toggle('motion-reveal', (details as HTMLDetailsElement).open),
+    },
+    h('summary', {}, label),
+    body,
+  )
+  return details
 }
 
 function graphRow(row: GraphRow): HTMLElement {
@@ -67,6 +118,16 @@ function graphRow(row: GraphRow): HTMLElement {
         : null,
     ),
     row.description ? h('div', { class: 'muted' }, row.description) : null,
+    row.filesRefused
+      ? h('div', { class: 'error', 'data-files-refused': '' }, t('row.filesRefused'))
+      : null,
+    row.skipped
+      ? h(
+          'div',
+          { class: 'muted', 'data-skipped': String(row.skipped) },
+          t('row.skipped', { count: row.skipped }),
+        )
+      : null,
     row.problem
       ? h(
           'div',
@@ -93,14 +154,23 @@ async function listView(): Promise<HTMLElement[]> {
   if (!res.ok) return [h('p', { class: 'error' }, t('error', { error: errorText(res) }))]
   const model = res.data as ListModel
   if (model.scratch)
-    return [h('p', { class: 'muted', 'data-empty': 'scratch' }, t('empty.scratch'))]
+    return [
+      emptyState({
+        kind: 'scratch',
+        media: graph,
+        title: t('empty.scratch.title'),
+        description: t('empty.scratch.description'),
+      }),
+    ]
   if (model.graphs.length === 0) {
     return [
-      h(
-        'p',
-        { class: 'muted', 'data-empty': 'folder' },
-        t('empty.folder', { folder: model.folder }),
-      ),
+      emptyState({
+        kind: 'folder',
+        media: graph,
+        title: t('empty.folder.title'),
+        description: t('empty.folder.description'),
+        action: folderPath(model.folder),
+      }),
     ]
   }
   return [h('ul', { class: 'rows' }, ...model.graphs.map(graphRow))]
@@ -175,6 +245,25 @@ async function definitionView(name: string): Promise<HTMLElement[]> {
       { class: 'muted' },
       t('def.connectors', { connectors: def.connectors.join(', ') || t('def.none') }),
     ),
+    ...def.connectorUses.flatMap((u) => [
+      h(
+        'div',
+        { class: 'mono', 'data-connector': u.node, 'data-effect': u.effect },
+        t(u.connection ? 'def.useVia' : 'def.use', {
+          node: u.node,
+          use: u.use,
+          connection: u.connection ?? '',
+          effect: t(`use.${u.effect}`),
+        }),
+      ),
+      u.secretShaped
+        ? h(
+            'div',
+            { class: 'error', 'data-secret-warning': u.node },
+            t('def.secretInput', { node: u.node }),
+          )
+        : null,
+    ]),
     def.problems.length > 0
       ? h(
           'div',
@@ -203,7 +292,15 @@ async function runsView(name: string): Promise<HTMLElement[]> {
   const res = await call('runs', { workspaceId: context.workspaceId, name })
   if (!res.ok) return [h('p', { class: 'error' }, t('error', { error: errorText(res) }))]
   const runs = res.data as { runId: string; status: string; steps: number }[]
-  if (runs.length === 0) return [h('p', { class: 'muted', 'data-empty': 'runs' }, t('runs.none'))]
+  if (runs.length === 0)
+    return [
+      emptyState({
+        kind: 'runs',
+        media: clockCounterClockwise,
+        title: t('empty.runs.title'),
+        description: t('empty.runs.description'),
+      }),
+    ]
   return [
     h(
       'ul',
@@ -288,28 +385,63 @@ async function runView(runId: string): Promise<HTMLElement[]> {
               )
             : null,
           n.error ? h('div', { class: 'error mono' }, `${n.error.name}: ${n.error.message}`) : null,
-          h('details', {}, h('summary', {}, t('node.input')), pretty(n.input)),
-          n.output ? h('details', {}, h('summary', {}, t('node.output')), pretty(n.output)) : null,
-          n.wait ? h('details', {}, h('summary', {}, t('node.wait')), pretty(n.wait)) : null,
-          n.stateAfter
-            ? h('details', {}, h('summary', {}, t('node.state')), pretty(n.stateAfter))
-            : null,
+          fold(t('node.input'), n.input),
+          n.output ? fold(t('node.output'), n.output) : null,
+          n.wait ? fold(t('node.wait'), n.wait) : null,
+          n.stateAfter ? fold(t('node.state'), n.stateAfter) : null,
         )
       }),
     ),
   ]
 }
 
+async function runtimeNote(quiet: boolean): Promise<HTMLElement | null> {
+  const res = await call('runtime', {})
+  const runtime = (res.ok ? res.data : { state: 'failed', message: errorText(res) }) as {
+    state: string
+    daemon?: boolean
+    version?: string
+    message?: string
+  }
+  if (runtime.state === 'ready')
+    return quiet
+      ? null
+      : h(
+          'p',
+          { class: 'note muted', 'data-runtime': runtime.daemon ? 'daemon' : 'client' },
+          runtime.daemon ? t('runsAsDaemon') : t('runsWhileOpen'),
+        )
+  if (runtime.state === 'other-contract')
+    return h(
+      'p',
+      { class: 'error', role: 'alert', 'data-runtime': 'other-contract' },
+      t('runtime.otherContract', { version: runtime.version ?? '?' }),
+    )
+  if (runtime.state === 'connecting')
+    return h('p', { class: 'note muted', 'data-runtime': 'connecting' }, t('runtime.connecting'))
+  return h(
+    'p',
+    { class: 'error', role: 'alert', 'data-runtime': 'failed' },
+    t('runtime.unreachable', { message: runtime.message ?? '' }),
+  )
+}
+
+const gate = renderGate<View>()
+
 async function render(): Promise<void> {
+  const mine = gate.begin()
+  const shown = view
   const body =
-    view.kind === 'list'
+    shown.kind === 'list'
       ? await listView()
-      : view.kind === 'definition'
-        ? await definitionView(view.name)
-        : view.kind === 'runs'
-          ? await runsView(view.name)
-          : await runView(view.runId)
-  const back = view.kind === 'list' ? null : button(t('action.back'), () => go({ kind: 'list' }))
+      : shown.kind === 'definition'
+        ? await definitionView(shown.name)
+        : shown.kind === 'runs'
+          ? await runsView(shown.name)
+          : await runView(shown.runId)
+  const note = await runtimeNote(body.some((el) => el.hasAttribute('data-empty')))
+  if (!gate.mayPaint(mine, shown, view)) return
+  const back = shown.kind === 'list' ? null : button(t('action.back'), () => go({ kind: 'list' }))
   root.replaceChildren(
     h(
       'div',
@@ -324,7 +456,7 @@ async function render(): Promise<void> {
       h(
         'main',
         { class: 'body' },
-        h('p', { class: 'note muted' }, t('runsWhileOpen')),
+        note,
         problem ? h('p', { class: 'error', role: 'alert' }, problem) : null,
         ...body,
       ),

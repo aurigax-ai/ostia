@@ -1,25 +1,20 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type { AssistModelSettings } from '../../shared/assist'
-import type { CommandResult } from '../../shared/types'
+import type { AssistModelSettings } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import type { CommandResult } from '../../shared/control/commands'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
-import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { ExtensionLaunches } from './extensionLaunches'
+import { registerExtensionMethods } from './extensionMethods'
 import { ExtensionStore } from './extensionStore'
+
+const POLL = { timeout: 8000, interval: 20 }
 
 const echoFixtures = resolve(__dirname, '../../../test/fixtures/extensions')
 const assistFixtures = resolve(__dirname, '../../../test/fixtures/extensions-assist-models')
-
-async function until<T>(read: () => T | undefined, timeoutMs = 8000): Promise<T> {
-  const start = Date.now()
-  for (;;) {
-    const value = read()
-    if (value !== undefined) return value
-    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 20))
-  }
-}
+const builtinExtensions = resolve(__dirname, '../../../out/extensions')
 
 describe('a built-in assist extension starts on demand', () => {
   let dir: string
@@ -63,34 +58,34 @@ describe('a built-in assist extension starts on demand', () => {
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
 
   it('does not start a built-in assist extension with the window while it has no provider', async () => {
-    host.startEager()
+    host.processes.startEager()
     await new Promise((r) => setTimeout(r, 300))
-    expect(host.isRunning('switchboard')).toBe(false)
+    expect(host.processes.isRunning('switchboard')).toBe(false)
     expect(status('switchboard')).toBe('idle')
   })
 
   it('starts a built-in extension with window items with the window', async () => {
-    await until(() => (status('echo') === 'running' ? true : undefined))
+    await vi.waitUntil(() => status('echo') === 'running', POLL)
   })
 
   it('wakes an assist extension when its UI asks for it', async () => {
-    expect(host.isRunning('switchboard')).toBe(false)
-    host.wakeAssist()
-    await until(() => (status('switchboard') === 'running' ? true : undefined))
+    expect(host.processes.isRunning('switchboard')).toBe(false)
+    host.assistant.wakeAssist()
+    await vi.waitUntil(() => status('switchboard') === 'running', POLL)
   })
 
   it('starts an assist extension with the window once it has a provider to serve', async () => {
-    host.setEnabled('switchboard', false)
-    await until(() => (host.isRunning('switchboard') ? undefined : true))
-    host.setEnabled('switchboard', true)
+    host.processes.setEnabled('switchboard', false)
+    await vi.waitUntil(() => !host.processes.isRunning('switchboard'), POLL)
+    host.processes.setEnabled('switchboard', true)
     await new Promise((r) => setTimeout(r, 200))
-    expect(host.isRunning('switchboard')).toBe(false)
+    expect(host.processes.isRunning('switchboard')).toBe(false)
     settings = {
       providers: [
         {
@@ -104,7 +99,53 @@ describe('a built-in assist extension starts on demand', () => {
         },
       ],
     }
-    host.reloadAssistSettings()
-    await until(() => (status('switchboard') === 'running' ? true : undefined))
+    host.assistant.reloadAssistSettings()
+    await vi.waitUntil(() => status('switchboard') === 'running', POLL)
+  })
+
+  it('runs a command asked for while the extension is still exiting, once the old process is gone', async () => {
+    await vi.waitUntil(() => status('echo') === 'running', POLL)
+    host.processes.stopAll()
+    expect(host.processes.isRunning('echo')).toBe(true)
+    const caller = { kind: 'user' as const, capabilities: [] }
+    expect(await host.invoke('echo', 'echo', { argv: ['again'] }, caller)).toMatchObject({
+      ok: true,
+    })
+  })
+})
+
+describe('the real built-in extensions', () => {
+  it('start no extension host with the window, so the branch, the diff stats and the Git panel run without one', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ostia-ext-builtins-'))
+    const host = new ExtensionHost({
+      roots: [{ dir: builtinExtensions, builtin: true }],
+      store: new ExtensionStore(join(dir, 'extensions.json')),
+      launches: new ExtensionLaunches(join(dir, 'extension-launches.json')),
+      socketPath: () => join(dir, 'control.sock'),
+      nodePath: process.execPath,
+      dataDir: join(dir, 'extension-data'),
+      workDirForWorkspace: () => undefined,
+      broadcast: () => {},
+      openPanelIn: () => {},
+      notify: () => {},
+      readAssistSettings: () => ({ assistant: { providers: [] } }),
+      log: () => {},
+    })
+    try {
+      expect(host.list().map((e) => e.id)).toEqual(
+        expect.arrayContaining(['activity', 'assistant', 'graphs', 'ssh', 'system']),
+      )
+      host.processes.startEager()
+      await new Promise((r) => setTimeout(r, 300))
+      expect(
+        host
+          .list()
+          .filter((e) => e.status !== 'idle')
+          .map((e) => e.id),
+      ).toEqual([])
+    } finally {
+      host.processes.stopAll()
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

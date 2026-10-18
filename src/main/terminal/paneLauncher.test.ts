@@ -51,8 +51,8 @@ describe('writeOstiaLauncher', () => {
     )
     const found = execFileSync('/bin/sh', ['-c', 'command -v ostia'], { env }).toString().trim()
     expect(found).toBe(join(dir, 'ostia'))
-    const out = execFileSync('/bin/sh', ['-c', 'ostia pane.list --help'], { env }).toString()
-    expect(out.trim()).toBe('1|cli.js pane.list --help')
+    const out = execFileSync('/bin/sh', ['-c', 'ostia pane list --help'], { env }).toString()
+    expect(out.trim()).toBe('1|cli.js pane list --help')
   })
 })
 

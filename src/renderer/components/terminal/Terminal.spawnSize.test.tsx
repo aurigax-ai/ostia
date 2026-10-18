@@ -1,4 +1,4 @@
-import { firstPaneId } from '@/layout/tree'
+import { firstPaneId } from '@/lib/layout/tree'
 import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import {
   noteFittedGrid,
@@ -23,6 +23,8 @@ import {
   vi,
 } from 'vitest'
 import { TerminalView } from './Terminal'
+
+vi.mock('@/lib/terminal/softwareGl', () => ({ drawOnGpu: (requested: boolean) => requested }))
 
 if (!Element.prototype.getAnimations) {
   Element.prototype.getAnimations = () => []

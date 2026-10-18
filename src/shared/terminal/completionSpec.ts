@@ -1,3 +1,4 @@
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 type SpecTemplate = 'filepaths' | 'folders'
 
 interface SpecSuggestion {
@@ -41,9 +42,6 @@ const MAX_ITEMS = 20000
 interface Budget {
   nodes: number
 }
-
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v)
 
 function names(raw: unknown): string[] | Error {
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > 20) {

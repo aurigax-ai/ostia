@@ -1,4 +1,4 @@
-import type { PaneNode } from '@/layout/types'
+import type { PaneNode } from '@/lib/layout/types'
 import { describe, expect, it } from 'vitest'
 import { latestAttentionMessage, runningTitle } from './workspaceSummary'
 

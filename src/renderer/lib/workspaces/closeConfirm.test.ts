@@ -1,5 +1,5 @@
-import { paneIds } from '@/layout/tree'
-import type { LayoutNode, PaneNode } from '@/layout/types'
+import { paneIds } from '@/lib/layout/tree'
+import type { LayoutNode, PaneNode } from '@/lib/layout/types'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
@@ -9,10 +9,12 @@ import { useAgentTurnStore } from '@/stores/terminal/agentTurnStore'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useCloseConfirmStore } from '@/stores/workspaces/closeConfirmStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { type WorkspaceKind, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { WorkspaceKind } from '@/stores/workspaces/workspaceTypes'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { QuestionRequest } from '@shared/agents/questions'
+import type { AttentionState } from '@shared/attention/attention'
 import type { ApprovalRequest } from '@shared/permissions/approvals'
-import type { AttentionState, PaneActivity } from '@shared/types'
+import type { PaneActivity } from '@shared/terminal/ptyApi'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   collectQuitGroups,
@@ -68,6 +70,9 @@ function run(paneId: string, command: string, blockId = 'b1'): void {
       ...s.byPane,
       [paneId]: [...(s.byPane[paneId] ?? []), { id: blockId, paneId, command } as CommandBlock],
     },
+    ...(command === 'claude'
+      ? { agentBlocks: { ...s.agentBlocks, [paneId]: { blockId, agent: 'claude' as const } } }
+      : {}),
   }))
 }
 
@@ -208,6 +213,14 @@ describe('what a quit loses', () => {
         agentRunning: true,
       })
       expect(await collectQuitGroups(new Set())).toEqual([])
+    })
+
+    it('still asks about a command line that only names claude, which program output can forge', () => {
+      useSettingsStore.getState().setAutoResume(true)
+      seedWorkspace(terminal('p1'))
+      run('p1', "'claude' --resume tok")
+      reportTurn('p1', 'done')
+      expect(lost()).toEqual(['agents'])
     })
 
     it('still asks when session restore is off, since nothing brings the pane back', () => {

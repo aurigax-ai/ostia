@@ -8,7 +8,7 @@ vi.mock('electron', () => ({
 vi.mock('../approvals/controlElevation', () => ({ ensureCaps: vi.fn(async () => {}) }))
 vi.mock('../control/controlServer', () => ({ registerTargetableMethod: vi.fn() }))
 
-const { injectPageScripts } = await import('./browse')
+const { injectPageScripts } = await import('./browsePageScripts')
 
 type Call = { method: string; params?: object; sessionId?: string }
 type Reply = (call: Call) => Promise<unknown>
@@ -118,6 +118,20 @@ describe('injectPageScripts', () => {
     calls.length = 0
     await attach('frame-1', 'iframe')
     expect(calls).toEqual([...prepared('frame-1'), resume('frame-1')])
+  })
+
+  it('registers a script with a world name in that isolated world, iframes included', async () => {
+    const { guest, calls, attach } = fakeGuest()
+    const isolated = { source: 'C', worldName: 'probe' }
+    injectPageScripts(guest, ['A', isolated])
+    await attach('frame-1', 'iframe')
+    const registered = calls.filter((c) => c.method === 'Page.addScriptToEvaluateOnNewDocument')
+    expect(registered.map((c) => ({ ...c.params, sessionId: c.sessionId }))).toEqual([
+      { source: 'A', runImmediately: true, sessionId: undefined },
+      { source: 'C', worldName: 'probe', runImmediately: true, sessionId: undefined },
+      { source: 'A', runImmediately: true, sessionId: 'frame-1' },
+      { source: 'C', worldName: 'probe', runImmediately: true, sessionId: 'frame-1' },
+    ])
   })
 
   it('auto-attaches nested iframes through the child session', async () => {

@@ -14,7 +14,7 @@ import {
   isMcpSecretKey,
   mcpTransportOf,
 } from '../../shared/assist/chatTools'
-import type { ExtensionSecretStore } from '../extensions/extensionHost'
+import type { ExtensionSecretStore } from '../extensions/extensionHostDeps'
 import {
   listTool,
   planEditTool,

@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom/vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
-import { tabsOf } from '@/layout/tree'
-import type { PaneNode, TabsNode } from '@/layout/types'
+import { allPanes, tabsOf } from '@/lib/layout/tree'
+import type { PaneNode, TabsNode } from '@/lib/layout/types'
 import { PANE_DND, startPaneDragTracking } from '@/lib/panes/paneDrag'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
@@ -389,6 +389,36 @@ describe('Pane', () => {
       }
     })
 
+    it('dragging a tab to a terminal pane’s right edge splits it with the tab on the right', async () => {
+      const stop = workspace(tabsOf(second.id, first, second))
+      try {
+        await dragToEdge(second.id, 'right')
+
+        expect(panes()).toEqual([[first.id], [second.id]])
+        expect(useLayoutStore.getState().byWorkspace.w.root).toMatchObject({
+          type: 'split',
+          direction: 'horizontal',
+        })
+        expect(document.querySelector('.pane-drop-layer')).toBeNull()
+      } finally {
+        stop()
+      }
+    })
+
+    it('splitting a pane adds a second terminal', async () => {
+      const stop = workspace(tabsOf(first.id, first))
+      try {
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Split right' }))
+
+        await waitFor(() => expect(document.querySelectorAll('.pane-cell')).toHaveLength(2))
+        const panesNow = allPanes(useLayoutStore.getState().byWorkspace.w.root)
+        expect(panesNow.map((p) => p.kind)).toEqual(['terminal', 'terminal'])
+        expect(panesNow[0].id).toBe(first.id)
+      } finally {
+        stop()
+      }
+    })
+
     it('tabs reorder within their tab bar', async () => {
       const stop = workspace(tabsOf(second.id, first, second))
       try {
@@ -546,6 +576,21 @@ describe('Pane tab rename', () => {
     fireEvent.contextMenu(screen.getByRole('tab', { name: /claude/ }))
     await user.click(await screen.findByRole('menuitem', { name: /Rename Tab/ }))
     expect(await screen.findByRole('textbox', { name: 'Rename Tab…' })).toHaveValue('claude')
+  })
+
+  it('Escape in the menu rename keeps a pinned name', async () => {
+    setup()
+    act(() => useLayoutStore.getState().rename('w', 'r2', 'builder'))
+    const user = userEvent.setup()
+    fireEvent.contextMenu(screen.getByRole('tab', { name: /builder/ }))
+    await user.click(await screen.findByRole('menuitem', { name: /Rename Tab/ }))
+    const input = await screen.findByRole('textbox', { name: 'Rename Tab…' })
+    await user.clear(input)
+    await user.type(input, 'discarded{Escape}')
+
+    expect(screen.queryByRole('textbox', { name: 'Rename Tab…' })).toBeNull()
+    expect(titleOf('r2')).toMatchObject({ title: 'builder', titlePinned: true })
+    expect(screen.getByRole('tab', { name: /builder/ })).toBeInTheDocument()
   })
 
   it('pane.rename without a title starts the inline edit on the active tab', async () => {

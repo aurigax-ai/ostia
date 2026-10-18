@@ -1,15 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  hibernateOutcome,
-  parseGroupColorArgs,
-  parseGroupDeleteArgs,
-  parseGroupRenameArgs,
-  parsePaneArgs,
-  parseWorkspaceGroupArgs,
-  parseWorkspaceRenameArgs,
-  waitOutcome,
-  wakeOutcome,
-} from './pane'
+import { hibernateOutcome, parsePaneArgs, waitOutcome, wakeOutcome } from './pane'
 
 describe('parsePaneArgs', () => {
   it('joins the words of send into one text and adds Enter only when asked', () => {
@@ -34,17 +24,20 @@ describe('parsePaneArgs', () => {
     })
   })
 
-  it('keeps unknown flags of send as text and reads --enter wherever it stands', () => {
-    expect(parsePaneArgs(['send', 'worker', '--enter', 'git', 'commit', '-m', 'fix -1'])).toEqual({
+  it('refuses an unknown flag of send, and takes text with dashes after --', () => {
+    expect(() => parsePaneArgs(['send', 'worker', '--enter', 'git', 'commit', '-m', 'x'])).toThrow(
+      'unknown flag -m',
+    )
+    expect(
+      parsePaneArgs(['send', 'worker', '--enter', '--', 'git', 'commit', '-m', 'fix -1']),
+    ).toEqual({
       method: 'pane.input',
       params: { pane: 'worker', text: 'git commit -m fix -1', keys: ['enter'] },
     })
   })
 
   it('reads the flags for unattended sends and a task from stdin', () => {
-    expect(
-      parsePaneArgs(['send', 'w', '--paste', '--force', '--confirm', '--enter', 'do', 'it']),
-    ).toEqual({
+    expect(parsePaneArgs(['send', 'w', '--paste', '--force', '--enter', 'do', 'it'])).toEqual({
       method: 'pane.input',
       params: {
         pane: 'w',
@@ -52,7 +45,6 @@ describe('parsePaneArgs', () => {
         keys: ['enter'],
         paste: true,
         force: true,
-        confirm: true,
       },
     })
     expect(parsePaneArgs(['send', 'w', '--raw', 'a'])).toEqual({
@@ -65,6 +57,10 @@ describe('parsePaneArgs', () => {
       stdin: true,
     })
     expect(() => parsePaneArgs(['send', 'w', '--paste', '--raw', 'a'])).toThrow('usage: ostia pane')
+    expect(() => parsePaneArgs(['send', 'w', '--confirm', 'a'])).toThrow('unknown flag --confirm')
+    expect(parsePaneArgs(['send', 'w', '--', '--not-a-flag'])).toMatchObject({
+      params: { text: '--not-a-flag' },
+    })
   })
 
   it('passes the keys of key through in order', () => {
@@ -99,12 +95,9 @@ describe('parsePaneArgs', () => {
     expect(() => parsePaneArgs(['frobnicate', 'p1'])).toThrow('usage: ostia pane')
   })
 
-  it('points pane list at the pane.list command', () => {
-    for (const argv of [['list'], ['list', '--json']]) {
-      expect(() => parsePaneArgs(argv)).toThrow(
-        'list panes with ostia pane.list (JSON), not ostia pane list',
-      )
-    }
+  it('lists panes as JSON and takes nothing more', () => {
+    expect(parsePaneArgs(['list'])).toEqual({ method: 'pane.list', params: {}, json: true })
+    expect(() => parsePaneArgs(['list', 'p1'])).toThrow('usage: ostia pane <verb>')
   })
 })
 
@@ -123,24 +116,6 @@ describe('pane rename', () => {
   it('refuses a missing title, and a title together with --clear', () => {
     expect(() => parsePaneArgs(['rename', 'p1'])).toThrow('usage: ostia pane')
     expect(() => parsePaneArgs(['rename', 'p1', '--clear', 'x'])).toThrow('usage: ostia pane')
-  })
-})
-
-describe('parseWorkspaceRenameArgs', () => {
-  it('renames your own workspace, or the one named with --workspace', () => {
-    expect(parseWorkspaceRenameArgs(['research', 'line'])).toEqual({ name: 'research line' })
-    expect(parseWorkspaceRenameArgs(['--workspace', 'ws2', 'api'])).toEqual({
-      workspace: 'ws2',
-      name: 'api',
-    })
-    expect(parseWorkspaceRenameArgs(['--clear'])).toEqual({ name: '' })
-  })
-
-  it('refuses no name and a name with --clear', () => {
-    expect(() => parseWorkspaceRenameArgs([])).toThrow('usage: ostia workspace rename')
-    expect(() => parseWorkspaceRenameArgs(['--clear', 'x'])).toThrow(
-      'usage: ostia workspace rename',
-    )
   })
 })
 
@@ -203,21 +178,14 @@ describe('pane wake', () => {
     expect(() => parsePaneArgs(['wake'])).toThrow('ostia pane wake <pane>')
   })
 
-  it('takes --wait with an optional --timeout in seconds', () => {
-    expect(parsePaneArgs(['wake', 'fixer', '--wait'])).toEqual({
+  it('always waits for the start, with an optional --timeout in seconds and no --wait flag', () => {
+    expect(parsePaneArgs(['wake', 'fixer', '--timeout', '30'])).toEqual({
       method: 'pane.wake',
-      params: { panes: ['fixer'], wait: true },
+      params: { panes: ['fixer'], timeoutMs: 30_000 },
       json: false,
     })
-    expect(parsePaneArgs(['wake', 'fixer', '--wait', '--timeout', '30'])).toEqual({
-      method: 'pane.wake',
-      params: { panes: ['fixer'], wait: true, timeoutMs: 30_000 },
-      json: false,
-    })
-    expect(() => parsePaneArgs(['wake', 'fixer', '--timeout', '30'])).toThrow(
-      '--timeout needs --wait',
-    )
-    expect(() => parsePaneArgs(['wake', 'fixer', '--wait', '--timeout', 'soon'])).toThrow(
+    expect(() => parsePaneArgs(['wake', 'fixer', '--wait'])).toThrow('unknown flag --wait')
+    expect(() => parsePaneArgs(['wake', 'fixer', '--timeout', 'soon'])).toThrow(
       "--timeout expects seconds, got 'soon'",
     )
   })
@@ -282,7 +250,7 @@ describe('pane close', () => {
       params: { panes: ['fixer'] },
       json: true,
     })
-    expect(() => parsePaneArgs(['close'])).toThrow('ostia pane close <pane>')
+    expect(parsePaneArgs(['close'])).toEqual({ method: 'pane.close', params: {}, json: false })
   })
 })
 
@@ -300,75 +268,21 @@ describe('pane move', () => {
     })
   })
 
-  it('needs a pane and a workspace', () => {
+  it('takes a split tab by name or new, with or without a workspace', () => {
+    expect(parsePaneArgs(['move', 'fixer', 'w2', '--tab', 'api · workers'])).toEqual({
+      method: 'pane.moveTo',
+      params: { panes: ['fixer', 'w2'], tab: 'api · workers' },
+      json: false,
+    })
+    expect(parsePaneArgs(['move', 'fixer', '--tab', 'new', '--workspace', 'w3'])).toEqual({
+      method: 'pane.moveTo',
+      params: { panes: ['fixer'], workspace: 'w3', tab: 'new' },
+      json: false,
+    })
+  })
+
+  it('needs a pane and a workspace or a tab', () => {
     expect(() => parsePaneArgs(['move', 'fixer'])).toThrow('ostia pane move <pane>')
     expect(() => parsePaneArgs(['move', '--workspace', 'w3'])).toThrow('ostia pane move <pane>')
-  })
-})
-
-describe('parseWorkspaceGroupArgs', () => {
-  it('groups your own workspace, or the one named with --workspace', () => {
-    expect(parseWorkspaceGroupArgs(['code', 'review'], true)).toEqual({ name: 'code review' })
-    expect(parseWorkspaceGroupArgs(['--workspace', 'ws2', 'Work'], true)).toEqual({
-      workspace: 'ws2',
-      name: 'Work',
-    })
-    expect(parseWorkspaceGroupArgs(['--workspace', 'ws2'], false)).toEqual({
-      workspace: 'ws2',
-      name: '',
-    })
-    expect(parseWorkspaceGroupArgs([], false)).toEqual({ name: '' })
-  })
-
-  it('refuses group without a name and ungroup with one', () => {
-    expect(() => parseWorkspaceGroupArgs(['--workspace', 'ws2'], true)).toThrow('missing <name>')
-    expect(() => parseWorkspaceGroupArgs(['Work'], false)).toThrow('usage: ostia workspace ungroup')
-  })
-})
-
-describe('parseGroupColorArgs', () => {
-  it('takes the group name, which may hold spaces, then a palette colour', () => {
-    expect(parseGroupColorArgs(['Work', 'blue'])).toEqual({ group: 'Work', color: 'blue' })
-    expect(parseGroupColorArgs(['code', 'review', 'teal'])).toEqual({
-      group: 'code review',
-      color: 'teal',
-    })
-    expect(parseGroupColorArgs(['Work', '--clear'])).toEqual({ group: 'Work', color: null })
-  })
-
-  it('refuses a colour outside the palette, a missing colour or group', () => {
-    expect(() => parseGroupColorArgs(['Work', 'magenta'])).toThrow(
-      'usage: ostia workspace group-color',
-    )
-    expect(() => parseGroupColorArgs(['Work'])).toThrow('usage: ostia workspace group-color')
-    expect(() => parseGroupColorArgs(['blue'])).toThrow('usage: ostia workspace group-color')
-    expect(() => parseGroupColorArgs(['--clear'])).toThrow('usage: ostia workspace group-color')
-  })
-})
-
-describe('parseGroupRenameArgs', () => {
-  it('takes the group and the new name', () => {
-    expect(parseGroupRenameArgs(['Work', 'Billing'])).toEqual({ group: 'Work', name: 'Billing' })
-  })
-
-  it('refuses a missing or extra word', () => {
-    expect(() => parseGroupRenameArgs(['Work'])).toThrow('usage: ostia workspace group-rename')
-    expect(() => parseGroupRenameArgs(['a', 'b', 'c'])).toThrow(
-      'usage: ostia workspace group-rename',
-    )
-    expect(() => parseGroupRenameArgs([])).toThrow('usage: ostia workspace group-rename')
-  })
-})
-
-describe('parseGroupDeleteArgs', () => {
-  it('takes the one group name', () => {
-    expect(parseGroupDeleteArgs(['code review'])).toEqual({ group: 'code review' })
-  })
-
-  it('refuses an empty name and a name split into words', () => {
-    expect(() => parseGroupDeleteArgs(['code', 'review'])).toThrow(
-      'usage: ostia workspace group-delete',
-    )
-    expect(() => parseGroupDeleteArgs([])).toThrow('usage: ostia workspace group-delete')
   })
 })

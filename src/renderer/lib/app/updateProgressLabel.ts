@@ -1,6 +1,6 @@
-import { fmt } from '@/i18n/useDict'
 import type { Dict } from '@shared/app/dict'
 import type { ReplaceProgress, ReplaceState } from '@shared/app/installMethod'
+import { fmt } from './useDict'
 
 const MIB = 1024 * 1024
 

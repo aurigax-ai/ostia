@@ -5,8 +5,8 @@ import type {
   TerminalAssistRequest,
   TerminalContextEntry,
   TerminalHistoryEntry,
-} from '@shared/assist'
-import { TERMINAL_LINE_MAX } from '@shared/assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { TERMINAL_LINE_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { LRUCache } from 'lru-cache'
 
 export const GHOST_DEBOUNCE_MS = 300

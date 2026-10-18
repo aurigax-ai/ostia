@@ -1,6 +1,7 @@
+import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'
-import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty'
-import { useDict } from '@/i18n/useDict'
+import { useDict } from '@/lib/app/useDict'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useViewsStore } from '@/stores/extensions/viewsStore'
 import { DeclarativeView } from './DeclarativeView'
@@ -15,19 +16,17 @@ export function ViewSurface({
   viewName: string
 }): JSX.Element {
   const d = useDict()
+  useSurfaceFocus(paneId, null)
   const view = useViewsStore((s) => s.views.find((v) => v.name === viewName))
   const openSettings = useUIStore((s) => s.openSettings)
   const doc = view?.status === 'enabled' && view.doc?.placement === 'panel' ? view.doc : null
   if (!view || !doc) {
     return (
-      <Empty className="h-full bg-surface-1">
-        <EmptyHeader>
-          <EmptyDescription className="text-ui-base">{d.views.notEnabled}</EmptyDescription>
-        </EmptyHeader>
+      <EmptyState variant="surface" className="h-full bg-surface-1" desc={d.views.notEnabled}>
         <Button variant="outline" size="sm" onClick={() => openSettings('views')}>
           {d.views.openSettings}
         </Button>
-      </Empty>
+      </EmptyState>
     )
   }
   return (

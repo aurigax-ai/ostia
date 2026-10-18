@@ -1,31 +1,36 @@
 import { AgentOfferDialog } from '@/components/agents/AgentOfferDialog'
+import { CmuxImportDialog } from '@/components/app/CmuxImportDialog'
+import { DetachedTitleBar } from '@/components/app/DetachedTitleBar'
+import { TopBar } from '@/components/app/TopBar'
+import { UpdateConfirmDialog } from '@/components/app/UpdateConfirmDialog'
+import { WindowControls } from '@/components/app/WindowControls'
+import { WorkZone } from '@/components/app/WorkZone'
 import { ExtensionApprovalDialog } from '@/components/extensions/ExtensionApprovalDialog'
 import { FilesPanel } from '@/components/files/FilesPanel'
 import { RemoteFolderDialog } from '@/components/files/RemoteFolderDialog'
 import { CommandPalette } from '@/components/palette/CommandPalette'
 import { HistorySearch } from '@/components/palette/HistorySearch'
-import { SaveWorkflowDialog } from '@/components/palette/SaveWorkflowDialog'
-import { WorkflowPicker } from '@/components/palette/WorkflowPicker'
-import { CloseConfirmDialog } from '@/components/rail/CloseConfirmDialog'
-import { DeckRail } from '@/components/rail/DeckRail'
-import { HibernateSkippedDialog } from '@/components/rail/HibernateSkippedDialog'
-import { MergeConfirmDialog } from '@/components/rail/MergeConfirmDialog'
-import { TabSleepNoticeDialog } from '@/components/rail/TabSleepNoticeDialog'
+import { SaveSnippetDialog } from '@/components/palette/SaveSnippetDialog'
+import { SnippetPicker } from '@/components/palette/SnippetPicker'
 import { SandboxFolderDialog } from '@/components/sandbox/SandboxFolderDialog'
 import { SandboxRequirementsDialog } from '@/components/sandbox/SandboxRequirementsDialog'
 import { ActionConfirmDialog } from '@/components/settings/ActionConfirmDialog'
 import { TelemetryConsentDialog } from '@/components/settings/TelemetryConsentDialog'
-import { CmuxImportDialog } from '@/components/shell/CmuxImportDialog'
-import { DetachedTitleBar } from '@/components/shell/DetachedTitleBar'
-import { TopBar } from '@/components/shell/TopBar'
-import { UpdateConfirmDialog } from '@/components/shell/UpdateConfirmDialog'
-import { WindowControls } from '@/components/shell/WindowControls'
-import { WorkZone } from '@/components/shell/WorkZone'
+import { CloseConfirmDialog } from '@/components/sidebar/CloseConfirmDialog'
+import { DeckRail } from '@/components/sidebar/DeckRail'
+import { HibernateSkippedDialog } from '@/components/sidebar/HibernateSkippedDialog'
+import { MergeConfirmDialog } from '@/components/sidebar/MergeConfirmDialog'
+import { TabSleepNoticeDialog } from '@/components/sidebar/TabSleepNoticeDialog'
 import { useMotionAttribute } from '@/lib/app/motion'
-import { installDoubleShift, runAppChord } from '@/lib/keys/chords'
-import { handleDocumentClipboardChord, syncClipboardChords } from '@/lib/keys/documentClipboard'
-import { wireGuestChords } from '@/lib/keys/guestChordBridge'
-import { useModifierHint } from '@/lib/keys/useModifierHint'
+import { wireLinkTabs } from '@/lib/browser/linkTabs'
+import { installDoubleShift, runAppChord } from '@/lib/keyboard/chords'
+import { handleDocumentClipboardChord, syncClipboardChords } from '@/lib/keyboard/documentClipboard'
+import { wireGuestChords } from '@/lib/keyboard/guestChordBridge'
+import { useModifierHint } from '@/lib/keyboard/useModifierHint'
+import { startLanguageServices } from '@/lib/lsp/client'
+import { loadEditorLanguages } from '@/lib/monaco/contributedLanguages'
+import { useMonacoTheme } from '@/lib/monaco/useMonacoTheme'
+import { registerSettingsSchema } from '@/lib/settings/registerSettingsSchema'
 import { installMiddlePasteGuard } from '@/lib/terminal/middlePaste'
 import { useIconStyle } from '@/lib/theme/iconWeight'
 import { applyTheme, useEffectiveTheme } from '@/lib/theme/theme'
@@ -42,11 +47,7 @@ import { clampZoom } from '@shared/app/zoom'
 import { useEffect } from 'react'
 import { commands } from './commands/registry'
 import { TooltipProvider } from './components/ui/tooltip'
-import { startLanguageServices } from './lsp/client'
-import { loadEditorLanguages } from './monaco/contributedLanguages'
-import { useMonacoTheme } from './monaco/useMonacoTheme'
 import { isMac } from './platform'
-import { registerSettingsSchema } from './settings/registerSettingsSchema'
 
 export function App(): JSX.Element {
   const locale = useSettingsStore((s) => s.locale)
@@ -83,6 +84,7 @@ export function App(): JSX.Element {
 
   useEffect(() => syncClipboardChords(isMac), [])
   useEffect(() => wireGuestChords(isMac), [])
+  useEffect(() => wireLinkTabs(), [])
   useEffect(() => installDoubleShift(window, isMac), [])
 
   useEffect(() => installMiddlePasteGuard(window), [])
@@ -146,8 +148,8 @@ export function App(): JSX.Element {
           <SandboxRequirementsDialog />
           <SandboxFolderDialog />
           <HistorySearch />
-          <WorkflowPicker />
-          <SaveWorkflowDialog />
+          <SnippetPicker />
+          <SaveSnippetDialog />
           {detached ? null : <TelemetryConsentDialog />}
         </div>
       </TooltipProvider>

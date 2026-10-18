@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -31,10 +39,10 @@ export function seedSettings(dataHome: string, settings: object): void {
   writeFileSync(join(userData, 'settings.json'), `${JSON.stringify(settings, null, 2)}\n`)
 }
 
-export function seedTelemetryAnswered(dataHome: string, asked = true): void {
+function seedTelemetryAnswered(dataHome: string): void {
   const userData = join(dataHome, 'userData')
   mkdirSync(userData, { recursive: true })
-  writeFileSync(join(userData, 'telemetry.json'), JSON.stringify({ asked }))
+  writeFileSync(join(userData, 'telemetry.json'), JSON.stringify({ asked: true }))
 }
 
 const TEST_ZSHRC = "PROMPT='%~ ❯ '\n"
@@ -63,6 +71,8 @@ export function isolatedLaunch(dataHome: string = freshDataHome()): {
   if (!existsSync(join(dataHome, 'userData', 'telemetry.json'))) seedTelemetryAnswered(dataHome)
   const { ZDOTDIR: _zdotdir, ...inherited } = process.env as Record<string, string>
   const home = testHome(dataHome)
+  const runtimeDir = join(dataHome, 'run')
+  mkdirSync(runtimeDir, { recursive: true, mode: 0o700 })
   return {
     args: [`--user-data-dir=${join(dataHome, 'userData')}`, '.'],
     env: {
@@ -71,11 +81,30 @@ export function isolatedLaunch(dataHome: string = freshDataHome()): {
       HOME: home,
       XDG_DATA_HOME: dataHome,
       XDG_CONFIG_HOME: join(dataHome, 'config'),
+      XDG_STATE_HOME: join(dataHome, 'state'),
+      XDG_RUNTIME_DIR: runtimeDir,
+      ...(process.platform === 'darwin' ? { TMPDIR: runtimeDir } : {}),
     },
     home,
   }
 }
 
+function stopWireRuntime(dataHome: string): void {
+  const homes = [
+    join(dataHome, 'state', 'wire'),
+    join(dataHome, 'home', 'Library', 'Application Support', 'wire'),
+  ]
+  for (const data of homes) {
+    try {
+      const pid = Number(readFileSync(join(data, 'runtime.lock'), 'utf8').trim())
+      if (pid > 0) process.kill(pid, 'SIGKILL')
+    } catch {}
+  }
+}
+
 process.on('exit', () => {
-  for (const dir of created) rmSync(dir, { recursive: true, force: true })
+  for (const dir of created) {
+    stopWireRuntime(dir)
+    rmSync(dir, { recursive: true, force: true })
+  }
 })

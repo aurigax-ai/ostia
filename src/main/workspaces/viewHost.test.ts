@@ -2,12 +2,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  VIEW_FILE_MAX_BYTES,
-  type ViewInfo,
-  type ViewListing,
-  parseViewText,
-} from '../../shared/views/views'
+import { parseViewText } from '../../shared/views/viewParse'
+import { VIEW_FILE_MAX_BYTES, type ViewInfo, type ViewListing } from '../../shared/views/views'
 import { ViewHost, ViewStore } from './viewHost'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
@@ -55,15 +51,7 @@ function settleWatcher(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, process.platform === 'darwin' ? 600 : 0))
 }
 
-async function until<T>(read: () => T | undefined, timeoutMs = 5000): Promise<T> {
-  const began = Date.now()
-  for (;;) {
-    const value = read()
-    if (value !== undefined) return value
-    if (Date.now() - began > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 20))
-  }
-}
+const POLL = { timeout: 5000, interval: 20 }
 
 beforeEach(() => {
   base = mkdtempSync(join(tmpdir(), 'ostia-views-'))
@@ -151,11 +139,11 @@ describe('ViewHost', () => {
     start().watch()
     await settleWatcher()
     write('agents.json', VIEW)
-    await until(() => info('agents'))
+    await vi.waitUntil(() => info('agents'), POLL)
     write('agents.json', { ...VIEW, title: 'Renamed' })
-    await until(() => (info('agents')?.title === 'Renamed' ? true : undefined))
+    await vi.waitUntil(() => info('agents')?.title === 'Renamed', POLL)
     rmSync(join(dir, 'agents.json'))
-    await until(() => (info('agents') === undefined ? true : undefined))
+    await vi.waitUntil(() => info('agents') === undefined, POLL)
     expect(changes.length).toBeGreaterThanOrEqual(3)
   })
 
@@ -175,14 +163,16 @@ describe('ViewHost', () => {
     start().watch()
     await settleWatcher()
     write('late.json', VIEW)
-    await until(() => info('late'))
+    await vi.waitUntil(() => info('late'), POLL)
   })
 })
 
 describe('ostia skill', () => {
   it('teaches a view example that validates', () => {
-    const skill = readFileSync(join(__dirname, '..', 'agents', 'ostia-skill.md'), 'utf8')
-    const section = skill.slice(skill.indexOf('## Views'))
+    const section = readFileSync(
+      join(__dirname, '..', 'agents', 'skills', 'ostia', 'reference', 'views.md'),
+      'utf8',
+    )
     const example = /```json\n([\s\S]*?)```/.exec(section)?.[1]
     expect(example).toBeDefined()
     const res = parseViewText(example ?? '')

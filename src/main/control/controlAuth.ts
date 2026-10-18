@@ -1,4 +1,4 @@
-import type { Capability } from '../../shared/capabilities'
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { hasCap, initCaps, setCaps } from '../approvals/capabilityStore'
 import { registerScript, resolveToken } from './idRegistry'
 

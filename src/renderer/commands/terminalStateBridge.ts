@@ -1,7 +1,7 @@
+import { findPane, paneIds } from '@/lib/layout/tree'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useRemoteCwdStore } from '@/stores/terminal/remoteCwdStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { findPane, paneIds } from '../layout/tree'
 
 const DEBOUNCE_MS = 100
 

@@ -1,15 +1,27 @@
 import { spawn } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { AgentResume } from '../src/shared/agents/agentResume'
-import type { ExtensionResult } from '../src/shared/extensions'
-import type { CommandResult } from '../src/shared/types'
+import type { CommandResult } from '../src/shared/control/commands'
+import { journalLines } from './journalLines'
 
 const repoRoot = process.cwd()
 const CLI = join(repoRoot, 'out', 'cli', 'index.js')
 export const SCAN_EXPLODES = 'scan-explodes-here'
 export const FAKE_TOOL = join(repoRoot, 'test', 'fixtures', 'tools', 'bin', 'fake-tool')
+export const FAKE_MCP_SERVER = join(repoRoot, 'test', 'fixtures', 'mcp', 'fake-server.mjs')
+export const MCP_SECRET = ['mcp', 'tok', 'Q'.repeat(28)].join('_')
 
 interface CliResult {
   code: number | null
@@ -53,21 +65,15 @@ export interface Harness {
   enable: (name: string) => Promise<ExtensionResult>
   stop: (pane: FakePane, payload: Record<string, unknown>) => Promise<CliResult>
   stopAll: () => void
+  wireData: string
+  journal: (runId: string) => Record<string, unknown>[]
+  runIds: (graph: string) => string[]
   host: import('../src/main/extensions/extensionHost').ExtensionHost
+  launches: import('../src/main/extensions/extensionLaunches').ExtensionLaunches | null
+  secrets: import('../src/main/extensions/extensionHostDeps').ExtensionSecretStore
 }
 
-export async function until<T>(
-  read: () => Promise<T | undefined> | T | undefined,
-  timeoutMs = 15_000,
-): Promise<T> {
-  const start = Date.now()
-  for (;;) {
-    const value = await read()
-    if (value !== undefined) return value
-    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 50))
-  }
-}
+export const POLL = { timeout: 15_000, interval: 50 }
 
 function runCli(args: string[], env: NodeJS.ProcessEnv, stdin = ''): Promise<CliResult> {
   return new Promise((resolve, reject) => {
@@ -92,12 +98,13 @@ function runCli(args: string[], env: NodeJS.ProcessEnv, stdin = ''): Promise<Cli
   })
 }
 
-export async function graphsHarness(opts: { activity?: boolean } = {}): Promise<Harness> {
+export async function graphsHarness(
+  opts: { activity?: boolean; mcp?: boolean; connections?: boolean; launches?: boolean } = {},
+): Promise<Harness> {
   const { registerControlServer } = await import('../src/main/control/controlServer')
   const { registerPane, markManager, getByPaneId } = await import('../src/main/control/idRegistry')
-  const { ExtensionHost, registerExtensionMethods } = await import(
-    '../src/main/extensions/extensionHost'
-  )
+  const { ExtensionHost } = await import('../src/main/extensions/extensionHost')
+  const { registerExtensionMethods } = await import('../src/main/extensions/extensionMethods')
   const { ExtensionStore } = await import('../src/main/extensions/extensionStore')
   const { ExtensionExec } = await import('../src/main/extensions/extensionExec')
   const { registerPaneListMethods } = await import('../src/main/panes/paneList')
@@ -108,6 +115,12 @@ export async function graphsHarness(opts: { activity?: boolean } = {}): Promise<
   const { registerDocsMethods } = await import('../src/main/control/docs')
   const { createRedactor } = await import('../src/main/privacy/redaction')
   const { scanSecrets } = await import('../src/main/privacy/secretScanner')
+  const { McpHost } = await import('../src/main/chat/mcpHost')
+  const { registerExtensionMcp } = await import('../src/main/chat/extensionMcp')
+  const { ExtensionConnections } = await import('../src/main/extensions/extensionConnections')
+  const { createSecretStore } = await import('../src/main/extensions/extensionSecrets')
+  const { ExtensionLaunches } = await import('../src/main/extensions/extensionLaunches')
+  const { WireRuntime, registerWireRuntime } = await import('../src/main/extensions/wireRuntime')
 
   const dir = mkdtempSync(join(tmpdir(), 'ostia-graphs-'))
   const workDir = join(dir, 'shop')
@@ -158,7 +171,25 @@ export async function graphsHarness(opts: { activity?: boolean } = {}): Promise<
     },
   )
 
+  let storedSecrets: unknown = {}
+  const secretStore = createSecretStore({
+    load: () => storedSecrets,
+    save: (data) => {
+      storedSecrets = data
+    },
+    canEncrypt: () => true,
+    encrypt: (plain) => Buffer.from(plain).toString('base64'),
+    decrypt: (stored) => Buffer.from(stored, 'base64').toString(),
+  })
+  const connections = opts.connections
+    ? new ExtensionConnections(join(dir, 'extension-connections.json'), () => secretStore)
+    : undefined
+  const launches = opts.launches
+    ? new ExtensionLaunches(join(dir, 'extension-launches.json'))
+    : null
   const host = new ExtensionHost({
+    ...(connections ? { connections, secrets: secretStore } : {}),
+    ...(launches ? { launches } : {}),
     roots: [{ dir: join(dir, 'builtin'), builtin: true }],
     store: new ExtensionStore(join(dir, 'extensions.json')),
     socketPath: () => socketPath,
@@ -166,6 +197,7 @@ export async function graphsHarness(opts: { activity?: boolean } = {}): Promise<
     dataDir,
     workDirForWorkspace: (id) => (id ? workDirs[id] : undefined),
     cwdForPane: (paneId) => workDirs[panes.get(paneId)?.workspaceId ?? ''],
+    agentRunning: (paneId) => panes.get(paneId)?.agent !== undefined,
     remoteCwdForPane: (paneId) =>
       (paneId === remotePane.internalId ? { host: 'box', cwd: '/srv' } : undefined) as never,
     broadcast: () => {},
@@ -222,6 +254,56 @@ export async function graphsHarness(opts: { activity?: boolean } = {}): Promise<
     log: (extId, line) => logs.push(`${extId}: ${line}`),
   })
   registerExtensionMethods(() => host)
+  const wireEnv = {
+    PATH: `${dirname(process.execPath)}:/usr/bin:/bin`,
+    HOME: dir,
+    XDG_STATE_HOME: join(dir, 'wire-state'),
+    XDG_RUNTIME_DIR: join(dir, 'wire-run'),
+  }
+  mkdirSync(wireEnv.XDG_RUNTIME_DIR, { recursive: true, mode: 0o700 })
+  const wireData = join(wireEnv.XDG_STATE_HOME, 'wire')
+  registerWireRuntime({
+    host: () => host,
+    runtime: new WireRuntime({
+      nodePath: process.execPath,
+      baseEnv: () => wireEnv,
+      pathEnv: () => ({
+        env: wireEnv,
+        platform: process.platform,
+        uid: process.getuid?.() ?? 0,
+        home: dir,
+        tmp: tmpdir(),
+      }),
+    }),
+  })
+  const mcp = opts.mcp
+    ? new McpHost({
+        servers: () => [
+          {
+            name: 'fake',
+            enabled: true,
+            command: [process.execPath, FAKE_MCP_SERVER],
+            env: {},
+            secrets: ['FAKE_TOKEN'],
+            disabledTools: ['fail'],
+          },
+          {
+            name: 'quiet',
+            enabled: false,
+            command: [process.execPath, FAKE_MCP_SERVER],
+            env: {},
+            secrets: [],
+            disabledTools: [],
+          },
+        ],
+        secret: (server, key) => (server === 'fake' && key === 'FAKE_TOKEN' ? MCP_SECRET : null),
+        onStatus: () => {},
+        connectTimeoutMs: 10_000,
+        callTimeoutMs: 5000,
+      })
+    : null
+  registerExtensionMcp({ mcp: () => mcp })
+  if (opts.mcp) host.processes.approve('graphs')
   registerBusMethods({
     managerSendAllowed: () => true,
     announce: () => {},
@@ -292,7 +374,7 @@ export async function graphsHarness(opts: { activity?: boolean } = {}): Promise<
     command: string,
     args: Record<string, unknown> = {},
   ): Promise<ExtensionResult> => {
-    const source = await host.resolvePanel('graphs', { workspaceId: 'w1', locale: 'en' })
+    const source = await host.panels.resolvePanel('graphs', { workspaceId: 'w1', locale: 'en' })
     if (!source.ok) throw new Error(source.error)
     const url = new URL(source.src)
     const res = await fetch(new URL('/api', url), {
@@ -326,6 +408,7 @@ export async function graphsHarness(opts: { activity?: boolean } = {}): Promise<
     remotePane,
     managerPane,
     host,
+    launches,
     writeGraph: (name, text) => {
       const path = join(workDir, '.ostia/graphs', `${name}.yaml`)
       writeFileSync(path, text)
@@ -347,8 +430,30 @@ export async function graphsHarness(opts: { activity?: boolean } = {}): Promise<
         env(pane),
         JSON.stringify({ session_id: 's-1', ...payload }),
       ),
+    secrets: secretStore,
+    wireData,
+    journal: (runId) => {
+      const root = join(wireData, 'runs')
+      for (const scope of existsSync(root) ? readdirSync(root) : [])
+        for (const graph of readdirSync(join(root, scope))) {
+          const file = join(root, scope, graph, runId, 'journal.jsonl')
+          if (existsSync(file)) return journalLines(readFileSync(file, 'utf8'))
+        }
+      return []
+    },
+    runIds: (graph) => {
+      const root = join(wireData, 'runs')
+      return (existsSync(root) ? readdirSync(root) : []).flatMap((scope) =>
+        existsSync(join(root, scope, graph)) ? readdirSync(join(root, scope, graph)) : [],
+      )
+    },
     stopAll: () => {
-      host.stopAll()
+      host.processes.stopAll()
+      mcp?.closeAll()
+      try {
+        const pid = Number(readFileSync(join(wireData, 'runtime.lock'), 'utf8').trim())
+        if (pid > 0) process.kill(pid, 'SIGKILL')
+      } catch {}
       rmSync(dir, { recursive: true, force: true })
     },
   }

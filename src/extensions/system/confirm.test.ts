@@ -19,4 +19,27 @@ describe('installConfirm', () => {
     expect(installConfirm(plan('pacman'), s).detail).not.toContain('AUR')
     expect(installConfirm(plan('yay'), s).hostTerminal).toEqual(['yay', '-S', 'jq'])
   })
+
+  it('ostia system install asks the human with the packages, the exact command and the reason, to Approve or Deny', () => {
+    const asked = installConfirm(
+      {
+        manager: 'pacman',
+        packages: ['ripgrep', 'fd'],
+        argv: ['sudo', 'pacman', '-S', '--needed', 'ripgrep', 'fd'],
+        command: 'sudo pacman -S --needed ripgrep fd',
+        reason: 'e2e-check',
+      },
+      stringsFor('en'),
+    )
+    expect(asked).toMatchObject({
+      title: 'Install system packages',
+      confirmLabel: 'Approve',
+      cancelLabel: 'Deny',
+      hostTerminal: ['sudo', 'pacman', '-S', '--needed', 'ripgrep', 'fd'],
+    })
+    expect(asked.message).toContain('ripgrep, fd')
+    expect(asked.message).toContain('pacman')
+    expect(asked.detail).toContain('sudo pacman -S --needed ripgrep fd')
+    expect(asked.detail).toContain('e2e-check')
+  })
 })

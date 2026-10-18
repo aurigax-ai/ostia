@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import type { ExtensionCaller } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   StreamMessageReader,
@@ -9,8 +10,7 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import type { QuestionState } from '../../shared/agents/questions'
-import type { ExtensionCaller } from '../../shared/extensions'
-import type { CommandResult } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 import { AGENT_TASKS_PER_MINUTE, type HeldResume } from '../agents/extensionAgents'
 
 const published: { windowId: string; state: QuestionState }[] = []
@@ -36,7 +36,8 @@ const { registerControlServer, stopControlServer } = await import('../control/co
 const { markManager, registerPane } = await import('../control/idRegistry')
 const { PaneWaking } = await import('../panes/paneWaking')
 const { registerExtensionWake } = await import('../panes/extensionWake')
-const { ExtensionHost, registerExtensionMethods } = await import('./extensionHost')
+const { ExtensionHost } = await import('./extensionHost')
+const { registerExtensionMethods } = await import('./extensionMethods')
 const { ExtensionStore } = await import('./extensionStore')
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions-graphs')
@@ -52,6 +53,7 @@ describe('the extension API a graph host needs', () => {
   const hibernated = new Set<string>()
   const typed: string[] = []
   const waking = new PaneWaking()
+  let wakeRejects = false
   const panes = registerPane.bind(null)
   const target = panes({ windowId: '7', workspaceId: 'w1', paneId: 'pane-target' })
   const sleeper = panes({ windowId: '7', workspaceId: 'w1', paneId: 'pane-sleeper' })
@@ -115,11 +117,12 @@ describe('the extension API a graph host needs', () => {
       openedBy: (caller, paneId) => host.openedBy(caller, paneId),
       hibernated: async (pane) => hibernated.has(pane.paneId),
       wake: async (pane) => {
+        if (wakeRejects) throw new Error('window gone')
         if (pane.paneId === twin.paneId || pane.paneId === held.paneId) {
           return { woke: false, conflict: 'other tab' }
         }
         hibernated.delete(pane.paneId)
-        typed.push(`${pane.paneId}: claude --resume s1`)
+        typed.push(`${pane.paneId}: 'claude' --resume s1`)
         return { woke: true }
       },
       panes: async () => [],
@@ -142,7 +145,7 @@ describe('the extension API a graph host needs', () => {
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
@@ -205,7 +208,26 @@ describe('the extension API a graph host needs', () => {
     await new Promise((r) => setTimeout(r, 200))
     waking.end(sleeper.paneId, 'started')
     expect(await reply).toEqual({ ok: true, outcome: 'started' })
-    expect(typed).toEqual([`${sleeper.paneId}: claude --resume s1`])
+    expect(typed).toEqual([`${sleeper.paneId}: 'claude' --resume s1`])
+  })
+
+  it('ext.wakePane answers resume-failed when the agent did not start', async () => {
+    hibernated.add(sleeper.paneId)
+    const reply = call('runner', 'ext.wakePane', { paneId: sleeper.externalId, waitMs: 5000 })
+    await new Promise((r) => setTimeout(r, 200))
+    waking.end(sleeper.paneId, 'failed', 'its agent exited with code 1 before it started')
+    expect(await reply).toEqual({ ok: true, outcome: 'resume-failed' })
+  })
+
+  it('ext.wakePane leaves the pane out of the waking set when the wake rejects', async () => {
+    hibernated.add(sleeper.paneId)
+    wakeRejects = true
+    try {
+      await call('runner', 'ext.wakePane', { paneId: sleeper.externalId, waitMs: 5000 })
+    } finally {
+      wakeRejects = false
+    }
+    expect(waking.has(sleeper.paneId)).toBe(false)
   })
 
   it('GRF-C117 ext.wakePane refuses an awake pane, a session held elsewhere and the manager, and ignores text', async () => {
@@ -280,7 +302,7 @@ describe('the extension API a graph host needs', () => {
       }),
     ).toMatchObject({ ok: true })
     expect(openTerminalIn.mock.calls[0][0]).toMatchObject({
-      command: `claude --resume s1 --fork-session 'fix it'\\''s tests'`,
+      command: `'claude' --resume s1 --fork-session 'fix it'\\''s tests'`,
       cwd: dir,
       backgroundTab: true,
     })
@@ -290,7 +312,9 @@ describe('the extension API a graph host needs', () => {
       continueFrom: started.externalId,
       prompt: 'again',
     })
-    expect(openTerminalIn.mock.calls[1][0]).toMatchObject({ command: 'claude --resume s1 again' })
+    expect(openTerminalIn.mock.calls[1][0]).toMatchObject({
+      command: "'claude' --resume s1 again",
+    })
   })
 
   it('GRF-C184 continueFrom refuses an unreached pane, no session and a missing folder, and ignores args', async () => {
@@ -338,7 +362,7 @@ describe('the extension API a graph host needs', () => {
       args: ['--dangerously-skip-permissions'],
       command: 'rm -rf ~',
     })
-    expect(openTerminalIn.mock.calls.map((c) => c[0].command)).toEqual(['claude --resume s1 p'])
+    expect(openTerminalIn.mock.calls.map((c) => c[0].command)).toEqual(["'claude' --resume s1 p"])
   })
 
   it('GRF-C120 ext.ask puts a question in the workspace window labelled with the extension and returns the pick', async () => {
@@ -384,10 +408,11 @@ describe('the extension API a graph host needs', () => {
     void call('runner', 'ext.ask', { workspaceId: 'w1', question: 'pending when it stops' })
     await new Promise((r) => setTimeout(r, 200))
     expect(questions()?.stateFor('7').pending).toHaveLength(1)
-    host.stopAll()
-    for (let i = 0; i < 100 && (questions()?.stateFor('7').pending.length ?? 0) > 0; i++) {
-      await new Promise((r) => setTimeout(r, 50))
-    }
+    host.processes.stopAll()
+    await vi.waitUntil(() => (questions()?.stateFor('7').pending.length ?? 0) === 0, {
+      timeout: 5000,
+      interval: 50,
+    })
     expect(questions()?.stateFor('7').pending).toEqual([])
   })
 

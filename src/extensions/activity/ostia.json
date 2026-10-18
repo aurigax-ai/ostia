@@ -2,15 +2,45 @@
   "id": "activity",
   "name": "Activity",
   "version": "1.0.0",
-  "api": "3.3",
-  "description": "One panel for what each agent did: its latest closing message as a running recap, and on request the prompt, tool calls and stops of each turn. It only records what the agents report through hooks, keeps it on this computer, and never types into a terminal.",
+  "api": "4.10",
+  "description": "One panel for what each agent did and what needs you: its latest closing message as a running recap, notes agents leave with ostia activity add, and items that need you with a count in the sidebar until you mark them done. On request it shows the prompt, tool calls and stops of each turn as a timeline, with the workspace's events beside them: panes started, closed, hibernated or woken, agent status, folder changes and, once you grant read-bus, which pane sent a bus message to which, never what it says. It keeps everything on this computer, moves old entries to a compressed archive, and never types into a terminal.",
   "category": "tools",
-  "capabilities": ["agent-plugin", "read-board"],
+  "capabilities": ["agent-plugin", "read-board", "read-bus"],
   "main": "main.js",
   "locales": ["zh-Hant"],
   "contributes": {
+    "verb": "activity",
+    "sidebarItems": true,
     "commands": [
-      { "id": "open", "title": "Activity: Open", "category": "Activity" },
+      {
+        "id": "open",
+        "title": "Activity: Open",
+        "category": "Activity"
+      },
+      {
+        "id": "add",
+        "title": "Add a note to this workspace's Activity",
+        "palette": false,
+        "usage": "add \"<text>\" [--needs-you] [--link <path|url>]"
+      },
+      {
+        "id": "list",
+        "title": "List this workspace's notes, needs-you items and recaps",
+        "palette": false,
+        "usage": "list [--needs-you] [--open] [--archived] [--since <time>] [--workspace <id>] [--json]"
+      },
+      {
+        "id": "show",
+        "title": "Print one Activity entry",
+        "palette": false,
+        "usage": "show <id> [--workspace <id>] [--json]"
+      },
+      {
+        "id": "done",
+        "title": "Mark your own needs-you item done",
+        "palette": false,
+        "usage": "done <id>"
+      },
       {
         "id": "on-hook",
         "title": "Record one agent hook event",
@@ -19,18 +49,53 @@
       }
     ],
     "agentHooks": [
-      { "event": "UserPromptSubmit", "command": "on-hook" },
-      { "event": "PreToolUse", "command": "on-hook" },
-      { "event": "Stop", "command": "on-hook" }
+      {
+        "event": "UserPromptSubmit",
+        "command": "on-hook"
+      },
+      {
+        "event": "PreToolUse",
+        "command": "on-hook"
+      },
+      {
+        "event": "Stop",
+        "command": "on-hook"
+      }
     ],
-    "panel": { "title": "Activity", "icon": "chat", "entry": "url" },
+    "panel": {
+      "title": "Activity",
+      "icon": "chat",
+      "entry": "url"
+    },
     "settings": {
       "showActivity": {
         "type": "boolean",
         "title": "Show activity",
         "default": false,
-        "description": "Show each agent's events under its recap in the Activity panel"
+        "description": "Show each agent's turns as a timeline in the Activity panel, with its tool actions folded into one group per turn"
+      },
+      "retentionDays": {
+        "type": "number",
+        "title": "Days in the live view",
+        "default": 14,
+        "minimum": 1,
+        "maximum": 365,
+        "description": "Entries older than this move to the archive; open needs-you items stay until done"
+      },
+      "archiveDays": {
+        "type": "number",
+        "title": "Days kept in the archive",
+        "default": 180,
+        "minimum": 1,
+        "maximum": 3650,
+        "description": "Archived entries older than this are deleted"
       }
-    }
+    },
+    "agentSkills": [
+      {
+        "name": "activity",
+        "path": "skills/activity"
+      }
+    ]
   }
 }

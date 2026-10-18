@@ -1,0 +1,18 @@
+{
+  "manifest": {
+    "name": "CSV 表格",
+    "description": "把 .csv 與 .tsv 檔案顯示為可捲動的表格，最多 100,000 列與 1,000 欄。用編輯器中的表格按鈕或「開啟方式」開啟。它只讀取你開啟的檔案，在畫面之外解析，且不會傳送到任何地方。",
+    "fileViewers.csv.table.displayName": "表格"
+  },
+  "messages": {
+    "loading": "載入中…",
+    "tooLarge": "檔案太大，無法以表格顯示（{size}）。",
+    "unreadable": "無法讀取這個檔案。",
+    "gone": "這個檔案已經不在了。",
+    "timeout": "讀取這個檔案太久，已經停止。",
+    "failed": "無法把這個檔案讀成表格。",
+    "empty": "這個檔案是空的。",
+    "rowsCut": "只顯示前 {rows} 列。",
+    "columnsCut": "只顯示前 {columns} 欄。"
+  }
+}

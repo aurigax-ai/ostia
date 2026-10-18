@@ -1,5 +1,5 @@
-import { findPane } from '@/layout/tree'
 import { revealPane } from '@/lib/attention/workspaceActivity'
+import { findPane } from '@/lib/layout/tree'
 import { openKeepingFocus } from '@/lib/panes/callerFocus'
 import { runWhenIdle } from '@/lib/terminal/blockActions'
 import { startOffscreen } from '@/lib/terminal/offscreenStart'
@@ -11,12 +11,12 @@ import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type {
-  ExtensionInfo,
   ExtensionOpenDiffRequest,
   ExtensionOpenPanelRequest,
-} from '@shared/extensions'
-import type { ProcessTerminalRequest } from '@shared/types'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
+import type { ProcessTerminalRequest } from '@shared/workspaces/workspaceApi'
 import { commands } from './registry'
 
 const registered = new Map<string, string>()

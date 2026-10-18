@@ -1,7 +1,7 @@
 import { chatAvailable } from '@/lib/assist/assistFeatures'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useAssistStore } from '@/stores/assist/assistStore'
-import { registerCore } from './core'
+import { registerCore } from './coreCommand'
 import { commands } from './registry'
 
 export const ASK_COMMAND_ID = 'assist.ask'

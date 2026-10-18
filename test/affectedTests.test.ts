@@ -17,6 +17,7 @@ import {
   planChanges,
   planE2e,
   planTests,
+  unitTexts,
   vitestArgs,
 } from './affectedTests.mjs'
 
@@ -25,6 +26,13 @@ const readers = {
   folders: {
     'e2e/': ['test/e2eImports.test.ts'],
     '.github/': ['src/main/updates/releasePackaging.test.ts'],
+  },
+  texts: {
+    'test/e2eAreas.test.ts': "join(ROOT, 'test/e2eAreas')",
+    'src/main/agents/skillFiles.test.ts': "'packages/extension-sdk/docs/EXTENSIONS.md'",
+    'src/main/ports/portFixtures.test.ts': "join(root, 'test/fixtures/ports')",
+    'src/renderer/lib/app/motion.test.tsx': "readFileSync('test/fixtures/ports/a.json')",
+    'src/main/panes/paneIo.test.ts': "import './paneIo'",
   },
 }
 
@@ -52,22 +60,74 @@ describe('planTests', () => {
       'package.json',
       'vitest.config.mts',
       'playwright.config.ts',
+      'tsconfig.node.json',
       'test/setup.ts',
       'test/mocks/ostia.ts',
-      'scripts/build-extensions.mjs',
-      'sdk/docs/EXTENSIONS.md',
     ]) {
-      expect(planTests(['src/renderer/lib/keys/keyPresets.ts', file], readers), file).toEqual({
+      expect(planTests(['src/renderer/lib/keyboard/keyPresets.ts', file], readers), file).toEqual({
         node: null,
         dom: null,
       })
     }
   })
 
+  it('runs only the tests that name a non-code file', () => {
+    expect(planTests(['test/e2eAreas/ssh.json'], readers)).toEqual({
+      node: ['test/e2eAreas.test.ts'],
+      dom: [],
+    })
+    expect(planTests(['packages/extension-sdk/docs/EXTENSIONS.md'], readers)).toEqual({
+      node: ['src/main/agents/skillFiles.test.ts'],
+      dom: [],
+    })
+    expect(planTests(['test/fixtures/ports/a.json'], readers)).toEqual({
+      node: ['src/main/ports/portFixtures.test.ts'],
+      dom: ['src/renderer/lib/app/motion.test.tsx'],
+    })
+  })
+
+  it('runs every test for a build input, setup helper or tool config', () => {
+    for (const file of [
+      ...['extensions', 'tsnet', 'marketplace', 'artifact-runtime', 'info'].map(
+        (name) => `scripts/build-${name}.mjs`,
+      ),
+      'packages/extension-sdk/scripts/build.mjs',
+      'packages/extension-sdk/package.json',
+      'packages/extension-sdk/template/package.json',
+      'electron.vite.config.ts',
+      'patches/swr@2.5.1.patch',
+      'biome.json',
+      'knip.json',
+      '.jscpd.json',
+      '.dependency-cruiser.json',
+      '.dependency-cruiser-known-violations.json',
+      'test/consoleGuard.ts',
+      'test/quarantine.mjs',
+    ]) {
+      expect(planTests([file], readers), file).toEqual({ node: null, dom: null })
+    }
+  })
+
+  it('plans against the real test texts without the planner tests', () => {
+    const texts = unitTexts()
+    expect(Object.keys(texts)).not.toContain('test/affectedTests.test.ts')
+    expect(Object.keys(texts)).not.toContain('test/e2eAreas.test.ts')
+    const real = { ...readers, texts }
+    expect(planTests(['packages/extension-sdk/docs/EXTENSIONS.md'], real)).toEqual({
+      node: null,
+      dom: null,
+    })
+    expect(planTests(['scripts/build-extensions.mjs'], real)).toEqual({ node: null, dom: null })
+  })
+
+  it('runs every test for a non-code file no test names', () => {
+    expect(planTests(['scripts/build-extensions.mjs'], readers)).toEqual({ node: null, dom: null })
+  })
+
   it('runs only related tests for a renderer change, plus the dom tests that read files', () => {
-    expect(planTests(['src/renderer/lib/keys/keyPresets.ts'], readers)).toEqual({
-      node: ['src/renderer/lib/keys/keyPresets.ts'],
-      dom: ['src/renderer/lib/keys/keyPresets.ts', 'src/renderer/lib/app/motion.test.tsx'],
+    expect(planTests(['src/renderer/lib/keyboard/keyPresets.ts'], readers)).toEqual({
+      node: ['src/renderer/lib/keyboard/keyPresets.ts'],
+      dom: ['src/renderer/lib/keyboard/keyPresets.ts', 'src/renderer/lib/app/motion.test.tsx'],
     })
   })
 
@@ -78,6 +138,7 @@ describe('planTests', () => {
       'src/cli/index.ts',
       'src/extensions/ssh/main.ts',
       'src/shared/app/dict.ts',
+      'packages/extension-sdk/src/client/index.ts',
     ]) {
       expect(planTests([file], readers), file).toEqual({
         node: null,
@@ -159,11 +220,11 @@ describe('planE2e', () => {
           'README.md',
           '.github/workflows/ci.yml',
           'src/main/sandbox/ptyWrap.test.ts',
-          'src/renderer/lib/keys/chords.test.ts',
+          'src/renderer/lib/keyboard/chords.test.ts',
           'test/mocks/ostia.ts',
           'test/quarantine.json',
           'scripts/retry.sh',
-          'vitest.workspace.mts',
+          'vitest.config.mts',
         ],
         map,
         imports,
@@ -199,7 +260,9 @@ describe('e2eImports', () => {
   it('follows a spec through the e2e helpers into the shared code they import', () => {
     const graph = e2eImports()
     expect(graph['e2e/marketplace.spec.ts']).toContain('e2e/helpers.ts')
-    expect(graph['e2e/marketplace.spec.ts']).toContain('src/shared/extensions/marketplace.ts')
+    expect(graph['e2e/marketplace.spec.ts']).toContain(
+      'packages/extension-sdk/src/manifest/marketplaceManifest.ts',
+    )
     expect(Object.keys(graph)).toEqual(e2eSpecs())
   })
 })
@@ -292,7 +355,7 @@ describe('domFileReaders', () => {
     const found = domFileReaders()
     expect(found).toContain('src/renderer/lib/app/motion.test.tsx')
     expect(found).toContain('src/renderer/lib/theme/typography.test.ts')
-    expect(found).not.toContain('src/renderer/layout/tree.test.ts')
+    expect(found).not.toContain('src/renderer/lib/layout/tree.test.ts')
   })
 })
 
@@ -323,7 +386,7 @@ describe('vitestArgs', () => {
 
 describe('vitest related', () => {
   it('follows a ?raw import of a markdown file to the test that imports it', async () => {
-    const skill = join(ROOT, 'src/main/agents/ostia-skill.md')
+    const skill = join(ROOT, 'src/main/agents/skills/ostia-manager/SKILL.md')
     const vitest = await createVitest(
       'test',
       { root: ROOT, watch: false, project: ['node'], related: [skill] },
@@ -331,8 +394,9 @@ describe('vitest related', () => {
       {},
     )
     try {
-      const specs = await vitest.globTestSpecs(['src/main/manager/managerAgent.test.ts'])
-      const related = await vitest.filterTestsBySource(specs)
+      const related = await vitest.getRelevantTestSpecifications([
+        'src/main/manager/managerAgent.test.ts',
+      ])
       expect(related.map((spec) => spec.moduleId)).toEqual([
         join(ROOT, 'src/main/manager/managerAgent.test.ts'),
       ])

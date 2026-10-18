@@ -1,9 +1,9 @@
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { runCli as headless } from '@aurigax-ai/wire'
+import { WORKED_GRAPHS, workedGraph } from '@aurigax-ai/wire/testing'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { main as headless } from '../../graph-engine/src/cli/main'
-import { WORKED_GRAPHS, workedGraph } from '../../graph-engine/src/engine/fixtures'
-import { FAKE_TOOL, type Harness, graphsHarness, until } from '../../test/graphsHarness'
+import { FAKE_TOOL, type Harness, POLL, graphsHarness } from '../../test/graphsHarness'
 
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },
@@ -13,17 +13,7 @@ vi.mock('electron', () => ({
 const json = (text: string) => JSON.parse(text) as Record<string, unknown>
 
 function journal(h: Harness, runId: string): Record<string, unknown>[] {
-  const root = join(h.dataDir, 'graphs', 'runs', 'w1')
-  for (const graph of readdirSync(root)) {
-    const file = join(root, graph, runId, 'journal.jsonl')
-    if (existsSync(file)) {
-      return readFileSync(file, 'utf8')
-        .trim()
-        .split('\n')
-        .map((l) => JSON.parse(l) as Record<string, unknown>)
-    }
-  }
-  return []
+  return h.journal(runId)
 }
 
 const AGENTS_GRAPH = (name: string, extra = '') => `version: 1
@@ -48,11 +38,14 @@ describe('ostia graph on the built-in graphs extension (real CLI, real socket)',
 
   afterAll(() => h.stopAll())
 
-  it('GRF-C1 and GRF-C127 the verbs answer under graph and graphs, and ostia docs lists all ten', async () => {
+  it('GRF-C1 and GRF-C127 the verbs answer under graph only, and ostia docs lists all ten', async () => {
     const schema = await h.cli(h.human, ['graph', 'schema'])
     expect(schema.code).toBe(0)
     expect(json(schema.stdout).title).toBe('Graph file')
-    expect((await h.cli(h.human, ['graphs', 'schema'])).stdout).toBe(schema.stdout)
+    const byId = await h.cli(h.human, ['graphs', 'schema'])
+    expect(byId.code).toBe(1)
+    expect(byId.stdout).toBe('')
+    expect(byId.stderr).toContain('usage: ostia graph <command>')
     expect((await h.cli(h.human, ['graph', 'nodes'])).code).toBe(0)
     expect(
       (await h.cli(h.human, ['graph', 'explain', '.ostia/graphs/review-loop.yaml'])).stdout,
@@ -101,6 +94,7 @@ describe('ostia graph on the built-in graphs extension (real CLI, real socket)',
       'agent',
       'approval',
       'command',
+      'connector',
       'notify',
       'router',
       'wait',
@@ -121,7 +115,7 @@ describe('ostia graph on the built-in graphs extension (real CLI, real socket)',
     const run = await h.cli(h.human, ['graph', 'run', 'quiet', '--input', 'task=x'])
     expect(run.code).toBe(1)
     expect(run.stderr).toContain('not-enabled')
-    expect(existsSync(join(h.dataDir, 'graphs', 'runs', 'w1', 'quiet'))).toBe(false)
+    expect(h.runIds('quiet')).toEqual([])
   })
 
   it('GRF-C89 and GRF-C56 an agent starts an enabled graph with input; the command runs with no terminal', async () => {
@@ -147,10 +141,10 @@ edges:
     ])
     expect(run.code).toBe(0)
     const runId = run.stdout.trim()
-    const lines = await until(() => {
+    const lines = await vi.waitUntil(() => {
       const found = journal(h, runId)
       return found.some((l) => l.type === 'run-end') ? found : undefined
-    })
+    }, POLL)
     expect(lines[0]).toMatchObject({
       type: 'run-start',
       state: { task: 'fix the flaky test' },
@@ -198,23 +192,26 @@ edges:
   it('GRF-C94 a scratch workspace has no graphs and leaves no data folder', async () => {
     expect((await h.cli(h.scratchPane, ['graph', 'list'])).stderr).toContain('scratch')
     expect((await h.cli(h.scratchPane, ['graph', 'run', 'status'])).stderr).toContain('scratch')
-    expect(existsSync(join(h.dataDir, 'graphs', 'runs', 'sc1'))).toBe(false)
+    const scopes = join(h.wireData, 'scopes.json')
+    expect(existsSync(scopes) ? readFileSync(scopes, 'utf8') : '').not.toContain(
+      join(h.dir, 'scratch'),
+    )
   })
 
   it('GRF-C82 no verb, command or invoke enables a graph', async () => {
-    const before = readFileSync(join(h.dataDir, 'graphs', 'enabled.json'), 'utf8')
+    const before = readFileSync(join(h.wireData, 'enabled.json'), 'utf8')
     expect((await h.cli(h.human, ['graph', 'enable', 'quiet'])).stderr).toContain(
-      'unknown subcommand',
+      'usage: ostia graph <verb>',
     )
-    expect((await h.cli(h.human, ['ext', 'graphs', 'enable', 'quiet'])).stderr).toContain(
-      'unknown subcommand',
+    expect((await h.cli(h.human, ['graphs', 'enable', 'quiet'])).stderr).toContain(
+      'usage: ostia graph <command>',
     )
     const manifest = JSON.parse(readFileSync(join(h.dir, 'builtin/graphs/ostia.json'), 'utf8')) as {
       contributes: { commands: { id: string }[] }
     }
     for (const { id } of manifest.contributes.commands) {
       if (id === 'run' || id === 'open') continue
-      await h.cli(h.human, ['ext', 'graphs', id, 'quiet', '--json', '{}'])
+      await h.cli(h.human, ['graph', id, 'quiet', '--json', '{}'])
     }
     const invoke = await h.host.invoke(
       'graphs',
@@ -223,12 +220,14 @@ edges:
       { kind: 'pane', capabilities: [] },
     )
     expect(invoke).toMatchObject({ ok: false, error: 'unknown-command' })
-    expect(readFileSync(join(h.dataDir, 'graphs', 'enabled.json'), 'utf8')).toBe(before)
+    expect(readFileSync(join(h.wireData, 'enabled.json'), 'utf8')).toBe(before)
   })
 
   it('GRF-C76 pause, cancel, retry and resume-once are not commands', async () => {
     for (const verb of ['pause', 'cancel', 'retry', 'resume-once', 'resume', 'skip']) {
-      expect((await h.cli(h.human, ['graph', verb, 'x'])).stderr).toContain('unknown subcommand')
+      expect((await h.cli(h.human, ['graph', verb, 'x'])).stderr).toContain(
+        'usage: ostia graph <verb>',
+      )
       expect(
         await h.host.invoke('graphs', verb, { argv: [] }, { kind: 'pane', capabilities: [] }),
       ).toMatchObject({
@@ -253,13 +252,14 @@ edges:
         (g) => g.name === 'edited',
       )?.state,
     ).toBe('changed')
-    expect(readFileSync(join(h.dataDir, 'graphs', 'enabled.json'), 'utf8')).not.toContain(
-      'edited.yaml',
-    )
+    const records = JSON.parse(readFileSync(join(h.wireData, 'enabled.json'), 'utf8')) as {
+      enabled: { realPath: string }[]
+    }
+    expect(records.enabled.map((r) => r.realPath).join('\n')).not.toContain('edited.yaml')
   })
 
   it('GRF-C83 the panel API refuses a request without its secret', async () => {
-    const source = await h.host.resolvePanel('graphs', { workspaceId: 'w1', locale: 'en' })
+    const source = await h.host.panels.resolvePanel('graphs', { workspaceId: 'w1', locale: 'en' })
     if (!source.ok) throw new Error(source.error)
     const res = await fetch(new URL('/api', source.src), {
       method: 'POST',

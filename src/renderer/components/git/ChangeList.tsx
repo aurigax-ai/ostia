@@ -1,6 +1,9 @@
 import { IconButton } from '@/components/common/IconButton'
+import { focusSibling } from '@/lib/app/rowFocus'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { splitPath } from '@/lib/files/fileTree'
 import { type TreeNode, buildFileTree } from '@/lib/git/gitFileTree'
-import { AREA_ORDER, leaves, rowIndent, splitPath } from '@/lib/git/gitView'
+import { AREA_ORDER, leaves, rowIndent } from '@/lib/git/gitView'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   ArrowCounterClockwiseIcon,
@@ -28,7 +31,6 @@ import type {
   StatusSummary,
 } from '@shared/boards/git'
 import { Fragment, type KeyboardEvent, type ReactNode, useMemo } from 'react'
-import { fmt, useDict } from '../../i18n/useDict'
 
 type GitDict = Dict['git']
 
@@ -178,11 +180,7 @@ export function CountChips({ counts }: { counts: StatusSummary }): JSX.Element {
 function moveRowFocus(e: KeyboardEvent<HTMLUListElement>): void {
   if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
   const rows = [...e.currentTarget.querySelectorAll<HTMLElement>('button.change, button.folder')]
-  const at = rows.indexOf(document.activeElement as HTMLElement)
-  const next = rows[at + (e.key === 'ArrowDown' ? 1 : -1)]
-  if (!next) return
-  e.preventDefault()
-  next.focus()
+  if (focusSibling(rows, document.activeElement, e.key === 'ArrowDown' ? 1 : -1)) e.preventDefault()
 }
 
 interface ListProps<T extends FileItem> {

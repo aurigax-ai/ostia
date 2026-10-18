@@ -1,8 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import {
+  ALL_CAPABILITIES,
+  type Capability,
+} from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { app, ipcMain, webContents } from 'electron'
 import { clip } from '../../shared/browser/pick'
-import { ALL_CAPABILITIES, type Capability } from '../../shared/capabilities'
 import {
   APPROVAL_ANSWERS,
   APPROVAL_DETAIL_MAX,

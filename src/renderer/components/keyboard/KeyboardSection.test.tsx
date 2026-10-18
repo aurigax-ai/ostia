@@ -4,14 +4,14 @@ import { commands } from '@/commands/registry'
 import { CommandPalette } from '@/components/palette/CommandPalette'
 import { loadDesktops } from '@/lib/app/desktop'
 import { languagesFrom } from '@/lib/extensions/languagePacks'
-import { installDoubleShift } from '@/lib/keys/chords'
+import { installDoubleShift } from '@/lib/keyboard/chords'
 import { startKeymapSync, useKeymapStore } from '@/stores/app/keymapStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { zhHant } from '@shared/app/dict'
-import type { ExtensionInfo } from '@shared/extensions'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -45,6 +45,7 @@ const keymapExtension: ExtensionInfo = {
   assist: [],
   secrets: [],
   secretsSet: [],
+  connectionKinds: [],
   iconThemes: [],
   languages: [],
   keymaps: [
@@ -52,6 +53,7 @@ const keymapExtension: ExtensionInfo = {
     { id: 'mac', label: 'Mac only', platform: 'darwin' },
   ],
   languageServers: [],
+  fileViewers: [],
   agentSkills: [],
   agentHooks: [],
 }

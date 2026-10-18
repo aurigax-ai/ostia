@@ -2,8 +2,8 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLanguageNoticeStore } from '@/stores/extensions/languageNoticeStore'
 import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
+import type { LanguageServerInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import type { ExtensionSuggestion } from '@shared/extensions/extensionSuggestions'
-import type { LanguageServerInfo } from '@shared/languageServers'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -60,6 +60,22 @@ describe('LanguageNotice', () => {
     useLanguageNoticeStore.setState(notices, true)
     useExtensionsStore.setState(extensions, true)
     useUIStore.setState(ui, true)
+  })
+
+  it('fades in only a notice that appears after the first render, never one already there', async () => {
+    useLanguageServersStore.setState({
+      list: [server({ status: 'downloading', progress: 10 })],
+      load: vi.fn(async () => {}),
+    })
+    suggest(null)
+    const { unmount } = render(<LanguageNotice paneId="p1" filePath="/work/main.rs" />)
+    expect(await screen.findByRole('status')).not.toHaveClass('motion-fade')
+    unmount()
+
+    useLanguageServersStore.setState({ list: [], load: vi.fn(async () => {}) })
+    suggest(install)
+    render(<LanguageNotice paneId="p2" filePath="/work/main.rs" />)
+    expect(await screen.findByRole('status')).toHaveClass('motion-fade')
   })
 
   it('shows nothing when main has no suggestion for the file', async () => {

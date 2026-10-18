@@ -1,5 +1,6 @@
 import { readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { ipcMain } from 'electron'
 import {
   PICK_NOTE_MAX,
@@ -18,16 +19,17 @@ import {
   renderPickReport,
   screenshotRect,
 } from '../../shared/browser/pick'
-import { PICK_RUNTIME_GLOBAL, pickRuntimeScript } from '../../shared/browser/pickRuntime'
-import type { RedactText } from '../../shared/privacy/redactionTargets'
-import { PRODUCT_NAME } from '../../shared/product'
+import { PICK_RUNTIME_GLOBAL } from '../../shared/browser/pickRuntime'
+import { pickRuntimeScript } from '../../shared/pageScripts/installScripts'
 import { postBusMessage } from '../agents/bus'
 import type { OriginReach } from '../agents/originAgents'
 import type { Reach } from '../approvals/reach'
 import { registerControlMethod } from '../control/controlServer'
 import { getByPaneId } from '../control/idRegistry'
 import { privateTmpDir } from '../platform/privateTmp'
-import { type ConsoleEntry, ownedGuest, resolveGuest } from './browse'
+import type { RedactText } from '../privacy/redactionTargets'
+import { ownedGuest, resolveGuest } from './browseGuests'
+import type { ConsoleEntry } from './browseMethod'
 import { failedRequestsFor } from './guestNetwork'
 
 export interface PickDeps {

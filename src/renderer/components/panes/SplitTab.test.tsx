@@ -1,13 +1,23 @@
 import '@testing-library/jest-dom/vitest'
+import { registerPaneTabCommands } from '@/commands/paneTabCommands'
 import { commands } from '@/commands/registry'
-import { allPanes, createPane, nameSplitTabOf, resetIds, splitPane, tabsOf } from '@/layout/tree'
-import type { LayoutNode, PaneNode, TabsNode } from '@/layout/types'
+import {
+  allPanes,
+  createPane,
+  resetIds,
+  setSplitTabName,
+  splitPane,
+  tabIdOf,
+  tabsOf,
+} from '@/lib/layout/tree'
+import type { LayoutNode, PaneNode, TabsNode } from '@/lib/layout/types'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { Pane } from './Pane'
 import { PaneTree } from './PaneTree'
@@ -72,6 +82,7 @@ describe('split tab session warning', () => {
           { id: 'run-a', paneId: a.id, command: 'claude --resume sess-split', startedAt: 0 },
         ] as unknown as CommandBlock[],
       },
+      agentBlocks: { [a.id]: { blockId: 'run-a', agent: 'claude' } },
     })
     const { container } = renderStack(root, b.id)
     const cell = container.querySelector(`[data-cell-id="${b.id}"]`) as HTMLElement
@@ -95,7 +106,7 @@ describe('SplitTabPill', () => {
 
   it('shows the name before the segments when the split tab has one', () => {
     const { root, b } = stackWithSplit('vertical')
-    const named = nameSplitTabOf(root, b.id, 'api') as TabsNode
+    const named = setSplitTabName(root, tabIdOf(root, b.id) ?? '', 'api') as TabsNode
     const { container } = renderStack(named)
     const pill = screen.getByRole('tab', { name: 'Split tab api, stacked: beta, gamma' })
     expect(within(pill).getByText('api')).toHaveClass('split-tab-name')
@@ -158,6 +169,39 @@ describe('SplitTabPill', () => {
     const segment = container.querySelector(`[data-segment-id="${c.id}"] .split-tab-segment-main`)
     fireEvent.click(segment as Element)
     expect(exec).toHaveBeenCalledWith('pane.focus', { paneId: c.id })
+  })
+
+  it('folds when its head is clicked a double-click interval later, at once from the keyboard', () => {
+    vi.useFakeTimers()
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    const { root } = stackWithSplit()
+    renderStack(root)
+    const head = screen.getByRole('button', { name: 'Fold split tab' })
+    expect(head).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(head, { detail: 1 })
+    expect(exec).not.toHaveBeenCalledWith('pane.foldSplitTab', expect.anything())
+    vi.advanceTimersByTime(1000)
+    expect(exec).toHaveBeenCalledWith('pane.foldSplitTab', { tabId: expect.any(String) })
+    exec.mockClear()
+    fireEvent.click(head, { detail: 0 })
+    expect(exec).toHaveBeenCalledTimes(1)
+    vi.useRealTimers()
+  })
+
+  it('keeps a double-click on the head for rename and never folds', () => {
+    vi.useFakeTimers()
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    const { root } = stackWithSplit()
+    renderStack(root)
+    const head = screen.getByRole('button', { name: 'Fold split tab' })
+    fireEvent.click(head, { detail: 1 })
+    fireEvent.click(head, { detail: 2 })
+    fireEvent.doubleClick(head)
+    vi.advanceTimersByTime(1000)
+    expect(exec).not.toHaveBeenCalledWith('pane.foldSplitTab', expect.anything())
+    expect(screen.getByRole('textbox')).toBeInTheDocument()
+    act(() => usePaneRenameStore.getState().end())
+    vi.useRealTimers()
   })
 
   it('closes one pane from its segment', () => {
@@ -284,5 +328,121 @@ describe('split tab segment rename', () => {
     fireEvent.keyDown(input, { key: 'ArrowLeft' })
     fireEvent.keyDown(input, { key: 'ArrowRight' })
     expect(screen.getByRole('textbox', { name: 'Rename Tab…' })).toHaveFocus()
+  })
+
+  it('arrow keys inside a split segment rename move the caret and keep the edit open', async () => {
+    const { c, root } = stackWithSplit()
+    useLayoutStore.setState({
+      byWorkspace: { w: { root, activePaneId: c.id, zoomedPaneId: null } },
+    })
+    const { container } = renderStack(root, c.id)
+    const user = userEvent.setup()
+    const segment = container.querySelector(`[data-segment-id="${c.id}"]`) as HTMLElement
+    await user.dblClick(segment.querySelector('.split-tab-segment-main') as HTMLElement)
+    const input = screen.getByRole('textbox', { name: 'Rename Tab…' })
+    expect(input).toHaveFocus()
+
+    await user.keyboard('abc{ArrowLeft}{ArrowLeft}')
+    expect(input).toHaveFocus()
+    await user.keyboard('X{Enter}')
+
+    expect(screen.queryByRole('textbox', { name: 'Rename Tab…' })).toBeNull()
+    expect(allPanes(useLayoutStore.getState().byWorkspace.w.root)).toContainEqual(
+      expect.objectContaining({ id: c.id, title: 'aXbc', titlePinned: true }),
+    )
+  })
+})
+
+describe('naming a split tab', () => {
+  function seedStack(name?: string) {
+    const { b, c, root } = stackWithSplit()
+    const tabId = tabIdOf(root, b.id) ?? ''
+    const tree = name ? (setSplitTabName(root, tabId, name) as TabsNode) : root
+    useLayoutStore.setState({
+      byWorkspace: { w: { root: tree, activePaneId: b.id, zoomedPaneId: null } },
+    })
+    render(<PaneTree workspaceId="w" />)
+    return { b, c, tabId }
+  }
+
+  const nameOf = (tabId: string): string | undefined => {
+    const root = useLayoutStore.getState().byWorkspace.w.root as TabsNode
+    const tab = root.children.find((t) => t.id === tabId)
+    return tab?.type === 'split' ? tab.name : undefined
+  }
+
+  afterEach(() => {
+    act(() => usePaneRenameStore.getState().end())
+  })
+
+  it('names an unnamed split tab from a double-click on its layout glyph, saved on Enter', () => {
+    const { tabId } = seedStack()
+    const glyph = document.querySelector('.pane-split-tab .split-tab-glyph') as HTMLElement
+    fireEvent.doubleClick(glyph)
+    const field = screen.getByRole('textbox', { name: 'Rename Split Tab…' })
+    fireEvent.change(field, { target: { value: '  workers  ' } })
+    fireEvent.keyDown(field, { key: 'Enter' })
+    expect(nameOf(tabId)).toBe('workers')
+    expect(screen.getByText('workers')).toHaveClass('split-tab-name')
+  })
+
+  it('renames from a double-click on the name, clears on an empty name and keeps it on Escape', () => {
+    const { tabId } = seedStack('api')
+    fireEvent.doubleClick(screen.getByText('api'))
+    const field = screen.getByRole('textbox', { name: 'Rename Split Tab…' })
+    expect(field).toHaveValue('api')
+    fireEvent.change(field, { target: { value: 'web' } })
+    fireEvent.keyDown(field, { key: 'Escape' })
+    expect(nameOf(tabId)).toBe('api')
+
+    fireEvent.doubleClick(screen.getByText('api'))
+    const again = screen.getByRole('textbox', { name: 'Rename Split Tab…' })
+    fireEvent.change(again, { target: { value: '   ' } })
+    fireEvent.keyDown(again, { key: 'Enter' })
+    expect(nameOf(tabId)).toBeUndefined()
+    expect(document.querySelector('.split-tab-name')).toBeNull()
+  })
+
+  it('gives the name pane move --tab and --tab use, so agents join the renamed tab', () => {
+    const { tabId } = seedStack('api')
+    act(() => useLayoutStore.getState().renameSplitTab('w', tabId, 'review'))
+    const d = createPane('terminal', 'delta')
+    act(() => {
+      const layout = useLayoutStore.getState().byWorkspace.w
+      useLayoutStore.setState({
+        byWorkspace: {
+          w: {
+            ...layout,
+            root: {
+              ...(layout.root as TabsNode),
+              children: [...(layout.root as TabsNode).children, d],
+            },
+          },
+        },
+      })
+    })
+    act(() => {
+      useLayoutStore.getState().joinTab('w', [d.id], 'review')
+    })
+    const root = useLayoutStore.getState().byWorkspace.w.root as TabsNode
+    const tab = root.children.find((t) => t.id === tabId)
+    expect(tab && allPanes(tab).map((p) => p.id)).toContain(d.id)
+  })
+
+  it('starts naming from the palette only when the active pane is in a split tab', async () => {
+    const { tabId } = seedStack()
+    if (!commands.has('pane.renameSplitTab')) registerPaneTabCommands()
+    expect(commands.isLocal('pane.renameSplitTab')).toBe(true)
+    await act(async () => {
+      await commands.execWith(
+        {
+          activeWorkspaceId: 'w',
+          activePaneId: useLayoutStore.getState().byWorkspace.w.activePaneId,
+        },
+        'pane.renameSplitTab',
+      )
+    })
+    expect(usePaneRenameStore.getState().splitTabId).toBe(tabId)
+    expect(screen.getByRole('textbox', { name: 'Rename Split Tab…' })).toHaveValue('')
   })
 })

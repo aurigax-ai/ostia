@@ -1,0 +1,391 @@
+import { isRecord } from './isRecord'
+
+export const LANGUAGE_SERVER_CAPABILITY = 'language-server'
+export const LANGUAGE_SERVER_ID_PATTERN = /^[a-z][a-z0-9-]{0,39}$/
+export const LANGUAGE_SERVER_PROGRAM_PATTERN = /^[A-Za-z0-9_][A-Za-z0-9._+-]{0,63}$/
+export const LANGUAGE_SERVER_SCRIPT_PATTERN = /\.(c|m)?js$/
+export const LANGUAGE_SERVER_MARKER_PATTERN = /^[^/\\]{1,100}$/
+export const LANGUAGE_SERVER_SUFFIX_PATTERN = /^\.[A-Za-z0-9._+-]{1,40}$/
+export const LANGUAGE_SERVER_DOCUMENT_ID_PATTERN = /^[A-Za-z][A-Za-z0-9+#._-]{0,39}$/
+export const LANGUAGE_SERVER_SETTING_PATH_PATTERN =
+  /^[A-Za-z_][A-Za-z0-9_-]{0,39}(\.[A-Za-z_][A-Za-z0-9_-]{0,39}){0,7}$/
+export const MAX_LANGUAGE_SERVERS = 8
+export const MAX_SERVER_LANGUAGES = 16
+export const MAX_SERVER_ARGS = 32
+export const SERVER_ARG_MAX = 200
+export const SERVER_NAME_MAX = 200
+export const MAX_ROOT_MARKERS = 16
+export const MAX_DOCUMENT_LANGUAGE_IDS = 32
+export const SERVER_JSON_MAX_BYTES = 16 * 1024
+export const EXTENSION_DIR_PLACEHOLDER = '{extensionDir}'
+export const ROOT_PLACEHOLDER = '{root}'
+
+export type JsonValue = string | number | boolean | null | JsonValue[] | JsonObject
+
+export interface JsonObject {
+  [key: string]: JsonValue
+}
+
+export interface LanguageServerNodeRun {
+  node: string
+  args: string[]
+}
+
+export interface LanguageServerProgramRun {
+  program: string
+  package?: string
+  args: string[]
+}
+
+export const LANGUAGE_SERVER_DOWNLOAD_HOSTS: readonly string[] = [
+  'github.com',
+  'objects.githubusercontent.com',
+  'release-assets.githubusercontent.com',
+]
+export const LANGUAGE_SERVER_PLATFORMS = [
+  'linux-x64',
+  'linux-arm64',
+  'darwin-x64',
+  'darwin-arm64',
+  'win32-x64',
+  'win32-arm64',
+] as const
+export const LANGUAGE_SERVER_ARCHIVES = ['plain', 'gz', 'tar.gz', 'zip'] as const
+export const LANGUAGE_SERVER_VERSION_PATTERN =
+  /^(?![Ll][Aa][Tt][Ee][Ss][Tt]$)[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$/
+export const LANGUAGE_SERVER_SHA256_PATTERN = /^[a-f0-9]{64}$/
+export const LANGUAGE_SERVER_EXECUTABLE_PATTERN =
+  /^[A-Za-z0-9_+-][A-Za-z0-9._+-]{0,99}(\/[A-Za-z0-9_+-][A-Za-z0-9._+-]{0,99}){0,7}$/
+export const LANGUAGE_SERVER_GO_MODULE_PATTERN =
+  /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+(\/[a-z0-9][a-z0-9._-]{0,63}){1,8}$/
+export const LANGUAGE_SERVER_GO_VERSION_PATTERN =
+  /^v(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})$/
+export const DOWNLOAD_URL_MAX = 500
+export const GO_MODULE_MAX = 200
+
+export type LanguageServerPlatform = (typeof LANGUAGE_SERVER_PLATFORMS)[number]
+export type LanguageServerArchive = (typeof LANGUAGE_SERVER_ARCHIVES)[number]
+
+export interface LanguageServerAsset {
+  url: string
+  sha256: string
+  archive: LanguageServerArchive
+  executable: string
+}
+
+export interface LanguageServerDownload {
+  program: string
+  version: string
+  assets: Partial<Record<LanguageServerPlatform, LanguageServerAsset>>
+}
+
+export interface LanguageServerDownloadRun {
+  download: LanguageServerDownload
+  args: string[]
+}
+
+export interface LanguageServerGoInstall {
+  module: string
+  version: string
+  binary: string
+}
+
+export interface LanguageServerGoInstallRun {
+  goInstall: LanguageServerGoInstall
+  args: string[]
+}
+
+export type LanguageServerRun =
+  | LanguageServerNodeRun
+  | LanguageServerProgramRun
+  | LanguageServerDownloadRun
+  | LanguageServerGoInstallRun
+
+export interface LanguageServerContribution {
+  id: string
+  name: string
+  languages: string[]
+  documentLanguageIds?: Record<string, string>
+  run: LanguageServerRun
+  rootMarkers: string[]
+  initializationOptions?: JsonObject
+  settings?: JsonObject
+  settingPaths?: Record<string, string>
+}
+
+export interface LanguageServerSummary {
+  id: string
+  name: string
+  languages: string[]
+  command: string
+  download?: { program: string; version: string; host: string }
+  goInstall?: { command: string; binary: string }
+}
+
+export type LanguageServerKind = 'bundled' | 'program' | 'download' | 'go-install'
+
+export type LanguageServerStatus =
+  | 'running'
+  | 'idle'
+  | 'off'
+  | 'program-missing'
+  | 'toolchain-missing'
+  | 'downloading'
+  | 'download-failed'
+  | 'installing'
+  | 'install-failed'
+  | 'sandbox-unavailable'
+  | 'override-invalid'
+  | 'crashed'
+  | 'pending-approval'
+
+export type LanguageServerFetchFailure =
+  | 'host-not-allowed'
+  | 'redirect-refused'
+  | 'http-error'
+  | 'too-large'
+  | 'checksum-mismatch'
+  | 'bad-archive'
+  | 'executable-missing'
+  | 'offline'
+  | 'timeout'
+  | 'command-failed'
+  | 'write-failed'
+
+export interface LanguageServerBinary {
+  source: 'path' | 'managed' | 'override'
+  version?: string
+}
+
+export const SERVER_OVERRIDE_PATH_MAX = 4096
+const ABSOLUTE_PATH_PATTERN = /^(\/|[A-Za-z]:[\\/])/
+
+export interface LanguageServerOverride {
+  path: string
+  args: string[]
+}
+
+export type LanguageServerOverrideProblem =
+  | 'not-absolute'
+  | 'missing'
+  | 'not-file'
+  | 'not-executable'
+  | 'bad-arguments'
+  | 'unknown-server'
+
+export interface LanguageServerOverrideInfo extends LanguageServerOverride {
+  problem?: LanguageServerOverrideProblem
+}
+
+export interface LanguageServerOverrideResult {
+  servers: LanguageServerInfo[]
+  problem?: LanguageServerOverrideProblem
+}
+
+export function parseLanguageServerOverride(
+  raw: unknown,
+): LanguageServerOverride | LanguageServerOverrideProblem {
+  if (!isRecord(raw)) return 'not-absolute'
+  const { path, args } = raw
+  if (
+    typeof path !== 'string' ||
+    path.length > SERVER_OVERRIDE_PATH_MAX ||
+    !ABSOLUTE_PATH_PATTERN.test(path) ||
+    hasControlCharacter(path)
+  ) {
+    return 'not-absolute'
+  }
+  const list = args ?? []
+  if (
+    !Array.isArray(list) ||
+    list.length > MAX_SERVER_ARGS ||
+    !list.every(
+      (arg) =>
+        typeof arg === 'string' &&
+        arg !== '' &&
+        arg.length <= SERVER_ARG_MAX &&
+        !hasControlCharacter(arg),
+    )
+  ) {
+    return 'bad-arguments'
+  }
+  return { path, args: [...(list as string[])] }
+}
+
+export type LanguageServerSandboxProblem =
+  | 'program-unreadable'
+  | 'folder-unreadable'
+  | 'wrap-failed'
+
+export interface LanguageServerInfo {
+  key: string
+  extId: string
+  extName: string
+  serverId: string
+  name: string
+  languages: string[]
+  kind: LanguageServerKind
+  command: string
+  enabled: boolean
+  status: LanguageServerStatus
+  folders: number
+  program?: string
+  requirement?: string
+  sandboxProblem?: LanguageServerSandboxProblem
+  sandboxDetail?: string
+  version?: string
+  binary?: LanguageServerBinary
+  managedCopy?: boolean
+  fetchable?: boolean
+  fetchHeld?: boolean
+  progress?: number
+  failure?: LanguageServerFetchFailure
+  failureDetail?: string
+  fetchCommand?: string
+  override?: LanguageServerOverrideInfo
+}
+
+export interface LspSessionInfo {
+  sessionId: string
+  serverKey: string
+  root: string
+  editRoot: string | null
+  languageId: string
+  initializationOptions: JsonObject
+}
+
+export type LspLogEntry =
+  | { at: number; kind: 'start'; pid: number; sandboxed: boolean }
+  | { at: number; kind: 'initialized'; name: string; version: string }
+  | { at: number; kind: 'exit'; code: number | null; signal: string | null }
+  | { at: number; kind: 'restart'; attempt: number; limit: number; delayMs: number }
+  | { at: number; kind: 'crashed' }
+  | { at: number; kind: 'stop'; reason: LspStopReason }
+  | { at: number; kind: 'spawn-failed'; text: string }
+  | { at: number; kind: 'stderr'; text: string }
+  | { at: number; kind: 'fetch-start'; how: 'download' | 'go-install'; version: string }
+  | { at: number; kind: 'fetch-done'; version: string }
+  | { at: number; kind: 'fetch-failed'; reason: LanguageServerFetchFailure; detail: string }
+  | { at: number; kind: 'fetch-output'; text: string }
+  | { at: number; kind: 'fetch-removed' }
+
+export type LspStopReason = 'idle' | 'restart' | 'off' | 'quit' | 'window'
+
+export interface LspLog {
+  entries: LspLogEntry[]
+  errors: Record<string, number>
+}
+
+export const LSP_LOG_MAX_ENTRIES = 400
+export const LSP_LOG_LINE_MAX = 500
+
+export interface LspApi {
+  servers: () => Promise<LanguageServerInfo[]>
+  onServersChanged: (cb: (list: LanguageServerInfo[]) => void) => () => void
+  open: (paneId: string, filePath: string) => Promise<LspSessionInfo[]>
+  send: (sessionId: string, message: unknown) => void
+  release: (sessionId: string) => void
+  onMessage: (sessionId: string, cb: (message: unknown) => void) => () => void
+  onExit: (sessionId: string, cb: () => void) => () => void
+  setEnabled: (serverKey: string, enabled: boolean) => Promise<LanguageServerInfo[]>
+  restart: (serverKey: string) => Promise<void>
+  log: (serverKey: string) => Promise<LspLog>
+  fetch: (serverKey: string) => Promise<void>
+  removeDownload: (serverKey: string) => Promise<void>
+  setOverride: (
+    serverKey: string,
+    override: LanguageServerOverride | null,
+  ) => Promise<LanguageServerOverrideResult>
+}
+
+export function languageServerKey(extId: string, serverId: string): string {
+  return `${extId}/${serverId}`
+}
+
+export function splitLanguageServerKey(key: unknown): { extId: string; serverId: string } | null {
+  if (typeof key !== 'string') return null
+  const slash = key.indexOf('/')
+  if (slash <= 0 || slash === key.length - 1 || key.indexOf('/', slash + 1) >= 0) return null
+  return { extId: key.slice(0, slash), serverId: key.slice(slash + 1) }
+}
+
+export function languageServerFeature(key: string): string {
+  return `lsp:${key}`
+}
+
+export function isProgramRun(run: LanguageServerRun): run is LanguageServerProgramRun {
+  return 'program' in run
+}
+
+export function isNodeRun(run: LanguageServerRun): run is LanguageServerNodeRun {
+  return 'node' in run
+}
+
+export function isDownloadRun(run: LanguageServerRun): run is LanguageServerDownloadRun {
+  return 'download' in run
+}
+
+export function isGoInstallRun(run: LanguageServerRun): run is LanguageServerGoInstallRun {
+  return 'goInstall' in run
+}
+
+export function languageServerKind(run: LanguageServerRun): LanguageServerKind {
+  if (isNodeRun(run)) return 'bundled'
+  if (isDownloadRun(run)) return 'download'
+  return isGoInstallRun(run) ? 'go-install' : 'program'
+}
+
+export function pathProgram(run: LanguageServerRun): string | null {
+  if (isProgramRun(run)) return run.program
+  if (isDownloadRun(run)) return run.download.program
+  return isGoInstallRun(run) ? run.goInstall.binary : null
+}
+
+export function pinnedVersion(run: LanguageServerRun): string | null {
+  if (isDownloadRun(run)) return run.download.version
+  return isGoInstallRun(run) ? run.goInstall.version : null
+}
+
+export function goInstallArgs(install: LanguageServerGoInstall): string[] {
+  return ['install', `${install.module}@${install.version}`]
+}
+
+export function languageServerCommand(run: LanguageServerRun): string {
+  return [isNodeRun(run) ? run.node : pathProgram(run), ...run.args].join(' ')
+}
+
+export function languageServerSummary(server: LanguageServerContribution): LanguageServerSummary {
+  const { run } = server
+  const first = isDownloadRun(run) ? Object.values(run.download.assets)[0] : undefined
+  return {
+    id: server.id,
+    name: server.name,
+    languages: server.languages,
+    command: languageServerCommand(run),
+    ...(isDownloadRun(run) && first
+      ? {
+          download: {
+            program: run.download.program,
+            version: run.download.version,
+            host: new URL(first.url).host,
+          },
+        }
+      : {}),
+    ...(isGoInstallRun(run)
+      ? {
+          goInstall: {
+            command: ['go', ...goInstallArgs(run.goInstall)].join(' '),
+            binary: run.goInstall.binary,
+          },
+        }
+      : {}),
+  }
+}
+
+export function hasControlCharacter(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i)
+    if (code < 0x20 || code === 0x7f) return true
+  }
+  return false
+}

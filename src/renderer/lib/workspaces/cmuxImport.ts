@@ -1,4 +1,6 @@
-import { type RestorableWorkspace, workspaceHandoff } from '@/layout/snapshot'
+import { formatBytes } from '@/lib/app/localeFormat'
+import { baseName, parentOf } from '@/lib/files/fileTree'
+import { type RestorableWorkspace, workspaceHandoff } from '@/lib/layout/snapshot'
 import {
   TERMINAL_TITLE,
   createPane,
@@ -7,8 +9,8 @@ import {
   paneIds,
   splitOf,
   tabsOf,
-} from '@/layout/tree'
-import type { LayoutNode, PaneNode } from '@/layout/types'
+} from '@/lib/layout/tree'
+import type { LayoutNode, PaneNode } from '@/lib/layout/types'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useCmuxImportStore } from '@/stores/workspaces/cmuxImportStore'
 import { isRestorable } from '@/stores/workspaces/persistence'
@@ -18,19 +20,20 @@ import {
   nextWorkspaceId,
   useWorkspacesStore,
 } from '@/stores/workspaces/workspacesStore'
-import type { SnapshotWorkspace } from '@shared/types'
-import type {
-  CmuxImportReport,
-  CmuxLayout,
-  CmuxLoss,
-  CmuxLossEntry,
-  CmuxPaneLayout,
-  CmuxSession,
-  CmuxSessionError,
-  CmuxSkippedEntry,
-  CmuxSurface,
-  CmuxWorkspace,
+import {
+  CMUX_SESSION_MAX_BYTES,
+  type CmuxImportReport,
+  type CmuxLayout,
+  type CmuxLoss,
+  type CmuxLossEntry,
+  type CmuxPaneLayout,
+  type CmuxSession,
+  type CmuxSessionError,
+  type CmuxSkippedEntry,
+  type CmuxSurface,
+  type CmuxWorkspace,
 } from '@shared/workspaces/cmuxSession'
+import type { SnapshotWorkspace } from '@shared/workspaces/workspaceApi'
 import type { WorkspaceGroupColor } from '@shared/workspaces/workspaceGroups'
 import { MAX_LAYOUT_DEPTH, MAX_PANES, MAX_WORKSPACES } from '@shared/workspaces/workspaceLimits'
 import { normalizeDescription } from '@shared/workspaces/workspaceText'
@@ -79,7 +82,7 @@ const ERROR_TEXT: Record<CmuxSessionError, string> = {
   'outside-home': 'the session file must be inside your home folder',
   'not-found': 'no cmux session file there',
   unreadable: 'the cmux session file could not be read',
-  'too-large': 'the cmux session file is larger than 32 MB',
+  'too-large': `the cmux session file is larger than ${formatBytes(CMUX_SESSION_MAX_BYTES, 'en')}`,
   invalid: 'not a cmux session file',
   'unsupported-version':
     'the cmux session file was saved by a cmux version this import cannot read',
@@ -102,15 +105,6 @@ function keyOf(name: string, workDir: string): string {
   return JSON.stringify([name, trimDir(workDir)])
 }
 
-function basename(path: string): string {
-  return path.slice(path.lastIndexOf('/') + 1) || path
-}
-
-function parentDir(path: string): string {
-  const slash = path.lastIndexOf('/')
-  return slash > 0 ? path.slice(0, slash) : '/'
-}
-
 function hostOf(url: string): string {
   try {
     return new URL(url).hostname || url
@@ -129,7 +123,7 @@ function displayName(workspace: CmuxWorkspace): string {
 
 function surfaceLabel(surface: CmuxSurface): string {
   if (surface.title) return surface.title
-  if (surface.filePath) return basename(surface.filePath)
+  if (surface.filePath) return baseName(surface.filePath)
   if (surface.url) return hostOf(surface.url)
   return surface.type === 'terminal' ? TERMINAL_TITLE : surface.type
 }
@@ -163,8 +157,8 @@ function browserPane(surface: CmuxSurface, build: Build): PaneNode {
 }
 
 function editorPane(filePath: string, surface: CmuxSurface): PaneNode {
-  const title = surface.title ?? basename(filePath)
-  return { ...createPane('editor', title, parentDir(filePath)), filePath }
+  const title = surface.title ?? baseName(filePath)
+  return { ...createPane('editor', title, parentOf(filePath)), filePath }
 }
 
 function importable(surface: CmuxSurface): boolean {

@@ -1,10 +1,11 @@
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
+import type { ExtensionOpenDiffRequest } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
+import { GIT_SOURCE } from '@aurigax-ai/ostia-extension-sdk/manifest/coreNames'
 import {
   type BlameLine,
   type ChangeArea,
   type CommitSummary,
   type FileChange,
-  GIT_SOURCE,
   type GitBlameData,
   type GitChangesData,
   type GitCommitFilesData,
@@ -15,7 +16,6 @@ import {
   type GraphScope,
   isUncommitted,
 } from '../../shared/boards/git'
-import type { ExtensionOpenDiffRequest } from '../../shared/extensions'
 import { expandHome } from '../platform/pathGuard'
 import {
   RepoError,

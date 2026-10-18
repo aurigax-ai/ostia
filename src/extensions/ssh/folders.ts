@@ -6,7 +6,7 @@ import {
   type RemoteFileError,
   type RemoteFilesRequest,
   type RemoteFilesResult,
-} from '../sdk'
+} from '@aurigax-ai/ostia-extension-sdk'
 import { type HelperChannel, HelperFailure } from './channel'
 import type { HelperHosts } from './helperHosts'
 import { type ConnectPlan, hostKey } from './plan'

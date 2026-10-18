@@ -206,7 +206,7 @@ describe('ProfileSync', () => {
     expect(a.settings()).toEqual({ appearance: { theme: 'dusk' }, terminal: { fontSize: 15 } })
   })
 
-  it('PSY-C4 carries settings, extensions, workflows, completion specs and views to another machine', async () => {
+  it('PSY-C4 carries settings, extensions, snippets, completion specs and views to another machine', async () => {
     const target = temp()
     const a = machine(target)
     const b = machine(target)
@@ -215,7 +215,7 @@ describe('ProfileSync', () => {
       1,
     )
     a.installed.push(TRELLIS)
-    a.writeFile('workflows/deploy.yaml', 'name: deploy\ncommand: make deploy\n', 1)
+    a.writeFile('snippets/deploy.yaml', 'name: deploy\ncommand: make deploy\n', 1)
     a.writeFile('completions/mytool.json', '{"name":"mytool"}', 1)
     a.writeFile('views/board.json', '{"title":"Board"}', 1)
     await a.sync.run()
@@ -224,22 +224,22 @@ describe('ProfileSync', () => {
       appearance: { theme: 'dusk' },
       keybindings: { 'workspace.new': 'Ctrl+N' },
     })
-    expect(b.file('workflows/deploy.yaml')).toBe('name: deploy\ncommand: make deploy\n')
+    expect(b.file('snippets/deploy.yaml')).toBe('name: deploy\ncommand: make deploy\n')
     expect(b.file('completions/mytool.json')).toBe('{"name":"mytool"}')
     expect(b.file('views/board.json')).toBe('{"title":"Board"}')
     expect(res.status.offers).toEqual([TRELLIS])
   })
 
-  it('PSY-C5 leaves a project workflow out of the target', async () => {
+  it('PSY-C5 leaves a project snippet out of the target', async () => {
     const target = temp()
     const a = machine(target)
-    const project = join(dirname(a.configDir), 'project', '.ostia', 'workflows')
+    const project = join(dirname(a.configDir), 'project', '.ostia', 'snippets')
     mkdirSync(project, { recursive: true })
     writeFileSync(join(project, 'local.yaml'), 'name: local\ncommand: ls\n')
-    a.writeFile('workflows/mine.yaml', 'name: mine\ncommand: ls\n', 1)
+    a.writeFile('snippets/mine.yaml', 'name: mine\ncommand: ls\n', 1)
     await a.sync.run()
-    expect(targetFile(target, 'workflows/mine.yaml')).not.toBeNull()
-    expect(targetFile(target, 'workflows/local.yaml')).toBeNull()
+    expect(targetFile(target, 'snippets/mine.yaml')).not.toBeNull()
+    expect(targetFile(target, 'snippets/local.yaml')).toBeNull()
   })
 
   it('PSY-C6 merges different settings changed on two machines without a conflict', async () => {
@@ -447,6 +447,20 @@ describe('ProfileSync', () => {
       expect(targetFile(target, 'views.json')).toBeNull()
     })
 
+    it('never syncs the connections an extension holds', async () => {
+      const target = temp()
+      const a = machine(target)
+      const b = machine(target)
+      const connections = {
+        graphs: { api: { kind: 'http', fields: { baseUrl: 'https://a.test' } } },
+      }
+      writeFileSync(join(a.userData, 'extension-connections.json'), JSON.stringify(connections))
+      await a.sync.run()
+      await b.sync.run()
+      expect(targetFile(target, 'extension-connections.json')).toBeNull()
+      expect(existsSync(join(b.userData, 'extension-connections.json'))).toBe(false)
+    })
+
     it('PSY-C27 ignores a views.json hand-placed in the target', async () => {
       const target = temp()
       const b = machine(target)
@@ -494,22 +508,22 @@ describe('ProfileSync', () => {
       expect(pulled.status.skipped).toEqual(['views/other.json'])
     })
 
-    it('PSY-C19 keeps a workflow edited on one machine and deleted on the other, as a conflict', async () => {
+    it('PSY-C19 keeps a snippet edited on one machine and deleted on the other, as a conflict', async () => {
       const target = temp()
       const a = machine(target)
       const b = machine(target)
-      a.writeFile('workflows/deploy.yaml', 'name: deploy\ncommand: make\n', 1)
+      a.writeFile('snippets/deploy.yaml', 'name: deploy\ncommand: make\n', 1)
       await a.sync.run()
       await b.sync.run()
-      rmSync(join(a.configDir, 'workflows', 'deploy.yaml'))
+      rmSync(join(a.configDir, 'snippets', 'deploy.yaml'))
       a.clock.now = at(9)
       await a.sync.run()
-      b.writeFile('workflows/deploy.yaml', 'name: deploy\ncommand: make all\n', 3)
+      b.writeFile('snippets/deploy.yaml', 'name: deploy\ncommand: make all\n', 3)
       const res = await b.sync.run()
-      expect(b.file('workflows/deploy.yaml')).toBe('name: deploy\ncommand: make all\n')
-      expect(targetFile(target, 'workflows/deploy.yaml')).toBe('name: deploy\ncommand: make all\n')
+      expect(b.file('snippets/deploy.yaml')).toBe('name: deploy\ncommand: make all\n')
+      expect(targetFile(target, 'snippets/deploy.yaml')).toBe('name: deploy\ncommand: make all\n')
       expect(res.status.conflicts).toMatchObject([
-        { id: 'file:workflows/deploy.yaml', kind: 'file', winner: 'local', remote: null },
+        { id: 'file:snippets/deploy.yaml', kind: 'file', winner: 'local', remote: null },
       ])
     })
   })
@@ -540,17 +554,17 @@ describe('ProfileSync', () => {
       const a = machine(first)
       const c = machine(second)
       a.writeSettings({ appearance: { theme: 'dusk' } }, 1)
-      a.writeFile('workflows/a.yaml', 'name: a\ncommand: ls\n', 1)
+      a.writeFile('snippets/a.yaml', 'name: a\ncommand: ls\n', 1)
       await a.sync.run()
       c.writeSettings({ sidebar: { width: 300 } }, 1)
-      c.writeFile('workflows/c.yaml', 'name: c\ncommand: ls\n', 1)
+      c.writeFile('snippets/c.yaml', 'name: c\ncommand: ls\n', 1)
       await c.sync.run()
       a.useTarget(second)
       await a.sync.run()
       expect(a.settings()).toEqual({ appearance: { theme: 'dusk' }, sidebar: { width: 300 } })
-      expect(a.file('workflows/c.yaml')).not.toBeNull()
-      expect(targetFile(second, 'workflows/a.yaml')).not.toBeNull()
-      expect(targetFile(second, 'workflows/c.yaml')).not.toBeNull()
+      expect(a.file('snippets/c.yaml')).not.toBeNull()
+      expect(targetFile(second, 'snippets/a.yaml')).not.toBeNull()
+      expect(targetFile(second, 'snippets/c.yaml')).not.toBeNull()
     })
   })
 

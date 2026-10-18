@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto'
+import {
+  BUS_SEND_TEXT_MAX,
+  type BusMessageKind,
+  type BusMessagePhase,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { type BusDelivery, busContext, busPreview } from '../../shared/agents/busMessages'
-import { BUS_SEND_TEXT_MAX } from '../../shared/extensions'
+import { actThenConfirm, confirmed, mismatch } from '../../shared/common/actThenConfirm'
 import { ensureCaps } from '../approvals/controlElevation'
 import type { Reach } from '../approvals/reach'
 import { registerControlMethod } from '../control/controlServer'
@@ -16,6 +21,7 @@ interface Message {
   ts: string
   seenAt?: string
   quiet?: true
+  task?: true
 }
 
 interface SentMessage {
@@ -82,7 +88,7 @@ const NOT_FOUND = { ok: false, error: 'not-found' as const }
 const UNKNOWN_PANE = {
   ok: false,
   error: 'unknown-pane' as const,
-  message: 'no open pane has that id (see: ostia pane.list)',
+  message: 'no open pane has that id (see: ostia pane list)',
 }
 
 type WaitResult = { messages: Message[]; timedOut: boolean }
@@ -119,11 +125,35 @@ function clampTimeout(timeoutMs: number | undefined): number {
   return Math.min(MAX_WAIT_MS, Math.max(MIN_WAIT_MS, timeoutMs))
 }
 
+interface BusObservation {
+  id: string
+  from: string
+  to: string
+  kind: BusMessageKind
+  phase: BusMessagePhase
+}
+
+let observer: ((observation: BusObservation) => void) | undefined
+
+function observe(message: Message, phase: BusMessagePhase): void {
+  if (message.quiet) return
+  observer?.({
+    id: message.id,
+    from: message.from,
+    to: message.to,
+    kind: message.task ? 'task' : 'message',
+    phase,
+  })
+}
+
 function markSeen(data: BusData, messages: readonly Message[], at: string): boolean {
   const fresh = messages.filter((message) => !message.seenAt)
   if (fresh.length === 0) return false
   const ids = new Set(fresh.map((message) => message.id))
-  for (const message of fresh) message.seenAt = at
+  for (const message of fresh) {
+    message.seenAt = at
+    observe(message, 'seen')
+  }
   for (const record of data.sent) {
     if (ids.has(record.id) && !record.seenAt) record.seenAt = at
   }
@@ -148,6 +178,7 @@ function deliver(data: BusData, msg: Message): BusDelivery {
   data.inboxes[msg.to] = inbox
   if (!msg.quiet) remember(data, msg)
   const delivery: BusDelivery = hasWaiter(msg.to) ? 'waiting' : 'queued'
+  observe(msg, delivery)
   if (delivery === 'waiting') markSeen(data, [msg], msg.ts)
   saveBus(data)
   wake(msg.to, [msg])
@@ -171,12 +202,42 @@ export function postBusMessage(from: string, to: string, text: string): string {
   return id
 }
 
+function inboxHolds(to: string, messageId: string): Message | undefined {
+  return (loadBus().inboxes[to] ?? []).find((message) => message.id === messageId)
+}
+
+async function confirmDelivered(to: string, messageId: string): Promise<{ seen: boolean }> {
+  const seen = await actThenConfirm<{ seen: boolean }>({
+    act: () => undefined,
+    observe: () => {
+      const message = inboxHolds(to, messageId)
+      return message
+        ? confirmed({ seen: message.seenAt !== undefined })
+        : mismatch(`not-delivered: the message is not in ${to}'s inbox`)
+    },
+    signal: () => () => {},
+    timeoutMs: 0,
+    onTimeout: () => mismatch(`not-delivered: the message is not in ${to}'s inbox`),
+  })
+  if (!seen.ok) throw new ResponseError(ErrorCodes.InternalError, seen.reason)
+  return seen.value
+}
+
+const OSTIA_SENDER = 'ostia'
+
+export function tellPane(to: string, text: string): string {
+  const id = randomUUID()
+  deliver(loadBus(), { id, from: OSTIA_SENDER, to, text, ts: new Date().toISOString() })
+  return id
+}
+
 export interface BusDeps {
   managerSendAllowed: () => boolean
   sent?: () => void
   announce: (from: PaneIdentity, to: PaneIdentity, text: string) => void
   hibernated: (pane: PaneIdentity) => Promise<boolean>
   inScope?: Reach['inScope']
+  observe?: (observation: BusObservation) => void
 }
 
 function receiverOf(to: unknown): PaneIdentity | undefined {
@@ -184,8 +245,16 @@ function receiverOf(to: unknown): PaneIdentity | undefined {
   return target?.kind === 'pane' ? target : undefined
 }
 
+type AnnounceQueued = (
+  delivery: BusDelivery,
+  from: PaneIdentity,
+  to: PaneIdentity,
+  text: string,
+) => void
+
 export function registerBusMethods(deps: BusDeps): void {
-  const announceQueued = (
+  observer = deps.observe
+  const announceQueued: AnnounceQueued = (
     delivery: BusDelivery,
     from: PaneIdentity,
     to: PaneIdentity,
@@ -193,7 +262,12 @@ export function registerBusMethods(deps: BusDeps): void {
   ): void => {
     if (delivery === 'queued' && to.externalId !== from.externalId) deps.announce(from, to, text)
   }
+  registerBusSendMethods(deps, announceQueued)
+  registerBusInboxMethods()
+  registerBusHandoffMethods(announceQueued)
+}
 
+function registerBusSendMethods(deps: BusDeps, announceQueued: AnnounceQueued): void {
   registerControlMethod('bus.send', {
     scripts: true,
     handler: async (params, ctx) => {
@@ -225,10 +299,11 @@ export function registerBusMethods(deps: BusDeps): void {
       const data = loadBus()
       const id = randomUUID()
       const delivered = deliver(data, { id, from, to, text, ts: new Date().toISOString() })
+      const { seen } = await confirmDelivered(to, id)
       announceQueued(delivered, ctx.identity, receiver, text)
       deps.sent?.()
       const asleep = await deps.hibernated(receiver)
-      return { ok: true, id, delivered, ...(asleep ? { asleep: true } : {}) }
+      return { ok: true, id, delivered, seen, ...(asleep ? { asleep: true } : {}) }
     },
   })
 
@@ -267,7 +342,9 @@ export function registerBusMethods(deps: BusDeps): void {
       return { ok: true, id, delivered, ...(asleep ? { asleep: true } : {}) }
     },
   })
+}
 
+function registerBusInboxMethods(): void {
   registerControlMethod('bus.inbox', {
     handler: (params, ctx) => {
       const { drain } = (params ?? {}) as { drain?: boolean }
@@ -334,7 +411,9 @@ export function registerBusMethods(deps: BusDeps): void {
       })
     },
   })
+}
 
+function registerBusHandoffMethods(announceQueued: AnnounceQueued): void {
   registerControlMethod('bus.handoff', {
     handler: async (params, ctx) => {
       const { to, task, summary, context } = (params ?? {}) as {
@@ -372,15 +451,24 @@ export function registerBusMethods(deps: BusDeps): void {
       }
       data.handoffs.push(handoff)
       enforceHandoffCap(data)
+      const messageId = randomUUID()
       const delivered = deliver(data, {
-        id: randomUUID(),
+        id: messageId,
         from,
         to,
         text: `handoff ${id}: ${task} — ${summary}`,
         ts: now,
+        task: true,
       })
+      const { seen } = await confirmDelivered(to, messageId)
+      if (!loadBus().handoffs.some((h) => h.id === id)) {
+        throw new ResponseError(
+          ErrorCodes.InternalError,
+          `not-recorded: handoff ${id} is not on the list`,
+        )
+      }
       announceQueued(delivered, ctx.identity, receiver, `${task} — ${summary}`)
-      return { ok: true, id, delivered }
+      return { ok: true, id, delivered, seen }
     },
   })
 

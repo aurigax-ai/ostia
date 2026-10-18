@@ -1,5 +1,5 @@
+import { DEFAULT_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_CAPABILITIES } from '../../shared/capabilities'
 import { CommandRegistry } from './registry'
 
 describe('command contract', () => {

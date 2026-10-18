@@ -1,4 +1,4 @@
-import type { CommandInvokeRequest } from '../../shared/types'
+import type { CommandInvokeRequest } from '../../shared/control/commands'
 import { commands } from './registry'
 
 export function wireCommandBridge(): void {
@@ -7,7 +7,7 @@ export function wireCommandBridge(): void {
   commands.subscribe(publish)
 
   window.ostia?.commands?.onInvoke?.(async (req: CommandInvokeRequest) => {
-    if (commands.isLocal(req.id)) {
+    if (commands.isLocal(req.id) && req.fromMain !== true) {
       return {
         ok: false,
         error: { code: 'unknown-command', message: `unknown command: ${req.id}` },

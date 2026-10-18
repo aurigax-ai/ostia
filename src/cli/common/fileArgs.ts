@@ -1,11 +1,6 @@
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
-import {
-  type FileTarget,
-  type OpenFileError,
-  type OpenPlacement,
-  openTargetKind,
-} from '../../shared/files/openFiles'
+import { type FileTarget, type OpenFileError, openTargetKind } from '../../shared/files/openFiles'
 
 export interface FileProbe {
   cwd: string
@@ -38,28 +33,7 @@ export function parseFileArg(arg: string, probe: FileProbe): FileTarget {
   }
 }
 
-export type FileWord = 'path' | 'name' | null
-
-const OPEN_FLAGS: readonly string[] = [
-  '-b',
-  '--background',
-  '--name',
-  '-w',
-  '--wait',
-  '--tab',
-  '--split',
-  '-n',
-  '--new',
-]
-
-export function fileWord(word: string, probe: FileProbe): FileWord {
-  if (word === '-' || OPEN_FLAGS.includes(word)) return 'path'
-  if (word.startsWith('-')) return null
-  if (word.includes('/') || word.startsWith('.') || word.startsWith('~')) return 'path'
-  return probe.isFile(parseFileArg(word, probe).path) ? 'name' : null
-}
-
-export type OpenTarget =
+type OpenTarget =
   | { kind: 'url'; url: string }
   | { kind: 'stdin' }
   | { kind: 'folder'; path: string }
@@ -84,13 +58,6 @@ export function revealRefusalLine(path: string, error: string, message?: string)
   return `ostia: ${path}: ${REVEAL_REFUSALS[error] ?? message ?? error}`
 }
 
-export function isClaimedWord(
-  word: string,
-  claimed: { extensionIds: readonly string[]; commandIds: readonly string[] },
-): boolean {
-  return claimed.extensionIds.includes(word) || claimed.commandIds.includes(word)
-}
-
 const REFUSALS: Record<OpenFileError, string> = {
   'not-found': 'no such file',
   directory: 'is a directory',
@@ -112,22 +79,4 @@ const DIFF_REFUSALS: Record<string, string> = {
 export function diffRefusalLine(path: string | undefined, error: string, message?: string): string {
   const reason = DIFF_REFUSALS[error] ?? message ?? error
   return path ? `ostia diff: ${path}: ${reason}` : `ostia diff: ${reason}`
-}
-
-export type PlacementVerdict =
-  | { ok: true; placement: OpenPlacement | undefined }
-  | { ok: false; message: string }
-
-export function placementOf(flags: {
-  tab: boolean
-  split: string | undefined
-  wait: boolean
-}): PlacementVerdict {
-  if (flags.split !== undefined && flags.split !== 'right' && flags.split !== 'down') {
-    return { ok: false, message: '--split takes right or down' }
-  }
-  if (flags.tab && flags.split) return { ok: false, message: 'use --tab or --split, not both' }
-  if (flags.wait && flags.split)
-    return { ok: false, message: '--wait opens a tab; it cannot split' }
-  return { ok: true, placement: flags.tab ? 'tab' : (flags.split as OpenPlacement | undefined) }
 }

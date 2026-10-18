@@ -1,6 +1,7 @@
-import type { CommandInvokeRequest, CommandsApi } from '@shared/types'
+import type { CommandInvokeRequest, CommandsApi } from '@shared/control/commands'
 import { describe, expect, it, vi } from 'vitest'
 import { wireCommandBridge } from './bridge'
+import { registerPaneTabCommands } from './paneTabCommands'
 import type { CommandContext } from './registry'
 import { commands } from './registry'
 
@@ -99,6 +100,28 @@ describe('wireCommandBridge', () => {
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error.code).toBe('unknown-command')
     expect(run).not.toHaveBeenCalled()
+  })
+
+  it('runs pane.tabPlan and pane.joinTab only for main itself, never for command.exec', async () => {
+    registerPaneTabCommands()
+    wireCommandBridge()
+
+    const published = commands.describe().map((d) => d.id)
+    expect(published).not.toContain('pane.tabPlan')
+    expect(published).not.toContain('pane.joinTab')
+    const handler = vi.mocked(window.ostia.commands.onInvoke).mock.calls[0][0]
+    const target = { workspaceId: 's1', paneId: 'p1' }
+    for (const id of ['pane.tabPlan', 'pane.joinTab']) {
+      const viaSocket = await handler({ id, args: { paneIds: ['p1'], tab: 'x' }, target })
+      expect(viaSocket.ok ? '' : viaSocket.error.code, id).toBe('unknown-command')
+    }
+    const fromMain = await handler({
+      id: 'pane.tabPlan',
+      args: { paneIds: [], tab: null },
+      target: { workspaceId: '', paneId: null },
+      fromMain: true,
+    })
+    expect(fromMain.ok ? '' : fromMain.error.message).not.toContain('unknown command')
   })
 
   it('does not throw when window.ostia.commands is undefined', () => {

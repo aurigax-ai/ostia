@@ -1,11 +1,12 @@
-import { currentDict, fmt } from '@/i18n/useDict'
-import { findPane } from '@/layout/tree'
-import type { PaneNode } from '@/layout/types'
+import { currentDict, fmt } from '@/lib/app/useDict'
+import { findPane } from '@/lib/layout/tree'
+import type { PaneNode } from '@/lib/layout/types'
+import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
 import { runWhenIdle } from '@/lib/terminal/blockActions'
-import { focusActivePaneWhenReady } from '@/lib/terminal/focusNewTerminal'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useTabSleepNoticeStore } from '@/stores/workspaces/tabSleepNoticeStore'
 import { type AgentResume, forkCommand } from '@shared/agents/agentResume'
+import { claudeTrustGate } from './folderTrust'
 import { runningAgentOf } from './paneAgent'
 import { resumeFolderMissing } from './resumeFolder'
 
@@ -45,7 +46,7 @@ export function forkConversation(workspaceId: string, paneId: string): string | 
     forkId,
     forkCommand(resume),
     undefined,
-    () => !resumeFolderMissing(forkId),
+    () => (resumeFolderMissing(forkId) ? false : claudeTrustGate(forkId, resume.agent)),
     () => {
       const missing = resumeFolderMissing(forkId)
       if (!missing) return

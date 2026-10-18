@@ -1,11 +1,12 @@
 import { constants, accessSync, statSync } from 'node:fs'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import {
   type LanguageServerOverride,
   type LanguageServerOverrideProblem,
   parseLanguageServerOverride,
   splitLanguageServerKey,
-} from '../../shared/languageServers'
-import { isDangerousSegment } from '../../shared/protoGuard'
+} from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
+import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import { loadJson, saveJson } from '../platform/jsonStore'
 
 const MAX_OVERRIDES = 256
@@ -28,7 +29,7 @@ export function overrideFileProblem(path: string): LanguageServerOverrideProblem
 
 function sanitize(raw: unknown): Map<string, LanguageServerOverride> {
   const out = new Map<string, LanguageServerOverride>()
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return out
+  if (!isRecord(raw)) return out
   for (const [key, value] of Object.entries(raw)) {
     if (out.size >= MAX_OVERRIDES) break
     if (isDangerousSegment(key) || splitLanguageServerKey(key) === null) continue

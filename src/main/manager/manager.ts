@@ -1,10 +1,10 @@
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { type AgentResume, parseAgentResume } from '../../shared/agents/agentResume'
 import {
   MANAGER_AGENT_NAME,
   MANAGER_MAX_ARGS,
   MANAGER_MAX_ARG_LENGTH,
 } from '../../shared/agents/managerSettings'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 
 const MAX_PATH_LENGTH = 32 * 1024
 

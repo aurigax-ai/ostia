@@ -1,4 +1,4 @@
-import { currentDict, fmt } from '@/i18n/useDict'
+import { currentDict, fmt } from '@/lib/app/useDict'
 import { isPaneViewed, signalPane } from '@/lib/attention/workspaceActivity'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { wantsDesktopBanner } from '@shared/app/notificationSettings'

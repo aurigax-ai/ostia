@@ -715,6 +715,35 @@ describe('GitView', () => {
       })
       expect(screen.getByText('No branches match')).toBeInTheDocument()
     })
+    it('dims exactly the scope and branch rows whose control is disabled', async () => {
+      const dimmedLikeDisabled = () => {
+        const rows = document.querySelectorAll('.scope-option, .branch-choice')
+        expect(rows.length).toBeGreaterThan(0)
+        for (const row of rows) {
+          expect(row.classList.contains('opacity-50')).toBe(
+            row.querySelector('[data-disabled]') !== null,
+          )
+        }
+        return document.querySelectorAll('.opacity-50.scope-option, .opacity-50.branch-choice')
+          .length
+      }
+      showGraph(graphData({ scope: { kind: 'chosen', refs: ['refs/heads/main'] } }))
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await openGraph()
+      await waitFor(() => expect(graphRow(HEAD)).not.toBeNull())
+      await click(root().querySelector('.scope-trigger') as HTMLElement)
+      await waitFor(() => expect(document.querySelector('.branch-choice')).not.toBeNull())
+      expect(dimmedLikeDisabled()).toBe(1)
+      cleanup()
+
+      showGraph(graphData({ branches: [] }))
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await openGraph()
+      await waitFor(() => expect(root().querySelector('.scope-trigger')).not.toBeNull())
+      await click(root().querySelector('.scope-trigger') as HTMLElement)
+      await waitFor(() => expect(document.querySelector('.scope-option')).not.toBeNull())
+      expect(dimmedLikeDisabled()).toBe(1)
+    })
   })
 
   describe('blame', () => {

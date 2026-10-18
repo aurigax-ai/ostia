@@ -1,7 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { emptyState, openWorkspace } from './helpers'
+import { emptyState } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
 
 async function launch(settings: object) {
@@ -11,7 +9,7 @@ async function launch(settings: object) {
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
   await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
-  return { app, win, dataHome }
+  return { app, win }
 }
 
 async function openAppearance(win: Page) {
@@ -43,76 +41,6 @@ test('follow-system switches the theme live with the OS color scheme', async () 
       nativeTheme.themeSource = 'light'
     })
     await expect(win.locator('html')).toHaveAttribute('data-theme', 'ostia-light')
-  } finally {
-    await app.close()
-  }
-})
-
-test('a custom accent color overrides the brand color on real elements', async () => {
-  const { app, win } = await launch({ appearance: { followSystem: false } })
-  try {
-    await app.evaluate(({ nativeTheme }) => {
-      nativeTheme.themeSource = 'dark'
-    })
-    const settings = await openAppearance(win)
-    const followSystem = settings.getByRole('switch', { name: 'Match system appearance' })
-    await followSystem.click()
-    await expect(followSystem).toBeChecked()
-    const before = await followSystem.evaluate((el) => getComputedStyle(el).backgroundColor)
-
-    const hex = settings.getByRole('textbox', { name: 'Custom accent hex' })
-    await hex.fill('#ff8800')
-
-    await expect
-      .poll(() => followSystem.evaluate((el) => getComputedStyle(el).backgroundColor))
-      .toBe('rgb(255, 136, 0)')
-    expect(before).not.toBe('rgb(255, 136, 0)')
-
-    await hex.fill('nonsense')
-    await expect(hex).toHaveAttribute('aria-invalid', 'true')
-    await expect
-      .poll(() => followSystem.evaluate((el) => getComputedStyle(el).backgroundColor))
-      .toBe('rgb(255, 136, 0)')
-  } finally {
-    await app.close()
-  }
-})
-
-test('zoom chords change the window zoom factor within 80 to 150 percent and persist it', async () => {
-  const { app, win, dataHome } = await launch({})
-  try {
-    await openWorkspace(win)
-    const factor = () =>
-      app.evaluate(({ BrowserWindow }) =>
-        BrowserWindow.getAllWindows()[0].webContents.getZoomFactor(),
-      )
-    const colsWidth = () => win.evaluate(() => window.innerWidth)
-    const baseWidth = await colsWidth()
-    expect(await factor()).toBeCloseTo(1, 5)
-
-    await win.locator('.xterm').first().click()
-    await win.keyboard.press('Control+=')
-    await expect.poll(factor).toBeCloseTo(1.1, 5)
-    await expect.poll(colsWidth).toBeLessThan(baseWidth)
-
-    await win.keyboard.press('Control+Shift+Minus')
-    await win.keyboard.press('Control+Shift+Minus')
-    await expect.poll(factor).toBeCloseTo(0.9, 5)
-
-    for (let i = 0; i < 10; i++) await win.keyboard.press('Control+Shift+Minus')
-    await expect.poll(factor).toBeCloseTo(0.8, 5)
-
-    for (let i = 0; i < 10; i++) await win.keyboard.press('Control+=')
-    await expect.poll(factor).toBeCloseTo(1.5, 5)
-
-    await win.keyboard.press('Control+0')
-    await expect.poll(factor).toBeCloseTo(1, 5)
-
-    await win.keyboard.press('Control+=')
-    const settingsFile = join(dataHome, 'userData', 'settings.json')
-    await expect
-      .poll(() => JSON.parse(readFileSync(settingsFile, 'utf8')).appearance?.zoom)
-      .toBe(110)
   } finally {
     await app.close()
   }

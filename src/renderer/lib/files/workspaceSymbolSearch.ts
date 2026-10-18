@@ -1,5 +1,5 @@
-import { allPanes } from '@/layout/tree'
-import type { WorkspaceSymbolHit } from '@/lsp/workspaceSymbols'
+import { allPanes } from '@/lib/layout/tree'
+import type { WorkspaceSymbolHit } from '@/lib/lsp/workspaceSymbols'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 
 export const SYMBOL_SEARCH_DELAY_MS = 150
@@ -16,7 +16,7 @@ export async function findWorkspaceSymbols(
   const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
   if (!layout?.root) return { servers: 0, hits: [] }
   const paneIds = new Set(allPanes(layout.root).map((pane) => pane.id))
-  const { searchWorkspaceSymbols } = await import('@/lsp/client')
+  const { searchWorkspaceSymbols } = await import('@/lib/lsp/client')
   return searchWorkspaceSymbols(paneIds, query)
 }
 

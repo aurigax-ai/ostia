@@ -1,8 +1,13 @@
-import { createPane } from '@/layout/tree'
+import { createPane } from '@/lib/layout/tree'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AgentSessionButton } from './AgentSessionButton'
+
+function hookAgent(command: string): 'claude' | 'codex' | null {
+  const program = command.split(' ')[0]?.replaceAll("'", '')
+  return program === 'claude' || program === 'codex' ? program : null
+}
 
 function runCommand(paneId: string, command: string): void {
   useBlocksStore.setState({
@@ -26,6 +31,8 @@ function runCommand(paneId: string, command: string): void {
     },
     running: { [paneId]: 'b1' },
   })
+  const agent = hookAgent(command)
+  if (agent) useBlocksStore.getState().markAgent(paneId, agent)
 }
 
 describe('AgentSessionButton', () => {
@@ -73,7 +80,7 @@ describe('AgentSessionButton', () => {
     fireEvent.click(screen.getByRole('button', { name: /Claude Code session/ }))
     fireEvent.click(await screen.findByRole('button', { name: 'Copy resume command' }))
     expect(writeText).toHaveBeenCalledWith(
-      'claude --resume abc-123 --model opus --permission-mode plan',
+      "'claude' --resume abc-123 --model opus --permission-mode plan",
     )
   })
 

@@ -1,4 +1,4 @@
-import type { DropZone } from '@/layout/tree'
+import type { DropZone } from '@/lib/layout/tree'
 import type { TabDrop } from '@/lib/panes/dropZone'
 import { create } from 'zustand'
 

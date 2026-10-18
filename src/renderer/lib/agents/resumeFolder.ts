@@ -1,11 +1,13 @@
-import { allPanes, findPane } from '@/layout/tree'
-import type { PaneNode } from '@/layout/types'
 import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
+import { allPanes, findPane } from '@/lib/layout/tree'
+import type { PaneNode } from '@/lib/layout/types'
 import { runWhenIdle } from '@/lib/terminal/blockActions'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { type AgentResume, resumeCommand } from '@shared/agents/agentResume'
+import { claudeTrustGate } from './folderTrust'
 import { runningAgentOf } from './paneAgent'
+import { watchResumeOutcome } from './resumeOutcome'
 
 export const RESUME_CLAIM_MS = 10_000
 
@@ -98,9 +100,15 @@ export function resumeWhenIdle(
   onGiveUp?: (held: boolean) => void,
   onTyped?: () => void,
   timeoutMs?: number | null,
+  askTrust = false,
+  onHold?: () => void,
 ): () => void {
   let heldElsewhere = false
   const allowed = async (): Promise<boolean> => {
+    if (resumeFolderMissing(paneId) || resumeHolder(paneId, resume)) return false
+    if (askTrust && !(await claudeTrustGate(paneId, resume.agent, onHold))) {
+      return false
+    }
     if (resumeFolderMissing(paneId) || resumeHolder(paneId, resume)) return false
     claimResume(paneId, resume)
     heldElsewhere = (await claimAcrossWindows(paneId, resume)) !== null
@@ -117,6 +125,7 @@ export function resumeWhenIdle(
     },
     () => {
       claimResume(paneId, resume)
+      watchResumeOutcome(paneId, resume)
       onTyped?.()
     },
   )

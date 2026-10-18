@@ -1,4 +1,4 @@
-import { findPane } from '@/layout/tree'
+import { findPane } from '@/lib/layout/tree'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'

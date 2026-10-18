@@ -1,14 +1,6 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  renameSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
 import {
   CHAT_SESSIONS_MAX,
   CHAT_SESSION_ID_PATTERN,
@@ -96,9 +88,7 @@ export function createChatSessionStore(opts: ChatSessionStoreOptions): ChatSessi
 
   const write = (session: ChatSession): void => {
     ensureDir()
-    const tmp = `${file(session.id)}.tmp`
-    writeFileSync(tmp, JSON.stringify(session), { mode: 0o600 })
-    renameSync(tmp, file(session.id))
+    writeFileAtomic(file(session.id), JSON.stringify(session), { mode: 0o600 })
   }
 
   const evict = (keep: string): string[] => {

@@ -1,5 +1,6 @@
 import { type BrowserWindow, ipcMain } from 'electron'
-import type { PaneActivity, QuitAnswer, RunningGroup } from '../../shared/types'
+import type { PaneActivity } from '../../shared/terminal/ptyApi'
+import type { QuitAnswer, RunningGroup } from '../../shared/windows/windowsApi'
 
 interface PendingAnswer {
   senderId: number

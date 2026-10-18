@@ -1,89 +1,23 @@
-import { restoreSnapshot } from '@/layout/snapshot'
+import { restoreSnapshot } from '@/lib/layout/snapshot'
 import {
-  type DragSource,
-  type DropTarget,
   type Grouping,
-  type WorkspaceGroup,
-  applyDrop,
-  createGroup,
-  deleteGroup,
   insertWorkspace,
-  joinGroup,
-  leaveGroup,
   matchGroupRule,
-  moveWorkspaceBy,
   normalizeGroups,
   patchGroup,
-  pinWorkspace,
 } from '@/lib/sidebar/workspaceGroups'
 import { namespacedId } from '@/lib/workspaces/idNamespace'
 import { insertIndex } from '@/lib/workspaces/workspaceOrder'
-import { type NewWorkspacePlacement, useSettingsStore } from '@/stores/app/settingsStore'
-import type {
-  AppSnapshot,
-  SnapshotWorkspace,
-  WorkspaceLiveState,
-  WorkspaceOrigin,
-  WorkspaceProject,
-} from '@shared/types'
-import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaces/workspaceGroups'
+import type { NewWorkspacePlacement } from '@/stores/app/settingsModel'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { normalizeGroupName } from '@shared/workspaces/workspaceGroups'
 import { normalizeDescription } from '@shared/workspaces/workspaceText'
 import { create } from 'zustand'
-import { setWorkspaceLookup, useLayoutStore } from './layoutStore'
-
-export type WorkspaceState = WorkspaceLiveState
-
-export type WorkspaceKind = 'agent' | 'terminal' | 'scratch' | 'manager'
-
-export interface Workspace {
-  id: string
-  name: string
-  customName?: string
-  description?: string
-  pinned?: boolean
-  groupId?: string
-  kind: WorkspaceKind
-  workDir: string
-  state: WorkspaceState
-  projectDir?: string
-  anchored?: true
-  origin?: WorkspaceOrigin
-}
-
-interface WorkspacesState {
-  workspaces: Workspace[]
-  groups: WorkspaceGroup[]
-  activeWorkspaceId: string | null
-  setActive: (id: string) => void
-  addWorkspace: (
-    workDir?: string,
-    placement?: NewWorkspacePlacement,
-    kind?: WorkspaceKind,
-    groupId?: string,
-  ) => void
-  closeWorkspace: (id: string) => void
-  setWorkDir: (id: string, workDir: string) => void
-  rename: (id: string, name: string) => void
-  setProject: (id: string, project: WorkspaceProject, anchor?: boolean) => void
-  describe: (id: string, text: string) => void
-  setPinned: (id: string, pinned: boolean) => void
-  moveBy: (id: string, delta: number) => void
-  drop: (source: DragSource, target: DropTarget) => void
-  createGroup: (workspaceId: string, name?: string) => string | null
-  moveToGroup: (workspaceId: string, groupId: string) => void
-  moveToGroupNamed: (workspaceId: string, name: string) => void
-  leaveGroup: (workspaceId: string) => void
-  deleteGroup: (groupId: string) => void
-  renameGroup: (groupId: string, name: string) => void
-  setGroupColor: (groupId: string, color: WorkspaceGroupColor | null) => void
-  setGroupCollapsed: (groupId: string, collapsed: boolean) => void
-  closeOthers: (id: string) => void
-  setState: (id: string, state: WorkspaceState) => void
-  hydrate: (snapshot: AppSnapshot | null) => void
-  release: (id: string) => void
-  merge: (sourceId: string, targetId: string) => void
-  adopt: (workspaces: SnapshotWorkspace[]) => void
-}
+import { useLayoutStore } from './layoutStore'
+import { createWorkspaceGroupActions, grouping } from './workspaceGroupActions'
+import { setWorkspaceLookup } from './workspaceLookup'
+import { createWorkspaceTransferActions } from './workspaceTransferActions'
+import type { Workspace, WorkspaceKind, WorkspacesState } from './workspaceTypes'
 
 let seq = 0
 export function nextWorkspaceId(): string {
@@ -131,18 +65,6 @@ function makeWorkspace(workDir: string, kind: WorkspaceKind = 'terminal'): Works
   return { id: nextWorkspaceId(), name: nameFromWorkDir(workDir), kind, workDir, state: 'idle' }
 }
 
-function grouping(s: WorkspacesState): Grouping<Workspace> {
-  return { workspaces: s.workspaces, groups: s.groups }
-}
-
-function applyGrouping(
-  s: WorkspacesState,
-  next: Grouping<Workspace>,
-): Pick<WorkspacesState, 'workspaces' | 'groups'> {
-  if (next.workspaces === s.workspaces && next.groups === s.groups) return s
-  return { workspaces: next.workspaces, groups: next.groups }
-}
-
 function withNamedGroup(
   g: Grouping<Workspace>,
   name: string,
@@ -176,7 +98,6 @@ function placeNewWorkspace(
     groups: s.groups,
   })
 }
-
 export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
   workspaces: [],
   groups: [],
@@ -277,49 +198,6 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
     }))
   },
 
-  setPinned: (id, pinned) => set((s) => applyGrouping(s, pinWorkspace(grouping(s), id, pinned))),
-
-  moveBy: (id, delta) => set((s) => applyGrouping(s, moveWorkspaceBy(grouping(s), id, delta))),
-
-  drop: (source, target) => set((s) => applyGrouping(s, applyDrop(grouping(s), source, target))),
-
-  createGroup: (workspaceId, name) => {
-    const workspace = get().workspaces.find((w) => w.id === workspaceId)
-    if (!workspace) return null
-    const group = {
-      id: nextGroupId(),
-      name: normalizeGroupName(name ?? workspace.customName ?? workspace.name) ?? workspace.name,
-    }
-    set((s) => applyGrouping(s, createGroup(grouping(s), workspaceId, group)))
-    return group.id
-  },
-
-  moveToGroup: (workspaceId, groupId) =>
-    set((s) => applyGrouping(s, joinGroup(grouping(s), workspaceId, groupId))),
-
-  moveToGroupNamed: (workspaceId, rawName) => {
-    const name = normalizeGroupName(rawName)
-    if (!name || !get().workspaces.some((w) => w.id === workspaceId)) return
-    const existing = get().groups.find((group) => group.name === name)
-    if (existing) get().moveToGroup(workspaceId, existing.id)
-    else get().createGroup(workspaceId, name)
-  },
-
-  leaveGroup: (workspaceId) => set((s) => applyGrouping(s, leaveGroup(grouping(s), workspaceId))),
-
-  deleteGroup: (groupId) => set((s) => applyGrouping(s, deleteGroup(grouping(s), groupId))),
-
-  renameGroup: (groupId, rawName) => {
-    const name = normalizeGroupName(rawName)
-    if (name) set((s) => applyGrouping(s, patchGroup(grouping(s), groupId, { name })))
-  },
-
-  setGroupColor: (groupId, color) =>
-    set((s) => applyGrouping(s, patchGroup(grouping(s), groupId, { color }))),
-
-  setGroupCollapsed: (groupId, collapsed) =>
-    set((s) => applyGrouping(s, patchGroup(grouping(s), groupId, { collapsed }))),
-
   closeOthers: (id) => {
     for (const other of get().workspaces) if (other.id !== id) get().closeWorkspace(other.id)
     get().setActive(id)
@@ -363,78 +241,8 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
     window.ostia?.lifecycle?.emit?.({ type: 'workspace-state', workspaceId: id, state })
   },
 
-  release: (id) => {
-    if (!get().workspaces.some((w) => w.id === id)) return
-    useLayoutStore.getState().release(id)
-    set((s) => {
-      const idx = s.workspaces.findIndex((c) => c.id === id)
-      const remaining = s.workspaces.filter((c) => c.id !== id)
-      const activeWorkspaceId =
-        s.activeWorkspaceId === id
-          ? (remaining[Math.max(0, idx - 1)]?.id ?? remaining[0]?.id ?? null)
-          : s.activeWorkspaceId
-      const next = normalizeGroups({ workspaces: remaining, groups: s.groups })
-      return { workspaces: next.workspaces, groups: next.groups, activeWorkspaceId }
-    })
-  },
-
-  merge: (sourceId, targetId) => {
-    const ids = get().workspaces.map((w) => w.id)
-    if (sourceId === targetId || !ids.includes(sourceId) || !ids.includes(targetId)) return
-    useLayoutStore.getState().merge(sourceId, targetId)
-    set((s) => {
-      const remaining = s.workspaces.filter((w) => w.id !== sourceId)
-      const next = normalizeGroups({ workspaces: remaining, groups: s.groups })
-      return { workspaces: next.workspaces, groups: next.groups, activeWorkspaceId: targetId }
-    })
-    window.ostia?.lifecycle?.emit?.({ type: 'workspace-activated', workspaceId: targetId })
-  },
-
-  adopt: (incoming) => {
-    const known = new Set(get().workspaces.map((w) => w.id))
-    const fresh = incoming.filter((w) => !known.has(w.id))
-    if (fresh.length === 0) return
-    const { workspaces, layouts } = restoreSnapshot({
-      v: 1,
-      savedAt: '',
-      activeWorkspaceId: null,
-      workspaces: fresh,
-      groups: [],
-    })
-    adoptWorkspaceIds(workspaces.map((w) => w.id))
-    const adopted = workspaces.map(({ origin, ...w }) => {
-      const workspace: Workspace = {
-        ...w,
-        ...(origin?.groupId ? { groupId: origin.groupId } : {}),
-        state: 'idle',
-      }
-      return { workspace, index: origin?.index }
-    })
-    set((s) => {
-      const list = [...s.workspaces]
-      for (const { workspace, index } of adopted) {
-        list.splice(Math.min(index ?? list.length, list.length), 0, workspace)
-      }
-      const next = normalizeGroups({ workspaces: list, groups: s.groups })
-      return {
-        workspaces: next.workspaces,
-        groups: next.groups,
-        activeWorkspaceId: adopted[adopted.length - 1].workspace.id,
-      }
-    })
-    useLayoutStore.getState().adopt(layouts)
-    for (const { workspace } of adopted) {
-      window.ostia?.lifecycle?.emit?.({
-        type: 'workspace-added',
-        workspaceId: workspace.id,
-        workDir: workspace.workDir,
-      })
-    }
-    window.ostia?.lifecycle?.emit?.({
-      type: 'workspace-activated',
-      workspaceId: adopted[adopted.length - 1].workspace.id,
-    })
-  },
+  ...createWorkspaceGroupActions(set, get, { nextGroupId }),
+  ...createWorkspaceTransferActions(set, get, { adoptWorkspaceIds }),
 }))
 
 setWorkspaceLookup((workspaceId) =>

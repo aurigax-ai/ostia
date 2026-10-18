@@ -15,26 +15,26 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { gzipSync } from 'node:zlib'
+import { appEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import {
+  type EditorLanguage,
+  languageForPath,
+} from '@aurigax-ai/ostia-extension-sdk/contract/editorLanguages'
+import type { LanguageServerContribution } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
+import { readManifest } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   FAKE_LSP_BIN,
   installFakeLanguageExtension,
 } from '../../../test/fixtures/lsp/installFakeExtension'
-import { appEnv } from '../../shared/appEnv'
-import { type EditorLanguage, languageForPath } from '../../shared/editorLanguages'
-import type { LanguageServerContribution } from '../../shared/languageServers'
-import { readManifest } from '../extensions/extensionManifest'
 import { TreeWatches } from '../files/fileWatch'
 import { programPath } from '../platform/systemRequirements'
 import { releaseUserAgent } from '../updates/releaseCheck'
 import { loadEditorLanguages } from './editorLanguages'
-import {
-  type LanguageServerSource,
-  LanguageServers,
-  type ManagedServerFiles,
-} from './languageServers'
+import { LanguageServers } from './languageServers'
 import { chooseServerProgram } from './languageServersIpc'
 import { DOWNLOAD_BASE_URL_ENV, ManagedServers, downloadBaseUrl } from './managedServers'
+import type { LanguageServerSource, ManagedServerFiles } from './serverBinaries'
 import { ServerOverrides } from './serverOverrides'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn(), on: vi.fn() } }))
@@ -615,7 +615,7 @@ describe('a real language server process', () => {
           id: 'fake-native',
           name: 'Fake native',
           version: '1.0.0',
-          api: '3.0',
+          api: '4.0',
           category: 'languages',
           capabilities: ['language-server'],
           contributes: {

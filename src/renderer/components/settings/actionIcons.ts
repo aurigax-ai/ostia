@@ -1,4 +1,4 @@
-import type { ActionIcon } from '@/settings/actions'
+import type { ActionIcon } from '@/lib/settings/actions'
 import {
   ArrowsClockwiseIcon,
   BookOpenIcon,

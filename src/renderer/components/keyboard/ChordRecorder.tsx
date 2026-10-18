@@ -1,5 +1,5 @@
-import { useDict } from '@/i18n/useDict'
-import { holdDoubleShift } from '@/lib/keys/chords'
+import { useDict } from '@/lib/app/useDict'
+import { holdDoubleShift } from '@/lib/keyboard/chords'
 import { isMac } from '@/platform'
 import {
   type ChordSpec,

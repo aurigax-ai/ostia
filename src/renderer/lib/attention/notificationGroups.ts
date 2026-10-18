@@ -1,4 +1,4 @@
-import type { NotificationEntry, NotificationKind } from '@shared/types'
+import type { NotificationEntry, NotificationKind } from '@shared/attention/attention'
 
 export const NOTIFICATION_TABS = ['all', 'needs', 'done', 'messages'] as const
 export type NotificationTab = (typeof NOTIFICATION_TABS)[number]

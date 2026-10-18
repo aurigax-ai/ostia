@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { chordLabel } from '@/lib/keys/chords'
+import { chordLabel } from '@/lib/keyboard/chords'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import type { ExtensionInfo } from '@shared/extensions'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { KeymapInfo } from '@aurigax-ai/ostia-extension-sdk/contract/keymap'
 import type { KeymapLoad } from '@shared/keyboard/keymapFile'
-import type { KeymapInfo } from '@shared/keymap'
 import { act, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { keymapChoices, keymapProvider, startKeymapSync, useKeymapStore } from './keymapStore'
@@ -37,10 +37,12 @@ function provider(id: string, keymaps: KeymapInfo[], enabled = true): ExtensionI
     assist: [],
     secrets: [],
     secretsSet: [],
+    connectionKinds: [],
     iconThemes: [],
     languages: [],
     keymaps,
     languageServers: [],
+    fileViewers: [],
     agentSkills: [],
     agentHooks: [],
   }

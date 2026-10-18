@@ -1,8 +1,10 @@
 import {
+  chmodSync,
   existsSync,
   lstatSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -10,8 +12,61 @@ import {
 } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { loadJson, saveJson, storePath } from './jsonStore'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { loadJson, saveJson, saveJsonAsync, storePath } from './jsonStore'
+
+const written = vi.hoisted(() => [] as string[])
+
+vi.mock('node:fs', async (importOriginal) => {
+  const fs = await importOriginal<typeof import('node:fs')>()
+  const { dirname } = await import('node:path')
+  const modes = (file: string) =>
+    [file, dirname(file)].map((p) => (fs.statSync(p).mode & 0o777).toString(8)).join(' ')
+  return {
+    ...fs,
+    openSync: (...args: Parameters<typeof fs.openSync>) => {
+      const fd = fs.openSync(...args)
+      written.push(`open ${modes(String(args[0]))}`)
+      return fd
+    },
+    fsyncSync: (fd: number) => {
+      written.push('fsync')
+      fs.fsyncSync(fd)
+    },
+    renameSync: (from: string, to: string) => {
+      written.push(`rename ${modes(from)}`)
+      fs.renameSync(from, to)
+    },
+  }
+})
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const fs = await importOriginal<typeof import('node:fs/promises')>()
+  const { dirname } = await import('node:path')
+  const modes = async (file: string) => {
+    const stats = await Promise.all([fs.stat(file), fs.stat(dirname(file))])
+    return stats.map((st) => (st.mode & 0o777).toString(8)).join(' ')
+  }
+  return {
+    ...fs,
+    open: async (...args: Parameters<typeof fs.open>) => {
+      const handle = await fs.open(...args)
+      written.push(`open ${await modes(String(args[0]))}`)
+      const sync = handle.sync.bind(handle)
+      handle.sync = () => {
+        written.push('fsync')
+        return sync()
+      }
+      return handle
+    },
+    rename: async (from: string, to: string) => {
+      written.push(`rename ${await modes(from)}`)
+      await fs.rename(from, to)
+    },
+  }
+})
+
+const SECURE_WRITE = ['open 600 700', 'fsync', 'rename 600 700']
 
 function unsetEnv(key: string): void {
   delete process.env[key]
@@ -62,6 +117,7 @@ describe('jsonStore', () => {
 
     beforeEach(() => {
       dir = join(tmpdir(), `ostia-jsonstore-test-${process.pid}-${Date.now()}-${Math.random()}`)
+      written.length = 0
     })
 
     afterEach(() => {
@@ -81,11 +137,49 @@ describe('jsonStore', () => {
       expect(existsSync(path)).toBe(true)
     })
 
-    it('leaves no .tmp file behind after an atomic write', () => {
+    it('leaves no temp file behind after an atomic write', () => {
       const path = join(dir, 'store.json')
       saveJson(path, { a: 1 })
-      expect(existsSync(path)).toBe(true)
-      expect(existsSync(`${path}.tmp`)).toBe(false)
+      expect(readdirSync(dir)).toEqual(['store.json'])
+    })
+
+    it('removes the temp file when the rename fails', () => {
+      const path = join(dir, 'store.json')
+      mkdirSync(join(path, 'occupied'), { recursive: true })
+      expect(() => saveJson(path, { a: 1 })).toThrow()
+      expect(readdirSync(dir)).toEqual(['store.json'])
+    })
+
+    it('never has a secure store or its new folder wider than 0600/0700 while it is written', () => {
+      saveJson(join(dir, 'secure', 'store.json'), { a: 1 }, { secure: true })
+      expect(written).toEqual(SECURE_WRITE)
+    })
+
+    it('tightens an existing secure folder before the store is written', async () => {
+      const folder = join(dir, 'secure')
+      mkdirSync(folder, { recursive: true })
+      chmodSync(folder, 0o755)
+      saveJson(join(folder, 'sync.json'), { a: 1 }, { secure: true })
+      chmodSync(folder, 0o755)
+      await saveJsonAsync(join(folder, 'async.json'), { a: 1 }, { secure: true })
+      expect(written).toEqual([...SECURE_WRITE, ...SECURE_WRITE])
+    })
+
+    it('never has an async secure store or its new folder wider than 0600/0700 while it is written', async () => {
+      await saveJsonAsync(join(dir, 'secure', 'store.json'), { a: 1 }, { secure: true })
+      expect(written).toEqual(SECURE_WRITE)
+    })
+
+    it('leaves valid JSON from one of two concurrent writes to the same store', async () => {
+      const path = join(dir, 'store.json')
+      const first = { fill: 'a'.repeat(1 << 20) }
+      const second = { fill: 'b'.repeat(1 << 20) }
+      await Promise.all([
+        saveJsonAsync(path, first, { secure: true }),
+        saveJsonAsync(path, second, { secure: true }),
+      ])
+      expect([first, second]).toContainEqual(JSON.parse(readFileSync(path, 'utf8')))
+      expect(readdirSync(dir)).toEqual(['store.json'])
     })
 
     it('loadJson returns the fallback for a missing path', () => {

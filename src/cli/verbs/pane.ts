@@ -1,10 +1,7 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import {
-  WORKSPACE_GROUP_COLORS,
-  isWorkspaceGroupColor,
-} from '../../shared/workspaces/workspaceGroups'
 import { FlagError, parseArgs } from '../common/args'
 import { resolveWorkspaceRef } from '../common/crossWorkspace'
+import { usageOf } from '../common/usageTable'
 
 interface PaneInputParams {
   pane: string
@@ -12,7 +9,6 @@ interface PaneInputParams {
   keys?: string[]
   paste?: boolean
   force?: boolean
-  confirm?: boolean
 }
 
 export type PaneCall =
@@ -22,12 +18,18 @@ export type PaneCall =
   | { method: 'pane.wait'; params: PaneWaitParams; json: boolean }
   | { method: 'pane.wake'; params: PaneWakeParams; json: boolean }
   | { method: 'pane.hibernate'; params: { panes: string[] }; json: boolean }
-  | { method: 'pane.close'; params: { panes: string[] }; json: boolean }
-  | { method: 'pane.moveTo'; params: { panes: string[]; workspace: string }; json: boolean }
+  | { method: 'pane.close'; params: { panes?: string[] }; json: boolean }
+  | { method: 'pane.list'; params: Record<string, never>; json: true }
+  | { method: 'pane.moveTo'; params: PaneMoveParams; json: boolean }
+
+interface PaneMoveParams {
+  panes: string[]
+  workspace?: string
+  tab?: string
+}
 
 interface PaneWakeParams {
   panes: string[]
-  wait?: true
   timeoutMs?: number
 }
 
@@ -56,22 +58,7 @@ export type PaneWaitResult =
 
 const PANE_WAIT_EXIT = { reached: 0, timedOut: 3, closed: 4 } as const
 
-const USAGE = [
-  'usage: ostia pane send <pane> [--enter] [--paste|--raw] [--force] [--confirm]',
-  '                        [--] <text…|->',
-  '       ostia pane key <pane> <key>…',
-  '       ostia pane read <pane> [--lines N] [--json]',
-  '       ostia pane rename <pane> <title…> | --clear',
-  '       ostia pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]',
-  '       ostia pane wake <pane>… [--wait [--timeout <s>]] [--json]',
-  '       ostia pane hibernate <pane>… [--json]',
-  '       ostia pane close <pane>… [--json]',
-  '       ostia pane move <pane>… --workspace <id|name> [--json]',
-  '<pane> is a paneId or a process id or name (ostia process ls); list panes with',
-  'ostia pane.list (JSON: paneId, kind, title, cwd, running, agent, agentState, hibernated, …)',
-].join('\n')
-
-const PANE_LIST_HINT = 'list panes with ostia pane.list (JSON), not ostia pane list'
+const USAGE = usageOf('pane')
 
 function readFlags(argv: string[]) {
   try {
@@ -112,8 +99,11 @@ function parseWait(argv: string[]): PaneCall {
 
 function parseClose(argv: string[]): PaneCall {
   const { positional, booleans } = parseArgs(argv, { booleans: { json: '--json' } })
-  if (positional.length === 0) throw new Error(USAGE)
-  return { method: 'pane.close', params: { panes: positional }, json: booleans.json }
+  return {
+    method: 'pane.close',
+    params: positional.length > 0 ? { panes: positional } : {},
+    json: booleans.json,
+  }
 }
 
 function parseHibernate(argv: string[]): PaneCall {
@@ -137,13 +127,17 @@ export function hibernateOutcome(
 
 function parseMove(argv: string[]): PaneCall {
   const { positional, values, booleans } = parseArgs(argv, {
-    values: { workspace: '--workspace' },
+    values: { workspace: '--workspace', tab: '--tab' },
     booleans: { json: '--json' },
   })
-  if (positional.length === 0 || !values.workspace) throw new Error(USAGE)
+  if (positional.length === 0 || (!values.workspace && !values.tab)) throw new Error(USAGE)
   return {
     method: 'pane.moveTo',
-    params: { panes: positional, workspace: values.workspace },
+    params: {
+      panes: positional,
+      ...(values.workspace ? { workspace: values.workspace } : {}),
+      ...(values.tab ? { tab: values.tab } : {}),
+    },
     json: booleans.json,
   }
 }
@@ -151,18 +145,13 @@ function parseMove(argv: string[]): PaneCall {
 function parseWake(argv: string[]): PaneCall {
   const { positional, values, booleans } = parseArgs(argv, {
     values: { timeout: '--timeout' },
-    booleans: { wait: '--wait', json: '--json' },
+    booleans: { json: '--json' },
   })
   if (positional.length === 0) throw new Error(USAGE)
-  if (values.timeout !== undefined && !booleans.wait) throw new Error('--timeout needs --wait')
   const timeoutMs = timeoutFlag(values.timeout)
   return {
     method: 'pane.wake',
-    params: {
-      panes: positional,
-      ...(booleans.wait ? { wait: true as const } : {}),
-      ...(timeoutMs === undefined ? {} : { timeoutMs }),
-    },
+    params: { panes: positional, ...(timeoutMs === undefined ? {} : { timeoutMs }) },
     json: booleans.json,
   }
 }
@@ -208,12 +197,15 @@ export function waitOutcome(result: PaneWaitResult, json: boolean): { line: stri
 
 export function parsePaneArgs(argv: string[]): PaneCall {
   const [sub, pane, ...rest] = argv
-  if (sub === 'list') throw new Error(PANE_LIST_HINT)
+  if (sub === 'list') {
+    if (pane !== undefined) throw new Error(USAGE)
+    return { method: 'pane.list', params: {}, json: true }
+  }
+  if (sub === 'close') return parseClose(argv.slice(1))
   if (!sub || !pane) throw new Error(USAGE)
   if (sub === 'wait') return parseWait([pane, ...rest])
   if (sub === 'wake') return parseWake([pane, ...rest])
   if (sub === 'hibernate') return parseHibernate([pane, ...rest])
-  if (sub === 'close') return parseClose([pane, ...rest])
   if (sub === 'move') return parseMove([pane, ...rest])
   if (sub === 'send') {
     const { positional: words, booleans } = parseArgs(rest, {
@@ -222,11 +214,9 @@ export function parsePaneArgs(argv: string[]): PaneCall {
         paste: '--paste',
         raw: '--raw',
         force: '--force',
-        confirm: '--confirm',
       },
-      unknown: 'keep',
     })
-    const { enter, paste, raw, force, confirm } = booleans
+    const { enter, paste, raw, force } = booleans
     if ((words.length === 0 && !enter) || (paste && raw)) throw new Error(USAGE)
     const stdin = words.length === 1 && words[0] === '-'
     return {
@@ -237,7 +227,6 @@ export function parsePaneArgs(argv: string[]): PaneCall {
         ...(enter ? { keys: ['enter'] } : {}),
         ...(paste || raw ? { paste } : {}),
         ...(force ? { force: true } : {}),
-        ...(confirm ? { confirm: true } : {}),
       },
       ...(stdin ? { stdin: true as const } : {}),
     }
@@ -270,68 +259,6 @@ export function parsePaneArgs(argv: string[]): PaneCall {
   throw new Error(USAGE)
 }
 
-export function parseWorkspaceRenameArgs(argv: string[]): { workspace?: string; name: string } {
-  const { positional, values, booleans } = parseArgs(argv, {
-    values: { workspace: '--workspace' },
-    booleans: { clear: '--clear' },
-    unknown: 'keep',
-  })
-  const name = positional.join(' ').trim()
-  if (booleans.clear === Boolean(name)) {
-    throw new Error('usage: ostia workspace rename [--workspace <id>] <name…> | --clear')
-  }
-  return { ...(values.workspace ? { workspace: values.workspace } : {}), name }
-}
-
-export function parseWorkspaceGroupArgs(
-  argv: string[],
-  withName: boolean,
-): { workspace?: string; name: string } {
-  const { positional, values } = parseArgs(argv, {
-    values: { workspace: '--workspace' },
-    unknown: 'keep',
-  })
-  const name = positional.join(' ').trim()
-  if (withName ? !name : name) {
-    throw new Error(
-      withName
-        ? 'missing <name> (usage: ostia workspace group [--workspace <id>] <name>)'
-        : 'usage: ostia workspace ungroup [--workspace <id>]',
-    )
-  }
-  return { ...(values.workspace ? { workspace: values.workspace } : {}), name }
-}
-
-export function parseGroupColorArgs(argv: string[]): { group: string; color: string | null } {
-  const usage = `usage: ostia workspace group-color <group> <${WORKSPACE_GROUP_COLORS.join('|')}> | <group> --clear`
-  const { positional, booleans } = parseArgs(argv, {
-    booleans: { clear: '--clear' },
-    unknown: 'keep',
-  })
-  if (booleans.clear) {
-    if (positional.length === 0) throw new Error(usage)
-    return { group: positional.join(' ').trim(), color: null }
-  }
-  const color = positional.at(-1)
-  const group = positional.slice(0, -1).join(' ').trim()
-  if (!group || !isWorkspaceGroupColor(color)) throw new Error(usage)
-  return { group, color }
-}
-
-export function parseGroupRenameArgs(argv: string[]): { group: string; name: string } {
-  const usage = 'usage: ostia workspace group-rename <group> <name>'
-  const { positional } = parseArgs(argv, { unknown: 'keep' })
-  const [group, name, ...extra] = positional.map((word) => word.trim())
-  if (!group || !name || extra.length > 0) throw new Error(usage)
-  return { group, name }
-}
-
-export function parseGroupDeleteArgs(argv: string[]): { group: string } {
-  const [group, ...extra] = argv.map((word) => word.trim())
-  if (!group || extra.length > 0) throw new Error('usage: ostia workspace group-delete <group>')
-  return { group }
-}
-
 export async function runPaneVerb(
   conn: MessageConnection,
   argv: string[],
@@ -341,7 +268,11 @@ export async function runPaneVerb(
   try {
     call = parsePaneArgs(argv)
   } catch (err) {
-    console.error(`ostia pane: ${err instanceof Error ? err.message : String(err)}`)
+    console.error(
+      err instanceof Error && err.message === USAGE
+        ? USAGE
+        : `ostia pane: ${err instanceof Error ? err.message : String(err)}`,
+    )
     return 1
   }
   if (call.method === 'pane.input' && call.stdin) {
@@ -353,12 +284,16 @@ export async function runPaneVerb(
     call = { method: 'pane.input', params: { ...call.params, text } }
   }
   if (call.method === 'pane.moveTo') {
-    const workspace = await resolveWorkspaceRef(conn, call.params.workspace)
+    const { workspace } = call.params
     const result = await conn.sendRequest<{ moved: string[] }>(call.method, {
       ...call.params,
-      workspace,
+      ...(workspace ? { workspace: await resolveWorkspaceRef(conn, workspace) } : {}),
     })
     console.log(call.json ? JSON.stringify(result) : result.moved.join('\n'))
+    return 0
+  }
+  if (call.method === 'pane.list') {
+    console.log(JSON.stringify(await conn.sendRequest('pane.list'), null, 2))
     return 0
   }
   if (call.method === 'pane.wait') {
@@ -386,10 +321,11 @@ export async function runPaneVerb(
   } else if (call.method === 'pane.close') {
     const { closed } = result as { closed: string[] }
     console.log(call.json ? JSON.stringify(result) : closed.join('\n'))
-  } else if (call.method === 'pane.input' && call.params.confirm) {
-    const responded = (result as { responded?: boolean }).responded === true
-    console.log(responded ? 'ok' : 'sent, but the pane printed nothing back')
-    return responded ? 0 : 2
+  } else if (
+    call.method === 'pane.input' &&
+    (result as { responded?: boolean }).responded === false
+  ) {
+    console.log(`sent; ${call.params.pane} showed nothing yet: read it with ostia pane read`)
   } else {
     console.log('ok')
   }

@@ -1,4 +1,4 @@
-import type { RemoteCwd } from '@shared/remoteFolders'
+import type { RemoteCwd } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { create } from 'zustand'
 
 interface RemoteCwdState {

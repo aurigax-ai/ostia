@@ -1,6 +1,12 @@
-import { type ExtensionResult, type OstiaExtension, failure, namedArgs, ok } from '../sdk'
-import { definition, listModel, runModel } from './panelModel'
-import type { GraphsRunner } from './runner'
+import {
+  type ExtensionResult,
+  type OstiaExtension,
+  failure,
+  namedArgs,
+  ok,
+} from '@aurigax-ai/ostia-extension-sdk'
+import { definition, listModel, runModel, runtimeModel } from './panelModel'
+import type { GraphListing, GraphsRunner } from './runner'
 
 export type PanelHandler = (args: unknown) => Promise<ExtensionResult>
 
@@ -10,9 +16,23 @@ function text(value: unknown): string | null {
   return typeof value === 'string' && value ? value : null
 }
 
+async function secretShapedInputs(
+  ext: Pick<OstiaExtension, 'redact'>,
+  listing: GraphListing,
+): Promise<Set<string>> {
+  const nodes = (listing.entry.loaded?.graph.nodes ?? []).filter(
+    (n) => n.kind === 'connector' && n.with?.input !== undefined,
+  )
+  if (nodes.length === 0) return new Set()
+  const texts = nodes.map((n) => JSON.stringify(n.with?.input))
+  const redacted = await ext.redact(texts)
+  if (!redacted) return new Set(nodes.map((n) => n.id))
+  return new Set(nodes.filter((_n, i) => redacted[i] !== texts[i]).map((n) => n.id))
+}
+
 export function panelHandlers(
   runner: GraphsRunner,
-  ext: Pick<OstiaExtension, 'listPanes' | 'focusPane'>,
+  ext: Pick<OstiaExtension, 'listPanes' | 'focusPane' | 'redact'>,
   refresh: () => Promise<void>,
 ): Record<string, PanelHandler> {
   const workspaceOf = async (args: unknown) => {
@@ -25,23 +45,24 @@ export function panelHandlers(
       await refresh()
       const w = await workspaceOf(args)
       if (!w) return failure('unknown-workspace')
-      const listings = runner.graphs(w.workspaceId)
+      const listings = await runner.graphs(w.workspaceId)
       if ('error' in listings) {
         return listings.error === 'scratch'
           ? ok(undefined, { workspaceId: w.workspaceId, folder: '', scratch: true, graphs: [] })
-          : failure(listings.error)
+          : failure(listings.error, listings.message)
       }
-      return ok(
-        undefined,
-        listModel(w.workspaceId, w.workDir, listings, runner.runs(w.workspaceId)),
-      )
+      return ok(undefined, listModel(w.workspaceId, listings, await runner.runs(w.workspaceId)))
+    },
+    runtime: async () => {
+      await runner.link.ensure()
+      return ok(undefined, runtimeModel(runner.state))
     },
     definition: async (args) => {
       const w = await workspaceOf(args)
       const name = text(namedArgs(args).name)
       if (!w || !name) return failure('invalid-args')
-      const listing = runner.graph(w.workspaceId, name)
-      const shown = listing ? definition(listing) : null
+      const listing = await runner.graph(w.workspaceId, name)
+      const shown = listing ? definition(listing, await secretShapedInputs(ext, listing)) : null
       if (!listing || !shown)
         return failure(listing?.problems[0]?.code ?? 'unknown-graph', listing?.problems[0]?.message)
       return ok(undefined, { ...shown, state: listing.state })
@@ -51,14 +72,16 @@ export function panelHandlers(
       const name = text(namedArgs(args).name)
       const fingerprint = text(namedArgs(args).fingerprint)
       if (!w || !name || !fingerprint) return failure('invalid-args')
-      const res = runner.enable(w.workspaceId, name, fingerprint)
+      const res = await runner.enable(w.workspaceId, name, fingerprint)
+      if (res.ok) await refresh()
       return res.ok ? ok() : failure(res.error, res.message)
     },
     disable: async (args) => {
       const w = await workspaceOf(args)
       const name = text(namedArgs(args).name)
       if (!w || !name) return failure('invalid-args')
-      const res = runner.disable(w.workspaceId, name)
+      const res = await runner.disable(w.workspaceId, name)
+      if (res.ok) await refresh()
       return res.ok ? ok() : failure(res.error, res.message)
     },
     runNow: async (args) => {
@@ -66,7 +89,7 @@ export function panelHandlers(
       const name = text(namedArgs(args).name)
       if (!w || !name) return failure('invalid-args')
       const inputs = namedArgs(args).inputs
-      const res = runner.start(w.workspaceId, name, {
+      const res = await runner.start(w.workspaceId, name, {
         byAgent: false,
         inputs: Array.isArray(inputs)
           ? inputs.filter((i): i is string => typeof i === 'string')
@@ -78,13 +101,16 @@ export function panelHandlers(
     runs: async (args) => {
       const w = await workspaceOf(args)
       if (!w) return failure('unknown-workspace')
-      return ok(undefined, runner.runs(w.workspaceId, text(namedArgs(args).name) ?? undefined))
+      return ok(
+        undefined,
+        await runner.runs(w.workspaceId, text(namedArgs(args).name) ?? undefined),
+      )
     },
     run: async (args) => {
       const w = await workspaceOf(args)
       const runId = text(namedArgs(args).runId)
       if (!w || !runId) return failure('invalid-args')
-      const view = runner.view(w.workspaceId, runId)
+      const view = await runner.view(w.workspaceId, runId)
       if (!view) return failure('unknown-run')
       const panes = new Set((await ext.listPanes()).map((p) => p.paneId))
       return ok(undefined, runModel(view, panes))

@@ -32,8 +32,10 @@ describe('pane agent detection', () => {
     vi.mocked(window.ostia.pty.foreground).mockReset().mockResolvedValue(null)
   })
 
-  it('knows claude or codex by the command that was typed', () => {
+  it('never takes the agent from the command text, which program output can forge', () => {
     run('b1', 'claude --model opus')
+    expect(runningAgentOf('p1')).toBeNull()
+    useBlocksStore.getState().markAgent('p1', 'claude')
     expect(runningAgentOf('p1')).toBe('claude')
   })
 
@@ -88,6 +90,7 @@ describe('agent attention gates', () => {
 
   it('makes a notification from a running agent a waiting one', () => {
     run('b1', 'codex')
+    useBlocksStore.getState().markAgent('p1', 'codex')
     expect(terminalNotification('p1', 'Approve?', 5).waiting).toBe(true)
     run('b2', 'my-agent')
     useAttentionStore.getState().dispatch('p1', { type: 'set', state: 'working', at: 1 })

@@ -1,0 +1,595 @@
+import { registerBuiltinCommands } from '@/commands/builtins'
+import { commands } from '@/commands/registry'
+import { NotificationCenter } from '@/components/agents/NotificationCenter'
+import { Pane } from '@/components/panes/Pane'
+import { TerminalView } from '@/components/terminal/Terminal'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { resetPointerView } from '@/lib/attention/pointerView'
+import { signalPane, startAttentionSync } from '@/lib/attention/workspaceActivity'
+import { runAppChord } from '@/lib/keyboard/chords'
+import { findPane, resetIds } from '@/lib/layout/tree'
+import type { PaneNode } from '@/lib/layout/types'
+import { resetOffscreenStartForTests, startOffscreen } from '@/lib/terminal/offscreenStart'
+import { useApprovalsStore } from '@/stores/agents/approvalsStore'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { NotificationEntry } from '@shared/attention/attention'
+import type { ApprovalRecord } from '@shared/permissions/approvals'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { createPortal } from 'react-dom'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../../../test/render'
+import { DeckRail } from './DeckRail'
+
+function homeWorkspaceId(): string {
+  if (useWorkspacesStore.getState().workspaces.length === 0)
+    useWorkspacesStore.getState().addWorkspace()
+  return useWorkspacesStore.getState().workspaces[0].id
+}
+
+let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
+let layoutInit: ReturnType<typeof useLayoutStore.getState>
+let attentionInit: ReturnType<typeof useAttentionStore.getState>
+let uiInit: ReturnType<typeof useUIStore.getState>
+
+beforeAll(() => {
+  workspacesInit = useWorkspacesStore.getState()
+  layoutInit = useLayoutStore.getState()
+  attentionInit = useAttentionStore.getState()
+  uiInit = useUIStore.getState()
+})
+
+beforeEach(() => {
+  vi.spyOn(document, 'hasFocus').mockReturnValue(false)
+})
+
+afterEach(() => {
+  cleanup()
+  useWorkspacesStore.setState(workspacesInit, true)
+  useLayoutStore.setState(layoutInit, true)
+  useAttentionStore.setState(attentionInit, true)
+  useUIStore.setState(uiInit, true)
+  resetIds()
+  resetPointerView()
+  resetOffscreenStartForTests()
+  vi.restoreAllMocks()
+})
+
+function twoPanes(): { workspaceId: string; a: string; b: string } {
+  const workspaceId = homeWorkspaceId()
+  useLayoutStore.getState().ensure(workspaceId)
+  const a = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
+  useLayoutStore.getState().split(workspaceId, a, 'horizontal')
+  const b = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
+  return { workspaceId, a, b }
+}
+
+function paneNode(workspaceId: string, id: string): PaneNode {
+  const node = findPane(useLayoutStore.getState().byWorkspace[workspaceId].root, id)
+  if (!node) throw new Error('pane missing')
+  return node
+}
+
+const signal = (paneId: string, message: string, at: number) =>
+  act(() => {
+    useAttentionStore.getState().dispatch(paneId, { type: 'notify', message, waiting: true, at })
+  })
+
+describe('sidebar unread mark', () => {
+  it('marks the workspace icon unread without a number and clears it at zero', async () => {
+    const { workspaceId, a, b } = twoPanes()
+    await renderSettled(<DeckRail />)
+    expect(screen.queryByRole('img', { name: /unread/ })).toBeNull()
+
+    signal(a, 'one', 1)
+    signal(b, 'two', 2)
+    const icon = screen.getByRole('img', { name: '2 unread' })
+    expect(icon).toHaveClass('tab-lead-unread')
+    expect(icon).toHaveTextContent('')
+
+    act(() => useAttentionStore.getState().markAllRead())
+    expect(screen.queryByRole('img', { name: /unread/ })).toBeNull()
+    expect(workspaceId).toBeTruthy()
+  })
+
+  it('restarts the fast blink only when the unread count grows, never on decrease', async () => {
+    const { a, b } = twoPanes()
+    await renderSettled(<DeckRail />)
+    const icon = () => screen.getByRole('img', { name: /unread/ })
+
+    signal(a, 'one', 1)
+    const first = icon()
+    signal(b, 'two', 2)
+    const second = icon()
+    expect(second).not.toBe(first)
+
+    act(() => useAttentionStore.getState().dispatch(b, { type: 'view', at: 3 }))
+    expect(icon()).toBe(second)
+    expect(icon()).toHaveAccessibleName('1 unread')
+  })
+
+  it('restarts the waiting dot pulse only when a new waiting signal arrives', async () => {
+    const { workspaceId, a } = twoPanes()
+    act(() => useWorkspacesStore.getState().setState(workspaceId, 'waiting'))
+    await renderSettled(<DeckRail />)
+    signal(a, 'first', 1)
+    const first = screen.getByRole('img', { name: 'Waiting for input' })
+
+    act(() => useWorkspacesStore.getState().setState(workspaceId, 'waiting'))
+    expect(screen.getByRole('img', { name: 'Waiting for input' })).toBe(first)
+
+    signal(a, 'second', 2)
+    expect(screen.getByRole('img', { name: 'Waiting for input' })).not.toBe(first)
+  })
+
+  it('labels the error state so it is not conveyed by color alone', async () => {
+    const workspaceId = homeWorkspaceId()
+    act(() => useWorkspacesStore.getState().setState(workspaceId, 'error'))
+    await renderSettled(<DeckRail />)
+    expect(screen.getByRole('img', { name: 'Error' })).toHaveClass('error')
+  })
+})
+
+describe('pane tab attention mark', () => {
+  const setup = () => {
+    const { workspaceId, a } = twoPanes()
+    const view = render(
+      <Pane
+        tabs={[paneNode(workspaceId, a)]}
+        shownId={a}
+        activePaneId="elsewhere"
+        workspaceId="w"
+      />,
+    )
+    const frame = view.container.querySelector('.pane') as HTMLElement
+    const tab = view.container.querySelector('.pane-tab') as HTMLElement
+    const blinking = () => view.container.querySelector('.pane-kind-blink')
+    return { ...view, workspaceId, a, frame, tab, blinking }
+  }
+
+  it('never draws a border around the pane for a waiting agent', () => {
+    const { a, container } = setup()
+    signal(a, 'build finished', 1)
+    expect(container.querySelector('.pane-attn-ring')).toBeNull()
+  })
+
+  it('marks the tab on the left of its icon and blinks the icon while a waiting signal is unread', () => {
+    const { a, tab, blinking } = setup()
+    expect(tab.querySelector('.pane-attn-mark')).toBeNull()
+    expect(blinking()).toBeNull()
+
+    signal(a, 'build finished', 1)
+    const mark = tab.querySelector('.pane-attn-mark') as HTMLElement
+    const icon = tab.querySelector('.pane-kind') as Element
+    expect(tab).toHaveAttribute('data-attention', 'waiting')
+    expect(mark).toHaveAccessibleName('Needs attention')
+    expect(mark.compareDocumentPosition(icon) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(blinking()).toBe(icon)
+    expect(screen.getByText('build finished')).toBeInTheDocument()
+  })
+
+  it('keeps the mark while the agent still waits after the pane was viewed, without the blink', () => {
+    const { a, tab, blinking } = setup()
+    signal(a, 'build finished', 1)
+
+    act(() => useAttentionStore.getState().dispatch(a, { type: 'view', at: 2 }))
+    expect(tab.querySelector('.pane-attn-mark')).not.toBeNull()
+    expect(blinking()).toBeNull()
+    expect(screen.queryByText('build finished')).toBeNull()
+
+    act(() => useAttentionStore.getState().dispatch(a, { type: 'input', at: 3 }))
+    expect(tab.querySelector('.pane-attn-mark')).toBeNull()
+  })
+
+  it('stops the blink when the pointer moves over a pane that is not the active one', () => {
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true)
+    const { a, frame, blinking } = setup()
+    signal(a, 'needs you', 1)
+    expect(blinking()).not.toBeNull()
+
+    fireEvent.mouseEnter(frame)
+    expect(blinking()).toBeNull()
+    expect(useAttentionStore.getState().byPane[a]?.state).toBe('waiting')
+  })
+
+  it('does not blink a pane under the pointer, and blinks again once the pointer left', () => {
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true)
+    const { a, frame, blinking } = setup()
+    const waiting = (message: string, at: number) =>
+      act(() => signalPane(a, { type: 'notify', message, waiting: true, at }))
+
+    fireEvent.mouseMove(frame)
+    waiting('first', 1)
+    expect(blinking()).toBeNull()
+
+    fireEvent.mouseLeave(frame)
+    waiting('second', 2)
+    expect(blinking()).not.toBeNull()
+  })
+
+  it('keeps blinking while the window is not focused, even with the pointer over the pane', () => {
+    const { a, frame, blinking } = setup()
+    signal(a, 'needs you', 1)
+
+    fireEvent.mouseEnter(frame)
+    expect(blinking()).not.toBeNull()
+  })
+
+  it('replays the blink for a new signal but not for unrelated re-renders', () => {
+    const { workspaceId, a, rerender, blinking } = setup()
+    signal(a, 'first', 1)
+    const icon = blinking()
+    expect(icon).not.toBeNull()
+
+    rerender(
+      <Pane tabs={[paneNode(workspaceId, a)]} shownId={a} activePaneId={a} workspaceId="w" />,
+    )
+    expect(blinking()).toBe(icon)
+
+    signal(a, 'second', 2)
+    expect(blinking()).not.toBeNull()
+    expect(blinking()).not.toBe(icon)
+  })
+
+  it('gives a done unread pane a quiet mark and no blink', () => {
+    const { a, frame, tab, blinking } = setup()
+    act(() => useAttentionStore.getState().dispatch(a, { type: 'set', state: 'done', at: 1 }))
+    expect(blinking()).toBeNull()
+    expect(frame).toHaveAttribute('data-attention', 'done')
+    expect(tab).toHaveAttribute('data-attention', 'done')
+    expect(screen.getByRole('img', { name: 'Unread' })).toBeInTheDocument()
+  })
+
+  it('marks the pane tab unread, never waiting, with who sent a bus message', async () => {
+    if (!commands.has('attention.message')) registerBuiltinCommands()
+    const { workspaceId, a, container, tab, blinking } = setup()
+    await act(() =>
+      commands.execWith({ activeWorkspaceId: workspaceId, activePaneId: a }, 'attention.message', {
+        from: 'sender',
+        text: 'review-42-done',
+      }),
+    )
+    expect(tab).toHaveAttribute('data-attention', 'unread')
+    expect(screen.getByRole('img', { name: 'Unread' })).toBeInTheDocument()
+    expect(blinking()).toBeNull()
+    expect(container.querySelector('.pane-attn-msg')).toHaveTextContent(
+      /^Message from sender: review-42-done$/,
+    )
+    expect(window.ostia.notifications.post).toHaveBeenCalledWith(
+      expect.objectContaining({ paneId: a, title: 'Message from sender', body: 'review-42-done' }),
+    )
+  })
+
+  it('a notification from a plain command in zsh is a message, not a wait for input', async () => {
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true)
+    const workspaceId = homeWorkspaceId()
+    useLayoutStore.getState().ensure(workspaceId)
+    const paneId = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
+    let output: (data: string) => void = () => {}
+    vi.mocked(window.ostia.pty.onData).mockImplementation((_id, cb) => {
+      output = cb
+      return () => {}
+    })
+    const blocksInit = useBlocksStore.getState()
+    const stopSync = startAttentionSync()
+    startOffscreen(paneId)
+    try {
+      const view = await renderSettled(
+        <>
+          <DeckRail />
+          <Pane
+            tabs={[paneNode(workspaceId, paneId)]}
+            shownId={paneId}
+            activePaneId={paneId}
+            workspaceId={workspaceId}
+          />
+          <TerminalView workspaceId={workspaceId} paneId={paneId} />
+        </>,
+      )
+      await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+      act(() => {
+        output("\x1b]133;A\x07\x1b]133;B\x07printf '\\e]9;hello\\a'\r\n\x1b]133;C\x07")
+        output('\x1b]9;hello\x07\x1b]133;D;0\x07\x1b]133;A\x07\x1b]133;B\x07')
+      })
+
+      await waitFor(() =>
+        expect(window.ostia.notifications.post).toHaveBeenCalledWith(
+          expect.objectContaining({ paneId, kind: 'message', title: 'hello' }),
+        ),
+      )
+      expect(window.ostia.notifications.post).not.toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Agent needs your input' }),
+      )
+      expect(screen.getByRole('img', { name: 'Idle' })).toHaveClass('workspace-dot')
+      expect(view.container.querySelector('.pane .pane-attn-mark')).toBeNull()
+    } finally {
+      stopSync()
+      act(() => useBlocksStore.setState(blocksInit, true))
+    }
+  })
+})
+
+describe('NotificationCenter', () => {
+  const entries = (paneId: string): NotificationEntry[] => [
+    {
+      id: 'n2',
+      ts: '2026-09-28T10:05:00Z',
+      kind: 'done',
+      title: 'build finished',
+      from: 'x',
+      paneId,
+    },
+    {
+      id: 'n1',
+      ts: '2026-09-28T10:00:00Z',
+      kind: 'message',
+      title: 'Tests',
+      body: 'all passed',
+      from: 'x',
+      paneId: 'gone',
+    },
+  ]
+
+  const renderBell = () =>
+    render(
+      <TooltipProvider>
+        <NotificationCenter />
+      </TooltipProvider>,
+    )
+
+  it('shows the unread count on the bell', () => {
+    const { a, b } = twoPanes()
+    renderBell()
+    expect(screen.getByRole('button', { name: 'Notifications' })).toBeInTheDocument()
+    signal(a, 'x', 1)
+    signal(b, 'y', 2)
+    expect(screen.getByRole('button', { name: 'Notifications, 2 unread' })).toBeInTheDocument()
+  })
+
+  it('lists the real notify log newest first and jumps to the pane of an entry', async () => {
+    const { workspaceId, a, b } = twoPanes()
+    signal(a, 'build finished', 1)
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue(entries(a))
+    renderBell()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /Notifications/ }))
+    const list = await screen.findByRole('list', { name: 'Notifications' })
+    const rows = within(list).getAllByRole('button')
+    expect(rows[0]).toHaveTextContent('build finished')
+    expect(within(list).getByRole('list', { name: 'home' })).toContainElement(rows[0])
+    expect(rows[1]).toHaveTextContent('Tests: all passed')
+    expect(rows[1]).toHaveTextContent('Closed pane')
+    expect(rows[1]).toBeDisabled()
+
+    expect(useLayoutStore.getState().byWorkspace[workspaceId].activePaneId).toBe(b)
+    await user.click(rows[0])
+    expect(useLayoutStore.getState().byWorkspace[workspaceId].activePaneId).toBe(a)
+    expect(useAttentionStore.getState().byPane[a].unread).toBe(false)
+  })
+
+  it('filters by tab and groups entries by workspace', async () => {
+    const { a } = twoPanes()
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue([
+      {
+        id: 'w',
+        ts: '2026-09-28T10:06:00Z',
+        kind: 'waiting',
+        title: 'needs input',
+        from: 'x',
+        paneId: a,
+      },
+      {
+        id: 'd',
+        ts: '2026-09-28T10:05:00Z',
+        kind: 'done',
+        title: 'all done',
+        from: 'x',
+        paneId: a,
+      },
+    ])
+    renderBell()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /Notifications/ }))
+    await screen.findByText('needs input')
+
+    await user.click(screen.getByRole('tab', { name: /Finished/ }))
+    expect(screen.queryByText('needs input')).toBeNull()
+    expect(screen.getByText('all done')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: /Needs you/ }))
+    expect(screen.getByText('needs input')).toBeInTheDocument()
+    expect(screen.queryByText('all done')).toBeNull()
+  })
+
+  it('clear all empties the log in main and marks every pane read', async () => {
+    const { a } = twoPanes()
+    signal(a, 'build finished', 1)
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue(entries(a))
+    renderBell()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /Notifications/ }))
+    await screen.findByRole('list', { name: 'Notifications' })
+    await user.click(screen.getByRole('button', { name: 'Clear all' }))
+
+    expect(window.ostia.notifications.clear).toHaveBeenCalledOnce()
+    expect(useAttentionStore.getState().byPane[a].unread).toBe(false)
+    await waitFor(() => expect(screen.getByText('No notifications')).toBeInTheDocument())
+  })
+
+  it('reloads the list when main reports a change while open', async () => {
+    twoPanes()
+    let changed: () => void = () => {}
+    vi.mocked(window.ostia.notifications.onChanged).mockImplementation((cb) => {
+      changed = cb
+      return () => {}
+    })
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue([])
+    renderBell()
+    await userEvent.setup().click(screen.getByRole('button', { name: /Notifications/ }))
+    await screen.findByText('No notifications')
+
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue([
+      { id: 'n9', ts: '2026-09-28T10:00:00Z', kind: 'message', title: 'fresh', from: 'x' },
+    ])
+    act(() => changed())
+    expect(await screen.findByText('fresh')).toBeInTheDocument()
+  })
+
+  it('lists answered permission requests with how each was answered', async () => {
+    const { workspaceId, a } = twoPanes()
+    const approvalsInit = useApprovalsStore.getState()
+    const answered = (id: string, outcome: ApprovalRecord['outcome']): ApprovalRecord => ({
+      id,
+      kind: 'capability',
+      paneId: a,
+      workspaceId,
+      caps: ['settings-write'],
+      action: 'Set Setting',
+      detail: '',
+      at: 0,
+      outcome,
+      answeredAt: 0,
+      revocable: false,
+    })
+    useApprovalsStore.setState({
+      history: [answered('approval-2', 'deny'), answered('approval-1', 'once')],
+    })
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue([])
+    try {
+      renderBell()
+      await userEvent.setup().click(screen.getByRole('button', { name: /Notifications/ }))
+      const inbox = await screen.findByRole('region', { name: 'Permission requests' })
+      expect(inbox).toHaveTextContent('change settings')
+      expect(inbox).toHaveTextContent('Allowed once')
+      expect(inbox).toHaveTextContent('Denied')
+    } finally {
+      act(() => useApprovalsStore.setState(approvalsInit, true))
+    }
+  })
+
+  it('names the extension on its notifications and opens its panel at their path on click', async () => {
+    const { workspaceId } = twoPanes()
+    const extInit = useExtensionsStore.getState()
+    useExtensionsStore.setState({
+      list: [
+        {
+          id: 'keeper',
+          name: 'Keeper',
+          version: '1.0.0',
+          description: '',
+          builtin: true,
+          enabled: true,
+          status: 'running',
+          requested: [],
+          granted: [],
+          unapproved: [],
+          commands: [],
+          panel: { title: 'Keeper', icon: 'shield' },
+          paneChips: [],
+          workspaceChips: [],
+          settings: [],
+          settingValues: {},
+          assist: [],
+          secrets: [],
+          secretsSet: [],
+          connectionKinds: [],
+          settingsPage: null,
+          category: 'other',
+          languages: [],
+          languageServers: [],
+          fileViewers: [],
+          agentSkills: [],
+          agentHooks: [],
+          iconThemes: [],
+          keymaps: [],
+        },
+      ],
+    })
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue([
+      {
+        id: 'k1',
+        ts: '2026-09-28T10:00:00Z',
+        kind: 'message',
+        title: 'Keeper needs approval',
+        from: 'extension:keeper',
+        extId: 'keeper',
+        panelPath: '/approvals',
+      },
+    ])
+    try {
+      renderBell()
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: /Notifications/ }))
+      const row = within(await screen.findByRole('list', { name: 'Notifications' })).getByRole(
+        'button',
+      )
+      expect(row).toHaveTextContent(/^Keeper/)
+      expect(row).toBeEnabled()
+      await user.click(row)
+      const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+      expect(paneNode(workspaceId, layout.activePaneId)).toMatchObject({
+        kind: 'extension',
+        extensionId: 'keeper',
+      })
+      expect(useExtensionsStore.getState().panelNav[layout.activePaneId]?.path).toBe('/approvals')
+    } finally {
+      act(() => useExtensionsStore.setState(extInit, true))
+    }
+  })
+
+  it('a terminal notification in a background pane marks it unread and Ctrl+Shift+U jumps to it', async () => {
+    if (!commands.has('attention.jumpToLatest')) registerBuiltinCommands()
+    const { workspaceId, a, b } = twoPanes()
+    const view = await renderSettled(
+      <TooltipProvider>
+        <DeckRail />
+        <NotificationCenter />
+        <Pane
+          tabs={[paneNode(workspaceId, a)]}
+          shownId={a}
+          activePaneId={b}
+          workspaceId={workspaceId}
+        />
+        {createPortal(<TerminalView workspaceId={workspaceId} paneId={a} />, surfaceHost(a))}
+      </TooltipProvider>,
+    )
+    act(() => startOffscreen(a))
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalledWith(a, expect.anything()))
+    const feed = vi.mocked(window.ostia.pty.onData).mock.calls.find(([id]) => id === a)?.[1]
+    if (!feed) throw new Error('pane output not subscribed')
+    act(() => feed('\x1b]9;build finished\x07'))
+
+    await waitFor(() =>
+      expect(view.container.querySelector('.pane-attn-msg')).toHaveTextContent('build finished'),
+    )
+    expect(view.container.querySelector('.pane-kind-blink')).toBeNull()
+    expect(screen.getByRole('img', { name: 'Unread' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: '1 unread' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Notifications, 1 unread' })).toBeInTheDocument()
+    expect(window.ostia.notifications.post).toHaveBeenCalledWith(
+      expect.objectContaining({ paneId: a, title: 'build finished' }),
+    )
+    expect(useLayoutStore.getState().byWorkspace[workspaceId].activePaneId).toBe(b)
+
+    act(() => {
+      runAppChord(new KeyboardEvent('keydown', { key: 'U', ctrlKey: true, shiftKey: true }), false)
+    })
+
+    expect(useLayoutStore.getState().byWorkspace[workspaceId].activePaneId).toBe(a)
+    expect(view.container.querySelector('.pane-attn-msg')).toBeNull()
+    expect(screen.queryByRole('img', { name: '1 unread' })).toBeNull()
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        view.container.querySelector('.pane .xterm-helper-textarea'),
+      ),
+    )
+  })
+})

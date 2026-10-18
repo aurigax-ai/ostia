@@ -1,5 +1,6 @@
 import { Component, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
+import * as loaded from 'ostia:entry'
 
 class Boundary extends Component {
   constructor(props) {
@@ -18,10 +19,8 @@ class Boundary extends Component {
   }
 }
 
-const loaded = await import("__ENTRY__")
-if (typeof loaded.default !== 'function' && typeof loaded.default !== 'object') {
+const Entry = loaded.default
+if (typeof Entry !== 'function' && typeof Entry !== 'object') {
   throw new Error('The file has no default export; export a React component as default')
 }
-createRoot(document.getElementById('root')).render(
-  createElement(Boundary, null, createElement(loaded.default)),
-)
+createRoot(document.getElementById('root')).render(createElement(Boundary, null, createElement(Entry)))

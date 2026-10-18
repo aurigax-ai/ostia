@@ -1,4 +1,4 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
 import { type ServerResponse, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import {
@@ -9,15 +9,16 @@ import {
   auth,
   createMCPClient,
 } from '@ai-sdk/mcp'
+import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { escape as escapeHtml } from 'es-toolkit'
-import { readEnv } from '../../shared/appEnv'
 import type {
   McpAuthState,
   McpServerSettings,
   McpSignInError,
   McpSignInResult,
 } from '../../shared/assist/chatTools'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
+import { sameBytes } from '../platform/sameBytes'
 import type { McpOAuthStore } from './mcpOAuthStore'
 
 const MCP_OAUTH_TIMEOUT_MS = 5 * 60_000
@@ -61,13 +62,6 @@ function respond(res: ServerResponse, status: number, text: string): void {
   )
 }
 
-function sameState(given: string | null, expected: string): boolean {
-  if (given === null) return false
-  const a = Buffer.from(given)
-  const b = Buffer.from(expected)
-  return a.length === b.length && timingSafeEqual(a, b)
-}
-
 interface CallbackResult {
   code: string
   issuer?: string
@@ -106,7 +100,8 @@ export async function openCallbackListener(opts: {
       respond(res, 404, opts.pages.failed)
       return
     }
-    if (!sameState(url.searchParams.get('state'), opts.state)) {
+    const state = url.searchParams.get('state')
+    if (state === null || !sameBytes(Buffer.from(state), Buffer.from(opts.state))) {
       respond(res, 400, opts.pages.failed)
       return
     }

@@ -15,6 +15,10 @@ export function workDirForWorkspace(workspaceId?: string): string | undefined {
   return workspaceId ? workspaceWorkDirs.get(workspaceId) : undefined
 }
 
+export function knownWorkspaces(): string[] {
+  return [...workspaceWorkDirs.keys()]
+}
+
 export function windowForWorkspace(workspaceId: string): string | undefined {
   return workspaceWindows.get(workspaceId)
 }

@@ -56,7 +56,7 @@
         "path": "(^|/)index\\.tsx?$",
         "pathNot": [
           "^node_modules/",
-          "^src/extensions/sdk/(assist/)?index\\.ts$"
+          "^packages/extension-sdk/src/(client|assist)/index\\.ts$"
         ]
       }
     },
@@ -111,29 +111,48 @@
       "name": "extensions-use-only-the-sdk-and-shared",
       "severity": "error",
       "from": {
-        "path": "^src/extensions/([^/]+)/",
-        "pathNot": "^src/extensions/sdk/"
+        "path": "^src/extensions/([^/]+)/"
       },
       "to": {
         "path": "^(src|e2e|scripts)/",
-        "pathNot": "^src/(shared|extensions/sdk|extensions/$1)/"
+        "pathNot": "^src/(shared|extensions/$1)/"
       }
     },
     {
-      "name": "graph-engine-stands-alone",
+      "name": "only-office-imports-its-parsers",
       "severity": "error",
-      "from": { "path": "^graph-engine/" },
-      "to": { "path": "^(src|e2e|scripts|test)/" }
+      "from": { "pathNot": "^src/extensions/office/|^test/" },
+      "to": { "path": "node_modules/(xlsx|mammoth|dompurify)/" }
     },
     {
-      "name": "sdk-imports-only-shared",
+      "name": "only-graphs-imports-wire",
       "severity": "error",
       "from": {
-        "path": "^src/extensions/sdk/"
+        "pathNot": "^src/extensions/graphs/|^src/main/extensions/wireRuntime\\.ts$|^src/cli/cli\\.graph[A-Za-z]*\\.e2e\\.test\\.ts$"
+      },
+      "to": { "path": "node_modules/@aurigax-ai/wire/" }
+    },
+    {
+      "name": "sdk-imports-nothing-from-the-app",
+      "severity": "error",
+      "from": {
+        "path": "^packages/extension-sdk/"
       },
       "to": {
-        "path": "^(src|test|e2e|scripts)/",
-        "pathNot": "^src/(shared|extensions/sdk)/"
+        "path": "^(src|test|e2e|scripts)/"
+      }
+    },
+    {
+      "name": "app-imports-the-sdk-by-name",
+      "severity": "error",
+      "from": {
+        "path": "^(src|e2e|test|scripts|marketplace)/"
+      },
+      "to": {
+        "path": "^packages/extension-sdk/",
+        "dependencyTypes": [
+          "local"
+        ]
       }
     },
     {

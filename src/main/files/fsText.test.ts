@@ -1,9 +1,15 @@
-import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { resolveSafe } from '../platform/pathGuard'
-import { FS_TEXT_SNIFF_BYTES, readTextConfined, versionConfined, writeText } from './fsText'
+import {
+  FS_TEXT_SNIFF_BYTES,
+  readTextConfined,
+  versionConfined,
+  writeText,
+  writeTextConfined,
+} from './fsText'
 
 let root: string
 let outside: string
@@ -90,5 +96,24 @@ describe('readTextConfined', () => {
     expect(await versionConfined(join(root, 'nope.txt'), confine)).toBeNull()
     expect(await versionConfined(join(root, 'dir'), confine)).toBeNull()
     expect(await versionConfined(join(outside, 'secret.txt'), confine)).toBeNull()
+  })
+})
+
+describe('writeTextConfined', () => {
+  const save = (text: string) => (safe: string) => writeText(safe, text)
+
+  it('fs:write is confined to allowed roots (blocks a path outside + ../ escapes)', async () => {
+    const direct = join(outside, 'direct.txt')
+    const escaped = join(root, '..', basename(outside), 'escaped.txt')
+    expect(await writeTextConfined(direct, confine, save('x'))).toBe(false)
+    expect(await writeTextConfined(escaped, confine, save('x'))).toBe(false)
+    expect(existsSync(direct)).toBe(false)
+    expect(existsSync(join(outside, 'escaped.txt'))).toBe(false)
+  })
+
+  it('writes a file inside an allowed root, and answers false when the write fails', async () => {
+    expect(await writeTextConfined(join(root, 'written.txt'), confine, save('saved'))).toBe(true)
+    expect(readFileSync(join(root, 'written.txt'), 'utf8')).toBe('saved')
+    expect(await writeTextConfined(join(root, 'dir'), confine, save('x'))).toBe(false)
   })
 })

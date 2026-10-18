@@ -11,19 +11,16 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { RemoteFolder } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerControlServer, stopControlServer } from '../main/control/controlServer'
 import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
-import {
-  type ExtensionConfirmRequest,
-  ExtensionHost,
-  type TerminalOpenRequest,
-  registerExtensionMethods,
-} from '../main/extensions/extensionHost'
+import { ExtensionHost } from '../main/extensions/extensionHost'
+import { registerExtensionMethods } from '../main/extensions/extensionMethods'
+import type { ExtensionConfirmRequest, TerminalOpenRequest } from '../main/extensions/extensionRuns'
 import { ExtensionStore } from '../main/extensions/extensionStore'
 import type { RemoteFolderConfirm } from '../main/files/remoteFolders'
-import type { RemoteFolder } from '../shared/remoteFolders'
-import type { CommandResult } from '../shared/types'
+import type { CommandResult } from '../shared/control/commands'
 
 const repoRoot = process.cwd()
 const cliPath = join(repoRoot, 'out', 'cli', 'index.js')
@@ -138,7 +135,7 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
   }, 120_000)
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     restore('XDG_DATA_HOME', saved.dataHome)
     restore('PATH', saved.path)
@@ -151,7 +148,7 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
   })
 
   it('SSH-C1 ships ssh as a built-in with connect, ls and show, running without an approval', async () => {
-    const listed = await runOstia(['ext', 'ls'])
+    const listed = await runOstia(['ext', 'list'])
     expect(listed.stdout).toContain('ssh\t')
     expect(listed.stdout).toContain(
       'ostia ssh connect [-J <hop>[,<hop>...]] [-p <port>] <[user@]host>',

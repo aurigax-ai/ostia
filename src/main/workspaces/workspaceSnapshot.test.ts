@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type BrowserWindow, ipcMain } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AppSnapshot, SnapshotNode } from '../../shared/types'
+import type { AppSnapshot, SnapshotNode } from '../../shared/workspaces/workspaceApi'
 import { AgentRunningPanes } from '../agents/agentRunning'
 import { MAIN_SLOT } from '../windows/windowBook'
 import { WindowBroker } from '../windows/windowBroker'
@@ -11,18 +11,20 @@ import {
   SCROLLBACK_CAP_BYTES,
   clearPersisted,
   loadRestoredScrollback,
-  loadSnapshot,
-  parseHandoff,
-  parseSnapshot,
   pendingRestoredScrollback,
   saveScrollback,
-  saveSnapshot,
   scrollbackPath,
-  snapshotPath,
   stashScrollback,
   stashedScreen,
   takeRestoredScrollback,
   trimScrollback,
+} from './savedScrollback'
+import {
+  loadSnapshot,
+  parseHandoff,
+  parseSnapshot,
+  saveSnapshot,
+  snapshotPath,
 } from './workspaceSnapshot'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn(), on: vi.fn() }, screen: {} }))
@@ -192,8 +194,9 @@ describe('parseSnapshot', () => {
       }),
     )
     expect(withResume(saved)?.workspaces[0].root).toMatchObject({
-      resume: { agent: 'codex', id: 'abc-1', args: ['-m', 'gpt-5'], env: { GL_ISSUE: '685' } },
+      resume: { agent: 'codex', id: 'abc-1', args: ['-m', 'gpt-5'] },
     })
+    expect(withResume(saved)?.workspaces[0].root).not.toHaveProperty('resume.env')
   })
 
   it('keeps a view pane by name and drops one without a valid view name', () => {
@@ -235,6 +238,28 @@ describe('parseSnapshot', () => {
     expect(
       rootOf({ resume: { agent: 'claude', id: 'abc-1' }, agentRunning: 'yes' }),
     ).not.toHaveProperty('agentRunning')
+  })
+
+  it('RSM-C17 keeps a failed resume token as data, never running and only without a live token', () => {
+    const pane = snap().workspaces[0].root
+    const rootOf = (extra: object) =>
+      parseSnapshot(
+        snap({ workspaces: [{ ...snap().workspaces[0], root: { ...pane, ...extra } as never }] }),
+      )?.workspaces[0].root
+    const failed = { resume: { agent: 'claude', id: 'dead-1' }, exitCode: 1 }
+    expect(rootOf({ resumeFailed: failed, agentRunning: true })).toMatchObject({
+      resumeFailed: failed,
+    })
+    expect(rootOf({ resumeFailed: failed, agentRunning: true })).not.toHaveProperty('agentRunning')
+    expect(
+      rootOf({ resume: { agent: 'claude', id: 'abc-1' }, resumeFailed: failed }),
+    ).not.toHaveProperty('resumeFailed')
+    expect(
+      rootOf({ resumeFailed: { resume: { agent: 'claude', id: '$(id)' }, exitCode: 1 } }),
+    ).not.toHaveProperty('resumeFailed')
+    expect(
+      rootOf({ resumeFailed: { resume: failed.resume, exitCode: 'rm -rf' } }),
+    ).not.toHaveProperty('resumeFailed')
   })
 
   it('keeps a renamed pane pinned only when the mark is true', () => {
@@ -317,6 +342,67 @@ describe('parseSnapshot', () => {
       name: 'api',
       sizes: [1, 1],
     })
+  })
+
+  it('keeps a collapsed mark only on a pane inside a tab and only when it is true', () => {
+    const pane = (id: string, collapsed: unknown) => ({
+      type: 'pane',
+      id,
+      title: 'zsh',
+      kind: 'terminal',
+      collapsed,
+    })
+    const tabs = {
+      type: 'tabs',
+      id: 'tabs-3',
+      activeId: 'pane-1',
+      children: [
+        pane('pane-1', true),
+        { ...split('pane-2', 'pane-3'), children: [pane('pane-2', true), pane('pane-3', 'yes')] },
+      ],
+    }
+    const root = parseSnapshot(
+      snap({ workspaces: [{ ...snap().workspaces[0], root: tabs as never }] }),
+    )?.workspaces[0].root
+    const inTab = root?.type === 'tabs' ? root.children[1] : null
+    expect(inTab?.type === 'split' && inTab.children[0]).toMatchObject({ collapsed: true })
+    expect(inTab?.type === 'split' && inTab.children[1]).not.toHaveProperty('collapsed')
+    const outside = {
+      ...split('pane-1', 'pane-2'),
+      children: [pane('pane-1', true), pane('pane-2', true)],
+    }
+    const top = parseSnapshot(
+      snap({ workspaces: [{ ...snap().workspaces[0], root: outside as never }] }),
+    )?.workspaces[0].root
+    expect(top?.type === 'split' && top.children[0]).not.toHaveProperty('collapsed')
+  })
+
+  it('keeps a folded mark only on a split tab and only when it is true', () => {
+    const tabs = {
+      type: 'tabs',
+      id: 'tabs-3',
+      activeId: 'pane-1',
+      children: [
+        { type: 'pane', id: 'pane-1', title: 'zsh', kind: 'terminal', folded: true },
+        { ...split('pane-2', 'pane-3'), folded: true },
+      ],
+    }
+    const root = parseSnapshot(
+      snap({ workspaces: [{ ...snap().workspaces[0], root: tabs as never }] }),
+    )?.workspaces[0].root
+    expect(root?.type === 'tabs' && root.children[0]).not.toHaveProperty('folded')
+    expect(root?.type === 'tabs' && root.children[1]).toMatchObject({ folded: true })
+    const loose = parseSnapshot(
+      snap({
+        workspaces: [
+          {
+            ...snap().workspaces[0],
+            root: { ...split('pane-1', 'pane-2'), folded: 'yes' } as never,
+          },
+        ],
+      }),
+    )?.workspaces[0].root
+    expect(loose).not.toHaveProperty('folded')
   })
 
   it('drops a bad split tab name and repairs the shown pane to the first pane', () => {
@@ -774,5 +860,38 @@ describe('browser profile on a pane', () => {
     const isolated = parseHandoff({ ...base, activePaneId: 'b1', root: browserPane({}) })
     expect(shared?.root).toMatchObject({ browserProfile: 'shared' })
     expect(isolated?.root).not.toHaveProperty('browserProfile')
+  })
+})
+
+describe('device mode on a browser pane', () => {
+  function restored(pane: Record<string, unknown>): unknown {
+    const base = snap()
+    return parseSnapshot({
+      ...base,
+      workspaces: [{ ...base.workspaces[0], activePaneId: 'b1', root: { id: 'b1', ...pane } }],
+    })?.workspaces[0].root
+  }
+
+  const browser = { type: 'pane', title: 'site', kind: 'browser', url: 'http://x/' }
+
+  it('keeps the device a browser pane was in through a save and restore', () => {
+    const browserDevice = { preset: 'responsive', width: 600, height: 900, dpr: 2, zoom: 'actual' }
+    expect(restored({ ...browser, browserDevice })).toMatchObject({ browserDevice })
+  })
+
+  it('restores a preset from the data, keeping only its orientation and zoom', () => {
+    const browserDevice = { preset: 'iphone-se', width: 900, height: 100, dpr: 7, zoom: 'fit' }
+    expect(restored({ ...browser, browserDevice })).toMatchObject({
+      browserDevice: { preset: 'iphone-se', width: 667, height: 375, dpr: 2, zoom: 'fit' },
+    })
+  })
+
+  it('drops a device that is not one, or on a pane that is not a browser', () => {
+    for (const browserDevice of [true, 'iphone-se', { preset: 'responsive' }, { width: 'x' }]) {
+      expect(restored({ ...browser, browserDevice })).not.toHaveProperty('browserDevice')
+    }
+    const terminal = { type: 'pane', title: 'zsh', kind: 'terminal' }
+    const browserDevice = { preset: 'responsive', width: 600, height: 900, dpr: 1, zoom: 'fit' }
+    expect(restored({ ...terminal, browserDevice })).not.toHaveProperty('browserDevice')
   })
 })

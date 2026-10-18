@@ -1,17 +1,22 @@
-import { neededConnectors, neededKinds } from '../../../graph-engine/src/engine/explain'
-import type { RunSummary, RunView } from '../../../graph-engine/src/engine/summary'
 import {
   END,
   type GraphFile,
   type Problem,
+  type RunSummary,
+  type RunView,
+  connectorUses,
+  descriptorOf,
   isConditional,
   isJoin,
+  neededConnectors,
+  neededKinds,
   startNodes,
   triggerKind,
-} from '../../../graph-engine/src/format/model'
-import { descriptorOf } from '../../../graph-engine/src/kinds/catalog'
-import { graphsFolder } from './graphFiles'
+} from '@aurigax-ai/wire'
+import { NATIVE_CONNECTORS } from './connectorHost'
+import { GRAPHS_FOLDER } from './graphFiles'
 import type { GraphListing, GraphState } from './runner'
+import type { LinkState } from './runtimeLink'
 
 export interface GraphRow {
   name: string
@@ -22,6 +27,16 @@ export interface GraphRow {
   agentsMayStart: boolean
   lastRun?: { runId: string; status: string; startedAt: number }
   fingerprint?: string
+  filesRefused?: boolean
+  skipped?: number
+}
+
+interface ConnectorUseView {
+  node: string
+  use: string
+  connection?: string
+  effect: 'read' | 'write' | 'external'
+  secretShaped: boolean
 }
 
 interface NodeDefinition {
@@ -54,6 +69,7 @@ export interface Definition {
   limits: Record<string, unknown>
   kinds: string[]
   connectors: string[]
+  connectorUses: ConnectorUseView[]
   problems: Problem[]
 }
 
@@ -62,6 +78,21 @@ export interface ListModel {
   folder: string
   scratch: boolean
   graphs: GraphRow[]
+}
+
+export type RuntimeModel =
+  | { state: 'ready'; daemon: boolean; version: string }
+  | { state: 'other-contract'; version?: string }
+  | { state: 'connecting' }
+  | { state: 'failed'; message: string }
+
+export function runtimeModel(state: LinkState): RuntimeModel {
+  if (state.kind === 'ready')
+    return { state: 'ready', daemon: state.mode === 'daemon', version: state.version }
+  if (state.kind === 'other-contract')
+    return { state: 'other-contract', ...(state.version ? { version: state.version } : {}) }
+  if (state.kind === 'failed') return { state: 'failed', message: state.message }
+  return { state: 'connecting' }
 }
 
 function agentsMayStart(graph: GraphFile): boolean {
@@ -73,13 +104,12 @@ function agentsMayStart(graph: GraphFile): boolean {
 
 export function listModel(
   workspaceId: string,
-  workDir: string,
   listings: GraphListing[],
   runs: RunSummary[],
 ): ListModel {
   return {
     workspaceId,
-    folder: graphsFolder(workDir),
+    folder: GRAPHS_FOLDER,
     scratch: false,
     graphs: listings.map((l) => {
       const graph = l.entry.loaded?.graph
@@ -95,6 +125,8 @@ export function listModel(
           ? { lastRun: { runId: last.runId, status: last.status, startedAt: last.startedAt } }
           : {}),
         ...(l.entry.loaded ? { fingerprint: l.entry.loaded.fingerprint } : {}),
+        ...(l.filesRefused ? { filesRefused: true } : {}),
+        ...(l.skipped > 0 ? { skipped: l.skipped } : {}),
       }
     }),
   }
@@ -115,7 +147,10 @@ function edges(graph: GraphFile): Definition['edges'] {
   return out
 }
 
-export function definition(listing: GraphListing): Definition | null {
+export function definition(
+  listing: GraphListing,
+  secretShaped: ReadonlySet<string> = new Set(),
+): Definition | null {
   const loaded = listing.entry.loaded
   if (!loaded) return null
   const graph = loaded.graph
@@ -148,6 +183,13 @@ export function definition(listing: GraphListing): Definition | null {
     limits: { ...graph.limits },
     kinds: neededKinds(graph),
     connectors: neededConnectors(graph),
+    connectorUses: connectorUses(graph, { native: NATIVE_CONNECTORS }).map((u) => ({
+      node: u.node,
+      use: u.use,
+      effect: u.effect,
+      secretShaped: secretShaped.has(u.node),
+      ...(u.connection ? { connection: u.connection } : {}),
+    })),
     problems: listing.problems,
   }
 }

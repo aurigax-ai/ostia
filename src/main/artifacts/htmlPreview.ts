@@ -1,248 +1,51 @@
 import { randomBytes } from 'node:crypto'
-import { constants, type FSWatcher, type Stats, lstatSync, realpathSync, watch } from 'node:fs'
-import { open, readFile, realpath, stat } from 'node:fs/promises'
-import { basename, dirname, extname, join, relative, sep } from 'node:path'
-import { ipcMain } from 'electron'
-import { RUNTIME_PREFIX, runtimeFiles } from '../../shared/artifacts/artifactRuntime'
+import { type FSWatcher, realpathSync, watch } from 'node:fs'
+import { dirname, join } from 'node:path'
 import {
   PREVIEW_LIMITS,
-  PREVIEW_PAGE_CSP,
   PREVIEW_SCHEME,
   type PreviewError,
-  type PreviewEvent,
   type PreviewOpened,
   type PreviewStopReason,
   type PreviewTheme,
-  SHELL_MODULE_PATH,
   allowsPreviewRequest,
   blockedByPolicy,
   blockedHost,
-  isComponentPath,
   isPreviewPath,
   normalizePreviewTheme,
   previewPartition,
-  shellCsp,
 } from '../../shared/artifacts/htmlPreview'
-import { isHiddenFromPhone } from '../gateway/workspaceFiles'
-import { compiles } from './artifactCompiler'
+import {
+  REGION_IMAGE_MAX,
+  regionCaptureRect,
+  regionPageRect,
+} from '../../shared/browser/regionCapture'
+import { lockDownSession, previewHeaders } from './previewAttach'
+import { type PreviewSource, regularFileSize } from './previewFiles'
+import type { PreviewGuest, PreviewHostDeps, PreviewRect, PreviewSession } from './previewHostTypes'
 import { busySince, previewVerdict, previewsOverCap } from './previewLimits'
-import { ENTRY_MODULE_PATH, shellModule, shellPage } from './previewShell'
 
 const PING_MS = 1_000
 const METRICS_MS = 5_000
 const GESTURE_MS = 5_000
 const MESSAGE_MAX = 2_000
 const WATCHED_DIRS_MAX = 16
-const DEAD_PROXY = { proxyRules: 'http://127.0.0.1:9', proxyBypassRules: '<-loopback>' }
 const GESTURE_INPUTS = new Set(['mouseDown', 'keyDown', 'touchStart'])
 const CLIPBOARD_WRITE = 'clipboard-sanitized-write'
 const DEBUGGER_PROTOCOL = '1.3'
 const PAUSE_SCRIPTS = 'Emulation.setScriptExecutionDisabled'
 
-const MIME: Readonly<Record<string, string>> = {
-  '.html': 'text/html; charset=utf-8',
-  '.htm': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.txt': 'text/plain; charset=utf-8',
-  '.md': 'text/plain; charset=utf-8',
-  '.csv': 'text/csv; charset=utf-8',
-  '.tsv': 'text/tab-separated-values; charset=utf-8',
-  '.xml': 'application/xml; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-  '.avif': 'image/avif',
-  '.ico': 'image/x-icon',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-  '.ttf': 'font/ttf',
-  '.otf': 'font/otf',
-  '.mp3': 'audio/mpeg',
-  '.wav': 'audio/wav',
-  '.ogg': 'audio/ogg',
-  '.mp4': 'video/mp4',
-  '.webm': 'video/webm',
-}
+const REGION_MIN = 4
 
-function previewMime(path: string): string {
-  return MIME[extname(path).toLowerCase()] ?? 'application/octet-stream'
-}
-
-export function previewHeaders(path: string): Record<string, string> {
-  return typedHeaders(previewMime(path))
-}
-
-function typedHeaders(type: string): Record<string, string> {
-  return {
-    'content-type': type,
-    'content-security-policy': PREVIEW_PAGE_CSP,
-    'access-control-allow-origin': '*',
-    'cache-control': 'no-store',
-    'x-content-type-options': 'nosniff',
-    'x-dns-prefetch-control': 'off',
-  }
-}
-
-export interface PreviewSource {
-  file: string
-  root: string | null
-}
-
-const MODULE_EXTENSIONS = ['.tsx', '.ts', '.jsx', '.js']
-const SCRIPT_TYPE = 'text/javascript; charset=utf-8'
-const PAGE_TYPE = 'text/html; charset=utf-8'
-
-export type PreviewFile = { ok: true; path: string; size: number } | { ok: false; status: number }
-
-function regularFileSize(path: string): number | null {
-  try {
-    const st = lstatSync(path)
-    return st.isFile() ? st.size : null
-  } catch {
-    return null
-  }
-}
-
-export function resolvePreviewFile(source: PreviewSource, pathname: string): PreviewFile {
-  let decoded: string
-  try {
-    decoded = decodeURIComponent(pathname)
-  } catch {
-    return { ok: false, status: 400 }
-  }
-  if (decoded === '/' || decoded === '') {
-    const size = regularFileSize(source.file)
-    return size === null ? { ok: false, status: 404 } : { ok: true, path: source.file, size }
-  }
-  if (!source.root || decoded.includes('\0')) return { ok: false, status: 404 }
-  const lexical = join(source.root, decoded)
-  const inside = relative(source.root, lexical)
-  if (inside === '' || inside.startsWith('..') || isHiddenFromPhone(inside)) {
-    return { ok: false, status: 404 }
-  }
-  const size = regularFileSize(lexical)
-  if (size === null) return { ok: false, status: 404 }
-  let folder: string
-  try {
-    folder = realpathSync(dirname(lexical))
-  } catch {
-    return { ok: false, status: 404 }
-  }
-  if (folder !== source.root && !folder.startsWith(`${source.root}${sep}`)) {
-    return { ok: false, status: 404 }
-  }
-  const path = join(folder, basename(lexical))
-  if (isHiddenFromPhone(relative(source.root, path))) return { ok: false, status: 404 }
-  return { ok: true, path, size }
-}
-
-export type PreviewRead = { ok: true; path: string; body: Buffer } | { ok: false; status: number }
-
-function sameFile(a: Stats, b: Stats): boolean {
-  return a.dev === b.dev && a.ino === b.ino
-}
-
-async function stillAt(path: string, opened: Stats): Promise<boolean> {
-  try {
-    return (await realpath(path)) === path && sameFile(await stat(path), opened)
-  } catch {
-    return false
-  }
-}
-
-const READ_FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
-
-export async function readRegularFile(path: string, maxBytes: number): Promise<PreviewRead> {
-  const handle = await open(path, READ_FLAGS).catch(() => null)
-  if (!handle) return { ok: false, status: 404 }
-  try {
-    const opened = await handle.stat()
-    if (!opened.isFile() || !(await stillAt(path, opened))) return { ok: false, status: 404 }
-    if (opened.size > maxBytes) return { ok: false, status: 413 }
-    const body = Buffer.alloc(opened.size)
-    let read = 0
-    while (read < body.length) {
-      const { bytesRead } = await handle.read(body, read, body.length - read, read)
-      if (bytesRead === 0) break
-      read += bytesRead
-    }
-    return { ok: true, path, body: body.subarray(0, read) }
-  } catch {
-    return { ok: false, status: 404 }
-  } finally {
-    await handle.close()
-  }
-}
-
-export async function readPreviewFile(
-  source: PreviewSource,
-  pathname: string,
-  maxBytes: number,
-): Promise<PreviewRead> {
-  const found = resolvePreviewFile(source, pathname)
-  return found.ok ? readRegularFile(found.path, maxBytes) : found
-}
-
-export interface PreviewSession {
-  protocol: {
-    handle: (scheme: string, handler: (request: Request) => Promise<Response>) => void
-  }
-  webRequest: {
-    onBeforeRequest: (
-      listener: (details: { url: string }, callback: (r: { cancel: boolean }) => void) => void,
-    ) => void
-  }
-  setProxy: (config: { proxyRules: string; proxyBypassRules: string }) => Promise<void>
-  setPermissionRequestHandler: (
-    handler: (wc: unknown, permission: string, callback: (granted: boolean) => void) => void,
-  ) => void
-  setPermissionCheckHandler: (handler: (wc: unknown, permission: string) => boolean) => void
-  on: (event: 'will-download', listener: (event: { preventDefault: () => void }) => void) => void
-  clearStorageData: () => Promise<void>
-}
-
-export interface PreviewGuest {
-  id: number
-  session: unknown
-  isDestroyed: () => boolean
-  getOSProcessId: () => number
-  reload: () => void
-  executeJavaScript: (code: string) => Promise<unknown>
-  forcefullyCrashRenderer: () => void
-  setWindowOpenHandler: (handler: () => { action: 'deny' }) => void
-  setWebRTCIPHandlingPolicy: (policy: 'disable_non_proxied_udp') => void
-  setBackgroundThrottling: (allowed: boolean) => void
-  debugger: {
-    isAttached: () => boolean
-    attach: (protocolVersion?: string) => void
-    sendCommand: (method: string, params?: Record<string, unknown>) => Promise<unknown>
-  }
-  // biome-ignore lint/suspicious/noExplicitAny: Electron's per-event listener signatures differ.
-  on: (event: any, listener: (...args: any[]) => void) => unknown
-}
-
-export interface ProcessUse {
-  pid: number
-  memoryBytes: number
-  cpuPercent: number
-}
-
-export interface PreviewHostDeps {
-  sessionOf: (partition: string) => PreviewSession
-  confine: (path: string) => string | null
-  servesFolder: (dir: string) => boolean
-  ownsPane: (windowId: string, paneId: string) => boolean
-  send: (windowId: string, event: PreviewEvent) => void
-  processes: () => ProcessUse[]
-  runtimeDir: () => string
-  compile: (file: string, source: Buffer) => Promise<string>
-  now?: () => number
+function regionOf(value: unknown): PreviewRect | null {
+  const raw = value as Partial<PreviewRect> | null
+  if (!raw || typeof raw !== 'object') return null
+  const [x, y, width, height] = [raw.x, raw.y, raw.width, raw.height].map((n) =>
+    typeof n === 'number' && Number.isFinite(n) ? Math.round(n) : Number.NaN,
+  )
+  if ([x, y, width, height].some(Number.isNaN) || x < 0 || y < 0) return null
+  if (width < REGION_MIN || height < REGION_MIN) return null
+  return { x, y, width, height }
 }
 
 interface Slot {
@@ -277,7 +80,7 @@ interface Live {
 }
 
 function notFound(status: number): Response {
-  return new Response(null, { status, headers: { 'access-control-allow-origin': '*' } })
+  return new Response(null, { status })
 }
 
 export class PreviewHost {
@@ -285,6 +88,7 @@ export class PreviewHost {
   private readonly byPane = new Map<string, Slot>()
   private readonly free: Slot[] = []
   private readonly live = new Map<string, Live>()
+  private readonly themes = new Map<string, PreviewTheme>()
   private readonly now: () => number
   private pingTimer: ReturnType<typeof setInterval> | null = null
   private metricsTimer: ReturnType<typeof setInterval> | null = null
@@ -318,7 +122,7 @@ export class PreviewHost {
       windowId,
       paneId,
       source: { file, root: this.deps.servesFolder(folder) ? folder : null },
-      theme: normalizePreviewTheme(theme),
+      theme: this.rememberTheme(windowId, theme),
       slot,
       guest: null,
       loaded: 0,
@@ -347,6 +151,16 @@ export class PreviewHost {
     }
   }
 
+  private rememberTheme(windowId: string, theme: unknown): PreviewTheme {
+    const normal = normalizePreviewTheme(theme)
+    this.themes.set(windowId, normal)
+    return normal
+  }
+
+  themeOf(windowId: string | undefined): PreviewTheme {
+    return (windowId ? this.themes.get(windowId) : undefined) ?? normalizePreviewTheme(null)
+  }
+
   private slotFor(paneId: string): Slot {
     const held = this.byPane.get(paneId)
     if (held) return held
@@ -367,12 +181,7 @@ export class PreviewHost {
       if (!allowed) this.blocked(slot, details.url)
       callback({ cancel: !allowed })
     })
-    void session.setProxy(DEAD_PROXY).catch(() => {})
-    session.setPermissionRequestHandler((_wc, permission, callback) =>
-      callback(this.allowsPermission(slot, permission)),
-    )
-    session.setPermissionCheckHandler((_wc, permission) => this.allowsPermission(slot, permission))
-    session.on('will-download', (event) => event.preventDefault())
+    lockDownSession(session, (permission) => this.allowsPermission(slot, permission))
     return slot
   }
 
@@ -441,10 +250,9 @@ export class PreviewHost {
   }
 
   private shownSource(live: Live, sourceId: string): string {
-    const prefix = `${PREVIEW_SCHEME}://${live.id}/`
-    if (!sourceId.startsWith(prefix)) return sourceId.slice(0, 200)
-    const rest = sourceId.slice(prefix.length)
-    return rest === '' || `/${rest}` === ENTRY_MODULE_PATH ? basename(live.source.file) : rest
+    return sourceId.startsWith(`${PREVIEW_SCHEME}://${live.id}/`)
+      ? (live.source.file.split('/').pop() ?? sourceId)
+      : sourceId.slice(0, 200)
   }
 
   private report(live: Live, error: PreviewError): void {
@@ -465,54 +273,19 @@ export class PreviewHost {
     }
     if (!live || url.host !== live.id) return notFound(404)
     if (request.method !== 'GET' && request.method !== 'HEAD') return notFound(405)
-    const send = (body: Buffer | string, headers: Record<string, string>): Response =>
-      new Response(request.method === 'HEAD' ? null : new Uint8Array(Buffer.from(body)), {
-        status: 200,
-        headers,
-      })
-    const path = url.pathname
-    if (path.startsWith(RUNTIME_PREFIX)) {
-      const library = await this.runtimeFile(path.slice(RUNTIME_PREFIX.length))
-      return library ? send(library, typedHeaders(SCRIPT_TYPE)) : notFound(404)
-    }
-    const component = isComponentPath(live.source.file)
-    const main = path === '/' || path === ''
-    if (main) {
-      live.loaded = 0
-      this.deps.send(live.windowId, { id: live.id, type: 'loading' })
-    }
-    if (component && main) {
-      const nonce = randomBytes(16).toString('base64')
-      return send(shellPage(nonce, live.theme), {
-        ...typedHeaders(PAGE_TYPE),
-        'content-security-policy': shellCsp(nonce),
-      })
-    }
-    if (component && path === SHELL_MODULE_PATH)
-      return send(shellModule(), typedHeaders(SCRIPT_TYPE))
-    const found = await this.read(live, component && path === ENTRY_MODULE_PATH ? '/' : path)
-    if (!found.ok) return notFound(found.status)
-    live.loaded += found.body.length
-    this.follow(live, found.path)
-    if (!compiles(found.path)) return send(found.body, previewHeaders(found.path))
-    const label = live.source.root ? relative(live.source.root, found.path) : basename(found.path)
-    return send(await this.deps.compile(label, found.body), typedHeaders(SCRIPT_TYPE))
-  }
-
-  private async read(live: Live, pathname: string): Promise<PreviewRead> {
-    const left = PREVIEW_LIMITS.loadBytes - live.loaded
-    const exact = await readPreviewFile(live.source, pathname, left)
-    if (exact.ok || exact.status !== 404 || extname(pathname) !== '') return exact
-    for (const extension of MODULE_EXTENSIONS) {
-      const guess = await readPreviewFile(live.source, `${pathname}${extension}`, left)
-      if (guess.ok || guess.status !== 404) return guess
-    }
-    return exact
-  }
-
-  private async runtimeFile(name: string): Promise<Buffer | null> {
-    if (!runtimeFiles().includes(name)) return null
-    return readFile(join(this.deps.runtimeDir(), name)).catch(() => null)
+    if (url.pathname !== '/' && url.pathname !== '') return notFound(404)
+    live.loaded = 0
+    this.deps.send(live.windowId, { id: live.id, type: 'loading' })
+    const built = await this.deps.build(live.source, live.theme)
+    if (slot.live !== live) return notFound(404)
+    live.served.clear()
+    for (const input of built.inputs) this.follow(live, input)
+    const body = Buffer.from(built.document)
+    live.loaded = body.length
+    return new Response(request.method === 'HEAD' ? null : new Uint8Array(body), {
+      status: 200,
+      headers: previewHeaders(live.source.file),
+    })
   }
 
   private follow(live: Live, path: string): void {
@@ -540,7 +313,6 @@ export class PreviewHost {
   private reload(live: Live): void {
     if (live.slot.live !== live || !live.guest || live.guest.isDestroyed()) return
     live.stale = false
-    live.served.clear()
     live.guest.reload()
   }
 
@@ -587,6 +359,28 @@ export class PreviewHost {
     }
     live.lastShown = now
     this.thaw(live)
+  }
+
+  async capture(windowId: string, id: string, rect: unknown): Promise<Uint8Array | null> {
+    const live = this.live.get(id)
+    const region = regionOf(rect)
+    if (!live || live.windowId !== windowId || !region) return null
+    const guest = live.guest
+    if (!guest || guest.isDestroyed()) return null
+    const zoom = this.deps.hostZoom?.(windowId) ?? 1
+    try {
+      const image = await guest.capturePage(regionCaptureRect(region, zoom))
+      if (image.isEmpty()) return null
+      const png = image.toPNG()
+      return png.byteLength > REGION_IMAGE_MAX ? null : new Uint8Array(png)
+    } catch {
+      return null
+    }
+  }
+
+  pageRegion(windowId: string, rect: unknown): PreviewRect | null {
+    const region = regionOf(rect)
+    return region ? regionPageRect(region, this.deps.hostZoom?.(windowId) ?? 1, 1) : null
   }
 
   stopByHuman(windowId: string, id: string): void {
@@ -699,64 +493,4 @@ export class PreviewHost {
     for (const live of [...this.live.values()]) this.release(live, true)
     this.stopTimers()
   }
-}
-
-const HOST_SET_ATTRIBUTES = [
-  'preload',
-  'allowpopups',
-  'nodeintegration',
-  'nodeintegrationinsubframes',
-  'plugins',
-  'disablewebsecurity',
-  'webpreferences',
-  'blinkfeatures',
-  'disableblinkfeatures',
-  'enableblinkfeatures',
-  'useragent',
-  'httpreferrer',
-]
-
-export function hardenPreviewAttach(
-  webPreferences: Electron.WebPreferences,
-  params: Record<string, string>,
-): void {
-  webPreferences.preload = undefined
-  webPreferences.nodeIntegration = false
-  webPreferences.nodeIntegrationInSubFrames = false
-  webPreferences.nodeIntegrationInWorker = false
-  webPreferences.contextIsolation = true
-  webPreferences.sandbox = true
-  webPreferences.webSecurity = true
-  webPreferences.webviewTag = false
-  webPreferences.disableDialogs = true
-  webPreferences.navigateOnDragDrop = false
-  webPreferences.autoplayPolicy = 'user-gesture-required'
-  webPreferences.transparent = false
-  webPreferences.experimentalFeatures = false
-  webPreferences.plugins = false
-  webPreferences.allowRunningInsecureContent = false
-  webPreferences.enableBlinkFeatures = undefined
-  webPreferences.disableBlinkFeatures = undefined
-  for (const name of HOST_SET_ATTRIBUTES) {
-    delete params[name]
-  }
-}
-
-export function registerPreviewIpc(host: PreviewHost): void {
-  ipcMain.handle(
-    'preview:open',
-    (e, paneId: unknown, path: unknown, theme: unknown): PreviewOpened | null =>
-      typeof paneId === 'string' && typeof path === 'string'
-        ? host.open(String(e.sender.id), paneId, path, theme)
-        : null,
-  )
-  ipcMain.on('preview:shown', (e, id: unknown, visible: unknown) => {
-    if (typeof id === 'string') host.shown(String(e.sender.id), id, visible === true)
-  })
-  ipcMain.on('preview:stop', (e, id: unknown) => {
-    if (typeof id === 'string') host.stopByHuman(String(e.sender.id), id)
-  })
-  ipcMain.on('preview:close', (e, id: unknown) => {
-    if (typeof id === 'string') host.close(String(e.sender.id), id)
-  })
 }

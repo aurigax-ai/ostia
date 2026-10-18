@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const MAIN_DIR = __dirname
-const PRELOAD_FILE = join(__dirname, '..', 'preload', 'index.ts')
+const PRELOAD_DIR = join(__dirname, '..', 'preload')
 
 const HANDLE_CALLS = ['ipcMain.handle', 'ipc.handle', 'owned', 'secretAction']
 
@@ -25,6 +25,7 @@ const PUSHED = [
   'assist:chunk',
   'assist:open-ui',
   'assist:overview',
+  'browser:open-tab',
   'browser:pick-state',
   'chatTools:always-grants',
   'chatTools:mcp-status',
@@ -63,6 +64,7 @@ const PUSHED = [
   'scriptTokens:changed',
   'settings:changed',
   'sync:status',
+  'viewers:stopped',
   'views:changed',
   'window:confirm-close',
   'window:freeze',
@@ -139,7 +141,9 @@ function sentChannels(sources: string[]): Set<string> {
 type PreloadKind = 'invoke' | 'send' | 'listen'
 
 function preloadChannels(): Record<PreloadKind, Set<string>> & { dynamic: Set<string> } {
-  const text = readFileSync(PRELOAD_FILE, 'utf8')
+  const text = sourceFiles(PRELOAD_DIR)
+    .map((file) => readFileSync(file, 'utf8'))
+    .join('\n')
   const found = {
     invoke: new Set<string>(),
     send: new Set<string>(),
@@ -147,9 +151,9 @@ function preloadChannels(): Record<PreloadKind, Set<string>> & { dynamic: Set<st
     dynamic: new Set<string>(),
   }
   for (const m of text.matchAll(
-    /ipcRenderer\.(invoke|send|sendSync|on|once)\(\s*(['`])([^'`]+)\2/g,
+    /(?:ipcRenderer\.(invoke|send|sendSync|on|once)|\blisten)\(\s*(['`])([^'`]+)\2/g,
   )) {
-    const [, kind, quote, channel] = m
+    const [, kind = 'on', quote, channel] = m
     if (kind === 'invoke') found.invoke.add(channel)
     else if (kind === 'send' || kind === 'sendSync') found.send.add(channel)
     else if (quote === '`') found.dynamic.add(channel.slice(0, channel.indexOf('${')))

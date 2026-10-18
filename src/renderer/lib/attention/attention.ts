@@ -1,4 +1,4 @@
-import type { AttentionState, WorkspaceLiveState } from '@shared/types'
+import type { AttentionState, WorkspaceLiveState } from '@shared/attention/attention'
 
 export interface PaneAttention {
   state: AttentionState

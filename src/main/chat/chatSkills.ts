@@ -1,7 +1,8 @@
 import { lstatSync, readFileSync, readdirSync } from 'node:fs'
 import { basename, join } from 'node:path'
+import { CHAT_TOOL_OUTPUT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { parse as parseYaml } from 'yaml'
-import { CHAT_TOOL_OUTPUT_MAX } from '../../shared/assist'
 import {
   SKILLS_MAX,
   SKILL_DESCRIPTION_MAX,
@@ -28,8 +29,8 @@ export function parseSkillText(text: string, fallbackName: string): ParsedSkill 
   } catch {
     return null
   }
-  if (typeof meta !== 'object' || meta === null || Array.isArray(meta)) return null
-  const fields = meta as Record<string, unknown>
+  if (!isRecord(meta)) return null
+  const fields = meta
   const name = typeof fields.name === 'string' ? fields.name.trim() : fallbackName
   const description =
     typeof fields.description === 'string'

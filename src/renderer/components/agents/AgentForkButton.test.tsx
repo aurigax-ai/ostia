@@ -1,5 +1,5 @@
-import { allPanes, createPane, findPane } from '@/layout/tree'
-import type { PaneNode } from '@/layout/types'
+import { allPanes, createPane, findPane } from '@/lib/layout/tree'
+import type { PaneNode } from '@/lib/layout/types'
 import * as blockActions from '@/lib/terminal/blockActions'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -10,8 +10,15 @@ import { AgentForkButton } from './AgentForkButton'
 
 const FORK = 'Fork conversation into a new tab'
 
+function hookAgent(command: string): 'claude' | 'codex' | null {
+  const program = command.split(' ')[0]?.replaceAll("'", '')
+  return program === 'claude' || program === 'codex' ? program : null
+}
+
 function runCommand(paneId: string, command: string): void {
   useBlocksStore.getState().commandStart(paneId, { line: 1 }, command)
+  const agent = hookAgent(command)
+  if (agent) useBlocksStore.getState().markAgent(paneId, agent)
 }
 
 function seed(pane: PaneNode): void {
@@ -59,7 +66,6 @@ describe('AgentForkButton', () => {
         id: 'abc-123',
         cwd: '/home/u/proj',
         args: ['--model', 'opus'],
-        env: { GL_ISSUE: '685' },
       },
     }
     seed(pane)
@@ -80,7 +86,7 @@ describe('AgentForkButton', () => {
     expect(run).toHaveBeenCalledTimes(1)
     expect(run.mock.calls[0].slice(0, 2)).toEqual([
       fork?.id,
-      'GL_ISSUE=685 claude --resume abc-123 --fork-session --model opus',
+      "'claude' --resume abc-123 --fork-session --model opus",
     ])
     expect(insert).not.toHaveBeenCalled()
     expect(findPane(useLayoutStore.getState().byWorkspace.s1.root, pane.id)).toEqual(pane)
@@ -95,7 +101,7 @@ describe('AgentForkButton', () => {
 
     fireEvent.click(screen.getByRole('button', { name: FORK }))
 
-    expect(run.mock.calls[0][1]).toBe('codex fork tok')
+    expect(run.mock.calls[0][1]).toBe("'codex' fork tok")
   })
 
   it('forks a hibernated agent without waking it', () => {
@@ -110,7 +116,7 @@ describe('AgentForkButton', () => {
 
     fireEvent.click(screen.getByRole('button', { name: FORK }))
 
-    expect(run.mock.calls[0][1]).toBe('claude --resume tok --fork-session')
+    expect(run.mock.calls[0][1]).toBe("'claude' --resume tok --fork-session")
     expect(findPane(useLayoutStore.getState().byWorkspace.s1.root, pane.id)).toEqual(pane)
   })
 

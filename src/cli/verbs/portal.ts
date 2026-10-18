@@ -3,6 +3,7 @@ import { type Socket, createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { StringDecoder } from 'node:string_decoder'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import {
   type MessageConnection,
   StreamMessageReader,
@@ -10,7 +11,6 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { MIRROR_DETACH_KEY, portalSocketPath } from '../../shared/agents/portal'
-import { readEnv } from '../../shared/appEnv'
 
 const PORTAL_USAGE = `usage: ostia <agent> [args…]
 

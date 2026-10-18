@@ -1,4 +1,4 @@
-import type { WindowSummary, WindowWorkspaceSummary } from '@shared/types'
+import type { WindowSummary, WindowWorkspaceSummary } from '@shared/windows/windowsApi'
 
 export interface RemoteWorkspace extends WindowWorkspaceSummary {
   windowId: string

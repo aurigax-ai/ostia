@@ -1,5 +1,5 @@
 import { Ghostty, Terminal as GhosttyTerm } from '@aurigax-ai/ghostty-web'
-import wasmDataUrl from '@aurigax-ai/ghostty-web/ghostty-vt.wasm?dataurl'
+import wasmDataUrl from '@aurigax-ai/ghostty-web/ghostty-vt.wasm?inline'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   type GhosttyTerminal,

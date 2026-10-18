@@ -1,3 +1,4 @@
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { type PaneIdentity, resolveExternal } from './idRegistry'
 
 export const SCRIPT_COMMANDS: ReadonlySet<string> = new Set([
@@ -13,10 +14,6 @@ export const SCRIPT_COMMANDS: ReadonlySet<string> = new Set([
   'workspace.ungroup',
   'workspace.describe',
   'workspace.newScratch',
-  'workspace.hibernateAgents',
-  'workspace.resumeAgents',
-  'workspace.hibernateGroupAgents',
-  'workspace.resumeGroupAgents',
 ])
 
 export type PaneArgs =
@@ -24,14 +21,12 @@ export type PaneArgs =
   | { ok: false; error: string }
 
 export function internalPaneArgs(args: unknown): PaneArgs {
-  if (typeof args !== 'object' || args === null || Array.isArray(args)) {
-    return { ok: true, args, pane: null }
-  }
-  const given = (args as Record<string, unknown>).paneId
+  if (!isRecord(args)) return { ok: true, args, pane: null }
+  const given = args.paneId
   if (typeof given !== 'string') return { ok: true, args, pane: null }
   const pane = resolveExternal(given)
   if (!pane || pane.kind !== 'pane') {
-    return { ok: false, error: `unknown-pane: ${given} (use a paneId from ostia pane.list)` }
+    return { ok: false, error: `unknown-pane: ${given} (use a paneId from ostia pane list)` }
   }
   return { ok: true, args: { ...args, paneId: pane.paneId }, pane }
 }

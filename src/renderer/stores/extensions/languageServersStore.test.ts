@@ -1,4 +1,4 @@
-import type { LanguageServerInfo } from '@shared/languageServers'
+import type { LanguageServerInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useLanguageServersStore } from './languageServersStore'
 

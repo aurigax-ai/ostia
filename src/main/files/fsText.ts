@@ -1,6 +1,6 @@
 import type { Stats } from 'node:fs'
 import { open, readFile, stat } from 'node:fs/promises'
-import type { FsTextResult } from '../../shared/types'
+import type { FsTextResult } from '../../shared/files/filesApi'
 import { FS_BINARY_MAX } from './fsBinary'
 
 export const FS_TEXT_SNIFF_BYTES = 8192
@@ -57,6 +57,21 @@ export async function versionConfined(
     return info.isFile() ? versionOf(stampOf(info)) : null
   } catch {
     return null
+  }
+}
+
+export async function writeTextConfined(
+  path: string,
+  confine: (path: string) => string | null,
+  save: (safe: string) => Promise<unknown>,
+): Promise<boolean> {
+  const safe = confine(path)
+  if (safe === null) return false
+  try {
+    await save(safe)
+    return true
+  } catch {
+    return false
   }
 }
 

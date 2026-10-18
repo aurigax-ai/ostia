@@ -1,17 +1,12 @@
 import { type FSWatcher, watch } from 'node:fs'
 import { join } from 'node:path'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { BrowserWindow, app, dialog, ipcMain } from 'electron'
 import { debounce, throttle } from 'es-toolkit'
-import type { SecretActionResult, SyncStatus } from '../../shared/types'
+import type { SecretActionResult, SyncStatus } from '../../shared/profileSync/profileSync'
 import { type DetectSecrets, ProfileSync } from './engine'
 import { FolderMethod } from './folderMethod'
-import {
-  PROFILE_FOLDERS,
-  SECRETS_FILE,
-  SETTINGS_FILE,
-  type SyncedExtension,
-  isObject,
-} from './profile'
+import { PROFILE_FOLDERS, SECRETS_FILE, SETTINGS_FILE, type SyncedExtension } from './profile'
 import { type Protect, type SecretSource, SecretSync } from './secrets'
 import { expandSyncDir } from './syncDir'
 
@@ -42,7 +37,7 @@ export interface ProfileSyncHandle {
 export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
   const configuredDir = (): string | null => {
     const settings = deps.readSettings()
-    const sync = isObject(settings) && isObject(settings.sync) ? settings.sync : null
+    const sync = isRecord(settings) && isRecord(settings.sync) ? settings.sync : null
     return expandSyncDir(sync?.dir)
   }
   const method = () => {

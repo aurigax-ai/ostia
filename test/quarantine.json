@@ -1,23 +1,32 @@
 [
   {
-    "file": "e2e/stale-waiting.spec.ts",
-    "name": "an agent that waited and then exited leaves the pane idle, and a late report is ignored",
-    "issue": 129,
-    "until": "2026-11-02",
-    "platforms": ["linux"]
+    "file": "e2e/graphs-kept.spec.ts",
+    "name": "GRF-C71 an agent still working in its kept pane across a restart is reattached as running and its report ends the node",
+    "issue": 1044,
+    "until": "2026-10-30"
   },
   {
-    "file": "e2e/trellis-agents.spec.ts",
-    "name": "a Trellis card goes to a new agent or to a running one, only on the human’s clicks",
-    "issue": 547,
-    "until": "2026-11-07",
-    "platforms": ["linux"]
+    "file": "e2e/graphs-restart.spec.ts",
+    "name": "GRF-C59 GRF-C70 a waiting approval and a cut-off command come back after Ostia is killed",
+    "issue": 1044,
+    "until": "2026-10-30"
   },
   {
-    "file": "e2e/clipboard-keys.spec.ts",
-    "name": "the paste chord pastes in the default mode, and Ctrl+V goes to the shell",
-    "issue": 794,
-    "until": "2026-10-21",
-    "platforms": ["linux"]
+    "file": "src/main/files/archives/archives.test.ts",
+    "name": "Archives > refuses a bomb entry by its declared size and by its real size",
+    "issue": 1039,
+    "until": "2026-10-30"
+  },
+  {
+    "file": "src/renderer/components/chat/ChatView.test.tsx",
+    "name": "chat > sends the text selected in the workspace with the next question by itself",
+    "issue": 1045,
+    "until": "2026-10-30"
+  },
+  {
+    "file": "src/renderer/components/palette/CommandPalette.test.tsx",
+    "name": "CommandPalette > languages > the Traditional Chinese pack is an extension: pick it, keep it across a restart, lose it when disabled",
+    "issue": 1046,
+    "until": "2026-10-30"
   }
 ]

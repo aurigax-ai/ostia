@@ -1,3 +1,4 @@
+import { nameCollator } from '@/lib/files/fileTree'
 interface FolderNode<T> {
   kind: 'folder'
   name: string
@@ -20,8 +21,6 @@ interface Draft<T> {
   files: FileNode<T>[]
 }
 
-const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
-
 function emptyDraft<T>(): Draft<T> {
   return { folders: new Map(), files: [] }
 }
@@ -41,8 +40,8 @@ function finish<T>(draft: Draft<T>, prefix: string): TreeNode<T>[] {
     const count = children.reduce((sum, c) => sum + (c.kind === 'folder' ? c.count : 1), 0)
     folders.push({ kind: 'folder', name, path, count, children })
   }
-  folders.sort((a, b) => byName.compare(a.name, b.name))
-  const files = [...draft.files].sort((a, b) => byName.compare(a.name, b.name))
+  folders.sort((a, b) => nameCollator.compare(a.name, b.name))
+  const files = [...draft.files].sort((a, b) => nameCollator.compare(a.name, b.name))
   return [...folders, ...files]
 }
 

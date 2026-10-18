@@ -1,4 +1,4 @@
-import { PRODUCT_NAME } from '../product'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 
 export const RELEASE_REPOSITORY = { owner: 'aurigax-ai', name: 'ostia' } as const
 

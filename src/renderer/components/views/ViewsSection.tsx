@@ -1,9 +1,12 @@
 import { IconButton } from '@/components/common/IconButton'
-import { SectionHead, WarningNote } from '@/components/settings/SettingsPanel'
-import { Highlight, useSearchGroup } from '@/components/settings/SettingsSearch'
+import { Notice } from '@/components/common/Notice'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
+import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
+import { Highlight, useSearchGroup } from '@/components/settingsKit/SettingsSearch'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { useViewsStore } from '@/stores/extensions/viewsStore'
 import { FolderOpenIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
@@ -22,7 +25,7 @@ function Problems({ view }: { view: ViewInfo }): JSX.Element | null {
   return (
     <div className="mt-1.5 flex flex-col gap-1">
       {view.stale ? (
-        <WarningNote>{d.views.stale}</WarningNote>
+        <Notice>{d.views.stale}</Notice>
       ) : (
         <p className="text-attn-fg text-ui-xs">{d.views.invalid}</p>
       )}
@@ -49,41 +52,36 @@ function ViewRow({ view }: { view: ViewInfo }): JSX.Element {
   const placement = placementLabel(d, view)
   const search = useSearchGroup([view.title, view.name, view.description])
   return (
-    <li
+    <SettingsListRow
       hidden={search.hidden}
       data-search-hit={search.hit || undefined}
-      className="flex flex-col rounded-sm px-3 py-2"
       data-view-row={view.name}
-    >
-      <div className="flex items-start justify-between gap-6">
-        <div className="flex min-w-0 flex-1 gap-2.5">
-          <Icon size={14} className="mt-0.5 shrink-0 text-fg-muted" aria-hidden />
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="truncate text-fg text-ui-base">
-                <Highlight text={view.title} />
-              </span>
-              {view.status === 'pending' ? (
-                <Badge variant="outline" className="text-ui-xs">
-                  {d.views.pending}
-                </Badge>
-              ) : null}
-            </div>
-            <p className="mt-0.5 truncate text-fg-muted text-ui-xs">
-              <span className="font-mono">{view.name}.json</span>
-              {placement ? ` · ${placement}` : ''}
+      lead={<Icon size={16} aria-hidden />}
+      title={<Highlight text={view.title} />}
+      meta={
+        view.status === 'pending' ? (
+          <Badge variant="outline" className="text-ui-xs">
+            {d.views.pending}
+          </Badge>
+        ) : null
+      }
+      detail={
+        <>
+          <p className="truncate text-ui-xs">
+            <span className="font-mono">{view.name}.json</span>
+            {placement ? ` · ${placement}` : ''}
+          </p>
+          {view.description ? (
+            <p>
+              <Highlight text={view.description} />
             </p>
-            {view.description ? (
-              <p className="mt-0.5 text-fg-muted text-ui-sm">
-                <Highlight text={view.description} />
-              </p>
-            ) : null}
-            {view.status === 'pending' ? (
-              <p className="mt-0.5 text-fg-muted text-ui-xs">{d.views.pendingNote}</p>
-            ) : null}
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
+          ) : null}
+          {view.status === 'pending' ? <p className="text-ui-xs">{d.views.pendingNote}</p> : null}
+          <Problems view={view} />
+        </>
+      }
+      actions={
+        <>
           <IconButton
             icon={FolderOpenIcon}
             label={d.views.reveal}
@@ -95,10 +93,9 @@ function ViewRow({ view }: { view: ViewInfo }): JSX.Element {
             onCheckedChange={(v) => void setEnabled(view.name, v)}
             aria-label={fmt(d.views.show, { name: view.title })}
           />
-        </div>
-      </div>
-      <Problems view={view} />
-    </li>
+        </>
+      }
+    />
   )
 }
 
@@ -107,17 +104,12 @@ export function ViewsSection(): JSX.Element {
   const dir = useViewsStore((s) => s.dir)
   const views = useViewsStore((s) => s.views)
   return (
-    <section aria-label={d.views.title}>
-      <SectionHead title={d.views.title} desc={fmt(d.views.desc, { dir })} />
-      {views.length === 0 ? (
-        <p className="text-fg-muted text-ui-sm">{d.views.none}</p>
-      ) : (
-        <ul className="-mx-3 flex flex-col">
-          {views.map((view) => (
-            <ViewRow key={view.name} view={view} />
-          ))}
-        </ul>
-      )}
-    </section>
+    <SettingsPage title={d.views.title} desc={fmt(d.views.desc, { dir })}>
+      <SettingsList label={d.views.title} empty={d.views.none}>
+        {views.map((view) => (
+          <ViewRow key={view.name} view={view} />
+        ))}
+      </SettingsList>
+    </SettingsPage>
   )
 }

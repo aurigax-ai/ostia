@@ -1,5 +1,5 @@
+import { envName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { describe, expect, it } from 'vitest'
-import { envName } from '../../shared/appEnv'
 import { PTY_RELAY_ENV, relayForced, sandboxedShellCommand, wrapForTerminal } from './ptyWrap'
 
 const WRAPPED = "bwrap --new-session --die-with-parent --dev /dev -- bash -c 'zsh -i'"

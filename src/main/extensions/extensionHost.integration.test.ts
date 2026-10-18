@@ -2,14 +2,22 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { EXTENSION_API_VERSION } from '@aurigax-ai/ostia-extension-sdk/contract/extensionApi'
+import type {
+  ExtensionCaller,
+  ExtensionInfo,
+  ExtensionSidebarItem,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { EXTENSION_API_VERSION } from '../../shared/extensionApi'
-import type { ExtensionCaller, ExtensionInfo, ExtensionSidebarItem } from '../../shared/extensions'
-import type { CommandResult } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { registerPaneListMethods } from '../panes/paneList'
-import { ExtensionHost, MAX_RESTARTS, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
+import { MAX_RESTARTS } from './extensionProcesses'
 import { ExtensionStore } from './extensionStore'
+
+const POLL = { timeout: 5000, interval: 20 }
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions')
 const userFixtures = resolve(__dirname, '../../../test/fixtures/extensions-e2e')
@@ -20,16 +28,6 @@ const caller: ExtensionCaller = {
   workspaceId: 's1',
   workDir: '/w/s1',
   capabilities: ['read-board'],
-}
-
-async function until<T>(read: () => T | undefined, timeoutMs = 5000): Promise<T> {
-  const start = Date.now()
-  for (;;) {
-    const value = read()
-    if (value !== undefined) return value
-    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 20))
-  }
 }
 
 describe('ExtensionHost over a real control socket with a fixture extension process', () => {
@@ -52,7 +50,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
   const crash = async (): Promise<unknown> => {
     const before = exits()
     const res = await host.invoke('echo', 'crash', null, caller)
-    await until(() => (exits() > before ? true : undefined))
+    await vi.waitUntil(() => exits() > before, POLL)
     return res
   }
 
@@ -112,7 +110,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
@@ -142,9 +140,9 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
   })
 
   it('delivers subscribed events as notifications and ignores unsubscribed ones', async () => {
-    host.emitEvent('pane.closed', { paneId: 'p-closed', workspaceId: 's1' })
-    host.emitEvent('pane.created', { paneId: 'p-new', workspaceId: 's1' })
-    const item = await until(() => sidebar().find((i) => i.key === 'pane.created'))
+    host.events.emitEvent('pane.closed', { paneId: 'p-closed', workspaceId: 's1' })
+    host.events.emitEvent('pane.created', { paneId: 'p-new', workspaceId: 's1' })
+    const item = await vi.waitUntil(() => sidebar().find((i) => i.key === 'pane.created'), POLL)
     expect(item).toEqual({
       extId: 'echo',
       key: 'pane.created',
@@ -204,10 +202,10 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
   })
 
   it('resolves a url panel from the process and allows only that loopback origin', async () => {
-    const res = await host.resolvePanel('echo', { workspaceId: 's9', locale: 'en' })
+    const res = await host.panels.resolvePanel('echo', { workspaceId: 's9', locale: 'en' })
     expect(res).toEqual({ ok: true, src: 'http://127.0.0.1:9/?workspace=s9' })
-    expect(host.isAllowedPanelUrl('echo', 'http://127.0.0.1:9/other')).toBe(true)
-    expect(host.isAllowedPanelUrl('echo', 'http://127.0.0.1:10/')).toBe(false)
+    expect(host.panels.isAllowedPanelUrl('echo', 'http://127.0.0.1:9/other')).toBe(true)
+    expect(host.panels.isAllowedPanelUrl('echo', 'http://127.0.0.1:10/')).toBe(false)
   })
 
   it('restarts a crashed process and keeps serving commands', async () => {
@@ -236,11 +234,11 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
   })
 
   it('re-enabling resets the crash budget; disabling stops it and blocks commands', async () => {
-    host.setEnabled('echo', false)
-    host.setEnabled('echo', true)
+    host.processes.setEnabled('echo', false)
+    host.processes.setEnabled('echo', true)
     expect((await host.invoke('echo', 'echo', null, caller)).ok).toBe(true)
-    host.setEnabled('echo', false)
-    await until(() => (status() === 'disabled' ? true : undefined))
+    host.processes.setEnabled('echo', false)
+    await vi.waitUntil(() => status() === 'disabled', POLL)
     expect(await host.invoke('echo', 'echo', null, caller)).toMatchObject({
       ok: false,
       error: 'extension-disabled',
@@ -255,7 +253,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
       error: 'extension-disabled',
     })
 
-    host.approve('hello')
+    host.processes.approve('hello')
     expect(hello()).toMatchObject({ enabled: true, granted: ['notify'], panel: { title: 'Hello' } })
     expect(hello()?.commands).toContainEqual(
       expect.objectContaining({ id: 'open', title: 'Hello: Open Panel', palette: true }),
@@ -263,7 +261,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
 
     expect(await host.invoke('hello', 'open', null, host.userCaller('s1'))).toEqual({ ok: true })
     expect(openPanelIn).toHaveBeenCalledWith({ extId: 'hello', workspaceId: 's1' })
-    const panel = await host.resolvePanel('hello', { workspaceId: 's1', locale: 'en' })
+    const panel = await host.panels.resolvePanel('hello', { workspaceId: 's1', locale: 'en' })
     expect(panel.ok && readFileSync(fileURLToPath(panel.src), 'utf8')).toContain(
       'Hello from a file panel',
     )
@@ -272,7 +270,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
       ok: true,
       text: 'greeted e2e',
     })
-    const item = await until(() => sidebar().find((i) => i.extId === 'hello'))
+    const item = await vi.waitUntil(() => sidebar().find((i) => i.extId === 'hello'), POLL)
     expect(item).toMatchObject({ key: 'greeting', text: 'hello e2e' })
   })
 })

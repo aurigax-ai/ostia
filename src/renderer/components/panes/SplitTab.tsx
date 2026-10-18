@@ -1,34 +1,33 @@
 import { commands } from '@/commands/registry'
-import { ApprovalCard } from '@/components/agents/ApprovalCard'
-import { QuestionNotice } from '@/components/agents/QuestionNotice'
 import { IconButton } from '@/components/common/IconButton'
-import { fmt, useDict } from '@/i18n/useDict'
-import { allPanes } from '@/layout/tree'
-import type { LayoutNode, PaneNode, SplitNode } from '@/layout/types'
-import { cellDropTarget, dropZoneAt } from '@/lib/panes/dropZone'
-import { PANE_DND, beginPaneDrag, dropPaneOn, endPaneDrag, isPaneDrag } from '@/lib/panes/paneDrag'
+import { RenameInput } from '@/components/common/RenameInput'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { canCollapse, stripAxis } from '@/lib/layout/collapse'
+import { allPanes } from '@/lib/layout/tree'
+import type { LayoutNode, PaneNode, SplitNode } from '@/lib/layout/types'
+import { PANE_DND, beginPaneDrag, endPaneDrag } from '@/lib/panes/paneDrag'
 import { splitTabLayout } from '@/lib/panes/splitTabs'
 import { cn } from '@/lib/utils'
-import { useApprovalsStore } from '@/stores/agents/approvalsStore'
-import { useQuestionsStore } from '@/stores/agents/questionsStore'
-import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import { focusSurface } from '@/stores/workspaces/surfaceSlotsStore'
-import { LockSimpleIcon, XIcon } from '@phosphor-icons/react'
-import { Allotment } from 'allotment'
+import {
+  ArrowsInLineHorizontalIcon,
+  ArrowsInLineVerticalIcon,
+  ArrowsOutLineHorizontalIcon,
+  ArrowsOutLineVerticalIcon,
+  LockSimpleIcon,
+  XIcon,
+} from '@phosphor-icons/react'
 import {
   type CSSProperties,
-  type DragEvent,
+  type HTMLAttributes,
   type KeyboardEvent,
-  useLayoutEffect,
+  useEffect,
   useRef,
 } from 'react'
 import { PaneRenameField } from './PaneRenameField'
 import { PaneTabMenu } from './PaneTabMenu'
-import { ResumeConflictNotice } from './ResumeFolderNotice'
-import { TabBody } from './TabBody'
 import { TabFace, usePaneMark, usePaneTitle } from './TabFace'
 import { TabHint } from './TabHint'
 
@@ -38,6 +37,8 @@ export function focusPane(paneId: string): void {
     if (usePaneRenameStore.getState().paneId !== paneId) focusSurface(paneId)
   })
 }
+
+const DOUBLE_CLICK_MS = 250
 
 function GlyphNode({ node, focusedId }: { node: LayoutNode; focusedId: string | null }) {
   if (node.type === 'pane') {
@@ -73,13 +74,43 @@ export function SplitTabGlyph({
   )
 }
 
+const COLLAPSE_ICONS = {
+  horizontal: [ArrowsInLineHorizontalIcon, ArrowsOutLineHorizontalIcon],
+  vertical: [ArrowsInLineVerticalIcon, ArrowsOutLineVerticalIcon],
+} as const
+
+function CollapseButton({ pane, tab }: { pane: PaneNode; tab: SplitNode }): JSX.Element | null {
+  const d = useDict()
+  const title = usePaneTitle(pane)
+  const axis = stripAxis(tab, pane.id)
+  if (!axis || (!pane.collapsed && !canCollapse(tab, pane.id))) return null
+  const [collapseIcon, expandIcon] = COLLAPSE_ICONS[axis]
+  return pane.collapsed ? (
+    <IconButton
+      icon={expandIcon}
+      label={fmt(d.pane.expandSplitPane, { title })}
+      className="pane-tab-collapse"
+      onClick={() => focusPane(pane.id)}
+    />
+  ) : (
+    <IconButton
+      icon={collapseIcon}
+      label={fmt(d.pane.collapseSplitPane, { title })}
+      className="pane-tab-collapse"
+      onClick={() => void commands.exec('pane.collapse', { paneId: pane.id })}
+    />
+  )
+}
+
 function SplitTabSegment({
   pane,
+  tab,
   focused,
   showClose,
   workspaceId,
 }: {
   pane: PaneNode
+  tab: SplitNode
   focused: boolean
   showClose: boolean
   workspaceId: string | null
@@ -90,7 +121,12 @@ function SplitTabSegment({
   const renaming = usePaneRenameStore((s) => s.paneId === pane.id)
   const segment = (
     <div
-      className={cn('split-tab-segment', focused && 'focused', pane.locked && 'locked')}
+      className={cn(
+        'split-tab-segment',
+        focused && 'focused',
+        pane.locked && 'locked',
+        pane.collapsed && 'collapsed',
+      )}
       data-attention={mark ?? undefined}
       data-segment-id={pane.id}
       draggable={!renaming}
@@ -129,6 +165,7 @@ function SplitTabSegment({
           </button>
         </TabHint>
       )}
+      <CollapseButton pane={pane} tab={tab} />
       {pane.locked ? (
         <IconButton
           icon={LockSimpleIcon}
@@ -149,6 +186,27 @@ function SplitTabSegment({
   return <PaneTabMenu pane={pane} workspaceId={workspaceId} trigger={segment} />
 }
 
+function SplitTabRenameField({
+  tab,
+  workspaceId,
+}: {
+  tab: SplitNode
+  workspaceId: string | null
+}): JSX.Element {
+  const d = useDict()
+  return (
+    <RenameInput
+      value={tab.name ?? ''}
+      label={d.pane.renameSplitTab}
+      onDone={(name) => {
+        usePaneRenameStore.getState().end()
+        if (name === null || !workspaceId) return
+        useLayoutStore.getState().renameSplitTab(workspaceId, tab.id, name)
+      }}
+    />
+  )
+}
+
 function useSplitTabLabel(tab: SplitNode): string {
   const d = useDict()
   const layout = {
@@ -164,15 +222,80 @@ function useSplitTabLabel(tab: SplitNode): string {
     : fmt(d.pane.splitTab, { layout, panes })
 }
 
+function SplitTabHead({
+  tab,
+  focusedId,
+  naming,
+  workspaceId,
+}: {
+  tab: SplitNode
+  focusedId: string | null
+  naming: boolean
+  workspaceId: string | null
+}): JSX.Element {
+  const d = useDict()
+  const pendingFold = useRef<number>()
+  useEffect(() => () => window.clearTimeout(pendingFold.current), [])
+  if (naming) {
+    return (
+      <div className="split-tab-head">
+        <SplitTabGlyph tab={tab} focusedId={focusedId} />
+        <SplitTabRenameField tab={tab} workspaceId={workspaceId} />
+      </div>
+    )
+  }
+  const fold = () => void commands.exec('pane.foldSplitTab', { tabId: tab.id })
+  return (
+    <button
+      type="button"
+      className="split-tab-head"
+      aria-expanded
+      aria-label={
+        tab.name ? fmt(d.pane.foldNamedSplitTab, { name: tab.name }) : d.pane.foldSplitTab
+      }
+      onClick={(e) => {
+        if (e.detail > 1) return
+        if (e.detail === 0) fold()
+        else pendingFold.current = window.setTimeout(fold, DOUBLE_CLICK_MS)
+      }}
+      onDoubleClick={() => {
+        window.clearTimeout(pendingFold.current)
+        usePaneRenameStore.getState().beginSplitTab(tab.id)
+      }}
+    >
+      <SplitTabGlyph tab={tab} focusedId={focusedId} />
+      {tab.name ? <span className="split-tab-name">{tab.name}</span> : null}
+    </button>
+  )
+}
+
 function moveSegmentFocus(e: KeyboardEvent<HTMLElement>): void {
   if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
   if (e.target instanceof HTMLInputElement) return
-  const buttons = [...e.currentTarget.querySelectorAll<HTMLElement>('.split-tab-segment-main')]
+  const buttons = [
+    ...e.currentTarget.querySelectorAll<HTMLElement>('.split-tab-head, .split-tab-segment-main'),
+  ]
   const at = buttons.indexOf(document.activeElement as HTMLElement)
   const next = at === -1 ? buttons[0] : buttons[at + (e.key === 'ArrowRight' ? 1 : -1)]
   if (!next) return
   e.preventDefault()
   next.focus()
+}
+
+export function tabDragProps(
+  tabId: string,
+  workspaceId: string | null,
+  draggable: boolean,
+): Pick<HTMLAttributes<HTMLElement>, 'draggable' | 'onDragStart' | 'onDragEnd'> {
+  return {
+    draggable,
+    onDragStart: (e) => {
+      e.dataTransfer.setData(PANE_DND, tabId)
+      e.dataTransfer.effectAllowed = 'move'
+      beginPaneDrag(tabId, e)
+    },
+    onDragEnd: (e) => endPaneDrag(workspaceId, tabId, e),
+  }
 }
 
 export function SplitTabPill({
@@ -182,6 +305,7 @@ export function SplitTabPill({
   dropMark,
   showClose,
   workspaceId,
+  entering,
 }: {
   tab: SplitNode
   selected: boolean
@@ -189,15 +313,20 @@ export function SplitTabPill({
   dropMark: 'before' | 'after' | null
   showClose: boolean
   workspaceId: string | null
+  entering: boolean
 }): JSX.Element {
   const label = useSplitTabLabel(tab)
   const panes = allPanes(tab)
-  const renaming = usePaneRenameStore((s) => panes.some((p) => p.id === s.paneId))
+  const renaming = usePaneRenameStore(
+    (s) => s.splitTabId === tab.id || panes.some((p) => p.id === s.paneId),
+  )
+  const naming = usePaneRenameStore((s) => s.splitTabId === tab.id)
   return (
     <div
       style={{ '--split-segments': panes.length } as CSSProperties}
       className={cn(
         'pane-tab pane-split-tab',
+        entering && 'motion-fade',
         selected && 'selected',
         dropMark && `drop-${dropMark}`,
       )}
@@ -206,146 +335,25 @@ export function SplitTabPill({
       aria-selected={selected}
       aria-label={label}
       data-tab-id={tab.id}
-      draggable={!renaming}
-      onDragStart={(e) => {
-        e.dataTransfer.setData(PANE_DND, tab.id)
-        e.dataTransfer.effectAllowed = 'move'
-        beginPaneDrag(tab.id, e)
-      }}
-      onDragEnd={(e) => endPaneDrag(workspaceId, tab.id, e)}
+      {...tabDragProps(tab.id, workspaceId, !renaming)}
       onKeyDown={moveSegmentFocus}
     >
-      <SplitTabGlyph tab={tab} focusedId={selected ? focusedId : null} />
-      {tab.name ? <span className="split-tab-name">{tab.name}</span> : null}
+      <SplitTabHead
+        tab={tab}
+        focusedId={selected ? focusedId : null}
+        naming={naming}
+        workspaceId={workspaceId}
+      />
       {panes.map((pane) => (
         <SplitTabSegment
           key={pane.id}
           pane={pane}
+          tab={tab}
           focused={selected && pane.id === focusedId}
           showClose={showClose}
           workspaceId={workspaceId}
         />
       ))}
-    </div>
-  )
-}
-
-interface CellContext {
-  workspaceId: string
-  shown: boolean
-  focusedId: string
-  frameActive: boolean
-  stackTabIds: readonly string[]
-}
-
-function SplitCell({ pane, ctx }: { pane: PaneNode; ctx: CellContext }): JSX.Element {
-  const cellRef = useRef<HTMLDivElement>(null)
-  const dragging = usePaneDnd((s) => s.dragging)
-  const over = usePaneDnd((s) => (s.overId === pane.id ? s.zone : null))
-  const approval = useApprovalsStore((s) =>
-    ctx.shown ? s.pending.find((r) => r.paneId === pane.id) : undefined,
-  )
-  const question = useQuestionsStore((s) =>
-    ctx.shown ? s.pending.find((q) => q.paneId === pane.id) : undefined,
-  )
-  const dimInactive = useSettingsStore((s) => s.panes.dimInactive)
-  const focused = pane.id === ctx.focusedId
-
-  const targetAt = (e: DragEvent<HTMLElement>, sourceId: string | null) => {
-    const rect = cellRef.current?.getBoundingClientRect()
-    const zone = rect ? dropZoneAt(rect, e.clientX, e.clientY) : 'center'
-    return cellDropTarget(pane.id, ctx.stackTabIds, sourceId, zone)
-  }
-
-  const onDragOver = (e: DragEvent<HTMLDivElement>): void => {
-    if (!isPaneDrag([...e.dataTransfer.types])) return
-    e.preventDefault()
-    const target = targetAt(e, usePaneDnd.getState().sourceId)
-    if (!target) {
-      e.dataTransfer.dropEffect = 'none'
-      usePaneDnd.getState().leave(pane.id)
-      return
-    }
-    e.dataTransfer.dropEffect = 'move'
-    usePaneDnd.getState().setOver(pane.id, target.zone)
-  }
-
-  const onDrop = (e: DragEvent<HTMLDivElement>): void => {
-    if (!isPaneDrag([...e.dataTransfer.types])) return
-    e.preventDefault()
-    const sourceId = e.dataTransfer.getData(PANE_DND)
-    const target = sourceId ? targetAt(e, sourceId) : null
-    if (!target) {
-      usePaneDnd.getState().dropped()
-      return
-    }
-    dropPaneOn(sourceId, target.targetId, target.zone)
-  }
-
-  return (
-    <div
-      ref={cellRef}
-      className={cn(
-        'pane-cell',
-        focused && 'focused',
-        ctx.frameActive && !focused && dimInactive && 'dimmed',
-      )}
-      data-cell-id={pane.id}
-    >
-      <TabBody pane={pane} shown />
-      {approval ? (
-        <ApprovalCard request={approval} paneTitle={pane.title} />
-      ) : question ? (
-        <QuestionNotice question={question} />
-      ) : ctx.shown && pane.resume ? (
-        <ResumeConflictNotice pane={pane} />
-      ) : null}
-      {dragging ? (
-        <div
-          className="pane-cell-drop-layer"
-          onDragOver={onDragOver}
-          onDragLeave={() => usePaneDnd.getState().leave(pane.id)}
-          onDrop={onDrop}
-        />
-      ) : null}
-      {over ? <span className={`pane-drop pane-drop-${over}`} /> : null}
-    </div>
-  )
-}
-
-function SplitTabNode({ node, ctx }: { node: LayoutNode; ctx: CellContext }): JSX.Element | null {
-  const resize = useLayoutStore((s) => s.resize)
-  if (node.type === 'pane') return <SplitCell pane={node} ctx={ctx} />
-  if (node.type === 'tabs') return null
-  return (
-    <Allotment
-      key={`${node.id}:${node.children.map((c) => c.id).join(',')}`}
-      vertical={node.direction === 'vertical'}
-      defaultSizes={node.sizes}
-      onChange={(sizes) => resize(ctx.workspaceId, node.id, sizes)}
-    >
-      {node.children.map((child) => (
-        <Allotment.Pane key={child.id} minSize={120}>
-          <SplitTabNode node={child} ctx={ctx} />
-        </Allotment.Pane>
-      ))}
-    </Allotment>
-  )
-}
-
-export function SplitTabBody({ tab, ...ctx }: CellContext & { tab: SplitNode }): JSX.Element {
-  const ref = useRef<HTMLDivElement>(null)
-  useLayoutEffect(() => {
-    if (ref.current) ref.current.inert = !ctx.shown
-  }, [ctx.shown])
-  return (
-    <div
-      className="pane-slot pane-split-body"
-      data-hidden={ctx.shown ? undefined : ''}
-      data-split-tab-id={tab.id}
-      ref={ref}
-    >
-      <SplitTabNode node={tab} ctx={ctx} />
     </div>
   )
 }

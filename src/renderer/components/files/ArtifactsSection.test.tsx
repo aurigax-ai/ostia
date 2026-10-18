@@ -1,8 +1,9 @@
 import '@testing-library/jest-dom/vitest'
-import { findPane } from '@/layout/tree'
+import { findPane } from '@/lib/layout/tree'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { ARTIFACT_FILE_MAX_BYTES, type ArtifactListing } from '@shared/artifacts/artifacts'
 import { act, cleanup, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -186,7 +187,7 @@ describe('ArtifactsSection', () => {
     lists(listing(['dump.bin', 100, ARTIFACT_FILE_MAX_BYTES + 1]))
     await renderSettled(<ArtifactsSection workspaceId="s1" />)
     const row = screen.getByTestId('artifact-row')
-    expect(row).toHaveTextContent('16.0 MiB')
+    expect(row).toHaveTextContent('16.8 MB')
     await userEvent.click(row)
     expect(window.ostia.artifacts.reveal).toHaveBeenCalledWith('s1')
     const layout = useLayoutStore.getState().byWorkspace.s1

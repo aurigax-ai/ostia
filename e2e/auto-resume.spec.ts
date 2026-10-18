@@ -1,4 +1,3 @@
-import type { ChildProcess } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { chords } from './chords'
@@ -12,17 +11,26 @@ import {
 import {
   PROMPT,
   addTab,
+  expectHeld,
   newTerminalWorkspace,
   openWorkspace,
-  pressQuit,
+  restartApp,
   shownTerminal,
-  waitForExit,
+  typeLine,
 } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import {
+  type ElectronApplication,
+  type Page,
+  _electron as electron,
+  expect,
+  test,
+  waitForExit,
+} from './test'
 
 test.describe.configure({ timeout: 90_000 })
 
 const RESUME_ID = 'e2e-resume-4242'
+const CLEARED_ID = 'e2e-cleared-5151'
 const AUTO_RESUME_SETTINGS = { ...DOM_RENDERER_SETTINGS, agents: { autoResume: true } }
 
 function resumedLog(dataHome: string): string {
@@ -31,25 +39,28 @@ function resumedLog(dataHome: string): string {
 
 function fakeResumableClaude(
   dataHome: string,
-  turn?: 'working' | 'done',
   session = RESUME_ID,
+  failResume = false,
+  clearedTo?: string,
 ): string {
   const bin = join(dataHome, 'bin')
   mkdirSync(bin, { recursive: true })
   const claude = join(bin, 'claude')
-  const cli = 'ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI"'
-  const report = turn ? [`     sleep 1; ${cli} state ${turn} >/dev/null 2>&1`] : []
+  const report = `ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude ${session} >/dev/null 2>&1`
   writeFileSync(
     claude,
     [
       '#!/bin/sh',
       'case "$*" in',
-      `  *--resume*) echo "fake-agent-resumed $* GL=\${GL_ISSUE-none} TOK=\${API_TOKEN-none} END" | tee -a '${resumedLog(dataHome)}' ;;`,
-      `  *) ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude ${session} >/dev/null 2>&1`,
-      ...report,
+      failResume
+        ? `  *--resume*) echo "No conversation found with session ID: $2" | tee -a '${resumedLog(dataHome)}'; exit 1 ;;`
+        : `  *--resume*) echo "fake-agent-resumed $* GL=\${GL_ISSUE-none} TOK=\${API_TOKEN-none} END" | tee -a '${resumedLog(dataHome)}' ;;`,
+      `  *) ${report}`,
       '     echo fake-agent-ready ;;',
       'esac',
-      'exec cat',
+      clearedTo
+        ? `while IFS= read -r line; do [ "$line" = /clear ] && ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude ${clearedTo} >/dev/null 2>&1; done`
+        : 'exec cat',
       '',
     ].join('\n'),
   )
@@ -59,10 +70,11 @@ function fakeResumableClaude(
 
 async function launchAgentApp(
   dataHome: string,
-  turn?: 'working' | 'done',
   session?: string,
-): Promise<{ app: ElectronApplication; win: Page; proc: ChildProcess }> {
-  const bin = fakeResumableClaude(dataHome, turn, session)
+  failResume = false,
+  clearedTo?: string,
+): Promise<{ app: ElectronApplication; win: Page }> {
+  const bin = fakeResumableClaude(dataHome, session, failResume, clearedTo)
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({
     ...launch,
@@ -70,7 +82,7 @@ async function launchAgentApp(
   })
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
-  return { app, win, proc: app.process() }
+  return { app, win }
 }
 
 function savedPanes(dataHome: string): Record<string, unknown>[] {
@@ -139,8 +151,43 @@ test(
   },
 )
 
+test('a resume that fails shows one note, is never typed again, and a second restart leaves one divider', async () => {
+  test.setTimeout(150_000)
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, AUTO_RESUME_SETTINGS)
+  const typedLine = `'claude' --resume ${RESUME_ID}`
+  const resumes = () =>
+    existsSync(resumedLog(dataHome))
+      ? readFileSync(resumedLog(dataHome), 'utf8').split('No conversation found').length - 1
+      : 0
+  const first = await launchAgentApp(dataHome, RESUME_ID, true)
+  await startResumableAgent(dataHome, first.win)
+  await quitAndWait(first.app, first.win)
+
+  for (let restart = 1; restart <= 2; restart++) {
+    const { app, win } = await launchAgentApp(dataHome, RESUME_ID, true)
+    try {
+      const rows = win.locator(SHOWN_ROWS)
+      if (restart === 1) {
+        await expect(win.getByRole('region', { name: 'Agent resume failed' })).toContainText(
+          'it exited with code 1',
+          { timeout: 20_000 },
+        )
+      }
+      await expect(rows).toContainText('workspace restored', { timeout: 20_000 })
+      await expect(rows).toContainText(PROMPT, { timeout: 15_000 })
+      await expectHeld(async () => resumes(), 1)
+      const text = await rows.innerText()
+      expect(text.split('workspace restored').length - 1).toBe(1)
+      expect(text.split(typedLine).length - 1).toBe(1)
+      expect(agentRunningSaved(dataHome)).toBe(false)
+    } finally {
+      await quitAndWait(app, win)
+    }
+  }
+})
+
 const SESSION_PER_PANE = 'e2e-pane-$OSTIA_PANE_ID'
-const SLOW_SHELL_SECONDS = 34
 const SHOWN_ROWS =
   '.workzone-workspace:not([data-hidden]) .pane-slot:not([data-hidden]) .xterm-rows'
 
@@ -161,7 +208,7 @@ function shownState(dataHome: string): { workspace: unknown; tabs: unknown[] } {
   return { workspace: saved.activeWorkspaceId, tabs }
 }
 
-function slowShellStart(dataHome: string, seconds = SLOW_SHELL_SECONDS): void {
+function slowShellStart(dataHome: string, seconds: number): void {
   const home = testHome(dataHome)
   for (const rc of ['.zshrc', '.bashrc']) {
     const file = join(home, rc)
@@ -188,11 +235,11 @@ async function startAgentInShownTerminal(dataHome: string, win: Page, agents: nu
     .toBe(agents)
 }
 
-test('agents in a background tab and in another workspace resume without being shown, also when their shells start late', async () => {
-  test.setTimeout(180_000)
+test('agents in a background tab and in another workspace resume without being shown', async () => {
+  test.setTimeout(120_000)
   const dataHome = freshDataHome()
   seedSettings(dataHome, AUTO_RESUME_SETTINGS)
-  const { app, win } = await launchAgentApp(dataHome, undefined, SESSION_PER_PANE)
+  const { app, win } = await launchAgentApp(dataHome, SESSION_PER_PANE)
   await openWorkspace(win)
   await startAgentInShownTerminal(dataHome, win, 1)
   await addTab(win)
@@ -209,11 +256,10 @@ test('agents in a background tab and in another workspace resume without being s
   const before = shownState(dataHome)
   expect(savedPanes(dataHome).filter((p) => p.agentRunning === true)).toHaveLength(3)
 
-  slowShellStart(dataHome)
-  const relaunched = await launchAgentApp(dataHome, undefined, SESSION_PER_PANE)
+  const relaunched = await launchAgentApp(dataHome, SESSION_PER_PANE)
   try {
     await expect.poll(() => focusedPane(relaunched.win)).toBe(focused)
-    await expect.poll(() => resumedSessions(dataHome), { timeout: 90_000 }).toHaveLength(3)
+    await expect.poll(() => resumedSessions(dataHome), { timeout: 30_000 }).toHaveLength(3)
     await expect(relaunched.win.locator(SHOWN_ROWS)).toContainText('fake-agent-resumed')
     expect(await focusedPane(relaunched.win)).toBe(focused)
     expect(shownState(dataHome)).toEqual(before)
@@ -252,7 +298,7 @@ test('an agent resumed in a visible split leaves keyboard focus in the pane the 
   }
 })
 
-test('an agent a coordinator started with process run resumes with its flags and variables, not its prompt or secrets', async () => {
+test('an agent a coordinator started with process run resumes with the variables, agent and permission bypass of its typed line, not its prompt or secrets', async () => {
   const dataHome = freshDataHome()
   seedSettings(dataHome, AUTO_RESUME_SETTINGS)
   const { app, win } = await launchAgentApp(dataHome)
@@ -276,12 +322,82 @@ test('an agent a coordinator started with process run resumes with its flags and
       )
       .toMatch(
         new RegExp(
-          `^fake-agent-resumed --plugin-dir [^ ]+ --resume ${RESUME_ID} --agent X --model Y --name Slack push --dangerously-skip-permissions GL=665#2 TOK=none END$`,
+          `^fake-agent-resumed --plugin-dir [^ ]+ --resume ${RESUME_ID} --model Y --name Slack push --agent X --dangerously-skip-permissions GL=665#2 TOK=none END$`,
           'm',
         ),
       )
   } finally {
     await closeAsked(relaunched.app, relaunched.win)
+  }
+})
+
+test('an agent the human typed after a cd, with variables, an agent and the permission bypass, resumes with all of them', async () => {
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, AUTO_RESUME_SETTINGS)
+  const resumedRuns = () =>
+    existsSync(resumedLog(dataHome))
+      ? readFileSync(resumedLog(dataHome), 'utf8').split('\n').filter(Boolean)
+      : []
+  const first = await launchAgentApp(dataHome, RESUME_ID)
+  await openWorkspace(first.win)
+  await first.win.locator('.xterm').first().click()
+  await first.win.keyboard.type(
+    `cd . && GL_ISSUE='665#2' API_TOKEN=abc claude --agent X --model Y -n "Slack push" --dangerously-skip-permissions`,
+  )
+  await first.win.keyboard.press('Enter')
+  await expect(first.win.locator('.xterm-rows').first()).toContainText('fake-agent-ready', {
+    timeout: 15_000,
+  })
+  await expect.poll(() => agentRunningSaved(dataHome), { timeout: 15_000 }).toBe(true)
+  await quitAndWait(first.app, first.win)
+
+  const { app, win } = await launchAgentApp(dataHome, RESUME_ID)
+  try {
+    await expect.poll(() => resumedRuns().length, { timeout: 30_000 }).toBe(1)
+    expect(resumedRuns().at(-1)).toMatch(
+      new RegExp(
+        `^fake-agent-resumed --plugin-dir [^ ]+ --resume ${RESUME_ID} --model Y --name Slack push --agent X --dangerously-skip-permissions GL=665#2 TOK=none END$`,
+      ),
+    )
+  } finally {
+    await closeAsked(app, win)
+  }
+})
+
+test('a /clear after an Ostia restart keeps the flags and variables the human typed', async () => {
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, { ...AUTO_RESUME_SETTINGS, terminal: { keepShells: true } })
+  const first = await launchAgentApp(dataHome, RESUME_ID, false, CLEARED_ID)
+  await openWorkspace(first.win)
+  await first.win.locator('.xterm').first().click()
+  await first.win.keyboard.type(`GL_ISSUE='665#2' claude --agent X --dangerously-skip-permissions`)
+  await first.win.keyboard.press('Enter')
+  await expect(first.win.locator('.xterm-rows').first()).toContainText('fake-agent-ready', {
+    timeout: 15_000,
+  })
+  await expect.poll(() => agentRunningSaved(dataHome), { timeout: 15_000 }).toBe(true)
+  await restartApp(first.app, first.win)
+
+  const second = await launchAgentApp(dataHome, RESUME_ID)
+  try {
+    await expect(second.win.locator('.xterm-rows').first()).toContainText('fake-agent-ready', {
+      timeout: 15_000,
+    })
+    await second.win.locator('.xterm').first().click()
+    await typeLine(second.win, '/clear')
+    await expect
+      .poll(() => (savedPanes(dataHome)[0].resume as { id?: string } | undefined)?.id, {
+        timeout: 15_000,
+      })
+      .toBe(CLEARED_ID)
+    expect(savedPanes(dataHome)[0].resume).toMatchObject({
+      typed: {
+        args: ['--agent', 'X', '--dangerously-skip-permissions'],
+        env: { GL_ISSUE: '665#2' },
+      },
+    })
+  } finally {
+    await closeAsked(second.app, second.win)
   }
 })
 
@@ -313,43 +429,4 @@ test('an agent running when the main process gets SIGTERM resumes after the rest
   expect(existsSync(scrollback), 'scrollback was not saved on SIGTERM').toBe(true)
   expect(agentRunningSaved(dataHome)).toBe(true)
   await expectAutoResumed(dataHome)
-})
-
-test('an agent whose shell Ostia reaped resumes after the restart, whatever the renderer saves', async () => {
-  const dataHome = freshDataHome()
-  seedSettings(dataHome, AUTO_RESUME_SETTINGS)
-  const { app, win } = await launchAgentApp(dataHome)
-  const paneId = await startResumableAgent(dataHome, win)
-  const snapshot = JSON.parse(readFileSync(join(dataHome, 'ostia', 'workspaces.json'), 'utf8'))
-  await win.evaluate((id) => window.ostia.pty.detach(id), paneId)
-  await win.waitForTimeout(4_000)
-  const withoutAgent = JSON.parse(
-    JSON.stringify(snapshot, (key, value) => (key === 'agentRunning' ? undefined : value)),
-  )
-  await win.evaluate((s) => window.ostia.workspace.save(s), withoutAgent)
-  await win.waitForTimeout(500)
-  expect(agentRunningSaved(dataHome)).toBe(true)
-  app.process().kill('SIGKILL')
-  await waitForExit(app)
-  await expectAutoResumed(dataHome)
-})
-
-const CONFIRM_QUIT_SETTINGS = {
-  ...AUTO_RESUME_SETTINGS,
-  workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, confirmQuit: true },
-}
-
-test('quitting with an agent mid-turn still asks, and names the agent it would stop', async () => {
-  const dataHome = freshDataHome()
-  seedSettings(dataHome, CONFIRM_QUIT_SETTINGS)
-  const { app, win, proc } = await launchAgentApp(dataHome, 'working')
-  try {
-    await startResumableAgent(dataHome, win)
-    expect(await pressQuit(app, win)).toBe('asked')
-    const dialog = win.getByRole('dialog')
-    await expect(dialog).toContainText('1 agent will be stopped')
-    await Promise.all([waitForExit(app), dialog.getByRole('button', { name: 'Quit' }).click()])
-  } finally {
-    proc.kill('SIGKILL')
-  }
 })

@@ -3,45 +3,10 @@ import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
-const terms: FakeXterm[] = []
-
-class FakeXterm {
-  options: Record<string, unknown>
-  written: string[] = []
-  disposed = false
-  selection = ''
-  unicode = { activeVersion: '' }
-  keyHandler: ((e: KeyboardEvent) => boolean) | null = null
-  constructor(options: Record<string, unknown>) {
-    this.options = options
-    terms.push(this)
-  }
-  loadAddon(): void {}
-  open(): void {}
-  attachCustomKeyEventHandler(handler: (e: KeyboardEvent) => boolean): void {
-    this.keyHandler = handler
-  }
-  hasSelection(): boolean {
-    return this.selection !== ''
-  }
-  getSelection(): string {
-    return this.selection
-  }
-  write(data: string): void {
-    this.written.push(data)
-  }
-  dispose(): void {
-    this.disposed = true
-  }
-}
-
-vi.mock('@xterm/xterm', () => ({ Terminal: FakeXterm }))
-vi.mock('@xterm/addon-fit', () => ({ FitAddon: class {} }))
-vi.mock('@xterm/addon-unicode11', () => ({ Unicode11Addon: class {} }))
 import { commands } from '@/commands/registry'
-import { findPane } from '@/layout/tree'
-import type { PaneNode } from '@/layout/types'
 import { RESUME_CLAIM_MS, claimResume, clearResumeClaims } from '@/lib/agents/resumeFolder'
+import { findPane } from '@/lib/layout/tree'
+import type { PaneNode } from '@/lib/layout/types'
 import * as blockActions from '@/lib/terminal/blockActions'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -59,6 +24,8 @@ vi.mock('./Terminal', () => ({
 }))
 
 const { Pane } = await import('@/components/panes/Pane')
+const { HibernatedView } = await import('./HibernatedView')
+const { focusSurfaceWhenReady } = await import('@/stores/workspaces/surfaceSlotsStore')
 const { SurfacePool } = await import('@/components/panes/SurfacePool')
 
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
@@ -73,7 +40,6 @@ beforeAll(() => {
 
 afterEach(() => {
   cleanup()
-  terms.length = 0
   vi.restoreAllMocks()
   useLayoutStore.setState(layoutInit, true)
   useWorkspacesStore.setState(workspacesInit, true)
@@ -102,52 +68,30 @@ function seed(): void {
 }
 
 describe('hibernated terminal pane', () => {
-  it('keeps the stashed screen frozen and read-only, and spawns no shell', async () => {
+  it('shows a solid state with the agent and Wake, mounts no terminal and spawns no shell', () => {
     seed()
-    vi.mocked(window.ostia.pty.stashed).mockResolvedValueOnce('old agent output\r\n')
     render(<SurfacePool />)
     const host = surfaceHost('h1')
     document.body.appendChild(host)
-    expect(within(host).getByText('Asleep')).toBeInTheDocument()
+    expect(within(host).getByText('claude')).toBeInTheDocument()
+    expect(within(host).getByText('Hibernated')).toBeInTheDocument()
+    expect(within(host).getByRole('button', { name: 'Resume claude' })).toBeInTheDocument()
     expect(within(host).queryByTestId('terminal-h1')).toBeNull()
-    expect(window.ostia.pty.stashed).toHaveBeenCalledWith('h1')
-    const [term] = terms
-    expect(term?.options.disableStdin).toBe(true)
-    await vi.waitFor(() => expect(term?.written).toEqual(['old agent output\r\n']))
+    expect(host.querySelector('.xterm, .hibernated-screen')).toBeNull()
+    expect(window.ostia.pty.stashed).not.toHaveBeenCalled()
     expect(window.ostia.pty.attach).not.toHaveBeenCalled()
     expect(window.ostia.pty.write).not.toHaveBeenCalled()
     host.remove()
   })
 
-  it('shows nothing it did not get from main when there is no stash', async () => {
-    seed()
-    render(<SurfacePool />)
-    const host = surfaceHost('h1')
-    document.body.appendChild(host)
-    await vi.waitFor(() => expect(window.ostia.pty.stashed).toHaveBeenCalledWith('h1'))
-    await Promise.resolve()
-    expect(terms[0]?.written).toEqual([])
-    host.remove()
-  })
-
-  it('copies a selection from the frozen screen and lets every other key through', () => {
-    seed()
-    const writeText = vi.fn().mockResolvedValue(undefined)
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
-    render(<SurfacePool />)
-    const term = terms[0]
-    if (!term?.keyHandler) throw new Error('no key handler')
-    term.selection = 'old agent output'
-    const copy = new KeyboardEvent('keydown', {
-      key: 'C',
-      code: 'KeyC',
-      ctrlKey: true,
-      shiftKey: true,
-    })
-    expect(term.keyHandler(copy)).toBe(false)
-    expect(writeText).toHaveBeenCalledWith('old agent output')
-    expect(term.keyHandler(new KeyboardEvent('keydown', { key: 'a' }))).toBe(false)
-    expect(window.ostia.pty.write).not.toHaveBeenCalled()
+  it('points the pane focus at the Wake button, and at nothing without an agent to wake', async () => {
+    const { rerender } = render(<HibernatedView paneId="h1" resume={sleeping.resume} />)
+    focusSurfaceWhenReady('h1', () => true)
+    await vi.waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Resume claude' })).toHaveFocus(),
+    )
+    rerender(<HibernatedView paneId="h1" />)
+    expect(screen.queryByRole('button')).toBeNull()
   })
 
   it('wakes into a fresh terminal in place of the frozen screen and resumes the agent at its first idle prompt', async () => {
@@ -161,7 +105,7 @@ describe('hibernated terminal pane', () => {
     expect(layout && findPane(layout.root, 'h1')?.hibernated).toBeUndefined()
     expect(whenIdle).toHaveBeenCalledWith(
       'h1',
-      'claude --resume tok-1',
+      "'claude' --resume tok-1",
       undefined,
       expect.any(Function),
       expect.any(Function),
@@ -169,8 +113,7 @@ describe('hibernated terminal pane', () => {
     )
     expect(window.ostia.pty.reportWaking).toHaveBeenCalledWith('h1', true)
     expect(within(host).getByTestId('terminal-h1')).toBeInTheDocument()
-    expect(within(host).queryByText('Asleep')).toBeNull()
-    expect(terms[0]?.disposed).toBe(true)
+    expect(within(host).queryByText('Hibernated')).toBeNull()
     host.remove()
   })
 
@@ -243,7 +186,8 @@ describe('hibernated terminal pane', () => {
     })
     const blocks = useBlocksStore.getState()
     blocks.promptStart('live', { line: 0 }, null)
-    blocks.commandStart('live', { line: 1 }, 'claude --resume tok-1')
+    blocks.commandStart('live', { line: 1 }, "'claude' --resume tok-1")
+    blocks.markAgent('live', 'claude')
     const typed = vi.spyOn(blockActions, 'runWhenIdle')
     render(<Pane tabs={[live, sleeping]} shownId="h1" activePaneId="h1" workspaceId="s1" />)
     render(<SurfacePool />)
@@ -277,7 +221,8 @@ describe('hibernated terminal pane', () => {
     const blocks = useBlocksStore.getState()
     for (const id of ['here', 'there']) {
       blocks.promptStart(id, { line: 0 }, null)
-      blocks.commandStart(id, { line: 1 }, 'claude --resume tok-2')
+      blocks.commandStart(id, { line: 1 }, "'claude' --resume tok-2")
+      blocks.markAgent(id, 'claude')
     }
     render(<Pane tabs={[here, there]} shownId="here" activePaneId="here" workspaceId="s1" />)
     const notice = screen.getByRole('region', { name: 'Agent session open twice' })
@@ -318,9 +263,8 @@ describe('hibernated terminal pane', () => {
     vi.useRealTimers()
   })
 
-  it('a hibernated pane keeps its last screen frozen and read-only, and wakes with one copy of it', async () => {
+  it('a hibernated pane types nothing into its pane and wakes into one fresh terminal', async () => {
     seed()
-    vi.mocked(window.ostia.pty.stashed).mockResolvedValue('frozen-screen-381 up\r\n')
     vi.spyOn(blockActions, 'runWhenIdle').mockReturnValue(() => {})
     render(
       <>
@@ -330,22 +274,14 @@ describe('hibernated terminal pane', () => {
     )
     const host = surfaceHost('h1')
     document.body.appendChild(host)
-    expect(within(host).getByText('Asleep')).toBeInTheDocument()
-    const [frozen] = terms
-    await vi.waitFor(() => expect(frozen?.written).toEqual(['frozen-screen-381 up\r\n']))
-    for (const key of [...'typed-while-asleep', 'Enter']) {
-      expect(frozen?.keyHandler?.(new KeyboardEvent('keydown', { key }))).toBe(false)
-    }
-    expect(frozen?.options.disableStdin).toBe(true)
+    expect(within(host).getByText('Hibernated')).toBeInTheDocument()
+    await userEvent.keyboard('typed-while-asleep{Enter}')
     expect(window.ostia.pty.write).not.toHaveBeenCalled()
     expect(screen.getByLabelText('Hibernated')).toBeInTheDocument()
 
     await userEvent.click(within(host).getByRole('button', { name: 'Resume claude' }))
-    expect(within(host).queryByText('Asleep')).toBeNull()
+    expect(within(host).queryByText('Hibernated')).toBeNull()
     expect(within(host).getByTestId('terminal-h1')).toBeInTheDocument()
-    expect(frozen?.disposed).toBe(true)
-    expect(terms).toHaveLength(1)
-    expect(frozen?.written).toEqual(['frozen-screen-381 up\r\n'])
     expect(window.ostia.pty.write).not.toHaveBeenCalled()
     host.remove()
   })

@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { lstatSync, realpathSync } from 'node:fs'
 import { isAbsolute, join, relative, sep } from 'node:path'
-import { envName, isAppEnvName } from '../../shared/appEnv'
+import { envName, isAppEnvName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import {
   EXEC_ENV_MAX,
   EXEC_ENV_VALUE_MAX,
@@ -10,10 +10,11 @@ import {
   EXEC_TIMEOUT_MAX_MS,
   TERMINAL_ARG_MAX,
   TERMINAL_COMMAND_MAX_ARGS,
-} from '../../shared/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import { withoutGpuLaunchEnv } from '../platform/discreteGpu'
-import { SandboxUnavailableError } from '../sandbox/workspaceSandboxes'
+import { SandboxUnavailableError } from '../sandbox/sandboxHosts'
 
 export const EXEC_CONCURRENT_MAX = 8
 const EXEC_KILL_GRACE_MS = 5000
@@ -70,8 +71,7 @@ function refuse(error: string, message?: string): ExecReply {
 
 function parseEnv(raw: unknown): Record<string, string> | string {
   if (raw === undefined) return {}
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw))
-    return 'env is an object of names to values'
+  if (!isRecord(raw)) return 'env is an object of names to values'
   const entries = Object.entries(raw)
   if (entries.length > EXEC_ENV_MAX) return `env has at most ${EXEC_ENV_MAX} names`
   for (const [name, value] of entries) {

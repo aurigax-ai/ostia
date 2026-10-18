@@ -1,4 +1,4 @@
-import type { LayoutNode, PaneNode } from '@/layout/types'
+import type { LayoutNode, PaneNode } from '@/lib/layout/types'
 import { describe, expect, it } from 'vitest'
 import { pickTargets } from './pickTargets'
 

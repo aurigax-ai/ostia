@@ -1,14 +1,15 @@
 import { readdirSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
-import { type LoadedGraph, readGraphFile } from '../../../graph-engine/src/format/graphFile'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk'
 import {
   GRAPHS_LISTED_MAX,
+  type LoadedGraph,
   NAME_PATTERN,
   type Problem,
-} from '../../../graph-engine/src/format/model'
-import { PRODUCT_NAME } from '../sdk'
+  readGraphFile,
+} from '@aurigax-ai/wire'
 
-const GRAPHS_FOLDER = join(`.${PRODUCT_NAME.toLowerCase()}`, 'graphs')
+export const GRAPHS_FOLDER = join(`.${PRODUCT_NAME.toLowerCase()}`, 'graphs')
 
 export interface GraphEntry {
   name: string
@@ -18,7 +19,7 @@ export interface GraphEntry {
   problems: Problem[]
 }
 
-export function graphsFolder(workDir: string): string {
+function graphsFolder(workDir: string): string {
   return join(workDir, GRAPHS_FOLDER)
 }
 

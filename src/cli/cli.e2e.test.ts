@@ -6,12 +6,18 @@ import {
   readdirSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { createServer } from 'node:net'
+import { createConnection, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  StreamMessageReader,
+  StreamMessageWriter,
+  createMessageConnection,
+} from 'vscode-jsonrpc/node'
 import { ReportedAgentWork, registerAgentWorkMethods } from '../main/agents/agentWork'
 import { grant } from '../main/approvals/capabilityStore'
 import { createReach } from '../main/approvals/reach'
@@ -38,19 +44,20 @@ import { registerPaneMoveToMethods } from '../main/panes/paneMoveTo'
 import { registerPaneResumeMethods } from '../main/panes/paneResume'
 import { registerSandboxMethods } from '../main/sandbox/controlMethods'
 import { DomainRequests } from '../main/sandbox/domainRequests'
-import { PortRequests } from '../main/sandbox/portRequests'
+import { PortRequests } from '../main/sandbox/ports/portRequests'
+import { registerSameFolder } from '../main/workspaces/sameFolder'
+import { registerSnippetMethods, workspaceSnippetsDir } from '../main/workspaces/snippets'
 import { ViewHost, ViewStore } from '../main/workspaces/viewHost'
 import { registerViewMethods } from '../main/workspaces/viewsIpc'
-import { registerWorkflowMethods, workspaceWorkflowsDir } from '../main/workspaces/workflows'
 import { setWorkspaceWorkDir, windowForWorkspace } from '../main/workspaces/workspaceRegistry'
 import { managerAgents, parseManagerSettings } from '../shared/agents/managerSettings'
+import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/control/commands'
 import {
   OPEN_DIFF_COMMAND,
   OPEN_FILES_COMMAND,
   REVEAL_FOLDER_COMMAND,
 } from '../shared/files/openFiles'
 import { emptyWorkspaceSandbox } from '../shared/sandbox/sandbox'
-import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
 
 const repoRoot = process.cwd()
 const cliPath = join(repoRoot, 'out', 'cli', 'index.js')
@@ -64,13 +71,39 @@ function nextSocketPath(): string {
 const execCalls: { target: CommandTarget; id: string; args?: unknown }[] = []
 const moves: { paneId: string; workspaceId: string }[] = []
 let openedPanes: { path: string; paneId: string }[] = []
+let skipShowing = false
 const agentWork = new ReportedAgentWork()
 let listed: { workspaces: object[]; groups: object[] } = { workspaces: [], groups: [] }
+
+const shownPanes: {
+  paneId: string
+  workspaceId: string
+  kind: string
+  title: string
+  filePath?: string
+}[] = []
+
+function showPane(kind: string, title: string, filePath?: string): string {
+  const paneId = `shown-${shownPanes.length + 1}`
+  registerPane({ windowId: 'w1', workspaceId: 's1', paneId })
+  shownPanes.push({ paneId, workspaceId: 's1', kind, title, ...(filePath ? { filePath } : {}) })
+  return paneId
+}
 
 const fakeDeps: ControlServerDeps = {
   execCommand: async (target, id, args) => {
     execCalls.push({ target, id, args })
     const waited = (args as { wait?: boolean } | undefined)?.wait === true
+    if (id === 'workspace.new') {
+      const workspaceId = 'ws-made'
+      listed = { ...listed, workspaces: [...listed.workspaces, { workspaceId }] }
+      return { ok: true, result: { workspaceId } }
+    }
+    if (id === OPEN_FILES_COMMAND && !waited) {
+      for (const file of (args as { files: { path: string }[] }).files) {
+        if (!skipShowing) showPane('editor', file.path, file.path)
+      }
+    }
     const result = waited || id === OPEN_DIFF_COMMAND ? { opened: openedPanes } : { ran: id }
     return { ok: true, result } as CommandResult
   },
@@ -115,6 +148,16 @@ const fakeDeps: ControlServerDeps = {
         resultSchema: null,
         capabilities: ['drive-self'],
         target: 'active',
+      },
+      {
+        id: 'workspace.new',
+        title: 'New Workspace',
+        category: 'Workspace',
+        hidden: true,
+        argsSchema: null,
+        resultSchema: null,
+        capabilities: ['drive-self'],
+        target: 'none',
       },
       {
         id: 'workspace.groupColor',
@@ -245,7 +288,12 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       execCommand: async (_target, id) =>
         ({
           ok: true,
-          result: id === 'workspace.groups' ? listed.groups : listed.workspaces,
+          result:
+            id === 'workspace.groups'
+              ? listed.groups
+              : id === 'pane.list'
+                ? shownPanes
+                : listed.workspaces,
         }) as CommandResult,
       getTerminalState: () => undefined,
       ptyPid: () => undefined,
@@ -277,6 +325,17 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         moves.push({ paneId: to.paneId, workspaceId })
         return { ok: true, result: undefined }
       },
+      tabPlan: async () => ({ ok: true, result: { members: [], locked: [] } }),
+      joinTab: async (_workspaceId, paneIds) => ({ ok: true, result: { moved: paneIds } }),
+      panes: async () =>
+        moves.map((m) => ({
+          paneId: getByPaneId(m.paneId)?.externalId ?? m.paneId,
+          workspaceId: m.workspaceId,
+          kind: 'terminal',
+          title: 't',
+          running: true,
+          blockCount: 0,
+        })),
     })
   }, 60_000)
 
@@ -433,13 +492,13 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     )
 
     expect(res.code).toBe(1)
-    expect(res.stderr).toContain('ostia open: missing <path>')
+    expect(res.stderr).toContain('usage: ostia open <target>')
   })
 
   it('rejects an unknown flag and a flag without its value before calling the app', async () => {
     const env = withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token })
 
-    const unknown = await runOstia(['vault', 'ls', '--globl'], env)
+    const unknown = await runOstia(['vault', 'list', '--globl'], env)
     expect(unknown.code).toBe(1)
     expect(unknown.stderr.trim()).toBe('ostia: unknown flag --globl')
 
@@ -609,7 +668,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     it('rejects an unknown state before touching the app', async () => {
       const res = await runOstia(['state', 'sleeping'], env())
       expect(res.code).toBe(1)
-      expect(res.stderr).toContain('ostia state: expected one of waiting|done|working|error|clear')
+      expect(res.stderr).toContain('usage: ostia state <waiting|done|working|error|clear>')
       expect(execCalls).toHaveLength(0)
     })
 
@@ -641,38 +700,155 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     })
   })
 
-  it('resume-token keeps the folder from the hook payload and the flags the agent was started with', async () => {
-    registerPaneResumeMethods({ execCommand: fakeDeps.execCommand, onResume: () => {} })
-    const res = await runOstia(
-      ['resume-token', 'claude', '-'],
-      withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
-      undefined,
-      JSON.stringify({ session_id: 'e2e-tok-here', cwd: '/work/tree' }),
-    )
-    expect(res.stderr).toBe('')
-    expect(res.code).toBe(0)
-    expect(execCalls).toEqual([
-      {
+  describe('resume-token and pane.setResume', () => {
+    let foreground: string | null = null
+    let paneCwd: string | null = null
+    let stored: unknown = null
+    const fromMain: string[] = []
+    beforeAll(() => {
+      registerPaneResumeMethods({
+        execCommand: async (target, id, args, main) => {
+          if (main) fromMain.push(id)
+          if (id === 'pane.resumeToken') return { ok: true, result: { resume: stored } }
+          return fakeDeps.execCommand(target, id, args)
+        },
+        foregroundProgram: () => foreground,
+        agentCwd: async () => paneCwd,
+        onResume: () => {},
+      })
+    })
+    beforeEach(() => {
+      foreground = null
+      paneCwd = null
+      stored = null
+      fromMain.length = 0
+    })
+
+    async function setResume(params: unknown): Promise<unknown> {
+      const socket = createConnection(socketPath)
+      const conn = createMessageConnection(
+        new StreamMessageReader(socket),
+        new StreamMessageWriter(socket),
+      )
+      conn.listen()
+      try {
+        await conn.sendRequest('hello', { token: identity.token })
+        return await conn.sendRequest('pane.setResume', params)
+      } finally {
+        conn.dispose()
+        socket.destroy()
+      }
+    }
+
+    it('resume-token stores the folder main saw for the pane, never the hook payload’s, and the flags the agent was started with', async () => {
+      paneCwd = '/work/pane'
+      const res = await runOstia(
+        ['resume-token', 'claude', '-'],
+        withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
+        undefined,
+        JSON.stringify({ session_id: 'e2e-tok-here', cwd: '/work/tree' }),
+      )
+      expect(res.stderr).toBe('')
+      expect(res.code).toBe(0)
+      expect(execCalls).toEqual([
+        {
+          target: { windowId: 'w1', workspaceId: 's1', paneId: 'pE2E' },
+          id: 'resume.set',
+          args: { agent: 'claude', id: 'e2e-tok-here', cwd: '/work/pane' },
+        },
+      ])
+
+      paneCwd = null
+      const started = ['--model', 'opus', '--session-id', 'old', 'fix it'].join('\u001f')
+      const withArgs = await runOstia(
+        ['resume-token', 'claude', 'e2e-tok-args'],
+        withEnv({
+          OSTIA_SOCKET: socketPath,
+          OSTIA_TOKEN: identity.token,
+          OSTIA_CLAUDE_ARGS: started,
+        }),
+      )
+      expect(withArgs.stderr).toBe('')
+      expect(execCalls.at(-1)).toEqual({
         target: { windowId: 'w1', workspaceId: 's1', paneId: 'pE2E' },
         id: 'resume.set',
-        args: { agent: 'claude', id: 'e2e-tok-here', cwd: '/work/tree' },
-      },
-    ])
+        args: { agent: 'claude', id: 'e2e-tok-args', args: ['--model', 'opus'] },
+      })
+    })
 
-    const started = ['--agent', 'ostia', '--session-id', 'old', 'fix it'].join('\u001f')
-    const withArgs = await runOstia(
-      ['resume-token', 'claude', 'e2e-tok-args'],
-      withEnv({
-        OSTIA_SOCKET: socketPath,
-        OSTIA_TOKEN: identity.token,
-        OSTIA_CLAUDE_ARGS: started,
-      }),
-    )
-    expect(withArgs.stderr).toBe('')
-    expect(execCalls.at(-1)).toEqual({
-      target: { windowId: 'w1', workspaceId: 's1', paneId: 'pE2E' },
-      id: 'resume.set',
-      args: { agent: 'claude', id: 'e2e-tok-args', args: ['--agent', 'ostia'] },
+    it('resume-token never sends a flag that leaves the sandbox or its approvals', async () => {
+      const started = [
+        '--dangerously-bypass-approvals-and-sandbox',
+        '--yolo',
+        '-s',
+        'danger-full-access',
+        '-a',
+        'never',
+        '-c',
+        'notify=["sh","-c","id"]',
+        '-m',
+        'gpt-5',
+      ].join('\u001f')
+      const res = await runOstia(
+        ['resume-token', 'codex', 'e2e-tok-sbx'],
+        withEnv({
+          OSTIA_SOCKET: socketPath,
+          OSTIA_TOKEN: identity.token,
+          OSTIA_CODEX_ARGS: started,
+        }),
+      )
+      expect(res.stderr).toBe('')
+      expect(execCalls.at(-1)?.args).toEqual({
+        agent: 'codex',
+        id: 'e2e-tok-sbx',
+        args: ['-m', 'gpt-5'],
+      })
+    })
+
+    it('stores no escaping flag, no variable and no folder from any caller holding the token', async () => {
+      foreground = 'claude'
+      paneCwd = '/work/pane'
+      expect(
+        await setResume({
+          agent: 'claude',
+          id: 'e2e-tok-raw',
+          cwd: process.env.HOME ?? '/root',
+          args: ['--dangerously-skip-permissions', '--agent', 'x', '--model', 'opus'],
+          env: { GIT_DIR: '/tmp/g', OPENAI_BASE_URL: 'http://127.0.0.1:9', GL_ISSUE: '687' },
+        }),
+      ).toEqual({ ok: true })
+      expect(execCalls.at(-1)).toEqual({
+        target: { windowId: 'w1', workspaceId: 's1', paneId: 'pE2E' },
+        id: 'resume.set',
+        args: { agent: 'claude', id: 'e2e-tok-raw', cwd: '/work/pane', args: ['--model', 'opus'] },
+      })
+      expect(fromMain).toContain('resume.set')
+      paneCwd = null
+      expect(await setResume({ agent: 'claude', id: 'e2e-tok-nocwd', cwd: '/tmp' })).toEqual({
+        ok: true,
+      })
+      expect(execCalls.at(-1)?.args).toEqual({ agent: 'claude', id: 'e2e-tok-nocwd' })
+    })
+
+    it('refuses an agent other than the one running in the pane', async () => {
+      foreground = 'codex'
+      expect(
+        await setResume({ agent: 'claude', id: 'e2e-tok-switch', args: ['--model', 'opus'] }),
+      ).toEqual({ ok: false, error: 'agent-mismatch' })
+      expect(execCalls.some((c) => c.id === 'resume.set')).toBe(false)
+      expect(await setResume({ agent: 'codex', id: 'e2e-tok-same' })).toEqual({ ok: true })
+    })
+
+    it('keeps the stored agent when main cannot see which one runs', async () => {
+      foreground = 'node'
+      stored = { agent: 'codex', id: 'e2e-tok-old' }
+      expect(await setResume({ agent: 'claude', id: 'e2e-tok-switch' })).toEqual({
+        ok: false,
+        error: 'agent-mismatch',
+      })
+      expect(await setResume({ agent: 'codex', id: 'e2e-tok-new' })).toEqual({ ok: true })
+      stored = null
+      expect(await setResume({ agent: 'claude', id: 'e2e-tok-first' })).toEqual({ ok: true })
     })
   })
 
@@ -914,16 +1090,16 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     })
   })
 
-  describe('ostia workflow', () => {
+  describe('ostia snippet', () => {
     const env = () => withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token })
     let dir: string
 
     beforeAll(() => {
-      dir = mkdtempSync(join(tmpdir(), 'ostia-cli-workflows-'))
+      dir = mkdtempSync(join(tmpdir(), 'ostia-cli-snippets-'))
       const userDir = join(dir, 'user')
       const workDir = join(dir, 'project')
       mkdirSync(userDir, { recursive: true })
-      mkdirSync(workspaceWorkflowsDir(workDir), { recursive: true })
+      mkdirSync(workspaceSnippetsDir(workDir), { recursive: true })
       writeFileSync(
         join(userDir, 'logs.yaml'),
         [
@@ -940,17 +1116,17 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       )
       writeFileSync(join(userDir, 'broken.yaml'), 'name: nothing to run\n')
       writeFileSync(
-        join(workspaceWorkflowsDir(workDir), 'test.yml'),
+        join(workspaceSnippetsDir(workDir), 'test.yml'),
         'name: Test\ncommand: pnpm test\n',
       )
-      registerWorkflowMethods({
+      registerSnippetMethods({
         userDir,
         roots: () => [dir],
         workDirForWorkspace: (id) => (id === 's1' ? workDir : undefined),
-        extensionWorkflows: () => [
+        extensionSnippets: () => [
           {
             extId: 'ops',
-            workflows: [{ name: 'Deploy', command: 'make deploy', tags: [], arguments: [] }],
+            snippets: [{ name: 'Deploy', command: 'make deploy', tags: [], arguments: [] }],
           },
         ],
       })
@@ -960,8 +1136,8 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       rmSync(dir, { recursive: true, force: true })
     })
 
-    it('lists the caller workspace, user and extension workflows, reporting unreadable files', async () => {
-      const res = await runOstia(['workflow', 'list'], env())
+    it('lists the caller workspace, user and extension snippets, reporting unreadable files', async () => {
+      const res = await runOstia(['snippet', 'list'], env())
       expect(res.code).toBe(0)
       expect(res.stdout.trim().split('\n')).toEqual([
         'Test\tworkspace:test.yml\tpnpm test',
@@ -970,16 +1146,16 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       ])
       expect(res.stderr).toContain("couldn't read user:broken.yaml: missing command")
 
-      const json = await runOstia(['workflow', 'list', '--json'], env())
+      const json = await runOstia(['snippet', 'list', '--json'], env())
       const listing = JSON.parse(json.stdout)
-      expect(listing.workflows).toHaveLength(3)
+      expect(listing.snippets).toHaveLength(3)
       expect(listing.problems).toEqual([
         { source: 'user', origin: 'broken.yaml', error: 'missing command' },
       ])
     })
 
-    it('shows one workflow by name', async () => {
-      const res = await runOstia(['workflow', 'show', 'Follow', 'logs'], env())
+    it('shows one snippet by name', async () => {
+      const res = await runOstia(['snippet', 'show', 'Follow', 'logs'], env())
       expect(res.code).toBe(0)
       expect(res.stdout.trim().split('\n')).toEqual([
         'name: Follow logs',
@@ -991,7 +1167,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         '  app — Deployment name (default: api)',
       ])
 
-      const json = await runOstia(['workflow', 'show', 'Deploy', '--json'], env())
+      const json = await runOstia(['snippet', 'show', 'Deploy', '--json'], env())
       expect(JSON.parse(json.stdout)).toEqual([
         {
           name: 'Deploy',
@@ -1005,13 +1181,13 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     })
 
     it('fails on an unknown name or a missing subcommand, and has no run verb', async () => {
-      const missing = await runOstia(['workflow', 'show', 'Nope'], env())
+      const missing = await runOstia(['snippet', 'show', 'Nope'], env())
       expect(missing.code).toBe(1)
-      expect(missing.stderr).toContain("no workflow named 'Nope'")
+      expect(missing.stderr).toContain("no snippet named 'Nope'")
 
-      const run = await runOstia(['workflow', 'run', 'Deploy'], env())
+      const run = await runOstia(['snippet', 'run', 'Deploy'], env())
       expect(run.code).toBe(1)
-      expect(run.stderr).toContain('usage: workflow list')
+      expect(run.stderr).toContain('usage: ostia snippet <verb>')
       expect(execCalls).toEqual([])
     })
   })
@@ -1160,7 +1336,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     })
   })
 
-  describe('ostia <file>', () => {
+  describe('ostia open', () => {
     let base: string
     let home: string
     let outside: string
@@ -1182,6 +1358,9 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       writeFileSync(join(home, 'echo'), 'a file named like an extension')
       writeFileSync(join(home, 'pane.splitRight'), 'a file named like a command')
       writeFileSync(join(home, 'state'), 'a file named like a verb')
+      writeFileSync(join(home, 'pane'), 'a file named like a noun')
+      symlinkSync(home, join(base, 'home-link'))
+      registerSameFolder({ workDir: (id) => (id === 's1' ? home : undefined), home: () => base })
       writeFileSync(join(outside, 'app.log'), 'one\ntwo\nthree\n')
       writeFileSync(join(outside, 'shot.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]))
       registerOpenFileMethods({
@@ -1198,7 +1377,9 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       registerControlMethod('browse.open', {
         handler: (params: unknown) => {
           browsed.push(params)
-          return { ok: true, url: (params as { url?: string }).url }
+          const url = (params as { url?: string }).url
+          const tabId = getByPaneId(showPane('browser', url ?? ''))?.externalId
+          return { ok: true, url, tabId }
         },
       })
     })
@@ -1212,7 +1393,10 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     afterAll(() => rmSync(base, { recursive: true, force: true }))
 
     it('opens files anywhere on disk, each as its own target, in the caller pane', async () => {
-      const res = await runOstia([join(outside, 'app.log'), join(outside, 'shot.png')], env())
+      const res = await runOstia(
+        ['open', join(outside, 'app.log'), join(outside, 'shot.png')],
+        env(),
+      )
 
       expect(res.stderr).toBe('')
       expect(res.code).toBe(0)
@@ -1228,7 +1412,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     })
 
     it('resolves a relative path against the caller folder and reads file:line:col', async () => {
-      const res = await runOstia(['../outside/app.log:2:3'], env(), home)
+      const res = await runOstia(['open', '../outside/app.log:2:3'], env(), home)
 
       expect(res.code).toBe(0)
       expect(opened()).toEqual([
@@ -1236,28 +1420,68 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       ])
     })
 
-    it('opens a bare name that is a file here and neither a verb nor an extension', async () => {
-      const res = await runOstia(['README'], env(), home)
+    it('opens a bare name that is a file here', async () => {
+      const res = await runOstia(['open', 'README'], env(), home)
 
       expect(res.code).toBe(0)
       expect(opened()).toEqual([{ files: [{ path: join(home, 'README') }] }])
     })
 
-    it('lets a core verb, an extension id and a command id win over a file of that name', async () => {
+    it('a noun, an extension or a command wins over a file of the same name', async () => {
       const verb = await runOstia(['state', 'done'], env(), home)
       expect(verb.code).toBe(0)
       expect(execCalls.map((c) => c.id)).toEqual(['attention.set'])
       execCalls.length = 0
 
+      const noun = await runOstia(['pane'], env(), home)
+      expect(noun.code).toBe(1)
+      expect(noun.stderr).toContain('usage: ostia pane <verb>')
+
       const extension = await runOstia(['echo', 'hi'], env(), home)
-      expect(extension.stderr).toContain("ostia echo: unknown subcommand 'hi'")
+      expect(extension.stderr).toContain('usage: ostia echo <command>')
 
       const command = await runOstia(['pane.splitRight'], env(), home)
       expect(command.stdout).toContain('{"ran":"pane.splitRight"}')
-
-      const folder = await runOstia(['tools', 'status'], env(), home)
-      expect(folder.stderr).toContain("unknown command or extension 'tools'")
       expect(opened()).toEqual([])
+    })
+
+    it('ostia <file> is ostia open <file>', async () => {
+      const res = await runOstia(['README'], env(), home)
+
+      expect(res.stderr).toBe('')
+      expect(res.code).toBe(0)
+      expect(opened()).toEqual([{ files: [{ path: join(home, 'README') }] }])
+      expect(res.stdout).toMatch(new RegExp(`^[0-9a-f-]+\\t${join(home, 'README')}\\n$`))
+    })
+
+    it('ostia <folder> opens a new workspace on it, and nothing for the folder of this workspace', async () => {
+      const made = await runOstia(['tools'], env(), home)
+      expect(made.stderr).toBe('')
+      expect(made.code).toBe(0)
+      const news = execCalls.filter((c) => c.id === 'workspace.new')
+      expect(news.map((c) => c.args)).toEqual([{ dir: join(home, 'tools') }])
+      expect(made.stdout).toBe(`ws-made\t${join(home, 'tools')}\n`)
+      execCalls.length = 0
+
+      const background = await runOstia(['-b', 'tools'], env(), home)
+      expect(background.code).toBe(0)
+      expect(execCalls.filter((c) => c.id === 'workspace.new').map((c) => c.args)).toEqual([
+        { dir: join(home, 'tools'), focus: false },
+      ])
+      execCalls.length = 0
+
+      const link = join(base, 'home-link')
+      for (const [word, cwd, shown] of [
+        ['.', home, home],
+        [link, outside, link],
+        ['~', outside, home],
+      ]) {
+        const same = await runOstia([word], { ...env(), HOME: home }, cwd)
+        expect(same.code, word).toBe(0)
+        expect(same.stdout, word).toBe(`already open\t${shown}\n`)
+      }
+      expect(execCalls.filter((c) => c.id === 'workspace.new')).toEqual([])
+      expect(revealed()).toEqual([])
     })
 
     it('ostia open takes several files and still opens the ones it can', async () => {
@@ -1273,8 +1497,25 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       expect(revealed()).toEqual([])
     })
 
-    it('ostia <file> names what it cannot open and opens nothing for it', async () => {
-      const res = await runOstia([outside, join(outside, 'nope.txt')], env())
+    it('reads the tab back and fails with the reason when the file has no tab after opening it', async () => {
+      const shown = await runOstia(['open', 'README'], env(), home)
+      expect(shown.code).toBe(0)
+      expect(shown.stdout).toMatch(new RegExp(`^[0-9a-f-]+\\t${join(home, 'README')}\\n$`))
+      writeFileSync(join(home, 'unshown.txt'), 'x')
+      skipShowing = true
+      try {
+        const missing = await runOstia(['open', 'unshown.txt'], env(), home)
+        expect(missing.code).toBe(1)
+        expect(missing.stderr).toContain(
+          `ostia open: ${join(home, 'unshown.txt')} has no tab after opening it`,
+        )
+      } finally {
+        skipShowing = false
+      }
+    }, 15_000)
+
+    it('names what it cannot open and opens nothing for it', async () => {
+      const res = await runOstia(['open', outside, join(outside, 'nope.txt')], env())
 
       expect(res.code).toBe(1)
       expect(res.stderr).toContain(`ostia: ${outside}: folders show only under the home folder`)
@@ -1284,9 +1525,9 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     })
 
     it('shows a folder under the home folder in the Files panel, and never grants one outside', async () => {
-      const here = await runOstia(['.'], env(), home)
+      const here = await runOstia(['open', '.'], env(), home)
       expect(here.stderr).toBe('')
-      expect(here.stdout.trim()).toBe('ok')
+      expect(here.stdout.trim()).toBe(`files\t${home}`)
       mkdirSync(join(home, 'docs'), { recursive: true })
       const named = await runOstia(['open', 'docs'], env(), home)
       expect(named.code).toBe(0)
@@ -1298,7 +1539,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       })
 
       execCalls.length = 0
-      const away = await runOstia([`${outside}/`], env(), home)
+      const away = await runOstia(['open', `${outside}/`], env(), home)
       expect(away.code).toBe(1)
       expect(away.stderr).toContain('folders show only under the home folder')
       expect(revealed()).toEqual([])
@@ -1307,14 +1548,14 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
 
     it('shows no folder for a sandboxed workspace', async () => {
       sandboxed.add('s1')
-      const res = await runOstia(['.'], env(), home)
+      const res = await runOstia(['open', '.'], env(), home)
       expect(res.code).toBe(1)
       expect(res.stderr).toContain('a sandboxed workspace cannot show folders')
       expect(revealed()).toEqual([])
     })
 
     it('opens an http(s) URL as ostia browse open does, and takes anything else for a path', async () => {
-      const res = await runOstia(['https://example.com/docs?a=1'], env(), home)
+      const res = await runOstia(['open', 'https://example.com/docs?a=1'], env(), home)
       expect(res.stderr).toBe('')
       expect(res.code).toBe(0)
       expect(browsed).toEqual([{ url: 'https://example.com/docs?a=1' }])
@@ -1326,7 +1567,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     })
 
     it('passes --background on to every kind of target, before or after them', async () => {
-      const res = await runOstia(['-b', 'README', 'https://example.com/'], env(), home)
+      const res = await runOstia(['open', '-b', 'README', 'https://example.com/'], env(), home)
       expect(res.code).toBe(0)
       const after = await runOstia(['open', 'README', '--background'], env(), home)
       expect(after.code).toBe(0)
@@ -1341,7 +1582,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       const artifacts = join(base, 'artifacts')
       mkdirSync(artifacts, { recursive: true })
       const withFolder = { ...env(), OSTIA_ARTIFACTS: artifacts }
-      const res = await runOstia(['-', '--name', 'a.md'], withFolder, home, '# piped\n')
+      const res = await runOstia(['open', '-', '--name', 'a.md'], withFolder, home, '# piped\n')
       expect(res.stderr).toBe('')
       expect(res.code).toBe(0)
       expect(readFileSync(join(artifacts, 'a.md'), 'utf8')).toBe('# piped\n')
@@ -1356,7 +1597,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
 
     it('refuses stdin without an artifact folder, a bad name, and --name without -', async () => {
       const none = await runOstia(
-        ['-'],
+        ['open', '-'],
         withEnv({ ...env(), OSTIA_ARTIFACTS: undefined }),
         home,
         'x',
@@ -1367,10 +1608,10 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       const artifacts = join(base, 'artifacts-2')
       mkdirSync(artifacts, { recursive: true })
       const withFolder = { ...env(), OSTIA_ARTIFACTS: artifacts }
-      const escaping = await runOstia(['-', '--name', '../x.md'], withFolder, home, 'x')
+      const escaping = await runOstia(['open', '-', '--name', '../x.md'], withFolder, home, 'x')
       expect(escaping.code).toBe(1)
       expect(escaping.stderr).toContain('--name is a file name, not a path')
-      const hidden = await runOstia(['-', '--name', '.bashrc'], withFolder, home, 'x')
+      const hidden = await runOstia(['open', '-', '--name', '.bashrc'], withFolder, home, 'x')
       expect(hidden.stderr).toContain('--name cannot start with a dot')
       const stray = await runOstia(['open', 'README', '--name', 'a.md'], withFolder, home, 'x')
       expect(stray.code).toBe(1)
@@ -1379,24 +1620,18 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       expect(opened()).toEqual([])
     })
 
-    it('passes --tab and --split on, and refuses a split that waits or an unknown side', async () => {
-      await runOstia(['--tab', 'README'], env(), home)
-      await runOstia(['open', 'README', '--split', 'down'], env(), home)
-      expect(opened()).toEqual([
-        { files: [{ path: join(home, 'README') }], placement: 'tab' },
-        { files: [{ path: join(home, 'README') }], placement: 'down' },
-      ])
-      const sideways = await runOstia(['open', '--split', 'left', 'README'], env(), home)
-      expect(sideways.code).toBe(1)
-      expect(sideways.stderr).toContain('--split takes right or down')
-      const both = await runOstia(['open', '--wait', '--split', 'right', 'README'], env(), home)
-      expect(both.stderr).toContain('--wait opens a tab')
-      expect(opened()).toHaveLength(2)
+    it('has no layout flags: --tab and --split are unknown', async () => {
+      for (const flag of [['--tab'], ['--split', 'down']]) {
+        const res = await runOstia(['open', ...flag, 'README'], env(), home)
+        expect(res.code).toBe(1)
+        expect(res.stderr).toContain(`unknown flag ${flag[0]}`)
+      }
+      expect(opened()).toEqual([])
     })
 
     it('--wait returns 0 only when the waited tab is closed', async () => {
       openedPanes = [{ path: join(home, 'README'), paneId: 'ed-1' }]
-      const closing = runOstia(['--wait', 'README'], env(), home)
+      const closing = runOstia(['open', '--wait', 'README'], env(), home)
       await vi.waitFor(() => expect(openWaits.size).toBe(1), { timeout: 5000 })
       expect(opened()).toEqual([{ files: [{ path: join(home, 'README') }], wait: true }])
       openWaits.paneClosed('ed-1')
@@ -1404,7 +1639,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       expect(closed.code).toBe(0)
       expect(closed.stdout).toBe('')
 
-      const leaving = runOstia(['-w', 'README'], env(), home)
+      const leaving = runOstia(['open', '-w', 'README'], env(), home)
       await vi.waitFor(() => expect(openWaits.size).toBe(1), { timeout: 5000 })
       openWaits.workspaceClosed('s1')
       const left = await leaving
@@ -1415,11 +1650,11 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
 
     it('--wait ends at once when no tab was opened, and its wait goes when the command is interrupted', async () => {
       openedPanes = []
-      const none = await runOstia(['--wait', 'README'], env(), home)
+      const none = await runOstia(['open', '--wait', 'README'], env(), home)
       expect(none.code).toBe(1)
 
       openedPanes = [{ path: join(home, 'README'), paneId: 'ed-2' }]
-      const child = spawn(process.execPath, [cliPath, '--wait', 'README'], {
+      const child = spawn(process.execPath, [cliPath, 'open', '--wait', 'README'], {
         env: env(),
         cwd: home,
       })
@@ -1456,7 +1691,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       const missing = await runOstia(['diff', join(outside, 'nope.txt'), 'README'], env(), home)
       expect(missing.stderr).toContain('no such file')
       const one = await runOstia(['diff', 'README'], env(), home)
-      expect(one.stderr).toContain('takes two files')
+      expect(one.stderr).toContain('usage: ostia diff <a> <b>')
       expect(execCalls.filter((c) => c.id === OPEN_DIFF_COMMAND)).toEqual([])
     })
 
@@ -1472,7 +1707,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       const artifacts = join(base, 'artifacts-3')
       mkdirSync(artifacts, { recursive: true })
       const withFolder = { ...env(), OSTIA_ARTIFACTS: artifacts }
-      const res = await runOstia(['README'], withFolder, home, 'piped but not asked for')
+      const res = await runOstia(['open', 'README'], withFolder, home, 'piped but not asked for')
       expect(res.code).toBe(0)
       expect(readdirSync(artifacts)).toEqual([])
       expect(opened()).toEqual([{ files: [{ path: join(home, 'README') }] }])
@@ -1480,16 +1715,16 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
 
     it('refuses a sandboxed workspace a file outside the home folder', async () => {
       sandboxed.add('s1')
-      const res = await runOstia([join(outside, 'shot.png'), join(home, 'README')], env())
+      const res = await runOstia(['open', join(outside, 'shot.png'), join(home, 'README')], env())
 
       expect(res.code).toBe(1)
       expect(res.stderr).toContain('outside what a sandboxed workspace may open')
       expect(opened()).toEqual([{ files: [{ path: join(home, 'README') }] }])
     })
 
-    it('outside Ostia: a file path does not start the manager', async () => {
+    it('outside Ostia: open says it works only inside', async () => {
       const res = await runOstia(
-        [join(outside, 'app.log')],
+        ['open', join(outside, 'app.log')],
         withEnv({ OSTIA_SOCKET: undefined, OSTIA_TOKEN: undefined }),
       )
 

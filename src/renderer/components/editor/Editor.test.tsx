@@ -1,14 +1,21 @@
 import { commands } from '@/commands/registry'
 import { SEND_SELECTION_COMMAND, registerSelectionSendCommand } from '@/commands/selectionSend'
 import { openSelectionSend } from '@/lib/agents/selectionSenders'
+import { LARGE_FILE_LINES, fileFeatureOptions } from '@/lib/monaco/largeFile'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
-import { LARGE_FILE_LINES, fileFeatureOptions } from '@/monaco/largeFile'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import { useRemoteFoldersStore } from '@/stores/files/remoteFoldersStore'
 import { useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import {
+  focusSurface,
+  focusSurfaceWhenReady,
+  mountSurface,
+  releaseSurfaces,
+  surfaceHost,
+} from '@/stores/workspaces/surfaceSlotsStore'
 import { PAD_MAX_BYTES } from '@shared/artifacts/artifacts'
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -134,8 +141,12 @@ const fake = vi.hoisted(() => {
     optionUpdates: Record<string, unknown>[]
     visible: boolean
     layouts: number
+    themed: boolean
     themedAtCreate: boolean
+    input: HTMLElement | null
   } = {
+    input: null,
+    themed: false,
     themedAtCreate: false,
     visible: true,
     layouts: 0,
@@ -217,6 +228,7 @@ const fake = vi.hoisted(() => {
     layout: () => {
       state.layouts += 1
     },
+    getDomNode: () => state.input?.parentElement ?? null,
     dispose: () => {},
   }
   const monaco = {
@@ -230,11 +242,18 @@ const fake = vi.hoisted(() => {
       }),
     },
     editor: {
-      setTheme: vi.fn(),
+      setTheme: vi.fn(() => {
+        state.themed = true
+      }),
       defineTheme: vi.fn(),
-      create: (_host: unknown, options: Record<string, unknown>) => {
+      create: (host: HTMLElement, options: Record<string, unknown>) => {
+        const input = document.createElement('div')
+        input.className = 'native-edit-context'
+        input.tabIndex = 0
+        host.appendChild(input)
+        state.input = input
         state.createOptions = options
-        state.themedAtCreate = monaco.editor.setTheme.mock.calls.length > 0
+        state.themedAtCreate = state.themed
         return editor
       },
       getModel: (uri: { toString(): string }) => models.get(uri.toString()) ?? null,
@@ -248,20 +267,20 @@ const fake = vi.hoisted(() => {
   return { monaco, models, state }
 })
 
-vi.mock('@/monaco/setup', () => ({
+vi.mock('@/lib/monaco/setup', () => ({
   monaco: fake.monaco,
 }))
 vi.mock('@/lib/attention/workspaceActivity', async (original) => ({
   ...(await original<typeof import('@/lib/attention/workspaceActivity')>()),
   usePaneVisible: () => fake.state.visible,
 }))
-vi.mock('@/lsp/client', () => ({
+vi.mock('@/lib/lsp/client', () => ({
   openDocument: vi.fn(() => () => {}),
   documentSaved: vi.fn(),
 }))
 
 const { EditorView } = await import('./Editor')
-const { openDocument } = await import('@/lsp/client')
+const { openDocument } = await import('@/lib/lsp/client')
 
 describe('EditorView', () => {
   let init: ReturnType<typeof useEditorStatus.getState>
@@ -284,6 +303,7 @@ describe('EditorView', () => {
     fake.state.optionUpdates = []
     fake.state.visible = true
     fake.state.layouts = 0
+    fake.state.input = null
     useSettingsStore.setState(initSettings, true)
     useEditorStatus.setState(init, true)
   })
@@ -311,6 +331,97 @@ describe('EditorView', () => {
     expect(screen.queryByRole('button', { name: 'Edit Markdown source' })).toBeNull()
   })
 
+  it('gives the keyboard to the Markdown preview while it covers the source, and to the source once shown', async () => {
+    useSettingsStore.setState({
+      editor: { ...useSettingsStore.getState().editor, markdownPreview: true },
+    })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: '# Title\n\nPreview body',
+    })
+    const slot = document.createElement('div')
+    document.body.appendChild(slot)
+    mountSurface('p-md', slot)
+    render(<EditorView workspaceId="w1" paneId="p-md" filePath="/w/README.md" />, {
+      container: surfaceHost('p-md'),
+    })
+    await screen.findByText('Preview body')
+    await waitFor(() => expect(fake.state.input).not.toBeNull())
+
+    focusSurface('p-md')
+    expect(document.activeElement).toBe(document.querySelector('.markdown-preview'))
+    expect(document.activeElement).not.toBe(fake.state.input)
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Edit Markdown source' }))
+    focusSurface('p-md')
+    expect(document.activeElement).toBe(fake.state.input)
+    cleanup()
+    releaseSurfaces(new Set())
+    slot.remove()
+  })
+
+  function editorInSurface(paneId: string, filePath: string): () => void {
+    const slot = document.createElement('div')
+    document.body.appendChild(slot)
+    mountSurface(paneId, slot)
+    render(<EditorView workspaceId="w1" paneId={paneId} filePath={filePath} />, {
+      container: surfaceHost(paneId),
+    })
+    return () => {
+      cleanup()
+      releaseSurfaces(new Set())
+      slot.remove()
+    }
+  }
+
+  it('keeps the keyboard on the source of a CSV; its table opens in the csv viewer', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: 'name,count\napples,3\n',
+    })
+    const done = editorInSurface('p-csv', '/w/fruit.csv')
+    await waitFor(() => expect(fake.state.input).not.toBeNull())
+    focusSurface('p-csv')
+    expect(document.activeElement).toBe(fake.state.input)
+    done()
+  })
+
+  it('gives the keyboard to a running page only once its guest is ready, never to the source under it', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: '<p>page</p>',
+    })
+    vi.mocked(window.ostia.preview.open).mockResolvedValue({
+      id: 'preview-1',
+      partition: 'ostia-preview-1',
+      url: 'ostia-preview://preview-1/',
+    })
+    const done = editorInSurface('p-html', '/w/page.html')
+    await waitFor(() => expect(fake.state.input).not.toBeNull())
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Run page in preview' }))
+    const webview = await waitFor(() => {
+      const found = surfaceHost('p-html').querySelector<HTMLElement>('webview')
+      if (!found) throw new Error('no webview yet')
+      return found
+    })
+    webview.tabIndex = 0
+
+    focusSurfaceWhenReady('p-html', () => true)
+    await act(() => new Promise<void>((resolve) => setTimeout(resolve)))
+    expect(document.activeElement).not.toBe(webview)
+    expect(document.activeElement).not.toBe(fake.state.input)
+
+    act(() => {
+      webview.dispatchEvent(new Event('dom-ready'))
+    })
+    await waitFor(() => expect(document.activeElement).toBe(webview))
+    done()
+  })
+
   it('the find key opens find in the code editor', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue({
       ok: true,
@@ -331,15 +442,14 @@ describe('EditorView', () => {
     await waitFor(() => expect(fake.state.ranActions).toEqual(['actions.find']))
   })
 
-  it('scrolls without smooth animation while motion is reduced', async () => {
+  it('never scrolls with smooth animation, whatever the motion setting', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
-    act(() => useSettingsStore.getState().setMotion('reduced'))
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     expect(fake.state.createOptions?.smoothScrolling).toBe(false)
 
     act(() => useSettingsStore.getState().setMotion('full'))
-    expect(fake.state.optionUpdates.at(-1)).toEqual({ smoothScrolling: true })
+    expect(fake.state.optionUpdates.some((u) => 'smoothScrolling' in u)).toBe(false)
   })
 
   it('word wrap and tab width from Settings apply to the open editor', async () => {
@@ -729,7 +839,7 @@ describe('EditorView', () => {
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/huge.log" />)
 
     expect(
-      await screen.findByText(/too large to open in the editor \(60\.0 MB\)/),
+      await screen.findByText(/too large to open in the editor \(62\.9 MB\)/),
     ).toBeInTheDocument()
     expect(fake.models.size).toBe(0)
   })
@@ -774,6 +884,7 @@ describe('EditorView', () => {
     expect(window.ostia.fs.read).not.toHaveBeenCalled()
     const bar = screen.getByTestId('remote-file-bar')
     expect(bar).toHaveTextContent('Remote file on db')
+    expect(bar).not.toHaveClass('motion-fade')
 
     act(() => useRemoteFoldersStore.setState({ folders: [] }))
     expect(bar).toHaveTextContent('This remote folder is closed')
@@ -886,7 +997,7 @@ describe('EditorView', () => {
     })
 
     it('offers no compare when either side is beyond the diff size cap', async () => {
-      const { DIFF_TEXT_MAX } = await import('@shared/extensions')
+      const { DIFF_TEXT_MAX } = await import('@aurigax-ai/ostia-extension-sdk/contract/extensions')
       await open()
       act(() => fake.state.model?.setValue('my edit'))
       await diskChanges('x'.repeat(DIFF_TEXT_MAX + 1))

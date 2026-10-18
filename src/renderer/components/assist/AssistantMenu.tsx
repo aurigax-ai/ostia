@@ -5,27 +5,27 @@ import { ButtonGroup } from '@/components/ui/button-group'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { featuresInUse, toggleAssistFeature, useChatAvailable } from '@/lib/assist/assistFeatures'
 import { openChatPane } from '@/lib/assist/chatPane'
-import { useChordLabel } from '@/lib/keys/chords'
+import { useChordLabel } from '@/lib/keyboard/chords'
 import { isMac } from '@/platform'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useAssistStore, wakeAssist } from '@/stores/assist/assistStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import {
-  CaretDownIcon,
-  ChatCircleDotsIcon,
-  GearSixIcon,
-  WarningCircleIcon,
-} from '@phosphor-icons/react'
 import {
   type AssistCatalog,
   type AssistFeatureState,
   type AssistModelClass,
   choiceLabel,
   sameModelRef,
-} from '@shared/assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import {
+  CaretDownIcon,
+  ChatCircleDotsIcon,
+  GearSixIcon,
+  WarningCircleIcon,
+} from '@phosphor-icons/react'
 import { useState } from 'react'
 
 function useAssistMenuVisible(): boolean {
@@ -151,7 +151,7 @@ function ModelsPanel(): JSX.Element {
       <ModelLine title={d.assistMenu.fastModel} label={modelLabel(catalog, 'fast')} />
       {lastError ? (
         <p className="flex items-start gap-1 px-1.5 text-attn-fg text-ui-xs">
-          <WarningCircleIcon aria-hidden className="mt-0.5 size-3 shrink-0" />
+          <WarningCircleIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
           <span className="min-w-0 break-words">
             {fmt(d.assistMenu.lastError, { error: lastError })}
           </span>

@@ -1,6 +1,6 @@
 import { useOriginAgentsStore } from '@/stores/agents/originAgentsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { OriginAgents } from '@shared/types'
+import type { OriginAgents } from '@shared/windows/windowsApi'
 import { isEqual } from 'es-toolkit'
 
 export function originWorkspaceId(workspace: {

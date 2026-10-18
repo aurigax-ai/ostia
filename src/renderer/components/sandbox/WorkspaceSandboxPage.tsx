@@ -1,10 +1,12 @@
 import { SectionTab, SectionTabsList } from '@/components/common/SectionTabs'
-import { ControlRow, SectionHead, SettingsGroup } from '@/components/settings/SettingsPanel'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { isMac } from '@/platform'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import {
@@ -60,14 +62,7 @@ const WORKSPACE_LISTS: Record<SandboxListKey, keyof WorkspaceSandbox> = {
   deniedDomains: 'deniedDomains',
 }
 
-export function WorkspaceSandboxPage({
-  workspaceId,
-  workspaceName,
-}: {
-  workspaceId: string
-  workspaceName: string
-}): JSX.Element {
-  const d = useDict()
+function useWorkspaceSandbox(workspaceId: string) {
   const globals = useSandboxGlobals()
   const [settings, setSettings] = useState<WorkspaceSandbox | null>(null)
   const fixed = useFixedPolicy(workspaceId, settings)
@@ -120,13 +115,48 @@ export function WorkspaceSandboxPage({
     },
     fixed,
   }
+  return {
+    globals,
+    settings,
+    setSettings,
+    applied,
+    current,
+    effective,
+    overrides,
+    scope,
+    setControls,
+    setPortsPolicy,
+    without,
+  }
+}
+
+export function WorkspaceSandboxPage({
+  workspaceId,
+  workspaceName,
+}: {
+  workspaceId: string
+  workspaceName: string
+}): JSX.Element {
+  const d = useDict()
+  const {
+    globals,
+    settings,
+    setSettings,
+    applied,
+    current,
+    effective,
+    overrides,
+    scope,
+    setControls,
+    setPortsPolicy,
+    without,
+  } = useWorkspaceSandbox(workspaceId)
 
   return (
-    <div>
-      <SectionHead
-        title={fmt(d.sandbox.workspacePage, { name: workspaceName })}
-        desc={d.sandbox.workspaceDesc}
-      />
+    <SettingsPage
+      title={fmt(d.sandbox.workspacePage, { name: workspaceName })}
+      desc={d.sandbox.workspaceDesc}
+    >
       <Tabs defaultValue="general">
         <SectionTabsList>
           <SectionTab value="general">{d.sandbox.general}</SectionTab>
@@ -230,6 +260,6 @@ export function WorkspaceSandboxPage({
           <SandboxViolations workspaceId={workspaceId} />
         </TabsContent>
       </Tabs>
-    </div>
+    </SettingsPage>
   )
 }

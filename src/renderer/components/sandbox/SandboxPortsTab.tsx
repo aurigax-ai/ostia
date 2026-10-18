@@ -1,8 +1,10 @@
-import { ControlRow } from '@/components/settings/SettingsPanel'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
+import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { openBrowserAs } from '@/lib/browser/browserProfile'
 import { isMac } from '@/platform'
 import type { Dict } from '@shared/app/dict'
@@ -75,45 +77,46 @@ export function SandboxPortsTab({ workspaceId }: { workspaceId: string }): JSX.E
 
   return (
     <fieldset aria-label={d.sandbox.ports} className="mb-4">
-      {rows.length === 0 ? (
-        <p className="text-fg-muted text-ui-sm">{d.sandbox.portsEmpty}</p>
-      ) : (
-        <ul className="flex flex-col gap-1">
-          {rows.map((row) => (
-            <li key={row.port} className="flex items-center gap-2 text-ui-sm">
-              <span className="w-16 font-mono text-fg tabular-nums">:{row.port}</span>
-              <span className="min-w-0 flex-1 truncate text-fg-muted">{row.process ?? ''}</span>
-              {row.exposed ? <Badge variant="outline">{d.sandbox.exposed}</Badge> : null}
-              {row.exposed ? (
-                <>
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    onClick={() =>
-                      openBrowserAs(workspaceId, `http://127.0.0.1:${row.port}/`, 'human')
-                    }
-                  >
-                    {d.sandbox.open}
+      <SettingsList label={d.sandbox.ports} empty={d.sandbox.portsEmpty}>
+        {rows.map((row) => (
+          <SettingsListRow
+            key={row.port}
+            title={<span className="font-mono tabular-nums">:{row.port}</span>}
+            meta={row.process ?? null}
+            actions={
+              <>
+                {row.exposed ? <Badge variant="outline">{d.sandbox.exposed}</Badge> : null}
+                {row.exposed ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      onClick={() =>
+                        openBrowserAs(workspaceId, `http://127.0.0.1:${row.port}/`, 'human')
+                      }
+                    >
+                      {d.sandbox.open}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() =>
+                        void window.ostia.sandbox.unexpose(workspaceId, row.port).then(load)
+                      }
+                    >
+                      {d.sandbox.unexpose}
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="outline" size="xs" onClick={() => void expose(row.port)}>
+                    {d.sandbox.expose}
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    onClick={() =>
-                      void window.ostia.sandbox.unexpose(workspaceId, row.port).then(load)
-                    }
-                  >
-                    {d.sandbox.unexpose}
-                  </Button>
-                </>
-              ) : (
-                <Button variant="outline" size="xs" onClick={() => void expose(row.port)}>
-                  {d.sandbox.expose}
-                </Button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+                )}
+              </>
+            }
+          />
+        ))}
+      </SettingsList>
       {error ? (
         <p role="alert" className="mt-1 text-attn-fg text-ui-sm">
           {error}

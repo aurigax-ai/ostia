@@ -1,0 +1,239 @@
+import { startUpdateWatch, useUpdateStore } from '@/stores/app/updateStore'
+import type { InstallMethod, ReleaseState } from '@shared/app/installMethod'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { UpdateCheck } from './UpdateCheck'
+import { UpdateNotice } from './UpdateNotice'
+
+const BUILD = { version: '1.0.0+sha.defdef', builtAt: '2026-09-30T11:00:00Z' }
+const RELEASE = {
+  version: '1.1.0',
+  url: 'https://github.com/aurigax-ai/ostia/releases/tag/v1.1.0',
+}
+const APT_COMMAND = 'sudo apt update && sudo apt install --only-upgrade ostia'
+
+function state(release: typeof RELEASE | null, method: InstallMethod = 'tarball'): ReleaseState {
+  return { release, method, updateCommand: method === 'apt' ? APT_COMMAND : null, replace: null }
+}
+
+describe('UpdateNotice', () => {
+  let init: ReturnType<typeof useUpdateStore.getState>
+
+  beforeAll(() => {
+    init = useUpdateStore.getState()
+  })
+
+  afterEach(() => {
+    cleanup()
+
+    useUpdateStore.setState(init, true)
+  })
+  it('shows nothing until a new build is installed', () => {
+    const { container } = render(<UpdateNotice />)
+    expect(container.innerHTML).toBe('')
+  })
+
+  it('fades in only a notice that appears during the session, never one already there', () => {
+    act(() => useUpdateStore.getState().receive(BUILD))
+    const first = render(<UpdateNotice />)
+    expect(first.container.querySelector('.update-notice')).not.toHaveClass('motion-fade')
+    first.unmount()
+
+    useUpdateStore.setState(init, true)
+    const { container } = render(<UpdateNotice />)
+    act(() => useUpdateStore.getState().receive(BUILD))
+    expect(container.querySelector('.update-notice')).toHaveClass('motion-fade')
+  })
+
+  it('offers a restart for a new build, hides on Later, and returns for a newer build', () => {
+    render(<UpdateNotice />)
+    act(() => useUpdateStore.getState().receive(BUILD))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Restart to update' }))
+    expect(window.ostia.update.restart).toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Later' }))
+    expect(screen.queryByRole('button', { name: 'Restart to update' })).toBeNull()
+
+    act(() => useUpdateStore.getState().receive({ ...BUILD, version: '1.0.0+sha.123abc' }))
+    expect(screen.getByRole('button', { name: 'Restart to update' })).toBeTruthy()
+  })
+
+  it('fills Restart to update with the brand color and on-brand text', () => {
+    render(<UpdateNotice />)
+    act(() => useUpdateStore.getState().receive(BUILD))
+
+    expect(screen.getByRole('button', { name: 'Restart to update' })).toHaveClass(
+      'bg-primary',
+      'text-primary-foreground',
+    )
+  })
+
+  it('names a newer release and asks main to open its page, never a URL of its own', () => {
+    render(<UpdateNotice />)
+    act(() => useUpdateStore.getState().receiveRelease(state(RELEASE)))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Version 1.1.0 is available' }))
+
+    expect(window.ostia.update.openRelease).toHaveBeenCalledWith()
+    expect(window.ostia.update.restart).not.toHaveBeenCalled()
+  })
+
+  it('hides the release on Skip this version and tells main to remember it', () => {
+    render(<UpdateNotice />)
+    act(() => useUpdateStore.getState().receiveRelease(state(RELEASE)))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Skip this version' }))
+
+    expect(screen.queryByRole('button', { name: 'Version 1.1.0 is available' })).toBeNull()
+    expect(window.ostia.update.dismissRelease).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides the release when main reports that none is pending', () => {
+    render(<UpdateNotice />)
+    act(() => useUpdateStore.getState().receiveRelease(state(RELEASE)))
+    act(() => useUpdateStore.getState().receiveRelease(state(null)))
+
+    expect(screen.queryByRole('button', { name: 'Version 1.1.0 is available' })).toBeNull()
+  })
+
+  it('offers the restart first when a new build is installed and a release is also pending', () => {
+    render(<UpdateNotice />)
+    act(() => {
+      useUpdateStore.getState().receiveRelease(state(RELEASE))
+      useUpdateStore.getState().receive(BUILD)
+    })
+
+    expect(screen.getByRole('button', { name: 'Restart to update' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Version 1.1.0 is available' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Later' }))
+    expect(screen.getByRole('button', { name: 'Version 1.1.0 is available' })).toBeTruthy()
+  })
+
+  it('offers the install method’s update for an apt install and asks before anything runs', async () => {
+    render(<UpdateNotice />)
+    act(() => useUpdateStore.getState().receiveRelease(state(RELEASE, 'apt')))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Update with apt' }))
+    expect(window.ostia.update.runUpdate).not.toHaveBeenCalled()
+    expect(useUpdateStore.getState().confirming).toBe(true)
+
+    await act(() => useUpdateStore.getState().confirmUpdate())
+    expect(window.ostia.update.runUpdate).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: 'Updating…' })).toBeDisabled()
+
+    act(() => useUpdateStore.getState().receiveUpdateRun({ status: 'done' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Restart Ostia' }))
+    expect(window.ostia.update.restart).toHaveBeenCalled()
+  })
+
+  it('after a restart the manual check names the release without bringing back the notice', async () => {
+    vi.mocked(window.ostia.update.checkRelease).mockResolvedValue({
+      status: 'available',
+      release: RELEASE,
+    })
+    render(
+      <>
+        <UpdateNotice />
+        <UpdateCheck />
+      </>,
+    )
+    let stop = (): void => {}
+    await act(async () => {
+      stop = startUpdateWatch()
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Check for updates' }))
+    })
+
+    expect(screen.getByText('Version 1.1.0 is available')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Version 1.1.0 is available' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Skip this version' })).toBeNull()
+    stop()
+  })
+
+  it('offers the update again after a failed run', () => {
+    render(<UpdateNotice />)
+    act(() => {
+      useUpdateStore.getState().receiveRelease(state(RELEASE, 'apt'))
+      useUpdateStore.getState().receiveUpdateRun({ status: 'running' })
+    })
+    act(() => useUpdateStore.getState().receiveUpdateRun({ status: 'failed', exitCode: 100 }))
+    expect(screen.getByRole('button', { name: 'Update with apt' })).toBeEnabled()
+  })
+
+  it('a brew install on Stable updates with Homebrew, and on Beta or a dmg install downloads in the app', async () => {
+    render(<UpdateNotice />)
+    act(() =>
+      useUpdateStore.getState().receiveRelease({
+        ...state(RELEASE, 'brew'),
+        updateCommand: 'brew upgrade --cask ostia',
+      }),
+    )
+    expect(screen.getByRole('button', { name: 'Update with Homebrew' })).toBeTruthy()
+
+    for (const method of ['brew', 'dmg'] as const) {
+      act(() =>
+        useUpdateStore
+          .getState()
+          .receiveRelease({ ...state(RELEASE, method), replace: { ok: true } }),
+      )
+      expect(screen.queryByRole('button', { name: 'Update with Homebrew' })).toBeNull()
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Download and install' }))
+      })
+      expect(window.ostia.update.replaceInstall).toHaveBeenCalled()
+      act(() => useUpdateStore.getState().receiveReplace({ status: 'done', version: '1.1.0' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Restart Ostia' }))
+      expect(window.ostia.update.restart).toHaveBeenCalled()
+      act(() => useUpdateStore.getState().receiveReplace({ status: 'idle' }))
+    }
+  })
+
+  it.each([
+    ['translocated', 'macOS is running Ostia from a temporary copy.'],
+    ['read-only', 'Ostia is running from its disk image.'],
+    ['not-writable', 'You can’t write to the app folder'],
+    ['symlink', 'The app folder is a symbolic link'],
+  ] as const)(
+    'a dmg install that cannot be replaced (%s) opens the release page and says why',
+    async (reason, text) => {
+      render(<UpdateCheck />)
+      await act(async () =>
+        useUpdateStore.getState().receiveRelease({
+          ...state(RELEASE, 'dmg'),
+          replace: { ok: false, reason },
+        }),
+      )
+      expect(screen.getByText(new RegExp(`^${text}`))).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Download and install' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Update with Homebrew' })).toBeNull()
+      expect(screen.getByRole('button', { name: 'View release' })).toBeTruthy()
+    },
+  )
+
+  it('names each macOS verification failure and offers the download again', async () => {
+    render(<UpdateCheck />)
+    await act(async () =>
+      useUpdateStore.getState().receiveRelease({ ...state(RELEASE, 'dmg'), replace: { ok: true } }),
+    )
+    const reasons = {
+      'mount-failed': 'Couldn’t open the downloaded disk image. Nothing was changed.',
+      'bad-signature': 'The downloaded app’s signature is broken. Nothing was changed.',
+      'wrong-team': 'The downloaded app isn’t signed as Ostia. Nothing was changed.',
+      'not-notarized': 'macOS didn’t accept the downloaded app as notarized. Nothing was changed.',
+      'checksum-mismatch': 'The downloaded archive didn’t match its checksum. Nothing was changed.',
+      'wrong-version': 'The archive holds a different version. Nothing was changed.',
+    } as const
+    for (const [reason, text] of Object.entries(reasons)) {
+      act(() =>
+        useUpdateStore
+          .getState()
+          .receiveReplace({ status: 'failed', reason: reason as keyof typeof reasons }),
+      )
+      expect(screen.getByText(text)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Download and install' })).toBeEnabled()
+    }
+  })
+})

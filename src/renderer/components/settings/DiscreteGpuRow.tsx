@@ -1,16 +1,16 @@
+import { ExperimentalBadge, ToggleRow } from '@/components/settingsKit/ControlRow'
 import { Button } from '@/components/ui/button'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { InfoIcon } from '@phosphor-icons/react'
 import {
   DISCRETE_GPU_FEATURE,
   type DiscreteGpuInfo,
   rendererDeviceName,
 } from '@shared/app/discreteGpu'
-import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { useEffect, useState } from 'react'
 import { RequirementsNoteView, useRequirements } from './RequirementsNote'
-import { ExperimentalBadge, ToggleRow } from './SettingsPanel'
 
 function drawingGpu(): string | null {
   const gl = document.createElement('canvas').getContext('webgl')
@@ -55,7 +55,7 @@ export function DiscreteGpuRow(): JSX.Element {
         requirements={requirements}
       />
       <div role="note" className="mt-1 flex items-start gap-2 text-fg-muted text-ui-sm">
-        <InfoIcon className="mt-0.5 size-3.5 shrink-0" />
+        <InfoIcon className="mt-0.5 size-4 shrink-0" />
         <div className="min-w-0 flex-1">
           {ready && gpu === null ? <p>{d.settings.discreteGpuNone}</p> : null}
           {gpu ? <p>{fmt(d.settings.discreteGpuFound, { name: gpu.name })}</p> : null}

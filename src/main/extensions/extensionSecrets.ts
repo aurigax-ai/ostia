@@ -1,6 +1,7 @@
-import { EXTENSION_SECRET_MAX } from '../../shared/extensions'
-import { isDangerousSegment } from '../../shared/protoGuard'
-import type { ExtensionSecretStore } from './extensionHost'
+import { EXTENSION_SECRET_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
+import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
+import type { ExtensionSecretStore } from './extensionHostDeps'
 
 export type StoredSecrets = Record<string, Record<string, string>>
 
@@ -14,7 +15,7 @@ export interface SecretStoreDeps {
 
 export function sanitizeSecrets(raw: unknown): StoredSecrets {
   const out: StoredSecrets = Object.create(null)
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return out
+  if (!isRecord(raw)) return out
   for (const [extId, values] of Object.entries(raw)) {
     if (isDangerousSegment(extId) || typeof values !== 'object' || values === null) continue
     const kept: Record<string, string> = Object.create(null)

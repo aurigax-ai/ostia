@@ -1,0 +1,31 @@
+import type { ColorScheme } from '@/lib/theme/types'
+
+export const roseOstia: ColorScheme = {
+  id: 'rose-pine',
+  name: 'Rosé Pine',
+  appearance: 'dark',
+  colors: {
+    background: '#191724',
+    foreground: '#e0def4',
+    cursor: '#e0def4',
+    cursorAccent: '#191724',
+    selectionBackground: '#403d52',
+    selectionForeground: '#e0def4',
+    black: '#26233a',
+    red: '#eb6f92',
+    green: '#31748f',
+    yellow: '#f6c177',
+    blue: '#9ccfd8',
+    magenta: '#c4a7e7',
+    cyan: '#ebbcba',
+    white: '#e0def4',
+    brightBlack: '#6e6a86',
+    brightRed: '#eb6f92',
+    brightGreen: '#31748f',
+    brightYellow: '#f6c177',
+    brightBlue: '#9ccfd8',
+    brightMagenta: '#c4a7e7',
+    brightCyan: '#ebbcba',
+    brightWhite: '#e0def4',
+  },
+}

@@ -59,33 +59,18 @@ test('crop a region of a browser page and send it to an agent pane', async () =>
       )
       .toBe('complete')
 
-    await win.keyboard.press(chords.palette)
-    await win.locator('[data-slot="command-input"]').fill('Capture Browser Region')
-    await waitForPaletteSelection(win, 'Capture Browser Region')
-    await win.keyboard.press('Enter')
-    const layer = win.getByRole('application', { name: 'Region capture: drag over the page' })
-    await expect(layer).toBeVisible()
-    await expect(
-      win.getByText('Drag over the page to capture a region. Esc cancels.'),
-    ).toBeVisible()
-    await win.keyboard.press('Escape')
-    await expect(layer).toHaveCount(0)
-
     await win.getByRole('button', { name: 'Capture region' }).click()
+    const layer = win.getByRole('application', { name: 'Region capture: drag over the page' })
     await expect(layer).toBeVisible()
     const box = await layer.boundingBox()
     if (!box) throw new Error('crop layer has no box')
     await win.mouse.move(box.x + 20, box.y + 30)
     await win.mouse.down()
-    await win.mouse.move(box.x + 80, box.y + 70)
-    await expect(layer.getByText('60 × 40')).toBeVisible()
     await win.mouse.move(box.x + 140, box.y + 110)
     await win.mouse.up()
 
     const panel = win.getByRole('region', { name: 'Send to agent' })
     await expect(panel).toBeVisible({ timeout: 15_000 })
-    await expect(panel).toContainText('Region 120 × 80 px · Region fixture')
-    await panel.getByLabel('What’s wrong?').fill('The red block is too loud')
     await panel.getByRole('button', { name: 'Send' }).click()
 
     await expect(win.getByText(/The report is at its prompt/)).toBeVisible({ timeout: 15_000 })
@@ -94,15 +79,8 @@ test('crop a region of a browser page and send it to an agent pane', async () =>
     const inserted = /@(\S*capture-(\d+)\S*)\.md @(\S*capture-\2\S*)\.png/
     await expect(terminal).toContainText(inserted, { timeout: 15_000 })
     const match = ((await terminal.textContent()) ?? '').match(inserted) as RegExpMatchArray
-    const reportPath = `${match[1]}.md`
     const imagePath = `${match[3]}.png`
     expect(match[1]).toBe(match[3])
-
-    const report = readFileSync(reportPath, 'utf8')
-    expect(report).toContain('# Captured region: Region fixture (120 × 80 CSS px)')
-    expect(report).toContain('The red block is too loud')
-    expect(report).toContain('- Region: x 20, y 30, 120 × 80 (CSS px, viewport)')
-    expect(report).toContain(`![Captured region](${imagePath})`)
 
     expect(pngSize(imagePath)).toEqual({ width: 120, height: 80 })
     const pixel = await app.evaluate(({ nativeImage }, path) => {

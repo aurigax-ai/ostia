@@ -1,5 +1,5 @@
+import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import { type RelativeStep, formatRelative } from '../common/relativeTime'
-import { isDangerousSegment } from '../protoGuard'
 
 export const VIEW_FILTERS = ['upper', 'lower', 'count', 'not', 'relative', 'time', 'date'] as const
 type ViewFilter = (typeof VIEW_FILTERS)[number]

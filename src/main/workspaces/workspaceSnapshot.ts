@@ -1,10 +1,13 @@
-import { existsSync, rmSync } from 'node:fs'
-import { parseAgentResume } from '../../shared/agents/agentResume'
-import { isDangerousSegment } from '../../shared/protoGuard'
-import { isRemotePath } from '../../shared/remoteFolders'
+import { isViewType } from '@aurigax-ai/ostia-extension-sdk/contract/fileViewers'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
+import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import { parseResumeFailure, parseStoredResume } from '../../shared/agents/agentResume'
+import { parseBrowserDevice } from '../../shared/browser/browserDevice'
+import { VIEW_NAME } from '../../shared/views/views'
+import type { PaneDrop } from '../../shared/windows/windowsApi'
+import { normalizeSplitTabName } from '../../shared/workspaces/splitTabs'
 import type {
   AppSnapshot,
-  PaneDrop,
   PanePlacement,
   PanePlacementZone,
   SnapshotGroup,
@@ -16,9 +19,7 @@ import type {
   SnapshotWorkspace,
   WindowBounds,
   WorkspaceOrigin,
-} from '../../shared/types'
-import { VIEW_NAME } from '../../shared/views/views'
-import { normalizeSplitTabName } from '../../shared/workspaces/splitTabs'
+} from '../../shared/workspaces/workspaceApi'
 import { isWorkspaceGroupColor, normalizeGroupName } from '../../shared/workspaces/workspaceGroups'
 import {
   MAX_LAYOUT_DEPTH,
@@ -26,12 +27,9 @@ import {
   MAX_WORKSPACES,
 } from '../../shared/workspaces/workspaceLimits'
 import { normalizeDescription } from '../../shared/workspaces/workspaceText'
-import { loadJson, saveJson, saveJsonAsync, storePath } from '../platform/jsonStore'
-import { tailCut } from '../terminal/ptyRingBuffer'
+import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 
 const SNAPSHOT_VERSION = 1
-
-export const SCROLLBACK_CAP_BYTES = 131_072
 
 const MAX_WINDOWS = 16
 const MAX_GROUPS = 32
@@ -60,14 +58,6 @@ const ORIGIN_INDEX_MAX = 1000
 
 export function snapshotPath(): string {
   return storePath('workspaces', 'global')
-}
-
-export function scrollbackPath(): string {
-  return storePath('scrollback', 'global')
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
 function copyOptionalString(
@@ -112,20 +102,28 @@ function parseNode(
     if (typeof raw.filePath !== 'string' || !isRemotePath(raw.filePath)) {
       copyOptionalString(raw, pane, 'filePath')
     }
+    if (pane.kind === 'editor' && typeof raw.viewType === 'string' && isViewType(raw.viewType)) {
+      pane.viewType = raw.viewType
+    }
     copyOptionalString(raw, pane, 'url')
     copyOptionalString(raw, pane, 'extensionId')
     if (pane.kind === 'chat') copyOptionalString(raw, pane, 'chatSessionId')
     if (pane.kind === 'browser' && raw.browserProfile === 'shared') pane.browserProfile = 'shared'
+    const device = pane.kind === 'browser' ? parseBrowserDevice(raw.browserDevice) : undefined
+    if (device) pane.browserDevice = device
     if (typeof raw.viewName === 'string' && VIEW_NAME.test(raw.viewName)) {
       pane.viewName = raw.viewName
     }
-    const resume = parseAgentResume(raw.resume)
+    const resume = parseStoredResume(raw.resume)
     if (resume) pane.resume = resume
     if (resume && raw.agentRunning === true && raw.hibernated !== true) pane.agentRunning = true
     if (resume && raw.hibernated === true) pane.hibernated = true
+    const failure = resume ? null : parseResumeFailure(raw.resumeFailed)
+    if (failure) pane.resumeFailed = failure
     if (raw.locked === true) pane.locked = true
     if (pane.kind === 'terminal' && raw.defaultTitle === true) pane.defaultTitle = true
     if (raw.titlePinned === true) pane.titlePinned = true
+    if (inTab && raw.collapsed === true) pane.collapsed = true
     if (pane.kind === 'extension' && !pane.extensionId) return null
     if (pane.kind === 'view' && !pane.viewName) return null
     paneIds.push(id)
@@ -139,8 +137,16 @@ function parseNode(
       if (!isRecord(child) || (child.type !== 'pane' && child.type !== 'split')) return null
       const parsed = parseNode(child, paneIds, depth + 1, true)
       if (!parsed || parsed.type === 'tabs') return null
-      const name = parsed.type === 'split' ? normalizeSplitTabName(child.name) : null
-      tabs.push(name && parsed.type === 'split' ? { ...parsed, name } : parsed)
+      if (parsed.type === 'pane') {
+        tabs.push(parsed)
+        continue
+      }
+      const name = normalizeSplitTabName(child.name)
+      tabs.push({
+        ...parsed,
+        ...(name ? { name } : {}),
+        ...(child.folded === true ? { folded: true as const } : {}),
+      })
     }
     if (tabs.length === 1) return tabs[0]
     const ids = tabs.flatMap(tabPaneIds)
@@ -411,93 +417,4 @@ export function saveSnapshot(snapshot: AppSnapshot): void {
 
 export function loadSnapshot(): AppSnapshot | null {
   return parseSnapshot(loadJson<unknown>(snapshotPath(), null))
-}
-
-export function trimScrollback(data: string, capBytes = SCROLLBACK_CAP_BYTES): string {
-  return data.slice(tailCut(data, capBytes))
-}
-
-const restored = new Map<string, string>()
-
-export function scrollbackToSave(
-  byPane: Record<string, string>,
-  unsaved: (paneId: string) => boolean = () => false,
-): Record<string, string> {
-  const out: Record<string, string> = {}
-  let kept = 0
-  for (const [paneId, data] of Object.entries(byPane)) {
-    if (kept >= MAX_PANES) break
-    if (!data || isDangerousSegment(paneId) || unsaved(paneId)) continue
-    out[paneId] = trimScrollback(data)
-    kept++
-  }
-  return out
-}
-
-let scrollbackEpoch = 0
-let scrollbackWrites: Promise<void> = Promise.resolve()
-
-export function saveScrollback(
-  byPane: Record<string, string>,
-  unsaved: (paneId: string) => boolean = () => false,
-): Promise<void> {
-  const epoch = scrollbackEpoch
-  const data = scrollbackToSave(byPane, unsaved)
-  const write = scrollbackWrites.then(() =>
-    epoch === scrollbackEpoch ? saveJsonAsync(scrollbackPath(), data) : undefined,
-  )
-  scrollbackWrites = write.catch(() => undefined)
-  return write
-}
-
-export type RestoreOutcome = 'ok' | 'none' | 'failed'
-
-export function loadRestoredScrollback(): RestoreOutcome {
-  restored.clear()
-  if (!existsSync(scrollbackPath())) return 'none'
-  const raw = loadJson<unknown>(scrollbackPath(), null)
-  if (!isRecord(raw)) return 'failed'
-  for (const [paneId, data] of Object.entries(raw)) {
-    if (typeof data === 'string' && data && !isDangerousSegment(paneId)) restored.set(paneId, data)
-  }
-  return 'ok'
-}
-
-export function takeRestoredScrollback(paneId: string): string | null {
-  const data = restored.get(paneId)
-  if (data === undefined) return null
-  restored.delete(paneId)
-  return data
-}
-
-export function stashedScreen(
-  paneId: string,
-  askingWindow: string,
-  ownerWindow: string | undefined,
-): string | null {
-  if (ownerWindow === undefined || ownerWindow !== askingWindow) return null
-  return restored.get(paneId) ?? null
-}
-
-export function stashScrollback(paneId: string, data: string): void {
-  if (!data || isDangerousSegment(paneId)) return
-  restored.set(paneId, trimScrollback(data))
-}
-
-export function pendingRestoredScrollback(): Record<string, string> {
-  return Object.fromEntries(restored)
-}
-
-export function dropRestoredScrollback(paneId: string): void {
-  restored.delete(paneId)
-}
-
-export function clearPersisted(): Promise<void> {
-  restored.clear()
-  scrollbackEpoch++
-  for (const path of [snapshotPath(), scrollbackPath()]) {
-    rmSync(path, { force: true })
-  }
-  scrollbackWrites = scrollbackWrites.then(() => rmSync(scrollbackPath(), { force: true }))
-  return scrollbackWrites
 }

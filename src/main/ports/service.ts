@@ -1,6 +1,11 @@
-import { type CoreItems, NO_CORE_ITEMS, PORTS_SOURCE } from '../../shared/boards/git'
+import type {
+  ExtensionSidebarItem,
+  PaneChip,
+  WorkspaceChip,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { PORTS_SOURCE } from '@aurigax-ai/ostia-extension-sdk/manifest/coreNames'
+import { type CoreItems, NO_CORE_ITEMS } from '../../shared/boards/git'
 import type { PortsSettings } from '../../shared/boards/ports'
-import type { ExtensionSidebarItem, PaneChip, WorkspaceChip } from '../../shared/extensions'
 import type { PaneEntry } from '../panes/paneList'
 import { WatchSets } from '../platform/watchSets'
 import { paneChipValues, workspaceChipValues } from './chips'

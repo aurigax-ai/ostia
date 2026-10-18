@@ -18,12 +18,14 @@ const { postBusMessage, registerBusMethods } = await import('./bus')
 const { markManager, registerPane, registerScript } = await import('../control/idRegistry')
 
 const announce = vi.fn()
+const observed = vi.fn()
 let managerMaySend = true
 const asleepPanes = new Set<string>()
 const scriptReaches = new Set<string>()
 registerBusMethods({
   managerSendAllowed: () => managerMaySend,
   announce,
+  observe: observed,
   hibernated: async (pane) => asleepPanes.has(pane.paneId),
   inScope: async (ctx, workspaceId) =>
     ctx.identity.kind === 'script' && scriptReaches.has(workspaceId),
@@ -80,6 +82,7 @@ const context = (identity = receiver) => call<{ text: string | null }>('bus.cont
 beforeEach(() => {
   rmSync(join(dataHome, 'ostia'), { recursive: true, force: true })
   announce.mockClear()
+  observed.mockClear()
   ensureCaps.mockClear()
   ensureCaps.mockImplementation(async () => {})
   managerMaySend = true
@@ -91,7 +94,7 @@ afterAll(() => rmSync(dataHome, { recursive: true, force: true }))
 describe('bus delivery', () => {
   it('queues a message for a pane that is not waiting and tells the human', async () => {
     const res = await send('tests are green')
-    expect(res).toMatchObject({ ok: true, delivered: 'queued' })
+    expect(res).toMatchObject({ ok: true, delivered: 'queued', seen: false })
     expect(announce).toHaveBeenCalledWith(sender, receiver, 'tests are green')
     expect(ensureCaps).toHaveBeenCalledWith(
       {},
@@ -107,7 +110,7 @@ describe('bus delivery', () => {
       timeoutMs: 5000,
     })
     const res = await send('wake up')
-    expect(res.delivered).toBe('waiting')
+    expect(res).toMatchObject({ delivered: 'waiting', seen: true })
     expect(announce).not.toHaveBeenCalled()
     const woken = await waiting
     expect(woken.timedOut).toBe(false)
@@ -164,7 +167,7 @@ describe('bus delivery', () => {
       task: 'fix the flaky test',
       summary: 'it fails one run in five',
     })
-    expect(res).toMatchObject({ ok: true, delivered: 'queued' })
+    expect(res).toMatchObject({ ok: true, delivered: 'queued', seen: false })
     expect(announce).toHaveBeenCalledWith(
       sender,
       receiver,
@@ -370,5 +373,47 @@ describe('bus.send to a hibernated pane', () => {
     asleepPanes.add('bus-receiver')
     expect(await send('second')).toMatchObject({ ok: true, delivered: 'queued', asleep: true })
     expect(inbox().map((m) => m.text)).toEqual(['first', 'second'])
+  })
+})
+
+describe('bus observation', () => {
+  it('reports who, to whom, which kind and which phase, and never the text', async () => {
+    const res = await send('rotate the api key sk-secret')
+    expect(observed).toHaveBeenCalledTimes(1)
+    expect(observed).toHaveBeenCalledWith({
+      id: res.id,
+      from: sender.externalId,
+      to: receiver.externalId,
+      kind: 'message',
+      phase: 'queued',
+    })
+    expect(JSON.stringify(observed.mock.calls)).not.toContain('sk-secret')
+  })
+
+  it('reports seen once when the receiver reads its inbox', async () => {
+    const res = await send('read me')
+    observed.mockClear()
+    inbox()
+    inbox()
+    expect(observed.mock.calls.map(([o]) => [o.id, o.phase])).toEqual([[res.id, 'seen']])
+  })
+
+  it('reports a message handed to a waiting pane as waiting, then seen', async () => {
+    const waiting = call<Promise<unknown>>('bus.wait', receiver, { timeoutMs: 5000 })
+    await send('wake up')
+    await waiting
+    expect(observed.mock.calls.map(([o]) => o.phase)).toEqual(['waiting', 'seen'])
+  })
+
+  it('reports a handoff as a task and says nothing about a quiet system message', async () => {
+    await call<Promise<unknown>>('bus.handoff', sender, {
+      to: receiver.externalId,
+      task: 'fix it',
+      summary: 'now',
+    })
+    expect(observed.mock.calls[0]?.[0]).toMatchObject({ kind: 'task', phase: 'queued' })
+    observed.mockClear()
+    postBusMessage(sender.externalId, receiver.externalId, '{"kind":"capture"}')
+    expect(observed).not.toHaveBeenCalled()
   })
 })

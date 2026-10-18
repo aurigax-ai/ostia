@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
@@ -9,7 +9,8 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { createServer } from 'node:net'
+import { createServer as createHttpServer } from 'node:http'
+import { type AddressInfo, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'esbuild'
@@ -19,11 +20,12 @@ import { quoteArgv } from '../../shared/terminal/shellQuote'
 import { shellArgv } from '../../shared/terminal/terminalShell'
 import { availableReadPresets } from './presets'
 import { sandboxedShellCommand, wrapForTerminal } from './ptyWrap'
+import { SandboxUnavailableError } from './sandboxHosts'
 import { hiddenHomeNotice, sandboxFailureBanner } from './spawnBanner'
 import { sandboxSpawnEnv } from './spawnEnv'
 import { SandboxStore } from './store'
 import { ViolationLog, recordViolations } from './violations'
-import { SandboxUnavailableError, WorkspaceSandboxes } from './workspaceSandboxes'
+import { WorkspaceSandboxes } from './workspaceSandboxes'
 
 const repoRoot = process.cwd()
 const hostScript = join(repoRoot, 'node_modules/.cache/ostia-test/sandbox-host-ws.mjs')
@@ -33,7 +35,11 @@ let workDir: string
 let storePath: string
 let noBwrapPath: string
 
-function sandboxes(store: SandboxStore, env?: NodeJS.ProcessEnv): WorkspaceSandboxes {
+function sandboxes(
+  store: SandboxStore,
+  env?: NodeJS.ProcessEnv,
+  onAsk: (workspaceId: string, host: string) => Promise<boolean> = async () => false,
+): WorkspaceSandboxes {
   return new WorkspaceSandboxes({
     store,
     globals: () => DEFAULT_SANDBOX_GLOBALS,
@@ -48,7 +54,7 @@ function sandboxes(store: SandboxStore, env?: NodeJS.ProcessEnv): WorkspaceSandb
     nodePath: process.execPath,
     hostScript,
     hostEnv: env,
-    onAsk: async () => false,
+    onAsk,
   })
 }
 
@@ -68,7 +74,7 @@ beforeAll(async () => {
     bundle: true,
     platform: 'node',
     format: 'esm',
-    packages: 'external',
+    external: ['@anthropic-ai/sandbox-runtime'],
   })
   root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-wsbx-')))
   workDir = join(root, 'home', 'proj')
@@ -99,7 +105,7 @@ describe('WorkspaceSandboxes', () => {
       expect(banner).toContain('bubblewrap')
       expect(banner).toContain('ostia system install bubblewrap')
       expect(banner).not.toContain('socat')
-      manager.stopAll()
+      manager.hosts.stopAll()
     },
   )
 
@@ -116,7 +122,7 @@ describe('WorkspaceSandboxes', () => {
       env.PATH = process.env.PATH
       const wrapped = await manager.wrap('ws', 'bash', 'bash')
       expect(wrapped).toContain('bwrap')
-      manager.stopAll()
+      manager.hosts.stopAll()
     },
     30_000,
   )
@@ -152,10 +158,10 @@ describe('WorkspaceSandboxes', () => {
     store.set('ws', { enabled: true, allowRead: [], domains: [], controls: {} })
     const manager = sandboxes(store)
     manager.config('ws')
-    expect(existsSync(manager.tmpDir('ws'))).toBe(true)
+    expect(existsSync(manager.tmp.tmpDir('ws'))).toBe(true)
     manager.forget('ws')
     expect(new SandboxStore(path).has('ws')).toBe(false)
-    expect(existsSync(manager.tmpDir('ws'))).toBe(false)
+    expect(existsSync(manager.tmp.tmpDir('ws'))).toBe(false)
   })
 
   it('SBX-C25 lets a shell read a path the human added to its workspace, and not other workspaces', async () => {
@@ -177,8 +183,8 @@ describe('WorkspaceSandboxes', () => {
     expect(inB).toContain(
       process.platform === 'darwin' ? 'Operation not permitted' : 'No such file or directory',
     )
-    managerA.stopAll()
-    managerB.stopAll()
+    managerA.hosts.stopAll()
+    managerB.hosts.stopAll()
   }, 30_000)
 
   it('a sandboxed workspace wraps the shell chosen in terminal.shell', async () => {
@@ -194,7 +200,7 @@ describe('WorkspaceSandboxes', () => {
       input: 'echo "sandbox=${HTTPS_PROXY:+on} flags=$-"\nexit\n',
     })
     expect(out).toMatch(/sandbox=on flags=\S*i/)
-    manager.stopAll()
+    manager.hosts.stopAll()
   }, 30_000)
 
   it('SBX-C56 keeps an inherited ssh-agent socket out of reach and out of the environment', async () => {
@@ -227,12 +233,62 @@ describe('WorkspaceSandboxes', () => {
       const wrapped = await manager.wrap('ws', probe, 'bash')
       const out = execFileSync('/bin/sh', ['-c', wrapped], { cwd: workDir, encoding: 'utf8' })
       expect(out).not.toContain('AGENT-REACHED')
-      manager.stopAll()
+      manager.hosts.stopAll()
     } finally {
       server.close()
       rmSync(agentDir, { recursive: true, force: true })
     }
   }, 30_000)
+
+  it('a blocked connection waits on the card and completes once the human allows the host', async () => {
+    const requested: string[] = []
+    const upstream = createHttpServer((req, res) => {
+      requested.push(req.url ?? '')
+      res.end('UPSTREAM-REACHED')
+    })
+    await new Promise<void>((resolve) => upstream.listen(0, '127.0.0.1', resolve))
+    const url = `http://127.0.0.1:${(upstream.address() as AddressInfo).port}`
+    const asked: string[] = []
+    let allow: (allowed: boolean) => void = () => {}
+    const answer = new Promise<boolean>((resolve) => {
+      allow = resolve
+    })
+    const store = new SandboxStore(join(root, 'held.json'))
+    store.set('ws', { enabled: true, allowRead: [], domains: [], controls: {} })
+    const manager = sandboxes(
+      store,
+      { ...process.env, HTTP_PROXY: url, http_proxy: url, NO_PROXY: '', no_proxy: '' },
+      async (_ws, host) => {
+        asked.push(host)
+        return answer
+      },
+    )
+    try {
+      const target = 'http://allowed.ostia-e2e.test/hello'
+      const wrapped = await manager.wrap(
+        'ws',
+        `curl -s -m 60 -w "\\ncode=%{http_code}\\n" ${target}`,
+        'bash',
+      )
+      const child = spawn('/bin/sh', ['-c', wrapped], { cwd: workDir })
+      let out = ''
+      child.stdout.on('data', (d: Buffer) => {
+        out += d.toString('utf8')
+      })
+      const done = new Promise((resolve) => child.on('close', resolve))
+      await expect.poll(() => asked, { timeout: 20_000 }).toEqual(['allowed.ostia-e2e.test'])
+      expect(requested).toEqual([])
+      expect(out).toBe('')
+      allow(true)
+      await done
+      expect(out).toContain('UPSTREAM-REACHED')
+      expect(out).toContain('code=200')
+      expect(requested).toEqual([target])
+    } finally {
+      manager.hosts.stopAll()
+      upstream.close()
+    }
+  }, 60_000)
 
   it('SBX-C5 a workspace with the sandbox off spawns an unwrapped shell', () => {
     const manager = sandboxes(new SandboxStore(join(root, 'c5.json')))
@@ -256,7 +312,7 @@ describe('WorkspaceSandboxes', () => {
     expect(out).toContain('C6-DENIED')
     expect(out).toContain('proxy=on')
     expect(out).not.toContain('SECRET-KEY-MATERIAL')
-    manager.stopAll()
+    manager.hosts.stopAll()
   }, 30_000)
 
   it('a folder added as writable in Settings can be written from the sandbox once the shell restarts', async () => {
@@ -270,12 +326,12 @@ describe('WorkspaceSandboxes', () => {
     )
     expect(existsSync(join(builds, 'early.txt'))).toBe(false)
     manager.update('ws', (current) => ({ ...current, allowWrite: ['~/builds'] }))
-    await manager.refresh('ws')
+    await manager.hosts.refresh('ws')
     expect(await shellIn(manager, 'ws', `echo built > ${builds}/out.txt && echo AFTER`)).toContain(
       'AFTER',
     )
     expect(readFileSync(join(builds, 'out.txt'), 'utf8')).toBe('built\n')
-    manager.stopAll()
+    manager.hosts.stopAll()
   }, 30_000)
 
   it('a tool-folder preset switched on in Settings makes the tool readable once the shell restarts', async () => {
@@ -293,9 +349,9 @@ describe('WorkspaceSandboxes', () => {
     const paths = presets.find((preset) => preset.id === 'bun')?.paths ?? []
     expect(paths).toEqual(['~/.bun'])
     manager.update('ws', (current) => ({ ...current, allowRead: [...current.allowRead, ...paths] }))
-    await manager.refresh('ws')
+    await manager.hosts.refresh('ws')
     expect(await shellIn(manager, 'ws', `cat ${bun}; echo AFTER`)).toContain('BUN-BINARY-STANDIN')
-    manager.stopAll()
+    manager.hosts.stopAll()
   }, 30_000)
 
   it('a path hidden in Settings cannot be read from the sandbox, even inside the workspace folder', async () => {
@@ -306,11 +362,11 @@ describe('WorkspaceSandboxes', () => {
     const manager = sandboxes(store)
     expect(await shellIn(manager, 'ws', 'cat secrets/token.txt')).toContain('WORKSPACE-TOKEN-VALUE')
     manager.update('ws', (current) => ({ ...current, denyRead: [join(workDir, 'secrets')] }))
-    await manager.refresh('ws')
+    await manager.hosts.refresh('ws')
     const after = await shellIn(manager, 'ws', 'cat secrets/token.txt || echo HIDDEN')
     expect(after).toContain('HIDDEN')
     expect(after).not.toContain('WORKSPACE-TOKEN-VALUE')
-    manager.stopAll()
+    manager.hosts.stopAll()
   }, 30_000)
 
   it('a refused connection shows up under Blocked with its host, and Clear empties the list', async () => {
@@ -361,7 +417,7 @@ describe('WorkspaceSandboxes', () => {
     expect(asked).toEqual([])
     log.clear('ws')
     expect(log.list('ws')).toEqual([])
-    manager.stopAll()
+    manager.hosts.stopAll()
   }, 30_000)
 
   it.skipIf(process.platform !== 'linux')(
@@ -382,7 +438,7 @@ describe('WorkspaceSandboxes', () => {
       )
       expect(out).toContain('WROTE')
       expect(existsSync(join(home, 'lost.txt'))).toBe(false)
-      manager.stopAll()
+      manager.hosts.stopAll()
     },
     30_000,
   )

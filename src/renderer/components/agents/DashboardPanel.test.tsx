@@ -1,4 +1,4 @@
-import { createPane } from '@/layout/tree'
+import { createPane } from '@/lib/layout/tree'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
@@ -9,8 +9,11 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type {
+  ExtensionInfo,
+  WorkspaceChip,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { QuestionRequest } from '@shared/agents/questions'
-import type { ExtensionInfo, WorkspaceChip } from '@shared/extensions'
 import type { ApprovalRequest } from '@shared/permissions/approvals'
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -39,10 +42,12 @@ const git: ExtensionInfo = {
   assist: [],
   secrets: [],
   secretsSet: [],
+  connectionKinds: [],
   settingsPage: null,
   category: 'other',
   languages: [],
   languageServers: [],
+  fileViewers: [],
   agentSkills: [],
   agentHooks: [],
   iconThemes: [],
@@ -384,7 +389,7 @@ describe('DashboardPanel', () => {
     expect(row).toHaveTextContent('In another window')
     expect(row).toHaveTextContent('Working')
     await userEvent.setup().click(screen.getByRole('button', { name: 'Open workspace infra' }))
-    expect(window.ostia.windows.focusWorkspace).toHaveBeenCalledWith('w-far', false)
+    expect(window.ostia.windows.focusWorkspace).toHaveBeenCalledWith('w-far', false, true)
   })
 
   it('closes on Escape and from its close button', async () => {

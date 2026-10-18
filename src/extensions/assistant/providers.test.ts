@@ -1,9 +1,10 @@
 import { rmSync } from 'node:fs'
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
+import { parseEndpoint } from '@aurigax-ai/ostia-extension-sdk/assist'
+import { envName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { APICallError, type UIMessageChunk, generateText, streamText } from 'ai'
-import { afterEach, describe, expect, it } from 'vitest'
-import { parseEndpoint } from '../sdk/assist/endpoint'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ASSISTANT_CATALOG, createProvider, kindTitle } from './providers'
 
 interface Seen {
@@ -293,9 +294,12 @@ describe('assistant catalog', () => {
     expect(ASSISTANT_CATALOG.defaultBaseUrl('openai-compatible', {})).toBe('')
   })
 
-  it('titles a kind in English, and in the catalog language when it has the message', () => {
+  it('titles a kind from its locale catalogs, English when a language has no message', () => {
+    vi.stubEnv(envName('EXTENSION_DIR'), import.meta.dirname)
     expect(kindTitle('openai-compatible', 'en')).toBe('OpenAI-compatible')
+    expect(kindTitle('openai-compatible', 'zh-Hant')).toBe('OpenAI 相容')
     expect(kindTitle('anthropic', 'zh-Hant')).toBe('Anthropic')
     expect(kindTitle('unknown-kind', 'en')).toBe('unknown-kind')
+    vi.unstubAllEnvs()
   })
 })

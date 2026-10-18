@@ -49,12 +49,14 @@ button.tab[aria-pressed="true"] {
   padding: 8px;
 }
 
-.workspace + .workspace {
-  margin-top: 16px;
+.stream {
+  margin: 0 0 12px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--line);
 }
 
-.workspace-name {
-  margin: 0 0 4px;
+.stream-title {
+  margin: 0 0 6px;
   padding: 0 8px;
   font-size: var(--text-ui-xs);
   line-height: var(--text-ui-xs--line-height);
@@ -63,9 +65,29 @@ button.tab[aria-pressed="true"] {
   text-transform: uppercase;
 }
 
+.stream-row {
+  padding-bottom: 8px;
+}
+
+.stream-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.phase {
+  flex: 0 0 auto;
+  font-size: var(--text-ui-xs);
+}
+
 .agent {
-  padding: 4px 0 8px;
+  padding: 8px 0 12px;
   border-top: 1px solid var(--line);
+}
+
+.agent:first-child {
+  border-top: 0;
 }
 
 button.agent-head {
@@ -83,9 +105,27 @@ button.agent-head {
 }
 
 .state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-full);
   color: var(--fg-muted);
   font-size: var(--text-ui-xs);
-  line-height: var(--text-ui-xs--line-height);
+  line-height: calc(var(--text-ui-xs--line-height) - 2px);
+}
+
+.state::before {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+  content: "";
+}
+
+.state[data-state="working"] {
+  color: var(--brand);
 }
 
 .state[data-state="waiting"],
@@ -103,17 +143,209 @@ button.agent-head {
   line-height: var(--text-ui-xs--line-height);
 }
 
-.recap,
 .note {
   margin: 2px 8px 0 30px;
   white-space: pre-line;
   overflow-wrap: anywhere;
 }
 
-.events {
-  margin: 6px 8px 0 30px;
+.agent > .markdown {
+  margin: 4px 8px 0 30px;
+}
+
+.timeline {
+  margin: 8px 8px 0;
   padding: 0;
   list-style: none;
+}
+
+.turn {
+  position: relative;
+  padding: 0 0 14px 22px;
+}
+
+.turn::before {
+  position: absolute;
+  top: 12px;
+  bottom: -2px;
+  left: 4px;
+  width: 1px;
+  background: var(--line-strong);
+  content: "";
+}
+
+.turn:last-child {
+  padding-bottom: 0;
+}
+
+.turn:last-child::before {
+  display: none;
+}
+
+.node {
+  position: absolute;
+  top: 5px;
+  left: 0;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--fg-dim);
+  border-radius: var(--radius-full);
+  background: var(--surface-1);
+}
+
+.turn[data-state="working"] .node {
+  border-color: var(--brand);
+  background: var(--brand);
+}
+
+.turn[data-state="waiting"] .node,
+.turn[data-state="error"] .node {
+  border-color: var(--attn-fg);
+  background: var(--attn-fg);
+}
+
+.turn[data-state="done"] .node {
+  border-color: var(--ok);
+  background: var(--ok);
+}
+
+.turn-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-height: var(--text-ui-sm--line-height);
+}
+
+.turn-head > svg {
+  flex: 0 0 auto;
+  align-self: center;
+  color: var(--fg-muted);
+}
+
+.prompt {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.markdown {
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown blockquote,
+.markdown pre,
+.markdown table {
+  margin: 0 0 6px;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 18px;
+}
+
+.markdown blockquote {
+  padding-left: 8px;
+  border-left: 2px solid var(--line-strong);
+  color: var(--fg-muted);
+}
+
+.markdown code {
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font-family: var(--font-code);
+  font-size: var(--text-ui-xs);
+}
+
+.markdown pre {
+  padding: 6px 8px;
+  overflow-x: auto;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+
+.markdown pre code {
+  padding: 0;
+  background: none;
+}
+
+.markdown a {
+  color: var(--brand);
+}
+
+.markdown hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.markdown td {
+  padding: 1px 8px 1px 0;
+  vertical-align: top;
+}
+
+.actions {
+  margin-top: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+button.actions-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  padding: 4px 8px;
+  color: var(--fg-muted);
+  text-align: left;
+}
+
+button.actions-toggle:hover {
+  color: var(--fg);
+}
+
+.actions-toggle > svg {
+  flex: 0 0 auto;
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.actions-toggle[aria-expanded="true"] > svg {
+  transform: rotate(90deg);
+}
+
+.actions-summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.action-list {
+  margin: 0;
+  padding: 4px 8px 6px;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+
+.action-list[hidden] {
+  display: none;
 }
 
 .event {
@@ -136,29 +368,66 @@ button.agent-head {
 .event-text {
   min-width: 0;
   overflow: hidden;
+  font-family: var(--font-code);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-code.event-text {
+.notes {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.note-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 8px;
+}
+
+.note-row > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--fg-muted);
+}
+
+.note-row[data-needs-you="true"][data-done="false"] > svg,
+.needs-you {
+  color: var(--attn-fg);
+}
+
+.note-row[data-done="true"] .needs-you {
+  color: var(--fg-muted);
+}
+
+.note-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.needs-you {
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+  font-weight: var(--font-weight-medium);
+}
+
+.note-text {
+  margin: 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.note-link {
+  display: block;
   font-family: var(--font-code);
+  overflow-wrap: anywhere;
 }
 
-.earlier {
-  margin: 6px 8px 0 30px;
-}
-
-.earlier > summary {
-  cursor: pointer;
-}
-
-.earlier .events,
-.earlier .recap {
+.note-body .note {
   margin-left: 0;
 }
 
-.turn {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid var(--line);
+button.done-button {
+  flex: 0 0 auto;
 }

@@ -1,8 +1,8 @@
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import { chmodSync, lstatSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { PRODUCT_NAME } from '../../shared/product'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 
 export function socketPathLimit(platform: NodeJS.Platform): number {
   return platform === 'darwin' ? 103 : 107
@@ -41,6 +41,6 @@ export function socketPath(
   }
   const uid = process.getuid?.() ?? 0
   const short = ownedPrivateDir(join(SHORT_SOCKET_BASE, `${PRODUCT_NAME}-${uid}`), uid)
-  const digest = createHash('sha256').update(preferred).digest('hex').slice(0, 16)
+  const digest = hash('sha256', preferred).slice(0, 16)
   return join(short, `${digest}.sock`)
 }

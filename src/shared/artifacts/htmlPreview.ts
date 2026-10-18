@@ -1,3 +1,5 @@
+import type { Region } from '../browser/selection'
+
 export const PREVIEW_SCHEME = 'ostia-preview'
 const PREVIEW_PARTITION_PREFIX = 'ostia-preview-'
 
@@ -43,6 +45,8 @@ export interface PreviewApi {
   stop: (id: string) => void
   close: (id: string) => void
   onEvent: (cb: (event: PreviewEvent) => void) => () => void
+  capture: (id: string, rect: Region) => Promise<{ image: Uint8Array; region: Region } | null>
+  copyRegion: (id: string, rect: Region) => Promise<boolean>
 }
 
 export const PREVIEW_PAGE_CSP = [
@@ -68,7 +72,6 @@ export function isPreviewPath(path: string | undefined): boolean {
   return path !== undefined && (/\.html?$/i.test(path) || isComponentPath(path))
 }
 
-export const SHELL_MODULE_PATH = '/__ostia_shell.js'
 const THEME_NAME = /^--ostia-[a-z][a-z-]{0,31}$/
 const THEME_VALUE = /^[#\w\s(),.%"'-]{1,160}$/
 const THEME_VARS_MAX = 16

@@ -1,7 +1,9 @@
-import { ControlRow, SectionHead, SettingsGroup } from '@/components/settings/SettingsPanel'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { useDict } from '@/i18n/useDict'
+import { useDict } from '@/lib/app/useDict'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
@@ -11,8 +13,8 @@ import {
   type SandboxFixedPolicy,
   type SandboxGlobals,
   checkDomainPattern,
-  parseSandboxGlobals,
 } from '@shared/sandbox/sandbox'
+import { parseSandboxGlobals } from '@shared/sandbox/sandboxParse'
 import { useEffect, useState } from 'react'
 import { PackagesEditor } from './SandboxPackagesTab'
 import {
@@ -96,8 +98,7 @@ export function SandboxSection(): JSX.Element {
   }
 
   return (
-    <div>
-      <SectionHead title={d.sandbox.title} desc={d.sandbox.desc} />
+    <SettingsPage title={d.sandbox.title} desc={d.sandbox.desc}>
       <SandboxNetworkGroups scope={scope} />
       <SandboxFilesGroups scope={scope} />
       <SettingsGroup title={d.sandbox.ports}>
@@ -134,7 +135,7 @@ export function SandboxSection(): JSX.Element {
           />
         </ControlRow>
       </SettingsGroup>
-    </div>
+    </SettingsPage>
   )
 }
 

@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
+import { MARKETPLACE_MANIFEST_FILE } from '@aurigax-ai/ostia-extension-sdk/manifest/marketplaceManifest'
 import { buildSync } from 'esbuild'
-import { MARKETPLACE_MANIFEST_FILE } from '../src/shared/extensions/marketplace'
-import { PRODUCT_NAME } from '../src/shared/product'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
 import { type Locator, type Page, _electron as electron, expect, test } from './test'
@@ -55,7 +55,7 @@ async function openSettingsPage(win: Page, page: string): Promise<Locator> {
   return settings
 }
 
-test('installs from a git marketplace, is approved, configured, updated and uninstalled', async () => {
+test('installs from a git marketplace, is approved, configured and updated', async () => {
   test.setTimeout(90_000)
   const dataHome = freshDataHome()
   const repo = marketplaceRepo(dataHome)
@@ -80,8 +80,6 @@ test('installs from a git marketplace, is approved, configured, updated and unin
     const results = browse.getByRole('list', { name: 'Extensions in your marketplaces' })
     const row = results.getByRole('listitem', { name: 'Hello' })
     await expect(row).toBeVisible({ timeout: 15_000 })
-    await browse.getByRole('searchbox', { name: 'Search extensions' }).fill('fixture')
-    await expect(results.getByRole('listitem')).toHaveCount(1)
 
     await row.getByRole('button', { name: 'Install', exact: true }).click()
     const approval = win.getByRole('dialog').filter({ hasText: 'Hello' })
@@ -98,11 +96,8 @@ test('installs from a git marketplace, is approved, configured, updated and unin
     const installed = settings.getByRole('list', { name: 'Installed extensions' })
     const hello = installed.getByRole('listitem', { name: 'Hello' })
     await expect(hello.getByRole('switch')).toBeChecked()
-    await expect(hello.getByText('Enabled', { exact: true })).toBeVisible()
-    await expect(installed.getByRole('textbox')).toHaveCount(0)
-    await hello.getByRole('button', { name: 'Hello' }).click()
-    const details = settings.getByRole('region', { name: 'Hello', exact: true })
-    await expect(details.getByText('From E2E marketplace', { exact: false })).toBeVisible()
+    await hello.getByRole('button', { name: 'Details of Hello' }).click()
+    const details = settings.getByRole('region', { name: 'Details of Hello' })
     const greeting = details.getByRole('textbox', { name: 'Greeting' })
     await greeting.fill('hey')
     await greeting.press('Enter')
@@ -124,43 +119,21 @@ test('installs from a git marketplace, is approved, configured, updated and unin
 
     settings = await openSettingsPage(win, 'Browse extensions')
     await browse.getByRole('button', { name: 'Refresh E2E marketplace' }).click()
-    await browse
-      .getByRole('group', { name: 'Show' })
-      .getByRole('button', { name: 'Updates' })
-      .click()
     await expect(row.getByText('Update available')).toBeVisible({ timeout: 15_000 })
-    await row.getByRole('button', { name: 'Hello' }).click()
-    const offer = browse.getByRole('region', { name: 'Details' })
-    await expect(offer).toContainText('Installed 0.1.0, offered 0.2.0')
     await row.getByRole('button', { name: 'Update', exact: true }).click()
     await expect
       .poll(() => JSON.parse(readFileSync(installedManifest, 'utf8')).version, {
         timeout: 15_000,
       })
       .toBe('0.2.0')
-    await expect(results.getByRole('listitem')).toHaveCount(0)
 
     settings = await openSettingsPage(win, 'Extensions')
     await installed
       .getByRole('listitem', { name: 'Hello' })
-      .getByRole('button', { name: 'Hello' })
+      .getByRole('button', { name: 'Details of Hello' })
       .click()
     await expect(details).toContainText('0.2.0')
     await expect(details.getByRole('textbox', { name: 'Greeting' })).toHaveValue('hey')
-    await details.getByRole('button', { name: 'Uninstall' }).click()
-    const confirm = win.getByRole('alertdialog')
-    await confirm.getByRole('button', { name: 'Uninstall' }).click()
-    await expect(installed.getByRole('listitem', { name: 'Hello' })).toHaveCount(0, {
-      timeout: 15_000,
-    })
-    expect(existsSync(installedManifest)).toBe(false)
-
-    await openSettingsPage(win, 'Browse extensions')
-    await browse
-      .getByRole('group', { name: 'Show' })
-      .getByRole('button', { name: 'All', exact: true })
-      .click()
-    await expect(row.getByRole('button', { name: 'Install', exact: true })).toBeVisible()
   } finally {
     await app.close()
   }

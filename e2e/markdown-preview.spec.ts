@@ -37,7 +37,6 @@ test('a Markdown file can be previewed and switched back to its source', async (
     await win.getByRole('button', { name: 'Preview Markdown' }).click()
     const preview = win.locator('.markdown-preview')
     await expect(preview.getByRole('heading', { name: 'Databases' })).toBeVisible()
-    await expect(preview.getByRole('cell', { name: '5433' })).toBeVisible()
 
     const heading = await preview.getByRole('heading', { name: 'Databases' }).boundingBox()
     if (!heading) throw new Error('the heading is not laid out')

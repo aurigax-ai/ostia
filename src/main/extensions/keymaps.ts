@@ -1,5 +1,11 @@
 import { realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
+import {
+  type KeymapContribution,
+  keymapOffered,
+  keymapRef,
+} from '@aurigax-ai/ostia-extension-sdk/contract/keymap'
+import { readConfined } from '@aurigax-ai/ostia-extension-sdk/manifest/confinedRead'
 import { ipcMain } from 'electron'
 import {
   KEYMAP_FILE_MAX_BYTES,
@@ -7,8 +13,6 @@ import {
   type KeymapSkip,
   parseKeymapBindings,
 } from '../../shared/keyboard/keymapFile'
-import { type KeymapContribution, keymapOffered, keymapRef } from '../../shared/keymap'
-import { readConfined } from '../platform/confinedRead'
 
 export interface KeymapSource {
   extId: string

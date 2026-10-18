@@ -1,151 +1,63 @@
-import { keptShellReattached } from '@/lib/agents/autoResume'
+import type { TerminalRenderer } from '@/lib/settings/terminalPaneSettings'
 import { silenceQueryReplies } from '@/lib/terminal/tmuxQueries'
-import type { TerminalRenderer } from '@/settings/terminalPaneSettings'
-import { CHAT_CONTEXT_TEXT_MAX } from '@shared/assist'
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
-import { type FontWeight, type IBufferRange, Terminal as Xterm } from '@xterm/xterm'
+import { Terminal as Xterm } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
-import { commands } from '@/commands/registry'
-import { useSelectionSend } from '@/components/agents/SelectionSend'
 import { AssistComposer } from '@/components/assist/AssistComposer'
 import { RiskyPasteDialog } from '@/components/common/RiskyPasteDialog'
-import { currentDict, fmt } from '@/i18n/useDict'
-import { terminalNotification } from '@/lib/agents/paneAgent'
-import { registerSelectionSender } from '@/lib/agents/selectionSenders'
+import { InputEditor } from '@/components/prompt/InputEditor'
 import { attachWheelZoom } from '@/lib/app/wheelZoom'
-import { tail } from '@/lib/assist/askContext'
-import {
-  KittyNotificationAssembler,
-  type OscNotification,
-  notificationMessage,
-  parseOsc9,
-  parseOsc99,
-  parseOsc777,
-} from '@/lib/attention/attention'
-import { bellActions, createBellThrottle } from '@/lib/attention/bell'
-import { forgetPaneActivity, markPaneActivity } from '@/lib/attention/paneActivity'
-import {
-  isPaneViewed,
-  isPaneVisible,
-  shouldNotifyCommandEnd,
-  signalPane,
-  usePaneVisible,
-} from '@/lib/attention/workspaceActivity'
-import { openBrowserAs, openBrowserTabAs } from '@/lib/browser/browserProfile'
-import {
-  execChord,
-  findStep,
-  isAppChord,
-  isBrowserChord,
-  isTerminalCommandChord,
-  matchChord,
-  matchTerminalChord,
-} from '@/lib/keys/chords'
-import {
-  CLIPBOARD_READ_MS,
-  NO_CLIPBOARD_CONTENTS,
-  PROGRAM_PASTE_KEY,
-  keyPastePlan,
-  pasteEventReadsClipboard,
-  settleWithin,
-  smartClipboardAction,
-} from '@/lib/keys/clipboardKeys'
-import { acceptsPathDrop, droppedPaths, pathsAsInput } from '@/lib/keys/dropPaths'
-import { terminalKeyData } from '@/lib/keys/keyPresets'
-import { planDraftPaste, planHumanPaste } from '@/lib/keys/pasteGate'
-import { spawnPromptOption } from '@/lib/prompt/promptChips'
-import { scrollUpSequence } from '@/lib/prompt/promptOverlay'
+import { forgetPaneActivity } from '@/lib/attention/paneActivity'
+import { usePaneVisible } from '@/lib/attention/workspaceActivity'
+import { acceptsPathDrop, droppedPaths, pathsAsInput } from '@/lib/keyboard/dropPaths'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { measureCells } from '@/lib/prompt/usePromptGeometry'
-import {
-  canTypeInto,
-  insertCommand,
-  selectedBlockOutput,
-  stepBlock,
-} from '@/lib/terminal/blockActions'
-import { decodeCommandLine, readCommandText } from '@/lib/terminal/blockText'
 import { ghosttyModule, loadGhostty } from '@/lib/terminal/ghosttyEngine'
-import { createLinkHint } from '@/lib/terminal/linkHint'
-import {
-  type LinkKind,
-  attachLinkClaim,
-  attachLinkModifier,
-  linkModifierHeld,
-  linkSpan,
-  terminalLinkTarget,
-} from '@/lib/terminal/linkModifier'
-import {
-  noteFittedGrid,
-  offscreenGrid,
-  registerOffscreenStarter,
-} from '@/lib/terminal/offscreenStart'
-import { isLocalHost, parseOsc7 } from '@/lib/terminal/osc7'
-import { registerOsc52 } from '@/lib/terminal/osc52'
+import { liveLogicalLines } from '@/lib/terminal/historyActions'
+import { createHistoryScroll } from '@/lib/terminal/historyScroll'
 import {
   type OstiaTerminal,
   type PauseTerminal,
-  type TerminalMarker,
   type TerminalOptions,
   type TerminalSearch,
-  type WebLinkHandler,
   terminalScreen,
 } from '@/lib/terminal/ostiaTerminal'
-import { commitProgramTitle, commitShellTitle } from '@/lib/terminal/paneTitle'
-import { installPrimarySelection } from '@/lib/terminal/primarySelection'
-import { createPtyAcker } from '@/lib/terminal/ptyAck'
-import {
-  createAppLinkProvider,
-  hintedLinkHandler,
-  xtermLinkHandler,
-} from '@/lib/terminal/terminalAppLinks'
-import { createFileLinkProvider } from '@/lib/terminal/terminalFileLinks'
-import { inputEditorFor, registerTerminal } from '@/lib/terminal/terminalHandles'
-import {
-  type LinkPane,
-  activateFileLink,
-  linkRevealable,
-  linksConfinedOnly,
-} from '@/lib/terminal/terminalLinkActions'
-import { terminalTitle } from '@/lib/terminal/terminalTitle'
-import { createTitleCommitter } from '@/lib/terminal/titleCommit'
+import { TERMINAL_INPUT_SELECTOR } from '@/lib/terminal/ostiaTerminal'
+import { drawOnGpu } from '@/lib/terminal/softwareGl'
+import { registerHistoryScroll, registerTerminal } from '@/lib/terminal/terminalHandles'
 import { keepDrawing, usePauseWhenHidden } from '@/lib/terminal/usePauseWhenHidden'
 import { attachWheelReports } from '@/lib/terminal/wheelReports'
 import { type XtermRenderer, createXtermRenderer } from '@/lib/terminal/xtermRenderer'
-import { currentScheme, terminalTheme, useScheme } from '@/lib/theme/colorScheme'
+import { xtermLinkHandler } from '@/lib/terminalLinks/terminalAppLinks'
+import { useScheme } from '@/lib/theme/colorScheme'
 import { terminalFontStack } from '@/lib/theme/uiFonts'
 import { isLinux, isMac } from '@/platform'
-import { useAttentionStore } from '@/stores/agents/attentionStore'
-import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
-import { useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
-import { useRemoteCwdStore } from '@/stores/terminal/remoteCwdStore'
-import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { wantsDesktopBanner } from '@shared/app/notificationSettings'
-import { isNativeClipboardKey } from '@shared/keyboard/chordSpec'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useHistoryViewStore } from '@/stores/terminal/historyViewStore'
+import { type HTMLAttributes, useEffect, useMemo, useRef, useState } from 'react'
 import { Blocks } from './Blocks'
-import { InputEditor } from './InputEditor'
 import { TerminalFind, findOptions } from './TerminalFind'
 import { type LinkHintBox, TerminalLinkHint } from './TerminalLinkHint'
 import { TerminalMenu } from './TerminalMenu'
-import { isPromptRepaint, nextSizeAction, settleFit } from './terminalSizing'
-
-const FOCUS_REPORTS = new Set(['\x1b[I', '\x1b[O'])
-const LINK_HINT_DELAY_MS = 400
-const UNDRAWN_START_MS = 1000
+import { terminalInputBridge } from './terminalInputBridge'
+import { attachTerminalKeys } from './terminalKeys'
+import { type TerminalLinks, createTerminalLinks } from './terminalLinks'
+import { createTerminalPaste } from './terminalPaste'
+import { type TerminalFit, attachPtySession } from './terminalPtySession'
+import { createTerminalSession } from './terminalSession'
+import { createShellIntegration } from './terminalShellIntegration'
+import { attachTerminalSignals } from './terminalSignals'
+import { initialTerminalOptions, useTerminalOptions } from './useTerminalOptions'
+import { useTerminalSelectionSend } from './useTerminalSelectionSend'
 
 interface TerminalViewProps {
   workspaceId: string
   paneId: string
   cwd?: string
-}
-
-interface TerminalFit {
-  fit(): void
-  proposeDimensions(): { cols: number; rows: number } | undefined
 }
 
 export function TerminalView(props: TerminalViewProps): JSX.Element {
@@ -171,6 +83,61 @@ export function TerminalView(props: TerminalViewProps): JSX.Element {
   return <TerminalSurface engine={engine} {...props} />
 }
 
+function pathDropHandlers(
+  pasteRef: { current: (text: string) => void },
+  termRef: { current: OstiaTerminal | null },
+): Pick<HTMLAttributes<HTMLDivElement>, 'onDragOver' | 'onDrop'> {
+  return {
+    onDragOver: (e) => {
+      if (!acceptsPathDrop([...e.dataTransfer.types])) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+    },
+    onDrop: (e) => {
+      if (!acceptsPathDrop([...e.dataTransfer.types])) return
+      e.preventDefault()
+      const text = pathsAsInput(droppedPaths(e.dataTransfer))
+      if (!text) return
+      pasteRef.current(text)
+      termRef.current?.focus()
+    },
+  }
+}
+
+function TerminalFindLayer({
+  paneId,
+  search,
+  options,
+  stepRef,
+  termRef,
+  setFindOpen,
+}: {
+  paneId: string
+  search: TerminalSearch
+  options: ReturnType<typeof findOptions>
+  stepRef: { current: ((by: number) => void) | null }
+  termRef: { current: OstiaTerminal | null }
+  setFindOpen: (open: boolean) => void
+}): JSX.Element {
+  return (
+    <TerminalFind
+      paneId={paneId}
+      search={search}
+      options={options}
+      stepRef={stepRef}
+      liveLines={() => (termRef.current ? liveLogicalLines(termRef.current) : 0)}
+      onShowEarlier={(find) => {
+        setFindOpen(false)
+        useHistoryViewStore.getState().show(paneId, { kind: 'match', find })
+      }}
+      onClose={() => {
+        setFindOpen(false)
+        termRef.current?.focus()
+      }}
+    />
+  )
+}
+
 function TerminalSurface({
   engine,
   workspaceId,
@@ -187,13 +154,7 @@ function TerminalSurface({
   const workspaceIdRef = useRef(workspaceId)
   workspaceIdRef.current = workspaceId
   const font = useSettingsStore((s) => s.appearance.terminal)
-  const cursorStyle = useSettingsStore((s) => s.behavior.cursorStyle)
-  const cursorBlink = useSettingsStore((s) => s.behavior.cursorBlink)
   const palette = useScheme('terminal').colors
-  const scrollSpeed = useSettingsStore((s) => s.terminal.scrollSpeed)
-  const scrollbackLines = useSettingsStore((s) => s.terminal.scrollbackLines)
-  const minimumContrast = useSettingsStore((s) => s.terminal.minimumContrast)
-  const macOptionIsMeta = useSettingsStore((s) => s.terminal.macOptionIsMeta)
   const pasteRef = useRef<(text: string) => void>(() => {})
   const pasteClipboardRef = useRef<() => void>(() => {})
   const [pendingPaste, setPendingPaste] = useState<string | null>(null)
@@ -203,903 +164,64 @@ function TerminalSurface({
   const findStepRef = useRef<((by: number) => void) | null>(null)
   const [alternateScreen, setAlternateScreen] = useState(false)
   const shown = usePaneVisible(paneId)
+  const shownRef = useRef(shown)
+  shownRef.current = shown
+  useSurfaceFocus(
+    paneId,
+    () =>
+      surfaceRef.current?.querySelector<HTMLElement>('.input-editor:not([hidden]) textarea') ??
+      hostRef.current?.querySelector<HTMLElement>(TERMINAL_INPUT_SELECTOR) ??
+      null,
+  )
   const dismissLinkHintRef = useRef<() => void>(() => {})
   useEffect(() => {
     if (!shown) dismissLinkHintRef.current()
   }, [shown])
   const [suppressedPrompt, setSuppressedPrompt] = useState<LineAnchor | null>(null)
   const searchOptions = useMemo(() => findOptions(palette), [palette])
-  const selectionSend = useSelectionSend(workspaceId, paneId)
-  const sendSelectionRef = useRef<() => void>(() => {})
-  sendSelectionRef.current = () => {
-    const selected = termRef.current?.getSelection() ?? ''
-    const block = selected.trim() ? null : selectedBlockOutput(paneId)
-    const text = block ? block.output : selected
-    if (!text.trim()) {
-      selectionSend.notify(currentDict().viewer.noTerminalSelection)
-      return
-    }
-    selectionSend.open({
-      kind: 'terminal',
-      cwd: cwd ?? null,
-      command: block?.command || null,
-      text,
-    })
-  }
-
-  useEffect(() => registerSelectionSender(paneId, () => sendSelectionRef.current()), [paneId])
+  const selectionSend = useTerminalSelectionSend({ workspaceId, paneId, cwd, termRef })
 
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
-
-    const initial = useSettingsStore.getState().appearance.terminal
-    const behavior = useSettingsStore.getState().behavior
-    const terminalSettings = useSettingsStore.getState().terminal
-    const options: TerminalOptions = {
-      theme: terminalTheme(currentScheme('terminal').colors),
-      fontFamily: terminalFontStack(initial.family),
-      fontSize: initial.size,
-      fontWeight: initial.weight as FontWeight,
-      lineHeight: initial.lineHeight,
-      cursorStyle: behavior.cursorStyle,
-      cursorBlink: behavior.cursorBlink,
-      scrollback: terminalSettings.scrollbackLines,
-      scrollSensitivity: terminalSettings.scrollSpeed,
-      minimumContrastRatio: terminalSettings.minimumContrast,
-      macOptionIsMeta: terminalSettings.macOptionIsMeta,
-      macOptionClickForcesSelection: true,
-      rescaleOverlappingGlyphs: true,
-    }
-    let term: OstiaTerminal
-    let fit: TerminalFit
-    let hoveredLink = false
-    const hint = createLinkHint<LinkHintBox>(
-      LINK_HINT_DELAY_MS,
-      () => isPaneVisible(paneId),
-      setLinkHint,
-    )
-    dismissLinkHintRef.current = hint.hide
-    const showLinkHint = (kind: LinkKind, range: IBufferRange, url?: string): void => {
-      hoveredLink = true
-      hint.show(() => {
-        const cells = measureCells(host, term)
-        if (!cells) return null
-        const span = linkSpan(range, term.buffer.active.viewportY, term.cols)
-        return {
-          kind,
-          url,
-          plainClick: term.modes.mouseTrackingMode === 'none',
-          left: cells.left + span.start * cells.width,
-          top: cells.top + span.row * cells.height,
-          width: (span.end - span.start) * cells.width,
-          height: cells.height,
-        }
-      })
-    }
-    const hideLinkHint = (): void => {
-      hoveredLink = false
-      hint.hide()
-    }
-    const openWebLink = (e: MouseEvent, uri: string): void => {
-      const target = terminalLinkTarget(uri, e, {
-        mac: isMac,
-        hasSelection: term.hasSelection(),
-        mouseReporting: term.modes.mouseTrackingMode !== 'none',
-        linkClick: useSettingsStore.getState().terminal.linkClick,
-      })
-      if (target === 'same-tab') openBrowserAs(workspaceIdRef.current, uri, 'human')
-      else if (target === 'new-tab') openBrowserTabAs(workspaceIdRef.current, uri, 'human')
-      else if (target === 'system') window.open(uri, '_blank')
-      else if (target === 'app') void window.ostia.openPath.openLink(uri)
-    }
-    const webLinks: WebLinkHandler = hintedLinkHandler(openWebLink, {
-      show: (range, uri) => showLinkHint('web', range, uri),
-      hide: hideLinkHint,
-    })
-    let searchAddon: TerminalSearch | null = null
-    let xtermRenderer: XtermRenderer | null = null
-    let silenceReplies: () => { dispose(): void }
-    const ghostty = engine === 'ghostty' ? ghosttyModule() : null
-    if (ghostty) {
-      const created = ghostty.createGhosttyTerminal(options, behavior.gpuAcceleration, webLinks)
-      term = created.term
-      fit = created.fit
-      searchAddon = created.search
-      silenceReplies = created.silenceQueryReplies
-      pauseRef.current = created.setPaused
-    } else {
-      const xterm = new Xterm({
-        ...options,
-        allowProposedApi: true,
-        vtExtensions: { kittyKeyboard: false },
-      })
-      const xtermFit = new FitAddon()
-      xterm.loadAddon(xtermFit)
-      xterm.loadAddon(new Unicode11Addon())
-      xterm.unicode.activeVersion = '11'
-      xterm.options.linkHandler = xtermLinkHandler(webLinks)
-      xterm.loadAddon(
-        new WebLinksAddon(openWebLink, {
-          hover: (_e, uri, range) => showLinkHint('web', range, uri),
-          leave: hideLinkHint,
-        }),
-      )
-      const xtermSearch = new SearchAddon()
-      xterm.loadAddon(xtermSearch)
-      searchAddon = xtermSearch
-      xterm.open(host)
-      xtermRenderer = createXtermRenderer(xterm, behavior.gpuAcceleration)
-      pauseRef.current = xtermRenderer.pause
-      term = xterm
-      fit = xtermFit
-      silenceReplies = () => silenceQueryReplies(xterm)
-    }
-    if (ghostty) term.open(host)
-    attachWheelReports(term, () => measureCells(host, term)?.height ?? 0, isLinux)
-    const detachWheelZoom = attachWheelZoom(host, 'terminal', isMac)
-    const detachLinkModifier = attachLinkModifier(host, isMac)
-    const screenElement = terminalScreen(host)
-    const detachLinkClaim = screenElement
-      ? attachLinkClaim(screenElement, (e) => hoveredLink && linkModifierHeld(e, isMac))
-      : () => {}
-    const linkMoved = term.onScroll(hint.hide)
-    const linkResized = term.onResize(hint.hide)
-    window.addEventListener('blur', hint.hide)
-    termRef.current = term
-    setSearch(searchAddon)
-    const unregisterTerminal = registerTerminal(paneId, term)
-    const pasteConfirmed = (text: string): void => {
-      const editor = inputEditorFor(paneId)
-      if (editor) editor.type(text)
-      else term.paste(text)
-    }
-    pasteRef.current = pasteConfirmed
-    const planPaste = (text: string) =>
-      planHumanPaste(text, useSettingsStore.getState().terminal.warnOnRiskyPaste)
-    const requestPaste = (text: string): void => {
-      if (disposed) return
-      const editor = inputEditorFor(paneId)
-      if (editor) {
-        const draft = planDraftPaste(text)
-        if (draft) editor.type(draft)
-        return
-      }
-      const plan = planPaste(text)
-      if (plan.confirm) setPendingPaste(plan.text)
-      else if (plan.text) pasteConfirmed(plan.text)
-    }
-    let heldInput: string[] | null = null
-    let pasting: Promise<void> = Promise.resolve()
-    const pastePlanned = async (eventText: string | null): Promise<void> => {
-      const text =
-        eventText ?? (await settleWithin(navigator.clipboard.readText(), CLIPBOARD_READ_MS, ''))
-      if (disposed) return
-      const editorShown = Boolean(inputEditorFor(paneId))
-      const contents = editorShown
-        ? NO_CLIPBOARD_CONTENTS
-        : await settleWithin(
-            window.ostia.clipboard.contents(),
-            CLIPBOARD_READ_MS,
-            NO_CLIPBOARD_CONTENTS,
-          )
-      if (disposed) return
-      const plan = keyPastePlan(text, editorShown, contents)
-      const held = heldInput
-      heldInput = null
-      try {
-        if (plan === 'text') requestPaste(text)
-        else if (plan === 'files') pasteConfirmed(pathsAsInput(contents.files))
-        else if (plan === 'program') term.input(PROGRAM_PASTE_KEY, true)
-      } finally {
-        heldInput = held
-      }
-    }
-    const pasteFromClipboard = (eventText: string | null = null): void => {
-      heldInput ??= []
-      const run = pasting.then(() => pastePlanned(eventText)).catch(() => {})
-      pasting = run
-      void run.then(() => {
-        if (pasting !== run) return
-        const held = heldInput ?? []
-        heldInput = null
-        if (disposed) return
-        for (const data of held) window.ostia.pty.write(paneId, data)
-      })
-    }
-    pasteClipboardRef.current = () => pasteFromClipboard()
-    const interceptPaste = (e: ClipboardEvent): void => {
-      const text = e.clipboardData?.getData('text/plain') ?? ''
-      const types = [...(e.clipboardData?.types ?? [])]
-      if (pasteEventReadsClipboard(types, text, Boolean(inputEditorFor(paneId)), isMac)) {
-        e.preventDefault()
-        e.stopImmediatePropagation()
-        pasteFromClipboard(text)
-        return
-      }
-      if (!inputEditorFor(paneId)) {
-        const plan = planPaste(text)
-        if (!plan.confirm && plan.text === text) return
-      }
-      e.preventDefault()
-      e.stopImmediatePropagation()
-      requestPaste(text)
-    }
-    host.addEventListener('paste', interceptPaste, true)
-    const focusEditorOnClick = (e: MouseEvent): void => {
-      if (e.button !== 0 || term.hasSelection()) return
-      inputEditorFor(paneId)?.focus()
-    }
-    host.addEventListener('mouseup', focusEditorOnClick)
-    const bufferChange = term.buffer.onBufferChange((buffer) =>
-      setAlternateScreen(buffer.type === 'alternate'),
-    )
-
-    term.attachCustomKeyEventHandler((e) => {
-      if (e.key === 'Escape' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-        const blocks = useBlocksStore.getState()
-        if (!blocks.selected[paneId]) return true
-        if (e.type === 'keydown') blocks.select(paneId, null)
-        return false
-      }
-      const smart = smartClipboardAction(
-        e,
-        useSettingsStore.getState().terminal.clipboardKeys,
-        term.hasSelection(),
-        isMac,
-      )
-      if (smart) {
-        if (e.type !== 'keydown') return false
-        e.preventDefault()
-        if (smart === 'copy') {
-          void navigator.clipboard.writeText(term.getSelection())
-          term.clearSelection()
-        } else {
-          pasteFromClipboard()
-        }
-        return false
-      }
-      const scoped = matchTerminalChord(e, isMac)
-      if (scoped && e.type === 'keydown') e.stopPropagation()
-      if (isAppChord(scoped)) {
-        if (e.type === 'keydown') {
-          e.preventDefault()
-          execChord(scoped, e)
-        }
-        return false
-      }
-      const chord = scoped ?? matchChord(e, isMac)
-      if (!chord || isBrowserChord(chord)) {
-        const sent = terminalKeyData(e, isMac)
-        if (sent && !inputEditorFor(paneId)) {
-          if (e.type === 'keydown') {
-            e.preventDefault()
-            term.input(sent, true)
-          }
-          return false
-        }
-        if (chord) return true
-        const editor = inputEditorFor(paneId)
-        if (!editor) return true
-        if (e.type !== 'keydown') return false
-        e.preventDefault()
-        const printable = e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey
-        if (printable) editor.type(e.key)
-        else editor.focus()
-        return false
-      }
-      const clipboard = chord === 'copy' || chord === 'paste'
-      if (isMac && clipboard && isNativeClipboardKey(e)) return true
-      if (e.type !== 'keydown' || isAppChord(chord)) return false
-      e.preventDefault()
-      const findBy = findStep(chord)
-      if (chord === 'find') setFindOpen(true)
-      else if (findBy !== null) {
-        if (findStepRef.current) findStepRef.current(findBy)
-        else setFindOpen(true)
-      } else if (chord === 'block.selectPrev') stepBlock(paneId, 'prev')
-      else if (chord === 'block.selectNext') stepBlock(paneId, 'next')
-      else if (isTerminalCommandChord(chord)) void commands.exec(chord)
-      else if (chord === 'copy') {
-        const selection = term.getSelection()
-        if (selection) void navigator.clipboard.writeText(selection)
-      } else {
-        pasteFromClipboard()
-      }
-      return false
-    })
-
-    const cwdRef = { current: spawnCwd.current ?? null }
-    let remote = false
-    let promptMarker: TerminalMarker | undefined
-    const markers = new Set<TerminalMarker>()
-    const anchor = (): LineAnchor => {
-      const marker = term.registerMarker(0)
-      if (!marker) return { line: term.buffer.active.baseY + term.buffer.active.cursorY }
-      markers.add(marker)
-      marker.onDispose(() => markers.delete(marker))
-      return marker
-    }
-    const disposeMarkers = (): void => {
-      for (const marker of [...markers]) marker.dispose()
-    }
-    let inputAnchor: LineAnchor | null = null
-    let inputCol = 0
-    let runningCommand = ''
-    let replaying = false
-    const onCommandEnd = (exitCode: number, wholeCommand: string | null): void => {
-      const blocks = useBlocksStore.getState()
-      const runningId = blocks.running[paneId]
-      const block = runningId ? blocks.byPane[paneId]?.find((b) => b.id === runningId) : undefined
-      blocks.commandEnd(
-        paneId,
-        anchor(),
-        exitCode,
-        term.buffer.active.cursorX,
-        wholeCommand ?? undefined,
-      )
-      if (!block || replaying) return
-      const long = shouldNotifyCommandEnd(
-        Date.now() - block.startedAt,
-        document.hasFocus(),
-        useSettingsStore.getState().notifications.longCommandSeconds,
-      )
-      if (isPaneViewed(paneId) || (exitCode === 0 && !long)) {
-        useAttentionStore.getState().dispatch(paneId, { type: 'waitEnded', at: Date.now() })
-        return
-      }
-      const d = currentDict()
-      const title =
-        exitCode === 0
-          ? d.attention.commandFinished
-          : fmt(d.attention.commandFailed, { code: exitCode })
-      const body = runningCommand || block.cwd || undefined
-      useAttentionStore.getState().dispatch(paneId, {
-        type: 'commandEnd',
-        exitCode,
-        long,
-        message: body ? `${title}: ${body}` : title,
-        at: Date.now(),
-      })
-      if (long) {
-        window.ostia.notifications.post({
-          paneId,
-          kind: exitCode === 0 ? 'done' : 'error',
-          title,
-          body,
-          desktop: wantsDesktopBanner(
-            useSettingsStore.getState().notifications,
-            'commandFinished',
-            false,
-          ),
-        })
-      }
-    }
-    const notifyFromTerminal = (n: OscNotification | null): boolean => {
-      if (!n || replaying) return true
-      signalPane(paneId, terminalNotification(paneId, notificationMessage(n), Date.now()))
-      window.ostia.notifications.post({
-        paneId,
-        kind: 'message',
-        title: n.title,
-        body: n.body,
-        desktop: wantsDesktopBanner(
-          useSettingsStore.getState().notifications,
-          'message',
-          document.hasFocus() && isPaneVisible(paneId),
-        ),
-      })
-      return true
-    }
-    const kitty = new KittyNotificationAssembler()
-    const oscNotify9 = term.parser.registerOscHandler(9, (data) =>
-      notifyFromTerminal(parseOsc9(data)),
-    )
-    const oscNotify777 = term.parser.registerOscHandler(777, (data) =>
-      notifyFromTerminal(parseOsc777(data)),
-    )
-    const oscNotify99 = term.parser.registerOscHandler(99, (data) => {
-      const chunk = parseOsc99(data, decodeBase64Utf8)
-      return notifyFromTerminal(chunk ? kitty.push(chunk) : null)
-    })
-    const removePrimarySelection = installPrimarySelection(host, term, {
-      enabled: () => isLinux && useSettingsStore.getState().terminal.primarySelection,
-      writePrimary: (text) => window.ostia.window.writePrimarySelection(text),
-    })
-    const oscClipboard = registerOsc52(term, {
-      enabled: () => useSettingsStore.getState().terminal.osc52Write,
-      replaying: () => replaying,
-      write: (text) => navigator.clipboard.writeText(text),
-    })
-    const linkPane = (): LinkPane => ({
-      workspaceId: workspaceIdRef.current,
+    return startTerminal({
+      host,
+      engine,
       paneId,
-      cwd: cwdRef.current,
+      workspaceIdRef,
+      spawnCwd,
+      termRef,
+      pauseRef,
+      shownRef,
+      lastSizeRef,
+      syncSizeRef,
+      pasteRef,
+      pasteClipboardRef,
+      dismissLinkHintRef,
+      findStepRef,
+      setPendingPaste,
+      setSearch,
+      setLinkHint,
+      setFindOpen,
+      setAlternateScreen,
+      setSuppressedPrompt,
     })
-    const appLinks = term.registerLinkProvider(createAppLinkProvider(term, webLinks))
-    const fileLinks = term.registerLinkProvider(
-      createFileLinkProvider(term, {
-        cwd: () => cwdRef.current,
-        remote: () => remote,
-        confinedOnly: () => linksConfinedOnly(linkPane()),
-        revealable: (path) => linkRevealable(linkPane(), path),
-        stat: (path) => window.ostia.fs.stat(path),
-        probe: (path) => window.ostia.terminalLinks.probe(paneId, path),
-        activate: (action, target) => activateFileLink(linkPane(), action, target),
-        modifierHeld: (e) => linkModifierHeld(e, isMac),
-        hover: (range, action) => showLinkHint(action, range),
-        leave: hideLinkHint,
-      }),
-    )
-    const copySelection = term.onSelectionChange(() => {
-      useLiveSelectionStore
-        .getState()
-        .report(
-          workspaceIdRef.current,
-          paneId,
-          { kind: 'terminal' },
-          tail(term.getSelection(), CHAT_CONTEXT_TEXT_MAX),
-        )
-      if (!useSettingsStore.getState().behavior.copyOnSelect || !term.hasSelection()) return
-      void navigator.clipboard.writeText(term.getSelection())
-    })
-    const titles = createTitleCommitter((title) =>
-      commitProgramTitle(workspaceIdRef.current, paneId, title),
-    )
-    const titleChange = term.onTitleChange((raw) => {
-      const title = terminalTitle(raw)
-      if (title) titles.push(title)
-    })
-    const allowBellSound = createBellThrottle()
-    const bell = term.onBell(() => {
-      if (replaying) return
-      const now = Date.now()
-      const act = bellActions(useSettingsStore.getState().notifications.bell, isPaneViewed(paneId))
-      if (act.sound && allowBellSound(now)) window.ostia.window.beep()
-      if (act.attention) useAttentionStore.getState().dispatch(paneId, { type: 'bell', at: now })
-    })
-    const oscCwd = term.parser.registerOscHandler(7, (data) => {
-      const report = parseOsc7(data)
-      if (!report) return true
-      remote = !isLocalHost(report.host)
-      useRemoteCwdStore
-        .getState()
-        .report(paneId, remote ? { host: report.host, cwd: report.path } : null)
-      if (!remote) {
-        cwdRef.current = report.path
-        useLayoutStore.getState().setCwd(workspaceIdRef.current, paneId, report.path)
-      }
-      return true
-    })
-    let reportedCommand: string | null = null
-    const oscCommandLine = term.parser.registerOscHandler(633, (data) => {
-      if (data.startsWith('E;')) reportedCommand = decodeCommandLine(data.slice(2))
-      return true
-    })
-    const oscBlocks = term.parser.registerOscHandler(133, (data) => {
-      const [kind, arg] = data.split(';')
-      const blocks = useBlocksStore.getState()
-      if (kind === 'A') {
-        promptMarker?.dispose()
-        promptMarker = term.registerMarker(0)
-        inputAnchor = null
-        reportedCommand = null
-        blocks.promptStart(paneId, anchor(), remote ? null : cwdRef.current, remote)
-      } else if (kind === 'B') {
-        inputAnchor = anchor()
-        inputCol = term.buffer.active.cursorX
-        blocks.promptEnd(paneId, inputAnchor)
-      } else if (kind === 'C') {
-        const start = anchor()
-        runningCommand =
-          reportedCommand ??
-          (inputAnchor
-            ? readCommandText(
-                term.buffer.active,
-                { line: inputAnchor.line, col: inputCol },
-                { line: start.line, col: term.buffer.active.cursorX },
-              )
-            : '')
-        reportedCommand = null
-        blocks.commandStart(paneId, start, runningCommand)
-        if (!replaying) {
-          useAttentionStore.getState().dispatch(paneId, { type: 'commandStart', at: Date.now() })
-        }
-      } else if (kind === 'D') {
-        const wholeCommand = reportedCommand
-        reportedCommand = null
-        onCommandEnd(Number(arg ?? 0), wholeCommand)
-      }
-      return true
-    })
-
-    let disposed = false
-    let attached = false
-    let querySilencer: { dispose(): void } | null = null
-    let replayed = false
-    const pending: string[] = []
-    let holdForRedraw = false
-    let held: string[] = []
-    let holdIdleTimer: ReturnType<typeof setTimeout> | null = null
-    let holdCapTimer: ReturnType<typeof setTimeout> | null = null
-    let holdEraseRow = 1
-    let holdCursor = { row: 1, col: 1 }
-    let holdDims = { cols: 0, rows: 0 }
-    let unparsed = 0
-    let awaitingParse = false
-    let parseAwaited = false
-    const writeOutput = (data: string, done?: () => void): void => {
-      unparsed++
-      term.write(data, () => {
-        unparsed--
-        done?.()
-      })
-    }
-    const acker = createPtyAcker((chars) => window.ostia.pty.ack(paneId, chars))
-    const writeLive = (data: string, done?: () => void): void => {
-      writeOutput(data, () => {
-        acker.written(data.length)
-        done?.()
-      })
-    }
-    markPaneActivity(paneId)
-    const offData = window.ostia.pty.onData(paneId, (d) => {
-      markPaneActivity(paneId)
-      if (!replayed) {
-        pending.push(d)
-      } else if (holdForRedraw) {
-        held.push(d)
-        if (holdIdleTimer) clearTimeout(holdIdleTimer)
-        holdIdleTimer = setTimeout(flushHold, 24)
-      } else {
-        writeLive(d)
-      }
-    })
-    const offExit = window.ostia.pty.onExit(paneId, (_code, closes) => {
-      term.writeln('\r\n\x1b[2m[process exited]\x1b[0m')
-      if (closes || useSandboxStore.getState().hostPanes[paneId]) {
-        useLayoutStore.getState().closePane(workspaceIdRef.current, paneId)
-      }
-    })
-
-    const attachAtCurrentSize = (cols: number, rows: number): void => {
-      attached = true
-      lastSizeRef.current = { cols, rows }
-      const flushPending = (): void => {
-        replayed = true
-        for (const d of pending) writeLive(d)
-        pending.length = 0
-      }
-      window.ostia.pty
-        .attach(paneId, {
-          cwd: spawnCwd.current,
-          cols,
-          rows,
-          role: 'owner',
-          workspaceId: workspaceIdRef.current,
-          hostToken: useSandboxStore.getState().takeHostToken(paneId),
-          ...spawnPromptOption(useSettingsStore.getState()),
-        })
-        .then((result) => {
-          const { buffer, sandboxed, sandboxStamp, host, shell, kept, reattached, cwdMissing } =
-            result
-          if (disposed) return
-          if (lastSizeRef.current.cols === 0 && result.cols && result.rows) {
-            term.resize(result.cols, result.rows)
-            lastSizeRef.current = { cols: result.cols, rows: result.rows }
-          }
-          useLayoutStore
-            .getState()
-            .settleSpawnDir(workspaceIdRef.current, paneId, cwdMissing === true)
-          if (kept && !querySilencer) querySilencer = silenceReplies()
-          if (reattached) keptShellReattached(workspaceIdRef.current, paneId)
-          commitShellTitle(workspaceIdRef.current, paneId, shell)
-          useSandboxStore.getState().notePane(paneId, sandboxed ?? false, sandboxStamp)
-          if (host) useSandboxStore.getState().noteHost(paneId)
-          disposeMarkers()
-          useBlocksStore.getState().resetPane(paneId)
-          if (buffer) {
-            replaying = true
-            writeOutput(buffer, () => {
-              replaying = false
-            })
-          }
-          flushPending()
-        })
-        .catch((err: unknown) => {
-          if (disposed) return
-          const reason = err instanceof Error ? err.message : String(err)
-          term.writeln(`\x1b[2m[failed to start shell: ${reason}]\x1b[0m`)
-          flushPending()
-        })
-    }
-
-    const applyFit = (): void => {
-      const fitted = safeFit(host, fit, term)
-      const { cols, rows } = term
-      const action = nextSizeAction({ fitted, attached, cols, rows, last: lastSizeRef.current })
-      if (action.type !== 'none') noteFittedGrid(action.cols, action.rows)
-      if (action.type === 'attach') {
-        attachAtCurrentSize(action.cols, action.rows)
-      } else if (action.type === 'resize') {
-        lastSizeRef.current = { cols: action.cols, rows: action.rows }
-        window.ostia.pty.resize(paneId, action.cols, action.rows)
-      }
-    }
-
-    const flushHold = (): void => {
-      if (!holdForRedraw) return
-      holdForRedraw = false
-      if (holdIdleTimer) clearTimeout(holdIdleTimer)
-      if (holdCapTimer) clearTimeout(holdCapTimer)
-      holdIdleTimer = null
-      holdCapTimer = null
-      if (disposed) return
-      const redraw = held.join('')
-      held = []
-      const { cols, rows } = holdDims
-      if (redraw.length > 0 && isPromptRepaint(redraw)) {
-        const restore = `\x1b[${holdCursor.row};${holdCursor.col}H`
-        writeOutput(`\x1b[${holdEraseRow};1H\x1b[0J${restore}`, () => {
-          if (disposed) return
-          term.resize(cols, rows)
-          writeLive(redraw)
-          syncSize()
-        })
-      } else {
-        term.resize(cols, rows)
-        if (redraw.length > 0) writeLive(redraw)
-        syncSize()
-      }
-    }
-    const syncSize = (): void => {
-      if (holdForRedraw || awaitingParse) return
-      if (attached && screenElement && !screenElement.isConnected) return
-      if (attached && host && fit && host.offsetWidth > 0 && host.offsetHeight > 0) {
-        const dims = fit.proposeDimensions()
-        const last = lastSizeRef.current
-        if (
-          dims &&
-          dims.cols > 0 &&
-          dims.rows > 0 &&
-          (dims.cols !== last.cols || dims.rows !== last.rows)
-        ) {
-          const blocks = useBlocksStore.getState()
-          const draft = blocks.drafts[paneId]
-          if (draft && !blocks.running[paneId] && unparsed > 0 && !parseAwaited) {
-            awaitingParse = true
-            term.write('', () => {
-              awaitingParse = false
-              if (disposed) return
-              parseAwaited = true
-              syncSize()
-              parseAwaited = false
-            })
-            return
-          }
-          if (draft && !blocks.running[paneId] && unparsed === 0) {
-            const markLine = promptMarker && !promptMarker.isDisposed ? promptMarker.line : -1
-            const draftRow = markLine - term.buffer.active.baseY + 1
-            const cursorRow = term.buffer.active.cursorY + 1
-            holdCursor = { row: cursorRow, col: term.buffer.active.cursorX + 1 }
-            holdEraseRow =
-              draftRow >= 1 && draftRow <= term.rows ? Math.min(draftRow, cursorRow) : cursorRow
-            holdDims = { cols: dims.cols, rows: dims.rows }
-            holdForRedraw = true
-            lastSizeRef.current = { cols: dims.cols, rows: dims.rows }
-            window.ostia.pty.resize(paneId, dims.cols, dims.rows)
-            holdCapTimer = setTimeout(flushHold, 150)
-            return
-          }
-        }
-      }
-      applyFit()
-    }
-
-    const input = term.onData((d) => {
-      if (heldInput) heldInput.push(d)
-      else window.ostia.pty.write(paneId, d)
-      if (!FOCUS_REPORTS.has(d)) markPaneActivity(paneId)
-      if (!FOCUS_REPORTS.has(d) && useBlocksStore.getState().selected[paneId]) {
-        useBlocksStore.getState().select(paneId, null)
-      }
-      if (useAttentionStore.getState().byPane[paneId]?.state === 'waiting') {
-        useAttentionStore.getState().dispatch(paneId, { type: 'input', at: Date.now() })
-      }
-    })
-
-    syncSizeRef.current = () => {
-      if (attached) syncSize()
-    }
-    let undrawnStart: ReturnType<typeof setTimeout> | null = null
-    const startOffscreenNow = (keepSize: boolean | undefined): void => {
-      if (keepSize) {
-        attachAtCurrentSize(0, 0)
-        return
-      }
-      const grid = offscreenGrid()
-      term.resize(grid.cols, grid.rows)
-      attachAtCurrentSize(grid.cols, grid.rows)
-    }
-    const unregisterOffscreen = registerOffscreenStarter(paneId, ({ keepSize }) => {
-      if (attached || disposed) return
-      if (host.offsetWidth === 0 || host.offsetHeight === 0) {
-        startOffscreenNow(keepSize)
-        return
-      }
-      if (undrawnStart) clearTimeout(undrawnStart)
-      undrawnStart = setTimeout(() => {
-        undrawnStart = null
-        if (attached || disposed) return
-        applyFit()
-        if (!attached) startOffscreenNow(keepSize)
-      }, UNDRAWN_START_MS)
-    })
-
-    let resizeTimer: ReturnType<typeof setTimeout> | null = null
-    let rafId = 0
-    const ro = new ResizeObserver(() => {
-      if (!attached) {
-        cancelAnimationFrame(rafId)
-        rafId = requestAnimationFrame(syncSize)
-        return
-      }
-      if (resizeTimer) clearTimeout(resizeTimer)
-      resizeTimer = setTimeout(() => {
-        rafId = requestAnimationFrame(syncSize)
-      }, 90)
-    })
-    ro.observe(host)
-    if (screenElement) ro.observe(screenElement)
-
-    return () => {
-      disposed = true
-      unregisterOffscreen()
-      if (undrawnStart) clearTimeout(undrawnStart)
-      querySilencer?.dispose()
-      syncSizeRef.current = () => {}
-      if (resizeTimer) clearTimeout(resizeTimer)
-      if (rafId) cancelAnimationFrame(rafId)
-      if (holdIdleTimer) clearTimeout(holdIdleTimer)
-      if (holdCapTimer) clearTimeout(holdCapTimer)
-      ro.disconnect()
-      input.dispose()
-      bufferChange.dispose()
-      host.removeEventListener('paste', interceptPaste, true)
-      host.removeEventListener('mouseup', focusEditorOnClick)
-      pasteRef.current = () => {}
-      pasteClipboardRef.current = () => {}
-      offData()
-      offExit()
-      oscCwd.dispose()
-      useRemoteCwdStore.getState().report(paneId, null)
-      oscBlocks.dispose()
-      oscCommandLine.dispose()
-      oscNotify9.dispose()
-      oscNotify777.dispose()
-      oscNotify99.dispose()
-      oscClipboard.dispose()
-      removePrimarySelection()
-      bell.dispose()
-      copySelection.dispose()
-      useLiveSelectionStore.getState().clear(paneId)
-      appLinks.dispose()
-      fileLinks.dispose()
-      detachWheelZoom()
-      detachLinkModifier()
-      detachLinkClaim()
-      linkMoved.dispose()
-      linkResized.dispose()
-      window.removeEventListener('blur', hint.hide)
-      hint.hide()
-      titleChange.dispose()
-      titles.cancel()
-      promptMarker?.dispose()
-      disposeMarkers()
-      unregisterTerminal()
-      forgetPaneActivity(paneId)
-      useBlocksStore.getState().dropPane(paneId)
-      window.ostia.pty.detach(paneId)
-      pauseRef.current = keepDrawing
-      xtermRenderer?.dispose()
-      term.dispose()
-      termRef.current = null
-      setSearch(null)
-      setFindOpen(false)
-      setAlternateScreen(false)
-      setSuppressedPrompt(null)
-      setPendingPaste(null)
-    }
   }, [paneId, engine])
 
+  useEffect(() => () => useHistoryViewStore.getState().close(paneId), [paneId])
   usePauseWhenHidden(pauseRef, shown, paneId, engine)
-
-  useEffect(() => {
-    const term = termRef.current
-    if (!term) return
-    term.options.fontFamily = terminalFontStack(font.family)
-    term.options.fontSize = font.size
-    term.options.fontWeight = font.weight as FontWeight
-    term.options.lineHeight = font.lineHeight
-    syncSizeRef.current()
-  }, [font.family, font.size, font.weight, font.lineHeight])
-
-  useEffect(() => {
-    const term = termRef.current
-    if (!term) return
-    term.options.cursorStyle = cursorStyle
-    term.options.cursorBlink = cursorBlink
-  }, [cursorStyle, cursorBlink])
-
-  useEffect(() => {
-    const term = termRef.current
-    if (!term) return
-    term.options.theme = terminalTheme(palette)
-  }, [palette])
-
-  useEffect(() => {
-    const term = termRef.current
-    if (!term) return
-    term.options.scrollSensitivity = scrollSpeed
-    term.options.scrollback = scrollbackLines
-    term.options.minimumContrastRatio = minimumContrast
-    term.options.macOptionIsMeta = macOptionIsMeta
-  }, [scrollSpeed, scrollbackLines, minimumContrast, macOptionIsMeta])
+  useTerminalOptions({ termRef, syncSizeRef, font, palette })
+  const input = terminalInputBridge({ paneId, termRef, setSuppressedPrompt })
 
   const closePasteDialog = (): void => {
     setPendingPaste(null)
     termRef.current?.focus()
   }
 
-  const submitInput = (text: string): boolean => {
-    if (!canTypeInto(paneId)) return false
-    setSuppressedPrompt(useBlocksStore.getState().drafts[paneId]?.promptLine ?? null)
-    if (text) return insertCommand(paneId, text, true)
-    termRef.current?.focus()
-    window.ostia.pty.write(paneId, '\r')
-    return true
-  }
-
-  const handOffInput = (draft: string, keys: string): void => {
-    const term = termRef.current
-    if (!term || !canTypeInto(paneId)) return
-    setSuppressedPrompt(useBlocksStore.getState().drafts[paneId]?.promptLine ?? null)
-    term.focus()
-    if (draft) term.paste(draft)
-    if (keys) window.ostia.pty.write(paneId, keys)
-  }
-
-  const sendShellKeys = (keys: string): void => {
-    if (canTypeInto(paneId)) window.ostia.pty.write(paneId, keys)
-  }
-
-  const makeRows = (rows: number): void => {
-    const term = termRef.current
-    if (!term || rows <= 0) return
-    const buf = term.buffer.active
-    term.write(scrollUpSequence(term.rows, buf.cursorY, buf.cursorX, rows))
-  }
-
   const background = palette.background
 
   return (
-    <div
-      ref={surfaceRef}
-      className="terminal-surface"
-      onDragOver={(e) => {
-        if (!acceptsPathDrop([...e.dataTransfer.types])) return
-        e.preventDefault()
-        e.dataTransfer.dropEffect = 'copy'
-      }}
-      onDrop={(e) => {
-        if (!acceptsPathDrop([...e.dataTransfer.types])) return
-        e.preventDefault()
-        const text = pathsAsInput(droppedPaths(e.dataTransfer))
-        if (!text) return
-        pasteRef.current(text)
-        termRef.current?.focus()
-      }}
-    >
+    <div ref={surfaceRef} className="terminal-surface" {...pathDropHandlers(pasteRef, termRef)}>
       <div className="terminal-stack" style={{ background }}>
         <TerminalMenu
           paneId={paneId}
@@ -1125,22 +247,21 @@ function TerminalSurface({
             const active = document.activeElement
             return Boolean(active && surfaceRef.current?.contains(active))
           }}
-          onSubmit={submitInput}
-          onHandOff={handOffInput}
-          onShellKeys={sendShellKeys}
-          onNeedRows={makeRows}
+          onSubmit={input.submitInput}
+          onHandOff={input.handOffInput}
+          onShellKeys={input.sendShellKeys}
+          onNeedRows={input.makeRows}
         />
         <AssistComposer paneId={paneId} cwd={cwd} termRef={termRef} />
         <TerminalLinkHint hint={shown ? linkHint : null} />
         {findOpen && search && (
-          <TerminalFind
+          <TerminalFindLayer
+            paneId={paneId}
             search={search}
             options={searchOptions}
             stepRef={findStepRef}
-            onClose={() => {
-              setFindOpen(false)
-              termRef.current?.focus()
-            }}
+            termRef={termRef}
+            setFindOpen={setFindOpen}
           />
         )}
       </div>
@@ -1159,19 +280,201 @@ function TerminalSurface({
   )
 }
 
-function decodeBase64Utf8(b64: string): string {
-  return new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)))
+interface StartTerminalDeps {
+  host: HTMLElement
+  engine: TerminalRenderer
+  paneId: string
+  workspaceIdRef: { current: string }
+  spawnCwd: { current: string | undefined }
+  termRef: { current: OstiaTerminal | null }
+  pauseRef: { current: PauseTerminal }
+  shownRef: { current: boolean }
+  lastSizeRef: { current: { cols: number; rows: number } }
+  syncSizeRef: { current: () => void }
+  pasteRef: { current: (text: string) => void }
+  pasteClipboardRef: { current: () => void }
+  dismissLinkHintRef: { current: () => void }
+  findStepRef: { current: ((by: number) => void) | null }
+  setPendingPaste: (text: string | null) => void
+  setSearch: (search: TerminalSearch | null) => void
+  setLinkHint: (hint: LinkHintBox | null) => void
+  setFindOpen: (open: boolean) => void
+  setAlternateScreen: (alternate: boolean) => void
+  setSuppressedPrompt: (prompt: LineAnchor | null) => void
 }
 
-function safeFit(host: HTMLElement, fit: TerminalFit, term: OstiaTerminal): boolean {
-  if (host.offsetWidth === 0 || host.offsetHeight === 0) return false
-  try {
-    settleFit(() => {
-      fit.fit()
-      return { cols: term.cols, rows: term.rows }
-    })
-    return true
-  } catch {
-    return false
+function startTerminal(deps: StartTerminalDeps): () => void {
+  const { host, engine, paneId, workspaceIdRef, termRef, pauseRef, pasteRef, pasteClipboardRef } =
+    deps
+  const { setPendingPaste, setSearch, setFindOpen, setAlternateScreen } = deps
+  const session = createTerminalSession(deps.spawnCwd.current ?? null)
+  const links = createTerminalLinks({
+    host,
+    paneId,
+    workspaceIdRef,
+    session,
+    setLinkHint: deps.setLinkHint,
+  })
+  deps.dismissLinkHintRef.current = links.dismissHint
+  const created = createEngine({
+    engine,
+    host,
+    options: initialTerminalOptions(),
+    gpuAcceleration: drawOnGpu(useSettingsStore.getState().behavior.gpuAcceleration),
+    links,
+  })
+  const { term } = created
+  if (created.pause) pauseRef.current = created.pause
+  const history = createHistoryScroll({
+    host,
+    paneId,
+    term,
+    engine,
+    options: initialTerminalOptions,
+    pause: (paused) => pauseRef.current(paused),
+    shown: () => deps.shownRef.current,
+  })
+  attachWheelReports(
+    term,
+    () => measureCells(host, term)?.height ?? 0,
+    isLinux,
+    history.interceptWheel,
+  )
+  const detachWheelZoom = attachWheelZoom(host, 'terminal', isMac)
+  const screenElement = terminalScreen(host)
+  const detachLinks = links.attach(term, screenElement)
+  termRef.current = term
+  setSearch(created.search)
+  const unregisterTerminal = registerTerminal(paneId, term)
+  const unregisterHistory = registerHistoryScroll(paneId, history)
+  const paste = createTerminalPaste({ host, term, paneId, session, setPendingPaste })
+  pasteRef.current = paste.pasteConfirmed
+  pasteClipboardRef.current = () => paste.pasteFromClipboard()
+  const detachKeys = attachTerminalKeys({
+    host,
+    term,
+    paneId,
+    pasteFromClipboard: paste.pasteFromClipboard,
+    setFindOpen,
+    findStepRef: deps.findStepRef,
+  })
+  const bufferChange = term.buffer.onBufferChange((buffer) =>
+    setAlternateScreen(buffer.type === 'alternate'),
+  )
+  const shell = createShellIntegration({ term, paneId, workspaceIdRef, session })
+  const detachSignals = attachTerminalSignals({ host, term, paneId, workspaceIdRef, session })
+  const unregisterLinks = links.registerProviders()
+  const detachPty = attachPtySession({
+    host,
+    term,
+    fit: created.fit,
+    screenElement,
+    paneId,
+    workspaceIdRef,
+    spawnCwd: deps.spawnCwd,
+    lastSizeRef: deps.lastSizeRef,
+    syncSizeRef: deps.syncSizeRef,
+    session,
+    anchor: shell.anchor,
+    disposeMarkers: shell.disposeMarkers,
+    silenceReplies: created.silenceReplies,
+    holdInput: paste.holdInput,
+  })
+
+  return () => {
+    session.disposed = true
+    detachPty()
+    bufferChange.dispose()
+    paste.dispose()
+    detachKeys()
+    pasteRef.current = () => {}
+    pasteClipboardRef.current = () => {}
+    shell.dispose()
+    detachSignals()
+    unregisterLinks()
+    detachWheelZoom()
+    detachLinks()
+    unregisterHistory()
+    history.dispose()
+    unregisterTerminal()
+    forgetPaneActivity(paneId)
+    useBlocksStore.getState().dropPane(paneId)
+    window.ostia.pty.detach(paneId)
+    pauseRef.current = keepDrawing
+    created.xtermRenderer?.dispose()
+    term.dispose()
+    termRef.current = null
+    setSearch(null)
+    setFindOpen(false)
+    setAlternateScreen(false)
+    deps.setSuppressedPrompt(null)
+    setPendingPaste(null)
   }
+}
+
+interface TerminalEngine {
+  term: OstiaTerminal
+  fit: TerminalFit
+  search: TerminalSearch | null
+  xtermRenderer: XtermRenderer | null
+  silenceReplies: () => { dispose(): void }
+  pause: PauseTerminal | null
+}
+
+function createEngine({
+  engine,
+  host,
+  options,
+  gpuAcceleration,
+  links: { webLinks, openWebLink, showLinkHint, hideLinkHint },
+}: {
+  engine: TerminalRenderer
+  host: HTMLElement
+  options: TerminalOptions
+  gpuAcceleration: boolean
+  links: TerminalLinks
+}): TerminalEngine {
+  let term: OstiaTerminal
+  let fit: TerminalFit
+  let searchAddon: TerminalSearch | null = null
+  let xtermRenderer: XtermRenderer | null = null
+  let silenceReplies: () => { dispose(): void }
+  let pause: PauseTerminal | null = null
+  const ghostty = engine === 'ghostty' ? ghosttyModule() : null
+  if (ghostty) {
+    const created = ghostty.createGhosttyTerminal(options, gpuAcceleration, webLinks)
+    term = created.term
+    fit = created.fit
+    searchAddon = created.search
+    silenceReplies = created.silenceQueryReplies
+    pause = created.setPaused
+  } else {
+    const xterm = new Xterm({
+      ...options,
+      allowProposedApi: true,
+      vtExtensions: { kittyKeyboard: false },
+    })
+    const xtermFit = new FitAddon()
+    xterm.loadAddon(xtermFit)
+    xterm.loadAddon(new Unicode11Addon())
+    xterm.unicode.activeVersion = '11'
+    xterm.options.linkHandler = xtermLinkHandler(webLinks)
+    xterm.loadAddon(
+      new WebLinksAddon(openWebLink, {
+        hover: (_e, uri, range) => showLinkHint('web', range, uri),
+        leave: hideLinkHint,
+      }),
+    )
+    const xtermSearch = new SearchAddon()
+    xterm.loadAddon(xtermSearch)
+    searchAddon = xtermSearch
+    xterm.open(host)
+    xtermRenderer = createXtermRenderer(xterm, gpuAcceleration)
+    pause = xtermRenderer.pause
+    term = xterm
+    fit = xtermFit
+    silenceReplies = () => silenceQueryReplies(xterm)
+  }
+  if (ghostty) term.open(host)
+  return { term, fit, search: searchAddon, xtermRenderer, silenceReplies, pause }
 }

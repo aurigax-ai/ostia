@@ -1,5 +1,5 @@
 import { commandWording, commands } from '@/commands/registry'
-import type { UserAction } from '@/settings/actions'
+import type { UserAction } from '@/lib/settings/actions'
 import { useActionConfirmStore } from '@/stores/agents/actionConfirmStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { mergeCatalog, zhHant } from '@shared/app/dict'

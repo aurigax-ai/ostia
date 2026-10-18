@@ -1,15 +1,23 @@
 import { IconButton } from '@/components/common/IconButton'
-import { PromptChip, chipIcon, chipName } from '@/components/terminal/PromptChips'
+import { Notice } from '@/components/common/Notice'
+import { PromptChip, chipIcon, chipName } from '@/components/prompt/PromptChips'
+import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
+import { SettingsGroup, SettingsSubgroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
+import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
 import { Button } from '@/components/ui/button'
-import { fmt, useDict } from '@/i18n/useDict'
-import { findPane } from '@/layout/tree'
-import type { PaneNode } from '@/layout/types'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { useChipCatalog } from '@/lib/extensions/extensionChips'
+import { findPane } from '@/lib/layout/tree'
+import type { PaneNode } from '@/lib/layout/types'
 import { addChip, contributedChipId, moveChip, removeChip } from '@/lib/prompt/promptChips'
 import { usePromptChips } from '@/lib/prompt/usePromptChips'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
-import { type WorkspaceLayout, useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import type { WorkspaceLayout } from '@/stores/workspaces/layoutTypes'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
   ArrowDownIcon,
@@ -29,15 +37,6 @@ import {
   isCoreChipId,
 } from '@shared/terminal/promptSettings'
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
-import {
-  ControlRow,
-  SectionHead,
-  SelectField,
-  SettingsGroup,
-  SubHead,
-  ToggleRow,
-  WarningNote,
-} from './SettingsPanel'
 
 function findTerminal(
   byWorkspace: Record<string, WorkspaceLayout | undefined>,
@@ -70,7 +69,7 @@ function Preview({ order }: { order: string[] }): JSX.Element {
   const { chips } = usePromptChips(paneId, pane?.cwd, order, true)
   return (
     <section aria-label={d.prompt.preview} className="mb-4">
-      <SubHead title={d.prompt.preview} desc={paneId ? d.prompt.previewPane : undefined} />
+      <SettingsSubgroup title={d.prompt.preview} desc={paneId ? d.prompt.previewPane : undefined} />
       {paneId ? (
         <div className="rounded-sm border border-line bg-bg-sunken px-3 py-2">
           <div className="prompt-chips prompt-preview">
@@ -87,7 +86,7 @@ function Preview({ order }: { order: string[] }): JSX.Element {
                   data-unavailable=""
                   aria-label={fmt(d.prompt.unavailable, { name })}
                 >
-                  <Icon size={12} aria-hidden="true" />
+                  <Icon size={16} aria-hidden="true" />
                   <span className="prompt-chip-text">{name}</span>
                 </span>
               )
@@ -141,45 +140,44 @@ function SelectedChips({
   return (
     <section className="mb-4">
       <div id="prompt-selected">
-        <SubHead title={d.prompt.selected} />
+        <SettingsSubgroup title={d.prompt.selected} />
       </div>
       <p id="prompt-reorder-hint" className="-mt-1.5 mb-2 text-fg-muted text-ui-xs">
         {d.prompt.selectedHint}
       </p>
-      {order.length === 0 ? (
-        <p className="text-fg-muted text-ui-sm">{d.prompt.noneSelected}</p>
-      ) : (
-        <ol
-          aria-labelledby="prompt-selected"
-          className="flex flex-col divide-y divide-line rounded-sm border border-line"
-        >
-          {order.map((id, index) => {
-            const name = chipName(d, id, catalog)
-            const Icon = chipIcon(isCoreChipId(id) ? id : null)
-            return (
-              <li
-                key={id}
-                draggable
-                data-chip={id}
-                data-dragging={dragging === index || undefined}
-                className="flex items-center gap-2 px-2 py-1 text-fg text-ui-base data-dragging:opacity-50"
-                onDragStart={(e) => {
-                  e.dataTransfer.effectAllowed = 'move'
-                  e.dataTransfer.setData('text/plain', id)
-                  setDragging(index)
-                }}
-                onDragOver={(e) => {
-                  if (dragging === null) return
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = 'move'
-                }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  if (dragging !== null) move(dragging, index)
-                  setDragging(null)
-                }}
-                onDragEnd={() => setDragging(null)}
-              >
+      <SettingsList
+        ordered
+        label={d.prompt.selected}
+        labelledBy="prompt-selected"
+        empty={d.prompt.noneSelected}
+      >
+        {order.map((id, index) => {
+          const name = chipName(d, id, catalog)
+          const Icon = chipIcon(isCoreChipId(id) ? id : null)
+          return (
+            <SettingsListRow
+              key={id}
+              draggable
+              data-chip={id}
+              data-dragging={dragging === index || undefined}
+              className="data-dragging:opacity-50"
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = 'move'
+                e.dataTransfer.setData('text/plain', id)
+                setDragging(index)
+              }}
+              onDragOver={(e) => {
+                if (dragging === null) return
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'move'
+              }}
+              onDrop={(e) => {
+                e.preventDefault()
+                if (dragging !== null) move(dragging, index)
+                setDragging(null)
+              }}
+              onDragEnd={() => setDragging(null)}
+              title={
                 <button
                   type="button"
                   ref={(el) => {
@@ -188,35 +186,39 @@ function SelectedChips({
                   }}
                   aria-label={fmt(d.prompt.reorder, { name })}
                   aria-describedby="prompt-reorder-hint"
-                  className="flex min-w-0 flex-1 cursor-grab items-center gap-2 rounded-sm text-left"
+                  className="flex w-full min-w-0 cursor-grab items-center gap-2 rounded-sm text-left"
                   onKeyDown={(e) => onHandleKey(e, index)}
                 >
-                  <DotsSixVerticalIcon size={14} aria-hidden="true" className="text-fg-muted" />
-                  <Icon size={14} aria-hidden="true" className="text-fg-muted" />
+                  <DotsSixVerticalIcon size={16} aria-hidden="true" className="text-fg-muted" />
+                  <Icon size={16} aria-hidden="true" className="text-fg-muted" />
                   <span className="min-w-0 flex-1 truncate">{name}</span>
                 </button>
-                <IconButton
-                  icon={ArrowUpIcon}
-                  label={fmt(d.prompt.moveUp, { name })}
-                  disabled={index === 0}
-                  onClick={() => move(index, index - 1)}
-                />
-                <IconButton
-                  icon={ArrowDownIcon}
-                  label={fmt(d.prompt.moveDown, { name })}
-                  disabled={index === order.length - 1}
-                  onClick={() => move(index, index + 1)}
-                />
-                <IconButton
-                  icon={XIcon}
-                  label={fmt(d.prompt.remove, { name })}
-                  onClick={() => setOrder(removeChip(order, id))}
-                />
-              </li>
-            )
-          })}
-        </ol>
-      )}
+              }
+              actions={
+                <>
+                  <IconButton
+                    icon={ArrowUpIcon}
+                    label={fmt(d.prompt.moveUp, { name })}
+                    disabled={index === 0}
+                    onClick={() => move(index, index - 1)}
+                  />
+                  <IconButton
+                    icon={ArrowDownIcon}
+                    label={fmt(d.prompt.moveDown, { name })}
+                    disabled={index === order.length - 1}
+                    onClick={() => move(index, index + 1)}
+                  />
+                  <IconButton
+                    icon={XIcon}
+                    label={fmt(d.prompt.remove, { name })}
+                    onClick={() => setOrder(removeChip(order, id))}
+                  />
+                </>
+              }
+            />
+          )
+        })}
+      </SettingsList>
       <span className="sr-only" aria-live="polite">
         {announcement}
       </span>
@@ -240,7 +242,7 @@ function AvailableChips({
   return (
     <section>
       <div id="prompt-available">
-        <SubHead title={d.prompt.available} />
+        <SettingsSubgroup title={d.prompt.available} />
       </div>
       {available.length === 0 ? (
         <p className="text-fg-muted text-ui-sm">{d.prompt.noneAvailable}</p>
@@ -285,8 +287,7 @@ export function PromptSection(): JSX.Element {
   const separatorLabel = (s: PromptSeparator): string => (s === 'none' ? d.prompt.separatorNone : s)
 
   return (
-    <div>
-      <SectionHead title={d.prompt.title} desc={d.prompt.desc} />
+    <SettingsPage title={d.prompt.title} desc={d.prompt.desc}>
       <SettingsGroup title={d.prompt.groupStyle}>
         <ControlRow label={d.settings.promptStyle} desc={d.settings.promptStyleDesc}>
           <SelectField
@@ -298,7 +299,7 @@ export function PromptSection(): JSX.Element {
         </ControlRow>
         <p className="text-fg-muted text-ui-xs">{d.prompt.openShellsNote}</p>
         {prompt.style === 'ostia' && inputMode !== 'editor' ? (
-          <WarningNote>{d.settings.promptNeedsEditor}</WarningNote>
+          <Notice>{d.settings.promptNeedsEditor}</Notice>
         ) : null}
       </SettingsGroup>
       <SettingsGroup title={d.prompt.groupChips}>
@@ -337,6 +338,6 @@ export function PromptSection(): JSX.Element {
           </Button>
         </ControlRow>
       </SettingsGroup>
-    </div>
+    </SettingsPage>
   )
 }

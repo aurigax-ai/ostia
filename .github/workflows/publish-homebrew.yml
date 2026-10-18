@@ -30,17 +30,17 @@ jobs:
       CASK: tap/Casks/ostia.rb
       HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           path: ostia
-      - uses: actions/create-github-app-token@v3
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510
         id: app
         with:
           client-id: ${{ vars.OSTIA_RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.OSTIA_RELEASE_APP_PRIVATE_KEY }}
           owner: aurigax-ai
           repositories: homebrew-tap
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: aurigax-ai/homebrew-tap
           token: ${{ steps.app.outputs.token }}

@@ -1,7 +1,7 @@
 import { useAssistStore } from '@/stores/assist/assistStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import type { ExtensionInfo } from '@shared/extensions'
-import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -30,10 +30,12 @@ function assistant(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     assist: ['command', 'chat'],
     secrets: [{ key: 'apiKey', description: 'Key for the provider' }],
     secretsSet: [],
+    connectionKinds: [],
     settingsPage: null,
     category: 'other',
     languages: [],
     languageServers: [],
+    fileViewers: [],
     agentSkills: [],
     agentHooks: [],
     ...overrides,

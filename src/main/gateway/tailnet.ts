@@ -3,8 +3,8 @@ import { chmodSync, lstatSync, mkdirSync, rmSync } from 'node:fs'
 import { isIP } from 'node:net'
 import { posix, win32 } from 'node:path'
 import { createInterface } from 'node:readline'
-import { PRODUCT_NAME } from '../../shared/product'
-import type { GatewayTailnetState } from '../../shared/types'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
+import type { GatewayTailnetState } from '../../shared/gateway/gatewayApi'
 
 const STOP_GRACE_MS = 3000
 const LOGOUT_TIMEOUT_MS = 15_000

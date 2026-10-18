@@ -18,6 +18,8 @@ describe('quoteArgv', () => {
     expect(quoteArg('a b')).toBe("'a b'")
     expect(quoteArg('$(rm -rf ~)')).toBe("'$(rm -rf ~)'")
     expect(quoteArg('=ls')).toBe("'=ls'")
+    expect(quoteArg('~/notes')).toBe("'~/notes'")
+    expect(quoteArg('a=b')).toBe("'a=b'")
     expect(quoteArg('')).toBe("''")
     expect(quoteArg("it's")).toBe("'it'\\''s'")
   })

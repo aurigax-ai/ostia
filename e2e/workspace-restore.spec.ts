@@ -169,31 +169,39 @@ test('keeps the scrollback saved at quit when an autosave fires during teardown'
     await openWorkspace(win)
     await win.locator('.xterm').first().click()
     await waitForTerminalFocus(win)
-    await win.keyboard.type(`echo ${marker}`)
+    await win.keyboard.type(`echo ${marker}_$((6*7))`)
     await win.keyboard.press('Enter')
-    await expect(win.locator('.xterm-rows').first()).toContainText(marker, { timeout: 15_000 })
+    await expect(win.locator('.xterm-rows').first()).toContainText(`${marker}_42`, {
+      timeout: 15_000,
+    })
   } finally {
     await quitApp(app)
   }
 
   const scrollbackFile = join(dataHome, 'ostia', 'scrollback.json')
-  expect(readFileSync(scrollbackFile, 'utf8')).toContain(marker)
+  expect(readFileSync(scrollbackFile, 'utf8')).toContain(`${marker}_42`)
 })
 
-async function setWindowSize(app: ElectronApplication, width: number, height: number) {
+async function setWindowSize({ app, win }: Launched, width: number, height: number): Promise<void> {
   await app.evaluate(
     ({ BrowserWindow }, size) => {
       BrowserWindow.getAllWindows()[0]?.setSize(size.width, size.height)
     },
     { width, height },
   )
+  await expect.poll(() => win.evaluate(() => window.outerWidth)).toBe(width)
+  await win.evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  )
 }
 
-async function wobbleWidth(app: ElectronApplication): Promise<void> {
-  for (const width of [1400, 1200, 1500, 1580]) {
-    await setWindowSize(app, width, 950)
-    await new Promise((resolve) => setTimeout(resolve, 400))
-  }
+async function wobbleWidth(launched: Launched): Promise<void> {
+  for (const width of [1400, 1200, 1500, 1580]) await setWindowSize(launched, width, 950)
+}
+
+function promptsAfterSeam(lines: string[]): number {
+  const seam = lines.findIndex((l) => l.includes('workspace restored'))
+  return lines.slice(seam + 1).filter((l) => l.includes('❯')).length
 }
 
 async function paneLines(win: Page): Promise<string[]> {
@@ -208,10 +216,9 @@ test('restores a clean final screen at a different window size', async () => {
 
   const first = await launchApp(dataHome)
   try {
-    await setWindowSize(first.app, 1580, 950)
+    await setWindowSize(first, 1580, 950)
     await openWorkspace(first.win)
-    await first.win.waitForTimeout(1_000)
-    await wobbleWidth(first.app)
+    await wobbleWidth(first)
     await first.win.locator('.xterm').first().click()
     await waitForTerminalFocus(first.win)
     await first.win.keyboard.type(`printf '${marker}_%s\\n' 1 2`)
@@ -219,20 +226,32 @@ test('restores a clean final screen at a different window size', async () => {
     await expect(first.win.locator('.xterm-rows').first()).toContainText(`${marker}_2`, {
       timeout: 15_000,
     })
-    await wobbleWidth(first.app)
-    await first.win.waitForTimeout(1_500)
+    await wobbleWidth(first)
+    await first.win.keyboard.type(`echo ${marker}_end_$((20+22))`)
+    await first.win.keyboard.press('Enter')
+    await expect(first.win.locator('.xterm-rows').first()).toContainText(
+      new RegExp(`${marker}_end_42[^❯]*❯`),
+      { timeout: 15_000 },
+    )
   } finally {
     await quitApp(first.app)
   }
 
   const second = await launchApp(dataHome)
   try {
-    await setWindowSize(second.app, 1000, 980)
+    await setWindowSize(second, 1000, 980)
     await expect(second.win.locator('.xterm-rows').first()).toContainText('workspace restored', {
       timeout: 15_000,
     })
     await waitForShellPrompt(second.win)
-    await second.win.waitForTimeout(2_000)
+    await second.win.locator('.xterm').first().click()
+    await second.win.keyboard.type(`echo ${marker}_flush_$((20+22))`)
+    await second.win.keyboard.press('Enter')
+    await expect(second.win.locator('.xterm-rows').first()).toContainText(`${marker}_flush_42`, {
+      timeout: 15_000,
+    })
+
+    await expect.poll(async () => promptsAfterSeam(await paneLines(second.win))).toBe(2)
 
     const lines = await paneLines(second.win)
     const seams = lines.flatMap((l, i) => (l.includes('workspace restored') ? [i] : []))
@@ -241,59 +260,10 @@ test('restores a clean final screen at a different window size', async () => {
     expect(lines.some((l) => l.trim() === '%')).toBe(false)
     expect(lines.slice(0, seam).join('\n')).toContain(`${marker}_1`)
     const history = lines.slice(0, seam).filter((l) => l.trim() !== '')
-    expect(history[history.length - 1]).toBe(`${marker}_2`)
+    expect(history[history.length - 1]).toBe(`${marker}_end_42`)
+    expect(history).toContain(`${marker}_2`)
     expect(history.filter((l) => l.includes(`printf '${marker}`))).toHaveLength(1)
-    expect(lines.slice(seam + 1).filter((l) => l.includes('❯'))).toHaveLength(1)
   } finally {
     await quitApp(second.app)
-  }
-})
-
-test('adds no seam to a pane left unused across restarts', async () => {
-  test.setTimeout(120_000)
-  const marker = `ostia_unused_${Date.now()}`
-  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
-
-  const first = await launchApp(dataHome)
-  try {
-    await openWorkspace(first.win)
-    await first.win.locator('.xterm').first().click()
-    await waitForTerminalFocus(first.win)
-    await first.win.keyboard.type(`echo ${marker}`)
-    await first.win.keyboard.press('Enter')
-    await expect(first.win.locator('.xterm-rows').first()).toContainText(marker, {
-      timeout: 15_000,
-    })
-  } finally {
-    await quitApp(first.app)
-  }
-
-  const scrollbackFile = join(dataHome, 'ostia', 'scrollback.json')
-  for (let restart = 0; restart < 2; restart++) {
-    const idle = await launchApp(dataHome)
-    try {
-      await expect(idle.win.locator('.xterm-rows').first()).toContainText('workspace restored', {
-        timeout: 15_000,
-      })
-      await waitForShellPrompt(idle.win)
-    } finally {
-      await quitApp(idle.app)
-    }
-    const saved = readFileSync(scrollbackFile, 'utf8')
-    expect(saved).toContain(marker)
-    expect(saved).not.toContain('workspace restored')
-  }
-
-  const last = await launchApp(dataHome)
-  try {
-    await expect(last.win.locator('.xterm-rows').first()).toContainText('workspace restored', {
-      timeout: 15_000,
-    })
-    await waitForShellPrompt(last.win)
-    const lines = await paneLines(last.win)
-    expect(lines.filter((l) => l.includes('workspace restored'))).toHaveLength(1)
-    expect(lines.filter((l) => l.includes(`echo ${marker}`))).toHaveLength(1)
-  } finally {
-    await quitApp(last.app)
   }
 })

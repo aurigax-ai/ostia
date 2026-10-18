@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { commands } from '@/commands/registry'
-import { createPane } from '@/layout/tree'
+import { createPane } from '@/lib/layout/tree'
 import { HOVER_FOCUS_DELAY_MS } from '@/lib/terminal/hoverFocus'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'

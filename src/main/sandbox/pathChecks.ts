@@ -5,7 +5,8 @@ import {
   type SandboxEditError,
   type SandboxPathKind,
 } from '../../shared/sandbox/sandbox'
-import { expandHome, realPath, touches, within } from './srtConfig'
+import { expandHome, isInsidePath } from '../platform/pathGuard'
+import { realPath, touches } from './srtConfig'
 
 type PathCheckReason =
   | 'not-absolute'
@@ -45,10 +46,14 @@ export function checkSandboxPath(
   const path = trimSlashes(normalize(expanded))
   if (path === '/') return { ok: false, reason: 'too-broad' }
   const opens = OPENING_KINDS.includes(kind)
-  if (opens && within(realPath(env.home), realPath(path))) return { ok: false, reason: 'too-broad' }
+  if (opens && isInsidePath(realPath(path), realPath(env.home)))
+    return { ok: false, reason: 'too-broad' }
   if (opens && touches(path, env.dataDirs)) return { ok: false, reason: 'ostia-data' }
   if (opens && touches(path, env.protectedDirs)) return { ok: false, reason: 'protected' }
-  if (kind === 'allowWrite' && env.protectedFiles.some((file) => within(realPath(path), file))) {
+  if (
+    kind === 'allowWrite' &&
+    env.protectedFiles.some((file) => isInsidePath(file, realPath(path)))
+  ) {
     return { ok: false, reason: 'protected' }
   }
   if (!existsSync(path)) return { ok: false, reason: 'missing' }

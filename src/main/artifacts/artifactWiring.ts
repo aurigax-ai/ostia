@@ -1,0 +1,105 @@
+import { ClipboardItem, clipboard, ipcMain } from 'electron'
+import type { PreviewOpened } from '../../shared/artifacts/htmlPreview'
+import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
+import { registerCmuxSessionIpc } from '../workspaces/cmuxSession'
+import { registerScratchIpc } from '../workspaces/scratchFolders'
+import type { ScratchFolders } from '../workspaces/scratchFolders'
+import { windowForWorkspace } from '../workspaces/workspaceRegistry'
+import { registerArtifactIpc } from './artifactFolders'
+import type { ArtifactFolders } from './artifactFolders'
+import { registerArtifactHistoryIpc } from './artifactHistory'
+import type { ArtifactHistory } from './artifactHistory'
+import { registerArtifactProducersIpc } from './artifactProducers'
+import type { ArtifactProducers } from './artifactProducers'
+import type { PreviewHost } from './htmlPreview'
+import { registerPortableIpc } from './portableExport'
+import type { PortableExport } from './portableExport'
+
+interface ArtifactStartDeps {
+  scratchFolders: ScratchFolders
+  artifactFolders: ArtifactFolders
+  artifactHistory: ArtifactHistory
+  portableExport: PortableExport
+  workspaceSandboxes: WorkspaceSandboxes
+}
+
+export function startArtifacts({
+  scratchFolders,
+  artifactFolders,
+  artifactHistory,
+  portableExport,
+  workspaceSandboxes,
+}: ArtifactStartDeps) {
+  scratchFolders.sweep()
+  artifactFolders.sweep()
+  artifactHistory.sweep()
+  portableExport.sweep()
+  workspaceSandboxes.tmp.sweepTmp()
+  registerScratchIpc(scratchFolders)
+  registerArtifactIpc({
+    folders: artifactFolders,
+    ownsWorkspace: (windowId, workspaceId) => windowForWorkspace(workspaceId) === windowId,
+  })
+  registerCmuxSessionIpc()
+}
+
+interface ArtifactViewIpcDeps {
+  previews: PreviewHost
+  portableExport: PortableExport
+  artifactHistory: ArtifactHistory
+  artifactProducers: ArtifactProducers
+}
+
+export function registerArtifactViewIpc({
+  previews,
+  portableExport,
+  artifactHistory,
+  artifactProducers,
+}: ArtifactViewIpcDeps) {
+  registerPreviewIpc(previews, (png) => {
+    void clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(png)]) })])
+  })
+  registerPortableIpc(portableExport)
+  registerArtifactHistoryIpc({
+    history: artifactHistory,
+    ownsWorkspace: (windowId, workspaceId) => windowForWorkspace(workspaceId) === windowId,
+  })
+  registerArtifactProducersIpc({
+    producers: artifactProducers,
+    ownsWorkspace: (windowId, workspaceId) => windowForWorkspace(workspaceId) === windowId,
+  })
+}
+
+function registerPreviewIpc(
+  host: PreviewHost,
+  copyImage: (png: Uint8Array) => void = () => {},
+): void {
+  ipcMain.handle('preview:capture', async (e, id: unknown, rect: unknown) => {
+    if (typeof id !== 'string') return null
+    const windowId = String(e.sender.id)
+    const image = await host.capture(windowId, id, rect)
+    const region = host.pageRegion(windowId, rect)
+    return image && region ? { image, region } : null
+  })
+  ipcMain.handle('preview:copy-region', async (e, id: unknown, rect: unknown) => {
+    const png = typeof id === 'string' ? await host.capture(String(e.sender.id), id, rect) : null
+    if (png) copyImage(png)
+    return png !== null
+  })
+  ipcMain.handle(
+    'preview:open',
+    (e, paneId: unknown, path: unknown, theme: unknown): PreviewOpened | null =>
+      typeof paneId === 'string' && typeof path === 'string'
+        ? host.open(String(e.sender.id), paneId, path, theme)
+        : null,
+  )
+  ipcMain.on('preview:shown', (e, id: unknown, visible: unknown) => {
+    if (typeof id === 'string') host.shown(String(e.sender.id), id, visible === true)
+  })
+  ipcMain.on('preview:stop', (e, id: unknown) => {
+    if (typeof id === 'string') host.stopByHuman(String(e.sender.id), id)
+  })
+  ipcMain.on('preview:close', (e, id: unknown) => {
+    if (typeof id === 'string') host.close(String(e.sender.id), id)
+  })
+}

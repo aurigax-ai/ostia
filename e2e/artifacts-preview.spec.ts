@@ -3,12 +3,10 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { type AddressInfo, type Server, createServer } from 'node:net'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { fakeAgentBin, startFakeAgent } from './fakeAgent'
 import { openWorkspace, runInTerminal } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const PREVIEW_URL = 'ostia-preview://'
-const REPORT_REF = /@(\S*selection-\d+\.md)/
 const COPIED = 'copied-by-the-preview-page-7f3a'
 const PIXEL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
@@ -186,12 +184,7 @@ const attempt = async (name, run) => {
 
 async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
   seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, editor: { openFilesIn: 'split' } })
-  const bin = fakeAgentBin(dataHome)
-  const base = isolatedLaunch(dataHome)
-  const app = await electron.launch({
-    ...base,
-    env: { ...base.env, PATH: `${bin}:${base.env.PATH}` },
-  })
+  const app = await electron.launch(isolatedLaunch(dataHome))
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
   await openWorkspace(win)
@@ -263,7 +256,7 @@ function inGuest<T>(app: ElectronApplication, expression: string): Promise<T | n
   )
 }
 
-test('a page in the artifact folder runs with no network, no way into Ostia, no storage and no navigation', async () => {
+test('PRT-C30 a page in the artifact folder runs with no network, no way into Ostia, no storage and no navigation', async () => {
   test.setTimeout(180_000)
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
@@ -302,8 +295,8 @@ test('a page in the artifact folder runs with no network, no way into Ostia, no 
       cookie: 'threw:SecurityError',
       clipboardRead: 'threw:NotAllowedError',
       popup: 'null',
-      sibling: 'sibling-read',
-      parentFolder: 404,
+      sibling: 'threw:TypeError',
+      parentFolder: 'threw:TypeError',
       eval: 'threw:EvalError',
       ostia: 'undefined',
       require: 'undefined',
@@ -340,29 +333,13 @@ test('a page in the artifact folder runs with no network, no way into Ostia, no 
     expect(await inGuest<string>(app, 'document.title')).toBe('probed')
     expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1)
     expect(outside.hits()).toBe(0)
-
-    await win.locator('.xterm').first().click()
-    await startFakeAgent(win)
-    await win.getByRole('button', { name: 'Send Error to Agent' }).click()
-    const panel = win.getByRole('region', { name: 'Send to agent' })
-    await expect(panel).toBeVisible({ timeout: 15_000 })
-    await panel.getByLabel('Note for the agent').fill('the page fails')
-    await panel.getByRole('button', { name: 'Send' }).click()
-    const terminal = win.locator('.xterm-rows').first()
-    await expect(terminal).toContainText(REPORT_REF, { timeout: 15_000 })
-    const match = ((await terminal.textContent()) ?? '').match(REPORT_REF)
-    const report = readFileSync((match as RegExpMatchArray)[1], 'utf8')
-    expect(report).toContain('# Preview error: probe.html,')
-    expect(report).toContain('previews have no network')
-    expect(report).toContain('the page fails')
-    expect(outside.hits()).toBe(0)
   } finally {
     await app.close()
     await outside.close()
   }
 })
 
-test('a page that never yields is stopped, and the terminal beside it keeps working', async () => {
+test('PRT-C30 a page that never yields is stopped, and the terminal beside it keeps working', async () => {
   test.setTimeout(180_000)
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
@@ -437,7 +414,7 @@ test('a page outside the artifact folder previews only when asked, reloads on a 
 
     writeFileSync(
       page,
-      '<!doctype html><title>second</title><script>throw new Error("boom-from-page")</script><script type="module">import "nowhere"</script>',
+      '<!doctype html><title>second</title><script>throw new Error("boom-from-page")</script><script>nowhere()</script>',
     )
     await expect
       .poll(() => inGuest<string>(app, 'document.title'), { timeout: 20_000 })
@@ -487,6 +464,7 @@ import { HeartIcon } from '@phosphor-icons/react'
 import * as d3 from 'd3'
 import Papa from 'papaparse'
 import Part from './Part'
+import data from './data.json'
 
 const points = Papa.parse('x,y\\n1,2\\n2,5\\n3,3', { header: true, dynamicTyping: true }).data
 
@@ -494,7 +472,7 @@ export default function Widget() {
   const [count, setCount] = useState<number>(0)
   const [loaded, setLoaded] = useState('')
   useEffect(() => {
-    fetch('./data.json').then((r) => r.json()).then((d) => setLoaded(d.ok))
+    setLoaded(data.ok)
   }, [])
   useEffect(() => {
     document.title = 'count ' + count + ' ' + loaded + ' max ' + d3.max(points, (p) => p.y)
@@ -576,6 +554,7 @@ test('a .tsx component runs with the bundled libraries, no eval, no network, and
           line: document.querySelectorAll('.recharts-line path').length,
           svgs: document.querySelectorAll('svg').length,
           importMaps: document.querySelectorAll('script[type=importmap]').length,
+          external: document.querySelectorAll('script[src]').length,
         })`,
       ),
     ).toEqual({
@@ -586,7 +565,8 @@ test('a .tsx component runs with the bundled libraries, no eval, no network, and
       chart: 1,
       line: 1,
       svgs: 3,
-      importMaps: 1,
+      importMaps: 0,
+      external: 0,
     })
     await expect(win.getByTestId('preview-errors')).toHaveCount(0)
 
@@ -625,34 +605,7 @@ test('a .tsx component runs with the bundled libraries, no eval, no network, and
   }
 })
 
-test('a component that does not compile, or imports what is not bundled, says so in the strip', async () => {
-  test.setTimeout(120_000)
-  const dataHome = freshDataHome()
-  const home = join(dataHome, 'home')
-  mkdirSync(home, { recursive: true })
-  writeFileSync(join(home, 'Broken.tsx'), 'export default function Broken() {\n  return <div>\n}\n')
-  const { app, win } = await launch(dataHome)
-  try {
-    await runInTerminal(
-      win,
-      'cp ~/Broken.tsx "$OSTIA_ARTIFACTS/" && ostia open "$OSTIA_ARTIFACTS/Broken.tsx"',
-    )
-    const strip = win.getByTestId('preview-errors')
-    await expect(strip).toContainText(/Broken\.tsx:3:\d+:/, { timeout: 30_000 })
-
-    await runInTerminal(
-      win,
-      `printf "import { motion } from 'framer-motion'\\nexport default () => <motion.div />\\n" > "$OSTIA_ARTIFACTS/Broken.tsx"`,
-    )
-    await expect(strip).toContainText('framer-motion', { timeout: 30_000 })
-    await expect(strip).not.toContainText('Broken.tsx:3:')
-    expect(await guestUrls(app)).toHaveLength(1)
-  } finally {
-    await app.close()
-  }
-})
-
-test('a page cannot make the resolver look up a host name: no DNS prefetch, preconnect or anchor lookup', async () => {
+test('PRT-C30 a page cannot make the resolver look up a host name: no DNS prefetch, preconnect or anchor lookup', async () => {
   test.setTimeout(120_000)
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')

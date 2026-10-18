@@ -1,5 +1,7 @@
 import { tabMark } from '@/lib/attention/attention'
 import { followedFolder, treeRoot } from '@/lib/files/revealFolder'
+import { paneBrowserProfile } from '@/lib/layout/paneFields'
+import { allPanes, findPane, tabsOfPane } from '@/lib/layout/tree'
 import { callerHasFocus, opensQuietly } from '@/lib/panes/callerFocus'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
@@ -16,7 +18,6 @@ import {
   REVEAL_FOLDER_COMMAND,
 } from '@shared/files/openFiles'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { allPanes, findPane, paneBrowserProfile, tabsOfPane } from '../layout/tree'
 import { registerBuiltinCommands } from './builtins'
 import { type CommandContext, commands } from './registry'
 
@@ -267,16 +268,16 @@ describe('files.reveal', () => {
   })
 })
 
-describe('placement', () => {
+describe('waited files', () => {
   const A = '/home/me/project/a.md'
   const B = '/home/me/project/b.md'
 
-  it('--tab opens each file as a tab beside the caller, in order', async () => {
+  it('opens each waited file as a tab beside the caller, in order', async () => {
     const caller = seed()
     focusPane(caller)
     const res = await commands.execWith(fromPane(caller), OPEN_FILES_COMMAND, {
       files: [{ path: A }, { path: B }],
-      placement: 'tab',
+      wait: true,
     })
     const stack = tabsOfPane(layout().root, caller)
     expect(stack?.children).toHaveLength(3)
@@ -286,37 +287,14 @@ describe('placement', () => {
     })
   })
 
-  it('--split right opens a split of the caller and reuses the editor already on that side', async () => {
+  it('ignores a placement the socket no longer takes', async () => {
     const caller = seed()
     focusPane(caller)
     await commands.execWith(fromPane(caller), OPEN_FILES_COMMAND, {
       files: [{ path: A }],
       placement: 'right',
     })
-    expect(tabsOfPane(layout().root, caller)).toBeNull()
-    const first = editors()[0]
-    expect(layout().activePaneId).toBe(first.id)
-    await commands.execWith(fromPane(caller), OPEN_FILES_COMMAND, {
-      files: [{ path: B }],
-      placement: 'right',
-    })
-    const second = editors().find((p) => p.filePath === B)
-    expect(editors()).toHaveLength(2)
-    expect(tabsOfPane(layout().root, first.id)?.children.map((t) => t.id)).toEqual([
-      first.id,
-      second?.id,
-    ])
-  })
-
-  it('a quiet split shows the file and leaves the caller active', async () => {
-    const caller = seed()
-    await commands.execWith(fromPane(caller), OPEN_FILES_COMMAND, {
-      files: [{ path: A }],
-      placement: 'down',
-    })
-    expect(layout().activePaneId).toBe(caller)
-    expect(editors()).toHaveLength(1)
-    expect(tabMark(useAttentionStore.getState().byPane[editors()[0].id])).toBe('unread')
+    expect(tabsOfPane(layout().root, caller)?.children).toHaveLength(2)
   })
 })
 
@@ -384,6 +362,7 @@ describe('diff.openFiles', () => {
     const res = await commands.execWith(fromPane(caller), OPEN_DIFF_COMMAND, content)
     const diff = allPanes(layout().root).find((p) => p.kind === 'diff')
     expect(diff).toBeDefined()
+    expect(diff?.title).toBe('a ↔ b')
     expect(useDiffStore.getState().byPane[diff?.id ?? '']).toMatchObject({
       original: 'one',
       modified: 'two',
@@ -403,5 +382,27 @@ describe('diff.openFiles', () => {
     const caller = seed()
     const res = await commands.execWith(fromPane(caller), OPEN_DIFF_COMMAND, { title: 'x' })
     expect(res.ok).toBe(false)
+  })
+})
+
+describe('workspace.new from a pane', () => {
+  it('takes the keyboard only when the calling pane has it, and never with focus false', async () => {
+    const caller = seed()
+    const quiet = await commands.execWith(fromPane(caller), 'workspace.new', { dir: '/home/me/a' })
+    expect(quiet.ok).toBe(true)
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('s1')
+
+    focusPane(caller)
+    const asked = await commands.execWith(fromPane(caller), 'workspace.new', {
+      dir: '/home/me/b',
+      focus: false,
+    })
+    expect(asked.ok).toBe(true)
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('s1')
+
+    const shown = await commands.execWith(fromPane(caller), 'workspace.new', { dir: '/home/me/c' })
+    const made = shown.ok ? (shown.result as { workspaceId: string }).workspaceId : null
+    expect(made).not.toBeNull()
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe(made)
   })
 })

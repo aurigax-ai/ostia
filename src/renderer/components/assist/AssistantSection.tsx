@@ -1,21 +1,12 @@
+import { EmptyState } from '@/components/common/EmptyState'
 import { IconButton } from '@/components/common/IconButton'
 import { ExtensionSettingsForm } from '@/components/extensions/ExtensionSettingsForm'
-import {
-  ControlRow,
-  SectionHead,
-  SettingsGroup,
-  ToggleRow,
-} from '@/components/settings/SettingsPanel'
-import { Highlight, useSearchGroup } from '@/components/settings/SettingsSearch'
+import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsPage } from '@/components/settingsKit/SettingsPage'
+import { Highlight, useSearchGroup } from '@/components/settingsKit/SettingsSearch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from '@/components/ui/empty'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item'
 import {
   Select,
@@ -26,17 +17,15 @@ import {
   SelectTrigger,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { featuresInUse, toggleAssistFeature } from '@/lib/assist/assistFeatures'
 import { openAssistUi } from '@/lib/assist/assistUi'
-import { useChordLabel } from '@/lib/keys/chords'
+import { useChordLabel } from '@/lib/keyboard/chords'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useAssistStore, wakeAssist } from '@/stores/assist/assistStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import { ArrowClockwiseIcon } from '@phosphor-icons/react'
-import type { Dict } from '@shared/app/dict'
 import {
   type AssistFeatureId,
   type AssistFeatureState,
@@ -50,8 +39,10 @@ import {
   modelClassOf,
   modelRefKey,
   sameModelRef,
-} from '@shared/assist'
-import type { ExtensionInfo } from '@shared/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { ArrowClockwiseIcon } from '@phosphor-icons/react'
+import type { Dict } from '@shared/app/dict'
 import { useCallback, useEffect, useState } from 'react'
 import { AssistantProviders } from './AssistantProviders'
 import { ChatToolsSettings } from './ChatToolsSettings'
@@ -208,15 +199,12 @@ function FeatureRow({
   ]
   const ui = TRY_UI[feature.id]
   return (
-    <div className="flex items-start justify-between gap-6 py-1.5" data-feature={feature.id}>
-      <div className="min-w-0">
-        <div className="text-fg text-ui-base">{name}</div>
-        <p className="mt-0.5 text-fg-muted text-ui-sm">
-          {d.assistantSettings.featureDesc[feature.id]}
-        </p>
-        <p className="mt-0.5 text-fg-muted text-ui-xs">{hints.join(' · ')}</p>
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
+    <div data-feature={feature.id}>
+      <ControlRow
+        label={name}
+        desc={d.assistantSettings.featureDesc[feature.id]}
+        below={<p className="text-fg-muted text-ui-xs">{hints.join(' · ')}</p>}
+      >
         {feature.on && !feature.ready ? (
           <span className="text-fg-muted text-ui-sm">{d.assistMenu.notReady}</span>
         ) : null}
@@ -238,7 +226,7 @@ function FeatureRow({
           aria-label={name}
           onCheckedChange={() => void toggleAssistFeature(extId, feature)}
         />
-      </div>
+      </ControlRow>
     </div>
   )
 }
@@ -456,17 +444,13 @@ export function AssistantSection(): JSX.Element {
   const exts = list.filter((e) => e.enabled && isAssistExtension(e))
   const chat = exts.some((e) => e.assist.includes('chat'))
   return (
-    <div>
-      <SectionHead title={d.assistantSettings.title} desc={d.assistantSettings.desc} />
+    <SettingsPage title={d.assistantSettings.title} desc={d.assistantSettings.desc}>
       {exts.length === 0 ? (
-        <Empty className="mt-3 gap-3 rounded-md border border-line border-dashed p-6">
-          <EmptyHeader className="gap-1">
-            <EmptyTitle className="text-fg text-ui-base">{d.assistantSettings.offTitle}</EmptyTitle>
-            <EmptyDescription className="text-fg-muted text-ui-sm">
-              {d.assistantSettings.offDesc}
-            </EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
+        <EmptyState
+          variant="block"
+          title={d.assistantSettings.offTitle}
+          desc={d.assistantSettings.offDesc}
+          action={
             <Button
               size="sm"
               onClick={() =>
@@ -477,8 +461,8 @@ export function AssistantSection(): JSX.Element {
             >
               {d.assistantSettings.openExtensions}
             </Button>
-          </EmptyContent>
-        </Empty>
+          }
+        />
       ) : (
         <>
           <ModelsInUse />
@@ -490,6 +474,6 @@ export function AssistantSection(): JSX.Element {
           {chat ? <ChatToolsSettings /> : null}
         </>
       )}
-    </div>
+    </SettingsPage>
   )
 }

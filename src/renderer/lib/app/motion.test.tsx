@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { useMotionAttribute, useReducedMotion } from './motion'
+import { reducedMotionNow, useMotionAttribute, useReducedMotion } from './motion'
 
 const css = readFileSync(resolve(process.cwd(), 'src/renderer/index.css'), 'utf8')
 
@@ -17,6 +17,7 @@ function sourceFiles(dir: string, extensions: string[]): string[] {
 const styleFiles = [
   ...sourceFiles('src/renderer', ['.css']),
   ...sourceFiles('src/extensions', ['.css']),
+  ...sourceFiles(join('packages', 'extension-sdk', 'src', 'client'), ['.css']),
 ]
 const codeFiles = [
   ...sourceFiles('src/renderer', ['.ts', '.tsx']),
@@ -39,6 +40,7 @@ const FORBIDDEN_CODE_MOTION = [
   /\b(?:active|data-pressed|data-\[pressed\]):-?(?:scale|translate)/,
   /\b(?:transition|animation)(?:Duration|TimingFunction|Delay)?\s*:\s*['"`]/,
   /\bbehavior:\s*['"]smooth['"]/,
+  /\bsmoothScrolling:(?!\s*false\b)/,
 ]
 
 function motionDeclarations(source: string): string[] {
@@ -46,6 +48,22 @@ function motionDeclarations(source: string): string[] {
   const decl = /(?:^|[;{\s])((?:transition|animation)(?:-[a-z-]+)?\s*:[^;{}]+)/g
   for (const match of source.matchAll(decl)) found.push(match[1].replace(/\s+/g, ' ').trim())
   return found
+}
+
+function keyframeBlocks(source: string): Array<{ name: string; body: string }> {
+  const blocks: Array<{ name: string; body: string }> = []
+  for (const match of source.matchAll(/@keyframes\s+([\w-]+)\s*\{/g)) {
+    let depth = 1
+    let i = match.index + match[0].length
+    const start = i
+    while (depth > 0 && i < source.length) {
+      if (source[i] === '{') depth++
+      else if (source[i] === '}') depth--
+      i++
+    }
+    blocks.push({ name: match[1], body: source.slice(start, i - 1) })
+  }
+  return blocks
 }
 
 function stripVars(declaration: string): string {
@@ -127,6 +145,27 @@ describe('useReducedMotion', () => {
   })
 })
 
+describe('reducedMotionNow', () => {
+  function osPrefersReduced(matches: boolean): void {
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) => ({ matches, media: query }) as unknown as MediaQueryList,
+    )
+  }
+
+  afterEach(() => vi.restoreAllMocks())
+
+  it('follows the OS preference in system mode and lets the setting override it', () => {
+    osPrefersReduced(true)
+    expect(reducedMotionNow()).toBe(true)
+    act(() => useSettingsStore.getState().setMotion('full'))
+    expect(reducedMotionNow()).toBe(false)
+    osPrefersReduced(false)
+    expect(reducedMotionNow()).toBe(false)
+    act(() => useSettingsStore.getState().setMotion('reduced'))
+    expect(reducedMotionNow()).toBe(true)
+  })
+})
+
 describe('motion CSS contract', () => {
   it('pulses the waiting dot exactly three times, never forever', () => {
     const waiting = ruleBody('.dot.waiting::after')
@@ -152,6 +191,60 @@ describe('motion CSS contract', () => {
     for (const file of styleFiles.filter((f) => !f.endsWith('src/renderer/index.css'))) {
       expect(readFileSync(file, 'utf8'), file).not.toMatch(/\binfinite\b/)
     }
+  })
+
+  it('exits a notice by opacity and a small movement on the exit tokens, edge bars by translate', () => {
+    expect(ruleBody('.notice-slot[data-leaving] .motion-enter')).toContain(
+      'animation: overlay-out var(--motion-base-exit) var(--ease-in) forwards;',
+    )
+    expect(ruleBody('.notice-slot[data-leaving] .motion-enter-edge')).toContain(
+      'animation: edge-out var(--motion-base-exit) var(--ease-in) forwards;',
+    )
+  })
+
+  it('reveals a collapsible by opacity and a small translate, with no close transition', () => {
+    expect(ruleBody('.motion-reveal-panel')).toContain('transition-property: opacity, transform;')
+    expect(ruleBody('.motion-reveal-panel[data-starting-style]')).toMatch(
+      /opacity: 0;\n {2}transform: translateY\(-2px\);/,
+    )
+    expect(css).not.toContain('.motion-reveal-panel[data-ending-style]')
+  })
+
+  it('gives panels every motion token of the app, scaled by the reduced-motion setting', () => {
+    const panel = readFileSync(
+      resolve(process.cwd(), join('packages', 'extension-sdk', 'src', 'client'), 'panel.css'),
+      'utf8',
+    )
+    const durations = ['panel', 'pulse', 'breathe', 'highlight'].map((name) => `--motion-${name}`)
+    for (const token of [...durations, '--ease-in-out']) {
+      expect(css, token).toMatch(new RegExp(`^\\s+${token}:`, 'm'))
+      expect(panel, token).toMatch(new RegExp(`^\\s+${token}:`, 'm'))
+    }
+    for (const token of durations) {
+      expect(panel, token).toContain(`${token}: calc(`)
+      expect(panel, token).toContain('* var(--ostia-motion-scale, 1))')
+    }
+  })
+
+  it('blinks the unread tab lead like every other attention cue', () => {
+    expect(ruleBody('.tab-lead-unread')).toMatch(
+      /animation: attn-blink var\(--motion-pulse\) var\(--ease-out\) 3;/,
+    )
+    expect(css).not.toContain('--motion-pulse-fast')
+  })
+
+  it('animates only opacity and transform in every keyframe of every style file', () => {
+    const keyframes = styleFiles.flatMap((file) =>
+      keyframeBlocks(readFileSync(file, 'utf8')).map((block) => ({ file, ...block })),
+    )
+    expect(keyframes.length).toBeGreaterThan(0)
+    const offenders = keyframes.flatMap(({ file, name, body }) =>
+      [...body.matchAll(/([a-z-]+)\s*:/g)]
+        .map((m) => m[1])
+        .filter((prop) => prop !== 'transform' && prop !== 'opacity')
+        .map((prop) => `${file}: ${name} animates ${prop}`),
+    )
+    expect(offenders).toEqual([])
   })
 
   it('times every transition and animation with the motion tokens', () => {
@@ -184,7 +277,7 @@ describe('motion CSS contract', () => {
   })
 
   const railRules = [
-    ...css.matchAll(/\n((?:\.deck-rail|\.app:has\(> \.deck-rail)[^{\n]*)\{([^}]*)\}/g),
+    ...css.matchAll(/\n((?:\.deck-rail|:root\[data-rail-motion)[^{\n]*)\{([^}]*)\}/g),
   ]
 
   it('slides the sidebar with transform and opacity only, so a toggle reflows once', () => {
@@ -213,9 +306,9 @@ describe('motion CSS contract', () => {
   it('moves the main area and middle panels with the sidebar edge, on one shared timing', () => {
     const follow = railRules.filter(([, selector]) => /\.workzone/.test(selector))
     expect(follow.map(([, selector]) => selector.trim())).toEqual([
-      '.app:has(> .deck-rail[data-rail-motion]) > :is(.files-panel, .workzone)',
-      '.app:has(> .deck-rail[data-rail-motion="opening"]) > :is(.files-panel, .workzone)',
-      '.app:has(> .deck-rail[data-rail-motion="closing"]) > :is(.files-panel, .workzone)',
+      ':root[data-rail-motion] .app > :is(.files-panel, .workzone)',
+      ':root[data-rail-motion="opening"] .app > :is(.files-panel, .workzone)',
+      ':root[data-rail-motion="closing"] .app > :is(.files-panel, .workzone)',
     ])
     const timings = railRules.flatMap(([, , body]) =>
       [...body.matchAll(/animation:\s*[a-z-]+\s+(var\([^)]+\)\s+var\([^)]+\))/g)].map((m) => m[1]),
@@ -223,7 +316,9 @@ describe('motion CSS contract', () => {
     expect(new Set(timings)).toEqual(new Set(['var(--motion-panel) var(--ease-in-out)']))
     expect(css).toContain('transform: translateX(calc(var(--rail-w-collapsed) - var(--rail-w)));')
     expect(css).toContain('transform: translateX(calc(var(--rail-w) - var(--rail-w-collapsed)));')
-    const footprint = railRules.find(([, selector]) => /\[data-rail-motion\]\)\s*$/.test(selector))
+    const footprint = railRules.find(([, selector]) =>
+      /\[data-rail-motion\] \.app\s*$/.test(selector),
+    )
     expect(footprint?.[2]).toMatch(/grid-template-columns: var\(--rail-w-collapsed\) auto 1fr;/)
     expect(footprint?.[2]).toMatch(/overflow: clip;/)
   })

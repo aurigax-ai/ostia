@@ -1,12 +1,10 @@
 import { createHmac } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { SecretReveal, SecretSyncStatus } from '../../shared/types'
-import type { CredentialStore } from '../browser/credentials'
-import { type SecretStoreDeps, sanitizeSecrets } from '../extensions/extensionSecrets'
-import { BASE_DIR } from './engine'
+import { writeFileAtomic } from '@aurigax-ai/ostia-extension-sdk/atomicWrite'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
+import type { SecretReveal, SecretSyncStatus } from '../../shared/profileSync/profileSync'
 import { mergeMaps } from './merge'
-import { isObject, writeAtomic } from './profile'
 import {
   type BundleHeader,
   newDataKey,
@@ -19,6 +17,7 @@ import {
   unwrapKey,
   withPassword,
 } from './secretCrypto'
+import { BASE_DIR } from './syncStore'
 
 export type SecretSourceName = 'vault' | 'extensions' | 'assistant' | 'mcp' | 'logins'
 
@@ -113,10 +112,10 @@ function parsePayload(text: string): Map<string, SecretEntry> | null {
   } catch {
     return null
   }
-  if (!isObject(raw) || !isObject(raw.entries)) return null
+  if (!isRecord(raw) || !isRecord(raw.entries)) return null
   const out = new Map<string, SecretEntry>()
   for (const [id, value] of Object.entries(raw.entries)) {
-    if (!id.includes(SEP) || !isObject(value)) continue
+    if (!id.includes(SEP) || !isRecord(value)) continue
     if (typeof value.value !== 'string' || typeof value.at !== 'number') continue
     out.set(id, { value: value.value, at: value.at })
   }
@@ -149,7 +148,7 @@ export class SecretSync {
   private load(): LocalState {
     try {
       const raw = JSON.parse(readFileSync(this.statePath(), 'utf8')) as unknown
-      if (!isObject(raw)) return { ...OFF_STATE }
+      if (!isRecord(raw)) return { ...OFF_STATE }
       const pending = ['create', 'rewrap', 'reset', 'remove'].includes(raw.pending as string)
         ? (raw.pending as Pending)
         : null
@@ -167,7 +166,7 @@ export class SecretSync {
   }
 
   private save(state: LocalState): void {
-    writeAtomic(this.statePath(), `${JSON.stringify(state)}\n`)
+    writeFileAtomic(this.statePath(), `${JSON.stringify(state)}\n`, { mode: 0o600 })
   }
 
   private dataKey(state: LocalState): Buffer | null {
@@ -189,7 +188,7 @@ export class SecretSync {
       const raw = JSON.parse(
         this.deps.protect.decrypt(readFileSync(this.basePath(), 'utf8')),
       ) as unknown
-      if (!isObject(raw) || raw.keyId !== keyId || !isObject(raw.entries)) return null
+      if (!isRecord(raw) || raw.keyId !== keyId || !isRecord(raw.entries)) return null
       const out = new Map<string, string>()
       for (const [id, value] of Object.entries(raw.entries)) {
         if (typeof value === 'string') out.set(id, value)
@@ -461,7 +460,7 @@ export class SecretSync {
           keyId: header.keyId,
           entries: Object.fromEntries(merge.merged),
         })
-        writeAtomic(this.basePath(), this.deps.protect.encrypt(body))
+        writeFileAtomic(this.basePath(), this.deps.protect.encrypt(body), { mode: 0o600 })
       },
       status: { state: 'unlocked', logins: state.logins },
       conflicts: conflicts.map(({ id, key, winner, localAt, remoteAt }) => ({
@@ -472,116 +471,5 @@ export class SecretSync {
         remoteAt,
       })),
     }
-  }
-}
-
-function mtimeOr(mtime: () => number): number {
-  try {
-    return mtime()
-  } catch {
-    return 0
-  }
-}
-
-export function groupedSource(
-  name: Exclude<SecretSourceName, 'vault' | 'logins'>,
-  store: SecretStoreDeps,
-  mtime: () => number,
-): SecretSource {
-  return {
-    name,
-    read: () => {
-      const out = new Map<string, SecretEntry>()
-      if (!store.canEncrypt()) return out
-      const at = mtimeOr(mtime)
-      for (const [group, values] of Object.entries(sanitizeSecrets(store.load()))) {
-        for (const [key, kept] of Object.entries(values)) {
-          try {
-            out.set(JSON.stringify([group, key]), { value: store.decrypt(kept), at })
-          } catch {}
-        }
-      }
-      return out
-    },
-    write: (changes) => {
-      const data = sanitizeSecrets(store.load())
-      for (const [id, value] of changes) {
-        const [group, key] = JSON.parse(id) as [string, string]
-        const values = { ...(data[group] ?? {}) }
-        if (value === null) delete values[key]
-        else values[key] = store.encrypt(value)
-        if (Object.keys(values).length === 0) delete data[group]
-        else data[group] = values
-      }
-      store.save({ ...data })
-    },
-    describe: (id) => (JSON.parse(id) as [string, string]).join(': '),
-  }
-}
-
-export function flatSource(store: SecretStoreDeps, mtime: () => number): SecretSource {
-  const load = (): Record<string, string> => {
-    const raw = store.load()
-    if (!isObject(raw)) return {}
-    return Object.fromEntries(
-      Object.entries(raw).filter((e): e is [string, string] => typeof e[1] === 'string'),
-    )
-  }
-  return {
-    name: 'vault',
-    read: () => {
-      const out = new Map<string, SecretEntry>()
-      if (!store.canEncrypt()) return out
-      const at = mtimeOr(mtime)
-      for (const [key, kept] of Object.entries(load())) {
-        try {
-          out.set(key, { value: store.decrypt(kept), at })
-        } catch {}
-      }
-      return out
-    },
-    write: (changes) => {
-      const data = load()
-      for (const [key, value] of changes) {
-        if (value === null) delete data[key]
-        else data[key] = store.encrypt(value)
-      }
-      store.save(data as never)
-    },
-    describe: (key) => key,
-  }
-}
-
-export function loginsSource(store: CredentialStore): SecretSource {
-  return {
-    name: 'logins',
-    read: () => {
-      const out = new Map<string, SecretEntry>()
-      for (const login of store.list()) {
-        const password = store.password(login.id)
-        if (password === null) continue
-        out.set(JSON.stringify([login.origin, login.username]), {
-          value: password,
-          at: login.updatedAt,
-        })
-      }
-      return out
-    },
-    write: (changes) => {
-      const byKey = new Map(
-        store.list().map((login) => [JSON.stringify([login.origin, login.username]), login.id]),
-      )
-      for (const [key, value] of changes) {
-        const [origin, username] = JSON.parse(key) as [string, string]
-        if (value === null) {
-          const id = byKey.get(key)
-          if (id) store.remove(id)
-        } else store.save({ origin, username, password: value })
-      }
-    },
-    describe: (key) => {
-      const [origin, username] = JSON.parse(key) as [string, string]
-      return `${origin} (${username})`
-    },
   }
 }

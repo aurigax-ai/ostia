@@ -1,4 +1,4 @@
-import { resetIds } from '@/layout/tree'
+import { resetIds } from '@/lib/layout/tree'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'

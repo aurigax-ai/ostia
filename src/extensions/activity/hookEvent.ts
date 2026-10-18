@@ -1,5 +1,9 @@
-import type { AgentHookEvent, HookAgent } from '../../shared/agentPlugins'
-import { parseAgentStop } from '../sdk/agentStop'
+import type {
+  AgentHookEvent,
+  HookAgent,
+} from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
+import { parseAgentStop } from '@aurigax-ai/ostia-extension-sdk/contract/agentStop'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
 
 const TOOL_KINDS = ['edit', 'command', 'search', 'read', 'subagent', 'web', 'other'] as const
 
@@ -9,17 +13,74 @@ const ACTIVITY_KINDS = ['prompt', 'tool', 'stop'] as const
 
 export type ActivityKind = (typeof ACTIVITY_KINDS)[number]
 
-const JOURNAL_VERSION = 1
+const JOURNAL_VERSION = 2
 
 export interface ActivityEvent {
   v: typeof JOURNAL_VERSION
   t: number
+  id: string
   pane: string
   agent: HookAgent
   session: string
   kind: ActivityKind
   tool?: ToolKind
   text?: string
+}
+
+export interface ActivityNote {
+  v: typeof JOURNAL_VERSION
+  t: number
+  id: string
+  pane: string
+  kind: 'note'
+  text: string
+  needsYou?: true
+  link?: string
+  doneAt?: number
+}
+
+const HOST_KINDS = ['started', 'closed', 'state', 'hibernated', 'woken', 'folder', 'bus'] as const
+
+export type HostKind = (typeof HOST_KINDS)[number]
+
+const BUS_MESSAGE_KINDS = ['message', 'task'] as const
+
+export type BusMessageKind = (typeof BUS_MESSAGE_KINDS)[number]
+
+export interface ActivityHost {
+  v: typeof JOURNAL_VERSION
+  t: number
+  id: string
+  pane: string
+  kind: 'host'
+  host: HostKind
+  state?: string
+  from?: string
+  to?: string
+  message?: BusMessageKind
+  ref?: string
+  folder?: string
+}
+
+export type ActivityRecord = ActivityEvent | ActivityNote | ActivityHost
+
+export const NOTE_TEXT_MAX = 2000
+export const NOTE_LINK_MAX = 2000
+const RECORD_ID_PATTERN = /^[a-z2-7]{10}$/
+const BASE32 = 'abcdefghijklmnopqrstuvwxyz234567'
+
+export function newRecordId(): string {
+  return [...globalThis.crypto.getRandomValues(new Uint8Array(10))]
+    .map((byte) => BASE32[byte % 32])
+    .join('')
+}
+
+export function isRecordId(value: unknown): value is string {
+  return typeof value === 'string' && RECORD_ID_PATTERN.test(value)
+}
+
+export function isOpenNeedsYou(record: ActivityRecord): boolean {
+  return record.kind === 'note' && record.needsYou === true && record.doneAt === undefined
 }
 
 export const PROMPT_TEXT_MAX = 200
@@ -49,10 +110,6 @@ const TOOL_TARGETS: Record<string, { kind: ToolKind; fields: string[] }> = {
 }
 
 const PATH_FIELDS = ['file_path', 'notebook_path', 'path']
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 function withoutControls(text: string): string {
   let out = ''
@@ -135,6 +192,7 @@ export function parseHookEvent(source: HookSource, stdin: string): ActivityEvent
   const base = {
     v: JOURNAL_VERSION,
     t: source.now,
+    id: newRecordId(),
     pane: source.pane,
     agent: source.agent,
     session: sessionOf(payload.session_id),
@@ -163,17 +221,59 @@ export function parseHookEvent(source: HookSource, stdin: string): ActivityEvent
   return null
 }
 
-export function parseStoredEvent(raw: unknown): ActivityEvent | null {
+function parseStoredNote(raw: Record<string, unknown>, t: number, id: string, pane: string) {
+  const { text, needsYou, link, doneAt } = raw
+  if (typeof text !== 'string' || text === '' || [...text].length > NOTE_TEXT_MAX) return null
+  const note: ActivityNote = { v: JOURNAL_VERSION, t, id, pane, kind: 'note', text }
+  if (needsYou === true) note.needsYou = true
+  if (typeof link === 'string' && link !== '' && link.length <= NOTE_LINK_MAX) note.link = link
+  if (typeof doneAt === 'number' && Number.isFinite(doneAt)) note.doneAt = doneAt
+  return note
+}
+
+const HOST_FIELD_MAX = 200
+
+function hostField(raw: unknown): string | null | undefined {
+  if (raw === undefined) return undefined
+  return typeof raw === 'string' && raw !== '' && raw.length <= HOST_FIELD_MAX ? raw : null
+}
+
+function parseStoredHost(raw: Record<string, unknown>, t: number, id: string, pane: string) {
+  const { host, message } = raw
+  if (!HOST_KINDS.includes(host as HostKind)) return null
+  if (message !== undefined && !BUS_MESSAGE_KINDS.includes(message as BusMessageKind)) return null
+  const record: ActivityHost = {
+    v: JOURNAL_VERSION,
+    t,
+    id,
+    pane,
+    kind: 'host',
+    host: host as HostKind,
+  }
+  if (message !== undefined) record.message = message as BusMessageKind
+  for (const field of ['state', 'from', 'to', 'ref', 'folder'] as const) {
+    const value = hostField(raw[field])
+    if (value === null) return null
+    if (value !== undefined) record[field] = value
+  }
+  return record
+}
+
+export function parseStoredRecord(raw: unknown): ActivityRecord | null {
   if (!isRecord(raw) || raw.v !== JOURNAL_VERSION) return null
-  const { t, pane, agent, session, kind, tool, text } = raw
+  const { t, id, pane, agent, session, kind, tool, text } = raw
   if (typeof t !== 'number' || !Number.isFinite(t)) return null
-  if (typeof pane !== 'string' || pane === '' || typeof session !== 'string') return null
+  if (!isRecordId(id) || typeof pane !== 'string' || pane === '') return null
+  if (kind === 'note') return parseStoredNote(raw, t, id, pane)
+  if (kind === 'host') return parseStoredHost(raw, t, id, pane)
+  if (typeof session !== 'string') return null
   if (agent !== 'claude' && agent !== 'codex') return null
   if (!ACTIVITY_KINDS.includes(kind as ActivityKind)) return null
   if (text !== undefined && typeof text !== 'string') return null
   const event: ActivityEvent = {
     v: JOURNAL_VERSION,
     t,
+    id,
     pane,
     agent,
     session,

@@ -1,4 +1,5 @@
-import { motionMode, useSettingsStore } from '@/stores/app/settingsStore'
+import { motionMode } from '@/stores/app/settingsModel'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useEffect, useSyncExternalStore } from 'react'
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
@@ -18,6 +19,11 @@ function subscribeToOsMotion(onChange: () => void): () => void {
 
 function osPrefersReducedMotion(): boolean {
   return window.matchMedia(REDUCED_MOTION_QUERY).matches
+}
+
+export function reducedMotionNow(): boolean {
+  const mode = motionMode(useSettingsStore.getState().appearance.motion)
+  return mode === 'reduced' || (mode === 'system' && osPrefersReducedMotion())
 }
 
 export function useReducedMotion(): boolean {

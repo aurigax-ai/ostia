@@ -1,13 +1,13 @@
 import { BASE_LANGUAGE } from '@/lib/extensions/languagePacks'
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import { DEFAULT_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import type { Dict } from '@shared/app/dict'
-import type { Capability } from '../../shared/capabilities'
-import { DEFAULT_CAPABILITIES } from '../../shared/capabilities'
-import type { CommandDescriptor, CommandResult, JSONSchema, TargetMode } from '../../shared/types'
-
-export type {
-  CommandResult,
+import type {
   CommandDescriptor,
-} from '../../shared/types'
+  CommandResult,
+  JSONSchema,
+  TargetMode,
+} from '../../shared/control/commands'
 
 export interface CommandContext {
   activeWorkspaceId: string | null

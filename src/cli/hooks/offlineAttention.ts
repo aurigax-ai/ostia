@@ -1,3 +1,4 @@
+import { type EnvSource, readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import {
   type SavedAttention,
   attentionFileFor,
@@ -5,7 +6,6 @@ import {
   writeSavedAttention,
 } from '../../main/tmux/attentionFile'
 import { claudeAttention, isClaudeAttentionEvent } from '../../shared/agents/claudeAttention'
-import { type EnvSource, readEnv } from '../../shared/appEnv'
 import { parseArgs } from '../common/args'
 
 export const STATE_VERBS = ['waiting', 'done', 'working', 'error', 'clear']

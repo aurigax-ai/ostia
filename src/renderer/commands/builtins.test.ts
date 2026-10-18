@@ -1,13 +1,17 @@
-import type { PaneNode } from '@/layout/types'
+import { resumeAnyway } from '@/lib/agents/folderTrust'
 import * as resumeFolder from '@/lib/agents/resumeFolder'
 import { activeFontZoom, zoomFont } from '@/lib/app/wheelZoom'
 import { registerBrowserHandle } from '@/lib/browser/browserHandles'
-import { type KeyLike, runAppChord } from '@/lib/keys/chords'
+import { type KeyLike, runAppChord } from '@/lib/keyboard/chords'
+import { createPane, paneIds, splitOf, tabsOf } from '@/lib/layout/tree'
+import type { PaneNode } from '@/lib/layout/types'
 import { needsTrust } from '@/lib/palette/userActions'
 import * as blockActions from '@/lib/terminal/blockActions'
+import { startKeptReattach } from '@/lib/terminal/keptReattach'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import * as closeConfirm from '@/lib/workspaces/closeConfirm'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useFolderTrustStore } from '@/stores/agents/folderTrustStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
@@ -21,12 +25,16 @@ import * as surfaceSlots from '@/stores/workspaces/surfaceSlotsStore'
 import { useTabSleepNoticeStore } from '@/stores/workspaces/tabSleepNoticeStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import {
+  type Capability,
+  DEFAULT_CAPABILITIES,
+} from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
+import type { AgentResume } from '@shared/agents/agentResume'
 import { SCRIPT_CAPABILITIES } from '@shared/permissions/scriptTokens'
 import { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { SCRIPT_COMMANDS } from '../../main/control/commandArgs'
-import { type Capability, DEFAULT_CAPABILITIES } from '../../shared/capabilities'
-import { createPane, paneIds, splitOf, tabsOf } from '../layout/tree'
+import { wireCommandBridge } from './bridge'
 import { registerBuiltinCommands } from './builtins'
 import { type CommandContext, commands } from './registry'
 
@@ -372,6 +380,22 @@ describe('builtins route to store actions', () => {
       if (!res.ok) expect(res.error.message).toMatch(/agents.autoSendReferences/)
     }
     expect(useSettingsStore.getState().agents.autoSendReferences).toBe(true)
+  })
+
+  it('CFT-C14 settings.set refuses to turn on folder trust for Claude, directly or via agents', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents.trustWorkspaceFolders',
+      value: true,
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents',
+      value: { ...useSettingsStore.getState().agents, trustWorkspaceFolders: true },
+    })
+    for (const res of [direct, nested]) {
+      expect(res.ok).toBe(false)
+      if (!res.ok) expect(res.error.message).toMatch(/agents.trustWorkspaceFolders/)
+    }
+    expect(useSettingsStore.getState().agents.trustWorkspaceFolders).toBe(false)
   })
 
   it('settings.set and settings.unset refuse secret redaction, whole or by key', async () => {
@@ -1315,6 +1339,30 @@ describe('builtins route to store actions', () => {
     expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(right.id)
   })
 
+  it('pane.zoom zooms the caller’s pane and a second run restores the split', async () => {
+    const left = createPane()
+    const right = createPane()
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: {
+            type: 'split',
+            id: 'sp',
+            direction: 'horizontal',
+            children: [left, right],
+            sizes: [1, 1],
+          },
+          activePaneId: right.id,
+          zoomedPaneId: null,
+        },
+      },
+    })
+    await commands.execWith(ctx('s1', right.id), 'pane.zoom')
+    expect(useLayoutStore.getState().byWorkspace.s1.zoomedPaneId).toBe(right.id)
+    await commands.execWith(ctx('s1', right.id), 'pane.zoom')
+    expect(useLayoutStore.getState().byWorkspace.s1.zoomedPaneId).toBeNull()
+  })
+
   it('cycles the tabs of the caller’s pane with tab.next and tab.previous', async () => {
     const a = createPane()
     const b = createPane()
@@ -1684,6 +1732,59 @@ describe('pane.list / workspace.list', () => {
     })
   })
 
+  it('pane.list marks a terminal waiting for activation and leaves it off a plain one', async () => {
+    const waiting = {
+      ...createPane('terminal', 'claude', '/work/api'),
+      resume: { agent: 'claude' as const, id: 's1' },
+      resumePending: true as const,
+    }
+    const plain = createPane('terminal', 'zsh', '/work/api')
+    useWorkspacesStore.setState({
+      workspaces: [
+        { id: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
+      ],
+    })
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: { type: 'tabs', id: 'tabs-1', activeId: plain.id, children: [waiting, plain] },
+          activePaneId: plain.id,
+          zoomedPaneId: null,
+        },
+      },
+    })
+
+    const res = await commands.execWith(ctx('s1', null), 'pane.list')
+
+    const entries = (res as { result: Array<{ paneId: string }> }).result
+    expect(entries.find((e) => e.paneId === waiting.id)).toMatchObject({ awaitingActivation: true })
+    expect(entries.find((e) => e.paneId === plain.id)).not.toHaveProperty('awaitingActivation')
+  })
+
+  it('pane.list does not mark a kept agent tab as awaiting activation', async () => {
+    const keptAgent = {
+      ...createPane('terminal', 'claude', '/work/api'),
+      resume: { agent: 'claude' as const, id: 's1' },
+      resumePending: true as const,
+    }
+    useWorkspacesStore.setState({
+      workspaces: [
+        { id: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
+      ],
+    })
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: keptAgent, activePaneId: keptAgent.id, zoomedPaneId: null } },
+    })
+    vi.mocked(window.ostia.pty.keptWaiting).mockResolvedValueOnce([keptAgent.id])
+    startKeptReattach()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    const res = await commands.execWith(ctx('s1', null), 'pane.list')
+
+    const entries = (res as { result: Array<{ paneId: string }> }).result
+    expect(entries[0]).not.toHaveProperty('awaitingActivation')
+  })
+
   it('pane.list reports the open file of a file view', async () => {
     const view = { ...createPane('editor', 'a.ts', '/work/api'), filePath: '/work/api/a.ts' }
     useWorkspacesStore.setState({
@@ -1733,6 +1834,29 @@ describe('pane.list / workspace.list', () => {
         { workspaceId: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
         { workspaceId: 's2', name: 'web', kind: 'agent', workDir: '/work/web', state: 'working' },
       ],
+    })
+  })
+
+  it('workspace.list reports a workspace that has no panes yet with its folder, for the branch chip', async () => {
+    const pane = createPane('terminal', 'zsh', '/work/api')
+    useWorkspacesStore.setState({
+      workspaces: [
+        { id: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
+        { id: 's2', name: 'repo', kind: 'terminal', workDir: '~/repo', state: 'idle' },
+      ],
+    })
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+
+    const res = await commands.execWith(ctx(null, null), 'workspace.list')
+
+    expect(res.ok && res.result).toContainEqual({
+      workspaceId: 's2',
+      name: 'repo',
+      kind: 'terminal',
+      workDir: '~/repo',
+      state: 'idle',
     })
   })
 
@@ -1984,7 +2108,9 @@ describe('agent.forkConversation', () => {
       },
     })
     useBlocksStore.getState().commandStart(agent.id, { line: 1 }, 'claude')
+    useBlocksStore.getState().markAgent(agent.id, 'claude')
     useBlocksStore.getState().commandStart(other.id, { line: 1 }, 'claude')
+    useBlocksStore.getState().markAgent(other.id, 'claude')
     const run = vi.spyOn(blockActions, 'runWhenIdle').mockReturnValue(() => {})
 
     const res = await commands.execWith(ctx('s1', agent.id), 'agent.forkConversation', {
@@ -1993,7 +2119,7 @@ describe('agent.forkConversation', () => {
 
     expect(res).toMatchObject({ ok: true, result: { forked: true } })
     expect(run).toHaveBeenCalledTimes(1)
-    expect(run.mock.calls[0][1]).toBe('claude --resume tok --fork-session')
+    expect(run.mock.calls[0][1]).toBe("'claude' --resume tok --fork-session")
     expect(run.mock.calls[0][0]).not.toBe(agent.id)
     expect(run.mock.calls[0][0]).not.toBe(other.id)
   })
@@ -2097,7 +2223,7 @@ describe('tab sleep notices', () => {
 })
 
 describe('agent resume', () => {
-  function seedPane(resume?: { agent: 'claude' | 'codex'; id: string }) {
+  function seedPane(resume?: AgentResume) {
     const pane = { ...createPane('terminal'), ...(resume ? { resume } : {}) }
     useLayoutStore.setState({
       byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
@@ -2113,68 +2239,193 @@ describe('agent resume', () => {
     })
   })
 
-  it('keeps the launch flags and the variables typed in front of the agent, then replays them', async () => {
+  it('replays the variables typed in front of the agent, never the ones a caller sent', async () => {
     const pane = seedPane()
-    useBlocksStore
-      .getState()
-      .commandStart(pane.id, { line: 1 }, 'GL_ISSUE=685 GH_TOKEN=x claude --agent ostia')
+    const line = 'GL_ISSUE=685 GIT_DIR=/tmp/g GH_TOKEN=x claude --model opus'
+    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, line, line)
     await commands.execWith(ctx('s1', pane.id), 'resume.set', {
       agent: 'claude',
       id: 'abc',
-      args: ['--agent', 'ostia', '--session-id', 'old'],
+      args: ['--model', 'opus', '--session-id', 'old', '-n', '修 probe'],
+      env: { ANTHROPIC_BASE_URL: 'http://127.0.0.1:9', HTTPS_PROXY: 'http://127.0.0.1:9' },
     })
-    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
-      resume: { agent: 'claude', id: 'abc', args: ['--agent', 'ostia'], env: { GL_ISSUE: '685' } },
-    })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.env')
     const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
     await commands.execWith(ctx('s1', pane.id), 'agent.resume')
     expect(insert).toHaveBeenCalledWith(
       pane.id,
-      'GL_ISSUE=685 claude --resume abc --agent ostia',
+      "GL_ISSUE=685 'claude' --resume abc --model opus --name '修 probe'",
       true,
     )
   })
 
-  it('keeps the flags but no variables when the line starts with something else', async () => {
+  it('resumes a line the human typed with its variables, agent and permission bypass, resume after resume', async () => {
+    const pane = seedPane()
+    const line =
+      "cd '/w' && CLAUDE_CONFIG_DIR=/p GL_ISSUE=x claude --agent a -n 'name' --model M --effort E --dangerously-skip-permissions"
+    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, line, line)
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'claude',
+      id: 'abc',
+      args: ['--agent', 'a', '-n', 'name', '--model', 'M', '--effort', 'E'],
+    })
+    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
+    await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    const resumed =
+      "CLAUDE_CONFIG_DIR=/p GL_ISSUE=x 'claude' --resume abc --name name --model M --effort E --agent a --dangerously-skip-permissions"
+    expect(insert).toHaveBeenLastCalledWith(pane.id, resumed, true)
+
+    useBlocksStore.getState().commandEnd(pane.id, { line: 2 }, 0)
+    useBlocksStore.getState().commandStart(pane.id, { line: 3 }, resumed, resumed)
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'claude',
+      id: 'def',
+      args: ['--resume', 'abc', '--name', 'name', '--model', 'M', '--effort', 'E'],
+    })
+    await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    expect(insert).toHaveBeenLastCalledWith(pane.id, resumed.replace('abc', 'def'), true)
+  })
+
+  it('resumes codex with what the human typed, and never puts a claude line on a codex record', async () => {
+    const pane = seedPane()
+    const line = 'CODEX_HOME=/c codex --yolo -m gpt-5'
+    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, line, line)
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'codex',
+      id: 'r-9',
+      args: ['--yolo', '-m', 'gpt-5'],
+    })
+    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
+    await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    expect(insert).toHaveBeenLastCalledWith(
+      pane.id,
+      "CODEX_HOME=/c 'codex' resume r-9 -m gpt-5 --yolo",
+      true,
+    )
+
+    const claudeLine = 'CLAUDE_CONFIG_DIR=/p claude --dangerously-skip-permissions'
+    useBlocksStore.getState().commandStart(pane.id, { line: 5 }, claudeLine, claudeLine)
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'codex', id: 'r-10' })
+    await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    expect(insert).toHaveBeenLastCalledWith(pane.id, "'codex' resume r-10", true)
+  })
+
+  it('adds nothing a caller sends or a line the shell integration did not vouch for', async () => {
     const pane = seedPane()
     useBlocksStore
       .getState()
       .commandStart(
         pane.id,
         { line: 1 },
-        `GL_ISSUE=1 true && (ostia workspace group 'Home' || true) && claude --agent homelab -n "修 probe"`,
+        'GL_ISSUE=685 claude --agent ostia --dangerously-skip-permissions',
       )
     await commands.execWith(ctx('s1', pane.id), 'resume.set', {
       agent: 'claude',
       id: 'abc',
-      args: ['--agent', 'homelab', '-n', '修 probe'],
+      args: ['--agent', 'ostia', '--dangerously-skip-permissions', '--model', 'opus'],
+      env: { GL_ISSUE: '685' },
+      typed: { args: ['--dangerously-skip-permissions'], env: { CLAUDE_CONFIG_DIR: '/p' } },
+    })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+      resume: { agent: 'claude', id: 'abc', args: ['--model', 'opus'] },
+    })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.typed')
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.env')
+  })
+
+  it('keeps what was typed when a session reports again without a typed line, until the agent kind changes', async () => {
+    const typed = { args: ['--dangerously-skip-permissions'], env: { GL_ISSUE: '1' } }
+    const pane = seedPane({ agent: 'claude', id: 'abc', typed })
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'claude', id: 'abc' })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({ resume: { typed } })
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'claude', id: 'other' })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+      resume: { id: 'other', typed },
+    })
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'codex', id: 'other' })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.typed')
+  })
+
+  it('drops what was typed once the human starts the session again with a plain line', async () => {
+    const pane = seedPane({
+      agent: 'claude',
+      id: 'abc',
+      typed: { args: ['--dangerously-skip-permissions'] },
+    })
+    const line = 'claude --resume abc'
+    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, line, line)
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'claude', id: 'abc' })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.typed')
+  })
+
+  it('never shows what was typed to a caller reading the pane’s session', async () => {
+    const pane = seedPane({
+      agent: 'claude',
+      id: 'abc',
+      typed: { env: { CLAUDE_CONFIG_DIR: '/p' } },
+    })
+    const r = await commands.execWith(ctx('s1', pane.id), 'pane.resumeToken')
+    expect(r).toMatchObject({ ok: true, result: { resume: { agent: 'claude', id: 'abc' } } })
+    expect(r).not.toHaveProperty('result.resume.typed')
+  })
+
+  it('stores no flag that skips permissions or leaves the sandbox', async () => {
+    const pane = seedPane()
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', {
+      agent: 'claude',
+      id: 'abc',
+      args: ['--dangerously-skip-permissions', '--settings', '/tmp/s.json', '--model', 'opus'],
     })
     const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
     await commands.execWith(ctx('s1', pane.id), 'agent.resume')
-    expect(insert).toHaveBeenCalledWith(
-      pane.id,
-      "claude --resume abc --agent homelab --name '修 probe'",
-      true,
-    )
+    expect(insert).toHaveBeenCalledWith(pane.id, "'claude' --resume abc --model opus", true)
   })
 
-  it('keeps the old command when nothing about the launch is known', async () => {
+  it('stores a resume token only when main asks, never from a raw command call', async () => {
     const pane = seedPane()
-    useBlocksStore.getState().commandStart(pane.id, { line: 1 }, 'my-agent-script')
-    await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'codex', id: 'abc' })
-    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
-      resume: { agent: 'codex', id: 'abc' },
+    wireCommandBridge()
+    const invoke = vi.mocked(window.ostia.commands.onInvoke).mock.calls.at(-1)?.[0]
+    const target = { workspaceId: 's1', paneId: pane.id }
+    const raw = await invoke?.({ id: 'resume.set', args: { agent: 'claude', id: 'abc' }, target })
+    expect(raw).toMatchObject({ ok: false, error: { code: 'unknown-command' } })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume')
+    const fromMain = await invoke?.({
+      id: 'resume.set',
+      args: { agent: 'claude', id: 'abc' },
+      target,
+      fromMain: true,
     })
-    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.env')
-    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('resume.args')
+    expect(fromMain).toMatchObject({ ok: true })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+      resume: { agent: 'claude', id: 'abc' },
+    })
   })
 
   it('runs the agent’s resume command in the pane', async () => {
     const pane = seedPane({ agent: 'claude', id: 'abc' })
     const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
     const r = await commands.execWith(ctx('s1', pane.id), 'agent.resume')
-    expect(insert).toHaveBeenCalledWith(pane.id, 'claude --resume abc', true)
+    expect(insert).toHaveBeenCalledWith(pane.id, "'claude' --resume abc", true)
     expect(r).toMatchObject({ ok: true, result: { resumed: true } })
+  })
+
+  it('CFT-C32 checks the session claim again after the human answers the trust note', async () => {
+    const pane = seedPane({ agent: 'claude', id: 'abc' })
+    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
+    vi.mocked(window.ostia.agentSession.folderTrust).mockResolvedValue({
+      state: 'ask',
+      folder: '/w',
+    })
+    vi.mocked(window.ostia.agentSession.claimResume)
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValue({ ok: false, holder: 'other tab' })
+    const run = commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    await vi.waitFor(() => expect(useFolderTrustStore.getState().byPane[pane.id]).toBe('/w'))
+    resumeAnyway(pane.id)
+    const r = await run
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error.message).toMatch(/already running in "other tab"/)
+    expect(insert).not.toHaveBeenCalled()
   })
 
   it('wakes a hibernated pane and resumes at its first idle prompt', async () => {
@@ -2189,7 +2440,7 @@ describe('agent resume', () => {
     expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('hibernated')
     expect(whenIdle).toHaveBeenCalledWith(
       pane.id,
-      'codex resume r-9',
+      "'codex' resume r-9",
       undefined,
       expect.any(Function),
       expect.any(Function),
@@ -2237,7 +2488,7 @@ describe('agent resume', () => {
         const press = { key: 'R', ctrlKey: !mac, metaKey: mac, shiftKey: true, altKey: false }
         expect(runAppChord({ ...press, preventDefault: () => {} }, mac)).toBe(true)
         await vi.waitFor(() =>
-          expect(insert).toHaveBeenCalledWith(tab, 'claude --resume ffe55127-cb1f-4efd', true),
+          expect(insert).toHaveBeenCalledWith(tab, "'claude' --resume ffe55127-cb1f-4efd", true),
         )
       }
     } finally {
@@ -2565,6 +2816,7 @@ describe('agent notifications', () => {
     const blocks = useBlocksStore.getState()
     blocks.promptStart(pane.id, { line: 0 }, null)
     blocks.commandStart(pane.id, { line: 1 }, 'claude')
+    blocks.markAgent(pane.id, 'claude')
     blocks.commandEnd(pane.id, { line: 2 }, 0)
     blocks.promptStart(pane.id, { line: 3 }, null)
     for (const state of ['waiting', 'working'] as const) {
@@ -2579,6 +2831,7 @@ describe('agent notifications', () => {
     const blocks = useBlocksStore.getState()
     blocks.promptStart(pane.id, { line: 0 }, null)
     blocks.commandStart(pane.id, { line: 1 }, 'claude')
+    blocks.markAgent(pane.id, 'claude')
     await commands.execWith(ctx('s1', pane.id), 'attention.set', { state: 'waiting' })
     expect(useAttentionStore.getState().byPane[pane.id]?.state).toBe('waiting')
   })
@@ -2608,6 +2861,7 @@ describe('agent notifications', () => {
     const blocks = useBlocksStore.getState()
     blocks.promptStart(pane.id, { line: 0 }, null)
     blocks.commandStart(pane.id, { line: 1 }, 'claude')
+    blocks.markAgent(pane.id, 'claude')
     await commands.execWith(ctx('s1', pane.id), 'attention.set', { state: 'working' })
     await commands.execWith(ctx('s1', pane.id), 'attention.message', { from: '', text: 'ping' })
     expect(useAttentionStore.getState().byPane[pane.id]).toMatchObject({
@@ -2622,6 +2876,7 @@ describe('agent notifications', () => {
     const blocks = useBlocksStore.getState()
     blocks.promptStart(pane.id, { line: 0 }, null)
     blocks.commandStart(pane.id, { line: 1 }, 'claude')
+    blocks.markAgent(pane.id, 'claude')
     await commands.execWith(ctx('s1', pane.id), 'attention.set', {
       state: 'waiting',
       message: 'Allow Bash?',
@@ -2760,31 +3015,15 @@ describe('commands open to script tokens', () => {
       relaxed: ['drive-self'],
       reason: 'a sidebar summary, the same risk as renaming the workspace',
     },
-    'workspace.hibernateAgents': {
-      relaxed: [],
-      reason: 'declares only kill-pane; a busy agent is skipped and pane wake brings it back',
-    },
-    'workspace.hibernateGroupAgents': {
-      relaxed: [],
-      reason: 'declares only kill-pane, like workspace.hibernateAgents for a whole group',
-    },
-    'workspace.resumeAgents': {
-      relaxed: [],
-      reason: 'declares only type-other-pane, the same as pane.wake on each pane',
-    },
-    'workspace.resumeGroupAgents': {
-      relaxed: [],
-      reason: 'declares only type-other-pane, like workspace.resumeAgents for a whole group',
-    },
   }
 
   it.each([
-    ['workspace.hibernateAgents', 'kill-pane'],
-    ['workspace.hibernateGroupAgents', 'kill-pane'],
-    ['workspace.resumeAgents', 'type-other-pane'],
-    ['workspace.resumeGroupAgents', 'type-other-pane'],
-  ])('%s asks every socket caller for %s', (id, cap) => {
-    expect(commands.describe().find((c) => c.id === id)?.capabilities).toEqual([cap])
+    'workspace.hibernateAgents',
+    'workspace.hibernateGroupAgents',
+    'workspace.resumeAgents',
+    'workspace.resumeGroupAgents',
+  ])('%s is the human’s: local only, never a socket command', (id) => {
+    expect(commands.isLocal(id)).toBe(true)
   })
 
   it('SCRIPT_COMMANDS matches the relaxed-capability allowlist', () => {

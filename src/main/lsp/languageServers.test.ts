@@ -3,20 +3,17 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type {
+  LanguageServerContribution,
+  LanguageServerInfo,
+} from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
+import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { type MessageConnection, createMessageConnection } from 'vscode-jsonrpc'
 import { StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node'
-import type { LanguageServerContribution } from '../../shared/languageServers'
 import type { Requirement } from '../platform/systemRequirements'
-import {
-  type LanguageServerSource,
-  LanguageServers,
-  type LanguageServersDeps,
-  type SpawnServer,
-  confinedScript,
-  findServerRoot,
-  scrubbedEnv,
-} from './languageServers'
+import { LanguageServers, type LanguageServersDeps } from './languageServers'
+import type { LanguageServerSource } from './serverBinaries'
+import { type SpawnServer, confinedScript, findServerRoot, scrubbedEnv } from './serverSpawn'
 
 class FakeChild extends EventEmitter {
   stdin = new PassThrough()
@@ -83,7 +80,7 @@ interface Harness {
   wrap: ReturnType<typeof vi.fn>
   sandboxed: Set<string>
   unreadable: Set<string>
-  changed: ReturnType<typeof vi.fn>
+  changed: Mock<(list: LanguageServerInfo[]) => void>
   copies: Map<string, string>
   fetchBinary: ReturnType<typeof vi.fn>
   retained: Map<string, string>[]

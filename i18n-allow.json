@@ -1,0 +1,120 @@
+{
+  "same": {
+    "zh-Hant": {
+      "product and brand names": [
+        "sandbox.presetNames.*",
+        "languageServers.kinds.go-install",
+        "update.tools.apt",
+        "update.tools.brew",
+        "agentSession.claude",
+        "agentSession.codex",
+        "browserSettings.google",
+        "browserSettings.duckduckgo",
+        "browserSettings.bing",
+        "browserSettings.kagi",
+        "settings.rendererXterm",
+        "settings.rendererGhostty",
+        "settings.remoteTailscale",
+        "git.title"
+      ],
+      "protocol and key names": [
+        "browserStorage.httpOnly",
+        "browserStorage.secure",
+        "browserStorage.sameSite",
+        "git.head",
+        "settings.clipboardShift"
+      ]
+    },
+    "activity:zh-Hant": {
+      "product and brand names": [
+        "messages.agent.claude",
+        "messages.agent.codex",
+        "messages.stream.ostia"
+      ]
+    },
+    "assistant:zh-Hant": {
+      "product and brand names": [
+        "messages.kind.ollama",
+        "messages.kind.openrouter",
+        "messages.kind.openai",
+        "messages.kind.anthropic"
+      ]
+    },
+    "graphs:zh-Hant": {
+      "protocol and key names": [
+        "manifest.connections.http.title"
+      ]
+    },
+    "keeper:zh-Hant": {
+      "product and brand names": [
+        "manifest.name",
+        "manifest.panel.title",
+        "manifest.commands.open.category",
+        "manifest.commands.approvals.category"
+      ]
+    },
+    "langpack-zh-hant:zh-Hant": {
+      "product and brand names": [
+        "manifest.name"
+      ]
+    },
+    "lsp-yaml:zh-Hant": {
+      "protocol and key names": [
+        "manifest.name"
+      ]
+    },
+    "model-runtime:zh-Hant": {
+      "product and brand names": [
+        "manifest.name",
+        "manifest.commands.chat.category"
+      ]
+    },
+    "office:zh-Hant": {
+      "spreadsheet keywords Excel shows untranslated": ["messages.true", "messages.false"]
+    },
+    "screens:zh-Hant": {
+      "product and brand names": [
+        "manifest.name",
+        "manifest.commands.open.category"
+      ]
+    },
+    "ssh:zh-Hant": {
+      "protocol and key names": [
+        "manifest.name",
+        "manifest.commands.connect.category",
+        "manifest.commands.open-folder.category",
+        "manifest.commands.helper-install.category",
+        "manifest.commands.helper-remove.category"
+      ]
+    },
+    "trellis:zh-Hant": {
+      "product and brand names": [
+        "manifest.name",
+        "manifest.panel.title",
+        "manifest.commands.open.category",
+        "manifest.commands.card.category",
+        "manifest.commands.vault.category",
+        "manifest.commands.init.category"
+      ]
+    }
+  },
+  "unused": {
+    "read by the SDK's loadViewerBytes and runWorker outcomes": [
+      "csv:loading",
+      "csv:unreadable",
+      "csv:gone",
+      "csv:tooLarge",
+      "csv:timeout",
+      "office:loading",
+      "office:unreadable",
+      "office:gone"
+    ]
+  },
+  "literals": {
+    "text": {
+      "example inputs": [
+        "-y @modelcontextprotocol/server-github"
+      ]
+    }
+  }
+}

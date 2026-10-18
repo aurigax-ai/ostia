@@ -1,4 +1,4 @@
-import type { ExtensionAgentOffer } from '@shared/extensions'
+import type { ExtensionAgentOffer } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import { create } from 'zustand'
 
 interface AgentOfferState {

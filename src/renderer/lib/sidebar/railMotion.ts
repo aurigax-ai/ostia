@@ -11,6 +11,8 @@ const RAIL_MOTION_KEYFRAMES = new Set([RAIL_SLIDE_KEYFRAMES, 'rail-content-fade'
 
 const RESIZING_ATTRIBUTE = 'data-rail-resizing'
 
+const MOTION_ATTRIBUTE = 'data-rail-motion'
+
 interface RailMotionState {
   shownCollapsed: boolean
   phase: RailMotionPhase | null
@@ -82,6 +84,12 @@ export function useRailMotion(collapsed: boolean): RailMotion {
     if (from === null || state.phase === null) return
     const mirrored = from.duration - from.elapsed
     for (const a of railAnimations()) a.currentTime = mirrored
+  }, [state.phase])
+
+  useLayoutEffect(() => {
+    if (state.phase === null) return
+    document.documentElement.setAttribute(MOTION_ATTRIBUTE, state.phase)
+    return () => document.documentElement.removeAttribute(MOTION_ATTRIBUTE)
   }, [state.phase])
 
   useEffect(() => {

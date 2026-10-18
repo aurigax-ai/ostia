@@ -1,12 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import type { CmuxImportReport } from '../../shared/workspaces/cmuxSession'
-import {
-  CMUX_IMPORT_USAGE,
-  formatCmuxImport,
-  parseCmuxImportArgs,
-  runCmuxImportVerb,
-} from './cmuxImport'
+import { formatCmuxImport, parseCmuxImportArgs, runCmuxImportVerb } from './cmuxImport'
 
 const REPORT: CmuxImportReport = {
   path: '/home/u/Library/Application Support/cmux/session-com.cmuxterm.app.json',
@@ -43,7 +38,9 @@ describe('parseCmuxImportArgs', () => {
   })
 
   it('refuses more than one file and unknown flags', () => {
-    expect(() => parseCmuxImportArgs(['a.json', 'b.json'], '/home/u')).toThrow(CMUX_IMPORT_USAGE)
+    expect(() => parseCmuxImportArgs(['a.json', 'b.json'], '/home/u')).toThrow(
+      'usage: ostia cmux <verb>',
+    )
     expect(() => parseCmuxImportArgs(['--force'], '/home/u')).toThrow()
   })
 })
@@ -108,8 +105,6 @@ describe('runCmuxImportVerb', () => {
     const code = await runCmuxImportVerb(conn, [], '/home/u')
 
     expect(code).toBe(1)
-    expect(error).toHaveBeenCalledWith(
-      'ostia workspace import-cmux: not-found: no cmux session file there',
-    )
+    expect(error).toHaveBeenCalledWith('ostia cmux import: not-found: no cmux session file there')
   })
 })

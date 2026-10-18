@@ -1,8 +1,8 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { ALL_CAPABILITIES } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { afterEach, describe, expect, it } from 'vitest'
-import { ALL_CAPABILITIES } from '../../shared/capabilities'
 import { ExtensionStore, effectiveRecord, grantedCaps, needsApproval } from './extensionStore'
 
 describe('grantedCaps', () => {
@@ -30,9 +30,10 @@ describe('needsApproval / effectiveRecord', () => {
   it('pre-approves and enables built-ins, and keeps user extensions off by default', () => {
     expect(effectiveRecord(true, undefined)).toEqual({
       enabled: true,
-      approved: [...ALL_CAPABILITIES],
+      approved: ALL_CAPABILITIES.filter((c) => c !== 'mcp' && c !== 'read-bus'),
     })
     expect(effectiveRecord(false, undefined)).toEqual({ enabled: false, approved: null })
+    expect(effectiveRecord(true, undefined).approved).not.toContain('mcp')
     const saved = { enabled: false, approved: ['notify' as const] }
     expect(effectiveRecord(true, saved)).toBe(saved)
   })

@@ -1,13 +1,13 @@
-import type { PaneNode } from '@/layout/types'
+import type { PaneNode } from '@/lib/layout/types'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ExtensionInfo } from '@shared/extensions'
-import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { DEFAULT_PROMPT_CHIPS } from '@shared/terminal/promptSettings'
-import type { PromptContext } from '@shared/types'
+import type { PromptContext } from '@shared/terminal/ptyApi'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -35,10 +35,12 @@ const extension = (patch: Partial<ExtensionInfo>): ExtensionInfo => ({
   assist: [],
   secrets: [],
   secretsSet: [],
+  connectionKinds: [],
   settingsPage: null,
   category: 'other',
   languages: [],
   languageServers: [],
+  fileViewers: [],
   agentSkills: [],
   agentHooks: [],
   iconThemes: [],

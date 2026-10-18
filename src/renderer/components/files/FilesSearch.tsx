@@ -1,7 +1,7 @@
 import { IconButton } from '@/components/common/IconButton'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
-import { fmt, useDict } from '@/i18n/useDict'
-import { childPath } from '@/lib/files/fileTree'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { baseName, childPath } from '@/lib/files/fileTree'
 import { openFileAt, openFileInWorkspace } from '@/lib/files/openFile'
 import { type PdfSearchResults, searchPdfs } from '@/lib/files/pdfSearch'
 import { textMatcher } from '@/lib/files/textMatch'
@@ -15,8 +15,8 @@ import {
   TextUnderlineIcon,
   XIcon,
 } from '@phosphor-icons/react'
+import type { FsEntry } from '@shared/files/filesApi'
 import type { SearchNameHit, SearchOutcome } from '@shared/files/search'
-import type { FsEntry } from '@shared/types'
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { fileIcon } from './fileIcon'
 
@@ -105,7 +105,7 @@ function NameRow({
   onReveal: (path: string) => void
 }): JSX.Element {
   const full = childPath(root, hit.path)
-  const entry: FsEntry = { name: hit.path.split('/').pop() ?? hit.path, dir: hit.dir }
+  const entry: FsEntry = { name: baseName(hit.path), dir: hit.dir }
   const { Icon, color } = fileIcon(entry, false)
   return (
     <button
@@ -253,7 +253,7 @@ interface MatchGroup {
 }
 
 function MatchGroupRows({ group }: { group: MatchGroup }): JSX.Element {
-  const entry: FsEntry = { name: group.path.split('/').pop() ?? group.path, dir: false }
+  const entry: FsEntry = { name: baseName(group.path), dir: false }
   const { Icon, color } = fileIcon(entry, false)
   return (
     <div className="search-file">

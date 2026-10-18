@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { type EnvSource, readEnv } from '../../shared/appEnv'
+import { type EnvSource, readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 
 export function paneToken(env: EnvSource = process.env): string | undefined {
   const token = readEnv('TOKEN', env)

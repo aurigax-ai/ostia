@@ -1,7 +1,7 @@
 import { IconButton } from '@/components/common/IconButton'
-import { useDict } from '@/i18n/useDict'
-import type { PaneNode } from '@/layout/types'
 import { forkConversation, forkableResume } from '@/lib/agents/forkConversation'
+import { useDict } from '@/lib/app/useDict'
+import type { PaneNode } from '@/lib/layout/types'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { GitForkIcon } from '@phosphor-icons/react'
 

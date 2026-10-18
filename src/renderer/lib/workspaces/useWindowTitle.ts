@@ -1,9 +1,9 @@
-import { findPane } from '@/layout/tree'
-import { formatWindowTitle } from '@/settings/windowTitle'
+import { findPane } from '@/lib/layout/tree'
+import { formatWindowTitle } from '@/lib/settings/windowTitle'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import { useEffect } from 'react'
 
 export function useWindowTitle(): void {

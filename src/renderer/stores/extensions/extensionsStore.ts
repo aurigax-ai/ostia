@@ -1,11 +1,15 @@
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { type CoreItems, NO_CORE_ITEMS } from '@shared/boards/git'
+import type {
+  ExtensionConnectionEntry,
+  ExtensionConnectionSave,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensionConnections'
 import type {
   ExtensionInfo,
   ExtensionSidebarItem,
   PaneChip,
   WorkspaceChip,
-} from '@shared/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { type CoreItems, NO_CORE_ITEMS } from '@shared/boards/git'
 import { create } from 'zustand'
 
 interface PanelNavigation {
@@ -53,6 +57,9 @@ interface ExtensionsState {
   setEnabled: (extId: string, enabled: boolean) => Promise<void>
   setSetting: (extId: string, key: string, value: unknown) => Promise<string | null>
   setSecret: (extId: string, key: string, value: string | null) => Promise<string | null>
+  connections: (extId: string) => Promise<ExtensionConnectionEntry[]>
+  saveConnection: (extId: string, connection: ExtensionConnectionSave) => Promise<string | null>
+  removeConnection: (extId: string, name: string) => Promise<string | null>
   approve: (extId: string) => Promise<void>
   review: (extId: string | null) => void
   dismiss: (extId: string) => void
@@ -124,6 +131,18 @@ export const useExtensionsStore = create<ExtensionsState>((set) => ({
     if (!res.ok) return res.error
     set({ list: res.list })
     return null
+  },
+
+  connections: (extId) => window.ostia.extensions.connections(extId),
+
+  saveConnection: async (extId, connection) => {
+    const res = await window.ostia.extensions.saveConnection(extId, connection)
+    return res.ok ? null : res.error
+  },
+
+  removeConnection: async (extId, name) => {
+    const res = await window.ostia.extensions.removeConnection(extId, name)
+    return res.ok ? null : res.error
   },
 
   approve: async (extId) => {

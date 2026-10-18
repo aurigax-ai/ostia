@@ -4,11 +4,11 @@ import {
   InputGroupInput,
   InputGroupText,
 } from '@/components/ui/input-group'
-import { useDict } from '@/i18n/useDict'
-import { type KeyLike, findStep, matchChord } from '@/lib/keys/chords'
+import { useDict } from '@/lib/app/useDict'
+import { type KeyLike, findStep, matchChord } from '@/lib/keyboard/chords'
 import { isMac } from '@/platform'
 import { CaretDownIcon, CaretUpIcon, XIcon } from '@phosphor-icons/react'
-import { type KeyboardEvent, type MutableRefObject, useEffect, useRef } from 'react'
+import { type KeyboardEvent, type MutableRefObject, type ReactNode, useEffect, useRef } from 'react'
 import { IconButton } from './IconButton'
 
 export function findStatus(
@@ -48,6 +48,7 @@ export function FindBar({
   onClose,
   stepRef,
   className,
+  extra,
 }: {
   label: string
   query: string
@@ -57,6 +58,7 @@ export function FindBar({
   onClose: () => void
   stepRef?: FindStepRef
   className?: string
+  extra?: ReactNode
 }): JSX.Element {
   const d = useDict()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -103,6 +105,7 @@ export function FindBar({
           </InputGroupText>
         </InputGroupAddon>
       </InputGroup>
+      {extra}
       <IconButton icon={CaretUpIcon} label={d.find.previous} onClick={() => onStep(-1)} />
       <IconButton icon={CaretDownIcon} label={d.find.next} onClick={() => onStep(1)} />
       <IconButton icon={XIcon} label={d.find.close} onClick={onClose} />

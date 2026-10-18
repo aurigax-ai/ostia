@@ -5,8 +5,8 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { useViewsStore } from '@/stores/extensions/viewsStore'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { zhHant } from '@shared/app/dict'
-import type { ExtensionInfo } from '@shared/extensions'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -51,10 +51,12 @@ const BOARD: ExtensionInfo = {
   assist: [],
   secrets: [],
   secretsSet: [],
+  connectionKinds: [],
   settingsPage: { title: 'Board sync', icon: 'kanban' },
   category: 'other',
   languages: [],
   languageServers: [],
+  fileViewers: [],
   agentSkills: [],
   agentHooks: [],
   iconThemes: [],

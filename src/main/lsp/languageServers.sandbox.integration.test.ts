@@ -2,17 +2,18 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { readManifest } from '@aurigax-ai/ostia-extension-sdk/manifest/extensionManifest'
 import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { installFakeLanguageExtension } from '../../../test/fixtures/lsp/installFakeExtension'
 import { DEFAULT_SANDBOX_GLOBALS } from '../../shared/sandbox/sandbox'
-import { readManifest } from '../extensions/extensionManifest'
 import { onPath } from '../platform/systemRequirements'
 import { sandboxSpawnEnv } from '../sandbox/spawnEnv'
 import { SandboxStore } from '../sandbox/store'
 import { visibleInSandbox } from '../sandbox/visibility'
 import { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
-import { type LanguageServerSource, LanguageServers } from './languageServers'
+import { LanguageServers } from './languageServers'
+import type { LanguageServerSource } from './serverBinaries'
 
 const repoRoot = process.cwd()
 const hostScript = join(repoRoot, 'node_modules/.cache/ostia-test/sandbox-host-lsp.mjs')
@@ -54,7 +55,7 @@ function start(builtin: boolean): void {
       },
       env: (workspaceId, env) => ({
         ...sandboxSpawnEnv(env as Record<string, string>),
-        TMPDIR: sandboxes.tmpDir(workspaceId),
+        TMPDIR: sandboxes.tmp.tmpDir(workspaceId),
       }),
     },
     findProgram: () => null,
@@ -88,7 +89,7 @@ beforeAll(async () => {
     bundle: true,
     platform: 'node',
     format: 'esm',
-    packages: 'external',
+    external: ['@anthropic-ai/sandbox-runtime'],
   })
   root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-lsp-sbx-')))
   home = join(root, 'home')
@@ -130,7 +131,7 @@ beforeAll(async () => {
 
 afterAll(() => {
   servers?.stopAll()
-  sandboxes?.stopAll()
+  sandboxes?.hosts.stopAll()
   if (root) rmSync(root, { recursive: true, force: true })
 })
 

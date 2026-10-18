@@ -1,6 +1,7 @@
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { isResumableAgent } from '../../shared/agents/agentResume'
-import type { Capability } from '../../shared/capabilities'
-import type { CommandResult, CommandTarget, TerminalStateSnapshot } from '../../shared/types'
+import type { CommandResult, CommandTarget } from '../../shared/control/commands'
+import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { Reach } from '../approvals/reach'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import { getByPaneId } from '../control/idRegistry'
@@ -22,6 +23,7 @@ interface RendererPaneEntry extends PaneAgentFields {
   splitTabId?: string
   splitTabName?: string
   hibernated?: unknown
+  awaitingActivation?: unknown
 }
 
 export interface WorkspaceEntry {
@@ -32,6 +34,7 @@ export interface WorkspaceEntry {
   state: string
   activePaneId?: string
   groupId?: string
+  sandboxed?: boolean
 }
 
 export interface WorkspaceGroupEntry {
@@ -57,7 +60,16 @@ export interface PaneEntry extends PaneAgentFields {
   splitTabName?: string
   hibernated?: true
   waking?: true
+  awaitingActivation?: true
+  startError?: string
   agentSessionConflict?: string[]
+  process?: PaneProcessStatus
+}
+
+interface PaneProcessStatus {
+  id: string
+  status: string
+  start?: string
 }
 
 export interface PaneListDeps {
@@ -66,7 +78,10 @@ export interface PaneListDeps {
   ptyPid: (paneId: string) => number | undefined
   windowIds: () => string[]
   waking: (paneId: string) => boolean
+  startError?: (paneId: string) => string | undefined
+  processOf?: (paneId: string) => PaneProcessStatus | undefined
   reach?: Pick<Reach, 'scriptReach'>
+  isSandboxed?: (workspaceId: string) => boolean
 }
 
 async function listFromEveryWindow<T>(
@@ -128,6 +143,8 @@ export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
     if (!identity) continue
     const state = deps.getTerminalState(p.paneId)
     const pid = p.kind === 'terminal' ? deps.ptyPid(p.paneId) : undefined
+    const run = deps.processOf?.(p.paneId)
+    const startError = pid || p.hibernated === true ? undefined : deps.startError?.(p.paneId)
     mapped.push({
       paneId: identity.externalId,
       workspaceId: p.workspaceId,
@@ -141,21 +158,27 @@ export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
       ...(pid ? { pid } : {}),
       ...(p.hibernated === true ? { hibernated: true } : {}),
       ...(deps.waking(p.paneId) ? { waking: true } : {}),
+      ...(p.awaitingActivation === true ? { awaitingActivation: true } : {}),
+      ...(startError ? { startError } : {}),
       ...agentFields(p),
       ...(typeof p.splitTabId === 'string' ? { splitTabId: p.splitTabId } : {}),
       ...(typeof p.splitTabName === 'string' ? { splitTabName: p.splitTabName } : {}),
+      ...(run ? { process: run } : {}),
     })
   }
   return markSessionConflicts(mapped)
 }
 
 export async function listWorkspaces(
-  deps: Pick<PaneListDeps, 'execCommand' | 'windowIds'>,
+  deps: Pick<PaneListDeps, 'execCommand' | 'windowIds' | 'isSandboxed'>,
 ): Promise<WorkspaceEntry[]> {
   const workspaces = await listFromEveryWindow<WorkspaceEntry>(deps, 'workspace.list', {})
   return workspaces.map(({ activePaneId, ...workspace }) => {
     const external = activePaneId ? getByPaneId(activePaneId)?.externalId : undefined
-    return external ? { ...workspace, activePaneId: external } : workspace
+    const marked = deps.isSandboxed?.(workspace.workspaceId)
+      ? { ...workspace, sandboxed: true }
+      : workspace
+    return external ? { ...marked, activePaneId: external } : marked
   })
 }
 

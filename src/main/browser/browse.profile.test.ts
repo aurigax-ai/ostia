@@ -14,8 +14,8 @@ vi.mock('../control/controlServer', () => ({
 }))
 
 const { ensureCaps } = await import('../approvals/controlElevation')
-const { SHARED_PROFILE_DETAIL, defaultBrowserPane, registerBrowseMethods, resolveGuest } =
-  await import('./browse')
+const { SHARED_PROFILE_DETAIL, defaultBrowserPane, resolveGuest } = await import('./browseGuests')
+const { registerBrowseMethods } = await import('./browse')
 const { registerPane, removePane } = await import('../control/idRegistry')
 const { ownWorkspaceReach } = await import('../../../test/reach')
 
@@ -144,5 +144,47 @@ describe('ostia browse open and close on an existing pane', () => {
       'pane.close',
       { paneId: 'agent-tab' },
     )
+  })
+})
+
+describe('ostia browse tab list', () => {
+  it('lists the human’s shared tabs without their url or title, and an agent’s tab with them', async () => {
+    const page = (url: string, title: string) => ({
+      isDestroyed: () => false,
+      getURL: () => url,
+      getTitle: () => title,
+    })
+    guests.set(1, { id: 1, ...page('https://bank.example/account', 'Your account') })
+    guests.set(2, { id: 2, ...page('http://x/agent', 'agent page') })
+    browserPanes.set('agent-tab', 2)
+    registerBrowseMethods({
+      ...deps,
+      execCommand: vi.fn() as never,
+      screenshotRoots: [],
+      consoleBuffers: new Map(),
+      errorBuffers: new Map(),
+    })
+
+    const listed = (await methods.get('browse.tab')?.handler({ sub: 'list' }, ctx() as never)) as {
+      ok: boolean
+      tabs: Record<string, unknown>[]
+    }
+
+    expect(listed.ok).toBe(true)
+    expect(listed.tabs).toHaveLength(2)
+    expect(listed.tabs).toContainEqual({
+      tabId: humanTab.externalId,
+      profile: 'shared',
+      active: false,
+    })
+    expect(listed.tabs).toContainEqual({
+      tabId: agentTab.externalId,
+      url: 'http://x/agent',
+      title: 'agent page',
+      active: true,
+    })
+    expect(JSON.stringify(listed.tabs)).not.toContain('bank.example')
+    expect(JSON.stringify(listed.tabs)).not.toContain('Your account')
+    expect(ensureCaps).not.toHaveBeenCalled()
   })
 })

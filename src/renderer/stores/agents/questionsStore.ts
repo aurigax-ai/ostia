@@ -1,4 +1,4 @@
-import { currentDict } from '@/i18n/useDict'
+import { currentDict } from '@/lib/app/useDict'
 import { isPaneViewed, signalPane } from '@/lib/attention/workspaceActivity'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { QuestionReply, QuestionRequest, QuestionState } from '@shared/agents/questions'

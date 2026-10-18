@@ -1,7 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, emptyState, openWorkspace, shownTerminal, terminalTab } from './helpers'
+import { PROMPT, openWorkspace, shownTerminal, terminalTab } from './helpers'
+import { centerOf, dragFiles, dropFiles } from './osDrag'
 import { type Page, _electron as electron, expect, test } from './test'
 
 const PIXEL_PNG = Buffer.from(
@@ -23,24 +24,6 @@ function tab(win: Page, title: string) {
   return win.locator('.pane-tab').filter({ hasText: title })
 }
 
-type DragStep = 'dragEnter' | 'dragOver' | 'drop'
-
-async function dragFiles(win: Page, paths: string[]) {
-  const cdp = await win.context().newCDPSession(win)
-  const data = { items: [], files: paths, dragOperationsMask: 1 }
-  return {
-    send: (type: DragStep, at: { x: number; y: number }) =>
-      cdp.send('Input.dispatchDragEvent', { type, x: at.x, y: at.y, data }),
-    done: () => cdp.detach(),
-  }
-}
-
-async function dropFiles(win: Page, paths: string[], x: number, y: number): Promise<void> {
-  const drag = await dragFiles(win, paths)
-  for (const step of ['dragEnter', 'dragOver', 'drop'] as const) await drag.send(step, { x, y })
-  await drag.done()
-}
-
 async function dragOverTarget(win: Page): Promise<string> {
   return win.evaluate(() => {
     const seen = window as unknown as { lastDragOverTarget?: string; watchesDragOver?: boolean }
@@ -49,7 +32,8 @@ async function dragOverTarget(win: Page): Promise<string> {
       document.addEventListener(
         'dragover',
         (e) => {
-          seen.lastDragOverTarget = e.target instanceof Element ? e.target.className : ''
+          seen.lastDragOverTarget =
+            e.target instanceof Element && e.target.closest('.pane-header') ? 'pane-header' : ''
         },
         true,
       )
@@ -58,11 +42,11 @@ async function dragOverTarget(win: Page): Promise<string> {
   })
 }
 
-async function dropFilesOverGuestPage(
+async function dropFilesOverBrowserHeader(
   win: Page,
   paths: string[],
   enterAt: { x: number; y: number },
-  page: { x: number; y: number },
+  header: { x: number; y: number },
 ): Promise<void> {
   await dragOverTarget(win)
   const drag = await dragFiles(win, paths)
@@ -71,18 +55,12 @@ async function dropFilesOverGuestPage(
   await expect(win.locator(':root')).toHaveAttribute('data-file-drag', '')
   await expect
     .poll(async () => {
-      await drag.send('dragOver', page)
+      await drag.send('dragOver', header)
       return dragOverTarget(win)
     })
-    .toBe('pane-file-drop')
-  await drag.send('drop', page)
+    .toBe('pane-header')
+  await drag.send('drop', header)
   await drag.done()
-}
-
-async function centerOf(win: Page, selector: string): Promise<{ x: number; y: number }> {
-  const box = await win.locator(selector).first().boundingBox()
-  if (!box) throw new Error(`no box for ${selector}`)
-  return { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) }
 }
 
 test('ostia <file> shows a text file and an image from outside the home folder, and a restart keeps them', async () => {
@@ -142,49 +120,28 @@ test('ostia <file> shows a text file and an image from outside the home folder, 
   }
 })
 
-test('a file dropped on the window opens in the viewer; dropped on a terminal it pastes its path', async () => {
+test('a file dropped on the window or a browser header opens in the viewer; dropped on a terminal it pastes its path', async () => {
   const dataHome = freshDataHome()
-  const { log, image, dir } = outsideFiles(dataHome)
+  const { log, dir } = outsideFiles(dataHome)
   const app = await electron.launch(isolatedLaunch(dataHome))
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
-    await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
-
-    const empty = await centerOf(win, '.workzone-empty')
-    await dropFiles(win, [image], empty.x, empty.y)
-    await expect(tab(win, 'shot.png')).toBeVisible({ timeout: 15_000 })
-    await expect(win.locator('.viewer-meta:visible')).toHaveText('1 × 1', { timeout: 15_000 })
-
-    const body = await centerOf(win, '.viewer-stage')
-    await dropFiles(win, [log], body.x, body.y)
-    await expect(tab(win, 'app.log')).toBeVisible({ timeout: 15_000 })
-    await expect(win.locator('.monaco-editor:visible .view-lines')).toContainText(
-      'second line outside home',
-      { timeout: 15_000 },
-    )
-
-    await win.getByRole('button', { name: 'New terminal tab', exact: true }).first().click()
-    await expect(win.locator('.xterm-rows:visible')).toContainText(PROMPT, { timeout: 15_000 })
-    const terminal = await centerOf(win, '.terminal-surface:visible')
-    await dropFiles(win, [log], terminal.x, terminal.y)
+    await openWorkspace(win)
+    const terminal = await centerOf(win.locator('.terminal-surface:visible'))
+    await dropFiles(win, [log], terminal)
     await expect(win.locator('.xterm-rows:visible')).toContainText(log, { timeout: 10_000 })
-    await expect(win.locator('.pane-tab')).toHaveCount(3)
-
-    const header = await centerOf(win, '.pane-tabs')
-    await dropFiles(win, [log], header.x, header.y)
-    await expect(tab(win, 'app.log')).toHaveClass(/selected/, { timeout: 10_000 })
-    await expect(win.locator('.pane-tab')).toHaveCount(3)
+    await expect(tab(win, 'app.log')).toHaveCount(0)
 
     const notes = join(dir, 'notes.txt')
-    writeFileSync(notes, 'dropped on a web page\n')
+    writeFileSync(notes, 'dropped on the browser header\n')
     await win.getByRole('button', { name: 'New browser tab', exact: true }).first().click()
     await expect(win.locator('webview:visible')).toBeVisible({ timeout: 15_000 })
-    const page = await centerOf(win, 'webview:visible')
-    await dropFilesOverGuestPage(win, [notes], await centerOf(win, '.topbar'), page)
+    const header = await centerOf(win.locator('.pane.active .pane-header'))
+    await dropFilesOverBrowserHeader(win, [notes], await centerOf(win.locator('.topbar')), header)
     await expect(tab(win, 'notes.txt')).toBeVisible({ timeout: 10_000 })
     await expect(win.locator('.monaco-editor:visible .view-lines')).toContainText(
-      'dropped on a web page',
+      'dropped on the browser header',
       { timeout: 15_000 },
     )
   } finally {

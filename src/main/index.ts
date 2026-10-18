@@ -1,11 +1,12 @@
 import './platform/userDirsBoot'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { readEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 import { app, dialog } from 'electron'
 import { parseDiscreteGpu } from '../shared/app/discreteGpu'
-import { readEnv } from '../shared/appEnv'
 import { registerPreviewScheme } from './artifacts/previewScheme'
 import { keepTestCrashDumps } from './diagnostics/testCrashDumps'
+import { VIEWER_SCHEME_PRIVILEGES } from './files/viewers/viewerScheme'
 import { discreteGpu, gpuStartPlan, readSwitcherooGpus } from './platform/discreteGpu'
 import { offerOldDirsMove } from './platform/oldDirsPrompt'
 import {
@@ -17,7 +18,7 @@ import {
   savedWorkspaceFolders,
 } from './platform/userDirs'
 
-const ANSWERS: Readonly<Record<string, number>> = { move: 0, later: 1 }
+const ANSWERS: Readonly<Record<string, number>> = { move: 0 }
 
 function presetAnswer(): number | undefined {
   if (app.isPackaged) return undefined
@@ -52,7 +53,7 @@ function relaunchedOnDiscreteGpu(): boolean {
 
 async function start(): Promise<void> {
   if (relaunchedOnDiscreteGpu()) return
-  registerPreviewScheme()
+  registerPreviewScheme([VIEWER_SCHEME_PRIVILEGES])
   await app.whenReady()
   const preset = presetAnswer()
   const folders = savedWorkspaceFolders([

@@ -1,15 +1,16 @@
 import { readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { build } from 'esbuild'
 import { buildExtension } from '../marketplace/build-extension.mjs'
 import { writeFigSpecs } from './completionSpecs.mjs'
+import { GENERATED_PACKS } from './i18nCatalog.mjs'
 import { marketplaceIds } from './marketplace.mjs'
 
 const srcRoot = 'src/extensions'
 const builtinRoot = 'out/extensions'
 const published = marketplaceIds()
-const panelBaseCss = join(srcRoot, 'sdk/panel.css')
+const panelBaseCss = fileURLToPath(import.meta.resolve('@aurigax-ai/ostia-extension-sdk/panel.css'))
 
 async function writeCatalog(exportName, file) {
   const bundle = resolve(builtinRoot, 'dict-build.mjs')
@@ -29,15 +30,15 @@ async function writeCatalog(exportName, file) {
 rmSync(builtinRoot, { recursive: true, force: true })
 
 const ids = readdirSync(srcRoot).filter(
-  (name) =>
-    name !== 'sdk' && !published.includes(name) && statSync(join(srcRoot, name)).isDirectory(),
+  (name) => !published.includes(name) && statSync(join(srcRoot, name)).isDirectory(),
 )
 
 for (const id of ids) {
   const out = join(builtinRoot, id)
   await buildExtension(join(srcRoot, id), out, panelBaseCss)
   if (id === 'completions') await writeFigSpecs(join(out, 'specs'))
-  if (id === 'langpack-zh-hant') await writeCatalog('zhHant', join(out, 'zh-Hant.json'))
+  const pack = GENERATED_PACKS[id]
+  if (pack) await writeCatalog(pack.exportName, join(out, pack.file))
 }
 
 console.log(`built ${ids.length} built-in extension(s): ${ids.join(', ')}`)

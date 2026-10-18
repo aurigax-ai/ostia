@@ -8,8 +8,8 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
+import type { CommandResult, CommandTarget } from '../../shared/control/commands'
 import { SCRIPT_CAPABILITIES } from '../../shared/permissions/scriptTokens'
-import type { CommandResult, CommandTarget } from '../../shared/types'
 
 const request = vi.fn(async () => 'deny' as const)
 

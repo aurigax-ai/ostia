@@ -1,7 +1,7 @@
 import { MenuContent, MenuItem } from '@/components/common/Menu'
 import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
-import { fmt, useDict } from '@/i18n/useDict'
 import { openSelectionSend } from '@/lib/agents/selectionSenders'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { attachAndOpenChat, blockOutputContext, explainFailedBlock } from '@/lib/assist/askContext'
 import { featureEnabled, useAssistFeature, useChatAvailable } from '@/lib/assist/assistFeatures'
 import { copyBlock, rerunBlock } from '@/lib/terminal/blockActions'
@@ -9,7 +9,7 @@ import { isIdlePrompt } from '@/lib/terminal/blocks'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { useAssistProvider } from '@/stores/assist/assistStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
+import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import {
   ArrowClockwiseIcon,
   BookmarkSimpleIcon,
@@ -34,6 +34,9 @@ export function BlockMenu({
   const d = useDict()
   const idle = useBlocksStore((s) => isIdlePrompt(s, paneId))
   const command = useBlocksStore((s) => s.byPane[paneId]?.find((b) => b.id === blockId)?.command)
+  const typedCommand = useBlocksStore(
+    (s) => s.byPane[paneId]?.find((b) => b.id === blockId)?.typedCommand,
+  )
   const failed = useBlocksStore((s) => {
     const block = s.byPane[paneId]?.find((b) => b.id === blockId)
     return Boolean(block?.endLine && block.exitCode !== null && block.exitCode !== 0)
@@ -106,7 +109,7 @@ export function BlockMenu({
         <ContextMenuSeparator />
         <MenuItem
           icon={ArrowClockwiseIcon}
-          disabled={!idle || !command}
+          disabled={!idle || !typedCommand}
           onClick={() => rerunBlock(paneId, blockId)}
         >
           {d.blocks.rerun}
@@ -114,9 +117,9 @@ export function BlockMenu({
         <MenuItem
           icon={BookmarkSimpleIcon}
           disabled={!command}
-          onClick={() => useWorkflowsStore.getState().startSave(command ?? null)}
+          onClick={() => useSnippetsStore.getState().startSave(command ?? null)}
         >
-          {d.blocks.saveAsWorkflow}
+          {d.blocks.saveAsSnippet}
         </MenuItem>
       </MenuContent>
     </ContextMenu>

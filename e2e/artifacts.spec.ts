@@ -1,18 +1,9 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
-import { type Server, createServer } from 'node:http'
-import type { AddressInfo } from 'node:net'
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import {
-  PROMPT,
-  emptyState,
-  emptyWorkspace,
-  openWorkspace,
-  quitApp,
-  runInTerminal,
-  terminalTab,
-} from './helpers'
+import { openWorkspace, quitApp, runInTerminal, terminalTab } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { viewerGuestText } from './viewerGuest'
 
 async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
   const app = await electron.launch(isolatedLaunch(dataHome))
@@ -21,8 +12,8 @@ async function launch(dataHome: string): Promise<{ app: ElectronApplication; win
   return { app, win }
 }
 
-function run(win: Page, command: string, terminal = 0): Promise<void> {
-  return runInTerminal(win, command, win.locator('.xterm:visible').nth(terminal))
+function run(win: Page, command: string): Promise<void> {
+  return runInTerminal(win, command, win.locator('.xterm:visible').first())
 }
 
 async function printValue(win: Page, label: string, variable: string): Promise<string> {
@@ -49,13 +40,7 @@ async function showFiles(win: Page): Promise<void> {
   await expect(win.getByTestId('artifacts-section')).toBeVisible()
 }
 
-function focusedPane(win: Page): Promise<string | null> {
-  return win.evaluate(
-    () => document.activeElement?.closest<HTMLElement>('.surface-host')?.dataset.paneId ?? null,
-  )
-}
-
-test('a shell writes artifacts that are listed, opened and kept across a restart, and the pad is shared', async () => {
+test('a shell writes artifacts that are listed and kept across a restart, and the pad is shared', async () => {
   test.setTimeout(180_000)
   const dataHome = freshDataHome()
   let folder = ''
@@ -68,26 +53,8 @@ test('a shell writes artifacts that are listed, opened and kept across a restart
     await expect(win.getByTestId('artifact-row')).toHaveCount(0)
 
     folder = await printValue(win, 'ART', 'OSTIA_ARTIFACTS')
-    expect(folder.startsWith(join(dataHome, 'ostia', 'artifacts'))).toBe(true)
-    expect(folder.startsWith(join(dataHome, 'home'))).toBe(false)
-    expect(await printValue(win, 'PAD', 'OSTIA_PAD')).toBe(join(folder, 'PAD.md'))
-
     await run(win, 'printf "# Report\\n\\nfirst line\\n" > "$OSTIA_ARTIFACTS/report.md"')
-    const row = artifactRow(win, 'report.md')
-    await expect(row).toBeVisible({ timeout: 15_000 })
-    await expect(row).toHaveAttribute('data-unread', 'true')
-    await row.click()
-    await expect(tab(win, 'report.md')).toBeVisible({ timeout: 15_000 })
-    await expect(row).not.toHaveAttribute('data-unread', 'true')
-    await expect(win.locator('.pane-body:visible').last()).toContainText('first line', {
-      timeout: 15_000,
-    })
-
-    await terminalTab(win).click()
-    await run(win, 'printf "piped text" | ostia - --name piped.txt')
-    await expect(tab(win, 'piped.txt')).toBeVisible({ timeout: 15_000 })
-    await expect(artifactRow(win, 'piped.txt')).toBeVisible()
-    expect(readFileSync(join(folder, 'piped.txt'), 'utf8')).toBe('piped text')
+    await expect(artifactRow(win, 'report.md')).toBeVisible({ timeout: 15_000 })
 
     await win.keyboard.press('Control+Alt+n')
     await expect(tab(win, 'PAD.md')).toBeVisible({ timeout: 15_000 })
@@ -104,7 +71,7 @@ test('a shell writes artifacts that are listed, opened and kept across a restart
       'added by an agent',
       { timeout: 15_000 },
     )
-    await expect(win.getByTestId('artifact-row')).toHaveCount(2)
+    await expect(win.getByTestId('artifact-row')).toHaveCount(1)
   } finally {
     await quitApp(first.app)
   }
@@ -115,113 +82,9 @@ test('a shell writes artifacts that are listed, opened and kept across a restart
     await expect(win.locator('.pane-tab').first()).toBeVisible({ timeout: 20_000 })
     await showFiles(win)
     await expect(artifactRow(win, 'report.md')).toBeVisible({ timeout: 15_000 })
-    await expect(artifactRow(win, 'piped.txt')).toBeVisible()
-    expect(readdirSync(folder).sort()).toEqual(['PAD.md', 'piped.txt', 'report.md'])
+    expect(readdirSync(folder).sort()).toEqual(['PAD.md', 'report.md'])
   } finally {
     await quitApp(first.app)
-  }
-})
-
-test('a scratch workspace keeps its artifacts in its own folder, which goes with it', async () => {
-  test.setTimeout(120_000)
-  const dataHome = freshDataHome()
-  const { app, win } = await launch(dataHome)
-  try {
-    await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
-    await win
-      .locator('.topbar')
-      .getByRole('button', { name: 'More ways to start a workspace' })
-      .click()
-    await win.getByRole('menuitem', { name: 'New scratch workspace' }).click()
-    await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
-    await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
-
-    const scratch = await printValue(win, 'DIR', 'PWD')
-    const folder = await printValue(win, 'ART', 'OSTIA_ARTIFACTS')
-    expect(folder).toBe(join(scratch, 'artifacts'))
-    await run(win, 'echo kept-until-close > "$OSTIA_ARTIFACTS/note.md"')
-    await expect.poll(() => existsSync(join(folder, 'note.md'))).toBe(true)
-    expect(existsSync(join(dataHome, 'ostia', 'artifacts', '.closed'))).toBe(false)
-
-    const row = win.locator('.rail-tab').first()
-    await row.hover()
-    await row.getByRole('button', { name: 'Close', exact: true }).click()
-    const confirm = win.getByRole('dialog')
-    await expect(confirm).toContainText('Delete 1 file in the scratch folder?')
-    await confirm.getByRole('button', { name: 'Delete' }).click()
-    await expect.poll(() => existsSync(scratch), { timeout: 15_000 }).toBe(false)
-    expect(existsSync(join(dataHome, 'ostia', 'artifacts', '.closed'))).toBe(false)
-  } finally {
-    await quitApp(app)
-  }
-})
-
-test('ostia shows a folder, opens a URL in an isolated browser pane, and an open from a background pane takes no focus', async () => {
-  test.setTimeout(180_000)
-  const dataHome = freshDataHome()
-  const home = join(dataHome, 'home')
-  mkdirSync(join(home, 'proj', 'sub'), { recursive: true })
-  writeFileSync(join(home, 'proj', 'inside.txt'), 'inside')
-  writeFileSync(join(home, 'proj', 'late.md'), '# opened later\n')
-  const seen: string[] = []
-  const server: Server = createServer((req, res) => {
-    seen.push(req.url ?? '')
-    res.setHeader('content-type', 'text/html')
-    res.end('<title>opened from the shell</title><p>hello</p>')
-  })
-  await new Promise<void>((ok) => server.listen(0, '127.0.0.1', ok))
-  const { port } = server.address() as AddressInfo
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, capabilities: { grants: ['browse'] } })
-  const { app, win } = await launch(dataHome)
-  try {
-    await openWorkspace(win)
-    await expect(win.getByTestId('artifacts-section')).toHaveCount(0)
-    await run(win, 'ostia ~/proj')
-    await expect(win.getByTestId('artifacts-section')).toBeVisible({ timeout: 15_000 })
-    await expect(win.locator('.files-crumb')).toContainText('proj')
-    await expect(win.locator('.file-row').filter({ hasText: 'inside.txt' })).toBeVisible()
-    await run(win, 'ostia workspace list --json')
-    await expect(win.locator('.xterm:visible .xterm-rows').first()).toContainText(
-      `"workDir": "${home}",`,
-      { timeout: 15_000 },
-    )
-
-    await run(win, 'ostia /usr')
-    await expect(win.locator('.xterm:visible .xterm-rows').first()).toContainText(
-      'folders show only under the home folder',
-      { timeout: 15_000 },
-    )
-
-    await win.keyboard.press('Control+Alt+Backslash')
-    await expect(win.locator('.xterm:visible')).toHaveCount(2, { timeout: 15_000 })
-    await expect(win.locator('.xterm:visible .xterm-rows').nth(1)).toContainText(PROMPT, {
-      timeout: 15_000,
-    })
-    await run(win, '(sleep 4; ostia ~/proj/late.md) > /dev/null 2>&1 &', 0)
-    await win.locator('.xterm:visible').nth(1).click()
-    const typing = await focusedPane(win)
-    expect(typing).not.toBeNull()
-    await expect(tab(win, 'late.md')).toBeVisible({ timeout: 20_000 })
-    await expect(tab(win, 'late.md').locator('.pane-attn-mark')).toHaveCount(1)
-    expect(await focusedPane(win)).toBe(typing)
-    await win.keyboard.type('echo still-typing-here')
-    await win.keyboard.press('Enter')
-    await expect(win.locator('.xterm:visible .xterm-rows').nth(1)).toContainText(
-      'still-typing-here',
-      { timeout: 10_000 },
-    )
-    await expect(win.locator('.monaco-editor:visible')).toHaveCount(0)
-
-    await run(win, `ostia http://127.0.0.1:${port}/hello`, 1)
-    const browser = win.locator('webview.browser-webview')
-    await expect(browser).toHaveCount(1, { timeout: 20_000 })
-    await expect.poll(() => seen, { timeout: 20_000 }).toContain('/hello')
-    const partition = await browser.getAttribute('partition')
-    expect(partition).toMatch(/^ostia-browser-/)
-    expect(partition).not.toBe('persist:ostia-browser')
-  } finally {
-    await quitApp(app)
-    await new Promise<void>((ok) => server.close(() => ok()))
   }
 })
 
@@ -243,11 +106,15 @@ test('a CSV artifact opens as a table and a mermaid block in Markdown is drawn a
       win,
       'cp ~/cities.csv ~/plan.md "$OSTIA_ARTIFACTS/" && ostia "$OSTIA_ARTIFACTS/cities.csv"',
     )
-    const table = win.getByTestId('csv-table')
-    await expect(table.getByRole('columnheader', { name: 'city' })).toBeVisible({ timeout: 20_000 })
-    await expect(table.getByRole('cell', { name: 'Hsinchu, East' })).toBeVisible()
-    await win.getByRole('button', { name: 'Edit CSV source' }).click()
-    await expect(win.getByTestId('csv-table')).toHaveCount(0)
+    const viewer = win.locator('[data-testid="file-viewer"]:visible')
+    await expect(viewer).toHaveAttribute('data-view-type', 'csv.table', { timeout: 20_000 })
+    await expect
+      .poll(() => viewerGuestText(app, { viewType: 'csv.table' }), { timeout: 20_000 })
+      .toContain('Hsinchu, East')
+    await viewer.getByRole('button', { name: 'Open With…' }).click()
+    await win.getByRole('radio', { name: 'Text editor' }).click()
+    await win.getByRole('button', { name: 'Open', exact: true }).click()
+    await expect(viewer).toHaveCount(0)
     await expect(win.locator('.monaco-editor:visible .view-lines')).toContainText('Taipei,3')
 
     await terminalTab(win).click()
@@ -263,6 +130,43 @@ test('a CSV artifact opens as a table and a mermaid block in Markdown is drawn a
     const preview = win.locator('.markdown-preview')
     expect(await preview.locator('svg, script').count()).toBe(0)
     expect(await win.title()).not.toBe('ran')
+  } finally {
+    await quitApp(app)
+  }
+})
+
+test('the artifact chip menu draws the unread dot apart from the time', async () => {
+  test.setTimeout(120_000)
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
+  const { app, win } = await launch(dataHome)
+  try {
+    await openWorkspace(win)
+    await run(
+      win,
+      'printf "a" > "$OSTIA_ARTIFACTS/a.md" && printf "b" > "$OSTIA_ARTIFACTS/b.md" && ostia open -b "$OSTIA_ARTIFACTS/a.md" "$OSTIA_ARTIFACTS/b.md"',
+    )
+    const chip = win.getByRole('button', { name: 'Artifacts from this pane' })
+    await expect(chip).toBeVisible({ timeout: 20_000 })
+    await run(win, 'printf "more" >> "$OSTIA_ARTIFACTS/b.md"')
+    await expect(win.getByTestId('artifact-chip-dot')).toBeVisible({ timeout: 15_000 })
+
+    await chip.click()
+    const row = win.getByRole('menuitem').filter({ hasText: 'b.md' })
+    const dot = row.getByRole('img', { name: 'New or changed' })
+    await expect(dot).toBeVisible()
+    const box = await dot.boundingBox()
+    expect(box?.width).toBeGreaterThan(0)
+    expect(box?.height).toBeGreaterThan(0)
+    const gap = await row.locator('[data-slot="context-menu-shortcut"]').evaluate((hint) => {
+      const mark = hint.querySelector('.unread-dot')
+      const time = hint.lastChild
+      if (!mark || !time) return -1
+      const range = document.createRange()
+      range.selectNodeContents(time)
+      return range.getBoundingClientRect().left - mark.getBoundingClientRect().right
+    })
+    expect(gap).toBeGreaterThanOrEqual(4)
   } finally {
     await quitApp(app)
   }

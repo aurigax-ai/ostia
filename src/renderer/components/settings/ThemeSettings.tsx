@@ -1,3 +1,5 @@
+import { ControlRow, ToggleRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
 import {
   Combobox,
   ComboboxContent,
@@ -8,16 +10,15 @@ import {
 } from '@/components/ui/combobox'
 import { InputGroupAddon } from '@/components/ui/input-group'
 import { Switch } from '@/components/ui/switch'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { type CodeColors, codeColors, monacoThemeData } from '@/lib/monaco/monacoTheme'
 import { type SchemeSurface, useScheme } from '@/lib/theme/colorScheme'
 import { useEffectiveTheme } from '@/lib/theme/theme'
+import { MATCH_OSTIA_THEME, isLinkedTheme } from '@/lib/theme/themeChoice'
+import { ANSI_NAMES, type ColorScheme } from '@/lib/theme/types'
 import { codeFontStack, terminalFontStack } from '@/lib/theme/uiFonts'
-import { type CodeColors, codeColors, monacoThemeData } from '@/monaco/monacoTheme'
-import { ANSI_NAMES, type ColorScheme } from '@/plugins/types'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
-import { MATCH_OSTIA_THEME, isLinkedTheme } from '@shared/app/themeChoice'
-import { ControlRow, SelectField, ToggleRow } from './SettingsPanel'
 
 const SWATCH_HUES = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan'] as const
 

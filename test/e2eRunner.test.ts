@@ -1,0 +1,69 @@
+import { execFile, execFileSync } from 'node:child_process'
+import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import { describe, expect, it } from 'vitest'
+
+const RUNNER = resolve(__dirname, '../scripts/e2e.sh')
+const CONCURRENT_RUNS = 6
+
+function hasXvfb(): boolean {
+  try {
+    execFileSync('sh', ['-c', 'command -v Xvfb'])
+    return true
+  } catch {
+    return false
+  }
+}
+
+function fakePlaywright(script = 'echo "$DISPLAY"\nsleep 1'): string {
+  const bin = join(mkdtempSync(join(tmpdir(), 'ostia-e2e-runner-')), 'bin')
+  mkdirSync(bin, { recursive: true })
+  writeFileSync(join(bin, 'playwright'), `#!/bin/sh\n${script}\n`)
+  chmodSync(join(bin, 'playwright'), 0o755)
+  return bin
+}
+
+function outputOfRun(bin: string, env: NodeJS.ProcessEnv = {}): Promise<string> {
+  const { OSTIA_E2E_VISIBLE: _visible, ...inherited } = process.env
+  return new Promise((done, fail) => {
+    execFile(
+      'bash',
+      [RUNNER],
+      { env: { ...inherited, ...env, PATH: `${bin}:${process.env.PATH}` } },
+      (error, stdout) => (error ? fail(error) : done(stdout.trim())),
+    )
+  })
+}
+
+describe.skipIf(!hasXvfb())('the e2e runner', () => {
+  it('gives test runs started at the same moment each a virtual display of their own', async () => {
+    const bin = fakePlaywright()
+    const displays = await Promise.all(
+      Array.from({ length: CONCURRENT_RUNS }, () => outputOfRun(bin)),
+    )
+    for (const display of displays) expect(display).toMatch(/^:\d+$/)
+    expect(new Set(displays).size).toBe(CONCURRENT_RUNS)
+    expect(displays).not.toContain(process.env.DISPLAY)
+  })
+
+  it('hides the desktop session from test runs, so Electron cannot pick Wayland', async () => {
+    const bin = fakePlaywright('echo "${WAYLAND_DISPLAY-unset} ${XDG_SESSION_TYPE-unset}"')
+    const seen = await outputOfRun(bin, {
+      WAYLAND_DISPLAY: 'wayland-0',
+      XDG_SESSION_TYPE: 'wayland',
+    })
+    expect(seen).toBe('unset unset')
+  })
+
+  it('shows test runs every Vulkan driver, so WebGL can fall back to SwiftShader', async () => {
+    const bin = fakePlaywright(
+      'echo "${VK_LOADER_DRIVERS_SELECT-unset} ${VK_LOADER_DRIVERS_DISABLE-unset}"',
+    )
+    const seen = await outputOfRun(bin, {
+      VK_LOADER_DRIVERS_SELECT: '*intel*',
+      VK_LOADER_DRIVERS_DISABLE: '*swiftshader*',
+    })
+    expect(seen).toBe('unset unset')
+  })
+})

@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest'
 
 const HERE = __dirname
 const REPO = resolve(HERE, '../../..')
-const ENGINE = join(REPO, 'graph-engine/src')
+const ENGINE_PACKAGE = join(REPO, 'node_modules/@aurigax-ai/wire')
+const ENGINE = join(ENGINE_PACKAGE, 'src')
 
 function files(dir: string, test: (name: string) => boolean): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -19,11 +20,11 @@ const read = (path: string) => readFileSync(path, 'utf8')
 const extensionSource = sources(HERE).filter((f) => !f.endsWith('fakeExt.ts'))
 const runtimeSource = [
   ...extensionSource,
-  ...sources(ENGINE).filter((f) => !/fakeHost|fixtures|contractSuite/.test(f)),
+  ...sources(ENGINE).filter((f) => !/fakeHost|fixtures|contractSuite|testRuntime/.test(f)),
 ]
 
 function skillSection(): string {
-  const skill = read(join(REPO, 'src/main/agents/ostia-skill.md'))
+  const skill = read(join(REPO, 'src/main/agents/skills/ostia/SKILL.md'))
   const start = skill.indexOf('## Graphs')
   return skill.slice(start, skill.indexOf('\n## ', start + 1))
 }
@@ -39,22 +40,34 @@ function catalogText(): string {
 describe('what the graphs extension may do', () => {
   it('GRF-C3 nothing it runs writes, renames or deletes a file but its own data files', () => {
     const WRITES =
-      /\b(writeFileSync|writeFile|appendFileSync|appendFile|rmSync|rm|unlinkSync|unlink|renameSync|rename|mkdirSync|copyFileSync|createWriteStream|openSync\([^)]*'a')\(/
+      /\b(writeFileAtomic|writeFileAtomicAsync|writeFileSync|writeFile|appendFileSync|appendFile|rmSync|rm|unlinkSync|unlink|renameSync|rename|mkdirSync|copyFileSync|createWriteStream|openSync\([^)]*'a')\(/
     const writers = runtimeSource
       .filter((f) => WRITES.test(read(f)))
       .map((f) => f.slice(REPO.length + 1))
     expect(writers.sort()).toEqual([
-      'graph-engine/src/engine/fileStore.ts',
-      'src/extensions/graphs/enabled.ts',
+      'node_modules/@aurigax-ai/wire/src/engine/fileStore.ts',
+      'node_modules/@aurigax-ai/wire/src/runtime/lock.ts',
+      'node_modules/@aurigax-ai/wire/src/runtime/paths.ts',
+      'node_modules/@aurigax-ai/wire/src/runtime/privateFile.ts',
+      'node_modules/@aurigax-ai/wire/src/runtime/server.ts',
+      'node_modules/@aurigax-ai/wire/src/runtime/tokens.ts',
     ])
-    expect(read(join(HERE, 'enabled.ts'))).not.toContain('graphsFolder')
-    expect(read(join(ENGINE, 'engine/fileStore.ts'))).not.toContain('.ostia')
+    for (const file of writers) expect(read(join(REPO, file))).not.toContain('.ostia')
+  })
+
+  it('GRF-C216 it never opens a file under its old extension-data folder; runs and enable records live in the runtime', () => {
+    for (const file of extensionSource) {
+      const text = read(file)
+      for (const word of ["'EXTENSION_DATA'", 'enabled.json', 'changed.json', 'schedules.json'])
+        expect(text.includes(word), `${file} names ${word}`).toBe(false)
+    }
+    expect(read(join(HERE, 'main.ts'))).not.toContain('readEnv(')
   })
 
   it('GRF-C4 no surveyed engine is a dependency of the bundle, the engine or the app', () => {
     const names = ['@langchain/', 'langsmith', 'xstate', '@mastra/', '@temporalio/', '@restatedev/']
     const bundle = join(REPO, 'out/extensions/graphs/main.js')
-    const texts = [read(join(REPO, 'package.json')), read(join(REPO, 'graph-engine/package.json'))]
+    const texts = [read(join(REPO, 'package.json')), read(join(ENGINE_PACKAGE, 'package.json'))]
     if (existsSync(bundle)) texts.push(read(bundle))
     expect(texts).toHaveLength(3)
     for (const text of texts) for (const name of names) expect(text).not.toContain(name)
@@ -108,11 +121,16 @@ describe('what the graphs extension may do', () => {
     const core = files(
       join(REPO, 'src'),
       (n) => /\.tsx?$/.test(n) && !/\.test\.tsx?$/.test(n),
-    ).filter((f) => !f.includes('/extensions/graphs/') && !f.includes('/extensions/sdk/'))
+    ).filter((f) => !f.includes('/extensions/graphs/'))
     for (const file of core.filter((f) => f.includes('/renderer/commands/'))) {
       expect(read(file)).not.toMatch(/id: 'graphs?\./)
     }
-    const dict = read(join(REPO, 'src/shared/app/dict.ts'))
+    const dict = [
+      join(REPO, 'src/shared/app/dict.ts'),
+      ...sources(join(REPO, 'src/shared/strings')),
+    ]
+      .map(read)
+      .join('\n')
     expect(dict).not.toMatch(/^\s{4}graphs?: \{/m)
     const owned = core.filter(
       (f) =>
@@ -124,5 +142,37 @@ describe('what the graphs extension may do', () => {
     expect(read(join(REPO, 'src/cli/verbs/coreBoards.ts'))).not.toMatch(/case 'graph'/)
     const words = `${catalogText()}\n${skillSection()}`.toLowerCase()
     for (const word of ['workflow', ' job', 'flow ']) expect(words).not.toContain(word)
+  })
+
+  it('GRF-C224 Ostia depends on @aurigax-ai/wire exactly and nothing names @aurigax-ai/graph or a graph bin', () => {
+    const manifest = JSON.parse(read(join(REPO, 'package.json'))) as {
+      dependencies: Record<string, string>
+    }
+    expect(manifest.dependencies['@aurigax-ai/wire']).toMatch(/^\d+\.\d+\.\d+$/)
+    expect(manifest.dependencies['@aurigax-ai/graph']).toBeUndefined()
+    const skip = new Set(['node_modules', 'out', 'dist', 'test-results', '.git'])
+    const walk = (dir: string): string[] =>
+      readdirSync(dir).flatMap((name) => {
+        if (skip.has(name)) return []
+        const path = join(dir, name)
+        if (statSync(path).isDirectory()) return walk(path)
+        return /\.(ts|tsx|mts|mjs|js|json|md|yaml|yml|sh)$/.test(name) ? [path] : []
+      })
+    const tracked = [
+      ...['src', 'scripts', 'e2e', 'test', 'packages', 'marketplace'].flatMap((d) =>
+        walk(join(REPO, d)),
+      ),
+      ...[
+        'package.json',
+        'pnpm-workspace.yaml',
+        '.dependency-cruiser.json',
+        'README.md',
+        'knip.json',
+      ]
+        .map((f) => join(REPO, f))
+        .filter((f) => existsSync(f)),
+    ].filter((f) => f !== __filename)
+    const named = tracked.filter((f) => /@aurigax-ai\/graph(?![-\w])|\.bin\/graph\b/.test(read(f)))
+    expect(named).toEqual([])
   })
 })

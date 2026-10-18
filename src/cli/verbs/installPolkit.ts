@@ -10,7 +10,7 @@ import {
 import { join } from 'node:path'
 import { POLKIT_ACTIONS_DIR, POLKIT_POLICY_FILE } from '../../shared/permissions/scriptTokens'
 
-const INSTALL_POLKIT_USAGE = 'usage: sudo ostia install-polkit'
+const INSTALL_POLKIT_USAGE = 'usage: sudo ostia polkit install'
 
 export const POLKIT_POLICY = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
@@ -62,12 +62,12 @@ export function runInstallPolkit(argv: readonly string[], deps: InstallPolkitDep
     return argv[0] === '--help' || argv[0] === '-h' ? 0 : 2
   }
   if (deps.platform !== 'linux') {
-    deps.err('ostia install-polkit: polkit is for Linux; macOS asks with Touch ID')
+    deps.err('ostia polkit install: polkit is for Linux; macOS asks with Touch ID')
     return 1
   }
   if (deps.uid !== 0) {
     deps.err(
-      `ostia install-polkit: needs root to write ${POLKIT_ACTIONS_DIR}; ${INSTALL_POLKIT_USAGE}`,
+      `ostia polkit install: needs root to write ${POLKIT_ACTIONS_DIR}; ${INSTALL_POLKIT_USAGE}`,
     )
     return 1
   }
@@ -78,7 +78,7 @@ export function runInstallPolkit(argv: readonly string[], deps: InstallPolkitDep
     if (lstatSync(dir).isSymbolicLink()) throw new Error(`${dir} is a symbolic link`)
     writeNoFollow(dest, POLKIT_POLICY)
   } catch (err) {
-    deps.err(`ostia install-polkit: refused to write ${dest}: ${(err as Error).message}`)
+    deps.err(`ostia polkit install: refused to write ${dest}: ${(err as Error).message}`)
     return 1
   }
   deps.out(

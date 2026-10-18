@@ -1,0 +1,16 @@
+name: Playwright browsers
+description: Playwright's own Chromium and Firefox, which the portable-file specs open from file://
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        path: ${{ runner.os == 'macOS' && '~/Library/Caches/ms-playwright' || '~/.cache/ms-playwright' }}
+        key: playwright-browsers-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+    - shell: bash
+      env:
+        WITH_DEPS: ${{ runner.os == 'Linux' && runner.environment == 'github-hosted' }}
+      run: |
+        args=(chromium firefox)
+        if [ "$WITH_DEPS" = true ]; then args=(--with-deps "${args[@]}"); fi
+        pnpm exec playwright install "${args[@]}"

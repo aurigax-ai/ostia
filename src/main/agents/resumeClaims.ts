@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { type AgentResume, parseAgentResume } from '../../shared/agents/agentResume'
-import type { ResumeVerdict } from '../../shared/types'
+import type { ResumeVerdict } from '../../shared/agents/agentsApi'
 import { getByPaneId, panesOwnedBy } from '../control/idRegistry'
 import type { PaneEntry } from '../panes/paneList'
 

@@ -1,4 +1,4 @@
-import type { GatewayPhoneAddress, GatewayRoute } from '../types'
+import type { GatewayPhoneAddress, GatewayRoute } from './gatewayApi'
 
 export const LOOPBACK_ADDRESS = '127.0.0.1'
 

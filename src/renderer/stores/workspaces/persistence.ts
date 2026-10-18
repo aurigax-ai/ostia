@@ -1,11 +1,12 @@
-import { type RestorableWorkspace, buildSnapshot } from '@/layout/snapshot'
-import { allPanes } from '@/layout/tree'
 import { runningAgentOf } from '@/lib/agents/paneAgent'
+import { type RestorableWorkspace, buildSnapshot } from '@/lib/layout/snapshot'
+import { allPanes } from '@/lib/layout/tree'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { debounce } from 'es-toolkit/compat'
 import { useLayoutStore } from './layoutStore'
-import { type Workspace, useWorkspacesStore } from './workspacesStore'
+import type { Workspace } from './workspaceTypes'
+import { useWorkspacesStore } from './workspacesStore'
 
 export function isMovable(workspace: Workspace): workspace is Workspace & RestorableWorkspace {
   return workspace.kind !== 'manager'

@@ -1,20 +1,25 @@
 import {
+  EXTENSION_REDACT_TEXTS_MAX,
+  EXTENSION_REDACT_TEXT_MAX,
+  type OstiaExtension,
+} from '@aurigax-ai/ostia-extension-sdk'
+import {
+  DEFAULT_CHOICES,
   NodeError,
   type NodeKind,
   type NodeWait,
   type Notice,
   type Output,
-} from '../../../graph-engine/src/engine/contract'
-import { type ProcessRunner, commandNode } from '../../../graph-engine/src/kinds/command'
-import { DEFAULT_CHOICES } from '../../../graph-engine/src/kinds/humanKinds'
-import { notifyNode } from '../../../graph-engine/src/kinds/smallKinds'
-import { EXTENSION_REDACT_TEXTS_MAX, EXTENSION_REDACT_TEXT_MAX, type OstiaExtension } from '../sdk'
+  type ProcessRunner,
+  commandNode,
+  notifyNode,
+} from '@aurigax-ai/wire'
 
 const ANSWER = 'answer'
 
 export interface AskDeps {
   ext: Pick<OstiaExtension, 'ask'>
-  deliver: (event: Output) => void
+  deliver: (workspaceId: string, event: Output) => void
 }
 
 function askOf(wait: NodeWait | undefined): Record<string, unknown> | null {
@@ -43,9 +48,15 @@ export function approvalNode(deps: AskDeps): NodeKind {
         if (!res.ok || abort.signal.aborted) return
         if (res.outcome === 'answered') {
           const answer = res.reply.choices[0] ?? res.reply.text
-          deps.deliver({ type: ANSWER, key, answer, text: res.reply.text, outcome: 'answered' })
+          deps.deliver(scope, {
+            type: ANSWER,
+            key,
+            answer,
+            text: res.reply.text,
+            outcome: 'answered',
+          })
         } else if (res.outcome === 'dismissed') {
-          deps.deliver({ type: ANSWER, key, outcome: 'dismissed' })
+          deps.deliver(scope, { type: ANSWER, key, outcome: 'dismissed' })
         }
       })
   }

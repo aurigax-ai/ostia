@@ -1,4 +1,5 @@
 import type { Region } from '@shared/browser/selection'
+import { clamp } from 'es-toolkit'
 
 export interface Point {
   x: number
@@ -22,10 +23,6 @@ const PINCH_DELTA_MAX = 50
 export interface ZoomAnchor {
   content: Point
   client: Point
-}
-
-function clamp(n: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, n))
 }
 
 export function toContentPoint(

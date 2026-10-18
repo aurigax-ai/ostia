@@ -1,15 +1,16 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type {
+  ExtensionCaller,
+  ExtensionInfo,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { ExtensionCaller, ExtensionInfo } from '../../shared/extensions'
-import type { CommandResult } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
-import {
-  type ExtensionConfirmRequest,
-  ExtensionHost,
-  registerExtensionMethods,
-} from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
+import type { ExtensionConfirmRequest } from './extensionRuns'
 import { ExtensionStore } from './extensionStore'
 
 const caller: ExtensionCaller = { kind: 'user', workspaceId: 's1', capabilities: [] }
@@ -47,7 +48,7 @@ const MANIFEST = {
   id: 'greeter',
   name: 'Greeter',
   version: '1.0.0',
-  api: '3.0',
+  api: '4.0',
   description: 'Says hello',
   main: 'main.js',
   locales: ['zh-Hant'],
@@ -68,14 +69,6 @@ const ZH_HANT = {
     'commands.locale.category': '問候者',
     'settings.word.title': '字詞',
   },
-}
-
-async function until(check: () => Promise<boolean>, timeoutMs = 5000): Promise<void> {
-  const start = Date.now()
-  while (!(await check())) {
-    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 20))
-  }
 }
 
 describe('ExtensionHost resolves manifest strings for the language', () => {
@@ -117,7 +110,7 @@ describe('ExtensionHost resolves manifest strings for the language', () => {
   })
 
   afterEach(() => {
-    host.stopAll()
+    host.processes.stopAll()
     rmSync(root, { recursive: true, force: true })
     broadcast.mockClear()
     confirm.mockClear()
@@ -222,7 +215,7 @@ describe('ExtensionHost resolves manifest strings for the language', () => {
     startHost({ builtin: true })
     expect(greeter().name).toBe('Greeter')
     writeCatalog(ZH_HANT)
-    host.rescan()
+    host.processes.rescan()
     expect(greeter().name).toBe('問候者')
     expect(
       changedLists()
@@ -243,10 +236,13 @@ describe('ExtensionHost resolves manifest strings for the language', () => {
     })
     locale = 'en'
     host.refreshLocale()
-    await until(async () => {
-      const res = await host.invoke('greeter', 'announced', null, caller)
-      return res.ok && (res.data as { announced: unknown }).announced === 'en'
-    })
+    await vi.waitUntil(
+      async () => {
+        const res = await host.invoke('greeter', 'announced', null, caller)
+        return res.ok && (res.data as { announced: unknown }).announced === 'en'
+      },
+      { timeout: 5000, interval: 20 },
+    )
     locale = undefined
     expect(await host.invoke('greeter', 'locale', null, caller)).toMatchObject({
       data: { locale: 'en' },

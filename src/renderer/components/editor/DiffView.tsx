@@ -2,19 +2,21 @@ import { ATTENTION_ALERT } from '@/components/agents/attentionStyles'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import { Alert } from '@/components/ui/alert'
-import { useDict } from '@/i18n/useDict'
+import { useDict } from '@/lib/app/useDict'
 import { registerEditorPosition } from '@/lib/files/editorPositions'
+import { editorInput } from '@/lib/monaco/editorInput'
+import { langFor } from '@/lib/monaco/language'
+import { monaco } from '@/lib/monaco/setup'
+import { ensureMonacoTheme } from '@/lib/monaco/useMonacoTheme'
+import { useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { codeFontStack } from '@/lib/theme/uiFonts'
 import { cn } from '@/lib/utils'
-import { langFor } from '@/monaco/language'
-import { monaco } from '@/monaco/setup'
-import { ensureMonacoTheme } from '@/monaco/useMonacoTheme'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useDiffStore } from '@/stores/files/diffStore'
+import { DIFF_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { ArrowSquareOutIcon, ColumnsIcon, RowsIcon } from '@phosphor-icons/react'
-import { DIFF_TEXT_MAX } from '@shared/extensions'
 import { useEffect, useRef, useState } from 'react'
-import { useExternalEditorAction } from './Editor'
+import { useExternalEditorAction } from './useEditorView'
 
 const DIFF_COMPUTATION_MS = 2000
 const MB = 1024 * 1024
@@ -25,6 +27,7 @@ export function DiffView({ paneId }: { paneId: string }): JSX.Element {
   const font = useSettingsStore((s) => s.appearance.editor)
   const hostRef = useRef<HTMLDivElement>(null)
   const diffRef = useRef<monaco.editor.IStandaloneDiffEditor | null>(null)
+  useSurfaceFocus(paneId, () => editorInput(diffRef.current?.getModifiedEditor()))
   const pathRef = useRef(content?.path)
   pathRef.current = content?.path
   const [inline, setInline] = useState(

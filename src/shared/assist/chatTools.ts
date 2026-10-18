@@ -1,6 +1,7 @@
+import { CHAT_TOOL_NAME_PATTERN } from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
+import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import { isSkillPath } from '../agents/managerSettings'
-import { CHAT_TOOL_NAME_PATTERN } from '../assist'
-import { isDangerousSegment } from '../protoGuard'
 import type { ChatEdit } from './chatEdits'
 
 const BUILTIN_CHAT_TOOLS = [
@@ -76,9 +77,6 @@ export interface ChatToolSettings {
 
 export const DEFAULT_CHAT_TOOL_SETTINGS: ChatToolSettings = { mcpServers: [], skillFolders: [] }
 
-const isObject = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v)
-
 export function isMcpUrl(value: unknown): value is string {
   if (typeof value !== 'string' || value.length > MCP_URL_MAX) return false
   try {
@@ -125,7 +123,7 @@ function stringList(raw: unknown, max: number, ok: (s: string) => boolean): stri
 }
 
 export function parseMcpServer(raw: unknown): McpServerSettings | null {
-  if (!isObject(raw) || typeof raw.name !== 'string' || !MCP_SERVER_NAME.test(raw.name)) {
+  if (!isRecord(raw) || typeof raw.name !== 'string' || !MCP_SERVER_NAME.test(raw.name)) {
     return null
   }
   const hasUrl = raw.url !== undefined && raw.url !== ''
@@ -135,7 +133,7 @@ export function parseMcpServer(raw: unknown): McpServerSettings | null {
   if (hasCommand && !isMcpArgv(raw.command)) return null
   const transport: McpTransportKind = hasUrl ? 'http' : 'stdio'
   const env: Record<string, string> = {}
-  if (transport === 'stdio' && isObject(raw.env)) {
+  if (transport === 'stdio' && isRecord(raw.env)) {
     for (const [key, value] of Object.entries(raw.env)) {
       if (Object.keys(env).length === MCP_ENV_MAX) break
       if (!MCP_ENV_KEY.test(key) || isDangerousSegment(key)) continue
@@ -160,7 +158,7 @@ export function parseMcpServer(raw: unknown): McpServerSettings | null {
 }
 
 export function parseChatToolSettings(raw: unknown): ChatToolSettings {
-  const src = isObject(raw) ? raw : {}
+  const src = isRecord(raw) ? raw : {}
   const mcpServers: McpServerSettings[] = []
   for (const item of Array.isArray(src.mcpServers) ? src.mcpServers : []) {
     if (mcpServers.length === MCP_SERVERS_MAX) break

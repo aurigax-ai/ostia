@@ -1,5 +1,5 @@
 import { readFileSync, statSync } from 'node:fs'
-import type { FsBinaryResult } from '../../shared/types'
+import type { FsBinaryResult } from '../../shared/files/filesApi'
 
 export const FS_BINARY_MAX = 50 * 1024 * 1024
 

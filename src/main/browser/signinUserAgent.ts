@@ -23,6 +23,11 @@ export interface UserAgentMetadata {
   wow64: boolean
 }
 
+export interface DeviceAgent {
+  userAgent: string
+  metadata: UserAgentMetadata
+}
+
 export interface BrowserAgents {
   electron: string
   rewritten: string
@@ -111,7 +116,7 @@ export interface AgentSession {
   webRequest: {
     onBeforeSendHeaders(
       listener: (
-        details: { url: string; requestHeaders: RequestHeaders },
+        details: { url: string; webContentsId?: number; requestHeaders: RequestHeaders },
         callback: (response: { requestHeaders: RequestHeaders }) => void,
       ) => void,
     ): void
@@ -119,6 +124,48 @@ export interface AgentSession {
 }
 
 const sessionAgents = new WeakMap<AgentSession, BrowserAgents>()
+const deviceAgents = new Map<number, DeviceAgent>()
+const followers = new Map<number, () => void>()
+
+interface AgentChange {
+  done: Promise<void>
+  redirectedTo?: string
+}
+
+const applying = new Map<number, AgentChange>()
+
+const MAX_RESTARTS = 3
+const restarts = new Map<number, number>()
+
+export function pendingRestart(guestId: number, url: string, method: string): boolean {
+  return (
+    applying.get(guestId)?.redirectedTo === url &&
+    method === 'GET' &&
+    (restarts.get(guestId) ?? 0) < MAX_RESTARTS
+  )
+}
+
+export function restartAfterAgent(
+  guestId: number,
+  url: string,
+  method: string,
+): Promise<void> | undefined {
+  const pending = applying.get(guestId)
+  if (!pending || !pendingRestart(guestId, url, method)) return undefined
+  pending.redirectedTo = undefined
+  restarts.set(guestId, (restarts.get(guestId) ?? 0) + 1)
+  return pending.done
+}
+
+export function setDeviceAgent(guestId: number, agent: DeviceAgent | null): void {
+  if (agent) deviceAgents.set(guestId, agent)
+  else deviceAgents.delete(guestId)
+  followers.get(guestId)?.()
+}
+
+function deviceAgentOf(guestId: number | undefined): DeviceAgent | undefined {
+  return guestId === undefined ? undefined : deviceAgents.get(guestId)
+}
 
 export function useBrowserAgents(
   session: AgentSession,
@@ -135,7 +182,8 @@ export function useBrowserAgents(
     for (const [name, value] of Object.entries(details.requestHeaders)) {
       if (name.toLowerCase() !== 'user-agent') requestHeaders[name] = value
     }
-    requestHeaders['User-Agent'] = agentFor(details.url, agents)
+    requestHeaders['User-Agent'] =
+      deviceAgentOf(details.webContentsId)?.userAgent ?? agentFor(details.url, agents)
     callback({ requestHeaders })
   })
   return agents
@@ -148,6 +196,7 @@ interface NavigationDetails {
 }
 
 export interface AgentGuest {
+  id: number
   debugger: {
     isAttached(): boolean
     sendCommand(method: string, params?: object): Promise<unknown>
@@ -156,6 +205,7 @@ export interface AgentGuest {
     event: 'did-start-navigation' | 'did-redirect-navigation',
     listener: (details: NavigationDetails) => void,
   ): unknown
+  on(event: 'did-finish-load' | 'destroyed', listener: () => void): unknown
 }
 
 const followedGuests = new WeakSet<AgentGuest>()
@@ -167,26 +217,51 @@ export function followAgentByHost(
 ): void {
   if (followedGuests.has(guest) || !guest.debugger.isAttached()) return
   followedGuests.add(guest)
-  const override = (userAgent: string): void => {
-    void guest.debugger
-      .sendCommand('Emulation.setUserAgentOverride', {
-        userAgent,
-        userAgentMetadata: agents.metadata,
+  const guestId = guest.id
+  const override = (userAgent: string, userAgentMetadata: UserAgentMetadata): void => {
+    const done = guest.debugger
+      .sendCommand('Emulation.setUserAgentOverride', { userAgent, userAgentMetadata })
+      .then(
+        () => {},
+        () => {},
+      )
+      .finally(() => {
+        if (applying.get(guestId)?.done === done) applying.delete(guestId)
       })
-      .catch(() => {})
+    applying.set(guestId, { done })
   }
-  let current = startUrl === undefined ? agents.rewritten : agentFor(startUrl, agents)
-  override(current)
-  const follow = (url: string): void => {
-    const next = agentFor(url, agents)
-    if (next === current) return
+  let url = startUrl
+  let current: string | DeviceAgent | null = null
+  const apply = (): boolean => {
+    const next =
+      deviceAgents.get(guestId) ?? (url === undefined ? agents.rewritten : agentFor(url, agents))
+    if (next === current) return false
     current = next
-    override(next)
+    if (typeof next === 'string') override(next, agents.metadata)
+    else override(next.userAgent, next.metadata)
+    return true
   }
+  const follow = (next: string): boolean => {
+    url = next
+    return apply()
+  }
+  followers.set(guestId, apply)
+  apply()
   guest.on('did-start-navigation', (details) => {
     if (details.isMainFrame && !details.isSameDocument) follow(details.url)
   })
   guest.on('did-redirect-navigation', (details) => {
-    if (details.isMainFrame) follow(details.url)
+    if (!details.isMainFrame || !follow(details.url)) return
+    const pending = applying.get(guestId)
+    if (pending) pending.redirectedTo = details.url
+  })
+  guest.on('did-finish-load', () => {
+    restarts.delete(guestId)
+  })
+  guest.on('destroyed', () => {
+    restarts.delete(guestId)
+    followers.delete(guestId)
+    deviceAgents.delete(guestId)
+    applying.delete(guestId)
   })
 }

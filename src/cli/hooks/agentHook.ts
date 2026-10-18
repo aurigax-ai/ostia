@@ -1,4 +1,3 @@
-import { COMMAND_ID_PATTERN, EXTENSION_ID_PATTERN } from '../../main/extensions/extensionManifest'
 import {
   AGENT_HOOK_INPUT_MAX,
   type AgentHookEvent,
@@ -6,7 +5,11 @@ import {
   agentHookOutput,
   isAgentHookEvent,
   isHookAgent,
-} from '../../shared/agentPlugins'
+} from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
+import {
+  COMMAND_ID_PATTERN,
+  EXTENSION_ID_PATTERN,
+} from '@aurigax-ai/ostia-extension-sdk/manifest/manifestFields'
 
 export interface AgentHookCall {
   extId: string

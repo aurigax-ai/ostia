@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { CommandResult, CommandTarget, TerminalStateSnapshot } from '../../shared/types'
+import type { CommandResult, CommandTarget } from '../../shared/control/commands'
+import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { registerPane } from '../control/idRegistry'
 import {
   type PaneListDeps,
@@ -62,6 +63,28 @@ describe('paneList.listPanes', () => {
         allWorkspaces: true,
       },
     )
+  })
+
+  it('shows the process status and start outcome of a run pane, as process list does', async () => {
+    const run = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-run' })
+    const deps: PaneListDeps = {
+      execCommand: vi
+        .fn()
+        .mockResolvedValue(
+          ok([{ paneId: 'p-run', workspaceId: 's1', kind: 'terminal', title: 'lead' }]),
+        ),
+      getTerminalState: () => undefined,
+      ptyPid: () => undefined,
+      windowIds: ONE_WINDOW,
+      waking: () => false,
+      processOf: (paneId) =>
+        paneId === 'p-run' ? { id: 'proc-1', status: 'exited(1)', start: 'failed' } : undefined,
+    }
+    const [pane] = await listPanes(deps)
+    expect(pane).toMatchObject({
+      paneId: run.externalId,
+      process: { id: 'proc-1', status: 'exited(1)', start: 'failed' },
+    })
   })
 
   it('reports the pty pid for a live terminal pane and never for other kinds', async () => {
@@ -169,6 +192,44 @@ describe('paneList.listPanes', () => {
     expect(panes[0]).toMatchObject({ paneId: asleep.externalId, hibernated: true })
     expect(panes[1].paneId).toBe(awake.externalId)
     expect(panes[1]).not.toHaveProperty('hibernated')
+  })
+
+  it('passes awaitingActivation through and reports startError only for a pane without a pid', async () => {
+    const waiting = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-waiting' })
+    const failed = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-failed' })
+    const live = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-live' })
+    const execCommand = vi.fn().mockResolvedValue(
+      ok([
+        {
+          paneId: 'p-waiting',
+          workspaceId: 's1',
+          kind: 'terminal',
+          title: 'claude',
+          awaitingActivation: true,
+        },
+        { paneId: 'p-failed', workspaceId: 's1', kind: 'terminal', title: 'zsh' },
+        { paneId: 'p-live', workspaceId: 's1', kind: 'terminal', title: 'zsh' },
+      ]),
+    )
+
+    const panes = await listPanes({
+      execCommand,
+      getTerminalState: vi.fn(),
+      ptyPid: (paneId) => (paneId === 'p-live' ? 42 : undefined),
+      windowIds: ONE_WINDOW,
+      waking: () => false,
+      startError: () => 'spawn failed',
+    })
+
+    expect(panes[0]).toMatchObject({
+      paneId: waiting.externalId,
+      awaitingActivation: true,
+      startError: 'spawn failed',
+    })
+    expect(panes[1]).toMatchObject({ paneId: failed.externalId, startError: 'spawn failed' })
+    expect(panes[1]).not.toHaveProperty('awaitingActivation')
+    expect(panes[2]).toMatchObject({ paneId: live.externalId, pid: 42 })
+    expect(panes[2]).not.toHaveProperty('startError')
   })
 
   it('marks a woken pane waking: true until main sees its agent start', async () => {
@@ -398,6 +459,22 @@ describe('paneList.listWorkspaces', () => {
       'workspace.list',
       {},
     )
+  })
+
+  it('marks a sandboxed workspace, and only that one', async () => {
+    const workspaces = [
+      { workspaceId: 's1', name: 'api', kind: 'terminal', workDir: '/x', state: 'idle' },
+      { workspaceId: 's2', name: 'box', kind: 'terminal', workDir: '/y', state: 'idle' },
+    ]
+    const execCommand = vi.fn().mockResolvedValue(ok(workspaces))
+
+    const result = await listWorkspaces({
+      execCommand,
+      windowIds: ONE_WINDOW,
+      isSandboxed: (id) => id === 's2',
+    })
+
+    expect(result).toEqual([workspaces[0], { ...workspaces[1], sandboxed: true }])
   })
 
   it('maps the active pane to its external id and drops an unknown one', async () => {

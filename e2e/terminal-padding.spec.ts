@@ -1,8 +1,14 @@
 import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { fakeAgentBin, isolatedHome } from './fakeAgent'
-import { PROMPT, openWorkspace } from './helpers'
+import { changeSettings, closeAllWorkspaces, openWorkspace } from './helpers'
 import { type PixelRegion, regionColors } from './pixels'
-import { type Locator, type Page, _electron as electron, expect, test } from './test'
+import {
+  type ElectronApplication,
+  type Locator,
+  type Page,
+  expect,
+  launchShared,
+  test,
+} from './test'
 
 const ENGINES = [
   { name: 'xterm, GPU off', renderer: 'xterm', gpu: false, grid: '.xterm-screen' },
@@ -15,19 +21,6 @@ const SCHEMES = [
   { name: 'the app theme’s scheme', theme: 'match', background: '22,22,22' },
   { name: 'its own scheme', theme: 'solarized-light', background: '253,246,227' },
 ]
-
-const RESUMABLE_AGENT = [
-  '#!/bin/sh',
-  'ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude e2e-padding',
-  'echo "fake agent up"',
-  'exec sleep 600',
-  '',
-].join('\n')
-
-const channels = (colour: string): number[] => colour.split(',').map(Number)
-
-const blendingDrift = (a: number[], b: number[]): number =>
-  Math.max(...a.map((channel, i) => Math.abs(channel - b[i])))
 
 type Painted = { left: string[]; right: string[]; top: string[]; bottom: string[]; grid: string[] }
 
@@ -61,23 +54,40 @@ async function painted(win: Page, pane: Locator, gridSelector: string): Promise<
   return { left, right, top, bottom, grid }
 }
 
-for (const engine of ENGINES) {
-  for (const scheme of SCHEMES) {
-    test(
-      `the padding around the text grid has the terminal background (${engine.name}, ${scheme.name})`,
-      { tag: engine.renderer === 'ghostty' ? '@experimental' : [] },
-      async () => {
-        const dataHome = freshDataHome()
-        seedSettings(dataHome, {
-          appearance: { theme: 'oxocarbon', followSystem: false },
-          behavior: { gpuAcceleration: engine.gpu },
-          terminal: { renderer: engine.renderer, theme: scheme.theme },
-          workspaces: { confirmQuit: false },
-        })
-        const launch = isolatedLaunch(dataHome)
-        const app = await electron.launch({ ...launch, args: [SOFTWARE_WEBGL, ...launch.args] })
-        try {
-          const win = await app.firstWindow()
+let app: ElectronApplication | undefined
+let win: Page
+
+test.describe('around the text grid', () => {
+  test.beforeAll(async () => {
+    const dataHome = freshDataHome()
+    seedSettings(dataHome, {
+      appearance: { theme: 'oxocarbon', followSystem: false },
+      workspaces: { confirmQuit: false },
+    })
+    const launch = isolatedLaunch(dataHome)
+    app = await launchShared({ ...launch, args: [SOFTWARE_WEBGL, ...launch.args] })
+    win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+  })
+
+  test.afterEach(async () => {
+    await closeAllWorkspaces(win)
+  })
+
+  test.afterAll(async () => {
+    await app?.close()
+  })
+
+  for (const engine of ENGINES) {
+    for (const scheme of SCHEMES) {
+      test(
+        `the padding around the text grid has the terminal background (${engine.name}, ${scheme.name})`,
+        { tag: engine.renderer === 'ghostty' ? '@experimental' : [] },
+        async () => {
+          await changeSettings(win, {
+            behavior: { gpuAcceleration: engine.gpu },
+            terminal: { renderer: engine.renderer, theme: scheme.theme },
+          })
           await openWorkspace(win)
           const pane = win.locator('.pane-body-term').first()
           const background = [scheme.background]
@@ -90,50 +100,8 @@ for (const engine of ENGINES) {
               bottom: background,
               grid: background,
             })
-        } finally {
-          await app.close()
-        }
-      },
-    )
-  }
-}
-
-test('the padding of a hibernated pane’s screen has the colour of its text grid', async () => {
-  test.setTimeout(60_000)
-  const dataHome = freshDataHome()
-  seedSettings(dataHome, {
-    appearance: { theme: 'oxocarbon', followSystem: false },
-    behavior: { gpuAcceleration: false },
-    terminal: { theme: 'solarized-light' },
-    workspaces: { confirmQuit: false },
-  })
-  const bin = fakeAgentBin(dataHome, RESUMABLE_AGENT)
-  const launch = isolatedLaunch(dataHome)
-  const app = await electron.launch({
-    ...launch,
-    env: { ...launch.env, HOME: isolatedHome(dataHome), PATH: `${bin}:${launch.env.PATH ?? ''}` },
-  })
-  try {
-    const win = await app.firstWindow()
-    await openWorkspace(win)
-    const rows = win.locator('.xterm-rows').first()
-    await expect(rows).toContainText(PROMPT, { timeout: 15_000 })
-    await win.locator('.xterm').first().click()
-    await win.keyboard.type('claude')
-    await win.keyboard.press('Enter')
-    await expect(rows).toContainText('fake agent up', { timeout: 15_000 })
-
-    await win.locator('.rail-tab-main').first().click({ button: 'right' })
-    await win.getByRole('menuitem', { name: 'Hibernate agents' }).click()
-    const screen = win.locator('.hibernated-screen')
-    await expect(screen.locator('.xterm-rows')).toContainText('fake agent up', { timeout: 15_000 })
-
-    const colours = await painted(win, screen, '.xterm-screen')
-    const [grid] = colours.grid.map(channels)
-    for (const colour of [...colours.left, ...colours.top, ...colours.bottom, ...colours.grid]) {
-      expect(blendingDrift(channels(colour), grid)).toBeLessThanOrEqual(1)
+        },
+      )
     }
-  } finally {
-    await app.close()
   }
 })

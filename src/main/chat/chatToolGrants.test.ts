@@ -113,10 +113,10 @@ describe('chat tool grant IPC', () => {
     }
     walk(root)
     expect(users.sort()).toEqual([
-      'main/app.ts',
       'main/chat/chatToolGrants.ts',
       'main/chat/chatToolsIpc.ts',
-      'preload/index.ts',
+      'main/chat/chatWiring.ts',
+      'preload/assistBridge.ts',
     ])
   })
 })

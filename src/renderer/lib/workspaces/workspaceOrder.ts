@@ -1,4 +1,4 @@
-import type { NewWorkspacePlacement } from '@/stores/app/settingsStore'
+import type { NewWorkspacePlacement } from '@/stores/app/settingsModel'
 
 interface Orderable {
   id: string

@@ -1,13 +1,23 @@
 import { BrowserWindow, Menu, type WebContents, clipboard } from 'electron'
-import { contextMenuTemplate } from './contextMenuTemplate'
+import {
+  type ContextActions,
+  type ContextMenuText,
+  contextMenuTemplate,
+} from './contextMenuTemplate'
 
-export function attachContextMenu(contents: WebContents, navigation: boolean): void {
+export function attachContextMenu(
+  contents: WebContents,
+  navigation: boolean,
+  text: () => ContextMenuText,
+  openLinkInNewTab?: ContextActions['openLinkInNewTab'],
+): void {
   contents.on('context-menu', (_e, params) => {
     const history = contents.navigationHistory
     const template = contextMenuTemplate(
       params,
       { navigation, canGoBack: history.canGoBack(), canGoForward: history.canGoForward() },
       {
+        openLinkInNewTab,
         copyLink: (url) => {
           clipboard.writeText(url).catch(() => undefined)
         },
@@ -16,6 +26,7 @@ export function attachContextMenu(contents: WebContents, navigation: boolean): v
         forward: () => history.goForward(),
         reload: () => contents.reload(),
       },
+      text(),
     )
     if (template.length === 0) return
     const owner = contents.getType() === 'webview' ? contents.hostWebContents : contents

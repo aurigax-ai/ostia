@@ -8,6 +8,7 @@ import {
   trackNetworkEvent,
   watchGuestNetwork,
 } from './guestNetwork'
+import { type AgentGuest, browserAgents, followAgentByHost } from './signinUserAgent'
 
 function sent(t: ReturnType<typeof createNetworkTracker>, id: string, url: string, method = 'GET') {
   trackNetworkEvent(t, 'Network.requestWillBeSent', { requestId: id, request: { url, method } }, 1)
@@ -157,9 +158,16 @@ describe('watchGuestNetwork', () => {
         on: (event: string, listener: (...args: unknown[]) => void) => events.on(event, listener),
         sendCommand: (
           method: string,
-          params?: { requestId?: string; patterns?: { urlPattern: string }[] },
+          params?: {
+            requestId?: string
+            patterns?: { urlPattern: string; resourceType?: string }[]
+          },
         ) => {
-          const detail = params?.requestId ?? params?.patterns?.map((p) => p.urlPattern).join(',')
+          const detail =
+            params?.requestId ??
+            params?.patterns
+              ?.map((p) => (p.resourceType ? `${p.urlPattern}:${p.resourceType}` : p.urlPattern))
+              .join(',')
           commands.push(detail ? `${method} ${detail}` : method)
           return Promise.resolve({})
         },
@@ -182,7 +190,7 @@ describe('watchGuestNetwork', () => {
   it('logs and lets through a request the page made before it announces requests itself', () => {
     const { guest, commands, message } = fakeGuest(7001)
     watchGuestNetwork(guest)
-    expect(commands).toEqual(['Fetch.enable *', 'Network.enable'])
+    expect(commands).toEqual(['Fetch.enable *,*:Document', 'Network.enable', 'Page.getFrameTree'])
     message('Network.requestWillBeSent', {
       requestId: 'doc',
       type: 'Document',
@@ -191,7 +199,6 @@ describe('watchGuestNetwork', () => {
     message('Fetch.requestPaused', { ...pausedPing, requestId: 'interception-0', networkId: 'doc' })
     message('Fetch.requestPaused', pausedPing)
     expect(commands).toContain('Fetch.continueRequest interception-1')
-    expect(commands).not.toContain('Fetch.disable')
     expect(requestsFor(7001).map((r) => r.url)).toEqual([
       'http://127.0.0.1/',
       'http://127.0.0.1/api/ping',
@@ -202,14 +209,14 @@ describe('watchGuestNetwork', () => {
     const { guest, commands, message } = fakeGuest(7002)
     watchGuestNetwork(guest)
     message('Fetch.requestPaused', pausedPing)
-    expect(commands).not.toContain('Fetch.disable')
+    expect(commands).not.toContain('Fetch.enable *:Document')
     message('Network.requestWillBeSent', {
       requestId: 'n2',
       type: 'Fetch',
       request: { url: 'http://127.0.0.1/api/later', method: 'GET' },
     })
     message('Fetch.requestPaused', { ...pausedPing, requestId: 'interception-2', networkId: 'n2' })
-    expect(commands.filter((c) => c === 'Fetch.disable')).toHaveLength(1)
+    expect(commands.filter((c) => c === 'Fetch.enable *:Document')).toHaveLength(1)
     expect(commands).toContain('Fetch.continueRequest interception-2')
     expect(requestsFor(7002).map((r) => r.url)).toEqual([
       'http://127.0.0.1/api/ping',
@@ -225,7 +232,7 @@ describe('watchGuestNetwork', () => {
         ? { method: 'Fetch.failRequest', params: { requestId: paused.requestId } }
         : null,
     )
-    expect(commands.at(-1)).toBe('Fetch.enable *')
+    expect(commands.at(-1)).toBe('Fetch.enable *,*:Document')
     message('Fetch.requestPaused', {
       requestId: 'interception-3',
       networkId: 'n3',
@@ -243,8 +250,123 @@ describe('watchGuestNetwork', () => {
       request: { url: 'http://127.0.0.1/api/other', method: 'GET' },
     })
     expect(commands).toContain('Fetch.continueRequest interception-4')
-    expect(commands).toContain('Fetch.enable **/api/blocked')
+    expect(commands).toContain('Fetch.enable **/api/blocked,*:Document')
     await setGuestRoutes(guest, [], null)
-    expect(commands.at(-1)).toBe('Fetch.disable')
+    expect(commands.at(-1)).toBe('Fetch.enable *:Document')
+  })
+})
+
+describe('a redirect into a sign-in host', () => {
+  const SIGNIN = 'http://accounts.google.com/signin'
+  const agents = browserAgents('app Electron/1', 'app', {
+    chromeVersion: '152.0.0.0',
+    platform: 'linux',
+    systemVersion: '6.1',
+    arch: 'x64',
+  })
+
+  async function redirectedGuest(id: number) {
+    const events = new EventEmitter()
+    const log: string[] = []
+    let ack: () => void = () => {}
+    const sendCommand = (method: string, params?: { requestId?: string }) => {
+      if (method === 'Emulation.setUserAgentOverride') {
+        log.push('override')
+        return new Promise((resolve) => {
+          ack = () => {
+            log.push('acked')
+            resolve({})
+          }
+        })
+      }
+      if (method === 'Page.getFrameTree') {
+        return Promise.resolve({ frameTree: { frame: { id: 'main' } } })
+      }
+      log.push(params?.requestId ? `${method} ${params.requestId}` : method)
+      return Promise.resolve({})
+    }
+    const guest = {
+      id,
+      debugger: {
+        isAttached: () => true,
+        on: (event: string, listener: (...args: unknown[]) => void) => events.on(event, listener),
+        sendCommand,
+      },
+      on: (event: string, listener: (...args: unknown[]) => void) => events.on(event, listener),
+      isDestroyed: () => false,
+      loadURL: (url: string, options?: { httpReferrer?: string }) => {
+        log.push(options?.httpReferrer ? `load ${url} from ${options.httpReferrer}` : `load ${url}`)
+        return Promise.resolve()
+      },
+    }
+    followAgentByHost(guest as unknown as AgentGuest, agents, 'http://example.com/')
+    watchGuestNetwork(guest as unknown as Electron.WebContents)
+    await new Promise((resolve) => setTimeout(resolve))
+    log.length = 0
+    events.emit('did-redirect-navigation', { url: SIGNIN, isMainFrame: true })
+    const pause = (method: string, frameId = 'main', requestId = 'hop') =>
+      events.emit('message', {}, 'Fetch.requestPaused', {
+        requestId,
+        networkId: 'doc',
+        resourceType: 'Document',
+        frameId,
+        request: { url: SIGNIN, method, headers: { Referer: 'http://example.com/start' } },
+      })
+    return { log, events, pause, ack: () => ack() }
+  }
+
+  it('aborts the document request and reloads it only once the agent switch is acknowledged', async () => {
+    const { log, pause, ack } = await redirectedGuest(7101)
+    pause('GET')
+    await new Promise((resolve) => setTimeout(resolve))
+    expect(log).toEqual(['override', 'Fetch.failRequest hop'])
+    ack()
+    await new Promise((resolve) => setTimeout(resolve))
+    expect(log).toEqual([
+      'override',
+      'Fetch.failRequest hop',
+      'acked',
+      `load ${SIGNIN} from http://example.com/start`,
+    ])
+  })
+
+  it('lets a subframe document at the same address continue and keeps the restart for the main frame', async () => {
+    const { log, pause, ack } = await redirectedGuest(7103)
+    pause('GET', 'child', 'sub')
+    await new Promise((resolve) => setTimeout(resolve))
+    expect(log).toEqual(['override', 'Fetch.continueRequest sub'])
+    pause('GET')
+    ack()
+    await new Promise((resolve) => setTimeout(resolve))
+    expect(log).toContain('Fetch.failRequest hop')
+    expect(log.at(-1)).toBe(`load ${SIGNIN} from http://example.com/start`)
+  })
+
+  it('stops restarting after three redirects in one load and starts again once a load finishes', async () => {
+    const { log, events, pause, ack } = await redirectedGuest(7104)
+    const bounce = async (): Promise<void> => {
+      events.emit('did-redirect-navigation', { url: 'http://example.com/back', isMainFrame: true })
+      events.emit('did-redirect-navigation', { url: SIGNIN, isMainFrame: true })
+      pause('GET')
+      ack()
+      await new Promise((resolve) => setTimeout(resolve))
+    }
+    await bounce()
+    await bounce()
+    await bounce()
+    await bounce()
+    expect(log.filter((entry) => entry.startsWith('load '))).toHaveLength(3)
+    expect(log.filter((entry) => entry === 'Fetch.continueRequest hop')).toHaveLength(1)
+    events.emit('did-finish-load')
+    await bounce()
+    expect(log.filter((entry) => entry.startsWith('load '))).toHaveLength(4)
+  })
+
+  it('lets a POST redirect continue as it is', async () => {
+    const { log, pause, ack } = await redirectedGuest(7102)
+    pause('POST')
+    ack()
+    await new Promise((resolve) => setTimeout(resolve))
+    expect(log).toEqual(['override', 'Fetch.continueRequest hop', 'acked'])
   })
 })

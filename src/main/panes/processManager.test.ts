@@ -1,6 +1,7 @@
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { Capability } from '@aurigax-ai/ostia-extension-sdk/contract/capabilities'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   type MessageConnection,
@@ -9,8 +10,8 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { ownWorkspaceReach } from '../../../test/reach'
-import type { Capability } from '../../shared/capabilities'
-import type { CommandResult } from '../../shared/types'
+import { ChangeSignal } from '../../shared/common/actThenConfirm'
+import type { CommandResult } from '../../shared/control/commands'
 import { grant, setCaps } from '../approvals/capabilityStore'
 import { setScriptTokenCheck } from '../control/controlAuth'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
@@ -24,13 +25,9 @@ import {
 } from '../control/idRegistry'
 import { attachWorkspace } from '../sandbox/attachWorkspace'
 import { PtyRingBuffer } from '../terminal/ptyRingBuffer'
-import {
-  type ProcessInfo,
-  type ProcessOutput,
-  ProcessRegistry,
-  type ProcessTabRequest,
-  registerProcessMethods,
-} from './processManager'
+import type { ProcessTabRequest } from './processLaunch'
+import { registerProcessMethods } from './processManager'
+import { type ProcessInfo, type ProcessOutput, ProcessRegistry } from './processRegistry'
 
 const PROMPT = '\x1b]133;A\x1b\\user@host % \x1b]133;B\x1b\\'
 const C = '\x1b]133;C\x1b\\'
@@ -53,6 +50,14 @@ const AGENTS: Record<string, string[]> = {
 }
 
 const sandboxedWorkspaces = new Set<string>()
+const agentPanes = new Set<string>()
+const titles = new Map<string, string>()
+const humanTabs = new Set<string>()
+const tabNow = new Map<string, { name: string | null; human: boolean }>()
+const startedAgents = new Set<string>()
+const agentSignal = new ChangeSignal()
+const told: { to: string; text: string }[] = []
+let onOpen: ((paneId: string) => void) | null = null
 
 const registry = registerProcessMethods({
   isSandboxed: (workspaceId) => sandboxedWorkspaces.has(workspaceId),
@@ -70,7 +75,14 @@ const registry = registerProcessMethods({
     tabSeq += 1
     const paneId = `tab-${tabSeq}`
     rings.set(paneId, new PtyRingBuffer())
-    return registerPane({ windowId: 'w1', workspaceId: req.workspaceId ?? '', paneId }).externalId
+    const id = registerPane({
+      windowId: 'w1',
+      workspaceId: req.workspaceId ?? '',
+      paneId,
+    }).externalId
+    const opening = onOpen
+    if (opening) setTimeout(() => opening(paneId), 0)
+    return id
   },
   ring: (paneId) => {
     const ring = rings.get(paneId)
@@ -86,6 +98,17 @@ const registry = registerProcessMethods({
     rings.delete(paneId)
   },
   agentArgv: (name) => AGENTS[name] ?? null,
+  isAgent: (paneId) => agentPanes.has(paneId),
+  paneTitle: async (paneId) => titles.get(paneId),
+  splitTabNow: async (_workspaceId, paneId) => tabNow.get(paneId) ?? null,
+  humanTab: async (workspaceId, name) => humanTabs.has(`${workspaceId}/${name}`),
+  agentStarted: (paneId) => startedAgents.has(paneId),
+  startsWithHook: (argv) => argv[0] === 'claude' || argv[0] === 'codex',
+  agentChanges: agentSignal.subscribe,
+  tell: (to, text) => {
+    told.push({ to, text })
+  },
+  startTiming: { settleMs: 20, processMs: 80, agentMs: 80, pollMs: 5 },
   hasShell: (paneId) => rings.has(paneId),
   runInPane: (paneId, command) => {
     reruns.push({ paneId, command })
@@ -165,9 +188,155 @@ afterEach(() => {
   stopControlServer()
   for (const workspaceId of ['ws1', 'ws2']) registry.workspaceClosed(workspaceId)
   sandboxedWorkspaces.clear()
+  agentPanes.clear()
+  titles.clear()
+  humanTabs.clear()
+  tabNow.clear()
+  startedAgents.clear()
+  told.length = 0
+  onOpen = null
+})
+
+describe('the start of a run is confirmed', () => {
+  it('reports a process started once its command runs past the start window', async () => {
+    onOpen = (paneId) => emit(paneId, `${PROMPT}npm run dev\r\n${C}listening\r\n`)
+    const conn = await client(agent)
+    const res = await conn.sendRequest<Started & { status: string }>('process.run', {
+      cmd: 'npm run dev',
+    })
+    expect(res.status).toBe('started')
+    const [info] = await conn.sendRequest<ProcessInfo[]>('process.list')
+    expect(info).toMatchObject({ status: 'running', start: 'started' })
+  })
+
+  it('reports a command that exits at once as failed with its exit code and its own output', async () => {
+    onOpen = (paneId) =>
+      emit(
+        paneId,
+        `${PROMPT}claude --tab\r\n${C}error: unknown option '--tab'\r\n${exit(1)}${PROMPT}`,
+      )
+    const conn = await client(agent)
+    const res = await conn.sendRequest<Record<string, unknown>>('agent.run', {
+      agent: 'claude',
+      prompt: 'fix it',
+    })
+    expect(res).toMatchObject({
+      status: 'failed',
+      exitCode: 1,
+      output: ["error: unknown option '--tab'"],
+    })
+    expect(String(res.reason)).toContain('exit code 1')
+    const [info] = await conn.sendRequest<ProcessInfo[]>('process.list')
+    expect(info).toMatchObject({ status: 'exited', exitCode: 1, start: 'failed' })
+    expect(written).toEqual([])
+  })
+
+  it('reports an agent started only when its start hook fired, and tells an agent caller', async () => {
+    agentPanes.add('agent-pane')
+    onOpen = (paneId) => {
+      emit(paneId, `${PROMPT}claude 'fix it'\r\n${C}`)
+      setTimeout(() => {
+        startedAgents.add(paneId)
+        agentSignal.fire()
+      }, 10)
+    }
+    const conn = await client(agent)
+    const res = await conn.sendRequest<Started & { status: string }>('agent.run', {
+      agent: 'claude',
+      prompt: 'fix it',
+    })
+    expect(res.status).toBe('started')
+    expect(told).toEqual([
+      { to: agent.externalId, text: expect.stringContaining(`claude (${res.paneId}) started`) },
+    ])
+  })
+
+  it('reports timed-out when the agent never reports its start, and types nothing again', async () => {
+    onOpen = (paneId) => emit(paneId, `${PROMPT}claude 'fix it'\r\n${C}`)
+    const conn = await client(agent)
+    const res = await conn.sendRequest<Record<string, unknown>>('agent.run', {
+      agent: 'claude',
+      prompt: 'fix it',
+    })
+    expect(res).toMatchObject({ status: 'timed-out', reason: 'the agent did not report its start' })
+    expect(written).toEqual([])
+    expect(opened).toHaveLength(1)
+  })
+
+  it('says a process with a quick clean exit exited, not failed', async () => {
+    onOpen = (paneId) => emit(paneId, `${PROMPT}echo hi\r\n${C}hi\r\n${exit(0)}${PROMPT}`)
+    const conn = await client(agent)
+    const res = await conn.sendRequest<Record<string, unknown>>('process.run', { cmd: 'echo hi' })
+    expect(res).toMatchObject({ status: 'exited', exitCode: 0, output: ['hi'] })
+  })
 })
 
 describe('agent.run', () => {
+  it('puts an agent caller’s workers into one split tab named after the caller', async () => {
+    agentPanes.add('agent-pane')
+    titles.set('agent-pane', 'api')
+    const conn = await client(agent)
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'one' })
+    titles.set('agent-pane', '✳ Fixing the build')
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'two' })
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'three', tab: 'docs' })
+    expect(opened.map((req) => req.splitTab)).toEqual([
+      { name: 'api · workers' },
+      { name: 'api · workers' },
+      { name: 'docs' },
+    ])
+  })
+
+  it('never joins a split tab the human made: --tab is refused, the workers tab opens plain', async () => {
+    agentPanes.add('agent-pane')
+    titles.set('agent-pane', 'api')
+    humanTabs.add('ws1/docs')
+    humanTabs.add('ws1/api · workers')
+    const conn = await client(agent)
+    for (const method of ['agent.run', 'process.run']) {
+      const res = await conn.sendRequest(method, {
+        agent: 'claude',
+        prompt: 'one',
+        cmd: 'npm test',
+        tab: 'docs',
+      })
+      expect(res, method).toMatchObject({ ok: false, error: 'human-tab' })
+    }
+    expect(opened).toEqual([])
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'two' })
+    expect(opened.map((req) => req.splitTab)).toEqual([undefined])
+  })
+
+  it('follows the workers tab by its identity, so no rename makes a second one, and forgets it with the caller', async () => {
+    agentPanes.add('agent-pane')
+    titles.set('agent-pane', 'api')
+    const conn = await client(agent)
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'one' })
+    const first = registry.list(null).at(-1)?.paneId ?? ''
+    tabNow.set(first, { name: 'api · workers', human: false })
+    titles.set('agent-pane', 'renamed by the human')
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'two' })
+    tabNow.set(first, { name: 'my crew', human: true })
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'three' })
+    registry.paneClosed('agent-pane')
+    tabNow.clear()
+    titles.set('agent-pane', 'web')
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'four' })
+    expect(opened.map((req) => req.splitTab)).toEqual([
+      { name: 'api · workers' },
+      { name: 'api · workers' },
+      undefined,
+      { name: 'web · workers' },
+    ])
+  })
+
+  it('opens a plain tab for a caller that is not an agent', async () => {
+    titles.set('neighbour-pane', 'zsh')
+    const conn = await client(neighbour)
+    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'one' })
+    expect(opened[0]).not.toHaveProperty('splitTab')
+  })
+
   it('starts a known agent in a background tab with the prompt as one quoted argument', async () => {
     cwds.set('agent-pane', '/home/u/proj')
     const conn = await client(agent)

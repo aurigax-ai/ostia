@@ -10,21 +10,21 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { agentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { agentPluginContent } from '../main/agents/agentSkills'
 import { registerControlServer, stopControlServer } from '../main/control/controlServer'
 import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
-import { ExtensionHost, registerExtensionMethods } from '../main/extensions/extensionHost'
+import { ExtensionHost } from '../main/extensions/extensionHost'
+import { registerExtensionMethods } from '../main/extensions/extensionMethods'
 import { ExtensionStore } from '../main/extensions/extensionStore'
+import { extensionHookCommand } from '../main/terminal/agentHookCommands'
+import { codexHookKey, codexHookTrustHash } from '../main/terminal/codexIntegration'
 import {
-  codexHookKey,
-  codexHookTrustHash,
-  extensionHookCommand,
   setAgentPlugins,
   shellIntegrationDir,
   shellIntegrationSpawnOptions,
 } from '../main/terminal/shellIntegration'
-import type { CommandResult } from '../shared/types'
+import type { CommandResult } from '../shared/control/commands'
 
 const repoRoot = process.cwd()
 const cliPath = join(repoRoot, 'out', 'cli', 'index.js')
@@ -155,7 +155,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
       socketPath,
     )
     shellIntegrationSpawnOptions('/bin/bash', {})
-    agentDir = setAgentPlugins(agentPluginContent(host.agentPlugins()))
+    agentDir = setAgentPlugins(agentPluginContent(host.contributions.agentPlugins()))
     mkdirSync(bin, { recursive: true })
     writeFileSync(join(bin, 'claude'), FAKE_CLAUDE)
     writeFileSync(join(bin, 'codex'), FAKE_CODEX)
@@ -164,7 +164,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
   }, 120_000)
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
@@ -178,7 +178,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
     expect(res.stderr).toBe('')
     const lines = res.stdout.split('\n').map((line) => line.trimEnd())
     expect(lines).toContain('skill agent-kit-review SKILL.md,checklist.md')
-    expect(lines).toContain('skill ostia SKILL.md')
+    expect(lines).toContain('skill ostia SKILL.md,reference')
     expect(res.stdout).not.toContain('agent-kit-undeclared')
     expect(res.stdout).not.toContain('undeclared.md')
     expect(lines).toContain(
@@ -248,20 +248,20 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
       broadcast: () => {},
       openPanelIn: () => {},
       onChanged: () => {
-        agentDir = setAgentPlugins(agentPluginContent(pending.agentPlugins()))
+        agentDir = setAgentPlugins(agentPluginContent(pending.contributions.agentPlugins()))
       },
       notify,
       requestTimeoutMs: 5000,
       log: () => {},
     })
     serving = pending
-    agentDir = setAgentPlugins(agentPluginContent(pending.agentPlugins()))
+    agentDir = setAgentPlugins(agentPluginContent(pending.contributions.agentPlugins()))
     try {
       const blocked = await inPane('claude')
-      expect(blocked.stdout).toContain('skill ostia SKILL.md')
+      expect(blocked.stdout).toContain('skill ostia SKILL.md,reference')
       expect(blocked.stdout).not.toContain('agent-kit')
 
-      pending.approve('agent-kit')
+      pending.processes.approve('agent-kit')
       const allowed = await inPane('claude')
       const lines = allowed.stdout.split('\n').map((line) => line.trimEnd())
       expect(lines).toContain('skill agent-kit-review SKILL.md,checklist.md')
@@ -275,9 +275,9 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
       )
       expect(allowed.stdout).not.toContain('agent-kit-undeclared')
     } finally {
-      pending.stopAll()
+      pending.processes.stopAll()
       serving = host
-      agentDir = setAgentPlugins(agentPluginContent(host.agentPlugins()))
+      agentDir = setAgentPlugins(agentPluginContent(host.contributions.agentPlugins()))
     }
   }, 60_000)
 

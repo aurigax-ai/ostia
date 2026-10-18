@@ -1,12 +1,13 @@
 import { lstatSync, realpathSync } from 'node:fs'
 import { dirname, extname, resolve } from 'node:path'
-import { ipcMain } from 'electron'
 import type {
   IconAssociations,
   IconThemeContribution,
   LoadedIconTheme,
-} from '../../shared/iconTheme'
-import { readConfined } from '../platform/confinedRead'
+} from '@aurigax-ai/ostia-extension-sdk/contract/iconTheme'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
+import { readConfined } from '@aurigax-ai/ostia-extension-sdk/manifest/confinedRead'
+import { ipcMain } from 'electron'
 
 export const ICON_THEME_MAX_BYTES = 4 * 1024 * 1024
 export const ICON_FILE_MAX_BYTES = 512 * 1024
@@ -25,10 +26,6 @@ const IMAGE_TYPES: Record<string, string> = {
 }
 
 export type IconThemeResult = { ok: true; theme: LoadedIconTheme } | { ok: false; error: string }
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
 
 function stringMap(raw: unknown, defined: ReadonlySet<string>, budget: { left: number }) {
   const out: Record<string, string> = {}

@@ -13,7 +13,7 @@ import {
   type ManagerSettings,
   managerAgents,
 } from '../../shared/agents/managerSettings'
-import type { CommandResult } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { registerDocsMethods } from '../control/docs'
 import { markManager, registerPane } from '../control/idRegistry'
@@ -223,7 +223,8 @@ describe('manager docs', () => {
     const mgr = await client(managerPane.token)
     const forWorker = await worker.sendRequest<{ cli: string }>('docs', {})
     const forManager = await mgr.sendRequest<{ cli: string }>('docs', {})
-    expect(forWorker.cli).not.toContain('manager')
+    expect(forWorker.cli).not.toContain('ostia manager')
+    expect(forWorker.cli).not.toContain('# Ostia manager')
     expect(forManager.cli).toContain('ostia manager spawn')
   })
 })

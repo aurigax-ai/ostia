@@ -1,3 +1,4 @@
+import { formatDate } from '@/lib/app/localeFormat'
 import type { StorageCookie, StorageEntry } from '@shared/browser/browserStorage'
 
 function matchesQuery(query: string, ...fields: string[]): boolean {
@@ -18,7 +19,7 @@ export function cookieRowKey(cookie: Pick<StorageCookie, 'name' | 'domain' | 'pa
   return `${cookie.domain}\u0000${cookie.path}\u0000${cookie.name}`
 }
 
-export function formatExpiry(expires: number | null, sessionLabel: string): string {
+export function formatExpiry(expires: number | null, sessionLabel: string, locale: string): string {
   if (expires === null) return sessionLabel
-  return new Date(expires * 1000).toLocaleString()
+  return formatDate(expires * 1000, locale)
 }

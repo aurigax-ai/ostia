@@ -10,7 +10,8 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { setAgentPlugins, writeClaudePlugin } from '../terminal/shellIntegration'
+import { writeClaudePlugin } from '../terminal/claudeIntegration'
+import { setAgentPlugins } from '../terminal/shellIntegration'
 import {
   MANAGER_SKILL_NAME,
   managerAgentKind,

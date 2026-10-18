@@ -1,18 +1,20 @@
-import { ControlRow, SelectField } from '@/components/settings/SettingsPanel'
+import { ExtensionConnections } from '@/components/extensions/ExtensionConnections'
+import { ControlRow } from '@/components/settingsKit/ControlRow'
+import { SelectField } from '@/components/settingsKit/SelectField'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { fmt, useDict, withProductName } from '@/i18n/useDict'
+import { fmt, useDict, withProductName } from '@/lib/app/useDict'
 import { entryTitle, enumValueTitle } from '@/lib/extensions/extensionSettingText'
 import { cn } from '@/lib/utils'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import type { Dict } from '@shared/app/dict'
 import type {
   ExtensionInfo,
   ExtensionSecretContribution,
   ExtensionSettingContribution,
   ExtensionSettingValue,
-} from '@shared/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { Dict } from '@shared/app/dict'
 import { useEffect, useState } from 'react'
 
 export function ExtensionSettingsForm({
@@ -28,7 +30,8 @@ export function ExtensionSettingsForm({
   const setSetting = useExtensionsStore((s) => s.setSetting)
   const [error, setError] = useState<string | null>(null)
   const settings = ext.settings.filter((s) => !omit.includes(s.key))
-  if (settings.length === 0 && ext.secrets.length === 0) return null
+  if (settings.length === 0 && ext.secrets.length === 0 && ext.connectionKinds.length === 0)
+    return null
   const save = (key: string, value: unknown): void => {
     void setSetting(ext.id, key, value).then(setError)
   }
@@ -58,6 +61,7 @@ export function ExtensionSettingsForm({
           {fmt(d.extensions.settingInvalid, { error })}
         </p>
       ) : null}
+      <ExtensionConnections ext={ext} />
     </fieldset>
   )
 }

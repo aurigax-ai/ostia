@@ -1,8 +1,8 @@
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
-import { findPane } from '@/layout/tree'
-import type { LayoutNode, PaneNode } from '@/layout/types'
 import { forgetPaneActivity, markPaneActivity } from '@/lib/attention/paneActivity'
+import { findPane } from '@/lib/layout/tree'
+import type { LayoutNode, PaneNode } from '@/lib/layout/types'
 import * as blockActions from '@/lib/terminal/blockActions'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
@@ -73,10 +73,17 @@ const terminal = (id: string, resume = true): PaneNode => ({
   ...(resume ? { resume: { agent: 'claude' as const, id: `tok-${id}` } } : {}),
 })
 
+function hookAgent(command: string): 'claude' | 'codex' | null {
+  const program = command.split(' ')[0]?.replaceAll("'", '')
+  return program === 'claude' || program === 'codex' ? program : null
+}
+
 function run(paneId: string, command: string): void {
   const blocks = useBlocksStore.getState()
   blocks.promptStart(paneId, { line: 0 }, null)
   blocks.commandStart(paneId, { line: 1 }, command)
+  const agent = hookAgent(command)
+  if (agent) useBlocksStore.getState().markAgent(paneId, agent)
 }
 
 function seed(maxLiveTerminals: number): void {
@@ -85,6 +92,7 @@ function seed(maxLiveTerminals: number): void {
       hibernation: { enabled: true, idleSeconds: 600, maxLiveTerminals },
       autoResume: false,
       autoSendReferences: true,
+      trustWorkspaceFolders: false,
       hooks: { claude: true, codex: true },
     },
   })
@@ -123,7 +131,7 @@ function seed(maxLiveTerminals: number): void {
   markPaneActivity('fresh-claude', NOW - 1000)
   run('shown', 'claude')
   run('idle-claude', 'claude')
-  run('fresh-claude', 'claude --resume tok-fresh-claude')
+  run('fresh-claude', "'claude' --resume tok-fresh-claude")
   run('no-token', 'claude')
   run('npm', 'npm test')
   useBlocksStore.getState().promptStart('at-prompt', { line: 0 }, null)
@@ -159,6 +167,7 @@ describe('hibernateIdleAgents', () => {
         hibernation: { enabled: false, idleSeconds: 600, maxLiveTerminals: 0 },
         autoResume: false,
         autoSendReferences: true,
+        trustWorkspaceFolders: false,
         hooks: { claude: true, codex: true },
       },
     })
@@ -185,12 +194,14 @@ describe('hibernateIdleAgents', () => {
 
   it('an idle hidden agent hibernates and resumes when the human opens its tab', async () => {
     vi.useFakeTimers({ now: NOW })
-    const inputListeners = new Map<string, EventListener>()
+    const inputListeners = new Map<string, EventListener[]>()
     const addListener = window.addEventListener.bind(window)
     const listening = vi
       .spyOn(window, 'addEventListener')
       .mockImplementation((type, listener, options) => {
-        if (typeof listener === 'function') inputListeners.set(type, listener)
+        if (typeof listener === 'function') {
+          inputListeners.set(type, [...(inputListeners.get(type) ?? []), listener])
+        }
         addListener(type, listener, options)
       })
     stops.push(() => listening.mockRestore())
@@ -230,16 +241,18 @@ describe('hibernateIdleAgents', () => {
     await commands.exec('pane.focus', { paneId: 'idle-claude' })
     expect(hibernated('idle-claude')).toBe(true)
     const target = document.getElementById('body')
-    inputListeners.get('pointerdown')?.({
-      type: 'pointerdown',
+    const press = {
+      type: 'click',
       isTrusted: true,
       button: 0,
+      detail: 1,
       target,
-    } as unknown as Event)
+    } as unknown as Event
+    for (const listener of inputListeners.get('click') ?? []) listener(press)
 
     expect(hibernated('idle-claude')).toBe(false)
     expect(typed.mock.calls.map(([id, command]) => [id, command])).toEqual([
-      ['idle-claude', 'claude --resume e2e-tok-1'],
+      ['idle-claude', "'claude' --resume e2e-tok-1"],
     ])
   })
 })
@@ -421,9 +434,9 @@ describe('hibernating and resuming agents in bulk', () => {
     expect(resumeWorkspaces(['g1', 'g2'])).toEqual(GROUP_AGENTS)
     expect(WAKE_WAVE_SIZE).toBe(3)
     expect(typed.mock.calls.map(([id, command]) => [id, command])).toEqual([
-      ['a1', 'claude --resume tok-a1'],
-      ['a2', 'claude --resume tok-a2'],
-      ['a3', 'claude --resume tok-a3'],
+      ['a1', "'claude' --resume tok-a1"],
+      ['a2', "'claude' --resume tok-a2"],
+      ['a3', "'claude' --resume tok-a3"],
     ])
     expect(GROUP_AGENTS.map(hibernated)).toEqual([false, false, false, true, true])
 
@@ -434,7 +447,7 @@ describe('hibernating and resuming agents in bulk', () => {
     heldResumes.shift()?.gaveUp()
     expect(typed.mock.calls.map(([id, command]) => [id, command])[4]).toEqual([
       'a5',
-      'claude --resume tok-a5',
+      "'claude' --resume tok-a5",
     ])
     expect(typed).toHaveBeenCalledTimes(5)
     expect(GROUP_AGENTS.some(hibernated)).toBe(false)
@@ -455,7 +468,7 @@ describe('hibernating and resuming agents in bulk', () => {
     ])
     heldResumes.shift()?.gaveUp()
     expect(report.mock.calls.slice(3)).toEqual([
-      ['a1', false],
+      ['a1', false, expect.any(String)],
       ['a4', true],
     ])
   })
@@ -491,7 +504,7 @@ describe('hibernating and resuming agents in bulk', () => {
     expect(typed.mock.calls.map(([id]) => id)).toEqual(['a2', 'a3', 'a4'])
   })
 
-  it('runs for the target workspace or its whole group, and is open to socket callers', async () => {
+  it('runs for the target workspace or its whole group, from the human only', async () => {
     seedGroups()
     for (const id of [
       'workspace.hibernateAgents',
@@ -499,8 +512,7 @@ describe('hibernating and resuming agents in bulk', () => {
       'workspace.hibernateGroupAgents',
       'workspace.resumeGroupAgents',
     ]) {
-      expect(commands.isLocal(id)).toBe(false)
-      expect(commands.describe().some((c) => c.id === id)).toBe(true)
+      expect(commands.isLocal(id)).toBe(true)
     }
     expect(await commands.execWith(at('g2'), 'workspace.hibernateAgents')).toEqual({
       ok: true,
@@ -551,7 +563,7 @@ describe('the pane.wake command an agent reaches through main', () => {
     expect(typed).toHaveBeenCalledTimes(1)
     expect(typed).toHaveBeenCalledWith(
       'idle-claude',
-      'claude --resume tok-idle-claude',
+      "'claude' --resume tok-idle-claude",
       undefined,
       expect.any(Function),
       expect.any(Function),
@@ -572,7 +584,7 @@ describe('the pane.wake command an agent reaches through main', () => {
     typed.mock.calls[0][4]?.()
     expect(report.mock.calls).toEqual([
       ['idle-claude', true],
-      ['idle-claude', false],
+      ['idle-claude', false, expect.any(String)],
     ])
   })
 
@@ -604,7 +616,7 @@ describe('the pane.wake command an agent reaches through main', () => {
     seed(10)
     await hibernateWorkspaces(['s2'])
     useLayoutStore.getState().setResume('s1', 'shown', { agent: 'claude', id: 'tok-idle-claude' })
-    run('shown', 'claude --resume tok-idle-claude')
+    run('shown', "'claude' --resume tok-idle-claude")
     const typed = vi.spyOn(blockActions, 'runWhenIdle').mockImplementation(() => () => {})
 
     expect(await commands.execWith(target('idle-claude'), 'pane.wake')).toEqual({
@@ -682,7 +694,7 @@ describe('the pane.wake command an agent reaches through main', () => {
     const fresh = () =>
       findPane(useLayoutStore.getState().byWorkspace.s2?.root ?? terminal('x'), 'fresh-claude')
     expect(fresh()?.resumePending).toBe(true)
-    expect(report).toHaveBeenCalledWith('fresh-claude', false)
+    expect(report).toHaveBeenCalledWith('fresh-claude', false, expect.any(String))
     const holder = fresh() ? resumeConflict(fresh() as PaneNode) : null
     expect(holder?.id).toBe('idle-claude')
   })

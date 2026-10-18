@@ -11,28 +11,27 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { AgentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type { AgentPluginContent } from '../agents/agentSkills'
-import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
-import { type ShellState, parseShellState } from './shellCommands'
+import { CORE_SKILL_FILES } from '../agents/bundledSkills'
+import { busHookCommand, extensionHookCommand, permissionHookCommand } from './agentHookCommands'
+import { writeAgentPlugin } from './agentPlugin'
+import { CLAUDE_PLUGIN_MANIFEST, claudeHookSettings, claudeWrapper } from './claudeIntegration'
 import {
-  CLAUDE_PLUGIN_MANIFEST,
   type CodexHookEvent,
-  busHookCommand,
-  claudeHookSettings,
-  claudeWrapper,
   codexHookArgs,
   codexHookCommands,
   codexHookKey,
   codexHookTrustHash,
   codexWrapper,
-  extensionHookCommand,
-  permissionHookCommand,
+  writeCodexIntegration,
+} from './codexIntegration'
+import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
+import { type ShellState, parseShellState } from './shellCommands'
+import {
   shellIntegrationDir,
   shellIntegrationFiles,
   shellIntegrationSpawnOptions,
-  writeAgentPlugin,
-  writeCodexIntegration,
   writeShellIntegration,
 } from './shellIntegration'
 
@@ -430,6 +429,61 @@ describe('shellIntegrationSpawnOptions', () => {
     })
   })
 
+  describe('command mark nonce', () => {
+    const NONCE = '0123456789abcdef0123456789abcdef'
+
+    it.each(['zsh', 'bash'])(
+      '%s reads the nonce from its file, puts it on its command marks and hides it from programs',
+      (shell) => {
+        const home = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-mark-nonce-')))
+        try {
+          const nonceFile = join(home, 'state.mark')
+          writeFileSync(nonceFile, NONCE, { mode: 0o600 })
+          const { args, env } = shellIntegrationSpawnOptions(
+            shell,
+            { HOME: home },
+            null,
+            null,
+            nonceFile,
+          )
+          expect(env.OSTIA_MARK_NONCE_FILE).toBe(nonceFile)
+          const out = spawnSync(
+            shell,
+            [
+              ...args,
+              '-i',
+              '-c',
+              `__ostia_mark_e 'echo hi'; printf '<%s|%s>' "$(env)" "$(cat '${nonceFile}' 2>&1)"`,
+            ],
+            {
+              cwd: home,
+              env: { PATH: '/usr/bin:/bin', HOME: home, TERM: 'dumb', ...env },
+              encoding: 'utf8',
+            },
+          ).stdout
+          expect(out).toContain(`\x1b]633;E;echo hi;${NONCE}\x1b\\`)
+          const shown = out.slice(out.indexOf('<'))
+          expect(shown).not.toContain(NONCE)
+          expect(shown).not.toContain('OSTIA_MARK_NONCE_FILE')
+          expect(existsSync(nonceFile)).toBe(false)
+        } finally {
+          rmSync(home, { recursive: true, force: true })
+        }
+      },
+    )
+
+    it.each([
+      ['bash', ['--norc'], BASH_INIT],
+      ['zsh', ['-f'], ZSH_INIT],
+    ])('%s sends its command marks without a nonce when it got none', (shell, noRc, init) => {
+      const out = spawnSync(shell, [...noRc, '-c', `source '${init}'; __ostia_mark_e 'echo hi'`], {
+        env: { PATH: '/usr/bin:/bin', HOME: '/home/u' },
+        encoding: 'utf8',
+      }).stdout
+      expect(out).toBe('\x1b]633;E;echo hi\x1b\\')
+    })
+  })
+
   describe('unintegrated shells', () => {
     it.each(['fish', '/usr/bin/fish', 'sh', 'pwsh', 'powershell.exe', 'someunknownshell'])(
       'returns no integration for %s',
@@ -741,6 +795,11 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(skill).toMatch(/^---\nname: ostia\ndescription: /)
       expect(manifest.name).toBe('ostia')
       expect(skill).toContain('ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI"')
+      for (const file of CORE_SKILL_FILES) {
+        expect(readFileSync(join(CLAUDE_PLUGIN, 'skills', 'ostia', file.path), 'utf8')).toBe(
+          file.text,
+        )
+      }
     })
 
     it('writes Claude Code hooks that record the resume token and attention state', () => {
@@ -938,6 +997,9 @@ describe('shellIntegrationSpawnOptions', () => {
         const { contextFile } = writeCodexIntegration(dir)
         const skill = readFileSync(join(dir, 'SKILL.md'), 'utf8')
         expect(skill).toMatch(/^---\nname: ostia\ndescription: /)
+        for (const file of CORE_SKILL_FILES) {
+          expect(readFileSync(join(dir, file.path), 'utf8')).toBe(file.text)
+        }
         const context = readFileSync(contextFile, 'utf8')
         expect(context).toContain(`read its guide: ${join(dir, 'SKILL.md')}`)
         expect(context).toContain('ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI"')

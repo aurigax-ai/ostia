@@ -1,7 +1,9 @@
 import { readFileSync, statSync } from 'node:fs'
 import { basename } from 'node:path'
-import { DIFF_TEXT_MAX } from '../../shared/extensions'
-import type { ExtensionOpenFileRequest, ExtensionResult } from '../../shared/extensions'
+import { DIFF_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionOpenFileRequest } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
+import type { CommandResult, CommandTarget } from '../../shared/control/commands'
 import {
   type DiffFilesResult,
   type FileTarget,
@@ -14,9 +16,7 @@ import {
   type WaitOutcome,
   openedPaneIds,
   parseFileTargets,
-  parsePlacement,
 } from '../../shared/files/openFiles'
-import type { CommandResult, CommandTarget } from '../../shared/types'
 import { targetOf } from '../attention/attention'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'
 import type { OpenFileGrants } from './openFileGrants'
@@ -29,6 +29,7 @@ export interface OpenFileDeps {
   confineFolder: (path: string) => string | null
   waits: OpenWaits
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
+  opened?: (workspaceId: string, paneId: string, paths: string[]) => void
 }
 
 function folderKind(path: string): 'directory' | 'other' | 'missing' {
@@ -85,7 +86,6 @@ export function registerOpenFileMethods(deps: OpenFileDeps): void {
       const request = params as {
         files?: unknown
         background?: unknown
-        placement?: unknown
         wait?: unknown
       } | null
       const targets = parseFileTargets(request?.files)
@@ -108,14 +108,17 @@ export function registerOpenFileMethods(deps: OpenFileDeps): void {
       })
       if (files.length === 0) return { ok: true, results }
       const wait = request?.wait === true
-      const placement = parsePlacement(request?.placement)
       const res = await deps.execCommand(targetOf(ctx.identity), OPEN_FILES_COMMAND, {
         files,
         ...(request?.background === true ? { background: true } : {}),
-        ...(placement ? { placement } : {}),
         ...(wait ? { wait: true } : {}),
       })
       if (!res.ok) return { ok: false, error: res.error.code, message: res.error.message }
+      deps.opened?.(
+        workspaceId,
+        ctx.identity.paneId,
+        files.map((file) => file.path),
+      )
       if (!wait) return { ok: true, results }
       return { ok: true, results, waited: await waitFor(deps, ctx, openedPaneIds(res.result)) }
     },

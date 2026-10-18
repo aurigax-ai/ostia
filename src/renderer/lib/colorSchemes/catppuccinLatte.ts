@@ -1,0 +1,31 @@
+import type { ColorScheme } from '@/lib/theme/types'
+
+export const catppuccinLatte: ColorScheme = {
+  id: 'catppuccin-latte',
+  name: 'Catppuccin Latte',
+  appearance: 'light',
+  colors: {
+    background: '#eff1f5',
+    foreground: '#4c4f69',
+    cursor: '#dc8a78',
+    cursorAccent: '#eff1f5',
+    selectionBackground: '#dc8a78',
+    selectionForeground: '#eff1f5',
+    black: '#bcc0cc',
+    red: '#d20f39',
+    green: '#40a02b',
+    yellow: '#df8e1d',
+    blue: '#1e66f5',
+    magenta: '#ea76cb',
+    cyan: '#179299',
+    white: '#5c5f77',
+    brightBlack: '#acb0be',
+    brightRed: '#e7103f',
+    brightGreen: '#46b02f',
+    brightYellow: '#e49931',
+    brightBlue: '#3878f6',
+    brightMagenta: '#ef95d7',
+    brightCyan: '#19a1a8',
+    brightWhite: '#6c6f85',
+  },
+}

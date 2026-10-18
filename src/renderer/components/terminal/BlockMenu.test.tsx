@@ -1,10 +1,11 @@
-import { SaveWorkflowDialog } from '@/components/palette/SaveWorkflowDialog'
-import { createPane, firstPaneOfKind } from '@/layout/tree'
+import { SaveSnippetDialog } from '@/components/palette/SaveSnippetDialog'
+import { firstPaneOfKind } from '@/lib/layout/paneFields'
+import { createPane } from '@/lib/layout/tree'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useAssistStore } from '@/stores/assist/assistStore'
 import { resetChats, useChatStore } from '@/stores/assist/chatStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
-import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
+import { useSnippetsStore } from '@/stores/terminal/snippetsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -36,7 +37,7 @@ describe('BlockMenu', () => {
     const s = useBlocksStore.getState()
     s.promptStart(PANE, { line: 0 }, '/w')
     s.promptEnd(PANE, { line: 0 })
-    s.commandStart(PANE, { line: 1 }, 'make build')
+    s.commandStart(PANE, { line: 1 }, 'make build', 'make build')
     s.commandEnd(PANE, { line: 3 }, 0)
     s.promptStart(PANE, { line: 3 }, '/w')
     blockId = useBlocksStore.getState().byPane[PANE]?.[0]?.id ?? ''
@@ -58,7 +59,7 @@ describe('BlockMenu', () => {
     useAssistStore.setState({ availability: {} })
     useUIStore.setState({ paletteOpen: false, paletteMode: 'search' })
     useBlocksStore.setState(init, true)
-    useWorkflowsStore.setState({ saveCommand: null })
+    useSnippetsStore.setState({ saveCommand: null })
     actions.copyBlock.mockClear()
     actions.rerunBlock.mockClear()
   })
@@ -105,6 +106,31 @@ describe('BlockMenu', () => {
     expect(actions.rerunBlock).toHaveBeenCalledWith(PANE, blockId)
   })
 
+  it('offers no Rerun for a block whose command line the shell did not vouch for', async () => {
+    const s = useBlocksStore.getState()
+    s.promptEnd(PANE, { line: 3 })
+    s.commandStart(PANE, { line: 4 }, 'rm -rf ~')
+    s.commandEnd(PANE, { line: 5 }, 0)
+    s.promptStart(PANE, { line: 5 }, '/w')
+    const forged = useBlocksStore.getState().byPane[PANE]?.[1]?.id ?? ''
+    render(
+      <BlockMenu
+        paneId={PANE}
+        blockId={forged}
+        trigger={
+          <button type="button" aria-label="forged">
+            bar
+          </button>
+        }
+      />,
+    )
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'forged' }))
+
+    const rerun = await screen.findByRole('menuitem', { name: 'Rerun command' })
+
+    expect(rerun).toHaveAttribute('aria-disabled', 'true')
+  })
+
   it('disables Rerun while another command is running in the pane', async () => {
     useBlocksStore.getState().commandStart(PANE, { line: 4 }, 'sleep 5')
     renderMenu()
@@ -115,15 +141,15 @@ describe('BlockMenu', () => {
     expect(rerun).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('opens Save as workflow with the block command, even while another command runs', async () => {
+  it('opens Save as snippet with the block command, even while another command runs', async () => {
     useBlocksStore.getState().commandStart(PANE, { line: 4 }, 'sleep 5')
     renderMenu()
     fireEvent.contextMenu(screen.getByRole('button', { name: 'gutter' }))
 
-    render(<SaveWorkflowDialog />)
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Save as workflow…' }))
+    render(<SaveSnippetDialog />)
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Save as snippet…' }))
 
-    expect(useWorkflowsStore.getState().saveCommand).toBe('make build')
+    expect(useSnippetsStore.getState().saveCommand).toBe('make build')
     expect(await screen.findByLabelText('Name')).toHaveValue('make build')
   })
 

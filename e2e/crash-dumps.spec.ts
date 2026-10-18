@@ -10,6 +10,7 @@ import {
   exitReport,
   expect,
   test,
+  waitForExit,
 } from './test'
 
 test('a main process that crashes during a test leaves its signal and a crash dump for the report, or says why there is no dump', async () => {
@@ -20,7 +21,7 @@ test('a main process that crashes during a test leaves its signal and a crash du
     env: { ...launch.env, OSTIA_E2E_CRASH_DUMPS: dumps },
   })
   const child = app.process()
-  const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()))
+  const exited = waitForExit(app)
   await app.firstWindow()
   expect(await app.evaluate(() => process.env.OSTIA_E2E_CRASH_DUMPS)).toBeUndefined()
 
@@ -34,6 +35,30 @@ test('a main process that crashes during a test leaves its signal and a crash du
   } else {
     expect(crashDumpsIn(dumps)).toEqual([])
     expect(exitReport(child, [])).toContain('no crash dump: this machine forbids ptrace')
+  }
+})
+
+test('a test that lists the web contents while a new session is being made for one sees only finished ones and the app lives', async () => {
+  const app = await electron.launch(isolatedLaunch())
+  try {
+    await app.firstWindow()
+    const listed = await app.evaluate(({ app: electronApp, webContents, BrowserWindow }) => {
+      let urls: string[] | null = null
+      electronApp.once('session-created', () => {
+        urls = webContents.getAllWebContents().map((contents) => contents.getURL())
+      })
+      const fresh = new BrowserWindow({
+        show: false,
+        webPreferences: { partition: `e2e-fresh-${process.pid}` },
+      })
+      fresh.destroy()
+      return urls
+    })
+    expect(listed).not.toBeNull()
+    expect(listed).toContainEqual(expect.stringMatching(/index\.html/))
+    expect(exitLine(app.process())).toMatch(/is still running$/)
+  } finally {
+    await app.close()
   }
 })
 

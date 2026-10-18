@@ -1,8 +1,12 @@
-import { SettingsGroup } from '@/components/settings/SettingsPanel'
+import { SettingsGroup } from '@/components/settingsKit/SettingsGroup'
+import { SettingsList } from '@/components/settingsKit/SettingsList'
+import { SettingsListRow } from '@/components/settingsKit/SettingsListRow'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { fmt, useDict } from '@/i18n/useDict'
+import { TIME_ONLY, formatDate } from '@/lib/app/localeFormat'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { isMac } from '@/platform'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { SandboxViolation } from '@shared/sandbox/sandbox'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -10,6 +14,7 @@ const REFRESH_MS = 3000
 
 export function SandboxViolations({ workspaceId }: { workspaceId: string }): JSX.Element {
   const d = useDict()
+  const locale = useSettingsStore((s) => s.locale)
   const [list, setList] = useState<SandboxViolation[]>([])
   const load = useCallback(
     () => void window.ostia.sandbox.violations(workspaceId).then(setList),
@@ -20,7 +25,6 @@ export function SandboxViolations({ workspaceId }: { workspaceId: string }): JSX
     const timer = setInterval(load, REFRESH_MS)
     return () => clearInterval(timer)
   }, [load])
-  const time = new Intl.DateTimeFormat(undefined, { timeStyle: 'medium' })
   return (
     <SettingsGroup
       title={d.sandbox.violations}
@@ -36,23 +40,29 @@ export function SandboxViolations({ workspaceId }: { workspaceId: string }): JSX
         </Button>
       }
     >
-      {list.length === 0 ? (
-        <p className="text-fg-muted text-ui-sm">{d.sandbox.violationsEmpty}</p>
-      ) : (
-        <ul aria-label={d.sandbox.violations} className="flex flex-col gap-1">
-          {list.map((v) => {
-            const reason = d.sandbox.violationReasons[v.reason] || v.detail
-            return (
-              <li key={v.id} className="flex items-center gap-2 text-ui-sm">
+      <SettingsList label={d.sandbox.violations} empty={d.sandbox.violationsEmpty}>
+        {list.map((v) => {
+          const reason = d.sandbox.violationReasons[v.reason] || v.detail
+          return (
+            <SettingsListRow
+              key={v.id}
+              lead={
                 <Badge variant="outline" className="min-w-16 justify-center text-ui-xs">
                   {d.sandbox.violationKinds[v.kind]}
                 </Badge>
-                <span className="min-w-0 flex-1 truncate font-mono text-fg">{v.target}</span>
-                <span className="shrink-0 text-fg-muted">{reason}</span>
-                <span className="shrink-0 text-fg-muted tabular-nums">
-                  {fmt(d.sandbox.violationCount, { count: v.count, time: time.format(v.last) })}
+              }
+              title={<span className="font-mono">{v.target}</span>}
+              detail={
+                <span className="tabular-nums">
+                  {reason} ·{' '}
+                  {fmt(d.sandbox.violationCount, {
+                    count: v.count,
+                    time: formatDate(v.last, locale, TIME_ONLY),
+                  })}
                 </span>
-                {v.allowHost ? (
+              }
+              actions={
+                v.allowHost ? (
                   <Button
                     variant="outline"
                     size="xs"
@@ -64,12 +74,12 @@ export function SandboxViolations({ workspaceId }: { workspaceId: string }): JSX
                   >
                     {d.sandbox.allow}
                   </Button>
-                ) : null}
-              </li>
-            )
-          })}
-        </ul>
-      )}
+                ) : null
+              }
+            />
+          )
+        })}
+      </SettingsList>
     </SettingsGroup>
   )
 }

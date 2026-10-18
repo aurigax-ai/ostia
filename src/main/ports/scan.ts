@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { readFile, readdir, readlink } from 'node:fs/promises'
-import { type ProcEntry, parseProcStat } from '../../shared/common/procfs'
+import { type ProcEntry, parseProcStat } from '../platform/procfs'
 import { parseLsofListeners, parsePsTable, portsOfTree, splitPsArgs } from './darwin'
 import {
   type ListeningPort,

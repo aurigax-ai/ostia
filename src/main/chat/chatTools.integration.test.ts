@@ -3,17 +3,17 @@ import { type Server, type ServerResponse, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { AssistContext } from '@aurigax-ai/ostia-extension-sdk'
+import { AssistantService } from '@aurigax-ai/ostia-extension-sdk/assist'
+import type {
+  ChatAssistRequest,
+  ChatToolCall,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { normalizeAssistRequest } from '@aurigax-ai/ostia-extension-sdk/contract/assistPayloads'
 import type { UIMessageChunk } from 'ai'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ASSISTANT_CATALOG } from '../../extensions/assistant/providers'
 import { MODEL_RUNTIME_CATALOG } from '../../extensions/model-runtime/provider'
-import type { AssistContext } from '../../extensions/sdk'
-import { AssistantService } from '../../extensions/sdk/assist/service'
-import {
-  type ChatAssistRequest,
-  type ChatToolCall,
-  normalizeAssistRequest,
-} from '../../shared/assist'
 import { parseEdits } from '../../shared/assist/chatEdits'
 import { mcpToolName } from '../../shared/assist/chatTools'
 import { McpHost } from './mcpHost'
@@ -139,11 +139,8 @@ async function readyHost(): Promise<McpHost> {
   })
   hosts.push(host)
   host.refresh()
-  for (let i = 0; i < 300; i++) {
-    if (host.status()[0].state === 'ready') return host
-    await new Promise((r) => setTimeout(r, 50))
-  }
-  throw new Error('fake MCP server did not connect')
+  await vi.waitUntil(() => host.status()[0].state === 'ready', { timeout: 15_000, interval: 50 })
+  return host
 }
 
 describe('chat tool loop: fake provider, assistant extension and fake MCP server', () => {

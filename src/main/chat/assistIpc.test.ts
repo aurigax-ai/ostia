@@ -1,6 +1,10 @@
+import {
+  type AssistPoint,
+  type AssistResponse,
+  EMPTY_ASSIST_CATALOG,
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
 import { describe, expect, it, vi } from 'vitest'
-import { type AssistPoint, type AssistResponse, EMPTY_ASSIST_CATALOG } from '../../shared/assist'
-import type { AssistCallOptions } from '../extensions/extensionHost'
+import type { AssistCallOptions } from '../extensions/extensionAssist'
 import { type AssistHost, type AssistSender, createAssistRouter } from './assistIpc'
 
 function fakeSender(id = 1) {

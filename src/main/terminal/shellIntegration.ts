@@ -1,39 +1,33 @@
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { version } from '../../../package.json'
-import {
-  AGENT_HOOK_EVENTS,
-  AGENT_SKILL_ENTRY,
-  type AgentHookEvent,
-  type HookAgent,
-  hookAgentsFor,
-  isAgentHookEvent,
-} from '../../shared/agentPlugins'
-import { AGENT_HOOKS_OFF_ENV } from '../../shared/agents/agentHooks'
-import { AGENT_ARGS_ENV } from '../../shared/agents/agentLaunch'
-import { CLAUDE_QUESTION_TOOLS } from '../../shared/agents/claudeAttention'
-import { appEnv, envName, shellEnv } from '../../shared/appEnv'
-import { PRODUCT_NAME } from '../../shared/product'
-import { type PromptSeparator, isPromptSeparator } from '../../shared/terminal/promptSettings'
+import { appEnv, envName, shellEnv } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
+import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import {
   type AgentPluginContent,
-  type ExtensionAgentHook,
-  type LoadedAgentSkill,
   NO_AGENT_PLUGINS,
-} from '../agents/agentSkills'
-import agentSkill from '../agents/ostia-skill.md?raw'
+} from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
+import { type PromptSeparator, isPromptSeparator } from '../../shared/terminal/promptSettings'
 import { privateTmpDir } from '../platform/privateTmp'
+import { CLI_PATH, CLI_RUN } from './agentHookCommands'
+import { hasFiles, writeAgentPlugin } from './agentPlugin'
+import { claudeWrapper } from './claudeIntegration'
+import { codexWrapper } from './codexIntegration'
 
 export const INTEGRATION_DIR = privateTmpDir(`${PRODUCT_NAME}-shell-integration`)
 
-const CLI_PATH = shellEnv('CLI')
-const CLI_RUN = `ELECTRON_RUN_AS_NODE=1 "${shellEnv('NODE')}" "${CLI_PATH}"`
-const IN_PANE = `[ -n "${shellEnv('SOCKET')}" ]`
-const AGENT_DIR = shellEnv('AGENT_DIR')
-const CLAUDE_ARGS = envName(AGENT_ARGS_ENV.claude)
-const CODEX_ARGS = envName(AGENT_ARGS_ENV.codex)
 const SHELL_STATE_FILE = shellEnv('SHELL_STATE')
+
+const MARK_NONCE_FILE = envName('MARK_NONCE_FILE')
+
+const READ_MARK_NONCE = [
+  `if [ -n "$${MARK_NONCE_FILE}" ]; then`,
+  `  { IFS= read -r __ostia_nonce < "$${MARK_NONCE_FILE}"; } 2>/dev/null`,
+  `  { : >| "$${MARK_NONCE_FILE}"; } 2>/dev/null`,
+  `  command rm -f "$${MARK_NONCE_FILE}" 2>/dev/null`,
+  'fi',
+  `unset ${MARK_NONCE_FILE}`,
+]
 
 const BASH_B_MARK = String.raw`\[\e]133;B\e\\\]`
 
@@ -56,7 +50,7 @@ __ostia_mark_e() {
   s=\${s//;/\\\\x3b}
   s=\${s//$'\\n'/\\\\x0a}
   s=\${s//[[:cntrl:]]/}
-  print -rn -- $'\\e]633;E;'"$s"$'\\e\\\\'
+  print -rn -- $'\\e]633;E;'"$s\${__ostia_nonce:+;$__ostia_nonce}"$'\\e\\\\'
 }
 
 typeset -g __ostia_b_mark=$'%{\\e]133;B\\e\\\\%}'
@@ -170,7 +164,7 @@ __ostia_mark_e() {
   s=\${s//;/\\\\x3b}
   s=\${s//$'\\n'/\\\\x0a}
   s=\${s//[[:cntrl:]]/}
-  printf '\\e]633;E;%s\\e\\\\' "$s"
+  printf '\\e]633;E;%s%s\\e\\\\' "$s" "\${__ostia_nonce:+;$__ostia_nonce}"
 }
 
 __ostia_preexec() {
@@ -302,408 +296,6 @@ if [ -n "${CLI_PATH}" ]; then
 fi
 `
 
-function hookCommand(cliArgs: string): string {
-  return `${IN_PANE} && ${CLI_RUN} ${cliArgs} >/dev/null 2>&1 || true`
-}
-
-export function busHookCommand(event: AgentHookEvent): string {
-  return `${IN_PANE} && ${CLI_RUN} bus hook ${event} 2>/dev/null || true`
-}
-
-export function permissionHookCommand(agent: HookAgent): string {
-  return `${IN_PANE} && ${CLI_RUN} permission-hook ${agent} 2>/dev/null || true`
-}
-
-export function extensionHookCommand(hook: ExtensionAgentHook, agent: HookAgent): string {
-  return `${IN_PANE} && ${CLI_RUN} agent-hook ${hook.extId} ${hook.command} ${agent} ${hook.event} 2>/dev/null || true`
-}
-
-function hooksFor(
-  hooks: readonly ExtensionAgentHook[],
-  agent: HookAgent,
-  event: AgentHookEvent,
-): string[] {
-  return hooks
-    .filter((hook) => hook.event === event && hookAgentsFor(event).includes(agent))
-    .map((hook) => extensionHookCommand(hook, agent))
-}
-
-const commandHook = (command: string) => ({ type: 'command', command })
-
-const CLAUDE_SUBAGENT_EVENTS = ['SubagentStart', 'SubagentStop'] as const
-
-export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[] = []): {
-  hooks: Record<string, unknown[]>
-} {
-  const own: Partial<Record<AgentHookEvent, string[]>> = {
-    SessionStart: [hookCommand('resume-token claude -'), busHookCommand('SessionStart')],
-    UserPromptSubmit: [hookCommand('state working'), busHookCommand('UserPromptSubmit')],
-    Notification: [hookCommand('claude-hook Notification')],
-    Stop: [hookCommand('claude-hook Stop')],
-  }
-  const hooks: Record<string, unknown[]> = {}
-  for (const event of AGENT_HOOK_EVENTS) {
-    const commands = [...(own[event] ?? []), ...hooksFor(extensionHooks, 'claude', event)]
-    if (commands.length === 0) continue
-    hooks[event] = [{ hooks: commands.map(commandHook) }]
-  }
-  hooks.PreToolUse = [
-    {
-      matcher: CLAUDE_QUESTION_TOOLS.join('|'),
-      hooks: [commandHook(hookCommand('claude-hook PreToolUse'))],
-    },
-    ...(hooks.PreToolUse ?? []),
-  ]
-  hooks.StopFailure = [{ hooks: [commandHook(hookCommand('claude-hook StopFailure'))] }]
-  for (const event of CLAUDE_SUBAGENT_EVENTS) {
-    hooks[event] = [{ hooks: [commandHook(hookCommand(`claude-hook ${event}`))] }]
-  }
-  hooks.PermissionRequest = [{ hooks: [commandHook(permissionHookCommand('claude'))] }]
-  return { hooks }
-}
-
-const AGENT_SKILL_NAME = PRODUCT_NAME
-
-export const CLAUDE_PLUGIN_MANIFEST = {
-  name: AGENT_SKILL_NAME,
-  version,
-  description: `${PRODUCT_NAME} integration: the ${PRODUCT_NAME} CLI skill plus hooks for the agent's resume token and attention state.`,
-}
-
-function writeSkillFiles(dir: string, skill: LoadedAgentSkill): void {
-  mkdirSync(dir, { recursive: true })
-  for (const file of skill.files) writeFileSync(join(dir, file.name), file.data)
-}
-
-export function writeClaudePlugin(
-  dir: string,
-  content: AgentPluginContent = NO_AGENT_PLUGINS,
-): void {
-  mkdirSync(join(dir, '.claude-plugin'), { recursive: true })
-  mkdirSync(join(dir, 'hooks'), { recursive: true })
-  mkdirSync(join(dir, 'skills', AGENT_SKILL_NAME), { recursive: true })
-  writeFileSync(
-    join(dir, '.claude-plugin', 'plugin.json'),
-    `${JSON.stringify(CLAUDE_PLUGIN_MANIFEST, null, 2)}\n`,
-    'utf8',
-  )
-  writeFileSync(
-    join(dir, 'hooks', 'hooks.json'),
-    `${JSON.stringify(claudeHookSettings(content.hooks), null, 2)}\n`,
-    'utf8',
-  )
-  writeFileSync(join(dir, 'skills', AGENT_SKILL_NAME, 'SKILL.md'), agentSkill, 'utf8')
-  for (const skill of content.skills) writeSkillFiles(join(dir, 'skills', skill.id), skill)
-}
-
-export function claudeWrapper(): string {
-  return [
-    '',
-    '# Run claude with the Ostia plugin (CLI skill, extension skills and hooks, resume token,',
-    '# attention hooks). `command claude` skips it.',
-    `if [ -n "${CLI_PATH}" ] && [ -z "${shellEnv(AGENT_HOOKS_OFF_ENV.claude)}" ]; then`,
-    '  claude() {',
-    "    local IFS=$'\\037'",
-    `    if [ -n "${AGENT_DIR}" ] && [ -d "${AGENT_DIR}/claude-plugin" ]; then`,
-    `      ${CLAUDE_ARGS}="$*" command claude --plugin-dir "${AGENT_DIR}/claude-plugin" "$@"`,
-    '    else',
-    `      ${CLAUDE_ARGS}="$*" command claude "$@"`,
-    '    fi',
-    '  }',
-    'fi',
-    '',
-  ].join('\n')
-}
-
-const CODEX_HOOK_EVENTS = {
-  SessionStart: 'session_start',
-  UserPromptSubmit: 'user_prompt_submit',
-  PreToolUse: 'pre_tool_use',
-  PermissionRequest: 'permission_request',
-  PostToolUse: 'post_tool_use',
-  Stop: 'stop',
-  SessionEnd: 'session_end',
-} as const
-
-export type CodexHookEvent = keyof typeof CODEX_HOOK_EVENTS
-
-const CODEX_SESSION_FLAGS_SOURCE = '/<session-flags>/config.toml'
-
-const CODEX_DEFAULT_HOOK_TIMEOUT_SEC = 600
-
-const CODEX_VALUE_OPTIONS = [
-  '-c',
-  '--config',
-  '--enable',
-  '--disable',
-  '--remote',
-  '--remote-auth-token-env',
-  '-i',
-  '--image',
-  '-m',
-  '--model',
-  '--local-provider',
-  '-p',
-  '--profile',
-  '-s',
-  '--sandbox',
-  '-C',
-  '--cd',
-  '--add-dir',
-  '-a',
-  '--ask-for-approval',
-]
-
-const CODEX_SESSION_SUBCOMMANDS = ['resume', 'fork']
-
-const CODEX_OTHER_SUBCOMMANDS = [
-  'agents',
-  'tcp-tunnel',
-  'exec',
-  'e',
-  'review',
-  'login',
-  'logout',
-  'mcp',
-  'mcp-server',
-  'plugin',
-  'app-server',
-  'remote-control',
-  'app',
-  'completion',
-  'update',
-  'doctor',
-  'sandbox',
-  'debug',
-  'execpolicy',
-  'apply',
-  'a',
-  'queue',
-  'archive',
-  'delete',
-  'migrate-rollouts',
-  'unarchive',
-  'cloud',
-  'cloud-tasks',
-  'responses-api-proxy',
-  'stdio-to-uds',
-  'exec-server',
-  'features',
-  'help',
-]
-
-function shellQuote(value: string): string {
-  return `'${value.replaceAll("'", `'\\''`)}'`
-}
-
-function tomlString(value: string): string {
-  return JSON.stringify(value)
-}
-
-export function codexHookCommands(
-  contextFile: string,
-  extensionHooks: readonly ExtensionAgentHook[] = [],
-): Partial<Record<CodexHookEvent, string[]>> {
-  const own: Partial<Record<CodexHookEvent, string[]>> = {
-    SessionStart: [
-      hookCommand('resume-token codex -'),
-      `${IN_PANE} && cat ${shellQuote(contextFile)} 2>/dev/null || true`,
-      busHookCommand('SessionStart'),
-    ],
-    UserPromptSubmit: [hookCommand('state working'), busHookCommand('UserPromptSubmit')],
-    PermissionRequest: [hookCommand('state waiting -'), permissionHookCommand('codex')],
-    Stop: [hookCommand('state done')],
-  }
-  const commands: Partial<Record<CodexHookEvent, string[]>> = {}
-  for (const event of Object.keys(CODEX_HOOK_EVENTS) as CodexHookEvent[]) {
-    const extra = isAgentHookEvent(event) ? hooksFor(extensionHooks, 'codex', event) : []
-    const handlers = [...(own[event] ?? []), ...extra]
-    if (handlers.length > 0) commands[event] = handlers
-  }
-  return commands
-}
-
-export function codexHookTrustHash(event: CodexHookEvent, command: string): string {
-  const identity = {
-    event_name: CODEX_HOOK_EVENTS[event],
-    hooks: [{ async: false, command, timeout: CODEX_DEFAULT_HOOK_TIMEOUT_SEC, type: 'command' }],
-  }
-  return `sha256:${createHash('sha256').update(JSON.stringify(identity)).digest('hex')}`
-}
-
-export function codexHookKey(event: CodexHookEvent, handlerIndex: number): string {
-  return `${CODEX_SESSION_FLAGS_SOURCE}:${CODEX_HOOK_EVENTS[event]}:0:${handlerIndex}`
-}
-
-export function codexHookArgs(
-  contextFile: string,
-  extensionHooks: readonly ExtensionAgentHook[] = [],
-): string[] {
-  const commands = Object.entries(codexHookCommands(contextFile, extensionHooks)) as [
-    CodexHookEvent,
-    string[],
-  ][]
-  const args = ['--no-daemon']
-  const trust: string[] = []
-  for (const [event, handlers] of commands) {
-    const hooks = handlers.map((command) => `{type="command",command=${tomlString(command)}}`)
-    args.push('-c', `hooks.${event}=[{hooks=[${hooks.join(',')}]}]`)
-    handlers.forEach((command, index) => {
-      trust.push(
-        `${tomlString(codexHookKey(event, index))}={trusted_hash=${tomlString(codexHookTrustHash(event, command))}}`,
-      )
-    })
-  }
-  args.push('-c', `hooks.state={${trust.join(',')}}`)
-  return args
-}
-
-function codexSessionContext(
-  skillFile: string,
-  skills: { id: string; file: string; description: string }[],
-): string {
-  return [
-    `This Codex session runs in a ${PRODUCT_NAME} terminal pane. The \`ostia\` CLI controls the pane and its workspace: notifications, attention state, the in-app browser, background processes, the secret vault, and a message bus to agents in other panes.`,
-    'Your shell tool does not have the `ostia` shell function, so run the CLI as `ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" <command>`.',
-    `Before you use it, read its guide: ${skillFile}`,
-    ...(skills.length > 0
-      ? [
-          '',
-          `${PRODUCT_NAME} extensions the human enabled add these skills. When a task matches one, read its file first:`,
-          ...skills.map((skill) => `- ${skill.id} (${skill.file}): ${skill.description}`),
-        ]
-      : []),
-    '',
-  ].join('\n')
-}
-
-const CODEX_HOOK_ARGS_FILE = 'hook-args.sh'
-
-function codexHookArgsScript(args: readonly string[]): string {
-  return ['__ostia_codex_hook_args=(', ...args.map((arg) => `  ${shellQuote(arg)}`), ')', ''].join(
-    '\n',
-  )
-}
-
-export function writeCodexIntegration(
-  dir: string,
-  content: AgentPluginContent = NO_AGENT_PLUGINS,
-  finalDir: string = dir,
-): { contextFile: string } {
-  mkdirSync(dir, { recursive: true })
-  const skillFile = join(finalDir, 'SKILL.md')
-  const contextFile = join(finalDir, 'session-context.md')
-  writeFileSync(join(dir, 'SKILL.md'), agentSkill, 'utf8')
-  const skills = content.skills.map((skill) => {
-    writeSkillFiles(join(dir, 'skills', skill.id), skill)
-    return {
-      id: skill.id,
-      file: join(finalDir, 'skills', skill.id, AGENT_SKILL_ENTRY),
-      description: skill.description.replace(/\s+/g, ' '),
-    }
-  })
-  writeFileSync(join(dir, 'session-context.md'), codexSessionContext(skillFile, skills), 'utf8')
-  writeFileSync(
-    join(dir, CODEX_HOOK_ARGS_FILE),
-    codexHookArgsScript(codexHookArgs(contextFile, content.hooks)),
-    'utf8',
-  )
-  return { contextFile }
-}
-
-export function codexWrapper(): string {
-  return [
-    '',
-    '# Run interactive codex sessions with the Ostia hooks (resume token, attention state, CLI',
-    '# context, extension hooks). Other subcommands run untouched; `command codex` skips it.',
-    '__ostia_codex_starts_session() {',
-    '  local __ostia_skip= __ostia_arg',
-    '  for __ostia_arg in "$@"; do',
-    '    if [ -n "$__ostia_skip" ]; then',
-    '      __ostia_skip=',
-    '      continue',
-    '    fi',
-    '    case "$__ostia_arg" in',
-    '      -h|--help|-V|--version) return 1 ;;',
-    '      --) return 0 ;;',
-    `      ${CODEX_VALUE_OPTIONS.join('|')}) __ostia_skip=1 ;;`,
-    '      -*) ;;',
-    `      ${CODEX_SESSION_SUBCOMMANDS.join('|')}) return 0 ;;`,
-    `      ${CODEX_OTHER_SUBCOMMANDS.join('|')}) return 1 ;;`,
-    '      *) return 0 ;;',
-    '    esac',
-    '  done',
-    '  return 0',
-    '}',
-    `if [ -n "${CLI_PATH}" ] && [ -z "${shellEnv(AGENT_HOOKS_OFF_ENV.codex)}" ]; then`,
-    '  codex() {',
-    `    if [ -n "${AGENT_DIR}" ] && [ -f "${AGENT_DIR}/codex/${CODEX_HOOK_ARGS_FILE}" ] && __ostia_codex_starts_session "$@"; then`,
-    '      local -a __ostia_codex_hook_args',
-    "      local IFS=$'\\037'",
-    `      . "${AGENT_DIR}/codex/${CODEX_HOOK_ARGS_FILE}"`,
-    `      ${CODEX_ARGS}="$*" command codex "\${__ostia_codex_hook_args[@]}" "$@"`,
-    '    else',
-    '      command codex "$@"',
-    '    fi',
-    '  }',
-    'fi',
-    '',
-  ].join('\n')
-}
-
-function agentPluginDigest(content: AgentPluginContent): string {
-  const hash = createHash('sha256')
-  hash.update(JSON.stringify({ version, hooks: content.hooks }))
-  hash.update(agentSkill)
-  for (const skill of content.skills) {
-    hash.update(JSON.stringify({ id: skill.id, description: skill.description }))
-    for (const file of skill.files) {
-      hash.update(JSON.stringify({ name: file.name, size: file.data.length }))
-      hash.update(file.data)
-    }
-  }
-  return hash.digest('hex').slice(0, 32)
-}
-
-function agentPluginFiles(content: AgentPluginContent): string[] {
-  return [
-    join('claude-plugin', '.claude-plugin', 'plugin.json'),
-    join('claude-plugin', 'hooks', 'hooks.json'),
-    join('claude-plugin', 'skills', AGENT_SKILL_NAME, 'SKILL.md'),
-    join('codex', 'SKILL.md'),
-    join('codex', 'session-context.md'),
-    join('codex', CODEX_HOOK_ARGS_FILE),
-    ...content.skills.flatMap((skill) =>
-      skill.files.flatMap((file) => [
-        join('claude-plugin', 'skills', skill.id, file.name),
-        join('codex', 'skills', skill.id, file.name),
-      ]),
-    ),
-  ]
-}
-
-function hasFiles(dir: string, names: string[]): boolean {
-  return names.every((name) => existsSync(join(dir, name)))
-}
-
-export function writeAgentPlugin(root: string, content: AgentPluginContent): string {
-  mkdirSync(root, { recursive: true, mode: 0o700 })
-  const dir = join(root, agentPluginDigest(content))
-  const names = agentPluginFiles(content)
-  if (hasFiles(dir, names)) return dir
-  const staging = mkdtempSync(join(root, '.staging-'))
-  try {
-    writeClaudePlugin(join(staging, 'claude-plugin'), content)
-    writeCodexIntegration(join(staging, 'codex'), content, join(dir, 'codex'))
-    rmSync(dir, { recursive: true, force: true })
-    renameSync(staging, dir)
-  } catch (err) {
-    rmSync(staging, { recursive: true, force: true })
-    if (!hasFiles(dir, names)) throw err
-  }
-  return dir
-}
-
 const AGENT_PLUGINS_DIR = join(INTEGRATION_DIR, 'agents')
 
 let agentDir: string | null = null
@@ -739,6 +331,7 @@ export function shellIntegrationFiles(dir: string): ShellIntegrationFiles {
     '.zshenv': [
       '# Ostia shell integration (generated). Load the real .zshenv; ZDOTDIR is restored to',
       '# OSTIA_ZDOTDIR_ORIG at the end of .zshrc below, once our hooks are installed.',
+      ...READ_MARK_NONCE,
       '[ -n "$OSTIA_ZDOTDIR_ORIG" ] && [ -f "$OSTIA_ZDOTDIR_ORIG/.zshenv" ] && source "$OSTIA_ZDOTDIR_ORIG/.zshenv"',
       '# If the real .zshenv redirected ZDOTDIR, remember its target as the effective dotdir',
       '# and reclaim ZDOTDIR so zsh still reads OUR .zshrc next (else integration is bypassed).',
@@ -759,6 +352,7 @@ export function shellIntegrationFiles(dir: string): ShellIntegrationFiles {
     ].join('\n'),
     bashrc: [
       '# Ostia shell integration (generated). Load the real ~/.bashrc, then add our hooks.',
+      ...READ_MARK_NONCE,
       '[ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc"',
       `source "${bashInit}"`,
       '',
@@ -836,11 +430,21 @@ function historyEnv(histFile: string | null): Record<string, string> {
   return histFile ? { OSTIA_HISTFILE: histFile } : {}
 }
 
+function markNonceEnv(markNonceFile: string | null): Record<string, string> {
+  return markNonceFile ? { [MARK_NONCE_FILE]: markNonceFile } : {}
+}
+
+export function sendsMarkNonce(shellPath: string): boolean {
+  const name = basename(shellPath).toLowerCase()
+  return name === 'zsh' || name === 'bash'
+}
+
 export function shellIntegrationSpawnOptions(
   shellPath: string,
   baseEnv: NodeJS.ProcessEnv,
   ostiaPrompt: OstiaPromptOption | null = null,
   histFile: string | null = null,
+  markNonceFile: string | null = null,
 ): { args: string[]; env: Record<string, string> } {
   const name = basename(shellPath).toLowerCase()
 
@@ -854,6 +458,7 @@ export function shellIntegrationSpawnOptions(
         ...appEnv({ AGENT_DIR: currentAgentDir() }),
         ...promptEnv(ostiaPrompt),
         ...historyEnv(histFile),
+        ...markNonceEnv(markNonceFile),
       },
     }
   }
@@ -866,6 +471,7 @@ export function shellIntegrationSpawnOptions(
         ...appEnv({ AGENT_DIR: currentAgentDir() }),
         ...promptEnv(ostiaPrompt),
         ...historyEnv(histFile),
+        ...markNonceEnv(markNonceFile),
       },
     }
   }

@@ -1,4 +1,8 @@
-import type { RemoteReadResult, RemoteStatResult, RemoteWriteResult } from '@shared/remoteFolders'
+import type {
+  RemoteReadResult,
+  RemoteStatResult,
+  RemoteWriteResult,
+} from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
 import { describe, expect, it, vi } from 'vitest'
 import { type RemoteTextApi, checkRemoteText, saveRemoteText } from './remoteFileSync'
 

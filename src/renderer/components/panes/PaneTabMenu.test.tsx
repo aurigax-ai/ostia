@@ -2,13 +2,14 @@ import '@testing-library/jest-dom/vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
 import { ActionConfirmDialog } from '@/components/settings/ActionConfirmDialog'
-import { paneIds, tabsOf } from '@/layout/tree'
-import type { LayoutNode, PaneNode } from '@/layout/types'
+import { paneIds, tabsOf } from '@/lib/layout/tree'
+import type { LayoutNode, PaneNode, SplitNode } from '@/lib/layout/types'
 import * as blockActions from '@/lib/terminal/blockActions'
 import { useActionConfirmStore } from '@/stores/agents/actionConfirmStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { usePaneRenameStore } from '@/stores/workspaces/paneRenameStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -68,6 +69,22 @@ describe('PaneTabMenu zoom', () => {
     openMenu()
     expect(await screen.findByRole('menuitem', { name: 'Lock tab' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /Zoom pane/ })).toBeNull()
+  })
+
+  it('offers Rename Split Tab only for a pane inside a split tab, and starts naming it', async () => {
+    const other: PaneNode = { type: 'pane', id: 'other', kind: 'terminal', title: 'bash' }
+    seed(tabsOf('left', split as SplitNode, other), null)
+    openMenu()
+    await userEvent
+      .setup()
+      .click(await screen.findByRole('menuitem', { name: 'Rename Split Tab…' }))
+    expect(usePaneRenameStore.getState().splitTabId).toBe('sp')
+    usePaneRenameStore.getState().end()
+    cleanup()
+    seed(split, null)
+    openMenu()
+    expect(await screen.findByRole('menuitem', { name: 'Lock tab' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Rename Split Tab…' })).toBeNull()
   })
 
   it('an agent closes a busy tab without a confirm, but never a tab the human locked', async () => {
@@ -131,6 +148,7 @@ describe('PaneTabMenu close others and hibernation', () => {
     const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
     useBlocksStore.getState().promptStart('b', { line: 0 }, null)
     useBlocksStore.getState().commandStart('b', { line: 1 }, 'claude')
+    useBlocksStore.getState().markAgent('b', 'claude')
     openMenu(agentTab, [shell, agentTab])
     await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'Hibernate tab' }))
     expect(exec).toHaveBeenCalledWith('pane.hibernate', { paneId: 'b' })

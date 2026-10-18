@@ -16,7 +16,7 @@ type AppChord =
   | 'view.searchFiles'
   | 'attention.jumpToLatest'
   | 'history.search'
-  | 'workflows.search'
+  | 'snippets.search'
   | 'workspace.new'
   | 'workspace.openPad'
   | 'window.new'
@@ -37,6 +37,7 @@ type AppChord =
   | 'pane.focusUp'
   | 'pane.focusDown'
   | 'pane.zoom'
+  | 'pane.collapse'
   | 'pane.close'
   | 'tab.next'
   | 'tab.previous'
@@ -62,7 +63,7 @@ export const DEFAULT_CHORDS: Readonly<
   'view.searchFiles': ['Shift+Cmd+F', ''],
   'attention.jumpToLatest': ['Cmd+Shift+U', 'Ctrl+Shift+U'],
   'history.search': ['Cmd+Shift+H', 'Ctrl+Shift+H'],
-  'workflows.search': ['Cmd+Shift+S', 'Ctrl+Shift+S'],
+  'snippets.search': ['Cmd+Shift+S', 'Ctrl+Shift+S'],
   'workspace.new': ['Cmd+N', 'Ctrl+Shift+N'],
   'workspace.openPad': ['Cmd+Alt+N', 'Ctrl+Alt+N'],
   'window.new': ['Cmd+Shift+N', 'Ctrl+Shift+Alt+N'],
@@ -86,6 +87,7 @@ export const DEFAULT_CHORDS: Readonly<
     ['terminal:Shift+Cmd+Enter', 'Cmd+Shift+X'],
     ['terminal:Ctrl+Shift+Enter', 'Ctrl+Shift+X'],
   ],
+  'pane.collapse': ['Cmd+Ctrl+M', 'Ctrl+Shift+Alt+M'],
   'pane.close': ['Cmd+W', 'Ctrl+Shift+W'],
   'tab.next': [
     ['Ctrl+Tab', 'Shift+Cmd+]'],

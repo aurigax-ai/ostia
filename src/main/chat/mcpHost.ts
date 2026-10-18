@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { type MCPClient, type OAuthClientProvider, createMCPClient } from '@ai-sdk/mcp'
 import { Experimental_StdioMCPTransport as StdioMCPTransport } from '@ai-sdk/mcp/mcp-stdio'
@@ -5,7 +6,9 @@ import {
   CHAT_TOOL_DESCRIPTION_MAX,
   CHAT_TOOL_OUTPUT_MAX,
   CHAT_TOOL_SCHEMA_MAX,
-} from '../../shared/assist'
+} from '@aurigax-ai/ostia-extension-sdk/contract/assist'
+import { isRecord } from '@aurigax-ai/ostia-extension-sdk/contract/isRecord'
+import { PRODUCT_DISPLAY_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/productDisplay'
 import {
   MCP_TOOLS_PER_SERVER_MAX,
   type McpAuthState,
@@ -17,7 +20,6 @@ import {
   type McpToolInfo,
   mcpTransportOf,
 } from '../../shared/assist/chatTools'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 
 const MCP_CONNECT_TIMEOUT_MS = 15_000
 const MCP_CALL_TIMEOUT_MS = 120_000
@@ -55,13 +57,21 @@ interface Connection {
   tools: McpToolInfo[]
 }
 
+export type McpExtensionCallResult =
+  | { ok: true; text: string; structured?: Record<string, unknown> }
+  | { ok: false; error: string }
+
+export interface McpExtensionServer {
+  name: string
+  state: McpServerState
+  tools: string[]
+}
+
+type ToolCall = { ok: true; raw: unknown } | { ok: false; error: string }
+
 function errorText(err: unknown): string {
   const text = err instanceof Error ? err.message : String(err)
   return text.replace(/\s+/g, ' ').trim().slice(0, ERROR_MAX) || 'failed'
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
 function toolInfo(raw: unknown): McpToolInfo | null {
@@ -129,6 +139,7 @@ function fingerprintOf(settings: McpServerSettings, secret: McpHostDeps['secret'
 export class McpHost {
   private entries = new Map<string, Entry>()
   private calls = new Map<string, AbortController>()
+  private waiters = new Set<() => void>()
 
   constructor(private readonly deps: McpHostDeps) {}
 
@@ -151,6 +162,69 @@ export class McpHost {
 
   private emit(): void {
     this.deps.onStatus(this.status())
+    for (const waiter of [...this.waiters]) waiter()
+  }
+
+  private async connected(name: string): Promise<void> {
+    const settings = this.deps.servers().find((s) => s.name === name)
+    if (!settings?.enabled) return
+    if (!this.entries.has(name)) this.connect(settings)
+    if (this.entries.get(name)?.state !== 'connecting') return
+    await new Promise<void>((resolve) => {
+      const done = (): void => {
+        clearTimeout(timer)
+        this.waiters.delete(check)
+        resolve()
+      }
+      const check = (): void => {
+        if (this.entries.get(name)?.state !== 'connecting') done()
+      }
+      const timer = setTimeout(done, this.deps.connectTimeoutMs ?? MCP_CONNECT_TIMEOUT_MS)
+      this.waiters.add(check)
+    })
+  }
+
+  serversForExtensions(): McpExtensionServer[] {
+    return this.deps.servers().flatMap((s) => {
+      const entry = this.entries.get(s.name)
+      if (!s.enabled || entry?.state !== 'ready') return []
+      return [
+        {
+          name: s.name,
+          state: entry.state,
+          tools: entry.tools.map((t) => t.name).filter((t) => !s.disabledTools.includes(t)),
+        },
+      ]
+    })
+  }
+
+  async callForExtension(
+    server: unknown,
+    tool: unknown,
+    input: unknown,
+    signal?: AbortSignal,
+  ): Promise<McpExtensionCallResult> {
+    if (typeof server !== 'string' || typeof tool !== 'string') {
+      return { ok: false, error: 'invalid call' }
+    }
+    await this.connected(server)
+    const callId = randomUUID()
+    const cancel = (): void => this.cancel(callId)
+    signal?.addEventListener('abort', cancel)
+    try {
+      const called = await this.callTool(callId, server, tool, input)
+      if (!called.ok) return called
+      const formatted = formatCallResult(called.raw)
+      if (!formatted.ok) return formatted
+      const structured = isRecord(called.raw) ? called.raw.structuredContent : undefined
+      const kept =
+        isRecord(structured) && JSON.stringify(structured).length <= CHAT_TOOL_OUTPUT_MAX
+          ? { structured }
+          : {}
+      return { ok: true, text: formatted.output, ...kept }
+    } finally {
+      signal?.removeEventListener('abort', cancel)
+    }
   }
 
   notify(): void {
@@ -333,6 +407,16 @@ export class McpHost {
     tool: unknown,
     input: unknown,
   ): Promise<McpCallResult> {
+    const called = await this.callTool(callId, server, tool, input)
+    return called.ok ? formatCallResult(called.raw) : called
+  }
+
+  private async callTool(
+    callId: unknown,
+    server: unknown,
+    tool: unknown,
+    input: unknown,
+  ): Promise<ToolCall> {
     if (typeof callId !== 'string' || !CALL_ID_PATTERN.test(callId)) {
       return { ok: false, error: 'invalid call' }
     }
@@ -351,12 +435,12 @@ export class McpHost {
     const abort = new AbortController()
     this.calls.set(callId, abort)
     try {
-      const result = await entry.client.callTool({
+      const raw = await entry.client.callTool({
         name: tool,
         arguments: args,
         options: { signal: abort.signal, timeout: this.deps.callTimeoutMs ?? MCP_CALL_TIMEOUT_MS },
       })
-      return formatCallResult(result)
+      return { ok: true, raw }
     } catch (err) {
       if (abort.signal.aborted) return { ok: false, error: 'cancelled' }
       if (this.deps.auth?.state(settings, false) === 'expired') this.reconnect(server)

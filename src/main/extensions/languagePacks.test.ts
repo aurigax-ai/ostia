@@ -111,7 +111,7 @@ describe('loadLanguagePacks', () => {
         id: 'langpack-zh-hant',
         name: '繁體中文 (Traditional Chinese)',
         version: '1.0.0',
-        api: '3.0',
+        api: '4.0',
         category: 'langpack',
         locales: ['zh-Hant'],
         contributes: { languages: [{ id: 'zh-Hant', label: '繁體中文', path: 'zh-Hant.json' }] },
@@ -130,7 +130,7 @@ describe('loadLanguagePacks', () => {
       notify: vi.fn(),
       log: () => {},
     })
-    const deps = { languages: () => host.languages(), onError: vi.fn() }
+    const deps = { languages: () => host.contributions.languages(), onError: vi.fn() }
     expect(loadLanguagePacks(deps)).toEqual([
       {
         extId: 'langpack-zh-hant',
@@ -140,7 +140,7 @@ describe('loadLanguagePacks', () => {
       },
     ])
 
-    const list = host.setEnabled('langpack-zh-hant', false)
+    const list = host.processes.setEnabled('langpack-zh-hant', false)
 
     expect(broadcast).toHaveBeenCalledWith('extensions:changed', list)
     expect(loadLanguagePacks(deps)).toEqual([])

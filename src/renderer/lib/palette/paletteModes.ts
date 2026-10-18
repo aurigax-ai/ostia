@@ -28,3 +28,7 @@ export function paletteMode(search: string): PaletteMode {
   if (first === '?') return 'help'
   return PALETTE_MODES.find((m) => m.symbol === first)?.mode ?? 'all'
 }
+
+export function symbolOf(mode: PaletteMode): string {
+  return PALETTE_MODES.find((m) => m.mode === mode)?.symbol ?? ''
+}

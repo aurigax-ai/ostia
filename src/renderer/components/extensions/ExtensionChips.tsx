@@ -2,7 +2,7 @@ import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { fmt, useDict } from '@/i18n/useDict'
+import { fmt, useDict } from '@/lib/app/useDict'
 import {
   type ShownChip,
   chipAction,
@@ -10,8 +10,8 @@ import {
   usePaneChips,
   useWorkspaceChips,
 } from '@/lib/extensions/extensionChips'
+import type { PaneChipItem } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { CopyIcon } from '@phosphor-icons/react'
-import type { PaneChipItem } from '@shared/extensions'
 import { extensionIcon } from './extensionIcons'
 
 export function PaneChips({ paneId }: { paneId: string }): JSX.Element | null {

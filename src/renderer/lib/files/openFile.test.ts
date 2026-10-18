@@ -1,4 +1,4 @@
-import { allPanes, findPane, resetIds } from '@/layout/tree'
+import { allPanes, findPane, resetIds } from '@/lib/layout/tree'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'

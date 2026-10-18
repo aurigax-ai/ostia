@@ -3,10 +3,10 @@ import { IconButton } from '@/components/common/IconButton'
 import { TextLink } from '@/components/common/TextLink'
 import { WorkspaceChips } from '@/components/extensions/ExtensionChips'
 import { Button } from '@/components/ui/button'
-import { fmt, useDict } from '@/i18n/useDict'
-import { allPanes, paneIds } from '@/layout/tree'
+import { fmt, useDict } from '@/lib/app/useDict'
 import { unreadCount } from '@/lib/attention/attention'
 import { markWorkspaceRead, revealPane } from '@/lib/attention/workspaceActivity'
+import { allPanes, paneIds } from '@/lib/layout/tree'
 import {
   DASHBOARD_PATH_CHARS,
   type NeedsYouItem,
@@ -17,6 +17,7 @@ import {
 } from '@/lib/sidebar/dashboard'
 import { shortenPath } from '@/lib/sidebar/railMeta'
 import { cn } from '@/lib/utils'
+import { selectWorkspace } from '@/lib/workspaces/selectWorkspace'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/workspaces/windowWorkspaces'
 import { latestAttentionMessage, runningTitle } from '@/lib/workspaces/workspaceSummary'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
@@ -26,11 +27,8 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
-import {
-  type Workspace,
-  type WorkspaceState,
-  useWorkspacesStore,
-} from '@/stores/workspaces/workspacesStore'
+import type { Workspace, WorkspaceState } from '@/stores/workspaces/workspaceTypes'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { AppWindowIcon, ArrowSquareOutIcon, ChatTextIcon, XIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -81,7 +79,9 @@ export function DashboardPanel(): JSX.Element | null {
     if (!focusCard(root, '[data-question]') && !focusCard(root, '.dashboard-card')) {
       root?.querySelector<HTMLElement>('[data-dashboard-close]')?.focus()
     }
-    return () => previous?.focus?.()
+    return () => {
+      if (!previous?.closest('[inert], [data-hidden]')) previous?.focus?.()
+    }
   }, [open])
 
   useEffect(() => {
@@ -96,7 +96,7 @@ export function DashboardPanel(): JSX.Element | null {
     <section
       ref={rootRef}
       aria-label={d.dashboard.title}
-      className="dashboard absolute inset-0 z-20 flex min-h-0 flex-col overflow-y-auto bg-bg text-fg"
+      className="dashboard motion-fade absolute inset-0 z-20 flex min-h-0 flex-col overflow-y-auto bg-bg text-fg"
     >
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-5 sm:px-8">
         <header className="flex items-center gap-2">
@@ -263,10 +263,7 @@ function WorkspaceEntry({ workspace: w }: { workspace: Workspace }): JSX.Element
   const [composing, setComposing] = useState(false)
   const name = w.customName ?? w.name
   const summary = message ?? running
-  const open = (): void => {
-    useUIStore.getState().showWorkspaces()
-    useWorkspacesStore.getState().setActive(w.id)
-  }
+  const open = (): void => selectWorkspace(w.id)
   return (
     <li
       data-workspace={w.id}
@@ -351,14 +348,14 @@ function RemoteEntry({ workspace: w }: { workspace: RemoteWorkspace }): JSX.Elem
         size="sm"
         aria-label={fmt(d.dashboard.openWorkspace, { name: w.name })}
         className="h-auto min-w-0 justify-start p-0 font-medium text-fg text-ui-base"
-        onClick={() => window.ostia.windows.focusWorkspace(w.id, false)}
+        onClick={() => window.ostia.windows.focusWorkspace(w.id, false, true)}
       >
         <span className="truncate">{w.name}</span>
       </TextLink>
       <StateMark state={w.state} />
       <PathText path={w.workDir} />
       <span className="ml-auto flex shrink-0 items-center gap-1 text-fg-muted text-ui-xs">
-        <AppWindowIcon size={12} aria-hidden />
+        <AppWindowIcon size={16} aria-hidden />
         {d.window.inOtherWindow}
       </span>
     </li>

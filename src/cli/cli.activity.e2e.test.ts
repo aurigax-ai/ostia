@@ -13,13 +13,18 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import type {
+  ExtensionResult,
+  ExtensionSettingValues,
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { agentPluginContent } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { FAKE } from '../../test/fixtures/secrets/samples'
 import type { PanelModel } from '../extensions/activity/view'
-import { agentPluginContent } from '../main/agents/agentSkills'
 import { registerControlServer, stopControlServer } from '../main/control/controlServer'
 import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
-import { ExtensionHost, registerExtensionMethods } from '../main/extensions/extensionHost'
+import { ExtensionHost } from '../main/extensions/extensionHost'
+import { registerExtensionMethods } from '../main/extensions/extensionMethods'
 import { ExtensionStore } from '../main/extensions/extensionStore'
 import { registerPaneListMethods } from '../main/panes/paneList'
 import { createRedactor } from '../main/privacy/redaction'
@@ -29,8 +34,7 @@ import {
   shellIntegrationDir,
   shellIntegrationSpawnOptions,
 } from '../main/terminal/shellIntegration'
-import type { ExtensionResult, ExtensionSettingValues } from '../shared/extensions'
-import type { CommandResult } from '../shared/types'
+import type { CommandResult } from '../shared/control/commands'
 
 const repoRoot = process.cwd()
 const cliPath = join(repoRoot, 'out', 'cli', 'index.js')
@@ -96,15 +100,7 @@ function run(command: string, args: string[], env: NodeJS.ProcessEnv): Promise<R
   })
 }
 
-async function until<T>(read: () => Promise<T | undefined>, timeoutMs = 10_000): Promise<T> {
-  const start = Date.now()
-  for (;;) {
-    const value = await read()
-    if (value !== undefined) return value
-    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((r) => setTimeout(r, 50))
-  }
-}
+const POLL = { timeout: 10_000, interval: 50 }
 
 describe('the Activity extension records two fake agents and shows them in its panel (real CLI, real socket)', () => {
   let dir: string
@@ -179,8 +175,15 @@ describe('the Activity extension records two fake agents and shows them in its p
     )
   }
 
-  async function panel(command: string, args: unknown = {}): Promise<ExtensionResult> {
-    const source = await serving.resolvePanel('activity', { workspaceId: 'w1', locale: 'en' })
+  async function panel(
+    command: string,
+    args: unknown = {},
+    workspaceId = 'w1',
+  ): Promise<ExtensionResult> {
+    const source = await serving.panels.resolvePanel('activity', {
+      workspaceId,
+      locale: 'en',
+    })
     if (!source.ok) throw new Error(source.error)
     const url = new URL(source.src)
     const res = await fetch(new URL('/api', url), {
@@ -189,21 +192,19 @@ describe('the Activity extension records two fake agents and shows them in its p
         'content-type': 'application/json',
         'x-ostia-panel': url.searchParams.get('t') ?? '',
       },
-      body: JSON.stringify({ command, args, context: {} }),
+      body: JSON.stringify({ command, args, context: { workspaceId } }),
     })
     return (await res.json()) as ExtensionResult
   }
 
-  async function snapshot(): Promise<PanelModel> {
-    const res = await panel('snapshot')
+  async function snapshot(workspaceId = 'w1'): Promise<PanelModel> {
+    const res = await panel('snapshot', {}, workspaceId)
     if (!res.ok) throw new Error(res.error)
     return res.data as PanelModel
   }
 
   const eventCount = (model: PanelModel): number =>
-    model.workspaces
-      .flatMap((w) => w.agents)
-      .reduce((sum, agent) => sum + agent.current.events.length, 0)
+    (model.workspace?.agents ?? []).reduce((sum, agent) => sum + agent.current.events.length, 0)
 
   beforeAll(() => {
     dir = mkdtempSync(join(tmpdir(), 'ostia-activity-'))
@@ -281,7 +282,7 @@ describe('the Activity extension records two fake agents and shows them in its p
       socketPath,
     )
     shellIntegrationSpawnOptions('/bin/bash', {})
-    agentDir = setAgentPlugins(agentPluginContent(host.agentPlugins()))
+    agentDir = setAgentPlugins(agentPluginContent(host.contributions.agentPlugins()))
     mkdirSync(bin, { recursive: true })
     for (const agent of ['claude', 'codex']) {
       writeFileSync(join(bin, agent), FAKE_AGENT)
@@ -290,7 +291,7 @@ describe('the Activity extension records two fake agents and shows them in its p
   }, 120_000)
 
   afterAll(() => {
-    serving.stopAll()
+    serving.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })
@@ -339,13 +340,12 @@ describe('the Activity extension records two fake agents and shows them in its p
       'hook PreToolUse []',
     ])
 
-    const model = await until(async () => {
+    const model = await vi.waitUntil(async () => {
       const current = await snapshot()
       return eventCount(current) === 6 ? current : undefined
-    })
+    }, POLL)
     expect(model.showActivity).toBe(false)
-    expect(model.workspaces.map((w) => w.name)).toEqual(['shop'])
-    const [latest, earlier] = model.workspaces[0].agents
+    const [latest, earlier] = model.workspace?.agents ?? []
     expect(latest).toMatchObject({ paneId: codexPane.externalId, agent: 'codex', state: 'working' })
     expect('recap' in latest).toBe(false)
     expect(latest.current.events.map((e) => [e.kind, e.tool, e.text])).toEqual([
@@ -382,12 +382,12 @@ describe('the Activity extension records two fake agents and shows them in its p
     await runAgent('claude', scratchPane, [
       ['UserPromptSubmit', { session_id: 's-3', prompt: 'jot this down' }],
     ])
-    const model = await until(async () => {
-      const current = await snapshot()
-      return current.workspaces.some((w) => w.name === 'notes') ? current : undefined
-    })
-    const notes = model.workspaces.find((w) => w.name === 'notes')
-    expect(notes?.agents[0].current.prompt).toBe('jot this down')
+    const model = await vi.waitUntil(async () => {
+      const current = await snapshot('sc1')
+      return current.workspace ? current : undefined
+    }, POLL)
+    expect(model.workspace?.agents[0].current.prompt).toBe('jot this down')
+    expect(JSON.stringify(await snapshot('w1'))).not.toContain('jot this down')
     expect(existsSync(journalFile('sc1'))).toBe(false)
     expect(readdirSync(dirname(journalFile('w1')))).toEqual(['w1.jsonl'])
   }, 60_000)
@@ -415,19 +415,78 @@ describe('the Activity extension records two fake agents and shows them in its p
     expect((await snapshot()).showActivity).toBe(true)
     expect(storedSettings).toEqual({ activity: { showActivity: true } })
 
-    host.stopAll()
-    await until(async () =>
-      host.list().find((e) => e.id === 'activity')?.status !== 'running' ? true : undefined,
+    host.processes.stopAll()
+    await vi.waitUntil(
+      async () => host.list().find((e) => e.id === 'activity')?.status !== 'running',
+      POLL,
     )
     serving = newHost()
 
     const model = await snapshot()
     expect(model.showActivity).toBe(true)
-    expect(model.workspaces.map((w) => w.name)).toEqual(['shop'])
-    const claude = model.workspaces[0].agents.find((a) => a.paneId === claudePane.externalId)
+    const claude = model.workspace?.agents.find((a) => a.paneId === claudePane.externalId)
     expect(claude?.recap).toBe('Fixed the cart total.\nAll tests pass.')
     expect(claude?.current.events.map((e) => e.kind)).toEqual(['prompt', 'tool', 'tool', 'stop'])
     expect(await panel('setShowActivity', { value: false })).toMatchObject({ ok: true })
     expect((await snapshot()).showActivity).toBe(false)
+  }, 60_000)
+
+  it('answers the panel’s snapshot right after a restart while the extension still loads its settings', async () => {
+    serving.processes.stopAll()
+    await vi.waitUntil(
+      async () => serving.list().find((e) => e.id === 'activity')?.status !== 'running',
+      POLL,
+    )
+    const restarted = newHost()
+    const loaded = restarted.config.getSettings.bind(restarted.config)
+    const slowSettings = (
+      ...args: Parameters<typeof loaded>
+    ): Promise<ReturnType<typeof loaded>> => {
+      const values = loaded(...args)
+      return new Promise((resolve) => setTimeout(() => resolve(values), 500))
+    }
+    vi.spyOn(restarted.config, 'getSettings').mockImplementation(
+      slowSettings as unknown as typeof loaded,
+    )
+    serving = restarted
+
+    expect(await panel('snapshot', {})).toMatchObject({ ok: true, data: { showActivity: false } })
+  }, 60_000)
+
+  it('lets an agent add a needs-you item, read it back, count it in the sidebar, and the human mark it done', async () => {
+    const bashInit = join(shellIntegrationDir(), 'init.bash')
+    const ostia = (identity: PaneIdentity, command: string): Promise<RunResult> =>
+      run('bash', ['--norc', '-c', `source '${bashInit}'; ${command}`], paneEnv(identity, []))
+    const openCount = (): string | undefined =>
+      serving.slots.sidebarItems().find((i) => i.extId === 'activity' && i.workspaceId === 'w1')
+        ?.badge
+
+    const added = await ostia(
+      claudePane,
+      `ostia activity add "Put ${FAKE.githubClassic} into .env.local" --needs-you --link /w/shop/.env.example`,
+    )
+    expect(added.stderr).toBe('')
+    expect(added.code).toBe(0)
+    const id = added.stdout.trim()
+    expect(id).toMatch(/^[a-z2-7]{10}$/)
+    expect(readFileSync(journalFile('w1'), 'utf8')).not.toContain(FAKE.githubClassic)
+    expect(await vi.waitUntil(async () => (openCount() === '1' ? '1' : undefined), POLL)).toBe('1')
+
+    const listed = await ostia(codexPane, 'ostia activity list --open --json')
+    expect(listed.code).toBe(0)
+    expect(JSON.parse(listed.stdout)).toEqual([
+      expect.objectContaining({ id, kind: 'note', needsYou: true, link: '/w/shop/.env.example' }),
+    ])
+    const notYours = await ostia(codexPane, `ostia activity done ${id}`)
+    expect(notYours.code).toBe(1)
+    expect(notYours.stderr).toContain('marks only its own items')
+
+    const note = (await snapshot()).workspace?.notes.find((n) => n.id === id)
+    expect(note).toMatchObject({ needsYou: true, done: false })
+    expect(await panel('done', { workspaceId: 'w1', id })).toEqual({ ok: true })
+    await vi.waitUntil(async () => openCount() === undefined, POLL)
+
+    const shown = await ostia(claudePane, `ostia activity show ${id} --json`)
+    expect(JSON.parse(shown.stdout)).toMatchObject({ id, needsYou: true, done: true })
   }, 60_000)
 })

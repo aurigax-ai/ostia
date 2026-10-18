@@ -1,4 +1,4 @@
-import { type BrowserSettings, searchUrl } from '@shared/browser/browserEditorSettings'
+import { type BrowserSettings, searchUrl } from '@/lib/settings/browserEditorSettings'
 
 export function resolveAddress(input: string, settings: BrowserSettings): string {
   const trimmed = input.trim()

@@ -63,8 +63,8 @@ describe('gitRequest', () => {
 
 describe('portsRequest', () => {
   it('lists the caller workspace, or every workspace with --all', () => {
-    expect(portsRequest(['ls'])).toEqual({ method: 'ports.ls', params: { all: false } })
-    expect(portsRequest(['ls', '--all'])).toEqual({ method: 'ports.ls', params: { all: true } })
+    expect(portsRequest(['list'])).toEqual({ method: 'ports.ls', params: { all: false } })
+    expect(portsRequest(['list', '--all'])).toEqual({ method: 'ports.ls', params: { all: true } })
     expect(portsRequest(['open', '3000'])).toBeNull()
     expect(portsRequest([])).toBeNull()
   })

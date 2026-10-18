@@ -7,6 +7,7 @@ import {
   scrollTargetFor,
   stepSelection,
 } from './blocks'
+import { isSpilled, showSpilledBlock, spilledBlockOutput } from './historyActions'
 import type { OstiaTerminal as Terminal } from './ostiaTerminal'
 import { inputEditorFor, terminalFor } from './terminalHandles'
 
@@ -27,11 +28,14 @@ export function blockOutput(term: Terminal, block: CommandBlock): string {
   return readBufferText(buf, { line: block.outputStartLine.line, col: 0 }, to)
 }
 
-export function blockText(term: Terminal, block: CommandBlock, part: BlockPart): string {
-  if (part === 'command') return block.command
-  const output = blockOutput(term, block)
+function partText(command: string, output: string, part: BlockPart): string {
+  if (part === 'command') return command
   if (part === 'output') return output
-  return output ? `${block.command}\n${output}` : block.command
+  return output ? `${command}\n${output}` : command
+}
+
+export function blockText(term: Terminal, block: CommandBlock, part: BlockPart): string {
+  return partText(block.command, part === 'command' ? '' : blockOutput(term, block), part)
 }
 
 export async function copyBlock(
@@ -42,7 +46,11 @@ export async function copyBlock(
   const term = terminalFor(paneId)
   const block = findBlock(paneId, blockId)
   if (!term || !block) return false
-  await navigator.clipboard.writeText(blockText(term, block, part))
+  const text =
+    part !== 'command' && isSpilled(block)
+      ? partText(block.command, await spilledBlockOutput(paneId, block), part)
+      : blockText(term, block, part)
+  await navigator.clipboard.writeText(text)
   return true
 }
 
@@ -57,6 +65,10 @@ export function selectedBlockOutput(paneId: string): { command: string; output: 
 export function revealBlock(paneId: string, block: CommandBlock): void {
   const term = terminalFor(paneId)
   if (!term) return
+  if (isSpilled(block)) {
+    void showSpilledBlock(paneId, block)
+    return
+  }
   const buf = term.buffer.normal
   const span = blockSpan(block, buf.baseY + buf.cursorY)
   const target = scrollTargetFor(span, buf.viewportY, term.rows)
@@ -150,7 +162,6 @@ export function runWhenIdle(
 }
 
 export function rerunBlock(paneId: string, blockId?: string): boolean {
-  const block = findBlock(paneId, blockId)
-  if (!block) return false
-  return insertCommand(paneId, block.command, true)
+  const typed = findBlock(paneId, blockId)?.typedCommand
+  return typed ? insertCommand(paneId, typed, true) : false
 }

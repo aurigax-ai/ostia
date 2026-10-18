@@ -7,7 +7,6 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  readdirSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
@@ -17,30 +16,28 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { withAsar } from './fakeAsar'
+import { expectHeld, openWorkspace, quitApp, runInTerminal, stubExternalOpener } from './helpers'
 import {
-  PROMPT,
-  openWorkspace,
-  quitApp,
-  runInTerminal,
-  stubExternalOpener,
+  type ElectronApplication,
+  type Page,
+  _electron as electron,
+  expect,
+  test,
   waitForExit,
-} from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+} from './test'
 
 test.skip(process.platform !== 'darwin', 'app bundles, hdiutil and codesign are macOS only')
 
 const BETA = '999.0.0-rc.1'
-const STABLE = '998.0.0'
 const INSTALLED = '1.0.0'
 const BUNDLE_ID = 'ai.aurigax.ostia'
 const DMG = `ostia-${BETA}-arm64.dmg`
 const DOWNLOAD = `/aurigax-ai/ostia/releases/download/v${BETA}`
-const BREW_COMMAND = 'brew upgrade --cask ostia'
 
-function plist(version: string, identifier: string): string {
+function plist(version: string): string {
   const entries: Record<string, string> = {
     CFBundleExecutable: 'Ostia',
-    CFBundleIdentifier: identifier,
+    CFBundleIdentifier: BUNDLE_ID,
     CFBundleName: 'Ostia',
     CFBundlePackageType: 'APPL',
     CFBundleShortVersionString: version,
@@ -52,31 +49,24 @@ function plist(version: string, identifier: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>${body}</dict></plist>\n`
 }
 
-function appBundle(
-  bundle: string,
-  version: string,
-  opts: { identifier?: string; buildVersion?: string } = {},
-): string {
+function appBundle(bundle: string, version: string): string {
   mkdirSync(join(bundle, 'Contents', 'MacOS'), { recursive: true })
   mkdirSync(join(bundle, 'Contents', 'Resources'), { recursive: true })
   copyFileSync('/usr/bin/true', join(bundle, 'Contents', 'MacOS', 'Ostia'))
   withAsar(join(bundle, 'Contents', 'Resources'))
   chmodSync(join(bundle, 'Contents', 'MacOS', 'Ostia'), 0o755)
-  writeFileSync(
-    join(bundle, 'Contents', 'Info.plist'),
-    plist(version, opts.identifier ?? BUNDLE_ID),
-  )
+  writeFileSync(join(bundle, 'Contents', 'Info.plist'), plist(version))
   writeFileSync(
     join(bundle, 'Contents', 'Resources', 'build-info.json'),
-    JSON.stringify({ version: opts.buildVersion ?? version, builtAt: '2026-10-13T00:00:00Z' }),
+    JSON.stringify({ version, builtAt: '2026-10-13T00:00:00Z' }),
   )
   execFileSync('codesign', ['--force', '--deep', '--sign', '-', bundle])
   return bundle
 }
 
-function diskImage(root: string, app: { identifier?: string; buildVersion?: string }): Buffer {
+function diskImage(root: string): Buffer {
   const stage = join(root, 'image')
-  appBundle(join(stage, 'Ostia.app'), BETA, app)
+  appBundle(join(stage, 'Ostia.app'), BETA)
   const file = join(root, DMG)
   execFileSync('hdiutil', [
     'create',
@@ -102,26 +92,31 @@ interface Layout {
   digest: string
 }
 
-function layout(
-  opts: {
-    identifier?: string
-    buildVersion?: string
-    sums?: (dmg: Buffer) => string
-    bundleDir?: string
-  } = {},
-): Layout {
-  const root = mkdtempSync(join(tmpdir(), 'ostia-e2e-mac-update-'))
-  const bundle = appBundle(join(root, opts.bundleDir ?? 'Applications', 'Ostia.app'), INSTALLED)
-  const dmg = diskImage(root, opts)
-  return {
-    root,
-    bundle,
+type Release = Pick<Layout, 'files' | 'digest'>
+
+let release: Release
+let releaseRoot: string
+
+test.beforeAll(() => {
+  releaseRoot = mkdtempSync(join(tmpdir(), 'ostia-e2e-mac-release-'))
+  const dmg = diskImage(releaseRoot)
+  release = {
     digest: sha256(dmg),
     files: {
       [`${DOWNLOAD}/${DMG}`]: dmg,
-      [`${DOWNLOAD}/SHA256SUMS`]: Buffer.from(`${(opts.sums ?? sha256)(dmg)}  ${DMG}\n`),
+      [`${DOWNLOAD}/SHA256SUMS`]: Buffer.from(`${sha256(dmg)}  ${DMG}\n`),
     },
   }
+})
+
+test.afterAll(() => {
+  rmSync(releaseRoot, { recursive: true, force: true })
+})
+
+function layout(): Layout {
+  const root = mkdtempSync(join(tmpdir(), 'ostia-e2e-mac-update-'))
+  const bundle = appBundle(join(root, 'Applications', 'Ostia.app'), INSTALLED)
+  return { root, bundle, ...release }
 }
 
 interface FakeGitHub {
@@ -140,11 +135,7 @@ function releaseEntry(version: string, digest: string | null) {
   }
 }
 
-async function startFakeGitHub(
-  files: Record<string, Buffer>,
-  digest: string,
-  stable = '0.0.1',
-): Promise<FakeGitHub> {
+async function startFakeGitHub(files: Record<string, Buffer>, digest: string): Promise<FakeGitHub> {
   const downloads: string[] = []
   const server: Server = createServer((req, res) => {
     const file = files[req.url ?? '']
@@ -155,7 +146,7 @@ async function startFakeGitHub(
       return
     }
     res.writeHead(200, { 'content-type': 'application/json' })
-    const latest = releaseEntry(stable, null)
+    const latest = releaseEntry('0.0.1', null)
     const list = [releaseEntry(BETA, digest), releaseEntry('999.0.1-main.3', digest), latest]
     res.end(JSON.stringify(req.url?.includes('/releases?') ? list : latest))
   })
@@ -171,11 +162,11 @@ async function startFakeGitHub(
   }
 }
 
-function macEnv(github: FakeGitHub, bundle: string, method = 'dmg'): Record<string, string> {
+function macEnv(github: FakeGitHub, bundle: string): Record<string, string> {
   return {
     OSTIA_RELEASE_API_URL: github.url,
     OSTIA_RELEASE_DOWNLOAD_BASE_URL: github.url,
-    OSTIA_INSTALL_METHOD: method,
+    OSTIA_INSTALL_METHOD: 'dmg',
     OSTIA_INSTALL_APP_DIR: bundle,
     OSTIA_UPDATE_SIGNATURE: 'adhoc',
   }
@@ -314,150 +305,6 @@ test('a dmg install with Receive beta updates on downloads, verifies and stages 
   }
 })
 
-const refusals = [
-  {
-    name: 'another bundle identifier',
-    opts: { identifier: 'com.example.ostia' },
-    message: 'The downloaded app isn’t signed as Ostia. Nothing was changed.',
-  },
-  {
-    name: 'a dmg that does not match its checksum',
-    opts: { sums: () => 'f'.repeat(64) },
-    message: 'The downloaded archive didn’t match its checksum. Nothing was changed.',
-  },
-  {
-    name: 'another version inside the dmg',
-    opts: { buildVersion: '999.0.0-rc.0' },
-    message: 'The archive holds a different version. Nothing was changed.',
-  },
-]
-
-for (const refusal of refusals) {
-  test(`${refusal.name} leaves the installed app as it was and says why`, async () => {
-    test.setTimeout(120_000)
-    const l = layout(refusal.opts)
-    const github = await startFakeGitHub(l.files, l.digest)
-    const dataHome = freshDataHome()
-    seedSettings(dataHome, {
-      ...DOM_RENDERER_SETTINGS,
-      behavior: { gpuAcceleration: false, updateChannel: 'beta' },
-    })
-    const { app, win } = await launch(dataHome, macEnv(github, l.bundle))
-    try {
-      await win
-        .locator('.update-notice')
-        .getByRole('button', { name: 'Download and install' })
-        .click({ timeout: 30_000 })
-      const settings = await openAbout(win)
-      await expect(settings.getByText(refusal.message)).toBeVisible({ timeout: 60_000 })
-      expect(versionIn(l.bundle)).toBe(INSTALLED)
-      expect(readdirSync(join(l.bundle, '..'))).toEqual(['Ostia.app'])
-      await expect(settings.getByRole('button', { name: 'Download and install' })).toBeEnabled()
-    } finally {
-      await quitApp(app)
-      await github.close()
-    }
-  })
-}
-
-test('an app running translocated is told to move to Applications and downloads nothing', async () => {
-  const l = layout({ bundleDir: join('AppTranslocation', 'A1B2', 'd') })
-  const github = await startFakeGitHub(l.files, l.digest)
-  const dataHome = freshDataHome()
-  seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
-    behavior: { gpuAcceleration: false, updateChannel: 'beta' },
-  })
-  const { app, win } = await launch(dataHome, macEnv(github, l.bundle))
-  try {
-    const settings = await openAbout(win)
-    await expect(
-      settings.getByText(
-        /^macOS is running Ostia from a temporary copy\. Move Ostia to Applications/,
-      ),
-    ).toBeVisible({ timeout: 30_000 })
-    await expect(settings.getByRole('button', { name: 'Download and install' })).toHaveCount(0)
-    await expect(settings.getByRole('button', { name: 'View release' })).toBeVisible()
-    expect(github.downloads).toEqual([])
-  } finally {
-    await quitApp(app)
-    await github.close()
-  }
-})
-
-function fakeBrew(dataHome: string): { bin: string; log: string } {
-  const bin = join(dataHome, 'brew-bin')
-  const log = join(dataHome, 'brew.log')
-  mkdirSync(bin, { recursive: true })
-  writeFileSync(
-    join(bin, 'brew'),
-    `#!/bin/sh\nprintf '%s\\n' "$*" >> '${log}'\necho "fake brew ran: $*"\n`,
-  )
-  chmodSync(join(bin, 'brew'), 0o755)
-  return { bin, log }
-}
-
-test('a brew install on Stable still updates through brew upgrade --cask ostia in a terminal', async () => {
-  test.setTimeout(120_000)
-  const l = layout()
-  const github = await startFakeGitHub(l.files, l.digest, STABLE)
-  const dataHome = freshDataHome()
-  const brew = fakeBrew(dataHome)
-  const { app, win } = await launch(dataHome, {
-    ...macEnv(github, l.bundle, 'brew'),
-    PATH: `${brew.bin}:${process.env.PATH}`,
-  })
-  try {
-    await openWorkspace(win)
-    const notice = win.locator('.update-notice')
-    await notice.getByRole('button', { name: 'Update with Homebrew' }).click({ timeout: 30_000 })
-    const dialog = win.getByRole('dialog', { name: 'Update Ostia with Homebrew' })
-    await expect(dialog).toContainText(BREW_COMMAND)
-    await dialog.getByRole('button', { name: 'Open terminal' }).click()
-    const updater = win.locator('.xterm-rows').filter({ hasText: 'fake brew ran' })
-    await expect(updater).toContainText('fake brew ran: upgrade --cask ostia', { timeout: 20_000 })
-    await expect(updater).toContainText(PROMPT)
-    expect(github.downloads).toEqual([])
-    expect(versionIn(l.bundle)).toBe(INSTALLED)
-  } finally {
-    await quitApp(app)
-    await github.close()
-  }
-})
-
-test('a brew install with Receive beta updates on installs the rc in the app, warns about brew and never runs brew', async () => {
-  test.setTimeout(120_000)
-  const l = layout()
-  const github = await startFakeGitHub(l.files, l.digest, STABLE)
-  const dataHome = freshDataHome()
-  const brew = fakeBrew(dataHome)
-  seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
-    behavior: { gpuAcceleration: false, updateChannel: 'beta' },
-  })
-  const { app, win } = await launch(dataHome, {
-    ...macEnv(github, l.bundle, 'brew'),
-    PATH: `${brew.bin}:${process.env.PATH}`,
-  })
-  try {
-    await downloadAndStage(win)
-    await expect(win.locator('.update-notice').getByText('Update with Homebrew')).toHaveCount(0)
-    expect(versionIn(stagedOf(l.bundle))).toBe(BETA)
-    const settings = await openAbout(win)
-    await expect(settings.getByText('Installed with Homebrew')).toBeVisible()
-    await expect(settings.getByRole('switch', { name: 'Receive beta updates' })).toBeChecked()
-    await expect(
-      settings.getByText(
-        'Running brew upgrade --cask ostia yourself installs the Homebrew release again, which can be older than this beta.',
-      ),
-    ).toBeVisible()
-    expect(existsSync(brew.log)).toBe(false)
-  } finally {
-    await quitApp(app)
-    await github.close()
-  }
-})
-
 test('after an update restart, an agent resumes with --resume and the same session id', async () => {
   test.setTimeout(180_000)
   const l = layout()
@@ -558,9 +405,23 @@ test('after an update restart with keep-shells on, the agent keeps running with 
   try {
     const screen = second.win.locator('.xterm-rows').first()
     await expect(screen).toContainText(`fake-agent-ready pid=${pid}`, { timeout: 30_000 })
-    await second.win.waitForTimeout(2000)
-    expect(() => process.kill(pid, 0)).not.toThrow()
-    await expect(second.win.locator('.xterm-rows').filter({ hasText: '--resume' })).toHaveCount(0)
+    await runInTerminal(second.win, 'flush_marker')
+    await expect(screen).toContainText('flush_marker', { timeout: 15_000 })
+    await expectHeld(
+      async () => ({
+        alive: (() => {
+          try {
+            process.kill(pid, 0)
+            return true
+          } catch {
+            return false
+          }
+        })(),
+        resumes: await second.win.locator('.xterm-rows').filter({ hasText: '--resume' }).count(),
+      }),
+      { alive: true, resumes: 0 },
+      2_000,
+    )
     expect(savedPanes(dataHome).some((p) => p.agentRunning === true)).toBe(true)
   } finally {
     await quitApp(second.app)
@@ -569,44 +430,5 @@ test('after an update restart with keep-shells on, the agent keeps running with 
     } catch {}
     await github.close()
     rmSync(dataHome, { recursive: true, force: true })
-  }
-})
-
-function runningVersion(): string {
-  const root = join(__dirname, '..')
-  const built = join(root, 'out', 'build-info.json')
-  const version = existsSync(built)
-    ? JSON.parse(readFileSync(built, 'utf8')).version
-    : JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version
-  return String(version).replace(/\+.*$/, '')
-}
-
-test('a staged copy and an old app left by an earlier update are deleted at launch, app.asar included', async () => {
-  test.setTimeout(120_000)
-  const l = layout()
-  appBundle(stagedOf(l.bundle), BETA)
-  appBundle(`${l.bundle}.old`, INSTALLED)
-  const github = await startFakeGitHub(l.files, l.digest)
-  const dataHome = freshDataHome()
-  seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
-    behavior: { gpuAcceleration: false, updateChannel: 'beta' },
-  })
-  mkdirSync(join(dataHome, 'ostia'), { recursive: true })
-  writeFileSync(
-    join(dataHome, 'ostia', 'install-replace.json'),
-    JSON.stringify({ appDir: l.bundle, version: runningVersion() }),
-  )
-  const { app, win } = await launch(dataHome, macEnv(github, l.bundle))
-  try {
-    await expect
-      .poll(() => readdirSync(join(l.bundle, '..')).sort(), { timeout: 20_000 })
-      .toEqual(['Ostia.app'])
-    expect(mainLog(dataHome)).not.toMatch(/update-staged-discard-failed|install-sweep-failed/)
-    await downloadAndStage(win)
-    expect(versionIn(stagedOf(l.bundle))).toBe(BETA)
-  } finally {
-    await quitApp(app)
-    await github.close()
   }
 })

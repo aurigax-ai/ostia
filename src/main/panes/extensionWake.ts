@@ -1,8 +1,9 @@
-import { WAKE_WAIT_MAX_MS } from '../../shared/extensions'
+import { WAKE_WAIT_MAX_MS } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { ensureCaps } from '../approvals/controlElevation'
 import { registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
-import { type PaneIoDeps, checkSessions, notHibernated, sessionConflict } from './paneIo'
+import type { PaneIoDeps } from './paneIo'
+import { checkSessions, notHibernated, sessionConflict } from './paneWakeMethods'
 
 export type ExtensionWakeDeps = Pick<PaneIoDeps, 'hibernated' | 'wake' | 'panes' | 'waking'> & {
   openedBy: (caller: PaneIdentity, paneId: string) => boolean
@@ -48,16 +49,19 @@ export function registerExtensionWake(deps: ExtensionWakeDeps): void {
         }
       }
       const to: PaneIdentity = found
+      let marked = false
       try {
         if (!(await deps.hibernated(to))) throw notHibernated(to)
         checkSessions([to], await deps.panes())
+        marked = true
+        deps.waking.start(to.paneId)
         const outcome = await deps.wake(to)
         if (outcome.conflict) throw sessionConflict(to, `"${outcome.conflict}"`)
         if (!outcome.woke) throw notHibernated(to)
       } catch (err) {
+        if (marked) deps.waking.abandon(to.paneId)
         return codeOf(err)
       }
-      deps.waking.start(to.paneId)
       if (waitMs === null) return { ok: true, outcome: 'woke' }
       const ended = await deps.waking.until([to.paneId], waitMs, (cancel) =>
         ctx.conn.onClose(cancel),

@@ -2,7 +2,7 @@
   "id": "graphs",
   "name": "Graphs",
   "version": "1.0.0",
-  "api": "3.3",
+  "api": "4.10",
   "description": "Run a procedure written as a graph of agents, commands, questions and waits, kept on disk after every step so it survives a restart. A graph does nothing until you enable its exact definition in the Graphs panel, and it runs while Ostia is open.",
   "category": "tools",
   "capabilities": [
@@ -14,7 +14,8 @@
     "agent-plugin",
     "send-other-pane",
     "type-other-pane",
-    "all-workspaces"
+    "all-workspaces",
+    "mcp"
   ],
   "main": "main.js",
   "locales": ["zh-Hant"],
@@ -22,15 +23,27 @@
     "verb": "graph",
     "sidebarItems": true,
     "commands": [
-      { "id": "open", "title": "Graphs: Open Panel", "category": "Graphs" },
+      {
+        "id": "open",
+        "title": "Graphs: Open Panel",
+        "category": "Graphs"
+      },
       {
         "id": "validate",
         "title": "Check a graph file",
         "palette": false,
         "usage": "validate <file>"
       },
-      { "id": "schema", "title": "Print the graph file's JSON Schema", "palette": false },
-      { "id": "nodes", "title": "List the node kinds Ostia runs", "palette": false },
+      {
+        "id": "schema",
+        "title": "Print the graph file's JSON Schema",
+        "palette": false
+      },
+      {
+        "id": "nodes",
+        "title": "List the node kinds Ostia runs",
+        "palette": false
+      },
       {
         "id": "explain",
         "title": "Print an outline of a graph",
@@ -79,8 +92,17 @@
         "stdin": true
       }
     ],
-    "agentHooks": [{ "event": "Stop", "command": "on-stop" }],
-    "panel": { "title": "Graphs", "icon": "graph", "entry": "url" },
+    "agentHooks": [
+      {
+        "event": "Stop",
+        "command": "on-stop"
+      }
+    ],
+    "panel": {
+      "title": "Graphs",
+      "icon": "graph",
+      "entry": "url"
+    },
     "settings": {
       "maxSteps": {
         "type": "number",
@@ -122,6 +144,43 @@
         "maximum": 168,
         "description": "The ceiling a graph's limits.time may not pass"
       }
-    }
+    },
+    "connections": [
+      {
+        "kind": "http",
+        "title": "HTTP API",
+        "description": "An API a graph's http connector calls: requests stay under its base URL, never on another host or a path outside it",
+        "fields": {
+          "baseUrl": {
+            "title": "Base URL",
+            "description": "Where requests go, such as https://api.example.com/v1, without user:password@; a node's path is added under it",
+            "type": "string",
+            "required": true
+          },
+          "auth": {
+            "title": "Authentication",
+            "type": "enum",
+            "enum": ["none", "bearer", "header", "basic"],
+            "default": "bearer"
+          },
+          "header": {
+            "title": "Header name",
+            "description": "For header authentication, such as X-Api-Key",
+            "type": "string"
+          },
+          "username": {
+            "title": "User name",
+            "description": "For basic authentication",
+            "type": "string"
+          }
+        },
+        "secrets": {
+          "secret": {
+            "title": "Token or password",
+            "description": "Sent with every request of this connection; never in a graph file"
+          }
+        }
+      }
+    ]
   }
 }

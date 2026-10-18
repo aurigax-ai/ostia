@@ -1,6 +1,8 @@
+import { text } from 'node:stream/consumers'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { failureHint } from '../common/failure'
-import { type BrowseCall, extractGlobals, parseBrowseCommand, splitCommandLine } from './browseArgs'
+import { extractGlobals, parseBrowseCommand, splitCommandLine } from './browseArgs'
+import type { BrowseCall } from './browseFlags'
 
 export interface BrowseResponse {
   success: boolean
@@ -121,20 +123,13 @@ export function formatText(verb: string, data: Record<string, unknown> | null): 
   }
 }
 
-async function readStdin(): Promise<string> {
-  let data = ''
-  process.stdin.setEncoding('utf8')
-  for await (const chunk of process.stdin) data += chunk
-  return data
-}
-
 async function executeCall(
   conn: MessageConnection,
   call: BrowseCall,
   paneId: string | undefined,
 ): Promise<BrowseResponse> {
   const params: Record<string, unknown> = { ...call.params }
-  if (call.readsStdin) params.js = await readStdin()
+  if (call.readsStdin) params.js = await text(process.stdin)
   if (paneId) params.paneId = paneId
   try {
     return toResponse(await conn.sendRequest(call.method, params))
@@ -161,7 +156,7 @@ function report(verb: string, res: BrowseResponse, json: boolean): void {
 async function batchCommands(args: string[]): Promise<string[][] | string> {
   if (args.length > 0) return args.map(splitCommandLine)
   try {
-    const parsed = JSON.parse(await readStdin()) as unknown
+    const parsed = JSON.parse(await text(process.stdin)) as unknown
     if (!Array.isArray(parsed) || !parsed.every((c) => Array.isArray(c))) {
       return 'batch expects a JSON array of argument arrays on stdin'
     }

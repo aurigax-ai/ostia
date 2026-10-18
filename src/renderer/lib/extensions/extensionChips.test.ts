@@ -1,4 +1,4 @@
-import type { PaneChip, WorkspaceChip } from '@shared/extensions'
+import type { PaneChip, WorkspaceChip } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { describe, expect, it } from 'vitest'
 import { chipsForWorkspace, promptExtensionChips } from './extensionChips'
 

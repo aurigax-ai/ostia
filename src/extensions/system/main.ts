@@ -9,7 +9,7 @@ import {
   failure,
   ok,
   runTool,
-} from '../sdk'
+} from '@aurigax-ai/ostia-extension-sdk'
 import { installConfirm } from './confirm'
 import {
   type InstallContext,

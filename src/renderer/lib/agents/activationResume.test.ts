@@ -26,11 +26,12 @@ vi.spyOn(window, 'addEventListener').mockImplementation((type, listener, options
   addListener(type, listener, options)
 })
 
-function press(target: Element, trusted = true, button = 0): void {
-  listeners.get('pointerdown')?.({
-    type: 'pointerdown',
+function press(target: Element, trusted = true, button = 0, detail = 1): void {
+  listeners.get('click')?.({
+    type: 'click',
     isTrusted: trusted,
     button,
+    detail,
     target,
   } as unknown as Event)
 }
@@ -75,6 +76,11 @@ describe('startActivationResume', () => {
     const { body } = paneDom()
     press(body, true, 2)
     press(body, true, 1)
+    expect(resumeOnActivation).not.toHaveBeenCalled()
+  })
+
+  it('never resumes on a keyboard Enter or Space that clicks a button in the pane', () => {
+    press(paneDom().body, true, 0, 0)
     expect(resumeOnActivation).not.toHaveBeenCalled()
   })
 

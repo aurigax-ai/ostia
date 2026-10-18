@@ -16,7 +16,7 @@ import {
   type SelectionSendError,
   selectionLabel,
 } from '@shared/browser/selection'
-import type { ReferenceInsert } from '@shared/types'
+import type { ReferenceInsert } from '@shared/windows/windowsApi'
 import { pressEnterAfterPaste } from './agentEnter'
 import { runningAgentOf } from './paneAgent'
 
@@ -94,6 +94,8 @@ export async function sendReference(
 export function insertPathReference(target: ReferenceTarget, path: string): Promise<boolean> {
   return sendReference(target, reportReference(path))
 }
+
+const PREVIEW_KINDS: ReadonlySet<string> = new Set(['preview-error', 'preview-region'])
 
 async function deliverReport(
   target: ReferenceTarget,
@@ -189,7 +191,7 @@ export async function sendSelectionToPane(opts: {
     reportReference(res.path),
     opts.note,
     selectionLabel(opts.capture),
-    opts.capture.kind !== 'preview-error',
+    !PREVIEW_KINDS.has(opts.capture.kind),
   )
   return { ok: true, path: res.path, imagePath: res.imagePath, inserted }
 }

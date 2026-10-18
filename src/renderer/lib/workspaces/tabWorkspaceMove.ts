@@ -1,13 +1,11 @@
-import { allPanes, findPane, findSplitTab, tabIdOf, takeTab } from '@/layout/tree'
-import type { PaneNode } from '@/layout/types'
+import { takeTab } from '@/lib/layout/tabMoves'
+import { allPanes, findPane, findSplitTab, tabIdOf } from '@/lib/layout/tree'
+import type { PaneNode } from '@/lib/layout/types'
+import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { focusSurfaceWhenReady } from '@/stores/workspaces/surfaceSlotsStore'
-import {
-  type Workspace,
-  type WorkspaceKind,
-  useWorkspacesStore,
-} from '@/stores/workspaces/workspacesStore'
+import type { Workspace, WorkspaceKind } from '@/stores/workspaces/workspaceTypes'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 
 export type TabMoveRefusal = 'same' | 'unknown' | 'manager' | 'scratch' | 'sandbox'
 
@@ -113,7 +111,6 @@ export async function moveTabToWorkspace(
     useWorkspacesStore.getState().activeWorkspaceId === sourceId &&
     shownBefore !== undefined &&
     moved.includes(shownBefore)
-  const focus = wasShown ? useLayoutStore.getState().byWorkspace[sourceId]?.activePaneId : null
-  if (focus) focusSurfaceWhenReady(focus)
+  if (wasShown) focusActivePaneWhenReady(sourceId)
   return true
 }

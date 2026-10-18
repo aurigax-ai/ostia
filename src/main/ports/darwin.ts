@@ -1,4 +1,4 @@
-import type { ProcEntry } from '../../shared/common/procfs'
+import type { ProcEntry } from '../platform/procfs'
 import { type ListeningPort, addOwner, sortedPorts } from './procfs'
 
 export function parsePsTable(text: string): ProcEntry[] {

@@ -1,10 +1,13 @@
 import { resolve } from 'node:path'
 import { defineConfig } from 'vitest/config'
-import { dataUrl } from './scripts/dataUrl.mjs'
+import { pageScriptPlugin } from './scripts/pageScriptPlugin.mjs'
+import { activeEntries, announce } from './test/quarantine.mjs'
+
+announce(activeEntries(), 'vitest')
 
 export default defineConfig({
-  plugins: [dataUrl()],
-  assetsInclude: ['**/*.md', '**/*.txt'],
+  plugins: [pageScriptPlugin()],
+  assetsInclude: ['**/*.md', '**/*.txt', '**/*.wasm'],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src/renderer'),
@@ -13,19 +16,15 @@ export default defineConfig({
         __dirname,
         'node_modules/vscode-jsonrpc/lib/browser/main.js',
       ),
-      '@aurigax-ai/ostia-extension-sdk/assist': resolve(__dirname, 'src/extensions/sdk/assist'),
-      '@aurigax-ai/ostia-extension-sdk': resolve(__dirname, 'src/extensions/sdk'),
     },
   },
   test: {
     maxWorkers: 8,
     testTimeout: process.platform === 'darwin' ? 60_000 : 15_000,
-    minWorkers: 1,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary', 'html', 'lcov'],
-      all: true,
-      include: ['src/**/*.{ts,tsx}'],
+      include: ['src/**/*.{ts,tsx}', 'packages/*/src/**/*.ts'],
       exclude: [
         'src/renderer/components/ui/**',
         'src/renderer/main.tsx',
@@ -35,5 +34,53 @@ export default defineConfig({
         'test/**',
       ],
     },
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'node',
+          environment: 'node',
+          globalSetup: ['./test/buildOnce.ts'],
+          setupFiles: [
+            './test/hostEnv.ts',
+            './test/privateTmp.ts',
+            './test/appEnv.ts',
+            './test/quarantineSetup.ts',
+          ],
+          include: [
+            'src/main/**/*.test.ts',
+            'src/shared/**/*.test.ts',
+            'src/cli/**/*.test.ts',
+            'src/extensions/**/*.test.ts',
+            'packages/*/src/**/*.test.ts',
+            'test/*.test.ts',
+          ],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'dom',
+          environment: 'jsdom',
+          globals: true,
+          setupFiles: [
+            './test/hostEnv.ts',
+            './test/domEvents.ts',
+            './test/setup.ts',
+            './test/quarantineSetup.ts',
+          ],
+          include: ['src/renderer/**/*.test.{ts,tsx}'],
+          server: { deps: { inline: ['@aurigax-ai/ghostty-web'] } },
+          deps: {
+            optimizer: {
+              client: {
+                enabled: true,
+                include: ['@phosphor-icons/react'],
+              },
+            },
+          },
+        },
+      },
+    ],
   },
 })

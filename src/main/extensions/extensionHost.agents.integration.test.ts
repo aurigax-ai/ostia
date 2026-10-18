@@ -1,15 +1,15 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   EXTENSION_REDACT_TEXTS_MAX,
   EXTENSION_REDACT_TEXT_MAX,
-  type ExtensionAgentOffer,
   type ExtensionCaller,
-} from '../../shared/extensions'
+} from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ExtensionAgentOffer } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { CommandResult } from '../../shared/control/commands'
 import type { RedactionResult } from '../../shared/privacy/redaction'
-import type { CommandResult } from '../../shared/types'
 import {
   AGENT_TASKS_PER_MINUTE,
   type AgentOfferDelivery,
@@ -17,7 +17,9 @@ import {
 } from '../agents/extensionAgents'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { type PaneIdentity, registerPane, removePane } from '../control/idRegistry'
-import { ExtensionHost, type TerminalOpenRequest, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost } from './extensionHost'
+import { registerExtensionMethods } from './extensionMethods'
+import type { TerminalOpenRequest } from './extensionRuns'
 import { ExtensionStore } from './extensionStore'
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions-agents')
@@ -82,7 +84,7 @@ describe('ExtensionHost agent tasks: ext.agents, ext.runAgent, ext.offerToAgent,
   })
 
   afterAll(() => {
-    host.stopAll()
+    host.processes.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
   })

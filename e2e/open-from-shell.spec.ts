@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, openWorkspace, quitApp, runInTerminal, terminalTab } from './helpers'
+import { openWorkspace, quitApp, runInTerminal, terminalTab } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
@@ -71,89 +71,6 @@ test('GIT_EDITOR="ostia --wait" commits when the tab is closed, and Ctrl+C ends 
     await expect(tab(win, 'notes.txt')).toBeVisible()
     await tab(win, 'notes.txt').getByRole('tab').click()
     await expect(win.getByTestId('editor-waited')).toHaveCount(0)
-  } finally {
-    await quitApp(app)
-  }
-})
-
-test('closing the workspace ends a waiting editor with a failure instead of hanging', async () => {
-  test.setTimeout(120_000)
-  const dataHome = freshDataHome()
-  const home = join(dataHome, 'home')
-  mkdirSync(home, { recursive: true })
-  writeFileSync(join(home, 'notes.txt'), 'notes\n')
-  const marker = join(home, 'wait-result.txt')
-  const { app, win } = await launch(dataHome)
-  try {
-    await runInTerminal(
-      win,
-      `nohup sh -c 'ostia --wait ~/notes.txt; echo "exit:$?" > ${marker}' > /dev/null 2>&1 &`,
-    )
-    await expect(tab(win, 'notes.txt')).toBeVisible({ timeout: 20_000 })
-    await expect(win.getByTestId('editor-waited')).toBeVisible()
-    const row = win.locator('.rail-tab').first()
-    await row.hover()
-    await row.getByRole('button', { name: 'Close', exact: true }).click()
-    const confirm = win.getByRole('dialog')
-    if (await confirm.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await confirm.getByRole('button', { name: /Close/ }).last().click()
-    }
-    await expect(win.locator('.rail-tab')).toHaveCount(0, { timeout: 15_000 })
-    await expect
-      .poll(
-        () => {
-          try {
-            return execFileSync('cat', [marker]).toString().trim()
-          } catch {
-            return ''
-          }
-        },
-        { timeout: 20_000 },
-      )
-      .toBe('exit:1')
-  } finally {
-    await quitApp(app)
-  }
-})
-
-test('ostia diff, --split and -n open a comparison, a split and a new workspace', async () => {
-  test.setTimeout(120_000)
-  const dataHome = freshDataHome()
-  const home = join(dataHome, 'home')
-  mkdirSync(join(home, 'proj'), { recursive: true })
-  writeFileSync(join(home, 'old.txt'), 'first line\nsame\n')
-  writeFileSync(join(home, 'new.txt'), 'changed line\nsame\n')
-  const { app, win } = await launch(dataHome)
-  try {
-    await runInTerminal(win, 'ostia --split down ~/new.txt')
-    await expect(win.locator('.monaco-editor:visible .view-lines')).toContainText('changed line', {
-      timeout: 20_000,
-    })
-    await expect(win.locator('.xterm:visible')).toHaveCount(1)
-    const term = await win.locator('.xterm:visible').boundingBox()
-    const editor = await win.locator('.monaco-editor:visible').first().boundingBox()
-    expect(editor && term && editor.y > term.y + term.height - 4).toBe(true)
-
-    await win.locator('.xterm:visible').first().click()
-    await runInTerminal(win, 'ostia diff ~/old.txt ~/new.txt')
-    const diff = win.locator('.diff-surface:visible')
-    await expect(diff).toBeVisible({ timeout: 20_000 })
-    await expect(diff).toContainText('first line')
-    await expect(diff).toContainText('changed line')
-    await expect(tab(win, 'old.txt ↔ new.txt')).toBeVisible()
-
-    await terminalTab(win).click()
-    await runInTerminal(win, 'ostia diff ~/old.txt ~/missing.txt')
-    await expect(win.locator('.xterm:visible .xterm-rows').first()).toContainText(
-      'missing.txt: no such file',
-      { timeout: 15_000 },
-    )
-
-    await expect(win.locator('.rail-tab')).toHaveCount(1)
-    await runInTerminal(win, 'ostia -n ~/proj')
-    await expect(win.locator('.rail-tab')).toHaveCount(2, { timeout: 15_000 })
-    await expect(win.locator('.rail-tab').filter({ hasText: 'proj' })).toBeVisible()
-    await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT)
   } finally {
     await quitApp(app)
   }

@@ -1,3 +1,4 @@
+import { isDangerousSegment } from '@aurigax-ai/ostia-extension-sdk/contract/protoGuard'
 import {
   MCP_ENV_KEY,
   MCP_ENV_MAX,
@@ -10,7 +11,6 @@ import {
   isMcpUrl,
   mcpTransportOf,
 } from '@shared/assist/chatTools'
-import { isDangerousSegment } from '@shared/protoGuard'
 import { splitArgs } from '@shared/terminal/argv'
 import { quoteArgv } from '@shared/terminal/shellQuote'
 

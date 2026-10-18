@@ -10,12 +10,8 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { gitRequest } from '../../cli/verbs/coreBoards'
-import type {
-  CommandDescriptor,
-  CommandResult,
-  CommandTarget,
-  TerminalStateSnapshot,
-} from '../../shared/types'
+import type { CommandDescriptor, CommandResult, CommandTarget } from '../../shared/control/commands'
+import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import { grant } from '../approvals/capabilityStore'
 import {
   type ControlServerDeps,
@@ -393,7 +389,9 @@ function literals(text: string, re: RegExp): string[] {
 
 function registeredMethods(): Set<string> {
   const names = new Set<string>()
-  for (const text of controlSources('main', MAIN_PORTAL)) {
+  const files = productionFiles(join(SRC_DIR, 'main')).filter((f) => f !== MAIN_PORTAL)
+  for (const file of files) {
+    const text = readFileSync(file, 'utf8')
     for (const name of literals(
       text,
       /(?:registerControlMethod|registerTargetableMethod|conn\.onRequest|onCall)\(\s*'([^'\n]+)'/g,
@@ -404,8 +402,13 @@ function registeredMethods(): Set<string> {
       text,
       /(?:registerControlMethod|registerTargetableMethod)\(\s*`([a-z]+\.)\$\{name\}`/g,
     )) {
-      for (const name of literals(text, /^\s*(?:method|keyMethod|bufferMethod)\(\s*'([^'\n]+)'/gm))
-        names.add(prefix + name)
+      for (const sibling of files.filter((f) => dirname(f) === dirname(file))) {
+        for (const name of literals(
+          readFileSync(sibling, 'utf8'),
+          /^\s*(?:method|keyMethod|bufferMethod)\(\s*'([^'\n]+)'/gm,
+        ))
+          names.add(prefix + name)
+      }
     }
   }
   return names

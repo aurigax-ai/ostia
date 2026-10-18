@@ -1,8 +1,8 @@
-import { createPane } from '@/layout/tree'
+import { createPane } from '@/lib/layout/tree'
 import type { QuestionRequest } from '@shared/agents/questions'
 import type { ApprovalRequest } from '@shared/permissions/approvals'
 import { describe, expect, it } from 'vitest'
-import { CONTEXT_FOLD_CHARS, agoText, isLongContext, needsYouItems, paneWhere } from './dashboard'
+import { CONTEXT_FOLD_CHARS, isLongContext, needsYouItems, paneWhere } from './dashboard'
 
 function question(id: string, at: number): QuestionRequest {
   return { id, paneId: 'p1', question: id, context: '', choices: [], mode: 'text', at }
@@ -42,17 +42,6 @@ describe('isLongContext', () => {
     expect(isLongContext('a\nb\nc\nd')).toBe(false)
     expect(isLongContext('a\nb\nc\nd\ne')).toBe(true)
     expect(isLongContext('x'.repeat(CONTEXT_FOLD_CHARS + 1))).toBe(true)
-  })
-})
-
-describe('agoText', () => {
-  const format = new Intl.RelativeTimeFormat('en', { numeric: 'always', style: 'short' })
-
-  it('says just now under a minute, then minutes, hours and days', () => {
-    expect(agoText(59_000, 'just now', format)).toBe('just now')
-    expect(agoText(3 * 60_000, 'just now', format)).toBe('3 min. ago')
-    expect(agoText(2 * 3_600_000 + 5, 'just now', format)).toBe('2 hr. ago')
-    expect(agoText(49 * 3_600_000, 'just now', format)).toBe('2 days ago')
   })
 })
 

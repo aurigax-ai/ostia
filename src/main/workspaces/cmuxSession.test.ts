@@ -10,7 +10,8 @@ import {
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { CMUX_SESSION_MAX_BYTES, cmuxSessionPath, readCmuxSession } from './cmuxSession'
+import { CMUX_SESSION_MAX_BYTES } from '../../shared/workspaces/cmuxSession'
+import { cmuxSessionPath, readCmuxSession } from './cmuxSession'
 
 const FIXTURE = resolve(__dirname, '../../../test/fixtures/cmux/session-com.cmuxterm.app.json')
 

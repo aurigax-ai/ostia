@@ -1,10 +1,10 @@
 import '@testing-library/jest-dom/vitest'
-import { EXTENSIONS_NAV_EXPANDED_KEY } from '@/lib/app/settingsNav'
+import { EXTENSIONS_NAV_EXPANDED_KEY } from '@/lib/settings/settingsNav'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
-import type { ExtensionInfo } from '@shared/extensions'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -37,10 +37,12 @@ function ext(id: string, name: string, overrides: Partial<ExtensionInfo> = {}): 
     assist: [],
     secrets: [],
     secretsSet: [],
+    connectionKinds: [],
     settingsPage: null,
     category: 'other',
     languages: [],
     languageServers: [],
+    fileViewers: [],
     agentSkills: [],
     agentHooks: [],
     iconThemes: [],
@@ -312,8 +314,9 @@ describe('SettingsPanel extensions nav', () => {
       const list = screen.getByRole('list', { name: 'Installed extensions' })
 
       const ports = document.getElementById('settings-extension-tunnels') as HTMLElement
+      await user.click(within(list).getByRole('button', { name: 'Details of Tunnels' }))
       expect(within(ports).getByRole('spinbutton', { name: 'Scan interval' })).toBeInTheDocument()
-      await user.click(within(list).getByRole('button', { name: 'Board' }))
+      await user.click(within(list).getByRole('button', { name: 'Details of Board' }))
       const board = document.getElementById('settings-extension-board') as HTMLElement
       expect(within(board).queryByRole('spinbutton', { name: 'Poll interval' })).toBeNull()
 
@@ -350,7 +353,7 @@ describe('SettingsPanel extensions nav', () => {
       await user.click(within(nav()).getByRole('button', { name: 'Extensions' }))
       await user.click(
         within(screen.getByRole('list', { name: 'Installed extensions' })).getByRole('button', {
-          name: 'Board',
+          name: 'Details of Board',
         }),
       )
       const board = document.getElementById('settings-extension-board') as HTMLElement

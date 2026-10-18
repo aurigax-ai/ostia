@@ -1,8 +1,8 @@
 import { editorPositionOf } from '@/lib/files/editorPositions'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { isRemotePath } from '@shared/remoteFolders'
-import type { ExternalEditorResult } from '@shared/types'
-import { registerCore } from './core'
+import { isRemotePath } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import type { ExternalEditorResult } from '@shared/app/appApi'
+import { registerCore } from './coreCommand'
 
 export const OPEN_EXTERNAL_COMMAND = 'editor.openExternal'
 

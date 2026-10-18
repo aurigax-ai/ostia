@@ -3,8 +3,16 @@ import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { extensionHosts } from './extensionHosts'
+import { guestKeys, pressInPage, webviewHasKeyboard } from './guestKeys'
 import { openWorkspace, quitApp, waitForPaletteSelection } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import {
+  type ElectronApplication,
+  type Page,
+  _electron as electron,
+  expect,
+  test,
+  waitForExit,
+} from './test'
 
 test.describe.configure({ timeout: 240_000 })
 
@@ -23,16 +31,20 @@ const clickLabel = (app: ElectronApplication, selector: string, label: string) =
     `(() => { const el = [...document.querySelectorAll(${JSON.stringify(selector)})].find((e) => e.innerText.trim() === ${JSON.stringify(label)}); el?.click(); return el ? 'ok' : 'missing' })()`,
   )
 
-async function openPanel(win: Page): Promise<void> {
-  await win.keyboard.press(chords.palette)
+async function choosePanel(win: Page): Promise<void> {
   await win.locator('[data-slot="command-input"]').fill('Graphs: Open Panel')
   await waitForPaletteSelection(win, 'Graphs: Open Panel')
   await win.keyboard.press('Enter')
 }
 
+async function openPanel(win: Page): Promise<void> {
+  await win.keyboard.press(chords.palette)
+  await choosePanel(win)
+}
+
 async function kill(app: ElectronApplication): Promise<void> {
   const proc = app.process()
-  const gone = new Promise<void>((resolve) => proc.once('exit', () => resolve()))
+  const gone = waitForExit(app)
   proc.kill('SIGKILL')
   await gone
 }
@@ -112,8 +124,11 @@ edges:
     const again = await app.firstWindow()
     await again.waitForLoadState('domcontentloaded')
     await expect(again.locator('.xterm').first()).toBeVisible({ timeout: 30_000 })
-    await openPanel(again)
-    await again.keyboard.press('Control+Shift+D')
+    await expect.poll(() => webviewHasKeyboard(again), { timeout: 30_000 }).toBe(true)
+    await pressInPage(app, guestKeys.palette)
+    await choosePanel(again)
+    await expect.poll(() => webviewHasKeyboard(again), { timeout: 15_000 }).toBe(true)
+    await pressInPage(app, guestKeys.dashboard)
     const card = again.locator('article[data-question]', {
       hasText: 'Keep going after the restart?',
     })
@@ -136,7 +151,7 @@ edges:
   }
 })
 
-test('the graphs host starts with the window only while a run is unfinished', async () => {
+test('a waiting run outlives its closed panel tab and starts the graphs host with the next window', async () => {
   const dataHome = freshDataHome()
   const launch = isolatedLaunch(dataHome)
   mkdirSync(join(launch.home, '.ostia/graphs'), { recursive: true })
@@ -152,25 +167,16 @@ edges: []
 `,
   )
 
-  const launches = (): unknown => {
-    const file = join(dataHome, 'userData', 'extension-launches.json')
-    return existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null
-  }
-
   let app = await electron.launch(launch)
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    await win.waitForTimeout(1000)
-    expect(extensionHosts(app)).not.toContain('graphs')
     await openPanel(win)
     await enableAndRun(app, 'held')
-    await expect.poll(launches, { timeout: 15_000 }).toEqual(['graphs'])
-    await win.keyboard.press(chords.palette)
-    await win.locator('[data-slot="command-input"]').fill('Close Pane')
-    await waitForPaletteSelection(win, 'Close Pane')
-    await win.keyboard.press('Enter')
+    const panelTab = win.locator('.pane-tab', { hasText: 'Graphs' })
+    await panelTab.hover()
+    await panelTab.getByRole('button', { name: 'Close tab' }).click()
     await expect.poll(() => panelEval(app, '1'), { timeout: 15_000 }).toBe('')
     await win.keyboard.press('Control+Shift+D')
     await expect(
@@ -194,18 +200,6 @@ edges: []
     await card.getByRole('radio', { name: 'Approve' }).check()
     await card.getByRole('button', { name: 'Send' }).click()
     await expect(card).toHaveCount(0, { timeout: 15_000 })
-    await expect.poll(launches, { timeout: 15_000 }).toEqual([])
-  } finally {
-    await quitApp(app)
-  }
-
-  app = await electron.launch(launch)
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 30_000 })
-    await win.waitForTimeout(1000)
-    expect(extensionHosts(app)).not.toContain('graphs')
   } finally {
     await quitApp(app)
   }

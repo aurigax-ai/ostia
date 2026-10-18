@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 import { fstatSync, readFileSync } from 'node:fs'
 import type { Socket } from 'node:net'
-import { envName } from '../../shared/appEnv'
+import { envName } from '@aurigax-ai/ostia-extension-sdk/contract/appEnv'
 
 export type CallerVerdict = 'outside' | 'inside' | 'unknown'
 

@@ -1,15 +1,19 @@
 import { commands } from '@/commands/registry'
-import { WarningNote } from '@/components/settings/SettingsPanel'
+import { Notice } from '@/components/common/Notice'
 import { Button } from '@/components/ui/button'
-import { fmt, useDict } from '@/i18n/useDict'
-import type { PaneNode } from '@/layout/types'
+import { alwaysTrustWorkspaceFolders, resumeAnyway, trustForClaude } from '@/lib/agents/folderTrust'
 import { runningAgentOf } from '@/lib/agents/paneAgent'
+import { dismissResumeFailure, retryResume, startNewSession } from '@/lib/agents/resumeFailure'
 import { resumeClaimEndsAt, resumeConflict } from '@/lib/agents/resumeFolder'
+import { fmt, useDict } from '@/lib/app/useDict'
+import type { PaneNode } from '@/lib/layout/types'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { XIcon } from '@phosphor-icons/react'
+import { ArrowClockwiseIcon, PlusIcon, XIcon } from '@phosphor-icons/react'
+import type { ResumeFailure } from '@shared/agents/agentResume'
 import type { AgentResume } from '@shared/agents/agentResume'
 import { useEffect, useReducer } from 'react'
+import { PaneNoticeStrip } from './PaneNoticeStrip'
 
 export function ResumeFolderNotice({
   paneId,
@@ -22,12 +26,8 @@ export function ResumeFolderNotice({
 }): JSX.Element {
   const d = useDict()
   return (
-    <section
-      aria-label={d.pane.resumeFolderMissingLabel}
-      data-resume-folder-missing=""
-      className="motion-enter absolute right-0 bottom-0 left-0 z-20 border-line border-t bg-surface-1 px-2 pb-1.5"
-    >
-      <WarningNote
+    <PaneNoticeStrip aria-label={d.pane.resumeFolderMissingLabel} data-resume-folder-missing="">
+      <Notice
         actions={
           <Button
             variant="outline"
@@ -42,8 +42,8 @@ export function ResumeFolderNotice({
         <span className="[overflow-wrap:anywhere]">
           {fmt(d.pane.resumeFolderMissing, { agent: resume.agent, path: folder })}
         </span>
-      </WarningNote>
-    </section>
+      </Notice>
+    </PaneNoticeStrip>
   )
 }
 
@@ -63,12 +63,8 @@ export function ResumeConflictNotice({ pane }: { pane: PaneNode }): JSX.Element 
   if (!holder || !pane.resume) return null
   const both = runningAgentOf(pane.id) === pane.resume.agent
   return (
-    <section
-      aria-label={d.pane.resumeConflictLabel}
-      data-resume-conflict=""
-      className="motion-enter absolute right-0 bottom-0 left-0 z-20 border-line border-t bg-surface-1 px-2 pb-1.5"
-    >
-      <WarningNote
+    <PaneNoticeStrip aria-label={d.pane.resumeConflictLabel} data-resume-conflict="">
+      <Notice
         actions={
           <Button
             variant="outline"
@@ -86,7 +82,80 @@ export function ResumeConflictNotice({ pane }: { pane: PaneNode }): JSX.Element 
             tab: holder.title,
           })}
         </span>
-      </WarningNote>
-    </section>
+      </Notice>
+    </PaneNoticeStrip>
+  )
+}
+
+export function ResumeFailedNotice({
+  paneId,
+  failure,
+}: {
+  paneId: string
+  failure: ResumeFailure
+}): JSX.Element {
+  const d = useDict()
+  const { resume, exitCode } = failure
+  return (
+    <PaneNoticeStrip aria-label={d.pane.resumeFailedLabel} data-resume-failed="">
+      <Notice
+        actions={
+          <>
+            <Button variant="outline" size="xs" onClick={() => retryResume(paneId)}>
+              <ArrowClockwiseIcon data-icon="inline-start" aria-hidden />
+              {d.pane.resumeFailedRetry}
+            </Button>
+            <Button variant="outline" size="xs" onClick={() => startNewSession(paneId)}>
+              <PlusIcon data-icon="inline-start" aria-hidden />
+              {d.pane.resumeFailedNewSession}
+            </Button>
+            <Button variant="ghost" size="xs" onClick={() => dismissResumeFailure(paneId)}>
+              {d.pane.resumeFailedDismiss}
+            </Button>
+          </>
+        }
+      >
+        <span className="[overflow-wrap:anywhere]">
+          {fmt(d.pane.resumeFailed, {
+            agent: d.agentSession[resume.agent],
+            id: resume.id.slice(0, 8),
+            code: exitCode,
+          })}
+        </span>
+      </Notice>
+    </PaneNoticeStrip>
+  )
+}
+
+export function FolderTrustNotice({
+  paneId,
+  folder,
+}: {
+  paneId: string
+  folder: string
+}): JSX.Element {
+  const d = useDict()
+  return (
+    <PaneNoticeStrip aria-label={d.pane.folderTrustLabel} data-folder-trust="">
+      <Notice
+        actions={
+          <>
+            <Button variant="outline" size="xs" onClick={() => void trustForClaude(paneId)}>
+              {d.pane.folderTrustOnce}
+            </Button>
+            <Button variant="outline" size="xs" onClick={() => void alwaysTrustWorkspaceFolders()}>
+              {d.pane.folderTrustAlways}
+            </Button>
+            <Button variant="ghost" size="xs" onClick={() => resumeAnyway(paneId)}>
+              {d.pane.folderTrustSkip}
+            </Button>
+          </>
+        }
+      >
+        <span className="[overflow-wrap:anywhere]">
+          {fmt(d.pane.folderTrust, { path: folder })}
+        </span>
+      </Notice>
+    </PaneNoticeStrip>
   )
 }

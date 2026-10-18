@@ -2,10 +2,10 @@ import { spawn } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import type { HookAgent } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { HookAgent } from '../shared/agentPlugins'
+import type { CommandResult } from '../shared/control/commands'
 import type { ApprovalOutcome } from '../shared/permissions/approvals'
-import type { CommandResult } from '../shared/types'
 
 const dir = mkdtempSync(join(tmpdir(), 'ostia-cli-bus-'))
 process.env.XDG_DATA_HOME = join(dir, 'data')
@@ -17,9 +17,9 @@ vi.mock('../main/approvals/approvals', () => ({ approvals: () => ({ request }) }
 const { postBusMessage, registerBusMethods } = await import('../main/agents/bus')
 const { registerControlServer, stopControlServer } = await import('../main/control/controlServer')
 const { registerPane } = await import('../main/control/idRegistry')
-const { busHookCommand, claudeHookSettings, codexHookCommands } = await import(
-  '../main/terminal/shellIntegration'
-)
+const { busHookCommand } = await import('../main/terminal/agentHookCommands')
+const { claudeHookSettings } = await import('../main/terminal/claudeIntegration')
+const { codexHookCommands } = await import('../main/terminal/codexIntegration')
 
 const cliPath = join(process.cwd(), 'out', 'cli', 'index.js')
 const socketPath = join(dir, 'control.sock')

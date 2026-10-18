@@ -1,14 +1,15 @@
 import { syncExtensionCommands, wireExtensionBridge } from '@/commands/extensionBridge'
+import { PanelToggles } from '@/components/app/PanelToggles'
 import { CommandPalette } from '@/components/palette/CommandPalette'
-import { PanelToggles } from '@/components/shell/PanelToggles'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
-import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import type { ExtensionInfo } from '@shared/extensions'
+import type { Workspace } from '@/stores/workspaces/workspaceTypes'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { MarketplaceState } from '@shared/extensions/marketplace'
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
@@ -33,6 +34,7 @@ function greeter(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     requested: [],
     granted: [],
     languageServers: [],
+    fileViewers: [],
     agentSkills: [],
     agentHooks: [],
     unapproved: [],
@@ -54,6 +56,7 @@ function greeter(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     assist: [],
     secrets: [],
     secretsSet: [],
+    connectionKinds: [],
     settingsPage: null,
     iconThemes: [],
     keymaps: [],
@@ -114,18 +117,15 @@ describe('extension wording follows the list main resolved for the language', ()
 
   it('Settings → Extensions shows the English name, then the translated one, then English again', async () => {
     await renderSettled(<ExtensionsSection />)
-    const section = screen.getByRole('region', { name: 'Extensions' })
-    expect(within(section).getByRole('listitem', { name: 'Greeter' })).toBeInTheDocument()
-    expect(within(section).getByText('Says hello')).toBeInTheDocument()
+    expect(screen.getByRole('listitem', { name: 'Greeter' })).toHaveTextContent('Says hello')
 
     await act(async () => announce([TRADITIONAL_CHINESE]))
-    expect(within(section).getByRole('listitem', { name: '問候者' })).toBeInTheDocument()
-    expect(within(section).getByText('向你打招呼')).toBeInTheDocument()
-    expect(within(section).queryByText('Greeter')).toBeNull()
+    expect(screen.getByRole('listitem', { name: '問候者' })).toHaveTextContent('向你打招呼')
+    expect(screen.queryByText('Greeter')).toBeNull()
 
     await act(async () => announce([ENGLISH]))
-    expect(within(section).getByRole('listitem', { name: 'Greeter' })).toBeInTheDocument()
-    expect(within(section).queryByText('問候者')).toBeNull()
+    expect(screen.getByRole('listitem', { name: 'Greeter' })).toBeInTheDocument()
+    expect(screen.queryByText('問候者')).toBeNull()
   })
 
   it('the palette retitles the command while it is open and still runs the same command', async () => {
@@ -193,6 +193,8 @@ describe('extension wording follows the list main resolved for the language', ()
           description: '',
           problems: [],
           installs: [],
+          official: false,
+          downloaded: true,
           unlisted: false,
           extensions: [
             {

@@ -1,7 +1,14 @@
 import { sourceLinesOf, trackSelection } from '@/lib/browser/domSelection'
-import { findStep, matchChord } from '@/lib/keys/chords'
+import { findStep, matchChord } from '@/lib/keyboard/chords'
 import { isMac } from '@/platform'
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
+import {
+  type KeyboardEvent,
+  type MutableRefObject,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { DocumentFind } from './DocumentFind'
@@ -45,18 +52,24 @@ function mermaidSource(pre: HastNode | undefined): string | null {
   return names.includes('language-mermaid') ? textOf(code).replace(/\n$/, '') : null
 }
 
-const COMPONENTS: Components = {
-  a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer" />,
-  pre: ({ node, ...props }) => {
-    const diagram = mermaidSource(node as HastNode | undefined)
-    return diagram === null ? <pre {...props} /> : <MermaidDiagram code={diagram} />
-  },
-  table: ({ node: _node, ...props }) => (
-    <div className="typeset-scroll">
-      <table {...props} />
-    </div>
-  ),
+export const MARKDOWN_REMARK = REMARK_PLUGINS
+
+export function markdownComponents(diagram: (code: string) => ReactNode): Components {
+  return {
+    a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer" />,
+    pre: ({ node, ...props }) => {
+      const code = mermaidSource(node as HastNode | undefined)
+      return code === null ? <pre {...props} /> : diagram(code)
+    },
+    table: ({ node: _node, ...props }) => (
+      <div className="typeset-scroll">
+        <table {...props} />
+      </div>
+    ),
+  }
 }
+
+const COMPONENTS = markdownComponents((code) => <MermaidDiagram code={code} />)
 
 function isPlainFindKey(e: KeyboardEvent<HTMLElement>): boolean {
   return (isMac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f'
@@ -71,11 +84,13 @@ export interface PreviewSelection {
 export function MarkdownPreview({
   source,
   onSelectionChange,
+  focusRef,
 }: {
   source: string
   onSelectionChange?: (selection: PreviewSelection | null) => void
+  focusRef?: MutableRefObject<HTMLElement | null>
 }): JSX.Element {
-  const rootRef = useRef<HTMLDivElement>(null)
+  const rootRef = useRef<HTMLDivElement | null>(null)
   const articleRef = useRef<HTMLElement>(null)
   const [finding, setFinding] = useState(false)
   const findStepRef = useRef<((by: number) => void) | null>(null)
@@ -95,6 +110,11 @@ export function MarkdownPreview({
     }
   }, [])
 
+  const setRoot = (el: HTMLDivElement | null): void => {
+    rootRef.current = el
+    if (focusRef) focusRef.current = el
+  }
+
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
     const chord = matchChord(e, isMac)
     const by = findStep(chord)
@@ -111,7 +131,7 @@ export function MarkdownPreview({
 
   return (
     // biome-ignore lint/a11y/noNoninteractiveTabindex: the preview takes focus so its find key reaches it
-    <div ref={rootRef} className="markdown-preview" tabIndex={0} onKeyDown={onKeyDown}>
+    <div ref={setRoot} className="markdown-preview" tabIndex={0} onKeyDown={onKeyDown}>
       {finding ? (
         <DocumentFind
           rootRef={articleRef}

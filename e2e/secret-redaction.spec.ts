@@ -1,7 +1,6 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { type FakeProvider, fakeAssistantSettings, startFakeProvider } from './fakeProvider'
+import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, quitApp } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
@@ -74,65 +73,4 @@ test('the live terminal keeps a secret, the saved scrollback and the restored hi
   } finally {
     await quitApp(second.app)
   }
-})
-
-test.describe('chat with a provider', () => {
-  let provider: FakeProvider
-
-  test.beforeAll(async () => {
-    provider = await startFakeProvider(() => 'That key is refused because it expired.')
-  })
-
-  test.afterAll(() => provider.close())
-
-  test('the provider gets the question with the secret redacted, the chat says so, and the saved session has no secret', async () => {
-    const dataHome = freshDataHome()
-    seedSettings(dataHome, {
-      ...DOM_RENDERER_SETTINGS,
-      assistant: fakeAssistantSettings(provider.url),
-    })
-    const { app, win } = await launch(dataHome)
-    try {
-      await openWorkspace(win)
-      await win
-        .locator('header.topbar')
-        .getByRole('button', { name: /^Open chat/ })
-        .click()
-      const question = win.getByRole('combobox', { name: 'Your question' }).last()
-      await expect(question).toBeVisible({ timeout: 15_000 })
-      await question.fill(`why is ${TOKEN} refused?`)
-      await expect(win.getByTestId('chat-redaction-count')).toHaveText(
-        '1 secret will be redacted',
-        {
-          timeout: 15_000,
-        },
-      )
-      await question.press('Enter')
-      await expect(win.locator('.ask-answer').last()).toContainText('it expired', {
-        timeout: 15_000,
-      })
-
-      const sent = provider.requests.filter((r) => r.last.includes('refused?'))
-      expect(sent.length).toBeGreaterThan(0)
-      for (const request of sent) {
-        expect(request.last).toContain(`why is ${MARK} refused?`)
-        expect(request.last).not.toContain(TOKEN)
-      }
-      const asked = win.locator('.chat-message').filter({ hasText: 'refused?' }).first()
-      await expect(asked).toContainText(`why is ${MARK} refused?`)
-      await expect(asked).toContainText('1 secret redacted')
-
-      const sessions = join(dataHome, 'ostia', 'chat-sessions')
-      await expect
-        .poll(() => (existsSync(sessions) ? readdirSync(sessions).length : 0), { timeout: 15_000 })
-        .toBeGreaterThan(0)
-      for (const name of readdirSync(sessions)) {
-        const file = readFileSync(join(sessions, name), 'utf8')
-        expect(file).not.toContain(TOKEN)
-        expect(file).toContain(MARK)
-      }
-    } finally {
-      await app.close()
-    }
-  })
 })

@@ -1,24 +1,13 @@
 import { useSelectionSend } from '@/components/agents/SelectionSend'
 import { FindBar, findStatus } from '@/components/common/FindBar'
 import { IconButton } from '@/components/common/IconButton'
-import { fmt, useDict } from '@/i18n/useDict'
-import { registerSelectionSender } from '@/lib/agents/selectionSenders'
-import { cropToPng } from '@/lib/browser/cropImage'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { useElementSize } from '@/lib/app/useElementSize'
 import { trackSelection } from '@/lib/browser/domSelection'
-import { type Size, fitWidthScale, pixelRect } from '@/lib/browser/regionSelect'
-import { clearFind, findRanges, paintFind } from '@/lib/files/domFind'
+import { type Size, fitWidthScale } from '@/lib/browser/regionSelect'
+import { baseName } from '@/lib/files/fileTree'
 import { type PdfDocument, type PdfPage, loadPdfjs, openPdf } from '@/lib/files/pdf'
-import { itemTexts, pageItems, pdfMatches } from '@/lib/files/pdfText'
-import {
-  useElementSize,
-  useFileBytes,
-  usePinchZoom,
-  useRegionDrag,
-  useSettled,
-} from '@/lib/files/viewerHooks'
-import { findStep, matchChord } from '@/lib/keys/chords'
-import { isMac } from '@/platform'
-import { usePdfFindStore } from '@/stores/files/pdfFindStore'
+import { useFileBytes, usePinchZoom, useRegionDrag, useSettled } from '@/lib/files/viewerHooks'
 import {
   BoundingBoxIcon,
   CaretLeftIcon,
@@ -26,8 +15,16 @@ import {
   PaperPlaneTiltIcon,
   XIcon,
 } from '@phosphor-icons/react'
-import { type CSSProperties, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type CSSProperties,
+  type KeyboardEvent,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { ViewerMessage, type Zoom, ZoomControls, useBytesProblem } from './ViewerChrome'
+import { usePdfFind, usePdfSend } from './pdfViewerHooks'
 
 const STAGE_PADDING = 16
 const RENDER_SETTLE_MS = 120
@@ -129,28 +126,153 @@ function usePageRender(
   return textVersion
 }
 
-function usePageTexts(doc: PdfDocument | null, wanted: boolean): string[][] | null {
-  const [texts, setTexts] = useState<string[][] | null>(null)
-  useEffect(() => {
-    setTexts(null)
-    if (!doc || !wanted) return
-    let alive = true
-    pageItems(doc, doc.numPages).then(
-      (pages) => {
-        if (alive) setTexts(pages.map(itemTexts))
-      },
-      () => undefined,
-    )
-    return () => {
-      alive = false
-    }
-  }, [doc, wanted])
-  return texts
+function PdfToolbar({
+  filePath,
+  pageNumber,
+  pageCount,
+  goTo,
+  scale,
+  zoom,
+  onZoom,
+  regionMode,
+  toggleRegionMode,
+  hasRegion,
+  clearRegion,
+  sendLabel,
+  canSend,
+  onSend,
+}: {
+  filePath: string
+  pageNumber: number
+  pageCount: number
+  goTo: (n: number) => void
+  scale: number
+  zoom: Zoom
+  onZoom: (zoom: Zoom) => void
+  regionMode: boolean
+  toggleRegionMode: () => void
+  hasRegion: boolean
+  clearRegion: () => void
+  sendLabel: string
+  canSend: boolean
+  onSend: () => void
+}): JSX.Element {
+  const d = useDict()
+  return (
+    <div className="viewer-toolbar">
+      <span className="viewer-title">{baseName(filePath)}</span>
+      <span className="flex-1" />
+      <IconButton
+        size="bar"
+        icon={CaretLeftIcon}
+        label={d.viewer.previousPage}
+        disabled={pageNumber <= 1}
+        onClick={() => goTo(pageNumber - 1)}
+      />
+      <span className="viewer-meta">
+        {fmt(d.viewer.pageOf, { page: pageCount ? pageNumber : 0, pages: pageCount })}
+      </span>
+      <IconButton
+        size="bar"
+        icon={CaretRightIcon}
+        label={d.viewer.nextPage}
+        disabled={pageNumber >= pageCount}
+        onClick={() => goTo(pageNumber + 1)}
+      />
+      <ZoomControls scale={scale} zoom={zoom} onZoom={onZoom} />
+      <IconButton
+        size="bar"
+        icon={BoundingBoxIcon}
+        label={d.viewer.selectRegion}
+        aria-pressed={regionMode}
+        onClick={toggleRegionMode}
+      />
+      {hasRegion ? (
+        <IconButton size="bar" icon={XIcon} label={d.viewer.clearRegion} onClick={clearRegion} />
+      ) : null}
+      <IconButton
+        size="bar"
+        icon={PaperPlaneTiltIcon}
+        label={sendLabel}
+        disabled={!canSend}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={onSend}
+      />
+    </div>
+  )
 }
 
-function isFindKey(e: KeyboardEvent<HTMLElement>): boolean {
-  if (matchChord(e, isMac) === 'find') return true
-  return (isMac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f'
+function PdfStage({
+  stageRef,
+  pageRef,
+  canvasRef,
+  textRef,
+  message,
+  pageStyle,
+  hidden,
+  regionMode,
+  drag,
+  region,
+  scale,
+}: {
+  stageRef: RefObject<HTMLDivElement>
+  pageRef: RefObject<HTMLDivElement>
+  canvasRef: RefObject<HTMLCanvasElement>
+  textRef: RefObject<HTMLDivElement>
+  message: string | null
+  pageStyle: CSSProperties
+  hidden: boolean
+  regionMode: boolean
+  drag: ReturnType<typeof useRegionDrag>
+  region: ReturnType<typeof useRegionDrag>['region']
+  scale: number
+}): JSX.Element {
+  const d = useDict()
+  const onRegionKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
+    if (e.key === 'Escape' && drag.region) {
+      e.stopPropagation()
+      drag.clear()
+    }
+  }
+
+  return (
+    <div className="viewer-body">
+      <div ref={stageRef} className="viewer-stage">
+        {message ? <ViewerMessage>{message}</ViewerMessage> : null}
+        <div
+          ref={pageRef}
+          className="pdf-page"
+          style={hidden ? { ...pageStyle, display: 'none' } : pageStyle}
+        >
+          <canvas ref={canvasRef} className="pdf-canvas" />
+          <div ref={textRef} className="pdf-text" data-region-mode={regionMode || undefined} />
+          {regionMode ? (
+            <div
+              className={drag.enabled ? 'pdf-region-layer region-select' : 'pdf-region-layer'}
+              tabIndex={-1}
+              onKeyDown={onRegionKeyDown}
+              {...drag.handlers}
+            >
+              {region ? (
+                <div
+                  className="viewer-region"
+                  style={{
+                    left: region.x * scale,
+                    top: region.y * scale,
+                    width: region.width * scale,
+                    height: region.height * scale,
+                  }}
+                />
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </div>
+      {regionMode && !region ? (
+        <output className="viewer-hint">{d.viewer.regionHint}</output>
+      ) : null}
+    </div>
+  )
 }
 
 export function PdfViewer({
@@ -188,47 +310,8 @@ export function PdfViewer({
   const renderScale = useSettled(base ? scale : null, RENDER_SETTLE_MS)
 
   const textVersion = usePageRender(page, renderScale ?? scale, canvasRef, textRef)
-  const [finding, setFinding] = useState(false)
-  const [query, setQuery] = useState('')
-  const [active, setActive] = useState(0)
-  const [wantPage, setWantPage] = useState<number | null>(null)
-  const pageTexts = usePageTexts(doc, finding)
-  const matches = useMemo(() => (pageTexts ? pdfMatches(pageTexts, query) : []), [pageTexts, query])
-  const current = matches[active] ?? null
-
-  useEffect(() => {
-    const request = usePdfFindStore.getState().take(filePath)
-    if (!request) return
-    setFinding(true)
-    setQuery(request.query)
-    setWantPage(request.page)
-    setPageNumber(request.page)
-  }, [filePath])
-
-  useEffect(() => {
-    if (wantPage === null || !pageTexts) return
-    const first = matches.findIndex((m) => m.page === wantPage)
-    setActive(first >= 0 ? first : 0)
-    setWantPage(null)
-  }, [wantPage, pageTexts, matches])
-
-  useEffect(() => {
-    if (current && current.page !== pageNumber) setPageNumber(current.page)
-  }, [current, pageNumber])
-
-  useEffect(() => {
-    const textEl = textRef.current
-    if (!finding || !textEl || textVersion === 0) {
-      clearFind()
-      return
-    }
-    const ranges = findRanges(textEl, query)
-    const nth = current && current.page === pageNumber ? current.nth : -1
-    paintFind(ranges, nth)
-    ranges[nth]?.startContainer.parentElement?.scrollIntoView({ block: 'center' })
-  }, [finding, query, current, pageNumber, textVersion])
-
-  useEffect(() => clearFind, [])
+  const { finding, setFinding, query, setQuery, active, setActive, matches, stepFind, onFindKey } =
+    usePdfFind({ doc, filePath, pageNumber, setPageNumber, textRef, textVersion })
 
   useEffect(() => {
     const textEl = textRef.current
@@ -248,49 +331,19 @@ export function PdfViewer({
     setRegionMode((on) => !on)
   }
 
-  const sendRef = useRef<() => void>(() => {})
-  sendRef.current = () => {
-    const canvas = canvasRef.current
-    if (!page || !base || !canvas) return
-    if (!regionMode && selectedText) {
-      selectionSend.open({
-        kind: 'pdf-text',
-        file: filePath,
-        firstPage: pageNumber,
-        lastPage: pageNumber,
-        text: selectedText,
-      })
-      return
-    }
-    const region = regionMode ? drag.region : null
-    const factor = canvas.width / base.width
-    const bounds = { width: canvas.width, height: canvas.height }
-    const rect = region ? pixelRect(region, factor, bounds) : { x: 0, y: 0, ...bounds }
-    cropToPng(canvas, rect).then(
-      (png) =>
-        selectionSend.open(
-          {
-            kind: 'pdf-region',
-            file: filePath,
-            page: pageNumber,
-            pageWidth: Math.round(base.width * 100) / 100,
-            pageHeight: Math.round(base.height * 100) / 100,
-            region,
-          },
-          png,
-        ),
-      () => selectionSend.notify(d.viewer.pdfFailed),
-    )
-  }
-
-  useEffect(() => registerSelectionSender(paneId, () => sendRef.current()), [paneId])
-
-  const onRegionKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
-    if (e.key === 'Escape' && drag.region) {
-      e.stopPropagation()
-      drag.clear()
-    }
-  }
+  const sendRef = usePdfSend({
+    paneId,
+    filePath,
+    canvasRef,
+    page,
+    base,
+    pageNumber,
+    regionMode,
+    selectedText,
+    drag,
+    selectionSend,
+    failedText: d.viewer.pdfFailed,
+  })
 
   const message = problem ?? (failed ? d.viewer.pdfFailed : null)
   const region = regionMode ? drag.region : null
@@ -306,18 +359,6 @@ export function PdfViewer({
     '--scale-round-x': '1px',
     '--scale-round-y': '1px',
   } as CSSProperties
-
-  const stepFind = (by: number): void => {
-    if (matches.length > 0) setActive((i) => (i + by + matches.length) % matches.length)
-  }
-
-  const onFindKey = (e: KeyboardEvent<HTMLDivElement>): void => {
-    const by = findStep(matchChord(e, isMac))
-    if (by === null && !isFindKey(e)) return
-    e.preventDefault()
-    if (by !== null && finding) stepFind(by)
-    else setFinding(true)
-  }
 
   return (
     // biome-ignore lint/a11y/noNoninteractiveTabindex: the viewer takes focus so its find key reaches it
@@ -339,82 +380,35 @@ export function PdfViewer({
           }}
         />
       ) : null}
-      <div className="viewer-toolbar">
-        <span className="viewer-title">{filePath.split('/').pop()}</span>
-        <span className="flex-1" />
-        <IconButton
-          size="bar"
-          icon={CaretLeftIcon}
-          label={d.viewer.previousPage}
-          disabled={pageNumber <= 1}
-          onClick={() => goTo(pageNumber - 1)}
-        />
-        <span className="viewer-meta">
-          {fmt(d.viewer.pageOf, { page: pageCount ? pageNumber : 0, pages: pageCount })}
-        </span>
-        <IconButton
-          size="bar"
-          icon={CaretRightIcon}
-          label={d.viewer.nextPage}
-          disabled={pageNumber >= pageCount}
-          onClick={() => goTo(pageNumber + 1)}
-        />
-        <ZoomControls scale={scale} zoom={zoom} onZoom={setZoom} />
-        <IconButton
-          size="bar"
-          icon={BoundingBoxIcon}
-          label={d.viewer.selectRegion}
-          aria-pressed={regionMode}
-          onClick={toggleRegionMode}
-        />
-        {region ? (
-          <IconButton size="bar" icon={XIcon} label={d.viewer.clearRegion} onClick={drag.clear} />
-        ) : null}
-        <IconButton
-          size="bar"
-          icon={PaperPlaneTiltIcon}
-          label={sendLabel}
-          disabled={!page}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => sendRef.current()}
-        />
-      </div>
-      <div className="viewer-body">
-        <div ref={stageRef} className="viewer-stage">
-          {message ? <ViewerMessage>{message}</ViewerMessage> : null}
-          <div
-            ref={pageRef}
-            className="pdf-page"
-            style={message || !page ? { ...pageStyle, display: 'none' } : pageStyle}
-          >
-            <canvas ref={canvasRef} className="pdf-canvas" />
-            <div ref={textRef} className="pdf-text" data-region-mode={regionMode || undefined} />
-            {regionMode ? (
-              <div
-                className={drag.enabled ? 'pdf-region-layer region-select' : 'pdf-region-layer'}
-                tabIndex={-1}
-                onKeyDown={onRegionKeyDown}
-                {...drag.handlers}
-              >
-                {region ? (
-                  <div
-                    className="viewer-region"
-                    style={{
-                      left: region.x * scale,
-                      top: region.y * scale,
-                      width: region.width * scale,
-                      height: region.height * scale,
-                    }}
-                  />
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        </div>
-        {regionMode && !region ? (
-          <output className="viewer-hint">{d.viewer.regionHint}</output>
-        ) : null}
-      </div>
+      <PdfToolbar
+        filePath={filePath}
+        pageNumber={pageNumber}
+        pageCount={pageCount}
+        goTo={goTo}
+        scale={scale}
+        zoom={zoom}
+        onZoom={setZoom}
+        regionMode={regionMode}
+        toggleRegionMode={toggleRegionMode}
+        hasRegion={region !== null}
+        clearRegion={drag.clear}
+        sendLabel={sendLabel}
+        canSend={page !== null}
+        onSend={() => sendRef.current()}
+      />
+      <PdfStage
+        stageRef={stageRef}
+        pageRef={pageRef}
+        canvasRef={canvasRef}
+        textRef={textRef}
+        message={message}
+        pageStyle={pageStyle}
+        hidden={Boolean(message) || !page}
+        regionMode={regionMode}
+        drag={drag}
+        region={region}
+        scale={scale}
+      />
       {selectionSend.panel}
       {selectionSend.status}
     </div>

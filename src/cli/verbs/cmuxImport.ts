@@ -1,6 +1,6 @@
 import { resolve as resolvePath } from 'node:path'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import type { CommandResult } from '../../shared/types'
+import type { CommandResult } from '../../shared/control/commands'
 import type {
   CmuxImportReport,
   CmuxLoss,
@@ -8,8 +8,9 @@ import type {
 } from '../../shared/workspaces/cmuxSession'
 import { MAX_PANES, MAX_WORKSPACES } from '../../shared/workspaces/workspaceLimits'
 import { parseArgs } from '../common/args'
+import { usageOf } from '../common/usageTable'
 
-export const CMUX_IMPORT_USAGE = 'usage: ostia workspace import-cmux [session-file] [--json]'
+const CMUX_IMPORT_USAGE = usageOf('cmux')
 
 const CMUX_IMPORT_COMMAND = 'workspace.importCmux'
 
@@ -81,7 +82,7 @@ export async function runCmuxImportVerb(
     args: args.path ? { path: args.path } : {},
   })
   if (!res.ok || !res.result) {
-    console.error(`ostia workspace import-cmux: ${res.ok ? 'no result' : res.error?.message}`)
+    console.error(`ostia cmux import: ${res.ok ? 'no result' : res.error?.message}`)
     return 1
   }
   if (args.json) console.log(JSON.stringify(res.result, null, 2))

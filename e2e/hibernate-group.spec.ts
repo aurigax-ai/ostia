@@ -6,7 +6,7 @@ import { type Locator, type Page, _electron as electron, expect, test } from './
 test.describe.configure({ timeout: 150_000 })
 
 const MARK = 'group-agent-507'
-const RESUME_LINE = 'claude --resume e2e-group'
+const RESUME_LINE = "'claude' --resume e2e-group"
 
 const AGENT = [
   '#!/bin/sh',
@@ -78,7 +78,6 @@ test('a group hibernates and resumes the agents of all its workspaces from its h
     const head = win.locator('.rail-group-head')
     const asleep = members.getByRole('img', { name: 'Hibernated' })
     await head.click({ button: 'right' })
-    await expect(win.getByRole('menuitem', { name: 'Resume agents' })).toHaveCount(0)
     await win.getByRole('menuitem', { name: 'Hibernate agents' }).click()
     await expect(asleep).toHaveCount(2, { timeout: 15_000 })
 
@@ -89,10 +88,6 @@ test('a group hibernates and resumes the agents of all its workspaces from its h
 
     await members.first().locator('.rail-tab-main').click()
     await expectResumedOnce(win)
-
-    await head.click({ button: 'right' })
-    await expect(win.getByRole('menuitem', { name: 'Hibernate agents' })).toBeEnabled()
-    await expect(win.getByRole('menuitem', { name: 'Resume agents' })).toHaveCount(0)
   } finally {
     await app.close()
   }

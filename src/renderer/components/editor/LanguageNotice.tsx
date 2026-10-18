@@ -1,14 +1,17 @@
 import { Button } from '@/components/ui/button'
-import { fmt, useDict } from '@/i18n/useDict'
-import { fileLanguage } from '@/monaco/language'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { useFlipped } from '@/lib/app/useFlipped'
+import { fileLanguage } from '@/lib/monaco/language'
+import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLanguageNoticeStore } from '@/stores/extensions/languageNoticeStore'
 import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
+import type { LanguageServerInfo } from '@aurigax-ai/ostia-extension-sdk/contract/languageServers'
 import type { ExtensionSuggestion } from '@shared/extensions/extensionSuggestions'
 import type { MarketplaceError } from '@shared/extensions/marketplace'
-import type { LanguageServerInfo } from '@shared/languageServers'
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
+import { NoticeAppearing } from './noticeAppearing'
 
 const SERVER_NOTICES = [
   'downloading',
@@ -33,10 +36,14 @@ export function serverNoticeFor(
 
 function Bar({ children }: { children: React.ReactNode }): JSX.Element {
   const d = useDict()
+  const appearing = useContext(NoticeAppearing)
   return (
     <output
       aria-label={d.languageNotice.label}
-      className="language-notice flex items-center gap-2 border-line border-b bg-surface-2 px-3 text-fg-muted text-ui-sm"
+      className={cn(
+        'language-notice flex items-center gap-2 border-line border-b bg-surface-2 px-3 text-fg-muted text-ui-sm',
+        appearing && 'motion-fade',
+      )}
     >
       {children}
     </output>
@@ -185,7 +192,15 @@ export function LanguageNotice({
 
   useEffect(() => () => useLanguageNoticeStore.getState().release(paneId), [paneId])
 
-  if (serverNotice) return <ServerBar server={serverNotice} />
-  if (!suggestion) return null
-  return <SuggestionBar suggestion={suggestion} onGone={() => setSuggestion(null)} />
+  const appearing = useFlipped({ bar: Boolean(serverNotice || suggestion) }).has('bar')
+  if (!serverNotice && !suggestion) return null
+  return (
+    <NoticeAppearing.Provider value={appearing}>
+      {serverNotice ? (
+        <ServerBar server={serverNotice} />
+      ) : suggestion ? (
+        <SuggestionBar suggestion={suggestion} onGone={() => setSuggestion(null)} />
+      ) : null}
+    </NoticeAppearing.Provider>
+  )
 }

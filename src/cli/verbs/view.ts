@@ -1,6 +1,7 @@
 import { readFileSync, statSync } from 'node:fs'
 import { basename, resolve as resolvePath } from 'node:path'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
+import { parseViewText } from '../../shared/views/viewParse'
 import { viewJsonSchema } from '../../shared/views/viewSchema'
 import {
   VIEW_FILE_MAX_BYTES,
@@ -8,12 +9,12 @@ import {
   type ViewProblem,
   type ViewStatus,
   formatViewProblem,
-  parseViewText,
   viewNameOf,
 } from '../../shared/views/views'
 import { parseArgs } from '../common/args'
+import { usageOf } from '../common/usageTable'
 
-const VIEW_USAGE = 'ostia view: usage: view list [--json] | validate <file> | open <name> | schema'
+const VIEW_USAGE = usageOf('view')
 
 interface ViewSummary {
   name: string

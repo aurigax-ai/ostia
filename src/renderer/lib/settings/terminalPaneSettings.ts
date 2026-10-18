@@ -1,0 +1,132 @@
+import { MATCH_OSTIA_THEME, parseThemeChoice } from '@/lib/theme/themeChoice'
+import {
+  DEFAULT_PROMPT_SETTINGS,
+  type PromptSettings,
+  parsePromptSettings,
+} from '@shared/terminal/promptSettings'
+import {
+  DEFAULT_SCROLLBACK_HISTORY,
+  type ScrollbackHistory,
+  parseScrollbackHistory,
+} from '@shared/terminal/scrollbackHistory'
+import { parseShellSetting } from '@shared/terminal/terminalShell'
+
+export interface TerminalSettings {
+  scrollSpeed: number
+  scrollbackLines: number
+  scrollbackHistory: ScrollbackHistory
+  warnOnRiskyPaste: boolean
+  minimumContrast: number
+  prompt: PromptSettings
+  clipboardKeys: ClipboardKeys
+  linkClick: LinkClick
+  theme: string
+  shell: string
+  osc52Write: boolean
+  keepShells: boolean
+  primarySelection: boolean
+  macOptionIsMeta: boolean
+  renderer: TerminalRenderer
+}
+
+export const TERMINAL_RENDERERS = ['xterm', 'ghostty'] as const
+export type TerminalRenderer = (typeof TERMINAL_RENDERERS)[number]
+
+const CLIPBOARD_KEYS = ['shift', 'smart'] as const
+export type ClipboardKeys = (typeof CLIPBOARD_KEYS)[number]
+
+const LINK_CLICKS = ['app', 'system'] as const
+export type LinkClick = (typeof LINK_CLICKS)[number]
+
+export interface PaneSettings {
+  dimInactive: boolean
+  focusOnHover: boolean
+  equalizeOnSplit: boolean
+  hideTabClose: boolean
+}
+
+export const SCROLL_SPEED_MIN = 0.5
+export const SCROLL_SPEED_MAX = 5
+export const SCROLLBACK_MIN = 1000
+export const SCROLLBACK_MAX = 100000
+export const CONTRAST_MIN = 1
+export const CONTRAST_MAX = 21
+
+export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
+  scrollSpeed: 1,
+  scrollbackLines: 10000,
+  scrollbackHistory: DEFAULT_SCROLLBACK_HISTORY,
+  warnOnRiskyPaste: true,
+  minimumContrast: 1,
+  prompt: DEFAULT_PROMPT_SETTINGS,
+  clipboardKeys: 'shift',
+  linkClick: 'app',
+  theme: MATCH_OSTIA_THEME,
+  shell: '',
+  osc52Write: true,
+  keepShells: false,
+  primarySelection: true,
+  macOptionIsMeta: false,
+  renderer: 'xterm',
+}
+
+export const DEFAULT_PANE_SETTINGS: PaneSettings = {
+  dimInactive: true,
+  focusOnHover: false,
+  equalizeOnSplit: false,
+  hideTabClose: false,
+}
+
+function clampTo(v: unknown, min: number, max: number, fallback: number, decimals: number): number {
+  const n = typeof v === 'number' ? v : Number.NaN
+  if (!Number.isFinite(n)) return fallback
+  const scale = 10 ** decimals
+  return Math.min(max, Math.max(min, Math.round(n * scale) / scale))
+}
+
+export const clampScrollSpeed = (v: unknown): number =>
+  clampTo(v, SCROLL_SPEED_MIN, SCROLL_SPEED_MAX, DEFAULT_TERMINAL_SETTINGS.scrollSpeed, 1)
+
+export const clampScrollback = (v: unknown): number =>
+  clampTo(v, SCROLLBACK_MIN, SCROLLBACK_MAX, DEFAULT_TERMINAL_SETTINGS.scrollbackLines, 0)
+
+export const clampContrast = (v: unknown): number =>
+  clampTo(v, CONTRAST_MIN, CONTRAST_MAX, DEFAULT_TERMINAL_SETTINGS.minimumContrast, 1)
+
+function pickBooleans<T extends object>(base: T, raw: Record<string, unknown>): T {
+  const out = { ...base }
+  for (const key of Object.keys(base) as (keyof T & string)[]) {
+    if (typeof raw[key] === 'boolean') out[key] = raw[key] as T[keyof T & string]
+  }
+  return out
+}
+
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v)
+
+export function parseTerminalSettings(raw: unknown): TerminalSettings {
+  const source = isRecord(raw) ? raw : {}
+  return {
+    ...pickBooleans(DEFAULT_TERMINAL_SETTINGS, source),
+    scrollSpeed: clampScrollSpeed(source.scrollSpeed),
+    scrollbackLines: clampScrollback(source.scrollbackLines),
+    scrollbackHistory: parseScrollbackHistory(source.scrollbackHistory),
+    minimumContrast: clampContrast(source.minimumContrast),
+    prompt: parsePromptSettings(source.prompt),
+    clipboardKeys: CLIPBOARD_KEYS.includes(source.clipboardKeys as ClipboardKeys)
+      ? (source.clipboardKeys as ClipboardKeys)
+      : DEFAULT_TERMINAL_SETTINGS.clipboardKeys,
+    linkClick: LINK_CLICKS.includes(source.linkClick as LinkClick)
+      ? (source.linkClick as LinkClick)
+      : DEFAULT_TERMINAL_SETTINGS.linkClick,
+    theme: parseThemeChoice(source.theme),
+    shell: parseShellSetting(source.shell),
+    renderer: TERMINAL_RENDERERS.includes(source.renderer as TerminalRenderer)
+      ? (source.renderer as TerminalRenderer)
+      : DEFAULT_TERMINAL_SETTINGS.renderer,
+  }
+}
+
+export function parsePaneSettings(raw: unknown): PaneSettings {
+  return pickBooleans(DEFAULT_PANE_SETTINGS, isRecord(raw) ? raw : {})
+}
