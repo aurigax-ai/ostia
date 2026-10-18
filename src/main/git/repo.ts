@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process'
 import { lstat, readFile, readlink, realpath } from 'node:fs/promises'
+import { devNull } from 'node:os'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { isInsidePath } from '../platform/pathGuard'
 import {
@@ -53,11 +54,14 @@ interface RunResult {
   stderr: string
 }
 
-function run(cwd: string, args: string[]): Promise<RunResult> {
+const NO_PROGRAMS = ['-c', 'core.fsmonitor=false']
+const NO_HOOKS = ['-c', `core.hooksPath=${devNull}`]
+
+function run(cwd: string, args: string[], hooks = false): Promise<RunResult> {
   return new Promise((done) => {
     execFile(
       'git',
-      args,
+      [...NO_PROGRAMS, ...(hooks ? [] : NO_HOOKS), ...args],
       {
         cwd,
         encoding: 'buffer',
@@ -72,8 +76,8 @@ function run(cwd: string, args: string[]): Promise<RunResult> {
   })
 }
 
-async function runOk(cwd: string, args: string[]): Promise<Buffer> {
-  const res = await run(cwd, args)
+async function runOk(cwd: string, args: string[], hooks = false): Promise<Buffer> {
+  const res = await run(cwd, args, hooks)
   if (res.code !== 0)
     throw new RepoError(
       'git-failed',
@@ -160,7 +164,7 @@ export async function diffSides(root: string, change: FileChange): Promise<DiffS
 }
 
 export async function unifiedPatch(root: string, change: FileChange): Promise<string> {
-  const common = ['--no-color', '--no-ext-diff']
+  const common = ['--no-color', '--no-ext-diff', '--no-textconv']
   if (change.area === 'untracked') {
     const res = await run(root, ['diff', ...common, '--no-index', '--', '/dev/null', change.path])
     if (res.code !== 0 && res.code !== 1) throw new RepoError('git-failed', res.stderr.trim())
@@ -194,7 +198,15 @@ async function untrackedLines(root: string, path: string): Promise<number> {
 }
 
 export async function lineChanges(root: string, untracked: string[]): Promise<LineChanges | null> {
-  const res = await run(root, ['-c', 'diff.autoRefreshIndex=false', 'diff', '--shortstat', 'HEAD'])
+  const res = await run(root, [
+    '-c',
+    'diff.autoRefreshIndex=false',
+    'diff',
+    '--no-ext-diff',
+    '--no-textconv',
+    '--shortstat',
+    'HEAD',
+  ])
   const tracked = res.code === 0 ? parseShortstat(res.stdout.toString('utf8')) : null
   if (untracked.length === 0) return tracked
   const counted = await Promise.all(
@@ -225,7 +237,7 @@ export async function discard(root: string, changes: FileChange[]): Promise<void
 }
 
 export async function commit(root: string, message: string): Promise<string> {
-  await runOk(root, ['commit', '-q', '-m', message])
+  await runOk(root, ['commit', '-q', '-m', message], true)
   return (await runOk(root, ['rev-parse', 'HEAD'])).toString('utf8').trim()
 }
 
@@ -289,7 +301,17 @@ export async function commitDetail(root: string, input: string): Promise<CommitD
   )
   const parent = await firstParent(root, sha)
   const out = parent
-    ? await runOk(root, ['diff', '--no-color', '--name-status', '-z', '-M', parent, sha])
+    ? await runOk(root, [
+        'diff',
+        '--no-color',
+        '--no-ext-diff',
+        '--no-textconv',
+        '--name-status',
+        '-z',
+        '-M',
+        parent,
+        sha,
+      ])
     : await runOk(root, ['diff-tree', '--no-commit-id', '--root', '-r', '-z', '--name-status', sha])
   const files = parseNameStatus(out.toString('utf8'))
   return { commit: summary, parent, files }
@@ -309,7 +331,7 @@ export async function commitSides(
 }
 
 export async function blame(root: string, rel: string): Promise<BlameLine[]> {
-  const out = await runOk(root, [LITERAL, 'blame', '--porcelain', '--', rel])
+  const out = await runOk(root, [LITERAL, 'blame', '--no-textconv', '--porcelain', '--', rel])
   if (out.length > MAX_SIDE_BYTES * 4)
     throw new RepoError('too-large', 'file is too large to blame')
   return parseBlamePorcelain(out.toString('utf8'))
