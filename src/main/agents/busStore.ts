@@ -32,6 +32,7 @@ export interface Mail {
   deliveredAt?: string
   failedAt?: string
   reason?: string
+  dismissed?: true
 }
 
 export type HandoffState = 'submitted' | 'claimed' | 'completed' | 'failed'
@@ -112,9 +113,23 @@ async function drain(): Promise<void> {
   inflight = undefined
 }
 
+const changeListeners = new Set<() => void>()
+let changeQueued = false
+
+export function onBusChange(listener: () => void): () => void {
+  changeListeners.add(listener)
+  return () => changeListeners.delete(listener)
+}
+
 export function markBusDirty(): void {
   dirty = true
   inflight ??= drain()
+  if (changeQueued) return
+  changeQueued = true
+  queueMicrotask(() => {
+    changeQueued = false
+    for (const listener of [...changeListeners]) listener()
+  })
 }
 
 export async function flushBus(): Promise<void> {
@@ -308,6 +323,50 @@ export function mailCounts(pane: string) {
     }
   }
   return { ...counts, oldestQueuedMs, lastFailure }
+}
+
+export interface MailView {
+  id: string
+  state: 'queued' | 'failed'
+  from: string
+  to: string
+  ts: string
+  pending?: MailPending
+  reason?: string
+}
+
+const FAILED_SHOWN_MAX = 5
+
+export function mailViews(): MailView[] {
+  sweepBus()
+  const failedPerPane = new Map<string, number>()
+  const views: MailView[] = []
+  const mail = store().mail
+  for (let i = mail.length - 1; i >= 0; i--) {
+    const item = mail[i]
+    if (item.quiet) continue
+    const view = { id: item.id, from: item.from, to: item.to, ts: item.ts }
+    if (undelivered(item)) {
+      views.push({ ...view, state: 'queued', ...(item.pending ? { pending: item.pending } : {}) })
+    } else if (item.state === 'failed' && !item.dismissed) {
+      const shown = failedPerPane.get(item.to) ?? 0
+      if (shown >= FAILED_SHOWN_MAX) continue
+      failedPerPane.set(item.to, shown + 1)
+      views.push({ ...view, state: 'failed', ...(item.reason ? { reason: item.reason } : {}) })
+    }
+  }
+  return views.reverse()
+}
+
+export function dismissFailed(to: string): void {
+  let changed = false
+  for (const item of store().mail) {
+    if (item.to === to && item.state === 'failed' && !item.dismissed) {
+      item.dismissed = true
+      changed = true
+    }
+  }
+  if (changed) markBusDirty()
 }
 
 export function takeMail(to: string, via: MailVia, pick: (mail: Mail) => boolean): Mail[] {

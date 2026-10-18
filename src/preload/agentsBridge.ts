@@ -1,9 +1,11 @@
 import { ipcRenderer } from 'electron'
 import type { AgentSessionInfo } from '../shared/agents/agentSessionInfo'
 import type { FolderTrust, ManagerOpenPaneRequest, ResumeVerdict } from '../shared/agents/agentsApi'
+import type { MailMap } from '../shared/agents/mailApi'
 import type { OstiaBridge } from '../shared/types'
+import { listen } from './listen'
 
-export const agentsBridge: Pick<OstiaBridge, 'manager' | 'agentSession'> = {
+export const agentsBridge: Pick<OstiaBridge, 'manager' | 'agentSession' | 'mail'> = {
   manager: {
     onOpen: (cb) => {
       const handler = (_e: unknown, requestId: string, req: ManagerOpenPaneRequest): void =>
@@ -12,6 +14,11 @@ export const agentsBridge: Pick<OstiaBridge, 'manager' | 'agentSession'> = {
       ipcRenderer.send('manager:ready')
       return () => ipcRenderer.removeListener('manager:open', handler)
     },
+  },
+  mail: {
+    snapshot: () => ipcRenderer.invoke('bus:mail-snapshot') as Promise<MailMap>,
+    onChange: (cb) => listen('bus:mail', cb),
+    dismiss: (paneId) => ipcRenderer.invoke('bus:mail-dismiss', paneId) as Promise<void>,
   },
   agentSession: {
     info: (resume) =>

@@ -4,7 +4,14 @@
   "version": "0.1.0",
   "api": "5.0",
   "description": "Test fixture: runs steps with ext.exec, ext.busSend, ext.wakePane, ext.ask and ext.runAgent",
-  "capabilities": ["shell", "drive-self", "process", "send-other-pane", "type-other-pane", "all-workspaces"],
+  "capabilities": [
+    "shell",
+    "drive-self",
+    "process",
+    "send-other-pane",
+    "type-other-pane",
+    "all-workspaces"
+  ],
   "main": "main.js",
   "contributes": {
     "commands": [{ "id": "call", "title": "Call a method", "palette": false, "interactive": true }]

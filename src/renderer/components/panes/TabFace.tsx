@@ -1,4 +1,5 @@
 import { Hint } from '@/components/common/Hint'
+import { MailCount } from '@/components/common/MailCount'
 import { extensionIcon } from '@/components/extensions/extensionIcons'
 import { viewIcon } from '@/components/views/viewIcons'
 import { useDict } from '@/lib/app/useDict'
@@ -109,6 +110,7 @@ export function TabFace({
         <span className="dot pane-tab-dirty" role="img" aria-label={d.pane.unsaved} />
       ) : null}
       <span className={cn('title', diskProblem === 'deleted' && 'line-through')}>{title}</span>
+      <MailCount paneIds={[pane.id]} />
       {diskProblem ? (
         <Hint label={diskLabel[diskProblem]}>
           <span className="pane-disk-mark" role="img" aria-label={diskLabel[diskProblem]} />

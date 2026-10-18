@@ -27,6 +27,7 @@ const PUSHED = [
   'assist:overview',
   'browser:open-tab',
   'browser:pick-state',
+  'bus:mail',
   'chatTools:always-grants',
   'chatTools:mcp-status',
   'command:invoke',

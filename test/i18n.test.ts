@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { runChecks } from '../scripts/i18nCheck.mjs'
+import {
+  COMMENT_MARKER,
+  baselineOf,
+  coverageMarkdown,
+  coverageRows,
+  percent,
+} from '../scripts/i18nCoverage.mjs'
 import { sortCatalogues } from '../scripts/i18nOrder.mjs'
-import { COMMENT_MARKER, baselineOf, coverageMarkdown, coverageRows, percent } from '../scripts/i18nCoverage.mjs'
 import { type I18nRepo, i18nRepo } from './i18nFixture'
 
 async function problemsOf(change: (repo: I18nRepo) => void): Promise<string[]> {
@@ -70,7 +76,9 @@ describe('i18n check', () => {
 
   it('I18N-C2 fails a value copied from English, but not an allowed name or text with nothing to translate', async () => {
     expect(
-      await problemsOf((repo) => zhGreet(repo, "{ hello: '你好 {name}', bye: 'Goodbye', row: '{a} · {b}' }")),
+      await problemsOf((repo) =>
+        zhGreet(repo, "{ hello: '你好 {name}', bye: 'Goodbye', row: '{a} · {b}' }"),
+      ),
     ).toEqual([
       'copied: zh-Hant greet.bye = "Goodbye": translate it in src/shared/strings/appZhHant.ts, or list it under same.zh-Hant in i18n-allow.json if it is a product or protocol name.',
     ])
@@ -78,7 +86,9 @@ describe('i18n check', () => {
 
   it('I18N-C3 fails a placeholder renamed in a translation', async () => {
     expect(
-      await problemsOf((repo) => zhGreet(repo, "{ hello: '你好 {who}', bye: '再見', row: '{a} · {b}' }")),
+      await problemsOf((repo) =>
+        zhGreet(repo, "{ hello: '你好 {who}', bye: '再見', row: '{a} · {b}' }"),
+      ),
     ).toEqual([
       'placeholder: zh-Hant greet.hello: en has {name}, the translation has {who}. Use the same placeholders in src/shared/strings/appZhHant.ts.',
     ])
@@ -90,8 +100,14 @@ describe('i18n check', () => {
         'src/shared/strings/appEn.ts',
         `export const appEn = {\n  greet: { hello: 'Hello {name}', bye: 'Goodbye', row: '{a} · {b}', extra: 'Extra', tested: 'Tested' },\n  modes: { fast: 'Fast', slow: 'Slow' },\n  brand: { product: 'Acme Cloud' },\n}\n`,
       )
-      zhGreet(repo, "{ hello: '你好 {name}', bye: '再見', row: '{a} · {b}', extra: '額外', tested: '測試' }")
-      repo.write('src/main/use.test.ts', "import { en } from '../shared/app/dict'\nexport const x = en.greet.tested\n")
+      zhGreet(
+        repo,
+        "{ hello: '你好 {name}', bye: '再見', row: '{a} · {b}', extra: '額外', tested: '測試' }",
+      )
+      repo.write(
+        'src/main/use.test.ts',
+        "import { en } from '../shared/app/dict'\nexport const x = en.greet.tested\n",
+      )
     })
     expect(problems).toEqual([
       'unused: greet.extra: no source outside tests reads it. Remove it from src/shared/strings/appEn.ts and every translation.',
@@ -101,7 +117,11 @@ describe('i18n check', () => {
 
   it('I18N-C4 counts every key of an object read through Object.values, an alias or a key union', async () => {
     const problems = await problemsOf((repo) => {
-      catalogue(repo, "{ fast: 'Fast', slow: 'Slow', mid: 'Mid' }", "{ fast: '快', slow: '慢', mid: '中' }")
+      catalogue(
+        repo,
+        "{ fast: 'Fast', slow: 'Slow', mid: 'Mid' }",
+        "{ fast: '快', slow: '慢', mid: '中' }",
+      )
       repo.write(
         'src/main/use.ts',
         `import type { Dict } from '../shared/app/dict'\nexport function lines(d: Dict): string[] {\n  const greet = d.greet\n  return [greet.hello, greet.bye, greet.row, ...Object.values(d.modes), d.brand.product]\n}\n`,
@@ -131,7 +151,8 @@ export const View = () => (
       )
       repo.write('src/renderer/View.test.tsx', 'export const T = () => <p>Test only text</p>\n')
     })
-    const end = 'is user-visible text. Put it in src/shared/strings/ (en and zh-Hant) and read it through the dictionary.'
+    const end =
+      'is user-visible text. Put it in src/shared/strings/ (en and zh-Hant) and read it through the dictionary.'
     expect(problems).toEqual([
       `literal: src/renderer/View.tsx:4: JSX text "Click here" ${end}`,
       `literal: src/renderer/View.tsx:8: title attribute "Open it" ${end}`,
@@ -153,9 +174,13 @@ export const reply = { ok: false, message: 'no pane has that id' }
 export const page = (name: string) => \`<!doctype html><title>\${name}</title><p>Sign in again</p>\`
 `,
       )
-      repo.write('src/main/platform/oldDirsPrompt.ts', "export const old = { title: 'Move your data' }\n")
+      repo.write(
+        'src/main/platform/oldDirsPrompt.ts',
+        "export const old = { title: 'Move your data' }\n",
+      )
     })
-    const end = 'is user-visible text. Put it in src/shared/strings/ (en and zh-Hant) and read it through the dictionary.'
+    const end =
+      'is user-visible text. Put it in src/shared/strings/ (en and zh-Hant) and read it through the dictionary.'
     expect(problems).toEqual([
       `literal: src/main/dialogs.ts:3: buttons: "Cancel" ${end}`,
       `literal: src/main/dialogs.ts:3: buttons: "Quit" ${end}`,
@@ -206,7 +231,13 @@ export const page = (name: string) => \`<!doctype html><title>\${name}</title><p
       })
       repo.json('src/extensions/demo/locales/zh-Hant.json', {
         manifest: DEMO_ZH,
-        messages: { hi: '嗨 {name}', 'state.on': '開', 'state.off': '關', gone: '走了', stray: '多餘' },
+        messages: {
+          hi: '嗨 {name}',
+          'state.on': '開',
+          'state.off': '關',
+          gone: '走了',
+          stray: '多餘',
+        },
       })
       repo.write(
         'src/extensions/demo/main.ts',
@@ -247,11 +278,21 @@ describe('i18n coverage', () => {
 
   it('I18N-C10 counts translated over total per language, area, pack and extension, and rounds down', () => {
     const coverage = coverageRows({
-      core: [{ language: 'zh-Hant', rows: [...rows('translated', 2999), ...rows('copied', 1), ...rows('skip', 5)] }],
+      core: [
+        {
+          language: 'zh-Hant',
+          rows: [...rows('translated', 2999), ...rows('copied', 1), ...rows('skip', 5)],
+        },
+      ],
       areaOf: (key: string) => (key.startsWith('copied') ? 'app' : 'settings'),
       packs: [{ id: 'langpack-zh-hant', language: 'zh-Hant', rows: rows('translated', 3) }],
       extensions: [
-        { id: 'demo', results: [{ language: 'zh-Hant', rows: [...rows('same', 1, 'names'), ...rows('missing', 1)] }] },
+        {
+          id: 'demo',
+          results: [
+            { language: 'zh-Hant', rows: [...rows('same', 1, 'names'), ...rows('missing', 1)] },
+          ],
+        },
       ],
     })
     expect(coverage.map((row) => [row.label, row.counts])).toEqual([
@@ -266,7 +307,14 @@ describe('i18n coverage', () => {
   })
 
   it('I18N-C10 renders the sticky-comment marker, a table and the change against main', () => {
-    const now = [{ id: 'core:zh-Hant', label: 'Core', language: 'zh-Hant', counts: [9, 10] as [number, number] }]
+    const now = [
+      {
+        id: 'core:zh-Hant',
+        label: 'Core',
+        language: 'zh-Hant',
+        counts: [9, 10] as [number, number],
+      },
+    ]
     const before = baselineOf([{ ...now[0], counts: [10, 10] }], 'abcdef1234')
     const text = coverageMarkdown(now, { baseline: before, same: new Map([['names', 2]]) })
     expect(text.split('\n').slice(0, 6)).toEqual([

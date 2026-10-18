@@ -26,6 +26,7 @@ import { registerVaultMethods } from '../secrets/vault'
 import type { WindowSend } from '../windows/windowSend'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { registerBusMethods } from './busMethods'
+import { registerMailIpc } from './mailIpc'
 import { mailPending } from './mailPending'
 
 interface ToolbeltWiringDeps {
@@ -48,6 +49,7 @@ interface ToolbeltWiringDeps {
   windowIds: WindowSend['windowIds']
   isWaking: (paneId: string) => boolean
   paneReachDeps: PaneMethodsWiring['paneReachDeps']
+  broadcast: WindowSend['broadcast']
   emitPaneEvent: <T extends ExtensionEventType>(type: T, payload: ExtensionEventPayloads[T]) => void
 }
 
@@ -71,8 +73,10 @@ export function registerToolbeltWiring({
   windowIds,
   isWaking,
   paneReachDeps,
+  broadcast,
   emitPaneEvent,
 }: ToolbeltWiringDeps) {
+  registerMailIpc(broadcast)
   registerDocsMethods({ extensions: () => services.extensionHost?.listForAgents() ?? [] })
   registerVaultMethods({ isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId) })
   registerOpenFileMethods({

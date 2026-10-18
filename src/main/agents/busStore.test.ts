@@ -14,14 +14,17 @@ const {
   LEASE_MS,
   MAIL_TTL_MS,
   ackMail,
+  dismissFailed,
   addWaiter,
   enqueue,
   failPaneMail,
   flushBus,
   getMail,
   inboxFull,
+  onBusChange,
   inboxOf,
   leaseMail,
+  mailViews,
   resetBus,
   sentBy,
   setBusJournal,
@@ -190,6 +193,57 @@ describe('expiry and closing', () => {
     const last = enqueue({ from: 'busy', to: 'd', text: 'last' })
     expect(getMail(first.id)).toBeUndefined()
     expect(getMail(last.id)).toBeDefined()
+  })
+})
+
+describe('mail views', () => {
+  it('shows undelivered mail as queued, leased mail too, and leaves out delivered and quiet mail', () => {
+    const waiting = send('wait')
+    const leased = send('leased')
+    leaseMail('b', 'prompt', (m) => m.id === leased.id)
+    const read = send('read')
+    takeMail('b', 'read', (m) => m.id === read.id)
+    enqueue({ from: 'a', to: 'b', text: 'report', quiet: true })
+    setPending(waiting.id, 'hibernated')
+    expect(mailViews().map((v) => [v.id, v.state, v.pending])).toEqual([
+      [waiting.id, 'queued', 'hibernated'],
+      [leased.id, 'queued', undefined],
+    ])
+  })
+
+  it('shows a failed message with its reason until it is dismissed, at most five per pane', () => {
+    for (let i = 0; i < 7; i++) send(`m${i}`)
+    failPaneMail('b')
+    const shown = mailViews()
+    expect(shown).toHaveLength(5)
+    expect(shown.every((v) => v.state === 'failed' && v.reason === 'pane-closed')).toBe(true)
+    dismissFailed('c')
+    expect(mailViews()).toHaveLength(5)
+    dismissFailed('b')
+    expect(mailViews()).toEqual([])
+  })
+
+  it('keeps a dismissal across a reload', async () => {
+    send()
+    failPaneMail('b')
+    dismissFailed('b')
+    await flushBus()
+    await resetBus()
+    expect(mailViews()).toEqual([])
+  })
+
+  it('tells a listener once per change, however many mutations the change made', async () => {
+    const listener = vi.fn()
+    const off = onBusChange(listener)
+    send('one')
+    send('two')
+    takeMail('b', 'read', all)
+    await Promise.resolve()
+    expect(listener).toHaveBeenCalledTimes(1)
+    off()
+    send('three')
+    await Promise.resolve()
+    expect(listener).toHaveBeenCalledTimes(1)
   })
 })
 
