@@ -6,7 +6,7 @@ import type { CommandTarget } from '../../shared/control/commands'
 import { statusLine } from '../../shared/panes/paneStatus'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { AgentWiring } from '../agents/agentWiring'
-import { readRange, transcriptPath } from '../agents/transcriptFiles'
+import { readTail, transcriptPath } from '../agents/transcriptFiles'
 import type { Reach } from '../approvals/reach'
 import { targetOf } from '../attention/attention'
 import type { CommandBridge } from '../control/commandBridge'
@@ -228,14 +228,10 @@ export function registerPaneMethodsWiring({
   registerPaneTranscriptMethods({
     ...paneReachDeps,
     panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
-    lines: (resume, bytes) => {
+    lines: async (resume, bytes) => {
       const path = transcriptPath(resume)
       if (!path) return null
-      try {
-        return readRange(path, true, bytes)
-      } catch {
-        return null
-      }
+      return readTail(path, bytes).catch(() => null)
     },
   })
 

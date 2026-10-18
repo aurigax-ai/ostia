@@ -376,11 +376,16 @@ export async function runPaneVerb(
     return 0
   }
   if (call.method === 'pane.transcript') {
-    const result = await conn.sendRequest<{ agent: string; turns: number; text: string }>(
-      call.method,
-      call.params,
-    )
+    const result = await conn.sendRequest<{
+      agent: string
+      turns: number
+      text: string
+      truncated?: true
+    }>(call.method, call.params)
     console.log(call.json ? JSON.stringify(result, null, 2) : result.text)
+    if (result.truncated && !call.json) {
+      console.error('(older turns are not shown: the transcript is larger than the window read)')
+    }
     return 0
   }
   if (call.method === 'pane.watch') {

@@ -13,7 +13,7 @@ vi.mock('../main/approvals/approvals', () => ({ approvals: () => ({ request }) }
 
 const { registerControlServer, stopControlServer } = await import('../main/control/controlServer')
 const { registerPane } = await import('../main/control/idRegistry')
-const { readRange, transcriptPath } = await import('../main/agents/transcriptFiles')
+const { readTail, transcriptPath } = await import('../main/agents/transcriptFiles')
 const { registerPaneTranscriptMethods } = await import('../main/panes/paneTranscript')
 
 const cliPath = join(process.cwd(), 'out', 'cli', 'index.js')
@@ -110,9 +110,9 @@ beforeAll(() => {
           blockCount: 0,
         },
       ] as PaneEntry[],
-    lines: (resume, bytes) => {
+    lines: async (resume, bytes) => {
       const path = transcriptPath(resume, home)
-      return path ? readRange(path, true, bytes) : null
+      return path ? readTail(path, bytes) : null
     },
   })
   registerControlServer(

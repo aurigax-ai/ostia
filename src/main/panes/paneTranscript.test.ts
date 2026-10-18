@@ -20,7 +20,13 @@ const entries = new Map<string, Partial<PaneEntry>>()
 const sandboxed = new Set<string>()
 const confined = new Set<string>()
 const scope = new Set<string>()
-const lines = vi.fn<(resume: { agent: string; id: string }, bytes: number) => string[] | null>()
+const lines =
+  vi.fn<
+    (
+      resume: { agent: string; id: string },
+      bytes: number,
+    ) => Promise<{ lines: string[]; truncated: boolean } | null>
+  >()
 
 registerPaneTranscriptMethods({
   processPane: async () => undefined,
@@ -77,7 +83,7 @@ beforeEach(() => {
   scope.clear()
   ensureCaps.mockClear()
   lines.mockReset()
-  lines.mockReturnValue(claudeLines)
+  lines.mockResolvedValue({ lines: claudeLines, truncated: false })
   entries.set(worker.externalId, { agent: 'claude', agentSessionId: 'sess-1' })
 })
 
@@ -101,6 +107,34 @@ describe('pane.transcript', () => {
     expect(lines).toHaveBeenLastCalledWith({ agent: 'claude', id: 'sess-1' }, 32 * 1024 * 1024)
   })
 
+  it('widens the window when the cut tail holds too few whole turns, and says when older turns are left out', async () => {
+    lines.mockImplementation(async (_resume, bytes) =>
+      bytes < 32 * 1024 * 1024
+        ? { lines: claudeLines.slice(2), truncated: true }
+        : { lines: claudeLines.slice(2), truncated: true },
+    )
+    const res = await ask(caller, { pane: worker.externalId, turns: 2 })
+    expect(lines.mock.calls.map(([, bytes]) => bytes)).toEqual([
+      4 * 1024 * 1024,
+      16 * 1024 * 1024,
+      32 * 1024 * 1024,
+    ])
+    expect(res.turns).toBe(1)
+    expect(res).toMatchObject({ truncated: true })
+  })
+
+  it('shows only the whole turns of a cut tail and says older ones are left out', async () => {
+    lines.mockResolvedValue({ lines: claudeLines.slice(1), truncated: true })
+    const res = await ask(caller, { pane: worker.externalId, full: true })
+    expect(res.text).not.toContain('first')
+    expect(res).toMatchObject({ truncated: true })
+  })
+
+  it('refuses with too-large instead of an empty answer when the last turn does not fit', async () => {
+    lines.mockResolvedValue({ lines: claudeLines.slice(3), truncated: true })
+    await expect(ask(caller, { pane: worker.externalId })).rejects.toThrow('too-large')
+  })
+
   it.each([
     [{ turns: 0 }, 'bad-request: turns'],
     [{ turns: 51 }, 'bad-request: turns'],
@@ -120,7 +154,7 @@ describe('pane.transcript', () => {
     entries.set(worker.externalId, { agentSessionId: 'sess-1' })
     await expect(ask(caller, { pane: worker.externalId })).rejects.toThrow('no-transcript')
     entries.set(worker.externalId, { agent: 'claude', agentSessionId: 'sess-1' })
-    lines.mockReturnValue(null)
+    lines.mockResolvedValue(null)
     await expect(ask(caller, { pane: worker.externalId })).rejects.toThrow(
       'no-transcript: the agent has no transcript file yet',
     )

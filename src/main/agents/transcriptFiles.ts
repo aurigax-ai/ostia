@@ -1,4 +1,5 @@
 import { closeSync, lstatSync, openSync, readSync, readdirSync } from 'node:fs'
+import { open } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { AgentResume } from '../../shared/agents/agentResume'
@@ -64,5 +65,26 @@ export function readRange(path: string, fromEnd: boolean, bytes: number): string
     return lines
   } finally {
     closeSync(fd)
+  }
+}
+
+export interface TailRead {
+  lines: string[]
+  truncated: boolean
+}
+
+export async function readTail(path: string, bytes: number): Promise<TailRead> {
+  const handle = await open(path, 'r')
+  try {
+    const { size } = await handle.stat()
+    const length = Math.min(bytes, size)
+    const start = size - length
+    const buffer = Buffer.alloc(length)
+    await handle.read(buffer, 0, length, start)
+    const lines = buffer.toString('utf8').split('\n')
+    if (start > 0) lines.shift()
+    return { lines, truncated: start > 0 }
+  } finally {
+    await handle.close()
   }
 }
