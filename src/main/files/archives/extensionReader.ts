@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { fstat, read } from 'node:fs'
-import { lstat, mkdir, unlink } from 'node:fs/promises'
+import { lstat, mkdir, readdir, rm, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   type ArchiveReaderContribution,
@@ -133,8 +133,16 @@ function readProblem(raw: Record<string, unknown>): EntryRead {
   return { ok: false, problem: 'unreadable' }
 }
 
+async function sweep(dir: string): Promise<void> {
+  const names = await readdir(dir).catch(() => [])
+  await Promise.all(
+    names.map((name) => rm(join(dir, name), { recursive: true, force: true }).catch(() => {})),
+  )
+}
+
 export class ExtensionReaders {
   private readonly options: ReaderOptions
+  private readonly swept = new Map<string, Promise<void>>()
 
   constructor(
     private readonly service: () => ArchiveReaderService | null,
@@ -185,6 +193,12 @@ export class ExtensionReaders {
       () => false,
     )
     if (!made || !(await isRealDir(dir))) return { ok: false, problem: 'unreadable' }
+    let swept = this.swept.get(dir)
+    if (!swept) {
+      swept = sweep(dir)
+      this.swept.set(dir, swept)
+    }
+    await swept
     const out = join(dir, randomUUID())
     const request: ArchiveRequest = {
       op: 'read',

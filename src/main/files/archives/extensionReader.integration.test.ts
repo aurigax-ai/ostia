@@ -1,4 +1,13 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { ArchiveRequest } from '@aurigax-ai/ostia-extension-sdk/contract/archiveReaders'
@@ -92,6 +101,20 @@ describe('archives read by an extension (real extension process, real socket)', 
     archives = fresh()
     if (status() !== 'running' && status() !== 'idle') host.processes.setEnabled('fakearc', true)
     await asked()
+  })
+
+  it('clears what an earlier run left in the reads folder without following links', async () => {
+    const reads = join(dataDir, 'fakearc', 'archive-reads')
+    const outside = join(dir, 'outside')
+    mkdirSync(join(outside, 'kept'), { recursive: true })
+    writeFileSync(join(outside, 'kept', 'file'), 'keep')
+    mkdirSync(join(reads, 'leftover-dir'), { recursive: true })
+    writeFileSync(join(reads, 'orphan'), 'old read')
+    symlinkSync(join(outside, 'kept'), join(reads, 'linked'))
+    const root = archiveRoot(put('tree.fake'))
+    expect(await archives.readText(`${root}/top.csv`, 1024)).toMatchObject({ ok: true })
+    expect(readdirSync(reads)).toEqual([])
+    expect(readFileSync(join(outside, 'kept', 'file'), 'utf8')).toBe('keep')
   })
 
   it('lists and opens entries through the reader, and the read file is gone afterwards', async () => {

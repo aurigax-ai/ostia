@@ -1321,7 +1321,7 @@ Answer `ext.archive` (`ext.onArchive(handler)`, where the handler gets `(request
 - `archive` is the real path, already confined to what Files may read. Open it yourself without following links (`O_NOFOLLOW`).
 - `limits` is `{entries, depth, nameLength, scanBytes, scanMs, linkTargetBytes}`. Stop a list after `entries + 1` entries, after `scanBytes` of decompressed output or after `scanMs`, and say `complete: false`. A read scans up to `index` under the same limits.
 - `index` is the entry's position in your listing; `name` is shown as it is, but Ostia never reads by name. `link` is the target of a link entry (or `null`).
-- `out` is a new file name in `$OSTIA_EXTENSION_DATA/archive-reads/`. Create it (`O_CREAT | O_EXCL`, mode 0600) and write the entry, at most `max` bytes. Ostia opens it without following links, checks that it is a regular file of exactly `size` bytes and at most `max`, reads it and deletes it.
+- `out` is a new file name in `$OSTIA_EXTENSION_DATA/archive-reads/`. Create it (`O_CREAT | O_EXCL`, mode 0600) and write the entry, at most `max` bytes. Ostia opens it without following links, checks that it is a regular file of exactly `size` bytes and at most `max`, reads it and deletes it. Before its first read in a session it empties that folder, without following links, so files a crash left there do not pile up.
 - Stop when `signal` aborts. Decode in a worker or a native thread, so your process can still hear the cancel.
 - Ostia sends `ext.archive` once your process has made its first call after `hello`; with nothing else to register, `registerCommands({})` right after `onArchive` is that call.
 
