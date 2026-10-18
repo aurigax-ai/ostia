@@ -7,6 +7,7 @@ import { actThenConfirm, confirmed, mismatch } from '../../shared/common/actThen
 import { ensureCaps } from '../approvals/controlElevation'
 import { registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
+import type { AgentJournal } from '../diagnostics/agentJournal'
 import { type PaneReachDeps, ensurePaneReach } from '../panes/paneReach'
 import {
   type BusObservation,
@@ -24,6 +25,7 @@ import {
   leaseMail,
   markBusDirty,
   sentBy,
+  setBusJournal,
   setBusObserver,
   setPending,
   sweepBus,
@@ -115,6 +117,7 @@ export interface BusDeps {
   pending: (pane: PaneIdentity) => Promise<MailPending>
   reach: Omit<PaneReachDeps, 'processPane'>
   observe?: (observation: BusObservation) => void
+  journal?: Pick<AgentJournal, 'mail' | 'leaseTimeout'>
 }
 
 function receiverOf(to: unknown): PaneIdentity | undefined {
@@ -130,6 +133,7 @@ async function queuedWithPending(deps: BusDeps, mail: Mail, to: PaneIdentity): P
 
 export function registerBusMethods(deps: BusDeps): void {
   setBusObserver(deps.observe)
+  setBusJournal(deps.journal)
   sweeper ??= setInterval(() => sweepBus(), SWEEP_MS).unref()
   registerBusSendMethods(deps)
   registerBusInboxMethods(deps)

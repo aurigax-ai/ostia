@@ -11,6 +11,7 @@ import { checkScriptToken, registerScriptTokenMethods } from '../approvals/scrip
 import { electronPresenceDeps, verifyUserPresence } from '../approvals/userPresence'
 import { postNotification } from '../attention/notify'
 import type { NotifyWiring } from '../attention/notifyWiring'
+import type { AgentJournal } from '../diagnostics/agentJournal'
 import { listPanes } from '../panes/paneList'
 import { storePath } from '../platform/jsonStore'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
@@ -42,6 +43,7 @@ interface ControlStartDeps {
   reach: Reach
   keptPlumbing: KeptShellsWiring['keptPlumbing']
   keepShellsOn: KeptShellsWiring['keepShellsOn']
+  services: { agentJournal: AgentJournal | null }
 }
 
 export function startControlServer({
@@ -65,6 +67,7 @@ export function startControlServer({
   reach,
   keptPlumbing,
   keepShellsOn,
+  services,
 }: ControlStartDeps) {
   const retiredTokens = retireLegacyScriptTokens(
     storePath('script-tokens', 'global'),
@@ -113,6 +116,7 @@ export function startControlServer({
     byAgent: reach.byAgent,
     reach,
     usage: scriptTokenUsage,
+    journal: services.agentJournal ?? undefined,
   })
   writeControlInfo(controlInfoPath(), controlSocketPath(), process.pid)
   keptPlumbing.start(keepShellsOn())

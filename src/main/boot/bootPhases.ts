@@ -16,6 +16,12 @@ import { startChat } from '../chat/chatWiring'
 import { startControlServer } from '../control/controlWiring'
 import { setPaneIdSalt } from '../control/idRegistry'
 import { loadPaneIdSalt } from '../control/paneIdSalt'
+import {
+  AGENT_JOURNAL_FILE_NAME,
+  AGENT_JOURNAL_KEEP,
+  AGENT_JOURNAL_MAX_BYTES,
+  createAgentJournal,
+} from '../diagnostics/agentJournal'
 import { LOG_FILE_NAME, createAppLog } from '../diagnostics/appLog'
 import { registerDiagnostics } from '../diagnostics/diagnostics'
 import { registerGpuReport } from '../diagnostics/gpuReport'
@@ -87,6 +93,12 @@ export function boot(wiring: Wiring): void {
   })
   const logDir = join(app.getPath('userData'), 'logs')
   services.appLog = createAppLog(join(logDir, LOG_FILE_NAME))
+  services.agentJournal = createAgentJournal(
+    createAppLog(join(logDir, AGENT_JOURNAL_FILE_NAME), {
+      maxBytes: AGENT_JOURNAL_MAX_BYTES,
+      keep: AGENT_JOURNAL_KEEP,
+    }),
+  )
   void resolveLoginPath().then(({ path, ms }) =>
     services.appLog?.info('login-path', { found: path !== null, ms }),
   )

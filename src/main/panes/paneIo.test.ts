@@ -67,7 +67,10 @@ const startLater = (paneId: string): void => {
   }, 0)
 }
 
+const wakeNotReady = vi.fn()
+
 registerPaneIoMethods({
+  journal: { wakeNotReady },
   io: {
     read: async (paneId, lines) => (paneId === 'no-pty' ? null : `screen of ${paneId} (${lines})`),
     write: (paneId, data) => {
@@ -191,6 +194,7 @@ async function client(identity: { token: string }): Promise<MessageConnection> {
 }
 
 beforeEach(() => {
+  wakeNotReady.mockClear()
   seq += 1
   socketPath = join(tmpdir(), `ostia-pane-io-${process.pid}-${seq}.sock`)
   registerControlServer(
@@ -876,6 +880,7 @@ describe('pane.wake', () => {
       woke: [child.externalId],
       closed: child.externalId,
     })
+    expect(wakeNotReady).not.toHaveBeenCalled()
 
     asleepPanes.add('child-pane')
     const failing = conn.sendRequest('pane.wake', { panes: ['echo'] })
@@ -884,11 +889,14 @@ describe('pane.wake', () => {
     await expect(failing).rejects.toThrow(
       `not-started: ${child.externalId} its agent exited with code 1 before it started`,
     )
+    expect(wakeNotReady).toHaveBeenCalledTimes(1)
 
     asleepPanes.add('child-pane')
     await expect(conn.sendRequest('pane.wake', { panes: ['echo'], timeoutMs: 1 })).resolves.toEqual(
       { ok: true, woke: [child.externalId], timedOut: true },
     )
+    expect(wakeNotReady).toHaveBeenCalledTimes(2)
+    expect(wakeNotReady.mock.calls.every(([ms]) => typeof ms === 'number' && ms >= 0)).toBe(true)
     expect(waking.has('child-pane')).toBe(true)
     waking.end('child-pane', 'failed')
   })

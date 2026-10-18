@@ -10,6 +10,7 @@ import { announceBusMessage } from '../attention/busNotice'
 import type { CommandBridge } from '../control/commandBridge'
 import { registerDocsMethods } from '../control/docs'
 import { resolveExternal } from '../control/idRegistry'
+import type { AgentJournal } from '../diagnostics/agentJournal'
 import type { Telemetry } from '../diagnostics/telemetry'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import type { OpenFileGrants } from '../files/openFileGrants'
@@ -32,6 +33,7 @@ interface ToolbeltWiringDeps {
     extensionHost: ExtensionHost | null
     managerLimiter: ManagerLimiter | null
     telemetry: Telemetry | null
+    agentJournal: AgentJournal | null
   }
   workspaceSandboxes: WorkspaceSandboxes
   openFileGrants: OpenFileGrants
@@ -122,6 +124,7 @@ export function registerToolbeltWiring({
         (agent) =>
           isResumableAgent(agent) && parseAgentHooks(readSettingsFile().agents?.hooks)[agent],
       ),
+    journal: services.agentJournal ?? undefined,
     observe: (observation) =>
       emitPaneEvent('bus.message', {
         ...observation,

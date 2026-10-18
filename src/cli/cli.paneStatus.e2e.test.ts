@@ -27,6 +27,7 @@ const worker = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'cli-s
 
 const attention = new Map<string, { state?: string }>()
 const journal = new PaneJournal({ terminal: () => undefined, now: Date.now })
+const agentCalls = vi.fn()
 
 interface RunResult {
   code: number | null
@@ -109,6 +110,7 @@ beforeAll(() => {
     journal,
     exited: () => false,
     git: async () => ({ branch: 'feat/inbox', ahead: 1, behind: 0, changed: 2 }),
+    wakingSince: () => undefined,
     now: Date.now,
   })
   registerControlServer(
@@ -117,6 +119,7 @@ beforeAll(() => {
       listCommandsFor: () => [],
       getTerminalState: () => undefined,
       isSandboxed: () => false,
+      journal: { call: agentCalls },
     },
     socketPath,
   )
@@ -166,6 +169,24 @@ describe('ostia pane status through the real CLI', () => {
     const codex = JSON.parse((await status('--json')).stdout)
     expect(codex.panes[0]).toMatchObject({ state: 'done', closing: 'stop text' })
     expect(codex.panes[0].changes).toMatchObject({ first: false, closing: true })
+  }, 60_000)
+
+  it('journals each call by method, caller, outcome code and size, and nothing the call carried', async () => {
+    agentCalls.mockClear()
+    await run(worker, ['state', 'done', 'PR #7 merged, secret-closing-line'])
+    await status()
+    await run(coordinator, ['pane', 'status', 'not-a-pane'])
+    const calls = agentCalls.mock.calls.map(([call]) => call)
+    expect(calls.map((c) => [c.method, c.caller, c.code])).toEqual([
+      ['pane.setAttention', 'pane', undefined],
+      ['pane.status', 'pane', undefined],
+      ['pane.status', 'pane', 'unknown-pane'],
+    ])
+    expect(calls[1].bytes).toBeGreaterThan(100)
+    expect(calls[1].ms).toBeGreaterThanOrEqual(0)
+    const written = JSON.stringify(calls)
+    expect(written).not.toContain('secret-closing-line')
+    expect(written).not.toContain(worker.externalId)
   }, 60_000)
 
   it('refuses an unknown pane and a call without a pane', async () => {

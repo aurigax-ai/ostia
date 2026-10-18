@@ -10,6 +10,7 @@ const base: PaneStatus = {
   exitCode: 0,
   git: { branch: 'feat/inbox', ahead: 1, behind: 0, changed: 2 },
   mail: { queued: 0, failed: 0, sentQueued: 0, sentFailed: 0 },
+  stale: [],
   changes: {
     first: false,
     states: ['working', 'done'],
@@ -68,6 +69,13 @@ describe('statusLine', () => {
     })
     expect(line).toContain('w-3  done  process web running  mail 2 failed 1  (')
     expect(line).not.toContain('exit')
+  })
+
+  it('lists what has been stuck, and nothing when nothing is', () => {
+    expect(statusLine(base)).not.toContain('stale')
+    expect(statusLine({ ...base, stale: ['mail queued 38m', 'waking 3m'] })).toContain(
+      '"PR #1081 open, unit green"  stale: mail queued 38m, waking 3m  (since last',
+    )
   })
 
   it('names a detached head and shows behind commits', () => {

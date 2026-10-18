@@ -15,6 +15,7 @@
     "src/main/approvals/reach.",
     "src/main/approvals/reachScope.",
     "src/main/attention/busNotice.",
+    "src/main/diagnostics/agentJournal.ts",
     "src/main/panes/paneConfirm.ts",
     "src/main/panes/paneIo.ts",
     "src/main/panes/paneJournal.ts",

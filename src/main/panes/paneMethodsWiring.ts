@@ -10,6 +10,7 @@ import type { Reach } from '../approvals/reach'
 import { targetOf } from '../attention/attention'
 import type { CommandBridge } from '../control/commandBridge'
 import { type PaneIdentity, getByPaneId } from '../control/idRegistry'
+import type { AgentJournal } from '../diagnostics/agentJournal'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import { readStatus, repoRoot } from '../git/repo'
 import { readSettingsFile } from '../platform/settingsFile'
@@ -48,6 +49,7 @@ interface PaneMethodsWiringDeps {
   paneWaking: PaneWaking
   services: {
     extensionHost: ExtensionHost | null
+    agentJournal: AgentJournal | null
   }
   scratchFolders: ScratchFolders
   workspaceCommandTarget: (workspaceId: string) => CommandTarget
@@ -121,6 +123,7 @@ export function registerPaneMethodsWiring({
     close: (to) => execCommand(targetOf(to), 'pane.close'),
     resume: (to) => execCommand(targetOf(to), 'agent.resume'),
     delay: (ms) => sleep(ms),
+    journal: services.agentJournal ?? undefined,
     hooksOn: (agent) =>
       isResumableAgent(agent) && parseAgentHooks(readSettingsFile().agents?.hooks)[agent],
   })
@@ -155,6 +158,7 @@ export function registerPaneMethodsWiring({
     ...paneReachDeps,
     panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
     journal: paneJournal,
+    wakingSince: (paneId) => paneWaking.since(paneId),
     exited: paneExited,
     git: async (paneId, cwd) => {
       if (!cwd || remoteCwdOfPane(paneId) !== undefined) return undefined

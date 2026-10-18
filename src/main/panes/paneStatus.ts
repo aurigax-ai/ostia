@@ -1,5 +1,11 @@
+import { STALE_MAIL_MS, WAKE_BUDGET_MS } from '../../shared/agents/agentIssues'
 import { STATUS_MESSAGE_MAX } from '../../shared/agents/closingLine'
-import type { PaneStateName, PaneStatus, PaneStatusChanges } from '../../shared/panes/paneStatus'
+import {
+  type PaneStateName,
+  type PaneStatus,
+  type PaneStatusChanges,
+  ageLabel,
+} from '../../shared/panes/paneStatus'
 import { mailCounts } from '../agents/busStore'
 import { registerControlMethod } from '../control/controlServer'
 import type { PaneJournal, StampedEvent } from './paneJournal'
@@ -18,6 +24,7 @@ export interface PaneStatusDeps extends PaneReachDeps {
   journal: PaneJournal
   exited: (paneId: string) => boolean
   git: (paneId: string, cwd: string | undefined) => Promise<GitFacts | undefined>
+  wakingSince: (paneId: string) => number | undefined
   now: () => number
 }
 
@@ -56,6 +63,22 @@ export function summarizeChanges(
   return { first, states, commands, failed, closing, mail }
 }
 
+export function staleMarks(facts: {
+  oldestQueuedMs?: number
+  lastFailure?: string
+  wakingMs?: number
+}): string[] {
+  return [
+    facts.oldestQueuedMs !== undefined && facts.oldestQueuedMs > STALE_MAIL_MS
+      ? `mail queued ${ageLabel(facts.oldestQueuedMs)}`
+      : '',
+    facts.wakingMs !== undefined && facts.wakingMs > WAKE_BUDGET_MS
+      ? `waking ${ageLabel(facts.wakingMs)}`
+      : '',
+    facts.lastFailure ? `mail failed:${facts.lastFailure}` : '',
+  ].filter(Boolean)
+}
+
 export function statusOf(
   entry: PaneEntry,
   facts: {
@@ -65,6 +88,7 @@ export function statusOf(
     git?: GitFacts
     changes: PaneStatusChanges
     mail: PaneStatus['mail']
+    stale?: string[]
   },
 ): PaneStatus {
   const state = paneStateOf(entry, facts.exited)
@@ -79,7 +103,24 @@ export function statusOf(
     ...(entry.process ? { process: { id: entry.process.id, status: entry.process.status } } : {}),
     ...(facts.git ? { git: facts.git } : {}),
     mail: facts.mail,
+    stale: facts.stale ?? [],
     changes: facts.changes,
+  }
+}
+
+function mailFacts(
+  externalId: string,
+  wakingAt: number | undefined,
+  now: number,
+): { mail: PaneStatus['mail']; stale: string[] } {
+  const { oldestQueuedMs, lastFailure, ...mail } = mailCounts(externalId)
+  return {
+    mail,
+    stale: staleMarks({
+      oldestQueuedMs,
+      lastFailure,
+      wakingMs: wakingAt === undefined ? undefined : now - wakingAt,
+    }),
   }
 }
 
@@ -112,7 +153,7 @@ export function registerPaneStatusMethods(deps: PaneStatusDeps): void {
             sinceMs: stateAt === undefined ? undefined : now - stateAt,
             git: await deps.git(to.paneId, entry.cwd),
             changes: summarizeChanges(seen.first, seen.first ? [] : seen.events),
-            mail: mailCounts(to.externalId),
+            ...mailFacts(to.externalId, deps.wakingSince(to.paneId), now),
           }),
         )
       }

@@ -15,9 +15,8 @@ vi.mock('../control/controlServer', () => ({
 const ensureCaps = vi.fn(async (..._args: unknown[]) => {})
 vi.mock('../approvals/controlElevation', () => ({ ensureCaps }))
 
-const { registerPaneStatusMethods, paneStateOf, statusOf, summarizeChanges } = await import(
-  './paneStatus'
-)
+const { registerPaneStatusMethods, paneStateOf, staleMarks, statusOf, summarizeChanges } =
+  await import('./paneStatus')
 const { PaneJournal } = await import('./paneJournal')
 const { enqueue, flushBus, resetBus, takeMail, failPaneMail } = await import('../agents/busStore')
 const { markManager, registerPane } = await import('../control/idRegistry')
@@ -34,6 +33,7 @@ const clock = { now: 100_000 }
 const terminal = new Map<string, { running: boolean; lastExitCode?: number }>()
 const journal = new PaneJournal({ terminal: (id) => terminal.get(id), now: () => clock.now })
 const gitCalls: (string | undefined)[] = []
+const wakingAt = new Map<string, number>()
 
 registerPaneStatusMethods({
   processPane: async () => undefined,
@@ -57,6 +57,7 @@ registerPaneStatusMethods({
     ),
   journal,
   exited: () => false,
+  wakingSince: (paneId) => wakingAt.get(paneId),
   git: async (_paneId, cwd) => {
     gitCalls.push(cwd)
     return cwd ? { branch: 'feat/x', ahead: 1, behind: 0, changed: 3 } : undefined
@@ -85,6 +86,7 @@ beforeEach(async () => {
   scope.clear()
   terminal.clear()
   gitCalls.length = 0
+  wakingAt.clear()
   ensureCaps.mockClear()
   ensureCaps.mockImplementation(async () => {})
   journal.forget(worker.paneId, caller.externalId)
@@ -160,6 +162,23 @@ describe('statusOf', () => {
   })
 })
 
+describe('staleMarks', () => {
+  it('marks mail queued past ten minutes, a wake past its budget and the last failure', () => {
+    expect(
+      staleMarks({
+        oldestQueuedMs: 38 * 60_000,
+        wakingMs: 3 * 60_000,
+        lastFailure: 'expired:hibernated',
+      }),
+    ).toEqual(['mail queued 38m', 'waking 3m', 'mail failed:expired:hibernated'])
+  })
+
+  it('marks nothing that is still within its budget', () => {
+    expect(staleMarks({ oldestQueuedMs: 9 * 60_000, wakingMs: 119_000 })).toEqual([])
+    expect(staleMarks({})).toEqual([])
+  })
+})
+
 describe('pane.status', () => {
   it('answers the worker’s facts: state, closing line, exit, git and mail', async () => {
     entries.set(worker.externalId, {
@@ -222,6 +241,24 @@ describe('pane.status', () => {
     failPaneMail(caller.externalId)
     const { panes } = await ask(caller, [worker.externalId])
     expect(panes[0]?.mail).toEqual({ queued: 0, failed: 1, sentQueued: 0, sentFailed: 1 })
+  })
+
+  it('marks stuck mail, a slow wake and a failed message, as facts only', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      enqueue({ from: caller.externalId, to: worker.externalId, text: 'still waiting' })
+      vi.setSystemTime(Date.now() + 11 * 60_000)
+      wakingAt.set(worker.paneId, clock.now - 3 * 60_000)
+      const stuck = await ask(caller, [worker.externalId])
+      expect(stuck.panes[0]?.stale).toEqual(['mail queued 11m', 'waking 3m'])
+
+      failPaneMail(worker.externalId)
+      wakingAt.clear()
+      const failed = await ask(caller, [worker.externalId])
+      expect(failed.panes[0]?.stale).toEqual(['mail failed:pane-closed'])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('asks read-other-pane for another pane, with all-workspaces outside reach', async () => {

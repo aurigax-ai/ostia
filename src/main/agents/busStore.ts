@@ -11,6 +11,7 @@ import {
   type MailVia,
   busPreview,
 } from '../../shared/agents/busMessages'
+import type { AgentJournal } from '../diagnostics/agentJournal'
 import { loadJson, saveJsonAsync, storePath } from '../platform/jsonStore'
 
 export interface Mail {
@@ -84,6 +85,7 @@ const OSTIA_SENDER = 'ostia'
 
 let data: BusData | undefined
 let observer: ((observation: BusObservation) => void) | undefined
+let journal: Pick<AgentJournal, 'mail' | 'leaseTimeout'> | undefined
 let inflight: Promise<void> | undefined
 let dirty = false
 
@@ -130,6 +132,10 @@ export function setBusObserver(next: ((observation: BusObservation) => void) | u
   observer = next
 }
 
+export function setBusJournal(next: Pick<AgentJournal, 'mail' | 'leaseTimeout'> | undefined): void {
+  journal = next
+}
+
 export function busHandoffs(): Handoff[] {
   return store().handoffs
 }
@@ -170,6 +176,7 @@ function deliverMail(mail: Mail, via: MailVia, at: string): void {
 function failMail(mail: Mail, reason: string, at: string): void {
   mail.reason = reason
   mail.failedAt = at
+  journal?.mail(reason, Date.parse(at) - Date.parse(mail.ts))
   settle(mail, 'failed')
 }
 
@@ -204,6 +211,7 @@ export function sweepBus(now = Date.now()): void {
   const at = new Date(now).toISOString()
   for (const mail of store().mail) {
     if (mail.state === 'leased' && (mail.leasedUntil ?? 0) <= now) {
+      journal?.leaseTimeout(now - Date.parse(mail.ts))
       mail.state = 'queued'
       mail.lease = undefined
       mail.leasedUntil = undefined
@@ -280,18 +288,26 @@ export function sentBy(from: string): Mail[] {
 export function mailCounts(pane: string) {
   sweepBus()
   const counts = { queued: 0, failed: 0, sentQueued: 0, sentFailed: 0 }
+  let oldestQueuedMs: number | undefined
+  let lastFailure: string | undefined
+  const now = Date.now()
   for (const mail of store().mail) {
     if (mail.quiet) continue
     if (mail.to === pane) {
-      if (undelivered(mail)) counts.queued += 1
-      else if (mail.state === 'failed') counts.failed += 1
+      if (undelivered(mail)) {
+        counts.queued += 1
+        oldestQueuedMs = Math.max(oldestQueuedMs ?? 0, now - Date.parse(mail.ts))
+      } else if (mail.state === 'failed') {
+        counts.failed += 1
+        lastFailure = mail.reason
+      }
     }
     if (mail.from === pane) {
       if (undelivered(mail)) counts.sentQueued += 1
       else if (mail.state === 'failed') counts.sentFailed += 1
     }
   }
-  return counts
+  return { ...counts, oldestQueuedMs, lastFailure }
 }
 
 export function takeMail(to: string, via: MailVia, pick: (mail: Mail) => boolean): Mail[] {

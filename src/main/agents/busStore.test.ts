@@ -24,6 +24,7 @@ const {
   leaseMail,
   resetBus,
   sentBy,
+  setBusJournal,
   setBusObserver,
   setPending,
   takeMail,
@@ -31,6 +32,7 @@ const {
 } = store
 
 const observed = vi.fn()
+const mailJournal = { mail: vi.fn(), leaseTimeout: vi.fn() }
 const all = () => true
 
 beforeEach(async () => {
@@ -39,7 +41,10 @@ beforeEach(async () => {
   await resetBus()
   rmSync(join(dataHome, 'ostia'), { recursive: true, force: true })
   observed.mockClear()
+  mailJournal.mail.mockClear()
+  mailJournal.leaseTimeout.mockClear()
   setBusObserver(observed)
+  setBusJournal(mailJournal)
 })
 
 afterEach(async () => {
@@ -185,6 +190,31 @@ describe('expiry and closing', () => {
     const last = enqueue({ from: 'busy', to: 'd', text: 'last' })
     expect(getMail(first.id)).toBeUndefined()
     expect(getMail(last.id)).toBeDefined()
+  })
+})
+
+describe('journal', () => {
+  it('reports an expiry and a closed pane by reason and age, and never the text or ids', () => {
+    const lost = send('secret text')
+    setPending(lost.id, 'hibernated')
+    vi.setSystemTime(Date.now() + MAIL_TTL_MS + 1000)
+    getMail(lost.id)
+    send('another secret', 'c')
+    vi.setSystemTime(Date.now() + 5000)
+    failPaneMail('c')
+    expect(mailJournal.mail.mock.calls).toEqual([
+      ['expired:hibernated', MAIL_TTL_MS + 1000],
+      ['pane-closed', 5000],
+    ])
+    expect(JSON.stringify(mailJournal.mail.mock.calls)).not.toContain('secret')
+  })
+
+  it('reports a lease that timed out, with the age of the message', () => {
+    send()
+    leaseMail('b', 'prompt', all)
+    vi.setSystemTime(Date.now() + LEASE_MS + 1)
+    inboxOf('b')
+    expect(mailJournal.leaseTimeout).toHaveBeenCalledWith(LEASE_MS + 1)
   })
 })
 
