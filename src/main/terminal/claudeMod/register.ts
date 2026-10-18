@@ -3,7 +3,7 @@ export const MOD_DRAFT_QUIET_MS = 10_000
 export const MOD_SAFETY_MS = 30_000
 export const MOD_BUSY_RETRY_MS = 10_000
 const MOD_HOOK_TIMEOUT_MS = 20_000
-export const MOD_WAITING_STATUS = 'ostia: mail waits for your prompt'
+export const MOD_WAITING_STATUS = 'mail waits for your prompt'
 
 interface Timer {
   cancel: () => void
