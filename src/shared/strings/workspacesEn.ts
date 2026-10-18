@@ -217,6 +217,7 @@ export const workspacesEn = {
     foldNamedSplitTab: 'Fold {name}',
     foldSplitTab: 'Fold split tab',
     foldedDone: '{count} done',
+    foldedFailed: '{count} failed',
     foldedPanes: '{count} panes',
     foldedSplitTab: 'Folded split tab {name}: {summary}',
     foldedWaiting: '{count} waiting',

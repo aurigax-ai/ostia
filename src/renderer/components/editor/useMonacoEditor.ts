@@ -1,6 +1,7 @@
 import { attachWheelZoom } from '@/lib/app/wheelZoom'
 import { findStep, matchChord, runAppChord } from '@/lib/keyboard/chords'
 import { fileFeatureOptions } from '@/lib/monaco/largeFile'
+import { EDITOR_SCROLLBAR } from '@/lib/monaco/scrollbarOptions'
 import { monaco } from '@/lib/monaco/setup'
 import { ensureMonacoTheme } from '@/lib/monaco/useMonacoTheme'
 import { AUTO_SAVE_DELAY_MS, type EditorSettings } from '@/lib/settings/browserEditorSettings'
@@ -73,6 +74,7 @@ export function useMonacoEditor({
       fontWeight: String(initial.weight),
       fontLigatures: true,
       minimap: { enabled: false },
+      scrollbar: EDITOR_SCROLLBAR,
       scrollBeyondLastLine: false,
       smoothScrolling: false,
       ...behaviorOptions(useSettingsStore.getState().editor),

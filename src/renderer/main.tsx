@@ -33,6 +33,7 @@ import { startKeptReattach } from '@/lib/terminal/keptReattach'
 import { loadLocalHostName } from '@/lib/terminal/osc7'
 import { applyUiFonts, preloadFonts } from '@/lib/theme/uiFonts'
 import { registerViewCommands, startViews } from '@/lib/views/views'
+import { restoreLeftPanel } from '@/lib/workspaces/restoreLeftPanel'
 import { initWindow, startWindowSync } from '@/lib/workspaces/windowHandoff'
 import { startWorkspaceProjects } from '@/lib/workspaces/workspaceProjects'
 import { startAgentGroupsSync } from '@/stores/agents/agentGroupsStore'
@@ -56,6 +57,7 @@ import { startSnapshotAutosave } from '@/stores/workspaces/persistence'
 import { startRailEditSync } from '@/stores/workspaces/railEditStore'
 import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import { watchScrolling } from '@aurigax-ai/ostia-extension-sdk/contract/scrollbar'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
@@ -77,6 +79,7 @@ import { isMac } from './platform'
 
 startErrorReporting()
 startFocusModality()
+watchScrolling(document)
 registerBuiltinCommands()
 registerExternalEditorCommand()
 registerSelectionSendCommand()
@@ -136,6 +139,7 @@ async function boot(): Promise<void> {
     console.error('[workspace] restore failed', err)
   }
   useWorkspacesStore.getState().hydrate(snapshot)
+  restoreLeftPanel(snapshot)
   const restoredWorkspaceId = useWorkspacesStore.getState().activeWorkspaceId
   if (restoredWorkspaceId) focusActivePaneWhenReady(restoredWorkspaceId)
   startSnapshotAutosave()

@@ -55,6 +55,7 @@ export function arrangeSplitTab(
     ...outer,
     id: current?.id ?? outer.id,
     ...(name !== undefined ? { name } : {}),
+    ...(current?.folded ? { folded: true as const } : {}),
   }
   const same = current && current.name === name && shapeOf(current) === shapeOf(arranged)
   return same ? current : arranged

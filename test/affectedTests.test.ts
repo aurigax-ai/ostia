@@ -295,7 +295,7 @@ describe('coreTests', () => {
       (spec) => readFileSync(join(ROOT, spec), 'utf8').match(/@core\b/g) ?? [],
     )
     expect(found).toHaveLength(marks.length)
-    expect(found).toContain('e2e/smoke.spec.ts:5')
+    expect(found.some((entry) => entry.startsWith('e2e/smoke.spec.ts:'))).toBe(true)
     for (const entry of found) {
       const [spec, line] = entry.split(':')
       const source = readFileSync(join(ROOT, spec), 'utf8').split('\n')

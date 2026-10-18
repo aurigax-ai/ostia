@@ -215,6 +215,7 @@ export const workspacesZhHant: typeof workspacesEn = {
     foldNamedSplitTab: '摺疊 {name}',
     foldSplitTab: '摺疊分割分頁',
     foldedDone: '{count} 個已完成',
+    foldedFailed: '{count} 個失敗',
     foldedPanes: '{count} 個窗格',
     foldedSplitTab: '已摺疊的分割分頁 {name}：{summary}',
     foldedWaiting: '{count} 個等待中',
