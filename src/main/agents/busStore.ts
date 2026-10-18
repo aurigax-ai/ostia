@@ -289,11 +289,13 @@ export function enqueue(draft: MailDraft): Mail {
   store().mail.push(mail)
   observe(mail, 'queued')
   const parked = waiters.get(draft.to)
-  if (parked && parked.size > 0) {
-    waiters.delete(draft.to)
+  const first = parked?.values().next().value
+  if (parked && first) {
+    parked.delete(first)
+    if (parked.size === 0) waiters.delete(draft.to)
     const delivered = snapshot(mail)
     deliverMail(mail, 'read', mail.ts)
-    for (const resolve of parked) resolve([delivered])
+    first([delivered])
   }
   markBusDirty()
   announceQueued(mail)
@@ -560,7 +562,9 @@ export function whenSettled(
 ): Promise<Mail | undefined> {
   return new Promise((resolve) => {
     const current = store().mail.find((item) => item.id === id)
-    if (!current || !undelivered(current)) return resolve(current && snapshot(current))
+    if (!current || !undelivered(current) || signal.aborted) {
+      return resolve(current && snapshot(current))
+    }
     const listeners = settled.get(id) ?? new Set()
     const finish = (): void => {
       clearTimeout(timer)

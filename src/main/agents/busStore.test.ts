@@ -396,6 +396,19 @@ describe('waiting', () => {
     expect(getMail(mail.id)).toMatchObject({ state: 'delivered', via: 'read' })
   })
 
+  it('hands a message to only the first of two parked waits of one pane, and keeps the other parked', () => {
+    const first = vi.fn()
+    const second = vi.fn()
+    addWaiter('b', first)
+    addWaiter('b', second)
+    send('only once')
+    expect(first).toHaveBeenCalledOnce()
+    expect(second).not.toHaveBeenCalled()
+    const next = send('for the second')
+    expect(second).toHaveBeenCalledOnce()
+    expect(second.mock.calls[0][0].map((m: { id: string }) => m.id)).toEqual([next.id])
+  })
+
   it('queues again once a waiter is unregistered', () => {
     const got = vi.fn()
     const off = addWaiter('b', got)
@@ -428,6 +441,13 @@ describe('waiting', () => {
     takeMail('b', 'read', all)
     expect(await whenSettled(mail.id, 5000, abort.signal)).toMatchObject({ state: 'delivered' })
     expect(await whenSettled('missing', 5000, abort.signal)).toBeUndefined()
+  })
+
+  it('does not wait at all for a caller that is already gone', async () => {
+    const abort = new AbortController()
+    abort.abort()
+    const mail = send()
+    expect(await whenSettled(mail.id, 60_000, abort.signal)).toMatchObject({ state: 'queued' })
   })
 
   it('stops waiting when the caller goes away', async () => {
