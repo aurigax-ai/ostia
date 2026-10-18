@@ -82,6 +82,7 @@ export function runsText(runs: Run[]): string {
 class Writer {
   private readonly out: string[] = []
   private left: number
+  private skipped = 0
   cut = false
 
   constructor(
@@ -91,8 +92,20 @@ class Writer {
     this.left = maxChars
   }
 
-  tag(markup: string): void {
+  open(name: string, attributes = ''): void {
+    const markup = `<${name}${attributes}>`
+    if (this.cut || markup.length > this.left) {
+      this.cut = true
+      this.skipped++
+      return
+    }
+    this.left -= markup.length
     this.out.push(markup)
+  }
+
+  close(name: string): void {
+    if (this.skipped > 0) this.skipped--
+    else this.out.push(`</${name}>`)
   }
 
   text(value: string): void {
@@ -119,9 +132,9 @@ function writeRuns(w: Writer, runs: Run[]): void {
     if ('figure' in run) {
       w.text(figureText(w.words, run.figure))
     } else if (run.href && LINKABLE.test(run.href)) {
-      w.tag(`<a href="${escaped(run.href)}">`)
+      w.open('a', ` href="${escaped(run.href)}"`)
       w.text(run.text)
-      w.tag('</a>')
+      w.close('a')
     } else {
       w.text(run.text)
     }
@@ -134,24 +147,30 @@ function span(name: string, value: number): string {
 }
 
 function writeTable(w: Writer, rows: Cell[][], headingShift: number): void {
-  w.tag('<table><tbody>')
+  w.open('table')
+  w.open('tbody')
   for (const row of rows) {
     if (w.cut) break
-    w.tag('<tr>')
+    w.open('tr')
     for (const cell of row) {
-      w.tag(`<td${span('colspan', cell.colspan)}${span('rowspan', cell.rowspan)}>`)
+      if (w.cut) break
+      w.open('td', `${span('colspan', cell.colspan)}${span('rowspan', cell.rowspan)}`)
       writeBlocks(w, cell.blocks, headingShift)
-      w.tag('</td>')
+      w.close('td')
     }
-    w.tag('</tr>')
+    w.close('tr')
   }
-  w.tag('</tbody></table>')
+  w.close('tbody')
+  w.close('table')
 }
 
 function writeBlocks(w: Writer, blocks: Block[], headingShift: number): void {
   const lists: string[] = []
   const closeLists = (depth: number): void => {
-    while (lists.length > depth) w.tag(`</li></${lists.pop()}>`)
+    while (lists.length > depth) {
+      w.close('li')
+      w.close(lists.pop() as string)
+    }
   }
   for (const block of blocks) {
     if (w.cut) break
@@ -160,21 +179,21 @@ function writeBlocks(w: Writer, blocks: Block[], headingShift: number): void {
       const level = Math.min(block.level, lists.length)
       closeLists(level + 1)
       if (lists.length === level + 1) {
-        w.tag('</li>')
+        w.close('li')
       } else {
         const tag = block.ordered ? 'ol' : 'ul'
         lists.push(tag)
-        w.tag(`<${tag}>`)
+        w.open(tag)
       }
-      w.tag('<li>')
+      w.open('li')
       writeRuns(w, block.runs)
     } else if (block.type === 'table') {
       writeTable(w, block.rows, headingShift)
     } else {
       const tag = block.type === 'h' ? `h${Math.min(block.level + headingShift, 6)}` : 'p'
-      w.tag(`<${tag}>`)
+      w.open(tag)
       writeRuns(w, block.runs)
-      w.tag(`</${tag}>`)
+      w.close(tag)
     }
   }
   closeLists(0)
@@ -199,18 +218,20 @@ export function presentationOutlineHtml(
   for (const slide of slides) {
     if (w.cut) break
     const title = slide.title || formatMessage(words.slide, { number: slide.number })
-    w.tag('<section><h2>')
+    w.open('section')
+    w.open('h2')
     w.text(slide.hidden ? formatMessage(words.hidden, { title }) : title)
-    w.tag('</h2>')
+    w.close('h2')
     writeBlocks(w, slide.blocks, 2)
     if (slide.notes.length > 0 && !w.cut) {
-      w.tag('<blockquote><h3>')
+      w.open('blockquote')
+      w.open('h3')
       w.text(words.notes)
-      w.tag('</h3>')
+      w.close('h3')
       writeBlocks(w, slide.notes, 3)
-      w.tag('</blockquote>')
+      w.close('blockquote')
     }
-    w.tag('</section>')
+    w.close('section')
   }
   return { html: w.html(), textCut: w.cut }
 }

@@ -82,10 +82,26 @@ describe('documentOutlineHtml', () => {
         { type: 'p', runs: [{ text: 'never' }] },
       ],
       WORDS,
-      4,
+      7,
     )
     expect(out).toEqual({ html: '<p>abcd</p>', textCut: true })
     expect(documentOutlineHtml([], WORDS, 4)).toEqual({ html: '', textCut: false })
+  })
+
+  it('counts markup against the limit too, so content with no text is cut and stays closed', () => {
+    const empty = { blocks: [], colspan: 1, rowspan: 1 }
+    const rows = Array.from({ length: 100 }, () => Array.from({ length: 100 }, () => empty))
+    const out = documentOutlineHtml(
+      [
+        { type: 'table', rows },
+        { type: 'p', runs: [{ text: 'never' }] },
+      ],
+      WORDS,
+      200,
+    )
+    expect(out.textCut).toBe(true)
+    expect(out.html.length).toBeLessThan(500)
+    expect(out.html).toMatch(/^<table><tbody><tr>(?:<td><\/td>)+<\/tr><\/tbody><\/table>$/)
   })
 })
 

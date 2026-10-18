@@ -196,9 +196,11 @@ function shapesOf(tree: XmlElement | undefined, into: Shapes): void {
   }
 }
 
-function notesOf(read: Read, key: string | null): Block[] {
-  const root = key ? read(key) : undefined
-  if (!key || root?.name !== 'p:notes') return []
+function notesOf(read: Read, key: string | null, shown: Set<string>): Block[] {
+  if (!key || shown.has(key)) return []
+  shown.add(key)
+  const root = read(key)
+  if (root?.name !== 'p:notes') return []
   const into: Shapes = {
     links: relationships(read, key),
     blocks: [],
@@ -209,7 +211,7 @@ function notesOf(read: Read, key: string | null): Block[] {
   return into.blocks
 }
 
-function slideOf(read: Read, key: string): Slide | null {
+function slideOf(read: Read, key: string, number: number, notes: Set<string>): Slide | null {
   const root = read(key)
   if (root?.name !== 'p:sld') return null
   const links = relationships(read, key)
@@ -217,11 +219,11 @@ function slideOf(read: Read, key: string): Slide | null {
   shapesOf(pathOf(root, 'p:cSld', 'p:spTree'), into)
   const notesId = [...links].find(([, rel]) => rel.type.endsWith('/notesSlide'))?.[0]
   return {
-    number: 0,
+    number,
     title: into.title,
     hidden: root.attributes.get('show') === '0' || root.attributes.get('show') === 'false',
     blocks: into.blocks,
-    notes: notesOf(read, linkedPart(links, notesId, key, 'notesSlide')),
+    notes: notesOf(read, linkedPart(links, notesId, key, 'notesSlide'), notes),
   }
 }
 
@@ -235,13 +237,15 @@ export function pptxOutline(
   if (presentation?.name !== 'p:presentation') fail()
   const links = relationships(read, PRESENTATION)
   const slides: Slide[] = []
-  const seen = new Map<string, Slide | null>()
+  const seen = new Set<string>()
+  const notes = new Set<string>()
   for (const id of childrenOf(childOf(presentation, 'p:sldIdLst'), 'p:sldId')) {
-    if (slides.length === limits.slides) return { slides, slidesCut: true }
     const key = linkedPart(links, id.attributes.get('r:id'), PRESENTATION, 'slide')
-    if (key && !seen.has(key)) seen.set(key, slideOf(read, key))
-    const slide = key ? seen.get(key) : null
-    if (slide) slides.push({ ...slide, number: slides.length + 1 })
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    if (slides.length === limits.slides) return { slides, slidesCut: true }
+    const slide = slideOf(read, key, slides.length + 1, notes)
+    if (slide) slides.push(slide)
   }
   return { slides, slidesCut: false }
 }

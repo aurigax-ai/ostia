@@ -27,6 +27,8 @@ import { partKey } from './pptxOutline'
 import { readPresentation } from './presentationModel'
 
 const WORDS = outlineWords(translatorFor({ en: en.messages }, 'en'))
+const P = 'http://schemas.openxmlformats.org/presentationml/2006/main'
+const A = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -144,24 +146,49 @@ describe('readPresentation (pptx)', () => {
   })
 
   it('skips slides whose relationship is missing, external, escapes the package or names an unread part', () => {
+    const secret = `<p:sld xmlns:p="${P}" xmlns:a="${A}"><p:cSld><p:spTree>${titleShape('secret')}</p:spTree></p:cSld></p:sld>`
     const bytes = pptx({
-      slides: [{ shapes: titleShape('kept') }],
-      order: [0, 1, 2, 3, 4],
+      slides: [{ shapes: titleShape('kept') }, { shapes: titleShape('never') }],
+      order: [0, 2, 3, 4, 5],
       presentationRelationships:
-        relationship('rS2', 'slide', 'slides/missing.xml') +
-        relationship('rS3', 'slide', 'file:///etc/passwd', true) +
-        relationship('rS4', 'slide', '../../ppt/slides/slide1.xml') +
-        relationship('rS5', 'slide', 'media/secret.xml'),
-      extra: [
-        deflated(
-          'ppt/media/secret.xml',
-          strToU8(
-            '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree/></p:cSld></p:sld>',
-          ),
-        ),
-      ],
+        relationship('rS3', 'slide', 'slides/missing.xml') +
+        relationship('rS4', 'slide', 'slides/slide2.xml', true) +
+        relationship('rS5', 'slide', '../../ppt/slides/slide2.xml') +
+        relationship('rS6', 'slide', 'media/secret.xml'),
+      extra: [deflated('ppt/media/secret.xml', strToU8(secret))],
     })
     expect(html(bytes)).toBe('<section><h2>kept</h2></section>')
+  })
+
+  it('lists a slide named again only once and stops markup with no text at outlineChars', () => {
+    const empty = Array.from({ length: 10 }, () => Array.from({ length: 100 }, () => cell('')))
+    const bytes = pptx({ slides: [{ shapes: table(empty) }], order: Array(2_000).fill(0) })
+    expect(bytes.length).toBeLessThan(1024 * 1024)
+    const limits = { ...OFFICE_LIMITS, outlineChars: 2_000 }
+    const result = readPresentation(bytes, limits, WORDS)
+    if (!result.ok) throw new Error(`not read: ${result.problem}`)
+    expect(result.html.match(/<section>/g)).toHaveLength(1)
+    expect(result.textCut).toBe(true)
+    expect(result.html.length).toBeLessThan(2.5 * limits.outlineChars)
+    expect(result.html.endsWith('</tbody></table></section>')).toBe(true)
+    const named = pptx({ slides: [{ shapes: titleShape('once') }], order: [0, 0, 0] })
+    expect(html(named)).toBe('<section><h2>once</h2></section>')
+  })
+
+  it('shows notes that several slides point to only once', () => {
+    const out = html(
+      pptx({
+        slides: [
+          { shapes: titleShape('one'), notes: 'shared words' },
+          {
+            shapes: titleShape('two'),
+            relationships: relationship('rN', 'notesSlide', '../notesSlides/notesSlide1.xml'),
+          },
+        ],
+      }),
+    )
+    expect(out.match(/shared words/g)).toHaveLength(1)
+    expect(out).toContain('<section><h2>two</h2></section>')
   })
 
   it('refuses a file whose content type is not a presentation, whatever its name', () => {
