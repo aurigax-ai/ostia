@@ -26,10 +26,12 @@ import { resolveSafe } from '../platform/pathGuard'
 import { readSettingsFile } from '../platform/settingsFile'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import { registerVaultMethods } from '../secrets/vault'
+import { appVersion } from '../updates/appVersion'
 import type { WindowSend } from '../windows/windowSend'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { registerBusMethods } from './busMethods'
 import { onBusChange, onMailQueued, queuedCounts } from './busStore'
+import { registerCodexMail } from './codexMailWiring'
 import { syncMailFlags } from './mailFlag'
 import { registerMailIpc } from './mailIpc'
 import { mailPending } from './mailPending'
@@ -88,6 +90,11 @@ export function registerToolbeltWiring({
   emitPaneEvent,
 }: ToolbeltWiringDeps) {
   registerMailIpc(broadcast)
+  registerCodexMail({
+    journal: paneJournal,
+    version: appVersion(),
+    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
+  })
   onBusChange(() => syncMailFlags(queuedCounts()))
   onMailQueued(
     createMailWaker({

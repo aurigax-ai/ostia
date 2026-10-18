@@ -499,6 +499,18 @@ export function ackMail(to: string, lease: string): string[] {
   return acked
 }
 
+export function releaseMail(to: string, lease: string): void {
+  let changed = false
+  for (const mail of store().mail) {
+    if (mail.to !== to || mail.state !== 'leased' || mail.lease !== lease) continue
+    mail.state = 'queued'
+    mail.lease = undefined
+    mail.leasedUntil = undefined
+    changed = true
+  }
+  if (changed) markBusDirty()
+}
+
 export function failPaneMail(to: string): void {
   const at = new Date().toISOString()
   let changed = false

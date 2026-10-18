@@ -5,6 +5,7 @@ import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { app } from 'electron'
 import type { PtyAttachResult, PtySpawnOptions } from '../../../shared/terminal/ptyApi'
 import { shellArgv } from '../../../shared/terminal/terminalShell'
+import { registerCodexSocket } from '../../agents/codexSockets'
 import { registerMailFlag } from '../../agents/mailFlag'
 import type { ArtifactFolders } from '../../artifacts/artifactFolders'
 import { controlSocketPath } from '../../control/controlServer'
@@ -107,6 +108,8 @@ export function createSpawnPlanner({
     const stateFile = join(privateTmpDir(`${PRODUCT_NAME}-shell-state`), randomUUID())
     const mailFile = `${stateFile}.mail`
     registerMailFlag(identity.externalId, mailFile)
+    const codexSock = `${stateFile}.codex.sock`
+    registerCodexSocket(identity.externalId, codexSock)
     const markNonceFile = sendsMarkNonce(shell) ? markNonceFileFor(stateFile) : null
     const markNonce = markNonceFile ? writeMarkNonce(markNonceFile) : null
     const integration = shellIntegrationSpawnOptions(
@@ -131,6 +134,7 @@ export function createSpawnPlanner({
         NODE: process.execPath,
         SHELL_STATE: stateFile,
         MAIL_FILE: mailFile,
+        CODEX_SOCK: codexSock,
       }),
       agentHooks: settings.agents?.hooks,
       artifactsDir: workspaceId ? artifactFolders.ensure(workspaceId) : null,

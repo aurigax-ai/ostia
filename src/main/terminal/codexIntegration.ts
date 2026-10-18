@@ -13,11 +13,12 @@ import {
   NO_AGENT_PLUGINS,
 } from '@aurigax-ai/ostia-extension-sdk/manifest/agentSkills'
 import { AGENT_HOOKS_OFF_ENV } from '../../shared/agents/agentHooks'
-import { AGENT_ARGS_ENV } from '../../shared/agents/agentLaunch'
+import { AGENT_ARGS_ENV, CODEX_HOOK_ARGS_JSON } from '../../shared/agents/agentLaunch'
 import { CORE_SKILL_FILES, writeBundledSkill } from '../agents/bundledSkills'
 import {
   AGENT_DIR,
   CLI_PATH,
+  CLI_RUN,
   IN_PANE,
   busHookCommand,
   hookCommand,
@@ -191,6 +192,7 @@ function codexSessionContext(
 }
 
 export const CODEX_HOOK_ARGS_FILE = 'hook-args.sh'
+const CODEX_SERVER_CALL = `${CLI_RUN} codex-server`
 
 function codexHookArgsScript(args: readonly string[]): string {
   return ['__ostia_codex_hook_args=(', ...args.map((arg) => `  ${shellQuote(arg)}`), ')', ''].join(
@@ -216,11 +218,9 @@ export function writeCodexIntegration(
     }
   })
   writeFileSync(join(dir, 'session-context.md'), codexSessionContext(skillFile, skills), 'utf8')
-  writeFileSync(
-    join(dir, CODEX_HOOK_ARGS_FILE),
-    codexHookArgsScript(codexHookArgs(contextFile, content.hooks)),
-    'utf8',
-  )
+  const hookArgs = codexHookArgs(contextFile, content.hooks)
+  writeFileSync(join(dir, CODEX_HOOK_ARGS_FILE), codexHookArgsScript(hookArgs), 'utf8')
+  writeFileSync(join(dir, CODEX_HOOK_ARGS_JSON), `${JSON.stringify(hookArgs)}\n`, 'utf8')
   return { contextFile }
 }
 
@@ -254,6 +254,16 @@ export function codexWrapper(): string {
     '      local -a __ostia_codex_hook_args',
     "      local IFS=$'\\037'",
     `      . "${AGENT_DIR}/codex/${CODEX_HOOK_ARGS_FILE}"`,
+    `      if [ -n "${shellEnv('CODEX_SOCK')}" ]; then`,
+    '        local __ostia_codex_sock __ostia_codex_status',
+    `        __ostia_codex_sock="$(${CODEX_SERVER_CALL} start -- "$@" 2>/dev/null)"`,
+    '        if [ -n "$__ostia_codex_sock" ]; then',
+    '          command codex --remote "unix://$__ostia_codex_sock" "$@"',
+    '          __ostia_codex_status=$?',
+    `          ${CODEX_SERVER_CALL} stop >/dev/null 2>&1`,
+    '          return $__ostia_codex_status',
+    '        fi',
+    '      fi',
     `      ${CODEX_ARGS}="$*" command codex "\${__ostia_codex_hook_args[@]}" "$@"`,
     '    else',
     '      command codex "$@"',

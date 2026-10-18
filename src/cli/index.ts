@@ -26,6 +26,7 @@ import { runNotify, runStateVerb } from './verbs/attention'
 import { runBrowse } from './verbs/browse'
 import { runBusVerb } from './verbs/bus'
 import { runCmuxImportVerb } from './verbs/cmuxImport'
+import { runCodexServerVerb } from './verbs/codexServer'
 import { runCommandList, runRawCommand } from './verbs/commands'
 import { runGitVerb, runPortsVerb } from './verbs/coreBoards'
 import { runExtCommand, runExtList } from './verbs/ext'
@@ -66,6 +67,7 @@ const RUNNERS: Readonly<Record<string, Runner>> = {
   workspace: runWorkspaceVerb,
   'resume-token': runResumeTokenVerb,
   'claude-hook': runClaudeHookVerb,
+  'codex-server': runCodexServerVerb,
   'permission-hook': async (conn) => {
     process.exitCode = await runPermissionHook(argvFrom3(), {
       readInput: readAllStdin,
