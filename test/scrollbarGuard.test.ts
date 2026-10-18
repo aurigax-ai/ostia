@@ -5,8 +5,8 @@ import { SCROLLBAR_SIZE_PX } from '@aurigax-ai/ostia-extension-sdk/contract/scro
 import { describe, expect, it } from 'vitest'
 
 const root = join(__dirname, '..')
-const APP_CSS = 'src/renderer/index.css'
-const PANEL_CSS = 'packages/extension-sdk/src/client/panel.css'
+const APP_CSS = ['src', 'renderer', 'index.css'].join('/')
+const PANEL_CSS = ['packages', 'extension-sdk', 'src', 'client', 'panel.css'].join('/')
 const SHARED = [APP_CSS, PANEL_CSS]
 
 const SHOWN =
@@ -80,7 +80,7 @@ describe('one scrollbar definition', () => {
     for (const file of creators) expect(read(file)).toContain('scrollbar: EDITOR_SCROLLBAR')
     const literals = sources.filter(
       (file) =>
-        file !== 'src/renderer/lib/monaco/scrollbarOptions.ts' &&
+        file !== ['src', 'renderer', 'lib', 'monaco', 'scrollbarOptions.ts'].join('/') &&
         /ScrollbarSize|HasArrows/.test(read(file)),
     )
     expect(literals).toEqual([])
