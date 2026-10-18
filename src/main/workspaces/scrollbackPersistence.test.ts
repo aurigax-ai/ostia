@@ -49,11 +49,30 @@ describe('autosaveScrollback', () => {
     await vi.advanceTimersByTimeAsync(0)
   }
 
-  it('saves the first change at the next tick and nothing while the panes stay quiet', async () => {
+  it('saves a change after a quiet tick on the next tick, however recent the last save', async () => {
+    pane.revision++
+    await tick()
+    await tick()
+    pane.revision++
+    await tick()
+    expect(saveScrollback).toHaveBeenCalledTimes(2)
+    expect(saveScrollback).toHaveBeenLastCalledWith({ a: `text ${pane.revision}` })
+  })
+
+  it('does not save again while the panes stay quiet', async () => {
+    pane.revision++
     await tick()
     await tick()
     await tick()
     expect(saveScrollback).toHaveBeenCalledTimes(1)
+  })
+
+  it('saves the second changed tick in a row, so a short build is never held', async () => {
+    pane.revision++
+    await tick()
+    pane.revision++
+    await tick()
+    expect(saveScrollback).toHaveBeenCalledTimes(2)
   })
 
   it('saves a streaming pane once per three ticks and still saves its last change', async () => {
@@ -63,11 +82,11 @@ describe('autosaveScrollback', () => {
       await tick()
       saves.push(saveScrollback.mock.calls.length)
     }
-    expect(saves).toEqual([1, 1, 1, 2, 2, 2])
+    expect(saves).toEqual([1, 2, 2, 2, 3, 3])
     await tick()
-    expect(saveScrollback).toHaveBeenCalledTimes(3)
+    expect(saveScrollback).toHaveBeenCalledTimes(4)
     expect(saveScrollback).toHaveBeenLastCalledWith({ a: `text ${pane.revision}` })
     await tick()
-    expect(saveScrollback).toHaveBeenCalledTimes(3)
+    expect(saveScrollback).toHaveBeenCalledTimes(4)
   })
 })
