@@ -60,7 +60,9 @@ export function createScrollbackPersistence({
     process.env.NODE_ENV === 'test' && Number(readEnv('TEST_SCROLLBACK_AUTOSAVE_MS')) > 0
       ? Number(readEnv('TEST_SCROLLBACK_AUTOSAVE_MS'))
       : 5000
+  const STREAMING_SAVE_GAP_MS = SCROLLBACK_AUTOSAVE_MS * 3
   let lastScrollbackSignature = ''
+  let lastAutosaveAt = Number.NEGATIVE_INFINITY
 
   function autosaveScrollback(): void {
     if (quit.savingScrollbackForQuit) return
@@ -68,7 +70,10 @@ export function createScrollbackPersistence({
     for (const [paneId, entry] of ptys) signature += `${paneId}:${entry.mirror.revision};`
     signature += `pending:${Object.keys(pendingRestoredScrollback()).length}`
     if (signature === lastScrollbackSignature) return
+    const now = Date.now()
+    if (now - lastAutosaveAt < STREAMING_SAVE_GAP_MS) return
     lastScrollbackSignature = signature
+    lastAutosaveAt = now
     void persistScrollback()
   }
 
