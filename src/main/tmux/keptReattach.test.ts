@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ScreenMirror } from '../terminal/screenMirror'
+import { pendingRestoredScrollback, stashScrollback } from '../workspaces/savedScrollback'
 import { createKeptReattach } from './keptReattach'
 
 function setup() {
@@ -87,5 +88,13 @@ describe('reattaching a kept shell', () => {
     expect(first).toMatch(/^[0-9a-f]{64}$/)
     expect(second).toMatch(/^[0-9a-f]{64}$/)
     expect(second).not.toBe(first)
+  })
+
+  it('KSH-C13 drops the pane’s saved scrollback so the kept screen is its only copy', async () => {
+    const { run } = setup()
+    stashScrollback('p1', 'once-42')
+    stashScrollback('other', 'untouched')
+    await run()
+    expect(pendingRestoredScrollback()).toEqual({ other: 'untouched' })
   })
 })

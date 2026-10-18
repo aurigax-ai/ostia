@@ -1,6 +1,7 @@
 {
   "name": "terminal",
   "paths": [
+    "src/main/terminal/localPrompt.ts",
     "src/main/terminal/ptyFlow.ts",
     "src/main/terminal/ptyReaper.ts",
     "src/main/terminal/ptyRingBuffer.ts",
@@ -45,6 +46,7 @@
   ],
   "specs": [
     "e2e/agent-lag.spec.ts",
+    "e2e/local-prompt.spec.ts",
     "e2e/new-terminal-focus.spec.ts",
     "e2e/pty-flow.spec.ts",
     "e2e/resize-hold.spec.ts",
