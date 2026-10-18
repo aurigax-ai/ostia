@@ -95,14 +95,13 @@ describe('what the graphs extension may do', () => {
     }
   })
 
-  it('GRF-C7 it never claims to run while Ostia is closed and the panel says it runs while Ostia is open', () => {
+  it('GRF-C7 it never claims to run while Ostia is closed and the panel carries no runtime note', () => {
     const text = `${catalogText()}\n${skillSection()}`.toLowerCase()
     for (const claim of ['always running', '24/7', 'in the background while closed'])
       expect(text).not.toContain(claim)
-    expect(JSON.parse(read(join(HERE, 'locales/en.json'))).messages.runsWhileOpen).toContain(
-      'while Ostia is open',
-    )
-    expect(read(join(HERE, 'panel.ts'))).toContain("t('runsWhileOpen')")
+    const panel = read(join(HERE, 'panel.ts'))
+    expect(panel).not.toContain('runsWhileOpen')
+    expect(panel).not.toContain('runsAsDaemon')
   })
 
   it('GRF-C143 every English key has a Traditional Chinese one and the feature is 狀態圖 there', () => {
@@ -113,7 +112,6 @@ describe('what the graphs extension may do', () => {
     }
     expect(Object.keys(en).filter((k) => !(k in zh.messages))).toEqual([])
     expect(zh.manifest.name).toBe('狀態圖')
-    expect(zh.messages.title).toBe('狀態圖')
     expect(JSON.stringify(zh)).not.toContain('線圖')
   })
 

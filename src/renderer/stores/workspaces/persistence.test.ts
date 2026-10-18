@@ -1,5 +1,7 @@
 import { resetIds } from '@/lib/layout/tree'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useSidePanelStore } from '@/stores/app/sidePanelStore'
+import { useUIStore } from '@/stores/app/uiStore'
 import type { AppSnapshot } from '@shared/workspaces/workspaceApi'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLayoutStore } from './layoutStore'
@@ -35,12 +37,16 @@ describe('workspace autosave', () => {
   let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
+  let uiInit: ReturnType<typeof useUIStore.getState>
+  let sideInit: ReturnType<typeof useSidePanelStore.getState>
   let stop: (() => void) | null = null
 
   beforeAll(() => {
     workspacesInit = useWorkspacesStore.getState()
     layoutInit = useLayoutStore.getState()
     settingsInit = useSettingsStore.getState()
+    uiInit = useUIStore.getState()
+    sideInit = useSidePanelStore.getState()
   })
 
   beforeEach(() => {
@@ -55,6 +61,8 @@ describe('workspace autosave', () => {
     useWorkspacesStore.setState(workspacesInit, true)
     useLayoutStore.setState(layoutInit, true)
     useSettingsStore.setState(settingsInit, true)
+    useUIStore.setState(uiInit, true)
+    useSidePanelStore.setState(sideInit, true)
     vi.useRealTimers()
     vi.restoreAllMocks()
   })
@@ -85,6 +93,26 @@ describe('workspace autosave', () => {
       const snapshot = lastSnapshot()
       expect(snapshot.workspaces.map((s) => s.id)).toEqual([kept])
       expect(snapshot.activeWorkspaceId).toBe(kept)
+    })
+
+    it('records the Files panel only while it is open', () => {
+      useUIStore.setState({ filesOpen: true })
+      saveSnapshotNow()
+      expect(lastSnapshot().leftPanel).toBe('files')
+
+      useUIStore.setState({ filesOpen: false })
+      saveSnapshotNow()
+      expect(lastSnapshot()).not.toHaveProperty('leftPanel')
+    })
+
+    it('records the shown right side panel only while one is shown', () => {
+      useSidePanelStore.setState({ right: 'graphs' })
+      saveSnapshotNow()
+      expect(lastSnapshot().rightPanel).toBe('graphs')
+
+      useSidePanelStore.setState({ right: null })
+      saveSnapshotNow()
+      expect(lastSnapshot()).not.toHaveProperty('rightPanel')
     })
 
     it('stamps the save time so a stored snapshot can be dated by hand', () => {
@@ -137,6 +165,33 @@ describe('workspace autosave', () => {
   })
 
   describe('startSnapshotAutosave', () => {
+    it('saves when the right side panel changes', () => {
+      vi.useFakeTimers()
+      stop = startSnapshotAutosave()
+      save().mockClear()
+
+      useSidePanelStore.setState({ right: 'activity' })
+      vi.runAllTimers()
+
+      expect(save()).toHaveBeenCalledTimes(1)
+      expect(lastSnapshot().rightPanel).toBe('activity')
+    })
+
+    it('saves when the Files panel opens or closes, and not for other UI changes', () => {
+      vi.useFakeTimers()
+      stop = startSnapshotAutosave()
+      save().mockClear()
+
+      useUIStore.setState({ filesSearchOpen: true })
+      vi.runAllTimers()
+      expect(save()).not.toHaveBeenCalled()
+
+      useUIStore.setState({ filesOpen: true })
+      vi.runAllTimers()
+      expect(save()).toHaveBeenCalledTimes(1)
+      expect(lastSnapshot().leftPanel).toBe('files')
+    })
+
     it('collapses a burst of edits into a single write', () => {
       vi.useFakeTimers()
       stop = startSnapshotAutosave()

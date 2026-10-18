@@ -551,6 +551,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     },
     git: {
       watch: vi.fn(),
+      shown: vi.fn(),
       onItems: vi.fn().mockReturnValue(() => {}),
       onChanged: vi.fn().mockReturnValue(() => {}),
       changes: vi.fn().mockResolvedValue({ ok: false, error: 'not-a-repo' }),

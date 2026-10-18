@@ -95,13 +95,14 @@ export function summarize(status: RepoStatus): StatusSummary {
 }
 
 const BRANCH_MAX = 40
+const CHIP_BRANCH_MAX = 28
+
+function clipped(name: string, max: number): string {
+  return name.length > max ? `${name.slice(0, max - 1)}…` : name
+}
 
 export function branchLabel(branch: BranchInfo): string {
-  if (branch.head) {
-    return branch.head.length > BRANCH_MAX
-      ? `${branch.head.slice(0, BRANCH_MAX - 1)}…`
-      : branch.head
-  }
+  if (branch.head) return clipped(branch.head, BRANCH_MAX)
   return branch.oid ? `(${branch.oid.slice(0, 7)})` : '(no commits)'
 }
 
@@ -111,15 +112,16 @@ function trackingCount(n: number): string {
   return n > MAX_TRACKING_COUNT ? `${MAX_TRACKING_COUNT}+` : String(n)
 }
 
-export function branchChipText(branch: BranchInfo): string {
-  const name = branch.head ?? (branch.oid ? branch.oid.slice(0, 7) : '')
-  if (!name) return ''
+export function branchChipText(branch: BranchInfo, lines = ''): string {
+  const full = branch.head ?? (branch.oid ? branch.oid.slice(0, 7) : '')
+  if (!full) return ''
+  const name = clipped(full, CHIP_BRANCH_MAX)
   const tracking: string[] = []
   if (branch.upstream) {
     if (branch.ahead) tracking.push(`↑${trackingCount(branch.ahead)}`)
     if (branch.behind) tracking.push(`↓${trackingCount(branch.behind)}`)
   }
-  return tracking.length ? `${name} • ${tracking.join(' ')}` : name
+  return [name, lines, tracking.join(' ')].filter(Boolean).join(' · ')
 }
 
 export function parseShortstat(output: string): LineChanges | null {
@@ -153,11 +155,11 @@ export function withUntracked(tracked: LineChanges | null, untrackedLines: numbe
 }
 
 export function diffStatsChipText(changes: LineChanges | null): string {
-  if (!changes || changes.files === 0) return ''
+  if (!changes) return ''
   const lines: string[] = []
   if (changes.added) lines.push(`+${changes.added}`)
-  if (changes.removed) lines.push(`-${changes.removed}`)
-  return lines.length ? `${changes.files} • ${lines.join(' ')}` : String(changes.files)
+  if (changes.removed) lines.push(`−${changes.removed}`)
+  return lines.join(' ')
 }
 
 export type { BranchInfo, ChangeArea, FileChange, LineChanges, RepoStatus, StatusSummary }

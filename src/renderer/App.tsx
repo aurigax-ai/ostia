@@ -1,6 +1,7 @@
 import { AgentOfferDialog } from '@/components/agents/AgentOfferDialog'
 import { CmuxImportDialog } from '@/components/app/CmuxImportDialog'
 import { DetachedTitleBar } from '@/components/app/DetachedTitleBar'
+import { RightPanel } from '@/components/app/RightPanel'
 import { TopBar } from '@/components/app/TopBar'
 import { UpdateConfirmDialog } from '@/components/app/UpdateConfirmDialog'
 import { WindowControls } from '@/components/app/WindowControls'
@@ -133,6 +134,7 @@ export function App(): JSX.Element {
           {detached ? null : <DeckRail />}
           {filesOpen ? <FilesPanel /> : null}
           <WorkZone />
+          <RightPanel />
           <WindowControls />
           <CommandPalette />
           <ExtensionApprovalDialog />

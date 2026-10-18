@@ -1,12 +1,10 @@
 import { Hint } from '@/components/common/Hint'
-import { extensionIcon } from '@/components/extensions/extensionIcons'
 import { viewIcon } from '@/components/views/viewIcons'
 import { useDict } from '@/lib/app/useDict'
 import { needsYou, tabMark } from '@/lib/attention/attention'
 import type { PaneNode, SurfaceKind } from '@/lib/layout/types'
 import { cn } from '@/lib/utils'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
-import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useViewsStore } from '@/stores/extensions/viewsStore'
 import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import {
@@ -27,21 +25,11 @@ const SURFACE_ICON: Record<SurfaceKind, IconComponent> = {
   editor: FileCodeIcon,
   agent: RobotIcon,
   browser: GlobeIcon,
-  extension: extensionIcon(undefined),
   diff: GitDiffIcon,
   chat: ChatCircleTextIcon,
   git: GitBranchIcon,
   view: viewIcon(undefined),
   manager: BroadcastIcon,
-}
-
-export function usePaneTitle(pane: PaneNode): string {
-  const panelTitle = useExtensionsStore((s) =>
-    pane.kind === 'extension'
-      ? s.list.find((e) => e.id === pane.extensionId)?.panel?.title
-      : undefined,
-  )
-  return panelTitle ?? pane.title
 }
 
 export function usePaneMark(pane: PaneNode): ReturnType<typeof tabMark> {
@@ -56,22 +44,15 @@ export function TabFace({
   segment?: boolean
 }): JSX.Element {
   const d = useDict()
-  const panelIcon = useExtensionsStore((s) =>
-    pane.kind === 'extension'
-      ? s.list.find((e) => e.id === pane.extensionId)?.panel?.icon
-      : undefined,
-  )
   const viewIconName = useViewsStore((s) =>
     pane.kind === 'view' ? s.views.find((v) => v.name === pane.viewName)?.icon : undefined,
   )
-  const title = usePaneTitle(pane)
+  const title = pane.title
   const Icon = pane.hibernated
     ? MoonIcon
-    : pane.kind === 'extension'
-      ? extensionIcon(panelIcon)
-      : pane.kind === 'view'
-        ? viewIcon(viewIconName)
-        : SURFACE_ICON[pane.kind]
+    : pane.kind === 'view'
+      ? viewIcon(viewIconName)
+      : SURFACE_ICON[pane.kind]
   const dirty = useEditorStatus((s) =>
     pane.kind === 'editor' && pane.filePath ? (s.dirty[pane.filePath] ?? false) : false,
   )

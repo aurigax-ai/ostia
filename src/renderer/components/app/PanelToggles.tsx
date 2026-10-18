@@ -1,61 +1,32 @@
 import { IconButton } from '@/components/common/IconButton'
 import { extensionIcon } from '@/components/extensions/extensionIcons'
-import { useDict } from '@/lib/app/useDict'
-import { openGit } from '@/lib/git/gitPanel'
-import { findExtensionPane, firstPaneOfKind } from '@/lib/layout/paneFields'
-import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useUIStore } from '@/stores/app/uiStore'
+import { toggleRightPanel } from '@/lib/panes/rightPanelFocus'
+import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
-import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
-import { GitBranchIcon } from '@phosphor-icons/react'
 
 function hasToggle(ext: ExtensionInfo): boolean {
   return ext.enabled && ext.panel !== null && ext.assist.length === 0
 }
 
 export function PanelToggles(): JSX.Element | null {
-  const d = useDict()
   const panels = useExtensionsStore((s) => s.list).filter(hasToggle)
-  const git = useSettingsStore((s) => s.git.enabled)
+  const right = useSidePanelStore((s) => s.right)
   const workspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
-  const root = useLayoutStore((s) => (workspaceId ? s.byWorkspace[workspaceId]?.root : undefined))
-  if (!workspaceId || (panels.length === 0 && !git)) return null
-  const gitPane = root ? firstPaneOfKind(root, 'git') : null
+  if (!workspaceId || panels.length === 0) return null
   return (
     <>
-      {git && (
+      {panels.map((ext) => (
         <IconButton
+          key={ext.id}
           size="bar"
-          icon={GitBranchIcon}
-          label={d.git.title}
-          aria-pressed={gitPane !== null}
-          onClick={() => {
-            if (gitPane) useLayoutStore.getState().closePane(workspaceId, gitPane.id)
-            else openGit(workspaceId, 'changes')
-          }}
+          icon={extensionIcon(ext.panel?.icon)}
+          label={ext.panel?.title ?? ext.name}
+          aria-pressed={right === ext.id}
+          onClick={() => toggleRightPanel(ext.id)}
         />
-      )}
-      {panels.map((ext) => {
-        const title = ext.panel?.title ?? ext.name
-        const open = root ? findExtensionPane(root, ext.id) : null
-        return (
-          <IconButton
-            key={ext.id}
-            size="bar"
-            icon={extensionIcon(ext.panel?.icon)}
-            label={title}
-            aria-pressed={open !== null}
-            onClick={() => {
-              useUIStore.getState().showWorkspaces()
-              const layout = useLayoutStore.getState()
-              if (open) layout.closePane(workspaceId, open.id)
-              else layout.openExtensionPanel(workspaceId, ext.id, title)
-            }}
-          />
-        )
-      })}
+      ))}
     </>
   )
 }

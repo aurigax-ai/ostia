@@ -75,6 +75,70 @@ afterEach(() => {
   rmSync(dataDir, { recursive: true, force: true })
 })
 
+describe('right side panel', () => {
+  it('keeps a well-formed extension id and drops anything else', () => {
+    expect(parseSnapshot(snap({ rightPanel: 'graphs' }))?.rightPanel).toBe('graphs')
+    for (const bad of ['', 'Graphs', 'a b', 'x'.repeat(41), 7, null]) {
+      expect(parseSnapshot({ ...snap(), rightPanel: bad })).not.toHaveProperty('rightPanel')
+    }
+  })
+
+  it('keeps it per detached window', () => {
+    const base = snap().workspaces[0]
+    const window = (rightPanel: unknown) => ({
+      id: 'd1',
+      bounds: { x: 0, y: 0, width: 800, height: 600 },
+      activeWorkspaceId: 'w2',
+      rightPanel,
+      workspaces: [
+        {
+          ...base,
+          id: 'w2',
+          activePaneId: 'pane-2',
+          root: { type: 'pane', id: 'pane-2', title: 'zsh', kind: 'terminal' },
+        },
+      ],
+    })
+    expect(parseSnapshot({ ...snap(), windows: [window('keeper')] })?.windows?.[0].rightPanel).toBe(
+      'keeper',
+    )
+    expect(parseSnapshot({ ...snap(), windows: [window('No!')] })?.windows?.[0]).not.toHaveProperty(
+      'rightPanel',
+    )
+  })
+})
+
+describe('left side panel', () => {
+  it('keeps a known left panel and drops anything else', () => {
+    expect(parseSnapshot(snap({ leftPanel: 'files' }))?.leftPanel).toBe('files')
+    expect(parseSnapshot({ ...snap(), leftPanel: 'git' })).not.toHaveProperty('leftPanel')
+    expect(parseSnapshot({ ...snap(), leftPanel: true })).not.toHaveProperty('leftPanel')
+  })
+
+  it('keeps it per detached window', () => {
+    const window = (leftPanel: unknown) => ({
+      id: 'd1',
+      bounds: { x: 0, y: 0, width: 800, height: 600 },
+      activeWorkspaceId: 'w2',
+      leftPanel,
+      workspaces: [
+        {
+          ...snap().workspaces[0],
+          id: 'w2',
+          root: { ...snap().workspaces[0].root, id: 'pane-2' },
+          activePaneId: 'pane-2',
+        },
+      ],
+    })
+    expect(parseSnapshot({ ...snap(), windows: [window('files')] })?.windows?.[0].leftPanel).toBe(
+      'files',
+    )
+    expect(parseSnapshot({ ...snap(), windows: [window('x')] })?.windows?.[0]).not.toHaveProperty(
+      'leftPanel',
+    )
+  })
+})
+
 describe('parseSnapshot', () => {
   it('accepts a well-formed snapshot', () => {
     expect(parseSnapshot(snap())).toEqual(snap())
@@ -506,23 +570,58 @@ describe('parseSnapshot', () => {
     expect(parseHandoff(scratch)?.kind).toBe('scratch')
   })
 
-  it('drops a workspace whose pane kind is unknown', () => {
-    const bad = snap({
-      workspaces: [
-        ...snap().workspaces,
-        {
-          id: 's2',
-          name: 'x',
-          kind: 'terminal',
-          workDir: '/tmp',
-          activePaneId: 'pane-2',
-          // biome-ignore lint/suspicious/noExplicitAny: deliberately invalid on-disk data
-          root: { type: 'pane', id: 'pane-2', title: 'x', kind: 'quantum' as any },
-        },
-      ],
+  describe('a pane whose kind is not a current kind', () => {
+    const term = (id: string) => ({ type: 'pane', id, title: id, kind: 'terminal' })
+    const retired = (id: string) => ({ type: 'pane', id, title: id, kind: 'retired-kind' })
+    const withRoot = (root: unknown, activePaneId = 'a') =>
+      parseSnapshot({
+        ...snap(),
+        workspaces: [
+          { id: 's1', name: 'x', kind: 'terminal', workDir: '/tmp', activePaneId, root },
+        ],
+      })?.workspaces[0]
+
+    it('leaves a workspace whose only pane it was without a layout', () => {
+      const workspace = withRoot(retired('a'))
+      expect(workspace?.id).toBe('s1')
+      expect(workspace?.root).toBeUndefined()
+      expect(workspace?.activePaneId).toBeUndefined()
     })
-    const parsed = parseSnapshot(bad)
-    expect(parsed?.workspaces.map((s) => s.id)).toEqual(['s1'])
+
+    it('is dropped from a split, which collapses around the pane left and keeps the other panes', () => {
+      const split = (children: unknown[], sizes: number[]) => ({
+        type: 'split',
+        id: 'sp',
+        direction: 'horizontal',
+        children,
+        sizes,
+      })
+      expect(withRoot(split([term('a'), retired('b')], [1, 1]))?.root).toMatchObject({
+        type: 'pane',
+        id: 'a',
+      })
+      const three = withRoot(split([term('a'), retired('b'), term('c')], [1, 5, 3]))?.root
+      expect(three).toMatchObject({ type: 'split', sizes: [1, 3] })
+      expect(three?.type === 'split' && three.children.map((c) => c.id)).toEqual(['a', 'c'])
+    })
+
+    it('is dropped from a tab stack, which keeps the tabs that remain', () => {
+      const tabs = (children: unknown[]) => ({ type: 'tabs', id: 't', children, activeId: 'b' })
+      expect(withRoot(tabs([term('a'), retired('b'), term('c')]))?.root).toMatchObject({
+        type: 'tabs',
+        activeId: 'a',
+      })
+      expect(withRoot(tabs([retired('a'), term('b')]), 'b')?.root).toMatchObject({
+        type: 'pane',
+        id: 'b',
+      })
+    })
+
+    it('does not rescue a layout that is malformed in another way', () => {
+      expect(
+        withRoot({ type: 'split', id: 'sp', direction: 'horizontal', children: [term('a'), 5] }),
+      ).toBeUndefined()
+    })
   })
 
   it('drops a workspace that reuses a pane id already claimed by another workspace', () => {

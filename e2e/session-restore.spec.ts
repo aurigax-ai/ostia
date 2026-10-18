@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { askToQuit, newTerminalWorkspace, openWorkspace, runInTerminal } from './helpers'
@@ -90,7 +90,21 @@ async function answerNativeQuitPrompt(app: ElectronApplication, dataHome: string
   )
 }
 
+const stoppedTraces: string[] = []
+
+async function saveTrace(app: ElectronApplication): Promise<void> {
+  const path = test.info().outputPath(`stopped-app-trace-${stoppedTraces.length + 1}.zip`)
+  await app
+    .context()
+    .tracing.stop({ path })
+    .then(
+      () => stoppedTraces.push(path),
+      () => {},
+    )
+}
+
 async function stopApp({ app, win }: Launched, how: 'quit' | NodeJS.Signals): Promise<void> {
+  await saveTrace(app)
   const done = exitedWithin(app.process(), EXIT_TIMEOUT_MS)
   if (how === 'quit') {
     await askToQuit(app)
@@ -135,17 +149,35 @@ async function runInShownTerminal(win: Page, command: string): Promise<void> {
   await runInTerminal(win, command, win.locator('.pane-slot:not([data-hidden]) .xterm').last())
 }
 
-async function openWorkspaces(win: Page, dataHome: string): Promise<Saved> {
+const agentWorkspace = (i: number): boolean => i >= 2 && i % 2 === 0
+
+function agentSession(i: number): string {
+  return `e2e-session-${i}`
+}
+
+async function openWorkspaces(win: Page, dataHome: string, agents = false): Promise<Saved> {
   await openWorkspace(win)
   await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
   await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
+  let agentCount = 0
   for (let i = 1; i < WORKSPACES; i++) {
     await newTerminalWorkspace(win)
-    if (i % 2 === 1) await runInShownTerminal(win, `while true; do echo tick-${i}; sleep 1; done`)
+    if (agents && agentWorkspace(i)) {
+      await runInShownTerminal(win, `claude ${agentSession(i)}`)
+      await expect(shownRows(win).last()).toContainText('fake-agent-ready', { timeout: 15_000 })
+      agentCount++
+    } else if (i % 2 === 1) {
+      await runInShownTerminal(win, `while true; do echo tick-${i}; sleep 1; done`)
+    }
   }
   await expect(win.locator('.rail-row')).toHaveCount(WORKSPACES)
-  const expected = { workspaces: WORKSPACES, panes: WORKSPACES + 1, resumable: 0, agentsRunning: 0 }
-  await expect.poll(() => saved(dataHome), { timeout: 10_000 }).toEqual(expected)
+  const expected = {
+    workspaces: WORKSPACES,
+    panes: WORKSPACES + 1,
+    resumable: agentCount,
+    agentsRunning: agentCount,
+  }
+  await expect.poll(() => saved(dataHome), { timeout: 15_000 }).toEqual(expected)
   return expected
 }
 
@@ -156,10 +188,18 @@ async function expectRestored(dataHome: string, expected: Saved): Promise<void> 
       timeout: 15_000,
     })
     await expect(next.win.locator('.xterm').first()).toBeVisible({ timeout: 15_000 })
+    for (let i = 1; i < WORKSPACES; i++) {
+      if (expected.agentsRunning === 0 || !agentWorkspace(i)) continue
+      await expect(
+        next.win
+          .locator('.xterm-rows')
+          .filter({ hasText: new RegExp(`fake-agent-resumed .*--resume ${agentSession(i)}\\b`) }),
+      ).toHaveCount(1, { timeout: 20_000 })
+    }
   } finally {
     await stopApp(next, 'quit')
   }
-  expect(saved(dataHome)).toEqual(expected)
+  expect({ ...saved(dataHome), agentsRunning: 0 }).toEqual({ ...expected, agentsRunning: 0 })
 }
 
 let dataHome: string
@@ -169,18 +209,42 @@ test.beforeEach(() => {
   seedSettings(dataHome, DEFAULT_QUIT_SETTINGS)
 })
 
-for (const how of ['quit', 'SIGTERM', 'SIGKILL'] as const) {
-  test(`every workspace and pane comes back after ${how}`, async () => {
-    test.setTimeout(120_000)
-    const first = await launchApp(dataHome)
-    let expected: Saved | null = null
-    try {
-      expected = await openWorkspaces(first.win, dataHome)
-    } finally {
-      await stopApp(first, how)
-    }
-    expect(saved(dataHome)).toEqual(expected)
-    await expectRestored(dataHome, expected)
+test.afterEach(async () => {
+  const testInfo = test.info()
+  const failed = testInfo.status !== testInfo.expectedStatus
+  for (const path of stoppedTraces.splice(0)) {
+    if (failed && existsSync(path))
+      await testInfo.attach('trace', { path, contentType: 'application/zip' })
+    rmSync(path, { force: true })
+  }
+})
+
+async function roundTrip(how: 'quit' | NodeJS.Signals): Promise<void> {
+  seedSettings(dataHome, { ...DEFAULT_QUIT_SETTINGS, agents: { autoResume: true } })
+  const first = await launchApp(dataHome)
+  const scrollback = join(dataHome, 'ostia', 'scrollback.json')
+  let expected: Saved | null = null
+  try {
+    expected = await openWorkspaces(first.win, dataHome, true)
+    rmSync(scrollback, { force: true })
+  } finally {
+    await stopApp(first, how)
+  }
+  if (how === 'SIGTERM')
+    expect(existsSync(scrollback), 'scrollback was not saved on SIGTERM').toBe(true)
+  expect(saved(dataHome)).toEqual(expected)
+  await expectRestored(dataHome, expected)
+}
+
+test('every workspace, pane and agent comes back after quit', { tag: '@core' }, async () => {
+  test.setTimeout(150_000)
+  await roundTrip('quit')
+})
+
+for (const how of ['SIGTERM', 'SIGKILL'] as const) {
+  test(`every workspace, pane and agent comes back after ${how}`, async () => {
+    test.setTimeout(150_000)
+    await roundTrip(how)
   })
 }
 
@@ -238,45 +302,3 @@ test('quitting right after a restart keeps every workspace', async () => {
 
   await expectRestored(dataHome, expected)
 })
-
-for (const how of ['quit', 'SIGTERM', 'SIGKILL'] as const) {
-  test(`with auto-resume on, every agent resumes after ${how}`, async () => {
-    test.setTimeout(150_000)
-    seedSettings(dataHome, { ...DEFAULT_QUIT_SETTINGS, agents: { autoResume: true } })
-    const first = await launchApp(dataHome)
-    try {
-      for (let i = 0; i < WORKSPACES; i++) {
-        if (i === 0) await openWorkspace(first.win)
-        else await newTerminalWorkspace(first.win)
-        await runInShownTerminal(first.win, `claude e2e-session-${i}`)
-        await expect(shownRows(first.win).last()).toContainText('fake-agent-ready', {
-          timeout: 15_000,
-        })
-      }
-      await expect
-        .poll(() => saved(dataHome), { timeout: 15_000 })
-        .toEqual({
-          workspaces: WORKSPACES,
-          panes: WORKSPACES,
-          resumable: WORKSPACES,
-          agentsRunning: WORKSPACES,
-        })
-    } finally {
-      await stopApp(first, how)
-    }
-
-    const second = await launchApp(dataHome)
-    try {
-      await expect(second.win.locator('.rail-row')).toHaveCount(WORKSPACES, { timeout: 15_000 })
-      for (let i = 0; i < WORKSPACES; i++) {
-        await expect(
-          second.win
-            .locator('.xterm-rows')
-            .filter({ hasText: new RegExp(`fake-agent-resumed .*--resume e2e-session-${i}\\b`) }),
-        ).toHaveCount(1, { timeout: 20_000 })
-      }
-    } finally {
-      second.app.process().kill('SIGKILL')
-    }
-  })
-}

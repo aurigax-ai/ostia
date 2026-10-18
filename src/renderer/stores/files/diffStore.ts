@@ -1,9 +1,9 @@
-import type { DiffContent } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import type { ShownDiff } from '@shared/boards/git'
 import { create } from 'zustand'
 
 interface DiffState {
-  byPane: Record<string, DiffContent>
-  set: (paneId: string, content: DiffContent) => void
+  byPane: Record<string, ShownDiff>
+  set: (paneId: string, content: ShownDiff) => void
   retain: (paneIds: ReadonlySet<string>) => void
 }
 

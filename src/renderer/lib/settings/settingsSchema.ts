@@ -120,10 +120,17 @@ export const SETTINGS_JSON_SCHEMA = {
         },
         diffLayout: {
           type: 'string',
-          enum: ['sideBySide', 'inline'],
+          enum: ['auto', 'sideBySide', 'inline'],
           description:
-            'How a diff opens: both texts side by side, or inline in one column. The button in ' +
-            'each diff switches it. Default: sideBySide.',
+            'How a diff shows: "auto" puts both texts side by side and switches to one inline ' +
+            'column when the pane is narrow, "sideBySide" and "inline" always use that layout. ' +
+            'The buttons in the diff toolbar set it. Default: auto.',
+        },
+        diffIgnoreWhitespace: {
+          type: 'boolean',
+          description:
+            'Leave out changes that only add or remove whitespace at the ends of lines in a ' +
+            'diff. The button in the diff toolbar switches it. Default: false.',
         },
         openFilesIn: {
           type: 'string',

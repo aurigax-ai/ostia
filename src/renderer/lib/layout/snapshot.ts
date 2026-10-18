@@ -1,6 +1,7 @@
 import type {
   AppSnapshot,
   SnapshotGroup,
+  SnapshotLeftPanel,
   SnapshotNode,
   SnapshotPaneNode,
   SnapshotSplitNode,
@@ -172,6 +173,8 @@ export function buildSnapshot(input: {
   layouts: Record<string, { root: LayoutNode; activePaneId: string }>
   savedAt: string
   liveAgentPanes?: ReadonlySet<string>
+  leftPanel?: SnapshotLeftPanel | null
+  rightPanel?: string | null
 }): AppSnapshot {
   const live = input.liveAgentPanes ?? new Set<string>()
   const workspaces = input.workspaces.map((workspace) =>
@@ -184,6 +187,8 @@ export function buildSnapshot(input: {
     v: 1,
     savedAt: input.savedAt,
     activeWorkspaceId,
+    ...(input.leftPanel ? { leftPanel: input.leftPanel } : {}),
+    ...(input.rightPanel ? { rightPanel: input.rightPanel } : {}),
     workspaces,
     groups: input.groups.filter((g) => workspaces.some((w) => w.groupId === g.id)).map(copyGroup),
   }

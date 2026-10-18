@@ -28,7 +28,7 @@ import {
 } from 'react'
 import { PaneRenameField } from './PaneRenameField'
 import { PaneTabMenu } from './PaneTabMenu'
-import { TabFace, usePaneMark, usePaneTitle } from './TabFace'
+import { TabFace, usePaneMark } from './TabFace'
 import { TabHint } from './TabHint'
 
 export function focusPane(paneId: string): void {
@@ -81,7 +81,7 @@ const COLLAPSE_ICONS = {
 
 function CollapseButton({ pane, tab }: { pane: PaneNode; tab: SplitNode }): JSX.Element | null {
   const d = useDict()
-  const title = usePaneTitle(pane)
+  const title = pane.title
   const axis = stripAxis(tab, pane.id)
   if (!axis || (!pane.collapsed && !canCollapse(tab, pane.id))) return null
   const [collapseIcon, expandIcon] = COLLAPSE_ICONS[axis]
@@ -116,7 +116,7 @@ function SplitTabSegment({
   workspaceId: string | null
 }): JSX.Element {
   const d = useDict()
-  const title = usePaneTitle(pane)
+  const title = pane.title
   const mark = usePaneMark(pane)
   const renaming = usePaneRenameStore((s) => s.paneId === pane.id)
   const segment = (

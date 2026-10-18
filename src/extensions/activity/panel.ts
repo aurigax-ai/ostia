@@ -175,9 +175,7 @@ root.replaceChildren(
     { class: 'page' },
     h(
       'header',
-      { class: 'toolbar' },
-      h('h1', { class: 'title' }, t('title')),
-      h('span', { class: 'spacer' }),
+      { class: 'ostia-toolbar' },
       h(
         'div',
         { class: 'tabs', role: 'group', 'aria-label': t('view.label') },

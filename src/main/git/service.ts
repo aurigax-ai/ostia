@@ -6,7 +6,6 @@ import { GIT_SOURCE } from '@aurigax-ai/ostia-extension-sdk/manifest/coreNames'
 import {
   type CoreItems,
   GIT_BRANCH_CHIP,
-  GIT_DIFF_STATS_CHIP,
   GIT_SHOW_COMMAND,
   type GitSettings,
   NO_CORE_ITEMS,
@@ -74,7 +73,7 @@ function itemsFor(workspaceId: string, shown: Shown): CoreItems {
     },
   ]
   const workspaceChips: WorkspaceChip[] = []
-  const branch = branchChipText(shown.repo.status.branch)
+  const branch = branchChipText(shown.repo.status.branch, shown.diffStats)
   if (branch) {
     workspaceChips.push({
       extId: GIT_SOURCE,
@@ -83,15 +82,6 @@ function itemsFor(workspaceId: string, shown: Shown): CoreItems {
       text: branch,
       tone: 'neutral',
       command: GIT_SHOW_COMMAND,
-    })
-  }
-  if (shown.diffStats) {
-    workspaceChips.push({
-      extId: GIT_SOURCE,
-      workspaceId,
-      id: GIT_DIFF_STATS_CHIP,
-      text: shown.diffStats,
-      tone: 'neutral',
     })
   }
   return { sidebar, paneChips: [], workspaceChips }
@@ -151,6 +141,10 @@ export class GitService {
 
   activity(type: string): void {
     if (this.active && REFRESH_EVENTS.has(type)) this.schedule()
+  }
+
+  shown(): void {
+    if (this.active) this.schedule(0)
   }
 
   touched(): void {

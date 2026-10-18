@@ -22,10 +22,10 @@ describe('FileDropCover', () => {
     return covered
   }
 
-  it('lets a browser page take an OS file drop and covers editors, extensions and views', () => {
+  it('lets a browser page take an OS file drop and covers editors and views', () => {
     expect(covers('browser')).toBe(false)
     expect(covers('terminal')).toBe(false)
-    for (const kind of ['editor', 'extension', 'view', 'diff', 'chat'] as const) {
+    for (const kind of ['editor', 'view', 'diff', 'chat'] as const) {
       expect(covers(kind), kind).toBe(true)
     }
   })

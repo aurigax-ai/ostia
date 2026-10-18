@@ -2,12 +2,12 @@ import '@testing-library/jest-dom/vitest'
 import { extensionCommandId } from '@/commands/extensionBridge'
 import { commands } from '@/commands/registry'
 import { CommandPalette } from '@/components/palette/CommandPalette'
-import { findExtensionPane } from '@/lib/layout/paneFields'
-import { createPane } from '@/lib/layout/tree'
+import { allPanes, createPane } from '@/lib/layout/tree'
 import { COMMANDS_PREFIX } from '@/lib/palette/paletteModes'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -60,6 +60,7 @@ describe('TopBar', () => {
   let uiInit: ReturnType<typeof useUIStore.getState>
   let extInit: ReturnType<typeof useExtensionsStore.getState>
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
+  let sideInit: ReturnType<typeof useSidePanelStore.getState>
 
   beforeAll(() => {
     workspacesInit = useWorkspacesStore.getState()
@@ -67,6 +68,7 @@ describe('TopBar', () => {
     uiInit = useUIStore.getState()
     extInit = useExtensionsStore.getState()
     settingsInit = useSettingsStore.getState()
+    sideInit = useSidePanelStore.getState()
   })
 
   afterEach(() => {
@@ -76,6 +78,7 @@ describe('TopBar', () => {
     useUIStore.setState(uiInit, true)
     useExtensionsStore.setState(extInit, true)
     useSettingsStore.setState(settingsInit, true)
+    useSidePanelStore.setState(sideInit, true)
     vi.restoreAllMocks()
   })
 
@@ -276,15 +279,20 @@ describe('TopBar', () => {
     expect(within(button).getByText('Ctrl+Alt+K')).toBeInTheDocument()
   })
 
-  it('puts the dashboard button after Files and before the Git and extension panel toggles', () => {
+  it('puts the dashboard button after Files, and the extension panel toggles at the right', () => {
     seedWorkspace()
     useExtensionsStore.setState({ list: [git] })
     const { container } = render(<TopBar />)
-    const left = container.querySelector('.topbar-left')
-    const names = Array.from(left?.querySelectorAll('button') ?? []).map((b) =>
-      b.getAttribute('aria-label'),
-    )
-    expect(names.slice(-4)).toEqual(['Files', 'Dashboard', 'Git', 'Changes'])
+    const names = (selector: string) =>
+      Array.from(container.querySelector(selector)?.querySelectorAll('button') ?? []).map((b) =>
+        b.getAttribute('aria-label'),
+      )
+    expect(names('.topbar-left').slice(-2)).toEqual(['Files', 'Dashboard'])
+    const right = names('.topbar-right')
+    expect(right.slice(right.indexOf('Changes'), right.indexOf('Changes') + 2)).toEqual([
+      'Changes',
+      'Settings',
+    ])
   })
 
   it('opens and closes the dashboard from its button, pressed while open', async () => {
@@ -344,7 +352,7 @@ describe('TopBar', () => {
     expect(screen.getByRole('button', { name: 'Dashboard' })).toBeInTheDocument()
   })
 
-  it('toggles an extension panel in the active workspace', async () => {
+  it('toggles an extension panel in the right side panel', async () => {
     seedWorkspace()
     useExtensionsStore.setState({ list: [git] })
     render(<TopBar />)
@@ -352,13 +360,14 @@ describe('TopBar', () => {
     const changes = screen.getByRole('button', { name: 'Changes' })
 
     await user.click(changes)
-    const opened = findExtensionPane(useLayoutStore.getState().byWorkspace.s1.root, 'vcs')
-    expect(opened).not.toBeNull()
+    expect(useSidePanelStore.getState().right).toBe('vcs')
     expect(changes).toHaveAttribute('aria-pressed', 'true')
+    const root = useLayoutStore.getState().byWorkspace.s1?.root
+    expect(root ? allPanes(root).map((p) => p.kind) : []).not.toContain('extension')
 
     await user.click(changes)
-    const root = useLayoutStore.getState().byWorkspace.s1?.root
-    expect(root ? findExtensionPane(root, 'vcs') : null).toBeNull()
+    expect(useSidePanelStore.getState().right).toBeNull()
+    expect(changes).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('renders one button per top-bar control, with no nested buttons and no repeated names', () => {

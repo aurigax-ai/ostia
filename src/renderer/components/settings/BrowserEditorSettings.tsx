@@ -127,6 +127,7 @@ export function EditorSettingsSection(): JSX.Element {
     onFocusChange: d.editorSettings.autoSaveOnFocusChange,
   }
   const diffLabel: Record<DiffLayout, string> = {
+    auto: d.editorSettings.diffAuto,
     sideBySide: d.editorSettings.diffSideBySide,
     inline: d.editorSettings.diffInline,
   }
@@ -176,6 +177,12 @@ export function EditorSettingsSection(): JSX.Element {
             options={DIFF_LAYOUTS.map((m) => ({ value: m, label: diffLabel[m] }))}
           />
         </ControlRow>
+        <ToggleRow
+          label={d.editorSettings.diffIgnoreWhitespace}
+          desc={d.editorSettings.diffIgnoreWhitespaceDesc}
+          checked={editor.diffIgnoreWhitespace}
+          onChange={(diffIgnoreWhitespace) => setEditor({ diffIgnoreWhitespace })}
+        />
       </SettingsGroup>
       <SettingsGroup title={d.editorSettings.groupIndent}>
         <ControlRow label={d.editorSettings.tabSize} desc={d.editorSettings.tabSizeDesc}>

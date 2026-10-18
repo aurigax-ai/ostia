@@ -5,27 +5,6 @@
   min-height: 0;
 }
 
-.toolbar {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 8px;
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--line);
-}
-
-.spacer {
-  flex: 1;
-}
-
-.title {
-  margin: 0;
-  font-size: var(--text-ui-base);
-  line-height: var(--text-ui-base--line-height);
-  font-weight: var(--font-weight-semibold);
-}
-
 .body {
   display: flex;
   flex: 1 1 auto;
@@ -35,66 +14,9 @@
   padding: 8px;
 }
 
-.empty {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 24px;
-  text-align: center;
-  text-wrap: balance;
-}
-
-.empty-media {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-3);
-}
-
-.empty-header {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-width: 36ch;
-}
-
-.empty-title {
-  margin: 0;
-  font-size: var(--text-ui-base);
-  line-height: var(--text-ui-base--line-height);
-  font-weight: var(--font-weight-medium);
-}
-
-.empty-description {
-  margin: 0;
-  color: var(--fg-muted);
-}
-
-.empty-path {
-  max-width: 100%;
-  font-family: var(--font-code);
-  font-size: var(--text-ui-sm);
-  line-height: var(--text-ui-sm--line-height);
-  overflow-wrap: anywhere;
-  user-select: text;
-}
-
-.note {
-  margin: 0 0 8px;
-  font-size: var(--text-ui-xs);
-  line-height: var(--text-ui-xs--line-height);
-}
-
 .rows {
   display: flex;
   flex-direction: column;
-  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -104,10 +26,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface-1);
+  padding: 6px 0;
 }
 
 .row-head {
@@ -118,7 +37,8 @@
 }
 
 .name {
-  font-weight: var(--font-weight-medium);
+  font-size: var(--text-ui-base);
+  line-height: var(--text-ui-base--line-height);
 }
 
 .state {
