@@ -9,8 +9,33 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SCRATCH_HISTORY_FILE, ScratchFolders, countScratchFiles } from './scratchFolders'
+
+const hooks = vi.hoisted(() => ({
+  beforeRm: null as ((dir: string, attempt: number) => void) | null,
+  calls: new Map<string, number>(),
+}))
+
+vi.mock('node:fs', async (importOriginal) => {
+  const fs = await importOriginal<typeof import('node:fs')>()
+  return {
+    ...fs,
+    rmSync: (...args: Parameters<typeof fs.rmSync>) => {
+      const dir = String(args[0])
+      const attempt = (hooks.calls.get(dir) ?? 0) + 1
+      hooks.calls.set(dir, attempt)
+      hooks.beforeRm?.(dir, attempt)
+      fs.rmSync(...args)
+    },
+  }
+})
+
+function enotempty(dir: string): NodeJS.ErrnoException {
+  return Object.assign(new Error(`ENOTEMPTY: directory not empty, rmdir '${dir}'`), {
+    code: 'ENOTEMPTY',
+  })
+}
 
 let root: string
 
@@ -19,6 +44,8 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  hooks.beforeRm = null
+  hooks.calls.clear()
   rmSync(root, { recursive: true, force: true })
 })
 
@@ -91,6 +118,32 @@ describe('ScratchFolders', () => {
     folders.removeAll()
     expect(existsSync(bound)).toBe(false)
     expect(existsSync(unbound)).toBe(false)
+  })
+
+  it('retries when the shell writes its history while the folder is being removed', () => {
+    const folders = new ScratchFolders(root, 4242)
+    const dir = folders.create('1')
+    folders.bind('w1', dir, '1')
+    hooks.beforeRm = (target, attempt) => {
+      if (attempt > 1) return
+      writeFileSync(join(target, SCRATCH_HISTORY_FILE), 'exit\n')
+      throw enotempty(target)
+    }
+    expect(folders.removeAll()).toEqual([])
+    expect(hooks.calls.get(dir)).toBe(2)
+    expect(existsSync(dir)).toBe(false)
+  })
+
+  it('reports a folder that resists removal and still removes the others', () => {
+    const folders = new ScratchFolders(root, 4242)
+    const stuck = folders.create('1')
+    const other = folders.create('1')
+    hooks.beforeRm = (target) => {
+      if (target === stuck) throw enotempty(target)
+    }
+    expect(folders.removeAll()).toEqual([stuck])
+    expect(existsSync(other)).toBe(false)
+    expect(folders.dirs()).toEqual([])
   })
 
   it('sweeps leftover folders of exited processes and keeps live ones', () => {
