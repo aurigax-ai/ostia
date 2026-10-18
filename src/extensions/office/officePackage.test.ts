@@ -1,3 +1,4 @@
+import { translatorFor } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
 import { strToU8, unzipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
 import {
@@ -8,6 +9,7 @@ import {
   looseWorkbook,
   nestedIndexZip,
 } from '../../../test/fixtures/office/bypasses'
+import { ODP_MIMETYPE, odf, pptx, titleShape } from '../../../test/fixtures/office/presentations'
 import { probeSheetJS } from '../../../test/fixtures/office/sheetjsProbe'
 import {
   deflated,
@@ -18,9 +20,13 @@ import {
   workbook,
 } from '../../../test/fixtures/office/workbooks'
 import { readDocument } from './docModel'
+import en from './locales/en.json'
 import { OFFICE_LIMITS } from './officeLimits'
-import { officePackage } from './officePackage'
+import { officePackage, officeParts } from './officePackage'
+import { outlineWords } from './outlineHtml'
 import { readWorkbook } from './sheetModel'
+
+const WORDS = outlineWords(translatorFor({ en: en.messages }, 'en'))
 
 const SMALL = { ...OFFICE_LIMITS, cells: 100_000 }
 const BIG = 'A1:J30000'
@@ -108,11 +114,11 @@ describe('officePackage', () => {
 
   it('refuses a document with more elements than mammoth can hold', async () => {
     const bytes = longDocument(4_000)
-    expect(await readDocument(bytes, { ...OFFICE_LIMITS, documentNodes: 10_000 })).toEqual({
+    expect(await readDocument(bytes, { ...OFFICE_LIMITS, documentNodes: 10_000 }, WORDS)).toEqual({
       ok: false,
       problem: 'nodes-limit',
     })
-    const read = await readDocument(docx({ body: paragraph('kept') }), OFFICE_LIMITS)
+    const read = await readDocument(docx({ body: paragraph('kept') }), OFFICE_LIMITS, WORDS)
     expect(read.ok && read.html).toContain('kept')
   })
 
@@ -122,5 +128,48 @@ describe('officePackage', () => {
     )
     const doc = officePackage(docx({ body: paragraph('x') }), 'document', OFFICE_LIMITS)
     expect(names(doc)).toContain('word/media/a.png')
+  })
+
+  it('hands the presentation parsers only the slide, notes and relationship parts', () => {
+    const deck = pptx({
+      slides: [{ shapes: titleShape('t'), notes: 'n' }],
+      extra: [
+        deflated('ppt/vbaProject.bin', strToU8('macro')),
+        deflated('ppt/media/image1.png', strToU8('png')),
+        deflated('ppt/slideLayouts/slideLayout1.xml', strToU8('<p:sldLayout/>')),
+      ],
+    })
+    expect([...officeParts(deck, 'presentation', OFFICE_LIMITS).parts.keys()].sort()).toEqual([
+      '[content_types].xml',
+      'ppt/_rels/presentation.xml.rels',
+      'ppt/notesslides/notesslide1.xml',
+      'ppt/presentation.xml',
+      'ppt/slides/_rels/slide1.xml.rels',
+      'ppt/slides/slide1.xml',
+    ])
+    const odp = odf(ODP_MIMETYPE, {
+      body: '',
+      extra: [
+        deflated('Basic/Standard/Module1.xml', strToU8('<x/>')),
+        deflated('styles.xml', strToU8('<x/>')),
+      ],
+    })
+    expect(officeParts(odp, 'presentation', OFFICE_LIMITS)).toMatchObject({ format: 'odp' })
+    expect([...officeParts(odp, 'presentation', OFFICE_LIMITS).parts.keys()].sort()).toEqual([
+      'content.xml',
+      'meta-inf/manifest.xml',
+      'mimetype',
+    ])
+  })
+
+  it('names a password-protected OpenDocument file from its manifest, spreadsheets too', () => {
+    const locked = rawZip([
+      deflated('mimetype', strToU8('application/vnd.oasis.opendocument.spreadsheet')),
+      deflated(
+        'META-INF/manifest.xml',
+        strToU8('<manifest:manifest><manifest:encryption-data/></manifest:manifest>'),
+      ),
+    ])
+    expect(readWorkbook(locked, OFFICE_LIMITS)).toEqual({ ok: false, problem: 'encrypted' })
   })
 })

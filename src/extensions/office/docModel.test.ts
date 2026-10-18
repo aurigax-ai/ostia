@@ -1,3 +1,4 @@
+import { translatorFor } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   docx,
@@ -9,7 +10,11 @@ import {
   zeros,
 } from '../../../test/fixtures/office/workbooks'
 import { readDocument } from './docModel'
+import en from './locales/en.json'
 import { OFFICE_LIMITS } from './officeLimits'
+import { outlineWords } from './outlineHtml'
+
+const WORDS = outlineWords(translatorFor({ en: en.messages }, 'en'))
 
 const MIB = 1024 * 1024
 
@@ -18,7 +23,7 @@ afterEach(() => {
 })
 
 async function html(bytes: Uint8Array): Promise<string> {
-  const result = await readDocument(bytes, OFFICE_LIMITS)
+  const result = await readDocument(bytes, OFFICE_LIMITS, WORDS)
   if (!result.ok) throw new Error(`not read: ${result.problem}`)
   return result.html
 }
@@ -47,6 +52,7 @@ describe('readDocument', () => {
           externalRelationship('rSite', 'hyperlink', 'http://127.0.0.1:9/page'),
       }),
       OFFICE_LIMITS,
+      WORDS,
     )
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -59,21 +65,27 @@ describe('readDocument', () => {
   it('names the problem for a bomb, a password, a large file and a malformed file', async () => {
     const plain = docx({ body: paragraph('x') })
     expect(
-      await readDocument(withEntries(plain, zeros('word/media/b.bin', 3 * MIB)), {
-        ...OFFICE_LIMITS,
-        inflatedBytes: 2 * MIB,
-        entryRatio: 1e9,
-      }),
+      await readDocument(
+        withEntries(plain, zeros('word/media/b.bin', 3 * MIB)),
+        {
+          ...OFFICE_LIMITS,
+          inflatedBytes: 2 * MIB,
+          entryRatio: 1e9,
+        },
+        WORDS,
+      ),
     ).toEqual({ ok: false, problem: 'unzip-limit' })
-    expect(await readDocument(encryptedWorkbook(), OFFICE_LIMITS)).toEqual({
+    expect(await readDocument(encryptedWorkbook(), OFFICE_LIMITS, WORDS)).toEqual({
       ok: false,
       problem: 'encrypted',
     })
-    expect(await readDocument(plain, { ...OFFICE_LIMITS, fileBytes: 100 })).toEqual({
+    expect(await readDocument(plain, { ...OFFICE_LIMITS, fileBytes: 100 }, WORDS)).toEqual({
       ok: false,
       problem: 'too-large',
     })
-    expect(await readDocument(new TextEncoder().encode('not a document'), OFFICE_LIMITS)).toEqual({
+    expect(
+      await readDocument(new TextEncoder().encode('not a document'), OFFICE_LIMITS, WORDS),
+    ).toEqual({
       ok: false,
       problem: 'failed',
     })
@@ -87,6 +99,7 @@ describe('readDocument', () => {
     const result = await readDocument(
       docx({ doctype: `<!DOCTYPE w:document [${levels}]>`, body: paragraph('&l8;') }),
       OFFICE_LIMITS,
+      WORDS,
     )
     expect(Date.now() - started).toBeLessThan(10_000)
     if (result.ok) expect(result.html.length).toBeLessThan(MIB)

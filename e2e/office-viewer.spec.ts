@@ -3,6 +3,21 @@ import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import {
+  ODP_MIMETYPE,
+  ODT_MIMETYPE,
+  odf,
+  odpFrame,
+  odpNotes,
+  odpPage,
+  para,
+  pptx,
+  relationship,
+  run,
+  shape,
+  picture as slidePicture,
+  titleShape,
+} from '../test/fixtures/office/presentations'
+import {
   docx,
   externalLinkWorkbook,
   externalRelationship,
@@ -12,8 +27,10 @@ import {
   odsRepeats,
   paragraph,
   picture,
+  withEntries,
   workbook,
   zeroBomb,
+  zeros,
 } from '../test/fixtures/office/workbooks'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
@@ -43,13 +60,17 @@ async function withApp(
   }
 }
 
-async function openSheet(win: Page, name: string): Promise<void> {
+async function openViewer(win: Page, name: string, viewType: string): Promise<void> {
   await win.locator('.file-row').filter({ hasText: name }).click()
   await expect(win.locator('[data-testid="file-viewer"]:visible')).toHaveAttribute(
     'data-view-type',
-    SHEET,
+    viewType,
     { timeout: 15_000 },
   )
+}
+
+function openSheet(win: Page, name: string): Promise<void> {
+  return openViewer(win, name, SHEET)
 }
 
 function guestText(app: ElectronApplication, name: string) {
@@ -193,4 +214,97 @@ test('a malformed file, bombs and a long sheet each say why', async () => {
       await guestText(app, 'long.xlsx').toContain('100000')
     },
   )
+})
+
+test('presentations and OpenDocument text open as outlines, fetch nothing and say why when they cannot', async () => {
+  const requests: string[] = []
+  const server: Server = createServer((req, res) => {
+    requests.push(req.url ?? '')
+    res.end('nothing')
+  })
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+  const SLIDES = 'office.presentation'
+  const DOC = 'office.document'
+  const deck = pptx({
+    slides: [
+      {
+        shapes:
+          titleShape('Quarter review') +
+          shape(para(run('Revenue grew')) + para(run('site', 'rWeb')), '') +
+          slidePicture('Logo'),
+        relationships:
+          relationship('rImg', 'image', `${url}/far.png`, true) +
+          relationship('rWeb', 'hyperlink', `${url}/page`, true),
+        notes: 'Thank the team',
+      },
+    ],
+  })
+  try {
+    await withApp(
+      {
+        'deck.pptx': deck,
+        'deck.odp': odf(ODP_MIMETYPE, {
+          body: odpPage(
+            'p1',
+            odpFrame('title', '<text:p>Roadmap</text:p>') +
+              odpFrame('outline', '<text:p>Next steps</text:p>') +
+              odpNotes('Ask for questions'),
+          ),
+        }),
+        'minutes.odt': odf(ODT_MIMETYPE, {
+          body: `<text:h text:outline-level="1">Minutes</text:h><text:p>&lt;img src=x onerror=alert(1)&gt;</text:p><text:p><draw:frame><draw:image xlink:href="${url}/far.png"/></draw:frame></text:p>`,
+        }),
+        'broken.pptx': new TextEncoder().encode('this is not a presentation'),
+        'renamed.pptx': docx({ body: paragraph('a word document') }),
+        'bomb.pptx': withEntries(deck, zeros('ppt/media/b.bin', 129 * MIB)),
+      },
+      async (win, app) => {
+        const slides = (name: string) => ({ viewType: SLIDES, name })
+        await openViewer(win, 'deck.pptx', SLIDES)
+        await expect
+          .poll(() => viewerGuestText(app, slides('deck.pptx')), { timeout: 20_000 })
+          .toContain('Quarter review')
+        const pptxText = await viewerGuestText(app, slides('deck.pptx'))
+        expect(pptxText).toContain('Revenue grew')
+        expect(pptxText).toContain('[Image: Logo]')
+        expect(pptxText).toContain('Thank the team')
+        expect(
+          await viewerGuestRun(
+            app,
+            slides('deck.pptx'),
+            'JSON.stringify([document.querySelectorAll("article :is(a[href], img, [src])").length, document.querySelector("article a")?.title])',
+          ),
+        ).toBe(JSON.stringify([0, `${url}/page`]))
+
+        await openViewer(win, 'deck.odp', SLIDES)
+        await expect
+          .poll(() => viewerGuestText(app, slides('deck.odp')), { timeout: 20_000 })
+          .toContain('Roadmap')
+        expect(await viewerGuestText(app, slides('deck.odp'))).toContain('Ask for questions')
+
+        await openViewer(win, 'minutes.odt', DOC)
+        const doc = { viewType: DOC, name: 'minutes.odt' }
+        await expect.poll(() => viewerGuestText(app, doc), { timeout: 20_000 }).toContain('Minutes')
+        expect(await viewerGuestText(app, doc)).toContain('<img src=x onerror=alert(1)>')
+        expect(await viewerGuestRun(app, doc, 'document.images.length')).toBe(0)
+
+        await openViewer(win, 'broken.pptx', SLIDES)
+        await expect
+          .poll(() => viewerGuestText(app, slides('broken.pptx')), { timeout: 20_000 })
+          .toContain('Could not read this file.')
+        await openViewer(win, 'renamed.pptx', SLIDES)
+        await expect
+          .poll(() => viewerGuestText(app, slides('renamed.pptx')), { timeout: 20_000 })
+          .toContain('Could not read this file.')
+        await openViewer(win, 'bomb.pptx', SLIDES)
+        await expect
+          .poll(() => viewerGuestText(app, slides('bomb.pptx')), { timeout: 20_000 })
+          .toContain('so it is not previewed')
+      },
+    )
+    expect(requests).toEqual([])
+  } finally {
+    server.close()
+  }
 })
