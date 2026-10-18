@@ -13,6 +13,8 @@ import {
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const LINES = 3000
+const SEAM_WHEEL_PX = 6000
+const ROOM_ABOVE_SEAM = 600
 const WHEEL_BURST = 40
 const ENGINES = {
   xterm: { settings: DOM_RENDERER_SETTINGS, screen: '.xterm-screen' },
@@ -114,67 +116,71 @@ async function launch(settings: Record<string, unknown> & { terminal?: object })
   return { app, win, dataHome }
 }
 
-test('xterm: output past the live terminal is kept on disk, read back, selected and searched', async () => {
-  test.setTimeout(120_000)
-  const { screen, settings } = ENGINES.xterm
-  const { app, win, dataHome } = await launch(settings)
-  try {
-    await flood(win, screen)
-    await expect.poll(() => historyFiles(dataHome).length, { timeout: 15_000 }).toBeGreaterThan(0)
-
-    await wheelIntoHistory(win, screen)
-    await expect(win.locator('.history-view, .history-bar, .history-edge')).toHaveCount(0)
-    await expect(win.locator('.history-scrollbar')).toHaveCount(1)
-    const entered = await layerTop(win)
+async function readBackHistory(
+  app: ElectronApplication,
+  win: Page,
+  engine: keyof typeof ENGINES,
+): Promise<void> {
+  const { screen } = ENGINES[engine]
+  const showsText = async (text: string | RegExp): Promise<void> => {
+    if (engine === 'xterm') await expect(historyScreen(win)).toContainText(text)
+  }
+  await wheelIntoHistory(win, screen)
+  await expect(win.locator('.history-view, .history-bar, .history-edge')).toHaveCount(0)
+  await expect(win.locator('.history-scrollbar')).toHaveCount(1)
+  const entered = await layerTop(win)
+  if (entered > ROOM_ABOVE_SEAM) {
     expect(await wheelFromHistory(win, -600)).toBeLessThan(entered)
     const deep = await layerTop(win)
     expect(await wheelFromHistory(win, 600)).toBeGreaterThan(deep)
-    await runCommand(win, 'Scroll to Top')
-    await expect.poll(() => layerTop(win)).toBeLessThan(40)
-    await expect(historyScreen(win)).toContainText(/hist 1(?!\d)/)
-    await selectInHistory(app, win)
-    await win.keyboard.type('x')
-    await expect(layer(win)).toBeHidden()
-    await win.keyboard.press('Backspace')
-
-    await win.locator(screen).first().click()
-    await win.keyboard.press(chords.find)
-    await win.getByRole('textbox', { name: 'Find in terminal' }).fill('hist 15')
-    await win.getByRole('button', { name: /earlier$/ }).click()
-    await expect(layer(win)).toBeVisible()
-    await expect(historyScreen(win)).toContainText('hist 1599')
-    await runCommand(win, 'Scroll to Bottom')
-    await expect(layer(win)).toBeHidden()
-
-    await win.locator(screen).first().click()
-    await win.keyboard.press(chords.blockPrev)
-    await expect(layer(win)).toBeVisible()
-    await expect(historyScreen(win)).toContainText(/hist 1(?!\d)/)
-    await runCommand(win, 'Scroll to Bottom')
-    await expect(layer(win)).toBeHidden()
-    await runCommand(win, 'Copy Block Output')
-    await expect
-      .poll(async () => (await app.evaluate(({ clipboard }) => clipboard.readText())).split('\n'))
-      .toEqual(Array.from({ length: LINES }, (_, i) => `hist ${i + 1}`))
-  } finally {
-    await app.close()
   }
-})
+  for (let i = 0; i < 60 && (await layer(win).isVisible()); i++)
+    await wheelFromHistory(win, SEAM_WHEEL_PX)
+  await expect(layer(win)).toBeHidden()
 
-test('ghostty: a wheel opens the history layer, a mouse selection is copied and a typed key closes it', async () => {
-  test.setTimeout(120_000)
-  const { screen, settings } = ENGINES.ghostty
-  const { app, win } = await launch(settings)
-  try {
-    await flood(win, screen)
-    await wheelIntoHistory(win, screen)
-    await selectInHistory(app, win)
-    await win.keyboard.type('x')
-    await expect(layer(win)).toBeHidden()
-  } finally {
-    await app.close()
-  }
-})
+  await runCommand(win, 'Scroll to Top')
+  await expect(layer(win)).toBeVisible()
+  await expect.poll(() => layerTop(win)).toBeLessThan(40)
+  await showsText(/hist 1(?!\d)/)
+  await selectInHistory(app, win)
+  await win.keyboard.type('x')
+  await expect(layer(win)).toBeHidden()
+  await win.keyboard.press('Backspace')
+
+  await win.locator(screen).first().click()
+  await win.keyboard.press(chords.find)
+  await win.getByRole('textbox', { name: 'Find in terminal' }).fill('hist 15')
+  await win.getByRole('button', { name: /earlier$/ }).click()
+  await expect(layer(win)).toBeVisible()
+  await showsText('hist 1599')
+  await runCommand(win, 'Scroll to Bottom')
+  await expect(layer(win)).toBeHidden()
+
+  await win.locator(screen).first().click()
+  await win.keyboard.press(chords.blockPrev)
+  await expect(layer(win)).toBeVisible()
+  await showsText(/hist 1(?!\d)/)
+  await runCommand(win, 'Scroll to Bottom')
+  await expect(layer(win)).toBeHidden()
+  await runCommand(win, 'Copy Block Output')
+  await expect
+    .poll(async () => (await app.evaluate(({ clipboard }) => clipboard.readText())).split('\n'))
+    .toEqual(Array.from({ length: LINES }, (_, i) => `hist ${i + 1}`))
+}
+
+for (const engine of ['xterm', 'ghostty'] as const) {
+  test(`${engine}: output past the live terminal is kept on disk, read back, selected and searched`, async () => {
+    test.setTimeout(120_000)
+    const { app, win, dataHome } = await launch(ENGINES[engine].settings)
+    try {
+      await flood(win, ENGINES[engine].screen)
+      await expect.poll(() => historyFiles(dataHome).length, { timeout: 15_000 }).toBeGreaterThan(0)
+      await readBackHistory(app, win, engine)
+    } finally {
+      await app.close()
+    }
+  })
+}
 
 test('clear, closing a pane, closing a scratch workspace and quitting leave no history behind, and a restart restores the screen', async () => {
   test.setTimeout(180_000)
