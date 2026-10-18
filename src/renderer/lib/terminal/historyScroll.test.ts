@@ -341,6 +341,28 @@ describe('history scroll', () => {
     expect(box(stack)?.style.visibility).toBe('hidden')
     expect(pause).not.toHaveBeenCalledWith(true)
     expect(term.scrollToBottom).toHaveBeenCalled()
+    expect(term.scrollToTop).not.toHaveBeenCalled()
+    scroll.dispose()
+  })
+
+  it('stays on the live terminal when input arrives during the first history load', async () => {
+    const { stack, term, pause, scroll } = mount()
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const serve = vi.mocked(window.ostia.pty.historyRead).getMockImplementation()
+    vi.mocked(window.ostia.pty.historyRead).mockImplementation(async (...args) => {
+      await gate
+      return serve?.(...args) ?? null
+    })
+    scroll.scrollToTop()
+    term.input('x', true)
+    release()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(box(stack)?.style.visibility).not.toBe('visible')
+    expect(pause).not.toHaveBeenCalledWith(true)
+    expect(term.scrollToTop).not.toHaveBeenCalled()
     scroll.dispose()
   })
 

@@ -419,10 +419,12 @@ export function createHistoryScroll(deps: HistoryScrollDeps): HistoryScroll {
     },
     scrollLines,
     scrollPages: (count) => scrollLines(count * term.rows),
-    scrollToTop: () =>
+    scrollToTop: () => {
+      const started = epoch
       void load({ pick: (read) => read.first, options: {} }).then(() => {
-        if (!engaged) term.scrollToTop()
-      }),
+        if (!engaged && epoch === started) term.scrollToTop()
+      })
+    },
     scrollToBottom: () => {
       if (engaged) leave('bottom')
       else term.scrollToBottom()
