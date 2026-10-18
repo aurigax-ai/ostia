@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest'
+import { resetCoreWatch, watchedWorkspaces } from '@/lib/workspaces/coreWatch'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSidePanelStore } from '@/stores/app/sidePanelStore'
@@ -66,6 +67,7 @@ describe('RightPanel', () => {
 
   afterEach(() => {
     cleanup()
+    resetCoreWatch()
     panel.mockReset()
     useSidePanelStore.setState(sideInit, true)
     useExtensionsStore.setState(extInit, true)
@@ -315,5 +317,35 @@ describe('RightPanel', () => {
 
     expect(dock()).toHaveAttribute('data-hidden')
     expect(document.querySelector('#right-panel .git-surface')).toBeNull()
+  })
+
+  it('watches git only for the Git panel that is shown, and stops reading when it is hidden or another workspace is shown', async () => {
+    setup()
+    const git = window.ostia.git
+    const off = vi.fn()
+    vi.mocked(git.onChanged).mockReturnValue(off)
+    vi.mocked(git.changes).mockClear()
+    render(<RightPanel />)
+    show('git')
+    await waitFor(() => expect(watchedWorkspaces('git')).toEqual(['w1']))
+    await waitFor(() => expect(git.changes).toHaveBeenCalledTimes(1))
+
+    show('graphs')
+    await waitFor(() => expect(watchedWorkspaces('git')).toEqual([]))
+    expect(off).toHaveBeenCalled()
+    act(() => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    expect(git.changes).toHaveBeenCalledTimes(1)
+
+    show('git')
+    await waitFor(() => expect(watchedWorkspaces('git')).toEqual(['w1']))
+    await waitFor(() => expect(git.changes).toHaveBeenCalledTimes(2))
+
+    act(() => useWorkspacesStore.setState({ activeWorkspaceId: 'w2' }))
+    await waitFor(() => expect(watchedWorkspaces('git')).toEqual(['w2']))
+
+    act(() => useSidePanelStore.getState().hideRight())
+    await waitFor(() => expect(watchedWorkspaces('git')).toEqual([]))
   })
 })

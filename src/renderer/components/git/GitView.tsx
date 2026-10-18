@@ -18,7 +18,8 @@ export function GitView({
   workspaceId,
   paneId,
   home,
-}: { workspaceId: string; paneId: string; home: GitHome }): JSX.Element {
+  active = true,
+}: { workspaceId: string; paneId: string; home: GitHome; active?: boolean }): JSX.Element {
   const t = useDict().git
   const {
     page,
@@ -39,7 +40,7 @@ export function GitView({
     openCommitFile,
     folders,
     choosePage,
-  } = useGitView({ workspaceId, paneId, home, t })
+  } = useGitView({ workspaceId, paneId, home, shown: active, t })
 
   const labels: Record<GitPage, string> = {
     changes: t.tabChanges,

@@ -121,6 +121,7 @@ export function RightPanel(): JSX.Element {
                   workspaceId={i.workspaceId}
                   paneId={rightFocusKey(i.extId, i.workspaceId)}
                   home="dock"
+                  active={instance !== null && sameInstance(i, instance)}
                 />
               ) : (
                 <ExtensionSidePanel

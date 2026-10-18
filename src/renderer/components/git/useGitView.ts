@@ -95,8 +95,9 @@ export function useGitView({
   workspaceId,
   paneId,
   home,
+  shown,
   t,
-}: { workspaceId: string; paneId: string; home: GitHome; t: Dict['git'] }) {
+}: { workspaceId: string; paneId: string; home: GitHome; shown: boolean; t: Dict['git'] }) {
   useSurfaceFocus(paneId, null)
   const nav = useGitViewStore((s) => s.nav[paneId])
   const [page, setPage] = useState<GitPage>(nav?.page ?? (home === 'dock' ? 'changes' : 'graph'))
@@ -114,7 +115,7 @@ export function useGitView({
   const shownCommits = useRef(0)
   const askedAt = useRef(-1)
 
-  useCoreWatch('git', workspaceId)
+  useCoreWatch('git', workspaceId, shown)
 
   useEffect(() => {
     if (!nav) return
@@ -144,11 +145,12 @@ export function useGitView({
   latestRefresh.current = refresh
 
   useEffect(() => {
-    void refresh()
-  }, [refresh])
+    if (shown) void refresh()
+  }, [refresh, shown])
 
   useEffect(() => {
     alive.current = true
+    if (!shown) return
     const again = (): void => void latestRefresh.current()
     const off = window.ostia.git.onChanged(again)
     window.addEventListener('focus', again)
@@ -157,7 +159,7 @@ export function useGitView({
       off()
       window.removeEventListener('focus', again)
     }
-  }, [])
+  }, [shown])
 
   const act = useCallback(async (run: Promise<GitReply<unknown>>): Promise<void> => {
     const res = await run
