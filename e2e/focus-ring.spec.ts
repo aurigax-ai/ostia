@@ -81,17 +81,6 @@ test('a clicked Settings row shows no focus ring, also after a modifier or a cho
   await expectNoIndicator(row, rest)
 })
 
-test('a Settings row clicked after the Settings chord shows no focus ring', async () => {
-  await win.keyboard.press(chords.openSettings)
-  const row = settingsRow(win, 'Terminal')
-  await expect(row).toBeVisible()
-  const rest = await indicator(row)
-  await row.click()
-  await expectNoIndicator(row, rest)
-  await win.keyboard.press('Control')
-  await expectNoIndicator(row, rest)
-})
-
 test('Tab onto a Settings row shows exactly one focus indicator and keeps its radius', async () => {
   await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
   const row = settingsRow(win, 'Terminal')
