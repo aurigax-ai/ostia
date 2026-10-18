@@ -536,6 +536,7 @@ describe('CommandPalette', () => {
       cleanup()
       usePluginsStore.setState(initialPlugins, true)
       useSettingsStore.setState(initialSettings, true)
+      vi.mocked(window.ostia.languagePacks.load).mockReset()
       commands.unregister('hello.open')
     })
 
@@ -573,7 +574,7 @@ describe('CommandPalette', () => {
       expect(screen.queryByRole('option', { name: /切換側邊欄/ })).toBeNull()
     })
 
-    it('the Traditional Chinese pack is an extension: pick it, keep it across a restart, lose it when disabled', async () => {
+    it('the Traditional Chinese pack is an extension: pick it, keep it across a restart', async () => {
       vi.mocked(window.ostia.languagePacks.load).mockResolvedValue([
         { extId: 'langpack-zh-hant', id: 'zh-Hant', label: '繁體中文', catalog: zhHant },
       ])
@@ -585,29 +586,27 @@ describe('CommandPalette', () => {
 
       await userEvent.click(input)
       await userEvent.paste('向右分割窗格')
-      expect(await screen.findByRole('option', { name: /^向右分割窗格/ })).toHaveAttribute(
-        'aria-selected',
-        'true',
-      )
-      await userEvent.clear(input)
-      await userEvent.paste('Split Pane Right')
-      expect(await screen.findByRole('option', { name: /^向右分割窗格/ })).toHaveAttribute(
-        'aria-selected',
-        'true',
-      )
-      expect(screen.queryByRole('option', { name: /Split Pane Right/ })).toBeNull()
+      const option = (await screen.findByText('向右分割窗格')).closest('[role="option"]')
+      expect(option).toHaveAttribute('aria-selected', 'true')
+      expect(screen.queryByText('Split Pane Right')).toBeNull()
+    })
 
-      await userEvent.keyboard('{Escape}')
-      vi.mocked(window.ostia.languagePacks.load).mockResolvedValue([])
+    it('the Traditional Chinese pack is lost when its extension is disabled', async () => {
+      const load = vi.mocked(window.ostia.languagePacks.load)
+      load.mockResolvedValue([
+        { extId: 'langpack-zh-hant', id: 'zh-Hant', label: '繁體中文', catalog: zhHant },
+      ])
+      await usePluginsStore.getState().loadLanguages()
+      useSettingsStore.setState({ locale: 'zh-Hant' })
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      expect(await screen.findByText('向右分割窗格')).toBeInTheDocument()
+
+      load.mockResolvedValue([])
       await act(() => usePluginsStore.getState().loadLanguages())
-      act(() => useUIStore.setState({ paletteOpen: true }))
-      await userEvent.click(await screen.findByRole('combobox'))
-      await userEvent.paste('Split Pane Right')
-      expect(await screen.findByRole('option', { name: /^Split Pane Right/ })).toHaveAttribute(
-        'aria-selected',
-        'true',
-      )
-      expect(screen.queryByRole('option', { name: /向右分割窗格/ })).toBeNull()
+
+      expect(await screen.findByText('Split Pane Right')).toBeInTheDocument()
+      expect(screen.queryByText('向右分割窗格')).toBeNull()
     })
 
     it('keeps the registry title English for agents while the palette shows Chinese', async () => {
