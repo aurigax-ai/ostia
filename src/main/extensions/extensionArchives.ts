@@ -51,6 +51,7 @@ export class ExtensionArchives implements ArchiveReaderService {
     if (!rt || !this.serving(rt)) throw new Error('extension stopped')
     if (rt.restartTimer) throw new Error('extension restarting')
     const conn = await this.host.processes.connected(rt)
+    const asked = rt.proc
     const source = new CancellationTokenSource()
     const grace = this.host.deps.archiveKillGraceMs ?? ARCHIVE_KILL_GRACE_MS
     return new Promise((resolve, reject) => {
@@ -58,7 +59,7 @@ export class ExtensionArchives implements ArchiveReaderService {
       const timer = setTimeout(() => {
         source.cancel()
         kill = setTimeout(() => {
-          this.host.processes.recycle(rt)
+          if (asked && rt.proc === asked) this.host.processes.recycle(rt)
           reject(new Error(`${extId} archive request timed out`))
         }, grace)
       }, timeoutMs)
