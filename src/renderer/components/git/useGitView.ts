@@ -89,14 +89,17 @@ function useGitHandlers(
   return { handlers, openCommitFile }
 }
 
+export type GitHome = 'dock' | 'pane'
+
 export function useGitView({
   workspaceId,
   paneId,
+  home,
   t,
-}: { workspaceId: string; paneId: string; t: Dict['git'] }) {
+}: { workspaceId: string; paneId: string; home: GitHome; t: Dict['git'] }) {
   useSurfaceFocus(paneId, null)
   const nav = useGitViewStore((s) => s.nav[paneId])
-  const [page, setPage] = useState<GitPage>(nav?.page ?? 'changes')
+  const [page, setPage] = useState<GitPage>(nav?.page ?? (home === 'dock' ? 'changes' : 'graph'))
   const [blameFile, setBlameFile] = useState(nav?.file ?? '')
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [failure, setFailure] = useState<GitFailure | null>(null)

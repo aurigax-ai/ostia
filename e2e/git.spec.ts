@@ -5,7 +5,7 @@ import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
-test('a dirty repo opens a diff from the Git panel and commits', async () => {
+test('a dirty repo shows Changes in the side panel, opens a diff as a pane and commits', async () => {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
@@ -31,8 +31,9 @@ test('a dirty repo opens a diff from the Git panel and commits', async () => {
     const chips = win.locator('.topbar-right .workspace-chips .pane-chip')
     await chips.filter({ hasText: /^main$/ }).click({ timeout: 15_000 })
 
-    const panelTitle = win.locator('.pane-header .title').filter({ hasText: /^Git$/ })
-    await expect(panelTitle).toBeVisible({ timeout: 15_000 })
+    const dock = win.locator('#right-panel')
+    await expect(dock).toHaveAttribute('aria-label', 'Git', { timeout: 15_000 })
+    await expect(dock).not.toHaveAttribute('data-hidden')
     const panel = win.locator('.git-surface')
     const row = panel.locator('button.change[data-path="notes.txt"]')
     await expect(row).toBeVisible({ timeout: 15_000 })
@@ -51,7 +52,6 @@ test('a dirty repo opens a diff from the Git panel and commits', async () => {
     await expect(win.locator('.diff-title')).toHaveText(join(home, 'notes.txt'))
     await expect(panel).toHaveAttribute('data-e2e-mount', 'first')
 
-    await panelTitle.click()
     await panel.getByRole('button', { name: 'Stage: notes.txt' }).click()
     await expect(panel.locator('section.area-staged')).toBeVisible({ timeout: 15_000 })
     await panel.locator('.commit textarea.message').fill('commit from e2e')
