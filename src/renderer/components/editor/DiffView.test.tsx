@@ -1,6 +1,7 @@
 import { editorPositionOf } from '@/lib/files/editorPositions'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useDiffStore } from '@/stores/files/diffStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -18,6 +19,7 @@ const fake = vi.hoisted(() => {
     options: [] as Record<string, unknown>[],
     model: null as { original: FakeModel; modified: FakeModel } | null,
     models: [] as FakeModel[],
+    steps: [] as string[],
     position: null as { lineNumber: number; column: number } | null,
   }
   const diff = {
@@ -29,6 +31,9 @@ const fake = vi.hoisted(() => {
       state.options.push(o)
     },
     getModifiedEditor: () => ({ getPosition: () => state.position }),
+    goToDiff: (target: string) => {
+      state.steps.push(target)
+    },
     dispose: () => {
       state.disposed += 1
     },
@@ -87,12 +92,13 @@ describe('DiffView', () => {
     fake.state.options = []
     fake.state.model = null
     fake.state.models = []
+    fake.state.steps = []
     fake.state.position = null
   })
 
   it('creates a read-only side-by-side diff editor once the scheme theme is set', () => {
     useDiffStore.getState().set('d1', CONTENT)
-    render(<DiffView paneId="d1" />)
+    render(<DiffView workspaceId="w1" paneId="d1" />)
     expect(fake.state.created).toBe(1)
     expect(fake.state.options[0]).toMatchObject({
       readOnly: true,
@@ -105,7 +111,7 @@ describe('DiffView', () => {
 
   it('collapses unchanged regions and bounds the diff computation by time and size', () => {
     useDiffStore.getState().set('d1', CONTENT)
-    render(<DiffView paneId="d1" />)
+    render(<DiffView workspaceId="w1" paneId="d1" />)
     expect(fake.state.options[0]).toMatchObject({
       hideUnchangedRegions: { enabled: true },
       maxComputationTime: 2000,
@@ -115,7 +121,7 @@ describe('DiffView', () => {
 
   it('feeds original and modified text with the language inferred from the path', () => {
     useDiffStore.getState().set('d1', CONTENT)
-    render(<DiffView paneId="d1" />)
+    render(<DiffView workspaceId="w1" paneId="d1" />)
     expect(fake.state.model?.original).toMatchObject({
       value: CONTENT.original,
       language: 'typescript',
@@ -126,7 +132,7 @@ describe('DiffView', () => {
 
   it('prefers an explicit language and swaps models when the content changes', () => {
     useDiffStore.getState().set('d1', CONTENT)
-    render(<DiffView paneId="d1" />)
+    render(<DiffView workspaceId="w1" paneId="d1" />)
     const first = fake.state.model
     act(() => useDiffStore.getState().set('d1', { ...CONTENT, language: 'rust', modified: 'x' }))
     expect(first?.original.disposed).toBe(true)
@@ -134,32 +140,119 @@ describe('DiffView', () => {
     expect(fake.state.model?.modified).toMatchObject({ value: 'x', language: 'rust' })
   })
 
-  it('toggles between side-by-side and inline', () => {
-    useDiffStore.getState().set('d1', CONTENT)
-    render(<DiffView paneId="d1" />)
-    fireEvent.click(screen.getByRole('button', { name: 'Inline view' }))
-    expect(fake.state.options.at(-1)).toEqual({ renderSideBySide: false })
-    fireEvent.click(screen.getByRole('button', { name: 'Side-by-side view' }))
-    expect(fake.state.options.at(-1)).toEqual({ renderSideBySide: true })
-  })
-
-  it('opens inline when editor.diffLayout is inline, and the button still switches', () => {
+  it('chooses a layout with the segmented toggle and remembers it in editor.diffLayout', () => {
     const settings = useSettingsStore.getState()
-    useSettingsStore.setState({ editor: { ...settings.editor, diffLayout: 'inline' } })
     try {
       useDiffStore.getState().set('d1', CONTENT)
-      render(<DiffView paneId="d1" />)
-      expect(fake.state.options).toContainEqual({ renderSideBySide: false })
+      render(<DiffView workspaceId="w1" paneId="d1" />)
+      fireEvent.click(screen.getByRole('button', { name: 'Inline view' }))
+      expect(useSettingsStore.getState().editor.diffLayout).toBe('inline')
+      expect(fake.state.options.at(-1)).toEqual({ renderSideBySide: false })
+      expect(screen.getByRole('button', { name: 'Inline view' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      )
       fireEvent.click(screen.getByRole('button', { name: 'Side-by-side view' }))
+      expect(useSettingsStore.getState().editor.diffLayout).toBe('sideBySide')
       expect(fake.state.options.at(-1)).toEqual({ renderSideBySide: true })
     } finally {
+      cleanup()
       useSettingsStore.setState(settings, true)
     }
   })
 
+  it('starts side by side in auto and never lets Monaco switch the layout by itself', () => {
+    useDiffStore.getState().set('d1', CONTENT)
+    render(<DiffView workspaceId="w1" paneId="d1" />)
+    expect(useSettingsStore.getState().editor.diffLayout).toBe('auto')
+    expect(fake.state.options[0]).toMatchObject({
+      renderSideBySide: true,
+      useInlineViewWhenSpaceIsLimited: false,
+    })
+    expect(screen.getByRole('button', { name: 'Side-by-side view' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
+
+  it('opens inline when editor.diffLayout is inline', () => {
+    const settings = useSettingsStore.getState()
+    useSettingsStore.setState({ editor: { ...settings.editor, diffLayout: 'inline' } })
+    try {
+      useDiffStore.getState().set('d1', CONTENT)
+      render(<DiffView workspaceId="w1" paneId="d1" />)
+      expect(fake.state.options).toContainEqual({ renderSideBySide: false })
+    } finally {
+      cleanup()
+      useSettingsStore.setState(settings, true)
+    }
+  })
+
+  it('moves between changes with the previous and next buttons', () => {
+    useDiffStore.getState().set('d1', CONTENT)
+    render(<DiffView workspaceId="w1" paneId="d1" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Next change' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Previous change' }))
+    expect(fake.state.steps).toEqual(['next', 'previous'])
+  })
+
+  it('remembers ignore whitespace in editor.diffIgnoreWhitespace and applies it', () => {
+    const settings = useSettingsStore.getState()
+    try {
+      useDiffStore.getState().set('d1', CONTENT)
+      render(<DiffView workspaceId="w1" paneId="d1" />)
+      const button = screen.getByRole('button', { name: 'Ignore whitespace' })
+      expect(button).toHaveAttribute('aria-pressed', 'false')
+      fireEvent.click(button)
+      expect(useSettingsStore.getState().editor.diffIgnoreWhitespace).toBe(true)
+      expect(fake.state.options.at(-1)).toEqual({ ignoreTrimWhitespace: true })
+      expect(button).toHaveAttribute('aria-pressed', 'true')
+    } finally {
+      cleanup()
+      useSettingsStore.setState(settings, true)
+    }
+  })
+
+  it('opens the file in the editor from the toolbar', () => {
+    useDiffStore.getState().set('d1', CONTENT)
+    render(<DiffView workspaceId="w1" paneId="d1" />)
+    const openFile = vi.fn()
+    useLayoutStore.setState({ openFile })
+    fireEvent.click(screen.getByRole('button', { name: 'Open file' }))
+    expect(openFile).toHaveBeenCalledWith('w1', '/repo/src/a.ts')
+  })
+
+  it('offers previous and next changed file only for a Git change, and opens that area', async () => {
+    vi.mocked(window.ostia.git.changes).mockResolvedValue({
+      ok: true,
+      data: {
+        root: '/repo',
+        changes: [
+          { path: 'src/a.ts', area: 'staged', code: 'M' },
+          { path: 'src/a.ts', area: 'unstaged', code: 'M' },
+          { path: 'src/b.ts', area: 'unstaged', code: 'M' },
+        ],
+      },
+    } as never)
+    useDiffStore.getState().set('d1', { ...CONTENT, area: 'unstaged' })
+    render(<DiffView workspaceId="w1" paneId="d1" />)
+    const next = await screen.findByRole('button', { name: 'Next changed file' })
+    fireEvent.click(next)
+    expect(window.ostia.git.openChange).toHaveBeenCalledWith('w1', '/repo/src/b.ts', 'unstaged')
+    fireEvent.click(screen.getByRole('button', { name: 'Previous changed file' }))
+    expect(window.ostia.git.openChange).toHaveBeenLastCalledWith('w1', '/repo/src/a.ts', 'staged')
+  })
+
+  it('has no changed-file buttons for a diff that did not come from the changes list', () => {
+    useDiffStore.getState().set('d1', CONTENT)
+    render(<DiffView workspaceId="w1" paneId="d1" />)
+    expect(screen.queryByRole('button', { name: 'Next changed file' })).toBeNull()
+    expect(window.ostia.git.changes).not.toHaveBeenCalled()
+  })
+
   it('opens the modified file at the cursor in the external editor', async () => {
     useDiffStore.getState().set('d1', CONTENT)
-    render(<DiffView paneId="d1" />)
+    render(<DiffView workspaceId="w1" paneId="d1" />)
     fake.state.position = { lineNumber: 7, column: 2 }
     expect(editorPositionOf('d1')).toEqual({ file: '/repo/src/a.ts', line: 7, column: 2 })
 
@@ -177,20 +270,20 @@ describe('DiffView', () => {
 
   it('has no external-editor button or position without a path', () => {
     useDiffStore.getState().set('d1', { title: 'x', original: 'a', modified: 'b' })
-    render(<DiffView paneId="d1" />)
+    render(<DiffView workspaceId="w1" paneId="d1" />)
     expect(screen.queryByRole('button', { name: 'Open in external editor' })).toBeNull()
     expect(editorPositionOf('d1')).toBeNull()
   })
 
   it('says the diff is gone when its content is missing (e.g. after restore)', () => {
-    render(<DiffView paneId="nope" />)
+    render(<DiffView workspaceId="w1" paneId="nope" />)
     expect(screen.getByText(/no longer available/)).toBeInTheDocument()
     expect(fake.state.model).toBeNull()
   })
 
   it('disposes the diff editor and its models on unmount', () => {
     useDiffStore.getState().set('d1', CONTENT)
-    const { unmount } = render(<DiffView paneId="d1" />)
+    const { unmount } = render(<DiffView workspaceId="w1" paneId="d1" />)
     unmount()
     expect(fake.state.disposed).toBe(1)
     expect(fake.state.models.every((m) => m.disposed)).toBe(true)
@@ -198,7 +291,7 @@ describe('DiffView', () => {
   })
   it('closes without touching the disposed editor, so the window keeps rendering', () => {
     useDiffStore.getState().set('d1', CONTENT)
-    const { unmount } = render(<DiffView paneId="d1" />)
+    const { unmount } = render(<DiffView workspaceId="w1" paneId="d1" />)
     expect(() => unmount()).not.toThrow()
     expect(fake.state.disposed).toBe(1)
     expect(fake.state.models.every((m) => m.disposed)).toBe(true)

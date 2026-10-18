@@ -3,6 +3,7 @@ import { stateLabel } from '@/components/agents/PickSendPanel'
 import { Hint } from '@/components/common/Hint'
 import { useDict } from '@/lib/app/useDict'
 import type { PaneNode } from '@/lib/layout/types'
+import { useDiffStore } from '@/stores/files/diffStore'
 import type { ReactElement } from 'react'
 import { usePaneTitle } from './TabFace'
 
@@ -16,7 +17,8 @@ export function TabHint({
   const d = useDict()
   const title = usePaneTitle(pane)
   const session = usePaneAgentSession(pane)
-  const folder = pane.kind === 'terminal' ? (session?.cwd ?? pane.cwd) : undefined
+  const diffPath = useDiffStore((s) => (pane.kind === 'diff' ? s.byPane[pane.id]?.path : undefined))
+  const folder = pane.kind === 'terminal' ? (session?.cwd ?? pane.cwd) : diffPath
   return (
     <Hint
       side="bottom"

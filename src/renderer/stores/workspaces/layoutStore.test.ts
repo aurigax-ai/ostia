@@ -12,6 +12,7 @@ import type { SplitNode } from '@/lib/layout/types'
 import { forgetSplitTabSeeds } from '@/lib/panes/splitTabSeeds'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
+import { useDiffStore } from '@/stores/files/diffStore'
 import { zhHant } from '@shared/app/dict'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLayoutStore } from './layoutStore'
@@ -587,6 +588,44 @@ describe('layoutStore', () => {
       const stacks = layout.root.type === 'split' ? layout.root.children : []
       const stack = stacks.find((c) => c.type === 'tabs')
       expect(stack && paneIds(stack)).toEqual([first, diffId])
+    })
+  })
+
+  describe('openDiff reuse', () => {
+    it('shows every later diff in the one diff tab and keeps its area', () => {
+      const { first, second } = twoPanes('sess')
+      const open = useLayoutStore.getState().openDiff
+      const one = open('sess', {
+        title: 'a.ts (Working Tree)',
+        original: 'a',
+        modified: 'b',
+        path: '/r/a.ts',
+        area: 'unstaged',
+      }) as string
+      useLayoutStore.getState().focusPane('sess', second)
+      const two = open('sess', {
+        title: 'a.ts (Index)',
+        original: 'a',
+        modified: 'c',
+        path: '/r/a.ts',
+        area: 'staged',
+      }) as string
+      const three = open('sess', {
+        title: 'x.ts ↔ y.ts',
+        original: 'x',
+        modified: 'y',
+        path: '/r/y.ts',
+      }) as string
+      expect(new Set([one, two, three]).size).toBe(1)
+      const layout = layoutOf('sess')
+      expect(
+        paneIds(layout.root).filter((id) => findPane(layout.root, id)?.kind === 'diff'),
+      ).toEqual([one])
+      expect(paneIds(layout.root)).toContain(first)
+      expect(findPane(layout.root, one)?.title).toBe('x.ts ↔ y.ts')
+      expect(layout.activePaneId).toBe(one)
+      expect(useDiffStore.getState().byPane[one]).toMatchObject({ modified: 'y' })
+      expect(useDiffStore.getState().byPane[one].area).toBeUndefined()
     })
   })
 

@@ -11,10 +11,13 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { ExtensionOpenDiffRequest } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { en, zhHant } from '../../shared/app/dict'
-import { DEFAULT_GIT_SETTINGS, type GitSettings } from '../../shared/boards/git'
+import {
+  DEFAULT_GIT_SETTINGS,
+  type GitOpenDiffRequest,
+  type GitSettings,
+} from '../../shared/boards/git'
 import { type DiscardPrompt, type GitCaller, GitCommands } from './commands'
 import { ViewStateStore } from './viewState'
 
@@ -24,7 +27,7 @@ describe('git commands against a real repository', () => {
   let commands: GitCommands
   let settings: GitSettings = { ...DEFAULT_GIT_SETTINGS }
   let text = en.git
-  const openDiff = vi.fn<(req: ExtensionOpenDiffRequest) => void>()
+  const openDiff = vi.fn<(req: GitOpenDiffRequest) => void>()
   const confirmDiscard = vi.fn<(prompt: DiscardPrompt) => Promise<boolean>>()
   const touched = vi.fn()
 
@@ -97,7 +100,8 @@ describe('git commands against a real repository', () => {
     expect(openDiff).toHaveBeenCalledWith({
       extId: 'git',
       workspaceId: 's1',
-      title: 'a.txt (unstaged)',
+      area: 'unstaged',
+      title: 'a.txt (Working Tree)',
       original: 'one\n',
       modified: 'one\ntwo\n',
       path: join(repo, 'a.txt'),
@@ -107,7 +111,8 @@ describe('git commands against a real repository', () => {
   it('resolves a relative path from the caller folder and an absolute one from the panel', async () => {
     await commands.open(from(join(repo, 'sub')), 'b.txt', 'staged')
     expect(openDiff.mock.calls[0][0]).toMatchObject({
-      title: 'b.txt (staged)',
+      area: 'staged',
+      title: 'b.txt (Index)',
       original: 'bee\n',
       modified: 'bee staged\n',
     })
@@ -241,7 +246,7 @@ describe('git commands against a real repository', () => {
     await commands.openCommitFile(panel, head, 'sub/b.txt')
     expect(openDiff).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: `b.txt (${head.slice(0, 7)})`,
+        title: `b.txt (${head.slice(0, 7)}^) ↔ b.txt (${head.slice(0, 7)})`,
         original: 'bee\n',
         modified: 'bee staged\n',
       }),

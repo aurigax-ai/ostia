@@ -12,8 +12,14 @@ export const filesZhHant: typeof filesEn = {
     unread: '新增或已變更',
   },
   diff: {
+    ignoreWhitespace: '忽略空白',
     inline: '內嵌檢視',
     missing: '此差異已無法使用。請從來源重新開啟。',
+    nextChange: '下一個變更',
+    nextFile: '下一個變更的檔案',
+    openFile: '開啟檔案',
+    previousChange: '上一個變更',
+    previousFile: '上一個變更的檔案',
     sideBySide: '並排檢視',
   },
   editor: {

@@ -11,8 +11,14 @@ export const filesEn = {
     unread: 'New or changed',
   },
   diff: {
+    ignoreWhitespace: 'Ignore whitespace',
     inline: 'Inline view',
     missing: 'This diff is no longer available. Open it again from its source.',
+    nextChange: 'Next change',
+    nextFile: 'Next changed file',
+    openFile: 'Open file',
+    previousChange: 'Previous change',
+    previousFile: 'Previous changed file',
     sideBySide: 'Side-by-side view',
   },
   editor: {
