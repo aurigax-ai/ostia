@@ -64,6 +64,11 @@ function takesNoKeyboard(paneId: string): boolean {
   return entry !== undefined && entry.target === null
 }
 
+export function surfaceHoldsKeyboard(paneId: string): boolean {
+  const active = document.activeElement
+  return Boolean(active && hosts.get(paneId)?.contains(active))
+}
+
 export function focusSurface(paneId: string): void {
   focusTarget(paneId)?.focus()
 }
