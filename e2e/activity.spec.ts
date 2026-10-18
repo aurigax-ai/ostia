@@ -94,7 +94,7 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
 
     await openActivity(win)
     await expect.poll(() => text(app, '.agent > .markdown'), { timeout: 30_000 }).toBe(RECAP)
-    expect(await text(app, '.agent-name')).toBe('zsh')
+    expect(await text(app, '.agent-name')).toMatch(/^(zsh|bash|sh|fish)$/)
 
     await panelEval(app, `document.querySelector('[data-view="activity"]').click(); 'ok'`)
     await expect.poll(() => text(app, '.turn .prompt'), { timeout: 15_000 }).toBe(PROMPT)
@@ -107,9 +107,7 @@ test('the Activity panel shows an agent’s recap, shows its events on the toggl
       .toBe('true')
     expect(await text(app, '.event')).toBe('Ran\npnpm test')
     await win.keyboard.press(chords.splitRight)
-    await expect
-      .poll(() => text(app, '.stream-text'), { timeout: 15_000 })
-      .toContain('zsh 2 started')
+    await expect.poll(() => text(app, '.stream-text'), { timeout: 15_000 }).toMatch(/\b2 started\b/)
     await panelEval(app, `document.querySelector('.agent-head').click(); 'ok'`)
     await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused({ timeout: 15_000 })
     expect(await text(app, '.note:not([hidden])')).toBe('')

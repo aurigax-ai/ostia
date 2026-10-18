@@ -345,8 +345,12 @@ describe('the Activity extension records two fake agents and shows them in its p
       return eventCount(current) === 6 ? current : undefined
     }, POLL)
     expect(model.showActivity).toBe(false)
-    const [latest, earlier] = model.workspace?.agents ?? []
-    expect(latest).toMatchObject({ paneId: codexPane.externalId, agent: 'codex', state: 'working' })
+    const [earlier, latest] = model.workspace?.agents ?? []
+    expect(latest).toMatchObject({
+      paneId: codexPane.externalId,
+      label: { agent: 'codex', n: 1 },
+      state: 'working',
+    })
     expect('recap' in latest).toBe(false)
     expect(latest.current.events.map((e) => [e.kind, e.tool, e.text])).toEqual([
       ['prompt', undefined, 'write the docs'],
@@ -354,7 +358,7 @@ describe('the Activity extension records two fake agents and shows them in its p
     ])
     expect(earlier).toMatchObject({
       paneId: claudePane.externalId,
-      agent: 'claude',
+      label: { agent: 'claude', n: 1 },
       state: 'done',
       recap: 'Fixed the cart total.\nAll tests pass.',
     })
