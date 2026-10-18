@@ -1,8 +1,8 @@
 export const FOCUS_QUIET_MS = 24
 export const MAX_DEFER_MS = 100
 export const OVER_BUDGET_MS = 24
-export const FRAME_CHARS = 131_072
-export const OVER_BUDGET_HOLD_MS = 48
+export const FRAME_CHARS = 32_768
+const OVER_BUDGET_HOLD_MS = 48
 
 export interface FrameClock {
   now(): number
@@ -10,7 +10,7 @@ export interface FrameClock {
   timeout(run: () => void, ms: number): () => void
 }
 
-export const browserClock: FrameClock = {
+const browserClock: FrameClock = {
   now: () => performance.now(),
   frame: (run) => {
     const id = requestAnimationFrame(run)

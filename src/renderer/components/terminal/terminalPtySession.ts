@@ -2,6 +2,7 @@ import { keptShellReattached } from '@/lib/agents/autoResume'
 import { keptAgentReattached } from '@/lib/agents/paneAgent'
 import { markPaneActivity } from '@/lib/attention/paneActivity'
 import { spawnPromptOption } from '@/lib/prompt/promptChips'
+import { type NeighbourQueue, neighbourWrites } from '@/lib/terminal/neighbourWrites'
 import {
   noteFittedGrid,
   offscreenGrid,
@@ -9,7 +10,6 @@ import {
 } from '@/lib/terminal/offscreenStart'
 import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
 import { commitShellTitle } from '@/lib/terminal/paneTitle'
-import { type NeighbourQueue, neighbourWrites } from '@/lib/terminal/neighbourWrites'
 import { createPtyAcker } from '@/lib/terminal/ptyAck'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
@@ -81,8 +81,10 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     neighbour.drain()
     emit(data, done)
   }
-  const isActive = (): boolean =>
-    useLayoutStore.getState().byWorkspace[workspaceIdRef.current]?.activePaneId === paneId
+  const isActive = (): boolean => {
+    const active = useLayoutStore.getState().byWorkspace[workspaceIdRef.current]?.activePaneId
+    return active === undefined || active === paneId
+  }
   const writeLive: Write = (data, done) => {
     writeOutput(data, () => {
       acker.written(data.length)

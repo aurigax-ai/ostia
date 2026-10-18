@@ -1,6 +1,6 @@
 import type { ElectronApplication, Page } from './test'
 
-export interface Stamp {
+interface Stamp {
   t: number
 }
 
@@ -211,7 +211,7 @@ export async function readProbes(
   return { main, page }
 }
 
-export const STEPS = [
+const STEPS = [
   'keyHandling',
   'ipcToMain',
   'shellEcho',
@@ -224,7 +224,7 @@ export const STEPS = [
   'total',
 ] as const
 
-export type StepName = (typeof STEPS)[number]
+type StepName = (typeof STEPS)[number]
 
 export interface KeyTimeline extends Record<StepName, number> {
   mirrorParse: number
