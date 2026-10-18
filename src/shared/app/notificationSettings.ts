@@ -3,6 +3,13 @@ export const BELL_MODES = ['attention', 'sound', 'off'] as const
 
 export type BellMode = (typeof BELL_MODES)[number]
 
+export const BELL_FLASH_EASINGS = ['out', 'in-out', 'linear'] as const
+
+export type BellFlashEasing = (typeof BELL_FLASH_EASINGS)[number]
+
+export const BELL_FLASH_MIN_MS = 50
+export const BELL_FLASH_MAX_MS = 1000
+
 export const LONG_COMMAND_MIN_SECONDS = 1
 export const LONG_COMMAND_MAX_SECONDS = 3600
 
@@ -16,6 +23,9 @@ export interface NotificationSettings {
   command: string
   longCommandSeconds: number
   bell: BellMode
+  visualBell: boolean
+  visualBellMs: number
+  visualBellEasing: BellFlashEasing
 }
 
 export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
@@ -28,6 +38,9 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   command: '',
   longCommandSeconds: 10,
   bell: 'attention',
+  visualBell: false,
+  visualBellMs: 200,
+  visualBellEasing: 'out',
 }
 
 export function parseNotificationSettings(raw: unknown): NotificationSettings {
@@ -40,6 +53,11 @@ export function parseNotificationSettings(raw: unknown): NotificationSettings {
       out.longCommandSeconds = clampLongCommandSeconds(raw.longCommandSeconds)
     } else if (key === 'bell') {
       if (BELL_MODES.includes(raw.bell as BellMode)) out.bell = raw.bell as BellMode
+    } else if (key === 'visualBellMs') {
+      out.visualBellMs = clampBellFlashMs(raw.visualBellMs)
+    } else if (key === 'visualBellEasing') {
+      if (BELL_FLASH_EASINGS.includes(raw.visualBellEasing as BellFlashEasing))
+        out.visualBellEasing = raw.visualBellEasing as BellFlashEasing
     } else if (typeof raw[key] === 'boolean') out[key] = raw[key]
   }
   return out
@@ -49,6 +67,12 @@ export function clampLongCommandSeconds(raw: unknown): number {
   const n = typeof raw === 'number' ? raw : Number.NaN
   if (!Number.isFinite(n)) return DEFAULT_NOTIFICATION_SETTINGS.longCommandSeconds
   return Math.min(LONG_COMMAND_MAX_SECONDS, Math.max(LONG_COMMAND_MIN_SECONDS, Math.round(n)))
+}
+
+export function clampBellFlashMs(raw: unknown): number {
+  const n = typeof raw === 'number' ? raw : Number.NaN
+  if (!Number.isFinite(n)) return DEFAULT_NOTIFICATION_SETTINGS.visualBellMs
+  return Math.min(BELL_FLASH_MAX_MS, Math.max(BELL_FLASH_MIN_MS, Math.round(n)))
 }
 
 export type NotificationKind = 'message' | 'agentWaiting' | 'agentDone' | 'commandFinished'

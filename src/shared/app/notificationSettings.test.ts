@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_NOTIFICATION_SETTINGS,
+  clampBellFlashMs,
   parseNotificationSettings,
   wantsDesktopBanner,
 } from './notificationSettings'
@@ -60,5 +61,28 @@ describe('wantsDesktopBanner', () => {
 
   it('shows nothing when desktop notifications are off', () => {
     expect(wantsDesktopBanner({ ...on, desktop: false }, 'message', false)).toBe(false)
+  })
+})
+
+describe('parseNotificationSettings visual bell', () => {
+  it('defaults off with a short fade-out flash', () => {
+    const out = parseNotificationSettings(undefined)
+    expect(out.visualBell).toBe(false)
+    expect(out.visualBellMs).toBe(200)
+    expect(out.visualBellEasing).toBe('out')
+  })
+
+  it('keeps a stored toggle, clamps the duration and falls back on an unknown easing', () => {
+    expect(parseNotificationSettings({ visualBell: true }).visualBell).toBe(true)
+    expect(parseNotificationSettings({ visualBell: 'yes' }).visualBell).toBe(false)
+    expect(parseNotificationSettings({ visualBellMs: 300 }).visualBellMs).toBe(300)
+    expect(parseNotificationSettings({ visualBellMs: 1 }).visualBellMs).toBe(50)
+    expect(parseNotificationSettings({ visualBellMs: 99_999 }).visualBellMs).toBe(1000)
+    expect(parseNotificationSettings({ visualBellMs: '300' }).visualBellMs).toBe(200)
+    expect(parseNotificationSettings({ visualBellEasing: 'linear' }).visualBellEasing).toBe(
+      'linear',
+    )
+    expect(parseNotificationSettings({ visualBellEasing: 'bounce' }).visualBellEasing).toBe('out')
+    expect(clampBellFlashMs(Number.NaN)).toBe(200)
   })
 })

@@ -6,10 +6,15 @@ import { Input } from '@/components/ui/input'
 import { useDict } from '@/lib/app/useDict'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
+  BELL_FLASH_EASINGS,
+  BELL_FLASH_MAX_MS,
+  BELL_FLASH_MIN_MS,
   BELL_MODES,
+  type BellFlashEasing,
   type BellMode,
   LONG_COMMAND_MAX_SECONDS,
   LONG_COMMAND_MIN_SECONDS,
+  clampBellFlashMs,
   clampLongCommandSeconds,
 } from '@shared/app/notificationSettings'
 
@@ -21,6 +26,11 @@ export function NotificationsSection(): JSX.Element {
     attention: d.settings.bellAttention,
     sound: d.settings.bellSound,
     off: d.settings.bellOff,
+  }
+  const easingLabel: Record<BellFlashEasing, string> = {
+    out: d.settings.bellEaseOut,
+    'in-out': d.settings.bellEaseInOut,
+    linear: d.settings.bellLinear,
   }
   return (
     <SettingsPage title={d.settings.notifications}>
@@ -90,6 +100,28 @@ export function NotificationsSection(): JSX.Element {
             onChange={(v) => set({ bell: v })}
             label={d.settings.bell}
             options={BELL_MODES.map((m) => ({ value: m, label: bellLabel[m] }))}
+          />
+        </ControlRow>
+        <ToggleRow
+          label={d.settings.bellFlash}
+          desc={d.settings.bellFlashDesc}
+          checked={n.visualBell}
+          onChange={(v) => set({ visualBell: v })}
+        />
+        <NumberRow
+          label={d.settings.bellFlashDuration}
+          desc={d.settings.bellFlashDurationDesc}
+          value={n.visualBellMs}
+          min={BELL_FLASH_MIN_MS}
+          max={BELL_FLASH_MAX_MS}
+          onCommit={(v) => set({ visualBellMs: clampBellFlashMs(v) })}
+        />
+        <ControlRow label={d.settings.bellFlashEasing} desc={d.settings.bellFlashEasingDesc}>
+          <SelectField
+            value={n.visualBellEasing}
+            onChange={(v) => set({ visualBellEasing: v })}
+            label={d.settings.bellFlashEasing}
+            options={BELL_FLASH_EASINGS.map((e) => ({ value: e, label: easingLabel[e] }))}
           />
         </ControlRow>
       </SettingsGroup>

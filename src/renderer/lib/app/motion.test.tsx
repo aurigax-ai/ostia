@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { useMotionAttribute, useReducedMotion } from './motion'
+import { reducedMotionNow, useMotionAttribute, useReducedMotion } from './motion'
 
 const css = readFileSync(resolve(process.cwd(), 'src/renderer/index.css'), 'utf8')
 
@@ -142,6 +142,27 @@ describe('useReducedMotion', () => {
     osPrefersReduced(false)
     act(() => useSettingsStore.getState().setMotion('reduced'))
     expect(renderHook(() => useReducedMotion()).result.current).toBe(true)
+  })
+})
+
+describe('reducedMotionNow', () => {
+  function osPrefersReduced(matches: boolean): void {
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) => ({ matches, media: query }) as unknown as MediaQueryList,
+    )
+  }
+
+  afterEach(() => vi.restoreAllMocks())
+
+  it('follows the OS preference in system mode and lets the setting override it', () => {
+    osPrefersReduced(true)
+    expect(reducedMotionNow()).toBe(true)
+    act(() => useSettingsStore.getState().setMotion('full'))
+    expect(reducedMotionNow()).toBe(false)
+    osPrefersReduced(false)
+    expect(reducedMotionNow()).toBe(false)
+    act(() => useSettingsStore.getState().setMotion('reduced'))
+    expect(reducedMotionNow()).toBe(true)
   })
 })
 
