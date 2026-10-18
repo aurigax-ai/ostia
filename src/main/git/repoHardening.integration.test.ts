@@ -104,3 +104,42 @@ describe('git reads under a repository config a sandboxed agent could have writt
     expect(existsSync(join(marks, 'fsmonitor'))).toBe(false)
   })
 })
+
+describe('git reads of a repository with a submodule whose own config names programs', () => {
+  const outer = join(root, 'outer')
+  const inner = join(root, 'inner')
+
+  const gitIn = (cwd: string, ...args: string[]) =>
+    execFileSync(
+      'git',
+      ['-c', 'user.email=a@b.c', '-c', 'user.name=t', '-c', 'protocol.file.allow=always', ...args],
+      { cwd, stdio: 'ignore' },
+    )
+
+  mkdirSync(inner)
+  gitIn(inner, 'init', '-q', '-b', 'main')
+  writeFileSync(join(inner, 's.evil'), 'one\n')
+  writeFileSync(join(inner, 'p.proc'), 'one\n')
+  writeFileSync(join(inner, '.gitattributes'), '*.evil filter=sub\n*.proc filter=subp\n')
+  gitIn(inner, 'add', '.')
+  gitIn(inner, 'commit', '-q', '-m', 'inner')
+  mkdirSync(outer)
+  gitIn(outer, 'init', '-q', '-b', 'main')
+  gitIn(outer, 'submodule', 'add', '-q', inner, 'sub')
+  gitIn(outer, 'commit', '-q', '-m', 'outer')
+  const subGit = join(outer, 'sub')
+  gitIn(subGit, 'config', 'filter.sub.clean', program('subclean'))
+  gitIn(subGit, 'config', 'filter.subp.process', program('subprocess'))
+  gitIn(subGit, 'config', 'core.fsmonitor', program('subfsmonitor'))
+  writeFileSync(join(subGit, 's.evil'), 'two\n')
+  writeFileSync(join(subGit, 'p.proc'), 'two\n')
+
+  it('runs no program of the submodule for a status, a line count or a patch', async () => {
+    const status = await readStatus(outer)
+    await lineChanges(outer, [])
+    for (const change of status.changes) await unifiedPatch(outer, change)
+    for (const name of ['subclean', 'subprocess', 'subfsmonitor']) {
+      expect(existsSync(join(marks, name))).toBe(false)
+    }
+  })
+})

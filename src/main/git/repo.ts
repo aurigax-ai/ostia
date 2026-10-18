@@ -139,6 +139,7 @@ export async function readStatus(root: string): Promise<RepoStatus> {
     '--branch',
     '-z',
     '--untracked-files=all',
+    '--ignore-submodules=all',
   ])
   return parsePorcelainV2(out.toString('utf8'))
 }
@@ -194,7 +195,7 @@ export async function diffSides(root: string, change: FileChange): Promise<DiffS
 }
 
 export async function unifiedPatch(root: string, change: FileChange): Promise<string> {
-  const common = ['--no-color', '--no-ext-diff', '--no-textconv']
+  const common = ['--no-color', '--no-ext-diff', '--no-textconv', '--ignore-submodules=all']
   if (change.area === 'untracked') {
     const res = await run(root, ['diff', ...common, '--no-index', '--', '/dev/null', change.path])
     if (res.code !== 0 && res.code !== 1) throw new RepoError('git-failed', res.stderr.trim())
@@ -235,6 +236,7 @@ export async function lineChanges(root: string, untracked: string[]): Promise<Li
     '--no-ext-diff',
     '--no-textconv',
     '--shortstat',
+    '--ignore-submodules=all',
     'HEAD',
   ])
   const tracked = res.code === 0 ? parseShortstat(res.stdout.toString('utf8')) : null
