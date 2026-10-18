@@ -1079,10 +1079,10 @@ describe('CommandPalette', () => {
       expect(screen.getByRole('group', { name: 'Settings' })).toBeInTheDocument()
     })
 
-    it('opens a settings page, or the settings search with what was typed', async () => {
+    it('opens a settings page', async () => {
       useUIStore.setState({ paletteOpen: true, paletteMode: 'everywhere' })
       render(<CommandPalette />)
-      await userEvent.type(await screen.findByRole('combobox'), 'keyboard')
+      fireEvent.change(await screen.findByRole('combobox'), { target: { value: 'keyboard' } })
       await userEvent.click(await screen.findByRole('option', { name: /^Keyboard$/ }))
       expect(useUIStore.getState()).toMatchObject({
         paletteOpen: false,
@@ -1090,9 +1090,12 @@ describe('CommandPalette', () => {
         settingsSection: 'keyboard',
         settingsQuery: '',
       })
+    })
 
-      act(() => useUIStore.getState().openPalette('everywhere'))
-      await userEvent.type(await screen.findByRole('combobox'), 'font size')
+    it('opens the settings search with what was typed', async () => {
+      useUIStore.setState({ paletteOpen: true, paletteMode: 'everywhere' })
+      render(<CommandPalette />)
+      fireEvent.change(await screen.findByRole('combobox'), { target: { value: 'font size' } })
       await userEvent.click(
         await screen.findByRole('option', { name: /Search settings for “font size”/ }),
       )

@@ -10,14 +10,16 @@ import { ChangesPage } from './ChangesPage'
 import { GitEmpty } from './GitEmpty'
 import { GraphPage } from './GraphPage'
 import './git.css'
-import { useGitView } from './useGitView'
+import { type GitHome, useGitView } from './useGitView'
 
 const NOT_A_REPO = 'not-a-repo'
 
 export function GitView({
   workspaceId,
   paneId,
-}: { workspaceId: string; paneId: string }): JSX.Element {
+  home,
+  active = true,
+}: { workspaceId: string; paneId: string; home: GitHome; active?: boolean }): JSX.Element {
   const t = useDict().git
   const {
     page,
@@ -38,7 +40,7 @@ export function GitView({
     openCommitFile,
     folders,
     choosePage,
-  } = useGitView({ workspaceId, paneId, t })
+  } = useGitView({ workspaceId, paneId, home, shown: active, t })
 
   const labels: Record<GitPage, string> = {
     changes: t.tabChanges,
@@ -46,7 +48,7 @@ export function GitView({
     blame: t.tabBlame,
   }
   const pages: GitPage[] =
-    blameFile || page === 'blame' ? ['changes', 'graph', 'blame'] : ['changes', 'graph']
+    home === 'dock' ? ['changes'] : blameFile || page === 'blame' ? ['graph', 'blame'] : ['graph']
   const shown = loaded?.page === page ? loaded : null
 
   return (

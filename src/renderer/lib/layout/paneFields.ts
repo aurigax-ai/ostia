@@ -249,20 +249,6 @@ export function browserPaneInUse(
   return allPanes(node).find(isMatch) ?? null
 }
 
-export function setPaneExtension(
-  root: LayoutNode,
-  paneId: string,
-  extensionId: string,
-  title: string,
-): LayoutNode {
-  return mapPane(root, paneId, (p) => ({
-    ...named(p, title),
-    kind: 'extension',
-    extensionId,
-    cwd: undefined,
-  }))
-}
-
 export function setPaneChat(
   root: LayoutNode,
   paneId: string,
@@ -308,10 +294,6 @@ export function setPaneDiff(
 
 export function isRemoteFilePane(pane: PaneNode): boolean {
   return pane.kind === 'editor' && isRemotePath(pane.filePath)
-}
-
-export function findExtensionPane(node: LayoutNode, extensionId: string): PaneNode | null {
-  return allPanes(node).find((p) => p.kind === 'extension' && p.extensionId === extensionId) ?? null
 }
 
 export function findViewPane(node: LayoutNode, viewName: string): PaneNode | null {

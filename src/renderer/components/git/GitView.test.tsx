@@ -167,7 +167,7 @@ describe('GitView', () => {
   describe('changes', () => {
     it('lists each kind of change under its own heading with the branch and tracking state', async () => {
       showChanges()
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
 
       expect(root().dataset.page).toBe('changes')
       expect(git().changes).toHaveBeenCalledWith('w1')
@@ -188,7 +188,7 @@ describe('GitView', () => {
 
     it('says there are no changes in a clean repository', async () => {
       showChanges(changesData([]))
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
 
       expect(screen.getByText('No changes')).toBeInTheDocument()
       expect(root().querySelectorAll('section.area')).toHaveLength(0)
@@ -196,7 +196,7 @@ describe('GitView', () => {
 
     it('opens the diff of the clicked file', async () => {
       showChanges()
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
 
       await click(fileRow('notes.txt'))
 
@@ -205,7 +205,7 @@ describe('GitView', () => {
 
     it('stages, unstages and discards one file by its absolute path', async () => {
       showChanges()
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
 
       await click(screen.getByRole('button', { name: 'Stage: notes.txt' }))
       await click(screen.getByRole('button', { name: 'Unstage: src/staged.ts' }))
@@ -222,7 +222,7 @@ describe('GitView', () => {
 
     it('acts on a whole area from its heading', async () => {
       showChanges()
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
 
       await click(screen.getByRole('button', { name: 'Stage all: Changes' }))
       await click(screen.getByRole('button', { name: 'Unstage all' }))
@@ -240,7 +240,7 @@ describe('GitView', () => {
         error: 'failed',
         message: 'index locked',
       })
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
       expect(git().changes).toHaveBeenCalledTimes(1)
 
       await click(screen.getByRole('button', { name: 'Stage: notes.txt' }))
@@ -256,7 +256,7 @@ describe('GitView', () => {
         error: 'cancelled',
         message: 'Cancelled; nothing was changed.',
       })
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
 
       await click(screen.getByRole('button', { name: 'Discard changes: notes.txt' }))
 
@@ -270,7 +270,7 @@ describe('GitView', () => {
         ok: true,
         data: { root: ROOT, sha: 'abc1234def5678' },
       })
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
       const box = root().querySelector('.commit textarea.message') as HTMLTextAreaElement
       const submit = root().querySelector('.commit button.primary') as HTMLButtonElement
       expect(submit).toBeDisabled()
@@ -286,7 +286,7 @@ describe('GitView', () => {
 
     it('commits on Ctrl+Enter, and only when something is staged', async () => {
       showChanges(changesData(CHANGES.filter((c) => c.area !== 'staged')))
-      const view = await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      const view = await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
       const box = (): HTMLTextAreaElement =>
         root().querySelector('textarea.message') as HTMLTextAreaElement
       fireEvent.change(box(), { target: { value: 'wip' } })
@@ -297,7 +297,7 @@ describe('GitView', () => {
 
       view.unmount()
       showChanges()
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
       fireEvent.change(box(), { target: { value: 'wip' } })
       fireEvent.keyDown(box(), { key: 'Enter' })
       expect(git().commit).not.toHaveBeenCalled()
@@ -314,7 +314,7 @@ describe('GitView', () => {
         changed = cb
         return () => {}
       })
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
       const box = root().querySelector('textarea.message') as HTMLTextAreaElement
 
       box.value = 'draft kept'
@@ -332,7 +332,7 @@ describe('GitView', () => {
   describe('list and tree', () => {
     it('writes the chosen layout to the settings and groups files into folders', async () => {
       showChanges()
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
       expect(root().querySelectorAll('button.folder')).toHaveLength(0)
       expect(screen.getByRole('button', { name: 'Flat list' })).toHaveAttribute(
         'aria-pressed',
@@ -355,7 +355,7 @@ describe('GitView', () => {
     it('stages a whole folder and hides its files when collapsed', async () => {
       useSettingsStore.getState().setGit({ changesView: 'tree' })
       showChanges()
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
 
       await click(screen.getByRole('button', { name: 'Stage folder: src/deep' }))
       expect(git().stage).toHaveBeenCalledWith('w1', {
@@ -380,7 +380,7 @@ describe('GitView', () => {
           { path: 'src/deep/feature.txt', area: 'unstaged', code: 'M' },
         ]),
       )
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
       const folders = (): string[] =>
         [...root().querySelectorAll('button.folder')].map(
           (b) =>
@@ -401,7 +401,7 @@ describe('GitView', () => {
 
   describe('failures', () => {
     it('explains that the workspace is not inside a repository', async () => {
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
 
       expect(screen.getByText('Not in a git repository')).toBeInTheDocument()
       expect(
@@ -416,7 +416,7 @@ describe('GitView', () => {
         error: 'git-failed',
         message: 'fatal: bad object',
       })
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
 
       expect(screen.getByRole('alert')).toHaveTextContent('fatal: bad object')
     })
@@ -430,7 +430,7 @@ describe('GitView', () => {
         changed = cb
         return () => {}
       })
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
       expect(screen.getByText('No changes')).toBeInTheDocument()
 
       showChanges()
@@ -451,7 +451,7 @@ describe('GitView', () => {
       showChanges()
       const off = vi.fn()
       vi.mocked(git().onChanged).mockReturnValue(off)
-      const view = await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      const view = await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
 
       view.unmount()
       window.dispatchEvent(new Event('focus'))
@@ -462,44 +462,36 @@ describe('GitView', () => {
 
     it('asks main to keep this workspace fresh', async () => {
       showChanges()
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
 
       await waitFor(() => expect(git().watch).toHaveBeenCalledWith(['w1']))
     })
   })
 
   describe('tabs', () => {
-    it('switches between changes and graph and offers no blame tab without a file', async () => {
+    it('the side panel offers the Changes page alone, and no graph or blame tab', async () => {
+      showChanges()
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
+      expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Changes'])
+      expect(root().dataset.page).toBe('changes')
+    })
+
+    it('a pane opens on the graph, offers no Changes tab and a blame tab only with a file', async () => {
       showChanges()
       showGraph()
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
-      expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Changes', 'Graph'])
-
-      await click(screen.getByRole('tab', { name: 'Graph' }))
-
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="pane" />)
+      expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Graph'])
       await waitFor(() => expect(graphRow(HEAD)).not.toBeNull())
       expect(root().dataset.page).toBe('graph')
       expect(git().graph).toHaveBeenCalledWith('w1', 300)
-    })
-
-    it('follows the page a command asks for', async () => {
-      showChanges()
-      showGraph()
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
-
-      await openGraph()
-      await waitFor(() => expect(graphRow(HEAD)).not.toBeNull())
-      await act(async () => useGitViewStore.getState().navigate('p1', 'changes'))
-
-      await waitFor(() => expect(fileRow('notes.txt')).not.toBeNull())
-      expect(root().dataset.page).toBe('changes')
+      expect(git().changes).not.toHaveBeenCalled()
     })
   })
 
   describe('graph', () => {
     it('draws the uncommitted row above the commits with their refs', async () => {
       showGraph()
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="pane" />)
       await openGraph()
       await waitFor(() => expect(graphRow(HEAD)).not.toBeNull())
 
@@ -522,7 +514,7 @@ describe('GitView', () => {
 
     it('leaves the uncommitted row out of a clean repository', async () => {
       showGraph(graphData({ ...changesData([]) }))
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="pane" />)
       await openGraph()
       await waitFor(() => expect(graphRow(HEAD)).not.toBeNull())
 
@@ -531,7 +523,7 @@ describe('GitView', () => {
 
     it('says a repository without commits has none', async () => {
       showGraph(graphData({ ...changesData([]), commits: [] }))
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="pane" />)
       await openGraph()
 
       await waitFor(() => expect(screen.getByText('No commits yet')).toBeInTheDocument())
@@ -540,7 +532,7 @@ describe('GitView', () => {
     it('loads the files of the selected commit and opens the clicked one', async () => {
       showGraph()
       vi.mocked(git().commitFiles).mockResolvedValue({ ok: true, data: COMMIT_FILES })
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="pane" />)
       await openGraph()
       await waitFor(() => expect(graphRow(SECOND)).not.toBeNull())
 
@@ -566,7 +558,7 @@ describe('GitView', () => {
 
     it('shows the change sections for the uncommitted row', async () => {
       showGraph()
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="pane" />)
       await openGraph()
       await waitFor(() => expect(graphRow('worktree')).not.toBeNull())
 
@@ -581,7 +573,7 @@ describe('GitView', () => {
 
     it('moves the selection with the keyboard and clears it with Escape', async () => {
       showGraph()
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="pane" />)
       await openGraph()
       await waitFor(() => expect(graphRow(HEAD)).not.toBeNull())
       const list = screen.getByRole('listbox', { name: 'Commit graph' })
@@ -611,7 +603,7 @@ describe('GitView', () => {
         changed = cb
         return () => {}
       })
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="pane" />)
       await openGraph()
       await waitFor(() => expect(graphRow(FIRST)).not.toBeNull())
       const list = screen.getByRole('listbox', { name: 'Commit graph' })
@@ -631,7 +623,7 @@ describe('GitView', () => {
         commitOf(String(i).padStart(40, '0'), `commit ${i}`, [String(i + 1).padStart(40, '0')]),
       )
       showGraph(graphData({ ...changesData([]), commits: many, more: true }))
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="pane" />)
       await openGraph()
       await waitFor(() => expect(root().querySelector('.graph-row')).not.toBeNull())
 
@@ -654,7 +646,7 @@ describe('GitView', () => {
     it('changes the scope in main and in the settings', async () => {
       showGraph()
       vi.mocked(git().setScope).mockResolvedValue({ ok: true, data: { scope: { kind: 'all' } } })
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="pane" />)
       await openGraph()
       await waitFor(() => expect(graphRow(HEAD)).not.toBeNull())
       const trigger = root().querySelector('.scope-trigger') as HTMLElement
@@ -674,7 +666,7 @@ describe('GitView', () => {
         graphData({ scope: { kind: 'chosen', refs } })
       showGraph()
       vi.mocked(git().setScope).mockResolvedValue({ ok: true, data: { scope: { kind: 'all' } } })
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="pane" />)
       await openGraph()
       await waitFor(() => expect(graphRow(HEAD)).not.toBeNull())
       const trigger = root().querySelector('.scope-trigger') as HTMLElement
@@ -728,7 +720,7 @@ describe('GitView', () => {
           .length
       }
       showGraph(graphData({ scope: { kind: 'chosen', refs: ['refs/heads/main'] } }))
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="pane" />)
       await openGraph()
       await waitFor(() => expect(graphRow(HEAD)).not.toBeNull())
       await click(root().querySelector('.scope-trigger') as HTMLElement)
@@ -737,7 +729,7 @@ describe('GitView', () => {
       cleanup()
 
       showGraph(graphData({ branches: [] }))
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="pane" />)
       await openGraph()
       await waitFor(() => expect(root().querySelector('.scope-trigger')).not.toBeNull())
       await click(root().querySelector('.scope-trigger') as HTMLElement)
@@ -750,7 +742,7 @@ describe('GitView', () => {
     it('shows who last changed each line of the file a command names', async () => {
       showChanges()
       vi.mocked(git().blame).mockResolvedValue({ ok: true, data: BLAME })
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="pane" />)
 
       await act(async () => useGitViewStore.getState().navigate('p1', 'blame', '/repo/src/a.ts'))
 
@@ -773,7 +765,7 @@ describe('GitView', () => {
 
     it('asks for a file when the blame page is opened without one', async () => {
       showChanges()
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="pane" />)
 
       await act(async () => useGitViewStore.getState().navigate('p1', 'blame'))
 
@@ -786,7 +778,7 @@ describe('GitView', () => {
     it('resizes the details with the keyboard and remembers the size', async () => {
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
       showGraph()
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="pane" />)
       await act(async () => useGitViewStore.getState().navigate('p1', 'graph'))
       await act(async () => {})
       await click(graphRow('worktree'))
@@ -810,7 +802,7 @@ describe('GitView', () => {
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
       const basis = vi.spyOn(Object.getPrototypeOf(document.body.style), 'flexBasis', 'set')
       showGraph()
-      const view = await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      const view = await renderSettled(<GitView workspaceId="w1" paneId="p1" home="pane" />)
       await act(async () => useGitViewStore.getState().navigate('p1', 'graph'))
       await act(async () => {})
       await click(graphRow('worktree'))
@@ -843,7 +835,7 @@ describe('GitView', () => {
       expect(saved['git:graph-details']).toBe(0.25)
 
       view.unmount()
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="pane" />)
       await act(async () => {})
       basis.mockClear()
       await click(graphRow('worktree'))
@@ -853,7 +845,7 @@ describe('GitView', () => {
 
     it('keeps a handle between the commit box and the changed files', async () => {
       showChanges()
-      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" home="dock" />)
 
       expect(
         root().querySelectorAll('[data-split="changes-commit"] [role="separator"]'),

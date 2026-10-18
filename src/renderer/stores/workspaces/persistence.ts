@@ -2,6 +2,8 @@ import { runningAgentOf } from '@/lib/agents/paneAgent'
 import { type RestorableWorkspace, buildSnapshot } from '@/lib/layout/snapshot'
 import { allPanes } from '@/lib/layout/tree'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useSidePanelStore } from '@/stores/app/sidePanelStore'
+import { useUIStore } from '@/stores/app/uiStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { debounce } from 'es-toolkit/compat'
 import { useLayoutStore } from './layoutStore'
@@ -59,6 +61,8 @@ export function saveSnapshotNow(): void {
       groups,
       activeWorkspaceId,
       layouts: useLayoutStore.getState().byWorkspace,
+      leftPanel: useUIStore.getState().filesOpen ? 'files' : null,
+      rightPanel: useSidePanelStore.getState().right,
       savedAt: new Date().toISOString(),
       liveAgentPanes: liveAgentPanes(),
     }),
@@ -72,6 +76,12 @@ export function startSnapshotAutosave(): () => void {
     useWorkspacesStore.subscribe(() => scheduleSave()),
     useLayoutStore.subscribe(() => scheduleSave()),
     useSettingsStore.subscribe(() => scheduleSave()),
+    useSidePanelStore.subscribe((s, prev) => {
+      if (s.right !== prev.right) scheduleSave()
+    }),
+    useUIStore.subscribe((s, prev) => {
+      if (s.filesOpen !== prev.filesOpen) scheduleSave()
+    }),
     useBlocksStore.subscribe((s, prev) => {
       if (s.running !== prev.running) scheduleSave()
     }),

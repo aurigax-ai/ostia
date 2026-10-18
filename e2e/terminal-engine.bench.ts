@@ -11,6 +11,17 @@ import { type ElectronApplication, type Page, _electron as electron, expect, tes
 const BUSY_AGENT = resolve(__dirname, '../test/fixtures/agents/busy-agent.mjs')
 const WINDOW_MS = 6_000
 const BULK_LINES = 200_000
+const CONTINUOUS_MS = 30_000
+const HISTORY_OFF = process.env.OSTIA_BENCH_HISTORY === 'off'
+
+function benchSettings(engine: (typeof BENCH_ENGINES)[number]): object {
+  const terminal = 'terminal' in engine.settings ? engine.settings.terminal : {}
+  return {
+    ...engine.settings,
+    ...(HISTORY_OFF ? { terminal: { ...terminal, scrollbackHistory: 'off' } } : {}),
+    workspaces: { confirmQuit: false },
+  }
+}
 
 const PAGE_PROBE = `(() => {
   const p = { frames: 0, maxLag: 0, longTasks: 0, longMs: 0 }
@@ -71,7 +82,7 @@ for (const engine of BENCH_ENGINES) {
   test(`bench ${engine.name} bulk output`, async () => {
     test.setTimeout(180_000)
     const dataHome = freshDataHome()
-    seedSettings(dataHome, { ...engine.settings, workspaces: { confirmQuit: false } })
+    seedSettings(dataHome, benchSettings(engine))
     const launch = isolatedLaunch(dataHome)
     const app = await electron.launch({ ...launch, args: [SOFTWARE_WEBGL, ...launch.args] })
     try {
@@ -104,8 +115,56 @@ for (const engine of BENCH_ENGINES) {
       console.log(
         `BENCH ${engine.name} bulk ${JSON.stringify({ ms, mainMaxLagMs: Math.round(main.maxLag), mainLagOver16: main.over16, pageMaxLagMs: Math.round(page.maxLag), fps: Math.round((page.frames * 1000) / ms), longTaskMs: Math.round(page.longMs) })}`,
       )
+      if (!HISTORY_OFF) {
+        console.log(
+          `BENCH ${engine.name} history ${JSON.stringify(await measureHistory(win, dataHome))}`,
+        )
+      }
+    } finally {
+      await app.close()
+    }
+  })
+
+  test(`bench ${engine.name} continuous output`, async () => {
+    test.setTimeout(120_000)
+    const dataHome = freshDataHome()
+    seedSettings(dataHome, benchSettings(engine))
+    const launch = isolatedLaunch(dataHome)
+    const app = await electron.launch({ ...launch, args: [SOFTWARE_WEBGL, ...launch.args] })
+    try {
+      const win = await app.firstWindow()
+      await win.waitForLoadState('domcontentloaded')
+      await openTerminal(win)
+      await app.evaluate(() => {
+        const rss = { peak: 0, heap: 0, external: 0, buffers: 0 }
+        ;(globalThis as unknown as { __rss: typeof rss }).__rss = rss
+        setInterval(() => {
+          const now = process.memoryUsage()
+          if (now.rss <= rss.peak) return
+          rss.peak = now.rss
+          rss.heap = now.heapUsed
+          rss.external = now.external
+          rss.buffers = now.arrayBuffers
+        }, 100)
+      })
+      const mib = (bytes: number) => Math.round(bytes / 1024 / 1024)
+      const rssNow = async () => mib(await app.evaluate(() => process.memoryUsage.rss()))
+      const before = await rssNow()
+      await win.keyboard.type('yes')
+      await win.keyboard.press('Enter')
+      await win.waitForTimeout(CONTINUOUS_MS)
+      const peak = await app.evaluate(
+        () =>
+          (
+            globalThis as unknown as {
+              __rss: { peak: number; heap: number; external: number; buffers: number }
+            }
+          ).__rss,
+      )
+      await win.keyboard.press('Control+c')
+      await win.waitForTimeout(10_000)
       console.log(
-        `BENCH ${engine.name} history ${JSON.stringify(await measureHistory(win, dataHome))}`,
+        `BENCH ${engine.name} continuous ${JSON.stringify({ beforeMiB: before, peakMiB: mib(peak.peak), heapMiB: mib(peak.heap), externalMiB: mib(peak.external), buffersMiB: mib(peak.buffers), afterMiB: await rssNow() })}`,
       )
     } finally {
       await app.close()

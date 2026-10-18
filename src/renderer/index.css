@@ -96,6 +96,7 @@
   --radius: 10px;
   --rail-w: 240px;
   --files-w: 260px;
+  --right-w: 340px;
   --rail-w-collapsed: 44px;
   --topbar-h: 36px;
   --tabstrip-h: 34px;
@@ -105,6 +106,7 @@
   --separator-border: var(--line);
   --focus-border: var(--brand);
 
+  --scrollbar-size: 11px;
   --scrollbar-thumb: var(--color-line-strong);
   --scrollbar-thumb-hover: color-mix(in srgb, var(--color-fg) 26%, transparent);
 
@@ -235,14 +237,13 @@
   }
 }
 
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) transparent;
+::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
 }
 
-::-webkit-scrollbar {
-  width: 11px;
-  height: 11px;
+::-webkit-scrollbar-button {
+  display: none;
 }
 
 ::-webkit-scrollbar-track,
@@ -254,17 +255,41 @@
   min-height: 28px;
   border: 3px solid transparent;
   border-radius: 8px;
+  background: transparent;
+  background-clip: padding-box;
+}
+
+[data-scrolling]::-webkit-scrollbar-thumb,
+[data-scrollbar-hover]::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
   background-clip: padding-box;
 }
 
-::-webkit-scrollbar-thumb:hover {
+[data-scrolling]::-webkit-scrollbar-thumb:hover,
+[data-scrollbar-hover]::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+.monaco-editor .monaco-scrollable-element > .scrollbar > .slider,
+.xterm-host .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider {
+  box-sizing: border-box;
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+.monaco-editor .monaco-scrollable-element > .scrollbar > .slider:hover,
+.monaco-editor .monaco-scrollable-element > .scrollbar > .slider.active,
+.xterm-host .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider:hover,
+.xterm-host .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider.xterm-active {
   background: var(--scrollbar-thumb-hover);
   background-clip: padding-box;
 }
 
 .scroll-quiet {
-  --scroll-gutter: calc(var(--spacing) * 2.5);
+  --scroll-gutter: var(--scrollbar-size);
 }
 
 .scroll-quiet > [data-slot="scroll-area-viewport"] {
@@ -272,26 +297,29 @@
   padding-inline-end: var(--scroll-gutter);
 }
 
-.scroll-quiet > [data-slot="scroll-area-scrollbar"] {
-  width: var(--scroll-gutter);
-  border-width: 0;
+[data-slot="scroll-area-scrollbar"] {
   opacity: 0;
   transition: opacity var(--motion-base-exit) var(--ease-in);
 }
 
-.scroll-quiet > [data-slot="scroll-area-scrollbar"][data-scrolling] {
+[data-slot="scroll-area-scrollbar"][data-scrolling],
+[data-slot="scroll-area-scrollbar"]:hover {
   opacity: 1;
   transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.scroll-quiet > [data-slot="scroll-area-scrollbar"] {
+  width: var(--scroll-gutter);
 }
 
 .app {
   position: relative;
   display: grid;
-  grid-template-columns: auto auto 1fr;
+  grid-template-columns: auto auto 1fr auto;
   grid-template-rows: var(--topbar-h) 1fr;
   grid-template-areas:
-    "topbar topbar topbar"
-    "rail   files  work";
+    "topbar topbar topbar topbar"
+    "rail   files  work   side";
   height: 100%;
   background: var(--bg);
 }
@@ -349,6 +377,43 @@
   overflow: hidden;
   background: var(--surface-1);
   border-right: 1px solid var(--line);
+}
+
+.right-panel {
+  grid-area: side;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: var(--right-w);
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface-1);
+  border-left: 1px solid var(--line);
+}
+
+.right-panel[data-hidden] {
+  width: 0;
+  border-left: 0;
+}
+
+.right-panel-body {
+  position: relative;
+  flex: 1;
+  width: var(--right-w);
+  min-height: 0;
+}
+
+.right-panel-slot {
+  position: absolute;
+  inset: 0;
+}
+
+.right-panel-slot[data-hidden] {
+  visibility: hidden;
+}
+
+.right-panel-slot[data-hidden] [style*="visibility: visible"] {
+  visibility: hidden !important;
 }
 
 .update-notice {
@@ -459,7 +524,7 @@
 }
 
 :root[data-rail-motion] .app {
-  grid-template-columns: var(--rail-w-collapsed) auto 1fr;
+  grid-template-columns: var(--rail-w-collapsed) auto 1fr auto;
   overflow: clip;
 }
 
@@ -512,6 +577,12 @@
   top: 0;
   bottom: 0;
   right: -1px;
+}
+
+.right-resizer {
+  top: 0;
+  bottom: 0;
+  left: -1px;
 }
 
 [class*="sash-module_sash"] {
@@ -2722,15 +2793,6 @@ button.prompt-chip:hover {
   scrollbar-width: none;
 }
 
-.xterm-host .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider {
-  background: var(--scrollbar-thumb);
-}
-
-.xterm-host .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider:hover,
-.xterm-host .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider.xterm-active {
-  background: var(--scrollbar-thumb-hover);
-}
-
 .bell-flash {
   position: absolute;
   inset: 0;
@@ -3045,6 +3107,21 @@ button.prompt-chip:hover {
   z-index: 2;
   width: auto;
   background: color-mix(in srgb, var(--attn) 10%, var(--surface-1));
+}
+
+.segmented {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 1px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+}
+
+.segmented button[aria-pressed="true"] {
+  background: var(--surface-3);
+  color: var(--fg);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
 }
 
 .diff-surface {
@@ -3561,7 +3638,7 @@ button.prompt-chip:hover {
   right: 2px;
   bottom: 4px;
   z-index: 3;
-  width: 10px;
+  width: var(--scrollbar-size);
   opacity: 0;
   transition: opacity var(--motion-fast) var(--ease-out);
 }
@@ -3572,14 +3649,17 @@ button.prompt-chip:hover {
 }
 
 .history-scrollbar-thumb {
-  width: 6px;
-  margin-left: 2px;
-  border-radius: 3px;
+  box-sizing: border-box;
+  width: var(--scrollbar-size);
+  border: 3px solid transparent;
+  border-radius: 8px;
   background: var(--scrollbar-thumb);
+  background-clip: padding-box;
 }
 
-.history-scrollbar:hover .history-scrollbar-thumb {
+.history-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
 }
 
 .dot.error {
@@ -3702,6 +3782,14 @@ button.prompt-chip:hover {
 
 .workspace-chips {
   -webkit-app-region: no-drag;
+}
+
+.workspace-chips .pane-chip {
+  max-width: none;
+  height: 24px;
+  border-radius: var(--radius-lg);
+  padding: 0 8px;
+  font-size: var(--text-ui-sm);
 }
 
 .pane-chips {

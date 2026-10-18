@@ -30,10 +30,10 @@ test('a diff pane is hidden with its workspace and behind Settings', async () =>
 
     const branchChip = win
       .locator('.topbar-right .workspace-chips .pane-chip')
-      .filter({ hasText: /^main$/ })
+      .filter({ hasText: /^main · \+1$/ })
     await expect(branchChip).toBeVisible({ timeout: 15_000 })
     await branchChip.click()
-    await expect(win.locator('.pane-header .title').filter({ hasText: /^Git$/ })).toBeVisible({
+    await expect(win.locator('#right-panel')).toHaveAttribute('aria-label', 'Git', {
       timeout: 15_000,
     })
     await win.locator('.git-surface button.change[data-path="notes.txt"]').click()

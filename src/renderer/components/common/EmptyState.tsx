@@ -38,7 +38,7 @@ const SIZES = {
 }
 
 function Block({ title, desc, action }: Omit<BlockProps, 'variant'>): JSX.Element {
-  const lead = /[.!?]$/.test(title) ? title : `${title}.`
+  const lead = /[.!?。！？]$/.test(title) ? title : `${title}.`
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-1.5 text-fg-muted text-ui-sm">
       <p>{desc ? `${lead} ${desc}` : lead}</p>

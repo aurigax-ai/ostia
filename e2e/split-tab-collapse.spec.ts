@@ -73,12 +73,12 @@ async function area(target: Locator): Promise<number> {
   return box ? box.width * box.height : 0
 }
 
-test('collapsed panes of a split tab keep running as strips and expand on focus', async () => {
+test('collapsed panes of a split tab keep running as strips, expand on focus and stay strips across a restart', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'ostia-collapse-'))
   const go = join(dir, 'go')
   const dataHome = freshDataHome()
   const ids: Record<string, string> = {}
-  const app = await electron.launch(isolatedLaunch(dataHome))
+  let app = await electron.launch(isolatedLaunch(dataHome))
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
@@ -127,35 +127,6 @@ test('collapsed panes of a split tab keep running as strips and expand on focus'
     await expect(cell(win, ids.w1).locator('.xterm-rows')).toContainText('printed-while-collapsed')
     await expect(segment(win, 'w1')).toHaveClass(/focused/)
     await expect(strip(win, ids.w3)).toHaveCount(1)
-  } finally {
-    await app.close().catch(() => {})
-    rmSync(dir, { recursive: true, force: true })
-  }
-})
-
-test('a collapsed pane of a split tab stays a strip across a restart', async () => {
-  const dataHome = freshDataHome()
-  const ids: Record<string, string> = {}
-  let app = await electron.launch(isolatedLaunch(dataHome))
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await openWorkspace(win)
-    await win.locator('.xterm').first().click()
-
-    for (const name of ['w1', 'w2', 'w3']) {
-      await typeLine(win, `ostia process run "echo ${name}-ready" --name ${name} --tab workers`)
-    }
-    await expect(win.locator('.split-tab-segment')).toHaveCount(3, { timeout: 30_000 })
-    for (const name of ['w1', 'w2', 'w3']) {
-      ids[name] = (await segment(win, name).getAttribute('data-segment-id')) ?? ''
-    }
-
-    await segment(win, 'w1').locator('.split-tab-segment-main').click()
-    await expect(cell(win, ids.w1)).toBeVisible()
-    await segment(win, 'w3').getByRole('button', { name: 'Collapse w3' }).click()
-    await expect(strip(win, ids.w3)).toHaveCount(1)
-    await expect(strip(win, ids.w1)).toHaveCount(0)
 
     await restartApp(app, win)
   } finally {
@@ -170,13 +141,12 @@ test('a collapsed pane of a split tab stays a strip across a restart', async () 
     await expect(win.locator('.pane-strip')).toHaveCount(1)
     await expect(cell(win, ids.w1)).toBeVisible()
 
-    await win
-      .locator(`.split-tab-segment[data-segment-id="${ids.w3}"] .split-tab-segment-main`)
-      .click()
+    await segmentById(win, ids.w3).locator('.split-tab-segment-main').click()
     await expect(strip(win, ids.w3)).toHaveCount(0)
     await expect(cell(win, ids.w3)).toBeVisible()
   } finally {
     await app.close().catch(() => {})
+    rmSync(dir, { recursive: true, force: true })
   }
 })
 

@@ -28,7 +28,6 @@
     "e2e/claude-folder-trust.spec.ts",
     "e2e/hibernate-background-work.spec.ts",
     "e2e/hibernate-group.spec.ts",
-    "e2e/ports-hibernation.spec.ts",
     "e2e/resume-folder.spec.ts"
   ]
 }

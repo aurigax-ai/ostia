@@ -45,6 +45,9 @@
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-full: 999px;
+  --scrollbar-size: 11px;
+  --scrollbar-thumb: var(--line-strong);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--fg) 26%, transparent);
   --switch-width: 32px;
   --switch-height: 18px;
   --switch-thumb: 14px;
@@ -132,8 +135,38 @@ textarea {
   background: var(--brand-glow);
 }
 
-html {
-  scrollbar-color: var(--line-strong) transparent;
+::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+::-webkit-scrollbar-button {
+  display: none;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  min-height: 28px;
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  background-clip: padding-box;
+}
+
+[data-scrolling]::-webkit-scrollbar-thumb,
+[data-scrollbar-hover]::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+[data-scrolling]::-webkit-scrollbar-thumb:hover,
+[data-scrollbar-hover]::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
 }
 
 button:disabled {
@@ -399,4 +432,71 @@ input[type="radio"]:focus-visible {
 .ostia-grid-probe {
   position: absolute;
   visibility: hidden;
+}
+
+.ostia-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.ostia-spacer {
+  flex: 1;
+}
+
+.ostia-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 6px 0;
+  color: var(--fg-muted);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+}
+
+.ostia-empty p {
+  margin: 0;
+}
+
+.ostia-row {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0;
+  list-style: none;
+}
+
+.ostia-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  min-width: 0;
+  font-size: var(--text-ui-base);
+  line-height: var(--text-ui-base--line-height);
+}
+
+.ostia-row-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ostia-row-head > :not(.ostia-row-title) {
+  flex: none;
+  color: var(--fg-muted);
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+}
+
+.ostia-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
 }

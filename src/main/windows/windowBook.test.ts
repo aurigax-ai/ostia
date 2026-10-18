@@ -75,6 +75,46 @@ describe('mergeSnapshots', () => {
     expect(merged.workspaces).toEqual([])
   })
 
+  it('keeps each window’s left panel apart', () => {
+    const merged = mergeSnapshots(
+      snapshot([workspace('w1', 'pane-1')], { leftPanel: 'files' }),
+      [
+        {
+          id: 'd1',
+          bounds: BOUNDS,
+          snapshot: snapshot([workspace('w2', 'pane-2')], { leftPanel: 'files' }),
+        },
+        { id: 'd2', bounds: BOUNDS, snapshot: snapshot([workspace('w3', 'pane-3')]) },
+      ],
+      't1',
+    )
+    expect(merged.leftPanel).toBe('files')
+    expect(merged.windows?.map((w) => w.leftPanel)).toEqual(['files', undefined])
+    const split = splitSnapshot(merged)
+    expect(split.detached.map((d) => d.snapshot.leftPanel)).toEqual(['files', undefined])
+  })
+
+  it('keeps each window’s right panel apart', () => {
+    const merged = mergeSnapshots(
+      snapshot([workspace('w1', 'pane-1')], { rightPanel: 'graphs' }),
+      [
+        {
+          id: 'd1',
+          bounds: BOUNDS,
+          snapshot: snapshot([workspace('w2', 'pane-2')], { rightPanel: 'keeper' }),
+        },
+        { id: 'd2', bounds: BOUNDS, snapshot: snapshot([workspace('w3', 'pane-3')]) },
+      ],
+      't1',
+    )
+    expect(merged.rightPanel).toBe('graphs')
+    expect(merged.windows?.map((w) => w.rightPanel)).toEqual(['keeper', undefined])
+    expect(splitSnapshot(merged).detached.map((d) => d.snapshot.rightPanel)).toEqual([
+      'keeper',
+      undefined,
+    ])
+  })
+
   it('round-trips through splitSnapshot', () => {
     const merged = mergeSnapshots(
       snapshot([workspace('w1', 'pane-1')]),
