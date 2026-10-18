@@ -1,7 +1,16 @@
 import { constants, close, fstat, open } from 'node:fs'
-import type { ArchiveEntryProblem } from '../../../shared/files/filesApi'
+import type { ArchiveEntryProblem } from '../files/filesApi'
 
 const READ_FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
+
+export interface RawEntry {
+  name: string
+  index: number
+  dir: boolean
+  size: number
+  encrypted: boolean
+  link: string | null
+}
 
 export type EntryRead =
   | { ok: true; data: Buffer }

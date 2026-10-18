@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { ARCHIVE_LIMITS, type RawEntry, buildTree, segmentsOf } from './archiveTree'
+import type { RawEntry } from '../../../shared/archives/archiveFile'
+import { ARCHIVE_LIMITS, buildTree, segmentsOf } from './archiveTree'
 
 function raw(name: string, index: number, extra: Partial<RawEntry> = {}): RawEntry {
   return { name, index, dir: name.endsWith('/'), size: 1, encrypted: false, link: null, ...extra }

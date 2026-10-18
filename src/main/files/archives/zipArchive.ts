@@ -1,6 +1,12 @@
 import { type Entry, type ZipFile, fromFdPromise, getFileNameLowLevel } from 'yauzl'
-import { type EntryRead, closeFd, collect, openRegular } from './archiveFile'
-import type { ArchiveLimits, RawEntry } from './archiveTree'
+import {
+  type EntryRead,
+  type RawEntry,
+  closeFd,
+  collect,
+  openRegular,
+} from '../../../shared/archives/archiveFile'
+import type { ArchiveLimits } from './archiveTree'
 
 const FILE_TYPE = 0o170000
 const SYMLINK = 0o120000

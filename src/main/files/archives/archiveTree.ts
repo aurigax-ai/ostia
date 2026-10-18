@@ -1,3 +1,4 @@
+import type { RawEntry } from '../../../shared/archives/archiveFile'
 import type { FsEntry } from '../../../shared/files/filesApi'
 
 export const ARCHIVE_LIMITS = {
@@ -10,15 +11,6 @@ export const ARCHIVE_LIMITS = {
 } as const
 
 export type ArchiveLimits = { readonly [K in keyof typeof ARCHIVE_LIMITS]: number }
-
-export interface RawEntry {
-  name: string
-  index: number
-  dir: boolean
-  size: number
-  encrypted: boolean
-  link: string | null
-}
 
 export interface EntryRef {
   index: number
