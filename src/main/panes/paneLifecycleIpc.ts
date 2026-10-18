@@ -7,6 +7,7 @@ import { type BrowserWindow, ipcMain } from 'electron'
 import type { LifecycleEvent } from '../../shared/attention/attention'
 import type { CommandDescriptor } from '../../shared/control/commands'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
+import { failPaneMail } from '../agents/busStore'
 import { approvals } from '../approvals/approvals'
 import { dropIdentity } from '../approvals/capabilityStore'
 import { questions } from '../approvals/questions'
@@ -113,6 +114,7 @@ export function registerPaneLifecycleIpc({
         approvals()?.forget(identity.externalId)
         questions()?.forget(identity.externalId)
         services.updateRunner?.paneClosed(identity.externalId)
+        failPaneMail(identity.externalId)
         emitPaneEvent('pane.closed', {
           paneId: identity.externalId,
           workspaceId: event.workspaceId,

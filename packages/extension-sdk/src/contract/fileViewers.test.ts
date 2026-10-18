@@ -45,7 +45,7 @@ describe('parseFileViewers', () => {
       id: 'office',
       name: 'Office',
       version: '1.0.0',
-      api: '4.0',
+      api: '5.0',
       contributes: { fileViewers: [SHEET] },
     }
     const parsed = parseManifest(raw, '/ext/office')

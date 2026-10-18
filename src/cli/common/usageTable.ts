@@ -188,9 +188,17 @@ export const USAGE_TABLE: readonly NounUsage[] = [
     audience: 'agent',
     about: 'messages and handoffs between agents',
     verbs: [
-      { verb: 'send', args: `${PANE} "<msg>"`, about: 'send a message to an agent pane' },
-      { verb: 'inbox', args: '[--drain]', about: 'messages sent to you (JSON)' },
-      { verb: 'sent', args: '[--json]', about: 'messages you sent and whether they were read' },
+      {
+        verb: 'send',
+        args: `[--wait <s>] ${PANE} "<msg>"`,
+        about: 'send a message to an agent pane; --wait blocks until it is delivered or fails',
+      },
+      {
+        verb: 'inbox',
+        args: '[--take]',
+        about: 'messages waiting for you (JSON); --take delivers them',
+      },
+      { verb: 'sent', args: '[--json]', about: 'messages you sent and where each one stands' },
       { verb: 'wait', args: '[--timeout <s>]', about: 'block until a message arrives' },
       {
         verb: 'handoff',

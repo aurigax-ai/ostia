@@ -4,7 +4,7 @@ import {
   agentHookOutput,
 } from '@aurigax-ai/ostia-extension-sdk/contract/agentPlugins'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import type { BusDelivery } from '../../shared/agents/busMessages'
+import { type MailPending, type MailReceipt, mailLabel } from '../../shared/agents/busMessages'
 import { parseArgs } from '../common/args'
 import { type ErrResult, describeErrResult, failUsage } from '../common/failure'
 
@@ -14,38 +14,46 @@ function isContextEvent(value: unknown): value is AgentHookEvent {
   return AGENT_HOOK_CONTEXT_EVENTS.includes(value as AgentHookEvent)
 }
 
-const BUS_QUEUED_HINT =
-  'queued: the receiver reads it at its next prompt, or the human presses Enter in that pane (ostia bus sent shows when it was seen)'
+const PENDING_HINTS: Record<MailPending, string> = {
+  working: 'working: the agent reads it at its next prompt',
+  'idle-no-wake': 'idle-no-wake: the agent reads it at its next prompt; nothing wakes it',
+  hibernated: 'hibernated: the agent reads it when it wakes',
+  'hooks-off':
+    'hooks-off: its Ostia hooks are off, so it reads the message only with ostia bus inbox',
+  'no-agent': 'no-agent: no agent runs in that pane; it reads the message with ostia bus inbox',
+}
 
-const BUS_ASLEEP_HINT =
-  'asleep: the receiver is hibernated; wake it with ostia pane wake <pane> so its agent reads the message'
+const BUS_WAIT_EXIT_TIMEOUT = 2
 
-export function busWaitTimeoutMs(raw: string | undefined): number | undefined {
+export function busSeconds(raw: string | undefined, flag: string): number | undefined {
   if (raw === undefined) return undefined
   const seconds = Number(raw)
   if (raw.trim() === '' || !Number.isFinite(seconds) || seconds <= 0) {
-    throw new Error(`--timeout expects seconds, got '${raw}'`)
+    throw new Error(`${flag} expects seconds, got '${raw}'`)
   }
   return Math.round(seconds * 1000)
 }
 
-interface BusSendOk {
+interface BusSendOk extends MailReceipt {
   ok: true
-  id?: string
-  delivered?: BusDelivery
-  asleep?: true
+  id: string
 }
 
-export interface SentMessage {
+export interface SentMessage extends MailReceipt {
   id: string
   to: string
   preview: string
   ts: string
-  seenAt?: string
+}
+
+export function sendExitCode(res: MailReceipt, waited: boolean): number {
+  if (res.state === 'failed') return 1
+  return waited && res.state !== 'delivered' ? BUS_WAIT_EXIT_TIMEOUT : 0
 }
 
 export interface BusHookIo {
-  context: () => Promise<{ text?: string | null }>
+  context: (event: AgentHookEvent) => Promise<{ text?: string | null; lease?: string }>
+  ack: (lease: string) => Promise<unknown>
   out: (line: string) => void
   err: (line: string) => void
 }
@@ -57,9 +65,10 @@ export async function runBusHook(args: readonly string[], io: BusHookIo): Promis
     return 1
   }
   try {
-    const res = await io.context()
+    const res = await io.context(event)
     const output = agentHookOutput(event, res.text ?? undefined)
     if (output) io.out(output)
+    if (res.lease) await io.ack(res.lease)
   } catch {
     return 0
   }
@@ -67,8 +76,7 @@ export async function runBusHook(args: readonly string[], io: BusHookIo): Promis
 }
 
 function sentLine(message: SentMessage): string {
-  const state = message.seenAt ? `seen ${message.seenAt}` : 'unseen'
-  return [message.ts, message.to, state, message.preview].join('\t')
+  return [message.ts, message.to, mailLabel(message), message.preview].join('\t')
 }
 
 export function sentLines(messages: readonly SentMessage[]): string[] {
@@ -88,7 +96,7 @@ interface BusMessage {
   to: string
   text: string
   ts: string
-  seenAt?: string
+  state: string
 }
 interface BusInboxResult {
   messages: BusMessage[]
@@ -117,24 +125,29 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
   const rawArgs = process.argv.slice(4)
 
   if (sub === 'send') {
-    const [to, text] = rawArgs
+    const { values, positional } = parseArgs(rawArgs, {
+      values: { wait: '--wait' },
+      unknown: 'keep',
+    })
+    const [to, text] = positional
     if (!to || text === undefined) {
-      console.error('ostia bus send: missing <toExternalId> "<msg>"')
+      console.error('ostia bus send: missing [--wait <s>] <toExternalId> "<msg>"')
       process.exitCode = 1
       return
     }
-    const res = await conn.sendRequest<BusSendOk | ErrResult>('bus.send', { to, text })
+    const waitMs = busSeconds(values.wait, '--wait')
+    const res = await conn.sendRequest<BusSendOk | ErrResult>('bus.send', { to, text, waitMs })
     if (res.ok) {
       console.log(JSON.stringify(res))
-      if (res.asleep) console.error(BUS_ASLEEP_HINT)
-      else if (res.delivered === 'queued') console.error(BUS_QUEUED_HINT)
+      if (res.state === 'queued' && res.pending) console.error(PENDING_HINTS[res.pending])
+      process.exitCode = sendExitCode(res, waitMs !== undefined)
     } else {
       console.error(`ostia: bus send failed (${describeErrResult(res)})`)
       process.exitCode = 1
     }
   } else if (sub === 'inbox') {
-    const { drain } = parseArgs(rawArgs, { booleans: { drain: '--drain' } }).booleans
-    const res = await conn.sendRequest<BusInboxResult | ErrResult>('bus.inbox', { drain })
+    const { take } = parseArgs(rawArgs, { booleans: { take: '--take' } }).booleans
+    const res = await conn.sendRequest<BusInboxResult | ErrResult>('bus.inbox', { take })
     if ('messages' in res) {
       console.log(JSON.stringify(res.messages))
     } else {
@@ -152,13 +165,15 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
     }
   } else if (sub === 'hook') {
     process.exitCode = await runBusHook(rawArgs, {
-      context: () => conn.sendRequest<{ text?: string | null }>('bus.context'),
+      context: (event) =>
+        conn.sendRequest<{ text?: string | null; lease?: string }>('bus.context', { event }),
+      ack: (lease) => conn.sendRequest('bus.ack', { lease }),
       out: (line) => console.log(line),
       err: (line) => console.error(line),
     })
   } else if (sub === 'wait') {
     const { values } = parseArgs(rawArgs, { values: { timeout: '--timeout' } })
-    const timeoutMs = busWaitTimeoutMs(values.timeout)
+    const timeoutMs = busSeconds(values.timeout, '--timeout')
     const res = await conn.sendRequest<BusWaitResult | ErrResult>('bus.wait', { timeoutMs })
     if ('messages' in res) {
       console.log(JSON.stringify(res))
@@ -183,7 +198,7 @@ export async function runBusVerb(conn: MessageConnection): Promise<void> {
     })
     if (res.ok) {
       console.log(JSON.stringify(res))
-      if (res.delivered === 'queued') console.error(BUS_QUEUED_HINT)
+      if (res.state === 'queued' && res.pending) console.error(PENDING_HINTS[res.pending])
     } else {
       console.error(`ostia: bus handoff failed (${describeErrResult(res)})`)
       process.exitCode = 1

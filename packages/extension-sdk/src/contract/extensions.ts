@@ -377,7 +377,7 @@ export type PaneLifecycleEventState = 'hibernated' | 'woken'
 
 export type BusMessageKind = 'message' | 'task'
 
-export type BusMessagePhase = 'queued' | 'waiting' | 'seen'
+export type BusMessagePhase = 'queued' | 'delivered' | 'failed'
 
 export interface BusEndpoint {
   id: string

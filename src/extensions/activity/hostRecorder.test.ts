@@ -95,12 +95,12 @@ describe('HostRecorder', () => {
       from: { id: 'ostia' },
       to: { id: 'a', workspaceId: 'w1' },
       kind: 'message',
-      phase: 'waiting',
+      phase: 'delivered',
     })
     await rec.settled()
     expect(hosts('w1').map((r) => [r.pane, r.from, r.to, r.message, r.state, r.ref])).toEqual([
       ['a', 'a', '@elsewhere', 'task', 'queued', 'm1'],
-      ['a', '@ostia', 'a', 'message', 'waiting', 'm2'],
+      ['a', '@ostia', 'a', 'message', 'delivered', 'm2'],
     ])
     expect(hosts('w2').map((r) => [r.pane, r.from, r.to])).toEqual([['b', '@elsewhere', 'b']])
     const stored = journal.events('w1').map((r) => Object.keys(r))

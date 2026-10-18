@@ -22,7 +22,12 @@ export type ExecResult =
   | { ok: false; error: string; message?: string }
 
 export type BusSendResult =
-  | { ok: true; id: string; delivered: 'waiting' | 'queued'; asleep?: true }
+  | {
+      ok: true
+      id: string
+      state: 'queued' | 'delivered'
+      pending?: 'working' | 'idle-no-wake' | 'hibernated' | 'hooks-off' | 'no-agent'
+    }
   | { ok: false; error: string; message?: string }
 
 export type WakePaneOutcome = 'woke' | 'started' | 'timedOut' | 'closed' | 'resume-failed'

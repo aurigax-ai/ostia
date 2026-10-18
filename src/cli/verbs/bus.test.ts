@@ -1,13 +1,27 @@
 import { describe, expect, it, vi } from 'vitest'
-import { BUS_HOOK_USAGE, type BusHookIo, busWaitTimeoutMs, runBusHook, sentLines } from './bus'
+import {
+  BUS_HOOK_USAGE,
+  type BusHookIo,
+  busSeconds,
+  runBusHook,
+  sendExitCode,
+  sentLines,
+} from './bus'
 
-function io(context: BusHookIo['context']): BusHookIo & { lines: string[]; errors: string[] } {
+function io(
+  context: BusHookIo['context'],
+): BusHookIo & { lines: string[]; errors: string[]; acks: string[] } {
   const lines: string[] = []
   const errors: string[] = []
+  const acks: string[] = []
   return {
     lines,
     errors,
+    acks,
     context: vi.fn(context),
+    ack: async (lease) => {
+      acks.push(lease)
+    },
     out: (line) => lines.push(line),
     err: (line) => errors.push(line),
   }
@@ -15,10 +29,11 @@ function io(context: BusHookIo['context']): BusHookIo & { lines: string[]; error
 
 describe('runBusHook', () => {
   it.each(['SessionStart', 'UserPromptSubmit'])(
-    'prints the inbox context as %s hook output both agents accept',
+    'prints the inbox context as %s hook output both agents accept, then acknowledges the lease',
     async (event) => {
-      const hook = io(async () => ({ text: 'ostia bus: 1 unread message' }))
+      const hook = io(async () => ({ text: 'ostia bus: 1 unread message', lease: 'lease-1' }))
       expect(await runBusHook([event], hook)).toBe(0)
+      expect(hook.context).toHaveBeenCalledWith(event)
       expect(hook.lines.map((line) => JSON.parse(line))).toEqual([
         {
           hookSpecificOutput: {
@@ -27,13 +42,15 @@ describe('runBusHook', () => {
           },
         },
       ])
+      expect(hook.acks).toEqual(['lease-1'])
     },
   )
 
-  it('prints nothing for an empty inbox', async () => {
+  it('prints and acknowledges nothing for an empty inbox', async () => {
     const hook = io(async () => ({ text: null }))
     expect(await runBusHook(['UserPromptSubmit'], hook)).toBe(0)
     expect(hook.lines).toEqual([])
+    expect(hook.acks).toEqual([])
     expect(hook.errors).toEqual([])
   })
 
@@ -46,9 +63,9 @@ describe('runBusHook', () => {
   })
 
   it.each([[['Stop']], [['PreToolUse']], [[]], [['UserPromptSubmit', 'extra']]])(
-    'refuses %j without marking anything seen',
+    'refuses %j without taking any mail',
     async (args) => {
-      const hook = io(async () => ({ text: 'x' }))
+      const hook = io(async () => ({ text: 'x', lease: 'l' }))
       expect(await runBusHook(args, hook)).toBe(1)
       expect(hook.context).not.toHaveBeenCalled()
       expect(hook.errors).toEqual([BUS_HOOK_USAGE])
@@ -57,13 +74,32 @@ describe('runBusHook', () => {
 })
 
 describe('sentLines', () => {
-  it('lists each message with its receiver and whether it was seen', () => {
+  it('lists each message with its receiver and where it stands', () => {
     expect(
       sentLines([
-        { id: 'a', to: 'pane-b', preview: 'first', ts: 't1', seenAt: 't2' },
-        { id: 'b', to: 'pane-c', preview: 'second', ts: 't3' },
+        { id: 'a', to: 'pane-b', preview: 'first', ts: 't1', state: 'delivered', via: 'prompt' },
+        {
+          id: 'b',
+          to: 'pane-c',
+          preview: 'second',
+          ts: 't3',
+          state: 'queued',
+          pending: 'hibernated',
+        },
+        {
+          id: 'c',
+          to: 'pane-d',
+          preview: 'third',
+          ts: 't4',
+          state: 'failed',
+          reason: 'pane-closed',
+        },
       ]),
-    ).toEqual(['t1\tpane-b\tseen t2\tfirst', 't3\tpane-c\tunseen\tsecond'])
+    ).toEqual([
+      't1\tpane-b\tdelivered:prompt\tfirst',
+      't3\tpane-c\tqueued:hibernated\tsecond',
+      't4\tpane-d\tfailed:pane-closed\tthird',
+    ])
   })
 
   it('says so when nothing was sent', () => {
@@ -71,14 +107,26 @@ describe('sentLines', () => {
   })
 })
 
-describe('busWaitTimeoutMs', () => {
-  it('reads --timeout in seconds, like pane wait and ask', () => {
-    expect(busWaitTimeoutMs(undefined)).toBeUndefined()
-    expect(busWaitTimeoutMs('30')).toBe(30_000)
-    expect(busWaitTimeoutMs('1.5')).toBe(1500)
+describe('busSeconds', () => {
+  it('reads a flag in seconds, like pane wait and ask', () => {
+    expect(busSeconds(undefined, '--wait')).toBeUndefined()
+    expect(busSeconds('30', '--wait')).toBe(30_000)
+    expect(busSeconds('1.5', '--timeout')).toBe(1500)
   })
 
-  it.each(['0', '-5', 'soon', ''])('refuses %j', (raw) => {
-    expect(() => busWaitTimeoutMs(raw)).toThrow(`--timeout expects seconds, got '${raw}'`)
+  it.each(['0', '-5', 'soon', ''])('refuses %j and names the flag', (raw) => {
+    expect(() => busSeconds(raw, '--wait')).toThrow(`--wait expects seconds, got '${raw}'`)
+  })
+})
+
+describe('sendExitCode', () => {
+  it('exits 0 delivered, 1 failed and 2 for a message still queued after --wait', () => {
+    expect(sendExitCode({ state: 'delivered' }, true)).toBe(0)
+    expect(sendExitCode({ state: 'failed', reason: 'pane-closed' }, true)).toBe(1)
+    expect(sendExitCode({ state: 'queued', pending: 'working' }, true)).toBe(2)
+  })
+
+  it('exits 0 for a queued message when the sender did not wait', () => {
+    expect(sendExitCode({ state: 'queued' }, false)).toBe(0)
   })
 })

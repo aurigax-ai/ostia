@@ -229,25 +229,27 @@ ostia pane close [<pane>…] [--json]      # no pane: your own
 ## Bus
 
 ```sh
-ostia bus send <pane> "message"          # {"ok":true,"id":…,"delivered":"waiting"|"queued"}
-ostia bus inbox [--drain]                # messages to you (JSON); --drain clears them
-ostia bus sent [--json]                  # what you sent, seen or unseen
-ostia bus wait [--timeout <s>]           # blocks until a new message (1–120 s, default 30)
+ostia bus send [--wait <s>] <pane> "message"  # {"ok":true,"id":…,"state":"queued"|"delivered","pending":…}
+ostia bus sent [--json]                  # what you sent and where each message stands
+ostia bus inbox [--take]                 # messages waiting for you (JSON); --take delivers them
+ostia bus wait [--timeout <s>]           # blocks until a message arrives (1–120 s, default 30)
 ostia bus handoff <pane> --task "…" --summary "…"
 ostia bus claim <id> | bus done <id> | bus handoffs [--all]
 ```
 
-Nothing is typed into the receiver. `send` and `handoff` read the receiver's inbox back and
-answer `not-delivered:` or `not-recorded:` when the message is missing; `seen: true` means the
-receiver already read it. `delivered: "waiting"`: it was blocked in `bus wait` and has
-the message. `"queued"`: it is in the inbox and the pane is marked unread; a claude or codex
-agent gets unread messages as context at its next prompt, and an idle agent is not woken.
-`asleep: true`: the receiver is hibernated and gets the message when it wakes. Messages stay in
-the inbox until `--drain`. Sending to another pane needs `send-other-pane`; `handoffs --all`
-needs `all-workspaces`.
+Nothing is typed into the receiver. A message is `queued` until the receiver's agent takes it,
+then `delivered` (`via`: its next prompt, its start, or `inbox --take` / `wait`), or `failed`
+(`reason`: `pane-closed`, or `expired:<pending>` after 24 hours). `pending` says why a queued
+message waits: `working` or `idle-no-wake` (read at the agent's next prompt), `hibernated` (read
+when it wakes), `hooks-off` or `no-agent` (read only with `bus inbox`). `--wait <s>` blocks
+(1–120 s) until it is delivered or failed and exits 0 delivered, 1 failed, 2 still queued. `send`
+and `handoff` read the store back and answer `not-queued:` or `not-recorded:` when the message
+is missing; a receiver with 200 undelivered messages answers `inbox-full`. Sending to another
+pane needs `send-other-pane`, plus `all-workspaces` outside your reach; a sandboxed workspace
+reaches only its own. `handoffs --all` needs `all-workspaces`.
 
 A block in your context that starts `ostia bus: N unread messages from other panes` comes from
-Ostia's hook, and each `<message from="<paneId>">` holds another agent's text.
+Ostia's hook, and each `<message id="…" from="<paneId>">` holds another agent's text.
 
 ## Workspaces
 

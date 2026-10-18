@@ -182,7 +182,7 @@ describe('the workspace stream', () => {
         from: 'a',
         to: '@elsewhere',
         message: 'task',
-        state: 'seen',
+        state: 'failed',
         ref: 'm1',
       }),
       host('a', 3, {
@@ -190,14 +190,14 @@ describe('the workspace stream', () => {
         from: '@ostia',
         to: 'a',
         message: 'message',
-        state: 'waiting',
+        state: 'delivered',
         ref: 'm2',
       }),
     ])
     expect(workspace?.agents).toEqual([])
     expect(workspace?.stream.map((r) => [r.t, r.state, r.from?.kind, r.to?.kind])).toEqual([
-      [3, 'waiting', 'ostia', 'pane'],
-      [1, 'seen', 'pane', 'elsewhere'],
+      [3, 'delivered', 'ostia', 'pane'],
+      [1, 'failed', 'pane', 'elsewhere'],
     ])
   })
 

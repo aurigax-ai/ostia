@@ -2836,17 +2836,13 @@ describe('agent notifications', () => {
     expect(useAttentionStore.getState().byPane[pane.id]?.state).toBe('waiting')
   })
 
-  it('marks the pane unread, never waiting, for a bus message and logs who sent it', async () => {
+  it('logs who sent a bus message and leaves the pane’s attention alone', async () => {
     const pane = seedPane()
     await commands.execWith(ctx('s1', pane.id), 'attention.message', {
       from: 'api tests',
       text: 'tests are green\x1b\x07\nsecond line',
     })
-    expect(useAttentionStore.getState().byPane[pane.id]).toMatchObject({
-      state: 'none',
-      unread: true,
-      message: 'Message from api tests: tests are green',
-    })
+    expect(useAttentionStore.getState().byPane[pane.id]).toBeUndefined()
     expect(window.ostia.notifications.post).toHaveBeenCalledWith({
       paneId: pane.id,
       kind: 'message',
@@ -2856,22 +2852,7 @@ describe('agent notifications', () => {
     })
   })
 
-  it('leaves a working agent working when a bus message arrives for it', async () => {
-    const pane = seedPane()
-    const blocks = useBlocksStore.getState()
-    blocks.promptStart(pane.id, { line: 0 }, null)
-    blocks.commandStart(pane.id, { line: 1 }, 'claude')
-    blocks.markAgent(pane.id, 'claude')
-    await commands.execWith(ctx('s1', pane.id), 'attention.set', { state: 'working' })
-    await commands.execWith(ctx('s1', pane.id), 'attention.message', { from: '', text: 'ping' })
-    expect(useAttentionStore.getState().byPane[pane.id]).toMatchObject({
-      state: 'working',
-      unread: true,
-      message: 'Message from another pane: ping',
-    })
-  })
-
-  it('keeps what a waiting agent waits for when a bus message arrives', async () => {
+  it('leaves a working or waiting agent as it is when a bus message arrives for it', async () => {
     const pane = seedPane()
     const blocks = useBlocksStore.getState()
     blocks.promptStart(pane.id, { line: 0 }, null)
@@ -2881,20 +2862,17 @@ describe('agent notifications', () => {
       state: 'waiting',
       message: 'Allow Bash?',
     })
-    useAttentionStore.getState().dispatch(pane.id, { type: 'view', at: 1 })
     await commands.execWith(ctx('s1', pane.id), 'attention.message', { from: 'web', text: 'hi' })
     expect(useAttentionStore.getState().byPane[pane.id]).toMatchObject({
       state: 'waiting',
-      unread: true,
       message: 'Allow Bash?',
     })
   })
 
-  it('reads a bus message at once in the pane being viewed and skips the banner', async () => {
+  it('skips the banner for a bus message in the pane being viewed', async () => {
     const pane = seedPane()
     viewWorkspace()
     await commands.execWith(ctx('s1', pane.id), 'attention.message', { from: 'web', text: 'hi' })
-    expect(useAttentionStore.getState().byPane[pane.id]?.unread).toBe(false)
     expect(window.ostia.notifications.post).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'Message from web', desktop: false }),
     )

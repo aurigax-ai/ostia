@@ -15,7 +15,7 @@ export function record(raw: unknown): Record<string, unknown> {
   return isRecord(raw) ? raw : {}
 }
 
-export type PaneReach = 'input' | 'read' | 'close' | 'move'
+export type PaneReach = 'input' | 'read' | 'close' | 'move' | 'message'
 
 export interface ReachFacts {
   caller: { paneId: string; workspaceId: string; sandboxed: boolean }
@@ -31,11 +31,19 @@ const REACH_CAPS: Readonly<Record<PaneReach, Capability>> = {
   read: 'read-other-pane',
   close: 'kill-pane',
   move: 'type-other-pane',
+  message: 'send-other-pane',
+}
+
+function managerReach(kind: PaneReach, sandboxed: boolean): ReachVerdict {
+  if (kind !== 'message') return { allowed: false, error: 'unknown-pane' }
+  return sandboxed
+    ? { allowed: false, error: 'sandboxed' }
+    : { allowed: true, caps: ['send-other-pane'] }
 }
 
 export function paneReach(kind: PaneReach, facts: ReachFacts): ReachVerdict {
   const { caller, target } = facts
-  if (target.manager) return { allowed: false, error: 'unknown-pane' }
+  if (target.manager) return managerReach(kind, caller.sandboxed)
   if (caller.paneId === target.paneId && kind !== 'close') {
     return kind === 'input' ? { allowed: false, error: 'own-pane' } : { allowed: true, caps: [] }
   }
@@ -86,7 +94,7 @@ export async function paneTarget(
 }
 
 export async function ensurePaneReach(
-  deps: PaneReachDeps,
+  deps: Pick<PaneReachDeps, 'inScope' | 'isChild' | 'isSandboxed' | 'isConfined'>,
   kind: PaneReach,
   to: PaneIdentity,
   ctx: ControlMethodContext,

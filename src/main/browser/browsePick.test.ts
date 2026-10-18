@@ -6,9 +6,9 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import type { RawPick } from '../../shared/browser/pick'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn(), on: vi.fn() }, webContents: {} }))
-vi.mock('../agents/bus', () => ({ postBusMessage: vi.fn(() => 'msg-1') }))
+vi.mock('../agents/busStore', () => ({ postBusMessage: vi.fn(() => 'msg-1') }))
 
-const { postBusMessage } = await import('../agents/bus')
+const { postBusMessage } = await import('../agents/busStore')
 const {
   PICK_WORLD_ID,
   cancelPick,

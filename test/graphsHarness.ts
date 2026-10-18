@@ -108,7 +108,7 @@ export async function graphsHarness(
   const { ExtensionStore } = await import('../src/main/extensions/extensionStore')
   const { ExtensionExec } = await import('../src/main/extensions/extensionExec')
   const { registerPaneListMethods } = await import('../src/main/panes/paneList')
-  const { registerBusMethods } = await import('../src/main/agents/bus')
+  const { registerBusMethods } = await import('../src/main/agents/busMethods')
   const { registerExtensionQuestions, registerQuestions } = await import(
     '../src/main/approvals/questions'
   )
@@ -307,7 +307,13 @@ export async function graphsHarness(
   registerBusMethods({
     managerSendAllowed: () => true,
     announce: () => {},
-    hibernated: async () => false,
+    pending: async () => 'idle-no-wake',
+    reach: {
+      inScope: async () => true,
+      isChild: () => false,
+      isSandboxed: () => false,
+      isConfined: () => false,
+    },
   })
   registerQuestions({ opened: () => {}, settled: () => {} })
   registerExtensionQuestions({

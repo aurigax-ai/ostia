@@ -29,7 +29,7 @@ import type { KeptShellsWiring } from '../tmux/keptShellsWiring'
 import type { WindowSend } from '../windows/windowSend'
 import type { AgentRunningPanes } from './agentRunning'
 import { type ReportedAgentWork, registerAgentWorkMethods } from './agentWork'
-import { tellPane } from './bus'
+import { tellPane } from './busStore'
 
 interface AgentWiringDeps {
   execCommand: CommandBridge['execCommand']

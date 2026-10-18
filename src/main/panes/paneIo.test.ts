@@ -356,6 +356,49 @@ describe('paneReach', () => {
     }
   })
 
+  it('asks send-other-pane for a message, with all-workspaces outside reach', () => {
+    expect(paneReach('message', facts())).toEqual({ allowed: true, caps: ['send-other-pane'] })
+    expect(paneReach('message', facts({ target: { workspaceId: 'ws2' } }))).toEqual({
+      allowed: true,
+      caps: ['send-other-pane', 'all-workspaces'],
+    })
+    expect(
+      paneReach('message', facts({ target: { workspaceId: 'ws2' }, sameScope: true })),
+    ).toEqual({
+      allowed: true,
+      caps: ['send-other-pane'],
+    })
+    expect(paneReach('message', facts({ target: { paneId: 'a' } }))).toEqual({
+      allowed: true,
+      caps: [],
+    })
+  })
+
+  it('keeps a sandboxed sender inside the confined panes of its own workspace for a message', () => {
+    const caller = { sandboxed: true }
+    expect(paneReach('message', facts({ caller, target: { workspaceId: 'ws2' } }))).toEqual({
+      allowed: false,
+      error: 'sandboxed',
+    })
+    expect(paneReach('message', facts({ caller }))).toEqual({ allowed: false, error: 'sandboxed' })
+    expect(paneReach('message', facts({ caller, target: { confined: true } }))).toEqual({
+      allowed: true,
+      caps: ['send-other-pane'],
+    })
+  })
+
+  it('lets a message reach the manager pane with send-other-pane only, never from a sandbox', () => {
+    const manager = { manager: true, workspaceId: 'mgr' }
+    expect(paneReach('message', facts({ target: manager }))).toEqual({
+      allowed: true,
+      caps: ['send-other-pane'],
+    })
+    expect(paneReach('message', facts({ caller: { sandboxed: true }, target: manager }))).toEqual({
+      allowed: false,
+      error: 'sandboxed',
+    })
+  })
+
   it('lets a pane read its own screen but never type into itself', () => {
     const self = facts({ target: { paneId: 'a' } })
     expect(paneReach('read', self)).toEqual({ allowed: true, caps: [] })

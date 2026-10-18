@@ -80,8 +80,8 @@
     "stream.bus.message": "{from} 傳了訊息給 {to}",
     "stream.bus.task": "{from} 交付任務給 {to}",
     "stream.phase.queued": "尚未讀取",
-    "stream.phase.waiting": "已交給等待中的窗格",
-    "stream.phase.seen": "已讀取",
+    "stream.phase.delivered": "已由代理讀取",
+    "stream.phase.failed": "未送達",
     "stream.rootFolder": "工作區資料夾"
   }
 }

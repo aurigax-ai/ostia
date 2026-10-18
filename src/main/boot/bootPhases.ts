@@ -149,8 +149,8 @@ export function boot(wiring: Wiring): void {
   registerSandboxWiring({ ...wiring, notifyDeps })
   startFolderAccessWatch({ ...wiring, notifyDeps })
   const { registry } = registerAgentWiring({ ...wiring })
-  const { paneHibernated } = registerPaneMethodsWiring({ ...wiring, registry })
-  registerToolbeltWiring({ ...wiring, paneHibernated })
+  const { paneReachDeps } = registerPaneMethodsWiring({ ...wiring, registry })
+  registerToolbeltWiring({ ...wiring, paneReachDeps })
   const { extensionRemoteFolders, extensionExec, resumeOfPane } = extensionHostParts({ ...wiring })
   const { extensionStore, extensionHost } = startExtensionHost({
     ...wiring,

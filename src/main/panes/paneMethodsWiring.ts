@@ -141,5 +141,5 @@ export function registerPaneMethodsWiring({
     },
   })
 
-  return { paneHibernated }
+  return { paneReachDeps }
 }
