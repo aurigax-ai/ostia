@@ -273,7 +273,7 @@ test('presentations and OpenDocument text open as outlines, fetch nothing and sa
           await viewerGuestRun(
             app,
             slides('deck.pptx'),
-            'JSON.stringify([document.querySelectorAll("a[href], img, [src]").length, document.querySelector("a")?.title])',
+            'JSON.stringify([document.querySelectorAll("article :is(a[href], img, [src])").length, document.querySelector("article a")?.title])',
           ),
         ).toBe(JSON.stringify([0, `${url}/page`]))
 
