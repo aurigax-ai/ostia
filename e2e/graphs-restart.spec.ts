@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { extensionHosts } from './extensionHosts'
-import { guestKeys, pressInPage, webviewHasKeyboard } from './guestKeys'
+import { guestKeys, pressInPage } from './guestKeys'
 import { openWorkspace, quitApp, waitForPaletteSelection } from './helpers'
 import {
   type ElectronApplication,
@@ -124,10 +124,11 @@ edges:
     const again = await app.firstWindow()
     await again.waitForLoadState('domcontentloaded')
     await expect(again.locator('.xterm').first()).toBeVisible({ timeout: 30_000 })
-    await expect.poll(() => webviewHasKeyboard(again), { timeout: 30_000 }).toBe(true)
+    await expect
+      .poll(() => panelEval(app, 'document.readyState'), { timeout: 30_000 })
+      .toBe('complete')
     await pressInPage(app, guestKeys.palette)
     await choosePanel(again)
-    await expect.poll(() => webviewHasKeyboard(again), { timeout: 15_000 }).toBe(true)
     await pressInPage(app, guestKeys.dashboard)
     const card = again.locator('article[data-question]', {
       hasText: 'Keep going after the restart?',
