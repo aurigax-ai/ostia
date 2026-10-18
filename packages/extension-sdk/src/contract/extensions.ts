@@ -3,6 +3,7 @@ import type {
   AgentHookSummary,
   AgentSkillContribution,
 } from './agentPlugins'
+import type { ArchiveReaderContribution } from './archiveReaders'
 import type { AssistPoint } from './assist'
 import type { Capability } from './capabilities'
 import type { EditorLanguageContribution } from './editorLanguages'
@@ -180,6 +181,7 @@ export interface ExtensionManifest {
     languageServers?: LanguageServerContribution[]
     editorLanguages?: EditorLanguageContribution[]
     fileViewers?: FileViewerContribution[]
+    archiveReaders?: ArchiveReaderContribution[]
     agentSkills?: AgentSkillContribution[]
     agentHooks?: AgentHookContribution[]
     verb?: string

@@ -36,6 +36,7 @@ import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { hasCap } from '../approvals/capabilityStore'
 import type { PaneIdentity } from '../control/idRegistry'
 import { REMOTE_REQUEST_TIMEOUT_MS, RemoteFolders } from '../files/remoteFolders'
+import { ExtensionArchives } from './extensionArchives'
 import { ExtensionAssist } from './extensionAssist'
 import { ExtensionConfig } from './extensionConfig'
 import { ExtensionContributions } from './extensionContributions'
@@ -76,6 +77,7 @@ export class ExtensionHost {
   readonly processes: ExtensionProcesses
   readonly panels: ExtensionPanels
   readonly events: ExtensionEvents
+  readonly archives: ExtensionArchives
 
   constructor(private readonly deps: ExtensionHostDeps) {
     this.changes.setMaxListeners(0)
@@ -155,6 +157,12 @@ export class ExtensionHost {
       runs: this.runs,
       runtimeOf: (identity, conn) => this.runtimeOf(identity, conn),
       changed: (rt) => this.changed(rt),
+    })
+    this.archives = new ExtensionArchives({
+      deps,
+      runtimes: this.runtimes,
+      active: (rt) => this.active(rt),
+      processes: this.processes,
     })
     this.windowRequests = new ExtensionWindowRequests({
       deps,

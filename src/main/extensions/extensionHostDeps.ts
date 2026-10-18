@@ -42,6 +42,7 @@ export interface ExtensionHostDeps {
   restartDelayMs?: number
   readyTimeoutMs?: number
   requestTimeoutMs?: number
+  archiveKillGraceMs?: number
   interactiveTimeoutMs?: number
   log?: (extId: string, line: string) => void
   onCrashed?: (extId: string, builtin: boolean) => void

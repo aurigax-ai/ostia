@@ -64,7 +64,7 @@ function isPriority(value: unknown): value is FileViewerPriority {
   return FILE_VIEWER_PRIORITIES.includes(value as FileViewerPriority)
 }
 
-function parseSelector(raw: unknown, where: string): FileViewerSelector[] | string {
+export function parseSelector(raw: unknown, where: string): FileViewerSelector[] | string {
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > FILE_VIEWER_SELECTORS_MAX) {
     return `${where}.selector must be an array of 1-${FILE_VIEWER_SELECTORS_MAX} entries`
   }

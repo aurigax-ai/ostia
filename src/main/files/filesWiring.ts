@@ -1,7 +1,9 @@
 import type { BrowserWindow } from 'electron'
 import type { ExtensionHost } from '../extensions/extensionHost'
 import { readLocale } from '../platform/settingsFile'
+import { ARCHIVE_LIMITS } from './archives/archiveTree'
 import { Archives } from './archives/archives'
+import { ExtensionReaders } from './archives/extensionReader'
 import { FileSources, localSource } from './fileSources'
 import { FileWatches } from './fileWatch'
 import type { ViewerHost } from './viewers/viewerHost'
@@ -28,7 +30,12 @@ export function createFileServices({
   confine,
   extensions,
 }: FileServicesDeps): FileServices {
-  const sources = new FileSources(localSource(fileRoots, confine), [new Archives(confine)])
+  const readers = new ExtensionReaders(() => extensions()?.archives ?? null)
+  const archives = new Archives(confine, ARCHIVE_LIMITS, readers)
+  const sources = new FileSources(
+    localSource(fileRoots, confine, (name) => archives.handlesName(name)),
+    [archives],
+  )
   const watches = new FileWatches({
     confine,
     debounceMs: FILE_WATCH_DEBOUNCE_MS,

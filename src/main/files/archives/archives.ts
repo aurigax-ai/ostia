@@ -1,6 +1,10 @@
 import { stat } from 'node:fs/promises'
 import type { EntryRead } from '../../../shared/archives/archiveFile'
-import { isArchivePath, parseArchivePath } from '../../../shared/archives/archivePaths'
+import {
+  isArchiveName,
+  isArchivePath,
+  parseArchivePath,
+} from '../../../shared/archives/archivePaths'
 import type { FsBinaryResult, FsEntry, FsKind, FsTextResult } from '../../../shared/files/filesApi'
 import type { FileStat, VirtualSource } from '../fileSources'
 import {
@@ -10,6 +14,7 @@ import {
   type EntryRef,
   buildTree,
 } from './archiveTree'
+import type { ExtensionReaders, ReaderChoice } from './extensionReader'
 import { listTar, readTarEntry } from './tarArchive'
 import { listZip, readZipEntry } from './zipArchive'
 
@@ -17,9 +22,12 @@ const ZIP_NAME = /\.(?:zip|jar)$/i
 const CACHED_ARCHIVES = 16
 const TEXT_SNIFF_BYTES = 8192
 
+type Source = 'zip' | 'tar' | ReaderChoice
+
 interface Cached {
   key: string
   modified: number
+  source: Source
   tree: Promise<ArchiveTree | null>
 }
 
@@ -28,6 +36,7 @@ interface Located {
   entry: string
   key: string
   modified: number
+  source: Source
   tree: ArchiveTree
 }
 
@@ -46,7 +55,32 @@ export class Archives implements VirtualSource {
   constructor(
     private readonly confineArchive: (path: string) => string | null,
     private readonly limits: ArchiveLimits = ARCHIVE_LIMITS,
+    private readonly readers: ExtensionReaders | null = null,
   ) {}
+
+  handlesName(name: string): boolean {
+    return isArchiveName(name, (other) => this.readers?.find(other) !== null)
+  }
+
+  private sourceOf(archive: string): Source | null {
+    if (ZIP_NAME.test(archive)) return 'zip'
+    if (isArchiveName(archive)) return 'tar'
+    return this.readers?.find(archive) ?? null
+  }
+
+  private listed(archive: string, source: Source): Promise<ArchiveTree | null> {
+    if (source === 'zip' || source === 'tar') {
+      const raw = source === 'zip' ? listZip(archive, this.limits) : listTar(archive, this.limits)
+      return raw.then((entries) => (entries ? buildTree(entries, this.limits) : null))
+    }
+    return (this.readers?.list(source, archive, this.limits) ?? Promise.resolve(null)).then(
+      (listing) => {
+        if (!listing) return null
+        const tree = buildTree(listing.entries, this.limits)
+        return listing.complete ? tree : { ...tree, cut: true }
+      },
+    )
+  }
 
   private async locate(path: string): Promise<Located | null> {
     const parsed = parseArchivePath(path)
@@ -56,15 +90,14 @@ export class Archives implements VirtualSource {
     if (!info?.isFile()) return null
     const key = `${info.size}:${info.mtimeMs}`
     let cached = this.cache.get(archive)
+    if (cached && typeof cached.source === 'object' && !this.readers?.isActive(cached.source)) {
+      this.cache.delete(archive)
+      cached = undefined
+    }
     if (!cached || cached.key !== key) {
-      const raw = ZIP_NAME.test(archive)
-        ? listZip(archive, this.limits)
-        : listTar(archive, this.limits)
-      cached = {
-        key,
-        modified: info.mtimeMs,
-        tree: raw.then((entries) => (entries ? buildTree(entries, this.limits) : null)),
-      }
+      const source = this.sourceOf(archive)
+      if (!source) return null
+      cached = { key, modified: info.mtimeMs, source, tree: this.listed(archive, source) }
       this.cache.delete(archive)
       this.cache.set(archive, cached)
       while (this.cache.size > CACHED_ARCHIVES) {
@@ -74,7 +107,18 @@ export class Archives implements VirtualSource {
       }
     }
     const tree = await cached.tree
-    return tree ? { archive, entry: parsed.entry, key, modified: cached.modified, tree } : null
+    if (!tree && typeof cached.source === 'object' && this.cache.get(archive) === cached) {
+      this.cache.delete(archive)
+    }
+    if (!tree) return null
+    return {
+      archive,
+      entry: parsed.entry,
+      key,
+      modified: cached.modified,
+      source: cached.source,
+      tree,
+    }
   }
 
   handles(path: string): boolean {
@@ -116,9 +160,10 @@ export class Archives implements VirtualSource {
     if (ref.encrypted) return { ok: false, problem: 'encrypted' }
     if (ref.link !== null) return { ok: false, problem: 'link' }
     if (ref.size > max) return { ok: false, problem: 'too-large', size: ref.size }
-    return ZIP_NAME.test(found.archive)
-      ? readZipEntry(found.archive, ref.index, max)
-      : readTarEntry(found.archive, ref.index, max, this.limits)
+    if (found.source === 'zip') return readZipEntry(found.archive, ref.index, max)
+    if (found.source === 'tar') return readTarEntry(found.archive, ref.index, max, this.limits)
+    if (!this.readers) return { ok: false, problem: 'gone' }
+    return this.readers.read(found.source, found.archive, ref.index, max, this.limits)
   }
 
   async readBinary(path: string, max: number): Promise<FsBinaryResult> {

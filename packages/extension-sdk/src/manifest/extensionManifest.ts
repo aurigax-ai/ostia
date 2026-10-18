@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { AGENT_PLUGIN_CAPABILITY } from '../contract/agentPlugins'
+import { parseArchiveReaders } from '../contract/archiveReaders'
 import { parseEditorLanguages } from '../contract/editorLanguages'
 import { apiProblem } from '../contract/extensionApi'
 import {
@@ -134,6 +135,12 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
     isInsideDir(dir, path),
   )
   if (typeof fileViewers === 'string') return { ok: false, error: fileViewers }
+  const archiveReaders = parseArchiveReaders(
+    contributes.archiveReaders,
+    raw.api as string,
+    main !== undefined,
+  )
+  if (typeof archiveReaders === 'string') return { ok: false, error: archiveReaders }
   const agentSkills = parseAgentSkills(contributes.agentSkills, dir)
   if (typeof agentSkills === 'string') return { ok: false, error: agentSkills }
   const agentHooks = parseAgentHooks(contributes.agentHooks, commands)
@@ -188,6 +195,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (languageServers.length > 0) manifest.contributes.languageServers = languageServers
   if (editorLanguages.length > 0) manifest.contributes.editorLanguages = editorLanguages
   if (fileViewers.length > 0) manifest.contributes.fileViewers = fileViewers
+  if (archiveReaders.length > 0) manifest.contributes.archiveReaders = archiveReaders
   if (agentSkills.length > 0) manifest.contributes.agentSkills = agentSkills
   if (agentHooks.length > 0) manifest.contributes.agentHooks = agentHooks
   if (typeof contributes.verb === 'string') manifest.contributes.verb = contributes.verb

@@ -312,6 +312,14 @@ export class ExtensionProcesses {
     this.host.deps.exec?.stopFor(id)
   }
 
+  recycle(rt: Runtime): void {
+    if (!rt.proc) return
+    this.host.log(rt.ext.manifest.id, 'did not answer in time; stopped without counting a restart')
+    rt.stopping = true
+    this.revoke(rt)
+    rt.proc.kill('SIGKILL')
+  }
+
   stopAll(): void {
     this.watching = false
     this.closeWatchers()

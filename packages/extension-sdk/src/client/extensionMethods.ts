@@ -235,6 +235,7 @@ export function serviceMethods(
   | 'closeFolder'
   | 'onFiles'
   | 'onFolderClosed'
+  | 'onArchive'
   | 'sandboxDomains'
 > {
   return {
@@ -344,6 +345,9 @@ export function serviceMethods(
     },
     onFolderClosed: (handler) => {
       handlers.folderClosed = handler
+    },
+    onArchive: (handler) => {
+      handlers.archive = handler
     },
     sandboxDomains: async (workspaceId) => {
       try {

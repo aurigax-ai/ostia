@@ -8,6 +8,11 @@ import {
   MAX_AGENT_SKILLS,
   MAX_AGENT_SKILL_FILES,
 } from '../contract/agentPlugins'
+import {
+  ARCHIVE_READERS_MAX,
+  ARCHIVE_READER_ID_PATTERN,
+  clashesWithCore,
+} from '../contract/archiveReaders'
 import { ASSIST_POINTS } from '../contract/assist'
 import { ALL_CAPABILITIES } from '../contract/capabilities'
 import {
@@ -344,6 +349,28 @@ const contributes = z.looseObject({
       }),
     )
     .max(FILE_VIEWERS_MAX)
+    .optional(),
+  archiveReaders: z
+    .array(
+      z.looseObject({
+        id: z.string().regex(ARCHIVE_READER_ID_PATTERN),
+        displayName: z.string().min(1).max(FILE_VIEWER_DISPLAY_NAME_MAX),
+        selector: z
+          .array(
+            z.looseObject({
+              filenamePattern: z
+                .string()
+                .regex(FILENAME_PATTERN_PATTERN)
+                .refine((pattern) => !clashesWithCore(pattern), {
+                  message: 'matches an archive Files already reads',
+                }),
+            }),
+          )
+          .min(1)
+          .max(FILE_VIEWER_SELECTORS_MAX),
+      }),
+    )
+    .max(ARCHIVE_READERS_MAX)
     .optional(),
   agentSkills: z
     .array(

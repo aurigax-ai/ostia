@@ -1,4 +1,5 @@
 import type { CancellationToken, MessageConnection } from 'vscode-jsonrpc/node'
+import type { ArchiveRequest } from '../contract/archiveReaders'
 import type { AssistError, AssistPoint, AssistProviderEntry } from '../contract/assist'
 import { CONNECTIONS_CHANGED_EVENT } from '../contract/extensionConnections'
 import {
@@ -13,6 +14,7 @@ import type {
 import { ASSIST_PROVIDERS_CHANGED_EVENT, SETTINGS_CHANGED_EVENT } from '../contract/extensions'
 import { FOLDER_CLOSED_EVENT, type RemoteFilesRequest } from '../contract/remoteFolders'
 import type {
+  ArchiveHandler,
   AssistHandler,
   AssistModelsHandler,
   AssistProvidersHandler,
@@ -38,6 +40,7 @@ export interface HostHandlers {
   models: AssistModelsHandler | null
   files: FilesHandler | null
   folderClosed: FolderClosedHandler | null
+  archive: ArchiveHandler | null
 }
 
 export function createHostHandlers(): HostHandlers {
@@ -53,6 +56,7 @@ export function createHostHandlers(): HostHandlers {
     models: null,
     files: null,
     folderClosed: null,
+    archive: null,
   }
 }
 
@@ -149,6 +153,20 @@ export function listenToHost(conn: MessageConnection, handlers: HostHandlers): v
       return await handlers.files(params)
     } catch {
       return { ok: false, error: 'failed' }
+    }
+  })
+  conn.onRequest('ext.archive', async (params: ArchiveRequest, token: CancellationToken) => {
+    if (!handlers.archive)
+      return { ok: false, error: params.op === 'list' ? 'unsupported' : 'failed' }
+    const abort = new AbortController()
+    const sub = token.onCancellationRequested(() => abort.abort())
+    if (token.isCancellationRequested) abort.abort()
+    try {
+      return await handlers.archive(params, { signal: abort.signal })
+    } catch {
+      return { ok: false, error: 'failed' }
+    } finally {
+      sub.dispose()
     }
   })
   conn.onRequest('ext.panel', async (params: { caller: ExtensionCaller; path?: string }) => {

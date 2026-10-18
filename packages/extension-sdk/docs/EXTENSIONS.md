@@ -164,6 +164,7 @@ The manifest is `ostia.json`; a marketplace's is `ostia-marketplace.json`.
 | `contributes.languageServers[]` | Up to 8 language servers the editor talks to, as data: Ostia starts each one itself and speaks LSP to it. Needs the `language-server` capability; no `main` needed. See [Language servers](#language-servers). |
 | `contributes.editorLanguages[]` | Up to 16 languages the editor does not know yet, each with a Monarch grammar as JSON. Data only: no `main` and no capability needed. See [Editor languages](#editor-languages). |
 | `contributes.fileViewers[]` | API 4.6. Up to 16 read-only viewers for files the human opens, in the shape of VS Code's custom editors: `{viewType, displayName, selector: [{filenamePattern}], priority?, entry}`. No `main` and no capability needed. See [File viewers](#file-viewers). |
+| `contributes.archiveReaders[]` | API 4.13. Up to 8 archive formats Files can expand, each `{id, displayName, selector: [{filenamePattern}]}`, read by your process through `ext.archive`. Needs `main` and `api` 4.13 or newer. See [Archive readers](#archive-readers). |
 | `contributes.agentSkills[]` | Up to 8 skills that Ostia gives claude and codex in your terminals: `{name, path, files?}`. Needs the `agent-plugin` capability. See [Agent skills and hooks](#agent-skills-and-hooks). |
 | `contributes.agentHooks[]` | Up to 16 `{event, command}`: when the agent reaches `event`, Ostia runs your own command `command` with the hook's JSON on stdin. Needs the `agent-plugin` capability and `main`. See [Agent skills and hooks](#agent-skills-and-hooks). |
 
@@ -939,6 +940,7 @@ no transcript is read; input that is not JSON or over 1 MiB gives `null`).
 | `ext.assistModels` | `{action: 'list', provider?}` or `{action: 'load' \| 'unload', id, provider?}` | Sent only to an extension whose last `ext.setAssistStatus` said `models: true`, when the human opens or acts in Settings → Assistant. `provider` is the id of one of the providers you reported: `list` then answers what that provider has, which is what the human picks from when adding its models. `list` replies `{lifecycle, models: [{id, name?, description?, installed?, loaded?, busy?, idleSecs?}], error?}` (64 models, normalized by `normalizeAssistModels`); `lifecycle: true` shows Load/Unload. `load`/`unload` reply `{ok: true}` or `{ok: false, error}`. 15 s timeout for `list`, 5 min for a load. The SDK wraps it: `onAssistModels({list(provider?), setLoaded(id, loaded, provider?)})`. |
 | `ext.panel` | `{caller, path?}` | `{url}` for a `"url"` panel: must be `http://127.0.0.1:<port>/…` or `http://localhost:<port>/…`. `path` is present when the panel is opened or navigated to a path (`ext.openPanel {path}`, a notification with `openPanel: "/path"`); return the URL for it on the same origin. |
 | `ext.files` | `{op, folderId, root, path, content?, baseVersion?}` | One file operation in a folder you opened with `ext.openFolder` (`ext.onFiles` in the SDK). `root` is the folder and `path` an absolute path inside it; Ostia has already refused anything outside. See [Remote folders](#remote-folders). 30 s timeout. |
+| `ext.archive` | `{op: 'list', reader, archive, limits}` or `{op: 'read', reader, archive, index, max, out, limits}` | API 4.13. Lists or reads one archive of a format you declared in `contributes.archiveReaders` (`ext.onArchive` in the SDK). Carries a jsonrpc cancellation token. A list has `limits.scanMs` (20 s), a read 30 s; Ostia then cancels, and stops your process 5 s later if you still have not answered; that stop does not count toward the 3 restarts. See [Archive readers](#archive-readers). |
 
 And the notification `ext.event {type, payload}`:
 
@@ -1286,6 +1288,43 @@ doc.onDidChange(() => location.reload())
 - `publishPortable({tables: [{name, columns, rows}]})` hands Ostia the text a table viewer shows, so the human can save the open file as a portable artifact. Ostia renders the tables itself, at most 256 tables of 5,000 rows and 1,000 columns, 16 MiB in all.
 
 `grid({label, columns, rowCount, cell(row, column), rowLabels?, notes?})` returns `{element, destroy}`: a read-only grid of text that windows rows and columns with `@tanstack/virtual-core`, so a sheet of 100,000 rows and 1,000 columns keeps only the visible cells in the page. `columnName(index)` gives spreadsheet column letters. Its styles are the `.ostia-grid*` rules in `panel.css`.
+
+## Archive readers
+
+API 4.13. An archive reader lets Files expand an archive format Ostia does not read itself, the way it expands a zip: the row gets a twisty, its entries list as a tree, and an entry opens in the editor or a file viewer without anything being extracted to disk.
+
+```json
+"main": "main.js",
+"contributes": {
+  "archiveReaders": [
+    {
+      "id": "xz",
+      "displayName": "tar.xz",
+      "selector": [{ "filenamePattern": "*.tar.xz" }, { "filenamePattern": "*.txz" }]
+    }
+  ]
+}
+```
+
+- `id` is lowercase letters, digits and dashes, unique in your extension. `displayName` is at most 60 characters.
+- `selector[].filenamePattern` is written like a file viewer's. A pattern that could match a name Files already reads (`.zip`, `.jar`, `.tar`, `.tgz`, `.tar.gz`, `.tzst`, `.tar.zst`: `CORE_ARCHIVE_SUFFIXES` in `contract/archiveReaders`) is refused, in either direction: `*.gz` would catch `x.tar.gz`, and `*.backup.zip` or `foo.tar` are zips and tars. Ostia's own readers always come first.
+- When two enabled extensions claim a name, built-in ones win, then the lower extension id.
+- The manifest needs `main` and `api` 4.13 or newer, or it is refused.
+
+Answer `ext.archive` (`ext.onArchive(handler)`, where the handler gets `(request, {signal})`):
+
+| `op` | You get | You return |
+|---|---|---|
+| `list` | `reader` (your id), `archive`, `limits` | `{ok: true, entries: [{name, index, dir, size, encrypted, link}], complete}`, or `{ok: false, error}` with `error` one of `failed`, `encrypted`, `unsupported` |
+| `read` | `reader`, `archive`, `index`, `max`, `out`, `limits` | `{ok: true, size}` once the entry's bytes are in the file `out`, or `{ok: false, error, size?}` with `error` one of `too-large`, `encrypted`, `link`, `gone`, `unzip-limit`, `failed` |
+
+- `archive` is the real path, already confined to what Files may read. Open it yourself without following links (`O_NOFOLLOW`).
+- `limits` is `{entries, depth, nameLength, scanBytes, scanMs, linkTargetBytes}`. Stop a list after `entries + 1` entries, after `scanBytes` of decompressed output or after `scanMs`, and say `complete: false`. A read scans up to `index` under the same limits.
+- `index` is the entry's position in your listing; `name` is shown as it is, but Ostia never reads by name. `link` is the target of a link entry (or `null`).
+- `out` is a new file name in `$OSTIA_EXTENSION_DATA/archive-reads/`. Create it (`O_CREAT | O_EXCL`, mode 0600) and write the entry, at most `max` bytes. Ostia opens it without following links, checks that it is a regular file of exactly `size` bytes and at most `max`, reads it and deletes it.
+- Stop when `signal` aborts. Decode in a worker or a native thread, so your process can still hear the cancel.
+
+Ostia keeps the guards on its side: it lists at most `entries` entries and `depth` levels, escapes control characters in names, refuses a listing whose names and link targets add up to more than 32 MiB of text or that is malformed, and answers links, encrypted entries and entries larger than the read limit itself, without asking you. A list that failed is asked again next time; one that worked is cached until the archive changes or your extension is disabled or crashes. While your process restarts, its archives fail to list. Once you are disabled or crashed, their rows are plain files again the next time Files lists their folder.
 
 ## Lifecycle
 

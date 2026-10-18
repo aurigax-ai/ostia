@@ -1,14 +1,14 @@
-const ARCHIVE_SCHEME = 'archive:'
+import { isCoreArchiveName } from '@aurigax-ai/ostia-extension-sdk/contract/archiveReaders'
 
-const ARCHIVE_NAME = /\.(?:zip|jar|tar|tgz|tar\.gz|tzst|tar\.zst)$/i
+const ARCHIVE_SCHEME = 'archive:'
 
 export interface ArchivePath {
   archive: string
   entry: string
 }
 
-export function isArchiveName(name: string): boolean {
-  return ARCHIVE_NAME.test(name)
+export function isArchiveName(name: string, extra?: (name: string) => boolean): boolean {
+  return isCoreArchiveName(name) || (extra?.(name) ?? false)
 }
 
 export function isArchivePath(path: string | undefined): boolean {

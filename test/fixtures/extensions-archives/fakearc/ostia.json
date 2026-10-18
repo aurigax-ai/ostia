@@ -1,0 +1,14 @@
+{
+  "id": "fakearc",
+  "name": "Fake archives",
+  "version": "1.0.0",
+  "api": "4.13",
+  "description": "Test fixture: answers ext.archive for *.fake files from a script keyed by the file name.",
+  "main": "main.js",
+  "contributes": {
+    "commands": [{ "id": "asked", "title": "Archive requests" }],
+    "archiveReaders": [
+      { "id": "fake", "displayName": "Fake", "selector": [{ "filenamePattern": "*.fake" }] }
+    ]
+  }
+}

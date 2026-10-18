@@ -8,6 +8,11 @@ import {
 } from 'vscode-jsonrpc/node'
 import { readEnv } from '../contract/appEnv'
 import type {
+  ArchiveListResult,
+  ArchiveReadResult,
+  ArchiveRequest,
+} from '../contract/archiveReaders'
+import type {
   AssistModelList,
   AssistPoint,
   AssistProviderEntry,
@@ -127,6 +132,26 @@ export {
   REMOTE_WRITE_ANY,
   REMOTE_WRITE_NEW,
 } from '../contract/remoteFolders'
+
+export type {
+  ArchiveEntryInfo,
+  ArchiveListRequest,
+  ArchiveListResult,
+  ArchiveReadError,
+  ArchiveReadRequest,
+  ArchiveReadResult,
+  ArchiveReaderLimits,
+  ArchiveRequest,
+} from '../contract/archiveReaders'
+
+export interface ArchiveContext {
+  signal: AbortSignal
+}
+
+export type ArchiveHandler = (
+  request: ArchiveRequest,
+  context: ArchiveContext,
+) => Promise<ArchiveListResult | ArchiveReadResult>
 
 export type RemoteFilesResult =
   | RemoteListResult
@@ -323,6 +348,7 @@ export interface OstiaExtension {
   closeFolder: (folderId: string) => Promise<ExtensionResult>
   onFiles: (handler: FilesHandler) => void
   onFolderClosed: (handler: FolderClosedHandler) => void
+  onArchive: (handler: ArchiveHandler) => void
   sandboxDomains: (workspaceId: string) => Promise<SandboxDomainsResult>
 }
 
