@@ -235,8 +235,6 @@ export function monacoThemeData(scheme: ColorScheme): editor.IStandaloneThemeDat
       'diffEditorOverview.insertedForeground': diff.insertedMark,
       'diffEditorOverview.removedForeground': diff.removedMark,
       'diffEditor.diagonalFill': toward(0.12),
-      'scrollbarSlider.background': `${c.foreground}22`,
-      'scrollbarSlider.hoverBackground': `${c.foreground}44`,
     },
   }
 }

@@ -1,4 +1,5 @@
-const FADE_MS = 1500
+import { SCROLL_IDLE_MS } from '@aurigax-ai/ostia-extension-sdk/contract/scrollbar'
+
 const THUMB_MIN_PX = 24
 
 export interface HistoryScrollbar {
@@ -26,7 +27,7 @@ export function createHistoryScrollbar(
     window.clearTimeout(fade)
     fade = window.setTimeout(() => {
       if (!dragging) delete bar.dataset.active
-    }, FADE_MS)
+    }, SCROLL_IDLE_MS)
   }
 
   const update = (position: number, visible: number): void => {
