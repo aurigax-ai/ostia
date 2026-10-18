@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { createReadStream, existsSync, readdirSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { createInterface } from 'node:readline'
 import { pathToFileURL } from 'node:url'
 
 export const CHARS_PER_TOKEN = 3.5
@@ -255,7 +256,7 @@ function localDay(at) {
   return hourOf(at).slice(0, 10)
 }
 
-export function collect({ day, claudeDir, codexDir }) {
+export async function collect({ day, claudeDir, codexDir }) {
   const events = []
   const sources = [
     ['claude', claudeDir],
@@ -263,7 +264,9 @@ export function collect({ day, claudeDir, codexDir }) {
   ]
   for (const [agent, dir] of sources) {
     for (const file of listJsonl(dir)) {
-      const parsed = parseTranscript(readFileSync(file, 'utf8'), agent)
+      const parsed = []
+      const lines = createInterface({ input: createReadStream(file), crlfDelay: Infinity })
+      for await (const line of lines) parsed.push(...parseTranscript(line, agent))
       events.push(
         ...parsed.filter((event) => Number.isFinite(event.at) && localDay(event.at) === day),
       )
@@ -272,14 +275,14 @@ export function collect({ day, claudeDir, codexDir }) {
   return events
 }
 
-function main(argv) {
+async function main(argv) {
   const flag = (name) => {
     const at = argv.indexOf(name)
     return at === -1 ? undefined : argv[at + 1]
   }
   const day = flag('--day') ?? localDay(Date.now())
   const result = analyze(
-    collect({
+    await collect({
       day,
       claudeDir: flag('--claude') ?? join(homedir(), '.claude', 'projects'),
       codexDir: flag('--codex') ?? join(homedir(), '.codex', 'sessions'),
@@ -290,5 +293,5 @@ function main(argv) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main(process.argv.slice(2))
+  await main(process.argv.slice(2))
 }

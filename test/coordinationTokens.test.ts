@@ -201,7 +201,7 @@ describe('collect', () => {
   const root = mkdtempSync(join(tmpdir(), 'ostia-coordination-'))
   afterAll(() => rmSync(root, { recursive: true, force: true }))
 
-  it('reads every jsonl under both folders and keeps only the asked local day', () => {
+  it('reads every jsonl under both folders and keeps only the asked local day', async () => {
     const claude = join(root, 'claude', 'proj')
     const codex = join(root, 'codex', '2026', '10', '18')
     mkdirSync(claude, { recursive: true })
@@ -219,7 +219,7 @@ describe('collect', () => {
         payload: { type: 'function_call', call_id: 'z', arguments: '{"cmd":"ostia bus inbox"}' },
       }),
     )
-    const events = collect({
+    const events = await collect({
       day: '2026-10-18',
       claudeDir: join(root, 'claude'),
       codexDir: join(root, 'codex'),
