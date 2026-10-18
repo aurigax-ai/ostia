@@ -24,6 +24,7 @@ type Step =
       then: (bytes: Uint8Array) => void
     }
   | { kind: 'skip'; bytes: number; then: () => void }
+  | { kind: 'padding' }
 
 function refuse(reason: string): never {
   throw new XzRefused(`xz: ${reason}`)
@@ -224,21 +225,30 @@ export class XzGuard extends Transform {
   }
 
   private streamPadding(): Step {
-    return this.withhold(1, ([byte]) => {
-      if (byte === 0) {
-        this.padding++
-        this.step = this.streamPadding()
-        return
-      }
-      if (this.padding % 4 !== 0) refuse('stream padding')
-      this.step = this.streamHeader([byte])
-    })
+    return { kind: 'padding' }
+  }
+
+  private zeros(chunk: Uint8Array, from: number): number {
+    let at = from
+    while (at < chunk.length && chunk[at] === 0) at++
+    if (at > from) this.send(chunk.subarray(from, at))
+    this.padding += at - from
+    if (at === chunk.length) return at
+    if (this.padding % 4 !== 0) refuse('stream padding')
+    this.withheld.push(chunk.subarray(at, at + 1))
+    this.step = this.streamHeader([chunk[at]])
+    return at + 1
   }
 
   private feed(chunk: Uint8Array): void {
     let at = 0
     for (;;) {
       const step = this.step
+      if (step.kind === 'padding') {
+        at = this.zeros(chunk, at)
+        if (at >= chunk.length) return
+        continue
+      }
       if (step.kind === 'skip') {
         const bytes = Math.min(step.bytes, chunk.length - at)
         if (bytes > 0) this.send(chunk.subarray(at, at + bytes))
@@ -269,9 +279,7 @@ export class XzGuard extends Transform {
   }
 
   override _flush(done: TransformCallback): void {
-    const step = this.step
-    const idle = step.kind === 'take' && step.held.length === 0
-    if (!this.between || !idle || this.padding % 4 !== 0) {
+    if (this.step.kind !== 'padding' || !this.between || this.padding % 4 !== 0) {
       done(new XzRefused('xz: cut stream'))
       return
     }

@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -5,6 +6,7 @@ import { PassThrough } from 'node:stream'
 import { crc32 } from 'node:zlib'
 import type { ArchiveReaderLimits } from '@aurigax-ai/ostia-extension-sdk/contract/archiveReaders'
 import { XzCompressor } from '@napi-rs/lzma'
+import { createDecompressStream } from '@napi-rs/lzma/xz'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { tarOf } from '../../../test/fixtures/archives/archives'
 import { listArchive, readArchive } from './archiveAnswers'
@@ -137,5 +139,165 @@ describe('an xz with a huge dictionary', () => {
     const read = { ...list, op: 'read', index: 0, max: 1024, out } as const
     expect((await readArchive(read, opener, live, join(dir, 'archive-reads'))).ok).toBe(false)
     expect(received).toBe(0)
+  })
+})
+
+function varint(value: number): number[] {
+  const out: number[] = []
+  let left = value
+  while (left >= 0x80) {
+    out.push((left & 0x7f) | 0x80)
+    left = Math.floor(left / 0x80)
+  }
+  return [...out, left]
+}
+
+function le32(value: number): number[] {
+  return [value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff, value >>> 24]
+}
+
+function padTo4(bytes: number[]): number[] {
+  return [...bytes, ...new Array((4 - (bytes.length % 4)) % 4).fill(0)]
+}
+
+interface Built {
+  bytes: number[]
+  unpadded: number
+  uncompressed: number
+}
+
+function stored(data: Uint8Array): number[] {
+  const out: number[] = []
+  for (let at = 0; at < data.length; at += 65_536) {
+    const piece = data.subarray(at, at + 65_536)
+    out.push(at === 0 ? 0x01 : 0x02, (piece.length - 1) >> 8, (piece.length - 1) & 0xff, ...piece)
+  }
+  return [...out, 0x00]
+}
+
+function packed(junk: number): number[] {
+  const unpacked = 4096 - 1
+  return [
+    0xe0 | (unpacked >> 16),
+    (unpacked >> 8) & 0xff,
+    unpacked & 0xff,
+    (junk - 1) >> 8,
+    (junk - 1) & 0xff,
+    0x5d,
+    ...randomBytes(junk),
+    0x00,
+  ]
+}
+
+function block(prop: number, lzma2: number[], uncompressed: number): Built {
+  const fields = padTo4([0, 0x00, 0x21, 0x01, prop, 0, 0, 0, 0].slice(0, 5))
+  const header = [...fields, 0, 0, 0, 0]
+  header[0] = header.length / 4 - 1
+  const crc = crc32(Uint8Array.from(header.slice(0, -4)))
+  header.splice(-4, 4, ...le32(crc))
+  const body = [...header, ...lzma2]
+  return { bytes: padTo4(body), unpadded: body.length, uncompressed }
+}
+
+function stream(blocks: Built[]): { bytes: number[]; headers: number[] } {
+  const flags = [0x00, 0x00]
+  const out = [0xfd, 0x37, 0x7a, 0x58, 0x5a, 0x00, ...flags, ...le32(crc32(Uint8Array.from(flags)))]
+  const headers: number[] = []
+  for (const built of blocks) {
+    headers.push(out.length)
+    out.push(...built.bytes)
+  }
+  const records = blocks.flatMap((built) => [
+    ...varint(built.unpadded),
+    ...varint(built.uncompressed),
+  ])
+  const index = padTo4([0x00, ...varint(blocks.length), ...records])
+  index.push(...le32(crc32(Uint8Array.from(index))))
+  const backward = le32(index.length / 4 - 1)
+  const tail = [...backward, ...flags]
+  out.push(...index, ...le32(crc32(Uint8Array.from(tail))), ...tail, 0x59, 0x5a)
+  return { bytes: out, headers }
+}
+
+function counted(bytes: Uint8Array): Promise<{ refused: boolean; received: number }> {
+  return new Promise((resolve) => {
+    const guard = new XzGuard()
+    let received = 0
+    guard.on('data', (chunk: Buffer) => {
+      received += chunk.length
+    })
+    guard.on('error', () => resolve({ refused: true, received }))
+    guard.on('end', () => resolve({ refused: false, received }))
+    for (let at = 0; at < bytes.length; at += 4096) guard.write(bytes.subarray(at, at + 4096))
+    guard.end()
+  })
+}
+
+function decoded(bytes: Uint8Array): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const decoder = createDecompressStream()
+    const out: Buffer[] = []
+    decoder.on('data', (chunk: Buffer) => out.push(chunk))
+    decoder.on('error', reject)
+    decoder.on('end', () => resolve(Buffer.concat(out)))
+    decoder.end(bytes)
+  })
+}
+
+describe('XzGuard on every block of every stream', () => {
+  const first = randomBytes(100_000)
+  const second = randomBytes(3_000)
+
+  it('builds streams that the real decoder reads, so the cases below are real xz', async () => {
+    const both = stream([
+      block(0, stored(first), first.length),
+      block(0, stored(second), second.length),
+    ])
+    const bytes = Uint8Array.from(both.bytes)
+    expect((await decoded(bytes)).equals(Buffer.concat([first, second]))).toBe(true)
+    expect(await counted(bytes)).toEqual({ refused: false, received: bytes.length })
+  })
+
+  it('refuses a huge dictionary in the second block of a stream', async () => {
+    const built = stream([block(0, packed(2_000), 4096), block(40, packed(2_000), 4096)])
+    const result = await counted(Uint8Array.from(built.bytes))
+    expect(result.refused).toBe(true)
+    expect(result.received).toBeLessThanOrEqual(built.headers[1])
+  })
+
+  it('refuses a huge dictionary in the second of two streams', async () => {
+    const one = stream([block(0, stored(second), second.length)]).bytes
+    const two = stream([block(40, stored(second), second.length)])
+    const result = await counted(Uint8Array.from([...one, ...two.bytes]))
+    expect(result.refused).toBe(true)
+    expect(result.received).toBeLessThanOrEqual(one.length + two.headers[0])
+  })
+
+  it('refuses a huge dictionary in a block after one of stored chunks', async () => {
+    const built = stream([
+      block(0, stored(first), first.length),
+      block(40, stored(second), second.length),
+    ])
+    const result = await counted(Uint8Array.from(built.bytes))
+    expect(result.refused).toBe(true)
+    expect(result.received).toBeLessThanOrEqual(built.headers[1])
+  })
+
+  it('passes stream padding on as it comes instead of holding it', async () => {
+    const packedTar = await xz(TAR)
+    const guard = new XzGuard()
+    let received = 0
+    guard.on('data', (chunk: Buffer) => {
+      received += chunk.length
+    })
+    const zeros = Buffer.alloc(768 * 1024)
+    guard.write(packedTar)
+    for (let at = 0; at < zeros.length; at += 16 * 1024)
+      guard.write(zeros.subarray(at, at + 16 * 1024))
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(received).toBe(packedTar.length + zeros.length)
+    guard.end(packedTar)
+    await new Promise((resolve) => guard.on('end', resolve))
+    expect(received).toBe(2 * packedTar.length + zeros.length)
   })
 })
