@@ -1,12 +1,15 @@
 import { EmptyState } from '@/components/common/EmptyState'
 import { PanelResizer } from '@/components/common/PanelResizer'
 import { ExtensionSidePanel } from '@/components/extensions/ExtensionSidePanel'
+import { GitView } from '@/components/git/GitView'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/lib/app/useDict'
+import { GIT_PANEL_ID } from '@/lib/git/gitPanel'
 import { type PanelInstance, instanceKey, sameInstance } from '@/lib/panes/panelKeepAlive'
 import { rightPanelWidth } from '@/lib/panes/panelWidth'
 import { RIGHT_PANEL_ID, rightFocusKey } from '@/lib/panes/rightPanelFocus'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -66,11 +69,20 @@ export function RightPanel(): JSX.Element {
   const sandboxed = useSandboxStore((s) =>
     workspaceId ? (s.enabled[workspaceId] ?? false) : false,
   )
-  const panels = new Map(list.filter(hasPanel).map((ext) => [ext.id, ext]))
-  const shownExt = right ? panels.get(right) : undefined
+  const gitOn = useSettingsStore((s) => s.git.enabled)
+  const panels = new Map<string, string>(
+    list.filter(hasPanel).map((ext) => [ext.id, ext.panel?.title ?? ext.name]),
+  )
+  if (gitOn) panels.set(GIT_PANEL_ID, d.git.title)
+  const shownTitle = right ? panels.get(right) : undefined
+  const shownExt = right && right !== GIT_PANEL_ID ? list.find((e) => e.id === right) : undefined
   const instance: PanelInstance | null =
-    right && shownExt && workspaceId ? { extId: right, workspaceId } : null
-  const gated = instance !== null && sandboxed && !revealed.includes(instanceKey(instance))
+    right && shownTitle && workspaceId ? { extId: right, workspaceId } : null
+  const gated =
+    instance !== null &&
+    instance.extId !== GIT_PANEL_ID &&
+    sandboxed &&
+    !revealed.includes(instanceKey(instance))
   const open = instance !== null
   const asideRef = useInert<HTMLElement>(!open)
 
@@ -99,17 +111,18 @@ export function RightPanel(): JSX.Element {
   useEffect(() => {
     if (list.length === 0) return
     const known = new Set(list.filter(hasPanel).map((ext) => ext.id))
+    if (gitOn) known.add(GIT_PANEL_ID)
     const { kept: live, right: shown, drop } = useSidePanelStore.getState()
     const gone = new Set([...live.map((i) => i.extId), ...(shown ? [shown] : [])])
     for (const extId of gone) if (!known.has(extId)) drop(extId)
-  }, [list])
+  }, [list, gitOn])
 
   return (
     <aside
       ref={asideRef}
       id={RIGHT_PANEL_ID}
       className="right-panel"
-      aria-label={shownExt?.panel?.title}
+      aria-label={shownTitle}
       data-hidden={open ? undefined : ''}
     >
       <div className="right-panel-body">
@@ -118,12 +131,21 @@ export function RightPanel(): JSX.Element {
           .sort((a, b) => instanceKey(a).localeCompare(instanceKey(b)))
           .map((i) => (
             <PanelSlot key={instanceKey(i)} shown={instance !== null && sameInstance(i, instance)}>
-              <ExtensionSidePanel
-                extId={i.extId}
-                workspaceId={i.workspaceId}
-                focusKey={rightFocusKey(i.extId, i.workspaceId)}
-                route={routes[instanceKey(i)]}
-              />
+              {i.extId === GIT_PANEL_ID ? (
+                <GitView
+                  workspaceId={i.workspaceId}
+                  paneId={rightFocusKey(i.extId, i.workspaceId)}
+                  home="dock"
+                  active={instance !== null && sameInstance(i, instance)}
+                />
+              ) : (
+                <ExtensionSidePanel
+                  extId={i.extId}
+                  workspaceId={i.workspaceId}
+                  focusKey={rightFocusKey(i.extId, i.workspaceId)}
+                  route={routes[instanceKey(i)]}
+                />
+              )}
             </PanelSlot>
           ))}
         {gated && instance && shownExt ? (
@@ -135,7 +157,7 @@ export function RightPanel(): JSX.Element {
           key={right}
           spec={rightPanelWidth(right)}
           side="right"
-          label={fmt(d.extensions.resizePanel, { name: shownExt?.panel?.title ?? right })}
+          label={fmt(d.extensions.resizePanel, { name: shownTitle ?? right })}
           controls={RIGHT_PANEL_ID}
           className="right-resizer"
         />
