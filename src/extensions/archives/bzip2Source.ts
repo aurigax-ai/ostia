@@ -7,7 +7,7 @@ import type { Opener } from './archiveAnswers'
 import { Bzip2Error } from './bzip2'
 import type { FromBzip2, ToBzip2 } from './bzip2Protocol'
 
-const READ_CHUNK = 1024 * 1024
+const READ_CHUNK = 16 * 1024
 const WORKER_HEAP_MB = 64
 
 export class Bzip2Stream extends Duplex {

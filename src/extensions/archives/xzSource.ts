@@ -6,7 +6,7 @@ import { budgeted } from '../../shared/archives/archiveInflate'
 import type { Opener } from './archiveAnswers'
 import { XzGuard } from './xzGuard'
 
-const READ_CHUNK = 1024 * 1024
+const READ_CHUNK = 16 * 1024
 
 export function xzOpener(decoder: () => Duplex = createDecompressStream): Opener {
   return async (archive, limits) => {
