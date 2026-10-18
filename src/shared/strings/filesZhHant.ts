@@ -12,8 +12,14 @@ export const filesZhHant: typeof filesEn = {
     unread: '新增或已變更',
   },
   diff: {
+    ignoreWhitespace: '忽略空白',
     inline: '內嵌檢視',
     missing: '此差異已無法使用。請從來源重新開啟。',
+    nextChange: '下一個變更',
+    nextFile: '下一個變更的檔案',
+    openFile: '開啟檔案',
+    previousChange: '上一個變更',
+    previousFile: '上一個變更的檔案',
     sideBySide: '並排檢視',
   },
   editor: {
@@ -204,6 +210,7 @@ export const filesZhHant: typeof filesEn = {
     merge: '合併提交',
     noBlameFile: '請開啟檔案後執行「Git：逐行追溯檔案」',
     noBranches: '尚無分支',
+    noChangedDiff: '目前的窗格不是 Git 變更的差異。請先開啟一個變更的檔案。',
     noCommits: '尚無提交',
     noFile: '目前的窗格不是檔案。請先聚焦檔案檢視，再執行「Git：逐行追溯檔案」。',
     noFiles: '沒有檔案變更',

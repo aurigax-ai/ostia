@@ -8,6 +8,7 @@ import { createPane, resetIds, splitPane, tabsOf } from '@/lib/layout/tree'
 import type { PaneNode, TabsNode } from '@/lib/layout/types'
 import { hiddenTabs, revealScroll } from '@/lib/panes/tabRow'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useDiffStore } from '@/stores/files/diffStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -155,6 +156,19 @@ describe('TabRow', () => {
     await userEvent.hover(screen.getByRole('tab', { name: /tab 1/ }))
     expect(await screen.findByText('/work/tab-1')).toBeInTheDocument()
     expect(screen.getAllByText('tab 1').length).toBeGreaterThan(1)
+  })
+
+  it('shows the full path of a diff on hover', async () => {
+    const diff = createPane('diff', 'notes.txt (Working Tree)')
+    useDiffStore.getState().set(diff.id, {
+      title: diff.title,
+      original: 'a',
+      modified: 'b',
+      path: '/work/repo/notes.txt',
+    })
+    renderStack(tabsOf(diff.id, diff))
+    await userEvent.hover(screen.getByRole('tab', { name: /notes.txt/ }))
+    expect(await screen.findByText('/work/repo/notes.txt')).toBeInTheDocument()
   })
 
   it('has no All tabs button while every tab fits', () => {

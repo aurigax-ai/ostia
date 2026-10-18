@@ -3,6 +3,7 @@ import { basename } from 'node:path'
 import { DIFF_TEXT_MAX } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
 import type { ExtensionOpenFileRequest } from '@aurigax-ai/ostia-extension-sdk/contract/extensionsBridge'
+import { filesDiffTitle } from '../../shared/boards/diffTitle'
 import type { CommandResult, CommandTarget } from '../../shared/control/commands'
 import {
   type DiffFilesResult,
@@ -142,7 +143,7 @@ export function registerOpenFileMethods(deps: OpenFileDeps): void {
       const modified = readDiffSide(deps, request.modified, workspaceId)
       if (!modified.ok) return modified
       const res = await deps.execCommand(targetOf(ctx.identity), OPEN_DIFF_COMMAND, {
-        title: `${basename(original.path)} ↔ ${basename(modified.path)}`,
+        title: filesDiffTitle(basename(original.path), basename(modified.path)),
         original: original.text,
         modified: modified.text,
         path: modified.path,

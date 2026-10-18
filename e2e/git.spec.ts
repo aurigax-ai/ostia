@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { addTab, openWorkspace } from './helpers'
@@ -44,13 +44,23 @@ test('a dirty repo shows Changes in the side panel, opens a diff as a pane and c
     await row.click()
 
     await expect(
-      win.locator('.pane-header .title').filter({ hasText: 'notes.txt (unstaged)' }),
+      win.locator('.pane-header .title').filter({ hasText: 'notes.txt (Working Tree)' }),
     ).toBeVisible({ timeout: 15_000 })
     const diff = win.locator('.diff-surface .monaco-diff-editor')
     await expect(diff).toBeVisible({ timeout: 15_000 })
     await expect(diff).toContainText('second line from e2e', { timeout: 15_000 })
     await expect(win.locator('.diff-title')).toHaveText(join(home, 'notes.txt'))
     await expect(panel).toHaveAttribute('data-e2e-mount', 'first')
+
+    await win.getByRole('button', { name: 'Inline view' }).click()
+    await expect(win.locator('.diff-surface .monaco-diff-editor.side-by-side')).toHaveCount(0)
+    await expect
+      .poll(() =>
+        readFileSync(join(dataHome, 'userData', 'settings.json'), 'utf8').includes(
+          '"diffLayout": "inline"',
+        ),
+      )
+      .toBe(true)
 
     await panel.getByRole('button', { name: 'Stage: notes.txt' }).click()
     await expect(panel.locator('section.area-staged')).toBeVisible({ timeout: 15_000 })

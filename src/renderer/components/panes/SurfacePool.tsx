@@ -114,7 +114,7 @@ function Surface({
   return s.kind === 'editor' ? (
     <FileView workspaceId={s.workspaceId} paneId={s.paneId} filePath={s.filePath} />
   ) : s.kind === 'diff' ? (
-    <DiffView paneId={s.paneId} />
+    <DiffView workspaceId={s.workspaceId} paneId={s.paneId} />
   ) : s.kind === 'chat' ? (
     <ChatPane workspaceId={s.workspaceId} paneId={s.paneId} sessionId={s.chatSessionId} />
   ) : s.kind === 'git' ? (

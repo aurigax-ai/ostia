@@ -10,6 +10,6 @@
     "test/fixtures/ports/"
   ],
   "specs": [
-    "e2e/ports-hibernation.spec.ts"
+    "e2e/ports.spec.ts"
   ]
 }
