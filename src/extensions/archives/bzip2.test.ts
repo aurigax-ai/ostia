@@ -78,6 +78,17 @@ describe('Bzip2Decoder', () => {
     expect(problem(stream)).toBe('crc')
   })
 
+  it('hands out no byte of a block before its CRC is checked', () => {
+    const block = bzip2(TEXT)
+    block[10] ^= 0x01
+    const decoder = new Bzip2Decoder()
+    decoder.push(block)
+    decoder.end()
+    const out = new Uint8Array(1000).fill(0xaa)
+    expect(() => decoder.read(out)).toThrow(new Bzip2Error('crc'))
+    expect(out.every((byte) => byte === 0xaa)).toBe(true)
+  })
+
   it('refuses a damaged block body without throwing anything else', () => {
     const packed = bzip2(TEXT)
     for (const at of [20, 40, 80, Math.floor(packed.length / 2)]) {
