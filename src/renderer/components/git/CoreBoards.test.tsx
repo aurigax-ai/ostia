@@ -4,7 +4,6 @@ import { commands } from '@/commands/registry'
 import { PanelToggles } from '@/components/app/PanelToggles'
 import { TopBar } from '@/components/app/TopBar'
 import { PaneChips, WorkspaceChips } from '@/components/extensions/ExtensionChips'
-import { ExtensionPanelView } from '@/components/extensions/ExtensionPanelView'
 import { GitSection, PortsSection } from '@/components/settings/BoardSettings'
 import { firstPaneOfKind, setPaneEditor } from '@/lib/layout/paneFields'
 import { createPane } from '@/lib/layout/tree'
@@ -310,12 +309,6 @@ describe('core git and ports in the window', () => {
       page: 'blame',
       file: '/home/a.txt',
     })
-  })
-
-  it('tells the human a saved pane of the old Git extension is gone, without loading anything', () => {
-    render(<ExtensionPanelView extId="git" workspaceId="s1" paneId="p9" />)
-    expect(screen.getByText(/Git is built in now/)).toBeVisible()
-    expect(window.ostia.extensions.panel).not.toHaveBeenCalled()
   })
 
   it('writes the Git and Ports settings from their pages, within their bounds', async () => {

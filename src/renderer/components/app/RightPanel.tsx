@@ -1,0 +1,130 @@
+import { EmptyState } from '@/components/common/EmptyState'
+import { PanelResizer } from '@/components/common/PanelResizer'
+import { ExtensionSidePanel } from '@/components/extensions/ExtensionSidePanel'
+import { Button } from '@/components/ui/button'
+import { fmt, useDict } from '@/lib/app/useDict'
+import { type PanelInstance, instanceKey, sameInstance } from '@/lib/panes/panelKeepAlive'
+import { rightPanelWidth } from '@/lib/panes/panelWidth'
+import { RIGHT_PANEL_ID, rightFocusKey } from '@/lib/panes/rightPanelFocus'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useSidePanelStore } from '@/stores/app/sidePanelStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { ExtensionInfo } from '@aurigax-ai/ostia-extension-sdk/contract/extensions'
+import { useEffect, useLayoutEffect, useRef } from 'react'
+
+function hasPanel(ext: ExtensionInfo): boolean {
+  return ext.enabled && ext.panel !== null
+}
+
+function useInert<T extends HTMLElement>(inert: boolean): React.RefObject<T> {
+  const ref = useRef<T>(null)
+  useLayoutEffect(() => {
+    if (ref.current) ref.current.inert = inert
+  }, [inert])
+  return ref
+}
+
+function PanelSlot({
+  shown,
+  children,
+}: { shown: boolean; children: React.ReactNode }): JSX.Element {
+  const ref = useInert<HTMLDivElement>(!shown)
+  return (
+    <div ref={ref} className="right-panel-slot" data-hidden={shown ? undefined : ''}>
+      {children}
+    </div>
+  )
+}
+
+function SandboxedLine({ ext, instance }: { ext: ExtensionInfo; instance: PanelInstance }) {
+  const d = useDict()
+  const reveal = useSidePanelStore((s) => s.reveal)
+  return (
+    <div className="px-2">
+      <EmptyState
+        variant="block"
+        title={d.extensions.sandboxedClosed}
+        action={
+          <Button size="sm" variant="outline" onClick={() => reveal(instance)}>
+            {fmt(d.extensions.showPanel, { name: ext.panel?.title ?? ext.name })}
+          </Button>
+        }
+      />
+    </div>
+  )
+}
+
+export function RightPanel(): JSX.Element {
+  const d = useDict()
+  const right = useSidePanelStore((s) => s.right)
+  const kept = useSidePanelStore((s) => s.kept)
+  const routes = useSidePanelStore((s) => s.routes)
+  const revealed = useSidePanelStore((s) => s.revealed)
+  const workspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
+  const list = useExtensionsStore((s) => s.list)
+  const sandboxed = useSandboxStore((s) =>
+    workspaceId ? (s.enabled[workspaceId] ?? false) : false,
+  )
+  const panels = new Map(list.filter(hasPanel).map((ext) => [ext.id, ext]))
+  const shownExt = right ? panels.get(right) : undefined
+  const instance: PanelInstance | null =
+    right && shownExt && workspaceId ? { extId: right, workspaceId } : null
+  const gated = instance !== null && sandboxed && !revealed.includes(instanceKey(instance))
+  const open = instance !== null
+  const asideRef = useInert<HTMLElement>(!open)
+
+  const shownExtId = instance?.extId ?? null
+  useEffect(() => {
+    if (shownExtId && workspaceId && !gated) {
+      useSidePanelStore.getState().keep({ extId: shownExtId, workspaceId })
+    }
+  }, [shownExtId, workspaceId, gated])
+
+  useEffect(() => {
+    if (list.length === 0) return
+    const known = new Set(list.filter(hasPanel).map((ext) => ext.id))
+    const { kept: live, right: shown, drop } = useSidePanelStore.getState()
+    const gone = new Set([...live.map((i) => i.extId), ...(shown ? [shown] : [])])
+    for (const extId of gone) if (!known.has(extId)) drop(extId)
+  }, [list])
+
+  return (
+    <aside
+      ref={asideRef}
+      id={RIGHT_PANEL_ID}
+      className="right-panel"
+      aria-label={shownExt?.panel?.title}
+      data-hidden={open ? undefined : ''}
+    >
+      <div className="right-panel-body">
+        {[...kept]
+          .filter((i) => panels.has(i.extId))
+          .sort((a, b) => instanceKey(a).localeCompare(instanceKey(b)))
+          .map((i) => (
+            <PanelSlot key={instanceKey(i)} shown={instance !== null && sameInstance(i, instance)}>
+              <ExtensionSidePanel
+                extId={i.extId}
+                workspaceId={i.workspaceId}
+                focusKey={rightFocusKey(i.extId, i.workspaceId)}
+                route={routes[instanceKey(i)]}
+              />
+            </PanelSlot>
+          ))}
+        {gated && instance && shownExt ? (
+          <SandboxedLine ext={shownExt} instance={instance} />
+        ) : null}
+      </div>
+      {open && right ? (
+        <PanelResizer
+          key={right}
+          spec={rightPanelWidth(right)}
+          side="right"
+          label={fmt(d.extensions.resizePanel, { name: shownExt?.panel?.title ?? right })}
+          controls={RIGHT_PANEL_ID}
+          className="right-resizer"
+        />
+      ) : null}
+    </aside>
+  )
+}

@@ -214,7 +214,6 @@ export const filesZhHant: typeof filesEn = {
     notRepo: '不在 git 儲存庫中',
     notRepoHint: '在儲存庫內開啟終端機，即可查看變更與歷史。',
     nothingToDiscard: '沒有可捨棄的未暫存或未追蹤變更。',
-    oldPane: 'Git 現在已內建，這個窗格是舊的 Git 擴充功能所儲存的。請關閉它，再從頂端列開啟 Git。',
     oneFile: '1 個檔案',
     openDiff: '開啟差異',
     parents: '父提交',

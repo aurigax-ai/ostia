@@ -83,7 +83,6 @@ export function TopBar(): JSX.Element {
           onClick={toggleFiles}
         />
         <DashboardButton />
-        <PanelToggles />
       </div>
 
       <div className="topbar-center">
@@ -105,6 +104,7 @@ export function TopBar(): JSX.Element {
         <WorkspaceChips workspaceId={dashboardActive ? null : activeWorkspaceId} />
         <ZoomReset />
         <UpdateNotice />
+        <PanelToggles />
         <IconButton
           size="bar"
           icon={GearSixIcon}

@@ -51,20 +51,18 @@ describe('layoutStore remembered panel size', () => {
   })
 
   it('opens a panel at 50/50 when nothing is remembered', () => {
-    const panel = openedPane(() =>
-      useLayoutStore.getState().openExtensionPanel('s1', 'assistant', 'Assistant'),
-    )
+    const panel = openedPane(() => useLayoutStore.getState().openView('s1', 'deploys', 'Deploys'))
 
     expect(panelShare(panel)).toBeCloseTo(0.5)
   })
 
-  it('reopens an extension panel at the size the human dragged it to', () => {
+  it('reopens a view panel at the size the human dragged it to', () => {
     const store = useLayoutStore.getState()
-    const panel = openedPane(() => store.openExtensionPanel('s1', 'assistant', 'Assistant'))
+    const panel = openedPane(() => store.openView('s1', 'deploys', 'Deploys'))
     dragRootSplit([900, 300])
     store.closePane('s1', panel)
 
-    const reopened = openedPane(() => store.openExtensionPanel('s1', 'assistant', 'Assistant'))
+    const reopened = openedPane(() => store.openView('s1', 'deploys', 'Deploys'))
 
     expect(reopened).not.toBe(panel)
     expect(panelShare(reopened)).toBeCloseTo(0.25)
@@ -88,7 +86,7 @@ describe('layoutStore remembered panel size', () => {
     dragRootSplit([700, 300])
     store.closePane('s1', chat)
 
-    const ext = openedPane(() => store.openExtensionPanel('s1', 'assistant', 'Assistant'))
+    const ext = openedPane(() => store.openView('s1', 'deploys', 'Deploys'))
     expect(panelShare(ext)).toBeCloseTo(0.5)
     store.closePane('s1', ext)
 
@@ -99,12 +97,12 @@ describe('layoutStore remembered panel size', () => {
 
   it('applies the remembered size in another workspace', () => {
     const store = useLayoutStore.getState()
-    const panel = openedPane(() => store.openExtensionPanel('s1', 'assistant', 'Assistant'))
+    const panel = openedPane(() => store.openView('s1', 'deploys', 'Deploys'))
     dragRootSplit([800, 200])
     store.closePane('s1', panel)
     store.ensure('s2')
 
-    const other = openedPane(() => store.openExtensionPanel('s2', 'assistant', 'Assistant'))
+    const other = openedPane(() => store.openView('s2', 'deploys', 'Deploys'))
     const split = useLayoutStore.getState().byWorkspace.s2.root as SplitNode
 
     expect(split.children[1].id).toBe(other)
@@ -116,23 +114,23 @@ describe('layoutStore remembered panel size', () => {
       panes: { ...useSettingsStore.getState().panes, equalizeOnSplit: true },
     })
     const store = useLayoutStore.getState()
-    const panel = openedPane(() => store.openExtensionPanel('s1', 'assistant', 'Assistant'))
+    const panel = openedPane(() => store.openView('s1', 'deploys', 'Deploys'))
     dragRootSplit([700, 300])
     store.closePane('s1', panel)
 
-    const reopened = openedPane(() => store.openExtensionPanel('s1', 'assistant', 'Assistant'))
+    const reopened = openedPane(() => store.openView('s1', 'deploys', 'Deploys'))
 
     expect(panelShare(reopened)).toBeCloseTo(0.3)
   })
 
   it('leaves an already open panel at its current size', () => {
     const store = useLayoutStore.getState()
-    const panel = openedPane(() => store.openExtensionPanel('s1', 'assistant', 'Assistant'))
+    const panel = openedPane(() => store.openView('s1', 'deploys', 'Deploys'))
     dragRootSplit([900, 300])
     store.resize('s1', rootSplit().id, [600, 600])
     store.focusPane('s1', firstPaneId(layoutOf().root))
 
-    store.openExtensionPanel('s1', 'assistant', 'Assistant')
+    store.openView('s1', 'deploys', 'Deploys')
 
     expect(paneIds(layoutOf().root)).toHaveLength(2)
     expect(panelShare(panel)).toBeCloseTo(0.5)

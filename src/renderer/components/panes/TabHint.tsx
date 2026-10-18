@@ -4,7 +4,6 @@ import { Hint } from '@/components/common/Hint'
 import { useDict } from '@/lib/app/useDict'
 import type { PaneNode } from '@/lib/layout/types'
 import type { ReactElement } from 'react'
-import { usePaneTitle } from './TabFace'
 
 export function TabHint({
   pane,
@@ -14,7 +13,7 @@ export function TabHint({
   children: ReactElement
 }): JSX.Element {
   const d = useDict()
-  const title = usePaneTitle(pane)
+  const title = pane.title
   const session = usePaneAgentSession(pane)
   const folder = pane.kind === 'terminal' ? (session?.cwd ?? pane.cwd) : undefined
   return (

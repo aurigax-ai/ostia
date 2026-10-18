@@ -2,9 +2,10 @@ import { IconButton } from '@/components/common/IconButton'
 import { extensionIcon } from '@/components/extensions/extensionIcons'
 import { useDict } from '@/lib/app/useDict'
 import { openGit } from '@/lib/git/gitPanel'
-import { findExtensionPane, firstPaneOfKind } from '@/lib/layout/paneFields'
+import { firstPaneOfKind } from '@/lib/layout/paneFields'
+import { toggleRightPanel } from '@/lib/panes/rightPanelFocus'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { useUIStore } from '@/stores/app/uiStore'
+import { useSidePanelStore } from '@/stores/app/sidePanelStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -19,6 +20,7 @@ export function PanelToggles(): JSX.Element | null {
   const d = useDict()
   const panels = useExtensionsStore((s) => s.list).filter(hasToggle)
   const git = useSettingsStore((s) => s.git.enabled)
+  const right = useSidePanelStore((s) => s.right)
   const workspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
   const root = useLayoutStore((s) => (workspaceId ? s.byWorkspace[workspaceId]?.root : undefined))
   if (!workspaceId || (panels.length === 0 && !git)) return null
@@ -37,25 +39,16 @@ export function PanelToggles(): JSX.Element | null {
           }}
         />
       )}
-      {panels.map((ext) => {
-        const title = ext.panel?.title ?? ext.name
-        const open = root ? findExtensionPane(root, ext.id) : null
-        return (
-          <IconButton
-            key={ext.id}
-            size="bar"
-            icon={extensionIcon(ext.panel?.icon)}
-            label={title}
-            aria-pressed={open !== null}
-            onClick={() => {
-              useUIStore.getState().showWorkspaces()
-              const layout = useLayoutStore.getState()
-              if (open) layout.closePane(workspaceId, open.id)
-              else layout.openExtensionPanel(workspaceId, ext.id, title)
-            }}
-          />
-        )
-      })}
+      {panels.map((ext) => (
+        <IconButton
+          key={ext.id}
+          size="bar"
+          icon={extensionIcon(ext.panel?.icon)}
+          label={ext.panel?.title ?? ext.name}
+          aria-pressed={right === ext.id}
+          onClick={() => toggleRightPanel(ext.id)}
+        />
+      ))}
     </>
   )
 }
