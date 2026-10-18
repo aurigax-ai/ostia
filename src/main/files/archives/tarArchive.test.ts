@@ -3,7 +3,7 @@ import type { ReadStream } from 'node:fs'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { gzipSync, zstdCompressSync } from 'node:zlib'
+import { brotliCompressSync, gzipSync, zstdCompressSync } from 'node:zlib'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const opened: ReadStream[] = vi.hoisted(() => [])
@@ -187,5 +187,18 @@ describe('a compressed archive inside a compressed archive', () => {
     writeFileSync(path, nest(Buffer.from(tarOf([{ name: 'a.txt', data: 'x' }], false))))
     expect(await listTar(path, ARCHIVE_LIMITS)).toBeNull()
     expect(await readTarEntry(path, 0, MIB, ARCHIVE_LIMITS)).toEqual({ ok: false, problem: 'gone' })
+  })
+})
+
+describe('brotli', () => {
+  it.each([
+    ['alone', (bytes: Buffer) => bytes],
+    ['inside gzip', (bytes: Buffer) => gzipSync(bytes)],
+  ])('is never decompressed, %s', async (_name, wrap) => {
+    const path = join(dir, 'bomb.tar.br')
+    writeFileSync(path, wrap(brotliCompressSync(Buffer.alloc(64 * MIB, 0x41))))
+    expect(await listTar(path, ARCHIVE_LIMITS)).toEqual([])
+    expect(await readTarEntry(path, 0, MIB, ARCHIVE_LIMITS)).toEqual({ ok: false, problem: 'gone' })
+    expect(decompressedBytes()).toBeLessThan(MIB)
   })
 })
