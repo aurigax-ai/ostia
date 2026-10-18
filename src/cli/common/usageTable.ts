@@ -90,6 +90,11 @@ export const USAGE_TABLE: readonly NounUsage[] = [
           'one line per pane: state, closing line, exit code, git, mail and what changed since you last asked',
       },
       {
+        verb: 'transcript',
+        args: `${PANE} [--turns N | --full] [--json]`,
+        about: "the agent's own transcript: by default its last turn, as it was written",
+      },
+      {
         verb: 'wait',
         args: `${PANE}… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]`,
         about: 'block until one of those panes stops working',

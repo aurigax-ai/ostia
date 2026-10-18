@@ -18,6 +18,11 @@ export type PaneCall =
   | { method: 'pane.rename'; params: { pane: string; title: string } }
   | { method: 'pane.wait'; params: PaneWaitParams; json: boolean }
   | { method: 'pane.status'; params: { panes: string[] }; json: boolean }
+  | {
+      method: 'pane.transcript'
+      params: { pane: string; turns?: number; full?: true }
+      json: boolean
+    }
   | { method: 'pane.wake'; params: PaneWakeParams; json: boolean }
   | { method: 'pane.hibernate'; params: { panes: string[] }; json: boolean }
   | { method: 'pane.close'; params: { panes?: string[] }; json: boolean }
@@ -103,6 +108,30 @@ function parseStatus(argv: string[]): PaneCall {
   const { positional, booleans } = parseArgs(argv, { booleans: { json: '--json' } })
   if (positional.length === 0) throw new Error(USAGE)
   return { method: 'pane.status', params: { panes: positional }, json: booleans.json }
+}
+
+function parseTranscript(argv: string[]): PaneCall {
+  const { positional, values, booleans } = parseArgs(argv, {
+    values: { turns: '--turns' },
+    booleans: { full: '--full', json: '--json' },
+  })
+  const [pane, ...extra] = positional
+  if (!pane || extra.length > 0 || (booleans.full && values.turns !== undefined)) {
+    throw new Error(USAGE)
+  }
+  const turns = values.turns === undefined ? undefined : Number(values.turns)
+  if (turns !== undefined && (!Number.isInteger(turns) || turns < 1)) {
+    throw new Error('--turns must be a positive integer')
+  }
+  return {
+    method: 'pane.transcript',
+    params: {
+      pane,
+      ...(turns === undefined ? {} : { turns }),
+      ...(booleans.full ? { full: true as const } : {}),
+    },
+    json: booleans.json,
+  }
 }
 
 function parseClose(argv: string[]): PaneCall {
@@ -213,6 +242,7 @@ export function parsePaneArgs(argv: string[]): PaneCall {
   if (!sub || !pane) throw new Error(USAGE)
   if (sub === 'wait') return parseWait([pane, ...rest])
   if (sub === 'status') return parseStatus([pane, ...rest])
+  if (sub === 'transcript') return parseTranscript([pane, ...rest])
   if (sub === 'wake') return parseWake([pane, ...rest])
   if (sub === 'hibernate') return parseHibernate([pane, ...rest])
   if (sub === 'move') return parseMove([pane, ...rest])
@@ -303,6 +333,14 @@ export async function runPaneVerb(
   }
   if (call.method === 'pane.list') {
     console.log(JSON.stringify(await conn.sendRequest('pane.list'), null, 2))
+    return 0
+  }
+  if (call.method === 'pane.transcript') {
+    const result = await conn.sendRequest<{ agent: string; turns: number; text: string }>(
+      call.method,
+      call.params,
+    )
+    console.log(call.json ? JSON.stringify(result, null, 2) : result.text)
     return 0
   }
   if (call.method === 'pane.status') {

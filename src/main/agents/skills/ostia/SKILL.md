@@ -170,6 +170,7 @@ ostia pane key <pane> enter              # keys: enter tab shift-tab escape back
                                          # up down left right home end pageup pagedown ctrl-a…ctrl-z
 ostia pane read <pane> [--lines N] [--json]   # its screen as text; --json adds cwd, running, lastExitCode
 ostia pane status <pane>… [--json]       # one line per pane: state, closing line, exit, git, mail, changes
+ostia pane transcript <pane> [--turns N | --full] [--json]   # the agent's own transcript, as written
 ostia pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]
 ostia pane wake <pane>… [--timeout <s>] [--json]
 ostia pane hibernate <pane>… [--json]
@@ -197,6 +198,13 @@ ostia pane close [<pane>…] [--json]      # no pane: your own
   closing line is what the agent set with `ostia state done "<line>"`, else the first line of its
   last message (280 characters at most). It needs the same reach as `pane read` and holds no
   command output; read the screen with `pane read` only when the line is unclear.
+- **transcript** prints what a claude or codex agent in that pane wrote, read from the agent's own
+  session file: for each turn `> ` and the prompt, one `· ` line per tool call, then the final
+  message in full. The default is the last turn; `--turns N` the last N (at most 50), `--full`
+  every turn (the last 256 KiB of text). It is shown as written, without redaction, and is never
+  stored or sent on. It needs the same reach as `pane read`, is refused from a sandboxed
+  workspace, and answers `no-transcript:` for a pane with no agent session. A turn still running
+  ends in `(no answer yet)`.
 - **wait** returns when any named pane reports `done` or `waiting` or its command exits
   (`--until idle` also counts a pane with nothing reported). It prints
   `<paneId>\t<state>\t<message>` and never reads the screen. Exit 0 reached, 3 timed out (default

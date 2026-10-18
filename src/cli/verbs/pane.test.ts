@@ -136,6 +136,35 @@ describe('pane status', () => {
   })
 })
 
+describe('pane transcript', () => {
+  it('takes one pane, --turns or --full, and --json', () => {
+    expect(parsePaneArgs(['transcript', 'w1'])).toEqual({
+      method: 'pane.transcript',
+      params: { pane: 'w1' },
+      json: false,
+    })
+    expect(parsePaneArgs(['transcript', 'w1', '--turns', '3', '--json'])).toEqual({
+      method: 'pane.transcript',
+      params: { pane: 'w1', turns: 3 },
+      json: true,
+    })
+    expect(parsePaneArgs(['transcript', 'w1', '--full'])).toEqual({
+      method: 'pane.transcript',
+      params: { pane: 'w1', full: true },
+      json: false,
+    })
+  })
+
+  it('refuses several panes, --turns with --full, and a turn count that is not a whole number', () => {
+    expect(() => parsePaneArgs(['transcript', 'w1', 'w2'])).toThrow('usage: ostia pane')
+    expect(() => parsePaneArgs(['transcript', 'w1', '--full', '--turns', '2'])).toThrow(
+      'usage: ostia pane',
+    )
+    expect(() => parsePaneArgs(['transcript', 'w1', '--turns', '0'])).toThrow('positive integer')
+    expect(() => parsePaneArgs(['transcript', 'w1', '--turns', 'x'])).toThrow('positive integer')
+  })
+})
+
 describe('pane wait', () => {
   it('takes several panes, repeated --until and seconds for --timeout', () => {
     expect(

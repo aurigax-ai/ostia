@@ -5,6 +5,7 @@ import type { ManagerSettings } from '../../shared/agents/managerSettings'
 import type { CommandTarget } from '../../shared/control/commands'
 import type { TerminalStateSnapshot } from '../../shared/terminal/ptyApi'
 import type { AgentWiring } from '../agents/agentWiring'
+import { readRange, transcriptPath } from '../agents/transcriptFiles'
 import type { Reach } from '../approvals/reach'
 import { targetOf } from '../attention/attention'
 import type { CommandBridge } from '../control/commandBridge'
@@ -26,6 +27,7 @@ import { listPanes } from './paneList'
 import { registerPaneMoveToMethods } from './paneMoveTo'
 import type { PaneReachDeps } from './paneReach'
 import { registerPaneStatusMethods } from './paneStatus'
+import { registerPaneTranscriptMethods } from './paneTranscript'
 import { type PaneWatch, registerPaneWaitMethods } from './paneWait'
 import { wakeHibernatedPane } from './paneWake'
 import type { PaneWaking } from './paneWaking'
@@ -171,6 +173,20 @@ export function registerPaneMethodsWiring({
       }
     },
     now: Date.now,
+  })
+
+  registerPaneTranscriptMethods({
+    ...paneReachDeps,
+    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
+    lines: (resume, bytes) => {
+      const path = transcriptPath(resume)
+      if (!path) return null
+      try {
+        return readRange(path, true, bytes)
+      } catch {
+        return null
+      }
+    },
   })
 
   return { paneReachDeps }
