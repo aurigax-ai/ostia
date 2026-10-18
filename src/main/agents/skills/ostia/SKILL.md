@@ -169,6 +169,7 @@ ostia pane send <pane> "answer" --enter --force  # --force types into an agent w
 ostia pane key <pane> enter              # keys: enter tab shift-tab escape backspace delete space
                                          # up down left right home end pageup pagedown ctrl-a…ctrl-z
 ostia pane read <pane> [--lines N] [--json]   # its screen as text; --json adds cwd, running, lastExitCode
+ostia pane status <pane>… [--json]       # one line per pane: state, closing line, exit, git, mail, changes
 ostia pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]
 ostia pane wake <pane>… [--timeout <s>] [--json]
 ostia pane hibernate <pane>… [--json]
@@ -189,6 +190,13 @@ ostia pane close [<pane>…] [--json]      # no pane: your own
 | `splitTabId?`, `splitTabName?` | the split tab holding it |
 | `process?` | `{id, status, start}` of the command `process run` or `agent run` started there |
 
+- **status** answers facts, never the screen: `state` (`working`, `waiting`, `done`, `error`,
+  `idle`, `hibernated`, `waking`, `exited`, `shell`), how long it has been in it, the closing line,
+  the last exit code, the branch with changed files and ahead/behind, the pane's queued and failed
+  mail, and what changed since you last asked about that pane (`first look` the first time). The
+  closing line is what the agent set with `ostia state done "<line>"`, else the first line of its
+  last message (280 characters at most). It needs the same reach as `pane read` and holds no
+  command output; read the screen with `pane read` only when the line is unclear.
 - **wait** returns when any named pane reports `done` or `waiting` or its command exits
   (`--until idle` also counts a pane with nothing reported). It prints
   `<paneId>\t<state>\t<message>` and never reads the screen. Exit 0 reached, 3 timed out (default

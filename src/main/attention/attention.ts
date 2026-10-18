@@ -13,6 +13,12 @@ const ATTENTION_MESSAGE_MAX = 1024
 export interface AttentionDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   reported?: (paneId: string) => void
+  closing?: (
+    paneId: string,
+    state: string,
+    message: string | undefined,
+    stop: string | undefined,
+  ) => void
 }
 
 export function targetOf(identity: PaneIdentity): CommandTarget {
@@ -33,10 +39,11 @@ export function registerAttentionMethods(deps: AttentionDeps): void {
   registerTargetableMethod('pane.setAttention', {
     cap: 'drive-self',
     handler: async (params: unknown, ctx) => {
-      const { state, message, paneId } = (params ?? {}) as {
+      const { state, message, paneId, closing } = (params ?? {}) as {
         state?: unknown
         message?: unknown
         paneId?: unknown
+        closing?: unknown
       }
       if (!isVerb(state)) {
         return { ok: false, error: 'invalid-state', message: ATTENTION_VERBS.join('|') }
@@ -60,6 +67,12 @@ export function registerAttentionMethods(deps: AttentionDeps): void {
       })
       if (!res.ok) return { ok: false, error: res.error.code, message: res.error.message }
       deps.reported?.(target.paneId)
+      deps.closing?.(
+        target.paneId,
+        state,
+        clampMessage(message),
+        typeof closing === 'string' ? closing : undefined,
+      )
       return { ok: true }
     },
   })

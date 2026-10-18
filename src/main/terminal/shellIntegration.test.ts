@@ -1042,7 +1042,7 @@ describe('shellIntegrationSpawnOptions', () => {
       )
       const stop = codexHookCommands(CONTEXT).Stop?.[0] ?? ''
       expect(codexHookTrustHash('Stop', stop)).toBe(
-        'sha256:dd0738f4d05919c023080c695b24bed2afaecc6504369bde591c15314b798eff',
+        'sha256:4c67f45a3b4d59ce74693734175a13711c701eeb183f638316b8a4f2c24c4375',
       )
     })
 

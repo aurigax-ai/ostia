@@ -119,6 +119,23 @@ describe('pane rename', () => {
   })
 })
 
+describe('pane status', () => {
+  it('takes several panes and --json, and needs at least one pane', () => {
+    expect(parsePaneArgs(['status', 'w1', 'w2'])).toEqual({
+      method: 'pane.status',
+      params: { panes: ['w1', 'w2'] },
+      json: false,
+    })
+    expect(parsePaneArgs(['status', 'w1', '--json'])).toEqual({
+      method: 'pane.status',
+      params: { panes: ['w1'] },
+      json: true,
+    })
+    expect(() => parsePaneArgs(['status'])).toThrow('usage: ostia pane')
+    expect(() => parsePaneArgs(['status', 'w1', '--lines', '3'])).toThrow()
+  })
+})
+
 describe('pane wait', () => {
   it('takes several panes, repeated --until and seconds for --timeout', () => {
     expect(

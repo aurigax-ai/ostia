@@ -1,4 +1,5 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
+import { type PaneStatus, statusLine } from '../../shared/panes/paneStatus'
 import { FlagError, parseArgs } from '../common/args'
 import { resolveWorkspaceRef } from '../common/crossWorkspace'
 import { usageOf } from '../common/usageTable'
@@ -16,6 +17,7 @@ export type PaneCall =
   | { method: 'pane.read'; params: { pane: string; lines?: number }; json: boolean }
   | { method: 'pane.rename'; params: { pane: string; title: string } }
   | { method: 'pane.wait'; params: PaneWaitParams; json: boolean }
+  | { method: 'pane.status'; params: { panes: string[] }; json: boolean }
   | { method: 'pane.wake'; params: PaneWakeParams; json: boolean }
   | { method: 'pane.hibernate'; params: { panes: string[] }; json: boolean }
   | { method: 'pane.close'; params: { panes?: string[] }; json: boolean }
@@ -95,6 +97,12 @@ function parseWait(argv: string[]): PaneCall {
     },
     json: booleans.json,
   }
+}
+
+function parseStatus(argv: string[]): PaneCall {
+  const { positional, booleans } = parseArgs(argv, { booleans: { json: '--json' } })
+  if (positional.length === 0) throw new Error(USAGE)
+  return { method: 'pane.status', params: { panes: positional }, json: booleans.json }
 }
 
 function parseClose(argv: string[]): PaneCall {
@@ -204,6 +212,7 @@ export function parsePaneArgs(argv: string[]): PaneCall {
   if (sub === 'close') return parseClose(argv.slice(1))
   if (!sub || !pane) throw new Error(USAGE)
   if (sub === 'wait') return parseWait([pane, ...rest])
+  if (sub === 'status') return parseStatus([pane, ...rest])
   if (sub === 'wake') return parseWake([pane, ...rest])
   if (sub === 'hibernate') return parseHibernate([pane, ...rest])
   if (sub === 'move') return parseMove([pane, ...rest])
@@ -294,6 +303,13 @@ export async function runPaneVerb(
   }
   if (call.method === 'pane.list') {
     console.log(JSON.stringify(await conn.sendRequest('pane.list'), null, 2))
+    return 0
+  }
+  if (call.method === 'pane.status') {
+    const result = await conn.sendRequest<{ panes: PaneStatus[] }>(call.method, call.params)
+    console.log(
+      call.json ? JSON.stringify(result, null, 2) : result.panes.map(statusLine).join('\n'),
+    )
     return 0
   }
   if (call.method === 'pane.wait') {

@@ -13,6 +13,7 @@ import type { CommandBridge } from '../control/commandBridge'
 import { getByPaneId } from '../control/idRegistry'
 import type { Telemetry } from '../diagnostics/telemetry'
 import type { ManagerService } from '../manager/manager'
+import type { PaneJournal } from '../panes/paneJournal'
 import { registerPaneRenameMethods } from '../panes/paneRename'
 import { registerPaneResumeMethods } from '../panes/paneResume'
 import type { PaneWatch } from '../panes/paneWait'
@@ -48,6 +49,7 @@ interface AgentWiringDeps {
   openTerminalInWindow: CommandBridge['openTerminalInWindow']
   syncKeptMeta: KeptShellsWiring['syncKeptMeta']
   paneWatch: PaneWatch
+  paneJournal: PaneJournal
   ptys: Map<string, PtyEntry>
   paneIo: PtyIo['paneIo']
   workspaceSandboxes: WorkspaceSandboxes
@@ -76,6 +78,7 @@ export function registerAgentWiring({
   openTerminalInWindow,
   syncKeptMeta,
   paneWatch,
+  paneJournal,
   ptys,
   paneIo,
   workspaceSandboxes,
@@ -88,7 +91,11 @@ export function registerAgentWiring({
   foregroundProgram,
   agentCwd,
 }: AgentWiringDeps) {
-  registerAttentionMethods({ execCommand, reported: (paneId) => keptAttention.reported(paneId) })
+  registerAttentionMethods({
+    execCommand,
+    reported: (paneId) => keptAttention.reported(paneId),
+    closing: (paneId, state, message, stop) => paneJournal.report(paneId, state, message, stop),
+  })
   registerAgentWorkMethods(agentWork)
   registerPaneRenameMethods({ execCommand, reach, windowOfWorkspace: workspaceWindowId })
   registerPaneResumeMethods({

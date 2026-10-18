@@ -84,6 +84,12 @@ export const USAGE_TABLE: readonly NounUsage[] = [
       { verb: 'key', args: `${PANE} <key>…`, about: 'press keys in a terminal pane' },
       { verb: 'read', args: `${PANE} [--lines N] [--json]`, about: 'its screen as plain text' },
       {
+        verb: 'status',
+        args: `${PANE}… [--json]`,
+        about:
+          'one line per pane: state, closing line, exit code, git, mail and what changed since you last asked',
+      },
+      {
         verb: 'wait',
         args: `${PANE}… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]`,
         about: 'block until one of those panes stops working',

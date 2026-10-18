@@ -10,6 +10,7 @@ import { targetOf } from '../attention/attention'
 import type { CommandBridge } from '../control/commandBridge'
 import { type PaneIdentity, getByPaneId } from '../control/idRegistry'
 import type { ExtensionHost } from '../extensions/extensionHost'
+import { readStatus, repoRoot } from '../git/repo'
 import { readSettingsFile } from '../platform/settingsFile'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { PtyIo } from '../terminal/pty/ptyIo'
@@ -20,9 +21,11 @@ import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { windowForWorkspace } from '../workspaces/workspaceRegistry'
 import { registerExtensionWake } from './extensionWake'
 import { type PaneAttentionPeek, registerPaneIoMethods } from './paneIo'
+import type { PaneJournal } from './paneJournal'
 import { listPanes } from './paneList'
 import { registerPaneMoveToMethods } from './paneMoveTo'
 import type { PaneReachDeps } from './paneReach'
+import { registerPaneStatusMethods } from './paneStatus'
 import { type PaneWatch, registerPaneWaitMethods } from './paneWait'
 import { wakeHibernatedPane } from './paneWake'
 import type { PaneWaking } from './paneWaking'
@@ -47,6 +50,8 @@ interface PaneMethodsWiringDeps {
   scratchFolders: ScratchFolders
   workspaceCommandTarget: (workspaceId: string) => CommandTarget
   paneWatch: PaneWatch
+  paneJournal: PaneJournal
+  remoteCwdOfPane: (paneId: string) => unknown
   terminalState: Map<string, TerminalStateSnapshot>
 }
 
@@ -70,6 +75,8 @@ export function registerPaneMethodsWiring({
   scratchFolders,
   workspaceCommandTarget,
   paneWatch,
+  paneJournal,
+  remoteCwdOfPane,
   terminalState,
 }: PaneMethodsWiringDeps) {
   const peekAttention = async (to: PaneIdentity): Promise<PaneAttentionPeek> => {
@@ -81,6 +88,11 @@ export function registerPaneMethodsWiring({
   const paneHibernated = async (to: PaneIdentity): Promise<boolean> => {
     const res = await execCommand(targetOf(to), 'pane.hibernated')
     return res.ok && (res.result as { hibernated?: unknown } | undefined)?.hibernated === true
+  }
+  const paneExited = (paneId: string): boolean => {
+    const entry = registry.forPane(paneId)
+    if (entry) return entry.status === 'exited'
+    return terminalState.get(paneId)?.running === false
   }
   const paneReachDeps: PaneReachDeps = {
     processPane: async (ref, ctx) => {
@@ -134,11 +146,31 @@ export function registerPaneMethodsWiring({
     ...paneReachDeps,
     watch: paneWatch,
     attention: peekAttention,
-    exited: (paneId) => {
-      const entry = registry.forPane(paneId)
-      if (entry) return entry.status === 'exited'
-      return terminalState.get(paneId)?.running === false
+    exited: paneExited,
+  })
+
+  registerPaneStatusMethods({
+    ...paneReachDeps,
+    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
+    journal: paneJournal,
+    exited: paneExited,
+    git: async (paneId, cwd) => {
+      if (!cwd || remoteCwdOfPane(paneId) !== undefined) return undefined
+      try {
+        const root = await repoRoot(cwd)
+        if (!root) return undefined
+        const { branch, changes } = await readStatus(root)
+        return {
+          branch: branch.head,
+          ahead: branch.ahead,
+          behind: branch.behind,
+          changed: changes.length,
+        }
+      } catch {
+        return undefined
+      }
     },
+    now: Date.now,
   })
 
   return { paneReachDeps }

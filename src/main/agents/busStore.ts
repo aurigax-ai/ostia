@@ -277,6 +277,23 @@ export function sentBy(from: string): Mail[] {
     .map(snapshot)
 }
 
+export function mailCounts(pane: string) {
+  sweepBus()
+  const counts = { queued: 0, failed: 0, sentQueued: 0, sentFailed: 0 }
+  for (const mail of store().mail) {
+    if (mail.quiet) continue
+    if (mail.to === pane) {
+      if (undelivered(mail)) counts.queued += 1
+      else if (mail.state === 'failed') counts.failed += 1
+    }
+    if (mail.from === pane) {
+      if (undelivered(mail)) counts.sentQueued += 1
+      else if (mail.state === 'failed') counts.sentFailed += 1
+    }
+  }
+  return counts
+}
+
 export function takeMail(to: string, via: MailVia, pick: (mail: Mail) => boolean): Mail[] {
   sweepBus()
   const at = new Date().toISOString()

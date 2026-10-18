@@ -34,6 +34,7 @@ export async function runClaudeHookVerb(conn: MessageConnection): Promise<void> 
   const res = await conn.sendRequest<{ ok: boolean; error?: string }>('pane.setAttention', {
     state: attention.state,
     message: attention.message || undefined,
+    closing: attention.closing,
   })
   if (!res.ok) {
     console.error(`ostia claude-hook: ${res.error ?? 'failed'}`)

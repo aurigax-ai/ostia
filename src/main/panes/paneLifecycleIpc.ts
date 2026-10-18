@@ -30,6 +30,7 @@ import { dropRestoredScrollback } from '../workspaces/savedScrollback'
 import type { ScratchFolders } from '../workspaces/scratchFolders'
 import type { WorkspaceLifecycle } from '../workspaces/workspaceLifecycle'
 import { setWorkspaceWorkDir } from '../workspaces/workspaceRegistry'
+import type { PaneJournal } from './paneJournal'
 import type { PaneWatch } from './paneWait'
 import type { PaneWaking } from './paneWaking'
 import type { ProcessRegistry } from './processRegistry'
@@ -58,6 +59,7 @@ interface PaneLifecycleIpcDeps {
   paneWaking: PaneWaking
   paneStartErrors: Map<string, string>
   paneWatch: PaneWatch
+  paneJournal: PaneJournal
   scratchFolders: ScratchFolders
   workspaceClosed: WorkspaceLifecycle['workspaceClosed']
   keptShells: KeptShellsWiring['keptShells']
@@ -83,6 +85,7 @@ export function registerPaneLifecycleIpc({
   paneWaking,
   paneStartErrors,
   paneWatch,
+  paneJournal,
   scratchFolders,
   workspaceClosed,
   keptShells,
@@ -115,6 +118,7 @@ export function registerPaneLifecycleIpc({
         questions()?.forget(identity.externalId)
         services.updateRunner?.paneClosed(identity.externalId)
         failPaneMail(identity.externalId)
+        paneJournal.forget(identity.paneId, identity.externalId)
         emitPaneEvent('pane.closed', {
           paneId: identity.externalId,
           workspaceId: event.workspaceId,

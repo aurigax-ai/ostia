@@ -31,6 +31,11 @@ type PaneListener = (change: PaneChange) => void
 
 export class PaneWatch {
   private readonly listeners = new Map<string, Set<PaneListener>>()
+  private readonly taps = new Set<(paneId: string, change: PaneChange) => void>()
+
+  tap(listener: (paneId: string, change: PaneChange) => void): void {
+    this.taps.add(listener)
+  }
 
   watch(paneId: string, listener: PaneListener): () => void {
     const set = this.listeners.get(paneId) ?? new Set()
@@ -43,6 +48,7 @@ export class PaneWatch {
   }
 
   emit(paneId: string, change: PaneChange): void {
+    for (const tap of this.taps) tap(paneId, change)
     for (const listener of [...(this.listeners.get(paneId) ?? [])]) listener(change)
   }
 

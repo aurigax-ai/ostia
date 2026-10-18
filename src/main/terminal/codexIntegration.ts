@@ -125,7 +125,7 @@ export function codexHookCommands(
     ],
     UserPromptSubmit: [hookCommand('state working'), busHookCommand('UserPromptSubmit')],
     PermissionRequest: [hookCommand('state waiting -'), permissionHookCommand('codex')],
-    Stop: [hookCommand('state done')],
+    Stop: [hookCommand('state done --stop')],
   }
   const commands: Partial<Record<CodexHookEvent, string[]>> = {}
   for (const event of Object.keys(CODEX_HOOK_EVENTS) as CodexHookEvent[]) {
