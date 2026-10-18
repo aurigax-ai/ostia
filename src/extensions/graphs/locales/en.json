@@ -80,9 +80,8 @@
     "def.secretInput": "The input of {node} looks like a secret. Keep secrets in a connection in Settings, never in the graph file.",
     "row.filesRefused": "Its files trigger is off: this folder has more than 5000 folders to watch outside .git, node_modules and ignored paths.",
     "row.skipped": "Skipped {count} times since Ostia started: a run was still active, or a limit was reached",
-    "empty.folder.title": "No graphs",
-    "empty.scratch.title": "No graphs here",
-    "empty.runs.title": "No runs",
-    "empty.runs.description": "Start one with Run now in the graph list."
+    "empty.folder.title": "No graphs.",
+    "empty.scratch.title": "No graphs here.",
+    "empty.runs": "No runs. Start one with Run now in the graph list."
   }
 }

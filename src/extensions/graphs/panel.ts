@@ -250,7 +250,7 @@ async function runsView(name: string): Promise<HTMLElement[]> {
   const runs = res.data as { runId: string; status: string; steps: number }[]
   if (runs.length === 0)
     return [
-      emptyState(`${t('empty.runs.title')}. ${t('empty.runs.description')}`, undefined, {
+      emptyState(t('empty.runs'), undefined, {
         'data-empty': 'runs',
       }),
     ]
