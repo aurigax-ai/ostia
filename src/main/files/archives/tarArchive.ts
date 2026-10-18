@@ -1,10 +1,46 @@
-import { createReadStream } from 'node:fs'
+import { createReadStream, read } from 'node:fs'
+import { Transform } from 'node:stream'
+import { createGunzip, createZstdDecompress } from 'node:zlib'
 import { Parser, type ReadEntry } from 'tar'
 import { type EntryRead, collect, openRegular } from './archiveFile'
 import type { ArchiveLimits, RawEntry } from './archiveTree'
 
 const LINK_TYPES = new Set(['SymbolicLink', 'Link'])
 const HEADER_BYTES = 512
+const GZIP_MAGIC = Buffer.from([0x1f, 0x8b])
+const ZSTD_MAGIC = Buffer.from([0x28, 0xb5, 0x2f, 0xfd])
+const INFLATERS = { gzip: createGunzip, zstd: createZstdDecompress }
+
+function compression(head: Buffer): keyof typeof INFLATERS | null {
+  if (head.subarray(0, GZIP_MAGIC.length).equals(GZIP_MAGIC)) return 'gzip'
+  if (head.subarray(0, ZSTD_MAGIC.length).equals(ZSTD_MAGIC)) return 'zstd'
+  return null
+}
+
+function headOf(fd: number): Promise<Buffer> {
+  return new Promise((resolve) => {
+    const head = Buffer.alloc(ZSTD_MAGIC.length)
+    read(fd, head, 0, head.length, 0, (error, bytes) => {
+      resolve(error ? Buffer.alloc(0) : head.subarray(0, bytes))
+    })
+  })
+}
+
+function plainTar(maxBytes: number): Transform {
+  let total = 0
+  let head = Buffer.alloc(0)
+  return new Transform({
+    transform(chunk: Buffer, _encoding, done) {
+      total += chunk.length
+      if (head.length < ZSTD_MAGIC.length) {
+        head = Buffer.concat([head, chunk.subarray(0, ZSTD_MAGIC.length)])
+      }
+      if (total > maxBytes) done(new Error('archive too large'))
+      else if (compression(head)) done(new Error('archive compressed twice'))
+      else done(null, chunk)
+    },
+  })
+}
 
 function scan(
   path: string,
@@ -13,12 +49,15 @@ function scan(
   onRead: (entry: ReadEntry) => Promise<void>,
 ): Promise<boolean> {
   return new Promise((resolve) => {
-    void openRegular(path).then((fd) => {
+    void openRegular(path).then(async (fd) => {
       if (fd === null) {
         resolve(false)
         return
       }
+      const format = compression(await headOf(fd))
       const input = createReadStream('', { fd, autoClose: true })
+      const inflater = format ? INFLATERS[format]() : null
+      const plain = plainTar(limits.scanBytes)
       const parser = new Parser()
       let index = 0
       let scanned = 0
@@ -30,6 +69,8 @@ function scan(
         settled = true
         clearTimeout(timer)
         input.destroy()
+        inflater?.destroy()
+        plain.destroy()
         resolve(complete)
       }
       const timer = setTimeout(() => finish(false), limits.scanMs)
@@ -58,8 +99,9 @@ function scan(
       parser.on('error', () => {
         if (!ended) finish(false)
       })
-      input.on('error', () => finish(false))
-      input.pipe(parser)
+      for (const stream of [input, inflater, plain]) stream?.on('error', () => finish(false))
+      const source = inflater ? input.pipe(inflater) : input
+      source.pipe(plain).pipe(parser)
     })
   })
 }
