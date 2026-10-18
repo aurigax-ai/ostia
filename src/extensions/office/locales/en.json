@@ -16,6 +16,7 @@
     "unzip-limit": "This file unpacks to more than {limit}, so it is not previewed.",
     "cells-limit": "This file would make more than {cells} cells, so it is not previewed.",
     "nodes-limit": "This file holds more content than the viewer can safely show, so it is not previewed.",
+    "depth-limit": "This file nests its content deeper than the viewer can safely read, so it is not previewed.",
     "timeout": "Reading this file took too long, so it was stopped.",
     "failed": "Could not read this file. It may be damaged or in a form this viewer does not read.",
     "encrypted": "This file is protected with a password, so it cannot be previewed.",

@@ -15,6 +15,7 @@ export const OFFICE_LIMITS = {
   cells: 2_000_000,
   sheetNodes: 4_500_000,
   documentNodes: 200_000,
+  xmlDepth: 256,
   parseMs: 20_000,
 } as const
 
@@ -25,6 +26,7 @@ export type OfficeProblem =
   | 'unzip-limit'
   | 'cells-limit'
   | 'nodes-limit'
+  | 'depth-limit'
   | 'failed'
   | 'encrypted'
   | 'timeout'
