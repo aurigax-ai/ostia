@@ -1,4 +1,5 @@
 import { toolTitle } from '@/components/chat/ChatToolPart'
+import { EmptyState } from '@/components/common/EmptyState'
 import { Hint } from '@/components/common/Hint'
 import { IconButton } from '@/components/common/IconButton'
 import { Notice } from '@/components/common/Notice'
@@ -13,13 +14,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from '@/components/ui/empty'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { skillsInFolder } from '@/lib/assist/mcpServerForm'
@@ -36,26 +30,6 @@ import { type McpServerSettings, READ_OUTSIDE_GRANT } from '@shared/assist/chatT
 import { useEffect, useState } from 'react'
 import { McpServerDialog } from './McpServerDialog'
 import { ROW, ServerItem, removeServer } from './McpServerItem'
-
-function EmptyList({
-  title,
-  desc,
-  action,
-}: {
-  title: string
-  desc: string
-  action: React.ReactNode
-}): JSX.Element {
-  return (
-    <Empty className="gap-3 rounded-md border border-line border-dashed p-5">
-      <EmptyHeader className="gap-1">
-        <EmptyTitle className="text-fg text-ui-base">{title}</EmptyTitle>
-        <EmptyDescription className="text-fg-muted text-ui-sm">{desc}</EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>{action}</EmptyContent>
-    </Empty>
-  )
-}
 
 function AccessRows(): JSX.Element {
   const d = useDict()
@@ -122,7 +96,7 @@ function McpServers(): JSX.Element {
       action={servers.length > 0 ? addButton : null}
     >
       {servers.length === 0 ? (
-        <EmptyList title={t.noServers} desc={t.noServersDesc} action={addButton} />
+        <EmptyState title={t.noServers} desc={t.noServersDesc} action={addButton} />
       ) : (
         <ul aria-label={t.mcpTitle} className="flex flex-col gap-2">
           {servers.map((server) => (
@@ -202,7 +176,7 @@ function SkillFolders(): JSX.Element {
       action={folders.length > 0 ? addButton : null}
     >
       {folders.length === 0 ? (
-        <EmptyList title={t.noFolders} desc={t.noFoldersDesc} action={addButton} />
+        <EmptyState title={t.noFolders} desc={t.noFoldersDesc} action={addButton} />
       ) : (
         <ul aria-label={t.skillsTitle} className="flex flex-col gap-2">
           {folders.map((path) => {
