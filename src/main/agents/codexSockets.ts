@@ -6,8 +6,12 @@ import { privateTmpDir } from '../platform/privateTmp'
 
 const sockets = new Map<string, string>()
 
+export function codexSocketDir(): string {
+  return privateTmpDir(`${PRODUCT_NAME}-codex`)
+}
+
 export function codexSocketPath(): string {
-  return join(privateTmpDir(`${PRODUCT_NAME}-codex`), `${randomUUID()}.sock`)
+  return join(codexSocketDir(), `${randomUUID()}.sock`)
 }
 
 export function registerCodexSocket(externalId: string, path: string): void {

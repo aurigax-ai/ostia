@@ -57,11 +57,41 @@ interface RunResult {
 const NO_PROGRAMS = ['-c', 'core.fsmonitor=false']
 const NO_HOOKS = ['-c', `core.hooksPath=${devNull}`]
 
-function run(cwd: string, args: string[], hooks = false): Promise<RunResult> {
+const FILTER_KEY = /^(?:local|worktree)\tfilter\.(.+)\.(clean|smudge|process)$/
+
+function gitOutput(cwd: string, args: string[]): Promise<string> {
   return new Promise((done) => {
     execFile(
       'git',
-      [...NO_PROGRAMS, ...(hooks ? [] : NO_HOOKS), ...args],
+      [...NO_PROGRAMS, ...args],
+      { cwd, encoding: 'utf8', maxBuffer: MAX_OUTPUT },
+      (err, stdout) => done(err ? '' : stdout),
+    )
+  })
+}
+
+async function noRepoFilters(cwd: string): Promise<string[]> {
+  const listed = await gitOutput(cwd, [
+    'config',
+    '--show-scope',
+    '--name-only',
+    '--get-regexp',
+    '^filter\\..*\\.(clean|smudge|process)$',
+  ])
+  const off: string[] = []
+  for (const line of listed.split('\n')) {
+    const match = FILTER_KEY.exec(line)
+    if (match) off.push('-c', `filter.${match[1]}.${match[2]}=`)
+  }
+  return off
+}
+
+async function run(cwd: string, args: string[], hooks = false): Promise<RunResult> {
+  const filters = await noRepoFilters(cwd)
+  return new Promise((done) => {
+    execFile(
+      'git',
+      [...NO_PROGRAMS, ...filters, ...(hooks ? [] : NO_HOOKS), ...args],
       {
         cwd,
         encoding: 'buffer',

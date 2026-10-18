@@ -43,7 +43,8 @@ mkdirSync(hooks)
 git('init', '-q', '-b', 'main')
 writeFileSync(join(repo, 'a.txt'), 'one\n')
 writeFileSync(join(repo, 'blob.evil'), 'data\n')
-writeFileSync(join(repo, '.gitattributes'), '*.evil diff=evil\n')
+writeFileSync(join(repo, '.gitattributes'), '*.evil diff=evil filter=evil\n')
+writeFileSync(join(repo, 'info.cfg'), 'data\n')
 git('add', '.')
 git('commit', '-q', '-m', 'first')
 for (const hook of ['pre-commit', 'post-checkout']) {
@@ -52,11 +53,16 @@ for (const hook of ['pre-commit', 'post-checkout']) {
   chmodSync(path, 0o755)
 }
 git('config', 'core.fsmonitor', program('fsmonitor'))
+git('config', 'filter.evil.clean', program('clean'))
+git('config', 'filter.evil.smudge', program('smudge'))
+git('config', 'filter.viainfo.clean', program('infoclean'))
+writeFileSync(join(repo, '.git', 'info', 'attributes'), 'info.cfg filter=viainfo\n')
 git('config', 'diff.evil.textconv', program('textconv'))
 git('config', 'diff.external', program('external'))
 git('config', 'core.hooksPath', hooks)
 writeFileSync(join(repo, 'a.txt'), 'two\n')
 writeFileSync(join(repo, 'blob.evil'), 'changed\n')
+writeFileSync(join(repo, 'info.cfg'), 'changed\n')
 
 describe('git reads under a repository config a sandboxed agent could have written', () => {
   it('never runs core.fsmonitor for a status, a key or a line count', async () => {
@@ -64,6 +70,14 @@ describe('git reads under a repository config a sandboxed agent could have writt
     await worktreeKey(repo)
     await lineChanges(repo, [])
     expect(existsSync(join(marks, 'fsmonitor'))).toBe(false)
+  })
+
+  it('never runs a clean or smudge filter named by the repository config, from .gitattributes or .git/info/attributes', async () => {
+    await readStatus(repo)
+    await lineChanges(repo, [])
+    expect(existsSync(join(marks, 'clean'))).toBe(false)
+    expect(existsSync(join(marks, 'infoclean'))).toBe(false)
+    expect(existsSync(join(marks, 'smudge'))).toBe(false)
   })
 
   it('never runs a textconv or external diff driver for a patch, a line count or a blame', async () => {

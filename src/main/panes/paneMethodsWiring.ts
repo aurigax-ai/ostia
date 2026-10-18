@@ -13,7 +13,7 @@ import type { CommandBridge } from '../control/commandBridge'
 import { type PaneIdentity, getByPaneId, resolveExternal } from '../control/idRegistry'
 import type { AgentJournal } from '../diagnostics/agentJournal'
 import type { ExtensionHost } from '../extensions/extensionHost'
-import { readStatus, repoRoot, worktreeKey } from '../git/repo'
+import { worktreeKey } from '../git/repo'
 import { readSettingsFile } from '../platform/settingsFile'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { PtyIo } from '../terminal/pty/ptyIo'
@@ -24,6 +24,7 @@ import type { ScratchFolders } from '../workspaces/scratchFolders'
 import { windowForWorkspace } from '../workspaces/workspaceRegistry'
 import { registerExtensionWake } from './extensionWake'
 import { PaneEvents } from './paneEvents'
+import { paneGit } from './paneGit'
 import { type PaneAttentionPeek, registerPaneIoMethods } from './paneIo'
 import type { PaneJournal } from './paneJournal'
 import { listPanes } from './paneList'
@@ -183,22 +184,13 @@ export function registerPaneMethodsWiring({
     wakingSince: (paneId) => paneWaking.since(paneId),
     conflicts: (externalId) => worktreeShare.others(externalId),
     exited: paneExited,
-    git: async (paneId, cwd) => {
-      if (!cwd || remoteCwdOfPane(paneId) !== undefined) return undefined
-      try {
-        const root = await repoRoot(cwd)
-        if (!root) return undefined
-        const { branch, changes } = await readStatus(root)
-        return {
-          branch: branch.head,
-          ahead: branch.ahead,
-          behind: branch.behind,
-          changed: changes.length,
-        }
-      } catch {
-        return undefined
-      }
-    },
+    git: paneGit({
+      isRemote: (paneId) => remoteCwdOfPane(paneId) !== undefined,
+      isSandboxed: (paneId) => {
+        const workspaceId = resolveExternal(paneId)?.workspaceId
+        return workspaceId === undefined || workspaceSandboxes.isEnabled(workspaceId)
+      },
+    }),
     now: Date.now,
   }
   const statusOfPane = async (to: PaneIdentity, callerExternalId: string) =>

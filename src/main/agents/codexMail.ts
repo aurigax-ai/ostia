@@ -17,6 +17,13 @@ const FAILURE_COOLDOWN_MS = 10_000
 const RECENT_TURNS = 5
 const REFUSALS_MAX = 5
 
+function stringsOf(value: unknown): string[] {
+  if (typeof value === 'string') return [value]
+  if (Array.isArray(value)) return value.flatMap(stringsOf)
+  if (value !== null && typeof value === 'object') return Object.values(value).flatMap(stringsOf)
+  return []
+}
+
 export class CodexMail {
   private readonly attached = new Set<string>()
   private readonly clients = new Map<string, CodexRpc>()
@@ -79,8 +86,8 @@ export class CodexMail {
         itemsView: 'full',
         sortDirection: 'desc',
       })
-      const seen = JSON.stringify(recent)
-      return ids.some((id) => seen.includes(id))
+      const texts = stringsOf(recent)
+      return ids.some((id) => texts.some((text) => text.includes(`<message id="${id}"`)))
     } catch {
       return false
     }

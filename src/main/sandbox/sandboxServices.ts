@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path'
 import { PRODUCT_NAME } from '@aurigax-ai/ostia-extension-sdk/contract/product'
 import { app } from 'electron'
 import { parseSandboxGlobals } from '../../shared/sandbox/sandboxParse'
+import { codexSocketDir } from '../agents/codexSockets'
 import { controlSocketPath, keptControlSocketPath } from '../control/controlServer'
 import type { PhoneFileScope } from '../gateway/workspaceFiles'
 import { storePath } from '../platform/jsonStore'
@@ -83,6 +84,7 @@ function createWorkspaceSandboxes({
         agentSockets: process.env.SSH_AUTH_SOCK ? [process.env.SSH_AUTH_SOCK] : [],
         containerSockets: reachableContainerSockets(),
         socketPath: controlSocketPath(),
+        codexDir: codexSocketDir(),
         srtVendorDir: srtVendorDir(app.getAppPath()),
         runtimeReads: [
           INTEGRATION_DIR,

@@ -143,7 +143,8 @@ describe('Codex mail', () => {
         started.push(params)
         throw new Error('turn/start timed out')
       }
-      return { data: [{ items: [{ text: JSON.stringify(started[0]) }] }] }
+      const input = (started[0] as { input: { text: string }[] }).input
+      return { data: [{ items: [{ text: input[0].text }] }] }
     })
     mail.attach('codex-pane')
     await settle()
@@ -206,6 +207,17 @@ describe('Codex mail', () => {
       await settle()
     }
     expect(getMail(queued.id)).toMatchObject({ state: 'failed', reason: 'agent-refused' })
+  })
+
+  it('does not take the bare id in the agent’s own inbox output for a started turn', async () => {
+    const queued = send('echoed')
+    request.mockImplementation(async (method) => {
+      if (method === 'turn/start') throw new Error('turn/start timed out')
+      return { data: [{ items: [{ text: `ostia bus inbox\n${queued.id}  boss  echoed` }] }] }
+    })
+    mail.attach('codex-pane')
+    await settle()
+    expect(getMail(queued.id)?.state).toBe('queued')
   })
 
   it('gives the message back when the connection cannot be made', async () => {
