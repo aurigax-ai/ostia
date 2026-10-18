@@ -81,6 +81,21 @@ export function RightPanel(): JSX.Element {
     }
   }, [shownExtId, workspaceId, gated])
 
+  const liveWorkspaces = useWorkspacesStore((s) => s.workspaces.map((w) => w.id).join('\n'))
+  useEffect(() => {
+    useSidePanelStore.getState().forgetWorkspaces(new Set(liveWorkspaces.split('\n')))
+  }, [liveWorkspaces])
+
+  useEffect(
+    () =>
+      useSandboxStore.subscribe((s, prev) => {
+        for (const [id, on] of Object.entries(s.enabled)) {
+          if (on && !prev.enabled[id]) useSidePanelStore.getState().unload(id)
+        }
+      }),
+    [],
+  )
+
   useEffect(() => {
     if (list.length === 0) return
     const known = new Set(list.filter(hasPanel).map((ext) => ext.id))
