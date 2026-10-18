@@ -9,6 +9,7 @@ import {
 } from '@/lib/terminal/offscreenStart'
 import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
 import { commitShellTitle } from '@/lib/terminal/paneTitle'
+import { type NeighbourQueue, neighbourWrites } from '@/lib/terminal/neighbourWrites'
 import { createPtyAcker } from '@/lib/terminal/ptyAck'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
@@ -57,13 +58,14 @@ interface PtyIo {
   pending: string[]
   writeOutput: Write
   writeLive: Write
+  neighbour: NeighbourQueue
 }
 
 export function attachPtySession(deps: PtySessionDeps): () => void {
   const { host, term, paneId, workspaceIdRef, syncSizeRef, session, holdInput } = deps
   const flow: PtyFlow = { attached: false, replayed: false, unparsed: 0, querySilencer: null }
   const pending: string[] = []
-  const writeOutput: Write = (data, done) => {
+  const emit: Write = (data, done) => {
     flow.unparsed++
     term.write(data, () => {
       flow.unparsed--
@@ -71,6 +73,16 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     })
   }
   const acker = createPtyAcker((chars) => window.ostia.pty.ack(paneId, chars))
+  const neighbour = neighbourWrites.queue((data, chunks) => {
+    flow.unparsed -= chunks
+    emit(data, () => acker.written(data.length))
+  })
+  const writeOutput: Write = (data, done) => {
+    neighbour.drain()
+    emit(data, done)
+  }
+  const isActive = (): boolean =>
+    useLayoutStore.getState().byWorkspace[workspaceIdRef.current]?.activePaneId === paneId
   const writeLive: Write = (data, done) => {
     writeOutput(data, () => {
       acker.written(data.length)
@@ -81,7 +93,15 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
   const offData = window.ostia.pty.onData(paneId, (d) => {
     markPaneActivity(paneId)
     if (!flow.replayed) pending.push(d)
-    else if (!sizing.hold(d)) writeLive(d)
+    else if (!sizing.hold(d)) {
+      if (isActive()) {
+        neighbourWrites.noteFocusedWrite()
+        writeLive(d)
+      } else {
+        flow.unparsed++
+        neighbour.push(d)
+      }
+    }
   })
   const offExit = window.ostia.pty.onExit(paneId, (_code, closes) => {
     term.writeln('\r\n\x1b[2m[process exited]\x1b[0m')
@@ -90,7 +110,7 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     }
   })
 
-  const io: PtyIo = { flow, pending, writeOutput, writeLive }
+  const io: PtyIo = { flow, pending, writeOutput, writeLive, neighbour }
   const attachAtCurrentSize = createPtyAttach(deps, io)
   const sizing = createPtySizing(deps, io, attachAtCurrentSize)
 
@@ -161,6 +181,7 @@ export function attachPtySession(deps: PtySessionDeps): () => void {
     input.dispose()
     offData()
     offExit()
+    neighbour.dispose()
   }
 }
 
@@ -260,7 +281,7 @@ interface PtySizing {
 
 function createPtySizing(
   { host, term, fit, screenElement, paneId, lastSizeRef, session }: PtySessionDeps,
-  { flow, writeOutput, writeLive }: PtyIo,
+  { flow, writeOutput, writeLive, neighbour }: PtyIo,
   attachAtCurrentSize: (cols: number, rows: number) => void,
 ): PtySizing {
   let holdForRedraw = false
@@ -341,6 +362,7 @@ function createPtySizing(
         const draft = blocks.drafts[paneId]
         if (draft && !blocks.running[paneId] && flow.unparsed > 0 && !parseAwaited) {
           awaitingParse = true
+          neighbour.drain()
           term.write('', () => {
             awaitingParse = false
             if (session.disposed) return
