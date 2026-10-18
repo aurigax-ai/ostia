@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { fstat, read } from 'node:fs'
-import { lstat, mkdir, readdir, rm, unlink } from 'node:fs/promises'
+import { lstat, mkdir, readdir, rmdir, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   type ArchiveReaderContribution,
@@ -134,9 +134,12 @@ function readProblem(raw: Record<string, unknown>): EntryRead {
 }
 
 async function sweep(dir: string): Promise<void> {
-  const names = await readdir(dir).catch(() => [])
+  const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
   await Promise.all(
-    names.map((name) => rm(join(dir, name), { recursive: true, force: true }).catch(() => {})),
+    entries.map((entry) => {
+      const path = join(dir, entry.name)
+      return (entry.isDirectory() ? rmdir(path) : unlink(path)).catch(() => {})
+    }),
   )
 }
 

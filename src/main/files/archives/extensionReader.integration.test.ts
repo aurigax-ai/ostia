@@ -103,18 +103,22 @@ describe('archives read by an extension (real extension process, real socket)', 
     await asked()
   })
 
-  it('clears what an earlier run left in the reads folder without following links', async () => {
+  it('clears files and links an earlier run left in the reads folder, never what is inside a folder', async () => {
     const reads = join(dataDir, 'fakearc', 'archive-reads')
     const outside = join(dir, 'outside')
     mkdirSync(join(outside, 'kept'), { recursive: true })
     writeFileSync(join(outside, 'kept', 'file'), 'keep')
-    mkdirSync(join(reads, 'leftover-dir'), { recursive: true })
+    mkdirSync(join(reads, 'empty-dir'), { recursive: true })
+    mkdirSync(join(reads, 'full-dir'))
+    writeFileSync(join(reads, 'full-dir', 'inner'), 'not swept')
     writeFileSync(join(reads, 'orphan'), 'old read')
     symlinkSync(join(outside, 'kept'), join(reads, 'linked'))
     const root = archiveRoot(put('tree.fake'))
     expect(await archives.readText(`${root}/top.csv`, 1024)).toMatchObject({ ok: true })
-    expect(readdirSync(reads)).toEqual([])
+    expect(readdirSync(reads)).toEqual(['full-dir'])
+    expect(readFileSync(join(reads, 'full-dir', 'inner'), 'utf8')).toBe('not swept')
     expect(readFileSync(join(outside, 'kept', 'file'), 'utf8')).toBe('keep')
+    rmSync(join(reads, 'full-dir'), { recursive: true })
   })
 
   it('lists and opens entries through the reader, and the read file is gone afterwards', async () => {
