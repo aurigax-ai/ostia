@@ -109,12 +109,15 @@ export interface SnapshotGroup {
   collapsed?: boolean
 }
 
+export type SnapshotLeftPanel = 'files'
+
 export interface AppSnapshot {
   v: 1
   savedAt: string
   activeWorkspaceId: string | null
   workspaces: SnapshotWorkspace[]
   groups: SnapshotGroup[]
+  leftPanel?: SnapshotLeftPanel
   bounds?: WindowBounds
   detachedBounds?: Record<string, WindowBounds>
   windows?: SnapshotWindow[]
@@ -131,6 +134,7 @@ export interface SnapshotWindow {
   id: string
   bounds: WindowBounds
   activeWorkspaceId: string | null
+  leftPanel?: SnapshotLeftPanel
   workspaces: SnapshotWorkspace[]
 }
 
