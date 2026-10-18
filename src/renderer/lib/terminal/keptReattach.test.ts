@@ -2,7 +2,11 @@ import type { PaneNode } from '@/lib/layout/types'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { isKeptShell, startKeptReattach } from './keptReattach'
-import { registerOffscreenStarter, resetOffscreenStartForTests } from './offscreenStart'
+import {
+  registerOffscreenStarter,
+  resetOffscreenStartForTests,
+  startOffscreen,
+} from './offscreenStart'
 
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
 
@@ -151,5 +155,84 @@ describe('startKeptReattach', () => {
     startKeptReattach()
     await settle()
     expect(behind).toHaveBeenCalledWith({})
+  })
+
+  it('reattaches a kept shell at its tmux size when its terminal registered before the kept list came back', async () => {
+    seed()
+    waiting(['kept-behind'])
+    const behind = vi.fn()
+    registerOffscreenStarter('kept-behind', behind)
+    const shown = vi.fn()
+    registerOffscreenStarter('shown', shown)
+    startKeptReattach()
+    startOffscreen('kept-behind')
+    startOffscreen('shown')
+    await settle()
+    expect(behind.mock.calls[0]).toEqual([{ keepSize: true }])
+    expect(behind).toHaveBeenCalledTimes(1)
+    expect(shown).toHaveBeenCalledTimes(1)
+    expect(shown).toHaveBeenCalledWith({})
+  })
+
+  it('keeps the tmux size when a plain start for a kept shell comes after the kept list', async () => {
+    seed()
+    waiting(['kept-behind'])
+    startKeptReattach()
+    await settle()
+    startOffscreen('kept-behind')
+    startOffscreen('shown')
+    const behind = vi.fn()
+    registerOffscreenStarter('kept-behind', behind)
+    const shown = vi.fn()
+    registerOffscreenStarter('shown', shown)
+    expect(behind).toHaveBeenCalledTimes(1)
+    expect(behind).toHaveBeenCalledWith({ keepSize: true })
+    expect(shown).toHaveBeenCalledTimes(1)
+    expect(shown).toHaveBeenCalledWith({})
+  })
+
+  it('starts other terminals as usual when the kept list fails', async () => {
+    seed()
+    vi.mocked(window.ostia.pty.keptWaiting).mockRejectedValueOnce(new Error('gone'))
+    const shown = vi.fn()
+    registerOffscreenStarter('shown', shown)
+    startKeptReattach()
+    startOffscreen('shown')
+    expect(shown).not.toHaveBeenCalled()
+    await settle()
+    expect(shown).toHaveBeenCalledTimes(1)
+    expect(shown).toHaveBeenCalledWith({})
+    startOffscreen('kept-behind')
+    const behind = vi.fn()
+    registerOffscreenStarter('kept-behind', behind)
+    expect(behind).toHaveBeenCalledWith({})
+  })
+
+  it('starts a kept shell at its tmux size when its terminal registers while the kept list is pending', async () => {
+    seed()
+    waiting(['kept-behind'])
+    startKeptReattach()
+    startOffscreen('kept-behind')
+    const behind = vi.fn()
+    registerOffscreenStarter('kept-behind', behind)
+    expect(behind).not.toHaveBeenCalled()
+    await settle()
+    expect(behind).toHaveBeenCalledTimes(1)
+    expect(behind).toHaveBeenCalledWith({ keepSize: true })
+  })
+
+  it('does not start a terminal that went away while the kept list was pending', async () => {
+    seed()
+    waiting(['kept-behind'])
+    startKeptReattach()
+    startOffscreen('kept-behind')
+    const gone = vi.fn()
+    registerOffscreenStarter('kept-behind', gone)()
+    await settle()
+    expect(gone).not.toHaveBeenCalled()
+    const behind = vi.fn()
+    registerOffscreenStarter('kept-behind', behind)
+    expect(behind).toHaveBeenCalledTimes(1)
+    expect(behind).toHaveBeenCalledWith({ keepSize: true })
   })
 })
