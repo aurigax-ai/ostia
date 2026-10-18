@@ -1,6 +1,7 @@
 import DOMPurify from 'dompurify'
 
 const DOCUMENT_TAGS = [
+  'section',
   'p',
   'h1',
   'h2',

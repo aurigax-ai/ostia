@@ -17,6 +17,8 @@ export const OFFICE_LIMITS = {
   documentNodes: 200_000,
   presentationNodes: 1_000_000,
   xmlDepth: 256,
+  slides: 2_000,
+  outlineChars: 2_000_000,
   parseMs: 20_000,
 } as const
 
@@ -36,6 +38,10 @@ export class GuardStop extends Error {
   constructor(readonly problem: OfficeProblem) {
     super(problem)
   }
+}
+
+export function problemOf(error: unknown): OfficeProblem {
+  return error instanceof GuardStop ? error.problem : 'failed'
 }
 
 export function officeProblemText(t: Translate, problem: OfficeProblem, locale: string): string {

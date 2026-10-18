@@ -1,3 +1,4 @@
+import { translatorFor } from '@aurigax-ai/ostia-extension-sdk/contract/extensionLocales'
 import { strToU8, unzipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
 import {
@@ -19,9 +20,13 @@ import {
   workbook,
 } from '../../../test/fixtures/office/workbooks'
 import { readDocument } from './docModel'
+import en from './locales/en.json'
 import { OFFICE_LIMITS } from './officeLimits'
 import { officePackage, officeParts } from './officePackage'
+import { outlineWords } from './outlineHtml'
 import { readWorkbook } from './sheetModel'
+
+const WORDS = outlineWords(translatorFor({ en: en.messages }, 'en'))
 
 const SMALL = { ...OFFICE_LIMITS, cells: 100_000 }
 const BIG = 'A1:J30000'
@@ -109,11 +114,11 @@ describe('officePackage', () => {
 
   it('refuses a document with more elements than mammoth can hold', async () => {
     const bytes = longDocument(4_000)
-    expect(await readDocument(bytes, { ...OFFICE_LIMITS, documentNodes: 10_000 })).toEqual({
+    expect(await readDocument(bytes, { ...OFFICE_LIMITS, documentNodes: 10_000 }, WORDS)).toEqual({
       ok: false,
       problem: 'nodes-limit',
     })
-    const read = await readDocument(docx({ body: paragraph('kept') }), OFFICE_LIMITS)
+    const read = await readDocument(docx({ body: paragraph('kept') }), OFFICE_LIMITS, WORDS)
     expect(read.ok && read.html).toContain('kept')
   })
 

@@ -23,6 +23,16 @@
     "gone": "This file is no longer there.",
     "imagesDropped": "Images left out: {count} (not embedded, an unsupported kind, or past the 20 MB the viewer shows).",
     "documentEmpty": "This document has no text to show.",
-    "unreadable": "Could not read this file."
+    "unreadable": "Could not read this file.",
+    "presentationEmpty": "This presentation has no slides to show.",
+    "slidesCut": "Showing the first {slides} slides.",
+    "outlineCut": "This file holds more text than the viewer shows, so the rest is left out.",
+    "slideTitle": "Slide {number}",
+    "slideHidden": "{title} (hidden)",
+    "slideNotes": "Notes",
+    "outlineImage": "[Image]",
+    "outlineImageAlt": "[Image: {alt}]",
+    "outlineChart": "[Chart]",
+    "outlineObject": "[Embedded object]"
   }
 }

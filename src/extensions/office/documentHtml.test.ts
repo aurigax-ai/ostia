@@ -23,6 +23,12 @@ describe('sanitizeDocument', () => {
     )
   })
 
+  it('keeps the slide sections of a presentation outline', () => {
+    const outline =
+      '<section><h2>Plan</h2><ul><li>a</li></ul><blockquote><h3>Notes</h3><p>n</p></blockquote></section>'
+    expect(clean(outline)).toBe(outline)
+  })
+
   it('removes scripts, handlers, styles, frames and forms', () => {
     const out = clean(
       '<p onclick="x()" style="color:red" class="c">p</p><script>alert(1)</script><iframe src="x"></iframe><form><input></form><svg><circle/></svg><math></math>',
