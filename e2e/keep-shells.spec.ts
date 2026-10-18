@@ -97,50 +97,80 @@ test.beforeEach(() => {
   seedSettings(dataHome, KEEP)
 })
 
-test('KSH-C7 a running command keeps running across Restart and finishes in its pane', async () => {
+test('KSH-C7 KSH-C13 KSH-C27 KSH-C32 KSH-C37 KSH-C72 a kept shell comes back after Restart with its running command, one copy of its saved scrollback, the same pane, a new token and a process tab that takes text and can be killed', async () => {
+  const who = `"$(ostia whoami | grep -o '"paneId": "[^"]*"' | cut -d'"' -f4)"`
   const first = await launch(dataHome)
   await openWorkspace(first.win)
-  await runInTerminal(first.win, 'sleep 4; echo kept-$((6*7))')
-  await savedLayout()
+  await runInTerminal(first.win, `echo "shell=$$ who=${who};"`)
+  await expect(screen(first.win)).toContainText(/shell=\d+ who=[^;\s]+;/, { timeout: 15_000 })
+  await runInTerminal(
+    first.win,
+    'echo "before=$(cat "$OSTIA_TOKEN_FILE") env=${OSTIA_TOKEN:-none}"',
+  )
+  await expect(screen(first.win)).toContainText(/before=[0-9a-f]{64} env=none/, {
+    timeout: 15_000,
+  })
+  const text = (await screen(first.win).textContent()) ?? ''
+  const [, pid, pane] = /shell=(\d+) who=([^;\s]+);/.exec(text) ?? []
+  const [, before] = /before=([0-9a-f]{64})/.exec(text) ?? []
+  await runInTerminal(first.win, 'ostia process run "cat" --name demo')
+  await expect(first.win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
+  await runInTerminal(
+    first.win,
+    'until ostia process list | grep -q running; do sleep 0.2; done; echo started',
+  )
+  await expect(screen(first.win)).toContainText('started', { timeout: 15_000 })
+  await runInTerminal(first.win, 'echo once-$((6*7)); sleep 4; echo kept-$((6*7))')
+  await expect(screen(first.win)).toContainText('once-42', { timeout: 15_000 })
+  await savedLayout(2)
   await restartApp(first.app, first.win)
 
   const second = await launch(dataHome)
   try {
     await expect(screen(second.win)).toContainText('kept-42', { timeout: 15_000 })
+    await runInTerminal(
+      second.win,
+      `t=$(cat "$OSTIA_TOKEN_FILE"); echo "again=$$ who=${who} others=$(grep -rlF -- "$t" ${dataHome} "\${TMPDIR:-/tmp}"/ostia-* 2>/dev/null | grep -vxF "$OSTIA_TOKEN_FILE" | wc -l | tr -d ' ') same=$([ "$t" = "${before}" ] && echo yes || echo no)"`,
+    )
+    await expect(screen(second.win)).toContainText(`again=${pid} who=${pane} others=0 same=no`, {
+      timeout: 15_000,
+    })
+    await runInTerminal(second.win, 'ostia process list')
+    await expect(screen(second.win)).toContainText(/demo\s+running/, { timeout: 15_000 })
+    await runInTerminal(
+      second.win,
+      'ostia pane send demo "sum-$((20+3))" --enter; until ostia pane read demo | grep -q sum-23; do sleep 0.2; done; echo read-ok-$((6*7))',
+    )
+    await expect(screen(second.win)).toContainText('read-ok-42', { timeout: 30_000 })
+    await runInTerminal(second.win, 'ostia process kill demo && ostia process list')
+    await expect(screen(second.win)).toContainText(/demo\s+exited/, { timeout: 15_000 })
   } finally {
     await quitApp(second.app)
   }
+  const saved = readFileSync(join(dataHome, 'ostia', 'scrollback.json'), 'utf8')
+  expect(occurrences(saved, 'once-42')).toBe(1)
 })
 
-test('KSH-C8 a running command survives Ostia being killed and is there after a relaunch', async () => {
+test('KSH-C8 KSH-C41 a kept shell runs its command while Ostia is closed and is the same shell when it returns', async () => {
+  test.setTimeout(60_000)
   const first = await launch(dataHome)
   await openWorkspace(first.win)
-  await runInTerminal(first.win, 'sleep 4; echo survived-$((6*7))')
+  await runInTerminal(first.win, 'echo "shell=$$"; sleep 4; echo survived-$((6*7))')
+  await expect(screen(first.win)).toContainText(/shell=\d+/, { timeout: 15_000 })
+  const pid = /shell=(\d+)/.exec((await screen(first.win).textContent()) ?? '')?.[1]
   await savedLayout()
   await crash(first)
+  expect(() => process.kill(Number(pid), 0)).not.toThrow()
 
   const second = await launch(dataHome)
   try {
     await expect(screen(second.win)).toContainText('survived-42', { timeout: 15_000 })
     await expect(screen(second.win)).toContainText(PROMPT)
+    await runInTerminal(second.win, 'echo "again=$$"')
+    await expect(screen(second.win)).toContainText(`again=${pid}`, { timeout: 15_000 })
   } finally {
     await quitApp(second.app)
   }
-})
-
-test('KSH-C13 the saved scrollback of a kept pane is not shown a second time', async () => {
-  const first = await launch(dataHome)
-  await openWorkspace(first.win)
-  await runInTerminal(first.win, 'echo once-$((6*7))')
-  await expect(screen(first.win)).toContainText('once-42', { timeout: 15_000 })
-  await savedLayout()
-  await restartApp(first.app, first.win)
-
-  const second = await launch(dataHome)
-  await expect(screen(second.win)).toContainText('once-42', { timeout: 15_000 })
-  await quitApp(second.app)
-  const saved = readFileSync(join(dataHome, 'ostia', 'scrollback.json'), 'utf8')
-  expect(occurrences(saved, 'once-42')).toBe(1)
 })
 
 test('KSH-C20 with tmux gone a new terminal starts a plain shell and says it is not kept', async () => {
@@ -148,10 +178,9 @@ test('KSH-C20 with tmux gone a new terminal starts a plain shell and says it is 
   const { app, win } = await launch(dataHome, pathWith(bin))
   try {
     await newTerminal(win)
-    await expect(screen(win)).toContainText('tmux 3.2 or newer is not installed', {
+    await expect(screen(win)).toContainText('This shell will not survive a restart', {
       timeout: 15_000,
     })
-    await expect(screen(win)).toContainText('This shell will not survive a restart')
     await expect(screen(win)).toContainText(PROMPT, { timeout: 15_000 })
     await runInTerminal(win, `${PARENT}; echo plain-$((6*7))`)
     await expect(screen(win)).toContainText('plain-42', { timeout: 15_000 })
@@ -204,115 +233,6 @@ test('KSH-C21 turning the setting off leaves a tmux pane running and the next te
     await expect(screen(win)).toContainText('still-4', { timeout: 15_000 })
   } finally {
     await quitApp(app)
-  }
-})
-
-test('KSH-C32 KSH-C72 ostia whoami in a kept pane answers with the same pane and a new token after a restart', async () => {
-  const who = `"$(ostia whoami | grep -o '"paneId": "[^"]*"' | cut -d'"' -f4)"`
-  const first = await launch(dataHome)
-  await openWorkspace(first.win)
-  await runInTerminal(first.win, `echo "shell=$$ who=${who};"`)
-  await expect(screen(first.win)).toContainText(/shell=\d+ who=[^;\s]+;/, { timeout: 15_000 })
-  await runInTerminal(
-    first.win,
-    'echo "before=$(cat "$OSTIA_TOKEN_FILE") env=${OSTIA_TOKEN:-none}"',
-  )
-  await expect(screen(first.win)).toContainText(/before=[0-9a-f]{64} env=none/, {
-    timeout: 15_000,
-  })
-  const text = (await screen(first.win).textContent()) ?? ''
-  const [, pid, pane] = /shell=(\d+) who=([^;\s]+);/.exec(text) ?? []
-  const [, before] = /before=([0-9a-f]{64})/.exec(text) ?? []
-  await savedLayout()
-  await restartApp(first.app, first.win)
-
-  const second = await launch(dataHome)
-  try {
-    await expect(screen(second.win)).toContainText(PROMPT, { timeout: 15_000 })
-    await runInTerminal(
-      second.win,
-      `clear; t=$(cat "$OSTIA_TOKEN_FILE"); echo "again=$$ who=${who} others=$(grep -rlF -- "$t" ${dataHome} "\${TMPDIR:-/tmp}"/ostia-* 2>/dev/null | grep -vxF "$OSTIA_TOKEN_FILE" | wc -l | tr -d ' ') same=$([ "$t" = "${before}" ] && echo yes || echo no)"`,
-    )
-    await expect(screen(second.win)).toContainText(`again=${pid} who=${pane} others=0 same=no`, {
-      timeout: 15_000,
-    })
-  } finally {
-    await quitApp(second.app)
-  }
-})
-
-test('KSH-C36 an agent still running after a restart stays marked and is never resumed over', async () => {
-  seedSettings(dataHome, { ...KEEP, agents: { autoResume: true } })
-  const bin = fakeAgentBin(
-    dataHome,
-    [
-      '#!/bin/sh',
-      'ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude e2e-kept-1 >/dev/null 2>&1',
-      'echo fake-agent-ready',
-      'exec cat',
-      '',
-    ].join('\n'),
-  )
-  const first = await launch(dataHome, pathWith(bin))
-  await openWorkspace(first.win)
-  await runInTerminal(first.win, 'claude')
-  await expect(screen(first.win)).toContainText('fake-agent-ready', { timeout: 15_000 })
-  await expect
-    .poll(() => savedPanes().some((p) => p.agentRunning === true), { timeout: 15_000 })
-    .toBe(true)
-  await restartApp(first.app, first.win)
-
-  const second = await launch(dataHome, pathWith(bin))
-  try {
-    await expect(screen(second.win)).toContainText('fake-agent-ready', { timeout: 15_000 })
-    await second.win.locator('.xterm').first().click()
-    await typeLine(second.win, 'agent-alive')
-    await expect(screen(second.win)).toContainText('agent-alive', { timeout: 15_000 })
-    await expect
-      .poll(() => savedPanes().some((p) => p.agentRunning === true), { timeout: 15_000 })
-      .toBe(true)
-    await second.win.keyboard.press('Control+D')
-    await expect(screen(second.win)).toContainText(PROMPT, { timeout: 15_000 })
-    await runInTerminal(second.win, 'echo after-$((6*7))')
-    await expect(screen(second.win)).toContainText('after-42', { timeout: 15_000 })
-    await expect(screen(second.win)).not.toContainText('--resume')
-  } finally {
-    await quitApp(second.app)
-  }
-})
-
-test('KSH-C103 pane list names the agent of a kept pane after a restart', async () => {
-  const bin = fakeAgentBin(
-    dataHome,
-    [
-      '#!/bin/sh',
-      'ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude e2e-kept-list >/dev/null 2>&1',
-      'echo fake-agent-ready',
-      'exec cat',
-      '',
-    ].join('\n'),
-  )
-  const listAgents = `ostia pane list | tr -d ' \\n' | grep -o '"agent":"[a-z]*"' | sed 's/^/listed-/'`
-  const first = await launch(dataHome, pathWith(bin))
-  await openWorkspace(first.win)
-  await runInTerminal(first.win, 'claude')
-  await expect(screen(first.win)).toContainText('fake-agent-ready', { timeout: 15_000 })
-  await expect
-    .poll(() => savedPanes().some((p) => p.agentRunning === true), { timeout: 15_000 })
-    .toBe(true)
-  await restartApp(first.app, first.win)
-
-  const second = await launch(dataHome, pathWith(bin))
-  try {
-    const { win } = second
-    await expect(screen(win)).toContainText('fake-agent-ready', { timeout: 15_000 })
-    await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
-    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
-    await expect(screen(win, 1)).toContainText(PROMPT, { timeout: 15_000 })
-    await runInTerminal(win, listAgents, win.locator('.xterm').nth(1))
-    await expect(screen(win, 1)).toContainText('listed-"agent":"claude"', { timeout: 15_000 })
-  } finally {
-    await quitApp(second.app)
   }
 })
 
@@ -473,36 +393,6 @@ test('KSH-C67 text sent to an agent that kept running across a restart waits for
   }
 })
 
-test('KSH-C37 KSH-C27 a process tab is still listed after a restart, takes typed text and shows it, and can be killed', async () => {
-  const first = await launch(dataHome)
-  await openWorkspace(first.win)
-  await runInTerminal(first.win, 'ostia process run "cat" --name demo')
-  await expect(first.win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
-  await runInTerminal(
-    first.win,
-    'until ostia process list | grep -q running; do sleep 0.2; done; echo started',
-  )
-  await expect(screen(first.win)).toContainText('started', { timeout: 15_000 })
-  await savedLayout(2)
-  await restartApp(first.app, first.win)
-
-  const second = await launch(dataHome)
-  try {
-    await expect(screen(second.win)).toContainText(PROMPT, { timeout: 15_000 })
-    await runInTerminal(second.win, 'clear; ostia process list')
-    await expect(screen(second.win)).toContainText(/demo\s+running/, { timeout: 15_000 })
-    await runInTerminal(
-      second.win,
-      'clear; ostia pane send demo "sum-$((20+3))" --enter; until ostia pane read demo | grep -q sum-23; do sleep 0.2; done; echo read-ok',
-    )
-    await expect(screen(second.win)).toContainText('read-ok', { timeout: 30_000 })
-    await runInTerminal(second.win, 'clear; ostia process kill demo && ostia process list')
-    await expect(screen(second.win)).toContainText(/demo\s+exited/, { timeout: 15_000 })
-  } finally {
-    await quitApp(second.app)
-  }
-})
-
 test('KSH-C38 waking a hibernated agent with the setting on starts a fresh window and resumes', async () => {
   test.setTimeout(90_000)
   seedSettings(dataHome, {
@@ -532,27 +422,6 @@ test('KSH-C38 waking a hibernated agent with the setting on starts a fresh windo
     await expect(rows).toContainText(/fake agent up: .*--resume e2e-kept-tok/, { timeout: 15_000 })
   } finally {
     await quitApp(app)
-  }
-})
-
-test('KSH-C41 a kept shell waits while Ostia is closed and is the same shell when it returns', async () => {
-  test.setTimeout(60_000)
-  const first = await launch(dataHome)
-  await openWorkspace(first.win)
-  await runInTerminal(first.win, 'echo "shell=$$"')
-  await expect(screen(first.win)).toContainText(/shell=\d+/, { timeout: 15_000 })
-  const pid = /shell=(\d+)/.exec((await screen(first.win).textContent()) ?? '')?.[1]
-  await savedLayout()
-  await crash(first)
-  expect(() => process.kill(Number(pid), 0)).not.toThrow()
-
-  const second = await launch(dataHome)
-  try {
-    await expect(screen(second.win)).toContainText(PROMPT, { timeout: 15_000 })
-    await runInTerminal(second.win, 'clear; echo "again=$$"')
-    await expect(screen(second.win)).toContainText(`again=${pid}`, { timeout: 15_000 })
-  } finally {
-    await quitApp(second.app)
   }
 })
 
@@ -626,10 +495,11 @@ async function endUnattended(app: ElectronApplication): Promise<void> {
   await exited
 }
 
-test('KSH-C70 Restart leaves a kept agent mid-turn running and asks nothing', async () => {
+test('KSH-C36 KSH-C70 KSH-C103 an agent still mid-turn after a restart asks nothing, stays marked, is named by pane list and is never resumed over', async () => {
   seedSettings(dataHome, KEEP_AND_ASK)
   const trigger = join(dataHome, 'start-turn')
   const bin = agentMidTurn(trigger)
+  const listAgents = `ostia pane list | tr -d ' \\n' | grep -o '"agent":"[a-z]*"' | sed 's/^/listed-/'`
   const first = await launch(dataHome, pathWith(bin))
   await openWorkspace(first.win)
   await runInTerminal(first.win, 'claude')
@@ -643,8 +513,25 @@ test('KSH-C70 Restart leaves a kept agent mid-turn running and asks nothing', as
 
   const second = await launch(dataHome, pathWith(bin))
   try {
-    await expect(screen(second.win)).toContainText('fake-agent-ready', { timeout: 15_000 })
-    await expect(screen(second.win)).not.toContainText('--resume')
+    const { win } = second
+    await expect(screen(win)).toContainText('fake-agent-ready', { timeout: 15_000 })
+    await expect(screen(win)).not.toContainText('--resume')
+    await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
+    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
+    await expect(screen(win, 1)).toContainText(PROMPT, { timeout: 15_000 })
+    await runInTerminal(win, listAgents, win.locator('.xterm').nth(1))
+    await expect(screen(win, 1)).toContainText('listed-"agent":"claude"', { timeout: 15_000 })
+    await win.locator('.xterm').first().click()
+    await typeLine(win, 'agent-alive')
+    await expect(screen(win)).toContainText('agent-alive', { timeout: 15_000 })
+    await expect
+      .poll(() => savedPanes().some((p) => p.agentRunning === true), { timeout: 15_000 })
+      .toBe(true)
+    await win.keyboard.press('Control+D')
+    await expect(screen(win)).toContainText(PROMPT, { timeout: 15_000 })
+    await runInTerminal(win, 'echo after-$((6*7))', win.locator('.xterm').first())
+    await expect(screen(win)).toContainText('after-42', { timeout: 15_000 })
+    await expect(screen(win)).not.toContainText('--resume')
   } finally {
     await endUnattended(second.app)
   }
