@@ -1,6 +1,6 @@
 import { commands } from '@/commands/registry'
+import { EmptyState } from '@/components/common/EmptyState'
 import { Button } from '@/components/ui/button'
-import { Empty, EmptyDescription } from '@/components/ui/empty'
 import { fmt, useDict } from '@/lib/app/useDict'
 import { useGuestReady, useSurfaceFocus } from '@/lib/panes/paneFocus'
 import { useInjectedCss, usePanelThemeCss } from '@/lib/theme/panelThemeInjection'
@@ -130,9 +130,14 @@ function PanelMessage({
   children,
 }: { text: string; children?: React.ReactNode }): JSX.Element {
   return (
-    <Empty className="h-full w-full bg-surface-1">
-      <EmptyDescription className="text-ui-sm">{text}</EmptyDescription>
+    <EmptyState
+      variant="surface"
+      size="sm"
+      className="h-full w-full bg-surface-1"
+      desc={text}
+      descClassName="text-ui-sm"
+    >
       {children}
-    </Empty>
+    </EmptyState>
   )
 }

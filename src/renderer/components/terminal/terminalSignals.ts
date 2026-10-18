@@ -1,4 +1,5 @@
 import { terminalNotification } from '@/lib/agents/paneAgent'
+import { reducedMotionNow } from '@/lib/app/motion'
 import { tail } from '@/lib/assist/askContext'
 import {
   KittyNotificationAssembler,
@@ -9,6 +10,7 @@ import {
   parseOsc777,
 } from '@/lib/attention/attention'
 import { bellActions, createBellThrottle } from '@/lib/attention/bell'
+import { createBellFlash } from '@/lib/attention/bellFlash'
 import { isPaneViewed, isPaneVisible, signalPane } from '@/lib/attention/workspaceActivity'
 import { registerOsc52 } from '@/lib/terminal/osc52'
 import type { OstiaTerminal } from '@/lib/terminal/ostiaTerminal'
@@ -93,10 +95,20 @@ export function attachTerminalSignals({
     if (title) titles.push(title)
   })
   const allowBellSound = createBellThrottle()
+  const bellFlash = createBellFlash(host.closest<HTMLElement>('.terminal-stack') ?? host)
   const bell = term.onBell(() => {
     if (session.replaying) return
     const now = Date.now()
-    const act = bellActions(useSettingsStore.getState().notifications.bell, isPaneViewed(paneId))
+    const notifications = useSettingsStore.getState().notifications
+    bellFlash.flash({
+      enabled: notifications.visualBell && isPaneVisible(paneId),
+      durationMs: notifications.visualBellMs,
+      easing: notifications.visualBellEasing,
+      color: term.options.theme?.foreground,
+      reducedMotion: reducedMotionNow(),
+      now,
+    })
+    const act = bellActions(notifications.bell, isPaneViewed(paneId))
     if (act.sound && allowBellSound(now)) window.ostia.window.beep()
     if (act.attention) useAttentionStore.getState().dispatch(paneId, { type: 'bell', at: now })
   })
@@ -108,6 +120,7 @@ export function attachTerminalSignals({
     oscClipboard.dispose()
     removePrimarySelection()
     bell.dispose()
+    bellFlash.dispose()
     copySelection.dispose()
     useLiveSelectionStore.getState().clear(paneId)
     titleChange.dispose()

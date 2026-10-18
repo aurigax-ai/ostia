@@ -147,6 +147,7 @@ export class TmuxServer {
   private readonly parser: ControlModeParser
   private closed = false
   private serverPid = 0
+  started = false
 
   private constructor(
     private readonly socket: string,
@@ -168,6 +169,7 @@ export class TmuxServer {
     writeFileSync(conf, tmuxConf(options.defaultTerminal), { mode: 0o600 })
     const base = ['-u', '-S', socket, '-f', conf]
     const env = serverEnv(options.env)
+    let fresh = false
     if (!(await run(options.tmux, [...base, 'has-session', '-t', TMUX_SESSION], env)).ok) {
       const started = await run(
         options.tmux,
@@ -190,6 +192,7 @@ export class TmuxServer {
         const reason = started.stderr ? `: ${started.stderr}` : ''
         throw new Error(`tmux could not start its server${reason}`)
       }
+      fresh = true
     }
     const devNull = openSync('/dev/null', 'r+')
     const client = spawn(options.tmux, [...base, '-C', 'attach-session', '-t', TMUX_SESSION], {
@@ -198,6 +201,7 @@ export class TmuxServer {
     }) as ChildProcessWithoutNullStreams
     closeSync(devNull)
     const server = new TmuxServer(socket, client, onGone)
+    server.started = fresh
     await server.command(
       `refresh-client -B ${tmuxQuote(`${DEAD_SUBSCRIPTION}:%*:#{pane_dead}:#{pane_dead_status}:#{pane_dead_signal}`)}`,
     )

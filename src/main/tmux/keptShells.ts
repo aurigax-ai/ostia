@@ -12,7 +12,15 @@ import {
   readSavedAttention,
   writeSavedAttention,
 } from './attentionFile'
-import type { NewWindowSpec } from './tmuxCommand'
+import {
+  CURRENT_OWNER,
+  type KeptOwner,
+  keptOwnerFile,
+  readKeptOwner,
+  sameOwner,
+  writeKeptOwner,
+} from './keptOwner'
+import { type NewWindowSpec, tmuxQuote } from './tmuxCommand'
 import type { TmuxPane } from './tmuxPane'
 import {
   type KeptWindow,
@@ -202,6 +210,7 @@ export class KeptShells {
   private readonly waiting = new Map<string, Waiting<KeptMeta>>()
   private readonly hosts = new Map<string, Waiting<KeptHostMeta>>()
   private readonly lostSandbox = new Set<string>()
+  private previousOwner: KeptOwner | null | undefined
   ready: Promise<void> = Promise.resolve()
 
   constructor(private readonly deps: KeptShellsDeps) {}
@@ -255,6 +264,20 @@ export class KeptShells {
 
   keptHostWorkspaces(): string[] {
     return [...this.hosts.keys()]
+  }
+
+  reattachedFromOtherOwner(): boolean {
+    return this.previousOwner !== undefined && !sameOwner(this.previousOwner, CURRENT_OWNER)
+  }
+
+  async runShell(script: string): Promise<boolean> {
+    if (!this.server?.alive) return false
+    try {
+      await this.server.command(`run-shell -b ${tmuxQuote(script.replaceAll('#', '##'))}`)
+      return true
+    } catch {
+      return false
+    }
   }
 
   takeSandboxLost(paneId: string): boolean {
@@ -332,6 +355,7 @@ export class KeptShells {
       this.sweepTokens()
       return
     }
+    this.previousOwner = readKeptOwner(keptOwnerFile(this.deps.dir, this.deps.name))
     const server = await this.connect()
     if (!keep) {
       for (const window of await server.windows()) {
@@ -395,6 +419,12 @@ export class KeptShells {
     )
   }
 
+  private recordOwner(): void {
+    try {
+      writeKeptOwner(keptOwnerFile(this.deps.dir, this.deps.name), CURRENT_OWNER)
+    } catch {}
+  }
+
   private tokensDir(): string {
     return join(this.deps.dir, TOKENS_DIR, this.deps.name)
   }
@@ -450,6 +480,7 @@ export class KeptShells {
       .then((connected) => {
         server = connected
         this.server = connected
+        if (connected.started) this.recordOwner()
         return connected
       })
       .finally(() => {

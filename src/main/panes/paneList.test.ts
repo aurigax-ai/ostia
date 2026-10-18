@@ -194,6 +194,44 @@ describe('paneList.listPanes', () => {
     expect(panes[1]).not.toHaveProperty('hibernated')
   })
 
+  it('passes awaitingActivation through and reports startError only for a pane without a pid', async () => {
+    const waiting = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-waiting' })
+    const failed = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-failed' })
+    const live = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-live' })
+    const execCommand = vi.fn().mockResolvedValue(
+      ok([
+        {
+          paneId: 'p-waiting',
+          workspaceId: 's1',
+          kind: 'terminal',
+          title: 'claude',
+          awaitingActivation: true,
+        },
+        { paneId: 'p-failed', workspaceId: 's1', kind: 'terminal', title: 'zsh' },
+        { paneId: 'p-live', workspaceId: 's1', kind: 'terminal', title: 'zsh' },
+      ]),
+    )
+
+    const panes = await listPanes({
+      execCommand,
+      getTerminalState: vi.fn(),
+      ptyPid: (paneId) => (paneId === 'p-live' ? 42 : undefined),
+      windowIds: ONE_WINDOW,
+      waking: () => false,
+      startError: () => 'spawn failed',
+    })
+
+    expect(panes[0]).toMatchObject({
+      paneId: waiting.externalId,
+      awaitingActivation: true,
+      startError: 'spawn failed',
+    })
+    expect(panes[1]).toMatchObject({ paneId: failed.externalId, startError: 'spawn failed' })
+    expect(panes[1]).not.toHaveProperty('awaitingActivation')
+    expect(panes[2]).toMatchObject({ paneId: live.externalId, pid: 42 })
+    expect(panes[2]).not.toHaveProperty('startError')
+  })
+
   it('marks a woken pane waking: true until main sees its agent start', async () => {
     const woken = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-woken' })
     const other = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-other' })

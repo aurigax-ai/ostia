@@ -251,6 +251,8 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       admit: vi.fn().mockResolvedValue(null),
       openDefault: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       showInFolder: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
+      fileUrl: vi.fn().mockResolvedValue(null),
+      openFileUrl: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
     },
     clipboard: {
       edit: vi.fn().mockResolvedValue(undefined),

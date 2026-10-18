@@ -1,21 +1,12 @@
-import { Button } from '@/components/ui/button'
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from '@/components/ui/empty'
-import { Kbd } from '@/components/ui/kbd'
+import { ChordButton } from '@/components/common/ChordButton'
+import { EmptyState } from '@/components/common/EmptyState'
 import { useDict } from '@/lib/app/useDict'
 import { openBrowserAs } from '@/lib/browser/browserProfile'
-import { useChordLabel } from '@/lib/keyboard/chords'
 import { panelFractions } from '@/lib/layout/panelSize'
 import { findPane, slotKey } from '@/lib/layout/tree'
 import type { LayoutNode } from '@/lib/layout/types'
 import { focusActivePaneWhenReady } from '@/lib/panes/paneFocus'
 import { rememberPanelFractions } from '@/lib/panes/panelSizes'
-import { isMac } from '@/platform'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { GlobeIcon, TerminalWindowIcon } from '@phosphor-icons/react'
 import { Allotment } from 'allotment'
@@ -114,40 +105,34 @@ function NodeView({
 function EmptyWorkspace({ workspaceId }: { workspaceId: string }): JSX.Element {
   const d = useDict()
   const ensure = useLayoutStore((s) => s.ensure)
-  const newTerminalKeys = useChordLabel('tab.new', isMac)
-  const newBrowserKeys = useChordLabel('tab.newBrowser', isMac)
   return (
-    <Empty className="workspace-empty h-full">
-      <EmptyHeader>
-        <EmptyTitle className="font-semibold text-fg text-ui-lg">
-          <h2>{d.pane.emptyTitle}</h2>
-        </EmptyTitle>
-        <EmptyDescription className="text-ui-base">{d.pane.emptyBody}</EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent className="flex-row justify-center">
-        <Button
-          onClick={() => {
-            ensure(workspaceId)
-            focusActivePaneWhenReady(workspaceId)
-          }}
-        >
-          <TerminalWindowIcon data-icon="inline-start" />
-          {d.pane.newTerminal}
-          {newTerminalKeys ? (
-            <Kbd className="ml-1 bg-primary-foreground/15 text-primary-foreground">
-              {newTerminalKeys}
-            </Kbd>
-          ) : null}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => openBrowserAs(workspaceId, 'about:blank', 'human')}
-        >
-          <GlobeIcon data-icon="inline-start" />
-          {d.pane.newBrowser}
-          {newBrowserKeys ? <Kbd className="ml-1">{newBrowserKeys}</Kbd> : null}
-        </Button>
-      </EmptyContent>
-    </Empty>
+    <EmptyState
+      variant="surface"
+      className="workspace-empty h-full"
+      title={d.pane.emptyTitle}
+      titleAs="h2"
+      desc={d.pane.emptyBody}
+      actionsClassName="flex-row justify-center"
+      actions={
+        <>
+          <ChordButton
+            command="tab.new"
+            icon={<TerminalWindowIcon data-icon="inline-start" />}
+            label={d.pane.newTerminal}
+            onClick={() => {
+              ensure(workspaceId)
+              focusActivePaneWhenReady(workspaceId)
+            }}
+          />
+          <ChordButton
+            command="tab.newBrowser"
+            variant="outline"
+            icon={<GlobeIcon data-icon="inline-start" />}
+            label={d.pane.newBrowser}
+            onClick={() => openBrowserAs(workspaceId, 'about:blank', 'human')}
+          />
+        </>
+      }
+    />
   )
 }

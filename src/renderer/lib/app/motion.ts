@@ -21,6 +21,11 @@ function osPrefersReducedMotion(): boolean {
   return window.matchMedia(REDUCED_MOTION_QUERY).matches
 }
 
+export function reducedMotionNow(): boolean {
+  const mode = motionMode(useSettingsStore.getState().appearance.motion)
+  return mode === 'reduced' || (mode === 'system' && osPrefersReducedMotion())
+}
+
 export function useReducedMotion(): boolean {
   const mode = useSettingsStore((s) => motionMode(s.appearance.motion))
   const osReduced = useSyncExternalStore(subscribeToOsMotion, osPrefersReducedMotion)

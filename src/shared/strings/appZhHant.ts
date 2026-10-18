@@ -101,6 +101,10 @@ export const appZhHant: typeof appEn = {
       reload: '重新載入',
     },
     extensionConfirm: { cancel: '取消', ok: '確定' },
+    folderAccessBlocked: {
+      body: '{product} 裡的 shell 可能會持續讀不到這些資料夾。請結束 {product}（若有詢問，選「結束並關閉 shell」）再開啟，即可恢復。',
+      title: 'macOS 擋住了 {folders}',
+    },
     quit: {
       agent: '代理程式：{name}',
       cancel: '取消',
@@ -114,6 +118,9 @@ export const appZhHant: typeof appEn = {
       keptShellsOne: '1 個保留的 shell 正在執行',
       keptTitle: '要在保留的 shell 執行中結束嗎？',
       message: '結束後，下列項目會被終止或捨棄。',
+      more: '還有 {count} 項',
+      moreWorkspaces: '還有 {count} 個工作區',
+      moreWorkspacesOne: '還有 1 個工作區',
       quit: '結束',
       scratch: '暫存資料夾中的檔案：{count}',
       title: '要結束並捨棄這些工作嗎？',

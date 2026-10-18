@@ -1,6 +1,7 @@
 import { ipcRenderer } from 'electron'
 import type { HibernateOutcome } from '../shared/agents/agentWork'
 import type { SelectionSendResult } from '../shared/browser/selection'
+import type { FileUrlTarget } from '../shared/files/fileUrls'
 import type { FsKind, OpenPathResult } from '../shared/files/filesApi'
 import type { OpenFileVerdict } from '../shared/files/openFiles'
 import type { SpecCommand } from '../shared/terminal/completionSpec'
@@ -81,6 +82,10 @@ export const terminalBridge: Pick<
         paneId,
         written,
       ) as Promise<OpenPathResult>,
+    fileUrl: (paneId, url) =>
+      ipcRenderer.invoke('terminal-links:file-url', paneId, url) as Promise<FileUrlTarget | null>,
+    openFileUrl: (paneId, url) =>
+      ipcRenderer.invoke('terminal-links:open-file-url', paneId, url) as Promise<OpenPathResult>,
   },
   selection: {
     send: (req) => ipcRenderer.invoke('selection:send', req) as Promise<SelectionSendResult>,

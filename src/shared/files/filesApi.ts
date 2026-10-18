@@ -6,6 +6,7 @@ import type {
   RemoteStatResult,
   RemoteWriteResult,
 } from '@aurigax-ai/ostia-extension-sdk/contract/remoteFolders'
+import type { FileUrlTarget } from './fileUrls'
 import type { OpenFileVerdict } from './openFiles'
 
 export interface FsEntry {
@@ -98,6 +99,8 @@ interface TerminalLinksApi {
   admit: (paneId: string, written: string) => Promise<OpenFileVerdict | null>
   openDefault: (paneId: string, written: string) => Promise<OpenPathResult>
   showInFolder: (paneId: string, written: string) => Promise<OpenPathResult>
+  fileUrl: (paneId: string, url: string) => Promise<FileUrlTarget | null>
+  openFileUrl: (paneId: string, url: string) => Promise<OpenPathResult>
 }
 
 interface OpenPathApi {

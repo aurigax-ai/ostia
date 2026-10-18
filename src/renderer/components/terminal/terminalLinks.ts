@@ -16,8 +16,15 @@ import {
 import { createAppLinkProvider, hintedLinkHandler } from '@/lib/terminalLinks/terminalAppLinks'
 import { createFileLinkProvider } from '@/lib/terminalLinks/terminalFileLinks'
 import {
+  createFileUrlLinks,
+  fileUrlOffers,
+  withFileUrls,
+} from '@/lib/terminalLinks/terminalFileUrls'
+import {
   type LinkPane,
   activateFileLink,
+  activateFileUrl,
+  fileUrlPreviews,
   linkRevealable,
   linksConfinedOnly,
 } from '@/lib/terminalLinks/terminalLinkActions'
@@ -103,10 +110,33 @@ export function createTerminalLinks({
     else if (target === 'system') window.open(uri, '_blank')
     else if (target === 'app') void window.ostia.openPath.openLink(uri)
   }
-  const webLinks: WebLinkHandler = hintedLinkHandler(openWebLink, {
-    show: (range, uri) => showLinkHint('web', range, uri),
-    hide: hideLinkHint,
+  const linkPane = (): LinkPane => ({
+    workspaceId: workspaceIdRef.current,
+    paneId,
+    cwd: session.cwd,
   })
+  const pathTarget = (e: MouseEvent): PathLinkTarget | null =>
+    pathLinkTarget(e, {
+      mac: isMac,
+      linkClick: useSettingsStore.getState().terminal.linkClick,
+    })
+  const fileUrls = createFileUrlLinks({
+    remote: () => session.remote,
+    check: (url) => window.ostia.terminalLinks.fileUrl(paneId, url),
+    previews: (target) => fileUrlPreviews(linkPane(), target),
+    target: pathTarget,
+    activate: (how, url, target, action) => activateFileUrl(linkPane(), how, url, target, action),
+    hover: (range, target, action) =>
+      showLinkHint(action, range, target.path, fileUrlOffers(action)),
+    leave: hideLinkHint,
+  })
+  const webLinks: WebLinkHandler = withFileUrls(
+    hintedLinkHandler(openWebLink, {
+      show: (range, uri) => showLinkHint('web', range, uri),
+      hide: hideLinkHint,
+    }),
+    fileUrls,
+  )
 
   const attach = (attached: OstiaTerminal, screenElement: HTMLElement | null): (() => void) => {
     term = attached
@@ -130,12 +160,8 @@ export function createTerminalLinks({
   }
 
   const registerProviders = (): (() => void) => {
-    const linkPane = (): LinkPane => ({
-      workspaceId: workspaceIdRef.current,
-      paneId,
-      cwd: session.cwd,
-    })
     const appLinks = term.registerLinkProvider(createAppLinkProvider(term, webLinks))
+    const fileUrlLinks = term.registerLinkProvider(fileUrls.provider(term))
     const fileLinks = term.registerLinkProvider(
       createFileLinkProvider(term, {
         cwd: () => session.cwd,
@@ -145,17 +171,14 @@ export function createTerminalLinks({
         stat: (path) => window.ostia.fs.stat(path),
         probe: (path) => window.ostia.terminalLinks.probe(paneId, path),
         activate: (how, action, target) => activateFileLink(linkPane(), how, action, target),
-        target: (e) =>
-          pathLinkTarget(e, {
-            mac: isMac,
-            linkClick: useSettingsStore.getState().terminal.linkClick,
-          }),
+        target: pathTarget,
         hover: (range, action, offers) => showLinkHint(action, range, undefined, offers),
         leave: hideLinkHint,
       }),
     )
     return () => {
       appLinks.dispose()
+      fileUrlLinks.dispose()
       fileLinks.dispose()
     }
   }

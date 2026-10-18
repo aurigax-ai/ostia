@@ -21,10 +21,10 @@ import { TrayIcon } from '@phosphor-icons/react'
 import type { NotificationEntry } from '@shared/attention/attention'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { EmptyState } from '@/components/common/EmptyState'
 import { IconButton } from '@/components/common/IconButton'
 import { SectionTab, SectionTabsList } from '@/components/common/SectionTabs'
 import { Button } from '@/components/ui/button'
-import { Empty, EmptyDescription } from '@/components/ui/empty'
 import { Item, ItemContent, ItemHeader } from '@/components/ui/item'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tabs } from '@/components/ui/tabs'
@@ -245,11 +245,12 @@ export function NotificationCenter(): JSX.Element {
           />
         ) : null}
         {groups.length === 0 ? (
-          <Empty className="p-3">
-            <EmptyDescription className="text-ui-sm">
-              {tab === 'all' ? d.attention.empty : d.attention.emptyTab}
-            </EmptyDescription>
-          </Empty>
+          <EmptyState
+            variant="surface"
+            size="sm"
+            className="p-3"
+            desc={tab === 'all' ? d.attention.empty : d.attention.emptyTab}
+          />
         ) : (
           <ul className="notif-list" aria-label={d.attention.notifications}>
             {groups.map((group) => (

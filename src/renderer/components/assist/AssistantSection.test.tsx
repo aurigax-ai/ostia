@@ -205,7 +205,7 @@ describe('AssistantSection', () => {
   it('shows a short empty state that leads to Extensions while the extension is off', async () => {
     useExtensionsStore.setState({ list: [{ ...assistant, enabled: false }] })
     render(<AssistantSection />)
-    expect(screen.getByText('The Assistant extension is off')).toBeInTheDocument()
+    expect(screen.getByText(/^The Assistant extension is off\./)).toBeInTheDocument()
     expect(screen.queryByRole('switch')).toBeNull()
     expect(screen.queryByText('Chat tools')).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'Open Extensions' }))
@@ -220,7 +220,7 @@ describe('AssistantSection', () => {
       catalog: { models: [], chat: null, fast: null },
     })
     await renderSettled(<AssistantSection />)
-    expect(screen.getByText('No providers yet')).toBeInTheDocument()
+    expect(screen.getByText(/^No providers yet\./)).toBeInTheDocument()
     expect(
       screen.getByText('Add a provider and a model first. Nothing is sent until then.'),
     ).toBeInTheDocument()

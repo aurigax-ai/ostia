@@ -1,4 +1,4 @@
-import { Empty, EmptyDescription } from '@/components/ui/empty'
+import { EmptyState } from '@/components/common/EmptyState'
 import { useDict } from '@/lib/app/useDict'
 import { themeIconSrc } from '@/lib/extensions/iconTheme'
 import { type CompactChain, childPath, compactChain } from '@/lib/files/fileTree'
@@ -99,9 +99,7 @@ function Listing({
   if (items.length === 0) {
     if (creating) return creating
     return depth === 0 ? (
-      <Empty className="px-3 py-6">
-        <EmptyDescription className="text-ui-sm">{tree.emptyText}</EmptyDescription>
-      </Empty>
+      <EmptyState variant="surface" size="sm" className="px-3 py-6" desc={tree.emptyText} />
     ) : null
   }
   return (

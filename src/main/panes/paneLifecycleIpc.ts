@@ -55,6 +55,7 @@ interface PaneLifecycleIpcDeps {
   browserProfiles: GuestProfiles['browserProfiles']
   terminalState: Map<string, TerminalStateSnapshot>
   paneWaking: PaneWaking
+  paneStartErrors: Map<string, string>
   paneWatch: PaneWatch
   scratchFolders: ScratchFolders
   workspaceClosed: WorkspaceLifecycle['workspaceClosed']
@@ -79,6 +80,7 @@ export function registerPaneLifecycleIpc({
   browserProfiles,
   terminalState,
   paneWaking,
+  paneStartErrors,
   paneWatch,
   scratchFolders,
   workspaceClosed,
@@ -128,6 +130,7 @@ export function registerPaneLifecycleIpc({
       terminalState.delete(event.paneId)
       services.processes?.paneClosed(event.paneId)
       paneWaking.end(event.paneId, 'closed')
+      paneStartErrors.delete(event.paneId)
       paneWatch.emit(event.paneId, { kind: 'closed' })
     } else if (event.type === 'workspace-added') {
       setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)

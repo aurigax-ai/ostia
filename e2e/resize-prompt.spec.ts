@@ -64,6 +64,7 @@ test('drag-resizing the window keeps command output and a single prompt', async 
     await win.keyboard.type('echo ostia_flush_$((1+1))')
     await win.keyboard.press('Enter')
     await expect(rows).toContainText('ostia_flush_2', { timeout: 15_000 })
+    await expect.poll(() => promptLines(rows)).toBe(3)
     await expectHeld(() => promptLines(rows), 3, 2_000)
 
     const text = await rows.innerText()

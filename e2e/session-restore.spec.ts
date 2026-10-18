@@ -76,6 +76,20 @@ async function confirmQuitIfAsked(win: Page, done: Promise<boolean>): Promise<vo
       .catch(() => {})
 }
 
+const NATIVE_QUIT_MARKER = 'native-quit-asked'
+
+async function answerNativeQuitPrompt(app: ElectronApplication, dataHome: string): Promise<void> {
+  await app.evaluate(
+    ({ dialog }, marker) => {
+      dialog.showMessageBox = (async () => {
+        process.getBuiltinModule('node:fs').writeFileSync(marker, 'asked')
+        return { response: 1, checkboxChecked: false }
+      }) as typeof dialog.showMessageBox
+    },
+    join(dataHome, NATIVE_QUIT_MARKER),
+  )
+}
+
 async function stopApp({ app, win }: Launched, how: 'quit' | NodeJS.Signals): Promise<void> {
   const done = exitedWithin(app.process(), EXIT_TIMEOUT_MS)
   if (how === 'quit') {
@@ -170,6 +184,36 @@ for (const how of ['quit', 'SIGTERM', 'SIGKILL'] as const) {
   })
 }
 
+test('every restored terminal has a shell after a cold start, shown or not', async () => {
+  test.setTimeout(120_000)
+  seedSettings(dataHome, { ...DEFAULT_QUIT_SETTINGS, agents: { autoResume: false } })
+  const first = await launchApp(dataHome)
+  try {
+    await openWorkspace(first.win)
+    await newTerminalWorkspace(first.win)
+    await expect(first.win.locator('.rail-row')).toHaveCount(2)
+    await expect
+      .poll(() => saved(dataHome), { timeout: 10_000 })
+      .toEqual({ workspaces: 2, panes: 2, resumable: 0, agentsRunning: 0 })
+  } finally {
+    await stopApp(first, 'quit')
+  }
+
+  const second = await launchApp(dataHome)
+  try {
+    await expect(second.win.locator('.rail-row')).toHaveCount(2, { timeout: 15_000 })
+    const count =
+      'let s="";process.stdin.on("data",(d)=>{s+=d}).on("end",()=>{const t=JSON.parse(s).filter((p)=>p.kind==="terminal");console.log("withpid="+t.filter((p)=>p.pid).length+"/"+t.length)})'
+    await runInShownTerminal(
+      second.win,
+      `for i in 1 2 3 4 5; do ostia pane list | ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" -e '${count}'; sleep 1; done`,
+    )
+    await expect(shownRows(second.win).last()).toContainText('withpid=2/2', { timeout: 15_000 })
+  } finally {
+    await stopApp(second, 'quit')
+  }
+})
+
 test('quitting right after a restart keeps every workspace', async () => {
   test.setTimeout(150_000)
   const first = await launchApp(dataHome)
@@ -181,7 +225,10 @@ test('quitting right after a restart keeps every workspace', async () => {
   }
 
   const second = await launchApp(dataHome)
+  await answerNativeQuitPrompt(second.app, dataHome)
   await stopApp(second, 'quit')
+  if (existsSync(join(dataHome, NATIVE_QUIT_MARKER)))
+    test.info().annotations.push({ type: 'native-quit-prompt', description: 'answered Quit' })
   expect(saved(dataHome)).toEqual(expected)
 
   const third = await launchApp(dataHome)
