@@ -61,7 +61,7 @@ afterAll(async () => {
 
 describe('wake on mail', () => {
   it('wakes a hibernated agent pane through the wake path when a message arrives for it', async () => {
-    enqueue({ from: 'ostia', to: sleeper.externalId, text: 'hello' })
+    enqueue({ from: 'ostia', to: sleeper.externalId, text: 'hello', wakes: true })
     await settle()
     expect(wake).toHaveBeenCalledTimes(1)
     expect(wake.mock.calls[0][0]).toMatchObject({ externalId: sleeper.externalId })
@@ -69,15 +69,21 @@ describe('wake on mail', () => {
     expect(waking.abandon).not.toHaveBeenCalled()
   })
 
-  it('wakes for an event too', async () => {
+  it('leaves the mail queued when the sender could not wake the pane itself', async () => {
+    enqueue({ from: 'ostia', to: sleeper.externalId, text: 'hello' })
+    await settle()
+    expect(wake).not.toHaveBeenCalled()
+  })
+
+  it('does not wake for an event', async () => {
     postEvent(awake.externalId, sleeper.externalId, 'w-1  done 1s')
     await settle()
-    expect(wake).toHaveBeenCalledTimes(1)
+    expect(wake).not.toHaveBeenCalled()
   })
 
   it('never wakes an awake pane, a manager, a sandboxed workspace or a scratch one', async () => {
     for (const to of [awake, manager, sandboxedPane, scratchPane]) {
-      enqueue({ from: 'ostia', to: to.externalId, text: 'hello' })
+      enqueue({ from: 'ostia', to: to.externalId, text: 'hello', wakes: true })
     }
     await settle()
     expect(wake).not.toHaveBeenCalled()
@@ -91,23 +97,36 @@ describe('wake on mail', () => {
 
   it('wakes a pane at most the maximum times an hour, and again once the hour passed', async () => {
     for (let i = 0; i < MAIL_WAKES_MAX + 2; i++) {
-      enqueue({ from: 'ostia', to: sleeper.externalId, text: `m${i}` })
+      enqueue({ from: 'ostia', to: sleeper.externalId, text: `m${i}`, wakes: true })
       await settle()
     }
     expect(wake).toHaveBeenCalledTimes(MAIL_WAKES_MAX)
     clock.now += MAIL_WAKES_WINDOW_MS + 1
-    enqueue({ from: 'ostia', to: sleeper.externalId, text: 'later' })
+    enqueue({ from: 'ostia', to: sleeper.externalId, text: 'later', wakes: true })
     await settle()
     expect(wake).toHaveBeenCalledTimes(MAIL_WAKES_MAX + 1)
   })
 
+  it('keeps the wake count across a restart of the bus', async () => {
+    for (let i = 0; i < MAIL_WAKES_MAX; i++) {
+      enqueue({ from: 'ostia', to: sleeper.externalId, text: `m${i}`, wakes: true })
+      await settle()
+    }
+    await flushBus()
+    await resetBus()
+    wake.mockClear()
+    enqueue({ from: 'ostia', to: sleeper.externalId, text: 'after restart', wakes: true })
+    await settle()
+    expect(wake).not.toHaveBeenCalled()
+  })
+
   it('gives the wake mark back when the wake did not happen, and survives a failing wake', async () => {
     wake.mockResolvedValueOnce({ woke: false })
-    enqueue({ from: 'ostia', to: sleeper.externalId, text: 'one' })
+    enqueue({ from: 'ostia', to: sleeper.externalId, text: 'one', wakes: true })
     await settle()
     expect(waking.abandon).toHaveBeenCalledWith(sleeper.paneId)
     wake.mockRejectedValueOnce(new Error('window gone'))
-    enqueue({ from: 'ostia', to: sleeper.externalId, text: 'two' })
+    enqueue({ from: 'ostia', to: sleeper.externalId, text: 'two', wakes: true })
     await settle()
     expect(waking.abandon).toHaveBeenCalledTimes(2)
   })

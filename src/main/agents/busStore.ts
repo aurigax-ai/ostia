@@ -26,6 +26,7 @@ export interface Mail {
   pending?: MailPending
   task?: true
   quiet?: true
+  wakes?: true
   lease?: string
   leasedUntil?: number
   via?: MailVia
@@ -64,6 +65,7 @@ interface BusData {
   mail: Mail[]
   handoffs: Handoff[]
   watches: Watch[]
+  wakes: Record<string, number[]>
 }
 
 export interface BusObservation {
@@ -80,6 +82,7 @@ export interface MailDraft {
   text: string
   task?: true
   quiet?: true
+  wakes?: true
   kind?: MailKind
 }
 
@@ -111,6 +114,7 @@ function store(): BusData {
       mail: stored.mail ?? [],
       handoffs: stored.handoffs ?? [],
       watches: stored.watches ?? [],
+      wakes: stored.wakes ?? {},
     }
   }
   return data
@@ -279,6 +283,7 @@ export function enqueue(draft: MailDraft): Mail {
     state: 'queued',
     ...(draft.task ? { task: true as const } : {}),
     ...(draft.quiet ? { quiet: true as const } : {}),
+    ...(draft.wakes ? { wakes: true as const } : {}),
   }
   store().mail.push(mail)
   observe(mail, 'queued')
@@ -292,6 +297,20 @@ export function enqueue(draft: MailDraft): Mail {
   markBusDirty()
   announceQueued(mail)
   return mail
+}
+
+export function claimWake(externalId: string, now: number, max: number, windowMs: number): boolean {
+  const { wakes } = store()
+  for (const [id, times] of Object.entries(wakes)) {
+    const recent = times.filter((at) => at > now - windowMs)
+    if (recent.length === 0) delete wakes[id]
+    else wakes[id] = recent
+  }
+  const recent = wakes[externalId] ?? []
+  if (recent.length >= max) return false
+  wakes[externalId] = [...recent, now]
+  markBusDirty()
+  return true
 }
 
 export function postEvent(from: string, to: string, text: string): void {

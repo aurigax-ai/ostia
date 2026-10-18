@@ -4,6 +4,7 @@ import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { ensureCaps } from '../approvals/controlElevation'
 import type { Reach } from '../approvals/reach'
 import type { ControlMethodContext } from '../control/controlServer'
+import { connHasCap } from '../control/controlAuth'
 import { type PaneIdentity, getByPaneId, resolveExternal } from '../control/idRegistry'
 import { SANDBOXED_REFUSAL } from '../sandbox/sandboxedCaller'
 
@@ -93,17 +94,16 @@ export async function paneTarget(
   return found
 }
 
-export async function ensurePaneReach(
+async function reachVerdict(
   deps: Pick<PaneReachDeps, 'inScope' | 'isChild' | 'isSandboxed' | 'isConfined'>,
   kind: PaneReach,
   to: PaneIdentity,
   ctx: ControlMethodContext,
-  ask: { ref: string; method: string; detail: string },
-): Promise<void> {
+): Promise<ReachVerdict> {
   const me = ctx.identity
   const sandboxed = deps.isSandboxed(me.workspaceId)
   const sameScope = !sandboxed && to.manager !== true && (await deps.inScope(ctx, to.workspaceId))
-  const verdict = paneReach(kind, {
+  return paneReach(kind, {
     caller: {
       paneId: me.paneId,
       workspaceId: me.workspaceId,
@@ -118,6 +118,27 @@ export async function ensurePaneReach(
     ownChild: deps.isChild(me.paneId, to.paneId),
     sameScope,
   })
+}
+
+export async function holdsPaneReach(
+  deps: Pick<PaneReachDeps, 'inScope' | 'isChild' | 'isSandboxed' | 'isConfined'>,
+  kind: PaneReach,
+  to: PaneIdentity,
+  ctx: ControlMethodContext,
+): Promise<boolean> {
+  const verdict = await reachVerdict(deps, kind, to, ctx)
+  return verdict.allowed && verdict.caps.every((cap) => connHasCap(ctx.authed, cap))
+}
+
+export async function ensurePaneReach(
+  deps: Pick<PaneReachDeps, 'inScope' | 'isChild' | 'isSandboxed' | 'isConfined'>,
+  kind: PaneReach,
+  to: PaneIdentity,
+  ctx: ControlMethodContext,
+  ask: { ref: string; method: string; detail: string },
+): Promise<void> {
+  const me = ctx.identity
+  const verdict = await reachVerdict(deps, kind, to, ctx)
   if (!verdict.allowed) {
     throw fail(
       verdict.error === 'unknown-pane' ? `unknown-pane: ${ask.ref}` : REFUSALS[verdict.error],

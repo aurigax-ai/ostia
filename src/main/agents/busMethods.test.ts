@@ -12,16 +12,31 @@ const methods = new Map<string, ControlMethod>()
 vi.mock('../control/controlServer', () => ({
   registerControlMethod: (name: string, method: ControlMethod) => methods.set(name, method),
 }))
+const held = new Set<string>()
+vi.mock('../control/controlAuth', async (original) => ({
+  ...(await original<typeof import('../control/controlAuth')>()),
+  connHasCap: (_conn: unknown, cap: string) => held.has(cap),
+}))
 const ensureCaps = vi.fn(async (..._args: unknown[]) => {})
 vi.mock('../approvals/controlElevation', () => ({ ensureCaps }))
 
 const { registerBusMethods } = await import('./busMethods')
-const { INBOX_MAX, MAIL_TTL_MS, failPaneMail, flushBus, postBusMessage, postEvent, resetBus } =
-  await import('./busStore')
+const {
+  INBOX_MAX,
+  MAIL_TTL_MS,
+  failPaneMail,
+  flushBus,
+  onMailQueued,
+  postBusMessage,
+  postEvent,
+  resetBus,
+} = await import('./busStore')
 const { mailers } = await import('./mailers')
 const { EVENT_BATCH_MS, MAIL_TURNS_MAX } = await import('../../shared/agents/mailDelivery')
 const { markManager, registerPane, registerScript } = await import('../control/idRegistry')
 
+const queuedWakes: Array<boolean | undefined> = []
+onMailQueued((mail) => queuedWakes.push(mail.wakes))
 const announce = vi.fn()
 const observed = vi.fn()
 let managerMaySend = true
@@ -118,6 +133,8 @@ beforeEach(async () => {
   await resetBus()
   rmSync(join(dataHome, 'ostia'), { recursive: true, force: true })
   announce.mockClear()
+  queuedWakes.length = 0
+  held.clear()
   observed.mockClear()
   ensureCaps.mockClear()
   ensureCaps.mockImplementation(async () => {})
@@ -682,5 +699,22 @@ describe('bus observation', () => {
       summary: 'now',
     })
     expect(observed.mock.calls[0]?.[0]).toMatchObject({ kind: 'task', phase: 'queued' })
+  })
+})
+
+describe('who may wake a hibernated pane by mail', () => {
+  it('marks the mail as waking only when the sender holds the type-other-pane reach', async () => {
+    await send('no reach')
+    held.add('type-other-pane')
+    await send('with reach')
+    expect(queuedWakes).toEqual([undefined, true])
+  })
+
+  it('needs all-workspaces as well for a pane outside the sender’s scope', async () => {
+    held.add('type-other-pane')
+    await send('far', faraway.externalId)
+    held.add('all-workspaces')
+    await send('far again', faraway.externalId)
+    expect(queuedWakes).toEqual([undefined, true])
   })
 })

@@ -8,7 +8,7 @@ import { ensureCaps } from '../approvals/controlElevation'
 import { registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'
 import type { AgentJournal } from '../diagnostics/agentJournal'
-import { type PaneReachDeps, ensurePaneReach } from '../panes/paneReach'
+import { type PaneReachDeps, ensurePaneReach, holdsPaneReach } from '../panes/paneReach'
 import {
   type BusObservation,
   type Handoff,
@@ -184,7 +184,13 @@ function registerBusSendMethods(deps: BusDeps): void {
         detail: `to ${to}`,
       })
       if (inboxFull(receiver.externalId)) return INBOX_FULL
-      const posted = await postAndReadBack({ from, to: receiver.externalId, text })
+      const wakes = await holdsPaneReach(deps.reach, 'input', receiver, ctx)
+      const posted = await postAndReadBack({
+        from,
+        to: receiver.externalId,
+        text,
+        ...(wakes ? { wakes: true as const } : {}),
+      })
       const queued = await queuedWithPending(deps, posted, receiver)
       const abort = new AbortController()
       const closed = ctx.conn.onClose(() => abort.abort())
@@ -357,6 +363,7 @@ function registerBusHandoffMethods(deps: BusDeps): void {
         }
       }
       if (inboxFull(receiver.externalId)) return INBOX_FULL
+      const wakes = await holdsPaneReach(deps.reach, 'input', receiver, ctx)
       const now = new Date().toISOString()
       const id = randomUUID()
       const handoff: Handoff = {
@@ -378,6 +385,7 @@ function registerBusHandoffMethods(deps: BusDeps): void {
         to: receiver.externalId,
         text: `handoff ${id}: ${task} — ${summary}`,
         task: true,
+        ...(wakes ? { wakes: true as const } : {}),
       })
       if (!busHandoffs().some((h) => h.id === id)) {
         throw new ResponseError(
