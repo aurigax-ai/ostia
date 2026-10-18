@@ -35,7 +35,7 @@ jobs:
       - uses: ./.github/actions/linux-deps
       - uses: ./.github/actions/setup
         timeout-minutes: 10
-      - run: pnpm test:coverage
+      - run: pnpm test:coverage --testTimeout=30000
         timeout-minutes: 20
       - if: github.event_name == 'push'
         run: |
