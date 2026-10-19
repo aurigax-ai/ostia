@@ -913,6 +913,7 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(commands('UserPromptSubmit')).toEqual([
         expect.stringContaining('state working'),
         busHookCommand('UserPromptSubmit'),
+        expect.stringContaining('turn-hook UserPromptSubmit'),
       ])
       expect(busHookCommand('UserPromptSubmit')).toBe(
         '[ -n "${OSTIA_SOCKET}" ] && ELECTRON_RUN_AS_NODE=1 "${OSTIA_NODE}" "${OSTIA_CLI}" bus hook UserPromptSubmit 2>/dev/null || true',
@@ -1099,7 +1100,9 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(Object.keys(commands)).toEqual([
         'SessionStart',
         'UserPromptSubmit',
+        'PreToolUse',
         'PermissionRequest',
+        'PostToolUse',
         'Stop',
       ])
       expect(commands.SessionStart?.[0]).toContain('"${OSTIA_CLI}" resume-token codex -')
@@ -1112,6 +1115,7 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(commands.UserPromptSubmit).toEqual([
         commands.UserPromptSubmit?.[0],
         busHookCommand('UserPromptSubmit'),
+        expect.stringContaining('turn-hook UserPromptSubmit'),
       ])
       expect(commands.PermissionRequest?.[0]).toContain('state waiting -')
       expect(commands.Stop?.[0]).toContain('state done')
@@ -1294,13 +1298,17 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(commands('SessionStart')[1]).toBe(busHookCommand('SessionStart'))
       expect(commands('SessionStart')[2]).toContain('agent-hook kit on-hook claude SessionStart')
       expect(hooks.PreToolUse[1].hooks.map((h) => h.command)).toEqual([
+        expect.stringContaining('turn-hook PreToolUse'),
         extensionHookCommand(toolHook, 'claude'),
       ])
       expect(commands('Notification')[1]).toContain('agent-hook kit on-hook claude Notification')
       const codex = codexHookCommands(CONTEXT, content.hooks)
-      expect(codex.PreToolUse).toEqual([extensionHookCommand(toolHook, 'codex')])
+      expect(codex.PreToolUse).toEqual([
+        expect.stringContaining('turn-hook PreToolUse'),
+        extensionHookCommand(toolHook, 'codex'),
+      ])
       expect(JSON.stringify(codex)).not.toContain('Notification')
-      expect(claudeHookSettings().hooks.PreToolUse).toHaveLength(1)
+      expect(claudeHookSettings().hooks.PreToolUse).toHaveLength(2)
     })
 
     it('trusts each extension hook by its own Codex hash and handler index', () => {

@@ -124,9 +124,15 @@ export function codexHookCommands(
       `${IN_PANE} && cat ${shellQuote(contextFile)} 2>/dev/null || true`,
       busHookCommand('SessionStart'),
     ],
-    UserPromptSubmit: [hookCommand('state working'), busHookCommand('UserPromptSubmit')],
+    UserPromptSubmit: [
+      hookCommand('state working'),
+      busHookCommand('UserPromptSubmit'),
+      hookCommand('turn-hook UserPromptSubmit'),
+    ],
+    PreToolUse: [hookCommand('turn-hook PreToolUse')],
+    PostToolUse: [hookCommand('turn-hook PostToolUse')],
     PermissionRequest: [hookCommand('state waiting -'), permissionHookCommand('codex')],
-    Stop: [hookCommand('state done --stop')],
+    Stop: [hookCommand('state done --stop'), hookCommand('turn-hook Stop')],
   }
   const commands: Partial<Record<CodexHookEvent, string[]>> = {}
   for (const event of Object.keys(CODEX_HOOK_EVENTS) as CodexHookEvent[]) {

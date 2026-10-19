@@ -40,9 +40,15 @@ export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[]
 } {
   const own: Partial<Record<AgentHookEvent, string[]>> = {
     SessionStart: [hookCommand('resume-token claude -'), busHookCommand('SessionStart')],
-    UserPromptSubmit: [hookCommand('state working'), busHookCommand('UserPromptSubmit')],
+    UserPromptSubmit: [
+      hookCommand('state working'),
+      busHookCommand('UserPromptSubmit'),
+      hookCommand('turn-hook UserPromptSubmit'),
+    ],
+    PreToolUse: [hookCommand('turn-hook PreToolUse')],
+    PostToolUse: [hookCommand('turn-hook PostToolUse')],
     Notification: [hookCommand('claude-hook Notification')],
-    Stop: [hookCommand('claude-hook Stop')],
+    Stop: [hookCommand('claude-hook Stop'), hookCommand('turn-hook Stop')],
   }
   const hooks: Record<string, unknown[]> = {}
   for (const event of AGENT_HOOK_EVENTS) {

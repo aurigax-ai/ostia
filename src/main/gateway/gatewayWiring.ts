@@ -15,8 +15,10 @@ import {
   listWorkspaces,
   registerPaneListMethods,
 } from '../panes/paneList'
+import type { PaneTurns } from '../panes/paneTurns'
 import { processStatusOf } from '../panes/processManager'
 import type { ProcessRegistry } from '../panes/processRegistry'
+import type { Redactor } from '../privacy/redaction'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { PtyIo } from '../terminal/pty/ptyIo'
 import type { PtyEntry } from '../terminal/pty/ptyRegistry'
@@ -64,6 +66,8 @@ interface GatewayStartDeps {
   agentRunning: AgentRunningPanes
   ptys: Map<string, PtyEntry>
   turnConfirms: PaneConfirms
+  paneTurns: PaneTurns
+  redactor: Redactor
 }
 
 export function createScreenLinks({
@@ -103,6 +107,8 @@ export function startGateway({
   agentRunning,
   ptys,
   turnConfirms,
+  paneTurns,
+  redactor,
 }: GatewayStartDeps) {
   registerPaneListMethods({
     execCommand,
@@ -170,5 +176,7 @@ export function startGateway({
     agentRunning: (paneId) => agentRunning.has(paneId) && ptys.has(paneId),
     watchesTurn: turnConfirms.watchesSubmit,
     turnStarted: async (pane) => (await turnConfirms.confirmSubmitted(pane)).ok,
+    paneTurns,
+    redact: async (text) => (await redactor.redact(text)).text,
   })
 }
